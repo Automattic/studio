@@ -23,7 +23,7 @@ if [ "$BUILDKITE_PULL_REQUEST" != "false" ] && [ -n "$CHANGED_FILES" ]; then
   echo "|------|----------|" >> coverage-report.md
 
   for FILE in $CHANGED_FILES; do
-    echo "| \`$FILE\` | " > coverage-report.md
+    echo -n "| \`$FILE\` | " >> coverage-report.md
 
     if ! jq -e ".[\"$PWD/$FILE\"]" coverage/coverage-summary.json > /dev/null 2>&1; then
       echo -n " – " >> coverage-report.md

@@ -50,10 +50,10 @@ describe( 'getLink', () => {
 
 		it( 'should return Spanish URLs when locale is es', () => {
 			expect( getLink( 'es', 'studio' ) ).toBe(
-				'https://developer.wordpress.com/es/docs/developer-tools/studio/'
+				'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/'
 			);
 			expect( getLink( 'es', 'sync' ) ).toBe(
-				'https://developer.wordpress.com/es/docs/developer-tools/studio/sync/'
+				'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/sync/'
 			);
 		} );
 	} );

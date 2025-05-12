@@ -26,12 +26,12 @@ if [ "$BUILDKITE_PULL_REQUEST" != "false" ] && [ -n "$CHANGED_FILES" ]; then
 
   # Process each changed file to extract coverage data
   for FILE in $CHANGED_FILES; do
-    echo "| \`$FILE\` | " >> coverage-report.md
+    echo "| \`$FILE\` | " > coverage-report.md
 
     if ! jq -e ".[\"$PWD/$FILE\"]" coverage/coverage-summary.json > /dev/null 2>&1; then
-      echo " – " >> coverage-report.md
+      echo " – " > coverage-report.md
     else
-      jq -r ".[\"$PWD/$FILE\"] | \"\" + (.statements.pct | tostring) + \"%\"" coverage/coverage-summary.json >> coverage-report.md
+      jq -r ".[\"$PWD/$FILE\"] | \"\" + (.statements.pct | tostring) + \"%\"" coverage/coverage-summary.json > coverage-report.md
     fi
 
     echo " |" >> coverage-report.md

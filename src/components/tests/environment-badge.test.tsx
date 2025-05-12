@@ -18,7 +18,7 @@ describe( 'EnvironmentBadge', () => {
 		const { container } = render( <EnvironmentBadge type="production" /> );
 
 		const badgeElement = container.firstChild as HTMLElement;
-		expect( badgeElement ).not.toBeNull();
+		expect( badgeElement ).toBeInTheDocument();
 
 		expect( badgeElement.className ).toContain( 'bg-a8c-green-5' );
 		expect( badgeElement.className ).toContain( 'text-a8c-green-80' );
@@ -28,7 +28,7 @@ describe( 'EnvironmentBadge', () => {
 		const { container } = render( <EnvironmentBadge type="staging" /> );
 
 		const badgeElement = container.firstChild as HTMLElement;
-		expect( badgeElement ).not.toBeNull();
+		expect( badgeElement ).toBeInTheDocument();
 
 		expect( badgeElement.className ).toContain( 'text-a8c-yellow-80' );
 		expect( badgeElement.className ).toContain( 'bg-a8c-yellow-10' );
@@ -38,7 +38,7 @@ describe( 'EnvironmentBadge', () => {
 		const { container } = render( <EnvironmentBadge type="production" selected={ true } /> );
 
 		const badgeElement = container.firstChild as HTMLElement;
-		expect( badgeElement ).not.toBeNull();
+		expect( badgeElement ).toBeInTheDocument();
 
 		expect( badgeElement.className ).toContain( 'bg-white' );
 		expect( badgeElement.className ).toContain( 'text-a8c-blueberry' );

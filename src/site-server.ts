@@ -22,6 +22,7 @@ import { getWpNowConfig } from 'vendor/wp-now/src';
 import { WPNowMode } from 'vendor/wp-now/src/config';
 import { DEFAULT_PHP_VERSION, SQLITE_FILENAME } from 'vendor/wp-now/src/constants';
 import { getWordPressVersionPath, downloadWordPress } from 'vendor/wp-now/src/download';
+import { executeWPCli } from 'vendor/wp-now/src/execute-wp-cli';
 
 const servers = new Map< string, SiteServer >();
 const deletedServers: string[] = [];
@@ -47,6 +48,54 @@ export async function createSiteWorkingDirectory(
 				`Failed to download WordPress version ${ wpVersion }. Please try a different version.`
 			);
 		}
+	}
+
+	// Add checksum verification before proceeding
+	try {
+		console.log( `Verifying checksums for WordPress version ${ wpVersion }...` );
+		const result = await executeWPCli( wpVersionPath, [
+			'core',
+			'verify-checksums',
+			'--skip-plugins',
+			'--skip-themes',
+		] );
+		console.log( 'Checksum verification result:', {
+			stdout: result.stdout,
+			stderr: result.stderr,
+			exitCode: result.exitCode,
+		} );
+
+		if ( result.exitCode !== 0 ) {
+			console.log( `Checksums don't match, attempting to redownload WordPress ${ wpVersion }...` );
+			// If checksums don't match, delete the corrupted version and try redownloading
+			await fsExtra.remove( wpVersionPath );
+			await downloadWordPress( wpVersion, { overwrite: true } );
+
+			// Verify again after redownload
+			console.log( 'Verifying checksums after redownload...' );
+			const verifyResult = await executeWPCli( wpVersionPath, [
+				'core',
+				'verify-checksums',
+				'--skip-plugins',
+				'--skip-themes',
+			] );
+			console.log( 'Second checksum verification result:', {
+				stdout: verifyResult.stdout,
+				stderr: verifyResult.stderr,
+				exitCode: verifyResult.exitCode,
+			} );
+
+			if ( verifyResult.exitCode !== 0 ) {
+				throw new Error(
+					`WordPress version ${ wpVersion } appears to be corrupted and could not be fixed. Please try a different version.`
+				);
+			}
+		}
+	} catch ( error ) {
+		console.error( `Failed to verify WordPress checksums:`, error );
+		throw new Error(
+			`Failed to verify WordPress version ${ wpVersion }. Please try again or use a different version.`
+		);
 	}
 
 	await purgeWpConfig( wpVersion );

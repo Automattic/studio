@@ -59,8 +59,9 @@ import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { executePreviewCliCommand } from 'src/modules/cli/lib/execute-preview-command';
-import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
+import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
@@ -989,17 +990,6 @@ function promiseExec( command: string, options: ExecOptions = {} ): Promise< voi
 	} );
 }
 
-export async function openAppAtPath(
-	_event: IpcMainInvokeEvent,
-	bundleId: string,
-	targetPath: string
-) {
-	const platform = process.platform;
-	if ( platform === 'darwin' ) {
-		return promiseExec( `open -b ${ bundleId } "${ targetPath }"` );
-	}
-}
-
 export async function openTerminalAtPath(
 	_event: IpcMainInvokeEvent,
 	targetPath: string,
@@ -1079,6 +1069,31 @@ END` );
 		console.error( 'Unsupported platform:', platform );
 		return;
 	}
+}
+
+export async function openAppAtPath(
+	event: IpcMainInvokeEvent,
+	editorKey: SupportedEditor,
+	filePath: string
+): Promise< void > {
+	const platform = process.platform;
+	const editor = supportedEditorConfig[ editorKey ];
+
+	if ( platform === 'darwin' ) {
+		return promiseExec( `open -b ${ editor.macOSBundleId } "${ filePath }"` );
+	}
+
+	if ( platform === 'win32' ) {
+		const editorPath = await winFindEditorPath( editorKey );
+		if ( ! editorPath ) {
+			// Fall back to using openURL if no editor path is found
+			return openURL( event, editor.url( filePath ) );
+		}
+
+		return promiseExec( `"${ editorPath }" "${ filePath }"` );
+	}
+
+	throw new Error( `Platform ${ platform } is not supported` );
 }
 
 export function showMessageBox( event: IpcMainInvokeEvent, options: Electron.MessageBoxOptions ) {

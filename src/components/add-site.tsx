@@ -231,6 +231,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 									{ __( 'Add site' ) }
 								</Button>
 							</div>
+							<div className="components-popover__fallback-container"></div>
 						</SiteForm>
 					</div>
 				</Modal>

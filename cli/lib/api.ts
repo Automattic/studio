@@ -129,3 +129,12 @@ export async function deleteSnapshot( atomicSiteId: number, token: string ): Pro
 		throw new LoggerError( __( 'Failed to delete preview site' ), error );
 	}
 }
+
+export async function validateAccessToken( token: string ): Promise< void > {
+	const wpcom = new WPCOM( token );
+	try {
+		await wpcom.req.get( '/me', { fields: 'ID' } );
+	} catch ( error ) {
+		throw new LoggerError( __( 'Invalid authentication token' ), error );
+	}
+}

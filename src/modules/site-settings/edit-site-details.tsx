@@ -326,6 +326,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 								{ getEditSiteButtonText() }
 							</Button>
 						</div>
+						<div className="components-popover__fallback-container"></div>
 					</form>
 				</Modal>
 			) }

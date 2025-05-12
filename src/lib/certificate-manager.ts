@@ -92,7 +92,7 @@ export async function ensureRootCA(): Promise< { cert: string; key: string } > {
 		};
 	}
 
-	console.log( 'Generating new root CA certificate...' );
+	console.log( 'Generating new root CA certificate…' );
 
 	const keys = forge.pki.rsa.generateKeyPair( 2048 );
 	const cert = forge.pki.createCertificate();

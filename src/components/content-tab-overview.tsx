@@ -20,7 +20,7 @@ import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-sect
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
-import { isMac, isWindows } from 'src/lib/app-globals';
+import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
@@ -155,17 +155,13 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	];
 
 	const editorConfig = editor ? supportedEditorConfig[ editor ] : false;
-	if ( editorConfig ) {
+	if ( editor && editorConfig ) {
 		buttonsArray.push( {
 			label: editorConfig.label,
 			className: 'text-nowrap',
 			icon: code,
 			onClick: async () => {
-				if ( isMac() ) {
-					await getIpcApi().openAppAtPath( editorConfig.bundleId, selectedSite.path );
-				} else {
-					getIpcApi().openURL( editorConfig.url( selectedSite.path ) );
-				}
+				await getIpcApi().openAppAtPath( editor, selectedSite.path );
 			},
 		} );
 	}

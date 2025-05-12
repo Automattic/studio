@@ -28,6 +28,10 @@ jest.mock( 'lockfile', () => ( {
 	unlock: jest.fn().mockImplementation( ( path, callback ) => callback( null ) ),
 } ) );
 
+jest.mock( 'cli/lib/api', () => ( {
+	validateAccessToken: jest.fn().mockResolvedValue( undefined ),
+} ) );
+
 describe( 'Snapshots Module', () => {
 	const mockHomeDir = '/mock/home';
 	const mockSiteFolderName = 'folder';

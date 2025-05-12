@@ -29,7 +29,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const [ currentTerminal, setCurrentTerminal ] = useState( terminal );
 
 	const savePreferences = async () => {
-		setSavedLocale( locale );
+		await setSavedLocale( locale );
 		if ( currentEditor ) {
 			await saveEditor( currentEditor );
 		}

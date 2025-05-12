@@ -48,7 +48,6 @@ export const I18nDataProvider = ( { children }: { children: React.ReactNode } ) 
 	useEffect( () => {
 		if ( initialized ) {
 			void initI18n( locale );
-			void getIpcApi().saveUserLocale( locale );
 			return;
 		}
 
@@ -62,7 +61,10 @@ export const I18nDataProvider = ( { children }: { children: React.ReactNode } ) 
 
 	const contextValue = useMemo(
 		() => ( {
-			setLocale,
+			setLocale: async ( localeKey: SupportedLocale ) => {
+				setLocale( localeKey );
+				await getIpcApi().saveUserLocale( localeKey );
+			},
 			locale,
 		} ),
 		[ locale ]

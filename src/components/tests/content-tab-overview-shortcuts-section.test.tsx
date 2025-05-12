@@ -87,7 +87,7 @@ describe( 'ShortcutsSection', () => {
 
 		// Verify that openURL was called with the correct path
 		await waitFor( () => {
-			expect( openURLMock ).toHaveBeenCalledWith( expect.stringContaining( '/path/to/site' ) );
+			expect( openAppAtPathMock ).toHaveBeenCalledWith( 'vscode', selectedSite.path );
 		} );
 	} );
 
@@ -122,7 +122,7 @@ describe( 'ShortcutsSection', () => {
 		fireEvent.click( phpStormButton );
 
 		await waitFor( () =>
-			expect( openAppAtPathMock ).toHaveBeenCalledWith( 'com.jetbrains.PhpStorm', '/path/to/site' )
+			expect( openAppAtPathMock ).toHaveBeenCalledWith( 'phpstorm', '/path/to/site' )
 		);
 	} );
 

@@ -19,6 +19,7 @@ export const EditorPicker = ( { value, onChange }: EditorPickerProps ) => {
 		vscode: null,
 		phpstorm: null,
 	} );
+	console.log( 'installedApps', installedApps );
 
 	useEffect( () => {
 		getIpcApi()

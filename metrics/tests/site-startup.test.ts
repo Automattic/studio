@@ -44,7 +44,7 @@ test.describe( 'Startup Metrics', () => {
 
 			// Handle the What's New modal if it appears
 			const whatsNewModal = new WhatsNewModal( session.mainWindow );
-			if ( await whatsNewModal.locator.isVisible( { timeout: 5000 } ) ) {
+			if ( await whatsNewModal.locator.isVisible( { timeout: 20000 } ) ) {
 				await whatsNewModal.closeButton.click();
 			}
 

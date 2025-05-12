@@ -21,6 +21,7 @@ export const TerminalPicker = ( { value, onChange }: TerminalPickerProps ) => {
 			uninstalledTerminals: selectUninstalledTerminals( result.data ),
 		} ),
 	} );
+	console.log( 'installedTerminals', installedTerminals );
 
 	return (
 		<SettingsFormField label={ __( 'Terminal application' ) }>

@@ -13,7 +13,7 @@ if [ "$BUILDKITE_PULL_REQUEST" != "false" ]; then
 
     echo "--- :git: Getting base branch coverage"
     git checkout origin/$BUILDKITE_PULL_REQUEST_BASE_BRANCH
-    npm test -- --coverage
+    npm test -- --coverage --coverageReporters="json-summary"
     cp coverage/coverage-summary.json base-coverage-summary.json
 
     git checkout $CURRENT_BRANCH
@@ -21,7 +21,7 @@ if [ "$BUILDKITE_PULL_REQUEST" != "false" ]; then
 fi
 
 echo "--- :npm: Run Unit Tests"
-npm test -- --coverage
+npm test -- --coverage --coverageReporters="json-summary"
 
 if [ "$BUILDKITE_PULL_REQUEST" != "false" ] && [ -n "$CHANGED_FILES" ]; then
   echo "--- :memo: Generating coverage report"

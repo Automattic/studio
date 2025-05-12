@@ -18,18 +18,31 @@ if [ "$BUILDKITE_PULL_REQUEST" != "false" ] && [ -n "$CHANGED_FILES" ]; then
   echo "--- :memo: Generating coverage report"
 
   # Create coverage report
-  cat << EOF > coverage-report.md
-## Code Coverage Report
-Files changed in this PR:
-<pre>
-$CHANGED_FILES
-</pre>
+  echo "## Code Coverage Report" > coverage-report.md
+  echo "Files changed in this PR:" >> coverage-report.md
+  echo "<pre>" >> coverage-report.md
+  echo "$CHANGED_FILES" >> coverage-report.md
+  echo "</pre>" >> coverage-report.md
 
-Coverage Summary:
-<pre>
-$(cat coverage/coverage-summary.json | jq -r '.total')
-</pre>
-EOF
+  echo "" >> coverage-report.md
+  echo "Coverage Summary per File:" >> coverage-report.md
+  echo "<pre>" >> coverage-report.md
+
+  # Process each changed file to extract coverage data
+  for FILE in $CHANGED_FILES; do
+    # Skip files that don't have coverage data
+    if ! jq -e ".[\"$PWD/$FILE\"]" coverage/coverage-summary.json > /dev/null 2>&1; then
+      echo "No coverage data for: $FILE" >> coverage-report.md
+      continue
+    fi
+
+    # Extract and format coverage data for the file
+    echo "File: $FILE" >> coverage-report.md
+    jq -r ".[\"$PWD/$FILE\"] | \"Coverage: \" + (.statements.pct | tostring) + \"%\"" coverage/coverage-summary.json >> coverage-report.md
+    echo "" >> coverage-report.md
+  done
+
+  echo "</pre>" >> coverage-report.md
 
   # Comment on PR
   echo "--- :github: Commenting on PR"

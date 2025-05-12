@@ -47,15 +47,15 @@ steps:
         # Create coverage report
         echo "## Code Coverage Report" > coverage-report.md
         echo "Files changed in this PR:" >> coverage-report.md
-        echo "\`\`\`" >> coverage-report.md
+        echo '```' >> coverage-report.md
         echo "$CHANGED_FILES" >> coverage-report.md
-        echo "\`\`\`" >> coverage-report.md
+        echo '```' >> coverage-report.md
         
         # Add coverage summary
         echo "\nCoverage Summary:" >> coverage-report.md
-        echo "\`\`\`" >> coverage-report.md
+        echo '```' >> coverage-report.md
         cat coverage/coverage-summary.json | jq -r '.total' >> coverage-report.md
-        echo "\`\`\`" >> coverage-report.md
+        echo '```' >> coverage-report.md
         
         # Comment on PR
         echo "--- :github: Commenting on PR"

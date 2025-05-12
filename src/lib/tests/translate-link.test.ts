@@ -1,6 +1,6 @@
 // To run tests, execute `npm run test -- src/lib/tests/translate-link.test.ts` from the root directory
 
-import { DOCS_LINKS, translateLink } from 'src/lib/translate-link';
+import { BLOG_LINKS, DOCS_LINKS, translateLink } from 'src/lib/translate-link';
 
 describe( 'translateLink', () => {
 	it( 'should return the original URL when locale is en', () => {
@@ -14,27 +14,23 @@ describe( 'translateLink', () => {
 	} );
 
 	it( 'should return the Spanish URL when locale is es', () => {
-		expect(
-			translateLink( 'es', 'https://wordpress.com/blog/2025/03/17/studio-wordpress-php-versions/' )
-		).toBe(
+		expect( translateLink( 'es', BLOG_LINKS[ 'php-versions' ] ) ).toBe(
 			'https://wordpress.com/es/blog/2025/04/02/modifica-las-versiones-de-wordpress-y-php-de-tu-sitio-local-con-studio/'
 		);
 
-		expect(
-			translateLink( 'es', 'https://wordpress.com/blog/2025/02/24/studio-preview-sites/' )
-		).toBe(
+		expect( translateLink( 'es', BLOG_LINKS[ 'preview-sites' ] ) ).toBe(
 			'https://wordpress.com/es/blog/2025/03/05/colabora-mas-y-mejor-en-studio-con-los-sitios-de-vista-previa/'
 		);
 
-		expect(
-			translateLink( 'es', 'https://wordpress.com/blog/2025/03/31/studio-custom-domains-https/' )
-		).toBe( 'https://wordpress.com/es/blog/2025/03/31/studio-custom-domains-https/' );
+		expect( translateLink( 'es', BLOG_LINKS[ 'custom-domains-https' ] ) ).toBe(
+			'https://wordpress.com/es/blog/2025/03/31/studio-custom-domains-https/'
+		);
 	} );
 
 	it( 'should return the Japanese URL when locale is ja', () => {
-		expect(
-			translateLink( 'ja', 'https://wordpress.com/blog/2025/02/24/studio-preview-sites/' )
-		).toBe( 'https://wordpress.com/ja/blog/2025/03/28/studio-preview-sites/' );
+		expect( translateLink( 'ja', BLOG_LINKS[ 'preview-sites' ] ) ).toBe(
+			'https://wordpress.com/ja/blog/2025/03/28/studio-preview-sites/'
+		);
 	} );
 
 	it( 'should return the original URL for untranslated links', () => {

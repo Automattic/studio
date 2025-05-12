@@ -22,7 +22,7 @@ export const EditorPicker = ( { value, onChange, disabled }: EditorPickerProps )
 			uninstalledEditors: selectUninstalledEditors( result.data ),
 		} ),
 	} );
-	console.log( 'installedApps', installedApps );
+	console.log( 'installedApps', installedEditors );
 
 	return (
 		<SettingsFormField label={ __( 'Code editor' ) }>

@@ -1,7 +1,5 @@
 #!/bin/bash -eu
 
-echo "--- :npm: Run Unit Tests"
-
 # Get changed files for PR
 if [ "$BUILDKITE_PULL_REQUEST" != "false" ]; then
   echo "--- :git: Getting changed files"
@@ -11,6 +9,7 @@ if [ "$BUILDKITE_PULL_REQUEST" != "false" ]; then
 fi
 
 # Run tests with coverage
+echo "--- :npm: Run Unit Tests"
 npm test -- --coverage
 
 # Generate coverage report for PRs
@@ -22,17 +21,20 @@ if [ "$BUILDKITE_PULL_REQUEST" != "false" ] && [ -n "$CHANGED_FILES" ]; then
 
   echo "" >> coverage-report.md
 
+  echo "| File | Coverage |\n" >> coverage-report.md
+  echo "|------|----------|\n" >> coverage-report.md
+
   # Process each changed file to extract coverage data
   for FILE in $CHANGED_FILES; do
-    echo "File: $FILE" >> coverage-report.md
+    echo "| `$FILE` | " >> coverage-report.md
 
     if ! jq -e ".[\"$PWD/$FILE\"]" coverage/coverage-summary.json > /dev/null 2>&1; then
-      echo "No coverage data" >> coverage-report.md
+      echo " – " >> coverage-report.md
     else
-      jq -r ".[\"$PWD/$FILE\"] | \"Coverage: \" + (.statements.pct | tostring) + \"%\"" coverage/coverage-summary.json >> coverage-report.md
+      jq -r ".[\"$PWD/$FILE\"] | \"\" + (.statements.pct | tostring) + \"%\"" coverage/coverage-summary.json >> coverage-report.md
     fi
 
-    echo "" >> coverage-report.md
+    echo " |\n" >> coverage-report.md
   done
 
   # Comment on PR

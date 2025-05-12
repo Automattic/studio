@@ -66,30 +66,14 @@ export async function createSiteWorkingDirectory(
 		} );
 
 		if ( result.exitCode !== 0 ) {
-			console.log( `Checksums don't match, attempting to redownload WordPress ${ wpVersion }...` );
-			// If checksums don't match, delete the corrupted version and try redownloading
+			console.log(
+				`Checksums don't match for WordPress ${ wpVersion }, downloading a fresh copy...`
+			);
 			await fsExtra.remove( wpVersionPath );
 			await downloadWordPress( wpVersion, { overwrite: true } );
-
-			// Verify again after redownload
-			console.log( 'Verifying checksums after redownload...' );
-			const verifyResult = await executeWPCli( wpVersionPath, [
-				'core',
-				'verify-checksums',
-				'--skip-plugins',
-				'--skip-themes',
-			] );
-			console.log( 'Second checksum verification result:', {
-				stdout: verifyResult.stdout,
-				stderr: verifyResult.stderr,
-				exitCode: verifyResult.exitCode,
-			} );
-
-			if ( verifyResult.exitCode !== 0 ) {
-				throw new Error(
-					`WordPress version ${ wpVersion } appears to be corrupted and could not be fixed. Please try a different version.`
-				);
-			}
+			throw new Error(
+				`WordPress version ${ wpVersion } appears to be corrupted. Please try creating the site again.`
+			);
 		}
 	} catch ( error ) {
 		console.error( `Failed to verify WordPress checksums:`, error );

@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 type PlatformPaths = {
-	[ K in keyof InstalledApps | keyof InstalledTerminals ]: string[];
+	[ K in keyof InstalledApps ]: string[];
 };
 
 function getProgramFilesPath(): string {
@@ -96,10 +96,9 @@ if ( process.platform === 'darwin' ) {
 	const userApplications = path.join( app.getPath( 'home' ), 'Applications' );
 
 	Object.keys( installationPaths.darwin ).forEach( ( ide ) => {
-		const appName =
-			installationPaths.darwin[ ide as keyof InstalledApps | keyof InstalledTerminals ][ 0 ];
+		const appName = installationPaths.darwin[ ide as keyof InstalledApps ][ 0 ];
 		if ( appName ) {
-			installationPaths.darwin[ ide as keyof InstalledApps | keyof InstalledTerminals ] = [
+			installationPaths.darwin[ ide as keyof InstalledApps ] = [
 				path.join( systemApplications, appName ),
 				path.join( userApplications, appName ),
 			];
@@ -108,8 +107,7 @@ if ( process.platform === 'darwin' ) {
 } else if ( process.platform === 'win32' ) {
 	// For JetBrains IDEs, check for version-specific folders
 	[ 'phpstorm', 'webstorm' ].forEach( ( ide ) => {
-		const basePaths =
-			installationPaths.win32[ ide as keyof InstalledApps | keyof InstalledTerminals ];
+		const basePaths = installationPaths.win32[ ide as keyof InstalledApps ];
 		const jetbrainsDir = path.win32.join( getProgramFilesPath(), 'JetBrains' );
 
 		if ( fs.existsSync( jetbrainsDir ) ) {
@@ -124,7 +122,7 @@ if ( process.platform === 'darwin' ) {
 	} );
 }
 
-export function isInstalled( key: keyof InstalledApps | keyof InstalledTerminals ): boolean {
+export function isInstalled( key: keyof InstalledApps ): boolean {
 	const platform = process.platform;
 	const paths = installationPaths[ platform ]?.[ key ];
 

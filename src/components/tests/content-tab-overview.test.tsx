@@ -1,25 +1,31 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-overview.test.tsx` from the root directory
 import { render, screen } from '@testing-library/react';
+import { Provider } from 'react-redux';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
+import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
+import { store } from 'src/stores';
+import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
+jest.mock( 'src/lib/app-globals', () => ( {
+	isWindows: jest.fn().mockReturnValue( false ),
+} ) );
+jest.mock( 'src/hooks/use-site-details' );
 jest.mock( 'src/hooks/use-theme-details' );
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: jest.fn().mockReturnValue( {
 		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
 		getUserEditor: jest.fn().mockResolvedValue( 'vscode' ),
-		getInstalledTerminals: jest.fn().mockResolvedValue( {
-			terminal: true,
-			iterm: false,
-		} ),
 	} ),
 } ) );
+
+store.replaceReducer( testReducer );
 
 const runningSite: StartedSiteDetails = {
 	name: 'Test Site',
 	port: 8881,
 	path: '/path/to/site',
-	phpVersion: '8.0',
+	phpVersion: '8.3',
 	running: true,
 	id: 'site-id',
 	url: 'http://example.com',
@@ -29,7 +35,7 @@ const notRunningSite: SiteDetails = {
 	name: 'Test Site',
 	port: 8881,
 	path: '/path/to/site',
-	phpVersion: '8.0',
+	phpVersion: '8.3',
 	running: false,
 	id: 'site-id',
 };
@@ -46,6 +52,8 @@ const blockThemeButtonLabels = [
 describe( 'ContentTabOverview', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
+		( useSiteDetails as jest.Mock ).mockReturnValue( {} );
+		store.dispatch( testActions.resetState() );
 	} );
 
 	const renderWithThemeDetails = ( {
@@ -67,11 +75,19 @@ describe( 'ContentTabOverview', () => {
 			},
 			selectedLoadingThemeDetails: false,
 		} );
-		render( <ContentTabOverview selectedSite={ selectedSite } /> );
+		render(
+			<Provider store={ store }>
+				<ContentTabOverview selectedSite={ selectedSite } />
+			</Provider>
+		);
 	};
 
 	describe( 'with block theme', () => {
 		test( 'renders all relevant "Customize" buttons for block themes', () => {
+			( useSiteDetails as jest.Mock ).mockReturnValue( {
+				loadingServer: { 'site-id': false },
+			} );
+
 			renderWithThemeDetails( { isBlockTheme: true } );
 
 			blockThemeButtonLabels.forEach( ( label ) => {
@@ -84,7 +100,12 @@ describe( 'ContentTabOverview', () => {
 			expect( screen.queryByText( 'Widgets' ) ).not.toBeInTheDocument();
 		} );
 
-		test( '"Customize" buttons are disabled when the server is not running', () => {
+		test( '"Customize" buttons are disabled when the server is starting', () => {
+			( useSiteDetails as jest.Mock ).mockReturnValue( {
+				selectedSite: { id: 'site-id' },
+				loadingServer: { 'site-id': true },
+			} );
+
 			renderWithThemeDetails( { isBlockTheme: true, selectedSite: notRunningSite } );
 
 			blockThemeButtonLabels.forEach( ( label ) => {
@@ -97,6 +118,10 @@ describe( 'ContentTabOverview', () => {
 	describe( 'with classic theme', () => {
 		describe( 'without widget support', () => {
 			test( 'renders only Customizer and Menus buttons', () => {
+				( useSiteDetails as jest.Mock ).mockReturnValue( {
+					loadingServer: { 'site-id': false },
+				} );
+
 				renderWithThemeDetails( {
 					isBlockTheme: false,
 					supportsWidgets: false,
@@ -116,6 +141,10 @@ describe( 'ContentTabOverview', () => {
 
 		describe( 'without menu support', () => {
 			test( 'renders only Customizer and Widgets buttons', () => {
+				( useSiteDetails as jest.Mock ).mockReturnValue( {
+					loadingServer: { 'site-id': false },
+				} );
+
 				renderWithThemeDetails( {
 					isBlockTheme: false,
 					supportsWidgets: true,
@@ -135,6 +164,10 @@ describe( 'ContentTabOverview', () => {
 
 		describe( 'with both widget and menu support', () => {
 			test( 'renders Customizer, Menus, and Widgets buttons', () => {
+				( useSiteDetails as jest.Mock ).mockReturnValue( {
+					loadingServer: { 'site-id': false },
+				} );
+
 				renderWithThemeDetails( {
 					isBlockTheme: false,
 					supportsWidgets: true,
@@ -151,7 +184,12 @@ describe( 'ContentTabOverview', () => {
 				} );
 			} );
 
-			test( '"Customize" buttons are disabled when the server is not running', () => {
+			test( '"Customize" buttons are disabled when the server is starting', () => {
+				( useSiteDetails as jest.Mock ).mockReturnValue( {
+					selectedSite: { id: 'site-id' },
+					loadingServer: { 'site-id': true },
+				} );
+
 				renderWithThemeDetails( {
 					isBlockTheme: false,
 					supportsWidgets: true,

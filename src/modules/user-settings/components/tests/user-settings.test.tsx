@@ -2,7 +2,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { useAuth } from 'src/hooks/use-auth';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { UserSettings } from 'src/modules/user-settings';
@@ -41,11 +40,6 @@ jest.mock( 'src/stores/wpcom-api', () => {
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: jest.fn().mockReturnValue( {
 		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-		getInstalledTerminals: jest.fn().mockResolvedValue( {
-			terminal: true,
-			iterm: false,
-		} ),
-		getInstalledApps: jest.fn().mockResolvedValue( [ 'vscode', 'phpstorm' ] ),
 	} ),
 } ) );
 
@@ -70,9 +64,6 @@ describe( 'UserSettings', () => {
 	it( 'logs in when not authenticated', async () => {
 		const authenticate = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			preferredEditor: false,
-		} );
 		renderWithProvider( <UserSettings /> );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
 		expect( loginButton ).toBeVisible();
@@ -83,9 +74,6 @@ describe( 'UserSettings', () => {
 	it( 'logs out if authenticated', async () => {
 		const logout = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, logout } );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			preferredEditor: false,
-		} );
 		renderWithProvider( <UserSettings /> );
 		const logoutButton = screen.getByRole( 'button', { name: 'Log out' } );
 		expect( logoutButton ).toBeVisible();
@@ -96,9 +84,6 @@ describe( 'UserSettings', () => {
 	it( 'disables log in button when offline', async () => {
 		const authenticate = jest.fn();
 		( useOffline as jest.Mock ).mockReturnValue( true );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			preferredEditor: false,
-		} );
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
 		renderWithProvider( <UserSettings /> );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
@@ -116,9 +101,6 @@ describe( 'UserSettings', () => {
 	describe( 'Tab Navigation', () => {
 		it( 'switches between tabs correctly', async () => {
 			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
-			( useFeatureFlags as jest.Mock ).mockReturnValue( {
-				preferredEditor: true,
-			} );
 
 			renderWithProvider( <UserSettings /> );
 
@@ -132,7 +114,7 @@ describe( 'UserSettings', () => {
 				expect( screen.getByText( 'Preferences' ) ).toHaveAttribute( 'aria-selected', 'true' );
 			} );
 			expect( screen.getByText( 'Language' ) ).toBeVisible();
-			expect( screen.getByText( 'Shell' ) ).toBeVisible();
+			expect( screen.getByText( 'Terminal application' ) ).toBeVisible();
 
 			// Switch to Usage tab
 			fireEvent.click( screen.getByText( 'Usage' ) );

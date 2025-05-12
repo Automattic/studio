@@ -3,18 +3,18 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { tip, warning, trash, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useRef, useState } from 'react';
+import { FormEvent, useRef, useState, useEffect } from 'react';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useI18nData } from 'src/hooks/use-i18n-data';
-import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName } from 'src/lib/domains';
 import { getDocsLink } from 'src/lib/get-docs-link';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import {
 	DEFAULT_WORDPRESS_VERSION,
 	ALLOWED_PHP_VERSIONS,
@@ -265,6 +265,14 @@ export const SiteForm = ( {
 }: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const { locale } = useI18nData();
+	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
+
+	// If the custom domain is enabled and the root certificate is trusted, enable HTTPS
+	useEffect( () => {
+		if ( useCustomDomain && isCertificateTrusted && setEnableHttps ) {
+			setEnableHttps( true );
+		}
+	}, [ useCustomDomain, isCertificateTrusted, setEnableHttps ] );
 
 	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
 	const errorCount = [ error, shouldShowCustomDomainError ].filter( Boolean ).length;
@@ -296,7 +304,7 @@ export const SiteForm = ( {
 
 				{ setFileForImport && (
 					<>
-						<div className="flex flex-col gap-1.5 leading-4 mb-6">
+						<div className="flex flex-col gap-1.5 leading-4 mb-4">
 							<label className="font-semibold">
 								{ __( 'Import a backup' ) }
 								<span className="font-normal">{ __( ' (optional)' ) }</span>
@@ -363,7 +371,7 @@ export const SiteForm = ( {
 										isAdvancedSettingsVisible ? 'h-auto opacity-100' : 'h-0 opacity-0'
 									) }
 								>
-									<div className={ cx( 'flex flex-col gap-1.5 leading-4 py-2' ) }>
+									<div className={ cx( 'flex flex-col gap-1.5 leading-4 py-4' ) }>
 										<label onClick={ onSelectPath } className="font-semibold">
 											{ __( 'Local path' ) }
 										</label>
@@ -463,7 +471,7 @@ export const SiteForm = ( {
 											</div>
 										) }
 
-										{ ! isWindows() && useCustomDomain && setEnableHttps && (
+										{ ! isCertificateTrusted && useCustomDomain && setEnableHttps && (
 											<div className="text-a8c-gray-50 text-xs mt-2">
 												{ __(
 													'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'

@@ -40,6 +40,10 @@ jest.mock( 'src/stores/wordpress-versions-api', () => ( {
 	} ) ),
 } ) );
 
+jest.mock( 'src/stores/certificate-trust-api', () => ( {
+	useCheckCertificateTrustQuery: jest.fn().mockReturnValue( { data: true } ),
+} ) );
+
 const mockGenerateProposedSitePath =
 	jest.fn< ( siteName: string ) => Promise< FolderDialogResponse > >();
 
@@ -53,6 +57,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		} ),
 		promptWindowsSpeedUpSites: jest.fn(),
 		openURL: jest.fn(),
+		isCATrusted: jest.fn( () => Promise.resolve( true ) ),
 	} ),
 } ) );
 
@@ -70,7 +75,7 @@ describe( 'Onboarding Component', () => {
 		setWpVersion: jest.fn(),
 		siteName: 'My Site',
 		sitePath: '/path/to/my/site',
-		phpVersion: '8.0',
+		phpVersion: '8.3',
 		wpVersion: DEFAULT_WORDPRESS_VERSION,
 		error: '',
 		doesPathContainWordPress: false,

@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import {
 	createAction,
 	createAsyncThunk,
@@ -15,6 +14,7 @@ import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores/index';
 import { wpcomApi } from 'src/stores/wpcom-api';
+import type { UUID } from 'crypto';
 
 type BaseOperation = {
 	error: string | null;
@@ -41,7 +41,7 @@ type DeleteOperation = BaseOperation & {
 };
 
 type BulkOperation = Omit< BaseOperation, 'progress' > & {
-	operationIds: crypto.UUID[];
+	operationIds: UUID[];
 	siteId?: string;
 	type: 'bulk';
 	userId?: number;
@@ -50,7 +50,7 @@ type BulkOperation = Omit< BaseOperation, 'progress' > & {
 export type SnapshotOperation = CreateOperation | UpdateOperation | DeleteOperation | BulkOperation;
 
 type SnapshotState = {
-	operations: Record< crypto.UUID, SnapshotOperation >;
+	operations: Record< UUID, SnapshotOperation >;
 	snapshots: Snapshot[];
 	snapshotQuota: number;
 };
@@ -97,7 +97,7 @@ const deleteSnapshot = createAsyncThunk(
 
 async function deleteMultipleSnapshots(
 	snapshots: Snapshot[]
-): Promise< [ url: string, operationId: crypto.UUID ][] > {
+): Promise< [ url: string, operationId: UUID ][] > {
 	return await Promise.all(
 		snapshots.map( async ( snapshot ) => {
 			const { operationId } = await getIpcApi().deleteSnapshot( snapshot.url );
@@ -112,7 +112,7 @@ const deleteAllSnapshotsForSite = createAsyncThunk(
 		const state = thunkAPI.getState() as RootState;
 		const snapshots = snapshotSelectors.selectSnapshotsBySite( state, siteId );
 		const operations = await deleteMultipleSnapshots( snapshots );
-		const bulkOperationId = await getIpcApi().getRandomUUID();
+		const bulkOperationId = window.crypto.randomUUID();
 
 		return { operations, bulkOperationId };
 	}
@@ -124,7 +124,7 @@ const deleteAllSnapshotsForUser = createAsyncThunk(
 		const state = thunkAPI.getState() as RootState;
 		const snapshots = snapshotSelectors.selectSnapshotsByUser( state, userId );
 		const operations = await deleteMultipleSnapshots( snapshots );
-		const bulkOperationId = await getIpcApi().getRandomUUID();
+		const bulkOperationId = window.crypto.randomUUID();
 
 		return { operations, bulkOperationId };
 	}
@@ -149,7 +149,7 @@ const snapshotSlice = createSlice( {
 		},
 		updateOperation: (
 			state,
-			action: PayloadAction< { operationId: crypto.UUID; operation: Partial< SnapshotOperation > } >
+			action: PayloadAction< { operationId: UUID; operation: Partial< SnapshotOperation > } >
 		) => {
 			Object.assign( state.operations[ action.payload.operationId ], action.payload.operation );
 		},
@@ -166,7 +166,7 @@ const snapshotSlice = createSlice( {
 			} )
 			.addCase( createSnapshot.fulfilled, ( state, action ) => {
 				state.operations[ action.payload.operationId ] = {
-					detail: __( 'Creating archive...' ),
+					detail: __( 'Creating archive…' ),
 					error: null,
 					progress: 0,
 					siteId: action.payload.siteId,
@@ -319,36 +319,31 @@ window.ipcListener.subscribe( 'user-data-updated', ( _, payload ) => {
 	}
 } );
 
-function getCreateProgress( action: PreviewCommandLoggerAction ): [ string, number ] {
+function getOperationProgress( action: PreviewCommandLoggerAction ): [ string, number ] {
 	switch ( action ) {
 		case PreviewCommandLoggerAction.VALIDATE:
-			return [ __( 'Creating archive...' ), 5 ];
+			return [ __( 'Creating archive…' ), 5 ];
 		case PreviewCommandLoggerAction.ARCHIVE:
-			return [ __( 'Creating archive...' ), 20 ];
+			return [ __( 'Creating archive…' ), 20 ];
 		case PreviewCommandLoggerAction.UPLOAD:
-			return [ __( 'Uploading archive...' ), 40 ];
+			return [ __( 'Uploading archive…' ), 40 ];
 		case PreviewCommandLoggerAction.READY:
-			return [ __( 'Creating preview site...' ), 60 ];
+			return [ __( 'Creating preview site…' ), 60 ];
 		case PreviewCommandLoggerAction.APPDATA:
-			return [ __( 'Saving preview site...' ), 95 ];
+			return [ __( 'Saving preview site…' ), 95 ];
 		default:
 			return [ '', 0 ];
 	}
 }
 
-function getOperation( operationId: crypto.UUID ) {
+function getOperation( operationId: UUID ) {
 	const state = store.getState();
 	return state.snapshot.operations[ operationId ];
 }
 
-function getAssociatedBulkOperation(
-	targetOperationId: crypto.UUID
-): [ crypto.UUID, BulkOperation ] | [] {
+function getAssociatedBulkOperation( targetOperationId: UUID ): [ UUID, BulkOperation ] | [] {
 	const state = store.getState();
-	const entries = Object.entries( state.snapshot.operations ) as [
-		crypto.UUID,
-		SnapshotOperation,
-	][];
+	const entries = Object.entries( state.snapshot.operations ) as [ UUID, SnapshotOperation ][];
 
 	for ( const [ operationId, operation ] of entries ) {
 		if ( operation.type === 'bulk' && operation.operationIds.includes( targetOperationId ) ) {
@@ -372,7 +367,7 @@ window.ipcListener.subscribe( 'snapshot-output', ( event, payload ) => {
 		return;
 	}
 
-	const [ detail, progress ] = getCreateProgress( payload.data.action );
+	const [ detail, progress ] = getOperationProgress( payload.data.action );
 	store.dispatch(
 		snapshotActions.updateOperation( {
 			operationId: payload.operationId,
@@ -399,7 +394,7 @@ window.ipcListener.subscribe( 'snapshot-key-value', ( event, payload ) => {
 	);
 } );
 
-function errorEventHandler( operationId: crypto.UUID, message: string ) {
+function errorEventHandler( operationId: UUID, message: string ) {
 	const operation = getOperation( operationId );
 	if ( ! operation || operation.status !== 'pending' ) {
 		return;

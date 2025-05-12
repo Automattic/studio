@@ -4,7 +4,6 @@ import AuthProvider from 'src/components/auth-provider';
 import CrashTester from 'src/components/crash-tester';
 import ErrorBoundary from 'src/components/error-boundary';
 import { SyncSitesProvider } from 'src/hooks/sync-sites/sync-sites-context';
-import { InstalledAppsProvider } from 'src/hooks/use-check-installed-apps';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { FeatureFlagsProvider } from 'src/hooks/use-feature-flags';
 import { I18nDataProvider } from 'src/hooks/use-i18n-data';
@@ -24,17 +23,15 @@ const Root = () => {
 						<SiteDetailsProvider>
 							<FeatureFlagsProvider>
 								<ThemeDetailsProvider>
-									<InstalledAppsProvider>
-										<OnboardingProvider>
-											<ImportExportProvider>
-												<ContentTabsProvider>
-													<SyncSitesProvider>
-														<App />
-													</SyncSitesProvider>
-												</ContentTabsProvider>
-											</ImportExportProvider>
-										</OnboardingProvider>
-									</InstalledAppsProvider>
+									<OnboardingProvider>
+										<ImportExportProvider>
+											<ContentTabsProvider>
+												<SyncSitesProvider>
+													<App />
+												</SyncSitesProvider>
+											</ContentTabsProvider>
+										</ImportExportProvider>
+									</OnboardingProvider>
 								</ThemeDetailsProvider>
 							</FeatureFlagsProvider>
 						</SiteDetailsProvider>

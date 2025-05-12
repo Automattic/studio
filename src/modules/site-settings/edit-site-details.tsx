@@ -8,11 +8,11 @@ import Modal from 'src/components/modal';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
+import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import {
 	DEFAULT_PHP_VERSION,
 	ALLOWED_PHP_VERSIONS,
@@ -33,6 +33,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const [ needsRestart, setNeedsRestart ] = useState( false );
 
+	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
 	const closeModal = useCallback( () => {
 		if ( isEditingSite ) {
 			return;
@@ -291,7 +292,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 									</div>
 								) }
 
-								{ ! isWindows() && useCustomDomain && (
+								{ ! isCertificateTrusted && useCustomDomain && (
 									<div className="text-a8c-gray-50 text-xs mt-2">
 										{ __(
 											'You need to manually add the Studio certificate authority to your keychain and trust it.'
@@ -325,6 +326,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 								{ getEditSiteButtonText() }
 							</Button>
 						</div>
+						<div className="components-popover__fallback-container"></div>
 					</form>
 				</Modal>
 			) }

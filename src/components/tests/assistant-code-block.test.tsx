@@ -8,12 +8,6 @@ import { chatActions, generateMessage } from 'src/stores/chat-slice';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
 jest.mock( 'src/lib/get-ipc-api' );
-jest.mock( 'src/hooks/use-check-installed-apps', () => ( {
-	useCheckInstalledApps: jest.fn().mockReturnValue( {
-		vscode: true,
-		phpstorm: false,
-	} ),
-} ) );
 jest.mock( 'src/hooks/use-site-details' );
 
 store.replaceReducer( testReducer );
@@ -23,7 +17,7 @@ const selectedSite: SiteDetails = {
 	name: 'Test Site',
 	running: false,
 	path: '/test-site',
-	phpVersion: '8.0',
+	phpVersion: '8.3',
 	adminPassword: btoa( 'test-password' ),
 	port: 9999,
 };
@@ -143,15 +137,15 @@ describe( 'createCodeComponent', () => {
 				} ),
 			} );
 			render( <ContextWrapper className="language-bash" children="wp --version" /> );
-			expect( screen.queryByText( 'Running...' ) ).not.toBeInTheDocument();
+			expect( screen.queryByText( 'Running…' ) ).not.toBeInTheDocument();
 
 			fireEvent.click( screen.getByText( 'Run' ) );
 
-			expect( screen.getByText( 'Running...' ) ).toBeVisible();
+			expect( screen.getByText( 'Running…' ) ).toBeVisible();
 
 			await act( () => jest.runOnlyPendingTimersAsync() );
 
-			expect( screen.queryByText( 'Running...' ) ).not.toBeInTheDocument();
+			expect( screen.queryByText( 'Running…' ) ).not.toBeInTheDocument();
 		} );
 
 		it( 'should display the output of the successfully executed code', async () => {

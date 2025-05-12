@@ -143,7 +143,7 @@ describe( 'useAddSite', () => {
 			name: 'Test Site',
 			path: '/test/path',
 			wpVersion: wpVersion,
-			phpVersion: '8.2',
+			phpVersion: '8.3',
 		};
 
 		mockCreateSite.mockImplementation(

@@ -1,6 +1,7 @@
 #!/bin/bash -eu
 
-# Get changed files for PR
+# Runs unit tests and generates a coverage report that's displayed in the buildkite UI
+
 if [ "$BUILDKITE_PULL_REQUEST" != "false" ]; then
   echo "--- :git: Getting changed files"
   CHANGED_FILES=$(git diff --name-only origin/$BUILDKITE_PULL_REQUEST_BASE_BRANCH...HEAD | grep -E '\.(ts|tsx)$' | grep -v 'node_modules' || true)
@@ -8,15 +9,12 @@ if [ "$BUILDKITE_PULL_REQUEST" != "false" ]; then
   echo "$CHANGED_FILES"
 fi
 
-# Run tests with coverage
 echo "--- :npm: Run Unit Tests"
 npm test -- --coverage
 
-# Generate coverage report for PRs
 if [ "$BUILDKITE_PULL_REQUEST" != "false" ] && [ -n "$CHANGED_FILES" ]; then
   echo "--- :memo: Generating coverage report"
 
-  # Create coverage report
   echo "### Code Coverage Report" > coverage-report.md
 
   echo "" >> coverage-report.md
@@ -24,7 +22,6 @@ if [ "$BUILDKITE_PULL_REQUEST" != "false" ] && [ -n "$CHANGED_FILES" ]; then
   echo "| File | Coverage |" >> coverage-report.md
   echo "|------|----------|" >> coverage-report.md
 
-  # Process each changed file to extract coverage data
   for FILE in $CHANGED_FILES; do
     echo "| \`$FILE\` | " > coverage-report.md
 
@@ -37,7 +34,6 @@ if [ "$BUILDKITE_PULL_REQUEST" != "false" ] && [ -n "$CHANGED_FILES" ]; then
     echo " |" >> coverage-report.md
   done
 
-  # Comment on PR
   echo "--- :github: Commenting on PR"
   buildkite-agent annotate --style info --context coverage-report < coverage-report.md
 fi

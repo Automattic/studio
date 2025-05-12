@@ -94,6 +94,17 @@ async function setupSentryUserId() {
 	Sentry.setUser( { id: userData.sentryUserId } );
 }
 
+function launchExtensionBackgroundWorkers( appSession = session.defaultSession ) {
+	return Promise.all(
+		appSession.getAllExtensions().map( async ( extension ) => {
+			const manifest = extension.manifest;
+			if ( manifest.manifest_version === 3 && manifest?.background?.service_worker ) {
+				await appSession.serviceWorkers.startWorkerForScope( extension.url );
+			}
+		} )
+	);
+}
+
 async function appBoot() {
 	app.setName( packageJson.productName );
 

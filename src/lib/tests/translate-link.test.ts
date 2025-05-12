@@ -74,5 +74,11 @@ describe( 'translateLink', () => {
 				'https://developer.wordpress.com/es/docs/developer-tools/studio/cli/'
 			);
 		} );
+
+		it( 'should return Spanish URLs when locale is es even if the URL is not in the dictionary', () => {
+			expect( translateLink( 'es', 'https://developer.wordpress.com/es/docs/fake-url/' ) ).toBe(
+				'https://developer.wordpress.com/es/docs/fake-url/'
+			);
+		} );
 	} );
 } );

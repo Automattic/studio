@@ -3,7 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from 'src/about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { getLink } from 'src/lib/get-link';
+import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
@@ -236,7 +236,7 @@ function getAppMenu(
 					label: __( 'Studio Help' ),
 					click: async () => {
 						const locale = await getUserLocaleWithFallback();
-						void shellOpenExternalWrapper( getLink( locale, 'docsStudio' ) );
+						void shellOpenExternalWrapper( getLocalizedLink( locale, 'docsStudio' ) );
 					},
 				},
 				{

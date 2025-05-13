@@ -13,7 +13,7 @@ import { useI18nData } from 'src/hooks/use-i18n-data';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { getLink } from 'src/lib/get-link';
+import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import {
 	DEFAULT_WORDPRESS_VERSION,
@@ -320,7 +320,7 @@ export const SiteForm = ( {
 												variant="link"
 												className="text-xs"
 												onClick={ () =>
-													getIpcApi().openURL( getLink( locale, 'docsImportExport' ) )
+													getIpcApi().openURL( getLocalizedLink( locale, 'docsImportExport' ) )
 												}
 											/>
 										),
@@ -386,7 +386,7 @@ export const SiteForm = ( {
 															variant="link"
 															className="text-xs"
 															onClick={ () =>
-																getIpcApi().openURL( getLink( locale, 'docsSites' ) )
+																getIpcApi().openURL( getLocalizedLink( locale, 'docsSites' ) )
 															}
 														/>
 													),

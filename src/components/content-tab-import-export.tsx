@@ -17,7 +17,7 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { getLink } from 'src/lib/get-link';
+import { getLocalizedLink } from 'src/lib/get-localized-link';
 
 interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
@@ -122,7 +122,7 @@ const InitialImportButton = ( {
 		<Tooltip className="w-full" text={ tooltipText } disabled={ ! disabled }>
 			<Button
 				variant="icon"
-				className={ `w-full 
+				className={ `w-full
 				${
 					disabled
 						? '[&>div.border-zinc-300]:border-gray-400 cursor-not-allowed opacity-50'
@@ -219,7 +219,9 @@ const ImportSite = ( {
 						button: (
 							<Button
 								variant="link"
-								onClick={ () => getIpcApi().openURL( getLink( locale, 'docsImportExport' ) ) }
+								onClick={ () =>
+									getIpcApi().openURL( getLocalizedLink( locale, 'docsImportExport' ) )
+								}
 							/>
 						),
 					}

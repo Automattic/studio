@@ -290,7 +290,7 @@ const SyncConnectedSitesList = ( {
 								getIpcApi().openURL( connectedSite.url );
 							} }
 						>
-							<span className="truncate">{ connectedSite.url }</span> <ArrowIcon />
+							<span className="truncate">{ connectedSite.url.replace( /^https?:\/\//, '' ) }</span> <ArrowIcon />
 						</Button>
 
 						<div className="flex shrink-0 justify-self-end">

@@ -78,13 +78,19 @@ describe( 'EditSiteDetails', () => {
 		mockExecuteWPCLiInline.mockResolvedValue( { exitCode: 0 } );
 	} );
 
-	it( 'should render the edit button', () => {
+	it( 'should render the edit button', async () => {
 		render( <EditSiteDetails { ...defaultProps } /> );
+		await waitFor( () => {
+			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
+		} );
 		expect( screen.getByRole( 'button', { name: 'Edit site' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'should open the modal when edit button is clicked', async () => {
 		render( <EditSiteDetails { ...defaultProps } /> );
+		await waitFor( () => {
+			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
+		} );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
@@ -97,6 +103,9 @@ describe( 'EditSiteDetails', () => {
 
 	it( 'should close the modal when cancel button is clicked', async () => {
 		render( <EditSiteDetails { ...defaultProps } /> );
+		await waitFor( () => {
+			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
+		} );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
@@ -107,6 +116,9 @@ describe( 'EditSiteDetails', () => {
 
 	it( 'should disable the save button when no changes are made', async () => {
 		render( <EditSiteDetails { ...defaultProps } /> );
+		await waitFor( () => {
+			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
+		} );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
@@ -116,6 +128,9 @@ describe( 'EditSiteDetails', () => {
 
 	it( 'should enable the save button when site name is changed', async () => {
 		render( <EditSiteDetails { ...defaultProps } /> );
+		await waitFor( () => {
+			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
+		} );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
@@ -129,6 +144,9 @@ describe( 'EditSiteDetails', () => {
 
 	it( 'should enable the save button when PHP version is changed', async () => {
 		render( <EditSiteDetails { ...defaultProps } /> );
+		await waitFor( () => {
+			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
+		} );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
@@ -141,6 +159,9 @@ describe( 'EditSiteDetails', () => {
 
 	it( 'should enable the save button when WordPress version is changed', async () => {
 		render( <EditSiteDetails { ...defaultProps } /> );
+		await waitFor( () => {
+			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
+		} );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
@@ -153,6 +174,9 @@ describe( 'EditSiteDetails', () => {
 
 	it( 'should disable the save button when site name is empty', async () => {
 		render( <EditSiteDetails { ...defaultProps } /> );
+		await waitFor( () => {
+			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
+		} );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
@@ -165,6 +189,9 @@ describe( 'EditSiteDetails', () => {
 
 	it( 'should update site when save button is clicked with changed site name', async () => {
 		render( <EditSiteDetails { ...defaultProps } /> );
+		await waitFor( () => {
+			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
+		} );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
@@ -175,13 +202,18 @@ describe( 'EditSiteDetails', () => {
 
 		await user.click( screen.getByRole( 'button', { name: 'Save' } ) );
 
-		expect( mockUpdateSite ).toHaveBeenCalled();
-		expect( mockUpdateSite.mock.calls[ 0 ][ 0 ].name ).toBe( 'New Site Name' );
-		expect( defaultProps.onSave ).toHaveBeenCalled();
+		await waitFor( () => {
+			expect( mockUpdateSite ).toHaveBeenCalled();
+			expect( mockUpdateSite.mock.calls[ 0 ][ 0 ].name ).toBe( 'New Site Name' );
+			expect( defaultProps.onSave ).toHaveBeenCalled();
+		} );
 	} );
 
 	it( 'should update site and restart server when PHP version is changed', async () => {
 		render( <EditSiteDetails { ...defaultProps } /> );
+		await waitFor( () => {
+			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
+		} );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
@@ -191,11 +223,13 @@ describe( 'EditSiteDetails', () => {
 
 		await user.click( screen.getByRole( 'button', { name: 'Save' } ) );
 
-		expect( mockStopServer ).toHaveBeenCalledWith( 'site-123' );
-		expect( mockUpdateSite ).toHaveBeenCalled();
-		expect( mockUpdateSite.mock.calls[ 0 ][ 0 ].phpVersion ).toBe( '8.2' );
-		expect( mockStartServer ).toHaveBeenCalledWith( 'site-123' );
-		expect( defaultProps.onSave ).toHaveBeenCalled();
+		await waitFor( () => {
+			expect( mockStopServer ).toHaveBeenCalledWith( 'site-123' );
+			expect( mockUpdateSite ).toHaveBeenCalled();
+			expect( mockUpdateSite.mock.calls[ 0 ][ 0 ].phpVersion ).toBe( '8.2' );
+			expect( mockStartServer ).toHaveBeenCalledWith( 'site-123' );
+			expect( defaultProps.onSave ).toHaveBeenCalled();
+		} );
 	} );
 
 	it( 'should update isWpAutoUpdating to false when changed from latest to specific version', async () => {
@@ -240,6 +274,7 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should show error when WordPress version update fails', async () => {
+		const consoleSpy = jest.spyOn( console, 'error' ).mockImplementation( () => {} );
 		mockExecuteWPCLiInline.mockResolvedValue( { exitCode: 1, stderr: 'Update failed' } );
 
 		render( <EditSiteDetails { ...defaultProps } /> );
@@ -258,6 +293,8 @@ describe( 'EditSiteDetails', () => {
 				message: 'Update failed',
 			} );
 		} );
+
+		consoleSpy.mockRestore();
 	} );
 
 	it( 'should disable form controls when site is being edited', async () => {

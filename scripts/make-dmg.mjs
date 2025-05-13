@@ -2,7 +2,7 @@ import child_process from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import packageJson from '../package.json' assert { type: 'json' };
+import packageJson from '../package.json' with { type: 'json' };
 
 const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 

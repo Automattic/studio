@@ -1,6 +1,7 @@
 import { SelectControl, Icon } from '@wordpress/components';
 import { info } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import { useEffect } from 'react';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
@@ -34,6 +35,13 @@ export const WPVersionSelector = ( {
 	const isOffline = useOffline();
 	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
 	const { data: wpVersions = [] } = useGetWordPressVersions();
+
+	// Force latest version if the user goes offline
+	useEffect( () => {
+		if ( isOffline && selectedValue !== DEFAULT_WORDPRESS_VERSION ) {
+			onChange( DEFAULT_WORDPRESS_VERSION );
+		}
+	}, [ isOffline, selectedValue, onChange ] );
 
 	let betaVersions: { label: string; value: string }[] = wpVersions.filter(
 		( version ) => version.isBeta || version.isDevelopment

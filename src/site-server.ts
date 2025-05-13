@@ -18,7 +18,8 @@ import { updateSiteUrl } from 'src/lib/update-site-url';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { purgeWpConfig } from 'src/lib/wp-versions';
 import { createScreenshotWindow } from 'src/screenshot-window';
-import { getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
+import { copyBundledLatestWPVersion } from 'src/setup-wp-server-files';
+import { getSiteThumbnailPath } from 'src/storage/paths';
 import { getWpNowConfig } from 'vendor/wp-now/src';
 import { WPNowMode } from 'vendor/wp-now/src/config';
 import { DEFAULT_PHP_VERSION, SQLITE_FILENAME } from 'vendor/wp-now/src/constants';
@@ -47,35 +48,24 @@ export async function createSiteWorkingDirectory(
 		console.log( `WordPress version exists at path: ${ wpVersionExists }` );
 
 		if ( ! wpVersionExists ) {
-			// For 'latest' version, check bundled version first
-			const bundledWPVersionPath = nodePath.join(
-				getResourcesPath(),
-				'wp-files',
-				'latest',
-				'wordpress'
-			);
-			console.log( `Looking for bundled version at: ${ bundledWPVersionPath }` );
-			const bundledExists = await pathExists( bundledWPVersionPath );
-			console.log( `Bundled version exists: ${ bundledExists }` );
-
-			if ( bundledExists ) {
-				console.log( 'Found bundled WordPress version, copying to version path...' );
-				await recursiveCopyDirectory( bundledWPVersionPath, wpVersionPath );
-				console.log( 'Successfully copied bundled version' );
-			} else {
-				// Only try downloading if we're online
-				const isOnline = net.isOnline();
-				if ( isOnline ) {
-					console.log( 'Online and no bundled version found, attempting to download...' );
-					try {
-						await downloadWordPress( wpVersion, { overwrite: false } );
-						console.log( `Successfully downloaded WordPress version ${ wpVersion }` );
-					} catch ( error ) {
-						console.error( `Failed to download WordPress version ${ wpVersion }:`, error );
+			if ( ! net.isOnline() ) {
+				if ( wpVersion === 'latest' ) {
+					console.log( 'Offline - using bundled WordPress files...' );
+					await copyBundledLatestWPVersion();
+					if ( ! ( await pathExists( wpVersionPath ) ) ) {
+						console.log( 'Failed to copy bundled WordPress files' );
 						return false;
 					}
 				} else {
-					console.log( 'Offline and no bundled version available' );
+					console.log( 'Offline - cannot download specific WordPress version' );
+					return false;
+				}
+			} else {
+				try {
+					await downloadWordPress( wpVersion, { overwrite: false } );
+					console.log( `Successfully downloaded WordPress version ${ wpVersion }` );
+				} catch ( error ) {
+					console.error( `Failed to download WordPress version ${ wpVersion }:`, error );
 					return false;
 				}
 			}

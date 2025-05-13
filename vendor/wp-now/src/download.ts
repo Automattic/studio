@@ -10,7 +10,6 @@ import { DEFAULT_WORDPRESS_VERSION, WP_CLI_URL } from './constants';
 import getWordpressVersionsPath from './get-wordpress-versions-path';
 import getWpCliPath from './get-wp-cli-path';
 import { output } from './output';
-
 function httpsGet( url: string, callback: ( res: IncomingMessage & FollowResponse ) => void ) {
 	const proxy =
 		process.env.https_proxy ||

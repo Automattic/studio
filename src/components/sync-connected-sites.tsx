@@ -1,7 +1,7 @@
 import { Icon } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { I18n, sprintf } from '@wordpress/i18n';
-import { cloudUpload, cloudDownload } from '@wordpress/icons';
+import { cloudUpload, cloudDownload, info } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
@@ -17,6 +17,7 @@ import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { ImportProgressState, useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
@@ -233,6 +234,7 @@ const SyncConnectedSitesList = ( {
 	const { clearPullState, getPullState, getPushState, clearPushState } = useSyncSites();
 	const { importState } = useImportExport();
 	const { isKeyPulling, isKeyPushing, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
+	const { pressableSyncEnabled } = useFeatureFlags();
 
 	return (
 		<div className="grid grid-cols-[max-content_1fr_max-content]">
@@ -324,10 +326,21 @@ const SyncConnectedSitesList = ( {
 								</SyncPullPushClear>
 							) }
 							{ pushState?.status && isPushing && (
-								<div className="flex flex-col gap-2 min-w-44">
-									<div className="a8c-body-small">{ pushState.status.message }</div>
-									<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
-								</div>
+								<Tooltip
+									text={ __(
+										'Push is in progress. We will send you an email when it is completed.'
+									) }
+									placement="top-start"
+									disabled={ ! pressableSyncEnabled }
+								>
+									<div className="flex flex-col gap-2 min-w-44">
+										<div className="a8c-body-small flex items-center gap-0.5">
+											{ pressableSyncEnabled && <Icon icon={ info } size={ 16 } /> }
+											{ pushState.status.message }
+										</div>
+										<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
+									</div>
+								</Tooltip>
 							) }
 
 							{ pushState?.status && hasPushFinished && (

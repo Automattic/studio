@@ -1,5 +1,3 @@
-// To run tests, execute `npm run test -- src/lib/tests/translate-link.test.ts` from the root directory
-
 import { getLink } from 'src/lib/get-link';
 
 describe( 'getLink', () => {

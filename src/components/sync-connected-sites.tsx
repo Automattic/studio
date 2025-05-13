@@ -335,7 +335,7 @@ const SyncConnectedSitesList = ( {
 								>
 									<div className="flex flex-col gap-2 min-w-44">
 										<div className="a8c-body-small flex items-center gap-0.5">
-											<Icon icon={ info } size={ 16 } />
+											{ pressableSyncEnabled && <Icon icon={ info } size={ 16 } /> }
 											{ pushState.status.message }
 										</div>
 										<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />

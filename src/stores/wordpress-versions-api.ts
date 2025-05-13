@@ -117,9 +117,6 @@ export const wordpressVersionsApi = createApi( {
 						fetchWordPressApiData( 'beta', MINIMUM_WORDPRESS_VERSION ),
 						fetchWordPressApiData( 'development' ),
 					] );
-
-					console.log( 'Beta channel response:', stableData );
-					console.log( 'Development channel response:', developmentData );
 				} catch ( error ) {
 					if ( error instanceof z.ZodError ) {
 						Sentry.captureException( error );

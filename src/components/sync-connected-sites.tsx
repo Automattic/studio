@@ -1,7 +1,7 @@
 import { Icon } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { I18n, sprintf } from '@wordpress/i18n';
-import { cloudUpload, cloudDownload } from '@wordpress/icons';
+import { cloudUpload, cloudDownload, info } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
@@ -331,7 +331,10 @@ const SyncConnectedSitesList = ( {
 									placement="top-start"
 								>
 									<div className="flex flex-col gap-2 min-w-44">
-										<div className="a8c-body-small">{ pushState.status.message }</div>
+										<div className="a8c-body-small flex items-center gap-0.5">
+											<Icon icon={ info } size={ 16 } />
+											{ pushState.status.message }
+										</div>
 										<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
 									</div>
 								</Tooltip>

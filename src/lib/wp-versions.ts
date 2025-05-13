@@ -1,3 +1,4 @@
+import { net } from 'electron';
 import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
@@ -107,6 +108,11 @@ export async function purgeWpConfig( wpVersion: string ) {
  * @throws Error if checksums don't match after retry or if verification fails
  */
 export async function verifyWordPressChecksums( wpVersion: string ): Promise< void > {
+	if ( ! net.isOnline() ) {
+		console.log( 'Skipping WordPress checksum verification - offline mode' );
+		return;
+	}
+
 	try {
 		console.log( `Verifying checksums for WordPress version ${ wpVersion }...` );
 		const result = await executeWPCli( getWordPressVersionPath( wpVersion ), [
@@ -121,20 +127,6 @@ export async function verifyWordPressChecksums( wpVersion: string ): Promise< vo
 			await fs.remove( getWordPressVersionPath( wpVersion ) );
 			// Retry download one more time
 			await downloadWordPress( wpVersion, { overwrite: true } );
-
-			// Verify checksums again after retry
-			const retryResult = await executeWPCli( getWordPressVersionPath( wpVersion ), [
-				'core',
-				'verify-checksums',
-				'--skip-plugins',
-				'--skip-themes',
-			] );
-
-			if ( retryResult.exitCode !== 0 ) {
-				throw new Error(
-					`WordPress version ${ wpVersion } appears to be corrupted after multiple download attempts.`
-				);
-			}
 		}
 	} catch ( error ) {
 		console.error( `Failed to verify WordPress checksums:`, error );

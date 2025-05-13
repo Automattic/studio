@@ -34,6 +34,7 @@ export async function createSiteWorkingDirectory(
 ): Promise< boolean > {
 	try {
 		if ( ( await pathExists( path ) ) && ! ( await isEmptyDir( path ) ) ) {
+			// We can only create into a clean directory
 			return false;
 		}
 

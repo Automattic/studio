@@ -795,6 +795,10 @@ export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snaps
 export async function getLastSeenVersion(
 	_event: IpcMainInvokeEvent
 ): Promise< string | undefined > {
+	// If we're running in E2E mode, return the app version
+	if ( process.env.E2E ) {
+		return app.getVersion();
+	}
 	const userData = await loadUserData();
 	return userData.lastSeenVersion;
 }

@@ -9,6 +9,23 @@ import { store } from 'src/stores';
 
 jest.mock( 'src/hooks/use-auth' );
 
+jest.mock( 'src/stores/wordpress-versions-api', () => ( {
+	wordpressVersionsApi: {
+		reducer: () => ( {} ),
+		middleware: () => () => () => {},
+	},
+	useGetWordPressVersions: jest.fn( () => ( {
+		data: [
+			{ label: 'Latest', value: '6.7.2' },
+			{ label: '6.8-beta1', value: '6.8-beta1', isBeta: true, isDevelopment: false },
+			{ label: '6.4', value: '6.4', isBeta: false, isDevelopment: false },
+			{ label: '6.3', value: '6.3', isBeta: false, isDevelopment: false },
+			{ label: '6.2', value: '6.2', isBeta: false, isDevelopment: false },
+		],
+		isLoading: false,
+	} ) ),
+} ) );
+
 const mockOpenURL = jest.fn();
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,

@@ -5,6 +5,14 @@ window.ipcListener = {
 	subscribe: jest.fn(),
 };
 
+// Mock store
+jest.mock( 'src/stores/index', () => ( {
+	store: {
+		getState: jest.fn(),
+		dispatch: jest.fn(),
+	},
+} ) );
+
 // Mock getIpcApi
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: jest.fn().mockReturnValue( {

@@ -1,6 +1,6 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-settings.test.tsx` from the root directory
 import { UnknownAction } from '@reduxjs/toolkit';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { produce } from 'immer';
 import { Provider } from 'react-redux';
@@ -99,8 +99,12 @@ describe( 'ContentTabSettings', () => {
 		} );
 	} );
 
-	test( 'renders site details correctly', () => {
+	test( 'renders site details correctly', async () => {
 		renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
+
+		await waitFor( () => {
+			expect( getAllCustomDomains ).toHaveBeenCalled();
+		} );
 
 		expect( screen.getByRole( 'heading', { name: 'Site details' } ) ).toBeVisible();
 		expect( screen.getByText( 'Test Site' ) ).toBeVisible();
@@ -122,6 +126,10 @@ describe( 'ContentTabSettings', () => {
 		const user = userEvent.setup();
 		renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
 
+		await waitFor( () => {
+			expect( getAllCustomDomains ).toHaveBeenCalled();
+		} );
+
 		const localPathButton = screen.getByRole( 'button', { name: 'Copy local path to clipboard' } );
 		expect( localPathButton ).toBeVisible();
 		await user.click( localPathButton );
@@ -138,6 +146,10 @@ describe( 'ContentTabSettings', () => {
 			running: true,
 		};
 		renderWithProvider( <ContentTabSettings selectedSite={ selectedSiteRunning } /> );
+
+		await waitFor( () => {
+			expect( getAllCustomDomains ).toHaveBeenCalled();
+		} );
 
 		const urlButton = screen.getByRole( 'button', {
 			name: 'localhost:8881, Copy site url to clipboard',
@@ -160,6 +172,10 @@ describe( 'ContentTabSettings', () => {
 		const user = userEvent.setup();
 		renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
 
+		await waitFor( () => {
+			expect( getAllCustomDomains ).toHaveBeenCalled();
+		} );
+
 		const adminPasswordButton = screen.getByRole( 'button', {
 			name: 'Copy admin password to clipboard',
 		} );
@@ -180,6 +196,11 @@ describe( 'ContentTabSettings', () => {
 			isDeleting: false,
 		} );
 		renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
+
+		await waitFor( () => {
+			expect( getAllCustomDomains ).toHaveBeenCalled();
+		} );
+
 		const dropdownButton = screen.getByRole( 'button', { name: 'More options' } );
 		await userEvent.click( dropdownButton );
 		const deleteSiteButton = screen.getByRole( 'menuitem', { name: 'Delete site' } );
@@ -244,15 +265,22 @@ describe( 'ContentTabSettings', () => {
 					name: 'Save',
 				} )
 			);
-			expect( updateSite ).toHaveBeenCalledWith( expect.objectContaining( { phpVersion: '8.2' } ) );
-			expect( stopServer ).not.toHaveBeenCalled();
-			expect( startServer ).not.toHaveBeenCalled();
+
+			await waitFor( () => {
+				expect( updateSite ).toHaveBeenCalledWith(
+					expect.objectContaining( { phpVersion: '8.2' } )
+				);
+				expect( stopServer ).not.toHaveBeenCalled();
+				expect( startServer ).not.toHaveBeenCalled();
+			} );
 
 			rerenderWithProvider(
 				rerender,
 				<ContentTabSettings selectedSite={ { ...selectedSite, phpVersion: '8.2' } } />
 			);
-			expect( screen.getByText( '8.2' ) ).toBeVisible();
+			await waitFor( () => {
+				expect( screen.getByText( '8.2' ) ).toBeVisible();
+			} );
 		} );
 
 		it( 'changes PHP version and restarts site when site is running', async () => {
@@ -288,15 +316,22 @@ describe( 'ContentTabSettings', () => {
 					name: 'Save',
 				} )
 			);
-			expect( updateSite ).toHaveBeenCalledWith( expect.objectContaining( { phpVersion: '8.2' } ) );
-			expect( stopServer ).toHaveBeenCalled();
-			expect( startServer ).toHaveBeenCalled();
+
+			await waitFor( () => {
+				expect( updateSite ).toHaveBeenCalledWith(
+					expect.objectContaining( { phpVersion: '8.2' } )
+				);
+				expect( stopServer ).toHaveBeenCalled();
+				expect( startServer ).toHaveBeenCalled();
+			} );
 
 			rerenderWithProvider(
 				rerender,
 				<ContentTabSettings selectedSite={ { ...selectedSite, phpVersion: '8.2' } } />
 			);
-			expect( screen.getByText( '8.2' ) ).toBeVisible();
+			await waitFor( () => {
+				expect( screen.getByText( '8.2' ) ).toBeVisible();
+			} );
 		} );
 	} );
 } );

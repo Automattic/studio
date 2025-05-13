@@ -40,7 +40,6 @@ export async function createSiteWorkingDirectory(
 
 	if ( ! wpVersionExists ) {
 		try {
-			// This will handle downloading and verifying checksums
 			await downloadWordPress( wpVersion, { overwrite: false } );
 		} catch ( error ) {
 			console.error( `Failed to download WordPress version ${ wpVersion }:`, error );

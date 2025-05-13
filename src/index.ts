@@ -99,6 +99,9 @@ async function setupSentryUserId() {
 	Sentry.setUser( { id: userData.sentryUserId } );
 }
 
+// This is a workaround to ensure that the extension background workers are started
+// If you are updating Electron, confirm if this is still needed
+// https://github.com/electron/electron/issues/41613
 function launchExtensionBackgroundWorkers( appSession = session.defaultSession ) {
 	return Promise.all(
 		appSession.getAllExtensions().map( async ( extension ) => {

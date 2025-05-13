@@ -113,8 +113,7 @@ const config: ForgeConfig = {
 			console.log( 'Building the HTML entry file ...' );
 
 			const ejsTemplate = fs.readFileSync( './src/index.ejs', 'utf8' );
-			const data = {};
-			const renderedHtml = ejs.render( ejsTemplate, data );
+			const renderedHtml = ejs.render( ejsTemplate );
 			fs.mkdirSync( './dist', { recursive: true } );
 			fs.writeFileSync( './dist/index.html', renderedHtml );
 		},

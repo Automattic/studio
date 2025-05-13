@@ -8,6 +8,12 @@ import { PreviewActionButtonsMenu } from 'src/modules/preview-site/components/pr
 import { store, RootState } from 'src/stores';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
+jest.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: () => ( {
+		saveSnapshotsToStorage: jest.fn( () => Promise.resolve() ),
+	} ),
+} ) );
+
 function snapshotTestReducer( state: RootState | undefined, action: UnknownAction ) {
 	if ( action.type === 'snapshot/addSnapshot' ) {
 		const payload = action.payload as {
@@ -91,12 +97,16 @@ describe( 'PreviewActionButtonsMenu Rename', () => {
 
 	it( 'updates snapshot with new name when rename is confirmed', async () => {
 		store.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
+		expect( store.getState().snapshot.snapshots[ 0 ].name ).toBe( 'Test Preview' );
+
 		const user = userEvent.setup();
 		renderWithProvider(
 			<PreviewActionButtonsMenu snapshot={ mockSnapshot } selectedSite={ mockSelectedSite } />
 		);
 		await user.click( screen.getByLabelText( 'Preview actions' ) );
 		await user.click( screen.getByText( 'Rename' ) );
+		expect( screen.getByRole( 'textbox', { name: 'Name' } ) ).toHaveValue( 'Test Preview' );
+
 		await user.clear( screen.getByRole( 'textbox', { name: 'Name' } ) );
 		await user.type( screen.getByRole( 'textbox', { name: 'Name' } ), 'New Cool Name' );
 		await user.click( screen.getByText( 'Save' ) );

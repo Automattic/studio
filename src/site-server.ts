@@ -15,7 +15,7 @@ import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import SiteServerProcess from 'src/lib/site-server-process';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
-import { purgeWpConfig } from 'src/lib/wp-versions';
+import { purgeWpConfig, verifyWordPressChecksums } from 'src/lib/wp-versions';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import { getWpNowConfig } from 'vendor/wp-now/src';
@@ -50,6 +50,7 @@ export async function createSiteWorkingDirectory(
 		}
 	}
 
+	await verifyWordPressChecksums( wpVersion );
 	await purgeWpConfig( wpVersion );
 	await recursiveCopyDirectory( getWordPressVersionPath( wpVersion ), path );
 

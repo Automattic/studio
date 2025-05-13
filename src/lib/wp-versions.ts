@@ -4,6 +4,7 @@ import semver from 'semver';
 import { pathExists, recursiveCopyDirectory } from 'src/lib/fs-utils';
 import { DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 import { downloadWordPress, getWordPressVersionPath } from 'vendor/wp-now/src/download';
+import { executeWPCli } from 'vendor/wp-now/src/execute-wp-cli';
 
 export const MINIMUM_SUPPORTED_WP_VERSION = 6;
 
@@ -96,4 +97,49 @@ export async function purgeWpConfig( wpVersion: string ) {
 	}
 
 	await fs.promises.unlink( wpConfigPath );
+}
+
+/**
+ * Verifies the checksums of a WordPress installation.
+ * If checksums don't match, it will retry the download once.
+ *
+ * @param wpVersion - The WordPress version to verify
+ * @throws Error if checksums don't match after retry or if verification fails
+ */
+export async function verifyWordPressChecksums( wpVersion: string ): Promise< void > {
+	try {
+		console.log( `Verifying checksums for WordPress version ${ wpVersion }...` );
+		const result = await executeWPCli( getWordPressVersionPath( wpVersion ), [
+			'core',
+			'verify-checksums',
+			'--skip-plugins',
+			'--skip-themes',
+		] );
+
+		if ( result.exitCode !== 0 ) {
+			console.log( `Checksums don't match for WordPress ${ wpVersion }, retrying download...` );
+			await fs.remove( getWordPressVersionPath( wpVersion ) );
+			// Retry download one more time
+			await downloadWordPress( wpVersion, { overwrite: true } );
+
+			// Verify checksums again after retry
+			const retryResult = await executeWPCli( getWordPressVersionPath( wpVersion ), [
+				'core',
+				'verify-checksums',
+				'--skip-plugins',
+				'--skip-themes',
+			] );
+
+			if ( retryResult.exitCode !== 0 ) {
+				throw new Error(
+					`WordPress version ${ wpVersion } appears to be corrupted after multiple download attempts.`
+				);
+			}
+		}
+	} catch ( error ) {
+		console.error( `Failed to verify WordPress checksums:`, error );
+		throw new Error(
+			`Failed to verify WordPress version ${ wpVersion }. Please try again or use a different version.`
+		);
+	}
 }

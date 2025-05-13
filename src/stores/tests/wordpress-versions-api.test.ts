@@ -144,8 +144,7 @@ describe( 'WordPress Versions API', () => {
 	} );
 
 	it( 'should handle schema validation error for both channels', async () => {
-		const originalConsoleError = console.error;
-		console.error = jest.fn();
+		const consoleSpy = jest.spyOn( console, 'error' ).mockImplementation( () => {} );
 
 		( global.fetch as jest.Mock ).mockImplementation( () =>
 			Promise.resolve( {
@@ -179,7 +178,7 @@ describe( 'WordPress Versions API', () => {
 
 		expect( result.data ).toBeUndefined();
 
-		console.error = originalConsoleError;
+		consoleSpy.mockRestore();
 	} );
 
 	it( 'should update versions when API call is successful', async () => {
@@ -269,8 +268,7 @@ describe( 'WordPress Versions API', () => {
 	} );
 
 	it( 'should handle API fetch error', async () => {
-		const originalConsoleError = console.error;
-		console.error = jest.fn();
+		const consoleSpy = jest.spyOn( console, 'error' ).mockImplementation( () => {} );
 
 		( global.fetch as jest.Mock ).mockRejectedValue( new Error( 'Network error' ) );
 
@@ -286,7 +284,7 @@ describe( 'WordPress Versions API', () => {
 
 		expect( result.data ).toBeUndefined();
 
-		console.error = originalConsoleError;
+		consoleSpy.mockRestore();
 	} );
 
 	it( 'should gracefully handle schema validation errors for individual offers', async () => {

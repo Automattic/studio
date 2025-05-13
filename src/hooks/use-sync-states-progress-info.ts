@@ -13,6 +13,11 @@ export type PushStateProgressInfo = {
 	message: string;
 };
 
+export type PushStateProgressInfoValues = Record<
+	PushStateProgressInfo[ 'key' ],
+	PushStateProgressInfo
+>;
+
 export type PullStateProgressInfoValues = Record<
 	PullStateProgressInfo[ 'key' ],
 	PullStateProgressInfo
@@ -22,6 +27,18 @@ export type SyncBackupResponse = {
 	status: 'in-progress' | 'finished' | 'failed';
 	download_url: string;
 	percent: number;
+};
+
+export type ImportResponse = {
+	status:
+		| 'finished'
+		| 'failed'
+		| 'initial_backup_started'
+		| 'archive_import_started'
+		| 'archive_import_finished';
+	success: boolean;
+	progress: number;
+	error?: string;
 };
 
 export const IN_PROGRESS_INITIAL_VALUE = 30;
@@ -83,7 +100,7 @@ export function useSyncStatesProgressInfo() {
 			},
 			importing: {
 				key: 'importing',
-				progress: 80,
+				progress: IMPORTING_INITIAL_VALUE,
 				message: __( 'Applying changes…' ),
 			},
 			finished: {
@@ -96,7 +113,7 @@ export function useSyncStatesProgressInfo() {
 				progress: 100,
 				message: __( 'Error pushing changes' ),
 			},
-		} as const;
+		} satisfies PushStateProgressInfoValues;
 	}, [ __ ] );
 
 	const isKeyPulling = ( key: PullStateProgressInfo[ 'key' ] | undefined ) => {
@@ -182,6 +199,24 @@ export function useSyncStatesProgressInfo() {
 		[ __ ]
 	);
 
+	const getPushStatusWithProgress = useCallback(
+		( status: PushStateProgressInfo, response: ImportResponse ) => {
+			if (
+				status.key === 'importing' &&
+				( response.status === 'archive_import_started' ||
+					response.status === 'archive_import_finished' )
+			) {
+				return {
+					...status,
+					progress:
+						IMPORTING_INITIAL_VALUE + IMPORTING_TO_FINISHED_STEP * ( response.progress / 100 ),
+				};
+			}
+			return status;
+		},
+		[]
+	);
+
 	return {
 		pullStatesProgressInfo,
 		pushStatesProgressInfo,
@@ -191,5 +226,6 @@ export function useSyncStatesProgressInfo() {
 		isKeyFailed,
 		getBackupStatusWithProgress,
 		getPullStatusWithProgress,
+		getPushStatusWithProgress,
 	};
 }

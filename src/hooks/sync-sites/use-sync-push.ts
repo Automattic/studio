@@ -17,12 +17,14 @@ import {
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { ImportResponse } from 'src/hooks/use-sync-states-progress-info';
 
 export type SyncPushState = {
 	remoteSiteId: number;
 	status: PushStateProgressInfo;
 	selectedSite: SiteDetails;
 	isStaging: boolean;
+	importId?: number;
 };
 
 export type PushStates = Record< string, SyncPushState >;
@@ -57,8 +59,13 @@ export function useSyncPush( {
 		getState: getPushState,
 		clearState,
 	} = usePullPushStates< SyncPushState >( pushStates, setPushStates );
-	const { pushStatesProgressInfo, isKeyPushing, isKeyFinished, isKeyFailed } =
-		useSyncStatesProgressInfo();
+	const {
+		pushStatesProgressInfo,
+		isKeyPushing,
+		isKeyFinished,
+		isKeyFailed,
+		getPushStatusWithProgress,
+	} = useSyncStatesProgressInfo();
 
 	const updatePushState = useCallback< UpdateState< SyncPushState > >(
 		( selectedSiteId, remoteSiteId, state ) => {
@@ -88,14 +95,18 @@ export function useSyncPush( {
 				return;
 			}
 
-			const response = await client.req.get< {
-				status: 'finished' | 'failed' | 'initial_backup_started' | 'archive_import_started';
-				success: boolean;
-				error?: string;
-			} >( {
-				path: `/sites/${ remoteSiteId }/studio-app/sync/import`,
-				apiNamespace: 'wpcom/v2',
-			} );
+			const importId = getPushState( syncPushState.selectedSite?.id, remoteSiteId )?.importId;
+			if ( ! importId ) {
+				console.warn( 'No import ID found' );
+			}
+
+			const response = await client.req.get< ImportResponse >(
+				`/sites/${ remoteSiteId }/studio-app/sync/import`,
+				{
+					apiNamespace: 'wpcom/v2',
+					import_id: importId,
+				}
+			);
 
 			let status: PushStateProgressInfo = pushStatesProgressInfo.importing;
 			if ( response.success && response.status === 'finished' ) {
@@ -122,6 +133,7 @@ export function useSyncPush( {
 					showOpenLogs: true,
 				} );
 			}
+			status = getPushStatusWithProgress( status, response );
 			// Update state in any case to keep polling push state
 			updatePushState( syncPushState.selectedSite.id, syncPushState.remoteSiteId, {
 				status,
@@ -130,6 +142,8 @@ export function useSyncPush( {
 		[
 			__,
 			client,
+			getPushState,
+			getPushStatusWithProgress,
 			onPushSuccess,
 			pushStatesProgressInfo.failed,
 			pushStatesProgressInfo.finished,
@@ -210,7 +224,10 @@ export function useSyncPush( {
 			} );
 			const formData = [ [ 'import', file ] ];
 			try {
-				const response = await client.req.post( {
+				const response = await client.req.post< {
+					success: boolean;
+					import_id: number;
+				} >( {
 					path: `/sites/${ remoteSiteId }/studio-app/sync/import`,
 					apiNamespace: 'wpcom/v2',
 					formData,
@@ -218,6 +235,7 @@ export function useSyncPush( {
 				if ( response.success ) {
 					updatePushState( selectedSite.id, remoteSiteId, {
 						status: pushStatesProgressInfo.importing,
+						importId: response.import_id,
 					} );
 				} else {
 					console.error( response );
@@ -244,8 +262,8 @@ export function useSyncPush( {
 
 		Object.entries( pushStates ).forEach( ( [ key, state ] ) => {
 			if ( state.status.key === pushStatesProgressInfo.importing.key ) {
-				intervals[ key ] = setTimeout( () => {
-					void getPushProgressInfo( state.remoteSiteId, state );
+				intervals[ key ] = setTimeout( async () => {
+					await getPushProgressInfo( state.remoteSiteId, state );
 				}, 2000 );
 			}
 		} );

@@ -326,7 +326,7 @@ const SyncConnectedSitesList = ( {
 							{ pushState?.status && isPushing && (
 								<Tooltip
 									text={ __(
-										'Pushing is in progress. We will send you an email when it is completed.'
+										'Push is in progress. We will send you an email when it is completed.'
 									) }
 									placement="top-start"
 								>

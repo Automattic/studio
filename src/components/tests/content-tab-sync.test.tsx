@@ -236,12 +236,12 @@ describe( 'ContentTabSync', () => {
 		expect( pushButtons ).toHaveLength( 2 );
 
 		const productionUrl = screen.getAllByRole( 'button', {
-			name: 'https://developer.wordpress.com/studio/ ↗',
+			name: 'developer.wordpress.com/studio/ ↗',
 		} );
 		expect( productionUrl ).toHaveLength( 1 );
 
 		const stagingUrl = screen.getAllByRole( 'button', {
-			name: 'https://developer-staging.wordpress.com/studio/ ↗',
+			name: 'developer-staging.wordpress.com/studio/ ↗',
 		} );
 		expect( stagingUrl ).toHaveLength( 1 );
 	} );
@@ -345,5 +345,51 @@ describe( 'ContentTabSync', () => {
 
 		const connectButton = screen.getByRole( 'button', { name: /Connect site/i } );
 		expect( connectButton ).toBeInTheDocument();
+	} );
+
+	it( 'displays environment badges for Pressable sites with production and staging environments', () => {
+		const fakePressableProductionSite = {
+			id: 6,
+			name: 'My Pressable Production site',
+			url: 'https://pressable-site.com',
+			isStaging: false,
+			isPressable: true,
+			environmentType: 'production',
+			stagingSiteIds: [],
+			syncSupport: 'already-connected',
+		};
+		const fakePressableStagingSite = {
+			id: 7,
+			name: 'My Pressable Staging site',
+			url: 'https://staging-pressable-site.com',
+			isStaging: false,
+			isPressable: true,
+			environmentType: 'staging',
+			stagingSiteIds: [],
+			syncSupport: 'already-connected',
+		};
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
+		( useSyncSites as jest.Mock ).mockReturnValue( {
+			connectedSites: [ fakePressableProductionSite, fakePressableStagingSite ],
+			syncSites: [ fakePressableProductionSite ],
+			pullSite: jest.fn(),
+			isAnySitePulling: false,
+			isAnySitePushing: false,
+			getPullState: jest.fn(),
+			getPushState: jest.fn().mockReturnValue( undefined ),
+			refetchSites: jest.fn(),
+			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
+			isSiteIdPulling: jest.fn(),
+			isSiteIdPushing: jest.fn(),
+			clearTimeout: jest.fn(),
+		} );
+
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+		expect( screen.getByText( fakePressableProductionSite.name ) ).toBeInTheDocument();
+		expect( screen.getByText( fakePressableStagingSite.name ) ).toBeInTheDocument();
+
+		expect( screen.getByText( 'Production' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Staging' ) ).toBeInTheDocument();
 	} );
 } );

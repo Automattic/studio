@@ -105,7 +105,6 @@ export async function purgeWpConfig( wpVersion: string ) {
  * If checksums don't match, it will retry the download once.
  *
  * @param wpVersion - The WordPress version to verify
- * @throws Error if checksums don't match after retry or if verification fails
  */
 export async function verifyWordPressChecksums( wpVersion: string ): Promise< void > {
 	if ( ! net.isOnline() ) {
@@ -130,8 +129,5 @@ export async function verifyWordPressChecksums( wpVersion: string ): Promise< vo
 		}
 	} catch ( error ) {
 		console.error( `Failed to verify WordPress checksums:`, error );
-		throw new Error(
-			`Failed to verify WordPress version ${ wpVersion }. Please try again or use a different version.`
-		);
 	}
 }

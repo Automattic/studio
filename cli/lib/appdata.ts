@@ -134,12 +134,25 @@ export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken
 	}
 }
 
+// Compare paths in a case-insensitive manner. `fs.Stats.dev` signifies the device ID, and
+// `fs.Stats.ino` signifies the inode number that uniquely identifies the file or directory.
+function arePathsEqual( path1: string, path2: string ) {
+	try {
+		const stats1 = fs.statSync( path.resolve( path1 ) );
+		const stats2 = fs.statSync( path.resolve( path2 ) );
+
+		return stats1.ino === stats2.ino && stats1.dev === stats2.dev;
+	} catch ( error ) {
+		return false;
+	}
+}
+
 export async function getSiteByFolder(
 	siteFolder: string
 ): Promise< z.infer< typeof siteSchema > > {
 	const userData = await readAppdata();
-	const site = [ ...userData.sites, ...userData.newSites ].find(
-		( site ) => site.path === siteFolder
+	const site = [ ...userData.sites, ...userData.newSites ].find( ( site ) =>
+		arePathsEqual( site.path, siteFolder )
 	);
 
 	if ( ! site ) {

@@ -14,6 +14,7 @@ jest.mock( 'fs' );
 jest.mock( 'os' );
 jest.mock( 'path', () => ( {
 	join: jest.fn().mockImplementation( ( ...args ) => args.join( '/' ) ),
+	resolve: jest.fn().mockImplementation( ( path ) => path ),
 	basename: jest.fn(),
 } ) );
 jest.mock( 'atomically', () => ( {
@@ -46,8 +47,11 @@ describe( 'Snapshots Module', () => {
 		( path.basename as jest.Mock ).mockReturnValue( mockSiteFolderName );
 		jest.spyOn( Date, 'now' ).mockReturnValue( 1234567890 );
 
-		// Default mock implementation for fs functions
 		( fs.existsSync as jest.Mock ).mockReturnValue( true );
+		( fs.statSync as jest.Mock ).mockImplementation( ( path ) => ( {
+			dev: 1234567890,
+			ino: path,
+		} ) );
 		( readFile as jest.Mock ).mockResolvedValue( '{}' );
 		( writeFile as jest.Mock ).mockResolvedValue( undefined );
 	} );

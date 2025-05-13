@@ -34,10 +34,14 @@ describe( 'Appdata Module', () => {
 		( os.homedir as jest.Mock ).mockReturnValue( mockHomeDir );
 		( path.join as jest.Mock ).mockImplementation( ( ...args ) => args.join( '/' ) );
 		( path.basename as jest.Mock ).mockReturnValue( mockSiteFolderName );
+		( path.resolve as jest.Mock ).mockImplementation( ( path ) => path );
 		jest.spyOn( Date, 'now' ).mockReturnValue( 1234567890 );
 
-		// Default mock implementation for fs functions
 		( fs.existsSync as jest.Mock ).mockReturnValue( true );
+		( fs.statSync as jest.Mock ).mockImplementation( ( path ) => ( {
+			dev: 1234567890,
+			ino: path,
+		} ) );
 		( readFile as jest.Mock ).mockResolvedValue( '{}' );
 		( writeFile as jest.Mock ).mockResolvedValue( undefined );
 	} );

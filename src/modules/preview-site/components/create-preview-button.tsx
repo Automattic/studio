@@ -36,12 +36,7 @@ export function CreatePreviewButton( { onClick, selectedSite, user }: CreatePrev
 		snapshotSelectors.selectSnapshotsByUser( state, user?.id ?? 0 )
 	);
 
-	const activeSnapshotCount =
-		snapshotsByUser?.filter( ( snapshot ) => {
-			const now = new Date();
-			const endDate = addDays( snapshot.date, 7 );
-			return endDate > now;
-		} ).length ?? 0;
+	const activeSnapshotCount = snapshotUsage?.siteCount ?? snapshotsByUser?.length ?? 0;
 
 	const isLimitUsed = activeSnapshotCount >= snapshotQuota;
 	const { isOverLimit } = useSiteSize( selectedSite.id );

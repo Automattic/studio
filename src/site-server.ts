@@ -1,3 +1,4 @@
+import { net } from 'electron';
 import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
@@ -17,7 +18,7 @@ import { updateSiteUrl } from 'src/lib/update-site-url';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { purgeWpConfig } from 'src/lib/wp-versions';
 import { createScreenshotWindow } from 'src/screenshot-window';
-import { getSiteThumbnailPath } from 'src/storage/paths';
+import { getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { getWpNowConfig } from 'vendor/wp-now/src';
 import { WPNowMode } from 'vendor/wp-now/src/config';
 import { DEFAULT_PHP_VERSION, SQLITE_FILENAME } from 'vendor/wp-now/src/constants';
@@ -30,29 +31,70 @@ export async function createSiteWorkingDirectory(
 	path: string,
 	wpVersion = 'latest'
 ): Promise< boolean > {
-	if ( ( await pathExists( path ) ) && ! ( await isEmptyDir( path ) ) ) {
-		// We can only create into a clean directory
+	try {
+		console.log(
+			`Creating site working directory at ${ path } with WordPress version ${ wpVersion }`
+		);
+
+		if ( ( await pathExists( path ) ) && ! ( await isEmptyDir( path ) ) ) {
+			console.log( 'Target directory exists and is not empty' );
+			return false;
+		}
+
+		const wpVersionPath = getWordPressVersionPath( wpVersion );
+		console.log( `Checking WordPress version path: ${ wpVersionPath }` );
+		const wpVersionExists = await pathExists( wpVersionPath );
+		console.log( `WordPress version exists at path: ${ wpVersionExists }` );
+
+		if ( ! wpVersionExists ) {
+			// For 'latest' version, check bundled version first
+			const bundledWPVersionPath = nodePath.join(
+				getResourcesPath(),
+				'wp-files',
+				'latest',
+				'wordpress'
+			);
+			console.log( `Looking for bundled version at: ${ bundledWPVersionPath }` );
+			const bundledExists = await pathExists( bundledWPVersionPath );
+			console.log( `Bundled version exists: ${ bundledExists }` );
+
+			if ( bundledExists ) {
+				console.log( 'Found bundled WordPress version, copying to version path...' );
+				await recursiveCopyDirectory( bundledWPVersionPath, wpVersionPath );
+				console.log( 'Successfully copied bundled version' );
+			} else {
+				// Only try downloading if we're online
+				const isOnline = net.isOnline();
+				if ( isOnline ) {
+					console.log( 'Online and no bundled version found, attempting to download...' );
+					try {
+						await downloadWordPress( wpVersion, { overwrite: false } );
+						console.log( `Successfully downloaded WordPress version ${ wpVersion }` );
+					} catch ( error ) {
+						console.error( `Failed to download WordPress version ${ wpVersion }:`, error );
+						return false;
+					}
+				} else {
+					console.log( 'Offline and no bundled version available' );
+					return false;
+				}
+			}
+		}
+
+		console.log( 'Purging WP config...' );
+		await purgeWpConfig( wpVersion );
+
+		console.log(
+			`Copying WordPress files from ${ getWordPressVersionPath( wpVersion ) } to ${ path }`
+		);
+		await recursiveCopyDirectory( getWordPressVersionPath( wpVersion ), path );
+		console.log( 'Successfully created site working directory' );
+
+		return true;
+	} catch ( error ) {
+		console.error( 'Error in createSiteWorkingDirectory:', error );
 		return false;
 	}
-
-	const wpVersionPath = getWordPressVersionPath( wpVersion );
-	const wpVersionExists = await pathExists( wpVersionPath );
-
-	if ( ! wpVersionExists ) {
-		try {
-			await downloadWordPress( wpVersion, { overwrite: false } );
-		} catch ( error ) {
-			console.error( `Failed to download WordPress version ${ wpVersion }:`, error );
-			throw new Error(
-				`Failed to download WordPress version ${ wpVersion }. Please try a different version.`
-			);
-		}
-	}
-
-	await purgeWpConfig( wpVersion );
-	await recursiveCopyDirectory( getWordPressVersionPath( wpVersion ), path );
-
-	return true;
 }
 
 export async function stopAllServersOnQuit() {

@@ -33,37 +33,26 @@ export async function createSiteWorkingDirectory(
 	wpVersion = 'latest'
 ): Promise< boolean > {
 	try {
-		console.log(
-			`Creating site working directory at ${ path } with WordPress version ${ wpVersion }`
-		);
-
 		if ( ( await pathExists( path ) ) && ! ( await isEmptyDir( path ) ) ) {
-			console.log( 'Target directory exists and is not empty' );
 			return false;
 		}
 
 		const wpVersionPath = getWordPressVersionPath( wpVersion );
-		console.log( `Checking WordPress version path: ${ wpVersionPath }` );
 		const wpVersionExists = await pathExists( wpVersionPath );
-		console.log( `WordPress version exists at path: ${ wpVersionExists }` );
 
 		if ( ! wpVersionExists ) {
 			if ( ! net.isOnline() ) {
 				if ( wpVersion === 'latest' ) {
-					console.log( 'Offline - using bundled WordPress files...' );
 					await copyBundledLatestWPVersion();
 					if ( ! ( await pathExists( wpVersionPath ) ) ) {
-						console.log( 'Failed to copy bundled WordPress files' );
 						return false;
 					}
 				} else {
-					console.log( 'Offline - cannot download specific WordPress version' );
 					return false;
 				}
 			} else {
 				try {
 					await downloadWordPress( wpVersion, { overwrite: false } );
-					console.log( `Successfully downloaded WordPress version ${ wpVersion }` );
 				} catch ( error ) {
 					console.error( `Failed to download WordPress version ${ wpVersion }:`, error );
 					return false;
@@ -71,14 +60,8 @@ export async function createSiteWorkingDirectory(
 			}
 		}
 
-		console.log( 'Purging WP config...' );
 		await purgeWpConfig( wpVersion );
-
-		console.log(
-			`Copying WordPress files from ${ getWordPressVersionPath( wpVersion ) } to ${ path }`
-		);
 		await recursiveCopyDirectory( getWordPressVersionPath( wpVersion ), path );
-		console.log( 'Successfully created site working directory' );
 
 		return true;
 	} catch ( error ) {

@@ -274,6 +274,7 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should show error when WordPress version update fails', async () => {
+		const consoleSpy = jest.spyOn( console, 'error' ).mockImplementation( () => {} );
 		mockExecuteWPCLiInline.mockResolvedValue( { exitCode: 1, stderr: 'Update failed' } );
 
 		render( <EditSiteDetails { ...defaultProps } /> );
@@ -292,6 +293,8 @@ describe( 'EditSiteDetails', () => {
 				message: 'Update failed',
 			} );
 		} );
+
+		consoleSpy.mockRestore();
 	} );
 
 	it( 'should disable form controls when site is being edited', async () => {

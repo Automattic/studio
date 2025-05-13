@@ -100,8 +100,6 @@ export function PreviewSiteRow( {
 		return sprintf( __( '%s ago' ), timeDistance );
 	};
 
-	const urlWithHTTPS = `https://${ url }`;
-
 	if ( deleteOperation?.status === 'pending' ) {
 		return <DeleteProgressRow />;
 	}
@@ -128,10 +126,10 @@ export function PreviewSiteRow( {
 							'!text-a8c-gray-700 max-w-full',
 							isExpired ? 'pointer-events-none' : 'hover:!text-a8c-blueberry'
 						) }
-						onClick={ () => getIpcApi().openURL( urlWithHTTPS ) }
+						onClick={ () => getIpcApi().openURL( `https://${ url }` ) }
 					>
 						<span className={ cx( 'truncate', isExpired && 'line-through text-a8c-gray-700' ) }>
-							{ urlWithHTTPS }
+							{ url }
 						</span>
 						{ ! isExpired && <ArrowIcon /> }
 					</Button>

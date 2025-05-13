@@ -1,6 +1,6 @@
 import { Icon } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { I18n, sprintf } from '@wordpress/i18n';
+import { sprintf } from '@wordpress/i18n';
 import { cloudUpload, cloudDownload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
@@ -18,14 +18,9 @@ import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useI18nData } from 'src/hooks/use-i18n-data';
-import { ImportProgressState, useImportExport } from 'src/hooks/use-import-export';
+import { useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
-import {
-	IMPORTING_INITIAL_VALUE,
-	IMPORTING_TO_FINISHED_STEP,
-	PullStateProgressInfo,
-	useSyncStatesProgressInfo,
-} from 'src/hooks/use-sync-states-progress-info';
+import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import { cx } from 'src/lib/cx';
 import { getDocsLink } from 'src/lib/get-docs-link';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -204,27 +199,6 @@ type SyncConnectedSitesListProps = {
 	connectedSites: SyncSite[];
 };
 
-const getStatusWithProgress = (
-	__: I18n[ '__' ],
-	sitePullState?: PullStateProgressInfo,
-	importState?: ImportProgressState[ string ]
-) => {
-	if ( ! importState && sitePullState ) {
-		return { message: sitePullState.message, progress: sitePullState.progress };
-	}
-	if ( importState ) {
-		if ( importState.progress === 100 ) {
-			return { message: __( 'Applying final details…' ), progress: 99 };
-		}
-		return {
-			message: importState.statusMessage,
-			progress:
-				IMPORTING_INITIAL_VALUE + IMPORTING_TO_FINISHED_STEP * ( importState.progress / 100 ),
-		};
-	}
-	return { message: '', progress: 0 };
-};
-
 const SyncConnectedSitesList = ( {
 	selectedSite,
 	connectedSites,
@@ -232,7 +206,8 @@ const SyncConnectedSitesList = ( {
 	const { __ } = useI18n();
 	const { clearPullState, getPullState, getPushState, clearPushState } = useSyncSites();
 	const { importState } = useImportExport();
-	const { isKeyPulling, isKeyPushing, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
+	const { isKeyPulling, isKeyPushing, isKeyFinished, isKeyFailed, getPullStatusWithProgress } =
+		useSyncStatesProgressInfo();
 
 	return (
 		<div className="grid grid-cols-[max-content_1fr_max-content]">
@@ -242,8 +217,7 @@ const SyncConnectedSitesList = ( {
 				const isPullError = sitePullState && isKeyFailed( sitePullState.status.key );
 				const hasPullFinished = sitePullState && isKeyFinished( sitePullState.status.key );
 				const { message: sitePullStatusMessage, progress: sitePullStatusProgress } =
-					getStatusWithProgress(
-						__,
+					getPullStatusWithProgress(
 						sitePullState?.status,
 						importState[ connectedSite.localSiteId ]
 					);

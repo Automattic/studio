@@ -50,8 +50,6 @@ export async function createSiteWorkingDirectory(
 					console.error( `Failed to download WordPress version ${ wpVersion }:`, error );
 				}
 			}
-
-			// For 'latest', try bundled version as fallback
 			if ( wpVersion === 'latest' ) {
 				await copyBundledLatestWPVersion();
 				return await pathExists( wpVersionPath );

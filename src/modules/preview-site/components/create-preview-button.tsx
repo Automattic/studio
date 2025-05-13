@@ -1,6 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { addDays } from 'date-fns';
 import { DEMO_SITE_SIZE_LIMIT_GB } from 'common/constants';
 import { AuthContextType } from 'src/components/auth-provider';
 import Button from 'src/components/button';

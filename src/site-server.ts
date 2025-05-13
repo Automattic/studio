@@ -42,23 +42,22 @@ export async function createSiteWorkingDirectory(
 		const wpVersionExists = await pathExists( wpVersionPath );
 
 		if ( ! wpVersionExists ) {
-			if ( ! net.isOnline() ) {
-				if ( wpVersion === 'latest' ) {
-					await copyBundledLatestWPVersion();
-					if ( ! ( await pathExists( wpVersionPath ) ) ) {
-						return false;
-					}
-				} else {
-					return false;
-				}
-			} else {
+			if ( net.isOnline() ) {
 				try {
 					await downloadWordPress( wpVersion, { overwrite: false } );
+					return true;
 				} catch ( error ) {
 					console.error( `Failed to download WordPress version ${ wpVersion }:`, error );
-					return false;
 				}
 			}
+
+			// For 'latest', try bundled version as fallback
+			if ( wpVersion === 'latest' ) {
+				await copyBundledLatestWPVersion();
+				return await pathExists( wpVersionPath );
+			}
+
+			return false;
 		}
 
 		await purgeWpConfig( wpVersion );

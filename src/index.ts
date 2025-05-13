@@ -11,6 +11,11 @@ import {
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
+import {
+	installExtension,
+	REACT_DEVELOPER_TOOLS,
+	REDUX_DEVTOOLS,
+} from 'electron-devtools-installer';
 import { PROTOCOL_PREFIX } from 'common/constants';
 import { StatsGroup } from 'common/types/stats';
 import { IPC_VOID_HANDLERS } from 'src/constants';
@@ -219,6 +224,10 @@ async function appBoot() {
 
 	app.on( 'ready', async () => {
 		const locale = await getUserLocaleWithFallback();
+		if ( process.env.NODE_ENV === 'development' ) {
+			await installExtension( REACT_DEVELOPER_TOOLS );
+			await installExtension( REDUX_DEVTOOLS );
+		}
 		await launchExtensionBackgroundWorkers();
 
 		console.log( `App version: ${ app.getVersion() }` );

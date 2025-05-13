@@ -48,6 +48,9 @@ export async function createSiteWorkingDirectory(
 					return true;
 				} catch ( error ) {
 					console.error( `Failed to download WordPress version ${ wpVersion }:`, error );
+					throw new Error(
+						`Failed to download WordPress version ${ wpVersion }. Please try a different version.`
+					);
 				}
 			}
 			if ( wpVersion === 'latest' ) {

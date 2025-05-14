@@ -4,10 +4,12 @@ import os from 'os';
 import path from 'path';
 import { __, sprintf } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
+import { arePathsEqual } from 'common/lib/fs-utils';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { snapshotSchema } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { z } from 'zod';
+import { validateAccessToken } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
 
 const siteSchema = z
@@ -117,6 +119,8 @@ export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken
 			throw new Error( 'Authentication required' );
 		}
 
+		await validateAccessToken( authToken.accessToken );
+
 		return authToken;
 	} catch ( error ) {
 		const authUrl = getAuthenticationUrl();
@@ -135,8 +139,8 @@ export async function getSiteByFolder(
 	siteFolder: string
 ): Promise< z.infer< typeof siteSchema > > {
 	const userData = await readAppdata();
-	const site = [ ...userData.sites, ...userData.newSites ].find(
-		( site ) => site.path === siteFolder
+	const site = [ ...userData.sites, ...userData.newSites ].find( ( site ) =>
+		arePathsEqual( site.path, siteFolder )
 	);
 
 	if ( ! site ) {

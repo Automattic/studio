@@ -156,7 +156,7 @@ describe( 'useImportExport hook', () => {
 		emitExportEvent( SITE_ID, ExportEvents.EXPORT_START );
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Starting export...',
+				statusMessage: 'Starting export…',
 				progress: 5,
 			},
 		} );
@@ -164,7 +164,7 @@ describe( 'useImportExport hook', () => {
 		emitExportEvent( SITE_ID, ExportEvents.BACKUP_CREATE_START );
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Creating backup...',
+				statusMessage: 'Creating backup…',
 				progress: 10,
 			},
 		} );
@@ -172,7 +172,7 @@ describe( 'useImportExport hook', () => {
 		emitExportEvent( SITE_ID, ExportEvents.CONFIG_EXPORT_START );
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Exporting configuration...',
+				statusMessage: 'Exporting configuration…',
 				progress: 15,
 			},
 		} );
@@ -180,7 +180,7 @@ describe( 'useImportExport hook', () => {
 		emitExportEvent( SITE_ID, ExportEvents.CONFIG_EXPORT_COMPLETE );
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Exporting configuration...',
+				statusMessage: 'Exporting configuration…',
 				progress: 20,
 			},
 		} );
@@ -190,7 +190,7 @@ describe( 'useImportExport hook', () => {
 		} );
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Backing up files...',
+				statusMessage: 'Backing up files…',
 				progress: 20,
 			},
 		} );
@@ -200,7 +200,7 @@ describe( 'useImportExport hook', () => {
 		} );
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Backing up files...',
+				statusMessage: 'Backing up files…',
 				progress: 60,
 			},
 		} );
@@ -210,7 +210,7 @@ describe( 'useImportExport hook', () => {
 		} );
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Backing up files...',
+				statusMessage: 'Backing up files…',
 				progress: 95,
 			},
 		} );

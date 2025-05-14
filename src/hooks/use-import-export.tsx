@@ -261,7 +261,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			setExportState( ( prevState ) => ( {
 				...prevState,
 				[ selectedSite.id ]: {
-					statusMessage: __( 'Starting export...' ),
+					statusMessage: __( 'Starting export…' ),
 					progress: 5,
 				},
 			} ) );
@@ -386,7 +386,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				setExportState( ( prevState ) => ( {
 					...prevState,
 					[ siteId ]: {
-						statusMessage: __( 'Starting export...' ),
+						statusMessage: __( 'Starting export…' ),
 						progress: 5,
 					},
 				} ) );
@@ -396,7 +396,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					...rest,
 					[ siteId ]: {
 						...currentProgress,
-						statusMessage: __( 'Creating backup...' ),
+						statusMessage: __( 'Creating backup…' ),
 						progress: 10,
 					},
 				} ) );
@@ -406,7 +406,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					...rest,
 					[ siteId ]: {
 						...currentProgress,
-						statusMessage: __( 'Exporting configuration...' ),
+						statusMessage: __( 'Exporting configuration…' ),
 						progress: 15,
 					},
 				} ) );
@@ -427,7 +427,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					...rest,
 					[ siteId ]: {
 						...currentProgress,
-						statusMessage: __( 'Backing up files...' ),
+						statusMessage: __( 'Backing up files…' ),
 						progress: Math.min( 95, 20 + entriesProgress * 80 ), // Backup creation takes progress from 20% to 95%
 					},
 				} ) );

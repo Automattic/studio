@@ -18,27 +18,27 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
 	try {
-		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating...' ) );
+		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
 		validateSiteFolder( siteFolder );
 		await validateSiteSize( siteFolder );
 		const token = await getAuthToken();
 		logger.reportSuccess( __( 'Validation successful' ), true );
 
-		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive...' ) );
+		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive…' ) );
 		await createArchive( siteFolder, archivePath );
 		logger.reportSuccess( __( 'Archive created' ) );
 
-		logger.reportStart( LoggerAction.UPLOAD, __( 'Uploading archive...' ) );
+		logger.reportStart( LoggerAction.UPLOAD, __( 'Uploading archive…' ) );
 		const uploadResponse = await uploadArchive( archivePath, token.accessToken );
 		logger.reportSuccess( __( 'Archive uploaded' ) );
 
-		logger.reportStart( LoggerAction.READY, __( 'Creating preview site...' ) );
+		logger.reportStart( LoggerAction.READY, __( 'Creating preview site…' ) );
 		await waitForSiteReady( uploadResponse.site_id, token.accessToken );
 		logger.reportSuccess(
 			sprintf( __( 'Preview site available at: %s' ), `https://${ uploadResponse.site_url }` )
 		);
 
-		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio...' ) );
+		logger.reportStart( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ) );
 		const snapshot = await saveSnapshotToAppdata(
 			siteFolder,
 			uploadResponse.site_id,
@@ -46,7 +46,7 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 		);
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 
-		logger.reportKeyValuePair( 'name', snapshot.name );
+		logger.reportKeyValuePair( 'name', snapshot.name ?? '' );
 		logger.reportKeyValuePair( 'url', snapshot.url );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {

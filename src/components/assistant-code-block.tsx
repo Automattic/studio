@@ -110,7 +110,7 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 			{ isRunning && (
 				<div className="p-3 flex justify-start items-center bg-[#2D3337] text-white">
 					<Spinner className="!text-white [&>circle]:stroke-a8c-gray-60 !mt-0" />
-					<span className="ml-2 font-sans">{ __( 'Running...' ) }</span>
+					<span className="ml-2 font-sans">{ __( 'Running…' ) }</span>
 				</div>
 			) }
 			{ ! isRunning && cliOutput && cliStatus && (

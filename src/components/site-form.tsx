@@ -424,6 +424,9 @@ export const SiteForm = ( {
 												fallbackOptions={ [
 													{ label: __( 'Latest' ), value: DEFAULT_WORDPRESS_VERSION },
 												] }
+												offlineMessage={ __(
+													'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
+												) }
 											/>
 										</div>
 

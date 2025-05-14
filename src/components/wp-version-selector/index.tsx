@@ -21,6 +21,8 @@ type WPVersionSelectorProps = {
 	extraOptions?: { label: string; value: string }[];
 	/** Fallback options shown when available versions couldn't be fetched */
 	fallbackOptions: { label: string; value: string }[];
+	/** Custom message to show when offline. If not provided, will use the default message */
+	offlineMessage?: string;
 };
 
 export const WPVersionSelector = ( {
@@ -30,10 +32,12 @@ export const WPVersionSelector = ( {
 	disabled = false,
 	extraOptions,
 	fallbackOptions,
+	offlineMessage,
 }: WPVersionSelectorProps ) => {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
-	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
+	const defaultOfflineMessage = __( 'Changing WordPress version requires an internet connection.' );
+	const message = offlineMessage || defaultOfflineMessage;
 	const { data: wpVersions = [] } = useGetWordPressVersions();
 
 	// Force latest version if the user goes offline
@@ -81,7 +85,7 @@ export const WPVersionSelector = ( {
 			<Tooltip
 				disabled={ ! isOffline }
 				icon={ offlineIcon }
-				text={ offlineMessage }
+				text={ message }
 				placement="top-start"
 				className="flex flex-1 flex-col"
 			>

@@ -45,20 +45,17 @@ export async function createSiteWorkingDirectory(
 			if ( net.isOnline() ) {
 				try {
 					await downloadWordPress( wpVersion, { overwrite: false } );
-					return true;
 				} catch ( error ) {
 					console.error( `Failed to download WordPress version ${ wpVersion }:`, error );
 					throw new Error(
 						`Failed to download WordPress version ${ wpVersion }. Please try a different version.`
 					);
 				}
-			}
-			if ( wpVersion === 'latest' ) {
+			} else if ( wpVersion === 'latest' ) {
 				await copyBundledLatestWPVersion();
-				return await pathExists( wpVersionPath );
+			} else {
+				return false;
 			}
-
-			return false;
 		}
 
 		await purgeWpConfig( wpVersion );

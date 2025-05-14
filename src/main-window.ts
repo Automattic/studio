@@ -61,19 +61,21 @@ export function createMainWindow(): BrowserWindow {
 		initializePortFinder( sites );
 	} );
 
-	mainWindow.webContents.on( 'devtools-opened', async () => {
+	mainWindow.webContents.on(
+		'devtools-opened',
 		withAppdataLock( ( data ) => {
 			data.devToolsOpen = true;
 			return data;
-		} );
-	} );
+		} )
+	);
 
-	mainWindow.webContents.on( 'devtools-closed', async () => {
+	mainWindow.webContents.on(
+		'devtools-closed',
 		withAppdataLock( ( data ) => {
 			data.devToolsOpen = false;
 			return data;
-		} );
-	} );
+		} )
+	);
 
 	mainWindow.on( 'closed', () => {
 		removeMenu();

@@ -12,7 +12,6 @@ import { Tooltip } from 'src/components/tooltip';
 import { WordPressShortLogo } from 'src/components/wordpress-short-logo';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';

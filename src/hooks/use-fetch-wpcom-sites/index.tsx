@@ -2,7 +2,6 @@ import * as Sentry from '@sentry/electron/renderer';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { z } from 'zod';
 import { useAuth } from 'src/hooks/use-auth';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { reconcileConnectedSites } from 'src/hooks/use-fetch-wpcom-sites/reconcile-connected-sites';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';

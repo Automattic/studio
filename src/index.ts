@@ -230,8 +230,8 @@ async function appBoot() {
 		if ( process.env.NODE_ENV === 'development' ) {
 			await installExtension( REACT_DEVELOPER_TOOLS );
 			await installExtension( REDUX_DEVTOOLS );
+			await launchExtensionBackgroundWorkers();
 		}
-		await launchExtensionBackgroundWorkers();
 
 		console.log( `App version: ${ app.getVersion() }` );
 		console.log( `Built from commit: ${ COMMIT_HASH ?? 'undefined' }` );

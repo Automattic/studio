@@ -8,6 +8,7 @@ import { getAuthenticationUrl } from 'common/lib/oauth';
 import { snapshotSchema } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { z } from 'zod';
+import { validateAccessToken } from 'cli/lib/api';
 import { lock, unlock } from 'cli/lib/utils';
 import { LoggerError } from 'cli/logger';
 
@@ -126,6 +127,8 @@ export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken
 		if ( ! authToken?.accessToken ) {
 			throw new Error( 'Authentication required' );
 		}
+
+		await validateAccessToken( authToken.accessToken );
 
 		return authToken;
 	} catch ( error ) {

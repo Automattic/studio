@@ -11,3 +11,11 @@ export const supportedTerminalNames: Record< SupportedTerminal, string > = {
 	// translators: "Ghostty" is the brand name for a terminal app and does not need to be translated
 	ghostty: __( 'Ghostty' ),
 };
+
+export function getTerminalName( terminal: SupportedTerminal | undefined ): string {
+	if ( ! terminal ) {
+		return '';
+	}
+
+	return supportedTerminalNames[ terminal ];
+}

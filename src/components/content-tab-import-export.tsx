@@ -16,8 +16,8 @@ import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
-import { getDocsLink } from 'src/lib/get-docs-link';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getLocalizedLink } from 'src/lib/get-localized-link';
 
 interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
@@ -122,12 +122,12 @@ const InitialImportButton = ( {
 		<Tooltip className="w-full" text={ tooltipText } disabled={ ! disabled }>
 			<Button
 				variant="icon"
-				className={ `w-full 
-				${
+				className={ cx(
+					'w-full',
 					disabled
 						? '[&>div.border-zinc-300]:border-gray-400 cursor-not-allowed opacity-50'
 						: '[&>div.border-zinc-300]:hover:border-a8c-blueberry'
-				}` }
+				) }
 				onClick={ openFileSelector }
 				disabled={ disabled }
 			>
@@ -219,7 +219,9 @@ const ImportSite = ( {
 						button: (
 							<Button
 								variant="link"
-								onClick={ () => getIpcApi().openURL( getDocsLink( locale, 'importExport' ) ) }
+								onClick={ () =>
+									getIpcApi().openURL( getLocalizedLink( locale, 'docsImportExport' ) )
+								}
 							/>
 						),
 					}

@@ -27,7 +27,11 @@ import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ip
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric } from 'src/lib/bump-stats/lib';
-import { openCertificate as openCertificateDialog } from 'src/lib/certificate-manager';
+import {
+	openCertificate as openCertificateDialog,
+	isRootCATrusted,
+	trustRootCA,
+} from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
 import { isEmptyDir, pathExists, sanitizeFolderName } from 'src/lib/fs-utils';
 import { getImageData } from 'src/lib/get-image-data';
@@ -55,12 +59,13 @@ import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { executePreviewCliCommand } from 'src/modules/cli/lib/execute-preview-command';
+import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
+import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData, unlock as unlockUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
-import { SupportedEditor } from './modules/user-settings/lib/editor';
-import { SupportedTerminal } from './modules/user-settings/lib/terminal';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -106,13 +111,17 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	return mergeSiteDetailsWithRunningDetails( sites );
 }
 
-export function getInstalledApps(): InstalledApps {
+export function getInstalledAppsAndTerminals(): InstalledApps {
 	return {
 		vscode: isInstalled( 'vscode' ),
 		phpstorm: isInstalled( 'phpstorm' ),
 		webstorm: isInstalled( 'webstorm' ),
 		windsurf: isInstalled( 'windsurf' ),
 		cursor: isInstalled( 'cursor' ),
+		terminal: true, // Terminal.app is always available on macOS
+		iterm: isInstalled( 'iterm' ),
+		warp: isInstalled( 'warp' ),
+		ghostty: isInstalled( 'ghostty' ),
 	};
 }
 
@@ -785,24 +794,31 @@ export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snaps
 export async function getLastSeenVersion(
 	_event: IpcMainInvokeEvent
 ): Promise< string | undefined > {
+	// If we're running in E2E mode, return the app version
+	if ( process.env.E2E ) {
+		return app.getVersion();
+	}
 	const userData = await loadUserData();
 	return userData.lastSeenVersion;
 }
 
-export function openSiteURL(
+export async function openSiteURL(
 	event: IpcMainInvokeEvent,
 	id: string,
 	relativeURL = '',
 	{ autoLogin = true }: { autoLogin?: boolean } = {}
 ) {
 	const site = SiteServer.get( id );
-	if ( ! site ) {
-		throw new Error( 'Site not found.' );
+	if ( ! site?.server?.url ) {
+		await showMessageBox( event, {
+			type: 'error',
+			message: __( 'Failed to open link' ),
+			detail: __( 'Please ensure your site files have not been moved or deleted.' ),
+		} );
+		return;
 	}
-	if ( ! site.server?.url ) {
-		throw new Error( 'Site server URL not found.' );
-	}
-	const url = new URL( site.server.url + relativeURL );
+
+	const url = new URL( relativeURL, site.server.url );
 	if ( autoLogin ) {
 		url.searchParams.append( 'playground-auto-login', 'true' );
 	}
@@ -826,7 +842,6 @@ export function getAppGlobals(): AppGlobals {
 		arm64Translation: app.runningUnderARM64Translation,
 		pressableSyncEnabled: process.env.STUDIO_PRESSABLE_SYNC === 'true',
 		terminalWpCliEnabled: process.env.STUDIO_TERMINAL_WP_CLI === 'true',
-		preferredEditor: process.env.STUDIO_PREFERRED_EDITOR === 'true',
 	};
 }
 
@@ -1000,7 +1015,7 @@ export async function openTerminalAtPath(
 		initScriptSteps.push( `cd \\"${ escapedPath }\\"`, 'clear' );
 
 		const userData = await loadUserData();
-		const preferredTerminal = ( userData.preferredTerminal || 'terminal' ) as SupportedTerminal;
+		const preferredTerminal = userData.preferredTerminal || DEFAULT_TERMINAL;
 
 		if ( preferredTerminal === 'warp' ) {
 			return promiseExec( `open -a Warp "${ targetPath }"` );
@@ -1056,10 +1071,32 @@ END` );
 	}
 }
 
-export async function showMessageBox(
+export async function openAppAtPath(
 	event: IpcMainInvokeEvent,
-	options: Electron.MessageBoxOptions
-) {
+	editorKey: SupportedEditor,
+	filePath: string
+): Promise< void > {
+	const platform = process.platform;
+	const editor = supportedEditorConfig[ editorKey ];
+
+	if ( platform === 'darwin' ) {
+		return promiseExec( `open -b ${ editor.macOSBundleId } "${ filePath }"` );
+	}
+
+	if ( platform === 'win32' ) {
+		const editorPath = await winFindEditorPath( editorKey );
+		if ( ! editorPath ) {
+			// Fall back to using openURL if no editor path is found
+			return openURL( event, editor.url( filePath ) );
+		}
+
+		return promiseExec( `"${ editorPath }" "${ filePath }"` );
+	}
+
+	throw new Error( `Platform ${ platform } is not supported` );
+}
+
+export function showMessageBox( event: IpcMainInvokeEvent, options: Electron.MessageBoxOptions ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
 		return dialog.showMessageBox( parentWindow, options );
@@ -1241,7 +1278,30 @@ export function openCertificate( _event: IpcMainInvokeEvent ) {
 	return openCertificateDialog();
 }
 
-export function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
+export async function isCATrusted(): Promise< boolean > {
+	return isRootCATrusted();
+}
+
+export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< void > {
+	const platform = process.platform;
+	if ( platform === 'win32' ) {
+		try {
+			await trustRootCA();
+		} catch ( error ) {
+			await showErrorMessageBox( event, {
+				title: __( 'Certificate Trust Failed' ),
+				message: __(
+					'Studio was unable to trust the certificate automatically. You may need to trust it manually using certificate manager.'
+				),
+				showOpenLogs: true,
+			} );
+		}
+	} else {
+		await openCertificateDialog();
+	}
+}
+
+export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
 	if ( ! fs.existsSync( filePath ) ) {
 		throw new Error( `File not found: ${ filePath }` );
 	}
@@ -1293,7 +1353,7 @@ export async function saveUserTerminal(
 
 export async function getUserTerminal( _event: IpcMainInvokeEvent ): Promise< SupportedTerminal > {
 	const userData = await loadUserData();
-	return ( userData.preferredTerminal || DEFAULT_TERMINAL ) as SupportedTerminal;
+	return userData.preferredTerminal || DEFAULT_TERMINAL;
 }
 
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
@@ -1307,19 +1367,6 @@ export async function getAllCustomDomains(): Promise< string[] > {
 	return userData.sites
 		.map( ( site ) => site.customDomain )
 		.filter( ( domain ): domain is string => domain !== undefined );
-}
-
-export function getInstalledTerminals(): InstalledTerminals {
-	return {
-		terminal: true, // Terminal.app is always available on macOS
-		iterm: isInstalled( 'iterm' ),
-		warp: isInstalled( 'warp' ),
-		ghostty: isInstalled( 'ghostty' ),
-	};
-}
-
-export function getRandomUUID(): crypto.UUID {
-	return crypto.randomUUID();
 }
 
 export async function createSnapshot(

@@ -44,7 +44,6 @@ const api: IpcApi = {
 	updateSnapshot: ( siteFolder, hostname ) =>
 		ipcRendererInvoke( 'updateSnapshot', siteFolder, hostname ),
 	deleteSnapshot: ( hostname ) => ipcRendererInvoke( 'deleteSnapshot', hostname ),
-	getRandomUUID: () => ipcRendererInvoke( 'getRandomUUID' ),
 	getLastSeenVersion: () => ipcRendererInvoke( 'getLastSeenVersion' ),
 	saveLastSeenVersion: ( version ) => ipcRendererInvoke( 'saveLastSeenVersion', version ),
 	getSiteDetails: () => ipcRendererInvoke( 'getSiteDetails' ),
@@ -53,6 +52,8 @@ const api: IpcApi = {
 	openURL: ( url ) => ipcRendererSend( 'openURL', url ),
 	showOpenFolderDialog: ( title, defaultDialogPath ) =>
 		ipcRendererInvoke( 'showOpenFolderDialog', title, defaultDialogPath ),
+	isCATrusted: () => ipcRenderer.invoke( 'isCATrusted' ),
+	trustCertificate: () => ipcRenderer.invoke( 'trustCertificate' ),
 	showSaveAsDialog: ( options ) => ipcRendererInvoke( 'showSaveAsDialog', options ),
 	saveUserLocale: ( locale ) => ipcRendererInvoke( 'saveUserLocale', locale ),
 	getSentryUserId: () => ipcRendererInvoke( 'getSentryUserId' ),
@@ -70,12 +71,14 @@ const api: IpcApi = {
 	showItemInFolder: ( path ) => ipcRendererSend( 'showItemInFolder', path ),
 	getThemeDetails: ( id ) => ipcRendererInvoke( 'getThemeDetails', id ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
-	getInstalledApps: () => ipcRendererInvoke( 'getInstalledApps' ),
+	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
 	importSite: ( { id, backupFile } ) => ipcRendererInvoke( 'importSite', { id, backupFile } ),
 	executeWPCLiInline: ( options ) => ipcRendererInvoke( 'executeWPCLiInline', options ),
 	getOnboardingData: () => ipcRendererInvoke( 'getOnboardingData' ),
 	saveOnboarding: ( onboardingCompleted ) =>
 		ipcRendererInvoke( 'saveOnboarding', onboardingCompleted ),
+	openAppAtPath: ( editorKey, filePath ) =>
+		ipcRendererInvoke( 'openAppAtPath', editorKey, filePath ),
 	openTerminalAtPath: ( targetPath, extraParams = {} ) =>
 		ipcRendererInvoke( 'openTerminalAtPath', targetPath, extraParams ),
 	showMessageBox: ( options ) => ipcRendererInvoke( 'showMessageBox', options ),
@@ -112,7 +115,6 @@ const api: IpcApi = {
 	saveUserTerminal: ( preferredTerminal ) =>
 		ipcRendererInvoke( 'saveUserTerminal', preferredTerminal ),
 	getUserTerminal: () => ipcRendererInvoke( 'getUserTerminal' ),
-	getInstalledTerminals: () => ipcRendererInvoke( 'getInstalledTerminals' ),
 	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),
 	saveUserEditor: ( editor ) => ipcRendererInvoke( 'saveUserEditor', editor ),
 	handleNewSite: ( newSite ) => ipcRendererInvoke( 'handleNewSite', newSite ),

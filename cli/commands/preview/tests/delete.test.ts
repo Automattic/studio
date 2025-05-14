@@ -59,9 +59,9 @@ describe( 'Preview Delete Command', () => {
 		expect( deleteSnapshot ).toHaveBeenCalledWith( mockAtomicSiteId, mockAuthToken.accessToken );
 		expect( deleteSnapshotFromAppdata ).toHaveBeenCalledWith( mockSiteUrl );
 
-		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating...' ] );
+		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
-		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [ 'delete', 'Deleting...' ] );
+		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [ 'delete', 'Deleting…' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Deletion successful' ] );
 	} );
 

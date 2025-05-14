@@ -34,7 +34,9 @@ export function CreatePreviewButton( { onClick, selectedSite, user }: CreatePrev
 	const snapshotsByUser = useRootSelector( ( state ) =>
 		snapshotSelectors.selectSnapshotsByUser( state, user?.id ?? 0 )
 	);
-	const activeSnapshotCount = snapshotsByUser?.length ?? 0;
+
+	const activeSnapshotCount = snapshotUsage?.siteCount ?? snapshotsByUser?.length ?? 0;
+
 	const isLimitUsed = activeSnapshotCount >= snapshotQuota;
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const isOffline = useOffline();

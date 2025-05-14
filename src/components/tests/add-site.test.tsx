@@ -6,6 +6,10 @@ import AddSite from 'src/components/add-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 
+jest.mock( 'src/stores/certificate-trust-api', () => ( {
+	useCheckCertificateTrustQuery: jest.fn().mockReturnValue( { data: true } ),
+} ) );
+
 jest.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
 } ) );
@@ -45,6 +49,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
 	default: jest.fn(),
 	getIpcApi: () => ( {
+		isCATrusted: jest.fn( () => Promise.resolve( true ) ),
 		showOpenFolderDialog: mockShowOpenFolderDialog,
 		generateProposedSitePath: mockGenerateProposedSitePath,
 		getAllCustomDomains: mockGetAllCustomDomains,
@@ -411,7 +416,9 @@ describe( 'AddSite', () => {
 		await user.hover( wpVersionSelect );
 
 		expect(
-			screen.getByText( 'Changing WordPress version requires an internet connection.' )
+			screen.getByText(
+				'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
+			)
 		).toBeInTheDocument();
 	} );
 
@@ -428,7 +435,9 @@ describe( 'AddSite', () => {
 		await user.hover( wpVersionSelect );
 
 		expect(
-			screen.queryByText( 'Changing WordPress version requires an internet connection.' )
+			screen.queryByText(
+				'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
+			)
 		).not.toBeInTheDocument();
 	} );
 } );

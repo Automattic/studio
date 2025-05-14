@@ -36,7 +36,7 @@ describe( 'SiteServer', () => {
 				path: 'test-path',
 				port: 1234,
 				adminPassword: 'test-password',
-				phpVersion: '8.0',
+				phpVersion: '8.3',
 				running: false,
 				themeDetails: undefined,
 			} );

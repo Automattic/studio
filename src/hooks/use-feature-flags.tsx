@@ -16,13 +16,11 @@ const featureFlagsSchema = z
 
 export interface FeatureFlagsContextType {
 	terminalWpCliEnabled: boolean;
-	preferredEditor: boolean;
 	pressableSyncEnabled: boolean;
 }
 
 export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( {
 	terminalWpCliEnabled: false,
-	preferredEditor: false,
 	pressableSyncEnabled: false,
 } );
 
@@ -32,11 +30,9 @@ interface FeatureFlagsProviderProps {
 
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
 	const terminalWpCliEnabledFromGlobals = getAppGlobals().terminalWpCliEnabled;
-	const preferredEditorFromGlobals = getAppGlobals().preferredEditor;
 	const pressableSyncEnabledFromGlobals = getAppGlobals().pressableSyncEnabled;
 	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
 		terminalWpCliEnabled: terminalWpCliEnabledFromGlobals,
-		preferredEditor: preferredEditorFromGlobals,
 		pressableSyncEnabled: pressableSyncEnabledFromGlobals,
 	} );
 	const { isAuthenticated, client } = useAuth();
@@ -59,7 +55,6 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 				setFeatureFlags( {
 					terminalWpCliEnabled:
 						Boolean( flags.terminal_wp_cli_enabled ) || terminalWpCliEnabledFromGlobals,
-					preferredEditor: Boolean( flags.preferred_editor ) || preferredEditorFromGlobals,
 					pressableSyncEnabled:
 						Boolean( flags.pressable_sync_enabled ) || pressableSyncEnabledFromGlobals,
 				} );
@@ -76,7 +71,6 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 		isAuthenticated,
 		client,
 		terminalWpCliEnabledFromGlobals,
-		preferredEditorFromGlobals,
 		pressableSyncEnabledFromGlobals,
 	] );
 

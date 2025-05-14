@@ -2,8 +2,10 @@ import interpolateComponents from '@automattic/interpolate-components';
 import { Guide } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { ReactNode } from 'react';
+import { useI18nData } from 'src/hooks/use-i18n-data';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getLocalizedLink } from 'src/lib/get-localized-link';
 import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
 import customDomainIllustration from 'src/modules/whats-new/assets/custom-domains-illustration.svg';
 import previewSitesIllustration from 'src/modules/whats-new/assets/preview-sites-illustration.svg';
@@ -52,6 +54,7 @@ const PageContent = ( {
 );
 
 export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProps ) {
+	const { locale } = useI18nData();
 	const whatsNewPages: WhatsNewPage[] = [
 		{
 			image: cliIllustration,
@@ -68,7 +71,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 					code: <code />,
 				},
 			} ),
-			learnMoreUrl: 'https://developer.wordpress.com/docs/developer-tools/studio/cli/',
+			learnMoreUrl: getLocalizedLink( locale, 'docsCli' ),
 		},
 		{
 			image: customDomainIllustration,
@@ -76,7 +79,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			description: __(
 				'Easily identify your local Studio sites with custom domain names. Personalize and organize your workflow!'
 			),
-			learnMoreUrl: 'https://wordpress.com/blog/2025/03/31/studio-custom-domains-https/',
+			learnMoreUrl: getLocalizedLink( locale, 'blogCustomDomainsHttps' ),
 		},
 		{
 			image: versionSwitchIllustration,
@@ -84,7 +87,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			description: __(
 				'Select your preferred WordPress and PHP versions for existing sites or when creating a new one.'
 			),
-			learnMoreUrl: 'https://wordpress.com/blog/2025/03/17/studio-wordpress-php-versions/',
+			learnMoreUrl: getLocalizedLink( locale, 'blogPhpVersions' ),
 		},
 		{
 			image: previewSitesIllustration,
@@ -92,7 +95,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			description: __(
 				'Quickly generate a publicly accessible URL that you can share with clients and colleagues.'
 			),
-			learnMoreUrl: 'https://wordpress.com/blog/2025/02/24/studio-preview-sites/',
+			learnMoreUrl: getLocalizedLink( locale, 'blogPreviewSites' ),
 		},
 	];
 

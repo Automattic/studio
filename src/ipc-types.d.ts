@@ -53,9 +53,6 @@ type InstalledApps = {
 	webstorm: boolean;
 	windsurf: boolean;
 	cursor: boolean;
-};
-
-type InstalledTerminals = {
 	terminal: boolean;
 	iterm: boolean;
 	warp: boolean;
@@ -94,7 +91,6 @@ interface AppGlobals {
 	arm64Translation: boolean;
 	pressableSyncEnabled: boolean;
 	terminalWpCliEnabled: boolean;
-	preferredEditor: boolean;
 }
 
 // Our IPC objects will be attached to the `window` global

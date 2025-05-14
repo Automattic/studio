@@ -1,13 +1,13 @@
 import { Icon } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { I18n, sprintf } from '@wordpress/i18n';
-import { cloudUpload, cloudDownload } from '@wordpress/icons';
+import { cloudUpload, cloudDownload, info } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
-import { Badge } from 'src/components/badge';
 import Button from 'src/components/button';
 import { OpenSitesSyncSelector } from 'src/components/content-tab-sync';
+import { EnvironmentBadge } from 'src/components/environment-badge';
 import { CircleRedCrossIcon } from 'src/components/icons/circle-red-cross';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
@@ -17,6 +17,7 @@ import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { ImportProgressState, useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
@@ -27,8 +28,8 @@ import {
 	useSyncStatesProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
 import { cx } from 'src/lib/cx';
-import { getDocsLink } from 'src/lib/get-docs-link';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getLocalizedLink } from 'src/lib/get-localized-link';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 interface ConnectedSiteSection {
@@ -233,6 +234,7 @@ const SyncConnectedSitesList = ( {
 	const { clearPullState, getPullState, getPushState, clearPushState } = useSyncSites();
 	const { importState } = useImportExport();
 	const { isKeyPulling, isKeyPushing, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
+	const { pressableSyncEnabled } = useFeatureFlags();
 
 	return (
 		<div className="grid grid-cols-[max-content_1fr_max-content]">
@@ -256,16 +258,29 @@ const SyncConnectedSitesList = ( {
 				return (
 					<div
 						className={ `col-span-3 grid min-h-14 px-8 gap-4 justify-items-start items-center border-b border-a8c-gray-0 ${
-							connectedSite.isPressable ? 'grid-cols-[1fr_auto]' : 'grid-cols-subgrid'
+							connectedSite.isPressable && ! connectedSite.environmentType
+								? 'grid-cols-[1fr_auto]'
+								: 'grid-cols-subgrid'
 						}` }
 						key={ connectedSite.id }
 					>
+						{ connectedSite.isPressable && connectedSite.environmentType && (
+							<div className="shrink-0">
+								{ connectedSite.environmentType === 'staging' && (
+									<EnvironmentBadge type="staging" />
+								) }
+								{ connectedSite.environmentType === 'production' && (
+									<EnvironmentBadge type="production" />
+								) }
+							</div>
+						) }
+
 						{ ! connectedSite.isPressable && (
 							<div className="shrink-0">
 								{ connectedSite.isStaging ? (
-									<Badge>{ __( 'Staging' ) }</Badge>
+									<EnvironmentBadge type="staging" />
 								) : (
-									<Badge className="bg-a8c-green-5 text-a8c-green-80">{ __( 'Production' ) }</Badge>
+									<EnvironmentBadge type="production" />
 								) }
 							</div>
 						) }
@@ -277,7 +292,8 @@ const SyncConnectedSitesList = ( {
 								getIpcApi().openURL( connectedSite.url );
 							} }
 						>
-							<span className="truncate">{ connectedSite.url }</span> <ArrowIcon />
+							<span className="truncate">{ connectedSite.url.replace( /^https?:\/\//, '' ) }</span>{ ' ' }
+							<ArrowIcon />
 						</Button>
 
 						<div className="flex shrink-0 justify-self-end">
@@ -311,10 +327,21 @@ const SyncConnectedSitesList = ( {
 								</SyncPullPushClear>
 							) }
 							{ pushState?.status && isPushing && (
-								<div className="flex flex-col gap-2 min-w-44">
-									<div className="a8c-body-small">{ pushState.status.message }</div>
-									<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
-								</div>
+								<Tooltip
+									text={ __(
+										'Push is in progress. We will send you an email when it is completed.'
+									) }
+									placement="top-start"
+									disabled={ ! pressableSyncEnabled }
+								>
+									<div className="flex flex-col gap-2 min-w-44">
+										<div className="a8c-body-small flex items-center gap-0.5">
+											{ pressableSyncEnabled && <Icon icon={ info } size={ 16 } /> }
+											{ pushState.status.message }
+										</div>
+										<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
+									</div>
+								</Tooltip>
 							) }
 
 							{ pushState?.status && hasPushFinished && (
@@ -449,7 +476,7 @@ const SyncConnectedSiteSection = ( {
 								button: (
 									<Button
 										variant="link"
-										onClick={ () => getIpcApi().openURL( getDocsLink( locale, 'sync' ) ) }
+										onClick={ () => getIpcApi().openURL( getLocalizedLink( locale, 'docsSync' ) ) }
 									/>
 								),
 							}

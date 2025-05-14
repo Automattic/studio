@@ -5,51 +5,57 @@ import { useI18nData } from 'src/hooks/use-i18n-data';
 import { EditorPicker } from 'src/modules/user-settings/components/editor-picker';
 import { LanguagePicker } from 'src/modules/user-settings/components/language-picker';
 import { TerminalPicker } from 'src/modules/user-settings/components/terminal-picker';
-import { useEditorData } from 'src/modules/user-settings/hooks/use-editor-data';
-import { useTerminalData } from 'src/modules/user-settings/hooks/use-terminal-data';
+import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import {
+	useGetUserEditorQuery,
+	useGetUserTerminalQuery,
+	useSaveUserEditorMutation,
+	useSaveUserTerminalMutation,
+} from 'src/stores/installed-apps-api';
 
 export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { __ } = useI18n();
 	const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
 	const [ locale, setLocale ] = useState( savedLocale );
 
-	const { editor, handleEditorChange, saveEditorPreference, resetEditor, hasEditorChanges } =
-		useEditorData();
+	const { data: editor } = useGetUserEditorQuery();
+	const { data: terminal = 'terminal' } = useGetUserTerminalQuery();
+	const [ saveEditor ] = useSaveUserEditorMutation();
+	const [ saveTerminal ] = useSaveUserTerminalMutation();
 
-	const {
-		terminal,
-		handleTerminalChange,
-		saveTerminalPreference,
-		resetTerminal,
-		hasTerminalChanges,
-		availableTerminals,
-	} = useTerminalData();
+	const [ currentEditor, setCurrentEditor ] = useState< SupportedEditor | undefined >(
+		editor ?? undefined
+	);
+	const [ currentTerminal, setCurrentTerminal ] = useState( terminal );
 
 	const savePreferences = async () => {
-		setSavedLocale( locale );
-		await saveEditorPreference();
-		await saveTerminalPreference();
+		await setSavedLocale( locale );
+		if ( currentEditor ) {
+			await saveEditor( currentEditor );
+		}
+		await saveTerminal( currentTerminal );
 		onClose();
 	};
 
 	const cancelChanges = () => {
 		setLocale( savedLocale );
-		resetEditor();
-		resetTerminal();
+		setCurrentEditor( editor ?? undefined );
+		setCurrentTerminal( terminal );
 		onClose();
 	};
 
-	const hasChanges = locale !== savedLocale || hasEditorChanges || hasTerminalChanges;
+	const hasChanges =
+		locale !== savedLocale || currentEditor !== editor || currentTerminal !== terminal;
 
 	return (
 		<>
 			<LanguagePicker value={ locale } onChange={ setLocale } />
-			<EditorPicker value={ editor } onChange={ handleEditorChange } />
-			<TerminalPicker
-				value={ terminal }
-				onChange={ handleTerminalChange }
-				availableTerminals={ availableTerminals }
+			<EditorPicker
+				value={ currentEditor }
+				onChange={ setCurrentEditor }
+				disabled={ editor === undefined }
 			/>
+			<TerminalPicker value={ currentTerminal } onChange={ setCurrentTerminal } />
 			<div className="mt-auto pt-2 flex justify-end gap-3">
 				<Button variant="tertiary" onClick={ cancelChanges }>
 					{ __( 'Cancel' ) }

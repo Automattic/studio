@@ -21,6 +21,10 @@ jest.mock( 'crypto', () => ( {
 	randomUUID: jest.fn().mockReturnValue( 'mock-uuid-1234' ),
 } ) );
 
+jest.mock( 'cli/lib/api', () => ( {
+	validateAccessToken: jest.fn().mockResolvedValue( undefined ),
+} ) );
+
 describe( 'Appdata Module', () => {
 	const mockHomeDir = '/mock/home';
 	const mockSiteFolderName = 'folder';

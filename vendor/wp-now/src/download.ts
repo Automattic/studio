@@ -156,29 +156,36 @@ export async function downloadWordPress(
 	{ overwrite }: { overwrite: boolean } = { overwrite: false }
 ) {
 	const finalFolder = getWordPressVersionPath( wordPressVersion );
-
-	// Create a unique temporary directory for this download
 	const tempDir = await fs.mkdtemp( path.join( os.tmpdir(), 'wordpress-download-' ) );
-	console.log( 'Temporary directory path:', tempDir );
 
-	const { downloaded, statusCode } = await downloadFileAndUnzip( {
-		url: getWordPressVersionUrl( wordPressVersion ),
-		destinationFolder: tempDir,
-		checkFinalPath: finalFolder,
-		itemName: `WordPress ${ wordPressVersion }`,
-		overwrite,
-	} );
-
-	if ( downloaded ) {
-		const wpSourcePath = path.join( tempDir, 'wordpress' );
-		await fs.ensureDir( path.dirname( finalFolder ) );
-		await fs.move( wpSourcePath, finalFolder, {
-			overwrite: true,
+	try {
+		const { downloaded, statusCode } = await downloadFileAndUnzip( {
+			url: getWordPressVersionUrl( wordPressVersion ),
+			destinationFolder: tempDir,
+			checkFinalPath: finalFolder,
+			itemName: `WordPress ${ wordPressVersion }`,
+			overwrite,
 		} );
-	} else if ( 404 === statusCode ) {
-		output?.log(
-			`WordPress ${ wordPressVersion } not found. Check https://wordpress.org/download/releases/ for available versions.`
-		);
+
+		if ( downloaded ) {
+			const wpSourcePath = path.join( tempDir, 'wordpress' );
+			await fs.ensureDir( path.dirname( finalFolder ) );
+			await fs.move( wpSourcePath, finalFolder, {
+				overwrite: true,
+			} );
+		} else if ( 404 === statusCode ) {
+			output?.log(
+				`WordPress ${ wordPressVersion } not found. Check https://wordpress.org/download/releases/ for available versions.`
+			);
+		}
+	} finally {
+		if ( tempDir && fs.existsSync( tempDir ) ) {
+			try {
+				await fs.remove( tempDir );
+			} catch ( cleanupErr ) {
+				output?.error( 'Error cleaning up temporary directory:', cleanupErr );
+			}
+		}
 	}
 }
 

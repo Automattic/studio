@@ -173,8 +173,20 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 		try {
 			const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
 
-			const fields =
-				'name,ID,URL,plan,capabilities,is_wpcom_atomic,options,jetpack,is_deleted,is_a8c,hosting_provider_guess,environment_type';
+			const fields = [
+				'name',
+				'ID',
+				'URL',
+				'plan',
+				'capabilities',
+				'is_wpcom_atomic',
+				'options',
+				'jetpack',
+				'is_deleted',
+				'is_a8c',
+				'hosting_provider_guess',
+				'environment_type',
+			].join( ',' );
 
 			const response = await client.req.get(
 				{

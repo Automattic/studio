@@ -59,7 +59,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 	const whatsNewPages: WhatsNewPage[] = [
 		{
 			image: pressableSyncIllustration,
-			title: __( 'Sync your changes to WP.com and Pressable' ),
+			title: __( 'Sync your changes to your favorite hosting' ),
 			description: __(
 				'Pull and push your Studio sites to WordPress.com and Pressable with a single click. No more manual uploads or FTP transfers!'
 			),

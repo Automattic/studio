@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { CLIENT_ID } from 'common/constants';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { loadUserData, saveUserData } from 'src/storage/user-data';
+import { loadUserData, withAppdataLock } from 'src/storage/user-data';
 
 const authTokenSchema = z.object( {
 	accessToken: z.string(),
@@ -32,28 +32,18 @@ async function getToken(): Promise< StoredToken | null > {
 	}
 }
 
-async function storeToken( token: StoredToken ) {
-	try {
-		const userData = await loadUserData( true );
-		await saveUserData( { ...userData, authToken: token }, true );
-	} catch ( error ) {
-		console.error( 'Failed to store token', error );
-	}
-}
+const storeToken = withAppdataLock( ( userData, token: StoredToken ) => {
+	return { ...userData, authToken: token };
+} );
 
 export function getSignUpUrl() {
 	const authUrl = encodeURIComponent( getAuthenticationUrl() );
 	return `https://wordpress.com/log-in/link?redirect_to=${ authUrl }&client_id=${ CLIENT_ID }`;
 }
 
-export async function clearAuthenticationToken() {
-	try {
-		const userData = await loadUserData( true );
-		await saveUserData( { ...userData, authToken: undefined }, true );
-	} catch ( error ) {
-		return;
-	}
-}
+export const clearAuthenticationToken = withAppdataLock( ( userData ) => {
+	return { ...userData, authToken: undefined };
+} );
 
 export async function getAuthenticationToken(): Promise< StoredToken | null > {
 	// Check if tokens already exist and are valid

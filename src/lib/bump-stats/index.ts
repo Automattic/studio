@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/electron/main';
 import { isSameDay, isSameMonth, isSameWeek } from 'date-fns';
 import fetch from 'node-fetch';
 import { AggregateInterval, StatsGroup, StatsMetric } from 'common/types/stats';
-import { loadUserData, saveUserData } from 'src/storage/user-data';
+import { loadUserData, withAppdataLock } from 'src/storage/user-data';
 
 // Bumps a stat if it hasn't been bumped within the current aggregate interval.
 // This allows us to approximate a 1-count-per-user stat without recording which
@@ -75,10 +75,9 @@ async function getLastBump( group: string, stat: string ): Promise< number | nul
 }
 
 // Store this moment as the last time we bumped the state, in UTC time.
-async function updateLastBump( group: string, stat: string ) {
-	const data = await loadUserData( true );
+const updateLastBump = withAppdataLock( ( data, group: string, stat: string ) => {
 	data.lastBumpStats ??= {};
 	data.lastBumpStats[ group ] ??= {};
 	data.lastBumpStats[ group ][ stat ] = Date.now();
-	await saveUserData( data, true );
-}
+	return data;
+} );

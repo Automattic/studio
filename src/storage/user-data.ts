@@ -37,8 +37,10 @@ export function unlock() {
 	} );
 }
 
+type MaybePromise< T > = T | Promise< T >;
+
 export function withAppdataLock< Args extends unknown[] >(
-	fn: ( userData: UserData, ...args: Args ) => Promise< UserData >
+	fn: ( userData: UserData, ...args: Args ) => MaybePromise< UserData >
 ) {
 	return async ( ...args: Args ) => {
 		await lock( { wait: 1000, stale: 1000 } );
@@ -102,15 +104,11 @@ function legacyPopulateSnapshotUserIds( data: UserData ): void {
 	}
 }
 
-export async function loadUserData( getLock = false ): Promise< UserData > {
+export async function loadUserData(): Promise< UserData > {
 	migrateUserDataOldName();
 	const filePath = getUserDataFilePath();
 
 	try {
-		if ( getLock ) {
-			await lock( { wait: 1000, stale: 1000 } );
-		}
-
 		const asString = await fs.promises.readFile( filePath, 'utf-8' );
 		try {
 			const parsed = JSON.parse( asString );
@@ -146,7 +144,7 @@ export async function loadUserData( getLock = false ): Promise< UserData > {
 	}
 }
 
-export async function saveUserData( data: UserData, hasLock = false ): Promise< void > {
+export async function saveUserData( data: UserData ): Promise< void > {
 	const filePath = getUserDataFilePath();
 
 	const asString = JSON.stringify( toDiskFormat( data ), null, 2 ) + '\n';
@@ -159,10 +157,6 @@ export async function saveUserData( data: UserData, hasLock = false ): Promise< 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		if ( ( error as any )?.code === 'EXDEV' ) {
 			await fs.promises.writeFile( filePath, asString, 'utf-8' );
-		}
-	} finally {
-		if ( hasLock ) {
-			await unlock();
 		}
 	}
 }

@@ -66,9 +66,6 @@ describe( 'ContentTabSync', () => {
 			setIsSyncSitesSelectorOpen: jest.fn(),
 			closeSyncSitesSelector: jest.fn(),
 		} );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			pressableSyncEnabled: false,
-		} );
 	} );
 
 	const renderWithProvider = ( children: React.ReactElement ) => {
@@ -116,7 +113,7 @@ describe( 'ContentTabSync', () => {
 		} );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		expect( screen.getByText( 'Connect a WordPress.com site' ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'sync-sites-modal-selector' ) ).toBeInTheDocument();
 	} );
 
 	it( 'displays the list of connected sites', async () => {
@@ -273,7 +270,7 @@ describe( 'ContentTabSync', () => {
 		expect( connectButton ).toBeInTheDocument();
 	} );
 
-	it( 'does not display ConnectButton at the bottom when there are connected sites', () => {
+	it( 'displays the ConnectButton at the bottom when there are multiple connected sites', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site',
@@ -300,45 +297,6 @@ describe( 'ContentTabSync', () => {
 			isSyncSitesSelectorOpen: false,
 			setIsSyncSitesSelectorOpen: jest.fn(),
 			closeSyncSitesSelector: jest.fn(),
-		} );
-
-		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-
-		const connectButton = screen.queryByRole( 'button', { name: /Connect site/i } );
-		expect( connectButton ).not.toBeInTheDocument();
-	} );
-
-	it( 'displays ConnectButton at the bottom when there are connected sites and pressableSyncEnabled is true', () => {
-		const fakeSyncSite = {
-			id: 6,
-			name: 'My simple business site',
-			url: 'https://developer.wordpress.com/studio/',
-			isStaging: false,
-			stagingSiteIds: [],
-			syncSupport: 'already-connected',
-		};
-
-		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			connectedSites: [ fakeSyncSite ],
-			syncSites: [ fakeSyncSite ],
-			pullSite: jest.fn(),
-			isAnySitePulling: false,
-			isAnySitePushing: false,
-			getPullState: jest.fn(),
-			getPushState: jest.fn().mockReturnValue( undefined ),
-			refetchSites: jest.fn(),
-			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
-			isSiteIdPulling: jest.fn(),
-			isSiteIdPushing: jest.fn(),
-			clearTimeout: jest.fn(),
-			isSyncSitesSelectorOpen: false,
-			setIsSyncSitesSelectorOpen: jest.fn(),
-			closeSyncSitesSelector: jest.fn(),
-		} );
-
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			pressableSyncEnabled: true,
 		} );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );

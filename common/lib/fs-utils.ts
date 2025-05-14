@@ -51,6 +51,8 @@ export function isWordPressDirectory( projectPath: string ): boolean {
 
 // Compare paths in a case-insensitive manner. `fs.Stats.dev` signifies the device ID, and
 // `fs.Stats.ino` signifies the inode number that uniquely identifies the file or directory.
+// The benefit of this approach over converting the entire path to lowercase is that it respects
+// the current file system's case sensitivity.
 export function arePathsEqual( path1: string, path2: string ) {
 	try {
 		const stats1 = fs.statSync( path.resolve( path1 ) );

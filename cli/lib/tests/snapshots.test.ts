@@ -2,6 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { readFile, writeFile } from 'atomically';
+import { arePathsEqual } from 'common/lib/fs-utils';
 import {
 	deleteSnapshotFromAppdata,
 	getSnapshotsFromAppdata,
@@ -14,6 +15,7 @@ jest.mock( 'fs' );
 jest.mock( 'os' );
 jest.mock( 'path', () => ( {
 	join: jest.fn().mockImplementation( ( ...args ) => args.join( '/' ) ),
+	resolve: jest.fn().mockImplementation( ( path ) => path ),
 	basename: jest.fn(),
 } ) );
 jest.mock( 'atomically', () => ( {
@@ -28,6 +30,7 @@ jest.mock( 'lockfile', () => ( {
 	unlock: jest.fn().mockImplementation( ( path, callback ) => callback( null ) ),
 } ) );
 
+jest.mock( 'common/lib/fs-utils' );
 jest.mock( 'cli/lib/api', () => ( {
 	validateAccessToken: jest.fn().mockResolvedValue( undefined ),
 } ) );
@@ -46,8 +49,8 @@ describe( 'Snapshots Module', () => {
 		( path.basename as jest.Mock ).mockReturnValue( mockSiteFolderName );
 		jest.spyOn( Date, 'now' ).mockReturnValue( 1234567890 );
 
-		// Default mock implementation for fs functions
 		( fs.existsSync as jest.Mock ).mockReturnValue( true );
+		( arePathsEqual as jest.Mock ).mockImplementation( ( path1, path2 ) => path1 === path2 );
 		( readFile as jest.Mock ).mockResolvedValue( '{}' );
 		( writeFile as jest.Mock ).mockResolvedValue( undefined );
 	} );

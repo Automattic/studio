@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import { existsSync } from 'fs-extra';
 
 /**
  * Calculates the total size of a directory by recursively traversing its contents.
@@ -44,8 +43,23 @@ export function calculateDirectorySize( directoryPath: string ): Promise< number
 
 export function isWordPressDirectory( projectPath: string ): boolean {
 	return (
-		existsSync( path.join( projectPath, 'wp-content' ) ) &&
-		existsSync( path.join( projectPath, 'wp-includes' ) ) &&
-		existsSync( path.join( projectPath, 'wp-load.php' ) )
+		fs.existsSync( path.join( projectPath, 'wp-content' ) ) &&
+		fs.existsSync( path.join( projectPath, 'wp-includes' ) ) &&
+		fs.existsSync( path.join( projectPath, 'wp-load.php' ) )
 	);
+}
+
+// Compare paths in a case-insensitive manner. `fs.Stats.dev` signifies the device ID, and
+// `fs.Stats.ino` signifies the inode number that uniquely identifies the file or directory.
+// The benefit of this approach over converting the entire path to lowercase is that it respects
+// the current file system's case sensitivity.
+export function arePathsEqual( path1: string, path2: string ) {
+	try {
+		const stats1 = fs.statSync( path.resolve( path1 ) );
+		const stats2 = fs.statSync( path.resolve( path2 ) );
+
+		return stats1.ino === stats2.ino && stats1.dev === stats2.dev;
+	} catch ( error ) {
+		return false;
+	}
 }

@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 import { __, sprintf } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
+import { arePathsEqual } from 'common/lib/fs-utils';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { snapshotSchema } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
@@ -131,19 +132,6 @@ export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken
 				authUrl
 			)
 		);
-	}
-}
-
-// Compare paths in a case-insensitive manner. `fs.Stats.dev` signifies the device ID, and
-// `fs.Stats.ino` signifies the inode number that uniquely identifies the file or directory.
-function arePathsEqual( path1: string, path2: string ) {
-	try {
-		const stats1 = fs.statSync( path.resolve( path1 ) );
-		const stats2 = fs.statSync( path.resolve( path2 ) );
-
-		return stats1.ino === stats2.ino && stats1.dev === stats2.dev;
-	} catch ( error ) {
-		return false;
 	}
 }
 

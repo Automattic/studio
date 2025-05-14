@@ -61,7 +61,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			image: pressableSyncIllustration,
 			title: __( 'Sync your changes to your favorite hosting' ),
 			description: __(
-				'Pull and push your Studio sites to WordPress.com and Pressable with a single click. No more manual uploads or FTP transfers!'
+				'Pull and push your Studio sites to WordPress.com or Pressable with a single click. No more manual uploads or FTP transfers!'
 			),
 			learnMoreUrl: getLocalizedLink( locale, 'docsSync' ),
 		},

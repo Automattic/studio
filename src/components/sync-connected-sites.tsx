@@ -270,6 +270,9 @@ const SyncConnectedSitesList = ( {
 								{ connectedSite.environmentType === 'production' && (
 									<EnvironmentBadge type="production" />
 								) }
+								{ connectedSite.environmentType === 'sandbox' && (
+									<EnvironmentBadge type="sandbox" />
+								) }
 							</div>
 						) }
 

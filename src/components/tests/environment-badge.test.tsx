@@ -14,6 +14,12 @@ describe( 'EnvironmentBadge', () => {
 		expect( badge ).toBeInTheDocument();
 	} );
 
+	it( 'renders the Sandbox badge with correct label', () => {
+		render( <EnvironmentBadge type="sandbox" /> );
+		const badge = screen.getByText( 'Sandbox' );
+		expect( badge ).toBeInTheDocument();
+	} );
+
 	it( 'applies specific classes for the Production badge', () => {
 		const { container } = render( <EnvironmentBadge type="production" /> );
 
@@ -32,6 +38,16 @@ describe( 'EnvironmentBadge', () => {
 
 		expect( badgeElement.className ).toContain( 'text-a8c-yellow-80' );
 		expect( badgeElement.className ).toContain( 'bg-a8c-yellow-10' );
+	} );
+
+	it( 'applies specific classes for the Sandbox badge', () => {
+		const { container } = render( <EnvironmentBadge type="sandbox" /> );
+
+		const badgeElement = container.firstChild as HTMLElement;
+		expect( badgeElement ).toBeInTheDocument();
+
+		expect( badgeElement.className ).toContain( 'text-sandbox-text' );
+		expect( badgeElement.className ).toContain( 'bg-sandbox-bg' );
 	} );
 
 	it( 'applies "selected" styling when selected prop is true', () => {

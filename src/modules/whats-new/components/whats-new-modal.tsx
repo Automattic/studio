@@ -8,6 +8,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
 import customDomainIllustration from 'src/modules/whats-new/assets/custom-domains-illustration.svg';
+import pressableSyncIllustration from 'src/modules/whats-new/assets/pressable-sync-illustration.svg';
 import previewSitesIllustration from 'src/modules/whats-new/assets/preview-sites-illustration.svg';
 import versionSwitchIllustration from 'src/modules/whats-new/assets/version-switch-illustration.svg';
 import 'src/index.css';
@@ -57,12 +58,12 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 	const { locale } = useI18nData();
 	const whatsNewPages: WhatsNewPage[] = [
 		{
-			image: cliIllustration,
-			title: __( 'Sync to WordPress.com and Pressable' ),
+			image: pressableSyncIllustration,
+			title: __( 'Sync your changes to WP.com and Pressable' ),
 			description: __(
-				'Sync your local Studio sites to WordPress.com and Pressable with a single click. No more manual uploads or FTP transfers!'
+				'Pull and push your Studio sites to WordPress.com and Pressable with a single click. No more manual uploads or FTP transfers!'
 			),
-			learnMoreUrl: 'https://developer.wordpress.com/docs/developer-tools/studio/sync/',
+			learnMoreUrl: getLocalizedLink( locale, 'docsSync' ),
 		},
 		{
 			image: cliIllustration,

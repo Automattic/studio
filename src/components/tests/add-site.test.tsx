@@ -416,7 +416,9 @@ describe( 'AddSite', () => {
 		await user.hover( wpVersionSelect );
 
 		expect(
-			screen.getByText( 'Changing WordPress version requires an internet connection.' )
+			screen.getByText(
+				'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
+			)
 		).toBeInTheDocument();
 	} );
 
@@ -433,7 +435,9 @@ describe( 'AddSite', () => {
 		await user.hover( wpVersionSelect );
 
 		expect(
-			screen.queryByText( 'Changing WordPress version requires an internet connection.' )
+			screen.queryByText(
+				'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
+			)
 		).not.toBeInTheDocument();
 	} );
 } );

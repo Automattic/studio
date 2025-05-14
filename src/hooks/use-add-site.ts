@@ -43,8 +43,11 @@ export function useAddSite() {
 	}, [] );
 
 	const siteWithPathAlreadyExists = useCallback(
-		( path: string ) => {
-			return sites.some( ( site ) => site.path.toLowerCase() === path.toLowerCase() );
+		async ( path: string ) => {
+			const results = await Promise.all(
+				sites.map( ( site ) => getIpcApi().comparePaths( site.path, path ) )
+			);
+			return results.some( Boolean );
 		},
 		[ sites ]
 	);
@@ -72,7 +75,12 @@ export function useAddSite() {
 				path === proposedSitePath.substring( 0, proposedSitePath.lastIndexOf( '/' ) );
 
 			setSitePath( pathResetToDefaultSitePath ? '' : path );
-			if ( siteWithPathAlreadyExists( path ) ) {
+			if ( await siteWithPathAlreadyExists( path ) ) {
+				setError(
+					__(
+						'The directory is already associated with another Studio site. Please choose a different custom local path.'
+					)
+				);
 				return;
 			}
 			if ( ! isEmpty && ! isWordPress && ! pathResetToDefaultSitePath ) {
@@ -173,7 +181,12 @@ export function useAddSite() {
 			} = await getIpcApi().generateProposedSitePath( name );
 			setProposedSitePath( proposedPath );
 
-			if ( siteWithPathAlreadyExists( proposedPath ) ) {
+			if ( await siteWithPathAlreadyExists( proposedPath ) ) {
+				setError(
+					__(
+						'The directory is already associated with another Studio site. Please choose a different site name or a custom local path.'
+					)
+				);
 				return;
 			}
 			if ( ! isEmpty && ! isWordPress ) {
@@ -190,28 +203,14 @@ export function useAddSite() {
 	);
 
 	return useMemo( () => {
-		let errorPathIsNotAvailable;
-		if ( siteWithPathAlreadyExists( sitePath ? sitePath : proposedSitePath ) ) {
-			if ( sitePath ) {
-				errorPathIsNotAvailable = __(
-					'The directory is already associated with another Studio site. Please choose a different custom local path.'
-				);
-			} else {
-				errorPathIsNotAvailable = __(
-					'The directory is already associated with another Studio site. Please choose a different site name or a custom local path.'
-				);
-			}
-		}
-
 		return {
 			handleAddSiteClick,
 			handlePathSelectorClick,
 			handleSiteNameChange,
-			error: errorPathIsNotAvailable || error,
+			error,
 			sitePath: sitePath ? sitePath : proposedSitePath,
 			siteName,
 			doesPathContainWordPress,
-			siteWithPathAlreadyExists,
 			setSiteName,
 			proposedSitePath,
 			setProposedSitePath,
@@ -237,12 +236,10 @@ export function useAddSite() {
 			loadAllCustomDomains,
 		};
 	}, [
-		__,
 		doesPathContainWordPress,
 		error,
 		handleAddSiteClick,
 		handlePathSelectorClick,
-		siteWithPathAlreadyExists,
 		handleSiteNameChange,
 		siteName,
 		sitePath,

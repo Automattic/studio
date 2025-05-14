@@ -17,7 +17,7 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
-import { calculateDirectorySize, isWordPressDirectory } from 'common/lib/fs-utils';
+import { calculateDirectorySize, isWordPressDirectory, arePathsEqual } from 'common/lib/fs-utils';
 import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { Snapshot } from 'common/types/snapshot';
@@ -1408,4 +1408,8 @@ export async function handleNewSite( event: IpcMainInvokeEvent, newSite: NewSite
 		...userData,
 		newSites: userData.newSites?.filter( ( s ) => s.id !== newSite.id ),
 	} );
+}
+
+export function comparePaths( event: IpcMainInvokeEvent, path1: string, path2: string ) {
+	return arePathsEqual( path1, path2 );
 }

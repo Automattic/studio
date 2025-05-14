@@ -37,6 +37,22 @@ export function unlock() {
 	} );
 }
 
+export function withAppdataLock< Args extends unknown[] >(
+	fn: ( userData: UserData, ...args: Args ) => Promise< UserData >
+) {
+	return async ( ...args: Args ) => {
+		await lock( { wait: 1000, stale: 1000 } );
+		try {
+			const data = await loadUserData();
+			const updated = await fn( data, ...args );
+			await saveUserData( updated );
+			return updated;
+		} finally {
+			await unlock();
+		}
+	};
+}
+
 // Before persisting the PHP version of sites, the default PHP version used was 8.0.
 // In case we can't retrieve the PHP version from site details, we assume it was created
 // with version 8.0.

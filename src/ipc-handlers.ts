@@ -64,7 +64,7 @@ import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
-import { loadUserData, saveUserData, unlock as unlockUserData } from 'src/storage/user-data';
+import { loadUserData, withAppdataLock } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
@@ -153,210 +153,210 @@ export async function importSite(
 	}
 }
 
-export async function createSite(
-	event: IpcMainInvokeEvent,
-	path: string,
-	siteName?: string,
-	wpVersion?: string,
-	customDomain?: string,
-	enableHttps?: boolean,
-	siteId?: string
-): Promise< SiteDetails[] > {
-	const userData = await loadUserData( true );
-	const forceSetupSqlite = false;
-	// We only recursively create the directory if the user has not selected a
-	// path from the dialog (and thus they use the "default" or suggested path).
-	if ( ! ( await pathExists( path ) ) && path.startsWith( DEFAULT_SITE_PATH ) ) {
-		fs.mkdirSync( path, { recursive: true } );
-	}
-
-	if ( ! ( await isEmptyDir( path ) ) && ! isWordPressDirectory( path ) ) {
-		await unlockUserData();
-		// Form validation should've prevented a non-empty directory from being selected
-		throw new Error( 'The selected directory is not empty nor an existing WordPress site.' );
-	}
-
-	const allPaths = userData?.sites?.map( ( site ) => site.path ) || [];
-	if ( allPaths.includes( path ) ) {
-		await unlockUserData();
-		return userData.sites;
-	}
-
-	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
-		try {
-			await createSiteWorkingDirectory( path, wpVersion );
-		} catch ( error ) {
-			// If site creation failed, remove the generated files and re-throw the
-			// error so it can be handled by the caller.
-			await shell.trashItem( path );
-			await unlockUserData();
-			throw error;
-		}
-	}
-
-	const port = await portFinder.getOpenPort();
-
-	const details = {
-		id: siteId || crypto.randomUUID(),
-		name: siteName || nodePath.basename( path ),
-		path,
-		adminPassword: createPassword(),
-		port,
-		running: false,
-		phpVersion: DEFAULT_PHP_VERSION,
-		isWpAutoUpdating: wpVersion === DEFAULT_WORDPRESS_VERSION,
-		customDomain,
-		enableHttps,
-	} as const;
-
-	const server = SiteServer.create( details, { wpVersion } );
-
-	if ( isWordPressDirectory( path ) ) {
-		// If the directory contains a WordPress installation, and user wants to force SQLite
-		// integration, let's rename the wp-config.php file to allow WP Now to create a new one
-		// and initialize things properly.
-		if ( forceSetupSqlite && ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
-			fs.renameSync(
-				nodePath.join( path, 'wp-config.php' ),
-				nodePath.join( path, 'wp-config-studio.php' )
-			);
+export const createSite = withAppdataLock(
+	async (
+		userData,
+		event: IpcMainInvokeEvent,
+		path: string,
+		siteName?: string,
+		wpVersion?: string,
+		customDomain?: string,
+		enableHttps?: boolean,
+		siteId?: string
+	) => {
+		const forceSetupSqlite = false;
+		// We only recursively create the directory if the user has not selected a
+		// path from the dialog (and thus they use the "default" or suggested path).
+		if ( ! ( await pathExists( path ) ) && path.startsWith( DEFAULT_SITE_PATH ) ) {
+			fs.mkdirSync( path, { recursive: true } );
 		}
 
-		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
-			await installSqliteIntegration( path );
-		} else {
-			await updateSiteUrl( server, getSiteUrl( details ) );
+		if ( ! ( await isEmptyDir( path ) ) && ! isWordPressDirectory( path ) ) {
+			// Form validation should've prevented a non-empty directory from being selected
+			throw new Error( 'The selected directory is not empty nor an existing WordPress site.' );
 		}
+
+		const allPaths = userData?.sites?.map( ( site ) => site.path ) || [];
+		if ( allPaths.includes( path ) ) {
+			throw new Error( 'The selected directory is already in use.' );
+		}
+
+		if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
+			try {
+				await createSiteWorkingDirectory( path, wpVersion );
+			} catch ( error ) {
+				// If site creation failed, remove the generated files and re-throw the
+				// error so it can be handled by the caller.
+				await shell.trashItem( path );
+				throw error;
+			}
+		}
+
+		const port = await portFinder.getOpenPort();
+
+		const details = {
+			id: siteId || crypto.randomUUID(),
+			name: siteName || nodePath.basename( path ),
+			path,
+			adminPassword: createPassword(),
+			port,
+			running: false,
+			phpVersion: DEFAULT_PHP_VERSION,
+			isWpAutoUpdating: wpVersion === DEFAULT_WORDPRESS_VERSION,
+			customDomain,
+			enableHttps,
+		} as const;
+
+		const server = SiteServer.create( details, { wpVersion } );
+
+		if ( isWordPressDirectory( path ) ) {
+			// If the directory contains a WordPress installation, and user wants to force SQLite
+			// integration, let's rename the wp-config.php file to allow WP Now to create a new one
+			// and initialize things properly.
+			if ( forceSetupSqlite && ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
+				fs.renameSync(
+					nodePath.join( path, 'wp-config.php' ),
+					nodePath.join( path, 'wp-config-studio.php' )
+				);
+			}
+
+			if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
+				await installSqliteIntegration( path );
+			} else {
+				await updateSiteUrl( server, getSiteUrl( details ) );
+			}
+		}
+
+		const parentWindow = BrowserWindow.fromWebContents( event.sender );
+		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id: details.id } );
+
+		userData.sites.push( server.details );
+		sortSites( userData.sites );
+
+		return userData;
 	}
+);
 
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id: details.id } );
+export const updateSite = withAppdataLock(
+	async ( userData, event: IpcMainInvokeEvent, updatedSite: SiteDetails ) => {
+		const updatedSites = userData.sites.map( ( site ) =>
+			site.id === updatedSite.id ? updatedSite : site
+		);
+		userData.sites = updatedSites;
 
-	userData.sites.push( server.details );
-	sortSites( userData.sites );
-	await saveUserData( userData, true );
-
-	return mergeSiteDetailsWithRunningDetails( userData.sites );
-}
-
-export async function updateSite(
-	event: IpcMainInvokeEvent,
-	updatedSite: SiteDetails
-): Promise< SiteDetails[] > {
-	const userData = await loadUserData();
-	const updatedSites = userData.sites.map( ( site ) =>
-		site.id === updatedSite.id ? updatedSite : site
-	);
-	userData.sites = updatedSites;
-
-	const server = SiteServer.get( updatedSite.id );
-	if ( server ) {
-		await server.updateSiteDetails( updatedSite );
+		const server = SiteServer.get( updatedSite.id );
+		if ( server ) {
+			await server.updateSiteDetails( updatedSite );
+		}
+		return userData;
 	}
-	await saveUserData( userData );
-	return mergeSiteDetailsWithRunningDetails( userData.sites );
-}
+);
 
 type WpcomSitesToConnect = { sites: SyncSite[]; localSiteId: string }[];
 
-export async function connectWpcomSites( event: IpcMainInvokeEvent, list: WpcomSitesToConnect ) {
-	const userData = await loadUserData( true );
-	const currentUserId = userData.authToken?.id;
+export const connectWpcomSites = withAppdataLock(
+	async ( userData, event: IpcMainInvokeEvent, list: WpcomSitesToConnect ) => {
+		const currentUserId = userData.authToken?.id;
 
-	if ( ! currentUserId ) {
-		await unlockUserData();
-		throw new Error( 'User not authenticated' );
-	}
+		if ( ! currentUserId ) {
+			throw new Error( 'User not authenticated' );
+		}
 
-	userData.connectedWpcomSites = userData.connectedWpcomSites || {};
-	userData.connectedWpcomSites[ currentUserId ] =
-		userData.connectedWpcomSites[ currentUserId ] || [];
+		userData.connectedWpcomSites = userData.connectedWpcomSites || {};
+		userData.connectedWpcomSites[ currentUserId ] =
+			userData.connectedWpcomSites[ currentUserId ] || [];
 
-	const connections = userData.connectedWpcomSites[ currentUserId ];
+		const connections = userData.connectedWpcomSites[ currentUserId ];
 
-	list.forEach( ( { sites, localSiteId } ) => {
-		sites.forEach( ( siteToAdd ) => {
-			const isAlreadyConnected = connections.some(
-				( conn ) => conn.id === siteToAdd.id && conn.localSiteId === localSiteId
-			);
+		list.forEach( ( { sites, localSiteId } ) => {
+			sites.forEach( ( siteToAdd ) => {
+				const isAlreadyConnected = connections.some(
+					( conn ) => conn.id === siteToAdd.id && conn.localSiteId === localSiteId
+				);
 
-			// Add the site if it's not already connected
-			if ( ! isAlreadyConnected ) {
-				connections.push( {
-					...siteToAdd,
-					localSiteId,
-					syncSupport: 'already-connected',
-				} );
-			}
+				// Add the site if it's not already connected
+				if ( ! isAlreadyConnected ) {
+					connections.push( {
+						...siteToAdd,
+						localSiteId,
+						syncSupport: 'already-connected',
+					} );
+				}
+			} );
 		} );
-	} );
 
-	await saveUserData( userData, true );
-
-	return connections.filter( ( conn ) =>
-		list.some( ( { localSiteId } ) => conn.localSiteId === localSiteId )
-	);
-}
+		return userData;
+	}
+);
 
 type WpcomSitesToDisconnect = { siteIds: number[]; localSiteId: string }[];
 
-export async function disconnectWpcomSites(
-	event: IpcMainInvokeEvent,
-	list: WpcomSitesToDisconnect
-) {
-	const userData = await loadUserData( true );
-	const currentUserId = userData.authToken?.id;
+export const disconnectWpcomSites = withAppdataLock(
+	async ( userData, event: IpcMainInvokeEvent, list: WpcomSitesToDisconnect ) => {
+		const currentUserId = userData.authToken?.id;
 
-	if ( ! currentUserId ) {
-		await unlockUserData();
-		throw new Error( 'User not authenticated' );
+		if ( ! currentUserId ) {
+			throw new Error( 'User not authenticated' );
+		}
+
+		const connectedWpcomSites = userData.connectedWpcomSites;
+
+		// Totally unreal case, added it to help TS parse the code below. And if this error happens, we definitely have something wrong.
+		if ( ! Array.isArray( connectedWpcomSites?.[ currentUserId ] ) ) {
+			throw new Error(
+				'Something went wrong, since you are trying to disconnect something, but there are no stored connections yet'
+			);
+		}
+
+		list.forEach( ( { siteIds, localSiteId } ) => {
+			const updatedConnections = connectedWpcomSites[ currentUserId ].filter(
+				( conn ) => ! ( siteIds.includes( conn.id ) && conn.localSiteId === localSiteId )
+			);
+
+			connectedWpcomSites[ currentUserId ] = updatedConnections;
+		} );
+
+		return userData;
 	}
+);
 
-	const connectedWpcomSites = userData.connectedWpcomSites;
+export const updateConnectedWpcomSites = withAppdataLock(
+	async ( userData, event: IpcMainInvokeEvent, updatedSites: SyncSite[] ) => {
+		const currentUserId = userData.authToken?.id;
 
-	// Totally unreal case, added it to help TS parse the code below. And if this error happens, we definitely have something wrong.
-	if ( ! Array.isArray( connectedWpcomSites?.[ currentUserId ] ) ) {
-		await unlockUserData();
-		throw new Error(
-			'Something went wrong, since you are trying to disconnect something, but there are no stored connections yet'
-		);
+		if ( ! currentUserId ) {
+			throw new Error( 'User not authenticated' );
+		}
+
+		const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
+
+		if ( ! connections.length ) {
+			return userData;
+		}
+
+		updatedSites.forEach( ( updatedSite ) => {
+			const index = connections.findIndex(
+				( conn ) => conn.id === updatedSite.id && conn.localSiteId === updatedSite.localSiteId
+			);
+
+			if ( index !== -1 ) {
+				connections[ index ] = updatedSite;
+			}
+		} );
+
+		return userData;
 	}
+);
 
-	list.forEach( ( { siteIds, localSiteId } ) => {
-		const updatedConnections = connectedWpcomSites[ currentUserId ].filter(
-			( conn ) => ! ( siteIds.includes( conn.id ) && conn.localSiteId === localSiteId )
-		);
+export const updateSingleConnectedWpcomSite = withAppdataLock(
+	async ( userData, event: IpcMainInvokeEvent, updatedSite: SyncSite ) => {
+		const currentUserId = userData.authToken?.id;
 
-		connectedWpcomSites[ currentUserId ] = updatedConnections;
-	} );
+		if ( ! currentUserId ) {
+			throw new Error( 'User not authenticated' );
+		}
 
-	await saveUserData( userData, true );
-
-	return connectedWpcomSites[ currentUserId ].filter( ( conn ) =>
-		list.some( ( { localSiteId } ) => conn.localSiteId === localSiteId )
-	);
-}
-
-export async function updateConnectedWpcomSites(
-	event: IpcMainInvokeEvent,
-	updatedSites: SyncSite[]
-) {
-	const userData = await loadUserData( true );
-	const currentUserId = userData.authToken?.id;
-
-	if ( ! currentUserId ) {
-		await unlockUserData();
-		throw new Error( 'User not authenticated' );
-	}
-
-	const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
-
-	if ( ! connections.length ) {
-		await unlockUserData();
-		return;
-	}
-
-	updatedSites.forEach( ( updatedSite ) => {
+		const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
 		const index = connections.findIndex(
 			( conn ) => conn.id === updatedSite.id && conn.localSiteId === updatedSite.localSiteId
 		);
@@ -364,41 +364,10 @@ export async function updateConnectedWpcomSites(
 		if ( index !== -1 ) {
 			connections[ index ] = updatedSite;
 		}
-	} );
 
-	await saveUserData( userData, true );
-}
-
-export async function updateSingleConnectedWpcomSite(
-	event: IpcMainInvokeEvent,
-	updatedSite: SyncSite
-) {
-	const userData = await loadUserData( true );
-	const currentUserId = userData.authToken?.id;
-
-	if ( ! currentUserId ) {
-		await unlockUserData();
-		throw new Error( 'User not authenticated' );
+		return userData;
 	}
-
-	const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
-
-	if ( ! connections.length ) {
-		await unlockUserData();
-		return;
-	}
-
-	const index = connections.findIndex(
-		( conn ) => conn.id === updatedSite.id && conn.localSiteId === updatedSite.localSiteId
-	);
-
-	if ( index !== -1 ) {
-		connections[ index ] = updatedSite;
-		await saveUserData( userData, true );
-	} else {
-		await unlockUserData();
-	}
-}
+);
 
 export async function getConnectedWpcomSites(
 	event: IpcMainInvokeEvent,
@@ -564,18 +533,20 @@ export async function showOpenFolderDialog(
 	};
 }
 
-export async function saveUserLocale( _event: IpcMainInvokeEvent, locale: string ) {
-	const userData = await loadUserData( true );
-	await saveUserData( { ...userData, locale }, true );
-}
+export const saveUserLocale = withAppdataLock(
+	async ( userData, _event: IpcMainInvokeEvent, locale: string ) => {
+		return { ...userData, locale };
+	}
+);
 
-export async function saveUserEditor( event: IpcMainInvokeEvent, editor: SupportedEditor ) {
-	const userData = await loadUserData( true );
-	await saveUserData( { ...userData, preferredEditor: editor }, true );
+export const saveUserEditor = withAppdataLock(
+	async ( userData, event: IpcMainInvokeEvent, editor: SupportedEditor ) => {
+		const parentWindow = BrowserWindow.fromWebContents( event.sender );
+		sendIpcEventToRendererWithWindow( parentWindow, 'user-preference-changed' );
 
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	sendIpcEventToRendererWithWindow( parentWindow, 'user-preference-changed' );
-}
+		return { ...userData, preferredEditor: editor };
+	}
+);
 
 export async function getSentryUserId( _event: IpcMainInvokeEvent ): Promise< string | undefined > {
 	const userData = await loadUserData();
@@ -687,27 +658,27 @@ export function removeTemporalFile( event: IpcMainInvokeEvent, path: string ) {
 	}
 }
 
-export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteFiles = false ) {
-	const server = SiteServer.get( id );
-	console.log( 'Deleting site', id );
-	if ( ! server ) {
-		throw new Error( 'Site not found.' );
-	}
-	const userData = await loadUserData( true );
-	await server.delete();
-	try {
-		// Move files to trash
-		if ( deleteFiles ) {
-			await shell.trashItem( server.details.path );
+export const deleteSite = withAppdataLock(
+	async ( userData, event: IpcMainInvokeEvent, id: string, deleteFiles = false ) => {
+		const server = SiteServer.get( id );
+		console.log( 'Deleting site', id );
+		if ( ! server ) {
+			throw new Error( 'Site not found.' );
 		}
-	} catch ( error ) {
-		/* We want to exit gracefully if the there is an error deleting the site files */
-		Sentry.captureException( error );
+		await server.delete();
+		try {
+			// Move files to trash
+			if ( deleteFiles ) {
+				await shell.trashItem( server.details.path );
+			}
+		} catch ( error ) {
+			/* We want to exit gracefully if the there is an error deleting the site files */
+			Sentry.captureException( error );
+		}
+		const newSites = userData.sites.filter( ( site ) => site.id !== id );
+		return { ...userData, sites: newSites };
 	}
-	const newSites = userData.sites.filter( ( site ) => site.id !== id );
-	await saveUserData( { ...userData, sites: newSites }, true );
-	return mergeSiteDetailsWithRunningDetails( newSites );
-}
+);
 
 export function logRendererMessage(
 	event: IpcMainInvokeEvent,
@@ -772,18 +743,17 @@ export async function exportSite(
 	}
 }
 
-export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapshots: Snapshot[] ) {
-	const userData = await loadUserData( true );
-	await saveUserData( { ...userData, snapshots }, true );
-}
+export const saveSnapshotsToStorage = withAppdataLock(
+	async ( userData, event: IpcMainInvokeEvent, snapshots: Snapshot[] ) => {
+		return { ...userData, snapshots };
+	}
+);
 
-export async function saveLastSeenVersion(
-	_event: IpcMainInvokeEvent,
-	version: string
-): Promise< void > {
-	const userData = await loadUserData( true );
-	await saveUserData( { ...userData, lastSeenVersion: version }, true );
-}
+export const saveLastSeenVersion = withAppdataLock(
+	async ( userData, event: IpcMainInvokeEvent, version: string ) => {
+		return { ...userData, lastSeenVersion: version };
+	}
+);
 
 export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snapshot[] > {
 	const userData = await loadUserData();
@@ -937,13 +907,11 @@ export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< 
 	return onboardingCompleted;
 }
 
-export async function saveOnboarding(
-	_event: IpcMainInvokeEvent,
-	onboardingCompleted: boolean
-): Promise< void > {
-	const userData = await loadUserData( true );
-	await saveUserData( { ...userData, onboardingCompleted }, true );
-}
+export const saveOnboarding = withAppdataLock(
+	async ( userData, event: IpcMainInvokeEvent, onboardingCompleted: boolean ) => {
+		return { ...userData, onboardingCompleted };
+	}
+);
 
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,
@@ -1340,16 +1308,14 @@ export async function checkSyncBackupSize(
 	} );
 }
 
-export async function saveUserTerminal(
-	_event: IpcMainInvokeEvent,
-	preferredTerminal: SupportedTerminal
-) {
-	const userData = await loadUserData( true );
-	await saveUserData( { ...userData, preferredTerminal: preferredTerminal }, true );
+export const saveUserTerminal = withAppdataLock(
+	async ( userData, event: IpcMainInvokeEvent, preferredTerminal: SupportedTerminal ) => {
+		// Notify renderer processes that the terminal preference has changed
+		await sendIpcEventToRenderer( 'user-preference-changed' );
 
-	// Notify renderer processes that the terminal preference has changed
-	await sendIpcEventToRenderer( 'user-preference-changed' );
-}
+		return { ...userData, preferredTerminal };
+	}
+);
 
 export async function getUserTerminal( _event: IpcMainInvokeEvent ): Promise< SupportedTerminal > {
 	const userData = await loadUserData();
@@ -1397,10 +1363,19 @@ export async function deleteSnapshot(
 	return executePreviewCliCommand( [ 'preview', 'delete', hostname ], parentWindow );
 }
 
-export async function handleNewSite( event: IpcMainInvokeEvent, newSite: NewSiteDetails ) {
-	await createSite( event, newSite.path, undefined, undefined, undefined, undefined, newSite.id );
+export const handleNewSite = withAppdataLock(
+	async ( userData, event: IpcMainInvokeEvent, newSite: NewSiteDetails ) => {
+		const updatedUserData = await createSite(
+			event,
+			newSite.path,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			newSite.id
+		);
 
-	const userData = await loadUserData( true );
-	const newSites = userData.newSites?.filter( ( s ) => s.id !== newSite.id );
-	await saveUserData( { ...userData, newSites }, true );
-}
+		const newSites = userData.newSites?.filter( ( s ) => s.id !== newSite.id );
+		return { ...updatedUserData, newSites };
+	}
+);

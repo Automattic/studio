@@ -66,9 +66,9 @@ describe( 'createSite', () => {
 		( isEmptyDir as jest.Mock ).mockResolvedValueOnce( true );
 		( pathExists as jest.Mock ).mockResolvedValueOnce( true );
 
-		const [ site ] = await createSite( mockIpcMainInvokeEvent, '/test', 'Test', '6.4' );
+		const userData = await createSite( mockIpcMainInvokeEvent, '/test', 'Test', '6.4' );
 
-		expect( site ).toEqual( {
+		expect( userData.sites[ 0 ] ).toEqual( {
 			adminPassword: expect.any( String ),
 			id: expect.any( String ),
 			name: 'Test',
@@ -87,7 +87,7 @@ describe( 'createSite', () => {
 		( pathExists as jest.Mock ).mockResolvedValueOnce( true );
 
 		const customSiteId = 'custom-site-id-123';
-		const [ site ] = await createSite(
+		const userData = await createSite(
 			mockIpcMainInvokeEvent,
 			'/test',
 			'Test',
@@ -97,7 +97,7 @@ describe( 'createSite', () => {
 			customSiteId
 		);
 
-		expect( site ).toEqual( {
+		expect( userData.sites[ 0 ] ).toEqual( {
 			adminPassword: expect.any( String ),
 			id: customSiteId,
 			name: 'Test',

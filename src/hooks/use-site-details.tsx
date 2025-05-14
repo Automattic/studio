@@ -92,7 +92,7 @@ function useDeleteSite() {
 	const dispatch = useAppDispatch();
 
 	const deleteSite = useCallback(
-		async ( siteId: string, removeLocal: boolean ): Promise< SiteDetails[] | undefined > => {
+		async ( siteId: string, removeLocal: boolean ): Promise< void > => {
 			if ( ! siteId ) {
 				return;
 			}
@@ -104,7 +104,7 @@ function useDeleteSite() {
 			try {
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: true } ) );
 
-				const newSites = await getIpcApi().deleteSite( siteId, removeLocal );
+				await getIpcApi().deleteSite( siteId, removeLocal );
 				await allSiteRemovePromises;
 
 				// After site is deleted successfully, clean up wpcom connections
@@ -123,8 +123,6 @@ function useDeleteSite() {
 					// If disconnection fails, log but don't fail the deletion
 					console.error( 'Failed to disconnect wpcom sites:', error );
 				}
-
-				return newSites;
 			} catch ( error ) {
 				console.error( 'Error during site deletion:', error );
 				throw error;
@@ -163,12 +161,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const onDeleteSite = useCallback(
 		async ( id: string, removeLocal: boolean ) => {
-			const newSites = await deleteSite( id, removeLocal );
-			if ( newSites ) {
-				setData( newSites );
-				const selectedSite = newSites.length ? newSites[ 0 ].id : '';
-				setSelectedSiteId( selectedSite );
-			}
+			await deleteSite( id, removeLocal );
+			const newSites = await getIpcApi().getSiteDetails();
+			setData( newSites );
+			const selectedSite = newSites.length ? newSites[ 0 ].id : '';
+			setSelectedSiteId( selectedSite );
 		},
 		[ deleteSite, setSelectedSiteId ]
 	);
@@ -227,7 +224,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					customDomain,
 					enableHttps
 				);
-				const newSite = data.find( ( site ) => site.path === path );
+				const newSite = data.sites.find( ( site ) => site.path === path );
 				if ( ! newSite ) {
 					showError();
 					return;
@@ -265,7 +262,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	);
 
 	const updateSite = useCallback( async ( site: SiteDetails ) => {
-		const updatedSites = await getIpcApi().updateSite( site );
+		await getIpcApi().updateSite( site );
+		const updatedSites = await getIpcApi().getSiteDetails();
 		setData( updatedSites );
 	}, [] );
 

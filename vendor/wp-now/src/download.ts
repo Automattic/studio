@@ -156,17 +156,23 @@ export async function downloadWordPress(
 	{ overwrite }: { overwrite: boolean } = { overwrite: false }
 ) {
 	const finalFolder = getWordPressVersionPath( wordPressVersion );
-	const tempFolder = os.tmpdir();
+
+	// Create a unique temporary directory for this download
+	const tempDir = await fs.mkdtemp( path.join( os.tmpdir(), 'wordpress-download-' ) );
+	console.log( 'Temporary directory path:', tempDir );
+
 	const { downloaded, statusCode } = await downloadFileAndUnzip( {
 		url: getWordPressVersionUrl( wordPressVersion ),
-		destinationFolder: tempFolder,
+		destinationFolder: tempDir,
 		checkFinalPath: finalFolder,
 		itemName: `WordPress ${ wordPressVersion }`,
 		overwrite,
 	} );
+
 	if ( downloaded ) {
+		const wpSourcePath = path.join( tempDir, 'wordpress' );
 		await fs.ensureDir( path.dirname( finalFolder ) );
-		await fs.move( path.join( tempFolder, 'wordpress' ), finalFolder, {
+		await fs.move( wpSourcePath, finalFolder, {
 			overwrite: true,
 		} );
 	} else if ( 404 === statusCode ) {

@@ -8,6 +8,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
 import customDomainIllustration from 'src/modules/whats-new/assets/custom-domains-illustration.svg';
+import preferredAppsIllustration from 'src/modules/whats-new/assets/preferred-apps-illustration.svg';
 import previewSitesIllustration from 'src/modules/whats-new/assets/preview-sites-illustration.svg';
 import versionSwitchIllustration from 'src/modules/whats-new/assets/version-switch-illustration.svg';
 import 'src/index.css';
@@ -56,6 +57,14 @@ const PageContent = ( {
 export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProps ) {
 	const { locale } = useI18nData();
 	const whatsNewPages: WhatsNewPage[] = [
+		{
+			image: preferredAppsIllustration,
+			title: __( 'Choose your preferred apps' ),
+			description: __(
+				'Select your preferred code editor and terminal apps in the redesigned Settings modal.'
+			),
+			learnMoreUrl: getLocalizedLink( locale, 'blogPreferredApps' ),
+		},
 		{
 			image: cliIllustration,
 			title: __( 'Introducing Studio CLI' ),

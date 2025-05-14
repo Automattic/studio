@@ -41,7 +41,6 @@ export function SyncSitesModalSelector( {
 	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
 	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
 	const isOffline = useOffline();
-	const { pressableSyncEnabled } = useFeatureFlags();
 	const filteredSites = syncSites.filter( ( site ) => {
 		const searchQueryLower = searchQuery.toLowerCase();
 		return (
@@ -61,11 +60,7 @@ export function SyncSitesModalSelector( {
 		<Modal
 			className="w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
-			title={
-				pressableSyncEnabled
-					? __( 'Connect a WP.com or Pressable site' )
-					: __( 'Connect a WordPress.com site' )
-			}
+			title={ __( 'Connect a WP.com or Pressable site' ) }
 		>
 			<div className="relative">
 				<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
@@ -89,7 +84,6 @@ export function SyncSitesModalSelector( {
 							syncSites={ filteredSites }
 							selectedSiteId={ selectedSiteId }
 							onSelectSite={ setSelectedSiteId }
-							pressableSyncEnabled={ pressableSyncEnabled }
 						/>
 					) }
 				</div>
@@ -123,7 +117,6 @@ function SearchSites( {
 	setSearchQuery: ( value: string ) => void;
 } ) {
 	const { __ } = useI18n();
-	const { pressableSyncEnabled } = useFeatureFlags();
 	return (
 		<div className="flex flex-col px-8 pb-6 border-b border-a8c-gray-5">
 			<SearchControl
@@ -137,9 +130,7 @@ function SearchSites( {
 				__nextHasNoMarginBottom={ true }
 			/>
 			<p className="a8c-helper-text text-gray-500">
-				{ pressableSyncEnabled
-					? __( 'Syncing is supported for WP.com sites on the Business plan or above.' )
-					: __( 'Syncing is supported for sites on the Business plan or above.' ) }
+				{ __( 'Syncing is supported for WP.com sites on the Business plan or above.' ) }
 			</p>
 		</div>
 	);
@@ -163,12 +154,10 @@ function ListSites( {
 	syncSites,
 	selectedSiteId,
 	onSelectSite,
-	pressableSyncEnabled,
 }: {
 	syncSites: SyncSite[];
 	selectedSiteId: null | number;
 	onSelectSite: ( id: number ) => void;
-	pressableSyncEnabled: boolean;
 } ) {
 	const sortedSites = getSortedSites( syncSites );
 
@@ -180,7 +169,6 @@ function ListSites( {
 					site={ site }
 					isSelected={ site.id === selectedSiteId }
 					onClick={ () => onSelectSite( site.id ) }
-					pressableSyncEnabled={ pressableSyncEnabled }
 				/>
 			) ) }
 		</div>
@@ -191,12 +179,10 @@ function SiteItem( {
 	site,
 	isSelected,
 	onClick,
-	pressableSyncEnabled,
 }: {
 	site: SyncSite;
 	isSelected: boolean;
 	onClick: () => void;
-	pressableSyncEnabled: boolean;
 } ) {
 	const { __ } = useI18n();
 	if ( site.isStaging ) {
@@ -259,7 +245,7 @@ function SiteItem( {
 						}
 					} }
 				>
-					{ pressableSyncEnabled && isPressable && (
+					{ isPressable && (
 						<span className="me-1.5">
 							<PressableLogo size={ 12 } />
 						</span>

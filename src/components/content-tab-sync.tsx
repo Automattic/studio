@@ -18,7 +18,6 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();
-	const { pressableSyncEnabled } = useFeatureFlags();
 	return (
 		<div className="flex justify-between max-w-3xl gap-4">
 			<div className="flex flex-col p-8">
@@ -27,13 +26,9 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 					<WordPressShortLogo className="ms-2 h-5" />
 				</div>
 				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
-					{ pressableSyncEnabled
-						? __(
-								'Connect your existing WordPress.com or Jetpack-activated Pressable sites, or create a new one. Then, share your work with the world.'
-						  )
-						: __(
-								'Connect an existing WordPress.com site, or create a new one and share your site with the world.'
-						  ) }
+					{ __(
+						'Connect your existing WordPress.com or Jetpack-activated Pressable sites, or create a new one. Then, share your work with the world.'
+					) }
 				</div>
 				<div className="mt-6">
 					{ [
@@ -128,7 +123,6 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		closeSyncSitesSelector,
 	} = useSyncSites();
 	const { isAuthenticated } = useAuth();
-	const { pressableSyncEnabled } = useFeatureFlags();
 
 	useEffect( () => {
 		if ( isAuthenticated ) {
@@ -161,15 +155,13 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 						openSitesSyncSelector={ ( options ) => setIsSyncSitesSelectorOpen( options || true ) }
 						disconnectSite={ ( id: number ) => disconnectSite( id ) }
 					/>
-					{ pressableSyncEnabled && (
-						<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
-							<ConnectButton
-								variant="primary"
-								connectSite={ () => setIsSyncSitesSelectorOpen( true ) }
-								disableConnectButtonStyle={ true }
-							/>
-						</div>
-					) }
+					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
+						<ConnectButton
+							variant="primary"
+							connectSite={ () => setIsSyncSitesSelectorOpen( true ) }
+							disableConnectButtonStyle={ true }
+						/>
+					</div>
 				</div>
 			) : (
 				<SiteSyncDescription>

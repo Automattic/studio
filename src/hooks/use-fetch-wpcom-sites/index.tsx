@@ -151,7 +151,6 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 	const { isAuthenticated, client } = useAuth();
 	const isFetchingSites = useRef( false );
 	const isOffline = useOffline();
-	const { pressableSyncEnabled } = useFeatureFlags();
 
 	const joinedConnectedSiteIds = connectedSiteIdsOnlyForSelectedSite.join( ',' );
 	// we need this trick to avoid unnecessary re-renders,
@@ -174,11 +173,8 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 		try {
 			const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
 
-			const baseFields =
-				'name,ID,URL,plan,capabilities,is_wpcom_atomic,options,jetpack,is_deleted,is_a8c';
-			const fields = pressableSyncEnabled
-				? `${ baseFields },hosting_provider_guess,environment_type`
-				: baseFields;
+			const fields =
+				'name,ID,URL,plan,capabilities,is_wpcom_atomic,options,jetpack,is_deleted,is_a8c,hosting_provider_guess,environment_type';
 
 			const response = await client.req.get(
 				{
@@ -233,7 +229,7 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 		} finally {
 			isFetchingSites.current = false;
 		}
-	}, [ client?.req, isAuthenticated, isOffline, pressableSyncEnabled ] );
+	}, [ client?.req, isAuthenticated, isOffline ] );
 
 	useEffect( () => {
 		void fetchSites();

@@ -42,10 +42,11 @@ export const WPVersionSelector = ( {
 
 	// Force latest version if the user goes offline
 	useEffect( () => {
-		if ( isOffline && selectedValue !== DEFAULT_WORDPRESS_VERSION ) {
+		if ( isOffline ) {
+			// Always force to latest when offline
 			onChange( DEFAULT_WORDPRESS_VERSION );
 		}
-	}, [ isOffline, selectedValue, onChange ] );
+	}, [ isOffline, onChange ] );
 
 	let betaVersions: { label: string; value: string }[] = wpVersions.filter(
 		( version ) => version.isBeta || version.isDevelopment

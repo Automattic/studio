@@ -69,13 +69,9 @@ async function getLastBump( group: StatsGroup, stat: StatsMetric ): Promise< num
 }
 
 // Store this moment as the last time we bumped the state, in UTC time.
-const updateLastBump = withAppdataWrite( function* (
-	userData,
-	group: StatsGroup,
-	stat: StatsMetric
-) {
+const updateLastBump = withAppdataWrite( ( userData, group: StatsGroup, stat: StatsMetric ) => {
 	userData.lastBumpStats ??= {};
 	userData.lastBumpStats[ group ] ??= {};
 	( userData.lastBumpStats[ group ] as Record< StatsMetric, number > )[ stat ] = Date.now();
-	yield userData;
+	return [ userData ];
 } );

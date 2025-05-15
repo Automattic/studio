@@ -14,27 +14,26 @@ import { LoggerError } from 'cli/logger';
 
 const LOCKFILE_PATH = path.join( getAppdataDirectory(), 'appdata-v1.lock' );
 
-type MaybeAsyncGenerator< T, TReturn, TNext > =
-	| Generator< T, TReturn, TNext >
-	| AsyncGenerator< T, TReturn, TNext >;
+type MaybePromise< T > = T | Promise< T >;
+type ReturnType< R > = R extends [ UserData, infer Second ] ? Second : void;
 
-export function withAppdataWrite< Args extends unknown[], R = unknown >(
-	fn: ( userData: UserData, ...args: Args ) => MaybeAsyncGenerator< UserData, R, unknown >
-) {
-	return async ( ...args: Args ): Promise< R > => {
+export function withAppdataWrite<
+	Args extends unknown[],
+	R extends [ UserData, unknown ] | [ UserData ] | void,
+>( fn: ( userData: UserData, ...args: Args ) => MaybePromise< R > ) {
+	return async ( ...args: Args ): Promise< ReturnType< R > > => {
 		await lock( LOCKFILE_PATH, { wait: 1000, stale: 1000 } );
 		try {
 			const data = await readAppdata();
-			const generator = fn( data, ...args );
+			const result = await fn( data, ...args );
 
-			// eslint-disable-next-line no-constant-condition
-			while ( true ) {
-				const { value, done } = await generator.next();
-				if ( done ) {
-					return value;
-				}
-				await saveAppdata( value );
+			if ( Array.isArray( result ) && result[ 0 ] ) {
+				await saveAppdata( result[ 0 ] );
 			}
+			if ( Array.isArray( result ) && result[ 1 ] ) {
+				return result[ 1 ] as ReturnType< R >;
+			}
+			return undefined as ReturnType< R >;
 		} finally {
 			await unlock( LOCKFILE_PATH );
 		}
@@ -187,10 +186,7 @@ export function getNewSitePartial( siteFolder: string ): SiteData {
 	return newSite;
 }
 
-export const getOrCreateSiteByFolder = withAppdataWrite( async function* (
-	userData,
-	siteFolder: string
-) {
+export const getOrCreateSiteByFolder = withAppdataWrite( async ( userData, siteFolder: string ) => {
 	let site;
 	try {
 		site = await getSiteByFolder( siteFolder );
@@ -200,7 +196,6 @@ export const getOrCreateSiteByFolder = withAppdataWrite( async function* (
 		}
 		site = getNewSitePartial( siteFolder );
 		userData.newSites.push( site );
-		yield userData;
 	}
-	return site;
+	return [ userData, site ];
 } );

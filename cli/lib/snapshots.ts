@@ -36,23 +36,20 @@ export async function getSnapshotsFromAppdata(
 	return snapshots;
 }
 
-export const updateSnapshotInAppdata = withAppdataWrite( async function* (
-	userData,
-	atomicSiteId: number,
-	siteFolder: string
-) {
-	const site = await getOrCreateSiteByFolder( siteFolder );
-	const snapshot = userData.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
-	if ( ! snapshot ) {
-		throw new LoggerError( __( 'Failed to find existing preview site in appdata' ) );
+export const updateSnapshotInAppdata = withAppdataWrite(
+	async ( userData, atomicSiteId: number, siteFolder: string ) => {
+		const site = await getOrCreateSiteByFolder( siteFolder );
+		const snapshot = userData.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
+		if ( ! snapshot ) {
+			throw new LoggerError( __( 'Failed to find existing preview site in appdata' ) );
+		}
+
+		snapshot.localSiteId = site.id;
+		snapshot.date = Date.now();
+
+		return [ userData, snapshot ];
 	}
-
-	snapshot.localSiteId = site.id;
-	snapshot.date = Date.now();
-	yield userData;
-
-	return snapshot;
-} );
+);
 
 const getNextSequenceNumber = ( siteId: string, snapshots: Snapshot[], userId: number ): number => {
 	const siteSnapshots = snapshots.filter(
@@ -68,46 +65,39 @@ const getNextSequenceNumber = ( siteId: string, snapshots: Snapshot[], userId: n
 		: siteSnapshots.length + 1;
 };
 
-export const saveSnapshotToAppdata = withAppdataWrite( async function* (
-	userData,
-	siteFolder: string,
-	atomicSiteId: number,
-	previewUrl: string
-) {
-	const site = await getOrCreateSiteByFolder( siteFolder );
-	const authToken = await getAuthToken();
+export const saveSnapshotToAppdata = withAppdataWrite(
+	async ( userData, siteFolder: string, atomicSiteId: number, previewUrl: string ) => {
+		const site = await getOrCreateSiteByFolder( siteFolder );
+		const authToken = await getAuthToken();
 
-	const nextSequenceNumber = getNextSequenceNumber( site.id, userData.snapshots, authToken.id );
-	const snapshot: Snapshot = {
-		url: previewUrl,
-		atomicSiteId,
-		localSiteId: site.id,
-		date: Date.now(),
-		name: sprintf(
-			/* translators: 1: Site name 2: Sequence number (e.g. "My Site Name Preview 1") */
-			__( '%1$s Preview %2$d' ),
-			site.name,
-			nextSequenceNumber
-		),
-		sequence: nextSequenceNumber,
-		userId: authToken.id,
-	};
+		const nextSequenceNumber = getNextSequenceNumber( site.id, userData.snapshots, authToken.id );
+		const snapshot: Snapshot = {
+			url: previewUrl,
+			atomicSiteId,
+			localSiteId: site.id,
+			date: Date.now(),
+			name: sprintf(
+				/* translators: 1: Site name 2: Sequence number (e.g. "My Site Name Preview 1") */
+				__( '%1$s Preview %2$d' ),
+				site.name,
+				nextSequenceNumber
+			),
+			sequence: nextSequenceNumber,
+			userId: authToken.id,
+		};
 
-	userData.snapshots.push( snapshot );
-	yield userData;
-	return snapshot;
-} );
+		userData.snapshots.push( snapshot );
+		return [ userData, snapshot ];
+	}
+);
 
-export const deleteSnapshotFromAppdata = withAppdataWrite( function* (
-	userData,
-	snapshotUrl: string
-) {
+export const deleteSnapshotFromAppdata = withAppdataWrite( ( userData, snapshotUrl: string ) => {
 	const snapshotIndex = userData.snapshots.findIndex( ( s ) => s.url === snapshotUrl );
 	if ( snapshotIndex === -1 ) {
 		return;
 	}
 	userData.snapshots.splice( snapshotIndex, 1 );
-	yield userData;
+	return [ userData ];
 } );
 
 export function isSnapshotExpired( snapshot: Snapshot ) {

@@ -68,7 +68,7 @@ type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafe
 
 // Sometimes, we need to update the config file with a known value (i.e., not one that's derived
 // from the current user config). This function should be used in those cases.
-export const updateAppdata = withAppdataLock(
+export const updateAppdata = withUserDataWrite(
 	async ( userData, update: PartialUserDataWithSafeKeysToUpdate ) => {
 		return { ...userData, ...update };
 	}

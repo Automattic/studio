@@ -1,5 +1,6 @@
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo } from 'react';
+import { ImportProgressState } from './use-import-export';
 
 export type PullStateProgressInfo = {
 	key: 'in-progress' | 'downloading' | 'importing' | 'finished' | 'failed' | 'cancelled';
@@ -16,6 +17,12 @@ export type PullStateProgressInfoValues = Record<
 	PullStateProgressInfo[ 'key' ],
 	PullStateProgressInfo
 >;
+
+export type SyncBackupResponse = {
+	status: 'in-progress' | 'finished' | 'failed';
+	download_url: string;
+	percent: number;
+};
 
 export const IN_PROGRESS_INITIAL_VALUE = 30;
 const DOWNLOADING_INITIAL_VALUE = 60;
@@ -130,6 +137,52 @@ export function useSyncStatesProgressInfo() {
 		[]
 	);
 
+	const getBackupStatusWithProgress = useCallback(
+		(
+			hasBackupCompleted: boolean,
+			pullStatesProgressInfo: PullStateProgressInfoValues,
+			response: SyncBackupResponse
+		) => {
+			const frontendStatus = hasBackupCompleted
+				? pullStatesProgressInfo.downloading.key
+				: response.status;
+			let newProgressInfo: PullStateProgressInfo | null = null;
+			if ( response.status === 'in-progress' ) {
+				newProgressInfo = pullStatesProgressInfo[ frontendStatus ];
+				// Update progress from the initial value to the new step proportionally to the response.progress
+				// on every update of the response.progress
+				newProgressInfo.progress =
+					IN_PROGRESS_INITIAL_VALUE + IN_PROGRESS_TO_DOWNLOADING_STEP * ( response.percent / 100 );
+			}
+			const statusWithProgress = newProgressInfo || pullStatesProgressInfo[ frontendStatus ];
+
+			return statusWithProgress;
+		},
+		[]
+	);
+
+	const getPullStatusWithProgress = useCallback(
+		( sitePullState?: PullStateProgressInfo, importState?: ImportProgressState[ string ] ) => {
+			if ( importState ) {
+				if ( importState.progress === 100 ) {
+					return { message: __( 'Applying final details…' ), progress: 99 };
+				}
+				return {
+					message: importState.statusMessage,
+					// Update progress from the initial value to the new step proportionally to the importState.progress
+					// on every update of the importState.progress
+					progress:
+						IMPORTING_INITIAL_VALUE + IMPORTING_TO_FINISHED_STEP * ( importState.progress / 100 ),
+				};
+			}
+			if ( sitePullState ) {
+				return { message: sitePullState.message, progress: sitePullState.progress };
+			}
+			return { message: '', progress: 0 };
+		},
+		[ __ ]
+	);
+
 	return {
 		pullStatesProgressInfo,
 		pushStatesProgressInfo,
@@ -137,5 +190,7 @@ export function useSyncStatesProgressInfo() {
 		isKeyPushing,
 		isKeyFinished,
 		isKeyFailed,
+		getBackupStatusWithProgress,
+		getPullStatusWithProgress,
 	};
 }

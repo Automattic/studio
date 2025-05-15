@@ -252,8 +252,8 @@ export function useSyncPush( {
 
 		Object.entries( pushStates ).forEach( ( [ key, state ] ) => {
 			if ( state.status.key === pushStatesProgressInfo.importing.key ) {
-				intervals[ key ] = setTimeout( async () => {
-					await getPushProgressInfo( state.remoteSiteId, state );
+				intervals[ key ] = setTimeout( () => {
+					void getPushProgressInfo( state.remoteSiteId, state );
 				}, 2000 );
 			}
 		} );

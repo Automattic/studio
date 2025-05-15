@@ -581,6 +581,9 @@ async function mountInternalMuPlugins( php: PHP, options: WPNowOptions ) {
 		if (!defined('DB_HOST')) define('DB_HOST', 'localhost');
 		if (!defined('DB_CHARSET')) define('DB_CHARSET', 'utf8');
 		if (!defined('DB_COLLATE')) define('DB_COLLATE', '');
+
+		// Set environment type to local if not already defined
+		if (!defined('WP_ENVIRONMENT_TYPE')) define('WP_ENVIRONMENT_TYPE', 'local');
 		`
 	);
 
@@ -600,15 +603,6 @@ async function mountInternalMuPlugins( php: PHP, options: WPNowOptions ) {
 			}
 			return false;
 		});
-		`
-	);
-
-	php.writeFile(
-		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-wp-environment-type.php' ),
-		`<?php
-		if ( ! defined( 'WP_ENVIRONMENT_TYPE' ) ) {
-			putenv( 'WP_ENVIRONMENT_TYPE=local' );
-		}
 		`
 	);
 

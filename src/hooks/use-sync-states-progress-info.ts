@@ -37,7 +37,8 @@ export type ImportResponse = {
 		| 'archive_import_started'
 		| 'archive_import_finished';
 	success: boolean;
-	progress: number;
+	backup_progress: number;
+	import_progress: number;
 	error?: string;
 };
 
@@ -45,7 +46,7 @@ export const IN_PROGRESS_INITIAL_VALUE = 30;
 const DOWNLOADING_INITIAL_VALUE = 60;
 export const IN_PROGRESS_TO_DOWNLOADING_STEP =
 	DOWNLOADING_INITIAL_VALUE - IN_PROGRESS_INITIAL_VALUE;
-export const IMPORTING_INITIAL_VALUE = 80;
+export const IMPORTING_INITIAL_VALUE = 60;
 export const IMPORTING_TO_FINISHED_STEP = 100 - IMPORTING_INITIAL_VALUE;
 
 export function useSyncStatesProgressInfo() {
@@ -90,12 +91,12 @@ export function useSyncStatesProgressInfo() {
 		return {
 			creatingBackup: {
 				key: 'creatingBackup',
-				progress: 30,
+				progress: 20,
 				message: __( 'Creating backup…' ),
 			},
 			uploading: {
 				key: 'uploading',
-				progress: 50,
+				progress: 40,
 				message: __( 'Uploading Studio site…' ),
 			},
 			importing: {
@@ -201,16 +202,28 @@ export function useSyncStatesProgressInfo() {
 
 	const getPushStatusWithProgress = useCallback(
 		( status: PushStateProgressInfo, response: ImportResponse ) => {
-			if (
-				status.key === 'importing' &&
-				( response.status === 'archive_import_started' ||
-					response.status === 'archive_import_finished' )
-			) {
-				return {
-					...status,
-					progress:
-						IMPORTING_INITIAL_VALUE + IMPORTING_TO_FINISHED_STEP * ( response.progress / 100 ),
-				};
+			if ( status.key === 'importing' ) {
+				const backupStep = 10;
+				const archiveInitialValue = IMPORTING_INITIAL_VALUE + backupStep;
+				const archiveStep = IMPORTING_TO_FINISHED_STEP - backupStep;
+
+				// This step will increaste the progress in 10 (from 60 to 70) progressively based on the backup_progress
+				if ( response.status === 'initial_backup_started' ) {
+					return {
+						...status,
+						progress: IMPORTING_INITIAL_VALUE + backupStep * ( response.backup_progress / 100 ),
+					};
+				}
+				// This step will increaste the progress in 30 (from 70 to 100) progressively based on the import_progress
+				if (
+					response.status === 'archive_import_started' ||
+					response.status === 'archive_import_finished'
+				) {
+					return {
+						...status,
+						progress: archiveInitialValue + archiveStep * ( response.import_progress / 100 ),
+					};
+				}
 			}
 			return status;
 		},

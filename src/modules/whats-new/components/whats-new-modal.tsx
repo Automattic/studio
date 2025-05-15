@@ -70,7 +70,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			image: preferredAppsIllustration,
 			title: __( 'Choose your preferred apps' ),
 			description: __(
-				'Select your preferred code editor and terminal apps in the redesigned Settings modal.'
+				'Select your preferred code editor and terminal app in the redesigned Settings modal.'
 			),
 			learnMoreUrl: getLocalizedLink( locale, 'blogPreferredApps' ),
 		},

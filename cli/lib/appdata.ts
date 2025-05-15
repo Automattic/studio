@@ -12,34 +12,6 @@ import { validateAccessToken } from 'cli/lib/api';
 import { lock, unlock } from 'cli/lib/utils';
 import { LoggerError } from 'cli/logger';
 
-const LOCKFILE_PATH = path.join( getAppdataDirectory(), 'appdata-v1.lock' );
-
-type MaybePromise< T > = T | Promise< T >;
-type ReturnType< R > = R extends [ UserData, infer Second ] ? Second : void;
-
-export function withAppdataWrite<
-	Args extends unknown[],
-	R extends [ UserData, unknown ] | [ UserData ] | void,
->( fn: ( userData: UserData, ...args: Args ) => MaybePromise< R > ) {
-	return async ( ...args: Args ): Promise< ReturnType< R > > => {
-		await lock( LOCKFILE_PATH, { wait: 1000, stale: 1000 } );
-		try {
-			const data = await readAppdata();
-			const result = await fn( data, ...args );
-
-			if ( Array.isArray( result ) && result[ 0 ] ) {
-				await saveAppdata( result[ 0 ] );
-			}
-			if ( Array.isArray( result ) && result[ 1 ] ) {
-				return result[ 1 ] as ReturnType< R >;
-			}
-			return undefined as ReturnType< R >;
-		} finally {
-			await unlock( LOCKFILE_PATH );
-		}
-	};
-}
-
 const siteSchema = z
 	.object( {
 		id: z.string(),
@@ -137,6 +109,40 @@ async function saveAppdata( userData: UserData ): Promise< void > {
 	} catch ( error ) {
 		throw new LoggerError( __( 'Failed to save Studio config file' ), error );
 	}
+}
+
+const LOCKFILE_PATH = path.join( getAppdataDirectory(), 'appdata-v1.lock' );
+
+type MaybePromise< T > = T | Promise< T >;
+type ReturnType< R > = R extends [ UserData, infer Second ] ? Second : void;
+
+// Higher-order function that injects a parsed instance of the user config file and writes back
+// the return value. Callback functions should return a tuple (or nothing). The first element of
+// the tuple is the updated user config. The second element (if there is one) is the return value
+// of the callback function.
+// The purpose of this function is to avoid concurrent reads and writes to the user config file. We
+// ensure this by acquiring a lock on the file before reading or writing it.
+export function withAppdataWrite<
+	Args extends unknown[],
+	R extends [ UserData, unknown ] | [ UserData ] | void,
+>( fn: ( userData: UserData, ...args: Args ) => MaybePromise< R > ) {
+	return async ( ...args: Args ): Promise< ReturnType< R > > => {
+		await lock( LOCKFILE_PATH, { wait: 1000, stale: 1000 } );
+		try {
+			const data = await readAppdata();
+			const result = await fn( data, ...args );
+
+			if ( Array.isArray( result ) && result[ 0 ] ) {
+				await saveAppdata( result[ 0 ] );
+			}
+			if ( Array.isArray( result ) && result[ 1 ] ) {
+				return result[ 1 ] as ReturnType< R >;
+			}
+			return undefined as ReturnType< R >;
+		} finally {
+			await unlock( LOCKFILE_PATH );
+		}
+	};
 }
 
 export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken' ] > > {

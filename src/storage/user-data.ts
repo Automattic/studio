@@ -11,69 +11,6 @@ import { sortSites } from 'src/lib/sort-sites';
 import { getResourcesPath, getUserDataFilePath } from 'src/storage/paths';
 import type { PersistedUserData, UserData } from 'src/storage/storage-types';
 
-const LOCKFILE_PATH = nodePath.join( getResourcesPath(), 'appdata-v1.lock' );
-
-function lock( options: lockfile.Options ) {
-	return new Promise< void >( ( resolve, reject ) => {
-		lockfile.lock( LOCKFILE_PATH, options, ( err ) => {
-			if ( err ) {
-				reject( err );
-			} else {
-				resolve();
-			}
-		} );
-	} );
-}
-
-function unlock() {
-	return new Promise< void >( ( resolve, reject ) => {
-		lockfile.unlock( LOCKFILE_PATH, ( err ) => {
-			if ( err ) {
-				reject( err );
-			} else {
-				resolve();
-			}
-		} );
-	} );
-}
-
-export function withUserDataWrite< Args extends unknown[] >(
-	fn: ( userData: UserData, ...args: Args ) => UserData | Promise< UserData >
-) {
-	return async ( ...args: Args ) => {
-		await lock( { wait: 1000, stale: 1000 } );
-		try {
-			const data = await loadUserData();
-			const updated = await fn( data, ...args );
-			await saveUserData( updated );
-			return updated;
-		} finally {
-			await unlock();
-		}
-	};
-}
-
-type UserDataSafeKeys =
-	| 'devToolsOpen'
-	| 'authToken'
-	| 'onboardingCompleted'
-	| 'locale'
-	| 'promptWindowsSpeedUpResult'
-	| 'sentryUserId'
-	| 'lastSeenVersion'
-	| 'preferredTerminal'
-	| 'preferredEditor';
-
-type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
-
-// Sometimes, we need to update the config file with a known value (i.e., not one that's derived
-// from the current user config). This function should be used in those cases.
-export const updateAppdata = withUserDataWrite(
-	async ( userData, update: PartialUserDataWithSafeKeysToUpdate ) => {
-		return { ...userData, ...update };
-	}
-);
-
 // Before persisting the PHP version of sites, the default PHP version used was 8.0.
 // In case we can't retrieve the PHP version from site details, we assume it was created
 // with version 8.0.
@@ -179,6 +116,72 @@ async function saveUserData( data: UserData ): Promise< void > {
 		}
 	}
 }
+
+const LOCKFILE_PATH = nodePath.join( getResourcesPath(), 'appdata-v1.lock' );
+
+function lock( options: lockfile.Options ) {
+	return new Promise< void >( ( resolve, reject ) => {
+		lockfile.lock( LOCKFILE_PATH, options, ( err ) => {
+			if ( err ) {
+				reject( err );
+			} else {
+				resolve();
+			}
+		} );
+	} );
+}
+
+function unlock() {
+	return new Promise< void >( ( resolve, reject ) => {
+		lockfile.unlock( LOCKFILE_PATH, ( err ) => {
+			if ( err ) {
+				reject( err );
+			} else {
+				resolve();
+			}
+		} );
+	} );
+}
+
+// Higher-order function that injects a parsed instance of the user config file and writes back
+// the return value. The purpose of this function is to avoid concurrent reads and writes to the
+// user config file. We ensure this by acquiring a lock on the file before reading or writing it.
+export function withUserDataWrite< Args extends unknown[] >(
+	fn: ( userData: UserData, ...args: Args ) => UserData | Promise< UserData >
+) {
+	return async ( ...args: Args ) => {
+		await lock( { wait: 1000, stale: 1000 } );
+		try {
+			const data = await loadUserData();
+			const updated = await fn( data, ...args );
+			await saveUserData( updated );
+			return updated;
+		} finally {
+			await unlock();
+		}
+	};
+}
+
+type UserDataSafeKeys =
+	| 'devToolsOpen'
+	| 'authToken'
+	| 'onboardingCompleted'
+	| 'locale'
+	| 'promptWindowsSpeedUpResult'
+	| 'sentryUserId'
+	| 'lastSeenVersion'
+	| 'preferredTerminal'
+	| 'preferredEditor';
+
+type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
+
+// Sometimes, we need to update the config file with a known value (i.e., not one that's derived
+// from the current user config). This function should be used in those cases.
+export const updateAppdata = withUserDataWrite(
+	async ( userData, update: PartialUserDataWithSafeKeysToUpdate ) => {
+		return { ...userData, ...update };
+	}
+);
 
 function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 	return {

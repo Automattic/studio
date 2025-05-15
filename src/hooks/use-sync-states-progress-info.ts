@@ -154,8 +154,7 @@ export function useSyncStatesProgressInfo() {
 			}
 			const statusWithProgress =
 				newProgressInfo ||
-				pullStatesProgressInfo[ frontendStatus ] ||
-				pullStatesProgressInfo.failed;
+				pullStatesProgressInfo[ frontendStatus ];
 
 			return statusWithProgress;
 		},

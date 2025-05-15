@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { __ } from '@wordpress/i18n';
-import archiver from 'archiver';
+import archiver, { EntryData } from 'archiver';
 import { LoggerError } from 'cli/logger';
 
 const ZIP_COMPRESSION_LEVEL = 9;
@@ -24,7 +24,16 @@ export async function createArchive(
 		} );
 
 		archive.pipe( output );
-		archive.directory( path.join( siteFolder, 'wp-content' ), 'wp-content' );
+		archive.directory(
+			path.join( siteFolder, 'wp-content' ),
+			'wp-content',
+			( entry: EntryData ) => {
+				if ( entry.name.includes( '.git' ) || entry.name.includes( 'node_modules' ) ) {
+					return false;
+				}
+				return entry;
+			}
+		);
 
 		const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
 		if ( fs.existsSync( wpConfigPath ) ) {

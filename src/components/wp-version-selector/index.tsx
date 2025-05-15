@@ -1,6 +1,7 @@
 import { SelectControl, Icon } from '@wordpress/components';
 import { info } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import { useEffect } from 'react';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
@@ -20,6 +21,8 @@ type WPVersionSelectorProps = {
 	extraOptions?: { label: string; value: string }[];
 	/** Fallback options shown when available versions couldn't be fetched */
 	fallbackOptions: { label: string; value: string }[];
+	/** Custom message to show when offline. If not provided, will use the default message */
+	offlineMessage?: string;
 };
 
 export const WPVersionSelector = ( {
@@ -29,11 +32,21 @@ export const WPVersionSelector = ( {
 	disabled = false,
 	extraOptions,
 	fallbackOptions,
+	offlineMessage,
 }: WPVersionSelectorProps ) => {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
-	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
+	const defaultOfflineMessage = __( 'Changing WordPress version requires an internet connection.' );
+	const message = offlineMessage || defaultOfflineMessage;
 	const { data: wpVersions = [] } = useGetWordPressVersions();
+
+	// Force latest version if the user goes offline
+	useEffect( () => {
+		if ( isOffline ) {
+			// Always force to latest when offline
+			onChange( DEFAULT_WORDPRESS_VERSION );
+		}
+	}, [ isOffline, onChange ] );
 
 	let betaVersions: { label: string; value: string }[] = wpVersions.filter(
 		( version ) => version.isBeta || version.isDevelopment
@@ -73,7 +86,7 @@ export const WPVersionSelector = ( {
 			<Tooltip
 				disabled={ ! isOffline }
 				icon={ offlineIcon }
-				text={ offlineMessage }
+				text={ message }
 				placement="top-start"
 				className="flex flex-1 flex-col"
 			>

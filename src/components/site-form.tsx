@@ -12,8 +12,8 @@ import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName } from 'src/lib/domains';
-import { getDocsLink } from 'src/lib/get-docs-link';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import {
 	DEFAULT_WORDPRESS_VERSION,
@@ -320,7 +320,7 @@ export const SiteForm = ( {
 												variant="link"
 												className="text-xs"
 												onClick={ () =>
-													getIpcApi().openURL( getDocsLink( locale, 'importExport' ) )
+													getIpcApi().openURL( getLocalizedLink( locale, 'docsImportExport' ) )
 												}
 											/>
 										),
@@ -386,7 +386,7 @@ export const SiteForm = ( {
 															variant="link"
 															className="text-xs"
 															onClick={ () =>
-																getIpcApi().openURL( getDocsLink( locale, 'sites' ) )
+																getIpcApi().openURL( getLocalizedLink( locale, 'docsSites' ) )
 															}
 														/>
 													),
@@ -424,6 +424,9 @@ export const SiteForm = ( {
 												fallbackOptions={ [
 													{ label: __( 'Latest' ), value: DEFAULT_WORDPRESS_VERSION },
 												] }
+												offlineMessage={ __(
+													'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
+												) }
 											/>
 										</div>
 

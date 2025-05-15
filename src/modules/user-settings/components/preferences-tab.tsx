@@ -23,9 +23,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const [ saveEditor ] = useSaveUserEditorMutation();
 	const [ saveTerminal ] = useSaveUserTerminalMutation();
 
-	const [ currentEditor, setCurrentEditor ] = useState< SupportedEditor | undefined >(
-		editor ?? undefined
-	);
+	const [ currentEditor, setCurrentEditor ] = useState< SupportedEditor | null >( editor ?? null );
 	const [ currentTerminal, setCurrentTerminal ] = useState( terminal );
 
 	const savePreferences = async () => {
@@ -39,7 +37,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 
 	const cancelChanges = () => {
 		setLocale( savedLocale );
-		setCurrentEditor( editor ?? undefined );
+		setCurrentEditor( editor ?? null );
 		setCurrentTerminal( terminal );
 		onClose();
 	};

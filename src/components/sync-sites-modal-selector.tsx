@@ -272,6 +272,9 @@ function SiteItem( {
 							{ environmentType === 'staging' && (
 								<EnvironmentBadge type="staging" selected={ isSelected } />
 							) }
+							{ environmentType === 'sandbox' && (
+								<EnvironmentBadge type="sandbox" selected={ isSelected } />
+							) }
 						</>
 					) }
 				</div>

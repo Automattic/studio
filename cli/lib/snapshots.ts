@@ -15,8 +15,8 @@ import {
 	getAuthToken,
 	getSiteByFolder,
 	readAppdata,
-	saveAppdata,
 	getOrCreateSiteByFolder,
+	withAppdataWrite,
 } from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
 
@@ -36,12 +36,12 @@ export async function getSnapshotsFromAppdata(
 	return snapshots;
 }
 
-export async function updateSnapshotInAppdata(
+export const updateSnapshotInAppdata = withAppdataWrite( async function* (
+	userData,
 	atomicSiteId: number,
 	siteFolder: string
-): Promise< Snapshot > {
+) {
 	const site = await getOrCreateSiteByFolder( siteFolder );
-	const userData = await readAppdata( true );
 	const snapshot = userData.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
 	if ( ! snapshot ) {
 		throw new LoggerError( __( 'Failed to find existing preview site in appdata' ) );
@@ -49,10 +49,10 @@ export async function updateSnapshotInAppdata(
 
 	snapshot.localSiteId = site.id;
 	snapshot.date = Date.now();
-	await saveAppdata( userData, true );
+	yield userData;
 
 	return snapshot;
-}
+} );
 
 const getNextSequenceNumber = ( siteId: string, snapshots: Snapshot[], userId: number ): number => {
 	const siteSnapshots = snapshots.filter(
@@ -68,13 +68,13 @@ const getNextSequenceNumber = ( siteId: string, snapshots: Snapshot[], userId: n
 		: siteSnapshots.length + 1;
 };
 
-export async function saveSnapshotToAppdata(
+export const saveSnapshotToAppdata = withAppdataWrite( async function* (
+	userData,
 	siteFolder: string,
 	atomicSiteId: number,
 	previewUrl: string
-): Promise< Snapshot > {
+) {
 	const site = await getOrCreateSiteByFolder( siteFolder );
-	const userData = await readAppdata( true );
 	const authToken = await getAuthToken();
 
 	const nextSequenceNumber = getNextSequenceNumber( site.id, userData.snapshots, authToken.id );
@@ -94,19 +94,21 @@ export async function saveSnapshotToAppdata(
 	};
 
 	userData.snapshots.push( snapshot );
-	await saveAppdata( userData, true );
+	yield userData;
 	return snapshot;
-}
+} );
 
-export const deleteSnapshotFromAppdata = async ( snapshotUrl: string ) => {
-	const userData = await readAppdata( true );
+export const deleteSnapshotFromAppdata = withAppdataWrite( async function* (
+	userData,
+	snapshotUrl: string
+) {
 	const snapshotIndex = userData.snapshots.findIndex( ( s ) => s.url === snapshotUrl );
 	if ( snapshotIndex === -1 ) {
 		return;
 	}
 	userData.snapshots.splice( snapshotIndex, 1 );
-	await saveAppdata( userData, true );
-};
+	yield userData;
+} );
 
 export function isSnapshotExpired( snapshot: Snapshot ) {
 	const now = new Date();

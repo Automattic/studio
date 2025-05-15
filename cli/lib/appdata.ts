@@ -14,6 +14,29 @@ import { LoggerError } from 'cli/logger';
 
 const LOCKFILE_PATH = path.join( getAppdataDirectory(), 'appdata-v1.lock' );
 
+export function withAppdataWrite< Args extends unknown[], R = unknown >(
+	fn: ( userData: UserData, ...args: Args ) => AsyncGenerator< UserData, R, unknown >
+) {
+	return async ( ...args: Args ): Promise< R > => {
+		await lock( LOCKFILE_PATH, { wait: 1000, stale: 1000 } );
+		try {
+			const data = await readAppdata();
+			const generator = fn( data, ...args );
+
+			// eslint-disable-next-line no-constant-condition
+			while ( true ) {
+				const { value, done } = await generator.next();
+				if ( done ) {
+					return value;
+				}
+				await saveAppdata( value );
+			}
+		} finally {
+			await unlock( LOCKFILE_PATH );
+		}
+	};
+}
+
 const siteSchema = z
 	.object( {
 		id: z.string(),
@@ -42,6 +65,7 @@ const userDataSchema = z
 	.passthrough();
 
 type UserData = z.infer< typeof userDataSchema >;
+type SiteData = z.infer< typeof siteSchema >;
 
 export function getAppdataDirectory(): string {
 	if ( process.platform === 'win32' ) {
@@ -60,7 +84,7 @@ export function getAppdataPath(): string {
 	return path.join( appdataDir, 'appdata-v1.json' );
 }
 
-export async function readAppdata( getLock = false ): Promise< UserData > {
+export async function readAppdata(): Promise< UserData > {
 	const appDataPath = getAppdataPath();
 
 	if ( ! fs.existsSync( appDataPath ) ) {
@@ -68,10 +92,6 @@ export async function readAppdata( getLock = false ): Promise< UserData > {
 	}
 
 	try {
-		if ( getLock ) {
-			await lock( LOCKFILE_PATH, { wait: 1000, stale: 1000 } );
-		}
-
 		const fileContent = await readFile( appDataPath, { encoding: 'utf8' } );
 		const userData = JSON.parse( fileContent );
 		return userDataSchema.parse( userData );
@@ -101,7 +121,7 @@ export async function readAppdata( getLock = false ): Promise< UserData > {
 	}
 }
 
-export async function saveAppdata( userData: UserData, hasLock = false ): Promise< void > {
+async function saveAppdata( userData: UserData ): Promise< void > {
 	try {
 		if ( ! userData.version ) {
 			userData.version = 1;
@@ -113,10 +133,6 @@ export async function saveAppdata( userData: UserData, hasLock = false ): Promis
 		await writeFile( appDataPath, fileContent, { encoding: 'utf8' } );
 	} catch ( error ) {
 		throw new LoggerError( __( 'Failed to save Studio config file' ), error );
-	} finally {
-		if ( hasLock ) {
-			await unlock( LOCKFILE_PATH );
-		}
 	}
 }
 
@@ -144,9 +160,7 @@ export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken
 	}
 }
 
-export async function getSiteByFolder(
-	siteFolder: string
-): Promise< z.infer< typeof siteSchema > > {
+export async function getSiteByFolder( siteFolder: string ): Promise< SiteData > {
 	const userData = await readAppdata();
 	const site = [ ...userData.sites, ...userData.newSites ].find(
 		( site ) => site.path === siteFolder
@@ -159,7 +173,7 @@ export async function getSiteByFolder(
 	return site;
 }
 
-export function getNewSitePartial( siteFolder: string ): z.infer< typeof siteSchema > {
+export function getNewSitePartial( siteFolder: string ): SiteData {
 	const newSite = {
 		id: crypto.randomUUID(),
 		path: siteFolder,
@@ -169,9 +183,10 @@ export function getNewSitePartial( siteFolder: string ): z.infer< typeof siteSch
 	return newSite;
 }
 
-export async function getOrCreateSiteByFolder(
+export const getOrCreateSiteByFolder = withAppdataWrite( async function* (
+	userData,
 	siteFolder: string
-): Promise< z.infer< typeof siteSchema > > {
+) {
 	let site;
 	try {
 		site = await getSiteByFolder( siteFolder );
@@ -179,10 +194,9 @@ export async function getOrCreateSiteByFolder(
 		if ( ! ( error instanceof LoggerError ) ) {
 			throw error;
 		}
-		const userData = await readAppdata( true );
 		site = getNewSitePartial( siteFolder );
 		userData.newSites.push( site );
-		await saveAppdata( userData, true );
+		yield userData;
 	}
 	return site;
-}
+} );

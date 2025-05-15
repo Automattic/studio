@@ -95,16 +95,10 @@ export function useSyncPush( {
 				return;
 			}
 
-			const importId = getPushState( syncPushState.selectedSite?.id, remoteSiteId )?.importId;
-			if ( ! importId ) {
-				console.warn( 'No import ID found' );
-			}
-
 			const response = await client.req.get< ImportResponse >(
 				`/sites/${ remoteSiteId }/studio-app/sync/import`,
 				{
 					apiNamespace: 'wpcom/v2',
-					import_id: importId,
 				}
 			);
 
@@ -142,7 +136,6 @@ export function useSyncPush( {
 		[
 			__,
 			client,
-			getPushState,
 			getPushStatusWithProgress,
 			onPushSuccess,
 			pushStatesProgressInfo.failed,
@@ -226,7 +219,6 @@ export function useSyncPush( {
 			try {
 				const response = await client.req.post< {
 					success: boolean;
-					import_id: number;
 				} >( {
 					path: `/sites/${ remoteSiteId }/studio-app/sync/import`,
 					apiNamespace: 'wpcom/v2',
@@ -235,7 +227,6 @@ export function useSyncPush( {
 				if ( response.success ) {
 					updatePushState( selectedSite.id, remoteSiteId, {
 						status: pushStatesProgressInfo.importing,
-						importId: response.import_id,
 					} );
 				} else {
 					console.error( response );

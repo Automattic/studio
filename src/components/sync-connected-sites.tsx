@@ -17,7 +17,6 @@ import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { ImportProgressState, useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
@@ -234,7 +233,6 @@ const SyncConnectedSitesList = ( {
 	const { clearPullState, getPullState, getPushState, clearPushState } = useSyncSites();
 	const { importState } = useImportExport();
 	const { isKeyPulling, isKeyPushing, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
-	const { pressableSyncEnabled } = useFeatureFlags();
 
 	return (
 		<div className="grid grid-cols-[max-content_1fr_max-content]">
@@ -332,11 +330,10 @@ const SyncConnectedSitesList = ( {
 										'Push is in progress. We will send you an email when it is completed.'
 									) }
 									placement="top-start"
-									disabled={ ! pressableSyncEnabled }
 								>
 									<div className="flex flex-col gap-2 min-w-44">
 										<div className="a8c-body-small flex items-center gap-0.5">
-											{ pressableSyncEnabled && <Icon icon={ info } size={ 16 } /> }
+											<Icon icon={ info } size={ 16 } />
 											{ pushState.status.message }
 										</div>
 										<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />

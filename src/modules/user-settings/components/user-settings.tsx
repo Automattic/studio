@@ -88,7 +88,7 @@ export default function UserSettings() {
 					isDismissible
 					onRequestClose={ resetLocalState }
 					size="medium"
-					className={ cx( 'min-h-[350px]', '[&_[role="document"]]:px-0' ) }
+					className={ cx( 'min-h-[350px]', '[&_[role="document"]]:px-0', 'app-no-drag-region' ) }
 				>
 					<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
 						{ ( { name } ) => (

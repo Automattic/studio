@@ -603,6 +603,15 @@ async function mountInternalMuPlugins( php: PHP, options: WPNowOptions ) {
 		`
 	);
 
+	php.writeFile(
+		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-wp-environment-type.php' ),
+		`<?php
+		if ( ! defined( 'WP_ENVIRONMENT_TYPE' ) ) {
+			putenv( 'WP_ENVIRONMENT_TYPE=local' );
+		}
+		`
+	);
+
 	if ( ! options.isWpAutoUpdating ) {
 		php.writeFile(
 			path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-disable-auto-updates.php' ),

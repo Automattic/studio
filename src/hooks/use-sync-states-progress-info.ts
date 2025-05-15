@@ -13,15 +13,8 @@ export type PushStateProgressInfo = {
 	message: string;
 };
 
-export type PushStateProgressInfoValues = Record<
-	PushStateProgressInfo[ 'key' ],
-	PushStateProgressInfo
->;
-
-export type PullStateProgressInfoValues = Record<
-	PullStateProgressInfo[ 'key' ],
-	PullStateProgressInfo
->;
+type PullStateProgressInfoValues = Record< PullStateProgressInfo[ 'key' ], PullStateProgressInfo >;
+type PushStateProgressInfoValues = Record< PushStateProgressInfo[ 'key' ], PushStateProgressInfo >;
 
 export type SyncBackupResponse = {
 	status: 'in-progress' | 'finished' | 'failed';
@@ -83,7 +76,7 @@ export function useSyncStatesProgressInfo() {
 				progress: 0,
 				message: __( 'Cancelled' ),
 			},
-		} satisfies PullStateProgressInfoValues;
+		} as const satisfies PullStateProgressInfoValues;
 	}, [ __ ] );
 
 	const pushStatesProgressInfo = useMemo( () => {
@@ -113,7 +106,7 @@ export function useSyncStatesProgressInfo() {
 				progress: 100,
 				message: __( 'Error pushing changes' ),
 			},
-		} satisfies PushStateProgressInfoValues;
+		} as const satisfies PushStateProgressInfoValues;
 	}, [ __ ] );
 
 	const isKeyPulling = ( key: PullStateProgressInfo[ 'key' ] | undefined ) => {

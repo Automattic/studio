@@ -33,13 +33,15 @@ export const EditorPicker = ( { value, onChange, disabled }: EditorPickerProps )
 				disabled={ disabled }
 			>
 				{ ! value && <option value={ '' }>{ __( 'Select' ) }</option> }
-				<optgroup label={ __( 'Available editors' ) }>
-					{ installedEditors.map( ( [ editorKey, editorConfig ] ) => (
-						<option key={ editorKey } value={ editorKey }>
-							{ editorConfig.label }
-						</option>
-					) ) }
-				</optgroup>
+				{ installedEditors.length > 0 && (
+					<optgroup label={ __( 'Available editors' ) }>
+						{ installedEditors.map( ( [ editorKey, editorConfig ] ) => (
+							<option key={ editorKey } value={ editorKey }>
+								{ editorConfig.label }
+							</option>
+						) ) }
+					</optgroup>
+				) }
 				<optgroup label={ __( 'Not installed' ) }>
 					{ uninstalledEditors.map( ( [ editorKey, editorConfig ] ) => (
 						<option key={ editorKey } value={ editorKey } disabled>

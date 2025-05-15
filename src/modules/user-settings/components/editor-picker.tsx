@@ -9,8 +9,8 @@ import {
 import { SettingsFormField } from './settings-form-field';
 
 interface EditorPickerProps {
-	value: SupportedEditor | undefined;
-	onChange: ( value: SupportedEditor ) => void;
+	value: SupportedEditor | null;
+	onChange: ( value: SupportedEditor | null ) => void;
 	disabled?: boolean;
 }
 
@@ -25,21 +25,23 @@ export const EditorPicker = ( { value, onChange, disabled }: EditorPickerProps )
 
 	return (
 		<SettingsFormField label={ __( 'Code editor' ) }>
-			<SelectControl< SupportedEditor >
-				value={ value }
-				onChange={ ( newValue ) => onChange( newValue ) }
+			<SelectControl< SupportedEditor | '' >
+				value={ value || '' }
+				onChange={ ( newValue ) => onChange( newValue ? newValue : null ) }
 				__nextHasNoMarginBottom
 				__next40pxDefaultSize
 				disabled={ disabled }
 			>
-				{ ! value && <option value={ '' }>{ __( 'Select' ) }</option> }
-				<optgroup label={ __( 'Available editors' ) }>
-					{ installedEditors.map( ( [ editorKey, editorConfig ] ) => (
-						<option key={ editorKey } value={ editorKey }>
-							{ editorConfig.label }
-						</option>
-					) ) }
-				</optgroup>
+				{ installedEditors.length === 0 && <option value="">{ __( 'Select' ) }</option> }
+				{ installedEditors.length > 0 && (
+					<optgroup label={ __( 'Available editors' ) }>
+						{ installedEditors.map( ( [ editorKey, editorConfig ] ) => (
+							<option key={ editorKey } value={ editorKey }>
+								{ editorConfig.label }
+							</option>
+						) ) }
+					</optgroup>
+				) }
 				<optgroup label={ __( 'Not installed' ) }>
 					{ uninstalledEditors.map( ( [ editorKey, editorConfig ] ) => (
 						<option key={ editorKey } value={ editorKey } disabled>

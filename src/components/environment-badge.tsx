@@ -29,15 +29,11 @@ export function EnvironmentBadge( { type, selected }: EnvironmentBadgeProps ) {
 		return '';
 	};
 
-	const getLabel = () => {
-		if ( type === 'staging' ) {
-			return __( 'Staging' );
-		}
-		if ( type === 'sandbox' ) {
-			return __( 'Sandbox' );
-		}
-		return __( 'Production' );
+	const labels: Record< EnvironmentType, string > = {
+		staging: __( 'Staging' ),
+		sandbox: __( 'Sandbox' ),
+		production: __( 'Production' ),
 	};
 
-	return <Badge className={ cx( getClassName() ) }>{ getLabel() }</Badge>;
+	return <Badge className={ cx( getClassName() ) }>{ labels[ type ] }</Badge>;
 }

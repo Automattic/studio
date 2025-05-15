@@ -42,12 +42,11 @@ export type ImportResponse = {
 	error?: string;
 };
 
-export const IN_PROGRESS_INITIAL_VALUE = 30;
+const IN_PROGRESS_INITIAL_VALUE = 30;
 const DOWNLOADING_INITIAL_VALUE = 60;
-export const IN_PROGRESS_TO_DOWNLOADING_STEP =
-	DOWNLOADING_INITIAL_VALUE - IN_PROGRESS_INITIAL_VALUE;
-export const IMPORTING_INITIAL_VALUE = 60;
-export const IMPORTING_TO_FINISHED_STEP = 100 - IMPORTING_INITIAL_VALUE;
+const IN_PROGRESS_TO_DOWNLOADING_STEP = DOWNLOADING_INITIAL_VALUE - IN_PROGRESS_INITIAL_VALUE;
+const PULL_IMPORTING_INITIAL_VALUE = 80;
+const PUSH_IMPORTING_INITIAL_VALUE = 60;
 
 export function useSyncStatesProgressInfo() {
 	const { __ } = useI18n();
@@ -66,7 +65,7 @@ export function useSyncStatesProgressInfo() {
 			},
 			importing: {
 				key: 'importing',
-				progress: IMPORTING_INITIAL_VALUE,
+				progress: PULL_IMPORTING_INITIAL_VALUE,
 				message: __( 'Importing backup…' ),
 			},
 			finished: {
@@ -101,8 +100,8 @@ export function useSyncStatesProgressInfo() {
 			},
 			importing: {
 				key: 'importing',
-				progress: IMPORTING_INITIAL_VALUE,
-				message: __( 'Applying changes…' ),
+				progress: PUSH_IMPORTING_INITIAL_VALUE,
+				message: __( 'Keeping your site safe…' ),
 			},
 			finished: {
 				key: 'finished',
@@ -189,10 +188,10 @@ export function useSyncStatesProgressInfo() {
 				if ( importState.progress === 100 ) {
 					return { message: __( 'Applying final details…' ), progress: 99 };
 				}
+				const stepToProgress = 100 - PULL_IMPORTING_INITIAL_VALUE;
 				return {
 					message: importState.statusMessage,
-					progress:
-						IMPORTING_INITIAL_VALUE + IMPORTING_TO_FINISHED_STEP * ( importState.progress / 100 ),
+					progress: PULL_IMPORTING_INITIAL_VALUE + stepToProgress * ( importState.progress / 100 ),
 				};
 			}
 			return { message: '', progress: 0 };
@@ -202,32 +201,38 @@ export function useSyncStatesProgressInfo() {
 
 	const getPushStatusWithProgress = useCallback(
 		( status: PushStateProgressInfo, response: ImportResponse ) => {
-			if ( status.key === 'importing' ) {
+			if ( status.key === pushStatesProgressInfo.importing.key ) {
 				const backupStep = 10;
-				const archiveInitialValue = IMPORTING_INITIAL_VALUE + backupStep;
-				const archiveStep = IMPORTING_TO_FINISHED_STEP - backupStep;
+				const archiveInitialValue = PUSH_IMPORTING_INITIAL_VALUE + backupStep;
+				const archiveStep = 30;
 
-				// This step will increaste the progress in 10 (from 60 to 70) progressively based on the backup_progress
+				// This step will increase the progress in 10 (from 60 to 70) progressively based on the backup_progress
 				if ( response.status === 'initial_backup_started' ) {
 					return {
 						...status,
-						progress: IMPORTING_INITIAL_VALUE + backupStep * ( response.backup_progress / 100 ),
+						progress:
+							PUSH_IMPORTING_INITIAL_VALUE + backupStep * ( response.backup_progress / 100 ),
 					};
 				}
-				// This step will increaste the progress in 30 (from 70 to 100) progressively based on the import_progress
-				if (
-					response.status === 'archive_import_started' ||
-					response.status === 'archive_import_finished'
-				) {
+				// This step will increase the progress in 30 (from 70 to 100) progressively based on the import_progress
+				if ( response.status === 'archive_import_started' && response.import_progress < 100 ) {
 					return {
 						...status,
+						message: __( 'Applying changes…' ),
 						progress: archiveInitialValue + archiveStep * ( response.import_progress / 100 ),
+					};
+				}
+				if ( response.status === 'archive_import_finished' ) {
+					return {
+						...status,
+						message: __( 'Last touches…' ),
+						progress: 99,
 					};
 				}
 			}
 			return status;
 		},
-		[]
+		[ __, pushStatesProgressInfo.importing.key ]
 	);
 
 	return {

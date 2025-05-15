@@ -65,7 +65,7 @@ export async function createSiteWorkingDirectory(
 		return true;
 	} catch ( error ) {
 		console.error( 'Error in createSiteWorkingDirectory:', error );
-		return false;
+		throw error;
 	}
 }
 

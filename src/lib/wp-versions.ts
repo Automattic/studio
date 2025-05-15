@@ -129,5 +129,6 @@ export async function verifyWordPressChecksums( wpVersion: string ): Promise< vo
 		}
 	} catch ( error ) {
 		console.error( `Failed to verify WordPress checksums:`, error );
+		throw error;
 	}
 }

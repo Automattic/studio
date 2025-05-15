@@ -64,7 +64,7 @@ import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
-import { loadUserData, withAppdataLock } from 'src/storage/user-data';
+import { loadUserData, withUserDataWrite } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
@@ -153,7 +153,7 @@ export async function importSite(
 	}
 }
 
-export const createSite = withAppdataLock(
+export const createSite = withUserDataWrite(
 	async (
 		userData,
 		event: IpcMainInvokeEvent,
@@ -237,7 +237,7 @@ export const createSite = withAppdataLock(
 	}
 );
 
-export const updateSite = withAppdataLock(
+export const updateSite = withUserDataWrite(
 	async ( userData, event: IpcMainInvokeEvent, updatedSite: SiteDetails ) => {
 		const updatedSites = userData.sites.map( ( site ) =>
 			site.id === updatedSite.id ? updatedSite : site
@@ -254,7 +254,7 @@ export const updateSite = withAppdataLock(
 
 type WpcomSitesToConnect = { sites: SyncSite[]; localSiteId: string }[];
 
-export const connectWpcomSites = withAppdataLock(
+export const connectWpcomSites = withUserDataWrite(
 	async ( userData, event: IpcMainInvokeEvent, list: WpcomSitesToConnect ) => {
 		const currentUserId = userData.authToken?.id;
 
@@ -291,7 +291,7 @@ export const connectWpcomSites = withAppdataLock(
 
 type WpcomSitesToDisconnect = { siteIds: number[]; localSiteId: string }[];
 
-export const disconnectWpcomSites = withAppdataLock(
+export const disconnectWpcomSites = withUserDataWrite(
 	async ( userData, event: IpcMainInvokeEvent, list: WpcomSitesToDisconnect ) => {
 		const currentUserId = userData.authToken?.id;
 
@@ -320,7 +320,7 @@ export const disconnectWpcomSites = withAppdataLock(
 	}
 );
 
-export const updateConnectedWpcomSites = withAppdataLock(
+export const updateConnectedWpcomSites = withUserDataWrite(
 	async ( userData, event: IpcMainInvokeEvent, updatedSites: SyncSite[] ) => {
 		const currentUserId = userData.authToken?.id;
 
@@ -348,7 +348,7 @@ export const updateConnectedWpcomSites = withAppdataLock(
 	}
 );
 
-export const updateSingleConnectedWpcomSite = withAppdataLock(
+export const updateSingleConnectedWpcomSite = withUserDataWrite(
 	async ( userData, event: IpcMainInvokeEvent, updatedSite: SyncSite ) => {
 		const currentUserId = userData.authToken?.id;
 
@@ -533,13 +533,13 @@ export async function showOpenFolderDialog(
 	};
 }
 
-export const saveUserLocale = withAppdataLock(
+export const saveUserLocale = withUserDataWrite(
 	async ( userData, _event: IpcMainInvokeEvent, locale: string ) => {
 		return { ...userData, locale };
 	}
 );
 
-export const saveUserEditor = withAppdataLock(
+export const saveUserEditor = withUserDataWrite(
 	async ( userData, event: IpcMainInvokeEvent, editor: SupportedEditor ) => {
 		const parentWindow = BrowserWindow.fromWebContents( event.sender );
 		sendIpcEventToRendererWithWindow( parentWindow, 'user-preference-changed' );
@@ -658,7 +658,7 @@ export function removeTemporalFile( event: IpcMainInvokeEvent, path: string ) {
 	}
 }
 
-export const deleteSite = withAppdataLock(
+export const deleteSite = withUserDataWrite(
 	async ( userData, event: IpcMainInvokeEvent, id: string, deleteFiles = false ) => {
 		const server = SiteServer.get( id );
 		console.log( 'Deleting site', id );
@@ -743,13 +743,13 @@ export async function exportSite(
 	}
 }
 
-export const saveSnapshotsToStorage = withAppdataLock(
+export const saveSnapshotsToStorage = withUserDataWrite(
 	async ( userData, event: IpcMainInvokeEvent, snapshots: Snapshot[] ) => {
 		return { ...userData, snapshots };
 	}
 );
 
-export const saveLastSeenVersion = withAppdataLock(
+export const saveLastSeenVersion = withUserDataWrite(
 	async ( userData, event: IpcMainInvokeEvent, version: string ) => {
 		return { ...userData, lastSeenVersion: version };
 	}
@@ -907,7 +907,7 @@ export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< 
 	return onboardingCompleted;
 }
 
-export const saveOnboarding = withAppdataLock(
+export const saveOnboarding = withUserDataWrite(
 	async ( userData, event: IpcMainInvokeEvent, onboardingCompleted: boolean ) => {
 		return { ...userData, onboardingCompleted };
 	}
@@ -1308,7 +1308,7 @@ export async function checkSyncBackupSize(
 	} );
 }
 
-export const saveUserTerminal = withAppdataLock(
+export const saveUserTerminal = withUserDataWrite(
 	async ( userData, event: IpcMainInvokeEvent, preferredTerminal: SupportedTerminal ) => {
 		// Notify renderer processes that the terminal preference has changed
 		await sendIpcEventToRenderer( 'user-preference-changed' );
@@ -1363,7 +1363,7 @@ export async function deleteSnapshot(
 	return executePreviewCliCommand( [ 'preview', 'delete', hostname ], parentWindow );
 }
 
-export const handleNewSite = withAppdataLock(
+export const handleNewSite = withUserDataWrite(
 	async ( userData, event: IpcMainInvokeEvent, newSite: NewSiteDetails ) => {
 		const updatedUserData = await createSite(
 			event,

@@ -1,7 +1,7 @@
 import { isEmptyDir } from 'src/lib/fs-utils';
-import { withAppdataLock } from 'src/storage/user-data';
+import { withUserDataWrite } from 'src/storage/user-data';
 
-export const removeSitesWithEmptyDirectories = withAppdataLock( async ( userData ) => {
+export const removeSitesWithEmptyDirectories = withUserDataWrite( async ( userData ) => {
 	const sitesWithNonEmptyDirectories: SiteDetails[] = [];
 	const storedSites = userData.sites || [];
 	for ( const site of storedSites ) {

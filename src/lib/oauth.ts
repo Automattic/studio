@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { CLIENT_ID } from 'common/constants';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { loadUserData, withAppdataLock } from 'src/storage/user-data';
+import { loadUserData, withUserDataWrite } from 'src/storage/user-data';
 
 const authTokenSchema = z.object( {
 	accessToken: z.string(),
@@ -32,7 +32,7 @@ async function getToken(): Promise< StoredToken | null > {
 	}
 }
 
-const storeToken = withAppdataLock( ( userData, token: StoredToken ) => {
+const storeToken = withUserDataWrite( ( userData, token: StoredToken ) => {
 	return { ...userData, authToken: token };
 } );
 
@@ -41,7 +41,7 @@ export function getSignUpUrl() {
 	return `https://wordpress.com/log-in/link?redirect_to=${ authUrl }&client_id=${ CLIENT_ID }`;
 }
 
-export const clearAuthenticationToken = withAppdataLock( ( userData ) => {
+export const clearAuthenticationToken = withUserDataWrite( ( userData ) => {
 	return { ...userData, authToken: undefined };
 } );
 

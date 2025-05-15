@@ -25,7 +25,7 @@ function lock( options: lockfile.Options ) {
 	} );
 }
 
-export function unlock() {
+function unlock() {
 	return new Promise< void >( ( resolve, reject ) => {
 		lockfile.unlock( LOCKFILE_PATH, ( err ) => {
 			if ( err ) {
@@ -37,10 +37,8 @@ export function unlock() {
 	} );
 }
 
-type MaybePromise< T > = T | Promise< T >;
-
-export function withAppdataLock< Args extends unknown[] >(
-	fn: ( userData: UserData, ...args: Args ) => MaybePromise< UserData >
+export function withUserDataWrite< Args extends unknown[] >(
+	fn: ( userData: UserData, ...args: Args ) => UserData | Promise< UserData >
 ) {
 	return async ( ...args: Args ) => {
 		await lock( { wait: 1000, stale: 1000 } );
@@ -54,6 +52,27 @@ export function withAppdataLock< Args extends unknown[] >(
 		}
 	};
 }
+
+type UserDataSafeKeys =
+	| 'devToolsOpen'
+	| 'authToken'
+	| 'onboardingCompleted'
+	| 'locale'
+	| 'promptWindowsSpeedUpResult'
+	| 'sentryUserId'
+	| 'lastSeenVersion'
+	| 'preferredTerminal'
+	| 'preferredEditor';
+
+type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
+
+// Sometimes, we need to update the config file with a known value (i.e., not one that's derived
+// from the current user config). This function should be used in those cases.
+export const updateAppdata = withAppdataLock(
+	async ( userData, update: PartialUserDataWithSafeKeysToUpdate ) => {
+		return { ...userData, ...update };
+	}
+);
 
 // Before persisting the PHP version of sites, the default PHP version used was 8.0.
 // In case we can't retrieve the PHP version from site details, we assume it was created
@@ -144,7 +163,7 @@ export async function loadUserData(): Promise< UserData > {
 	}
 }
 
-export async function saveUserData( data: UserData ): Promise< void > {
+async function saveUserData( data: UserData ): Promise< void > {
 	const filePath = getUserDataFilePath();
 
 	const asString = JSON.stringify( toDiskFormat( data ), null, 2 ) + '\n';

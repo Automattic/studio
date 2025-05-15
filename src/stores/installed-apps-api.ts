@@ -16,15 +16,6 @@ export const installedAppsApi = createApi( {
 		getInstalledApps: builder.query< InstalledApps, void >( {
 			queryFn: async () => {
 				const installedApps = await getIpcApi().getInstalledAppsAndTerminals();
-				console.log( 'getInstalledApps - keys:', Object.keys( installedApps ) );
-				console.log(
-					'getInstalledApps - values:',
-					Object.fromEntries(
-						Object.entries( installedApps ).filter( ( [ key ] ) =>
-							Object.keys( supportedEditorConfig ).includes( key )
-						)
-					)
-				);
 				return { data: installedApps };
 			},
 			providesTags: [ 'InstalledApps' ],
@@ -92,16 +83,7 @@ export const selectInstalledEditors = createSelector(
 			SupportedEditorConfig,
 		][];
 
-		console.log(
-			'selectInstalledEditors - installedApps keys:',
-			installedApps ? Object.keys( installedApps ) : 'undefined'
-		);
-		const result = entries.filter( ( [ editor ] ) => installedApps && installedApps[ editor ] );
-		console.log(
-			'selectInstalledEditors - installed editor keys:',
-			result.map( ( [ key ] ) => key )
-		);
-		return result;
+		return entries.filter( ( [ editor ] ) => installedApps && installedApps[ editor ] );
 	}
 );
 
@@ -113,16 +95,7 @@ export const selectUninstalledEditors = createSelector(
 			SupportedEditorConfig,
 		][];
 
-		console.log(
-			'selectUninstalledEditors - installedApps keys:',
-			installedApps ? Object.keys( installedApps ) : 'undefined'
-		);
-		const result = entries.filter( ( [ editor ] ) => ! installedApps || ! installedApps[ editor ] );
-		console.log(
-			'selectUninstalledEditors - uninstalled editor keys:',
-			result.map( ( [ key ] ) => key )
-		);
-		return result;
+		return entries.filter( ( [ editor ] ) => ! installedApps || ! installedApps[ editor ] );
 	}
 );
 

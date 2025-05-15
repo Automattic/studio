@@ -27,7 +27,7 @@ export const EditorPicker = ( { value, onChange, disabled }: EditorPickerProps )
 		<SettingsFormField label={ __( 'Code editor' ) }>
 			<SelectControl< SupportedEditor | '' >
 				value={ value || '' }
-				onChange={ ( newValue ) => onChange( newValue ? ( newValue as SupportedEditor ) : null ) }
+				onChange={ ( newValue ) => onChange( newValue ? newValue : null ) }
 				__nextHasNoMarginBottom
 				__next40pxDefaultSize
 				disabled={ disabled }

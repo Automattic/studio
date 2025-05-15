@@ -164,9 +164,6 @@ export function useSyncStatesProgressInfo() {
 
 	const getPullStatusWithProgress = useCallback(
 		( sitePullState?: PullStateProgressInfo, importState?: ImportProgressState[ string ] ) => {
-			if ( ! importState && sitePullState ) {
-				return { message: sitePullState.message, progress: sitePullState.progress };
-			}
 			if ( importState ) {
 				if ( importState.progress === 100 ) {
 					return { message: __( 'Applying final details…' ), progress: 99 };
@@ -176,6 +173,9 @@ export function useSyncStatesProgressInfo() {
 					progress:
 						IMPORTING_INITIAL_VALUE + IMPORTING_TO_FINISHED_STEP * ( importState.progress / 100 ),
 				};
+			}
+			if ( sitePullState ) {
+				return { message: sitePullState.message, progress: sitePullState.progress };
 			}
 			return { message: '', progress: 0 };
 		},

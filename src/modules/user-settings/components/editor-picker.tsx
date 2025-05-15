@@ -9,8 +9,8 @@ import {
 import { SettingsFormField } from './settings-form-field';
 
 interface EditorPickerProps {
-	value: SupportedEditor | undefined;
-	onChange: ( value: SupportedEditor ) => void;
+	value: SupportedEditor | null;
+	onChange: ( value: SupportedEditor | null ) => void;
 	disabled?: boolean;
 }
 
@@ -25,14 +25,16 @@ export const EditorPicker = ( { value, onChange, disabled }: EditorPickerProps )
 
 	return (
 		<SettingsFormField label={ __( 'Code editor' ) }>
-			<SelectControl< SupportedEditor >
-				value={ value }
-				onChange={ ( newValue ) => onChange( newValue ) }
+			<SelectControl< SupportedEditor | '' >
+				value={ value || '' }
+				onChange={ ( newValue ) => onChange( newValue ? ( newValue as SupportedEditor ) : null ) }
 				__nextHasNoMarginBottom
 				__next40pxDefaultSize
 				disabled={ disabled }
 			>
-				{ ! value && <option value={ '' }>{ __( 'Select' ) }</option> }
+				{ ( ! value || installedEditors.length === 0 ) && (
+					<option value="">{ __( 'Select' ) }</option>
+				) }
 				{ installedEditors.length > 0 && (
 					<optgroup label={ __( 'Available editors' ) }>
 						{ installedEditors.map( ( [ editorKey, editorConfig ] ) => (

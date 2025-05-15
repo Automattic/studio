@@ -28,16 +28,7 @@ export const installedAppsApi = createApi( {
 					return { data: editor };
 				}
 
-				// If no user preference is set, check for installed editors
-				// and set the default to the first one found
-				// This is a fallback to ensure we keep existing behavior
-				const installedEditors = await getIpcApi().getInstalledAppsAndTerminals();
-				if ( installedEditors.vscode ) {
-					return { data: 'vscode' };
-				} else if ( installedEditors.phpstorm ) {
-					return { data: 'phpstorm' };
-				}
-
+				// If no user preference is set, return null
 				return { data: null };
 			},
 			providesTags: [ 'UserPreferences' ],

@@ -16,6 +16,15 @@ export const installedAppsApi = createApi( {
 		getInstalledApps: builder.query< InstalledApps, void >( {
 			queryFn: async () => {
 				const installedApps = await getIpcApi().getInstalledAppsAndTerminals();
+				console.log( 'getInstalledApps - keys:', Object.keys( installedApps ) );
+				console.log(
+					'getInstalledApps - values:',
+					Object.fromEntries(
+						Object.entries( installedApps ).filter( ( [ key ] ) =>
+							Object.keys( supportedEditorConfig ).includes( key )
+						)
+					)
+				);
 				return { data: installedApps };
 			},
 			providesTags: [ 'InstalledApps' ],
@@ -26,6 +35,16 @@ export const installedAppsApi = createApi( {
 				// Respect user preference if it is set
 				if ( editor ) {
 					return { data: editor };
+				}
+
+				// If no user preference is set, check for installed editors
+				// and set the default to the first one found
+				// This is a fallback to ensure we keep existing behavior
+				const installedEditors = await getIpcApi().getInstalledAppsAndTerminals();
+				if ( installedEditors.vscode ) {
+					return { data: 'vscode' };
+				} else if ( installedEditors.phpstorm ) {
+					return { data: 'phpstorm' };
 				}
 
 				// If no user preference is set, return null
@@ -73,7 +92,16 @@ export const selectInstalledEditors = createSelector(
 			SupportedEditorConfig,
 		][];
 
-		return entries.filter( ( [ editor ] ) => installedApps && installedApps[ editor ] );
+		console.log(
+			'selectInstalledEditors - installedApps keys:',
+			installedApps ? Object.keys( installedApps ) : 'undefined'
+		);
+		const result = entries.filter( ( [ editor ] ) => installedApps && installedApps[ editor ] );
+		console.log(
+			'selectInstalledEditors - installed editor keys:',
+			result.map( ( [ key ] ) => key )
+		);
+		return result;
 	}
 );
 
@@ -85,7 +113,16 @@ export const selectUninstalledEditors = createSelector(
 			SupportedEditorConfig,
 		][];
 
-		return entries.filter( ( [ editor ] ) => ! installedApps || ! installedApps[ editor ] );
+		console.log(
+			'selectUninstalledEditors - installedApps keys:',
+			installedApps ? Object.keys( installedApps ) : 'undefined'
+		);
+		const result = entries.filter( ( [ editor ] ) => ! installedApps || ! installedApps[ editor ] );
+		console.log(
+			'selectUninstalledEditors - uninstalled editor keys:',
+			result.map( ( [ key ] ) => key )
+		);
+		return result;
 	}
 );
 

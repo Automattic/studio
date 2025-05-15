@@ -32,9 +32,7 @@ export const EditorPicker = ( { value, onChange, disabled }: EditorPickerProps )
 				__next40pxDefaultSize
 				disabled={ disabled }
 			>
-				{ ( ! value || installedEditors.length === 0 ) && (
-					<option value="">{ __( 'Select' ) }</option>
-				) }
+				{ installedEditors.length === 0 && <option value="">{ __( 'Select' ) }</option> }
 				{ installedEditors.length > 0 && (
 					<optgroup label={ __( 'Available editors' ) }>
 						{ installedEditors.map( ( [ editorKey, editorConfig ] ) => (

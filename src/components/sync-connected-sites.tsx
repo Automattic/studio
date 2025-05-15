@@ -1,7 +1,7 @@
 import { Icon } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
-import { cloudUpload, cloudDownload } from '@wordpress/icons';
+import { cloudUpload, cloudDownload, info } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
@@ -22,8 +22,8 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import { cx } from 'src/lib/cx';
-import { getDocsLink } from 'src/lib/get-docs-link';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getLocalizedLink } from 'src/lib/get-localized-link';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 interface ConnectedSiteSection {
@@ -264,7 +264,8 @@ const SyncConnectedSitesList = ( {
 								getIpcApi().openURL( connectedSite.url );
 							} }
 						>
-							<span className="truncate">{ connectedSite.url }</span> <ArrowIcon />
+							<span className="truncate">{ connectedSite.url.replace( /^https?:\/\//, '' ) }</span>{ ' ' }
+							<ArrowIcon />
 						</Button>
 
 						<div className="flex shrink-0 justify-self-end">
@@ -298,10 +299,20 @@ const SyncConnectedSitesList = ( {
 								</SyncPullPushClear>
 							) }
 							{ pushState?.status && isPushing && (
-								<div className="flex flex-col gap-2 min-w-44">
-									<div className="a8c-body-small">{ pushState.status.message }</div>
-									<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
-								</div>
+								<Tooltip
+									text={ __(
+										'Push is in progress. We will send you an email when it is completed.'
+									) }
+									placement="top-start"
+								>
+									<div className="flex flex-col gap-2 min-w-44">
+										<div className="a8c-body-small flex items-center gap-0.5">
+											<Icon icon={ info } size={ 16 } />
+											{ pushState.status.message }
+										</div>
+										<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
+									</div>
+								</Tooltip>
 							) }
 
 							{ pushState?.status && hasPushFinished && (
@@ -436,7 +447,7 @@ const SyncConnectedSiteSection = ( {
 								button: (
 									<Button
 										variant="link"
-										onClick={ () => getIpcApi().openURL( getDocsLink( locale, 'sync' ) ) }
+										onClick={ () => getIpcApi().openURL( getLocalizedLink( locale, 'docsSync' ) ) }
 									/>
 								),
 							}

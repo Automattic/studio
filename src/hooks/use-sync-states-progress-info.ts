@@ -166,13 +166,12 @@ export function useSyncStatesProgressInfo() {
 			let newProgressInfo: PullStateProgressInfo | null = null;
 			if ( response.status === 'in-progress' ) {
 				newProgressInfo = pullStatesProgressInfo[ frontendStatus ];
+				// Update progress from the initial value to the new step proportionally to the response.progress
+				// on every update of the response.progress
 				newProgressInfo.progress =
 					IN_PROGRESS_INITIAL_VALUE + IN_PROGRESS_TO_DOWNLOADING_STEP * ( response.percent / 100 );
 			}
-			const statusWithProgress =
-				newProgressInfo ||
-				pullStatesProgressInfo[ frontendStatus ] ||
-				pullStatesProgressInfo.failed;
+			const statusWithProgress = newProgressInfo || pullStatesProgressInfo[ frontendStatus ];
 
 			return statusWithProgress;
 		},
@@ -181,9 +180,6 @@ export function useSyncStatesProgressInfo() {
 
 	const getPullStatusWithProgress = useCallback(
 		( sitePullState?: PullStateProgressInfo, importState?: ImportProgressState[ string ] ) => {
-			if ( ! importState && sitePullState ) {
-				return { message: sitePullState.message, progress: sitePullState.progress };
-			}
 			if ( importState ) {
 				if ( importState.progress === 100 ) {
 					return { message: __( 'Applying final details…' ), progress: 99 };
@@ -191,8 +187,13 @@ export function useSyncStatesProgressInfo() {
 				const stepToProgress = 100 - PULL_IMPORTING_INITIAL_VALUE;
 				return {
 					message: importState.statusMessage,
+					// Update progress from the initial value to the new step proportionally to the importState.progress
+					// on every update of the importState.progress
 					progress: PULL_IMPORTING_INITIAL_VALUE + stepToProgress * ( importState.progress / 100 ),
 				};
+			}
+			if ( sitePullState ) {
+				return { message: sitePullState.message, progress: sitePullState.progress };
 			}
 			return { message: '', progress: 0 };
 		},

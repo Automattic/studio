@@ -51,7 +51,11 @@ describe( 'Archive Module', () => {
 			expect( archiver ).toHaveBeenCalledWith( 'zip', { zlib: { level: 9 } } );
 			expect( mockArchiver.pipe ).toHaveBeenCalledWith( mockWriteStream );
 			expect( path.join ).toHaveBeenCalledWith( mockSiteFolder, 'wp-content' );
-			expect( mockArchiver.directory ).toHaveBeenCalledWith( mockWpContentPath, 'wp-content' );
+			expect( mockArchiver.directory ).toHaveBeenCalledWith(
+				mockWpContentPath,
+				'wp-content',
+				expect.any( Function )
+			);
 			expect( path.join ).toHaveBeenCalledWith( mockSiteFolder, 'wp-config.php' );
 			expect( fs.existsSync ).toHaveBeenCalledWith( mockWpConfigPath );
 			expect( mockArchiver.file ).not.toHaveBeenCalled();

@@ -17,7 +17,7 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
-import { calculateDirectorySize, isWordPressDirectory } from 'common/lib/fs-utils';
+import { calculateDirectorySize, isWordPressDirectory, arePathsEqual } from 'common/lib/fs-utils';
 import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { Snapshot } from 'common/types/snapshot';
@@ -582,9 +582,9 @@ export async function getUserLocale( _event: IpcMainInvokeEvent ): Promise< Supp
 
 export async function getUserEditor(
 	_event: IpcMainInvokeEvent
-): Promise< SupportedEditor | undefined > {
+): Promise< SupportedEditor | null > {
 	const userData = await loadUserData();
-	return userData.preferredEditor;
+	return userData.preferredEditor ?? null;
 }
 
 export function showUserSettings( event: IpcMainInvokeEvent ) {
@@ -795,6 +795,10 @@ export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snaps
 export async function getLastSeenVersion(
 	_event: IpcMainInvokeEvent
 ): Promise< string | undefined > {
+	// If we're running in E2E mode, return the app version
+	if ( process.env.E2E ) {
+		return app.getVersion();
+	}
 	const userData = await loadUserData();
 	return userData.lastSeenVersion;
 }
@@ -837,7 +841,6 @@ export function getAppGlobals(): AppGlobals {
 		appName: app.name,
 		appVersion: app.getVersion(),
 		arm64Translation: app.runningUnderARM64Translation,
-		pressableSyncEnabled: process.env.STUDIO_PRESSABLE_SYNC === 'true',
 		terminalWpCliEnabled: process.env.STUDIO_TERMINAL_WP_CLI === 'true',
 	};
 }
@@ -1408,4 +1411,8 @@ export async function handleNewSite( event: IpcMainInvokeEvent, newSite: NewSite
 		...userData,
 		newSites: userData.newSites?.filter( ( s ) => s.id !== newSite.id ),
 	} );
+}
+
+export function comparePaths( event: IpcMainInvokeEvent, path1: string, path2: string ) {
+	return arePathsEqual( path1, path2 );
 }

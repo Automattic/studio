@@ -5,6 +5,11 @@ import '@testing-library/jest-dom';
 import 'web-streams-polyfill/polyfill';
 import nock from 'nock';
 
+// Silence console.log for all tests
+beforeEach(() => {
+	console.log = jest.fn();
+});
+
 if ( typeof window !== 'undefined' ) {
 	// The ipcListener global is usually defined in preload.ts
 	window.ipcListener = { subscribe: jest.fn() };

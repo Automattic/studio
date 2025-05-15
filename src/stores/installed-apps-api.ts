@@ -38,6 +38,7 @@ export const installedAppsApi = createApi( {
 					return { data: 'phpstorm' };
 				}
 
+				// If no user preference is set, return null
 				return { data: null };
 			},
 			providesTags: [ 'UserPreferences' ],

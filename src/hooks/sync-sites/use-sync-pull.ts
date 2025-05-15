@@ -15,6 +15,7 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import {
 	PullStateProgressInfo,
+	SyncBackupResponse,
 	useSyncStatesProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -38,12 +39,6 @@ type UseSyncPullProps = {
 	pullStates: PullStates;
 	setPullStates: React.Dispatch< React.SetStateAction< PullStates > >;
 	onPullSuccess?: OnPullSuccess;
-};
-
-type SyncBackupResponse = {
-	status: 'in-progress' | 'finished' | 'failed';
-	download_url: string;
-	percent: number;
 };
 
 export type UseSyncPull = {

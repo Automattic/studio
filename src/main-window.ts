@@ -1,5 +1,4 @@
 import { BrowserWindow, type BrowserWindowConstructorOptions } from 'electron';
-import installExtension, { REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
 import {
 	DEFAULT_WIDTH,
 	MAIN_MIN_HEIGHT,
@@ -22,7 +21,6 @@ let mainWindow: BrowserWindow | null;
 function setupDevTools( mainWindow: BrowserWindow | null, devToolsOpen?: boolean ) {
 	if ( devToolsOpen || ( process.env.NODE_ENV === 'development' && devToolsOpen === undefined ) ) {
 		mainWindow?.webContents.openDevTools();
-		void installExtension( REACT_DEVELOPER_TOOLS );
 	}
 }
 

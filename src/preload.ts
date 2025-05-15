@@ -118,6 +118,7 @@ const api: IpcApi = {
 	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),
 	saveUserEditor: ( editor ) => ipcRendererInvoke( 'saveUserEditor', editor ),
 	handleNewSite: ( newSite ) => ipcRendererInvoke( 'handleNewSite', newSite ),
+	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

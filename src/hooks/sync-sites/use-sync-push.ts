@@ -24,7 +24,6 @@ export type SyncPushState = {
 	status: PushStateProgressInfo;
 	selectedSite: SiteDetails;
 	isStaging: boolean;
-	importId?: number;
 };
 
 export type PushStates = Record< string, SyncPushState >;

@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { domainToASCII } from 'node:url';
 import { promisify } from 'node:util';
 import * as Sentry from '@sentry/electron/main';
 import sudo from '@vscode/sudo-prompt';
@@ -235,8 +236,10 @@ export async function generateSiteCertificate(
 	domain: string
 ): Promise< { cert: string; key: string } > {
 	try {
-		const siteCertPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.crt` );
-		const siteKeyPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.key` );
+		// Convert domain to punycode for certificate generation
+		const punycodeDomain = domainToASCII( domain );
+		const siteCertPath = path.join( CERT_DIRECTORY, 'domains', `${ punycodeDomain }.crt` );
+		const siteKeyPath = path.join( CERT_DIRECTORY, 'domains', `${ punycodeDomain }.key` );
 
 		// If the certificate already exists, no need to generate a new one
 		if ( fs.existsSync( siteCertPath ) && fs.existsSync( siteKeyPath ) ) {
@@ -260,7 +263,7 @@ export async function generateSiteCertificate(
 		cert.validity.notAfter = new Date( now.getTime() );
 		cert.validity.notAfter.setDate( now.getDate() + SITE_CERT_VALIDITY_DAYS );
 		const attrs = [
-			{ name: 'commonName', value: domain },
+			{ name: 'commonName', value: punycodeDomain },
 			{ name: 'countryName', value: 'US' },
 			{ name: 'organizationName', value: 'WordPress Studio' },
 		];
@@ -288,7 +291,7 @@ export async function generateSiteCertificate(
 				altNames: [
 					{
 						type: 2, // DNS
-						value: domain,
+						value: punycodeDomain,
 					},
 				],
 			},
@@ -316,8 +319,9 @@ export async function generateSiteCertificate(
  */
 export function deleteSiteCertificate( domain: string ): boolean {
 	try {
-		const siteCertPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.crt` );
-		const siteKeyPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.key` );
+		const punycodeDomain = domainToASCII( domain );
+		const siteCertPath = path.join( CERT_DIRECTORY, 'domains', `${ punycodeDomain }.crt` );
+		const siteKeyPath = path.join( CERT_DIRECTORY, 'domains', `${ punycodeDomain }.key` );
 		let deletedFiles = false;
 		if ( fs.existsSync( siteCertPath ) ) {
 			fs.unlinkSync( siteCertPath );

@@ -170,7 +170,8 @@ export const startProxyServer = sequential( async (): Promise< boolean > => {
 			const defaultOptions: https.ServerOptions = {
 				SNICallback: async ( servername, cb ) => {
 					try {
-						const site = await getSiteByHost( servername );
+						const punycodeServerName = domainToASCII( servername );
+						const site = await getSiteByHost( punycodeServerName );
 						if ( ! site || ! site.customDomain ) {
 							console.error( `SNI: Invalid hostname: ${ servername }` );
 							cb( new Error( `Invalid hostname: ${ servername }` ) );

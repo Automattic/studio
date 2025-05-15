@@ -98,7 +98,7 @@ export const saveSnapshotToAppdata = withAppdataWrite( async function* (
 	return snapshot;
 } );
 
-export const deleteSnapshotFromAppdata = withAppdataWrite( async function* (
+export const deleteSnapshotFromAppdata = withAppdataWrite( function* (
 	userData,
 	snapshotUrl: string
 ) {

@@ -14,8 +14,12 @@ import { LoggerError } from 'cli/logger';
 
 const LOCKFILE_PATH = path.join( getAppdataDirectory(), 'appdata-v1.lock' );
 
+type MaybeAsyncGenerator< T, TReturn, TNext > =
+	| Generator< T, TReturn, TNext >
+	| AsyncGenerator< T, TReturn, TNext >;
+
 export function withAppdataWrite< Args extends unknown[], R = unknown >(
-	fn: ( userData: UserData, ...args: Args ) => AsyncGenerator< UserData, R, unknown >
+	fn: ( userData: UserData, ...args: Args ) => MaybeAsyncGenerator< UserData, R, unknown >
 ) {
 	return async ( ...args: Args ): Promise< R > => {
 		await lock( LOCKFILE_PATH, { wait: 1000, stale: 1000 } );

@@ -129,10 +129,7 @@ steps:
 
   - label: 🔨 Windows Dev Build
     key: dev-windows
-    command: |
-      bash .buildkite/commands/install-node-dependencies.sh
-      .buildkite/commands/build-for-windows-dev.ps1
-      node scripts/package-appx.mjs
+    command: npm run make:win-dev
     artifact_paths:
       - out\**\studio-setup.exe
       - out\**\studio-update.nupkg
@@ -240,10 +237,7 @@ steps:
     agents:
       queue: windows
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
-    command: |
-      bash .buildkite/commands/install-node-dependencies.sh
-      .buildkite/commands/build-for-windows-release.ps1
-      node scripts/package-appx.mjs
+    command: npm run make:win-release
     artifact_paths:
       - out\**\studio-setup.exe
       - out\**\studio-update.nupkg

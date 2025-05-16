@@ -1,4 +1,5 @@
 import { Icon, SearchControl as SearchControlWp } from '@wordpress/components';
+import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect } from 'react';
@@ -129,7 +130,21 @@ function SearchSites( {
 				__nextHasNoMarginBottom={ true }
 			/>
 			<p className="a8c-helper-text text-gray-500">
-				{ __( 'Syncing is supported for WP.com sites on the Business plan or above.' ) }
+				{ createInterpolateElement(
+					__( "Can't find your site? <button>Learn more about supported sites. ↗</button>" ),
+					{
+						button: (
+							<Button
+								variant="link"
+								onClick={ () =>
+									getIpcApi().openURL(
+										'https://developer.wordpress.com/docs/developer-tools/studio/sync/'
+									)
+								}
+							/>
+						),
+					}
+				) }
 			</p>
 		</div>
 	);

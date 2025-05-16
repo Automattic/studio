@@ -234,7 +234,7 @@ export function useSyncStatesProgressInfo() {
 					...status,
 					progress:
 						pushStatesProgressInfo.creatingRemoteBackup.progress +
-						creatingRemoteBackupStep * ( response.backup_progress / 100 ),
+						progressRange * ( response.backup_progress / 100 ),
 				};
 			}
 
@@ -243,14 +243,14 @@ export function useSyncStatesProgressInfo() {
 				status.key === pushStatesProgressInfo.applyingChanges.key &&
 				response.import_progress < 100
 			) {
-				const applyingChangesStep =
+				const progressRange =
 					pushStatesProgressInfo.finishing.progress -
 					pushStatesProgressInfo.applyingChanges.progress;
 				return {
 					...status,
 					progress:
 						pushStatesProgressInfo.applyingChanges.progress +
-						applyingChangesStep * ( response.import_progress / 100 ),
+						progressRange * ( response.import_progress / 100 ),
 				};
 			}
 			return status;

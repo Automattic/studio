@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 import { __, sprintf } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
+import { arePathsEqual } from 'common/lib/fs-utils';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { snapshotSchema } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
@@ -171,8 +172,8 @@ export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken
 
 export async function getSiteByFolder( siteFolder: string ): Promise< SiteData > {
 	const userData = await readAppdata();
-	const site = [ ...userData.sites, ...userData.newSites ].find(
-		( site ) => site.path === siteFolder
+	const site = [ ...userData.sites, ...userData.newSites ].find( ( site ) =>
+		arePathsEqual( site.path, siteFolder )
 	);
 
 	if ( ! site ) {

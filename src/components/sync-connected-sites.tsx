@@ -1,6 +1,6 @@
 import { Icon } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { I18n, sprintf } from '@wordpress/i18n';
+import { sprintf } from '@wordpress/i18n';
 import { cloudUpload, cloudDownload, info } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
@@ -17,16 +17,10 @@ import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useI18nData } from 'src/hooks/use-i18n-data';
-import { ImportProgressState, useImportExport } from 'src/hooks/use-import-export';
+import { useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
-import {
-	IMPORTING_INITIAL_VALUE,
-	IMPORTING_TO_FINISHED_STEP,
-	PullStateProgressInfo,
-	useSyncStatesProgressInfo,
-} from 'src/hooks/use-sync-states-progress-info';
+import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
@@ -205,27 +199,6 @@ type SyncConnectedSitesListProps = {
 	connectedSites: SyncSite[];
 };
 
-const getStatusWithProgress = (
-	__: I18n[ '__' ],
-	sitePullState?: PullStateProgressInfo,
-	importState?: ImportProgressState[ string ]
-) => {
-	if ( ! importState && sitePullState ) {
-		return { message: sitePullState.message, progress: sitePullState.progress };
-	}
-	if ( importState ) {
-		if ( importState.progress === 100 ) {
-			return { message: __( 'Applying final details…' ), progress: 99 };
-		}
-		return {
-			message: importState.statusMessage,
-			progress:
-				IMPORTING_INITIAL_VALUE + IMPORTING_TO_FINISHED_STEP * ( importState.progress / 100 ),
-		};
-	}
-	return { message: '', progress: 0 };
-};
-
 const SyncConnectedSitesList = ( {
 	selectedSite,
 	connectedSites,
@@ -233,8 +206,8 @@ const SyncConnectedSitesList = ( {
 	const { __ } = useI18n();
 	const { clearPullState, getPullState, getPushState, clearPushState } = useSyncSites();
 	const { importState } = useImportExport();
-	const { isKeyPulling, isKeyPushing, isKeyFinished, isKeyFailed } = useSyncStatesProgressInfo();
-	const { pressableSyncEnabled } = useFeatureFlags();
+	const { isKeyPulling, isKeyPushing, isKeyFinished, isKeyFailed, getPullStatusWithProgress } =
+		useSyncStatesProgressInfo();
 
 	return (
 		<div className="grid grid-cols-[max-content_1fr_max-content]">
@@ -244,8 +217,7 @@ const SyncConnectedSitesList = ( {
 				const isPullError = sitePullState && isKeyFailed( sitePullState.status.key );
 				const hasPullFinished = sitePullState && isKeyFinished( sitePullState.status.key );
 				const { message: sitePullStatusMessage, progress: sitePullStatusProgress } =
-					getStatusWithProgress(
-						__,
+					getPullStatusWithProgress(
 						sitePullState?.status,
 						importState[ connectedSite.localSiteId ]
 					);
@@ -271,6 +243,9 @@ const SyncConnectedSitesList = ( {
 								) }
 								{ connectedSite.environmentType === 'production' && (
 									<EnvironmentBadge type="production" />
+								) }
+								{ connectedSite.environmentType === 'sandbox' && (
+									<EnvironmentBadge type="sandbox" />
 								) }
 							</div>
 						) }
@@ -332,11 +307,10 @@ const SyncConnectedSitesList = ( {
 										'Push is in progress. We will send you an email when it is completed.'
 									) }
 									placement="top-start"
-									disabled={ ! pressableSyncEnabled }
 								>
 									<div className="flex flex-col gap-2 min-w-44">
 										<div className="a8c-body-small flex items-center gap-0.5">
-											{ pressableSyncEnabled && <Icon icon={ info } size={ 16 } /> }
+											<Icon icon={ info } size={ 16 } />
 											{ pushState.status.message }
 										</div>
 										<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />

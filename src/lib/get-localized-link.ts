@@ -26,6 +26,9 @@ const DOCS_LINKS = {
 } satisfies Record< `docs${ string }`, TranslatedLink >;
 
 const BLOG_LINKS = {
+	blogPreferredApps: {
+		en: 'https://wordpress.com/blog/2025/05/12/preferences-studio/',
+	},
 	blogPhpVersions: {
 		en: 'https://wordpress.com/blog/2025/03/17/studio-wordpress-php-versions/',
 		es: 'https://wordpress.com/es/blog/2025/04/02/modifica-las-versiones-de-wordpress-y-php-de-tu-sitio-local-con-studio/',

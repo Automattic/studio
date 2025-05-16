@@ -48,6 +48,15 @@ function mockElectron() {
 					mockedEvents[ event ] = callback;
 				} ),
 			},
+			session: {
+				defaultSession: {
+					...electron.session.defaultSession,
+					getAllExtensions: jest.fn().mockReturnValue( [] ),
+					serviceWorkers: {
+						startWorkerForScope: jest.fn().mockResolvedValue( undefined ),
+					},
+				},
+			},
 		};
 	} );
 

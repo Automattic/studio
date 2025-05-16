@@ -14,10 +14,8 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import {
-	IN_PROGRESS_INITIAL_VALUE,
-	IN_PROGRESS_TO_DOWNLOADING_STEP,
 	PullStateProgressInfo,
-	PullStateProgressInfoValues,
+	SyncBackupResponse,
 	useSyncStatesProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -43,12 +41,6 @@ type UseSyncPullProps = {
 	onPullSuccess?: OnPullSuccess;
 };
 
-type SyncBackupResponse = {
-	status: 'in-progress' | 'finished' | 'failed';
-	download_url: string;
-	percent: number;
-};
-
 export type UseSyncPull = {
 	pullStates: PullStates;
 	getPullState: GetState< SyncBackupState >;
@@ -66,8 +58,13 @@ export function useSyncPull( {
 	const { __ } = useI18n();
 	const { client } = useAuth();
 	const { importFile, clearImportState } = useImportExport();
-	const { pullStatesProgressInfo, isKeyPulling, isKeyFinished, isKeyFailed } =
-		useSyncStatesProgressInfo();
+	const {
+		pullStatesProgressInfo,
+		isKeyPulling,
+		isKeyFinished,
+		isKeyFailed,
+		getBackupStatusWithProgress,
+	} = useSyncStatesProgressInfo();
 	const {
 		updateState,
 		getState: getPullState,
@@ -308,7 +305,14 @@ export function useSyncPull( {
 				throw error;
 			}
 		},
-		[ client, getPullState, onBackupCompleted, pullStatesProgressInfo, updatePullState ]
+		[
+			client,
+			getBackupStatusWithProgress,
+			getPullState,
+			onBackupCompleted,
+			pullStatesProgressInfo,
+			updatePullState,
+		]
 	);
 
 	useEffect( () => {
@@ -347,23 +351,4 @@ export function useSyncPull( {
 	);
 
 	return { pullStates, getPullState, pullSite, isAnySitePulling, isSiteIdPulling, clearPullState };
-}
-function getBackupStatusWithProgress(
-	hasBackupCompleted: boolean,
-	pullStatesProgressInfo: PullStateProgressInfoValues,
-	response: SyncBackupResponse
-) {
-	const frontendStatus = hasBackupCompleted
-		? pullStatesProgressInfo.downloading.key
-		: response.status;
-	let newProgressInfo: PullStateProgressInfo | null = null;
-	if ( response.status === 'in-progress' ) {
-		newProgressInfo = pullStatesProgressInfo[ frontendStatus ];
-		newProgressInfo.progress =
-			IN_PROGRESS_INITIAL_VALUE + IN_PROGRESS_TO_DOWNLOADING_STEP * ( response.percent / 100 );
-	}
-	const statusWithProgress =
-		newProgressInfo || pullStatesProgressInfo[ frontendStatus ] || pullStatesProgressInfo.failed;
-
-	return statusWithProgress;
 }

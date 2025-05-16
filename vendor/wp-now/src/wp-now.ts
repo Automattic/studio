@@ -625,6 +625,13 @@ async function mountInternalMuPlugins( php: PHP, options: WPNowOptions ) {
 		add_filter( 'http_request_timeout', function() {
 			return 60;
 		} );
+
+		// Set the default cURL timeout to 60 second
+		add_action('http_api_curl', function($curl, $url, $options) {
+			curl_setopt( $curl, CURLOPT_CONNECTTIMEOUT, 60 );
+			curl_setopt($curl, CURLOPT_TIMEOUT, 60);
+			return $curl;
+		}, 1, 3);
 		`
 	);
 }

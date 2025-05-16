@@ -61,6 +61,7 @@ export function useSyncPush( {
 	const {
 		pushStatesProgressInfo,
 		isKeyPushing,
+		isKeyImporting,
 		isKeyFinished,
 		isKeyFailed,
 		getPushStatusWithProgress,
@@ -101,7 +102,7 @@ export function useSyncPush( {
 				}
 			);
 
-			let status: PushStateProgressInfo = pushStatesProgressInfo.importing;
+			let status: PushStateProgressInfo = pushStatesProgressInfo.creatingRemoteBackup;
 			if ( response.success && response.status === 'finished' ) {
 				status = pushStatesProgressInfo.finished;
 				onPushSuccess?.( remoteSiteId, syncPushState.selectedSite.id );
@@ -125,6 +126,10 @@ export function useSyncPush( {
 							  ),
 					showOpenLogs: true,
 				} );
+			} else if ( response.success && response.status === 'archive_import_started' ) {
+				status = pushStatesProgressInfo.applyingChanges;
+			} else if ( response.success && response.status === 'archive_import_finished' ) {
+				status = pushStatesProgressInfo.finishing;
 			}
 			status = getPushStatusWithProgress( status, response );
 			// Update state in any case to keep polling push state
@@ -137,9 +142,11 @@ export function useSyncPush( {
 			client,
 			getPushStatusWithProgress,
 			onPushSuccess,
+			pushStatesProgressInfo.applyingChanges,
+			pushStatesProgressInfo.creatingRemoteBackup,
+			pushStatesProgressInfo.finishing,
 			pushStatesProgressInfo.failed,
 			pushStatesProgressInfo.finished,
-			pushStatesProgressInfo.importing,
 			updatePushState,
 		]
 	);
@@ -225,7 +232,7 @@ export function useSyncPush( {
 				} );
 				if ( response.success ) {
 					updatePushState( selectedSite.id, remoteSiteId, {
-						status: pushStatesProgressInfo.importing,
+						status: pushStatesProgressInfo.creatingRemoteBackup,
 					} );
 				} else {
 					console.error( response );
@@ -251,7 +258,7 @@ export function useSyncPush( {
 		const intervals: Record< string, NodeJS.Timeout > = {};
 
 		Object.entries( pushStates ).forEach( ( [ key, state ] ) => {
-			if ( state.status.key === pushStatesProgressInfo.importing.key ) {
+			if ( isKeyImporting( state.status.key ) ) {
 				intervals[ key ] = setTimeout( () => {
 					void getPushProgressInfo( state.remoteSiteId, state );
 				}, 2000 );
@@ -261,7 +268,13 @@ export function useSyncPush( {
 		return () => {
 			Object.values( intervals ).forEach( clearTimeout );
 		};
-	}, [ pushStates, getPushProgressInfo, pushStatesProgressInfo.importing.key ] );
+	}, [
+		pushStates,
+		getPushProgressInfo,
+		pushStatesProgressInfo.creatingBackup.key,
+		pushStatesProgressInfo.applyingChanges.key,
+		isKeyImporting,
+	] );
 
 	const isAnySitePushing = useMemo< boolean >( () => {
 		return Object.values( pushStates ).some( ( state ) => isKeyPushing( state.status.key ) );

@@ -8,7 +8,14 @@ export type PullStateProgressInfo = {
 	message: string;
 };
 export type PushStateProgressInfo = {
-	key: 'creatingBackup' | 'uploading' | 'importing' | 'finished' | 'failed';
+	key:
+		| 'creatingBackup'
+		| 'uploading'
+		| 'creatingRemoteBackup'
+		| 'applyingChanges'
+		| 'finishing'
+		| 'finished'
+		| 'failed';
 	progress: number;
 	message: string;
 };
@@ -39,7 +46,6 @@ const IN_PROGRESS_INITIAL_VALUE = 30;
 const DOWNLOADING_INITIAL_VALUE = 60;
 const IN_PROGRESS_TO_DOWNLOADING_STEP = DOWNLOADING_INITIAL_VALUE - IN_PROGRESS_INITIAL_VALUE;
 const PULL_IMPORTING_INITIAL_VALUE = 80;
-const PUSH_IMPORTING_INITIAL_VALUE = 60;
 
 export function useSyncStatesProgressInfo() {
 	const { __ } = useI18n();
@@ -91,10 +97,20 @@ export function useSyncStatesProgressInfo() {
 				progress: 40,
 				message: __( 'Uploading Studio site…' ),
 			},
-			importing: {
-				key: 'importing',
-				progress: PUSH_IMPORTING_INITIAL_VALUE,
+			creatingRemoteBackup: {
+				key: 'creatingRemoteBackup',
+				progress: 50,
 				message: __( 'Keeping your site safe…' ),
+			},
+			applyingChanges: {
+				key: 'applyingChanges',
+				progress: 60,
+				message: __( 'Applying changes…' ),
+			},
+			finishing: {
+				key: 'finishing',
+				progress: 99,
+				message: __( 'Almost there…' ),
 			},
 			finished: {
 				key: 'finished',
@@ -125,7 +141,9 @@ export function useSyncStatesProgressInfo() {
 		const pushingStateKeys: PushStateProgressInfo[ 'key' ][] = [
 			'creatingBackup',
 			'uploading',
-			'importing',
+			'creatingRemoteBackup',
+			'applyingChanges',
+			'finishing',
 		];
 		if ( ! key ) {
 			return false;
@@ -133,6 +151,17 @@ export function useSyncStatesProgressInfo() {
 		return pushingStateKeys.includes( key );
 	};
 
+	const isKeyImporting = ( key: PushStateProgressInfo[ 'key' ] | undefined ) => {
+		const pushingStateKeys: PushStateProgressInfo[ 'key' ][] = [
+			'creatingRemoteBackup',
+			'applyingChanges',
+			'finishing',
+		];
+		if ( ! key ) {
+			return false;
+		}
+		return pushingStateKeys.includes( key );
+	};
 	const isKeyFinished = useCallback(
 		( key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined ) => {
 			return key === 'finished';
@@ -195,38 +224,44 @@ export function useSyncStatesProgressInfo() {
 
 	const getPushStatusWithProgress = useCallback(
 		( status: PushStateProgressInfo, response: ImportResponse ) => {
-			if ( status.key === pushStatesProgressInfo.importing.key ) {
-				const backupStep = 10;
-				const archiveInitialValue = PUSH_IMPORTING_INITIAL_VALUE + backupStep;
-				const archiveStep = 30;
+			if ( status.key === pushStatesProgressInfo.creatingRemoteBackup.key ) {
+				const creatingRemoteBackupStep =
+					pushStatesProgressInfo.applyingChanges.progress -
+					pushStatesProgressInfo.creatingRemoteBackup.progress;
 
-				// This step will increase the progress in 10 (from 60 to 70) progressively based on the backup_progress
-				if ( response.status === 'initial_backup_started' ) {
-					return {
-						...status,
-						progress:
-							PUSH_IMPORTING_INITIAL_VALUE + backupStep * ( response.backup_progress / 100 ),
-					};
-				}
-				// This step will increase the progress in 30 (from 70 to 100) progressively based on the import_progress
-				if ( response.status === 'archive_import_started' && response.import_progress < 100 ) {
-					return {
-						...status,
-						message: __( 'Applying changes…' ),
-						progress: archiveInitialValue + archiveStep * ( response.import_progress / 100 ),
-					};
-				}
-				if ( response.status === 'archive_import_finished' ) {
-					return {
-						...status,
-						message: __( 'Last touches…' ),
-						progress: 99,
-					};
-				}
+				// This step will increase the progress to the next step progressively based on the backup_progress
+				return {
+					...status,
+					progress:
+						pushStatesProgressInfo.creatingRemoteBackup.progress +
+						creatingRemoteBackupStep * ( response.backup_progress / 100 ),
+				};
+			}
+
+			// This step will increase the progress to the next step progressively based on the import_progress
+			if (
+				status.key === pushStatesProgressInfo.applyingChanges.key &&
+				response.import_progress < 100
+			) {
+				const applyingChangesStep =
+					pushStatesProgressInfo.finishing.progress -
+					pushStatesProgressInfo.applyingChanges.progress;
+				return {
+					...status,
+					progress:
+						pushStatesProgressInfo.applyingChanges.progress +
+						applyingChangesStep * ( response.import_progress / 100 ),
+				};
 			}
 			return status;
 		},
-		[ __, pushStatesProgressInfo.importing.key ]
+		[
+			pushStatesProgressInfo.applyingChanges.key,
+			pushStatesProgressInfo.applyingChanges.progress,
+			pushStatesProgressInfo.creatingRemoteBackup.key,
+			pushStatesProgressInfo.creatingRemoteBackup.progress,
+			pushStatesProgressInfo.finishing.progress,
+		]
 	);
 
 	return {
@@ -234,6 +269,7 @@ export function useSyncStatesProgressInfo() {
 		pushStatesProgressInfo,
 		isKeyPulling,
 		isKeyPushing,
+		isKeyImporting,
 		isKeyFinished,
 		isKeyFailed,
 		getBackupStatusWithProgress,

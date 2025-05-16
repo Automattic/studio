@@ -28,7 +28,7 @@ const selectedSite: SiteDetails = {
 const inProgressPushState: SyncPushState = {
 	remoteSiteId: 1,
 	status: {
-		key: 'importing',
+		key: 'creatingRemoteBackup',
 		progress: 50,
 		message: '',
 	},

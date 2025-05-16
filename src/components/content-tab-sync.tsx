@@ -9,7 +9,6 @@ import { SyncConnectedSites } from 'src/components/sync-connected-sites';
 import { SyncSitesModalSelector } from 'src/components/sync-sites-modal-selector';
 import { SyncTabImage } from 'src/components/sync-tab-image';
 import { Tooltip } from 'src/components/tooltip';
-import { WordPressShortLogo } from 'src/components/wordpress-short-logo';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
@@ -21,12 +20,11 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 		<div className="flex justify-between max-w-3xl gap-4">
 			<div className="flex flex-col p-8">
 				<div className="flex items-center mb-1">
-					<div className="a8c-subtitle">{ __( 'Sync with' ) }</div>
-					<WordPressShortLogo className="ms-2 h-5" />
+					<div className="a8c-subtitle">{ __( 'Sync with WP.com or Pressable' ) }</div>
 				</div>
 				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
 					{ __(
-						'Connect your existing WordPress.com or Jetpack-activated Pressable sites, or create a new one. Then, share your work with the world.'
+						'Connect your existing WordPress.com or Pressable sites with Jetpack activated — or create a new one. Then share your work with the world.'
 					) }
 				</div>
 				<div className="mt-6">

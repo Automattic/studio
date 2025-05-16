@@ -349,4 +349,30 @@ describe( 'ContentTabSync', () => {
 		expect( screen.getByText( 'Production' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Staging' ) ).toBeInTheDocument();
 	} );
+	it.only( 'displays the progress of the push', () => {
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
+		const fakeSyncSite = {
+			id: 6,
+			name: 'My simple business site that needs a transfer',
+			url: 'https:/developer.wordpress.com/studio/',
+			syncSupport: 'already-connected',
+		};
+		( useSyncSites as jest.Mock ).mockReturnValue( {
+			connectedSites: [ fakeSyncSite ],
+			syncSites: [ fakeSyncSite ],
+			pullSite: jest.fn(),
+			isAnySitePulling: false,
+			isAnySitePushing: false,
+			getPullState: jest.fn(),
+			getPushState: jest.fn().mockReturnValue( inProgressPushState ),
+			refetchSites: jest.fn(),
+			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
+			isSiteIdPulling: jest.fn(),
+			isSiteIdPushing: jest.fn().mockReturnValue( true ),
+			clearTimeout: jest.fn(),
+		} );
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+		expect( screen.getByRole( 'progressbar' ) ).toBeInTheDocument();
+	} );
 } );

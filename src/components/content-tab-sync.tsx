@@ -20,7 +20,7 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 		<div className="flex justify-between max-w-3xl gap-4">
 			<div className="flex flex-col p-8">
 				<div className="flex items-center mb-1">
-					<div className="a8c-subtitle">{ __( 'Sync with WP.com or Pressable' ) }</div>
+					<div className="a8c-subtitle">{ __( 'Sync with WordPress.com or Pressable' ) }</div>
 				</div>
 				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
 					{ __(

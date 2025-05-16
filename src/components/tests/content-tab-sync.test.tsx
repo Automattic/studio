@@ -349,7 +349,7 @@ describe( 'ContentTabSync', () => {
 		expect( screen.getByText( 'Production' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Staging' ) ).toBeInTheDocument();
 	} );
-	it.only( 'displays the progress of the push', () => {
+	it( 'displays the progress bar when the site is being pushed', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		const fakeSyncSite = {
 			id: 6,

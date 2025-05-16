@@ -225,7 +225,7 @@ export function useSyncStatesProgressInfo() {
 	const getPushStatusWithProgress = useCallback(
 		( status: PushStateProgressInfo, response: ImportResponse ) => {
 			if ( status.key === pushStatesProgressInfo.creatingRemoteBackup.key ) {
-				const creatingRemoteBackupStep =
+				const progressRange =
 					pushStatesProgressInfo.applyingChanges.progress -
 					pushStatesProgressInfo.creatingRemoteBackup.progress;
 

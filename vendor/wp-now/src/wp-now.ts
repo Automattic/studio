@@ -617,6 +617,16 @@ async function mountInternalMuPlugins( php: PHP, options: WPNowOptions ) {
 			`
 		);
 	}
+
+	php.writeFile(
+		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-http-request-timeout.php' ),
+		`<?php
+		// Set the default HTTP request timeout to 60 seconds
+		add_filter( 'http_request_timeout', function() {
+			return 60;
+		} );
+		`
+	);
 }
 
 async function mountSqlitePlugin( php: PHP, vfsDocumentRoot: string ) {

@@ -59,7 +59,7 @@ export function SyncSitesModalSelector( {
 		<Modal
 			className="w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
-			title={ __( 'Connect a WP.com or Pressable site' ) }
+			title={ __( 'Connect your site' ) }
 		>
 			<div className="relative" data-testid="sync-sites-modal-selector">
 				<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />

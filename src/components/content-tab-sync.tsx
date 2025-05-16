@@ -24,7 +24,7 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 				</div>
 				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
 					{ __(
-						'Connect your existing WordPress.com or Pressable sites with Jetpack activated — or create a new one. Then share your work with the world.'
+						'Connect your existing WordPress.com or Pressable sites with Jetpack activated, or create a new one. Then share your work with the world.'
 					) }
 				</div>
 				<div className="mt-6">

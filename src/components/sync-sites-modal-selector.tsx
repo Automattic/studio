@@ -13,6 +13,7 @@ import { PressableLogo } from 'src/components/pressable-logo';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { WordPressLogoCircle } from './wordpress-logo-circle';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
@@ -239,7 +240,30 @@ function SiteItem( {
 			} }
 		>
 			<div className="flex flex-col gap-0.5 min-w-0">
-				<div className={ cx( 'a8c-body truncate', ! isSyncable && 'text-a8c-gray-30' ) }>
+				<div
+					className={ cx(
+						'a8c-body truncate flex items-center',
+						! isSyncable && 'text-a8c-gray-30'
+					) }
+				>
+					{ isPressable && (
+						<span className="me-1.5">
+							<PressableLogo size={ 12 } />
+						</span>
+					) }
+					{ ! isPressable && (
+						<span className="me-1.5">
+							<WordPressLogoCircle
+								size={ 12 }
+								{ ...( isSelected && { color: '#fff' } ) }
+								{ ...( ( isUnsupported ||
+									needsUpgrade ||
+									isDeleted ||
+									isMissingPermissions ||
+									isNeedsTransfer ) && { color: '#8c8f94' } ) }
+							/>
+						</span>
+					) }
 					{ site.name }
 				</div>
 				<Button
@@ -259,11 +283,6 @@ function SiteItem( {
 						}
 					} }
 				>
-					{ isPressable && (
-						<span className="me-1.5">
-							<PressableLogo size={ 12 } />
-						</span>
-					) }
 					<div className="truncate">{ site.url.replace( /^https?:\/\//, '' ) }</div>
 					<ArrowIcon />
 				</Button>

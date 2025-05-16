@@ -9,9 +9,11 @@ import { EnvironmentBadge } from 'src/components/environment-badge';
 import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
+import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { WordPressLogoCircle } from './wordpress-logo-circle';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
@@ -117,6 +119,7 @@ function SearchSites( {
 	setSearchQuery: ( value: string ) => void;
 } ) {
 	const { __ } = useI18n();
+	const { locale } = useI18nData();
 	return (
 		<div className="flex flex-col px-8 pb-6 border-b border-a8c-gray-5">
 			<SearchControl
@@ -133,11 +136,7 @@ function SearchSites( {
 				{ __( "Can't find your site? " ) }
 				<Button
 					variant="link"
-					onClick={ () =>
-						getIpcApi().openURL(
-							'https://developer.wordpress.com/docs/developer-tools/studio/sync/'
-						)
-					}
+					onClick={ () => getIpcApi().openURL( getLocalizedLink( locale, 'docsSync' ) ) }
 				>
 					{ __( 'Learn more about supported sites.' ) }
 					<ArrowIcon />

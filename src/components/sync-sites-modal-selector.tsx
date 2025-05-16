@@ -1,5 +1,4 @@
 import { Icon, SearchControl as SearchControlWp } from '@wordpress/components';
-import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect } from 'react';
@@ -131,21 +130,18 @@ function SearchSites( {
 				__nextHasNoMarginBottom={ true }
 			/>
 			<p className="a8c-helper-text text-gray-500">
-				{ createInterpolateElement(
-					__( "Can't find your site? <button>Learn more about supported sites. ↗</button>" ),
-					{
-						button: (
-							<Button
-								variant="link"
-								onClick={ () =>
-									getIpcApi().openURL(
-										'https://developer.wordpress.com/docs/developer-tools/studio/sync/'
-									)
-								}
-							/>
-						),
+				{ __( "Can't find your site? " ) }
+				<Button
+					variant="link"
+					onClick={ () =>
+						getIpcApi().openURL(
+							'https://developer.wordpress.com/docs/developer-tools/studio/sync/'
+						)
 					}
-				) }
+				>
+					{ __( 'Learn more about supported sites.' ) }
+					<ArrowIcon />
+				</Button>
 			</p>
 		</div>
 	);
@@ -324,7 +320,8 @@ function SiteItem( {
 						variant="link"
 						onClick={ () => getIpcApi().openURL( `https://wordpress.com/plans/${ site.id }` ) }
 					>
-						{ __( 'Upgrade plan ↗' ) }
+						{ __( 'Upgrade plan' ) }
+						<ArrowIcon />
 					</Button>
 				</div>
 			) }
@@ -336,7 +333,8 @@ function SiteItem( {
 							getIpcApi().openURL( `https://wordpress.com/hosting-features/${ site.id }` )
 						}
 					>
-						{ __( 'Enable hosting features ↗' ) }
+						{ __( 'Enable hosting features' ) }
+						<ArrowIcon />
 					</Button>
 				</div>
 			) }

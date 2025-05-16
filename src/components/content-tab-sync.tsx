@@ -30,7 +30,7 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 				<div className="mt-6">
 					{ [
 						__( 'Push and pull changes from your live site.' ),
-						__( 'Supports staging and production sites.' ),
+						__( 'Connect multiple environments.' ),
 						__( 'Sync database and file changes.' ),
 					].map( ( text ) => (
 						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">

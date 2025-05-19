@@ -1,5 +1,6 @@
 import fs from 'fs';
 import nodePath from 'path';
+import _ from 'lodash';
 import { SupportedEditor, supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 
 /**
@@ -23,9 +24,10 @@ export async function winFindEditorPath( editorKey: SupportedEditor ): Promise< 
 
 			try {
 				const files = fs.readdirSync( basePath );
-				const matchingFiles = files.filter( ( file ) =>
-					file.match( new RegExp( pattern + '.*' ) )
-				);
+				const matchingFiles = files.filter( ( file ) => {
+					const safePattern = _.escapeRegExp( pattern );
+					return file.match( new RegExp( safePattern + '.*' ) );
+				} );
 
 				for ( const file of matchingFiles ) {
 					const fullPath = nodePath.join( basePath, file, pathParts[ 1 ] );

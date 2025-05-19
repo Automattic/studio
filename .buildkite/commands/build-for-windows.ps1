@@ -43,6 +43,8 @@ npm run make
 $artifactsPath = Get-Item ".\out" | Select-Object -ExpandProperty FullName
 Get-ChildItem -Path $artifactsPath -Recurse -Include "*.nupkg" | Rename-Item -NewName "studio-update.nupkg"
 
+If ($LastExitCode -ne 0) { Exit $LastExitCode }
+
 Write-Host "--- :package: Building AppX package"
 node scripts/package-appx.mjs
 

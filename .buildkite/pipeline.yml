@@ -129,7 +129,7 @@ steps:
 
   - label: 🔨 Windows Dev Build
     key: dev-windows
-    command: npm run make:win-dev
+    command: npm run make:windows-dev
     artifact_paths:
       - out\**\studio-setup.exe
       - out\**\studio-update.nupkg
@@ -237,7 +237,7 @@ steps:
     agents:
       queue: windows
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
-    command: npm run make:win-release
+    command: npm run make:windows-release
     artifact_paths:
       - out\**\studio-setup.exe
       - out\**\studio-update.nupkg

@@ -16,6 +16,7 @@ import {
 	PushStateProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getHostnameFromUrl } from 'src/lib/url-utils';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { ImportResponse } from 'src/hooks/use-sync-states-progress-info';
 
@@ -24,6 +25,7 @@ export type SyncPushState = {
 	status: PushStateProgressInfo;
 	selectedSite: SiteDetails;
 	isStaging: boolean;
+	remoteSiteUrl: string;
 };
 
 export type PushStates = Record< string, SyncPushState >;
@@ -108,9 +110,10 @@ export function useSyncPush( {
 				onPushSuccess?.( remoteSiteId, syncPushState.selectedSite.id );
 				getIpcApi().showNotification( {
 					title: syncPushState.selectedSite.name,
-					body: syncPushState.isStaging
-						? __( 'Staging has been updated' )
-						: __( 'Production has been updated' ),
+					body: sprintf(
+						__( '%s has been updated' ),
+						getHostnameFromUrl( syncPushState.remoteSiteUrl )
+					),
 				} );
 			} else if ( response.success && response.status === 'failed' ) {
 				status = pushStatesProgressInfo.failed;
@@ -173,11 +176,13 @@ export function useSyncPush( {
 				return;
 			}
 			const remoteSiteId = connectedSite.id;
+			const remoteSiteUrl = connectedSite.url;
 			updatePushState( selectedSite.id, remoteSiteId, {
 				remoteSiteId,
 				status: pushStatesProgressInfo.creatingBackup,
 				selectedSite,
 				isStaging: connectedSite.isStaging,
+				remoteSiteUrl,
 			} );
 
 			let archiveContent, archivePath, archiveSizeInBytes;

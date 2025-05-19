@@ -77,7 +77,7 @@ describe( 'ContentTabSync', () => {
 
 	it( 'renders the sync title and login buttons', () => {
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		expect( screen.getByText( 'Sync with' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Sync with WordPress.com or Pressable' ) ).toBeInTheDocument();
 
 		const loginButton = screen.getByRole( 'button', { name: /Log in to WordPress.com/i } );
 		expect( loginButton ).toBeInTheDocument();

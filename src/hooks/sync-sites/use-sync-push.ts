@@ -24,7 +24,6 @@ export type SyncPushState = {
 	remoteSiteId: number;
 	status: PushStateProgressInfo;
 	selectedSite: SiteDetails;
-	isStaging: boolean;
 	remoteSiteUrl: string;
 };
 
@@ -181,7 +180,6 @@ export function useSyncPush( {
 				remoteSiteId,
 				status: pushStatesProgressInfo.creatingBackup,
 				selectedSite,
-				isStaging: connectedSite.isStaging,
 				remoteSiteUrl,
 			} );
 

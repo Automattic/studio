@@ -19,6 +19,7 @@ import {
 	useSyncStatesProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getHostnameFromUrl } from 'src/lib/url-utils';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 export type SyncBackupState = {
@@ -27,7 +28,7 @@ export type SyncBackupState = {
 	status: PullStateProgressInfo;
 	downloadUrl: string | null;
 	selectedSite: SiteDetails;
-	isStaging: boolean;
+	remoteSiteUrl: string;
 };
 
 export type PullStates = Record< string, SyncBackupState >;
@@ -102,13 +103,14 @@ export function useSyncPull( {
 			}
 
 			const remoteSiteId = connectedSite.id;
+			const remoteSiteUrl = connectedSite.url;
 			updatePullState( selectedSite.id, remoteSiteId, {
 				backupId: null,
 				status: pullStatesProgressInfo[ 'in-progress' ],
 				downloadUrl: null,
 				remoteSiteId,
+				remoteSiteUrl,
 				selectedSite,
-				isStaging: connectedSite.isStaging,
 			} );
 
 			try {
@@ -155,7 +157,7 @@ export function useSyncPull( {
 
 	const onBackupCompleted = useCallback(
 		async ( remoteSiteId: number, backupState: SyncBackupState & { downloadUrl: string } ) => {
-			const { downloadUrl, selectedSite, isStaging } = backupState;
+			const { downloadUrl, selectedSite, remoteSiteUrl } = backupState;
 
 			try {
 				const fileSize = await checkBackupFileSize( downloadUrl );
@@ -221,9 +223,10 @@ export function useSyncPull( {
 
 				getIpcApi().showNotification( {
 					title: selectedSite.name,
-					body: isStaging
-						? __( 'Studio site updated from Staging' )
-						: __( 'Studio site updated from Production' ),
+					body: sprintf(
+						__( 'Studio site has been updated from %s' ),
+						getHostnameFromUrl( remoteSiteUrl )
+					),
 				} );
 
 				onPullSuccess?.( remoteSiteId, selectedSite.id );

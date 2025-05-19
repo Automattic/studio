@@ -157,7 +157,9 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							variant="primary"
 							connectSite={ () => setIsSyncSitesSelectorOpen( true ) }
 							disableConnectButtonStyle={ true }
-						/>
+						>
+							{ __( 'Connect another site' ) }
+						</ConnectButton>
 					</div>
 				</div>
 			) : (
@@ -167,7 +169,9 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							variant="primary"
 							connectSite={ () => setIsSyncSitesSelectorOpen( true ) }
 							disableConnectButtonStyle={ true }
-						/>
+						>
+							{ __( 'Connect site' ) }
+						</ConnectButton>
 					</div>
 				</SiteSyncDescription>
 			) }

@@ -15,7 +15,7 @@ $VALID_BUILD_TYPES = @($BUILD_TYPE_DEV, $BUILD_TYPE_RELEASE)
 # Validate build type
 if ($BuildType -notin $VALID_BUILD_TYPES) {
     Write-Host "Error: BuildType must be one of: $($VALID_BUILD_TYPES -join ', ')" -ForegroundColor Red
-    exit 1
+    Exit 1
 }
 
 Write-Host "--- :npm: Installing Node dependencies"

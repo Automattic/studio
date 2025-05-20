@@ -9,6 +9,7 @@ import { EnvironmentBadge } from 'src/components/environment-badge';
 import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
+import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';

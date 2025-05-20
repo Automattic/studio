@@ -110,6 +110,7 @@ export function useSyncPush( {
 				getIpcApi().showNotification( {
 					title: syncPushState.selectedSite.name,
 					body: sprintf(
+						// translators: %s is the site url without the protocol.
 						__( '%s has been updated' ),
 						getHostnameFromUrl( syncPushState.remoteSiteUrl )
 					),

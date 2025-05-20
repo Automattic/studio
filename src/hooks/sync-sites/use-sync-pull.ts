@@ -224,6 +224,7 @@ export function useSyncPull( {
 				getIpcApi().showNotification( {
 					title: selectedSite.name,
 					body: sprintf(
+						// translators: %s is the site url without the protocol.
 						__( 'Studio site has been updated from %s' ),
 						getHostnameFromUrl( remoteSiteUrl )
 					),

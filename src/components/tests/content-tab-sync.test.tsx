@@ -300,7 +300,7 @@ describe( 'ContentTabSync', () => {
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const connectButton = screen.getByRole( 'button', { name: /Connect site/i } );
+		const connectButton = screen.getByRole( 'button', { name: /Connect another site/i } );
 		expect( connectButton ).toBeInTheDocument();
 	} );
 

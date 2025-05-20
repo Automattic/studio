@@ -78,8 +78,11 @@ export const SnapshotInfo = ( {
 												 * attribute is used rather than `disabled` so that screen
 												 * readers can focus the item to announce its disabled state.
 												 * Otherwise, dropdown toggle would toggle an empty menu.
+												 * We explicitly set aria-hidden={false} to prevent the menu
+												 * from hiding this item from screen readers.
 												 */
 												aria-disabled={ isDisabled }
+												aria-hidden={ false }
 												icon={ trash }
 												iconPosition="left"
 												isDestructive

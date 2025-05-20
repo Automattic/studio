@@ -62,7 +62,7 @@ export const SnapshotInfo = ( {
 							size={ 24 }
 							label={ __( 'More options' ) }
 						>
-							{ ( { onClose }: { onClose: () => void } ) => {
+							{ ( { onClose, isOpen }: { onClose: () => void; isOpen: boolean } ) => {
 								return (
 									<MenuGroup>
 										<Tooltip
@@ -74,15 +74,16 @@ export const SnapshotInfo = ( {
 											<MenuItem
 												aria-description={ isOffline ? offlineMessage : '' }
 												/**
-												 * Because there is a single menu item, the `aria-disabled`
-												 * attribute is used rather than `disabled` so that screen
-												 * readers can focus the item to announce its disabled state.
-												 * Otherwise, dropdown toggle would toggle an empty menu.
-												 * We explicitly set aria-hidden={false} to prevent the menu
-												 * from hiding this item from screen readers.
+												 * When the menu is visible (isOpen=true), we use aria-disabled
+												 * to allow screen readers to focus and announce the disabled state.
+												 * When the menu is hidden, we remove focusable attributes to
+												 * prevent conflicts with aria-hidden.
 												 */
-												aria-disabled={ isDisabled }
-												aria-hidden={ false }
+												{ ...( isDisabled &&
+													isOpen && {
+														'aria-disabled': true,
+														tabIndex: 0,
+													} ) }
 												icon={ trash }
 												iconPosition="left"
 												isDestructive

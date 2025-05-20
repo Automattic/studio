@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { domainToASCII } from 'node:url';
 import { promisify } from 'node:util';
 import * as Sentry from '@sentry/electron/main';
 import sudo from '@vscode/sudo-prompt';
@@ -235,6 +236,7 @@ export async function generateSiteCertificate(
 	domain: string
 ): Promise< { cert: string; key: string } > {
 	try {
+		const punycodeDomain = domainToASCII( domain );
 		const siteCertPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.crt` );
 		const siteKeyPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.key` );
 
@@ -260,7 +262,7 @@ export async function generateSiteCertificate(
 		cert.validity.notAfter = new Date( now.getTime() );
 		cert.validity.notAfter.setDate( now.getDate() + SITE_CERT_VALIDITY_DAYS );
 		const attrs = [
-			{ name: 'commonName', value: domain },
+			{ name: 'commonName', value: punycodeDomain },
 			{ name: 'countryName', value: 'US' },
 			{ name: 'organizationName', value: 'WordPress Studio' },
 		];
@@ -288,7 +290,7 @@ export async function generateSiteCertificate(
 				altNames: [
 					{
 						type: 2, // DNS
-						value: domain,
+						value: punycodeDomain,
 					},
 				],
 			},

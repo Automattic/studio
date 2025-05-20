@@ -33,7 +33,7 @@ import {
 	SQLITE_FILENAME,
 	SQLITE_PLUGIN_FOLDER,
 } from './constants';
-import { downloadWordPress, removeDownloadedMuPlugins } from './download';
+import { removeDownloadedMuPlugins } from './download';
 import getSqlitePath from './get-sqlite-path';
 import getWordpressVersionsPath from './get-wordpress-versions-path';
 import { output } from './output';

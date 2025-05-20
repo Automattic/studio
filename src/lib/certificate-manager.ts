@@ -236,10 +236,9 @@ export async function generateSiteCertificate(
 	domain: string
 ): Promise< { cert: string; key: string } > {
 	try {
-		// Convert domain to punycode for certificate generation
 		const punycodeDomain = domainToASCII( domain );
-		const siteCertPath = path.join( CERT_DIRECTORY, 'domains', `${ punycodeDomain }.crt` );
-		const siteKeyPath = path.join( CERT_DIRECTORY, 'domains', `${ punycodeDomain }.key` );
+		const siteCertPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.crt` );
+		const siteKeyPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.key` );
 
 		// If the certificate already exists, no need to generate a new one
 		if ( fs.existsSync( siteCertPath ) && fs.existsSync( siteKeyPath ) ) {
@@ -319,9 +318,8 @@ export async function generateSiteCertificate(
  */
 export function deleteSiteCertificate( domain: string ): boolean {
 	try {
-		const punycodeDomain = domainToASCII( domain );
-		const siteCertPath = path.join( CERT_DIRECTORY, 'domains', `${ punycodeDomain }.crt` );
-		const siteKeyPath = path.join( CERT_DIRECTORY, 'domains', `${ punycodeDomain }.key` );
+		const siteCertPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.crt` );
+		const siteKeyPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.key` );
 		let deletedFiles = false;
 		if ( fs.existsSync( siteCertPath ) ) {
 			fs.unlinkSync( siteCertPath );

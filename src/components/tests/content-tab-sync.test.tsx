@@ -33,7 +33,7 @@ const inProgressPushState: SyncPushState = {
 		message: '',
 	},
 	selectedSite,
-	isStaging: false,
+	remoteSiteUrl: 'https://example.com',
 };
 
 describe( 'ContentTabSync', () => {

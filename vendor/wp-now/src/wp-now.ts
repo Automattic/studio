@@ -90,7 +90,6 @@ export default async function startWPNow(
 		return { php, options };
 	}
 	output?.log( `wp: ${ options.wordPressVersion }` );
-	await downloadWordPress( options.wordPressVersion );
 
 	if ( options.reset ) {
 		fs.removeSync( options.wpContentPath );

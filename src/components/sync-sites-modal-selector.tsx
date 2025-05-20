@@ -133,7 +133,7 @@ function SearchSites( {
 				__nextHasNoMarginBottom={ true }
 			/>
 			<p className="a8c-helper-text text-gray-500">
-				{ __( "Can't find your site? " ) }
+				{ __( "Can't find your site?" ) }{ ' ' }
 				<Button
 					variant="link"
 					onClick={ () => getIpcApi().openURL( getLocalizedLink( locale, 'docsSync' ) ) }

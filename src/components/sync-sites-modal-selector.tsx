@@ -15,7 +15,6 @@ import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import { WordPressLogoCircle } from './wordpress-logo-circle';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
@@ -208,6 +207,7 @@ function SiteItem( {
 	const isUnsupported = site.syncSupport === 'unsupported';
 	const isPressable = site.isPressable;
 	const environmentType = site.environmentType;
+	const isDisabled = isDeleted || isUnsupported || needsUpgrade || isMissingPermissions;
 
 	return (
 		<div
@@ -252,11 +252,7 @@ function SiteItem( {
 							<WordPressLogoCircle
 								size={ 12 }
 								{ ...( isSelected && { color: '#fff' } ) }
-								{ ...( ( isUnsupported ||
-									needsUpgrade ||
-									isDeleted ||
-									isMissingPermissions ||
-									isNeedsTransfer ) && { color: '#8c8f94' } ) }
+								{ ...( isDisabled && { color: '#8c8f94' } ) }
 							/>
 						</span>
 					) }

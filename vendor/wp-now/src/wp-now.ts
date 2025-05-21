@@ -638,7 +638,7 @@ async function mountInternalMuPlugins( php: PHP, options: WPNowOptions ) {
 		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-tmp-fix-hide-plugins-spinner.php' ),
 		`<?php
 			// This is a temporary fix for a page-optimize bug that causes spinner icons to show all the time in the plugins list auto-update column
-			// @see https://github.com/Automattic/wpcomsh/pull/975
+
 			add_action( 'admin_enqueue_scripts', 'wpcomsh_patch_auto_update_spinner_style', 999 );
 			function wpcomsh_patch_auto_update_spinner_style() {
 				$current_screen = get_current_screen();

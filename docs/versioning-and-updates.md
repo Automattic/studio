@@ -42,7 +42,7 @@ latest dev build, then will be updated to the prod build. Otherwise, to the late
 
 ## Releases Manifest and CDN
 
-CI uses the `generate-releases-manifest.json` script to genreate a
+CI uses the `generate-releases-manifest.mjs` script to genreate a
 `releases.json` file which acts as an authoritative source of update info for
 the update server.
 

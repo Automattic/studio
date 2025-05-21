@@ -43,6 +43,7 @@ import {
 } from 'src/migrations/migrate-from-wp-now-folder';
 import { migrateAllDatabasesInSitu } from 'src/migrations/move-databases-in-situ';
 import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
+import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-stat';
 import { installCLIOnWindows } from 'src/modules/cli/lib/install-windows';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
 import { stopAllServersOnQuit } from 'src/site-server';
@@ -300,6 +301,8 @@ async function appBoot() {
 		await removeSitesWithEmptyDirectories();
 
 		await migrateAllDatabasesInSitu();
+
+		await renameLaunchUniquesStat();
 
 		createMainWindow();
 		await startUserDataWatcher();

@@ -6,27 +6,27 @@
 //     "darwin": {
 //       "universal": {
 //         "sha": "30a8251",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-universal-v1.2.3-42.app.zip"
+//         "url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio/studio-darwin-universal-v1.2.3-42.app.zip"
 //       },
 //       "arm64": {
 //         "sha": "30a8251",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-arm64-v1.2.3-42.app.zip"
+//         "url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio/studio-darwin-arm64-v1.2.3-42.app.zip"
 //       },
 //       "x64": {
 //         "sha": "30a8251",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-x64-v1.2.3-42.app.zip"
+//         "url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio/studio-darwin-x64-v1.2.3-42.app.zip"
 //       }
 //     },
 //     "win32": {
 //       "sha": "30a8251",
-//       "url": "https://cdn.a8c-ci.services/studio/studio-win32-v1.2.3-42-full.nupkg"
+//       "url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio/studio-win32-v1.2.3-42-full.nupkg"
 //     }
 //   },
 //   "1.0.0": {
 //     "darwin": {
 //       "universal": {
 //         "sha": "abcdef1234567890",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-universal-v1.0.0.app.zip"
+//         "url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio/studio-darwin-universal-v1.0.0.app.zip"
 //       },
 //       ... etc.
 //     },
@@ -46,7 +46,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import packageJson from '../package.json' with { type: 'json' };
 
-const cdnURL = 'https://cdn.a8c-ci.services/studio';
+const cdnURL = 'https://appscdn.wordpress.com/downloads/wordpress-com-studio';
 const baseName = 'studio';
 
 const currentCommit = child_process.execSync( 'git rev-parse --short HEAD' ).toString().trim();

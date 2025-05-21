@@ -639,8 +639,8 @@ async function mountInternalMuPlugins( php: PHP, options: WPNowOptions ) {
 		`<?php
 			// This is a temporary fix for a page-optimize bug that causes spinner icons to show all the time in the plugins list auto-update column
 
-			add_action( 'admin_enqueue_scripts', 'wpcomsh_patch_auto_update_spinner_style', 999 );
-			function wpcomsh_patch_auto_update_spinner_style() {
+			add_action( 'admin_enqueue_scripts', 'studio_patch_auto_update_spinner_style', 999 );
+			function studio_patch_auto_update_spinner_style() {
 				$current_screen = get_current_screen();
 				if ( isset( $current_screen->id ) && 'plugins' === $current_screen->id ) {
 					wp_add_inline_style(

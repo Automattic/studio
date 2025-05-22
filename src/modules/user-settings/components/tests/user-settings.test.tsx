@@ -1,8 +1,8 @@
 // To run tests, execute `npm run test -- src/modules/user-settings/components/tests/user-settings.test.tsx` from the root directory
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { useAuth } from 'src/hooks/use-auth';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { UserSettings } from 'src/modules/user-settings';
@@ -38,9 +38,15 @@ jest.mock( 'src/stores/wpcom-api', () => {
 		} ),
 	};
 } );
+
 jest.mock( 'src/lib/get-ipc-api', () => ( {
-	getIpcApi: jest.fn().mockReturnValue( {
+	getIpcApi: () => ( {
 		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
+		getUserEditor: jest.fn().mockResolvedValue( 'vscode' ),
+		getInstalledAppsAndTerminals: jest.fn().mockResolvedValue( {
+			terminals: [ 'terminal' ],
+			editors: [ 'vscode' ],
+		} ),
 	} ),
 } ) );
 
@@ -65,42 +71,33 @@ describe( 'UserSettings', () => {
 	it( 'logs in when not authenticated', async () => {
 		const authenticate = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			preferredEditor: false,
-		} );
 		renderWithProvider( <UserSettings /> );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
 		expect( loginButton ).toBeVisible();
-		fireEvent.click( loginButton );
+		await userEvent.click( loginButton );
 		expect( authenticate ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'logs out if authenticated', async () => {
 		const logout = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, logout } );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			preferredEditor: false,
-		} );
 		renderWithProvider( <UserSettings /> );
 		const logoutButton = screen.getByRole( 'button', { name: 'Log out' } );
 		expect( logoutButton ).toBeVisible();
-		fireEvent.click( logoutButton );
+		await userEvent.click( logoutButton );
 		expect( logout ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'disables log in button when offline', async () => {
 		const authenticate = jest.fn();
 		( useOffline as jest.Mock ).mockReturnValue( true );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			preferredEditor: false,
-		} );
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
 		renderWithProvider( <UserSettings /> );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
 		expect( loginButton ).toHaveAttribute( 'aria-disabled', 'true' );
-		fireEvent.click( loginButton );
+		await userEvent.click( loginButton );
 		expect( authenticate ).not.toHaveBeenCalled();
-		fireEvent.mouseOver( loginButton );
+		await userEvent.hover( loginButton );
 		expect(
 			screen.getByRole( 'tooltip', {
 				name: "You're currently offline.",
@@ -110,32 +107,31 @@ describe( 'UserSettings', () => {
 
 	describe( 'Tab Navigation', () => {
 		it( 'switches between tabs correctly', async () => {
+			const user = userEvent.setup();
 			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
-			( useFeatureFlags as jest.Mock ).mockReturnValue( {
-				preferredEditor: true,
-			} );
 
 			renderWithProvider( <UserSettings /> );
 
-			// Check initial tab
-			expect( screen.getByText( 'Account' ) ).toHaveAttribute( 'aria-selected', 'true' );
-			expect( screen.getByText( 'Log out' ) ).toBeVisible();
+			await waitFor( () => {
+				expect( screen.getByText( 'Account' ) ).toHaveAttribute( 'aria-selected', 'true' );
+				expect( screen.getByText( 'Log out' ) ).toBeInTheDocument();
+			} );
 
-			// Switch to Preferences tab
-			fireEvent.click( screen.getByText( 'Preferences' ) );
+			await user.click( screen.getByText( 'Preferences' ) );
+
 			await waitFor( () => {
 				expect( screen.getByText( 'Preferences' ) ).toHaveAttribute( 'aria-selected', 'true' );
+				expect( screen.getByText( 'Language' ) ).toBeInTheDocument();
+				expect( screen.getByText( 'Terminal application' ) ).toBeInTheDocument();
 			} );
-			expect( screen.getByText( 'Language' ) ).toBeVisible();
-			expect( screen.getByText( 'Terminal application' ) ).toBeVisible();
 
-			// Switch to Usage tab
-			fireEvent.click( screen.getByText( 'Usage' ) );
+			await user.click( screen.getByText( 'Usage' ) );
+
 			await waitFor( () => {
 				expect( screen.getByText( 'Usage' ) ).toHaveAttribute( 'aria-selected', 'true' );
+				expect( screen.getByText( 'Preview sites' ) ).toBeInTheDocument();
+				expect( screen.getByText( 'AI assistant' ) ).toBeInTheDocument();
 			} );
-			expect( screen.getByText( 'Preview sites' ) ).toBeVisible();
-			expect( screen.getByText( 'AI assistant' ) ).toBeVisible();
 		} );
 	} );
 } );

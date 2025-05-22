@@ -5,7 +5,6 @@ import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
 import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 jest.mock( 'src/hooks/use-auth' );
@@ -22,19 +21,19 @@ const selectedSite: SiteDetails = {
 	path: '/path/to/site',
 	adminPassword: btoa( 'test-password' ),
 	running: false,
-	phpVersion: '8.0',
+	phpVersion: '8.3',
 	id: 'site-id',
 };
 
 const inProgressPushState: SyncPushState = {
 	remoteSiteId: 1,
 	status: {
-		key: 'importing',
+		key: 'creatingRemoteBackup',
 		progress: 50,
 		message: '',
 	},
 	selectedSite,
-	isStaging: false,
+	remoteSiteUrl: 'https://example.com',
 };
 
 describe( 'ContentTabSync', () => {
@@ -66,9 +65,6 @@ describe( 'ContentTabSync', () => {
 			setIsSyncSitesSelectorOpen: jest.fn(),
 			closeSyncSitesSelector: jest.fn(),
 		} );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			pressableSyncEnabled: false,
-		} );
 	} );
 
 	const renderWithProvider = ( children: React.ReactElement ) => {
@@ -81,7 +77,7 @@ describe( 'ContentTabSync', () => {
 
 	it( 'renders the sync title and login buttons', () => {
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		expect( screen.getByText( 'Sync with' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Sync with WordPress.com or Pressable' ) ).toBeInTheDocument();
 
 		const loginButton = screen.getByRole( 'button', { name: /Log in to WordPress.com/i } );
 		expect( loginButton ).toBeInTheDocument();
@@ -116,7 +112,7 @@ describe( 'ContentTabSync', () => {
 		} );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		expect( screen.getByText( 'Connect a WordPress.com site' ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'sync-sites-modal-selector' ) ).toBeInTheDocument();
 	} );
 
 	it( 'displays the list of connected sites', async () => {
@@ -236,12 +232,12 @@ describe( 'ContentTabSync', () => {
 		expect( pushButtons ).toHaveLength( 2 );
 
 		const productionUrl = screen.getAllByRole( 'button', {
-			name: 'https://developer.wordpress.com/studio/ ↗',
+			name: 'developer.wordpress.com/studio/ ↗',
 		} );
 		expect( productionUrl ).toHaveLength( 1 );
 
 		const stagingUrl = screen.getAllByRole( 'button', {
-			name: 'https://developer-staging.wordpress.com/studio/ ↗',
+			name: 'developer-staging.wordpress.com/studio/ ↗',
 		} );
 		expect( stagingUrl ).toHaveLength( 1 );
 	} );
@@ -273,7 +269,7 @@ describe( 'ContentTabSync', () => {
 		expect( connectButton ).toBeInTheDocument();
 	} );
 
-	it( 'does not display ConnectButton at the bottom when there are connected sites', () => {
+	it( 'displays the ConnectButton at the bottom when there are multiple connected sites', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site',
@@ -304,24 +300,49 @@ describe( 'ContentTabSync', () => {
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const connectButton = screen.queryByRole( 'button', { name: /Connect site/i } );
-		expect( connectButton ).not.toBeInTheDocument();
+		const connectButton = screen.getByRole( 'button', { name: /Connect another site/i } );
+		expect( connectButton ).toBeInTheDocument();
 	} );
 
-	it( 'displays ConnectButton at the bottom when there are connected sites and pressableSyncEnabled is true', () => {
-		const fakeSyncSite = {
+	it( 'displays environment badges for Pressable sites with production, staging and sandbox environments', () => {
+		const fakePressableProductionSite = {
 			id: 6,
-			name: 'My simple business site',
-			url: 'https://developer.wordpress.com/studio/',
+			name: 'My Pressable Production site',
+			url: 'https://pressable-site.com',
 			isStaging: false,
+			isPressable: true,
+			environmentType: 'production',
 			stagingSiteIds: [],
 			syncSupport: 'already-connected',
 		};
-
+		const fakePressableStagingSite = {
+			id: 7,
+			name: 'My Pressable Staging site',
+			url: 'https://staging-pressable-site.com',
+			isStaging: false,
+			isPressable: true,
+			environmentType: 'staging',
+			stagingSiteIds: [],
+			syncSupport: 'already-connected',
+		};
+		const fakePressableSandboxSite = {
+			id: 8,
+			name: 'My Pressable Sandbox site',
+			url: 'https://sandbox-pressable-site.com',
+			isStaging: false,
+			isPressable: true,
+			environmentType: 'sandbox',
+			stagingSiteIds: [],
+			syncSupport: 'already-connected',
+		};
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
-			connectedSites: [ fakeSyncSite ],
-			syncSites: [ fakeSyncSite ],
+			connectedSites: [
+				fakePressableProductionSite,
+				fakePressableStagingSite,
+				fakePressableSandboxSite,
+			],
+			syncSites: [ fakePressableProductionSite ],
 			pullSite: jest.fn(),
 			isAnySitePulling: false,
 			isAnySitePushing: false,
@@ -332,18 +353,42 @@ describe( 'ContentTabSync', () => {
 			isSiteIdPulling: jest.fn(),
 			isSiteIdPushing: jest.fn(),
 			clearTimeout: jest.fn(),
-			isSyncSitesSelectorOpen: false,
-			setIsSyncSitesSelectorOpen: jest.fn(),
-			closeSyncSitesSelector: jest.fn(),
-		} );
-
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			pressableSyncEnabled: true,
 		} );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const connectButton = screen.getByRole( 'button', { name: /Connect site/i } );
-		expect( connectButton ).toBeInTheDocument();
+		expect( screen.getByText( fakePressableProductionSite.name ) ).toBeInTheDocument();
+		expect( screen.getByText( fakePressableStagingSite.name ) ).toBeInTheDocument();
+		expect( screen.getByText( fakePressableSandboxSite.name ) ).toBeInTheDocument();
+
+		expect( screen.getByText( 'Production' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Staging' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Sandbox' ) ).toBeInTheDocument();
+	} );
+	it( 'displays the progress bar when the site is being pushed', () => {
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
+		const fakeSyncSite = {
+			id: 6,
+			name: 'My simple business site that needs a transfer',
+			url: 'https:/developer.wordpress.com/studio/',
+			syncSupport: 'already-connected',
+		};
+		( useSyncSites as jest.Mock ).mockReturnValue( {
+			connectedSites: [ fakeSyncSite ],
+			syncSites: [ fakeSyncSite ],
+			pullSite: jest.fn(),
+			isAnySitePulling: false,
+			isAnySitePushing: false,
+			getPullState: jest.fn(),
+			getPushState: jest.fn().mockReturnValue( inProgressPushState ),
+			refetchSites: jest.fn(),
+			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
+			isSiteIdPulling: jest.fn(),
+			isSiteIdPushing: jest.fn().mockReturnValue( true ),
+			clearTimeout: jest.fn(),
+		} );
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+		expect( screen.getByRole( 'progressbar' ) ).toBeInTheDocument();
 	} );
 } );

@@ -2,6 +2,8 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { readFile, writeFile } from 'atomically';
+import { arePathsEqual } from 'common/lib/fs-utils';
+import { StatsMetric } from 'common/types/stats';
 import {
 	readAppdata,
 	saveAppdata,
@@ -21,6 +23,11 @@ jest.mock( 'crypto', () => ( {
 	randomUUID: jest.fn().mockReturnValue( 'mock-uuid-1234' ),
 } ) );
 
+jest.mock( 'common/lib/fs-utils' );
+jest.mock( 'cli/lib/api', () => ( {
+	validateAccessToken: jest.fn().mockResolvedValue( undefined ),
+} ) );
+
 describe( 'Appdata Module', () => {
 	const mockHomeDir = '/mock/home';
 	const mockSiteFolderName = 'folder';
@@ -30,10 +37,11 @@ describe( 'Appdata Module', () => {
 		( os.homedir as jest.Mock ).mockReturnValue( mockHomeDir );
 		( path.join as jest.Mock ).mockImplementation( ( ...args ) => args.join( '/' ) );
 		( path.basename as jest.Mock ).mockReturnValue( mockSiteFolderName );
+		( path.resolve as jest.Mock ).mockImplementation( ( path ) => path );
 		jest.spyOn( Date, 'now' ).mockReturnValue( 1234567890 );
 
-		// Default mock implementation for fs functions
 		( fs.existsSync as jest.Mock ).mockReturnValue( true );
+		( arePathsEqual as jest.Mock ).mockImplementation( ( path1, path2 ) => path1 === path2 );
 		( readFile as jest.Mock ).mockResolvedValue( '{}' );
 		( writeFile as jest.Mock ).mockResolvedValue( undefined );
 	} );
@@ -58,6 +66,25 @@ describe( 'Appdata Module', () => {
 						date: 1234567,
 					},
 				],
+			};
+
+			( readFile as jest.Mock ).mockResolvedValueOnce( JSON.stringify( mockUserData ) );
+
+			const result = await readAppdata();
+			expect( result ).toEqual( mockUserData );
+		} );
+
+		it( 'should correctly validate lastBumpStats with local-environment-launch-uniques key', async () => {
+			const mockUserData = {
+				version: 1,
+				newSites: [],
+				sites: [],
+				snapshots: [],
+				lastBumpStats: {
+					'local-environment-launch-uniques': {
+						[ StatsMetric.DARWIN ]: 5,
+					},
+				},
 			};
 
 			( readFile as jest.Mock ).mockResolvedValueOnce( JSON.stringify( mockUserData ) );

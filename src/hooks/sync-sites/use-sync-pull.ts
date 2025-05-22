@@ -14,13 +14,12 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import {
-	IN_PROGRESS_INITIAL_VALUE,
-	IN_PROGRESS_TO_DOWNLOADING_STEP,
 	PullStateProgressInfo,
-	PullStateProgressInfoValues,
+	SyncBackupResponse,
 	useSyncStatesProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getHostnameFromUrl } from 'src/lib/url-utils';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 export type SyncBackupState = {
@@ -29,7 +28,7 @@ export type SyncBackupState = {
 	status: PullStateProgressInfo;
 	downloadUrl: string | null;
 	selectedSite: SiteDetails;
-	isStaging: boolean;
+	remoteSiteUrl: string;
 };
 
 export type PullStates = Record< string, SyncBackupState >;
@@ -41,12 +40,6 @@ type UseSyncPullProps = {
 	pullStates: PullStates;
 	setPullStates: React.Dispatch< React.SetStateAction< PullStates > >;
 	onPullSuccess?: OnPullSuccess;
-};
-
-type SyncBackupResponse = {
-	status: 'in-progress' | 'finished' | 'failed';
-	download_url: string;
-	percent: number;
 };
 
 export type UseSyncPull = {
@@ -66,8 +59,13 @@ export function useSyncPull( {
 	const { __ } = useI18n();
 	const { client } = useAuth();
 	const { importFile, clearImportState } = useImportExport();
-	const { pullStatesProgressInfo, isKeyPulling, isKeyFinished, isKeyFailed } =
-		useSyncStatesProgressInfo();
+	const {
+		pullStatesProgressInfo,
+		isKeyPulling,
+		isKeyFinished,
+		isKeyFailed,
+		getBackupStatusWithProgress,
+	} = useSyncStatesProgressInfo();
 	const {
 		updateState,
 		getState: getPullState,
@@ -105,13 +103,14 @@ export function useSyncPull( {
 			}
 
 			const remoteSiteId = connectedSite.id;
+			const remoteSiteUrl = connectedSite.url;
 			updatePullState( selectedSite.id, remoteSiteId, {
 				backupId: null,
 				status: pullStatesProgressInfo[ 'in-progress' ],
 				downloadUrl: null,
 				remoteSiteId,
+				remoteSiteUrl,
 				selectedSite,
-				isStaging: connectedSite.isStaging,
 			} );
 
 			try {
@@ -158,7 +157,7 @@ export function useSyncPull( {
 
 	const onBackupCompleted = useCallback(
 		async ( remoteSiteId: number, backupState: SyncBackupState & { downloadUrl: string } ) => {
-			const { downloadUrl, selectedSite, isStaging } = backupState;
+			const { downloadUrl, selectedSite, remoteSiteUrl } = backupState;
 
 			try {
 				const fileSize = await checkBackupFileSize( downloadUrl );
@@ -224,9 +223,11 @@ export function useSyncPull( {
 
 				getIpcApi().showNotification( {
 					title: selectedSite.name,
-					body: isStaging
-						? __( 'Studio site updated from Staging' )
-						: __( 'Studio site updated from Production' ),
+					body: sprintf(
+						// translators: %s is the site url without the protocol.
+						__( 'Studio site has been updated from %s' ),
+						getHostnameFromUrl( remoteSiteUrl )
+					),
 				} );
 
 				onPullSuccess?.( remoteSiteId, selectedSite.id );
@@ -308,7 +309,14 @@ export function useSyncPull( {
 				throw error;
 			}
 		},
-		[ client, getPullState, onBackupCompleted, pullStatesProgressInfo, updatePullState ]
+		[
+			client,
+			getBackupStatusWithProgress,
+			getPullState,
+			onBackupCompleted,
+			pullStatesProgressInfo,
+			updatePullState,
+		]
 	);
 
 	useEffect( () => {
@@ -347,23 +355,4 @@ export function useSyncPull( {
 	);
 
 	return { pullStates, getPullState, pullSite, isAnySitePulling, isSiteIdPulling, clearPullState };
-}
-function getBackupStatusWithProgress(
-	hasBackupCompleted: boolean,
-	pullStatesProgressInfo: PullStateProgressInfoValues,
-	response: SyncBackupResponse
-) {
-	const frontendStatus = hasBackupCompleted
-		? pullStatesProgressInfo.downloading.key
-		: response.status;
-	let newProgressInfo: PullStateProgressInfo | null = null;
-	if ( response.status === 'in-progress' ) {
-		newProgressInfo = pullStatesProgressInfo[ frontendStatus ];
-		newProgressInfo.progress =
-			IN_PROGRESS_INITIAL_VALUE + IN_PROGRESS_TO_DOWNLOADING_STEP * ( response.percent / 100 );
-	}
-	const statusWithProgress =
-		newProgressInfo || pullStatesProgressInfo[ frontendStatus ] || pullStatesProgressInfo.failed;
-
-	return statusWithProgress;
 }

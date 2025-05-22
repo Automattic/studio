@@ -17,7 +17,7 @@ const selectedSite: SiteDetails = {
 	name: 'Test Site',
 	running: false,
 	path: '/test-site',
-	phpVersion: '8.0',
+	phpVersion: '8.3',
 	adminPassword: btoa( 'test-password' ),
 	port: 9999,
 };
@@ -63,7 +63,7 @@ describe( 'useImportExport hook', () => {
 					muPlugins: true,
 					fonts: true,
 				},
-				phpVersion: '8.0',
+				phpVersion: '8.3',
 			},
 			SITE_ID
 		);
@@ -96,7 +96,7 @@ describe( 'useImportExport hook', () => {
 					muPlugins: true,
 					fonts: true,
 				},
-				phpVersion: '8.0',
+				phpVersion: '8.3',
 			},
 			SITE_ID
 		);
@@ -129,7 +129,7 @@ describe( 'useImportExport hook', () => {
 					muPlugins: false,
 					fonts: false,
 				},
-				phpVersion: '8.0',
+				phpVersion: '8.3',
 			},
 			SITE_ID
 		);
@@ -156,7 +156,7 @@ describe( 'useImportExport hook', () => {
 		emitExportEvent( SITE_ID, ExportEvents.EXPORT_START );
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Starting export...',
+				statusMessage: 'Starting export…',
 				progress: 5,
 			},
 		} );
@@ -164,7 +164,7 @@ describe( 'useImportExport hook', () => {
 		emitExportEvent( SITE_ID, ExportEvents.BACKUP_CREATE_START );
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Creating backup...',
+				statusMessage: 'Creating backup…',
 				progress: 10,
 			},
 		} );
@@ -172,7 +172,7 @@ describe( 'useImportExport hook', () => {
 		emitExportEvent( SITE_ID, ExportEvents.CONFIG_EXPORT_START );
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Exporting configuration...',
+				statusMessage: 'Exporting configuration…',
 				progress: 15,
 			},
 		} );
@@ -180,7 +180,7 @@ describe( 'useImportExport hook', () => {
 		emitExportEvent( SITE_ID, ExportEvents.CONFIG_EXPORT_COMPLETE );
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Exporting configuration...',
+				statusMessage: 'Exporting configuration…',
 				progress: 20,
 			},
 		} );
@@ -190,7 +190,7 @@ describe( 'useImportExport hook', () => {
 		} );
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Backing up files...',
+				statusMessage: 'Backing up files…',
 				progress: 20,
 			},
 		} );
@@ -200,7 +200,7 @@ describe( 'useImportExport hook', () => {
 		} );
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Backing up files...',
+				statusMessage: 'Backing up files…',
 				progress: 60,
 			},
 		} );
@@ -210,7 +210,7 @@ describe( 'useImportExport hook', () => {
 		} );
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Backing up files...',
+				statusMessage: 'Backing up files…',
 				progress: 95,
 			},
 		} );

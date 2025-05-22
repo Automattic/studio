@@ -11,6 +11,11 @@ import {
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
+import {
+	installExtension,
+	REACT_DEVELOPER_TOOLS,
+	REDUX_DEVTOOLS,
+} from 'electron-devtools-installer';
 import { PROTOCOL_PREFIX } from 'common/constants';
 import { StatsGroup } from 'common/types/stats';
 import { IPC_VOID_HANDLERS } from 'src/constants';
@@ -38,6 +43,7 @@ import {
 } from 'src/migrations/migrate-from-wp-now-folder';
 import { migrateAllDatabasesInSitu } from 'src/migrations/move-databases-in-situ';
 import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
+import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-stat';
 import { installCLIOnWindows } from 'src/modules/cli/lib/install-windows';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
 import { stopAllServersOnQuit } from 'src/site-server';
@@ -92,6 +98,20 @@ async function setupSentryUserId() {
 
 	console.log( 'Setting Sentry user ID:', userData.sentryUserId );
 	Sentry.setUser( { id: userData.sentryUserId } );
+}
+
+// This is a workaround to ensure that the extension background workers are started
+// If you are updating Electron, confirm if this is still needed
+// https://github.com/electron/electron/issues/41613
+function launchExtensionBackgroundWorkers( appSession = session.defaultSession ) {
+	return Promise.all(
+		appSession.getAllExtensions().map( async ( extension ) => {
+			const manifest = extension.manifest;
+			if ( manifest.manifest_version === 3 && manifest?.background?.service_worker ) {
+				await appSession.serviceWorkers.startWorkerForScope( extension.url );
+			}
+		} )
+	);
 }
 
 async function appBoot() {
@@ -208,6 +228,11 @@ async function appBoot() {
 
 	app.on( 'ready', async () => {
 		const locale = await getUserLocaleWithFallback();
+		if ( process.env.NODE_ENV === 'development' ) {
+			await installExtension( REACT_DEVELOPER_TOOLS );
+			await installExtension( REDUX_DEVTOOLS );
+			await launchExtensionBackgroundWorkers();
+		}
 
 		console.log( `App version: ${ app.getVersion() }` );
 		console.log( `Built from commit: ${ COMMIT_HASH ?? 'undefined' }` );
@@ -276,6 +301,8 @@ async function appBoot() {
 		await removeSitesWithEmptyDirectories();
 
 		await migrateAllDatabasesInSitu();
+
+		await renameLaunchUniquesStat();
 
 		createMainWindow();
 		await startUserDataWatcher();

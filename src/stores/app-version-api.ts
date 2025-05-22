@@ -50,7 +50,7 @@ export const selectIsNewVersion = createSelector(
 		( res: GetLastSeenVersionQueryResult, currentVersion: string ) => currentVersion,
 	],
 	( lastSeenVersion, currentVersion ) => {
-		const forceNewVersion = false;
+		const forceNewVersion = true;
 
 		if ( currentVersion === lastSeenVersion ) {
 			return false;
@@ -61,8 +61,17 @@ export const selectIsNewVersion = createSelector(
 		}
 
 		try {
-			if ( semver.prerelease( currentVersion ) ) {
-				return false;
+			const currentPrerelease = semver.prerelease( currentVersion );
+			const lastSeenPrerelease = semver.prerelease( lastSeenVersion );
+
+			// Handle prerelease to prerelease transitions
+			if ( currentPrerelease && lastSeenPrerelease ) {
+				return lastSeenVersion !== currentVersion;
+			}
+
+			// Handle prerelease to stable transitions (or vice versa)
+			if ( currentPrerelease || lastSeenPrerelease ) {
+				return true;
 			}
 
 			const cleanLastSeen = semver.valid( semver.coerce( lastSeenVersion ) );

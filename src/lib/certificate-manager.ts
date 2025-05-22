@@ -1,11 +1,16 @@
 import { shell } from 'electron';
+import { execFile } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { domainToASCII } from 'node:url';
+import { promisify } from 'node:util';
 import * as Sentry from '@sentry/electron/main';
 import sudo from '@vscode/sudo-prompt';
 import forge from 'node-forge';
 import { getUserDataCertificatesPath } from 'src/storage/paths';
+
+const execFilePromise = promisify( execFile );
 
 /**
  * Generate name constraints in conformance with
@@ -88,7 +93,7 @@ export async function ensureRootCA(): Promise< { cert: string; key: string } > {
 		};
 	}
 
-	console.log( 'Generating new root CA certificate...' );
+	console.log( 'Generating new root CA certificate…' );
 
 	const keys = forge.pki.rsa.generateKeyPair( 2048 );
 	const cert = forge.pki.createCertificate();
@@ -149,10 +154,53 @@ export async function openCertificate() {
 }
 
 /**
- * Trust the root CA certificate in the system trust store
+ * Checks if the root CA certificate is already trusted by the system
+ * @returns A promise that resolves to true if the certificate is trusted, false otherwise
  */
-async function trustRootCA(): Promise< void > {
+export async function isRootCATrusted(): Promise< boolean > {
+	if ( ! fs.existsSync( CA_CERT_PATH ) ) {
+		return false;
+	}
+
+	if ( process.platform === 'win32' ) {
+		try {
+			// Execute certutil with more specific validation
+			const { stdout } = await execFilePromise( 'certutil', [ '-verify', CA_CERT_PATH ] );
+
+			const hasValidPolicies =
+				stdout.includes( 'Verified Application Policies:' ) &&
+				stdout.includes( 'Server Authentication' );
+
+			// Only consider the certificate trusted if it has the Server Authentication policy.
+			return hasValidPolicies;
+		} catch ( error ) {
+			return false;
+		}
+	} else if ( process.platform === 'darwin' ) {
+		try {
+			await execFilePromise( 'security', [ 'verify-cert', '-r', CA_CERT_PATH, '-p', 'ssl' ] );
+
+			return true;
+		} catch ( error ) {
+			return false;
+		}
+	}
+
+	return false;
+}
+
+/**
+ * Trust the root CA certificate in the system trust store
+ * @throws { Error } If the certificate trust operation fails
+ */
+export async function trustRootCA(): Promise< void > {
 	try {
+		// If certificate is already trusted, no need to re-trust it
+		if ( await isRootCATrusted() ) {
+			console.log( 'Root CA is already trusted in the system store' );
+			return;
+		}
+
 		const platform = process.platform;
 		if ( platform === 'win32' ) {
 			// Windows - Use certutil
@@ -172,11 +220,12 @@ async function trustRootCA(): Promise< void > {
 				);
 			} );
 		} else {
-			console.error( 'Unsupported platform for certificate trust:', platform );
+			console.error( 'Unsupported platform for automatic certificate trust:', platform );
 		}
 	} catch ( error ) {
 		Sentry.captureException( error );
 		console.error( 'Failed to trust root CA:', error );
+		throw error;
 	}
 }
 
@@ -187,6 +236,7 @@ export async function generateSiteCertificate(
 	domain: string
 ): Promise< { cert: string; key: string } > {
 	try {
+		const punycodeDomain = domainToASCII( domain );
 		const siteCertPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.crt` );
 		const siteKeyPath = path.join( CERT_DIRECTORY, 'domains', `${ domain }.key` );
 
@@ -212,7 +262,7 @@ export async function generateSiteCertificate(
 		cert.validity.notAfter = new Date( now.getTime() );
 		cert.validity.notAfter.setDate( now.getDate() + SITE_CERT_VALIDITY_DAYS );
 		const attrs = [
-			{ name: 'commonName', value: domain },
+			{ name: 'commonName', value: punycodeDomain },
 			{ name: 'countryName', value: 'US' },
 			{ name: 'organizationName', value: 'WordPress Studio' },
 		];
@@ -240,7 +290,7 @@ export async function generateSiteCertificate(
 				altNames: [
 					{
 						type: 2, // DNS
-						value: domain,
+						value: punycodeDomain,
 					},
 				],
 			},

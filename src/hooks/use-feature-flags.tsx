@@ -9,21 +9,15 @@ import { getAppGlobals } from 'src/lib/app-globals';
 const featureFlagsSchema = z
 	.object( {
 		terminal_wp_cli_enabled: z.boolean().optional(),
-		preferred_editor: z.boolean().optional(),
-		pressable_sync_enabled: z.boolean().optional(),
 	} )
 	.catch( ( _ ) => ( {} ) );
 
 export interface FeatureFlagsContextType {
 	terminalWpCliEnabled: boolean;
-	preferredEditor: boolean;
-	pressableSyncEnabled: boolean;
 }
 
 export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( {
 	terminalWpCliEnabled: false,
-	preferredEditor: false,
-	pressableSyncEnabled: false,
 } );
 
 interface FeatureFlagsProviderProps {
@@ -32,12 +26,8 @@ interface FeatureFlagsProviderProps {
 
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
 	const terminalWpCliEnabledFromGlobals = getAppGlobals().terminalWpCliEnabled;
-	const preferredEditorFromGlobals = getAppGlobals().preferredEditor;
-	const pressableSyncEnabledFromGlobals = getAppGlobals().pressableSyncEnabled;
 	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
 		terminalWpCliEnabled: terminalWpCliEnabledFromGlobals,
-		preferredEditor: preferredEditorFromGlobals,
-		pressableSyncEnabled: pressableSyncEnabledFromGlobals,
 	} );
 	const { isAuthenticated, client } = useAuth();
 
@@ -59,9 +49,6 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 				setFeatureFlags( {
 					terminalWpCliEnabled:
 						Boolean( flags.terminal_wp_cli_enabled ) || terminalWpCliEnabledFromGlobals,
-					preferredEditor: Boolean( flags.preferred_editor ) || preferredEditorFromGlobals,
-					pressableSyncEnabled:
-						Boolean( flags.pressable_sync_enabled ) || pressableSyncEnabledFromGlobals,
 				} );
 			} catch ( error ) {
 				Sentry.captureException( error );
@@ -72,13 +59,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 		return () => {
 			cancel = true;
 		};
-	}, [
-		isAuthenticated,
-		client,
-		terminalWpCliEnabledFromGlobals,
-		preferredEditorFromGlobals,
-		pressableSyncEnabledFromGlobals,
-	] );
+	}, [ isAuthenticated, client, terminalWpCliEnabledFromGlobals ] );
 
 	return (
 		<FeatureFlagsContext.Provider value={ featureFlags }>{ children }</FeatureFlagsContext.Provider>

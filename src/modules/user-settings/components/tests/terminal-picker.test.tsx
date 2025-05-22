@@ -39,7 +39,7 @@ describe( 'TerminalPicker', () => {
 	it( 'renders correctly with initial props', async () => {
 		// Set up mock data for installed terminals
 		store.dispatch(
-			installedAppsApi.util.updateQueryData( 'getInstalledApps', undefined, ( data ) => {
+			installedAppsApi.util.updateQueryData( 'getInstalledApps', undefined, () => {
 				return {
 					vscode: false,
 					phpstorm: false,
@@ -66,7 +66,7 @@ describe( 'TerminalPicker', () => {
 	it( 'calls onChange when selecting a different terminal', async () => {
 		// Set up mock data for installed terminals
 		store.dispatch(
-			installedAppsApi.util.updateQueryData( 'getInstalledApps', undefined, ( data ) => {
+			installedAppsApi.util.updateQueryData( 'getInstalledApps', undefined, () => {
 				return {
 					// Editor properties
 					vscode: false,

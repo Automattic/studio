@@ -86,7 +86,7 @@ wp-now php my-file.php
 `wp-now start` currently supports the following arguments:
 
 -   `--path=<path>`: the path to the PHP file or WordPress project to use. If not provided, it will use the current working directory;
--   `--php=<version>`: the version of PHP to use. This is optional and if not provided, it will use a default version which is `8.0`(example usage: `--php=7.4`);
+-   `--php=<version>`: the version of PHP to use. This is optional and if not provided, it will use a default version which is `8.3`(example usage: `--php=7.4`);
 -   `--port=<port>`: the port number on which the server will listen. This is optional and if not provided, it will pick an open port number automatically. The default port number is set to `8881`(example of usage: `--port=3000`);
 -   `--wp=<version>`: the version of WordPress to use. This is optional and if not provided, it will use a default version. The default version is set to the [latest WordPress version](https://wordpress.org/download/releases/)(example usage: `--wp=5.8`)
 -   `--blueprint=<path>`: the path of a JSON file with the Blueprint steps (requires Node 20). This is optional, if provided will execute the defined Blueprints. See [Using Blueprints](#using-blueprints) for more details.
@@ -273,7 +273,7 @@ Each package identifies a distinct organization in its `package.json` file. To p
 To initiate the publishing process for `wp-now`, execute the following commands:
 
 ```bash
-npm login # this is required only once and it will store the credentials in ~/.npmrc file.
+npm login # this is required only once and it will store the credentials in ~/.npmrc file.
 npm run build
 npm run release:wp-now
 ```

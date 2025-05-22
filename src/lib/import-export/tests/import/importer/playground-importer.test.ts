@@ -58,7 +58,7 @@ platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
 			( fs.readFile as jest.Mock ).mockResolvedValue(
 				JSON.stringify( {
-					phpVersion: '7.4',
+					phpVersion: '8.3',
 					wordpressVersion: '5.8',
 				} )
 			);

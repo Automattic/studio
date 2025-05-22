@@ -1,3 +1,4 @@
+import { net } from 'electron';
 import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
@@ -15,8 +16,9 @@ import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import SiteServerProcess from 'src/lib/site-server-process';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
-import { purgeWpConfig } from 'src/lib/wp-versions';
+import { purgeWpConfig, verifyWordPressChecksums } from 'src/lib/wp-versions';
 import { createScreenshotWindow } from 'src/screenshot-window';
+import { copyBundledLatestWPVersion } from 'src/setup-wp-server-files';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import { getWpNowConfig } from 'vendor/wp-now/src';
 import { WPNowMode } from 'vendor/wp-now/src/config';
@@ -30,29 +32,41 @@ export async function createSiteWorkingDirectory(
 	path: string,
 	wpVersion = 'latest'
 ): Promise< boolean > {
-	if ( ( await pathExists( path ) ) && ! ( await isEmptyDir( path ) ) ) {
-		// We can only create into a clean directory
-		return false;
-	}
-
-	const wpVersionPath = getWordPressVersionPath( wpVersion );
-	const wpVersionExists = await pathExists( wpVersionPath );
-
-	if ( ! wpVersionExists ) {
-		try {
-			await downloadWordPress( wpVersion, { overwrite: false } );
-		} catch ( error ) {
-			console.error( `Failed to download WordPress version ${ wpVersion }:`, error );
-			throw new Error(
-				`Failed to download WordPress version ${ wpVersion }. Please try a different version.`
-			);
+	try {
+		if ( ( await pathExists( path ) ) && ! ( await isEmptyDir( path ) ) ) {
+			// We can only create into a clean directory
+			return false;
 		}
+
+		const wpVersionPath = getWordPressVersionPath( wpVersion );
+		const wpVersionExists = await pathExists( wpVersionPath );
+
+		if ( ! wpVersionExists ) {
+			if ( net.isOnline() ) {
+				try {
+					await downloadWordPress( wpVersion, { overwrite: false } );
+				} catch ( error ) {
+					console.error( `Failed to download WordPress version ${ wpVersion }:`, error );
+					throw new Error(
+						`Failed to download WordPress version ${ wpVersion }. Please try a different version.`
+					);
+				}
+			} else if ( wpVersion === 'latest' ) {
+				await copyBundledLatestWPVersion();
+			} else {
+				return false;
+			}
+		}
+
+		await verifyWordPressChecksums( wpVersion );
+		await purgeWpConfig( wpVersion );
+		await recursiveCopyDirectory( getWordPressVersionPath( wpVersion ), path );
+
+		return true;
+	} catch ( error ) {
+		console.error( 'Error in createSiteWorkingDirectory:', error );
+		throw error;
 	}
-
-	await purgeWpConfig( wpVersion );
-	await recursiveCopyDirectory( getWordPressVersionPath( wpVersion ), path );
-
-	return true;
 }
 
 export async function stopAllServersOnQuit() {

@@ -2,7 +2,6 @@ import * as Sentry from '@sentry/electron/renderer';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { z } from 'zod';
 import { useAuth } from 'src/hooks/use-auth';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { reconcileConnectedSites } from 'src/hooks/use-fetch-wpcom-sites/reconcile-connected-sites';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -16,6 +15,7 @@ export const sitesEndpointSiteSchema = z.object( {
 	jetpack: z.boolean().optional(),
 	is_deleted: z.boolean(),
 	hosting_provider_guess: z.string().optional(),
+	environment_type: z.string().nullable().optional(),
 	is_a8c: z.boolean().optional(),
 	options: z
 		.object( {
@@ -107,6 +107,7 @@ export function transformSingleSiteResponse(
 		url: site.URL,
 		isStaging,
 		isPressable: isPressableSite( site ),
+		environmentType: site.environment_type,
 		stagingSiteIds: site.options?.wpcom_staging_blog_ids ?? [],
 		syncSupport,
 		lastPullTimestamp: null,
@@ -149,7 +150,6 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 	const { isAuthenticated, client } = useAuth();
 	const isFetchingSites = useRef( false );
 	const isOffline = useOffline();
-	const { pressableSyncEnabled } = useFeatureFlags();
 
 	const joinedConnectedSiteIds = connectedSiteIdsOnlyForSelectedSite.join( ',' );
 	// we need this trick to avoid unnecessary re-renders,
@@ -172,9 +172,20 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 		try {
 			const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
 
-			const baseFields =
-				'name,ID,URL,plan,capabilities,is_wpcom_atomic,options,jetpack,is_deleted,is_a8c';
-			const fields = pressableSyncEnabled ? `${ baseFields },hosting_provider_guess` : baseFields;
+			const fields = [
+				'name',
+				'ID',
+				'URL',
+				'plan',
+				'capabilities',
+				'is_wpcom_atomic',
+				'options',
+				'jetpack',
+				'is_deleted',
+				'is_a8c',
+				'hosting_provider_guess',
+				'environment_type',
+			].join( ',' );
 
 			const response = await client.req.get(
 				{
@@ -229,7 +240,7 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 		} finally {
 			isFetchingSites.current = false;
 		}
-	}, [ client?.req, isAuthenticated, isOffline, pressableSyncEnabled ] );
+	}, [ client?.req, isAuthenticated, isOffline ] );
 
 	useEffect( () => {
 		void fetchSites();

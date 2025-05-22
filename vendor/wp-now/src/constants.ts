@@ -36,7 +36,7 @@ export const DEFAULT_PORT = 8881;
 /**
  * The default PHP version to use when running the WP Now server.
  */
-export const DEFAULT_PHP_VERSION = '8.2';
+export const DEFAULT_PHP_VERSION = '8.3';
 
 /**
  * The allowed PHP versions that can be used

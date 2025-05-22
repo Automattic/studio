@@ -146,6 +146,8 @@ module.exports = {
 				...a8cToTailwindColors,
 				chrome: 'rgba(30, 30, 30, 1)',
 				'chrome-inverted': '#fff',
+				'sandbox-bg': 'hsl(200, 95%, 85%)',
+				'sandbox-text': 'hsl(200, 95%, 28%)',
 			},
 			spacing: {
 				chrome: `${ APP_CHROME_SPACING }px`,

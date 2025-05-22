@@ -15,12 +15,12 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 	const logger = new Logger< LoggerAction >();
 
 	try {
-		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating...' ) );
+		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
 		validateSiteFolder( siteFolder );
 		const token = await getAuthToken();
 		logger.reportSuccess( __( 'Validation successful' ), true );
 
-		logger.reportStart( LoggerAction.LOAD, __( 'Loading preview sites...' ) );
+		logger.reportStart( LoggerAction.LOAD, __( 'Loading preview sites…' ) );
 		const snapshots = await getSnapshotsFromAppdata( token.id, siteFolder );
 
 		if ( snapshots.length === 0 ) {

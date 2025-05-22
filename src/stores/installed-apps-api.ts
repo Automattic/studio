@@ -38,6 +38,7 @@ export const installedAppsApi = createApi( {
 					return { data: 'phpstorm' };
 				}
 
+				// If no user preference is set, return null
 				return { data: null };
 			},
 			providesTags: [ 'UserPreferences' ],
@@ -45,7 +46,7 @@ export const installedAppsApi = createApi( {
 		getUserTerminal: builder.query< SupportedTerminal, void >( {
 			queryFn: async () => {
 				const terminal = await getIpcApi().getUserTerminal();
-				return { data: terminal || 'terminal' };
+				return { data: terminal };
 			},
 			providesTags: [ 'UserPreferences' ],
 		} ),

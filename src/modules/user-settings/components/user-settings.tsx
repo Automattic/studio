@@ -3,18 +3,13 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState } from 'react';
 import Modal from 'src/components/modal';
 import { useAuth } from 'src/hooks/use-auth';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
-import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { AccountTab } from 'src/modules/user-settings/components/account-tab';
-import { LanguagePicker } from 'src/modules/user-settings/components/language-picker';
 import { NonAuthenticatedAccountTab } from 'src/modules/user-settings/components/non-authenticated-account-tab';
 import { PreferencesTab } from 'src/modules/user-settings/components/preferences-tab';
-import { PromptInfo } from 'src/modules/user-settings/components/prompt-info';
-import { SnapshotInfo } from 'src/modules/user-settings/components/snapshot-info';
 import { UsageTab } from 'src/modules/user-settings/components/usage-tab';
 import { useRootSelector, useAppDispatch } from 'src/stores';
 import { snapshotSelectors, snapshotThunks } from 'src/stores/snapshot-slice';
@@ -24,8 +19,6 @@ export default function UserSettings() {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
 	const { isAuthenticated, logout, user } = useAuth();
-	const { preferredEditor } = useFeatureFlags();
-	const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
 
 	const activeBulkOperationForUser = useRootSelector( ( state ) =>
 		snapshotSelectors.selectActiveBulkOperationForUser( state, user?.id ?? 0 )
@@ -68,46 +61,6 @@ export default function UserSettings() {
 		}
 	}, [ __, dispatch, user?.id ] );
 
-	if ( ! preferredEditor ) {
-		return (
-			<>
-				{ needsToOpenUserSettings && (
-					<Modal title={ __( 'Settings' ) } isDismissible onRequestClose={ resetLocalState }>
-						{ ! isAuthenticated && (
-							<div className="flex flex-col gap-6">
-								<NonAuthenticatedAccountTab />
-								<div className="border-t border-[#F0F0F0] w-full"></div>
-								<LanguagePicker value={ savedLocale } onChange={ setSavedLocale } />
-							</div>
-						) }
-						{ isAuthenticated && (
-							<div className="gap-6 flex flex-col">
-								<AccountTab user={ user } logout={ logout } />
-								<div className="border-t border-[#F0F0F0] w-full"></div>
-								<div className="flex flex-col gap-6">
-									<LanguagePicker value={ savedLocale } onChange={ setSavedLocale } />
-									<SnapshotInfo
-										isDeleting={ !! activeBulkOperationForUser }
-										isDisabled={
-											definitiveSnapshotCount === 0 ||
-											!! activeBulkOperationForUser ||
-											isLoadingSnapshotUsage ||
-											isOffline
-										}
-										siteCount={ definitiveSnapshotCount }
-										siteLimit={ snapshotQuota }
-										onRemoveSnapshots={ onRemoveSnapshots }
-									/>
-									<PromptInfo />
-								</div>
-							</div>
-						) }
-					</Modal>
-				) }
-			</>
-		);
-	}
-
 	const tabs = [
 		{
 			name: 'account',
@@ -135,7 +88,7 @@ export default function UserSettings() {
 					isDismissible
 					onRequestClose={ resetLocalState }
 					size="medium"
-					className={ cx( 'min-h-[350px]', '[&_[role="document"]]:px-0' ) }
+					className={ cx( 'min-h-[350px]', '[&_[role="document"]]:px-0', 'app-no-drag-region' ) }
 				>
 					<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
 						{ ( { name } ) => (

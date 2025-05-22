@@ -3,16 +3,18 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
-import { Badge } from 'src/components/badge';
 import Button from 'src/components/button';
 import { CreateButton } from 'src/components/connect-create-buttons';
+import { EnvironmentBadge } from 'src/components/environment-badge';
 import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
+import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
+import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getLocalizedLink } from 'src/lib/get-localized-link';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
@@ -41,7 +43,6 @@ export function SyncSitesModalSelector( {
 	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
 	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
 	const isOffline = useOffline();
-	const { pressableSyncEnabled } = useFeatureFlags();
 	const filteredSites = syncSites.filter( ( site ) => {
 		const searchQueryLower = searchQuery.toLowerCase();
 		return (
@@ -61,13 +62,9 @@ export function SyncSitesModalSelector( {
 		<Modal
 			className="w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
-			title={
-				pressableSyncEnabled
-					? __( 'Connect a WP.com or Pressable site' )
-					: __( 'Connect a WordPress.com site' )
-			}
+			title={ __( 'Connect your site' ) }
 		>
-			<div className="relative">
+			<div className="relative" data-testid="sync-sites-modal-selector">
 				<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
 				<div className="h-[calc(84vh-232px)]">
 					{ isLoading && (
@@ -89,7 +86,6 @@ export function SyncSitesModalSelector( {
 							syncSites={ filteredSites }
 							selectedSiteId={ selectedSiteId }
 							onSelectSite={ setSelectedSiteId }
-							pressableSyncEnabled={ pressableSyncEnabled }
 						/>
 					) }
 				</div>
@@ -123,7 +119,7 @@ function SearchSites( {
 	setSearchQuery: ( value: string ) => void;
 } ) {
 	const { __ } = useI18n();
-	const { pressableSyncEnabled } = useFeatureFlags();
+	const { locale } = useI18nData();
 	return (
 		<div className="flex flex-col px-8 pb-6 border-b border-a8c-gray-5">
 			<SearchControl
@@ -137,9 +133,15 @@ function SearchSites( {
 				__nextHasNoMarginBottom={ true }
 			/>
 			<p className="a8c-helper-text text-gray-500">
-				{ pressableSyncEnabled
-					? __( 'Syncing is supported for WP.com sites on the Business plan or above.' )
-					: __( 'Syncing is supported for sites on the Business plan or above.' ) }
+				{ __( "Can't find your site?" ) }{ ' ' }
+				<Button
+					variant="link"
+					onClick={ () => getIpcApi().openURL( getLocalizedLink( locale, 'docsSync' ) ) }
+					className="text-xs"
+				>
+					{ __( 'Learn more about supported sites.' ) }
+					<ArrowIcon />
+				</Button>
 			</p>
 		</div>
 	);
@@ -163,12 +165,10 @@ function ListSites( {
 	syncSites,
 	selectedSiteId,
 	onSelectSite,
-	pressableSyncEnabled,
 }: {
 	syncSites: SyncSite[];
 	selectedSiteId: null | number;
 	onSelectSite: ( id: number ) => void;
-	pressableSyncEnabled: boolean;
 } ) {
 	const sortedSites = getSortedSites( syncSites );
 
@@ -180,7 +180,6 @@ function ListSites( {
 					site={ site }
 					isSelected={ site.id === selectedSiteId }
 					onClick={ () => onSelectSite( site.id ) }
-					pressableSyncEnabled={ pressableSyncEnabled }
 				/>
 			) ) }
 		</div>
@@ -191,12 +190,10 @@ function SiteItem( {
 	site,
 	isSelected,
 	onClick,
-	pressableSyncEnabled,
 }: {
 	site: SyncSite;
 	isSelected: boolean;
 	onClick: () => void;
-	pressableSyncEnabled: boolean;
 } ) {
 	const { __ } = useI18n();
 	if ( site.isStaging ) {
@@ -210,6 +207,8 @@ function SiteItem( {
 	const isDeleted = site.syncSupport === 'deleted';
 	const isUnsupported = site.syncSupport === 'unsupported';
 	const isPressable = site.isPressable;
+	const environmentType = site.environmentType;
+	const isDisabled = isDeleted || isUnsupported || needsUpgrade || isMissingPermissions;
 
 	return (
 		<div
@@ -238,7 +237,26 @@ function SiteItem( {
 			} }
 		>
 			<div className="flex flex-col gap-0.5 min-w-0">
-				<div className={ cx( 'a8c-body truncate', ! isSyncable && 'text-a8c-gray-30' ) }>
+				<div
+					className={ cx(
+						'a8c-body truncate flex items-center',
+						! isSyncable && 'text-a8c-gray-30'
+					) }
+				>
+					{ isPressable && (
+						<span className="me-1.5">
+							<PressableLogo size={ 12 } />
+						</span>
+					) }
+					{ ! isPressable && (
+						<span className="me-1.5">
+							<WordPressLogoCircle
+								size={ 12 }
+								{ ...( isSelected && { color: '#fff' } ) }
+								{ ...( isDisabled && { color: '#8c8f94' } ) }
+							/>
+						</span>
+					) }
 					{ site.name }
 				</div>
 				<Button
@@ -258,32 +276,33 @@ function SiteItem( {
 						}
 					} }
 				>
-					{ pressableSyncEnabled && isPressable && (
-						<span className="me-1.5">
-							<PressableLogo size={ 12 } />
-						</span>
-					) }
 					<div className="truncate">{ site.url.replace( /^https?:\/\//, '' ) }</div>
 					<ArrowIcon />
 				</Button>
 			</div>
-			{ isSyncable && ! isPressable && (
+			{ isSyncable && (
 				<div className="flex gap-2">
-					<Badge
-						className={ cx(
-							isSelected
-								? 'bg-white text-a8c-blueberry text-a8c-blueberry'
-								: 'bg-a8c-green-5 text-a8c-green-80'
-						) }
-					>
-						{ __( 'Production' ) }
-					</Badge>
-					{ site.stagingSiteIds.length > 0 && (
-						<Badge
-							className={ cx( isSelected && 'bg-white text-a8c-blueberry text-a8c-blueberry' ) }
-						>
-							{ __( 'Staging' ) }
-						</Badge>
+					{ ! isPressable && (
+						<>
+							<EnvironmentBadge type="production" selected={ isSelected } />
+							{ site.stagingSiteIds.length > 0 && (
+								<EnvironmentBadge type="staging" selected={ isSelected } />
+							) }
+						</>
+					) }
+
+					{ isPressable && environmentType && (
+						<>
+							{ environmentType === 'production' && (
+								<EnvironmentBadge type="production" selected={ isSelected } />
+							) }
+							{ environmentType === 'staging' && (
+								<EnvironmentBadge type="staging" selected={ isSelected } />
+							) }
+							{ environmentType === 'sandbox' && (
+								<EnvironmentBadge type="sandbox" selected={ isSelected } />
+							) }
+						</>
 					) }
 				</div>
 			) }
@@ -298,7 +317,8 @@ function SiteItem( {
 						variant="link"
 						onClick={ () => getIpcApi().openURL( `https://wordpress.com/plans/${ site.id }` ) }
 					>
-						{ __( 'Upgrade plan ↗' ) }
+						{ __( 'Upgrade plan' ) }
+						<ArrowIcon />
 					</Button>
 				</div>
 			) }
@@ -310,7 +330,8 @@ function SiteItem( {
 							getIpcApi().openURL( `https://wordpress.com/hosting-features/${ site.id }` )
 						}
 					>
-						{ __( 'Enable hosting features ↗' ) }
+						{ __( 'Enable hosting features' ) }
+						<ArrowIcon />
 					</Button>
 				</div>
 			) }

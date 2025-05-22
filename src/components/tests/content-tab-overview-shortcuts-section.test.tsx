@@ -151,9 +151,7 @@ describe( 'ShortcutsSection', () => {
 
 		// Assert that the terminal was opened
 		await waitFor( () => {
-			expect( openTerminalAtPathMock ).toHaveBeenCalledWith( selectedSite.path, {
-				wpCliEnabled: false,
-			} );
+			expect( openTerminalAtPathMock ).toHaveBeenCalledWith( selectedSite.path );
 		} );
 	} );
 

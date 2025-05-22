@@ -5,6 +5,7 @@ import yargs from 'yargs';
 import { registerCommand as registerCreateCommand } from 'cli/commands/preview/create';
 import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/delete';
 import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
+import { registerCommand as registerTestCommand } from 'cli/commands/preview/test';
 import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/update';
 import { loadTranslations } from 'cli/lib/i18n';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
@@ -44,6 +45,7 @@ async function main() {
 			registerListCommand( previewYargs );
 			registerDeleteCommand( previewYargs );
 			registerUpdateCommand( previewYargs );
+			registerTestCommand( previewYargs );
 			previewYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )

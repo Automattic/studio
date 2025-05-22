@@ -55,3 +55,26 @@ export async function cleanup( archivePath: string ): Promise< void > {
 		}, 0 );
 	} );
 }
+
+async function getSymlinks( dir: string ): Promise< string[] > {
+	const files = await fs.promises.readdir( dir );
+	const results = await Promise.all(
+		files.map( async ( file ) => {
+			const filePath = path.join( dir, file );
+			const stats = await fs.promises.lstat( filePath );
+
+			if ( stats.isSymbolicLink() ) {
+				return [ filePath ];
+			}
+
+			if ( stats.isDirectory() ) {
+				return await getSymlinks( filePath );
+			}
+			if ( stats.isFile() ) {
+				return [];
+			}
+			return [];
+		} )
+	);
+	return results.flat();
+}

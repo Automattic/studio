@@ -36,7 +36,7 @@ export const rules: Required< ModuleOptions >[ 'rules' ] = [
 	 * PHP WASM includes binary files from the intl library in the web/shared directory.
 	 */
 	{
-		test: /node_modules\/@php-wasm\/web\/shared\/.*\.dat$/,
-		use: 'ignore-loader',
+		test: /\.dat$/,
+		use: 'asset/resource',
 	},
 ];

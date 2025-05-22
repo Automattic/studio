@@ -296,3 +296,14 @@ blockquote {
 	outline: none;
 	border: 1px solid theme( 'colors.a8c-blueberry' );
 }
+
+[dir='rtl'] .components-guide__footer .components-button.components-guide__back-button {
+	right: 32px;
+	left: auto;
+}
+
+[dir='rtl'] .components-guide__footer .components-button.components-guide__forward-button,
+[dir='rtl'] .components-guide__footer .components-button.components-guide__finish-button {
+	left: 32px;
+	right: auto;
+}

@@ -32,4 +32,8 @@ export const rules: Required< ModuleOptions >[ 'rules' ] = [
 			},
 		},
 	},
+	{
+		test: /\.dat$/,
+		use: 'ignore-loader',
+	},
 ];

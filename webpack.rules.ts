@@ -37,6 +37,6 @@ export const rules: Required< ModuleOptions >[ 'rules' ] = [
 	 */
 	{
 		test: /\.dat$/,
-		use: 'asset/resource',
+		type: 'asset/resource',
 	},
 ];

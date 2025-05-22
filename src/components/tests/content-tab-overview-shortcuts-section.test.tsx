@@ -2,7 +2,6 @@
 import { fireEvent, render, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { isMac } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -27,7 +26,6 @@ const selectedSite: StartedSiteDetails = {
 const mockGetIpcApi = getIpcApi as jest.Mock;
 jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/hooks/use-theme-details' );
-jest.mock( 'src/hooks/use-feature-flags' );
 
 // Replace the store's reducer with our test reducer
 store.replaceReducer( testReducer );
@@ -45,9 +43,6 @@ describe( 'ShortcutsSection', () => {
 				supportsWidgets: false,
 				supportsMenus: false,
 			},
-		} );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			terminalWpCliEnabled: false,
 		} );
 
 		// Reset the store state before each test
@@ -158,46 +153,6 @@ describe( 'ShortcutsSection', () => {
 		await waitFor( () => {
 			expect( openTerminalAtPathMock ).toHaveBeenCalledWith( selectedSite.path, {
 				wpCliEnabled: false,
-			} );
-		} );
-	} );
-
-	it( 'opens terminal with wp-cli integration if feature flag is enabled', async () => {
-		// Mock the feature flag
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			terminalWpCliEnabled: true,
-		} );
-
-		// Mock the IPC API with getInstalledApps returning the installed apps
-		const openTerminalAtPathMock = jest.fn();
-		mockGetIpcApi.mockReturnValue( {
-			openTerminalAtPath: openTerminalAtPathMock,
-			getUserEditor: jest.fn().mockResolvedValue( null ),
-			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-			getInstalledAppsAndTerminals: jest.fn().mockResolvedValue( {
-				vscode: false,
-				phpstorm: false,
-				webstorm: false,
-				windsurf: false,
-				cursor: false,
-				terminal: true,
-				iterm: false,
-				ghostty: false,
-				warp: false,
-			} ),
-		} );
-
-		const { getByLabelText } = renderWithProvider(
-			<ContentTabOverview selectedSite={ selectedSite } />
-		);
-
-		const terminalButton = await waitFor( () => getByLabelText( 'Terminal' ) );
-		fireEvent.click( terminalButton );
-
-		// Assert that the terminal was opened
-		await waitFor( () => {
-			expect( openTerminalAtPathMock ).toHaveBeenCalledWith( selectedSite.path, {
-				wpCliEnabled: true,
 			} );
 		} );
 	} );

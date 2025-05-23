@@ -2,8 +2,8 @@ import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
-import { useEffect, useId } from 'react';
-import { Helmet } from 'react-helmet-async';
+import { useEffect } from 'react';
+import { DynamicStylesheet } from 'src/components/dynamic-stylesheet';
 import MacTitlebar from 'src/components/mac-titlebar';
 import MainSidebar from 'src/components/main-sidebar';
 import Onboarding from 'src/components/onboarding';
@@ -34,19 +34,16 @@ export default function App() {
 
 	return (
 		<>
-			<Helmet>
-				<link
-					key="wordpress-components-style"
-					rel="stylesheet"
-					href={
-						i18n?.isRTL()
-							? '/main_window/styles/wordpress-components-style-rtl.css'
-							: '/main_window/styles/wordpress-components-style.css'
-					}
-				/>
-				{ /* If not refreshed, Helmet is not respecting the order of the stylesheets. https://github.com/staylor/react-helmet-async/issues/187 */ }
-				<link rel="stylesheet" href={ `/main_window.css?${ Date.now() }` } />
-			</Helmet>
+			<DynamicStylesheet
+				id="wordpress-components-style"
+				href={
+					i18n?.isRTL()
+						? '/main_window/styles/wordpress-components-style-rtl.css'
+						: '/main_window/styles/wordpress-components-style.css'
+				}
+			/>
+			<DynamicStylesheet id="main-window-style" href={ '/main_window.css' } />
+
 			{ needsOnboarding ? (
 				<VStack
 					className={ cx( 'h-screen backdrop-blur-3xl app-drag-region select-none' ) }

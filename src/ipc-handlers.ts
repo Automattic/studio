@@ -1051,7 +1051,8 @@ END` );
 			: {};
 
 		if ( preferredTerminal === ( 'warp' as SupportedTerminal ) ) {
-			return promiseExec( `start "" "warp" "--cwd=${ targetPath }"`, {
+			const encodedPath = encodeURIComponent( targetPath );
+			return promiseExec( `start "" "warp://action/new_tab?path=${ encodedPath }"`, {
 				env: { ...process.env, ...env },
 			} );
 		}

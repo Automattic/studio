@@ -22,6 +22,7 @@ const DOCS_LINKS = {
 	},
 	docsCli: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/cli/',
+		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/cli/',
 	},
 } satisfies Record< `docs${ string }`, TranslatedLink >;
 

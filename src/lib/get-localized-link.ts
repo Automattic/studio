@@ -20,6 +20,10 @@ const DOCS_LINKS = {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sync/',
 		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/sync/',
 	},
+	docsSyncSupportedSites: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sync/#supported-sites',
+		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/sync/#sitios-compatibles',
+	},
 	docsCli: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/cli/',
 		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/cli/',

@@ -136,7 +136,9 @@ function SearchSites( {
 				{ __( "Can't find your site?" ) }{ ' ' }
 				<Button
 					variant="link"
-					onClick={ () => getIpcApi().openURL( getLocalizedLink( locale, 'docsSync' ) ) }
+					onClick={ () =>
+						getIpcApi().openURL( getLocalizedLink( locale, 'docsSyncSupportedSites' ) )
+					}
 					className="text-xs"
 				>
 					{ __( 'Learn more about supported sites.' ) }

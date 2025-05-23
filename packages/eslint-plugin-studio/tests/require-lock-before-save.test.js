@@ -1,0 +1,116 @@
+const { RuleTester } = require('eslint');
+const rule = require('../src/rules/require-lock-before-save');
+
+const ruleTester = new RuleTester({
+  parserOptions: {
+    ecmaVersion: 2018,
+    sourceType: 'module',
+  },
+});
+
+ruleTester.run('require-lock-before-save', rule, {
+  valid: [
+    // Direct update without lock (allowed)
+    {
+      code: `
+        async function updateUserData() {
+          await updateAppdata({ locale: 'en' });
+        }
+      `,
+    },
+    // Modifying derived data with lock (allowed)
+    {
+      code: `
+        async function updateUserData() {
+          await lockUserData();
+          try {
+            const data = await loadUserData();
+            data.sites.push(newSite);
+            await saveUserData(data);
+          } finally {
+            await unlockUserData();
+          }
+        }
+      `,
+    },
+    // Modifying array with lock (allowed)
+    {
+      code: `
+        const updateUserData = async () => {
+          await lockUserData();
+          try {
+            const data = await loadUserData();
+            data.snapshots.splice(0, 1);
+            await updateAppdata(data);
+          } finally {
+            await unlockUserData();
+          }
+        };
+      `,
+    },
+  ],
+  invalid: [
+    // Modifying derived data without lock (not allowed)
+    {
+      code: `
+        async function updateUserData() {
+          const data = await loadUserData();
+          data.sites.push(newSite);
+          await saveUserData(data);
+        }
+      `,
+      errors: [{ messageId: 'missingLock' }],
+    },
+    // Modifying array without lock (not allowed)
+    {
+      code: `
+        const updateUserData = async () => {
+          const data = await loadUserData();
+          data.snapshots.splice(0, 1);
+          await updateAppdata(data);
+        };
+      `,
+      errors: [{ messageId: 'missingLock' }],
+    },
+    // Modifying object property without lock (not allowed)
+    {
+      code: `
+        async function updateUserData() {
+          const data = await loadUserData();
+          data.sites[0].name = 'New Name';
+          await saveUserData(data);
+        }
+      `,
+      errors: [{ messageId: 'missingLock' }],
+    },
+    // Lock without try/finally block (not allowed)
+    {
+      code: `
+        async function updateUserData() {
+          await lockUserData();
+          const data = await loadUserData();
+          data.sites.push(newSite);
+          await saveUserData(data);
+          await unlockUserData();
+        }
+      `,
+      errors: [{ messageId: 'missingUnlock' }],
+    },
+    // Lock without unlock (not allowed)
+    {
+      code: `
+        async function updateUserData() {
+          await lockUserData();
+          try {
+            const data = await loadUserData();
+            data.sites.push(newSite);
+            await saveUserData(data);
+          } catch (error) {
+            console.error(error);
+          }
+        }
+      `,
+      errors: [{ messageId: 'missingUnlock' }],
+    },
+  ],
+}); 

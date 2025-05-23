@@ -1,4 +1,5 @@
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import path from 'path';
 import { __ } from '@wordpress/i18n';
 import archiver, { EntryData } from 'archiver';
@@ -10,6 +11,9 @@ export async function createArchive(
 	siteFolder: string,
 	archivePath: string
 ): Promise< archiver.Archiver > {
+	const wpContentFolder = path.join( siteFolder, 'wp-content' );
+	const symlinks = await getSymlinks( wpContentFolder );
+
 	return new Promise( ( resolve, reject ) => {
 		const output = fs.createWriteStream( archivePath );
 		const archive = archiver( 'zip', {
@@ -28,12 +32,31 @@ export async function createArchive(
 			path.join( siteFolder, 'wp-content' ),
 			'wp-content',
 			( entry: EntryData ) => {
-				if ( entry.name.includes( '.git' ) || entry.name.includes( 'node_modules' ) ) {
+				if ( shouldExcludeEntry( entry.name ) ) {
 					return false;
 				}
+				if ( entry.stats?.isSymbolicLink() ) {
+					return false;
+				}
+
 				return entry;
 			}
 		);
+
+		for ( const symlink of symlinks ) {
+			const { symbolicPath, realPath } = symlink;
+			const archivePath = path.relative( siteFolder, symbolicPath );
+			if ( symlink.isDirectory ) {
+				archive.directory( realPath, archivePath, ( entry: EntryData ) => {
+					if ( shouldExcludeEntry( entry.name ) ) {
+						return false;
+					}
+					return entry;
+				} );
+			} else {
+				archive.file( realPath, { name: archivePath } );
+			}
+		}
 
 		const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
 		if ( fs.existsSync( wpConfigPath ) ) {
@@ -56,7 +79,9 @@ export async function cleanup( archivePath: string ): Promise< void > {
 	} );
 }
 
-async function getSymlinks( dir: string ): Promise< string[] > {
+async function getSymlinks(
+	dir: string
+): Promise< { isDirectory: boolean; symbolicPath: string; realPath: string }[] > {
 	const files = await fs.promises.readdir( dir );
 	const results = await Promise.all(
 		files.map( async ( file ) => {
@@ -64,7 +89,9 @@ async function getSymlinks( dir: string ): Promise< string[] > {
 			const stats = await fs.promises.lstat( filePath );
 
 			if ( stats.isSymbolicLink() ) {
-				return [ filePath ];
+				const realPath = await fsPromises.realpath( filePath );
+				const realPathStats = await fsPromises.stat( realPath );
+				return [ { isDirectory: realPathStats.isDirectory(), symbolicPath: filePath, realPath } ];
 			}
 
 			if ( stats.isDirectory() ) {
@@ -77,4 +104,8 @@ async function getSymlinks( dir: string ): Promise< string[] > {
 		} )
 	);
 	return results.flat();
+}
+
+function shouldExcludeEntry( entryName: string ): boolean {
+	return entryName.includes( '.git' ) || entryName.includes( 'node_modules' );
 }

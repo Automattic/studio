@@ -12,7 +12,7 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Zipping…' ) );
 		await createArchive( siteFolder, archivePath );
-		console.log( 'hola???', archivePath );
+
 		logger.reportKeyValuePair( 'archive', archivePath );
 		logger.reportSuccess( __( 'Zipped' ) );
 	} catch ( error ) {

@@ -4,6 +4,7 @@ import CopyWebpackPlugin from 'copy-webpack-plugin';
 import { plugins } from './webpack.plugins';
 import { rules } from './webpack.rules';
 import type { Configuration } from 'webpack';
+import postcss from 'postcss';
 
 rules.push( {
 	test: /\.css$/,
@@ -15,6 +16,22 @@ rules.push( {
 } );
 
 plugins.push( new MiniCssExtractPlugin() );
+
+plugins.push(
+	new CopyWebpackPlugin( {
+		patterns: [
+			// Copy @wordpress/components stylesheets to the renderer directory
+			{
+				from: path.resolve( __dirname, 'node_modules/@wordpress/components/build-style/style.css' ),
+				to:  path.resolve( __dirname, '.webpack/renderer/main_window/styles/wordpress-components-style.css'),
+			},
+			{
+				from: path.resolve( __dirname, 'node_modules/@wordpress/components/build-style/style-rtl.css' ),
+				to: path.resolve( __dirname, '.webpack/renderer/main_window/styles/wordpress-components-style-rtl.css' ),
+			},
+		],
+	} )
+);
 
 // Encode imported images as base64 data URIs
 rules.push( {
@@ -34,22 +51,7 @@ export const rendererConfig: Configuration = {
 	module: {
 		rules,
 	},
-	plugins: [
-		...plugins,
-		new CopyWebpackPlugin( {
-			patterns: [
-				// Copy @wordpress/components stylesheets to the renderer directory
-				{
-					from: path.resolve( __dirname, 'node_modules/@wordpress/components/build-style/style.css' ),
-					to:  path.resolve( __dirname, '.webpack/renderer/main_window/styles/wordpress-components-style.css'),
-				},
-				{
-					from: path.resolve( __dirname, 'node_modules/@wordpress/components/build-style/style-rtl.css' ),
-					to: path.resolve( __dirname, '.webpack/renderer/main_window/styles/wordpress-components-style-rtl.css' ),
-				},
-			],
-		} ),
-	],
+	plugins,
 	resolve: {
 		extensions: [ '.js', '.ts', '.jsx', '.tsx', '.css' ],
 		alias: {

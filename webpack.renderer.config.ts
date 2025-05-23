@@ -1,10 +1,9 @@
-import path, { resolve } from 'path';
+import path from 'path';
 import MiniCssExtractPlugin from 'mini-css-extract-plugin';
 import CopyWebpackPlugin from 'copy-webpack-plugin';
 import { plugins } from './webpack.plugins';
 import { rules } from './webpack.rules';
 import type { Configuration } from 'webpack';
-import postcss from 'postcss';
 
 rules.push( {
 	test: /\.css$/,

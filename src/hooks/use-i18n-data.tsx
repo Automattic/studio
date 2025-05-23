@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState, useCallback } 
 import { SupportedLocale, getLocaleData } from 'common/lib/locale';
 import { useOnboarding } from 'src/hooks/use-onboarding';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useStylesheets } from './use-stylesheets';
 
 interface I18nDataContext {
 	setLocale: ( localeKey: SupportedLocale ) => void;
@@ -21,6 +22,7 @@ export const I18nDataProvider = ( { children }: { children: React.ReactNode } ) 
 	const [ i18n, setI18n ] = useState< I18n | null >( null );
 	const [ locale, setLocale ] = useState< SupportedLocale >( 'en' );
 	const { needsOnboarding } = useOnboarding();
+	const loadStylesheets = useStylesheets();
 
 	const initI18n = useCallback(
 		async ( localeKey: SupportedLocale ) => {
@@ -41,8 +43,9 @@ export const I18nDataProvider = ( { children }: { children: React.ReactNode } ) 
 			}
 			// App menu is reloaded to ensure the items show the translated strings.
 			void getIpcApi().setupAppMenu( { needsOnboarding } );
+			loadStylesheets( { isRTL: newI18n.isRTL() } );
 		},
-		[ needsOnboarding ]
+		[ needsOnboarding, loadStylesheets ]
 	);
 
 	useEffect( () => {

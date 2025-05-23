@@ -43,9 +43,7 @@ describe( 'DynamicStylesheet', () => {
 		const { rerender: rerender1 } = render(
 			<DynamicStylesheet id="first-style" href="/first.css" />
 		);
-		const { rerender: rerender2 } = render(
-			<DynamicStylesheet id="second-style" href="/second.css" />
-		);
+		render( <DynamicStylesheet id="second-style" href="/second.css" /> );
 
 		// Get initial order
 		const allLinks = document.head.querySelectorAll( 'link[id]' );
@@ -139,7 +137,7 @@ describe( 'DynamicStylesheet', () => {
 		expect( linkElement.href ).toBe( `http://localhost/main.css?v=${ timestamp }` );
 	} );
 
-	it( 'should handle RTL/LTR stylesheet switching', () => {
+	it( 'should handle multiple stylesheet updates', () => {
 		const { rerender } = render(
 			<DynamicStylesheet id="wp-components" href="/styles/wp-components.css" />
 		);
@@ -158,5 +156,23 @@ describe( 'DynamicStylesheet', () => {
 
 		linkElement = document.getElementById( 'wp-components' ) as HTMLLinkElement;
 		expect( linkElement.href ).toBe( 'http://localhost/styles/wp-components.css' );
+	} );
+
+	it( 'should remove the link element when component unmounts', () => {
+		const { unmount } = render( <DynamicStylesheet id="test-style" href="/test.css" /> );
+		expect( document.getElementById( 'test-style' ) ).toBeInTheDocument();
+		unmount();
+		expect( document.getElementById( 'test-style' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'should remove the link element after updating the href and unmounting', () => {
+		const { rerender, unmount } = render( <DynamicStylesheet id="test-style" href="/test.css" /> );
+		expect( document.getElementById( 'test-style' ) ).toBeInTheDocument();
+		rerender( <DynamicStylesheet id="test-style" href="/updated.css" /> );
+		expect( ( document.getElementById( 'test-style' ) as HTMLLinkElement ).href ).toBe(
+			'http://localhost/updated.css'
+		);
+		unmount();
+		expect( document.getElementById( 'test-style' ) ).not.toBeInTheDocument();
 	} );
 } );

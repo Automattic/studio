@@ -86,6 +86,7 @@ async function getSymlinks(
 	const results = await Promise.all(
 		files.map( async ( file ) => {
 			const filePath = path.join( dir, file );
+			// Using lstat to use isSymbolicLink method, see https://nodejs.org/api/fs.html#statsissymboliclink
 			const stats = await fs.promises.lstat( filePath );
 
 			if ( stats.isSymbolicLink() ) {
@@ -97,9 +98,7 @@ async function getSymlinks(
 			if ( stats.isDirectory() ) {
 				return await getSymlinks( filePath );
 			}
-			if ( stats.isFile() ) {
-				return [];
-			}
+			// Regular file
 			return [];
 		} )
 	);

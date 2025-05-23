@@ -1,4 +1,3 @@
-import { HelmetProvider } from 'react-helmet-async';
 import { Provider as ReduxProvider } from 'react-redux';
 import App from 'src/components/app';
 import AuthProvider from 'src/components/auth-provider';
@@ -19,27 +18,25 @@ const Root = () => {
 		<ErrorBoundary>
 			<CrashTester />
 			<ReduxProvider store={ store }>
-				<HelmetProvider>
-					<I18nDataProvider>
-						<AuthProvider>
-							<SiteDetailsProvider>
-								<FeatureFlagsProvider>
-									<ThemeDetailsProvider>
-										<OnboardingProvider>
-											<ImportExportProvider>
-												<ContentTabsProvider>
-													<SyncSitesProvider>
-														<App />
-													</SyncSitesProvider>
-												</ContentTabsProvider>
-											</ImportExportProvider>
-										</OnboardingProvider>
-									</ThemeDetailsProvider>
-								</FeatureFlagsProvider>
-							</SiteDetailsProvider>
-						</AuthProvider>
-					</I18nDataProvider>
-				</HelmetProvider>
+				<I18nDataProvider>
+					<AuthProvider>
+						<SiteDetailsProvider>
+							<FeatureFlagsProvider>
+								<ThemeDetailsProvider>
+									<OnboardingProvider>
+										<ImportExportProvider>
+											<ContentTabsProvider>
+												<SyncSitesProvider>
+													<App />
+												</SyncSitesProvider>
+											</ContentTabsProvider>
+										</ImportExportProvider>
+									</OnboardingProvider>
+								</ThemeDetailsProvider>
+							</FeatureFlagsProvider>
+						</SiteDetailsProvider>
+					</AuthProvider>
+				</I18nDataProvider>
 			</ReduxProvider>
 		</ErrorBoundary>
 	);

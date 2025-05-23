@@ -93,9 +93,9 @@ export const mainBaseConfig: Configuration = {
 				...wasmDirs.map( ( dir ) => ( {
 					from: path.join( phpWasmDir, dir ),
 					to: path.resolve( __dirname, `.webpack/main/${ dir }` ),
-				})),
+				} ) ),
 			],
-		}),
+		} ),
 	],
 	resolve: {
 		extensions: [ '.js', '.ts', '.jsx', '.tsx', '.css', '.json' ],

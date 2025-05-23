@@ -1003,28 +1003,14 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 		const userData = await loadUserData();
 		const preferredTerminal = userData.preferredTerminal || DEFAULT_TERMINAL;
 
-		if ( preferredTerminal === 'warp' ) {
-			return promiseExec( `open -a Warp "${ targetPath }"` );
-		} else if ( preferredTerminal === 'ghostty' ) {
-			return promiseExec( `open -a Ghostty "${ targetPath }"` );
-		} else if ( preferredTerminal === 'iterm' ) {
-			return promiseExec( `osascript << END
-tell application "iTerm"
-    activate
-    create window with default profile
-    tell current session of current window
-        write text "${ initScriptSteps.join( ';' ) }"
-    end tell
-end tell
-END` );
-		} else {
-			return promiseExec( `osascript << END
-activate application "Terminal"
-tell application "Terminal"
-    do script "${ initScriptSteps.join( ';' ) }"
-end tell
-END` );
-		}
+		const terminalApps = {
+			warp: 'Warp',
+			ghostty: 'Ghostty',
+			iterm: 'iTerm',
+			terminal: 'Terminal',
+		};
+		const appName = terminalApps[ preferredTerminal ] || 'Terminal';
+		return promiseExec( `open -a ${ appName } "${ escapedPath }"` );
 	} else if ( platform === 'win32' ) {
 		const userData = await loadUserData();
 		const preferredTerminal = userData.preferredTerminal;

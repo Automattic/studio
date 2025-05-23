@@ -1031,7 +1031,8 @@ END` );
 		const defaultShell = process.env.ComSpec || 'cmd.exe';
 
 		if ( preferredTerminal === ( 'warp' as SupportedTerminal ) ) {
-			return promiseExec( `start "" "warp" "--cwd=${ targetPath }"` );
+			const encodedPath = encodeURIComponent( targetPath );
+			return promiseExec( `start "" "warp://action/new_tab?path=${ encodedPath }"` );
 		}
 
 		return promiseExec( `start "Command Prompt" ${ defaultShell }`, {

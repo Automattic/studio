@@ -38,11 +38,11 @@ export default function App() {
 				id="wordpress-components-style"
 				href={
 					i18n?.isRTL()
-						? '/main_window/styles/wordpress-components-style-rtl.css'
-						: '/main_window/styles/wordpress-components-style.css'
+						? '../main_window/styles/wordpress-components-style-rtl.css'
+						: '../main_window/styles/wordpress-components-style.css'
 				}
 			/>
-			<DynamicStylesheet id="main-window-style" href={ '/main_window.css' } />
+			<DynamicStylesheet id="main-window-style" href={ '../main_window.css' } />
 
 			{ needsOnboarding ? (
 				<VStack

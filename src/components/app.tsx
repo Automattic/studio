@@ -2,13 +2,15 @@ import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
+import { Helmet } from 'react-helmet-async';
 import MacTitlebar from 'src/components/mac-titlebar';
 import MainSidebar from 'src/components/main-sidebar';
 import Onboarding from 'src/components/onboarding';
 import { SiteContentTabs } from 'src/components/site-content-tabs';
 import TopBar from 'src/components/top-bar';
 import WindowsTitlebar from 'src/components/windows-titlebar';
+import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
 import { useOnboarding } from 'src/hooks/use-onboarding';
 import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
@@ -17,12 +19,14 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { UserSettings } from 'src/modules/user-settings';
 import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
+import 'src/index.css';
 
 export default function App() {
 	useLocalizationSupport();
 	const { needsOnboarding } = useOnboarding();
 	const { isSidebarVisible, toggleSidebar } = useSidebarVisibility();
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
+	const { i18n } = useI18nData();
 
 	useEffect( () => {
 		void getIpcApi().setupAppMenu( { needsOnboarding } );
@@ -30,6 +34,19 @@ export default function App() {
 
 	return (
 		<>
+			<Helmet>
+				<link
+					key="wordpress-components-style"
+					rel="stylesheet"
+					href={
+						i18n?.isRTL()
+							? '/main_window/styles/wordpress-components-style-rtl.css'
+							: '/main_window/styles/wordpress-components-style.css'
+					}
+				/>
+				{ /* If not refreshed, Helmet is not respecting the order of the stylesheets. https://github.com/staylor/react-helmet-async/issues/187 */ }
+				<link rel="stylesheet" href={ `/main_window.css?${ Date.now() }` } />
+			</Helmet>
 			{ needsOnboarding ? (
 				<VStack
 					className={ cx( 'h-screen backdrop-blur-3xl app-drag-region select-none' ) }

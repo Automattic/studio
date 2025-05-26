@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/electron/main';
 import wpcom from 'wpcom';
 import { z } from 'zod';
 import { CLIENT_ID } from 'common/constants';
+import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
@@ -44,9 +45,9 @@ async function storeToken( token: StoredToken ) {
 	}
 }
 
-export function getSignUpUrl() {
-	const authUrl = encodeURIComponent( getAuthenticationUrl() );
-	return `https://wordpress.com/log-in/link?redirect_to=${ authUrl }&client_id=${ CLIENT_ID }`;
+export function getSignUpUrl( locale: SupportedLocale ) {
+	const authUrl = encodeURIComponent( getAuthenticationUrl( locale ) );
+	return `https://wordpress.com/log-in/link?redirect_to=${ authUrl }&client_id=${ CLIENT_ID }&locale=${ locale }`;
 }
 
 export async function clearAuthenticationToken() {

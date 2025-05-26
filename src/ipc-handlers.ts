@@ -1016,7 +1016,7 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 		const preferredTerminal = userData.preferredTerminal;
 		const defaultShell = process.env.ComSpec || 'cmd.exe';
 
-		if ( preferredTerminal === ( 'warp' as SupportedTerminal ) ) {
+		if ( preferredTerminal === 'warp' ) {
 			const encodedPath = encodeURIComponent( targetPath );
 			return promiseExec( `start "" "warp://action/new_tab?path=${ encodedPath }"` );
 		}

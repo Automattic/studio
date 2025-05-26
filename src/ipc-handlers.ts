@@ -995,9 +995,9 @@ function promiseExec( command: string, options: ExecOptions = {} ): Promise< voi
 export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: string ) {
 	const platform = process.platform;
 
-	if ( platform === 'darwin' ) {
-		const preferredTerminal = await getUserTerminal( _event );
+	const preferredTerminal = await getUserTerminal();
 
+	if ( platform === 'darwin' ) {
 		const escapedPath = targetPath.replace( /"/g, '\\"' );
 		const bundleIds = {
 			warp: 'dev.warp.Warp-Stable',
@@ -1310,7 +1310,7 @@ export async function saveUserTerminal(
 	await sendIpcEventToRenderer( 'user-preference-changed' );
 }
 
-export async function getUserTerminal( _event: IpcMainInvokeEvent ): Promise< SupportedTerminal > {
+export async function getUserTerminal(): Promise< SupportedTerminal > {
 	const userData = await loadUserData();
 	return userData.preferredTerminal || DEFAULT_TERMINAL;
 }

@@ -3,14 +3,12 @@ import { DynamicStylesheet } from 'src/components/dynamic-stylesheet';
 
 describe( 'DynamicStylesheet', () => {
 	beforeEach( () => {
-		// Clear any existing link elements in the head before each test
 		const existingLinks = document.head.querySelectorAll( 'link[id]' );
 		existingLinks.forEach( ( link ) => link.remove() );
 	} );
 
 	afterEach( () => {
 		cleanup();
-		// Clean up any remaining link elements after each test
 		const existingLinks = document.head.querySelectorAll( 'link[id]' );
 		existingLinks.forEach( ( link ) => link.remove() );
 	} );
@@ -66,13 +64,10 @@ describe( 'DynamicStylesheet', () => {
 	it( 'should remove the link element when component unmounts', () => {
 		const { unmount } = render( <DynamicStylesheet id="test-style" href="/test.css" /> );
 
-		// Verify element exists
 		expect( document.getElementById( 'test-style' ) ).toBeInTheDocument();
 
-		// Unmount component
 		unmount();
 
-		// Verify element is removed
 		expect( document.getElementById( 'test-style' ) ).not.toBeInTheDocument();
 	} );
 

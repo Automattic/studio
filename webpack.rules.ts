@@ -32,4 +32,11 @@ export const rules: Required< ModuleOptions >[ 'rules' ] = [
 			},
 		},
 	},
+	/**
+	 * PHP WASM includes binary files from the intl library in the web/shared directory.
+	 */
+	{
+		test: /\.dat$/,
+		type: 'asset/resource',
+	},
 ];

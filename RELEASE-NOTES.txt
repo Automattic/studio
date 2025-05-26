@@ -13,7 +13,7 @@
 * Fixed issue with plugin updates timing out in certain cases ​​#1407
 * Translated What’s new modal documentation links #1368, #1375, 1431
 * Ensured site gets created with latest WordPress version when offline #1383 
-* Various UI updates and fixes #1399, #1413, #1420, #1412, #1419, #1423, #1384
+* Various UI updates and fixes #1399, #1413, #1420, #1412, #1419, #1423, #1384, #1435
 * Upgraded Electron, Node.js and @wordpress/components #1372, #1398
 
 1.5.1

@@ -1,5 +1,5 @@
 Unreleased
-=====
+==========
 * Miscellaneous security improvements #1411
 
 1.5.2

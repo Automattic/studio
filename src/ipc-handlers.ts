@@ -996,21 +996,16 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 	const platform = process.platform;
 
 	if ( platform === 'darwin' ) {
-		const initScriptSteps = [];
+		const preferredTerminal = await getUserTerminal( _event );
+
 		const escapedPath = targetPath.replace( /"/g, '\\"' );
-		initScriptSteps.push( `cd \\"${ escapedPath }\\"`, 'clear' );
-
-		const userData = await loadUserData();
-		const preferredTerminal = userData.preferredTerminal || DEFAULT_TERMINAL;
-
-		const terminalApps = {
-			warp: 'Warp',
-			ghostty: 'Ghostty',
-			iterm: 'iTerm',
-			terminal: 'Terminal',
+		const bundleIds = {
+			warp: 'dev.warp.Warp-Stable',
+			ghostty: 'com.mitchellh.ghostty',
+			iterm: 'com.googlecode.iterm2',
+			terminal: 'com.apple.Terminal',
 		};
-		const appName = terminalApps[ preferredTerminal ] || 'Terminal';
-		return promiseExec( `open -a ${ appName } "${ escapedPath }"` );
+		return promiseExec( `open -b ${ bundleIds[ preferredTerminal ] } "${ escapedPath }"` );
 	} else if ( platform === 'win32' ) {
 		const userData = await loadUserData();
 		const preferredTerminal = userData.preferredTerminal;

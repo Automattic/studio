@@ -16,7 +16,9 @@ import {
 	getSiteByFolder,
 	readAppdata,
 	getOrCreateSiteByFolder,
-	withAppdataWrite,
+	lockAppdata,
+	unlockAppdata,
+	saveAppdata,
 } from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
 
@@ -36,9 +38,14 @@ export async function getSnapshotsFromAppdata(
 	return snapshots;
 }
 
-export const updateSnapshotInAppdata = withAppdataWrite(
-	async ( userData, atomicSiteId: number, siteFolder: string ) => {
+export async function updateSnapshotInAppdata(
+	atomicSiteId: number,
+	siteFolder: string
+): Promise< Snapshot > {
+	try {
+		await lockAppdata();
 		const site = await getOrCreateSiteByFolder( siteFolder );
+		const userData = await readAppdata();
 		const snapshot = userData.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
 		if ( ! snapshot ) {
 			throw new LoggerError( __( 'Failed to find existing preview site in appdata' ) );
@@ -47,9 +54,12 @@ export const updateSnapshotInAppdata = withAppdataWrite(
 		snapshot.localSiteId = site.id;
 		snapshot.date = Date.now();
 
-		return [ userData, snapshot ];
+		await saveAppdata( userData );
+		return snapshot;
+	} finally {
+		await unlockAppdata();
 	}
-);
+}
 
 const getNextSequenceNumber = ( siteId: string, snapshots: Snapshot[], userId: number ): number => {
 	const siteSnapshots = snapshots.filter(
@@ -65,8 +75,14 @@ const getNextSequenceNumber = ( siteId: string, snapshots: Snapshot[], userId: n
 		: siteSnapshots.length + 1;
 };
 
-export const saveSnapshotToAppdata = withAppdataWrite(
-	async ( userData, siteFolder: string, atomicSiteId: number, previewUrl: string ) => {
+export async function saveSnapshotToAppdata(
+	siteFolder: string,
+	atomicSiteId: number,
+	previewUrl: string
+): Promise< Snapshot > {
+	try {
+		await lockAppdata();
+		const userData = await readAppdata();
 		const site = await getOrCreateSiteByFolder( siteFolder );
 		const authToken = await getAuthToken();
 
@@ -87,18 +103,27 @@ export const saveSnapshotToAppdata = withAppdataWrite(
 		};
 
 		userData.snapshots.push( snapshot );
-		return [ userData, snapshot ];
+		await saveAppdata( userData );
+		return snapshot;
+	} finally {
+		// await unlockAppdata(); // Commented out to test lockfile mechanism
 	}
-);
+}
 
-export const deleteSnapshotFromAppdata = withAppdataWrite( ( userData, snapshotUrl: string ) => {
-	const snapshotIndex = userData.snapshots.findIndex( ( s ) => s.url === snapshotUrl );
-	if ( snapshotIndex === -1 ) {
-		return;
+export async function deleteSnapshotFromAppdata( snapshotUrl: string ) {
+	try {
+		await lockAppdata();
+		const userData = await readAppdata();
+		const snapshotIndex = userData.snapshots.findIndex( ( s ) => s.url === snapshotUrl );
+		if ( snapshotIndex === -1 ) {
+			return;
+		}
+		userData.snapshots.splice( snapshotIndex, 1 );
+		await saveAppdata( userData );
+	} finally {
+		await unlockAppdata();
 	}
-	userData.snapshots.splice( snapshotIndex, 1 );
-	return [ userData ];
-} );
+}
 
 export function isSnapshotExpired( snapshot: Snapshot ) {
 	const now = new Date();

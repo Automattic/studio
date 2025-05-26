@@ -9,7 +9,7 @@ export function normalizeHostname( hostname: string ): string {
 		.replace( /\/$/, '' );
 }
 
-export function lock( path: string, options: lockfile.Options ) {
+export function lockFileAsync( path: string, options: lockfile.Options ) {
 	return new Promise< void >( ( resolve, reject ) => {
 		lockfile.lock( path, options, ( err ) => {
 			if ( err ) {
@@ -21,4 +21,4 @@ export function lock( path: string, options: lockfile.Options ) {
 	} );
 }
 
-export const unlock = promisify( lockfile.unlock );
+export const unlockFileAsync = promisify( lockfile.unlock );

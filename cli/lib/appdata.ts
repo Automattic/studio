@@ -10,7 +10,7 @@ import { snapshotSchema } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { z } from 'zod';
 import { validateAccessToken } from 'cli/lib/api';
-import { lock, unlock } from 'cli/lib/utils';
+import { lockFileAsync, unlockFileAsync } from 'cli/lib/utils';
 import { LoggerError } from 'cli/logger';
 
 const siteSchema = z
@@ -97,7 +97,7 @@ export async function readAppdata(): Promise< UserData > {
 	}
 }
 
-async function saveAppdata( userData: UserData ): Promise< void > {
+export async function saveAppdata( userData: UserData ): Promise< void > {
 	try {
 		if ( ! userData.version ) {
 			userData.version = 1;
@@ -112,38 +112,14 @@ async function saveAppdata( userData: UserData ): Promise< void > {
 	}
 }
 
-const LOCKFILE_PATH = path.join( getAppdataDirectory(), 'appdata-v1.lock' );
+const LOCKFILE_PATH = path.join( getAppdataDirectory(), 'appdata-v1.json.lock' );
 
-type MaybePromise< T > = T | Promise< T >;
-type ReturnType< R > = R extends [ unknown, infer Second ] ? Second : void;
+export async function lockAppdata(): Promise< void > {
+	await lockFileAsync( LOCKFILE_PATH, { wait: 1000, stale: 1000 } );
+}
 
-// Higher-order function that injects a parsed instance of the user config file and writes back
-// the return value. Callback functions should return a tuple (or nothing). The first element of
-// the tuple is the updated user config. The second element (if there is one) is the return value
-// of the callback function.
-// The purpose of this function is to avoid concurrent reads and writes to the user config file. We
-// ensure this by acquiring a lock on the file before reading or writing it.
-export function withAppdataWrite<
-	Args extends unknown[],
-	R extends [ UserData, unknown ] | [ undefined, unknown ] | [ UserData ] | void,
->( fn: ( userData: UserData, ...args: Args ) => MaybePromise< R > ) {
-	return async ( ...args: Args ): Promise< ReturnType< R > > => {
-		await lock( LOCKFILE_PATH, { wait: 1000, stale: 1000 } );
-		try {
-			const appdata = await readAppdata();
-			const result = await fn( appdata, ...args );
-
-			if ( Array.isArray( result ) && result[ 0 ] ) {
-				await saveAppdata( result[ 0 ] );
-			}
-			if ( Array.isArray( result ) && result[ 1 ] ) {
-				return result[ 1 ] as ReturnType< R >;
-			}
-			return undefined as ReturnType< R >;
-		} finally {
-			await unlock( LOCKFILE_PATH );
-		}
-	};
+export async function unlockAppdata(): Promise< void > {
+	await unlockFileAsync( LOCKFILE_PATH );
 }
 
 export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken' ] > > {
@@ -193,16 +169,28 @@ export function getNewSitePartial( siteFolder: string ): SiteData {
 	return newSite;
 }
 
-export const getOrCreateSiteByFolder = withAppdataWrite( async ( userData, siteFolder: string ) => {
+const createNewSite = async ( siteFolder: string ): Promise< z.infer< typeof siteSchema > > => {
+	try {
+		await lockAppdata();
+		const userData = await readAppdata();
+		const site = getNewSitePartial( siteFolder );
+		userData.newSites.push( site );
+		return site;
+	} finally {
+		await unlockAppdata();
+	}
+};
+
+export const getOrCreateSiteByFolder = async (
+	siteFolder: string
+): Promise< z.infer< typeof siteSchema > > => {
 	try {
 		const site = await getSiteByFolder( siteFolder );
-		return [ undefined, site ];
+		return site;
 	} catch ( error ) {
 		if ( ! ( error instanceof LoggerError ) ) {
 			throw error;
 		}
-		const site = getNewSitePartial( siteFolder );
-		userData.newSites.push( site );
-		return [ userData, site ];
+		return createNewSite( siteFolder );
 	}
-} );
+};

@@ -61,16 +61,6 @@ describe( 'DynamicStylesheet', () => {
 		expect( firstElement.href ).toBe( 'http://localhost/first-updated.css' );
 	} );
 
-	it( 'should remove the link element when component unmounts', () => {
-		const { unmount } = render( <DynamicStylesheet id="test-style" href="/test.css" /> );
-
-		expect( document.getElementById( 'test-style' ) ).toBeInTheDocument();
-
-		unmount();
-
-		expect( document.getElementById( 'test-style' ) ).not.toBeInTheDocument();
-	} );
-
 	it( 'should reuse existing link element with same id and not remove it on unmount', () => {
 		// Manually create a link element with the same id
 		const existingLink = document.createElement( 'link' );

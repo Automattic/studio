@@ -5,7 +5,6 @@ import { readFile, writeFile } from 'atomically';
 import { arePathsEqual } from 'common/lib/fs-utils';
 import {
 	readAppdata,
-	saveAppdata,
 	getAuthToken,
 	getNewSitePartial,
 	getOrCreateSiteByFolder,
@@ -159,7 +158,7 @@ describe( 'Appdata Module', () => {
 				path: folderPath,
 				name: 'existing-site',
 			};
-			( readFile as jest.Mock ).mockReturnValueOnce(
+			( readFile as jest.Mock ).mockReturnValue(
 				JSON.stringify( { sites: [ existingSite ], newSites: [], snapshots: [] } )
 			);
 			const site = await getOrCreateSiteByFolder( folderPath );
@@ -174,7 +173,7 @@ describe( 'Appdata Module', () => {
 				path: folderPath,
 				name: 'existing-site',
 			};
-			( readFile as jest.Mock ).mockReturnValueOnce(
+			( readFile as jest.Mock ).mockReturnValue(
 				JSON.stringify( { sites: [], newSites: [ existingSite ], snapshots: [] } )
 			);
 			const site = await getOrCreateSiteByFolder( folderPath );
@@ -184,7 +183,7 @@ describe( 'Appdata Module', () => {
 
 		it( 'should create and return a new site if not present', async () => {
 			const folderPath = '/new/site/path';
-			( readFile as jest.Mock ).mockReturnValueOnce(
+			( readFile as jest.Mock ).mockReturnValue(
 				JSON.stringify( { sites: [], newSites: [], snapshots: [] } )
 			);
 			const site = await getOrCreateSiteByFolder( folderPath );

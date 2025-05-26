@@ -4,6 +4,7 @@ import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger } from 'cli/logger';
 
 jest.mock( 'cli/lib/appdata', () => ( {
+	...jest.requireActual( 'cli/lib/appdata' ),
 	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
 	getAuthToken: jest.fn(),
 } ) );

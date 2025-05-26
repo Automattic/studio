@@ -3,6 +3,7 @@
  */
 import fs from 'fs';
 import { normalize } from 'path';
+import { readFile } from 'atomically';
 import { createMainWindow, getMainWindow } from 'src/main-window';
 import { setupWPServerFiles } from 'src/setup-wp-server-files';
 
@@ -17,14 +18,12 @@ jest.mock( 'src/setup-wp-server-files', () => ( {
 	setupWPServerFiles: jest.fn( () => Promise.resolve() ),
 	updateWPServerFiles: jest.fn( () => Promise.resolve() ),
 } ) );
+jest.mock( 'atomically', () => ( {
+	readFile: jest.fn(),
+	writeFile: jest.fn(),
+} ) );
 
-const mockUserData = {
-	sites: [],
-};
-( fs as MockedFs ).__setFileContents(
-	normalize( '/path/to/app/appData/App Name/appdata-v1.json' ),
-	JSON.stringify( mockUserData )
-);
+( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( { sites: [] } ) );
 ( fs as MockedFs ).__setFileContents( normalize( '/path/to/app/temp/com.wordpress.studio/' ), '' );
 
 const mockWatcher = {

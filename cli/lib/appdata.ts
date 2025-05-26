@@ -115,7 +115,7 @@ async function saveAppdata( userData: UserData ): Promise< void > {
 const LOCKFILE_PATH = path.join( getAppdataDirectory(), 'appdata-v1.lock' );
 
 type MaybePromise< T > = T | Promise< T >;
-type ReturnType< R > = R extends [ UserData, infer Second ] ? Second : void;
+type ReturnType< R > = R extends [ unknown, infer Second ] ? Second : void;
 
 // Higher-order function that injects a parsed instance of the user config file and writes back
 // the return value. Callback functions should return a tuple (or nothing). The first element of
@@ -125,13 +125,13 @@ type ReturnType< R > = R extends [ UserData, infer Second ] ? Second : void;
 // ensure this by acquiring a lock on the file before reading or writing it.
 export function withAppdataWrite<
 	Args extends unknown[],
-	R extends [ UserData, unknown ] | [ UserData ] | void,
+	R extends [ UserData, unknown ] | [ undefined, unknown ] | [ UserData ] | void,
 >( fn: ( userData: UserData, ...args: Args ) => MaybePromise< R > ) {
 	return async ( ...args: Args ): Promise< ReturnType< R > > => {
 		await lock( LOCKFILE_PATH, { wait: 1000, stale: 1000 } );
 		try {
-			const data = await readAppdata();
-			const result = await fn( data, ...args );
+			const appdata = await readAppdata();
+			const result = await fn( appdata, ...args );
 
 			if ( Array.isArray( result ) && result[ 0 ] ) {
 				await saveAppdata( result[ 0 ] );
@@ -194,15 +194,15 @@ export function getNewSitePartial( siteFolder: string ): SiteData {
 }
 
 export const getOrCreateSiteByFolder = withAppdataWrite( async ( userData, siteFolder: string ) => {
-	let site;
 	try {
-		site = await getSiteByFolder( siteFolder );
+		const site = await getSiteByFolder( siteFolder );
+		return [ undefined, site ];
 	} catch ( error ) {
 		if ( ! ( error instanceof LoggerError ) ) {
 			throw error;
 		}
-		site = getNewSitePartial( siteFolder );
+		const site = getNewSitePartial( siteFolder );
 		userData.newSites.push( site );
+		return [ userData, site ];
 	}
-	return [ userData, site ];
 } );

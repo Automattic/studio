@@ -36,6 +36,8 @@ export function bumpAggregatedUniqueStat(
 				return false;
 			}
 
+			console.log( 'bumpStat', group, stat, bumpInDev );
+
 			// Bump the stat for subsequent occurrences within the time interval
 			return bumpStat( group, stat, bumpInDev );
 		} )

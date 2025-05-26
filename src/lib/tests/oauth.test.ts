@@ -1,14 +1,17 @@
 /**
  * @jest-environment node
  */
+import { readFile, writeFile } from 'atomically';
 import wpcom from 'wpcom';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { getAuthenticationToken, onOpenUrlCallback } from 'src/lib/oauth';
-import { loadUserData, saveUserData } from 'src/storage/user-data';
 
 jest.mock( 'src/lib/certificate-manager', () => ( {} ) );
 jest.mock( 'src/ipc-utils' );
-jest.mock( 'src/storage/user-data' );
+jest.mock( 'atomically', () => ( {
+	readFile: jest.fn(),
+	writeFile: jest.fn(),
+} ) );
 jest.mock( 'wpcom' );
 
 describe( 'getAuthenticationToken', () => {
@@ -25,7 +28,9 @@ describe( 'getAuthenticationToken', () => {
 			email: 'user@example.com',
 			displayName: 'Test User',
 		};
-		( loadUserData as jest.Mock ).mockResolvedValue( { authToken: validToken } );
+		( readFile as jest.Mock ).mockResolvedValue(
+			JSON.stringify( { authToken: validToken, sites: [] } )
+		);
 
 		const result = await getAuthenticationToken();
 		expect( result ).toEqual( validToken );
@@ -40,7 +45,9 @@ describe( 'getAuthenticationToken', () => {
 			email: 'user@example.com',
 			displayName: 'Test User',
 		};
-		( loadUserData as jest.Mock ).mockResolvedValue( { authToken: expiredToken } );
+		( readFile as jest.Mock ).mockResolvedValue(
+			JSON.stringify( { authToken: expiredToken, sites: [] } )
+		);
 
 		const result = await getAuthenticationToken();
 		expect( result ).toBeNull();
@@ -51,14 +58,16 @@ describe( 'getAuthenticationToken', () => {
 			accessToken: 'token',
 			// Missing required fields
 		};
-		( loadUserData as jest.Mock ).mockResolvedValue( { authToken: malformedToken } );
+		( readFile as jest.Mock ).mockResolvedValue(
+			JSON.stringify( { authToken: malformedToken, sites: [] } )
+		);
 
 		const result = await getAuthenticationToken();
 		expect( result ).toBeNull();
 	} );
 
 	it( 'should return null when no token exists', async () => {
-		( loadUserData as jest.Mock ).mockResolvedValue( {} );
+		( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( { sites: [] } ) );
 
 		const result = await getAuthenticationToken();
 		expect( result ).toBeNull();
@@ -68,8 +77,8 @@ describe( 'getAuthenticationToken', () => {
 describe( 'onOpenUrlCallback', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
-		( loadUserData as jest.Mock ).mockResolvedValue( {} );
-		( saveUserData as jest.Mock ).mockResolvedValue( undefined );
+		( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( { sites: [] } ) );
+		( writeFile as jest.Mock ).mockResolvedValue( undefined );
 	} );
 
 	describe( 'auth callback', () => {
@@ -95,7 +104,7 @@ describe( 'onOpenUrlCallback', () => {
 					displayName: 'Test User',
 				} ),
 			} );
-			expect( saveUserData ).toHaveBeenCalled();
+			expect( writeFile ).toHaveBeenCalled();
 		} );
 
 		it( 'should handle authentication error from WordPress.com', async () => {
@@ -105,7 +114,7 @@ describe( 'onOpenUrlCallback', () => {
 			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
 				error: new Error( 'access_denied' ),
 			} );
-			expect( saveUserData ).not.toHaveBeenCalled();
+			expect( writeFile ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should handle invalid token response', async () => {
@@ -115,7 +124,7 @@ describe( 'onOpenUrlCallback', () => {
 			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
 				error: expect.any( Error ),
 			} );
-			expect( saveUserData ).not.toHaveBeenCalled();
+			expect( writeFile ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should handle wpcom API error', async () => {
@@ -130,7 +139,7 @@ describe( 'onOpenUrlCallback', () => {
 			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
 				error: expect.any( Error ),
 			} );
-			expect( saveUserData ).not.toHaveBeenCalled();
+			expect( writeFile ).not.toHaveBeenCalled();
 		} );
 	} );
 

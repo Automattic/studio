@@ -3,7 +3,7 @@ import fs from 'fs';
 import nodePath from 'node:path';
 import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/main';
-import * as atomically from 'atomically';
+import { readFile, writeFile } from 'atomically';
 import lockfile from 'lockfile';
 import { isErrnoException } from 'src/lib/is-errno-exception';
 import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for-logging';
@@ -65,7 +65,7 @@ export async function loadUserData(): Promise< UserData > {
 	const filePath = getUserDataFilePath();
 
 	try {
-		const asString = await fs.promises.readFile( filePath, 'utf-8' );
+		const asString = await readFile( filePath, 'utf-8' );
 		try {
 			const parsed = JSON.parse( asString );
 			const data = fromDiskFormat( parsed );
@@ -102,19 +102,8 @@ export async function loadUserData(): Promise< UserData > {
 
 async function saveUserData( data: UserData ): Promise< void > {
 	const filePath = getUserDataFilePath();
-
 	const asString = JSON.stringify( toDiskFormat( data ), null, 2 ) + '\n';
-	try {
-		await atomically.writeFile( filePath, asString, 'utf-8' );
-	} catch ( error ) {
-		// Fall back to FS function in case the writing fails with EXDEV error.
-		// This issue might happen on Windows when renaming a file.
-		// Reference: https://github.com/sindresorhus/electron-store/issues/106
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		if ( ( error as any )?.code === 'EXDEV' ) {
-			await fs.promises.writeFile( filePath, asString, 'utf-8' );
-		}
-	}
+	await writeFile( filePath, asString, 'utf-8' );
 }
 
 const LOCKFILE_PATH = nodePath.join( getResourcesPath(), 'appdata-v1.lock' );

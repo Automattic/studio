@@ -32,7 +32,6 @@ import { createElement, StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import Root from 'src/components/root';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import 'src/index.css';
 
 // Enhances Sentry breadcrumbs messages by extracting meaningful information from DOM elements
 const getExtraSentryBreadcrumbs = ( targetElement: HTMLElement ) => {

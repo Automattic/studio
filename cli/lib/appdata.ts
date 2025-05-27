@@ -127,8 +127,7 @@ export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken
 
 		return authToken;
 	} catch ( error ) {
-		const locale = await getUserLocaleWithFallback();
-		const authUrl = getAuthenticationUrl( locale );
+		const authUrl = getAuthenticationUrl( 'en' );
 
 		throw new LoggerError(
 			sprintf(

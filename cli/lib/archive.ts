@@ -45,7 +45,7 @@ export async function createArchive(
 				const isDirectory = stat.isDirectory();
 				if ( isDirectory ) {
 					archive.directory( realPath, archivePath, ( entry: EntryData ) => {
-						if ( shouldExcludeEntry( realPath ) ) {
+						if ( shouldExcludeEntry( entry.name ) ) {
 							return false;
 						}
 						return entry;

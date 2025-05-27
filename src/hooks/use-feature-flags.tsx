@@ -2,33 +2,22 @@ import * as Sentry from '@sentry/react';
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import { z } from 'zod';
 import { useAuth } from 'src/hooks/use-auth';
-import { getAppGlobals } from 'src/lib/app-globals';
 
 // In PHP, empty associative arrays are encoded as regular arrays when converted to JSON.
 // This means an empty feature flags response comes as [] instead of {}.
-const featureFlagsSchema = z
-	.object( {
-		terminal_wp_cli_enabled: z.boolean().optional(),
-	} )
-	.catch( ( _ ) => ( {} ) );
+const featureFlagsSchema = z.object( {} ).catch( ( _: unknown ) => ( {} ) );
 
-export interface FeatureFlagsContextType {
-	terminalWpCliEnabled: boolean;
-}
+// Will be extended with feature flags in the future */
+export type FeatureFlagsContextType = Record< string, never >;
 
-export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( {
-	terminalWpCliEnabled: false,
-} );
+export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( {} );
 
 interface FeatureFlagsProviderProps {
 	children: ReactNode;
 }
 
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
-	const terminalWpCliEnabledFromGlobals = getAppGlobals().terminalWpCliEnabled;
-	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
-		terminalWpCliEnabled: terminalWpCliEnabledFromGlobals,
-	} );
+	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {} );
 	const { isAuthenticated, client } = useAuth();
 
 	useEffect( () => {
@@ -46,10 +35,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 				if ( cancel ) {
 					return;
 				}
-				setFeatureFlags( {
-					terminalWpCliEnabled:
-						Boolean( flags.terminal_wp_cli_enabled ) || terminalWpCliEnabledFromGlobals,
-				} );
+				setFeatureFlags( flags );
 			} catch ( error ) {
 				Sentry.captureException( error );
 				console.error( error );
@@ -59,7 +45,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 		return () => {
 			cancel = true;
 		};
-	}, [ isAuthenticated, client, terminalWpCliEnabledFromGlobals ] );
+	}, [ isAuthenticated, client ] );
 
 	return (
 		<FeatureFlagsContext.Provider value={ featureFlags }>{ children }</FeatureFlagsContext.Provider>

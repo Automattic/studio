@@ -3,7 +3,6 @@ import { Provider } from 'react-redux';
 import { SiteContentTabs } from 'src/components/site-content-tabs';
 import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { store } from 'src/stores';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
@@ -15,7 +14,6 @@ const selectedSite = {
 	path: '/test-site',
 };
 
-jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/use-site-details' );
 jest.mock( 'src/hooks/use-auth', () => ( {
 	useAuth: () => ( {
@@ -39,8 +37,6 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 } ) );
 
 store.replaceReducer( testReducer );
-
-( useFeatureFlags as jest.Mock ).mockReturnValue( {} );
 
 describe( 'SiteContentTabs', () => {
 	beforeEach( () => {

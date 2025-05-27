@@ -43,8 +43,8 @@ export async function updateSnapshotInAppdata(
 	siteFolder: string
 ): Promise< Snapshot > {
 	try {
-		await lockAppdata();
 		const site = await getOrCreateSiteByFolder( siteFolder );
+		await lockAppdata();
 		const userData = await readAppdata();
 		const snapshot = userData.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
 		if ( ! snapshot ) {

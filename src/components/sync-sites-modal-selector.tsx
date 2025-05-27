@@ -9,9 +9,12 @@ import { EnvironmentBadge } from 'src/components/environment-badge';
 import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
+import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
+import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getLocalizedLink } from 'src/lib/get-localized-link';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
@@ -59,7 +62,7 @@ export function SyncSitesModalSelector( {
 		<Modal
 			className="w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
-			title={ __( 'Connect a WP.com or Pressable site' ) }
+			title={ __( 'Connect your site' ) }
 		>
 			<div className="relative" data-testid="sync-sites-modal-selector">
 				<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
@@ -116,6 +119,7 @@ function SearchSites( {
 	setSearchQuery: ( value: string ) => void;
 } ) {
 	const { __ } = useI18n();
+	const { locale } = useI18nData();
 	return (
 		<div className="flex flex-col px-8 pb-6 border-b border-a8c-gray-5">
 			<SearchControl
@@ -129,7 +133,17 @@ function SearchSites( {
 				__nextHasNoMarginBottom={ true }
 			/>
 			<p className="a8c-helper-text text-gray-500">
-				{ __( 'Syncing is supported for WP.com sites on the Business plan or above.' ) }
+				{ __( "Can't find your site?" ) }{ ' ' }
+				<Button
+					variant="link"
+					onClick={ () =>
+						getIpcApi().openURL( getLocalizedLink( locale, 'docsSyncSupportedSites' ) )
+					}
+					className="text-xs"
+				>
+					{ __( 'Learn more about supported sites.' ) }
+					<ArrowIcon />
+				</Button>
 			</p>
 		</div>
 	);
@@ -196,6 +210,7 @@ function SiteItem( {
 	const isUnsupported = site.syncSupport === 'unsupported';
 	const isPressable = site.isPressable;
 	const environmentType = site.environmentType;
+	const isDisabled = isDeleted || isUnsupported || needsUpgrade || isMissingPermissions;
 
 	return (
 		<div
@@ -224,7 +239,26 @@ function SiteItem( {
 			} }
 		>
 			<div className="flex flex-col gap-0.5 min-w-0">
-				<div className={ cx( 'a8c-body truncate', ! isSyncable && 'text-a8c-gray-30' ) }>
+				<div
+					className={ cx(
+						'a8c-body truncate flex items-center',
+						! isSyncable && 'text-a8c-gray-30'
+					) }
+				>
+					{ isPressable && (
+						<span className="me-1.5">
+							<PressableLogo size={ 12 } />
+						</span>
+					) }
+					{ ! isPressable && (
+						<span className="me-1.5">
+							<WordPressLogoCircle
+								size={ 12 }
+								{ ...( isSelected && { color: '#fff' } ) }
+								{ ...( isDisabled && { color: '#8c8f94' } ) }
+							/>
+						</span>
+					) }
 					{ site.name }
 				</div>
 				<Button
@@ -244,11 +278,6 @@ function SiteItem( {
 						}
 					} }
 				>
-					{ isPressable && (
-						<span className="me-1.5">
-							<PressableLogo size={ 12 } />
-						</span>
-					) }
 					<div className="truncate">{ site.url.replace( /^https?:\/\//, '' ) }</div>
 					<ArrowIcon />
 				</Button>
@@ -290,7 +319,8 @@ function SiteItem( {
 						variant="link"
 						onClick={ () => getIpcApi().openURL( `https://wordpress.com/plans/${ site.id }` ) }
 					>
-						{ __( 'Upgrade plan ↗' ) }
+						{ __( 'Upgrade plan' ) }
+						<ArrowIcon />
 					</Button>
 				</div>
 			) }
@@ -302,7 +332,8 @@ function SiteItem( {
 							getIpcApi().openURL( `https://wordpress.com/hosting-features/${ site.id }` )
 						}
 					>
-						{ __( 'Enable hosting features ↗' ) }
+						{ __( 'Enable hosting features' ) }
+						<ArrowIcon />
 					</Button>
 				</div>
 			) }

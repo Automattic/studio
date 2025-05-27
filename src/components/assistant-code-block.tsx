@@ -9,7 +9,6 @@ import { ChatMessageProps } from 'src/components/chat-message';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import { ExecuteIcon } from 'src/components/icons/execute';
 import { useExecuteWPCLI } from 'src/hooks/use-execute-cli';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useIsValidWpCliInline } from 'src/hooks/use-is-valid-wp-cli-inline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
@@ -47,7 +46,6 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 	const cliStatus = block?.cliStatus ?? null;
 	const cliTime = block?.cliTime ?? null;
 
-	const { terminalWpCliEnabled } = useFeatureFlags();
 	const { selectedSite } = useSiteDetails();
 
 	return (
@@ -81,9 +79,7 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 						onClick={ async () => {
 							try {
 								await getIpcApi().copyText( content );
-								await getIpcApi().openTerminalAtPath( selectedSite.path, {
-									wpCliEnabled: terminalWpCliEnabled,
-								} );
+								await getIpcApi().openTerminalAtPath( selectedSite.path );
 								await getIpcApi().showNotification( {
 									title: __( 'Command copied to the clipboard' ),
 								} );

@@ -1,3 +1,23 @@
+Unreleased
+==========
+* Miscellaneous security improvements #1411
+
+1.5.2
+=====
+* Added ability to sync Studio sites with Pressable
+* Added email notification on site push success #1342
+* Improved push progress reporting #1389
+* Ensured .git and node_modules are not included in Preview site archives #1367
+* Fixed issue with incorrect Preview sites limit #1385
+* Fixed issue with unresponsive Settings tabs when no site has been created #1390
+* Fixed several issues related to Studio CLI #1381, #1364, #1424
+* Fixed opening Warp terminal app on Windows #1428
+* Fixed issue with plugin updates timing out in certain cases ​​#1407
+* Translated What’s new modal documentation links #1368, #1375, 1431
+* Ensured site gets created with latest WordPress version when offline #1383 
+* Various UI updates and fixes #1399, #1413, #1420, #1412, #1419, #1423, #1384, #1435
+* Upgraded Electron, Node.js and @wordpress/components #1372, #1398
+
 1.5.1
 =====
 * Added ability to choose preferred editor and terminal apps

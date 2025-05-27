@@ -24,7 +24,6 @@ import {
 	setupPlatformLevelMuPlugins,
 } from '@wp-playground/wordpress';
 import fs from 'fs-extra';
-import { SymlinkManager } from '../../../src/lib/symlink-manager';
 import { WPNowOptions, WPNowMode } from './config';
 import {
 	PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER,
@@ -140,7 +139,9 @@ async function getPHPInstance(
 	isPrimary: boolean,
 	requestHandler: PHPRequestHandler
 ): Promise< { php: PHP; runtimeId: number } > {
-	const id = await loadNodeRuntime( options.phpVersion );
+	const id = await loadNodeRuntime( options.phpVersion, {
+		followSymlinks: true,
+	} );
 	const php = new PHP( id );
 	php.requestHandler = requestHandler;
 
@@ -193,43 +194,7 @@ export async function prepareWordPress( php: PHP, options: WPNowOptions ) {
 	}
 
 	await mountInternalMuPlugins( php, options );
-	await startSymlinkManager( php, options.projectPath, options.documentRoot );
 	await setupPlatformLevelMuPlugins( php );
-}
-
-/**
- * Start the symlink manager
- *
- * The symlink manager ensures that we mount the targets of symlinks so that they
- * work inside the php runtime. It also watches for changes to ensure symlinks
- * are managed correctly.
- *
- * @param php
- * @param projectPath
- * @param documentRoot
- */
-export async function startSymlinkManager( php: PHP, projectPath: string, documentRoot: string ) {
-	// Symlink manager is not yet supported on windows
-	// See: https://github.com/Automattic/studio/issues/548
-	if ( process.platform === 'win32' ) {
-		return;
-	}
-
-	const symlinkManager = new SymlinkManager( php, projectPath, documentRoot );
-	await symlinkManager.scanAndCreateSymlinks();
-	symlinkManager
-		.startWatching()
-		.catch( ( err ) => {
-			output?.error( 'Error while watching for file changes', err );
-		} )
-		.finally( () => {
-			output?.log( 'Stopped watching for file changes' );
-		} );
-
-	// Ensure that we stop watching for file changes when the runtime is exiting
-	php.addEventListener( 'runtime.beforedestroy', () => {
-		symlinkManager.stopWatching();
-	} );
 }
 
 async function runIndexMode( php: PHP, { documentRoot, projectPath }: WPNowOptions ) {
@@ -617,6 +582,40 @@ async function mountInternalMuPlugins( php: PHP, options: WPNowOptions ) {
 			`
 		);
 	}
+
+	php.writeFile(
+		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-http-request-timeout.php' ),
+		`<?php
+		// Increase default timeouts to 60 seconds to accommodate slower network conditions and larger requests
+		add_filter( 'http_request_timeout', function() {
+			return 60;
+		} );
+
+		add_action('http_api_curl', function($curl, $url, $options) {
+			curl_setopt( $curl, CURLOPT_CONNECTTIMEOUT, 60 );
+			curl_setopt($curl, CURLOPT_TIMEOUT, 60);
+			return $curl;
+		}, 1, 3);
+		`
+	);
+
+	php.writeFile(
+		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-tmp-fix-hide-plugins-spinner.php' ),
+		`<?php
+			// This is a temporary fix for a page-optimize bug that causes spinner icons to show all the time in the plugins list auto-update column
+
+			add_action( 'admin_enqueue_scripts', 'studio_patch_auto_update_spinner_style', 999 );
+			function studio_patch_auto_update_spinner_style() {
+				$current_screen = get_current_screen();
+				if ( isset( $current_screen->id ) && 'plugins' === $current_screen->id ) {
+					wp_add_inline_style(
+						'dashicons',
+						'.toggle-auto-update .dashicons.hidden { display: none; }'
+					);
+				}
+			}
+	`
+	);
 }
 
 async function mountSqlitePlugin( php: PHP, vfsDocumentRoot: string ) {

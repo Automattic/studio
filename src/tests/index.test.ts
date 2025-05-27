@@ -12,7 +12,6 @@ jest.mock( 'file-stream-rotator' );
 jest.mock( 'src/main-window' );
 jest.mock( 'src/updates' );
 jest.mock( 'src/lib/bump-stats' );
-jest.mock( 'src/lib/cli' );
 jest.mock( 'src/lib/user-data-watcher' );
 jest.mock( 'src/setup-wp-server-files', () => ( {
 	setupWPServerFiles: jest.fn( () => Promise.resolve() ),

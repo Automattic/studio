@@ -1,0 +1,45 @@
+diff --git a/node_modules/@wordpress/components/build-module/modal/aria-helper.js b/node_modules/@wordpress/components/build-module/modal/aria-helper.js
+index e1e1371..54775d2 100644
+--- a/node_modules/@wordpress/components/build-module/modal/aria-helper.js
++++ b/node_modules/@wordpress/components/build-module/modal/aria-helper.js
+@@ -22,7 +22,7 @@ export function modalize(modalElement) {
+       continue;
+     }
+     if (elementShouldBeHidden(element)) {
+-      element.setAttribute('aria-hidden', 'true');
++      element.setAttribute('inert', '');
+       hiddenElements.push(element);
+     }
+   }
+@@ -37,7 +37,7 @@ export function modalize(modalElement) {
+  */
+ export function elementShouldBeHidden(element) {
+   const role = element.getAttribute('role');
+-  return !(element.tagName === 'SCRIPT' || element.hasAttribute('hidden') || element.hasAttribute('aria-hidden') || element.hasAttribute('aria-live') || role && LIVE_REGION_ARIA_ROLES.has(role));
++  return !(element.tagName === 'SCRIPT' || element.hasAttribute('hidden') || element.hasAttribute('aria-hidden') || element.hasAttribute('inert') || element.hasAttribute('aria-live') || role && LIVE_REGION_ARIA_ROLES.has(role));
+ }
+ 
+ /**
+@@ -49,7 +49,7 @@ export function unmodalize() {
+     return;
+   }
+   for (const element of hiddenElements) {
+-    element.removeAttribute('aria-hidden');
++    element.removeAttribute('inert');
+   }
+ }
+ //# sourceMappingURL=aria-helper.js.map
+\ No newline at end of file
+diff --git a/node_modules/@wordpress/components/build-module/modal/index.js b/node_modules/@wordpress/components/build-module/modal/index.js
+index 7ae5a49..b9ccf96 100644
+--- a/node_modules/@wordpress/components/build-module/modal/index.js
++++ b/node_modules/@wordpress/components/build-module/modal/index.js
+@@ -96,7 +96,7 @@ function UnforwardedModal(props, forwardedRef) {
+   }, [contentRef]);
+ 
+   // Accessibly isolates/unisolates the modal.
+-  useEffect(() => {
++  useLayoutEffect(() => {
+     ariaHelper.modalize(ref.current);
+     return () => ariaHelper.unmodalize();
+   }, []);

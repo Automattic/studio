@@ -333,10 +333,7 @@ describe( 'createCodeComponent', () => {
 
 			await waitFor( () => {
 				expect( getIpcApi().copyText ).toHaveBeenCalledWith( 'wp plugin list' );
-				expect( getIpcApi().openTerminalAtPath ).toHaveBeenCalledWith(
-					selectedSite.path,
-					expect.any( Object )
-				);
+				expect( getIpcApi().openTerminalAtPath ).toHaveBeenCalledWith( selectedSite.path );
 				expect( getIpcApi().showNotification ).toHaveBeenCalledWith( {
 					title: 'Command copied to the clipboard',
 				} );

@@ -8,10 +8,12 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 interface I18nDataContext {
 	setLocale: ( localeKey: SupportedLocale ) => void;
 	locale: SupportedLocale;
+	i18n: I18n | null;
 }
 
 const I18nDataContext = createContext< I18nDataContext >( {
 	locale: 'en',
+	i18n: null,
 	// eslint-disable-next-line @typescript-eslint/no-empty-function
 	setLocale: () => {},
 } );
@@ -66,8 +68,9 @@ export const I18nDataProvider = ( { children }: { children: React.ReactNode } ) 
 				await getIpcApi().saveUserLocale( localeKey );
 			},
 			locale,
+			i18n,
 		} ),
-		[ locale ]
+		[ locale, i18n ]
 	);
 
 	if ( ! i18n ) {

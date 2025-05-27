@@ -23,13 +23,6 @@ import * as ipcHandlers from 'src/ipc-handlers';
 import { hasActiveSyncOperations } from 'src/lib/active-sync-operations';
 import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
 import { getPlatformMetric } from 'src/lib/bump-stats/lib';
-import {
-	listenCLICommands,
-	getCLIDataForMainInstance,
-	isCLI,
-	processCLICommand,
-	executeCLICommand,
-} from 'src/lib/cli';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { onOpenUrlCallback } from 'src/lib/oauth';
 import { stopProxyServer } from 'src/lib/proxy-server';
@@ -43,6 +36,7 @@ import {
 } from 'src/migrations/migrate-from-wp-now-folder';
 import { migrateAllDatabasesInSitu } from 'src/migrations/move-databases-in-situ';
 import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
+import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-stat';
 import { installCLIOnWindows } from 'src/modules/cli/lib/install-windows';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
 import { stopAllServersOnQuit } from 'src/site-server';
@@ -51,7 +45,7 @@ import { setupUpdates } from 'src/updates';
 // eslint-disable-next-line import/order
 import packageJson from '../package.json';
 
-if ( ! isCLI() && ! process.env.IS_DEV_BUILD ) {
+if ( ! process.env.IS_DEV_BUILD ) {
 	const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo( app.getVersion() );
 
 	Sentry.init( {
@@ -68,22 +62,14 @@ if ( ! isCLI() && ! process.env.IS_DEV_BUILD ) {
 const isInInstaller = require( 'electron-squirrel-startup' );
 
 // Ensure we're the only instance of the app running
-const gotTheLock = app.requestSingleInstanceLock( getCLIDataForMainInstance() );
+const gotTheLock = app.requestSingleInstanceLock();
 
 let finishedInitialization = false;
 
 if ( gotTheLock && ! isInInstaller ) {
-	if ( isCLI() ) {
-		void processCLICommand( { mainInstance: true, appBoot } );
-	} else {
-		void appBoot();
-	}
+	void appBoot();
 } else if ( ! gotTheLock ) {
-	if ( isCLI() ) {
-		void processCLICommand( { mainInstance: false } );
-	} else {
-		app.quit();
-	}
+	app.quit();
 }
 
 async function setupSentryUserId() {
@@ -305,12 +291,10 @@ async function appBoot() {
 
 		await migrateAllDatabasesInSitu();
 
+		await renameLaunchUniquesStat();
+
 		createMainWindow();
 		await startUserDataWatcher();
-
-		// Handle CLI commands
-		listenCLICommands();
-		void executeCLICommand();
 
 		const userData = await loadUserData();
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available

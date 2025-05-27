@@ -16,13 +16,15 @@ import {
 	PushStateProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getHostnameFromUrl } from 'src/lib/url-utils';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { ImportResponse } from 'src/hooks/use-sync-states-progress-info';
 
 export type SyncPushState = {
 	remoteSiteId: number;
 	status: PushStateProgressInfo;
 	selectedSite: SiteDetails;
-	isStaging: boolean;
+	remoteSiteUrl: string;
 };
 
 export type PushStates = Record< string, SyncPushState >;
@@ -57,8 +59,14 @@ export function useSyncPush( {
 		getState: getPushState,
 		clearState,
 	} = usePullPushStates< SyncPushState >( pushStates, setPushStates );
-	const { pushStatesProgressInfo, isKeyPushing, isKeyFinished, isKeyFailed } =
-		useSyncStatesProgressInfo();
+	const {
+		pushStatesProgressInfo,
+		isKeyPushing,
+		isKeyImporting,
+		isKeyFinished,
+		isKeyFailed,
+		getPushStatusWithProgress,
+	} = useSyncStatesProgressInfo();
 
 	const updatePushState = useCallback< UpdateState< SyncPushState > >(
 		( selectedSiteId, remoteSiteId, state ) => {
@@ -88,24 +96,24 @@ export function useSyncPush( {
 				return;
 			}
 
-			const response = await client.req.get< {
-				status: 'finished' | 'failed' | 'initial_backup_started' | 'archive_import_started';
-				success: boolean;
-				error?: string;
-			} >( {
-				path: `/sites/${ remoteSiteId }/studio-app/sync/import`,
-				apiNamespace: 'wpcom/v2',
-			} );
+			const response = await client.req.get< ImportResponse >(
+				`/sites/${ remoteSiteId }/studio-app/sync/import`,
+				{
+					apiNamespace: 'wpcom/v2',
+				}
+			);
 
-			let status: PushStateProgressInfo = pushStatesProgressInfo.importing;
+			let status: PushStateProgressInfo = pushStatesProgressInfo.creatingRemoteBackup;
 			if ( response.success && response.status === 'finished' ) {
 				status = pushStatesProgressInfo.finished;
 				onPushSuccess?.( remoteSiteId, syncPushState.selectedSite.id );
 				getIpcApi().showNotification( {
 					title: syncPushState.selectedSite.name,
-					body: syncPushState.isStaging
-						? __( 'Staging has been updated' )
-						: __( 'Production has been updated' ),
+					body: sprintf(
+						// translators: %s is the site url without the protocol.
+						__( '%s has been updated' ),
+						getHostnameFromUrl( syncPushState.remoteSiteUrl )
+					),
 				} );
 			} else if ( response.success && response.status === 'failed' ) {
 				status = pushStatesProgressInfo.failed;
@@ -121,7 +129,12 @@ export function useSyncPush( {
 							  ),
 					showOpenLogs: true,
 				} );
+			} else if ( response.success && response.status === 'archive_import_started' ) {
+				status = pushStatesProgressInfo.applyingChanges;
+			} else if ( response.success && response.status === 'archive_import_finished' ) {
+				status = pushStatesProgressInfo.finishing;
 			}
+			status = getPushStatusWithProgress( status, response );
 			// Update state in any case to keep polling push state
 			updatePushState( syncPushState.selectedSite.id, syncPushState.remoteSiteId, {
 				status,
@@ -130,10 +143,13 @@ export function useSyncPush( {
 		[
 			__,
 			client,
+			getPushStatusWithProgress,
 			onPushSuccess,
+			pushStatesProgressInfo.applyingChanges,
+			pushStatesProgressInfo.creatingRemoteBackup,
+			pushStatesProgressInfo.finishing,
 			pushStatesProgressInfo.failed,
 			pushStatesProgressInfo.finished,
-			pushStatesProgressInfo.importing,
 			updatePushState,
 		]
 	);
@@ -160,11 +176,12 @@ export function useSyncPush( {
 				return;
 			}
 			const remoteSiteId = connectedSite.id;
+			const remoteSiteUrl = connectedSite.url;
 			updatePushState( selectedSite.id, remoteSiteId, {
 				remoteSiteId,
 				status: pushStatesProgressInfo.creatingBackup,
 				selectedSite,
-				isStaging: connectedSite.isStaging,
+				remoteSiteUrl,
 			} );
 
 			let archiveContent, archivePath, archiveSizeInBytes;
@@ -210,14 +227,16 @@ export function useSyncPush( {
 			} );
 			const formData = [ [ 'import', file ] ];
 			try {
-				const response = await client.req.post( {
+				const response = await client.req.post< {
+					success: boolean;
+				} >( {
 					path: `/sites/${ remoteSiteId }/studio-app/sync/import`,
 					apiNamespace: 'wpcom/v2',
 					formData,
 				} );
 				if ( response.success ) {
 					updatePushState( selectedSite.id, remoteSiteId, {
-						status: pushStatesProgressInfo.importing,
+						status: pushStatesProgressInfo.creatingRemoteBackup,
 					} );
 				} else {
 					console.error( response );
@@ -243,7 +262,7 @@ export function useSyncPush( {
 		const intervals: Record< string, NodeJS.Timeout > = {};
 
 		Object.entries( pushStates ).forEach( ( [ key, state ] ) => {
-			if ( state.status.key === pushStatesProgressInfo.importing.key ) {
+			if ( isKeyImporting( state.status.key ) ) {
 				intervals[ key ] = setTimeout( () => {
 					void getPushProgressInfo( state.remoteSiteId, state );
 				}, 2000 );
@@ -253,7 +272,13 @@ export function useSyncPush( {
 		return () => {
 			Object.values( intervals ).forEach( clearTimeout );
 		};
-	}, [ pushStates, getPushProgressInfo, pushStatesProgressInfo.importing.key ] );
+	}, [
+		pushStates,
+		getPushProgressInfo,
+		pushStatesProgressInfo.creatingBackup.key,
+		pushStatesProgressInfo.applyingChanges.key,
+		isKeyImporting,
+	] );
 
 	const isAnySitePushing = useMemo< boolean >( () => {
 		return Object.values( pushStates ).some( ( state ) => isKeyPushing( state.status.key ) );

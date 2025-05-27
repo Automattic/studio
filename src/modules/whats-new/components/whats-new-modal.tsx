@@ -12,7 +12,6 @@ import preferredAppsIllustration from 'src/modules/whats-new/assets/preferred-ap
 import pressableSyncIllustration from 'src/modules/whats-new/assets/pressable-sync-illustration.svg';
 import previewSitesIllustration from 'src/modules/whats-new/assets/preview-sites-illustration.svg';
 import versionSwitchIllustration from 'src/modules/whats-new/assets/version-switch-illustration.svg';
-import 'src/index.css';
 
 interface WhatsNewPage {
 	image: string;

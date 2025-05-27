@@ -68,15 +68,11 @@ const installPath = async () => {
 };
 
 /**
- * Our app is installed in a versioned directory, so the
- * full path changes with every update. This makes it unreliable to add the
- * executable directly to the system PATH — we'd also need to handle cleaning up
- * outdated entries manually.
+ * Creates a proxy batch file in a stable location to handle CLI execution.
  *
- * To solve this, we generate a fixed entry point (a proxy script) in a
- * stable location within AppData, outside the versioned folder. This script
- * simply forwards execution to the current version’s actual CLI entry point.
- * On update, we just rewrite the proxy to point to the new version.
+ * Since our app is installed in a versioned directory, the full path changes with each update.
+ * Instead of adding the versioned executable directly to PATH, we create a fixed proxy script
+ * in the AppData directory that forwards execution to the current version's CLI entry point.
  */
 const installProxyBatFile = async () => {
 	try {

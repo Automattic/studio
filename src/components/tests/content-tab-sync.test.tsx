@@ -28,12 +28,12 @@ const selectedSite: SiteDetails = {
 const inProgressPushState: SyncPushState = {
 	remoteSiteId: 1,
 	status: {
-		key: 'importing',
+		key: 'creatingRemoteBackup',
 		progress: 50,
 		message: '',
 	},
 	selectedSite,
-	isStaging: false,
+	remoteSiteUrl: 'https://example.com',
 };
 
 describe( 'ContentTabSync', () => {
@@ -77,7 +77,7 @@ describe( 'ContentTabSync', () => {
 
 	it( 'renders the sync title and login buttons', () => {
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		expect( screen.getByText( 'Sync with' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Sync with WordPress.com or Pressable' ) ).toBeInTheDocument();
 
 		const loginButton = screen.getByRole( 'button', { name: /Log in to WordPress.com/i } );
 		expect( loginButton ).toBeInTheDocument();
@@ -300,7 +300,7 @@ describe( 'ContentTabSync', () => {
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const connectButton = screen.getByRole( 'button', { name: /Connect site/i } );
+		const connectButton = screen.getByRole( 'button', { name: /Connect another site/i } );
 		expect( connectButton ).toBeInTheDocument();
 	} );
 
@@ -364,5 +364,31 @@ describe( 'ContentTabSync', () => {
 		expect( screen.getByText( 'Production' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Staging' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Sandbox' ) ).toBeInTheDocument();
+	} );
+	it( 'displays the progress bar when the site is being pushed', () => {
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
+		const fakeSyncSite = {
+			id: 6,
+			name: 'My simple business site that needs a transfer',
+			url: 'https:/developer.wordpress.com/studio/',
+			syncSupport: 'already-connected',
+		};
+		( useSyncSites as jest.Mock ).mockReturnValue( {
+			connectedSites: [ fakeSyncSite ],
+			syncSites: [ fakeSyncSite ],
+			pullSite: jest.fn(),
+			isAnySitePulling: false,
+			isAnySitePushing: false,
+			getPullState: jest.fn(),
+			getPushState: jest.fn().mockReturnValue( inProgressPushState ),
+			refetchSites: jest.fn(),
+			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
+			isSiteIdPulling: jest.fn(),
+			isSiteIdPushing: jest.fn().mockReturnValue( true ),
+			clearTimeout: jest.fn(),
+		} );
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+		expect( screen.getByRole( 'progressbar' ) ).toBeInTheDocument();
 	} );
 } );

@@ -3,6 +3,7 @@ import os from 'os';
 import path from 'path';
 import { readFile, writeFile } from 'atomically';
 import { arePathsEqual } from 'common/lib/fs-utils';
+import { StatsMetric } from 'common/types/stats';
 import {
 	readAppdata,
 	getAuthToken,
@@ -64,6 +65,25 @@ describe( 'Appdata Module', () => {
 						date: 1234567,
 					},
 				],
+			};
+
+			( readFile as jest.Mock ).mockResolvedValueOnce( JSON.stringify( mockUserData ) );
+
+			const result = await readAppdata();
+			expect( result ).toEqual( mockUserData );
+		} );
+
+		it( 'should correctly validate lastBumpStats with local-environment-launch-uniques key', async () => {
+			const mockUserData = {
+				version: 1,
+				newSites: [],
+				sites: [],
+				snapshots: [],
+				lastBumpStats: {
+					'local-environment-launch-uniques': {
+						[ StatsMetric.DARWIN ]: 5,
+					},
+				},
 			};
 
 			( readFile as jest.Mock ).mockResolvedValueOnce( JSON.stringify( mockUserData ) );

@@ -12,6 +12,7 @@ interface ConnectButtonProps {
 	connectSite?: () => void;
 	disableConnectButtonStyle?: boolean;
 	className?: string;
+	children?: React.ReactNode;
 }
 
 interface CreateButtonProps {
@@ -26,6 +27,7 @@ export const ConnectButton = ( {
 	connectSite,
 	disableConnectButtonStyle,
 	className,
+	children,
 }: ConnectButtonProps ) => {
 	const isOffline = useOffline();
 	return (
@@ -45,7 +47,7 @@ export const ConnectButton = ( {
 					className
 				) }
 			>
-				{ __( 'Connect site' ) }
+				{ children }
 			</Button>
 		</Tooltip>
 	);

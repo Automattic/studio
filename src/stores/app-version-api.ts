@@ -50,7 +50,7 @@ export const selectIsNewVersion = createSelector(
 		( res: GetLastSeenVersionQueryResult, currentVersion: string ) => currentVersion,
 	],
 	( lastSeenVersion, currentVersion ) => {
-		const forceNewVersion = true;
+		const forceNewVersion = false;
 
 		if ( currentVersion === lastSeenVersion ) {
 			return false;

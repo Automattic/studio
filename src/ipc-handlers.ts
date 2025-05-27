@@ -63,7 +63,7 @@ import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-setting
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
-import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
+import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
@@ -841,7 +841,6 @@ export function getAppGlobals(): AppGlobals {
 		appName: app.name,
 		appVersion: app.getVersion(),
 		arm64Translation: app.runningUnderARM64Translation,
-		terminalWpCliEnabled: process.env.STUDIO_TERMINAL_WP_CLI === 'true',
 	};
 }
 
@@ -993,81 +992,34 @@ function promiseExec( command: string, options: ExecOptions = {} ): Promise< voi
 	} );
 }
 
-export async function openTerminalAtPath(
-	_event: IpcMainInvokeEvent,
-	targetPath: string,
-	{ wpCliEnabled }: { wpCliEnabled?: boolean } = {}
-) {
+export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: string ) {
 	const platform = process.platform;
-	const cliPath = nodePath.join( getResourcesPath(), 'bin' );
-	const exePath = app.getPath( 'exe' );
-	const appDirectory = app.getAppPath();
-	const appPath = ! app.isPackaged ? `${ exePath } ${ appDirectory }` : exePath;
+
+	const preferredTerminal = await getUserTerminal();
 
 	if ( platform === 'darwin' ) {
-		const initScriptSteps = [];
-
-		if ( wpCliEnabled ) {
-			initScriptSteps.push(
-				`export PATH=\\"${ cliPath }\\":$PATH`,
-				`export STUDIO_APP_PATH=\\"${ appPath }\\"`
-			);
-		}
-
 		const escapedPath = targetPath.replace( /"/g, '\\"' );
-		initScriptSteps.push( `cd \\"${ escapedPath }\\"`, 'clear' );
-
-		const userData = await loadUserData();
-		const preferredTerminal = userData.preferredTerminal || DEFAULT_TERMINAL;
-
-		if ( preferredTerminal === 'warp' ) {
-			return promiseExec( `open -a Warp "${ targetPath }"` );
-		} else if ( preferredTerminal === 'ghostty' ) {
-			return promiseExec( `open -a Ghostty "${ targetPath }"` );
-		} else if ( preferredTerminal === 'iterm' ) {
-			return promiseExec( `osascript << END
-tell application "iTerm"
-    activate
-    create window with default profile
-    tell current session of current window
-        write text "${ initScriptSteps.join( ';' ) }"
-    end tell
-end tell
-END` );
-		} else {
-			return promiseExec( `osascript << END
-activate application "Terminal"
-tell application "Terminal"
-    do script "${ initScriptSteps.join( ';' ) }"
-end tell
-END` );
-		}
+		const bundleIds = {
+			warp: 'dev.warp.Warp-Stable',
+			ghostty: 'com.mitchellh.ghostty',
+			iterm: 'com.googlecode.iterm2',
+			terminal: 'com.apple.Terminal',
+		};
+		return promiseExec( `open -b ${ bundleIds[ preferredTerminal ] } "${ escapedPath }"` );
 	} else if ( platform === 'win32' ) {
 		const userData = await loadUserData();
 		const preferredTerminal = userData.preferredTerminal;
 		const defaultShell = process.env.ComSpec || 'cmd.exe';
-		const env = wpCliEnabled
-			? { PATH: `${ cliPath };${ process.env.PATH }`, STUDIO_APP_PATH: appPath }
-			: {};
 
-		if ( preferredTerminal === ( 'warp' as SupportedTerminal ) ) {
+		if ( preferredTerminal === 'warp' ) {
 			const encodedPath = encodeURIComponent( targetPath );
-			return promiseExec( `start "" "warp://action/new_tab?path=${ encodedPath }"`, {
-				env: { ...process.env, ...env },
-			} );
+			return promiseExec( `start "" "warp://action/new_tab?path=${ encodedPath }"` );
 		}
 
 		return promiseExec( `start "Command Prompt" ${ defaultShell }`, {
 			cwd: targetPath,
-			env: { ...process.env, ...env },
 		} );
 	} else if ( platform === 'linux' ) {
-		if ( wpCliEnabled ) {
-			return promiseExec(
-				`export PATH=${ cliPath }:$PATH && export STUDIO_APP_PATH="${ appPath }" && gnome-terminal -- bash -c 'cd ${ targetPath }; exec bash'`
-			);
-		}
-
 		return promiseExec( `gnome-terminal --working-directory=${ targetPath }` );
 	} else {
 		console.error( 'Unsupported platform:', platform );
@@ -1358,7 +1310,7 @@ export async function saveUserTerminal(
 	await sendIpcEventToRenderer( 'user-preference-changed' );
 }
 
-export async function getUserTerminal( _event: IpcMainInvokeEvent ): Promise< SupportedTerminal > {
+export async function getUserTerminal(): Promise< SupportedTerminal > {
 	const userData = await loadUserData();
 	return userData.preferredTerminal || DEFAULT_TERMINAL;
 }

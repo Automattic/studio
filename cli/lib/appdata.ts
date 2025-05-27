@@ -175,6 +175,7 @@ const createNewSite = async ( siteFolder: string ): Promise< z.infer< typeof sit
 		const userData = await readAppdata();
 		const site = getNewSitePartial( siteFolder );
 		userData.newSites.push( site );
+		await saveAppdata( userData );
 		return site;
 	} finally {
 		await unlockAppdata();

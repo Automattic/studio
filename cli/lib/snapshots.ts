@@ -81,9 +81,9 @@ export async function saveSnapshotToAppdata(
 	previewUrl: string
 ): Promise< Snapshot > {
 	try {
+		const site = await getOrCreateSiteByFolder( siteFolder );
 		await lockAppdata();
 		const userData = await readAppdata();
-		const site = await getOrCreateSiteByFolder( siteFolder );
 		const authToken = await getAuthToken();
 
 		const nextSequenceNumber = getNextSequenceNumber( site.id, userData.snapshots, authToken.id );
@@ -106,7 +106,7 @@ export async function saveSnapshotToAppdata(
 		await saveAppdata( userData );
 		return snapshot;
 	} finally {
-		// await unlockAppdata(); // Commented out to test lockfile mechanism
+		await unlockAppdata();
 	}
 }
 

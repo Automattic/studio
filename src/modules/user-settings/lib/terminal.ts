@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import { isWindows } from 'src/lib/app-globals';
 
 export type SupportedTerminal = 'terminal' | 'iterm' | 'warp' | 'ghostty';
 
@@ -15,6 +16,11 @@ export const supportedTerminalNames: Record< SupportedTerminal, string > = {
 export function getTerminalName( terminal: SupportedTerminal | undefined ): string {
 	if ( ! terminal ) {
 		return '';
+	}
+
+	// translators: "Command Prompt" is the name of the terminal app on Windows.
+	if ( 'terminal' === terminal && isWindows() ) {
+		return __( 'Command Prompt' );
 	}
 
 	return supportedTerminalNames[ terminal ];

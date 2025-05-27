@@ -46,7 +46,7 @@ import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-wit
 import { installCLIOnWindows } from 'src/modules/cli/lib/install-windows';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
 import { stopAllServersOnQuit } from 'src/site-server';
-import { loadUserData, withUserDataWrite } from 'src/storage/user-data';
+import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { setupUpdates } from 'src/updates';
 // eslint-disable-next-line import/order
 import packageJson from '../package.json';
@@ -86,16 +86,22 @@ if ( gotTheLock && ! isInInstaller ) {
 	}
 }
 
-const setupSentryUserId = withUserDataWrite( ( userData ) => {
-	if ( ! userData.sentryUserId ) {
-		userData.sentryUserId = crypto.randomUUID();
+async function setupSentryUserId() {
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		if ( ! userData.sentryUserId ) {
+			userData.sentryUserId = crypto.randomUUID();
+		}
+
+		console.log( 'Setting Sentry user ID:', userData.sentryUserId );
+		Sentry.setUser( { id: userData.sentryUserId } );
+
+		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
 	}
-
-	console.log( 'Setting Sentry user ID:', userData.sentryUserId );
-	Sentry.setUser( { id: userData.sentryUserId } );
-
-	return userData;
-} );
+}
 
 // This is a workaround to ensure that the extension background workers are started
 // If you are updating Electron, confirm if this is still needed

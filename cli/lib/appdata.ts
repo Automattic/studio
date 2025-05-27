@@ -4,13 +4,14 @@ import os from 'os';
 import path from 'path';
 import { __, sprintf } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
+import { LOCKFILE_NAME } from 'common/constants';
 import { arePathsEqual } from 'common/lib/fs-utils';
+import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { snapshotSchema } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { z } from 'zod';
 import { validateAccessToken } from 'cli/lib/api';
-import { lockFileAsync, unlockFileAsync } from 'cli/lib/utils';
 import { LoggerError } from 'cli/logger';
 
 const siteSchema = z
@@ -112,7 +113,7 @@ export async function saveAppdata( userData: UserData ): Promise< void > {
 	}
 }
 
-const LOCKFILE_PATH = path.join( getAppdataDirectory(), 'appdata-v1.json.lock' );
+const LOCKFILE_PATH = path.join( getAppdataDirectory(), LOCKFILE_NAME );
 
 export async function lockAppdata(): Promise< void > {
 	await lockFileAsync( LOCKFILE_PATH, { wait: 1000, stale: 1000 } );

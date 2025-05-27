@@ -4,7 +4,8 @@ import nodePath from 'node:path';
 import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/main';
 import { readFile, writeFile } from 'atomically';
-import lockfile from 'lockfile';
+import { LOCKFILE_NAME } from 'common/constants';
+import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
 import { isErrnoException } from 'src/lib/is-errno-exception';
 import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for-logging';
 import { sortSites } from 'src/lib/sort-sites';
@@ -100,55 +101,20 @@ export async function loadUserData(): Promise< UserData > {
 	}
 }
 
-async function saveUserData( data: UserData ): Promise< void > {
+export async function saveUserData( data: UserData ): Promise< void > {
 	const filePath = getUserDataFilePath();
 	const asString = JSON.stringify( toDiskFormat( data ), null, 2 ) + '\n';
 	await writeFile( filePath, asString, 'utf-8' );
 }
 
-const LOCKFILE_PATH = nodePath.join( getResourcesPath(), 'appdata-v1.lock' );
+const LOCKFILE_PATH = nodePath.join( getResourcesPath(), LOCKFILE_NAME );
 
-function lock( options: lockfile.Options ) {
-	return new Promise< void >( ( resolve, reject ) => {
-		lockfile.lock( LOCKFILE_PATH, options, ( err ) => {
-			if ( err ) {
-				reject( err );
-			} else {
-				resolve();
-			}
-		} );
-	} );
+export async function lockAppdata() {
+	return lockFileAsync( LOCKFILE_PATH, { wait: 1000, stale: 1000 } );
 }
 
-function unlock() {
-	return new Promise< void >( ( resolve, reject ) => {
-		lockfile.unlock( LOCKFILE_PATH, ( err ) => {
-			if ( err ) {
-				reject( err );
-			} else {
-				resolve();
-			}
-		} );
-	} );
-}
-
-// Higher-order function that injects a parsed instance of the user config file and writes back
-// the return value. The purpose of this function is to avoid concurrent reads and writes to the
-// user config file. We ensure this by acquiring a lock on the file before reading or writing it.
-export function withUserDataWrite< Args extends unknown[] >(
-	fn: ( userData: UserData, ...args: Args ) => UserData | Promise< UserData >
-) {
-	return async ( ...args: Args ) => {
-		await lock( { wait: 1000, stale: 1000 } );
-		try {
-			const data = await loadUserData();
-			const updated = await fn( data, ...args );
-			await saveUserData( updated );
-			return updated;
-		} finally {
-			await unlock();
-		}
-	};
+export async function unlockAppdata() {
+	return unlockFileAsync( LOCKFILE_PATH );
 }
 
 type UserDataSafeKeys =
@@ -166,11 +132,18 @@ type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafe
 
 // Sometimes, we need to update the config file with a known value (i.e., not one that's derived
 // from the current user config). This function should be used in those cases.
-export const updateAppdata = withUserDataWrite(
-	async ( userData, update: PartialUserDataWithSafeKeysToUpdate ) => {
-		return { ...userData, ...update };
+export async function updateAppdata(
+	update: PartialUserDataWithSafeKeysToUpdate
+): Promise< void > {
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const updated = { ...userData, ...update };
+		await saveUserData( updated );
+	} finally {
+		await unlockAppdata();
 	}
-);
+}
 
 function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 	return {

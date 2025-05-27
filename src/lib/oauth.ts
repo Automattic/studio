@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { CLIENT_ID } from 'common/constants';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { loadUserData, withUserDataWrite } from 'src/storage/user-data';
+import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 const authTokenSchema = z.object( {
 	accessToken: z.string(),
@@ -32,18 +32,18 @@ async function getToken(): Promise< StoredToken | null > {
 	}
 }
 
-const storeToken = withUserDataWrite( ( userData, token: StoredToken ) => {
-	return { ...userData, authToken: token };
-} );
+async function storeToken( token: StoredToken ) {
+	await updateAppdata( { authToken: token } );
+}
 
 export function getSignUpUrl() {
 	const authUrl = encodeURIComponent( getAuthenticationUrl() );
 	return `https://wordpress.com/log-in/link?redirect_to=${ authUrl }&client_id=${ CLIENT_ID }`;
 }
 
-export const clearAuthenticationToken = withUserDataWrite( ( userData ) => {
-	return { ...userData, authToken: undefined };
-} );
+export async function clearAuthenticationToken() {
+	await updateAppdata( { authToken: undefined } );
+}
 
 export async function getAuthenticationToken(): Promise< StoredToken | null > {
 	// Check if tokens already exist and are valid

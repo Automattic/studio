@@ -8,7 +8,6 @@ import { arePathsEqual } from 'common/lib/fs-utils';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { snapshotSchema } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
-import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { z } from 'zod';
 import { validateAccessToken } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';

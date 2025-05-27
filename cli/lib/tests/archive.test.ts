@@ -1,9 +1,11 @@
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import path from 'path';
 import archiver from 'archiver';
 import { createArchive, cleanup } from 'cli/lib/archive';
 
 jest.mock( 'fs' );
+jest.mock( 'fs/promises' );
 jest.mock( 'path' );
 jest.mock( 'archiver' );
 
@@ -12,6 +14,26 @@ describe( 'Archive Module', () => {
 	const mockArchivePath = '/mock/archive.zip';
 	const mockWpContentPath = '/mock/site/folder/wp-content';
 	const mockWpConfigPath = '/mock/site/folder/wp-config.php';
+	const mockDirectoryContents = [
+		{
+			name: 'wp-content',
+			parentPath: mockSiteFolder,
+			isSymbolicLink: jest.fn().mockReturnValue( false ),
+			isFile: jest.fn().mockReturnValue( false ),
+		},
+		{
+			name: 'symlink-folder',
+			parentPath: mockSiteFolder,
+			isSymbolicLink: jest.fn().mockReturnValue( true ),
+			isFile: jest.fn().mockReturnValue( false ),
+		},
+		{
+			name: 'regular-file.txt',
+			parentPath: mockSiteFolder,
+			isSymbolicLink: jest.fn().mockReturnValue( false ),
+			isFile: jest.fn().mockReturnValue( true ),
+		},
+	];
 
 	const mockArchiver = {
 		pipe: jest.fn(),
@@ -28,8 +50,13 @@ describe( 'Archive Module', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
 		( archiver as unknown as jest.Mock ).mockReturnValue( mockArchiver );
-		( fs.createWriteStream as jest.Mock ).mockReturnValue( mockWriteStream );
-		( path.join as jest.Mock ).mockImplementation( ( ...args ) => args.join( '/' ) );
+		( fs.createWriteStream as unknown as jest.Mock ).mockReturnValue( mockWriteStream );
+		( fsPromises.readdir as unknown as jest.Mock ).mockResolvedValue( mockDirectoryContents );
+		( path.join as unknown as jest.Mock ).mockImplementation( ( ...args ) => args.join( '/' ) );
+		( fs.realpathSync as unknown as jest.Mock ).mockReturnValue( mockWpContentPath );
+		( fs.statSync as unknown as jest.Mock ).mockReturnValue( {
+			isDirectory: () => true,
+		} );
 	} );
 
 	describe( 'createArchive', () => {
@@ -50,17 +77,37 @@ describe( 'Archive Module', () => {
 			expect( fs.createWriteStream ).toHaveBeenCalledWith( mockArchivePath );
 			expect( archiver ).toHaveBeenCalledWith( 'zip', { zlib: { level: 9 } } );
 			expect( mockArchiver.pipe ).toHaveBeenCalledWith( mockWriteStream );
+			expect( fsPromises.readdir ).toHaveBeenCalledWith( mockWpContentPath, {
+				recursive: true,
+				withFileTypes: true,
+			} );
 			expect( path.join ).toHaveBeenCalledWith( mockSiteFolder, 'wp-content' );
-			expect( mockArchiver.directory ).toHaveBeenCalledWith(
-				mockWpContentPath,
-				'wp-content',
-				expect.any( Function )
-			);
-			expect( path.join ).toHaveBeenCalledWith( mockSiteFolder, 'wp-config.php' );
-			expect( fs.existsSync ).toHaveBeenCalledWith( mockWpConfigPath );
-			expect( mockArchiver.file ).not.toHaveBeenCalled();
+			expect( mockArchiver.directory ).toHaveBeenCalled();
+			expect( mockArchiver.file ).toHaveBeenCalled();
 			expect( mockArchiver.finalize ).toHaveBeenCalled();
 			expect( result ).toBe( mockArchiver );
+		} );
+
+		it( 'should handle symbolic links correctly', async () => {
+			( fs.existsSync as jest.Mock ).mockReturnValue( false );
+			( fs.statSync as unknown as jest.Mock ).mockReturnValue( {
+				isDirectory: () => true,
+			} );
+
+			mockWriteStream.on.mockImplementation( ( event, callback ) => {
+				if ( event === 'close' ) {
+					setTimeout( () => callback(), 0 );
+				}
+				return mockWriteStream;
+			} );
+
+			mockArchiver.on.mockImplementation( () => mockArchiver );
+
+			await createArchive( mockSiteFolder, mockArchivePath );
+
+			expect( fs.realpathSync ).toHaveBeenCalled();
+			expect( fs.statSync ).toHaveBeenCalled();
+			expect( mockArchiver.directory ).toHaveBeenCalled();
 		} );
 
 		it( 'should include wp-config.php if it exists', async () => {

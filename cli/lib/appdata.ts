@@ -101,18 +101,29 @@ export async function readAppdata(): Promise< UserData > {
 	}
 }
 
-export async function saveAppdata( userData: UserData ): Promise< void > {
+type CallbackUpdateUserData = ( userData: UserData ) => UserData;
+
+export async function saveAppdata( cb: CallbackUpdateUserData ): Promise< UserData > {
 	try {
-		if ( ! userData.version ) {
-			userData.version = 1;
+		await lockAppdata();
+		const currentUserData = await readAppdata();
+
+		const newUserData = cb( currentUserData );
+
+		if ( ! newUserData.version ) {
+			newUserData.version = 1;
 		}
 
 		const appDataPath = getAppdataPath();
-		const fileContent = JSON.stringify( userData, null, 2 ) + '\n';
+		const fileContent = JSON.stringify( newUserData, null, 2 ) + '\n';
 
 		await writeFile( appDataPath, fileContent, { encoding: 'utf8' } );
+
+		return newUserData;
 	} catch ( error ) {
 		throw new LoggerError( __( 'Failed to save Studio config file' ), error );
+	} finally {
+		await unlockAppdata();
 	}
 }
 

@@ -16,8 +16,6 @@ import {
 	getSiteByFolder,
 	readAppdata,
 	getOrCreateSiteByFolder,
-	lockAppdata,
-	unlockAppdata,
 	saveAppdata,
 } from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
@@ -42,11 +40,10 @@ export async function updateSnapshotInAppdata(
 	atomicSiteId: number,
 	siteFolder: string
 ): Promise< Snapshot > {
-	try {
-		const site = await getOrCreateSiteByFolder( siteFolder );
-		await lockAppdata();
-		const userData = await readAppdata();
-		const snapshot = userData.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
+	const site = await getOrCreateSiteByFolder( siteFolder );
+
+	const newUserData = await saveAppdata( ( currentUserData ) => {
+		const snapshot = currentUserData.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
 		if ( ! snapshot ) {
 			throw new LoggerError( __( 'Failed to find existing preview site in appdata' ) );
 		}
@@ -54,11 +51,16 @@ export async function updateSnapshotInAppdata(
 		snapshot.localSiteId = site.id;
 		snapshot.date = Date.now();
 
-		await saveAppdata( userData );
-		return snapshot;
-	} finally {
-		await unlockAppdata();
+		return currentUserData;
+	} );
+
+	const snapshot = newUserData.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
+
+	if ( ! snapshot ) {
+		throw new LoggerError( __( 'Failed to find existing preview site in appdata' ) );
 	}
+
+	return snapshot;
 }
 
 const getNextSequenceNumber = ( siteId: string, snapshots: Snapshot[], userId: number ): number => {
@@ -80,14 +82,19 @@ export async function saveSnapshotToAppdata(
 	atomicSiteId: number,
 	previewUrl: string
 ): Promise< Snapshot > {
-	try {
-		const site = await getOrCreateSiteByFolder( siteFolder );
-		await lockAppdata();
-		const userData = await readAppdata();
-		const authToken = await getAuthToken();
+	const site = await getOrCreateSiteByFolder( siteFolder );
+	const authToken = await getAuthToken();
 
-		const nextSequenceNumber = getNextSequenceNumber( site.id, userData.snapshots, authToken.id );
-		const snapshot: Snapshot = {
+	let newSnapshot: Snapshot | undefined;
+
+	await saveAppdata( ( currentUserData ) => {
+		const nextSequenceNumber = getNextSequenceNumber(
+			site.id,
+			currentUserData.snapshots,
+			authToken.id
+		);
+
+		newSnapshot = {
 			url: previewUrl,
 			atomicSiteId,
 			localSiteId: site.id,
@@ -102,27 +109,28 @@ export async function saveSnapshotToAppdata(
 			userId: authToken.id,
 		};
 
-		userData.snapshots.push( snapshot );
-		await saveAppdata( userData );
-		return snapshot;
-	} finally {
-		await unlockAppdata();
+		currentUserData.snapshots.push( newSnapshot );
+
+		return currentUserData;
+	} );
+
+	if ( ! newSnapshot ) {
+		throw new LoggerError( __( 'Failed to find currently created preview site in appdata' ) );
 	}
+
+	return newSnapshot;
 }
 
 export async function deleteSnapshotFromAppdata( snapshotUrl: string ) {
-	try {
-		await lockAppdata();
-		const userData = await readAppdata();
-		const snapshotIndex = userData.snapshots.findIndex( ( s ) => s.url === snapshotUrl );
-		if ( snapshotIndex === -1 ) {
-			return;
+	await saveAppdata( ( currentUserData ) => {
+		const snapshotIndex = currentUserData.snapshots.findIndex( ( s ) => s.url === snapshotUrl );
+
+		if ( snapshotIndex !== -1 ) {
+			currentUserData.snapshots.splice( snapshotIndex, 1 );
 		}
-		userData.snapshots.splice( snapshotIndex, 1 );
-		await saveAppdata( userData );
-	} finally {
-		await unlockAppdata();
-	}
+
+		return currentUserData;
+	} );
 }
 
 export function isSnapshotExpired( snapshot: Snapshot ) {

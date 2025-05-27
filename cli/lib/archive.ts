@@ -12,7 +12,10 @@ export async function createArchive(
 	archivePath: string
 ): Promise< archiver.Archiver > {
 	const wpContentFolder = path.join( siteFolder, 'wp-content' );
-	const symlinks = await getSymlinks( wpContentFolder );
+	const directoryContents = await fsPromises.readdir( wpContentFolder, {
+		recursive: true,
+		withFileTypes: true,
+	} );
 
 	return new Promise( ( resolve, reject ) => {
 		const output = fs.createWriteStream( archivePath );
@@ -28,36 +31,32 @@ export async function createArchive(
 		} );
 
 		archive.pipe( output );
-		archive.directory(
-			path.join( siteFolder, 'wp-content' ),
-			'wp-content',
-			( entry: EntryData ) => {
-				if ( shouldExcludeEntry( entry.name ) ) {
-					return false;
-				}
-				if ( entry.stats?.isSymbolicLink() ) {
-					return false;
-				}
 
-				return entry;
+		for ( const dirEnt of directoryContents ) {
+			const filePath = path.join( dirEnt.parentPath, dirEnt.name );
+			if ( shouldExcludeEntry( filePath ) ) {
+				continue;
 			}
-		);
 
-		for ( const symlink of symlinks ) {
-			const { symbolicPath, realPath } = symlink;
-			const archivePath = path.relative( siteFolder, symbolicPath );
-			if ( symlink.isDirectory ) {
-				archive.directory( realPath, archivePath, ( entry: EntryData ) => {
-					if ( shouldExcludeEntry( entry.name ) ) {
-						return false;
-					}
-					return entry;
-				} );
-			} else {
-				archive.file( realPath, { name: archivePath } );
+			const archivePath = path.relative( siteFolder, filePath );
+			if ( dirEnt.isSymbolicLink() ) {
+				const realPath = fs.realpathSync( filePath );
+				const stat = fs.statSync( realPath );
+				const isDirectory = stat.isDirectory();
+				if ( isDirectory ) {
+					archive.directory( realPath, archivePath, ( entry: EntryData ) => {
+						if ( shouldExcludeEntry( realPath ) ) {
+							return false;
+						}
+						return entry;
+					} );
+				} else {
+					archive.file( realPath, { name: archivePath } );
+				}
+			} else if ( dirEnt.isFile() ) {
+				archive.file( filePath, { name: archivePath } );
 			}
 		}
-
 		const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
 		if ( fs.existsSync( wpConfigPath ) ) {
 			archive.file( wpConfigPath, { name: 'wp-config.php' } );
@@ -77,35 +76,6 @@ export async function cleanup( archivePath: string ): Promise< void > {
 			resolve();
 		}, 0 );
 	} );
-}
-
-async function getSymlinks(
-	dir: string
-): Promise< { isDirectory: boolean; symbolicPath: string; realPath: string }[] > {
-	const files = await fs.promises.readdir( dir );
-	const results = await Promise.all(
-		files.map( async ( file ) => {
-			const filePath = path.join( dir, file );
-			// Using lstat to use isSymbolicLink method, see https://nodejs.org/api/fs.html#statsissymboliclink
-			const stats = await fs.promises.lstat( filePath );
-			if ( shouldExcludeEntry( file ) ) {
-				return [];
-			}
-
-			if ( stats.isSymbolicLink() ) {
-				const realPath = await fsPromises.realpath( filePath );
-				const realPathStats = await fsPromises.stat( realPath );
-				return [ { isDirectory: realPathStats.isDirectory(), symbolicPath: filePath, realPath } ];
-			}
-
-			if ( stats.isDirectory() ) {
-				return await getSymlinks( filePath );
-			}
-			// Regular file
-			return [];
-		} )
-	);
-	return results.flat();
 }
 
 function shouldExcludeEntry( entryName: string ): boolean {

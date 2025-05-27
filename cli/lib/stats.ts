@@ -1,7 +1,7 @@
 import { AggregateInterval, StatsGroup, StatsMetric } from 'common/types/stats';
 import { isSameDay, isSameMonth, isSameWeek } from 'date-fns';
 import fetch from 'node-fetch';
-import { readAppdata, saveAppdata } from 'cli/lib/appdata';
+import { lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
 
 // Bumps a stat if it hasn't been bumped within the current aggregate interval.
 // This allows us to approximate a 1-count-per-user stat without recording which
@@ -70,9 +70,14 @@ async function getLastBump( group: StatsGroup, stat: StatsMetric ): Promise< num
 
 // Store this moment as the last time we bumped the state, in UTC time.
 async function updateLastBump( group: StatsGroup, stat: StatsMetric ) {
-	const userData = await readAppdata();
-	userData.lastBumpStats ??= {};
-	userData.lastBumpStats[ group ] ??= {};
-	( userData.lastBumpStats[ group ] as Record< StatsMetric, number > )[ stat ] = Date.now();
-	await saveAppdata( userData );
+	try {
+		await lockAppdata();
+		const userData = await readAppdata();
+		userData.lastBumpStats ??= {};
+		userData.lastBumpStats[ group ] ??= {};
+		( userData.lastBumpStats[ group ] as Record< StatsMetric, number > )[ stat ] = Date.now();
+		await saveAppdata( userData );
+	} finally {
+		await unlockAppdata();
+	}
 }

@@ -30,13 +30,13 @@
 		"publish": "electron-forge publish",
 		"cli:build": "webpack --config webpack.cli.config.ts",
 		"cli:watch": "webpack --config webpack.cli.config.ts --watch",
-		"lint": "eslint --ext .ts,.tsx,.js,.jsx,.mjs {cli,src}",
+		"lint": "eslint --ext .ts,.tsx,.js,.jsx,.mjs {cli,common,src}",
 		"format": "prettier . --write",
 		"test": "cross-env NODE_OPTIONS='--no-deprecation' jest",
 		"test:watch": "cross-env NODE_OPTIONS='--no-deprecation' jest --watch",
 		"e2e": "npx playwright install && npx playwright test",
 		"test:metrics": "npx playwright test --config=./metrics/playwright.metrics.config.ts",
-		"make-pot": "wp-babel-makepot \"{./src,./cli}/**/*.{js,jsx,ts,tsx}\" --ignore \"**/*.d.ts\" --base \".\" --dir \"./out/pots\" --output \"./out/pots/bundle-strings.pot\""
+		"make-pot": "wp-babel-makepot \"{./src,./cli,./common}/**/*.{js,jsx,ts,tsx}\" --ignore \"**/*.d.ts\" --base \".\" --dir \"./out/pots\" --output \"./out/pots/bundle-strings.pot\""
 	},
 	"devDependencies": {
 		"@automattic/color-studio": "^2.5.0",

@@ -15,25 +15,11 @@ describe( 'Archive Module', () => {
 	const mockWpContentPath = '/mock/site/folder/wp-content';
 	const mockWpConfigPath = '/mock/site/folder/wp-config.php';
 	const mockDirectoryContents = [
-		{
-			name: 'wp-content',
-			parentPath: mockSiteFolder,
-			isSymbolicLink: jest.fn().mockReturnValue( false ),
-			isFile: jest.fn().mockReturnValue( false ),
-		},
-		{
-			name: 'symlink-folder',
-			parentPath: mockSiteFolder,
-			isSymbolicLink: jest.fn().mockReturnValue( true ),
-			isFile: jest.fn().mockReturnValue( false ),
-		},
-		{
-			name: 'regular-file.txt',
-			parentPath: mockSiteFolder,
-			isSymbolicLink: jest.fn().mockReturnValue( false ),
-			isFile: jest.fn().mockReturnValue( true ),
-		},
+		'/mock/site/wp-content/plugins/my-plugin',
+		'/mock/site/wp-content/plugins/my-plugin/my-plugin.php',
+		'/mock/site/wp-content/plugins/my-symlinked-plugin.php',
 	];
+	const mockSymLinkedFilePath = '/mock/temp/symlinked-file.txt';
 
 	const mockArchiver = {
 		pipe: jest.fn(),
@@ -53,9 +39,8 @@ describe( 'Archive Module', () => {
 		( fs.createWriteStream as unknown as jest.Mock ).mockReturnValue( mockWriteStream );
 		( fsPromises.readdir as unknown as jest.Mock ).mockResolvedValue( mockDirectoryContents );
 		( path.join as unknown as jest.Mock ).mockImplementation( ( ...args ) => args.join( '/' ) );
-		( fs.realpathSync as unknown as jest.Mock ).mockReturnValue( mockWpContentPath );
-		( fs.statSync as unknown as jest.Mock ).mockReturnValue( {
-			isDirectory: () => true,
+		( fs.lstatSync as unknown as jest.Mock ).mockReturnValue( {
+			isFile: () => true,
 		} );
 	} );
 
@@ -79,19 +64,18 @@ describe( 'Archive Module', () => {
 			expect( mockArchiver.pipe ).toHaveBeenCalledWith( mockWriteStream );
 			expect( fsPromises.readdir ).toHaveBeenCalledWith( mockWpContentPath, {
 				recursive: true,
-				withFileTypes: true,
 			} );
 			expect( path.join ).toHaveBeenCalledWith( mockSiteFolder, 'wp-content' );
-			expect( mockArchiver.directory ).toHaveBeenCalled();
 			expect( mockArchiver.file ).toHaveBeenCalled();
 			expect( mockArchiver.finalize ).toHaveBeenCalled();
 			expect( result ).toBe( mockArchiver );
 		} );
 
 		it( 'should handle symbolic links correctly', async () => {
-			( fs.existsSync as jest.Mock ).mockReturnValue( false );
-			( fs.statSync as unknown as jest.Mock ).mockReturnValue( {
-				isDirectory: () => true,
+			( fs.realpathSync as unknown as jest.Mock ).mockReturnValue( mockSymLinkedFilePath );
+			( fs.lstatSync as unknown as jest.Mock ).mockReturnValue( {
+				isFile: () => false,
+				isSymbolicLink: () => true,
 			} );
 
 			mockWriteStream.on.mockImplementation( ( event, callback ) => {
@@ -106,8 +90,8 @@ describe( 'Archive Module', () => {
 			await createArchive( mockSiteFolder, mockArchivePath );
 
 			expect( fs.realpathSync ).toHaveBeenCalled();
-			expect( fs.statSync ).toHaveBeenCalled();
-			expect( mockArchiver.directory ).toHaveBeenCalled();
+			expect( fs.lstatSync ).toHaveBeenCalled();
+			expect( mockArchiver.file ).toHaveBeenCalled();
 		} );
 
 		it( 'should include wp-config.php if it exists', async () => {

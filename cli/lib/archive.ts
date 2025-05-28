@@ -37,7 +37,6 @@ export async function createArchive(
 			}
 
 			const absolutePath = path.join( wpContentFolder, entryPath );
-			// This can throw if absolutePath is not found
 			const stat = fs.lstatSync( absolutePath );
 			const archivePath = path.relative( siteFolder, absolutePath );
 

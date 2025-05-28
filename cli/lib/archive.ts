@@ -37,18 +37,10 @@ export async function createArchive(
 			}
 
 			const absolutePath = path.join( wpContentFolder, entryPath );
-			const stat = fs.lstatSync( absolutePath );
+			const filePath = getPathIfExists( absolutePath );
 			const archivePath = path.relative( siteFolder, absolutePath );
-
-			if ( stat.isFile() ) {
-				archive.file( absolutePath, { name: archivePath } );
-			} else if ( stat.isSymbolicLink() ) {
-				try {
-					const realPath = fs.realpathSync( absolutePath );
-					archive.file( realPath, { name: archivePath } );
-				} catch ( error ) {
-					// Ignore errors in the symlinks
-				}
+			if ( filePath ) {
+				archive.file( filePath, { name: archivePath } );
 			}
 		}
 
@@ -71,4 +63,21 @@ export async function cleanup( archivePath: string ): Promise< void > {
 			resolve();
 		}, 0 );
 	} );
+}
+
+function getPathIfExists( absolutePath: string ): string | null {
+	const stat = fs.lstatSync( absolutePath );
+	if ( stat.isFile() ) {
+		return absolutePath;
+	}
+
+	if ( stat.isSymbolicLink() ) {
+		try {
+			return fs.realpathSync( absolutePath );
+		} catch ( error ) {
+			// If there's an error resolving the symlink, return the original path
+			return null;
+		}
+	}
+	return null;
 }

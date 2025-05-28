@@ -164,14 +164,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		} );
 	}
 
-	let terminalName = getTerminalName( terminal );
-	if ( terminal === 'terminal' ) {
-		terminalName = isWindows()
-			? // translators: name of the default terminal application on Windows
-			  __( 'Command Prompt' )
-			: // translators: name of the default terminal application on macOS
-			  __( 'Terminal' );
-	}
+	const terminalName = getTerminalName( terminal );
 	buttonsArray.push( {
 		label: terminalName,
 		className: 'text-nowrap',

@@ -1,6 +1,6 @@
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
+import { SupportedTerminal, getTerminalName } from 'src/modules/user-settings/lib/terminal';
 import {
 	useGetInstalledAppsQuery,
 	selectInstalledTerminals,
@@ -31,17 +31,17 @@ export const TerminalPicker = ( { value, onChange }: TerminalPickerProps ) => {
 				__next40pxDefaultSize
 			>
 				<optgroup label={ __( 'Available terminals' ) }>
-					{ installedTerminals.map( ( [ terminal, label ] ) => (
+					{ installedTerminals.map( ( [ terminal ] ) => (
 						<option key={ terminal } value={ terminal }>
-							{ label }
+							{ getTerminalName( terminal ) }
 						</option>
 					) ) }
 				</optgroup>
 				{ uninstalledTerminals.length > 0 && (
 					<optgroup label={ __( 'Not installed' ) }>
-						{ uninstalledTerminals.map( ( [ terminal, label ] ) => (
+						{ uninstalledTerminals.map( ( [ terminal ] ) => (
 							<option key={ terminal } value={ terminal } disabled>
-								{ label }
+								{ getTerminalName( terminal ) }
 							</option>
 						) ) }
 					</optgroup>

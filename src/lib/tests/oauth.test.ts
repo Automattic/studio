@@ -5,7 +5,7 @@ import { readFile, writeFile } from 'atomically';
 import wpcom from 'wpcom';
 import { SupportedLocale } from 'common/lib/locale';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { getAuthenticationToken, onOpenUrlCallback } from 'src/lib/oauth';
+import { getAuthenticationToken, getSignUpUrl, onOpenUrlCallback } from 'src/lib/oauth';
 
 jest.mock( 'src/lib/certificate-manager', () => ( {} ) );
 jest.mock( 'src/ipc-utils' );

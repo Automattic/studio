@@ -4,7 +4,7 @@ import nodePath from 'node:path';
 import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/main';
 import { readFile, writeFile } from 'atomically';
-import { LOCKFILE_NAME } from 'common/constants';
+import { LOCKFILE_NAME, LOCKFILE_STALE_TIME } from 'common/constants';
 import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
 import { isErrnoException } from 'src/lib/is-errno-exception';
 import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for-logging';
@@ -110,7 +110,7 @@ export async function saveUserData( data: UserData ): Promise< void > {
 const LOCKFILE_PATH = nodePath.join( getResourcesPath(), LOCKFILE_NAME );
 
 export async function lockAppdata() {
-	return lockFileAsync( LOCKFILE_PATH, { wait: 1000, stale: 1000 } );
+	return lockFileAsync( LOCKFILE_PATH, { stale: LOCKFILE_STALE_TIME } );
 }
 
 export async function unlockAppdata() {

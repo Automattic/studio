@@ -4,7 +4,7 @@ import os from 'os';
 import path from 'path';
 import { __, sprintf } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
-import { LOCKFILE_NAME } from 'common/constants';
+import { LOCKFILE_NAME, LOCKFILE_STALE_TIME } from 'common/constants';
 import { arePathsEqual } from 'common/lib/fs-utils';
 import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
 import { getAuthenticationUrl } from 'common/lib/oauth';
@@ -119,7 +119,7 @@ export async function saveAppdata( userData: UserData ): Promise< void > {
 const LOCKFILE_PATH = path.join( getAppdataDirectory(), LOCKFILE_NAME );
 
 export async function lockAppdata(): Promise< void > {
-	await lockFileAsync( LOCKFILE_PATH, { wait: 1000, stale: 1000 } );
+	await lockFileAsync( LOCKFILE_PATH, { stale: LOCKFILE_STALE_TIME } );
 }
 
 export async function unlockAppdata(): Promise< void > {
@@ -173,7 +173,7 @@ export function getNewSitePartial( siteFolder: string ): SiteData {
 	return newSite;
 }
 
-const createNewSite = async ( siteFolder: string ): Promise< z.infer< typeof siteSchema > > => {
+const createNewSite = async ( siteFolder: string ): Promise< SiteData > => {
 	try {
 		await lockAppdata();
 		const userData = await readAppdata();
@@ -186,12 +186,9 @@ const createNewSite = async ( siteFolder: string ): Promise< z.infer< typeof sit
 	}
 };
 
-export const getOrCreateSiteByFolder = async (
-	siteFolder: string
-): Promise< z.infer< typeof siteSchema > > => {
+export const getOrCreateSiteByFolder = async ( siteFolder: string ): Promise< SiteData > => {
 	try {
-		const site = await getSiteByFolder( siteFolder );
-		return site;
+		return await getSiteByFolder( siteFolder );
 	} catch ( error ) {
 		if ( ! ( error instanceof LoggerError ) ) {
 			throw error;

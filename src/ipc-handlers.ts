@@ -180,8 +180,7 @@ export async function createSite(
 		throw new Error( 'The selected directory is not empty nor an existing WordPress site.' );
 	}
 	try {
-		await lockAppdata();
-		const userData = await loadUserData();
+		let userData = await loadUserData();
 
 		const allPaths = userData?.sites?.map( ( site ) => site.path ) || [];
 		if ( allPaths.includes( path ) ) {
@@ -237,11 +236,14 @@ export async function createSite(
 		const parentWindow = BrowserWindow.fromWebContents( event.sender );
 		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id: details.id } );
 
+		await lockAppdata();
+		userData = await loadUserData();
+
 		userData.sites.push( server.details );
 		sortSites( userData.sites );
 
 		await saveUserData( userData );
-		return userData;
+		return server.details;
 	} finally {
 		await unlockAppdata();
 	}
@@ -361,7 +363,7 @@ export async function updateConnectedWpcomSites(
 		const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
 
 		if ( ! connections.length ) {
-			return userData;
+			return;
 		}
 
 		updatedSites.forEach( ( updatedSite ) => {
@@ -713,7 +715,7 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 			Sentry.captureException( error );
 		}
 		const newSites = userData.sites.filter( ( site ) => site.id !== id );
-		return { ...userData, sites: newSites };
+		await saveUserData( { ...userData, sites: newSites } );
 	} finally {
 		await unlockAppdata();
 	}
@@ -1356,20 +1358,11 @@ export async function deleteSnapshot(
 
 export async function handleNewSite( event: IpcMainInvokeEvent, newSite: NewSiteDetails ) {
 	try {
+		await createSite( event, newSite.path, undefined, undefined, undefined, undefined, newSite.id );
 		await lockAppdata();
 		const userData = await loadUserData();
-		const updatedUserData = await createSite(
-			event,
-			newSite.path,
-			undefined,
-			undefined,
-			undefined,
-			undefined,
-			newSite.id
-		);
-
 		const newSites = userData.newSites?.filter( ( s ) => s.id !== newSite.id );
-		await saveUserData( { ...updatedUserData, newSites } );
+		await saveUserData( { ...userData, newSites } );
 	} finally {
 		await unlockAppdata();
 	}

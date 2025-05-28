@@ -1,8 +1,8 @@
 import lockfile from 'lockfile';
 
-export function lockFileAsync( LOCKFILE_PATH: string, options: lockfile.Options ) {
+export function lockFileAsync( lockfilePath: string, options: lockfile.Options ) {
 	return new Promise< void >( ( resolve, reject ) => {
-		lockfile.lock( LOCKFILE_PATH, options, ( err ) => {
+		lockfile.lock( lockfilePath, options, ( err ) => {
 			if ( err ) {
 				reject( err );
 			} else {
@@ -12,9 +12,9 @@ export function lockFileAsync( LOCKFILE_PATH: string, options: lockfile.Options 
 	} );
 }
 
-export function unlockFileAsync( LOCKFILE_PATH: string ) {
+export function unlockFileAsync( lockfilePath: string ) {
 	return new Promise< void >( ( resolve, reject ) => {
-		lockfile.unlock( LOCKFILE_PATH, ( err ) => {
+		lockfile.unlock( lockfilePath, ( err ) => {
 			if ( err ) {
 				reject( err );
 			} else {

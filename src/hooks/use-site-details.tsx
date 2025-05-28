@@ -217,14 +217,13 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			setSelectedSiteId( tempSiteId ); // Set the temporary ID as the selected site
 
 			try {
-				const data = await getIpcApi().createSite(
+				const newSite = await getIpcApi().createSite(
 					path,
 					siteName,
 					wpVersion,
 					customDomain,
 					enableHttps
 				);
-				const newSite = data.sites.find( ( site ) => site.path === path );
 				if ( ! newSite ) {
 					showError();
 					return;

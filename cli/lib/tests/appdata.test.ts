@@ -9,6 +9,7 @@ import {
 	getAuthToken,
 	getNewSitePartial,
 	getOrCreateSiteByFolder,
+	saveAppdata,
 } from 'cli/lib/appdata';
 
 jest.mock( 'fs' );
@@ -102,6 +103,54 @@ describe( 'Appdata Module', () => {
 			( readFile as jest.Mock ).mockResolvedValueOnce( 'invalid json{' );
 
 			await expect( readAppdata() ).rejects.toThrow( 'corrupted' );
+		} );
+	} );
+
+	describe( 'saveAppdata', () => {
+		it( 'should save the userData to the appdata file', async () => {
+			const mockUserData = {
+				version: 1,
+				newSites: [],
+				sites: [],
+				snapshots: [],
+			};
+
+			await saveAppdata( mockUserData );
+
+			expect( writeFile ).toHaveBeenCalledWith(
+				expect.any( String ),
+				JSON.stringify( mockUserData, null, 2 ) + '\n',
+				{ encoding: 'utf8' }
+			);
+		} );
+
+		it( 'should throw LoggerError if there is an error saving the file', async () => {
+			const mockUserData = {
+				version: 1,
+				newSites: [],
+				sites: [],
+				snapshots: [],
+			};
+
+			( writeFile as jest.Mock ).mockRejectedValue( new Error( 'Write error' ) );
+
+			await expect( saveAppdata( mockUserData ) ).rejects.toThrow(
+				'Failed to save Studio config file'
+			);
+		} );
+
+		it( 'should add version 1 if version is not provided', async () => {
+			const mockUserData = {
+				newSites: [],
+				sites: [],
+				snapshots: [],
+			};
+
+			await saveAppdata( mockUserData );
+
+			expect( writeFile ).toHaveBeenCalled();
+			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+			expect( savedData.version ).toBe( 1 );
 		} );
 	} );
 

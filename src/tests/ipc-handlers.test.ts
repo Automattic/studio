@@ -71,7 +71,7 @@ describe( 'createSite', () => {
 
 		const userData = await createSite( mockIpcMainInvokeEvent, '/test', 'Test', '6.4' );
 
-		expect( userData.sites[ 0 ] ).toEqual( {
+		expect( userData ).toEqual( {
 			adminPassword: expect.any( String ),
 			id: expect.any( String ),
 			name: 'Test',
@@ -100,7 +100,7 @@ describe( 'createSite', () => {
 			customSiteId
 		);
 
-		expect( userData.sites[ 0 ] ).toEqual( {
+		expect( userData ).toEqual( {
 			adminPassword: expect.any( String ),
 			id: customSiteId,
 			name: 'Test',

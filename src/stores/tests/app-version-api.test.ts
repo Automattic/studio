@@ -124,6 +124,15 @@ describe( 'App Version API', () => {
 			expect( result ).toBe( true );
 		} );
 
+		it( 'should return false when going from a stable version to a prerelease version that increases only the patch', () => {
+			const lastSeenVersion = '1.2.0';
+			const currentVersion = '1.2.1-beta1';
+
+			const result = selectIsNewVersion( createMockQueryResult( lastSeenVersion ), currentVersion );
+
+			expect( result ).toBe( false );
+		} );
+
 		it( 'should return true for a new prerelease version', () => {
 			const lastSeenVersion = '1.2.0-beta1';
 			const currentVersion = '1.2.0-beta2';

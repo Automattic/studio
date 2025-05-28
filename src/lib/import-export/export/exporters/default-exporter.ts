@@ -162,11 +162,15 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		 ).filter( ( category ) => this.options.includes[ category ] );
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_START );
 		for ( const category of categories ) {
-			for ( const file of this.backup.wpContent[ category ] ) {
-				const relativePath = path.relative( this.options.site.path, file );
-				this.archive.file( file, { name: relativePath } );
-				this.emit( ExportEvents.WP_CONTENT_EXPORT_PROGRESS, { file: relativePath } );
-			}
+			const absolutePath = path.join( this.options.site.path, 'wp-content', category );
+			const archivePath = path.relative( this.options.site.path, absolutePath );
+			this.archive.directory( absolutePath, archivePath, ( entry ) => {
+				if ( entry.name.includes( '.git' ) || entry.name.includes( 'node_modules' ) ) {
+					return false;
+				}
+				return entry;
+			} );
+			this.emit( ExportEvents.WP_CONTENT_EXPORT_PROGRESS, { directory: absolutePath } );
 		}
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_COMPLETE, {
 			uploads: this.backup.wpContent.uploads.length,

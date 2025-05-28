@@ -37,7 +37,7 @@ export async function createArchive(
 			}
 
 			const absolutePath = path.join( wpContentFolder, entryPath );
-			const filePath = getPathIfExists( absolutePath );
+			const filePath = getRealFilePathIfExists( absolutePath );
 			const archivePath = path.relative( siteFolder, absolutePath );
 			if ( filePath ) {
 				archive.file( filePath, { name: archivePath } );
@@ -65,7 +65,7 @@ export async function cleanup( archivePath: string ): Promise< void > {
 	} );
 }
 
-function getPathIfExists( absolutePath: string ): string | null {
+function getRealFilePathIfExists( absolutePath: string ): string | null {
 	const stat = fs.lstatSync( absolutePath );
 	if ( stat.isFile() ) {
 		return absolutePath;
@@ -75,9 +75,10 @@ function getPathIfExists( absolutePath: string ): string | null {
 		try {
 			return fs.realpathSync( absolutePath );
 		} catch ( error ) {
-			// If there's an error resolving the symlink, return the original path
+			// If there's an error resolving the symlink, return null
 			return null;
 		}
 	}
+	// Ignore directories
 	return null;
 }

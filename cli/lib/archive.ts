@@ -2,7 +2,7 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
 import { __ } from '@wordpress/i18n';
-import archiver, { EntryData } from 'archiver';
+import archiver from 'archiver';
 import { LoggerError } from 'cli/logger';
 
 const ZIP_COMPRESSION_LEVEL = 9;
@@ -14,7 +14,6 @@ export async function createArchive(
 	const wpContentFolder = path.join( siteFolder, 'wp-content' );
 	const directoryContents = await fsPromises.readdir( wpContentFolder, {
 		recursive: true,
-		withFileTypes: true,
 	} );
 
 	return new Promise( ( resolve, reject ) => {
@@ -32,31 +31,28 @@ export async function createArchive(
 
 		archive.pipe( output );
 
-		for ( const dirEnt of directoryContents ) {
-			const filePath = path.join( dirEnt.parentPath, dirEnt.name );
-			if ( shouldExcludeEntry( filePath ) ) {
+		for ( const entryPath of directoryContents ) {
+			if ( entryPath.includes( '.git' ) || entryPath.includes( 'node_modules' ) ) {
 				continue;
 			}
 
-			const archivePath = path.relative( siteFolder, filePath );
-			if ( dirEnt.isSymbolicLink() ) {
-				const realPath = fs.realpathSync( filePath );
-				const stat = fs.statSync( realPath );
-				const isDirectory = stat.isDirectory();
-				if ( isDirectory ) {
-					archive.directory( realPath, archivePath, ( entry: EntryData ) => {
-						if ( shouldExcludeEntry( entry.name ) ) {
-							return false;
-						}
-						return entry;
-					} );
-				} else {
+			const absolutePath = path.join( wpContentFolder, entryPath );
+			// This can throw if absolutePath is not found
+			const stat = fs.lstatSync( absolutePath );
+			const archivePath = path.relative( siteFolder, absolutePath );
+
+			if ( stat.isFile() ) {
+				archive.file( absolutePath, { name: archivePath } );
+			} else if ( stat.isSymbolicLink() ) {
+				try {
+					const realPath = fs.realpathSync( absolutePath );
 					archive.file( realPath, { name: archivePath } );
+				} catch ( error ) {
+					// Ignore errors in the symlinks
 				}
-			} else if ( dirEnt.isFile() ) {
-				archive.file( filePath, { name: archivePath } );
 			}
 		}
+
 		const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
 		if ( fs.existsSync( wpConfigPath ) ) {
 			archive.file( wpConfigPath, { name: 'wp-config.php' } );
@@ -76,8 +72,4 @@ export async function cleanup( archivePath: string ): Promise< void > {
 			resolve();
 		}, 0 );
 	} );
-}
-
-function shouldExcludeEntry( entryName: string ): boolean {
-	return entryName.includes( '.git' ) || entryName.includes( 'node_modules' );
 }

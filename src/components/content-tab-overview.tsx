@@ -164,14 +164,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		} );
 	}
 
-	let terminalName = getTerminalName( terminal );
-	if ( terminal === 'terminal' ) {
-		terminalName = isWindows()
-			? // translators: name of the default terminal application on Windows
-			  __( 'Command Prompt' )
-			: // translators: name of the default terminal application on macOS
-			  __( 'Terminal' );
-	}
+	const terminalName = getTerminalName( terminal );
 	buttonsArray.push( {
 		label: terminalName,
 		className: 'text-nowrap',
@@ -223,7 +216,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 	);
 
 	return (
-		<div className="p-8 flex max-w-3xl">
+		<div className="p-8 flex max-w-4xl">
 			<div className="w-52 ltr:mr-8 rtl:ml-8 flex-col justify-start items-start gap-8">
 				<h2 className="mb-3 a8c-subtitle-small">{ __( 'Theme' ) }</h2>
 				<div

@@ -731,8 +731,9 @@ export function logRendererMessage(
 	writeLogToFile( level, processId, ...args );
 }
 
-export function authenticate( event: IpcMainInvokeEvent, isSignup = false ) {
-	const authUrl = isSignup ? getSignUpUrl() : getAuthenticationUrl();
+export async function authenticate( event: IpcMainInvokeEvent, isSignup = false ) {
+	const locale = await getUserLocaleWithFallback();
+	const authUrl = isSignup ? getSignUpUrl( locale ) : getAuthenticationUrl( locale );
 	void shellOpenExternalWrapper( authUrl );
 }
 

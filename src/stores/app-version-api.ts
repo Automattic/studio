@@ -44,58 +44,36 @@ type GetLastSeenVersionQueryResult = TypedUseQueryStateResult<
 	BaseQueryFn
 >;
 
+function isGreaterExceptPatch( versionA: string | undefined, versionB: string ): boolean {
+	if ( ! versionA ) {
+		return true;
+	}
+
+	if (
+		! semver.valid( versionA ) ||
+		! semver.valid( versionB ) ||
+		semver.gte( versionA, versionB )
+	) {
+		return false;
+	}
+
+	const a = semver.parse( versionA )!;
+	const b = semver.parse( versionB )!;
+
+	if ( a.major === b.major && a.minor === b.minor && a.patch !== b.patch ) {
+		return false;
+	}
+	return true;
+}
+
 export const selectIsNewVersion = createSelector(
 	[
 		( res: GetLastSeenVersionQueryResult ) => res.data,
 		( res: GetLastSeenVersionQueryResult, currentVersion: string ) => currentVersion,
 	],
 	( lastSeenVersion, currentVersion ) => {
-		const forceNewVersion = true;
-
-		if ( currentVersion === lastSeenVersion ) {
-			return false;
-		}
-
-		if ( ! currentVersion || ! lastSeenVersion ) {
-			return !! currentVersion && lastSeenVersion !== currentVersion;
-		}
-
-		try {
-			const currentPrerelease = semver.prerelease( currentVersion );
-			const lastSeenPrerelease = semver.prerelease( lastSeenVersion );
-
-			// Handle prerelease to prerelease transitions
-			if ( currentPrerelease && lastSeenPrerelease ) {
-				return lastSeenVersion !== currentVersion;
-			}
-
-			// Handle prerelease to stable transitions (or vice versa)
-			if ( currentPrerelease || lastSeenPrerelease ) {
-				return true;
-			}
-
-			const cleanLastSeen = semver.valid( semver.coerce( lastSeenVersion ) );
-			const cleanCurrent = semver.valid( semver.coerce( currentVersion ) );
-
-			if ( ! cleanLastSeen || ! cleanCurrent ) {
-				return false;
-			}
-
-			const lastSeenParts = semver.parse( cleanLastSeen );
-			const currentParts = semver.parse( cleanCurrent );
-
-			if ( ! lastSeenParts || ! currentParts ) {
-				return false;
-			}
-
-			return (
-				lastSeenParts.major !== currentParts.major ||
-				lastSeenParts.minor !== currentParts.minor ||
-				forceNewVersion
-			);
-		} catch ( error ) {
-			console.error( 'Error comparing versions:', error );
-			return lastSeenVersion !== currentVersion;
-		}
+		const forceNewVersion = false;
+		const isSignificantNewVersion = isGreaterExceptPatch( lastSeenVersion, currentVersion );
+		return isSignificantNewVersion || forceNewVersion;
 	}
 );

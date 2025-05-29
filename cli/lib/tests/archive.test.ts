@@ -48,7 +48,10 @@ describe( 'Archive Module', () => {
 			const result = await createArchive( mockSiteFolder, mockArchivePath );
 
 			expect( fs.createWriteStream ).toHaveBeenCalledWith( mockArchivePath );
-			expect( archiver ).toHaveBeenCalledWith( 'zip', { zlib: { level: 9 } } );
+			expect( archiver ).toHaveBeenCalledWith( 'zip', {
+				followSymlinks: true,
+				zlib: { level: 9 },
+			} );
 			expect( mockArchiver.pipe ).toHaveBeenCalledWith( mockWriteStream );
 			expect( path.join ).toHaveBeenCalledWith( mockSiteFolder, 'wp-content' );
 			expect( mockArchiver.directory ).toHaveBeenCalledWith(

@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
+import * as Sentry from '@sentry/electron/main';
 import fse from 'fs-extra';
 import yauzl from 'yauzl';
 import { ImportEvents } from 'src/lib/import-export/import/events';
@@ -47,6 +48,17 @@ export class BackupHandlerZip extends EventEmitter implements BackupHandler {
 		this.emit( ImportEvents.BACKUP_EXTRACT_START );
 
 		return new Promise( ( resolve, reject ) => {
+			let extractionFailed = false;
+			function failOnce( err: Error, context?: Record< string, unknown > ) {
+				if ( ! extractionFailed ) {
+					Sentry.captureException( err, {
+						extra: context,
+					} );
+					extractionFailed = true;
+					reject( err );
+				}
+			}
+
 			zipFile.on( 'entry', async ( entry ) => {
 				if ( ! isFileAllowed( entry.fileName ) ) {
 					zipFile.readEntry();
@@ -61,31 +73,46 @@ export class BackupHandlerZip extends EventEmitter implements BackupHandler {
 					return;
 				}
 
-				const readStream = await openReadStream( entry );
-				const writeStream = fs.createWriteStream( fullPath );
+				try {
+					const readStream = await openReadStream( entry );
+					const writeStream = fs.createWriteStream( fullPath );
 
-				readStream.on( 'data', ( chunk ) => {
-					processedSize += chunk.length;
-					this.emit( ImportEvents.BACKUP_EXTRACT_PROGRESS, {
-						progress: processedSize / totalSize,
-					} as BackupExtractProgressEventData );
-				} );
+					const onError = ( err: Error ) => {
+						failOnce( err, { fullPath, entry: entry.fileName, filePath: file.path } );
+					};
 
-				writeStream.on( 'finish', () => {
-					zipFile.readEntry();
-				} );
+					readStream.once( 'error', onError );
+					writeStream.once( 'error', onError );
 
-				readStream.pipe( writeStream );
+					readStream.on( 'data', ( chunk ) => {
+						processedSize += chunk.length;
+						this.emit( ImportEvents.BACKUP_EXTRACT_PROGRESS, {
+							progress: processedSize / totalSize,
+						} as BackupExtractProgressEventData );
+					} );
+
+					writeStream.once( 'finish', () => {
+						if ( ! extractionFailed ) {
+							zipFile.readEntry();
+						}
+					} );
+
+					readStream.pipe( writeStream );
+				} catch ( err ) {
+					failOnce( err as Error, { fullPath, entry: entry.fileName, filePath: file.path } );
+				}
 			} );
 
 			zipFile.on( 'end', () => {
-				this.emit( ImportEvents.BACKUP_EXTRACT_COMPLETE );
-				resolve();
+				if ( ! extractionFailed ) {
+					this.emit( ImportEvents.BACKUP_EXTRACT_COMPLETE );
+					resolve();
+				}
 			} );
 
 			zipFile.on( 'error', ( error ) => {
+				failOnce( error, { filePath: file.path } );
 				this.emit( ImportEvents.BACKUP_EXTRACT_ERROR, { error } );
-				reject( error );
 			} );
 
 			zipFile.readEntry();

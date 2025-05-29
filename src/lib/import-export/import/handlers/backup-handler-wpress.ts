@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import * as fs from 'fs';
 import { constants } from 'fs';
 import * as path from 'path';
+import * as Sentry from '@sentry/electron/main';
 import * as fse from 'fs-extra';
 import { BackupHandler } from 'src/lib/import-export/import/handlers/backup-handler-factory';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
@@ -88,24 +89,51 @@ async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outp
 	const outputStream = fs.createWriteStream( outputFilePath );
 
 	let totalBytesToRead = header.size;
-	while ( totalBytesToRead > 0 ) {
-		let bytesToRead = CHUNK_SIZE_TO_READ;
-		if ( bytesToRead > totalBytesToRead ) {
-			bytesToRead = totalBytesToRead;
-		}
 
-		if ( bytesToRead === 0 ) {
-			break;
-		}
+	return new Promise< void >( ( resolve, reject ) => {
+		let errored = false;
+		const errorHandler = ( err: Error ) => {
+			if ( ! errored ) {
+				Sentry.captureException( err, {
+					extra: {
+						outputFilePath,
+						header,
+						totalBytesToRead,
+					},
+				} );
+				errored = true;
+				reject( err );
+			}
+		};
+		outputStream.once( 'error', errorHandler );
+		outputStream.once( 'finish', () => {
+			if ( ! errored ) resolve();
+		} );
 
-		const buffer = Buffer.alloc( bytesToRead );
-		const data = await fd.read( buffer, 0, bytesToRead );
-		outputStream.write( buffer );
-
-		totalBytesToRead -= data.bytesRead;
-	}
-
-	outputStream.close();
+		void ( async () => {
+			try {
+				while ( totalBytesToRead > 0 ) {
+					let bytesToRead = CHUNK_SIZE_TO_READ;
+					if ( bytesToRead > totalBytesToRead ) {
+						bytesToRead = totalBytesToRead;
+					}
+					if ( bytesToRead === 0 ) break;
+					const buffer = Buffer.alloc( bytesToRead );
+					const data = await fd.read( buffer, 0, bytesToRead );
+					if ( errored ) return;
+					if ( ! outputStream.destroyed ) {
+						outputStream.write( buffer );
+					} else {
+						return;
+					}
+					totalBytesToRead -= data.bytesRead;
+				}
+				outputStream.end();
+			} catch ( err ) {
+				errorHandler( err as Error );
+			}
+		} )();
+	} );
 }
 
 export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
@@ -174,14 +202,15 @@ export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 		const inputFile = await fs.promises.open( file.path, 'r' );
 
 		let header;
-		while ( ( header = await readHeader( inputFile ) ) !== null ) {
-			if ( ! header ) {
-				break;
+		try {
+			while ( ( header = await readHeader( inputFile ) ) !== null ) {
+				if ( ! header ) {
+					break;
+				}
+				await readBlockToFile( inputFile, header, extractionDirectory );
 			}
-
-			await readBlockToFile( inputFile, header, extractionDirectory );
+		} finally {
+			await inputFile.close();
 		}
-
-		await inputFile.close();
 	}
 }

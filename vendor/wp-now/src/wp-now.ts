@@ -99,9 +99,11 @@ export default async function startWPNow(
 
 	await prepareWordPress( php, options );
 
+	await installationSteps( php, options );
+
 	if ( options.blueprintObject ) {
 		output?.log( `blueprint steps: ${ options.blueprintObject.steps.length }` );
-		const compiled = compileBlueprint( options.blueprintObject, {
+		const compiled = await compileBlueprint( options.blueprintObject, {
 			onStepCompleted: ( result, step: StepDefinition ) => {
 				output?.log( `Blueprint step completed: ${ step.step }` );
 			},
@@ -109,7 +111,6 @@ export default async function startWPNow(
 		await runBlueprintSteps( compiled, php );
 	}
 
-	await installationSteps( php, options );
 	await login( php, options );
 
 	if ( isFirstTimeProject && [ WPNowMode.PLUGIN, WPNowMode.THEME ].includes( options.mode ) ) {

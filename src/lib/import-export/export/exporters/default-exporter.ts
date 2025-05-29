@@ -57,7 +57,6 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		};
 	}
 	async canHandle(): Promise< boolean > {
-		// Check for supported extension
 		const supportedExtension = [ 'tar.gz', 'tzg', 'zip' ].find( ( ext ) =>
 			this.options.backupFile.endsWith( ext )
 		);
@@ -67,25 +66,28 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		}
 
 		const requiredPaths = [
-			{ path: [ 'wp-content' ], isDir: true },
-			{ path: [ 'wp-includes' ], isDir: true },
+			{ path: 'wp-content', isDir: true },
+			{ path: 'wp-includes', isDir: true },
 			{ path: 'wp-load.php', isDir: false },
 			{ path: 'wp-config.php', isDir: false },
 		];
 
-		this.siteFiles = await this.getSiteFiles();
-
-		return requiredPaths.every( ( requiredPath ) =>
-			this.siteFiles.some( ( file ) => {
-				const relativePath = path.relative( this.options.site.path, file );
-				const relativePathItems = relativePath.split( path.sep );
-				return requiredPath.isDir
-					? ( requiredPath.path as string[] ).every(
-							( path, index ) => path === relativePathItems[ index ]
-					  )
-					: relativePath === requiredPath.path;
-			} )
-		);
+		try {
+			for ( const requiredPath of requiredPaths ) {
+				const stats = await fsPromises.stat(
+					path.join( this.options.site.path, requiredPath.path )
+				);
+				if ( requiredPath.isDir && ! stats.isDirectory() ) {
+					return false;
+				}
+				if ( ! requiredPath.isDir && ! stats.isFile() ) {
+					return false;
+				}
+			}
+			return true;
+		} catch ( error ) {
+			return false;
+		}
 	}
 
 	async export(): Promise< void > {
@@ -256,7 +258,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				fonts: [],
 			},
 		};
-
+		// TODO: Remove getSiteFiles once #1448 is merged
 		const siteFiles = await this.getSiteFiles();
 		siteFiles.forEach( ( file ) => {
 			const relativePath = path.relative( options.site.path, file );

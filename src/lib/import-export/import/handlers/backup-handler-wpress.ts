@@ -90,6 +90,7 @@ async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outp
 
 	let totalBytesToRead = header.size;
 	let errored = false;
+	let streamEnded = false;
 
 	const errorHandler = ( err: Error ) => {
 		if ( ! errored ) {
@@ -103,6 +104,14 @@ async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outp
 			errored = true;
 		}
 	};
+
+	const endStream = () => {
+		if ( ! streamEnded && ! outputStream.destroyed ) {
+			streamEnded = true;
+			outputStream.end();
+		}
+	};
+
 	outputStream.once( 'error', errorHandler );
 
 	try {
@@ -124,11 +133,11 @@ async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outp
 			}
 			totalBytesToRead -= data.bytesRead;
 		}
-		outputStream.end();
+		endStream();
 	} catch ( err ) {
 		errorHandler( err as Error );
 	} finally {
-		outputStream.end();
+		endStream();
 	}
 }
 

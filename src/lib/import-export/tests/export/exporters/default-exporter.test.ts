@@ -217,10 +217,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 	it( 'should create a tar.gz archive', async () => {
 		await exporter.export();
 
-		expect( archiver ).toHaveBeenCalledWith( 'tar', {
-			gzip: true,
-			gzipOptions: { level: 9 },
-		} );
+		expect( archiver ).toHaveBeenCalledWith( 'tar', { gzip: true, gzipOptions: { level: 9 } } );
 	} );
 
 	it( 'should create a zip archive when the backup file ends with .zip', async () => {
@@ -230,7 +227,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		expect( archiver ).toHaveBeenCalledWith( 'zip', { zlib: { level: 9 } } );
 	} );
 
-	it.skip( 'should add wp-config.php to the archive', async () => {
+	it( 'should add wp-config.php to the archive', async () => {
 		const options = {
 			...mockOptions,
 			includes: {
@@ -265,7 +262,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		);
 	} );
 
-	it.skip( 'should add wp-content directories to the archive', async () => {
+	it( 'should add wp-content files to the archive', async () => {
 		const options = {
 			...mockOptions,
 			includes: {
@@ -286,33 +283,29 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			normalize( '/path/to/site/wp-config.php' ),
 			{ name: 'wp-config.php' }
 		);
-		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
-			1,
-			normalize( '/path/to/site/wp-content/uploads' ),
-			normalize( 'wp-content/uploads' ),
-			expect.any( Function )
-		);
-		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
 			2,
-			normalize( '/path/to/site/wp-content/plugins' ),
-			normalize( 'wp-content/plugins' ),
-			expect.any( Function )
+			normalize( '/path/to/site/wp-content/uploads/file1.jpg' ),
+			{ name: normalize( 'wp-content/uploads/file1.jpg' ) }
 		);
-		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
 			3,
-			normalize( '/path/to/site/wp-content/themes' ),
-			normalize( 'wp-content/themes' ),
-			expect.any( Function )
+			normalize( '/path/to/site/wp-content/plugins/plugin1/plugin1.php' ),
+			{ name: normalize( 'wp-content/plugins/plugin1/plugin1.php' ) }
 		);
-		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
 			4,
-			normalize( '/path/to/site/wp-content/fonts' ),
-			normalize( 'wp-content/fonts' ),
-			expect.any( Function )
+			normalize( '/path/to/site/wp-content/themes/theme1/index.php' ),
+			{ name: normalize( 'wp-content/themes/theme1/index.php' ) }
+		);
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			5,
+			normalize( '/path/to/site/wp-content/fonts/custom-font.woff2' ),
+			{ name: normalize( 'wp-content/fonts/custom-font.woff2' ) }
 		);
 	} );
 
-	it.skip( 'should add (non-excluded) mu-plugins files to the archive', async () => {
+	it( 'should add (non-excluded) mu-plugins files to the archive', async () => {
 		const options = {
 			...mockOptions,
 			includes: {
@@ -333,11 +326,19 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			normalize( '/path/to/site/wp-config.php' ),
 			{ name: 'wp-config.php' }
 		);
-		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
-			1,
-			normalize( '/path/to/site/wp-content/mu-plugins' ),
-			normalize( 'wp-content/mu-plugins' ),
-			expect.any( Function )
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			2,
+			normalize( '/path/to/site/wp-content/mu-plugins/custom-mu-plugin.php' ),
+			{ name: normalize( 'wp-content/mu-plugins/custom-mu-plugin.php' ) }
+		);
+
+		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-content/mu-plugins/sqlite-database-integration/load.php' ),
+			{ name: normalize( 'wp-content/mu-plugins/sqlite-database-integration/load.php' ) }
+		);
+		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-content/mu-plugins/0-allowed-redirect-hosts.php' ),
+			{ name: normalize( 'wp-content/mu-plugins/0-allowed-redirect-hosts.php' ) }
 		);
 	} );
 
@@ -428,7 +429,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		expect( getWordPressVersionFromInstallation ).toHaveBeenCalledTimes( 0 );
 	} );
 
-	it.skip( 'should return true when canHandle is called', async () => {
+	it( 'should return true when canHandle is called', async () => {
 		const canHandle = await exporter.canHandle();
 		expect( canHandle ).toBe( true );
 	} );
@@ -437,26 +438,6 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		const exporter = new DefaultExporter( {
 			...mockOptions,
 			backupFile: normalize( '/path/to/backup.sql' ),
-		} );
-
-		const canHandle = await exporter.canHandle();
-		expect( canHandle ).toBe( false );
-	} );
-
-	it( 'should return false when canHandle is called and required WordPress files are missing', async () => {
-		// Mock fsPromises.stat to simulate missing wp-config.php
-		( fsPromises.stat as jest.Mock ).mockImplementation( ( path: string ) => {
-			const normalizedPath = normalize( path );
-			if ( normalizedPath.endsWith( 'wp-config.php' ) ) {
-				return Promise.reject( new Error( 'File not found' ) );
-			}
-			if ( normalizedPath.endsWith( 'wp-content' ) || normalizedPath.endsWith( 'wp-includes' ) ) {
-				return Promise.resolve( { isDirectory: () => true, isFile: () => false } );
-			}
-			if ( normalizedPath.endsWith( 'wp-load.php' ) ) {
-				return Promise.resolve( { isDirectory: () => false, isFile: () => true } );
-			}
-			return Promise.reject( new Error( 'File not found' ) );
 		} );
 
 		const canHandle = await exporter.canHandle();
@@ -484,7 +465,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		);
 	} );
 
-	it.skip( 'should add fonts files to the archive when fonts is included', async () => {
+	it( 'should add fonts files to the archive when fonts is included', async () => {
 		const options = {
 			...mockOptions,
 			includes: {
@@ -505,11 +486,10 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			normalize( '/path/to/site/wp-config.php' ),
 			{ name: 'wp-config.php' }
 		);
-		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
-			1,
-			normalize( '/path/to/site/wp-content/fonts' ),
-			normalize( 'wp-content/fonts' ),
-			expect.any( Function )
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			2,
+			normalize( '/path/to/site/wp-content/fonts/custom-font.woff2' ),
+			{ name: normalize( 'wp-content/fonts/custom-font.woff2' ) }
 		);
 	} );
 } );

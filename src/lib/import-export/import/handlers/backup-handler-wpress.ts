@@ -89,51 +89,47 @@ async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outp
 	const outputStream = fs.createWriteStream( outputFilePath );
 
 	let totalBytesToRead = header.size;
+	let errored = false;
 
-	return new Promise< void >( ( resolve, reject ) => {
-		let errored = false;
-		const errorHandler = ( err: Error ) => {
-			if ( ! errored ) {
-				Sentry.captureException( err, {
-					extra: {
-						outputFilePath,
-						header,
-						totalBytesToRead,
-					},
-				} );
-				errored = true;
-				reject( err );
-			}
-		};
-		outputStream.once( 'error', errorHandler );
-		outputStream.once( 'finish', () => {
-			if ( ! errored ) resolve();
-		} );
+	const errorHandler = ( err: Error ) => {
+		if ( ! errored ) {
+			Sentry.captureException( err, {
+				extra: {
+					outputFilePath,
+					header,
+					totalBytesToRead,
+				},
+			} );
+			errored = true;
+		}
+	};
+	outputStream.once( 'error', errorHandler );
 
-		void ( async () => {
-			try {
-				while ( totalBytesToRead > 0 ) {
-					let bytesToRead = CHUNK_SIZE_TO_READ;
-					if ( bytesToRead > totalBytesToRead ) {
-						bytesToRead = totalBytesToRead;
-					}
-					if ( bytesToRead === 0 ) break;
-					const buffer = Buffer.alloc( bytesToRead );
-					const data = await fd.read( buffer, 0, bytesToRead );
-					if ( errored ) return;
-					if ( ! outputStream.destroyed ) {
-						outputStream.write( buffer );
-					} else {
-						return;
-					}
-					totalBytesToRead -= data.bytesRead;
-				}
-				outputStream.end();
-			} catch ( err ) {
-				errorHandler( err as Error );
+	try {
+		while ( totalBytesToRead > 0 ) {
+			let bytesToRead = CHUNK_SIZE_TO_READ;
+			if ( bytesToRead > totalBytesToRead ) {
+				bytesToRead = totalBytesToRead;
 			}
-		} )();
-	} );
+			if ( bytesToRead === 0 ) break;
+			const buffer = Buffer.alloc( bytesToRead );
+			const data = await fd.read( buffer, 0, bytesToRead );
+			if ( errored ) {
+				return;
+			}
+			if ( ! outputStream.destroyed ) {
+				outputStream.write( buffer );
+			} else {
+				return;
+			}
+			totalBytesToRead -= data.bytesRead;
+		}
+		outputStream.end();
+	} catch ( err ) {
+		errorHandler( err as Error );
+	} finally {
+		outputStream.end();
+	}
 }
 
 export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
@@ -209,6 +205,12 @@ export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 				}
 				await readBlockToFile( inputFile, header, extractionDirectory );
 			}
+		} catch ( err ) {
+			Sentry.captureException( err, {
+				extra: {
+					filePath: file.path,
+				},
+			} );
 		} finally {
 			await inputFile.close();
 		}

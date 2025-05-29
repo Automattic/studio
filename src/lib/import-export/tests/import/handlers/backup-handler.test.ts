@@ -26,11 +26,13 @@ interface MockZipFile {
 
 interface MockReadStream extends Partial< Readable > {
 	on: jest.Mock;
+	once: jest.Mock;
 	pipe: jest.Mock;
 }
 
 interface MockWriteStream extends Partial< Writable > {
 	on: jest.Mock;
+	once: jest.Mock;
 }
 
 describe( 'BackupHandlerFactory', () => {
@@ -193,6 +195,7 @@ describe( 'BackupHandlerFactory', () => {
 					}
 					return mockReadStream;
 				} ),
+				once: jest.fn().mockReturnThis(),
 				pipe: jest.fn().mockReturnThis(),
 			};
 
@@ -203,6 +206,7 @@ describe( 'BackupHandlerFactory', () => {
 					}
 					return mockWriteStream;
 				} ),
+				once: jest.fn().mockReturnThis(),
 			};
 
 			const mockZipFile: MockZipFile = {
@@ -255,8 +259,10 @@ describe( 'BackupHandlerFactory', () => {
 			expect( mockReadStream.pipe ).toHaveBeenCalledWith( mockWriteStream );
 
 			// Verify event handlers were set up
+			expect( mockReadStream.once ).toHaveBeenCalledWith( 'error', expect.any( Function ) );
+			expect( mockWriteStream.once ).toHaveBeenCalledWith( 'error', expect.any( Function ) );
 			expect( mockReadStream.on ).toHaveBeenCalledWith( 'data', expect.any( Function ) );
-			expect( mockWriteStream.on ).toHaveBeenCalledWith( 'finish', expect.any( Function ) );
+			expect( mockWriteStream.once ).toHaveBeenCalledWith( 'finish', expect.any( Function ) );
 		} );
 
 		it( 'should copy SQL file to extraction directory', async () => {

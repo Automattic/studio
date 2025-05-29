@@ -166,7 +166,15 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			const absolutePath = path.join( this.options.site.path, 'wp-content', folderName );
 			const archivePath = path.relative( this.options.site.path, absolutePath );
 			this.archive.directory( absolutePath, archivePath, ( entry ) => {
-				if ( entry.name.includes( '.git' ) || entry.name.includes( 'node_modules' ) ) {
+				const fullArchivePath = path.join( archivePath, entry.name );
+				const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
+					fullArchivePath.startsWith( path.normalize( pathToExclude ) )
+				);
+				if (
+					isExcluded ||
+					entry.name.includes( '.git' ) ||
+					entry.name.includes( 'node_modules' )
+				) {
 					return false;
 				}
 				return entry;

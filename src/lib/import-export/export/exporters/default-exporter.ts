@@ -162,7 +162,8 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		 ).filter( ( category ) => this.options.includes[ category ] );
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_START );
 		for ( const category of categories ) {
-			const absolutePath = path.join( this.options.site.path, 'wp-content', category );
+			const folderName = category === 'muPlugins' ? 'mu-plugins' : category;
+			const absolutePath = path.join( this.options.site.path, 'wp-content', folderName );
 			const archivePath = path.relative( this.options.site.path, absolutePath );
 			this.archive.directory( absolutePath, archivePath, ( entry ) => {
 				if ( entry.name.includes( '.git' ) || entry.name.includes( 'node_modules' ) ) {

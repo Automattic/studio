@@ -11,7 +11,7 @@ declare const SITE_SERVER_PROCESS_MODULE_PATH: string;
 
 export type MessageName = 'start-server' | 'stop-server' | 'run-php';
 
-const DEFAULT_RESPONSE_TIMEOUT = 180000;
+const DEFAULT_RESPONSE_TIMEOUT = 150000;
 
 export default class SiteServerProcess {
 	lastMessageId = 0;

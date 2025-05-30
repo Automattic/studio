@@ -123,14 +123,10 @@ async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outp
 			if ( bytesToRead === 0 ) break;
 			const buffer = Buffer.alloc( bytesToRead );
 			const data = await fd.read( buffer, 0, bytesToRead );
-			if ( errored ) {
+			if ( errored || outputStream.destroyed ) {
 				return;
 			}
-			if ( ! outputStream.destroyed ) {
-				outputStream.write( buffer );
-			} else {
-				return;
-			}
+			outputStream.write( buffer );
 			totalBytesToRead -= data.bytesRead;
 		}
 	} catch ( err ) {

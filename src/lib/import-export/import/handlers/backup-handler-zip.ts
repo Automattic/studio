@@ -78,6 +78,12 @@ export class BackupHandlerZip extends EventEmitter implements BackupHandler {
 					const writeStream = fs.createWriteStream( fullPath );
 
 					const onError = ( err: Error ) => {
+						if ( ! readStream.destroyed ) {
+							readStream.destroy();
+						}
+						if ( ! writeStream.destroyed ) {
+							writeStream.destroy();
+						}
 						failOnce( err, { fullPath, entry: entry.fileName, filePath: file.path } );
 					};
 

@@ -1,13 +1,15 @@
 import { app } from 'electron';
 import fs from 'fs';
-import nodePath from 'path';
+import nodePath from 'node:path';
 import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/main';
-import * as atomically from 'atomically';
+import { readFile, writeFile } from 'atomically';
+import { LOCKFILE_NAME, LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/constants';
+import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
 import { isErrnoException } from 'src/lib/is-errno-exception';
 import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for-logging';
 import { sortSites } from 'src/lib/sort-sites';
-import { getUserDataFilePath } from 'src/storage/paths';
+import { getResourcesPath, getUserDataFilePath } from 'src/storage/paths';
 import type { PersistedUserData, UserData } from 'src/storage/storage-types';
 
 // Before persisting the PHP version of sites, the default PHP version used was 8.0.
@@ -64,7 +66,7 @@ export async function loadUserData(): Promise< UserData > {
 	const filePath = getUserDataFilePath();
 
 	try {
-		const asString = await fs.promises.readFile( filePath, 'utf-8' );
+		const asString = await readFile( filePath, 'utf-8' );
 		try {
 			const parsed = JSON.parse( asString );
 			const data = fromDiskFormat( parsed );
@@ -101,18 +103,45 @@ export async function loadUserData(): Promise< UserData > {
 
 export async function saveUserData( data: UserData ): Promise< void > {
 	const filePath = getUserDataFilePath();
-
 	const asString = JSON.stringify( toDiskFormat( data ), null, 2 ) + '\n';
+	await writeFile( filePath, asString, 'utf-8' );
+}
+
+const LOCKFILE_PATH = nodePath.join( getResourcesPath(), LOCKFILE_NAME );
+
+export async function lockAppdata() {
+	return lockFileAsync( LOCKFILE_PATH, { stale: LOCKFILE_STALE_TIME, wait: LOCKFILE_WAIT_TIME } );
+}
+
+export async function unlockAppdata() {
+	return unlockFileAsync( LOCKFILE_PATH );
+}
+
+type UserDataSafeKeys =
+	| 'devToolsOpen'
+	| 'authToken'
+	| 'onboardingCompleted'
+	| 'locale'
+	| 'promptWindowsSpeedUpResult'
+	| 'sentryUserId'
+	| 'lastSeenVersion'
+	| 'preferredTerminal'
+	| 'preferredEditor';
+
+type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
+
+// Sometimes, we need to update the config file with a known value (i.e., not one that's derived
+// from the current user config). This function should be used in those cases.
+export async function updateAppdata(
+	update: PartialUserDataWithSafeKeysToUpdate
+): Promise< void > {
 	try {
-		await atomically.writeFile( filePath, asString, 'utf-8' );
-	} catch ( error ) {
-		// Fall back to FS function in case the writing fails with EXDEV error.
-		// This issue might happen on Windows when renaming a file.
-		// Reference: https://github.com/sindresorhus/electron-store/issues/106
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		if ( ( error as any )?.code === 'EXDEV' ) {
-			await fs.promises.writeFile( filePath, asString, 'utf-8' );
-		}
+		await lockAppdata();
+		const userData = await loadUserData();
+		const updated = { ...userData, ...update };
+		await saveUserData( updated );
+	} finally {
+		await unlockAppdata();
 	}
 }
 

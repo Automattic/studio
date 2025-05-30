@@ -70,13 +70,15 @@ export const useSiteSyncManagement = ( {
 					( id ) => syncSites.find( ( s ) => s.id === id ) ?? []
 				);
 				const sitesToConnect = [ site, ...stagingSites ];
-				const newConnectedSites = await getIpcApi().connectWpcomSites( [
+				await getIpcApi().connectWpcomSites( [
 					{
 						sites: sitesToConnect,
 						localSiteId: localSiteIdToConnect,
 					},
 				] );
 				if ( localSiteIdToConnect === localSiteId ) {
+					const newConnectedSites =
+						await getIpcApi().getConnectedWpcomSites( localSiteIdToConnect );
 					setConnectedSites( newConnectedSites );
 				}
 				closeSyncSitesSelector();
@@ -100,14 +102,15 @@ export const useSiteSyncManagement = ( {
 				}
 
 				const sitesToDisconnect = [ siteId, ...siteToDisconnect.stagingSiteIds ];
-				const newDisconnectedSites = await getIpcApi().disconnectWpcomSites( [
+				await getIpcApi().disconnectWpcomSites( [
 					{
 						siteIds: sitesToDisconnect,
 						localSiteId,
 					},
 				] );
 
-				setConnectedSites( newDisconnectedSites );
+				const newConnectedSites = await getIpcApi().getConnectedWpcomSites( localSiteId );
+				setConnectedSites( newConnectedSites );
 			} catch ( error ) {
 				console.error( 'Failed to disconnect site:', error );
 				throw error;

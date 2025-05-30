@@ -4,6 +4,7 @@ import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snap
 import { Logger, LoggerError } from 'cli/logger';
 
 jest.mock( 'cli/lib/appdata', () => ( {
+	...jest.requireActual( 'cli/lib/appdata' ),
 	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
 	getAuthToken: jest.fn(),
 } ) );

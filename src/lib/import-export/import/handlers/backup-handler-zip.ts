@@ -49,7 +49,7 @@ export class BackupHandlerZip extends EventEmitter implements BackupHandler {
 
 		return new Promise( ( resolve, reject ) => {
 			let extractionFailed = false;
-			function failOnce( err: Error, context?: Record< string, unknown > ) {
+			const failOnce = ( err: Error, context?: Record< string, unknown > ) => {
 				if ( ! extractionFailed ) {
 					Sentry.captureException( err, {
 						extra: context,
@@ -57,7 +57,7 @@ export class BackupHandlerZip extends EventEmitter implements BackupHandler {
 					extractionFailed = true;
 					reject( err );
 				}
-			}
+			};
 
 			zipFile.on( 'entry', async ( entry ) => {
 				if ( ! isFileAllowed( entry.fileName ) ) {

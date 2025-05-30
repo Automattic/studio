@@ -1,7 +1,8 @@
 Unreleased
 ==========
 * Miscellaneous security improvements #1411
-* Follow symlinks when creating preview sites #1447
+* Included symlinked directories and files when creating preview sites #1447
+* Included symlinked directories and files when exporting and pushing sites #1448
 
 1.5.2
 =====

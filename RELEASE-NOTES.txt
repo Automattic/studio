@@ -1,6 +1,7 @@
 Unreleased
 ==========
 * Miscellaneous security improvements #1411
+* Follow symlinks when creating preview sites #1447
 
 1.5.2
 =====

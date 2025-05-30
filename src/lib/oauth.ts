@@ -33,17 +33,9 @@ async function getToken(): Promise< StoredToken | null > {
 	}
 }
 
-async function storeToken( token: StoredToken ) {
-	await updateAppdata( { authToken: token } );
-}
-
 export function getSignUpUrl( locale: SupportedLocale ) {
 	const authUrl = encodeURIComponent( getAuthenticationUrl( locale ) );
 	return `https://wordpress.com/log-in/link?redirect_to=${ authUrl }&client_id=${ CLIENT_ID }&locale=${ locale }`;
-}
-
-export async function clearAuthenticationToken() {
-	await updateAppdata( { authToken: undefined } );
 }
 
 export async function getAuthenticationToken(): Promise< StoredToken | null > {
@@ -96,7 +88,7 @@ export async function onOpenUrlCallback( url: string ) {
 	if ( host === 'auth' ) {
 		try {
 			const authResult = await handleAuthCallback( hash );
-			await storeToken( authResult );
+			await updateAppdata( { authToken: authResult } );
 			void sendIpcEventToRenderer( 'auth-updated', { token: authResult } );
 		} catch ( error ) {
 			Sentry.captureException( error );

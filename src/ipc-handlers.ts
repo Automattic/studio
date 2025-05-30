@@ -167,7 +167,7 @@ export async function createSite(
 	customDomain?: string,
 	enableHttps?: boolean,
 	siteId?: string
-) {
+): Promise< SiteDetails > {
 	const forceSetupSqlite = false;
 	// We only recursively create the directory if the user has not selected a
 	// path from the dialog (and thus they use the "default" or suggested path).
@@ -179,63 +179,62 @@ export async function createSite(
 		// Form validation should've prevented a non-empty directory from being selected
 		throw new Error( 'The selected directory is not empty nor an existing WordPress site.' );
 	}
+	let userData = await loadUserData();
+
+	const allPaths = userData?.sites?.map( ( site ) => site.path ) || [];
+	if ( allPaths.includes( path ) ) {
+		throw new Error( 'The selected directory is already in use.' );
+	}
+
+	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
+		try {
+			await createSiteWorkingDirectory( path, wpVersion );
+		} catch ( error ) {
+			// If site creation failed, remove the generated files and re-throw the
+			// error so it can be handled by the caller.
+			await shell.trashItem( path );
+			throw error;
+		}
+	}
+
+	const port = await portFinder.getOpenPort();
+
+	const details = {
+		id: siteId || crypto.randomUUID(),
+		name: siteName || nodePath.basename( path ),
+		path,
+		adminPassword: createPassword(),
+		port,
+		running: false,
+		phpVersion: DEFAULT_PHP_VERSION,
+		isWpAutoUpdating: wpVersion === DEFAULT_WORDPRESS_VERSION,
+		customDomain,
+		enableHttps,
+	} as const;
+
+	const server = SiteServer.create( details, { wpVersion } );
+
+	if ( isWordPressDirectory( path ) ) {
+		// If the directory contains a WordPress installation, and user wants to force SQLite
+		// integration, let's rename the wp-config.php file to allow WP Now to create a new one
+		// and initialize things properly.
+		if ( forceSetupSqlite && ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
+			fs.renameSync(
+				nodePath.join( path, 'wp-config.php' ),
+				nodePath.join( path, 'wp-config-studio.php' )
+			);
+		}
+
+		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
+			await installSqliteIntegration( path );
+		} else {
+			await updateSiteUrl( server, getSiteUrl( details ) );
+		}
+	}
+
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id: details.id } );
 	try {
-		let userData = await loadUserData();
-
-		const allPaths = userData?.sites?.map( ( site ) => site.path ) || [];
-		if ( allPaths.includes( path ) ) {
-			throw new Error( 'The selected directory is already in use.' );
-		}
-
-		if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
-			try {
-				await createSiteWorkingDirectory( path, wpVersion );
-			} catch ( error ) {
-				// If site creation failed, remove the generated files and re-throw the
-				// error so it can be handled by the caller.
-				await shell.trashItem( path );
-				throw error;
-			}
-		}
-
-		const port = await portFinder.getOpenPort();
-
-		const details = {
-			id: siteId || crypto.randomUUID(),
-			name: siteName || nodePath.basename( path ),
-			path,
-			adminPassword: createPassword(),
-			port,
-			running: false,
-			phpVersion: DEFAULT_PHP_VERSION,
-			isWpAutoUpdating: wpVersion === DEFAULT_WORDPRESS_VERSION,
-			customDomain,
-			enableHttps,
-		} as const;
-
-		const server = SiteServer.create( details, { wpVersion } );
-
-		if ( isWordPressDirectory( path ) ) {
-			// If the directory contains a WordPress installation, and user wants to force SQLite
-			// integration, let's rename the wp-config.php file to allow WP Now to create a new one
-			// and initialize things properly.
-			if ( forceSetupSqlite && ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
-				fs.renameSync(
-					nodePath.join( path, 'wp-config.php' ),
-					nodePath.join( path, 'wp-config-studio.php' )
-				);
-			}
-
-			if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
-				await installSqliteIntegration( path );
-			} else {
-				await updateSiteUrl( server, getSiteUrl( details ) );
-			}
-		}
-
-		const parentWindow = BrowserWindow.fromWebContents( event.sender );
-		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id: details.id } );
-
 		await lockAppdata();
 		userData = await loadUserData();
 
@@ -249,7 +248,10 @@ export async function createSite(
 	}
 }
 
-export async function updateSite( event: IpcMainInvokeEvent, updatedSite: SiteDetails ) {
+export async function updateSite(
+	event: IpcMainInvokeEvent,
+	updatedSite: SiteDetails
+): Promise< void > {
 	try {
 		await lockAppdata();
 		const userData = await loadUserData();
@@ -746,7 +748,7 @@ export async function isAuthenticated() {
 }
 
 export async function clearAuthenticationToken() {
-	return oauthClient.clearAuthenticationToken();
+	return await updateAppdata( { authToken: undefined } );
 }
 
 export async function exportSite(

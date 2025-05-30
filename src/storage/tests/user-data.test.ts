@@ -3,9 +3,10 @@
  */
 // To run tests, execute `npm run test -- src/storage/user-data.test.ts` from the root directory
 import fs from 'fs';
-import { readFile } from 'atomically';
-import { loadUserData } from 'src/storage/user-data';
+import { readFile, writeFile } from 'atomically';
+import { loadUserData, saveUserData } from 'src/storage/user-data';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
+import { UserData } from '../storage-types';
 
 jest.mock( 'fs' );
 jest.mock( 'src/storage/paths', () => ( {
@@ -26,6 +27,24 @@ jest.mock( 'atomically', () => ( {
 	),
 	writeFile: jest.fn(),
 } ) );
+
+const mockedUserData: RecursivePartial< UserData > = {
+	sites: [
+		{ name: 'Tristan', path: '/to/tristan' },
+		{ name: 'Arthur', path: '/to/arthur' },
+		{ name: 'Lancelot', path: '/to/lancelot' },
+	],
+	snapshots: [],
+};
+
+const defaultThemeDetails = {
+	name: '',
+	path: '',
+	slug: '',
+	isBlockTheme: false,
+	supportsWidgets: false,
+	supportsMenus: false,
+};
 
 platformTestSuite( 'User data', () => {
 	beforeEach( () => {
@@ -67,6 +86,28 @@ platformTestSuite( 'User data', () => {
 			);
 			const result = await loadUserData();
 			expect( result.sites.map( ( site ) => site.phpVersion ) ).toEqual( [ '8.3', '8.1', '8.0' ] );
+		} );
+	} );
+
+	describe( 'saveUserData', () => {
+		test( 'saves user data correctly', async () => {
+			await saveUserData( mockedUserData as UserData );
+			expect( writeFile ).toHaveBeenCalledWith(
+				'/path/to/app/appData/App Name/appdata-v1.json',
+				JSON.stringify(
+					{
+						version: 1,
+						sites: mockedUserData.sites?.map( ( site ) => ( {
+							...site,
+							themeDetails: defaultThemeDetails,
+						} ) ),
+						snapshots: [],
+					},
+					null,
+					2
+				) + '\n',
+				'utf-8'
+			);
 		} );
 	} );
 } );

@@ -6,10 +6,10 @@ import { arePathsEqual } from 'common/lib/fs-utils';
 import { StatsMetric } from 'common/types/stats';
 import {
 	readAppdata,
+	saveAppdata,
 	getAuthToken,
 	getNewSitePartial,
 	getOrCreateSiteByFolder,
-	saveAppdata,
 } from 'cli/lib/appdata';
 
 jest.mock( 'fs' );
@@ -227,7 +227,7 @@ describe( 'Appdata Module', () => {
 				path: folderPath,
 				name: 'existing-site',
 			};
-			( readFile as jest.Mock ).mockReturnValue(
+			( readFile as jest.Mock ).mockReturnValueOnce(
 				JSON.stringify( { sites: [ existingSite ], newSites: [], snapshots: [] } )
 			);
 			const site = await getOrCreateSiteByFolder( folderPath );
@@ -242,7 +242,7 @@ describe( 'Appdata Module', () => {
 				path: folderPath,
 				name: 'existing-site',
 			};
-			( readFile as jest.Mock ).mockReturnValue(
+			( readFile as jest.Mock ).mockReturnValueOnce(
 				JSON.stringify( { sites: [], newSites: [ existingSite ], snapshots: [] } )
 			);
 			const site = await getOrCreateSiteByFolder( folderPath );
@@ -252,7 +252,7 @@ describe( 'Appdata Module', () => {
 
 		it( 'should create and return a new site if not present', async () => {
 			const folderPath = '/new/site/path';
-			( readFile as jest.Mock ).mockReturnValue(
+			( readFile as jest.Mock ).mockReturnValueOnce(
 				JSON.stringify( { sites: [], newSites: [], snapshots: [] } )
 			);
 			const site = await getOrCreateSiteByFolder( folderPath );

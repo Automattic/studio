@@ -32,7 +32,7 @@ import {
 	SQLITE_FILENAME,
 	SQLITE_PLUGIN_FOLDER,
 } from './constants';
-import { downloadWordPress, removeDownloadedMuPlugins } from './download';
+import { removeDownloadedMuPlugins } from './download';
 import getSqlitePath from './get-sqlite-path';
 import getWordpressVersionsPath from './get-wordpress-versions-path';
 import { output } from './output';
@@ -89,7 +89,6 @@ export default async function startWPNow(
 		return { php, options };
 	}
 	output?.log( `wp: ${ options.wordPressVersion }` );
-	await downloadWordPress( options.wordPressVersion );
 
 	if ( options.reset ) {
 		fs.removeSync( options.wpContentPath );
@@ -100,9 +99,11 @@ export default async function startWPNow(
 
 	await prepareWordPress( php, options );
 
+	await installationSteps( php, options );
+
 	if ( options.blueprintObject ) {
 		output?.log( `blueprint steps: ${ options.blueprintObject.steps.length }` );
-		const compiled = compileBlueprint( options.blueprintObject, {
+		const compiled = await compileBlueprint( options.blueprintObject, {
 			onStepCompleted: ( result, step: StepDefinition ) => {
 				output?.log( `Blueprint step completed: ${ step.step }` );
 			},
@@ -110,7 +111,6 @@ export default async function startWPNow(
 		await runBlueprintSteps( compiled, php );
 	}
 
-	await installationSteps( php, options );
 	await login( php, options );
 
 	if ( isFirstTimeProject && [ WPNowMode.PLUGIN, WPNowMode.THEME ].includes( options.mode ) ) {

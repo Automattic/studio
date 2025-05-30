@@ -300,16 +300,7 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 			{ createInterpolateElement(
 				__( "If you don't have an account yet, <a>create one for free</a>." ),
 				{
-					a: (
-						<Button
-							variant="link"
-							onClick={ () =>
-								getIpcApi().openURL(
-									'https://wordpress.com/?utm_source=studio&utm_medium=referral&utm_campaign=assistant_onboarding'
-								)
-							}
-						/>
-					),
+					a: <Button variant="link" onClick={ () => getIpcApi().authenticate( true ) } />,
 				}
 			) }
 		</div>

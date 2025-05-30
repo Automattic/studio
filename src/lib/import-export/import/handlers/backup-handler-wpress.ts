@@ -133,7 +133,6 @@ async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outp
 			}
 			totalBytesToRead -= data.bytesRead;
 		}
-		endStream();
 	} catch ( err ) {
 		errorHandler( err as Error );
 	} finally {

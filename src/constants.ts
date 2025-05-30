@@ -37,10 +37,12 @@ export const ACCEPTED_IMPORT_FILE_TYPES = [ '.zip', '.gz', '.gzip', '.tar', '.ta
 export const ARCHIVER_OPTIONS = {
 	zip: {
 		zlib: { level: 9 },
+		followSymlinks: true,
 	},
 	tar: {
 		gzip: true,
 		gzipOptions: { level: 9 },
+		followSymlinks: true,
 	},
 };
 

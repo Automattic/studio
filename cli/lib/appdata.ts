@@ -4,7 +4,7 @@ import os from 'os';
 import path from 'path';
 import { __, sprintf } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
-import { LOCKFILE_NAME, LOCKFILE_STALE_TIME } from 'common/constants';
+import { LOCKFILE_NAME, LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/constants';
 import { arePathsEqual } from 'common/lib/fs-utils';
 import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
 import { getAuthenticationUrl } from 'common/lib/oauth';
@@ -119,7 +119,7 @@ export async function saveAppdata( userData: UserData ): Promise< void > {
 const LOCKFILE_PATH = path.join( getAppdataDirectory(), LOCKFILE_NAME );
 
 export async function lockAppdata(): Promise< void > {
-	await lockFileAsync( LOCKFILE_PATH, { stale: LOCKFILE_STALE_TIME } );
+	await lockFileAsync( LOCKFILE_PATH, { wait: LOCKFILE_WAIT_TIME, stale: LOCKFILE_STALE_TIME } );
 }
 
 export async function unlockAppdata(): Promise< void > {

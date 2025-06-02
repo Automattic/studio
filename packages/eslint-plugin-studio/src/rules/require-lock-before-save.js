@@ -9,12 +9,12 @@ module.exports = {
     fixable: null,
     schema: [],
     messages: {
-      missingLock: 'Function that modifies derived data (sites array, etc.) must be wrapped with lockUserData() and unlockUserData().',
-      missingUnlock: 'lockUserData() must be followed by unlockUserData() in a try/finally block.',
+      missingLock: 'Function that modifies derived data (sites array, etc.) must be wrapped with lockAppdata() and unlockAppdata().',
+      missingUnlock: 'lockAppdata() must be followed by unlockAppdata() in a try/finally block.',
     },
   },
   create(context) {
-    const saveFunctions = ['saveUserData', 'saveAppdata', 'updateAppdata'];
+    const saveFunctions = ['saveUserData', 'saveAppdata'];
     let hasLockCall = false;
     let hasUnlockCall = false;
     let isInFunction = false;
@@ -54,7 +54,7 @@ module.exports = {
 
     return {
       CallExpression(node) {
-        if (node.callee.name === 'lockUserData') {
+        if (node.callee.name === 'lockAppdata') {
           hasLockCall = true;
           if (!isInTryBlock) {
             context.report({
@@ -63,7 +63,7 @@ module.exports = {
             });
           }
         }
-        if (node.callee.name === 'unlockUserData') {
+        if (node.callee.name === 'unlockAppdata') {
           hasUnlockCall = true;
         }
         if (saveFunctions.includes(node.callee.name)) {

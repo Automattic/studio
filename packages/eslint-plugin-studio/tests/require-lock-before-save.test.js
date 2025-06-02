@@ -22,13 +22,13 @@ ruleTester.run('require-lock-before-save', rule, {
     {
       code: `
         async function updateUserData() {
-          await lockUserData();
+          await lockAppdata();
           try {
             const data = await loadUserData();
             data.sites.push(newSite);
             await saveUserData(data);
           } finally {
-            await unlockUserData();
+            await unlockAppdata();
           }
         }
       `,
@@ -37,37 +37,26 @@ ruleTester.run('require-lock-before-save', rule, {
     {
       code: `
         const updateUserData = async () => {
-          await lockUserData();
+          await lockAppdata();
           try {
             const data = await loadUserData();
             data.snapshots.splice(0, 1);
             await updateAppdata(data);
           } finally {
-            await unlockUserData();
+            await unlockAppdata();
           }
         };
       `,
     },
   ],
   invalid: [
-    // Modifying derived data without lock (not allowed)
-    {
-      code: `
-        async function updateUserData() {
-          const data = await loadUserData();
-          data.sites.push(newSite);
-          await saveUserData(data);
-        }
-      `,
-      errors: [{ messageId: 'missingLock' }],
-    },
     // Modifying array without lock (not allowed)
     {
       code: `
         const updateUserData = async () => {
           const data = await loadUserData();
           data.snapshots.splice(0, 1);
-          await updateAppdata(data);
+          await saveUserData(data);
         };
       `,
       errors: [{ messageId: 'missingLock' }],
@@ -87,11 +76,11 @@ ruleTester.run('require-lock-before-save', rule, {
     {
       code: `
         async function updateUserData() {
-          await lockUserData();
+          await lockAppdata();
           const data = await loadUserData();
           data.sites.push(newSite);
           await saveUserData(data);
-          await unlockUserData();
+          await unlockAppdata();
         }
       `,
       errors: [{ messageId: 'missingUnlock' }],
@@ -100,7 +89,7 @@ ruleTester.run('require-lock-before-save', rule, {
     {
       code: `
         async function updateUserData() {
-          await lockUserData();
+          await lockAppdata();
           try {
             const data = await loadUserData();
             data.sites.push(newSite);

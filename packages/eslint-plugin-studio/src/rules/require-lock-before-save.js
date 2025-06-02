@@ -18,34 +18,36 @@ module.exports = {
     let hasLockCall = false;
     let hasUnlockCall = false;
     let isInFunction = false;
-    let isInTryBlock = false;
+    let hasTryFinally = false;
     let isModifyingDerivedData = false;
 
     // Helper to check if we're modifying derived data
     function checkForDerivedDataModification(node) {
-      // Check for array modifications (push, splice, etc.)
+      // Check for array modifications (push, splice, etc.) on data objects
       if (node.type === 'CallExpression' && 
           node.callee.type === 'MemberExpression' &&
           ['push', 'splice', 'pop', 'shift', 'unshift'].includes(node.callee.property.name)) {
-        return true;
-      }
-
-      // Check for direct array element modifications
-      if (node.type === 'AssignmentExpression' &&
-          node.left.type === 'MemberExpression' &&
-          node.left.property.type === 'Identifier') {
-        return true;
-      }
-
-      // Check for object property modifications
-      if (node.type === 'AssignmentExpression' &&
-          node.left.type === 'MemberExpression' &&
-          node.left.object.type === 'Identifier') {
-        const objectName = node.left.object.name;
-        // List of objects that contain derived data
-        const derivedDataObjects = ['sites', 'snapshots', 'data'];
-        if (derivedDataObjects.includes(objectName)) {
+        // Check if we're calling these methods on a data object property
+        if (node.callee.object.type === 'MemberExpression' &&
+            node.callee.object.object.name === 'data') {
           return true;
+        }
+      }
+
+      // Check for direct property modifications on data objects
+      if (node.type === 'AssignmentExpression' &&
+          node.left.type === 'MemberExpression') {
+        // Check if we're modifying properties of a data object
+        let current = node.left;
+        while (current.object) {
+          if (current.object.name === 'data') {
+            return true;
+          }
+          if (current.object.type === 'MemberExpression') {
+            current = current.object;
+          } else {
+            break;
+          }
         }
       }
 
@@ -56,16 +58,16 @@ module.exports = {
       CallExpression(node) {
         if (node.callee.name === 'lockAppdata') {
           hasLockCall = true;
-          if (!isInTryBlock) {
-            context.report({
-              node,
-              messageId: 'missingUnlock',
-            });
-          }
         }
         if (node.callee.name === 'unlockAppdata') {
           hasUnlockCall = true;
         }
+        
+        // Check for array method calls that modify data
+        if (isInFunction && checkForDerivedDataModification(node)) {
+          isModifyingDerivedData = true;
+        }
+        
         if (saveFunctions.includes(node.callee.name)) {
           if (!hasLockCall && isInFunction && isModifyingDerivedData) {
             context.report({
@@ -80,46 +82,69 @@ module.exports = {
           isModifyingDerivedData = isModifyingDerivedData || checkForDerivedDataModification(node);
         }
       },
-      TryStatement() {
-        isInTryBlock = true;
-      },
-      'TryStatement:exit'() {
-        isInTryBlock = false;
+      TryStatement(node) {
+        if (node.finalizer) {
+          hasTryFinally = true;
+        }
       },
       FunctionDeclaration() {
         isInFunction = true;
         hasLockCall = false;
         hasUnlockCall = false;
+        hasTryFinally = false;
         isModifyingDerivedData = false;
       },
       'FunctionDeclaration:exit'() {
+        if (hasLockCall && (!hasTryFinally || !hasUnlockCall)) {
+          context.report({
+            node: context.getSourceCode().ast,
+            messageId: 'missingUnlock',
+          });
+        }
         isInFunction = false;
         hasLockCall = false;
         hasUnlockCall = false;
+        hasTryFinally = false;
         isModifyingDerivedData = false;
       },
       ArrowFunctionExpression() {
         isInFunction = true;
         hasLockCall = false;
         hasUnlockCall = false;
+        hasTryFinally = false;
         isModifyingDerivedData = false;
       },
       'ArrowFunctionExpression:exit'() {
+        if (hasLockCall && (!hasTryFinally || !hasUnlockCall)) {
+          context.report({
+            node: context.getSourceCode().ast,
+            messageId: 'missingUnlock',
+          });
+        }
         isInFunction = false;
         hasLockCall = false;
         hasUnlockCall = false;
+        hasTryFinally = false;
         isModifyingDerivedData = false;
       },
       FunctionExpression() {
         isInFunction = true;
         hasLockCall = false;
         hasUnlockCall = false;
+        hasTryFinally = false;
         isModifyingDerivedData = false;
       },
       'FunctionExpression:exit'() {
+        if (hasLockCall && (!hasTryFinally || !hasUnlockCall)) {
+          context.report({
+            node: context.getSourceCode().ast,
+            messageId: 'missingUnlock',
+          });
+        }
         isInFunction = false;
         hasLockCall = false;
         hasUnlockCall = false;
+        hasTryFinally = false;
         isModifyingDerivedData = false;
       },
     };

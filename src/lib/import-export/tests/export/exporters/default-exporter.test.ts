@@ -261,10 +261,13 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		await exporter.export();
 
 		// wp-config.php should be called first, then meta.json
-		expect( mockArchiver.file ).toHaveBeenCalledWith( normalize( '/path/to/site/wp-config.php' ), {
-			name: 'wp-config.php',
-		} );
-		expect( mockArchiver.file ).toHaveBeenCalledWith(
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			1,
+			normalize( '/path/to/site/wp-config.php' ),
+			{ name: 'wp-config.php' }
+		);
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			2,
 			normalize( '/tmp/studio_export_123/meta.json' ),
 			{ name: 'meta.json' }
 		);
@@ -301,31 +304,37 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		await exporter.export();
 
 		// Check that wp-config.php and meta.json are both added
-		expect( mockArchiver.file ).toHaveBeenCalledWith( normalize( '/path/to/site/wp-config.php' ), {
-			name: 'wp-config.php',
-		} );
-		expect( mockArchiver.file ).toHaveBeenCalledWith(
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			1,
+			normalize( '/path/to/site/wp-config.php' ),
+			{ name: 'wp-config.php' }
+		);
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			2,
 			normalize( '/tmp/studio_export_123/meta.json' ),
 			{ name: 'meta.json' }
 		);
 
-		// Check that directories are added
-		expect( mockArchiver.directory ).toHaveBeenCalledWith(
+		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
+			1,
 			normalize( '/path/to/site/wp-content/uploads' ),
 			normalize( 'wp-content/uploads' ),
 			expect.any( Function )
 		);
-		expect( mockArchiver.directory ).toHaveBeenCalledWith(
+		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
+			2,
 			normalize( '/path/to/site/wp-content/plugins' ),
 			normalize( 'wp-content/plugins' ),
 			expect.any( Function )
 		);
-		expect( mockArchiver.directory ).toHaveBeenCalledWith(
+		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
+			3,
 			normalize( '/path/to/site/wp-content/themes' ),
 			normalize( 'wp-content/themes' ),
 			expect.any( Function )
 		);
-		expect( mockArchiver.directory ).toHaveBeenCalledWith(
+		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
+			4,
 			normalize( '/path/to/site/wp-content/fonts' ),
 			normalize( 'wp-content/fonts' ),
 			expect.any( Function )
@@ -348,14 +357,18 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		const exporter = new DefaultExporter( options );
 		await exporter.export();
 
-		expect( mockArchiver.file ).toHaveBeenCalledWith( normalize( '/path/to/site/wp-config.php' ), {
-			name: 'wp-config.php',
-		} );
-		expect( mockArchiver.file ).toHaveBeenCalledWith(
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			1,
+			normalize( '/path/to/site/wp-config.php' ),
+			{ name: 'wp-config.php' }
+		);
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			2,
 			normalize( '/tmp/studio_export_123/meta.json' ),
 			{ name: 'meta.json' }
 		);
-		expect( mockArchiver.directory ).toHaveBeenCalledWith(
+		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
+			1,
 			normalize( '/path/to/site/wp-content/mu-plugins' ),
 			normalize( 'wp-content/mu-plugins' ),
 			expect.any( Function )
@@ -379,14 +392,18 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		const exporter = new DefaultExporter( options );
 		await exporter.export();
 
-		expect( mockArchiver.file ).toHaveBeenCalledWith( normalize( '/path/to/site/wp-config.php' ), {
-			name: 'wp-config.php',
-		} );
-		expect( mockArchiver.file ).toHaveBeenCalledWith(
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			1,
+			normalize( '/path/to/site/wp-config.php' ),
+			{ name: 'wp-config.php' }
+		);
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			2,
 			normalize( '/tmp/studio_export_123/studio-backup-db-export-2023-07-31-12-00-00.sql' ),
 			{ name: 'sql/studio-backup-db-export-2023-07-31-12-00-00.sql' }
 		);
-		expect( mockArchiver.file ).toHaveBeenCalledWith(
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			3,
 			normalize( '/tmp/studio_export_123/meta.json' ),
 			{ name: 'meta.json' }
 		);
@@ -410,9 +427,11 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		const exporter = new DefaultExporter( options );
 		await exporter.export();
 
-		expect( mockArchiver.file ).toHaveBeenCalledWith( normalize( '/path/to/site/wp-config.php' ), {
-			name: 'wp-config.php',
-		} );
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			1,
+			normalize( '/path/to/site/wp-config.php' ),
+			{ name: 'wp-config.php' }
+		);
 
 		for ( const tableName of defaultTableNames ) {
 			expect( mockArchiver.file ).toHaveBeenCalledWith(
@@ -421,7 +440,8 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			);
 		}
 
-		expect( mockArchiver.file ).toHaveBeenCalledWith(
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			defaultTableNames.length + 2,
 			normalize( '/tmp/studio_export_123/meta.json' ),
 			{ name: 'meta.json' }
 		);
@@ -505,14 +525,18 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		const exporter = new DefaultExporter( options );
 		await exporter.export();
 
-		expect( mockArchiver.file ).toHaveBeenCalledWith( normalize( '/path/to/site/wp-config.php' ), {
-			name: 'wp-config.php',
-		} );
-		expect( mockArchiver.file ).toHaveBeenCalledWith(
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			1,
+			normalize( '/path/to/site/wp-config.php' ),
+			{ name: 'wp-config.php' }
+		);
+		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
+			2,
 			normalize( '/tmp/studio_export_123/meta.json' ),
 			{ name: 'meta.json' }
 		);
-		expect( mockArchiver.directory ).toHaveBeenCalledWith(
+		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
+			1,
 			normalize( '/path/to/site/wp-content/fonts' ),
 			normalize( 'wp-content/fonts' ),
 			expect.any( Function )

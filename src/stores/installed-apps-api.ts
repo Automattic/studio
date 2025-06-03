@@ -5,8 +5,20 @@ import {
 	SupportedEditorConfig,
 	SupportedEditor,
 	supportedEditorConfig,
+	SUPPORTED_EDITORS,
 } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal, supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
+
+const getFirstInstalledEditor = async (): Promise< SupportedEditor | null > => {
+	const installedApps = await getIpcApi().getInstalledAppsAndTerminals();
+	for ( const editor of SUPPORTED_EDITORS ) {
+		if ( installedApps[ editor ] ) {
+			return editor;
+		}
+	}
+
+	return null;
+};
 
 export const installedAppsApi = createApi( {
 	reducerPath: 'installedAppsApi',
@@ -29,17 +41,10 @@ export const installedAppsApi = createApi( {
 				}
 
 				// If no user preference is set, check for installed editors
-				// and set the default to the first one found
-				// This is a fallback to ensure we keep existing behavior
-				const installedEditors = await getIpcApi().getInstalledAppsAndTerminals();
-				if ( installedEditors.vscode ) {
-					return { data: 'vscode' };
-				} else if ( installedEditors.phpstorm ) {
-					return { data: 'phpstorm' };
-				}
+				// and set the default to the first one found in priority order
+				const defaultEditor = await getFirstInstalledEditor();
 
-				// If no user preference is set, return null
-				return { data: null };
+				return { data: defaultEditor };
 			},
 			providesTags: [ 'UserPreferences' ],
 		} ),

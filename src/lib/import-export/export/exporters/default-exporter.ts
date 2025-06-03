@@ -85,7 +85,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 	async export(): Promise< void > {
 		this.emit( ExportEvents.EXPORT_START );
-		this.backup = await this.getBackupContents();
+		this.backup = this.getBackupContents();
 		const output = fs.createWriteStream( this.options.backupFile );
 		this.archive = this.createArchive();
 
@@ -146,8 +146,11 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	}
 
 	private addWpConfig(): void {
-		if ( this.backup.wpConfigFile ) {
-			this.archive.file( this.backup.wpConfigFile, { name: 'wp-config.php' } );
+		const wpConfigPath = path.join( this.options.site.path, 'wp-config.php' );
+		if ( fs.existsSync( wpConfigPath ) ) {
+			this.archive.file( wpConfigPath, {
+				name: 'wp-config.php',
+			} );
 		}
 	}
 
@@ -212,10 +215,9 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		}
 	}
 
-	private async getBackupContents(): Promise< BackupContents > {
-		const options = this.options;
+	private getBackupContents(): BackupContents {
 		const backupContents: BackupContents = {
-			backupFile: options.backupFile,
+			backupFile: this.options.backupFile,
 			sqlFiles: [],
 		};
 

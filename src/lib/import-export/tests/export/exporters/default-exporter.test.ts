@@ -138,13 +138,6 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			backupFile: normalize( '/path/to/backup.tar.gz' ),
 			wpConfigFile: normalize( '/path/to/wp-config.php' ),
 			sqlFiles: [ normalize( '/tmp/studio_export_123/file.sql' ) ],
-			wpContent: {
-				uploads: [ normalize( '/path/to/wp-content/uploads/file1.jpg' ) ],
-				plugins: [ normalize( '/path/to/wp-content/plugins/plugin1' ) ],
-				themes: [ normalize( '/path/to/wp-content/themes/theme1' ) ],
-				muPlugins: [ normalize( '/path/to/wp-content/mu-plugins/custom-mu-plugin.php' ) ],
-				fonts: [ normalize( '/path/to/wp-content/fonts/custom-font.woff2' ) ],
-			},
 		};
 
 		mockOptions = {

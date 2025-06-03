@@ -47,13 +47,6 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		this.backup = {
 			backupFile: options.backupFile,
 			sqlFiles: [],
-			wpContent: {
-				uploads: [],
-				plugins: [],
-				themes: [],
-				muPlugins: [],
-				fonts: [],
-			},
 		};
 	}
 	async canHandle(): Promise< boolean > {
@@ -183,13 +176,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			} );
 			this.emit( ExportEvents.WP_CONTENT_EXPORT_PROGRESS, { directory: absolutePath } );
 		}
-		this.emit( ExportEvents.WP_CONTENT_EXPORT_COMPLETE, {
-			uploads: this.backup.wpContent.uploads.length,
-			plugins: this.backup.wpContent.plugins.length,
-			themes: this.backup.wpContent.themes.length,
-			muPlugins: this.backup.wpContent.muPlugins.length,
-			fonts: this.backup.wpContent.fonts.length,
-		} );
+		this.emit( ExportEvents.WP_CONTENT_EXPORT_COMPLETE );
 	}
 
 	private async addDatabase(): Promise< void > {
@@ -225,73 +212,12 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		}
 	}
 
-	private async getSiteFiles(): Promise< string[] > {
-		if ( this.siteFiles.length ) {
-			return this.siteFiles;
-		}
-
-		const directoryContents = await fsPromises.readdir( this.options.site.path, {
-			recursive: true,
-			withFileTypes: true,
-		} );
-
-		return directoryContents.reduce< string[] >( ( files: string[], directoryContent ) => {
-			const filePath = path.join( directoryContent.path, directoryContent.name );
-			const relativePath = path.relative( this.options.site.path, filePath );
-
-			// Check for exact path exclusions
-			const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
-				relativePath.startsWith( path.normalize( pathToExclude ) )
-			);
-
-			// Check for node_modules and .git directories anywhere
-			const isNodeModulesDirectory = relativePath.includes( 'node_modules' );
-			const isGitDirectory = relativePath.includes( '.git' );
-
-			if ( isExcluded || isNodeModulesDirectory || isGitDirectory ) {
-				return files;
-			}
-			if ( directoryContent.isFile() ) {
-				files.push( filePath );
-			}
-			return files;
-		}, [] );
-	}
-
 	private async getBackupContents(): Promise< BackupContents > {
 		const options = this.options;
 		const backupContents: BackupContents = {
 			backupFile: options.backupFile,
 			sqlFiles: [],
-			wpContent: {
-				uploads: [],
-				plugins: [],
-				themes: [],
-				muPlugins: [],
-				fonts: [],
-			},
 		};
-		// TODO: Remove getSiteFiles once #1448 is merged
-		const siteFiles = await this.getSiteFiles();
-		siteFiles.forEach( ( file ) => {
-			const relativePath = path.relative( options.site.path, file );
-			const relativePathItems = relativePath.split( path.sep );
-			const [ wpContent, wpContentDirectory ] = relativePathItems;
-			if ( path.basename( file ) === 'wp-config.php' ) {
-				backupContents.wpConfigFile = file;
-			} else if ( wpContent === 'wp-content' ) {
-				if (
-					wpContentDirectory === 'uploads' ||
-					wpContentDirectory === 'plugins' ||
-					wpContentDirectory === 'themes' ||
-					wpContentDirectory === 'fonts'
-				) {
-					backupContents.wpContent[ wpContentDirectory as BackupContentsCategory ].push( file );
-				} else if ( wpContentDirectory === 'mu-plugins' ) {
-					backupContents.wpContent.muPlugins.push( file );
-				}
-			}
-		} );
 
 		return backupContents;
 	}

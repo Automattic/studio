@@ -9,7 +9,10 @@ import { BackupContents, BackupArchiveInfo } from 'src/lib/import-export/import/
 import { Validator } from 'src/lib/import-export/import/validators/validator';
 
 jest.mock( 'src/storage/paths', () => ( {
-	getUserDataCertificatesPath: jest.fn().mockReturnValue( '/tmp/certificates' ),
+	getResourcesPath: jest.fn().mockReturnValue( '/path/to/app/appData/App Name' ),
+	getUserDataCertificatesPath: jest
+		.fn()
+		.mockReturnValue( '/path/to/app/appData/App Name/certificates' ),
 } ) );
 jest.mock( 'src/lib/import-export/import/handlers/backup-handler-factory' );
 jest.mock( 'fs/promises' );

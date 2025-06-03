@@ -5,6 +5,7 @@ import { shell, IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { readFile } from 'atomically';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { createSite, startServer, isFullscreen, importSite } from 'src/ipc-handlers';
 import { bumpStat } from 'src/lib/bump-stats';
@@ -25,6 +26,7 @@ jest.mock( 'src/main-window' );
 jest.mock( '@sentry/electron/main' );
 jest.mock( 'src/lib/import-export/import/import-manager' );
 jest.mock( 'src/lib/bump-stats' );
+jest.mock( 'atomically' );
 
 jest.mock( 'src/lib/port-finder', () => ( {
 	portFinder: {
@@ -47,6 +49,7 @@ const mockUserData = {
 	normalize( '/path/to/app/appData/App Name/appdata-v1.json' ),
 	JSON.stringify( mockUserData )
 );
+( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
 // Assume the provided site path is a directory
 ( fs.promises.stat as jest.Mock ).mockResolvedValue( {
 	isDirectory: () => true,
@@ -66,9 +69,9 @@ describe( 'createSite', () => {
 		( isEmptyDir as jest.Mock ).mockResolvedValueOnce( true );
 		( pathExists as jest.Mock ).mockResolvedValueOnce( true );
 
-		const [ site ] = await createSite( mockIpcMainInvokeEvent, '/test', 'Test', '6.4' );
+		const userData = await createSite( mockIpcMainInvokeEvent, '/test', 'Test', '6.4' );
 
-		expect( site ).toEqual( {
+		expect( userData ).toEqual( {
 			adminPassword: expect.any( String ),
 			id: expect.any( String ),
 			name: 'Test',
@@ -87,7 +90,7 @@ describe( 'createSite', () => {
 		( pathExists as jest.Mock ).mockResolvedValueOnce( true );
 
 		const customSiteId = 'custom-site-id-123';
-		const [ site ] = await createSite(
+		const userData = await createSite(
 			mockIpcMainInvokeEvent,
 			'/test',
 			'Test',
@@ -97,7 +100,7 @@ describe( 'createSite', () => {
 			customSiteId
 		);
 
-		expect( site ).toEqual( {
+		expect( userData ).toEqual( {
 			adminPassword: expect.any( String ),
 			id: customSiteId,
 			name: 'Test',

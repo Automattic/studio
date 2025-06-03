@@ -1,17 +1,21 @@
 import { waitFor } from '@testing-library/react';
+import { readFile, writeFile } from 'atomically';
 import nock from 'nock';
-import { StatsGroup, StatsMetric } from 'common/types/stats';
+import { AggregateInterval, StatsGroup, StatsMetric } from 'common/types/stats';
 import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
-import { loadUserData, saveUserData } from 'src/storage/user-data';
 
-jest.mock( 'src/storage/user-data' );
+jest.mock( 'atomically', () => ( {
+	readFile: jest.fn(),
+	writeFile: jest.fn(),
+} ) );
 
 const originalEnv = { ...process.env };
+
 afterEach( () => {
 	jest.spyOn( Date, 'now' ).mockRestore();
 	jest.spyOn( console, 'info' ).mockRestore();
-	( loadUserData as jest.Mock ).mockRestore();
-	( saveUserData as jest.Mock ).mockRestore();
+	( readFile as jest.Mock ).mockRestore();
+	( writeFile as jest.Mock ).mockRestore();
 	nock.cleanAll();
 	process.env = { ...originalEnv };
 } );
@@ -80,67 +84,80 @@ describe( 'bumpAggregatedUniqueStat', () => {
 	test( 'bump stat when it has never been recorded before', async () => {
 		const nock = mockBumpStatRequest( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS );
 
-		( loadUserData as jest.Mock ).mockResolvedValue( { lastBumpStats: {} } );
+		( readFile as jest.Mock ).mockResolvedValue(
+			JSON.stringify( {
+				lastBumpStats: {},
+				sites: [],
+			} )
+		);
 
 		bumpAggregatedUniqueStat( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS, 'weekly' );
 
 		await waitFor( () => expect( nock.isDone() ).toBe( true ) );
 	} );
 
-	for ( const [ aggregateBy, currentTime, lastBumpTime ] of [
+	test.each< [ AggregateInterval, number, number ] >( [
 		[ 'daily', Date.UTC( 2024, 1, 2 ), Date.UTC( 2024, 1, 1 ) ],
 		[ 'weekly', Date.UTC( 2024, 1, 4 ), Date.UTC( 2024, 1, 1 ) ], // Note that Sunday counts as the start of the week
 		[ 'monthly', Date.UTC( 2024, 0, 1 ), Date.UTC( 2023, 0, 1 ) ],
-	] as const ) {
-		test( `bump ${ aggregateBy } stat when it has been more than the specified interval since last recorded`, async () => {
+	] )(
+		'bump %s stat when it has been more than the specified interval since last recorded',
+		async ( aggregateBy, currentTime, lastBumpTime ) => {
 			mockCurrentTime( currentTime );
 
 			const nock = mockBumpStatRequest( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS );
-			( loadUserData as jest.Mock ).mockResolvedValue( {
-				lastBumpStats: {
-					[ StatsGroup.STUDIO_APP_LAUNCH ]: {
-						[ StatsMetric.SUCCESS ]: lastBumpTime,
+			( readFile as jest.Mock ).mockResolvedValue(
+				JSON.stringify( {
+					lastBumpStats: {
+						[ StatsGroup.STUDIO_APP_LAUNCH ]: {
+							[ StatsMetric.SUCCESS ]: lastBumpTime,
+						},
 					},
-				},
-			} );
+					sites: [],
+				} )
+			);
 
 			bumpAggregatedUniqueStat( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS, aggregateBy );
 
 			await waitFor( () => expect( nock.isDone() ).toBe( true ) );
 
-			expect( saveUserData ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					lastBumpStats: {
-						[ StatsGroup.STUDIO_APP_LAUNCH ]: {
-							[ StatsMetric.SUCCESS ]: currentTime,
-						},
+			expect( writeFile ).toHaveBeenCalled();
+			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+			expect( savedData ).toMatchObject( {
+				lastBumpStats: {
+					[ StatsGroup.STUDIO_APP_LAUNCH ]: {
+						[ StatsMetric.SUCCESS ]: currentTime,
 					},
-				} )
-			);
-		} );
-	}
+				},
+			} );
+		}
+	);
 
-	for ( const [ aggregateBy, currentTime, lastBumpTime ] of [
+	test.each< [ AggregateInterval, number, number ] >( [
 		[ 'daily', Date.UTC( 2024, 1, 1 ), Date.UTC( 2024, 1, 1 ) ],
 		[ 'weekly', Date.UTC( 2024, 1, 6 ), Date.UTC( 2024, 1, 4 ) ], // Note that Sunday counts as the start of the week
 		[ 'monthly', Date.UTC( 2024, 0, 1 ), Date.UTC( 2024, 0, 11 ) ],
-	] as const ) {
-		test( `don't bump ${ aggregateBy } stat when it has already been recorded in the specified interval`, async () => {
+	] )(
+		"don't bump %s stat when it has already been recorded in the specified interval",
+		async ( aggregateBy, currentTime, lastBumpTime ) => {
 			mockCurrentTime( currentTime );
 
 			// Don't create a nock mock so that we get errors if a network request is made
 
-			( loadUserData as jest.Mock ).mockResolvedValue( {
-				lastBumpStats: {
-					[ StatsGroup.STUDIO_APP_LAUNCH ]: {
-						[ StatsMetric.SUCCESS ]: lastBumpTime,
+			( readFile as jest.Mock ).mockResolvedValue(
+				JSON.stringify( {
+					lastBumpStats: {
+						[ StatsGroup.STUDIO_APP_LAUNCH ]: {
+							[ StatsMetric.SUCCESS ]: lastBumpTime,
+						},
 					},
-				},
-			} );
+					sites: [],
+				} )
+			);
 
 			bumpAggregatedUniqueStat( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS, aggregateBy );
 
-			expect( saveUserData ).not.toHaveBeenCalled();
-		} );
-	}
+			expect( writeFile ).not.toHaveBeenCalled();
+		}
+	);
 } );

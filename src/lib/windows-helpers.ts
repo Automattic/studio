@@ -3,7 +3,7 @@ import path from 'path';
 import sudo from '@vscode/sudo-prompt';
 import { __ } from '@wordpress/i18n';
 import { getMainWindow } from 'src/main-window';
-import { loadUserData, saveUserData } from 'src/storage/user-data';
+import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 export async function promptWindowsSpeedUpSites( {
 	skipIfAlreadyPrompted,
@@ -38,10 +38,7 @@ export async function promptWindowsSpeedUpSites( {
 	switch ( response ) {
 		case buttons.indexOf( AUTOMATIC_UPDATE ):
 			// Update Windows Defender configuration
-			await saveUserData( {
-				...userData,
-				promptWindowsSpeedUpResult: 'yes',
-			} );
+			await updateAppdata( { promptWindowsSpeedUpResult: 'yes' } );
 			try {
 				await excludeProcessInWindowsDefender();
 			} catch ( _error ) {
@@ -57,10 +54,7 @@ export async function promptWindowsSpeedUpSites( {
 			break;
 		case buttons.indexOf( NOT_INTERESTED ):
 			// Skip it, user is not interested
-			await saveUserData( {
-				...userData,
-				promptWindowsSpeedUpResult: 'no',
-			} );
+			await updateAppdata( { promptWindowsSpeedUpResult: 'no' } );
 			break;
 	}
 }

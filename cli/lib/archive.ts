@@ -14,6 +14,7 @@ export async function createArchive(
 		const output = fs.createWriteStream( archivePath );
 		const archive = archiver( 'zip', {
 			zlib: { level: ZIP_COMPRESSION_LEVEL },
+			followSymlinks: true,
 		} );
 
 		output.on( 'close', () => {

@@ -4,11 +4,13 @@
 import { BrowserWindow } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
+import { readFile } from 'atomically';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { createMainWindow, getMainWindow, __resetMainWindow } from 'src/main-window';
 
 jest.mock( 'fs' );
 jest.mock( 'src/ipc-utils' );
+jest.mock( 'atomically' );
 
 const mockUserData = {
 	sites: [],
@@ -17,6 +19,7 @@ const mockUserData = {
 	normalize( '/path/to/app/appData/App Name/appdata-v1.json' ),
 	JSON.stringify( mockUserData )
 );
+( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
 
 describe( 'getMainWindow', () => {
 	let createdWindow: BrowserWindow;

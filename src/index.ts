@@ -40,7 +40,7 @@ import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-st
 import { installCLIOnWindows } from 'src/modules/cli/lib/install-windows';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
 import { stopAllServersOnQuit } from 'src/site-server';
-import { loadUserData, saveUserData } from 'src/storage/user-data';
+import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { setupUpdates } from 'src/updates';
 // eslint-disable-next-line import/order
 import packageJson from '../package.json';
@@ -73,16 +73,20 @@ if ( gotTheLock && ! isInInstaller ) {
 }
 
 async function setupSentryUserId() {
-	const userData = await loadUserData();
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		if ( ! userData.sentryUserId ) {
+			userData.sentryUserId = crypto.randomUUID();
+		}
 
-	if ( ! userData.sentryUserId ) {
-		userData.sentryUserId = crypto.randomUUID();
-		console.log( Date.now(), 'Saving sentry user ID', userData.sentryUserId );
+		console.log( 'Setting Sentry user ID:', userData.sentryUserId );
+		Sentry.setUser( { id: userData.sentryUserId } );
+
 		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
 	}
-
-	console.log( 'Setting Sentry user ID:', userData.sentryUserId );
-	Sentry.setUser( { id: userData.sentryUserId } );
 }
 
 // This is a workaround to ensure that the extension background workers are started

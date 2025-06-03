@@ -2,13 +2,20 @@ import * as Sentry from '@sentry/react';
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import { z } from 'zod';
 import { useAuth } from 'src/hooks/use-auth';
+import { getAppGlobals } from 'src/lib/app-globals';
 
 // In PHP, empty associative arrays are encoded as regular arrays when converted to JSON.
 // This means an empty feature flags response comes as [] instead of {}.
-const featureFlagsSchema = z.object( {} ).catch( ( _: unknown ) => ( {} ) );
+const featureFlagsSchema = z
+	.object( {
+		selectiveSyncEnabled: z.boolean().optional(),
+	} )
+	.catch( ( _: unknown ) => ( {} ) );
 
 // Will be extended with feature flags in the future */
-export type FeatureFlagsContextType = Record< string, never >;
+export type FeatureFlagsContextType = {
+	selectiveSyncEnabled?: boolean;
+};
 
 export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( {} );
 
@@ -17,7 +24,10 @@ interface FeatureFlagsProviderProps {
 }
 
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
-	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {} );
+	const selectiveSyncEnabledFromGlobals = getAppGlobals().selectiveSyncEnabled;
+	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
+		selectiveSyncEnabled: selectiveSyncEnabledFromGlobals,
+	} );
 	const { isAuthenticated, client } = useAuth();
 
 	useEffect( () => {
@@ -35,7 +45,11 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 				if ( cancel ) {
 					return;
 				}
-				setFeatureFlags( flags );
+				setFeatureFlags( {
+					...flags,
+					selectiveSyncEnabled:
+						Boolean( flags.selectiveSyncEnabled ) || selectiveSyncEnabledFromGlobals,
+				} );
 			} catch ( error ) {
 				Sentry.captureException( error );
 				console.error( error );
@@ -45,7 +59,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 		return () => {
 			cancel = true;
 		};
-	}, [ isAuthenticated, client ] );
+	}, [ isAuthenticated, client, selectiveSyncEnabledFromGlobals ] );
 
 	return (
 		<FeatureFlagsContext.Provider value={ featureFlags }>{ children }</FeatureFlagsContext.Provider>

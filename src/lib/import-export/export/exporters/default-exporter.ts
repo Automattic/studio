@@ -85,7 +85,10 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 	async export(): Promise< void > {
 		this.emit( ExportEvents.EXPORT_START );
-		this.backup = this.getBackupContents();
+		this.backup = {
+			backupFile: this.options.backupFile,
+			sqlFiles: [],
+		};
 		const output = fs.createWriteStream( this.options.backupFile );
 		this.archive = this.createArchive();
 
@@ -213,15 +216,6 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				.unlink( sqlFile )
 				.catch( ( err ) => console.error( `Failed to delete temporary file ${ sqlFile }:`, err ) );
 		}
-	}
-
-	private getBackupContents(): BackupContents {
-		const backupContents: BackupContents = {
-			backupFile: this.options.backupFile,
-			sqlFiles: [],
-		};
-
-		return backupContents;
 	}
 
 	private async createStudioJsonFile(): Promise< string > {

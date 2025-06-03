@@ -160,15 +160,14 @@ describe( 'Installed Apps API', () => {
 		it( 'should save user editor preference', async () => {
 			mockIpcApi.saveUserEditor.mockResolvedValueOnce( undefined );
 
-			const editorToSave: SupportedEditor = 'cursor';
 			const store = createTestStore();
 			const result = await store.dispatch(
-				installedAppsApi.endpoints.saveUserEditor.initiate( editorToSave )
+				installedAppsApi.endpoints.saveUserEditor.initiate( 'cursor' )
 			);
 
 			expect( mockIpcApi.saveUserEditor ).toHaveBeenCalledTimes( 1 );
-			expect( mockIpcApi.saveUserEditor ).toHaveBeenCalledWith( editorToSave );
-			expect( result.data ).toBe( undefined );
+			expect( mockIpcApi.saveUserEditor ).toHaveBeenCalledWith( 'cursor' );
+			expect( result.data ).toBe( 'cursor' );
 		} );
 	} );
 
@@ -176,15 +175,14 @@ describe( 'Installed Apps API', () => {
 		it( 'should save user terminal preference', async () => {
 			mockIpcApi.saveUserTerminal.mockResolvedValueOnce( undefined );
 
-			const terminalToSave: SupportedTerminal = 'warp';
 			const store = createTestStore();
 			const result = await store.dispatch(
-				installedAppsApi.endpoints.saveUserTerminal.initiate( terminalToSave )
+				installedAppsApi.endpoints.saveUserTerminal.initiate( 'warp' )
 			);
 
 			expect( mockIpcApi.saveUserTerminal ).toHaveBeenCalledTimes( 1 );
-			expect( mockIpcApi.saveUserTerminal ).toHaveBeenCalledWith( terminalToSave );
-			expect( result.data ).toBe( undefined );
+			expect( mockIpcApi.saveUserTerminal ).toHaveBeenCalledWith( 'warp' );
+			expect( result.data ).toBe( 'warp' );
 		} );
 	} );
 

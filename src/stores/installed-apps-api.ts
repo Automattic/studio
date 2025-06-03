@@ -55,17 +55,17 @@ export const installedAppsApi = createApi( {
 			},
 			providesTags: [ 'UserPreferences' ],
 		} ),
-		saveUserEditor: builder.mutation< void, SupportedEditor >( {
+		saveUserEditor: builder.mutation< SupportedEditor, SupportedEditor >( {
 			queryFn: async ( editor ) => {
 				await getIpcApi().saveUserEditor( editor );
-				return { data: undefined };
+				return { data: editor };
 			},
 			invalidatesTags: [ 'UserPreferences' ],
 		} ),
-		saveUserTerminal: builder.mutation< void, SupportedTerminal >( {
+		saveUserTerminal: builder.mutation< SupportedTerminal, SupportedTerminal >( {
 			queryFn: async ( terminal ) => {
 				await getIpcApi().saveUserTerminal( terminal );
-				return { data: undefined };
+				return { data: terminal };
 			},
 			invalidatesTags: [ 'UserPreferences' ],
 		} ),

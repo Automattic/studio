@@ -27,7 +27,6 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private archive!: archiver.Archiver;
 	private backup: BackupContents;
 	private readonly options: ExportOptions;
-	private siteFiles: string[];
 	private readonly pathsToExclude = [
 		'wp-content/mu-plugins/sqlite-database-integration',
 		'wp-content/mu-plugins/0-allowed-redirect-hosts.php',
@@ -43,7 +42,6 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	constructor( options: ExportOptions ) {
 		super();
 		this.options = options;
-		this.siteFiles = [];
 		this.backup = {
 			backupFile: options.backupFile,
 			sqlFiles: [],
@@ -85,10 +83,6 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 	async export(): Promise< void > {
 		this.emit( ExportEvents.EXPORT_START );
-		this.backup = {
-			backupFile: this.options.backupFile,
-			sqlFiles: [],
-		};
 		const output = fs.createWriteStream( this.options.backupFile );
 		this.archive = this.createArchive();
 

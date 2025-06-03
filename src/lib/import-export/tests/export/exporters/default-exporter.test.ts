@@ -518,4 +518,18 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			expect.any( Function )
 		);
 	} );
+
+	it( "should not add wp-config if it doesn't exists", async () => {
+		( fs.existsSync as jest.Mock ).mockImplementation( ( filePath: string ) => {
+			const normalizedPath = normalize( filePath );
+			return ! normalizedPath.endsWith( 'wp-config.php' );
+		} );
+
+		await exporter.export();
+
+		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-config.php' ),
+			{ name: 'wp-config.php' }
+		);
+	} );
 } );

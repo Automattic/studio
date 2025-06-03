@@ -532,4 +532,36 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			{ name: 'wp-config.php' }
 		);
 	} );
+
+	it( 'should initialize backup object with correct structure when creating a new exporter', () => {
+		const testOptions: ExportOptions = {
+			site: {
+				running: false,
+				id: 'test-site',
+				name: 'Test Site',
+				path: normalize( '/path/to/test/site' ),
+				port: 8080,
+				phpVersion: '8.3',
+			},
+			backupFile: normalize( '/path/to/test-backup.tar.gz' ),
+			includes: {
+				uploads: true,
+				plugins: true,
+				themes: true,
+				database: true,
+				muPlugins: true,
+				fonts: true,
+			},
+			phpVersion: '8.4',
+		};
+
+		const testExporter = new DefaultExporter( testOptions );
+
+		const { backup } = testExporter as unknown as { backup: BackupContents };
+
+		expect( backup ).toEqual( {
+			backupFile: normalize( '/path/to/test-backup.tar.gz' ),
+			sqlFiles: [],
+		} );
+	} );
 } );

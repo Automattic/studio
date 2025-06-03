@@ -1,6 +1,13 @@
 import { __ } from '@wordpress/i18n';
 
-export type SupportedEditor = 'vscode' | 'phpstorm' | 'cursor' | 'windsurf' | 'webstorm';
+export const SUPPORTED_EDITORS = [
+	'cursor',
+	'phpstorm',
+	'vscode',
+	'windsurf',
+	'webstorm',
+] as const;
+export type SupportedEditor = ( typeof SUPPORTED_EDITORS )[ number ];
 
 export type SupportedEditorConfig = {
 	label: string;

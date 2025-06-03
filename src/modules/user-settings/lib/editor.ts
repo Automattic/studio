@@ -2,8 +2,8 @@ import { __ } from '@wordpress/i18n';
 
 export const SUPPORTED_EDITORS = [
 	'cursor',
-	'phpstorm',
 	'vscode',
+	'phpstorm',
 	'windsurf',
 	'webstorm',
 ] as const;

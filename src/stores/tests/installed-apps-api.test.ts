@@ -1,7 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
-import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import {
 	installedAppsApi,
 	selectInstalledEditors,

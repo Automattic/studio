@@ -1,8 +1,21 @@
 Unreleased
 ==========
-* Miscellaneous security improvements #1411
-* Included symlinked directories and files when creating preview sites #1447
-* Included symlinked directories and files when exporting and pushing sites #1448
+
+1.5.3
+=====
+* Added support to follow symlinks in Preview Sites and Jetpack Backups 1447, 1448
+* Added robust error handling and Sentry tracking for backup extraction #1455
+* Fixed Command Prompt button truncation and naming on Windows #1440, #1441
+* Fixed default editors when only one is installed #1461
+* Fixed backup export performance by removing `getSiteFiles` #1457
+* Fixed outdated WP-CLI proof-of-concept code by removing it #1426
+* Improved "What's New" modal with simplified version check logic #1446
+* Improved HTTP request reliability by reducing timeout to 30 seconds #1456
+* Improved translation and lint tooling to include `common` folder #1444
+* Improved Windows editor path detection by sanitizing regex #1411
+* Upgraded Electron Forge to the latest version from the 7.8 branch #1460
+* Upgraded Playground packages to 1.0.38 and removed Symlink manager #1425
+* Updated Ukrainian and global translations for version #1462
 
 1.5.2
 =====

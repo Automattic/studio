@@ -53,56 +53,53 @@ export const SnapshotInfo = ( {
 							</div>
 							<ProgressBar value={ siteCount } maxValue={ siteLimit } />
 						</div>
-						<div className="relative">
-							<DropdownMenu
-								className={
-									'ml-auto flex items-center [&_button:first-child]:p-0 [&_button:first-child]:min-w-6 [&_button:first-child]:h-6'
-								}
-								popoverProps={ { position: 'bottom left', resize: true } }
-								icon={ <Icon icon={ moreVertical }></Icon> }
-								size={ 24 }
-								label={ __( 'More options' ) }
-							>
-								{ ( { onClose }: { onClose: () => void } ) => {
-									return (
-										<MenuGroup>
-											<Tooltip
-												disabled={ ! isOffline }
-												icon={ offlineIcon }
-												text={ offlineMessage }
-												placement="bottom"
-											>
-												<MenuItem
-													aria-description={ isOffline ? offlineMessage : '' }
-													/**
-													 * Because there is a single menu item, the `aria-disabled`
-													 * attribute is used rather than `disabled` so that screen
-													 * readers can focus the item to announce its disabled state.
-													 * Otherwise, dropdown toggle would toggle an empty menu.
-													 */
-													aria-disabled={ isDisabled }
-													icon={ trash }
-													iconPosition="left"
-													isDestructive
-													className={ menuItemStyles }
-													onClick={ () => {
-														if ( isDisabled ) {
-															return;
-														}
+						<DropdownMenu
+							className={
+								'ml-auto flex items-center [&_button:first-child]:p-0 [&_button:first-child]:min-w-6 [&_button:first-child]:h-6'
+							}
+							popoverProps={ { position: 'bottom left', resize: true } }
+							icon={ <Icon icon={ moreVertical }></Icon> }
+							size={ 24 }
+							label={ __( 'More options' ) }
+						>
+							{ ( { onClose }: { onClose: () => void } ) => {
+								return (
+									<MenuGroup>
+										<Tooltip
+											disabled={ ! isOffline }
+											icon={ offlineIcon }
+											text={ offlineMessage }
+											placement="bottom"
+										>
+											<MenuItem
+												aria-description={ isOffline ? offlineMessage : '' }
+												/**
+												 * Because there is a single menu item, the `aria-disabled`
+												 * attribute is used rather than `disabled` so that screen
+												 * readers can focus the item to announce its disabled state.
+												 * Otherwise, dropdown toggle would toggle an empty menu.
+												 */
+												aria-disabled={ isDisabled }
+												icon={ trash }
+												iconPosition="left"
+												isDestructive
+												className={ menuItemStyles }
+												onClick={ () => {
+													if ( isDisabled ) {
+														return;
+													}
 
-														onRemoveSnapshots();
-														onClose();
-													} }
-												>
-													{ __( 'Delete all preview sites' ) }
-												</MenuItem>
-											</Tooltip>
-										</MenuGroup>
-									);
-								} }
-							</DropdownMenu>
-							<div className="components-popover__fallback-container"></div>
-						</div>
+													onRemoveSnapshots();
+													onClose();
+												} }
+											>
+												{ __( 'Delete all preview sites' ) }
+											</MenuItem>
+										</Tooltip>
+									</MenuGroup>
+								);
+							} }
+						</DropdownMenu>
 					</>
 				) }
 			</div>

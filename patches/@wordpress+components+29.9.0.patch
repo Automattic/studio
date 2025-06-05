@@ -7,7 +7,7 @@ index e1e1371..54775d2 100644
      }
      if (elementShouldBeHidden(element)) {
 -      element.setAttribute('aria-hidden', 'true');
-+      element.setAttribute('inert', '');
++      element.setAttribute('aria-modal', 'true');
        hiddenElements.push(element);
      }
    }
@@ -16,7 +16,7 @@ index e1e1371..54775d2 100644
  export function elementShouldBeHidden(element) {
    const role = element.getAttribute('role');
 -  return !(element.tagName === 'SCRIPT' || element.hasAttribute('hidden') || element.hasAttribute('aria-hidden') || element.hasAttribute('aria-live') || role && LIVE_REGION_ARIA_ROLES.has(role));
-+  return !(element.tagName === 'SCRIPT' || element.hasAttribute('hidden') || element.hasAttribute('aria-hidden') || element.hasAttribute('inert') || element.hasAttribute('aria-live') || role && LIVE_REGION_ARIA_ROLES.has(role));
++  return !(element.tagName === 'SCRIPT' || element.hasAttribute('hidden') || element.hasAttribute('aria-hidden') || element.hasAttribute('aria-modal') || element.hasAttribute('aria-live') || role && LIVE_REGION_ARIA_ROLES.has(role));
  }
  
  /**
@@ -25,7 +25,7 @@ index e1e1371..54775d2 100644
    }
    for (const element of hiddenElements) {
 -    element.removeAttribute('aria-hidden');
-+    element.removeAttribute('inert');
++    element.removeAttribute('aria-modal');
    }
  }
  //# sourceMappingURL=aria-helper.js.map

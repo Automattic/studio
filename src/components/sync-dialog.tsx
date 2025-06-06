@@ -119,7 +119,7 @@ export function SyncDialog( {
 
 	const localSiteName = localSite.name;
 	const remoteSiteName = (
-		<div className="flex items-center gap-2 flex-wrap py-2">
+		<div className="flex items-center gap-2 flex-wrap">
 			<span className="flex-shrink-0">
 				{ remoteSite.isStaging ? <CircleStagingIcon /> : <CircleProdIcon /> }
 			</span>
@@ -163,7 +163,7 @@ export function SyncDialog( {
 					<div className="flex items-start gap-1 pb-7 border-b border-a8c-gray-5">
 						<div className="flex-1">
 							<div className="leading-[32px]">{ copy.fromLabel }</div>
-							<div className="border border-gray-300 rounded-[2px] min-h-12 px-[19px] flex items-center">
+							<div className="border border-gray-300 rounded-[2px] min-h-12 px-[19px] flex items-center py-2 break-all">
 								{ syncFrom }
 							</div>
 						</div>
@@ -172,7 +172,7 @@ export function SyncDialog( {
 						</div>
 						<div className="flex-1">
 							<div className="leading-[32px]">{ copy.toLabel }</div>
-							<div className="border border-gray-300 rounded-[2px] min-h-12 px-[19px] flex items-center">
+							<div className="border border-gray-300 rounded-[2px] min-h-12 px-[19px] flex items-center py-2 break-all">
 								{ syncTo }
 							</div>
 						</div>

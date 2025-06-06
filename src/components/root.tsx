@@ -3,10 +3,10 @@ import App from 'src/components/app';
 import AuthProvider from 'src/components/auth-provider';
 import CrashTester from 'src/components/crash-tester';
 import ErrorBoundary from 'src/components/error-boundary';
+import { I18nReduxProvider } from 'src/components/i18n-redux-provider';
 import { SyncSitesProvider } from 'src/hooks/sync-sites/sync-sites-context';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { FeatureFlagsProvider } from 'src/hooks/use-feature-flags';
-import { I18nDataProvider } from 'src/hooks/use-i18n-data';
 import { ImportExportProvider } from 'src/hooks/use-import-export';
 import { OnboardingProvider } from 'src/hooks/use-onboarding';
 import { SiteDetailsProvider } from 'src/hooks/use-site-details';
@@ -18,7 +18,7 @@ const Root = () => {
 		<ErrorBoundary>
 			<CrashTester />
 			<ReduxProvider store={ store }>
-				<I18nDataProvider>
+				<I18nReduxProvider>
 					<AuthProvider>
 						<SiteDetailsProvider>
 							<FeatureFlagsProvider>
@@ -36,7 +36,7 @@ const Root = () => {
 							</FeatureFlagsProvider>
 						</SiteDetailsProvider>
 					</AuthProvider>
-				</I18nDataProvider>
+				</I18nReduxProvider>
 			</ReduxProvider>
 		</ErrorBoundary>
 	);

@@ -185,11 +185,11 @@ export function SyncDialog( {
 						variant="minimal"
 						options={ [
 							{
-								label: 'All files and folders',
+								label: __( 'All files and folders' ),
 								value: 'basic',
 							},
 							{
-								label: 'Specific files and folders',
+								label: __( 'Specific files and folders' ),
 								value: 'advanced',
 							},
 						] }

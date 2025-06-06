@@ -1,9 +1,10 @@
+import { defaultI18n } from '@wordpress/i18n';
+import { I18nProvider } from '@wordpress/react-i18n';
 import { Provider as ReduxProvider } from 'react-redux';
 import App from 'src/components/app';
 import AuthProvider from 'src/components/auth-provider';
 import CrashTester from 'src/components/crash-tester';
 import ErrorBoundary from 'src/components/error-boundary';
-import { I18nReduxProvider } from 'src/components/i18n-redux-provider';
 import { SyncSitesProvider } from 'src/hooks/sync-sites/sync-sites-context';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { FeatureFlagsProvider } from 'src/hooks/use-feature-flags';
@@ -18,7 +19,7 @@ const Root = () => {
 		<ErrorBoundary>
 			<CrashTester />
 			<ReduxProvider store={ store }>
-				<I18nReduxProvider>
+				<I18nProvider i18n={ defaultI18n }>
 					<AuthProvider>
 						<SiteDetailsProvider>
 							<FeatureFlagsProvider>
@@ -36,7 +37,7 @@ const Root = () => {
 							</FeatureFlagsProvider>
 						</SiteDetailsProvider>
 					</AuthProvider>
-				</I18nReduxProvider>
+				</I18nProvider>
 			</ReduxProvider>
 		</ErrorBoundary>
 	);

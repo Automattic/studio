@@ -11,7 +11,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
-import i18nReducer from 'src/stores/i18n-slice';
+import i18nReducer, { initializeUserLocale } from 'src/stores/i18n-slice';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
 import { reducer as newSitesReducer } from 'src/stores/new-sites-slice';
 import { reducer as snapshotReducer, updateSnapshotLocally } from 'src/stores/snapshot-slice';
@@ -96,6 +96,8 @@ export const store = configureStore( {
 
 // Enable the refetchOnFocus behavior
 setupListeners( store.dispatch );
+// Initialize the user locale
+void store.dispatch( initializeUserLocale() );
 
 export type AppDispatch = typeof store.dispatch;
 

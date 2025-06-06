@@ -1,7 +1,7 @@
 import { speak } from '@wordpress/a11y';
 import { Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { sprintf, __ } from '@wordpress/i18n';
+import { sprintf } from '@wordpress/i18n';
 import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useRef, useState } from 'react';
@@ -30,6 +30,7 @@ export const ExportSite = ( {
 	selectedSite: SiteDetails;
 	isThisSiteSyncing: boolean;
 } ) => {
+	const { __ } = useI18n();
 	const { exportState, exportFullSite, exportDatabase, importState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
 	const isImporting = importState[ selectedSite.id ]?.progress < 100;
@@ -107,6 +108,7 @@ const InitialImportButton = ( {
 	isSiteExporting: boolean;
 	isThisSiteSyncing: boolean;
 } ) => {
+	const { __ } = useI18n();
 	const disabled = isSiteExporting || isThisSiteSyncing;
 	let tooltipText;
 	if ( isThisSiteSyncing ) {
@@ -293,6 +295,7 @@ const ImportSite = ( {
 };
 
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
+	const { __ } = useI18n();
 	const [ isSupported, setIsSupported ] = useState< boolean | null >( null );
 	const { isSiteIdPulling, isSiteIdPushing, connectedSites } = useSyncSites();
 	const isPulling = connectedSites.some( ( site ) => isSiteIdPulling( selectedSite.id, site.id ) );

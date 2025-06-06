@@ -10,12 +10,12 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface I18nState {
 	locale: SupportedLocale;
-	i18n: I18n | null;
+	i18n: I18n;
 }
 
 const initialState: I18nState = {
 	locale: DEFAULT_LOCALE,
-	i18n: createI18n( getLocaleData( DEFAULT_LOCALE )?.messages || {}, 'default' ),
+	i18n: defaultI18n,
 };
 
 if ( initialState.i18n ) {

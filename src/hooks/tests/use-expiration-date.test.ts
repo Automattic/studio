@@ -8,7 +8,8 @@ import { store } from 'src/stores';
 
 jest.useFakeTimers();
 
-const wrapper = ( { children }: { children: React.ReactNode } ) =>	createElement( Provider, { store, children }  );
+const wrapper = ( { children }: { children: React.ReactNode } ) =>
+	createElement( Provider, { store, children } );
 
 describe( 'useExpirationDate', () => {
 	test( 'should indicate isExpired for dates more than 7 days', () => {
@@ -36,7 +37,7 @@ describe( 'useExpirationDate', () => {
 		const snapshotDate = subMilliseconds( subHours( subDays( new Date(), 6 ), 12 ), 100 ).getTime();
 		const { result } = renderHook( () => useExpirationDate( snapshotDate ), { wrapper } );
 		expect( result.current.countDown ).toBe( '12 hours, 59 minutes' );
-	});
+	} );
 
 	test( 'should switch to minutes and seconds format within the last hour before expiration', () => {
 		const snapshotDate = subHours( subDays( new Date(), 6 ), 23 ).getTime() - 1;

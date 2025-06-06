@@ -1,4 +1,4 @@
-import { fireEvent, render, act, waitFor, screen } from '@testing-library/react';
+import { render, act, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import TopBar from 'src/components/top-bar';

@@ -2,7 +2,6 @@ import interpolateComponents from '@automattic/interpolate-components';
 import { Guide } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { ReactNode } from 'react';
-import { useI18nData } from 'src/hooks/use-i18n-data';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
@@ -12,6 +11,7 @@ import preferredAppsIllustration from 'src/modules/whats-new/assets/preferred-ap
 import pressableSyncIllustration from 'src/modules/whats-new/assets/pressable-sync-illustration.svg';
 import previewSitesIllustration from 'src/modules/whats-new/assets/preview-sites-illustration.svg';
 import versionSwitchIllustration from 'src/modules/whats-new/assets/version-switch-illustration.svg';
+import { useI18nLocale } from 'src/stores';
 
 interface WhatsNewPage {
 	image: string;
@@ -55,7 +55,7 @@ const PageContent = ( {
 );
 
 export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProps ) {
-	const { locale } = useI18nData();
+	const locale = useI18nLocale();
 	const whatsNewPages: WhatsNewPage[] = [
 		{
 			image: pressableSyncIllustration,

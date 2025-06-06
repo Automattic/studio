@@ -12,12 +12,12 @@ import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useSyncSites } from 'src/hooks/sync-sites/sync-sites-context';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
-import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
+import { useI18nLocale } from 'src/stores';
 
 interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
@@ -147,7 +147,7 @@ const ImportSite = ( {
 	isThisSiteSyncing: boolean;
 } ) => {
 	const { __ } = useI18n();
-	const { locale } = useI18nData();
+	const locale = useI18nLocale();
 	const { startServer, loadingServer } = useSiteDetails();
 	const { importState, importFile, clearImportState, exportState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = importState;

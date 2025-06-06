@@ -6,10 +6,10 @@ import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { WordPressLogo } from 'src/components/wordpress-logo';
 import { useAuth } from 'src/hooks/use-auth';
-import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
+import { useI18nLocale } from 'src/stores';
 interface TopBarProps {
 	onToggleSidebar: () => void;
 }
@@ -96,7 +96,7 @@ function Authentication() {
 }
 
 export default function TopBar( { onToggleSidebar }: TopBarProps ) {
-	const { locale } = useI18nData();
+	const locale = useI18nLocale();
 
 	const openDocs = () => {
 		getIpcApi().openURL( getLocalizedLink( locale, 'docsStudio' ) );

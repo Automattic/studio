@@ -1,6 +1,5 @@
 // Run tests: yarn test -- src/components/onboarding.test.tsx
 import { jest } from '@jest/globals';
-import { configureStore, combineReducers } from '@reduxjs/toolkit';
 import { render, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
@@ -9,31 +8,9 @@ import { useAddSite } from 'src/hooks/use-add-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { useOnboarding } from 'src/hooks/use-onboarding';
 import { FolderDialogResponse } from 'src/ipc-handlers';
+import { store } from 'src/stores';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
-
-const testStore = configureStore( {
-	reducer: combineReducers( {
-		appVersionApi: ( state = {}, _action: unknown ) => state,
-		chat: ( state = {}, _action: unknown ) => state,
-		newSites: ( state = {}, _action: unknown ) => state,
-		installedAppsApi: ( state = {}, _action: unknown ) => state,
-		snapshot: ( state = {}, _action: unknown ) => state,
-		wordpressVersionsApi: ( state = {}, _action: unknown ) => state,
-		wpcomApi: ( state = {}, _action: unknown ) => state,
-		certificateTrustApi: ( state = {}, _action: unknown ) => state,
-		i18n: ( state = { locale: 'en' }, _action: unknown ) => state,
-	} ),
-} );
-
-jest.mock( 'src/stores', () => {
-	const mockDispatch = jest.fn();
-	return {
-		useAppDispatch: jest.fn().mockReturnValue( mockDispatch ),
-		useRootSelector: jest.fn(),
-		useI18nLocale: jest.fn().mockReturnValue( 'en' ),
-	};
-} );
 
 jest.mock( 'src/hooks/use-onboarding', () => ( {
 	useOnboarding: jest.fn(),
@@ -54,20 +31,28 @@ jest.mock( 'src/hooks/use-offline', () => ( {
 	useOffline: jest.fn().mockReturnValue( false ),
 } ) );
 
-jest.mock( 'src/stores/wordpress-versions-api', () => ( {
-	useGetWordPressVersions: jest.fn( () => ( {
-		data: [
-			{ isBeta: false, isDevelopment: false, label: '6.3', value: '6.3.3' },
-			{ isBeta: false, isDevelopment: false, label: '6.2', value: '6.2.0' },
-			{ isBeta: false, isDevelopment: false, label: '6.1', value: '6.1.7' },
-		],
-		isLoading: false,
-	} ) ),
-} ) );
+jest.mock( 'src/stores/wordpress-versions-api', () => {
+	const actual = jest.requireActual( 'src/stores/wordpress-versions-api' ) || {};
+	return {
+		...actual,
+		useGetWordPressVersions: jest.fn( () => ( {
+			data: [
+				{ isBeta: false, isDevelopment: false, label: '6.3', value: '6.3.3' },
+				{ isBeta: false, isDevelopment: false, label: '6.2', value: '6.2.0' },
+				{ isBeta: false, isDevelopment: false, label: '6.1', value: '6.1.7' },
+			],
+			isLoading: false,
+		} ) ),
+	};
+} );
 
-jest.mock( 'src/stores/certificate-trust-api', () => ( {
-	useCheckCertificateTrustQuery: jest.fn().mockReturnValue( { data: true } ),
-} ) );
+jest.mock( 'src/stores/certificate-trust-api', () => {
+	const actual = jest.requireActual( 'src/stores/certificate-trust-api' ) || {};
+	return {
+		...actual,
+		useCheckCertificateTrustQuery: jest.fn().mockReturnValue( { data: true } ),
+	};
+} );
 
 const mockGenerateProposedSitePath =
 	jest.fn< ( siteName: string ) => Promise< FolderDialogResponse > >();
@@ -89,7 +74,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 const mockCreateSite = jest.fn();
 
 const renderWithProvider = ( children: React.ReactElement ) => {
-	return render( <Provider store={ testStore }>{ children }</Provider> );
+	return render( <Provider store={ store }>{ children }</Provider> );
 };
 
 describe( 'Onboarding Component', () => {

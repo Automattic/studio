@@ -85,12 +85,7 @@ export const rootReducer = combineReducers( {
 export const store = configureStore( {
 	reducer: rootReducer,
 	middleware: ( getDefaultMiddleware ) =>
-		getDefaultMiddleware( {
-			serializableCheck: {
-				ignoredActions: [ 'i18n/updateLocaleState' ],
-				ignoredPaths: [ 'i18n.i18n' ],
-			},
-		} )
+		getDefaultMiddleware()
 			.prepend( listenerMiddleware.middleware )
 			.concat( appVersionApi.middleware )
 			.concat( installedAppsApi.middleware )

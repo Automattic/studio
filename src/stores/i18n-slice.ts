@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
-import { I18n, createI18n, defaultI18n } from '@wordpress/i18n';
+import { defaultI18n } from '@wordpress/i18n';
 import {
 	SupportedLocale,
 	getLocaleData,
@@ -10,12 +10,10 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface I18nState {
 	locale: SupportedLocale;
-	i18n: I18n;
 }
 
 const initialState: I18nState = {
 	locale: DEFAULT_LOCALE,
-	i18n: defaultI18n,
 };
 
 const i18nSlice = createSlice( {
@@ -25,8 +23,6 @@ const i18nSlice = createSlice( {
 		updateLocaleState: ( state, action: PayloadAction< SupportedLocale > ) => {
 			const newLocale = action.payload;
 			const translations = getLocaleData( newLocale )?.messages;
-			const newI18n = createI18n( translations );
-			state.i18n = newI18n;
 			state.locale = newLocale;
 
 			// Update default I18n data to reflect language change when using

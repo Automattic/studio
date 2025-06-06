@@ -18,11 +18,6 @@ const initialState: I18nState = {
 	i18n: defaultI18n,
 };
 
-if ( initialState.i18n ) {
-	const initialLocaleData = getLocaleData( DEFAULT_LOCALE );
-	defaultI18n.setLocaleData( initialLocaleData?.messages || {}, 'default' );
-}
-
 const i18nSlice = createSlice( {
 	name: 'i18n',
 	initialState,

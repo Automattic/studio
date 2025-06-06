@@ -3,7 +3,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
 import { cloudUpload, cloudDownload, info } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { OpenSitesSyncSelector } from 'src/components/content-tab-sync';
@@ -12,11 +12,13 @@ import { CircleRedCrossIcon } from 'src/components/icons/circle-red-cross';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
 import ProgressBar from 'src/components/progress-bar';
+import { SyncDialog } from 'src/components/sync-dialog';
 import { SyncPullPushClear } from 'src/components/sync-pull-push-clear';
 import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
@@ -42,6 +44,8 @@ const SyncConnectedSiteControls = ( {
 } ) => {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
+	const { selectiveSyncEnabled } = useFeatureFlags();
+	const [ syncDialog, setSyncDialog ] = useState< { type: 'pull' | 'push' } | null >( null );
 	const {
 		pullSite,
 		isAnySitePulling,
@@ -79,6 +83,11 @@ const SyncConnectedSiteControls = ( {
 		confirmButtonLabel: __( 'Pull' ),
 	} );
 	const handlePushSite = async ( connectedSite: SyncSite ) => {
+		if ( selectiveSyncEnabled ) {
+			setSyncDialog( { type: 'push' } );
+			return;
+		}
+
 		if ( connectedSite.isStaging ) {
 			void showPushStagingConfirmation( () => {
 				void pushSite( connectedSite, selectedSite );
@@ -131,6 +140,11 @@ const SyncConnectedSiteControls = ( {
 									'!text-black hover:!text-a8c-blueberry'
 							) }
 							onClick={ () => {
+								if ( selectiveSyncEnabled ) {
+									setSyncDialog( { type: 'pull' } );
+									return;
+								}
+
 								const detail = connectedSite.isStaging
 									? __(
 											"Pulling will replace your Studio site's files and database with a copy from your staging site."
@@ -188,6 +202,23 @@ const SyncConnectedSiteControls = ( {
 							{ __( 'Push' ) }
 						</Button>
 					</DynamicTooltip>
+				) }
+				{ syncDialog && (
+					<SyncDialog
+						type={ syncDialog.type }
+						localSite={ selectedSite }
+						remoteSite={ connectedSite }
+						onSubmit={ ( dataToSync ) => {
+							console.log( dataToSync );
+
+							if ( syncDialog.type === 'push' ) {
+								void pushSite( connectedSite, selectedSite );
+							} else {
+								pullSite( connectedSite, selectedSite );
+							}
+						} }
+						onRequestClose={ () => setSyncDialog( null ) }
+					/>
 				) }
 			</div>
 		</Tooltip>

@@ -1,61 +1,45 @@
 // Run tests: yarn test -- src/components/add-site-button.test.tsx
 import { jest } from '@jest/globals';
-import { configureStore, combineReducers } from '@reduxjs/toolkit';
 import { render, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import AddSite from 'src/components/add-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { FolderDialogResponse } from 'src/ipc-handlers';
+import { store } from 'src/stores';
 
-// Create a minimal test store with simple reducers
-const testStore = configureStore( {
-	reducer: combineReducers( {
-		appVersionApi: ( state = {}, action: unknown ) => state,
-		chat: ( state = {}, action: unknown ) => state,
-		newSites: ( state = {}, action: unknown ) => state,
-		installedAppsApi: ( state = {}, action: unknown ) => state,
-		snapshot: ( state = {}, action: unknown ) => state,
-		wordpressVersionsApi: ( state = {}, action: unknown ) => state,
-		wpcomApi: ( state = {}, action: unknown ) => state,
-		certificateTrustApi: ( state = {}, action: unknown ) => state,
-		i18n: ( state = { locale: 'en' }, action: unknown ) => state,
-	} ),
+jest.mock( 'src/stores/certificate-trust-api', () => {
+	const actual = jest.requireActual( 'src/stores/certificate-trust-api' ) || {};
+	return {
+		...actual,
+		useCheckCertificateTrustQuery: jest.fn().mockReturnValue( { data: true } ),
+	};
 } );
-
-jest.mock( 'src/stores/certificate-trust-api', () => ( {
-	useCheckCertificateTrustQuery: jest.fn().mockReturnValue( { data: true } ),
-} ) );
 
 jest.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
 } ) );
 
-jest.mock( 'src/stores', () => {
-	const mockDispatch = jest.fn();
+jest.mock( 'src/stores/wordpress-versions-api', () => {
+	const actual = jest.requireActual( 'src/stores/wordpress-versions-api' ) || {};
 	return {
-		useAppDispatch: jest.fn().mockReturnValue( mockDispatch ),
-		useRootSelector: jest.fn(),
-		useI18nLocale: jest.fn().mockReturnValue( 'en' ),
+		...actual,
+		useGetWordPressVersions: () => ( {
+			data: [
+				{
+					value: '6.5.0-beta1',
+					isBeta: true,
+					isDevelopment: false,
+					label: '6.5.0-beta1',
+				},
+				{ value: '6.4.0', isBeta: false, isDevelopment: false, label: '6.4' },
+				{ value: '6.3.3', isBeta: false, isDevelopment: false, label: '6.3.3' },
+			],
+		} ),
+		selectWordPressVersionsWithLatest: jest.fn(),
+		selectLatestStableVersion: jest.fn(),
 	};
 } );
-
-jest.mock( 'src/stores/wordpress-versions-api', () => ( {
-	useGetWordPressVersions: () => ( {
-		data: [
-			{
-				value: '6.5.0-beta1',
-				isBeta: true,
-				isDevelopment: false,
-				label: '6.5.0-beta1',
-			},
-			{ value: '6.4.0', isBeta: false, isDevelopment: false, label: '6.4' },
-			{ value: '6.3.3', isBeta: false, isDevelopment: false, label: '6.3.3' },
-		],
-	} ),
-	selectWordPressVersionsWithLatest: jest.fn(),
-	selectLatestStableVersion: jest.fn(),
-} ) );
 
 const mockShowOpenFolderDialog =
 	jest.fn< ( dialogTitle: string ) => Promise< FolderDialogResponse | null > >();
@@ -87,7 +71,7 @@ jest.mock( 'src/hooks/use-offline', () => ( {
 } ) );
 
 const renderWithProvider = ( children: React.ReactElement ) => {
-	return render( <Provider store={ testStore }>{ children }</Provider> );
+	return render( <Provider store={ store }>{ children }</Provider> );
 };
 
 beforeEach( () => {

@@ -1,7 +1,9 @@
 // Run tests: yarn test -- src/components/onboarding.test.tsx
 import { jest } from '@jest/globals';
+import { configureStore, combineReducers } from '@reduxjs/toolkit';
 import { render, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { Provider } from 'react-redux';
 import Onboarding from 'src/components/onboarding';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { useOffline } from 'src/hooks/use-offline';
@@ -9,6 +11,29 @@ import { useOnboarding } from 'src/hooks/use-onboarding';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
+
+const testStore = configureStore( {
+	reducer: combineReducers( {
+		appVersionApi: ( state = {}, _action: unknown ) => state,
+		chat: ( state = {}, _action: unknown ) => state,
+		newSites: ( state = {}, _action: unknown ) => state,
+		installedAppsApi: ( state = {}, _action: unknown ) => state,
+		snapshot: ( state = {}, _action: unknown ) => state,
+		wordpressVersionsApi: ( state = {}, _action: unknown ) => state,
+		wpcomApi: ( state = {}, _action: unknown ) => state,
+		certificateTrustApi: ( state = {}, _action: unknown ) => state,
+		i18n: ( state = { locale: 'en' }, _action: unknown ) => state,
+	} ),
+} );
+
+jest.mock( 'src/stores', () => {
+	const mockDispatch = jest.fn();
+	return {
+		useAppDispatch: jest.fn().mockReturnValue( mockDispatch ),
+		useRootSelector: jest.fn(),
+		useI18nLocale: jest.fn().mockReturnValue( 'en' ),
+	};
+} );
 
 jest.mock( 'src/hooks/use-onboarding', () => ( {
 	useOnboarding: jest.fn(),
@@ -63,6 +88,10 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 
 const mockCreateSite = jest.fn();
 
+const renderWithProvider = ( children: React.ReactElement ) => {
+	return render( <Provider store={ testStore }>{ children }</Provider> );
+};
+
 describe( 'Onboarding Component', () => {
 	const user = userEvent.setup();
 	const useAddSiteMockValue = {
@@ -110,7 +139,7 @@ describe( 'Onboarding Component', () => {
 	} );
 
 	it( 'renders onboarding screen correctly', () => {
-		const { getByText } = render( <Onboarding /> );
+		const { getByText } = renderWithProvider( <Onboarding /> );
 		expect( getByText( 'Add your first site' ) ).toBeVisible();
 		expect( getByText( 'Add site' ) ).toBeVisible();
 	} );
@@ -118,7 +147,7 @@ describe( 'Onboarding Component', () => {
 	it( 'completes onboarding when the final button is clicked', async () => {
 		const { handleAddSiteClick } = useAddSite();
 
-		const { getByText } = render( <Onboarding /> );
+		const { getByText } = renderWithProvider( <Onboarding /> );
 
 		await user.click( getByText( 'Add site' ) );
 
@@ -126,7 +155,7 @@ describe( 'Onboarding Component', () => {
 	} );
 
 	it( 'should use wpVersion from useAddSite hook', () => {
-		render( <Onboarding /> );
+		renderWithProvider( <Onboarding /> );
 
 		const mockUseAddSite = useAddSite as jest.Mock;
 		expect( mockUseAddSite ).toHaveBeenCalled();
@@ -135,7 +164,7 @@ describe( 'Onboarding Component', () => {
 	} );
 
 	it( 'should fetch WordPress versions', async () => {
-		render( <Onboarding /> );
+		renderWithProvider( <Onboarding /> );
 
 		await waitFor( () => {
 			expect( useGetWordPressVersions ).toHaveBeenCalled();
@@ -150,13 +179,13 @@ describe( 'Onboarding Component', () => {
 			setWpVersion: mockSetWpVersion,
 		} );
 
-		render( <Onboarding /> );
+		renderWithProvider( <Onboarding /> );
 
 		expect( useAddSite().setWpVersion ).toBe( mockSetWpVersion );
 	} );
 
 	it( 'should display WordPress and PHP version dropdowns', async () => {
-		render( <Onboarding /> );
+		renderWithProvider( <Onboarding /> );
 
 		expect( screen.getByText( 'WordPress version' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'PHP version' ) ).toBeInTheDocument();
@@ -183,7 +212,7 @@ describe( 'Onboarding Component', () => {
 			wpVersion: '6.3.3',
 		} );
 
-		render( <Onboarding /> );
+		renderWithProvider( <Onboarding /> );
 
 		const comboboxes = screen.getAllByRole( 'combobox' );
 
@@ -239,7 +268,7 @@ describe( 'Onboarding Component', () => {
 			loadAllCustomDomains: jest.fn(),
 		} );
 
-		render( <Onboarding /> );
+		renderWithProvider( <Onboarding /> );
 
 		const comboboxes = screen.getAllByRole( 'combobox' );
 
@@ -253,7 +282,7 @@ describe( 'Onboarding Component', () => {
 	it( 'should disable WordPress version field when offline', () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
 
-		render( <Onboarding /> );
+		renderWithProvider( <Onboarding /> );
 
 		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
 		expect( wpVersionSelect ).toBeDisabled();
@@ -262,7 +291,7 @@ describe( 'Onboarding Component', () => {
 	it( 'should enable WordPress version field when online', () => {
 		( useOffline as jest.Mock ).mockReturnValue( false );
 
-		render( <Onboarding /> );
+		renderWithProvider( <Onboarding /> );
 
 		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
 		expect( wpVersionSelect ).not.toBeDisabled();
@@ -271,7 +300,7 @@ describe( 'Onboarding Component', () => {
 	it( 'should show tooltip with offline message when hovering over disabled WordPress version field', async () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
 
-		render( <Onboarding /> );
+		renderWithProvider( <Onboarding /> );
 		const user = userEvent.setup();
 
 		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
@@ -287,7 +316,7 @@ describe( 'Onboarding Component', () => {
 	it( 'should not show tooltip when hovering over WordPress version field while online', async () => {
 		( useOffline as jest.Mock ).mockReturnValue( false );
 
-		render( <Onboarding /> );
+		renderWithProvider( <Onboarding /> );
 		const user = userEvent.setup();
 
 		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );

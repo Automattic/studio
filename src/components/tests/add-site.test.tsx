@@ -1,10 +1,27 @@
 // Run tests: yarn test -- src/components/add-site-button.test.tsx
 import { jest } from '@jest/globals';
+import { configureStore, combineReducers } from '@reduxjs/toolkit';
 import { render, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { Provider } from 'react-redux';
 import AddSite from 'src/components/add-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { FolderDialogResponse } from 'src/ipc-handlers';
+
+// Create a minimal test store with simple reducers
+const testStore = configureStore( {
+	reducer: combineReducers( {
+		appVersionApi: ( state = {}, action: unknown ) => state,
+		chat: ( state = {}, action: unknown ) => state,
+		newSites: ( state = {}, action: unknown ) => state,
+		installedAppsApi: ( state = {}, action: unknown ) => state,
+		snapshot: ( state = {}, action: unknown ) => state,
+		wordpressVersionsApi: ( state = {}, action: unknown ) => state,
+		wpcomApi: ( state = {}, action: unknown ) => state,
+		certificateTrustApi: ( state = {}, action: unknown ) => state,
+		i18n: ( state = { locale: 'en' }, action: unknown ) => state,
+	} ),
+} );
 
 jest.mock( 'src/stores/certificate-trust-api', () => ( {
 	useCheckCertificateTrustQuery: jest.fn().mockReturnValue( { data: true } ),
@@ -19,6 +36,7 @@ jest.mock( 'src/stores', () => {
 	return {
 		useAppDispatch: jest.fn().mockReturnValue( mockDispatch ),
 		useRootSelector: jest.fn(),
+		useI18nLocale: jest.fn().mockReturnValue( 'en' ),
 	};
 } );
 
@@ -68,6 +86,10 @@ jest.mock( 'src/hooks/use-offline', () => ( {
 	useOffline: jest.fn().mockReturnValue( false ),
 } ) );
 
+const renderWithProvider = ( children: React.ReactElement ) => {
+	return render( <Provider store={ testStore }>{ children }</Provider> );
+};
+
 beforeEach( () => {
 	jest.clearAllMocks();
 
@@ -99,7 +121,7 @@ describe( 'AddSite', () => {
 			isEmpty: true,
 			isWordPress: false,
 		} );
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 
@@ -134,7 +156,7 @@ describe( 'AddSite', () => {
 			isEmpty: true,
 			isWordPress: false,
 		} );
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
@@ -170,7 +192,7 @@ describe( 'AddSite', () => {
 			isEmpty: false,
 			isWordPress: false,
 		} );
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
@@ -202,7 +224,7 @@ describe( 'AddSite', () => {
 			isEmpty: false,
 			isWordPress: true,
 		} );
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
@@ -230,7 +252,7 @@ describe( 'AddSite', () => {
 				isWordPress: false,
 			} );
 		} );
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
@@ -273,7 +295,7 @@ describe( 'AddSite', () => {
 			isEmpty: false,
 			isWordPress: false,
 		} );
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
@@ -303,7 +325,7 @@ describe( 'AddSite', () => {
 			isWordPress: false,
 		} );
 
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
@@ -348,7 +370,7 @@ describe( 'AddSite', () => {
 			isWordPress: false,
 		} );
 
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
@@ -380,7 +402,7 @@ describe( 'AddSite', () => {
 	it( 'should disable WordPress version field when offline', async () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
 
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
@@ -393,7 +415,7 @@ describe( 'AddSite', () => {
 	it( 'should enable WordPress version field when online', async () => {
 		( useOffline as jest.Mock ).mockReturnValue( false );
 
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
@@ -406,7 +428,7 @@ describe( 'AddSite', () => {
 	it( 'should show tooltip with offline message when hovering over disabled WordPress version field', async () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
 
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
@@ -425,7 +447,7 @@ describe( 'AddSite', () => {
 	it( 'should not show tooltip when hovering over WordPress version field while online', async () => {
 		( useOffline as jest.Mock ).mockReturnValue( false );
 
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );

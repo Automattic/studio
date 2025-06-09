@@ -71,18 +71,16 @@ export function SyncDialog( {
 			checked: true,
 			indeterminate: false,
 			defaultExpanded: false,
-			customExpanderOptions: {
-				options: [
-					{
-						label: __( 'All files and folders' ),
-						value: 'collapsed',
-					},
-					{
-						label: __( 'Specific files and folders' ),
-						value: 'expanded',
-					},
-				],
-			},
+			customExpanderOptions: [
+				{
+					label: __( 'All files and folders' ),
+					value: 'collapsed',
+				},
+				{
+					label: __( 'Specific files and folders' ),
+					value: 'expanded',
+				},
+			],
 			children: [
 				{
 					id: 'wp-content',

@@ -13,11 +13,9 @@ export type TreeNode = {
 	indeterminate?: boolean;
 	defaultExpanded?: boolean;
 	customExpanderOptions?: {
-		options: {
-			label: string;
-			value: ExpanderValues;
-		}[];
-	};
+		label: string;
+		value: ExpanderValues;
+	}[];
 	children?: TreeNode[];
 	type?: 'folder';
 };
@@ -109,7 +107,7 @@ const TreeItem = ( {
 					<SelectControl
 						value={ expanded ? 'expanded' : 'collapsed' }
 						variant="minimal"
-						options={ node.customExpanderOptions.options }
+						options={ node.customExpanderOptions }
 						onChange={ ( value: ExpanderValues ) =>
 							setExpanded( value === 'expanded' ? true : false )
 						}

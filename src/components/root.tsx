@@ -1,5 +1,6 @@
 import { defaultI18n } from '@wordpress/i18n';
 import { I18nProvider } from '@wordpress/react-i18n';
+import { useEffect } from 'react';
 import { Provider as ReduxProvider } from 'react-redux';
 import App from 'src/components/app';
 import AuthProvider from 'src/components/auth-provider';
@@ -13,8 +14,12 @@ import { OnboardingProvider } from 'src/hooks/use-onboarding';
 import { SiteDetailsProvider } from 'src/hooks/use-site-details';
 import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
 import { store } from 'src/stores';
+import { initializeUserLocale } from 'src/stores/i18n-slice';
 
 const Root = () => {
+	useEffect( () => {
+		void store.dispatch( initializeUserLocale() );
+	}, [] );
 	return (
 		<ErrorBoundary>
 			<CrashTester />

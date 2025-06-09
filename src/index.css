@@ -296,7 +296,6 @@ blockquote {
 	border: 1px solid theme( 'colors.a8c-blueberry' );
 }
 
-/* Looks not nice, but it's small and better to modify UI of component here to keep JS code clear and easy reusable in the future */
 .sync-tree .treeItemLevel0 > div {
 	border-bottom: 1px solid #ddd;
 	padding-top: 0.5rem;

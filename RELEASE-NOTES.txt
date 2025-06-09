@@ -4,17 +4,13 @@ Unreleased
 1.5.3
 =====
 * Added support to follow symlinks in Previews and Sync #1447, #1448
-* Added robust error handling and Sentry tracking for backup extraction #1455
 * Fixed Command Prompt button truncation and naming on Windows #1440, #1441
 * Fixed default editors when only one is installed #1461
 * Improved site export performance #1457
 * Removed outdated WP-CLI proof-of-concept code #1426
-* Improved "What's New" modal with simplified version check logic #1446
 * Improved HTTP request reliability by reducing timeout to 30 seconds #1456
-* Improved translation and lint tooling to include `common` folder #1444
 * Improved Windows editor path detection by sanitizing regex #1411
 * Upgraded Electron Forge and Playground packages #1460
-* Updated Ukrainian and global translations #1462
 
 1.5.2
 =====

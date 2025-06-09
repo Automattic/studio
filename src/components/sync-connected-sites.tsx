@@ -45,7 +45,7 @@ const SyncConnectedSiteControls = ( {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
 	const { selectiveSyncEnabled } = useFeatureFlags();
-	const [ syncDialog, setSyncDialog ] = useState< { type: 'pull' | 'push' } | null >( null );
+	const [ syncDialogType, setSyncDialogType ] = useState< 'pull' | 'push' | null >( null );
 	const {
 		pullSite,
 		isAnySitePulling,
@@ -84,7 +84,7 @@ const SyncConnectedSiteControls = ( {
 	} );
 	const handlePushSite = async ( connectedSite: SyncSite ) => {
 		if ( selectiveSyncEnabled ) {
-			setSyncDialog( { type: 'push' } );
+			setSyncDialogType( 'push' );
 			return;
 		}
 
@@ -141,7 +141,7 @@ const SyncConnectedSiteControls = ( {
 							) }
 							onClick={ () => {
 								if ( selectiveSyncEnabled ) {
-									setSyncDialog( { type: 'pull' } );
+									setSyncDialogType( 'pull' );
 									return;
 								}
 
@@ -203,21 +203,21 @@ const SyncConnectedSiteControls = ( {
 						</Button>
 					</DynamicTooltip>
 				) }
-				{ syncDialog && (
+				{ syncDialogType && (
 					<SyncDialog
-						type={ syncDialog.type }
+						type={ syncDialogType }
 						localSite={ selectedSite }
 						remoteSite={ connectedSite }
 						onSubmit={ ( dataToSync ) => {
 							console.log( dataToSync );
 
-							if ( syncDialog.type === 'push' ) {
+							if ( syncDialogType === 'push' ) {
 								void pushSite( connectedSite, selectedSite );
 							} else {
 								pullSite( connectedSite, selectedSite );
 							}
 						} }
-						onRequestClose={ () => setSyncDialog( null ) }
+						onRequestClose={ () => setSyncDialogType( null ) }
 					/>
 				) }
 			</div>

@@ -1,7 +1,6 @@
-import { SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Button from 'src/components/button';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
@@ -71,6 +70,19 @@ export function SyncDialog( {
 			label: 'Files and folders',
 			checked: true,
 			indeterminate: false,
+			defaultExpanded: false,
+			customExpanderOptions: {
+				options: [
+					{
+						label: __( 'All files and folders' ),
+						value: 'collapsed',
+					},
+					{
+						label: __( 'Specific files and folders' ),
+						value: 'expanded',
+					},
+				],
+			},
 			children: [
 				{
 					id: 'wp-content',
@@ -112,8 +124,6 @@ export function SyncDialog( {
 		},
 	] );
 
-	const [ dialogMode, setDialogMode ] = useState< 'basic' | 'advanced' >( 'basic' );
-
 	const copy = allCopy[ type ];
 	const remoteSiteType = remoteSite.isStaging ? 'staging' : 'production';
 
@@ -138,18 +148,6 @@ export function SyncDialog( {
 
 		onRequestClose();
 	};
-
-	useEffect( () => {
-		const element = document.querySelector(
-			'.treeItemIdfilesAndFolders > div:nth-child(2)'
-		) as HTMLElement;
-
-		if ( ! element ) {
-			return;
-		}
-
-		element.style.display = dialogMode === 'advanced' ? 'block' : 'none';
-	}, [ dialogMode ] );
 
 	return (
 		<Modal
@@ -180,24 +178,6 @@ export function SyncDialog( {
 				</div>
 				<div className="px-8 pt-7 pb-3">{ copy.subtitleSelector }</div>
 				<div className="px-8 pb-6 relative">
-					<SelectControl
-						value={ dialogMode }
-						variant="minimal"
-						options={ [
-							{
-								label: __( 'All files and folders' ),
-								value: 'basic',
-							},
-							{
-								label: __( 'Specific files and folders' ),
-								value: 'advanced',
-							},
-						] }
-						onChange={ ( value: 'basic' | 'advanced' ) => setDialogMode( value ) }
-						className="absolute right-7 top-1"
-						__next40pxDefaultSize
-						__nextHasNoMarginBottom
-					/>
 					<TreeView tree={ treeState } setTree={ setTreeState } className="sync-tree" />
 				</div>
 				<div className="px-8 pb-6">

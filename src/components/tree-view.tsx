@@ -1,14 +1,23 @@
-import { CheckboxControl } from '@wordpress/components';
+import { CheckboxControl, SelectControl } from '@wordpress/components';
 import { useState } from 'react';
 import { FolderIcon } from 'src/components/icons/folder';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import { cx } from 'src/lib/cx';
+
+type ExpanderValues = 'expanded' | 'collapsed';
 
 export type TreeNode = {
 	id: string;
 	label: string;
 	checked: boolean;
 	indeterminate?: boolean;
+	defaultExpanded?: boolean;
+	customExpanderOptions?: {
+		options: {
+			label: string;
+			value: ExpanderValues;
+		}[];
+	};
 	children?: TreeNode[];
 	type?: 'folder';
 };
@@ -73,7 +82,9 @@ const TreeItem = ( {
 	onToggle: ( id: string, checked: boolean ) => void;
 	level: number;
 } ) => {
-	const [ expanded, setExpanded ] = useState( true );
+	const [ expanded, setExpanded ] = useState(
+		node.defaultExpanded !== undefined ? node.defaultExpanded : true
+	);
 
 	return (
 		<div className={ cx( `treeItemLevel${ level }`, `treeItemId${ node.id }` ) }>
@@ -86,12 +97,26 @@ const TreeItem = ( {
 				/>
 				{ node.type === 'folder' && <FolderIcon /> }
 				<span>{ node.label }</span>
-				{ node.children && (
+				{ node.children && ! node.customExpanderOptions && (
 					<button onClick={ () => setExpanded( ! expanded ) }>
 						<div className={ expanded ? 'rotate-90' : '' }>
 							<RightArrowIcon width={ 16 } />
 						</div>
 					</button>
+				) }
+
+				{ node.customExpanderOptions && (
+					<SelectControl
+						value={ expanded ? 'expanded' : 'collapsed' }
+						variant="minimal"
+						options={ node.customExpanderOptions.options }
+						onChange={ ( value: ExpanderValues ) =>
+							setExpanded( value === 'expanded' ? true : false )
+						}
+						className="absolute right-7 top-1"
+						__next40pxDefaultSize
+						__nextHasNoMarginBottom
+					/>
 				) }
 			</div>
 			{ expanded && node.children && (

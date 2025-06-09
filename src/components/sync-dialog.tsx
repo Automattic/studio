@@ -5,7 +5,9 @@ import Button from 'src/components/button';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { TreeView, TreeNode } from 'src/components/tree-view';
+import { useI18nData } from 'src/hooks/use-i18n-data';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { CircleProdIcon } from './icons/circle-prod';
 import { CircleStagingIcon } from './icons/circle-staging';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
@@ -24,9 +26,10 @@ const allCopy = {
 				"Pulling will replace your Studio site's files and database with a copy from your production site."
 			),
 		},
-		fromLabel: __( 'Pull from' ),
+		fromLabel: __( 'Pull' ),
 		toLabel: __( 'To' ),
 		subtitleSelector: __( 'What would you like to pull?' ),
+		envSync: __( 'Read more about <a>environment pull</a> ↗' ),
 		submit: __( 'Pull' ),
 	},
 	push: {
@@ -45,6 +48,7 @@ const allCopy = {
 		fromLabel: __( 'Push' ),
 		toLabel: __( 'To' ),
 		subtitleSelector: __( 'What would you like to push?' ),
+		envSync: __( 'Read more about <a>environment push</a> ↗' ),
 		submit: __( 'Push' ),
 	},
 };
@@ -64,6 +68,8 @@ export function SyncDialog( {
 	onSubmit,
 	onRequestClose,
 }: SyncDialogProps ) {
+	const { locale } = useI18nData();
+
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( [
 		{
 			id: 'filesAndFolders',
@@ -153,7 +159,7 @@ export function SyncDialog( {
 			onRequestClose={ onRequestClose }
 			title={ copy[ remoteSiteType ].title }
 		>
-			<div>
+			<div className="h-[calc(84vh-72px)] relative overflow-auto flex flex-col">
 				<div className="px-8 pb-6 pt-2">{ copy[ remoteSiteType ].description }</div>
 				<div className="px-8">
 					<div className="flex items-start gap-1 pb-7 border-b border-a8c-gray-5">
@@ -175,27 +181,31 @@ export function SyncDialog( {
 					</div>
 				</div>
 				<div className="px-8 pt-7 pb-3">{ copy.subtitleSelector }</div>
-				<div className="px-8 pb-6 relative">
+				<div className="px-8 relative">
 					<TreeView tree={ treeState } setTree={ setTreeState } className="sync-tree" />
 				</div>
-				<div className="px-8 pb-6">
-					{ createInterpolateElement( __( 'Read more about <a>environment push</a> ↗' ), {
-						a: (
-							<Button
-								variant="link"
-								onClick={ () => getIpcApi().openURL( 'https://example.com' ) }
-							/>
-						),
-					} ) }
-				</div>
-				<div className="px-8">
-					<div className="flex pb-8 gap-4 justify-end">
-						<Button variant="link" onClick={ onRequestClose }>
-							{ __( 'Cancel' ) }
-						</Button>
-						<Button variant="primary" onClick={ handleSubmit }>
-							{ copy.submit }
-						</Button>
+				<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center sticky bottom-0 bg-white mt-auto">
+					<div>
+						{ createInterpolateElement( copy.envSync, {
+							a: (
+								<Button
+									variant="link"
+									onClick={ () =>
+										getIpcApi().openURL( getLocalizedLink( locale, 'docsSync' ) + '#' + type )
+									}
+								/>
+							),
+						} ) }
+					</div>
+					<div>
+						<div className="flex gap-4 justify-end">
+							<Button variant="link" onClick={ onRequestClose }>
+								{ __( 'Cancel' ) }
+							</Button>
+							<Button variant="primary" onClick={ handleSubmit }>
+								{ copy.submit }
+							</Button>
+						</div>
 					</div>
 				</div>
 			</div>

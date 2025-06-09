@@ -85,16 +85,18 @@ const TreeItem = ( {
 	);
 
 	return (
-		<div className={ cx( `treeItemLevel${ level }`, `treeItemId${ node.id }` ) }>
+		<div className={ cx( `treeItemLevel${ level }` ) }>
 			<div className="flex items-center py-2">
-				<CheckboxControl
-					checked={ node.checked }
-					indeterminate={ node.indeterminate }
-					onChange={ ( checked: boolean ) => onToggle( node.id, checked ) }
-					__nextHasNoMarginBottom
-				/>
-				{ node.type === 'folder' && <FolderIcon /> }
-				<span>{ node.label }</span>
+				<label className="flex items-center">
+					<CheckboxControl
+						checked={ node.checked }
+						indeterminate={ node.indeterminate }
+						onChange={ ( checked: boolean ) => onToggle( node.id, checked ) }
+						__nextHasNoMarginBottom
+					/>
+					{ node.type === 'folder' && <FolderIcon /> }
+					<span>{ node.label }</span>
+				</label>
 				{ node.children && ! node.customExpanderOptions && (
 					<button onClick={ () => setExpanded( ! expanded ) }>
 						<div className={ expanded ? 'rotate-90' : '' }>

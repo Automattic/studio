@@ -7,7 +7,7 @@ export const CircleStagingIcon = () => (
 			height="12.2075"
 			rx="6.10373"
 			fill="#F7BA42"
-			fill-opacity="0.4"
+			fillOpacity="0.4"
 		/>
 		<rect
 			x="1.38657"
@@ -16,8 +16,8 @@ export const CircleStagingIcon = () => (
 			height="10.3001"
 			rx="5.15003"
 			stroke="white"
-			stroke-opacity="0.6"
-			stroke-width="1.90742"
+			strokeOpacity="0.6"
+			strokeWidth="1.90742"
 		/>
 		<rect x="1.95874" y="2.1394" width="9.1556" height="9.1556" rx="4.5778" fill="#F7BA42" />
 	</svg>

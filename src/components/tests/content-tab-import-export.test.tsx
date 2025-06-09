@@ -1,12 +1,14 @@
 import { render, fireEvent, waitFor, screen, createEvent } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { act } from 'react';
+import { Provider } from 'react-redux';
 import { ContentTabImportExport } from 'src/components/content-tab-import-export';
-import { SyncSitesProvider } from 'src/hooks/sync-sites/sync-sites-context';
+import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { store } from 'src/stores';
 
 jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/hooks/use-site-details' );
@@ -44,9 +46,11 @@ beforeEach( () => {
 
 const renderWithProvider = ( children: React.ReactElement ) => {
 	return render(
-		<ContentTabsProvider>
-			<SyncSitesProvider>{ children }</SyncSitesProvider>
-		</ContentTabsProvider>
+		<Provider store={ store }>
+			<ContentTabsProvider>
+				<SyncSitesProvider>{ children }</SyncSitesProvider>
+			</ContentTabsProvider>
+		</Provider>
 	);
 };
 

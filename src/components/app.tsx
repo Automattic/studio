@@ -2,6 +2,7 @@ import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
+import { useI18n } from '@wordpress/react-i18n';
 import { useEffect } from 'react';
 import { DynamicStylesheet } from 'src/components/dynamic-stylesheet';
 import MacTitlebar from 'src/components/mac-titlebar';
@@ -10,7 +11,6 @@ import Onboarding from 'src/components/onboarding';
 import { SiteContentTabs } from 'src/components/site-content-tabs';
 import TopBar from 'src/components/top-bar';
 import WindowsTitlebar from 'src/components/windows-titlebar';
-import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
 import { useOnboarding } from 'src/hooks/use-onboarding';
 import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
@@ -26,7 +26,7 @@ export default function App() {
 	const { needsOnboarding } = useOnboarding();
 	const { isSidebarVisible, toggleSidebar } = useSidebarVisibility();
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
-	const { i18n } = useI18nData();
+	const i18n = useI18n();
 
 	useEffect( () => {
 		void getIpcApi().setupAppMenu( { needsOnboarding } );

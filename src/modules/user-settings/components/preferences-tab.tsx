@@ -1,11 +1,12 @@
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import Button from 'src/components/button';
-import { useI18nData } from 'src/hooks/use-i18n-data';
 import { EditorPicker } from 'src/modules/user-settings/components/editor-picker';
 import { LanguagePicker } from 'src/modules/user-settings/components/language-picker';
 import { TerminalPicker } from 'src/modules/user-settings/components/terminal-picker';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import { useAppDispatch, useI18nLocale } from 'src/stores';
+import { saveUserLocale } from 'src/stores/i18n-slice';
 import {
 	useGetUserEditorQuery,
 	useGetUserTerminalQuery,
@@ -15,7 +16,8 @@ import {
 
 export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { __ } = useI18n();
-	const { locale: savedLocale, setLocale: setSavedLocale } = useI18nData();
+	const savedLocale = useI18nLocale();
+	const dispatch = useAppDispatch();
 	const [ locale, setLocale ] = useState( savedLocale );
 
 	const { data: editor } = useGetUserEditorQuery();
@@ -27,7 +29,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const [ currentTerminal, setCurrentTerminal ] = useState( terminal );
 
 	const savePreferences = async () => {
-		await setSavedLocale( locale );
+		await dispatch( saveUserLocale( locale ) );
 		if ( currentEditor ) {
 			await saveEditor( currentEditor );
 		}

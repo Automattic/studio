@@ -1,7 +1,7 @@
 import { speak } from '@wordpress/a11y';
 import { Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { sprintf, __ } from '@wordpress/i18n';
+import { sprintf } from '@wordpress/i18n';
 import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useRef, useState } from 'react';
@@ -12,12 +12,12 @@ import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useSyncSites } from 'src/hooks/sync-sites/sync-sites-context';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
-import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
+import { useI18nLocale } from 'src/stores';
 
 interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
@@ -30,6 +30,7 @@ export const ExportSite = ( {
 	selectedSite: SiteDetails;
 	isThisSiteSyncing: boolean;
 } ) => {
+	const { __ } = useI18n();
 	const { exportState, exportFullSite, exportDatabase, importState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
 	const isImporting = importState[ selectedSite.id ]?.progress < 100;
@@ -107,6 +108,7 @@ const InitialImportButton = ( {
 	isSiteExporting: boolean;
 	isThisSiteSyncing: boolean;
 } ) => {
+	const { __ } = useI18n();
 	const disabled = isSiteExporting || isThisSiteSyncing;
 	let tooltipText;
 	if ( isThisSiteSyncing ) {
@@ -147,7 +149,7 @@ const ImportSite = ( {
 	isThisSiteSyncing: boolean;
 } ) => {
 	const { __ } = useI18n();
-	const { locale } = useI18nData();
+	const locale = useI18nLocale();
 	const { startServer, loadingServer } = useSiteDetails();
 	const { importState, importFile, clearImportState, exportState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = importState;
@@ -293,6 +295,7 @@ const ImportSite = ( {
 };
 
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
+	const { __ } = useI18n();
 	const [ isSupported, setIsSupported ] = useState< boolean | null >( null );
 	const { isSiteIdPulling, isSiteIdPushing, connectedSites } = useSyncSites();
 	const isPulling = connectedSites.some( ( site ) => isSiteIdPulling( selectedSite.id, site.id ) );

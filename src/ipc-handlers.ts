@@ -1008,7 +1008,7 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 	const preferredTerminal = await getUserTerminal();
 
 	if ( platform === 'darwin' ) {
-		const escapedPath = targetPath.replace( /"/g, '\\"' );
+		const escapedPath = targetPath.replace( /\\/g, '\\\\' ).replace( /"/g, '\\"' );
 		const bundleIds = {
 			warp: 'dev.warp.Warp-Stable',
 			ghostty: 'com.mitchellh.ghostty',

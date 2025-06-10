@@ -121,14 +121,14 @@ def distribute_builds(
       filename_core: 'darwin-universal',
       extension: 'app.zip',
       name: 'Mac Universal',
-      platform: 'Mac - Universal'
+      platform: 'Mac - Any'
     },
     mac_universal_dmg: {
       binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-universal.dmg'),
       filename_core: 'darwin-universal',
       extension: 'dmg',
       name: 'Mac Universal (DMG)',
-      platform: 'Mac - Universal'
+      platform: 'Mac - Any'
     },
     x64: {
       binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-x64', 'Studio.app.zip'),

@@ -1,6 +1,7 @@
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { useState } from 'react';
+import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
@@ -29,7 +30,7 @@ const allCopy = {
 		fromLabel: __( 'Pull' ),
 		toLabel: __( 'To' ),
 		subtitleSelector: __( 'What would you like to pull?' ),
-		envSync: __( 'Read more about <a>environment pull</a> ↗' ),
+		envSync: __( 'Read more about <a>environment pull <ArrowIcon /></a>' ),
 		submit: __( 'Pull' ),
 	},
 	push: {
@@ -48,7 +49,7 @@ const allCopy = {
 		fromLabel: __( 'Push' ),
 		toLabel: __( 'To' ),
 		subtitleSelector: __( 'What would you like to push?' ),
-		envSync: __( 'Read more about <a>environment push</a> ↗' ),
+		envSync: __( 'Read more about <a>environment push <ArrowIcon /></a>' ),
 		submit: __( 'Push' ),
 	},
 };
@@ -195,6 +196,7 @@ export function SyncDialog( {
 									}
 								/>
 							),
+							ArrowIcon: <ArrowIcon />,
 						} ) }
 					</div>
 					<div>

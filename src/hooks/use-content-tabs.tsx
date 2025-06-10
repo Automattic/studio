@@ -62,7 +62,7 @@ const ContentTabsContext = createContext< ContentTabsContextType | undefined >( 
 
 export function ContentTabsProvider( { children }: { children: ReactNode } ) {
 	const tabs = useTabs();
-	const [ selectedTab, setSelectedTab ] = useState< TabName >( tabs[ 1 ].name );
+	const [ selectedTab, setSelectedTab ] = useState< TabName >( tabs[ 0 ].name );
 
 	return (
 		<ContentTabsContext.Provider value={ { selectedTab, setSelectedTab, tabs } }>

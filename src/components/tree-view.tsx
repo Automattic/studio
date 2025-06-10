@@ -113,14 +113,14 @@ const TreeItem = ( {
 						onChange={ ( value: ExpanderValues ) =>
 							setExpanded( value === 'expanded' ? true : false )
 						}
-						className="absolute right-7 top-1"
+						className="absolute end-7 top-1"
 						__next40pxDefaultSize
 						__nextHasNoMarginBottom
 					/>
 				) }
 			</div>
 			{ expanded && node.children && (
-				<div className="pl-6">
+				<div className="ps-6">
 					{ node.children.map( ( child ) => (
 						<TreeItem key={ child.id } node={ child } onToggle={ onToggle } level={ ++level } />
 					) ) }

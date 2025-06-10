@@ -113,7 +113,7 @@ def distribute_builds(
   UI.user_error!("Environment variable WPCOM_API_TOKEN is not set") if wpcom_api_token.nil? && !DRY_RUN
 
   # Define the build type based on whether this is a release build or not
-  build_type = release_tag.nil? ? 'Dev' : 'Release'
+  build_type = release_tag.nil? ? 'Alpha' : 'Production'
 
   builds = {
     mac_universal: {
@@ -198,7 +198,6 @@ def distribute_builds(
       build_number: build_number,
       release_notes: build[:release_notes],
       file_path: build[:binary_path],
-      filename: build[:filename],
       error_on_duplicate: false
     )
     # Store the download URL for later use
@@ -210,14 +209,13 @@ def distribute_builds(
     site_id: WPCOM_STUDIO_SITE_ID,
     product: 'WordPress.com Studio',
     file_path: File.join(BUILDS_FOLDER, manifest_name),
-    filename: manifest_name,
-	platform: 'Other',
-	build_type: 'Manifest',
-	visibility: 'external',
-	version: '0.0.0',
-	build_number: '0',
-	release_notes: 'Manifest file',
-	error_on_duplicate: false
+    platform: 'Other',
+    build_type: 'Production',
+    visibility: 'external',
+    version: '0.0.0',
+    build_number: '0',
+    release_notes: 'Manifest file',
+    error_on_duplicate: false
   )
 
   unless DRY_RUN
@@ -233,10 +231,10 @@ def distribute_builds(
 end
 
 # Helper method to upload a file to Apps CDN with dry run support
-def upload_file_to_apps_cdn(site_id:, product:, file_path:, filename:, platform:, build_type:, visibility:, version:, build_number:, release_notes:, error_on_duplicate:, dry_run: DRY_RUN)
+def upload_file_to_apps_cdn(site_id:, product:, file_path:, platform:, build_type:, visibility:, version:, build_number:, release_notes:, error_on_duplicate:, dry_run: DRY_RUN)
+
   if dry_run
     UI.message("[DRY RUN] Would upload file: #{file_path}")
-    UI.message("           with filename: #{filename}")
     UI.message("           for platform: #{platform}")
     UI.message("           build type: #{build_type}")
     UI.message("           visibility: #{visibility}")
@@ -261,7 +259,6 @@ def upload_file_to_apps_cdn(site_id:, product:, file_path:, filename:, platform:
     build_number: build_number,
     release_notes: release_notes,
     file_path: file_path,
-    filename: filename,
     error_on_duplicate: error_on_duplicate
   )
 

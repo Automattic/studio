@@ -249,6 +249,8 @@ def upload_file_to_apps_cdn(site_id:, product:, file_path:, platform:, build_typ
     }
   end
 
+  UI.message("Uploading file: #{file_path}")
+
   result = upload_build_to_apps_cdn(
     site_id: site_id,
     product: product,

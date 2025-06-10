@@ -251,7 +251,7 @@ def upload_file_to_apps_cdn(site_id:, product:, file_path:, filename:, platform:
     }
   end
 
-  upload_build_to_apps_cdn(
+  result = upload_build_to_apps_cdn(
     site_id: site_id,
     product: product,
     platform: platform,
@@ -264,4 +264,10 @@ def upload_file_to_apps_cdn(site_id:, product:, file_path:, filename:, platform:
     filename: filename,
     error_on_duplicate: error_on_duplicate
   )
+
+  UI.message("--------------------------------")
+  UI.message("✅ Uploaded file: #{filename} to #{result[:media_url]}")
+  UI.message("Result: #{result}")
+
+  return result
 end

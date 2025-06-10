@@ -24,8 +24,8 @@ APPLE_TEAM_ID = 'PZYM8XX95Q'
 APPLE_BUNDLE_IDENTIFIER = 'com.automattic.studio'
 APPLE_API_KEY_PATH = File.join(SECRETS_FOLDER, 'app_store_connect_fastlane_api_key.json')
 
-CDN_URL = 'https://cdn.a8c-ci.services'
-CLOUDFRONT_DISTRIBUTION_ID = 'EF4A01YASGPY5'
+# Site ID for WordPress.com Studio in the Apps CDN
+WPCOM_STUDIO_SITE_ID = 239164481
 
 # Use this instead of getting values from ENV directly
 # It will throw an error if the requested value is missing
@@ -78,7 +78,7 @@ end
 desc 'Ship release build'
 lane :distribute_release_build do |_options|
   next if DRY_RUN
-  
+
   release_tag = get_required_env('BUILDKITE_TAG')
   builds = distribute_builds(release_tag:)
 
@@ -96,24 +96,6 @@ lane :distribute_release_build do |_options|
   )
 end
 
-def aws_upload_to_s3(bucket:, key:, file:, if_exists:, auto_prefix: false, dry_run: DRY_RUN)
-  if dry_run
-    UI.message("[DRY RUN] Would upload file: #{file}")
-    UI.message("           to S3 bucket: #{bucket}")
-    UI.message("           with key: #{key}")
-    UI.message("           if_exists: #{if_exists}")
-    return true
-  end
-
-  upload_to_s3(
-    bucket:,
-    key:,
-    file:,
-    if_exists:,
-    auto_prefix:
-  )
-end
-
 def distribute_builds(
   commit_hash: last_git_commit[:abbreviated_commit_hash],
   build_number: get_required_env('BUILDKITE_BUILD_NUMBER'),
@@ -124,57 +106,72 @@ def distribute_builds(
   update_latest = release_tag.nil?
   suffix = release_tag.nil? ? "v#{PACKAGE_VERSION}" : release_tag
   filename_root = 'studio'
-  bucket_folder = 'studio'
+  bucket_folder = 'wordpress-com-studio'
+
+  # Make sure the WPCOM API token is set
+  wpcom_api_token = ENV['WPCOM_API_TOKEN']
+  UI.user_error!("Environment variable WPCOM_API_TOKEN is not set") if wpcom_api_token.nil? && !DRY_RUN
+
+  # Define the build type based on whether this is a release build or not
+  build_type = release_tag.nil? ? 'Dev' : 'Release'
 
   builds = {
     mac_universal: {
       binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-universal', 'Studio.app.zip'),
       filename_core: 'darwin-universal',
       extension: 'app.zip',
-      name: 'Mac Universal'
+      name: 'Mac Universal',
+      platform: 'Mac - Universal'
     },
     mac_universal_dmg: {
       binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-universal.dmg'),
       filename_core: 'darwin-universal',
       extension: 'dmg',
-      name: 'Mac Universal (DMG)'
+      name: 'Mac Universal (DMG)',
+      platform: 'Mac - Universal'
     },
     x64: {
       binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-x64', 'Studio.app.zip'),
       filename_core: 'darwin-x64',
       extension: 'app.zip',
-      name: 'Mac Intel'
+      name: 'Mac Intel',
+      platform: 'Mac - Intel'
     },
     x64_dmg: {
       binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-x64.dmg'),
       filename_core: 'darwin-x64',
       extension: 'dmg',
-      name: 'Mac Intel (DMG)'
+      name: 'Mac Intel (DMG)',
+      platform: 'Mac - Intel'
     },
     arm64: {
       binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-arm64', 'Studio.app.zip'),
       filename_core: 'darwin-arm64',
       extension: 'app.zip',
-      name: 'Mac Apple Silicon'
+      name: 'Mac Apple Silicon',
+      platform: 'Mac - Apple Silicon'
     },
     arm64_dmg: {
       binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-arm64.dmg'),
       filename_core: 'darwin-arm64',
       extension: 'dmg',
-      name: 'Mac Apple Silicon (DMG)'
+      name: 'Mac Apple Silicon (DMG)',
+      platform: 'Mac - Apple Silicon'
     },
     windows: {
       binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'x64', 'studio-setup.exe'),
       filename_core: 'win32',
       extension: 'exe',
-      name: 'Windows'
+      name: 'Windows',
+      platform: 'Windows'
     },
     windows_update: {
       binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'x64', "studio-update.nupkg"),
       filename_core: 'win32',
       suffix: 'full',
       extension: 'nupkg',
-      name: 'Windows Update'
+      name: 'Windows Update',
+      platform: 'Windows'
     }
   }
 
@@ -183,60 +180,45 @@ def distribute_builds(
     build_suffix = build[:suffix].to_s.empty? ? '' : "-#{build[:suffix]}"
     "#{filename_root}-#{build[:filename_core]}-#{filename_suffix}#{build_suffix}.#{build[:extension]}"
   end
+
   builds.each_value do |build|
     build[:filename] = assemble_filename.call(build, suffix)
-    build[:cdn_url] = "#{CDN_URL}/#{bucket_folder}/#{build[:filename]}"
+    build[:release_notes] = release_tag.nil? ? "Development build #{suffix}-#{build_number}" : "Release #{release_tag}"
   end
 
-
-  bucket_name = 'a8c-apps-public-artifacts'
-
+    # Upload to Apps CDN
   builds.each_value do |build|
-    aws_upload_to_s3(
-      bucket: bucket_name,
-      key: "#{bucket_folder}/#{build[:filename]}",
-      file: build[:binary_path],
-      if_exists: :fail,
-      auto_prefix: false
+    result = upload_file_to_apps_cdn(
+      site_id: WPCOM_STUDIO_SITE_ID,
+      product: 'WordPress.com Studio',
+      platform: build[:platform],
+      build_type: build_type,
+      visibility: 'external',
+      version: PACKAGE_VERSION,
+      build_number: build_number,
+      release_notes: build[:release_notes],
+      file_path: build[:binary_path],
+      filename: build[:filename],
+      error_on_duplicate: false
     )
+
+    # Store the download URL for later use
+    build[:cdn_url] = result[:media_url]
   end
 
   manifest_name = 'releases.json'
-  aws_upload_to_s3(
-    bucket: bucket_name,
-    key: "#{bucket_folder}/#{manifest_name}",
-    file: File.join(BUILDS_FOLDER, manifest_name),
-    if_exists: :replace,
-    auto_prefix: false
-  )
-
-  cache_paths_to_clear = [
-    "/#{bucket_folder}/releases.json"
-  ]
-
-  if update_latest
-    builds.each_value do |build|
-      filename = assemble_filename.call(build, 'latest')
-      key = "#{bucket_folder}/#{filename}"
-
-      aws_upload_to_s3(
-        bucket: bucket_name,
-        key:,
-        file: build[:binary_path],
-        if_exists: :replace,
-        auto_prefix: false
-      )
-
-      cache_paths_to_clear.append("/#{key}")
-    end
-  end
-
-  # Because we distribute via Cloudfront, we need to invalidate the manifest
-  # and the latest build (if building for release) after each upload, otherwise
-  # it'll be stale.
-  clear_cloudfront_cache(
-    paths: cache_paths_to_clear,
-    commit_hash: "#{commit_hash}-#{build_number}"
+  upload_file_to_apps_cdn(
+    site_id: WPCOM_STUDIO_SITE_ID,
+    product: 'WordPress.com Studio',
+    file_path: File.join(BUILDS_FOLDER, manifest_name),
+    filename: manifest_name,
+	platform: 'Other',
+	build_type: 'Manifest',
+	visibility: 'external',
+	version: '0.0.0',
+	build_number: '0',
+	release_notes: 'Manifest file',
+	error_on_duplicate: false
   )
 
   unless DRY_RUN
@@ -251,23 +233,36 @@ def distribute_builds(
   builds
 end
 
-def clear_cloudfront_cache(paths:, commit_hash:, dry_run: DRY_RUN)
+# Helper method to upload a file to Apps CDN with dry run support
+def upload_file_to_apps_cdn(site_id:, product:, file_path:, filename:, platform:, build_type:, visibility:, version:, build_number:, release_notes:, error_on_duplicate:, dry_run: DRY_RUN)
   if dry_run
-    UI.message("[DRY RUN] Would invalidate CloudFront cache:")
-    UI.message("           Distribution: #{CLOUDFRONT_DISTRIBUTION_ID}")
-    UI.message("           Paths: #{paths.join(', ')}")
-    UI.message("           Commit hash: #{commit_hash}")
-    return true
+    UI.message("[DRY RUN] Would upload file: #{file_path}")
+    UI.message("           with filename: #{filename}")
+    UI.message("           for platform: #{platform}")
+    UI.message("           build type: #{build_type}")
+    UI.message("           visibility: #{visibility}")
+    UI.message("           version: #{version}")
+    UI.message("           build number: #{build_number}")
+    UI.message("           release notes: #{release_notes}")
+    UI.message("           error on duplicate: #{error_on_duplicate}")
+
+    # Return fake result for dry run
+    return {
+      media_url: "https://appscdn.wordpress.com/downloads/wordpress-com-studio/#{filename}"
+    }
   end
 
-  Aws::CloudFront::Client.new.create_invalidation(
-    distribution_id: CLOUDFRONT_DISTRIBUTION_ID,
-    invalidation_batch: {
-      paths: {
-        quantity: paths.length,
-        items: paths
-      },
-      caller_reference: commit_hash
-    }
+  upload_build_to_apps_cdn(
+    site_id: site_id,
+    product: product,
+    platform: platform,
+    build_type: build_type,
+    visibility: visibility,
+    version: version,
+    build_number: build_number,
+    release_notes: release_notes,
+    file_path: file_path,
+    filename: filename,
+    error_on_duplicate: error_on_duplicate
   )
 end

@@ -25,7 +25,7 @@ APPLE_BUNDLE_IDENTIFIER = 'com.automattic.studio'
 APPLE_API_KEY_PATH = File.join(SECRETS_FOLDER, 'app_store_connect_fastlane_api_key.json')
 
 # Site ID for WordPress.com Studio in the Apps CDN
-WPCOM_STUDIO_SITE_ID = 239164481
+WPCOM_STUDIO_SITE_ID = '239164481'
 
 # Use this instead of getting values from ENV directly
 # It will throw an error if the requested value is missing
@@ -201,7 +201,6 @@ def distribute_builds(
       filename: build[:filename],
       error_on_duplicate: false
     )
-
     # Store the download URL for later use
     build[:cdn_url] = result[:media_url]
   end

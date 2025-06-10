@@ -8,26 +8,25 @@ import { getAppGlobals } from 'src/lib/app-globals';
 // This means an empty feature flags response comes as [] instead of {}.
 const featureFlagsSchema = z
 	.object( {
-		terminal_wp_cli_enabled: z.boolean().optional(),
+		selectiveSyncEnabled: z.boolean().optional(),
 	} )
-	.catch( ( _ ) => ( {} ) );
+	.catch( ( _: unknown ) => ( {} ) );
 
-export interface FeatureFlagsContextType {
-	terminalWpCliEnabled: boolean;
-}
+// Will be extended with feature flags in the future */
+export type FeatureFlagsContextType = {
+	selectiveSyncEnabled?: boolean;
+};
 
-export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( {
-	terminalWpCliEnabled: false,
-} );
+export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( {} );
 
 interface FeatureFlagsProviderProps {
 	children: ReactNode;
 }
 
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
-	const terminalWpCliEnabledFromGlobals = getAppGlobals().terminalWpCliEnabled;
+	const selectiveSyncEnabledFromGlobals = getAppGlobals().selectiveSyncEnabled;
 	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
-		terminalWpCliEnabled: terminalWpCliEnabledFromGlobals,
+		selectiveSyncEnabled: selectiveSyncEnabledFromGlobals,
 	} );
 	const { isAuthenticated, client } = useAuth();
 
@@ -47,8 +46,9 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 					return;
 				}
 				setFeatureFlags( {
-					terminalWpCliEnabled:
-						Boolean( flags.terminal_wp_cli_enabled ) || terminalWpCliEnabledFromGlobals,
+					...flags,
+					selectiveSyncEnabled:
+						Boolean( flags.selectiveSyncEnabled ) || selectiveSyncEnabledFromGlobals,
 				} );
 			} catch ( error ) {
 				Sentry.captureException( error );
@@ -59,7 +59,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 		return () => {
 			cancel = true;
 		};
-	}, [ isAuthenticated, client, terminalWpCliEnabledFromGlobals ] );
+	}, [ isAuthenticated, client, selectiveSyncEnabledFromGlobals ] );
 
 	return (
 		<FeatureFlagsContext.Provider value={ featureFlags }>{ children }</FeatureFlagsContext.Provider>

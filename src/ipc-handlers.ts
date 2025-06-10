@@ -63,8 +63,14 @@ import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-setting
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
-import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from 'src/storage/paths';
-import { loadUserData, saveUserData } from 'src/storage/user-data';
+import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
+import {
+	loadUserData,
+	lockAppdata,
+	saveUserData,
+	unlockAppdata,
+	updateAppdata,
+} from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
@@ -161,8 +167,7 @@ export async function createSite(
 	customDomain?: string,
 	enableHttps?: boolean,
 	siteId?: string
-): Promise< SiteDetails[] > {
-	const userData = await loadUserData();
+): Promise< SiteDetails > {
 	const forceSetupSqlite = false;
 	// We only recursively create the directory if the user has not selected a
 	// path from the dialog (and thus they use the "default" or suggested path).
@@ -174,10 +179,11 @@ export async function createSite(
 		// Form validation should've prevented a non-empty directory from being selected
 		throw new Error( 'The selected directory is not empty nor an existing WordPress site.' );
 	}
+	let userData = await loadUserData();
 
 	const allPaths = userData?.sites?.map( ( site ) => site.path ) || [];
 	if ( allPaths.includes( path ) ) {
-		return userData.sites;
+		throw new Error( 'The selected directory is already in use.' );
 	}
 
 	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
@@ -228,70 +234,81 @@ export async function createSite(
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id: details.id } );
+	try {
+		await lockAppdata();
+		userData = await loadUserData();
 
-	userData.sites.push( server.details );
-	sortSites( userData.sites );
-	await saveUserData( userData );
+		userData.sites.push( server.details );
+		sortSites( userData.sites );
 
-	return mergeSiteDetailsWithRunningDetails( userData.sites );
+		await saveUserData( userData );
+		return server.details;
+	} finally {
+		await unlockAppdata();
+	}
 }
 
 export async function updateSite(
 	event: IpcMainInvokeEvent,
 	updatedSite: SiteDetails
-): Promise< SiteDetails[] > {
-	const userData = await loadUserData();
-	const updatedSites = userData.sites.map( ( site ) =>
-		site.id === updatedSite.id ? updatedSite : site
-	);
-	userData.sites = updatedSites;
+): Promise< void > {
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const updatedSites = userData.sites.map( ( site ) =>
+			site.id === updatedSite.id ? updatedSite : site
+		);
+		userData.sites = updatedSites;
 
-	const server = SiteServer.get( updatedSite.id );
-	if ( server ) {
-		await server.updateSiteDetails( updatedSite );
+		const server = SiteServer.get( updatedSite.id );
+		if ( server ) {
+			await server.updateSiteDetails( updatedSite );
+		}
+		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
 	}
-	await saveUserData( userData );
-	return mergeSiteDetailsWithRunningDetails( userData.sites );
 }
 
 type WpcomSitesToConnect = { sites: SyncSite[]; localSiteId: string }[];
 
 export async function connectWpcomSites( event: IpcMainInvokeEvent, list: WpcomSitesToConnect ) {
-	const userData = await loadUserData();
-	const currentUserId = userData.authToken?.id;
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const currentUserId = userData.authToken?.id;
 
-	if ( ! currentUserId ) {
-		throw new Error( 'User not authenticated' );
-	}
+		if ( ! currentUserId ) {
+			throw new Error( 'User not authenticated' );
+		}
 
-	userData.connectedWpcomSites = userData.connectedWpcomSites || {};
-	userData.connectedWpcomSites[ currentUserId ] =
-		userData.connectedWpcomSites[ currentUserId ] || [];
+		userData.connectedWpcomSites = userData.connectedWpcomSites || {};
+		userData.connectedWpcomSites[ currentUserId ] =
+			userData.connectedWpcomSites[ currentUserId ] || [];
 
-	const connections = userData.connectedWpcomSites[ currentUserId ];
+		const connections = userData.connectedWpcomSites[ currentUserId ];
 
-	list.forEach( ( { sites, localSiteId } ) => {
-		sites.forEach( ( siteToAdd ) => {
-			const isAlreadyConnected = connections.some(
-				( conn ) => conn.id === siteToAdd.id && conn.localSiteId === localSiteId
-			);
+		list.forEach( ( { sites, localSiteId } ) => {
+			sites.forEach( ( siteToAdd ) => {
+				const isAlreadyConnected = connections.some(
+					( conn ) => conn.id === siteToAdd.id && conn.localSiteId === localSiteId
+				);
 
-			// Add the site if it's not already connected
-			if ( ! isAlreadyConnected ) {
-				connections.push( {
-					...siteToAdd,
-					localSiteId,
-					syncSupport: 'already-connected',
-				} );
-			}
+				// Add the site if it's not already connected
+				if ( ! isAlreadyConnected ) {
+					connections.push( {
+						...siteToAdd,
+						localSiteId,
+						syncSupport: 'already-connected',
+					} );
+				}
+			} );
 		} );
-	} );
 
-	await saveUserData( userData );
-
-	return connections.filter( ( conn ) =>
-		list.some( ( { localSiteId } ) => conn.localSiteId === localSiteId )
-	);
+		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
+	}
 }
 
 type WpcomSitesToDisconnect = { siteIds: number[]; localSiteId: string }[];
@@ -300,55 +317,87 @@ export async function disconnectWpcomSites(
 	event: IpcMainInvokeEvent,
 	list: WpcomSitesToDisconnect
 ) {
-	const userData = await loadUserData();
-	const currentUserId = userData.authToken?.id;
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const currentUserId = userData.authToken?.id;
 
-	if ( ! currentUserId ) {
-		throw new Error( 'User not authenticated' );
+		if ( ! currentUserId ) {
+			throw new Error( 'User not authenticated' );
+		}
+
+		const connectedWpcomSites = userData.connectedWpcomSites;
+
+		// Totally unreal case, added it to help TS parse the code below. And if this error happens, we definitely have something wrong.
+		if ( ! Array.isArray( connectedWpcomSites?.[ currentUserId ] ) ) {
+			throw new Error(
+				'Something went wrong, since you are trying to disconnect something, but there are no stored connections yet'
+			);
+		}
+
+		list.forEach( ( { siteIds, localSiteId } ) => {
+			const updatedConnections = connectedWpcomSites[ currentUserId ].filter(
+				( conn ) => ! ( siteIds.includes( conn.id ) && conn.localSiteId === localSiteId )
+			);
+
+			connectedWpcomSites[ currentUserId ] = updatedConnections;
+		} );
+
+		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
 	}
-
-	const connectedWpcomSites = userData.connectedWpcomSites;
-
-	// Totally unreal case, added it to help TS parse the code below. And if this error happens, we definitely have something wrong.
-	if ( ! Array.isArray( connectedWpcomSites?.[ currentUserId ] ) ) {
-		throw new Error(
-			'Something went wrong, since you are trying to disconnect something, but there are no stored connections yet'
-		);
-	}
-
-	list.forEach( ( { siteIds, localSiteId } ) => {
-		const updatedConnections = connectedWpcomSites[ currentUserId ].filter(
-			( conn ) => ! ( siteIds.includes( conn.id ) && conn.localSiteId === localSiteId )
-		);
-
-		connectedWpcomSites[ currentUserId ] = updatedConnections;
-	} );
-
-	await saveUserData( userData );
-
-	return connectedWpcomSites[ currentUserId ].filter( ( conn ) =>
-		list.some( ( { localSiteId } ) => conn.localSiteId === localSiteId )
-	);
 }
 
 export async function updateConnectedWpcomSites(
 	event: IpcMainInvokeEvent,
 	updatedSites: SyncSite[]
 ) {
-	const userData = await loadUserData();
-	const currentUserId = userData.authToken?.id;
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const currentUserId = userData.authToken?.id;
 
-	if ( ! currentUserId ) {
-		throw new Error( 'User not authenticated' );
+		if ( ! currentUserId ) {
+			throw new Error( 'User not authenticated' );
+		}
+
+		const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
+
+		if ( ! connections.length ) {
+			return;
+		}
+
+		updatedSites.forEach( ( updatedSite ) => {
+			const index = connections.findIndex(
+				( conn ) => conn.id === updatedSite.id && conn.localSiteId === updatedSite.localSiteId
+			);
+
+			if ( index !== -1 ) {
+				connections[ index ] = updatedSite;
+			}
+		} );
+
+		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
 	}
+}
 
-	const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
+export async function updateSingleConnectedWpcomSite(
+	event: IpcMainInvokeEvent,
+	updatedSite: SyncSite
+) {
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const currentUserId = userData.authToken?.id;
 
-	if ( ! connections.length ) {
-		return;
-	}
+		if ( ! currentUserId ) {
+			throw new Error( 'User not authenticated' );
+		}
 
-	updatedSites.forEach( ( updatedSite ) => {
+		const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
 		const index = connections.findIndex(
 			( conn ) => conn.id === updatedSite.id && conn.localSiteId === updatedSite.localSiteId
 		);
@@ -356,35 +405,10 @@ export async function updateConnectedWpcomSites(
 		if ( index !== -1 ) {
 			connections[ index ] = updatedSite;
 		}
-	} );
 
-	await saveUserData( userData );
-}
-
-export async function updateSingleConnectedWpcomSite(
-	event: IpcMainInvokeEvent,
-	updatedSite: SyncSite
-) {
-	const userData = await loadUserData();
-	const currentUserId = userData.authToken?.id;
-
-	if ( ! currentUserId ) {
-		throw new Error( 'User not authenticated' );
-	}
-
-	const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
-
-	if ( ! connections.length ) {
-		return;
-	}
-
-	const index = connections.findIndex(
-		( conn ) => conn.id === updatedSite.id && conn.localSiteId === updatedSite.localSiteId
-	);
-
-	if ( index !== -1 ) {
-		connections[ index ] = updatedSite;
 		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
 	}
 }
 
@@ -552,23 +576,15 @@ export async function showOpenFolderDialog(
 	};
 }
 
-export async function saveUserLocale( _event: IpcMainInvokeEvent, locale: string ) {
-	const userData = await loadUserData();
-	await saveUserData( {
-		...userData,
-		locale,
-	} );
+export async function saveUserLocale( event: IpcMainInvokeEvent, locale: string ) {
+	await updateAppdata( { locale } );
 }
 
 export async function saveUserEditor( event: IpcMainInvokeEvent, editor: SupportedEditor ) {
-	const userData = await loadUserData();
-	await saveUserData( {
-		...userData,
-		preferredEditor: editor,
-	} );
-
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	sendIpcEventToRendererWithWindow( parentWindow, 'user-preference-changed' );
+
+	await updateAppdata( { preferredEditor: editor } );
 }
 
 export async function getSentryUserId( _event: IpcMainInvokeEvent ): Promise< string | undefined > {
@@ -682,26 +698,29 @@ export function removeTemporalFile( event: IpcMainInvokeEvent, path: string ) {
 }
 
 export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteFiles = false ) {
-	const server = SiteServer.get( id );
-	console.log( 'Deleting site', id );
-	if ( ! server ) {
-		throw new Error( 'Site not found.' );
-	}
-	const userData = await loadUserData();
-	await server.delete();
 	try {
-		// Move files to trash
-		if ( deleteFiles ) {
-			await shell.trashItem( server.details.path );
+		await lockAppdata();
+		const userData = await loadUserData();
+		const server = SiteServer.get( id );
+		console.log( 'Deleting site', id );
+		if ( ! server ) {
+			throw new Error( 'Site not found.' );
 		}
-	} catch ( error ) {
-		/* We want to exit gracefully if the there is an error deleting the site files */
-		Sentry.captureException( error );
+		await server.delete();
+		try {
+			// Move files to trash
+			if ( deleteFiles ) {
+				await shell.trashItem( server.details.path );
+			}
+		} catch ( error ) {
+			/* We want to exit gracefully if the there is an error deleting the site files */
+			Sentry.captureException( error );
+		}
+		const newSites = userData.sites.filter( ( site ) => site.id !== id );
+		await saveUserData( { ...userData, sites: newSites } );
+	} finally {
+		await unlockAppdata();
 	}
-	const newSites = userData.sites.filter( ( site ) => site.id !== id );
-	const newUserData = { ...userData, sites: newSites };
-	await saveUserData( newUserData );
-	return mergeSiteDetailsWithRunningDetails( newSites );
 }
 
 export function logRendererMessage(
@@ -714,8 +733,9 @@ export function logRendererMessage(
 	writeLogToFile( level, processId, ...args );
 }
 
-export function authenticate( event: IpcMainInvokeEvent, isSignup = false ) {
-	const authUrl = isSignup ? getSignUpUrl() : getAuthenticationUrl();
+export async function authenticate( event: IpcMainInvokeEvent, isSignup = false ) {
+	const locale = await getUserLocaleWithFallback();
+	const authUrl = isSignup ? getSignUpUrl( locale ) : getAuthenticationUrl( locale );
 	void shellOpenExternalWrapper( authUrl );
 }
 
@@ -728,7 +748,7 @@ export async function isAuthenticated() {
 }
 
 export async function clearAuthenticationToken() {
-	return oauthClient.clearAuthenticationToken();
+	return await updateAppdata( { authToken: undefined } );
 }
 
 export async function exportSite(
@@ -768,22 +788,18 @@ export async function exportSite(
 }
 
 export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapshots: Snapshot[] ) {
-	const userData = await loadUserData();
-	await saveUserData( {
-		...userData,
-		snapshots,
-	} );
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		userData.snapshots = snapshots;
+		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
+	}
 }
 
-export async function saveLastSeenVersion(
-	_event: IpcMainInvokeEvent,
-	version: string
-): Promise< void > {
-	const userData = await loadUserData();
-	await saveUserData( {
-		...userData,
-		lastSeenVersion: version,
-	} );
+export async function saveLastSeenVersion( event: IpcMainInvokeEvent, version: string ) {
+	await updateAppdata( { lastSeenVersion: version } );
 }
 
 export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snapshot[] > {
@@ -841,7 +857,7 @@ export function getAppGlobals(): AppGlobals {
 		appName: app.name,
 		appVersion: app.getVersion(),
 		arm64Translation: app.runningUnderARM64Translation,
-		terminalWpCliEnabled: process.env.STUDIO_TERMINAL_WP_CLI === 'true',
+		selectiveSyncEnabled: process.env.STUDIO_SELECTIVE_SYNC === 'true',
 	};
 }
 
@@ -937,15 +953,8 @@ export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< 
 	return onboardingCompleted;
 }
 
-export async function saveOnboarding(
-	_event: IpcMainInvokeEvent,
-	onboardingCompleted: boolean
-): Promise< void > {
-	const userData = await loadUserData();
-	await saveUserData( {
-		...userData,
-		onboardingCompleted,
-	} );
+export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompleted: boolean ) {
+	await updateAppdata( { onboardingCompleted } );
 }
 
 export async function executeWPCLiInline(
@@ -993,80 +1002,34 @@ function promiseExec( command: string, options: ExecOptions = {} ): Promise< voi
 	} );
 }
 
-export async function openTerminalAtPath(
-	_event: IpcMainInvokeEvent,
-	targetPath: string,
-	{ wpCliEnabled }: { wpCliEnabled?: boolean } = {}
-) {
+export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: string ) {
 	const platform = process.platform;
-	const cliPath = nodePath.join( getResourcesPath(), 'bin' );
-	const exePath = app.getPath( 'exe' );
-	const appDirectory = app.getAppPath();
-	const appPath = ! app.isPackaged ? `${ exePath } ${ appDirectory }` : exePath;
+
+	const preferredTerminal = await getUserTerminal();
 
 	if ( platform === 'darwin' ) {
-		const initScriptSteps = [];
-
-		if ( wpCliEnabled ) {
-			initScriptSteps.push(
-				`export PATH=\\"${ cliPath }\\":$PATH`,
-				`export STUDIO_APP_PATH=\\"${ appPath }\\"`
-			);
-		}
-
 		const escapedPath = targetPath.replace( /"/g, '\\"' );
-		initScriptSteps.push( `cd \\"${ escapedPath }\\"`, 'clear' );
-
-		const userData = await loadUserData();
-		const preferredTerminal = userData.preferredTerminal || DEFAULT_TERMINAL;
-
-		if ( preferredTerminal === 'warp' ) {
-			return promiseExec( `open -a Warp "${ targetPath }"` );
-		} else if ( preferredTerminal === 'ghostty' ) {
-			return promiseExec( `open -a Ghostty "${ targetPath }"` );
-		} else if ( preferredTerminal === 'iterm' ) {
-			return promiseExec( `osascript << END
-tell application "iTerm"
-    activate
-    create window with default profile
-    tell current session of current window
-        write text "${ initScriptSteps.join( ';' ) }"
-    end tell
-end tell
-END` );
-		} else {
-			return promiseExec( `osascript << END
-activate application "Terminal"
-tell application "Terminal"
-    do script "${ initScriptSteps.join( ';' ) }"
-end tell
-END` );
-		}
+		const bundleIds = {
+			warp: 'dev.warp.Warp-Stable',
+			ghostty: 'com.mitchellh.ghostty',
+			iterm: 'com.googlecode.iterm2',
+			terminal: 'com.apple.Terminal',
+		};
+		return promiseExec( `open -b ${ bundleIds[ preferredTerminal ] } "${ escapedPath }"` );
 	} else if ( platform === 'win32' ) {
 		const userData = await loadUserData();
 		const preferredTerminal = userData.preferredTerminal;
 		const defaultShell = process.env.ComSpec || 'cmd.exe';
-		const env = wpCliEnabled
-			? { PATH: `${ cliPath };${ process.env.PATH }`, STUDIO_APP_PATH: appPath }
-			: {};
 
-		if ( preferredTerminal === ( 'warp' as SupportedTerminal ) ) {
-			return promiseExec( `start "" "warp" "--cwd=${ targetPath }"`, {
-				env: { ...process.env, ...env },
-			} );
+		if ( preferredTerminal === 'warp' ) {
+			const encodedPath = encodeURIComponent( targetPath );
+			return promiseExec( `start "" "warp://action/new_tab?path=${ encodedPath }"` );
 		}
 
 		return promiseExec( `start "Command Prompt" ${ defaultShell }`, {
 			cwd: targetPath,
-			env: { ...process.env, ...env },
 		} );
 	} else if ( platform === 'linux' ) {
-		if ( wpCliEnabled ) {
-			return promiseExec(
-				`export PATH=${ cliPath }:$PATH && export STUDIO_APP_PATH="${ appPath }" && gnome-terminal -- bash -c 'cd ${ targetPath }; exec bash'`
-			);
-		}
-
 		return promiseExec( `gnome-terminal --working-directory=${ targetPath }` );
 	} else {
 		console.error( 'Unsupported platform:', platform );
@@ -1344,20 +1307,14 @@ export async function checkSyncBackupSize(
 }
 
 export async function saveUserTerminal(
-	_event: IpcMainInvokeEvent,
+	event: IpcMainInvokeEvent,
 	preferredTerminal: SupportedTerminal
 ) {
-	const userData = await loadUserData();
-	await saveUserData( {
-		...userData,
-		preferredTerminal: preferredTerminal,
-	} );
-
-	// Notify renderer processes that the terminal preference has changed
 	await sendIpcEventToRenderer( 'user-preference-changed' );
+	await updateAppdata( { preferredTerminal } );
 }
 
-export async function getUserTerminal( _event: IpcMainInvokeEvent ): Promise< SupportedTerminal > {
+export async function getUserTerminal(): Promise< SupportedTerminal > {
 	const userData = await loadUserData();
 	return userData.preferredTerminal || DEFAULT_TERMINAL;
 }
@@ -1404,13 +1361,15 @@ export async function deleteSnapshot(
 }
 
 export async function handleNewSite( event: IpcMainInvokeEvent, newSite: NewSiteDetails ) {
-	await createSite( event, newSite.path, undefined, undefined, undefined, undefined, newSite.id );
-
-	const userData = await loadUserData();
-	await saveUserData( {
-		...userData,
-		newSites: userData.newSites?.filter( ( s ) => s.id !== newSite.id ),
-	} );
+	try {
+		await createSite( event, newSite.path, undefined, undefined, undefined, undefined, newSite.id );
+		await lockAppdata();
+		const userData = await loadUserData();
+		const newSites = userData.newSites?.filter( ( s ) => s.id !== newSite.id );
+		await saveUserData( { ...userData, newSites } );
+	} finally {
+		await unlockAppdata();
+	}
 }
 
 export function comparePaths( event: IpcMainInvokeEvent, path1: string, path2: string ) {

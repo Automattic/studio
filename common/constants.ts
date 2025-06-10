@@ -7,3 +7,7 @@ export const DAY_MS = HOUR_MS * 24;
 // OAuth constants
 export const CLIENT_ID = '95109';
 export const PROTOCOL_PREFIX = 'wpcom-local-dev';
+
+export const LOCKFILE_NAME = 'appdata-v1.json.lock';
+export const LOCKFILE_STALE_TIME = 5000;
+export const LOCKFILE_WAIT_TIME = 5000;

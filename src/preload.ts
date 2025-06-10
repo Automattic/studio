@@ -79,8 +79,7 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'saveOnboarding', onboardingCompleted ),
 	openAppAtPath: ( editorKey, filePath ) =>
 		ipcRendererInvoke( 'openAppAtPath', editorKey, filePath ),
-	openTerminalAtPath: ( targetPath, extraParams = {} ) =>
-		ipcRendererInvoke( 'openTerminalAtPath', targetPath, extraParams ),
+	openTerminalAtPath: ( targetPath ) => ipcRendererInvoke( 'openTerminalAtPath', targetPath ),
 	showMessageBox: ( options ) => ipcRendererInvoke( 'showMessageBox', options ),
 	showErrorMessageBox: ( options ) => ipcRendererSend( 'showErrorMessageBox', options ),
 	showNotification: ( options ) => ipcRendererSend( 'showNotification', options ),

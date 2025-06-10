@@ -3,8 +3,8 @@ import {
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
+import { DEFAULT_LOCALE } from 'common/lib/locale';
 import Button from 'src/components/button';
-import { useI18nData } from 'src/hooks/use-i18n-data';
 import { isMac, isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -48,7 +48,7 @@ const GravatarSkeleton = () => {
 
 const RightPanel = () => {
 	const { __ } = useI18n();
-	const { locale } = useI18nData();
+	const locale = DEFAULT_LOCALE;
 	const openLocalizedSupport = () => {
 		getIpcApi().openURL( `https://wordpress.com/${ locale }/support` );
 	};

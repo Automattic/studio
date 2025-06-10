@@ -17,8 +17,8 @@ import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();
 	return (
-		<div className="flex justify-between max-w-3xl gap-4">
-			<div className="flex flex-col p-8 pr-7">
+		<div className="p-8 flex justify-between max-w-3xl gap-4">
+			<div className="flex flex-col">
 				<div className="flex items-center mb-1">
 					<div className="a8c-subtitle text-pretty">
 						{ __( 'Sync with WordPress.com or Pressable' ) }
@@ -43,7 +43,7 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 				</div>
 				{ children }
 			</div>
-			<div className="flex flex-col shrink-0 items-end p-4 rtl:order-first">
+			<div className="flex flex-col shrink-0 items-end">
 				<SyncTabImage />
 			</div>
 		</div>

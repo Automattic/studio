@@ -2,9 +2,10 @@ import * as Sentry from '@sentry/electron/main';
 import wpcom from 'wpcom';
 import { z } from 'zod';
 import { CLIENT_ID } from 'common/constants';
+import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { loadUserData, saveUserData } from 'src/storage/user-data';
+import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 const authTokenSchema = z.object( {
 	accessToken: z.string(),
@@ -32,33 +33,9 @@ async function getToken(): Promise< StoredToken | null > {
 	}
 }
 
-async function storeToken( token: StoredToken ) {
-	try {
-		const userData = await loadUserData();
-		await saveUserData( {
-			...userData,
-			authToken: token,
-		} );
-	} catch ( error ) {
-		console.error( 'Failed to store token', error );
-	}
-}
-
-export function getSignUpUrl() {
-	const authUrl = encodeURIComponent( getAuthenticationUrl() );
-	return `https://wordpress.com/log-in/link?redirect_to=${ authUrl }&client_id=${ CLIENT_ID }`;
-}
-
-export async function clearAuthenticationToken() {
-	try {
-		const userData = await loadUserData();
-		await saveUserData( {
-			...userData,
-			authToken: undefined,
-		} );
-	} catch ( error ) {
-		return;
-	}
+export function getSignUpUrl( locale: SupportedLocale ) {
+	const authUrl = encodeURIComponent( getAuthenticationUrl( locale ) );
+	return `https://wordpress.com/log-in/link?redirect_to=${ authUrl }&client_id=${ CLIENT_ID }&locale=${ locale }`;
 }
 
 export async function getAuthenticationToken(): Promise< StoredToken | null > {
@@ -111,7 +88,7 @@ export async function onOpenUrlCallback( url: string ) {
 	if ( host === 'auth' ) {
 		try {
 			const authResult = await handleAuthCallback( hash );
-			await storeToken( authResult );
+			await updateAppdata( { authToken: authResult } );
 			void sendIpcEventToRenderer( 'auth-updated', { token: authResult } );
 		} catch ( error ) {
 			Sentry.captureException( error );

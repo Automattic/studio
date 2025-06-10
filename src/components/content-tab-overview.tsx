@@ -17,7 +17,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { isWindows } from 'src/lib/app-globals';
@@ -135,7 +134,6 @@ function CustomizeSection( {
 }
 
 function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'selectedSite' > ) {
-	const { terminalWpCliEnabled } = useFeatureFlags();
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
 
@@ -166,23 +164,14 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		} );
 	}
 
-	let terminalName = getTerminalName( terminal );
-	if ( terminal === 'terminal' ) {
-		terminalName = isWindows()
-			? // translators: name of the default terminal application on Windows
-			  __( 'Command Prompt' )
-			: // translators: name of the default terminal application on macOS
-			  __( 'Terminal' );
-	}
+	const terminalName = getTerminalName( terminal );
 	buttonsArray.push( {
 		label: terminalName,
 		className: 'text-nowrap',
 		icon: preformatted,
 		onClick: async () => {
 			try {
-				await getIpcApi().openTerminalAtPath( selectedSite.path, {
-					wpCliEnabled: terminalWpCliEnabled,
-				} );
+				await getIpcApi().openTerminalAtPath( selectedSite.path );
 			} catch ( error ) {
 				Sentry.captureException( error );
 				alert( __( 'Could not open the terminal.' ) );
@@ -227,7 +216,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 	);
 
 	return (
-		<div className="p-8 flex max-w-3xl">
+		<div className="p-8 flex max-w-4xl">
 			<div className="w-52 ltr:mr-8 rtl:ml-8 flex-col justify-start items-start gap-8">
 				<h2 className="mb-3 a8c-subtitle-small">{ __( 'Theme' ) }</h2>
 				<div

@@ -1,15 +1,16 @@
-import { __, sprintf } from '@wordpress/i18n';
+import { sprintf } from '@wordpress/i18n';
 import { Icon, help, drawerLeft } from '@wordpress/icons';
+import { useI18n } from '@wordpress/react-i18n';
 import Button from 'src/components/button';
 import { Gravatar } from 'src/components/gravatar';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { WordPressLogo } from 'src/components/wordpress-logo';
 import { useAuth } from 'src/hooks/use-auth';
-import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
+import { useI18nLocale } from 'src/stores';
 interface TopBarProps {
 	onToggleSidebar: () => void;
 }
@@ -17,6 +18,7 @@ interface TopBarProps {
 const DEFAULT_TOOLTIP_PLACEMENT = 'bottom-start';
 
 function ToggleSidebar( { onToggleSidebar }: TopBarProps ) {
+	const { __ } = useI18n();
 	return (
 		<div className="app-no-drag-region">
 			<Tooltip
@@ -33,6 +35,7 @@ function ToggleSidebar( { onToggleSidebar }: TopBarProps ) {
 }
 
 function OfflineIndicator() {
+	const { __ } = useI18n();
 	const isOffline = useOffline();
 	const offlineMessage = [
 		__( 'You’re currently offline.' ),
@@ -67,6 +70,7 @@ function OfflineIndicator() {
 }
 
 function Authentication() {
+	const { __ } = useI18n();
 	const { isAuthenticated, user } = useAuth();
 	if ( isAuthenticated ) {
 		return (
@@ -96,7 +100,8 @@ function Authentication() {
 }
 
 export default function TopBar( { onToggleSidebar }: TopBarProps ) {
-	const { locale } = useI18nData();
+	const { __ } = useI18n();
+	const locale = useI18nLocale();
 
 	const openDocs = () => {
 		getIpcApi().openURL( getLocalizedLink( locale, 'docsStudio' ) );

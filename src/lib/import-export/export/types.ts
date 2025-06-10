@@ -14,8 +14,6 @@ export type ExportOptionsIncludes = BackupContentsCategory | 'database';
 export interface BackupContents {
 	backupFile: string;
 	sqlFiles: string[];
-	wpContent: { [ index in BackupContentsCategory ]: string[] };
-	wpConfigFile?: string;
 }
 
 export type BackupContentsCategory = 'uploads' | 'plugins' | 'themes' | 'muPlugins' | 'fonts';

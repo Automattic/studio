@@ -10,11 +10,11 @@ import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
-import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
+import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
@@ -119,7 +119,7 @@ function SearchSites( {
 	setSearchQuery: ( value: string ) => void;
 } ) {
 	const { __ } = useI18n();
-	const { locale } = useI18nData();
+	const locale = useI18nLocale();
 	return (
 		<div className="flex flex-col px-8 pb-6 border-b border-a8c-gray-5">
 			<SearchControl
@@ -136,7 +136,9 @@ function SearchSites( {
 				{ __( "Can't find your site?" ) }{ ' ' }
 				<Button
 					variant="link"
-					onClick={ () => getIpcApi().openURL( getLocalizedLink( locale, 'docsSync' ) ) }
+					onClick={ () =>
+						getIpcApi().openURL( getLocalizedLink( locale, 'docsSyncSupportedSites' ) )
+					}
 					className="text-xs"
 				>
 					{ __( 'Learn more about supported sites.' ) }

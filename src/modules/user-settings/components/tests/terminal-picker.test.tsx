@@ -7,6 +7,8 @@ import { installedAppsApi } from 'src/stores/installed-apps-api';
 import { testReducer } from 'src/stores/tests/utils/test-reducer';
 
 jest.mock( 'src/lib/get-ipc-api' );
+jest.mock( 'src/lib/app-globals' );
+
 const mockGetIpcApi = getIpcApi as jest.Mock;
 
 store.replaceReducer( testReducer );

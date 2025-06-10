@@ -1,5 +1,5 @@
 // This script creates a manifest file that gets uploaded to the CDN so the update API can check for new versions.
-// The file is uploaded to `https://cdn.a8c-ci.services/studio/releases.json` and looks like
+// The file is uploaded to `https://appscdn.wordpress.com/downloads/wordpress-com-studio/releases.json` and looks like
 //
 // {
 //   "dev": {
@@ -46,7 +46,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import packageJson from '../package.json' with { type: 'json' };
 
-const cdnURL = 'https://appscdn.wordpress.com/downloads/wordpress-com-studio';
+// TODO: Check if we can use the same CDN URL for releases.json and builds.
+// const cdnURL = 'https://appscdn.wordpress.com/downloads/wordpress-com-studio';
+const cdnURL = 'https://cdn.a8c-ci.services/studio';
 const baseName = 'studio';
 
 const currentCommit = child_process.execSync( 'git rev-parse --short HEAD' ).toString().trim();

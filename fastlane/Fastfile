@@ -180,18 +180,18 @@ def distribute_builds(
     build[:release_notes] = release_tag.nil? ? "Development build #{suffix}-#{build_number}" : "Release #{release_tag}"
   end
 
-    # Upload to Apps CDN
+  # Upload to Apps CDN
   builds.each_value do |build|
     result = upload_file_to_apps_cdn(
       site_id: WPCOM_STUDIO_SITE_ID,
       product: 'WordPress.com Studio',
+      file_path: build[:binary_path],
       platform: build[:platform],
       build_type: build_type,
       visibility: 'external',
       version: PACKAGE_VERSION,
       build_number: build_number,
       release_notes: build[:release_notes],
-      file_path: build[:binary_path],
       error_on_duplicate: false
     )
     # Store the download URL for later use

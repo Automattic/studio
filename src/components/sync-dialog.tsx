@@ -1,5 +1,6 @@
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
+import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
@@ -13,45 +14,50 @@ import { CircleProdIcon } from './icons/circle-prod';
 import { CircleStagingIcon } from './icons/circle-staging';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
-const allCopy = {
-	pull: {
-		staging: {
-			title: __( 'Pull from Staging' ),
-			description: __(
-				"Pulling will replace your Studio site's files and database with a copy from your staging site."
-			),
-		},
-		production: {
-			title: __( 'Pull from Production' ),
-			description: __(
-				"Pulling will replace your Studio site's files and database with a copy from your production site."
-			),
-		},
-		fromLabel: __( 'Pull' ),
-		toLabel: __( 'To' ),
-		subtitleSelector: __( 'What would you like to pull?' ),
-		envSync: __( 'Read more about <a>environment pull <ArrowIcon /></a>' ),
-		submit: __( 'Pull' ),
-	},
-	push: {
-		staging: {
-			title: __( 'Push to Staging' ),
-			description: __(
-				'Pushing will replace the existing files and database with a copy from your local site.\n\n The staging site will be backed-up before any changes are applied.'
-			),
-		},
-		production: {
-			title: __( 'Push to Production' ),
-			description: __(
-				'Pushing will replace the existing files and database with a copy from your local site.\n\n The production site will be backed-up before any changes are applied.'
-			),
-		},
-		fromLabel: __( 'Push' ),
-		toLabel: __( 'To' ),
-		subtitleSelector: __( 'What would you like to push?' ),
-		envSync: __( 'Read more about <a>environment push <ArrowIcon /></a>' ),
-		submit: __( 'Push' ),
-	},
+const useCopy = ( type: 'pull' | 'push' ) => {
+	const { __ } = useI18n();
+
+	if ( type === 'pull' ) {
+		return {
+			staging: {
+				title: __( 'Pull from Staging' ),
+				description: __(
+					"Pulling will replace your Studio site's files and database with a copy from your staging site."
+				),
+			},
+			production: {
+				title: __( 'Pull from Production' ),
+				description: __(
+					"Pulling will replace your Studio site's files and database with a copy from your production site."
+				),
+			},
+			fromLabel: __( 'Pull' ),
+			toLabel: __( 'To' ),
+			subtitleSelector: __( 'What would you like to pull?' ),
+			envSync: __( 'Read more about <a>environment pull <ArrowIcon /></a>' ),
+			submit: __( 'Pull' ),
+		};
+	} else {
+		return {
+			staging: {
+				title: __( 'Push to Staging' ),
+				description: __(
+					'Pushing will replace the existing files and database with a copy from your local site.\n\n The staging site will be backed-up before any changes are applied.'
+				),
+			},
+			production: {
+				title: __( 'Push to Production' ),
+				description: __(
+					'Pushing will replace the existing files and database with a copy from your local site.\n\n The production site will be backed-up before any changes are applied.'
+				),
+			},
+			fromLabel: __( 'Push' ),
+			toLabel: __( 'To' ),
+			subtitleSelector: __( 'What would you like to push?' ),
+			envSync: __( 'Read more about <a>environment push <ArrowIcon /></a>' ),
+			submit: __( 'Push' ),
+		};
+	}
 };
 
 type SyncDialogProps = {
@@ -70,6 +76,7 @@ export function SyncDialog( {
 	onRequestClose,
 }: SyncDialogProps ) {
 	const { locale } = useI18nData();
+	const copy = useCopy( type );
 
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( [
 		{
@@ -129,7 +136,6 @@ export function SyncDialog( {
 		},
 	] );
 
-	const copy = allCopy[ type ];
 	const remoteSiteType = remoteSite.isStaging ? 'staging' : 'production';
 
 	const localSiteName = localSite.name;

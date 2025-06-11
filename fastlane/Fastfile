@@ -114,7 +114,7 @@ def distribute_builds(
   UI.user_error!("Environment variable WPCOM_API_TOKEN is not set") if wpcom_api_token.nil? && !DRY_RUN
 
   # Define the build type based on whether this is a release build or not
-  build_type = release_tag.nil? ? 'Alpha' : 'Production'
+  build_type = release_tag.nil? ? 'Nightly' : 'Production'
 
   builds = {
     mac_universal: {

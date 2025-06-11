@@ -10,8 +10,7 @@ import { TreeView, TreeNode } from 'src/components/tree-view';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import { CircleProdIcon } from './icons/circle-prod';
-import { CircleStagingIcon } from './icons/circle-staging';
+import { CircleEnvIcon } from './icons/circle-env';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 const useCopy = ( type: 'pull' | 'push' ) => {
@@ -23,6 +22,12 @@ const useCopy = ( type: 'pull' | 'push' ) => {
 				title: __( 'Pull from Staging' ),
 				description: __(
 					"Pulling will replace your Studio site's files and database with a copy from your staging site."
+				),
+			},
+			sandbox: {
+				title: __( 'Pull from Sandbox' ),
+				description: __(
+					"Pulling will replace your Studio site's files and database with a copy from your sandbox site."
 				),
 			},
 			production: {
@@ -45,6 +50,12 @@ const useCopy = ( type: 'pull' | 'push' ) => {
 					'Pushing will replace the existing files and database with a copy from your local site.\n\n The staging site will be backed-up before any changes are applied.'
 				),
 			},
+			sandbox: {
+				title: __( 'Push to Sandbox' ),
+				description: __(
+					'Pushing will replace the existing files and database with a copy from your local site.\n\n The sandbox site will be backed-up before any changes are applied.'
+				),
+			},
 			production: {
 				title: __( 'Push to Production' ),
 				description: __(
@@ -57,6 +68,20 @@ const useCopy = ( type: 'pull' | 'push' ) => {
 			envSync: __( 'Read more about <a>environment push <ArrowIcon /></a>' ),
 			submit: __( 'Push' ),
 		};
+	}
+};
+
+type EnvType = 'sandbox' | 'staging' | 'production';
+
+const getEnvType = ( connectedSite: SyncSite ): EnvType => {
+	if ( connectedSite.isPressable ) {
+		return connectedSite.environmentType as EnvType;
+	}
+
+	if ( connectedSite.isStaging ) {
+		return 'staging';
+	} else {
+		return 'production';
 	}
 };
 
@@ -136,15 +161,21 @@ export function SyncDialog( {
 		},
 	] );
 
-	const remoteSiteType = remoteSite.isStaging ? 'staging' : 'production';
+	const remoteSiteType = getEnvType( remoteSite );
 
 	const localSiteName = localSite.name;
 	const remoteSiteName = (
 		<div className="flex items-center gap-2 flex-wrap">
 			<span className="flex-shrink-0">
-				{ remoteSite.isStaging ? <CircleStagingIcon /> : <CircleProdIcon /> }
+				{ <CircleEnvIcon color={ remoteSiteType === 'production' ? '#069e08' : '#f7ba42' } /> }
 			</span>
-			<span>{ remoteSite.isStaging ? __( 'Staging' ) : __( 'Production' ) }</span>
+			<span>
+				{ remoteSiteType === 'staging'
+					? __( 'Staging' )
+					: remoteSiteType === 'sandbox'
+					? __( 'Sandbox' )
+					: __( 'Production' ) }
+			</span>
 			<span className="text-gray-600 break-all">
 				{ remoteSite.url.replace( /https?:\/\//, '' ) }
 			</span>

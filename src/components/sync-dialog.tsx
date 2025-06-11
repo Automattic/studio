@@ -74,7 +74,7 @@ export function SyncDialog( {
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( [
 		{
 			id: 'filesAndFolders',
-			label: 'Files and folders',
+			label: __( 'Files and folders' ),
 			checked: true,
 			indeterminate: false,
 			defaultExpanded: false,
@@ -138,7 +138,7 @@ export function SyncDialog( {
 			<span className="flex-shrink-0">
 				{ remoteSite.isStaging ? <CircleStagingIcon /> : <CircleProdIcon /> }
 			</span>
-			<span>{ remoteSite.isStaging ? 'Staging' : 'Production' }</span>
+			<span>{ remoteSite.isStaging ? __( 'Staging' ) : __( 'Production' ) }</span>
 			<span className="text-gray-600 break-all">
 				{ remoteSite.url.replace( /https?:\/\//, '' ) }
 			</span>
@@ -183,7 +183,7 @@ export function SyncDialog( {
 				</div>
 				<div className="px-8 pt-7 pb-3">{ copy.subtitleSelector }</div>
 				<div className="px-8 relative">
-					<TreeView tree={ treeState } setTree={ setTreeState } className="sync-tree" />
+					<TreeView tree={ treeState } setTree={ setTreeState } />
 				</div>
 				<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center sticky bottom-0 bg-white mt-auto">
 					<div>

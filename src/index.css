@@ -295,14 +295,3 @@ blockquote {
 	outline: none;
 	border: 1px solid theme( 'colors.a8c-blueberry' );
 }
-
-.sync-tree .treeItemLevel0 > div {
-	border-bottom: 1px solid #ddd;
-	padding-top: 0.5rem;
-	padding-bottom: 0.5rem;
-}
-
-.sync-tree .treeItemLevel0 > div:first-child {
-	padding-top: 1rem;
-	padding-bottom: 1rem;
-}

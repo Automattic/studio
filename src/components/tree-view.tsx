@@ -75,18 +75,28 @@ const TreeItem = ( {
 	node,
 	onToggle,
 	level,
+	isLast,
 }: {
 	node: TreeNode;
 	onToggle: ( id: string, checked: boolean ) => void;
 	level: number;
+	isLast?: boolean;
 } ) => {
 	const [ expanded, setExpanded ] = useState(
 		node.defaultExpanded !== undefined ? node.defaultExpanded : true
 	);
 
+	const isLevel0 = level === 0;
+
 	return (
-		<div className={ cx( `treeItemLevel${ level }` ) }>
-			<div className="flex items-center py-2">
+		<div>
+			<div
+				className={ cx(
+					'flex items-center py-2 relative',
+					isLevel0 ? 'border-b border-gray-300 py-4' : '',
+					isLast ? 'border-white' : ''
+				) }
+			>
 				<label className="flex items-center">
 					<CheckboxControl
 						checked={ node.checked }
@@ -113,14 +123,14 @@ const TreeItem = ( {
 						onChange={ ( value: ExpanderValues ) =>
 							setExpanded( value === 'expanded' ? true : false )
 						}
-						className="absolute end-7 top-1"
+						className="absolute end-2 top-2"
 						__next40pxDefaultSize
 						__nextHasNoMarginBottom
 					/>
 				) }
 			</div>
 			{ expanded && node.children && (
-				<div className="ps-6">
+				<div className={ cx( 'ps-6', isLevel0 ? 'border-b border-gray-300 py-2' : '' ) }>
 					{ node.children.map( ( child ) => (
 						<TreeItem key={ child.id } node={ child } onToggle={ onToggle } level={ ++level } />
 					) ) }
@@ -133,18 +143,23 @@ const TreeItem = ( {
 export type TreeViewProps = {
 	tree: TreeNode[];
 	setTree: React.Dispatch< React.SetStateAction< TreeNode[] > >;
-	className?: string;
 };
 
-export const TreeView = ( { tree, setTree, className }: TreeViewProps ) => {
+export const TreeView = ( { tree, setTree }: TreeViewProps ) => {
 	const handleToggle = ( id: string, checked: boolean ) => {
 		setTree( ( prev: TreeNode[] ) => updateTree( prev, id, checked ) );
 	};
 
 	return (
-		<div className={ className }>
-			{ tree.map( ( node ) => (
-				<TreeItem key={ node.id } node={ node } onToggle={ handleToggle } level={ 0 } />
+		<div>
+			{ tree.map( ( node, index ) => (
+				<TreeItem
+					key={ node.id }
+					node={ node }
+					onToggle={ handleToggle }
+					level={ 0 }
+					isLast={ index === tree.length - 1 }
+				/>
 			) ) }
 		</div>
 	);

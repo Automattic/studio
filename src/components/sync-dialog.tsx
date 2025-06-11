@@ -160,7 +160,7 @@ export function SyncDialog( {
 			onRequestClose={ onRequestClose }
 			title={ copy[ remoteSiteType ].title }
 		>
-			<div className="h-[calc(84vh-72px)] relative overflow-auto flex flex-col">
+			<div className="pb-[70px]">
 				<div className="px-8 pb-6 pt-2">{ copy[ remoteSiteType ].description }</div>
 				<div className="px-8">
 					<div className="flex items-start gap-1 pb-7 border-b border-a8c-gray-5">
@@ -185,7 +185,7 @@ export function SyncDialog( {
 				<div className="px-8 relative">
 					<TreeView tree={ treeState } setTree={ setTreeState } />
 				</div>
-				<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center sticky bottom-0 bg-white mt-auto">
+				<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center absolute left-0 right-0 bottom-0 bg-white">
 					<div>
 						{ createInterpolateElement( copy.envSync, {
 							a: (

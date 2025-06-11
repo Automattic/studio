@@ -97,7 +97,7 @@ const TreeItem = ( {
 					isLast ? 'border-white' : ''
 				) }
 			>
-				<label className="flex items-center">
+				<label className="flex items-center cursor-pointer">
 					<CheckboxControl
 						checked={ node.checked }
 						indeterminate={ node.indeterminate }

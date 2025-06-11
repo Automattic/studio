@@ -248,16 +248,16 @@ def upload_file_to_apps_cdn(site_id:, product:, file_path:, platform:, build_typ
   UI.message("Uploading file: #{file_path}")
 
   result = upload_build_to_apps_cdn(
-    site_id: site_id,
-    product: product,
-    platform: platform,
-    build_type: build_type,
-    visibility: visibility,
-    version: version,
-    build_number: build_number,
-    release_notes: release_notes,
-    file_path: file_path,
-    error_on_duplicate: error_on_duplicate
+    site_id:,
+    product:,
+    platform:,
+    build_type:,
+    visibility:,
+    version:,
+    build_number:,
+    release_notes:,
+    file_path:,
+    error_on_duplicate:
   )
 
   UI.message("--------------------------------")

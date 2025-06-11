@@ -199,7 +199,7 @@ def distribute_builds(
     site_id: WPCOM_STUDIO_SITE_ID,
     product: 'WordPress.com Studio',
     file_path: File.join(BUILDS_FOLDER, manifest_name),
-    platform: 'Other',
+    platform: 'Manifest',
     build_type: 'Production',
     visibility: 'external',
     version: '0.0.0',

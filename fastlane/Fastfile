@@ -234,8 +234,11 @@ end
 def upload_file_to_apps_cdn(site_id:, product:, file_path:, platform:, build_type:, visibility:, version:, build_number:, release_notes:, error_on_duplicate:, dry_run: DRY_RUN)
 
   if dry_run
+    filename = File.basename(file_path)
+    media_url = "https://appscdn.wordpress.com/downloads/wordpress-com-studio/#{filename}"
     UI.message("[DRY RUN] Would upload file: #{file_path}")
     UI.message("           for platform: #{platform}")
+    UI.message("           media url: #{media_url}")
     UI.message("           build type: #{build_type}")
     UI.message("           visibility: #{visibility}")
     UI.message("           version: #{version}")
@@ -243,9 +246,8 @@ def upload_file_to_apps_cdn(site_id:, product:, file_path:, platform:, build_typ
     UI.message("           release notes: #{release_notes}")
     UI.message("           error on duplicate: #{error_on_duplicate}")
 
-    # Return fake result for dry run
     return {
-      media_url: "https://appscdn.wordpress.com/downloads/wordpress-com-studio/#{filename}"
+      media_url: media_url
     }
   end
 

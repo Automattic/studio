@@ -105,6 +105,7 @@ def distribute_builds(
   # If we are distributing a build without a tag, i.e. a development build, we also want to update the latest build reference for distribution.
   update_latest = release_tag.nil?
   suffix = release_tag.nil? ? "v#{PACKAGE_VERSION}" : release_tag
+  release_notes = release_tag.nil? ? "Development build #{suffix}-#{build_number}" : "Release #{release_tag}"
   filename_root = 'studio'
   bucket_folder = 'wordpress-com-studio'
 
@@ -177,7 +178,6 @@ def distribute_builds(
 
   # Upload to Apps CDN
   builds.each_value do |build|
-    release_notes = release_tag.nil? ? "Development build #{suffix}-#{build_number}" : "Release #{release_tag}"
     result = upload_file_to_apps_cdn(
       site_id: WPCOM_STUDIO_SITE_ID,
       product: 'WordPress.com Studio',

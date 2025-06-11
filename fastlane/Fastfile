@@ -176,13 +176,7 @@ def distribute_builds(
   }
 
   # Add computed fields
-  assemble_filename = lambda do |build, filename_suffix|
-    build_suffix = build[:suffix].to_s.empty? ? '' : "-#{build[:suffix]}"
-    "#{filename_root}-#{build[:filename_core]}-#{filename_suffix}#{build_suffix}.#{build[:extension]}"
-  end
-
   builds.each_value do |build|
-    build[:filename] = assemble_filename.call(build, suffix)
     build[:release_notes] = release_tag.nil? ? "Development build #{suffix}-#{build_number}" : "Release #{release_tag}"
   end
 

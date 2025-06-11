@@ -175,13 +175,9 @@ def distribute_builds(
     }
   }
 
-  # Add computed fields
-  builds.each_value do |build|
-    build[:release_notes] = release_tag.nil? ? "Development build #{suffix}-#{build_number}" : "Release #{release_tag}"
-  end
-
   # Upload to Apps CDN
   builds.each_value do |build|
+    release_notes = release_tag.nil? ? "Development build #{suffix}-#{build_number}" : "Release #{release_tag}"
     result = upload_file_to_apps_cdn(
       site_id: WPCOM_STUDIO_SITE_ID,
       product: 'WordPress.com Studio',
@@ -191,7 +187,7 @@ def distribute_builds(
       visibility: 'external',
       version: PACKAGE_VERSION,
       build_number: build_number,
-      release_notes: build[:release_notes],
+      release_notes: release_notes,
       error_on_duplicate: false
     )
     # Store the download URL for later use

@@ -147,20 +147,20 @@ export function SyncDialog( {
 	const syncFrom = type === 'push' ? localSiteName : remoteSiteName;
 	const syncTo = type === 'push' ? remoteSiteName : localSiteName;
 
-	const handleExpanderChange = ( value: 'expanded' | 'collapsed' ) => {
-		setShowAllFiles( value === 'expanded' );
+	const handleExpanderChange = ( value: boolean ) => {
+		setShowAllFiles( value );
 		setTreeState( ( prev ) =>
 			prev.map( ( node ) => {
 				if ( node.id === 'filesAndFolders' ) {
 					return {
 						...node,
-						expanded: value === 'expanded',
+						expanded: value,
 						children: node.children?.map( ( child ) => ( {
 							...child,
-							expanded: value === 'expanded',
+							expanded: value,
 							children: child.children?.map( ( grandChild ) => ( {
 								...grandChild,
-								expanded: value === 'expanded',
+								expanded: value,
 							} ) ),
 						} ) ),
 					};
@@ -207,19 +207,19 @@ export function SyncDialog( {
 				<div className="px-8 relative">
 					<div className="absolute end-2 top-2">
 						<SelectControl
-							value={ showAllFiles ? 'expanded' : 'collapsed' }
+							value={ showAllFiles ? 'true' : 'false' }
 							variant="minimal"
 							options={ [
 								{
 									label: __( 'All files and folders' ),
-									value: 'collapsed',
+									value: 'false',
 								},
 								{
 									label: __( 'Specific files and folders' ),
-									value: 'expanded',
+									value: 'true',
 								},
 							] }
-							onChange={ handleExpanderChange }
+							onChange={ ( value ) => handleExpanderChange( value === 'true' ) }
 							__next40pxDefaultSize
 							__nextHasNoMarginBottom
 						/>

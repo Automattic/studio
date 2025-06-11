@@ -69,7 +69,7 @@ type SyncDialogProps = {
 };
 
 export function SyncDialog( {
-	type = 'push',
+	type,
 	localSite,
 	remoteSite,
 	onSubmit,

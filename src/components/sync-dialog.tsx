@@ -1,3 +1,4 @@
+import { SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
@@ -77,6 +78,7 @@ export function SyncDialog( {
 }: SyncDialogProps ) {
 	const { locale } = useI18nData();
 	const copy = useCopy( type );
+	const [ showAllFiles, setShowAllFiles ] = useState( false );
 
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( [
 		{
@@ -84,17 +86,8 @@ export function SyncDialog( {
 			label: __( 'Files and folders' ),
 			checked: true,
 			indeterminate: false,
-			defaultExpanded: false,
-			customExpanderOptions: [
-				{
-					label: __( 'All files and folders' ),
-					value: 'collapsed',
-				},
-				{
-					label: __( 'Specific files and folders' ),
-					value: 'expanded',
-				},
-			],
+			expanded: false,
+			disableExpand: true,
 			children: [
 				{
 					id: 'wp-content',
@@ -154,6 +147,29 @@ export function SyncDialog( {
 	const syncFrom = type === 'push' ? localSiteName : remoteSiteName;
 	const syncTo = type === 'push' ? remoteSiteName : localSiteName;
 
+	const handleExpanderChange = ( value: 'expanded' | 'collapsed' ) => {
+		setShowAllFiles( value === 'expanded' );
+		setTreeState( ( prev ) =>
+			prev.map( ( node ) => {
+				if ( node.id === 'filesAndFolders' ) {
+					return {
+						...node,
+						expanded: value === 'expanded',
+						children: node.children?.map( ( child ) => ( {
+							...child,
+							expanded: value === 'expanded',
+							children: child.children?.map( ( grandChild ) => ( {
+								...grandChild,
+								expanded: value === 'expanded',
+							} ) ),
+						} ) ),
+					};
+				}
+				return node;
+			} )
+		);
+	};
+
 	const handleSubmit = () => {
 		onSubmit( treeState );
 
@@ -189,6 +205,25 @@ export function SyncDialog( {
 				</div>
 				<div className="px-8 pt-7 pb-3">{ copy.subtitleSelector }</div>
 				<div className="px-8 relative">
+					<div className="absolute end-2 top-2">
+						<SelectControl
+							value={ showAllFiles ? 'expanded' : 'collapsed' }
+							variant="minimal"
+							options={ [
+								{
+									label: __( 'All files and folders' ),
+									value: 'collapsed',
+								},
+								{
+									label: __( 'Specific files and folders' ),
+									value: 'expanded',
+								},
+							] }
+							onChange={ handleExpanderChange }
+							__next40pxDefaultSize
+							__nextHasNoMarginBottom
+						/>
+					</div>
 					<TreeView tree={ treeState } setTree={ setTreeState } />
 				</div>
 				<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center absolute left-0 right-0 bottom-0 bg-white">

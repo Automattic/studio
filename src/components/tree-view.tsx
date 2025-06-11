@@ -1,42 +1,59 @@
-import { CheckboxControl, SelectControl } from '@wordpress/components';
-import { useState } from 'react';
+import { CheckboxControl } from '@wordpress/components';
 import { FolderIcon } from 'src/components/icons/folder';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import { cx } from 'src/lib/cx';
-
-type ExpanderValues = 'expanded' | 'collapsed';
 
 export type TreeNode = {
 	id: string;
 	label: string;
 	checked: boolean;
 	indeterminate?: boolean;
-	defaultExpanded?: boolean;
-	customExpanderOptions?: {
-		label: string;
-		value: ExpanderValues;
-	}[];
+	expanded?: boolean;
 	children?: TreeNode[];
+	disableExpand?: boolean;
 	type?: 'folder';
 };
 
-const updateTree = ( nodes: TreeNode[], targetId: string, checked: boolean ): TreeNode[] => {
+const updateNode = ( node: TreeNode, updates: Partial< TreeNode > ): TreeNode => {
+	const updatedNode = { ...node, ...updates };
+
+	if ( node.children ) {
+		updatedNode.children = node.children.map( ( child ) => {
+			if ( 'checked' in updates ) {
+				return updateNode( child, { checked: updates.checked } );
+			}
+			return child;
+		} );
+
+		const checkedCount = updatedNode.children.filter( ( c ) => c.checked ).length;
+		const totalChildren = updatedNode.children.length;
+
+		updatedNode.checked = checkedCount === totalChildren;
+		updatedNode.indeterminate = checkedCount > 0 && checkedCount < totalChildren;
+	}
+
+	return updatedNode;
+};
+
+const updateNodeById = (
+	nodes: TreeNode[],
+	id: string,
+	updates: Partial< TreeNode >
+): TreeNode[] => {
 	return nodes.map( ( node ) => {
-		if ( node.id === targetId ) {
+		if ( node.id === id ) {
+			return updateNode( node, updates );
+		}
+		if ( node.children ) {
+			const updatedChildren = updateNodeById( node.children, id, updates );
+			const checkedCount = updatedChildren.filter( ( c ) => c.checked ).length;
+			const totalChildren = updatedChildren.length;
+			const anyIndeterminate = updatedChildren.some( ( c ) => c.indeterminate );
+
 			return {
 				...node,
-				checked,
-				indeterminate: false,
-				children: node.children ? updateAllChildren( node.children, checked ) : undefined,
-			};
-		} else if ( node.children ) {
-			const updatedChildren = updateTree( node.children, targetId, checked );
-			const { checked: parentChecked, indeterminate } =
-				getParentStateFromChildren( updatedChildren );
-			return {
-				...node,
-				checked: parentChecked,
-				indeterminate,
+				checked: checkedCount === totalChildren,
+				indeterminate: ( checkedCount > 0 && checkedCount < totalChildren ) || anyIndeterminate,
 				children: updatedChildren,
 			};
 		}
@@ -44,48 +61,19 @@ const updateTree = ( nodes: TreeNode[], targetId: string, checked: boolean ): Tr
 	} );
 };
 
-const updateAllChildren = ( nodes: TreeNode[], checked: boolean ): TreeNode[] => {
-	return nodes.map( ( node ) => ( {
-		...node,
-		checked,
-		indeterminate: false,
-		children: node.children ? updateAllChildren( node.children, checked ) : undefined,
-	} ) );
-};
-
-const getParentStateFromChildren = (
-	children: TreeNode[]
-): { checked: boolean; indeterminate: boolean } => {
-	const total = children.length;
-	const checkedCount = children.filter( ( c ) => c.checked ).length;
-	const indeterminateCount = children.filter( ( c ) => c.indeterminate ).length;
-
-	if ( checkedCount === total ) {
-		return { checked: true, indeterminate: false };
-	}
-
-	if ( checkedCount === 0 && indeterminateCount === 0 ) {
-		return { checked: false, indeterminate: false };
-	}
-
-	return { checked: false, indeterminate: true };
-};
-
 const TreeItem = ( {
 	node,
 	onToggle,
+	onExpand,
 	level,
 	isLast,
 }: {
 	node: TreeNode;
 	onToggle: ( id: string, checked: boolean ) => void;
+	onExpand: ( id: string, expanded: boolean ) => void;
 	level: number;
 	isLast?: boolean;
 } ) => {
-	const [ expanded, setExpanded ] = useState(
-		node.defaultExpanded !== undefined ? node.defaultExpanded : true
-	);
-
 	const isLevel0 = level === 0;
 
 	return (
@@ -107,32 +95,24 @@ const TreeItem = ( {
 					{ node.type === 'folder' && <FolderIcon /> }
 					<span>{ node.label }</span>
 				</label>
-				{ node.children && ! node.customExpanderOptions && (
-					<button onClick={ () => setExpanded( ! expanded ) }>
-						<div className={ expanded ? 'rotate-90' : '' }>
+				{ node.children && ! node.disableExpand && (
+					<button onClick={ () => onExpand( node.id, ! node.expanded ) }>
+						<div className={ node.expanded ? 'rotate-90' : '' }>
 							<RightArrowIcon width={ 16 } />
 						</div>
 					</button>
 				) }
-
-				{ node.customExpanderOptions && (
-					<SelectControl
-						value={ expanded ? 'expanded' : 'collapsed' }
-						variant="minimal"
-						options={ node.customExpanderOptions }
-						onChange={ ( value: ExpanderValues ) =>
-							setExpanded( value === 'expanded' ? true : false )
-						}
-						className="absolute end-2 top-2"
-						__next40pxDefaultSize
-						__nextHasNoMarginBottom
-					/>
-				) }
 			</div>
-			{ expanded && node.children && (
+			{ node.expanded && node.children && (
 				<div className={ cx( 'ps-6', isLevel0 ? 'border-b border-gray-300 py-2' : '' ) }>
 					{ node.children.map( ( child ) => (
-						<TreeItem key={ child.id } node={ child } onToggle={ onToggle } level={ ++level } />
+						<TreeItem
+							key={ child.id }
+							node={ child }
+							onToggle={ onToggle }
+							onExpand={ onExpand }
+							level={ ++level }
+						/>
 					) ) }
 				</div>
 			) }
@@ -146,17 +126,18 @@ export type TreeViewProps = {
 };
 
 export const TreeView = ( { tree, setTree }: TreeViewProps ) => {
-	const handleToggle = ( id: string, checked: boolean ) => {
-		setTree( ( prev: TreeNode[] ) => updateTree( prev, id, checked ) );
-	};
-
 	return (
 		<div>
 			{ tree.map( ( node, index ) => (
 				<TreeItem
 					key={ node.id }
 					node={ node }
-					onToggle={ handleToggle }
+					onToggle={ ( id, checked ) =>
+						setTree( ( prev ) => updateNodeById( prev, id, { checked } ) )
+					}
+					onExpand={ ( id, expanded ) =>
+						setTree( ( prev ) => updateNodeById( prev, id, { expanded } ) )
+					}
 					level={ 0 }
 					isLast={ index === tree.length - 1 }
 				/>

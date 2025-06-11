@@ -1,5 +1,5 @@
 import { sprintf } from '@wordpress/i18n';
-import { Icon, help, drawerLeft } from '@wordpress/icons';
+import { Icon, help, drawerLeft, cog } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import Button from 'src/components/button';
 import { Gravatar } from 'src/components/gravatar';
@@ -88,13 +88,26 @@ function Authentication() {
 
 	return (
 		<Button
-			onClick={ () => getIpcApi().showUserSettings() }
+			onClick={ () => getIpcApi().authenticate( false ) }
 			aria-label={ __( 'Open settings to log in' ) }
 			className="flex gap-x-2 justify-between w-full text-white rounded !px-2 !py-0 h-auto active:!text-white hover:!text-white hover:underline items-center"
 		>
 			<WordPressLogo />
 
 			<div className="text-s text-right">{ __( 'Log in' ) }</div>
+		</Button>
+	);
+}
+
+function SettingsButton() {
+	const { __ } = useI18n();
+	return (
+		<Button
+			onClick={ () => getIpcApi().showUserSettings() }
+			aria-label={ __( 'Settings' ) }
+			variant="icon"
+		>
+			<Icon className="text-white" size={ 24 } icon={ cog } />
 		</Button>
 	);
 }
@@ -121,6 +134,7 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 						<Icon className="text-white" size={ 24 } icon={ help } />
 					</Button>
 				</Tooltip>
+				<SettingsButton />
 			</div>
 		</div>
 	);

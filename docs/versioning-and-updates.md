@@ -42,9 +42,4 @@ latest dev build, then will be updated to the prod build. Otherwise, to the late
 
 ## Releases Manifest and CDN
 
-CI uses the `generate-releases-manifest.mjs` script to generate a
-`releases.json` file which acts as an authoritative source of update info for
-the update server.
-
-When CI has finished building installers it uploads installers _and_ the
-releases manifest to the CDN for distribution.
+The `releases.json` file serves as an authoritative source of update information for the App to update. It is generated entirely by the Apps CDN endpoint https://appscdn.wordpress.com/builds/wordpress-com-studio/releases.json.

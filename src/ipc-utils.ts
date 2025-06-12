@@ -33,7 +33,7 @@ export interface IpcEvents {
 	'theme-details-changed': [ { id: string; details: StartedSiteDetails[ 'themeDetails' ] } ];
 	'theme-details-updating': [ { id: string } ];
 	'thumbnail-changed': [ { id: string; imageData: string | null } ];
-	'user-settings': [ void ];
+	'user-settings': [ { tabName?: string } ];
 	'window-fullscreen-change': [ boolean ];
 	'user-preference-changed': [ void ];
 	'user-data-updated': [ UserData ];

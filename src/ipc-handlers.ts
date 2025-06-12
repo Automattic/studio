@@ -603,9 +603,9 @@ export async function getUserEditor(
 	return userData.preferredEditor ?? null;
 }
 
-export function showUserSettings( event: IpcMainInvokeEvent ) {
+export function showUserSettings( event: IpcMainInvokeEvent, tabName?: string ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings' );
+	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings', { tabName } );
 }
 
 function archiveWordPressDirectory( {

@@ -31,14 +31,17 @@ export default function UserSettings() {
 	const definitiveSnapshotCount = snapshotUsage?.siteCount ?? snapshotsByUser?.length ?? 0;
 
 	const [ needsToOpenUserSettings, setNeedsToOpenUserSettings ] = useState( false );
+	const [ selectedTabName, setSelectedTabName ] = useState< string | undefined >();
 
 	const isOffline = useOffline();
 
 	const resetLocalState = useCallback( () => {
 		setNeedsToOpenUserSettings( false );
+		setSelectedTabName( undefined );
 	}, [] );
 
-	useIpcListener( 'user-settings', () => {
+	useIpcListener( 'user-settings', ( event, { tabName } ) => {
+		setSelectedTabName( tabName );
 		setNeedsToOpenUserSettings( ! needsToOpenUserSettings );
 	} );
 
@@ -90,7 +93,12 @@ export default function UserSettings() {
 					size="medium"
 					className={ cx( 'min-h-[350px]', '[&_[role="document"]]:px-0', 'app-no-drag-region' ) }
 				>
-					<TabPanel className="w-full" tabs={ tabs } orientation="horizontal">
+					<TabPanel
+						className="w-full"
+						tabs={ tabs }
+						orientation="horizontal"
+						initialTabName={ selectedTabName }
+					>
 						{ ( { name } ) => (
 							<div className="mt-6 px-8 flex gap-4 flex-col">
 								{ name === 'account' &&

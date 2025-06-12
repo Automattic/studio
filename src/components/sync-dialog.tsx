@@ -1,3 +1,4 @@
+import { SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
@@ -126,23 +127,15 @@ export function SyncDialog( {
 	const locale = useI18nLocale();
 	const copy = useCopy( type );
 
+	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( [
 		{
 			id: 'filesAndFolders',
 			label: __( 'Files and folders' ),
 			checked: true,
 			indeterminate: false,
-			defaultExpanded: false,
-			customExpanderOptions: [
-				{
-					label: __( 'All files and folders' ),
-					value: 'collapsed',
-				},
-				{
-					label: __( 'Specific files and folders' ),
-					value: 'expanded',
-				},
-			],
+			expanded: false,
+			hideExpandButton: true,
 			children: [
 				{
 					id: 'wp-content',
@@ -202,6 +195,30 @@ export function SyncDialog( {
 	const syncFrom = type === 'push' ? localSiteName : remoteSiteName;
 	const syncTo = type === 'push' ? remoteSiteName : localSiteName;
 
+	const handleExpanderChange = ( value: boolean ) => {
+		setShowAllFiles( value );
+
+		setTreeState( ( prev ) =>
+			prev.map( ( node ) => {
+				if ( node.id === 'filesAndFolders' ) {
+					return {
+						...node,
+						expanded: value,
+						children: node.children?.map( ( child ) => ( {
+							...child,
+							expanded: value,
+							children: child.children?.map( ( grandChild ) => ( {
+								...grandChild,
+								expanded: value,
+							} ) ),
+						} ) ),
+					};
+				}
+				return node;
+			} )
+		);
+	};
+
 	const handleSubmit = () => {
 		onSubmit( treeState );
 
@@ -237,6 +254,25 @@ export function SyncDialog( {
 				</div>
 				<div className="px-8 pt-7 pb-3">{ copy.subtitleSelector }</div>
 				<div className="px-8 relative">
+					<div className="absolute end-6 top-2 z-10">
+						<SelectControl
+							value={ showAllFiles ? 'true' : 'false' }
+							variant="minimal"
+							options={ [
+								{
+									label: __( 'All files and folders' ),
+									value: 'false',
+								},
+								{
+									label: __( 'Specific files and folders' ),
+									value: 'true',
+								},
+							] }
+							onChange={ ( value ) => handleExpanderChange( value === 'true' ) }
+							__next40pxDefaultSize
+							__nextHasNoMarginBottom
+						/>
+					</div>
 					<TreeView tree={ treeState } setTree={ setTreeState } />
 				</div>
 				<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center absolute left-0 right-0 bottom-0 bg-white">

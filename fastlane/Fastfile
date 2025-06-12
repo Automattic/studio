@@ -113,16 +113,6 @@ def distribute_builds(
   wpcom_api_token = ENV['WPCOM_API_TOKEN']
   UI.user_error!("Environment variable WPCOM_API_TOKEN is not set") if wpcom_api_token.nil? && !DRY_RUN
 
-  # Define the build type based on whether this is a release build or not
-  build_type = case release_tag
-               when nil
-                 'Nightly'
-               when /beta/i
-                 'Beta'
-               else
-                 'Production'
-               end
-
   builds = {
     mac_universal: {
       binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-universal', 'Studio.app.zip'),
@@ -182,6 +172,14 @@ def distribute_builds(
       platform: 'Windows'
     }
   }
+
+  # Define the build type based on whether this is a release build or not
+  build_type = case release_tag
+               when nil
+                 'Nightly'
+               else
+                 'Production'
+               end
 
   # Upload to Apps CDN
   builds.each_value do |build|

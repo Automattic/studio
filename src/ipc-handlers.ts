@@ -62,6 +62,7 @@ import { executePreviewCliCommand } from 'src/modules/cli/lib/execute-preview-co
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
+import { UserSettingsTabName } from 'src/modules/user-settings/user-settings-types';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
 import {
@@ -603,7 +604,7 @@ export async function getUserEditor(
 	return userData.preferredEditor ?? null;
 }
 
-export function showUserSettings( event: IpcMainInvokeEvent, tabName?: string ) {
+export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings', { tabName } );
 }

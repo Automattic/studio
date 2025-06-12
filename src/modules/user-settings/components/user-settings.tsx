@@ -14,6 +14,7 @@ import { UsageTab } from 'src/modules/user-settings/components/usage-tab';
 import { useRootSelector, useAppDispatch } from 'src/stores';
 import { snapshotSelectors, snapshotThunks } from 'src/stores/snapshot-slice';
 import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
+import { UserSettingsTab } from '../user-settings-types';
 
 export default function UserSettings() {
 	const { __ } = useI18n();
@@ -40,7 +41,7 @@ export default function UserSettings() {
 		setSelectedTabName( undefined );
 	}, [] );
 
-	useIpcListener( 'user-settings', ( event, { tabName } ) => {
+	useIpcListener( 'user-settings', ( _event, { tabName } ) => {
 		setSelectedTabName( tabName );
 		setNeedsToOpenUserSettings( ! needsToOpenUserSettings );
 	} );
@@ -64,7 +65,7 @@ export default function UserSettings() {
 		}
 	}, [ __, dispatch, user?.id ] );
 
-	const tabs = [
+	const tabs: UserSettingsTab[] = [
 		{
 			name: 'account',
 			title: __( 'Account' ),
@@ -73,15 +74,14 @@ export default function UserSettings() {
 			name: 'preferences',
 			title: __( 'Preferences' ),
 		},
-		...( isAuthenticated
-			? [
-					{
-						name: 'usage',
-						title: __( 'Usage' ),
-					},
-			  ]
-			: [] ),
 	];
+
+	if ( isAuthenticated ) {
+		tabs.push( {
+			name: 'usage',
+			title: __( 'Usage' ),
+		} );
+	}
 
 	return (
 		<>
@@ -98,6 +98,9 @@ export default function UserSettings() {
 						tabs={ tabs }
 						orientation="horizontal"
 						initialTabName={ selectedTabName }
+						onSelect={ ( tabName ) => {
+							setSelectedTabName( tabName );
+						} }
 					>
 						{ ( { name } ) => (
 							<div className="mt-6 px-8 flex gap-4 flex-col">

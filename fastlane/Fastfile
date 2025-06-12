@@ -201,20 +201,6 @@ def distribute_builds(
     build[:cdn_url] = result[:media_url]
   end
 
-  manifest_name = 'releases.json'
-  upload_file_to_apps_cdn(
-    site_id: WPCOM_STUDIO_SITE_ID,
-    product: 'WordPress.com Studio',
-    file_path: File.join(BUILDS_FOLDER, manifest_name),
-    platform: 'Manifest',
-    build_type: 'Production',
-    visibility: 'external',
-    version: '0.0.0',
-    build_number: '0',
-    release_notes: 'Manifest file',
-    error_on_duplicate: false
-  )
-
   unless DRY_RUN
     buildkite_annotate(
       context: 'cdn-link',

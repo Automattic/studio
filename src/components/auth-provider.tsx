@@ -2,9 +2,9 @@ import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { createContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import WPCOM from 'wpcom';
-import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useI18nLocale } from 'src/stores';
 import { setWpcomClient } from 'src/stores/wpcom-api';
 
 export interface AuthContextType {
@@ -37,7 +37,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	const [ isAuthenticated, setIsAuthenticated ] = useState( false );
 	const [ client, setClient ] = useState< WPCOM | undefined >( undefined );
 	const [ user, setUser ] = useState< AuthContextType[ 'user' ] >( undefined );
-	const { locale } = useI18nData();
+	const locale = useI18nLocale();
 	const { __ } = useI18n();
 
 	const authenticate = useCallback( () => getIpcApi().authenticate(), [] );

@@ -2,42 +2,44 @@
 import { jest } from '@jest/globals';
 import { render, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { Provider } from 'react-redux';
 import AddSite from 'src/components/add-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { FolderDialogResponse } from 'src/ipc-handlers';
+import { store } from 'src/stores';
 
-jest.mock( 'src/stores/certificate-trust-api', () => ( {
-	useCheckCertificateTrustQuery: jest.fn().mockReturnValue( { data: true } ),
-} ) );
+jest.mock( 'src/stores/certificate-trust-api', () => {
+	const actual = jest.requireActual( 'src/stores/certificate-trust-api' ) || {};
+	return {
+		...actual,
+		useCheckCertificateTrustQuery: jest.fn().mockReturnValue( { data: true } ),
+	};
+} );
 
 jest.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
 } ) );
 
-jest.mock( 'src/stores', () => {
-	const mockDispatch = jest.fn();
+jest.mock( 'src/stores/wordpress-versions-api', () => {
+	const actual = jest.requireActual( 'src/stores/wordpress-versions-api' ) || {};
 	return {
-		useAppDispatch: jest.fn().mockReturnValue( mockDispatch ),
-		useRootSelector: jest.fn(),
+		...actual,
+		useGetWordPressVersions: () => ( {
+			data: [
+				{
+					value: '6.5.0-beta1',
+					isBeta: true,
+					isDevelopment: false,
+					label: '6.5.0-beta1',
+				},
+				{ value: '6.4.0', isBeta: false, isDevelopment: false, label: '6.4' },
+				{ value: '6.3.3', isBeta: false, isDevelopment: false, label: '6.3.3' },
+			],
+		} ),
+		selectWordPressVersionsWithLatest: jest.fn(),
+		selectLatestStableVersion: jest.fn(),
 	};
 } );
-
-jest.mock( 'src/stores/wordpress-versions-api', () => ( {
-	useGetWordPressVersions: () => ( {
-		data: [
-			{
-				value: '6.5.0-beta1',
-				isBeta: true,
-				isDevelopment: false,
-				label: '6.5.0-beta1',
-			},
-			{ value: '6.4.0', isBeta: false, isDevelopment: false, label: '6.4' },
-			{ value: '6.3.3', isBeta: false, isDevelopment: false, label: '6.3.3' },
-		],
-	} ),
-	selectWordPressVersionsWithLatest: jest.fn(),
-	selectLatestStableVersion: jest.fn(),
-} ) );
 
 const mockShowOpenFolderDialog =
 	jest.fn< ( dialogTitle: string ) => Promise< FolderDialogResponse | null > >();
@@ -67,6 +69,10 @@ jest.mock( 'src/hooks/use-site-details', () => ( {
 jest.mock( 'src/hooks/use-offline', () => ( {
 	useOffline: jest.fn().mockReturnValue( false ),
 } ) );
+
+const renderWithProvider = ( children: React.ReactElement ) => {
+	return render( <Provider store={ store }>{ children }</Provider> );
+};
 
 beforeEach( () => {
 	jest.clearAllMocks();
@@ -99,7 +105,7 @@ describe( 'AddSite', () => {
 			isEmpty: true,
 			isWordPress: false,
 		} );
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 
@@ -134,7 +140,7 @@ describe( 'AddSite', () => {
 			isEmpty: true,
 			isWordPress: false,
 		} );
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
@@ -170,7 +176,7 @@ describe( 'AddSite', () => {
 			isEmpty: false,
 			isWordPress: false,
 		} );
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
@@ -202,7 +208,7 @@ describe( 'AddSite', () => {
 			isEmpty: false,
 			isWordPress: true,
 		} );
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
@@ -230,7 +236,7 @@ describe( 'AddSite', () => {
 				isWordPress: false,
 			} );
 		} );
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
@@ -273,7 +279,7 @@ describe( 'AddSite', () => {
 			isEmpty: false,
 			isWordPress: false,
 		} );
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
@@ -303,7 +309,7 @@ describe( 'AddSite', () => {
 			isWordPress: false,
 		} );
 
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
@@ -348,7 +354,7 @@ describe( 'AddSite', () => {
 			isWordPress: false,
 		} );
 
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
@@ -380,7 +386,7 @@ describe( 'AddSite', () => {
 	it( 'should disable WordPress version field when offline', async () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
 
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
@@ -393,7 +399,7 @@ describe( 'AddSite', () => {
 	it( 'should enable WordPress version field when online', async () => {
 		( useOffline as jest.Mock ).mockReturnValue( false );
 
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
@@ -406,7 +412,7 @@ describe( 'AddSite', () => {
 	it( 'should show tooltip with offline message when hovering over disabled WordPress version field', async () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
 
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
@@ -425,7 +431,7 @@ describe( 'AddSite', () => {
 	it( 'should not show tooltip when hovering over WordPress version field while online', async () => {
 		( useOffline as jest.Mock ).mockReturnValue( false );
 
-		render( <AddSite /> );
+		renderWithProvider( <AddSite /> );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );

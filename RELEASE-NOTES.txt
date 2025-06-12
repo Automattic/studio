@@ -1,8 +1,16 @@
 Unreleased
 ==========
-* Miscellaneous security improvements #1411
-* Included symlinked directories and files when creating preview sites #1447
-* Included symlinked directories and files when exporting and pushing sites #1448
+
+1.5.3
+=====
+* Added support to follow symlinks in Previews and Sync #1447, #1448
+* Fixed Command Prompt button truncation and naming on Windows #1440, #1441
+* Fixed default editors when only one is installed #1461
+* Improved site export performance #1457
+* Removed outdated WP-CLI proof-of-concept code #1426
+* Improved HTTP request reliability by reducing timeout to 30 seconds #1456
+* Improved Windows editor path detection by sanitizing regex #1411
+* Upgraded Electron Forge and Playground packages #1460
 
 1.5.2
 =====

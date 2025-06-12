@@ -19,13 +19,13 @@ import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
-import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
+import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 interface ConnectedSiteSection {
@@ -389,7 +389,7 @@ const SyncConnectedSiteSection = ( {
 	openSitesSyncSelector,
 }: SyncConnectedSiteSectionProps ) => {
 	const { __ } = useI18n();
-	const { locale } = useI18nData();
+	const locale = useI18nLocale();
 	const { clearPullState, isSiteIdPulling, isSiteIdPushing } = useSyncSites();
 	const isOffline = useOffline();
 

@@ -11,11 +11,13 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
+import i18nReducer from 'src/stores/i18n-slice';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
 import { reducer as newSitesReducer } from 'src/stores/new-sites-slice';
 import { reducer as snapshotReducer, updateSnapshotLocally } from 'src/stores/snapshot-slice';
 import { wpcomApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
+import type { SupportedLocale } from 'common/lib/locale';
 
 export type RootState = {
 	appVersionApi: ReturnType< typeof appVersionApi.reducer >;
@@ -26,6 +28,7 @@ export type RootState = {
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
 	certificateTrustApi: ReturnType< typeof certificateTrustApi.reducer >;
+	i18n: ReturnType< typeof i18nReducer >;
 };
 
 const listenerMiddleware = createListenerMiddleware< RootState >();
@@ -76,6 +79,7 @@ export const rootReducer = combineReducers( {
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,
 	certificateTrustApi: certificateTrustApi.reducer,
+	i18n: i18nReducer,
 } );
 
 export const store = configureStore( {
@@ -98,3 +102,6 @@ export type AppDispatch = typeof store.dispatch;
 export const useAppDispatch = () => useDispatch< AppDispatch >();
 export const useRootSelector = < T >( selector: ( state: RootState ) => T ) =>
 	useSelector( selector );
+
+export const useI18nLocale = (): SupportedLocale =>
+	useRootSelector( ( state: RootState ) => state.i18n.locale );

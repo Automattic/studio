@@ -1,11 +1,13 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-sync.test.tsx` from the root directory
 import { render, screen, fireEvent } from '@testing-library/react';
+import { Provider } from 'react-redux';
 import { ContentTabSync } from 'src/components/content-tab-sync';
 import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
 import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { store } from 'src/stores';
 
 jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/hooks/use-feature-flags' );
@@ -69,9 +71,11 @@ describe( 'ContentTabSync', () => {
 
 	const renderWithProvider = ( children: React.ReactElement ) => {
 		return render(
-			<ContentTabsProvider>
-				<SyncSitesProvider>{ children }</SyncSitesProvider>
-			</ContentTabsProvider>
+			<Provider store={ store }>
+				<ContentTabsProvider>
+					<SyncSitesProvider>{ children }</SyncSitesProvider>
+				</ContentTabsProvider>
+			</Provider>
 		);
 	};
 

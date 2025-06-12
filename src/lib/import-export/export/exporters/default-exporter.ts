@@ -27,7 +27,6 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private archive!: archiver.Archiver;
 	private backup: BackupContents;
 	private readonly options: ExportOptions;
-	private siteFiles: string[];
 	private readonly pathsToExclude = [
 		'wp-content/mu-plugins/sqlite-database-integration',
 		'wp-content/mu-plugins/0-allowed-redirect-hosts.php',
@@ -43,21 +42,12 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	constructor( options: ExportOptions ) {
 		super();
 		this.options = options;
-		this.siteFiles = [];
 		this.backup = {
 			backupFile: options.backupFile,
 			sqlFiles: [],
-			wpContent: {
-				uploads: [],
-				plugins: [],
-				themes: [],
-				muPlugins: [],
-				fonts: [],
-			},
 		};
 	}
 	async canHandle(): Promise< boolean > {
-		// Check for supported extension
 		const supportedExtension = [ 'tar.gz', 'tzg', 'zip' ].find( ( ext ) =>
 			this.options.backupFile.endsWith( ext )
 		);
@@ -67,30 +57,32 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		}
 
 		const requiredPaths = [
-			{ path: [ 'wp-content' ], isDir: true },
-			{ path: [ 'wp-includes' ], isDir: true },
+			{ path: 'wp-content', isDir: true },
+			{ path: 'wp-includes', isDir: true },
 			{ path: 'wp-load.php', isDir: false },
 			{ path: 'wp-config.php', isDir: false },
 		];
 
-		this.siteFiles = await this.getSiteFiles();
-
-		return requiredPaths.every( ( requiredPath ) =>
-			this.siteFiles.some( ( file ) => {
-				const relativePath = path.relative( this.options.site.path, file );
-				const relativePathItems = relativePath.split( path.sep );
-				return requiredPath.isDir
-					? ( requiredPath.path as string[] ).every(
-							( path, index ) => path === relativePathItems[ index ]
-					  )
-					: relativePath === requiredPath.path;
-			} )
-		);
+		try {
+			for ( const requiredPath of requiredPaths ) {
+				const stats = await fsPromises.stat(
+					path.join( this.options.site.path, requiredPath.path )
+				);
+				if ( requiredPath.isDir && ! stats.isDirectory() ) {
+					return false;
+				}
+				if ( ! requiredPath.isDir && ! stats.isFile() ) {
+					return false;
+				}
+			}
+			return true;
+		} catch ( error ) {
+			return false;
+		}
 	}
 
 	async export(): Promise< void > {
 		this.emit( ExportEvents.EXPORT_START );
-		this.backup = await this.getBackupContents();
 		const output = fs.createWriteStream( this.options.backupFile );
 		this.archive = this.createArchive();
 
@@ -151,8 +143,11 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	}
 
 	private addWpConfig(): void {
-		if ( this.backup.wpConfigFile ) {
-			this.archive.file( this.backup.wpConfigFile, { name: 'wp-config.php' } );
+		const wpConfigPath = path.join( this.options.site.path, 'wp-config.php' );
+		if ( fs.existsSync( wpConfigPath ) ) {
+			this.archive.file( wpConfigPath, {
+				name: 'wp-config.php',
+			} );
 		}
 	}
 
@@ -181,13 +176,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			} );
 			this.emit( ExportEvents.WP_CONTENT_EXPORT_PROGRESS, { directory: absolutePath } );
 		}
-		this.emit( ExportEvents.WP_CONTENT_EXPORT_COMPLETE, {
-			uploads: this.backup.wpContent.uploads.length,
-			plugins: this.backup.wpContent.plugins.length,
-			themes: this.backup.wpContent.themes.length,
-			muPlugins: this.backup.wpContent.muPlugins.length,
-			fonts: this.backup.wpContent.fonts.length,
-		} );
+		this.emit( ExportEvents.WP_CONTENT_EXPORT_COMPLETE );
 	}
 
 	private async addDatabase(): Promise< void > {
@@ -221,77 +210,6 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				.unlink( sqlFile )
 				.catch( ( err ) => console.error( `Failed to delete temporary file ${ sqlFile }:`, err ) );
 		}
-	}
-
-	private async getSiteFiles(): Promise< string[] > {
-		if ( this.siteFiles.length ) {
-			return this.siteFiles;
-		}
-
-		const directoryContents = await fsPromises.readdir( this.options.site.path, {
-			recursive: true,
-			withFileTypes: true,
-		} );
-
-		return directoryContents.reduce< string[] >( ( files: string[], directoryContent ) => {
-			const filePath = path.join( directoryContent.path, directoryContent.name );
-			const relativePath = path.relative( this.options.site.path, filePath );
-
-			// Check for exact path exclusions
-			const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
-				relativePath.startsWith( path.normalize( pathToExclude ) )
-			);
-
-			// Check for node_modules and .git directories anywhere
-			const isNodeModulesDirectory = relativePath.includes( 'node_modules' );
-			const isGitDirectory = relativePath.includes( '.git' );
-
-			if ( isExcluded || isNodeModulesDirectory || isGitDirectory ) {
-				return files;
-			}
-			if ( directoryContent.isFile() ) {
-				files.push( filePath );
-			}
-			return files;
-		}, [] );
-	}
-
-	private async getBackupContents(): Promise< BackupContents > {
-		const options = this.options;
-		const backupContents: BackupContents = {
-			backupFile: options.backupFile,
-			sqlFiles: [],
-			wpContent: {
-				uploads: [],
-				plugins: [],
-				themes: [],
-				muPlugins: [],
-				fonts: [],
-			},
-		};
-
-		const siteFiles = await this.getSiteFiles();
-		siteFiles.forEach( ( file ) => {
-			const relativePath = path.relative( options.site.path, file );
-			const relativePathItems = relativePath.split( path.sep );
-			const [ wpContent, wpContentDirectory ] = relativePathItems;
-			if ( path.basename( file ) === 'wp-config.php' ) {
-				backupContents.wpConfigFile = file;
-			} else if ( wpContent === 'wp-content' ) {
-				if (
-					wpContentDirectory === 'uploads' ||
-					wpContentDirectory === 'plugins' ||
-					wpContentDirectory === 'themes' ||
-					wpContentDirectory === 'fonts'
-				) {
-					backupContents.wpContent[ wpContentDirectory as BackupContentsCategory ].push( file );
-				} else if ( wpContentDirectory === 'mu-plugins' ) {
-					backupContents.wpContent.muPlugins.push( file );
-				}
-			}
-		} );
-
-		return backupContents;
 	}
 
 	private async createStudioJsonFile(): Promise< string > {

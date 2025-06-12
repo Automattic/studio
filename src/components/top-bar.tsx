@@ -129,12 +129,12 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 
 			<div className="app-no-drag-region flex items-center space-x-1.5 rtl:space-x-reverse">
 				<Authentication />
+				<SettingsButton />
 				<Tooltip text={ __( 'Get help' ) } placement="bottom-start">
 					<Button onClick={ openDocs } aria-label={ __( 'Get help' ) } variant="icon">
 						<Icon className="text-white" size={ 24 } icon={ help } />
 					</Button>
 				</Tooltip>
-				<SettingsButton />
 			</div>
 		</div>
 	);

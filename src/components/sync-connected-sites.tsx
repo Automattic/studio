@@ -208,9 +208,7 @@ const SyncConnectedSiteControls = ( {
 						type={ syncDialogType }
 						localSite={ selectedSite }
 						remoteSite={ connectedSite }
-						onSubmit={ ( dataToSync ) => {
-							console.log( dataToSync );
-
+						onSubmit={ () => {
 							if ( syncDialogType === 'push' ) {
 								void pushSite( connectedSite, selectedSite );
 							} else {

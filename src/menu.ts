@@ -88,7 +88,7 @@ function getAppMenu(
 					label: __( 'Settings…' ),
 					accelerator: 'CommandOrControl+,',
 					click: async () => {
-						void sendIpcEventToRenderer( 'user-settings', {} );
+						void sendIpcEventToRenderer( 'user-settings', { tabName: 'preferences' } );
 					},
 				},
 				...( process.platform === 'darwin'

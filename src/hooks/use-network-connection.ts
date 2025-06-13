@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { useSiteDetails } from './use-site-details';
 import { useOffline } from './use-offline';
+import { useSiteDetails } from './use-site-details';
 
 export function useNetworkConnection() {
 	const { data: sites, stopServer, startServer } = useSiteDetails();

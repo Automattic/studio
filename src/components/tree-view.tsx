@@ -14,13 +14,13 @@ export type TreeNode = {
 	type?: 'folder';
 };
 
-const updateNode = ( node: TreeNode, updates: Partial< TreeNode > ): TreeNode => {
-	const updatedNode = { ...node, ...updates };
+const updateNode = ( node: TreeNode, partialNode: Partial< TreeNode > ): TreeNode => {
+	const updatedNode = { ...node, ...partialNode };
 
 	if ( node.children ) {
 		updatedNode.children = node.children.map( ( child ) => {
-			if ( 'checked' in updates ) {
-				return updateNode( child, { checked: updates.checked } );
+			if ( 'checked' in partialNode ) {
+				return updateNode( child, { checked: partialNode.checked } );
 			}
 			return child;
 		} );
@@ -35,17 +35,17 @@ const updateNode = ( node: TreeNode, updates: Partial< TreeNode > ): TreeNode =>
 	return updatedNode;
 };
 
-const updateNodeById = (
+export const updateNodeById = (
 	nodes: TreeNode[],
 	id: string,
-	updates: Partial< TreeNode >
+	partialNode: Partial< TreeNode >
 ): TreeNode[] => {
 	return nodes.map( ( node ) => {
 		if ( node.id === id ) {
-			return updateNode( node, updates );
+			return updateNode( node, partialNode );
 		}
 		if ( node.children ) {
-			const updatedChildren = updateNodeById( node.children, id, updates );
+			const updatedChildren = updateNodeById( node.children, id, partialNode );
 			const checkedCount = updatedChildren.filter( ( c ) => c.checked ).length;
 			const totalChildren = updatedChildren.length;
 			const anyIndeterminate = updatedChildren.some( ( c ) => c.indeterminate );
@@ -73,6 +73,7 @@ const TreeItem = ( {
 	isLast?: boolean;
 } ) => {
 	const isLevel0 = level === 0;
+	const expanded = node.expanded ?? true;
 
 	return (
 		<div>
@@ -94,14 +95,14 @@ const TreeItem = ( {
 					<span>{ node.label }</span>
 				</label>
 				{ node.children && ! node.hideExpandButton && (
-					<button onClick={ () => onPatchNode( node.id, { expanded: ! node.expanded } ) }>
-						<div className={ node.expanded ? 'rotate-90' : '' }>
+					<button onClick={ () => onPatchNode( node.id, { expanded: ! expanded } ) }>
+						<div className={ expanded ? 'rotate-90' : '' }>
 							<RightArrowIcon width={ 16 } />
 						</div>
 					</button>
 				) }
 			</div>
-			{ node.expanded && node.children && (
+			{ expanded && node.children && (
 				<div className={ cx( 'ps-6', isLevel0 ? 'border-b border-gray-300 py-2' : '' ) }>
 					{ node.children.map( ( child ) => (
 						<TreeItem
@@ -123,8 +124,8 @@ export type TreeViewProps = {
 };
 
 export const TreeView = ( { tree, setTree }: TreeViewProps ) => {
-	const handlePatchNode = ( id: string, patchNode: Partial< TreeNode > ) => {
-		setTree( ( prev: TreeNode[] ) => updateNodeById( prev, id, patchNode ) );
+	const handlePatchNode = ( id: string, partialNode: Partial< TreeNode > ) => {
+		setTree( ( prev: TreeNode[] ) => updateNodeById( prev, id, partialNode ) );
 	};
 
 	return (

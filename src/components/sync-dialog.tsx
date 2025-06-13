@@ -7,7 +7,7 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
-import { TreeView, TreeNode } from 'src/components/tree-view';
+import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
@@ -198,25 +198,7 @@ export function SyncDialog( {
 	const handleExpanderChange = ( value: boolean ) => {
 		setShowAllFiles( value );
 
-		setTreeState( ( prev ) =>
-			prev.map( ( node ) => {
-				if ( node.id === 'filesAndFolders' ) {
-					return {
-						...node,
-						expanded: value,
-						children: node.children?.map( ( child ) => ( {
-							...child,
-							expanded: value,
-							children: child.children?.map( ( grandChild ) => ( {
-								...grandChild,
-								expanded: value,
-							} ) ),
-						} ) ),
-					};
-				}
-				return node;
-			} )
-		);
+		setTreeState( ( prev ) => updateNodeById( prev, 'filesAndFolders', { expanded: value } ) );
 	};
 
 	const handleSubmit = () => {

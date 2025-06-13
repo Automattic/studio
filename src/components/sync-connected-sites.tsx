@@ -15,6 +15,7 @@ import ProgressBar from 'src/components/progress-bar';
 import { SyncDialog } from 'src/components/sync-dialog';
 import { SyncPullPushClear } from 'src/components/sync-pull-push-clear';
 import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
+import { getCheckedTreeItems } from 'src/components/tree-view';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
@@ -208,9 +209,11 @@ const SyncConnectedSiteControls = ( {
 						type={ syncDialogType }
 						localSite={ selectedSite }
 						remoteSite={ connectedSite }
-						onSubmit={ () => {
+						onSubmit={ ( tree ) => {
+							const optionsToSync = getCheckedTreeItems( tree );
+
 							if ( syncDialogType === 'push' ) {
-								void pushSite( connectedSite, selectedSite );
+								void pushSite( connectedSite, selectedSite, { optionsToSync } );
 							} else {
 								pullSite( connectedSite, selectedSite );
 							}

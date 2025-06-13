@@ -132,7 +132,7 @@ export function SyncDialog( {
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( [
 		{
-			id: 'filesAndFolders',
+			id: 'all',
 			label: __( 'Files and folders' ),
 			checked: true,
 			indeterminate: false,
@@ -151,10 +151,6 @@ export function SyncDialog( {
 							label: 'plugins',
 							checked: true,
 							type: 'folder',
-							children: [
-								{ id: 'akismet', label: 'akismet', checked: true, type: 'folder' },
-								{ id: 'jetpack', label: 'jetpack', checked: true, type: 'folder' },
-							],
 						},
 						{
 							id: 'themes',
@@ -173,7 +169,7 @@ export function SyncDialog( {
 			],
 		},
 		{
-			id: 'database',
+			id: 'sqls',
 			label: __( 'Database' ),
 			checked: true,
 		},
@@ -206,7 +202,7 @@ export function SyncDialog( {
 			toUpdate.checked = true;
 		}
 
-		setTreeState( ( prev ) => updateNodeById( prev, 'filesAndFolders', toUpdate ) );
+		setTreeState( ( prev ) => updateNodeById( prev, 'all', toUpdate ) );
 	};
 
 	const handleSubmit = () => {

@@ -118,6 +118,20 @@ const TreeItem = ( {
 	);
 };
 
+export const getCheckedTreeItems = ( nodes: TreeNode[] ): string[] => {
+	const result: string[] = [];
+
+	for ( const node of nodes ) {
+		if ( node.checked ) {
+			result.push( node.id );
+		} else if ( node.children ) {
+			result.push( ...getCheckedTreeItems( node.children ) );
+		}
+	}
+
+	return result;
+};
+
 export type TreeViewProps = {
 	tree: TreeNode[];
 	setTree: React.Dispatch< React.SetStateAction< TreeNode[] > >;

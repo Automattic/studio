@@ -12,6 +12,7 @@ import TopBar from 'src/components/top-bar';
 import WindowsTitlebar from 'src/components/windows-titlebar';
 import { useI18nData } from 'src/hooks/use-i18n-data';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
+import { useNetworkConnection } from 'src/hooks/use-network-connection';
 import { useOnboarding } from 'src/hooks/use-onboarding';
 import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
 import { isWindows } from 'src/lib/app-globals';
@@ -23,6 +24,7 @@ import 'src/index.css';
 
 export default function App() {
 	useLocalizationSupport();
+	useNetworkConnection();
 	const { needsOnboarding } = useOnboarding();
 	const { isSidebarVisible, toggleSidebar } = useSidebarVisibility();
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();

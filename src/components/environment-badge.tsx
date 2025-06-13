@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { Badge } from 'src/components/badge';
 import { cx } from 'src/lib/cx';
 
-type EnvironmentType = 'production' | 'staging' | 'sandbox';
+export type EnvironmentType = 'production' | 'staging' | 'sandbox';
 
 interface EnvironmentBadgeProps {
 	type: EnvironmentType;

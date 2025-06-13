@@ -295,3 +295,7 @@ blockquote {
 	outline: none;
 	border: 1px solid theme( 'colors.a8c-blueberry' );
 }
+
+.sync-dialog-wrapper .components-modal__header {
+	border-bottom-color: #ddd;
+}

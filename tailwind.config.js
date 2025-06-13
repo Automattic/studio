@@ -148,6 +148,8 @@ module.exports = {
 				'chrome-inverted': '#fff',
 				'sandbox-bg': 'hsl(200, 95%, 85%)',
 				'sandbox-text': 'hsl(200, 95%, 28%)',
+				'circle-env-production': '#069e08',
+				'circle-env-staging': '#f7ba42',
 			},
 			spacing: {
 				chrome: `${ APP_CHROME_SPACING }px`,

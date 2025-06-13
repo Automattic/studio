@@ -22,6 +22,7 @@ export interface CliOptions {
 	siteTitle?: string;
 	mode?: WPNowMode;
 	isWpAutoUpdating?: boolean;
+	isOffline?: boolean; 
 }
 
 export const enum WPNowMode {
@@ -52,6 +53,7 @@ export interface WPNowOptions {
 	adminPassword?: string;
 	siteTitle?: string;
 	siteLanguage?: string;
+	isOffline?: boolean;
 }
 
 export const DEFAULT_OPTIONS: WPNowOptions = {

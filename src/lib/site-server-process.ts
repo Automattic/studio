@@ -1,4 +1,4 @@
-import { app, utilityProcess, UtilityProcess } from 'electron';
+import { app, utilityProcess, UtilityProcess, net } from 'electron';
 import { kill } from 'process';
 import { PHPRunOptions } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/renderer';
@@ -49,6 +49,8 @@ export default class SiteServerProcess {
 					reject( new Error( `Site server process exited with code ${ code } upon starting` ) );
 				}
 			};
+
+			this.options[ 'isOffline' ] = ! net.isOnline();
 
 			this.process = utilityProcess
 				.fork( SITE_SERVER_PROCESS_MODULE_PATH, [ JSON.stringify( this.options ) ], {

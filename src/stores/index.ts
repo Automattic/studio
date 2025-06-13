@@ -15,6 +15,7 @@ import i18nReducer from 'src/stores/i18n-slice';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
 import { reducer as newSitesReducer } from 'src/stores/new-sites-slice';
 import { reducer as snapshotReducer, updateSnapshotLocally } from 'src/stores/snapshot-slice';
+import { syncSitesReducer } from 'src/stores/sync-sites-slice';
 import { wpcomApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from 'common/lib/locale';
@@ -29,6 +30,7 @@ export type RootState = {
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
 	certificateTrustApi: ReturnType< typeof certificateTrustApi.reducer >;
 	i18n: ReturnType< typeof i18nReducer >;
+	syncSites: ReturnType< typeof syncSitesReducer >;
 };
 
 const listenerMiddleware = createListenerMiddleware< RootState >();
@@ -80,6 +82,7 @@ export const rootReducer = combineReducers( {
 	wpcomApi: wpcomApi.reducer,
 	certificateTrustApi: certificateTrustApi.reducer,
 	i18n: i18nReducer,
+	syncSites: syncSitesReducer,
 } );
 
 export const store = configureStore( {

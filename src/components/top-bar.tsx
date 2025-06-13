@@ -76,7 +76,7 @@ function Authentication() {
 		return (
 			<Button
 				onClick={ () => getIpcApi().showUserSettings() }
-				aria-label={ __( 'Open settings' ) }
+				aria-label={ __( 'Open account settings' ) }
 				variant="icon"
 				className="text-white hover:!text-white !px-1 py-1 !h-6 gap-2"
 			>
@@ -89,7 +89,7 @@ function Authentication() {
 	return (
 		<Button
 			onClick={ () => getIpcApi().authenticate( false ) }
-			aria-label={ __( 'Open settings to log in' ) }
+			aria-label={ __( 'Log in to Studio with WordPress.com' ) }
 			className="flex gap-x-2 justify-between w-full text-white rounded !px-2 !py-0 h-auto active:!text-white hover:!text-white hover:underline items-center"
 		>
 			<WordPressLogo />
@@ -104,7 +104,7 @@ function SettingsButton() {
 	return (
 		<Button
 			onClick={ () => getIpcApi().showUserSettings( 'preferences' ) }
-			aria-label={ __( 'Settings' ) }
+			aria-label={ __( 'Open settings' ) }
 			variant="icon"
 		>
 			<Icon className="text-white" size={ 24 } icon={ cog } />

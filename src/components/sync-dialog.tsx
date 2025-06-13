@@ -217,7 +217,7 @@ export function SyncDialog( {
 
 	return (
 		<Modal
-			className="w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
+			className="sync-dialog-wrapper w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
 			title={ copy[ envDetails.envType ].title }
 		>
@@ -265,7 +265,7 @@ export function SyncDialog( {
 					</div>
 					<TreeView tree={ treeState } setTree={ setTreeState } />
 				</div>
-				<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center absolute left-0 right-0 bottom-0 bg-white">
+				<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center absolute left-0 right-0 bottom-0 bg-white z-10">
 					<div>
 						{ createInterpolateElement( copy.envSync, {
 							a: (

@@ -1,23 +1,24 @@
 import * as Sentry from '@sentry/react';
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
-import { z } from 'zod';
 import { useAuth } from 'src/hooks/use-auth';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getAppGlobals } from 'src/lib/app-globals';
+import { FEATURE_FLAGS, FeatureFlags } from 'src/lib/feature-flags';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
-// In PHP, empty associative arrays are encoded as regular arrays when converted to JSON.
-// This means an empty feature flags response comes as [] instead of {}.
-const featureFlagsSchema = z
-	.object( {
-		selectiveSyncEnabled: z.boolean().optional(),
-	} )
-	.catch( ( _: unknown ) => ( {} ) );
+export type FeatureFlagsContextType = FeatureFlags;
 
-// Will be extended with feature flags in the future */
-export type FeatureFlagsContextType = {
-	selectiveSyncEnabled?: boolean;
-};
+function createDefaultFeatureFlags(): FeatureFlags {
+	const flags = {} as FeatureFlags;
+	for ( const [ key, def ] of Object.entries( FEATURE_FLAGS ) ) {
+		flags[ key as keyof FeatureFlags ] = def.default;
+	}
+	return flags;
+}
 
-export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( {} );
+const defaultFeatureFlags = createDefaultFeatureFlags();
+
+export const FeatureFlagsContext = createContext< FeatureFlagsContextType >( defaultFeatureFlags );
 
 interface FeatureFlagsProviderProps {
 	children: ReactNode;
@@ -26,9 +27,18 @@ interface FeatureFlagsProviderProps {
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
 	const selectiveSyncEnabledFromGlobals = getAppGlobals().selectiveSyncEnabled;
 	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
+		...defaultFeatureFlags,
 		selectiveSyncEnabled: selectiveSyncEnabledFromGlobals,
 	} );
 	const { isAuthenticated, client } = useAuth();
+
+	useIpcListener( 'refresh-app-globals', async () => {
+		window.appGlobals = await getIpcApi().getAppGlobals();
+		setFeatureFlags( {
+			...featureFlags,
+			selectiveSyncEnabled: window.appGlobals.selectiveSyncEnabled,
+		} );
+	} );
 
 	useEffect( () => {
 		let cancel = false;
@@ -41,11 +51,12 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 					path: '/studio-app/feature-flags',
 					apiNamespace: 'wpcom/v2',
 				} );
-				const flags = featureFlagsSchema.parse( response );
+				const flags = response as Partial< FeatureFlags >;
 				if ( cancel ) {
 					return;
 				}
 				setFeatureFlags( {
+					...defaultFeatureFlags,
 					...flags,
 					selectiveSyncEnabled:
 						Boolean( flags.selectiveSyncEnabled ) || selectiveSyncEnabledFromGlobals,

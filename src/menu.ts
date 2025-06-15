@@ -1,8 +1,21 @@
-import { Menu, type MenuItemConstructorOptions, app, BrowserWindow, autoUpdater } from 'electron';
+import {
+	Menu,
+	type MenuItemConstructorOptions,
+	app,
+	BrowserWindow,
+	autoUpdater,
+	MenuItem,
+} from 'electron';
 import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from 'src/about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import {
+	FEATURE_FLAGS,
+	FeatureFlags,
+	getFeatureFlagFromEnv,
+	setFeatureFlagInEnv,
+} from 'src/lib/feature-flags';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
@@ -66,6 +79,18 @@ function getAppMenu(
 		{ type: 'separator' },
 	];
 
+	const featureFlagsMenu: MenuItemConstructorOptions[] = Object.entries( FEATURE_FLAGS ).map(
+		( [ flag, definition ] ) => ( {
+			label: definition.label,
+			type: 'checkbox' as const,
+			checked: getFeatureFlagFromEnv( flag as keyof FeatureFlags ),
+			click: ( menuItem: MenuItem ) => {
+				setFeatureFlagInEnv( flag as keyof FeatureFlags, menuItem.checked );
+				void sendIpcEventToRenderer( 'refresh-app-globals' );
+			},
+		} )
+	);
+
 	return Menu.buildFromTemplate( [
 		{
 			label: app.name, // macOS ignores this name and uses the name from the .plist
@@ -109,6 +134,14 @@ function getAppMenu(
 					: [ { label: __( 'Hide' ), role: 'hide' } as MenuItemConstructorOptions ] ),
 				{ type: 'separator' },
 				...( process.env.NODE_ENV === 'development' ? crashTestMenuItems : [] ),
+				...( process.env.NODE_ENV === 'development'
+					? [
+							{
+								label: __( 'Feature Flags' ),
+								submenu: featureFlagsMenu,
+							},
+					  ]
+					: [] ),
 				{ type: 'separator' },
 				{ label: __( 'Quit' ), role: 'quit' },
 			],

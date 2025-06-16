@@ -1,6 +1,5 @@
 import { SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
@@ -127,6 +126,7 @@ export function SyncDialog( {
 	onRequestClose,
 }: SyncDialogProps ) {
 	const locale = useI18nLocale();
+	const { __ } = useI18n();
 	const copy = useCopy( type );
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
@@ -166,7 +166,7 @@ export function SyncDialog( {
 						},
 						{
 							id: 'contents',
-							label: __( 'wp-content (Apart from themes, plugins, and uploads) ' ),
+							label: __( 'other files and directories' ),
 							checked: true,
 							type: 'folder',
 						},

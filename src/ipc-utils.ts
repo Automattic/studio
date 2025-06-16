@@ -38,6 +38,7 @@ export interface IpcEvents {
 	'user-preference-changed': [ void ];
 	'user-data-updated': [ UserData ];
 	'user-data-error': [ string ];
+	'refresh-app-globals': [ void ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

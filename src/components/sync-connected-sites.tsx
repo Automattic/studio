@@ -26,6 +26,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
+import type { SyncPart } from 'src/hooks/sync-sites/use-sync-push';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 interface ConnectedSiteSection {
@@ -209,7 +210,7 @@ const SyncConnectedSiteControls = ( {
 						localSite={ selectedSite }
 						remoteSite={ connectedSite }
 						onSubmit={ ( tree ) => {
-							const optionsToSync = [];
+							const optionsToSync: SyncPart[] = [];
 
 							const isAll = tree.every( ( node ) => node.checked );
 							if ( isAll ) {
@@ -228,7 +229,7 @@ const SyncConnectedSiteControls = ( {
 
 								wpContent.forEach( ( item ) => {
 									if ( item.checked ) {
-										optionsToSync.push( item.id );
+										optionsToSync.push( item.id as SyncPart );
 									}
 								} );
 							}

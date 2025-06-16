@@ -27,8 +27,10 @@ export type SyncPushState = {
 	remoteSiteUrl: string;
 };
 
+export type SyncPart = 'all' | 'themes' | 'plugins' | 'uploads' | 'sqls' | 'contents' | 'roots';
+
 type PushSiteOptions = {
-	optionsToSync?: ( 'all' | 'themes' | 'plugins' | 'uploads' | 'sqls' | 'contents' | 'roots' )[];
+	optionsToSync?: SyncPart[];
 };
 
 export type PushStates = Record< string, SyncPushState >;

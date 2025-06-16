@@ -28,7 +28,7 @@ export type SyncPushState = {
 };
 
 type PushSiteOptions = {
-	optionsToSync?: string[];
+	optionsToSync?: ( 'all' | 'themes' | 'plugins' | 'uploads' | 'sqls' | 'contents' | 'roots' )[];
 };
 
 export type PushStates = Record< string, SyncPushState >;

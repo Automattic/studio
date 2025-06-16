@@ -15,7 +15,6 @@ import ProgressBar from 'src/components/progress-bar';
 import { SyncDialog } from 'src/components/sync-dialog';
 import { SyncPullPushClear } from 'src/components/sync-pull-push-clear';
 import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
-import { getCheckedTreeItems } from 'src/components/tree-view';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
@@ -210,7 +209,29 @@ const SyncConnectedSiteControls = ( {
 						localSite={ selectedSite }
 						remoteSite={ connectedSite }
 						onSubmit={ ( tree ) => {
-							const optionsToSync = getCheckedTreeItems( tree );
+							const optionsToSync = [];
+
+							const isAll = tree.every( ( node ) => node.checked );
+							if ( isAll ) {
+								optionsToSync.push( 'all' );
+							} else {
+								const isDatabaseSelected = tree.find( ( node ) => node.id === 'sqls' )?.checked;
+
+								if ( isDatabaseSelected ) {
+									optionsToSync.push( 'sqls' );
+								}
+
+								const filesAndFolders =
+									tree.find( ( node ) => node.id === 'filesAndFolders' )?.children || [];
+								const wpContent =
+									filesAndFolders.find( ( node ) => node.id === 'wp-content' )?.children || [];
+
+								wpContent.forEach( ( item ) => {
+									if ( item.checked ) {
+										optionsToSync.push( item.id );
+									}
+								} );
+							}
 
 							if ( syncDialogType === 'push' ) {
 								void pushSite( connectedSite, selectedSite, { optionsToSync } );

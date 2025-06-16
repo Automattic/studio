@@ -132,7 +132,7 @@ export function SyncDialog( {
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( [
 		{
-			id: 'all',
+			id: 'filesAndFolders',
 			label: __( 'Files and folders' ),
 			checked: true,
 			indeterminate: false,
@@ -161,6 +161,12 @@ export function SyncDialog( {
 						{
 							id: 'uploads',
 							label: 'uploads',
+							checked: true,
+							type: 'folder',
+						},
+						{
+							id: 'contents',
+							label: __( 'wp-content (Apart from themes, plugins, and uploads) ' ),
 							checked: true,
 							type: 'folder',
 						},
@@ -202,7 +208,7 @@ export function SyncDialog( {
 			toUpdate.checked = true;
 		}
 
-		setTreeState( ( prev ) => updateNodeById( prev, 'all', toUpdate ) );
+		setTreeState( ( prev ) => updateNodeById( prev, 'filesAndFolders', toUpdate ) );
 	};
 
 	const handleSubmit = () => {

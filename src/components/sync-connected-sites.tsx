@@ -17,7 +17,7 @@ import { SyncPullPushClear } from 'src/components/sync-pull-push-clear';
 import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
-import { SyncPart, isSyncPart } from 'src/hooks/sync-sites/sync-part';
+import { SyncOption, isSyncOption } from 'src/hooks/sync-sites/sync-option';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useImportExport } from 'src/hooks/use-import-export';
@@ -37,8 +37,8 @@ interface ConnectedSiteSection {
 	connectedSites: SyncSite[];
 }
 
-export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncPart[] => {
-	const optionsToSync: SyncPart[] = [];
+export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOption[] => {
+	const optionsToSync: SyncOption[] = [];
 
 	const isAll = tree.every( ( node ) => node.checked );
 	if ( isAll ) {
@@ -54,7 +54,7 @@ export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncPart[] => {
 		const wpContent = filesAndFolders.find( ( node ) => node.id === 'wp-content' )?.children || [];
 
 		wpContent.forEach( ( item ) => {
-			if ( item.checked && isSyncPart( item.id ) ) {
+			if ( item.checked && isSyncOption( item.id ) ) {
 				optionsToSync.push( item.id );
 			}
 		} );

@@ -31,7 +31,7 @@ export function useWpList( siteId: string, type: WpListType ) {
 				setItems( pluginList.map( ( plugin: { name: string } ) => plugin.name ) );
 			} catch ( err ) {
 				Sentry.captureException( err );
-				setError( err instanceof Error ? err : new Error( 'Failed to fetch plugins' ) );
+				setError( err instanceof Error ? err : new Error( `Failed to fetch ${ type }s` ) );
 			} finally {
 				setIsLoading( false );
 			}

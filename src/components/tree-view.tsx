@@ -18,8 +18,8 @@ export type TreeNode = {
 const updateNode = ( node: TreeNode, partialNode: Partial< TreeNode > ): TreeNode => {
 	const updatedNode = { ...node, ...partialNode };
 
-	if ( node.children ) {
-		updatedNode.children = node.children.map( ( child ) => {
+	if ( updatedNode.children ) {
+		updatedNode.children = updatedNode.children.map( ( child ) => {
 			if ( 'checked' in partialNode ) {
 				return updateNode( child, { checked: partialNode.checked } );
 			}

@@ -168,7 +168,7 @@ export const useDefaultTree = (): TreeNode[] => {
 				],
 			},
 			{
-				id: 'sqls',
+				id: SYNC_OPTIONS.sqls,
 				label: __( 'Database' ),
 				checked: true,
 			},

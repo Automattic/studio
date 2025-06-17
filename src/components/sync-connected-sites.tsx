@@ -27,7 +27,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
 import type { TreeNode } from 'src/components/tree-view';
-import type { SyncPart } from 'src/hooks/sync-sites/use-sync-push';
+import { SyncPart, isSyncPart } from 'src/hooks/sync-sites/sync-part';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 interface ConnectedSiteSection {
@@ -54,8 +54,8 @@ export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncPart[] => {
 		const wpContent = filesAndFolders.find( ( node ) => node.id === 'wp-content' )?.children || [];
 
 		wpContent.forEach( ( item ) => {
-			if ( item.checked ) {
-				optionsToSync.push( item.id as SyncPart );
+			if ( item.checked && isSyncPart( item.id ) ) {
+				optionsToSync.push( item.id );
 			}
 		} );
 	}

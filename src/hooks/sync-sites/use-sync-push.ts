@@ -3,6 +3,7 @@ import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo } from 'react';
 import { SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
+import { SyncPart } from 'src/hooks/sync-sites/sync-part';
 import {
 	ClearState,
 	generateStateId,
@@ -26,8 +27,6 @@ export type SyncPushState = {
 	selectedSite: SiteDetails;
 	remoteSiteUrl: string;
 };
-
-export type SyncPart = 'all' | 'themes' | 'plugins' | 'uploads' | 'sqls' | 'contents' | 'roots';
 
 type PushSiteOptions = {
 	optionsToSync?: SyncPart[];

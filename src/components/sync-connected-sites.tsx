@@ -17,7 +17,7 @@ import { SyncPullPushClear } from 'src/components/sync-pull-push-clear';
 import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
-import { SyncOption, isSyncOption } from 'src/hooks/sync-sites/sync-option';
+import { SYNC_OPTIONS, SyncOption, isSyncOption } from 'src/hooks/sync-sites/sync-option';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useImportExport } from 'src/hooks/use-import-export';
@@ -42,12 +42,12 @@ export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOption[] => 
 
 	const isAll = tree.every( ( node ) => node.checked );
 	if ( isAll ) {
-		optionsToSync.push( 'all' );
+		optionsToSync.push( SYNC_OPTIONS.all );
 	} else {
-		const isDatabaseSelected = tree.find( ( node ) => node.id === 'sqls' )?.checked;
+		const isDatabaseSelected = tree.find( ( node ) => node.id === SYNC_OPTIONS.sqls )?.checked;
 
 		if ( isDatabaseSelected ) {
-			optionsToSync.push( 'sqls' );
+			optionsToSync.push( SYNC_OPTIONS.sqls );
 		}
 
 		const filesAndFolders = tree.find( ( node ) => node.id === 'filesAndFolders' )?.children || [];

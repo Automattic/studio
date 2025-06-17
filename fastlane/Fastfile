@@ -120,10 +120,12 @@ def distribute_builds(
   UI.message("Running in #{DRY_RUN ? 'DRY RUN' : 'NORMAL'} mode")
   # If we are distributing a build without a tag, i.e. a development build, we also want to update the latest build reference for distribution.
   update_latest = release_tag.nil?
-  suffix = release_tag.nil? ? "v#{PACKAGE_VERSION}" : release_tag
-  release_notes = release_tag.nil? ? "Development build #{suffix}-#{build_number}" : "Release #{release_tag}"
   filename_root = 'studio'
   bucket_folder = 'wordpress-com-studio'
+  suffix = release_tag.nil? ? "v#{PACKAGE_VERSION}" : release_tag
+  release_notes = release_tag.nil? ? "Development build #{suffix}-#{build_number}" : "Release #{release_tag}"
+  build_type = release_tag.nil? ? 'Nightly' : 'Production'
+  version = release_tag.nil? ? "dev" : release_tag
 
   # Make sure the WPCOM API token is set
   wpcom_api_token = ENV['WPCOM_API_TOKEN']
@@ -201,14 +203,6 @@ def distribute_builds(
     }
   }
 
-  # Define the build type based on whether this is a release build or not
-  build_type = case release_tag
-               when nil
-                 'Nightly'
-               else
-                 'Production'
-               end
-
   # Upload to Apps CDN
   builds.each_value do |build|
     result = upload_file_to_apps_cdn(
@@ -219,7 +213,7 @@ def distribute_builds(
       build_type: build_type,
       install_type: build[:install_type],
       visibility: 'external',
-      version: PACKAGE_VERSION,
+      version: version,
       build_number: build_number,
       release_notes: release_notes,
       sha: build[:sha],

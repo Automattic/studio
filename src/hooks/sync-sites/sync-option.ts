@@ -7,8 +7,8 @@ export const SYNC_OPTIONS = {
 	contents: 'contents',
 } as const;
 
-export type SyncOption = ( typeof SYNC_OPTIONS )[ keyof typeof SYNC_OPTIONS ];
+export type SyncOption = keyof typeof SYNC_OPTIONS;
 
 export const isSyncOption = ( value: string ): value is SyncOption => {
-	return Object.values( SYNC_OPTIONS ).includes( value as SyncOption );
+	return Object.keys( SYNC_OPTIONS ).includes( value );
 };

@@ -3,6 +3,7 @@ import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo } from 'react';
 import { SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
+import { SyncOption } from 'src/hooks/sync-sites/sync-option';
 import {
 	ClearState,
 	generateStateId,
@@ -27,9 +28,17 @@ export type SyncPushState = {
 	remoteSiteUrl: string;
 };
 
+type PushSiteOptions = {
+	optionsToSync?: SyncOption[];
+};
+
 export type PushStates = Record< string, SyncPushState >;
 type OnPushSuccess = ( siteId: number, localSiteId: string ) => void;
-type PushSite = ( connectedSite: SyncSite, selectedSite: SiteDetails ) => Promise< void >;
+type PushSite = (
+	connectedSite: SyncSite,
+	selectedSite: SiteDetails,
+	options?: PushSiteOptions
+) => Promise< void >;
 type IsSiteIdPushing = ( selectedSiteId: string, remoteSiteId?: number ) => boolean;
 
 type UseSyncPushProps = {
@@ -171,7 +180,7 @@ export function useSyncPush( {
 	);
 
 	const pushSite = useCallback< PushSite >(
-		async ( connectedSite, selectedSite ) => {
+		async ( connectedSite, selectedSite, options ) => {
 			if ( ! client ) {
 				return;
 			}
@@ -225,7 +234,15 @@ export function useSyncPush( {
 			const file = new File( [ archiveContent ], 'loca-env-site-1.tar.gz', {
 				type: 'application/gzip',
 			} );
-			const formData = [ [ 'import', file ] ];
+
+			const formData = [];
+
+			formData.push( [ 'import', file ] );
+
+			if ( options?.optionsToSync ) {
+				formData.push( [ 'options', options.optionsToSync.join( ',' ) ] );
+			}
+
 			try {
 				const response = await client.req.post< {
 					success: boolean;

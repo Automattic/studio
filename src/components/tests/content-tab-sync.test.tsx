@@ -6,6 +6,7 @@ import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
 import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
 
@@ -66,6 +67,9 @@ describe( 'ContentTabSync', () => {
 			isSyncSitesSelectorOpen: false,
 			setIsSyncSitesSelectorOpen: jest.fn(),
 			closeSyncSitesSelector: jest.fn(),
+		} );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			selectiveSyncEnabled: false,
 		} );
 	} );
 

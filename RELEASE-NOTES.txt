@@ -1,5 +1,6 @@
 Unreleased
 ==========
+* Added a separate Settings button to open preferences #1477
 
 1.5.3
 =====

@@ -128,13 +128,6 @@ def distribute_builds(
   UI.user_error!("Environment variable WPCOM_API_TOKEN is not set") if ENV['WPCOM_API_TOKEN'].nil? && !DRY_RUN
 
   update_builds = {
-    mac_universal: {
-      binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-universal', 'Studio.app.zip'),
-      name: 'Mac Universal',
-      platform: 'Mac - Any',
-      install_type: 'Update',
-      sha: commit_hash
-    },
     x64: {
       binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-x64', 'Studio.app.zip'),
       name: 'Mac Intel',
@@ -159,12 +152,6 @@ def distribute_builds(
   }
 
   full_install_builds = {
-    mac_universal_dmg: {
-      binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-universal.dmg'),
-      name: 'Mac Universal (DMG)',
-      platform: 'Mac - Any',
-      install_type: 'Full Install'
-    },
     x64_dmg: {
       binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-x64.dmg'),
       name: 'Mac Intel (DMG)',

@@ -7,6 +7,7 @@ import Button from 'src/components/button';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
+import { SYNC_OPTIONS } from 'src/hooks/sync-sites/sync-option';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
@@ -139,25 +140,25 @@ export const useDefaultTree = (): TreeNode[] => {
 						type: 'folder',
 						children: [
 							{
-								id: 'plugins',
+								id: SYNC_OPTIONS.plugins,
 								label: 'plugins',
 								checked: true,
 								type: 'folder',
 							},
 							{
-								id: 'themes',
+								id: SYNC_OPTIONS.themes,
 								label: 'themes',
 								checked: true,
 								type: 'folder',
 							},
 							{
-								id: 'uploads',
+								id: SYNC_OPTIONS.uploads,
 								label: 'uploads',
 								checked: true,
 								type: 'folder',
 							},
 							{
-								id: 'contents',
+								id: SYNC_OPTIONS.contents,
 								label: __( 'Other files and directories' ),
 								checked: true,
 								type: 'folder',

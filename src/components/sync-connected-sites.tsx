@@ -17,6 +17,7 @@ import { SyncPullPushClear } from 'src/components/sync-pull-push-clear';
 import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
+import { SYNC_OPTIONS, SyncOption, isSyncOption } from 'src/hooks/sync-sites/sync-option';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useImportExport } from 'src/hooks/use-import-export';
@@ -26,6 +27,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
+import type { TreeNode } from 'src/components/tree-view';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 interface ConnectedSiteSection {
@@ -34,6 +36,32 @@ interface ConnectedSiteSection {
 	provider: 'wpcom';
 	connectedSites: SyncSite[];
 }
+
+export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOption[] => {
+	const optionsToSync: SyncOption[] = [];
+
+	const isAll = tree.every( ( node ) => node.checked );
+	if ( isAll ) {
+		optionsToSync.push( SYNC_OPTIONS.all );
+	} else {
+		const isDatabaseSelected = tree.find( ( node ) => node.id === SYNC_OPTIONS.sqls )?.checked;
+
+		if ( isDatabaseSelected ) {
+			optionsToSync.push( SYNC_OPTIONS.sqls );
+		}
+
+		const filesAndFolders = tree.find( ( node ) => node.id === 'filesAndFolders' )?.children || [];
+		const wpContent = filesAndFolders.find( ( node ) => node.id === 'wp-content' )?.children || [];
+
+		wpContent.forEach( ( item ) => {
+			if ( item.checked && isSyncOption( item.id ) ) {
+				optionsToSync.push( item.id );
+			}
+		} );
+	}
+
+	return optionsToSync;
+};
 
 const SyncConnectedSiteControls = ( {
 	connectedSite,
@@ -208,9 +236,11 @@ const SyncConnectedSiteControls = ( {
 						type={ syncDialogType }
 						localSite={ selectedSite }
 						remoteSite={ connectedSite }
-						onSubmit={ () => {
+						onSubmit={ ( tree ) => {
+							const optionsToSync = convertTreeToOptionsToSync( tree );
+
 							if ( syncDialogType === 'push' ) {
-								void pushSite( connectedSite, selectedSite );
+								void pushSite( connectedSite, selectedSite, { optionsToSync } );
 							} else {
 								pullSite( connectedSite, selectedSite );
 							}

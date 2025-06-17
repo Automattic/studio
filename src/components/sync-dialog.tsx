@@ -1,6 +1,5 @@
 import { SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
@@ -8,6 +7,7 @@ import Button from 'src/components/button';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
+import { SYNC_OPTIONS } from 'src/hooks/sync-sites/sync-option';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
@@ -119,6 +119,63 @@ type SyncDialogProps = {
 	onRequestClose: () => void;
 };
 
+export const useDefaultTree = (): TreeNode[] => {
+	const { __ } = useI18n();
+
+	return useMemo( () => {
+		return [
+			{
+				id: 'filesAndFolders',
+				label: __( 'Files and folders' ),
+				checked: true,
+				indeterminate: false,
+				expanded: false,
+				hideExpandButton: true,
+				children: [
+					{
+						id: 'wp-content',
+						label: 'wp-content',
+						checked: true,
+						indeterminate: false,
+						type: 'folder',
+						children: [
+							{
+								id: SYNC_OPTIONS.plugins,
+								label: 'plugins',
+								checked: true,
+								type: 'folder',
+							},
+							{
+								id: SYNC_OPTIONS.themes,
+								label: 'themes',
+								checked: true,
+								type: 'folder',
+							},
+							{
+								id: SYNC_OPTIONS.uploads,
+								label: 'uploads',
+								checked: true,
+								type: 'folder',
+							},
+							{
+								id: SYNC_OPTIONS.contents,
+								label: __( 'Other files and directories' ),
+								checked: true,
+								type: 'folder',
+							},
+						],
+					},
+				],
+			},
+			{
+				id: SYNC_OPTIONS.sqls,
+				label: __( 'Database' ),
+				checked: true,
+			},
+		];
+	}, [ __ ] );
+};
+
 export function SyncDialog( {
 	type,
 	localSite,
@@ -127,57 +184,12 @@ export function SyncDialog( {
 	onRequestClose,
 }: SyncDialogProps ) {
 	const locale = useI18nLocale();
+	const { __ } = useI18n();
 	const copy = useCopy( type );
+	const defaultTree = useDefaultTree();
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
-	const [ treeState, setTreeState ] = useState< TreeNode[] >( [
-		{
-			id: 'filesAndFolders',
-			label: __( 'Files and folders' ),
-			checked: true,
-			indeterminate: false,
-			expanded: false,
-			hideExpandButton: true,
-			children: [
-				{
-					id: 'wp-content',
-					label: 'wp-content',
-					checked: true,
-					indeterminate: false,
-					type: 'folder',
-					children: [
-						{
-							id: 'plugins',
-							label: 'plugins',
-							checked: true,
-							type: 'folder',
-							children: [
-								{ id: 'akismet', label: 'akismet', checked: true, type: 'folder' },
-								{ id: 'jetpack', label: 'jetpack', checked: true, type: 'folder' },
-							],
-						},
-						{
-							id: 'themes',
-							label: 'themes',
-							checked: true,
-							type: 'folder',
-						},
-						{
-							id: 'uploads',
-							label: 'uploads',
-							checked: true,
-							type: 'folder',
-						},
-					],
-				},
-			],
-		},
-		{
-			id: 'database',
-			label: __( 'Database' ),
-			checked: true,
-		},
-	] );
+	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );
 
 	const envDetails = useEnvDetails( remoteSite );
 

@@ -1,13 +1,14 @@
 import { SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { useI18n } from '@wordpress/react-i18n';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
 import { SYNC_OPTIONS } from 'src/hooks/sync-sites/sync-option';
+import { useWpList } from 'src/hooks/use-wp-list';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
@@ -190,6 +191,76 @@ export function SyncDialog( {
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );
+	const {
+		items: plugins,
+		isLoading: isLoadingPlugins,
+		error: pluginsError,
+	} = useWpList( localSite.id, 'plugin' );
+	const {
+		items: themes,
+		isLoading: isLoadingThemes,
+		error: themesError,
+	} = useWpList( localSite.id, 'theme' );
+
+	// Update the plugins tree state when the plugins are loaded
+	useEffect( () => {
+		if ( type === 'pull' ) {
+			return;
+		}
+
+		setTreeState( ( prev ) => {
+			const newState = [ ...prev ];
+			const filesAndFolders = newState.find( ( node ) => node.id === 'filesAndFolders' );
+			if ( filesAndFolders?.children ) {
+				const wpContent = filesAndFolders.children.find( ( node ) => node.id === 'wp-content' );
+				if ( wpContent?.children ) {
+					const pluginsNode = wpContent.children.find( ( node ) => node.id === 'plugins' );
+					if ( pluginsNode ) {
+						pluginsNode.loading = isLoadingPlugins;
+						pluginsNode.children = pluginsError
+							? undefined
+							: plugins.map( ( plugin ) => ( {
+									id: plugin,
+									label: plugin,
+									checked: pluginsNode.checked,
+									type: 'folder',
+							  } ) );
+					}
+				}
+			}
+			return newState;
+		} );
+	}, [ type, plugins, isLoadingPlugins, pluginsError ] );
+
+	// Update the themes tree state when the themes are loaded
+	useEffect( () => {
+		if ( type === 'pull' ) {
+			return;
+		}
+
+		setTreeState( ( prev ) => {
+			const newState = [ ...prev ];
+			const filesAndFolders = newState.find( ( node ) => node.id === 'filesAndFolders' );
+			if ( filesAndFolders?.children ) {
+				const wpContent = filesAndFolders.children.find( ( node ) => node.id === 'wp-content' );
+				if ( wpContent?.children ) {
+					const themesNode = wpContent.children.find( ( node ) => node.id === 'themes' );
+					if ( themesNode && themes ) {
+						themesNode.loading = isLoadingThemes;
+						themesNode.children = themesError
+							? undefined
+							: themes.map( ( theme ) => ( {
+									id: theme,
+									label: theme,
+									checked: themesNode.checked,
+									type: 'folder',
+							  } ) );
+					}
+				}
+			}
+			return newState;
+		} );
+	}, [ type, themes, isLoadingThemes, themesError ] );
 
 	const envDetails = useEnvDetails( remoteSite );
 

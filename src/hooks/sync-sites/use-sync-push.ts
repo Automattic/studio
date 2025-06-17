@@ -241,7 +241,7 @@ export function useSyncPush( {
 			formData.push( [ 'import', file ] );
 
 			if ( options?.optionsToSync ) {
-				formData.push( [ 'options', options.optionsToSync ] );
+				formData.push( [ 'options', options.optionsToSync.join( ',' ) ] );
 			}
 
 			try {

@@ -118,6 +118,63 @@ type SyncDialogProps = {
 	onRequestClose: () => void;
 };
 
+export const useDefaultTree = (): TreeNode[] => {
+	const { __ } = useI18n();
+
+	return useMemo( () => {
+		return [
+			{
+				id: 'filesAndFolders',
+				label: __( 'Files and folders' ),
+				checked: true,
+				indeterminate: false,
+				expanded: false,
+				hideExpandButton: true,
+				children: [
+					{
+						id: 'wp-content',
+						label: 'wp-content',
+						checked: true,
+						indeterminate: false,
+						type: 'folder',
+						children: [
+							{
+								id: 'plugins',
+								label: 'plugins',
+								checked: true,
+								type: 'folder',
+							},
+							{
+								id: 'themes',
+								label: 'themes',
+								checked: true,
+								type: 'folder',
+							},
+							{
+								id: 'uploads',
+								label: 'uploads',
+								checked: true,
+								type: 'folder',
+							},
+							{
+								id: 'contents',
+								label: __( 'Other files and directories' ),
+								checked: true,
+								type: 'folder',
+							},
+						],
+					},
+				],
+			},
+			{
+				id: 'sqls',
+				label: __( 'Database' ),
+				checked: true,
+			},
+		];
+	}, [ __ ] );
+};
+
 export function SyncDialog( {
 	type,
 	localSite,
@@ -128,58 +185,10 @@ export function SyncDialog( {
 	const locale = useI18nLocale();
 	const { __ } = useI18n();
 	const copy = useCopy( type );
+	const defaultTree = useDefaultTree();
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
-	const [ treeState, setTreeState ] = useState< TreeNode[] >( [
-		{
-			id: 'filesAndFolders',
-			label: __( 'Files and folders' ),
-			checked: true,
-			indeterminate: false,
-			expanded: false,
-			hideExpandButton: true,
-			children: [
-				{
-					id: 'wp-content',
-					label: 'wp-content',
-					checked: true,
-					indeterminate: false,
-					type: 'folder',
-					children: [
-						{
-							id: 'plugins',
-							label: 'plugins',
-							checked: true,
-							type: 'folder',
-						},
-						{
-							id: 'themes',
-							label: 'themes',
-							checked: true,
-							type: 'folder',
-						},
-						{
-							id: 'uploads',
-							label: 'uploads',
-							checked: true,
-							type: 'folder',
-						},
-						{
-							id: 'contents',
-							label: __( 'other files and directories' ),
-							checked: true,
-							type: 'folder',
-						},
-					],
-				},
-			],
-		},
-		{
-			id: 'sqls',
-			label: __( 'Database' ),
-			checked: true,
-		},
-	] );
+	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );
 
 	const envDetails = useEnvDetails( remoteSite );
 

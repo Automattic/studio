@@ -26,6 +26,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
+import type { TreeNode } from 'src/components/tree-view';
 import type { SyncPart } from 'src/hooks/sync-sites/use-sync-push';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
@@ -35,6 +36,32 @@ interface ConnectedSiteSection {
 	provider: 'wpcom';
 	connectedSites: SyncSite[];
 }
+
+export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncPart[] => {
+	const optionsToSync: SyncPart[] = [];
+
+	const isAll = tree.every( ( node ) => node.checked );
+	if ( isAll ) {
+		optionsToSync.push( 'all' );
+	} else {
+		const isDatabaseSelected = tree.find( ( node ) => node.id === 'sqls' )?.checked;
+
+		if ( isDatabaseSelected ) {
+			optionsToSync.push( 'sqls' );
+		}
+
+		const filesAndFolders = tree.find( ( node ) => node.id === 'filesAndFolders' )?.children || [];
+		const wpContent = filesAndFolders.find( ( node ) => node.id === 'wp-content' )?.children || [];
+
+		wpContent.forEach( ( item ) => {
+			if ( item.checked ) {
+				optionsToSync.push( item.id as SyncPart );
+			}
+		} );
+	}
+
+	return optionsToSync;
+};
 
 const SyncConnectedSiteControls = ( {
 	connectedSite,
@@ -210,29 +237,7 @@ const SyncConnectedSiteControls = ( {
 						localSite={ selectedSite }
 						remoteSite={ connectedSite }
 						onSubmit={ ( tree ) => {
-							const optionsToSync: SyncPart[] = [];
-
-							const isAll = tree.every( ( node ) => node.checked );
-							if ( isAll ) {
-								optionsToSync.push( 'all' );
-							} else {
-								const isDatabaseSelected = tree.find( ( node ) => node.id === 'sqls' )?.checked;
-
-								if ( isDatabaseSelected ) {
-									optionsToSync.push( 'sqls' );
-								}
-
-								const filesAndFolders =
-									tree.find( ( node ) => node.id === 'filesAndFolders' )?.children || [];
-								const wpContent =
-									filesAndFolders.find( ( node ) => node.id === 'wp-content' )?.children || [];
-
-								wpContent.forEach( ( item ) => {
-									if ( item.checked ) {
-										optionsToSync.push( item.id as SyncPart );
-									}
-								} );
-							}
+							const optionsToSync = convertTreeToOptionsToSync( tree );
 
 							if ( syncDialogType === 'push' ) {
 								void pushSite( connectedSite, selectedSite, { optionsToSync } );

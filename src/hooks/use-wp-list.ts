@@ -16,7 +16,6 @@ export function useWpList( siteId: string, type: WpListType ) {
 				setIsLoading( true );
 				setError( null );
 				const entries = await getIpcApi().listWpContentFolders( siteId, type );
-				console.log( 'entries', type, entries );
 				setItems( entries );
 			} catch ( err ) {
 				Sentry.captureException( err );

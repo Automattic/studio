@@ -1389,9 +1389,7 @@ export async function listWpContentFolders(
 ): Promise< { name: string; type: 'file' | 'folder' }[] > {
 	const server = SiteServer.get( siteId );
 	if ( ! server ) throw new Error( 'Site not found' );
-	console.log( 'listing', siteId, subdir );
 	const wpContentPath = nodePath.join( server.details.path, 'wp-content', subdir );
-	console.log( 'wpContentPath', wpContentPath );
 
 	try {
 		const entries = await fs.promises.readdir( wpContentPath, { withFileTypes: true } );

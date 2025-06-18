@@ -16,7 +16,13 @@ export function useWpList( siteId: string, type: WpListType ) {
 				setIsLoading( true );
 				setError( null );
 				const entries = await getIpcApi().listWpContentFolders( siteId, type );
-				setItems( entries );
+				const sortedEntries = entries.slice().sort( ( a, b ) => {
+					if ( a.type !== b.type ) {
+						return a.type === 'folder' ? -1 : 1;
+					}
+					return a.name.toLowerCase() > b.name.toLowerCase() ? 1 : -1;
+				} );
+				setItems( sortedEntries );
 			} catch ( err ) {
 				Sentry.captureException( err );
 				setError( err instanceof Error ? err : new Error( `Failed to fetch ${ type }s` ) );

@@ -90,7 +90,7 @@ lane :distribute_release_build do |_options|
     success: true,
     slack_url: get_required_env('SLACK_WEBHOOK'),
     payload: {
-      ':studio-app-icon-mac: Release available for': builds.each_value.select { |b| b[:cdn_url] }.map { |b| "[#{b[:name]}](#{b[:cdn_url]})" }.join(', ')
+      ':studio-app-icon-mac: Release available for': builds.each_value.map { |b| "[#{b[:name]}](#{b[:cdn_url]})" }.join(', ')
     },
     default_payloads: []
   )

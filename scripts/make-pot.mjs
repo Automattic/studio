@@ -31,7 +31,7 @@ const commands = [
 	{
 		command:
 			'wp-babel-makepot "{./src,./cli,./common}/**/*.{js,jsx,ts,tsx}" --ignore "**/*.d.ts" --base "." --dir "./out/pots" --output "./out/pots/bundle-strings.pot"',
-		description: 'Generating pot file wp-babel-makepot',
+		description: 'Generating pot file with wp-babel-makepot',
 	},
 	{
 		command: `open "${ IMPORT_PAGE }"`,
@@ -53,4 +53,4 @@ for ( const { command, description } of commands ) {
 	}
 }
 
-console.log( '\n✅ Drag and drop the pot file into GlotPress!' );
+console.log( '\n✅ Success! Now drag and drop the "bundle-strings.pot" file into GlotPress.' );

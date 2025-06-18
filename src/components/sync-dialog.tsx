@@ -1,7 +1,7 @@
 import { SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { useI18n } from '@wordpress/react-i18n';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { CircleEnvIcon } from 'src/components/icons/circle-env';
@@ -13,9 +13,7 @@ import { useWpList } from 'src/hooks/use-wp-list';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
-import { useCopy } from './use-copy';
-import { useDefaultTree } from './use-default-tree';
-import { useEnvDetails } from './use-env-details';
+import { EnvironmentType } from './environment-badge';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 type SyncDialogProps = {
@@ -24,6 +22,159 @@ type SyncDialogProps = {
 	remoteSite: SyncSite;
 	onSubmit: ( syncData: TreeNode[] ) => void;
 	onRequestClose: () => void;
+};
+
+const useCopy = ( type: 'pull' | 'push' ) => {
+	const { __ } = useI18n();
+
+	return useMemo( () => {
+		if ( type === 'pull' ) {
+			return {
+				staging: {
+					title: __( 'Pull from Staging' ),
+					description: __(
+						"Pulling will replace your Studio site's files and database with a copy from your staging site."
+					),
+				},
+				sandbox: {
+					title: __( 'Pull from Sandbox' ),
+					description: __(
+						"Pulling will replace your Studio site's files and database with a copy from your sandbox site."
+					),
+				},
+				production: {
+					title: __( 'Pull from Production' ),
+					description: __(
+						"Pulling will replace your Studio site's files and database with a copy from your production site."
+					),
+				},
+				fromLabel: __( 'Pull' ),
+				toLabel: __( 'To' ),
+				subtitleSelector: __( 'What would you like to pull?' ),
+				envSync: __( 'Read more about <a>environment pull <ArrowIcon /></a>' ),
+				submit: __( 'Pull' ),
+			};
+		} else {
+			return {
+				staging: {
+					title: __( 'Push to Staging' ),
+					description: __(
+						'Pushing will replace the existing files and database with a copy from your local site.\n\n The staging site will be backed-up before any changes are applied.'
+					),
+				},
+				sandbox: {
+					title: __( 'Push to Sandbox' ),
+					description: __(
+						'Pushing will replace the existing files and database with a copy from your local site.\n\n The sandbox site will be backed-up before any changes are applied.'
+					),
+				},
+				production: {
+					title: __( 'Push to Production' ),
+					description: __(
+						'Pushing will replace the existing files and database with a copy from your local site.\n\n The production site will be backed-up before any changes are applied.'
+					),
+				},
+				fromLabel: __( 'Push' ),
+				toLabel: __( 'To' ),
+				subtitleSelector: __( 'What would you like to push?' ),
+				envSync: __( 'Read more about <a>environment push <ArrowIcon /></a>' ),
+				submit: __( 'Push' ),
+			};
+		}
+	}, [ type, __ ] );
+};
+
+export const useDefaultTree = (): TreeNode[] => {
+	const { __ } = useI18n();
+
+	return useMemo( () => {
+		return [
+			{
+				id: 'filesAndFolders',
+				label: __( 'Files and folders' ),
+				checked: true,
+				indeterminate: false,
+				expanded: false,
+				hideExpandButton: true,
+				children: [
+					{
+						id: 'wp-content',
+						label: 'wp-content',
+						checked: true,
+						indeterminate: false,
+						type: 'folder',
+						children: [
+							{
+								id: SYNC_OPTIONS.plugins,
+								label: 'plugins',
+								checked: true,
+								type: 'folder',
+							},
+							{
+								id: SYNC_OPTIONS.themes,
+								label: 'themes',
+								checked: true,
+								type: 'folder',
+							},
+							{
+								id: SYNC_OPTIONS.uploads,
+								label: 'uploads',
+								checked: true,
+								type: 'folder',
+							},
+							{
+								id: SYNC_OPTIONS.contents,
+								label: __( 'Other files and directories' ),
+								checked: true,
+								type: 'folder',
+							},
+						],
+					},
+				],
+			},
+			{
+				id: SYNC_OPTIONS.sqls,
+				label: __( 'Database' ),
+				checked: true,
+			},
+		];
+	}, [ __ ] );
+};
+
+const useEnvDetails = (
+	connectedSite: SyncSite
+): { label: string; envType: EnvironmentType; fillClass: string } => {
+	const { __ } = useI18n();
+
+	const envTypeValues = {
+		production: {
+			label: __( 'Production' ),
+			envType: 'production',
+			fillClass: 'fill-circle-env-production',
+		},
+		staging: {
+			label: __( 'Staging' ),
+			envType: 'staging',
+			fillClass: 'fill-circle-env-staging',
+		},
+		sandbox: {
+			label: __( 'Sandbox' ),
+			envType: 'sandbox',
+			fillClass: 'fill-sandbox-text',
+		},
+	} as const;
+
+	if ( connectedSite.isPressable ) {
+		return (
+			envTypeValues[ connectedSite.environmentType as EnvironmentType ] ?? envTypeValues.production
+		);
+	}
+
+	if ( connectedSite.isStaging ) {
+		return envTypeValues.staging;
+	} else {
+		return envTypeValues.production;
+	}
 };
 
 export function SyncDialog( {

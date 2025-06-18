@@ -30,6 +30,12 @@ If you want to add support for another language you will need to add it to the
    3. Click **Import Originals**.
    4. Import `out/pots/bundle-strings.pot` (auto-detecting the file format is fine).
 
+#### Alternative: Use the Smart Import
+
+If you want to import the strings directly into GlotPress, you can use the
+`npm run make-pot:smart` command. This will run the `make-pot` command and then
+open the import page in your browser and select the `bundle-strings.pot` file.
+
 ### Export and Add
 
 #### Step 1: Export from GlotPress:

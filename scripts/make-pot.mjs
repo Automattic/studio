@@ -2,7 +2,6 @@ import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
-// Get the directory of this script and the project root
 const __filename = fileURLToPath( import.meta.url );
 const __dirname = dirname( __filename );
 const projectRoot = dirname( __dirname );
@@ -10,7 +9,7 @@ const projectRoot = dirname( __dirname );
 const POT_FILE = join( projectRoot, 'out', 'pots', 'bundle-strings.pot' );
 const IMPORT_PAGE = 'https://translate.wordpress.com/projects/studio/import-originals/';
 
-function executeCommand( command, description, exitOnError = true ) {
+function executeCommand( command, description ) {
 	try {
 		console.log( `🔄 ${ description }` );
 		execSync( command, { stdio: 'inherit', cwd: projectRoot } );

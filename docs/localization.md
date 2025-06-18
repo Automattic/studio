@@ -17,24 +17,17 @@ If you want to add support for another language you will need to add it to the
 
 #### Step 1: Extract Strings:
 
-   1. Remove `out/pots/` directory if it exists.
-   2. Run `npm run make-pot` to get the text out of the source files.
+   1. Run `npm run make-pot` to get the text out of the source files.
 
-   This will create a `*.pot` file for each module, as well as a bundle
+   This will remove the `out/pots/` directory and create a `*.pot` file for each module, as well as a bundle
    of all translatable strings in `out/pots/bundle-strings.pot`.
+   It will also open the import page in your browser and select the `bundle-strings.pot` file.
 
 #### Step 2: Import to GlotPress:
 
-   1. Open [our project in GlotPress](https://translate.wordpress.com/projects/studio/).
-   2. Click the **Project actions** menu. You must be a proxied Automattician to view the menu.
-   3. Click **Import Originals**.
-   4. Import `out/pots/bundle-strings.pot` (auto-detecting the file format is fine).
-
-#### Alternative: Use the Smart Import
-
-If you want to import the strings directly into GlotPress, you can use the
-`npm run make-pot:smart` command. This will run the `make-pot` command and then
-open the import page in your browser and select the `bundle-strings.pot` file.
+   1. Drag and drop the `out/pots/bundle-strings.pot` to the file input in the GlotPress Studio page https://translate.wordpress.com/projects/studio/import-originals/
+   2. Leave the format as "auto-detecting".
+   3. Click **Import** and wait for the import to complete.
 
 ### Export and Add
 

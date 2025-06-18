@@ -1,0 +1,57 @@
+import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// Get the directory of this script and the project root
+const __filename = fileURLToPath( import.meta.url );
+const __dirname = dirname( __filename );
+const projectRoot = dirname( __dirname );
+
+const POT_FILE = join( projectRoot, 'out', 'pots', 'bundle-strings.pot' );
+const IMPORT_PAGE = 'https://translate.wordpress.com/projects/studio/import-originals/';
+
+function executeCommand( command, description, exitOnError = true ) {
+	try {
+		console.log( `🔄 ${ description }` );
+		execSync( command, { stdio: 'inherit', cwd: projectRoot } );
+		return true;
+	} catch ( error ) {
+		console.error( `❌ Error: ${ description } failed` );
+		console.error( error.message );
+		return false;
+	}
+}
+
+console.log( '✨ Starting pot files generation...\n' );
+
+const commands = [
+	{
+		command: 'rm -rf ./out/pots',
+		description: 'Removing existing pot files',
+	},
+	{
+		command:
+			'wp-babel-makepot "{./src,./cli,./common}/**/*.{js,jsx,ts,tsx}" --ignore "**/*.d.ts" --base "." --dir "./out/pots" --output "./out/pots/bundle-strings.pot"',
+		description: 'Generating pot file wp-babel-makepot',
+	},
+	{
+		command: `open "${ IMPORT_PAGE }"`,
+		description: `Opening the translation import page ${ IMPORT_PAGE } in the browser`,
+	},
+	{
+		command: 'sleep 0.5',
+		description: 'Waiting for the browser to open',
+	},
+	{
+		command: `open -R "${ POT_FILE }"`,
+		description: `Revealing pot file in Finder: ${ POT_FILE }`,
+	},
+];
+
+for ( const { command, description } of commands ) {
+	if ( ! executeCommand( command, description ) ) {
+		process.exit( 1 );
+	}
+}
+
+console.log( '\n✅ Drag and drop the pot file into GlotPress!' );

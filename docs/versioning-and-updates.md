@@ -42,4 +42,4 @@ latest dev build, then will be updated to the prod build. Otherwise, to the late
 
 ## Releases Manifest and CDN
 
-The `releases.json` file serves as an authoritative source of update information for the App to update. It is generated entirely by the Apps CDN endpoint https://appscdn.wordpress.com/builds/wordpress-com-studio/releases.json.
+The `releases.json` file serves as an authoritative source of update information for the App to update. It is generated entirely by the Apps CDN endpoint https://appscdn.wordpress.com/builds/wordpress-com-studio/releases.json proxied from https://public-api.wordpress.com/wpcom/v2/studio-app/updates?platform=darwin&arch=arm64&version=1.5.3-dev2

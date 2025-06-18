@@ -9,7 +9,7 @@ import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
 import { SYNC_OPTIONS } from 'src/hooks/sync-sites/sync-option';
-import { useWpList } from 'src/hooks/use-wp-list';
+import { useWpList, WpListType } from 'src/hooks/use-wp-list';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
@@ -177,6 +177,50 @@ export const useDefaultTree = (): TreeNode[] => {
 	}, [ __ ] );
 };
 
+const WP_LIST_ITEMS: WpListType[] = [ 'plugins', 'themes' ];
+
+const useDynamicTreeState = (
+	type: 'push' | 'pull',
+	localSiteId: string,
+	setTreeState: React.Dispatch< React.SetStateAction< TreeNode[] > >
+) => {
+	const wpListResults = useWpList( localSiteId, WP_LIST_ITEMS );
+
+	useEffect( () => {
+		if ( type === 'pull' ) {
+			return;
+		}
+
+		setTreeState( ( prev ) => {
+			let newState = [ ...prev ];
+
+			const syncOptions = {
+				plugins: SYNC_OPTIONS.plugins,
+				themes: SYNC_OPTIONS.themes,
+			} as const;
+
+			WP_LIST_ITEMS.forEach( ( wpType ) => {
+				const { items, isLoading, error } = wpListResults[ wpType ];
+				const children: TreeNode[] | undefined = error
+					? undefined
+					: items.map( ( item ) => ( {
+							id: item.name,
+							label: item.name,
+							checked: true,
+							type: item.type,
+					  } ) );
+
+				newState = updateNodeById( newState, syncOptions[ wpType ], {
+					loading: isLoading,
+					children,
+				} );
+			} );
+
+			return newState;
+		} );
+	}, [ type, wpListResults, setTreeState ] );
+};
+
 export function SyncDialog( {
 	type,
 	localSite,
@@ -191,66 +235,8 @@ export function SyncDialog( {
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );
-	const {
-		items: plugins,
-		isLoading: isLoadingPlugins,
-		error: pluginsError,
-	} = useWpList( localSite.id, 'plugins' );
-	const {
-		items: themes,
-		isLoading: isLoadingThemes,
-		error: themesError,
-	} = useWpList( localSite.id, 'themes' );
 
-	// Update the plugins tree state when the plugins are loaded
-	useEffect( () => {
-		if ( type === 'pull' ) {
-			return;
-		}
-
-		setTreeState( ( prev ) => {
-			const newState = [ ...prev ];
-			const pluginsChildren: TreeNode[] | undefined = pluginsError
-				? undefined
-				: plugins.map( ( plugin ) => ( {
-						id: plugin.name,
-						label: plugin.name,
-						checked: true,
-						type: plugin.type,
-				  } ) );
-			const updated = updateNodeById( newState, SYNC_OPTIONS.plugins, {
-				loading: isLoadingPlugins,
-				children: pluginsChildren,
-			} );
-
-			return updated;
-		} );
-	}, [ type, plugins, isLoadingPlugins, pluginsError ] );
-
-	// Update the themes tree state when the themes are loaded
-	useEffect( () => {
-		if ( type === 'pull' ) {
-			return;
-		}
-
-		setTreeState( ( prev ) => {
-			const newState = [ ...prev ];
-			const themesChildren: TreeNode[] | undefined = themesError
-				? undefined
-				: themes.map( ( theme ) => ( {
-						id: theme.name,
-						label: theme.name,
-						checked: true,
-						type: theme.type,
-				  } ) );
-			const updated = updateNodeById( newState, SYNC_OPTIONS.themes, {
-				loading: isLoadingThemes,
-				children: themesChildren,
-			} );
-
-			return updated;
-		} );
-	}, [ type, themes, isLoadingThemes, themesError ] );
+	useDynamicTreeState( type, localSite.id, setTreeState );
 
 	const envDetails = useEnvDetails( remoteSite );
 

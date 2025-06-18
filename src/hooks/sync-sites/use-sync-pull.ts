@@ -3,6 +3,7 @@ import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo } from 'react';
 import { SYNC_PUSH_SIZE_LIMIT_GB, SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
+import { SyncOption } from 'src/hooks/sync-sites/sync-option';
 import {
 	ClearState,
 	generateStateId,
@@ -31,9 +32,17 @@ export type SyncBackupState = {
 	remoteSiteUrl: string;
 };
 
+type PullSiteOptions = {
+	optionsToSync?: SyncOption[];
+};
+
 export type PullStates = Record< string, SyncBackupState >;
 type OnPullSuccess = ( siteId: number, localSiteId: string ) => void;
-type PullSite = ( connectedSite: SyncSite, selectedSite: SiteDetails ) => void;
+type PullSite = (
+	connectedSite: SyncSite,
+	selectedSite: SiteDetails,
+	options?: PullSiteOptions
+) => void;
 type IsSiteIdPulling = ( selectedSiteId: string, remoteSiteId?: number ) => boolean;
 
 type UseSyncPullProps = {
@@ -97,7 +106,7 @@ export function useSyncPull( {
 	const { startServer } = useSiteDetails();
 
 	const pullSite = useCallback< PullSite >(
-		async ( connectedSite, selectedSite ) => {
+		async ( connectedSite, selectedSite, options ) => {
 			if ( ! client ) {
 				return;
 			}
@@ -118,6 +127,9 @@ export function useSyncPull( {
 				const response = await client.req.post< { success: boolean; backup_id: string } >( {
 					path: `/sites/${ remoteSiteId }/studio-app/sync/backup`,
 					apiNamespace: 'wpcom/v2',
+					body: {
+						options: options?.optionsToSync,
+					},
 				} );
 
 				if ( response.success ) {

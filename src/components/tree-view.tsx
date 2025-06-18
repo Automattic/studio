@@ -1,4 +1,5 @@
 import { CheckboxControl, Spinner } from '@wordpress/components';
+import FileIcon from 'src/components/icons/file';
 import { FolderIcon } from 'src/components/icons/folder';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import { cx } from 'src/lib/cx';
@@ -11,7 +12,7 @@ export type TreeNode = {
 	expanded?: boolean;
 	hideExpandButton?: boolean;
 	children?: TreeNode[];
-	type?: 'folder';
+	type?: 'folder' | 'file';
 	loading?: boolean;
 };
 
@@ -93,6 +94,7 @@ const TreeItem = ( {
 						__nextHasNoMarginBottom
 					/>
 					{ node.type === 'folder' && <FolderIcon /> }
+					{ node.type === 'file' && <FileIcon /> }
 					<span>{ node.label }</span>
 				</label>
 				{ node.loading && <Spinner className="!w-[9px] !h-[9px] !m-0" /> }

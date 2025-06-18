@@ -118,6 +118,8 @@ const api: IpcApi = {
 	saveUserEditor: ( editor ) => ipcRendererInvoke( 'saveUserEditor', editor ),
 	handleNewSite: ( newSite ) => ipcRendererInvoke( 'handleNewSite', newSite ),
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
+	listWpContentFolders: ( siteId, type ) =>
+		ipcRenderer.invoke( 'listWpContentFolders', siteId, type ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

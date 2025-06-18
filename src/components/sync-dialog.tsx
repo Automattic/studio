@@ -195,12 +195,12 @@ export function SyncDialog( {
 		items: plugins,
 		isLoading: isLoadingPlugins,
 		error: pluginsError,
-	} = useWpList( localSite.id, 'plugin' );
+	} = useWpList( localSite.id, 'plugins' );
 	const {
 		items: themes,
 		isLoading: isLoadingThemes,
 		error: themesError,
-	} = useWpList( localSite.id, 'theme' );
+	} = useWpList( localSite.id, 'themes' );
 
 	// Update the plugins tree state when the plugins are loaded
 	useEffect( () => {
@@ -213,10 +213,10 @@ export function SyncDialog( {
 			const pluginsChildren: TreeNode[] | undefined = pluginsError
 				? undefined
 				: plugins.map( ( plugin ) => ( {
-						id: plugin,
-						label: plugin,
+						id: plugin.name,
+						label: plugin.name,
 						checked: true,
-						type: 'folder',
+						type: plugin.type,
 				  } ) );
 			const updated = updateNodeById( newState, SYNC_OPTIONS.plugins, {
 				loading: isLoadingPlugins,
@@ -238,10 +238,10 @@ export function SyncDialog( {
 			const themesChildren: TreeNode[] | undefined = themesError
 				? undefined
 				: themes.map( ( theme ) => ( {
-						id: theme,
-						label: theme,
+						id: theme.name,
+						label: theme.name,
 						checked: true,
-						type: 'folder',
+						type: theme.type,
 				  } ) );
 			const updated = updateNodeById( newState, SYNC_OPTIONS.themes, {
 				loading: isLoadingThemes,

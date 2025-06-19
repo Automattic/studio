@@ -9,6 +9,7 @@ import { PHP } from '@php-wasm/universal';
 import startWPNow from './wp-now';
 import { output } from './output';
 import { addTrailingSlash } from './add-trailing-slash';
+import { isOnline } from './network';
 
 const requestBodyToBytes = async ( req ): Promise< Uint8Array > =>
 	await new Promise( ( resolve ) => {
@@ -81,6 +82,10 @@ export async function startServer( options: WPNowOptions = {} ): Promise< WPNowS
 				for ( let i = 0; i < req.rawHeaders.length; i += 2 ) {
 					requestHeaders[ req.rawHeaders[ i ].toLowerCase() ] = req.rawHeaders[ i + 1 ];
 				}
+			}
+
+			if ( req.url.startsWith('/wp-admin') && ! await isOnline() ) {
+				requestHeaders['STUDIO_IS_OFFLINE'] = 'true';
 			}
 
 			const data = {

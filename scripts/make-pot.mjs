@@ -38,10 +38,6 @@ const commands = [
 		description: `Revealing pot file in Finder: ${ POT_FILE }`,
 	},
 	{
-		command: 'sleep 0.5',
-		description: 'Waiting for the Finder to open',
-	},
-	{
 		command: `open "${ IMPORT_PAGE }"`,
 		description: `Opening the translation import page ${ IMPORT_PAGE } in the browser`,
 	}

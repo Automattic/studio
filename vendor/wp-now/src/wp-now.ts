@@ -46,6 +46,7 @@ import {
 	getPluginFile,
 	readFileHead,
 } from './wp-playground-wordpress';
+import { isOnline } from './network';
 
 export default async function startWPNow(
 	options: Partial< WPNowOptions > = {}
@@ -584,6 +585,23 @@ async function mountInternalMuPlugins( php: PHP, options: WPNowOptions ) {
 	}
 
 	php.writeFile(
+		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-block-offline-external-request.php' ),
+		`<?php
+		add_filter( 'pre_http_request', function( $preempt, $parsed_args, $url ) {
+			if ( isset( $_SERVER['HTTP_STUDIO_IS_OFFLINE'] ) ) {
+				$parsed_url = parse_url( $url );
+				$host = isset( $parsed_url['host'] ) ? $parsed_url['host'] : $url;
+				return new WP_Error(
+					'request_failed',
+					sprintf( __( 'Could not resolve host: %s' ), $host )
+				);
+			}
+			return $preempt;
+		}, 10, 3 );
+		`
+	);
+
+	php.writeFile(
 		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-http-request-timeout.php' ),
 		`<?php
 		// Increase default timeouts to 30 seconds to accommodate slower network conditions and larger requests
@@ -676,9 +694,16 @@ async function installationSteps( php: PHP, options: WPNowOptions ) {
 	const siteLanguage = options.siteLanguage;
 
 	const executeStep = async ( step: 0 | 1 | 2 ) => {
+		const requestHeaders = {};
+
+		if ( ! await isOnline() ) {
+			requestHeaders['STUDIO_IS_OFFLINE'] = 'true';
+		}
+
 		return php.requestHandler.request( {
 			url: `/wp-admin/install.php?step=${ step }`,
 			method: 'POST',
+			headers: requestHeaders,
 			body:
 				step === 2
 					? {
@@ -695,6 +720,7 @@ async function installationSteps( php: PHP, options: WPNowOptions ) {
 					: {
 							language: siteLanguage,
 					  },
+
 		} );
 	};
 	// First two steps are needed to download and set translations

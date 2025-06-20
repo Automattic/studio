@@ -73,6 +73,7 @@ import {
 	updateAppdata,
 } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
+import type { SyncOption } from 'src/hooks/sync-sites/sync-option';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -655,24 +656,31 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string, format
 	return { archivePath, archiveSizeInBytes: stats.size };
 }
 
-export async function exportSiteToPush( event: IpcMainInvokeEvent, id: string ) {
+export async function exportSiteToPush(
+	event: IpcMainInvokeEvent,
+	id: string,
+	optionsToSync?: SyncOption[]
+) {
 	const site = SiteServer.get( id );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
 	const extension = 'tar.gz';
 	const archivePath = `${ TEMP_DIR }site_${ id }.${ extension }`;
+
+	const includes = {
+		database: optionsToSync?.includes( 'sqls' ) || optionsToSync?.includes( 'all' ) || false,
+		uploads: optionsToSync?.includes( 'uploads' ) || optionsToSync?.includes( 'all' ) || false,
+		plugins: optionsToSync?.includes( 'plugins' ) || optionsToSync?.includes( 'all' ) || false,
+		themes: optionsToSync?.includes( 'themes' ) || optionsToSync?.includes( 'all' ) || false,
+		muPlugins: optionsToSync?.includes( 'contents' ) || optionsToSync?.includes( 'all' ) || false,
+		fonts: optionsToSync?.includes( 'contents' ) || optionsToSync?.includes( 'all' ) || false,
+	};
+
 	const exportOptions: ExportOptions = {
 		site: site.details,
 		backupFile: archivePath,
-		includes: {
-			database: true,
-			uploads: true,
-			plugins: true,
-			themes: true,
-			muPlugins: true,
-			fonts: true,
-		},
+		includes,
 		phpVersion: site.details.phpVersion,
 		splitDatabaseDumpByTable: true,
 	};

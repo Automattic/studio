@@ -22,7 +22,8 @@ function ipcRendererSend< T extends keyof IpcHandlers >(
 
 const api: IpcApi = {
 	archiveSite: ( id, format ) => ipcRendererInvoke( 'archiveSite', id, format ),
-	exportSiteToPush: ( id ) => ipcRendererInvoke( 'exportSiteToPush', id ),
+	exportSiteToPush: ( id, optionsToSync? ) =>
+		ipcRendererInvoke( 'exportSiteToPush', id, optionsToSync ),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
 	createSite: ( path, name, wpVersion, customDomain, enableHttps ) =>
 		ipcRendererInvoke( 'createSite', path, name, wpVersion, customDomain, enableHttps ),

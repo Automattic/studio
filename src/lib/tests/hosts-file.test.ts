@@ -150,23 +150,34 @@ describe( 'hosts-file', () => {
 	describe( 'createHostsEntryPattern', () => {
 		it( 'should remove backslashes as a security measure', () => {
 			const pattern = createHostsEntryPattern( 'test\\backslash.wp.cloud' );
-			// The pattern should match a domain with backslashes removed
-			expect( '127.0.0.1 testbackslash.wp.cloud # Port 8000' ).toMatch( pattern );
-			expect( '127.0.0.1 test\\backslash.wp.cloud # Port 8000' ).not.toMatch( pattern );
+			const expectedPattern = /127\.0\.0\.1\s+testbackslash\.wp\.cloud(\s|$)/i;
+
+			expect( pattern.source ).toBe( expectedPattern.source );
+			expect( pattern.flags ).toBe( expectedPattern.flags );
 		} );
 
-		it( 'should escape dots in domain names', () => {
+		it( 'should escape dots and other regex special characters', () => {
 			const pattern = createHostsEntryPattern( 'test.example.com' );
-			// Should match the exact domain
-			expect( '127.0.0.1 test.example.com # Port 8000' ).toMatch( pattern );
-			// Should not match a domain with extra dots
-			expect( '127.0.0.1 testxexample.com # Port 8000' ).not.toMatch( pattern );
+			const expectedPattern = /127\.0\.0\.1\s+test\.example\.com(\s|$)/i;
+
+			expect( pattern.source ).toBe( expectedPattern.source );
+			expect( pattern.flags ).toBe( expectedPattern.flags );
 		} );
 
 		it( 'should handle domains with multiple backslashes', () => {
 			const pattern = createHostsEntryPattern( 'test\\\\backslash.wp.cloud' );
-			// Should match the domain with all backslashes removed
-			expect( '127.0.0.1 testbackslash.wp.cloud # Port 8000' ).toMatch( pattern );
+			const expectedPattern = /127\.0\.0\.1\s+testbackslash\.wp\.cloud(\s|$)/i;
+
+			expect( pattern.source ).toBe( expectedPattern.source );
+			expect( pattern.flags ).toBe( expectedPattern.flags );
+		} );
+
+		it( 'should escape other regex special characters', () => {
+			const pattern = createHostsEntryPattern( 'test+example*com' );
+			const expectedPattern = /127\.0\.0\.1\s+test\+example\*com(\s|$)/i;
+
+			expect( pattern.source ).toBe( expectedPattern.source );
+			expect( pattern.flags ).toBe( expectedPattern.flags );
 		} );
 	} );
 

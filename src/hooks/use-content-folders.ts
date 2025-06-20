@@ -14,16 +14,10 @@ export function useContentFolders(
 	siteId: string,
 	types: WpContentFolder[]
 ): Record< WpContentFolder, WpContentFolderResult > {
-	const [ results, setResults ] = useState< Record< WpContentFolder, WpContentFolderResult > >(
-		() => {
-			const initialResults: Record< WpContentFolder, WpContentFolderResult > = {
-				plugins: { items: [], isLoading: true, error: null },
-				themes: { items: [], isLoading: true, error: null },
-			};
-
-			return initialResults;
-		}
-	);
+	const [ results, setResults ] = useState< Record< WpContentFolder, WpContentFolderResult > >( {
+		plugins: { items: [], isLoading: true, error: null },
+		themes: { items: [], isLoading: true, error: null },
+	} );
 
 	useEffect( () => {
 		types.forEach( async ( type ) => {

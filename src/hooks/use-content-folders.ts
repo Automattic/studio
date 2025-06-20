@@ -47,7 +47,7 @@ export function useContentFolders(
 				} ) );
 			} catch ( err ) {
 				Sentry.captureException( err );
-				const error = err instanceof Error ? err : new Error( `Failed to fetch ${ type }s` );
+				const error = err instanceof Error ? err : new Error( `Failed to fetch ${ type }` );
 				setResults( ( prev ) => ( {
 					...prev,
 					[ type ]: { ...prev[ type ], isLoading: false, error },

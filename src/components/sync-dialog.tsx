@@ -9,7 +9,7 @@ import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
 import { SYNC_OPTIONS } from 'src/hooks/sync-sites/sync-option';
-import { useWpList, WpListType } from 'src/hooks/use-wp-list';
+import { useContentFolders, WpContentFolder } from 'src/hooks/use-content-folders';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
@@ -177,14 +177,13 @@ export const useDefaultTree = (): TreeNode[] => {
 	}, [ __ ] );
 };
 
-const WP_LIST_ITEMS: WpListType[] = [ 'plugins', 'themes' ];
-
 const useDynamicTreeState = (
 	type: 'push' | 'pull',
 	localSiteId: string,
 	setTreeState: React.Dispatch< React.SetStateAction< TreeNode[] > >
 ) => {
-	const wpListResults = useWpList( localSiteId, WP_LIST_ITEMS );
+	const wpFolders: WpContentFolder[] = useMemo( () => [ 'plugins', 'themes' ], [] );
+	const wpContent = useContentFolders( localSiteId, wpFolders );
 
 	useEffect( () => {
 		if ( type === 'pull' ) {
@@ -194,13 +193,8 @@ const useDynamicTreeState = (
 		setTreeState( ( prev ) => {
 			let newState = [ ...prev ];
 
-			const syncOptions = {
-				plugins: SYNC_OPTIONS.plugins,
-				themes: SYNC_OPTIONS.themes,
-			} as const;
-
-			WP_LIST_ITEMS.forEach( ( wpType ) => {
-				const { items, isLoading, error } = wpListResults[ wpType ];
+			wpFolders.forEach( ( wpType ) => {
+				const { items, isLoading, error } = wpContent[ wpType ];
 				const children: TreeNode[] | undefined = error
 					? undefined
 					: items.map( ( item ) => ( {
@@ -210,7 +204,7 @@ const useDynamicTreeState = (
 							type: item.type,
 					  } ) );
 
-				newState = updateNodeById( newState, syncOptions[ wpType ], {
+				newState = updateNodeById( newState, SYNC_OPTIONS[ wpType ], {
 					loading: isLoading,
 					children,
 				} );
@@ -218,7 +212,7 @@ const useDynamicTreeState = (
 
 			return newState;
 		} );
-	}, [ type, wpListResults, setTreeState ] );
+	}, [ type, wpContent, setTreeState, wpFolders ] );
 };
 
 export function SyncDialog( {

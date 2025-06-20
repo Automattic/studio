@@ -1377,11 +1377,6 @@ export function comparePaths( event: IpcMainInvokeEvent, path1: string, path2: s
 	return arePathsEqual( path1, path2 );
 }
 
-function isVisibleEntry( entry: { name: string; type: string } ) {
-	if ( entry.type === 'folder' ) return true;
-	return entry.type === 'file' && entry.name.toLowerCase().endsWith( '.php' );
-}
-
 export async function listWpContentFolders(
 	_event: Electron.IpcMainInvokeEvent,
 	siteId: string,
@@ -1398,7 +1393,10 @@ export async function listWpContentFolders(
 				name: e.name.toString(),
 				type: e.isDirectory() ? ( 'folder' as const ) : ( 'file' as const ),
 			} ) )
-			.filter( isVisibleEntry );
+			.filter( ( entry: { name: string; type: string } ) => {
+				if ( entry.type === 'folder' ) return true;
+				return entry.type === 'file' && entry.name.toLowerCase().endsWith( '.php' );
+			} );
 	} catch ( err ) {
 		return [];
 	}

@@ -1,5 +1,5 @@
-import { CheckboxControl } from '@wordpress/components';
-import { FolderIcon } from 'src/components/icons/folder';
+import { CheckboxControl, Icon } from '@wordpress/components';
+import { file } from '@wordpress/icons';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import { cx } from 'src/lib/cx';
 
@@ -91,7 +91,7 @@ const TreeItem = ( {
 						onChange={ ( checked: boolean ) => onPatchNode( node.id, { checked } ) }
 						__nextHasNoMarginBottom
 					/>
-					{ node.type === 'folder' && <FolderIcon /> }
+					{ node.type === 'folder' && <Icon icon={ file } size={ 20 } className="me-1.5" /> }
 					<span>{ node.label }</span>
 				</label>
 				{ node.children && ! node.hideExpandButton && (

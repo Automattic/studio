@@ -1,5 +1,5 @@
-import { CheckboxControl, Spinner } from '@wordpress/components';
-import FileIcon from 'src/components/icons/file';
+import { CheckboxControl, Icon, Spinner } from '@wordpress/components';
+import { page } from '@wordpress/icons';
 import { FolderIcon } from 'src/components/icons/folder';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import { cx } from 'src/lib/cx';
@@ -94,7 +94,7 @@ const TreeItem = ( {
 						__nextHasNoMarginBottom
 					/>
 					{ node.type === 'folder' && <FolderIcon /> }
-					{ node.type === 'file' && <FileIcon /> }
+					{ node.type === 'file' && <Icon icon={ page } size={ 20 } className="me-1.5" /> }
 					<span>{ node.label }</span>
 				</label>
 				{ node.loading && <Spinner className="!w-[9px] !h-[9px] !m-0" /> }

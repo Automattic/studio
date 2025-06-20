@@ -668,13 +668,20 @@ export async function exportSiteToPush(
 	const extension = 'tar.gz';
 	const archivePath = `${ TEMP_DIR }site_${ id }.${ extension }`;
 
+	const shouldIncludeSyncOption = (
+		optionsToSync: SyncOption[] | undefined,
+		option: SyncOption
+	): boolean => {
+		return optionsToSync?.includes( option ) || optionsToSync?.includes( 'all' ) || ! optionsToSync;
+	};
+
 	const includes = {
-		database: optionsToSync?.includes( 'sqls' ) || optionsToSync?.includes( 'all' ) || false,
-		uploads: optionsToSync?.includes( 'uploads' ) || optionsToSync?.includes( 'all' ) || false,
-		plugins: optionsToSync?.includes( 'plugins' ) || optionsToSync?.includes( 'all' ) || false,
-		themes: optionsToSync?.includes( 'themes' ) || optionsToSync?.includes( 'all' ) || false,
-		muPlugins: optionsToSync?.includes( 'contents' ) || optionsToSync?.includes( 'all' ) || false,
-		fonts: optionsToSync?.includes( 'contents' ) || optionsToSync?.includes( 'all' ) || false,
+		database: shouldIncludeSyncOption( optionsToSync, 'sqls' ),
+		uploads: shouldIncludeSyncOption( optionsToSync, 'uploads' ),
+		plugins: shouldIncludeSyncOption( optionsToSync, 'plugins' ),
+		themes: shouldIncludeSyncOption( optionsToSync, 'themes' ),
+		muPlugins: shouldIncludeSyncOption( optionsToSync, 'contents' ),
+		fonts: shouldIncludeSyncOption( optionsToSync, 'contents' ),
 	};
 
 	const exportOptions: ExportOptions = {

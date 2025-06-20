@@ -1,5 +1,10 @@
 import { readFile, writeFile } from 'fs';
-import { addDomainToHosts, removeDomainFromHosts, updateDomainInHosts } from '../hosts-file';
+import {
+	addDomainToHosts,
+	removeDomainFromHosts,
+	updateDomainInHosts,
+	createHostsEntryPattern,
+} from '../hosts-file';
 
 const readFileCallbackMock = jest.fn();
 
@@ -139,6 +144,29 @@ describe( 'hosts-file', () => {
 
 			expect( readFile ).toHaveBeenCalled();
 			expect( writeFile ).not.toHaveBeenCalled();
+		} );
+	} );
+
+	describe( 'createHostsEntryPattern', () => {
+		it( 'should remove backslashes as a security measure', () => {
+			const pattern = createHostsEntryPattern( 'test\\backslash.wp.cloud' );
+			// The pattern should match a domain with backslashes removed
+			expect( '127.0.0.1 testbackslash.wp.cloud # Port 8000' ).toMatch( pattern );
+			expect( '127.0.0.1 test\\backslash.wp.cloud # Port 8000' ).not.toMatch( pattern );
+		} );
+
+		it( 'should escape dots in domain names', () => {
+			const pattern = createHostsEntryPattern( 'test.example.com' );
+			// Should match the exact domain
+			expect( '127.0.0.1 test.example.com # Port 8000' ).toMatch( pattern );
+			// Should not match a domain with extra dots
+			expect( '127.0.0.1 testxexample.com # Port 8000' ).not.toMatch( pattern );
+		} );
+
+		it( 'should handle domains with multiple backslashes', () => {
+			const pattern = createHostsEntryPattern( 'test\\\\backslash.wp.cloud' );
+			// Should match the domain with all backslashes removed
+			expect( '127.0.0.1 testbackslash.wp.cloud # Port 8000' ).toMatch( pattern );
 		} );
 	} );
 

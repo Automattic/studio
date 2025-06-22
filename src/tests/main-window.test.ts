@@ -24,8 +24,8 @@ const mockUserData = {
 describe( 'getMainWindow', () => {
 	let createdWindow: BrowserWindow;
 
-	beforeEach( () => {
-		createdWindow = createMainWindow();
+	beforeEach( async () => {
+		createdWindow = await createMainWindow();
 	} );
 
 	afterEach( () => {
@@ -65,28 +65,40 @@ describe( 'getMainWindow', () => {
 	} );
 
 	it( 'returns a new window when no non-destroyed windows exist', async () => {
-		// eslint-disable-next-line @typescript-eslint/no-empty-function
-		let didFinishLoad: ( ...args: any[] ) => void = () => {};
 		( createdWindow.isDestroyed as jest.Mock ).mockReturnValueOnce( true );
-		( BrowserWindow.prototype.webContents.on as jest.Mock ).mockImplementationOnce(
-			( _event, callback ) => {
-				didFinishLoad = callback;
-			}
-		);
+		( BrowserWindow.getAllWindows as jest.Mock ).mockReturnValueOnce( [] );
 
-		const windowPromise = getMainWindow();
-		didFinishLoad();
-		const window = await windowPromise;
+		// Create a new mock window
+		const newMockWindow = new BrowserWindow();
+
+		// Mock the createMainWindow function
+		const createMainWindowModule = require( 'src/main-window' );
+		const originalCreateMainWindow = createMainWindowModule.createMainWindow;
+		createMainWindowModule.createMainWindow = jest.fn().mockResolvedValue( newMockWindow );
+
+		// Mock the did-finish-load event to resolve immediately
+		( newMockWindow.webContents.on as jest.Mock ).mockImplementation( ( event, callback ) => {
+			if ( event === 'did-finish-load' ) {
+				// Call the callback immediately
+				setImmediate( callback );
+			}
+		} );
+
+		const window = await getMainWindow();
 
 		expect( window ).toBeInstanceOf( BrowserWindow );
+		expect( window ).toStrictEqual( newMockWindow );
+
+		// Restore the original function
+		createMainWindowModule.createMainWindow = originalCreateMainWindow;
 	} );
 } );
 
 describe( 'fullscreen events', () => {
 	let createdWindow: BrowserWindow;
 
-	beforeEach( () => {
-		createdWindow = createMainWindow();
+	beforeEach( async () => {
+		createdWindow = await createMainWindow();
 	} );
 
 	afterEach( () => {

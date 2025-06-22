@@ -4,10 +4,18 @@ import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 
+export interface WindowBounds {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
+
 export interface UserData {
 	sites: SiteDetails[];
 	snapshots: Snapshot[];
 	devToolsOpen?: boolean;
+	windowBounds?: WindowBounds;
 	authToken?: StoredToken;
 	onboardingCompleted?: boolean;
 	locale?: string;

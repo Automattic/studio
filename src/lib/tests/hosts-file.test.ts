@@ -1,5 +1,10 @@
 import { readFile, writeFile } from 'fs';
-import { addDomainToHosts, removeDomainFromHosts, updateDomainInHosts } from '../hosts-file';
+import {
+	addDomainToHosts,
+	removeDomainFromHosts,
+	updateDomainInHosts,
+	createHostsEntryPattern,
+} from '../hosts-file';
 
 const readFileCallbackMock = jest.fn();
 
@@ -139,6 +144,40 @@ describe( 'hosts-file', () => {
 
 			expect( readFile ).toHaveBeenCalled();
 			expect( writeFile ).not.toHaveBeenCalled();
+		} );
+	} );
+
+	describe( 'createHostsEntryPattern', () => {
+		it( 'should remove backslashes as a security measure', () => {
+			const pattern = createHostsEntryPattern( 'test\\backslash.wp.cloud' );
+			const expectedPattern = /127\.0\.0\.1\s+testbackslash\.wp\.cloud(\s|$)/i;
+
+			expect( pattern.source ).toBe( expectedPattern.source );
+			expect( pattern.flags ).toBe( expectedPattern.flags );
+		} );
+
+		it( 'should escape dots and other regex special characters', () => {
+			const pattern = createHostsEntryPattern( 'test.example.com' );
+			const expectedPattern = /127\.0\.0\.1\s+test\.example\.com(\s|$)/i;
+
+			expect( pattern.source ).toBe( expectedPattern.source );
+			expect( pattern.flags ).toBe( expectedPattern.flags );
+		} );
+
+		it( 'should handle domains with multiple backslashes', () => {
+			const pattern = createHostsEntryPattern( 'test\\\\backslash.wp.cloud' );
+			const expectedPattern = /127\.0\.0\.1\s+testbackslash\.wp\.cloud(\s|$)/i;
+
+			expect( pattern.source ).toBe( expectedPattern.source );
+			expect( pattern.flags ).toBe( expectedPattern.flags );
+		} );
+
+		it( 'should escape other regex special characters', () => {
+			const pattern = createHostsEntryPattern( 'test+example*com' );
+			const expectedPattern = /127\.0\.0\.1\s+test\+example\*com(\s|$)/i;
+
+			expect( pattern.source ).toBe( expectedPattern.source );
+			expect( pattern.flags ).toBe( expectedPattern.flags );
 		} );
 	} );
 

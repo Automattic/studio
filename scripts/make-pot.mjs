@@ -34,17 +34,13 @@ const commands = [
 		description: 'Generating pot file with wp-babel-makepot',
 	},
 	{
-		command: `open "${ IMPORT_PAGE }"`,
-		description: `Opening the translation import page ${ IMPORT_PAGE } in the browser`,
-	},
-	{
-		command: 'sleep 0.5',
-		description: 'Waiting for the browser to open',
-	},
-	{
 		command: `open -R "${ POT_FILE }"`,
 		description: `Revealing pot file in Finder: ${ POT_FILE }`,
 	},
+	{
+		command: `open "${ IMPORT_PAGE }"`,
+		description: `Opening the translation import page ${ IMPORT_PAGE } in the browser`,
+	}
 ];
 
 for ( const { command, description } of commands ) {

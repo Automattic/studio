@@ -4,7 +4,7 @@ Unreleased
 1.5.4
 =====
 * Added a separate Settings button to open preferences #1477
-* Fixed issue opening in terminal paths with backslashes #1475
+* Fixed issue with opening paths containing backslashes in terminal apps #1475
 
 1.5.3
 =====

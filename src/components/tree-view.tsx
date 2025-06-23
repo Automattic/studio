@@ -1,9 +1,9 @@
 import { CheckboxControl, Icon, Spinner } from '@wordpress/components';
-import { page } from '@wordpress/icons';
-import { FolderIcon } from 'src/components/icons/folder';
+import { file, page } from '@wordpress/icons';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import { cx } from 'src/lib/cx';
 
+type TreeNodeType = 'folder' | 'file';
 export type TreeNode = {
 	id: string;
 	label: string;
@@ -12,8 +12,13 @@ export type TreeNode = {
 	expanded?: boolean;
 	hideExpandButton?: boolean;
 	children?: TreeNode[];
-	type?: 'folder' | 'file';
+	type?: TreeNodeType;
 	loading?: boolean;
+};
+
+const TREE_NODE_ICONS: Record< TreeNodeType, React.JSX.Element > = {
+	folder: file,
+	file: page,
 };
 
 const updateNode = ( node: TreeNode, partialNode: Partial< TreeNode > ): TreeNode => {
@@ -93,8 +98,9 @@ const TreeItem = ( {
 						onChange={ ( checked: boolean ) => onPatchNode( node.id, { checked } ) }
 						__nextHasNoMarginBottom
 					/>
-					{ node.type === 'folder' && <FolderIcon /> }
-					{ node.type === 'file' && <Icon icon={ page } size={ 20 } className="me-1.5" /> }
+					{ node.type && (
+						<Icon icon={ TREE_NODE_ICONS[ node.type ] } size={ 20 } className="me-1.5" />
+					) }
 					<span>{ node.label }</span>
 				</label>
 				{ node.loading && <Spinner className="!w-[9px] !h-[9px] !m-0" /> }

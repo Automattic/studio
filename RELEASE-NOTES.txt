@@ -1,6 +1,11 @@
 Unreleased
 ==========
 
+1.5.4
+=====
+* Added a separate Settings button to open preferences #1477
+* Fixed issue with opening paths containing backslashes in terminal apps #1475
+
 1.5.3
 =====
 * Added support to follow symlinks in Previews and Sync #1447, #1448

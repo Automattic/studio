@@ -58,7 +58,7 @@ const api: IpcApi = {
 	saveUserLocale: ( locale ) => ipcRendererInvoke( 'saveUserLocale', locale ),
 	getSentryUserId: () => ipcRendererInvoke( 'getSentryUserId' ),
 	getUserLocale: () => ipcRendererInvoke( 'getUserLocale' ),
-	showUserSettings: () => ipcRendererInvoke( 'showUserSettings' ),
+	showUserSettings: ( tabName ) => ipcRendererInvoke( 'showUserSettings', tabName ),
 	startServer: ( id ) => ipcRendererInvoke( 'startServer', id ),
 	stopServer: ( id ) => ipcRendererInvoke( 'stopServer', id ),
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
@@ -118,6 +118,8 @@ const api: IpcApi = {
 	saveUserEditor: ( editor ) => ipcRendererInvoke( 'saveUserEditor', editor ),
 	handleNewSite: ( newSite ) => ipcRendererInvoke( 'handleNewSite', newSite ),
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
+	listWpContentFolders: ( siteId, subdir ) =>
+		ipcRenderer.invoke( 'listWpContentFolders', siteId, subdir ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

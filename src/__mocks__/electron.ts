@@ -30,6 +30,9 @@ export function BrowserWindow() {}
 BrowserWindow.prototype.loadURL = jest.fn();
 BrowserWindow.prototype.isDestroyed = jest.fn( () => false );
 BrowserWindow.prototype.on = jest.fn();
+BrowserWindow.prototype.getBounds = jest.fn( () => ( { x: 0, y: 0, width: 800, height: 600 } ) );
+BrowserWindow.prototype.setFullScreen = jest.fn();
+BrowserWindow.prototype.isFullScreen = jest.fn( () => false );
 
 const mockWebContents = {
 	on: jest.fn(),
@@ -81,4 +84,12 @@ export const session = {
 			onHeadersReceived: jest.fn(),
 		},
 	},
+};
+
+export const screen = {
+	getAllDisplays: jest.fn( () => [
+		{
+			workArea: { x: 0, y: 0, width: 1920, height: 1080 },
+		},
+	] ),
 };

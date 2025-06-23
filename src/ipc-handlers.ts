@@ -62,6 +62,7 @@ import { executePreviewCliCommand } from 'src/modules/cli/lib/execute-preview-co
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
+import { UserSettingsTabName } from 'src/modules/user-settings/user-settings-types';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
 import {
@@ -603,9 +604,9 @@ export async function getUserEditor(
 	return userData.preferredEditor ?? null;
 }
 
-export function showUserSettings( event: IpcMainInvokeEvent ) {
+export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings' );
+	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings', { tabName } );
 }
 
 function archiveWordPressDirectory( {
@@ -1374,4 +1375,29 @@ export async function handleNewSite( event: IpcMainInvokeEvent, newSite: NewSite
 
 export function comparePaths( event: IpcMainInvokeEvent, path1: string, path2: string ) {
 	return arePathsEqual( path1, path2 );
+}
+
+export async function listWpContentFolders(
+	_event: Electron.IpcMainInvokeEvent,
+	siteId: string,
+	subdir: 'plugins' | 'themes'
+): Promise< { name: string; type: 'file' | 'folder' }[] > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) throw new Error( 'Site not found' );
+	const wpContentPath = nodePath.join( server.details.path, 'wp-content', subdir );
+
+	try {
+		const entries = await fs.promises.readdir( wpContentPath, { withFileTypes: true } );
+		return entries
+			.map( ( e ) => ( {
+				name: e.name.toString(),
+				type: e.isDirectory() ? ( 'folder' as const ) : ( 'file' as const ),
+			} ) )
+			.filter( ( entry: { name: string; type: string } ) => {
+				if ( entry.type === 'folder' ) return true;
+				return entry.type === 'file' && entry.name.toLowerCase().endsWith( '.php' );
+			} );
+	} catch ( err ) {
+		return [];
+	}
 }

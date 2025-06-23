@@ -4,6 +4,7 @@ import { platform, tmpdir } from 'os';
 import path from 'path';
 import { promisify } from 'util';
 import * as Sentry from '@sentry/electron/main';
+import escapeRegExp from 'lodash/escapeRegExp';
 import { sudoExec } from 'src/lib/sudo-exec';
 
 const readFile = promisify( fs.readFile );
@@ -67,9 +68,13 @@ export const writeHostsFile = async ( content: string ): Promise< void > => {
  * Create a regular expression matching the hosts entry for a given domain:
  *
  * 	127.0.0.1 foo.wp.cloud # Port 8000
+ *
+ * 	Remove backslashes as a security measure and escape regex special characters.
  */
-function createHostsEntryPattern( domain: string ): RegExp {
-	return new RegExp( `127\\.0\\.0\\.1\\s+${ domain.replace( /\./g, '\\.' ) }(\\s|$)`, 'i' );
+export function createHostsEntryPattern( domain: string ): RegExp {
+	const sanitizedDomain = domain.replace( /\\/g, '' );
+	const escapedDomain = escapeRegExp( sanitizedDomain );
+	return new RegExp( `127\\.0\\.0\\.1\\s+${ escapedDomain }(\\s|$)`, 'i' );
 }
 
 /**

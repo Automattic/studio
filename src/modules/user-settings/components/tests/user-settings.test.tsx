@@ -64,7 +64,7 @@ describe( 'UserSettings', () => {
 		// Triggers IPC listener to show modal
 		( useIpcListener as jest.Mock ).mockImplementationOnce( ( listener, callback ) => {
 			if ( listener === 'user-settings' ) {
-				callback();
+				callback( {}, {} );
 			}
 		} );
 	} );
@@ -132,6 +132,72 @@ describe( 'UserSettings', () => {
 				expect( screen.getByText( 'Usage' ) ).toHaveAttribute( 'aria-selected', 'true' );
 				expect( screen.getByText( 'Preview sites' ) ).toBeInTheDocument();
 				expect( screen.getByText( 'AI assistant' ) ).toBeInTheDocument();
+			} );
+		} );
+	} );
+
+	describe( 'Tab Selection via IPC', () => {
+		it( 'should open with specified tab when tabName is provided via IPC', async () => {
+			// Mock IPC listener with specific tab name and trigger modal show
+			( useIpcListener as jest.Mock ).mockImplementation( ( listener, callback ) => {
+				if ( listener === 'user-settings' ) {
+					setTimeout( () => callback( {}, { tabName: 'preferences' } ), 0 );
+				}
+			} );
+			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
+
+			renderWithProvider( <UserSettings /> );
+
+			await waitFor( () => {
+				expect( screen.getByText( 'Preferences' ) ).toHaveAttribute( 'aria-selected', 'true' );
+				expect( screen.getByText( 'Language' ) ).toBeInTheDocument();
+			} );
+		} );
+
+		it( 'should open with usage tab when tabName is usage and user is authenticated', async () => {
+			( useIpcListener as jest.Mock ).mockImplementation( ( listener, callback ) => {
+				if ( listener === 'user-settings' ) {
+					setTimeout( () => callback( {}, { tabName: 'usage' } ), 0 );
+				}
+			} );
+			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
+
+			renderWithProvider( <UserSettings /> );
+
+			await waitFor( () => {
+				expect( screen.getByText( 'Usage' ) ).toHaveAttribute( 'aria-selected', 'true' );
+				expect( screen.getByText( 'Preview sites' ) ).toBeInTheDocument();
+			} );
+		} );
+
+		it( 'should default to first tab when no tabName is provided', async () => {
+			( useIpcListener as jest.Mock ).mockImplementation( ( listener, callback ) => {
+				if ( listener === 'user-settings' ) {
+					setTimeout( () => callback( {}, {} ), 0 );
+				}
+			} );
+			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
+
+			renderWithProvider( <UserSettings /> );
+
+			await waitFor( () => {
+				expect( screen.getByText( 'Account' ) ).toHaveAttribute( 'aria-selected', 'true' );
+			} );
+		} );
+
+		it( 'should not show usage tab for unauthenticated users even if specified', async () => {
+			( useIpcListener as jest.Mock ).mockImplementation( ( listener, callback ) => {
+				if ( listener === 'user-settings' ) {
+					setTimeout( () => callback( {}, { tabName: 'usage' } ), 0 );
+				}
+			} );
+			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false } );
+
+			renderWithProvider( <UserSettings /> );
+
+			await waitFor( () => {
+				expect( screen.queryByText( 'Usage' ) ).not.toBeInTheDocument();
+				expect( screen.getByText( 'Account' ) ).toHaveAttribute( 'aria-selected', 'true' );
 			} );
 		} );
 	} );

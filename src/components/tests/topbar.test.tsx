@@ -10,6 +10,7 @@ jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/hooks/use-offline' );
 
 const mockOpenURL = jest.fn();
+const mockAuthenticate = jest.fn();
 const toggleMinWindowWidth = jest.fn();
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
@@ -18,6 +19,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		showOpenFolderDialog: jest.fn(),
 		generateProposedSitePath: jest.fn(),
 		openURL: mockOpenURL,
+		authenticate: mockAuthenticate,
 		toggleMinWindowWidth,
 	} ),
 } ) );
@@ -34,8 +36,12 @@ describe( 'TopBar', () => {
 		const authenticate = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
 		await act( async () => renderWithProvider( <TopBar onToggleSidebar={ jest.fn() } /> ) );
-		expect( screen.queryByRole( 'button', { name: 'Open settings' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Open settings to log in' } ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'button', { name: 'Open account settings' } )
+		).not.toBeInTheDocument();
+		expect(
+			screen.getByRole( 'button', { name: 'Log in to Studio with WordPress.com' } )
+		).toBeVisible();
 	} );
 
 	it( 'Test authenticated TopBar does not have the log in button and it has the settings and account buttons', async () => {
@@ -83,5 +89,50 @@ describe( 'TopBar', () => {
 
 		expect( onToggleSidebar ).toHaveBeenCalledTimes( 1 );
 		expect( toggleMinWindowWidth ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	describe( 'login button with offline state', () => {
+		it( 'disables login button when offline and unauthenticated', async () => {
+			const user = userEvent.setup();
+			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false } );
+			( useOffline as jest.Mock ).mockReturnValue( true );
+
+			renderWithProvider( <TopBar onToggleSidebar={ jest.fn() } /> );
+
+			const loginButton = screen.getByRole( 'button', {
+				name: 'Log in to Studio with WordPress.com',
+			} );
+			expect( loginButton ).toBeDisabled();
+			// Try to click the disabled button
+			await user.click( loginButton );
+
+			// Authentication should not be called since button is disabled
+			expect( mockAuthenticate ).not.toHaveBeenCalled();
+		} );
+
+		it( 'enables login button when online and unauthenticated', async () => {
+			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false } );
+			( useOffline as jest.Mock ).mockReturnValue( false );
+
+			renderWithProvider( <TopBar onToggleSidebar={ jest.fn() } /> );
+
+			const loginButton = screen.getByRole( 'button', {
+				name: 'Log in to Studio with WordPress.com',
+			} );
+			expect( loginButton ).not.toBeDisabled();
+		} );
+
+		it( 'shows offline tooltip when offline and unauthenticated', async () => {
+			const user = userEvent.setup();
+			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false } );
+			( useOffline as jest.Mock ).mockReturnValue( true );
+			renderWithProvider( <TopBar onToggleSidebar={ jest.fn() } /> );
+			const loginButton = screen.getByRole( 'button', {
+				name: 'Log in to Studio with WordPress.com',
+			} );
+			expect( loginButton ).toBeDisabled();
+			await user.hover( loginButton );
+			expect( screen.getByText( "You're currently offline." ) ).toBeInTheDocument();
+		} );
 	} );
 } );

@@ -6,6 +6,7 @@ import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
 import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
 
@@ -66,6 +67,23 @@ describe( 'ContentTabSync', () => {
 			isSyncSitesSelectorOpen: false,
 			setIsSyncSitesSelectorOpen: jest.fn(),
 			closeSyncSitesSelector: jest.fn(),
+		} );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			selectiveSyncEnabled: false,
+		} );
+
+		Object.defineProperty( window, 'matchMedia', {
+			writable: true,
+			value: jest.fn().mockImplementation( ( query ) => ( {
+				matches: false,
+				media: query,
+				onchange: null,
+				addListener: jest.fn(), // deprecated
+				removeListener: jest.fn(), // deprecated
+				addEventListener: jest.fn(),
+				removeEventListener: jest.fn(),
+				dispatchEvent: jest.fn(),
+			} ) ),
 		} );
 	} );
 
@@ -394,5 +412,98 @@ describe( 'ContentTabSync', () => {
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
 		expect( screen.getByRole( 'progressbar' ) ).toBeInTheDocument();
+	} );
+
+	it( 'calls pullSite with correct optionsToSync when all options are selected', async () => {
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			selectiveSyncEnabled: true,
+		} );
+
+		const mockPullSite = jest.fn();
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
+		const fakeSyncSite = {
+			id: 6,
+			name: 'My simple business site that needs a transfer',
+			url: 'https:/developer.wordpress.com/studio/',
+			syncSupport: 'already-connected',
+		};
+		( useSyncSites as jest.Mock ).mockReturnValue( {
+			connectedSites: [ fakeSyncSite ],
+			syncSites: [ fakeSyncSite ],
+			pullSite: mockPullSite,
+			isAnySitePulling: false,
+			isAnySitePushing: false,
+			getPullState: jest.fn(),
+			getPushState: jest.fn(),
+			refetchSites: jest.fn(),
+			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
+			isSiteIdPulling: jest.fn(),
+			isSiteIdPushing: jest.fn(),
+			clearTimeout: jest.fn(),
+		} );
+
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+		const pullButton = screen.getByRole( 'button', { name: /Pull/i } );
+		expect( pullButton ).toBeInTheDocument();
+		fireEvent.click( pullButton );
+
+		await screen.findByText( 'Pull from Production' );
+
+		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } );
+		fireEvent.click( dialogPullButton[ 1 ] );
+
+		expect( mockPullSite ).toHaveBeenCalledWith( fakeSyncSite, selectedSite, {
+			optionsToSync: [ 'all' ],
+		} );
+	} );
+
+	it( 'calls pullSite with correct optionsToSync when options partially are selected', async () => {
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			selectiveSyncEnabled: true,
+		} );
+
+		const mockPullSite = jest.fn();
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
+		const fakeSyncSite = {
+			id: 6,
+			name: 'My simple business site that needs a transfer',
+			url: 'https:/developer.wordpress.com/studio/',
+			syncSupport: 'already-connected',
+		};
+		( useSyncSites as jest.Mock ).mockReturnValue( {
+			connectedSites: [ fakeSyncSite ],
+			syncSites: [ fakeSyncSite ],
+			pullSite: mockPullSite,
+			isAnySitePulling: false,
+			isAnySitePushing: false,
+			getPullState: jest.fn(),
+			getPushState: jest.fn(),
+			refetchSites: jest.fn(),
+			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
+			isSiteIdPulling: jest.fn(),
+			isSiteIdPushing: jest.fn(),
+			clearTimeout: jest.fn(),
+		} );
+
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+		const pullButton = screen.getByRole( 'button', { name: /Pull/i } );
+		expect( pullButton ).toBeInTheDocument();
+		fireEvent.click( pullButton );
+
+		await screen.findByText( 'Pull from Production' );
+
+		const select = screen.getByRole( 'combobox', { name: 'Select files and folders to sync' } );
+		fireEvent.change( select, { target: { value: true } } );
+
+		fireEvent.click( screen.getByText( 'Other files and directories' ) );
+
+		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } );
+		fireEvent.click( dialogPullButton[ 1 ] );
+
+		expect( mockPullSite ).toHaveBeenCalledWith( fakeSyncSite, selectedSite, {
+			optionsToSync: [ 'sqls', 'plugins', 'themes', 'uploads' ],
+		} );
 	} );
 } );

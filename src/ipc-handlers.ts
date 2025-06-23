@@ -659,7 +659,11 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string, format
 export async function exportSiteToPush(
 	event: IpcMainInvokeEvent,
 	id: string,
-	optionsToSync?: SyncOption[]
+	optionsToSync?: SyncOption[],
+	specificSelections?: {
+		plugins?: string[];
+		themes?: string[];
+	}
 ) {
 	const site = SiteServer.get( id );
 	if ( ! site ) {
@@ -690,6 +694,7 @@ export async function exportSiteToPush(
 		includes,
 		phpVersion: site.details.phpVersion,
 		splitDatabaseDumpByTable: true,
+		specificSelections,
 	};
 	// eslint-disable-next-line @typescript-eslint/no-empty-function
 	const onEvent = () => {};

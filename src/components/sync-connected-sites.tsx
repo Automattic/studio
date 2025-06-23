@@ -37,8 +37,17 @@ interface ConnectedSiteSection {
 	connectedSites: SyncSite[];
 }
 
-export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOption[] => {
+export type SyncOptionsWithSelections = {
+	optionsToSync: SyncOption[];
+	specificSelections?: {
+		plugins?: string[];
+		themes?: string[];
+	};
+};
+
+export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOptionsWithSelections => {
 	const optionsToSync: SyncOption[] = [];
+	const specificSelections: { plugins?: string[]; themes?: string[] } = {};
 
 	const isAll = tree.every( ( node ) => node.checked );
 	if ( isAll ) {
@@ -54,13 +63,41 @@ export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOption[] => 
 		const wpContent = filesAndFolders.find( ( node ) => node.id === 'wp-content' )?.children || [];
 
 		wpContent.forEach( ( item ) => {
-			if ( item.checked && isSyncOption( item.id ) ) {
-				optionsToSync.push( item.id );
+			if ( isSyncOption( item.id ) ) {
+				const hasCheckedChildren = item.children?.some( ( child ) => child.checked );
+				const shouldInclude = item.checked || hasCheckedChildren;
+
+				if ( shouldInclude ) {
+					optionsToSync.push( item.id );
+
+					if ( item.id === SYNC_OPTIONS.plugins && item.children ) {
+						const selectedPlugins = item.children
+							.filter( ( plugin ) => plugin.checked )
+							.map( ( plugin ) => plugin.id );
+						if ( selectedPlugins.length > 0 && selectedPlugins.length < item.children.length ) {
+							specificSelections.plugins = selectedPlugins;
+						}
+					}
+
+					if ( item.id === SYNC_OPTIONS.themes && item.children ) {
+						const selectedThemes = item.children
+							.filter( ( theme ) => theme.checked )
+							.map( ( theme ) => theme.id );
+						if ( selectedThemes.length > 0 && selectedThemes.length < item.children.length ) {
+							specificSelections.themes = selectedThemes;
+						}
+					}
+				}
 			}
 		} );
 	}
 
-	return optionsToSync;
+	const hasSpecificSelections = specificSelections.plugins || specificSelections.themes;
+
+	return {
+		optionsToSync,
+		specificSelections: hasSpecificSelections ? specificSelections : undefined,
+	};
 };
 
 const SyncConnectedSiteControls = ( {
@@ -237,12 +274,14 @@ const SyncConnectedSiteControls = ( {
 						localSite={ selectedSite }
 						remoteSite={ connectedSite }
 						onSubmit={ ( tree ) => {
-							const optionsToSync = convertTreeToOptionsToSync( tree );
+							const syncOptions = convertTreeToOptionsToSync( tree );
 
 							if ( syncDialogType === 'push' ) {
-								void pushSite( connectedSite, selectedSite, { optionsToSync } );
+								void pushSite( connectedSite, selectedSite, syncOptions );
 							} else {
-								pullSite( connectedSite, selectedSite, { optionsToSync } );
+								pullSite( connectedSite, selectedSite, {
+									optionsToSync: syncOptions.optionsToSync,
+								} );
 							}
 						} }
 						onRequestClose={ () => setSyncDialogType( null ) }

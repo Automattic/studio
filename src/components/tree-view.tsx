@@ -3,6 +3,7 @@ import { file, page } from '@wordpress/icons';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import { cx } from 'src/lib/cx';
 
+type TreeNodeType = 'folder' | 'file';
 export type TreeNode = {
 	id: string;
 	label: string;
@@ -11,7 +12,7 @@ export type TreeNode = {
 	expanded?: boolean;
 	hideExpandButton?: boolean;
 	children?: TreeNode[];
-	type?: 'folder' | 'file';
+	type?: TreeNodeType;
 	loading?: boolean;
 };
 
@@ -62,6 +63,17 @@ export const updateNodeById = (
 	} );
 };
 
+function getTreeItemIcon( node: TreeNode ) {
+	const icons: Record< TreeNodeType, React.JSX.Element > = {
+		folder: file,
+		file: page,
+	};
+	if ( ! node.type ) {
+		return null;
+	}
+	return icons[ node.type ];
+}
+
 const TreeItem = ( {
 	node,
 	onPatchNode,
@@ -75,6 +87,7 @@ const TreeItem = ( {
 } ) => {
 	const isLevel0 = level === 0;
 	const expanded = node.expanded ?? true;
+	const icon = getTreeItemIcon( node );
 
 	return (
 		<div>
@@ -92,8 +105,7 @@ const TreeItem = ( {
 						onChange={ ( checked: boolean ) => onPatchNode( node.id, { checked } ) }
 						__nextHasNoMarginBottom
 					/>
-					{ node.type === 'folder' && <Icon icon={ file } size={ 20 } className="me-1.5" /> }
-					{ node.type === 'file' && <Icon icon={ page } size={ 20 } className="me-1.5" /> }
+					{ icon && <Icon icon={ icon } size={ 20 } className="me-1.5" /> }
 					<span>{ node.label }</span>
 				</label>
 				{ node.loading && <Spinner className="!w-[9px] !h-[9px] !m-0" /> }

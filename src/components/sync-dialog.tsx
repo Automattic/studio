@@ -314,6 +314,7 @@ export function SyncDialog( {
 							onChange={ ( value ) => handleExpanderChange( value === 'true' ) }
 							__next40pxDefaultSize
 							__nextHasNoMarginBottom
+							aria-label={ __( 'Select files and folders to sync' ) }
 						/>
 					</div>
 					<TreeView tree={ treeState } setTree={ setTreeState } />

@@ -1,8 +1,9 @@
-import { CheckboxControl } from '@wordpress/components';
-import { FolderIcon } from 'src/components/icons/folder';
+import { CheckboxControl, Icon, Spinner } from '@wordpress/components';
+import { file, page } from '@wordpress/icons';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import { cx } from 'src/lib/cx';
 
+type TreeNodeType = 'folder' | 'file';
 export type TreeNode = {
 	id: string;
 	label: string;
@@ -11,14 +12,20 @@ export type TreeNode = {
 	expanded?: boolean;
 	hideExpandButton?: boolean;
 	children?: TreeNode[];
-	type?: 'folder';
+	type?: TreeNodeType;
+	loading?: boolean;
+};
+
+const TREE_NODE_ICONS: Record< TreeNodeType, React.JSX.Element > = {
+	folder: file,
+	file: page,
 };
 
 const updateNode = ( node: TreeNode, partialNode: Partial< TreeNode > ): TreeNode => {
 	const updatedNode = { ...node, ...partialNode };
 
-	if ( node.children ) {
-		updatedNode.children = node.children.map( ( child ) => {
+	if ( updatedNode.children ) {
+		updatedNode.children = updatedNode.children.map( ( child ) => {
 			if ( 'checked' in partialNode ) {
 				return updateNode( child, { checked: partialNode.checked } );
 			}
@@ -79,7 +86,7 @@ const TreeItem = ( {
 		<div>
 			<div
 				className={ cx(
-					'flex items-center py-2 relative',
+					'flex items-center py-2 relative gap-2',
 					isLevel0 ? 'border-b border-gray-300 py-4' : '',
 					isLast ? 'border-white' : ''
 				) }
@@ -91,10 +98,13 @@ const TreeItem = ( {
 						onChange={ ( checked: boolean ) => onPatchNode( node.id, { checked } ) }
 						__nextHasNoMarginBottom
 					/>
-					{ node.type === 'folder' && <FolderIcon /> }
+					{ node.type && (
+						<Icon icon={ TREE_NODE_ICONS[ node.type ] } size={ 20 } className="me-1.5" />
+					) }
 					<span>{ node.label }</span>
 				</label>
-				{ node.children && ! node.hideExpandButton && (
+				{ node.loading && <Spinner className="!w-[9px] !h-[9px] !m-0" /> }
+				{ ! node.loading && node.children && ! node.hideExpandButton && (
 					<button onClick={ () => onPatchNode( node.id, { expanded: ! expanded } ) }>
 						<div className={ expanded ? 'rotate-90' : '' }>
 							<RightArrowIcon width={ 16 } />

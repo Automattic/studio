@@ -242,7 +242,7 @@ const SyncConnectedSiteControls = ( {
 							if ( syncDialogType === 'push' ) {
 								void pushSite( connectedSite, selectedSite, { optionsToSync } );
 							} else {
-								pullSite( connectedSite, selectedSite );
+								pullSite( connectedSite, selectedSite, { optionsToSync } );
 							}
 						} }
 						onRequestClose={ () => setSyncDialogType( null ) }

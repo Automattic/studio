@@ -72,6 +72,7 @@ function OfflineIndicator() {
 function Authentication() {
 	const { __ } = useI18n();
 	const { isAuthenticated, user } = useAuth();
+	const isOffline = useOffline();
 	if ( isAuthenticated ) {
 		return (
 			<Button
@@ -87,15 +88,22 @@ function Authentication() {
 	}
 
 	return (
-		<Button
-			onClick={ () => getIpcApi().authenticate( false ) }
-			aria-label={ __( 'Log in to Studio with WordPress.com' ) }
-			className="flex gap-x-2 justify-between w-full text-white rounded !px-2 !py-0 h-auto active:!text-white hover:!text-white hover:underline items-center"
+		<Tooltip
+			disabled={ ! isOffline }
+			icon={ offlineIcon }
+			text={ __( "You're currently offline." ) }
 		>
-			<WordPressLogo />
+			<Button
+				onClick={ () => getIpcApi().authenticate( false ) }
+				aria-label={ __( 'Log in to Studio with WordPress.com' ) }
+				className="flex gap-x-2 justify-between w-full text-white rounded !px-2 !py-0 h-auto active:!text-white hover:!text-white hover:underline items-center"
+				disabled={ isOffline }
+			>
+				<WordPressLogo />
 
-			<div className="text-s text-right">{ __( 'Log in' ) }</div>
-		</Button>
+				<div className="text-s text-right">{ __( 'Log in' ) }</div>
+			</Button>
+		</Tooltip>
 	);
 }
 

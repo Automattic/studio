@@ -3,7 +3,7 @@
 	"author": "Automattic Inc.",
 	"private": true,
 	"productName": "Studio",
-	"version": "1.5.3",
+	"version": "1.5.4",
 	"description": "Local WordPress development environment using Playgrounds",
 	"license": "GPL-2.0-or-later",
 	"main": ".webpack/main",
@@ -36,7 +36,8 @@
 		"test:watch": "cross-env NODE_OPTIONS='--no-deprecation' jest --watch",
 		"e2e": "npx playwright install && npx playwright test",
 		"test:metrics": "npx playwright test --config=./metrics/playwright.metrics.config.ts",
-		"make-pot": "wp-babel-makepot \"{./src,./cli,./common}/**/*.{js,jsx,ts,tsx}\" --ignore \"**/*.d.ts\" --base \".\" --dir \"./out/pots\" --output \"./out/pots/bundle-strings.pot\""
+		"test:preview": "jest-preview",
+		"make-pot": "node ./scripts/make-pot.mjs"
 	},
 	"devDependencies": {
 		"@automattic/color-studio": "^2.5.0",
@@ -92,6 +93,7 @@
 		"fork-ts-checker-webpack-plugin": "^7.2.13",
 		"jest": "^29.7.0",
 		"jest-environment-jsdom": "^29.7.0",
+		"jest-preview": "^0.3.1",
 		"jest-watch-typeahead": "^2.2.2",
 		"mini-css-extract-plugin": "^2.8.0",
 		"nock": "^13.5.1",

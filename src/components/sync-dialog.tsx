@@ -1,18 +1,19 @@
 import { SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { useI18n } from '@wordpress/react-i18n';
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
+import { CircleEnvIcon } from 'src/components/icons/circle-env';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
 import { SYNC_OPTIONS } from 'src/hooks/sync-sites/sync-option';
+import { useContentFolders, WpContentFolder } from 'src/hooks/use-content-folders';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
-import { CircleEnvIcon } from './icons/circle-env';
-import type { EnvironmentType } from 'src/components/environment-badge';
+import { EnvironmentType } from './environment-badge';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 const useCopy = ( type: 'pull' | 'push' ) => {
@@ -176,6 +177,44 @@ export const useDefaultTree = (): TreeNode[] => {
 	}, [ __ ] );
 };
 
+const useDynamicTreeState = (
+	type: 'push' | 'pull',
+	localSiteId: string,
+	setTreeState: React.Dispatch< React.SetStateAction< TreeNode[] > >
+) => {
+	const wpFolders: WpContentFolder[] = useMemo( () => [ 'plugins', 'themes' ], [] );
+	const wpContent = useContentFolders( localSiteId, wpFolders );
+
+	useEffect( () => {
+		if ( type === 'pull' ) {
+			return;
+		}
+
+		setTreeState( ( prev ) => {
+			let newState = [ ...prev ];
+
+			wpFolders.forEach( ( wpType ) => {
+				const { items, isLoading, error } = wpContent[ wpType ];
+				const children: TreeNode[] | undefined = error
+					? undefined
+					: items.map( ( item ) => ( {
+							id: item.name,
+							label: item.name,
+							checked: true,
+							type: item.type,
+					  } ) );
+
+				newState = updateNodeById( newState, SYNC_OPTIONS[ wpType ], {
+					loading: isLoading,
+					children,
+				} );
+			} );
+
+			return newState;
+		} );
+	}, [ type, wpContent, setTreeState, wpFolders ] );
+};
+
 export function SyncDialog( {
 	type,
 	localSite,
@@ -190,6 +229,8 @@ export function SyncDialog( {
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );
+
+	useDynamicTreeState( type, localSite.id, setTreeState );
 
 	const envDetails = useEnvDetails( remoteSite );
 
@@ -273,6 +314,7 @@ export function SyncDialog( {
 							onChange={ ( value ) => handleExpanderChange( value === 'true' ) }
 							__next40pxDefaultSize
 							__nextHasNoMarginBottom
+							aria-label={ __( 'Select files and folders to sync' ) }
 						/>
 					</div>
 					<TreeView tree={ treeState } setTree={ setTreeState } />

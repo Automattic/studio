@@ -10,7 +10,7 @@ import { isErrnoException } from 'src/lib/is-errno-exception';
 import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for-logging';
 import { sortSites } from 'src/lib/sort-sites';
 import { getResourcesPath, getUserDataFilePath } from 'src/storage/paths';
-import type { PersistedUserData, UserData } from 'src/storage/storage-types';
+import type { PersistedUserData, UserData, WindowBounds } from 'src/storage/storage-types';
 
 // Before persisting the PHP version of sites, the default PHP version used was 8.0.
 // In case we can't retrieve the PHP version from site details, we assume it was created
@@ -119,6 +119,7 @@ export async function unlockAppdata() {
 
 type UserDataSafeKeys =
 	| 'devToolsOpen'
+	| 'windowBounds'
 	| 'authToken'
 	| 'onboardingCompleted'
 	| 'locale'
@@ -206,4 +207,13 @@ function fromDiskFormat( { version, sites, ...rest }: PersistedUserData ): UserD
 			} ) ),
 		...rest,
 	};
+}
+
+export async function saveWindowBounds( bounds: WindowBounds ): Promise< void > {
+	await updateAppdata( { windowBounds: bounds } );
+}
+
+export async function loadWindowBounds(): Promise< WindowBounds | undefined > {
+	const userData = await loadUserData();
+	return userData.windowBounds;
 }

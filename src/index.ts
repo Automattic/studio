@@ -293,7 +293,7 @@ async function appBoot() {
 
 		await renameLaunchUniquesStat();
 
-		createMainWindow();
+		await createMainWindow();
 		await startUserDataWatcher();
 
 		const userData = await loadUserData();
@@ -367,7 +367,7 @@ async function appBoot() {
 		if ( BrowserWindow.getAllWindows().length === 0 ) {
 			// On OS X it's common to re-create a window in the app when the
 			// dock icon is clicked and there are no other windows open.
-			createMainWindow();
+			void createMainWindow();
 		}
 	} );
 }

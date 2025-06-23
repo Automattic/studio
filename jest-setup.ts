@@ -73,4 +73,6 @@ jest.mock( './src/hooks/use-ai-icon', () => ( {
 
 global.ResizeObserver = require( 'resize-observer-polyfill' );
 
-jestPreviewConfigure( { autoPreview: true } );
+if ( ! process.env.CI ) {
+	jestPreviewConfigure( { autoPreview: true } );
+}

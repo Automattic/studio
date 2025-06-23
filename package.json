@@ -36,7 +36,7 @@
 		"test:watch": "cross-env NODE_OPTIONS='--no-deprecation' jest --watch",
 		"e2e": "npx playwright install && npx playwright test",
 		"test:metrics": "npx playwright test --config=./metrics/playwright.metrics.config.ts",
-		"jest-preview": "jest-preview",
+		"test:preview": "jest-preview",
 		"make-pot": "node ./scripts/make-pot.mjs"
 	},
 	"devDependencies": {

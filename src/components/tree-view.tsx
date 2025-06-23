@@ -16,6 +16,11 @@ export type TreeNode = {
 	loading?: boolean;
 };
 
+const TREE_NODE_ICONS: Record< TreeNodeType, React.JSX.Element > = {
+	folder: file,
+	file: page,
+};
+
 const updateNode = ( node: TreeNode, partialNode: Partial< TreeNode > ): TreeNode => {
 	const updatedNode = { ...node, ...partialNode };
 
@@ -63,17 +68,6 @@ export const updateNodeById = (
 	} );
 };
 
-function getTreeItemIcon( node: TreeNode ) {
-	const icons: Record< TreeNodeType, React.JSX.Element > = {
-		folder: file,
-		file: page,
-	};
-	if ( ! node.type ) {
-		return null;
-	}
-	return icons[ node.type ];
-}
-
 const TreeItem = ( {
 	node,
 	onPatchNode,
@@ -87,7 +81,6 @@ const TreeItem = ( {
 } ) => {
 	const isLevel0 = level === 0;
 	const expanded = node.expanded ?? true;
-	const icon = getTreeItemIcon( node );
 
 	return (
 		<div>
@@ -105,7 +98,9 @@ const TreeItem = ( {
 						onChange={ ( checked: boolean ) => onPatchNode( node.id, { checked } ) }
 						__nextHasNoMarginBottom
 					/>
-					{ icon && <Icon icon={ icon } size={ 20 } className="me-1.5" /> }
+					{ node.type && (
+						<Icon icon={ TREE_NODE_ICONS[ node.type ] } size={ 20 } className="me-1.5" />
+					) }
 					<span>{ node.label }</span>
 				</label>
 				{ node.loading && <Spinner className="!w-[9px] !h-[9px] !m-0" /> }

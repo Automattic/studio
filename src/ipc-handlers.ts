@@ -237,18 +237,13 @@ export async function createSite(
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id: details.id } );
-	try {
-		await lockAppdata();
-		userData = await loadUserData();
+	userData = await loadUserData();
 
-		userData.sites.push( server.details );
-		sortSites( userData.sites );
+	userData.sites.push( server.details );
+	sortSites( userData.sites );
 
-		await saveUserData( userData );
-		return server.details;
-	} finally {
-		await unlockAppdata();
-	}
+	await saveUserData( userData );
+	return server.details;
 }
 
 export async function updateSite(

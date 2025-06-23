@@ -10,6 +10,8 @@ import {
 	getAuthToken,
 	getNewSitePartial,
 	getOrCreateSiteByFolder,
+	lockAppdata,
+	unlockAppdata,
 } from 'cli/lib/appdata';
 
 jest.mock( 'fs' );
@@ -115,7 +117,12 @@ describe( 'Appdata Module', () => {
 				snapshots: [],
 			};
 
-			await saveAppdata( mockUserData );
+			try {
+				await lockAppdata();
+				await saveAppdata( mockUserData );
+			} finally {
+				await unlockAppdata();
+			}
 
 			expect( writeFile ).toHaveBeenCalledWith(
 				expect.any( String ),
@@ -134,9 +141,14 @@ describe( 'Appdata Module', () => {
 
 			( writeFile as jest.Mock ).mockRejectedValue( new Error( 'Write error' ) );
 
-			await expect( saveAppdata( mockUserData ) ).rejects.toThrow(
-				'Failed to save Studio config file'
-			);
+			try {
+				await lockAppdata();
+				await expect( saveAppdata( mockUserData ) ).rejects.toThrow(
+					'Failed to save Studio config file'
+				);
+			} finally {
+				await unlockAppdata();
+			}
 		} );
 
 		it( 'should add version 1 if version is not provided', async () => {
@@ -146,7 +158,12 @@ describe( 'Appdata Module', () => {
 				snapshots: [],
 			};
 
-			await saveAppdata( mockUserData );
+			try {
+				await lockAppdata();
+				await saveAppdata( mockUserData );
+			} finally {
+				await unlockAppdata();
+			}
 
 			expect( writeFile ).toHaveBeenCalled();
 			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 0 ][ 1 ] );

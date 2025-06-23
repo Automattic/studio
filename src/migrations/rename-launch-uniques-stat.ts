@@ -1,5 +1,5 @@
 import { StatsGroup } from 'common/types/stats';
-import { loadUserData, saveUserData } from 'src/storage/user-data';
+import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 
 export async function renameLaunchUniquesStat() {
 	const userData = await loadUserData();
@@ -12,5 +12,10 @@ export async function renameLaunchUniquesStat() {
 	userData.lastBumpStats![ StatsGroup.STUDIO_APP_LAUNCH_UNIQUE ] = lastBumpStat;
 	delete userData.lastBumpStats![ 'local-environment-launch-uniques' ];
 
-	await saveUserData( userData );
+	try {
+		await lockAppdata();
+		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
+	}
 }

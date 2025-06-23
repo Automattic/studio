@@ -10,7 +10,7 @@ const ruleTester = new RuleTester({
 
 ruleTester.run('require-lock-before-save', rule, {
   valid: [
-    // Direct update without lock (allowed)
+    // Functions not calling save functions (allowed)
     {
       code: `
         async function updateUserData() {
@@ -18,7 +18,7 @@ ruleTester.run('require-lock-before-save', rule, {
         }
       `,
     },
-    // Modifying derived data with lock (allowed)
+    // saveUserData with lock (allowed)
     {
       code: `
         async function updateUserData() {
@@ -33,7 +33,7 @@ ruleTester.run('require-lock-before-save', rule, {
         }
       `,
     },
-    // Modifying array with lock (allowed)
+    // saveAppdata with lock (allowed)
     {
       code: `
         const updateUserData = async () => {
@@ -41,7 +41,7 @@ ruleTester.run('require-lock-before-save', rule, {
           try {
             const data = await loadUserData();
             data.snapshots.splice(0, 1);
-            await updateAppdata(data);
+            await saveAppdata(data);
           } finally {
             await unlockAppdata();
           }
@@ -50,7 +50,7 @@ ruleTester.run('require-lock-before-save', rule, {
     },
   ],
   invalid: [
-    // Modifying array without lock (not allowed)
+    // saveUserData without lock (not allowed)
     {
       code: `
         const updateUserData = async () => {
@@ -61,13 +61,13 @@ ruleTester.run('require-lock-before-save', rule, {
       `,
       errors: [{ messageId: 'missingLock' }],
     },
-    // Modifying object property without lock (not allowed)
+    // saveAppdata without lock (not allowed)
     {
       code: `
         async function updateUserData() {
           const data = await loadUserData();
           data.sites[0].name = 'New Name';
-          await saveUserData(data);
+          await saveAppdata(data);
         }
       `,
       errors: [{ messageId: 'missingLock' }],

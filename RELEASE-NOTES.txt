@@ -1,6 +1,10 @@
 Unreleased
 ==========
+
+1.5.4
+=====
 * Added a separate Settings button to open preferences #1477
+* Fixed issue opening in terminal paths with backslashes #1475
 
 1.5.3
 =====
@@ -25,14 +29,14 @@ Unreleased
 * Fixed opening Warp terminal app on Windows #1428
 * Fixed issue with plugin updates timing out in certain cases ​​#1407
 * Translated What’s new modal documentation links #1368, #1375, 1431
-* Ensured site gets created with latest WordPress version when offline #1383 
+* Ensured site gets created with latest WordPress version when offline #1383
 * Various UI updates and fixes #1399, #1413, #1420, #1412, #1419, #1423, #1384, #1435
 * Upgraded Electron, Node.js and @wordpress/components #1372, #1398
 
 1.5.1
 =====
 * Added ability to choose preferred editor and terminal apps
-* Hid all HTTPS help messages when the certificate is trusted #1117  
+* Hid all HTTPS help messages when the certificate is trusted #1117
 * Automated root certificate installation on Windows #1327
 * Changed default PHP version to 8.3 #1352
 * Changed Customize buttons to make them always active #1344

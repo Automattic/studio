@@ -9,9 +9,28 @@ import type { RootState } from './index';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 
-// Types for pull/push state (to be expanded as needed)
-type PullState = object;
-type PushState = object;
+interface PullState {
+	status: {
+		key: 'in-progress' | 'downloading' | 'importing' | 'finished' | 'failed' | 'cancelled';
+		message: string;
+		progress: number;
+	};
+}
+
+interface PushState {
+	status: {
+		key:
+			| 'creatingBackup'
+			| 'uploading'
+			| 'creatingRemoteBackup'
+			| 'applyingChanges'
+			| 'finishing'
+			| 'finished'
+			| 'failed';
+		message: string;
+		progress: number;
+	};
+}
 
 type IsSyncSitesSelectorOpen = boolean | { disconnectSiteId?: number };
 
@@ -21,8 +40,8 @@ interface SyncSitesError {
 }
 
 interface SyncSitesState {
-	pullStates: Record< string, PullState >;
-	pushStates: Record< string, PushState >;
+	pullStates: Record< string, Record< number, PullState > >;
+	pushStates: Record< string, Record< number, PushState > >;
 	connectedSites: SyncSite[];
 	isSyncSitesSelectorOpen: IsSyncSitesSelectorOpen;
 	isFetching: boolean;
@@ -40,7 +59,6 @@ const initialState: SyncSitesState = {
 	error: null,
 };
 
-// Add a minimal type for the REST client
 interface WpcomRestClient {
 	req: {
 		get: (
@@ -50,7 +68,6 @@ interface WpcomRestClient {
 	};
 }
 
-// Async thunks (placeholder logic)
 export const loadConnectedSites = createAsyncThunk(
 	'syncSites/loadConnectedSites',
 	async ( localSiteId: string, { rejectWithValue } ) => {
@@ -125,7 +142,6 @@ export const refetchSites = createAsyncThunk(
 
 			return syncSites;
 		} catch ( error ) {
-			// Optionally: Sentry.captureException(error);
 			console.error( error );
 			return rejectWithValue( error );
 		}
@@ -140,7 +156,6 @@ export const connectSite = createAsyncThunk(
 	) => {
 		try {
 			await getIpcApi().connectWpcomSites( [ { sites, localSiteId } ] );
-			// Return the updated list of connected sites
 			const updatedSites = await getIpcApi().getConnectedWpcomSites( localSiteId );
 			return updatedSites as SyncSite[];
 		} catch ( error ) {
@@ -157,7 +172,6 @@ export const disconnectSite = createAsyncThunk(
 	) => {
 		try {
 			await getIpcApi().disconnectWpcomSites( [ { siteIds, localSiteId } ] );
-			// Return the updated list of connected sites
 			const updatedSites = await getIpcApi().getConnectedWpcomSites( localSiteId );
 			return updatedSites as SyncSite[];
 		} catch ( error ) {
@@ -166,12 +180,6 @@ export const disconnectSite = createAsyncThunk(
 	}
 );
 
-/**
- * Pulls a remote site backup and imports it into a local site.
- * @param remoteSiteId - The remote site ID (number)
- * @param localSiteId - The local site ID (string)
- * @param downloadUrl - The URL to download the backup from (string)
- */
 export const pullSite = createAsyncThunk(
 	'syncSites/pullSite',
 	async (
@@ -183,13 +191,9 @@ export const pullSite = createAsyncThunk(
 		{ rejectWithValue }
 	) => {
 		try {
-			// 1. Download backup from remote
 			const backupFilePath = await getIpcApi().downloadSyncBackup( remoteSiteId, downloadUrl );
-			// 2. Construct BackupArchiveInfo
 			const backupFile: BackupArchiveInfo = { path: backupFilePath, type: 'tar.gz' };
-			// 3. Import backup into local site
 			const result = await getIpcApi().importSite( { id: localSiteId, backupFile } );
-			// 4. Remove backup file
 			await getIpcApi().removeSyncBackup( remoteSiteId );
 			return result;
 		} catch ( error ) {
@@ -198,17 +202,14 @@ export const pullSite = createAsyncThunk(
 	}
 );
 
-/**
- * Exports a local site to a backup archive for upload to a remote site.
- * @param localSiteId - The local site ID (string)
- */
 export const pushSite = createAsyncThunk(
 	'syncSites/pushSite',
-	async ( { localSiteId }: { localSiteId: string }, { rejectWithValue } ) => {
+	async (
+		{ localSiteId, remoteSiteId }: { localSiteId: string; remoteSiteId: number },
+		{ rejectWithValue }
+	) => {
 		try {
-			// 1. Export local site to backup
 			const archiveInfo = await getIpcApi().exportSiteToPush( localSiteId );
-			// 2. Return archive info for upload (caller must handle upload and cleanup)
 			return archiveInfo;
 		} catch ( error ) {
 			return rejectWithValue( error );
@@ -224,7 +225,6 @@ export const updateSiteTimestamp = createAsyncThunk(
 	) => {
 		try {
 			await getIpcApi().updateSingleConnectedWpcomSite( updatedSite );
-			// Return the updated list of connected sites
 			const updatedSites = await getIpcApi().getConnectedWpcomSites( localSiteId );
 			return updatedSites as SyncSite[];
 		} catch ( error ) {
@@ -237,17 +237,39 @@ const syncSitesSlice = createSlice( {
 	name: 'syncSites',
 	initialState,
 	reducers: {
-		setIsSyncSitesSelectorOpen( state, action: PayloadAction< IsSyncSitesSelectorOpen > ) {
+		setIsSyncSitesSelectorOpen: (
+			state,
+			action: PayloadAction< boolean | { disconnectSiteId?: number } >
+		) => {
 			state.isSyncSitesSelectorOpen = action.payload;
 		},
-		closeSyncSitesSelector( state ) {
-			state.isSyncSitesSelectorOpen = false;
+		clearPullState: (
+			state,
+			action: PayloadAction< { localSiteId: string; connectedSiteId: number } >
+		) => {
+			const { localSiteId, connectedSiteId } = action.payload;
+			if ( state.pullStates[ localSiteId ] ) {
+				delete state.pullStates[ localSiteId ][ connectedSiteId ];
+				if ( Object.keys( state.pullStates[ localSiteId ] ).length === 0 ) {
+					delete state.pullStates[ localSiteId ];
+				}
+			}
 		},
-		// TODO: add reducers for updating pull/push state, etc.
+		clearPushState: (
+			state,
+			action: PayloadAction< { localSiteId: string; connectedSiteId: number } >
+		) => {
+			const { localSiteId, connectedSiteId } = action.payload;
+			if ( state.pushStates[ localSiteId ] ) {
+				delete state.pushStates[ localSiteId ][ connectedSiteId ];
+				if ( Object.keys( state.pushStates[ localSiteId ] ).length === 0 ) {
+					delete state.pushStates[ localSiteId ];
+				}
+			}
+		},
 	},
 	extraReducers: ( builder ) => {
 		builder
-			// loadConnectedSites
 			.addCase( loadConnectedSites.pending, ( state ) => {
 				state.isFetching = true;
 				state.error = null;
@@ -263,7 +285,6 @@ const syncSitesSlice = createSlice( {
 					code: action.error.code,
 				};
 			} )
-			// refetchSites
 			.addCase( refetchSites.pending, ( state ) => {
 				state.isFetching = true;
 				state.error = null;
@@ -279,7 +300,6 @@ const syncSitesSlice = createSlice( {
 					code: action.error.code,
 				};
 			} )
-			// connectSite
 			.addCase( connectSite.pending, ( state ) => {
 				state.isFetching = true;
 				state.error = null;
@@ -295,7 +315,6 @@ const syncSitesSlice = createSlice( {
 					code: action.error.code,
 				};
 			} )
-			// disconnectSite
 			.addCase( disconnectSite.pending, ( state ) => {
 				state.isFetching = true;
 				state.error = null;
@@ -311,7 +330,6 @@ const syncSitesSlice = createSlice( {
 					code: action.error.code,
 				};
 			} )
-			// updateSiteTimestamp
 			.addCase( updateSiteTimestamp.pending, ( state ) => {
 				state.isFetching = true;
 				state.error = null;
@@ -327,13 +345,24 @@ const syncSitesSlice = createSlice( {
 					code: action.error.code,
 				};
 			} )
-			// pullSite
-			.addCase( pullSite.pending, ( state ) => {
+			.addCase( pullSite.pending, ( state, action ) => {
 				state.isFetching = true;
 				state.error = null;
+				const { remoteSiteId, localSiteId } = action.meta.arg;
+				state.pullStates[ localSiteId ] = {
+					...state.pullStates[ localSiteId ],
+					[ remoteSiteId ]: {
+						status: { key: 'in-progress', message: 'Initializing backup...', progress: 30 },
+					},
+				};
 			} )
-			.addCase( pullSite.fulfilled, ( state ) => {
+			.addCase( pullSite.fulfilled, ( state, action ) => {
 				state.isFetching = false;
+				const { remoteSiteId, localSiteId } = action.meta.arg;
+				delete state.pullStates[ localSiteId ][ remoteSiteId ];
+				if ( Object.keys( state.pullStates[ localSiteId ] ).length === 0 ) {
+					delete state.pullStates[ localSiteId ];
+				}
 			} )
 			.addCase( pullSite.rejected, ( state, action ) => {
 				state.isFetching = false;
@@ -341,14 +370,30 @@ const syncSitesSlice = createSlice( {
 					message: String( action.error.message || 'Failed to pull site' ),
 					code: action.error.code,
 				};
+				const { remoteSiteId, localSiteId } = action.meta.arg;
+				delete state.pullStates[ localSiteId ][ remoteSiteId ];
+				if ( Object.keys( state.pullStates[ localSiteId ] ).length === 0 ) {
+					delete state.pullStates[ localSiteId ];
+				}
 			} )
-			// pushSite
-			.addCase( pushSite.pending, ( state ) => {
+			.addCase( pushSite.pending, ( state, action ) => {
 				state.isFetching = true;
 				state.error = null;
+				const { localSiteId, remoteSiteId } = action.meta.arg;
+				state.pushStates[ localSiteId ] = {
+					...state.pushStates[ localSiteId ],
+					[ remoteSiteId ]: {
+						status: { key: 'creatingBackup', message: 'Creating backup...', progress: 20 },
+					},
+				};
 			} )
-			.addCase( pushSite.fulfilled, ( state ) => {
+			.addCase( pushSite.fulfilled, ( state, action ) => {
 				state.isFetching = false;
+				const { localSiteId, remoteSiteId } = action.meta.arg;
+				delete state.pushStates[ localSiteId ][ remoteSiteId ];
+				if ( Object.keys( state.pushStates[ localSiteId ] ).length === 0 ) {
+					delete state.pushStates[ localSiteId ];
+				}
 			} )
 			.addCase( pushSite.rejected, ( state, action ) => {
 				state.isFetching = false;
@@ -356,17 +401,81 @@ const syncSitesSlice = createSlice( {
 					message: String( action.error.message || 'Failed to push site' ),
 					code: action.error.code,
 				};
+				const { localSiteId, remoteSiteId } = action.meta.arg;
+				delete state.pushStates[ localSiteId ][ remoteSiteId ];
+				if ( Object.keys( state.pushStates[ localSiteId ] ).length === 0 ) {
+					delete state.pushStates[ localSiteId ];
+				}
 			} );
 	},
 } );
 
-export const syncSitesActions = syncSitesSlice.actions;
+export const syncSitesActions = {
+	...syncSitesSlice.actions,
+	loadConnectedSites,
+	connectSite,
+	disconnectSite,
+	updateSiteTimestamp,
+	refetchSites,
+	pullSite,
+	pushSite,
+};
+
 export const { reducer: syncSitesReducer } = syncSitesSlice;
 
-// Selectors
 export const selectIsFetching = ( state: RootState ) => state.syncSites.isFetching;
 export const selectError = ( state: RootState ) => state.syncSites.error;
 export const selectConnectedSites = ( state: RootState ) => state.syncSites.connectedSites;
 export const selectSyncSites = ( state: RootState ) => state.syncSites.syncSites;
 export const selectIsSyncSitesSelectorOpen = ( state: RootState ) =>
 	state.syncSites.isSyncSitesSelectorOpen;
+export const selectPullStates = ( state: RootState ) => state.syncSites.pullStates;
+export const selectPushStates = ( state: RootState ) => state.syncSites.pushStates;
+
+export const selectIsAnySitePulling = ( state: RootState ) => {
+	const pullStates = selectPullStates( state );
+	const pullingKeys = [ 'in-progress', 'downloading', 'importing' ];
+	return Object.values( pullStates ).some( ( siteStates ) =>
+		Object.values( siteStates ).some(
+			( pullState ) => pullState?.status?.key && pullingKeys.includes( pullState.status.key )
+		)
+	);
+};
+
+export const selectIsAnySitePushing = ( state: RootState ) => {
+	const pushStates = selectPushStates( state );
+	const pushingKeys = [
+		'creatingBackup',
+		'uploading',
+		'creatingRemoteBackup',
+		'applyingChanges',
+		'finishing',
+	];
+	return Object.values( pushStates ).some( ( siteStates ) =>
+		Object.values( siteStates ).some(
+			( pushState ) => pushState?.status?.key && pushingKeys.includes( pushState.status.key )
+		)
+	);
+};
+
+export const selectPullState =
+	( localSiteId: string, connectedSiteId: number ) => ( state: RootState ) => {
+		return state.syncSites.pullStates[ localSiteId ]?.[ connectedSiteId ];
+	};
+
+export const selectPushState =
+	( localSiteId: string, connectedSiteId: number ) => ( state: RootState ) => {
+		return state.syncSites.pushStates[ localSiteId ]?.[ connectedSiteId ];
+	};
+
+export const selectIsSiteIdPulling =
+	( localSiteId: string, connectedSiteId: number ) => ( state: RootState ) => {
+		const pullState = selectPullState( localSiteId, connectedSiteId )( state );
+		return Boolean( pullState?.status?.key?.includes( 'pulling' ) );
+	};
+
+export const selectIsSiteIdPushing =
+	( localSiteId: string, connectedSiteId: number ) => ( state: RootState ) => {
+		const pushState = selectPushState( localSiteId, connectedSiteId )( state );
+		return Boolean( pushState?.status?.key?.includes( 'pushing' ) );
+	};

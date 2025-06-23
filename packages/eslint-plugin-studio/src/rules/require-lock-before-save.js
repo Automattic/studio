@@ -15,23 +15,46 @@ module.exports = {
   },
   create(context) {
     const saveFunctions = ['saveUserData', 'saveAppdata'];
-    let hasLockCall = false;
-    let hasUnlockCall = false;
-    let isInFunction = false;
-    let hasTryFinally = false;
+    const functionStack = [];
+
+    function getCurrentFunction() {
+      return functionStack[functionStack.length - 1];
+    }
+
+    function enterFunction() {
+      functionStack.push({
+        hasLockCall: false,
+        hasUnlockCall: false,
+        hasTryFinally: false,
+      });
+    }
+
+    function exitFunction(node) {
+      const current = getCurrentFunction();
+      if (current && current.hasLockCall && (!current.hasTryFinally || !current.hasUnlockCall)) {
+        context.report({
+          node,
+          messageId: 'missingUnlock',
+        });
+      }
+      functionStack.pop();
+    }
 
     return {
       CallExpression(node) {
+        const current = getCurrentFunction();
+        if (!current) return;
+
         if (node.callee.name === 'lockAppdata') {
-          hasLockCall = true;
+          current.hasLockCall = true;
         }
         if (node.callee.name === 'unlockAppdata') {
-          hasUnlockCall = true;
+          current.hasUnlockCall = true;
         }
 
         // Any call to saveUserData or saveAppdata requires lock
-        if (saveFunctions.includes(node.callee.name) && isInFunction) {
-          if (!hasLockCall) {
+        if (saveFunctions.includes(node.callee.name)) {
+          if (!current.hasLockCall) {
             context.report({
               node,
               messageId: 'missingLock',
@@ -40,63 +63,28 @@ module.exports = {
         }
       },
       TryStatement(node) {
-        if (node.finalizer) {
-          hasTryFinally = true;
+        const current = getCurrentFunction();
+        if (current && node.finalizer) {
+          current.hasTryFinally = true;
         }
       },
-      FunctionDeclaration() {
-        isInFunction = true;
-        hasLockCall = false;
-        hasUnlockCall = false;
-        hasTryFinally = false;
+      FunctionDeclaration(node) {
+        enterFunction();
       },
-      'FunctionDeclaration:exit'() {
-        if (hasLockCall && (!hasTryFinally || !hasUnlockCall)) {
-          context.report({
-            node: context.getSourceCode().ast,
-            messageId: 'missingUnlock',
-          });
-        }
-        isInFunction = false;
-        hasLockCall = false;
-        hasUnlockCall = false;
-        hasTryFinally = false;
+      'FunctionDeclaration:exit'(node) {
+        exitFunction(node);
       },
-      ArrowFunctionExpression() {
-        isInFunction = true;
-        hasLockCall = false;
-        hasUnlockCall = false;
-        hasTryFinally = false;
+      ArrowFunctionExpression(node) {
+        enterFunction();
       },
-      'ArrowFunctionExpression:exit'() {
-        if (hasLockCall && (!hasTryFinally || !hasUnlockCall)) {
-          context.report({
-            node: context.getSourceCode().ast,
-            messageId: 'missingUnlock',
-          });
-        }
-        isInFunction = false;
-        hasLockCall = false;
-        hasUnlockCall = false;
-        hasTryFinally = false;
+      'ArrowFunctionExpression:exit'(node) {
+        exitFunction(node);
       },
-      FunctionExpression() {
-        isInFunction = true;
-        hasLockCall = false;
-        hasUnlockCall = false;
-        hasTryFinally = false;
+      FunctionExpression(node) {
+        enterFunction();
       },
-      'FunctionExpression:exit'() {
-        if (hasLockCall && (!hasTryFinally || !hasUnlockCall)) {
-          context.report({
-            node: context.getSourceCode().ast,
-            messageId: 'missingUnlock',
-          });
-        }
-        isInFunction = false;
-        hasLockCall = false;
-        hasUnlockCall = false;
-        hasTryFinally = false;
+      'FunctionExpression:exit'(node) {
+        exitFunction(node);
       },
     };
   },

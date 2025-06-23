@@ -119,7 +119,13 @@ def distribute_builds(
 )
   UI.message("Running in #{DRY_RUN ? 'DRY RUN' : 'NORMAL'} mode")
 
-  build_type = release_tag.nil? ? 'Nightly' : 'Production'
+  build_type = if release_tag.nil?
+    'Nightly'
+  elsif release_tag.downcase.include?('beta')
+    'Beta'
+  else
+    'Production'
+  end
   version = release_tag.nil? ? "dev" : release_tag
   suffix = release_tag.nil? ? "v#{PACKAGE_VERSION}" : release_tag
   release_notes = release_tag.nil? ? "Development build #{suffix}-#{build_number}" : "Release #{release_tag}"

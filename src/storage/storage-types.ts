@@ -9,6 +9,7 @@ export interface WindowBounds {
 	y: number;
 	width: number;
 	height: number;
+	isFullScreen?: boolean;
 }
 
 export interface UserData {

@@ -85,6 +85,11 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	mainWindow = new BrowserWindow( windowOptions );
 
+	// Restore fullscreen state if it was saved
+	if ( savedBounds?.isFullScreen ) {
+		mainWindow.setFullScreen( true );
+	}
+
 	void mainWindow.loadURL( MAIN_WINDOW_WEBPACK_ENTRY );
 
 	// Open the DevTools if the user had it open last time they used the app.
@@ -110,10 +115,20 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	mainWindow.on( 'enter-full-screen', () => {
 		sendIpcEventToRendererWithWindow( mainWindow, 'window-fullscreen-change', true );
+		// Save fullscreen state
+		if ( mainWindow && ! mainWindow.isDestroyed() ) {
+			const bounds = mainWindow.getBounds();
+			void saveWindowBounds( { ...bounds, isFullScreen: true } );
+		}
 	} );
 
 	mainWindow.on( 'leave-full-screen', () => {
 		sendIpcEventToRendererWithWindow( mainWindow, 'window-fullscreen-change', false );
+		// Save bounds after leaving fullscreen
+		if ( mainWindow && ! mainWindow.isDestroyed() ) {
+			const bounds = mainWindow.getBounds();
+			void saveWindowBounds( { ...bounds, isFullScreen: false } );
+		}
 	} );
 
 	let saveTimeout: NodeJS.Timeout | null = null;
@@ -124,7 +139,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		saveTimeout = setTimeout( () => {
 			if ( mainWindow && ! mainWindow.isDestroyed() && ! mainWindow.isFullScreen() ) {
 				const bounds = mainWindow.getBounds();
-				void saveWindowBounds( bounds );
+				void saveWindowBounds( { ...bounds, isFullScreen: false } );
 			}
 		}, 100 );
 	};

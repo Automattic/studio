@@ -63,30 +63,23 @@ export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOptionsWithS
 		const wpContent = filesAndFolders.find( ( node ) => node.id === 'wp-content' )?.children || [];
 
 		wpContent.forEach( ( item ) => {
-			if ( isSyncOption( item.id ) ) {
-				const hasCheckedChildren = item.children?.some( ( child ) => child.checked );
-				const shouldInclude = item.checked || hasCheckedChildren;
+			if ( ! isSyncOption( item.id ) ) {
+				return;
+			}
 
-				if ( shouldInclude ) {
-					optionsToSync.push( item.id );
+			if ( item.checked || item.indeterminate ) {
+				optionsToSync.push( item.id );
+			}
 
-					if ( item.id === SYNC_OPTIONS.plugins && item.children ) {
-						const selectedPlugins = item.children
-							.filter( ( plugin ) => plugin.checked )
-							.map( ( plugin ) => plugin.id );
-						if ( selectedPlugins.length > 0 && selectedPlugins.length < item.children.length ) {
-							specificSelections.plugins = selectedPlugins;
-						}
-					}
-
-					if ( item.id === SYNC_OPTIONS.themes && item.children ) {
-						const selectedThemes = item.children
-							.filter( ( theme ) => theme.checked )
-							.map( ( theme ) => theme.id );
-						if ( selectedThemes.length > 0 && selectedThemes.length < item.children.length ) {
-							specificSelections.themes = selectedThemes;
-						}
-					}
+			if (
+				item.children &&
+				( item.id === SYNC_OPTIONS.plugins || item.id === SYNC_OPTIONS.themes )
+			) {
+				const selectedItems = item.children
+					.filter( ( child ) => child.checked )
+					.map( ( child ) => child.id );
+				if ( selectedItems.length > 0 && selectedItems.length < item.children.length ) {
+					specificSelections[ item.id ] = selectedItems;
 				}
 			}
 		} );

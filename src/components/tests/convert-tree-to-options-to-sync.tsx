@@ -31,7 +31,10 @@ describe( 'convertTreeToOptionsToSync', () => {
 		tree = updateNodeById( tree, 'plugins', { checked: true } );
 
 		const optionsToSync = convertTreeToOptionsToSync( tree );
-		expect( optionsToSync ).toEqual( { optionsToSync: [ 'plugins' ], specificSelections: undefined } );
+		expect( optionsToSync ).toEqual( {
+			optionsToSync: [ 'plugins' ],
+			specificSelections: undefined,
+		} );
 	} );
 
 	it( 'returns ["sqls", "plugins"] when both are selected', () => {
@@ -42,6 +45,9 @@ describe( 'convertTreeToOptionsToSync', () => {
 		tree = updateNodeById( tree, 'plugins', { checked: true } );
 
 		const optionsToSync = convertTreeToOptionsToSync( tree );
-		expect( optionsToSync ).toEqual( { optionsToSync: [ 'sqls', 'plugins' ], specificSelections: undefined } );
+		expect( optionsToSync ).toEqual( {
+			optionsToSync: [ 'sqls', 'plugins' ],
+			specificSelections: undefined,
+		} );
 	} );
 } );

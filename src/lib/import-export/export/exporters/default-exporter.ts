@@ -161,18 +161,13 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			const absolutePath = path.join( this.options.site.path, 'wp-content', folderName );
 			const archivePath = path.relative( this.options.site.path, absolutePath );
 
-			const hasSpecificSelections =
+			const partialFolderItems =
 				this.options.specificSelections &&
 				( ( category === 'plugins' && this.options.specificSelections.plugins ) ||
 					( category === 'themes' && this.options.specificSelections.themes ) );
 
-			if ( hasSpecificSelections ) {
-				const selectedItems =
-					category === 'plugins'
-						? this.options.specificSelections!.plugins!
-						: this.options.specificSelections!.themes!;
-
-				for ( const itemName of selectedItems ) {
+			if ( partialFolderItems ) {
+				for ( const itemName of partialFolderItems ) {
 					const itemPath = path.join( absolutePath, itemName );
 					const itemArchivePath = path.join( archivePath, itemName );
 

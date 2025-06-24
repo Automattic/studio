@@ -47,7 +47,7 @@ export type SyncOptionsWithSelections = {
 
 export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOptionsWithSelections => {
 	const optionsToSync: SyncOption[] = [];
-	const specificSelections: { plugins?: string[]; themes?: string[] } = {};
+	let specificSelections: { plugins?: string[]; themes?: string[] } | undefined = undefined;
 
 	const isAll = tree.every( ( node ) => node.checked );
 	if ( isAll ) {
@@ -79,17 +79,18 @@ export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOptionsWithS
 					.filter( ( child ) => child.checked )
 					.map( ( child ) => child.id );
 				if ( selectedItems.length > 0 && selectedItems.length < item.children.length ) {
-					specificSelections[ item.id ] = selectedItems;
+					specificSelections = {
+						...specificSelections,
+						[ item.id ]: selectedItems,
+					};
 				}
 			}
 		} );
 	}
 
-	const hasSpecificSelections = specificSelections.plugins || specificSelections.themes;
-
 	return {
 		optionsToSync,
-		specificSelections: hasSpecificSelections ? specificSelections : undefined,
+		specificSelections,
 	};
 };
 
@@ -272,9 +273,7 @@ const SyncConnectedSiteControls = ( {
 							if ( syncDialogType === 'push' ) {
 								void pushSite( connectedSite, selectedSite, syncOptions );
 							} else {
-								pullSite( connectedSite, selectedSite, {
-									optionsToSync: syncOptions.optionsToSync,
-								} );
+								pullSite( connectedSite, selectedSite, syncOptions );
 							}
 						} }
 						onRequestClose={ () => setSyncDialogType( null ) }

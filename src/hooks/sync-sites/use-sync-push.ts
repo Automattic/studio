@@ -200,11 +200,10 @@ export function useSyncPush( {
 			let archiveContent, archivePath, archiveSizeInBytes;
 
 			try {
-				const result = await getIpcApi().exportSiteToPush(
-					selectedSite.id,
-					options?.optionsToSync,
-					options?.specificSelections
-				);
+				const result = await getIpcApi().exportSiteToPush( selectedSite.id, {
+					optionsToSync: options?.optionsToSync,
+					specificSelections: options?.specificSelections,
+				} );
 				( { archiveContent, archivePath, archiveSizeInBytes } = result );
 			} catch ( error ) {
 				Sentry.captureException( error );

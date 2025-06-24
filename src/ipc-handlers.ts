@@ -659,10 +659,12 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string, format
 export async function exportSiteToPush(
 	event: IpcMainInvokeEvent,
 	id: string,
-	optionsToSync?: SyncOption[],
-	specificSelections?: {
-		plugins?: string[];
-		themes?: string[];
+	configuration?: {
+		optionsToSync?: SyncOption[];
+		specificSelections?: {
+			plugins?: string[];
+			themes?: string[];
+		};
 	}
 ) {
 	const site = SiteServer.get( id );
@@ -680,12 +682,12 @@ export async function exportSiteToPush(
 	};
 
 	const includes = {
-		database: shouldIncludeSyncOption( optionsToSync, 'sqls' ),
-		uploads: shouldIncludeSyncOption( optionsToSync, 'uploads' ),
-		plugins: shouldIncludeSyncOption( optionsToSync, 'plugins' ),
-		themes: shouldIncludeSyncOption( optionsToSync, 'themes' ),
-		muPlugins: shouldIncludeSyncOption( optionsToSync, 'contents' ),
-		fonts: shouldIncludeSyncOption( optionsToSync, 'contents' ),
+		database: shouldIncludeSyncOption( configuration?.optionsToSync, 'sqls' ),
+		uploads: shouldIncludeSyncOption( configuration?.optionsToSync, 'uploads' ),
+		plugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'plugins' ),
+		themes: shouldIncludeSyncOption( configuration?.optionsToSync, 'themes' ),
+		muPlugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
+		fonts: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
 	};
 
 	const exportOptions: ExportOptions = {
@@ -694,7 +696,7 @@ export async function exportSiteToPush(
 		includes,
 		phpVersion: site.details.phpVersion,
 		splitDatabaseDumpByTable: true,
-		specificSelections,
+		specificSelections: configuration?.specificSelections,
 	};
 	// eslint-disable-next-line @typescript-eslint/no-empty-function
 	const onEvent = () => {};

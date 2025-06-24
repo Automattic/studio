@@ -20,7 +20,6 @@ steps:
     env:
       IS_DEV_BUILD: true
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
-    if: build.tag !~ /^v[0-9]+/
     notify:
       - github_commit_status:
           context: Windows Dev Build
@@ -36,7 +35,6 @@ steps:
       - out\**\studio-update.nupkg
       - out\**\RELEASES
       - out\**\*.appx
-    if: build.tag =~ /^v[0-9]+/
     notify:
       - github_commit_status:
           context: Windows Release Build

@@ -380,11 +380,14 @@ async function initWordPress( php: PHP, wordPressVersion: string, vfsDocumentRoo
 		initializeDefaultDatabase = true;
 	}
 
-	const wpConfigConsts = {};
+	const wpConfigConsts = {
+		WP_SQLITE_AST_DRIVER: true,
+	};
 
 	if ( wordPressVersion !== 'user-provided' ) {
 		wpConfigConsts[ 'WP_AUTO_UPDATE_CORE' ] = wordPressVersion === 'latest';
 	}
+
 	await defineWpConfigConsts( php, {
 		consts: wpConfigConsts,
 		method: 'define-before-run',
@@ -517,15 +520,6 @@ async function mountInternalMuPlugins( php: PHP, options: WPNowOptions ) {
 				$directories[] = ${ phpVar( SQLITE_PLUGIN_FOLDER ) };
 				return $directories;
 			} );
-		`
-	);
-
-	php.writeFile(
-		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-sqlite-ast-driver.php' ),
-		`<?php
-		// Set the SQLite plugin to use SQLite AST driver
-var_dump( 'SQLite AST driver enabled' );
-		if (!defined('WP_SQLITE_AST_DRIVER')) define('WP_SQLITE_AST_DRIVER', true);
 		`
 	);
 

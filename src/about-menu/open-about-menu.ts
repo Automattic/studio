@@ -7,6 +7,10 @@ import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 
 let aboutWindow: BrowserWindow | null = null;
 
+export function escapeSingleQuotes( str: string ) {
+	return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
+}
+
 export function openAboutWindow() {
 	const aboutPath = path.join( __dirname, 'menu', 'about-menu.html' );
 
@@ -36,10 +40,6 @@ export function openAboutWindow() {
 
 	// Read package.json and pass version to about window
 	const packageJson = app.getVersion();
-
-	function escapeSingleQuotes( str: string ) {
-		return str.replace( /'/g, "\\'" );
-	}
 
 	aboutWindow.webContents.on( 'dom-ready', () => {
 		if ( aboutWindow ) {

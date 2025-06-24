@@ -387,7 +387,6 @@ async function initWordPress( php: PHP, wordPressVersion: string, vfsDocumentRoo
 	if ( wordPressVersion !== 'user-provided' ) {
 		wpConfigConsts[ 'WP_AUTO_UPDATE_CORE' ] = wordPressVersion === 'latest';
 	}
-
 	await defineWpConfigConsts( php, {
 		consts: wpConfigConsts,
 		method: 'define-before-run',

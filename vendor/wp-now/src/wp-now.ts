@@ -521,6 +521,15 @@ async function mountInternalMuPlugins( php: PHP, options: WPNowOptions ) {
 	);
 
 	php.writeFile(
+		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-sqlite-ast-driver.php' ),
+		`<?php
+		// Set the SQLite plugin to use SQLite AST driver
+var_dump( 'SQLite AST driver enabled' );
+		if (!defined('WP_SQLITE_AST_DRIVER')) define('WP_SQLITE_AST_DRIVER', true);
+		`
+	);
+
+	php.writeFile(
 		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-deactivate-jetpack-modules.php' ),
 		`<?php
 			// Disable Jetpack Protect 2FA for local auto-login purpose

@@ -36,7 +36,6 @@
 		"test:watch": "cross-env NODE_OPTIONS='--no-deprecation' jest --watch",
 		"e2e": "npx playwright install && npx playwright test",
 		"test:metrics": "npx playwright test --config=./metrics/playwright.metrics.config.ts",
-		"test:preview": "jest-preview",
 		"make-pot": "node ./scripts/make-pot.mjs"
 	},
 	"devDependencies": {
@@ -93,7 +92,6 @@
 		"fork-ts-checker-webpack-plugin": "^7.2.13",
 		"jest": "^29.7.0",
 		"jest-environment-jsdom": "^29.7.0",
-		"jest-preview": "^0.3.1",
 		"jest-watch-typeahead": "^2.2.2",
 		"mini-css-extract-plugin": "^2.8.0",
 		"nock": "^13.5.1",

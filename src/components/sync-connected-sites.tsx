@@ -37,8 +37,17 @@ interface ConnectedSiteSection {
 	connectedSites: SyncSite[];
 }
 
-export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOption[] => {
+export type SyncOptionsWithSelections = {
+	optionsToSync: SyncOption[];
+	specificSelections?: {
+		plugins?: string[];
+		themes?: string[];
+	};
+};
+
+export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOptionsWithSelections => {
 	const optionsToSync: SyncOption[] = [];
+	let specificSelections: { plugins?: string[]; themes?: string[] } | undefined = undefined;
 
 	const isAll = tree.every( ( node ) => node.checked );
 	if ( isAll ) {
@@ -54,13 +63,35 @@ export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOption[] => 
 		const wpContent = filesAndFolders.find( ( node ) => node.id === 'wp-content' )?.children || [];
 
 		wpContent.forEach( ( item ) => {
-			if ( item.checked && isSyncOption( item.id ) ) {
+			if ( ! isSyncOption( item.id ) ) {
+				return;
+			}
+
+			if ( item.checked || item.indeterminate ) {
 				optionsToSync.push( item.id );
+			}
+
+			if (
+				item.children &&
+				( item.id === SYNC_OPTIONS.plugins || item.id === SYNC_OPTIONS.themes )
+			) {
+				const selectedItems = item.children
+					.filter( ( child ) => child.checked )
+					.map( ( child ) => child.id );
+				if ( selectedItems.length > 0 && selectedItems.length < item.children.length ) {
+					specificSelections = {
+						...specificSelections,
+						[ item.id ]: selectedItems,
+					};
+				}
 			}
 		} );
 	}
 
-	return optionsToSync;
+	return {
+		optionsToSync,
+		specificSelections,
+	};
 };
 
 const SyncConnectedSiteControls = ( {
@@ -237,12 +268,12 @@ const SyncConnectedSiteControls = ( {
 						localSite={ selectedSite }
 						remoteSite={ connectedSite }
 						onSubmit={ ( tree ) => {
-							const optionsToSync = convertTreeToOptionsToSync( tree );
+							const syncOptions = convertTreeToOptionsToSync( tree );
 
 							if ( syncDialogType === 'push' ) {
-								void pushSite( connectedSite, selectedSite, { optionsToSync } );
+								void pushSite( connectedSite, selectedSite, syncOptions );
 							} else {
-								pullSite( connectedSite, selectedSite, { optionsToSync } );
+								pullSite( connectedSite, selectedSite, syncOptions );
 							}
 						} }
 						onRequestClose={ () => setSyncDialogType( null ) }

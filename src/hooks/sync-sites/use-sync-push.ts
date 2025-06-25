@@ -30,6 +30,10 @@ export type SyncPushState = {
 
 type PushSiteOptions = {
 	optionsToSync?: SyncOption[];
+	specificSelections?: {
+		plugins?: string[];
+		themes?: string[];
+	};
 };
 
 export type PushStates = Record< string, SyncPushState >;
@@ -196,7 +200,10 @@ export function useSyncPush( {
 			let archiveContent, archivePath, archiveSizeInBytes;
 
 			try {
-				const result = await getIpcApi().exportSiteToPush( selectedSite.id );
+				const result = await getIpcApi().exportSiteToPush( selectedSite.id, {
+					optionsToSync: options?.optionsToSync,
+					specificSelections: options?.specificSelections,
+				} );
 				( { archiveContent, archivePath, archiveSizeInBytes } = result );
 			} catch ( error ) {
 				Sentry.captureException( error );

@@ -9,7 +9,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 		const tree = result.current;
 
 		const optionsToSync = convertTreeToOptionsToSync( tree );
-		expect( optionsToSync ).toEqual( [ 'all' ] );
+		expect( optionsToSync ).toEqual( { optionsToSync: [ 'all' ], specificSelections: undefined } );
 	} );
 
 	it( 'returns ["sqls"] when only database is selected', () => {
@@ -19,7 +19,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 		tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
 
 		const optionsToSync = convertTreeToOptionsToSync( tree );
-		expect( optionsToSync ).toEqual( [ 'sqls' ] );
+		expect( optionsToSync ).toEqual( { optionsToSync: [ 'sqls' ], specificSelections: undefined } );
 	} );
 
 	it( 'returns ["plugins"] when only plugins are selected', () => {
@@ -31,7 +31,10 @@ describe( 'convertTreeToOptionsToSync', () => {
 		tree = updateNodeById( tree, 'plugins', { checked: true } );
 
 		const optionsToSync = convertTreeToOptionsToSync( tree );
-		expect( optionsToSync ).toEqual( [ 'plugins' ] );
+		expect( optionsToSync ).toEqual( {
+			optionsToSync: [ 'plugins' ],
+			specificSelections: undefined,
+		} );
 	} );
 
 	it( 'returns ["sqls", "plugins"] when both are selected', () => {
@@ -42,6 +45,9 @@ describe( 'convertTreeToOptionsToSync', () => {
 		tree = updateNodeById( tree, 'plugins', { checked: true } );
 
 		const optionsToSync = convertTreeToOptionsToSync( tree );
-		expect( optionsToSync ).toEqual( [ 'sqls', 'plugins' ] );
+		expect( optionsToSync ).toEqual( {
+			optionsToSync: [ 'sqls', 'plugins' ],
+			specificSelections: undefined,
+		} );
 	} );
 } );

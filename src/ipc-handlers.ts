@@ -73,6 +73,7 @@ import {
 	updateAppdata,
 } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
+import type { SyncOption } from 'src/hooks/sync-sites/sync-option';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 
@@ -655,26 +656,47 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string, format
 	return { archivePath, archiveSizeInBytes: stats.size };
 }
 
-export async function exportSiteToPush( event: IpcMainInvokeEvent, id: string ) {
+export async function exportSiteToPush(
+	event: IpcMainInvokeEvent,
+	id: string,
+	configuration?: {
+		optionsToSync?: SyncOption[];
+		specificSelections?: {
+			plugins?: string[];
+			themes?: string[];
+		};
+	}
+) {
 	const site = SiteServer.get( id );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
 	const extension = 'tar.gz';
 	const archivePath = `${ TEMP_DIR }site_${ id }.${ extension }`;
+
+	const shouldIncludeSyncOption = (
+		optionsToSync: SyncOption[] | undefined,
+		option: SyncOption
+	): boolean => {
+		return optionsToSync?.includes( option ) || optionsToSync?.includes( 'all' ) || ! optionsToSync;
+	};
+
+	const includes = {
+		database: shouldIncludeSyncOption( configuration?.optionsToSync, 'sqls' ),
+		uploads: shouldIncludeSyncOption( configuration?.optionsToSync, 'uploads' ),
+		plugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'plugins' ),
+		themes: shouldIncludeSyncOption( configuration?.optionsToSync, 'themes' ),
+		muPlugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
+		fonts: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
+	};
+
 	const exportOptions: ExportOptions = {
 		site: site.details,
 		backupFile: archivePath,
-		includes: {
-			database: true,
-			uploads: true,
-			plugins: true,
-			themes: true,
-			muPlugins: true,
-			fonts: true,
-		},
+		includes,
 		phpVersion: site.details.phpVersion,
 		splitDatabaseDumpByTable: true,
+		specificSelections: configuration?.specificSelections,
 	};
 	// eslint-disable-next-line @typescript-eslint/no-empty-function
 	const onEvent = () => {};

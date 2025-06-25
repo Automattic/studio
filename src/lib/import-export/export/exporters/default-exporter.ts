@@ -160,20 +160,49 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			const folderName = category === 'muPlugins' ? 'mu-plugins' : category;
 			const absolutePath = path.join( this.options.site.path, 'wp-content', folderName );
 			const archivePath = path.relative( this.options.site.path, absolutePath );
-			this.archive.directory( absolutePath, archivePath, ( entry ) => {
-				const fullArchivePath = path.join( archivePath, entry.name );
-				const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
-					fullArchivePath.startsWith( path.normalize( pathToExclude ) )
-				);
-				if (
-					isExcluded ||
-					entry.name.includes( '.git' ) ||
-					entry.name.includes( 'node_modules' )
-				) {
-					return false;
+
+			const partialFolderItems =
+				this.options.specificSelections &&
+				( ( category === 'plugins' && this.options.specificSelections.plugins ) ||
+					( category === 'themes' && this.options.specificSelections.themes ) );
+
+			if ( partialFolderItems ) {
+				for ( const itemName of partialFolderItems ) {
+					const itemPath = path.join( absolutePath, itemName );
+					const itemArchivePath = path.join( archivePath, itemName );
+
+					if ( fs.existsSync( itemPath ) ) {
+						const stat = fs.statSync( itemPath );
+						if ( stat.isDirectory() ) {
+							this.archive.directory( itemPath, itemArchivePath, ( entry ) => {
+								if ( entry.name.includes( '.git' ) || entry.name.includes( 'node_modules' ) ) {
+									return false;
+								}
+								return entry;
+							} );
+						} else {
+							this.archive.file( itemPath, { name: itemArchivePath } );
+						}
+					}
 				}
-				return entry;
-			} );
+			} else {
+				// Add entire directory (existing behavior)
+				this.archive.directory( absolutePath, archivePath, ( entry ) => {
+					const fullArchivePath = path.join( archivePath, entry.name );
+					const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
+						fullArchivePath.startsWith( path.normalize( pathToExclude ) )
+					);
+					if (
+						isExcluded ||
+						entry.name.includes( '.git' ) ||
+						entry.name.includes( 'node_modules' )
+					) {
+						return false;
+					}
+					return entry;
+				} );
+			}
+
 			this.emit( ExportEvents.WP_CONTENT_EXPORT_PROGRESS, { directory: absolutePath } );
 		}
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_COMPLETE );

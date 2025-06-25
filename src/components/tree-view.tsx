@@ -1,5 +1,6 @@
 import { CheckboxControl, Icon, Spinner } from '@wordpress/components';
 import { file, page } from '@wordpress/icons';
+import { useRef, useState, useEffect } from 'react';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import { cx } from 'src/lib/cx';
 
@@ -75,6 +76,10 @@ const TreeItem = ( {
 	isLast,
 	index = 0,
 	setsize = 1,
+	focusedId,
+	setFocusedId,
+	nodeRefs,
+	visibleNodeIds,
 }: {
 	node: TreeNode;
 	onPatchNode: ( id: string, patchNode: Partial< TreeNode > ) => void;
@@ -82,9 +87,71 @@ const TreeItem = ( {
 	isLast?: boolean;
 	index?: number;
 	setsize?: number;
+	focusedId: string;
+	setFocusedId: ( id: string ) => void;
+	nodeRefs: Record< string, React.RefObject< HTMLDivElement > >;
+	visibleNodeIds: string[];
 } ) => {
 	const isLevel0 = level === 0;
 	const expanded = node.expanded ?? true;
+	const ref = useRef< HTMLDivElement >( null );
+	const isFocused = focusedId === node.id;
+
+	useEffect( () => {
+		nodeRefs[ node.id ] = ref;
+	}, [ node.id, nodeRefs ] );
+
+	const getNextNodeId = ( key: string, currentIndex: number ): string | null => {
+		const navigationMap: Record< string, () => string | null > = {
+			ArrowDown: () =>
+				currentIndex < visibleNodeIds.length - 1 ? visibleNodeIds[ currentIndex + 1 ] : null,
+			ArrowUp: () => ( currentIndex > 0 ? visibleNodeIds[ currentIndex - 1 ] : null ),
+			Home: () => visibleNodeIds[ 0 ],
+			End: () => visibleNodeIds[ visibleNodeIds.length - 1 ],
+		};
+
+		return navigationMap[ key ]?.() ?? null;
+	};
+
+	const navigateToNode = ( nodeId: string ) => {
+		setFocusedId( nodeId );
+		setTimeout( () => {
+			nodeRefs[ nodeId ]?.current?.focus();
+		}, 0 );
+	};
+
+	const handleKeyDown = ( e: React.KeyboardEvent< HTMLDivElement > ) => {
+		const currentIndex = visibleNodeIds.indexOf( node.id );
+		if ( currentIndex === -1 ) return;
+
+		if ( e.key === ' ' || e.key === 'Enter' ) {
+			e.preventDefault();
+			onPatchNode( node.id, { checked: ! node.checked } );
+			return;
+		}
+
+		if ( e.key === 'ArrowRight' ) {
+			e.preventDefault();
+			if ( node.children && ! expanded ) {
+				onPatchNode( node.id, { expanded: true } );
+			}
+			return;
+		}
+
+		if ( e.key === 'ArrowLeft' ) {
+			e.preventDefault();
+			if ( node.children && expanded ) {
+				onPatchNode( node.id, { expanded: false } );
+			}
+			return;
+		}
+
+		const nextNodeId = getNextNodeId( e.key, currentIndex );
+		if ( nextNodeId ) {
+			e.preventDefault();
+			navigateToNode( nextNodeId );
+		}
+	};
 
 	return (
 		<div>
@@ -94,6 +161,10 @@ const TreeItem = ( {
 				aria-expanded={ node.children ? expanded : undefined }
 				aria-setsize={ setsize }
 				aria-posinset={ index + 1 }
+				tabIndex={ isFocused ? 0 : -1 }
+				ref={ ref }
+				onFocus={ () => setFocusedId( node.id ) }
+				onKeyDown={ handleKeyDown }
 				className={ cx(
 					'flex items-center py-2 relative gap-2',
 					isLevel0 ? 'border-b border-gray-300 py-4' : '',
@@ -126,21 +197,36 @@ const TreeItem = ( {
 					role="group"
 					className={ cx( 'ps-6', isLevel0 ? 'border-b border-gray-300 py-2' : '' ) }
 				>
-					{ node.children.map( ( child, idx ) => (
-						<TreeItem
-							key={ child.id }
-							node={ child }
-							onPatchNode={ onPatchNode }
-							level={ level + 1 }
-							index={ idx }
-							setsize={ node.children ? node.children.length : 0 }
-						/>
-					) ) }
+					{ node.children &&
+						node.children.map( ( child, idx ) => (
+							<TreeItem
+								key={ child.id }
+								node={ child }
+								onPatchNode={ onPatchNode }
+								level={ level + 1 }
+								index={ idx }
+								setsize={ node.children ? node.children.length : 0 }
+								focusedId={ focusedId }
+								setFocusedId={ setFocusedId }
+								nodeRefs={ nodeRefs }
+								visibleNodeIds={ visibleNodeIds }
+							/>
+						) ) }
 				</div>
 			) }
 		</div>
 	);
 };
+
+function flattenVisibleTree( nodes: TreeNode[], result: string[] = [] ): string[] {
+	for ( const node of nodes ) {
+		result.push( node.id );
+		if ( node.children && ( node.expanded ?? true ) ) {
+			flattenVisibleTree( node.children, result );
+		}
+	}
+	return result;
+}
 
 export type TreeViewProps = {
 	tree: TreeNode[];
@@ -148,6 +234,9 @@ export type TreeViewProps = {
 };
 
 export const TreeView = ( { tree, setTree }: TreeViewProps ) => {
+	const [ focusedId, setFocusedId ] = useState( tree[ 0 ]?.id || '' );
+	const nodeRefs = {} as Record< string, React.RefObject< HTMLDivElement > >;
+	const visibleNodeIds = flattenVisibleTree( tree );
 	const handlePatchNode = ( id: string, partialNode: Partial< TreeNode > ) => {
 		setTree( ( prev: TreeNode[] ) => updateNodeById( prev, id, partialNode ) );
 	};
@@ -163,6 +252,10 @@ export const TreeView = ( { tree, setTree }: TreeViewProps ) => {
 					index={ index }
 					setsize={ tree.length }
 					isLast={ index === tree.length - 1 }
+					focusedId={ focusedId }
+					setFocusedId={ setFocusedId }
+					nodeRefs={ nodeRefs }
+					visibleNodeIds={ visibleNodeIds }
 				/>
 			) ) }
 		</div>

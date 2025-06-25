@@ -48,7 +48,7 @@ const useDynamicTreeState = (
 				const children: TreeNode[] | undefined = error
 					? undefined
 					: items.map( ( item ) => ( {
-							id: item.name,
+							id: `${ wpType }-${ item.name }`,
 							label: item.name,
 							checked: true,
 							type: item.type,
@@ -93,21 +93,17 @@ export function SyncDialog( {
 			<span className="text-gray-600"> { remoteSite.name } </span>
 		</div>
 	);
-	const remoteSiteText = `${ envDetails.label } (${ remoteSite.url.replace(
-		/^https?:\/\//,
-		''
-	) })`;
 
 	let syncFrom, syncTo, syncFromText, syncToText;
 	if ( type === 'push' ) {
 		syncFrom = localSiteName;
 		syncTo = remoteSiteName;
 		syncFromText = localSite.name;
-		syncToText = remoteSiteText;
+		syncToText = remoteSite.name;
 	} else {
 		syncFrom = remoteSiteName;
 		syncTo = localSiteName;
-		syncFromText = remoteSiteText;
+		syncFromText = remoteSite.name;
 		syncToText = localSite.name;
 	}
 

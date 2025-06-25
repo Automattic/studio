@@ -313,4 +313,24 @@ describe( 'convertTreeToOptionsToSync', () => {
 			} );
 		} );
 	} );
+
+	it( 'strips folder type prefix from specific selections', () => {
+		const { result } = renderHook( () => useDefaultSyncTree() );
+		let tree = result.current;
+
+		tree = updateNodeById( tree, 'plugins', {
+			children: [
+				{ id: 'plugins-my-plugin', label: 'my-plugin', checked: true, type: 'folder' },
+				{ id: 'plugins-another-plugin', label: 'another-plugin', checked: false, type: 'folder' },
+			],
+		} );
+
+		const optionsToSync = convertTreeToOptionsToSync( tree );
+		expect( optionsToSync ).toEqual( {
+			optionsToSync: [ 'sqls', 'plugins', 'themes', 'uploads', 'contents' ],
+			specificSelections: {
+				plugins: [ 'my-plugin' ],
+			},
+		} );
+	} );
 } );

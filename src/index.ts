@@ -220,6 +220,7 @@ async function appBoot() {
 		if ( process.env.NODE_ENV === 'development' ) {
 			await installExtension( REACT_DEVELOPER_TOOLS );
 			await installExtension( REDUX_DEVTOOLS );
+			await installExtension( 'lhdoppojpmngadmnindnejefpokejbdd' ); // Axe DevTools
 			await launchExtensionBackgroundWorkers();
 		}
 

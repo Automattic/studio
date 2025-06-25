@@ -45,6 +45,8 @@ import { setupUpdates } from 'src/updates';
 // eslint-disable-next-line import/order
 import packageJson from '../package.json';
 
+const AXE_DEVTOOLS = 'lhdoppojpmngadmnindnejefpokejbdd';
+
 if ( ! process.env.IS_DEV_BUILD ) {
 	const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo( app.getVersion() );
 
@@ -220,7 +222,7 @@ async function appBoot() {
 		if ( process.env.NODE_ENV === 'development' ) {
 			await installExtension( REACT_DEVELOPER_TOOLS );
 			await installExtension( REDUX_DEVTOOLS );
-			await installExtension( 'lhdoppojpmngadmnindnejefpokejbdd' ); // Axe DevTools
+			await installExtension( AXE_DEVTOOLS );
 			await launchExtensionBackgroundWorkers();
 		}
 

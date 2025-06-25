@@ -11,6 +11,7 @@ platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
 	describe( 'canHandle', () => {
 		it( 'should return true for valid Jetpack backup structure', () => {
 			const fileList = [
+				'meta.json',
 				'sql/wp_options.sql',
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
@@ -22,6 +23,7 @@ platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
 
 		it( 'should not fail if core files exists.', () => {
 			const fileList = [
+				'meta.json',
 				'sql/wp_options.sql',
 				'wp-admin/wp-admin.php',
 				'wp-admin/about.php',
@@ -38,6 +40,20 @@ platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
 			const fileList = [ 'random.txt', 'another-file.js' ];
 			expect( validator.canHandle( fileList ) ).toBe( false );
 		} );
+
+		it.each( [
+			'sql/wp_options.sql',
+			'wp-content/plugins/jetpack/jetpack.php',
+			'wp-content/themes/twentytwentyone/style.css',
+			'wp-content/uploads/img.jpg',
+			'wp-config.php',
+		] )(
+			'should return true if meta.json exists and at least one of the optional files or dirs exists: %s',
+			( fileOrDir ) => {
+				const fileList = [ 'meta.json', fileOrDir ];
+				expect( validator.canHandle( fileList ) ).toBe( true );
+			}
+		);
 	} );
 
 	describe( 'parseBackupContents', () => {

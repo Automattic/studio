@@ -73,11 +73,15 @@ const TreeItem = ( {
 	onPatchNode,
 	level,
 	isLast,
+	index = 0,
+	setsize = 1,
 }: {
 	node: TreeNode;
 	onPatchNode: ( id: string, patchNode: Partial< TreeNode > ) => void;
 	level: number;
 	isLast?: boolean;
+	index?: number;
+	setsize?: number;
 } ) => {
 	const isLevel0 = level === 0;
 	const expanded = node.expanded ?? true;
@@ -85,6 +89,11 @@ const TreeItem = ( {
 	return (
 		<div>
 			<div
+				role="treeitem"
+				aria-level={ level }
+				aria-expanded={ node.children ? expanded : undefined }
+				aria-setsize={ setsize }
+				aria-posinset={ index + 1 }
 				className={ cx(
 					'flex items-center py-2 relative gap-2',
 					isLevel0 ? 'border-b border-gray-300 py-4' : '',
@@ -113,13 +122,18 @@ const TreeItem = ( {
 				) }
 			</div>
 			{ expanded && node.children && (
-				<div className={ cx( 'ps-6', isLevel0 ? 'border-b border-gray-300 py-2' : '' ) }>
-					{ node.children.map( ( child ) => (
+				<div
+					role="group"
+					className={ cx( 'ps-6', isLevel0 ? 'border-b border-gray-300 py-2' : '' ) }
+				>
+					{ node.children.map( ( child, idx ) => (
 						<TreeItem
 							key={ child.id }
 							node={ child }
 							onPatchNode={ onPatchNode }
-							level={ ++level }
+							level={ level + 1 }
+							index={ idx }
+							setsize={ node.children ? node.children.length : 0 }
 						/>
 					) ) }
 				</div>
@@ -139,13 +153,15 @@ export const TreeView = ( { tree, setTree }: TreeViewProps ) => {
 	};
 
 	return (
-		<div>
+		<div role="tree">
 			{ tree.map( ( node, index ) => (
 				<TreeItem
 					key={ node.id }
 					node={ node }
 					onPatchNode={ handlePatchNode }
-					level={ 0 }
+					level={ 1 }
+					index={ index }
+					setsize={ tree.length }
 					isLast={ index === tree.length - 1 }
 				/>
 			) ) }

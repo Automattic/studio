@@ -6,11 +6,16 @@ import { Validator } from 'src/lib/import-export/import/validators/validator';
 
 export class JetpackValidator extends EventEmitter implements Validator {
 	canHandle( fileList: string[] ): boolean {
-		const requiredDirs = [ 'sql', 'wp-content/uploads', 'wp-content/plugins', 'wp-content/themes' ];
-		return (
-			requiredDirs.some( ( dir ) => fileList.some( ( file ) => file.startsWith( dir + '/' ) ) ) &&
-			fileList.some( ( file ) => file.startsWith( 'sql/' ) && file.endsWith( '.sql' ) )
+		const optionalDirs = [ 'sql', 'wp-content/uploads', 'wp-content/plugins', 'wp-content/themes' ];
+		const optionalFiles = [ 'wp-config.php' ];
+
+		const hasRequiredMetaJson = fileList.some( ( file ) => file === 'meta.json' );
+		const hasOptionalDir = optionalDirs.some( ( dir ) =>
+			fileList.some( ( file ) => file.startsWith( dir + '/' ) )
 		);
+		const hasOptionalFile = optionalFiles.some( ( file ) => fileList.includes( file ) );
+
+		return hasRequiredMetaJson && ( hasOptionalDir || hasOptionalFile );
 	}
 
 	parseBackupContents( fileList: string[], extractionDirectory: string ): BackupContents {

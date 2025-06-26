@@ -1,11 +1,11 @@
 import { renderHook } from '@testing-library/react';
+import { useDefaultSyncTree } from 'src/components/sync-dialog/use-default-sync-tree';
 import { updateNodeById } from 'src/components/tree-view';
 import { convertTreeToOptionsToSync } from '../sync-connected-sites';
-import { useDefaultTree } from '../sync-dialog';
 
 describe( 'convertTreeToOptionsToSync', () => {
 	it( 'returns ["all"] when all options are selected', () => {
-		const { result } = renderHook( () => useDefaultTree() );
+		const { result } = renderHook( () => useDefaultSyncTree() );
 		const tree = result.current;
 
 		const optionsToSync = convertTreeToOptionsToSync( tree );
@@ -13,7 +13,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 	} );
 
 	it( 'returns ["sqls"] when only database is selected', () => {
-		const { result } = renderHook( () => useDefaultTree() );
+		const { result } = renderHook( () => useDefaultSyncTree() );
 		let tree = result.current;
 
 		tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
@@ -23,7 +23,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 	} );
 
 	it( 'returns ["plugins"] when only plugins are selected', () => {
-		const { result } = renderHook( () => useDefaultTree() );
+		const { result } = renderHook( () => useDefaultSyncTree() );
 		let tree = result.current;
 
 		tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
@@ -38,7 +38,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 	} );
 
 	it( 'returns ["sqls", "plugins"] when both are selected', () => {
-		const { result } = renderHook( () => useDefaultTree() );
+		const { result } = renderHook( () => useDefaultSyncTree() );
 		let tree = result.current;
 
 		tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );

@@ -12,7 +12,7 @@ import { useContentFolders, WpContentFolder } from 'src/hooks/use-content-folder
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
-import { useSiteEnvDetails } from './environment-badge';
+import { EnvironmentBadge, getSiteEnvironment } from './environment-badge';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 const useCopy = ( type: 'pull' | 'push' ) => {
@@ -195,13 +195,13 @@ export function SyncDialog( {
 
 	useDynamicTreeState( type, localSite.id, setTreeState );
 
-	const { envType, AssignedEnvironmentBadge } = useSiteEnvDetails( remoteSite );
+	const siteEnv = getSiteEnvironment( remoteSite );
 
 	const localSiteName = localSite.name;
 	const remoteSiteName = (
 		<div>
 			<span className="inline-block">
-				<AssignedEnvironmentBadge />
+				<EnvironmentBadge type={ siteEnv } />
 			</span>
 			<span className="text-gray-600"> { remoteSite.name } </span>
 		</div>
@@ -232,10 +232,10 @@ export function SyncDialog( {
 		<Modal
 			className="sync-dialog-wrapper w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
-			title={ copy[ envType ].title }
+			title={ copy[ siteEnv ].title }
 		>
 			<div className="pb-[70px]">
-				<div className="px-8 pb-6 pt-2">{ copy[ envType ].description }</div>
+				<div className="px-8 pb-6 pt-2">{ copy[ siteEnv ].description }</div>
 				<div className="px-8">
 					<div className="flex items-start gap-1 pb-7 border-b border-a8c-gray-5">
 						<div className="flex-1">

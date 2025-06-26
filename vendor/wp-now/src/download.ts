@@ -120,7 +120,15 @@ async function downloadFileAndUnzip( {
 		await response
 			.pipe( unzipper.Parse() )
 			.on( 'entry', ( entry ) => {
-				const filePath = path.join( destinationFolder, entry.path );
+				const normalizedPath = path.normalize( entry.path );
+				const filePath = path.join( destinationFolder, normalizedPath );
+
+				if ( ! filePath.startsWith( destinationFolder ) ) {
+					output?.log( `Skipping invalid path: ${ entry.path }` );
+					entryPromises.push( entry.autodrain().promise() );
+					return;
+				}
+
 				/*
 				 * Use the sync version to ensure entry is piped to
 				 * a write stream before moving on to the next entry.

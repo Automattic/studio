@@ -4,7 +4,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
-import { CircleEnvIcon } from 'src/components/icons/circle-env';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
@@ -13,7 +12,7 @@ import { useContentFolders, WpContentFolder } from 'src/hooks/use-content-folder
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
-import { EnvironmentType } from './environment-badge';
+import { useSiteEnvDetails } from './environment-badge';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 const useCopy = ( type: 'pull' | 'push' ) => {
@@ -74,42 +73,6 @@ const useCopy = ( type: 'pull' | 'push' ) => {
 			};
 		}
 	}, [ type, __ ] );
-};
-
-const useEnvDetails = (
-	connectedSite: SyncSite
-): { label: string; envType: EnvironmentType; fillClass: string } => {
-	const { __ } = useI18n();
-
-	const envTypeValues = {
-		production: {
-			label: __( 'Production' ),
-			envType: 'production',
-			fillClass: 'fill-circle-env-production',
-		},
-		staging: {
-			label: __( 'Staging' ),
-			envType: 'staging',
-			fillClass: 'fill-circle-env-staging',
-		},
-		sandbox: {
-			label: __( 'Sandbox' ),
-			envType: 'sandbox',
-			fillClass: 'fill-sandbox-text',
-		},
-	} as const;
-
-	if ( connectedSite.isPressable ) {
-		return (
-			envTypeValues[ connectedSite.environmentType as EnvironmentType ] ?? envTypeValues.production
-		);
-	}
-
-	if ( connectedSite.isStaging ) {
-		return envTypeValues.staging;
-	} else {
-		return envTypeValues.production;
-	}
 };
 
 type SyncDialogProps = {
@@ -232,18 +195,15 @@ export function SyncDialog( {
 
 	useDynamicTreeState( type, localSite.id, setTreeState );
 
-	const envDetails = useEnvDetails( remoteSite );
+	const { envType, AssignedEnvironmentBadge } = useSiteEnvDetails( remoteSite );
 
 	const localSiteName = localSite.name;
 	const remoteSiteName = (
-		<div className="flex items-center gap-2 flex-wrap">
-			<span className="flex-shrink-0">
-				<CircleEnvIcon fillClass={ envDetails.fillClass } />
+		<div>
+			<span className="inline-block">
+				<AssignedEnvironmentBadge />
 			</span>
-			<span>{ envDetails.label }</span>
-			<span className="text-gray-600 break-all">
-				{ remoteSite.url.replace( /https?:\/\//, '' ) }
-			</span>
+			<span className="text-gray-600"> { remoteSite.name } </span>
 		</div>
 	);
 
@@ -272,15 +232,15 @@ export function SyncDialog( {
 		<Modal
 			className="sync-dialog-wrapper w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
-			title={ copy[ envDetails.envType ].title }
+			title={ copy[ envType ].title }
 		>
 			<div className="pb-[70px]">
-				<div className="px-8 pb-6 pt-2">{ copy[ envDetails.envType ].description }</div>
+				<div className="px-8 pb-6 pt-2">{ copy[ envType ].description }</div>
 				<div className="px-8">
 					<div className="flex items-start gap-1 pb-7 border-b border-a8c-gray-5">
 						<div className="flex-1">
 							<div className="leading-[32px]">{ copy.fromLabel }</div>
-							<div className="border border-gray-300 rounded-[2px] min-h-12 px-[19px] flex items-center py-2 break-all">
+							<div className="border border-gray-300 rounded-[2px] min-h-12 px-[19px] flex items-center py-2">
 								{ syncFrom }
 							</div>
 						</div>
@@ -289,7 +249,7 @@ export function SyncDialog( {
 						</div>
 						<div className="flex-1">
 							<div className="leading-[32px]">{ copy.toLabel }</div>
-							<div className="border border-gray-300 rounded-[2px] min-h-12 px-[19px] flex items-center py-2 break-all">
+							<div className="border border-gray-300 rounded-[2px] min-h-12 px-[19px] flex items-center py-2">
 								{ syncTo }
 							</div>
 						</div>

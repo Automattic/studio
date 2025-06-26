@@ -1,6 +1,8 @@
 import { __ } from '@wordpress/i18n';
+import { useI18n } from '@wordpress/react-i18n';
 import { Badge } from 'src/components/badge';
 import { cx } from 'src/lib/cx';
+import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 export type EnvironmentType = 'production' | 'staging' | 'sandbox';
 
@@ -37,3 +39,32 @@ export function EnvironmentBadge( { type, selected }: EnvironmentBadgeProps ) {
 
 	return <Badge className={ cx( getClassName() ) }>{ labels[ type ] }</Badge>;
 }
+
+export const useSiteEnvDetails = (
+	connectedSite: SyncSite
+): { AssignedEnvironmentBadge: () => JSX.Element; envType: EnvironmentType } => {
+	const { __ } = useI18n();
+
+	const envTypeValues = {
+		production: {
+			AssignedEnvironmentBadge: () => <EnvironmentBadge type="production" />,
+			envType: 'production',
+		},
+		staging: {
+			AssignedEnvironmentBadge: () => <EnvironmentBadge type="staging" />,
+			envType: 'staging',
+		},
+		sandbox: {
+			AssignedEnvironmentBadge: () => <EnvironmentBadge type="sandbox" />,
+			envType: 'sandbox',
+		},
+	} as const;
+
+	if ( connectedSite.isPressable ) {
+		return (
+			envTypeValues[ connectedSite.environmentType as EnvironmentType ] ?? envTypeValues.production
+		);
+	}
+
+	return connectedSite.isStaging ? envTypeValues.staging : envTypeValues.production;
+};

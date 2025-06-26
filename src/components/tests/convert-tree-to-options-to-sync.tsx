@@ -37,6 +37,21 @@ describe( 'convertTreeToOptionsToSync', () => {
 		} );
 	} );
 
+	it( 'returns ["uploads"] when only uploads are selected', () => {
+		const { result } = renderHook( () => useDefaultTree() );
+		let tree = result.current;
+
+		tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
+		tree = updateNodeById( tree, 'sqls', { checked: false } );
+		tree = updateNodeById( tree, 'uploads', { checked: true } );
+
+		const optionsToSync = convertTreeToOptionsToSync( tree );
+		expect( optionsToSync ).toEqual( {
+			optionsToSync: [ 'uploads' ],
+			specificSelections: undefined,
+		} );
+	} );
+
 	it( 'returns ["sqls", "plugins"] when both are selected', () => {
 		const { result } = renderHook( () => useDefaultTree() );
 		let tree = result.current;

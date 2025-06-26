@@ -22,7 +22,13 @@ import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
-import { ARCHIVER_OPTIONS, DEFAULT_TERMINAL, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import {
+	ARCHIVER_OPTIONS,
+	DEFAULT_TERMINAL,
+	MAIN_MIN_WIDTH,
+	SIDEBAR_WIDTH,
+	WpContentFolder,
+} from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
@@ -664,6 +670,7 @@ export async function exportSiteToPush(
 		specificSelections?: {
 			plugins?: string[];
 			themes?: string[];
+			uploads?: string[];
 		};
 	}
 ) {
@@ -1402,7 +1409,7 @@ export function comparePaths( event: IpcMainInvokeEvent, path1: string, path2: s
 export async function listWpContentFolders(
 	_event: Electron.IpcMainInvokeEvent,
 	siteId: string,
-	subdir: 'plugins' | 'themes'
+	subdir: WpContentFolder
 ): Promise< { name: string; type: 'file' | 'folder' }[] > {
 	const server = SiteServer.get( siteId );
 	if ( ! server ) throw new Error( 'Site not found' );

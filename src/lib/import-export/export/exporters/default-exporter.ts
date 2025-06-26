@@ -164,7 +164,8 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			const partialFolderItems =
 				this.options.specificSelections &&
 				( ( category === 'plugins' && this.options.specificSelections.plugins ) ||
-					( category === 'themes' && this.options.specificSelections.themes ) );
+					( category === 'themes' && this.options.specificSelections.themes ) ||
+					( category === 'uploads' && this.options.specificSelections.uploads ) );
 
 			if ( partialFolderItems ) {
 				for ( const itemName of partialFolderItems ) {
@@ -186,7 +187,6 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 					}
 				}
 			} else {
-				// Add entire directory (existing behavior)
 				this.archive.directory( absolutePath, archivePath, ( entry ) => {
 					const fullArchivePath = path.join( archivePath, entry.name );
 					const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>

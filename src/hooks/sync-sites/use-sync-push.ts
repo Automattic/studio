@@ -33,6 +33,7 @@ type PushSiteOptions = {
 	specificSelections?: {
 		plugins?: string[];
 		themes?: string[];
+		uploads?: string[];
 	};
 };
 

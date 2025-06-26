@@ -42,12 +42,15 @@ export type SyncOptionsWithSelections = {
 	specificSelections?: {
 		plugins?: string[];
 		themes?: string[];
+		uploads?: string[];
 	};
 };
 
 export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOptionsWithSelections => {
 	const optionsToSync: SyncOption[] = [];
-	let specificSelections: { plugins?: string[]; themes?: string[] } | undefined = undefined;
+	let specificSelections:
+		| { plugins?: string[]; themes?: string[]; uploads?: string[] }
+		| undefined = undefined;
 
 	const isAll = tree.every( ( node ) => node.checked );
 	if ( isAll ) {
@@ -73,7 +76,9 @@ export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOptionsWithS
 
 			if (
 				item.children &&
-				( item.id === SYNC_OPTIONS.plugins || item.id === SYNC_OPTIONS.themes )
+				( item.id === SYNC_OPTIONS.plugins ||
+					item.id === SYNC_OPTIONS.themes ||
+					item.id === SYNC_OPTIONS.uploads )
 			) {
 				const selectedItems = item.children
 					.filter( ( child ) => child.checked )

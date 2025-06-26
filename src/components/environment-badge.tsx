@@ -41,7 +41,7 @@ export function EnvironmentBadge( { type, selected }: EnvironmentBadgeProps ) {
 
 export const getSiteEnvironment = ( connectedSite: SyncSite ): EnvironmentType => {
 	if ( connectedSite.isPressable ) {
-		return ( connectedSite.environmentType as EnvironmentType ) ?? 'production';
+		return connectedSite.environmentType ?? 'production';
 	}
 	return connectedSite.isStaging ? 'staging' : 'production';
 };

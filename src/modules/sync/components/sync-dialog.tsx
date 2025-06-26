@@ -135,6 +135,7 @@ export function SyncDialog( {
 				<div className="px-8 pb-6 pt-2">{ copy[ siteEnv ].description }</div>
 				<div className="px-8">
 					<span className="sr-only">
+						{ /* translators: first %s is the source site name, second %s is the destination site name */ }
 						{ sprintf( __( 'From %s to %s' ), syncFromText, syncToText ) }
 					</span>
 					<div

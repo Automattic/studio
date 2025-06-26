@@ -1,5 +1,6 @@
 import { CheckboxControl, Icon, Spinner } from '@wordpress/components';
 import { file, page } from '@wordpress/icons';
+import { useI18n } from '@wordpress/react-i18n';
 import { useRef, useState, useEffect } from 'react';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import { cx } from 'src/lib/cx';
@@ -92,6 +93,7 @@ const TreeItem = ( {
 	nodeRefs: Record< string, React.RefObject< HTMLDivElement > >;
 	visibleNodeIds: string[];
 } ) => {
+	const { __ } = useI18n();
 	const isLevel0 = level === 0;
 	const expanded = node.expanded ?? true;
 	const ref = useRef< HTMLDivElement >( null );
@@ -173,19 +175,29 @@ const TreeItem = ( {
 			>
 				<label className="flex items-center cursor-pointer">
 					<CheckboxControl
+						id={ node.id }
 						checked={ node.checked }
 						indeterminate={ node.indeterminate }
 						onChange={ ( checked: boolean ) => onPatchNode( node.id, { checked } ) }
 						__nextHasNoMarginBottom
+						aria-label={ node.label }
 					/>
 					{ node.type && (
-						<Icon icon={ TREE_NODE_ICONS[ node.type ] } size={ 20 } className="me-1.5" />
+						<Icon
+							aria-hidden
+							icon={ TREE_NODE_ICONS[ node.type ] }
+							size={ 20 }
+							className="me-1.5"
+						/>
 					) }
-					<span>{ node.label }</span>
+					<span aria-hidden>{ node.label }</span>
 				</label>
 				{ node.loading && <Spinner className="!w-[9px] !h-[9px] !m-0" /> }
 				{ ! node.loading && node.children && ! node.hideExpandButton && (
-					<button onClick={ () => onPatchNode( node.id, { expanded: ! expanded } ) }>
+					<button
+						aria-label={ expanded ? __( 'Collapse' ) : __( 'Expand' ) }
+						onClick={ () => onPatchNode( node.id, { expanded: ! expanded } ) }
+					>
 						<div className={ expanded ? 'rotate-90' : '' }>
 							<RightArrowIcon width={ 16 } />
 						</div>

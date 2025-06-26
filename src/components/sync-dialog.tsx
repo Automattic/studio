@@ -125,7 +125,7 @@ export const useDefaultTree = (): TreeNode[] => {
 								id: SYNC_OPTIONS.contents,
 								label: __( 'Other files and directories' ),
 								checked: true,
-								type: 'folder',
+								type: 'more',
 							},
 						],
 					},

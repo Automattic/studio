@@ -7,7 +7,7 @@ import { useState, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { OpenSitesSyncSelector } from 'src/components/content-tab-sync';
-import { EnvironmentBadge } from 'src/components/environment-badge';
+import { EnvironmentBadge, getSiteEnvironment } from 'src/components/environment-badge';
 import { CircleRedCrossIcon } from 'src/components/icons/circle-red-cross';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
@@ -326,29 +326,9 @@ const SyncConnectedSitesList = ( {
 						}` }
 						key={ connectedSite.id }
 					>
-						{ connectedSite.isPressable && connectedSite.environmentType && (
-							<div className="shrink-0">
-								{ connectedSite.environmentType === 'staging' && (
-									<EnvironmentBadge type="staging" />
-								) }
-								{ connectedSite.environmentType === 'production' && (
-									<EnvironmentBadge type="production" />
-								) }
-								{ connectedSite.environmentType === 'sandbox' && (
-									<EnvironmentBadge type="sandbox" />
-								) }
-							</div>
-						) }
-
-						{ ! connectedSite.isPressable && (
-							<div className="shrink-0">
-								{ connectedSite.isStaging ? (
-									<EnvironmentBadge type="staging" />
-								) : (
-									<EnvironmentBadge type="production" />
-								) }
-							</div>
-						) }
+						<div className="shrink-0">
+							<EnvironmentBadge type={ getSiteEnvironment( connectedSite ) } />
+						</div>
 
 						<Button
 							variant="link"

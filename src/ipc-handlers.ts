@@ -22,13 +22,7 @@ import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
-import {
-	ARCHIVER_OPTIONS,
-	DEFAULT_TERMINAL,
-	MAIN_MIN_WIDTH,
-	SIDEBAR_WIDTH,
-	WpContentFolder,
-} from 'src/constants';
+import { ARCHIVER_OPTIONS, DEFAULT_TERMINAL, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
@@ -82,6 +76,7 @@ import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/sr
 import type { SyncOption } from 'src/hooks/sync-sites/sync-option';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
+import type { GranularSyncFolders } from 'src/modules/sync-site/sync-dialog/types';
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
 if ( ! fs.existsSync( TEMP_DIR ) ) {
@@ -1409,7 +1404,7 @@ export function comparePaths( event: IpcMainInvokeEvent, path1: string, path2: s
 export async function listWpContentFolders(
 	_event: Electron.IpcMainInvokeEvent,
 	siteId: string,
-	subdir: WpContentFolder
+	subdir: GranularSyncFolders
 ): Promise< { name: string; type: 'file' | 'folder' }[] > {
 	const server = SiteServer.get( siteId );
 	if ( ! server ) throw new Error( 'Site not found' );

@@ -7,13 +7,13 @@ import Button from 'src/components/button';
 import { EnvironmentBadge, getSiteEnvironment } from 'src/components/environment-badge';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
-import { useDefaultSyncTree } from 'src/components/sync-dialog/use-default-sync-tree';
-import { useSyncTexts } from 'src/components/sync-dialog/use-sync-texts';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
 import { SYNC_OPTIONS } from 'src/hooks/sync-sites/sync-option';
 import { useContentFolders, WpContentFolder } from 'src/hooks/use-content-folders';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
+import { useDefaultSyncTree } from 'src/modules/sync-site/sync-dialog/use-default-sync-tree';
+import { useSyncTexts } from 'src/modules/sync-site/sync-dialog/use-sync-texts';
 import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 

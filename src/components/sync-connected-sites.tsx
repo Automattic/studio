@@ -74,9 +74,9 @@ export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOptionsWithS
 
 			if (
 				item.children &&
-				( item.id === SYNC_OPTIONS.plugins ||
-					item.id === SYNC_OPTIONS.themes ||
-					item.id === SYNC_OPTIONS.uploads )
+				[ SYNC_OPTIONS.plugins, SYNC_OPTIONS.themes, SYNC_OPTIONS.uploads ].includes(
+					item.id as 'plugins' | 'themes' | 'uploads'
+				)
 			) {
 				const selectedItems = item.children
 					.filter( ( child ) => child.checked )

@@ -10,6 +10,7 @@ export interface ExportOptions {
 	specificSelections?: {
 		plugins?: string[];
 		themes?: string[];
+		uploads?: string[];
 	};
 }
 

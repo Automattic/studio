@@ -160,11 +160,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			const folderName = category === 'muPlugins' ? 'mu-plugins' : category;
 			const absolutePath = path.join( this.options.site.path, 'wp-content', folderName );
 			const archivePath = path.relative( this.options.site.path, absolutePath );
-
-			const partialFolderItems =
-				this.options.specificSelections &&
-				( ( category === 'plugins' && this.options.specificSelections.plugins ) ||
-					( category === 'themes' && this.options.specificSelections.themes ) );
+			const partialFolderItems = this.getCategorySelections( category );
 
 			if ( partialFolderItems ) {
 				for ( const itemName of partialFolderItems ) {
@@ -186,7 +182,6 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 					}
 				}
 			} else {
-				// Add entire directory (existing behavior)
 				this.archiveBuilder.directory( absolutePath, archivePath, ( entry ) => {
 					const fullArchivePath = path.join( archivePath, entry.name );
 					const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
@@ -206,6 +201,23 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			this.emit( ExportEvents.WP_CONTENT_EXPORT_PROGRESS, { directory: absolutePath } );
 		}
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_COMPLETE );
+	}
+
+	private getCategorySelections( category: BackupContentsCategory ): string[] | null {
+		if ( ! this.options.specificSelections ) {
+			return null;
+		}
+
+		switch ( category ) {
+			case 'plugins':
+				return this.options.specificSelections?.plugins || null;
+			case 'themes':
+				return this.options.specificSelections?.themes || null;
+			case 'uploads':
+				return this.options.specificSelections?.uploads || null;
+			default:
+				return null;
+		}
 	}
 
 	private async addDatabase(): Promise< void > {

@@ -8,8 +8,9 @@ import { EnvironmentBadge, getSiteEnvironment } from 'src/components/environment
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
+import { WP_CONTENT_FOLDERS } from 'src/constants';
 import { SYNC_OPTIONS } from 'src/hooks/sync-sites/sync-option';
-import { useContentFolders, WpContentFolder } from 'src/hooks/use-content-folders';
+import { useContentFolders } from 'src/hooks/use-content-folders';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useDefaultSyncTree } from 'src/modules/sync-site/sync-dialog/use-default-sync-tree';
@@ -30,7 +31,7 @@ const useDynamicTreeState = (
 	localSiteId: string,
 	setTreeState: React.Dispatch< React.SetStateAction< TreeNode[] > >
 ) => {
-	const wpFolders: WpContentFolder[] = useMemo( () => [ 'plugins', 'themes' ], [] );
+	const wpFolders = useMemo( () => [ ...WP_CONTENT_FOLDERS ], [] );
 	const wpContent = useContentFolders( localSiteId, wpFolders );
 
 	useEffect( () => {

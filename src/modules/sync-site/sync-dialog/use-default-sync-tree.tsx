@@ -28,18 +28,21 @@ export const useDefaultSyncTree = (): TreeNode[] => {
 								label: 'plugins',
 								checked: true,
 								type: 'folder',
+								expanded: false,
 							},
 							{
 								id: SYNC_OPTIONS.themes,
 								label: 'themes',
 								checked: true,
 								type: 'folder',
+								expanded: false,
 							},
 							{
 								id: SYNC_OPTIONS.uploads,
 								label: 'uploads',
 								checked: true,
 								type: 'folder',
+								expanded: false,
 							},
 							{
 								id: SYNC_OPTIONS.contents,

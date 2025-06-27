@@ -1421,9 +1421,10 @@ export async function listWpContentFolders(
 			.map( ( e ) => ( {
 				name: e.name.toString(),
 				type: e.isDirectory() ? ( 'folder' as const ) : ( 'file' as const ),
+				hidden: e.name.startsWith( '.' ),
 			} ) )
-			.filter( ( entry: { name: string } ) => {
-				return ! entry.name.startsWith( '.' );
+			.filter( ( entry: { name: string; hidden: boolean } ) => {
+				return ! entry.hidden;
 			} );
 	} catch ( err ) {
 		return [];

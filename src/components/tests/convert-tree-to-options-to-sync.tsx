@@ -38,7 +38,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 	} );
 
 	it( 'returns ["uploads"] when only uploads are selected', () => {
-		const { result } = renderHook( () => useDefaultTree() );
+		const { result } = renderHook( () => useDefaultSyncTree() );
 		let tree = result.current;
 
 		tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
@@ -68,7 +68,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 
 	describe( 'partial selections', () => {
 		it( 'returns partial plugins selection when only some plugins are selected', () => {
-			const { result } = renderHook( () => useDefaultTree() );
+			const { result } = renderHook( () => useDefaultSyncTree() );
 			let tree = result.current;
 
 			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
@@ -103,7 +103,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 		} );
 
 		it( 'returns partial themes selection when only some themes are selected', () => {
-			const { result } = renderHook( () => useDefaultTree() );
+			const { result } = renderHook( () => useDefaultSyncTree() );
 			let tree = result.current;
 
 			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
@@ -139,7 +139,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 		} );
 
 		it( 'returns partial uploads selection when only some uploads are selected', () => {
-			const { result } = renderHook( () => useDefaultTree() );
+			const { result } = renderHook( () => useDefaultSyncTree() );
 			let tree = result.current;
 
 			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
@@ -174,7 +174,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 		} );
 
 		it( 'returns mixed partial selections for plugins and themes', () => {
-			const { result } = renderHook( () => useDefaultTree() );
+			const { result } = renderHook( () => useDefaultSyncTree() );
 			let tree = result.current;
 
 			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
@@ -219,7 +219,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 		} );
 
 		it( 'returns no specificSelections when all children are selected in a category', () => {
-			const { result } = renderHook( () => useDefaultTree() );
+			const { result } = renderHook( () => useDefaultSyncTree() );
 			let tree = result.current;
 
 			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
@@ -250,7 +250,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 		} );
 
 		it( 'returns no specificSelections when no children are selected in a category', () => {
-			const { result } = renderHook( () => useDefaultTree() );
+			const { result } = renderHook( () => useDefaultSyncTree() );
 			let tree = result.current;
 
 			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
@@ -281,7 +281,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 		} );
 
 		it( 'handles mixed selection with database and partial plugins', () => {
-			const { result } = renderHook( () => useDefaultTree() );
+			const { result } = renderHook( () => useDefaultSyncTree() );
 			let tree = result.current;
 
 			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );

@@ -1,6 +1,6 @@
 import { renderHook } from '@testing-library/react';
 import { updateNodeById } from 'src/components/tree-view';
-import { useDefaultSyncTree } from 'src/modules/sync-site/sync-dialog/use-default-sync-tree';
+import { useDefaultSyncTree } from 'src/modules/content-tab-sync/sync-dialog/use-default-sync-tree';
 import { convertTreeToOptionsToSync } from '../sync-connected-sites';
 
 describe( 'convertTreeToOptionsToSync', () => {

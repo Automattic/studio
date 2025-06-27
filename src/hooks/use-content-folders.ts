@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { useState, useEffect } from 'react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { GranularSyncFolders } from 'src/modules/sync-site/sync-dialog/types';
+import { GranularSyncFolders } from 'src/modules/content-tab-sync/sync-dialog/types';
 
 export type WpContentFolderEntry = { name: string; type: 'file' | 'folder' };
 export type WpContentFolderResult = {

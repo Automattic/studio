@@ -6,7 +6,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useState, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
-import { OpenSitesSyncSelector } from 'src/components/content-tab-sync';
 import { EnvironmentBadge, getSiteEnvironment } from 'src/components/environment-badge';
 import { CircleRedCrossIcon } from 'src/components/icons/circle-red-cross';
 import offlineIcon from 'src/components/offline-icon';
@@ -25,7 +24,8 @@ import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-in
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import { SyncDialog } from 'src/modules/sync-site/sync-dialog';
+import { OpenSitesSyncSelector } from 'src/modules/content-tab-sync';
+import { SyncDialog } from 'src/modules/content-tab-sync/sync-dialog';
 import { useI18nLocale } from 'src/stores';
 import type { TreeNode } from 'src/components/tree-view';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';

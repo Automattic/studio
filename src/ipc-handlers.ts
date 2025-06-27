@@ -1422,7 +1422,7 @@ export async function listWpContentFolders(
 				name: e.name.toString(),
 				type: e.isDirectory() ? ( 'folder' as const ) : ( 'file' as const ),
 			} ) )
-			.filter( ( entry: { name: string; type: string } ) => {
+			.filter( ( entry: { name: string } ) => {
 				return ! entry.name.startsWith( '.' );
 			} );
 	} catch ( err ) {

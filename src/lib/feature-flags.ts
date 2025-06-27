@@ -15,13 +15,11 @@ export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > 
 } as Record< keyof FeatureFlags, FeatureFlagDefinition >;
 
 export function getFeatureFlagFromEnv( flag: keyof FeatureFlags ): boolean {
-	const envKey = FEATURE_FLAGS[ flag ]?.env;
-	return envKey ? process.env[ envKey ] === 'true' : false;
+	const envKey = FEATURE_FLAGS[ flag ].env;
+	return process.env[ envKey ] === 'true';
 }
 
 export function setFeatureFlagInEnv( flag: keyof FeatureFlags, value: boolean ): void {
-	const envKey = FEATURE_FLAGS[ flag ]?.env;
-	if ( envKey ) {
-		process.env[ envKey ] = value ? 'true' : 'false';
-	}
+	const envKey = FEATURE_FLAGS[ flag ].env;
+	process.env[ envKey ] = value ? 'true' : 'false';
 }

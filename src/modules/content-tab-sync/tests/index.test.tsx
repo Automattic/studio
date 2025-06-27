@@ -15,7 +15,7 @@ jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/hooks/sync-sites/sync-sites-context', () => ( {
-	...jest.requireActual( '../../hooks/sync-sites/sync-sites-context' ),
+	...jest.requireActual( '../../../hooks/sync-sites/sync-sites-context' ),
 	useSyncSites: jest.fn(),
 } ) );
 

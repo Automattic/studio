@@ -6,24 +6,22 @@ export interface FeatureFlagDefinition {
 }
 
 export interface FeatureFlags {
-	selectiveSyncEnabled: boolean;
+	placeholder: boolean; // placeholder to avoid type errors
 }
 
 export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > = {
-	selectiveSyncEnabled: {
-		label: 'Selective Sync',
-		env: 'STUDIO_SELECTIVE_SYNC',
-		flag: 'selectiveSyncEnabled',
-		default: false,
-	},
-};
+	// No feature flags currently defined
+	// Add new feature flags here as needed
+} as Record< keyof FeatureFlags, FeatureFlagDefinition >;
 
 export function getFeatureFlagFromEnv( flag: keyof FeatureFlags ): boolean {
-	const envKey = FEATURE_FLAGS[ flag ].env;
-	return process.env[ envKey ] === 'true';
+	const envKey = FEATURE_FLAGS[ flag ]?.env;
+	return envKey ? process.env[ envKey ] === 'true' : false;
 }
 
 export function setFeatureFlagInEnv( flag: keyof FeatureFlags, value: boolean ): void {
-	const envKey = FEATURE_FLAGS[ flag ].env;
-	process.env[ envKey ] = value ? 'true' : 'false';
+	const envKey = FEATURE_FLAGS[ flag ]?.env;
+	if ( envKey ) {
+		process.env[ envKey ] = value ? 'true' : 'false';
+	}
 }

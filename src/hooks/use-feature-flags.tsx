@@ -2,7 +2,6 @@ import * as Sentry from '@sentry/react';
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
-import { getAppGlobals } from 'src/lib/app-globals';
 import { FEATURE_FLAGS, FeatureFlags } from 'src/lib/feature-flags';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
@@ -25,10 +24,8 @@ interface FeatureFlagsProviderProps {
 }
 
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
-	const selectiveSyncEnabledFromGlobals = getAppGlobals().selectiveSyncEnabled;
 	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
 		...defaultFeatureFlags,
-		selectiveSyncEnabled: selectiveSyncEnabledFromGlobals,
 	} );
 	const { isAuthenticated, client } = useAuth();
 
@@ -36,7 +33,6 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 		window.appGlobals = await getIpcApi().getAppGlobals();
 		setFeatureFlags( {
 			...featureFlags,
-			selectiveSyncEnabled: window.appGlobals.selectiveSyncEnabled,
 		} );
 	} );
 
@@ -58,8 +54,6 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 				setFeatureFlags( {
 					...defaultFeatureFlags,
 					...flags,
-					selectiveSyncEnabled:
-						Boolean( flags.selectiveSyncEnabled ) || selectiveSyncEnabledFromGlobals,
 				} );
 			} catch ( error ) {
 				Sentry.captureException( error );
@@ -70,7 +64,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 		return () => {
 			cancel = true;
 		};
-	}, [ isAuthenticated, client, selectiveSyncEnabledFromGlobals ] );
+	}, [ isAuthenticated, client ] );
 
 	return (
 		<FeatureFlagsContext.Provider value={ featureFlags }>{ children }</FeatureFlagsContext.Provider>

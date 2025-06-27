@@ -69,9 +69,6 @@ describe( 'ContentTabSync', () => {
 			setIsSyncSitesSelectorOpen: jest.fn(),
 			closeSyncSitesSelector: jest.fn(),
 		} );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			selectiveSyncEnabled: false,
-		} );
 
 		Object.defineProperty( window, 'matchMedia', {
 			writable: true,
@@ -418,10 +415,6 @@ describe( 'ContentTabSync', () => {
 	} );
 
 	it( 'calls pullSite with correct optionsToSync when all options are selected', async () => {
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			selectiveSyncEnabled: true,
-		} );
-
 		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		const fakeSyncSite = {
@@ -462,10 +455,6 @@ describe( 'ContentTabSync', () => {
 	} );
 
 	it( 'calls pullSite with correct optionsToSync when options partially are selected', async () => {
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			selectiveSyncEnabled: true,
-		} );
-
 		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		const fakeSyncSite = {

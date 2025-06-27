@@ -1423,8 +1423,7 @@ export async function listWpContentFolders(
 				type: e.isDirectory() ? ( 'folder' as const ) : ( 'file' as const ),
 			} ) )
 			.filter( ( entry: { name: string; type: string } ) => {
-				if ( entry.type === 'folder' ) return true;
-				return entry.type === 'file' && entry.name.toLowerCase().endsWith( '.php' );
+				return ! entry.name.startsWith( '.' );
 			} );
 	} catch ( err ) {
 		return [];

@@ -7,7 +7,7 @@ import { Snapshot } from 'common/types/snapshot';
 import { addDays } from 'date-fns';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken, getOrCreateSiteByFolder, getSiteByFolder } from 'cli/lib/appdata';
-import { cleanup, createArchive } from 'cli/lib/archive';
+import { cleanup, archiveSiteContent } from 'cli/lib/archive';
 import { getSnapshotsFromAppdata, updateSnapshotInAppdata } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
 import { validateSiteFolder } from 'cli/lib/validation';
@@ -73,7 +73,7 @@ export async function runCommand(
 		logger.reportSuccess( __( 'Validation successful' ), true );
 
 		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive…' ) );
-		await createArchive( siteFolder, archivePath );
+		await archiveSiteContent( siteFolder, archivePath );
 		logger.reportSuccess( __( 'Archive created' ) );
 
 		logger.reportStart( LoggerAction.UPLOAD, __( 'Uploading archive…' ) );

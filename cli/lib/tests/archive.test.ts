@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import archiver from 'archiver';
-import { createArchive, cleanup } from 'cli/lib/archive';
+import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 
 jest.mock( 'fs' );
 jest.mock( 'path' );
@@ -45,7 +45,7 @@ describe( 'Archive Module', () => {
 
 			mockArchiver.on.mockImplementation( () => mockArchiver );
 
-			const result = await createArchive( mockSiteFolder, mockArchivePath );
+			const result = await archiveSiteContent( mockSiteFolder, mockArchivePath );
 
 			expect( fs.createWriteStream ).toHaveBeenCalledWith( mockArchivePath );
 			expect( archiver ).toHaveBeenCalledWith( 'zip', {
@@ -78,7 +78,7 @@ describe( 'Archive Module', () => {
 
 			mockArchiver.on.mockImplementation( () => mockArchiver );
 
-			await createArchive( mockSiteFolder, mockArchivePath );
+			await archiveSiteContent( mockSiteFolder, mockArchivePath );
 
 			expect( fs.existsSync ).toHaveBeenCalledWith( mockWpConfigPath );
 			expect( mockArchiver.file ).toHaveBeenCalledWith( mockWpConfigPath, {
@@ -100,7 +100,7 @@ describe( 'Archive Module', () => {
 
 			mockArchiver.finalize.mockRejectedValue( mockError );
 
-			await expect( createArchive( mockSiteFolder, mockArchivePath ) ).rejects.toThrow(
+			await expect( archiveSiteContent( mockSiteFolder, mockArchivePath ) ).rejects.toThrow(
 				'Archive error'
 			);
 		} );

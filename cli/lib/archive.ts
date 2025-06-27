@@ -6,26 +6,26 @@ import { LoggerError } from 'cli/logger';
 
 const ZIP_COMPRESSION_LEVEL = 9;
 
-export async function createArchive(
+export async function archiveSiteContent(
 	siteFolder: string,
 	archivePath: string
 ): Promise< archiver.Archiver > {
 	return new Promise( ( resolve, reject ) => {
 		const output = fs.createWriteStream( archivePath );
-		const archive = archiver( 'zip', {
+		const archiveBuilder = archiver( 'zip', {
 			zlib: { level: ZIP_COMPRESSION_LEVEL },
 			followSymlinks: true,
 		} );
 
 		output.on( 'close', () => {
-			resolve( archive );
+			resolve( archiveBuilder );
 		} );
-		archive.on( 'error', ( error: Error ) => {
+		archiveBuilder.on( 'error', ( error: Error ) => {
 			reject( new LoggerError( __( 'Failed to create archive' ), error ) );
 		} );
 
-		archive.pipe( output );
-		archive.directory(
+		archiveBuilder.pipe( output );
+		archiveBuilder.directory(
 			path.join( siteFolder, 'wp-content' ),
 			'wp-content',
 			( entry: EntryData ) => {
@@ -38,10 +38,10 @@ export async function createArchive(
 
 		const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
 		if ( fs.existsSync( wpConfigPath ) ) {
-			archive.file( wpConfigPath, { name: 'wp-config.php' } );
+			archiveBuilder.file( wpConfigPath, { name: 'wp-config.php' } );
 		}
 
-		archive.finalize().catch( reject );
+		archiveBuilder.finalize().catch( reject );
 	} );
 }
 

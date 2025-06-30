@@ -9,8 +9,8 @@ import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
 import customDomainIllustration from 'src/modules/whats-new/assets/custom-domains-illustration.svg';
 import preferredAppsIllustration from 'src/modules/whats-new/assets/preferred-apps-illustration.svg';
 import pressableSyncIllustration from 'src/modules/whats-new/assets/pressable-sync-illustration.svg';
-import previewSitesIllustration from 'src/modules/whats-new/assets/preview-sites-illustration.svg';
 import versionSwitchIllustration from 'src/modules/whats-new/assets/version-switch-illustration.svg';
+import selectiveSyncIllustration from 'src/modules/whats-new/assets/selective-sync-illustration.svg';
 import { useI18nLocale } from 'src/stores';
 
 interface WhatsNewPage {
@@ -57,6 +57,14 @@ const PageContent = ( {
 export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProps ) {
 	const locale = useI18nLocale();
 	const whatsNewPages: WhatsNewPage[] = [
+		{
+			image: selectiveSyncIllustration,
+			title: __( 'Choose what to sync' ),
+			description: __(
+				'Selective Sync allows you to sync only the files and folders you need, reducing the time and space required for your syncs.'
+			),
+			learnMoreUrl: getLocalizedLink( locale, 'docsSync' ),
+		},
 		{
 			image: pressableSyncIllustration,
 			title: __( 'Sync to your favorite host' ),
@@ -105,15 +113,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 				'Select your preferred WordPress and PHP versions for existing sites or when creating a new one.'
 			),
 			learnMoreUrl: getLocalizedLink( locale, 'blogPhpVersions' ),
-		},
-		{
-			image: previewSitesIllustration,
-			title: __( 'Share your work easily with Preview sites' ),
-			description: __(
-				'Quickly generate a publicly accessible URL that you can share with clients and colleagues.'
-			),
-			learnMoreUrl: getLocalizedLink( locale, 'blogPreviewSites' ),
-		},
+		}
 	];
 
 	if ( ! showModal ) {

@@ -105,9 +105,8 @@ const TreeItem = ( {
 					isLast ? 'border-white' : ''
 				) }
 			>
-				<div className="flex items-center cursor-pointer">
+				<label className="flex items-center cursor-pointer">
 					<CheckboxControl
-						id={ node.id }
 						checked={ node.checked }
 						indeterminate={ node.indeterminate }
 						onChange={ ( checked: boolean ) => onPatchNode( node.id, { checked } ) }
@@ -121,8 +120,8 @@ const TreeItem = ( {
 							className="me-1.5"
 						/>
 					) }
-					<label htmlFor={ node.id }>{ node.label }</label>
-				</div>
+					<span>{ node.label }</span>
+				</label>
 				{ node.loading && <Spinner className="!w-[9px] !h-[9px] !m-0" /> }
 				{ ! node.loading && node.children && ! node.hideExpandButton && (
 					<button

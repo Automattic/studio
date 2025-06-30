@@ -6,13 +6,11 @@ import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
 import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ContentTabSync } from 'src/modules/content-tab-sync';
 import { store } from 'src/stores';
 
 jest.mock( 'src/hooks/use-auth' );
-jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/hooks/sync-sites/sync-sites-context', () => ( {
 	...jest.requireActual( '../../../hooks/sync-sites/sync-sites-context' ),

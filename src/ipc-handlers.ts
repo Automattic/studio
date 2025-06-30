@@ -75,7 +75,7 @@ import {
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
-import type { GranularSyncFolders } from 'src/modules/content-tab-sync/components/sync-dialog/types';
+import type { GranularSyncFolders } from 'src/modules/sync/components/sync-dialog/types';
 import type { SyncOption } from 'src/types';
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;

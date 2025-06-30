@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react';
 import { updateNodeById } from 'src/components/tree-view';
-import { useDefaultSyncTree } from 'src/modules/content-tab-sync/components/sync-dialog/hooks/use-default-sync-tree';
-import { convertTreeToOptionsToSync } from 'src/modules/content-tab-sync/convert-tree-to-options-to-sync';
+import { useDefaultSyncTree } from 'src/modules/sync/components/sync-dialog/hooks/use-default-sync-tree';
+import { convertTreeToOptionsToSync } from 'src/modules/sync/convert-tree-to-options-to-sync';
 
 describe( 'convertTreeToOptionsToSync', () => {
 	it( 'returns ["all"] when all options are selected', () => {

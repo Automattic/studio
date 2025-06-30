@@ -9,10 +9,10 @@ import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { ConnectButton } from 'src/modules/content-tab-sync/components/connect-button';
-import { SyncConnectedSites } from 'src/modules/content-tab-sync/components/sync-connected-sites';
-import { SyncSitesModalSelector } from 'src/modules/content-tab-sync/components/sync-sites-modal-selector';
-import { SyncTabImage } from 'src/modules/content-tab-sync/images/sync-tab-image';
+import { ConnectButton } from 'src/modules/sync/components/connect-button';
+import { SyncConnectedSites } from 'src/modules/sync/components/sync-connected-sites';
+import { SyncSitesModalSelector } from 'src/modules/sync/components/sync-sites-modal-selector';
+import { SyncTabImage } from 'src/modules/sync/images/sync-tab-image';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {

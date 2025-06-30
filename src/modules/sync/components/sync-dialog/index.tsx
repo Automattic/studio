@@ -12,9 +12,9 @@ import { SYNC_OPTIONS } from 'src/constants';
 import { useContentFolders } from 'src/hooks/use-content-folders';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import { GRANULAR_SYNC_FOLDERS } from 'src/modules/content-tab-sync/components/sync-dialog/constants';
-import { useDefaultSyncTree } from 'src/modules/content-tab-sync/components/sync-dialog/hooks/use-default-sync-tree';
-import { useSyncTexts } from 'src/modules/content-tab-sync/components/sync-dialog/hooks/use-sync-texts';
+import { GRANULAR_SYNC_FOLDERS } from 'src/modules/sync/components/sync-dialog/constants';
+import { useDefaultSyncTree } from 'src/modules/sync/components/sync-dialog/hooks/use-default-sync-tree';
+import { useSyncTexts } from 'src/modules/sync/components/sync-dialog/hooks/use-sync-texts';
 import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 

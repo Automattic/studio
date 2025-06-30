@@ -10,7 +10,9 @@ export type FeatureFlagsContextType = FeatureFlags;
 function createDefaultFeatureFlags(): FeatureFlags {
 	const flags = {} as FeatureFlags;
 	for ( const [ key, def ] of Object.entries( FEATURE_FLAGS ) ) {
-		flags[ key as keyof FeatureFlags ] = def.default;
+		const flagKey = key as keyof FeatureFlags;
+		const flagDef = def as { default: boolean };
+		Object.defineProperty( flags, flagKey, { value: flagDef.default } );
 	}
 	return flags;
 }

@@ -78,3 +78,12 @@ export const IPC_VOID_HANDLERS = < const >[
 	'showNotification',
 	'authenticate',
 ];
+
+export const SYNC_OPTIONS = {
+	all: 'all',
+	themes: 'themes',
+	plugins: 'plugins',
+	uploads: 'uploads',
+	sqls: 'sqls',
+	contents: 'contents',
+} as const;

@@ -25,6 +25,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { OpenSitesSyncSelector } from 'src/modules/content-tab-sync';
 import { SyncDialog } from 'src/modules/content-tab-sync/components/sync-dialog';
+import { convertTreeToOptionsToSync } from 'src/modules/content-tab-sync/convert-tree-to-options-to-sync';
 import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 

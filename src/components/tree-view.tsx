@@ -1,6 +1,7 @@
 import { CheckboxControl, Icon, Spinner } from '@wordpress/components';
 import { file, page } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import React from 'react';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import { cx } from 'src/lib/cx';
 
@@ -88,6 +89,13 @@ const TreeItem = ( {
 	const isLevel0 = level === 0;
 	const expanded = node.expanded ?? true;
 
+	const handleKeyDown = ( event: React.KeyboardEvent ) => {
+		if ( event.key === ' ' || event.key === 'Enter' ) {
+			event.preventDefault();
+			onPatchNode( node.id, { checked: node.indeterminate ? true : ! node.checked } );
+		}
+	};
+
 	return (
 		<div>
 			<div
@@ -96,20 +104,21 @@ const TreeItem = ( {
 				aria-expanded={ node.children ? expanded : undefined }
 				aria-setsize={ setsize }
 				aria-posinset={ index + 1 }
+				aria-checked={ node.indeterminate ? 'mixed' : node.checked }
+				aria-label={ node.label }
 				className={ cx(
 					'flex items-center py-2 relative gap-2',
 					isLevel0 ? 'border-b border-gray-300 py-4' : '',
 					isLast ? 'border-white' : ''
 				) }
 			>
-				<label className="flex items-center cursor-pointer">
+				<div className="flex items-center cursor-pointer">
 					<CheckboxControl
 						id={ node.id }
 						checked={ node.checked }
 						indeterminate={ node.indeterminate }
 						onChange={ ( checked: boolean ) => onPatchNode( node.id, { checked } ) }
 						__nextHasNoMarginBottom
-						aria-label={ node.label }
 					/>
 					{ node.type && (
 						<Icon
@@ -119,8 +128,8 @@ const TreeItem = ( {
 							className="me-1.5"
 						/>
 					) }
-					<span aria-hidden>{ node.label }</span>
-				</label>
+					<label htmlFor={ node.id }>{ node.label }</label>
+				</div>
 				{ node.loading && <Spinner className="!w-[9px] !h-[9px] !m-0" /> }
 				{ ! node.loading && node.children && ! node.hideExpandButton && (
 					<button

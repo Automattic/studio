@@ -24,7 +24,7 @@ import { getWordPressVersionFromInstallation } from 'src/lib/wp-versions';
 import { SiteServer } from 'src/site-server';
 
 export class DefaultExporter extends EventEmitter implements Exporter {
-	private archive!: archiver.Archiver;
+	private archiveBuilder!: archiver.Archiver;
 	private backup: BackupContents;
 	private readonly options: ExportOptions;
 	private readonly pathsToExclude = [
@@ -84,24 +84,24 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	async export(): Promise< void > {
 		this.emit( ExportEvents.EXPORT_START );
 		const output = fs.createWriteStream( this.options.backupFile );
-		this.archive = this.createArchive();
+		this.archiveBuilder = this.createArchiveBuilder();
 
 		const archiveClosedPromise = this.setupArchiveListeners( output );
 
-		this.archive.pipe( output );
+		this.archiveBuilder.pipe( output );
 
 		try {
 			this.addWpConfig();
 			this.addWpContent();
 			await this.addDatabase();
 			const studioJsonPath = await this.createStudioJsonFile();
-			this.archive.file( studioJsonPath, { name: 'meta.json' } );
-			await this.archive.finalize();
+			this.archiveBuilder.file( studioJsonPath, { name: 'meta.json' } );
+			await this.archiveBuilder.finalize();
 			this.emit( ExportEvents.BACKUP_CREATE_COMPLETE );
 			await archiveClosedPromise;
 			this.emit( ExportEvents.EXPORT_COMPLETE );
 		} catch ( error ) {
-			this.archive.abort();
+			this.archiveBuilder.abort();
 			this.emit( ExportEvents.EXPORT_ERROR );
 			throw error;
 		} finally {
@@ -111,7 +111,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		}
 	}
 
-	private createArchive(): archiver.Archiver {
+	private createArchiveBuilder(): archiver.Archiver {
 		this.emit( ExportEvents.BACKUP_CREATE_START );
 		const isZip = this.options.backupFile.endsWith( '.zip' );
 		const format = isZip ? 'zip' : 'tar';
@@ -125,27 +125,27 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				resolve();
 			} );
 
-			this.archive.on( 'warning', ( err ) => {
+			this.archiveBuilder.on( 'warning', ( err ) => {
 				if ( err.code === 'ENOENT' ) {
 					console.warn( 'Archiver warning:', err );
 				} else {
 					reject( err );
 				}
 			} );
-			this.archive.on( 'progress', ( progress ) => {
+			this.archiveBuilder.on( 'progress', ( progress ) => {
 				this.emit( ExportEvents.BACKUP_CREATE_PROGRESS, {
 					progress,
 				} as BackupCreateProgressEventData );
 			} );
 
-			this.archive.on( 'error', reject );
+			this.archiveBuilder.on( 'error', reject );
 		} );
 	}
 
 	private addWpConfig(): void {
 		const wpConfigPath = path.join( this.options.site.path, 'wp-config.php' );
 		if ( fs.existsSync( wpConfigPath ) ) {
-			this.archive.file( wpConfigPath, {
+			this.archiveBuilder.file( wpConfigPath, {
 				name: 'wp-config.php',
 			} );
 		}
@@ -170,19 +170,19 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 					if ( fs.existsSync( itemPath ) ) {
 						const stat = fs.statSync( itemPath );
 						if ( stat.isDirectory() ) {
-							this.archive.directory( itemPath, itemArchivePath, ( entry ) => {
+							this.archiveBuilder.directory( itemPath, itemArchivePath, ( entry ) => {
 								if ( entry.name.includes( '.git' ) || entry.name.includes( 'node_modules' ) ) {
 									return false;
 								}
 								return entry;
 							} );
 						} else {
-							this.archive.file( itemPath, { name: itemArchivePath } );
+							this.archiveBuilder.file( itemPath, { name: itemArchivePath } );
 						}
 					}
 				}
 			} else {
-				this.archive.directory( absolutePath, archivePath, ( entry ) => {
+				this.archiveBuilder.directory( absolutePath, archivePath, ( entry ) => {
 					const fullArchivePath = path.join( archivePath, entry.name );
 					const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
 						fullArchivePath.startsWith( path.normalize( pathToExclude ) )
@@ -231,14 +231,14 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		if ( this.options.splitDatabaseDumpByTable ) {
 			const sqlFiles = await exportDatabaseToMultipleFiles( this.options.site, tmpFolder );
 			sqlFiles.forEach( ( file ) =>
-				this.archive.file( file, { name: `sql/${ path.basename( file ) }` } )
+				this.archiveBuilder.file( file, { name: `sql/${ path.basename( file ) }` } )
 			);
 			this.backup.sqlFiles.push( ...sqlFiles );
 		} else {
 			const fileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
 			const sqlDumpPath = path.join( tmpFolder, fileName );
 			await exportDatabaseToFile( this.options.site, sqlDumpPath );
-			this.archive.file( sqlDumpPath, { name: `sql/${ fileName }` } );
+			this.archiveBuilder.file( sqlDumpPath, { name: `sql/${ fileName }` } );
 			this.backup.sqlFiles.push( sqlDumpPath );
 		}
 

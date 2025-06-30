@@ -78,7 +78,3 @@ export const IPC_VOID_HANDLERS = < const >[
 	'showNotification',
 	'authenticate',
 ];
-
-// Folders in wp-content that can be selectively synced
-export const WP_CONTENT_FOLDERS = [ 'plugins', 'themes', 'uploads' ] as const;
-export type WpContentFolder = ( typeof WP_CONTENT_FOLDERS )[ number ];

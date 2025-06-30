@@ -113,15 +113,17 @@ const TreeItem = ( {
 						onChange={ ( checked: boolean ) => onPatchNode( node.id, { checked } ) }
 						__nextHasNoMarginBottom
 					/>
-					{ node.type && (
-						<Icon
-							aria-hidden
-							icon={ TREE_NODE_ICONS[ node.type ] }
-							size={ 20 }
-							className="me-1.5"
-						/>
-					) }
-					<label htmlFor={ node.id }>{ node.label }</label>
+					<label htmlFor={ node.id } className="flex items-center cursor-pointer">
+						{ node.type && (
+							<Icon
+								aria-hidden
+								icon={ TREE_NODE_ICONS[ node.type ] }
+								size={ 20 }
+								className="me-1.5"
+							/>
+						) }
+						{ node.label }
+					</label>
 				</div>
 				{ node.loading && <Spinner className="!w-[9px] !h-[9px] !m-0" /> }
 				{ ! node.loading && node.children && ! node.hideExpandButton && (

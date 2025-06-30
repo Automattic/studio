@@ -75,26 +75,19 @@ const TreeItem = ( {
 	onPatchNode,
 	level,
 	isLast,
-	index = 0,
-	setsize = 1,
+	index,
+	siblingsLength = 0,
 }: {
 	node: TreeNode;
 	onPatchNode: ( id: string, patchNode: Partial< TreeNode > ) => void;
 	level: number;
 	isLast?: boolean;
-	index?: number;
-	setsize?: number;
+	index: number;
+	siblingsLength?: number;
 } ) => {
 	const { __ } = useI18n();
 	const isLevel0 = level === 0;
 	const expanded = node.expanded ?? true;
-
-	const handleKeyDown = ( event: React.KeyboardEvent ) => {
-		if ( event.key === ' ' || event.key === 'Enter' ) {
-			event.preventDefault();
-			onPatchNode( node.id, { checked: node.indeterminate ? true : ! node.checked } );
-		}
-	};
 
 	return (
 		<div>
@@ -102,7 +95,7 @@ const TreeItem = ( {
 				role="treeitem"
 				aria-level={ level }
 				aria-expanded={ node.children ? expanded : undefined }
-				aria-setsize={ setsize }
+				aria-setsize={ siblingsLength }
 				aria-posinset={ index + 1 }
 				aria-checked={ node.indeterminate ? 'mixed' : node.checked }
 				aria-label={ node.label }
@@ -147,14 +140,14 @@ const TreeItem = ( {
 					role="group"
 					className={ cx( 'ps-6', isLevel0 ? 'border-b border-gray-300 py-2' : '' ) }
 				>
-					{ node.children.map( ( child, idx ) => (
+					{ node.children.map( ( child, index ) => (
 						<TreeItem
 							key={ child.id }
 							node={ child }
 							onPatchNode={ onPatchNode }
 							level={ level + 1 }
-							index={ idx }
-							setsize={ node.children ? node.children.length : 0 }
+							index={ index }
+							siblingsLength={ node.children?.length }
 						/>
 					) ) }
 				</div>
@@ -182,7 +175,7 @@ export const TreeView = ( { tree, setTree }: TreeViewProps ) => {
 					onPatchNode={ handlePatchNode }
 					level={ 1 }
 					index={ index }
-					setsize={ tree.length }
+					siblingsLength={ tree.length }
 					isLast={ index === tree.length - 1 }
 				/>
 			) ) }

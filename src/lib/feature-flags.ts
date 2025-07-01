@@ -5,25 +5,23 @@ export interface FeatureFlagDefinition {
 	default: boolean;
 }
 
-export interface FeatureFlags {
-	selectiveSyncEnabled: boolean;
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface FeatureFlags {}
 
-export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > = {
-	selectiveSyncEnabled: {
-		label: 'Selective Sync',
-		env: 'STUDIO_SELECTIVE_SYNC',
-		flag: 'selectiveSyncEnabled',
-		default: false,
-	},
-};
+export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > = {};
 
 export function getFeatureFlagFromEnv( flag: keyof FeatureFlags ): boolean {
-	const envKey = FEATURE_FLAGS[ flag ].env;
-	return process.env[ envKey ] === 'true';
+	const flagDefinition = FEATURE_FLAGS[ flag ] as FeatureFlagDefinition | undefined;
+	if ( ! flagDefinition ) {
+		return false;
+	}
+	return process.env[ flagDefinition.env ] === 'true';
 }
 
 export function setFeatureFlagInEnv( flag: keyof FeatureFlags, value: boolean ): void {
-	const envKey = FEATURE_FLAGS[ flag ].env;
-	process.env[ envKey ] = value ? 'true' : 'false';
+	const flagDefinition = FEATURE_FLAGS[ flag ] as FeatureFlagDefinition | undefined;
+	if ( ! flagDefinition ) {
+		return;
+	}
+	process.env[ flagDefinition.env ] = value ? 'true' : 'false';
 }

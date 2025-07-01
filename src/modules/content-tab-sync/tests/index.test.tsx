@@ -6,13 +6,11 @@ import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
 import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ContentTabSync } from 'src/modules/content-tab-sync';
 import { store } from 'src/stores';
 
 jest.mock( 'src/hooks/use-auth' );
-jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/hooks/sync-sites/sync-sites-context', () => ( {
 	...jest.requireActual( '../../../hooks/sync-sites/sync-sites-context' ),
@@ -68,9 +66,6 @@ describe( 'ContentTabSync', () => {
 			isSyncSitesSelectorOpen: false,
 			setIsSyncSitesSelectorOpen: jest.fn(),
 			closeSyncSitesSelector: jest.fn(),
-		} );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			selectiveSyncEnabled: false,
 		} );
 
 		Object.defineProperty( window, 'matchMedia', {
@@ -418,10 +413,6 @@ describe( 'ContentTabSync', () => {
 	} );
 
 	it( 'calls pullSite with correct optionsToSync when all options are selected', async () => {
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			selectiveSyncEnabled: true,
-		} );
-
 		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		const fakeSyncSite = {
@@ -462,10 +453,6 @@ describe( 'ContentTabSync', () => {
 	} );
 
 	it( 'calls pullSite with correct optionsToSync when options partially are selected', async () => {
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			selectiveSyncEnabled: true,
-		} );
-
 		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		const fakeSyncSite = {

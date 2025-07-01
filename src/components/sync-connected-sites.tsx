@@ -16,8 +16,6 @@ import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { SYNC_OPTIONS, SyncOption, isSyncOption } from 'src/hooks/sync-sites/sync-option';
-import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
@@ -106,7 +104,6 @@ const SyncConnectedSiteControls = ( {
 } ) => {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
-	const { selectiveSyncEnabled } = useFeatureFlags();
 	const [ syncDialogType, setSyncDialogType ] = useState< 'pull' | 'push' | null >( null );
 	const {
 		pullSite,
@@ -123,43 +120,6 @@ const SyncConnectedSiteControls = ( {
 			isSiteIdPulling( selectedSite.id, site.id ) || isSiteIdPushing( selectedSite.id, site.id )
 	);
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
-	const showPushStagingConfirmation = useConfirmationDialog( {
-		localStorageKey: 'dontShowPushConfirmation',
-		message: __( 'Overwrite Staging site' ),
-		detail: __(
-			'Pushing will replace the existing files and database with a copy from your local site.\n\n The staging site will be backed-up before any changes are applied.'
-		),
-		confirmButtonLabel: __( 'Push' ),
-	} );
-	const showPushProductionConfirmation = useConfirmationDialog( {
-		message: __( 'Overwrite Production site' ),
-		detail: __(
-			'Pushing will replace the existing files and database with a copy from your local site.\n\n The production site will be backed-up before any changes are applied.'
-		),
-		confirmButtonLabel: __( 'Push' ),
-	} );
-
-	const showPullConfirmation = useConfirmationDialog( {
-		localStorageKey: 'dontShowPullConfirmation',
-		message: __( 'Overwrite Studio site' ),
-		confirmButtonLabel: __( 'Pull' ),
-	} );
-	const handlePushSite = async ( connectedSite: SyncSite ) => {
-		if ( selectiveSyncEnabled ) {
-			setSyncDialogType( 'push' );
-			return;
-		}
-
-		if ( connectedSite.isStaging ) {
-			void showPushStagingConfirmation( () => {
-				void pushSite( connectedSite, selectedSite );
-			} );
-		} else {
-			void showPushProductionConfirmation( () => {
-				void pushSite( connectedSite, selectedSite );
-			} );
-		}
-	};
 
 	return (
 		<Tooltip
@@ -201,23 +161,7 @@ const SyncConnectedSiteControls = ( {
 									! isAnySitePushing &&
 									'!text-black hover:!text-a8c-blueberry'
 							) }
-							onClick={ () => {
-								if ( selectiveSyncEnabled ) {
-									setSyncDialogType( 'pull' );
-									return;
-								}
-
-								const detail = connectedSite.isStaging
-									? __(
-											"Pulling will replace your Studio site's files and database with a copy from your staging site."
-									  )
-									: __(
-											"Pulling will replace your Studio site's files and database with a copy from your production site."
-									  );
-								void showPullConfirmation( () => pullSite( connectedSite, selectedSite ), {
-									detail,
-								} );
-							} }
+							onClick={ () => setSyncDialogType( 'pull' ) }
 							disabled={ isAnySiteSyncing || isOffline }
 						>
 							<Icon icon={ cloudDownload } />
@@ -257,7 +201,7 @@ const SyncConnectedSiteControls = ( {
 									! isAnySitePushing &&
 									'!text-black hover:!text-a8c-blueberry'
 							) }
-							onClick={ () => handlePushSite( connectedSite ) }
+							onClick={ () => setSyncDialogType( 'push' ) }
 							disabled={ isAnySiteSyncing || isOffline }
 						>
 							<Icon icon={ cloudUpload } />

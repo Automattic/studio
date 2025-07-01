@@ -12,6 +12,7 @@ import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import {
 	FEATURE_FLAGS,
+	FeatureFlagDefinition,
 	FeatureFlags,
 	getFeatureFlagFromEnv,
 	setFeatureFlagInEnv,
@@ -79,17 +80,17 @@ function getAppMenu(
 		{ type: 'separator' },
 	];
 
-	const featureFlagsMenu: MenuItemConstructorOptions[] = Object.entries( FEATURE_FLAGS ).map(
-		( [ flag, definition ] ) => ( {
-			label: definition.label,
-			type: 'checkbox' as const,
-			checked: getFeatureFlagFromEnv( flag as keyof FeatureFlags ),
-			click: ( menuItem: MenuItem ) => {
-				setFeatureFlagInEnv( flag as keyof FeatureFlags, menuItem.checked );
-				void sendIpcEventToRenderer( 'refresh-app-globals' );
-			},
-		} )
-	);
+	const featureFlagsMenu: MenuItemConstructorOptions[] = Object.entries< FeatureFlagDefinition >(
+		FEATURE_FLAGS
+	).map( ( [ flag, definition ] ) => ( {
+		label: definition.label,
+		type: 'checkbox' as const,
+		checked: getFeatureFlagFromEnv( flag as keyof FeatureFlags ),
+		click: ( menuItem: MenuItem ) => {
+			setFeatureFlagInEnv( flag as keyof FeatureFlags, menuItem.checked );
+			void sendIpcEventToRenderer( 'refresh-app-globals' );
+		},
+	} ) );
 
 	return Menu.buildFromTemplate( [
 		{

@@ -882,7 +882,6 @@ export function getAppGlobals(): AppGlobals {
 		appName: app.name,
 		appVersion: app.getVersion(),
 		arm64Translation: app.runningUnderARM64Translation,
-		selectiveSyncEnabled: process.env.STUDIO_SELECTIVE_SYNC === 'true',
 	};
 }
 

@@ -3,17 +3,18 @@ import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useEffect } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
-import { ConnectButton } from 'src/components/connect-create-buttons';
 import offlineIcon from 'src/components/offline-icon';
-import { SyncConnectedSites } from 'src/components/sync-connected-sites';
-import { SyncSitesModalSelector } from 'src/components/sync-sites-modal-selector';
-import { SyncTabImage } from 'src/components/sync-tab-image';
 import { Tooltip } from 'src/components/tooltip';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { ConnectButton } from 'src/modules/sync/components/connect-button';
+import { SyncConnectedSites } from 'src/modules/sync/components/sync-connected-sites';
+import { SyncSitesModalSelector } from 'src/modules/sync/components/sync-sites-modal-selector';
+import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();
 	return (

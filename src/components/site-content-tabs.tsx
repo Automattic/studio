@@ -12,7 +12,7 @@ import { TabName, useContentTabs } from 'src/hooks/use-content-tabs';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
-import { ContentTabSync } from 'src/modules/content-tab-sync';
+import { ContentTabSync } from 'src/modules/sync';
 
 export function SiteContentTabs() {
 	const { selectedSite } = useSiteDetails();

@@ -8,13 +8,13 @@ import { EnvironmentBadge, getSiteEnvironment } from 'src/components/environment
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
-import { SYNC_OPTIONS } from 'src/hooks/sync-sites/sync-option';
+import { SYNC_OPTIONS } from 'src/constants';
 import { useContentFolders } from 'src/hooks/use-content-folders';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import { GRANULAR_SYNC_FOLDERS } from 'src/modules/content-tab-sync/sync-dialog/constants';
-import { useDefaultSyncTree } from 'src/modules/content-tab-sync/sync-dialog/use-default-sync-tree';
-import { useSyncTexts } from 'src/modules/content-tab-sync/sync-dialog/use-sync-texts';
+import { GRANULAR_SYNC_FOLDERS } from 'src/modules/sync/constants';
+import { useDefaultSyncTree } from 'src/modules/sync/hooks/use-default-sync-tree';
+import { useSyncDialogTexts } from 'src/modules/sync/hooks/use-sync-dialog-texts';
 import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
@@ -73,7 +73,7 @@ export function SyncDialog( {
 }: SyncDialogProps ) {
 	const locale = useI18nLocale();
 	const { __ } = useI18n();
-	const copy = useSyncTexts( type );
+	const copy = useSyncDialogTexts( type );
 	const defaultTree = useDefaultSyncTree();
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );

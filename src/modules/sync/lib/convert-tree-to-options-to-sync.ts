@@ -49,7 +49,7 @@ export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOptionsWithS
 			) {
 				const selectedItems = item.children
 					.filter( ( child ) => child.checked )
-					.map( ( child ) => child.id );
+					.map( ( child ) => child.name );
 				if ( selectedItems.length > 0 && selectedItems.length < item.children.length ) {
 					specificSelections = {
 						...specificSelections,

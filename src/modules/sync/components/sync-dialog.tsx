@@ -1,5 +1,6 @@
 import { SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
+import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
@@ -47,7 +48,8 @@ const useDynamicTreeState = (
 				const children: TreeNode[] | undefined = error
 					? undefined
 					: items.map( ( item ) => ( {
-							id: item.name,
+							id: `${ wpType }-${ item.name }`,
+							name: item.name,
 							label: item.name,
 							checked: true,
 							type: item.type,
@@ -93,8 +95,18 @@ export function SyncDialog( {
 		</div>
 	);
 
-	const syncFrom = type === 'push' ? localSiteName : remoteSiteName;
-	const syncTo = type === 'push' ? remoteSiteName : localSiteName;
+	let syncFrom, syncTo, syncFromText, syncToText;
+	if ( type === 'push' ) {
+		syncFrom = localSiteName;
+		syncTo = remoteSiteName;
+		syncFromText = localSite.name;
+		syncToText = remoteSite.name;
+	} else {
+		syncFrom = remoteSiteName;
+		syncTo = localSiteName;
+		syncFromText = remoteSite.name;
+		syncToText = localSite.name;
+	}
 
 	const handleExpanderChange = ( value: boolean ) => {
 		setShowAllFiles( value );
@@ -123,7 +135,14 @@ export function SyncDialog( {
 			<div className="pb-[70px]">
 				<div className="px-8 pb-6 pt-2">{ copy[ siteEnv ].description }</div>
 				<div className="px-8">
-					<div className="flex items-start gap-1 pb-7 border-b border-a8c-gray-5">
+					<span className="sr-only">
+						{ /* translators: first %s is the source site name, second %s is the destination site name */ }
+						{ sprintf( __( 'From %s to %s' ), syncFromText, syncToText ) }
+					</span>
+					<div
+						aria-hidden="true"
+						className="flex items-start gap-1 pb-7 border-b border-a8c-gray-5"
+					>
 						<div className="flex-1">
 							<div className="leading-[32px]">{ copy.fromLabel }</div>
 							<div className="border border-gray-300 rounded-[2px] min-h-12 px-[19px] flex items-center py-2">

@@ -86,9 +86,9 @@ describe( 'convertTreeToOptionsToSync', () => {
 					pluginsNode.checked = false;
 					pluginsNode.indeterminate = true;
 					pluginsNode.children = [
-						{ id: 'plugin1', label: 'Plugin 1', checked: true, type: 'folder' },
-						{ id: 'plugin2', label: 'Plugin 2', checked: false, type: 'folder' },
-						{ id: 'plugin3', label: 'Plugin 3', checked: true, type: 'folder' },
+						{ id: 'plugin1', name: 'plugin1', label: 'Plugin 1', checked: true, type: 'folder' },
+						{ id: 'plugin2', name: 'plugin2', label: 'Plugin 2', checked: false, type: 'folder' },
+						{ id: 'plugin3', name: 'plugin3', label: 'Plugin 3', checked: true, type: 'folder' },
 					];
 				}
 			}
@@ -121,10 +121,10 @@ describe( 'convertTreeToOptionsToSync', () => {
 					themesNode.checked = false;
 					themesNode.indeterminate = true;
 					themesNode.children = [
-						{ id: 'theme1', label: 'Theme 1', checked: true, type: 'folder' },
-						{ id: 'theme2', label: 'Theme 2', checked: false, type: 'folder' },
-						{ id: 'theme3', label: 'Theme 3', checked: true, type: 'folder' },
-						{ id: 'theme4', label: 'Theme 4', checked: false, type: 'folder' },
+						{ id: 'theme1', name: 'theme1', label: 'Theme 1', checked: true, type: 'folder' },
+						{ id: 'theme2', name: 'theme2', label: 'Theme 2', checked: false, type: 'folder' },
+						{ id: 'theme3', name: 'theme3', label: 'Theme 3', checked: true, type: 'folder' },
+						{ id: 'theme4', name: 'theme4', label: 'Theme 4', checked: false, type: 'folder' },
 					];
 				}
 			}
@@ -157,9 +157,9 @@ describe( 'convertTreeToOptionsToSync', () => {
 					uploadsNode.checked = false;
 					uploadsNode.indeterminate = true;
 					uploadsNode.children = [
-						{ id: 'upload1', label: 'Upload 1', checked: true, type: 'folder' },
-						{ id: 'upload2', label: 'Upload 2', checked: true, type: 'folder' },
-						{ id: 'upload3', label: 'Upload 3', checked: false, type: 'folder' },
+						{ id: 'upload1', name: 'upload1', label: 'Upload 1', checked: true, type: 'folder' },
+						{ id: 'upload2', name: 'upload2', label: 'Upload 2', checked: true, type: 'folder' },
+						{ id: 'upload3', name: 'upload3', label: 'Upload 3', checked: false, type: 'folder' },
 					];
 				}
 			}
@@ -191,8 +191,8 @@ describe( 'convertTreeToOptionsToSync', () => {
 					pluginsNode.checked = false;
 					pluginsNode.indeterminate = true;
 					pluginsNode.children = [
-						{ id: 'plugin1', label: 'Plugin 1', checked: true, type: 'folder' },
-						{ id: 'plugin2', label: 'Plugin 2', checked: false, type: 'folder' },
+						{ id: 'plugin1', name: 'plugin1', label: 'Plugin 1', checked: true, type: 'folder' },
+						{ id: 'plugin2', name: 'plugin2', label: 'Plugin 2', checked: false, type: 'folder' },
 					];
 				}
 
@@ -201,9 +201,9 @@ describe( 'convertTreeToOptionsToSync', () => {
 					themesNode.checked = false;
 					themesNode.indeterminate = true;
 					themesNode.children = [
-						{ id: 'theme1', label: 'Theme 1', checked: true, type: 'folder' },
-						{ id: 'theme2', label: 'Theme 2', checked: false, type: 'folder' },
-						{ id: 'theme3', label: 'Theme 3', checked: true, type: 'folder' },
+						{ id: 'theme1', name: 'theme1', label: 'Theme 1', checked: true, type: 'folder' },
+						{ id: 'theme2', name: 'theme2', label: 'Theme 2', checked: false, type: 'folder' },
+						{ id: 'theme3', name: 'theme3', label: 'Theme 3', checked: true, type: 'folder' },
 					];
 				}
 			}
@@ -236,8 +236,8 @@ describe( 'convertTreeToOptionsToSync', () => {
 				if ( pluginsNode ) {
 					pluginsNode.checked = true;
 					pluginsNode.children = [
-						{ id: 'plugin1', label: 'Plugin 1', checked: true, type: 'folder' },
-						{ id: 'plugin2', label: 'Plugin 2', checked: true, type: 'folder' },
+						{ id: 'plugin1', name: 'plugin1', label: 'Plugin 1', checked: true, type: 'folder' },
+						{ id: 'plugin2', name: 'plugin2', label: 'Plugin 2', checked: true, type: 'folder' },
 					];
 				}
 			}
@@ -267,8 +267,8 @@ describe( 'convertTreeToOptionsToSync', () => {
 				if ( pluginsNode ) {
 					pluginsNode.checked = false;
 					pluginsNode.children = [
-						{ id: 'plugin1', label: 'Plugin 1', checked: false, type: 'folder' },
-						{ id: 'plugin2', label: 'Plugin 2', checked: false, type: 'folder' },
+						{ id: 'plugin1', name: 'plugin1', label: 'Plugin 1', checked: false, type: 'folder' },
+						{ id: 'plugin2', name: 'plugin2', label: 'Plugin 2', checked: false, type: 'folder' },
 					];
 				}
 			}
@@ -298,8 +298,8 @@ describe( 'convertTreeToOptionsToSync', () => {
 					pluginsNode.checked = false;
 					pluginsNode.indeterminate = true;
 					pluginsNode.children = [
-						{ id: 'plugin1', label: 'Plugin 1', checked: true, type: 'folder' },
-						{ id: 'plugin2', label: 'Plugin 2', checked: false, type: 'folder' },
+						{ id: 'plugin1', name: 'plugin1', label: 'Plugin 1', checked: true, type: 'folder' },
+						{ id: 'plugin2', name: 'plugin2', label: 'Plugin 2', checked: false, type: 'folder' },
 					];
 				}
 			}
@@ -311,6 +311,38 @@ describe( 'convertTreeToOptionsToSync', () => {
 					plugins: [ 'plugin1' ],
 				},
 			} );
+		} );
+	} );
+
+	it( 'strips folder type prefix from specific selections', () => {
+		const { result } = renderHook( () => useDefaultSyncTree() );
+		let tree = result.current;
+
+		tree = updateNodeById( tree, 'plugins', {
+			children: [
+				{
+					id: 'plugins-my-plugin',
+					name: 'my-plugin',
+					label: 'my-plugin',
+					checked: true,
+					type: 'folder',
+				},
+				{
+					id: 'plugins-another-plugin',
+					name: 'another-plugin',
+					label: 'another-plugin',
+					checked: false,
+					type: 'folder',
+				},
+			],
+		} );
+
+		const optionsToSync = convertTreeToOptionsToSync( tree );
+		expect( optionsToSync ).toEqual( {
+			optionsToSync: [ 'sqls', 'plugins', 'themes', 'uploads', 'contents' ],
+			specificSelections: {
+				plugins: [ 'my-plugin' ],
+			},
 		} );
 	} );
 } );

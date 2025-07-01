@@ -73,8 +73,5 @@ export const selectIsNewVersion = createSelector(
 		( res: GetLastSeenVersionQueryResult ) => res.data,
 		( res: GetLastSeenVersionQueryResult, currentVersion: string ) => currentVersion,
 	],
-	( lastSeenVersion, currentVersion ) => {
-		const isSignificantNewVersion = isGreaterExceptPatch( lastSeenVersion, currentVersion );
-		return isSignificantNewVersion;
-	}
+	( lastSeenVersion, currentVersion ) => isGreaterExceptPatch( lastSeenVersion, currentVersion )
 );

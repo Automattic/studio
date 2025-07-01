@@ -49,6 +49,7 @@ const useDynamicTreeState = (
 					? undefined
 					: items.map( ( item ) => ( {
 							id: `${ wpType }-${ item.name }`,
+							name: item.name,
 							label: item.name,
 							checked: true,
 							type: item.type,

@@ -49,10 +49,7 @@ export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOptionsWithS
 			) {
 				const selectedItems = item.children
 					.filter( ( child ) => child.checked )
-					.map( ( child ) => {
-						const prefix = `${ item.id }-`;
-						return child.id.startsWith( prefix ) ? child.id.slice( prefix.length ) : child.id;
-					} );
+					.map( ( child ) => child.name );
 				if ( selectedItems.length > 0 && selectedItems.length < item.children.length ) {
 					specificSelections = {
 						...specificSelections,

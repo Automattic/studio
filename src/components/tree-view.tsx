@@ -8,6 +8,7 @@ import { cx } from 'src/lib/cx';
 type TreeNodeType = 'folder' | 'file';
 export type TreeNode = {
 	id: string;
+	name: string;
 	label: string;
 	checked: boolean;
 	indeterminate?: boolean;

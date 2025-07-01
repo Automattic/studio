@@ -20,7 +20,7 @@
 		"projectService": true,
 		"tsconfigRootDir": "./"
 	},
-	"plugins": [ "@typescript-eslint", "prettier", "jest-dom" ],
+	"plugins": [ "@typescript-eslint", "prettier", "jest-dom", "@studio" ],
 	"settings": {
 		"import/resolver": {
 			"typescript": {
@@ -52,7 +52,8 @@
 				},
 				"groups": [ "builtin", "external", "internal", "parent", "sibling", "index", "type" ]
 			}
-		]
+		],
+		"@studio/require-lock-before-save": "error"
 	},
 	"overrides": [
 		{

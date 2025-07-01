@@ -25,7 +25,7 @@ import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { OpenSitesSyncSelector } from 'src/modules/sync';
 import { SyncDialog } from 'src/modules/sync/components/sync-dialog';
 import { SyncPullPushClear } from 'src/modules/sync/components/sync-pull-push-clear';
-import { convertTreeToOptionsToSync } from 'src/modules/sync/convert-tree-to-options-to-sync';
+import { convertTreeToOptionsToSync } from 'src/modules/sync/lib/convert-tree-to-options-to-sync';
 import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 

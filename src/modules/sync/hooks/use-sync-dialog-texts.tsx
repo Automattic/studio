@@ -1,7 +1,7 @@
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
 
-export const useSyncTexts = ( type: 'pull' | 'push' ) => {
+export const useSyncDialogTexts = ( type: 'pull' | 'push' ) => {
 	const { __ } = useI18n();
 
 	return useMemo( () => {

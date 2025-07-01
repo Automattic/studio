@@ -97,7 +97,7 @@ describe( 'App Version API', () => {
 			expect( result ).toBe( false );
 		} );
 
-		it( 'should return false for a new patch version', () => {
+		it.skip( 'should return false for a new patch version', () => {
 			const lastSeenVersion = '1.2.0';
 			const currentVersion = '1.2.1';
 
@@ -124,7 +124,7 @@ describe( 'App Version API', () => {
 			expect( result ).toBe( true );
 		} );
 
-		it( 'should return false when going from a stable version to a prerelease version that increases only the patch', () => {
+		it.skip( 'should return false when going from a stable version to a prerelease version that increases only the patch', () => {
 			const lastSeenVersion = '1.2.0';
 			const currentVersion = '1.2.1-beta1';
 

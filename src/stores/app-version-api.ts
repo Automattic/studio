@@ -44,7 +44,12 @@ type GetLastSeenVersionQueryResult = TypedUseQueryStateResult<
 	BaseQueryFn
 >;
 
-function isGreaterExceptPatch( versionA: string | undefined, versionB: string ): boolean {
+const FORCE_NEW_VERSION_WHEN_PATCH_CHANGED = true;
+
+function isGreaterExceptPatch(
+	versionA: string | undefined,
+	versionB: string
+): boolean {
 	if ( ! versionA ) {
 		return true;
 	}
@@ -61,7 +66,7 @@ function isGreaterExceptPatch( versionA: string | undefined, versionB: string ):
 	const b = semver.parse( versionB )!;
 
 	if ( a.major === b.major && a.minor === b.minor && a.patch !== b.patch ) {
-		return false;
+		return FORCE_NEW_VERSION_WHEN_PATCH_CHANGED;
 	}
 	return true;
 }
@@ -72,8 +77,10 @@ export const selectIsNewVersion = createSelector(
 		( res: GetLastSeenVersionQueryResult, currentVersion: string ) => currentVersion,
 	],
 	( lastSeenVersion, currentVersion ) => {
-		const forceNewVersion = false;
-		const isSignificantNewVersion = isGreaterExceptPatch( lastSeenVersion, currentVersion );
-		return isSignificantNewVersion || forceNewVersion;
+		const isSignificantNewVersion = isGreaterExceptPatch(
+			lastSeenVersion,
+			currentVersion
+		);
+		return isSignificantNewVersion;
 	}
 );

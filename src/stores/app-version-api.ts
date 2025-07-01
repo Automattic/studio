@@ -46,10 +46,7 @@ type GetLastSeenVersionQueryResult = TypedUseQueryStateResult<
 
 const FORCE_NEW_VERSION_WHEN_PATCH_CHANGED = true;
 
-function isGreaterExceptPatch(
-	versionA: string | undefined,
-	versionB: string
-): boolean {
+function isGreaterExceptPatch( versionA: string | undefined, versionB: string ): boolean {
 	if ( ! versionA ) {
 		return true;
 	}
@@ -77,10 +74,7 @@ export const selectIsNewVersion = createSelector(
 		( res: GetLastSeenVersionQueryResult, currentVersion: string ) => currentVersion,
 	],
 	( lastSeenVersion, currentVersion ) => {
-		const isSignificantNewVersion = isGreaterExceptPatch(
-			lastSeenVersion,
-			currentVersion
-		);
+		const isSignificantNewVersion = isGreaterExceptPatch( lastSeenVersion, currentVersion );
 		return isSignificantNewVersion;
 	}
 );

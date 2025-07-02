@@ -11,7 +11,6 @@ platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
 	describe( 'canHandle', () => {
 		it( 'should return true for valid Jetpack backup structure', () => {
 			const fileList = [
-				'meta.json',
 				'sql/wp_options.sql',
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
@@ -23,7 +22,6 @@ platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
 
 		it( 'should not fail if core files exists.', () => {
 			const fileList = [
-				'meta.json',
 				'sql/wp_options.sql',
 				'wp-admin/wp-admin.php',
 				'wp-admin/about.php',

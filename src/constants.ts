@@ -46,6 +46,15 @@ export const ARCHIVER_OPTIONS = {
 	},
 };
 
+export const SYNC_OPTIONS = {
+	all: 'all',
+	themes: 'themes',
+	plugins: 'plugins',
+	uploads: 'uploads',
+	sqls: 'sqls',
+	contents: 'contents',
+} as const;
+
 // AI Assistant constants
 // IMPORTANT: When updating this value, we need to update the string located in `AIClearHistoryReminder` component.
 // Reference: https://github.com/Automattic/studio/blob/3dd5c58cdb7998e458d191e508e8e859177225a9/src/components/ai-clear-history-reminder.tsx#L78
@@ -79,11 +88,5 @@ export const IPC_VOID_HANDLERS = < const >[
 	'authenticate',
 ];
 
-export const SYNC_OPTIONS = {
-	all: 'all',
-	themes: 'themes',
-	plugins: 'plugins',
-	uploads: 'uploads',
-	sqls: 'sqls',
-	contents: 'contents',
-} as const;
+// What's New
+export const FORCE_WHATS_NEW_WHEN_PATCH_CHANGED = true;

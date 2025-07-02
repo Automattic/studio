@@ -63,7 +63,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			description: __(
 				'Choose the parts of your site to sync, speeding up the process and reducing unnecessary changes.'
 			),
-			learnMoreUrl: getLocalizedLink( locale, 'docsSync' ),
+			learnMoreUrl: `${ getLocalizedLink( locale, 'docsSync' ) }#pull`,
 		},
 		{
 			image: pressableSyncIllustration,

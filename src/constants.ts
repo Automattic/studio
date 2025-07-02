@@ -78,3 +78,6 @@ export const IPC_VOID_HANDLERS = < const >[
 	'showNotification',
 	'authenticate',
 ];
+
+// What's New
+export const FORCE_WHATS_NEW_WHEN_PATCH_CHANGED = true;

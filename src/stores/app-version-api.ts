@@ -2,6 +2,7 @@ import { createSelector } from '@reduxjs/toolkit';
 import { BaseQueryFn } from '@reduxjs/toolkit/query';
 import { createApi, fetchBaseQuery, TypedUseQueryStateResult } from '@reduxjs/toolkit/query/react';
 import semver from 'semver';
+import { FORCE_WHATS_NEW_WHEN_PATCH_CHANGED } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export const appVersionApi = createApi( {
@@ -44,8 +45,6 @@ type GetLastSeenVersionQueryResult = TypedUseQueryStateResult<
 	BaseQueryFn
 >;
 
-const FORCE_NEW_VERSION_WHEN_PATCH_CHANGED = true;
-
 function isGreaterExceptPatch( versionA: string | undefined, versionB: string ): boolean {
 	if ( ! versionA ) {
 		return true;
@@ -63,7 +62,7 @@ function isGreaterExceptPatch( versionA: string | undefined, versionB: string ):
 	const b = semver.parse( versionB )!;
 
 	if ( a.major === b.major && a.minor === b.minor && a.patch !== b.patch ) {
-		return FORCE_NEW_VERSION_WHEN_PATCH_CHANGED;
+		return FORCE_WHATS_NEW_WHEN_PATCH_CHANGED;
 	}
 	return true;
 }

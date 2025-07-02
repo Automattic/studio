@@ -73,10 +73,10 @@ import {
 	updateAppdata,
 } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
-import type { SyncOption } from 'src/hooks/sync-sites/sync-option';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
-import type { GranularSyncFolders } from 'src/modules/content-tab-sync/sync-dialog/types';
+import type { GranularSyncFolders } from 'src/modules/sync/types';
+import type { SyncOption } from 'src/types';
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
 if ( ! fs.existsSync( TEMP_DIR ) ) {

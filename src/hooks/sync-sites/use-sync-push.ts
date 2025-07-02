@@ -3,7 +3,6 @@ import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo } from 'react';
 import { SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
-import { SyncOption } from 'src/hooks/sync-sites/sync-option';
 import {
 	ClearState,
 	generateStateId,
@@ -20,6 +19,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { ImportResponse } from 'src/hooks/use-sync-states-progress-info';
+import type { SyncOption } from 'src/types';
 
 export type SyncPushState = {
 	remoteSiteId: number;

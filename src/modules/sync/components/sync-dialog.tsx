@@ -1,5 +1,6 @@
 import { SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
+import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
@@ -8,13 +9,13 @@ import { EnvironmentBadge, getSiteEnvironment } from 'src/components/environment
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
-import { SYNC_OPTIONS } from 'src/hooks/sync-sites/sync-option';
+import { SYNC_OPTIONS } from 'src/constants';
 import { useContentFolders } from 'src/hooks/use-content-folders';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import { GRANULAR_SYNC_FOLDERS } from 'src/modules/content-tab-sync/sync-dialog/constants';
-import { useDefaultSyncTree } from 'src/modules/content-tab-sync/sync-dialog/use-default-sync-tree';
-import { useSyncTexts } from 'src/modules/content-tab-sync/sync-dialog/use-sync-texts';
+import { GRANULAR_SYNC_FOLDERS } from 'src/modules/sync/constants';
+import { useDefaultSyncTree } from 'src/modules/sync/hooks/use-default-sync-tree';
+import { useSyncDialogTexts } from 'src/modules/sync/hooks/use-sync-dialog-texts';
 import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
@@ -47,7 +48,8 @@ const useDynamicTreeState = (
 				const children: TreeNode[] | undefined = error
 					? undefined
 					: items.map( ( item ) => ( {
-							id: item.name,
+							id: `${ wpType }-${ item.name }`,
+							name: item.name,
 							label: item.name,
 							checked: true,
 							type: item.type,
@@ -73,7 +75,7 @@ export function SyncDialog( {
 }: SyncDialogProps ) {
 	const locale = useI18nLocale();
 	const { __ } = useI18n();
-	const copy = useSyncTexts( type );
+	const copy = useSyncDialogTexts( type );
 	const defaultTree = useDefaultSyncTree();
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
@@ -93,8 +95,18 @@ export function SyncDialog( {
 		</div>
 	);
 
-	const syncFrom = type === 'push' ? localSiteName : remoteSiteName;
-	const syncTo = type === 'push' ? remoteSiteName : localSiteName;
+	let syncFrom, syncTo, syncFromText, syncToText;
+	if ( type === 'push' ) {
+		syncFrom = localSiteName;
+		syncTo = remoteSiteName;
+		syncFromText = localSite.name;
+		syncToText = remoteSite.name;
+	} else {
+		syncFrom = remoteSiteName;
+		syncTo = localSiteName;
+		syncFromText = remoteSite.name;
+		syncToText = localSite.name;
+	}
 
 	const handleExpanderChange = ( value: boolean ) => {
 		setShowAllFiles( value );
@@ -123,7 +135,14 @@ export function SyncDialog( {
 			<div className="pb-[70px]">
 				<div className="px-8 pb-6 pt-2">{ copy[ siteEnv ].description }</div>
 				<div className="px-8">
-					<div className="flex items-start gap-1 pb-7 border-b border-a8c-gray-5">
+					<span className="sr-only">
+						{ /* translators: first %s is the source site name, second %s is the destination site name */ }
+						{ sprintf( __( 'From %s to %s' ), syncFromText, syncToText ) }
+					</span>
+					<div
+						aria-hidden="true"
+						className="flex items-start gap-1 pb-7 border-b border-a8c-gray-5"
+					>
 						<div className="flex-1">
 							<div className="leading-[32px]">{ copy.fromLabel }</div>
 							<div className="border border-gray-300 rounded-[2px] min-h-12 px-[19px] flex items-center py-2">

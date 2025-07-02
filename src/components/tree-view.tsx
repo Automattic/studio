@@ -1,11 +1,14 @@
 import { CheckboxControl, Icon, Spinner } from '@wordpress/components';
 import { file, page } from '@wordpress/icons';
+import { useI18n } from '@wordpress/react-i18n';
+import React from 'react';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import { cx } from 'src/lib/cx';
 
 type TreeNodeType = 'folder' | 'file';
 export type TreeNode = {
 	id: string;
+	name: string;
 	label: string;
 	checked: boolean;
 	indeterminate?: boolean;
@@ -72,19 +75,31 @@ const TreeItem = ( {
 	node,
 	onPatchNode,
 	level,
-	isLast,
+	index,
+	isLast = false,
+	siblingsLength,
 }: {
 	node: TreeNode;
 	onPatchNode: ( id: string, patchNode: Partial< TreeNode > ) => void;
 	level: number;
+	index: number;
+	siblingsLength?: number;
 	isLast?: boolean;
 } ) => {
+	const { __ } = useI18n();
 	const isLevel0 = level === 0;
 	const expanded = node.expanded ?? true;
 
 	return (
 		<div>
 			<div
+				role="treeitem"
+				aria-level={ level }
+				aria-expanded={ node.children ? expanded : undefined }
+				aria-setsize={ siblingsLength }
+				aria-posinset={ index + 1 }
+				aria-checked={ node.indeterminate ? 'mixed' : node.checked }
+				aria-label={ node.label }
 				className={ cx(
 					'flex items-center py-2 relative gap-2',
 					isLevel0 ? 'border-b border-gray-300 py-4' : '',
@@ -93,19 +108,28 @@ const TreeItem = ( {
 			>
 				<label className="flex items-center cursor-pointer">
 					<CheckboxControl
+						id={ node.id }
 						checked={ node.checked }
 						indeterminate={ node.indeterminate }
 						onChange={ ( checked: boolean ) => onPatchNode( node.id, { checked } ) }
 						__nextHasNoMarginBottom
 					/>
 					{ node.type && (
-						<Icon icon={ TREE_NODE_ICONS[ node.type ] } size={ 20 } className="me-1.5" />
+						<Icon
+							aria-hidden
+							icon={ TREE_NODE_ICONS[ node.type ] }
+							size={ 20 }
+							className="me-1.5"
+						/>
 					) }
-					<span>{ node.label }</span>
+					{ node.label }
 				</label>
 				{ node.loading && <Spinner className="!w-[9px] !h-[9px] !m-0" /> }
 				{ ! node.loading && node.children && ! node.hideExpandButton && (
-					<button onClick={ () => onPatchNode( node.id, { expanded: ! expanded } ) }>
+					<button
+						aria-label={ expanded ? __( 'Collapse' ) : __( 'Expand' ) }
+						onClick={ () => onPatchNode( node.id, { expanded: ! expanded } ) }
+					>
 						<div className={ expanded ? 'rotate-90' : '' }>
 							<RightArrowIcon width={ 16 } />
 						</div>
@@ -113,13 +137,18 @@ const TreeItem = ( {
 				) }
 			</div>
 			{ expanded && node.children && (
-				<div className={ cx( 'ps-6', isLevel0 ? 'border-b border-gray-300 py-2' : '' ) }>
-					{ node.children.map( ( child ) => (
+				<div
+					role="group"
+					className={ cx( 'ps-6', isLevel0 ? 'border-b border-gray-300 py-2' : '' ) }
+				>
+					{ node.children.map( ( child, idx ) => (
 						<TreeItem
 							key={ child.id }
 							node={ child }
 							onPatchNode={ onPatchNode }
-							level={ ++level }
+							level={ level + 1 }
+							index={ idx }
+							siblingsLength={ node.children?.length }
 						/>
 					) ) }
 				</div>
@@ -139,13 +168,15 @@ export const TreeView = ( { tree, setTree }: TreeViewProps ) => {
 	};
 
 	return (
-		<div>
+		<div role="tree">
 			{ tree.map( ( node, index ) => (
 				<TreeItem
 					key={ node.id }
 					node={ node }
 					onPatchNode={ handlePatchNode }
-					level={ 0 }
+					level={ 1 }
+					index={ index }
+					siblingsLength={ tree.length }
 					isLast={ index === tree.length - 1 }
 				/>
 			) ) }

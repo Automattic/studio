@@ -11,21 +11,20 @@ import { CircleRedCrossIcon } from 'src/components/icons/circle-red-cross';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
 import ProgressBar from 'src/components/progress-bar';
-import { SyncPullPushClear } from 'src/components/sync-pull-push-clear';
 import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
-import { SYNC_OPTIONS, SyncOption, isSyncOption } from 'src/hooks/sync-sites/sync-option';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import { OpenSitesSyncSelector } from 'src/modules/content-tab-sync';
-import { SyncDialog } from 'src/modules/content-tab-sync/sync-dialog';
+import { OpenSitesSyncSelector } from 'src/modules/sync';
+import { SyncDialog } from 'src/modules/sync/components/sync-dialog';
+import { SyncPullPushClear } from 'src/modules/sync/components/sync-pull-push-clear';
+import { convertTreeToOptionsToSync } from 'src/modules/sync/lib/convert-tree-to-options-to-sync';
 import { useI18nLocale } from 'src/stores';
-import type { TreeNode } from 'src/components/tree-view';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 interface ConnectedSiteSection {
@@ -34,66 +33,6 @@ interface ConnectedSiteSection {
 	provider: 'wpcom';
 	connectedSites: SyncSite[];
 }
-
-export type SyncOptionsWithSelections = {
-	optionsToSync: SyncOption[];
-	specificSelections?: {
-		plugins?: string[];
-		themes?: string[];
-		uploads?: string[];
-	};
-};
-
-export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOptionsWithSelections => {
-	const optionsToSync: SyncOption[] = [];
-	let specificSelections: SyncOptionsWithSelections[ 'specificSelections' ] = undefined;
-
-	const isAll = tree.every( ( node ) => node.checked );
-	if ( isAll ) {
-		optionsToSync.push( SYNC_OPTIONS.all );
-	} else {
-		const isDatabaseSelected = tree.find( ( node ) => node.id === SYNC_OPTIONS.sqls )?.checked;
-
-		if ( isDatabaseSelected ) {
-			optionsToSync.push( SYNC_OPTIONS.sqls );
-		}
-
-		const filesAndFolders = tree.find( ( node ) => node.id === 'filesAndFolders' )?.children || [];
-		const wpContent = filesAndFolders.find( ( node ) => node.id === 'wp-content' )?.children || [];
-
-		wpContent.forEach( ( item ) => {
-			if ( ! isSyncOption( item.id ) ) {
-				return;
-			}
-
-			if ( item.checked || item.indeterminate ) {
-				optionsToSync.push( item.id );
-			}
-
-			if (
-				item.children &&
-				[ SYNC_OPTIONS.plugins, SYNC_OPTIONS.themes, SYNC_OPTIONS.uploads ].includes(
-					item.id as 'plugins' | 'themes' | 'uploads'
-				)
-			) {
-				const selectedItems = item.children
-					.filter( ( child ) => child.checked )
-					.map( ( child ) => child.id );
-				if ( selectedItems.length > 0 && selectedItems.length < item.children.length ) {
-					specificSelections = {
-						...specificSelections,
-						[ item.id ]: selectedItems,
-					};
-				}
-			}
-		} );
-	}
-
-	return {
-		optionsToSync,
-		specificSelections,
-	};
-};
 
 const SyncConnectedSiteControls = ( {
 	connectedSite,

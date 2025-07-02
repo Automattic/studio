@@ -1,4 +1,4 @@
-// To run tests, execute `npm run test -- src/modules/content-tab-sync/tests/index.test.tsx` from the root directory
+// To run tests, execute `npm run test -- src/modules/sync/tests/index.test.tsx` from the root directory
 import { render, screen, fireEvent } from '@testing-library/react';
 import escapeRegExp from 'lodash/escapeRegExp';
 import { Provider } from 'react-redux';
@@ -7,7 +7,7 @@ import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { ContentTabSync } from 'src/modules/content-tab-sync';
+import { ContentTabSync } from 'src/modules/sync';
 import { store } from 'src/stores';
 
 jest.mock( 'src/hooks/use-auth' );

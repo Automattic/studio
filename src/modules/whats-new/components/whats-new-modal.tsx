@@ -59,9 +59,9 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 	const whatsNewPages: WhatsNewPage[] = [
 		{
 			image: selectiveSyncIllustration,
-			title: __( 'Choose what to synchronize' ),
+			title: __( 'Synchronize with precision' ),
 			description: __(
-				'Choose which files and folders to synchronize, speeding up the process and limiting changes to part of your site.'
+				'Choose the parts of your site to sync, speeding up the process and reducing unnecessary changes.'
 			),
 			learnMoreUrl: getLocalizedLink( locale, 'docsSync' ),
 		},

@@ -9,13 +9,12 @@ export class JetpackValidator extends EventEmitter implements Validator {
 		const optionalDirs = [ 'sql', 'wp-content/uploads', 'wp-content/plugins', 'wp-content/themes' ];
 		const optionalFiles = [ 'wp-config.php' ];
 
-		const hasRequiredMetaJson = fileList.some( ( file ) => file === 'meta.json' );
 		const hasOptionalDir = optionalDirs.some( ( dir ) =>
 			fileList.some( ( file ) => file.startsWith( dir + '/' ) )
 		);
 		const hasOptionalFile = optionalFiles.some( ( file ) => fileList.includes( file ) );
 
-		return hasRequiredMetaJson && ( hasOptionalDir || hasOptionalFile );
+		return hasOptionalDir || hasOptionalFile;
 	}
 
 	parseBackupContents( fileList: string[], extractionDirectory: string ): BackupContents {

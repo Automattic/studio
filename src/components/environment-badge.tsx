@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { Badge } from 'src/components/badge';
 import { cx } from 'src/lib/cx';
+import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 export type EnvironmentType = 'production' | 'staging' | 'sandbox';
 
@@ -37,3 +38,10 @@ export function EnvironmentBadge( { type, selected }: EnvironmentBadgeProps ) {
 
 	return <Badge className={ cx( getClassName() ) }>{ labels[ type ] }</Badge>;
 }
+
+export const getSiteEnvironment = ( connectedSite: SyncSite ): EnvironmentType => {
+	if ( connectedSite.isPressable ) {
+		return connectedSite.environmentType ?? 'production';
+	}
+	return connectedSite.isStaging ? 'staging' : 'production';
+};

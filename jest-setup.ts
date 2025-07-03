@@ -3,7 +3,6 @@ import '@testing-library/jest-dom';
 // used by `@php-wasm/universal` and it's not available in the Jest environment.
 // eslint-disable-next-line import/no-unresolved
 import 'web-streams-polyfill/polyfill';
-import { jestPreviewConfigure } from 'jest-preview';
 import nock from 'nock';
 
 // Silence console.log for all tests
@@ -72,7 +71,3 @@ jest.mock( './src/hooks/use-ai-icon', () => ( {
 } ) );
 
 global.ResizeObserver = require( 'resize-observer-polyfill' );
-
-if ( ! process.env.CI ) {
-	jestPreviewConfigure( { autoPreview: true } );
-}

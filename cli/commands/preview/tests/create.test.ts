@@ -2,7 +2,7 @@ import os from 'os';
 import path from 'path';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
-import { createArchive, cleanup } from 'cli/lib/archive';
+import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { saveSnapshotToAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
@@ -55,7 +55,7 @@ describe( 'Preview Create Command', () => {
 
 		( getAuthToken as jest.Mock ).mockResolvedValue( mockAuthToken );
 		( validateSiteFolder as jest.Mock ).mockReturnValue( true );
-		( createArchive as jest.Mock ).mockResolvedValue( mockArchiver );
+		( archiveSiteContent as jest.Mock ).mockResolvedValue( mockArchiver );
 		( cleanup as jest.Mock ).mockImplementation( () => {} );
 		( uploadArchive as jest.Mock ).mockResolvedValue( {
 			site_url: mockSiteUrl,
@@ -77,7 +77,7 @@ describe( 'Preview Create Command', () => {
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 
-		expect( createArchive ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
+		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
 		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [ 'archive', 'Creating archive…' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Archive created' ] );
 
@@ -128,7 +128,7 @@ describe( 'Preview Create Command', () => {
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( createArchive ).not.toHaveBeenCalled();
+		expect( archiveSiteContent ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle authentication errors', async () => {
@@ -143,12 +143,12 @@ describe( 'Preview Create Command', () => {
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( createArchive ).not.toHaveBeenCalled();
+		expect( archiveSiteContent ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle archive creation errors', async () => {
 		const errorMessage = 'Archive creation failed';
-		( createArchive as jest.Mock ).mockImplementation( () => {
+		( archiveSiteContent as jest.Mock ).mockImplementation( () => {
 			throw new LoggerError( errorMessage );
 		} );
 

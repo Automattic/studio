@@ -6,28 +6,25 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useState, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
-import { OpenSitesSyncSelector } from 'src/components/content-tab-sync';
-import { EnvironmentBadge } from 'src/components/environment-badge';
+import { EnvironmentBadge, getSiteEnvironment } from 'src/components/environment-badge';
 import { CircleRedCrossIcon } from 'src/components/icons/circle-red-cross';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
 import ProgressBar from 'src/components/progress-bar';
-import { SyncDialog } from 'src/components/sync-dialog';
-import { SyncPullPushClear } from 'src/components/sync-pull-push-clear';
 import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
-import { SYNC_OPTIONS, SyncOption, isSyncOption } from 'src/hooks/sync-sites/sync-option';
-import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
+import { OpenSitesSyncSelector } from 'src/modules/sync';
+import { SyncDialog } from 'src/modules/sync/components/sync-dialog';
+import { SyncPullPushClear } from 'src/modules/sync/components/sync-pull-push-clear';
+import { convertTreeToOptionsToSync } from 'src/modules/sync/lib/convert-tree-to-options-to-sync';
 import { useI18nLocale } from 'src/stores';
-import type { TreeNode } from 'src/components/tree-view';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 interface ConnectedSiteSection {
@@ -36,32 +33,6 @@ interface ConnectedSiteSection {
 	provider: 'wpcom';
 	connectedSites: SyncSite[];
 }
-
-export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOption[] => {
-	const optionsToSync: SyncOption[] = [];
-
-	const isAll = tree.every( ( node ) => node.checked );
-	if ( isAll ) {
-		optionsToSync.push( SYNC_OPTIONS.all );
-	} else {
-		const isDatabaseSelected = tree.find( ( node ) => node.id === SYNC_OPTIONS.sqls )?.checked;
-
-		if ( isDatabaseSelected ) {
-			optionsToSync.push( SYNC_OPTIONS.sqls );
-		}
-
-		const filesAndFolders = tree.find( ( node ) => node.id === 'filesAndFolders' )?.children || [];
-		const wpContent = filesAndFolders.find( ( node ) => node.id === 'wp-content' )?.children || [];
-
-		wpContent.forEach( ( item ) => {
-			if ( item.checked && isSyncOption( item.id ) ) {
-				optionsToSync.push( item.id );
-			}
-		} );
-	}
-
-	return optionsToSync;
-};
 
 const SyncConnectedSiteControls = ( {
 	connectedSite,
@@ -72,7 +43,6 @@ const SyncConnectedSiteControls = ( {
 } ) => {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
-	const { selectiveSyncEnabled } = useFeatureFlags();
 	const [ syncDialogType, setSyncDialogType ] = useState< 'pull' | 'push' | null >( null );
 	const {
 		pullSite,
@@ -89,43 +59,6 @@ const SyncConnectedSiteControls = ( {
 			isSiteIdPulling( selectedSite.id, site.id ) || isSiteIdPushing( selectedSite.id, site.id )
 	);
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
-	const showPushStagingConfirmation = useConfirmationDialog( {
-		localStorageKey: 'dontShowPushConfirmation',
-		message: __( 'Overwrite Staging site' ),
-		detail: __(
-			'Pushing will replace the existing files and database with a copy from your local site.\n\n The staging site will be backed-up before any changes are applied.'
-		),
-		confirmButtonLabel: __( 'Push' ),
-	} );
-	const showPushProductionConfirmation = useConfirmationDialog( {
-		message: __( 'Overwrite Production site' ),
-		detail: __(
-			'Pushing will replace the existing files and database with a copy from your local site.\n\n The production site will be backed-up before any changes are applied.'
-		),
-		confirmButtonLabel: __( 'Push' ),
-	} );
-
-	const showPullConfirmation = useConfirmationDialog( {
-		localStorageKey: 'dontShowPullConfirmation',
-		message: __( 'Overwrite Studio site' ),
-		confirmButtonLabel: __( 'Pull' ),
-	} );
-	const handlePushSite = async ( connectedSite: SyncSite ) => {
-		if ( selectiveSyncEnabled ) {
-			setSyncDialogType( 'push' );
-			return;
-		}
-
-		if ( connectedSite.isStaging ) {
-			void showPushStagingConfirmation( () => {
-				void pushSite( connectedSite, selectedSite );
-			} );
-		} else {
-			void showPushProductionConfirmation( () => {
-				void pushSite( connectedSite, selectedSite );
-			} );
-		}
-	};
 
 	return (
 		<Tooltip
@@ -167,23 +100,7 @@ const SyncConnectedSiteControls = ( {
 									! isAnySitePushing &&
 									'!text-black hover:!text-a8c-blueberry'
 							) }
-							onClick={ () => {
-								if ( selectiveSyncEnabled ) {
-									setSyncDialogType( 'pull' );
-									return;
-								}
-
-								const detail = connectedSite.isStaging
-									? __(
-											"Pulling will replace your Studio site's files and database with a copy from your staging site."
-									  )
-									: __(
-											"Pulling will replace your Studio site's files and database with a copy from your production site."
-									  );
-								void showPullConfirmation( () => pullSite( connectedSite, selectedSite ), {
-									detail,
-								} );
-							} }
+							onClick={ () => setSyncDialogType( 'pull' ) }
 							disabled={ isAnySiteSyncing || isOffline }
 						>
 							<Icon icon={ cloudDownload } />
@@ -223,7 +140,7 @@ const SyncConnectedSiteControls = ( {
 									! isAnySitePushing &&
 									'!text-black hover:!text-a8c-blueberry'
 							) }
-							onClick={ () => handlePushSite( connectedSite ) }
+							onClick={ () => setSyncDialogType( 'push' ) }
 							disabled={ isAnySiteSyncing || isOffline }
 						>
 							<Icon icon={ cloudUpload } />
@@ -237,12 +154,12 @@ const SyncConnectedSiteControls = ( {
 						localSite={ selectedSite }
 						remoteSite={ connectedSite }
 						onSubmit={ ( tree ) => {
-							const optionsToSync = convertTreeToOptionsToSync( tree );
+							const syncOptions = convertTreeToOptionsToSync( tree );
 
 							if ( syncDialogType === 'push' ) {
-								void pushSite( connectedSite, selectedSite, { optionsToSync } );
+								void pushSite( connectedSite, selectedSite, syncOptions );
 							} else {
-								pullSite( connectedSite, selectedSite, { optionsToSync } );
+								pullSite( connectedSite, selectedSite, syncOptions );
 							}
 						} }
 						onRequestClose={ () => setSyncDialogType( null ) }
@@ -295,29 +212,9 @@ const SyncConnectedSitesList = ( {
 						}` }
 						key={ connectedSite.id }
 					>
-						{ connectedSite.isPressable && connectedSite.environmentType && (
-							<div className="shrink-0">
-								{ connectedSite.environmentType === 'staging' && (
-									<EnvironmentBadge type="staging" />
-								) }
-								{ connectedSite.environmentType === 'production' && (
-									<EnvironmentBadge type="production" />
-								) }
-								{ connectedSite.environmentType === 'sandbox' && (
-									<EnvironmentBadge type="sandbox" />
-								) }
-							</div>
-						) }
-
-						{ ! connectedSite.isPressable && (
-							<div className="shrink-0">
-								{ connectedSite.isStaging ? (
-									<EnvironmentBadge type="staging" />
-								) : (
-									<EnvironmentBadge type="production" />
-								) }
-							</div>
-						) }
+						<div className="shrink-0">
+							<EnvironmentBadge type={ getSiteEnvironment( connectedSite ) } />
+						</div>
 
 						<Button
 							variant="link"

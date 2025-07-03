@@ -98,17 +98,20 @@ abstract class BaseBackupImporter extends BaseImporter {
 		this.emit( ImportEvents.IMPORT_START );
 
 		try {
-			const databaseDir = path.join( rootPath, 'wp-content', 'database' );
-			const dbPath = path.join( databaseDir, '.ht.sqlite' );
-			await this.moveExistingDatabaseToTrash( dbPath );
 			await this.moveExistingWpContentToTrash( rootPath );
-			await this.createEmptyDatabase( dbPath );
 			await this.importWpConfig( rootPath );
 			await this.importWpContent( rootPath );
 			if ( this.backup.metaFile ) {
 				this.meta = await this.parseMetaFile();
 			}
-			await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
+			if ( this.backup.sqlFiles.length ) {
+				const databaseDir = path.join( rootPath, 'wp-content', 'database' );
+				const dbPath = path.join( databaseDir, '.ht.sqlite' );
+
+				await this.moveExistingDatabaseToTrash( dbPath );
+				await this.createEmptyDatabase( dbPath );
+				await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
+			}
 
 			this.emit( ImportEvents.IMPORT_COMPLETE );
 			return {

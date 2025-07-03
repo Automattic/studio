@@ -9,7 +9,7 @@ import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
 import customDomainIllustration from 'src/modules/whats-new/assets/custom-domains-illustration.svg';
 import preferredAppsIllustration from 'src/modules/whats-new/assets/preferred-apps-illustration.svg';
 import pressableSyncIllustration from 'src/modules/whats-new/assets/pressable-sync-illustration.svg';
-import previewSitesIllustration from 'src/modules/whats-new/assets/preview-sites-illustration.svg';
+import selectiveSyncIllustration from 'src/modules/whats-new/assets/selective-sync-illustration.svg';
 import versionSwitchIllustration from 'src/modules/whats-new/assets/version-switch-illustration.svg';
 import { useI18nLocale } from 'src/stores';
 
@@ -58,6 +58,14 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 	const locale = useI18nLocale();
 	const whatsNewPages: WhatsNewPage[] = [
 		{
+			image: selectiveSyncIllustration,
+			title: __( 'Synchronize with precision' ),
+			description: __(
+				'Choose the parts of your site to synchronize, speeding up the process and reducing unnecessary changes.'
+			),
+			learnMoreUrl: `${ getLocalizedLink( locale, 'docsSync' ) }#pull`,
+		},
+		{
 			image: pressableSyncIllustration,
 			title: __( 'Sync to your favorite host' ),
 			description: __(
@@ -105,14 +113,6 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 				'Select your preferred WordPress and PHP versions for existing sites or when creating a new one.'
 			),
 			learnMoreUrl: getLocalizedLink( locale, 'blogPhpVersions' ),
-		},
-		{
-			image: previewSitesIllustration,
-			title: __( 'Share your work easily with Preview sites' ),
-			description: __(
-				'Quickly generate a publicly accessible URL that you can share with clients and colleagues.'
-			),
-			learnMoreUrl: getLocalizedLink( locale, 'blogPreviewSites' ),
 		},
 	];
 

@@ -5,7 +5,6 @@ import { ContentTabImportExport } from 'src/components/content-tab-import-export
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { ContentTabPreviews } from 'src/components/content-tab-previews';
 import { ContentTabSettings } from 'src/components/content-tab-settings';
-import { ContentTabSync } from 'src/components/content-tab-sync';
 import Header from 'src/components/header';
 import { SiteLoadingIndicator } from 'src/components/site-loading-indicator';
 import { MIN_WIDTH_CLASS_TO_MEASURE } from 'src/constants';
@@ -13,6 +12,7 @@ import { TabName, useContentTabs } from 'src/hooks/use-content-tabs';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
+import { ContentTabSync } from 'src/modules/sync';
 
 export function SiteContentTabs() {
 	const { selectedSite } = useSiteDetails();

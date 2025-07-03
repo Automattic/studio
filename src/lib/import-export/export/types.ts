@@ -7,6 +7,11 @@ export interface ExportOptions {
 	includes: { [ index in ExportOptionsIncludes ]: boolean };
 	phpVersion: string;
 	splitDatabaseDumpByTable?: boolean;
+	specificSelections?: {
+		plugins?: string[];
+		themes?: string[];
+		uploads?: string[];
+	};
 }
 
 export type ExportOptionsIncludes = BackupContentsCategory | 'database';

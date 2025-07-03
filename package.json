@@ -3,7 +3,7 @@
 	"author": "Automattic Inc.",
 	"private": true,
 	"productName": "Studio",
-	"version": "1.5.4",
+	"version": "1.5.5-beta2",
 	"description": "Local WordPress development environment using Playgrounds",
 	"license": "GPL-2.0-or-later",
 	"main": ".webpack/main",
@@ -36,7 +36,6 @@
 		"test:watch": "cross-env NODE_OPTIONS='--no-deprecation' jest --watch",
 		"e2e": "npx playwright install && npx playwright test",
 		"test:metrics": "npx playwright test --config=./metrics/playwright.metrics.config.ts",
-		"test:preview": "jest-preview",
 		"make-pot": "node ./scripts/make-pot.mjs"
 	},
 	"devDependencies": {
@@ -51,6 +50,7 @@
 		"@electron-forge/plugin-webpack": "^7.8.0",
 		"@playwright/test": "^1.52.0",
 		"@sentry/react": "^7.120.3",
+		"@studio/eslint-plugin": "file:packages/eslint-plugin-studio",
 		"@testing-library/jest-dom": "^6.2.1",
 		"@testing-library/react": "^14.3.1",
 		"@testing-library/user-event": "^14.5.2",
@@ -93,7 +93,6 @@
 		"fork-ts-checker-webpack-plugin": "^7.2.13",
 		"jest": "^29.7.0",
 		"jest-environment-jsdom": "^29.7.0",
-		"jest-preview": "^0.3.1",
 		"jest-watch-typeahead": "^2.2.2",
 		"mini-css-extract-plugin": "^2.8.0",
 		"nock": "^13.5.1",

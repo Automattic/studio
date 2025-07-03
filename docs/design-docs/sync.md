@@ -75,7 +75,7 @@ By default, all files and the database are pre-selected. Users can customize the
 
 See the Pull section for more details on the available options.
 
-When the user initiates a push, Studio creates a backup archive containing only the files and database tables the user has selected. Studio then uploads this backup to the WPcom API, which restores the selected components on the remote site. The process is non-destructive, meaning that the existing files not included in the backup will not be deleted.
+When the user initiates the push, Studio creates a backup archive containing only the files and database tables the user has selected. Studio then uploads this backup to the WPcom API, which restores the selected components on the remote site. The process is non-destructive: existing files and data not included in the backup are left unchanged.
 
 An email notification will be sent from the backend after the Push has finished, informing the user that the push is complete and which options were pushed.
 

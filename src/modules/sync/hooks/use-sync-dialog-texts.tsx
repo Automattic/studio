@@ -36,19 +36,19 @@ export const useSyncDialogTexts = ( type: 'pull' | 'push' ) => {
 				staging: {
 					title: __( 'Push to Staging' ),
 					description: __(
-						'Pushing will replace the existing files and database with a copy from your local site.\n\n The staging site will be backed-up before any changes are applied.'
+						'Pushing will replace the existing files and database with a copy from your local site.\n\n The staging site will be backed up before any changes are applied.'
 					),
 				},
 				sandbox: {
 					title: __( 'Push to Sandbox' ),
 					description: __(
-						'Pushing will replace the existing files and database with a copy from your local site.\n\n The sandbox site will be backed-up before any changes are applied.'
+						'Pushing will replace the existing files and database with a copy from your local site.\n\n The sandbox site will be backed up before any changes are applied.'
 					),
 				},
 				production: {
 					title: __( 'Push to Production' ),
 					description: __(
-						'Pushing will replace the existing files and database with a copy from your local site.\n\n The production site will be backed-up before any changes are applied.'
+						'Pushing will replace the existing files and database with a copy from your local site.\n\n The production site will be backed up before any changes are applied.'
 					),
 				},
 				fromLabel: __( 'Push' ),

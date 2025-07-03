@@ -27,7 +27,7 @@ The backup format is a tar.gz file that contains the site data. It follows the f
 - `wp-config.php` file
 - `meta.json` file
 
-Any folder is optional and will be ignored if it does not exist, allowing partial syncs. The Jetpack backup is not a destructive process, meaning that the existing files will not be deleted.
+Folders in the archive are optional. If any are missing, they will simply be ignored, allowing for partial syncs. The Jetpack backup process is non-destructive: existing files will not be deleted.
 
 ## High level implementation
 

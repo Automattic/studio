@@ -58,7 +58,7 @@ The available options are:
 
 - **wp-content**: Select this to pull all of the content from your site. This operation will overwrite the local folders with the contents from the backup, including the themes, plugins, and uploads folders. Other existing files and folders will be ignored and not overwritten.
   - **plugins**: Pull all plugins from the remote site. This replaces any local plugins folder with the new ones found in the backup.
-  - **themes**: Pull all themes from the remote site. Like plugins, this replaces any existing local themes folder with the new ones found in the backup.
+  - **themes**: Pull all themes from the remote site. This replaces any existing local themes folder with the new ones found in the backup.
   - **uploads**: Pull the media library (wp-content/uploads) from the remote site. This option will overwrite the local site’s uploads directory with the files from the backup.
   - **Other files and directories**: Pull all other files and folders inside wp-content that are not covered by the options above (for example, mu-plugins, fonts, etc.). This ensures custom or less-common directories can also be selectively synchronized.
 - **database**: Pull the database from the remote site. This will overwrite the local database with the one from the backup. The database will be updated by running the WP-CLI sqlite import command.

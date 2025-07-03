@@ -75,6 +75,8 @@ import {
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
+import type { GranularSyncFolders } from 'src/modules/sync/types';
+import type { SyncOption } from 'src/types';
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
 if ( ! fs.existsSync( TEMP_DIR ) ) {
@@ -655,26 +657,48 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string, format
 	return { archivePath, archiveSizeInBytes: stats.size };
 }
 
-export async function exportSiteToPush( event: IpcMainInvokeEvent, id: string ) {
+export async function exportSiteToPush(
+	event: IpcMainInvokeEvent,
+	id: string,
+	configuration?: {
+		optionsToSync?: SyncOption[];
+		specificSelections?: {
+			plugins?: string[];
+			themes?: string[];
+			uploads?: string[];
+		};
+	}
+) {
 	const site = SiteServer.get( id );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
 	const extension = 'tar.gz';
 	const archivePath = `${ TEMP_DIR }site_${ id }.${ extension }`;
+
+	const shouldIncludeSyncOption = (
+		optionsToSync: SyncOption[] | undefined,
+		option: SyncOption
+	): boolean => {
+		return optionsToSync?.includes( option ) || optionsToSync?.includes( 'all' ) || ! optionsToSync;
+	};
+
+	const includes = {
+		database: shouldIncludeSyncOption( configuration?.optionsToSync, 'sqls' ),
+		uploads: shouldIncludeSyncOption( configuration?.optionsToSync, 'uploads' ),
+		plugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'plugins' ),
+		themes: shouldIncludeSyncOption( configuration?.optionsToSync, 'themes' ),
+		muPlugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
+		fonts: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
+	};
+
 	const exportOptions: ExportOptions = {
 		site: site.details,
 		backupFile: archivePath,
-		includes: {
-			database: true,
-			uploads: true,
-			plugins: true,
-			themes: true,
-			muPlugins: true,
-			fonts: true,
-		},
+		includes,
 		phpVersion: site.details.phpVersion,
 		splitDatabaseDumpByTable: true,
+		specificSelections: configuration?.specificSelections,
 	};
 	// eslint-disable-next-line @typescript-eslint/no-empty-function
 	const onEvent = () => {};
@@ -858,7 +882,6 @@ export function getAppGlobals(): AppGlobals {
 		appName: app.name,
 		appVersion: app.getVersion(),
 		arm64Translation: app.runningUnderARM64Translation,
-		selectiveSyncEnabled: process.env.STUDIO_SELECTIVE_SYNC === 'true',
 	};
 }
 
@@ -1380,7 +1403,7 @@ export function comparePaths( event: IpcMainInvokeEvent, path1: string, path2: s
 export async function listWpContentFolders(
 	_event: Electron.IpcMainInvokeEvent,
 	siteId: string,
-	subdir: 'plugins' | 'themes'
+	subdir: GranularSyncFolders
 ): Promise< { name: string; type: 'file' | 'folder' }[] > {
 	const server = SiteServer.get( siteId );
 	if ( ! server ) throw new Error( 'Site not found' );
@@ -1392,10 +1415,10 @@ export async function listWpContentFolders(
 			.map( ( e ) => ( {
 				name: e.name.toString(),
 				type: e.isDirectory() ? ( 'folder' as const ) : ( 'file' as const ),
+				hidden: e.name.startsWith( '.' ),
 			} ) )
-			.filter( ( entry: { name: string; type: string } ) => {
-				if ( entry.type === 'folder' ) return true;
-				return entry.type === 'file' && entry.name.toLowerCase().endsWith( '.php' );
+			.filter( ( entry: { name: string; hidden: boolean } ) => {
+				return ! entry.hidden;
 			} );
 	} catch ( err ) {
 		return [];

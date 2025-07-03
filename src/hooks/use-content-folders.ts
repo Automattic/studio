@@ -1,8 +1,8 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { useState, useEffect } from 'react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { GranularSyncFolders } from 'src/modules/sync/types';
 
-export type WpContentFolder = 'plugins' | 'themes';
 export type WpContentFolderEntry = { name: string; type: 'file' | 'folder' };
 export type WpContentFolderResult = {
 	items: WpContentFolderEntry[];
@@ -12,12 +12,15 @@ export type WpContentFolderResult = {
 
 export function useContentFolders(
 	siteId: string,
-	types: WpContentFolder[]
-): Record< WpContentFolder, WpContentFolderResult > {
-	const [ results, setResults ] = useState< Record< WpContentFolder, WpContentFolderResult > >( {
-		plugins: { items: [], isLoading: true, error: null },
-		themes: { items: [], isLoading: true, error: null },
-	} );
+	types: GranularSyncFolders[]
+): Record< GranularSyncFolders, WpContentFolderResult > {
+	const [ results, setResults ] = useState< Record< GranularSyncFolders, WpContentFolderResult > >(
+		{
+			plugins: { items: [], isLoading: true, error: null },
+			themes: { items: [], isLoading: true, error: null },
+			uploads: { items: [], isLoading: true, error: null },
+		}
+	);
 
 	useEffect( () => {
 		types.forEach( async ( type ) => {

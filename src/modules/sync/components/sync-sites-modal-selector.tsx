@@ -4,8 +4,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
-import { CreateButton } from 'src/components/connect-create-buttons';
-import { EnvironmentBadge } from 'src/components/environment-badge';
+import { EnvironmentBadge, getSiteEnvironment } from 'src/components/environment-badge';
 import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
@@ -14,6 +13,7 @@ import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
+import { CreateButton } from 'src/modules/sync/components/create-button';
 import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
@@ -209,7 +209,6 @@ function SiteItem( {
 	const isDeleted = site.syncSupport === 'deleted';
 	const isUnsupported = site.syncSupport === 'unsupported';
 	const isPressable = site.isPressable;
-	const environmentType = site.environmentType;
 	const isDisabled = isDeleted || isUnsupported || needsUpgrade || isMissingPermissions;
 
 	return (
@@ -292,19 +291,8 @@ function SiteItem( {
 							) }
 						</>
 					) }
-
-					{ isPressable && environmentType && (
-						<>
-							{ environmentType === 'production' && (
-								<EnvironmentBadge type="production" selected={ isSelected } />
-							) }
-							{ environmentType === 'staging' && (
-								<EnvironmentBadge type="staging" selected={ isSelected } />
-							) }
-							{ environmentType === 'sandbox' && (
-								<EnvironmentBadge type="sandbox" selected={ isSelected } />
-							) }
-						</>
+					{ isPressable && (
+						<EnvironmentBadge type={ getSiteEnvironment( site ) } selected={ isSelected } />
 					) }
 				</div>
 			) }

@@ -76,14 +76,15 @@ The project follows a modular architecture with both global and feature-specific
 
 #### Global Directories
 
-| Directory | Description |
-|-----------|-------------|
+| Directory         | Description |
+|-------------------|-------------|
 | `cli/`            | Root directory for CLI code |
 | `common/`         | Shared code between CLI and Studio (constants, types, utility functions, etc) |
 | `src/`            | Root directory for Studio code |
 | `src/components/` | Reusable UI components used across the application |
 | `src/hooks/`      | Global React hooks |
 | `src/lib/`        | Utility functions and helper libraries |
+| `src/modules/`    | Feature-specific code |
 | `src/stores/`     | Global state management (Redux stores) |
 | `src/api/`        | API interfaces and implementations |
 

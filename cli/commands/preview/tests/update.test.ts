@@ -3,7 +3,7 @@ import path from 'path';
 import { DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken, getOrCreateSiteByFolder, getSiteByFolder } from 'cli/lib/appdata';
-import { createArchive, cleanup } from 'cli/lib/archive';
+import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { updateSnapshotInAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
@@ -61,7 +61,7 @@ describe( 'Preview Update Command', () => {
 		( getAuthToken as jest.Mock ).mockResolvedValue( mockAuthToken );
 		( validateSiteFolder as jest.Mock ).mockReturnValue( true );
 		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [ mockSnapshot ] );
-		( createArchive as jest.Mock ).mockResolvedValue( undefined );
+		( archiveSiteContent as jest.Mock ).mockResolvedValue( undefined );
 		( uploadArchive as jest.Mock ).mockResolvedValue( {
 			site_url: mockSiteUrl,
 			site_id: mockAtomicSiteId,
@@ -87,7 +87,7 @@ describe( 'Preview Update Command', () => {
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 
-		expect( createArchive ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
+		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
 		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [ 'archive', 'Creating archive…' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Archive created' ] );
 
@@ -136,7 +136,7 @@ describe( 'Preview Update Command', () => {
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( createArchive ).not.toHaveBeenCalled();
+		expect( archiveSiteContent ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle authentication errors', async () => {
@@ -151,7 +151,7 @@ describe( 'Preview Update Command', () => {
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( createArchive ).not.toHaveBeenCalled();
+		expect( archiveSiteContent ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle snapshot not found errors', async () => {
@@ -162,12 +162,12 @@ describe( 'Preview Update Command', () => {
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( createArchive ).not.toHaveBeenCalled();
+		expect( archiveSiteContent ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle archive creation errors', async () => {
 		const errorMessage = 'Archive creation failed';
-		( createArchive as jest.Mock ).mockImplementation( () => {
+		( archiveSiteContent as jest.Mock ).mockImplementation( () => {
 			throw new LoggerError( errorMessage );
 		} );
 
@@ -241,7 +241,7 @@ describe( 'Preview Update Command', () => {
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( createArchive ).not.toHaveBeenCalled();
+		expect( archiveSiteContent ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should throw error if folder does not match original site and no overwrite flag', async () => {
@@ -253,7 +253,7 @@ describe( 'Preview Update Command', () => {
 		} );
 		await runCommand( mockFolder, mockSiteUrl, false );
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( createArchive ).not.toHaveBeenCalled();
+		expect( archiveSiteContent ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should allow update if overwrite flag is set even if folder does not match', async () => {
@@ -264,6 +264,6 @@ describe( 'Preview Update Command', () => {
 			name: 'Other Site',
 		} );
 		await runCommand( mockFolder, mockSiteUrl, true );
-		expect( createArchive ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
+		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
 	} );
 } );

@@ -20,8 +20,10 @@ if ($BuildType -notin $VALID_BUILD_TYPES) {
 
 Write-Host "--- :npm: Installing Node dependencies"
 bash .buildkite/commands/install-node-dependencies.sh
+If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 & "prepare_windows_host_for_app_distribution.ps1" # via CI toolkit plugin
+If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 Write-Host "--- :node: Building App for Windows ($BuildType)"
 
@@ -29,23 +31,22 @@ Write-Host "--- :node: Building App for Windows ($BuildType)"
 if ($BuildType -eq $BUILD_TYPE_DEV) {
     Write-Host "Preparing dev build..."
     node ./scripts/prepare-dev-build-version.mjs
+	If ($LastExitCode -ne 0) { Exit $LastExitCode }
     $env:IS_DEV_BUILD="true"
 } else {
     Write-Host "Preparing release build..."
     node ./scripts/confirm-tag-matches-version.mjs
+	If ($LastExitCode -ne 0) { Exit $LastExitCode }
 }
 
-If ($LastExitCode -ne 0) { Exit $LastExitCode }
-
 npm run make
+If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 # Rename NuGet package files with generic name
 $artifactsPath = Get-Item ".\out" | Select-Object -ExpandProperty FullName
 Get-ChildItem -Path $artifactsPath -Recurse -Include "*.nupkg" | Rename-Item -NewName "studio-update.nupkg"
-
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 Write-Host "--- :package: Building AppX package"
 node scripts/package-appx.mjs
-
 If ($LastExitCode -ne 0) { Exit $LastExitCode }

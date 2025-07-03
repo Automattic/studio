@@ -4,7 +4,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
-import { createArchive, cleanup } from 'cli/lib/archive';
+import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { saveSnapshotToAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder, validateSiteSize } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
@@ -25,7 +25,7 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 		logger.reportSuccess( __( 'Validation successful' ), true );
 
 		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive…' ) );
-		await createArchive( siteFolder, archivePath );
+		await archiveSiteContent( siteFolder, archivePath );
 		logger.reportSuccess( __( 'Archive created' ) );
 
 		logger.reportStart( LoggerAction.UPLOAD, __( 'Uploading archive…' ) );

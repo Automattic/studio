@@ -1,20 +1,19 @@
-// To run tests, execute `npm run test -- src/components/tests/content-tab-sync.test.tsx` from the root directory
+// To run tests, execute `npm run test -- src/modules/sync/tests/index.test.tsx` from the root directory
 import { render, screen, fireEvent } from '@testing-library/react';
+import escapeRegExp from 'lodash/escapeRegExp';
 import { Provider } from 'react-redux';
-import { ContentTabSync } from 'src/components/content-tab-sync';
 import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
 import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { ContentTabSync } from 'src/modules/sync';
 import { store } from 'src/stores';
 
 jest.mock( 'src/hooks/use-auth' );
-jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/hooks/sync-sites/sync-sites-context', () => ( {
-	...jest.requireActual( '../../hooks/sync-sites/sync-sites-context' ),
+	...jest.requireActual( '../../../hooks/sync-sites/sync-sites-context' ),
 	useSyncSites: jest.fn(),
 } ) );
 
@@ -67,9 +66,6 @@ describe( 'ContentTabSync', () => {
 			isSyncSitesSelectorOpen: false,
 			setIsSyncSitesSelectorOpen: jest.fn(),
 			closeSyncSitesSelector: jest.fn(),
-		} );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			selectiveSyncEnabled: false,
 		} );
 
 		Object.defineProperty( window, 'matchMedia', {
@@ -196,7 +192,9 @@ describe( 'ContentTabSync', () => {
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const urlButton = screen.getByRole( 'button', { name: new RegExp( fakeSyncSite.url, 'i' ) } );
+		const urlButton = screen.getByRole( 'button', {
+			name: new RegExp( escapeRegExp( fakeSyncSite.url ), 'i' ),
+		} );
 		expect( urlButton ).toBeInTheDocument();
 
 		fireEvent.click( urlButton );
@@ -415,10 +413,6 @@ describe( 'ContentTabSync', () => {
 	} );
 
 	it( 'calls pullSite with correct optionsToSync when all options are selected', async () => {
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			selectiveSyncEnabled: true,
-		} );
-
 		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		const fakeSyncSite = {
@@ -459,10 +453,6 @@ describe( 'ContentTabSync', () => {
 	} );
 
 	it( 'calls pullSite with correct optionsToSync when options partially are selected', async () => {
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			selectiveSyncEnabled: true,
-		} );
-
 		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		const fakeSyncSite = {

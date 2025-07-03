@@ -38,6 +38,20 @@ platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
 			const fileList = [ 'random.txt', 'another-file.js' ];
 			expect( validator.canHandle( fileList ) ).toBe( false );
 		} );
+
+		it.each( [
+			'sql/wp_options.sql',
+			'wp-content/plugins/jetpack/jetpack.php',
+			'wp-content/themes/twentytwentyone/style.css',
+			'wp-content/uploads/img.jpg',
+			'wp-config.php',
+		] )(
+			'should return true if meta.json exists and at least one of the optional files or dirs exists: %s',
+			( fileOrDir ) => {
+				const fileList = [ 'meta.json', fileOrDir ];
+				expect( validator.canHandle( fileList ) ).toBe( true );
+			}
+		);
 	} );
 
 	describe( 'parseBackupContents', () => {

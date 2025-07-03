@@ -63,7 +63,9 @@ The available options are:
   - **Other files and directories**: Pull all other files and folders inside wp-content that are not covered by the options above (for example, mu-plugins, fonts, etc.). This ensures custom or less-common directories can also be selectively synchronized.
 - **database**: Pull the database from the remote site. This will overwrite the local database with the one from the backup. The database will be updated by running the WP-CLI sqlite import command.
 
-When the user clicks "Pull," Studio sends a request to the WPcom API to create a Jetpack Backup and generate a download link. We poll the API until the process is complete, then download the backup file to a temporary folder. The backup file will contain only the selected options, then it will be extracted, and the requested changes will be applied locally. If a full sync is selected, the local site will be completely replaced, and the database will be updated. If only certain parts are selected, only those will be updated.
+When the user clicks **Pull**, Studio sends a request to the WPcom API to create a Jetpack Backup and generate a download link. Studio polls the API until the backup is ready, download the file to a temporary folder, and extract its contents.
+
+The backup file includes only the options selected by the user. Once extracted, the corresponding changes are applied locally. If a full sync is selected, the local site is completely replaced, including the database. If only specific parts are selected, only those are updated.
 
 ### Push
 

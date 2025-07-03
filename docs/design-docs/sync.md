@@ -52,7 +52,7 @@ Users can connect multiple sites to Studio independently of their hosting provid
 
 When the user clicks **Pull**, Studio opens a sync dialog that allows them to select exactly which data to synchronize from the remote site to their local environment.
 
-By default, all files and the database are pre-selected. Users can customize sync options by opening a dropdown and selecting specific files and folders to pull. The file tree is then displayed with wp-content as the root, enabling selective syncing of specific parts of the site.
+By default, all files and the database are pre-selected. Users can customize the sync options by opening a dropdown and selecting specific files and folders to pull. The file tree is then displayed with wp-content as the root, enabling selective syncing of specific parts of the site.
 
 The available options are:
 
@@ -71,7 +71,7 @@ The backup file includes only the options selected by the user. Once extracted, 
 
 When the user clicks **Push**, Studio opens a sync dialog allowing them to choose exactly which data to synchronize from their local site to the remote environment.
 
-By default, all files and the database are pre-selected. Users can customize what gets pushed by displaying a file tree with wp-content as the root folder, where they can select individual plugins, themes, uploads subfolders for a more granular sync.
+By default, all files and the database are pre-selected. Users can customize the sync options by opening a dropdown and selecting specific files and folders to push. The file tree is then displayed with wp-content as the root, enabling selective syncing of specific parts of the site.
 
 See the Pull section for more details on the available options.
 

@@ -50,7 +50,7 @@ Users can connect multiple sites to Studio independently of their hosting provid
 
 ### Pull
 
-When the user clicks **Pull**, Studio opens a sync dialog that allows them to select exactly which data to synchronize from the remote site to their local environment.
+When the user clicks **Pull**, Studio opens a sync dialog that allows them to select which parts of the site to synchronize from the remote site to their local environment.
 
 By default, all files and the database are pre-selected. Users can customize the sync options by opening a dropdown and selecting specific files and folders to pull. The file tree is then displayed with wp-content as the root, enabling selective syncing of specific parts of the site.
 
@@ -63,7 +63,7 @@ The available options are:
   - **Other files and directories**: Pull all other files and folders inside wp-content that are not covered by the options above (for example, mu-plugins, fonts, etc.). This ensures custom or less-common directories can also be selectively synchronized.
 - **database**: Pull the database from the remote site. This will overwrite the local database with the one from the backup. The database will be updated by running the WP-CLI sqlite import command.
 
-When the user clicks **Pull**, Studio sends a request to the WPcom API to create a Jetpack Backup and generate a download link. Studio polls the API until the backup is ready, download the file to a temporary folder, and extract its contents.
+When the user clicks **Pull** inside the dialog, Studio sends a request to the WPcom API to create a Jetpack Backup and generate a download link. Studio polls the API until the backup is ready, download the file to a temporary folder, and extract its contents.
 
 The backup file includes only the options selected by the user. Once extracted, the corresponding changes are applied locally. If a full sync is selected, the local site is completely replaced, including the database. If only specific parts are selected, only those are updated.
 
@@ -75,9 +75,9 @@ By default, all files and the database are pre-selected. Users can customize the
 
 See the Pull section for more details on the available options.
 
-When the user initiates the push, Studio creates a backup archive containing only the files and database tables the user has selected. Studio then uploads this backup to the WPcom API, which restores the selected components on the remote site. The process is non-destructive: existing files and data not included in the backup are left unchanged.
+When the user initiates the **Push**, Studio creates a backup archive containing only the files and database the user has selected. Studio then uploads this backup to the WPcom API, which restores the selected components on the remote site. The process is non-destructive: existing files and data not included in the backup are left unchanged.
 
-An email notification will be sent from the backend after the Push has finished, informing the user that the push is complete and which options were synchronized.
+The backend will send a success email after the push finishes, telling the user it's complete and which options were synchronized.
 
 ## Limitations
 

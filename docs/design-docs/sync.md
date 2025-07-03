@@ -56,7 +56,7 @@ By default, all files and the database are pre-selected. Users can customize the
 
 The available options are:
 
-- **wp-content**: Select this to perform a complete pull of all site content. This operation will overwrite the local folders with the contents from the backup, including the themes, plugins, and uploads folders. Other existing files and folders will be ignored and not overwritten.
+- **wp-content**: Select this to pull all of the content from your site. This operation will overwrite the local folders with the contents from the backup, including the themes, plugins, and uploads folders. Other existing files and folders will be ignored and not overwritten.
   - **plugins**: Pull all plugins from the remote site. This replaces any local plugins folder with the new ones found in the backup.
   - **themes**: Pull all themes from the remote site. Like plugins, this replaces any existing local themes folder with the new ones found in the backup.
   - **uploads**: Pull the media library (wp-content/uploads) from the remote site. This option will overwrite the local site’s uploads directory with the files from the backup.

@@ -162,7 +162,7 @@ export function SyncDialog( {
 				</div>
 				<div className="px-8 pt-7 pb-3">{ copy.subtitleSelector }</div>
 				<div className="px-8 relative">
-					<div className="absolute end-6 top-2 z-10">
+					<div className="absolute end-6 z-10">
 						<SelectControl
 							value={ showAllFiles ? 'true' : 'false' }
 							variant="minimal"
@@ -180,6 +180,7 @@ export function SyncDialog( {
 							__next40pxDefaultSize
 							__nextHasNoMarginBottom
 							aria-label={ __( 'Select files and folders to sync' ) }
+							className="h-9"
 						/>
 					</div>
 					<TreeView tree={ treeState } setTree={ setTreeState } />

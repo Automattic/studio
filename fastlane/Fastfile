@@ -215,13 +215,28 @@ def distribute_builds(
   builds_to_upload
 end
 
+def create_versioned_file(original_file_path:, version:)
+  original_filename = File.basename(original_file_path)
+  if original_filename.match(/\.app\.zip$/i)
+    extension = '.app.zip'
+  else
+    extension = File.extname(original_filename)
+  end
+  base_name = File.basename(original_filename, extension)
+  versioned_filename = "#{base_name}-#{version}#{extension}"
+  versioned_file_path = File.join(File.dirname(original_file_path), versioned_filename)
+  UI.message("Copying #{original_file_path} to #{versioned_file_path}")
+  FileUtils.cp(original_file_path, versioned_file_path)
+  versioned_file_path
+end
+
 # Helper method to upload a file to Apps CDN with dry run support
 def upload_file_to_apps_cdn(site_id:, product:, file_path:, platform:, build_type:, install_type: 'Full Install', visibility:, version:, build_number:, release_notes:, sha: nil, error_on_duplicate:, dry_run: DRY_RUN)
-  filename = File.basename(file_path)
+  versioned_file_path = create_versioned_file(original_file_path: file_path, version:)
 
   if dry_run
-    media_url = "https://appscdn.wordpress.com/downloads/wordpress-com-studio/#{filename}"
-    UI.message("[DRY RUN] Would upload file: #{file_path}")
+    media_url = "https://appscdn.wordpress.com/downloads/wordpress-com-studio/#{platform}/#{version}/#{build_number}"
+    UI.message("[DRY RUN] Would upload file: #{versioned_file_path}")
     UI.message("           for platform: #{platform}")
     UI.message("           media url: #{media_url}")
     UI.message("           build type: #{build_type}")
@@ -238,7 +253,7 @@ def upload_file_to_apps_cdn(site_id:, product:, file_path:, platform:, build_typ
     }
   end
 
-  UI.message("Uploading file: #{file_path}")
+  UI.message("Uploading file: #{versioned_file_path}")
 
   result = upload_build_to_apps_cdn(
     site_id:,
@@ -251,12 +266,12 @@ def upload_file_to_apps_cdn(site_id:, product:, file_path:, platform:, build_typ
     build_number:,
     release_notes:,
     sha:,
-    file_path:,
+    file_path: versioned_file_path,
     error_on_duplicate:
   )
 
   UI.message("--------------------------------")
-  UI.message("✅ Uploaded file: #{filename} to #{result[:media_url]}")
+  UI.message("✅ Uploaded file: #{versioned_file_path} to #{result[:media_url]}")
 
   result
 end

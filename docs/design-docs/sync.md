@@ -10,7 +10,7 @@ WordPress Studio Sync enables developers to pull a live site down for local deve
 
 ## Terminology
 
-- **Sync**: Replicating files and database content between a local machine and a remote site in any direction.
+- **Sync**: Replicating files and database content between a local machine and a remote site in any direction. A partial sync is also possible, meaning that only certain files and folders or the database can be synced.
 - **Push**: Copying changes from a local machine to a remote (staging or production) site.
 - **Pull**: Copying changes from a remote site down to a local machine.
 - **Staging site**: A staging site hosted on WordPress.com or a Pressable site with the environment type set to `staging`. WordPress.com staging sites can sync with production sites and vice versa. However, that is a different feature managed entirely in the WordPress.com Hosting Features web interface.
@@ -26,6 +26,8 @@ The backup format is a tar.gz file that contains the site data. It follows the f
 - `sql/` folder with a `.sql` file for each database table
 - `wp-config.php` file
 - `meta.json` file
+
+Folders in the archive are optional. If any are missing, they will simply be ignored, allowing for partial syncs. The Jetpack backup process is non-destructive: existing files will not be deleted.
 
 ## High level implementation
 
@@ -48,17 +50,34 @@ Users can connect multiple sites to Studio independently of their hosting provid
 
 ### Pull
 
-When the user clicks "Pull," we make a request to the WPcom API to run a Jetpack Backup and generate a download link. We poll the API until the process is ready to download the backup file.
+When the user clicks **Pull**, Studio opens a sync dialog that allows them to select which parts of the site to synchronize from the remote site to their local environment.
 
-Studio will download the backup file and save it on the local machine in a temporary folder.
+By default, all files and the database are pre-selected. Users can customize the sync options by opening a dropdown and selecting specific files and folders to pull. The file tree is then displayed with wp-content as the root, enabling selective syncing of specific parts of the site.
 
-It will run the import process to extract the backup file and save the data in the local database by executing the WP-CLI sqlite import command. The former site will be completely replaced by the new one.
+The available options are:
+
+- **wp-content**: Select this to pull all of the content from your site. This operation will overwrite the local folders with the contents from the backup, including the themes, plugins, and uploads folders. Other existing files and folders will be ignored and not overwritten.
+  - **plugins**: Pull all plugins from the remote site. This replaces any local plugins folder with the new ones found in the backup.
+  - **themes**: Pull all themes from the remote site. This replaces any existing local themes folder with the new ones found in the backup.
+  - **uploads**: Pull the media library (wp-content/uploads) from the remote site. This option will overwrite the local site’s uploads directory with the files from the backup.
+  - **Other files and directories**: Pull all other files and folders inside wp-content that are not covered by the options above (for example, mu-plugins, fonts, etc.). This ensures custom or less-common directories can also be selectively synchronized.
+- **database**: Pull the database from the remote site. This will overwrite the local database with the one from the backup. The database will be updated by running the WP-CLI sqlite import command.
+
+When the user clicks **Pull** inside the dialog, Studio sends a request to the WPcom API to create a Jetpack Backup and generate a download link. Studio polls the API until the backup is ready, download the file to a temporary folder, and extract its contents.
+
+The backup file includes only the options selected by the user. Once extracted, the corresponding changes are applied locally. If a full sync is selected, the local site is completely replaced, including the database. If only specific parts are selected, only those are updated.
 
 ### Push
 
-When the user clicks "Push," Studio will create a Jetpack backup of the local site. Studio then uploads the file to the WPcom API and polls until the restore process is complete. The former site will be completely replaced by the new one.
+When the user clicks **Push**, Studio opens a sync dialog allowing them to choose exactly which data to synchronize from their local site to the remote environment.
 
-An email notification will be sent from the backend after the Push has finished.
+By default, all files and the database are pre-selected. Users can customize the sync options by opening a dropdown and selecting specific files and folders to push. The file tree is then displayed with wp-content as the root, enabling selective syncing of specific parts of the site.
+
+See the Pull section for more details on the available options.
+
+When the user initiates the **Push**, Studio creates a backup archive containing only the files and database the user has selected. Studio then uploads this backup to the WPcom API, which restores the selected components on the remote site. The process is non-destructive: existing files and data not included in the backup are left unchanged.
+
+The backend will send a success email after the push finishes, telling the user it's complete and which options were synchronized.
 
 ## Limitations
 

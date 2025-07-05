@@ -161,7 +161,7 @@ export function SyncDialog( {
 					</div>
 				</div>
 				<div className="px-8 pt-7 pb-3">{ copy.subtitleSelector }</div>
-				<div className="px-8 relative">
+				<div className="px-8 pb-2 relative">
 					<div className="absolute end-6 z-10">
 						<SelectControl
 							value={ showAllFiles ? 'true' : 'false' }

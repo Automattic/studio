@@ -133,7 +133,7 @@ export function SyncDialog( {
 			title={ copy[ siteEnv ].title }
 		>
 			<div className="pb-[70px]">
-				<div className="px-8 pb-6 pt-2">{ copy[ siteEnv ].description }</div>
+				<div className="px-8 pb-6 pt-3">{ copy[ siteEnv ].description }</div>
 				<div className="px-8">
 					<span className="sr-only">
 						{ /* translators: first %s is the source site name, second %s is the destination site name */ }

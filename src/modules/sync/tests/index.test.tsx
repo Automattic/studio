@@ -549,6 +549,34 @@ describe('ContentTabSync', () => {
 		await screen.findByText( 'Pull from Production' );
 		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } )[1];
 		expect( dialogPullButton ).not.toBeDisabled();
+	});
+
+	it( 'enables the pull button when at least one checkbox children is checked', async () => {
+		const mockPullSite = jest.fn();
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
+		(useSyncSites as jest.Mock).mockReturnValue({
+			...mockSyncSites,
+			connectedSites: [ fakeSyncSite ],
+		} );
+
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+		const pullButton = screen.getByRole( 'button', { name: /Pull/i } );
+		fireEvent.click(pullButton);
+
+		// leave checked only one children option
+		const filesAndFoldersCheckbox = screen.getByRole( 'checkbox', { name: 'Files and folders' } );
+		fireEvent.click( filesAndFoldersCheckbox );
+		const databaseCheckbox = screen.getByRole( 'checkbox', { name: 'Database' } );
+		fireEvent.click(databaseCheckbox);
+		const select = screen.getByRole( 'combobox', { name: 'Select files and folders to sync' } );
+		fireEvent.change( select, { target: { value: true } } );
+		const pluginsCheckbox = screen.getByRole( 'checkbox', { name: 'plugins' } );
+		fireEvent.click( pluginsCheckbox );
+
+		await screen.findByText( 'Pull from Production' );
+		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } )[1];
+		expect( dialogPullButton ).not.toBeDisabled();
 	} );
 	it( 'disables the push button when all checkboxes are unchecked', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
@@ -593,5 +621,33 @@ describe('ContentTabSync', () => {
 		await screen.findByText( 'Push to Production' );
 		const dialogPushButton = screen.getAllByRole( 'button', { name: /Push/i } )[1];
 		expect( dialogPushButton ).not.toBeDisabled();
-	} );
+	});
+
+	it( 'enables the push button when at least one checkbox children is checked', async () => {
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
+		(useSyncSites as jest.Mock).mockReturnValue({
+			...mockSyncSites,
+			connectedSites: [ fakeSyncSite ],
+		} );
+
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+		const pushButton = screen.getByRole( 'button', { name: /Push/i } );
+		fireEvent.click(pushButton);
+
+		// leave checked only one children option
+		const filesAndFoldersCheckbox = screen.getByRole( 'checkbox', { name: 'Files and folders' } );
+		fireEvent.click( filesAndFoldersCheckbox );
+		const databaseCheckbox = screen.getByRole( 'checkbox', { name: 'Database' } );
+		fireEvent.click(databaseCheckbox);
+		const select = screen.getByRole( 'combobox', { name: 'Select files and folders to sync' } );
+		fireEvent.change( select, { target: { value: true } } );
+		const pluginsCheckbox = screen.getByRole( 'checkbox', { name: 'plugins' } );
+		fireEvent.click( pluginsCheckbox );
+
+		await screen.findByText( 'Push to Production' );
+		const dialogPushButton = screen.getAllByRole( 'button', { name: /Push/i } )[1];
+		expect( dialogPushButton ).not.toBeDisabled();
+	});
+
 } );

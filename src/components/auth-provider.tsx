@@ -66,6 +66,36 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 
 	const logout = useCallback( async () => {
 		try {
+			// Get the token before clearing authentication
+			const token = await getIpcApi().getAuthenticationToken();
+
+			if ( token?.accessToken ) {
+				try {
+					// Call the token revocation endpoint directly using fetch
+					// client.req.del is not working, so we need to use fetch
+					const response = await fetch(
+						'https://public-api.wordpress.com/wpcom/v2/studio-app/token',
+						{
+							method: 'DELETE',
+							headers: {
+								Authorization: `Bearer ${ token.accessToken }`,
+								'Content-Type': 'application/json',
+							},
+							signal: AbortSignal.timeout( 5000 ),
+						}
+					);
+
+					if ( ! response.ok ) {
+						console.error( 'Failed to revoke token:', response.status, response.statusText );
+					}
+				} catch ( revokeError ) {
+					// Log the error but continue with local logout
+					console.error( 'Failed to revoke token:', revokeError );
+					Sentry.captureException( revokeError );
+				}
+			}
+
+			// Clear local authentication state
 			await getIpcApi().clearAuthenticationToken();
 			setIsAuthenticated( false );
 			setClient( undefined );

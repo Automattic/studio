@@ -80,6 +80,7 @@ export function SyncDialog( {
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );
+	const isSubmitDisabled = treeState.every((node) => !node.checked);
 
 	useDynamicTreeState( type, localSite.id, setTreeState );
 
@@ -204,7 +205,7 @@ export function SyncDialog( {
 							<Button variant="link" onClick={ onRequestClose }>
 								{ __( 'Cancel' ) }
 							</Button>
-							<Button variant="primary" onClick={ handleSubmit }>
+							<Button variant="primary" onClick={ handleSubmit } disabled={ isSubmitDisabled }>
 								{ copy.submit }
 							</Button>
 						</div>

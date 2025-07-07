@@ -572,7 +572,11 @@ describe('ContentTabSync', () => {
 		const select = screen.getByRole( 'combobox', { name: 'Select files and folders to sync' } );
 		fireEvent.change( select, { target: { value: true } } );
 		const pluginsCheckbox = screen.getByRole( 'checkbox', { name: 'plugins' } );
-		fireEvent.click( pluginsCheckbox );
+		fireEvent.click(pluginsCheckbox);
+
+		expect( pluginsCheckbox ).toBeChecked();
+		expect( databaseCheckbox ).not.toBeChecked();
+		expect( filesAndFoldersCheckbox ).not.toBeChecked();
 
 		await screen.findByText( 'Pull from Production' );
 		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } )[1];
@@ -643,7 +647,11 @@ describe('ContentTabSync', () => {
 		const select = screen.getByRole( 'combobox', { name: 'Select files and folders to sync' } );
 		fireEvent.change( select, { target: { value: true } } );
 		const pluginsCheckbox = screen.getByRole( 'checkbox', { name: 'plugins' } );
-		fireEvent.click( pluginsCheckbox );
+		fireEvent.click(pluginsCheckbox);
+
+		expect( pluginsCheckbox ).toBeChecked();
+		expect( databaseCheckbox ).not.toBeChecked();
+		expect( filesAndFoldersCheckbox ).not.toBeChecked();
 
 		await screen.findByText( 'Push to Production' );
 		const dialogPushButton = screen.getAllByRole( 'button', { name: /Push/i } )[1];

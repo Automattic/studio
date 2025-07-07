@@ -10,19 +10,19 @@ export const useSyncDialogTexts = ( type: 'pull' | 'push' ) => {
 				staging: {
 					title: __( 'Pull from Staging' ),
 					description: __(
-						"Pulling synchronizes your Studio site with the staging site. You can pull everything or select specific parts. Unchecked items will not be changed."
+						'Pulling synchronizes your Studio site with the staging site. You can pull everything or select specific parts. Unchecked items will not be changed.'
 					),
 				},
 				sandbox: {
 					title: __( 'Pull from Sandbox' ),
 					description: __(
-						"Pulling synchronizes your Studio site with the sandbox site. You can pull everything or select specific parts. Unchecked items will not be changed."
+						'Pulling synchronizes your Studio site with the sandbox site. You can pull everything or select specific parts. Unchecked items will not be changed.'
 					),
 				},
 				production: {
 					title: __( 'Pull from Production' ),
 					description: __(
-						"Pulling synchronizes your Studio site with the production site. You can pull everything or select specific parts. Unchecked items will not be changed."
+						'Pulling synchronizes your Studio site with the production site. You can pull everything or select specific parts. Unchecked items will not be changed.'
 					),
 				},
 				fromLabel: __( 'Pull' ),

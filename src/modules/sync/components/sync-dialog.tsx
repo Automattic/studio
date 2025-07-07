@@ -80,7 +80,7 @@ export function SyncDialog( {
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );
-	const isSubmitDisabled = treeState.every((node) => !node.checked);
+	const isSubmitDisabled = treeState.every( ( node ) => !node.checked && !node.indeterminate);
 
 	useDynamicTreeState( type, localSite.id, setTreeState );
 

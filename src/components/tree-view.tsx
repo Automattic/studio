@@ -63,7 +63,7 @@ export const updateNodeById = (
 
 			return {
 				...node,
-				checked: checkedCount === totalChildren,
+				checked: checkedCount > 0 && checkedCount === totalChildren,
 				indeterminate: ( checkedCount > 0 && checkedCount < totalChildren ) || anyIndeterminate,
 				children: updatedChildren,
 			};

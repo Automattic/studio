@@ -61,7 +61,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			image: selectiveSyncIllustration,
 			title: __( 'Synchronize with precision' ),
 			description: __(
-				'Choose the parts of your site to synchronize, speeding up the process and reducing unnecessary changes.'
+				"Gain more control and speed up updates by selecting the plugins, themes, and database you want to synchronize to WordPress.com or Pressable."
 			),
 			learnMoreUrl: `${ getLocalizedLink( locale, 'docsSync' ) }#pull`,
 		},

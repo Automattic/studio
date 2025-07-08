@@ -28,7 +28,7 @@ const TREE_NODE_ICONS: Record< TreeNodeType, React.JSX.Element > = {
 const updateNode = ( node: TreeNode, partialNode: Partial< TreeNode > ): TreeNode => {
 	const updatedNode = { ...node, ...partialNode };
 
-	if ( updatedNode.children ) {
+	if ( updatedNode.children && updatedNode.children.length > 0 ) {
 		updatedNode.children = updatedNode.children.map( ( child ) => {
 			if ( 'checked' in partialNode ) {
 				return updateNode( child, { checked: partialNode.checked } );
@@ -63,7 +63,7 @@ export const updateNodeById = (
 
 			return {
 				...node,
-				checked: checkedCount > 0 && checkedCount === totalChildren,
+				checked: checkedCount === totalChildren,
 				indeterminate: ( checkedCount > 0 && checkedCount < totalChildren ) || anyIndeterminate,
 				children: updatedChildren,
 			};

@@ -143,7 +143,7 @@ const TreeItem = ( {
 					className={ cx( 'ps-6', isLevel0 ? 'border-b border-gray-300 py-2' : '' ) }
 				>
 					{ node.children.length === 0 ? (
-						<div className="py-2 ps-6 text-gray-500 italic" aria-label={ __( 'Empty folder' ) }>
+						<div className="text-gray-500 italic" aria-label={ __( 'Empty folder' ) }>
 							{ __( 'Empty' ) }
 						</div>
 					) : (

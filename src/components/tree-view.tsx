@@ -55,7 +55,7 @@ export const updateNodeById = (
 		if ( node.id === id ) {
 			return updateNode( node, partialNode );
 		}
-		if ( node.children ) {
+		if ( node.children && node.children.length > 0 ) {
 			const updatedChildren = updateNodeById( node.children, id, partialNode );
 			const checkedCount = updatedChildren.filter( ( c ) => c.checked ).length;
 			const totalChildren = updatedChildren.length;

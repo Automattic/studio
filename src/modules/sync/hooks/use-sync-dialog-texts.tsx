@@ -10,19 +10,19 @@ export const useSyncDialogTexts = ( type: 'pull' | 'push' ) => {
 				staging: {
 					title: __( 'Pull from Staging' ),
 					description: __(
-						'Pulling synchronizes your Studio site with the staging site. You can pull everything or select specific parts. Unchecked items will not be changed.'
+						"Pulling will overwrite your Studio site's files and database with a copy from your staging site."
 					),
 				},
 				sandbox: {
 					title: __( 'Pull from Sandbox' ),
 					description: __(
-						'Pulling synchronizes your Studio site with the sandbox site. You can pull everything or select specific parts. Unchecked items will not be changed.'
+						"Pulling will overwrite your Studio site's files and database with a copy from your sandbox site."
 					),
 				},
 				production: {
 					title: __( 'Pull from Production' ),
 					description: __(
-						'Pulling synchronizes your Studio site with the production site. You can pull everything or select specific parts. Unchecked items will not be changed.'
+						"Pulling will overwrite your Studio site's files and database with a copy from your production site."
 					),
 				},
 				fromLabel: __( 'Pull' ),
@@ -36,19 +36,19 @@ export const useSyncDialogTexts = ( type: 'pull' | 'push' ) => {
 				staging: {
 					title: __( 'Push to Staging' ),
 					description: __(
-						'Pushing synchronizes your local site with the staging site. You can push everything or select specific parts. Unchecked items will not be changed. A backup of the staging site is created before applying changes.'
+						"Pushing will overwrite your staging site's selected files and database with content from your local site. You can push everything or select specific parts. Unchecked items will not be changed. The staging site will be backed up before any changes are applied."
 					),
 				},
 				sandbox: {
 					title: __( 'Push to Sandbox' ),
 					description: __(
-						'Pushing synchronizes your local site with the sandbox site. You can push everything or select specific parts. Unchecked items will not be changed. A backup of the sandbox site is created before applying changes.'
+						"Pushing will overwrite your sandbox site's selected files and database with content from your local site. You can push everything or select specific parts. Unchecked items will not be changed. The sandbox site will be backed up before any changes are applied."
 					),
 				},
 				production: {
 					title: __( 'Push to Production' ),
 					description: __(
-						'Pushing synchronizes your local site with the production site. You can push everything or select specific parts. Unchecked items will not be changed. A backup of the production site is created before applying changes.'
+						"Pushing will overwrite your production site's selected files and database with content from your local site. You can push everything or select specific parts. Unchecked items will not be changed. The production site will be backed up before any changes are applied."
 					),
 				},
 				fromLabel: __( 'Push' ),

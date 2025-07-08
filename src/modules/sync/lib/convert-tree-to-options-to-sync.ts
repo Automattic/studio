@@ -8,7 +8,7 @@ type SyncOptionsWithSelections = {
 		plugins?: string[];
 		themes?: string[];
 		uploads?: string[];
-		muPlugins?: string[];
+		'mu-plugins'?: string[];
 		fonts?: string[];
 	};
 };
@@ -54,7 +54,7 @@ export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOptionsWithS
 					SYNC_OPTIONS.plugins,
 					SYNC_OPTIONS.themes,
 					SYNC_OPTIONS.uploads,
-					CONTENTS_SYNC_OPTIONS.muPlugins,
+					CONTENTS_SYNC_OPTIONS[ 'mu-plugins' ],
 					CONTENTS_SYNC_OPTIONS.fonts,
 				].includes( item.id as 'plugins' | 'themes' | 'uploads' | 'mu-plugins' | 'fonts' )
 			) {
@@ -70,6 +70,9 @@ export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOptionsWithS
 			}
 		} );
 	}
+
+	console.log( 'optionsToSync', optionsToSync );
+	console.log( 'specificSelections', specificSelections );
 
 	return {
 		optionsToSync,

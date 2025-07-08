@@ -666,6 +666,8 @@ export async function exportSiteToPush(
 			plugins?: string[];
 			themes?: string[];
 			uploads?: string[];
+			'mu-plugins'?: string[];
+			fonts?: string[];
 		};
 	}
 ) {
@@ -683,13 +685,21 @@ export async function exportSiteToPush(
 		return optionsToSync?.includes( option ) || optionsToSync?.includes( 'all' ) || ! optionsToSync;
 	};
 
+	console.log( 'configuration', configuration );
+
 	const includes = {
 		database: shouldIncludeSyncOption( configuration?.optionsToSync, 'sqls' ),
 		uploads: shouldIncludeSyncOption( configuration?.optionsToSync, 'uploads' ),
 		plugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'plugins' ),
 		themes: shouldIncludeSyncOption( configuration?.optionsToSync, 'themes' ),
-		muPlugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
-		fonts: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
+		muPlugins:
+			shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ) &&
+			( !! configuration?.specificSelections?.[ 'mu-plugins' ]?.length ||
+				! configuration?.specificSelections ),
+		fonts:
+			shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ) &&
+			( !! configuration?.specificSelections?.fonts?.length ||
+				! configuration?.specificSelections ),
 	};
 
 	const exportOptions: ExportOptions = {

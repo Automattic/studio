@@ -56,7 +56,7 @@ export const SYNC_OPTIONS = {
 } as const;
 
 export const CONTENTS_SYNC_OPTIONS = {
-	muPlugins: 'mu-plugins',
+	'mu-plugins': 'mu-plugins',
 	fonts: 'fonts',
 } as const;
 

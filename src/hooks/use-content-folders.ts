@@ -19,6 +19,8 @@ export function useContentFolders(
 			plugins: { items: [], isLoading: true, error: null },
 			themes: { items: [], isLoading: true, error: null },
 			uploads: { items: [], isLoading: true, error: null },
+			'mu-plugins': { items: [], isLoading: true, error: null },
+			fonts: { items: [], isLoading: true, error: null },
 		}
 	);
 

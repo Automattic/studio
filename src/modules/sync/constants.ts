@@ -1,1 +1,7 @@
-export const GRANULAR_SYNC_FOLDERS = [ 'plugins', 'themes', 'uploads' ] as const;
+export const GRANULAR_SYNC_FOLDERS = [
+	'plugins',
+	'themes',
+	'uploads',
+	'mu-plugins',
+	'fonts',
+] as const;

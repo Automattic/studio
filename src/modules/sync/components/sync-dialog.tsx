@@ -27,6 +27,10 @@ type SyncDialogProps = {
 	onRequestClose: () => void;
 };
 
+const wpTypeIsFolder = ( wpType: string ): wpType is keyof typeof SYNC_OPTIONS => {
+	return Object.keys( SYNC_OPTIONS ).includes( wpType );
+};
+
 const useDynamicTreeState = (
 	type: 'push' | 'pull',
 	localSiteId: string,
@@ -55,7 +59,8 @@ const useDynamicTreeState = (
 							type: item.type,
 					  } ) );
 
-				newState = updateNodeById( newState, SYNC_OPTIONS[ wpType ], {
+				const nodeId = wpTypeIsFolder( wpType ) ? SYNC_OPTIONS[ wpType ] : wpType;
+				newState = updateNodeById( newState, nodeId, {
 					loading: isLoading,
 					children,
 				} );

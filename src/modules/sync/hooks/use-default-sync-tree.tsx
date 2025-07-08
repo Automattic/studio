@@ -50,6 +50,22 @@ export const useDefaultSyncTree = (): TreeNode[] => {
 								expanded: false,
 							},
 							{
+								id: 'mu-plugins',
+								name: 'mu-plugins',
+								label: 'mu-plugins',
+								checked: true,
+								type: 'folder',
+								expanded: false,
+							},
+							{
+								id: 'fonts',
+								name: 'fonts',
+								label: 'fonts',
+								checked: true,
+								type: 'folder',
+								expanded: false,
+							},
+							{
 								id: SYNC_OPTIONS.contents,
 								name: SYNC_OPTIONS.contents,
 								label: __( 'Other files and directories' ),

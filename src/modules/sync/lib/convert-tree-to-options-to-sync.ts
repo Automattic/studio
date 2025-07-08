@@ -1,6 +1,6 @@
-import { SYNC_OPTIONS } from 'src/constants';
+import { CONTENTS_SYNC_OPTIONS, SYNC_OPTIONS } from 'src/constants';
 import type { TreeNode } from 'src/components/tree-view';
-import type { SyncOption } from 'src/types';
+import type { ContentsSyncOption, SyncOption } from 'src/types';
 
 type SyncOptionsWithSelections = {
 	optionsToSync: SyncOption[];
@@ -8,11 +8,17 @@ type SyncOptionsWithSelections = {
 		plugins?: string[];
 		themes?: string[];
 		uploads?: string[];
+		muPlugins?: string[];
+		fonts?: string[];
 	};
 };
 
 const isSyncOption = ( value: string ): value is SyncOption => {
 	return Object.keys( SYNC_OPTIONS ).includes( value );
+};
+
+const isContentsSyncOption = ( value: string ): value is ContentsSyncOption => {
+	return Object.keys( CONTENTS_SYNC_OPTIONS ).includes( value );
 };
 
 export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOptionsWithSelections => {
@@ -33,19 +39,24 @@ export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOptionsWithS
 		const wpContent = filesAndFolders.find( ( node ) => node.id === 'wp-content' )?.children || [];
 
 		wpContent.forEach( ( item ) => {
-			if ( ! isSyncOption( item.id ) ) {
+			if ( ! isSyncOption( item.id ) && ! isContentsSyncOption( item.id ) ) {
 				return;
 			}
 
 			if ( item.checked || item.indeterminate ) {
-				optionsToSync.push( item.id );
+				const itemId = isContentsSyncOption( item.id ) ? SYNC_OPTIONS.contents : item.id;
+				optionsToSync.push( itemId );
 			}
 
 			if (
 				item.children &&
-				[ SYNC_OPTIONS.plugins, SYNC_OPTIONS.themes, SYNC_OPTIONS.uploads ].includes(
-					item.id as 'plugins' | 'themes' | 'uploads'
-				)
+				[
+					SYNC_OPTIONS.plugins,
+					SYNC_OPTIONS.themes,
+					SYNC_OPTIONS.uploads,
+					CONTENTS_SYNC_OPTIONS.muPlugins,
+					CONTENTS_SYNC_OPTIONS.fonts,
+				].includes( item.id as 'plugins' | 'themes' | 'uploads' | 'mu-plugins' | 'fonts' )
 			) {
 				const selectedItems = item.children
 					.filter( ( child ) => child.checked )

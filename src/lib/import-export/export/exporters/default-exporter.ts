@@ -215,6 +215,10 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				return this.options.specificSelections?.themes || null;
 			case 'uploads':
 				return this.options.specificSelections?.uploads || null;
+			case 'muPlugins':
+				return this.options.specificSelections?.muPlugins || null;
+			case 'fonts':
+				return this.options.specificSelections?.fonts || null;
 			default:
 				return null;
 		}

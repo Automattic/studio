@@ -530,7 +530,6 @@ describe( 'ContentTabSync', () => {
 	} );
 
 	it( 'enables the pull button when at least one checkbox is checked', async () => {
-		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
 			...mockSyncSites,
@@ -552,7 +551,6 @@ describe( 'ContentTabSync', () => {
 	} );
 
 	it( 'enables the pull button when at least one checkbox children is checked', async () => {
-		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
 			...mockSyncSites,

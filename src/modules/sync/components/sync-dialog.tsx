@@ -8,7 +8,7 @@ import Button from 'src/components/button';
 import {
 	EnvironmentBadge,
 	StudioBadge,
-	getSiteEnvironment
+	getSiteEnvironment,
 } from 'src/components/environment-badge';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';

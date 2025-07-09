@@ -28,7 +28,7 @@ const TREE_NODE_ICONS: Record< TreeNodeType, React.JSX.Element > = {
 const updateNode = ( node: TreeNode, partialNode: Partial< TreeNode > ): TreeNode => {
 	const updatedNode = { ...node, ...partialNode };
 
-	if ( updatedNode.children ) {
+	if ( updatedNode.children && updatedNode.children.length > 0 ) {
 		updatedNode.children = updatedNode.children.map( ( child ) => {
 			if ( 'checked' in partialNode ) {
 				return updateNode( child, { checked: partialNode.checked } );
@@ -55,7 +55,7 @@ export const updateNodeById = (
 		if ( node.id === id ) {
 			return updateNode( node, partialNode );
 		}
-		if ( node.children ) {
+		if ( node.children && node.children.length > 0 ) {
 			const updatedChildren = updateNodeById( node.children, id, partialNode );
 			const checkedCount = updatedChildren.filter( ( c ) => c.checked ).length;
 			const totalChildren = updatedChildren.length;
@@ -142,16 +142,22 @@ const TreeItem = ( {
 					role="group"
 					className={ cx( 'ps-6', isLevel0 ? 'border-b border-gray-300 py-2' : '' ) }
 				>
-					{ node.children.map( ( child, idx ) => (
-						<TreeItem
-							key={ child.id }
-							node={ child }
-							onPatchNode={ onPatchNode }
-							level={ level + 1 }
-							index={ idx }
-							siblingsLength={ node.children?.length }
-						/>
-					) ) }
+					{ node.children.length === 0 ? (
+						<div className="text-gray-500 italic" aria-label={ __( 'Empty folder' ) }>
+							{ __( 'Empty' ) }
+						</div>
+					) : (
+						node.children.map( ( child, idx ) => (
+							<TreeItem
+								key={ child.id }
+								node={ child }
+								onPatchNode={ onPatchNode }
+								level={ level + 1 }
+								index={ idx }
+								siblingsLength={ node.children?.length }
+							/>
+						) )
+					) }
 				</div>
 			) }
 		</div>

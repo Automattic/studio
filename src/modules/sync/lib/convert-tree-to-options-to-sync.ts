@@ -47,11 +47,13 @@ export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOptionsWithS
 				const itemId = isContentsSyncOption( item.id ) ? SYNC_OPTIONS.contents : item.id;
 				if ( ! optionsToSync.includes( itemId ) ) {
 					optionsToSync.push( itemId );
-					specificSelections = {
-						[ 'mu-plugins' ]: [],
-						fonts: [],
-						...specificSelections,
-					};
+					if ( itemId === SYNC_OPTIONS.contents ) {
+						specificSelections = {
+							[ 'mu-plugins' ]: [],
+							fonts: [],
+							...specificSelections,
+						};
+					}
 				}
 			}
 

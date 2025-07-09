@@ -3,10 +3,39 @@ import { useMemo } from 'react';
 import { TreeNode } from 'src/components/tree-view';
 import { SYNC_OPTIONS } from 'src/constants';
 
-export const useDefaultSyncTree = (): TreeNode[] => {
+export const useDefaultSyncTree = ( type: 'push' | 'pull' ): TreeNode[] => {
 	const { __ } = useI18n();
 
 	return useMemo( () => {
+		const pushOptions: TreeNode[] = [
+			{
+				id: 'mu-plugins',
+				name: 'mu-plugins',
+				label: 'mu-plugins',
+				checked: true,
+				type: 'folder',
+				expanded: false,
+			},
+			{
+				id: 'fonts',
+				name: 'fonts',
+				label: 'fonts',
+				checked: true,
+				type: 'folder',
+				expanded: false,
+			},
+		];
+
+		const pullOptions: TreeNode[] = [
+			{
+				id: SYNC_OPTIONS.contents,
+				name: SYNC_OPTIONS.contents,
+				label: __( 'Other files and directories' ),
+				checked: true,
+				type: 'more',
+			},
+		];
+
 		return [
 			{
 				id: 'filesAndFolders',
@@ -49,29 +78,7 @@ export const useDefaultSyncTree = (): TreeNode[] => {
 								type: 'folder',
 								expanded: false,
 							},
-							{
-								id: 'mu-plugins',
-								name: 'mu-plugins',
-								label: 'mu-plugins',
-								checked: true,
-								type: 'folder',
-								expanded: false,
-							},
-							{
-								id: 'fonts',
-								name: 'fonts',
-								label: 'fonts',
-								checked: true,
-								type: 'folder',
-								expanded: false,
-							},
-							{
-								id: SYNC_OPTIONS.contents,
-								name: SYNC_OPTIONS.contents,
-								label: __( 'Other files and directories' ),
-								checked: true,
-								type: 'more',
-							},
+							...( type === 'push' ? pushOptions : pullOptions ),
 						],
 					},
 				],
@@ -83,5 +90,5 @@ export const useDefaultSyncTree = (): TreeNode[] => {
 				checked: true,
 			},
 		];
-	}, [ __ ] );
+	}, [ __, type ] );
 };

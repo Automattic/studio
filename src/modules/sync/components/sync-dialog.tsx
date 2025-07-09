@@ -5,7 +5,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
-import { EnvironmentBadge, getSiteEnvironment } from 'src/components/environment-badge';
+import { EnvironmentBadge, StudioBadge, getSiteEnvironment } from 'src/components/environment-badge';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
@@ -86,14 +86,21 @@ export function SyncDialog( {
 
 	const siteEnv = getSiteEnvironment( remoteSite );
 
-	const localSiteName = localSite.name;
-	const remoteSiteName = (
-		<div>
+	const localSiteName = (
+		<>
 			<span className="inline-block">
-				<EnvironmentBadge type={ siteEnv } />
+				<StudioBadge className="h-6" />
+			</span>
+			<span className="text-gray-600"> { localSite.name } </span>
+		</>
+	);
+	const remoteSiteName = (
+		<>
+			<span className="inline-block">
+				<EnvironmentBadge type={ siteEnv } className="h-6" />
 			</span>
 			<span className="text-gray-600"> { remoteSite.name } </span>
-		</div>
+		</>
 	);
 
 	let syncFrom, syncTo, syncFromText, syncToText;
@@ -142,20 +149,20 @@ export function SyncDialog( {
 					</span>
 					<div
 						aria-hidden="true"
-						className="flex items-start gap-1 pb-7 border-b border-a8c-gray-5"
+						className="flex max-w-full overflow-hidden pb-6 border-b border-a8c-gray-5"
 					>
-						<div className="flex-1">
+						<div className="overflow-hidden max-w-[calc(50%-25px)]">
 							<div className="leading-[32px]">{ copy.fromLabel }</div>
-							<div className="border border-gray-300 rounded-[2px] min-h-12 px-[19px] flex items-center py-2">
+							<div className="whitespace-nowrap truncate">
 								{ syncFrom }
 							</div>
 						</div>
-						<div className="w-10 mt-[32px] h-12 flex items-center justify-center">
+						<div className="mt-[32px] w-[50px] flex items-center justify-center">
 							<RightArrowIcon />
 						</div>
-						<div className="flex-1">
+						<div className="overflow-hidden max-w-[calc(50%-25px)]">
 							<div className="leading-[32px]">{ copy.toLabel }</div>
-							<div className="border border-gray-300 rounded-[2px] min-h-12 px-[19px] flex items-center py-2">
+							<div className="whitespace-nowrap truncate">
 								{ syncTo }
 							</div>
 						</div>

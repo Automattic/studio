@@ -8,12 +8,13 @@ export type EnvironmentType = 'production' | 'staging' | 'sandbox';
 interface EnvironmentBadgeProps {
 	type: EnvironmentType;
 	selected?: boolean;
+	className?: string;
 }
 
 /**
  * A badge component for displaying environment types (production, staging)
  */
-export function EnvironmentBadge( { type, selected }: EnvironmentBadgeProps ) {
+export function EnvironmentBadge( { type, selected, className }: EnvironmentBadgeProps ) {
 	const getClassName = () => {
 		if ( selected ) {
 			return 'bg-white text-a8c-blueberry text-a8c-blueberry';
@@ -27,7 +28,7 @@ export function EnvironmentBadge( { type, selected }: EnvironmentBadgeProps ) {
 			return 'text-sandbox-text bg-sandbox-bg';
 		}
 
-		return '';
+		return 'text-a8c-yellow-80 bg-a8c-yellow-10';
 	};
 
 	const labels: Record< EnvironmentType, string > = {
@@ -36,8 +37,12 @@ export function EnvironmentBadge( { type, selected }: EnvironmentBadgeProps ) {
 		production: __( 'Production' ),
 	};
 
-	return <Badge className={ cx( getClassName() ) }>{ labels[ type ] }</Badge>;
+	return <Badge className={ cx( getClassName(), className ) }>{ labels[ type ] }</Badge>;
 }
+
+export const StudioBadge = ( { className }: { className?: string } ) => {
+	return <Badge className={ cx( 'bg-a8c-gray-5 text-a8c-gray-80', className ) }>Studio</Badge>;
+};
 
 export const getSiteEnvironment = ( connectedSite: SyncSite ): EnvironmentType => {
 	if ( connectedSite.isPressable ) {

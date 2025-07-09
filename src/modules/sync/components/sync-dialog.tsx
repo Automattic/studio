@@ -5,11 +5,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
-import {
-	EnvironmentBadge,
-	StudioBadge,
-	getSiteEnvironment,
-} from 'src/components/environment-badge';
+import { EnvironmentBadge, getSiteEnvironment } from 'src/components/environment-badge';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
@@ -22,6 +18,7 @@ import { useDefaultSyncTree } from 'src/modules/sync/hooks/use-default-sync-tree
 import { useSyncDialogTexts } from 'src/modules/sync/hooks/use-sync-dialog-texts';
 import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import { SiteNameBox } from 'src/modules/sync/components/site-name-box';
 
 type SyncDialogProps = {
 	type: 'push' | 'pull';
@@ -90,22 +87,8 @@ export function SyncDialog( {
 
 	const siteEnv = getSiteEnvironment( remoteSite );
 
-	const localSiteName = (
-		<>
-			<span className="inline-block">
-				<StudioBadge className="h-6" />
-			</span>
-			<span className="text-gray-600"> { localSite.name } </span>
-		</>
-	);
-	const remoteSiteName = (
-		<>
-			<span className="inline-block">
-				<EnvironmentBadge type={ siteEnv } className="h-6" />
-			</span>
-			<span className="text-gray-600"> { remoteSite.name } </span>
-		</>
-	);
+	const localSiteName = <SiteNameBox siteName={ localSite.name } envType="studio" />;
+	const remoteSiteName = <SiteNameBox siteName={ remoteSite.name } envType={ siteEnv } />;
 
 	let syncFrom, syncTo, syncFromText, syncToText;
 	if ( type === 'push' ) {
@@ -159,7 +142,7 @@ export function SyncDialog( {
 							<div className="leading-[32px]">{ copy.fromLabel }</div>
 							<div className="whitespace-nowrap truncate">{ syncFrom }</div>
 						</div>
-						<div className="mt-[32px] w-[50px] flex items-center justify-center">
+						<div className="mt-[32px] w-[50px] flex items-center justify-center text-a8c-gray-600">
 							<RightArrowIcon />
 						</div>
 						<div className="overflow-hidden max-w-[calc(50%-25px)]">

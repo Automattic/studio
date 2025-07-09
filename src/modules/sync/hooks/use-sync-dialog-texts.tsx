@@ -25,6 +25,10 @@ export const useSyncDialogTexts = ( type: 'pull' | 'push' ) => {
 						"Pulling will overwrite your Studio site's selected files and database with a copy from your production site. Unchecked items will not be changed."
 					),
 				},
+				studio: {
+					title: '',
+					description: '',
+				},
 				fromLabel: __( 'Pull' ),
 				toLabel: __( 'To' ),
 				subtitleSelector: __( 'What would you like to pull?' ),
@@ -50,6 +54,10 @@ export const useSyncDialogTexts = ( type: 'pull' | 'push' ) => {
 					description: __(
 						"Pushing will overwrite your production site's selected files and database with content from your local site. Unchecked items will not be changed. The production site will be backed up before any changes are applied."
 					),
+				},
+				studio: {
+					title: '',
+					description: '',
 				},
 				fromLabel: __( 'Push' ),
 				toLabel: __( 'To' ),

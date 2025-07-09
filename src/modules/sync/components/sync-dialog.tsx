@@ -5,7 +5,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
-import { EnvironmentBadge, getSiteEnvironment } from 'src/components/environment-badge';
+import { getSiteEnvironment } from 'src/components/environment-badge';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';

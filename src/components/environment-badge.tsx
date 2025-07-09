@@ -3,7 +3,7 @@ import { Badge } from 'src/components/badge';
 import { cx } from 'src/lib/cx';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
-export type EnvironmentType = 'production' | 'staging' | 'sandbox' | 'studio';
+export type EnvironmentType = 'production' | 'staging' | 'sandbox';
 
 interface EnvironmentBadgeProps {
 	type: EnvironmentType;
@@ -28,10 +28,6 @@ export function EnvironmentBadge( { type, selected, className }: EnvironmentBadg
 			return 'text-sandbox-text bg-sandbox-bg';
 		}
 
-		if ( type === 'studio' ) {
-			return 'bg-a8c-gray-5 text-a8c-gray-80';
-		}
-
 		return 'text-a8c-yellow-80 bg-a8c-yellow-10';
 	};
 
@@ -39,11 +35,14 @@ export function EnvironmentBadge( { type, selected, className }: EnvironmentBadg
 		staging: __( 'Staging' ),
 		sandbox: __( 'Sandbox' ),
 		production: __( 'Production' ),
-		studio: __( 'Studio' ),
 	};
 
 	return <Badge className={ cx( getClassName(), className ) }>{ labels[ type ] }</Badge>;
 }
+
+export const StudioBadge = ( { className }: { className?: string } ) => {
+	return <Badge className={ cx( 'bg-a8c-gray-5 text-a8c-gray-80', className ) }>{ __( 'Studio' ) }</Badge>;
+};
 
 export const getSiteEnvironment = ( connectedSite: SyncSite ): EnvironmentType => {
 	if ( connectedSite.isPressable ) {

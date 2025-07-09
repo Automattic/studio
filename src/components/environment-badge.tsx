@@ -41,7 +41,11 @@ export function EnvironmentBadge( { type, selected, className }: EnvironmentBadg
 }
 
 export const StudioBadge = ( { className }: { className?: string } ) => {
-	return <Badge className={ cx( 'bg-a8c-gray-5 text-a8c-gray-80', className ) }>{ __( 'Studio' ) }</Badge>;
+	return (
+		<Badge className={ cx( 'bg-a8c-gray-5 text-a8c-gray-80', className ) }>
+			{ __( 'Studio' ) }
+		</Badge>
+	);
 };
 
 export const getSiteEnvironment = ( connectedSite: SyncSite ): EnvironmentType => {

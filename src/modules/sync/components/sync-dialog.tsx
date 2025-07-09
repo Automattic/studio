@@ -5,7 +5,11 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
-import { EnvironmentBadge, StudioBadge, getSiteEnvironment } from 'src/components/environment-badge';
+import {
+	EnvironmentBadge,
+	StudioBadge,
+	getSiteEnvironment
+} from 'src/components/environment-badge';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
@@ -153,18 +157,14 @@ export function SyncDialog( {
 					>
 						<div className="overflow-hidden max-w-[calc(50%-25px)]">
 							<div className="leading-[32px]">{ copy.fromLabel }</div>
-							<div className="whitespace-nowrap truncate">
-								{ syncFrom }
-							</div>
+							<div className="whitespace-nowrap truncate">{ syncFrom }</div>
 						</div>
 						<div className="mt-[32px] w-[50px] flex items-center justify-center">
 							<RightArrowIcon />
 						</div>
 						<div className="overflow-hidden max-w-[calc(50%-25px)]">
 							<div className="leading-[32px]">{ copy.toLabel }</div>
-							<div className="whitespace-nowrap truncate">
-								{ syncTo }
-							</div>
+							<div className="whitespace-nowrap truncate">{ syncTo }</div>
 						</div>
 					</div>
 				</div>

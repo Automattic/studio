@@ -66,6 +66,22 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 
 	const logout = useCallback( async () => {
 		try {
+			client?.request(
+				{
+					apiNamespace: 'wpcom/v2',
+					method: 'DELETE',
+					path: '/studio-app/token',
+				},
+				( err: unknown, response: unknown ) => {
+					if ( err ) {
+						console.error( 'Failed to revoke token:', err );
+						Sentry.captureException( err );
+					} else {
+						console.log( 'Token revoked:', response );
+					}
+				}
+			);
+
 			await getIpcApi().clearAuthenticationToken();
 			setIsAuthenticated( false );
 			setClient( undefined );
@@ -75,7 +91,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			console.error( err );
 			Sentry.captureException( err );
 		}
-	}, [] );
+	}, [ client ] );
 
 	useEffect( () => {
 		async function run() {

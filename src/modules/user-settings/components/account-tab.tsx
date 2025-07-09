@@ -3,6 +3,7 @@ import Button from 'src/components/button';
 import { Gravatar } from 'src/components/gravatar';
 import { Tooltip } from 'src/components/tooltip';
 import { WPCOM_PROFILE_URL } from 'src/constants';
+import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export const UserInfo = ( {
@@ -13,6 +14,7 @@ export const UserInfo = ( {
 	onLogout: () => void;
 } ) => {
 	const { __ } = useI18n();
+	const isOffline = useOffline();
 	return (
 		<div className="flex w-full gap-5">
 			<div className="flex w-full items-center gap-3">
@@ -30,7 +32,7 @@ export const UserInfo = ( {
 					<span className="text-a8c-gray-700 text-[10px] leading-[10px]">{ user?.email }</span>
 				</div>
 			</div>
-			<Button variant="secondary" className="!gap-3" onClick={ onLogout }>
+			<Button variant="secondary" className="!gap-3" onClick={ onLogout } disabled={ isOffline }>
 				{ __( 'Log out' ) }
 			</Button>
 		</div>

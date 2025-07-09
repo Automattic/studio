@@ -45,7 +45,14 @@ export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOptionsWithS
 
 			if ( item.checked || item.indeterminate ) {
 				const itemId = isContentsSyncOption( item.id ) ? SYNC_OPTIONS.contents : item.id;
-				optionsToSync.push( itemId );
+				if ( ! optionsToSync.includes( itemId ) ) {
+					optionsToSync.push( itemId );
+					specificSelections = {
+						[ 'mu-plugins' ]: [],
+						fonts: [],
+						...specificSelections,
+					};
+				}
 			}
 
 			if (
@@ -61,7 +68,10 @@ export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOptionsWithS
 				const selectedItems = item.children
 					.filter( ( child ) => child.checked )
 					.map( ( child ) => child.name );
-				if ( selectedItems.length > 0 && selectedItems.length < item.children.length ) {
+				if (
+					selectedItems.length > 0 &&
+					( selectedItems.length < item.children.length || isContentsSyncOption( item.id ) )
+				) {
 					specificSelections = {
 						...specificSelections,
 						[ item.id ]: selectedItems,

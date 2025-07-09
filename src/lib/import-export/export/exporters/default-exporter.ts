@@ -27,7 +27,8 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private archiveBuilder!: archiver.Archiver;
 	private backup: BackupContents;
 	private readonly options: ExportOptions;
-	private readonly pathsToExclude = [
+
+	public static readonly pathsToExclude = [
 		'wp-content/mu-plugins/sqlite-database-integration',
 		'wp-content/mu-plugins/0-allowed-redirect-hosts.php',
 		'wp-content/mu-plugins/0-check-theme-availability.php',
@@ -184,7 +185,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			} else {
 				this.archiveBuilder.directory( absolutePath, archivePath, ( entry ) => {
 					const fullArchivePath = path.join( archivePath, entry.name );
-					const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
+					const isExcluded = DefaultExporter.pathsToExclude.some( ( pathToExclude ) =>
 						fullArchivePath.startsWith( path.normalize( pathToExclude ) )
 					);
 					if (
@@ -216,7 +217,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			case 'uploads':
 				return this.options.specificSelections?.uploads || null;
 			case 'muPlugins':
-				return this.options.specificSelections?.muPlugins || null;
+				return this.options.specificSelections?.[ 'mu-plugins' ] || null;
 			case 'fonts':
 				return this.options.specificSelections?.fonts || null;
 			default:

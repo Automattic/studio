@@ -38,6 +38,7 @@ import { getImageData } from 'src/lib/get-image-data';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
+import { DefaultExporter } from 'src/lib/import-export/export/exporters';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { defaultImporterOptions, importBackup } from 'src/lib/import-export/import/import-manager';
@@ -685,21 +686,13 @@ export async function exportSiteToPush(
 		return optionsToSync?.includes( option ) || optionsToSync?.includes( 'all' ) || ! optionsToSync;
 	};
 
-	console.log( 'configuration', configuration );
-
 	const includes = {
 		database: shouldIncludeSyncOption( configuration?.optionsToSync, 'sqls' ),
 		uploads: shouldIncludeSyncOption( configuration?.optionsToSync, 'uploads' ),
 		plugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'plugins' ),
 		themes: shouldIncludeSyncOption( configuration?.optionsToSync, 'themes' ),
-		muPlugins:
-			shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ) &&
-			( !! configuration?.specificSelections?.[ 'mu-plugins' ]?.length ||
-				! configuration?.specificSelections ),
-		fonts:
-			shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ) &&
-			( !! configuration?.specificSelections?.fonts?.length ||
-				! configuration?.specificSelections ),
+		muPlugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
+		fonts: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
 	};
 
 	const exportOptions: ExportOptions = {
@@ -1426,9 +1419,15 @@ export async function listWpContentFolders(
 				name: e.name.toString(),
 				type: e.isDirectory() ? ( 'folder' as const ) : ( 'file' as const ),
 				hidden: e.name.startsWith( '.' ),
+				excluded: DefaultExporter.pathsToExclude.some( ( pathToExclude ) => {
+					const fullPath = nodePath.join( e.parentPath || '', e.name );
+					const normalizedFullPath = nodePath.normalize( fullPath );
+					const normalizedPathToExclude = nodePath.normalize( pathToExclude );
+					return normalizedFullPath.includes( normalizedPathToExclude );
+				} ),
 			} ) )
-			.filter( ( entry: { name: string; hidden: boolean } ) => {
-				return ! entry.hidden;
+			.filter( ( entry: { name: string; hidden: boolean; excluded: boolean } ) => {
+				return ! entry.hidden && ! entry.excluded;
 			} );
 	} catch ( err ) {
 		return [];

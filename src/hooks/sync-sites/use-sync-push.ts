@@ -277,7 +277,7 @@ export function useSyncPush( {
 					message: getErrorFromResponse( error ),
 				} );
 			} finally {
-				// await getIpcApi().removeTemporalFile( archivePath );
+				await getIpcApi().removeTemporalFile( archivePath );
 			}
 		},
 		[ __, client, pushStatesProgressInfo, updatePushState, getErrorFromResponse ]

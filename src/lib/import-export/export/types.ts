@@ -11,7 +11,7 @@ export interface ExportOptions {
 		plugins?: string[];
 		themes?: string[];
 		uploads?: string[];
-		muPlugins?: string[];
+		'mu-plugins'?: string[];
 		fonts?: string[];
 	};
 }

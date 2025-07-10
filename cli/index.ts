@@ -16,7 +16,7 @@ async function main() {
 
 	const studioArgv: StudioArgv = yargs( process.argv.slice( 2 ) )
 		.scriptName( 'studio' )
-		.usage( __( 'Studio by WordPress.com CLI' ) )
+		.usage( __( 'WordPress Studio CLI' ) )
 		.locale( locale )
 		.version( version )
 		.option( 'avoid-telemetry', {

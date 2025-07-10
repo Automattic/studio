@@ -45,13 +45,15 @@ export function openAboutWindow() {
 		if ( aboutWindow ) {
 			//When updating these strings, make sure to update the corresponding strings in the about-menu.html file
 			const versionText = sprintf( __( 'Version %s' ), packageJson );
-			const studioByWpcomText = escapeSingleQuotes( __( 'Studio by WordPress.com' ) );
+			const studioByWpcomText = escapeSingleQuotes( __( 'WordPress Studio' ) );
+			const aboutStudioText = escapeSingleQuotes( __( 'About WordPress Studio' ) );
 			const shareFeedbackText = escapeSingleQuotes( __( 'Share Feedback' ) );
 			const releasesText = escapeSingleQuotes( __( 'Release Notes' ) );
 			const demoSitesText = escapeSingleQuotes( __( 'Preview sites powered by' ) );
 			const localSitesText = escapeSingleQuotes( __( 'Local sites powered by' ) );
 
 			const script = `
+				document.title = '${ aboutStudioText }';
 				document.getElementById('studio-by-wpcom').innerText = '${ studioByWpcomText }';
 				document.getElementById('version-text').innerText = '${ versionText }';
 				document.getElementById('share-feedback').innerText = '${ shareFeedbackText }';

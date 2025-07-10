@@ -4,7 +4,7 @@
 	"private": true,
 	"productName": "Studio CLI",
 	"version": "1.0.0",
-	"description": "Studio by WordPress.com CLI",
+	"description": "WordPress Studio CLI",
 	"license": "GPL-2.0-or-later",
 	"main": "index.js"
 }

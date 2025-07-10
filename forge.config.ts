@@ -33,7 +33,7 @@ const config: ForgeConfig = {
 		new MakerZIP( {}, [ 'darwin' ] ),
 		new MakerDeb( {
 			options: {
-				genericName: 'Studio by WordPress.com',
+				genericName: 'WordPress Studio',
 				categories: [ 'Utility' ],
 				name: 'studio',
 			},

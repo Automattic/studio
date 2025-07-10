@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { TreeNode } from 'src/components/tree-view';
 import { SYNC_OPTIONS } from 'src/constants';
 
-export const useDefaultSyncTree = (): TreeNode[] => {
+export const useDefaultSyncTree = ( type: 'push' | 'pull' ): TreeNode[] => {
 	const { __ } = useI18n();
 
 	return useMemo( () => {
@@ -49,13 +49,17 @@ export const useDefaultSyncTree = (): TreeNode[] => {
 								type: 'folder',
 								expanded: false,
 							},
-							{
-								id: SYNC_OPTIONS.contents,
-								name: SYNC_OPTIONS.contents,
-								label: __( 'Other files and directories' ),
-								checked: true,
-								type: 'more',
-							},
+							...( type === 'pull'
+								? [
+										{
+											id: SYNC_OPTIONS.contents,
+											name: SYNC_OPTIONS.contents,
+											label: __( 'Other files and directories' ),
+											checked: true,
+											type: 'more' as const,
+										},
+								  ]
+								: [] ),
 						],
 					},
 				],

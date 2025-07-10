@@ -2,7 +2,7 @@
 	"name": "studio",
 	"author": "Automattic Inc.",
 	"private": true,
-	"productName": "Studio",
+	"productName": "WordPress Studio",
 	"version": "1.5.5-beta4",
 	"description": "Local WordPress development environment using Playgrounds",
 	"license": "GPL-2.0-or-later",

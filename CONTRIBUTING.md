@@ -1,6 +1,6 @@
 # Contributing Guidelines
 
-We welcome contributions to Studio, whether they are bug reports, feature requests, or code changes. Please read the following guidelines to ensure that your contributions are accepted quickly and easily.
+We welcome contributions to WordPress Studio, whether they are bug reports, feature requests, or code changes. Please read the following guidelines to ensure that your contributions are accepted quickly and easily.
 
 ## Expectations
 

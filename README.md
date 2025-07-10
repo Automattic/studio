@@ -8,7 +8,7 @@ A desktop application for creating local WordPress environments, powered by Word
 
 ## Getting Started
 
-Studio is open source and is available to download for free!
+WordPress Studio is open source and is available to download for free!
 
 **Step 1: Download the App**
 

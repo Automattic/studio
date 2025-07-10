@@ -77,7 +77,7 @@ export function SyncDialog( {
 	const locale = useI18nLocale();
 	const { __ } = useI18n();
 	const copy = useSyncDialogTexts( type );
-	const defaultTree = useDefaultSyncTree();
+	const defaultTree = useDefaultSyncTree( type );
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );

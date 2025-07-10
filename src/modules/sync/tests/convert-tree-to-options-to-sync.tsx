@@ -5,7 +5,7 @@ import { convertTreeToOptionsToSync } from 'src/modules/sync/lib/convert-tree-to
 
 describe( 'convertTreeToOptionsToSync', () => {
 	it( 'returns ["all"] when all options are selected', () => {
-		const { result } = renderHook( () => useDefaultSyncTree() );
+		const { result } = renderHook( () => useDefaultSyncTree( 'push' ) );
 		const tree = result.current;
 
 		const optionsToSync = convertTreeToOptionsToSync( tree );
@@ -13,7 +13,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 	} );
 
 	it( 'returns ["sqls"] when only database is selected', () => {
-		const { result } = renderHook( () => useDefaultSyncTree() );
+		const { result } = renderHook( () => useDefaultSyncTree( 'push' ) );
 		let tree = result.current;
 
 		tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
@@ -23,7 +23,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 	} );
 
 	it( 'returns ["plugins"] when only plugins are selected', () => {
-		const { result } = renderHook( () => useDefaultSyncTree() );
+		const { result } = renderHook( () => useDefaultSyncTree( 'push' ) );
 		let tree = result.current;
 
 		tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
@@ -38,7 +38,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 	} );
 
 	it( 'returns ["uploads"] when only uploads are selected', () => {
-		const { result } = renderHook( () => useDefaultSyncTree() );
+		const { result } = renderHook( () => useDefaultSyncTree( 'push' ) );
 		let tree = result.current;
 
 		tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
@@ -53,7 +53,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 	} );
 
 	it( 'returns ["sqls", "plugins"] when both are selected', () => {
-		const { result } = renderHook( () => useDefaultSyncTree() );
+		const { result } = renderHook( () => useDefaultSyncTree( 'push' ) );
 		let tree = result.current;
 
 		tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
@@ -68,7 +68,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 
 	describe( 'partial selections', () => {
 		it( 'returns partial plugins selection when only some plugins are selected', () => {
-			const { result } = renderHook( () => useDefaultSyncTree() );
+			const { result } = renderHook( () => useDefaultSyncTree( 'push' ) );
 			let tree = result.current;
 
 			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
@@ -103,7 +103,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 		} );
 
 		it( 'returns partial themes selection when only some themes are selected', () => {
-			const { result } = renderHook( () => useDefaultSyncTree() );
+			const { result } = renderHook( () => useDefaultSyncTree( 'push' ) );
 			let tree = result.current;
 
 			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
@@ -139,7 +139,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 		} );
 
 		it( 'returns partial uploads selection when only some uploads are selected', () => {
-			const { result } = renderHook( () => useDefaultSyncTree() );
+			const { result } = renderHook( () => useDefaultSyncTree( 'push' ) );
 			let tree = result.current;
 
 			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
@@ -174,7 +174,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 		} );
 
 		it( 'returns mixed partial selections for plugins and themes', () => {
-			const { result } = renderHook( () => useDefaultSyncTree() );
+			const { result } = renderHook( () => useDefaultSyncTree( 'push' ) );
 			let tree = result.current;
 
 			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
@@ -219,7 +219,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 		} );
 
 		it( 'returns no specificSelections when all children are selected in a category', () => {
-			const { result } = renderHook( () => useDefaultSyncTree() );
+			const { result } = renderHook( () => useDefaultSyncTree( 'push' ) );
 			let tree = result.current;
 
 			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
@@ -250,7 +250,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 		} );
 
 		it( 'returns no specificSelections when no children are selected in a category', () => {
-			const { result } = renderHook( () => useDefaultSyncTree() );
+			const { result } = renderHook( () => useDefaultSyncTree( 'push' ) );
 			let tree = result.current;
 
 			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
@@ -281,7 +281,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 		} );
 
 		it( 'handles mixed selection with database and partial plugins', () => {
-			const { result } = renderHook( () => useDefaultSyncTree() );
+			const { result } = renderHook( () => useDefaultSyncTree( 'push' ) );
 			let tree = result.current;
 
 			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
@@ -315,7 +315,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 	} );
 
 	it( 'strips folder type prefix from specific selections', () => {
-		const { result } = renderHook( () => useDefaultSyncTree() );
+		const { result } = renderHook( () => useDefaultSyncTree( 'push' ) );
 		let tree = result.current;
 
 		tree = updateNodeById( tree, 'plugins', {
@@ -339,7 +339,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 
 		const optionsToSync = convertTreeToOptionsToSync( tree );
 		expect( optionsToSync ).toEqual( {
-			optionsToSync: [ 'sqls', 'plugins', 'themes', 'uploads', 'contents' ],
+			optionsToSync: [ 'sqls', 'plugins', 'themes', 'uploads' ],
 			specificSelections: {
 				plugins: [ 'my-plugin' ],
 			},

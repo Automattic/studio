@@ -1,6 +1,6 @@
 ![Crash Free Sessions Rate](https://img.shields.io/badge/Crash_Free_Session_Rate-98.31%25-blue)
 
-# Studio by WordPress.com
+# WordPress Studio
 
 A desktop application for creating local WordPress environments, powered by WordPress.com and WordPress Playground.
 

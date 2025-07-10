@@ -86,7 +86,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			title: __( 'Introducing Studio CLI' ),
 			description: interpolateComponents( {
 				mixedString: sprintf(
-					/* translators: %s is the name of the Studio CLI command ("studio") */
+					/* translators: %s is the name of the WordPress Studio CLI command ("studio") */
 					__(
 						'Run the %s command in your terminal to create, list, update, and delete preview sites with our new CLI tool.'
 					),

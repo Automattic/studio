@@ -3,7 +3,7 @@ Unreleased
 
 1.5.5
 =====
-* Improved the pull and push functionality to allow selective sync #1545, #1539, #1541, #1536, #1537, #1535, #1531, #1527, #1529, #1526, #1524, #1521, #1511, #1516, #1514, #1513, #1484, #1487, #1496, #1503, #1495, #1512
+* Improved the pull and push functionality to allow selective sync
 * Misc UI fixes #1538, #1533, #1534, #1494
 * DX fixes #1430, #1489
 

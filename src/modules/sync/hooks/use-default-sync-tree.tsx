@@ -71,5 +71,5 @@ export const useDefaultSyncTree = ( type: 'push' | 'pull' ): TreeNode[] => {
 				checked: true,
 			},
 		];
-	}, [ __ ] );
+	}, [ __, type ] );
 };

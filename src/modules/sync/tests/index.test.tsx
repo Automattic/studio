@@ -495,13 +495,13 @@ describe( 'ContentTabSync', () => {
 		const select = screen.getByRole( 'combobox', { name: 'Select files and folders to sync' } );
 		fireEvent.change( select, { target: { value: true } } );
 
-		fireEvent.click( screen.getByText( 'Other files and directories' ) );
+		fireEvent.click( screen.getByText( 'themes' ) );
 
 		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } );
 		fireEvent.click( dialogPullButton[ 1 ] );
 
 		expect( mockPullSite ).toHaveBeenCalledWith( fakeSyncSite, selectedSite, {
-			optionsToSync: [ 'sqls', 'plugins', 'themes', 'uploads' ],
+			optionsToSync: [ 'sqls', 'plugins', 'uploads' ],
 		} );
 	} );
 

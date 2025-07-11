@@ -339,7 +339,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 
 		const optionsToSync = convertTreeToOptionsToSync( tree );
 		expect( optionsToSync ).toEqual( {
-			optionsToSync: [ 'sqls', 'plugins', 'themes', 'uploads' ],
+			optionsToSync: [ 'sqls', 'plugins', 'themes', 'uploads', 'contents' ],
 			specificSelections: {
 				plugins: [ 'my-plugin' ],
 			},

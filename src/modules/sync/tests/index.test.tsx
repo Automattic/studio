@@ -501,7 +501,7 @@ describe( 'ContentTabSync', () => {
 		fireEvent.click( dialogPullButton[ 1 ] );
 
 		expect( mockPullSite ).toHaveBeenCalledWith( fakeSyncSite, selectedSite, {
-			optionsToSync: [ 'sqls', 'plugins', 'uploads', 'contents' ],
+			optionsToSync: [ 'sqls', 'plugins', 'uploads' ],
 		} );
 	} );
 

@@ -4,8 +4,8 @@ Unreleased
 1.5.5
 =====
 * Improved the pull and push functionality to allow selective sync
-* Misc UI fixes #1538, #1533, #1534, #1494
-* DX fixes #1430, #1489
+* Misc UI fixes #1533, #1534, #1494
+* Added token revoke call during logout to improve security #1538
 
 1.5.4
 =====

@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { TreeNode } from 'src/components/tree-view';
 import { SYNC_OPTIONS } from 'src/constants';
 
-export const useDefaultSyncTree = ( type: 'pull' | 'push' ): TreeNode[] => {
+export const useDefaultSyncTree = ( type: 'push' | 'pull' ): TreeNode[] => {
 	const { __ } = useI18n();
 
 	return useMemo( () => {

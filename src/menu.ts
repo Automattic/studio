@@ -13,7 +13,6 @@ import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import {
 	FEATURE_FLAGS,
 	FeatureFlagDefinition,
-	FeatureFlags,
 	getFeatureFlagFromEnv,
 	setFeatureFlagInEnv,
 } from 'src/lib/feature-flags';

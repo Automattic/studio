@@ -73,6 +73,7 @@ import {
 	updateAppdata,
 } from 'src/storage/user-data';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
+import { buildFeatureFlags } from './lib/feature-flags';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 import type { GranularSyncFolders } from 'src/modules/sync/types';
@@ -882,6 +883,7 @@ export function getAppGlobals(): AppGlobals {
 		appName: app.name,
 		appVersion: app.getVersion(),
 		arm64Translation: app.runningUnderARM64Translation,
+		...buildFeatureFlags(),
 	};
 }
 

@@ -98,13 +98,13 @@ describe( 'App Version API', () => {
 			expect( result ).toBe( false );
 		} );
 
-		it( 'should return true for a new patch version', () => {
+		it( "should return true or false depending on whether force what's new is enabled for a new patch version", () => {
 			const lastSeenVersion = '1.2.0';
 			const currentVersion = '1.2.1';
 
 			const result = selectIsNewVersion( createMockQueryResult( lastSeenVersion ), currentVersion );
 
-			expect( result ).toBe( true );
+			expect( result ).toBe( FORCE_WHATS_NEW_WHEN_PATCH_CHANGED );
 		} );
 
 		it( 'should return true when going from a stable version to a prerelease version', () => {

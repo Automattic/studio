@@ -1,9 +1,12 @@
 import { net } from 'electron';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from 'src/lib/fs-utils';
+import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import { verifyWordPressChecksums, purgeWpConfig } from 'src/lib/wp-versions';
 import { copyBundledLatestWPVersion } from 'src/setup-wp-server-files';
+import { getWpNowConfig } from 'vendor/wp-now/src';
+import { WPNowMode } from 'vendor/wp-now/src/config';
 import { getWordPressVersionPath, downloadWordPress } from 'vendor/wp-now/src/download';
-import type { WordPressProvider } from './types';
+import type { WordPressProvider, ServerOptions, WordPressServerInstance } from './types';
 
 export class WpNowProvider implements WordPressProvider {
 	async setupWordPressSite( path: string, wpVersion = 'latest' ): Promise< boolean > {
@@ -42,5 +45,38 @@ export class WpNowProvider implements WordPressProvider {
 			console.error( 'Error in setupWordPressSite:', error );
 			throw error;
 		}
+	}
+
+	async startServer( options: ServerOptions ): Promise< WordPressServerInstance > {
+		const wpNowOptions = await getWpNowConfig( {
+			path: options.path,
+			port: options.port,
+			adminPassword: options.adminPassword,
+			siteTitle: options.siteTitle,
+			php: options.phpVersion,
+			wp: options.wpVersion,
+			isWpAutoUpdating: options.isWpAutoUpdating,
+		} );
+
+		if ( options.absoluteUrl ) {
+			wpNowOptions.absoluteUrl = options.absoluteUrl;
+		}
+
+		if ( options.siteLanguage ) {
+			wpNowOptions.siteLanguage = options.siteLanguage;
+		} else {
+			wpNowOptions.siteLanguage = await getPreferredSiteLanguage( wpNowOptions.wordPressVersion );
+		}
+
+		if ( wpNowOptions.mode !== WPNowMode.WORDPRESS ) {
+			throw new Error(
+				`Site server started with Playground's '${ wpNowOptions.mode }' mode. Studio only supports 'wordpress' mode.`
+			);
+		}
+
+		return {
+			url: options.absoluteUrl || `http://localhost:${ wpNowOptions.port }`,
+			options: wpNowOptions,
+		};
 	}
 }

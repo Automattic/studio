@@ -4,22 +4,18 @@ import * as Sentry from '@sentry/electron/main';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
-import { pathExists } from 'src/lib/fs-utils';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { addDomainToHosts, removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
 import { decodePassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { portFinder } from 'src/lib/port-finder';
 import { startProxyServer } from 'src/lib/proxy-server';
-import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import SiteServerProcess from 'src/lib/site-server-process';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import { getWordPressProvider } from 'src/lib/wordpress-provider';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
-import { getWpNowConfig } from 'vendor/wp-now/src';
-import { WPNowMode } from 'vendor/wp-now/src/config';
 import { DEFAULT_PHP_VERSION, SQLITE_FILENAME } from 'vendor/wp-now/src/constants';
 
 const servers = new Map< string, SiteServer >();
@@ -131,24 +127,17 @@ export class SiteServer {
 			await startProxyServer();
 		}
 
-		const options = await getWpNowConfig( {
+		const provider = getWordPressProvider();
+		const { options } = await provider.startServer( {
 			path: this.details.path,
 			port: this.details.port,
 			adminPassword: decodePassword( this.details.adminPassword ?? '' ),
 			siteTitle: this.details.name,
-			php: this.details.phpVersion,
-			wp: this.meta.wpVersion,
+			phpVersion: this.details.phpVersion,
+			wpVersion: this.meta.wpVersion,
 			isWpAutoUpdating: this.details.isWpAutoUpdating,
+			absoluteUrl: getAbsoluteUrl( this.details ),
 		} );
-
-		options.absoluteUrl = getAbsoluteUrl( this.details );
-		options.siteLanguage = await getPreferredSiteLanguage( options.wordPressVersion );
-
-		if ( options.mode !== WPNowMode.WORDPRESS ) {
-			throw new Error(
-				`Site server started with Playground's '${ options.mode }' mode. Studio only supports 'wordpress' mode.`
-			);
-		}
 
 		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
 		if ( ! isPortAvailable ) {

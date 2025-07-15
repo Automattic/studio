@@ -3,8 +3,11 @@ import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
 import { pathExists, recursiveCopyDirectory } from 'src/lib/fs-utils';
-import { getWordPressVersionPath, DEFAULT_WORDPRESS_VERSION } from 'src/lib/wordpress-provider';
-import { downloadWordPress } from 'vendor/wp-now/src/download';
+import {
+	downloadWordPress,
+	getWordPressVersionPath,
+	DEFAULT_WORDPRESS_VERSION,
+} from 'src/lib/wordpress-provider';
 import { executeWPCli } from 'vendor/wp-now/src/execute-wp-cli';
 
 export const MINIMUM_SUPPORTED_WP_VERSION = 6;

@@ -30,3 +30,7 @@ export const getWordPressVersionPath =
 export const getSqlitePath = activeProvider.getSqlitePath.bind( activeProvider );
 export const getWpCliPath = activeProvider.getWpCliPath.bind( activeProvider );
 export const getWpCliFolderPath = activeProvider.getWpCliFolderPath.bind( activeProvider );
+
+export const downloadWordPress = activeProvider.downloadWordPress.bind( activeProvider );
+export const downloadWpCli = activeProvider.downloadWpCli.bind( activeProvider );
+export const downloadSQLiteCommand = activeProvider.downloadSQLiteCommand.bind( activeProvider );

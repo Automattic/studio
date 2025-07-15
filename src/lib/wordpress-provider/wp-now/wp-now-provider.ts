@@ -5,7 +5,11 @@ import { verifyWordPressChecksums, purgeWpConfig } from 'src/lib/wp-versions';
 import { copyBundledLatestWPVersion } from 'src/setup-wp-server-files';
 import { getWpNowConfig } from 'vendor/wp-now/src';
 import { WPNowMode } from 'vendor/wp-now/src/config';
-import { downloadWordPress } from 'vendor/wp-now/src/download';
+import {
+	downloadWordPress,
+	downloadWpCli,
+	downloadSQLiteCommand,
+} from 'vendor/wp-now/src/download';
 import {
 	DEFAULT_PHP_VERSION,
 	DEFAULT_WORDPRESS_VERSION,
@@ -46,6 +50,21 @@ export class WpNowProvider implements WordPressProvider {
 		return getWpCliFolderPath();
 	}
 
+	// Download functionality
+	async downloadWordPress( version?: string, options?: { overwrite: boolean } ): Promise< void > {
+		await downloadWordPress( version, options );
+	}
+
+	async downloadWpCli(
+		overwrite?: boolean
+	): Promise< { downloaded: boolean; statusCode: number } > {
+		return await downloadWpCli( overwrite );
+	}
+
+	async downloadSQLiteCommand( downloadUrl: string, targetPath: string ): Promise< void > {
+		await downloadSQLiteCommand( downloadUrl, targetPath );
+	}
+
 	async setupWordPressSite( path: string, wpVersion = 'latest' ): Promise< boolean > {
 		try {
 			if ( ( await pathExists( path ) ) && ! ( await isEmptyDir( path ) ) ) {
@@ -59,7 +78,7 @@ export class WpNowProvider implements WordPressProvider {
 			if ( ! wpVersionExists ) {
 				if ( net.isOnline() ) {
 					try {
-						await downloadWordPress( wpVersion, { overwrite: false } );
+						await this.downloadWordPress( wpVersion, { overwrite: false } );
 					} catch ( error ) {
 						console.error( `Failed to download WordPress version ${ wpVersion }:`, error );
 						throw new Error(

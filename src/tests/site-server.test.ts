@@ -15,6 +15,9 @@ jest.mock( 'src/lib/site-language', () => ( {
 // `download` and `config` are private APIs that must be mocked individually
 jest.mock( 'vendor/wp-now/src/download', () => ( {
 	getWordPressVersionPath: jest.fn( ( version ) => `/mock/path/to/wp-${ version }` ),
+	downloadWordPress: jest.fn(),
+	downloadWpCli: jest.fn(),
+	downloadSQLiteCommand: jest.fn(),
 } ) );
 jest.mock( 'vendor/wp-now/src/config' );
 jest.mock( 'vendor/wp-now/src/get-sqlite-path', () => ( {

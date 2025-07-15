@@ -176,4 +176,11 @@ export class WpNowProvider implements WordPressProvider {
 	createServerProcess( serverInstance: WordPressServerInstance ): WordPressServerProcess {
 		return new SiteServerProcess( serverInstance._internal as WPNowOptions );
 	}
+
+	async getConfig( options: { path: string } ): Promise< { wpContentPath?: string } > {
+		const config = await getWpNowConfig( options );
+		return {
+			wpContentPath: config.wpContentPath,
+		};
+	}
 }

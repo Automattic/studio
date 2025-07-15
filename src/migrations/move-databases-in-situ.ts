@@ -1,15 +1,14 @@
 import path from 'node:path';
 import fs from 'fs-extra';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
-import { getSqlitePath, SQLITE_FILENAME } from 'src/lib/wordpress-provider';
+import { getSqlitePath, SQLITE_FILENAME, getConfig } from 'src/lib/wordpress-provider';
 import { loadUserData } from 'src/storage/user-data';
-import getWpNowConfig from 'vendor/wp-now/src/config';
 
 async function moveDatabasesInSitu( projectPath: string ) {
 	const dbPhpPath = path.join( projectPath, 'wp-content', 'db.php' );
 	const hasDbPhpInSitu = fs.existsSync( dbPhpPath ) && fs.lstatSync( dbPhpPath ).isFile();
 
-	const { wpContentPath } = await getWpNowConfig( { path: projectPath } );
+	const { wpContentPath } = await getConfig( { path: projectPath } );
 	if (
 		wpContentPath &&
 		fs.existsSync( path.join( wpContentPath, 'database' ) ) &&

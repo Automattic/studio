@@ -41,3 +41,4 @@ export const executeWPCli = activeProvider.executeWPCli.bind( activeProvider );
 export const isValidWordPressVersion =
 	activeProvider.isValidWordPressVersion.bind( activeProvider );
 export const createServerProcess = activeProvider.createServerProcess.bind( activeProvider );
+export const getConfig = activeProvider.getConfig.bind( activeProvider );

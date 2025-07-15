@@ -1,9 +1,8 @@
 /**
  * WordPress version utilities for main process
- * This module is safe to use in the main process as it doesn't import any provider code
+ * This module uses the provider to ensure consistency across the application
  */
-import { DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
-import { isValidWordPressVersion } from 'vendor/wp-now/src/wp-playground-wordpress/is-valid-wordpress-version';
+import { DEFAULT_WORDPRESS_VERSION, isValidWordPressVersion } from 'src/lib/wordpress-provider';
 
 export function isWordPressDevVersion( version: string ): boolean {
 	// Match nightly build patterns that end with a build number

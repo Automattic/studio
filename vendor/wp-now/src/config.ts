@@ -9,7 +9,12 @@ import { portFinder } from './port-finder';
 import { isValidWordPressVersion } from './wp-playground-wordpress';
 import getWpNowPath from './get-wp-now-path';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
-import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils-main';
+// Local copy of isWordPressDevVersion to avoid Studio dependencies
+function isWordPressDevVersion( version: string ): boolean {
+	// Match nightly build patterns that end with a build number
+	// Examples: 6.8-alpha1-12345, 6.8-beta2-59979, 6.8-dev-12345, 6.8-59979
+	return /^\d+\.\d+(?:\.\d+)?(?:-[a-zA-Z0-9]+)*-\d+$/.test( version );
+}
 
 export interface CliOptions {
 	php?: string;

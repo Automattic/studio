@@ -80,4 +80,7 @@ export interface WordPressProvider {
 		stderr: string;
 		exitCode: number;
 	} >;
+
+	// Configuration
+	getConfig( options: { path: string } ): Promise< { wpContentPath?: string } >;
 }

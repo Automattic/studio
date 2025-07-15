@@ -310,6 +310,12 @@ async function appBoot() {
 			getPlatformMetric( process.platform ),
 			'weekly'
 		);
+		// Bump stat for unique monthly app launch, approximates monthly active users
+		bumpAggregatedUniqueStat(
+			StatsGroup.STUDIO_APP_LAUNCH_UNIQUE_MONTHLY,
+			getPlatformMetric( process.platform ),
+			'monthly'
+		);
 
 		await installCLIOnWindows();
 

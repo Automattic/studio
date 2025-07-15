@@ -50,7 +50,6 @@ export class WpNowProvider implements WordPressProvider {
 		return getWpCliFolderPath();
 	}
 
-	// Download functionality
 	async downloadWordPress( version?: string, options?: { overwrite: boolean } ): Promise< void > {
 		await downloadWordPress( version, options );
 	}

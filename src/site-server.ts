@@ -13,7 +13,8 @@ import { startProxyServer } from 'src/lib/proxy-server';
 import SiteServerProcess from 'src/lib/site-server-process';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import {
-	getWordPressProvider,
+	setupWordPressSite,
+	startServer,
 	DEFAULT_PHP_VERSION,
 	SQLITE_FILENAME,
 } from 'src/lib/wordpress-provider';
@@ -28,8 +29,7 @@ export async function createSiteWorkingDirectory(
 	path: string,
 	wpVersion = 'latest'
 ): Promise< boolean > {
-	const provider = getWordPressProvider();
-	return provider.setupWordPressSite( path, wpVersion );
+	return setupWordPressSite( path, wpVersion );
 }
 
 export async function stopAllServersOnQuit() {
@@ -130,8 +130,7 @@ export class SiteServer {
 			await startProxyServer();
 		}
 
-		const provider = getWordPressProvider();
-		const { options } = await provider.startServer( {
+		const { options } = await startServer( {
 			path: this.details.path,
 			port: this.details.port,
 			adminPassword: decodePassword( this.details.adminPassword ?? '' ),

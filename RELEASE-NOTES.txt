@@ -4,8 +4,9 @@ Unreleased
 1.5.5
 =====
 * Improved the pull and push functionality to allow selective sync
-* Misc UI fixes #1533, #1534, #1494
+* Renamed Studio by WordPress.com to WordPress Studio
 * Added token revoke call during logout to improve security #1538
+* Misc UI fixes #1533, #1534, #1494
 
 1.5.4
 =====

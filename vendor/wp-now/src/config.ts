@@ -9,7 +9,7 @@ import { portFinder } from './port-finder';
 import { isValidWordPressVersion } from './wp-playground-wordpress';
 import getWpNowPath from './get-wp-now-path';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from './constants';
-import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
+import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils-main';
 
 export interface CliOptions {
 	php?: string;

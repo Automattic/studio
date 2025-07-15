@@ -4,7 +4,7 @@ import path from 'path';
 import followRedirects, { FollowResponse } from 'follow-redirects';
 import fs from 'fs-extra';
 import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
-import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
+import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils-main';
 import unzipper from 'unzipper';
 import { DEFAULT_WORDPRESS_VERSION, WP_CLI_URL } from './constants';
 import getWordpressVersionsPath from './get-wordpress-versions-path';

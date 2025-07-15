@@ -1,5 +1,3 @@
-import type { WPNowOptions } from 'vendor/wp-now/src/config';
-
 export type AllowedPHPVersion = string;
 
 export interface ServerOptions {
@@ -14,9 +12,33 @@ export interface ServerOptions {
 	siteLanguage?: string;
 }
 
+export interface WordPressServerOptions {
+	port?: number;
+	phpVersion?: string;
+	documentRoot?: string;
+	absoluteUrl?: string;
+	projectPath?: string;
+	wpContentPath?: string;
+	wordPressVersion?: string;
+	isWpAutoUpdating?: boolean;
+	adminPassword?: string;
+	siteTitle?: string;
+	siteLanguage?: string;
+}
+
 export interface WordPressServerInstance {
 	url: string;
-	options: WPNowOptions;
+	options: WordPressServerOptions;
+	// Internal options for server process implementation
+	_internal?: unknown;
+}
+
+export interface WordPressServerProcess {
+	url: string;
+	php?: { documentRoot: string };
+	start(): Promise< void >;
+	stop(): Promise< void >;
+	runPhp( data: { code: string; [ key: string ]: unknown } ): Promise< string >;
 }
 
 export interface WordPressProvider {
@@ -41,6 +63,9 @@ export interface WordPressProvider {
 	// Core functionality
 	setupWordPressSite( path: string, wpVersion?: string ): Promise< boolean >;
 	startServer( options: ServerOptions ): Promise< WordPressServerInstance >;
+
+	// Server process management
+	createServerProcess( serverInstance: WordPressServerInstance ): WordPressServerProcess;
 
 	// Version utilities
 	isValidWordPressVersion( version: string ): boolean;

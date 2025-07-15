@@ -25,7 +25,15 @@ import {
 	getWpCliPath,
 	getWpCliFolderPath,
 } from './path-utilities';
-import type { WordPressProvider, ServerOptions, WordPressServerInstance } from '../types';
+import SiteServerProcess from './site-server-process';
+import type {
+	WordPressProvider,
+	ServerOptions,
+	WordPressServerInstance,
+	WordPressServerOptions,
+	WordPressServerProcess,
+} from '../types';
+import type { WPNowOptions } from 'vendor/wp-now/src/config';
 
 export class WpNowProvider implements WordPressProvider {
 	// Constants
@@ -131,9 +139,25 @@ export class WpNowProvider implements WordPressProvider {
 			);
 		}
 
+		// Map wp-now options to provider-agnostic options
+		const providerOptions: WordPressServerOptions = {
+			port: wpNowOptions.port,
+			phpVersion: wpNowOptions.phpVersion,
+			documentRoot: wpNowOptions.documentRoot,
+			absoluteUrl: wpNowOptions.absoluteUrl,
+			projectPath: wpNowOptions.projectPath,
+			wpContentPath: wpNowOptions.wpContentPath,
+			wordPressVersion: wpNowOptions.wordPressVersion,
+			isWpAutoUpdating: wpNowOptions.isWpAutoUpdating,
+			adminPassword: wpNowOptions.adminPassword,
+			siteTitle: wpNowOptions.siteTitle,
+			siteLanguage: wpNowOptions.siteLanguage,
+		};
+
 		return {
 			url: options.absoluteUrl || `http://localhost:${ wpNowOptions.port }`,
-			options: wpNowOptions,
+			options: providerOptions,
+			_internal: wpNowOptions,
 		};
 	}
 
@@ -147,5 +171,9 @@ export class WpNowProvider implements WordPressProvider {
 
 	isValidWordPressVersion( version: string ): boolean {
 		return isValidWordPressVersion( version );
+	}
+
+	createServerProcess( serverInstance: WordPressServerInstance ): WordPressServerProcess {
+		return new SiteServerProcess( serverInstance._internal as WPNowOptions );
 	}
 }

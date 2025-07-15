@@ -17,7 +17,7 @@ import {
 	DEFAULT_WORDPRESS_VERSION,
 	AllowedPHPVersion,
 } from 'src/lib/wordpress-provider/constants';
-import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
+import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils-renderer';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 
 type EditSiteDetailsProps = {

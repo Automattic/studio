@@ -6,7 +6,7 @@ import type { WordPressProvider } from './types';
 
 let provider: WordPressProvider | null = null;
 
-function getWordPressProvider(): WordPressProvider {
+export function getWordPressProvider(): WordPressProvider {
 	if ( ! provider ) {
 		provider = new WpNowProvider();
 	}
@@ -40,3 +40,4 @@ export const startServer = activeProvider.startServer.bind( activeProvider );
 export const executeWPCli = activeProvider.executeWPCli.bind( activeProvider );
 export const isValidWordPressVersion =
 	activeProvider.isValidWordPressVersion.bind( activeProvider );
+export const createServerProcess = activeProvider.createServerProcess.bind( activeProvider );

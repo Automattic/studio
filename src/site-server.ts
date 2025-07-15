@@ -10,17 +10,18 @@ import { decodePassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { portFinder } from 'src/lib/port-finder';
 import { startProxyServer } from 'src/lib/proxy-server';
-import SiteServerProcess from 'src/lib/site-server-process';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import {
 	setupWordPressSite,
 	startServer,
+	createServerProcess,
 	DEFAULT_PHP_VERSION,
 	SQLITE_FILENAME,
 } from 'src/lib/wordpress-provider';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
+import type { WordPressServerProcess } from 'src/lib/wordpress-provider/types';
 
 const servers = new Map< string, SiteServer >();
 const deletedServers: string[] = [];
@@ -53,7 +54,7 @@ type SiteServerMeta = {
 };
 
 export class SiteServer {
-	server?: SiteServerProcess;
+	server?: WordPressServerProcess;
 	wpCliExecutor?: WpCliProcess;
 
 	private constructor(
@@ -130,7 +131,7 @@ export class SiteServer {
 			await startProxyServer();
 		}
 
-		const { options } = await startServer( {
+		const serverInstance = await startServer( {
 			path: this.details.path,
 			port: this.details.port,
 			adminPassword: decodePassword( this.details.adminPassword ?? '' ),
@@ -149,10 +150,10 @@ export class SiteServer {
 		}
 
 		console.log( `Starting server for '${ this.details.name }'` );
-		this.server = new SiteServerProcess( options );
+		this.server = createServerProcess( serverInstance );
 		await this.server.start();
 
-		if ( this.server.options.port === undefined ) {
+		if ( serverInstance.options.port === undefined ) {
 			throw new Error( 'Server started with no port' );
 		}
 
@@ -161,8 +162,8 @@ export class SiteServer {
 		this.details = {
 			...this.details,
 			url: this.server.url,
-			port: this.server.options.port,
-			phpVersion: this.server.options.phpVersion ?? DEFAULT_PHP_VERSION,
+			port: serverInstance.options.port,
+			phpVersion: serverInstance.options.phpVersion ?? DEFAULT_PHP_VERSION,
 			isWpAutoUpdating: this.details.isWpAutoUpdating,
 			running: true,
 			autoStart: true,

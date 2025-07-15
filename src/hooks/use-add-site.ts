@@ -9,7 +9,7 @@ import {
 	DEFAULT_PHP_VERSION,
 	DEFAULT_WORDPRESS_VERSION,
 	AllowedPHPVersion,
-} from 'vendor/wp-now/src/constants';
+} from 'src/lib/wordpress-provider/constants';
 
 export function useAddSite() {
 	const { __ } = useI18n();

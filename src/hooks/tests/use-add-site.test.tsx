@@ -3,7 +3,10 @@ import { renderHook, act } from '@testing-library/react';
 import nock from 'nock';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
+import {
+	DEFAULT_PHP_VERSION,
+	DEFAULT_WORDPRESS_VERSION,
+} from 'src/lib/wordpress-provider/constants';
 
 jest.mock( 'src/hooks/use-site-details' );
 jest.mock( 'src/hooks/use-feature-flags' );

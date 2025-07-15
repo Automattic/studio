@@ -11,14 +11,14 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
-import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import {
 	DEFAULT_PHP_VERSION,
 	ALLOWED_PHP_VERSIONS,
 	DEFAULT_WORDPRESS_VERSION,
 	AllowedPHPVersion,
-} from 'vendor/wp-now/src/constants';
+} from 'src/lib/wordpress-provider/constants';
+import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
+import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 
 type EditSiteDetailsProps = {
 	currentWpVersion: string;

@@ -8,9 +8,9 @@ import { useAddSite } from 'src/hooks/use-add-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { useOnboarding } from 'src/hooks/use-onboarding';
 import { FolderDialogResponse } from 'src/ipc-handlers';
+import { DEFAULT_WORDPRESS_VERSION } from 'src/lib/wordpress-provider/constants';
 import { store } from 'src/stores';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
-import { DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 
 jest.mock( 'src/hooks/use-onboarding', () => ( {
 	useOnboarding: jest.fn(),

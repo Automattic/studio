@@ -56,6 +56,10 @@ import { sortSites } from 'src/lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
+import {
+	DEFAULT_PHP_VERSION,
+	DEFAULT_WORDPRESS_VERSION,
+} from 'src/lib/wordpress-provider/constants';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
@@ -73,7 +77,6 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
-import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 import type { GranularSyncFolders } from 'src/modules/sync/types';

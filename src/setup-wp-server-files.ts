@@ -11,13 +11,13 @@ import {
 	getSqliteVersionFromInstallation,
 	updateLatestSqliteVersion,
 } from 'src/lib/sqlite-versions';
+import { SQLITE_FILENAME } from 'src/lib/wordpress-provider/constants';
 import {
 	getWordPressVersionFromInstallation,
 	updateLatestWordPressVersion,
 } from 'src/lib/wp-versions';
 import { updateLatestWPCliVersion } from 'src/lib/wpcli-versions';
 import { getResourcesPath } from 'src/storage/paths';
-import { SQLITE_FILENAME } from 'vendor/wp-now/src/constants';
 import { getWordPressVersionPath } from 'vendor/wp-now/src/download';
 import getSqlitePath from 'vendor/wp-now/src/get-sqlite-path';
 import getWpCliPath from 'vendor/wp-now/src/get-wp-cli-path';

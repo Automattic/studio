@@ -7,9 +7,9 @@ import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { isWordPressDevVersion } from 'src/lib/version-utils';
+import { DEFAULT_WORDPRESS_VERSION } from 'src/lib/wordpress-provider/constants';
 import { isWordPressBetaVersion } from 'src/lib/wordpress-version-utils';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
-import { DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 import { addWpVersionToList } from './add-wp-version-to-list';
 
 type WPVersionSelectorProps = {

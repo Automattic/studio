@@ -1,5 +1,5 @@
+import { DEFAULT_PHP_VERSION } from 'src/lib/wordpress-provider/constants';
 import { hasVersionMismatch } from 'src/modules/preview-site/lib/version-comparison';
-import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 
 describe( 'hasVersionMismatch', () => {
 	it( 'should return true when WordPress version is older than latest', () => {

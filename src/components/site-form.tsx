@@ -13,13 +13,13 @@ import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import { useI18nLocale } from 'src/stores';
-import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import {
 	DEFAULT_WORDPRESS_VERSION,
 	ALLOWED_PHP_VERSIONS,
 	AllowedPHPVersion,
-} from 'vendor/wp-now/src/constants';
+} from 'src/lib/wordpress-provider/constants';
+import { useI18nLocale } from 'src/stores';
+import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 
 interface FormPathInputComponentProps {
 	value: string;

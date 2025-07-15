@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
 import { pathExists, recursiveCopyDirectory } from 'src/lib/fs-utils';
-import { DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
+import { DEFAULT_WORDPRESS_VERSION } from 'src/lib/wordpress-provider/constants';
 import { downloadWordPress, getWordPressVersionPath } from 'vendor/wp-now/src/download';
 import { executeWPCli } from 'vendor/wp-now/src/execute-wp-cli';
 

@@ -14,8 +14,11 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import {
+	DEFAULT_PHP_VERSION,
+	DEFAULT_WORDPRESS_VERSION,
+} from 'src/lib/wordpress-provider/constants';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
-import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 
 interface AddSiteProps {
 	className?: string;

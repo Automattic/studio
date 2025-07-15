@@ -7,8 +7,8 @@ import {
 	downloadWordPress,
 	getWordPressVersionPath,
 	DEFAULT_WORDPRESS_VERSION,
+	executeWPCli,
 } from 'src/lib/wordpress-provider';
-import { executeWPCli } from 'vendor/wp-now/src/execute-wp-cli';
 
 export const MINIMUM_SUPPORTED_WP_VERSION = 6;
 

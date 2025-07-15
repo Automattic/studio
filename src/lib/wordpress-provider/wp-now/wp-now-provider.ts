@@ -10,6 +10,7 @@ import {
 	downloadWpCli,
 	downloadSQLiteCommand,
 } from 'vendor/wp-now/src/download';
+import { executeWPCli } from 'vendor/wp-now/src/execute-wp-cli';
 import {
 	DEFAULT_PHP_VERSION,
 	DEFAULT_WORDPRESS_VERSION,
@@ -133,5 +134,13 @@ export class WpNowProvider implements WordPressProvider {
 			url: options.absoluteUrl || `http://localhost:${ wpNowOptions.port }`,
 			options: wpNowOptions,
 		};
+	}
+
+	async executeWPCli(
+		projectPath: string,
+		args: string[],
+		options?: { phpVersion?: string }
+	): Promise< { stdout: string; stderr: string; exitCode: number } > {
+		return await executeWPCli( projectPath, args, options );
 	}
 }

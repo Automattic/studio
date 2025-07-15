@@ -1,7 +1,11 @@
 import fs from 'fs-extra';
 import semver from 'semver';
-import { downloadWpCli, getWpCliPath, getWpCliFolderPath } from 'src/lib/wordpress-provider';
-import { executeWPCli } from 'vendor/wp-now/src/execute-wp-cli';
+import {
+	downloadWpCli,
+	getWpCliPath,
+	getWpCliFolderPath,
+	executeWPCli,
+} from 'src/lib/wordpress-provider';
 
 export async function updateLatestWPCliVersion() {
 	let shouldOverwrite = false;

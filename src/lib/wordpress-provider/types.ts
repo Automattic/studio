@@ -41,4 +41,15 @@ export interface WordPressProvider {
 	// Core functionality
 	setupWordPressSite( path: string, wpVersion?: string ): Promise< boolean >;
 	startServer( options: ServerOptions ): Promise< WordPressServerInstance >;
+
+	// WP-CLI
+	executeWPCli(
+		projectPath: string,
+		args: string[],
+		options?: { phpVersion?: string }
+	): Promise< {
+		stdout: string;
+		stderr: string;
+		exitCode: number;
+	} >;
 }

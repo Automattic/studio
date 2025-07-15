@@ -61,7 +61,11 @@ function isGreaterExceptPatch( versionA: string | undefined, versionB: string ):
 	const a = semver.parse( versionA )!;
 	const b = semver.parse( versionB )!;
 
-	if ( a.major === b.major && a.minor === b.minor && a.patch !== b.patch ) {
+	if (
+		a.major === b.major &&
+		a.minor === b.minor &&
+		( a.patch !== b.patch || a.prerelease?.length !== b.prerelease?.length )
+	) {
 		return FORCE_WHATS_NEW_WHEN_PATCH_CHANGED;
 	}
 	return true;

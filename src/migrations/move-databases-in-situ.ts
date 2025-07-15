@@ -1,10 +1,10 @@
 import path from 'node:path';
 import fs from 'fs-extra';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
+import { getSqlitePath } from 'src/lib/wordpress-provider';
 import { SQLITE_FILENAME } from 'src/lib/wordpress-provider/constants';
 import { loadUserData } from 'src/storage/user-data';
 import getWpNowConfig from 'vendor/wp-now/src/config';
-import getSqlitePath from 'vendor/wp-now/src/get-sqlite-path';
 
 async function moveDatabasesInSitu( projectPath: string ) {
 	const dbPhpPath = path.join( projectPath, 'wp-content', 'db.php' );

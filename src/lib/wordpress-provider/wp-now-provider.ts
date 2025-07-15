@@ -5,7 +5,8 @@ import { verifyWordPressChecksums, purgeWpConfig } from 'src/lib/wp-versions';
 import { copyBundledLatestWPVersion } from 'src/setup-wp-server-files';
 import { getWpNowConfig } from 'vendor/wp-now/src';
 import { WPNowMode } from 'vendor/wp-now/src/config';
-import { getWordPressVersionPath, downloadWordPress } from 'vendor/wp-now/src/download';
+import { downloadWordPress } from 'vendor/wp-now/src/download';
+import { getWordPressVersionPath } from './path-utilities';
 import type { WordPressProvider, ServerOptions, WordPressServerInstance } from './types';
 
 export class WpNowProvider implements WordPressProvider {

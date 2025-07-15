@@ -1,4 +1,5 @@
 export * from './types';
+export * from './path-utilities';
 export { WpNowProvider } from './wp-now-provider';
 
 import { WpNowProvider } from './wp-now-provider';

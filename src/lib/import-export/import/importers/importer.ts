@@ -13,7 +13,7 @@ import { ImportEvents } from 'src/lib/import-export/import/events';
 import { BackupContents, MetaFileData, WpContent } from 'src/lib/import-export/import/types';
 import { serializePlugins } from 'src/lib/serialize-plugins';
 import { updateSiteUrl } from 'src/lib/update-site-url';
-import { DEFAULT_PHP_VERSION } from 'src/lib/wordpress-provider/constants';
+import { DEFAULT_PHP_VERSION } from 'src/lib/wordpress-provider';
 import { SiteServer } from 'src/site-server';
 
 export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {

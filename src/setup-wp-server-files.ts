@@ -11,8 +11,12 @@ import {
 	getSqliteVersionFromInstallation,
 	updateLatestSqliteVersion,
 } from 'src/lib/sqlite-versions';
-import { getWordPressVersionPath, getSqlitePath, getWpCliPath } from 'src/lib/wordpress-provider';
-import { SQLITE_FILENAME } from 'src/lib/wordpress-provider/constants';
+import {
+	getWordPressVersionPath,
+	getSqlitePath,
+	getWpCliPath,
+	SQLITE_FILENAME,
+} from 'src/lib/wordpress-provider';
 import {
 	getWordPressVersionFromInstallation,
 	updateLatestWordPressVersion,

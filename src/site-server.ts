@@ -12,8 +12,11 @@ import { portFinder } from 'src/lib/port-finder';
 import { startProxyServer } from 'src/lib/proxy-server';
 import SiteServerProcess from 'src/lib/site-server-process';
 import { updateSiteUrl } from 'src/lib/update-site-url';
-import { getWordPressProvider } from 'src/lib/wordpress-provider';
-import { DEFAULT_PHP_VERSION, SQLITE_FILENAME } from 'src/lib/wordpress-provider/constants';
+import {
+	getWordPressProvider,
+	DEFAULT_PHP_VERSION,
+	SQLITE_FILENAME,
+} from 'src/lib/wordpress-provider';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';

@@ -6,10 +6,46 @@ import { copyBundledLatestWPVersion } from 'src/setup-wp-server-files';
 import { getWpNowConfig } from 'vendor/wp-now/src';
 import { WPNowMode } from 'vendor/wp-now/src/config';
 import { downloadWordPress } from 'vendor/wp-now/src/download';
-import { getWordPressVersionPath } from './path-utilities';
-import type { WordPressProvider, ServerOptions, WordPressServerInstance } from './types';
+import {
+	DEFAULT_PHP_VERSION,
+	DEFAULT_WORDPRESS_VERSION,
+	ALLOWED_PHP_VERSIONS,
+	SQLITE_FILENAME,
+	SQLITE_FILENAME_LEGACY,
+} from './constants';
+import {
+	getWordPressVersionPath,
+	getSqlitePath,
+	getWpCliPath,
+	getWpCliFolderPath,
+} from './path-utilities';
+import type { WordPressProvider, ServerOptions, WordPressServerInstance } from '../types';
 
 export class WpNowProvider implements WordPressProvider {
+	// Constants
+	readonly DEFAULT_PHP_VERSION = DEFAULT_PHP_VERSION;
+	readonly DEFAULT_WORDPRESS_VERSION = DEFAULT_WORDPRESS_VERSION;
+	readonly ALLOWED_PHP_VERSIONS = ALLOWED_PHP_VERSIONS;
+	readonly SQLITE_FILENAME = SQLITE_FILENAME;
+	readonly SQLITE_FILENAME_LEGACY = SQLITE_FILENAME_LEGACY;
+
+	// Path utilities
+	getWordPressVersionPath( version: string ): string {
+		return getWordPressVersionPath( version );
+	}
+
+	getSqlitePath(): string {
+		return getSqlitePath();
+	}
+
+	getWpCliPath(): string {
+		return getWpCliPath();
+	}
+
+	getWpCliFolderPath(): string {
+		return getWpCliFolderPath();
+	}
+
 	async setupWordPressSite( path: string, wpVersion = 'latest' ): Promise< boolean > {
 		try {
 			if ( ( await pathExists( path ) ) && ! ( await isEmptyDir( path ) ) ) {
@@ -17,7 +53,7 @@ export class WpNowProvider implements WordPressProvider {
 				return false;
 			}
 
-			const wpVersionPath = getWordPressVersionPath( wpVersion );
+			const wpVersionPath = this.getWordPressVersionPath( wpVersion );
 			const wpVersionExists = await pathExists( wpVersionPath );
 
 			if ( ! wpVersionExists ) {
@@ -39,7 +75,7 @@ export class WpNowProvider implements WordPressProvider {
 
 			await verifyWordPressChecksums( wpVersion );
 			await purgeWpConfig( wpVersion );
-			await recursiveCopyDirectory( getWordPressVersionPath( wpVersion ), path );
+			await recursiveCopyDirectory( this.getWordPressVersionPath( wpVersion ), path );
 
 			return true;
 		} catch ( error ) {

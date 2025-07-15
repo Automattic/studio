@@ -13,8 +13,17 @@ jest.mock( 'src/lib/site-language', () => ( {
 } ) );
 
 // `download` and `config` are private APIs that must be mocked individually
-jest.mock( 'vendor/wp-now/src/download' );
+jest.mock( 'vendor/wp-now/src/download', () => ( {
+	getWordPressVersionPath: jest.fn( ( version ) => `/mock/path/to/wp-${ version }` ),
+} ) );
 jest.mock( 'vendor/wp-now/src/config' );
+jest.mock( 'vendor/wp-now/src/get-sqlite-path', () => ( {
+	default: jest.fn( () => '/mock/path/to/sqlite' ),
+} ) );
+jest.mock( 'vendor/wp-now/src/get-wp-cli-path', () => ( {
+	default: jest.fn( () => '/mock/path/to/wp-cli' ),
+	getWpCliFolderPath: jest.fn( () => '/mock/path/to/wp-cli-folder' ),
+} ) );
 
 jest.mock( 'vendor/wp-now/src', () => ( {
 	getWpNowConfig: jest.fn( () => ( { mode: 'wordpress', port: 1234 } ) ),

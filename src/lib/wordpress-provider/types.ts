@@ -42,6 +42,9 @@ export interface WordPressProvider {
 	setupWordPressSite( path: string, wpVersion?: string ): Promise< boolean >;
 	startServer( options: ServerOptions ): Promise< WordPressServerInstance >;
 
+	// Version utilities
+	isValidWordPressVersion( version: string ): boolean;
+
 	// WP-CLI
 	executeWPCli(
 		projectPath: string,

@@ -38,3 +38,5 @@ export const downloadSQLiteCommand = activeProvider.downloadSQLiteCommand.bind( 
 export const setupWordPressSite = activeProvider.setupWordPressSite.bind( activeProvider );
 export const startServer = activeProvider.startServer.bind( activeProvider );
 export const executeWPCli = activeProvider.executeWPCli.bind( activeProvider );
+export const isValidWordPressVersion =
+	activeProvider.isValidWordPressVersion.bind( activeProvider );

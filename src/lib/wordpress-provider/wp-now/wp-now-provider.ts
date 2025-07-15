@@ -11,6 +11,7 @@ import {
 	downloadSQLiteCommand,
 } from 'vendor/wp-now/src/download';
 import { executeWPCli } from 'vendor/wp-now/src/execute-wp-cli';
+import { isValidWordPressVersion } from 'vendor/wp-now/src/wp-playground-wordpress/is-valid-wordpress-version';
 import {
 	DEFAULT_PHP_VERSION,
 	DEFAULT_WORDPRESS_VERSION,
@@ -142,5 +143,9 @@ export class WpNowProvider implements WordPressProvider {
 		options?: { phpVersion?: string }
 	): Promise< { stdout: string; stderr: string; exitCode: number } > {
 		return await executeWPCli( projectPath, args, options );
+	}
+
+	isValidWordPressVersion( version: string ): boolean {
+		return isValidWordPressVersion( version );
 	}
 }

@@ -1,4 +1,4 @@
-import { isValidWordPressVersion } from 'vendor/wp-now/src/wp-playground-wordpress/is-valid-wordpress-version';
+import { isValidWordPressVersion } from 'src/lib/wordpress-provider';
 
 export function isWordPressDevVersion( version: string ): boolean {
 	// Match nightly build patterns that end with a build number

@@ -124,7 +124,7 @@ export function PreviewSiteRow( {
 						disabled={ isExpired }
 						className={ cx(
 							'!text-a8c-gray-700 max-w-full',
-							isExpired ? 'pointer-events-none' : 'hover:!text-a8c-blueberry'
+							isExpired ? 'pointer-events-none' : 'hover:!text-a8c-blue-50'
 						) }
 						onClick={ () => getIpcApi().openURL( `https://${ url }` ) }
 					>
@@ -163,7 +163,7 @@ export function PreviewSiteRow( {
 										} )
 									);
 								} }
-								className={ '!text-a8c-blueberry hover:!text-a8c-red-50' }
+								className={ '!text-a8c-blue-50 hover:!text-a8c-red-50' }
 							>
 								{ __( 'Clear' ) }
 							</Button>

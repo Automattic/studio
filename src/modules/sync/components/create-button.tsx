@@ -35,7 +35,7 @@ export const CreateButton = ( {
 					);
 				} }
 				variant={ variant }
-				className={ cx( ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry', className ) }
+				className={ cx( ! isOffline && '!text-a8c-blue-50 !shadow-a8c-blue-50', className ) }
 				disabled={ isOffline }
 				aria-disabled={ isOffline }
 			>

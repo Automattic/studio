@@ -152,8 +152,8 @@ blockquote {
 }
 
 .assistant-markdown code.file-block {
-	color: theme( 'colors.a8c-blueberry' );
-	fill: theme( 'colors.a8c-blueberry' );
+	color: theme( 'colors.a8c-blue.50' );
+	fill: theme( 'colors.a8c-blue.50' );
 	display: inline-flex;
 	align-items: center;
 	padding: 0 0 0 3px;
@@ -161,8 +161,8 @@ blockquote {
 }
 
 .assistant-markdown code.file-block:hover {
-	color: theme( 'colors.a8c-blueberry-70' );
-	fill: theme( 'colors.a8c-blueberry-70' );
+	color: theme( 'colors.a8c-blue.70' );
+	fill: theme( 'colors.a8c-blue.70' );
 }
 
 .assistant-markdown pre {
@@ -293,7 +293,7 @@ blockquote {
 
 .components-button.components-guide__back-button {
 	outline: none;
-	border: 1px solid theme( 'colors.a8c-blueberry' );
+	border: 1px solid theme( 'colors.a8c-blue.50' );
 }
 
 .sync-dialog-wrapper .components-modal__header {

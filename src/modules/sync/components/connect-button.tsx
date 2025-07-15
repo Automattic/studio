@@ -34,7 +34,7 @@ export const ConnectButton = ( {
 				aria-disabled={ isOffline }
 				variant={ variant }
 				className={ cx(
-					! disableConnectButtonStyle && ! isOffline && '!text-a8c-blueberry !shadow-a8c-blueberry',
+					! disableConnectButtonStyle && ! isOffline && '!text-a8c-blue-50 !shadow-a8c-blue-50',
 					className
 				) }
 			>

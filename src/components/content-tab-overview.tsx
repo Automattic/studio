@@ -224,7 +224,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 						'w-full min-h-40 max-h-64 rounded-sm border border-a8c-gray-5 bg-a8c-gray-0 mb-2 flex justify-center',
 						loading && `h-64 ${ skeletonBg }`,
 						isThumbnailError && 'border-none',
-						! loading && 'hover:border-a8c-blueberry duration-300'
+						! loading && 'hover:border-a8c-blue-50 duration-300'
 					) }
 				>
 					{ isThumbnailError && ! loading && (
@@ -236,7 +236,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 						<button
 							aria-label={ __( 'Open site' ) }
 							className={ cx(
-								'relative group focus-visible:outline-a8c-blueberry',
+								'relative group focus-visible:outline-a8c-blue-50',
 								isServerLoading && 'cursor-not-allowed'
 							) }
 							onClick={ handleThumbnailClick }
@@ -244,7 +244,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 						>
 							<div
 								className={
-									'opacity-0 group-hover:opacity-90 group-hover:bg-white group-focus:opacity-90 group-focus:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blueberry'
+									'opacity-0 group-hover:opacity-90 group-hover:bg-white group-focus:opacity-90 group-focus:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blue-50'
 								}
 							>
 								{ __( 'Open site' ) }

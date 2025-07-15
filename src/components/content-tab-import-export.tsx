@@ -81,9 +81,7 @@ export const ExportSite = ( {
 							onClick={ () => handleExport( exportDatabase ) }
 							type="submit"
 							variant="secondary"
-							className={ cx(
-								isExportDisabled ? '' : '!text-a8c-blue-50 !shadow-a8c-blue-50'
-							) }
+							className={ cx( isExportDisabled ? '' : '!text-a8c-blue-50 !shadow-a8c-blue-50' ) }
 							disabled={ isExportDisabled }
 						>
 							{ __( 'Export database' ) }

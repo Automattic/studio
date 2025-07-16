@@ -9,6 +9,7 @@ import {
 	useMemo,
 	useState,
 } from 'react';
+import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { sortSites } from 'src/lib/sort-sites';
 import { useAppDispatch } from 'src/stores';
@@ -151,6 +152,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const { selectedSiteId, setSelectedSiteId } = useSelectedSite( firstSite?.id );
 	const [ uploadingSites, setUploadingSites ] = useState< { [ siteId: string ]: boolean } >( {} );
 	const { deleteSite, isLoading: isDeleting } = useDeleteSite();
+	const { setSelectedTab, selectedTab } = useContentTabs();
 
 	const toggleLoadingServerForSite = useCallback( ( siteId: string ) => {
 		setLoadingServer( ( currentLoading ) => ( {
@@ -166,8 +168,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			setData( newSites );
 			const selectedSite = newSites.length ? newSites[ 0 ].id : '';
 			setSelectedSiteId( selectedSite );
+			if ( selectedTab !== 'overview' ) {
+				setSelectedTab( 'overview' );
+			}
 		},
-		[ deleteSite, setSelectedSiteId ]
+		[ deleteSite, setSelectedSiteId, selectedTab, setSelectedTab ]
 	);
 
 	const createSite = useCallback(
@@ -231,6 +236,9 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				// Update the selected site to the new site's ID if the user didn't change it
 				setSelectedSiteId( ( prevSelectedSiteId ) => {
 					if ( prevSelectedSiteId === tempSiteId ) {
+						if ( selectedTab !== 'overview' ) {
+							setSelectedTab( 'overview' );
+						}
 						return newSite.id;
 					}
 					return prevSelectedSiteId;
@@ -257,7 +265,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				showError( error );
 			}
 		},
-		[ setSelectedSiteId ]
+		[ selectedTab, setSelectedSiteId, setSelectedTab ]
 	);
 
 	const updateSite = useCallback( async ( site: SiteDetails ) => {

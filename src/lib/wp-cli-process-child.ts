@@ -1,5 +1,5 @@
+import { createChildProcessProvider } from 'src/lib/wordpress-provider/child-process-factory';
 import { setupLogging } from 'src/logging';
-import { executeWPCli } from 'vendor/wp-now/src/execute-wp-cli';
 import type { MessageName } from 'src/lib/wp-cli-process';
 
 type Handler = ( message: string, messageId: number, data: unknown ) => void;
@@ -14,6 +14,9 @@ if ( process.env.STUDIO_APP_LOGS_PATH ) {
 	} );
 }
 
+// Create provider instance
+const provider = createChildProcessProvider();
+
 const handlers: Handlers = {
 	execute: createHandler( execute ),
 };
@@ -27,7 +30,7 @@ async function execute( data: unknown ) {
 	if ( ! projectPath || ! args ) {
 		throw Error( 'Command execution needs project path and arguments' );
 	}
-	return await executeWPCli( projectPath, args, { phpVersion } );
+	return await provider.executeWPCli( projectPath, args, { phpVersion } );
 }
 
 function createHandler< T >( handler: ( data: unknown ) => T ) {

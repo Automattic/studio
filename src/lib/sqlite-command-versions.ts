@@ -1,4 +1,3 @@
-import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
 import semver, { SemVer } from 'semver';

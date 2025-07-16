@@ -2,6 +2,7 @@ import { app, utilityProcess, UtilityProcess } from 'electron';
 import { kill } from 'process';
 import { PHPRunOptions } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/renderer';
+import { getWordPressProviderType } from 'src/lib/wordpress-provider';
 import { WPNowOptions } from 'vendor/wp-now/src/config';
 import type { WordPressServerProcess } from '../types';
 
@@ -60,6 +61,7 @@ export default class SiteServerProcess implements WordPressServerProcess {
 						STUDIO_APP_NAME: app.name,
 						STUDIO_APP_DATA_PATH: app.getPath( 'appData' ),
 						STUDIO_APP_LOGS_PATH: app.getPath( 'logs' ),
+						WORDPRESS_PROVIDER_TYPE: getWordPressProviderType(),
 					},
 				} )
 				.on( 'spawn', spawnListener )

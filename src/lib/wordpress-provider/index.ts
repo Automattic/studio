@@ -5,6 +5,7 @@ import { WpNowProvider } from './wp-now';
 import type { WordPressProvider } from './types';
 
 let provider: WordPressProvider | null = null;
+let providerType: string = 'wp-now'; // Default provider type
 
 export function getWordPressProvider(): WordPressProvider {
 	if ( ! provider ) {
@@ -13,8 +14,15 @@ export function getWordPressProvider(): WordPressProvider {
 	return provider;
 }
 
-export function setWordPressProvider( newProvider: WordPressProvider ): void {
+export function getWordPressProviderType(): string {
+	return providerType;
+}
+
+export function setWordPressProvider( newProvider: WordPressProvider, type?: string ): void {
 	provider = newProvider;
+	if ( type ) {
+		providerType = type;
+	}
 }
 
 const activeProvider = getWordPressProvider();

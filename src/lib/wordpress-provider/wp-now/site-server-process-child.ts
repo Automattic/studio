@@ -1,8 +1,8 @@
 import { PHPRunOptions } from '@php-wasm/universal';
+import { createChildProcessProvider } from 'src/lib/wordpress-provider/child-process-factory';
 import { setupLogging } from 'src/logging';
-import { startServer, type WPNowServer } from 'vendor/wp-now/src';
-import { WPNowOptions } from 'vendor/wp-now/src/config';
 import type { MessageName } from './site-server-process';
+import type { SiteServerInstance } from 'src/lib/wordpress-provider/child-process-types';
 
 type Handler = ( message: string, messageId: number, data: unknown ) => void;
 type Handlers = { [ K in MessageName ]: Handler };
@@ -16,8 +16,11 @@ if ( process.env.STUDIO_APP_LOGS_PATH ) {
 	} );
 }
 
-const options = JSON.parse( process.argv[ 2 ] ) as WPNowOptions;
-let server: WPNowServer;
+// Create provider instance
+const provider = createChildProcessProvider();
+
+const options = JSON.parse( process.argv[ 2 ] );
+let server: SiteServerInstance;
 
 const handlers: Handlers = {
 	'start-server': createHandler( start ),
@@ -26,7 +29,7 @@ const handlers: Handlers = {
 };
 
 async function start() {
-	server = await startServer( options );
+	server = await provider.startServer( options );
 	return {
 		php: {
 			documentRoot: server.php.documentRoot,

@@ -37,7 +37,7 @@ disabled:cursor-not-allowed
 aria-disabled:cursor-not-allowed
 [&.components-button]:focus:shadow-[inset_0_0_0_1px_transparent]
 [&.components-button]:focus-visible:shadow-[0_0_0_1px_#3858E9]
-[&.components-button]:focus-visible:shadow-a8c-blueberry
+[&.components-button]:focus-visible:shadow-a8c-blue-50
 [&.components-button.is-destructive]:focus-visible:shadow-a8c-red-50
 [&_svg]:shrink-0
 `.replace( /\n/g, ' ' );
@@ -52,8 +52,8 @@ const secondaryStyles = `
 [&.is-secondary]:shadow-[inset_0_0_0_1px_black]
 [&.is-secondary]:shadow-a8c-gray-5
 [&.is-secondary]:focus:shadow-a8c-gray-5
-[&.is-secondary]:focus-visible:shadow-a8c-blueberry
-[&.is-secondary:not(.is-destructive,:disabled,[aria-disabled=true])]:hover:text-a8c-blueberry
+[&.is-secondary]:focus-visible:shadow-a8c-blue-50
+[&.is-secondary:not(.is-destructive,:disabled,[aria-disabled=true])]:hover:text-a8c-blue-50
 [&.is-secondary:not(.is-destructive,:disabled,[aria-disabled=true])]:active:text-black
 [&.is-secondary:disabled:not(:focus)]:shadow-[inset_0_0_0_1px_black]
 [&.is-secondary:disabled:not(:focus)]:shadow-a8c-gray-5
@@ -74,7 +74,7 @@ text-white
 [&.components-button.outlined]:focus:shadow-[inset_0_0_0_1px_white]
 [&.components-button]:focus-visible:outline-none
 [&.components-button.outlined]:focus-visible:shadow-[inset_0_0_0_1px_#3858E9]
-[&.components-button]:focus-visible:shadow-a8c-blueberry
+[&.components-button]:focus-visible:shadow-a8c-blue-50
 `.replace( /\n/g, ' ' );
 
 const destructiveStyles = `

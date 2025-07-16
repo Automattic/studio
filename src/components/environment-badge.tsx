@@ -17,7 +17,7 @@ interface EnvironmentBadgeProps {
 export function EnvironmentBadge( { type, selected, className }: EnvironmentBadgeProps ) {
 	const getClassName = () => {
 		if ( selected ) {
-			return 'bg-white text-a8c-blueberry text-a8c-blueberry';
+			return 'bg-white text-a8c-blue-50 text-a8c-blue-50';
 		}
 
 		if ( type === 'production' ) {

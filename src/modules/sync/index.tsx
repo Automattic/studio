@@ -37,7 +37,7 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 						__( 'Sync database and file changes.' ),
 					].map( ( text ) => (
 						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
-							<Icon className="fill-a8c-blueberry me-2 shrink-0" icon={ check } />
+							<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />
 							{ text }
 						</div>
 					) ) }
@@ -89,7 +89,7 @@ function NoAuthSyncTab() {
 						<Button
 							aria-description={ isOffline ? offlineMessage : '' }
 							aria-disabled={ isOffline }
-							className="!p-0 text-a8c-blueberry hover:opacity-80 h-auto inline-flex items-center"
+							className="!p-0 text-a8c-blue-50 hover:opacity-80 h-auto inline-flex items-center"
 							onClick={ () => {
 								if ( isOffline ) {
 									return;

@@ -215,11 +215,11 @@ function SiteItem( {
 		<div
 			className={ cx(
 				'flex py-3 px-8 items-center border-b justify-between gap-4',
-				isSelected && 'bg-a8c-blueberry text-white border-a8c-blueberry',
+				isSelected && 'bg-a8c-blue-50 text-white border-a8c-blue-50',
 				! isSelected && 'border-a8c-gray-0',
-				! isSelected && isSyncable && 'hover:bg-a8c-blueberry-5',
+				! isSelected && isSyncable && 'hover:bg-a8c-blue-5',
 				isSyncable &&
-					'focus:outline-none focus:ring-1 focus:ring-a8c-blueberry focus:relative focus:z-10'
+					'focus:outline-none focus:ring-1 focus:ring-a8c-blue-50 focus:relative focus:z-10'
 			) }
 			role={ isSyncable ? 'button' : undefined }
 			tabIndex={ isSyncable ? 0 : -1 }

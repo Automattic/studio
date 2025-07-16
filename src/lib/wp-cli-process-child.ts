@@ -1,5 +1,5 @@
-import { executeWPCli } from 'src/lib/wordpress-provider';
 import { setupLogging } from 'src/logging';
+import { executeWPCli } from 'vendor/wp-now/src/execute-wp-cli';
 import type { MessageName } from 'src/lib/wp-cli-process';
 
 type Handler = ( message: string, messageId: number, data: unknown ) => void;

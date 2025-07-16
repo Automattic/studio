@@ -2,7 +2,7 @@ import {
 	getWordPressVersionUrl,
 	isWordPressDevVersion,
 	isWordPressBetaVersion,
-} from '../wordpress-version-utils-main';
+} from '../wordpress-version-utils';
 
 describe( 'isWordPressDevVersion', () => {
 	test( 'should identify WordPress development versions', () => {

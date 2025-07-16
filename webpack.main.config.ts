@@ -21,7 +21,7 @@ const wasmDirs = getWasmDirs( phpWasmDir );
 const extraEntries = [
 	{
 		name: 'siteServerProcess',
-		path: './src/lib/wordpress-provider/server-process-child.ts',
+		path: './src/lib/wordpress-provider/wp-now/site-server-process-child.ts',
 		exportName: 'SITE_SERVER_PROCESS_MODULE_PATH',
 	},
 	{

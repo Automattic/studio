@@ -1,6 +1,7 @@
 import { net } from 'electron';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from 'src/lib/fs-utils';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
+import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
 import { verifyWordPressChecksums, purgeWpConfig } from 'src/lib/wp-versions';
 import { copyBundledLatestWPVersion } from 'src/setup-wp-server-files';
 import { getWpNowConfig } from 'vendor/wp-now/src';
@@ -11,14 +12,13 @@ import {
 	downloadSQLiteCommand,
 } from 'vendor/wp-now/src/download';
 import { executeWPCli } from 'vendor/wp-now/src/execute-wp-cli';
-import { isValidWordPressVersion } from 'vendor/wp-now/src/wp-playground-wordpress/is-valid-wordpress-version';
 import {
 	DEFAULT_PHP_VERSION,
 	DEFAULT_WORDPRESS_VERSION,
 	ALLOWED_PHP_VERSIONS,
 	SQLITE_FILENAME,
 	SQLITE_FILENAME_LEGACY,
-} from './constants';
+} from '../constants';
 import {
 	getWordPressVersionPath,
 	getSqlitePath,

@@ -1,9 +1,3 @@
-/**
- * Constants module for renderer process
- * This module only exports constants and types, no provider implementation
- * Safe to import in renderer process
- */
-
 export {
 	DEFAULT_PHP_VERSION,
 	DEFAULT_WORDPRESS_VERSION,

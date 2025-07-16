@@ -2,10 +2,7 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
-import {
-	isWordPressDevVersion,
-	isWordPressBetaVersion,
-} from 'src/lib/wordpress-version-utils-renderer';
+import { isWordPressDevVersion, isWordPressBetaVersion } from 'src/lib/wordpress-version-utils';
 import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
 
 const MINIMUM_WORDPRESS_VERSION = '5.9.9';

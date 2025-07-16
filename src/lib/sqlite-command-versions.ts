@@ -3,8 +3,8 @@ import path from 'path';
 import fs from 'fs-extra';
 import semver, { SemVer } from 'semver';
 import { getLatestSQLiteCommandRelease } from 'src/lib/sqlite-command-release';
-import { downloadSQLiteCommand } from 'src/lib/wordpress-provider';
 import { getServerFilesPath } from 'src/storage/paths';
+import { downloadSQLiteCommand } from 'vendor/wp-now/src/download';
 
 interface DistributionCheckResult {
 	needsDownload: boolean;
@@ -20,13 +20,8 @@ const VERSION_FILENAME = 'version';
  * The path for wp-cli phar file within the WP Now folder.
  */
 export function getSqliteCommandPath() {
-	if ( process.env.NODE_ENV !== 'test' ) {
-		return path.join( getServerFilesPath(), 'sqlite-command' );
-	}
-
-	const tmpPath = path.join( os.tmpdir(), `wp-now-tests-wp-sqlite-command-hidden-folder` );
-	fs.ensureDirSync( tmpPath );
-	return tmpPath;
+	// Use getServerFilesPath for the main process
+	return path.join( getServerFilesPath(), 'sqlite-command' );
 }
 
 export async function updateLatestSQLiteCommandVersion() {

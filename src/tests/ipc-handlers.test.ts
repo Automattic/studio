@@ -21,7 +21,13 @@ jest.mock( 'fs-extra' );
 jest.mock( 'src/lib/fs-utils' );
 jest.mock( 'src/site-server' );
 jest.mock( 'src/lib/sqlite-versions' );
-jest.mock( 'vendor/wp-now/src/download' );
+jest.mock( 'src/lib/wordpress-provider', () => ( {
+	DEFAULT_PHP_VERSION: '8.3',
+	DEFAULT_WORDPRESS_VERSION: 'latest',
+	downloadWordPress: jest.fn(),
+	downloadWpCli: jest.fn(),
+	downloadSQLiteCommand: jest.fn(),
+} ) );
 jest.mock( 'src/main-window' );
 jest.mock( '@sentry/electron/main' );
 jest.mock( 'src/lib/import-export/import/import-manager' );

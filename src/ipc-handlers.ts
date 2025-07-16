@@ -33,6 +33,7 @@ import {
 	trustRootCA,
 } from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
+import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { isEmptyDir, pathExists, sanitizeFolderName } from 'src/lib/fs-utils';
 import { getImageData } from 'src/lib/get-image-data';
 import { getSiteUrl } from 'src/lib/get-site-url';
@@ -882,6 +883,7 @@ export function getAppGlobals(): AppGlobals {
 		appName: app.name,
 		appVersion: app.getVersion(),
 		arm64Translation: app.runningUnderARM64Translation,
+		...buildFeatureFlags(),
 	};
 }
 

@@ -84,7 +84,12 @@ type IpcApi = {
 	getPathForFile: ( file: File ) => string;
 };
 
-interface AppGlobals {
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface FeatureFlags {
+	enableBlueprints: boolean;
+}
+
+interface AppGlobals extends FeatureFlags {
 	platform: NodeJS.Platform;
 	appName: string;
 	appVersion: string;

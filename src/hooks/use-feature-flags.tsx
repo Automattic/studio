@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/react';
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
-import { FEATURE_FLAGS, FeatureFlags } from 'src/lib/feature-flags';
+import { FEATURE_FLAGS } from 'src/lib/feature-flags';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export type FeatureFlagsContextType = FeatureFlags;

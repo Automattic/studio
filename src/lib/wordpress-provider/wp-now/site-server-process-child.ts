@@ -1,8 +1,7 @@
 import { PHPRunOptions } from '@php-wasm/universal';
-import { createChildProcessProvider } from 'src/lib/wordpress-provider/child-process-factory';
 import { setupLogging } from 'src/logging';
 import type { MessageName } from './site-server-process';
-import type { SiteServerInstance } from 'src/lib/wordpress-provider/child-process-types';
+import type { WPNowServer } from 'vendor/wp-now/src';
 
 type Handler = ( message: string, messageId: number, data: unknown ) => void;
 type Handlers = { [ K in MessageName ]: Handler };
@@ -16,11 +15,8 @@ if ( process.env.STUDIO_APP_LOGS_PATH ) {
 	} );
 }
 
-// Create provider instance
-const provider = createChildProcessProvider();
-
 const options = JSON.parse( process.argv[ 2 ] );
-let server: SiteServerInstance;
+let server: WPNowServer;
 
 const handlers: Handlers = {
 	'start-server': createHandler( start ),
@@ -29,12 +25,22 @@ const handlers: Handlers = {
 };
 
 async function start() {
-	server = await provider.startServer( options );
-	return {
-		php: {
-			documentRoot: server.php.documentRoot,
-		},
-	};
+	// Lazy load the provider based on environment variable
+	const providerType = process.env.WORDPRESS_PROVIDER_TYPE || 'wp-now';
+
+	switch ( providerType ) {
+		case 'wp-now': {
+			const { startServer } = await import( 'vendor/wp-now/src' );
+			server = await startServer( options );
+			return {
+				php: {
+					documentRoot: server.php.documentRoot,
+				},
+			};
+		}
+		default:
+			throw new Error( `Unknown WordPress provider type: ${ providerType }` );
+	}
 }
 
 async function stop() {

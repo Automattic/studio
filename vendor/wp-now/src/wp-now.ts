@@ -380,7 +380,9 @@ async function initWordPress( php: PHP, wordPressVersion: string, vfsDocumentRoo
 		initializeDefaultDatabase = true;
 	}
 
-	const wpConfigConsts = {};
+	const wpConfigConsts = {
+		WP_SQLITE_AST_DRIVER: true,
+	};
 
 	if ( wordPressVersion !== 'user-provided' ) {
 		wpConfigConsts[ 'WP_AUTO_UPDATE_CORE' ] = wordPressVersion === 'latest';

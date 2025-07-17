@@ -18,7 +18,7 @@ export async function exportDatabaseToFile(
 
 	// Execute the command to export directly to the temp file
 	const { stderr, exitCode } = await server.executeWpCliCommand(
-		`sqlite export ${ tempFileName } --require=/tmp/sqlite-command/command.php`,
+		`sqlite export ${ tempFileName } --require=/tmp/sqlite-command/command.php --enable-ast-driver`,
 		{
 			skipPluginsAndThemes: true,
 		}
@@ -50,7 +50,7 @@ export async function exportDatabaseToMultipleFiles(
 	}
 
 	const tablesResult = await server.executeWpCliCommand(
-		`sqlite tables --format=json --require=/tmp/sqlite-command/command.php`,
+		`sqlite tables --format=json --require=/tmp/sqlite-command/command.php --enable-ast-driver`,
 		{
 			skipPluginsAndThemes: true,
 		}
@@ -85,7 +85,7 @@ export async function exportDatabaseToMultipleFiles(
 
 		// Execute the command to export directly to a temporary file in the project directory
 		const { stderr, exitCode } = await server.executeWpCliCommand(
-			`sqlite export ${ fileName } --tables=${ table } --require=/tmp/sqlite-command/command.php`,
+			`sqlite export ${ fileName } --tables=${ table } --require=/tmp/sqlite-command/command.php --enable-ast-driver`,
 			{
 				skipPluginsAndThemes: true,
 			}

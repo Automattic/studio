@@ -22,6 +22,16 @@ const baseSite = {
 	},
 };
 
+jest.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: () => ( {
+		getProviderConstants: jest.fn().mockResolvedValue( {
+			defaultPhpVersion: '8.2',
+			defaultWordPressVersion: 'latest',
+			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+		} ),
+	} ),
+} ) );
+
 describe( 'getSyncSupport', () => {
 	it( 'returns "deleted" if site is deleted', () => {
 		const site = { ...baseSite, is_deleted: true };

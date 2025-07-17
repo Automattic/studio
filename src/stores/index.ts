@@ -102,12 +102,6 @@ export const store = configureStore( {
 // Enable the refetchOnFocus behavior
 setupListeners( store.dispatch );
 
-// Initialize provider constants on app start
-void getIpcApi()
-	.getProviderConstants()
-	.then( ( constants ) => {
-		store.dispatch( setProviderConstants( constants ) );
-	} );
 
 // Listen for provider constants changes
 window.addEventListener( 'providerConstantsChanged', ( event: Event ) => {

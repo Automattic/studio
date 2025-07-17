@@ -20,7 +20,20 @@ import { useGetAssistantQuota, useGetWelcomeMessages } from 'src/stores/wpcom-ap
 
 jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/hooks/use-offline' );
-jest.mock( 'src/lib/get-ipc-api' );
+jest.mock( 'src/lib/get-ipc-api', () => {
+	const actual = jest.requireActual( 'src/lib/get-ipc-api' );
+	return {
+		__esModule: true,
+		...actual,
+		getIpcApi: jest.fn().mockReturnValue( {
+			getProviderConstants: jest.fn().mockResolvedValue( {
+				defaultPhpVersion: '8.2',
+				defaultWordPressVersion: 'latest',
+				allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+			} ),
+		} ),
+	};
+} );
 jest.mock( 'src/hooks/use-get-wp-version' );
 
 jest.mock( 'src/lib/app-globals', () => ( {

@@ -26,15 +26,19 @@ jest.mock( 'src/stores/wordpress-versions-api', () => ( {
 	} ) ),
 } ) );
 
-const mockOpenURL = jest.fn();
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
 	default: jest.fn(),
 	getIpcApi: () => ( {
 		showOpenFolderDialog: jest.fn(),
 		generateProposedSitePath: jest.fn(),
-		openURL: mockOpenURL,
+		openURL: jest.fn(),
 		getAllCustomDomains: jest.fn().mockResolvedValue( [] ),
+		getProviderConstants: jest.fn().mockResolvedValue( {
+			defaultPhpVersion: '8.2',
+			defaultWordPressVersion: 'latest',
+			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+		} ),
 	} ),
 } ) );
 

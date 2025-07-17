@@ -1,12 +1,15 @@
 // Run tests: yarn test -- src/hooks/tests/use-add-site.test.tsx
 import { renderHook, act } from '@testing-library/react';
 import nock from 'nock';
+import React from 'react';
+import { Provider } from 'react-redux';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import {
 	DEFAULT_PHP_VERSION,
 	DEFAULT_WORDPRESS_VERSION,
 } from 'src/lib/wordpress-provider/constants';
+import { store } from 'src/stores';
 
 jest.mock( 'src/hooks/use-site-details' );
 jest.mock( 'src/hooks/use-feature-flags' );
@@ -29,6 +32,14 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		getAllCustomDomains: jest.fn().mockResolvedValue( [] ),
 	} ),
 } ) );
+
+const renderHookWithProvider = ( hook: () => any ) => {
+	return renderHook( hook, {
+		wrapper: ( { children }: { children: React.ReactNode } ) => (
+			<Provider store={ store }>{ children }</Provider>
+		),
+	} );
+};
 
 describe( 'useAddSite', () => {
 	const mockCreateSite = jest.fn();
@@ -75,19 +86,19 @@ describe( 'useAddSite', () => {
 	} );
 
 	it( 'should initialize with default WordPress version', () => {
-		const { result } = renderHook( () => useAddSite() );
+		const { result } = renderHookWithProvider( () => useAddSite() );
 
 		expect( result.current.wpVersion ).toBe( DEFAULT_WORDPRESS_VERSION );
 	} );
 
 	it( 'should initialize with default PHP version', () => {
-		const { result } = renderHook( () => useAddSite() );
+		const { result } = renderHookWithProvider( () => useAddSite() );
 
 		expect( result.current.phpVersion ).toBe( DEFAULT_PHP_VERSION );
 	} );
 
 	it( 'should update WordPress version when setWpVersion is called', () => {
-		const { result } = renderHook( () => useAddSite() );
+		const { result } = renderHookWithProvider( () => useAddSite() );
 
 		act( () => {
 			result.current.setWpVersion( '6.1.7' );
@@ -97,7 +108,7 @@ describe( 'useAddSite', () => {
 	} );
 
 	it( 'should update PHP version when setPhpVersion is called', () => {
-		const { result } = renderHook( () => useAddSite() );
+		const { result } = renderHookWithProvider( () => useAddSite() );
 
 		act( () => {
 			result.current.setPhpVersion( '8.2' );
@@ -118,7 +129,7 @@ describe( 'useAddSite', () => {
 			return Promise.resolve();
 		} );
 
-		const { result } = renderHook( () => useAddSite() );
+		const { result } = renderHookWithProvider( () => useAddSite() );
 
 		act( () => {
 			result.current.setWpVersion( '6.1.7' );
@@ -159,7 +170,7 @@ describe( 'useAddSite', () => {
 			}
 		);
 
-		const { result } = renderHook( () => useAddSite() );
+		const { result } = renderHookWithProvider( () => useAddSite() );
 
 		act( () => {
 			result.current.setWpVersion( wpVersion );

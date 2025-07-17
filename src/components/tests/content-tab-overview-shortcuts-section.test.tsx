@@ -24,7 +24,20 @@ const selectedSite: StartedSiteDetails = {
 };
 
 const mockGetIpcApi = getIpcApi as jest.Mock;
-jest.mock( 'src/lib/get-ipc-api' );
+jest.mock( 'src/lib/get-ipc-api', () => {
+	const actual = jest.requireActual( 'src/lib/get-ipc-api' );
+	return {
+		__esModule: true,
+		...actual,
+		getIpcApi: jest.fn().mockReturnValue( {
+			getProviderConstants: jest.fn().mockResolvedValue( {
+				defaultPhpVersion: '8.2',
+				defaultWordPressVersion: 'latest',
+				allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+			} ),
+		} ),
+	};
+} );
 jest.mock( 'src/hooks/use-theme-details' );
 
 // Replace the store's reducer with our test reducer

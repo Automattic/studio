@@ -16,6 +16,11 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: jest.fn().mockReturnValue( {
 		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
 		getUserEditor: jest.fn().mockResolvedValue( 'vscode' ),
+		getProviderConstants: jest.fn().mockResolvedValue( {
+			defaultPhpVersion: '8.2',
+			defaultWordPressVersion: 'latest',
+			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+		} ),
 	} ),
 } ) );
 

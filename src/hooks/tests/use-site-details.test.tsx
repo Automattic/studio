@@ -5,6 +5,7 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { Provider } from 'react-redux';
+import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { SiteDetailsProvider, useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
@@ -46,7 +47,9 @@ const mockSites = [
 
 const wrapper = ( { children }: { children: ReactNode } ) => (
 	<Provider store={ store }>
-		<SiteDetailsProvider>{ children }</SiteDetailsProvider>
+		<ContentTabsProvider>
+			<SiteDetailsProvider>{ children }</SiteDetailsProvider>
+		</ContentTabsProvider>
 	</Provider>
 );
 

@@ -26,21 +26,21 @@ const Root = () => {
 			<ReduxProvider store={ store }>
 				<I18nProvider i18n={ defaultI18n }>
 					<AuthProvider>
-						<SiteDetailsProvider>
-							<FeatureFlagsProvider>
-								<ThemeDetailsProvider>
-									<OnboardingProvider>
-										<ImportExportProvider>
-											<ContentTabsProvider>
+						<ContentTabsProvider>
+							<SiteDetailsProvider>
+								<FeatureFlagsProvider>
+									<ThemeDetailsProvider>
+										<OnboardingProvider>
+											<ImportExportProvider>
 												<SyncSitesProvider>
 													<App />
 												</SyncSitesProvider>
-											</ContentTabsProvider>
-										</ImportExportProvider>
-									</OnboardingProvider>
-								</ThemeDetailsProvider>
-							</FeatureFlagsProvider>
-						</SiteDetailsProvider>
+											</ImportExportProvider>
+										</OnboardingProvider>
+									</ThemeDetailsProvider>
+								</FeatureFlagsProvider>
+							</SiteDetailsProvider>
+						</ContentTabsProvider>
 					</AuthProvider>
 				</I18nProvider>
 			</ReduxProvider>

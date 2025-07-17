@@ -14,6 +14,9 @@ import { reducer as chatReducer } from 'src/stores/chat-slice';
 import i18nReducer from 'src/stores/i18n-slice';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
 import { reducer as newSitesReducer } from 'src/stores/new-sites-slice';
+import providerConstantsReducer, {
+	setProviderConstants,
+} from 'src/stores/provider-constants-slice';
 import { reducer as snapshotReducer, updateSnapshotLocally } from 'src/stores/snapshot-slice';
 import { wpcomApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
@@ -24,6 +27,7 @@ export type RootState = {
 	chat: ReturnType< typeof chatReducer >;
 	newSites: ReturnType< typeof newSitesReducer >;
 	installedAppsApi: ReturnType< typeof installedAppsApi.reducer >;
+	providerConstants: ReturnType< typeof providerConstantsReducer >;
 	snapshot: ReturnType< typeof snapshotReducer >;
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
@@ -75,6 +79,7 @@ export const rootReducer = combineReducers( {
 	chat: chatReducer,
 	newSites: newSitesReducer,
 	installedAppsApi: installedAppsApi.reducer,
+	providerConstants: providerConstantsReducer,
 	snapshot: snapshotReducer,
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,
@@ -96,6 +101,19 @@ export const store = configureStore( {
 
 // Enable the refetchOnFocus behavior
 setupListeners( store.dispatch );
+
+// Initialize provider constants on app start
+void getIpcApi()
+	.getProviderConstants()
+	.then( ( constants ) => {
+		store.dispatch( setProviderConstants( constants ) );
+	} );
+
+// Listen for provider constants changes
+window.addEventListener( 'providerConstantsChanged', ( event: Event ) => {
+	const customEvent = event as CustomEvent;
+	store.dispatch( setProviderConstants( customEvent.detail ) );
+} );
 
 export type AppDispatch = typeof store.dispatch;
 

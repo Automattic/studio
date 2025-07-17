@@ -6,8 +6,8 @@ import { pathExists, recursiveCopyDirectory } from 'src/lib/fs-utils';
 import {
 	downloadWordPress,
 	getWordPressVersionPath,
-	DEFAULT_WORDPRESS_VERSION,
 	executeWPCli,
+	DEFAULT_WORDPRESS_VERSION,
 } from 'src/lib/wordpress-provider';
 
 export const MINIMUM_SUPPORTED_WP_VERSION = 6;
@@ -36,13 +36,13 @@ async function fetchWordPressVersions() {
 		);
 		return { versions, latest: latestVersion };
 	} catch ( exception ) {
-		return { versions: [], latest: DEFAULT_WORDPRESS_VERSION };
+		return { versions: [], latest: DEFAULT_WORDPRESS_VERSION() };
 	}
 }
 
 async function getLatestWordPressVersion() {
 	const wordPressVersions = await fetchWordPressVersions();
-	return wordPressVersions.latest ?? DEFAULT_WORDPRESS_VERSION;
+	return wordPressVersions.latest ?? DEFAULT_WORDPRESS_VERSION();
 }
 
 export async function getWordPressVersionFromInstallation( installationPath: string ) {

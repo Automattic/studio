@@ -19,7 +19,7 @@ async function moveDatabasesInSitu( projectPath: string ) {
 		fs.rmdirSync( databasePath );
 		fs.moveSync( path.join( wpContentPath, 'database' ), databasePath );
 
-		const sqlitePath = path.join( projectPath, 'wp-content', 'plugins', SQLITE_FILENAME );
+		const sqlitePath = path.join( projectPath, 'wp-content', 'plugins', SQLITE_FILENAME() );
 		fs.rmdirSync( sqlitePath );
 		fs.copySync( path.join( getSqlitePath() ), sqlitePath );
 

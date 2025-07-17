@@ -61,7 +61,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 				const { stderr, exitCode } = await server.executeWpCliCommand(
 					`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php --enable-ast-driver`,
 					// SQLite plugin requires PHP 8+
-					{ targetPhpVersion: DEFAULT_PHP_VERSION, skipPluginsAndThemes: true }
+					{ targetPhpVersion: DEFAULT_PHP_VERSION(), skipPluginsAndThemes: true }
 				);
 
 				if ( stderr ) {
@@ -232,16 +232,18 @@ abstract class BaseBackupImporter extends BaseImporter {
 
 	protected parsePhpVersion( version: string | undefined ): string {
 		if ( ! version ) {
-			return DEFAULT_PHP_VERSION;
+			return DEFAULT_PHP_VERSION();
 		}
 		const phpVersion = semver.coerce( version );
 		if ( ! phpVersion ) {
-			return DEFAULT_PHP_VERSION;
+			return DEFAULT_PHP_VERSION();
 		}
 
 		const parsedVersion = `${ phpVersion.major }.${ phpVersion.minor }`;
 
-		return SupportedPHPVersionsList.includes( parsedVersion ) ? parsedVersion : DEFAULT_PHP_VERSION;
+		return SupportedPHPVersionsList.includes( parsedVersion )
+			? parsedVersion
+			: DEFAULT_PHP_VERSION();
 	}
 }
 

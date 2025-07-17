@@ -56,7 +56,11 @@ import { sortSites } from 'src/lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
-import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'src/lib/wordpress-provider';
+import {
+	DEFAULT_PHP_VERSION,
+	DEFAULT_WORDPRESS_VERSION,
+	ALLOWED_PHP_VERSIONS,
+} from 'src/lib/wordpress-provider';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
@@ -210,8 +214,8 @@ export async function createSite(
 		adminPassword: createPassword(),
 		port,
 		running: false,
-		phpVersion: DEFAULT_PHP_VERSION,
-		isWpAutoUpdating: wpVersion === DEFAULT_WORDPRESS_VERSION,
+		phpVersion: DEFAULT_PHP_VERSION(),
+		isWpAutoUpdating: wpVersion === DEFAULT_WORDPRESS_VERSION(),
 		customDomain,
 		enableHttps,
 	} as const;
@@ -1425,4 +1429,27 @@ export async function listWpContentFolders(
 	} catch ( err ) {
 		return [];
 	}
+}
+
+export async function getProviderConstants( _event: IpcMainInvokeEvent ): Promise< {
+	defaultPhpVersion: string;
+	defaultWordPressVersion: string;
+	allowedPhpVersions: string[];
+} > {
+	return {
+		defaultPhpVersion: DEFAULT_PHP_VERSION(),
+		defaultWordPressVersion: DEFAULT_WORDPRESS_VERSION(),
+		allowedPhpVersions: ALLOWED_PHP_VERSIONS(),
+	};
+}
+
+export function notifyProviderConstantsChanged( _event: IpcMainInvokeEvent ): void {
+	// Send updated constants to all renderer processes
+	const constants = {
+		defaultPhpVersion: DEFAULT_PHP_VERSION(),
+		defaultWordPressVersion: DEFAULT_WORDPRESS_VERSION(),
+		allowedPhpVersions: ALLOWED_PHP_VERSIONS(),
+	};
+
+	void sendIpcEventToRenderer( 'providerConstantsChanged', constants );
 }

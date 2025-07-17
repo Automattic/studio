@@ -23,30 +23,61 @@ export function setWordPressProvider( newProvider: WordPressProvider, type?: str
 	if ( type ) {
 		providerType = type;
 	}
+
+	// Notify renderer processes about provider constants changes
+	try {
+		const { sendIpcEventToRenderer } = require( 'src/ipc-utils' );
+		const constants = {
+			defaultPhpVersion: DEFAULT_PHP_VERSION(),
+			defaultWordPressVersion: DEFAULT_WORDPRESS_VERSION(),
+			allowedPhpVersions: ALLOWED_PHP_VERSIONS(),
+		};
+		sendIpcEventToRenderer( 'providerConstantsChanged', constants );
+	} catch ( error ) {
+		// Ignore errors in case this is called from renderer process
+	}
 }
 
-const activeProvider = getWordPressProvider();
+// Constants as functions to allow runtime provider switching
+export const DEFAULT_PHP_VERSION = () => getWordPressProvider().DEFAULT_PHP_VERSION;
+export const DEFAULT_WORDPRESS_VERSION = () => getWordPressProvider().DEFAULT_WORDPRESS_VERSION;
+export const ALLOWED_PHP_VERSIONS = () => getWordPressProvider().ALLOWED_PHP_VERSIONS;
+export const SQLITE_FILENAME = () => getWordPressProvider().SQLITE_FILENAME;
+export const SQLITE_FILENAME_LEGACY = () => getWordPressProvider().SQLITE_FILENAME_LEGACY;
 
-export const DEFAULT_PHP_VERSION = activeProvider.DEFAULT_PHP_VERSION;
-export const DEFAULT_WORDPRESS_VERSION = activeProvider.DEFAULT_WORDPRESS_VERSION;
-export const ALLOWED_PHP_VERSIONS = activeProvider.ALLOWED_PHP_VERSIONS;
-export const SQLITE_FILENAME = activeProvider.SQLITE_FILENAME;
-export const SQLITE_FILENAME_LEGACY = activeProvider.SQLITE_FILENAME_LEGACY;
+// Methods as proxy functions
+export const getWordPressVersionPath = (
+	...args: Parameters< WordPressProvider[ 'getWordPressVersionPath' ] >
+) => getWordPressProvider().getWordPressVersionPath( ...args );
+export const getSqlitePath = ( ...args: Parameters< WordPressProvider[ 'getSqlitePath' ] > ) =>
+	getWordPressProvider().getSqlitePath( ...args );
+export const getWpCliPath = ( ...args: Parameters< WordPressProvider[ 'getWpCliPath' ] > ) =>
+	getWordPressProvider().getWpCliPath( ...args );
+export const getWpCliFolderPath = (
+	...args: Parameters< WordPressProvider[ 'getWpCliFolderPath' ] >
+) => getWordPressProvider().getWpCliFolderPath( ...args );
 
-export const getWordPressVersionPath =
-	activeProvider.getWordPressVersionPath.bind( activeProvider );
-export const getSqlitePath = activeProvider.getSqlitePath.bind( activeProvider );
-export const getWpCliPath = activeProvider.getWpCliPath.bind( activeProvider );
-export const getWpCliFolderPath = activeProvider.getWpCliFolderPath.bind( activeProvider );
+export const downloadWordPress = (
+	...args: Parameters< WordPressProvider[ 'downloadWordPress' ] >
+) => getWordPressProvider().downloadWordPress( ...args );
+export const downloadWpCli = ( ...args: Parameters< WordPressProvider[ 'downloadWpCli' ] > ) =>
+	getWordPressProvider().downloadWpCli( ...args );
+export const downloadSQLiteCommand = (
+	...args: Parameters< WordPressProvider[ 'downloadSQLiteCommand' ] >
+) => getWordPressProvider().downloadSQLiteCommand( ...args );
 
-export const downloadWordPress = activeProvider.downloadWordPress.bind( activeProvider );
-export const downloadWpCli = activeProvider.downloadWpCli.bind( activeProvider );
-export const downloadSQLiteCommand = activeProvider.downloadSQLiteCommand.bind( activeProvider );
-
-export const setupWordPressSite = activeProvider.setupWordPressSite.bind( activeProvider );
-export const startServer = activeProvider.startServer.bind( activeProvider );
-export const executeWPCli = activeProvider.executeWPCli.bind( activeProvider );
-export const isValidWordPressVersion =
-	activeProvider.isValidWordPressVersion.bind( activeProvider );
-export const createServerProcess = activeProvider.createServerProcess.bind( activeProvider );
-export const getConfig = activeProvider.getConfig.bind( activeProvider );
+export const setupWordPressSite = (
+	...args: Parameters< WordPressProvider[ 'setupWordPressSite' ] >
+) => getWordPressProvider().setupWordPressSite( ...args );
+export const startServer = ( ...args: Parameters< WordPressProvider[ 'startServer' ] > ) =>
+	getWordPressProvider().startServer( ...args );
+export const executeWPCli = ( ...args: Parameters< WordPressProvider[ 'executeWPCli' ] > ) =>
+	getWordPressProvider().executeWPCli( ...args );
+export const isValidWordPressVersion = (
+	...args: Parameters< WordPressProvider[ 'isValidWordPressVersion' ] >
+) => getWordPressProvider().isValidWordPressVersion( ...args );
+export const createServerProcess = (
+	...args: Parameters< WordPressProvider[ 'createServerProcess' ] >
+) => getWordPressProvider().createServerProcess( ...args );
+export const getConfig = ( ...args: Parameters< WordPressProvider[ 'getConfig' ] > ) =>
+	getWordPressProvider().getConfig( ...args );

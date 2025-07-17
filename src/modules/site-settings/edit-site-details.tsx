@@ -11,14 +11,15 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import {
-	DEFAULT_PHP_VERSION,
-	ALLOWED_PHP_VERSIONS,
-	DEFAULT_WORDPRESS_VERSION,
-	AllowedPHPVersion,
-} from 'src/lib/wordpress-provider/constants';
+import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
 import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
+import { useRootSelector } from 'src/stores';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
+import {
+	selectDefaultWordPressVersion,
+	selectAllowedPhpVersions,
+	selectDefaultPhpVersion,
+} from 'src/stores/provider-constants-slice';
 
 type EditSiteDetailsProps = {
 	currentWpVersion: string;
@@ -28,6 +29,9 @@ type EditSiteDetailsProps = {
 export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteDetailsProps ) {
 	const { __ } = useI18n();
 	const { updateSite, selectedSite, stopServer, startServer } = useSiteDetails();
+	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
+	const allowedPhpVersions = useRootSelector( selectAllowedPhpVersions );
+	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
 	const [ errorUpdatingWpVersion, setErrorUpdatingWpVersion ] = useState< string | null >( null );
 	const [ showModal, setShowModal ] = useState( false );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
@@ -42,15 +46,15 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 	}, [ isEditingSite ] );
 	const [ siteName, setSiteName ] = useState( selectedSite?.name ?? '' );
 	const [ selectedPhpVersion, setSelectedPhpVersion ] = useState< AllowedPHPVersion >(
-		( selectedSite?.phpVersion as AllowedPHPVersion ) ?? DEFAULT_PHP_VERSION
+		( selectedSite?.phpVersion as AllowedPHPVersion ) ?? defaultPhpVersion
 	);
 	const getEffectiveWpVersion = useCallback(
 		() =>
 			// undefined means that this site was created before the isWpAutoUpdating option was introduced to Studio
 			[ undefined, true ].includes( selectedSite?.isWpAutoUpdating )
-				? DEFAULT_WORDPRESS_VERSION
+				? defaultWordPressVersion
 				: currentWpVersion,
-		[ selectedSite, currentWpVersion ]
+		[ selectedSite, currentWpVersion, defaultWordPressVersion ]
 	);
 	const [ selectedWpVersion, setSelectedWpVersion ] = useState( getEffectiveWpVersion() );
 	const [ useCustomDomain, setUseCustomDomain ] = useState( Boolean( selectedSite?.customDomain ) );
@@ -154,7 +158,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 				...selectedSite,
 				name: siteName,
 				phpVersion: selectedPhpVersion,
-				isWpAutoUpdating: selectedWpVersion === DEFAULT_WORDPRESS_VERSION,
+				isWpAutoUpdating: selectedWpVersion === defaultWordPressVersion,
 				customDomain: usedCustomDomain,
 				enableHttps: !! usedCustomDomain && enableHttps,
 			} );
@@ -224,7 +228,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 										id="php-version-select"
 										disabled={ isEditingSite }
 										value={ selectedPhpVersion }
-										options={ ALLOWED_PHP_VERSIONS.map( ( version ) => ( {
+										options={ allowedPhpVersions.map( ( version ) => ( {
 											label: version,
 											value: version,
 										} ) ) }

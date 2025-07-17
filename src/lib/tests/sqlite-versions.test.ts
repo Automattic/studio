@@ -7,7 +7,8 @@ const SQLITE_FILENAME = 'sqlite-database-integration';
 
 jest.mock( 'fs-extra' );
 jest.mock( 'src/lib/wordpress-provider', () => ( {
-	SQLITE_FILENAME: 'sqlite-database-integration',
+	SQLITE_FILENAME: () => 'sqlite-database-integration',
+	SQLITE_FILENAME_LEGACY: () => 'sqlite-database-integration-main',
 } ) );
 jest.mock( 'vendor/wp-now/src/get-sqlite-path', () => {
 	return jest.fn().mockReturnValue( 'server-files/sqlite-database-integration' );

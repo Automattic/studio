@@ -4,7 +4,9 @@ import WPCOM from 'wpcom';
 import { z } from 'zod';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { DEFAULT_PHP_VERSION } from 'src/lib/wordpress-provider/constants';
+// Provider constants are retrieved via IPC when needed
+// Default PHP version for initial state
+const DEFAULT_PHP_VERSION = '8.3';
 import { AppDispatch, RootState } from 'src/stores';
 import { assistantQuotaSchema, wpcomApi } from 'src/stores/wpcom-api';
 

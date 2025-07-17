@@ -163,7 +163,7 @@ export class SiteServer {
 			...this.details,
 			url: this.server.url,
 			port: serverInstance.options.port,
-			phpVersion: serverInstance.options.phpVersion ?? DEFAULT_PHP_VERSION,
+			phpVersion: serverInstance.options.phpVersion ?? DEFAULT_PHP_VERSION(),
 			isWpAutoUpdating: this.details.isWpAutoUpdating,
 			running: true,
 			autoStart: true,
@@ -320,9 +320,9 @@ export class SiteServer {
 		const wpContentPath = nodePath.join( this.details.path, 'wp-content' );
 
 		const sqliteIntegrationPaths = {
-			muPlugin: nodePath.join( wpContentPath, 'mu-plugins', SQLITE_FILENAME ),
-			muPluginLegacy: nodePath.join( wpContentPath, 'mu-plugins', `${ SQLITE_FILENAME }-main` ),
-			regularPlugin: nodePath.join( wpContentPath, 'plugins', SQLITE_FILENAME ),
+			muPlugin: nodePath.join( wpContentPath, 'mu-plugins', SQLITE_FILENAME() ),
+			muPluginLegacy: nodePath.join( wpContentPath, 'mu-plugins', `${ SQLITE_FILENAME() }-main` ),
+			regularPlugin: nodePath.join( wpContentPath, 'plugins', SQLITE_FILENAME() ),
 		};
 
 		const requiredConfigPaths = {

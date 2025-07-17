@@ -17,6 +17,7 @@ import {
 	REDUX_DEVTOOLS,
 } from 'electron-devtools-installer';
 import { PROTOCOL_PREFIX } from 'common/constants';
+import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
 import { StatsGroup } from 'common/types/stats';
 import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
@@ -56,6 +57,8 @@ if ( ! process.env.IS_DEV_BUILD ) {
 		environment: isDevEnvironment ? 'development' : 'production',
 	} );
 }
+
+suppressPunycodeWarning();
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 // eslint-disable-next-line @typescript-eslint/no-require-imports

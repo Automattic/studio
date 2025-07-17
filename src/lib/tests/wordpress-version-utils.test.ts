@@ -95,8 +95,4 @@ describe( 'getWordPressVersionUrl', () => {
 		expect( () => getWordPressVersionUrl( '6.invalid' ) ).toThrow();
 		expect( () => getWordPressVersionUrl( '' ) ).toThrow();
 	} );
-
-	test( 'should use default version when none provided', () => {
-		expect( () => getWordPressVersionUrl() ).not.toThrow();
-	} );
 } );

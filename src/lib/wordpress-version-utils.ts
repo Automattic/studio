@@ -1,4 +1,3 @@
-import { DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 import { isValidWordPressVersion } from 'vendor/wp-now/src/wp-playground-wordpress/is-valid-wordpress-version';
 
 export function isWordPressDevVersion( version: string ): boolean {
@@ -11,7 +10,7 @@ export function isWordPressBetaVersion( version: string ): boolean {
 	return version.includes( 'beta' ) || version.includes( 'RC' );
 }
 
-export function getWordPressVersionUrl( version = DEFAULT_WORDPRESS_VERSION ) {
+export function getWordPressVersionUrl( version: string ) {
 	if ( isWordPressDevVersion( version ) ) {
 		return 'https://wordpress.org/nightly-builds/wordpress-latest.zip';
 	}

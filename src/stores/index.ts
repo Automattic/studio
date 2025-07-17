@@ -102,7 +102,6 @@ export const store = configureStore( {
 // Enable the refetchOnFocus behavior
 setupListeners( store.dispatch );
 
-
 // Listen for provider constants changes
 window.addEventListener( 'providerConstantsChanged', ( event: Event ) => {
 	const customEvent = event as CustomEvent;

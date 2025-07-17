@@ -33,7 +33,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	} ),
 } ) );
 
-const renderHookWithProvider = ( hook: () => any ) => {
+const renderHookWithProvider = ( hook: () => ReturnType< typeof useAddSite > ) => {
 	return renderHook( hook, {
 		wrapper: ( { children }: { children: React.ReactNode } ) => (
 			<Provider store={ store }>{ children }</Provider>

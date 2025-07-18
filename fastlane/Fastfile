@@ -127,18 +127,6 @@ def distribute_builds(
   bucket_folder = 'studio'
 
   builds = {
-    mac_universal: {
-      binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-universal', 'Studio.app.zip'),
-      filename_core: 'darwin-universal',
-      extension: 'app.zip',
-      name: 'Mac Universal'
-    },
-    mac_universal_dmg: {
-      binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-universal.dmg'),
-      filename_core: 'darwin-universal',
-      extension: 'dmg',
-      name: 'Mac Universal (DMG)'
-    },
     x64: {
       binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-x64', 'Studio.app.zip'),
       filename_core: 'darwin-x64',

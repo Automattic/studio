@@ -1,7 +1,12 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-@import '@wordpress/components/build-style/style.css';
+
+@layer utilities {
+	.interpolate-size-allow-keywords {
+		interpolate-size: allow-keywords;
+	}
+}
 
 body {
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -36,8 +41,7 @@ blockquote {
 /* Tabs */
 .components-tab-panel__tab-content {
 	flex: 1;
-	overflow: auto;
-	scrollbar-width: thin;
+	overflow: hidden;
 }
 
 .components-tab-panel__tabs {
@@ -55,6 +59,7 @@ blockquote {
 	display: inline-block;
 	width: 14px;
 	height: 14px;
+	top: 16px;
 }
 
 .components-tab-panel__tabs--assistant:hover:not(:active)::before {
@@ -147,8 +152,8 @@ blockquote {
 }
 
 .assistant-markdown code.file-block {
-	color: theme( 'colors.a8c-blueberry' );
-	fill: theme( 'colors.a8c-blueberry' );
+	color: theme( 'colors.a8c-blue.50' );
+	fill: theme( 'colors.a8c-blue.50' );
 	display: inline-flex;
 	align-items: center;
 	padding: 0 0 0 3px;
@@ -156,8 +161,8 @@ blockquote {
 }
 
 .assistant-markdown code.file-block:hover {
-	color: theme( 'colors.a8c-blueberry-70' );
-	fill: theme( 'colors.a8c-blueberry-70' );
+	color: theme( 'colors.a8c-blue.70' );
+	fill: theme( 'colors.a8c-blue.70' );
 }
 
 .assistant-markdown pre {
@@ -212,14 +217,14 @@ blockquote {
 
 .assistant-markdown ol {
 	list-style-type: decimal;
-	margin: 0 0 1rem;
-	padding-left: 1.5rem;
+	margin-block-end: 1rem;
+	padding-inline-start: 1.5rem;
 }
 
 .assistant-markdown ul {
 	list-style-type: disc;
-	margin: 0 0 1rem;
-	padding-left: 1.5rem;
+	margin-block-end: 1rem;
+	padding-inline-start: 1.5rem;
 }
 
 .assistant-markdown li {
@@ -272,4 +277,32 @@ blockquote {
 
 .error-message {
 	color: #D63638;
+}
+
+.error-select-control .components-input-control__backdrop {
+	border-color: theme( 'colors.red.500' )!important;
+}
+
+.whats-new-modal .components-guide__footer {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	background: white;
+}
+
+.components-button.components-guide__back-button {
+	outline: none;
+	border: 1px solid theme( 'colors.a8c-blue.50' );
+}
+
+.sync-dialog-wrapper .components-modal__header {
+	border-bottom-color: #ddd;
+}
+
+/* Fix the font size of the select control in the smaller viewport */
+@media (max-width: 782px) {
+    .components-base-control .components-base-control__field .components-select-control__input {
+        font-size: 13px;
+    }
 }

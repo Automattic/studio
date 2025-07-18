@@ -56,7 +56,7 @@ const sharedOptions = {
 	inputDirectory: path.resolve( outPath, 'Studio-win32-x64' ),
 	packageVersion: appStoreVersion,
 	// Results in Id being invalid (might just be a matter of escaping, though)
-	// packageName: 'Studio by WordPress.com',
+	// packageName: 'WordPress Studio',
 	packageName: 'Studio',
 	packageDescription: packageJson.description,
 	packageExecutable: `app/${ packageJson.productName }.exe`,
@@ -64,7 +64,7 @@ const sharedOptions = {
 	deploy: false,
 	assets: assetsPath,
 	makePri: false, // from electron2appx docs: "you don't need to unless you know you do"
-	packageDisplayName: 'Studio by WordPress.com',
+	packageDisplayName: 'WordPress Studio',
 	publisherDisplayName: 'Automattic, Inc.',
 	identityName: '22490Automattic.StudiobyWordPress.com',
 };

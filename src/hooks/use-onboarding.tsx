@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useMemo, ReactNode } from 'react';
-import { useSiteDetails } from './use-site-details';
+import { useSiteDetails } from 'src/hooks/use-site-details';
 
 export interface OnboardingContextType {
 	needsOnboarding: boolean;

@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
-export function generateSiteName( usedSiteNames: string[] ): string {
+export async function generateSiteName( usedSites: SiteDetails[] ): Promise< string > {
 	const siteNames = [
 		__( 'My Bold Website' ),
 		__( 'My Bright Website' ),
@@ -23,15 +24,42 @@ export function generateSiteName( usedSiteNames: string[] ): string {
 		__( 'My Swift Website' ),
 		__( 'My True Website' ),
 	];
-	let proposedName = __( 'My WordPress Website' );
-	let tryCount = 0;
 
-	while ( usedSiteNames.includes( proposedName ) && tryCount < siteNames.length ) {
-		tryCount++;
-		proposedName = siteNames[ Math.floor( Math.random() * siteNames.length ) ];
+	const defaultName = __( 'My WordPress Website' );
+
+	const isPathUnique = async ( name: string ): Promise< boolean > => {
+		const { isEmpty } = await getIpcApi().generateProposedSitePath( name );
+		return isEmpty;
+	};
+
+	const isNameUnique = ( name: string ): boolean => {
+		return ! usedSites.some( ( site ) => site.name === name );
+	};
+
+	if ( isNameUnique( defaultName ) && ( await isPathUnique( defaultName ) ) ) {
+		return defaultName;
 	}
 
-	return proposedName;
+	const availableNames = [];
+	for ( const name of siteNames ) {
+		if ( isNameUnique( name ) && ( await isPathUnique( name ) ) ) {
+			availableNames.push( name );
+		}
+	}
+
+	if ( availableNames.length > 0 ) {
+		return availableNames[ Math.floor( Math.random() * availableNames.length ) ];
+	}
+
+	let siteNumber = 2;
+	let candidateName = `${ defaultName } ${ siteNumber }`;
+
+	while ( ! isNameUnique( candidateName ) || ! ( await isPathUnique( candidateName ) ) ) {
+		siteNumber++;
+		candidateName = `${ defaultName } ${ siteNumber }`;
+	}
+
+	return candidateName;
 }
 
 export const sanitizeFolderName = ( filename: string ) => {

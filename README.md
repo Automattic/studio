@@ -1,6 +1,6 @@
-![Crash Free Sessions Rate](https://img.shields.io/badge/Crash_Free_Session_Rate-97.95%25-blue)
+![Crash Free Sessions Rate](https://img.shields.io/badge/Crash_Free_Session_Rate-98.31%25-blue)
 
-# Studio by WordPress.com
+# WordPress Studio
 
 A desktop application for creating local WordPress environments, powered by WordPress.com and WordPress Playground.
 
@@ -8,7 +8,7 @@ A desktop application for creating local WordPress environments, powered by Word
 
 ## Getting Started
 
-Studio is open source and is available to download for free!
+WordPress Studio is open source and is available to download for free!
 
 **Step 1: Download the App**
 

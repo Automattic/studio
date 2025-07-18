@@ -1,18 +1,15 @@
-import followRedirects, { FollowResponse } from 'follow-redirects';
-import fs from 'fs-extra';
-import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
 import { IncomingMessage } from 'http';
 import os from 'os';
 import path from 'path';
+import followRedirects, { FollowResponse } from 'follow-redirects';
+import fs from 'fs-extra';
+import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
+import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
 import unzipper from 'unzipper';
-import { DEFAULT_WORDPRESS_VERSION, SQLITE_FILENAME, SQLITE_URL, WP_CLI_URL } from './constants';
-import getSqlitePath from './get-sqlite-path';
+import { DEFAULT_WORDPRESS_VERSION, WP_CLI_URL } from './constants';
 import getWordpressVersionsPath from './get-wordpress-versions-path';
 import getWpCliPath from './get-wp-cli-path';
-import getWpNowPath from './get-wp-now-path';
 import { output } from './output';
-import { isValidWordPressVersion } from './wp-playground-wordpress';
-
 function httpsGet( url: string, callback: ( res: IncomingMessage & FollowResponse ) => void ) {
 	const proxy =
 		process.env.https_proxy ||
@@ -29,15 +26,6 @@ function httpsGet( url: string, callback: ( res: IncomingMessage & FollowRespons
 	}
 
 	https.get( url, { agent }, callback );
-}
-
-function getWordPressVersionUrl( version = DEFAULT_WORDPRESS_VERSION ) {
-	if ( ! isValidWordPressVersion( version ) ) {
-		throw new Error(
-			'Unrecognized WordPress version. Please use "latest" or numeric versions such as "6.2", "6.0.1", "6.2-beta1", or "6.2-RC1"'
-		);
-	}
-	return `https://wordpress.org/wordpress-${ version }.zip`;
 }
 
 interface DownloadFileAndUnzipResult {
@@ -132,7 +120,15 @@ async function downloadFileAndUnzip( {
 		await response
 			.pipe( unzipper.Parse() )
 			.on( 'entry', ( entry ) => {
-				const filePath = path.join( destinationFolder, entry.path );
+				const normalizedPath = path.normalize( entry.path );
+				const filePath = path.join( destinationFolder, normalizedPath );
+
+				if ( ! filePath.startsWith( destinationFolder ) ) {
+					output?.log( `Skipping invalid path: ${ entry.path }` );
+					entryPromises.push( entry.autodrain().promise() );
+					return;
+				}
+
 				/*
 				 * Use the sync version to ensure entry is piped to
 				 * a write stream before moving on to the next entry.
@@ -168,46 +164,36 @@ export async function downloadWordPress(
 	{ overwrite }: { overwrite: boolean } = { overwrite: false }
 ) {
 	const finalFolder = getWordPressVersionPath( wordPressVersion );
-	const tempFolder = os.tmpdir();
-	const { downloaded, statusCode } = await downloadFileAndUnzip( {
-		url: getWordPressVersionUrl( wordPressVersion ),
-		destinationFolder: tempFolder,
-		checkFinalPath: finalFolder,
-		itemName: `WordPress ${ wordPressVersion }`,
-		overwrite,
-	} );
-	if ( downloaded ) {
-		await fs.ensureDir( path.dirname( finalFolder ) );
-		await fs.move( path.join( tempFolder, 'wordpress' ), finalFolder, {
-			overwrite: true,
-		} );
-	} else if ( 404 === statusCode ) {
-		output?.log(
-			`WordPress ${ wordPressVersion } not found. Check https://wordpress.org/download/releases/ for available versions.`
-		);
-	}
-}
+	const tempDir = await fs.mkdtemp( path.join( os.tmpdir(), 'wordpress-download-' ) );
 
-export async function downloadSqliteIntegrationPlugin(
-	{ overwrite }: { overwrite: boolean } = { overwrite: false }
-) {
-	const finalFolder = getSqlitePath();
-	const tempFolder = path.join( os.tmpdir(), SQLITE_FILENAME );
-	const { downloaded, statusCode } = await downloadFileAndUnzip( {
-		url: SQLITE_URL,
-		destinationFolder: tempFolder,
-		checkFinalPath: finalFolder,
-		itemName: 'SQLite',
-		overwrite,
-	} );
-	if ( downloaded ) {
-		const nestedFolder = path.join( tempFolder, SQLITE_FILENAME );
-		await fs.ensureDir( path.dirname( finalFolder ) );
-		await fs.move( nestedFolder, finalFolder, {
-			overwrite: true,
+	try {
+		const { downloaded, statusCode } = await downloadFileAndUnzip( {
+			url: getWordPressVersionUrl( wordPressVersion ),
+			destinationFolder: tempDir,
+			checkFinalPath: finalFolder,
+			itemName: `WordPress ${ wordPressVersion }`,
+			overwrite,
 		} );
-	} else if ( 0 !== statusCode ) {
-		throw Error( 'An error ocurred when download SQLite' );
+
+		if ( downloaded ) {
+			const wpSourcePath = path.join( tempDir, 'wordpress' );
+			await fs.ensureDir( path.dirname( finalFolder ) );
+			await fs.move( wpSourcePath, finalFolder, {
+				overwrite: true,
+			} );
+		} else if ( 404 === statusCode ) {
+			output?.log(
+				`WordPress ${ wordPressVersion } not found. Check https://wordpress.org/download/releases/ for available versions.`
+			);
+		}
+	} finally {
+		if ( tempDir && fs.existsSync( tempDir ) ) {
+			try {
+				await fs.remove( tempDir );
+			} catch ( cleanupErr ) {
+				output?.error( 'Error cleaning up temporary directory:', cleanupErr );
+			}
+		}
 	}
 }
 
@@ -231,136 +217,29 @@ export async function downloadSQLiteCommand( downloadUrl: string, targetPath: st
 		overwrite: true,
 	} );
 }
-
-export async function downloadMuPlugins( customMuPluginsPath = '' ) {
-	const muPluginsPath = customMuPluginsPath || path.join( getWpNowPath(), 'mu-plugins' );
-	fs.ensureDirSync( muPluginsPath );
-
-	fs.removeSync( path.join( muPluginsPath, '0-allow-wp-org.php' ) );
-
-	fs.writeFile(
-		path.join( muPluginsPath, '0-allowed-redirect-hosts.php' ),
-		`<?php
-	// Needed because gethostbyname( <host> ) returns
-	// a private network IP address for some reason.
-	add_filter( 'allowed_redirect_hosts', function( $hosts ) {
-		$redirect_hosts = array(
-			'wordpress.org',
-			'api.wordpress.org',
-			'downloads.wordpress.org',
-			'themes.svn.wordpress.org',
-			'fonts.gstatic.com',
-		);
-		return array_merge( $hosts, $redirect_hosts );
-	} );
-	add_filter('http_request_host_is_external', '__return_true', 20, 3 );
-	`
-	);
-
-	fs.writeFile(
-		path.join( muPluginsPath, '0-dns-functions.php' ),
-		`<?php
-		// Polyfill for DNS functions/features which are not currently supported by @php-wasm/node.
-		// See https://github.com/WordPress/wordpress-playground/issues/1042
-		// These specific features are polyfilled so the Jetpack plugin loads correctly, but others should be added as needed.
-		if ( ! function_exists( 'dns_get_record' ) ) {
-			function dns_get_record() {
-				return array();
-			}
-		}
-		if ( ! defined( 'DNS_NS' ) ) {
-			define( 'DNS_NS', 2 );
-		}`
-	);
-
-	fs.writeFile(
-		path.join( muPluginsPath, '0-thumbnails.php' ),
-		`<?php
-		// Facilitates the taking of screenshots to be used as thumbnails.
-		if ( isset( $_GET['studio-hide-adminbar'] ) ) {
-			add_filter( 'show_admin_bar', '__return_false' );
-		}
-		`
-	);
-
-	fs.writeFile(
-		path.join( muPluginsPath, '0-sqlite.php' ),
-		`<?php
-		if ( file_exists( WP_CONTENT_DIR . "/db.php" ) && file_exists( __DIR__ . "/${ SQLITE_FILENAME }/load.php" ) ) {
-			require_once __DIR__ . "/${ SQLITE_FILENAME }/load.php";
-		}`
-	);
-
-	fs.writeFile(
-		path.join( muPluginsPath, '0-32bit-integer-warnings.php' ),
-		`<?php
-/**
- * This is a temporary workaround to hide the 32bit integer warnings that
- * appear when using various time related function, such as strtotime and mktime.
- * Examples of the warnings that are displayed:
- * Warning: mktime(): Epoch doesn't fit in a PHP integer in <file>
- * Warning: strtotime(): Epoch doesn't fit in a PHP integer in <file>
- */
-set_error_handler(function($severity, $message, $file, $line) {
-  if (strpos($message, "fit in a PHP integer") !== false) {
-      return;
-  }
-  return false;
-});
-`
-	);
-
-	fs.writeFile(
-		path.join( muPluginsPath, '0-check-theme-availability.php' ),
-		`<?php
-	function check_current_theme_availability() {
-			// Get the current theme's directory
-			$current_theme = wp_get_theme();
-			$theme_dir = get_theme_root() . '/' . $current_theme->stylesheet;
-
-			if (!is_dir($theme_dir)) {
-					$all_themes = wp_get_themes();
-					$available_themes = [];
-
-					foreach ($all_themes as $theme_slug => $theme_obj) {
-							if ($theme_slug != $current_theme->get_stylesheet()) {
-									$available_themes[$theme_slug] = $theme_obj;
-							}
-					}
-
-					if (!empty($available_themes)) {
-							$new_theme_slug = array_keys($available_themes)[0];
-							switch_theme($new_theme_slug);
-					}
-			}
-	}
-	add_action('after_setup_theme', 'check_current_theme_availability');
-`
-	);
-
-	fs.writeFile(
-		path.join( muPluginsPath, '0-permalinks.php' ),
-		`<?php
-			// Support permalinks without "index.php"
-			add_filter( 'got_url_rewrite', '__return_true' );
-	`
-	);
-
-	fs.writeFile(
-		path.join( muPluginsPath, '0-deactivate-jetpack-modules.php' ),
-		`<?php
-			// Disable Jetpack Protect 2FA for local auto-login purpose
-			add_action( 'jetpack_active_modules', 'jetpack_deactivate_modules' );
-			function jetpack_deactivate_modules( $active ) {
-				if ( ( $index = array_search('protect', $active, true) ) !== false ) {
-					unset( $active[ $index ] );
-				}
-				return $active;
-			}
-	`
-	);
-}
-
 export function getWordPressVersionPath( wpVersion: string ) {
 	return path.join( getWordpressVersionsPath(), wpVersion );
+}
+
+/**
+ * This function removes the internal mu-plugins that WP-now used to store.
+ *
+ * WP-now used to store some internal mu-plugins in the site's mu-plugins directory.
+ * This prevented users from using the mu-plugins directory for their own plugins,
+ * so Studio now mounts the mu-plugins directory to the shared mu-plugins directory.
+ *
+ * @param projectPath The path to the project directory.
+ */
+export async function removeDownloadedMuPlugins( projectPath: string ) {
+	const wpContentPath = path.join( projectPath, 'wp-content' );
+	const muPluginsPath = path.join( wpContentPath, 'mu-plugins' );
+	fs.removeSync( path.join( muPluginsPath, '0-32bit-integer-warnings.php' ) );
+	fs.removeSync( path.join( muPluginsPath, '0-allowed-redirect-hosts.php' ) );
+	fs.removeSync( path.join( muPluginsPath, '0-check-theme-availability.php' ) );
+	fs.removeSync( path.join( muPluginsPath, '0-deactivate-jetpack-modules.php' ) );
+	fs.removeSync( path.join( muPluginsPath, '0-dns-functions.php' ) );
+	fs.removeSync( path.join( muPluginsPath, '0-permalinks.php' ) );
+	fs.removeSync( path.join( muPluginsPath, '0-wp-config-constants-polyfill.php' ) );
+	fs.removeSync( path.join( muPluginsPath, '0-sqlite.php' ) );
+	fs.removeSync( path.join( muPluginsPath, '0-thumbnails.php' ) );
 }

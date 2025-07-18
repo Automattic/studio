@@ -6,6 +6,7 @@ export const ipcMain = {
 
 export const app = {
 	getFetch: jest.fn(),
+	getAppPath: jest.fn( () => '/path/to/app' ),
 	getPath: jest.fn( ( name ) => `/path/to/app/${ name }` ),
 	getName: jest.fn( () => 'App Name' ),
 	getLocale: jest.fn( () => 'en-US' ),
@@ -29,18 +30,37 @@ export function BrowserWindow() {}
 BrowserWindow.prototype.loadURL = jest.fn();
 BrowserWindow.prototype.isDestroyed = jest.fn( () => false );
 BrowserWindow.prototype.on = jest.fn();
-BrowserWindow.prototype.webContents = {
+BrowserWindow.prototype.getBounds = jest.fn( () => ( { x: 0, y: 0, width: 800, height: 600 } ) );
+BrowserWindow.prototype.setFullScreen = jest.fn();
+BrowserWindow.prototype.isFullScreen = jest.fn( () => false );
+
+const mockWebContents = {
 	on: jest.fn(),
 	send: jest.fn(),
+	isDestroyed: jest.fn( () => false ),
 };
+
+BrowserWindow.prototype.webContents = mockWebContents;
+
 BrowserWindow.fromWebContents = jest.fn( () => ( {
 	isDestroyed: jest.fn( () => false ),
-	webContents: {
-		send: jest.fn(),
-	},
+	webContents: mockWebContents,
 } ) );
+
 BrowserWindow.getAllWindows = jest.fn( () => [] );
 BrowserWindow.getFocusedWindow = jest.fn();
+
+const eventHandlers: { [ key: string ]: Array< ( ...args: any[] ) => void > } = {};
+BrowserWindow.prototype.on = jest.fn( ( event: string, handler: ( ...args: any[] ) => void ) => {
+	if ( ! eventHandlers[ event ] ) {
+		eventHandlers[ event ] = [];
+	}
+	eventHandlers[ event ].push( handler );
+} );
+BrowserWindow.prototype.emit = jest.fn( ( event: string, ...args: any[] ) => {
+	const handlers = eventHandlers[ event ] || [];
+	handlers.forEach( ( handler ) => handler( ...args ) );
+} );
 
 export const Menu = {
 	buildFromTemplate: jest.fn(),
@@ -64,4 +84,12 @@ export const session = {
 			onHeadersReceived: jest.fn(),
 		},
 	},
+};
+
+export const screen = {
+	getAllDisplays: jest.fn( () => [
+		{
+			workArea: { x: 0, y: 0, width: 1920, height: 1080 },
+		},
+	] ),
 };

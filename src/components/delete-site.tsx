@@ -1,28 +1,32 @@
 import * as Sentry from '@sentry/electron/renderer';
+import { MenuItem } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useOffline } from '../hooks/use-offline';
-import { useSiteDetails } from '../hooks/use-site-details';
-import { useSnapshots } from '../hooks/use-snapshots';
-import { getIpcApi } from '../lib/get-ipc-api';
-import Button from './button';
-import offlineIcon from './offline-icon';
-import { Tooltip } from './tooltip';
+import offlineIcon from 'src/components/offline-icon';
+import { Tooltip } from 'src/components/tooltip';
+import { useOffline } from 'src/hooks/use-offline';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useRootSelector } from 'src/stores';
+import { snapshotSelectors } from 'src/stores/snapshot-slice';
 
 const MAX_LENGTH_SITE_TITLE = 35;
 
-const DeleteSite = () => {
+type DeleteSiteProps = {
+	onClose: () => void;
+};
+
+const DeleteSite = ( { onClose }: DeleteSiteProps ) => {
 	const { __ } = useI18n();
 	const { selectedSite, deleteSite, isDeleting } = useSiteDetails();
 	const isOffline = useOffline();
 
 	const offlineMessage = __(
-		'This site has active demo sites that cannot be deleted without an internet connection.'
+		'This site has active preview sites that cannot be deleted without an internet connection.'
 	);
 
-	const { snapshots } = useSnapshots();
-	const snapshotsOnSite = snapshots.filter(
-		( snapshot ) => snapshot.localSiteId === selectedSite?.id
+	const snapshotsOnSite = useRootSelector( ( state ) =>
+		snapshotSelectors.selectSnapshotsBySite( state, selectedSite?.id ?? '' )
 	);
 
 	const handleDeleteSite = async () => {
@@ -51,7 +55,7 @@ const DeleteSite = () => {
 			try {
 				await deleteSite( selectedSite.id, checkboxChecked );
 			} catch ( error ) {
-				await getIpcApi().showErrorMessageBox( {
+				getIpcApi().showErrorMessageBox( {
 					title: __( 'Deletion failed' ),
 					message: sprintf(
 						__( "We couldn't delete the site '%s'. Please try again" ),
@@ -66,7 +70,7 @@ const DeleteSite = () => {
 
 	const getTrimmedSiteTitle = ( name: string ) =>
 		name.length > MAX_LENGTH_SITE_TITLE
-			? `${ name.substring( 0, MAX_LENGTH_SITE_TITLE - 3 ) }...`
+			? `${ name.substring( 0, MAX_LENGTH_SITE_TITLE - 3 ) }…`
 			: name;
 
 	const isSiteDeletionDisabled =
@@ -77,21 +81,23 @@ const DeleteSite = () => {
 			disabled={ ! ( isOffline && snapshotsOnSite.length > 0 ) }
 			icon={ offlineIcon }
 			text={ offlineMessage }
+			placement="left"
 		>
-			<Button
-				aria-description={ isOffline && snapshotsOnSite.length > 0 ? offlineMessage : '' }
+			<MenuItem
 				aria-disabled={ isSiteDeletionDisabled }
+				aria-description={ isOffline && snapshotsOnSite.length > 0 ? offlineMessage : '' }
 				onClick={ () => {
 					if ( isSiteDeletionDisabled ) {
 						return;
 					}
-					handleDeleteSite();
+					onClose();
+					void handleDeleteSite();
 				} }
-				variant="link"
 				isDestructive
+				disabled={ isSiteDeletionDisabled }
 			>
 				{ __( 'Delete site' ) }
-			</Button>
+			</MenuItem>
 		</Tooltip>
 	);
 };

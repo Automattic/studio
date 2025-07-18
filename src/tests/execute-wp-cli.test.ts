@@ -5,8 +5,8 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { executeWPCli } from '../../vendor/wp-now/src/execute-wp-cli';
-import { getWPCliVersionFromInstallation } from '../lib/wpcli-versions';
+import { getWPCliVersionFromInstallation } from 'src/lib/wpcli-versions';
+import { executeWPCli } from 'vendor/wp-now/src/execute-wp-cli';
 
 jest.unmock( 'fs-extra' );
 

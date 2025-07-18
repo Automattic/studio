@@ -5,6 +5,11 @@ import '@testing-library/jest-dom';
 import 'web-streams-polyfill/polyfill';
 import nock from 'nock';
 
+// Silence console.log for all tests
+beforeEach(() => {
+	console.log = jest.fn();
+});
+
 if ( typeof window !== 'undefined' ) {
 	// The ipcListener global is usually defined in preload.ts
 	window.ipcListener = { subscribe: jest.fn() };
@@ -24,6 +29,24 @@ if ( typeof window !== 'undefined' ) {
 			dispatchEvent: jest.fn(),
 		} ) ),
 	} );
+
+	/**
+	 * Mock `crypto.subtle.generateKey` as it's not implemented in JSDOM
+	 * https://github.com/jsdom/jsdom/issues/1612
+	 *
+	 * `crypto.subtle.generateKey` is required by `@php-wasm/web`
+	 */
+	Object.defineProperty( global.crypto, 'subtle', {
+		value: { generateKey: jest.fn() },
+	} );
+
+	/**
+	 * Mock `fetch` as it's not implemented in JSDOM
+	 * https://github.com/jsdom/jsdom/issues/1724
+	 *
+	 * `fetch` is required by `@wp-playground/blueprints`
+	 */
+	global.fetch = jest.fn();
 }
 
 nock.disableNetConnect();

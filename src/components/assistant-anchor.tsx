@@ -1,10 +1,9 @@
-import * as Sentry from '@sentry/electron/renderer';
 import { speak } from '@wordpress/a11y';
 import { __ } from '@wordpress/i18n';
 import { ExtraProps } from 'react-markdown';
-import { useSiteDetails } from '../hooks/use-site-details';
-import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export default function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps ) {
 	const { href } = props;
@@ -32,16 +31,7 @@ export default function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps
 					await startServer( selectedSite?.id );
 				}
 
-				try {
-					await getIpcApi().openURL( href );
-				} catch ( error ) {
-					getIpcApi().showErrorMessageBox( {
-						title: __( 'Failed to open link' ),
-						message: __( 'We were unable to open the link. Please try again.' ),
-						error,
-					} );
-					Sentry.captureException( error );
-				}
+				getIpcApi().openURL( href );
 			} }
 		/>
 	);

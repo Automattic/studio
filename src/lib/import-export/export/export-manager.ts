@@ -1,7 +1,7 @@
-import { ImportExportEventData, handleEvents } from '../handle-events';
-import { ExportEvents } from './events';
-import { DefaultExporter, SqlExporter } from './exporters';
-import { ExportOptions, NewExporter } from './types';
+import { ExportEvents } from 'src/lib/import-export/export/events';
+import { DefaultExporter, SqlExporter } from 'src/lib/import-export/export/exporters';
+import { ExportOptions, NewExporter } from 'src/lib/import-export/export/types';
+import { ImportExportEventData, handleEvents } from 'src/lib/import-export/handle-events';
 
 export async function exportBackup(
 	exportOptions: ExportOptions,

@@ -1,9 +1,9 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
-import { AIInput } from '../ai-input';
+import { AIInput } from 'src/components/ai-input';
 
 const mockShowMessageBox = jest.fn();
-jest.mock( '../../lib/get-ipc-api', () => ( {
+jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		openURL: jest.fn(),
 		generateProposedSitePath: jest.fn(),
@@ -27,8 +27,7 @@ describe( 'AIInput Component', () => {
 		isAssistantThinking: false,
 	};
 
-	const getInput = () =>
-		screen.getByPlaceholderText( 'What would you like to learn?' ) as HTMLTextAreaElement;
+	const getInput = () => screen.getByPlaceholderText( 'What would you like to learn?' );
 
 	beforeEach( () => {
 		handleSend = jest.fn();

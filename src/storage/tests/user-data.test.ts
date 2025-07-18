@@ -3,13 +3,30 @@
  */
 // To run tests, execute `npm run test -- src/storage/user-data.test.ts` from the root directory
 import fs from 'fs';
-import * as atomically from 'atomically';
-import { getUserDataFilePath } from '../paths';
+import { readFile, writeFile } from 'atomically';
+import { loadUserData, lockAppdata, unlockAppdata, saveUserData } from 'src/storage/user-data';
+import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 import { UserData } from '../storage-types';
-import { loadUserData, saveUserData } from '../user-data';
 
 jest.mock( 'fs' );
-jest.mock( '../paths' );
+jest.mock( 'src/storage/paths', () => ( {
+	getResourcesPath: jest.fn().mockReturnValue( '/path/to/app/appData/App Name' ),
+	getUserDataFilePath: jest.fn().mockReturnValue( '/path/to/app/appData/App Name/appdata-v1.json' ),
+} ) );
+
+jest.mock( 'atomically', () => ( {
+	readFile: jest.fn().mockResolvedValue(
+		JSON.stringify( {
+			sites: [
+				{ name: 'Tristan', path: '/to/tristan' },
+				{ name: 'Arthur', path: '/to/arthur' },
+				{ name: 'Lancelot', path: '/to/lancelot' },
+			],
+			snapshots: [],
+		} )
+	),
+	writeFile: jest.fn(),
+} ) );
 
 const mockedUserData: RecursivePartial< UserData > = {
 	sites: [
@@ -19,6 +36,7 @@ const mockedUserData: RecursivePartial< UserData > = {
 	],
 	snapshots: [],
 };
+
 const defaultThemeDetails = {
 	name: '',
 	path: '',
@@ -28,97 +46,74 @@ const defaultThemeDetails = {
 	supportsMenus: false,
 };
 
-function mockUserData( data: RecursivePartial< UserData > ) {
-	( fs as MockedFs ).__setFileContents(
-		'/path/to/app/appData/App Name/appdata-v1.json',
-		JSON.stringify( data )
-	);
-}
-
-beforeEach( () => {
-	mockUserData( mockedUserData );
-	// Assume each site path exists
-	( fs.existsSync as jest.Mock ).mockReturnValue( true );
-	( getUserDataFilePath as jest.Mock ).mockReturnValue(
-		'/path/to/app/appData/App Name/appdata-v1.json'
-	);
-} );
-
-afterEach( () => {
-	jest.restoreAllMocks();
-} );
-
-describe( 'loadUserData', () => {
-	test( 'loads user data correctly and sorts sites', async () => {
-		const result = await loadUserData();
-
-		expect( result.sites.map( ( site ) => site.name ) ).toEqual( [
-			'Arthur',
-			'Lancelot',
-			'Tristan',
-		] );
+platformTestSuite( 'User data', () => {
+	beforeEach( () => {
+		// Assume each site path exists
+		( fs.existsSync as jest.Mock ).mockReturnValue( true );
 	} );
 
-	test( 'Filters out sites where the path does not exist', async () => {
-		( fs.existsSync as jest.Mock ).mockImplementation( ( path ) => path === '/to/lancelot' );
-		const result = await loadUserData();
-		expect( result.sites.map( ( sites ) => sites.name ) ).toEqual( [ 'Lancelot' ] );
+	afterEach( () => {
+		jest.restoreAllMocks();
 	} );
 
-	test( 'populates PHP version when unknown', async () => {
-		mockUserData( {
-			sites: [
-				{ name: 'Arthur', path: '/to/arthur', phpVersion: '8.3' },
-				{ name: 'Lancelot', path: '/to/lancelot', phpVersion: '8.1' },
-				{ name: 'Tristan', path: '/to/tristan' },
-			],
-			snapshots: [],
+	describe( 'loadUserData', () => {
+		test( 'loads user data correctly and sorts sites', async () => {
+			const result = await loadUserData();
+
+			expect( result.sites.map( ( site ) => site.name ) ).toEqual( [
+				'Arthur',
+				'Lancelot',
+				'Tristan',
+			] );
 		} );
-		const result = await loadUserData();
-		expect( result.sites.map( ( site ) => site.phpVersion ) ).toEqual( [ '8.3', '8.1', '8.0' ] );
-	} );
-} );
 
-describe( 'saveUserData', () => {
-	test( 'saves user data correctly', async () => {
-		await saveUserData( mockedUserData as UserData );
-		expect( atomically.writeFile ).toHaveBeenCalledWith(
-			'/path/to/app/appData/App Name/appdata-v1.json',
-			JSON.stringify(
-				{
-					version: 1,
-					sites: mockedUserData.sites?.map( ( site ) => ( {
-						...site,
-						themeDetails: defaultThemeDetails,
-					} ) ),
+		test( 'Filters out sites where the path does not exist', async () => {
+			( fs.existsSync as jest.Mock ).mockImplementation( ( path ) => path === '/to/lancelot' );
+			const result = await loadUserData();
+			expect( result.sites.map( ( sites ) => sites.name ) ).toEqual( [ 'Lancelot' ] );
+		} );
+
+		test( 'populates PHP version when unknown', async () => {
+			( readFile as jest.Mock ).mockResolvedValue(
+				JSON.stringify( {
+					sites: [
+						{ name: 'Arthur', path: '/to/arthur', phpVersion: '8.3' },
+						{ name: 'Lancelot', path: '/to/lancelot', phpVersion: '8.1' },
+						{ name: 'Tristan', path: '/to/tristan' },
+					],
 					snapshots: [],
-				},
-				null,
-				2
-			) + '\n',
-			'utf-8'
-		);
+				} )
+			);
+			const result = await loadUserData();
+			expect( result.sites.map( ( site ) => site.phpVersion ) ).toEqual( [ '8.3', '8.1', '8.0' ] );
+		} );
 	} );
 
-	test( 'falls back to FS when receiving EXDEV error', async () => {
-		( atomically.writeFile as jest.Mock ).mockRejectedValue( { code: 'EXDEV' } );
-		await saveUserData( mockedUserData as UserData );
-		expect( atomically.writeFile ).toHaveBeenCalled();
-		expect( fs.promises.writeFile ).toHaveBeenCalledWith(
-			'/path/to/app/appData/App Name/appdata-v1.json',
-			JSON.stringify(
-				{
-					version: 1,
-					sites: mockedUserData.sites?.map( ( site ) => ( {
-						...site,
-						themeDetails: defaultThemeDetails,
-					} ) ),
-					snapshots: [],
-				},
-				null,
-				2
-			) + '\n',
-			'utf-8'
-		);
+	describe( 'saveUserData', () => {
+		test( 'saves user data correctly', async () => {
+			try {
+				await lockAppdata();
+				await saveUserData( mockedUserData as UserData );
+			} finally {
+				await unlockAppdata();
+			}
+
+			expect( writeFile ).toHaveBeenCalledWith(
+				'/path/to/app/appData/App Name/appdata-v1.json',
+				JSON.stringify(
+					{
+						version: 1,
+						sites: mockedUserData.sites?.map( ( site ) => ( {
+							...site,
+							themeDetails: defaultThemeDetails,
+						} ) ),
+						snapshots: [],
+					},
+					null,
+					2
+				) + '\n',
+				'utf-8'
+			);
+		} );
 	} );
 } );

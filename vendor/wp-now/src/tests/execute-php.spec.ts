@@ -37,9 +37,9 @@ describe( 'validate php execution', () => {
 		output = '';
 		await executePHP( [ 'php', path.join( exampleDir, 'php-version.php' ) ], {
 			...options,
-			phpVersion: '8.0',
+			phpVersion: '8.3',
 		} );
-		expect( output.substring( 0, 16 ) ).toBe( 'PHP Version: 8.0' );
+		expect( output.substring( 0, 16 ) ).toBe( 'PHP Version: 8.3' );
 
 		output = '';
 		await executePHP( [ 'php', path.join( exampleDir, 'php-version.php' ) ], {

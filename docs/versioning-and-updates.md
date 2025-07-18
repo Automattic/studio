@@ -9,8 +9,8 @@ Studio uses [semver](https://semver.org/)-style version numbers.
 ## “Dev Builds” and “Release Builds”
 
 A **dev build** is any version of the app built from `trunk` using CI. It has
-version numbers that look like `0.1.0-dev.e7c8583`, where the suffix is the
-changeset it was built from.
+version numbers that look like `0.1.0-devX`, where the suffix is the
+number of commits since the last release tag.
 
 A **release build** is version of the app built from a specific changeset that
 was chosen by a member of the team by applying a tag to the changeset. It has
@@ -36,18 +36,9 @@ See `scripts/prepare-dev-build-version.mjs`.
 
 ## Updating Logic
 
-Studio checks for updates on launch and every hour after that.
-
-Release builds:
-
-- Check for updates on launch and every hour after that.
-- Ignore dev builds, will only update to another release build.
-
-Dev builds:
-
-- Do not automatically check for updates.
-- Check for updates if you use the “Check for Updates” menu item on Mac.
-- Ignore release builds, will only update to the latest dev build.
+Studio checks for updates on launch and every hour after that, for both release
+and dev builds. In case of dev build, if there is prod build bigger than the
+latest dev build, then will be updated to the prod build. Otherwise, to the latest dev build.
 
 ## Releases Manifest and CDN
 

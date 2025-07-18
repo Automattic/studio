@@ -1,20 +1,40 @@
 import { render, act, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { SyncSitesProvider } from '../../hooks/sync-sites';
-import { useAuth } from '../../hooks/use-auth';
-import { ContentTabsProvider } from '../../hooks/use-content-tabs';
-import MainSidebar from '../main-sidebar';
+import { Provider } from 'react-redux';
+import MainSidebar from 'src/components/main-sidebar';
+import { SyncSitesProvider } from 'src/hooks/sync-sites';
+import { useAuth } from 'src/hooks/use-auth';
+import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { store } from 'src/stores';
 
-jest.mock( '../../hooks/use-auth' );
+jest.mock( 'src/hooks/use-auth' );
+
+jest.mock( 'src/stores/wordpress-versions-api', () => ( {
+	wordpressVersionsApi: {
+		reducer: () => ( {} ),
+		middleware: () => () => () => {},
+	},
+	useGetWordPressVersions: jest.fn( () => ( {
+		data: [
+			{ label: 'Latest', value: '6.7.2' },
+			{ label: '6.8-beta1', value: '6.8-beta1', isBeta: true, isDevelopment: false },
+			{ label: '6.4', value: '6.4', isBeta: false, isDevelopment: false },
+			{ label: '6.3', value: '6.3', isBeta: false, isDevelopment: false },
+			{ label: '6.2', value: '6.2', isBeta: false, isDevelopment: false },
+		],
+		isLoading: false,
+	} ) ),
+} ) );
 
 const mockOpenURL = jest.fn();
-jest.mock( '../../lib/get-ipc-api', () => ( {
+jest.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
 	default: jest.fn(),
 	getIpcApi: () => ( {
 		showOpenFolderDialog: jest.fn(),
 		generateProposedSitePath: jest.fn(),
 		openURL: mockOpenURL,
+		getAllCustomDomains: jest.fn().mockResolvedValue( [] ),
 	} ),
 } ) );
 
@@ -53,15 +73,17 @@ const siteDetailsMocked = {
 	startServer: jest.fn(),
 	stopServer: jest.fn(),
 };
-jest.mock( '../../hooks/use-site-details', () => ( {
+jest.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( { ...siteDetailsMocked } ),
 } ) );
 
 const renderWithProvider = ( children: React.ReactElement ) => {
 	return render(
-		<ContentTabsProvider>
-			<SyncSitesProvider>{ children }</SyncSitesProvider>
-		</ContentTabsProvider>
+		<Provider store={ store }>
+			<ContentTabsProvider>
+				<SyncSitesProvider>{ children }</SyncSitesProvider>
+			</ContentTabsProvider>
+		</Provider>
 	);
 };
 

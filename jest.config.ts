@@ -1,5 +1,5 @@
 module.exports = {
-	roots: [ '<rootDir>/src' ],
+	roots: [ '<rootDir>/src', '<rootDir>/cli', '<rootDir>/common' ],
 	preset: 'ts-jest',
 	transform: {
 		'^.+\\.(ts|tsx)$': [
@@ -19,6 +19,10 @@ module.exports = {
 	transformIgnorePatterns: [ 'node_modules/(?!(@php-wasm|@wp-playground)/)' ],
 	moduleNameMapper: {
 		'^(\\.{1,2}/.*)\\.js$': '$1',
+		'^cli/(.*)$': '<rootDir>/cli/$1',
+		'^src/(.*)$': '<rootDir>/src/$1',
+		'^vendor/(.*)$': '<rootDir>/vendor/$1',
+		'^common/(.*)$': '<rootDir>/common/$1',
 	},
 	testEnvironment: 'jsdom',
 	globals: {
@@ -27,6 +31,7 @@ module.exports = {
 		MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: 'main-window-preload-webpack-entry',
 	},
 	testRegex: '(/tests/.*|(\\.|/)(test|spec))\\.tsx?$',
+	testPathIgnorePatterns: [ '/node_modules/', 'tests/utils/', 'stores/tests/utils/' ],
 	moduleFileExtensions: [ 'ts', 'tsx', 'js', 'jsx', 'json', 'node' ],
 	globalSetup: '<rootDir>/jest-global-setup.ts',
 	setupFilesAfterEnv: [ '<rootDir>/jest-setup.ts' ],

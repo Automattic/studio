@@ -3,11 +3,11 @@ import {
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useI18nData } from '../hooks/use-i18n-data';
-import { isMac, isWindows } from '../lib/app-globals';
-import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
-import Button from './button';
+import { DEFAULT_LOCALE } from 'common/lib/locale';
+import Button from 'src/components/button';
+import { isMac, isWindows } from 'src/lib/app-globals';
+import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 const SiteItemSkeleton = () => {
 	return (
@@ -48,9 +48,9 @@ const GravatarSkeleton = () => {
 
 const RightPanel = () => {
 	const { __ } = useI18n();
-	const { locale } = useI18nData();
-	const openLocalizedSupport = async () => {
-		await getIpcApi().openURL( `https://wordpress.com/${ locale }/support` );
+	const locale = DEFAULT_LOCALE;
+	const openLocalizedSupport = () => {
+		getIpcApi().openURL( `https://wordpress.com/${ locale }/support` );
 	};
 	return (
 		<div className="flex flex-col justify-center h-full">
@@ -76,7 +76,7 @@ const RightPanel = () => {
 			</div>
 			<div>
 				<Button
-					className="bg-a8c-blueberry hover:text-white text-white"
+					className="bg-a8c-blue-50 hover:text-white text-white"
 					variant="primary"
 					onClick={ () => window.location.reload() }
 				>

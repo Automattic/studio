@@ -1,10 +1,15 @@
-import { BrowserWindow, app, shell } from 'electron';
+import { BrowserWindow, app } from 'electron';
 import path from 'path';
 import * as Sentry from '@sentry/electron/renderer';
 import { sprintf, __ } from '@wordpress/i18n';
-import { ABOUT_WINDOW_HEIGHT, ABOUT_WINDOW_WIDTH } from '../constants';
+import { ABOUT_WINDOW_HEIGHT, ABOUT_WINDOW_WIDTH } from 'src/constants';
+import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 
 let aboutWindow: BrowserWindow | null = null;
+
+export function escapeSingleQuotes( str: string ) {
+	return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
+}
 
 export function openAboutWindow() {
 	const aboutPath = path.join( __dirname, 'menu', 'about-menu.html' );
@@ -26,34 +31,33 @@ export function openAboutWindow() {
 		},
 	} );
 
-	aboutWindow.loadFile( aboutPath );
-
 	// Open external links in the default browser
 	aboutWindow.webContents.setWindowOpenHandler( ( { url } ) => {
-		shell.openExternal( url );
+		void shellOpenExternalWrapper( url );
+
 		return { action: 'deny' };
 	} );
 
 	// Read package.json and pass version to about window
 	const packageJson = app.getVersion();
 
-	function escapeSingleQuotes( str: string ) {
-		return str.replace( /'/g, "\\'" );
-	}
-
 	aboutWindow.webContents.on( 'dom-ready', () => {
 		if ( aboutWindow ) {
 			//When updating these strings, make sure to update the corresponding strings in the about-menu.html file
 			const versionText = sprintf( __( 'Version %s' ), packageJson );
-			const studioByWpcomText = escapeSingleQuotes( __( 'Studio by WordPress.com' ) );
+			const studioByWpcomText = escapeSingleQuotes( __( 'WordPress Studio' ) );
+			const aboutStudioText = escapeSingleQuotes( __( 'About WordPress Studio' ) );
 			const shareFeedbackText = escapeSingleQuotes( __( 'Share Feedback' ) );
-			const demoSitesText = escapeSingleQuotes( __( 'Demo sites powered by' ) );
+			const releasesText = escapeSingleQuotes( __( 'Release Notes' ) );
+			const demoSitesText = escapeSingleQuotes( __( 'Preview sites powered by' ) );
 			const localSitesText = escapeSingleQuotes( __( 'Local sites powered by' ) );
 
 			const script = `
+				document.title = '${ aboutStudioText }';
 				document.getElementById('studio-by-wpcom').innerText = '${ studioByWpcomText }';
 				document.getElementById('version-text').innerText = '${ versionText }';
 				document.getElementById('share-feedback').innerText = '${ shareFeedbackText }';
+				document.getElementById('release-notes').innerText = '${ releasesText }';
 				document.getElementById('demo-sites').innerText = '${ demoSitesText }';
 				document.getElementById('local-sites').innerText = '${ localSitesText }';
 			`;
@@ -63,7 +67,10 @@ export function openAboutWindow() {
 			} );
 		}
 	} );
+
 	aboutWindow.on( 'closed', () => {
 		aboutWindow = null;
 	} );
+
+	void aboutWindow.loadFile( aboutPath );
 }

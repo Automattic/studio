@@ -1,33 +1,46 @@
 import { __, sprintf } from '@wordpress/i18n';
 import React, { createContext, useCallback, useContext, useState } from 'react';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { SyncSite } from '../use-fetch-wpcom-sites';
-import { useFormatLocalizedTimestamps } from '../use-format-localized-timestamps';
-import { useListenDeepLinkConnection } from './use-listen-deep-link-connection';
-import { useSiteSyncManagement } from './use-site-sync-management';
-import { useSyncPull } from './use-sync-pull';
-import { useSyncPush } from './use-sync-push';
+import { useListenDeepLinkConnection } from 'src/hooks/sync-sites/use-listen-deep-link-connection';
+import {
+	UseSiteSyncManagement,
+	useSiteSyncManagement,
+} from 'src/hooks/sync-sites/use-site-sync-management';
+import { PullStates, UseSyncPull, useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
+import { PushStates, UseSyncPush, useSyncPush } from 'src/hooks/sync-sites/use-sync-push';
+import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
-export type SyncSitesContextType = ReturnType< typeof useSyncPull > &
-	ReturnType< typeof useSyncPush > &
-	ReturnType< typeof useSiteSyncManagement > & {
-		getLastSyncTimeText: ( timestamp: string | null, type: 'pull' | 'push' ) => string;
-		updateSiteTimestamp: (
-			siteId: number | undefined,
-			localSiteId: string,
-			type: 'pull' | 'push'
-		) => Promise< void >;
+type GetLastSyncTimeText = ( timestamp: string | null, type: 'pull' | 'push' ) => string;
+type UpdateSiteTimestamp = (
+	siteId: number | undefined,
+	localSiteId: string,
+	type: 'pull' | 'push'
+) => Promise< void >;
+
+type IsSyncSitesSelectorOpen = boolean | { disconnectSiteId?: number };
+
+export type SyncSitesContextType = Omit< UseSyncPull, 'pullStates' > &
+	Omit< UseSyncPush, 'pushStates' > &
+	Omit< UseSiteSyncManagement, 'loadConnectedSites' > & {
+		getLastSyncTimeText: GetLastSyncTimeText;
+		isSyncSitesSelectorOpen: IsSyncSitesSelectorOpen;
+		setIsSyncSitesSelectorOpen: ( open: IsSyncSitesSelectorOpen ) => void;
+		closeSyncSitesSelector: () => void;
 	};
 
 const SyncSitesContext = createContext< SyncSitesContextType | undefined >( undefined );
 
 export function SyncSitesProvider( { children }: { children: React.ReactNode } ) {
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
-	const [ pullStates, setPullStates ] = useState< SyncSitesContextType[ 'pullStates' ] >( {} );
+	const [ pullStates, setPullStates ] = useState< PullStates >( {} );
 	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
+	const [ isSyncSitesSelectorOpen, setIsSyncSitesSelectorOpen ] =
+		useState< IsSyncSitesSelectorOpen >( false );
+	const closeSyncSitesSelector = useCallback( () => setIsSyncSitesSelectorOpen( false ), [] );
 
-	const getLastSyncTimeText = useCallback(
-		( timestamp: string | null | undefined, type: 'pull' | 'push' ): string => {
+	const getLastSyncTimeText = useCallback< GetLastSyncTimeText >(
+		( timestamp, type ) => {
 			if ( ! timestamp ) {
 				return type === 'pull'
 					? __( 'You have not pulled this site yet.' )
@@ -44,14 +57,15 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 		[ formatRelativeTime ]
 	);
 
-	const updateSiteTimestamp = useCallback(
-		async ( siteId: number | undefined, localSiteId: string, type: 'pull' | 'push' ) => {
-			if ( ! siteId ) return;
-
+	const updateSiteTimestamp = useCallback< UpdateSiteTimestamp >(
+		async ( siteId, localSiteId, type ) => {
 			const site = connectedSites.find(
 				( { id, localSiteId: siteLocalId } ) => siteId === id && localSiteId === siteLocalId
 			);
-			if ( ! site ) return;
+
+			if ( ! site ) {
+				return;
+			}
 
 			try {
 				const updatedSite = {
@@ -79,7 +93,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 		}
 	);
 
-	const [ pushStates, setPushStates ] = useState< SyncSitesContextType[ 'pushStates' ] >( {} );
+	const [ pushStates, setPushStates ] = useState< PushStates >( {} );
 	const { pushSite, isAnySitePushing, isSiteIdPushing, clearPushState, getPushState } = useSyncPush(
 		{
 			pushStates,
@@ -89,27 +103,28 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 		}
 	);
 
-	const { loadConnectedSites, connectSite, disconnectSite, syncSites, isFetching, refetchSites } =
-		useSiteSyncManagement( { connectedSites, setConnectedSites } );
+	const { connectSite, disconnectSite, syncSites, isFetching, refetchSites } =
+		useSiteSyncManagement( {
+			connectedSites,
+			setConnectedSites,
+			closeSyncSitesSelector,
+		} );
 
 	useListenDeepLinkConnection( { connectSite, refetchSites } );
 
 	return (
 		<SyncSitesContext.Provider
 			value={ {
-				pullStates,
 				pullSite,
 				isAnySitePulling,
 				isSiteIdPulling,
 				clearPullState,
 				connectedSites,
-				loadConnectedSites,
 				connectSite,
 				disconnectSite,
 				syncSites,
 				refetchSites,
 				isFetching,
-				pushStates,
 				getPullState,
 				getPushState,
 				pushSite,
@@ -117,7 +132,9 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				isSiteIdPushing,
 				clearPushState,
 				getLastSyncTimeText,
-				updateSiteTimestamp,
+				isSyncSitesSelectorOpen,
+				setIsSyncSitesSelectorOpen,
+				closeSyncSitesSelector,
 			} }
 		>
 			{ children }

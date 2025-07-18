@@ -4,17 +4,21 @@ import fs, { createReadStream, createWriteStream } from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
 import { createInterface } from 'readline';
+import { SupportedPHPVersionsList } from '@php-wasm/universal';
 import { lstat, move } from 'fs-extra';
 import semver from 'semver';
-import { DEFAULT_PHP_VERSION } from '../../../../../vendor/wp-now/src/constants';
-import { SiteServer } from '../../../../site-server';
-import { serializePlugins } from '../../../serialize-plugins';
-import { generateBackupFilename } from '../../export/generate-backup-filename';
-import { ImportEvents } from '../events';
-import { BackupContents, MetaFileData } from '../types';
+import { getSiteUrl } from 'src/lib/get-site-url';
+import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
+import { ImportEvents } from 'src/lib/import-export/import/events';
+import { BackupContents, MetaFileData, WpContent } from 'src/lib/import-export/import/types';
+import { serializePlugins } from 'src/lib/serialize-plugins';
+import { updateSiteUrl } from 'src/lib/update-site-url';
+import { SiteServer } from 'src/site-server';
+import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 
 export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 	meta?: MetaFileData;
+	importerType?: string;
 }
 
 export interface Importer extends Partial< EventEmitter > {
@@ -55,61 +59,29 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 				await move( sqlFile, tmpPath );
 				await this.prepareSqlFile( tmpPath );
 				const { stderr, exitCode } = await server.executeWpCliCommand(
-					`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php`,
+					`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php --enable-ast-driver`,
 					// SQLite plugin requires PHP 8+
-					{ targetPhpVersion: DEFAULT_PHP_VERSION }
+					{ targetPhpVersion: DEFAULT_PHP_VERSION, skipPluginsAndThemes: true }
 				);
 
 				if ( stderr ) {
-					console.error( `Warning during import of ${ sqlFile }:`, stderr );
+					console.error( `Error during import of ${ sqlFile }:`, stderr );
 				}
 
 				if ( exitCode ) {
-					throw new Error( 'Database import failed' );
+					throw new Error( 'Database import failed: ' + stderr );
 				}
 			} finally {
 				await this.safelyDeletePath( tmpPath );
 			}
 		}
 
-		await this.replaceSiteUrl( siteId );
+		await updateSiteUrl( server, getSiteUrl( server.details ) );
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
 	}
 
 	protected async prepareSqlFile( _tmpPath: string ): Promise< void > {
 		// This method can be overridden by subclasses to prepare the SQL file before import.
-	}
-
-	protected async replaceSiteUrl( siteId: string ) {
-		const server = SiteServer.get( siteId );
-		if ( ! server ) {
-			throw new Error( 'Site not found.' );
-		}
-
-		const { stdout: currentSiteUrl } = await server.executeWpCliCommand( `option get siteurl` );
-
-		if ( ! currentSiteUrl ) {
-			console.error( 'Failed to fetch site URL after import' );
-			return;
-		}
-
-		const studioUrl = `http://localhost:${ server.details.port }`;
-
-		const { stderr, exitCode } = await server.executeWpCliCommand(
-			`search-replace '${ currentSiteUrl.trim() }' '${ studioUrl.trim() }'`
-		);
-
-		if ( stderr ) {
-			console.error(
-				`Warning during replacing siteUrl ${ currentSiteUrl } -> ${ studioUrl }: ${ stderr }`
-			);
-		}
-
-		if ( exitCode ) {
-			console.error(
-				`Error during replacing siteUrl ${ currentSiteUrl } -> ${ studioUrl }, Exit Code: ${ exitCode }`
-			);
-		}
 	}
 
 	protected async safelyDeletePath( path: string ): Promise< void > {
@@ -126,17 +98,20 @@ abstract class BaseBackupImporter extends BaseImporter {
 		this.emit( ImportEvents.IMPORT_START );
 
 		try {
-			const databaseDir = path.join( rootPath, 'wp-content', 'database' );
-			const dbPath = path.join( databaseDir, '.ht.sqlite' );
-			await this.moveExistingDatabaseToTrash( dbPath );
 			await this.moveExistingWpContentToTrash( rootPath );
-			await this.createEmptyDatabase( dbPath );
 			await this.importWpConfig( rootPath );
 			await this.importWpContent( rootPath );
 			if ( this.backup.metaFile ) {
 				this.meta = await this.parseMetaFile();
 			}
-			await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
+			if ( this.backup.sqlFiles.length ) {
+				const databaseDir = path.join( rootPath, 'wp-content', 'database' );
+				const dbPath = path.join( databaseDir, '.ht.sqlite' );
+
+				await this.moveExistingDatabaseToTrash( dbPath );
+				await this.createEmptyDatabase( dbPath );
+				await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
+			}
 
 			this.emit( ImportEvents.IMPORT_COMPLETE );
 			return {
@@ -146,6 +121,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				wpContentDirectory: this.backup.wpContentDirectory,
 				wpConfig: this.backup.wpConfig,
 				meta: this.meta,
+				importerType: this.constructor.name,
 			};
 		} catch ( error ) {
 			this.emit( ImportEvents.IMPORT_ERROR, error );
@@ -172,17 +148,36 @@ abstract class BaseBackupImporter extends BaseImporter {
 			if ( ! fs.existsSync( wpContentDir ) ) {
 				return;
 			}
-			const contentToKeep = [ 'mu-plugins', 'database', 'db.php' ];
+			const contentToKeep = [
+				/^mu-plugins$/, // Match mu-plugins directory exactly
+				/^mu-plugins(\/|\\)sqlite-database-integration(\/|\\)?.*/, // Match sqlite-database-integration dir and contents
+				/^database(\/|\\)?.*/, // Match database dir and all contents
+				/^db\.php$/, // Exact match for db.php
+				/^index\.php$/, // Exact match for index.php
+				/^languages(\/|\\)?.*/, // Match languages dir and all contents
+			];
 
-			const contents = await fsPromises.readdir( wpContentDir );
+			// Directories to preserve if they are not included in the backup.
+			const maybeKeepWpContentDirectories: ( keyof WpContent )[] = [
+				'plugins',
+				'themes',
+				'fonts',
+				'uploads',
+			];
+
+			for ( const directory of maybeKeepWpContentDirectories ) {
+				if ( this.backup.wpContent[ directory ]?.length === 0 ) {
+					contentToKeep.push( new RegExp( `^${ directory }(/|\\\\)?.*` ) );
+				}
+			}
+
+			const contents = await fsPromises.readdir( wpContentDir, { recursive: true } );
 
 			for ( const content of contents ) {
-				const contentPath = path.join( wpContentDir, content );
-
-				if ( contentToKeep.includes( content ) ) {
+				if ( contentToKeep.some( ( pattern ) => pattern.test( content ) ) ) {
 					continue;
 				}
-				await this.safelyDeletePath( contentPath );
+				await this.safelyDeletePath( path.join( wpContentDir, content ) );
 			}
 		} catch {
 			return;
@@ -206,11 +201,21 @@ abstract class BaseBackupImporter extends BaseImporter {
 		const wpContent = this.backup.wpContent;
 		const wpContentSourceDir = this.backup.wpContentDirectory;
 		const wpContentDestDir = path.join( rootPath, 'wp-content' );
+
 		for ( const files of Object.values( wpContent ) ) {
 			for ( const file of files ) {
-				const stats = await lstat( file );
-				// Skip if it's a directory
-				if ( stats.isDirectory() ) {
+				try {
+					const stats = await lstat( file );
+					// Skip if it's a directory
+					if ( stats.isDirectory() ) {
+						continue;
+					}
+				} catch {
+					/**
+					 * If the file does not exist, skip it.
+					 * This can happen if a empty directory is included in the backup
+					 * because the empty directory won't be included in the extraction.
+					 */
 					continue;
 				}
 				const relativePath = path.relative(
@@ -224,6 +229,20 @@ abstract class BaseBackupImporter extends BaseImporter {
 		}
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_COMPLETE );
 	}
+
+	protected parsePhpVersion( version: string | undefined ): string {
+		if ( ! version ) {
+			return DEFAULT_PHP_VERSION;
+		}
+		const phpVersion = semver.coerce( version );
+		if ( ! phpVersion ) {
+			return DEFAULT_PHP_VERSION;
+		}
+
+		const parsedVersion = `${ phpVersion.major }.${ phpVersion.minor }`;
+
+		return SupportedPHPVersionsList.includes( parsedVersion ) ? parsedVersion : DEFAULT_PHP_VERSION;
+	}
 }
 
 export class JetpackImporter extends BaseBackupImporter {
@@ -235,7 +254,11 @@ export class JetpackImporter extends BaseBackupImporter {
 		this.emit( ImportEvents.IMPORT_META_START );
 		try {
 			const metaContent = await fsPromises.readFile( metaFilePath, 'utf-8' );
-			return JSON.parse( metaContent );
+			const meta = JSON.parse( metaContent );
+			return {
+				phpVersion: this.parsePhpVersion( meta?.phpVersion ),
+				wordpressVersion: meta?.wordpressVersion || '',
+			};
 		} catch ( e ) {
 			return;
 		} finally {
@@ -254,11 +277,8 @@ export class LocalImporter extends BaseBackupImporter {
 		try {
 			const metaContent = await fsPromises.readFile( metaFilePath, 'utf-8' );
 			const meta = JSON.parse( metaContent );
-			const phpVersion = semver.coerce( meta?.services?.php?.version );
 			return {
-				phpVersion: phpVersion
-					? `${ phpVersion.major }.${ phpVersion.minor }`
-					: DEFAULT_PHP_VERSION,
+				phpVersion: this.parsePhpVersion( meta?.services?.php?.version ),
 				wordpressVersion: '',
 			};
 		} catch ( e ) {
@@ -290,7 +310,7 @@ export class PlaygroundImporter extends BaseBackupImporter {
 				overwrite: true,
 			} );
 		}
-		await this.replaceSiteUrl( siteId );
+		await updateSiteUrl( server, getSiteUrl( server.details ) );
 
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
 	}
@@ -314,6 +334,7 @@ export class SQLImporter extends BaseImporter {
 				wpConfig: this.backup.wpConfig,
 				wpContent: this.backup.wpContent,
 				wpContentDirectory: this.backup.wpContentDirectory,
+				importerType: this.constructor.name,
 			};
 		} catch ( error ) {
 			this.emit( ImportEvents.IMPORT_ERROR, error );

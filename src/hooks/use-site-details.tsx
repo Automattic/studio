@@ -1,5 +1,5 @@
-import * as Sentry from '@sentry/electron/renderer';
 import { __ } from '@wordpress/i18n';
+import fastDeepEqual from 'fast-deep-equal';
 import {
 	ReactNode,
 	createContext,
@@ -9,9 +9,11 @@ import {
 	useMemo,
 	useState,
 } from 'react';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { sortSites } from '../lib/sort-sites';
-import { useSnapshots } from './use-snapshots';
+import { useContentTabs } from 'src/hooks/use-content-tabs';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { sortSites } from 'src/lib/sort-sites';
+import { useAppDispatch } from 'src/stores';
+import { snapshotThunks } from 'src/stores/snapshot-slice';
 
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
@@ -21,7 +23,10 @@ interface SiteDetailsContext {
 	createSite: (
 		path: string,
 		siteName?: string,
-		callback?: ( site: SiteDetails | void ) => Promise< void >
+		wpVersion?: string,
+		customDomain?: string,
+		enableHttps?: boolean,
+		callback?: ( site: SiteDetails ) => Promise< void >
 	) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
@@ -34,22 +39,24 @@ interface SiteDetailsContext {
 	setUploadingSites: React.Dispatch< React.SetStateAction< { [ siteId: string ]: boolean } > >;
 }
 
-export const siteDetailsContext = createContext< SiteDetailsContext >( {
+const defaultContext: SiteDetailsContext = {
 	selectedSite: null,
-	data: [],
 	updateSite: async () => undefined,
+	data: [],
 	setSelectedSiteId: () => undefined,
 	createSite: async () => undefined,
 	startServer: async () => undefined,
 	stopServer: async () => undefined,
 	stopAllRunningSites: async () => undefined,
 	deleteSite: async () => undefined,
-	isDeleting: false,
 	loadingServer: {},
 	loadingSites: true,
+	isDeleting: false,
 	uploadingSites: {},
 	setUploadingSites: () => undefined,
-} );
+};
+
+export const siteDetailsContext = createContext< SiteDetailsContext >( defaultContext );
 
 interface SiteDetailsProviderProps {
 	children?: ReactNode;
@@ -83,23 +90,22 @@ function useSelectedSite( firstSiteId: string | null ) {
 
 function useDeleteSite() {
 	const [ isLoading, setIsLoading ] = useState< Record< string, boolean > >( {} );
-	const { deleteSnapshot, snapshots } = useSnapshots();
+	const dispatch = useAppDispatch();
 
 	const deleteSite = useCallback(
-		async ( siteId: string, removeLocal: boolean ): Promise< SiteDetails[] | undefined > => {
+		async ( siteId: string, removeLocal: boolean ): Promise< void > => {
 			if ( ! siteId ) {
 				return;
 			}
 
-			const siteSnapshots = snapshots.filter( ( snapshot ) => snapshot.localSiteId === siteId );
-			const allSiteRemovePromises = Promise.allSettled(
-				siteSnapshots.map( ( snapshot ) => deleteSnapshot( snapshot, removeLocal ) )
+			const allSiteRemovePromises = dispatch(
+				snapshotThunks.deleteAllSnapshotsForSite( { siteId } )
 			);
 
 			try {
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: true } ) );
 
-				const newSites = await getIpcApi().deleteSite( siteId, removeLocal );
+				await getIpcApi().deleteSite( siteId, removeLocal );
 				await allSiteRemovePromises;
 
 				// After site is deleted successfully, clean up wpcom connections
@@ -118,8 +124,6 @@ function useDeleteSite() {
 					// If disconnection fails, log but don't fail the deletion
 					console.error( 'Failed to disconnect wpcom sites:', error );
 				}
-
-				return newSites;
 			} catch ( error ) {
 				console.error( 'Error during site deletion:', error );
 				throw error;
@@ -127,7 +131,7 @@ function useDeleteSite() {
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: false } ) );
 			}
 		},
-		[ deleteSnapshot, snapshots ]
+		[ dispatch ]
 	);
 	return { deleteSite, isLoading };
 }
@@ -148,6 +152,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const { selectedSiteId, setSelectedSiteId } = useSelectedSite( firstSite?.id );
 	const [ uploadingSites, setUploadingSites ] = useState< { [ siteId: string ]: boolean } >( {} );
 	const { deleteSite, isLoading: isDeleting } = useDeleteSite();
+	const { setSelectedTab, selectedTab } = useContentTabs();
 
 	const toggleLoadingServerForSite = useCallback( ( siteId: string ) => {
 		setLoadingServer( ( currentLoading ) => ( {
@@ -156,40 +161,28 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		} ) );
 	}, [] );
 
-	useEffect( () => {
-		let cancel = false;
-		setLoadingSites( true );
-		getIpcApi()
-			.getSiteDetails()
-			.then( ( data ) => {
-				if ( ! cancel ) {
-					setData( data );
-					setLoadingSites( false );
-				}
-			} );
-
-		return () => {
-			cancel = true;
-		};
-	}, [] );
-
 	const onDeleteSite = useCallback(
 		async ( id: string, removeLocal: boolean ) => {
-			const newSites = await deleteSite( id, removeLocal );
-			if ( newSites ) {
-				setData( newSites );
-				const selectedSite = newSites.length ? newSites[ 0 ].id : '';
-				setSelectedSiteId( selectedSite );
+			await deleteSite( id, removeLocal );
+			const newSites = await getIpcApi().getSiteDetails();
+			setData( newSites );
+			const selectedSite = newSites.length ? newSites[ 0 ].id : '';
+			setSelectedSiteId( selectedSite );
+			if ( selectedTab !== 'overview' ) {
+				setSelectedTab( 'overview' );
 			}
 		},
-		[ deleteSite, setSelectedSiteId ]
+		[ deleteSite, setSelectedSiteId, selectedTab, setSelectedTab ]
 	);
 
 	const createSite = useCallback(
 		async (
 			path: string,
 			siteName?: string,
-			callback?: ( site: SiteDetails | void ) => Promise< void >
+			wpVersion?: string,
+			customDomain?: string,
+			enableHttps?: boolean,
+			callback?: ( site: SiteDetails ) => Promise< void >
 		) => {
 			// Function to handle error messages and cleanup
 			const showError = ( error?: unknown ) => {
@@ -200,6 +193,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 						'An error occurred while creating the site. Verify your selected local path is an empty directory or an existing WordPress folder and try again. If this problem persists, please contact support.'
 					),
 					error,
+					showOpenLogs: true,
 				} );
 
 				// Remove the temporary site immediately, but with a minor delay to ensure state updates properly
@@ -218,6 +212,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 						id: tempSiteId,
 						name: siteName || path,
 						path,
+						port: -1, // Set a temporary port
 						running: false,
 						isAddingSite: true,
 						phpVersion: '',
@@ -227,8 +222,13 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			setSelectedSiteId( tempSiteId ); // Set the temporary ID as the selected site
 
 			try {
-				const data = await getIpcApi().createSite( path, siteName );
-				const newSite = data.find( ( site ) => site.path === path );
+				const newSite = await getIpcApi().createSite(
+					path,
+					siteName,
+					wpVersion,
+					customDomain,
+					enableHttps
+				);
 				if ( ! newSite ) {
 					showError();
 					return;
@@ -236,6 +236,9 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				// Update the selected site to the new site's ID if the user didn't change it
 				setSelectedSiteId( ( prevSelectedSiteId ) => {
 					if ( prevSelectedSiteId === tempSiteId ) {
+						if ( selectedTab !== 'overview' ) {
+							setSelectedTab( 'overview' );
+						}
 						return newSite.id;
 					}
 					return prevSelectedSiteId;
@@ -262,11 +265,12 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				showError( error );
 			}
 		},
-		[ setSelectedSiteId ]
+		[ selectedTab, setSelectedSiteId, setSelectedTab ]
 	);
 
 	const updateSite = useCallback( async ( site: SiteDetails ) => {
-		const updatedSites = await getIpcApi().updateSite( site );
+		await getIpcApi().updateSite( site );
+		const updatedSites = await getIpcApi().getSiteDetails();
 		setData( updatedSites );
 	}, [] );
 
@@ -278,15 +282,56 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			try {
 				updatedSite = await getIpcApi().startServer( id );
 			} catch ( error ) {
-				Sentry.captureException( error );
-				getIpcApi().showErrorMessageBox( {
-					title: __( 'Failed to start the site server' ),
-					message: __(
-						"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
-					),
-					error,
-				} );
-				getIpcApi().stopServer( id );
+				if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PORT_IN_USE' ) ) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Studio failed to initialize custom domains' ),
+						message: __(
+							'Studio needs to use port 80 and 443 to enable custom domains and SSL, but one of these ports are already in use by another app. Close any local development apps and restart Studio.'
+						),
+						showOpenLogs: false,
+					} );
+				} else if (
+					error instanceof Error &&
+					error.message.includes( 'PROXY_ERROR_START_FAILED' )
+				) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Studio failed to initialize custom domains' ),
+						message: __(
+							'Please restart Studio and try again. If this problem persists, please contact support.'
+						),
+						showOpenLogs: true,
+					} );
+				} else if (
+					error instanceof Error &&
+					error.message.includes( 'WASM_ERROR_NOT_ENOUGH_MEMORY' )
+				) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Not enough memory to start the site server' ),
+						message: __(
+							'Please stop some of your running sites first. If this problem persists, try closing other apps that might be using memory and try again.'
+						),
+						showOpenLogs: true,
+					} );
+				} else if ( error instanceof Error && error.message.includes( 'ERROR_PORT_IN_USE' ) ) {
+					const port = error.message.match( /\d+/ );
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to start the site server' ),
+						message: __(
+							`The site server failed to start because the port is already in use. Please close any local development apps that may be using port ${ port } and try again.`
+						),
+						showOpenLogs: false,
+					} );
+				} else {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to start the site server' ),
+						message: __(
+							"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
+						),
+						error,
+						showOpenLogs: true,
+					} );
+				}
+				await getIpcApi().stopServer( id );
 			}
 
 			if ( updatedSite ) {
@@ -301,6 +346,52 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		},
 		[ toggleLoadingServerForSite ]
 	);
+
+	const autoStartSites = useCallback(
+		( sites: SiteDetails[] ) => {
+			for ( const site of sites ) {
+				if ( site.autoStart ) {
+					void startServer( site.id );
+				}
+			}
+		},
+		[ startServer ]
+	);
+
+	useEffect( () => {
+		const unsubscribe = window.ipcListener.subscribe( 'user-data-updated', async ( _, payload ) => {
+			if ( ! fastDeepEqual( payload.newSites, payload.sites ) ) {
+				const updatedSites = await getIpcApi().getSiteDetails();
+				setData( updatedSites );
+			}
+		} );
+
+		return () => {
+			unsubscribe();
+		};
+	}, [] );
+
+	useEffect( () => {
+		let cancel = false;
+		setLoadingSites( true );
+		getIpcApi()
+			.getSiteDetails()
+			.then( async ( data ) => {
+				if ( ! cancel ) {
+					setData( data );
+					setLoadingSites( false );
+					autoStartSites( data );
+				}
+			} )
+			.catch( ( error ) => {
+				console.error( 'Error fetching site details:', error );
+				setLoadingSites( false );
+			} );
+
+		return () => {
+			cancel = true;
+		};
+	}, [ autoStartSites ] );
 
 	const stopServer = useCallback(
 		async ( id: string ) => {

@@ -1,15 +1,15 @@
 // To run tests, execute `npm run test -- src/components/copy-text-button.test.ts` from the root directory
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { CopyTextButton } from '../copy-text-button';
+import { CopyTextButton } from 'src/components/copy-text-button';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
-jest.mock( '../../lib/get-ipc-api' );
+jest.mock( 'src/lib/get-ipc-api' );
 
 describe( 'CopyTextButton', () => {
 	const mockCopyText = jest.fn();
 	beforeEach( () => {
-		jest.mock( '../../lib/get-ipc-api', () => ( {
+		jest.mock( 'src/lib/get-ipc-api', () => ( {
 			getIpcApi: () => ( {
 				copyText: mockCopyText,
 			} ),

@@ -1,28 +1,29 @@
-// To run tests, execute `npm run test -- src/lib/import-export/tests/import/importer/local-importer.test.ts`
 import * as fs from 'fs/promises';
 import { lstat, move } from 'fs-extra';
-import { SiteServer } from '../../../../../site-server';
-import { PlaygroundImporter } from '../../../import/importers';
-import { BackupContents } from '../../../import/types';
+import { PlaygroundImporter } from 'src/lib/import-export/import/importers';
+import { BackupContents } from 'src/lib/import-export/import/types';
+import { SiteServer } from 'src/site-server';
+import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 
 jest.mock( 'fs/promises' );
-jest.mock( '../../../../../site-server' );
+jest.mock( 'src/site-server' );
 jest.mock( 'fs-extra' );
 
-describe( 'localImporter', () => {
+platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 	const mockBackupContents: BackupContents = {
-		extractionDirectory: '/tmp/extracted',
-		sqlFiles: [ '/tmp/extracted/wp-content/database/.ht.sqlite' ],
-		wpConfig: 'wp-config.php',
+		extractionDirectory: normalize( '/tmp/extracted' ),
+		sqlFiles: [ normalize( '/tmp/extracted/wp-content/database/.ht.sqlite' ) ],
+		wpConfig: normalize( 'wp-config.php' ),
 		wpContent: {
-			uploads: [ '/tmp/extracted/wp-content/uploads/2023/image.jpg' ],
-			plugins: [ '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ],
-			themes: [ '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ],
+			uploads: [ normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ) ],
+			plugins: [ normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ) ],
+			themes: [ normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ) ],
+			fonts: [ normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ) ],
 		},
-		wpContentDirectory: 'wp-content',
+		wpContentDirectory: normalize( 'wp-content' ),
 	};
 
-	const mockStudioSitePath = '/path/to/studio/site';
+	const mockStudioSitePath = normalize( '/path/to/studio/site' );
 	const mockStudioSiteId = '123';
 
 	beforeEach( () => {
@@ -57,7 +58,7 @@ describe( 'localImporter', () => {
 			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
 			( fs.readFile as jest.Mock ).mockResolvedValue(
 				JSON.stringify( {
-					phpVersion: '7.4',
+					phpVersion: '8.3',
 					wordpressVersion: '5.8',
 				} )
 			);
@@ -65,7 +66,7 @@ describe( 'localImporter', () => {
 			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
 			expect( fs.mkdir ).toHaveBeenCalled();
-			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One for each wp-content file + wp-config
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 5 ); // One for each wp-content file + wp-config.php
 		} );
 
 		it( 'should handle sqlite,copies them in the correct folder, and rename the urls', async () => {
@@ -75,14 +76,49 @@ describe( 'localImporter', () => {
 			const siteServer = SiteServer.get( mockStudioSiteId );
 
 			const expectedCommand = 'option get siteurl';
-			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 1, expectedCommand );
+			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 1, expectedCommand, {
+				skipPluginsAndThemes: true,
+			} );
 
 			expect( move ).toHaveBeenNthCalledWith(
 				1,
-				'/tmp/extracted/wp-content/database/.ht.sqlite',
-				'/path/to/studio/site/wp-content/database/.ht.sqlite',
+				normalize( '/tmp/extracted/wp-content/database/.ht.sqlite' ),
+				normalize( '/path/to/studio/site/wp-content/database/.ht.sqlite' ),
 				{ overwrite: true }
 			);
+		} );
+
+		it( 'should properly import fonts directory', async () => {
+			const importer = new PlaygroundImporter( mockBackupContents );
+			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
+			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
+
+			await importer.import( mockStudioSitePath, mockStudioSiteId );
+
+			// Verify font file was copied
+			expect( fs.copyFile ).toHaveBeenCalledWith(
+				normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ),
+				normalize( '/path/to/studio/site/wp-content/fonts/open-sans.woff2' )
+			);
+		} );
+
+		it( 'should handle missing fonts directory gracefully', async () => {
+			const backupWithoutFonts = {
+				...mockBackupContents,
+				wpContent: {
+					...mockBackupContents.wpContent,
+					fonts: [],
+				},
+			};
+			const importer = new PlaygroundImporter( backupWithoutFonts );
+			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
+			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
+
+			await importer.import( mockStudioSitePath, mockStudioSiteId );
+
+			// Should still create other directories and copy other files
+			expect( fs.mkdir ).toHaveBeenCalled();
+			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One for each wp-content file + wp-config.php - fonts
 		} );
 	} );
 } );

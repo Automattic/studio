@@ -1,5 +1,5 @@
-import { exportBackup } from '../../export/export-manager';
-import { ExportOptions, NewExporter } from '../../export/types';
+import { exportBackup } from 'src/lib/import-export/export/export-manager';
+import { ExportOptions, NewExporter } from 'src/lib/import-export/export/types';
 
 describe( 'exportBackup', () => {
 	let mockExportOptions: ExportOptions;

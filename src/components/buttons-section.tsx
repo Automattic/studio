@@ -1,5 +1,5 @@
-import { cx } from '../lib/cx';
-import Button from './button';
+import Button from 'src/components/button';
+import { cx } from 'src/lib/cx';
 
 export interface ButtonsSectionProps {
 	buttonsArray: Array< {

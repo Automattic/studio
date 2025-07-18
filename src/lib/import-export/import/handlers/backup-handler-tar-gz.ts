@@ -2,13 +2,19 @@ import { EventEmitter } from 'events';
 import fs from 'fs';
 import zlib from 'zlib';
 import * as tar from 'tar';
-import { ImportEvents } from '../events';
-import { BackupArchiveInfo, BackupExtractProgressEventData } from '../types';
-import { BackupHandler, isFileAllowed } from './backup-handler-factory';
+import { ImportEvents } from 'src/lib/import-export/import/events';
+import {
+	BackupHandler,
+	isFileAllowed,
+} from 'src/lib/import-export/import/handlers/backup-handler-factory';
+import {
+	BackupArchiveInfo,
+	BackupExtractProgressEventData,
+} from 'src/lib/import-export/import/types';
 
 export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
 	async listFiles( backup: BackupArchiveInfo ): Promise< string[] > {
-		const files: string[] = [];
+		const filesSet = new Set< string >();
 		await tar.t( {
 			file: backup.path,
 			onReadEntry: ( entry ) => {
@@ -17,11 +23,11 @@ export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
 					if ( entry.path.startsWith( '/' ) ) {
 						path = path.slice( 1 );
 					}
-					files.push( path );
+					filesSet.add( path );
 				}
 			},
 		} );
-		return files;
+		return Array.from( filesSet );
 	}
 
 	async extractFiles( file: BackupArchiveInfo, extractionDirectory: string ): Promise< void > {

@@ -1,16 +1,51 @@
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo } from 'react';
+import { ImportProgressState } from './use-import-export';
 
 export type PullStateProgressInfo = {
-	key: 'in-progress' | 'downloading' | 'importing' | 'finished' | 'failed';
+	key: 'in-progress' | 'downloading' | 'importing' | 'finished' | 'failed' | 'cancelled';
 	progress: number;
 	message: string;
 };
 export type PushStateProgressInfo = {
-	key: 'creatingBackup' | 'uploading' | 'importing' | 'finished' | 'failed';
+	key:
+		| 'creatingBackup'
+		| 'uploading'
+		| 'creatingRemoteBackup'
+		| 'applyingChanges'
+		| 'finishing'
+		| 'finished'
+		| 'failed';
 	progress: number;
 	message: string;
 };
+
+type PullStateProgressInfoValues = Record< PullStateProgressInfo[ 'key' ], PullStateProgressInfo >;
+type PushStateProgressInfoValues = Record< PushStateProgressInfo[ 'key' ], PushStateProgressInfo >;
+
+export type SyncBackupResponse = {
+	status: 'in-progress' | 'finished' | 'failed';
+	download_url: string;
+	percent: number;
+};
+
+export type ImportResponse = {
+	status:
+		| 'finished'
+		| 'failed'
+		| 'initial_backup_started'
+		| 'archive_import_started'
+		| 'archive_import_finished';
+	success: boolean;
+	backup_progress: number;
+	import_progress: number;
+	error?: string;
+};
+
+const IN_PROGRESS_INITIAL_VALUE = 30;
+const DOWNLOADING_INITIAL_VALUE = 60;
+const IN_PROGRESS_TO_DOWNLOADING_STEP = DOWNLOADING_INITIAL_VALUE - IN_PROGRESS_INITIAL_VALUE;
+const PULL_IMPORTING_INITIAL_VALUE = 80;
 
 export function useSyncStatesProgressInfo() {
 	const { __ } = useI18n();
@@ -18,18 +53,18 @@ export function useSyncStatesProgressInfo() {
 		return {
 			'in-progress': {
 				key: 'in-progress',
-				progress: 30,
-				message: __( 'Pulling changes…' ),
+				progress: IN_PROGRESS_INITIAL_VALUE,
+				message: __( 'Initializing backup…' ),
 			},
 			downloading: {
 				// On backend this key is called backup 'finished'
 				key: 'downloading',
-				progress: 60,
+				progress: DOWNLOADING_INITIAL_VALUE,
 				message: __( 'Downloading backup…' ),
 			},
 			importing: {
 				key: 'importing',
-				progress: 80,
+				progress: PULL_IMPORTING_INITIAL_VALUE,
 				message: __( 'Importing backup…' ),
 			},
 			finished: {
@@ -42,25 +77,40 @@ export function useSyncStatesProgressInfo() {
 				progress: 100,
 				message: __( 'Error pulling changes' ),
 			},
-		} as const;
+			cancelled: {
+				key: 'cancelled',
+				progress: 0,
+				message: __( 'Cancelled' ),
+			},
+		} as const satisfies PullStateProgressInfoValues;
 	}, [ __ ] );
 
 	const pushStatesProgressInfo = useMemo( () => {
 		return {
 			creatingBackup: {
 				key: 'creatingBackup',
-				progress: 30,
+				progress: 20,
 				message: __( 'Creating backup…' ),
 			},
 			uploading: {
 				key: 'uploading',
-				progress: 50,
+				progress: 40,
 				message: __( 'Uploading Studio site…' ),
 			},
-			importing: {
-				key: 'importing',
-				progress: 80,
+			creatingRemoteBackup: {
+				key: 'creatingRemoteBackup',
+				progress: 50,
+				message: __( 'Backing up remote site…' ),
+			},
+			applyingChanges: {
+				key: 'applyingChanges',
+				progress: 60,
 				message: __( 'Applying changes…' ),
+			},
+			finishing: {
+				key: 'finishing',
+				progress: 99,
+				message: __( 'Almost there…' ),
 			},
 			finished: {
 				key: 'finished',
@@ -72,7 +122,7 @@ export function useSyncStatesProgressInfo() {
 				progress: 100,
 				message: __( 'Error pushing changes' ),
 			},
-		} as const;
+		} as const satisfies PushStateProgressInfoValues;
 	}, [ __ ] );
 
 	const isKeyPulling = ( key: PullStateProgressInfo[ 'key' ] | undefined ) => {
@@ -91,7 +141,9 @@ export function useSyncStatesProgressInfo() {
 		const pushingStateKeys: PushStateProgressInfo[ 'key' ][] = [
 			'creatingBackup',
 			'uploading',
-			'importing',
+			'creatingRemoteBackup',
+			'applyingChanges',
+			'finishing',
 		];
 		if ( ! key ) {
 			return false;
@@ -99,6 +151,17 @@ export function useSyncStatesProgressInfo() {
 		return pushingStateKeys.includes( key );
 	};
 
+	const isKeyImporting = ( key: PushStateProgressInfo[ 'key' ] | undefined ) => {
+		const pushingStateKeys: PushStateProgressInfo[ 'key' ][] = [
+			'creatingRemoteBackup',
+			'applyingChanges',
+			'finishing',
+		];
+		if ( ! key ) {
+			return false;
+		}
+		return pushingStateKeys.includes( key );
+	};
 	const isKeyFinished = useCallback(
 		( key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined ) => {
 			return key === 'finished';
@@ -113,12 +176,104 @@ export function useSyncStatesProgressInfo() {
 		[]
 	);
 
+	const getBackupStatusWithProgress = useCallback(
+		(
+			hasBackupCompleted: boolean,
+			pullStatesProgressInfo: PullStateProgressInfoValues,
+			response: SyncBackupResponse
+		) => {
+			const frontendStatus = hasBackupCompleted
+				? pullStatesProgressInfo.downloading.key
+				: response.status;
+			let newProgressInfo: PullStateProgressInfo | null = null;
+			if ( response.status === 'in-progress' ) {
+				newProgressInfo = pullStatesProgressInfo[ frontendStatus ];
+				// Update progress from the initial value to the new step proportionally to the response.progress
+				// on every update of the response.progress
+				newProgressInfo.progress =
+					IN_PROGRESS_INITIAL_VALUE + IN_PROGRESS_TO_DOWNLOADING_STEP * ( response.percent / 100 );
+			}
+			const statusWithProgress = newProgressInfo || pullStatesProgressInfo[ frontendStatus ];
+
+			return statusWithProgress;
+		},
+		[]
+	);
+
+	const getPullStatusWithProgress = useCallback(
+		( sitePullState?: PullStateProgressInfo, importState?: ImportProgressState[ string ] ) => {
+			if ( importState ) {
+				if ( importState.progress === 100 ) {
+					return { message: __( 'Applying final details…' ), progress: 99 };
+				}
+				const stepToProgress = 100 - PULL_IMPORTING_INITIAL_VALUE;
+				return {
+					message: importState.statusMessage,
+					// Update progress from the initial value to the new step proportionally to the importState.progress
+					// on every update of the importState.progress
+					progress: PULL_IMPORTING_INITIAL_VALUE + stepToProgress * ( importState.progress / 100 ),
+				};
+			}
+			if ( sitePullState ) {
+				return { message: sitePullState.message, progress: sitePullState.progress };
+			}
+			return { message: '', progress: 0 };
+		},
+		[ __ ]
+	);
+
+	const getPushStatusWithProgress = useCallback(
+		( status: PushStateProgressInfo, response: ImportResponse ) => {
+			if ( status.key === pushStatesProgressInfo.creatingRemoteBackup.key ) {
+				const progressRange =
+					pushStatesProgressInfo.applyingChanges.progress -
+					pushStatesProgressInfo.creatingRemoteBackup.progress;
+
+				// This step will increase the progress to the next step progressively based on the backup_progress
+				return {
+					...status,
+					progress:
+						pushStatesProgressInfo.creatingRemoteBackup.progress +
+						progressRange * ( response.backup_progress / 100 ),
+				};
+			}
+
+			// This step will increase the progress to the next step progressively based on the import_progress
+			if (
+				status.key === pushStatesProgressInfo.applyingChanges.key &&
+				response.import_progress < 100
+			) {
+				const progressRange =
+					pushStatesProgressInfo.finishing.progress -
+					pushStatesProgressInfo.applyingChanges.progress;
+				return {
+					...status,
+					progress:
+						pushStatesProgressInfo.applyingChanges.progress +
+						progressRange * ( response.import_progress / 100 ),
+				};
+			}
+			return status;
+		},
+		[
+			pushStatesProgressInfo.applyingChanges.key,
+			pushStatesProgressInfo.applyingChanges.progress,
+			pushStatesProgressInfo.creatingRemoteBackup.key,
+			pushStatesProgressInfo.creatingRemoteBackup.progress,
+			pushStatesProgressInfo.finishing.progress,
+		]
+	);
+
 	return {
 		pullStatesProgressInfo,
 		pushStatesProgressInfo,
 		isKeyPulling,
 		isKeyPushing,
+		isKeyImporting,
 		isKeyFinished,
 		isKeyFailed,
+		getBackupStatusWithProgress,
+		getPullStatusWithProgress,
+		getPushStatusWithProgress,
 	};
 }

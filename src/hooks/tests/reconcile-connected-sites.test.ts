@@ -1,14 +1,15 @@
-import { reconcileConnectedSites } from '../sync-sites/use-site-sync-management';
-import { SyncSite } from '../use-fetch-wpcom-sites';
+import { reconcileConnectedSites } from 'src/hooks/use-fetch-wpcom-sites/reconcile-connected-sites';
+import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 describe( 'reconcileConnectedSites', () => {
-	test( 'should update name, url, syncSupport properties', () => {
+	test( 'should update relevant properties', () => {
 		const connectedSites: SyncSite[] = [
 			{
 				id: 1,
 				stagingSiteIds: [],
 				localSiteId: 'local-site-id',
 				isStaging: false,
+				isPressable: false,
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
@@ -16,12 +17,13 @@ describe( 'reconcileConnectedSites', () => {
 				lastPushTimestamp: null,
 			},
 		];
-		const originalSitesFromWpCom: SyncSite[] = [
+		const freshWpComSites: SyncSite[] = [
 			{
 				id: 1,
 				stagingSiteIds: [],
 				localSiteId: 'local-site-id',
-				isStaging: false,
+				isStaging: true,
+				isPressable: false,
 				name: 'site1-updated',
 				url: 'site1-updated.com',
 				syncSupport: 'unsupported',
@@ -29,8 +31,8 @@ describe( 'reconcileConnectedSites', () => {
 				lastPushTimestamp: null,
 			},
 		];
-		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );
-		expect( result.updatedConnectedSites ).toEqual( [ originalSitesFromWpCom[ 0 ] ] );
+		const result = reconcileConnectedSites( connectedSites, freshWpComSites );
+		expect( result.updatedConnectedSites ).toEqual( [ freshWpComSites[ 0 ] ] );
 	} );
 
 	test( 'should add staging site, if it was added in wordpress.com', () => {
@@ -40,6 +42,7 @@ describe( 'reconcileConnectedSites', () => {
 				stagingSiteIds: [],
 				localSiteId: 'local-site-id',
 				isStaging: false,
+				isPressable: false,
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
@@ -47,12 +50,13 @@ describe( 'reconcileConnectedSites', () => {
 				lastPushTimestamp: null,
 			},
 		];
-		const originalSitesFromWpCom: SyncSite[] = [
+		const freshWpComSites: SyncSite[] = [
 			{
 				id: 1,
 				stagingSiteIds: [ 2 ],
 				localSiteId: 'local-site-id',
 				isStaging: false,
+				isPressable: false,
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
@@ -64,6 +68,7 @@ describe( 'reconcileConnectedSites', () => {
 				stagingSiteIds: [],
 				localSiteId: 'local-site-id',
 				isStaging: true,
+				isPressable: false,
 				name: 'staging-site1',
 				url: 'staging-site1.com',
 				syncSupport: 'syncable',
@@ -71,10 +76,10 @@ describe( 'reconcileConnectedSites', () => {
 				lastPushTimestamp: null,
 			},
 		];
-		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );
+		const result = reconcileConnectedSites( connectedSites, freshWpComSites );
 		expect( result.stagingSitesToAdd ).toEqual( [
 			{
-				...originalSitesFromWpCom[ 1 ],
+				...freshWpComSites[ 1 ],
 				syncSupport: 'already-connected',
 			},
 		] );
@@ -88,6 +93,7 @@ describe( 'reconcileConnectedSites', () => {
 				stagingSiteIds: [ 2 ],
 				localSiteId: 'local-site-id',
 				isStaging: false,
+				isPressable: false,
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
@@ -99,6 +105,7 @@ describe( 'reconcileConnectedSites', () => {
 				stagingSiteIds: [],
 				localSiteId: 'local-site-id',
 				isStaging: true,
+				isPressable: false,
 				name: 'staging-site1',
 				url: 'staging-site1.com',
 				syncSupport: 'already-connected',
@@ -106,12 +113,13 @@ describe( 'reconcileConnectedSites', () => {
 				lastPushTimestamp: null,
 			},
 		];
-		const originalSitesFromWpCom: SyncSite[] = [
+		const freshWpComSites: SyncSite[] = [
 			{
 				id: 1,
 				stagingSiteIds: [],
 				localSiteId: 'local-site-id',
 				isStaging: false,
+				isPressable: false,
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
@@ -119,7 +127,7 @@ describe( 'reconcileConnectedSites', () => {
 				lastPushTimestamp: null,
 			},
 		];
-		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );
+		const result = reconcileConnectedSites( connectedSites, freshWpComSites );
 		expect( result.stagingSitesToDelete ).toEqual( [ { id: 2, localSiteId: 'local-site-id' } ] );
 		expect( result.stagingSitesToAdd ).toEqual( [] );
 	} );
@@ -131,6 +139,7 @@ describe( 'reconcileConnectedSites', () => {
 				stagingSiteIds: [ 2 ],
 				localSiteId: 'local-site-id',
 				isStaging: false,
+				isPressable: false,
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
@@ -142,6 +151,7 @@ describe( 'reconcileConnectedSites', () => {
 				stagingSiteIds: [],
 				localSiteId: 'local-site-id',
 				isStaging: true,
+				isPressable: false,
 				name: 'staging-site1',
 				url: 'staging-site1.com',
 				syncSupport: 'already-connected',
@@ -149,12 +159,13 @@ describe( 'reconcileConnectedSites', () => {
 				lastPushTimestamp: null,
 			},
 		];
-		const originalSitesFromWpCom: SyncSite[] = [
+		const freshWpComSites: SyncSite[] = [
 			{
 				id: 1,
 				stagingSiteIds: [ 3 ],
 				localSiteId: 'local-site-id',
 				isStaging: false,
+				isPressable: false,
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
@@ -166,6 +177,7 @@ describe( 'reconcileConnectedSites', () => {
 				stagingSiteIds: [],
 				localSiteId: 'local-site-id',
 				isStaging: true,
+				isPressable: false,
 				name: 'new-staging-site1',
 				url: 'new-staging-site1.com',
 				syncSupport: 'syncable',
@@ -173,11 +185,11 @@ describe( 'reconcileConnectedSites', () => {
 				lastPushTimestamp: null,
 			},
 		];
-		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );
+		const result = reconcileConnectedSites( connectedSites, freshWpComSites );
 		expect( result.stagingSitesToDelete ).toEqual( [ { id: 2, localSiteId: 'local-site-id' } ] );
 		expect( result.stagingSitesToAdd ).toEqual( [
 			{
-				...originalSitesFromWpCom[ 1 ],
+				...freshWpComSites[ 1 ],
 				syncSupport: 'already-connected',
 			},
 		] );
@@ -190,6 +202,7 @@ describe( 'reconcileConnectedSites', () => {
 				stagingSiteIds: [ 2 ],
 				localSiteId: 'local-site-id',
 				isStaging: false,
+				isPressable: false,
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
@@ -201,6 +214,7 @@ describe( 'reconcileConnectedSites', () => {
 				stagingSiteIds: [],
 				localSiteId: 'local-site-id',
 				isStaging: true,
+				isPressable: false,
 				name: 'staging-site1',
 				url: 'staging-site1.com',
 				syncSupport: 'already-connected',
@@ -208,12 +222,13 @@ describe( 'reconcileConnectedSites', () => {
 				lastPushTimestamp: null,
 			},
 		];
-		const originalSitesFromWpCom: SyncSite[] = [
+		const freshWpComSites: SyncSite[] = [
 			{
 				id: 1,
 				stagingSiteIds: [ 2 ],
 				localSiteId: 'local-site-id',
 				isStaging: false,
+				isPressable: false,
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
@@ -225,6 +240,7 @@ describe( 'reconcileConnectedSites', () => {
 				stagingSiteIds: [],
 				localSiteId: 'local-site-id',
 				isStaging: true,
+				isPressable: false,
 				name: 'staging-site1',
 				url: 'staging-site1.com',
 				syncSupport: 'already-connected',
@@ -232,7 +248,7 @@ describe( 'reconcileConnectedSites', () => {
 				lastPushTimestamp: null,
 			},
 		];
-		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );
+		const result = reconcileConnectedSites( connectedSites, freshWpComSites );
 		expect( result.stagingSitesToDelete ).toEqual( [] );
 		expect( result.stagingSitesToAdd ).toEqual( [] );
 	} );
@@ -244,6 +260,7 @@ describe( 'reconcileConnectedSites', () => {
 				stagingSiteIds: [],
 				localSiteId: 'local-site-id-1',
 				isStaging: false,
+				isPressable: false,
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
@@ -255,6 +272,7 @@ describe( 'reconcileConnectedSites', () => {
 				stagingSiteIds: [],
 				localSiteId: 'local-site-id-2',
 				isStaging: false,
+				isPressable: false,
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
@@ -262,12 +280,13 @@ describe( 'reconcileConnectedSites', () => {
 				lastPushTimestamp: null,
 			},
 		];
-		const originalSitesFromWpCom: SyncSite[] = [
+		const freshWpComSites: SyncSite[] = [
 			{
 				id: 1,
 				stagingSiteIds: [ 2 ],
 				localSiteId: 'local-site-id-1',
 				isStaging: false,
+				isPressable: false,
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
@@ -279,6 +298,7 @@ describe( 'reconcileConnectedSites', () => {
 				stagingSiteIds: [ 2 ],
 				localSiteId: 'local-site-id-2',
 				isStaging: false,
+				isPressable: false,
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
@@ -290,6 +310,7 @@ describe( 'reconcileConnectedSites', () => {
 				stagingSiteIds: [],
 				localSiteId: 'local-site-id-1',
 				isStaging: true,
+				isPressable: false,
 				name: 'staging-site1',
 				url: 'staging-site1.com',
 				syncSupport: 'syncable',
@@ -301,6 +322,7 @@ describe( 'reconcileConnectedSites', () => {
 				stagingSiteIds: [],
 				localSiteId: 'local-site-id-2',
 				isStaging: true,
+				isPressable: false,
 				name: 'staging-site1',
 				url: 'staging-site1.com',
 				syncSupport: 'syncable',
@@ -308,25 +330,25 @@ describe( 'reconcileConnectedSites', () => {
 				lastPushTimestamp: null,
 			},
 		];
-		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );
+		const result = reconcileConnectedSites( connectedSites, freshWpComSites );
 		expect( result.stagingSitesToAdd ).toEqual( [
 			{
-				...originalSitesFromWpCom[ 2 ],
+				...freshWpComSites[ 2 ],
 				syncSupport: 'already-connected',
 			},
 			{
-				...originalSitesFromWpCom[ 3 ],
+				...freshWpComSites[ 3 ],
 				syncSupport: 'already-connected',
 			},
 		] );
 		expect( result.stagingSitesToDelete ).toEqual( [] );
 		expect( result.updatedConnectedSites ).toEqual( [
 			{
-				...originalSitesFromWpCom[ 0 ],
+				...freshWpComSites[ 0 ],
 				syncSupport: 'already-connected',
 			},
 			{
-				...originalSitesFromWpCom[ 1 ],
+				...freshWpComSites[ 1 ],
 				syncSupport: 'already-connected',
 			},
 		] );
@@ -338,6 +360,7 @@ describe( 'reconcileConnectedSites', () => {
 				stagingSiteIds: [ 2 ],
 				localSiteId: 'local-site-id-1',
 				isStaging: false,
+				isPressable: false,
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
@@ -349,6 +372,7 @@ describe( 'reconcileConnectedSites', () => {
 				stagingSiteIds: [ 2 ],
 				localSiteId: 'local-site-id-2',
 				isStaging: false,
+				isPressable: false,
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
@@ -360,6 +384,7 @@ describe( 'reconcileConnectedSites', () => {
 				stagingSiteIds: [],
 				localSiteId: 'local-site-id-1',
 				isStaging: true,
+				isPressable: false,
 				name: 'staging-site1',
 				url: 'staging-site1.com',
 				syncSupport: 'already-connected',
@@ -371,6 +396,7 @@ describe( 'reconcileConnectedSites', () => {
 				stagingSiteIds: [],
 				localSiteId: 'local-site-id-2',
 				isStaging: true,
+				isPressable: false,
 				name: 'staging-site1',
 				url: 'staging-site1.com',
 				syncSupport: 'already-connected',
@@ -378,12 +404,13 @@ describe( 'reconcileConnectedSites', () => {
 				lastPushTimestamp: null,
 			},
 		];
-		const originalSitesFromWpCom: SyncSite[] = [
+		const freshWpComSites: SyncSite[] = [
 			{
 				id: 1,
 				stagingSiteIds: [],
 				localSiteId: 'local-site-id-1',
 				isStaging: false,
+				isPressable: false,
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
@@ -395,6 +422,7 @@ describe( 'reconcileConnectedSites', () => {
 				stagingSiteIds: [],
 				localSiteId: 'local-site-id-2',
 				isStaging: false,
+				isPressable: false,
 				name: 'site1',
 				url: 'site1.com',
 				syncSupport: 'already-connected',
@@ -402,14 +430,14 @@ describe( 'reconcileConnectedSites', () => {
 				lastPushTimestamp: null,
 			},
 		];
-		const result = reconcileConnectedSites( connectedSites, originalSitesFromWpCom );
+		const result = reconcileConnectedSites( connectedSites, freshWpComSites );
 		expect( result.updatedConnectedSites ).toEqual( [
 			{
-				...originalSitesFromWpCom[ 0 ],
+				...freshWpComSites[ 0 ],
 				syncSupport: 'already-connected',
 			},
 			{
-				...originalSitesFromWpCom[ 1 ],
+				...freshWpComSites[ 1 ],
 				syncSupport: 'already-connected',
 			},
 			{

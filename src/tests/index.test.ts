@@ -2,180 +2,178 @@
  * @jest-environment node
  */
 import fs from 'fs';
-import { createMainWindow, withMainWindow } from '../main-window';
-import { setupWPServerFiles } from '../setup-wp-server-files';
+import { normalize } from 'path';
+import { readFile } from 'atomically';
+import { createMainWindow, getMainWindow } from 'src/main-window';
+import { setupWPServerFiles } from 'src/setup-wp-server-files';
 
 jest.mock( 'fs' );
 jest.mock( 'file-stream-rotator' );
-jest.mock( '../main-window' );
-jest.mock( '../updates' );
-jest.mock( '../lib/bump-stats' );
-jest.mock( '../lib/cli' );
-jest.mock( '../setup-wp-server-files', () => ( {
+jest.mock( 'src/main-window' );
+jest.mock( 'src/updates' );
+jest.mock( 'src/lib/bump-stats' );
+jest.mock( 'src/lib/user-data-watcher' );
+jest.mock( 'src/setup-wp-server-files', () => ( {
 	setupWPServerFiles: jest.fn( () => Promise.resolve() ),
 	updateWPServerFiles: jest.fn( () => Promise.resolve() ),
 } ) );
+jest.mock( 'atomically', () => ( {
+	readFile: jest.fn(),
+	writeFile: jest.fn(),
+} ) );
 
-const mockUserData = {
-	sites: [],
+( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( { sites: [] } ) );
+( fs as MockedFs ).__setFileContents( normalize( '/path/to/app/temp/com.wordpress.studio/' ), '' );
+
+const mockWatcher = {
+	close: jest.fn(),
 };
-( fs as MockedFs ).__setFileContents(
-	'/path/to/app/appData/App Name/appdata-v1.json',
-	JSON.stringify( mockUserData )
-);
-( fs as MockedFs ).__setFileContents( '/path/to/app/temp/com.wordpress.studio/', '' );
+fs.watch = jest.fn().mockReturnValue( mockWatcher ) as unknown as typeof fs.watch;
 
-function mockElectron(
-	{
-		appEvents,
-		appMocks,
-		electronMocks,
-	}: {
-		appEvents: string[];
-		electronMocks?: Partial< typeof import('electron') >;
-		appMocks?: Partial< typeof import('electron').app >;
-	} = {
-		appEvents: [],
-	}
-) {
-	const mockedEvents = appEvents.reduce< Record< string, ( ...args: any[] ) => Promise< void > > >(
-		( accum, event ) => {
-			// eslint-disable-next-line @typescript-eslint/no-empty-function
-			return { ...accum, [ event ]: async () => {} };
-		},
-		{}
-	);
+function mockElectron() {
+	const mockedEvents: Record< string, ( ...args: any[] ) => Promise< void > > = {};
+
 	jest.doMock( 'electron', () => {
-		const electron = jest.genMockFromModule( 'electron' ) as typeof import('electron');
+		const electron = jest.createMockFromModule(
+			'electron'
+		) as unknown as typeof import('electron');
+
 		return {
 			...electron,
-			...electronMocks,
 			app: {
 				...electron.app,
-				...appMocks,
 				on: jest.fn( ( event, callback ) => {
-					const mockedEventName = Object.keys( mockedEvents ).find( ( key ) => key === event );
-					if ( mockedEventName ) {
-						mockedEvents[ mockedEventName ] = callback;
-					}
+					mockedEvents[ event ] = callback;
 				} ),
+			},
+			session: {
+				defaultSession: {
+					...electron.session.defaultSession,
+					getAllExtensions: jest.fn().mockReturnValue( [] ),
+					serviceWorkers: {
+						startWorkerForScope: jest.fn().mockResolvedValue( undefined ),
+					},
+				},
 			},
 		};
 	} );
+
 	return { mockedEvents };
 }
+
+// Silence `console.log`, `console.warn`, and `console.error` output
+beforeAll( () => {
+	jest.spyOn( console, 'log' ).mockImplementation( () => {} );
+	jest.spyOn( console, 'warn' ).mockImplementation( () => {} );
+	jest.spyOn( console, 'error' ).mockImplementation( () => {} );
+} );
+
+afterAll( () => {
+	jest.spyOn( console, 'log' ).mockRestore();
+	jest.spyOn( console, 'warn' ).mockRestore();
+	jest.spyOn( console, 'error' ).mockRestore();
+} );
 
 afterEach( () => {
 	jest.clearAllMocks();
 } );
 
-it( 'should boot successfully', () => {
-	jest.isolateModules( () => {
-		expect( () => require( '../index' ) ).not.toThrow();
-	} );
-} );
-
-it( 'should handle authentication deep links', () => {
-	jest.isolateModules( async () => {
-		const originalProcessPlatform = process.platform;
-		Object.defineProperty( process, 'platform', { value: 'darwin' } );
-		const mockIpcMainEmit = jest.fn();
-		const electron = jest.genMockFromModule( 'electron' ) as typeof import('electron');
-		const { mockedEvents } = mockElectron( {
-			appEvents: [ 'open-url' ],
-			electronMocks: {
-				ipcMain: {
-					...electron.ipcMain,
-					emit: mockIpcMainEmit,
-				},
-			},
+describe( 'App initialization', () => {
+	it( 'should boot successfully', () => {
+		jest.isolateModules( () => {
+			expect( () => require( '../index' ) ).not.toThrow();
 		} );
-		const mockAuthResult = { email: 'mock-email', displayName: 'mock-display-name' };
-		const mockResolvedValue = Promise.resolve( mockAuthResult );
-		const mockHandleAuthCallback = jest.fn( () => mockResolvedValue );
-		jest.doMock( '../lib/oauth', () => ( {
-			setUpAuthCallbackHandler: jest.fn(),
-			handleAuthCallback: mockHandleAuthCallback,
-		} ) );
-		require( '../index' );
-		const { 'open-url': openUrl } = mockedEvents;
+	} );
 
-		const mockHash = '#access_token=1234&expires_in=1';
-		openUrl( {}, `wpcom-local-dev://auth${ mockHash }` );
-		await mockResolvedValue;
+	it( 'should handle authentication deep links', () => {
+		jest.isolateModules( async () => {
+			const originalProcessPlatform = process.platform;
+			Object.defineProperty( process, 'platform', { value: 'darwin' } );
 
-		expect( mockHandleAuthCallback ).toHaveBeenCalledWith( mockHash );
-		expect( mockIpcMainEmit ).toHaveBeenCalledWith( 'auth-callback', null, {
-			token: mockAuthResult,
+			const { mockedEvents } = mockElectron();
+			const mockOnOpenUrlCallback = jest.fn();
+			jest.doMock( '../lib/oauth', () => ( { onOpenUrlCallback: mockOnOpenUrlCallback } ) );
+
+			require( '../index' );
+			const { 'open-url': openUrl } = mockedEvents;
+
+			const testUrl = 'wpcom-local-dev://auth#test-hash';
+			await openUrl( {}, testUrl );
+			expect( mockOnOpenUrlCallback ).toHaveBeenCalledWith( testUrl );
+
+			Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
 		} );
-
-		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
 	} );
-} );
 
-it( 'should setup server files before creating main window', async () => {
-	await jest.isolateModulesAsync( async () => {
-		const { mockedEvents } = mockElectron( { appEvents: [ 'ready' ] } );
-		require( '../index' );
-		const { ready } = mockedEvents;
+	it( 'should setup server files before creating main window', async () => {
+		await jest.isolateModulesAsync( async () => {
+			const { mockedEvents } = mockElectron();
+			const setupSpy = jest.fn();
+			( setupWPServerFiles as jest.Mock ).mockImplementation( () => {
+				setupSpy();
+				return Promise.resolve();
+			} );
 
-		// Add a mock function to check that `setupWPServerFiles` is resolved before
-		// creating the main window.
-		const resolveFn = jest.fn();
-		( setupWPServerFiles as jest.Mock ).mockImplementation( async () => {
-			await new Promise( process.nextTick );
-			resolveFn();
+			require( '../index' );
+			await mockedEvents.ready();
+
+			expect( setupSpy ).toHaveBeenCalled();
+			expect( setupSpy.mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+				( createMainWindow as jest.Mock ).mock.invocationCallOrder[ 0 ]
+			);
+
+			await mockedEvents.quit();
 		} );
-
-		await ready();
-
-		expect( resolveFn ).toHaveBeenCalled();
-		const setupWPServerFilesResolvedOrder = resolveFn.mock.invocationCallOrder[ 0 ];
-		const createMainWindowOrder = ( createMainWindow as jest.Mock ).mock.invocationCallOrder[ 0 ];
-
-		expect( setupWPServerFilesResolvedOrder ).toBeLessThan( createMainWindowOrder );
 	} );
-} );
 
-it( 'should wait app initialization before creating main window via activate event', async () => {
-	await jest.isolateModulesAsync( async () => {
-		const { mockedEvents } = mockElectron( { appEvents: [ 'ready', 'activate' ] } );
+	it( 'should wait for app initialization before handling window events', async () => {
+		await jest.isolateModulesAsync( async () => {
+			const { mockedEvents } = mockElectron();
+			require( '../index' );
 
-		require( '../index' );
-		const { ready, activate } = mockedEvents;
+			// Before ready
+			await mockedEvents.activate();
+			expect( createMainWindow ).not.toHaveBeenCalled();
 
-		await activate();
-		expect( createMainWindow as jest.Mock ).not.toHaveBeenCalled();
+			// After ready
+			await mockedEvents.ready();
+			await mockedEvents.activate();
+			expect( createMainWindow ).toHaveBeenCalled();
 
-		await ready();
-
-		await activate();
-		expect( createMainWindow as jest.Mock ).toHaveBeenCalled();
+			await mockedEvents.quit();
+		} );
 	} );
-} );
 
-it( 'should wait app initialization before creating main window via second-instance event', async () => {
-	await jest.isolateModulesAsync( async () => {
-		const { mockedEvents } = mockElectron( { appEvents: [ 'ready', 'second-instance' ] } );
+	it( 'should wait app initialization before creating main window via second-instance event', async () => {
+		await jest.isolateModulesAsync( async () => {
+			( getMainWindow as jest.Mock ).mockResolvedValue( {
+				focus: jest.fn(),
+				isMinimized: jest.fn( () => false ),
+			} );
 
-		// The "second-instance" event is only invoked on Windows/Linux platforms.
-		// Therefore, we ensure the initialization is performed on one of those
-		// platforms.
-		const originalProcessPlatform = process.platform;
-		Object.defineProperty( process, 'platform', { value: 'win32' } );
+			const { mockedEvents } = mockElectron();
 
-		require( '../index' );
-		const { ready, 'second-instance': secondInstance } = mockedEvents;
+			// The "second-instance" event is only invoked on Windows/Linux platforms.
+			// Therefore, we ensure the initialization is performed on one of those
+			// platforms.
+			const originalProcessPlatform = process.platform;
+			Object.defineProperty( process, 'platform', { value: 'win32' } );
 
-		await secondInstance();
-		// "withMainWindow" creates the main window if it doesn't exist
-		expect( withMainWindow as jest.Mock ).not.toHaveBeenCalled();
+			require( '../index' );
+			const { ready, 'second-instance': secondInstance } = mockedEvents;
 
-		await ready();
+			await secondInstance();
+			// "getMainWindow" creates the main window if it doesn't exist
+			expect( getMainWindow as jest.Mock ).not.toHaveBeenCalled();
 
-		await secondInstance();
-		expect( withMainWindow as jest.Mock ).toHaveBeenCalled();
+			await ready();
 
-		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
+			await secondInstance();
+			expect( getMainWindow as jest.Mock ).toHaveBeenCalled();
+
+			Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
+
+			await mockedEvents.quit();
+		} );
 	} );
 } );

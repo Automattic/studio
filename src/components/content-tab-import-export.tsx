@@ -1,22 +1,23 @@
 import { speak } from '@wordpress/a11y';
 import { Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { sprintf, __ } from '@wordpress/i18n';
+import { sprintf } from '@wordpress/i18n';
 import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useRef, useState } from 'react';
-import { STUDIO_DOCS_URL_IMPORT_EXPORT, ACCEPTED_IMPORT_FILE_TYPES } from '../constants';
-import { useSyncSites } from '../hooks/sync-sites/sync-sites-context';
-import { useConfirmationDialog } from '../hooks/use-confirmation-dialog';
-import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
-import { useImportExport } from '../hooks/use-import-export';
-import { useSiteDetails } from '../hooks/use-site-details';
-import { useSyncStatesProgressInfo } from '../hooks/use-sync-states-progress-info';
-import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
-import Button from './button';
-import ProgressBar from './progress-bar';
-import { Tooltip } from './tooltip';
+import Button from 'src/components/button';
+import ProgressBar from 'src/components/progress-bar';
+import { Tooltip } from 'src/components/tooltip';
+import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
+import { useSyncSites } from 'src/hooks/sync-sites/sync-sites-context';
+import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
+import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
+import { useImportExport } from 'src/hooks/use-import-export';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getLocalizedLink } from 'src/lib/get-localized-link';
+import { useI18nLocale } from 'src/stores';
 
 interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
@@ -24,26 +25,21 @@ interface ContentTabImportExportProps {
 
 export const ExportSite = ( {
 	selectedSite,
-	isAnySiteSyncing,
 	isThisSiteSyncing,
 }: {
 	selectedSite: SiteDetails;
-	isAnySiteSyncing: boolean;
 	isThisSiteSyncing: boolean;
 } ) => {
+	const { __ } = useI18n();
 	const { exportState, exportFullSite, exportDatabase, importState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
 	const isImporting = importState[ selectedSite.id ]?.progress < 100;
-	const isExportDisabled = isImporting || isAnySiteSyncing;
+	const isExportDisabled = isImporting || isThisSiteSyncing;
 
 	let tooltipText;
 	if ( isThisSiteSyncing ) {
 		tooltipText = __(
 			'This Studio site is syncing. Please wait for the sync to finish before you export it.'
-		);
-	} else if ( isAnySiteSyncing ) {
-		tooltipText = __(
-			'Another Studio site is syncing. Please wait for the sync to finish before you export this site.'
 		);
 	} else if ( isImporting ) {
 		tooltipText = __(
@@ -85,9 +81,7 @@ export const ExportSite = ( {
 							onClick={ () => handleExport( exportDatabase ) }
 							type="submit"
 							variant="secondary"
-							className={ cx(
-								isExportDisabled ? '' : '!text-a8c-blueberry !shadow-a8c-blueberry'
-							) }
+							className={ cx( isExportDisabled ? '' : '!text-a8c-blue-50 !shadow-a8c-blue-50' ) }
 							disabled={ isExportDisabled }
 						>
 							{ __( 'Export database' ) }
@@ -104,25 +98,20 @@ const InitialImportButton = ( {
 	isInitial,
 	openFileSelector,
 	isSiteExporting,
-	isAnySiteSyncing,
 	isThisSiteSyncing,
 }: {
 	children: React.ReactNode;
 	isInitial: boolean;
 	openFileSelector: () => void;
 	isSiteExporting: boolean;
-	isAnySiteSyncing: boolean;
 	isThisSiteSyncing: boolean;
 } ) => {
-	const disabled = isSiteExporting || isAnySiteSyncing;
+	const { __ } = useI18n();
+	const disabled = isSiteExporting || isThisSiteSyncing;
 	let tooltipText;
 	if ( isThisSiteSyncing ) {
 		tooltipText = __(
 			'This Studio site is syncing. Please wait for the sync to finish before you import a backup.'
-		);
-	} else if ( isAnySiteSyncing ) {
-		tooltipText = __(
-			'Another Studio site is syncing. Please wait for the sync to finish before you import a backup.'
 		);
 	} else if ( isSiteExporting ) {
 		tooltipText = __(
@@ -133,12 +122,12 @@ const InitialImportButton = ( {
 		<Tooltip className="w-full" text={ tooltipText } disabled={ ! disabled }>
 			<Button
 				variant="icon"
-				className={ `w-full 
-				${
+				className={ cx(
+					'w-full',
 					disabled
 						? '[&>div.border-zinc-300]:border-gray-400 cursor-not-allowed opacity-50'
-						: '[&>div.border-zinc-300]:hover:border-a8c-blueberry'
-				}` }
+						: '[&>div.border-zinc-300]:hover:border-a8c-blue-50'
+				) }
 				onClick={ openFileSelector }
 				disabled={ disabled }
 			>
@@ -152,14 +141,13 @@ const InitialImportButton = ( {
 
 const ImportSite = ( {
 	selectedSite,
-	isAnySiteSyncing,
 	isThisSiteSyncing,
 }: {
 	selectedSite: SiteDetails;
-	isAnySiteSyncing: boolean;
 	isThisSiteSyncing: boolean;
 } ) => {
 	const { __ } = useI18n();
+	const locale = useI18nLocale();
 	const { startServer, loadingServer } = useSiteDetails();
 	const { importState, importFile, clearImportState, exportState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = importState;
@@ -179,7 +167,7 @@ const ImportSite = ( {
 			if ( isImporting ) {
 				return;
 			}
-			importConfirmation( () => importFile( file, selectedSite ) );
+			void importConfirmation( () => importFile( file, selectedSite ) );
 		},
 	} );
 	const inputFileRef = useRef< HTMLInputElement >( null );
@@ -191,9 +179,9 @@ const ImportSite = ( {
 		if ( ! file ) {
 			return;
 		}
-		importConfirmation( async () => {
-			await importFile( file, selectedSite );
+		void importConfirmation( async () => {
 			clearImportFileInput();
+			await importFile( file, selectedSite );
 		} );
 	};
 	const openSite = async () => {
@@ -214,24 +202,26 @@ const ImportSite = ( {
 	};
 
 	const startLoadingCursorClassName =
-		loadingServer[ selectedSite.id ] &&
-		! isAnySiteSyncing &&
-		'animate-pulse duration-100 cursor-wait';
+		loadingServer[ selectedSite.id ] && 'animate-pulse duration-100 cursor-wait';
 
-	const isImporting = currentProgress?.progress < 100 && ! isAnySiteSyncing;
-	const isImported = currentProgress?.progress === 100 && ! isDraggingOver && ! isAnySiteSyncing;
+	const isImporting = currentProgress?.progress < 100;
+	const isImported = currentProgress?.progress === 100 && ! isDraggingOver;
 	const isInitial = ! isImporting && ! isImported;
 	return (
 		<div className={ cx( 'flex flex-col w-full', startLoadingCursorClassName ) }>
 			<div className="a8c-subtitle-small mb-1">{ __( 'Import' ) }</div>
 			<div className="text-a8c-gray-70 a8c-body mb-4">
 				{ createInterpolateElement(
-					__( 'Import a Jetpack backup or a .sql database file. <button>Learn more</button>' ),
+					__(
+						'Import a Jetpack backup, a full-site backup in another format, or a .sql database file. <button>Learn more</button>'
+					),
 					{
 						button: (
 							<Button
 								variant="link"
-								onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL_IMPORT_EXPORT ) }
+								onClick={ () =>
+									getIpcApi().openURL( getLocalizedLink( locale, 'docsImportExport' ) )
+								}
 							/>
 						),
 					}
@@ -242,13 +232,12 @@ const ImportSite = ( {
 					isInitial={ isInitial }
 					openFileSelector={ openFileSelector }
 					isSiteExporting={ isSiteExporting }
-					isAnySiteSyncing={ isAnySiteSyncing }
 					isThisSiteSyncing={ isThisSiteSyncing }
 				>
 					<div
 						className={ cx(
 							'h-36 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex',
-							isDraggingOver && ! isImporting && 'border-a8c-blueberry bg-a8c-gray-0'
+							isDraggingOver && ! isImporting && 'border-a8c-blue-50 bg-a8c-gray-0'
 						) }
 					>
 						{ isImporting && (
@@ -304,19 +293,11 @@ const ImportSite = ( {
 };
 
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
+	const { __ } = useI18n();
 	const [ isSupported, setIsSupported ] = useState< boolean | null >( null );
-	const { isAnySitePulling, isAnySitePushing, getPullState, getPushState, connectedSites } =
-		useSyncSites();
-	const { isKeyPulling } = useSyncStatesProgressInfo();
-	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
-	const isPulling = connectedSites.some( ( site ) => {
-		const sitePullState = getPullState( selectedSite.id, site.id );
-		return sitePullState && isKeyPulling( sitePullState.status.key );
-	} );
-	const isPushing = connectedSites.some( ( site ) => {
-		const sitePushState = getPushState( selectedSite.id, site.id );
-		return sitePushState?.isInProgress;
-	} );
+	const { isSiteIdPulling, isSiteIdPushing, connectedSites } = useSyncSites();
+	const isPulling = connectedSites.some( ( site ) => isSiteIdPulling( selectedSite.id, site.id ) );
+	const isPushing = connectedSites.some( ( site ) => isSiteIdPushing( selectedSite.id, site.id ) );
 	const isThisSiteSyncing = isPulling || isPushing;
 
 	useEffect( () => {
@@ -324,6 +305,9 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 			.isImportExportSupported( selectedSite.id )
 			.then( ( result ) => {
 				setIsSupported( result );
+			} )
+			.catch( () => {
+				setIsSupported( false );
 			} );
 	}, [ selectedSite.id, selectedSite.running ] );
 
@@ -347,16 +331,8 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 
 	return (
 		<div className="flex flex-col p-8 gap-8" data-testid="import-export-supported">
-			<ImportSite
-				selectedSite={ selectedSite }
-				isAnySiteSyncing={ isAnySiteSyncing }
-				isThisSiteSyncing={ isThisSiteSyncing }
-			/>
-			<ExportSite
-				selectedSite={ selectedSite }
-				isAnySiteSyncing={ isAnySiteSyncing }
-				isThisSiteSyncing={ isThisSiteSyncing }
-			/>
+			<ImportSite selectedSite={ selectedSite } isThisSiteSyncing={ isThisSiteSyncing } />
+			<ExportSite selectedSite={ selectedSite } isThisSiteSyncing={ isThisSiteSyncing } />
 		</div>
 	);
 }

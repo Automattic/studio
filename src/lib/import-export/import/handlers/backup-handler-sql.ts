@@ -1,9 +1,9 @@
 import { EventEmitter } from 'events';
 import fs from 'fs';
 import path from 'path';
-import { ImportEvents } from '../events';
-import { BackupArchiveInfo } from '../types';
-import { BackupHandler } from './backup-handler-factory';
+import { ImportEvents } from 'src/lib/import-export/import/events';
+import { BackupHandler } from 'src/lib/import-export/import/handlers/backup-handler-factory';
+import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 
 export class BackupHandlerSql extends EventEmitter implements BackupHandler {
 	constructor() {

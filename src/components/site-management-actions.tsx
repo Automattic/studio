@@ -1,13 +1,13 @@
 import { __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useSyncSites } from '../hooks/sync-sites';
-import { useImportExport } from '../hooks/use-import-export';
-import { ActionButton } from './action-button';
-import { Tooltip } from './tooltip';
+import { ActionButton } from 'src/components/action-button';
+import { Tooltip } from 'src/components/tooltip';
+import { useSyncSites } from 'src/hooks/sync-sites';
+import { useImportExport } from 'src/hooks/use-import-export';
 
 export interface SiteManagementActionProps {
 	onStop: ( id: string ) => Promise< void >;
-	onStart: ( id: string ) => void;
+	onStart: ( id: string ) => Promise< void >;
 	selectedSite?: SiteDetails | null;
 	loading: boolean;
 }
@@ -44,7 +44,11 @@ export const SiteManagementActions = ( {
 				isRunning={ selectedSite.running }
 				isLoading={ loading }
 				onClick={ () => {
-					selectedSite.running ? onStop( selectedSite.id ) : onStart( selectedSite.id );
+					if ( selectedSite.running ) {
+						void onStop( selectedSite.id );
+					} else {
+						void onStart( selectedSite.id );
+					}
 				} }
 				disabled={ disabled }
 				buttonLabelOnDisabled={ buttonLabelOnDisabled }

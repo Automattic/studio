@@ -2,9 +2,9 @@ import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { Icon, moreVertical, keyboardReturn, reset } from '@wordpress/icons';
 import React, { forwardRef, useRef, useEffect, useState } from 'react';
-import useAiIcon from '../hooks/use-ai-icon';
-import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
+import useAiIcon from 'src/hooks/use-ai-icon';
+import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface AIInputProps {
 	disabled: boolean;
@@ -213,7 +213,7 @@ const UnforwardedAIInput = (
 		<div
 			className={ cx(
 				`flex items-end w-full border rounded-sm bg-white/[0.9] ${
-					disabled ? 'border-a8c-gray-5' : 'border-gray-300 focus-within:border-a8c-blueberry'
+					disabled ? 'border-a8c-gray-5' : 'border-gray-300 focus-within:border-a8c-blue-50'
 				}`
 			) }
 		>
@@ -253,7 +253,7 @@ const UnforwardedAIInput = (
 								isDestructive
 								data-testid="clear-conversation-button"
 								onClick={ () => {
-									handleClearConversation();
+									void handleClearConversation();
 									onClose();
 								} }
 							>

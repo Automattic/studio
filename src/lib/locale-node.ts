@@ -1,7 +1,12 @@
 import { app } from 'electron';
 import { match } from '@formatjs/intl-localematcher';
-import { loadUserData } from '../storage/user-data';
-import { DEFAULT_LOCALE, isSupportedLocale, SupportedLocale, supportedLocales } from './locale';
+import {
+	DEFAULT_LOCALE,
+	isSupportedLocale,
+	SupportedLocale,
+	supportedLocales,
+} from 'common/lib/locale';
+import { loadUserData } from 'src/storage/user-data';
 
 export function getSupportedLocale() {
 	// `app.getLocale` returns the current application locale, acquired using

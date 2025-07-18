@@ -1,24 +1,24 @@
 import * as Sentry from '@sentry/electron/renderer';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { createContext, useMemo, useState, useCallback, useContext } from 'react';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { ExportEvents } from '../lib/import-export/export/events';
-import { generateBackupFilename } from '../lib/import-export/export/generate-backup-filename';
-import { BackupCreateProgressEventData, ExportOptions } from '../lib/import-export/export/types';
-import { ImportExportEventData } from '../lib/import-export/handle-events';
+import { WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS } from 'src/constants';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { ExportEvents } from 'src/lib/import-export/export/events';
+import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
+import { BackupCreateProgressEventData, ExportOptions } from 'src/lib/import-export/export/types';
 import {
 	ImporterEvents,
 	BackupExtractEvents,
 	ValidatorEvents,
-} from '../lib/import-export/import/events';
+} from 'src/lib/import-export/import/events';
 import {
 	BackupArchiveInfo,
 	BackupExtractProgressEventData,
-} from '../lib/import-export/import/types';
-import { useIpcListener } from './use-ipc-listener';
-import { useSiteDetails } from './use-site-details';
+} from 'src/lib/import-export/import/types';
 
-type ImportProgressState = {
+export type ImportProgressState = {
 	[ siteId: string ]: {
 		statusMessage: string;
 		progress: number;
@@ -36,12 +36,13 @@ type ExportProgressState = {
 interface ImportExportContext {
 	importState: ImportProgressState;
 	importFile: (
-		file: BackupArchiveInfo,
+		file: File | BackupArchiveInfo,
 		selectedSite: SiteDetails,
 		options?: { showImportNotification?: boolean; isNewSite?: boolean }
 	) => Promise< void >;
 	clearImportState: ( siteId: string ) => void;
 	isSiteImporting: ( siteId: string ) => boolean;
+	isSiteExporting: ( siteId: string ) => boolean;
 	exportState: ExportProgressState;
 	exportFullSite: ( selectedSite: SiteDetails ) => Promise< string | undefined >;
 	exportDatabase: ( selectedSite: SiteDetails ) => Promise< string | undefined >;
@@ -52,6 +53,7 @@ const ImportExportContext = createContext< ImportExportContext >( {
 	importFile: async () => undefined,
 	clearImportState: () => undefined,
 	isSiteImporting: () => false,
+	isSiteExporting: () => false,
 	exportState: {},
 	exportFullSite: async () => undefined,
 	exportDatabase: async () => undefined,
@@ -64,7 +66,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 
 	const importFile = useCallback(
 		async (
-			file: BackupArchiveInfo,
+			file: File | BackupArchiveInfo,
 			selectedSite: SiteDetails,
 			{
 				showImportNotification = true,
@@ -84,14 +86,36 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				},
 			} ) );
 
-			const handleImportError = async ( error?: unknown ) => {
-				await getIpcApi().showErrorMessageBox( {
-					title: __( 'Failed importing site' ),
-					message: __(
-						'An error occurred while importing the site. Verify the file is a valid Jetpack backup, Local, Playground, .wpress or .sql database file and try again. If this problem persists, please contact support.'
-					),
-					error,
-				} );
+			const handleImportError = async ( error: unknown ) => {
+				if ( error instanceof Error && error.message.includes( 'Error: absolute path: /' ) ) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed importing site' ),
+						message: __(
+							'The ZIP archive is invalid. Try to unpack and pack it again. If this problem persists, please contact support.'
+						),
+					} );
+				} else if (
+					( error as Error ).message.includes( 'WP-CLI command was canceled (timed out)' )
+				) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed importing site' ),
+						message: sprintf(
+							__(
+								'The import process timed out after %d hours, which can occur when processing very large imports. If the issue persists, please contact support.'
+							),
+							WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS
+						),
+					} );
+				} else {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed importing site' ),
+						message: __(
+							'An error occurred while importing the site. Verify the file is a valid Jetpack backup, Local, Playground, .wpress or .sql database file and try again. If this problem persists, please contact support.'
+						),
+						error,
+						showOpenLogs: true,
+					} );
+				}
 				setImportState( ( { [ selectedSite.id ]: currentProgress, ...rest } ) => ( {
 					...rest,
 				} ) );
@@ -100,19 +124,16 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			try {
 				await stopServer( selectedSite.id );
 
+				const filePath = file instanceof File ? getIpcApi().getPathForFile( file ) : file.path;
+
 				const backupFile: BackupArchiveInfo = {
 					type: file.type,
-					path: file.path,
+					path: filePath,
 				};
 				const importedSite = await getIpcApi().importSite( {
 					id: selectedSite.id,
 					backupFile,
 				} );
-
-				if ( ! importedSite ) {
-					await handleImportError();
-					return;
-				}
 
 				await updateSite( importedSite );
 
@@ -142,7 +163,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 		[ importState ]
 	);
 
-	useIpcListener( 'on-import', ( _, { event, data }: ImportExportEventData, siteId: string ) => {
+	useIpcListener( 'on-import', ( _, { event, data }, siteId ) => {
 		if ( ! siteId ) {
 			return;
 		}
@@ -240,7 +261,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			setExportState( ( prevState ) => ( {
 				...prevState,
 				[ selectedSite.id ]: {
-					statusMessage: __( 'Starting export...' ),
+					statusMessage: __( 'Starting export…' ),
 					progress: 5,
 				},
 			} ) );
@@ -252,6 +273,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 						'An error occurred while exporting the site. If this problem persists, please contact support.'
 					),
 					error,
+					showOpenLogs: true,
 				} );
 
 			try {
@@ -281,6 +303,11 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 		[ exportState ]
 	);
 
+	const isSiteExporting = useCallback(
+		( siteId: string ) => !! exportState[ siteId ] && exportState[ siteId ].progress < 100,
+		[ exportState ]
+	);
+
 	const exportFullSite = useCallback(
 		async ( selectedSite: SiteDetails ): Promise< string | undefined > => {
 			const fileName = generateBackupFilename( selectedSite.name );
@@ -305,6 +332,8 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					uploads: true,
 					plugins: true,
 					themes: true,
+					muPlugins: true,
+					fonts: true,
 				},
 				phpVersion: selectedSite.phpVersion,
 			};
@@ -337,6 +366,8 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					uploads: false,
 					plugins: false,
 					themes: false,
+					muPlugins: false,
+					fonts: false,
 				},
 				phpVersion: selectedSite.phpVersion,
 			};
@@ -345,7 +376,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 		[ exportSite ]
 	);
 
-	useIpcListener( 'on-export', ( _, { event, data }: ImportExportEventData, siteId: string ) => {
+	useIpcListener( 'on-export', ( _, { event, data }, siteId ) => {
 		if ( ! siteId ) {
 			return;
 		}
@@ -355,7 +386,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				setExportState( ( prevState ) => ( {
 					...prevState,
 					[ siteId ]: {
-						statusMessage: __( 'Starting export...' ),
+						statusMessage: __( 'Starting export…' ),
 						progress: 5,
 					},
 				} ) );
@@ -365,7 +396,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					...rest,
 					[ siteId ]: {
 						...currentProgress,
-						statusMessage: __( 'Creating backup...' ),
+						statusMessage: __( 'Creating backup…' ),
 						progress: 10,
 					},
 				} ) );
@@ -375,7 +406,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					...rest,
 					[ siteId ]: {
 						...currentProgress,
-						statusMessage: __( 'Exporting configuration...' ),
+						statusMessage: __( 'Exporting configuration…' ),
 						progress: 15,
 					},
 				} ) );
@@ -396,8 +427,8 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					...rest,
 					[ siteId ]: {
 						...currentProgress,
-						statusMessage: __( 'Backing up files...' ),
-						progress: Math.min( 100, 20 + entriesProgress * 80 ), // Backup creation takes progress from 20% to 100%
+						statusMessage: __( 'Backing up files…' ),
+						progress: Math.min( 95, 20 + entriesProgress * 80 ), // Backup creation takes progress from 20% to 95%
 					},
 				} ) );
 				break;
@@ -430,6 +461,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			importFile,
 			clearImportState,
 			isSiteImporting,
+			isSiteExporting,
 			exportState,
 			exportFullSite,
 			exportDatabase,
@@ -439,6 +471,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			importFile,
 			clearImportState,
 			isSiteImporting,
+			isSiteExporting,
 			exportState,
 			exportFullSite,
 			exportDatabase,

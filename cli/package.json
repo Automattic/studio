@@ -1,0 +1,10 @@
+{
+	"name": "studio-cli",
+	"author": "Automattic Inc.",
+	"private": true,
+	"productName": "Studio CLI",
+	"version": "1.0.0",
+	"description": "WordPress Studio CLI",
+	"license": "GPL-2.0-or-later",
+	"main": "index.js"
+}

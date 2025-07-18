@@ -4,55 +4,48 @@ import { Icon, archive, edit, preformatted } from '@wordpress/icons';
 import { useCallback, useEffect, useState } from 'react';
 import { ExtraProps } from 'react-markdown';
 import stripAnsi from 'strip-ansi';
-import { Message as MessageType } from '../hooks/use-assistant';
-import { useExecuteWPCLI } from '../hooks/use-execute-cli';
-import { useFeatureFlags } from '../hooks/use-feature-flags';
-import { useIsValidWpCliInline } from '../hooks/use-is-valid-wp-cli-inline';
-import { useSiteDetails } from '../hooks/use-site-details';
-import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
-import Button from './button';
-import { ChatMessageProps } from './chat-message';
-import { CopyTextButton } from './copy-text-button';
-import { ExecuteIcon } from './icons/execute';
+import Button from 'src/components/button';
+import { ChatMessageProps } from 'src/components/chat-message';
+import { CopyTextButton } from 'src/components/copy-text-button';
+import { ExecuteIcon } from 'src/components/icons/execute';
+import { useExecuteWPCLI } from 'src/hooks/use-execute-cli';
+import { useIsValidWpCliInline } from 'src/hooks/use-is-valid-wp-cli-inline';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useRootSelector } from 'src/stores';
+import { chatSelectors } from 'src/stores/chat-slice';
 
-type ContextProps = Pick< MessageType, 'blocks' > &
-	Pick< ChatMessageProps, 'updateMessage' | 'siteId' > & { messageId?: number };
+type ContextProps = {
+	siteId: ChatMessageProps[ 'siteId' ];
+	messageId?: number;
+	instanceId: string;
+};
 
-type CodeBlockProps = JSX.IntrinsicElements[ 'code' ] & ExtraProps;
+export type CodeBlockProps = JSX.IntrinsicElements[ 'code' ] & ExtraProps;
 
 export default function createCodeComponent( contextProps: ContextProps ) {
 	return ( props: CodeBlockProps ) => <CodeBlock { ...contextProps } { ...props } />;
 }
 
 const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
-	const { children, className, node, blocks, updateMessage, siteId, messageId, ...htmlAttributes } =
-		props;
+	const { children, className, node, siteId, messageId, instanceId, ...htmlAttributes } = props;
+
 	const content = String( children ).trim();
 	const isValidWpCliCommand = useIsValidWpCliInline( content );
-	const {
-		cliOutput,
-		cliStatus,
-		cliTime,
-		isRunning,
-		handleExecute,
-		setCliOutput,
-		setCliStatus,
-		setCliTime,
-	} = useExecuteWPCLI( content, siteId, updateMessage, messageId );
+	const { isRunning, handleExecute } = useExecuteWPCLI( content, instanceId, siteId, messageId );
 
-	useEffect( () => {
-		if ( blocks ) {
-			const block = blocks?.find( ( block ) => block.codeBlockContent === content );
-			if ( block ) {
-				setCliOutput( block?.cliOutput ? stripAnsi( block.cliOutput ) : null );
-				setCliStatus( block?.cliStatus ?? null );
-				setCliTime( block?.cliTime ?? null );
-			}
-		}
-	}, [ blocks, cliOutput, content, setCliOutput, setCliStatus, setCliTime ] );
+	const messages = useRootSelector( ( state ) =>
+		chatSelectors.selectMessages( state, instanceId )
+	);
+	const message = messages.find( ( { id } ) => id === messageId );
+	const blocks = message?.blocks ?? [];
 
-	const { terminalWpCliEnabled } = useFeatureFlags();
+	const block = blocks?.find( ( block ) => block.codeBlockContent === content );
+	const cliOutput = block?.cliOutput ? stripAnsi( block.cliOutput ) : null;
+	const cliStatus = block?.cliStatus ?? null;
+	const cliTime = block?.cliTime ?? null;
+
 	const { selectedSite } = useSiteDetails();
 
 	return (
@@ -86,9 +79,7 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 						onClick={ async () => {
 							try {
 								await getIpcApi().copyText( content );
-								await getIpcApi().openTerminalAtPath( selectedSite.path, {
-									wpCliEnabled: terminalWpCliEnabled,
-								} );
+								await getIpcApi().openTerminalAtPath( selectedSite.path );
 								await getIpcApi().showNotification( {
 									title: __( 'Command copied to the clipboard' ),
 								} );
@@ -115,7 +106,7 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 			{ isRunning && (
 				<div className="p-3 flex justify-start items-center bg-[#2D3337] text-white">
 					<Spinner className="!text-white [&>circle]:stroke-a8c-gray-60 !mt-0" />
-					<span className="ml-2 font-sans">{ __( 'Running...' ) }</span>
+					<span className="ml-2 font-sans">{ __( 'Running…' ) }</span>
 				</div>
 			) }
 			{ ! isRunning && cliOutput && cliStatus && (
@@ -130,11 +121,10 @@ function FileBlock( props: ContextProps & CodeBlockProps & { isDirectory?: boole
 		children,
 		className,
 		node,
-		blocks,
-		updateMessage,
 		siteId,
 		messageId,
 		isDirectory,
+		instanceId,
 		...htmlAttributes
 	} = props;
 	const content = String( children ).trim();
@@ -164,6 +154,9 @@ function FileBlock( props: ContextProps & CodeBlockProps & { isDirectory?: boole
 				if ( path ) {
 					setFilePath( path );
 				}
+			} )
+			.catch( () => {
+				// Do nothing
 			} );
 	}, [ siteId, content ] );
 
@@ -184,7 +177,7 @@ function FileBlock( props: ContextProps & CodeBlockProps & { isDirectory?: boole
 function CodeBlock( props: ContextProps & CodeBlockProps ) {
 	const { children, className } = props;
 	const content = String( children ).trim();
-	const { node, blocks, updateMessage, siteId, messageId, ...htmlAttributes } = props;
+	const { node, siteId, messageId, instanceId, ...htmlAttributes } = props;
 
 	const isFilePath = ( content: string ) => {
 		const fileExtensions = [

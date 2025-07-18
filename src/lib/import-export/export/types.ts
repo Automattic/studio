@@ -7,7 +7,11 @@ export interface ExportOptions {
 	includes: { [ index in ExportOptionsIncludes ]: boolean };
 	phpVersion: string;
 	splitDatabaseDumpByTable?: boolean;
-	targetHost?: 'wpcom';
+	specificSelections?: {
+		plugins?: string[];
+		themes?: string[];
+		uploads?: string[];
+	};
 }
 
 export type ExportOptionsIncludes = BackupContentsCategory | 'database';
@@ -15,11 +19,9 @@ export type ExportOptionsIncludes = BackupContentsCategory | 'database';
 export interface BackupContents {
 	backupFile: string;
 	sqlFiles: string[];
-	wpContent: { [ index in BackupContentsCategory ]: string[] };
-	wpConfigFile?: string;
 }
 
-export type BackupContentsCategory = 'uploads' | 'plugins' | 'themes';
+export type BackupContentsCategory = 'uploads' | 'plugins' | 'themes' | 'muPlugins' | 'fonts';
 
 export interface Exporter extends Partial< EventEmitter > {
 	canHandle(): Promise< boolean >;

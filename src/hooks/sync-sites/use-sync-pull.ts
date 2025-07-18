@@ -2,13 +2,26 @@ import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo } from 'react';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { useAuth } from '../use-auth';
-import { SyncSite } from '../use-fetch-wpcom-sites';
-import { useImportExport } from '../use-import-export';
-import { useSiteDetails } from '../use-site-details';
-import { useSyncStatesProgressInfo, PullStateProgressInfo } from '../use-sync-states-progress-info';
-import { generateStateId, usePullPushStates } from './use-pull-push-states';
+import { SYNC_PUSH_SIZE_LIMIT_GB, SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
+import {
+	ClearState,
+	generateStateId,
+	GetState,
+	UpdateState,
+	usePullPushStates,
+} from 'src/hooks/sync-sites/use-pull-push-states';
+import { useAuth } from 'src/hooks/use-auth';
+import { useImportExport } from 'src/hooks/use-import-export';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import {
+	PullStateProgressInfo,
+	SyncBackupResponse,
+	useSyncStatesProgressInfo,
+} from 'src/hooks/use-sync-states-progress-info';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getHostnameFromUrl } from 'src/lib/url-utils';
+import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { SyncOption } from 'src/types';
 
 export type SyncBackupState = {
 	remoteSiteId: number;
@@ -16,30 +29,59 @@ export type SyncBackupState = {
 	status: PullStateProgressInfo;
 	downloadUrl: string | null;
 	selectedSite: SiteDetails;
-	isStaging: boolean;
+	remoteSiteUrl: string;
+};
+
+type PullSiteOptions = {
+	optionsToSync?: SyncOption[];
+};
+
+export type PullStates = Record< string, SyncBackupState >;
+type OnPullSuccess = ( siteId: number, localSiteId: string ) => void;
+type PullSite = (
+	connectedSite: SyncSite,
+	selectedSite: SiteDetails,
+	options?: PullSiteOptions
+) => void;
+type IsSiteIdPulling = ( selectedSiteId: string, remoteSiteId?: number ) => boolean;
+
+type UseSyncPullProps = {
+	pullStates: PullStates;
+	setPullStates: React.Dispatch< React.SetStateAction< PullStates > >;
+	onPullSuccess?: OnPullSuccess;
+};
+
+export type UseSyncPull = {
+	pullStates: PullStates;
+	getPullState: GetState< SyncBackupState >;
+	pullSite: PullSite;
+	isAnySitePulling: boolean;
+	isSiteIdPulling: IsSiteIdPulling;
+	clearPullState: ClearState;
 };
 
 export function useSyncPull( {
 	pullStates,
 	setPullStates,
 	onPullSuccess,
-}: {
-	pullStates: Record< string, SyncBackupState >;
-	setPullStates: React.Dispatch< React.SetStateAction< Record< string, SyncBackupState > > >;
-	onPullSuccess?: ( siteId: number, localSiteId: string ) => void;
-} ) {
+}: UseSyncPullProps ): UseSyncPull {
 	const { __ } = useI18n();
 	const { client } = useAuth();
 	const { importFile, clearImportState } = useImportExport();
-	const { pullStatesProgressInfo, isKeyPulling, isKeyFinished, isKeyFailed } =
-		useSyncStatesProgressInfo();
+	const {
+		pullStatesProgressInfo,
+		isKeyPulling,
+		isKeyFinished,
+		isKeyFailed,
+		getBackupStatusWithProgress,
+	} = useSyncStatesProgressInfo();
 	const {
 		updateState,
 		getState: getPullState,
 		clearState,
 	} = usePullPushStates< SyncBackupState >( pullStates, setPullStates );
 
-	const updatePullState: typeof updateState = useCallback(
+	const updatePullState = useCallback< UpdateState< SyncBackupState > >(
 		( selectedSiteId, remoteSiteId, state ) => {
 			updateState( selectedSiteId, remoteSiteId, state );
 			const statusKey = state.status?.key;
@@ -53,7 +95,7 @@ export function useSyncPull( {
 		[ isKeyFailed, isKeyFinished, updateState ]
 	);
 
-	const clearPullState: typeof clearState = useCallback(
+	const clearPullState = useCallback< ClearState >(
 		( selectedSiteId, remoteSiteId ) => {
 			clearState( selectedSiteId, remoteSiteId );
 			getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
@@ -63,25 +105,31 @@ export function useSyncPull( {
 
 	const { startServer } = useSiteDetails();
 
-	const pullSite = useCallback(
-		async ( connectedSite: SyncSite, selectedSite: SiteDetails ) => {
+	const pullSite = useCallback< PullSite >(
+		async ( connectedSite, selectedSite, options ) => {
 			if ( ! client ) {
 				return;
 			}
+
 			const remoteSiteId = connectedSite.id;
+			const remoteSiteUrl = connectedSite.url;
 			updatePullState( selectedSite.id, remoteSiteId, {
 				backupId: null,
 				status: pullStatesProgressInfo[ 'in-progress' ],
 				downloadUrl: null,
 				remoteSiteId,
+				remoteSiteUrl,
 				selectedSite,
-				isStaging: connectedSite.isStaging,
 			} );
 
 			try {
+				// Initializing backup on remote
 				const response = await client.req.post< { success: boolean; backup_id: string } >( {
 					path: `/sites/${ remoteSiteId }/studio-app/sync/backup`,
 					apiNamespace: 'wpcom/v2',
+					body: {
+						options: options?.optionsToSync,
+					},
 				} );
 
 				if ( response.success ) {
@@ -93,10 +141,13 @@ export function useSyncPull( {
 					throw new Error( 'Pull request failed' );
 				}
 			} catch ( error ) {
+				console.error( 'Pull request failed:', error );
+
 				Sentry.captureException( error );
 				updatePullState( selectedSite.id, remoteSiteId, {
 					status: pullStatesProgressInfo.failed,
 				} );
+
 				getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pulling from %s' ), connectedSite.name ),
 					message: __( 'Studio was unable to connect to WordPress.com. Please try again.' ),
@@ -106,53 +157,113 @@ export function useSyncPull( {
 		[ __, client, pullStatesProgressInfo, updatePullState ]
 	);
 
+	const checkBackupFileSize = async ( downloadUrl: string ): Promise< number > => {
+		try {
+			return await getIpcApi().checkSyncBackupSize( downloadUrl );
+		} catch ( error ) {
+			console.error( 'Failed to check backup file size', error );
+			Sentry.captureException( error );
+			throw new Error( 'Failed to check backup file size' );
+		}
+	};
+
 	const onBackupCompleted = useCallback(
 		async ( remoteSiteId: number, backupState: SyncBackupState & { downloadUrl: string } ) => {
-			const { downloadUrl, selectedSite, isStaging } = backupState;
-			updatePullState( selectedSite.id, remoteSiteId, {
-				status: pullStatesProgressInfo.downloading,
-				downloadUrl,
-			} );
+			const { downloadUrl, selectedSite, remoteSiteUrl } = backupState;
 
-			const filePath = await getIpcApi().downloadSyncBackup( remoteSiteId, downloadUrl );
+			try {
+				const fileSize = await checkBackupFileSize( downloadUrl );
 
-			updatePullState( selectedSite.id, remoteSiteId, {
-				status: pullStatesProgressInfo.importing,
-			} );
+				if ( fileSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+					const CANCEL_ID = 1;
 
-			await importFile(
-				{
-					path: filePath,
-					type: 'application/tar+gzip',
-				},
-				selectedSite,
-				{ showImportNotification: false }
-			);
+					const { response: userChoice } = await getIpcApi().showMessageBox( {
+						type: 'warning',
+						message: __( "Large site's backup" ),
+						detail: sprintf(
+							__(
+								"Your site's backup exceeds %s GB. Pulling it will prevent you from pushing the site back.\n\nDo you want to continue?"
+							),
+							SYNC_PUSH_SIZE_LIMIT_GB
+						),
+						buttons: [ __( 'Continue' ), __( 'Cancel' ) ],
+						defaultId: 0,
+						cancelId: CANCEL_ID,
+					} );
 
-			await getIpcApi().removeSyncBackup( remoteSiteId );
+					if ( userChoice === CANCEL_ID ) {
+						updatePullState( selectedSite.id, remoteSiteId, {
+							status: pullStatesProgressInfo.cancelled,
+						} );
+						clearPullState( selectedSite.id, remoteSiteId );
+						return;
+					}
+				}
 
-			await startServer( selectedSite.id );
+				// Initiating backup file download
+				updatePullState( selectedSite.id, remoteSiteId, {
+					status: pullStatesProgressInfo.downloading,
+					downloadUrl,
+				} );
 
-			clearImportState( selectedSite.id );
+				const filePath = await getIpcApi().downloadSyncBackup( remoteSiteId, downloadUrl );
 
-			getIpcApi().showNotification( {
-				title: selectedSite.name,
-				body: isStaging
-					? __( 'Studio site updated from Staging' )
-					: __( 'Studio site updated from Production' ),
-			} );
+				// Starting import process
+				updatePullState( selectedSite.id, remoteSiteId, {
+					status: pullStatesProgressInfo.importing,
+				} );
 
-			updatePullState( selectedSite.id, remoteSiteId, {
-				status: pullStatesProgressInfo.finished,
-			} );
-			onPullSuccess?.( remoteSiteId, selectedSite.id );
+				await importFile(
+					{
+						path: filePath,
+						type: 'application/tar+gzip',
+					},
+					selectedSite,
+					{ showImportNotification: false }
+				);
+
+				await getIpcApi().removeSyncBackup( remoteSiteId );
+
+				await startServer( selectedSite.id );
+
+				clearImportState( selectedSite.id );
+
+				// Sync pull operation completed successfully
+				updatePullState( selectedSite.id, remoteSiteId, {
+					status: pullStatesProgressInfo.finished,
+				} );
+
+				getIpcApi().showNotification( {
+					title: selectedSite.name,
+					body: sprintf(
+						// translators: %s is the site url without the protocol.
+						__( 'Studio site has been updated from %s' ),
+						getHostnameFromUrl( remoteSiteUrl )
+					),
+				} );
+
+				onPullSuccess?.( remoteSiteId, selectedSite.id );
+			} catch ( error ) {
+				console.error( 'Backup completion failed:', error );
+				Sentry.captureException( error );
+				updatePullState( selectedSite.id, remoteSiteId, {
+					status: pullStatesProgressInfo.failed,
+				} );
+				getIpcApi().showErrorMessageBox( {
+					title: sprintf( __( 'Error pulling from %s' ), selectedSite.name ),
+					message: __( 'Failed to check backup file size. Please try again.' ),
+				} );
+			}
 		},
 		[
 			__,
 			clearImportState,
+			clearPullState,
 			importFile,
 			onPullSuccess,
+			pullStatesProgressInfo.cancelled,
 			pullStatesProgressInfo.downloading,
+			pullStatesProgressInfo.failed,
 			pullStatesProgressInfo.finished,
 			pullStatesProgressInfo.importing,
 			startServer,
@@ -160,49 +271,64 @@ export function useSyncPull( {
 		]
 	);
 
-	const getBackup = useCallback(
+	const fetchAndUpdateBackup = useCallback(
 		async ( remoteSiteId: number, selectedSiteId: string ) => {
 			if ( ! client ) {
 				return;
 			}
+
 			const backupId = getPullState( selectedSiteId, remoteSiteId )?.backupId;
 			if ( ! backupId ) {
 				console.error( 'No backup ID found' );
 				return;
 			}
-			const response = await client.req.get< {
-				status: 'in-progress' | 'finished' | 'failed';
-				download_url: string;
-			} >( `/sites/${ remoteSiteId }/studio-app/sync/backup`, {
-				apiNamespace: 'wpcom/v2',
-				backup_id: backupId,
-			} );
 
-			const hasBackupCompleted = response.status === 'finished';
-			const frontendStatus = hasBackupCompleted
-				? pullStatesProgressInfo.downloading.key
-				: response.status;
-			const statusWithProgress =
-				pullStatesProgressInfo[ frontendStatus ] || pullStatesProgressInfo.failed;
-			const downloadUrl = hasBackupCompleted ? response.download_url : null;
+			try {
+				const response = await client.req.get< SyncBackupResponse >(
+					`/sites/${ remoteSiteId }/studio-app/sync/backup`,
+					{
+						apiNamespace: 'wpcom/v2',
+						backup_id: backupId,
+					}
+				);
 
-			if ( hasBackupCompleted && downloadUrl ) {
-				// Replacing the 'in-progress' status will stop the active listening for the backup completion
-				const backupState = getPullState( selectedSiteId, remoteSiteId );
-				if ( backupState ) {
-					onBackupCompleted( remoteSiteId, {
-						...backupState,
+				const hasBackupCompleted = response.status === 'finished';
+				const downloadUrl = hasBackupCompleted ? response.download_url : null;
+
+				if ( downloadUrl ) {
+					// Replacing the 'in-progress' status will stop the active listening for the backup completion
+					const backupState = getPullState( selectedSiteId, remoteSiteId );
+					if ( backupState ) {
+						await onBackupCompleted( remoteSiteId, {
+							...backupState,
+							downloadUrl,
+						} );
+					}
+				} else {
+					const statusWithProgress = getBackupStatusWithProgress(
+						hasBackupCompleted,
+						pullStatesProgressInfo,
+						response
+					);
+
+					updatePullState( selectedSiteId, remoteSiteId, {
+						status: statusWithProgress,
 						downloadUrl,
 					} );
 				}
-			} else {
-				updatePullState( selectedSiteId, remoteSiteId, {
-					status: statusWithProgress,
-					downloadUrl,
-				} );
+			} catch ( error ) {
+				console.error( 'Failed to fetch backup status:', error );
+				throw error;
 			}
 		},
-		[ client, getPullState, onBackupCompleted, pullStatesProgressInfo, updatePullState ]
+		[
+			client,
+			getBackupStatusWithProgress,
+			getPullState,
+			onBackupCompleted,
+			pullStatesProgressInfo,
+			updatePullState,
+		]
 	);
 
 	useEffect( () => {
@@ -211,7 +337,7 @@ export function useSyncPull( {
 		Object.entries( pullStates ).forEach( ( [ key, state ] ) => {
 			if ( state.backupId && state.status.key === 'in-progress' ) {
 				intervals[ key ] = setTimeout( () => {
-					getBackup( state.remoteSiteId, state.selectedSite.id );
+					void fetchAndUpdateBackup( state.remoteSiteId, state.selectedSite.id );
 				}, 2000 );
 			}
 		} );
@@ -219,16 +345,22 @@ export function useSyncPull( {
 		return () => {
 			Object.values( intervals ).forEach( clearTimeout );
 		};
-	}, [ pullStates, getBackup ] );
+	}, [ pullStates, fetchAndUpdateBackup ] );
 
-	const isAnySitePulling = useMemo( () => {
+	const isAnySitePulling = useMemo< boolean >( () => {
 		return Object.values( pullStates ).some( ( state ) => isKeyPulling( state.status.key ) );
 	}, [ pullStates, isKeyPulling ] );
 
-	const isSiteIdPulling = useCallback(
-		( selectedSiteId: string ) => {
+	const isSiteIdPulling = useCallback< IsSiteIdPulling >(
+		( selectedSiteId, remoteSiteId ) => {
 			return Object.values( pullStates ).some( ( state ) => {
-				return state.selectedSite.id === selectedSiteId && isKeyPulling( state.status.key );
+				if ( state.selectedSite.id !== selectedSiteId ) {
+					return false;
+				}
+				if ( remoteSiteId !== undefined ) {
+					return isKeyPulling( state.status.key ) && state.remoteSiteId === remoteSiteId;
+				}
+				return isKeyPulling( state.status.key );
 			} );
 		},
 		[ pullStates, isKeyPulling ]

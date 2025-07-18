@@ -2,16 +2,22 @@ import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import fs from 'fs-extra';
 import semver from 'semver';
-import { SQLITE_FILENAME } from '../../vendor/wp-now/src/constants';
-import { downloadSqliteIntegrationPlugin } from '../../vendor/wp-now/src/download';
-import getSqlitePath from '../../vendor/wp-now/src/get-sqlite-path';
-import { getServerFilesPath } from '../storage/paths';
+import { SQLITE_DATABASE_INTEGRATION_VERSION } from 'src/constants';
+import { getServerFilesPath } from 'src/storage/paths';
+import { SQLITE_FILENAME, SQLITE_FILENAME_LEGACY } from 'vendor/wp-now/src/constants';
+import getSqlitePath from 'vendor/wp-now/src/get-sqlite-path';
 
 export async function isSqlLiteInstalled( installPath: string ) {
-	const installedFiles = ( await fs.pathExists( installPath ) )
-		? await fs.readdir( installPath )
-		: [];
-	return installedFiles.length !== 0;
+	// Check both standard and legacy (-main) paths
+	const paths = [ installPath, installPath.replace( SQLITE_FILENAME, SQLITE_FILENAME_LEGACY ) ];
+
+	for ( const path of paths ) {
+		const installedFiles = ( await fs.pathExists( path ) ) ? await fs.readdir( path ) : [];
+		if ( installedFiles.length !== 0 ) {
+			return true;
+		}
+	}
+	return false;
 }
 
 /**
@@ -19,28 +25,7 @@ export async function isSqlLiteInstalled( installPath: string ) {
  */
 export async function updateLatestSqliteVersion() {
 	const installedPath = getSqlitePath();
-	const shouldOverwrite = await isNewSqliteVersionAvailable();
-	await downloadSqliteIntegrationPlugin( { overwrite: shouldOverwrite } );
 	await removeLegacySqliteIntegrationPlugin( installedPath );
-}
-
-/**
- * Checks if there's a new version of the SQLite integration available.
- *
- * @returns True if there's a new version available.
- */
-async function isNewSqliteVersionAvailable() {
-	const installedVersion = semver.coerce(
-		await getSqliteVersionFromInstallation( getSqlitePath() )
-	);
-	const latestVersion = semver.coerce( await getLatestSqliteVersion() );
-	if ( ! installedVersion ) {
-		return true;
-	}
-	if ( ! latestVersion ) {
-		return false;
-	}
-	return semver.lt( installedVersion, latestVersion );
 }
 
 /**
@@ -52,10 +37,12 @@ async function isNewSqliteVersionAvailable() {
  * @returns True if the SQLite integration is outdated.
  */
 export async function isSqliteInstallationOutdated( sitePath: string ): Promise< boolean > {
-	const serverFilesVersion = semver.coerce(
-		await getSqliteVersionFromInstallation( getSqlitePath() )
-	);
-	const siteVersion = semver.coerce( await getSqliteVersionFromInstallation( sitePath ) );
+	const serverFilesVersion = semver.coerce( SQLITE_DATABASE_INTEGRATION_VERSION, {
+		includePrerelease: true,
+	} );
+	const siteVersion = semver.coerce( await getSqliteVersionFromInstallation( sitePath ), {
+		includePrerelease: true,
+	} );
 
 	if ( ! siteVersion ) {
 		return true;
@@ -79,27 +66,6 @@ export async function getSqliteVersionFromInstallation(
 	}
 	const matches = versionFileContent.match( /\s\*\sVersion:\s*([0-9a-zA-Z.-]+)/ );
 	return matches?.[ 1 ] || '';
-}
-
-let latestSqliteVersionsCache: string | null = null;
-
-async function getLatestSqliteVersion() {
-	// Only fetch the latest version once per app session
-	if ( latestSqliteVersionsCache ) {
-		return latestSqliteVersionsCache;
-	}
-
-	try {
-		const response = await fetch(
-			'https://api.wordpress.org/plugins/info/1.2/?action=plugin_information&slug=sqlite-database-integration'
-		);
-		const data: Record< string, string > = await response.json();
-		latestSqliteVersionsCache = data.version;
-	} catch ( _error ) {
-		// Discard the failed fetch, return the cache
-	}
-
-	return latestSqliteVersionsCache;
 }
 
 /**
@@ -151,7 +117,6 @@ export async function keepSqliteIntegrationUpdated( sitePath: string ) {
  * @param sitePath Path of the site.
  */
 export async function installSqliteIntegration( sitePath: string ) {
-	await downloadSqliteIntegrationPlugin();
 	const wpContentPath = path.join( sitePath, 'wp-content' );
 	const databasePath = path.join( wpContentPath, 'database' );
 

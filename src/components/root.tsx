@@ -1,57 +1,49 @@
-import { SyncSitesProvider } from '../hooks/sync-sites/sync-sites-context';
-import { ChatProvider } from '../hooks/use-chat-context';
-import { ChatInputProvider } from '../hooks/use-chat-input';
-import { InstalledAppsProvider } from '../hooks/use-check-installed-apps';
-import { ContentTabsProvider } from '../hooks/use-content-tabs';
-import { FeatureFlagsProvider } from '../hooks/use-feature-flags';
-import { I18nDataProvider } from '../hooks/use-i18n-data';
-import { ImportExportProvider } from '../hooks/use-import-export';
-import { OnboardingProvider } from '../hooks/use-onboarding';
-import { PromptUsageProvider } from '../hooks/use-prompt-usage';
-import { SiteDetailsProvider } from '../hooks/use-site-details';
-import { SnapshotProvider } from '../hooks/use-snapshots';
-import { ThemeDetailsProvider } from '../hooks/use-theme-details';
-import { DemoSiteUpdateProvider } from '../hooks/use-update-demo-site';
-import App from './app';
-import AuthProvider from './auth-provider';
-import CrashTester from './crash-tester';
-import ErrorBoundary from './error-boundary';
+import { defaultI18n } from '@wordpress/i18n';
+import { I18nProvider } from '@wordpress/react-i18n';
+import { useEffect } from 'react';
+import { Provider as ReduxProvider } from 'react-redux';
+import App from 'src/components/app';
+import AuthProvider from 'src/components/auth-provider';
+import CrashTester from 'src/components/crash-tester';
+import ErrorBoundary from 'src/components/error-boundary';
+import { SyncSitesProvider } from 'src/hooks/sync-sites/sync-sites-context';
+import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { FeatureFlagsProvider } from 'src/hooks/use-feature-flags';
+import { ImportExportProvider } from 'src/hooks/use-import-export';
+import { OnboardingProvider } from 'src/hooks/use-onboarding';
+import { SiteDetailsProvider } from 'src/hooks/use-site-details';
+import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
+import { store } from 'src/stores';
+import { initializeUserLocale } from 'src/stores/i18n-slice';
 
 const Root = () => {
+	useEffect( () => {
+		void store.dispatch( initializeUserLocale() );
+	}, [] );
 	return (
 		<ErrorBoundary>
 			<CrashTester />
-			<I18nDataProvider>
-				<AuthProvider>
-					<SnapshotProvider>
-						<SiteDetailsProvider>
-							<FeatureFlagsProvider>
-								<DemoSiteUpdateProvider>
+			<ReduxProvider store={ store }>
+				<I18nProvider i18n={ defaultI18n }>
+					<AuthProvider>
+						<ContentTabsProvider>
+							<SiteDetailsProvider>
+								<FeatureFlagsProvider>
 									<ThemeDetailsProvider>
-										<InstalledAppsProvider>
-											<OnboardingProvider>
-												<PromptUsageProvider>
-													<ChatProvider>
-														<ImportExportProvider>
-															<ChatInputProvider>
-																<ContentTabsProvider>
-																	<SyncSitesProvider>
-																		<App />
-																	</SyncSitesProvider>
-																</ContentTabsProvider>
-															</ChatInputProvider>
-														</ImportExportProvider>
-													</ChatProvider>
-												</PromptUsageProvider>
-											</OnboardingProvider>
-										</InstalledAppsProvider>
+										<OnboardingProvider>
+											<ImportExportProvider>
+												<SyncSitesProvider>
+													<App />
+												</SyncSitesProvider>
+											</ImportExportProvider>
+										</OnboardingProvider>
 									</ThemeDetailsProvider>
-								</DemoSiteUpdateProvider>
-							</FeatureFlagsProvider>
-						</SiteDetailsProvider>
-					</SnapshotProvider>
-				</AuthProvider>
-			</I18nDataProvider>
+								</FeatureFlagsProvider>
+							</SiteDetailsProvider>
+						</ContentTabsProvider>
+					</AuthProvider>
+				</I18nProvider>
+			</ReduxProvider>
 		</ErrorBoundary>
 	);
 };

@@ -2,32 +2,48 @@ import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
+import { useI18n } from '@wordpress/react-i18n';
 import { useEffect } from 'react';
-import { useLocalizationSupport } from '../hooks/use-localization-support';
-import { useOnboarding } from '../hooks/use-onboarding';
-import { useSidebarVisibility } from '../hooks/use-sidebar-visibility';
-import { isWindows } from '../lib/app-globals';
-import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
-import MacTitlebar from './mac-titlebar';
-import MainSidebar from './main-sidebar';
-import Onboarding from './onboarding';
-import { SiteContentTabs } from './site-content-tabs';
-import TopBar from './top-bar';
-import UserSettings from './user-settings';
-import WindowsTitlebar from './windows-titlebar';
+import { DynamicStylesheet } from 'src/components/dynamic-stylesheet';
+import MacTitlebar from 'src/components/mac-titlebar';
+import MainSidebar from 'src/components/main-sidebar';
+import Onboarding from 'src/components/onboarding';
+import { SiteContentTabs } from 'src/components/site-content-tabs';
+import TopBar from 'src/components/top-bar';
+import WindowsTitlebar from 'src/components/windows-titlebar';
+import { useLocalizationSupport } from 'src/hooks/use-localization-support';
+import { useOnboarding } from 'src/hooks/use-onboarding';
+import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
+import { isWindows } from 'src/lib/app-globals';
+import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { UserSettings } from 'src/modules/user-settings';
+import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
+import 'src/index.css';
 
 export default function App() {
 	useLocalizationSupport();
 	const { needsOnboarding } = useOnboarding();
 	const { isSidebarVisible, toggleSidebar } = useSidebarVisibility();
+	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
+	const i18n = useI18n();
 
 	useEffect( () => {
-		getIpcApi().setupAppMenu( { needsOnboarding } );
+		void getIpcApi().setupAppMenu( { needsOnboarding } );
 	}, [ needsOnboarding ] );
 
 	return (
 		<>
+			<DynamicStylesheet
+				id="wordpress-components-style"
+				href={
+					i18n?.isRTL()
+						? '../main_window/styles/wordpress-components-style-rtl.css'
+						: '../main_window/styles/wordpress-components-style.css'
+				}
+			/>
+			<DynamicStylesheet id="main-window-style" href={ '../main_window.css' } />
+
 			{ needsOnboarding ? (
 				<VStack
 					className={ cx( 'h-screen backdrop-blur-3xl app-drag-region select-none' ) }
@@ -72,6 +88,7 @@ export default function App() {
 				</VStack>
 			) }
 			<UserSettings />
+			<WhatsNewModal showModal={ showWhatsNew } onClose={ closeWhatsNew } />
 		</>
 	);
 }

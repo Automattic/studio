@@ -1,8 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { SyncSitesProvider } from '../../hooks/sync-sites';
-import { ContentTabsProvider } from '../../hooks/use-content-tabs';
-import { SiteManagementActionProps, SiteManagementActions } from '../site-management-actions';
+import {
+	SiteManagementActionProps,
+	SiteManagementActions,
+} from 'src/components/site-management-actions';
+import { SyncSitesProvider } from 'src/hooks/sync-sites';
+import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 
 const defaultProps = {
 	onStart: jest.fn(),

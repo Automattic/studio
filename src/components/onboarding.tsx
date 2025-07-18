@@ -3,14 +3,15 @@ import { sprintf } from '@wordpress/i18n';
 import { Icon, wordpress } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { ACCEPTED_IMPORT_FILE_TYPES } from '../constants';
-import { useAddSite } from '../hooks/use-add-site';
-import { useDragAndDropFile } from '../hooks/use-drag-and-drop-file';
-import { generateSiteName } from '../lib/generate-site-name';
-import { getIpcApi } from '../lib/get-ipc-api';
-import Button from './button';
-import DragAndDropOverlay from './drag-and-drop-overlay';
-import { SiteForm } from './site-form';
+import Button from 'src/components/button';
+import DragAndDropOverlay from 'src/components/drag-and-drop-overlay';
+import { SiteForm } from 'src/components/site-form';
+import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
+import { useAddSite } from 'src/hooks/use-add-site';
+import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
+import { generateSiteName } from 'src/lib/generate-site-name';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 
 const GradientBox = () => {
 	const { __ } = useI18n();
@@ -41,6 +42,8 @@ export default function Onboarding() {
 		setSitePath,
 		setError,
 		setDoesPathContainWordPress,
+		setPhpVersion,
+		setWpVersion,
 		siteName,
 		sitePath,
 		error,
@@ -50,6 +53,17 @@ export default function Onboarding() {
 		handlePathSelectorClick,
 		setFileForImport,
 		fileForImport,
+		phpVersion,
+		wpVersion,
+		useCustomDomain,
+		setUseCustomDomain,
+		customDomain,
+		setCustomDomain,
+		customDomainError,
+		setCustomDomainError,
+		enableHttps,
+		setEnableHttps,
+		loadAllCustomDomains,
 	} = useAddSite();
 	const [ fileError, setFileError ] = useState( '' );
 
@@ -75,18 +89,31 @@ export default function Onboarding() {
 		},
 	} );
 
+	const { data: versions = [] } = useGetWordPressVersions();
+	const latestStableVersion = versions.find( ( version ) => version.value === 'latest' );
+
+	useEffect( () => {
+		if ( latestStableVersion ) {
+			setWpVersion( latestStableVersion.value );
+		}
+	}, [ latestStableVersion, setWpVersion ] );
+
 	useEffect( () => {
 		const run = async () => {
-			const { path, name, isWordPress } = await getIpcApi().generateProposedSitePath(
-				generateSiteName( [] )
-			);
+			const siteName = await generateSiteName( [] );
+			const { path, name, isWordPress } = await getIpcApi().generateProposedSitePath( siteName );
 			setSiteName( name );
 			setProposedSitePath( path );
 			setSitePath( '' );
 			setError( '' );
 			setDoesPathContainWordPress( isWordPress );
+			setUseCustomDomain( false );
+			setCustomDomain( null );
+			setCustomDomainError( '' );
+			setEnableHttps( false );
+			loadAllCustomDomains();
 		};
-		run();
+		void run();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [] );
 
@@ -119,17 +146,20 @@ export default function Onboarding() {
 
 	return (
 		<div className="flex flex-row flex-grow" data-testid="onboarding">
-			<div className="w-1/2 bg-a8c-blueberry pb-[50px] pt-[46px] px-[50px] flex flex-col justify-between">
+			<div className="w-1/2 bg-a8c-blue-50 pb-[50px] pt-[46px] px-[50px] flex flex-col justify-between">
 				<div className="flex justify-end fill-white items-center gap-1">
 					<Icon size={ 24 } icon={ wordpress } />
 				</div>
 				<GradientBox />
 			</div>
 
-			<div className="w-1/2 bg-white p-[50px] flex flex-col relative" ref={ dropRef }>
+			<div
+				className="w-1/2 bg-white p-[50px] flex flex-col relative overflow-y-auto app-no-drag-region"
+				ref={ dropRef }
+			>
 				{ isDraggingOver && <DragAndDropOverlay /> }
-				<div className="h-[569px] flex flex-col justify-center items-start flex-[1_0_0%] gap-8">
-					<div className="flex flex-col items-start self-stretch gap-6 app-no-drag-region">
+				<div className="flex flex-col justify-center items-start flex-[1_0_0%] gap-8">
+					<div className="flex flex-col items-start self-stretch gap-6">
 						<h1 className="font-normal text-xl leading-5">{ __( 'Add your first site' ) }</h1>
 						<SiteForm
 							className="self-stretch"
@@ -144,6 +174,17 @@ export default function Onboarding() {
 							setFileForImport={ setFileForImport }
 							onFileSelected={ handleImportFile }
 							fileError={ fileError }
+							phpVersion={ phpVersion }
+							setPhpVersion={ setPhpVersion }
+							wpVersion={ wpVersion }
+							setWpVersion={ setWpVersion }
+							useCustomDomain={ useCustomDomain }
+							setUseCustomDomain={ setUseCustomDomain }
+							customDomain={ customDomain }
+							setCustomDomain={ setCustomDomain }
+							customDomainError={ customDomainError }
+							enableHttps={ enableHttps }
+							setEnableHttps={ setEnableHttps }
 						>
 							<div className="flex flex-row gap-x-5 mt-6 justify-end">
 								<Button type="submit" variant="primary">

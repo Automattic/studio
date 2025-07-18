@@ -1,8 +1,12 @@
-// To run tests, execute `npm run test -- src/lib/import-export/tests/import/validators/jetpack-validator.test.ts`
-import { JetpackValidator } from '../../../import/validators/jetpack-validator';
+import { JetpackValidator } from 'src/lib/import-export/import/validators/jetpack-validator';
+import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 
-describe( 'JetpackValidator', () => {
-	const validator = new JetpackValidator();
+platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
+	let validator: JetpackValidator;
+
+	beforeEach( () => {
+		validator = new JetpackValidator();
+	} );
 
 	describe( 'canHandle', () => {
 		it( 'should return true for valid Jetpack backup structure', () => {
@@ -11,6 +15,7 @@ describe( 'JetpackValidator', () => {
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
+				'wp-content/mu-plugins/hello.php',
 			];
 			expect( validator.canHandle( fileList ) ).toBe( true );
 		} );
@@ -24,6 +29,7 @@ describe( 'JetpackValidator', () => {
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
+				'wp-content/mu-plugins/hello.php',
 			];
 			expect( validator.canHandle( fileList ) ).toBe( true );
 		} );
@@ -32,6 +38,20 @@ describe( 'JetpackValidator', () => {
 			const fileList = [ 'random.txt', 'another-file.js' ];
 			expect( validator.canHandle( fileList ) ).toBe( false );
 		} );
+
+		it.each( [
+			'sql/wp_options.sql',
+			'wp-content/plugins/jetpack/jetpack.php',
+			'wp-content/themes/twentytwentyone/style.css',
+			'wp-content/uploads/img.jpg',
+			'wp-config.php',
+		] )(
+			'should return true if meta.json exists and at least one of the optional files or dirs exists: %s',
+			( fileOrDir ) => {
+				const fileList = [ 'meta.json', fileOrDir ];
+				expect( validator.canHandle( fileList ) ).toBe( true );
+			}
+		);
 	} );
 
 	describe( 'parseBackupContents', () => {
@@ -41,6 +61,8 @@ describe( 'JetpackValidator', () => {
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
+				'wp-content/mu-plugins/hello.php',
+				'wp-content/fonts/open-sans.woff2',
 				'meta.json',
 			];
 			const extractionDirectory = '/tmp/extracted';
@@ -48,15 +70,17 @@ describe( 'JetpackValidator', () => {
 
 			expect( result ).toEqual( {
 				extractionDirectory,
-				sqlFiles: [ '/tmp/extracted/sql/wp_options.sql' ],
+				sqlFiles: [ normalize( '/tmp/extracted/sql/wp_options.sql' ) ],
 				wpConfig: '',
 				wpContent: {
-					uploads: [ '/tmp/extracted/wp-content/uploads/2023/image.jpg' ],
-					plugins: [ '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ],
-					themes: [ '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ],
+					fonts: [ normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ) ],
+					uploads: [ normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ) ],
+					plugins: [ normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ) ],
+					themes: [ normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ) ],
+					muPlugins: [ normalize( '/tmp/extracted/wp-content/mu-plugins/hello.php' ) ],
 				},
-				wpContentDirectory: 'wp-content',
-				metaFile: '/tmp/extracted/meta.json',
+				wpContentDirectory: normalize( 'wp-content' ),
+				metaFile: normalize( '/tmp/extracted/meta.json' ),
 			} );
 		} );
 
@@ -72,6 +96,8 @@ describe( 'JetpackValidator', () => {
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
+				'wp-content/mu-plugins/hello.php',
+				'wp-content/fonts/open-sans.woff2',
 				'meta.json',
 			];
 			const extractionDirectory = '/tmp/extracted';
@@ -79,15 +105,17 @@ describe( 'JetpackValidator', () => {
 
 			expect( result ).toEqual( {
 				extractionDirectory,
-				sqlFiles: [ '/tmp/extracted/sql/wp_options.sql' ],
-				wpConfig: '/tmp/extracted/wp-config.php',
+				sqlFiles: [ normalize( '/tmp/extracted/sql/wp_options.sql' ) ],
+				wpConfig: normalize( '/tmp/extracted/wp-config.php' ),
 				wpContent: {
-					uploads: [ '/tmp/extracted/wp-content/uploads/2023/image.jpg' ],
-					plugins: [ '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ],
-					themes: [ '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ],
+					fonts: [ normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ) ],
+					uploads: [ normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ) ],
+					plugins: [ normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ) ],
+					themes: [ normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ) ],
+					muPlugins: [ normalize( '/tmp/extracted/wp-content/mu-plugins/hello.php' ) ],
 				},
-				wpContentDirectory: 'wp-content',
-				metaFile: '/tmp/extracted/meta.json',
+				wpContentDirectory: normalize( 'wp-content' ),
+				metaFile: normalize( '/tmp/extracted/meta.json' ),
 			} );
 		} );
 	} );

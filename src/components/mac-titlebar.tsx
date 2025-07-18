@@ -1,5 +1,6 @@
-import { cx } from '../lib/cx';
-import { isWindowFrameRtl } from '../lib/is-window-frame-rtl';
+import { useFullscreen } from 'src/hooks/use-fullscreen';
+import { cx } from 'src/lib/cx';
+import { isWindowFrameRtl } from 'src/lib/is-window-frame-rtl';
 
 export default function MacTitlebar( {
 	className,
@@ -8,15 +9,20 @@ export default function MacTitlebar( {
 	className?: string;
 	children?: React.ReactNode;
 } ) {
+	const isFullscreen = useFullscreen();
+	const isRtl = isWindowFrameRtl();
+
 	return (
 		<div
 			className={ cx(
-				// Leave space for window controls depending on which side they are on
-				// Take into account the "chrome" padding, the position of which depends on the language direction
-				isWindowFrameRtl() &&
+				'transition-[padding] duration-500 ease-in-out',
+				! isFullscreen &&
+					isRtl &&
 					'ltr:pr-window-controls-width-excl-chrome-mac ltr:pl-chrome rtl:pr-window-controls-width-mac rtl:-ml-chrome',
-				! isWindowFrameRtl() &&
+				! isFullscreen &&
+					! isRtl &&
 					'ltr:pl-window-controls-width-mac rtl:pl-window-controls-width-excl-chrome-mac rtl:pr-chrome',
+				isFullscreen && 'ltr:pl-4 rtl:pr-4',
 				className
 			) }
 		>

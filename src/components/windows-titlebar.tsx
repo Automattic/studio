@@ -1,11 +1,11 @@
 import { __experimentalHStack as HStack } from '@wordpress/components';
 import { Icon, menu } from '@wordpress/icons';
+import Button from 'src/components/button';
+import { getAppGlobals } from 'src/lib/app-globals';
+import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { isWindowFrameRtl } from 'src/lib/is-window-frame-rtl';
 import appIcon from '../../assets/titlebar-icon.svg';
-import { getAppGlobals } from '../lib/app-globals';
-import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { isWindowFrameRtl } from '../lib/is-window-frame-rtl';
-import Button from './button';
 
 export default function WindowsTitlebar( {
 	className,

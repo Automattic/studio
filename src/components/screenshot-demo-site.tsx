@@ -1,5 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { useThemeDetails } from '../hooks/use-theme-details';
+import { useThemeDetails } from 'src/hooks/use-theme-details';
 
 const backgroundSvg = (
 	<svg

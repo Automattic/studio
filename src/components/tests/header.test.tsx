@@ -1,12 +1,23 @@
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { SyncSitesProvider } from '../../hooks/sync-sites';
-import { ContentTabsProvider } from '../../hooks/use-content-tabs';
-import { SiteDetailsProvider } from '../../hooks/use-site-details';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import Header from '../header';
+import { Provider } from 'react-redux';
+import Header from 'src/components/header';
+import { SyncSitesProvider } from 'src/hooks/sync-sites';
+import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { SiteDetailsProvider } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { store } from 'src/stores';
 
-jest.mock( '../../lib/get-ipc-api' );
+jest.mock( 'src/lib/get-ipc-api' );
+
+beforeAll( () => {
+	Object.defineProperty( window, 'ipcListener', {
+		value: {
+			subscribe: jest.fn().mockReturnValue( () => {} ),
+		},
+		writable: true,
+	} );
+} );
 
 const mockedGetIpcApi = getIpcApi as jest.Mock;
 const mockedSites = [
@@ -30,21 +41,24 @@ function mockGetIpcApi( mocks: Record< string, jest.Mock > ) {
 	} );
 }
 
-afterEach( () => {
-	jest.clearAllMocks();
-	jest.restoreAllMocks();
-} );
-
-describe( 'Header', () => {
-	const renderWithProvider = ( children: React.ReactElement ) => {
-		return render(
+const renderWithProvider = ( children: React.ReactElement ) => {
+	return render(
+		<Provider store={ store }>
 			<ContentTabsProvider>
 				<SyncSitesProvider>
 					<SiteDetailsProvider>{ children }</SiteDetailsProvider>
 				</SyncSitesProvider>
 			</ContentTabsProvider>
-		);
-	};
+		</Provider>
+	);
+};
+
+describe( 'Header', () => {
+	afterEach( () => {
+		jest.clearAllMocks();
+		jest.restoreAllMocks();
+	} );
+
 	it( 'should start site servers', async () => {
 		const user = userEvent.setup();
 		mockGetIpcApi( {} );
@@ -82,6 +96,7 @@ describe( 'Header', () => {
 				message:
 					"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support.",
 				error,
+				showOpenLogs: true,
 			} );
 		} );
 	} );

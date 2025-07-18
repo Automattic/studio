@@ -2,7 +2,7 @@ import {
 	sanitizeForLogging,
 	sanitizeUnstructuredData,
 	sanitizeUserpath,
-} from '../sanitize-for-logging';
+} from 'src/lib/sanitize-for-logging';
 
 describe( 'sanitizeForLogging', () => {
 	test( 'redacts sensitive strings from objects', () => {

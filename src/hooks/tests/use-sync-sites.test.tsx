@@ -1,13 +1,13 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { SyncSitesProvider, useSyncSites } from '../sync-sites';
-import { useAuth } from '../use-auth';
-import { ContentTabsProvider } from '../use-content-tabs';
-import { useFetchWpComSites } from '../use-fetch-wpcom-sites';
-import { useSiteDetails } from '../use-site-details';
+import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
+import { useAuth } from 'src/hooks/use-auth';
+import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { useFetchWpComSites } from 'src/hooks/use-fetch-wpcom-sites';
+import { useSiteDetails } from 'src/hooks/use-site-details';
 
-jest.mock( '../use-auth' );
-jest.mock( '../use-site-details' );
-jest.mock( '../use-fetch-wpcom-sites' );
+jest.mock( 'src/hooks/use-auth' );
+jest.mock( 'src/hooks/use-site-details' );
+jest.mock( 'src/hooks/use-fetch-wpcom-sites' );
 
 const mockConnectedWpcomSites = [
 	{
@@ -16,6 +16,7 @@ const mockConnectedWpcomSites = [
 		name: 'My simple business site',
 		url: 'https://developer.wordpress.com/studio/',
 		isStaging: false,
+		isPressable: false,
 		stagingSiteIds: [ 7 ],
 		syncSupport: 'syncable',
 		lastPullTimestamp: null,
@@ -27,6 +28,7 @@ const mockConnectedWpcomSites = [
 		name: 'Staging: My simple business site',
 		url: 'https://developer-staging.wordpress.com/studio/',
 		isStaging: true,
+		isPressable: false,
 		stagingSiteIds: [],
 		syncSupport: 'syncable',
 		lastPullTimestamp: null,
@@ -41,6 +43,7 @@ const mockSyncSites = [
 		name: 'My simple store',
 		url: 'https://developer.wordpress.com/studio/store',
 		isStaging: false,
+		isPressable: false,
 		stagingSiteIds: [ 9 ],
 		syncSupport: 'syncable',
 		lastPullTimestamp: null,
@@ -52,6 +55,7 @@ const mockSyncSites = [
 		name: 'Staging: My simple test store',
 		url: 'https://developer-staging.wordpress.com/studio/test-store',
 		isStaging: true,
+		isPressable: false,
 		stagingSiteIds: [],
 		syncSupport: 'syncable',
 		lastPullTimestamp: null,
@@ -64,7 +68,7 @@ const connectWpcomSiteMock = jest
 	.fn()
 	.mockResolvedValue( [ ...mockConnectedWpcomSites, { id: 6, stagingSiteIds: [] } ] );
 
-jest.mock( '../../lib/get-ipc-api', () => ( {
+jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		getConnectedWpcomSites: jest.fn().mockResolvedValue( mockConnectedWpcomSites ),
 		connectWpcomSites: connectWpcomSiteMock,
@@ -119,6 +123,7 @@ describe( 'useSyncSites management', () => {
 		await waitFor( async () => {
 			await result.current.connectSite( {
 				...siteToConnect,
+				isPressable: false,
 				syncSupport: 'syncable',
 			} );
 		} );

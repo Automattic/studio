@@ -27,15 +27,69 @@
  */
 
 import * as Sentry from '@sentry/electron/renderer';
-import { init as reactInit } from '@sentry/react';
 import { __ } from '@wordpress/i18n';
 import { createElement, StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import Root from './components/root';
-import { getIpcApi } from './lib/get-ipc-api';
-import './index.css';
+import Root from 'src/components/root';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
-Sentry.init( { debug: true }, reactInit );
+// Enhances Sentry breadcrumbs messages by extracting meaningful information from DOM elements
+const getExtraSentryBreadcrumbs = ( targetElement: HTMLElement ) => {
+	// Check for custom data-sentry attribute first, which is used for elements
+	// that need explicit tracking identification
+	const sentryData = targetElement.getAttribute( 'data-sentry' );
+	if ( sentryData ) {
+		return `[data-sentry="${ sentryData }"]`;
+	}
+
+	// Skip adding extra context if aria-label is present, as it already provides
+	// sufficient identification for both tracking and accessibility
+	if ( targetElement.getAttribute( 'aria-label' ) ) {
+		return '';
+	}
+
+	// Fall back to the element's text content if available
+	const textContent = targetElement.textContent?.trim() || targetElement.innerText?.trim();
+	if ( textContent ) {
+		return `[text-content="${ textContent }"]`;
+	}
+
+	// If no identifying information is found on the target element,
+	// traverse up the DOM tree looking for identifiable parent elements.
+	// This helps with SVG icons or other elements wrapped in interactive parents.
+	let element = targetElement.parentElement;
+	while ( element ) {
+		const ariaLabel = element.getAttribute( 'aria-label' );
+		const sentryData = element.getAttribute( 'data-sentry' );
+		const textContent = element.textContent?.trim() || element.innerText?.trim();
+		if ( ariaLabel ) {
+			return `[parent-aria-label="${ ariaLabel }"]`;
+		}
+		if ( sentryData ) {
+			return `[parent-data-sentry="${ sentryData }"]`;
+		}
+		if ( textContent ) {
+			return `[parent-text-content="${ textContent }"]`;
+		}
+		element = element.parentElement;
+	}
+
+	return '';
+};
+
+Sentry.init( {
+	debug: true,
+	beforeBreadcrumb( breadcrumb, hint ) {
+		const targetElement = hint?.event?.target;
+
+		if ( breadcrumb.category === 'ui.click' && targetElement ) {
+			breadcrumb.message =
+				( breadcrumb.message || '' ) + getExtraSentryBreadcrumbs( targetElement );
+		}
+
+		return breadcrumb;
+	},
+} );
 
 const makeLogger =
 	( level: 'info' | 'warn' | 'erro', originalLogger: typeof console.log ) =>
@@ -76,9 +130,8 @@ window.onunhandledrejection = ( event ) => {
 	);
 };
 
-getIpcApi()
-	.getAppGlobals()
-	.then( ( appGlobals ) => {
+void Promise.all( [ getIpcApi().getAppGlobals(), getIpcApi().getSentryUserId() ] ).then(
+	( [ appGlobals, sentryUserId ] ) => {
 		// Ensure the app globals are available before any renderer code starts running
 		window.appGlobals = appGlobals;
 
@@ -112,7 +165,7 @@ getIpcApi()
 				switch ( response ) {
 					case 0:
 						// Open Download link
-						await getIpcApi().openURL( `https://developer.wordpress.com/studio/` );
+						getIpcApi().openURL( `https://developer.wordpress.com/studio/` );
 						break;
 					case 1:
 						// User clicked Cancel
@@ -122,12 +175,15 @@ getIpcApi()
 				}
 			};
 
-			showARM64MessageBox();
+			void showARM64MessageBox();
 		}
+
+		Sentry.setUser( { id: sentryUserId } );
 
 		const rootEl = document.getElementById( 'root' );
 		if ( rootEl ) {
 			const root = createRoot( rootEl );
 			root.render( createElement( StrictMode, null, createElement( Root ) ) );
 		}
-	} );
+	}
+);

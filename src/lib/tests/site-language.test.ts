@@ -2,9 +2,18 @@
  * @jest-environment node
  */
 import { app } from 'electron';
-import { getPreferredSiteLanguage } from '../site-language';
+import { getPreferredSiteLanguage } from 'src/lib/site-language';
+import * as storagePaths from 'src/storage/paths';
+jest.spyOn( storagePaths, 'getResourcesPath' ).mockReturnValue( process.cwd() );
 
 jest.unmock( 'fs-extra' );
+
+// `getPreferredSiteLanguage` uses `getUserLocaleWithFallback`, which calls `loadUserData` to
+// get the user's locale. This mock ensures that `loadUserData` returns an empty object, which
+// simulates a user with no locale preference.
+jest.mock( 'src/storage/user-data', () => ( {
+	loadUserData: jest.fn().mockResolvedValue( { locale: undefined } ),
+} ) );
 
 const originalFetch = global.fetch;
 

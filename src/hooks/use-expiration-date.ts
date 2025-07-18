@@ -1,28 +1,44 @@
 import { useI18n } from '@wordpress/react-i18n';
-import { intervalToDuration, formatDuration, addDays, Duration, addHours } from 'date-fns';
-import { HOUR_MS, DAY_MS } from '../constants';
-import { formatDistance } from '../lib/date';
-import { SupportedLocale } from '../lib/locale';
-import { useI18nData } from './use-i18n-data';
+import { intervalToDuration, formatDuration, addDays, DurationUnit, addHours } from 'date-fns';
+import { HOUR_MS, DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
+import { SupportedLocale } from 'common/lib/locale';
+import { formatDistance } from 'src/lib/date';
+import { useI18nLocale } from 'src/stores';
 
-function formatStringDate( ms: number, locale: SupportedLocale ): string {
-	const formatter = new Intl.DateTimeFormat( locale, {
-		day: 'numeric',
-		month: 'long',
-		year: 'numeric',
-	} );
+type FormatKey = 'short' | 'long';
+
+function formatStringDate(
+	ms: number,
+	locale: SupportedLocale,
+	format: FormatKey = 'short'
+): string {
+	const options: Record< FormatKey, Intl.DateTimeFormatOptions > = {
+		short: {
+			day: 'numeric',
+			month: 'long',
+			year: 'numeric',
+		},
+		long: {
+			day: 'numeric',
+			month: 'short',
+			year: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit',
+			hour12: false,
+		},
+	};
+	const formatter = new Intl.DateTimeFormat( locale, options[ format ] );
 	return formatter.format( new Date( ms ) );
 }
 
 export function useExpirationDate( snapshotDate: number ) {
 	const { __ } = useI18n();
-	const { locale } = useI18nData();
-	const MAX_DAYS = 7;
+	const locale = useI18nLocale();
 	const now = new Date();
-	const endDate = addDays( snapshotDate, MAX_DAYS );
+	const endDate = addDays( snapshotDate, DEMO_SITE_EXPIRATION_DAYS );
 	const difference = endDate.getTime() - now.getTime();
 	let isExpired = false;
-	let format: ( keyof Duration )[] = [ 'days', 'hours' ];
+	let format: DurationUnit[] = [ 'days', 'hours' ];
 	if ( difference < 0 ) {
 		isExpired = true;
 	} else if ( difference < HOUR_MS ) {
@@ -47,6 +63,7 @@ export function useExpirationDate( snapshotDate: number ) {
 	return {
 		isExpired,
 		countDown: isExpired ? __( 'Expired' ) : countDown,
-		dateString: formatStringDate( snapshotDate, locale ),
+		expireDateString: formatStringDate( endDate.getTime(), locale, 'long' ),
+		dateString: formatStringDate( snapshotDate, locale, 'long' ),
 	};
 }

@@ -4,44 +4,53 @@ import {
 	app,
 	BrowserWindow,
 	autoUpdater,
-	shell,
+	MenuItem,
 } from 'electron';
 import { __ } from '@wordpress/i18n';
-import { openAboutWindow } from './about-menu/open-about-menu';
-import { BUG_REPORT_URL, FEATURE_REQUEST_URL, STUDIO_DOCS_URL } from './constants';
-import { promptWindowsSpeedUpSites } from './lib/windows-helpers';
-import { withMainWindow } from './main-window';
-import { isUpdateReadyToInstall, manualCheckForUpdates } from './updates';
+import { openAboutWindow } from 'src/about-menu/open-about-menu';
+import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
+import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import {
+	FEATURE_FLAGS,
+	FeatureFlagDefinition,
+	getFeatureFlagFromEnv,
+	setFeatureFlagInEnv,
+} from 'src/lib/feature-flags';
+import { getLocalizedLink } from 'src/lib/get-localized-link';
+import { getUserLocaleWithFallback } from 'src/lib/locale-node';
+import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
+import { getMainWindow } from 'src/main-window';
+import { installCLIOnMacOSWithConfirmation } from 'src/modules/cli/lib/install-macos';
+import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
-export function setupMenu( config: { needsOnboarding: boolean } ) {
-	withMainWindow( ( mainWindow ) => {
-		if ( ! mainWindow && process.platform !== 'darwin' ) {
-			Menu.setApplicationMenu( null );
-			return;
-		}
-		const menu = getAppMenu( mainWindow, config );
-		if ( process.platform === 'darwin' ) {
-			Menu.setApplicationMenu( menu );
-			return;
-		}
-		// Make menu accessible in development for non-macOS platforms
-		if ( process.env.NODE_ENV === 'development' ) {
-			mainWindow?.setMenu( menu );
-			return;
-		}
+export async function setupMenu( config: { needsOnboarding: boolean } ) {
+	const mainWindow = await getMainWindow();
+	if ( ! mainWindow && process.platform !== 'darwin' ) {
 		Menu.setApplicationMenu( null );
-	} );
+		return;
+	}
+	const menu = getAppMenu( mainWindow, config );
+	if ( process.platform === 'darwin' ) {
+		Menu.setApplicationMenu( menu );
+		return;
+	}
+	// Make menu accessible in development for non-macOS platforms
+	if ( process.env.NODE_ENV === 'development' ) {
+		mainWindow?.setMenu( menu );
+		return;
+	}
+	Menu.setApplicationMenu( null );
 }
 
 export function removeMenu() {
 	Menu.setApplicationMenu( null );
 }
 
-export function popupMenu() {
-	withMainWindow( ( window ) => {
-		const menu = getAppMenu( window );
-		menu.popup();
-	} );
+export async function popupMenu() {
+	const window = await getMainWindow();
+	const menu = getAppMenu( window );
+	menu.popup();
 }
 
 function getAppMenu(
@@ -57,18 +66,30 @@ function getAppMenu(
 		},
 		{
 			label: __( 'Test Render Failure (dev only)' ),
-			click: ( menuItem, browserWindow ) => {
-				browserWindow?.webContents.send( 'test-render-failure' );
+			click: async () => {
+				void sendIpcEventToRenderer( 'test-render-failure' );
 			},
 		},
 	];
 
 	const devTools: MenuItemConstructorOptions[] = [
-		{ role: 'reload' },
-		{ role: 'forceReload' },
-		{ role: 'toggleDevTools' },
+		{ label: __( 'Reload' ), role: 'reload' },
+		{ label: __( 'Force Reload' ), role: 'forceReload' },
+		{ label: __( 'Toggle DevTools' ), role: 'toggleDevTools' },
 		{ type: 'separator' },
 	];
+
+	const featureFlagsMenu: MenuItemConstructorOptions[] = Object.entries< FeatureFlagDefinition >(
+		FEATURE_FLAGS
+	).map( ( [ flag, definition ] ) => ( {
+		label: definition.label,
+		type: 'checkbox' as const,
+		checked: getFeatureFlagFromEnv( flag as keyof FeatureFlags ),
+		click: ( menuItem: MenuItem ) => {
+			setFeatureFlagInEnv( flag as keyof FeatureFlags, menuItem.checked );
+			void sendIpcEventToRenderer( 'refresh-app-globals' );
+		},
+	} ) );
 
 	return Menu.buildFromTemplate( [
 		{
@@ -76,7 +97,7 @@ function getAppMenu(
 			role: 'appMenu',
 			submenu: [
 				{
-					label: __( 'About Studio' ),
+					label: __( 'About WordPress Studio' ),
 					click: openAboutWindow,
 				},
 				...( isUpdateReadyToInstall()
@@ -91,36 +112,49 @@ function getAppMenu(
 				{
 					label: __( 'Settings…' ),
 					accelerator: 'CommandOrControl+,',
-					click: () => {
-						withMainWindow( ( window ) => {
-							window.webContents.send( 'user-settings' );
-						} );
+					click: async () => {
+						void sendIpcEventToRenderer( 'user-settings', { tabName: 'preferences' } );
 					},
 				},
+				...( process.platform === 'darwin'
+					? [
+							{
+								label: __( 'Install CLI…' ),
+								click: installCLIOnMacOSWithConfirmation,
+							},
+					  ]
+					: [] ),
 				{ type: 'separator' },
 				...( process.platform === 'win32'
 					? []
-					: [ { role: 'services' } as MenuItemConstructorOptions ] ),
+					: [ { label: __( 'Services' ), role: 'services' } as MenuItemConstructorOptions ] ),
 				{ type: 'separator' },
 				...( process.platform === 'win32'
 					? []
-					: [ { role: 'hide' } as MenuItemConstructorOptions ] ),
+					: [ { label: __( 'Hide' ), role: 'hide' } as MenuItemConstructorOptions ] ),
 				{ type: 'separator' },
 				...( process.env.NODE_ENV === 'development' ? crashTestMenuItems : [] ),
+				...( process.env.NODE_ENV === 'development'
+					? [
+							{
+								label: __( 'Feature Flags' ),
+								submenu: featureFlagsMenu,
+							},
+					  ]
+					: [] ),
 				{ type: 'separator' },
-				{ role: 'quit' },
+				{ label: __( 'Quit' ), role: 'quit' },
 			],
 		},
 		{
+			label: __( 'File' ),
 			role: 'fileMenu',
 			submenu: [
 				{
 					label: __( 'Add Site…' ),
 					accelerator: 'CommandOrControl+N',
-					click: () => {
-						withMainWindow( ( window ) => {
-							window.webContents.send( 'add-site' );
-						} );
+					click: async () => {
+						void sendIpcEventToRenderer( 'add-site' );
 					},
 					enabled: ! needsOnboarding,
 				},
@@ -138,22 +172,62 @@ function getAppMenu(
 					  ] ),
 			],
 		},
-		...( process.platform === 'win32'
-			? []
-			: [
-					{
-						role: 'editMenu',
-					} as MenuItemConstructorOptions,
-			  ] ),
 		{
+			label: __( 'Edit' ),
+			role: 'editMenu',
+			submenu: [
+				{
+					label: __( 'Undo' ),
+					role: 'undo',
+				},
+				{
+					label: __( 'Redo' ),
+					role: 'redo',
+				},
+				{ type: 'separator' },
+				{ label: __( 'Cut' ), role: 'cut' },
+				{ label: __( 'Copy' ), role: 'copy' },
+				{ label: __( 'Paste' ), role: 'paste' },
+				{
+					label: __( 'Paste and Match Style' ),
+					role: 'pasteAndMatchStyle',
+				},
+				{ label: __( 'Delete' ), role: 'delete' },
+				{ label: __( 'Select All' ), role: 'selectAll' },
+				{ type: 'separator' },
+				{
+					label: __( 'Speech' ),
+					submenu: [
+						{ label: __( 'Start Speaking' ), role: 'startSpeaking' },
+						{ label: __( 'Stop Speaking' ), role: 'stopSpeaking' },
+					],
+				},
+			],
+		},
+		{
+			label: __( 'View' ),
 			role: 'viewMenu',
 			submenu: [
+				{ label: __( 'Show Tab Bar' ), role: 'toggleTabBar' },
+				{ label: __( 'Show All Tabs' ), role: 'showAllTabs' },
 				...( process.env.NODE_ENV === 'development' ? devTools : [] ),
-				{ role: 'resetZoom' },
-				{ role: 'zoomIn' },
-				{ role: 'zoomOut' },
+				{
+					label: __( 'Actual Size' ),
+					role: 'resetZoom',
+				},
+				{
+					label: __( 'Zoom In' ),
+					role: 'zoomIn',
+				},
+				{
+					label: __( 'Zoom Out' ),
+					role: 'zoomOut',
+				},
 				{ type: 'separator' },
-				{ role: 'togglefullscreen' },
+				{
+					label: __( 'Toggle Fullscreen' ),
+					role: 'togglefullscreen',
+				},
 				{ type: 'separator' },
 				{
 					label: __( 'Float on Top of All Other Windows' ),
@@ -171,29 +245,47 @@ function getAppMenu(
 			? []
 			: [
 					{
+						label: __( 'Window' ),
 						role: 'windowMenu',
 						// We can't remove all of the items which aren't relevant to us (anything for
 						// managing multiple window instances), but this seems to remove as many of
 						// them as we can.
-						submenu: [ { role: 'minimize' }, { role: 'zoom' } ],
+						submenu: [
+							{ label: __( 'Minimize' ), role: 'minimize' },
+							{ label: __( 'Zoom' ), role: 'zoom' },
+							{ type: 'separator' },
+							{ label: __( 'Show Previous Tab' ), role: 'selectPreviousTab' },
+							{ label: __( 'Show Next Tab' ), role: 'selectNextTab' },
+							{ label: __( 'Move Tab to New Window' ), role: 'moveTabToNewWindow' },
+							{ label: __( 'Merge All Windows' ), role: 'mergeAllWindows' },
+						],
 					} as MenuItemConstructorOptions,
 			  ] ),
 		{
+			label: __( 'Help' ),
 			role: 'help',
 			submenu: [
 				{
-					label: __( 'Studio Help' ),
-					click: () => {
-						shell.openExternal( STUDIO_DOCS_URL );
+					label: __( 'WordPress Studio Help' ),
+					click: async () => {
+						const locale = await getUserLocaleWithFallback();
+						void shellOpenExternalWrapper( getLocalizedLink( locale, 'docsStudio' ) );
 					},
+				},
+				{
+					label: __( "What's New" ),
+					click: async () => {
+						void sendIpcEventToRenderer( 'show-whats-new' );
+					},
+					enabled: ! needsOnboarding,
 				},
 				{ type: 'separator' },
 				...( process.platform === 'win32'
 					? [
 							{
-								label: __( 'How can I make Studio faster?' ),
+								label: __( 'How can I make WordPress Studio faster?' ),
 								click: () => {
-									promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: false } );
+									void promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: false } );
 								},
 							},
 					  ]
@@ -202,13 +294,13 @@ function getAppMenu(
 				{
 					label: __( 'Report an Issue' ),
 					click: () => {
-						shell.openExternal( BUG_REPORT_URL );
+						void shellOpenExternalWrapper( BUG_REPORT_URL );
 					},
 				},
 				{
 					label: __( 'Propose a Feature' ),
 					click: () => {
-						shell.openExternal( FEATURE_REQUEST_URL );
+						void shellOpenExternalWrapper( FEATURE_REQUEST_URL );
 					},
 				},
 			],

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSha256 } from './use-sha256';
+import { useSha256 } from 'src/hooks/use-sha256';
 
 const defaultImageUri = 'https://s0.wp.com/i/studio-app/profile-icon.png';
 const defaultImageUriDark = 'https://s0.wp.com/i/studio-app/profile-icon-black.png';
@@ -20,7 +20,7 @@ export function useGravatarUrl( email?: string, isBlack = false, detailedDefault
 
 	useEffect( () => {
 		if ( email ) {
-			sha256( email ).then( ( emailHash ) =>
+			void sha256( email ).then( ( emailHash ) =>
 				setGravatarUrl(
 					`https://www.gravatar.com/avatar/${ emailHash }?d=${ encodeURI( fallbackImageUri ) }`
 				)

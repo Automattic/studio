@@ -1,24 +1,27 @@
 import { render, fireEvent, waitFor, screen, createEvent } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { act } from 'react';
-import { SyncSitesProvider } from '../../hooks/sync-sites/sync-sites-context';
-import { ContentTabsProvider } from '../../hooks/use-content-tabs';
-import { useImportExport } from '../../hooks/use-import-export';
-import { useSiteDetails } from '../../hooks/use-site-details';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { ContentTabImportExport } from '../content-tab-import-export';
+import { Provider } from 'react-redux';
+import { ContentTabImportExport } from 'src/components/content-tab-import-export';
+import { SyncSitesProvider } from 'src/hooks/sync-sites';
+import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { useImportExport } from 'src/hooks/use-import-export';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { store } from 'src/stores';
 
-jest.mock( '../../lib/get-ipc-api' );
-jest.mock( '../../hooks/use-site-details' );
-jest.mock( '../../hooks/use-import-export' );
+jest.mock( 'src/lib/get-ipc-api' );
+jest.mock( 'src/hooks/use-site-details' );
+jest.mock( 'src/hooks/use-import-export' );
 
 const selectedSite: SiteDetails = {
 	id: 'site-id-1',
 	name: 'Test Site',
 	running: false,
 	path: '/test-site',
-	phpVersion: '8.0',
+	phpVersion: '8.3',
 	adminPassword: btoa( 'test-password' ),
+	port: 9999,
 };
 
 beforeEach( () => {
@@ -43,9 +46,11 @@ beforeEach( () => {
 
 const renderWithProvider = ( children: React.ReactElement ) => {
 	return render(
-		<ContentTabsProvider>
-			<SyncSitesProvider>{ children }</SyncSitesProvider>
-		</ContentTabsProvider>
+		<Provider store={ store }>
+			<ContentTabsProvider>
+				<SyncSitesProvider>{ children }</SyncSitesProvider>
+			</ContentTabsProvider>
+		</Provider>
 	);
 };
 
@@ -175,7 +180,7 @@ describe( 'ContentTabImportExport Export', () => {
 	test( 'should display progress when exporting', async () => {
 		( useImportExport as jest.Mock ).mockReturnValue( {
 			importState: {},
-			exportState: { 'site-id-1': { progress: 5, statusMessage: 'Starting export...' } },
+			exportState: { 'site-id-1': { progress: 5, statusMessage: 'Starting export…' } },
 		} );
 
 		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
@@ -183,7 +188,7 @@ describe( 'ContentTabImportExport Export', () => {
 			expect( screen.getByTestId( 'import-export-supported' ) ).toBeVisible();
 		} );
 
-		expect( screen.getByText( 'Starting export...' ) ).toBeVisible();
+		expect( screen.getByText( 'Starting export…' ) ).toBeVisible();
 		expect( screen.getByRole( 'progressbar', { value: { now: 5 } } ) ).toBeVisible();
 	} );
 

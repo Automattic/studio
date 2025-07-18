@@ -1,9 +1,9 @@
 import { Icon, copy } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useState } from 'react';
-import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
-import Button from './button';
+import Button from 'src/components/button';
+import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface CopyTextButtonProps {
 	text: string;
@@ -37,7 +37,7 @@ export function CopyTextButton( {
 	const [ timeoutId, setTimeoutId ] = useState< NodeJS.Timeout | null >( null );
 
 	const onClick = useCallback( () => {
-		getIpcApi().copyText( text );
+		void getIpcApi().copyText( text );
 		onCopied?.();
 		setShowCopied( true );
 		if ( timeoutId ) {

@@ -1,8 +1,15 @@
-import startWPNow, { getThemeTemplate, inferMode } from '../wp-now';
+import crypto from 'crypto';
+import os from 'os';
+import path from 'path';
+import fs from 'fs-extra';
 import { startServer } from '../';
 import getWpNowConfig, { CliOptions, WPNowMode } from '../config';
-import fs from 'fs-extra';
-import path from 'path';
+import { downloadWpCli, downloadWordPress } from '../download';
+import { executeWPCli } from '../execute-wp-cli';
+import getWpCliTmpPath from '../get-wp-cli-tmp-path';
+import getWpNowTmpPath from '../get-wp-now-tmp-path';
+import { runCli } from '../run-cli';
+import startWPNow, { getThemeTemplate, inferMode } from '../wp-now';
 import {
 	isPluginDirectory,
 	isThemeDirectory,
@@ -10,13 +17,6 @@ import {
 	isWordPressDirectory,
 	isWordPressDevelopDirectory,
 } from '../wp-playground-wordpress';
-import { downloadSqliteIntegrationPlugin, downloadWpCli, downloadWordPress } from '../download';
-import os from 'os';
-import crypto from 'crypto';
-import getWpNowTmpPath from '../get-wp-now-tmp-path';
-import getWpCliTmpPath from '../get-wp-cli-tmp-path';
-import { executeWPCli } from '../execute-wp-cli';
-import { runCli } from '../run-cli';
 
 const exampleDir = __dirname + '/mode-examples';
 
@@ -36,7 +36,7 @@ test( 'getWpNowConfig with default options', async () => {
 	};
 	const options = await getWpNowConfig( rawOptions );
 
-	expect( options.phpVersion ).toBe( '8.0' );
+	expect( options.phpVersion ).toBe( '8.3' );
 	expect( options.wordPressVersion ).toBe( 'latest' );
 	expect( options.documentRoot ).toBe( '/var/www/html' );
 	expect( options.mode ).toBe( WPNowMode.INDEX );
@@ -198,10 +198,7 @@ describe( 'Test starting different modes', () => {
 	 */
 	beforeAll( async () => {
 		fs.rmSync( getWpNowTmpPath(), { recursive: true, force: true } );
-		await Promise.all( [
-			downloadWithTimer( 'wordpress', downloadWordPress ),
-			downloadWithTimer( 'sqlite', downloadSqliteIntegrationPlugin ),
-		] );
+		await downloadWithTimer( 'wordpress', downloadWordPress );
 	} );
 
 	/**
@@ -608,7 +605,7 @@ describe( 'Test starting different modes', () => {
 		test( 'php should receive the correct yargs arguments', async () => {
 			process.argv = [ 'node', 'wp-now', 'php', '--', '--version' ];
 			await runCli();
-			expect( output ).toMatch( /PHP 8\.0(.*)\(cli\)/i );
+			expect( output ).toMatch( /PHP 8\.3(.*)\(cli\)/i );
 			expect( processExitMock ).toHaveBeenCalledWith( 0 );
 		} );
 
@@ -623,7 +620,7 @@ describe( 'Test starting different modes', () => {
 			const filePath = path.join( phpExampleDir, 'php-version.php' );
 			process.argv = [ 'node', 'wp-now', 'php', filePath ];
 			await runCli();
-			expect( output ).toMatch( /8\.0/i );
+			expect( output ).toMatch( /8\.3/i );
 			expect( processExitMock ).toHaveBeenCalledWith( 0 );
 		} );
 

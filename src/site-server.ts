@@ -1,23 +1,29 @@
+import { net } from 'electron';
 import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
-import { getWpNowConfig } from '../vendor/wp-now/src';
-import { WPNowMode } from '../vendor/wp-now/src/config';
-import { DEFAULT_PHP_VERSION, SQLITE_FILENAME } from '../vendor/wp-now/src/constants';
-import { getWordPressVersionPath } from '../vendor/wp-now/src/download';
-import { pathExists, recursiveCopyDirectory, isEmptyDir } from './lib/fs-utils';
-import { decodePassword } from './lib/passwords';
-import { phpGetThemeDetails } from './lib/php-get-theme-details';
-import { portFinder } from './lib/port-finder';
-import { sanitizeForLogging } from './lib/sanitize-for-logging';
-import { getPreferredSiteLanguage } from './lib/site-language';
-import SiteServerProcess from './lib/site-server-process';
-import WpCliProcess, { MessageCanceled, WpCliResult } from './lib/wp-cli-process';
-import { purgeWpConfig } from './lib/wp-versions';
-import { createScreenshotWindow } from './screenshot-window';
-import { getSiteThumbnailPath } from './storage/paths';
+import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
+import { pathExists, recursiveCopyDirectory, isEmptyDir } from 'src/lib/fs-utils';
+import { getSiteUrl } from 'src/lib/get-site-url';
+import { addDomainToHosts, removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
+import { decodePassword } from 'src/lib/passwords';
+import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
+import { portFinder } from 'src/lib/port-finder';
+import { startProxyServer } from 'src/lib/proxy-server';
+import { getPreferredSiteLanguage } from 'src/lib/site-language';
+import SiteServerProcess from 'src/lib/site-server-process';
+import { updateSiteUrl } from 'src/lib/update-site-url';
+import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
+import { purgeWpConfig, verifyWordPressChecksums } from 'src/lib/wp-versions';
+import { createScreenshotWindow } from 'src/screenshot-window';
+import { copyBundledLatestWPVersion } from 'src/setup-wp-server-files';
+import { getSiteThumbnailPath } from 'src/storage/paths';
+import { getWpNowConfig } from 'vendor/wp-now/src';
+import { WPNowMode } from 'vendor/wp-now/src/config';
+import { DEFAULT_PHP_VERSION, SQLITE_FILENAME } from 'vendor/wp-now/src/constants';
+import { getWordPressVersionPath, downloadWordPress } from 'vendor/wp-now/src/download';
 
 const servers = new Map< string, SiteServer >();
 const deletedServers: string[] = [];
@@ -26,15 +32,41 @@ export async function createSiteWorkingDirectory(
 	path: string,
 	wpVersion = 'latest'
 ): Promise< boolean > {
-	if ( ( await pathExists( path ) ) && ! ( await isEmptyDir( path ) ) ) {
-		// We can only create into a clean directory
-		return false;
+	try {
+		if ( ( await pathExists( path ) ) && ! ( await isEmptyDir( path ) ) ) {
+			// We can only create into a clean directory
+			return false;
+		}
+
+		const wpVersionPath = getWordPressVersionPath( wpVersion );
+		const wpVersionExists = await pathExists( wpVersionPath );
+
+		if ( ! wpVersionExists ) {
+			if ( net.isOnline() ) {
+				try {
+					await downloadWordPress( wpVersion, { overwrite: false } );
+				} catch ( error ) {
+					console.error( `Failed to download WordPress version ${ wpVersion }:`, error );
+					throw new Error(
+						`Failed to download WordPress version ${ wpVersion }. Please try a different version.`
+					);
+				}
+			} else if ( wpVersion === 'latest' ) {
+				await copyBundledLatestWPVersion();
+			} else {
+				return false;
+			}
+		}
+
+		await verifyWordPressChecksums( wpVersion );
+		await purgeWpConfig( wpVersion );
+		await recursiveCopyDirectory( getWordPressVersionPath( wpVersion ), path );
+
+		return true;
+	} catch ( error ) {
+		console.error( 'Error in createSiteWorkingDirectory:', error );
+		throw error;
 	}
-
-	await purgeWpConfig( wpVersion );
-	await recursiveCopyDirectory( getWordPressVersionPath( wpVersion ), path );
-
-	return true;
 }
 
 export async function stopAllServersOnQuit() {
@@ -43,11 +75,28 @@ export async function stopAllServersOnQuit() {
 	await Promise.all( [ ...servers.values() ].map( ( server ) => server.server?.stop() ) );
 }
 
+function getAbsoluteUrl( details: SiteDetails ): string {
+	if ( details.customDomain ) {
+		const protocol = details.enableHttps ? 'https' : 'http';
+		return `${ protocol }://${ details.customDomain }`;
+	}
+
+	return `http://localhost:${ details.port }`;
+}
+
+// We use SiteDetails for storing it in appdata-v1.json, so this meta was introduced for extra data which is not stored locally
+type SiteServerMeta = {
+	wpVersion?: string;
+};
+
 export class SiteServer {
 	server?: SiteServerProcess;
 	wpCliExecutor?: WpCliProcess;
 
-	private constructor( public details: SiteDetails ) {}
+	private constructor(
+		public details: SiteDetails,
+		public meta: SiteServerMeta
+	) {}
 
 	static get( id: string ): SiteServer | undefined {
 		return servers.get( id );
@@ -57,8 +106,8 @@ export class SiteServer {
 		return deletedServers.includes( id );
 	}
 
-	static create( details: StoppedSiteDetails ): SiteServer {
-		const server = new SiteServer( details );
+	static create( details: StoppedSiteDetails, meta: SiteServerMeta = {} ): SiteServer {
+		const server = new SiteServer( details, meta );
 		servers.set( details.id, server );
 		return server;
 	}
@@ -68,6 +117,24 @@ export class SiteServer {
 		if ( fs.existsSync( thumbnailPath ) ) {
 			await fs.promises.unlink( thumbnailPath );
 		}
+
+		// If we're using a custom domain, clean up the hosts file and unregister from proxy
+		if ( this.details.customDomain ) {
+			try {
+				await removeDomainFromHosts( this.details.customDomain );
+				console.log( `Domain ${ this.details.customDomain } unregistered from proxy server` );
+			} catch ( error ) {
+				console.error( 'Failed to clean up custom domain:', error );
+			}
+		}
+
+		if ( this.details.customDomain && this.details.enableHttps ) {
+			const certificateDeleted = deleteSiteCertificate( this.details.customDomain ?? '' );
+			if ( certificateDeleted ) {
+				console.log( `Certificates for ${ this.details.customDomain } have been deleted` );
+			}
+		}
+
 		await this.stop();
 		await this.wpCliExecutor?.stop();
 		deletedServers.push( this.details.id );
@@ -79,17 +146,38 @@ export class SiteServer {
 		if ( this.details.running || this.server ) {
 			return;
 		}
-		const port = await portFinder.getOpenPort( this.details.port );
-		portFinder.addUnavailablePort( this.details.port );
+
+		// Handle custom domain if necessary
+		if ( this.details.customDomain ) {
+			await addDomainToHosts( this.details.customDomain, this.details.port );
+			// Generate certificates for HTTPS sites *before* the server starts
+			// This ensures the certs are ready when the proxy server needs them
+			if ( this.details.enableHttps ) {
+				console.log(
+					`Generating certificates for ${ this.details.customDomain } during server start`
+				);
+
+				const { cert, key } = await generateSiteCertificate( this.details.customDomain );
+				this.details = {
+					...this.details,
+					tlsKey: key,
+					tlsCert: cert,
+				};
+			}
+			await startProxyServer();
+		}
+
 		const options = await getWpNowConfig( {
 			path: this.details.path,
-			port,
+			port: this.details.port,
 			adminPassword: decodePassword( this.details.adminPassword ?? '' ),
 			siteTitle: this.details.name,
 			php: this.details.phpVersion,
+			wp: this.meta.wpVersion,
+			isWpAutoUpdating: this.details.isWpAutoUpdating,
 		} );
-		const absoluteUrl = `http://localhost:${ port }`;
-		options.absoluteUrl = absoluteUrl;
+
+		options.absoluteUrl = getAbsoluteUrl( this.details );
 		options.siteLanguage = await getPreferredSiteLanguage( options.wordPressVersion );
 
 		if ( options.mode !== WPNowMode.WORDPRESS ) {
@@ -98,7 +186,14 @@ export class SiteServer {
 			);
 		}
 
-		console.log( 'Starting server with options', sanitizeForLogging( options ) );
+		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
+		if ( ! isPortAvailable ) {
+			throw new Error(
+				`Port ${ this.details.port } is not available. error code: ERROR_PORT_IN_USE`
+			);
+		}
+
+		console.log( `Starting server for '${ this.details.name }'` );
 		this.server = new SiteServerProcess( options );
 		await this.server.start();
 
@@ -113,18 +208,61 @@ export class SiteServer {
 			url: this.server.url,
 			port: this.server.options.port,
 			phpVersion: this.server.options.phpVersion ?? DEFAULT_PHP_VERSION,
+			isWpAutoUpdating: this.details.isWpAutoUpdating,
 			running: true,
+			autoStart: true,
 			themeDetails,
 		};
 	}
 
-	updateSiteDetails( site: SiteDetails ) {
+	async updateSiteDetails( site: SiteDetails ) {
+		const oldDomain = this.details.customDomain;
+		const newDomain = site.customDomain;
+		const oldEnableHttps = this.details.enableHttps;
+		const newEnableHttps = site.enableHttps;
+
 		this.details = {
 			...this.details,
 			name: site.name,
 			path: site.path,
 			phpVersion: site.phpVersion,
+			isWpAutoUpdating: site.isWpAutoUpdating,
+			customDomain: site.customDomain,
+			enableHttps: site.enableHttps,
 		};
+
+		if ( this.server && this.details.running ) {
+			this.details.url = getAbsoluteUrl( this.details );
+			this.server.url = this.details.url;
+		}
+
+		// Handle domain changes and url changes (updates hosts and database)
+		if ( oldDomain !== newDomain ) {
+			void updateDomainInHosts( oldDomain, newDomain, this.details.port );
+		}
+		if ( ( oldDomain && ! newDomain ) || oldEnableHttps !== newEnableHttps ) {
+			await updateSiteUrl( this, getSiteUrl( this.details ) );
+		}
+
+		if (
+			oldDomain &&
+			oldEnableHttps &&
+			( oldDomain !== newDomain || oldEnableHttps !== newEnableHttps )
+		) {
+			deleteSiteCertificate( oldDomain );
+		}
+		if (
+			newDomain &&
+			newEnableHttps &&
+			( oldDomain !== newDomain || oldEnableHttps !== newEnableHttps )
+		) {
+			const { cert, key } = await generateSiteCertificate( newDomain );
+			this.details = {
+				...this.details,
+				tlsKey: key,
+				tlsCert: cert,
+			};
+		}
 	}
 
 	async stop() {
@@ -140,8 +278,8 @@ export class SiteServer {
 			return;
 		}
 
-		const { running, url, ...rest } = this.details;
-		this.details = { running: false, ...rest };
+		const { running, autoStart, url, ...rest } = this.details;
+		this.details = { running: false, autoStart: false, ...rest };
 	}
 
 	async updateCachedThumbnail() {
@@ -162,13 +300,22 @@ export class SiteServer {
 			.mkdir( outDir, { recursive: true } )
 			.then( waitForCapture )
 			.then( ( image ) => fs.promises.writeFile( outPath, image.toPNG() ) )
-			.catch( Sentry.captureException )
+			.catch( async ( error ) => {
+				Sentry.captureException( error );
+				await fs.promises.unlink( outPath );
+			} )
 			.finally( () => window.destroy() );
 	}
 
 	async executeWpCliCommand(
 		args: string,
-		{ targetPhpVersion }: { targetPhpVersion?: string } = {}
+		{
+			targetPhpVersion,
+			skipPluginsAndThemes = false,
+		}: {
+			targetPhpVersion?: string;
+			skipPluginsAndThemes?: boolean;
+		} = {}
 	): Promise< WpCliResult > {
 		const projectPath = this.details.path;
 		const phpVersion = targetPhpVersion ?? this.details.phpVersion;
@@ -179,6 +326,11 @@ export class SiteServer {
 		}
 
 		const wpCliArgs = parse( args );
+
+		if ( skipPluginsAndThemes ) {
+			wpCliArgs.push( '--skip-plugins' );
+			wpCliArgs.push( '--skip-themes' );
+		}
 
 		// The parsing of arguments can include shell operators like `>` or `||` that the app don't support.
 		const isValidCommand = wpCliArgs.every(
@@ -192,11 +344,19 @@ export class SiteServer {
 			return await this.wpCliExecutor.execute( wpCliArgs as string[], { phpVersion } );
 		} catch ( error ) {
 			if ( ( error as MessageCanceled )?.canceled ) {
-				return { stdout: '', stderr: 'wp-cli command canceled', exitCode: 1 };
+				return {
+					stdout: '',
+					stderr: 'WP-CLI command was canceled (timed out)',
+					exitCode: 1,
+				};
 			}
 
 			Sentry.captureException( error );
-			return { stdout: '', stderr: 'error when executing wp-cli command', exitCode: 1 };
+			return {
+				stdout: '',
+				stderr: `Error executing WP-CLI command: ${ ( error as MessageCanceled ).error.message }`,
+				exitCode: 1,
+			};
 		}
 	}
 

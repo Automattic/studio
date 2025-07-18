@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useWindowListener } from './use-window-listener';
+import { useWindowListener } from 'src/hooks/use-window-listener';
 
 export function useOffline() {
 	const [ isOffline, setIsOffline ] = useState( ! navigator.onLine );

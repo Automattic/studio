@@ -3,6 +3,7 @@
 fastlane_require 'digest'
 fastlane_require 'zip'
 fastlane_require 'aws-sdk-cloudfront'
+fastlane_require 'json'
 
 UI.user_error!('Please run fastlane via `bundle exec`') unless FastlaneCore::Helper.bundler?
 
@@ -13,11 +14,18 @@ PROJECT_ROOT_FOLDER = File.dirname(File.expand_path(__dir__))
 SECRETS_FOLDER = File.join(Dir.home, '.configure', 'studio', 'secrets')
 BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'out')
 
+# Enable dry run mode through environment variable
+DRY_RUN = ENV['DRY_RUN'] == 'true'
+
+# Read version from package.json
+PACKAGE_VERSION = JSON.parse(File.read(File.join(PROJECT_ROOT_FOLDER, 'package.json')))['version']
+
 APPLE_TEAM_ID = 'PZYM8XX95Q'
 APPLE_BUNDLE_IDENTIFIER = 'com.automattic.studio'
 APPLE_API_KEY_PATH = File.join(SECRETS_FOLDER, 'app_store_connect_fastlane_api_key.json')
 
 CDN_URL = 'https://cdn.a8c-ci.services'
+CLOUDFRONT_DISTRIBUTION_ID = 'EF4A01YASGPY5'
 
 # Use this instead of getting values from ENV directly
 # It will throw an error if the requested value is missing
@@ -52,6 +60,7 @@ lane :notarize_binary do
       api_key_path: APPLE_API_KEY_PATH
     )
   end
+
   Dir[File.join(BUILDS_FOLDER, '**', 'Studio-*.dmg')].each do |path|
     notarize(
       bundle_id: APPLE_BUNDLE_IDENTIFIER,
@@ -68,6 +77,8 @@ end
 
 desc 'Ship release build'
 lane :distribute_release_build do |_options|
+  next if DRY_RUN
+  
   release_tag = get_required_env('BUILDKITE_TAG')
   builds = distribute_builds(release_tag:)
 
@@ -85,31 +96,38 @@ lane :distribute_release_build do |_options|
   )
 end
 
+def aws_upload_to_s3(bucket:, key:, file:, if_exists:, auto_prefix: false, dry_run: DRY_RUN)
+  if dry_run
+    UI.message("[DRY RUN] Would upload file: #{file}")
+    UI.message("           to S3 bucket: #{bucket}")
+    UI.message("           with key: #{key}")
+    UI.message("           if_exists: #{if_exists}")
+    return true
+  end
+
+  upload_to_s3(
+    bucket:,
+    key:,
+    file:,
+    if_exists:,
+    auto_prefix:
+  )
+end
+
 def distribute_builds(
   commit_hash: last_git_commit[:abbreviated_commit_hash],
   build_number: get_required_env('BUILDKITE_BUILD_NUMBER'),
   release_tag: nil
 )
+  UI.message("Running in #{DRY_RUN ? 'DRY RUN' : 'NORMAL'} mode")
   # If we are distributing a build without a tag, i.e. a development build, we also want to update the latest build reference for distribution.
   update_latest = release_tag.nil?
-  suffix = release_tag.nil? ? commit_hash : release_tag
+  suffix = release_tag.nil? ? "v#{PACKAGE_VERSION}" : release_tag
   normalized_version = suffix.gsub(/^v|-.*/, '')
   filename_root = 'studio'
   bucket_folder = 'studio'
 
   builds = {
-    mac_universal: {
-      binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-universal', 'Studio.app.zip'),
-      filename_core: 'darwin-universal',
-      extension: 'app.zip',
-      name: 'Mac Universal'
-    },
-    mac_universal_dmg: {
-      binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-universal.dmg'),
-      filename_core: 'darwin-universal',
-      extension: 'dmg',
-      name: 'Mac Universal (DMG)'
-    },
     x64: {
       binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-x64', 'Studio.app.zip'),
       filename_core: 'darwin-x64',
@@ -176,7 +194,7 @@ def distribute_builds(
   bucket_name = 'a8c-apps-public-artifacts'
 
   builds.each_value do |build|
-    upload_to_s3(
+    aws_upload_to_s3(
       bucket: bucket_name,
       key: "#{bucket_folder}/#{build[:filename]}",
       file: build[:binary_path],
@@ -186,7 +204,7 @@ def distribute_builds(
   end
 
   manifest_name = 'releases.json'
-  upload_to_s3(
+  aws_upload_to_s3(
     bucket: bucket_name,
     key: "#{bucket_folder}/#{manifest_name}",
     file: File.join(BUILDS_FOLDER, manifest_name),
@@ -203,7 +221,7 @@ def distribute_builds(
       filename = assemble_filename.call(build, 'latest')
       key = "#{bucket_folder}/#{filename}"
 
-      upload_to_s3(
+      aws_upload_to_s3(
         bucket: bucket_name,
         key:,
         file: build[:binary_path],
@@ -223,19 +241,29 @@ def distribute_builds(
     commit_hash: "#{commit_hash}-#{build_number}"
   )
 
-  buildkite_annotate(
-    context: 'cdn-link',
-    style: 'info',
-    message: "🔗 Build available for #{builds.each_value.map { |build| "[#{build[:name]}](#{build[:cdn_url]})" }.join(', ')}"
-  )
+  unless DRY_RUN
+    buildkite_annotate(
+      context: 'cdn-link',
+      style: 'info',
+      message: "🔗 Build available for #{builds.each_value.map { |build| "[#{build[:name]}](#{build[:cdn_url]})" }.join(', ')}"
+    )
+  end
 
   # Return the builds data so callers can use them for further processing or messaging.
   builds
 end
 
-def clear_cloudfront_cache(paths:, commit_hash:)
+def clear_cloudfront_cache(paths:, commit_hash:, dry_run: DRY_RUN)
+  if dry_run
+    UI.message("[DRY RUN] Would invalidate CloudFront cache:")
+    UI.message("           Distribution: #{CLOUDFRONT_DISTRIBUTION_ID}")
+    UI.message("           Paths: #{paths.join(', ')}")
+    UI.message("           Commit hash: #{commit_hash}")
+    return true
+  end
+
   Aws::CloudFront::Client.new.create_invalidation(
-    distribution_id: 'EF4A01YASGPY5',
+    distribution_id: CLOUDFRONT_DISTRIBUTION_ID,
     invalidation_batch: {
       paths: {
         quantity: paths.length,

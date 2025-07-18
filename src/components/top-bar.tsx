@@ -1,23 +1,31 @@
-import { __, sprintf } from '@wordpress/i18n';
-import { Icon, help, drawerLeft } from '@wordpress/icons';
-import { STUDIO_DOCS_URL } from '../constants';
-import { useAuth } from '../hooks/use-auth';
-import { useOffline } from '../hooks/use-offline';
-import { getIpcApi } from '../lib/get-ipc-api';
-import Button from './button';
-import { Gravatar } from './gravatar';
-import offlineIcon from './offline-icon';
-import { Tooltip } from './tooltip';
-import { WordPressLogo } from './wordpress-logo';
-
+import { sprintf } from '@wordpress/i18n';
+import { Icon, help, drawerLeft, cog } from '@wordpress/icons';
+import { useI18n } from '@wordpress/react-i18n';
+import Button from 'src/components/button';
+import { Gravatar } from 'src/components/gravatar';
+import offlineIcon from 'src/components/offline-icon';
+import { Tooltip } from 'src/components/tooltip';
+import { WordPressLogo } from 'src/components/wordpress-logo';
+import { useAuth } from 'src/hooks/use-auth';
+import { useOffline } from 'src/hooks/use-offline';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getLocalizedLink } from 'src/lib/get-localized-link';
+import { useI18nLocale } from 'src/stores';
 interface TopBarProps {
 	onToggleSidebar: () => void;
 }
 
+const DEFAULT_TOOLTIP_PLACEMENT = 'bottom-start';
+
 function ToggleSidebar( { onToggleSidebar }: TopBarProps ) {
+	const { __ } = useI18n();
 	return (
 		<div className="app-no-drag-region">
-			<Tooltip text={ __( 'Toggle sidebar' ) } className="h-6">
+			<Tooltip
+				text={ __( 'Toggle sidebar' ) }
+				className="h-6"
+				placement={ DEFAULT_TOOLTIP_PLACEMENT }
+			>
 				<Button onClick={ onToggleSidebar } variant="icon" aria-label={ __( 'Toggle sidebar' ) }>
 					<Icon className="text-white" icon={ drawerLeft } size={ 24 } />
 				</Button>
@@ -27,6 +35,7 @@ function ToggleSidebar( { onToggleSidebar }: TopBarProps ) {
 }
 
 function OfflineIndicator() {
+	const { __ } = useI18n();
 	const isOffline = useOffline();
 	const offlineMessage = [
 		__( 'You’re currently offline.' ),
@@ -44,6 +53,7 @@ function OfflineIndicator() {
 						</span>
 					}
 					className="h-6"
+					placement={ DEFAULT_TOOLTIP_PLACEMENT }
 				>
 					<Button
 						aria-label={ __( 'Offline indicator' ) }
@@ -60,13 +70,14 @@ function OfflineIndicator() {
 }
 
 function Authentication() {
+	const { __ } = useI18n();
 	const { isAuthenticated, user } = useAuth();
+	const isOffline = useOffline();
 	if ( isAuthenticated ) {
 		return (
 			<Button
 				onClick={ () => getIpcApi().showUserSettings() }
-				aria-label={ __( 'Open settings' ) }
-				tooltipText={ __( 'Open settings' ) }
+				aria-label={ __( 'Open account settings' ) }
 				variant="icon"
 				className="text-white hover:!text-white !px-1 py-1 !h-6 gap-2"
 			>
@@ -77,36 +88,61 @@ function Authentication() {
 	}
 
 	return (
-		<Button
-			onClick={ () => getIpcApi().showUserSettings() }
-			aria-label={ __( 'Open settings to log in' ) }
-			tooltipText={ __( 'Open settings to log in' ) }
-			className="flex gap-x-2 justify-between w-full text-white rounded !px-0 !py-0 h-auto active:!text-white hover:!text-white hover:underline items-center"
+		<Tooltip
+			disabled={ ! isOffline }
+			icon={ offlineIcon }
+			text={ __( "You're currently offline." ) }
 		>
-			<WordPressLogo />
+			<Button
+				onClick={ () => getIpcApi().authenticate( false ) }
+				aria-label={ __( 'Log in to Studio with WordPress.com' ) }
+				className="flex gap-x-2 justify-between w-full text-white rounded !px-2 !py-0 h-auto active:!text-white hover:!text-white hover:underline items-center"
+				disabled={ isOffline }
+			>
+				<WordPressLogo />
 
-			<div className="text-s text-right">{ __( 'Log in' ) }</div>
+				<div className="text-s text-right">{ __( 'Log in' ) }</div>
+			</Button>
+		</Tooltip>
+	);
+}
+
+function SettingsButton() {
+	const { __ } = useI18n();
+	return (
+		<Button
+			onClick={ () => getIpcApi().showUserSettings( 'preferences' ) }
+			aria-label={ __( 'Open settings' ) }
+			variant="icon"
+		>
+			<Icon className="text-white" size={ 24 } icon={ cog } />
 		</Button>
 	);
 }
 
 export default function TopBar( { onToggleSidebar }: TopBarProps ) {
-	const openDocs = async () => {
-		await getIpcApi().openURL( STUDIO_DOCS_URL );
+	const { __ } = useI18n();
+	const locale = useI18nLocale();
+
+	const openDocs = () => {
+		getIpcApi().openURL( getLocalizedLink( locale, 'docsStudio' ) );
 	};
 
 	return (
 		<div className="flex justify-between items-center text-white px-2 pb-2 pt-1.5">
-			<div className="flex items-center space-x-1.5">
+			<div className="flex items-center space-x-1.5 rtl:space-x-reverse">
 				<ToggleSidebar onToggleSidebar={ onToggleSidebar } />
 				<OfflineIndicator />
 			</div>
 
-			<div className="app-no-drag-region flex items-center space-x-4">
+			<div className="app-no-drag-region flex items-center space-x-1.5 rtl:space-x-reverse">
 				<Authentication />
-				<Button onClick={ openDocs } aria-label={ __( 'Get help' ) } variant="icon">
-					<Icon className="text-white" size={ 24 } icon={ help } />
-				</Button>
+				<SettingsButton />
+				<Tooltip text={ __( 'Get help' ) } placement="bottom-start">
+					<Button onClick={ openDocs } aria-label={ __( 'Get help' ) } variant="icon">
+						<Icon className="text-white" size={ 24 } icon={ help } />
+					</Button>
+				</Tooltip>
 			</div>
 		</div>
 	);

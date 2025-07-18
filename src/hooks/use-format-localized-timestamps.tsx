@@ -1,6 +1,6 @@
 import { Duration, intervalToDuration } from 'date-fns';
 import { useCallback } from 'react';
-import { formatDistance } from '../lib/date';
+import { formatDistance } from 'src/lib/date';
 
 function formatTimeDistance( duration: Duration ): string {
 	if ( duration.days && duration.days > 0 ) {

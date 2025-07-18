@@ -1,17 +1,46 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-settings.test.tsx` from the root directory
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { UnknownAction } from '@reduxjs/toolkit';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { useGetWpVersion } from '../../hooks/use-get-wp-version';
-import { useOffline } from '../../hooks/use-offline';
-import { useSiteDetails } from '../../hooks/use-site-details';
-import { useSnapshots } from '../../hooks/use-snapshots';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { ContentTabSettings } from '../content-tab-settings';
+import { produce } from 'immer';
+import { Provider } from 'react-redux';
+import { Snapshot } from 'common/types/snapshot';
+import { ContentTabSettings } from 'src/components/content-tab-settings';
+import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
+import { useOffline } from 'src/hooks/use-offline';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { RootState, store } from 'src/stores';
+import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
-jest.mock( '../../hooks/use-get-wp-version' );
-jest.mock( '../../hooks/use-snapshots' );
-jest.mock( '../../hooks/use-site-details' );
-jest.mock( '../../lib/get-ipc-api' );
+function snapshotTestReducer( state: RootState | undefined, action: UnknownAction ) {
+	if ( action.type === 'snapshot/addSnapshot' ) {
+		const payload = action.payload as {
+			snapshot: Snapshot;
+		};
+
+		return produce( state!, ( draftState ) => {
+			draftState.snapshot.snapshots.push( payload.snapshot );
+		} );
+	}
+
+	return testReducer( state, action );
+}
+
+const snapshotTestActions = {
+	addSnapshot: ( snapshot: Snapshot ) => {
+		return { type: 'snapshot/addSnapshot', payload: { snapshot } };
+	},
+};
+
+store.replaceReducer( snapshotTestReducer );
+
+jest.mock( 'src/hooks/use-get-wp-version' );
+jest.mock( 'src/hooks/use-site-details' );
+jest.mock( 'src/lib/get-ipc-api' );
+jest.mock( 'src/lib/app-globals', () => ( {
+	isWindows: () => false,
+} ) );
 
 const selectedSite: SiteDetails = {
 	name: 'Test Site',
@@ -19,26 +48,47 @@ const selectedSite: SiteDetails = {
 	path: '/path/to/site',
 	adminPassword: btoa( 'test-password' ),
 	running: false,
-	phpVersion: '8.0',
+	phpVersion: '8.3',
 	id: 'site-id',
 };
+
+function renderWithProvider( component: React.ReactElement ) {
+	return render( <Provider store={ store }>{ component }</Provider> );
+}
+
+function rerenderWithProvider(
+	rerender: ( component: React.ReactElement ) => void,
+	component: React.ReactElement
+) {
+	rerender( <Provider store={ store }>{ component }</Provider> );
+}
 
 describe( 'ContentTabSettings', () => {
 	const copyText = jest.fn();
 	const openLocalPath = jest.fn();
 	const generateProposedSitePath = jest.fn();
+	const getAllCustomDomains = jest.fn().mockResolvedValue( [] );
+	const mockSnapshot = {
+		localSiteId: selectedSite.id,
+		url: 'http://localhost:8881',
+		date: Date.now(),
+		name: 'Test Snapshot',
+		sequence: 1,
+		atomicSiteId: 1,
+	};
+
 	beforeEach( () => {
 		jest.clearAllMocks();
-		( useGetWpVersion as jest.Mock ).mockReturnValue( '7.7.7' );
+		( useGetWpVersion as jest.Mock ).mockReturnValue( [ '7.7.7', jest.fn() ] );
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			copyText,
 			openLocalPath,
 			generateProposedSitePath,
+			getAllCustomDomains,
+			isCATrusted: jest.fn( () => Promise.resolve( true ) ),
 		} );
 
-		( useSnapshots as jest.Mock ).mockReturnValue( {
-			snapshots: [],
-		} );
+		store.dispatch( testActions.resetState() );
 
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite,
@@ -49,14 +99,20 @@ describe( 'ContentTabSettings', () => {
 		} );
 	} );
 
-	test( 'renders site details correctly', () => {
-		render( <ContentTabSettings selectedSite={ selectedSite } /> );
+	test( 'renders site details correctly', async () => {
+		renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
+
+		await waitFor( () => {
+			expect( getAllCustomDomains ).toHaveBeenCalled();
+		} );
 
 		expect( screen.getByRole( 'heading', { name: 'Site details' } ) ).toBeVisible();
 		expect( screen.getByText( 'Test Site' ) ).toBeVisible();
 		expect(
 			screen.getByRole( 'button', { name: 'localhost:8881, Copy site url to clipboard' } )
 		).toHaveTextContent( 'localhost:8881' );
+		expect( screen.getByText( 'HTTPS' ) ).toBeVisible();
+		expect( screen.getByText( 'Disabled' ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Copy local path to clipboard' } ) ).toBeVisible();
 		expect( screen.getByText( '7.7.7' ) ).toBeVisible();
 		expect(
@@ -68,7 +124,11 @@ describe( 'ContentTabSettings', () => {
 
 	test( 'allows copying the site path', async () => {
 		const user = userEvent.setup();
-		render( <ContentTabSettings selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
+
+		await waitFor( () => {
+			expect( getAllCustomDomains ).toHaveBeenCalled();
+		} );
 
 		const localPathButton = screen.getByRole( 'button', { name: 'Copy local path to clipboard' } );
 		expect( localPathButton ).toBeVisible();
@@ -85,7 +145,11 @@ describe( 'ContentTabSettings', () => {
 			url: 'http://localhost:8881',
 			running: true,
 		};
-		render( <ContentTabSettings selectedSite={ selectedSiteRunning } /> );
+		renderWithProvider( <ContentTabSettings selectedSite={ selectedSiteRunning } /> );
+
+		await waitFor( () => {
+			expect( getAllCustomDomains ).toHaveBeenCalled();
+		} );
 
 		const urlButton = screen.getByRole( 'button', {
 			name: 'localhost:8881, Copy site url to clipboard',
@@ -106,7 +170,11 @@ describe( 'ContentTabSettings', () => {
 
 	test( 'allows copying the site password', async () => {
 		const user = userEvent.setup();
-		render( <ContentTabSettings selectedSite={ selectedSite } /> );
+		renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
+
+		await waitFor( () => {
+			expect( getAllCustomDomains ).toHaveBeenCalled();
+		} );
 
 		const adminPasswordButton = screen.getByRole( 'button', {
 			name: 'Copy admin password to clipboard',
@@ -121,21 +189,26 @@ describe( 'ContentTabSettings', () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
 
 		// Mock snapshots to include a snapshot for the selected site
-		( useSnapshots as jest.Mock ).mockReturnValue( {
-			snapshots: [ { localSiteId: selectedSite.id } ],
-		} );
+		store.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite: selectedSite,
 			deleteSite: jest.fn(),
 			isDeleting: false,
 		} );
-		render( <ContentTabSettings selectedSite={ selectedSite } /> );
-		const deleteSiteButton = await screen.findByRole( 'button', { name: 'Delete site' } );
+		renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
+
+		await waitFor( () => {
+			expect( getAllCustomDomains ).toHaveBeenCalled();
+		} );
+
+		const dropdownButton = screen.getByRole( 'button', { name: 'More options' } );
+		await userEvent.click( dropdownButton );
+		const deleteSiteButton = screen.getByRole( 'menuitem', { name: 'Delete site' } );
 		expect( deleteSiteButton ).toHaveAttribute( 'aria-disabled', 'true' );
 		fireEvent.mouseOver( deleteSiteButton );
 		expect(
 			screen.getByRole( 'tooltip', {
-				name: 'This site has active demo sites that cannot be deleted without an internet connection.',
+				name: 'This site has active preview sites that cannot be deleted without an internet connection.',
 			} )
 		).toBeVisible();
 	} );
@@ -144,7 +217,7 @@ describe( 'ContentTabSettings', () => {
 		test( 'allows copying the default password', async () => {
 			const user = userEvent.setup();
 			const { adminPassword, ...selectedSiteLegacy }: SiteDetails = selectedSite;
-			render( <ContentTabSettings selectedSite={ selectedSiteLegacy } /> );
+			renderWithProvider( <ContentTabSettings selectedSite={ selectedSiteLegacy } /> );
 
 			const adminPasswordButton = screen.getByRole( 'button', {
 				name: 'Copy admin password to clipboard',
@@ -164,9 +237,7 @@ describe( 'ContentTabSettings', () => {
 			const startServer = jest.fn();
 			const stopServer = jest.fn();
 
-			( useSnapshots as jest.Mock ).mockReturnValue( {
-				snapshots: [ { localSiteId: selectedSite.id } ],
-			} );
+			store.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
 
 			// Mock snapshots to include a snapshot for the selected site
 			( useSiteDetails as jest.Mock ).mockReturnValue( {
@@ -176,9 +247,11 @@ describe( 'ContentTabSettings', () => {
 				stopServer,
 			} );
 
-			const { rerender } = render( <ContentTabSettings selectedSite={ selectedSite } /> );
-			expect( screen.getByText( '8.0' ) ).toBeVisible();
-			await user.click( screen.getByRole( 'button', { name: 'Edit PHP version' } ) );
+			const { rerender } = renderWithProvider(
+				<ContentTabSettings selectedSite={ selectedSite } />
+			);
+			expect( screen.getByText( '8.3' ) ).toBeVisible();
+			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
 			const dialog = screen.getByRole( 'dialog' );
 			expect( dialog ).toBeVisible();
 			await user.selectOptions(
@@ -192,12 +265,22 @@ describe( 'ContentTabSettings', () => {
 					name: 'Save',
 				} )
 			);
-			expect( updateSite ).toHaveBeenCalledWith( expect.objectContaining( { phpVersion: '8.2' } ) );
-			expect( stopServer ).not.toHaveBeenCalled();
-			expect( startServer ).not.toHaveBeenCalled();
 
-			rerender( <ContentTabSettings selectedSite={ { ...selectedSite, phpVersion: '8.2' } } /> );
-			expect( screen.getByText( '8.2' ) ).toBeVisible();
+			await waitFor( () => {
+				expect( updateSite ).toHaveBeenCalledWith(
+					expect.objectContaining( { phpVersion: '8.2' } )
+				);
+				expect( stopServer ).not.toHaveBeenCalled();
+				expect( startServer ).not.toHaveBeenCalled();
+			} );
+
+			rerenderWithProvider(
+				rerender,
+				<ContentTabSettings selectedSite={ { ...selectedSite, phpVersion: '8.2' } } />
+			);
+			await waitFor( () => {
+				expect( screen.getByText( '8.2' ) ).toBeVisible();
+			} );
 		} );
 
 		it( 'changes PHP version and restarts site when site is running', async () => {
@@ -207,9 +290,7 @@ describe( 'ContentTabSettings', () => {
 			const startServer = jest.fn();
 			const stopServer = jest.fn();
 			// Mock snapshots to include a snapshot for the selected site
-			( useSnapshots as jest.Mock ).mockReturnValue( {
-				snapshots: [ { localSiteId: selectedSite.id } ],
-			} );
+			store.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
 			( useSiteDetails as jest.Mock ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: true } as SiteDetails,
 				updateSite,
@@ -217,9 +298,11 @@ describe( 'ContentTabSettings', () => {
 				stopServer,
 			} );
 
-			const { rerender } = render( <ContentTabSettings selectedSite={ selectedSite } /> );
-			expect( screen.getByText( '8.0' ) ).toBeVisible();
-			await user.click( screen.getByRole( 'button', { name: 'Edit PHP version' } ) );
+			const { rerender } = renderWithProvider(
+				<ContentTabSettings selectedSite={ selectedSite } />
+			);
+			expect( screen.getByText( '8.3' ) ).toBeVisible();
+			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
 			const dialog = screen.getByRole( 'dialog' );
 			expect( dialog ).toBeVisible();
 			await user.selectOptions(
@@ -233,12 +316,22 @@ describe( 'ContentTabSettings', () => {
 					name: 'Save',
 				} )
 			);
-			expect( updateSite ).toHaveBeenCalledWith( expect.objectContaining( { phpVersion: '8.2' } ) );
-			expect( stopServer ).toHaveBeenCalled();
-			expect( startServer ).toHaveBeenCalled();
 
-			rerender( <ContentTabSettings selectedSite={ { ...selectedSite, phpVersion: '8.2' } } /> );
-			expect( screen.getByText( '8.2' ) ).toBeVisible();
+			await waitFor( () => {
+				expect( updateSite ).toHaveBeenCalledWith(
+					expect.objectContaining( { phpVersion: '8.2' } )
+				);
+				expect( stopServer ).toHaveBeenCalled();
+				expect( startServer ).toHaveBeenCalled();
+			} );
+
+			rerenderWithProvider(
+				rerender,
+				<ContentTabSettings selectedSite={ { ...selectedSite, phpVersion: '8.2' } } />
+			);
+			await waitFor( () => {
+				expect( screen.getByText( '8.2' ) ).toBeVisible();
+			} );
 		} );
 	} );
 } );

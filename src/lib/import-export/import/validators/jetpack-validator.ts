@@ -1,16 +1,20 @@
 import { EventEmitter } from 'events';
 import path from 'path';
-import { ImportEvents } from '../events';
-import { BackupContents } from '../types';
-import { Validator } from './validator';
+import { ImportEvents } from 'src/lib/import-export/import/events';
+import { BackupContents } from 'src/lib/import-export/import/types';
+import { Validator } from 'src/lib/import-export/import/validators/validator';
 
 export class JetpackValidator extends EventEmitter implements Validator {
 	canHandle( fileList: string[] ): boolean {
-		const requiredDirs = [ 'sql', 'wp-content/uploads', 'wp-content/plugins', 'wp-content/themes' ];
-		return (
-			requiredDirs.some( ( dir ) => fileList.some( ( file ) => file.startsWith( dir + '/' ) ) ) &&
-			fileList.some( ( file ) => file.startsWith( 'sql/' ) && file.endsWith( '.sql' ) )
+		const optionalDirs = [ 'sql', 'wp-content/uploads', 'wp-content/plugins', 'wp-content/themes' ];
+		const optionalFiles = [ 'wp-config.php' ];
+
+		const hasOptionalDir = optionalDirs.some( ( dir ) =>
+			fileList.some( ( file ) => file.startsWith( dir + '/' ) )
 		);
+		const hasOptionalFile = optionalFiles.some( ( file ) => fileList.includes( file ) );
+
+		return hasOptionalDir || hasOptionalFile;
 	}
 
 	parseBackupContents( fileList: string[], extractionDirectory: string ): BackupContents {
@@ -23,6 +27,8 @@ export class JetpackValidator extends EventEmitter implements Validator {
 				uploads: [],
 				plugins: [],
 				themes: [],
+				muPlugins: [],
+				fonts: [],
 			},
 			wpContentDirectory: 'wp-content',
 		};
@@ -47,6 +53,10 @@ export class JetpackValidator extends EventEmitter implements Validator {
 				extractedBackup.wpContent.plugins.push( fullPath );
 			} else if ( file.startsWith( 'wp-content/themes/' ) ) {
 				extractedBackup.wpContent.themes.push( fullPath );
+			} else if ( file.startsWith( 'wp-content/mu-plugins/' ) ) {
+				extractedBackup.wpContent.muPlugins!.push( fullPath );
+			} else if ( file.startsWith( 'wp-content/fonts/' ) ) {
+				extractedBackup.wpContent.fonts!.push( fullPath );
 			} else if ( file === 'studio.json' || file === 'meta.json' ) {
 				extractedBackup.metaFile = fullPath;
 			}

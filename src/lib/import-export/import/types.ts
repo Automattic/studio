@@ -1,4 +1,4 @@
-import { Importer } from './importers';
+import { Importer } from 'src/lib/import-export/import/importers';
 
 export interface MetaFileData {
 	phpVersion?: string;
@@ -12,6 +12,8 @@ export interface WpContent {
 	uploads: string[];
 	plugins: string[];
 	themes: string[];
+	muPlugins?: string[];
+	fonts?: string[];
 }
 
 export interface BackupContents {

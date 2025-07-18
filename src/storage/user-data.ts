@@ -1,14 +1,16 @@
 import { app } from 'electron';
 import fs from 'fs';
-import nodePath from 'path';
+import nodePath from 'node:path';
 import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/main';
-import * as atomically from 'atomically';
-import { isErrnoException } from '../lib/is-errno-exception';
-import { sanitizeUnstructuredData, sanitizeUserpath } from '../lib/sanitize-for-logging';
-import { sortSites } from '../lib/sort-sites';
-import { getUserDataFilePath } from './paths';
-import type { PersistedUserData, UserData } from './storage-types';
+import { readFile, writeFile } from 'atomically';
+import { LOCKFILE_NAME, LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/constants';
+import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
+import { isErrnoException } from 'src/lib/is-errno-exception';
+import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for-logging';
+import { sortSites } from 'src/lib/sort-sites';
+import { getResourcesPath, getUserDataFilePath } from 'src/storage/paths';
+import type { PersistedUserData, UserData, WindowBounds } from 'src/storage/storage-types';
 
 // Before persisting the PHP version of sites, the default PHP version used was 8.0.
 // In case we can't retrieve the PHP version from site details, we assume it was created
@@ -46,18 +48,34 @@ function populatePhpVersion( sites: SiteDetails[] ) {
 	} );
 }
 
+function legacyPopulateSnapshotUserIds( data: UserData ): void {
+	const userId = data.authToken?.id;
+
+	if ( userId && data.snapshots ) {
+		data.snapshots = data.snapshots.map( ( snapshot ) => {
+			if ( ! snapshot.userId ) {
+				return { ...snapshot, userId };
+			}
+			return snapshot;
+		} );
+	}
+}
+
 export async function loadUserData(): Promise< UserData > {
 	migrateUserDataOldName();
 	const filePath = getUserDataFilePath();
 
 	try {
-		const asString = await fs.promises.readFile( filePath, 'utf-8' );
+		const asString = await readFile( filePath, 'utf-8' );
 		try {
 			const parsed = JSON.parse( asString );
 			const data = fromDiskFormat( parsed );
+
+			// Temporarily populate old snapshots with userId of authenticated user.
+			// See PR #937 for more context.
+			legacyPopulateSnapshotUserIds( data );
 			sortSites( data.sites );
 			populatePhpVersion( data.sites );
-			console.log( `Loaded user data from ${ sanitizeUserpath( filePath ) }` );
 			return data;
 		} catch ( err ) {
 			// Awkward double try-catch needed to have access to the file contents
@@ -85,48 +103,93 @@ export async function loadUserData(): Promise< UserData > {
 
 export async function saveUserData( data: UserData ): Promise< void > {
 	const filePath = getUserDataFilePath();
-
 	const asString = JSON.stringify( toDiskFormat( data ), null, 2 ) + '\n';
+	await writeFile( filePath, asString, 'utf-8' );
+}
+
+const LOCKFILE_PATH = nodePath.join( getResourcesPath(), LOCKFILE_NAME );
+
+export async function lockAppdata() {
+	return lockFileAsync( LOCKFILE_PATH, { stale: LOCKFILE_STALE_TIME, wait: LOCKFILE_WAIT_TIME } );
+}
+
+export async function unlockAppdata() {
+	return unlockFileAsync( LOCKFILE_PATH );
+}
+
+type UserDataSafeKeys =
+	| 'devToolsOpen'
+	| 'windowBounds'
+	| 'authToken'
+	| 'onboardingCompleted'
+	| 'locale'
+	| 'promptWindowsSpeedUpResult'
+	| 'sentryUserId'
+	| 'lastSeenVersion'
+	| 'preferredTerminal'
+	| 'preferredEditor';
+
+type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
+
+// Sometimes, we need to update the config file with a known value (i.e., not one that's derived
+// from the current user config). This function should be used in those cases.
+export async function updateAppdata(
+	update: PartialUserDataWithSafeKeysToUpdate
+): Promise< void > {
 	try {
-		await atomically.writeFile( filePath, asString, 'utf-8' );
-	} catch ( error ) {
-		// Fall back to FS function in case the writing fails with EXDEV error.
-		// This issue might happen on Windows when renaming a file.
-		// Reference: https://github.com/sindresorhus/electron-store/issues/106
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		if ( ( error as any )?.code === 'EXDEV' ) {
-			await fs.promises.writeFile( filePath, asString, 'utf-8' );
-		}
+		await lockAppdata();
+		const userData = await loadUserData();
+		const updated = { ...userData, ...update };
+		await saveUserData( updated );
+	} finally {
+		await unlockAppdata();
 	}
-	console.log( `Saved user data to ${ sanitizeUserpath( filePath ) }` );
 }
 
 function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 	return {
 		version: 1,
-		sites: sites.map( ( { id, path, adminPassword, port, phpVersion, name, themeDetails } ) => {
-			// No object spreading allowed. TypeScript's structural typing is too permissive and
-			// will permit us to persist properties that aren't in the type definition.
-			// Add each property explicitly instead.
-			const persistedSiteDetails: PersistedUserData[ 'sites' ][ number ] = {
+		sites: sites.map(
+			( {
 				id,
-				name,
 				path,
 				adminPassword,
 				port,
 				phpVersion,
-				themeDetails: {
-					name: themeDetails?.name || '',
-					path: themeDetails?.path || '',
-					slug: themeDetails?.slug || '',
-					isBlockTheme: themeDetails?.isBlockTheme || false,
-					supportsWidgets: themeDetails?.supportsWidgets || false,
-					supportsMenus: themeDetails?.supportsMenus || false,
-				},
-			};
+				isWpAutoUpdating,
+				name,
+				themeDetails,
+				customDomain,
+				enableHttps,
+				autoStart,
+			} ) => {
+				// No object spreading allowed. TypeScript's structural typing is too permissive and
+				// will permit us to persist properties that aren't in the type definition.
+				// Add each property explicitly instead.
+				const persistedSiteDetails: PersistedUserData[ 'sites' ][ number ] = {
+					id,
+					name,
+					path,
+					adminPassword,
+					port,
+					phpVersion,
+					isWpAutoUpdating,
+					customDomain,
+					enableHttps,
+					autoStart,
+					themeDetails: {
+						name: themeDetails?.name || '',
+						path: themeDetails?.path || '',
+						slug: themeDetails?.slug || '',
+						isBlockTheme: themeDetails?.isBlockTheme || false,
+						supportsWidgets: themeDetails?.supportsWidgets || false,
+						supportsMenus: themeDetails?.supportsMenus || false,
+					},
+				};
 
-			return persistedSiteDetails;
-		} ),
+				return persistedSiteDetails;
+			}
+		),
 		...rest,
 	};
 }
@@ -135,12 +198,22 @@ function fromDiskFormat( { version, sites, ...rest }: PersistedUserData ): UserD
 	return {
 		sites: sites
 			.filter( ( site ) => fs.existsSync( site.path ) ) // Remove sites the user has deleted from disk
-			.map( ( { path, name, ...restOfSite } ) => ( {
+			.map( ( { path, name, autoStart, ...restOfSite } ) => ( {
 				name: name || nodePath.basename( path ),
 				path,
 				running: false,
+				autoStart: autoStart || false,
 				...restOfSite,
 			} ) ),
 		...rest,
 	};
+}
+
+export async function saveWindowBounds( bounds: WindowBounds ): Promise< void > {
+	await updateAppdata( { windowBounds: bounds } );
+}
+
+export async function loadWindowBounds(): Promise< WindowBounds | undefined > {
+	const userData = await loadUserData();
+	return userData.windowBounds;
 }

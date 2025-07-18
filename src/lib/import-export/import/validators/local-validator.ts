@@ -1,8 +1,8 @@
 import { EventEmitter } from 'events';
 import path from 'path';
-import { ImportEvents } from '../events';
-import { BackupContents } from '../types';
-import { Validator } from './validator';
+import { ImportEvents } from 'src/lib/import-export/import/events';
+import { BackupContents } from 'src/lib/import-export/import/types';
+import { Validator } from 'src/lib/import-export/import/validators/validator';
 
 export class LocalValidator extends EventEmitter implements Validator {
 	canHandle( fileList: string[] ): boolean {
@@ -28,8 +28,10 @@ export class LocalValidator extends EventEmitter implements Validator {
 				uploads: [],
 				plugins: [],
 				themes: [],
+				muPlugins: [],
+				fonts: [],
 			},
-			wpContentDirectory: 'app/public/wp-content',
+			wpContentDirectory: path.normalize( 'app/public/wp-content' ),
 		};
 		/* File rules:
 		 * - Accept .zip
@@ -52,6 +54,10 @@ export class LocalValidator extends EventEmitter implements Validator {
 				extractedBackup.wpContent.plugins.push( fullPath );
 			} else if ( file.startsWith( 'app/public/wp-content/themes/' ) ) {
 				extractedBackup.wpContent.themes.push( fullPath );
+			} else if ( file.startsWith( 'app/public/wp-content/mu-plugins/' ) ) {
+				extractedBackup.wpContent.muPlugins!.push( fullPath );
+			} else if ( file.startsWith( 'app/public/wp-content/fonts/' ) ) {
+				extractedBackup.wpContent.fonts!.push( fullPath );
 			} else if ( file === 'local-site.json' ) {
 				extractedBackup.metaFile = fullPath;
 			}

@@ -2,12 +2,12 @@ import { speak } from '@wordpress/a11y';
 import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect } from 'react';
-import { useSyncSites } from '../hooks/sync-sites';
-import { useImportExport } from '../hooks/use-import-export';
-import { useSiteDetails } from '../hooks/use-site-details';
-import { isMac } from '../lib/app-globals';
-import { cx } from '../lib/cx';
-import { Tooltip } from './tooltip';
+import { Tooltip } from 'src/components/tooltip';
+import { useSyncSites } from 'src/hooks/sync-sites';
+import { useImportExport } from 'src/hooks/use-import-export';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { isMac } from 'src/lib/app-globals';
+import { cx } from 'src/lib/cx';
 
 interface SiteMenuProps {
 	className?: string;
@@ -76,7 +76,7 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 					}
 					return running ? stopServer( id ) : startServer( id );
 				} }
-				className="w-7 h-8 rounded-tr rounded-br group grid focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blueberry"
+				className="w-7 h-8 rounded-tr rounded-br group grid focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blue-50"
 				aria-label={ sprintf( running ? __( 'stop %s site' ) : __( 'start %s site' ), name ) }
 			>
 				{ /* Circle */ }
@@ -110,11 +110,12 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 function SiteItem( { site }: { site: SiteDetails } ) {
 	const { selectedSite, setSelectedSiteId } = useSiteDetails();
 	const isSelected = site === selectedSite;
-	const { isSiteImporting } = useImportExport();
+	const { isSiteImporting, isSiteExporting } = useImportExport();
 	const { isSiteIdPulling } = useSyncSites();
 	const isImporting = isSiteImporting( site.id );
+	const isExporting = isSiteExporting( site.id );
 	const isPulling = isSiteIdPulling( site.id );
-	const showSpinner = site.isAddingSite || isImporting || isPulling;
+	const showSpinner = site.isAddingSite || isImporting || isPulling || isExporting;
 
 	let tooltipText;
 	if ( site.isAddingSite ) {
@@ -136,7 +137,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 			) }
 		>
 			<button
-				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blueberry"
+				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blue-50"
 				onClick={ () => {
 					setSelectedSiteId( site.id );
 				} }

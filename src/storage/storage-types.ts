@@ -1,10 +1,22 @@
-import { SyncSite } from '../hooks/use-fetch-wpcom-sites';
-import { StoredToken } from '../lib/oauth';
+import { Snapshot } from 'common/types/snapshot';
+import { StoredToken } from 'src/lib/oauth';
+import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
+
+export interface WindowBounds {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+	isFullScreen?: boolean;
+}
 
 export interface UserData {
 	sites: SiteDetails[];
 	snapshots: Snapshot[];
 	devToolsOpen?: boolean;
+	windowBounds?: WindowBounds;
 	authToken?: StoredToken;
 	onboardingCompleted?: boolean;
 	locale?: string;
@@ -15,6 +27,11 @@ export interface UserData {
 	};
 	promptWindowsSpeedUpResult?: PromptWindowsSpeedUpResult;
 	connectedWpcomSites?: { [ userId: number ]: SyncSite[] };
+	sentryUserId?: string;
+	lastSeenVersion?: string;
+	preferredTerminal?: SupportedTerminal;
+	preferredEditor?: SupportedEditor;
+	newSites?: NewSiteDetails[];
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {

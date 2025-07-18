@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useMemo, ReactNode, useState, useEffect } from 'react';
-import { getIpcApi } from '../lib/get-ipc-api';
-import { useIpcListener } from './use-ipc-listener';
-import { siteDetailsContext, useSiteDetails } from './use-site-details';
-import { useWindowListener } from './use-window-listener';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
+import { siteDetailsContext, useSiteDetails } from 'src/hooks/use-site-details';
+import { useWindowListener } from 'src/hooks/use-window-listener';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 type ThemeDetailsType = SiteDetails[ 'themeDetails' ] | undefined;
 type ThumbnailType = string | undefined;
@@ -45,7 +45,7 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 	);
 	const [ loadingThumbnails, setLoadingThumbnails ] = useState< Record< string, boolean > >( {} );
 
-	useIpcListener( 'theme-details-changed', ( _evt, id, details ) => {
+	useIpcListener( 'theme-details-changed', ( _evt, { id, details } ) => {
 		setThemeDetails( ( themeDetails ) => {
 			return { ...themeDetails, [ id ]: details };
 		} );
@@ -54,16 +54,16 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 		} );
 	} );
 
-	useIpcListener( 'thumbnail-changed', ( _evt, id, imageData ) => {
+	useIpcListener( 'thumbnail-changed', ( _evt, { id, imageData } ) => {
 		setThumbnails( ( thumbnails ) => {
-			return { ...thumbnails, [ id ]: imageData };
+			return { ...thumbnails, [ id ]: imageData ?? undefined };
 		} );
 		setLoadingThumbnails( ( loadingThumbnails ) => {
 			return { ...loadingThumbnails, [ id ]: false };
 		} );
 	} );
 
-	useIpcListener( 'theme-details-updating', ( _evt, id ) => {
+	useIpcListener( 'theme-details-updating', ( _evt, { id } ) => {
 		setLoadingThemeDetails( ( loadingThemeDetails ) => {
 			return { ...loadingThemeDetails, [ id ]: true };
 		} );
@@ -77,7 +77,7 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 		if ( ! selectedSite?.id || selectedSite.running === false ) {
 			return;
 		}
-		await getIpcApi()?.getThemeDetails?.( selectedSite.id );
+		await getIpcApi().getThemeDetails( selectedSite.id );
 	} );
 
 	useEffect( () => {
@@ -89,7 +89,7 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 			for ( const site of sites ) {
 				if ( site.themeDetails ) {
 					newThemeDetails[ site.id ] = { ...site.themeDetails };
-					const thumbnailData = await getIpcApi()?.getThumbnailData?.( site.id );
+					const thumbnailData = await getIpcApi().getThumbnailData( site.id );
 					newThumbnailData[ site.id ] = thumbnailData ?? undefined;
 				}
 			}
@@ -100,7 +100,7 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 			}
 		};
 		if ( sites.length > 0 && ! loadingSites && ! initialLoad && isCurrent ) {
-			run();
+			void run();
 		}
 		return () => {
 			isCurrent = false;

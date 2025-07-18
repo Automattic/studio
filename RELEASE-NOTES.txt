@@ -1,3 +1,166 @@
+Unreleased
+==========
+
+1.5.5
+=====
+* Improved the pull and push functionality to allow selective sync
+* Renamed Studio by WordPress.com to WordPress Studio
+* Added token revoke call during logout to improve security #1538
+* Misc UI fixes #1533, #1534, #1494
+
+1.5.4
+=====
+* Added a separate Settings button to open preferences #1477
+* Fixed issue with opening paths containing backslashes in terminal apps #1475
+
+1.5.3
+=====
+* Added support to follow symlinks in Previews and Sync #1447, #1448
+* Fixed Command Prompt button truncation and naming on Windows #1440, #1441
+* Fixed default editors when only one is installed #1461
+* Improved site export performance #1457
+* Removed outdated WP-CLI proof-of-concept code #1426
+* Improved HTTP request reliability by reducing timeout to 30 seconds #1456
+* Improved Windows editor path detection by sanitizing regex #1411
+* Upgraded Electron Forge and Playground packages #1460
+
+1.5.2
+=====
+* Added ability to sync Studio sites with Pressable
+* Added email notification on site push success #1342
+* Improved push progress reporting #1389
+* Ensured .git and node_modules are not included in Preview site archives #1367
+* Fixed issue with incorrect Preview sites limit #1385
+* Fixed issue with unresponsive Settings tabs when no site has been created #1390
+* Fixed several issues related to Studio CLI #1381, #1364, #1424
+* Fixed opening Warp terminal app on Windows #1428
+* Fixed issue with plugin updates timing out in certain cases ​​#1407
+* Translated What’s new modal documentation links #1368, #1375, 1431
+* Ensured site gets created with latest WordPress version when offline #1383 
+* Various UI updates and fixes #1399, #1413, #1420, #1412, #1419, #1423, #1384, #1435
+* Upgraded Electron, Node.js and @wordpress/components #1372, #1398
+
+1.5.1
+=====
+* Added ability to choose preferred editor and terminal apps
+* Hid all HTTPS help messages when the certificate is trusted #1117  
+* Automated root certificate installation on Windows #1327
+* Changed default PHP version to 8.3 #1352
+* Changed Customize buttons to make them always active #1344
+* Fixed QUERY_STRING warning in Site Editor #1356
+* Misc UI fixes #1330, #1337, #1339, #1354
+
+1.5.0
+=====
+* Added a CLI tool that allows managing preview sites #1314
+* Dynamically determine sidebar breakpoint based on tab width #1196
+* Updated Sentry, Electron and other dependencies #1195, #1238, #1233, #1237, #1301
+* Fixed issue with opening logs on Windows #1245
+* Fixed and improved selecting WP version #1189
+* Added check if port is open before starting servers #1236, and #1281
+* Improved starting multiple sites with custom domains #1313
+* Filtered out Automattic sites from the sync sites listing #1254 and #1262
+* Updated the progress from percentage from the backup response #1278
+* Excluded `node_modules` and `.git` paths from site export and sync #1264
+* Allowed translation of topbar system menu items #1257
+* Removed the intro card from What's New modal #1312
+
+1.4.0
+=====
+* Auto-start previously running sites on Studio launch #1166
+* Added a "What's New" popup that shows a list of new features in Studio
+* Misc minor bug fixes and UI improvements #1168, #1142, #1192, #1174
+
+1.3.9
+=====
+* Added SSL support for custom domains #1034, #1064, #1116
+* Improved custom domain handling #1115, #1114, #1064
+* Enabled import/export while another site is syncing #1076
+* Improved site thumbnail generation #1081
+* Added support for IDEs installed in user home directories #1125
+* Upgraded SQLite database integration plugin #950, #1147, #1155
+* Added support for trunk/nightly WordPress version #1072
+* Misc minor bug fixes and UI improvements
+
+1.3.8
+=====
+* Added ability to choose PHP and WordPress version
+* Added support for custom domains
+* Added support for importing and exporting fonts #1054
+* Upgraded Playground to 1.0.29 #1056
+* Fixed index.php being removed from wp-content during import #1052
+* Fixed incorrect site URL after pulling #992
+* Fixed handling of PHP version from Jetpack backup meta file #1024
+* Fixed server process hanging during stop operation #1067
+* Misc minor bug fixes and UI improvements #1027 #1036 #1071 #1068 #1041
+
+1.3.7
+=====
+* Fixed issue with site crashing after rotatePHPRuntime and displaying hello wp-now #1019
+
+1.3.6
+=====
+* Fixed issue with resolving relative symlink paths #1009
+* Improved site path uniqueness validation on Windows #976
+
+1.3.5
+=====
+* Improved site name suggestions to ensure path uniqueness #972
+* Improved stats tracking of app usage #988
+* Added failed state when preview sites update fails #977
+* Fixed updating, export and push for sites with older SQLite database integration #966
+* Misc minor bug fixes and UI improvements
+
+1.3.4
+=====
+* Included mu-plugins in site exports #861
+* Repurposed Demo Sites as Preview Sites
+* Localized Studio docs for Spanish
+* Improved name and folder generation and error handling when adding a site #900, #901
+* Added tunneling support #936
+* Increased timeouts for import and export commands #904
+* Fixed URL and port replacement on creating new site from backup or existing folder #944, 962
+* Misc minor bug fixes and UI improvements
+
+1.3.3
+=====
+* Added support for mu-plugins in site import #852
+* Moved mu-plugin polyfills to an internal Playground directory #845
+* Fixed an issue with window control placement in fullscreen view on macOS #833
+* Fixed an issue where ZIP files larger than 2GB could not be imported #835 #874
+* Cosmetic improvements to how the terminal is launched on Windows #814
+* Fixed importing of .wpress backups #830
+* Added description for Advanced settings of creating a new site #828
+* Improved Sentry reports #813, #863, #868, #864
+
+1.3.2
+=====
+* Upgraded Electron to 33.3.1 (#782)
+* Assistant: Fixed scroll glitch on initial render (#804)
+* Added tooltip with demo site last update time (#812)
+* Added link to the site's URL on the Sync connect popup (#799)
+* Increased demo site size limit from 250MB to 2GB (#805)
+
+1.3.1
+=====
+* Allowed starting a site import even when one is already in progress #775
+* Allowed to select a custom domain when setting up a new WordPress.com site #774
+* Changed Demo site link to open in a new browser window instead of copying the URL to the clipboard #790
+* Fixed cases with tar.gz import failing #793
+* Updated Import / Export help docs link  #773
+* Fixed custom directory path selection in the “Add a Site” form #787
+* Fixed icon spacing in the top bar #776
+* Unified import labels and clarified supported formats #784
+* Removed the “Create a New Site” button when no sites are connected on the Sync tab #771
+
+1.3.0
+=====
+* Introduced Sync to WordPress.com Studio feature
+* Updated default PHP version to 8.2 #767
+* Improved spacing and position for elements in RTL languages #757, #759
+* Improved logs display across the app #756, #765
+* Minor UI fixes #701, #720, #721, #722
+
 1.2.2
 =====
 * Disabled Jetpack Protect to fix auto-login for Sites that use Jetpack #658

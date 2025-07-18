@@ -1,17 +1,22 @@
 /**
  * @jest-environment node
  */
-import { getWpNowConfig } from '../../vendor/wp-now/src';
-import { SiteServer } from '../site-server';
+import { SiteServer } from 'src/site-server';
+import { getWpNowConfig } from 'vendor/wp-now/src';
 
 // Electron's Node.js environment provides `bota`/`atob`, but Jests' does not
-jest.mock( '../lib/passwords' );
+jest.mock( 'src/lib/passwords' );
+
+// `SiteServer::start` uses `getPreferredSiteLanguage` to set the site language
+jest.mock( 'src/lib/site-language', () => ( {
+	getPreferredSiteLanguage: jest.fn().mockResolvedValue( 'en' ),
+} ) );
 
 // `download` and `config` are private APIs that must be mocked individually
-jest.mock( '../../vendor/wp-now/src/download' );
-jest.mock( '../../vendor/wp-now/src/config' );
+jest.mock( 'vendor/wp-now/src/download' );
+jest.mock( 'vendor/wp-now/src/config' );
 
-jest.mock( '../../vendor/wp-now/src', () => ( {
+jest.mock( 'vendor/wp-now/src', () => ( {
 	getWpNowConfig: jest.fn( () => ( { mode: 'wordpress', port: 1234 } ) ),
 	startServer: jest.fn( () =>
 		Promise.resolve( {
@@ -31,7 +36,7 @@ describe( 'SiteServer', () => {
 				path: 'test-path',
 				port: 1234,
 				adminPassword: 'test-password',
-				phpVersion: '8.0',
+				phpVersion: '8.3',
 				running: false,
 				themeDetails: undefined,
 			} );

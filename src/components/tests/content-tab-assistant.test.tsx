@@ -1,116 +1,156 @@
+import { UnknownAction } from '@reduxjs/toolkit';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { useAuth } from '../../hooks/use-auth';
-import { ChatInputProvider } from '../../hooks/use-chat-input';
-import { useOffline } from '../../hooks/use-offline';
-import { usePromptUsage } from '../../hooks/use-prompt-usage';
-import { useWelcomeMessages } from '../../hooks/use-welcome-messages';
-import { getIpcApi } from '../../lib/get-ipc-api';
-import { ContentTabAssistant, MIMIC_CONVERSATION_DELAY } from '../content-tab-assistant';
+import { Provider } from 'react-redux';
+import { Dispatch } from 'redux';
+import {
+	ContentTabAssistant,
+	MIMIC_CONVERSATION_DELAY,
+} from 'src/components/content-tab-assistant';
+import { LOCAL_STORAGE_CHAT_MESSAGES_KEY, CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
+import { useAuth } from 'src/hooks/use-auth';
+import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
+import { useOffline } from 'src/hooks/use-offline';
+import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { store } from 'src/stores';
+import { generateMessage, chatActions } from 'src/stores/chat-slice';
+import { testActions } from 'src/stores/tests/utils/test-reducer';
+import { useGetAssistantQuota, useGetWelcomeMessages } from 'src/stores/wpcom-api';
 
-jest.mock( '../../hooks/use-theme-details' );
-jest.mock( '../../hooks/use-auth' );
-jest.mock( '../../hooks/use-welcome-messages' );
-jest.mock( '../../hooks/use-offline' );
-jest.mock( '../../hooks/use-prompt-usage' );
-jest.mock( '../../hooks/use-prompt-usage' );
-jest.mock( '../../lib/get-ipc-api' );
+jest.mock( 'src/hooks/use-auth' );
+jest.mock( 'src/hooks/use-offline' );
+jest.mock( 'src/lib/get-ipc-api' );
+jest.mock( 'src/hooks/use-get-wp-version' );
 
-jest.mock( '../../lib/app-globals', () => ( {
+jest.mock( 'src/lib/app-globals', () => ( {
 	getAppGlobals: () => ( {
 		locale: jest.fn,
 	} ),
 } ) );
 
-( useWelcomeMessages as jest.Mock ).mockReturnValue( {
-	messages: [ 'Welcome to our service!', 'How can I help you today?' ],
-	examplePrompts: [
-		'How to create a WordPress site',
-		'How to clear cache',
-		'How to install a plugin',
-	],
-} );
+jest.mock( 'src/stores/wpcom-api', () => ( {
+	useGetWelcomeMessages: jest.fn(),
+	useGetAssistantQuota: jest.fn(),
+	wpcomApi: {
+		reducerPath: 'wpcomApi',
+		reducer: () => ( {} ),
+		middleware: () => ( next: Dispatch ) => ( action: UnknownAction ) => next( action ),
+	},
+} ) );
 
 const runningSite = {
 	name: 'Test Site',
 	port: 8881,
 	path: '/path/to/site',
 	running: true,
-	phpVersion: '8.0',
+	phpVersion: '8.3',
 	id: 'site-id',
 	url: 'http://example.com',
 };
 
 const initialMessages = [
-	{ id: 0, content: 'Initial message 1', role: 'user' },
-	{ id: 1, content: 'Initial message 2', role: 'assistant' },
+	generateMessage( 'Initial message 1', 'user', 0, 100, 10 ),
+	generateMessage( 'Initial message 2', 'assistant', 1, 100, 11 ),
 ];
 
+function ContextWrapper( props: Parameters< typeof ContentTabAssistant >[ 0 ] ) {
+	return (
+		<Provider store={ store }>
+			<ThemeDetailsProvider>
+				<ContentTabAssistant { ...props } />
+			</ThemeDetailsProvider>
+		</Provider>
+	);
+}
+
 describe( 'ContentTabAssistant', () => {
-	const clientReqPost = jest.fn().mockResolvedValue( {
-		id: 'chatcmpl-9USNsuhHWYsPAUNiOhOG2970Hjwwb',
-		object: 'chat.completion',
-		created: 1717045976,
-		model: 'test',
-		choices: [
+	const clientReqPost = jest.fn().mockImplementation( ( params, callback ) => {
+		callback(
+			null,
 			{
-				index: 0,
-				message: {
-					id: 0,
-					role: 'assistant',
-					content:
-						'Hello! How can I assist you today? Are you working on a WordPress project, or do you need help with something specific related to WordPress or WP-CLI?',
-				},
-				logprobs: null,
-				finish_reason: 'stop',
+				id: 100,
+				created_at: '2025-01-24 09:11:50',
+				choices: [
+					{
+						index: 0,
+						message: {
+							id: 0,
+							role: 'assistant',
+							content:
+								'Hello! How can I assist you today? Are you working on a WordPress project, or do you need help with something specific related to WordPress or WP-CLI?',
+						},
+					},
+				],
 			},
-		],
-		usage: { prompt_tokens: 980, completion_tokens: 36, total_tokens: 1016 },
-		system_fingerprint: 'fp_777',
+			{
+				'x-quota-max': '100',
+				'x-quota-remaining': '99',
+				'x-quota-reset': '2025-05-01T00:00:00+00:00',
+			}
+		);
 	} );
 
 	const authenticate = jest.fn();
 
 	const getInput = () => screen.getByTestId( 'ai-input-textarea' );
 
-	const getGuidelinesLink = () => screen.getByTestId( 'guidelines-link' ) as HTMLAnchorElement;
+	const getGuidelinesLink = () => screen.getByTestId( 'guidelines-link' );
 
 	beforeEach( () => {
 		jest.clearAllMocks();
 		window.HTMLElement.prototype.scrollIntoView = jest.fn();
 		localStorage.clear();
+
+		// Reset Redux store state
+		store.dispatch( testActions.resetState() );
+
 		( useAuth as jest.Mock ).mockReturnValue( {
-			client: {
-				req: {
-					post: clientReqPost,
-				},
-			},
+			client: { req: { post: clientReqPost } },
 			isAuthenticated: true,
 			authenticate,
 		} );
 		( useOffline as jest.Mock ).mockReturnValue( false );
-		( usePromptUsage as jest.Mock ).mockReturnValue( { userCanSendMessage: true } );
+		( useGetWelcomeMessages as jest.Mock ).mockReturnValue( {
+			data: {
+				messages: [ 'Welcome to our service!', 'How can I help you today?' ],
+				example_prompts: [
+					'How to create a WordPress site',
+					'How to clear cache',
+					'How to install a plugin',
+				],
+			},
+		} );
+		( useGetAssistantQuota as jest.Mock ).mockReturnValue( {
+			data: { userCanSendMessage: true },
+		} );
+		( getIpcApi as jest.Mock ).mockReturnValue( {
+			showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
+			executeWPCLiInline: jest.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
+		} );
+		( useGetWpVersion as jest.Mock ).mockReturnValue( [ '6.4.3', jest.fn() ] );
 	} );
 
-	test( 'renders placeholder text input', () => {
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+	it( 'renders placeholder text input', () => {
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 		const textInput = getInput();
 		expect( textInput ).toBeVisible();
 		expect( textInput ).toBeEnabled();
 		expect( textInput ).toHaveAttribute( 'placeholder', 'What would you like to learn?' );
 	} );
 
-	test( 'renders guideline section', () => {
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+	it( 'renders guideline section', () => {
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 		const guideLines = getGuidelinesLink();
 		expect( guideLines ).toBeVisible();
 		expect( guideLines ).toHaveTextContent( 'Powered by experimental AI. Learn more' );
 	} );
 
-	test( 'saves and retrieves conversation from localStorage', async () => {
-		const storageKey = 'ai_chat_messages';
-		localStorage.setItem( storageKey, JSON.stringify( { [ runningSite.id ]: initialMessages } ) );
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+	it( 'saves and retrieves conversation from Redux state', async () => {
+		store.dispatch(
+			chatActions.setMessages( { instanceId: runningSite.id, messages: initialMessages } )
+		);
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 		await waitFor( () => {
 			expect( screen.getByText( 'Initial message 1' ) ).toBeVisible();
 			expect( screen.getByText( 'Initial message 2' ) ).toBeVisible();
@@ -127,23 +167,21 @@ describe( 'ContentTabAssistant', () => {
 		} );
 
 		await waitFor( () => {
-			const storedMessages = JSON.parse( localStorage.getItem( storageKey ) || '[]' );
+			const storedMessages = JSON.parse(
+				localStorage.getItem( LOCAL_STORAGE_CHAT_MESSAGES_KEY ) || '[]'
+			);
 			expect( storedMessages[ runningSite.id ] ).toHaveLength( 3 );
 			expect( storedMessages[ runningSite.id ][ 2 ].content ).toBe( 'New message' );
 		} );
 	} );
 
-	test( 'renders default message when not authenticated', async () => {
+	it( 'renders default message when not authenticated', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( {
-			client: {
-				req: {
-					post: clientReqPost,
-				},
-			},
+			client: { req: { post: clientReqPost } },
 			isAuthenticated: false,
 			authenticate,
 		} );
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		await waitFor( () => {
 			expect( screen.getByText( 'Hold up!' ) ).toBeVisible();
@@ -153,19 +191,15 @@ describe( 'ContentTabAssistant', () => {
 		} );
 	} );
 
-	test( 'renders offline notice when not authenticated', () => {
+	it( 'renders offline notice when not authenticated', () => {
 		( useAuth as jest.Mock ).mockReturnValue( {
-			client: {
-				req: {
-					post: clientReqPost,
-				},
-			},
+			client: { req: { post: clientReqPost } },
 			isAuthenticated: false,
 			authenticate,
 		} );
 		( useOffline as jest.Mock ).mockReturnValue( true );
 
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 		expect( screen.queryByText( 'Hold up!' ) ).not.toBeInTheDocument();
 		expect(
 			screen.queryByText( 'You need to log in to your WordPress.com account to use the assistant.' )
@@ -173,42 +207,34 @@ describe( 'ContentTabAssistant', () => {
 		expect( screen.getByText( 'The AI assistant requires an internet connection.' ) ).toBeVisible();
 	} );
 
-	test( 'allows authentication from Assistant chat', async () => {
+	it( 'allows authentication from Assistant chat', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( {
-			client: {
-				req: {
-					post: clientReqPost,
-				},
-			},
+			client: { req: { post: clientReqPost } },
 			isAuthenticated: false,
 			authenticate,
 		} );
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		await waitFor( () => {
-			const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com' } );
+			const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com ↗' } );
 			expect( loginButton ).toBeInTheDocument();
 		} );
 
-		const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com' } );
+		const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com ↗' } );
 		fireEvent.click( loginButton );
 		expect( authenticate ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	test( 'it stores messages with user-unique keys', async () => {
+	it( 'it stores messages with user-unique keys', async () => {
 		const user1 = { id: 'mock-user-1' };
 		const user2 = { id: 'mock-user-2' };
 		( useAuth as jest.Mock ).mockReturnValue( {
-			client: {
-				req: {
-					post: clientReqPost,
-				},
-			},
+			client: { req: { post: clientReqPost } },
 			isAuthenticated: true,
 			authenticate,
 			user: user1,
 		} );
-		const { rerender } = render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		const { rerender } = render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		const textInput = getInput();
 		act( () => {
@@ -221,17 +247,13 @@ describe( 'ContentTabAssistant', () => {
 
 		// Simulate user authentication change
 		( useAuth as jest.Mock ).mockReturnValue( {
-			client: {
-				req: {
-					post: clientReqPost,
-				},
-			},
+			client: { req: { post: clientReqPost } },
 			isAuthenticated: true,
 			authenticate,
 			user: user2,
 		} );
 
-		rerender( <ContentTabAssistant selectedSite={ runningSite } /> );
+		rerender( <ContextWrapper selectedSite={ runningSite } /> );
 
 		await waitFor(
 			() => {
@@ -241,35 +263,34 @@ describe( 'ContentTabAssistant', () => {
 		);
 	} );
 
-	test( 'does not render the Welcome messages and example prompts when not authenticated', () => {
+	it( 'does not render the Welcome messages and example prompts when not authenticated', () => {
 		( useAuth as jest.Mock ).mockReturnValue( {
-			client: {
-				req: {
-					post: clientReqPost,
-				},
-			},
+			client: { req: { post: clientReqPost } },
 			isAuthenticated: false,
 			authenticate,
 		} );
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		expect( screen.getByTestId( 'unauthenticated-header' ) ).toHaveTextContent( 'Hold up!' );
 
 		expect( screen.queryByText( 'Welcome to our service!' ) ).not.toBeInTheDocument();
 	} );
 
-	test( 'renders Welcome messages and example prompts when the conversation is starts', () => {
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+	it( 'renders Welcome messages and example prompts when the conversation is starts', () => {
+		store.dispatch( chatActions.setMessages( { instanceId: runningSite.id, messages: [] } ) );
+		render( <ContextWrapper selectedSite={ runningSite } /> );
+
 		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
 		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeVisible();
 		expect( screen.getByText( 'How to clear cache' ) ).toBeVisible();
 		expect( screen.getByText( 'How to install a plugin' ) ).toBeVisible();
 	} );
 
-	test( 'renders Welcome messages and example prompts when offline', () => {
+	it( 'renders Welcome messages and example prompts when offline', () => {
+		store.dispatch( chatActions.setMessages( { instanceId: runningSite.id, messages: [] } ) );
 		( useOffline as jest.Mock ).mockReturnValue( true );
 
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
 		expect( screen.getByText( 'How to create a WordPress site' ) ).toBeVisible();
 		expect( screen.getByText( 'How to clear cache' ) ).toBeVisible();
@@ -277,12 +298,23 @@ describe( 'ContentTabAssistant', () => {
 		expect( screen.getByText( 'The AI assistant requires an internet connection.' ) ).toBeVisible();
 	} );
 
-	test( 'should manage the focus state when selecting an example prompt', async () => {
+	it( 'should manage the focus state when selecting an example prompt', async () => {
+		const delayedClientReqPost = jest.fn().mockImplementation( () => {
+			// Never resolve
+		} );
+
+		( useAuth as jest.Mock ).mockReturnValue( {
+			client: { req: { post: delayedClientReqPost } },
+			isAuthenticated: true,
+			authenticate,
+		} );
+
+		store.dispatch( chatActions.setMessages( { instanceId: runningSite.id, messages: [] } ) );
 		jest.useRealTimers();
 		const user = userEvent.setup();
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 
-		let textInput = getInput();
+		const textInput = getInput();
 		await user.type( textInput, '[Tab]' );
 		expect( textInput ).not.toHaveFocus();
 
@@ -290,14 +322,15 @@ describe( 'ContentTabAssistant', () => {
 			name: 'How to create a WordPress site',
 		} );
 		expect( samplePrompt ).toBeVisible();
-		fireEvent.click( samplePrompt );
+		await user.click( samplePrompt );
 
-		textInput = screen.getByPlaceholderText( 'Thinking about that…' );
-		expect( textInput ).toHaveFocus();
+		expect( textInput ).toHaveAttribute( 'placeholder', 'Thinking about that…' );
 	} );
 
-	test( 'renders the selected prompt of Welcome messages and confirms other prompts are removed', async () => {
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+	it( 'renders the selected prompt of Welcome messages and confirms other prompts are removed', async () => {
+		store.dispatch( chatActions.setMessages( { instanceId: runningSite.id, messages: [] } ) );
+
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		await waitFor( () => {
 			expect( screen.getByText( 'Welcome to our service!' ) ).toBeInTheDocument();
@@ -321,29 +354,29 @@ describe( 'ContentTabAssistant', () => {
 		);
 	} );
 
-	test( 'clears history via reminder when last message is two hours old', async () => {
-		const MOCKED_TIME = 1718882159928;
-		const TWO_HOURS_DIFF = 2 * 60 * 60 * 1000;
+	it( 'clears history via reminder when last message is two hours old', async () => {
+		const MOCKED_CURRENT_TIME = 1718882159928;
+		const OLD_MESSAGE_TIME = MOCKED_CURRENT_TIME - CLEAR_HISTORY_REMINDER_TIME - 1;
 		jest.useFakeTimers();
-		jest.setSystemTime( MOCKED_TIME );
+		jest.setSystemTime( MOCKED_CURRENT_TIME );
 
-		const storageKey = 'ai_chat_messages';
-		localStorage.setItem(
-			storageKey,
-			JSON.stringify( {
-				[ runningSite.id ]: [
-					{ id: 0, content: 'Initial message 1', role: 'user' },
-					{
-						id: 1,
-						content: 'Initial message 2',
-						role: 'assistant',
-						createdAt: MOCKED_TIME - TWO_HOURS_DIFF,
-					},
-				],
+		const messageOne = generateMessage( 'Initial message 1', 'user', 0, 100, 10 );
+		messageOne.createdAt = MOCKED_CURRENT_TIME;
+		const messageTwo = generateMessage( 'Initial message 2', 'assistant', 1, 100, 11 );
+		messageTwo.createdAt = OLD_MESSAGE_TIME;
+		store.dispatch(
+			chatActions.setMessages( {
+				instanceId: runningSite.id,
+				messages: [ messageOne, messageTwo ],
 			} )
 		);
 
-		render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		( getIpcApi as jest.Mock ).mockReturnValue( {
+			showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
+			executeWPCLiInline: jest.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
+		} );
+
+		render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		await waitFor(
 			() => {
@@ -357,9 +390,6 @@ describe( 'ContentTabAssistant', () => {
 			{ timeout: MIMIC_CONVERSATION_DELAY + 1000 }
 		);
 
-		( getIpcApi as jest.Mock ).mockReturnValue( {
-			showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
-		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Clear the history' } ) );
 		await waitFor(
 			() => {
@@ -372,19 +402,19 @@ describe( 'ContentTabAssistant', () => {
 		jest.useRealTimers();
 	} );
 
-	test( 'renders notices by importance', async () => {
-		const storageKey = 'ai_chat_messages';
-		localStorage.setItem(
-			storageKey,
-			JSON.stringify( {
-				[ runningSite.id ]: [
-					{ id: 0, content: 'Initial message 1', role: 'user' },
-					{ id: 1, content: 'Initial message 2', role: 'assistant', createdAt: 0 },
-				],
+	it( 'renders notices by importance', async () => {
+		const messageOne = generateMessage( 'Initial message 1', 'user', 0, 100, 10 );
+		messageOne.createdAt = 0;
+		const messageTwo = generateMessage( 'Initial message 2', 'assistant', 1, 100, 11 );
+		messageTwo.createdAt = 0;
+		store.dispatch(
+			chatActions.setMessages( {
+				instanceId: runningSite.id,
+				messages: [ messageOne, messageTwo ],
 			} )
 		);
 
-		const { rerender } = render( <ContentTabAssistant selectedSite={ runningSite } /> );
+		const { rerender } = render( <ContextWrapper selectedSite={ runningSite } /> );
 		await waitFor(
 			() => {
 				expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
@@ -397,11 +427,10 @@ describe( 'ContentTabAssistant', () => {
 			{ timeout: MIMIC_CONVERSATION_DELAY + 2000 }
 		);
 
-		( usePromptUsage as jest.Mock ).mockReturnValue( {
-			userCanSendMessage: false,
-			daysUntilReset: 4,
+		( useGetAssistantQuota as jest.Mock ).mockReturnValue( {
+			data: { userCanSendMessage: false, daysUntilReset: 4 },
 		} );
-		rerender( <ContentTabAssistant selectedSite={ runningSite } /> );
+		rerender( <ContextWrapper selectedSite={ runningSite } /> );
 		expect(
 			screen.getByText( 'Your limit will reset in 4 days.', { exact: false } )
 		).toBeVisible();
@@ -410,7 +439,7 @@ describe( 'ContentTabAssistant', () => {
 		).not.toBeInTheDocument();
 
 		( useOffline as jest.Mock ).mockReturnValue( true );
-		rerender( <ContentTabAssistant selectedSite={ runningSite } /> );
+		rerender( <ContextWrapper selectedSite={ runningSite } /> );
 		expect( screen.getByText( 'The AI assistant requires an internet connection.' ) ).toBeVisible();
 		expect(
 			screen.queryByText( 'Your limit will reset in 4 days.', { exact: false } )
@@ -420,18 +449,14 @@ describe( 'ContentTabAssistant', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	test( 'restores chat input when changing current site', async () => {
+	it( 'restores chat input when changing current site', async () => {
 		const anotherSite = {
 			...runningSite,
 			id: 'another-site-id',
 			name: 'Another Test Site',
 		};
 
-		const { rerender } = render(
-			<ChatInputProvider>
-				<ContentTabAssistant selectedSite={ runningSite } />
-			</ChatInputProvider>
-		);
+		const { rerender } = render( <ContextWrapper selectedSite={ runningSite } /> );
 
 		// Input should be empty initially
 		expect( getInput() ).toHaveValue( '' );
@@ -441,11 +466,7 @@ describe( 'ContentTabAssistant', () => {
 		expect( getInput() ).toHaveValue( 'New message' );
 
 		// Changing to second site should reset the input
-		rerender(
-			<ChatInputProvider>
-				<ContentTabAssistant selectedSite={ anotherSite } />
-			</ChatInputProvider>
-		);
+		rerender( <ContextWrapper selectedSite={ anotherSite } /> );
 		expect( getInput() ).toHaveValue( '' );
 
 		// Input is updated for the second site
@@ -453,19 +474,11 @@ describe( 'ContentTabAssistant', () => {
 		expect( getInput() ).toHaveValue( 'Another message' );
 
 		// Changing to the first site should restore the input
-		rerender(
-			<ChatInputProvider>
-				<ContentTabAssistant selectedSite={ runningSite } />
-			</ChatInputProvider>
-		);
+		rerender( <ContextWrapper selectedSite={ runningSite } /> );
 		expect( getInput() ).toHaveValue( 'New message' );
 
 		// Changing to the second site should restore the input
-		rerender(
-			<ChatInputProvider>
-				<ContentTabAssistant selectedSite={ anotherSite } />
-			</ChatInputProvider>
-		);
+		rerender( <ContextWrapper selectedSite={ anotherSite } /> );
 		expect( getInput() ).toHaveValue( 'Another message' );
 	} );
 } );

@@ -1,7 +1,8 @@
 import { move } from 'fs-extra';
-import { SiteServer } from '../../../../../site-server';
-import { SqlExporter } from '../../../export/exporters';
-import { ExportOptions } from '../../../export/types';
+import { SqlExporter } from 'src/lib/import-export/export/exporters';
+import { ExportOptions } from 'src/lib/import-export/export/types';
+import { SiteServer } from 'src/site-server';
+import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 
 jest.mock( 'fs' );
 jest.mock( 'fs/promises' );
@@ -9,9 +10,9 @@ jest.mock( 'os' );
 jest.mock( 'fs-extra' );
 
 // Mock SiteServer
-jest.mock( '../../../../../site-server' );
+jest.mock( 'src/site-server' );
 
-describe( 'SqlExporter', () => {
+platformTestSuite( 'SqlExporter', ( { normalize } ) => {
 	let exporter: SqlExporter;
 	let mockOptions: ExportOptions;
 
@@ -22,23 +23,26 @@ describe( 'SqlExporter', () => {
 				id: '123',
 				name: '123',
 				path: '/path/to/site',
-				phpVersion: '7.4',
+				port: 9999,
+				phpVersion: '8.3',
 			},
-			backupFile: '/path/to/backup.sql',
+			backupFile: normalize( '/path/to/backup.sql' ),
 			includes: {
 				uploads: false,
 				plugins: false,
 				themes: false,
 				database: true,
+				muPlugins: false,
+				fonts: false,
 			},
-			phpVersion: '7.4',
+			phpVersion: '8.3',
 		};
 
 		// Reset all mock implementations
 		jest.clearAllMocks();
 
 		( SiteServer.get as jest.Mock ).mockReturnValue( {
-			details: { path: '/path/to/site' },
+			details: { path: normalize( '/path/to/site' ) },
 			executeWpCliCommand: jest.fn().mockResolvedValue( { stderr: null } ),
 		} );
 		( move as jest.Mock ).mockResolvedValue( null );
@@ -58,14 +62,15 @@ describe( 'SqlExporter', () => {
 
 		const siteServer = SiteServer.get( '123' );
 		expect( siteServer?.executeWpCliCommand ).toHaveBeenCalledWith(
-			'sqlite export studio-backup-db-export-2024-08-01-12-00-00.sql --require=/tmp/sqlite-command/command.php'
+			'sqlite export studio-backup-db-export-2024-08-01-12-00-00.sql --require=/tmp/sqlite-command/command.php --enable-ast-driver',
+			{ skipPluginsAndThemes: true }
 		);
 	} );
 
 	it( 'should call move on the temporary file', async () => {
 		await exporter.export();
 		expect( move ).toHaveBeenCalledWith(
-			'/path/to/site/studio-backup-db-export-2024-08-01-12-00-00.sql',
+			normalize( '/path/to/site/studio-backup-db-export-2024-08-01-12-00-00.sql' ),
 			mockOptions.backupFile
 		);
 	} );
@@ -78,7 +83,7 @@ describe( 'SqlExporter', () => {
 	it( 'should return false when canHandle is called with invalid options', async () => {
 		const exporter = new SqlExporter( {
 			...mockOptions,
-			backupFile: '/path/to/backup.zip',
+			backupFile: normalize( '/path/to/backup.zip' ),
 		} );
 
 		const canHandle = await exporter.canHandle();

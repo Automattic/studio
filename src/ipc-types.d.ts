@@ -17,9 +17,14 @@ interface StoppedSiteDetails {
 	id: string;
 	name: string;
 	path: string;
-	port?: number;
+	port: number;
 	phpVersion: string;
+	isWpAutoUpdating?: boolean;
+	customDomain?: string;
+	enableHttps?: boolean;
 	adminPassword?: string;
+	tlsKey?: string;
+	tlsCert?: string;
 	themeDetails?: {
 		name: string;
 		path: string;
@@ -29,58 +34,70 @@ interface StoppedSiteDetails {
 		supportsMenus: boolean;
 	};
 	isAddingSite?: boolean;
+	autoStart?: boolean;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {
 	running: true;
 
-	port: number;
 	url: string;
 }
 
 type SiteDetails = StartedSiteDetails | StoppedSiteDetails;
 
-interface Snapshot {
-	url: string;
-	atomicSiteId: number;
-	localSiteId: string;
-	date: number;
-	isLoading?: boolean;
-	isDeleting?: boolean;
-}
+type NewSiteDetails = Pick< SiteDetails, 'id' | 'path' | 'name' >;
 
 type InstalledApps = {
-	vscode: boolean | null;
-	phpstorm: boolean | null;
+	vscode: boolean;
+	phpstorm: boolean;
+	webstorm: boolean;
+	windsurf: boolean;
+	cursor: boolean;
+	terminal: boolean;
+	iterm: boolean;
+	warp: boolean;
+	ghostty: boolean;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Tail< T extends any[] > = ( ( ...args: T ) => any ) extends ( _: any, ...tail: infer U ) => any
-	? U
-	: never;
+type WithoutIpcEvent< T extends unknown[] > = T extends [ unknown, ...infer Rest ] ? Rest : [];
+type ToPromise< T > = T extends Promise< unknown > ? T : Promise< T >;
+type IpcHandlers = typeof import('./ipc-handlers');
+
+// Define which handlers use `ipcRenderer.send` instead of `ipcRenderer.invoke` in `src/preload.ts`
+type IpcVoidHandlers = ( typeof import('./constants') )[ 'IPC_VOID_HANDLERS' ][ number ];
 
 // IpcApi functions have the same signatures as the functions in ipc-handlers.ts, except
 // with the first parameter removed.
 type IpcApi = {
-	[ K in keyof typeof import('./ipc-handlers') ]: (
-		...args: Tail< Parameters< ( typeof import('./ipc-handlers') )[ K ] > >
-	) => ReturnType< ( typeof import('./ipc-handlers') )[ K ] >;
+	// `void` is satisfied by `Promise<any>`, which means that if a method in the
+	// `IpcVoidHandlers` list returns an `ipcRenderer.invoke` call, it wouldn't raise a type
+	// error. We use `undefined` instead because we need to be intentional about using
+	// `ipcRenderer.invoke` vs `ipcRenderer.send`. We make this work in `preload.ts` with the help
+	// of a utility function.
+	[ K in keyof IpcHandlers ]: (
+		...args: WithoutIpcEvent< Parameters< IpcHandlers[ K ] > >
+	) => K extends IpcVoidHandlers ? undefined : ToPromise< ReturnType< IpcHandlers[ K ] > >;
+} & {
+	// `webUtils.getPathForFile` is available only inside preload script, that's why this one
+	// function is exception and need to be defined here manually. See
+	// https://www.electronjs.org/docs/latest/breaking-changes#planned-breaking-api-changes-320
+	getPathForFile: ( file: File ) => string;
 };
 
-interface AppGlobals {
-	platform: NodeJS.Platform;
-	appName: string;
-	arm64Translation: boolean;
-	terminalWpCliEnabled: boolean;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface FeatureFlags {
+	enableBlueprints: boolean;
 }
 
-interface IpcListener {
-	subscribe( channel: string, listener: ( ...args: any[] ) => void ): () => void;
+interface AppGlobals extends FeatureFlags {
+	platform: NodeJS.Platform;
+	appName: string;
+	appVersion: string;
+	arm64Translation: boolean;
 }
 
 // Our IPC objects will be attached to the `window` global
 interface Window {
-	ipcListener: IpcListener;
 	ipcApi: IpcApi;
 	appGlobals: AppGlobals;
 }

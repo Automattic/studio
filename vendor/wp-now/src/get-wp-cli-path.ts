@@ -3,11 +3,18 @@ import getWpCliTmpPath from './get-wp-cli-tmp-path';
 import { getServerFilesPath } from '../../../src/storage/paths';
 
 /**
+ * The path to the wp-cli folder within the WP Now folder.
+ */
+export function getWpCliFolderPath() {
+	if ( process.env.NODE_ENV !== 'test' ) {
+		return path.join( getServerFilesPath() );
+	}
+	return path.join( getWpCliTmpPath() );
+}
+
+/**
  * The path for wp-cli phar file within the WP Now folder.
  */
 export default function getWpCliPath() {
-	if ( process.env.NODE_ENV !== 'test' ) {
-		return path.join( getServerFilesPath(), 'wp-cli.phar' );
-	}
-	return path.join( getWpCliTmpPath(), 'wp-cli.phar' );
+	return path.join( getWpCliFolderPath(), 'wp-cli.phar' );
 }

@@ -2,13 +2,19 @@
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { BackupHandlerFactory } from '../../import/handlers/backup-handler-factory';
-import { selectImporter, importBackup } from '../../import/import-manager';
-import { Importer } from '../../import/importers/importer';
-import { BackupContents, BackupArchiveInfo } from '../../import/types';
-import { Validator } from '../../import/validators/validator';
+import { BackupHandlerFactory } from 'src/lib/import-export/import/handlers/backup-handler-factory';
+import { selectImporter, importBackup } from 'src/lib/import-export/import/import-manager';
+import { Importer } from 'src/lib/import-export/import/importers/importer';
+import { BackupContents, BackupArchiveInfo } from 'src/lib/import-export/import/types';
+import { Validator } from 'src/lib/import-export/import/validators/validator';
 
-jest.mock( '../../import/handlers/backup-handler-factory' );
+jest.mock( 'src/storage/paths', () => ( {
+	getResourcesPath: jest.fn().mockReturnValue( '/path/to/app/appData/App Name' ),
+	getUserDataCertificatesPath: jest
+		.fn()
+		.mockReturnValue( '/path/to/app/appData/App Name/certificates' ),
+} ) );
+jest.mock( 'src/lib/import-export/import/handlers/backup-handler-factory' );
 jest.mock( 'fs/promises' );
 jest.mock( 'os' );
 jest.mock( 'path' );
@@ -77,7 +83,8 @@ describe( 'importManager', () => {
 			id: '123',
 			name: 'Site Name',
 			path: '/path/to/site',
-			phpVersion: '7.4',
+			port: 9999,
+			phpVersion: '8.3',
 			running: false,
 		};
 
@@ -126,7 +133,7 @@ describe( 'importManager', () => {
 			} );
 		} );
 
-		it( 'should return false if no suitable importer is found', async () => {
+		it( 'should throw error if no suitable importer is found', async () => {
 			const mockValidator: Validator = {
 				canHandle: jest.fn().mockReturnValue( false ),
 				parseBackupContents: jest.fn(),
@@ -137,18 +144,29 @@ describe( 'importManager', () => {
 			};
 			( BackupHandlerFactory.create as jest.Mock ).mockReturnValue( mockBackupHandler );
 
-			const result = await importBackup( mockFile, mockSite, jest.fn(), [
-				{
-					validator: mockValidator,
-					importer: jest.fn(),
-				},
-			] );
+			await expect(
+				importBackup( mockFile, mockSite, jest.fn(), [
+					{
+						validator: mockValidator,
+						importer: jest.fn(),
+					},
+				] )
+			).rejects.toThrow( 'No suitable importer found for the provided backup contents' );
 
-			expect( result ).toBeFalsy();
-			expect( fsPromises.mkdtemp ).toHaveBeenCalledWith( '/tmp/studio_backup' );
-			expect( fsPromises.rm ).toHaveBeenCalledWith( mockExtractDir, {
-				recursive: true,
-			} );
+			expect( fsPromises.mkdtemp ).toHaveBeenCalled();
+			expect( fsPromises.rm ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should throw error if no suitable backup handler is found', async () => {
+			( BackupHandlerFactory.create as jest.Mock ).mockReturnValue( null );
+			( fsPromises.stat as jest.Mock ).mockResolvedValue( { size: 1024 } );
+
+			await expect( importBackup( mockFile, mockSite, jest.fn(), [] ) ).rejects.toThrow(
+				'No suitable backup handler found for the provided backup file'
+			);
+
+			expect( fsPromises.mkdtemp ).not.toHaveBeenCalled();
+			expect( fsPromises.rm ).not.toHaveBeenCalled();
 		} );
 	} );
 } );

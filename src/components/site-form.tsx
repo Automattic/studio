@@ -1,15 +1,25 @@
-import { Icon } from '@wordpress/components';
+import { Icon, SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf, _n } from '@wordpress/i18n';
 import { tip, warning, trash, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useRef, useState } from 'react';
-import { ACCEPTED_IMPORT_FILE_TYPES, STUDIO_DOCS_URL_IMPORT_EXPORT } from '../constants';
-import { cx } from '../lib/cx';
-import { getIpcApi } from '../lib/get-ipc-api';
-import Button from './button';
-import FolderIcon from './folder-icon';
-import TextControlComponent from './text-control';
+import { FormEvent, useRef, useState, useEffect } from 'react';
+import Button from 'src/components/button';
+import FolderIcon from 'src/components/folder-icon';
+import TextControlComponent from 'src/components/text-control';
+import { WPVersionSelector } from 'src/components/wp-version-selector';
+import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
+import { cx } from 'src/lib/cx';
+import { generateCustomDomainFromSiteName } from 'src/lib/domains';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getLocalizedLink } from 'src/lib/get-localized-link';
+import { useI18nLocale } from 'src/stores';
+import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
+import {
+	DEFAULT_WORDPRESS_VERSION,
+	ALLOWED_PHP_VERSIONS,
+	AllowedPHPVersion,
+} from 'vendor/wp-now/src/constants';
 
 interface FormPathInputComponentProps {
 	value: string;
@@ -32,6 +42,36 @@ interface SiteFormErrorProps {
 	error?: string;
 	tipMessage?: string;
 	className?: string;
+}
+
+interface SiteFormProps {
+	className?: string;
+	children?: React.ReactNode;
+	siteName: string;
+	setSiteName: ( name: string ) => void;
+	sitePath?: string;
+	onSelectPath?: () => void;
+	error: string;
+	doesPathContainWordPress?: boolean;
+	isPathInputDisabled?: boolean;
+	onSubmit: ( event: FormEvent ) => void;
+	fileForImport?: File | null;
+	setFileForImport?: ( file: File | null ) => void;
+	onFileSelected?: ( file: File ) => void;
+	fileError?: string;
+	useCustomDomain?: boolean;
+	setUseCustomDomain?: ( use: boolean ) => void;
+	customDomain?: string | null;
+	setCustomDomain?: ( domain: string ) => void;
+	customDomainError?: string;
+	phpVersion: AllowedPHPVersion;
+	setPhpVersion: ( version: AllowedPHPVersion ) => void;
+	useHttps?: boolean;
+	setUseHttps?: ( use: boolean ) => void;
+	enableHttps?: boolean;
+	setEnableHttps?: ( use: boolean ) => void;
+	wpVersion: string;
+	setWpVersion: ( version: string ) => void;
 }
 
 const SiteFormError = ( { error, tipMessage = '', className = '' }: SiteFormErrorProps ) => {
@@ -82,7 +122,7 @@ function FormPathInputComponent( {
 				type="button"
 				aria-label={ `${ value }, ${ __( 'Select different local path' ) }` }
 				className={ cx(
-					'flex flex-row items-stretch rounded-sm border border-[#949494] focus:border-a8c-blueberry focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blueberry outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blueberry [&:disabled]:cursor-not-allowed',
+					'flex flex-row items-stretch rounded-sm border border-[#949494] focus:border-a8c-blue-50 focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blue-50 outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blue-50 [&:disabled]:cursor-not-allowed',
 					error ? 'border-red-500 [&_.local-path-icon]:border-l-red-500' : ''
 				) }
 				data-testid="select-path-button"
@@ -91,7 +131,7 @@ function FormPathInputComponent( {
 			>
 				<TextControlComponent
 					aria-hidden="true"
-					disabled={ true }
+					tabIndex={ -1 }
 					className="[&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none w-full"
 					value={ value }
 					// eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -104,7 +144,9 @@ function FormPathInputComponent( {
 			<SiteFormError
 				error={ error }
 				tipMessage={
-					doesPathContainWordPress ? 'The existing WordPress site at this path will be added.' : ''
+					doesPathContainWordPress
+						? __( 'The existing WordPress site at this path will be added.' )
+						: ''
 				}
 			/>
 		</div>
@@ -149,7 +191,7 @@ function FormImportComponent( {
 					type="button"
 					aria-label={ `${ value }, ${ __( 'Select different file' ) }` }
 					className={ cx(
-						'flex items-center flex-grow rounded-sm border border-[#949494] focus:border-a8c-blueberry focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blueberry outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blueberry [&:disabled]:cursor-not-allowed',
+						'flex items-center flex-grow rounded-sm border border-[#949494] focus:border-a8c-blue-50 focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blue-50 outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blue-50 [&:disabled]:cursor-not-allowed',
 						error ? 'border-red-500 [&_.local-path-icon]:border-l-red-500' : '',
 						fileName ? 'border-r-0 rounded-r-none focus:border' : ''
 					) }
@@ -157,7 +199,7 @@ function FormImportComponent( {
 				>
 					<TextControlComponent
 						aria-hidden="true"
-						disabled={ true }
+						tabIndex={ -1 }
 						placeholder={ placeholder }
 						className="flex-grow [&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none [&_.components-text-control\_\_input]:text-sm w-full [&_.components-text-control\_\_input]:truncate"
 						value={ fileName }
@@ -199,6 +241,10 @@ export const SiteForm = ( {
 	children,
 	siteName,
 	setSiteName,
+	phpVersion,
+	setPhpVersion,
+	wpVersion,
+	setWpVersion,
 	sitePath = '',
 	onSelectPath,
 	error,
@@ -209,23 +255,27 @@ export const SiteForm = ( {
 	setFileForImport,
 	onFileSelected,
 	fileError,
-}: {
-	className?: string;
-	children?: React.ReactNode;
-	siteName: string;
-	setSiteName: ( name: string ) => void;
-	sitePath?: string;
-	onSelectPath?: () => void;
-	error: string;
-	doesPathContainWordPress?: boolean;
-	isPathInputDisabled?: boolean;
-	onSubmit: ( event: FormEvent ) => void;
-	fileForImport?: File | null;
-	setFileForImport?: ( file: File | null ) => void;
-	onFileSelected?: ( file: File ) => void;
-	fileError?: string;
-} ) => {
+	useCustomDomain,
+	setUseCustomDomain,
+	customDomain = null,
+	setCustomDomain,
+	customDomainError,
+	enableHttps,
+	setEnableHttps,
+}: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
+	const locale = useI18nLocale();
+	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
+
+	// If the custom domain is enabled and the root certificate is trusted, enable HTTPS
+	useEffect( () => {
+		if ( useCustomDomain && isCertificateTrusted && setEnableHttps ) {
+			setEnableHttps( true );
+		}
+	}, [ useCustomDomain, isCertificateTrusted, setEnableHttps ] );
+
+	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
+	const errorCount = [ error, shouldShowCustomDomainError ].filter( Boolean ).length;
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
 
@@ -242,6 +292,7 @@ export const SiteForm = ( {
 	} else {
 		chevronIcon = chevronRight;
 	}
+	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
 
 	return (
 		<form className={ className } onSubmit={ onSubmit }>
@@ -250,22 +301,27 @@ export const SiteForm = ( {
 					<span className="font-semibold">{ __( 'Site name' ) }</span>
 					<TextControlComponent onChange={ setSiteName } value={ siteName }></TextControlComponent>
 				</label>
+
 				{ setFileForImport && (
 					<>
-						<div className="flex flex-col gap-1.5 leading-4 mb-6">
+						<div className="flex flex-col gap-1.5 leading-4 mb-4">
 							<label className="font-semibold">
 								{ __( 'Import a backup' ) }
 								<span className="font-normal">{ __( ' (optional)' ) }</span>
 							</label>
 							<span className="text-a8c-gray-50 text-xs">
 								{ createInterpolateElement(
-									__( 'Jetpack and WordPress backups supported. <button>Learn more</button>' ),
+									__(
+										'Import a Jetpack backup or a full-site backup in another format. <button>Learn more</button>'
+									),
 									{
 										button: (
 											<Button
 												variant="link"
 												className="text-xs"
-												onClick={ () => getIpcApi().openURL( STUDIO_DOCS_URL_IMPORT_EXPORT ) }
+												onClick={ () =>
+													getIpcApi().openURL( getLocalizedLink( locale, 'docsImportExport' ) )
+												}
 											/>
 										),
 									}
@@ -298,30 +354,44 @@ export const SiteForm = ( {
 											{ __( 'Advanced settings' ) }
 										</div>
 									</Button>
-									{ error && (
+									{ errorCount > 0 && (
 										<span className="text-red-500 text-[13px] leading-[16px] ml-2 flex items-center">
 											<Icon icon={ warning } size={ 16 } className="mr-1 fill-red-500" />
-											{ __( '1 error found' ) }
+											{ sprintf(
+												/* translators: %d: number of errors found */
+												_n( '%d error found', '%d errors found', errorCount ),
+												errorCount
+											) }
 										</span>
 									) }
 								</div>
 								<div
 									className={ cx(
-										'transition-height duration-500 ease-in-out overflow-hidden',
-										isAdvancedSettingsVisible
-											? 'max-h-96 opacity-100 mb-6'
-											: 'max-h-0 opacity-0 mb-0'
+										'transition-all duration-500 ease-in-out overflow-hidden flex flex-col gap-2 interpolate-size-allow-keywords',
+										isAdvancedSettingsVisible ? 'h-auto opacity-100' : 'h-0 opacity-0'
 									) }
 								>
-									<label
-										className={ cx(
-											'flex flex-col gap-1.5 leading-4',
-											isAdvancedSettingsVisible ? 'py-2' : 'p-2',
-											! isAdvancedSettingsVisible && 'hidden'
-										) }
-									>
-										<span onClick={ onSelectPath } className="font-semibold">
+									<div className={ cx( 'flex flex-col gap-1.5 leading-4 py-4' ) }>
+										<label onClick={ onSelectPath } className="font-semibold">
 											{ __( 'Local path' ) }
+										</label>
+										<span className="text-a8c-gray-50 text-xs">
+											{ createInterpolateElement(
+												__(
+													'Select an empty directory or a directory with an existing WordPress site. <button>Learn more</button>'
+												),
+												{
+													button: (
+														<Button
+															variant="link"
+															className="text-xs"
+															onClick={ () =>
+																getIpcApi().openURL( getLocalizedLink( locale, 'docsSites' ) )
+															}
+														/>
+													),
+												}
+											) }
 										</span>
 										<FormPathInputComponent
 											isDisabled={ isPathInputDisabled }
@@ -330,7 +400,99 @@ export const SiteForm = ( {
 											value={ sitePath }
 											onClick={ onSelectPath }
 										/>
-									</label>
+										<div className="grid grid-cols-2 gap-4 mt-4">
+											<div className="flex flex-col gap-1.5 leading-4">
+												<label className="font-semibold" htmlFor="php-version-select">
+													{ __( 'PHP version' ) }
+												</label>
+												<SelectControl
+													id="php-version-select"
+													value={ phpVersion }
+													options={ ALLOWED_PHP_VERSIONS.map( ( version ) => ( {
+														label: version,
+														value: version,
+													} ) ) }
+													onChange={ setPhpVersion as ( value: string ) => void }
+													__next40pxDefaultSize
+													__nextHasNoMarginBottom
+												/>
+											</div>
+
+											<WPVersionSelector
+												selectedValue={ wpVersion }
+												onChange={ setWpVersion }
+												fallbackOptions={ [
+													{ label: __( 'Latest' ), value: DEFAULT_WORDPRESS_VERSION },
+												] }
+												offlineMessage={ __(
+													'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
+												) }
+											/>
+										</div>
+
+										{ setUseCustomDomain && setCustomDomain && (
+											<div className="flex items-center gap-2 mt-4">
+												<input
+													type="checkbox"
+													id="use-custom-domain"
+													checked={ useCustomDomain }
+													onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
+												/>
+												<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
+											</div>
+										) }
+
+										{ setUseCustomDomain && setCustomDomain && (
+											<div className="text-a8c-gray-50 text-xs mt-2">
+												{ __( 'Your system password will be required to set up the domain.' ) }
+											</div>
+										) }
+
+										{ useCustomDomain && setCustomDomain && (
+											<div className="flex flex-col gap-2 mt-4">
+												<label htmlFor="custom-domain" className="font-semibold">
+													{ __( 'Domain name' ) }
+												</label>
+												<TextControlComponent
+													id="custom-domain"
+													value={ customDomain !== null ? customDomain : generatedDomainName }
+													onChange={ setCustomDomain }
+												/>
+												{ customDomainError && <SiteFormError error={ customDomainError } /> }
+											</div>
+										) }
+
+										{ useCustomDomain && setEnableHttps && (
+											<div className="flex items-center gap-2 mt-4">
+												<input
+													type="checkbox"
+													id="enable-https"
+													checked={ enableHttps }
+													onChange={ ( e ) => setEnableHttps( e.target.checked ) }
+												/>
+												<label htmlFor="enable-https">{ __( 'Enable HTTPS' ) }</label>
+											</div>
+										) }
+
+										{ ! isCertificateTrusted && useCustomDomain && setEnableHttps && (
+											<div className="text-a8c-gray-50 text-xs mt-2">
+												{ __(
+													'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'
+												) }{ ' ' }
+												<Button
+													variant="link"
+													onClick={ () => {
+														getIpcApi().openURL(
+															'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
+														);
+													} }
+												>
+													{ __( 'Learn how' ) }
+													<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
+												</Button>
+											</div>
+										) }
+									</div>
 								</div>
 							</>
 						) }

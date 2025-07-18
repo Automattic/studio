@@ -1,8 +1,9 @@
 import { app, dialog } from 'electron';
 import path from 'path';
+import sudo from '@vscode/sudo-prompt';
 import { __ } from '@wordpress/i18n';
-import sudo from 'sudo-prompt';
-import { loadUserData, saveUserData } from '../storage/user-data';
+import { getMainWindow } from 'src/main-window';
+import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 export async function promptWindowsSpeedUpSites( {
 	skipIfAlreadyPrompted,
@@ -23,7 +24,8 @@ export async function promptWindowsSpeedUpSites( {
 
 	const buttons = [ AUTOMATIC_UPDATE, NOT_INTERESTED ];
 
-	const { response } = await dialog.showMessageBox( {
+	const mainWindow = await getMainWindow();
+	const { response } = await dialog.showMessageBox( mainWindow, {
 		type: 'question',
 		buttons,
 		title: __( 'Want to speed up site creation?' ),
@@ -36,14 +38,12 @@ export async function promptWindowsSpeedUpSites( {
 	switch ( response ) {
 		case buttons.indexOf( AUTOMATIC_UPDATE ):
 			// Update Windows Defender configuration
-			await saveUserData( {
-				...userData,
-				promptWindowsSpeedUpResult: 'yes',
-			} );
+			await updateAppdata( { promptWindowsSpeedUpResult: 'yes' } );
 			try {
 				await excludeProcessInWindowsDefender();
 			} catch ( _error ) {
-				await dialog.showMessageBox( {
+				const mainWindow = await getMainWindow();
+				await dialog.showMessageBox( mainWindow, {
 					type: 'error',
 					title: __( 'Something went wrong' ),
 					message: __(
@@ -54,10 +54,7 @@ export async function promptWindowsSpeedUpSites( {
 			break;
 		case buttons.indexOf( NOT_INTERESTED ):
 			// Skip it, user is not interested
-			await saveUserData( {
-				...userData,
-				promptWindowsSpeedUpResult: 'no',
-			} );
+			await updateAppdata( { promptWindowsSpeedUpResult: 'no' } );
 			break;
 	}
 }

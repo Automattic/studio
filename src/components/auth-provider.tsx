@@ -1,16 +1,18 @@
 import * as Sentry from '@sentry/electron/renderer';
+import { useI18n } from '@wordpress/react-i18n';
 import { createContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import WPCOM from 'wpcom';
-import { useI18nData } from '../hooks/use-i18n-data';
-import { useIpcListener } from '../hooks/use-ipc-listener';
-import { getIpcApi } from '../lib/get-ipc-api';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useI18nLocale } from 'src/stores';
+import { setWpcomClient } from 'src/stores/wpcom-api';
 
 export interface AuthContextType {
 	client: WPCOM | undefined;
 	isAuthenticated: boolean;
-	authenticate: () => Promise< void >; // Adjust based on the actual implementation
+	authenticate: () => void; // Adjust based on the actual implementation
 	logout: () => Promise< void >; // Adjust based on the actual implementation
-	user?: { id: number | null; email: string; displayName: string };
+	user?: { id: number; email: string; displayName: string };
 }
 
 interface AuthProviderProps {
@@ -25,7 +27,9 @@ interface WpcomParams extends Record< string, unknown > {
 export const AuthContext = createContext< AuthContextType >( {
 	client: undefined,
 	isAuthenticated: false,
-	authenticate: () => Promise.resolve(),
+	authenticate: () => {
+		// Placeholder for authenticate logic. Just to avoid lint error
+	},
 	logout: () => Promise.resolve(),
 } );
 
@@ -33,62 +37,88 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	const [ isAuthenticated, setIsAuthenticated ] = useState( false );
 	const [ client, setClient ] = useState< WPCOM | undefined >( undefined );
 	const [ user, setUser ] = useState< AuthContextType[ 'user' ] >( undefined );
-	const { locale } = useI18nData();
+	const locale = useI18nLocale();
+	const { __ } = useI18n();
 
-	const authenticate = getIpcApi().authenticate;
-	useIpcListener( 'auth-updated', ( _event, { token, error } ) => {
-		if ( error ) {
-			Sentry.captureException( error );
+	const authenticate = useCallback( () => getIpcApi().authenticate(), [] );
+
+	useIpcListener( 'auth-updated', ( _event, payload ) => {
+		if ( 'error' in payload ) {
+			getIpcApi().showErrorMessageBox( {
+				title: __( 'Authentication error' ),
+				message: __( 'Please try again.' ),
+			} );
 			return;
 		}
+
+		const { token } = payload;
+		const newClient = createWpcomClient( token.accessToken, locale );
+
 		setIsAuthenticated( true );
-		setClient( createWpcomClient( token.accessToken, locale ) );
-		if ( token.id || token.email || token.displayName ) {
-			setUser( {
-				id: token.id || null,
-				email: token.email || '',
-				displayName: token.displayName || '',
-			} );
-		}
+		setClient( newClient );
+		setWpcomClient( newClient );
+		setUser( {
+			id: token.id,
+			email: token.email,
+			displayName: token.displayName || '',
+		} );
 	} );
 
 	const logout = useCallback( async () => {
 		try {
+			client?.request(
+				{
+					apiNamespace: 'wpcom/v2',
+					method: 'DELETE',
+					path: '/studio-app/token',
+				},
+				( err: unknown, response: unknown ) => {
+					if ( err ) {
+						console.error( 'Failed to revoke token:', err );
+						Sentry.captureException( err );
+					} else {
+						console.log( 'Token revoked:', response );
+					}
+				}
+			);
+
 			await getIpcApi().clearAuthenticationToken();
 			setIsAuthenticated( false );
 			setClient( undefined );
+			setWpcomClient( undefined );
 			setUser( undefined );
 		} catch ( err ) {
 			console.error( err );
 			Sentry.captureException( err );
 		}
-	}, [] );
+	}, [ client ] );
 
 	useEffect( () => {
 		async function run() {
 			try {
-				const isAuthenticated = await getIpcApi().isAuthenticated();
-				setIsAuthenticated( isAuthenticated );
-				if ( isAuthenticated ) {
-					const token = await getIpcApi().getAuthenticationToken();
-					if ( ! token ) {
-						return;
-					}
-					setClient( createWpcomClient( token.accessToken, locale ) );
-					if ( token.id || token.email || token.displayName ) {
-						setUser( {
-							id: token.id || null,
-							email: token.email || '',
-							displayName: token.displayName || '',
-						} );
-					}
+				const token = await getIpcApi().getAuthenticationToken();
+
+				if ( ! token ) {
+					setIsAuthenticated( false );
+					return;
 				}
+
+				const newClient = createWpcomClient( token.accessToken, locale );
+
+				setIsAuthenticated( true );
+				setClient( newClient );
+				setWpcomClient( newClient );
+				setUser( {
+					id: token.id,
+					email: token.email,
+					displayName: token.displayName || '',
+				} );
 			} catch ( err ) {
 				console.error( err );
 				Sentry.captureException( err );
 			}
 		}
-		run();
+		void run();
 	}, [ locale ] );
 
 	// Memoize the context value to avoid unnecessary renders

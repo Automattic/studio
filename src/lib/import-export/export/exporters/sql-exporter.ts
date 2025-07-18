@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
-import { ExportEvents } from '../events';
-import { exportDatabaseToFile } from '../export-database';
-import { ExportOptions, Exporter } from '../types';
+import { ExportEvents } from 'src/lib/import-export/export/events';
+import { exportDatabaseToFile } from 'src/lib/import-export/export/export-database';
+import { ExportOptions, Exporter } from 'src/lib/import-export/export/types';
 
 export class SqlExporter extends EventEmitter implements Exporter {
 	constructor( private options: ExportOptions ) {

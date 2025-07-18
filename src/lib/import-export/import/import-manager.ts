@@ -1,9 +1,14 @@
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { ImportExportEventData, handleEvents } from '../handle-events';
-import { BackupExtractEvents, ImporterEvents, ValidatorEvents } from './events';
-import { BackupHandlerFactory } from './handlers/backup-handler-factory';
+import * as Sentry from '@sentry/electron/renderer';
+import { ImportExportEventData, handleEvents } from 'src/lib/import-export/handle-events';
+import {
+	BackupExtractEvents,
+	ImporterEvents,
+	ValidatorEvents,
+} from 'src/lib/import-export/import/events';
+import { BackupHandlerFactory } from 'src/lib/import-export/import/handlers/backup-handler-factory';
 import {
 	Importer,
 	ImporterResult,
@@ -12,16 +17,16 @@ import {
 	PlaygroundImporter,
 	SQLImporter,
 	WpressImporter,
-} from './importers/importer';
-import { BackupArchiveInfo, NewImporter } from './types';
+} from 'src/lib/import-export/import/importers/importer';
+import { BackupArchiveInfo, NewImporter } from 'src/lib/import-export/import/types';
 import {
 	JetpackValidator,
 	SqlValidator,
 	LocalValidator,
 	PlaygroundValidator,
 	WpressValidator,
-} from './validators';
-import { Validator } from './validators/validator';
+} from 'src/lib/import-export/import/validators';
+import { Validator } from 'src/lib/import-export/import/validators/validator';
 
 export interface ImporterOption {
 	validator: Validator;
@@ -50,22 +55,33 @@ export async function importBackup(
 	site: SiteDetails,
 	onEvent: ( data: ImportExportEventData ) => void,
 	options: ImporterOption[]
-): Promise< ImporterResult | undefined > {
+): Promise< ImporterResult > {
+	const backupHandler = BackupHandlerFactory.create( backupFile );
+	if ( ! backupHandler ) {
+		const backupFileExtension = path.extname( backupFile.path );
+		const backupFileSize = await fsPromises.stat( backupFile.path ).then( ( stat ) => stat.size );
+		const error = new Error( 'No suitable backup handler found for the provided backup file' );
+		Sentry.captureException( error, {
+			extra: {
+				backupFileSize,
+				backupFileExtension,
+			},
+		} );
+
+		throw error;
+	}
+
 	const extractionDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );
+	const fileList = await backupHandler.listFiles( backupFile );
+	const importer = selectImporter( fileList, extractionDirectory, onEvent, options );
+
+	if ( ! importer ) {
+		throw new Error( 'No suitable importer found for the provided backup contents' );
+	}
+
 	let removeBackupListeners;
 	let removeImportListeners;
 	try {
-		const backupHandler = BackupHandlerFactory.create( backupFile );
-		if ( ! backupHandler ) {
-			return;
-		}
-		const fileList = await backupHandler.listFiles( backupFile );
-		const importer = selectImporter( fileList, extractionDirectory, onEvent, options );
-
-		if ( ! importer ) {
-			return;
-		}
-
 		removeBackupListeners = handleEvents( backupHandler, onEvent, BackupExtractEvents );
 		removeImportListeners = handleEvents( importer, onEvent, ImporterEvents );
 		await backupHandler.extractFiles( backupFile, extractionDirectory );
@@ -78,9 +94,9 @@ export async function importBackup(
 }
 
 export const defaultImporterOptions: ImporterOption[] = [
+	{ validator: new PlaygroundValidator(), importer: PlaygroundImporter },
 	{ validator: new JetpackValidator(), importer: JetpackImporter },
 	{ validator: new LocalValidator(), importer: LocalImporter },
 	{ validator: new SqlValidator(), importer: SQLImporter },
-	{ validator: new PlaygroundValidator(), importer: PlaygroundImporter },
 	{ validator: new WpressValidator(), importer: WpressImporter },
 ];

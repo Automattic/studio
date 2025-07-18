@@ -1,17 +1,18 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { TabName, useContentTabs } from '../hooks/use-content-tabs';
-import { useImportExport } from '../hooks/use-import-export';
-import { useSiteDetails } from '../hooks/use-site-details';
-import { WelcomeMessagesProvider } from '../hooks/use-welcome-messages';
-import { ContentTabAssistant } from './content-tab-assistant';
-import { ContentTabImportExport } from './content-tab-import-export';
-import { ContentTabOverview } from './content-tab-overview';
-import { ContentTabSettings } from './content-tab-settings';
-import { ContentTabSnapshots } from './content-tab-snapshots';
-import { ContentTabSync } from './content-tab-sync';
-import Header from './header';
-import { SiteLoadingIndicator } from './site-loading-indicator';
+import { ContentTabAssistant } from 'src/components/content-tab-assistant';
+import { ContentTabImportExport } from 'src/components/content-tab-import-export';
+import { ContentTabOverview } from 'src/components/content-tab-overview';
+import { ContentTabPreviews } from 'src/components/content-tab-previews';
+import { ContentTabSettings } from 'src/components/content-tab-settings';
+import Header from 'src/components/header';
+import { SiteLoadingIndicator } from 'src/components/site-loading-indicator';
+import { MIN_WIDTH_CLASS_TO_MEASURE } from 'src/constants';
+import { TabName, useContentTabs } from 'src/hooks/use-content-tabs';
+import { useImportExport } from 'src/hooks/use-import-export';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { cx } from 'src/lib/cx';
+import { ContentTabSync } from 'src/modules/sync';
 
 export function SiteContentTabs() {
 	const { selectedSite } = useSiteDetails();
@@ -34,29 +35,34 @@ export function SiteContentTabs() {
 	return (
 		<div className="flex flex-col w-full h-full app-no-drag-region pt-8 overflow-y-auto">
 			<Header />
-			<WelcomeMessagesProvider>
-				<TabPanel
-					className="mt-6 h-full flex flex-col overflow-hidden"
-					tabs={ tabs }
-					orientation="horizontal"
-					onSelect={ ( tabName ) => setSelectedTab( tabName as TabName ) }
-					initialTabName={ selectedTab }
-					key={ selectedTab }
-				>
-					{ ( { name } ) => (
-						<div className="h-full">
-							{ name === 'overview' && <ContentTabOverview selectedSite={ selectedSite } /> }
-							{ name === 'share' && <ContentTabSnapshots selectedSite={ selectedSite } /> }
-							{ name === 'sync' && <ContentTabSync selectedSite={ selectedSite } /> }
-							{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
-							{ name === 'assistant' && <ContentTabAssistant selectedSite={ selectedSite } /> }
-							{ name === 'import-export' && (
-								<ContentTabImportExport selectedSite={ selectedSite } />
-							) }
-						</div>
-					) }
-				</TabPanel>
-			</WelcomeMessagesProvider>
+			<TabPanel
+				className={ `mt-6 h-full flex flex-col overflow-hidden ${ MIN_WIDTH_CLASS_TO_MEASURE }` }
+				tabs={ tabs }
+				orientation="horizontal"
+				onSelect={ ( tabName ) => setSelectedTab( tabName as TabName ) }
+				initialTabName={ selectedTab }
+				key={ selectedTab + selectedSite.id }
+			>
+				{ ( { name } ) => (
+					<div
+						className={ cx(
+							'h-full overflow-y-auto',
+							selectedTab === 'assistant' && 'bg-gray-50'
+						) }
+						style={ {
+							scrollbarWidth: 'thin',
+							scrollbarGutter: 'stable',
+						} }
+					>
+						{ name === 'overview' && <ContentTabOverview selectedSite={ selectedSite } /> }
+						{ name === 'previews' && <ContentTabPreviews selectedSite={ selectedSite } /> }
+						{ name === 'sync' && <ContentTabSync selectedSite={ selectedSite } /> }
+						{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
+						{ name === 'assistant' && <ContentTabAssistant selectedSite={ selectedSite } /> }
+						{ name === 'import-export' && <ContentTabImportExport selectedSite={ selectedSite } /> }
+					</div>
+				) }
+			</TabPanel>
 		</div>
 	);
 }

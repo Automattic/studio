@@ -1,7 +1,13 @@
 import { sentryWebpackPlugin } from '@sentry/webpack-plugin';
+import { getSentryReleaseInfo } from './src/lib/sentry-release';
 import type IForkTsCheckerWebpackPlugin from 'fork-ts-checker-webpack-plugin';
 import type { WebpackPluginInstance } from 'webpack';
-const ForkTsCheckerWebpackPlugin: typeof IForkTsCheckerWebpackPlugin = require( 'fork-ts-checker-webpack-plugin' ); // eslint-disable-line @typescript-eslint/no-var-requires
+const ForkTsCheckerWebpackPlugin: typeof IForkTsCheckerWebpackPlugin = require( 'fork-ts-checker-webpack-plugin' );
+
+const version = process.env.npm_package_version || '';
+const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo( version );
+console.log( 'Sentry release version:', sentryRelease );
+console.log( 'Sentry environment:', isDevEnvironment ? 'development' : 'production' );
 
 export const plugins: WebpackPluginInstance[] = [
 	new ForkTsCheckerWebpackPlugin( {
@@ -13,10 +19,14 @@ export const plugins: WebpackPluginInstance[] = [
 		},
 	} ),
 	// Sentry must be the last plugin
-	!! process.env.SENTRY_AUTH_TOKEN &&
+	! isDevEnvironment &&
+		!! process.env.SENTRY_AUTH_TOKEN &&
 		sentryWebpackPlugin( {
 			authToken: process.env.SENTRY_AUTH_TOKEN,
 			org: 'a8c',
 			project: 'studio',
+			release: {
+				name: sentryRelease,
+			},
 		} ),
 ];

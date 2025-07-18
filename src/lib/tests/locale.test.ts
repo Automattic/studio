@@ -3,8 +3,8 @@
  */
 import { app } from 'electron';
 import { createI18n } from '@wordpress/i18n';
-import { getLocaleData } from '../locale';
-import { getSupportedLocale } from '../locale-node';
+import { getLocaleData } from 'common/lib/locale';
+import { getSupportedLocale } from 'src/lib/locale-node';
 
 function mockAppLocale( language: string ) {
 	( app.getLocale as jest.Mock ).mockReturnValue( language );

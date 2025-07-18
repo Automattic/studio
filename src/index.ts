@@ -11,90 +11,97 @@ import {
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
-import packageJson from '../package.json';
-import { PROTOCOL_PREFIX } from './constants';
-import * as ipcHandlers from './ipc-handlers';
-import { hasActiveSyncOperations } from './lib/active-sync-operations';
-import { getPlatformName } from './lib/app-globals';
-import { bumpAggregatedUniqueStat, bumpStat } from './lib/bump-stats';
 import {
-	listenCLICommands,
-	getCLIDataForMainInstance,
-	isCLI,
-	processCLICommand,
-	executeCLICommand,
-} from './lib/cli';
-import { getUserLocaleWithFallback } from './lib/locale-node';
-import { handleAuthCallback, setUpAuthCallbackHandler } from './lib/oauth';
-import { setupLogging } from './logging';
-import { createMainWindow, withMainWindow } from './main-window';
+	installExtension,
+	REACT_DEVELOPER_TOOLS,
+	REDUX_DEVTOOLS,
+} from 'electron-devtools-installer';
+import { PROTOCOL_PREFIX } from 'common/constants';
+import { StatsGroup } from 'common/types/stats';
+import { IPC_VOID_HANDLERS } from 'src/constants';
+import * as ipcHandlers from 'src/ipc-handlers';
+import { hasActiveSyncOperations } from 'src/lib/active-sync-operations';
+import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
+import { getPlatformMetric } from 'src/lib/bump-stats/lib';
+import { getUserLocaleWithFallback } from 'src/lib/locale-node';
+import { onOpenUrlCallback } from 'src/lib/oauth';
+import { stopProxyServer } from 'src/lib/proxy-server';
+import { getSentryReleaseInfo } from 'src/lib/sentry-release';
+import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-watcher';
+import { setupLogging } from 'src/logging';
+import { createMainWindow, getMainWindow } from 'src/main-window';
 import {
-	migrateFromWpNowFolder,
 	needsToMigrateFromWpNowFolder,
-} from './migrations/migrate-from-wp-now-folder';
-import { setupWPServerFiles, updateWPServerFiles } from './setup-wp-server-files';
-import { stopAllServersOnQuit } from './site-server';
-import { loadUserData } from './storage/user-data'; // eslint-disable-next-line import/order
-import { setupUpdates } from './updates';
+	migrateFromWpNowFolder,
+} from 'src/migrations/migrate-from-wp-now-folder';
+import { migrateAllDatabasesInSitu } from 'src/migrations/move-databases-in-situ';
+import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
+import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-stat';
+import { installCLIOnWindows } from 'src/modules/cli/lib/install-windows';
+import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
+import { stopAllServersOnQuit } from 'src/site-server';
+import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
+import { setupUpdates } from 'src/updates';
+// eslint-disable-next-line import/order
+import packageJson from '../package.json';
 
-if ( ! isCLI() ) {
+if ( ! process.env.IS_DEV_BUILD ) {
+	const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo( app.getVersion() );
+
 	Sentry.init( {
 		dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
 		debug: true,
-		enabled:
-			process.env.NODE_ENV !== 'development' &&
-			process.env.NODE_ENV !== 'test' &&
-			! process.env.E2E,
-		release: `${ app.getVersion() ? app.getVersion() : COMMIT_HASH }-${ getPlatformName() }`,
+		enabled: ! isDevEnvironment,
+		release: sentryRelease,
+		environment: isDevEnvironment ? 'development' : 'production',
 	} );
 }
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const isInInstaller = require( 'electron-squirrel-startup' );
 
 // Ensure we're the only instance of the app running
-const gotTheLock = app.requestSingleInstanceLock( getCLIDataForMainInstance() );
+const gotTheLock = app.requestSingleInstanceLock();
 
 let finishedInitialization = false;
 
 if ( gotTheLock && ! isInInstaller ) {
-	if ( isCLI() ) {
-		processCLICommand( { mainInstance: true, appBoot } );
-	} else {
-		appBoot();
-	}
+	void appBoot();
 } else if ( ! gotTheLock ) {
-	if ( isCLI() ) {
-		processCLICommand( { mainInstance: false } );
-	} else {
-		app.quit();
+	app.quit();
+}
+
+async function setupSentryUserId() {
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		if ( ! userData.sentryUserId ) {
+			userData.sentryUserId = crypto.randomUUID();
+		}
+
+		console.log( 'Setting Sentry user ID:', userData.sentryUserId );
+		Sentry.setUser( { id: userData.sentryUserId } );
+
+		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
 	}
 }
 
-const onOpenUrlCallback = ( url: string ) => {
-	const urlObject = new URL( url );
-	const { host, hash, searchParams } = urlObject;
-	if ( host === 'auth' ) {
-		handleAuthCallback( hash ).then( ( authResult ) => {
-			if ( authResult instanceof Error ) {
-				ipcMain.emit( 'auth-callback', null, { error: authResult } );
-			} else {
-				ipcMain.emit( 'auth-callback', null, { token: authResult } );
+// This is a workaround to ensure that the extension background workers are started
+// If you are updating Electron, confirm if this is still needed
+// https://github.com/electron/electron/issues/41613
+function launchExtensionBackgroundWorkers( appSession = session.defaultSession ) {
+	return Promise.all(
+		appSession.getAllExtensions().map( async ( extension ) => {
+			const manifest = extension.manifest;
+			if ( manifest.manifest_version === 3 && manifest?.background?.service_worker ) {
+				await appSession.serviceWorkers.startWorkerForScope( extension.url );
 			}
-		} );
-	}
-
-	if ( host === 'sync-connect-site' ) {
-		const remoteSiteId = parseInt( searchParams.get( 'remoteSiteId' ) ?? '' );
-		const studioSiteId = searchParams.get( 'studioSiteId' );
-		if ( remoteSiteId && studioSiteId ) {
-			withMainWindow( ( mainWindow ) => {
-				mainWindow.webContents.send( 'sync-connect-site', { remoteSiteId, studioSiteId } );
-			} );
-		}
-	}
-};
+		} )
+	);
+}
 
 async function appBoot() {
 	app.setName( packageJson.productName );
@@ -102,8 +109,6 @@ async function appBoot() {
 	Menu.setApplicationMenu( null );
 
 	setupCustomProtocolHandler();
-
-	setUpAuthCallbackHandler();
 
 	setupLogging();
 
@@ -138,6 +143,12 @@ async function appBoot() {
 	} );
 
 	function validateIpcSender( event: IpcMainInvokeEvent ) {
+		if ( ! event.senderFrame ) {
+			throw new Error(
+				'Failed IPC sender validation check: the frame has either navigated or been destroyed'
+			);
+		}
+
 		if ( new URL( event.senderFrame.url ).origin === new URL( MAIN_WINDOW_WEBPACK_ENTRY ).origin ) {
 			return true;
 		}
@@ -146,29 +157,27 @@ async function appBoot() {
 	}
 
 	function setupIpc() {
-		for ( const [ key, handler ] of Object.entries( ipcHandlers ) ) {
-			if ( typeof handler === 'function' && key !== 'logRendererMessage' ) {
-				ipcMain.handle( key, function ( event, ...args ) {
+		const ipcHandlerEntries = Object.entries( ipcHandlers ) as [
+			keyof typeof ipcHandlers,
+			( ...args: unknown[] ) => unknown,
+		][];
+
+		for ( const [ key, handler ] of ipcHandlerEntries ) {
+			if ( IPC_VOID_HANDLERS.find( ( handler ) => handler === key ) ) {
+				ipcMain.on( key, function ( event, ...args: unknown[] ) {
 					try {
 						validateIpcSender( event );
-
-						// Invoke the handler. Param types have already been type checked by code in ipc-types.d.ts,
-						// so we can safetly ignore the handler function's param types here.
-						return ( handler as any )( event, ...args ); // eslint-disable-line @typescript-eslint/no-explicit-any
+						handler( event, ...args );
 					} catch ( error ) {
 						console.error( error );
 						throw error;
 					}
 				} );
-			}
-
-			// logRendererMessage is handled specially because it uses the (hopefully more efficient)
-			// fire-and-forget .send method instead of .invoke
-			if ( typeof handler === 'function' && key === 'logRendererMessage' ) {
-				ipcMain.on( key, function ( event, level, ...args ) {
+			} else {
+				ipcMain.handle( key, function ( event, ...args: unknown[] ) {
 					try {
 						validateIpcSender( event );
-						( handler as typeof ipcHandlers.logRendererMessage )( event, level as never, ...args );
+						return handler( event, ...args );
 					} catch ( error ) {
 						console.error( error );
 						throw error;
@@ -181,36 +190,38 @@ async function appBoot() {
 	function setupCustomProtocolHandler() {
 		if ( process.platform === 'darwin' ) {
 			app.on( 'open-url', ( _event, url ) => {
-				onOpenUrlCallback( url );
+				void onOpenUrlCallback( url );
 			} );
 		} else {
 			// Handle custom protocol links on Windows and Linux
-			app.on( 'second-instance', ( _event, argv ): void => {
+			app.on( 'second-instance', async ( _event, argv ) => {
 				if ( ! finishedInitialization ) {
 					return;
 				}
 
-				withMainWindow( ( mainWindow ) => {
-					// CLI commands are likely invoked from other apps, so we need to avoid changing app focus.
-					const isCLI = argv?.find( ( arg ) => arg.startsWith( '--cli=' ) );
-					if ( ! isCLI ) {
-						if ( mainWindow.isMinimized() ) mainWindow.restore();
-						mainWindow.focus();
-					}
+				const mainWindow = await getMainWindow();
+				// CLI commands are likely invoked from other apps, so we need to avoid changing app focus.
+				const isCLI = argv?.find( ( arg ) => arg.startsWith( '--cli=' ) );
+				if ( ! isCLI ) {
+					if ( mainWindow.isMinimized() ) mainWindow.restore();
+					mainWindow.focus();
+				}
 
-					const customProtocolParameter = argv?.find( ( arg ) =>
-						arg.startsWith( PROTOCOL_PREFIX )
-					);
-					if ( customProtocolParameter ) {
-						onOpenUrlCallback( customProtocolParameter );
-					}
-				} );
+				const customProtocolParameter = argv?.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
+				if ( customProtocolParameter ) {
+					void onOpenUrlCallback( customProtocolParameter );
+				}
 			} );
 		}
 	}
 
 	app.on( 'ready', async () => {
 		const locale = await getUserLocaleWithFallback();
+		if ( process.env.NODE_ENV === 'development' ) {
+			await installExtension( REACT_DEVELOPER_TOOLS );
+			await installExtension( REDUX_DEVTOOLS );
+			await launchExtensionBackgroundWorkers();
+		}
 
 		console.log( `App version: ${ app.getVersion() }` );
 		console.log( `Built from commit: ${ COMMIT_HASH ?? 'undefined' }` );
@@ -241,12 +252,14 @@ async function appBoot() {
 				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
 				"script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
 			];
-			const prodPolicies = [ "connect-src 'self' https://public-api.wordpress.com" ];
+			const prodPolicies = [
+				"connect-src 'self' https://public-api.wordpress.com https://api.wordpress.org",
+			];
 			const devPolicies = [
 				// Webpack uses eval in development, react-devtools uses localhost
 				"script-src 'self' 'unsafe-eval' 'unsafe-inline' data: http://localhost:*",
 				// react-devtools uses localhost
-				"connect-src 'self' https://public-api.wordpress.com ws://localhost:*",
+				"connect-src 'self' https://public-api.wordpress.com https://api.wordpress.org ws://localhost:*",
 			];
 			const policies = [
 				...basePolicies,
@@ -272,22 +285,39 @@ async function appBoot() {
 			await migrateFromWpNowFolder();
 		}
 
-		createMainWindow();
+		await setupSentryUserId();
 
-		// Handle CLI commands
-		listenCLICommands();
-		executeCLICommand();
+		await removeSitesWithEmptyDirectories();
 
-		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
+		await migrateAllDatabasesInSitu();
+
+		await renameLaunchUniquesStat();
+
+		await createMainWindow();
+		await startUserDataWatcher();
+
 		const userData = await loadUserData();
+		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
 		if ( ! userData.lastBumpStats ) {
-			bumpStat( 'studio-app-launch-first', process.platform );
+			bumpStat( StatsGroup.STUDIO_APP_LAUNCH, getPlatformMetric( process.platform ) );
 		}
 
 		// Bump a stat on each app launch, approximates total app launches
-		bumpStat( 'studio-app-launch-total', process.platform );
+		bumpStat( StatsGroup.STUDIO_APP_LAUNCH_TOTAL, getPlatformMetric( process.platform ) );
 		// Bump stat for unique weekly app launch, approximates weekly active users
-		bumpAggregatedUniqueStat( 'local-environment-launch-uniques', process.platform, 'weekly' );
+		bumpAggregatedUniqueStat(
+			StatsGroup.STUDIO_APP_LAUNCH_UNIQUE,
+			getPlatformMetric( process.platform ),
+			'weekly'
+		);
+		// Bump stat for unique monthly app launch, approximates monthly active users
+		bumpAggregatedUniqueStat(
+			StatsGroup.STUDIO_APP_LAUNCH_UNIQUE_MONTHLY,
+			getPlatformMetric( process.platform ),
+			'monthly'
+		);
+
+		await installCLIOnWindows();
 
 		finishedInitialization = true;
 	} );
@@ -330,7 +360,9 @@ async function appBoot() {
 	} );
 
 	app.on( 'quit', () => {
-		stopAllServersOnQuit();
+		void stopAllServersOnQuit();
+		stopProxyServer().catch( ( error ) => console.error( 'Error stopping proxy server:', error ) );
+		stopUserDataWatcher();
 	} );
 
 	app.on( 'activate', () => {
@@ -341,7 +373,7 @@ async function appBoot() {
 		if ( BrowserWindow.getAllWindows().length === 0 ) {
 			// On OS X it's common to re-create a window in the app when the
 			// dock icon is clicked and there are no other windows open.
-			createMainWindow();
+			void createMainWindow();
 		}
 	} );
 }

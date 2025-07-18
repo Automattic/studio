@@ -30,21 +30,93 @@ npm install
 Once all required dependencies are installed, you can run the app with the following command:
 
 ```bash
-npm install
 npm start
 ```
 
-The app automatically launches with the Chromium developer tools opened by default. Changes to the "renderer" process code will automatically reload the app, changes to the main process code require a manual server restart or [typing `rs`](https://www.electronforge.io/cli#start) into the same terminal where the server was started.
+This command starts the app in dev mode and opens it automatically, with the Chromium developer tools opened by default. Studio uses [Electron Forge](https://www.electronforge.io/) for running the app in dev mode, building, and packaging.
+
+As with any Electron app, the code is split into two processes:
+
+1. **Renderer Process** (reloads automatically):
+   - All React components and UI code in `src/components/`, `src/modules/*/components/`
+   - Hooks, stores, and utilities used by the UI (`src/hooks/`, `src/stores/`, etc.)
+   - Any code that runs in the browser window context
+
+2. **Main Process** (requires restart):
+   - IPC handlers in `src/ipc-handlers.ts`
+   - Electron main process code in `src/index.ts`
+   - Node.js operations like file system access
+   - PHP server management code
+
+When editing main process code, you can either:
+- Restart the app manually, or
+- Type `rs` in the terminal where you ran `npm start` to restart the server
+
+A good rule of thumb: if the code interacts with the operating system, file system, or PHP server, it's likely main process code and will need a restart to see changes.
+
+> [!TIP]
+> If you encounter `Error: Cannot find module 'appdmg'` error, ensure that `python-setuptools` are installed in your environment according to the previous steps.
+
+### Running the CLI
+
+The CLI is built separately from the Electron app. There are two commands to be aware of:
+
+- `npm run cli:build` runs a one-time build.
+- `npm run cli:watch` watches the source files and rebuilds automatically.
+
+Both commands output a `dist/cli/main.js` file. To test the newly built CLI code, run the following command:
+
+```
+node dist/cli/main.js
+```
 
 ### Project Structure
 
-The following represents notable pieces of project structure:
+The project follows a modular architecture with both global and feature-specific code organization:
 
-- `scripts/` - scripts for building and testing the app.
-- `src/` - the source code for the app.
-- `src/index.ts` - the entry point for the main process.
-- `src/renderer.ts` - the entry point for the "renderer," the code running in the Chromium window.
-- `vendor/wp-now` - the modified `wp-now` source code.
+#### Global Directories
+
+| Directory         | Description |
+|-------------------|-------------|
+| `cli/`            | Root directory for CLI code |
+| `common/`         | Shared code between CLI and Studio (constants, types, utility functions, etc) |
+| `src/`            | Root directory for Studio code |
+| `src/components/` | Reusable UI components used across the application |
+| `src/hooks/`      | Global React hooks |
+| `src/lib/`        | Utility functions and helper libraries |
+| `src/modules/`    | Feature-specific code |
+| `src/stores/`     | Global state management (Redux stores) |
+| `src/api/`        | API interfaces and implementations |
+
+#### Important Entry Points
+
+| File | Description |
+|------|-------------|
+| `cli/index.ts`    | The entry point for the CLI bundle |
+| `scripts/`        | Scripts for building and testing the app |
+| `src/index.ts`    | The entry point for the main process |
+| `src/renderer.ts` | The entry point for the "renderer," the code running in the Chromium window |
+| `vendor/wp-now`   | The modified `wp-now` source code |
+
+#### Feature Modules
+
+Feature-specific code is organized in the `src/modules/` directory. Each module follows a consistent internal structure:
+
+```
+src/modules/
+  ├── preview-site/          # Preview sites feature
+  │   ├── components/        # Feature-specific components
+  │   ├── hooks/             # Feature-specific hooks
+  │   └── lib/               # Feature-specific utilities
+  │
+  ├── ai-assistant/          # AI Assistant feature
+  │   └── ...
+  │
+  └── sidebar/               # Sites sidebar feature
+      └── ...
+```
+
+Each feature module should be self-contained and include its own components, hooks, and utilities. This organization helps maintain separation of concerns and makes the codebase more maintainable.
 
 ### Code Formatting
 
@@ -92,21 +164,7 @@ npm run e2e
 
 ## Debugging
 
-The renderer process can be debugged using the Chromium developer tools. To open the developer tools, press <kbd>Cmd</kbd>+<kbd>Option</kbd>+<kbd>I</kbd> on Mac or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> on Windows.
-
-The React tree in the renderer process can be debugged with the standalone [React Developer Tools](https://react.dev/learn/react-developer-tools#safari-and-other-browsers). To do this, start the the React Developer Tools and then start the app with the `REACT_DEV_TOOLS=true` flag set.
-
-First, install and run the React Developer Tools:
-
-```bash
-npx react-devtools
-```
-
-Then start the app with the `REACT_DEV_TOOLS=true` flag:
-
-```bash
-REACT_DEV_TOOLS=true npm start
-```
+The renderer process can be debugged using the Chromium developer tools. To open the developer tools, press <kbd>Cmd</kbd>+<kbd>Option</kbd>+<kbd>I</kbd> on Mac or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> on Windows. You can also use the [React Developer Tools](https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi) and [Redux DevTools](https://chromewebstore.google.com/detail/redux-devtools/lmhkpmbekcpmknklioeibfkpmmfibljd) to debug the renderer process.
 
 The main process can be debugged using the Node.js inspector. To do this, run the app with the `--inspect-brk-electron` flag:
 
@@ -144,3 +202,9 @@ See [Localization](./localization.md) documentation.
 ## Versioning and Updates
 
 See [Versioning and Updates](./versioning-and-updates.md) documentation.
+
+## Design Docs
+
+ - [Custom Domains and SSL](./design-docs/custom-domains-and-ssl.md)
+ - [What's New modal](./design-docs/whats-new-modal.md)
+ - [Sync](./design-docs/sync.md)

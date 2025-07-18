@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
-import { ExportEventType } from './export/events';
-import { ImportEventType } from './import/events';
+import { ExportEventType } from 'src/lib/import-export/export/events';
+import { ImportEventType } from 'src/lib/import-export/import/events';
 
 export type ImportExportEventType = ImportEventType | ExportEventType;
 

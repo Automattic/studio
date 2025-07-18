@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { exec, ExecOptions } from 'child_process';
 import crypto from 'crypto';
 import {
 	BrowserWindow,
@@ -12,40 +12,72 @@ import {
 } from 'electron';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
+import https from 'node:https';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
-import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
-import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from './constants';
-import { SyncSite } from './hooks/use-fetch-wpcom-sites';
-import { ACTIVE_SYNC_OPERATIONS } from './lib/active-sync-operations';
-import { download } from './lib/download';
-import { isEmptyDir, pathExists, isWordPressDirectory, sanitizeFolderName } from './lib/fs-utils';
-import { getImageData } from './lib/get-image-data';
-import { getSyncBackupTempPath } from './lib/get-sync-backup-temp-path';
-import { exportBackup } from './lib/import-export/export/export-manager';
-import { ExportOptions } from './lib/import-export/export/types';
-import { ImportExportEventData } from './lib/import-export/handle-events';
-import { defaultImporterOptions, importBackup } from './lib/import-export/import/import-manager';
-import { BackupArchiveInfo } from './lib/import-export/import/types';
-import { isErrnoException } from './lib/is-errno-exception';
-import { isInstalled } from './lib/is-installed';
-import { SupportedLocale } from './lib/locale';
-import { getUserLocaleWithFallback } from './lib/locale-node';
-import * as oauthClient from './lib/oauth';
-import { createPassword } from './lib/passwords';
-import { phpGetThemeDetails } from './lib/php-get-theme-details';
-import { sanitizeForLogging } from './lib/sanitize-for-logging';
-import { sortSites } from './lib/sort-sites';
-import { installSqliteIntegration, keepSqliteIntegrationUpdated } from './lib/sqlite-versions';
-import * as windowsHelpers from './lib/windows-helpers';
-import { writeLogToFile, type LogLevel } from './logging';
-import { popupMenu, setupMenu } from './menu';
-import { SiteServer, createSiteWorkingDirectory } from './site-server';
-import { DEFAULT_SITE_PATH, getResourcesPath, getSiteThumbnailPath } from './storage/paths';
-import { loadUserData, saveUserData } from './storage/user-data';
-import type { WpCliResult } from './lib/wp-cli-process';
+import { calculateDirectorySize, isWordPressDirectory, arePathsEqual } from 'common/lib/fs-utils';
+import { SupportedLocale } from 'common/lib/locale';
+import { getAuthenticationUrl } from 'common/lib/oauth';
+import { Snapshot } from 'common/types/snapshot';
+import { StatsGroup, StatsMetric } from 'common/types/stats';
+import { ARCHIVER_OPTIONS, DEFAULT_TERMINAL, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
+import { bumpStat } from 'src/lib/bump-stats';
+import { getImporterMetric } from 'src/lib/bump-stats/lib';
+import {
+	openCertificate as openCertificateDialog,
+	isRootCATrusted,
+	trustRootCA,
+} from 'src/lib/certificate-manager';
+import { download } from 'src/lib/download';
+import { buildFeatureFlags } from 'src/lib/feature-flags';
+import { isEmptyDir, pathExists, sanitizeFolderName } from 'src/lib/fs-utils';
+import { getImageData } from 'src/lib/get-image-data';
+import { getSiteUrl } from 'src/lib/get-site-url';
+import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
+import { exportBackup } from 'src/lib/import-export/export/export-manager';
+import { ExportOptions } from 'src/lib/import-export/export/types';
+import { ImportExportEventData } from 'src/lib/import-export/handle-events';
+import { defaultImporterOptions, importBackup } from 'src/lib/import-export/import/import-manager';
+import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
+import { isErrnoException } from 'src/lib/is-errno-exception';
+import { isInstalled } from 'src/lib/is-installed';
+import { getUserLocaleWithFallback } from 'src/lib/locale-node';
+import * as oauthClient from 'src/lib/oauth';
+import { getSignUpUrl } from 'src/lib/oauth';
+import { createPassword } from 'src/lib/passwords';
+import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
+import { portFinder } from 'src/lib/port-finder';
+import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { sortSites } from 'src/lib/sort-sites';
+import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
+import { updateSiteUrl } from 'src/lib/update-site-url';
+import * as windowsHelpers from 'src/lib/windows-helpers';
+import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
+import { getMainWindow } from 'src/main-window';
+import { popupMenu, setupMenu } from 'src/menu';
+import { executePreviewCliCommand } from 'src/modules/cli/lib/execute-preview-command';
+import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
+import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
+import { UserSettingsTabName } from 'src/modules/user-settings/user-settings-types';
+import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
+import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
+import {
+	loadUserData,
+	lockAppdata,
+	saveUserData,
+	unlockAppdata,
+	updateAppdata,
+} from 'src/storage/user-data';
+import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
+import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { WpCliResult } from 'src/lib/wp-cli-process';
+import type { GranularSyncFolders } from 'src/modules/sync/types';
+import type { SyncOption } from 'src/types';
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
 if ( ! fs.existsSync( TEMP_DIR ) ) {
@@ -58,14 +90,13 @@ async function sendThumbnailChangedEvent( event: IpcMainInvokeEvent, id: string 
 	}
 	const thumbnailData = await getThumbnailData( event, id );
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( parentWindow && ! parentWindow.isDestroyed() ) {
-		parentWindow.webContents.send( 'thumbnail-changed', id, thumbnailData );
-	}
+	sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-changed', {
+		id,
+		imageData: thumbnailData,
+	} );
 }
 
-async function mergeSiteDetailsWithRunningDetails(
-	sites: SiteDetails[]
-): Promise< SiteDetails[] > {
+function mergeSiteDetailsWithRunningDetails( sites: SiteDetails[] ): SiteDetails[] {
 	return sites.map( ( site ) => {
 		const server = SiteServer.get( site.id );
 		if ( server ) {
@@ -77,10 +108,6 @@ async function mergeSiteDetailsWithRunningDetails(
 
 export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
 	const userData = await loadUserData();
-
-	// This is probably one of the first times the user data is loaded. Take the opportunity
-	// to log for debugging purposes.
-	console.log( 'Loaded user data', sanitizeForLogging( userData ) );
 
 	const { sites } = userData;
 
@@ -94,17 +121,24 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	return mergeSiteDetailsWithRunningDetails( sites );
 }
 
-export async function getInstalledApps( _event: IpcMainInvokeEvent ): Promise< InstalledApps > {
+export function getInstalledAppsAndTerminals(): InstalledApps {
 	return {
 		vscode: isInstalled( 'vscode' ),
 		phpstorm: isInstalled( 'phpstorm' ),
+		webstorm: isInstalled( 'webstorm' ),
+		windsurf: isInstalled( 'windsurf' ),
+		cursor: isInstalled( 'cursor' ),
+		terminal: true, // Terminal.app is always available on macOS
+		iterm: isInstalled( 'iterm' ),
+		warp: isInstalled( 'warp' ),
+		ghostty: isInstalled( 'ghostty' ),
 	};
 }
 
 export async function importSite(
 	event: IpcMainInvokeEvent,
 	{ id, backupFile }: { id: string; backupFile: BackupArchiveInfo }
-): Promise< SiteDetails | undefined > {
+): Promise< SiteDetails > {
 	const site = SiteServer.get( id );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
@@ -112,19 +146,18 @@ export async function importSite(
 	try {
 		const onEvent = ( data: ImportExportEventData ) => {
 			const parentWindow = BrowserWindow.fromWebContents( event.sender );
-			if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
-				parentWindow.webContents.send( 'on-import', data, id );
-			}
+			sendIpcEventToRendererWithWindow( parentWindow, 'on-import', data, id );
 		};
 		const result = await importBackup( backupFile, site.details, onEvent, defaultImporterOptions );
-		if ( ! result ) {
-			return;
-		}
+
+		bumpStat( StatsGroup.STUDIO_IMPORT, getImporterMetric( result.importerType ) );
+
 		if ( result?.meta?.phpVersion ) {
 			site.details.phpVersion = result.meta.phpVersion;
 		}
 		return site.details;
 	} catch ( e ) {
+		bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
 		Sentry.captureException( e );
 		throw e;
 	}
@@ -133,9 +166,12 @@ export async function importSite(
 export async function createSite(
 	event: IpcMainInvokeEvent,
 	path: string,
-	siteName?: string
-): Promise< SiteDetails[] > {
-	const userData = await loadUserData();
+	siteName?: string,
+	wpVersion?: string,
+	customDomain?: string,
+	enableHttps?: boolean,
+	siteId?: string
+): Promise< SiteDetails > {
 	const forceSetupSqlite = false;
 	// We only recursively create the directory if the user has not selected a
 	// path from the dialog (and thus they use the "default" or suggested path).
@@ -147,33 +183,40 @@ export async function createSite(
 		// Form validation should've prevented a non-empty directory from being selected
 		throw new Error( 'The selected directory is not empty nor an existing WordPress site.' );
 	}
+	let userData = await loadUserData();
 
 	const allPaths = userData?.sites?.map( ( site ) => site.path ) || [];
 	if ( allPaths.includes( path ) ) {
-		return userData.sites;
+		throw new Error( 'The selected directory is already in use.' );
 	}
 
 	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
 		try {
-			await createSiteWorkingDirectory( path );
+			await createSiteWorkingDirectory( path, wpVersion );
 		} catch ( error ) {
 			// If site creation failed, remove the generated files and re-throw the
 			// error so it can be handled by the caller.
-			shell.trashItem( path );
+			await shell.trashItem( path );
 			throw error;
 		}
 	}
 
+	const port = await portFinder.getOpenPort();
+
 	const details = {
-		id: crypto.randomUUID(),
+		id: siteId || crypto.randomUUID(),
 		name: siteName || nodePath.basename( path ),
 		path,
 		adminPassword: createPassword(),
+		port,
 		running: false,
 		phpVersion: DEFAULT_PHP_VERSION,
+		isWpAutoUpdating: wpVersion === DEFAULT_WORDPRESS_VERSION,
+		customDomain,
+		enableHttps,
 	} as const;
 
-	const server = SiteServer.create( details );
+	const server = SiteServer.create( details, { wpVersion } );
 
 	if ( isWordPressDirectory( path ) ) {
 		// If the directory contains a WordPress installation, and user wants to force SQLite
@@ -188,73 +231,88 @@ export async function createSite(
 
 		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
 			await installSqliteIntegration( path );
+		} else {
+			await updateSiteUrl( server, getSiteUrl( details ) );
 		}
 	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
-		parentWindow.webContents.send( 'theme-details-updating', details.id );
+	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id: details.id } );
+	try {
+		await lockAppdata();
+		userData = await loadUserData();
+
+		userData.sites.push( server.details );
+		sortSites( userData.sites );
+
+		await saveUserData( userData );
+		return server.details;
+	} finally {
+		await unlockAppdata();
 	}
-
-	userData.sites.push( server.details );
-	sortSites( userData.sites );
-	await saveUserData( userData );
-
-	return mergeSiteDetailsWithRunningDetails( userData.sites );
 }
 
 export async function updateSite(
 	event: IpcMainInvokeEvent,
 	updatedSite: SiteDetails
-): Promise< SiteDetails[] > {
-	const userData = await loadUserData();
-	const updatedSites = userData.sites.map( ( site ) =>
-		site.id === updatedSite.id ? updatedSite : site
-	);
-	userData.sites = updatedSites;
+): Promise< void > {
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const updatedSites = userData.sites.map( ( site ) =>
+			site.id === updatedSite.id ? updatedSite : site
+		);
+		userData.sites = updatedSites;
 
-	const server = SiteServer.get( updatedSite.id );
-	if ( server ) {
-		server.updateSiteDetails( updatedSite );
+		const server = SiteServer.get( updatedSite.id );
+		if ( server ) {
+			await server.updateSiteDetails( updatedSite );
+		}
+		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
 	}
-	await saveUserData( userData );
-	return mergeSiteDetailsWithRunningDetails( userData.sites );
 }
 
 type WpcomSitesToConnect = { sites: SyncSite[]; localSiteId: string }[];
 
 export async function connectWpcomSites( event: IpcMainInvokeEvent, list: WpcomSitesToConnect ) {
-	const userData = await loadUserData();
-	const currentUserId = userData.authToken?.id;
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const currentUserId = userData.authToken?.id;
 
-	if ( ! currentUserId ) {
-		throw new Error( 'User not authenticated' );
-	}
+		if ( ! currentUserId ) {
+			throw new Error( 'User not authenticated' );
+		}
 
-	userData.connectedWpcomSites = userData.connectedWpcomSites || {};
-	userData.connectedWpcomSites[ currentUserId ] =
-		userData.connectedWpcomSites[ currentUserId ] || [];
+		userData.connectedWpcomSites = userData.connectedWpcomSites || {};
+		userData.connectedWpcomSites[ currentUserId ] =
+			userData.connectedWpcomSites[ currentUserId ] || [];
 
-	const connections = userData.connectedWpcomSites[ currentUserId ];
+		const connections = userData.connectedWpcomSites[ currentUserId ];
 
-	list.forEach( ( { sites, localSiteId } ) => {
-		sites.forEach( ( siteToAdd ) => {
-			const isAlreadyConnected = connections.some(
-				( conn ) => conn.id === siteToAdd.id && conn.localSiteId === localSiteId
-			);
+		list.forEach( ( { sites, localSiteId } ) => {
+			sites.forEach( ( siteToAdd ) => {
+				const isAlreadyConnected = connections.some(
+					( conn ) => conn.id === siteToAdd.id && conn.localSiteId === localSiteId
+				);
 
-			// Add the site if it's not already connected
-			if ( ! isAlreadyConnected ) {
-				connections.push( { ...siteToAdd, localSiteId } );
-			}
+				// Add the site if it's not already connected
+				if ( ! isAlreadyConnected ) {
+					connections.push( {
+						...siteToAdd,
+						localSiteId,
+						syncSupport: 'already-connected',
+					} );
+				}
+			} );
 		} );
-	} );
 
-	await saveUserData( userData );
-
-	return connections.filter( ( conn ) =>
-		list.some( ( { localSiteId } ) => conn.localSiteId === localSiteId )
-	);
+		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
+	}
 }
 
 type WpcomSitesToDisconnect = { siteIds: number[]; localSiteId: string }[];
@@ -263,55 +321,87 @@ export async function disconnectWpcomSites(
 	event: IpcMainInvokeEvent,
 	list: WpcomSitesToDisconnect
 ) {
-	const userData = await loadUserData();
-	const currentUserId = userData.authToken?.id;
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const currentUserId = userData.authToken?.id;
 
-	if ( ! currentUserId ) {
-		throw new Error( 'User not authenticated' );
+		if ( ! currentUserId ) {
+			throw new Error( 'User not authenticated' );
+		}
+
+		const connectedWpcomSites = userData.connectedWpcomSites;
+
+		// Totally unreal case, added it to help TS parse the code below. And if this error happens, we definitely have something wrong.
+		if ( ! Array.isArray( connectedWpcomSites?.[ currentUserId ] ) ) {
+			throw new Error(
+				'Something went wrong, since you are trying to disconnect something, but there are no stored connections yet'
+			);
+		}
+
+		list.forEach( ( { siteIds, localSiteId } ) => {
+			const updatedConnections = connectedWpcomSites[ currentUserId ].filter(
+				( conn ) => ! ( siteIds.includes( conn.id ) && conn.localSiteId === localSiteId )
+			);
+
+			connectedWpcomSites[ currentUserId ] = updatedConnections;
+		} );
+
+		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
 	}
-
-	const connectedWpcomSites = userData.connectedWpcomSites;
-
-	// Totally unreal case, added it to help TS parse the code below. And if this error happens, we definitely have something wrong.
-	if ( ! Array.isArray( connectedWpcomSites?.[ currentUserId ] ) ) {
-		throw new Error(
-			'Something went wrong, since you are trying to disconnect something, but there are no stored connections yet'
-		);
-	}
-
-	list.forEach( ( { siteIds, localSiteId } ) => {
-		const updatedConnections = connectedWpcomSites[ currentUserId ].filter(
-			( conn ) => ! ( siteIds.includes( conn.id ) && conn.localSiteId === localSiteId )
-		);
-
-		connectedWpcomSites[ currentUserId ] = updatedConnections;
-	} );
-
-	await saveUserData( userData );
-
-	return connectedWpcomSites[ currentUserId ].filter( ( conn ) =>
-		list.some( ( { localSiteId } ) => conn.localSiteId === localSiteId )
-	);
 }
 
 export async function updateConnectedWpcomSites(
 	event: IpcMainInvokeEvent,
 	updatedSites: SyncSite[]
 ) {
-	const userData = await loadUserData();
-	const currentUserId = userData.authToken?.id;
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const currentUserId = userData.authToken?.id;
 
-	if ( ! currentUserId ) {
-		throw new Error( 'User not authenticated' );
+		if ( ! currentUserId ) {
+			throw new Error( 'User not authenticated' );
+		}
+
+		const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
+
+		if ( ! connections.length ) {
+			return;
+		}
+
+		updatedSites.forEach( ( updatedSite ) => {
+			const index = connections.findIndex(
+				( conn ) => conn.id === updatedSite.id && conn.localSiteId === updatedSite.localSiteId
+			);
+
+			if ( index !== -1 ) {
+				connections[ index ] = updatedSite;
+			}
+		} );
+
+		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
 	}
+}
 
-	const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
+export async function updateSingleConnectedWpcomSite(
+	event: IpcMainInvokeEvent,
+	updatedSite: SyncSite
+) {
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const currentUserId = userData.authToken?.id;
 
-	if ( ! connections.length ) {
-		return;
-	}
+		if ( ! currentUserId ) {
+			throw new Error( 'User not authenticated' );
+		}
 
-	updatedSites.forEach( ( updatedSite ) => {
+		const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
 		const index = connections.findIndex(
 			( conn ) => conn.id === updatedSite.id && conn.localSiteId === updatedSite.localSiteId
 		);
@@ -319,35 +409,10 @@ export async function updateConnectedWpcomSites(
 		if ( index !== -1 ) {
 			connections[ index ] = updatedSite;
 		}
-	} );
 
-	await saveUserData( userData );
-}
-
-export async function updateSingleConnectedWpcomSite(
-	event: IpcMainInvokeEvent,
-	updatedSite: SyncSite
-) {
-	const userData = await loadUserData();
-	const currentUserId = userData.authToken?.id;
-
-	if ( ! currentUserId ) {
-		throw new Error( 'User not authenticated' );
-	}
-
-	const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
-
-	if ( ! connections.length ) {
-		return;
-	}
-
-	const index = connections.findIndex(
-		( conn ) => conn.id === updatedSite.id && conn.localSiteId === updatedSite.localSiteId
-	);
-
-	if ( index !== -1 ) {
-		connections[ index ] = updatedSite;
 		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
 	}
 }
 
@@ -384,21 +449,49 @@ export async function startServer(
 	await keepSqliteIntegrationUpdated( server.details.path );
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	await server.start();
-	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
-		parentWindow.webContents.send( 'theme-details-changed', id, server.details.themeDetails );
+	try {
+		await server.start();
+	} catch ( error ) {
+		/**
+		 * We don't want to track WASM memory errors in Sentry
+		 * because they are caused by the user's system not having enough memory
+		 * and aren't a bug in Studio.
+		 *
+		 * When the error is thrown, we show a user-friendly message
+		 * to the user, with instructions on how to provide more memory to Studio.
+		 */
+		if (
+			error instanceof Error &&
+			error.message.includes( 'Cannot allocate Wasm memory for new instance' )
+		) {
+			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
+		}
+
+		Sentry.captureException( error );
+		if (
+			error instanceof Error &&
+			error.message.includes( '"unreachable" WASM instruction executed' )
+		) {
+			throw new Error( 'Please try disabling plugins and themes that might be causing the issue.' );
+		}
+		throw error;
 	}
+
+	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-changed', {
+		id,
+		details: server.details.themeDetails,
+	} );
 
 	if ( server.details.running ) {
 		try {
 			await server.updateCachedThumbnail();
-			sendThumbnailChangedEvent( event, id );
+			await sendThumbnailChangedEvent( event, id );
 		} catch ( error ) {
 			console.error( `Failed to update thumbnail for server ${ id }:`, error );
 		}
 	}
 
-	console.log( 'Server started', server.details );
+	console.log( `Server started for '${ server.details.name }'` );
 	await updateSite( event, server.details );
 	return server.details;
 }
@@ -413,6 +506,7 @@ export async function stopServer(
 	}
 
 	await server.stop();
+	await updateSite( event, server.details );
 	return server.details;
 }
 
@@ -445,7 +539,8 @@ export async function showSaveAsDialog( event: IpcMainInvokeEvent, options: Save
 
 export async function showOpenFolderDialog(
 	event: IpcMainInvokeEvent,
-	title: string
+	title: string,
+	defaultDialogPath: string
 ): Promise< FolderDialogResponse | null > {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( ! parentWindow ) {
@@ -467,7 +562,7 @@ export async function showOpenFolderDialog(
 
 	const { canceled, filePaths } = await dialog.showOpenDialog( parentWindow, {
 		title,
-		defaultPath: DEFAULT_SITE_PATH,
+		defaultPath: defaultDialogPath !== '' ? defaultDialogPath : DEFAULT_SITE_PATH,
 		properties: [
 			'openDirectory',
 			'createDirectory', // allow user to create new directories; macOS only
@@ -485,24 +580,36 @@ export async function showOpenFolderDialog(
 	};
 }
 
-export async function saveUserLocale( _event: IpcMainInvokeEvent, locale: string ) {
+export async function saveUserLocale( event: IpcMainInvokeEvent, locale: string ) {
+	await updateAppdata( { locale } );
+}
+
+export async function saveUserEditor( event: IpcMainInvokeEvent, editor: SupportedEditor ) {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	sendIpcEventToRendererWithWindow( parentWindow, 'user-preference-changed' );
+
+	await updateAppdata( { preferredEditor: editor } );
+}
+
+export async function getSentryUserId( _event: IpcMainInvokeEvent ): Promise< string | undefined > {
 	const userData = await loadUserData();
-	await saveUserData( {
-		...userData,
-		locale,
-	} );
+	return userData.sentryUserId;
 }
 
 export async function getUserLocale( _event: IpcMainInvokeEvent ): Promise< SupportedLocale > {
 	return getUserLocaleWithFallback();
 }
 
-export async function showUserSettings( event: IpcMainInvokeEvent ): Promise< void > {
+export async function getUserEditor(
+	_event: IpcMainInvokeEvent
+): Promise< SupportedEditor | null > {
+	const userData = await loadUserData();
+	return userData.preferredEditor ?? null;
+}
+
+export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( ! parentWindow ) {
-		throw new Error( `No window found for sender of showUserSettings message: ${ event.frameId }` );
-	}
-	parentWindow.webContents.send( 'user-settings' );
+	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings', { tabName } );
 }
 
 function archiveWordPressDirectory( {
@@ -516,9 +623,7 @@ function archiveWordPressDirectory( {
 } ) {
 	return new Promise( ( resolve, reject ) => {
 		const output = fs.createWriteStream( archivePath );
-		const archive = archiver( format, {
-			zlib: { level: 9 }, // Sets the compression level.
-		} );
+		const archive = archiver( format, ARCHIVER_OPTIONS[ format ] );
 
 		output.on( 'close', function () {
 			resolve( archive );
@@ -533,7 +638,7 @@ function archiveWordPressDirectory( {
 		archive.directory( `${ source }/wp-content`, 'wp-content' );
 		archive.file( `${ source }/wp-config.php`, { name: 'wp-config.php' } );
 
-		archive.finalize();
+		archive.finalize().catch( reject );
 	} );
 }
 
@@ -550,24 +655,51 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string, format
 		format,
 	} );
 	const stats = fs.statSync( archivePath );
-	const archiveContent = fs.readFileSync( archivePath );
-	return { archivePath, archiveContent, archiveSizeInBytes: stats.size };
+	return { archivePath, archiveSizeInBytes: stats.size };
 }
 
-export async function exportSiteToPush( event: IpcMainInvokeEvent, id: string ) {
+export async function exportSiteToPush(
+	event: IpcMainInvokeEvent,
+	id: string,
+	configuration?: {
+		optionsToSync?: SyncOption[];
+		specificSelections?: {
+			plugins?: string[];
+			themes?: string[];
+			uploads?: string[];
+		};
+	}
+) {
 	const site = SiteServer.get( id );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
 	const extension = 'tar.gz';
 	const archivePath = `${ TEMP_DIR }site_${ id }.${ extension }`;
+
+	const shouldIncludeSyncOption = (
+		optionsToSync: SyncOption[] | undefined,
+		option: SyncOption
+	): boolean => {
+		return optionsToSync?.includes( option ) || optionsToSync?.includes( 'all' ) || ! optionsToSync;
+	};
+
+	const includes = {
+		database: shouldIncludeSyncOption( configuration?.optionsToSync, 'sqls' ),
+		uploads: shouldIncludeSyncOption( configuration?.optionsToSync, 'uploads' ),
+		plugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'plugins' ),
+		themes: shouldIncludeSyncOption( configuration?.optionsToSync, 'themes' ),
+		muPlugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
+		fonts: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
+	};
+
 	const exportOptions: ExportOptions = {
 		site: site.details,
 		backupFile: archivePath,
-		includes: { database: true, uploads: true, plugins: true, themes: true },
+		includes,
 		phpVersion: site.details.phpVersion,
 		splitDatabaseDumpByTable: true,
-		targetHost: 'wpcom',
+		specificSelections: configuration?.specificSelections,
 	};
 	// eslint-disable-next-line @typescript-eslint/no-empty-function
 	const onEvent = () => {};
@@ -592,26 +724,29 @@ export function removeTemporalFile( event: IpcMainInvokeEvent, path: string ) {
 }
 
 export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteFiles = false ) {
-	const server = SiteServer.get( id );
-	console.log( 'Deleting site', id );
-	if ( ! server ) {
-		throw new Error( 'Site not found.' );
-	}
-	const userData = await loadUserData();
-	await server.delete();
 	try {
-		// Move files to trash
-		if ( deleteFiles ) {
-			await shell.trashItem( server.details.path );
+		await lockAppdata();
+		const userData = await loadUserData();
+		const server = SiteServer.get( id );
+		console.log( 'Deleting site', id );
+		if ( ! server ) {
+			throw new Error( 'Site not found.' );
 		}
-	} catch ( error ) {
-		/* We want to exit gracefully if the there is an error deleting the site files */
-		Sentry.captureException( error );
+		await server.delete();
+		try {
+			// Move files to trash
+			if ( deleteFiles ) {
+				await shell.trashItem( server.details.path );
+			}
+		} catch ( error ) {
+			/* We want to exit gracefully if the there is an error deleting the site files */
+			Sentry.captureException( error );
+		}
+		const newSites = userData.sites.filter( ( site ) => site.id !== id );
+		await saveUserData( { ...userData, sites: newSites } );
+	} finally {
+		await unlockAppdata();
 	}
-	const newSites = userData.sites.filter( ( site ) => site.id !== id );
-	const newUserData = { ...userData, sites: newSites };
-	await saveUserData( newUserData );
-	return mergeSiteDetailsWithRunningDetails( newSites );
 }
 
 export function logRendererMessage(
@@ -624,13 +759,13 @@ export function logRendererMessage(
 	writeLogToFile( level, processId, ...args );
 }
 
-export async function authenticate( _event: IpcMainInvokeEvent ): Promise< void > {
-	return oauthClient.authenticate();
+export async function authenticate( event: IpcMainInvokeEvent, isSignup = false ) {
+	const locale = await getUserLocaleWithFallback();
+	const authUrl = isSignup ? getSignUpUrl( locale ) : getAuthenticationUrl( locale );
+	void shellOpenExternalWrapper( authUrl );
 }
 
-export async function getAuthenticationToken(
-	_event: IpcMainInvokeEvent
-): Promise< oauthClient.StoredToken | null > {
+export async function getAuthenticationToken() {
 	return oauthClient.getAuthenticationToken();
 }
 
@@ -639,7 +774,7 @@ export async function isAuthenticated() {
 }
 
 export async function clearAuthenticationToken() {
-	return oauthClient.clearAuthenticationToken();
+	return await updateAppdata( { authToken: undefined } );
 }
 
 export async function exportSite(
@@ -650,29 +785,64 @@ export async function exportSite(
 	try {
 		const onEvent = ( data: ImportExportEventData ) => {
 			const parentWindow = BrowserWindow.fromWebContents( event.sender );
-			if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
-				parentWindow.webContents.send( 'on-export', data, siteId );
-			}
+			sendIpcEventToRendererWithWindow( parentWindow, 'on-export', data, siteId );
 		};
-		return await exportBackup( options, onEvent );
+
+		const result = await exportBackup( options, onEvent );
+
+		if ( result ) {
+			const isDatabaseOnly =
+				options.includes.database &&
+				! options.includes.uploads &&
+				! options.includes.plugins &&
+				! options.includes.themes &&
+				! options.includes.muPlugins;
+			bumpStat(
+				StatsGroup.STUDIO_EXPORT,
+				isDatabaseOnly ? StatsMetric.DATABASE_ONLY : StatsMetric.FULL_SITE
+			);
+		} else {
+			bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
+		}
+
+		return result;
 	} catch ( e ) {
+		bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
 		Sentry.captureException( e );
 		throw e;
 	}
 }
 
 export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapshots: Snapshot[] ) {
-	const userData = await loadUserData();
-	await saveUserData( {
-		...userData,
-		snapshots: snapshots.map( ( { isLoading, ...restSnapshots } ) => restSnapshots ),
-	} );
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		userData.snapshots = snapshots;
+		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
+	}
+}
+
+export async function saveLastSeenVersion( event: IpcMainInvokeEvent, version: string ) {
+	await updateAppdata( { lastSeenVersion: version } );
 }
 
 export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snapshot[] > {
 	const userData = await loadUserData();
 	const { snapshots = [] } = userData;
 	return snapshots;
+}
+
+export async function getLastSeenVersion(
+	_event: IpcMainInvokeEvent
+): Promise< string | undefined > {
+	// If we're running in E2E mode, return the app version
+	if ( process.env.E2E ) {
+		return app.getVersion();
+	}
+	const userData = await loadUserData();
+	return userData.lastSeenVersion;
 }
 
 export async function openSiteURL(
@@ -682,38 +852,42 @@ export async function openSiteURL(
 	{ autoLogin = true }: { autoLogin?: boolean } = {}
 ) {
 	const site = SiteServer.get( id );
-	if ( ! site ) {
-		throw new Error( 'Site not found.' );
+	if ( ! site?.server?.url ) {
+		await showMessageBox( event, {
+			type: 'error',
+			message: __( 'Failed to open link' ),
+			detail: __( 'Please ensure your site files have not been moved or deleted.' ),
+		} );
+		return;
 	}
-	if ( ! site.server?.url ) {
-		throw new Error( 'Site server URL not found.' );
-	}
-	const url = new URL( site.server.url + relativeURL );
+
+	const url = new URL( relativeURL, site.server.url );
 	if ( autoLogin ) {
 		url.searchParams.append( 'playground-auto-login', 'true' );
 	}
 
-	shell.openExternal( url.toString() );
+	void shellOpenExternalWrapper( url.toString() );
 }
 
-export async function openURL( event: IpcMainInvokeEvent, url: string ) {
-	return shell.openExternal( url );
+export function openURL( event: IpcMainInvokeEvent, url: string ) {
+	void shellOpenExternalWrapper( url );
 }
 
-export async function copyText( event: IpcMainInvokeEvent, text: string ) {
+export function copyText( event: IpcMainInvokeEvent, text: string ) {
 	return clipboard.writeText( text );
 }
 
-export async function getAppGlobals( _event: IpcMainInvokeEvent ): Promise< AppGlobals > {
+export function getAppGlobals(): AppGlobals {
 	return {
 		platform: process.platform,
 		appName: app.name,
+		appVersion: app.getVersion(),
 		arm64Translation: app.runningUnderARM64Translation,
-		terminalWpCliEnabled: process.env.STUDIO_TERMINAL_WP_CLI === 'true',
+		...buildFeatureFlags(),
 	};
 }
 
-export async function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
+export function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		return '-';
@@ -759,38 +933,40 @@ export async function generateProposedSitePath(
 }
 
 export async function openLocalPath( _event: IpcMainInvokeEvent, path: string ) {
-	shell.openPath( path );
+	await shell.openPath( path );
 }
 
-export async function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
+export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 	shell.showItemInFolder( path );
 }
 
-export async function getThemeDetails( event: IpcMainInvokeEvent, id: string ) {
+export async function getThemeDetails(
+	event: IpcMainInvokeEvent,
+	id: string
+): Promise< StartedSiteDetails[ 'themeDetails' ] > {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		throw new Error( 'Site not found.' );
 	}
 
 	if ( ! server.details.running || ! server.server ) {
-		return null;
+		return undefined;
 	}
 	const themeDetails = await phpGetThemeDetails( server.server );
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( themeDetails?.path && themeDetails.path !== server.details.themeDetails?.path ) {
-		if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
-			parentWindow.webContents.send( 'theme-details-updating', id );
-		}
+		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id } );
 		const updatedSite = {
 			...server.details,
 			themeDetails,
 		};
-		if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
-			parentWindow.webContents.send( 'theme-details-changed', id, themeDetails );
-		}
+		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-changed', {
+			id,
+			details: themeDetails,
+		} );
 
-		server.updateCachedThumbnail().then( () => sendThumbnailChangedEvent( event, id ) );
+		void server.updateCachedThumbnail().then( () => sendThumbnailChangedEvent( event, id ) );
 		server.details.themeDetails = themeDetails;
 		await updateSite( event, updatedSite );
 	}
@@ -803,20 +979,21 @@ export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< 
 	return onboardingCompleted;
 }
 
-export async function saveOnboarding(
-	_event: IpcMainInvokeEvent,
-	onboardingCompleted: boolean
-): Promise< void > {
-	const userData = await loadUserData();
-	await saveUserData( {
-		...userData,
-		onboardingCompleted,
-	} );
+export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompleted: boolean ) {
+	await updateAppdata( { onboardingCompleted } );
 }
 
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,
-	{ siteId, args }: { siteId: string; args: string }
+	{
+		siteId,
+		args,
+		skipPluginsAndThemes = false,
+	}: {
+		siteId: string;
+		args: string;
+		skipPluginsAndThemes?: boolean;
+	}
 ): Promise< WpCliResult > {
 	if ( SiteServer.isDeleted( siteId ) ) {
 		return {
@@ -829,58 +1006,19 @@ export async function executeWPCLiInline(
 	if ( ! server ) {
 		throw new Error( 'Site not found.' );
 	}
-	return server.executeWpCliCommand( args );
+	return server.executeWpCliCommand( args, {
+		skipPluginsAndThemes,
+	} );
 }
 
-export async function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
+export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 	const path = getSiteThumbnailPath( id );
 	return getImageData( path );
 }
 
-export function openTerminalAtPath(
-	_event: IpcMainInvokeEvent,
-	targetPath: string,
-	{ wpCliEnabled }: { wpCliEnabled?: boolean } = {}
-) {
-	return new Promise< void >( ( resolve, reject ) => {
-		const platform = process.platform;
-		const cliPath = nodePath.join( getResourcesPath(), 'bin' );
-
-		const exePath = app.getPath( 'exe' );
-		const appDirectory = app.getAppPath();
-		const appPath = ! app.isPackaged ? `${ exePath } ${ appDirectory }` : exePath;
-
-		let command: string;
-		if ( platform === 'win32' ) {
-			// Windows
-			if ( wpCliEnabled ) {
-				command = `start cmd /K "set PATH=${ cliPath };%PATH% && set STUDIO_APP_PATH=${ appPath } && cd /d ${ targetPath }"`;
-			} else {
-				command = `start cmd /K "cd /d ${ targetPath }"`;
-			}
-		} else if ( platform === 'darwin' ) {
-			// macOS
-			const loadWpCliCommand = `clear && export PATH=\\"${ cliPath }\\":$PATH && export STUDIO_APP_PATH=\\"${ appPath }\\" &&`;
-			const script = `
-			tell application "Terminal"
-				if not application "Terminal" is running then launch
-				do script "${ wpCliEnabled ? loadWpCliCommand : '' } cd ${ targetPath } && clear"
-				activate
-			end tell`;
-			command = `osascript -e '${ script }'`;
-		} else if ( platform === 'linux' ) {
-			// Linux
-			if ( wpCliEnabled ) {
-				command = `export PATH=${ cliPath }:$PATH && export STUDIO_APP_PATH="${ appPath }" && gnome-terminal -- bash -c 'cd ${ targetPath }; exec bash'`;
-			} else {
-				command = `gnome-terminal --working-directory=${ targetPath }`;
-			}
-		} else {
-			console.error( 'Unsupported platform:', platform );
-			return;
-		}
-
-		exec( command, ( error, _stdout, _stderr ) => {
+function promiseExec( command: string, options: ExecOptions = {} ): Promise< void > {
+	return new Promise( ( resolve, reject ) => {
+		exec( command, options, ( error ) => {
 			if ( error ) {
 				reject( error );
 				return;
@@ -890,10 +1028,67 @@ export function openTerminalAtPath(
 	} );
 }
 
-export async function showMessageBox(
+export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: string ) {
+	const platform = process.platform;
+
+	const preferredTerminal = await getUserTerminal();
+
+	if ( platform === 'darwin' ) {
+		const escapedPath = targetPath.replace( /\\/g, '\\\\' ).replace( /"/g, '\\"' );
+		const bundleIds = {
+			warp: 'dev.warp.Warp-Stable',
+			ghostty: 'com.mitchellh.ghostty',
+			iterm: 'com.googlecode.iterm2',
+			terminal: 'com.apple.Terminal',
+		};
+		return promiseExec( `open -b ${ bundleIds[ preferredTerminal ] } "${ escapedPath }"` );
+	} else if ( platform === 'win32' ) {
+		const userData = await loadUserData();
+		const preferredTerminal = userData.preferredTerminal;
+		const defaultShell = process.env.ComSpec || 'cmd.exe';
+
+		if ( preferredTerminal === 'warp' ) {
+			const encodedPath = encodeURIComponent( targetPath );
+			return promiseExec( `start "" "warp://action/new_tab?path=${ encodedPath }"` );
+		}
+
+		return promiseExec( `start "Command Prompt" ${ defaultShell }`, {
+			cwd: targetPath,
+		} );
+	} else if ( platform === 'linux' ) {
+		return promiseExec( `gnome-terminal --working-directory=${ targetPath }` );
+	} else {
+		console.error( 'Unsupported platform:', platform );
+		return;
+	}
+}
+
+export async function openAppAtPath(
 	event: IpcMainInvokeEvent,
-	options: Electron.MessageBoxOptions
-) {
+	editorKey: SupportedEditor,
+	filePath: string
+): Promise< void > {
+	const platform = process.platform;
+	const editor = supportedEditorConfig[ editorKey ];
+
+	if ( platform === 'darwin' ) {
+		return promiseExec( `open -b ${ editor.macOSBundleId } "${ filePath }"` );
+	}
+
+	if ( platform === 'win32' ) {
+		const editorPath = await winFindEditorPath( editorKey );
+		if ( ! editorPath ) {
+			// Fall back to using openURL if no editor path is found
+			return openURL( event, editor.url( filePath ) );
+		}
+
+		return promiseExec( `"${ editorPath }" "${ filePath }"` );
+	}
+
+	throw new Error( `Platform ${ platform } is not supported` );
+}
+
+export function showMessageBox( event: IpcMainInvokeEvent, options: Electron.MessageBoxOptions ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
 		return dialog.showMessageBox( parentWindow, options );
@@ -903,34 +1098,50 @@ export async function showMessageBox(
 
 export async function showErrorMessageBox(
 	event: IpcMainInvokeEvent,
-	{ title, message, error }: { title: string; message: string; error?: unknown }
+	{
+		title,
+		message,
+		error,
+		showOpenLogs = false,
+	}: { title: string; message: string; error?: unknown; showOpenLogs?: boolean }
 ) {
 	// Remove prepended error message added by IPC handler
 	const filteredError = ( error as Error )?.message?.replace(
 		/Error invoking remote method '\w+': Error:/g,
 		''
 	);
-	await showMessageBox( event, {
+	const response = await showMessageBox( event, {
 		type: 'error',
 		message: title,
-		detail: error ? `${ message }\n\nError: ${ filteredError }` : message,
-		buttons: [ __( 'OK' ) ],
+		detail: error ? `${ message }\n\n${ filteredError }` : message,
+		buttons: [ ...( showOpenLogs ? [ __( 'Open Studio Logs' ) ] : [] ), __( 'OK' ) ],
 	} );
+
+	if ( showOpenLogs && response.response === 0 ) {
+		const logFilePath = getLogsFilePath();
+		const err = await shell.openPath( logFilePath );
+		if ( err ) {
+			console.error( `Error opening logs file: ${ logFilePath } ${ err }` );
+		}
+	}
 }
 
-export async function showNotification(
+export function showNotification(
 	_event: IpcMainInvokeEvent,
 	options: Electron.NotificationConstructorOptions
 ) {
 	new Notification( options ).show();
 }
 
-export function setupAppMenu( _event: IpcMainInvokeEvent, config: { needsOnboarding: boolean } ) {
-	setupMenu( config );
+export async function setupAppMenu(
+	_event: IpcMainInvokeEvent,
+	config: { needsOnboarding: boolean }
+) {
+	await setupMenu( config );
 }
 
-export function popupAppMenu( _event: IpcMainInvokeEvent ) {
-	popupMenu();
+export async function popupAppMenu( _event: IpcMainInvokeEvent ) {
+	await popupMenu();
 }
 
 export async function promptWindowsSpeedUpSites(
@@ -999,11 +1210,11 @@ export async function openFileInIDE(
 
 	if ( isInstalled( 'vscode' ) ) {
 		// Open site first to ensure the file is opened within the site context
-		await shell.openExternal( `vscode://file/${ server.details.path }?windowId=_blank` );
-		await shell.openExternal( `vscode://file/${ path }` );
+		await shellOpenExternalWrapper( `vscode://file/${ server.details.path }?windowId=_blank` );
+		await shellOpenExternalWrapper( `vscode://file/${ path }` );
 	} else if ( isInstalled( 'phpstorm' ) ) {
 		// Open site first to ensure the file is opened within the site context
-		await shell.openExternal( `phpstorm://open?file=${ path }` );
+		await shellOpenExternalWrapper( `phpstorm://open?file=${ path }` );
 	}
 }
 
@@ -1045,4 +1256,173 @@ export function addSyncOperation( event: IpcMainInvokeEvent, id: string ) {
  */
 export function clearSyncOperation( event: IpcMainInvokeEvent, id: string ) {
 	ACTIVE_SYNC_OPERATIONS.delete( id );
+}
+
+export function getWpContentSize( _event: IpcMainInvokeEvent, siteId: string ) {
+	const site = SiteServer.get( siteId );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+	return calculateDirectorySize( nodePath.join( site.details.path, 'wp-content' ) );
+}
+
+export function openCertificate( _event: IpcMainInvokeEvent ) {
+	return openCertificateDialog();
+}
+
+export async function isCATrusted(): Promise< boolean > {
+	return isRootCATrusted();
+}
+
+export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< void > {
+	const platform = process.platform;
+	if ( platform === 'win32' ) {
+		try {
+			await trustRootCA();
+		} catch ( error ) {
+			await showErrorMessageBox( event, {
+				title: __( 'Certificate Trust Failed' ),
+				message: __(
+					'Studio was unable to trust the certificate automatically. You may need to trust it manually using certificate manager.'
+				),
+				showOpenLogs: true,
+			} );
+		}
+	} else {
+		await openCertificateDialog();
+	}
+}
+
+export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
+	if ( ! fs.existsSync( filePath ) ) {
+		throw new Error( `File not found: ${ filePath }` );
+	}
+
+	return fs.readFileSync( filePath );
+}
+
+/**
+ * Checks the size of a sync backup file before downloading.
+ * Returns the size in bytes.
+ */
+export async function checkSyncBackupSize(
+	event: IpcMainInvokeEvent,
+	downloadUrl: string
+): Promise< number > {
+	return new Promise( ( resolve, reject ) => {
+		https
+			.get( downloadUrl, { method: 'HEAD' }, ( res ) => {
+				if ( res.statusCode !== 200 ) {
+					reject( new Error( `Failed to fetch file size: ${ res.statusMessage }` ) );
+					return;
+				}
+
+				const contentLength = res.headers[ 'content-length' ];
+				if ( ! contentLength ) {
+					reject( new Error( 'Content-Length header not found' ) );
+					return;
+				}
+
+				resolve( parseInt( contentLength, 10 ) );
+			} )
+			.on( 'error', ( error: Error ) => {
+				Sentry.captureException( error );
+				reject( new Error( `Failed to check backup file size: ${ error.message }` ) );
+			} );
+	} );
+}
+
+export async function saveUserTerminal(
+	event: IpcMainInvokeEvent,
+	preferredTerminal: SupportedTerminal
+) {
+	await sendIpcEventToRenderer( 'user-preference-changed' );
+	await updateAppdata( { preferredTerminal } );
+}
+
+export async function getUserTerminal(): Promise< SupportedTerminal > {
+	const userData = await loadUserData();
+	return userData.preferredTerminal || DEFAULT_TERMINAL;
+}
+
+export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
+	const window = await getMainWindow();
+	return window.isFullScreen();
+}
+
+export async function getAllCustomDomains(): Promise< string[] > {
+	const userData = await loadUserData();
+
+	return userData.sites
+		.map( ( site ) => site.customDomain )
+		.filter( ( domain ): domain is string => domain !== undefined );
+}
+
+export async function createSnapshot(
+	event: IpcMainInvokeEvent,
+	siteFolder: string
+): Promise< { operationId: crypto.UUID } > {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	return executePreviewCliCommand( [ 'preview', 'create', '--path', siteFolder ], parentWindow );
+}
+
+export async function updateSnapshot(
+	event: IpcMainInvokeEvent,
+	siteFolder: string,
+	hostname: string
+): Promise< { operationId: crypto.UUID } > {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	return executePreviewCliCommand(
+		[ 'preview', 'update', '--path', siteFolder, hostname ],
+		parentWindow
+	);
+}
+
+export async function deleteSnapshot(
+	event: IpcMainInvokeEvent,
+	hostname: string
+): Promise< { operationId: crypto.UUID } > {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	return executePreviewCliCommand( [ 'preview', 'delete', hostname ], parentWindow );
+}
+
+export async function handleNewSite( event: IpcMainInvokeEvent, newSite: NewSiteDetails ) {
+	try {
+		await createSite( event, newSite.path, undefined, undefined, undefined, undefined, newSite.id );
+		await lockAppdata();
+		const userData = await loadUserData();
+		const newSites = userData.newSites?.filter( ( s ) => s.id !== newSite.id );
+		await saveUserData( { ...userData, newSites } );
+	} finally {
+		await unlockAppdata();
+	}
+}
+
+export function comparePaths( event: IpcMainInvokeEvent, path1: string, path2: string ) {
+	return arePathsEqual( path1, path2 );
+}
+
+export async function listWpContentFolders(
+	_event: Electron.IpcMainInvokeEvent,
+	siteId: string,
+	subdir: GranularSyncFolders
+): Promise< { name: string; type: 'file' | 'folder' }[] > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) throw new Error( 'Site not found' );
+	const wpContentPath = nodePath.join( server.details.path, 'wp-content', subdir );
+
+	try {
+		const entries = await fs.promises.readdir( wpContentPath, { withFileTypes: true } );
+		return entries
+			.map( ( e ) => ( {
+				name: e.name.toString(),
+				type: e.isDirectory() ? ( 'folder' as const ) : ( 'file' as const ),
+				hidden: e.name.startsWith( '.' ),
+			} ) )
+			.filter( ( entry: { name: string; hidden: boolean } ) => {
+				return ! entry.hidden;
+			} );
+	} catch ( err ) {
+		return [];
+	}
 }

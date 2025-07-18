@@ -5,7 +5,7 @@ export async function getImageData( path: string ) {
 	if ( ! fs.existsSync( path ) ) {
 		return null;
 	}
-	const buffer = fs.readFileSync( path );
+	const buffer = await fs.promises.readFile( path );
 	const extension = nodePath.extname( path ).slice( 1 ).toLowerCase();
 	return `data:image/${ extension };base64,${ buffer.toString( 'base64' ) }`;
 }

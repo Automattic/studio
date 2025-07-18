@@ -1,11 +1,11 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import { Gravatar } from '../gravatar';
+import { Gravatar } from 'src/components/gravatar';
 
-jest.mock( '../../hooks/use-auth', () => ( {
+jest.mock( 'src/hooks/use-auth', () => ( {
 	useAuth: () => ( { user: { email: 'antonio.sejas@automattic.com' } } ),
 } ) );
 
-jest.mock( '../../hooks/use-sha256', () => ( {
+jest.mock( 'src/hooks/use-sha256', () => ( {
 	useSha256: () =>
 		jest
 			.fn()
@@ -26,7 +26,7 @@ describe( 'Gravatar', () => {
 	} );
 
 	test( 'Gravatar does not render the image when there is no email', async () => {
-		jest.mock( '../../hooks/use-auth', () => ( {
+		jest.mock( 'src/hooks/use-auth', () => ( {
 			useAuth: () => ( { user: undefined } ),
 		} ) );
 		render( <Gravatar /> );

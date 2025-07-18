@@ -148,13 +148,13 @@ def distribute_builds(
       name: 'Windows Update'
     },
     windows_appx: {
-      binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-signed', "Studio #{normalized_version}.0.appx"),
+      binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-signed', "Studio.appx"),
       filename_core: 'win32',
       extension: 'appx',
       name: 'Windows (Appx)'
     },
     windows_appx_unsigned: {
-      binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-unsigned', "Studio #{normalized_version}.0 unsigned.appx"),
+      binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-unsigned', "Studio-unsigned.appx"),
       filename_core: 'win32',
       suffix: 'unsigned',
       extension: 'appx',

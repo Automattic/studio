@@ -9,8 +9,10 @@ If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 npm run make
 
-# Rename NuGet package files with generic name
+# Rename NuGet and `.appx` package files with generic names
 $artifactsPath = Get-Item ".\out" | Select-Object -ExpandProperty FullName
 Get-ChildItem -Path $artifactsPath -Recurse -Include "*.nupkg" | Rename-Item -NewName "studio-update.nupkg"
+Get-ChildItem -Path $artifactsPath -Recurse -Include "*.appx" -Exclude "*unsigned.appx" | Rename-Item -NewName "Studio.appx"
+Get-ChildItem -Path $artifactsPath -Recurse -Include "*unsigned.appx" | Rename-Item -NewName "Studio-unsigned.appx"
 
 If ($LastExitCode -ne 0) { Exit $LastExitCode }

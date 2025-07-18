@@ -123,7 +123,7 @@ def distribute_builds(
   # If we are distributing a build without a tag, i.e. a development build, we also want to update the latest build reference for distribution.
   update_latest = release_tag.nil?
   suffix = release_tag.nil? ? "v#{PACKAGE_VERSION}" : release_tag
-  appx_version = suffix[/\d+\.\d+\.\d+/] + '.0'
+  appx_version = "#{suffix[/\d+\.\d+\.\d+/]}.0"
   filename_root = 'studio'
   bucket_folder = 'studio'
 

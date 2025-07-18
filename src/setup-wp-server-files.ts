@@ -15,7 +15,7 @@ import {
 	getWordPressVersionPath,
 	getSqlitePath,
 	getWpCliPath,
-	SQLITE_FILENAME,
+	getWordPressProvider,
 } from 'src/lib/wordpress-provider';
 import {
 	getWordPressVersionFromInstallation,
@@ -51,7 +51,11 @@ export async function copyBundledLatestWPVersion() {
 }
 
 async function copyBundledSqlite() {
-	const bundledSqlitePath = path.join( getResourcesPath(), 'wp-files', SQLITE_FILENAME() );
+	const bundledSqlitePath = path.join(
+		getResourcesPath(),
+		'wp-files',
+		getWordPressProvider().SQLITE_FILENAME
+	);
 	const bundledSqliteVersion = semver.coerce(
 		await getSqliteVersionFromInstallation( bundledSqlitePath ),
 		{

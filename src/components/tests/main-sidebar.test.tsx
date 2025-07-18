@@ -34,11 +34,6 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		generateProposedSitePath: jest.fn(),
 		openURL: jest.fn(),
 		getAllCustomDomains: jest.fn().mockResolvedValue( [] ),
-		getProviderConstants: jest.fn().mockResolvedValue( {
-			defaultPhpVersion: '8.2',
-			defaultWordPressVersion: 'latest',
-			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
-		} ),
 	} ),
 } ) );
 

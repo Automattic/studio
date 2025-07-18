@@ -10,20 +10,7 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
 
-jest.mock( 'src/lib/get-ipc-api', () => {
-	const actual = jest.requireActual( 'src/lib/get-ipc-api' );
-	return {
-		__esModule: true,
-		...actual,
-		getIpcApi: jest.fn().mockReturnValue( {
-			getProviderConstants: jest.fn().mockResolvedValue( {
-				defaultPhpVersion: '8.2',
-				defaultWordPressVersion: 'latest',
-				allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
-			} ),
-		} ),
-	};
-} );
+jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/hooks/use-site-details' );
 jest.mock( 'src/hooks/use-import-export' );
 

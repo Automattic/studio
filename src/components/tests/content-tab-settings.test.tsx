@@ -37,20 +37,7 @@ store.replaceReducer( snapshotTestReducer );
 
 jest.mock( 'src/hooks/use-get-wp-version' );
 jest.mock( 'src/hooks/use-site-details' );
-jest.mock( 'src/lib/get-ipc-api', () => {
-	const actual = jest.requireActual( 'src/lib/get-ipc-api' );
-	return {
-		__esModule: true,
-		...actual,
-		getIpcApi: jest.fn().mockReturnValue( {
-			getProviderConstants: jest.fn().mockResolvedValue( {
-				defaultPhpVersion: '8.2',
-				defaultWordPressVersion: 'latest',
-				allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
-			} ),
-		} ),
-	};
-} );
+jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
 } ) );

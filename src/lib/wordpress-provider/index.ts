@@ -28,22 +28,15 @@ export function setWordPressProvider( newProvider: WordPressProvider, type?: str
 	try {
 		const { sendIpcEventToRenderer } = require( 'src/ipc-utils' );
 		const constants = {
-			defaultPhpVersion: DEFAULT_PHP_VERSION(),
-			defaultWordPressVersion: DEFAULT_WORDPRESS_VERSION(),
-			allowedPhpVersions: ALLOWED_PHP_VERSIONS(),
+			defaultPhpVersion: getWordPressProvider().DEFAULT_PHP_VERSION,
+			defaultWordPressVersion: getWordPressProvider().DEFAULT_WORDPRESS_VERSION,
+			allowedPhpVersions: getWordPressProvider().ALLOWED_PHP_VERSIONS,
 		};
 		sendIpcEventToRenderer( 'providerConstantsChanged', constants );
 	} catch ( error ) {
-		// Ignore errors in case this is called from renderer process
+		console.error( 'Error notifying renderer processes about provider constants changes:', error );
 	}
 }
-
-// Constants as functions to allow runtime provider switching
-export const DEFAULT_PHP_VERSION = () => getWordPressProvider().DEFAULT_PHP_VERSION;
-export const DEFAULT_WORDPRESS_VERSION = () => getWordPressProvider().DEFAULT_WORDPRESS_VERSION;
-export const ALLOWED_PHP_VERSIONS = () => getWordPressProvider().ALLOWED_PHP_VERSIONS;
-export const SQLITE_FILENAME = () => getWordPressProvider().SQLITE_FILENAME;
-export const SQLITE_FILENAME_LEGACY = () => getWordPressProvider().SQLITE_FILENAME_LEGACY;
 
 // Methods as proxy functions
 export const getWordPressVersionPath = (

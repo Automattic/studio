@@ -121,8 +121,6 @@ const api: IpcApi = {
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
 	listWpContentFolders: ( siteId, subdir ) =>
 		ipcRenderer.invoke( 'listWpContentFolders', siteId, subdir ),
-	getProviderConstants: () => ipcRendererInvoke( 'getProviderConstants' ),
-	notifyProviderConstantsChanged: () => ipcRendererSend( 'notifyProviderConstantsChanged' ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

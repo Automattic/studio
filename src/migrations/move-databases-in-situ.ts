@@ -1,7 +1,7 @@
 import path from 'node:path';
 import fs from 'fs-extra';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
-import { getSqlitePath, SQLITE_FILENAME, getConfig } from 'src/lib/wordpress-provider';
+import { getSqlitePath, getConfig, getWordPressProvider } from 'src/lib/wordpress-provider';
 import { loadUserData } from 'src/storage/user-data';
 
 async function moveDatabasesInSitu( projectPath: string ) {
@@ -19,7 +19,12 @@ async function moveDatabasesInSitu( projectPath: string ) {
 		fs.rmdirSync( databasePath );
 		fs.moveSync( path.join( wpContentPath, 'database' ), databasePath );
 
-		const sqlitePath = path.join( projectPath, 'wp-content', 'plugins', SQLITE_FILENAME() );
+		const sqlitePath = path.join(
+			projectPath,
+			'wp-content',
+			'plugins',
+			getWordPressProvider().SQLITE_FILENAME
+		);
 		fs.rmdirSync( sqlitePath );
 		fs.copySync( path.join( getSqlitePath() ), sqlitePath );
 

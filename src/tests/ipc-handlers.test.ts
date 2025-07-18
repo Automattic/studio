@@ -22,11 +22,14 @@ jest.mock( 'src/lib/fs-utils' );
 jest.mock( 'src/site-server' );
 jest.mock( 'src/lib/sqlite-versions' );
 jest.mock( 'src/lib/wordpress-provider', () => ( {
-	DEFAULT_PHP_VERSION: () => '8.3',
-	DEFAULT_WORDPRESS_VERSION: () => 'latest',
 	downloadWordPress: jest.fn(),
 	downloadWpCli: jest.fn(),
 	downloadSQLiteCommand: jest.fn(),
+	getWordPressProvider: jest.fn().mockReturnValue( {
+		DEFAULT_PHP_VERSION: '8.3',
+		DEFAULT_WORDPRESS_VERSION: 'latest',
+		SQLITE_FILENAME: 'sqlite.php',
+	} ),
 } ) );
 jest.mock( 'src/main-window' );
 jest.mock( '@sentry/electron/main' );

@@ -2,6 +2,7 @@ import { PHPRunOptions } from '@php-wasm/universal';
 import { setupLogging } from 'src/logging';
 import type { MessageName } from './site-server-process';
 import type { WPNowServer } from 'vendor/wp-now/src';
+import type { WPNowOptions } from 'vendor/wp-now/src/config';
 
 type Handler = ( message: string, messageId: number, data: unknown ) => void;
 type Handlers = { [ K in MessageName ]: Handler };
@@ -15,7 +16,16 @@ if ( process.env.STUDIO_APP_LOGS_PATH ) {
 	} );
 }
 
-const options = JSON.parse( process.argv[ 2 ] );
+let options: WPNowOptions;
+try {
+	options = JSON.parse( process.argv[ 2 ] );
+	if ( typeof options !== 'object' || options === null ) {
+		throw new Error( 'Parsed options is not a valid object' );
+	}
+} catch ( err ) {
+	console.error( 'Failed to parse process arguments as JSON:', err );
+	process.exit( 1 );
+}
 let server: WPNowServer;
 
 const handlers: Handlers = {

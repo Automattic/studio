@@ -15,8 +15,7 @@ import {
 	setupWordPressSite,
 	startServer,
 	createServerProcess,
-	DEFAULT_PHP_VERSION,
-	SQLITE_FILENAME,
+	getWordPressProvider,
 } from 'src/lib/wordpress-provider';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { createScreenshotWindow } from 'src/screenshot-window';
@@ -163,7 +162,7 @@ export class SiteServer {
 			...this.details,
 			url: this.server.url,
 			port: serverInstance.options.port,
-			phpVersion: serverInstance.options.phpVersion ?? DEFAULT_PHP_VERSION(),
+			phpVersion: serverInstance.options.phpVersion ?? getWordPressProvider().DEFAULT_PHP_VERSION,
 			isWpAutoUpdating: this.details.isWpAutoUpdating,
 			running: true,
 			autoStart: true,
@@ -318,11 +317,12 @@ export class SiteServer {
 
 	async hasSQLitePlugin(): Promise< boolean > {
 		const wpContentPath = nodePath.join( this.details.path, 'wp-content' );
+		const sqliteFilename = getWordPressProvider().SQLITE_FILENAME;
 
 		const sqliteIntegrationPaths = {
-			muPlugin: nodePath.join( wpContentPath, 'mu-plugins', SQLITE_FILENAME() ),
-			muPluginLegacy: nodePath.join( wpContentPath, 'mu-plugins', `${ SQLITE_FILENAME() }-main` ),
-			regularPlugin: nodePath.join( wpContentPath, 'plugins', SQLITE_FILENAME() ),
+			muPlugin: nodePath.join( wpContentPath, 'mu-plugins', sqliteFilename ),
+			muPluginLegacy: nodePath.join( wpContentPath, 'mu-plugins', `${ sqliteFilename }-main` ),
+			regularPlugin: nodePath.join( wpContentPath, 'plugins', sqliteFilename ),
 		};
 
 		const requiredConfigPaths = {

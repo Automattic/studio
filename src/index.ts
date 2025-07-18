@@ -28,6 +28,7 @@ import { onOpenUrlCallback } from 'src/lib/oauth';
 import { stopProxyServer } from 'src/lib/proxy-server';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-watcher';
+import { getWordPressProvider } from 'src/lib/wordpress-provider';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';
 import {
@@ -318,6 +319,7 @@ async function appBoot() {
 		);
 
 		await installCLIOnWindows();
+		getWordPressProvider();
 
 		finishedInitialization = true;
 	} );

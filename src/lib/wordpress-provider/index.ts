@@ -10,6 +10,7 @@ let providerType: string = 'wp-now'; // Default provider type
 export function getWordPressProvider(): WordPressProvider {
 	if ( ! provider ) {
 		provider = new WpNowProvider();
+		providerType = 'wp-now';
 	}
 	return provider;
 }
@@ -18,19 +19,28 @@ export function getWordPressProviderType(): string {
 	return providerType;
 }
 
-export function setWordPressProvider( newProvider: WordPressProvider, type?: string ): void {
-	provider = newProvider;
-	if ( type ) {
-		providerType = type;
-	}
+export const getProviderConstants = (
+	provider: WordPressProvider
+): {
+	defaultPhpVersion: string;
+	defaultWordPressVersion: string;
+	allowedPhpVersions: string[];
+} => {
+	return {
+		defaultPhpVersion: provider.DEFAULT_PHP_VERSION,
+		defaultWordPressVersion: provider.DEFAULT_WORDPRESS_VERSION,
+		allowedPhpVersions: provider.ALLOWED_PHP_VERSIONS,
+	};
+};
 
+export function sendProviderConstantsChanged( provider: WordPressProvider ): void {
 	// Notify renderer processes about provider constants changes
 	try {
 		const { sendIpcEventToRenderer } = require( 'src/ipc-utils' );
 		const constants = {
-			defaultPhpVersion: getWordPressProvider().DEFAULT_PHP_VERSION,
-			defaultWordPressVersion: getWordPressProvider().DEFAULT_WORDPRESS_VERSION,
-			allowedPhpVersions: getWordPressProvider().ALLOWED_PHP_VERSIONS,
+			defaultPhpVersion: provider.DEFAULT_PHP_VERSION,
+			defaultWordPressVersion: provider.DEFAULT_WORDPRESS_VERSION,
+			allowedPhpVersions: provider.ALLOWED_PHP_VERSIONS,
 		};
 		sendIpcEventToRenderer( 'providerConstantsChanged', constants );
 	} catch ( error ) {

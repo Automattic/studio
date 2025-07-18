@@ -108,6 +108,20 @@ window.addEventListener( 'providerConstantsChanged', ( event: Event ) => {
 	store.dispatch( setProviderConstants( customEvent.detail ) );
 } );
 
+// Initialize provider constants when store is ready
+async function initializeProviderConstants() {
+	try {
+		const constants = await getIpcApi().getProviderConstants();
+		console.log( 'Fetched provider constants:', constants );
+		store.dispatch( setProviderConstants( constants ) );
+	} catch ( error ) {
+		console.error( 'Error fetching provider constants:', error );
+	}
+}
+
+// Initialize provider constants after a brief delay to ensure IPC is ready
+setTimeout( initializeProviderConstants, 100 );
+
 export type AppDispatch = typeof store.dispatch;
 
 export const useAppDispatch = () => useDispatch< AppDispatch >();

@@ -1426,3 +1426,9 @@ export async function listWpContentFolders(
 		return [];
 	}
 }
+
+export async function getProviderConstants( _event: IpcMainInvokeEvent ) {
+	const { getProviderConstants } = await import( 'src/lib/wordpress-provider' );
+	const provider = getWordPressProvider();
+	return getProviderConstants( provider );
+}

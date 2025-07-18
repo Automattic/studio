@@ -49,7 +49,6 @@ jest.mock( 'src/lib/wordpress-provider', () => {
 	return {
 		...mockProvider,
 		getWordPressProvider: jest.fn( () => mockProvider ),
-		setWordPressProvider: jest.fn(),
 	};
 } );
 

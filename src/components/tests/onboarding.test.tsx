@@ -8,9 +8,9 @@ import { useAddSite } from 'src/hooks/use-add-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { useOnboarding } from 'src/hooks/use-onboarding';
 import { FolderDialogResponse } from 'src/ipc-handlers';
-import { store } from 'src/stores';
+import { createTestStore } from 'src/lib/test-utils';
+import { getWordPressProvider } from 'src/lib/wordpress-provider';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
-import { DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 
 jest.mock( 'src/hooks/use-onboarding', () => ( {
 	useOnboarding: jest.fn(),
@@ -74,6 +74,13 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 const mockCreateSite = jest.fn();
 
 const renderWithProvider = ( children: React.ReactElement ) => {
+	const store = createTestStore( {
+		providerConstants: {
+			defaultPhpVersion: '8.3',
+			defaultWordPressVersion: 'latest',
+			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+		},
+	} );
 	return render( <Provider store={ store }>{ children }</Provider> );
 };
 
@@ -90,7 +97,7 @@ describe( 'Onboarding Component', () => {
 		siteName: 'My Site',
 		sitePath: '/path/to/my/site',
 		phpVersion: '8.3',
-		wpVersion: DEFAULT_WORDPRESS_VERSION,
+		wpVersion: getWordPressProvider().DEFAULT_WORDPRESS_VERSION,
 		error: '',
 		doesPathContainWordPress: false,
 		handleAddSiteClick: jest.fn(),
@@ -101,7 +108,11 @@ describe( 'Onboarding Component', () => {
 		fileForImport: null,
 		isAdvancedSettingsVisible: true,
 		handleSubmit: jest.fn( () => {
-			mockCreateSite( '/path/to/my/site', 'My Site', DEFAULT_WORDPRESS_VERSION );
+			mockCreateSite(
+				'/path/to/my/site',
+				'My Site',
+				getWordPressProvider().DEFAULT_WORDPRESS_VERSION
+			);
 		} ),
 		setUseCustomDomain: jest.fn(),
 		useCustomDomain: false,
@@ -145,7 +156,7 @@ describe( 'Onboarding Component', () => {
 		const mockUseAddSite = useAddSite as jest.Mock;
 		expect( mockUseAddSite ).toHaveBeenCalled();
 		const hookResult = mockUseAddSite() as { wpVersion: string };
-		expect( hookResult.wpVersion ).toBe( DEFAULT_WORDPRESS_VERSION );
+		expect( hookResult.wpVersion ).toBe( getWordPressProvider().DEFAULT_WORDPRESS_VERSION );
 	} );
 
 	it( 'should fetch WordPress versions', async () => {
@@ -231,7 +242,7 @@ describe( 'Onboarding Component', () => {
 			siteName: 'My Site',
 			sitePath: '/path/to/my/site',
 			phpVersion: '8.2', // Changed from default
-			wpVersion: DEFAULT_WORDPRESS_VERSION,
+			wpVersion: getWordPressProvider().DEFAULT_WORDPRESS_VERSION,
 			error: '',
 			doesPathContainWordPress: false,
 			handleAddSiteClick: jest.fn(),

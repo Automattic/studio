@@ -22,6 +22,13 @@ export interface IpcEvents {
 	'auth-updated': [ { token: StoredToken } | { error: unknown } ];
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];
+	providerConstantsChanged: [
+		{
+			defaultPhpVersion: string;
+			defaultWordPressVersion: string;
+			allowedPhpVersions: string[];
+		},
+	];
 	'snapshot-error': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
 	'snapshot-fatal-error': [ { operationId: crypto.UUID; data: { message: string } } ];
 	'snapshot-output': [ { operationId: crypto.UUID; data: SnapshotEventData } ];

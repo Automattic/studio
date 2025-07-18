@@ -12,15 +12,17 @@ import {
 	updateLatestSqliteVersion,
 } from 'src/lib/sqlite-versions';
 import {
+	getWordPressVersionPath,
+	getSqlitePath,
+	getWpCliPath,
+	getWordPressProvider,
+} from 'src/lib/wordpress-provider';
+import {
 	getWordPressVersionFromInstallation,
 	updateLatestWordPressVersion,
 } from 'src/lib/wp-versions';
 import { updateLatestWPCliVersion } from 'src/lib/wpcli-versions';
 import { getResourcesPath } from 'src/storage/paths';
-import { SQLITE_FILENAME } from 'vendor/wp-now/src/constants';
-import { getWordPressVersionPath } from 'vendor/wp-now/src/download';
-import getSqlitePath from 'vendor/wp-now/src/get-sqlite-path';
-import getWpCliPath from 'vendor/wp-now/src/get-wp-cli-path';
 
 // Tries to copy the app's bundled WordPress version to `wp-now` WP versions if needed
 export async function copyBundledLatestWPVersion() {
@@ -49,7 +51,11 @@ export async function copyBundledLatestWPVersion() {
 }
 
 async function copyBundledSqlite() {
-	const bundledSqlitePath = path.join( getResourcesPath(), 'wp-files', SQLITE_FILENAME );
+	const bundledSqlitePath = path.join(
+		getResourcesPath(),
+		'wp-files',
+		getWordPressProvider().SQLITE_FILENAME
+	);
 	const bundledSqliteVersion = semver.coerce(
 		await getSqliteVersionFromInstallation( bundledSqlitePath ),
 		{

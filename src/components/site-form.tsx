@@ -13,13 +13,13 @@ import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import { useI18nLocale } from 'src/stores';
+import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
+import { useRootSelector, useI18nLocale } from 'src/stores';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import {
-	DEFAULT_WORDPRESS_VERSION,
-	ALLOWED_PHP_VERSIONS,
-	AllowedPHPVersion,
-} from 'vendor/wp-now/src/constants';
+	selectDefaultWordPressVersion,
+	selectAllowedPhpVersions,
+} from 'src/stores/provider-constants-slice';
 
 interface FormPathInputComponentProps {
 	value: string;
@@ -266,6 +266,8 @@ export const SiteForm = ( {
 	const { __, isRTL } = useI18n();
 	const locale = useI18nLocale();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
+	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
+	const allowedPhpVersions = useRootSelector( selectAllowedPhpVersions );
 
 	// If the custom domain is enabled and the root certificate is trusted, enable HTTPS
 	useEffect( () => {
@@ -408,7 +410,7 @@ export const SiteForm = ( {
 												<SelectControl
 													id="php-version-select"
 													value={ phpVersion }
-													options={ ALLOWED_PHP_VERSIONS.map( ( version ) => ( {
+													options={ allowedPhpVersions.map( ( version ) => ( {
 														label: version,
 														value: version,
 													} ) ) }
@@ -422,7 +424,7 @@ export const SiteForm = ( {
 												selectedValue={ wpVersion }
 												onChange={ setWpVersion }
 												fallbackOptions={ [
-													{ label: __( 'Latest' ), value: DEFAULT_WORDPRESS_VERSION },
+													{ label: __( 'Latest' ), value: defaultWordPressVersion },
 												] }
 												offlineMessage={ __(
 													'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'

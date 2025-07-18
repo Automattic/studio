@@ -13,8 +13,8 @@ import { ImportEvents } from 'src/lib/import-export/import/events';
 import { BackupContents, MetaFileData, WpContent } from 'src/lib/import-export/import/types';
 import { serializePlugins } from 'src/lib/serialize-plugins';
 import { updateSiteUrl } from 'src/lib/update-site-url';
+import { getWordPressProvider } from 'src/lib/wordpress-provider';
 import { SiteServer } from 'src/site-server';
-import { DEFAULT_PHP_VERSION } from 'vendor/wp-now/src/constants';
 
 export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 	meta?: MetaFileData;
@@ -61,7 +61,10 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 				const { stderr, exitCode } = await server.executeWpCliCommand(
 					`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php --enable-ast-driver`,
 					// SQLite plugin requires PHP 8+
-					{ targetPhpVersion: DEFAULT_PHP_VERSION, skipPluginsAndThemes: true }
+					{
+						targetPhpVersion: getWordPressProvider().DEFAULT_PHP_VERSION,
+						skipPluginsAndThemes: true,
+					}
 				);
 
 				if ( stderr ) {
@@ -232,16 +235,18 @@ abstract class BaseBackupImporter extends BaseImporter {
 
 	protected parsePhpVersion( version: string | undefined ): string {
 		if ( ! version ) {
-			return DEFAULT_PHP_VERSION;
+			return getWordPressProvider().DEFAULT_PHP_VERSION;
 		}
 		const phpVersion = semver.coerce( version );
 		if ( ! phpVersion ) {
-			return DEFAULT_PHP_VERSION;
+			return getWordPressProvider().DEFAULT_PHP_VERSION;
 		}
 
 		const parsedVersion = `${ phpVersion.major }.${ phpVersion.minor }`;
 
-		return SupportedPHPVersionsList.includes( parsedVersion ) ? parsedVersion : DEFAULT_PHP_VERSION;
+		return SupportedPHPVersionsList.includes( parsedVersion )
+			? parsedVersion
+			: getWordPressProvider().DEFAULT_PHP_VERSION;
 	}
 }
 

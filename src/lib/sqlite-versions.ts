@@ -3,13 +3,16 @@ import * as Sentry from '@sentry/electron/main';
 import fs from 'fs-extra';
 import semver from 'semver';
 import { SQLITE_DATABASE_INTEGRATION_VERSION } from 'src/constants';
+import { getSqlitePath, getWordPressProvider } from 'src/lib/wordpress-provider';
 import { getServerFilesPath } from 'src/storage/paths';
-import { SQLITE_FILENAME, SQLITE_FILENAME_LEGACY } from 'vendor/wp-now/src/constants';
-import getSqlitePath from 'vendor/wp-now/src/get-sqlite-path';
 
 export async function isSqlLiteInstalled( installPath: string ) {
 	// Check both standard and legacy (-main) paths
-	const paths = [ installPath, installPath.replace( SQLITE_FILENAME, SQLITE_FILENAME_LEGACY ) ];
+	const provider = getWordPressProvider();
+	const paths = [
+		installPath,
+		installPath.replace( provider.SQLITE_FILENAME, provider.SQLITE_FILENAME_LEGACY ),
+	];
 
 	for ( const path of paths ) {
 		const installedFiles = ( await fs.pathExists( path ) ) ? await fs.readdir( path ) : [];
@@ -100,7 +103,12 @@ export async function removeLegacySqliteIntegrationPlugin( installPath: string )
  * @param sitePath Path of the site.
  */
 export async function keepSqliteIntegrationUpdated( sitePath: string ) {
-	const sqlitePath = path.join( sitePath, 'wp-content', 'mu-plugins', SQLITE_FILENAME );
+	const sqlitePath = path.join(
+		sitePath,
+		'wp-content',
+		'mu-plugins',
+		getWordPressProvider().SQLITE_FILENAME
+	);
 	const hasWpConfig = await fs.pathExists( path.join( sitePath, 'wp-config.php' ) );
 	const sqliteInstalled = await isSqlLiteInstalled( sqlitePath );
 	const sqliteOutdated = sqliteInstalled && ( await isSqliteInstallationOutdated( sqlitePath ) );
@@ -123,17 +131,21 @@ export async function installSqliteIntegration( sitePath: string ) {
 	await fs.mkdir( databasePath, { recursive: true } );
 
 	const dbPhpPath = path.join( wpContentPath, 'db.php' );
-	await fs.copyFile( path.join( getServerFilesPath(), SQLITE_FILENAME, 'db.copy' ), dbPhpPath );
+	const provider = getWordPressProvider();
+	await fs.copyFile(
+		path.join( getServerFilesPath(), provider.SQLITE_FILENAME, 'db.copy' ),
+		dbPhpPath
+	);
 	const dbCopyContent = ( await fs.readFile( dbPhpPath, 'utf8' ) ).toString();
 	await fs.writeFile(
 		dbPhpPath,
 		dbCopyContent.replace(
 			"'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
-			`realpath( __DIR__ . '/mu-plugins/${ SQLITE_FILENAME }' )`
+			`realpath( __DIR__ . '/mu-plugins/${ provider.SQLITE_FILENAME }' )`
 		)
 	);
-	const sqlitePluginPath = path.join( wpContentPath, 'mu-plugins', SQLITE_FILENAME );
-	await fs.copy( path.join( getServerFilesPath(), SQLITE_FILENAME ), sqlitePluginPath );
+	const sqlitePluginPath = path.join( wpContentPath, 'mu-plugins', provider.SQLITE_FILENAME );
+	await fs.copy( path.join( getServerFilesPath(), provider.SQLITE_FILENAME ), sqlitePluginPath );
 
 	await removeLegacySqliteIntegrationPlugin( sqlitePluginPath );
 }

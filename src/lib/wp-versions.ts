@@ -3,9 +3,12 @@ import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
 import { pathExists, recursiveCopyDirectory } from 'src/lib/fs-utils';
-import { DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
-import { downloadWordPress, getWordPressVersionPath } from 'vendor/wp-now/src/download';
-import { executeWPCli } from 'vendor/wp-now/src/execute-wp-cli';
+import {
+	downloadWordPress,
+	getWordPressVersionPath,
+	executeWPCli,
+	getWordPressProvider,
+} from 'src/lib/wordpress-provider';
 
 export const MINIMUM_SUPPORTED_WP_VERSION = 6;
 
@@ -33,13 +36,13 @@ async function fetchWordPressVersions() {
 		);
 		return { versions, latest: latestVersion };
 	} catch ( exception ) {
-		return { versions: [], latest: DEFAULT_WORDPRESS_VERSION };
+		return { versions: [], latest: getWordPressProvider().DEFAULT_WORDPRESS_VERSION };
 	}
 }
 
 async function getLatestWordPressVersion() {
 	const wordPressVersions = await fetchWordPressVersions();
-	return wordPressVersions.latest ?? DEFAULT_WORDPRESS_VERSION;
+	return wordPressVersions.latest ?? getWordPressProvider().DEFAULT_WORDPRESS_VERSION;
 }
 
 export async function getWordPressVersionFromInstallation( installationPath: string ) {

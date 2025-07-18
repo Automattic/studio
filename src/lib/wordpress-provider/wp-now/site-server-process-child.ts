@@ -1,8 +1,8 @@
 import { PHPRunOptions } from '@php-wasm/universal';
 import { setupLogging } from 'src/logging';
-import { startServer, type WPNowServer } from 'vendor/wp-now/src';
-import { WPNowOptions } from 'vendor/wp-now/src/config';
-import type { MessageName } from 'src/lib/site-server-process';
+import type { MessageName } from './site-server-process';
+import type { WPNowServer } from 'vendor/wp-now/src';
+import type { WPNowOptions } from 'vendor/wp-now/src/config';
 
 type Handler = ( message: string, messageId: number, data: unknown ) => void;
 type Handlers = { [ K in MessageName ]: Handler };
@@ -16,7 +16,16 @@ if ( process.env.STUDIO_APP_LOGS_PATH ) {
 	} );
 }
 
-const options = JSON.parse( process.argv[ 2 ] ) as WPNowOptions;
+let options: WPNowOptions;
+try {
+	options = JSON.parse( process.argv[ 2 ] );
+	if ( typeof options !== 'object' || options === null ) {
+		throw new Error( 'Parsed options is not a valid object' );
+	}
+} catch ( err ) {
+	console.error( 'Failed to parse process arguments as JSON:', err );
+	process.exit( 1 );
+}
 let server: WPNowServer;
 
 const handlers: Handlers = {
@@ -26,12 +35,22 @@ const handlers: Handlers = {
 };
 
 async function start() {
-	server = await startServer( options );
-	return {
-		php: {
-			documentRoot: server.php.documentRoot,
-		},
-	};
+	// Lazy load the provider based on environment variable
+	const providerType = process.env.WORDPRESS_PROVIDER_TYPE || 'wp-now';
+
+	switch ( providerType ) {
+		case 'wp-now': {
+			const { startServer } = await import( 'vendor/wp-now/src' );
+			server = await startServer( options );
+			return {
+				php: {
+					documentRoot: server.php.documentRoot,
+				},
+			};
+		}
+		default:
+			throw new Error( `Unknown WordPress provider type: ${ providerType }` );
+	}
 }
 
 async function stop() {

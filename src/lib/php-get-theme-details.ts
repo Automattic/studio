@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import SiteServerProcess from 'src/lib/site-server-process';
+import type { WordPressServerProcess } from 'src/lib/wordpress-provider/types';
 
 const themeDetailsSchema = z.object( {
 	name: z.string().catch( '' ),
@@ -11,7 +11,7 @@ const themeDetailsSchema = z.object( {
 } );
 
 export async function phpGetThemeDetails(
-	server: SiteServerProcess
+	server: WordPressServerProcess
 ): Promise< StartedSiteDetails[ 'themeDetails' ] > {
 	if ( ! server.php ) {
 		throw Error( 'PHP is not instantiated' );

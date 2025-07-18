@@ -1,29 +1,26 @@
-import { net } from 'electron';
 import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
-import { pathExists, recursiveCopyDirectory, isEmptyDir } from 'src/lib/fs-utils';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { addDomainToHosts, removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
 import { decodePassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { portFinder } from 'src/lib/port-finder';
 import { startProxyServer } from 'src/lib/proxy-server';
-import { getPreferredSiteLanguage } from 'src/lib/site-language';
-import SiteServerProcess from 'src/lib/site-server-process';
 import { updateSiteUrl } from 'src/lib/update-site-url';
+import {
+	setupWordPressSite,
+	startServer,
+	createServerProcess,
+	getWordPressProvider,
+} from 'src/lib/wordpress-provider';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
-import { purgeWpConfig, verifyWordPressChecksums } from 'src/lib/wp-versions';
 import { createScreenshotWindow } from 'src/screenshot-window';
-import { copyBundledLatestWPVersion } from 'src/setup-wp-server-files';
 import { getSiteThumbnailPath } from 'src/storage/paths';
-import { getWpNowConfig } from 'vendor/wp-now/src';
-import { WPNowMode } from 'vendor/wp-now/src/config';
-import { DEFAULT_PHP_VERSION, SQLITE_FILENAME } from 'vendor/wp-now/src/constants';
-import { getWordPressVersionPath, downloadWordPress } from 'vendor/wp-now/src/download';
+import type { WordPressServerProcess } from 'src/lib/wordpress-provider/types';
 
 const servers = new Map< string, SiteServer >();
 const deletedServers: string[] = [];
@@ -32,41 +29,7 @@ export async function createSiteWorkingDirectory(
 	path: string,
 	wpVersion = 'latest'
 ): Promise< boolean > {
-	try {
-		if ( ( await pathExists( path ) ) && ! ( await isEmptyDir( path ) ) ) {
-			// We can only create into a clean directory
-			return false;
-		}
-
-		const wpVersionPath = getWordPressVersionPath( wpVersion );
-		const wpVersionExists = await pathExists( wpVersionPath );
-
-		if ( ! wpVersionExists ) {
-			if ( net.isOnline() ) {
-				try {
-					await downloadWordPress( wpVersion, { overwrite: false } );
-				} catch ( error ) {
-					console.error( `Failed to download WordPress version ${ wpVersion }:`, error );
-					throw new Error(
-						`Failed to download WordPress version ${ wpVersion }. Please try a different version.`
-					);
-				}
-			} else if ( wpVersion === 'latest' ) {
-				await copyBundledLatestWPVersion();
-			} else {
-				return false;
-			}
-		}
-
-		await verifyWordPressChecksums( wpVersion );
-		await purgeWpConfig( wpVersion );
-		await recursiveCopyDirectory( getWordPressVersionPath( wpVersion ), path );
-
-		return true;
-	} catch ( error ) {
-		console.error( 'Error in createSiteWorkingDirectory:', error );
-		throw error;
-	}
+	return setupWordPressSite( path, wpVersion );
 }
 
 export async function stopAllServersOnQuit() {
@@ -90,7 +53,7 @@ type SiteServerMeta = {
 };
 
 export class SiteServer {
-	server?: SiteServerProcess;
+	server?: WordPressServerProcess;
 	wpCliExecutor?: WpCliProcess;
 
 	private constructor(
@@ -167,24 +130,16 @@ export class SiteServer {
 			await startProxyServer();
 		}
 
-		const options = await getWpNowConfig( {
+		const serverInstance = await startServer( {
 			path: this.details.path,
 			port: this.details.port,
 			adminPassword: decodePassword( this.details.adminPassword ?? '' ),
 			siteTitle: this.details.name,
-			php: this.details.phpVersion,
-			wp: this.meta.wpVersion,
+			phpVersion: this.details.phpVersion,
+			wpVersion: this.meta.wpVersion,
 			isWpAutoUpdating: this.details.isWpAutoUpdating,
+			absoluteUrl: getAbsoluteUrl( this.details ),
 		} );
-
-		options.absoluteUrl = getAbsoluteUrl( this.details );
-		options.siteLanguage = await getPreferredSiteLanguage( options.wordPressVersion );
-
-		if ( options.mode !== WPNowMode.WORDPRESS ) {
-			throw new Error(
-				`Site server started with Playground's '${ options.mode }' mode. Studio only supports 'wordpress' mode.`
-			);
-		}
 
 		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
 		if ( ! isPortAvailable ) {
@@ -194,10 +149,10 @@ export class SiteServer {
 		}
 
 		console.log( `Starting server for '${ this.details.name }'` );
-		this.server = new SiteServerProcess( options );
+		this.server = createServerProcess( serverInstance );
 		await this.server.start();
 
-		if ( this.server.options.port === undefined ) {
+		if ( serverInstance.options.port === undefined ) {
 			throw new Error( 'Server started with no port' );
 		}
 
@@ -206,8 +161,8 @@ export class SiteServer {
 		this.details = {
 			...this.details,
 			url: this.server.url,
-			port: this.server.options.port,
-			phpVersion: this.server.options.phpVersion ?? DEFAULT_PHP_VERSION,
+			port: serverInstance.options.port,
+			phpVersion: serverInstance.options.phpVersion ?? getWordPressProvider().DEFAULT_PHP_VERSION,
 			isWpAutoUpdating: this.details.isWpAutoUpdating,
 			running: true,
 			autoStart: true,
@@ -362,11 +317,12 @@ export class SiteServer {
 
 	async hasSQLitePlugin(): Promise< boolean > {
 		const wpContentPath = nodePath.join( this.details.path, 'wp-content' );
+		const sqliteFilename = getWordPressProvider().SQLITE_FILENAME;
 
 		const sqliteIntegrationPaths = {
-			muPlugin: nodePath.join( wpContentPath, 'mu-plugins', SQLITE_FILENAME ),
-			muPluginLegacy: nodePath.join( wpContentPath, 'mu-plugins', `${ SQLITE_FILENAME }-main` ),
-			regularPlugin: nodePath.join( wpContentPath, 'plugins', SQLITE_FILENAME ),
+			muPlugin: nodePath.join( wpContentPath, 'mu-plugins', sqliteFilename ),
+			muPluginLegacy: nodePath.join( wpContentPath, 'mu-plugins', `${ sqliteFilename }-main` ),
+			regularPlugin: nodePath.join( wpContentPath, 'plugins', sqliteFilename ),
 		};
 
 		const requiredConfigPaths = {

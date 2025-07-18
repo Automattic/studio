@@ -1,5 +1,4 @@
 import { setupLogging } from 'src/logging';
-import { executeWPCli } from 'vendor/wp-now/src/execute-wp-cli';
 import type { MessageName } from 'src/lib/wp-cli-process';
 
 type Handler = ( message: string, messageId: number, data: unknown ) => void;
@@ -27,7 +26,18 @@ async function execute( data: unknown ) {
 	if ( ! projectPath || ! args ) {
 		throw Error( 'Command execution needs project path and arguments' );
 	}
-	return await executeWPCli( projectPath, args, { phpVersion } );
+
+	// Lazy load the provider based on environment variable
+	const providerType = process.env.WORDPRESS_PROVIDER_TYPE || 'wp-now';
+
+	switch ( providerType ) {
+		case 'wp-now': {
+			const { executeWPCli } = await import( 'vendor/wp-now/src/execute-wp-cli' );
+			return await executeWPCli( projectPath, args, { phpVersion } );
+		}
+		default:
+			throw new Error( `Unknown WordPress provider type: ${ providerType }` );
+	}
 }
 
 function createHandler< T >( handler: ( data: unknown ) => T ) {

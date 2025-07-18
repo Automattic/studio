@@ -56,7 +56,10 @@ import { sortSites } from 'src/lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
-import { getWordPressProvider } from 'src/lib/wordpress-provider';
+import {
+	getWordPressProvider,
+	getProviderConstants as getProviderConstantsFromProvider,
+} from 'src/lib/wordpress-provider';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
@@ -1428,7 +1431,6 @@ export async function listWpContentFolders(
 }
 
 export async function getProviderConstants( _event: IpcMainInvokeEvent ) {
-	const { getProviderConstants } = await import( 'src/lib/wordpress-provider' );
 	const provider = getWordPressProvider();
-	return getProviderConstants( provider );
+	return getProviderConstantsFromProvider( provider );
 }

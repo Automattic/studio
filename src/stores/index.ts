@@ -112,15 +112,16 @@ window.addEventListener( 'providerConstantsChanged', ( event: Event ) => {
 async function initializeProviderConstants() {
 	try {
 		const constants = await getIpcApi().getProviderConstants();
-		console.log( 'Fetched provider constants:', constants );
 		store.dispatch( setProviderConstants( constants ) );
 	} catch ( error ) {
-		console.error( 'Error fetching provider constants:', error );
+		console.error( 'Error initializing provider constants:', error );
 	}
 }
 
-// Initialize provider constants after a brief delay to ensure IPC is ready
-setTimeout( initializeProviderConstants, 100 );
+// Initialize provider constants immediately, but skip in test environment
+if ( typeof jest === 'undefined' && process.env.NODE_ENV !== 'test' ) {
+	void initializeProviderConstants();
+}
 
 export type AppDispatch = typeof store.dispatch;
 

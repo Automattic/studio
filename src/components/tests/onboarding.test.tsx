@@ -8,7 +8,7 @@ import { useAddSite } from 'src/hooks/use-add-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { useOnboarding } from 'src/hooks/use-onboarding';
 import { FolderDialogResponse } from 'src/ipc-handlers';
-import { DEFAULT_WORDPRESS_VERSION } from 'src/lib/wordpress-provider/constants';
+import { getWordPressProvider } from 'src/lib/wordpress-provider';
 import { store } from 'src/stores';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 
@@ -90,7 +90,7 @@ describe( 'Onboarding Component', () => {
 		siteName: 'My Site',
 		sitePath: '/path/to/my/site',
 		phpVersion: '8.3',
-		wpVersion: DEFAULT_WORDPRESS_VERSION,
+		wpVersion: getWordPressProvider().DEFAULT_WORDPRESS_VERSION,
 		error: '',
 		doesPathContainWordPress: false,
 		handleAddSiteClick: jest.fn(),
@@ -101,7 +101,11 @@ describe( 'Onboarding Component', () => {
 		fileForImport: null,
 		isAdvancedSettingsVisible: true,
 		handleSubmit: jest.fn( () => {
-			mockCreateSite( '/path/to/my/site', 'My Site', DEFAULT_WORDPRESS_VERSION );
+			mockCreateSite(
+				'/path/to/my/site',
+				'My Site',
+				getWordPressProvider().DEFAULT_WORDPRESS_VERSION
+			);
 		} ),
 		setUseCustomDomain: jest.fn(),
 		useCustomDomain: false,
@@ -145,7 +149,7 @@ describe( 'Onboarding Component', () => {
 		const mockUseAddSite = useAddSite as jest.Mock;
 		expect( mockUseAddSite ).toHaveBeenCalled();
 		const hookResult = mockUseAddSite() as { wpVersion: string };
-		expect( hookResult.wpVersion ).toBe( DEFAULT_WORDPRESS_VERSION );
+		expect( hookResult.wpVersion ).toBe( getWordPressProvider().DEFAULT_WORDPRESS_VERSION );
 	} );
 
 	it( 'should fetch WordPress versions', async () => {
@@ -231,7 +235,7 @@ describe( 'Onboarding Component', () => {
 			siteName: 'My Site',
 			sitePath: '/path/to/my/site',
 			phpVersion: '8.2', // Changed from default
-			wpVersion: DEFAULT_WORDPRESS_VERSION,
+			wpVersion: getWordPressProvider().DEFAULT_WORDPRESS_VERSION,
 			error: '',
 			doesPathContainWordPress: false,
 			handleAddSiteClick: jest.fn(),

@@ -5,10 +5,7 @@ import React from 'react';
 import { Provider } from 'react-redux';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import {
-	DEFAULT_PHP_VERSION,
-	DEFAULT_WORDPRESS_VERSION,
-} from 'src/lib/wordpress-provider/constants';
+import { getWordPressProvider } from 'src/lib/wordpress-provider';
 import { store } from 'src/stores';
 
 jest.mock( 'src/hooks/use-site-details' );
@@ -88,13 +85,13 @@ describe( 'useAddSite', () => {
 	it( 'should initialize with default WordPress version', () => {
 		const { result } = renderHookWithProvider( () => useAddSite() );
 
-		expect( result.current.wpVersion ).toBe( DEFAULT_WORDPRESS_VERSION );
+		expect( result.current.wpVersion ).toBe( getWordPressProvider().DEFAULT_WORDPRESS_VERSION );
 	} );
 
 	it( 'should initialize with default PHP version', () => {
 		const { result } = renderHookWithProvider( () => useAddSite() );
 
-		expect( result.current.phpVersion ).toBe( DEFAULT_PHP_VERSION );
+		expect( result.current.phpVersion ).toBe( '8.3' );
 	} );
 
 	it( 'should update WordPress version when setWpVersion is called', () => {

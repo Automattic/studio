@@ -76,7 +76,6 @@ export const IPC_VOID_HANDLERS = < const >[
 	'addSyncOperation',
 	'clearSyncOperation',
 	'logRendererMessage',
-	'notifyProviderConstantsChanged',
 	'openCertificate',
 	'openFileInIDE',
 	'openLocalPath',

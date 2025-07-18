@@ -8,10 +8,9 @@ interface ProviderConstantsState {
 }
 
 const initialState: ProviderConstantsState = {
-	// Set reasonable defaults until provider constants are loaded
-	defaultPhpVersion: '8.3',
-	defaultWordPressVersion: 'latest',
-	allowedPhpVersions: [ '8.4', '8.3', '8.2', '8.1', '8.0', '7.4' ],
+	defaultPhpVersion: '',
+	defaultWordPressVersion: '',
+	allowedPhpVersions: [],
 };
 
 const providerConstantsSlice = createSlice( {

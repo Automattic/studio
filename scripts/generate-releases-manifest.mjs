@@ -4,10 +4,6 @@
 // {
 //   "dev": {
 //     "darwin": {
-//       "universal": {
-//         "sha": "30a8251",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-universal-v1.2.3-42.app.zip"
-//       },
 //       "arm64": {
 //         "sha": "30a8251",
 //         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-arm64-v1.2.3-42.app.zip"
@@ -24,9 +20,9 @@
 //   },
 //   "1.0.0": {
 //     "darwin": {
-//       "universal": {
+//       "arm64": {
 //         "sha": "abcdef1234567890",
-//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-universal-v1.0.0.app.zip"
+//         "url": "https://cdn.a8c-ci.services/studio/studio-darwin-arm64-v1.0.0.app.zip"
 //       },
 //       ... etc.
 //     },
@@ -127,10 +123,6 @@ if ( isDevBuild ) {
 
 	// macOS
 	releasesData[ 'dev' ][ 'darwin' ] = releasesData[ 'dev' ][ 'darwin' ] ?? {};
-	releasesData[ 'dev' ][ 'darwin' ][ 'universal' ] = {
-		sha: currentCommit,
-		url: `${ cdnURL }/${ baseName }-darwin-universal-v${ version }.app.zip`,
-	};
 	releasesData[ 'dev' ][ 'darwin' ][ 'x64' ] = {
 		sha: currentCommit,
 		url: `${ cdnURL }/${ baseName }-darwin-x64-v${ version }.app.zip`,
@@ -157,10 +149,6 @@ if ( isDevBuild ) {
 
 	// macOS
 	releasesData[ version ][ 'darwin' ] = releasesData[ version ][ 'darwin' ] ?? {};
-	releasesData[ version ][ 'darwin' ][ 'universal' ] = {
-		sha: currentCommit,
-		url: `${ cdnURL }/${ baseName }-darwin-universal-v${ version }.app.zip`,
-	};
 	releasesData[ version ][ 'darwin' ][ 'x64' ] = {
 		sha: currentCommit,
 		url: `${ cdnURL }/${ baseName }-darwin-x64-v${ version }.app.zip`,

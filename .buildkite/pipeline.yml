@@ -96,7 +96,7 @@ steps:
           # Local trial and error show this needs to run before the DMG generation (obviously) but after the binary has been built
           echo "--- :hammer: Rebuild fs-attr if necessary before generating DMG"
           case {{matrix}} in
-            universal | x64)
+            x64)
               echo "Rebuilding fs-xattr for {{matrix}} architecture"
               npm rebuild fs-xattr --cpu universal
               ;;
@@ -119,7 +119,6 @@ steps:
           - out/**/*.app.zip
           - out/*.dmg
         matrix:
-          - universal
           - x64
           - arm64
         notify:
@@ -201,7 +200,7 @@ steps:
           # Local trial and error show this needs to run before the DMG generation (obviously) but after the binary has been built
           echo "--- :hammer: Rebuild fs-attr if necessary before generating DMG"
           case {{matrix}} in
-            universal | x64)
+            x64)
               echo "Rebuilding fs-xattr for {{matrix}} architecture"
               npm rebuild fs-xattr --cpu universal
               ;;
@@ -224,7 +223,6 @@ steps:
           - out/**/*.app.zip
           - out/*.dmg
         matrix:
-          - universal
           - x64
           - arm64
         notify:

@@ -1,12 +1,12 @@
 // Run tests: yarn test -- src/hooks/tests/use-add-site.test.tsx
+import { configureStore } from '@reduxjs/toolkit';
 import { renderHook, act } from '@testing-library/react';
 import nock from 'nock';
-import React from 'react';
 import { Provider } from 'react-redux';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getWordPressProvider } from 'src/lib/wordpress-provider';
-import { store } from 'src/stores';
+import providerConstantsReducer from 'src/stores/provider-constants-slice';
 
 jest.mock( 'src/hooks/use-site-details' );
 jest.mock( 'src/hooks/use-feature-flags' );
@@ -30,11 +30,30 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	} ),
 } ) );
 
-const renderHookWithProvider = ( hook: () => ReturnType< typeof useAddSite > ) => {
-	return renderHook( hook, {
-		wrapper: ( { children }: { children: React.ReactNode } ) => (
-			<Provider store={ store }>{ children }</Provider>
-		),
+// Helper to create a store with preloaded provider constants
+function makeStoreWithProviderConstants( overrides = {} ) {
+	return configureStore( {
+		reducer: {
+			providerConstants: providerConstantsReducer,
+			// ...add other reducers as needed
+		},
+		preloadedState: {
+			providerConstants: {
+				defaultPhpVersion: '8.3',
+				defaultWordPressVersion: 'latest',
+				allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+				...overrides,
+			},
+		},
+	} );
+}
+
+const renderHookWithProvider = (
+	hook: () => ReturnType< typeof useAddSite >,
+	store = makeStoreWithProviderConstants()
+) => {
+	return renderHook< ReturnType< typeof useAddSite >, void >( hook, {
+		wrapper: ( { children } ) => <Provider store={ store }>{ children }</Provider>,
 	} );
 };
 

@@ -10,7 +10,8 @@ import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { RootState, store } from 'src/stores';
+import { createTestStore } from 'src/lib/test-utils';
+import { RootState } from 'src/stores';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
 function snapshotTestReducer( state: RootState | undefined, action: UnknownAction ) {
@@ -24,7 +25,18 @@ function snapshotTestReducer( state: RootState | undefined, action: UnknownActio
 		} );
 	}
 
-	return testReducer( state, action );
+	// Use the test reducer but preserve provider constants
+	const newState = testReducer( state, action );
+	
+	// If we have provider constants in the current state, preserve them
+	if ( state?.providerConstants ) {
+		return {
+			...newState,
+			providerConstants: state.providerConstants,
+		};
+	}
+	
+	return newState;
 }
 
 const snapshotTestActions = {
@@ -33,7 +45,27 @@ const snapshotTestActions = {
 	},
 };
 
-store.replaceReducer( snapshotTestReducer );
+// Create test store with provider constants
+let testStore = createTestStore( {
+	providerConstants: {
+		defaultPhpVersion: '8.3',
+		defaultWordPressVersion: 'latest',
+		allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+	},
+} );
+
+// We need to create a new store each time to avoid reducer conflicts
+function createCustomTestStore() {
+	const store = createTestStore( {
+		providerConstants: {
+			defaultPhpVersion: '8.3',
+			defaultWordPressVersion: 'latest',
+			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+		},
+	} );
+	store.replaceReducer( snapshotTestReducer );
+	return store;
+}
 
 jest.mock( 'src/hooks/use-get-wp-version' );
 jest.mock( 'src/hooks/use-site-details' );
@@ -53,14 +85,14 @@ const selectedSite: SiteDetails = {
 };
 
 function renderWithProvider( component: React.ReactElement ) {
-	return render( <Provider store={ store }>{ component }</Provider> );
+	return render( <Provider store={ testStore }>{ component }</Provider> );
 }
 
 function rerenderWithProvider(
 	rerender: ( component: React.ReactElement ) => void,
 	component: React.ReactElement
 ) {
-	rerender( <Provider store={ store }>{ component }</Provider> );
+	rerender( <Provider store={ testStore }>{ component }</Provider> );
 }
 
 describe( 'ContentTabSettings', () => {
@@ -79,6 +111,10 @@ describe( 'ContentTabSettings', () => {
 
 	beforeEach( () => {
 		jest.clearAllMocks();
+		
+		// Create a fresh store for each test
+		testStore = createCustomTestStore();
+		
 		( useGetWpVersion as jest.Mock ).mockReturnValue( [ '7.7.7', jest.fn() ] );
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			copyText,
@@ -88,7 +124,7 @@ describe( 'ContentTabSettings', () => {
 			isCATrusted: jest.fn( () => Promise.resolve( true ) ),
 		} );
 
-		store.dispatch( testActions.resetState() );
+		testStore.dispatch( testActions.resetState() );
 
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite,
@@ -189,7 +225,7 @@ describe( 'ContentTabSettings', () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
 
 		// Mock snapshots to include a snapshot for the selected site
-		store.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
+		testStore.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite: selectedSite,
 			deleteSite: jest.fn(),
@@ -237,7 +273,7 @@ describe( 'ContentTabSettings', () => {
 			const startServer = jest.fn();
 			const stopServer = jest.fn();
 
-			store.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
+			testStore.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
 
 			// Mock snapshots to include a snapshot for the selected site
 			( useSiteDetails as jest.Mock ).mockReturnValue( {
@@ -255,9 +291,7 @@ describe( 'ContentTabSettings', () => {
 			const dialog = screen.getByRole( 'dialog' );
 			expect( dialog ).toBeVisible();
 			await user.selectOptions(
-				within( dialog ).getByRole( 'combobox', {
-					name: 'PHP version',
-				} ),
+				within( dialog ).getByLabelText( 'PHP version' ),
 				'8.2'
 			);
 			await user.click(
@@ -290,7 +324,7 @@ describe( 'ContentTabSettings', () => {
 			const startServer = jest.fn();
 			const stopServer = jest.fn();
 			// Mock snapshots to include a snapshot for the selected site
-			store.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
+			testStore.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
 			( useSiteDetails as jest.Mock ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: true } as SiteDetails,
 				updateSite,
@@ -306,9 +340,7 @@ describe( 'ContentTabSettings', () => {
 			const dialog = screen.getByRole( 'dialog' );
 			expect( dialog ).toBeVisible();
 			await user.selectOptions(
-				within( dialog ).getByRole( 'combobox', {
-					name: 'PHP version',
-				} ),
+				within( dialog ).getByLabelText( 'PHP version' ),
 				'8.2'
 			);
 			await user.click(

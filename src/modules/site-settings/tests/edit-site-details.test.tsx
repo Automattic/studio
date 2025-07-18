@@ -2,8 +2,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { useOffline } from 'src/hooks/use-offline';
+import { createTestStore } from 'src/lib/test-utils';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
-import { store } from 'src/stores';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 
 // Mock the hooks and dependencies
@@ -78,6 +78,13 @@ jest.mock( 'src/hooks/use-offline', () => ( {
 } ) );
 
 const renderWithProvider = ( children: React.ReactElement ) => {
+	const store = createTestStore( {
+		providerConstants: {
+			defaultPhpVersion: '8.3',
+			defaultWordPressVersion: 'latest',
+			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+		},
+	} );
 	return render( <Provider store={ store }>{ children }</Provider> );
 };
 

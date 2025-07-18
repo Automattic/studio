@@ -6,7 +6,7 @@ import { Provider } from 'react-redux';
 import AddSite from 'src/components/add-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { FolderDialogResponse } from 'src/ipc-handlers';
-import { store } from 'src/stores';
+import { createTestStore } from 'src/lib/test-utils';
 
 jest.mock( 'src/stores/certificate-trust-api', () => {
 	const actual = jest.requireActual( 'src/stores/certificate-trust-api' ) || {};
@@ -71,6 +71,13 @@ jest.mock( 'src/hooks/use-offline', () => ( {
 } ) );
 
 const renderWithProvider = ( children: React.ReactElement ) => {
+	const store = createTestStore( {
+		providerConstants: {
+			defaultPhpVersion: '8.3',
+			defaultWordPressVersion: 'latest',
+			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+		},
+	} );
 	return render( <Provider store={ store }>{ children }</Provider> );
 };
 

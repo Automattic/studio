@@ -8,8 +8,8 @@ import { useAddSite } from 'src/hooks/use-add-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { useOnboarding } from 'src/hooks/use-onboarding';
 import { FolderDialogResponse } from 'src/ipc-handlers';
+import { createTestStore } from 'src/lib/test-utils';
 import { getWordPressProvider } from 'src/lib/wordpress-provider';
-import { store } from 'src/stores';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 
 jest.mock( 'src/hooks/use-onboarding', () => ( {
@@ -74,6 +74,13 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 const mockCreateSite = jest.fn();
 
 const renderWithProvider = ( children: React.ReactElement ) => {
+	const store = createTestStore( {
+		providerConstants: {
+			defaultPhpVersion: '8.3',
+			defaultWordPressVersion: 'latest',
+			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+		},
+	} );
 	return render( <Provider store={ store }>{ children }</Provider> );
 };
 

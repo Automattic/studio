@@ -27,7 +27,7 @@ function snapshotTestReducer( state: RootState | undefined, action: UnknownActio
 
 	// Use the test reducer but preserve provider constants
 	const newState = testReducer( state, action );
-	
+
 	// If we have provider constants in the current state, preserve them
 	if ( state?.providerConstants ) {
 		return {
@@ -35,7 +35,7 @@ function snapshotTestReducer( state: RootState | undefined, action: UnknownActio
 			providerConstants: state.providerConstants,
 		};
 	}
-	
+
 	return newState;
 }
 
@@ -111,10 +111,10 @@ describe( 'ContentTabSettings', () => {
 
 	beforeEach( () => {
 		jest.clearAllMocks();
-		
+
 		// Create a fresh store for each test
 		testStore = createCustomTestStore();
-		
+
 		( useGetWpVersion as jest.Mock ).mockReturnValue( [ '7.7.7', jest.fn() ] );
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			copyText,
@@ -290,10 +290,7 @@ describe( 'ContentTabSettings', () => {
 			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
 			const dialog = screen.getByRole( 'dialog' );
 			expect( dialog ).toBeVisible();
-			await user.selectOptions(
-				within( dialog ).getByLabelText( 'PHP version' ),
-				'8.2'
-			);
+			await user.selectOptions( within( dialog ).getByLabelText( 'PHP version' ), '8.2' );
 			await user.click(
 				within( dialog ).getByRole( 'button', {
 					name: 'Save',
@@ -339,10 +336,7 @@ describe( 'ContentTabSettings', () => {
 			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
 			const dialog = screen.getByRole( 'dialog' );
 			expect( dialog ).toBeVisible();
-			await user.selectOptions(
-				within( dialog ).getByLabelText( 'PHP version' ),
-				'8.2'
-			);
+			await user.selectOptions( within( dialog ).getByLabelText( 'PHP version' ), '8.2' );
 			await user.click(
 				within( dialog ).getByRole( 'button', {
 					name: 'Save',

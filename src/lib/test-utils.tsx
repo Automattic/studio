@@ -2,7 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { render } from '@testing-library/react';
 import React from 'react';
 import { Provider } from 'react-redux';
-import { rootReducer } from 'src/stores';
+import { rootReducer, RootState } from 'src/stores';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
@@ -16,7 +16,7 @@ interface TestStoreOptions {
 		defaultWordPressVersion?: string;
 		allowedPhpVersions?: string[];
 	};
-	preloadedState?: any;
+	preloadedState?: Partial< RootState >;
 }
 
 export function createTestStore( options: TestStoreOptions = {} ) {

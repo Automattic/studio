@@ -77,7 +77,7 @@ export function SyncDialog( {
 	const locale = useI18nLocale();
 	const { __ } = useI18n();
 	const siteEnv = getSiteEnvironment( remoteSite );
-	const envCopy = useSyncDialogTexts( type, siteEnv );
+	const syncTexts = useSyncDialogTexts( type, siteEnv );
 	const defaultTree = useDefaultSyncTree( type );
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
@@ -124,10 +124,10 @@ export function SyncDialog( {
 		<Modal
 			className="sync-dialog-wrapper w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
-			title={ envCopy.title }
+			title={ syncTexts.title }
 		>
 			<div className="pb-[70px]">
-				<div className="px-8 pb-6 pt-3">{ envCopy.description }</div>
+				<div className="px-8 pb-6 pt-3">{ syncTexts.description }</div>
 				<div className="px-8">
 					<span className="sr-only">
 						{ /* translators: first %s is the source site name, second %s is the destination site name */ }
@@ -138,7 +138,7 @@ export function SyncDialog( {
 						className="flex max-w-full overflow-hidden pb-6 border-b border-a8c-gray-5"
 					>
 						<div className="overflow-hidden max-w-[calc(50%-25px)]">
-							<div className="leading-[32px]">{ envCopy.fromLabel }</div>
+							<div className="leading-[32px]">{ syncTexts.fromLabel }</div>
 							<div className="whitespace-nowrap truncate">{ syncFrom }</div>
 						</div>
 						<div className="mt-[32px] w-[50px] flex items-center justify-center text-a8c-gray-600">
@@ -150,7 +150,7 @@ export function SyncDialog( {
 						</div>
 					</div>
 				</div>
-				<div className="px-8 pt-7 pb-3">{ envCopy.subtitleSelector }</div>
+				<div className="px-8 pt-7 pb-3">{ syncTexts.subtitleSelector }</div>
 				<div className="px-8 pb-2 relative">
 					<div className="absolute end-6 z-10">
 						<SelectControl
@@ -177,7 +177,7 @@ export function SyncDialog( {
 				</div>
 				<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center absolute left-0 right-0 bottom-0 bg-white z-10">
 					<div>
-						{ createInterpolateElement( envCopy.envSync, {
+						{ createInterpolateElement( syncTexts.envSync, {
 							a: (
 								<Button
 									variant="link"
@@ -195,7 +195,7 @@ export function SyncDialog( {
 								{ __( 'Cancel' ) }
 							</Button>
 							<Button variant="primary" onClick={ handleSubmit } disabled={ isSubmitDisabled }>
-								{ envCopy.submit }
+								{ syncTexts.submit }
 							</Button>
 						</div>
 					</div>

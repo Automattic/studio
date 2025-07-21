@@ -20,13 +20,11 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { OpenSitesSyncSelector } from 'src/modules/sync';
-import {
-	EnvironmentBadge,
-	getSiteEnvironment,
-} from 'src/modules/sync/components/environment-badge';
+import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
 import { SyncDialog } from 'src/modules/sync/components/sync-dialog';
 import { SyncPullPushClear } from 'src/modules/sync/components/sync-pull-push-clear';
 import { convertTreeToOptionsToSync } from 'src/modules/sync/lib/convert-tree-to-options-to-sync';
+import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 

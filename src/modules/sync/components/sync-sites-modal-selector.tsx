@@ -13,10 +13,8 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { CreateButton } from 'src/modules/sync/components/create-button';
-import {
-	EnvironmentBadge,
-	getSiteEnvironment,
-} from 'src/modules/sync/components/environment-badge';
+import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
+import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 

@@ -42,10 +42,3 @@ export const StudioBadge = ( { className }: { className?: string } ) => {
 		</Badge>
 	);
 };
-
-export const getSiteEnvironment = ( connectedSite: SyncSite ): string => {
-	if ( connectedSite.isPressable ) {
-		return connectedSite.environmentType ?? 'production';
-	}
-	return connectedSite.isStaging ? 'staging' : 'production';
-};

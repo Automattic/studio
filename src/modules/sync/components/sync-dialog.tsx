@@ -12,11 +12,11 @@ import { SYNC_OPTIONS } from 'src/constants';
 import { useContentFolders } from 'src/hooks/use-content-folders';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import { getSiteEnvironment } from 'src/modules/sync/components/environment-badge';
 import { SiteNameBox } from 'src/modules/sync/components/site-name-box';
 import { GRANULAR_SYNC_FOLDERS } from 'src/modules/sync/constants';
 import { useDefaultSyncTree } from 'src/modules/sync/hooks/use-default-sync-tree';
 import { useSyncDialogTexts } from 'src/modules/sync/hooks/use-sync-dialog-texts';
+import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 

@@ -5,9 +5,52 @@
  * available to WordPress instances using the playground-cli provider.
  */
 
+import { mkdtemp, writeFile } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
+
 export interface MuPlugin {
 	filename: string;
 	content: string;
+}
+
+/**
+ * Create a loader mu-plugin that loads the Studio mu-plugins
+ * @returns The path to the loader mu-plugin
+ */
+export async function createLoaderMuPlugin(): Promise< string > {
+	try {
+		// Create a temporary file for the loader mu-plugin
+		const tempDir = await mkdtemp( join( tmpdir(), 'studio-loader-' ) );
+		const loaderPath = join( tempDir, '99-studio-loader.php' );
+
+		const loaderContent = `<?php
+		/**
+		 * Studio MU-Plugins Loader
+		 * Loads Studio-specific mu-plugins from /internal/studio/mu-plugins/
+		 */
+		
+		$studio_mu_plugins_dir = '/internal/studio/mu-plugins';
+		
+		if ( is_dir( $studio_mu_plugins_dir ) ) {
+			$files = glob( $studio_mu_plugins_dir . '/*.php' );
+			if ( $files ) {
+				// Sort files to ensure consistent loading order
+				sort( $files );
+				foreach ( $files as $file ) {
+					if ( is_file( $file ) ) {
+						require_once $file;
+					}
+				}
+			}
+		}
+		`;
+
+		await writeFile( loaderPath, loaderContent );
+		return loaderPath;
+	} catch ( error ) {
+		throw new Error( `Failed to create loader mu-plugin: ${ error }` );
+	}
 }
 
 /**
@@ -121,6 +164,33 @@ export function getStandardMuPlugins(
 			// Support permalinks without "index.php"
 			add_filter( 'got_url_rewrite', '__return_true' );
 	`,
+	} );
+
+	// Trailing slash handling for wp-admin
+	muPlugins.push( {
+		filename: '0-wp-admin-trailing-slash.php',
+		content: `<?php
+		/**
+		 * Add trailing slash to wp-admin URLs
+		 * This ensures /wp-admin redirects to /wp-admin/
+		 */
+		add_action( 'init', function() {
+			$request_uri = $_SERVER['REQUEST_URI'] ?? '';
+			
+			// Check if this is a wp-admin request without trailing slash
+			if ( $request_uri === '/wp-admin' || preg_match( '#^/wp-admin$#', $request_uri ) ) {
+				$redirect_url = '/wp-admin/';
+				
+				// Preserve query string if present
+				if ( ! empty( $_SERVER['QUERY_STRING'] ) ) {
+					$redirect_url .= '?' . $_SERVER['QUERY_STRING'];
+				}
+				
+				wp_redirect( $redirect_url, 301 );
+				exit;
+			}
+		}, 1 );
+		`,
 	} );
 
 	// Deactivate Jetpack modules

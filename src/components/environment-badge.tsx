@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { Badge } from 'src/components/badge';
 import { cx } from 'src/lib/cx';
+import { getEnvironmentLabel } from 'src/lib/environment-utils';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 export type EnvironmentType = string;
@@ -29,16 +30,9 @@ export function EnvironmentBadge( { type, selected, className }: EnvironmentBadg
 		return classes[ type ] || 'text-a8c-gray-80 bg-a8c-gray-10';
 	};
 
-	const getLabel = ( type: string ): string => {
-		const labels: Record< string, string > = {
-			staging: __( 'Staging' ),
-			sandbox: __( 'Sandbox' ),
-			production: __( 'Production' ),
-		};
-		return labels[ type ] || type.charAt( 0 ).toUpperCase() + type.slice( 1 );
-	};
-
-	return <Badge className={ cx( getClassName(), className ) }>{ getLabel( type ) }</Badge>;
+	return (
+		<Badge className={ cx( getClassName(), className ) }>{ getEnvironmentLabel( type ) }</Badge>
+	);
 }
 
 export const StudioBadge = ( { className }: { className?: string } ) => {

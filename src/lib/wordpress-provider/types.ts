@@ -42,6 +42,8 @@ export interface WordPressServerProcess {
 }
 
 export interface WordPressProvider {
+	readonly PROVIDER_TYPE: string;
+
 	// Constants
 	readonly DEFAULT_PHP_VERSION: string;
 	readonly DEFAULT_WORDPRESS_VERSION: string;

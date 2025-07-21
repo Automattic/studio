@@ -23,19 +23,19 @@ WordPress Studio is free to use for Mac and Windows. Simply download the app to 
 
 **Studio Sync**
 
-Push updates or pull down a WordPress.com or Pressable production or staging site with just a few clicks. Choose exactly which parts of your site to sync, like specific plugins, standalone themes, or the database, so you’re always in control. Learn more about [Studio Sync](https://developer.wordpress.com/docs/developer-tools/studio/sync/).
+Push updates or pull down a WordPress.com or Pressable production or staging site with just a few clicks. Choose exactly which parts of your site to sync, like specific plugins, standalone themes, or the database, so you’re always in control. [Learn more about Studio Sync →](https://developer.wordpress.com/docs/developer-tools/studio/sync/)
 
 ![WordPress Studio - Preview Sites](/docs/assets/wordpress-studio-preview-sites.png)
 
 **Cloud-hosted Preview Sites**
 
-Preview, polish, then hand it off. Share a stable, cloud-hosted preview link that your clients or team can access at any time. Learn more about [Preview Sites](https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/).
+Preview, polish, then hand it off. Share a stable, cloud-hosted preview link that your clients or team can access at any time. [Learn more about Preview Sites →](https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/)
 
 ![WordPress Studio - AI Assistant](/docs/assets/wordpress-studio-ai-assistant.png)
 
 **AI Assistant** 
 
-Skip the repetitive setup and ask the assistant to install plugins, create pages, or run WP-CLI commands without leaving the app or searching for syntax. Learn more about the [Studio Assistant](https://developer.wordpress.com/docs/developer-tools/studio/assistant/).
+Skip the repetitive setup and ask the assistant to install plugins, create pages, or run WP-CLI commands without leaving the app or searching for syntax. [Learn more about the Studio Assistant →](https://developer.wordpress.com/docs/developer-tools/studio/assistant/).
 
 ![WordPress Studio - Powered by Playground](/docs/assets/wordpress-studio-powered-by-playground.png)
 

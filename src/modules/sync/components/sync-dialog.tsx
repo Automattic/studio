@@ -76,7 +76,8 @@ export function SyncDialog( {
 }: SyncDialogProps ) {
 	const locale = useI18nLocale();
 	const { __ } = useI18n();
-	const copy = useSyncDialogTexts( type );
+	const siteEnv = getSiteEnvironment( remoteSite );
+	const envCopy = useSyncDialogTexts( type, siteEnv );
 	const defaultTree = useDefaultSyncTree( type );
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
@@ -84,9 +85,6 @@ export function SyncDialog( {
 	const isSubmitDisabled = treeState.every( ( node ) => ! node.checked && ! node.indeterminate );
 
 	useDynamicTreeState( type, localSite.id, setTreeState );
-
-	const siteEnv = getSiteEnvironment( remoteSite );
-	const envCopy = copy.getEnvironmentCopy( siteEnv );
 
 	const localSiteName = <SiteNameBox siteName={ localSite.name } envType="studio" />;
 	const remoteSiteName = <SiteNameBox siteName={ remoteSite.name } envType={ siteEnv } />;

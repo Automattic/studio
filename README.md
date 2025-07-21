@@ -59,7 +59,7 @@ We’d love to hear about your experience using Studio. If you have questions, s
 - Submit pull requests for bug fixes and enhancements  
 - Proposals for new features may require additional review and discussion
 
-For details, please see our [Contributing Guidelines](CONTRIBUTING.md) and [Code Contributions](docs/development.md) guide.
+For details, please see our [Contributing Guidelines](CONTRIBUTING.md) and [Code Contributions](docs/code-contributions.md) guide.
 
 ## License
 

@@ -13,7 +13,7 @@ export const useSyncDialogTexts = ( type: 'pull' | 'push', envType: string ) => 
 			return {
 				/* translators: %s is the environment name (e.g., "Production", "Staging", "Sandbox") */
 				title: sprintf( __( 'Pull from %s' ), envLabel ),
-				/* translators: %s is the environment type (e.g., "Production", "Staging", "Sandbox") */
+				/* translators: %s is the environment type (e.g., "production", "staging", "sandbox") */
 				description: sprintf(
 					__(
 						"Pulling will overwrite your Studio site's selected files and database with a copy from your %s site. Unchecked items will not be changed."
@@ -29,12 +29,11 @@ export const useSyncDialogTexts = ( type: 'pull' | 'push', envType: string ) => 
 			return {
 				/* translators: %s is the environment name (e.g., "Production", "Staging", "Sandbox") */
 				title: sprintf( __( 'Push to %s' ), envLabel ),
-				/* translators: first %1s is the environment type, second %2s is the environment type (e.g., "Production", "Staging", "Sandbox") */
+				/* translators: first %1s is the environment type, which is used twice in the sentence (e.g., "production", "staging", "sandbox") */
 				description: sprintf(
 					__(
-						"Pushing will overwrite your %s site's selected files and database with content from your local site. Unchecked items will not be changed. The %s site will be backed up before any changes are applied."
+						"Pushing will overwrite your %s site's selected files and database with content from your local site. Unchecked items will not be changed. The %1s site will be backed up before any changes are applied."
 					),
-					envType,
 					envType
 				),
 				fromLabel: __( 'Push' ),

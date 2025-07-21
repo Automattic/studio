@@ -36,6 +36,8 @@ import type {
 import type { WPNowOptions } from 'vendor/wp-now/src/config';
 
 export class WpNowProvider implements WordPressProvider {
+	readonly PROVIDER_TYPE = 'wp-now';
+
 	// Constants
 	readonly DEFAULT_PHP_VERSION = DEFAULT_PHP_VERSION;
 	readonly DEFAULT_WORDPRESS_VERSION = DEFAULT_WORDPRESS_VERSION;

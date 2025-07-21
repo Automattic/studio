@@ -1,22 +1,34 @@
 export * from './types';
 export { WpNowProvider } from './wp-now';
+export { PlaygroundCliProvider, PLAYGROUND_CLI_PROVIDER_NAME } from './playground-cli';
 
+import { getFeatureFlagFromEnv } from 'src/lib/feature-flags';
+import { PlaygroundCliProvider } from './playground-cli/playground-cli-provider';
 import { WpNowProvider } from './wp-now';
 import type { WordPressProvider } from './types';
 
 let provider: WordPressProvider | null = null;
-let providerType: string = 'wp-now'; // Default provider type
 
 export function getWordPressProvider(): WordPressProvider {
+	const blueprintsEnabled = getFeatureFlagFromEnv( 'enableBlueprints' );
+
+	if ( blueprintsEnabled ) {
+		if ( provider?.PROVIDER_TYPE !== 'playground-cli' ) {
+			provider = new PlaygroundCliProvider();
+		}
+		return provider;
+	}
+
 	if ( ! provider ) {
 		provider = new WpNowProvider();
-		providerType = 'wp-now';
+		return provider;
 	}
+
 	return provider;
 }
 
 export function getWordPressProviderType(): string {
-	return providerType;
+	return provider?.PROVIDER_TYPE || 'wp-now';
 }
 
 export const getProviderConstants = (

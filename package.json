@@ -130,7 +130,7 @@
 		"@wordpress/i18n": "^5.26.0",
 		"@wordpress/icons": "^10.10.0",
 		"@wp-playground/blueprints": "^1.1.0",
-		"@wp-playground/cli": "^1.2.2",
+		"@wp-playground/cli": "^1.2.3",
 		"@wp-playground/wordpress": "^1.1.0",
 		"archiver": "^6.0.1",
 		"atomically": "^2.0.3",

@@ -1,0 +1,223 @@
+/**
+ * MU-Plugins for Playground CLI Provider
+ *
+ * This module provides the standard set of mu-plugins that need to be
+ * available to WordPress instances using the playground-cli provider.
+ */
+
+export interface MuPlugin {
+	filename: string;
+	content: string;
+}
+
+/**
+ * Get all standard mu-plugins for WordPress local development
+ * @param options Configuration options for mu-plugins
+ * @returns Array of mu-plugin definitions
+ */
+export function getStandardMuPlugins(
+	options: {
+		isWpAutoUpdating?: boolean;
+	} = {}
+): MuPlugin[] {
+	const muPlugins: MuPlugin[] = [];
+
+	// HTTPS detection for reverse proxy
+	muPlugins.push( {
+		filename: '0-https-for-reverse-proxy.php',
+		content: `<?php
+		// See https://developer.wordpress.org/advanced-administration/security/https/#using-a-reverse-proxy
+		if( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && strpos( $_SERVER['HTTP_X_FORWARDED_PROTO'], 'https') !== false ){
+			$_SERVER['HTTPS'] = 'on';
+		}
+		`,
+	} );
+
+	// Redirect to SITEURL constant
+	muPlugins.push( {
+		filename: '0-redirect-to-siteurl-constant.php',
+		content: `<?php
+		// See https://core.trac.wordpress.org/ticket/33821#comment:10
+		add_action( 'init', function() {
+			if ( ! defined( 'WP_SITEURL' ) ) {
+				return;
+			}
+
+			$current_host = $_SERVER['HTTP_HOST'] ?? '';
+
+			if ( preg_match( '/^localhost:\\\\d+$/', $current_host ) ) {
+				$requested_uri = $_SERVER['REQUEST_URI'] ?? '/';
+				wp_redirect( rtrim( WP_SITEURL, '/' ) . $requested_uri, 302 );
+				exit;
+			}
+		});
+		`,
+	} );
+
+	// Allowed redirect hosts
+	muPlugins.push( {
+		filename: '0-allowed-redirect-hosts.php',
+		content: `<?php
+	// Needed because gethostbyname( <host> ) returns
+	// a private network IP address for some reason.
+	add_filter( 'allowed_redirect_hosts', function( $hosts ) {
+		$redirect_hosts = array(
+			'wordpress.org',
+			'api.wordpress.org',
+			'downloads.wordpress.org',
+			'themes.svn.wordpress.org',
+			'fonts.gstatic.com',
+		);
+		return array_merge( $hosts, $redirect_hosts );
+	} );
+	add_filter('http_request_host_is_external', '__return_true', 20, 3 );
+	`,
+	} );
+
+	// Studio-specific: Hide admin bar for screenshots
+	muPlugins.push( {
+		filename: '0-thumbnails.php',
+		content: `<?php
+		// Facilitates the taking of screenshots to be used as thumbnails.
+		if ( isset( $_GET['studio-hide-adminbar'] ) ) {
+			add_filter( 'show_admin_bar', '__return_false' );
+		}
+		`,
+	} );
+
+	// Check theme availability
+	muPlugins.push( {
+		filename: '0-check-theme-availability.php',
+		content: `<?php
+	function check_current_theme_availability() {
+			// Get the current theme's directory
+			$current_theme = wp_get_theme();
+			$theme_dir = get_theme_root() . '/' . $current_theme->stylesheet;
+
+			if (!is_dir($theme_dir)) {
+					$all_themes = wp_get_themes();
+					$available_themes = [];
+
+					foreach ($all_themes as $theme_slug => $theme_obj) {
+							if ($theme_slug != $current_theme->get_stylesheet()) {
+									$available_themes[$theme_slug] = $theme_obj;
+							}
+					}
+
+					if (!empty($available_themes)) {
+							$new_theme_slug = array_keys($available_themes)[0];
+							switch_theme($new_theme_slug);
+					}
+			}
+	}
+	add_action('after_setup_theme', 'check_current_theme_availability');
+	`,
+	} );
+
+	// Enable permalinks
+	muPlugins.push( {
+		filename: '0-permalinks.php',
+		content: `<?php
+			// Support permalinks without "index.php"
+			add_filter( 'got_url_rewrite', '__return_true' );
+	`,
+	} );
+
+	// Deactivate Jetpack modules
+	muPlugins.push( {
+		filename: '0-deactivate-jetpack-modules.php',
+		content: `<?php
+			// Disable Jetpack Protect 2FA for local auto-login purpose
+			add_action( 'jetpack_active_modules', 'jetpack_deactivate_modules' );
+			function jetpack_deactivate_modules( $active ) {
+				if ( ( $index = array_search('protect', $active, true) ) !== false ) {
+					unset( $active[ $index ] );
+				}
+				return $active;
+			}
+	`,
+	} );
+
+	// WordPress config constants polyfill
+	muPlugins.push( {
+		filename: '0-wp-config-constants-polyfill.php',
+		content: `<?php
+		// Define database constants if not already defined. It fixes the error
+		// for imported sites that don't have those defined e.g. WP Cloud and
+		// include plugins which try to access those directly e.g. Mailpoet
+		if (!defined('DB_NAME')) define('DB_NAME', 'database_name_here');
+		if (!defined('DB_USER')) define('DB_USER', 'username_here');
+		if (!defined('DB_PASSWORD')) define('DB_PASSWORD', 'password_here');
+		if (!defined('DB_HOST')) define('DB_HOST', 'localhost');
+		if (!defined('DB_CHARSET')) define('DB_CHARSET', 'utf8');
+		if (!defined('DB_COLLATE')) define('DB_COLLATE', '');
+
+		// Set environment type to local if not already defined
+		if (!defined('WP_ENVIRONMENT_TYPE')) define('WP_ENVIRONMENT_TYPE', 'local');
+		`,
+	} );
+
+	// Suppress DNS warnings
+	muPlugins.push( {
+		filename: '0-suppress-dns-get-record-warnings.php',
+		content: `<?php
+		set_error_handler(function($severity, $message, $file, $line) {
+			if ($severity === E_WARNING && strpos($message, "dns_get_record(): dns_get_record() always returns an empty array in PHP.wasm.") === 0) {
+				return true;
+			}
+			return false;
+		});
+		`,
+	} );
+
+	// Disable auto-updates if configured
+	if ( ! options.isWpAutoUpdating ) {
+		muPlugins.push( {
+			filename: '0-disable-auto-updates.php',
+			content: `<?php
+			// Disable auto-updates
+			add_filter( 'allow_dev_auto_core_updates', '__return_false' );
+			add_filter( 'allow_minor_auto_core_updates', '__return_false' );
+			add_filter( 'allow_major_auto_core_updates', '__return_false' );
+			`,
+		} );
+	}
+
+	// HTTP request timeout
+	muPlugins.push( {
+		filename: '0-http-request-timeout.php',
+		content: `<?php
+		// Increase default timeouts to 30 seconds to accommodate slower network conditions and larger requests
+		add_filter( 'http_request_timeout', function() {
+			return 30;
+		} );
+
+		add_action('http_api_curl', function($curl, $url, $options) {
+			curl_setopt( $curl, CURLOPT_CONNECTTIMEOUT, 30 );
+			curl_setopt($curl, CURLOPT_TIMEOUT, 30);
+			return $curl;
+		}, 1, 3);
+		`,
+	} );
+
+	// Studio-specific: Fix plugin spinner display
+	muPlugins.push( {
+		filename: '0-tmp-fix-hide-plugins-spinner.php',
+		content: `<?php
+			// This is a temporary fix for a page-optimize bug that causes spinner icons to show all the time in the plugins list auto-update column
+
+			add_action( 'admin_enqueue_scripts', 'studio_patch_auto_update_spinner_style', 999 );
+			function studio_patch_auto_update_spinner_style() {
+				$current_screen = get_current_screen();
+				if ( isset( $current_screen->id ) && 'plugins' === $current_screen->id ) {
+					wp_add_inline_style(
+						'dashicons',
+						'.toggle-auto-update .dashicons.hidden { display: none; }'
+					);
+				}
+			}
+	`,
+	} );
+
+	return muPlugins;
+}

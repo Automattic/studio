@@ -454,7 +454,7 @@ describe( 'ContentTabSync', () => {
 
 		await screen.findByText( 'Pull from Sandbox' );
 		await screen.findByText(
-			"Pulling will overwrite your Studio site's selected files and database with a copy from your %s site. Unchecked items will not be changed."
+			"Pulling will overwrite your Studio site's selected files and database with a copy from your sandbox site. Unchecked items will not be changed."
 		);
 	} );
 

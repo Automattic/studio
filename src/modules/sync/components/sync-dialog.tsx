@@ -145,7 +145,7 @@ export function SyncDialog( {
 							<RightArrowIcon />
 						</div>
 						<div className="overflow-hidden max-w-[calc(50%-25px)]">
-							<div className="leading-[32px]">{ envCopy.toLabel }</div>
+							<div className="leading-[32px]">{ __( 'To' ) }</div>
 							<div className="whitespace-nowrap truncate">{ syncTo }</div>
 						</div>
 					</div>

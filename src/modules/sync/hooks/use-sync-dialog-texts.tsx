@@ -21,7 +21,6 @@ export const useSyncDialogTexts = ( type: 'pull' | 'push', envType: string ) => 
 					envType
 				),
 				fromLabel: __( 'Pull' ),
-				toLabel: __( 'To' ),
 				subtitleSelector: __( 'What would you like to pull?' ),
 				envSync: __( 'Read more about <a>environment pull <ArrowIcon /></a>' ),
 				submit: __( 'Pull' ),
@@ -39,7 +38,6 @@ export const useSyncDialogTexts = ( type: 'pull' | 'push', envType: string ) => 
 					envType
 				),
 				fromLabel: __( 'Push' ),
-				toLabel: __( 'To' ),
 				subtitleSelector: __( 'What would you like to push?' ),
 				envSync: __( 'Read more about <a>environment push <ArrowIcon /></a>' ),
 				submit: __( 'Push' ),

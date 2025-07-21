@@ -420,6 +420,41 @@ describe( 'ContentTabSync', () => {
 		expect( screen.getByRole( 'progressbar' ) ).toBeInTheDocument();
 	} );
 
+	it( 'opens sync pullSite dialog with cusotm environment label', async () => {
+		const mockPullSite = jest.fn();
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
+		const fakeSyncSite = {
+			id: 6,
+			name: 'My simple business site that needs a transfer',
+			url: 'https:/developer.wordpress.com/studio/',
+			syncSupport: 'already-connected',
+			isPressable: true,
+			environmentType: 'sandbox',
+		};
+		( useSyncSites as jest.Mock ).mockReturnValue( {
+			connectedSites: [ fakeSyncSite ],
+			syncSites: [ fakeSyncSite ],
+			pullSite: mockPullSite,
+			isAnySitePulling: false,
+			isAnySitePushing: false,
+			getPullState: jest.fn(),
+			getPushState: jest.fn(),
+			refetchSites: jest.fn(),
+			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
+			isSiteIdPulling: jest.fn(),
+			isSiteIdPushing: jest.fn(),
+			clearTimeout: jest.fn(),
+		} );
+
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+		const pullButton = screen.getByRole( 'button', { name: /Pull/i } );
+		expect( pullButton ).toBeInTheDocument();
+		fireEvent.click( pullButton );
+
+		await screen.findByText( 'Pull from Sandbox' );
+	} );
+
 	it( 'calls pullSite with correct optionsToSync when all options are selected', async () => {
 		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );

@@ -17,7 +17,6 @@ interface Message {
 	};
 }
 
-let serverUrl: string | null = null;
 let server: RunCLIServer | null = null;
 
 process.parentPort.on( 'message', async ( event ) => {
@@ -92,9 +91,6 @@ async function startServer(
 
 		// Start the CLI server
 		server = await runCLI( args );
-
-		// The server is now running
-		serverUrl = `http://127.0.0.1:${ options.port }`;
 	} catch ( error ) {
 		server = null;
 		throw new Error( `Could not start server: ${ error }` );
@@ -107,14 +103,11 @@ async function stopServerFunc(): Promise< void > {
 	}
 
 	try {
-		// Use the AsyncDisposable pattern instead of calling stop directly
 		await server[ Symbol.asyncDispose ]();
 	} catch ( error ) {
 		// Don't re-throw the error, just continue cleanup
 	} finally {
-		// Always clean up the references, even if stop failed
 		server = null;
-		serverUrl = null;
 	}
 }
 

@@ -70,7 +70,7 @@
 		"@typescript-eslint/parser": "^8.21.0",
 		"@vercel/webpack-asset-relocator-loader": "1.7.3",
 		"@wordpress/components": "^29.12.0",
-		"@wordpress/element": "^5.27.0",
+		"@wordpress/element": "^6.26.0",
 		"@wordpress/react-i18n": "^3.48.0",
 		"autoprefixer": "^10.4.16",
 		"copy-webpack-plugin": "^12.0.2",

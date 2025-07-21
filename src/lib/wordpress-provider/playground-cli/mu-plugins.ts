@@ -88,7 +88,7 @@ export function getStandardMuPlugins(
 
 			$current_host = $_SERVER['HTTP_HOST'] ?? '';
 
-			if ( preg_match( '/^localhost:\\\\d+$/', $current_host ) ) {
+			if ( preg_match( '/^localhost:\\d+$/', $current_host ) ) {
 				$requested_uri = $_SERVER['REQUEST_URI'] ?? '/';
 				wp_redirect( rtrim( WP_SITEURL, '/' ) . $requested_uri, 302 );
 				exit;
@@ -137,7 +137,7 @@ export function getStandardMuPlugins(
 			$current_theme = wp_get_theme();
 			$theme_dir = get_theme_root() . '/' . $current_theme->stylesheet;
 
-			if (!is_dir($theme_dir)) {
+			if ( !is_dir( $theme_dir ) ) {
 					$all_themes = wp_get_themes();
 					$available_themes = [];
 

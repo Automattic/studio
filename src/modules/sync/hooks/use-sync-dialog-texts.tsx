@@ -1,7 +1,7 @@
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
-import { getEnvironmentLabel } from 'src/lib/environment-utils';
+import { getEnvironmentLabel } from 'src/modules/sync/lib/environment-utils';
 
 export const useSyncDialogTexts = ( type: 'pull' | 'push' ) => {
 	const { __ } = useI18n();

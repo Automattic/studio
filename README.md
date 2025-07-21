@@ -35,7 +35,7 @@ Preview, polish, then hand it off. Share a stable, cloud-hosted preview link tha
 
 **AI Assistant** 
 
-Skip the repetitive setup and ask the assistant to install plugins, create pages, or run WP-CLI commands without leaving the app or searching for syntax. [Learn more about the Studio Assistant →](https://developer.wordpress.com/docs/developer-tools/studio/assistant/).
+Skip the repetitive setup and ask the assistant to install plugins, create pages, or run WP-CLI commands without leaving the app or searching for syntax. [Learn more about the Studio Assistant →](https://developer.wordpress.com/docs/developer-tools/studio/assistant/)
 
 ![WordPress Studio - Powered by Playground](/docs/assets/wordpress-studio-powered-by-playground.png)
 

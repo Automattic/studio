@@ -13,6 +13,9 @@ jest.mock( 'src/storage/paths', () => ( {
 	getUserDataCertificatesPath: jest
 		.fn()
 		.mockReturnValue( '/path/to/app/appData/App Name/certificates' ),
+	getUserDataLockFilePath: jest
+		.fn()
+		.mockReturnValue( '/path/to/app/appData/App Name/appdata-v1.json.lock' ),
 } ) );
 jest.mock( 'src/lib/import-export/import/handlers/backup-handler-factory' );
 jest.mock( 'fs/promises' );

@@ -16,7 +16,7 @@ updates:
       - dependency-name: "@electron-forge/*"
       - dependency-name: "@wordpress/*"
       - dependency-name: "@types/*"
-      - dependency-name: "eslint*"
+      - dependency-name: "eslint"
       - dependency-name: "eslint-*"
       - dependency-name: "@typescript-eslint/*"
 

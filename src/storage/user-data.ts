@@ -107,7 +107,7 @@ export async function saveUserData( data: UserData ): Promise< void > {
 	await writeFile( filePath, asString, 'utf-8' );
 }
 
-const LOCKFILE_PATH = nodePath.join( getUserDataLockFilePath(), LOCKFILE_NAME );
+const LOCKFILE_PATH = getUserDataLockFilePath();
 
 export async function lockAppdata() {
 	return lockFileAsync( LOCKFILE_PATH, { stale: LOCKFILE_STALE_TIME, wait: LOCKFILE_WAIT_TIME } );

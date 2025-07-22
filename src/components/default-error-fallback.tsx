@@ -3,7 +3,6 @@ import {
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useEffect } from 'react';
 import { DEFAULT_LOCALE } from 'common/lib/locale';
 import Button from 'src/components/button';
 import { DynamicStylesheet } from 'src/components/dynamic-stylesheet';
@@ -90,21 +89,11 @@ const RightPanel = () => {
 };
 
 export default function DefaultErrorFallback() {
-	const { isRTL } = useI18n();
-
-	useEffect( () => {
-		document.documentElement.dir = isRTL() ? 'rtl' : 'ltr';
-	}, [ isRTL ] );
-
 	return (
-		<>
+		<div dir={ 'ltr' }>
 			<DynamicStylesheet
 				id="wordpress-components-style"
-				href={
-					isRTL()
-						? '../main_window/styles/wordpress-components-style-rtl.css'
-						: '../main_window/styles/wordpress-components-style.css'
-				}
+				href={ '../main_window/styles/wordpress-components-style.css' }
 			/>
 			<VStack
 				className={ cx(
@@ -148,6 +137,6 @@ export default function DefaultErrorFallback() {
 					</div>
 				</HStack>
 			</VStack>
-		</>
+		</div>
 	);
 }

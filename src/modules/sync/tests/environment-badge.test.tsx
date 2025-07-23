@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { EnvironmentBadge } from 'src/components/environment-badge';
+import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
 
 describe( 'EnvironmentBadge', () => {
 	it( 'renders the Production badge with correct label', () => {

@@ -1,9 +1,10 @@
 import { __ } from '@wordpress/i18n';
 import { Badge } from 'src/components/badge';
 import { cx } from 'src/lib/cx';
+import { getEnvironmentLabel } from 'src/modules/sync/lib/environment-utils';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
-export type EnvironmentType = 'production' | 'staging' | 'sandbox';
+export type EnvironmentType = string;
 
 interface EnvironmentBadgeProps {
 	type: EnvironmentType;
@@ -20,24 +21,18 @@ export function EnvironmentBadge( { type, selected, className }: EnvironmentBadg
 			return 'bg-white text-a8c-blue-50 text-a8c-blue-50';
 		}
 
-		if ( type === 'production' ) {
-			return 'bg-a8c-green-5 text-a8c-green-80';
-		}
+		const classes: Record< string, string > = {
+			production: 'bg-a8c-green-5 text-a8c-green-80',
+			sandbox: 'text-sandbox-text bg-sandbox-bg',
+			staging: 'text-a8c-yellow-80 bg-a8c-yellow-10',
+		};
 
-		if ( type === 'sandbox' ) {
-			return 'text-sandbox-text bg-sandbox-bg';
-		}
-
-		return 'text-a8c-yellow-80 bg-a8c-yellow-10';
+		return classes[ type ] || 'text-a8c-gray-80 bg-a8c-gray-10';
 	};
 
-	const labels: Record< EnvironmentType, string > = {
-		staging: __( 'Staging' ),
-		sandbox: __( 'Sandbox' ),
-		production: __( 'Production' ),
-	};
-
-	return <Badge className={ cx( getClassName(), className ) }>{ labels[ type ] }</Badge>;
+	return (
+		<Badge className={ cx( getClassName(), className ) }>{ getEnvironmentLabel( type ) }</Badge>
+	);
 }
 
 export const StudioBadge = ( { className }: { className?: string } ) => {
@@ -46,11 +41,4 @@ export const StudioBadge = ( { className }: { className?: string } ) => {
 			{ __( 'Studio' ) }
 		</Badge>
 	);
-};
-
-export const getSiteEnvironment = ( connectedSite: SyncSite ): EnvironmentType => {
-	if ( connectedSite.isPressable ) {
-		return connectedSite.environmentType ?? 'production';
-	}
-	return connectedSite.isStaging ? 'staging' : 'production';
 };

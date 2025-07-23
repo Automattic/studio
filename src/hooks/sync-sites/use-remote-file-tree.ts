@@ -2,7 +2,8 @@ import { useCallback, useState } from 'react';
 import { TreeNode } from 'src/components/tree-view';
 import { SYNC_OPTIONS } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
-import type { BackupLsItem, BackupLsRequest, BackupLsResponse } from './types';
+import { BackupLsItemSchema, BackupLsResponseSchema } from './types';
+import type { BackupLsItem, BackupLsRequest } from './types';
 
 interface UseRemoteFileTreeResult {
 	isLoading: boolean;
@@ -72,11 +73,24 @@ export function useRemoteFileTree(): UseRemoteFileTreeResult {
 					path,
 				};
 
-				const response = await client.req.post< BackupLsResponse[ 'body' ] >( {
+				const rawResponse = await client.req.post( {
 					path: `/sites/${ remoteSiteId }/rewind/backup/ls`,
 					apiNamespace: 'wpcom/v2',
 					body: requestBody,
 				} );
+
+				const validationResult = BackupLsResponseSchema.safeParse( {
+					body: rawResponse,
+					status: 200,
+					headers: { Allow: 'POST' },
+				} );
+
+				if ( ! validationResult.success ) {
+					console.error( 'Invalid response format:', validationResult.error );
+					throw new Error( 'Invalid response format from server' );
+				}
+
+				const response = validationResult.data.body;
 
 				if ( ! response.ok ) {
 					throw new Error( response.error || 'Failed to fetch remote file tree' );
@@ -85,9 +99,14 @@ export function useRemoteFileTree(): UseRemoteFileTreeResult {
 				const treeNodes: TreeNode[] = [];
 				const wpContentChildren: TreeNode[] = [];
 
-				for ( const [ name, item ] of Object.entries( response.contents ) ) {
-					const node = convertBackupItemToTreeNode( name, item as BackupLsItem, path );
-					wpContentChildren.push( node );
+				for ( const [ name, rawItem ] of Object.entries( response.contents ) ) {
+					const itemValidation = BackupLsItemSchema.safeParse( rawItem );
+					if ( itemValidation.success ) {
+						const node = convertBackupItemToTreeNode( name, itemValidation.data, path );
+						wpContentChildren.push( node );
+					} else {
+						console.warn( `Invalid item format for ${ name }:`, itemValidation.error );
+					}
 				}
 
 				const filesAndFoldersNode: TreeNode = {

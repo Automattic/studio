@@ -1,37 +1,44 @@
-export interface LatestRewindIdResponse {
-	body: {
-		ok: boolean;
-		error: string;
-		rewind_id: string;
-	};
-	status: number;
-	headers: {
-		Allow: string;
-	};
-}
+import { z } from 'zod';
 
-export interface BackupLsItem {
-	type: 'file' | 'dir';
-	has_children: boolean;
-	period?: string;
-	id: string;
-	total_items?: number;
-	manifest_path?: string;
-}
+export const LatestRewindIdResponseSchema = z.object( {
+	body: z.object( {
+		ok: z.boolean(),
+		error: z.string(),
+		rewind_id: z.string(),
+	} ),
+	status: z.number(),
+	headers: z.object( {
+		Allow: z.string(),
+	} ),
+} );
 
-export interface BackupLsResponse {
-	body: {
-		ok: boolean;
-		error: string;
-		contents: Record< string, BackupLsItem >;
-	};
-	status: number;
-	headers: {
-		Allow: string;
-	};
-}
+export const BackupLsItemSchema = z.object( {
+	type: z.enum( [ 'file', 'dir' ] ),
+	has_children: z.boolean(),
+	period: z.string().optional(),
+	id: z.string(),
+	total_items: z.number().optional(),
+	manifest_path: z.string().optional(),
+} );
 
-export interface BackupLsRequest {
-	backup_id: string;
-	path: string;
-}
+export const BackupLsResponseSchema = z.object( {
+	body: z.object( {
+		ok: z.boolean(),
+		error: z.string(),
+		contents: z.record( z.string(), BackupLsItemSchema ),
+	} ),
+	status: z.number(),
+	headers: z.object( {
+		Allow: z.string(),
+	} ),
+} );
+
+export const BackupLsRequestSchema = z.object( {
+	backup_id: z.string(),
+	path: z.string(),
+} );
+
+export type LatestRewindIdResponse = z.infer< typeof LatestRewindIdResponseSchema >;
+export type BackupLsItem = z.infer< typeof BackupLsItemSchema >;
+export type BackupLsResponse = z.infer< typeof BackupLsResponseSchema >;
+export type BackupLsRequest = z.infer< typeof BackupLsRequestSchema >;

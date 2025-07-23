@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
-import type { LatestRewindIdResponse } from './types';
+import { LatestRewindIdResponseSchema } from './types';
 
 interface UseLatestRewindIdResult {
 	rewindId: string | null;
@@ -26,12 +26,24 @@ export function useLatestRewindId(): UseLatestRewindIdResult {
 			setError( null );
 
 			try {
-				const response = await client.req.get< LatestRewindIdResponse[ 'body' ] >(
+				const rawResponse = await client.req.get(
 					`/sites/${ remoteSiteId }/studio-app/sync/get-latest-rewind-id`,
 					{
 						apiNamespace: 'wpcom/v2',
 					}
 				);
+
+				const validationResult = LatestRewindIdResponseSchema.safeParse( {
+					body: rawResponse,
+					status: 200,
+					headers: { Allow: 'GET' },
+				} );
+
+				if ( ! validationResult.success ) {
+					throw new Error( 'Invalid response format from server' );
+				}
+
+				const response = validationResult.data.body;
 
 				if ( response.ok && response.rewind_id ) {
 					setRewindId( response.rewind_id );

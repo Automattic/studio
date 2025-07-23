@@ -170,8 +170,7 @@
 		"zod": "^3.24.3"
 	},
 	"optionalDependencies": {
-		"appdmg": "^0.6.6",
-		"fs-ext": "*"
+		"appdmg": "^0.6.6"
 	},
 	"overrides": {
 		"@electron/packager": "18.1.3"

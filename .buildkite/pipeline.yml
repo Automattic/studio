@@ -36,6 +36,8 @@ steps:
 
   - label: Windows Unit Tests
     command: |
+      & "prepare_windows_host_for_app_distribution.ps1"
+
       bash .buildkite/commands/install-node-dependencies.sh
       echo '--- :npm: Run Unit Tests'
       npm run test

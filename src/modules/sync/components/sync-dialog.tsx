@@ -34,29 +34,27 @@ const useDynamicTreeState = (
 	type: 'push' | 'pull',
 	localSiteId: string,
 	remoteSiteId: number | undefined,
-	setTreeState: React.Dispatch< React.SetStateAction< TreeNode[] > >,
-	setIsLoadingRemoteTree: React.Dispatch< React.SetStateAction< boolean > >
+	setTreeState: React.Dispatch< React.SetStateAction< TreeNode[] > >
 ) => {
 	const wpFolders = useMemo( () => [ ...GRANULAR_SYNC_FOLDERS ], [] );
 	const wpContent = useContentFolders( localSiteId, wpFolders );
 	const { error: rewindError, rewindId } = useLatestRewindId( remoteSiteId );
-	const { fetchRemoteFileTree, fetchChildren, error: treeError } = useRemoteFileTree();
+	const { fetchChildren, error: treeError } = useRemoteFileTree();
 
 	useEffect( () => {
 		if ( type === 'pull' && remoteSiteId ) {
 			const loadRemoteTree = async () => {
-				setIsLoadingRemoteTree( true );
 				try {
 					if ( rewindId ) {
-						const remoteTree = await fetchRemoteFileTree( remoteSiteId, rewindId, '/wp-content/' );
+						const remoteTree = await fetchChildren( remoteSiteId, rewindId, '/wp-content/' );
 						if ( remoteTree ) {
-							setTreeState( remoteTree );
+							setTreeState( ( treeState ) =>
+								updateNodeById( treeState, 'wp-content', { children: remoteTree } )
+							);
 						}
 					}
 				} catch ( error ) {
 					console.error( 'Failed to load remote file tree:', error );
-				} finally {
-					setIsLoadingRemoteTree( false );
 				}
 			};
 			void loadRemoteTree();
@@ -88,16 +86,7 @@ const useDynamicTreeState = (
 				return newState;
 			} );
 		}
-	}, [
-		type,
-		wpContent,
-		setTreeState,
-		wpFolders,
-		remoteSiteId,
-		fetchRemoteFileTree,
-		setIsLoadingRemoteTree,
-		rewindId,
-	] );
+	}, [ type, wpContent, setTreeState, wpFolders, remoteSiteId, rewindId, fetchChildren ] );
 
 	return { rewindId, rewindError, treeError, fetchChildren };
 };
@@ -116,15 +105,13 @@ export function SyncDialog( {
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );
-	const [ isLoadingRemoteTree, setIsLoadingRemoteTree ] = useState( false );
 	const isSubmitDisabled = treeState.every( ( node ) => ! node.checked && ! node.indeterminate );
 
-	const { rewindError, treeError, fetchChildren, rewindId } = useDynamicTreeState(
+	const { fetchChildren, rewindId } = useDynamicTreeState(
 		type,
 		localSite.id,
 		remoteSite.id,
-		setTreeState,
-		setIsLoadingRemoteTree
+		setTreeState
 	);
 
 	const siteEnv = getSiteEnvironment( remoteSite );
@@ -225,19 +212,8 @@ export function SyncDialog( {
 							className="h-9"
 						/>
 					</div>
-					{ isLoadingRemoteTree ? (
-						<div className="flex items-center justify-center py-8">
-							<div className="text-a8c-gray-600">{ __( 'Loading remote file tree...' ) }</div>
-						</div>
-					) : rewindError || treeError ? (
-						<div className="flex items-center justify-center py-8">
-							<div className="text-red-600">
-								{ __( 'Failed to load remote files. Please try again.' ) }
-							</div>
-						</div>
-					) : (
-						<TreeView tree={ treeState } setTree={ setTreeState } onExpand={ handleExpand } />
-					) }
+
+					<TreeView tree={ treeState } setTree={ setTreeState } onExpand={ handleExpand } />
 				</div>
 				<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center absolute left-0 right-0 bottom-0 bg-white z-10">
 					<div>

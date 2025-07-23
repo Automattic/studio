@@ -8,11 +8,6 @@ import type { BackupLsItem, BackupLsRequest } from './types';
 interface UseRemoteFileTreeResult {
 	isLoading: boolean;
 	error: Error | null;
-	fetchRemoteFileTree: (
-		remoteSiteId: number,
-		rewindId: string,
-		path: string
-	) => Promise< TreeNode[] | null >;
 	fetchChildren: (
 		remoteSiteId: number,
 		rewindId: string,
@@ -141,63 +136,9 @@ export function useRemoteFileTree(): UseRemoteFileTreeResult {
 		[ fetchDirectoryContents ]
 	);
 
-	const fetchRemoteFileTree = useCallback(
-		async (
-			remoteSiteId: number,
-			rewindId: string,
-			path: string = '/wp-content/'
-		): Promise< TreeNode[] | null > => {
-			setIsLoading( true );
-			setError( null );
-
-			try {
-				const wpContentChildren = await fetchDirectoryContents( remoteSiteId, rewindId, path );
-
-				if ( ! wpContentChildren ) {
-					return null;
-				}
-
-				const filesAndFoldersNode: TreeNode = {
-					id: 'filesAndFolders',
-					name: 'filesAndFolders',
-					label: 'Files and folders',
-					checked: true,
-					type: 'folder',
-					expanded: false,
-					children: [
-						{
-							id: 'wp-content',
-							name: 'wp-content',
-							label: 'wp-content',
-							checked: true,
-							type: 'folder',
-							expanded: true,
-							path: '/wp-content/',
-							children: wpContentChildren,
-						},
-					],
-				};
-
-				const databaseNode: TreeNode = {
-					id: SYNC_OPTIONS.sqls,
-					name: SYNC_OPTIONS.sqls,
-					label: 'Database',
-					checked: true,
-					type: 'file',
-				};
-
-				return [ filesAndFoldersNode, databaseNode ];
-			} finally {
-				setIsLoading( false );
-			}
-		},
-		[ fetchDirectoryContents ]
-	);
-
 	return {
 		isLoading,
 		error,
-		fetchRemoteFileTree,
 		fetchChildren,
 	};
 }

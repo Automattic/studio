@@ -19,6 +19,7 @@ export type TreeNode = {
 	loading?: boolean;
 	pathId?: string;
 	totalItems?: number;
+	path?: string;
 };
 
 const TREE_NODE_ICONS: Record< TreeNodeType, React.JSX.Element > = {
@@ -77,6 +78,7 @@ export const updateNodeById = (
 const TreeItem = ( {
 	node,
 	onPatchNode,
+	onExpand,
 	level,
 	index,
 	isLast = false,
@@ -84,6 +86,7 @@ const TreeItem = ( {
 }: {
 	node: TreeNode;
 	onPatchNode: ( id: string, patchNode: Partial< TreeNode > ) => void;
+	onExpand?: ( node: TreeNode ) => Promise< void >;
 	level: number;
 	index: number;
 	siblingsLength?: number;
@@ -131,7 +134,23 @@ const TreeItem = ( {
 				{ ! node.loading && node.children && ! node.hideExpandButton && (
 					<button
 						aria-label={ expanded ? __( 'Collapse' ) : __( 'Expand' ) }
-						onClick={ () => onPatchNode( node.id, { expanded: ! expanded } ) }
+						onClick={ async () => {
+							if (
+								! expanded &&
+								onExpand &&
+								node.children &&
+								node.children.length === 0 &&
+								node.type === 'folder'
+							) {
+								onPatchNode( node.id, { loading: true } );
+								try {
+									await onExpand( node );
+								} finally {
+									onPatchNode( node.id, { loading: false } );
+								}
+							}
+							onPatchNode( node.id, { expanded: ! expanded } );
+						} }
 					>
 						<div className={ expanded ? 'rotate-90' : '' }>
 							<RightArrowIcon width={ 16 } />
@@ -154,6 +173,7 @@ const TreeItem = ( {
 								key={ child.id }
 								node={ child }
 								onPatchNode={ onPatchNode }
+								onExpand={ onExpand }
 								level={ level + 1 }
 								index={ idx }
 								siblingsLength={ node.children?.length }
@@ -169,9 +189,10 @@ const TreeItem = ( {
 export type TreeViewProps = {
 	tree: TreeNode[];
 	setTree: React.Dispatch< React.SetStateAction< TreeNode[] > >;
+	onExpand?: ( node: TreeNode ) => Promise< void >;
 };
 
-export const TreeView = ( { tree, setTree }: TreeViewProps ) => {
+export const TreeView = ( { tree, setTree, onExpand }: TreeViewProps ) => {
 	const handlePatchNode = ( id: string, partialNode: Partial< TreeNode > ) => {
 		setTree( ( prev: TreeNode[] ) => updateNodeById( prev, id, partialNode ) );
 	};
@@ -183,6 +204,7 @@ export const TreeView = ( { tree, setTree }: TreeViewProps ) => {
 					key={ node.id }
 					node={ node }
 					onPatchNode={ handlePatchNode }
+					onExpand={ onExpand }
 					level={ 1 }
 					index={ index }
 					siblingsLength={ tree.length }

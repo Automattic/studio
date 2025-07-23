@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
 import { LatestRewindIdResponseSchema } from './types';
 
@@ -6,10 +6,9 @@ interface UseLatestRewindIdResult {
 	rewindId: string | null;
 	isLoading: boolean;
 	error: Error | null;
-	fetchLatestRewindId: ( remoteSiteId: number ) => Promise< string | null >;
 }
 
-export function useLatestRewindId(): UseLatestRewindIdResult {
+export function useLatestRewindId( remoteSiteId: undefined | number ): UseLatestRewindIdResult {
 	const { client } = useAuth();
 	const [ rewindId, setRewindId ] = useState< string | null >( null );
 	const [ isLoading, setIsLoading ] = useState( false );
@@ -36,21 +35,22 @@ export function useLatestRewindId(): UseLatestRewindIdResult {
 				const validationResult = LatestRewindIdResponseSchema.safeParse( {
 					body: rawResponse,
 					status: 200,
-					headers: { Allow: 'GET' },
+					headers: [],
 				} );
 
 				if ( ! validationResult.success ) {
+					console.error( 'Invalid response format:', validationResult.error );
 					throw new Error( 'Invalid response format from server' );
 				}
 
 				const response = validationResult.data.body;
 
-				if ( response.ok && response.rewind_id ) {
+				if ( response.success && response.rewind_id ) {
 					setRewindId( response.rewind_id );
 					return response.rewind_id;
 				}
 
-				throw new Error( response.error || 'Failed to fetch latest rewind ID' );
+				throw new Error( 'Failed to fetch latest rewind ID' );
 			} catch ( err ) {
 				const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
 				setError( new Error( errorMessage ) );
@@ -62,10 +62,16 @@ export function useLatestRewindId(): UseLatestRewindIdResult {
 		[ client ]
 	);
 
+	useEffect( () => {
+		if ( ! remoteSiteId ) {
+			return;
+		}
+		void fetchLatestRewindId( remoteSiteId );
+	}, [ fetchLatestRewindId, remoteSiteId ] );
+
 	return {
 		rewindId,
 		isLoading,
 		error,
-		fetchLatestRewindId,
 	};
 }

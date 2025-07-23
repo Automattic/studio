@@ -39,15 +39,14 @@ const useDynamicTreeState = (
 ) => {
 	const wpFolders = useMemo( () => [ ...GRANULAR_SYNC_FOLDERS ], [] );
 	const wpContent = useContentFolders( localSiteId, wpFolders );
-	const { fetchLatestRewindId, error: rewindError } = useLatestRewindId();
-	const { fetchRemoteFileTree, error: treeError } = useRemoteFileTree();
+	const { error: rewindError, rewindId } = useLatestRewindId( remoteSiteId );
+	const { fetchRemoteFileTree, fetchChildren, error: treeError } = useRemoteFileTree();
 
 	useEffect( () => {
 		if ( type === 'pull' && remoteSiteId ) {
 			const loadRemoteTree = async () => {
 				setIsLoadingRemoteTree( true );
 				try {
-					const rewindId = await fetchLatestRewindId( remoteSiteId );
 					if ( rewindId ) {
 						const remoteTree = await fetchRemoteFileTree( remoteSiteId, rewindId, '/wp-content/' );
 						if ( remoteTree ) {
@@ -95,12 +94,12 @@ const useDynamicTreeState = (
 		setTreeState,
 		wpFolders,
 		remoteSiteId,
-		fetchLatestRewindId,
 		fetchRemoteFileTree,
 		setIsLoadingRemoteTree,
+		rewindId,
 	] );
 
-	return { rewindError, treeError };
+	return { rewindId, rewindError, treeError, fetchChildren };
 };
 
 export function SyncDialog( {
@@ -120,7 +119,7 @@ export function SyncDialog( {
 	const [ isLoadingRemoteTree, setIsLoadingRemoteTree ] = useState( false );
 	const isSubmitDisabled = treeState.every( ( node ) => ! node.checked && ! node.indeterminate );
 
-	const { rewindError, treeError } = useDynamicTreeState(
+	const { rewindError, treeError, fetchChildren, rewindId } = useDynamicTreeState(
 		type,
 		localSite.id,
 		remoteSite.id,
@@ -156,6 +155,15 @@ export function SyncDialog( {
 		}
 
 		setTreeState( ( prev ) => updateNodeById( prev, 'filesAndFolders', toUpdate ) );
+	};
+
+	const handleExpand = async ( node: TreeNode ) => {
+		if ( type === 'pull' && rewindId && node.path && node.children && node.children.length === 0 ) {
+			const children = await fetchChildren( remoteSite.id, rewindId, node.path );
+			if ( children ) {
+				setTreeState( ( prev ) => updateNodeById( prev, node.id, { children } ) );
+			}
+		}
 	};
 
 	const handleSubmit = () => {
@@ -228,7 +236,7 @@ export function SyncDialog( {
 							</div>
 						</div>
 					) : (
-						<TreeView tree={ treeState } setTree={ setTreeState } />
+						<TreeView tree={ treeState } setTree={ setTreeState } onExpand={ handleExpand } />
 					) }
 				</div>
 				<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center absolute left-0 right-0 bottom-0 bg-white z-10">

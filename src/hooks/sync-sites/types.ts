@@ -2,19 +2,15 @@ import { z } from 'zod';
 
 export const LatestRewindIdResponseSchema = z.object( {
 	body: z.object( {
-		ok: z.boolean(),
-		error: z.string(),
+		success: z.boolean(),
 		rewind_id: z.string(),
 	} ),
 	status: z.number(),
-	headers: z.object( {
-		Allow: z.string(),
-	} ),
 } );
 
 export const BackupLsItemSchema = z.object( {
-	type: z.enum( [ 'file', 'dir' ] ),
-	has_children: z.boolean(),
+	type: z.enum( [ 'file', 'dir', 'theme', 'plugin' ] ),
+	has_children: z.boolean().optional(),
 	period: z.string().optional(),
 	id: z.string(),
 	total_items: z.number().optional(),

@@ -13,6 +13,11 @@ interface UseRemoteFileTreeResult {
 		rewindId: string,
 		path: string
 	) => Promise< TreeNode[] | null >;
+	fetchChildren: (
+		remoteSiteId: number,
+		rewindId: string,
+		path: string
+	) => Promise< TreeNode[] | null >;
 }
 
 const mapItemTypeToSyncOption = ( name: string ): string => {
@@ -31,20 +36,26 @@ const mapItemTypeToSyncOption = ( name: string ): string => {
 const convertBackupItemToTreeNode = (
 	name: string,
 	item: BackupLsItem,
-	_path: string
+	parentPath: string
 ): TreeNode => {
 	const nodeId = mapItemTypeToSyncOption( name );
+	const fullPath = parentPath.endsWith( '/' )
+		? `${ parentPath }${ name }/`
+		: `${ parentPath }/${ name }/`;
 
+	const isFolder = item.type === 'dir' || item.has_children === true;
 	return {
 		id: nodeId,
 		name,
 		label: name,
 		checked: true,
-		type: item.type === 'dir' ? 'folder' : 'file',
+		type: isFolder ? 'folder' : 'file',
 		pathId: item.id,
+		path: fullPath,
 		loading: false,
-		children: item.has_children ? [] : undefined,
+		children: isFolder ? [] : undefined,
 		totalItems: item.total_items,
+		expanded: false,
 	};
 };
 
@@ -53,19 +64,16 @@ export function useRemoteFileTree(): UseRemoteFileTreeResult {
 	const [ isLoading, setIsLoading ] = useState( false );
 	const [ error, setError ] = useState< Error | null >( null );
 
-	const fetchRemoteFileTree = useCallback(
+	const fetchDirectoryContents = useCallback(
 		async (
 			remoteSiteId: number,
 			rewindId: string,
-			path: string = '/wp-content/'
+			path: string
 		): Promise< TreeNode[] | null > => {
 			if ( ! client ) {
 				setError( new Error( 'No client available' ) );
 				return null;
 			}
-
-			setIsLoading( true );
-			setError( null );
 
 			try {
 				const requestBody: BackupLsRequest = {
@@ -79,34 +87,74 @@ export function useRemoteFileTree(): UseRemoteFileTreeResult {
 					body: requestBody,
 				} );
 
-				const validationResult = BackupLsResponseSchema.safeParse( {
-					body: rawResponse,
-					status: 200,
-					headers: { Allow: 'POST' },
-				} );
+				// Validate just the body since that's what we get from the API client
+				const validationResult = BackupLsResponseSchema.shape.body.safeParse( rawResponse );
 
 				if ( ! validationResult.success ) {
 					console.error( 'Invalid response format:', validationResult.error );
 					throw new Error( 'Invalid response format from server' );
 				}
 
-				const response = validationResult.data.body;
+				const response = validationResult.data;
 
 				if ( ! response.ok ) {
 					throw new Error( response.error || 'Failed to fetch remote file tree' );
 				}
 
-				const treeNodes: TreeNode[] = [];
-				const wpContentChildren: TreeNode[] = [];
+				const children: TreeNode[] = [];
 
 				for ( const [ name, rawItem ] of Object.entries( response.contents ) ) {
 					const itemValidation = BackupLsItemSchema.safeParse( rawItem );
 					if ( itemValidation.success ) {
 						const node = convertBackupItemToTreeNode( name, itemValidation.data, path );
-						wpContentChildren.push( node );
+						children.push( node );
 					} else {
 						console.warn( `Invalid item format for ${ name }:`, itemValidation.error );
 					}
+				}
+
+				return children;
+			} catch ( err ) {
+				const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+				setError( new Error( errorMessage ) );
+				return null;
+			}
+		},
+		[ client ]
+	);
+
+	const fetchChildren = useCallback(
+		async (
+			remoteSiteId: number,
+			rewindId: string,
+			path: string
+		): Promise< TreeNode[] | null > => {
+			setIsLoading( true );
+			setError( null );
+
+			try {
+				return await fetchDirectoryContents( remoteSiteId, rewindId, path );
+			} finally {
+				setIsLoading( false );
+			}
+		},
+		[ fetchDirectoryContents ]
+	);
+
+	const fetchRemoteFileTree = useCallback(
+		async (
+			remoteSiteId: number,
+			rewindId: string,
+			path: string = '/wp-content/'
+		): Promise< TreeNode[] | null > => {
+			setIsLoading( true );
+			setError( null );
+
+			try {
+				const wpContentChildren = await fetchDirectoryContents( remoteSiteId, rewindId, path );
+
+				if ( ! wpContentChildren ) {
+					return null;
 				}
 
 				const filesAndFoldersNode: TreeNode = {
@@ -124,6 +172,7 @@ export function useRemoteFileTree(): UseRemoteFileTreeResult {
 							checked: true,
 							type: 'folder',
 							expanded: true,
+							path: '/wp-content/',
 							children: wpContentChildren,
 						},
 					],
@@ -137,24 +186,18 @@ export function useRemoteFileTree(): UseRemoteFileTreeResult {
 					type: 'file',
 				};
 
-				treeNodes.push( filesAndFoldersNode );
-				treeNodes.push( databaseNode );
-
-				return treeNodes;
-			} catch ( err ) {
-				const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-				setError( new Error( errorMessage ) );
-				return null;
+				return [ filesAndFoldersNode, databaseNode ];
 			} finally {
 				setIsLoading( false );
 			}
 		},
-		[ client ]
+		[ fetchDirectoryContents ]
 	);
 
 	return {
 		isLoading,
 		error,
 		fetchRemoteFileTree,
+		fetchChildren,
 	};
 }

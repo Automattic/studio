@@ -24,6 +24,7 @@ import { OpenSitesSyncSelector } from 'src/modules/sync';
 import { SyncDialog } from 'src/modules/sync/components/sync-dialog';
 import { SyncPullPushClear } from 'src/modules/sync/components/sync-pull-push-clear';
 import { convertTreeToOptionsToSync } from 'src/modules/sync/lib/convert-tree-to-options-to-sync';
+import { convertTreeToPullOptions } from 'src/modules/sync/lib/convert-tree-to-pull-options';
 import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
@@ -154,12 +155,12 @@ const SyncConnectedSiteControls = ( {
 						localSite={ selectedSite }
 						remoteSite={ connectedSite }
 						onSubmit={ ( tree ) => {
-							const syncOptions = convertTreeToOptionsToSync( tree );
-
 							if ( syncDialogType === 'push' ) {
+								const syncOptions = convertTreeToOptionsToSync( tree );
 								void pushSite( connectedSite, selectedSite, syncOptions );
 							} else {
-								pullSite( connectedSite, selectedSite, syncOptions );
+								const pullOptions = convertTreeToPullOptions( tree );
+								pullSite( connectedSite, selectedSite, pullOptions );
 							}
 						} }
 						onRequestClose={ () => setSyncDialogType( null ) }

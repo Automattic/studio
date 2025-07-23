@@ -17,6 +17,8 @@ export type TreeNode = {
 	children?: TreeNode[];
 	type?: TreeNodeType;
 	loading?: boolean;
+	pathId?: string;
+	totalItems?: number;
 };
 
 const TREE_NODE_ICONS: Record< TreeNodeType, React.JSX.Element > = {

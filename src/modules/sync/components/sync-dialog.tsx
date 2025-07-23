@@ -10,6 +10,8 @@ import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
 import { SYNC_OPTIONS } from 'src/constants';
+import { useLatestRewindId } from 'src/hooks/sync-sites/use-latest-rewind-id';
+import { useRemoteFileTree } from 'src/hooks/sync-sites/use-remote-file-tree';
 import { useContentFolders } from 'src/hooks/use-content-folders';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
@@ -31,40 +33,74 @@ type SyncDialogProps = {
 const useDynamicTreeState = (
 	type: 'push' | 'pull',
 	localSiteId: string,
-	setTreeState: React.Dispatch< React.SetStateAction< TreeNode[] > >
+	remoteSiteId: number | undefined,
+	setTreeState: React.Dispatch< React.SetStateAction< TreeNode[] > >,
+	setIsLoadingRemoteTree: React.Dispatch< React.SetStateAction< boolean > >
 ) => {
 	const wpFolders = useMemo( () => [ ...GRANULAR_SYNC_FOLDERS ], [] );
 	const wpContent = useContentFolders( localSiteId, wpFolders );
+	const { fetchLatestRewindId, error: rewindError } = useLatestRewindId();
+	const { fetchRemoteFileTree, error: treeError } = useRemoteFileTree();
 
 	useEffect( () => {
-		if ( type === 'pull' ) {
+		if ( type === 'pull' && remoteSiteId ) {
+			const loadRemoteTree = async () => {
+				setIsLoadingRemoteTree( true );
+				try {
+					const rewindId = await fetchLatestRewindId( remoteSiteId );
+					if ( rewindId ) {
+						const remoteTree = await fetchRemoteFileTree( remoteSiteId, rewindId, '/wp-content/' );
+						if ( remoteTree ) {
+							setTreeState( remoteTree );
+						}
+					}
+				} catch ( error ) {
+					console.error( 'Failed to load remote file tree:', error );
+				} finally {
+					setIsLoadingRemoteTree( false );
+				}
+			};
+			void loadRemoteTree();
 			return;
 		}
 
-		setTreeState( ( prev ) => {
-			let newState = [ ...prev ];
+		if ( type === 'push' ) {
+			setTreeState( ( prev ) => {
+				let newState = [ ...prev ];
 
-			wpFolders.forEach( ( wpType ) => {
-				const { items, isLoading, error } = wpContent[ wpType ];
-				const children: TreeNode[] | undefined = error
-					? undefined
-					: items.map( ( item ) => ( {
-							id: `${ wpType }-${ item.name }`,
-							name: item.name,
-							label: item.name,
-							checked: true,
-							type: item.type,
-					  } ) );
+				wpFolders.forEach( ( wpType ) => {
+					const { items, isLoading, error } = wpContent[ wpType ];
+					const children: TreeNode[] | undefined = error
+						? undefined
+						: items.map( ( item ) => ( {
+								id: `${ wpType }-${ item.name }`,
+								name: item.name,
+								label: item.name,
+								checked: true,
+								type: item.type,
+						  } ) );
 
-				newState = updateNodeById( newState, SYNC_OPTIONS[ wpType ], {
-					loading: isLoading,
-					children,
+					newState = updateNodeById( newState, SYNC_OPTIONS[ wpType ], {
+						loading: isLoading,
+						children,
+					} );
 				} );
-			} );
 
-			return newState;
-		} );
-	}, [ type, wpContent, setTreeState, wpFolders ] );
+				return newState;
+			} );
+		}
+	}, [
+		type,
+		wpContent,
+		setTreeState,
+		wpFolders,
+		remoteSiteId,
+		fetchLatestRewindId,
+		fetchRemoteFileTree,
+		setIsLoadingRemoteTree,
+	] );
+
+	return { rewindError, treeError };
 };
 
 export function SyncDialog( {
@@ -81,9 +117,16 @@ export function SyncDialog( {
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );
+	const [ isLoadingRemoteTree, setIsLoadingRemoteTree ] = useState( false );
 	const isSubmitDisabled = treeState.every( ( node ) => ! node.checked && ! node.indeterminate );
 
-	useDynamicTreeState( type, localSite.id, setTreeState );
+	const { rewindError, treeError } = useDynamicTreeState(
+		type,
+		localSite.id,
+		remoteSite.id,
+		setTreeState,
+		setIsLoadingRemoteTree
+	);
 
 	const siteEnv = getSiteEnvironment( remoteSite );
 
@@ -174,7 +217,19 @@ export function SyncDialog( {
 							className="h-9"
 						/>
 					</div>
-					<TreeView tree={ treeState } setTree={ setTreeState } />
+					{ isLoadingRemoteTree ? (
+						<div className="flex items-center justify-center py-8">
+							<div className="text-a8c-gray-600">{ __( 'Loading remote file tree...' ) }</div>
+						</div>
+					) : rewindError || treeError ? (
+						<div className="flex items-center justify-center py-8">
+							<div className="text-red-600">
+								{ __( 'Failed to load remote files. Please try again.' ) }
+							</div>
+						</div>
+					) : (
+						<TreeView tree={ treeState } setTree={ setTreeState } />
+					) }
 				</div>
 				<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center absolute left-0 right-0 bottom-0 bg-white z-10">
 					<div>

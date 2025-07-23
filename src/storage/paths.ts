@@ -1,4 +1,5 @@
 import path from 'path';
+import { LOCKFILE_NAME } from 'common/constants';
 
 function inChildProcess() {
 	return process.env.STUDIO_IN_CHILD_PROCESS === 'true';
@@ -16,6 +17,10 @@ try {
 
 export function getUserDataFilePath(): string {
 	return path.join( getAppDataPath(), getAppName(), 'appdata-v1.json' );
+}
+
+export function getUserDataLockFilePath(): string {
+	return path.join( getAppDataPath(), getAppName(), LOCKFILE_NAME );
 }
 
 export function getServerFilesPath(): string {

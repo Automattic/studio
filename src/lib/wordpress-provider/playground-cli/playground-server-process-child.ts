@@ -67,6 +67,8 @@ async function startServer(
 			internalCookieStore: true,
 			followSymlinks: true,
 			skipWordPressSetup: true,
+			// we will use Studio's SQLite management for now
+			skipSqliteSetup: true,
 			port: options.port,
 			'mount-before-install': [
 				{

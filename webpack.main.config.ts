@@ -34,6 +34,11 @@ const extraEntries = [
 		path: './src/lib/wordpress-provider/playground-cli/playground-server-process-child.ts',
 		exportName: 'PLAYGROUND_SERVER_PROCESS_MODULE_PATH',
 	},
+	{
+		name: 'playgroundCliWorker',
+		path: './src/lib/wordpress-provider/playground-cli/playground-cli-worker.ts',
+		exportName: 'PLAYGROUND_CLI_WORKER_MODULE_PATH',
+	},
 ];
 
 export default function mainConfig( _env: unknown, args: Record< string, unknown > ) {

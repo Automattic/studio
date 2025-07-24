@@ -18,7 +18,8 @@ if ($BuildType -notin $VALID_BUILD_TYPES) {
     Exit 1
 }
 
-& "prepare_windows_host_for_app_distribution.ps1" # via CI toolkit plugin
+# prepare_windows_host_for_app_distribution.ps1 comes from CI Toolkit Plugin
+& "prepare_windows_host_for_app_distribution.ps1" -InstallPython $true -InstallNativeCompilationTools $true
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 Write-Host "--- :npm: Installing Node dependencies"

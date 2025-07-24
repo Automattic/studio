@@ -13,7 +13,6 @@ export const BackupLsItemSchema = z.object( {
 	has_children: z.boolean().optional(),
 	period: z.string().optional(),
 	id: z.string(),
-	total_items: z.number().optional(),
 	manifest_path: z.string().optional(),
 } );
 

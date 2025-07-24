@@ -18,7 +18,6 @@ export type TreeNode = {
 	type?: TreeNodeType;
 	loading?: boolean;
 	pathId?: string;
-	totalItems?: number;
 	path?: string;
 };
 

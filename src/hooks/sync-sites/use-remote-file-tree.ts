@@ -49,7 +49,6 @@ const convertBackupItemToTreeNode = (
 		path: fullPath,
 		loading: false,
 		children: isFolder ? [] : undefined,
-		totalItems: item.total_items,
 		expanded: false,
 	};
 };

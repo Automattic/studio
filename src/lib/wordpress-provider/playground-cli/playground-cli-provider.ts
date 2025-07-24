@@ -132,7 +132,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		absoluteUrl?: string;
 		siteLanguage?: string;
 	} ): Promise< WordPressServerInstance > {
-
 		const port = options.port;
 		const phpVersion = options.phpVersion || '8.3';
 
@@ -167,7 +166,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	}
 
 	createServerProcess( serverInstance: WordPressServerInstance ): WordPressServerProcess {
-
 		const playgroundOptions = serverInstance._internal as PlaygroundCliOptions;
 		return new PlaygroundServerProcess(
 			serverInstance.url,
@@ -208,7 +206,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	}
 
 	async setupWordPressSite( path: string, wpVersion = 'latest' ): Promise< boolean > {
-
 		try {
 			// Create a blueprint to set up WordPress with basic configuration
 			const blueprint: Blueprint = {

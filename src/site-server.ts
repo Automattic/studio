@@ -237,9 +237,47 @@ export class SiteServer {
 		this.details = { running: false, autoStart: false, ...rest };
 	}
 
+	private async waitForWordPressReady( maxAttempts = 30, delayMs = 1000 ): Promise< boolean > {
+		for ( let attempt = 0; attempt < maxAttempts; attempt++ ) {
+			if ( ! this.details.running ) {
+				continue;
+			}
+			const healthCheckUrl = new URL( '/?studio-health-check', this.details.url );
+			try {
+				const response = await fetch( healthCheckUrl.href );
+				if ( response.ok ) {
+					const data = await response.json();
+					if ( data.status === 'ready' && data.mu_plugins_loaded ) {
+						return true;
+					}
+				}
+			} catch ( error ) {
+				// Server might not be ready yet, continue trying
+			}
+
+			if ( attempt < maxAttempts - 1 ) {
+				await new Promise( ( resolve ) => setTimeout( resolve, delayMs ) );
+			}
+		}
+
+		console.warn(
+			`WordPress did not become ready after ${ maxAttempts } attempts for site ${ this.details.id }`
+		);
+		return false;
+	}
+
 	async updateCachedThumbnail() {
 		if ( ! this.details.running ) {
 			console.warn( `Thumbnail update skipped: server ${ this.details.id } is not running.` );
+			return;
+		}
+
+		// Wait for WordPress to be fully ready before taking screenshot
+		const isReady = await this.waitForWordPressReady();
+		if ( ! isReady ) {
+			console.warn(
+				`Skipping thumbnail update: WordPress not ready for site ${ this.details.id }`
+			);
 			return;
 		}
 

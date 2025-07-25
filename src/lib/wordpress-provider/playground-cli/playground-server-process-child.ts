@@ -1,10 +1,7 @@
-import { mkdtemp, writeFile } from 'fs/promises';
-import { tmpdir } from 'os';
-import { join } from 'path';
 import { SupportedPHPVersion, PHPRunOptions } from '@php-wasm/universal';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import { WordPressServerOptions } from '../types';
-import { createLoaderMuPlugin, getStandardMuPlugins } from './mu-plugins';
+import { getMuPlugins } from './mu-plugins';
 import { PlaygroundCliOptions } from './playground-cli-provider';
 
 interface Message {
@@ -56,9 +53,7 @@ async function startServer(
 	}
 
 	try {
-		// Create the mu-plugins directory and the loader mu-plugin to be mounted in the VFS
-		const studioMuPluginsHostPath = await createMuPluginsDirectory( serverOptions );
-		const loaderMuPluginHostPath = await createLoaderMuPlugin();
+		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( serverOptions );
 
 		// Build CLI command arguments
 		const args: RunCLIArgs = {
@@ -174,28 +169,5 @@ async function runPhp( options: {
 		return response.text || '';
 	} catch ( error ) {
 		throw new Error( `Failed to run PHP code: ${ error }` );
-	}
-}
-
-async function createMuPluginsDirectory(
-	serverOptions: WordPressServerOptions
-): Promise< string > {
-	try {
-		// Create a temporary directory for mu-plugins
-		const tempDir = await mkdtemp( join( tmpdir(), 'studio-mu-plugins-' ) );
-
-		// Get the standard mu-plugins
-		const muPlugins = getStandardMuPlugins( {
-			isWpAutoUpdating: serverOptions.isWpAutoUpdating,
-		} );
-
-		// Write each mu-plugin file to the temporary directory
-		for ( const plugin of muPlugins ) {
-			const pluginPath = join( tempDir, plugin.filename );
-			await writeFile( pluginPath, plugin.content );
-		}
-		return tempDir;
-	} catch ( error ) {
-		throw new Error( `Failed to create mu-plugins directory: ${ error }` );
 	}
 }

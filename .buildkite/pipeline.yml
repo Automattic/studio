@@ -44,6 +44,8 @@ steps:
       npm run test
     agents:
       queue: windows
+    env:
+      SKIP_CERTIFICATE_DOWNLOAD: "true"
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     notify:
       - github_commit_status:

@@ -58,7 +58,6 @@ async function startServer(
 		// Build CLI command arguments
 		const args: RunCLIArgs = {
 			command: 'server',
-			login: true,
 			internalCookieStore: true,
 			followSymlinks: true,
 			skipWordPressSetup: true,

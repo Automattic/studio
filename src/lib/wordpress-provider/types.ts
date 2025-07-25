@@ -1,3 +1,5 @@
+import { SiteServer } from 'src/site-server';
+
 export type AllowedPHPVersion = string;
 
 export interface ServerOptions {

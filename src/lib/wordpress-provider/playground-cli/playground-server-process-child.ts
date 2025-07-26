@@ -58,7 +58,7 @@ async function startServer(
 
 		// Use the explicit setup mode flag to determine whether to skip WordPress setup
 		const skipWordPressSetup = ! options.isSetupMode;
-		const skipSqliteSetup = false; // this is failing but we should be able to skip it
+		const skipSqliteSetup = false; // Always allow SQLite setup for database connectivity
 
 		const blueprint: Blueprint = {
 			steps: [

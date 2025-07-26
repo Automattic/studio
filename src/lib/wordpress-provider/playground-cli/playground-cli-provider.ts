@@ -164,35 +164,129 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	}
 
 	async executeWPCli(
-		projectPath: string,
-		args: string[]
+		_projectPath: string,
+		args: string[],
+		options?: { phpVersion?: string; server?: WordPressServerProcess }
 	): Promise< {
 		stdout: string;
 		stderr: string;
 		exitCode: number;
 	} > {
-		console.log( '[playground-cli] Mocking WP-CLI command:', args.join( ' ' ) );
+		const server = options?.server;
+		if ( ! server ) {
+			throw new Error( 'Server not provided' );
+		}
+		console.log( '[playground-cli] Executing WP-CLI command with server:', args.join( ' ' ) );
 
-		// Mock different responses for common commands
-		const command = args.join( ' ' );
+		try {
+			// Execute WP-CLI command using the phar file that playground CLI downloads
+			const phpScript = `<?php
+				// Build the arguments array
+				$args = ${ JSON.stringify( args ) };
 
-		if ( command.includes( 'option get siteurl' ) ) {
+				// Change working directory to WordPress root
+				chdir( '/wordpress' );
+
+				// Set up WP-CLI environment
+				if ( ! defined( 'WP_CLI' ) ) {
+					define( 'WP_CLI', true );
+				}
+
+				// Define CLI constants that WP-CLI expects
+				if ( ! defined( 'STDOUT' ) ) {
+					define( 'STDOUT', fopen( 'php://output', 'w' ) );
+				}
+				if ( ! defined( 'STDERR' ) ) {
+					define( 'STDERR', fopen( 'php://stderr', 'w' ) );
+				}
+				if ( ! defined( 'STDIN' ) ) {
+					define( 'STDIN', fopen( 'php://input', 'r' ) );
+				}
+
+				// Define WP-CLI namespaced constants
+				if ( ! defined( 'WP_CLI\\Loggers\\STDERR' ) ) {
+					define( 'WP_CLI\\Loggers\\STDERR', STDERR );
+				}
+
+				// Set up command line arguments for WP-CLI
+				$_SERVER['argv'] = array_merge( [ 'wp' ], $args );
+				$_SERVER['argc'] = count( $_SERVER['argv'] );
+
+				global $argc, $argv;
+				$argc = $_SERVER['argc'];
+				$argv = $_SERVER['argv'];
+
+				// Try direct phar inclusion first (cleaner output)
+				$wpCliPath = '/tmp/wp-cli.phar';
+				if ( file_exists( $wpCliPath ) ) {
+					try {
+						// Look for the WP-CLI entry point in the phar
+						$phar = new Phar( $wpCliPath );
+						$entryPoints = [ 'php/boot-phar.php', 'php/wp-cli.php', 'wp-cli.php' ];
+
+						foreach ( $entryPoints as $ep ) {
+							if ( isset( $phar[ $ep ] ) ) {
+								ob_start();
+								include( 'phar://' . $wpCliPath . '/' . $ep );
+								$output = ob_get_contents();
+								ob_end_clean();
+
+								// Return clean output
+								echo trim( $output );
+								return;
+							}
+						}
+					} catch ( Exception $e ) {
+						// Fall back to exec method
+					}
+				}
+
+				// Fallback: use exec to run WP-CLI command
+				$command = 'php /tmp/wp-cli.phar ' . implode( ' ', array_map( 'escapeshellarg', $args ) ) . ' 2>&1';
+
+				$output = [];
+				$exitCode = 0;
+				exec( $command, $output, $exitCode );
+
+				// Return the output
+				echo implode( "\\n", $output );
+			`;
+
+			// Execute the PHP script using the running server
+			const result = await server.runPhp( { code: phpScript } );
+
+			// Clean the HTML warnings from WP-CLI output
+			let cleanOutput = result;
+
+
+			// Remove HTML warning tags about WP_CLI constant
+			cleanOutput = cleanOutput.replace( /<br\s*\/?>\s*/gi, '\n' );
+			cleanOutput = cleanOutput.replace(
+				/<b>Warning<\/b>:\s*Constant WP_CLI already defined.*?<br\s*\/?>/gi,
+				''
+			);
+			cleanOutput = cleanOutput.replace( /<b>.*?<\/b>/gi, '' );
+
+			// Remove any leftover warning fragments
+			cleanOutput = cleanOutput.replace( /:\s*Constant WP_CLI already defined.*?on line\s*/gi, '' );
+			cleanOutput = cleanOutput.replace( /Warning:\s*Constant WP_CLI already defined.*?\n/gi, '' );
+
+			// Remove extra whitespace and newlines
+			cleanOutput = cleanOutput.replace( /^\s+|\s+$/g, '' );
+			cleanOutput = cleanOutput.replace( /\n\s*\n/g, '\n' );
+
+
 			return {
-				stdout: 'http://localhost:8000',
+				stdout: cleanOutput,
 				stderr: '',
 				exitCode: 0,
 			};
-		} else if ( command.includes( 'option get home' ) ) {
+		} catch ( error ) {
+			console.error( '[playground-cli] WP-CLI execution error:', error );
 			return {
-				stdout: 'http://localhost:8000',
-				stderr: '',
-				exitCode: 0,
-			};
-		} else {
-			return {
-				stdout: 'Success: Command executed',
-				stderr: '',
-				exitCode: 0,
+				stdout: '',
+				stderr: error instanceof Error ? error.message : 'Unknown error occurred',
+				exitCode: 1,
 			};
 		}
 	}

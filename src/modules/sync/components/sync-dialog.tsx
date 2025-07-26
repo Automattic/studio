@@ -26,7 +26,8 @@ type SyncDialogProps = {
 	type: 'push' | 'pull';
 	localSite: SiteDetails;
 	remoteSite: SyncSite;
-	onSubmit: ( syncData: TreeNode[] ) => void;
+	onPush: ( syncData: TreeNode[] ) => void;
+	onPull: ( syncData: TreeNode[], rewindId: string ) => void;
 	onRequestClose: () => void;
 };
 
@@ -95,7 +96,8 @@ export function SyncDialog( {
 	type,
 	localSite,
 	remoteSite,
-	onSubmit,
+	onPush,
+	onPull,
 	onRequestClose,
 }: SyncDialogProps ) {
 	const locale = useI18nLocale();
@@ -154,7 +156,15 @@ export function SyncDialog( {
 	};
 
 	const handleSubmit = () => {
-		onSubmit( treeState );
+		if ( type === 'pull' ) {
+			if ( ! rewindId ) {
+				alert( __( 'No rewind ID found' ) );
+				return;
+			}
+			onPull( treeState, rewindId );
+		} else {
+			onPush( treeState );
+		}
 
 		onRequestClose();
 	};

@@ -13,10 +13,6 @@ const collectPathIds = ( nodes: TreeNode[], pathIds: string[] = [] ): string[] =
 		} else if ( node.indeterminate && node.children ) {
 			collectPathIds( node.children, pathIds );
 		}
-
-		if ( node.children && node.checked ) {
-			collectPathIds( node.children, pathIds );
-		}
 	} );
 
 	return pathIds;
@@ -25,18 +21,11 @@ const collectPathIds = ( nodes: TreeNode[], pathIds: string[] = [] ): string[] =
 export const convertTreeToPullOptions = ( tree: TreeNode[] ): PullSyncOptions => {
 	const isDatabaseSelected = tree.find( ( node ) => node.id === SYNC_OPTIONS.sqls )?.checked;
 	const filesAndFolders = tree.find( ( node ) => node.id === 'filesAndFolders' );
-
-	if ( ! filesAndFolders || ! filesAndFolders.checked ) {
+	if ( ! filesAndFolders ) {
 		return isDatabaseSelected ? { options: [ SYNC_OPTIONS.sqls ] } : { options: [] };
 	}
-
 	const wpContent = filesAndFolders.children?.find( ( node ) => node.id === 'wp-content' );
-
-	if ( ! wpContent || ! wpContent.children ) {
-		return isDatabaseSelected ? { options: [ SYNC_OPTIONS.sqls ] } : { options: [] };
-	}
-
-	const pathIds = collectPathIds( wpContent.children );
+	const pathIds = collectPathIds( wpContent?.children ?? [] );
 
 	const pullOptions: PullSyncOptions = {
 		options: pathIds.length > 0 ? [ 'paths' ] : [],

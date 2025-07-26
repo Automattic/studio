@@ -35,10 +35,12 @@ export type SyncBackupState = {
 type PullSiteOptions =
 	| {
 			optionsToSync?: SyncOption[];
+			rewindId?: string;
 	  }
 	| {
 			options: string[];
 			include_path_list?: string[];
+			rewindId?: string;
 	  };
 
 export type PullStates = Record< string, SyncBackupState >;
@@ -46,7 +48,8 @@ type OnPullSuccess = ( siteId: number, localSiteId: string ) => void;
 type PullSite = (
 	connectedSite: SyncSite,
 	selectedSite: SiteDetails,
-	options?: PullSiteOptions
+	options?: PullSiteOptions,
+	rewindId?: string
 ) => void;
 type IsSiteIdPulling = ( selectedSiteId: string, remoteSiteId?: number ) => boolean;
 
@@ -132,6 +135,7 @@ export function useSyncPull( {
 				let requestBody: {
 					options?: string[] | SyncOption[];
 					include_path_list?: string[];
+					rewind_id?: string;
 				} = {};
 
 				if ( options && 'options' in options ) {
@@ -139,13 +143,17 @@ export function useSyncPull( {
 					requestBody = {
 						options: options.options,
 						include_path_list: options.include_path_list,
+						rewind_id: options.rewindId,
 					};
 				} else if ( options && 'optionsToSync' in options ) {
 					// Legacy format
 					requestBody = {
 						options: options.optionsToSync,
+						rewind_id: options.rewindId,
 					};
 				}
+
+				console.log( 'requestBody', requestBody );
 
 				const response = await client.req.post< { success: boolean; backup_id: string } >( {
 					path: `/sites/${ remoteSiteId }/studio-app/sync/backup`,

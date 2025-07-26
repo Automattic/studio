@@ -40,7 +40,7 @@ async function execute( data: unknown ) {
 				'src/lib/wordpress-provider/playground-cli/playground-cli-provider'
 			);
 			const provider = new PlaygroundCliProvider();
-			return await provider.executeWPCli( projectPath, args, { phpVersion } );
+			return await provider.executeWPCli( projectPath, args );
 		}
 		default:
 			throw new Error( `Unknown WordPress provider type: ${ providerType }` );

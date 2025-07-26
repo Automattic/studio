@@ -193,17 +193,6 @@ export async function createSite(
 		throw new Error( 'The selected directory is already in use.' );
 	}
 
-	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
-		try {
-			await createSiteWorkingDirectory( path, wpVersion );
-		} catch ( error ) {
-			// If site creation failed, remove the generated files and re-throw the
-			// error so it can be handled by the caller.
-			await shell.trashItem( path );
-			throw error;
-		}
-	}
-
 	const port = await portFinder.getOpenPort();
 
 	const details = {
@@ -220,6 +209,17 @@ export async function createSite(
 	} as const;
 
 	const server = SiteServer.create( details, { wpVersion } );
+
+	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
+		try {
+			await createSiteWorkingDirectory( server, wpVersion );
+		} catch ( error ) {
+			// If site creation failed, remove the generated files and re-throw the
+			// error so it can be handled by the caller.
+			await shell.trashItem( path );
+			throw error;
+		}
+	}
 
 	if ( isWordPressDirectory( path ) ) {
 		// If the directory contains a WordPress installation, and user wants to force SQLite

@@ -1,4 +1,5 @@
 import { SupportedPHPVersion, PHPRunOptions } from '@php-wasm/universal';
+import { Blueprint } from '@wp-playground/blueprints';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import { WordPressServerOptions } from '../types';
 import { getMuPlugins } from './mu-plugins';
@@ -55,12 +56,33 @@ async function startServer(
 	try {
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( serverOptions );
 
+		// Use the explicit setup mode flag to determine whether to skip WordPress setup
+		const skipWordPressSetup = ! options.isSetupMode;
+		const skipSqliteSetup = false; // this is failing but we should be able to skip it
+
+		const blueprint: Blueprint = {
+			steps: [
+				{
+					step: 'setSiteOptions',
+					options: {
+						blogname: serverOptions.siteTitle,
+					},
+				},
+				{
+					step: 'wp-cli',
+					command: `wp user update admin --user_pass=${ serverOptions.adminPassword }`,
+				},
+			],
+		};
+
 		// Build CLI command arguments
 		const args: RunCLIArgs = {
 			command: 'server',
+			blueprint,
 			internalCookieStore: true,
 			followSymlinks: true,
-			skipWordPressSetup: true,
+			skipWordPressSetup,
+			skipSqliteSetup,
 			port: options.port,
 			'mount-before-install': [
 				{
@@ -81,6 +103,11 @@ async function startServer(
 		// Add PHP version if specified
 		if ( options.phpVersion ) {
 			args.php = options.phpVersion as SupportedPHPVersion;
+		}
+
+		// Add WordPress version if we're installing WordPress
+		if ( serverOptions.wordPressVersion ) {
+			args.wp = serverOptions.wordPressVersion;
 		}
 
 		// Start the CLI server

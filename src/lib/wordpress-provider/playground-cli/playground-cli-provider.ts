@@ -1,14 +1,10 @@
-import { SupportedPHPVersion } from '@php-wasm/universal';
-import { Blueprint } from '@wp-playground/blueprints';
-import { runCLI } from '@wp-playground/cli';
+import { SiteServer } from 'src/site-server';
 import {
 	WordPressProvider,
 	WordPressServerInstance,
 	WordPressServerOptions,
 	WordPressServerProcess,
 } from '../types';
-import { getMuPlugins } from './mu-plugins';
-import { PlaygroundCliWorkerProcess, type WorkerConfig } from './playground-cli-worker-process';
 import { PlaygroundServerProcess } from './playground-server-process';
 
 export interface PlaygroundCliOptions {
@@ -17,39 +13,7 @@ export interface PlaygroundCliOptions {
 	documentRoot: string;
 	autoMount: boolean;
 	skipWordpressSetup: boolean;
-}
-
-/**
- * Safely runs playground CLI operations in an isolated utility process
- * to prevent the CLI's process.exit() calls from terminating Studio
- */
-async function runPlaygroundCli( options: {
-	command: 'run-blueprint';
-	blueprint: Blueprint;
-	hostPath: string;
-	port?: number;
-	wpVersion?: string;
-	phpVersion?: string;
-	skipWordPressSetup?: boolean;
-} ): Promise< { success: boolean; error?: string } > {
-	const config: WorkerConfig = {
-		command: options.command,
-		blueprint: options.blueprint,
-		hostPath: options.hostPath,
-		port: options.port,
-		wpVersion: options.wpVersion || 'latest',
-		phpVersion: options.phpVersion || '8.3',
-		skipWordPressSetup: options.skipWordPressSetup || false,
-	};
-
-	console.log( '[playground-cli] Starting worker process for blueprint execution' );
-
-	const worker = new PlaygroundCliWorkerProcess();
-	const result = await worker.runBlueprint( config );
-
-	console.log( '[playground-cli] Worker process completed:', result );
-
-	return result;
+	isSetupMode?: boolean;
 }
 
 export const PLAYGROUND_CLI_PROVIDER_NAME = 'playground-cli';
@@ -75,6 +39,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		isWpAutoUpdating?: boolean;
 		absoluteUrl?: string;
 		siteLanguage?: string;
+		isSetupMode?: boolean;
 	} ): Promise< WordPressServerInstance > {
 		const port = options.port;
 		const phpVersion = options.phpVersion || '8.3';
@@ -85,6 +50,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			documentRoot: options.path,
 			autoMount: true,
 			skipWordpressSetup: true,
+			isSetupMode: options.isSetupMode || false,
 		};
 
 		const serverOptions: WordPressServerOptions = {
@@ -149,42 +115,40 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		throw new Error( 'downloadSQLiteCommand not implemented for playground-cli provider' );
 	}
 
-	async setupWordPressSite( path: string, wpVersion = 'latest' ): Promise< boolean > {
-		console.log( '[playground-cli] Setting up WordPress site with worker process approach' );
+	async setupWordPressSite( server: SiteServer, wpVersion = 'latest' ): Promise< boolean > {
+		console.log(
+			'[playground-cli] Setting up WordPress site by starting server with WordPress setup'
+		);
 
 		try {
-			// Create a blueprint to set up WordPress with basic configuration
-			const blueprint: Blueprint = {
-				steps: [
-					{
-						step: 'setSiteOptions',
-						options: {
-							blogname: 'My WordPress Site',
-						},
-					},
-					{
-						step: 'wp-cli',
-						command: 'wp user update admin --user_pass="password"',
-					},
-				],
-			};
+			const { path, port, adminPassword, name, phpVersion } = server.details;
+			console.log( `[playground-cli] Setting up WordPress version: ${ wpVersion }` );
 
-			const result = await runPlaygroundCli( {
-				command: 'run-blueprint',
-				blueprint,
-				hostPath: path,
+			// Create server instance with WordPress setup enabled
+			const serverInstance = await this.startServer( {
+				path,
+				port,
+				adminPassword: adminPassword || 'password',
+				siteTitle: name,
+				phpVersion: phpVersion || this.DEFAULT_PHP_VERSION,
 				wpVersion,
-				phpVersion: this.DEFAULT_PHP_VERSION,
-				skipWordPressSetup: false,
+				isWpAutoUpdating: false,
+				isSetupMode: true,
 			} );
 
-			if ( result.success ) {
-				console.log( '[playground-cli] WordPress site setup completed successfully' );
-				return true;
-			} else {
-				console.error( '[playground-cli] WordPress site setup failed:', result.error );
-				return false;
-			}
+			console.log(
+				`[playground-cli] Server instance wordPressVersion: ${ serverInstance.options.wordPressVersion }`
+			);
+
+			const serverProcess = this.createServerProcess( serverInstance );
+			console.log( '[playground-cli] Starting server for WordPress setup...' );
+			await serverProcess.start();
+
+			console.log( '[playground-cli] WordPress installation completed, stopping setup server...' );
+			await serverProcess.stop();
+
+			console.log( '[playground-cli] WordPress site setup completed successfully' );
+			return true;
 		} catch ( error ) {
 			console.error( 'Failed to setup WordPress site:', error );
 			return false;
@@ -201,94 +165,35 @@ export class PlaygroundCliProvider implements WordPressProvider {
 
 	async executeWPCli(
 		projectPath: string,
-		args: string[],
-		options?: { phpVersion?: string }
+		args: string[]
 	): Promise< {
 		stdout: string;
 		stderr: string;
 		exitCode: number;
 	} > {
-		console.log( '[playground-cli] Mocking WP-CLI command (early return):', args.join( ' ' ) );
+		console.log( '[playground-cli] Mocking WP-CLI command:', args.join( ' ' ) );
 
-		// Early return for testing - mock success
-		return {
-			stdout: 'http://localhost:8000', // Mock typical siteurl response
-			stderr: '',
-			exitCode: 0,
-		};
-
+		// Mock different responses for common commands
 		const command = args.join( ' ' );
-		let server = null;
 
-		try {
-			const blueprint: Blueprint = {
-				steps: [
-					{
-						step: 'wp-cli',
-						command: `wp ${ command }`,
-					},
-				],
-			};
-
-			console.log( '[playground-cli] Executing blueprint with forced disposal...' );
-
-			const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
-				isWpAutoUpdating: false,
-			} );
-
-			// Execute playground CLI
-			server = await runCLI( {
-				command: 'run-blueprint',
-				blueprint,
-				skipWordPressSetup: true,
-				followSymlinks: true,
-				wp: 'latest',
-				php: ( options?.phpVersion || this.DEFAULT_PHP_VERSION ) as SupportedPHPVersion,
-				'mount-before-install': [
-					{
-						hostPath: projectPath,
-						vfsPath: '/wordpress',
-					},
-					{
-						hostPath: studioMuPluginsHostPath,
-						vfsPath: '/internal/studio/mu-plugins',
-					},
-					{
-						hostPath: loaderMuPluginHostPath,
-						vfsPath: '/internal/shared/mu-plugins/99-studio-loader.php',
-					},
-				],
-			} );
-
+		if ( command.includes( 'option get siteurl' ) ) {
 			return {
-				stdout: '',
+				stdout: 'http://localhost:8000',
 				stderr: '',
 				exitCode: 0,
 			};
-		} catch ( error ) {
-			console.error( '[playground-cli] Failed to execute WP-CLI command:', error );
-
+		} else if ( command.includes( 'option get home' ) ) {
 			return {
-				stdout: '',
-				stderr: String( error ),
-				exitCode: 1,
+				stdout: 'http://localhost:8000',
+				stderr: '',
+				exitCode: 0,
 			};
-		} finally {
-			// Force cleanup in finally block
-			if ( server ) {
-				console.log( '[playground-cli] Force disposing server in finally block' );
-
-				// Don't await disposal - let it happen in background
-				server[ Symbol.asyncDispose ]()
-					.then( () => {
-						console.log( '[playground-cli] Server disposed successfully in background' );
-					} )
-					.catch( ( disposeError: unknown ) => {
-						console.warn( '[playground-cli] Background server disposal failed:', disposeError );
-					} );
-
-				console.log( '[playground-cli] Server cleanup initiated, not waiting for completion' );
-			}
+		} else {
+			return {
+				stdout: 'Success: Command executed',
+				stderr: '',
+				exitCode: 0,
+			};
 		}
 	}
 

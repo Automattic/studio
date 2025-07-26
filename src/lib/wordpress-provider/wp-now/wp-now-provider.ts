@@ -4,6 +4,7 @@ import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
 import { verifyWordPressChecksums, purgeWpConfig } from 'src/lib/wp-versions';
 import { copyBundledLatestWPVersion } from 'src/setup-wp-server-files';
+import { SiteServer } from 'src/site-server';
 import { getWpNowConfig } from 'vendor/wp-now/src';
 import { WPNowMode } from 'vendor/wp-now/src/config';
 import {
@@ -76,8 +77,9 @@ export class WpNowProvider implements WordPressProvider {
 		await downloadSQLiteCommand( downloadUrl, targetPath );
 	}
 
-	async setupWordPressSite( path: string, wpVersion = 'latest' ): Promise< boolean > {
+	async setupWordPressSite( server: SiteServer, wpVersion = 'latest' ): Promise< boolean > {
 		try {
+			const { path } = server.details;
 			if ( ( await pathExists( path ) ) && ! ( await isEmptyDir( path ) ) ) {
 				// We can only create into a clean directory
 				return false;

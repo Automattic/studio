@@ -26,10 +26,10 @@ const servers = new Map< string, SiteServer >();
 const deletedServers: string[] = [];
 
 export async function createSiteWorkingDirectory(
-	path: string,
+	server: SiteServer,
 	wpVersion = 'latest'
 ): Promise< boolean > {
-	return setupWordPressSite( path, wpVersion );
+	return setupWordPressSite( server, wpVersion );
 }
 
 export async function stopAllServersOnQuit() {

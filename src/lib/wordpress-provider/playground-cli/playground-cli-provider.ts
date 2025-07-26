@@ -258,7 +258,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			// Clean the HTML warnings from WP-CLI output
 			let cleanOutput = result;
 
-
 			// Remove HTML warning tags about WP_CLI constant
 			cleanOutput = cleanOutput.replace( /<br\s*\/?>\s*/gi, '\n' );
 			cleanOutput = cleanOutput.replace(
@@ -274,7 +273,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			// Remove extra whitespace and newlines
 			cleanOutput = cleanOutput.replace( /^\s+|\s+$/g, '' );
 			cleanOutput = cleanOutput.replace( /\n\s*\n/g, '\n' );
-
 
 			return {
 				stdout: cleanOutput,

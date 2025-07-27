@@ -55,10 +55,7 @@ async function startServer(
 
 	try {
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( serverOptions );
-
-		// Use the explicit setup mode flag to determine whether to skip WordPress setup
 		const skipWordPressSetup = ! options.isSetupMode;
-		const skipSqliteSetup = false; // Always allow SQLite setup for database connectivity
 
 		const blueprint: Blueprint = {
 			steps: [
@@ -82,7 +79,6 @@ async function startServer(
 			internalCookieStore: true,
 			followSymlinks: true,
 			skipWordPressSetup,
-			skipSqliteSetup,
 			port: options.port,
 			'mount-before-install': [
 				{
@@ -100,17 +96,14 @@ async function startServer(
 			],
 		};
 
-		// Add PHP version if specified
 		if ( options.phpVersion ) {
 			args.php = options.phpVersion as SupportedPHPVersion;
 		}
 
-		// Add WordPress version if we're installing WordPress
 		if ( serverOptions.wordPressVersion ) {
 			args.wp = serverOptions.wordPressVersion;
 		}
 
-		// Start the CLI server
 		server = await runCLI( args );
 	} catch ( error ) {
 		server = null;
@@ -149,6 +142,11 @@ async function runPhp( options: {
 		modifiedCode = modifiedCode.replace(
 			/((?:require_once|require|include_once|include)\s*\(\s*['"])([^'"]+)(['"]\s*\))/g,
 			( match, prefix, path, suffix ) => {
+				// Don't modify phar:// paths
+				if ( path.startsWith( 'phar://' ) ) {
+					return match;
+				}
+				
 				if ( path.startsWith( '/' ) && ! path.startsWith( '/wordpress' ) ) {
 					const wpMatch = path.match( /(\/(?:wp-[^/]+\.php|wp-content|wp-includes|wp-admin).*)$/ );
 					if ( wpMatch ) {
@@ -167,6 +165,11 @@ async function runPhp( options: {
 		modifiedCode = modifiedCode.replace(
 			/(['"])([^'"]*\/(?:wp-[^/]*|[^/]+\.php|wp-content|wp-includes|wp-admin)[^'"]*)(['"])/g,
 			( match, quote1, path, quote2 ) => {
+				// Don't modify phar:// paths
+				if ( path.startsWith( 'phar://' ) ) {
+					return match;
+				}
+				
 				if ( path.startsWith( '/wordpress' ) || ! path.startsWith( '/' ) ) {
 					return match;
 				}

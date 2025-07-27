@@ -19,16 +19,17 @@ export function getWordPressProvider(): WordPressProvider {
 		return provider;
 	}
 
-	if ( ! provider ) {
+	// If blueprints are disabled, ensure we use WpNowProvider
+	if ( provider?.PROVIDER_TYPE !== 'wp-now' ) {
 		provider = new WpNowProvider();
-		return provider;
 	}
 
 	return provider;
 }
 
 export function getWordPressProviderType(): string {
-	return provider?.PROVIDER_TYPE || 'wp-now';
+	const blueprintsEnabled = getFeatureFlagFromEnv( 'enableBlueprints' );
+	return blueprintsEnabled ? 'playground-cli' : 'wp-now';
 }
 
 export const getProviderConstants = (

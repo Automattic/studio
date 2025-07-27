@@ -6,7 +6,7 @@ import { parse } from 'shell-quote';
 import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { addDomainToHosts, removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
-import { decodePassword } from 'src/lib/passwords';
+import { createPassword, decodePassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { portFinder } from 'src/lib/port-finder';
 import { startProxyServer } from 'src/lib/proxy-server';
@@ -17,6 +17,7 @@ import {
 	createServerProcess,
 	getWordPressProvider,
 	getWordPressProviderType,
+	PlaygroundCliProvider,
 } from 'src/lib/wordpress-provider';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { createScreenshotWindow } from 'src/screenshot-window';
@@ -243,6 +244,7 @@ export class SiteServer {
 			if ( ! this.details.running ) {
 				continue;
 			}
+			// Check if WordPress is ready using Studio's mu-plugin health check
 			const healthCheckUrl = new URL( '/?studio-health-check', this.details.url );
 			try {
 				const response = await fetch( healthCheckUrl.href );
@@ -273,7 +275,6 @@ export class SiteServer {
 			return;
 		}
 
-		// Wait for WordPress to be fully ready before taking screenshot
 		const isReady = await this.waitForWordPressReady();
 		if ( ! isReady ) {
 			console.warn(
@@ -335,74 +336,22 @@ export class SiteServer {
 		}
 
 		try {
-			// Check if we're using playground CLI provider and have a running server
+			// Check if we're using playground CLI provider
 			if ( getWordPressProviderType() === 'playground-cli' ) {
-				console.log( '[site-server] Using playground CLI provider for WP-CLI' );
-				console.log( '[site-server] Server exists:', !! this.server );
-				console.log(
-					'[site-server] Server details:',
-					this.server ? 'server available' : 'no server'
-				);
+				const provider = new PlaygroundCliProvider();
 
-				if ( this.server ) {
-					// Use the playground CLI provider's executeWPCli method with running server
-					const { PlaygroundCliProvider } = await import(
-						'src/lib/wordpress-provider/playground-cli/playground-cli-provider'
-					);
-					const provider = new PlaygroundCliProvider();
-					return await provider.executeWPCli( '', wpCliArgs as string[], { server: this.server } );
-				} else {
-					// Fallback: start a temporary server for WP-CLI execution
-					console.log( '[site-server] No running server, starting temporary server for WP-CLI' );
-
-					const { PlaygroundCliProvider } = await import(
-						'src/lib/wordpress-provider/playground-cli/playground-cli-provider'
-					);
-					const provider = new PlaygroundCliProvider();
-
-					try {
-						// Create a temporary server instance with WordPress loaded (not skipped)
-						const tempServerInstance = await provider.startServer( {
-							path: this.details.path,
-							port: this.details.port, // Use the same port as the actual site
-							adminPassword: 'temp',
-							siteTitle: this.details.name,
-							phpVersion: phpVersion || provider.DEFAULT_PHP_VERSION,
-							wpVersion: this.meta.wpVersion || 'latest',
-							absoluteUrl: `http://localhost:${ this.details.port }`,
-							isSetupMode: false, // Don't install WordPress, just load existing site
-						} );
-
-						// Create and start the server process
-						const tempServerProcess = provider.createServerProcess( tempServerInstance );
-						await tempServerProcess.start();
-
-						try {
-							// Execute WP-CLI command
-							const result = await provider.executeWPCli( '', wpCliArgs as string[], {
-								server: tempServerProcess,
-							} );
-
-							return result;
-						} finally {
-							// Always stop the temporary server
-							await tempServerProcess.stop();
-							console.log( '[site-server] Temporary server stopped after WP-CLI execution' );
-						}
-					} catch ( error ) {
-						console.error( '[site-server] Error with temporary server for WP-CLI:', error );
-						return {
-							stdout: '',
-							stderr: `Error executing WP-CLI with temporary server: ${
-								error instanceof Error ? error.message : 'Unknown error'
-							}`,
-							exitCode: 1,
-						};
-					}
-				}
+				return await provider.executeWPCli( projectPath, wpCliArgs as string[], {
+					server: this.server,
+					phpVersion,
+					serverDetails: {
+						port: this.details.port,
+						adminPassword: this.details.adminPassword || createPassword(),
+						siteTitle: this.details.name,
+						customDomain: this.details.customDomain,
+					},
+				} );
 			}
 
-			// Fallback to the traditional WP-CLI executor for other providers
 			return await this.wpCliExecutor.execute( wpCliArgs as string[], { phpVersion } );
 		} catch ( error ) {
 			if ( ( error as MessageCanceled )?.canceled ) {

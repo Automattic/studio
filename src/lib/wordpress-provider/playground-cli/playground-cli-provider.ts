@@ -164,19 +164,52 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	}
 
 	async executeWPCli(
-		_projectPath: string,
+		projectPath: string,
 		args: string[],
-		options?: { phpVersion?: string; server?: WordPressServerProcess }
+		options?: {
+			phpVersion?: string;
+			server?: WordPressServerProcess;
+			serverDetails?: {
+				port: number;
+				adminPassword?: string;
+				siteTitle: string;
+				customDomain?: string;
+			};
+		}
 	): Promise< {
 		stdout: string;
 		stderr: string;
 		exitCode: number;
 	} > {
-		const server = options?.server;
+		let server = options?.server;
+		let tempServerProcess: WordPressServerProcess | null = null;
+
+		// If no server is provided, run a temporary one
 		if ( ! server ) {
-			throw new Error( 'Server not provided' );
+			if ( ! options?.serverDetails ) {
+				throw new Error( 'Either server or serverDetails must be provided' );
+			}
+
+			const { port, adminPassword, siteTitle, customDomain } = options.serverDetails;
+			const phpVersion = options.phpVersion || this.DEFAULT_PHP_VERSION;
+
+			const tempServerInstance = await this.startServer( {
+				path: projectPath,
+				port,
+				adminPassword: adminPassword || 'password',
+				siteTitle,
+				phpVersion,
+				wpVersion: this.DEFAULT_WORDPRESS_VERSION,
+				absoluteUrl: customDomain || `http://localhost:${ port }`,
+				isSetupMode: false,
+			} );
+
+			tempServerProcess = this.createServerProcess( tempServerInstance );
+			await tempServerProcess.start();
+			server = tempServerProcess;
 		}
-		console.log( '[playground-cli] Executing WP-CLI command with server:', args.join( ' ' ) );
+
+		console.log( '[playground-cli] Executing WP-CLI command:', args.join( ' ' ) );
 
 		try {
 			// Execute WP-CLI command using the phar file that playground CLI downloads
@@ -187,10 +220,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				// Change working directory to WordPress root
 				chdir( '/wordpress' );
 
-				// Set up WP-CLI environment
-				if ( ! defined( 'WP_CLI' ) ) {
-					define( 'WP_CLI', true );
-				}
+				// WP-CLI will define this constant itself, so we don't need to
 
 				// Define CLI constants that WP-CLI expects
 				if ( ! defined( 'STDOUT' ) ) {
@@ -216,40 +246,20 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				$argc = $_SERVER['argc'];
 				$argv = $_SERVER['argv'];
 
-				// Try direct phar inclusion first (cleaner output)
+				// Check if WP-CLI phar exists
 				$wpCliPath = '/tmp/wp-cli.phar';
-				if ( file_exists( $wpCliPath ) ) {
-					try {
-						// Look for the WP-CLI entry point in the phar
-						$phar = new Phar( $wpCliPath );
-						$entryPoints = [ 'php/boot-phar.php', 'php/wp-cli.php', 'wp-cli.php' ];
-
-						foreach ( $entryPoints as $ep ) {
-							if ( isset( $phar[ $ep ] ) ) {
-								ob_start();
-								include( 'phar://' . $wpCliPath . '/' . $ep );
-								$output = ob_get_contents();
-								ob_end_clean();
-
-								// Return clean output
-								echo trim( $output );
-								return;
-							}
-						}
-					} catch ( Exception $e ) {
-						// Fall back to exec method
-					}
+				if ( ! file_exists( $wpCliPath ) ) {
+					echo "Error: WP-CLI phar not found at $wpCliPath";
+					exit( 1 );
 				}
 
-				// Fallback: use exec to run WP-CLI command
-				$command = 'php /tmp/wp-cli.phar ' . implode( ' ', array_map( 'escapeshellarg', $args ) ) . ' 2>&1';
+				// Include WP-CLI phar directly using absolute path
+				ob_start();
+				include 'phar:///tmp/wp-cli.phar/php/boot-phar.php';
+				$output = ob_get_contents();
+				ob_end_clean();
 
-				$output = [];
-				$exitCode = 0;
-				exec( $command, $output, $exitCode );
-
-				// Return the output
-				echo implode( "\\n", $output );
+				echo trim( $output );
 			`;
 
 			// Execute the PHP script using the running server
@@ -274,6 +284,9 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			cleanOutput = cleanOutput.replace( /^\s+|\s+$/g, '' );
 			cleanOutput = cleanOutput.replace( /\n\s*\n/g, '\n' );
 
+			console.log( 'wp-cli execute result ', result );
+			console.log( 'cleanOutput', cleanOutput );
+
 			return {
 				stdout: cleanOutput,
 				stderr: '',
@@ -286,6 +299,10 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				stderr: error instanceof Error ? error.message : 'Unknown error occurred',
 				exitCode: 1,
 			};
+		} finally {
+			if ( tempServerProcess ) {
+				await tempServerProcess.stop();
+			}
 		}
 	}
 

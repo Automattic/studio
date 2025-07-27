@@ -23,7 +23,8 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 
 	async start(): Promise< void > {
 		if ( this.process ) {
-			throw new Error( 'Server process is already running' );
+			console.log( '[playground-cli] Server process is already running, skipping start' );
+			return;
 		}
 
 		// Create exit promise before starting the process

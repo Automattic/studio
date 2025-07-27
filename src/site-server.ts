@@ -143,11 +143,20 @@ export class SiteServer {
 			absoluteUrl: getAbsoluteUrl( this.details ),
 		} );
 
-		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
-		if ( ! isPortAvailable ) {
-			throw new Error(
-				`Port ${ this.details.port } is not available. error code: ERROR_PORT_IN_USE`
-			);
+		// Check port availability, but skip if we have a cached setup server for playground CLI
+		let skipPortCheck = false;
+		if ( getWordPressProviderType() === 'playground-cli' ) {
+			const provider = getWordPressProvider() as PlaygroundCliProvider;
+			skipPortCheck = provider.hasCachedSetupServer( this.details.path );
+		}
+
+		if ( ! skipPortCheck ) {
+			const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
+			if ( ! isPortAvailable ) {
+				throw new Error(
+					`Port ${ this.details.port } is not available. error code: ERROR_PORT_IN_USE`
+				);
+			}
 		}
 
 		console.log( `Starting server for '${ this.details.name }'` );
@@ -338,7 +347,7 @@ export class SiteServer {
 		try {
 			// Check if we're using playground CLI provider
 			if ( getWordPressProviderType() === 'playground-cli' ) {
-				const provider = new PlaygroundCliProvider();
+				const provider = getWordPressProvider() as PlaygroundCliProvider;
 
 				return await provider.executeWPCli( projectPath, wpCliArgs as string[], {
 					server: this.server,

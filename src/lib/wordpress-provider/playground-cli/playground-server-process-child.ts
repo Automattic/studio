@@ -50,7 +50,8 @@ async function startServer(
 	serverOptions: WordPressServerOptions
 ): Promise< void > {
 	if ( server ) {
-		throw new Error( 'Server is already running' );
+		console.log( '[playground-cli-child] Server is already running, skipping start' );
+		return;
 	}
 
 	try {
@@ -146,7 +147,7 @@ async function runPhp( options: {
 				if ( path.startsWith( 'phar://' ) ) {
 					return match;
 				}
-				
+
 				if ( path.startsWith( '/' ) && ! path.startsWith( '/wordpress' ) ) {
 					const wpMatch = path.match( /(\/(?:wp-[^/]+\.php|wp-content|wp-includes|wp-admin).*)$/ );
 					if ( wpMatch ) {
@@ -169,7 +170,7 @@ async function runPhp( options: {
 				if ( path.startsWith( 'phar://' ) ) {
 					return match;
 				}
-				
+
 				if ( path.startsWith( '/wordpress' ) || ! path.startsWith( '/' ) ) {
 					return match;
 				}

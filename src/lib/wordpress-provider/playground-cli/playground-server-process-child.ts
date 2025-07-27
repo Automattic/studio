@@ -1,10 +1,8 @@
-import { mkdtemp, writeFile } from 'fs/promises';
-import { tmpdir } from 'os';
-import { join } from 'path';
 import { SupportedPHPVersion, PHPRunOptions } from '@php-wasm/universal';
+import { Blueprint } from '@wp-playground/blueprints';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import { WordPressServerOptions } from '../types';
-import { createLoaderMuPlugin, getStandardMuPlugins } from './mu-plugins';
+import { getMuPlugins } from './mu-plugins';
 import { PlaygroundCliOptions } from './playground-cli-provider';
 
 interface Message {
@@ -52,23 +50,36 @@ async function startServer(
 	serverOptions: WordPressServerOptions
 ): Promise< void > {
 	if ( server ) {
-		throw new Error( 'Server is already running' );
+		console.log( '[playground-cli-child] Server is already running, skipping start' );
+		return;
 	}
 
 	try {
-		// Create the mu-plugins directory and the loader mu-plugin to be mounted in the VFS
-		const studioMuPluginsHostPath = await createMuPluginsDirectory( serverOptions );
-		const loaderMuPluginHostPath = await createLoaderMuPlugin();
+		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( serverOptions );
+		const skipWordPressSetup = ! options.isSetupMode;
+
+		const blueprint: Blueprint = {
+			steps: [
+				{
+					step: 'setSiteOptions',
+					options: {
+						blogname: serverOptions.siteTitle,
+					},
+				},
+				{
+					step: 'wp-cli',
+					command: `wp user update admin --user_pass=${ serverOptions.adminPassword }`,
+				},
+			],
+		};
 
 		// Build CLI command arguments
 		const args: RunCLIArgs = {
 			command: 'server',
-			login: true,
+			blueprint,
 			internalCookieStore: true,
 			followSymlinks: true,
-			skipWordPressSetup: true,
-			// we will use Studio's SQLite management for now
-			skipSqliteSetup: true,
+			skipWordPressSetup,
 			port: options.port,
 			'mount-before-install': [
 				{
@@ -86,12 +97,14 @@ async function startServer(
 			],
 		};
 
-		// Add PHP version if specified
 		if ( options.phpVersion ) {
 			args.php = options.phpVersion as SupportedPHPVersion;
 		}
 
-		// Start the CLI server
+		if ( serverOptions.wordPressVersion ) {
+			args.wp = serverOptions.wordPressVersion;
+		}
+
 		server = await runCLI( args );
 	} catch ( error ) {
 		server = null;
@@ -130,6 +143,11 @@ async function runPhp( options: {
 		modifiedCode = modifiedCode.replace(
 			/((?:require_once|require|include_once|include)\s*\(\s*['"])([^'"]+)(['"]\s*\))/g,
 			( match, prefix, path, suffix ) => {
+				// Don't modify phar:// paths
+				if ( path.startsWith( 'phar://' ) ) {
+					return match;
+				}
+
 				if ( path.startsWith( '/' ) && ! path.startsWith( '/wordpress' ) ) {
 					const wpMatch = path.match( /(\/(?:wp-[^/]+\.php|wp-content|wp-includes|wp-admin).*)$/ );
 					if ( wpMatch ) {
@@ -148,6 +166,11 @@ async function runPhp( options: {
 		modifiedCode = modifiedCode.replace(
 			/(['"])([^'"]*\/(?:wp-[^/]*|[^/]+\.php|wp-content|wp-includes|wp-admin)[^'"]*)(['"])/g,
 			( match, quote1, path, quote2 ) => {
+				// Don't modify phar:// paths
+				if ( path.startsWith( 'phar://' ) ) {
+					return match;
+				}
+
 				if ( path.startsWith( '/wordpress' ) || ! path.startsWith( '/' ) ) {
 					return match;
 				}
@@ -176,28 +199,5 @@ async function runPhp( options: {
 		return response.text || '';
 	} catch ( error ) {
 		throw new Error( `Failed to run PHP code: ${ error }` );
-	}
-}
-
-async function createMuPluginsDirectory(
-	serverOptions: WordPressServerOptions
-): Promise< string > {
-	try {
-		// Create a temporary directory for mu-plugins
-		const tempDir = await mkdtemp( join( tmpdir(), 'studio-mu-plugins-' ) );
-
-		// Get the standard mu-plugins
-		const muPlugins = getStandardMuPlugins( {
-			isWpAutoUpdating: serverOptions.isWpAutoUpdating,
-		} );
-
-		// Write each mu-plugin file to the temporary directory
-		for ( const plugin of muPlugins ) {
-			const pluginPath = join( tempDir, plugin.filename );
-			await writeFile( pluginPath, plugin.content );
-		}
-		return tempDir;
-	} catch ( error ) {
-		throw new Error( `Failed to create mu-plugins directory: ${ error }` );
 	}
 }

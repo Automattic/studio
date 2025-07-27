@@ -8,6 +8,7 @@
 import { mkdtemp, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { WordPressServerOptions } from '../types';
 
 export interface MuPlugin {
 	filename: string;
@@ -18,7 +19,7 @@ export interface MuPlugin {
  * Create a loader mu-plugin that loads the Studio mu-plugins
  * @returns The path to the loader mu-plugin
  */
-export async function createLoaderMuPlugin(): Promise< string > {
+async function createLoaderMuPlugin(): Promise< string > {
 	try {
 		// Create a temporary file for the loader mu-plugin
 		const tempDir = await mkdtemp( join( tmpdir(), 'studio-loader-' ) );
@@ -29,9 +30,9 @@ export async function createLoaderMuPlugin(): Promise< string > {
 		 * Studio MU-Plugins Loader
 		 * Loads Studio-specific mu-plugins from /internal/studio/mu-plugins/
 		 */
-		
+
 		$studio_mu_plugins_dir = '/internal/studio/mu-plugins';
-		
+
 		if ( is_dir( $studio_mu_plugins_dir ) ) {
 			$files = glob( $studio_mu_plugins_dir . '/*.php' );
 			if ( $files ) {
@@ -58,11 +59,7 @@ export async function createLoaderMuPlugin(): Promise< string > {
  * @param options Configuration options for mu-plugins
  * @returns Array of mu-plugin definitions
  */
-export function getStandardMuPlugins(
-	options: {
-		isWpAutoUpdating?: boolean;
-	} = {}
-): MuPlugin[] {
+function getStandardMuPlugins( options: Partial< WordPressServerOptions > ): MuPlugin[] {
 	const muPlugins: MuPlugin[] = [];
 
 	// HTTPS detection for reverse proxy
@@ -117,13 +114,24 @@ export function getStandardMuPlugins(
 	`,
 	} );
 
-	// Studio-specific: Hide admin bar for screenshots
+	// Studio-specific: Hide admin bar for screenshots and health check
 	muPlugins.push( {
 		filename: '0-thumbnails.php',
 		content: `<?php
 		// Facilitates the taking of screenshots to be used as thumbnails.
 		if ( isset( $_GET['studio-hide-adminbar'] ) ) {
 			add_filter( 'show_admin_bar', '__return_false' );
+		}
+		
+		// Health check endpoint to verify WordPress and mu-plugins are loaded
+		if ( isset( $_GET['studio-health-check'] ) ) {
+			header( 'Content-Type: application/json' );
+			echo json_encode( array( 
+				'status' => 'ready',
+				'mu_plugins_loaded' => true,
+				'admin_bar_filter' => has_filter( 'show_admin_bar', '__return_false' )
+			) );
+			exit;
 		}
 		`,
 	} );
@@ -176,16 +184,16 @@ export function getStandardMuPlugins(
 		 */
 		add_action( 'init', function() {
 			$request_uri = $_SERVER['REQUEST_URI'] ?? '';
-			
+
 			// Check if this is a wp-admin request without trailing slash
 			if ( $request_uri === '/wp-admin' || preg_match( '#^/wp-admin$#', $request_uri ) ) {
 				$redirect_url = '/wp-admin/';
-				
+
 				// Preserve query string if present
 				if ( ! empty( $_SERVER['QUERY_STRING'] ) ) {
 					$redirect_url .= '?' . $_SERVER['QUERY_STRING'];
 				}
-				
+
 				wp_redirect( $redirect_url, 301 );
 				exit;
 			}
@@ -290,4 +298,34 @@ export function getStandardMuPlugins(
 	} );
 
 	return muPlugins;
+}
+
+async function createMuPluginsDirectory(
+	serverOptions: WordPressServerOptions
+): Promise< string > {
+	try {
+		// Create a temporary directory for mu-plugins
+		const tempDir = await mkdtemp( join( tmpdir(), 'studio-mu-plugins-' ) );
+
+		// Get the standard mu-plugins
+		const muPlugins = getStandardMuPlugins( {
+			isWpAutoUpdating: serverOptions.isWpAutoUpdating,
+		} );
+
+		// Write each mu-plugin file to the temporary directory
+		for ( const plugin of muPlugins ) {
+			const pluginPath = join( tempDir, plugin.filename );
+			await writeFile( pluginPath, plugin.content );
+		}
+		return tempDir;
+	} catch ( error ) {
+		throw new Error( `Failed to create mu-plugins directory: ${ error }` );
+	}
+}
+
+export async function getMuPlugins( serverOptions: Partial< WordPressServerOptions > ) {
+	const studioMuPluginsHostPath = await createMuPluginsDirectory( serverOptions );
+	const loaderMuPluginHostPath = await createLoaderMuPlugin();
+
+	return [ studioMuPluginsHostPath, loaderMuPluginHostPath ];
 }

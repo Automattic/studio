@@ -35,6 +35,13 @@ async function execute( data: unknown ) {
 			const { executeWPCli } = await import( 'vendor/wp-now/src/execute-wp-cli' );
 			return await executeWPCli( projectPath, args, { phpVersion } );
 		}
+		case 'playground-cli': {
+			const { PlaygroundCliProvider } = await import(
+				'src/lib/wordpress-provider/playground-cli/playground-cli-provider'
+			);
+			const provider = new PlaygroundCliProvider();
+			return await provider.executeWPCli( projectPath, args );
+		}
 		default:
 			throw new Error( `Unknown WordPress provider type: ${ providerType }` );
 	}

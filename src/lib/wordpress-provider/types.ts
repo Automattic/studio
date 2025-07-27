@@ -1,3 +1,5 @@
+import { SiteServer } from 'src/site-server';
+
 export type AllowedPHPVersion = string;
 
 export interface ServerOptions {
@@ -63,7 +65,7 @@ export interface WordPressProvider {
 	downloadSQLiteCommand( downloadUrl: string, targetPath: string ): Promise< void >;
 
 	// Core functionality
-	setupWordPressSite( path: string, wpVersion?: string ): Promise< boolean >;
+	setupWordPressSite( server: SiteServer, wpVersion?: string ): Promise< boolean >;
 	startServer( options: ServerOptions ): Promise< WordPressServerInstance >;
 
 	// Server process management

@@ -6,7 +6,7 @@ import { parse } from 'shell-quote';
 import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { addDomainToHosts, removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
-import { decodePassword } from 'src/lib/passwords';
+import { createPassword, decodePassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { portFinder } from 'src/lib/port-finder';
 import { startProxyServer } from 'src/lib/proxy-server';
@@ -16,6 +16,8 @@ import {
 	startServer,
 	createServerProcess,
 	getWordPressProvider,
+	getWordPressProviderType,
+	PlaygroundCliProvider,
 } from 'src/lib/wordpress-provider';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { createScreenshotWindow } from 'src/screenshot-window';
@@ -26,10 +28,10 @@ const servers = new Map< string, SiteServer >();
 const deletedServers: string[] = [];
 
 export async function createSiteWorkingDirectory(
-	path: string,
+	server: SiteServer,
 	wpVersion = 'latest'
 ): Promise< boolean > {
-	return setupWordPressSite( path, wpVersion );
+	return setupWordPressSite( server, wpVersion );
 }
 
 export async function stopAllServersOnQuit() {
@@ -141,11 +143,20 @@ export class SiteServer {
 			absoluteUrl: getAbsoluteUrl( this.details ),
 		} );
 
-		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
-		if ( ! isPortAvailable ) {
-			throw new Error(
-				`Port ${ this.details.port } is not available. error code: ERROR_PORT_IN_USE`
-			);
+		// Check port availability, but skip if we have a cached setup server for playground CLI
+		let skipPortCheck = false;
+		if ( getWordPressProviderType() === 'playground-cli' ) {
+			const provider = getWordPressProvider() as PlaygroundCliProvider;
+			skipPortCheck = provider.hasCachedSetupServer( this.details.path );
+		}
+
+		if ( ! skipPortCheck ) {
+			const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
+			if ( ! isPortAvailable ) {
+				throw new Error(
+					`Port ${ this.details.port } is not available. error code: ERROR_PORT_IN_USE`
+				);
+			}
 		}
 
 		console.log( `Starting server for '${ this.details.name }'` );
@@ -237,9 +248,47 @@ export class SiteServer {
 		this.details = { running: false, autoStart: false, ...rest };
 	}
 
+	private async waitForWordPressReady( maxAttempts = 30, delayMs = 1000 ): Promise< boolean > {
+		for ( let attempt = 0; attempt < maxAttempts; attempt++ ) {
+			if ( ! this.details.running ) {
+				continue;
+			}
+			// Check if WordPress is ready using Studio's mu-plugin health check
+			const healthCheckUrl = new URL( '/?studio-health-check', this.details.url );
+			try {
+				const response = await fetch( healthCheckUrl.href );
+				if ( response.ok ) {
+					const data = await response.json();
+					if ( data.status === 'ready' && data.mu_plugins_loaded ) {
+						return true;
+					}
+				}
+			} catch ( error ) {
+				// Server might not be ready yet, continue trying
+			}
+
+			if ( attempt < maxAttempts - 1 ) {
+				await new Promise( ( resolve ) => setTimeout( resolve, delayMs ) );
+			}
+		}
+
+		console.warn(
+			`WordPress did not become ready after ${ maxAttempts } attempts for site ${ this.details.id }`
+		);
+		return false;
+	}
+
 	async updateCachedThumbnail() {
 		if ( ! this.details.running ) {
 			console.warn( `Thumbnail update skipped: server ${ this.details.id } is not running.` );
+			return;
+		}
+
+		const isReady = await this.waitForWordPressReady();
+		if ( ! isReady ) {
+			console.warn(
+				`Skipping thumbnail update: WordPress not ready for site ${ this.details.id }`
+			);
 			return;
 		}
 
@@ -296,6 +345,22 @@ export class SiteServer {
 		}
 
 		try {
+			// Check if we're using playground CLI provider
+			if ( getWordPressProviderType() === 'playground-cli' ) {
+				const provider = getWordPressProvider() as PlaygroundCliProvider;
+
+				return await provider.executeWPCli( projectPath, wpCliArgs as string[], {
+					server: this.server,
+					phpVersion,
+					serverDetails: {
+						port: this.details.port,
+						adminPassword: this.details.adminPassword || createPassword(),
+						siteTitle: this.details.name,
+						customDomain: this.details.customDomain,
+					},
+				} );
+			}
+
 			return await this.wpCliExecutor.execute( wpCliArgs as string[], { phpVersion } );
 		} catch ( error ) {
 			if ( ( error as MessageCanceled )?.canceled ) {

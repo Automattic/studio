@@ -1,19 +1,15 @@
 import fs from 'fs-extra';
 import semver from 'semver';
-import {
-	downloadWpCli,
-	getWpCliPath,
-	getWpCliFolderPath,
-	executeWPCli,
-} from 'src/lib/wordpress-provider';
+import { executeWPCli } from 'src/lib/wordpress-provider';
+import { WpNowProvider } from 'src/lib/wordpress-provider/wp-now';
 
 export async function updateLatestWPCliVersion() {
 	let shouldOverwrite = false;
-	const pathExist = await fs.pathExists( getWpCliPath() );
+	const pathExist = await fs.pathExists( WpNowProvider.getWpCliPath() );
 	if ( pathExist ) {
 		shouldOverwrite = await isWPCliInstallationOutdated();
 	}
-	await downloadWpCli( shouldOverwrite );
+	await WpNowProvider.downloadWpCli( shouldOverwrite );
 }
 
 export async function isWPCliInstallationOutdated(): Promise< boolean > {
@@ -61,7 +57,7 @@ export const getWPCliVersionFromInstallation = async () => {
 	 * Version checks don't require a project folder to be mounted for WP-cli
 	 * to execute a version check.
 	 */
-	const { stdout } = await executeWPCli( getWpCliFolderPath(), [ '--version' ] );
+	const { stdout } = await executeWPCli( WpNowProvider.getWpCliFolderPath(), [ '--version' ] );
 
 	if ( stdout?.startsWith( 'WP-CLI ' ) ) {
 		const version = stdout.split( ' ' )[ 1 ];

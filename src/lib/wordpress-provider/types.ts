@@ -54,14 +54,9 @@ export interface WordPressProvider {
 	readonly SQLITE_FILENAME_LEGACY: string;
 
 	// Path utilities
-	getWordPressVersionPath( version: string ): string;
 	getSqlitePath(): string;
-	getWpCliPath(): string;
-	getWpCliFolderPath(): string;
 
 	// Download functionality
-	downloadWordPress( version?: string, options?: { overwrite: boolean } ): Promise< void >;
-	downloadWpCli( overwrite?: boolean ): Promise< { downloaded: boolean; statusCode: number } >;
 	downloadSQLiteCommand( downloadUrl: string, targetPath: string ): Promise< void >;
 
 	// Core functionality

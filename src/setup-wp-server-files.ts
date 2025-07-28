@@ -11,12 +11,8 @@ import {
 	getSqliteVersionFromInstallation,
 	updateLatestSqliteVersion,
 } from 'src/lib/sqlite-versions';
-import {
-	getWordPressVersionPath,
-	getSqlitePath,
-	getWpCliPath,
-	getWordPressProvider,
-} from 'src/lib/wordpress-provider';
+import { getSqlitePath, getWordPressProvider } from 'src/lib/wordpress-provider';
+import { WpNowProvider } from 'src/lib/wordpress-provider/wp-now';
 import {
 	getWordPressVersionFromInstallation,
 	updateLatestWordPressVersion,
@@ -33,7 +29,7 @@ export async function copyBundledLatestWPVersion() {
 	if ( ! bundledWPVersion ) {
 		return;
 	}
-	const latestWPVersionPath = getWordPressVersionPath( 'latest' );
+	const latestWPVersionPath = WpNowProvider.getWordPressVersionPath( 'latest' );
 	const latestWPVersion = await getWordPressVersionFromInstallation( latestWPVersionPath );
 	const latestWPSemVersion = semver.coerce( latestWPVersion );
 	const isBundledVersionNewer =
@@ -41,9 +37,13 @@ export async function copyBundledLatestWPVersion() {
 	if ( ! latestWPVersion || isBundledVersionNewer ) {
 		if ( isBundledVersionNewer ) {
 			// We keep a copy of the latest installed version instead of removing it.
-			await fs.move( latestWPVersionPath, getWordPressVersionPath( latestWPVersion ), {
-				overwrite: true,
-			} );
+			await fs.move(
+				latestWPVersionPath,
+				WpNowProvider.getWordPressVersionPath( latestWPVersion ),
+				{
+					overwrite: true,
+				}
+			);
 		}
 		console.log( `Copying bundled WP version ${ bundledWPVersion } as 'latest' version…` );
 		await recursiveCopyDirectory( bundledWPVersionPath, latestWPVersionPath );
@@ -82,12 +82,12 @@ async function copyBundledSqlite() {
 }
 
 async function copyBundledWPCLI() {
-	const bundledWPCLIInstalled = await fs.pathExists( getWpCliPath() );
+	const bundledWPCLIInstalled = await fs.pathExists( WpNowProvider.getWpCliPath() );
 	if ( bundledWPCLIInstalled ) {
 		return;
 	}
 	const bundledWPCLIPath = path.join( getResourcesPath(), 'wp-files', 'wp-cli', 'wp-cli.phar' );
-	await fs.copyFile( bundledWPCLIPath, getWpCliPath() );
+	await fs.copyFile( bundledWPCLIPath, WpNowProvider.getWpCliPath() );
 }
 
 async function copyBundledSQLiteCommand() {

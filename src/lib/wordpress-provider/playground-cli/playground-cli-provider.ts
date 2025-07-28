@@ -3,6 +3,7 @@ import nodePath from 'path';
 import fs from 'fs-extra';
 import { recursiveCopyDirectory, pathExists } from 'src/lib/fs-utils';
 import { installSqliteIntegration } from 'src/lib/sqlite-versions';
+import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
 import { SiteServer } from 'src/site-server';
 import { getResourcesPath } from 'src/storage/paths';
 import {
@@ -30,12 +31,19 @@ export const PLAYGROUND_CLI_PROVIDER_NAME = 'playground-cli';
 export class PlaygroundCliProvider implements WordPressProvider {
 	readonly PROVIDER_TYPE = PLAYGROUND_CLI_PROVIDER_NAME;
 
-	// Minimal required constants
-	readonly DEFAULT_PHP_VERSION = '8.3';
-	readonly DEFAULT_WORDPRESS_VERSION = '6.6';
-	readonly ALLOWED_PHP_VERSIONS = [ '7.4', '8.0', '8.1', '8.2', '8.3' ];
-	readonly SQLITE_FILENAME = 'sqlite-database-integration';
-	readonly SQLITE_FILENAME_LEGACY = 'sqlite-database-integration-main';
+	// Constants
+	static readonly DEFAULT_PHP_VERSION = '8.3';
+	static readonly DEFAULT_WORDPRESS_VERSION = '6.6';
+	static readonly ALLOWED_PHP_VERSIONS = [ '7.4', '8.0', '8.1', '8.2', '8.3' ];
+	static readonly SQLITE_FILENAME = 'sqlite-database-integration';
+	static readonly SQLITE_FILENAME_LEGACY = 'sqlite-database-integration-main';
+
+	// Instance constants for interface compatibility
+	readonly DEFAULT_PHP_VERSION = PlaygroundCliProvider.DEFAULT_PHP_VERSION;
+	readonly DEFAULT_WORDPRESS_VERSION = PlaygroundCliProvider.DEFAULT_WORDPRESS_VERSION;
+	readonly ALLOWED_PHP_VERSIONS = PlaygroundCliProvider.ALLOWED_PHP_VERSIONS;
+	readonly SQLITE_FILENAME = PlaygroundCliProvider.SQLITE_FILENAME;
+	readonly SQLITE_FILENAME_LEGACY = PlaygroundCliProvider.SQLITE_FILENAME_LEGACY;
 
 	// Setup server cache for site creation optimization
 	private setupServers = new Map<
@@ -127,30 +135,8 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	}
 
 	// Unsupported methods - throw errors to indicate they need different implementation
-	getWordPressVersionPath( _version: string ): string {
-		throw new Error( 'getWordPressVersionPath not implemented for playground-cli provider' );
-	}
-
 	getSqlitePath(): string {
 		return nodePath.join( getResourcesPath(), 'wp-files', this.SQLITE_FILENAME );
-	}
-
-	getWpCliPath(): string {
-		throw new Error( 'getWpCliPath not implemented for playground-cli provider' );
-	}
-
-	getWpCliFolderPath(): string {
-		throw new Error( 'getWpCliFolderPath not implemented for playground-cli provider' );
-	}
-
-	async downloadWordPress( _version?: string, _options?: { overwrite: boolean } ): Promise< void > {
-		throw new Error( 'downloadWordPress not implemented for playground-cli provider' );
-	}
-
-	async downloadWpCli(
-		_overwrite?: boolean
-	): Promise< { downloaded: boolean; statusCode: number } > {
-		throw new Error( 'downloadWpCli not implemented for playground-cli provider' );
 	}
 
 	async downloadSQLiteCommand( _downloadUrl: string, _targetPath: string ): Promise< void > {
@@ -258,12 +244,8 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		}
 	}
 
-	async isWordPressVersionInstalled( _version: string ): Promise< boolean > {
-		throw new Error( 'isWordPressVersionInstalled not implemented for playground-cli provider' );
-	}
-
-	isValidWordPressVersion( _version: string ): boolean {
-		throw new Error( 'isValidWordPressVersion not implemented for playground-cli provider' );
+	isValidWordPressVersion( version: string ): boolean {
+		return isValidWordPressVersion( version );
 	}
 
 	async executeWPCli(
@@ -417,11 +399,16 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		}
 	}
 
-	async getConfig( _options: { path: string } ): Promise< { wpContentPath?: string } > {
-		throw new Error( 'getConfig not implemented for playground-cli provider' );
+	async getConfig( options: { path: string } ): Promise< { wpContentPath?: string } > {
+		const wpContentPath = nodePath.join( options.path, 'wp-content' );
+
+		if ( await pathExists( wpContentPath ) ) {
+			return { wpContentPath };
+		}
+
+		return { wpContentPath: undefined };
 	}
 
-	// Cleanup methods for setup server management
 	async cleanupSetupServer( path: string ): Promise< void > {
 		const cachedSetup = this.setupServers.get( path );
 		if ( cachedSetup ) {
@@ -449,12 +436,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		await Promise.allSettled( cleanupPromises );
 	}
 
-	// Get the count of active setup servers (for debugging/monitoring)
-	getActiveSetupServerCount(): number {
-		return this.setupServers.size;
-	}
-
-	// Check if there's a cached setup server for a given path
 	hasCachedSetupServer( path: string ): boolean {
 		return this.setupServers.has( path );
 	}

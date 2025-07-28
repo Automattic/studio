@@ -62,22 +62,8 @@ export function sendProviderConstantsChanged( provider: WordPressProvider ): voi
 }
 
 // Methods as proxy functions
-export const getWordPressVersionPath = (
-	...args: Parameters< WordPressProvider[ 'getWordPressVersionPath' ] >
-) => getWordPressProvider().getWordPressVersionPath( ...args );
 export const getSqlitePath = ( ...args: Parameters< WordPressProvider[ 'getSqlitePath' ] > ) =>
 	getWordPressProvider().getSqlitePath( ...args );
-export const getWpCliPath = ( ...args: Parameters< WordPressProvider[ 'getWpCliPath' ] > ) =>
-	getWordPressProvider().getWpCliPath( ...args );
-export const getWpCliFolderPath = (
-	...args: Parameters< WordPressProvider[ 'getWpCliFolderPath' ] >
-) => getWordPressProvider().getWpCliFolderPath( ...args );
-
-export const downloadWordPress = (
-	...args: Parameters< WordPressProvider[ 'downloadWordPress' ] >
-) => getWordPressProvider().downloadWordPress( ...args );
-export const downloadWpCli = ( ...args: Parameters< WordPressProvider[ 'downloadWpCli' ] > ) =>
-	getWordPressProvider().downloadWpCli( ...args );
 export const downloadSQLiteCommand = (
 	...args: Parameters< WordPressProvider[ 'downloadSQLiteCommand' ] >
 ) => getWordPressProvider().downloadSQLiteCommand( ...args );

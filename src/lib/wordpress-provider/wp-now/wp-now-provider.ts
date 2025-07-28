@@ -1,8 +1,9 @@
 import { net } from 'electron';
+import path from 'path';
+import fs from 'fs-extra';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from 'src/lib/fs-utils';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
-import { verifyWordPressChecksums, purgeWpConfig } from 'src/lib/wp-versions';
 import { copyBundledLatestWPVersion } from 'src/setup-wp-server-files';
 import { SiteServer } from 'src/site-server';
 import { getWpNowConfig } from 'vendor/wp-now/src';
@@ -40,15 +41,30 @@ export class WpNowProvider implements WordPressProvider {
 	readonly PROVIDER_TYPE = 'wp-now';
 
 	// Constants
-	readonly DEFAULT_PHP_VERSION = DEFAULT_PHP_VERSION;
-	readonly DEFAULT_WORDPRESS_VERSION = DEFAULT_WORDPRESS_VERSION;
-	readonly ALLOWED_PHP_VERSIONS = ALLOWED_PHP_VERSIONS;
-	readonly SQLITE_FILENAME = SQLITE_FILENAME;
-	readonly SQLITE_FILENAME_LEGACY = SQLITE_FILENAME_LEGACY;
+	static readonly DEFAULT_PHP_VERSION = DEFAULT_PHP_VERSION;
+	static readonly DEFAULT_WORDPRESS_VERSION = DEFAULT_WORDPRESS_VERSION;
+	static readonly ALLOWED_PHP_VERSIONS = ALLOWED_PHP_VERSIONS;
+	static readonly SQLITE_FILENAME = SQLITE_FILENAME;
+	static readonly SQLITE_FILENAME_LEGACY = SQLITE_FILENAME_LEGACY;
 
-	// Path utilities
-	getWordPressVersionPath( version: string ): string {
+	// Instance constants for interface compatibility
+	readonly DEFAULT_PHP_VERSION = WpNowProvider.DEFAULT_PHP_VERSION;
+	readonly DEFAULT_WORDPRESS_VERSION = WpNowProvider.DEFAULT_WORDPRESS_VERSION;
+	readonly ALLOWED_PHP_VERSIONS = WpNowProvider.ALLOWED_PHP_VERSIONS;
+	readonly SQLITE_FILENAME = WpNowProvider.SQLITE_FILENAME;
+	readonly SQLITE_FILENAME_LEGACY = WpNowProvider.SQLITE_FILENAME_LEGACY;
+
+	// Path utilities (static methods for setup use)
+	static getWordPressVersionPath( version: string ): string {
 		return getWordPressVersionPath( version );
+	}
+
+	static getWpCliPath(): string {
+		return getWpCliPath();
+	}
+
+	static getWpCliFolderPath(): string {
+		return getWpCliFolderPath();
 	}
 
 	getSqlitePath(): string {
@@ -56,21 +72,30 @@ export class WpNowProvider implements WordPressProvider {
 	}
 
 	getWpCliPath(): string {
-		return getWpCliPath();
+		return WpNowProvider.getWpCliPath();
 	}
 
 	getWpCliFolderPath(): string {
-		return getWpCliFolderPath();
+		return WpNowProvider.getWpCliFolderPath();
 	}
 
-	async downloadWordPress( version?: string, options?: { overwrite: boolean } ): Promise< void > {
+	static async downloadWordPress(
+		version?: string,
+		options?: { overwrite: boolean }
+	): Promise< void > {
 		await downloadWordPress( version, options );
+	}
+
+	static async downloadWpCli(
+		overwrite?: boolean
+	): Promise< { downloaded: boolean; statusCode: number } > {
+		return await downloadWpCli( overwrite );
 	}
 
 	async downloadWpCli(
 		overwrite?: boolean
 	): Promise< { downloaded: boolean; statusCode: number } > {
-		return await downloadWpCli( overwrite );
+		return await WpNowProvider.downloadWpCli( overwrite );
 	}
 
 	async downloadSQLiteCommand( downloadUrl: string, targetPath: string ): Promise< void > {
@@ -85,13 +110,13 @@ export class WpNowProvider implements WordPressProvider {
 				return false;
 			}
 
-			const wpVersionPath = this.getWordPressVersionPath( wpVersion );
+			const wpVersionPath = WpNowProvider.getWordPressVersionPath( wpVersion );
 			const wpVersionExists = await pathExists( wpVersionPath );
 
 			if ( ! wpVersionExists ) {
 				if ( net.isOnline() ) {
 					try {
-						await this.downloadWordPress( wpVersion, { overwrite: false } );
+						await WpNowProvider.downloadWordPress( wpVersion, { overwrite: false } );
 					} catch ( error ) {
 						console.error( `Failed to download WordPress version ${ wpVersion }:`, error );
 						throw new Error(
@@ -105,9 +130,9 @@ export class WpNowProvider implements WordPressProvider {
 				}
 			}
 
-			await verifyWordPressChecksums( wpVersion );
-			await purgeWpConfig( wpVersion );
-			await recursiveCopyDirectory( this.getWordPressVersionPath( wpVersion ), path );
+			await this.verifyWordPressChecksums( wpVersion );
+			await this.purgeWpConfig( wpVersion );
+			await recursiveCopyDirectory( WpNowProvider.getWordPressVersionPath( wpVersion ), path );
 
 			return true;
 		} catch ( error ) {
@@ -186,5 +211,61 @@ export class WpNowProvider implements WordPressProvider {
 		return {
 			wpContentPath: config.wpContentPath,
 		};
+	}
+
+	/**
+	 * Deletes the wp-config.php file at the specified path.
+	 *
+	 * Prior to enforcing Playground's WordPress mode, it was possible to run
+	 * alternative modes, which mutated Studio's bundled WordPress installation.
+	 * To rectify the situation, we remove the erroneous wp-config.php file.
+	 *
+	 * If we are confident this situation is not a widespread issue, we can remove
+	 * this function in the future.
+	 *
+	 * @param wpVersion - The WordPress version the wp-config.php file.
+	 */
+	private async purgeWpConfig( wpVersion: string ): Promise< void > {
+		const wpVersionPath = WpNowProvider.getWordPressVersionPath( wpVersion );
+		const wpConfigPath = path.join( wpVersionPath, 'wp-config.php' );
+
+		if ( ! ( await pathExists( wpConfigPath ) ) ) {
+			return;
+		}
+
+		await fs.promises.unlink( wpConfigPath );
+	}
+
+	/**
+	 * Verifies the checksums of a WordPress installation.
+	 * If checksums don't match, it will retry the download once.
+	 *
+	 * @param wpVersion - The WordPress version to verify
+	 */
+	private async verifyWordPressChecksums( wpVersion: string ): Promise< void > {
+		if ( ! net.isOnline() ) {
+			console.log( 'Skipping WordPress checksum verification - offline mode' );
+			return;
+		}
+
+		try {
+			console.log( `Verifying checksums for WordPress version ${ wpVersion }...` );
+			const result = await this.executeWPCli( WpNowProvider.getWordPressVersionPath( wpVersion ), [
+				'core',
+				'verify-checksums',
+				'--skip-plugins',
+				'--skip-themes',
+			] );
+
+			if ( result.exitCode !== 0 ) {
+				console.log( `Checksums don't match for WordPress ${ wpVersion }, retrying download...` );
+				await fs.remove( WpNowProvider.getWordPressVersionPath( wpVersion ) );
+				// Retry download one more time
+				await WpNowProvider.downloadWordPress( wpVersion, { overwrite: true } );
+			}
+		} catch ( error ) {
+			console.error( `Failed to verify WordPress checksums:`, error );
+			throw error;
+		}
 	}
 }

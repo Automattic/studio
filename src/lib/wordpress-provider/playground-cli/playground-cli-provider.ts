@@ -1,5 +1,7 @@
-import path from 'path';
+import { net } from 'electron';
+import nodePath from 'path';
 import fs from 'fs-extra';
+import { recursiveCopyDirectory, pathExists } from 'src/lib/fs-utils';
 import { installSqliteIntegration } from 'src/lib/sqlite-versions';
 import { SiteServer } from 'src/site-server';
 import { getResourcesPath } from 'src/storage/paths';
@@ -18,6 +20,7 @@ export interface PlaygroundCliOptions {
 	autoMount: boolean;
 	skipWordpressSetup: boolean;
 	isSetupMode?: boolean;
+	wpCliPharPath?: string;
 }
 
 const SERVER_LIFETIME = 5 * 60 * 1000;
@@ -56,6 +59,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		absoluteUrl?: string;
 		siteLanguage?: string;
 		isSetupMode?: boolean;
+		wpCliPharPath?: string;
 	} ): Promise< WordPressServerInstance > {
 		const port = options.port;
 		const phpVersion = options.phpVersion || '8.3';
@@ -67,6 +71,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			autoMount: true,
 			skipWordpressSetup: true,
 			isSetupMode: options.isSetupMode || false,
+			wpCliPharPath: options.wpCliPharPath,
 		};
 
 		const serverOptions: WordPressServerOptions = {
@@ -127,7 +132,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	}
 
 	getSqlitePath(): string {
-		return path.join( getResourcesPath(), 'wp-files', this.SQLITE_FILENAME );
+		return nodePath.join( getResourcesPath(), 'wp-files', this.SQLITE_FILENAME );
 	}
 
 	getWpCliPath(): string {
@@ -157,10 +162,51 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		console.log(
 			'[playground-cli] Setting up WordPress site by starting server with WordPress setup'
 		);
+		const { path, port, adminPassword, name, phpVersion } = server.details;
 
 		try {
-			const { path, port, adminPassword, name, phpVersion } = server.details;
-			console.log( `[playground-cli] Setting up WordPress version: ${ wpVersion }` );
+			const isOnline = net.isOnline();
+
+			if ( ! isOnline ) {
+				if ( wpVersion !== 'latest' ) {
+					throw new Error(
+						`Cannot set up WordPress version '${ wpVersion }' while offline. ` +
+							'Specific WordPress versions require an internet connection to download. ' +
+							'Try using "latest" version or ensure internet connectivity.'
+					);
+				}
+
+				const bundledWPPath = nodePath.join(
+					getResourcesPath(),
+					'wp-files',
+					'latest',
+					'wordpress'
+				);
+
+				if ( ! ( await pathExists( bundledWPPath ) ) ) {
+					throw new Error(
+						'Cannot set up WordPress while offline. Bundled WordPress files not found. ' +
+							'Please connect to the internet or reinstall WordPress Studio.'
+					);
+				}
+
+				try {
+					await recursiveCopyDirectory( bundledWPPath, path );
+					console.log( '[playground-cli] Successfully copied bundled WordPress files' );
+				} catch ( error ) {
+					throw new Error(
+						'Failed to copy WordPress files for offline setup. Please check directory permissions.'
+					);
+				}
+			}
+
+			// Get wp-cli.phar path from wp-files (no copying needed)
+			const wpCliPharPath = nodePath.join(
+				getResourcesPath(),
+				'wp-files',
+				'wp-cli',
+				'wp-cli.phar'
+			);
 
 			// Ensure SQLite integration is installed before starting the server
 			const wpConfigPath = path + '/wp-config.php';
@@ -169,7 +215,8 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				await installSqliteIntegration( path );
 			}
 
-			// Create server instance with WordPress setup enabled
+			// If we copied WordPress files offline, skip setup since files are already there
+			const needsSetup = isOnline;
 			const serverInstance = await this.startServer( {
 				path,
 				port,
@@ -178,7 +225,8 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				phpVersion: phpVersion || this.DEFAULT_PHP_VERSION,
 				wpVersion,
 				isWpAutoUpdating: false,
-				isSetupMode: true,
+				isSetupMode: needsSetup,
+				wpCliPharPath: wpCliPharPath,
 			} );
 
 			console.log(
@@ -205,7 +253,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			return true;
 		} catch ( error ) {
 			console.error( 'Failed to setup WordPress site:', error );
-			this.setupServers.delete( server.details.path );
+			this.setupServers.delete( path );
 			return false;
 		}
 	}

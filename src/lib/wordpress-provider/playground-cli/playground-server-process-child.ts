@@ -81,6 +81,7 @@ async function startServer(
 			followSymlinks: true,
 			skipWordPressSetup,
 			port: options.port,
+			login: true,
 			'mount-before-install': [
 				{
 					hostPath: options.documentRoot,

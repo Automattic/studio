@@ -1,4 +1,8 @@
+import path from 'path';
+import fs from 'fs-extra';
+import { installSqliteIntegration } from 'src/lib/sqlite-versions';
 import { SiteServer } from 'src/site-server';
+import { getResourcesPath } from 'src/storage/paths';
 import {
 	WordPressProvider,
 	WordPressServerInstance,
@@ -27,8 +31,8 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	readonly DEFAULT_PHP_VERSION = '8.3';
 	readonly DEFAULT_WORDPRESS_VERSION = '6.6';
 	readonly ALLOWED_PHP_VERSIONS = [ '7.4', '8.0', '8.1', '8.2', '8.3' ];
-	readonly SQLITE_FILENAME = 'database.sqlite';
-	readonly SQLITE_FILENAME_LEGACY = 'db.sqlite';
+	readonly SQLITE_FILENAME = 'sqlite-database-integration';
+	readonly SQLITE_FILENAME_LEGACY = 'sqlite-database-integration-main';
 
 	// Setup server cache for site creation optimization
 	private setupServers = new Map<
@@ -123,7 +127,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	}
 
 	getSqlitePath(): string {
-		throw new Error( 'getSqlitePath not implemented for playground-cli provider' );
+		return path.join( getResourcesPath(), 'wp-files', this.SQLITE_FILENAME );
 	}
 
 	getWpCliPath(): string {
@@ -145,7 +149,8 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	}
 
 	async downloadSQLiteCommand( _downloadUrl: string, _targetPath: string ): Promise< void > {
-		throw new Error( 'downloadSQLiteCommand not implemented for playground-cli provider' );
+		// This function is used during /src/setup-wp-server-files.ts
+		return;
 	}
 
 	async setupWordPressSite( server: SiteServer, wpVersion = 'latest' ): Promise< boolean > {
@@ -156,6 +161,13 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		try {
 			const { path, port, adminPassword, name, phpVersion } = server.details;
 			console.log( `[playground-cli] Setting up WordPress version: ${ wpVersion }` );
+
+			// Ensure SQLite integration is installed before starting the server
+			const wpConfigPath = path + '/wp-config.php';
+			if ( ! ( await fs.pathExists( wpConfigPath ) ) ) {
+				console.log( '[playground-cli] Installing SQLite integration for new site' );
+				await installSqliteIntegration( path );
+			}
 
 			// Create server instance with WordPress setup enabled
 			const serverInstance = await this.startServer( {

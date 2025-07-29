@@ -2,7 +2,6 @@ import { __ } from '@wordpress/i18n';
 import { Badge } from 'src/components/badge';
 import { cx } from 'src/lib/cx';
 import { getEnvironmentLabel } from 'src/modules/sync/lib/environment-utils';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 export type EnvironmentType = string;
 

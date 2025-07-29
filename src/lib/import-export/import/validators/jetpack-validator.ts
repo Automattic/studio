@@ -6,8 +6,14 @@ import { Validator } from 'src/lib/import-export/import/validators/validator';
 
 export class JetpackValidator extends EventEmitter implements Validator {
 	canHandle( fileList: string[] ): boolean {
-		const optionalDirs = [ 'sql', 'wp-content/uploads', 'wp-content/plugins', 'wp-content/themes' ];
-		const optionalFiles = [ 'wp-config.php' ];
+		const optionalDirs = [
+			'sql',
+			'wp-content',
+			'wp-content/uploads',
+			'wp-content/plugins',
+			'wp-content/themes',
+		];
+		const optionalFiles = [ 'wp-config.php', 'meta.json' ];
 
 		const hasOptionalDir = optionalDirs.some( ( dir ) =>
 			fileList.some( ( file ) => file.startsWith( dir + '/' ) )

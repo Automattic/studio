@@ -44,7 +44,7 @@ process.parentPort.on( 'message', async ( event ) => {
 
 process.parentPort.postMessage( { type: 'ready' } );
 
-async function setSiteOptionsViaPHP(
+async function setSiteOptions(
 	server: RunCLIServer,
 	serverOptions: WordPressServerOptions
 ): Promise< void > {
@@ -128,6 +128,7 @@ async function startServer(
 			command: 'server',
 			internalCookieStore: true,
 			followSymlinks: true,
+			skipSqliteSetup: true,
 			skipWordPressSetup,
 			port: options.port,
 			login: true,
@@ -146,7 +147,7 @@ async function startServer(
 
 		if ( serverOptions.siteTitle || serverOptions.adminPassword ) {
 			try {
-				await setSiteOptionsViaPHP( server, serverOptions );
+				await setSiteOptions( server, serverOptions );
 			} catch ( error ) {
 				console.warn( '[playground-cli-child] Failed to set site options via PHP:', error );
 			}

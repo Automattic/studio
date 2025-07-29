@@ -71,6 +71,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	} ): Promise< WordPressServerInstance > {
 		const port = options.port;
 		const phpVersion = options.phpVersion || '8.3';
+		const wpCliPharPath = nodePath.join( getResourcesPath(), 'wp-files', 'wp-cli', 'wp-cli.phar' );
 
 		const playgroundOptions: PlaygroundCliOptions = {
 			port,
@@ -79,7 +80,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			autoMount: true,
 			skipWordpressSetup: true,
 			isSetupMode: options.isSetupMode || false,
-			wpCliPharPath: options.wpCliPharPath,
+			wpCliPharPath,
 		};
 
 		const serverOptions: WordPressServerOptions = {
@@ -186,14 +187,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				}
 			}
 
-			// Get wp-cli.phar path from wp-files (no copying needed)
-			const wpCliPharPath = nodePath.join(
-				getResourcesPath(),
-				'wp-files',
-				'wp-cli',
-				'wp-cli.phar'
-			);
-
 			// Ensure SQLite integration is installed before starting the server
 			const wpConfigPath = path + '/wp-config.php';
 			if ( ! ( await fs.pathExists( wpConfigPath ) ) ) {
@@ -212,7 +205,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				wpVersion,
 				isWpAutoUpdating: false,
 				isSetupMode: needsSetup,
-				wpCliPharPath: wpCliPharPath,
 			} );
 
 			console.log(

@@ -72,6 +72,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		const port = options.port;
 		const phpVersion = options.phpVersion || '8.3';
 		const wpCliPharPath = nodePath.join( getResourcesPath(), 'wp-files', 'wp-cli', 'wp-cli.phar' );
+		const wpCliExists = await pathExists( wpCliPharPath );
 
 		const playgroundOptions: PlaygroundCliOptions = {
 			port,
@@ -80,8 +81,11 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			autoMount: true,
 			skipWordpressSetup: true,
 			isSetupMode: options.isSetupMode || false,
-			wpCliPharPath,
 		};
+
+		if ( wpCliExists ) {
+			playgroundOptions.wpCliPharPath = wpCliPharPath;
+		}
 
 		const serverOptions: WordPressServerOptions = {
 			documentRoot: options.path,

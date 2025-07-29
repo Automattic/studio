@@ -44,6 +44,10 @@ process.parentPort.on( 'message', async ( event ) => {
 
 process.parentPort.postMessage( { type: 'ready' } );
 
+function escapePhpString( str: string ): string {
+	return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
+}
+
 async function setSiteOptions(
 	server: RunCLIServer,
 	serverOptions: WordPressServerOptions
@@ -54,7 +58,7 @@ async function setSiteOptions(
 		// Set site title if provided (wp-now doesn't do this post-install, but it's the correct way)
 		${
 			serverOptions.siteTitle
-				? `update_option( 'blogname', '${ serverOptions.siteTitle.replace( /'/g, "\\'" ) }' );`
+				? `update_option( 'blogname', '${ escapePhpString( serverOptions.siteTitle ) }' );`
 				: ''
 		}
 
@@ -64,11 +68,11 @@ async function setSiteOptions(
 				? `
 		$user = get_user_by( 'login', 'admin' );
 		if ( $user ) {
-			wp_set_password( '${ serverOptions.adminPassword.replace( /'/g, "\\'" ) }', $user->ID );
+			wp_set_password( '${ escapePhpString( serverOptions.adminPassword ) }', $user->ID );
 		} else {
 			$user_data = array(
 				'user_login' => 'admin',
-				'user_pass' => '${ serverOptions.adminPassword.replace( /'/g, "\\'" ) }',
+				'user_pass' => '${ escapePhpString( serverOptions.adminPassword ) }',
 				'user_email' => 'admin@localhost.com',
 				'role' => 'administrator',
 			);

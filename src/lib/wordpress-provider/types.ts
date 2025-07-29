@@ -69,17 +69,6 @@ export interface WordPressProvider {
 	// Version utilities
 	isValidWordPressVersion( version: string ): boolean;
 
-	// WP-CLI
-	executeWPCli(
-		projectPath: string,
-		args: string[],
-		options?: { phpVersion?: string }
-	): Promise< {
-		stdout: string;
-		stderr: string;
-		exitCode: number;
-	} >;
-
 	// Configuration
 	getConfig( options: { path: string } ): Promise< { wpContentPath?: string } >;
 }

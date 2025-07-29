@@ -17,7 +17,6 @@ import {
 	getWordPressVersionFromInstallation,
 	updateLatestWordPressVersion,
 } from 'src/lib/wp-versions';
-import { updateLatestWPCliVersion } from 'src/lib/wpcli-versions';
 import { getResourcesPath } from 'src/storage/paths';
 
 // Tries to copy the app's bundled WordPress version to `wp-now` WP versions if needed
@@ -119,6 +118,8 @@ export async function setupWPServerFiles() {
 export async function updateWPServerFiles() {
 	await updateLatestWordPressVersion();
 	await updateLatestSqliteVersion();
-	await updateLatestWPCliVersion();
+	const provider = new WpNowProvider();
+	await provider.updateLatestWPCliVersion();
+
 	await updateLatestSQLiteCommandVersion();
 }

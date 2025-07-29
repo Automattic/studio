@@ -18,10 +18,12 @@ const handlers: Handlers = {
 };
 
 async function execute( data: unknown ) {
-	const { projectPath, args, phpVersion } = data as {
+	const { projectPath, args, phpVersion, resourcesPath, sqliteCommandPath } = data as {
 		projectPath: string;
 		args: string[];
 		phpVersion: string;
+		resourcesPath?: string;
+		sqliteCommandPath?: string;
 	};
 	if ( ! projectPath || ! args ) {
 		throw Error( 'Command execution needs project path and arguments' );
@@ -36,11 +38,19 @@ async function execute( data: unknown ) {
 			return await executeWPCli( projectPath, args, { phpVersion } );
 		}
 		case 'playground-cli': {
-			const { PlaygroundCliProvider } = await import(
-				'src/lib/wordpress-provider/playground-cli/playground-cli-provider'
+			const { executeWPCli } = await import(
+				'src/lib/wordpress-provider/playground-cli/wp-cli-executor'
 			);
-			const provider = new PlaygroundCliProvider();
-			return await provider.executeWPCli( projectPath, args );
+
+			if ( ! resourcesPath || ! sqliteCommandPath ) {
+				throw new Error( 'Required paths not provided for playground-cli provider' );
+			}
+
+			return await executeWPCli( projectPath, args, {
+				phpVersion,
+				resourcesPath,
+				sqliteCommandPath,
+			} );
 		}
 		default:
 			throw new Error( `Unknown WordPress provider type: ${ providerType }` );

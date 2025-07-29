@@ -121,13 +121,6 @@ async function startServer(
 			},
 		];
 
-		if ( options.wpCliPharPath ) {
-			mounts.push( {
-				hostPath: options.wpCliPharPath,
-				vfsPath: '/tmp/wp-cli.phar',
-			} );
-		}
-
 		const args: RunCLIArgs = {
 			command: 'server',
 			internalCookieStore: true,

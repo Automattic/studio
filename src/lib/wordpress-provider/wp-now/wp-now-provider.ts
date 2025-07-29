@@ -1,6 +1,7 @@
 import { net } from 'electron';
 import path from 'path';
 import fs from 'fs-extra';
+import semver from 'semver';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from 'src/lib/fs-utils';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
@@ -267,5 +268,74 @@ export class WpNowProvider implements WordPressProvider {
 			console.error( `Failed to verify WordPress checksums:`, error );
 			throw error;
 		}
+	}
+
+	// WP-CLI Version Management
+	async updateLatestWPCliVersion() {
+		let shouldOverwrite = false;
+		const pathExist = await fs.pathExists( WpNowProvider.getWpCliPath() );
+		if ( pathExist ) {
+			shouldOverwrite = await this.isWPCliInstallationOutdated();
+		}
+		await WpNowProvider.downloadWpCli( shouldOverwrite );
+	}
+
+	async isWPCliInstallationOutdated(): Promise< boolean > {
+		const installedVersion = await this.getWPCliVersionFromInstallation();
+		const latestVersion = await this.getLatestWPCliVersion();
+
+		if ( ! installedVersion ) {
+			return true;
+		}
+
+		if ( ! latestVersion ) {
+			return false;
+		}
+
+		try {
+			return semver.lt( installedVersion, latestVersion );
+		} catch ( _error ) {
+			return false;
+		}
+	}
+
+	private latestWPCliVersionCache: string | null = null;
+
+	private async getLatestWPCliVersion() {
+		// Only fetch the latest version once per app session
+		if ( this.latestWPCliVersionCache ) {
+			return this.latestWPCliVersionCache;
+		}
+
+		try {
+			const response = await fetch(
+				'https://api.github.com/repos/wp-cli/wp-cli/releases?per_page=1'
+			);
+			const data: Record< string, string >[] = await response.json();
+			this.latestWPCliVersionCache = data?.[ 0 ]?.tag_name || '';
+		} catch ( _error ) {
+			// Discard the failed fetch, return the cache
+		}
+
+		return this.latestWPCliVersionCache || '';
+	}
+
+	async getWPCliVersionFromInstallation(): Promise< string > {
+		/**
+		 * Version checks don't require a project folder to be mounted for WP-cli
+		 * to execute a version check.
+		 */
+		const { stdout } = await this.executeWPCli( WpNowProvider.getWpCliFolderPath(), [
+			'--version',
+		] );
+
+		if ( stdout?.startsWith( 'WP-CLI ' ) ) {
+			const version = stdout.split( ' ' )[ 1 ];
+			if ( ! version ) {
+				return '';
+			}
+			return `v${ version }`;
+		}
+		return '';
 	}
 }

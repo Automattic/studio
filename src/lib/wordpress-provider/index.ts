@@ -73,8 +73,6 @@ export const setupWordPressSite = (
 ) => getWordPressProvider().setupWordPressSite( ...args );
 export const startServer = ( ...args: Parameters< WordPressProvider[ 'startServer' ] > ) =>
 	getWordPressProvider().startServer( ...args );
-export const executeWPCli = ( ...args: Parameters< WordPressProvider[ 'executeWPCli' ] > ) =>
-	getWordPressProvider().executeWPCli( ...args );
 export const isValidWordPressVersion = (
 	...args: Parameters< WordPressProvider[ 'isValidWordPressVersion' ] >
 ) => getWordPressProvider().isValidWordPressVersion( ...args );

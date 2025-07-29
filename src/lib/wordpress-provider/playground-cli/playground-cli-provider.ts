@@ -21,7 +21,6 @@ export interface PlaygroundCliOptions {
 	autoMount: boolean;
 	skipWordpressSetup: boolean;
 	isSetupMode?: boolean;
-	wpCliPharPath?: string;
 }
 
 const SERVER_LIFETIME = 5 * 60 * 1000;
@@ -71,8 +70,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	} ): Promise< WordPressServerInstance > {
 		const port = options.port;
 		const phpVersion = options.phpVersion || '8.3';
-		const wpCliPharPath = nodePath.join( getResourcesPath(), 'wp-files', 'wp-cli', 'wp-cli.phar' );
-		const wpCliExists = await pathExists( wpCliPharPath );
 
 		const playgroundOptions: PlaygroundCliOptions = {
 			port,
@@ -82,10 +79,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			skipWordpressSetup: true,
 			isSetupMode: options.isSetupMode || false,
 		};
-
-		if ( wpCliExists ) {
-			playgroundOptions.wpCliPharPath = wpCliPharPath;
-		}
 
 		const serverOptions: WordPressServerOptions = {
 			documentRoot: options.path,
@@ -242,157 +235,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 
 	isValidWordPressVersion( version: string ): boolean {
 		return isValidWordPressVersion( version );
-	}
-
-	async executeWPCli(
-		projectPath: string,
-		args: string[],
-		options?: {
-			phpVersion?: string;
-			server?: WordPressServerProcess;
-			serverDetails?: {
-				port: number;
-				adminPassword?: string;
-				siteTitle: string;
-				customDomain?: string;
-			};
-		}
-	): Promise< {
-		stdout: string;
-		stderr: string;
-		exitCode: number;
-	} > {
-		let server = options?.server;
-		let tempServerProcess: WordPressServerProcess | null = null;
-
-		// If no server is provided, check for cached setup server first
-		if ( ! server ) {
-			const cachedSetup = this.setupServers.get( projectPath );
-			if ( cachedSetup ) {
-				console.log( '[playground-cli] Using cached setup server for WP-CLI execution' );
-				server = cachedSetup.serverProcess;
-			} else {
-				// Fall back to creating a temporary server
-				if ( ! options?.serverDetails ) {
-					throw new Error( 'Either server or serverDetails must be provided' );
-				}
-
-				const { port, adminPassword, siteTitle, customDomain } = options.serverDetails;
-				const phpVersion = options.phpVersion || this.DEFAULT_PHP_VERSION;
-
-				const tempServerInstance = await this.startServer( {
-					path: projectPath,
-					port,
-					adminPassword: adminPassword || 'password',
-					siteTitle,
-					phpVersion,
-					wpVersion: this.DEFAULT_WORDPRESS_VERSION,
-					absoluteUrl: customDomain || `http://localhost:${ port }`,
-					isSetupMode: false,
-				} );
-
-				tempServerProcess = this.createServerProcess( tempServerInstance );
-				await tempServerProcess.start();
-				server = tempServerProcess;
-			}
-		}
-
-		console.log( '[playground-cli] Executing WP-CLI command:', args.join( ' ' ) );
-
-		try {
-			// Execute WP-CLI command using the phar file that playground CLI downloads
-			const phpScript = `<?php
-				// Build the arguments array
-				$args = ${ JSON.stringify( args ) };
-
-				// Change working directory to WordPress root
-				chdir( '/wordpress' );
-
-				// WP-CLI will define this constant itself, so we don't need to
-
-				// Define CLI constants that WP-CLI expects
-				if ( ! defined( 'STDOUT' ) ) {
-					define( 'STDOUT', fopen( 'php://output', 'w' ) );
-				}
-				if ( ! defined( 'STDERR' ) ) {
-					define( 'STDERR', fopen( 'php://stderr', 'w' ) );
-				}
-				if ( ! defined( 'STDIN' ) ) {
-					define( 'STDIN', fopen( 'php://input', 'r' ) );
-				}
-
-				// Define WP-CLI namespaced constants
-				if ( ! defined( 'WP_CLI\\Loggers\\STDERR' ) ) {
-					define( 'WP_CLI\\Loggers\\STDERR', STDERR );
-				}
-
-				// Set up command line arguments for WP-CLI
-				$_SERVER['argv'] = array_merge( [ 'wp' ], $args );
-				$_SERVER['argc'] = count( $_SERVER['argv'] );
-
-				global $argc, $argv;
-				$argc = $_SERVER['argc'];
-				$argv = $_SERVER['argv'];
-
-				// Check if WP-CLI phar exists
-				$wpCliPath = '/tmp/wp-cli.phar';
-				if ( ! file_exists( $wpCliPath ) ) {
-					echo "Error: WP-CLI phar not found at $wpCliPath";
-					exit( 1 );
-				}
-
-				// Include WP-CLI phar directly using absolute path
-				ob_start();
-				include 'phar:///tmp/wp-cli.phar/php/boot-phar.php';
-				$output = ob_get_contents();
-				ob_end_clean();
-
-				echo trim( $output );
-			`;
-
-			// Execute the PHP script using the running server
-			const result = await server.runPhp( { code: phpScript } );
-
-			// Clean the HTML warnings from WP-CLI output
-			let cleanOutput = result;
-
-			// Remove HTML warning tags about WP_CLI constant
-			cleanOutput = cleanOutput.replace( /<br\s*\/?>\s*/gi, '\n' );
-			cleanOutput = cleanOutput.replace(
-				/<b>Warning<\/b>:\s*Constant WP_CLI already defined.*?<br\s*\/?>/gi,
-				''
-			);
-			cleanOutput = cleanOutput.replace( /<b>.*?<\/b>/gi, '' );
-
-			// Remove any leftover warning fragments
-			cleanOutput = cleanOutput.replace( /:\s*Constant WP_CLI already defined.*?on line\s*/gi, '' );
-			cleanOutput = cleanOutput.replace( /Warning:\s*Constant WP_CLI already defined.*?\n/gi, '' );
-
-			// Remove extra whitespace and newlines
-			cleanOutput = cleanOutput.replace( /^\s+|\s+$/g, '' );
-			cleanOutput = cleanOutput.replace( /\n\s*\n/g, '\n' );
-
-			console.log( 'wp-cli execute result ', result );
-			console.log( 'cleanOutput', cleanOutput );
-
-			return {
-				stdout: cleanOutput,
-				stderr: '',
-				exitCode: 0,
-			};
-		} catch ( error ) {
-			console.error( '[playground-cli] WP-CLI execution error:', error );
-			return {
-				stdout: '',
-				stderr: error instanceof Error ? error.message : 'Unknown error occurred',
-				exitCode: 1,
-			};
-		} finally {
-			// Only stop temp servers, not cached setup servers
-			if ( tempServerProcess ) {
-				await tempServerProcess.stop();
-			}
-		}
 	}
 
 	async getConfig( options: { path: string } ): Promise< { wpContentPath?: string } > {

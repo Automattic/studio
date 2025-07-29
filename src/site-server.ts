@@ -6,7 +6,7 @@ import { parse } from 'shell-quote';
 import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { addDomainToHosts, removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
-import { createPassword, decodePassword } from 'src/lib/passwords';
+import { decodePassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { portFinder } from 'src/lib/port-finder';
 import { startProxyServer } from 'src/lib/proxy-server';
@@ -345,22 +345,6 @@ export class SiteServer {
 		}
 
 		try {
-			// Check if we're using playground CLI provider
-			if ( getWordPressProviderType() === 'playground-cli' ) {
-				const provider = getWordPressProvider() as PlaygroundCliProvider;
-
-				return await provider.executeWPCli( projectPath, wpCliArgs as string[], {
-					server: this.server,
-					phpVersion,
-					serverDetails: {
-						port: this.details.port,
-						adminPassword: this.details.adminPassword || createPassword(),
-						siteTitle: this.details.name,
-						customDomain: this.details.customDomain,
-					},
-				} );
-			}
-
 			return await this.wpCliExecutor.execute( wpCliArgs as string[], { phpVersion } );
 		} catch ( error ) {
 			if ( ( error as MessageCanceled )?.canceled ) {

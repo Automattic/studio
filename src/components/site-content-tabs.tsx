@@ -22,7 +22,7 @@ export function SiteContentTabs() {
 
 	if ( ! selectedSite ) {
 		return (
-			<div className="w-full h-full flex items-center justify-center">
+			<div className="w-full h-full flex items-center justify-center app-no-drag-region">
 				<p className="text-lg text-gray-600">{ __( 'Select a site to view details.' ) }</p>
 			</div>
 		);

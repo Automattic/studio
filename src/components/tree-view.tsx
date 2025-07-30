@@ -82,6 +82,7 @@ const TreeItem = ( {
 	index,
 	isLast = false,
 	siblingsLength,
+	disabled,
 }: {
 	node: TreeNode;
 	onPatchNode: ( id: string, patchNode: Partial< TreeNode > ) => void;
@@ -90,6 +91,7 @@ const TreeItem = ( {
 	index: number;
 	siblingsLength?: number;
 	isLast?: boolean;
+	disabled?: boolean;
 } ) => {
 	const { __ } = useI18n();
 	const isLevel0 = level === 0;
@@ -111,12 +113,18 @@ const TreeItem = ( {
 					isLast ? 'border-white' : ''
 				) }
 			>
-				<label className="flex items-center cursor-pointer">
+				<label
+					className={ cx(
+						'flex items-center',
+						disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+					) }
+				>
 					<CheckboxControl
 						id={ node.id }
 						checked={ node.checked }
 						indeterminate={ node.indeterminate }
 						onChange={ ( checked: boolean ) => onPatchNode( node.id, { checked } ) }
+						disabled={ disabled }
 						__nextHasNoMarginBottom
 					/>
 					{ node.type && (
@@ -189,9 +197,10 @@ export type TreeViewProps = {
 	tree: TreeNode[];
 	setTree: React.Dispatch< React.SetStateAction< TreeNode[] > >;
 	onExpand?: ( node: TreeNode ) => Promise< void >;
+	disabled?: boolean;
 };
 
-export const TreeView = ( { tree, setTree, onExpand }: TreeViewProps ) => {
+export const TreeView = ( { tree, setTree, onExpand, disabled }: TreeViewProps ) => {
 	const handlePatchNode = ( id: string, partialNode: Partial< TreeNode > ) => {
 		setTree( ( prev: TreeNode[] ) => updateNodeById( prev, id, partialNode ) );
 	};
@@ -208,6 +217,7 @@ export const TreeView = ( { tree, setTree, onExpand }: TreeViewProps ) => {
 					index={ index }
 					siblingsLength={ tree.length }
 					isLast={ index === tree.length - 1 }
+					disabled={ disabled }
 				/>
 			) ) }
 		</div>

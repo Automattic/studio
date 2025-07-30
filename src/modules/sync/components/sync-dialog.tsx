@@ -1,6 +1,6 @@
 import { SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
-import { sprintf } from '@wordpress/i18n';
+import { sprintf, __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
@@ -8,11 +8,13 @@ import Button from 'src/components/button';
 import { getSiteEnvironment } from 'src/components/environment-badge';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
+import { Tooltip } from 'src/components/tooltip';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
 import { SYNC_OPTIONS } from 'src/constants';
 import { useLatestRewindId } from 'src/hooks/sync-sites/use-latest-rewind-id';
 import { useRemoteFileTree } from 'src/hooks/sync-sites/use-remote-file-tree';
 import { useContentFolders } from 'src/hooks/use-content-folders';
+import { formatLocalizedDate } from 'src/lib/date';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { SiteNameBox } from 'src/modules/sync/components/site-name-box';
@@ -122,6 +124,7 @@ export function SyncDialog( {
 	const remoteSiteName = <SiteNameBox siteName={ remoteSite.name } envType={ siteEnv } />;
 
 	let syncFrom, syncTo, syncFromText, syncToText;
+	let pullBackupInformation = null;
 	if ( type === 'push' ) {
 		syncFrom = localSiteName;
 		syncTo = remoteSiteName;
@@ -132,7 +135,19 @@ export function SyncDialog( {
 		syncTo = localSiteName;
 		syncFromText = remoteSite.name;
 		syncToText = localSite.name;
+		pullBackupInformation = {
+			tooltipText: __(
+				'Selective Sync will be enabled automatically once your backup is complete.'
+			),
+			disabled: ! rewindId,
+			backupUrl: `https://wpcalypso.wordpress.com/backup/${ remoteSite.url.replace(
+				/^https?:\/\//,
+				''
+			) }`,
+		};
 	}
+
+	console.log( 'pullBackupInformation', pullBackupInformation );
 
 	const handleExpanderChange = ( value: boolean ) => {
 		setShowAllFiles( value );
@@ -200,31 +215,44 @@ export function SyncDialog( {
 					</div>
 				</div>
 				<div className="px-8 pt-7 pb-3">{ copy.subtitleSelector }</div>
-				<div className="px-8 pb-2 relative">
-					<div className="absolute end-6 z-10">
-						<SelectControl
-							value={ showAllFiles ? 'true' : 'false' }
-							variant="minimal"
-							options={ [
-								{
-									label: __( 'All files and folders' ),
-									value: 'false',
-								},
-								{
-									label: __( 'Specific files and folders' ),
-									value: 'true',
-								},
-							] }
-							onChange={ ( value ) => handleExpanderChange( value === 'true' ) }
-							__next40pxDefaultSize
-							__nextHasNoMarginBottom
-							aria-label={ __( 'Select files and folders to sync' ) }
-							className="h-9"
+				<Tooltip
+					className="w-full"
+					text={ pullBackupInformation?.tooltipText }
+					disabled={ ! pullBackupInformation?.disabled }
+				>
+					<div className="px-8 pb-2 relative">
+						<div className="absolute end-6 z-10">
+							<SelectControl
+								value={ showAllFiles ? 'true' : 'false' }
+								variant="minimal"
+								options={ [
+									{
+										label: __( 'All files and folders' ),
+										value: 'false',
+									},
+									{
+										label: __( 'Specific files and folders' ),
+										value: 'true',
+									},
+								] }
+								onChange={ ( value ) => handleExpanderChange( value === 'true' ) }
+								disabled={ pullBackupInformation?.disabled }
+								__next40pxDefaultSize
+								__nextHasNoMarginBottom
+								aria-label={ __( 'Select files and folders to sync' ) }
+								className="h-9"
+							/>
+						</div>
+
+						<TreeView
+							disabled={ pullBackupInformation?.disabled }
+							tree={ treeState }
+							setTree={ setTreeState }
+							onExpand={ handleExpand }
 						/>
 					</div>
+				</Tooltip>
 
-					<TreeView tree={ treeState } setTree={ setTreeState } onExpand={ handleExpand } />
-				</div>
 				<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center absolute left-0 right-0 bottom-0 bg-white z-10">
 					<div>
 						{ createInterpolateElement( copy.envSync, {

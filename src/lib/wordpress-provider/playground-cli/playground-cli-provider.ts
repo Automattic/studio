@@ -23,8 +23,6 @@ export interface PlaygroundCliOptions {
 	isSetupMode?: boolean;
 }
 
-const SERVER_LIFETIME = 5 * 60 * 1000;
-
 export const PLAYGROUND_CLI_PROVIDER_NAME = 'playground-cli';
 
 export class PlaygroundCliProvider implements WordPressProvider {
@@ -43,16 +41,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	readonly ALLOWED_PHP_VERSIONS = PlaygroundCliProvider.ALLOWED_PHP_VERSIONS;
 	readonly SQLITE_FILENAME = PlaygroundCliProvider.SQLITE_FILENAME;
 	readonly SQLITE_FILENAME_LEGACY = PlaygroundCliProvider.SQLITE_FILENAME_LEGACY;
-
-	// Setup server cache for site creation optimization
-	private setupServers = new Map<
-		string,
-		{
-			serverInstance: WordPressServerInstance;
-			serverProcess: WordPressServerProcess;
-			timeoutId?: NodeJS.Timeout;
-		}
-	>();
 
 	// Start/Stop functionality only
 	async startServer( options: {
@@ -104,27 +92,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 
 	createServerProcess( serverInstance: WordPressServerInstance ): WordPressServerProcess {
 		const playgroundOptions = serverInstance._internal as PlaygroundCliOptions;
-
-		// Check if we have a cached setup server for this document root
-		const cachedSetup = this.setupServers.get( playgroundOptions.documentRoot );
-		if ( cachedSetup ) {
-			console.log(
-				'[playground-cli] Using cached server process for',
-				playgroundOptions.documentRoot
-			);
-
-			// Clear the timeout since we're now using this server
-			if ( cachedSetup.timeoutId ) {
-				clearTimeout( cachedSetup.timeoutId );
-			}
-
-			// Remove from cache since it's now being used as the main server
-			this.setupServers.delete( playgroundOptions.documentRoot );
-
-			// Return the already-running server process
-			return cachedSetup.serverProcess;
-		}
-
 		return new PlaygroundServerProcess(
 			serverInstance.url,
 			playgroundOptions,
@@ -132,14 +99,8 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		);
 	}
 
-	// Unsupported methods - throw errors to indicate they need different implementation
 	getSqlitePath(): string {
 		return nodePath.join( getResourcesPath(), 'wp-files', this.SQLITE_FILENAME );
-	}
-
-	async downloadSQLiteCommand( _downloadUrl: string, _targetPath: string ): Promise< void > {
-		// This function is used during /src/setup-wp-server-files.ts
-		return;
 	}
 
 	async setupWordPressSite( server: SiteServer, wpVersion = 'latest' ): Promise< boolean > {
@@ -211,24 +172,12 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			const serverProcess = this.createServerProcess( serverInstance );
 			console.log( '[playground-cli] Starting server for WordPress setup...' );
 			await serverProcess.start();
-
-			console.log(
-				'[playground-cli] WordPress installation completed, keeping setup server running for optimization'
-			);
-
-			// Set up auto-cleanup timeout
-			const timeoutId = setTimeout( () => {
-				console.log( '[playground-cli] Auto-cleaning up unused setup server for', path );
-				void this.cleanupSetupServer( path );
-			}, SERVER_LIFETIME );
-
-			this.setupServers.set( path, { serverInstance, serverProcess, timeoutId } );
-
+			console.log( '[playground-cli] Server started successfully' );
+			await serverProcess.stop();
 			console.log( '[playground-cli] WordPress site setup completed successfully' );
 			return true;
 		} catch ( error ) {
 			console.error( 'Failed to setup WordPress site:', error );
-			this.setupServers.delete( path );
 			return false;
 		}
 	}
@@ -245,36 +194,5 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		}
 
 		return { wpContentPath: undefined };
-	}
-
-	async cleanupSetupServer( path: string ): Promise< void > {
-		const cachedSetup = this.setupServers.get( path );
-		if ( cachedSetup ) {
-			console.log( '[playground-cli] Cleaning up cached setup server for', path );
-
-			// Clear the timeout if it exists
-			if ( cachedSetup.timeoutId ) {
-				clearTimeout( cachedSetup.timeoutId );
-			}
-
-			try {
-				await cachedSetup.serverProcess.stop();
-			} catch ( error ) {
-				console.warn( '[playground-cli] Error stopping cached setup server:', error );
-			}
-			this.setupServers.delete( path );
-		}
-	}
-
-	async cleanupAllSetupServers(): Promise< void > {
-		console.log( '[playground-cli] Cleaning up all cached setup servers' );
-		const cleanupPromises = Array.from( this.setupServers.keys() ).map( ( path ) =>
-			this.cleanupSetupServer( path )
-		);
-		await Promise.allSettled( cleanupPromises );
-	}
-
-	hasCachedSetupServer( path: string ): boolean {
-		return this.setupServers.has( path );
 	}
 }

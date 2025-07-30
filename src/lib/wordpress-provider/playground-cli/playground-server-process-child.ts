@@ -104,7 +104,6 @@ async function startServer(
 
 	try {
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( serverOptions );
-		const skipWordPressSetup = ! options.isSetupMode;
 
 		const mounts = [
 			{
@@ -122,15 +121,19 @@ async function startServer(
 		];
 
 		const args: RunCLIArgs = {
-			command: 'server',
+			command: 'run-blueprint',
 			internalCookieStore: true,
 			followSymlinks: true,
 			skipSqliteSetup: true,
-			skipWordPressSetup,
 			port: options.port,
 			login: true,
 			'mount-before-install': mounts,
 		};
+
+		if ( ! options.isSetupMode ) {
+			args.command = 'server';
+			args.skipWordPressSetup = true;
+		}
 
 		if ( options.phpVersion ) {
 			args.php = options.phpVersion as SupportedPHPVersion;

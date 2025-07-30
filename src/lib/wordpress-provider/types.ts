@@ -56,9 +56,6 @@ export interface WordPressProvider {
 	// Path utilities
 	getSqlitePath(): string;
 
-	// Download functionality
-	downloadSQLiteCommand( downloadUrl: string, targetPath: string ): Promise< void >;
-
 	// Core functionality
 	setupWordPressSite( server: SiteServer, wpVersion?: string ): Promise< boolean >;
 	startServer( options: ServerOptions ): Promise< WordPressServerInstance >;

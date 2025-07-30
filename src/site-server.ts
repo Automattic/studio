@@ -16,8 +16,6 @@ import {
 	startServer,
 	createServerProcess,
 	getWordPressProvider,
-	getWordPressProviderType,
-	PlaygroundCliProvider,
 } from 'src/lib/wordpress-provider';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { createScreenshotWindow } from 'src/screenshot-window';
@@ -143,20 +141,11 @@ export class SiteServer {
 			absoluteUrl: getAbsoluteUrl( this.details ),
 		} );
 
-		// Check port availability, but skip if we have a cached setup server for playground CLI
-		let skipPortCheck = false;
-		if ( getWordPressProviderType() === 'playground-cli' ) {
-			const provider = getWordPressProvider() as PlaygroundCliProvider;
-			skipPortCheck = provider.hasCachedSetupServer( this.details.path );
-		}
-
-		if ( ! skipPortCheck ) {
-			const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
-			if ( ! isPortAvailable ) {
-				throw new Error(
-					`Port ${ this.details.port } is not available. error code: ERROR_PORT_IN_USE`
-				);
-			}
+		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
+		if ( ! isPortAvailable ) {
+			throw new Error(
+				`Port ${ this.details.port } is not available. error code: ERROR_PORT_IN_USE`
+			);
 		}
 
 		console.log( `Starting server for '${ this.details.name }'` );

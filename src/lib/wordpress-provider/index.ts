@@ -64,9 +64,6 @@ export function sendProviderConstantsChanged( provider: WordPressProvider ): voi
 // Methods as proxy functions
 export const getSqlitePath = ( ...args: Parameters< WordPressProvider[ 'getSqlitePath' ] > ) =>
 	getWordPressProvider().getSqlitePath( ...args );
-export const downloadSQLiteCommand = (
-	...args: Parameters< WordPressProvider[ 'downloadSQLiteCommand' ] >
-) => getWordPressProvider().downloadSQLiteCommand( ...args );
 
 export const setupWordPressSite = (
 	...args: Parameters< WordPressProvider[ 'setupWordPressSite' ] >

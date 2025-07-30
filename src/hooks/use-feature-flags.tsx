@@ -12,7 +12,12 @@ function createDefaultFeatureFlags(): FeatureFlags {
 	for ( const [ key, def ] of Object.entries( FEATURE_FLAGS ) ) {
 		const flagKey = key as keyof FeatureFlags;
 		const flagDef = def as { default: boolean };
-		Object.defineProperty( flags, flagKey, { value: flagDef.default } );
+		Object.defineProperty( flags, flagKey, {
+			value: flagDef.default,
+			enumerable: true,
+			writable: true,
+			configurable: true,
+		} );
 	}
 	return flags;
 }
@@ -26,15 +31,44 @@ interface FeatureFlagsProviderProps {
 }
 
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
-	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
-		...defaultFeatureFlags,
+	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( () => {
+		if ( window.appGlobals ) {
+			const extractedFlags: Partial< FeatureFlags > = {};
+			const flagKeys = Object.keys( defaultFeatureFlags ) as ( keyof FeatureFlags )[];
+
+			flagKeys.forEach( ( key ) => {
+				if ( key in window.appGlobals ) {
+					extractedFlags[ key ] = window.appGlobals[
+						key as keyof typeof window.appGlobals
+					] as boolean;
+				}
+			} );
+
+			return {
+				...defaultFeatureFlags,
+				...extractedFlags,
+			};
+		}
+		return { ...defaultFeatureFlags };
 	} );
 	const { isAuthenticated, client } = useAuth();
 
 	useIpcListener( 'refresh-app-globals', async () => {
 		window.appGlobals = await getIpcApi().getAppGlobals();
+
+		const extractedFlags: Partial< FeatureFlags > = {};
+		const flagKeys = Object.keys( defaultFeatureFlags ) as ( keyof FeatureFlags )[];
+		flagKeys.forEach( ( key ) => {
+			if ( key in window.appGlobals ) {
+				extractedFlags[ key ] = window.appGlobals[
+					key as keyof typeof window.appGlobals
+				] as boolean;
+			}
+		} );
+
 		setFeatureFlags( {
-			...featureFlags,
+			...defaultFeatureFlags,
+			...extractedFlags,
 		} );
 	} );
 
@@ -53,8 +87,22 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 				if ( cancel ) {
 					return;
 				}
+				// Merge API flags with current appGlobals flags
+				const currentAppGlobalsFlags: Partial< FeatureFlags > = {};
+				if ( window.appGlobals ) {
+					const flagKeys = Object.keys( defaultFeatureFlags ) as ( keyof FeatureFlags )[];
+					flagKeys.forEach( ( key ) => {
+						if ( key in window.appGlobals ) {
+							currentAppGlobalsFlags[ key ] = window.appGlobals[
+								key as keyof typeof window.appGlobals
+							] as boolean;
+						}
+					} );
+				}
+
 				setFeatureFlags( {
 					...defaultFeatureFlags,
+					...currentAppGlobalsFlags,
 					...flags,
 				} );
 			} catch ( error ) {

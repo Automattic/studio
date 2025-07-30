@@ -3,7 +3,11 @@ import { useI18n } from '@wordpress/react-i18n';
 import { cx } from 'src/lib/cx';
 import type { ComponentProps } from 'react';
 
-export default function Modal( { className, ...rest }: ComponentProps< typeof WPModal > ) {
+export default function Modal( {
+	className,
+	isFullScreen,
+	...rest
+}: ComponentProps< typeof WPModal > ) {
 	const { __ } = useI18n();
 	return (
 		<WPModal
@@ -15,6 +19,7 @@ export default function Modal( { className, ...rest }: ComponentProps< typeof WP
 				'[&_[role="document"]>div:first-child_button]:rtl:right-2',
 				'[&_[role="document"]>div:first-child_button]:ltr:left-2',
 				'[&_[role="document"]>div:first-child_button]:ltr:right-0',
+				isFullScreen && '!w-screen !h-screen !max-w-none !max-h-none !fixed !inset-0 !rounded-none',
 				className
 			) }
 			{ ...rest }

@@ -259,7 +259,7 @@ export function SyncDialog( {
 								<Button
 									variant="link"
 									className="p-0 h-auto text-xs"
-									onClick={ () => getIpcApi().openURL( pullBackupInformation.backupUrl ) }
+									onClick={ () => getIpcApi().openURL( pullBackupInformation!.backupUrl ) }
 								>
 									{ __( 'Create fresh backup now ↗' ) }
 								</Button>

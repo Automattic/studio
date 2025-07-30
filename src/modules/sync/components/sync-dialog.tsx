@@ -49,7 +49,7 @@ const useDynamicTreeState = (
 			const loadRemoteTree = async () => {
 				try {
 					if ( rewindId ) {
-						const remoteTree = await fetchChildren( remoteSiteId, rewindId, '/wp-content/' );
+						const remoteTree = await fetchChildren( remoteSiteId, rewindId, '/wp-content/', true );
 						if ( remoteTree ) {
 							setTreeState( ( treeState ) =>
 								updateNodeById( treeState, 'wp-content', { children: remoteTree } )
@@ -159,7 +159,7 @@ export function SyncDialog( {
 
 	const handleExpand = async ( node: TreeNode ) => {
 		if ( type === 'pull' && rewindId && node.path && node.children && node.children.length === 0 ) {
-			const children = await fetchChildren( remoteSite.id, rewindId, node.path );
+			const children = await fetchChildren( remoteSite.id, rewindId, node.path, node.checked );
 			if ( children ) {
 				setTreeState( ( prev ) => updateNodeById( prev, node.id, { children } ) );
 			}

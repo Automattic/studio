@@ -11,7 +11,8 @@ interface UseRemoteFileTreeResult {
 	fetchChildren: (
 		remoteSiteId: number,
 		rewindId: string,
-		path: string
+		path: string,
+		parentChecked?: boolean
 	) => Promise< TreeNode[] | null >;
 }
 
@@ -31,7 +32,8 @@ const mapItemTypeToSyncOption = ( name: string ): string => {
 const convertBackupItemToTreeNode = (
 	name: string,
 	item: BackupLsItem,
-	parentPath: string
+	parentPath: string,
+	parentChecked: boolean = false
 ): TreeNode => {
 	const nodeId = mapItemTypeToSyncOption( name );
 	const fullPath = parentPath.endsWith( '/' )
@@ -43,7 +45,7 @@ const convertBackupItemToTreeNode = (
 		id: nodeId,
 		name,
 		label: name,
-		checked: true,
+		checked: parentChecked,
 		type: isFolder ? 'folder' : 'file',
 		pathId: item.id,
 		path: fullPath,
@@ -62,7 +64,8 @@ export function useRemoteFileTree(): UseRemoteFileTreeResult {
 		async (
 			remoteSiteId: number,
 			rewindId: string,
-			path: string
+			path: string,
+			parentChecked: boolean = false
 		): Promise< TreeNode[] | null > => {
 			if ( ! client ) {
 				setError( new Error( 'No client available' ) );
@@ -100,7 +103,12 @@ export function useRemoteFileTree(): UseRemoteFileTreeResult {
 				for ( const [ name, rawItem ] of Object.entries( response.contents ) ) {
 					const itemValidation = BackupLsItemSchema.safeParse( rawItem );
 					if ( itemValidation.success ) {
-						const node = convertBackupItemToTreeNode( name, itemValidation.data, path );
+						const node = convertBackupItemToTreeNode(
+							name,
+							itemValidation.data,
+							path,
+							parentChecked
+						);
 						children.push( node );
 					} else {
 						console.warn( `Invalid item format for ${ name }:`, itemValidation.error );
@@ -121,13 +129,14 @@ export function useRemoteFileTree(): UseRemoteFileTreeResult {
 		async (
 			remoteSiteId: number,
 			rewindId: string,
-			path: string
+			path: string,
+			parentChecked: boolean = false
 		): Promise< TreeNode[] | null > => {
 			setIsLoading( true );
 			setError( null );
 
 			try {
-				return await fetchDirectoryContents( remoteSiteId, rewindId, path );
+				return await fetchDirectoryContents( remoteSiteId, rewindId, path, parentChecked );
 			} finally {
 				setIsLoading( false );
 			}

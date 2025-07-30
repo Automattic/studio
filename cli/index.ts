@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { __ } from '@wordpress/i18n';
+import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import yargs from 'yargs';
 import { registerCommand as registerCreateCommand } from 'cli/commands/preview/create';
@@ -10,6 +11,8 @@ import { loadTranslations } from 'cli/lib/i18n';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
 import { version } from 'cli/package.json';
 import { StudioArgv } from 'cli/types';
+
+suppressPunycodeWarning();
 
 async function main() {
 	const locale = await loadTranslations();

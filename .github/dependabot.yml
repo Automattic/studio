@@ -15,6 +15,14 @@ updates:
       - dependency-name: "@automattic/*"
       - dependency-name: "@electron-forge/*"
       - dependency-name: "@wordpress/*"
+      - dependency-name: "@types/*"
+      - dependency-name: "eslint"
+      - dependency-name: "eslint-*"
+      - dependency-name: "@typescript-eslint/*"
+      - dependency-name: "typescript"
+      - dependency-name: "ts-*"
+      - dependency-name: "jest"
+      - dependency-name: "jest-*"
 
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"

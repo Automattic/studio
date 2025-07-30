@@ -5,6 +5,7 @@ import {
 import { useI18n } from '@wordpress/react-i18n';
 import { DEFAULT_LOCALE } from 'common/lib/locale';
 import Button from 'src/components/button';
+import { DynamicStylesheet } from 'src/components/dynamic-stylesheet';
 import { isMac, isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -50,7 +51,7 @@ const RightPanel = () => {
 	const { __ } = useI18n();
 	const locale = DEFAULT_LOCALE;
 	const openLocalizedSupport = () => {
-		getIpcApi().openURL( `https://wordpress.com/${ locale }/support` );
+		getIpcApi().openURL( `https://wordpress.com/${ locale }/support/contact` );
 	};
 	return (
 		<div className="flex flex-col justify-center h-full">
@@ -89,47 +90,53 @@ const RightPanel = () => {
 
 export default function DefaultErrorFallback() {
 	return (
-		<VStack
-			className={ cx(
-				'h-screen bg-chrome backdrop-blur-3xl pr-chrome app-drag-region',
-				isWindows() && 'pt-0 pb-chrome',
-				! isWindows() && 'py-chrome'
-			) }
-			spacing="0"
-		>
-			<HStack spacing="0" alignment="left" className="flex-grow">
-				<div
-					data-testid="main-sidebar"
-					className={ cx(
-						'text-chrome-inverted basis-52 flex-shrink-0 h-full',
-						isMac() && 'pt-[50px]',
-						! isMac() && 'pt-[60px]'
-					) }
-				>
-					<div className="flex flex-col h-full">
-						<div
-							className={ cx(
-								'w-full overflow-y-auto overflow-x-hidden flex flex-col gap-0.5 pb-4'
-							) }
-						>
-							<SitesSkeleton />
-						</div>
-						<div className="mt-auto min-h-[103px] pt-5">
-							<div className={ cx( isMac() ? 'mx-5' : 'mx-4' ) }>
-								<div className="w-full mb-5">
-									<ButtonSkeleton />
-								</div>
-								<div className="flex items-center justify-start w-full ml-1">
-									<GravatarSkeleton />
+		<div dir={ 'ltr' }>
+			<DynamicStylesheet
+				id="wordpress-components-style"
+				href={ '../main_window/styles/wordpress-components-style.css' }
+			/>
+			<VStack
+				className={ cx(
+					'h-screen bg-chrome backdrop-blur-3xl pr-chrome app-drag-region',
+					isWindows() && 'pt-0 pb-chrome',
+					! isWindows() && 'py-chrome'
+				) }
+				spacing="0"
+			>
+				<HStack spacing="0" alignment="left" className="flex-grow">
+					<div
+						data-testid="main-sidebar"
+						className={ cx(
+							'text-chrome-inverted basis-52 flex-shrink-0 h-full',
+							isMac() && 'pt-[50px]',
+							! isMac() && 'pt-[60px]'
+						) }
+					>
+						<div className="flex flex-col h-full">
+							<div
+								className={ cx(
+									'w-full overflow-y-auto overflow-x-hidden flex flex-col gap-0.5 pb-4'
+								) }
+							>
+								<SitesSkeleton />
+							</div>
+							<div className="mt-auto min-h-[103px] pt-5">
+								<div className={ cx( isMac() ? 'mx-5' : 'mx-4' ) }>
+									<div className="w-full mb-5">
+										<ButtonSkeleton />
+									</div>
+									<div className="flex items-center justify-start w-full ml-1">
+										<GravatarSkeleton />
+									</div>
 								</div>
 							</div>
 						</div>
 					</div>
-				</div>
-				<div className="p-16 bg-white overflow-y-auto h-full flex-grow rounded-chrome app-no-drag-region">
-					<RightPanel />
-				</div>
-			</HStack>
-		</VStack>
+					<div className="p-16 bg-white overflow-y-auto h-full flex-grow rounded-chrome app-no-drag-region">
+						<RightPanel />
+					</div>
+				</HStack>
+			</VStack>
+		</div>
 	);
 }

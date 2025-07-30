@@ -12,6 +12,9 @@ jest.mock( 'fs' );
 jest.mock( 'src/storage/paths', () => ( {
 	getResourcesPath: jest.fn().mockReturnValue( '/path/to/app/appData/App Name' ),
 	getUserDataFilePath: jest.fn().mockReturnValue( '/path/to/app/appData/App Name/appdata-v1.json' ),
+	getUserDataLockFilePath: jest
+		.fn()
+		.mockReturnValue( '/path/to/app/appData/App Name/appdata-v1.json.lock' ),
 } ) );
 
 jest.mock( 'atomically', () => ( {

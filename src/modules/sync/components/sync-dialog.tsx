@@ -6,7 +6,6 @@ import { format } from 'date-fns';
 import { useState, useEffect, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
-import { getSiteEnvironment } from 'src/components/environment-badge';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { Tooltip } from 'src/components/tooltip';
@@ -21,6 +20,7 @@ import { SiteNameBox } from 'src/modules/sync/components/site-name-box';
 import { GRANULAR_SYNC_FOLDERS } from 'src/modules/sync/constants';
 import { useDefaultSyncTree } from 'src/modules/sync/hooks/use-default-sync-tree';
 import { useSyncDialogTexts } from 'src/modules/sync/hooks/use-sync-dialog-texts';
+import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
@@ -104,7 +104,8 @@ export function SyncDialog( {
 }: SyncDialogProps ) {
 	const locale = useI18nLocale();
 	const { __ } = useI18n();
-	const copy = useSyncDialogTexts( type );
+	const siteEnv = getSiteEnvironment( remoteSite );
+	const syncTexts = useSyncDialogTexts( type, siteEnv );
 	const defaultTree = useDefaultSyncTree( type );
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
@@ -117,8 +118,6 @@ export function SyncDialog( {
 		remoteSite.id,
 		setTreeState
 	);
-
-	const siteEnv = getSiteEnvironment( remoteSite );
 
 	const localSiteName = <SiteNameBox siteName={ localSite.name } envType="studio" />;
 	const remoteSiteName = <SiteNameBox siteName={ remoteSite.name } envType={ siteEnv } />;
@@ -183,10 +182,10 @@ export function SyncDialog( {
 		<Modal
 			className="sync-dialog-wrapper w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
-			title={ copy[ siteEnv ].title }
+			title={ syncTexts.title }
 		>
 			<div className="pb-[70px]">
-				<div className="px-8 pb-6 pt-3">{ copy[ siteEnv ].description }</div>
+				<div className="px-8 pb-6 pt-3">{ syncTexts.description }</div>
 				<div className="px-8">
 					<span className="sr-only">
 						{ /* translators: first %s is the source site name, second %s is the destination site name */ }
@@ -197,19 +196,19 @@ export function SyncDialog( {
 						className="flex max-w-full overflow-hidden pb-6 border-b border-a8c-gray-5"
 					>
 						<div className="overflow-hidden max-w-[calc(50%-25px)]">
-							<div className="leading-[32px]">{ copy.fromLabel }</div>
+							<div className="leading-[32px]">{ syncTexts.fromLabel }</div>
 							<div className="whitespace-nowrap truncate">{ syncFrom }</div>
 						</div>
 						<div className="mt-[32px] w-[50px] flex items-center justify-center text-a8c-gray-600">
 							<RightArrowIcon />
 						</div>
 						<div className="overflow-hidden max-w-[calc(50%-25px)]">
-							<div className="leading-[32px]">{ copy.toLabel }</div>
+							<div className="leading-[32px]">{ __( 'To' ) }</div>
 							<div className="whitespace-nowrap truncate">{ syncTo }</div>
 						</div>
 					</div>
 				</div>
-				<div className="px-8 pt-7 pb-3">{ copy.subtitleSelector }</div>
+				<div className="px-8 pt-7 pb-3">{ syncTexts.subtitleSelector }</div>
 				<Tooltip
 					className="w-full"
 					text={ pullBackupInformation?.tooltipText }
@@ -266,7 +265,7 @@ export function SyncDialog( {
 
 				<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center absolute left-0 right-0 bottom-0 bg-white z-10">
 					<div>
-						{ createInterpolateElement( copy.envSync, {
+						{ createInterpolateElement( syncTexts.envSync, {
 							a: (
 								<Button
 									variant="link"
@@ -288,7 +287,7 @@ export function SyncDialog( {
 								onClick={ handleSubmit }
 								disabled={ isSubmitDisabled || pullBackupInformation?.disabled }
 							>
-								{ copy.submit }
+								{ syncTexts.submit }
 							</Button>
 						</div>
 					</div>

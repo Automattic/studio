@@ -153,8 +153,6 @@ export function useSyncPull( {
 					};
 				}
 
-				console.log( 'requestBody', requestBody );
-
 				const response = await client.req.post< { success: boolean; backup_id: string } >( {
 					path: `/sites/${ remoteSiteId }/studio-app/sync/backup`,
 					apiNamespace: 'wpcom/v2',

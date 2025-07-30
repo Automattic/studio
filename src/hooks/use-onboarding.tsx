@@ -1,5 +1,11 @@
-import React, { createContext, useContext, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useMemo, ReactNode, useEffect } from 'react';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { useRootSelector, useAppDispatch } from 'src/stores';
+import {
+	selectOnboardingCompleted,
+	selectOnboardingLoading,
+	loadOnboardingStatus,
+} from 'src/stores/onboarding-slice';
 
 export interface OnboardingContextType {
 	needsOnboarding: boolean;
@@ -15,11 +21,24 @@ interface OnboardingProviderProps {
 
 export const OnboardingProvider: React.FC< OnboardingProviderProps > = ( { children } ) => {
 	const { data, loadingSites } = useSiteDetails();
+	const onboardingCompleted = useRootSelector( selectOnboardingCompleted );
+	const onboardingLoading = useRootSelector( selectOnboardingLoading );
+	const dispatch = useAppDispatch();
 
-	const needsOnboarding = useMemo(
-		() => ! ( loadingSites || data.length > 0 ),
-		[ data.length, loadingSites ]
-	);
+	// Load onboarding completion status on mount
+	useEffect( () => {
+		void dispatch( loadOnboardingStatus() );
+	}, [ dispatch ] );
+
+	const needsOnboarding = useMemo( () => {
+		// Don't show onboarding while loading
+		if ( onboardingLoading ) {
+			return false;
+		}
+
+		// Show onboarding only if the user hasn't completed it and has no sites
+		return ! ( loadingSites || data.length > 0 || onboardingCompleted );
+	}, [ loadingSites, onboardingCompleted, onboardingLoading, data ] );
 
 	const contextValue = useMemo(
 		() => ( {

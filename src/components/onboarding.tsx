@@ -11,6 +11,8 @@ import { useAddSite } from 'src/hooks/use-add-site';
 import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useAppDispatch } from 'src/stores';
+import { saveOnboardingStatus } from 'src/stores/onboarding-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 
 const GradientBox = () => {
@@ -36,6 +38,7 @@ const GradientBox = () => {
 
 export default function Onboarding() {
 	const { __ } = useI18n();
+	const dispatch = useAppDispatch();
 	const {
 		setSiteName,
 		setProposedSitePath,
@@ -128,12 +131,14 @@ export default function Onboarding() {
 
 			try {
 				await handleAddSiteClick();
+				// Save onboarding completion after site is successfully created
+				await dispatch( saveOnboardingStatus( true ) );
 				speak( siteAddedMessage );
 			} catch {
 				// No need to handle error here, it's already handled in handleAddSiteClick
 			}
 		},
-		[ handleAddSiteClick, siteAddedMessage ]
+		[ handleAddSiteClick, siteAddedMessage, dispatch ]
 	);
 
 	const handleImportFile = useCallback(

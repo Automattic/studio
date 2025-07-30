@@ -81,7 +81,7 @@ describe( 'ContentTabSync', () => {
 		} );
 		( useSyncSites as jest.Mock ).mockReturnValue( mockSyncSites );
 		( useLatestRewindId as jest.Mock ).mockReturnValue( {
-			rewindId: 'test-rewind-id-123',
+			rewindId: '1704067200',
 			isLoading: false,
 			error: null,
 		} );
@@ -505,7 +505,7 @@ describe( 'ContentTabSync', () => {
 
 		expect( mockPullSite ).toHaveBeenCalledWith( fakeSyncSite, selectedSite, {
 			options: [ 'sqls' ],
-			rewindId: 'test-rewind-id-123',
+			rewindId: '1704067200',
 		} );
 	} );
 
@@ -551,7 +551,7 @@ describe( 'ContentTabSync', () => {
 
 		expect( mockPullSite ).toHaveBeenCalledWith( fakeSyncSite, selectedSite, {
 			options: [ 'sqls' ],
-			rewindId: 'test-rewind-id-123',
+			rewindId: '1704067200',
 		} );
 	} );
 

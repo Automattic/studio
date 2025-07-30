@@ -169,7 +169,6 @@ export function SyncDialog( {
 	const handleSubmit = () => {
 		if ( type === 'pull' ) {
 			if ( ! rewindId ) {
-				alert( __( 'No rewind ID found' ) );
 				return;
 			}
 			onPull( treeState, rewindId );
@@ -284,7 +283,11 @@ export function SyncDialog( {
 							<Button variant="link" onClick={ onRequestClose }>
 								{ __( 'Cancel' ) }
 							</Button>
-							<Button variant="primary" onClick={ handleSubmit } disabled={ isSubmitDisabled }>
+							<Button
+								variant="primary"
+								onClick={ handleSubmit }
+								disabled={ isSubmitDisabled || pullBackupInformation?.disabled }
+							>
 								{ copy.submit }
 							</Button>
 						</div>

@@ -2,6 +2,7 @@ import { SelectControl } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf, __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
+import { format } from 'date-fns';
 import { useState, useEffect, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
@@ -14,7 +15,6 @@ import { SYNC_OPTIONS } from 'src/constants';
 import { useLatestRewindId } from 'src/hooks/sync-sites/use-latest-rewind-id';
 import { useRemoteFileTree } from 'src/hooks/sync-sites/use-remote-file-tree';
 import { useContentFolders } from 'src/hooks/use-content-folders';
-import { formatLocalizedDate } from 'src/lib/date';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { SiteNameBox } from 'src/modules/sync/components/site-name-box';
@@ -140,14 +140,10 @@ export function SyncDialog( {
 				'Selective Sync will be enabled automatically once your backup is complete.'
 			),
 			disabled: ! rewindId,
-			backupUrl: `https://wpcalypso.wordpress.com/backup/${ remoteSite.url.replace(
-				/^https?:\/\//,
-				''
-			) }`,
+			backupUrl: `https://wordpress.com/backup/${ remoteSite.url.replace( /^https?:\/\//, '' ) }`,
+			backupDate: rewindId && format( parseInt( rewindId ) * 1000, 'MMM d, h:mm a' ),
 		};
 	}
-
-	console.log( 'pullBackupInformation', pullBackupInformation );
 
 	const handleExpanderChange = ( value: boolean ) => {
 		setShowAllFiles( value );
@@ -250,6 +246,22 @@ export function SyncDialog( {
 							setTree={ setTreeState }
 							onExpand={ handleExpand }
 						/>
+
+						{ pullBackupInformation && rewindId && (
+							<div className="pt-2 text-xs text-gray-600">
+								{ sprintf(
+									__( 'Listing files from the latest backup: %s.' ),
+									pullBackupInformation.backupDate
+								) }{ ' ' }
+								<Button
+									variant="link"
+									className="p-0 h-auto text-xs"
+									onClick={ () => getIpcApi().openURL( pullBackupInformation.backupUrl ) }
+								>
+									{ __( 'Create fresh backup now ↗' ) }
+								</Button>
+							</div>
+						) }
 					</div>
 				</Tooltip>
 

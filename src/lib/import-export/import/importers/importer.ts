@@ -238,8 +238,7 @@ export class JetpackImporter extends BaseBackupImporter {
 		this.emit( ImportEvents.IMPORT_START );
 
 		try {
-			// For Jetpack imports from sync, we don't want to delete existing wp-content
-			// We only merge the files, overriding existing ones but keeping files that aren't in the backup
+			// For Jetpack imports we merge the files, overriding existing ones but keeping files that aren't in the backup
 			await this.importWpConfig( rootPath );
 			await this.importWpContentMerge( rootPath );
 			if ( this.backup.metaFile ) {
@@ -279,12 +278,10 @@ export class JetpackImporter extends BaseBackupImporter {
 		for ( const file of this.backup.wpContentFiles ) {
 			try {
 				const stats = await lstat( file );
-				// Skip if it's a directory
 				if ( stats.isDirectory() ) {
 					continue;
 				}
 			} catch {
-				// If the file does not exist, skip it
 				continue;
 			}
 			const relativePath = path.relative(

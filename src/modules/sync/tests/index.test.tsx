@@ -6,6 +6,7 @@ import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
 import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { useLatestRewindId } from 'src/hooks/sync-sites/use-latest-rewind-id';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ContentTabSync } from 'src/modules/sync';
 import { store } from 'src/stores';
@@ -15,6 +16,10 @@ jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/hooks/sync-sites/sync-sites-context', () => ( {
 	...jest.requireActual( '../../../hooks/sync-sites/sync-sites-context' ),
 	useSyncSites: jest.fn(),
+} ) );
+
+jest.mock( 'src/hooks/sync-sites/use-latest-rewind-id', () => ( {
+	useLatestRewindId: jest.fn(),
 } ) );
 
 const selectedSite: SiteDetails = {
@@ -75,6 +80,11 @@ describe( 'ContentTabSync', () => {
 			updateConnectedWpcomSites: jest.fn(),
 		} );
 		( useSyncSites as jest.Mock ).mockReturnValue( mockSyncSites );
+		( useLatestRewindId as jest.Mock ).mockReturnValue( {
+			rewindId: 'test-rewind-id-123',
+			isLoading: false,
+			error: null,
+		} );
 
 		Object.defineProperty( window, 'matchMedia', {
 			writable: true,
@@ -456,7 +466,8 @@ describe( 'ContentTabSync', () => {
 		fireEvent.click( dialogPullButton[ 1 ] );
 
 		expect( mockPullSite ).toHaveBeenCalledWith( fakeSyncSite, selectedSite, {
-			optionsToSync: [ 'all' ],
+			options: [ 'sqls' ],
+			rewindId: 'test-rewind-id-123',
 		} );
 	} );
 
@@ -501,7 +512,8 @@ describe( 'ContentTabSync', () => {
 		fireEvent.click( dialogPullButton[ 1 ] );
 
 		expect( mockPullSite ).toHaveBeenCalledWith( fakeSyncSite, selectedSite, {
-			optionsToSync: [ 'sqls', 'plugins', 'uploads' ],
+			options: [ 'sqls' ],
+			rewindId: 'test-rewind-id-123',
 		} );
 	} );
 

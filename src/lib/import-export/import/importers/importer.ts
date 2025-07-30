@@ -10,7 +10,8 @@ import semver from 'semver';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
 import { ImportEvents } from 'src/lib/import-export/import/events';
-import { BackupContents, MetaFileData, WpContent } from 'src/lib/import-export/import/types';
+import { BackupContents, MetaFileData } from 'src/lib/import-export/import/types';
+import { filterWpContentFilesByType } from 'src/lib/import-export/import/utils/file-filters';
 import { serializePlugins } from 'src/lib/serialize-plugins';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import { getWordPressProvider } from 'src/lib/wordpress-provider';
@@ -120,7 +121,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 			return {
 				extractionDirectory: this.backup.extractionDirectory,
 				sqlFiles: this.backup.sqlFiles,
-				wpContent: this.backup.wpContent,
+				wpContentFiles: this.backup.wpContentFiles,
 				wpContentDirectory: this.backup.wpContentDirectory,
 				wpConfig: this.backup.wpConfig,
 				meta: this.meta,
@@ -161,16 +162,17 @@ abstract class BaseBackupImporter extends BaseImporter {
 			];
 
 			// Directories to preserve if they are not included in the backup.
-			const maybeKeepWpContentDirectories: ( keyof WpContent )[] = [
-				'plugins',
-				'themes',
-				'fonts',
-				'uploads',
-			];
+			const directoriesToCheck = [ 'plugins', 'themes', 'fonts', 'uploads', 'muPlugins' ] as const;
 
-			for ( const directory of maybeKeepWpContentDirectories ) {
-				if ( this.backup.wpContent[ directory ]?.length === 0 ) {
-					contentToKeep.push( new RegExp( `^${ directory }(/|\\\\)?.*` ) );
+			for ( const directory of directoriesToCheck ) {
+				const filesInDir = filterWpContentFilesByType(
+					this.backup.wpContentFiles,
+					directory,
+					this.backup.wpContentDirectory
+				);
+				if ( filesInDir.length === 0 ) {
+					const dirName = directory === 'muPlugins' ? 'mu-plugins' : directory;
+					contentToKeep.push( new RegExp( `^${ dirName }(/|\\\\)?.*` ) );
 				}
 			}
 
@@ -201,34 +203,31 @@ abstract class BaseBackupImporter extends BaseImporter {
 	protected async importWpContent( rootPath: string ): Promise< void > {
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_START );
 		const extractionDirectory = this.backup.extractionDirectory;
-		const wpContent = this.backup.wpContent;
 		const wpContentSourceDir = this.backup.wpContentDirectory;
 		const wpContentDestDir = path.join( rootPath, 'wp-content' );
 
-		for ( const files of Object.values( wpContent ) ) {
-			for ( const file of files ) {
-				try {
-					const stats = await lstat( file );
-					// Skip if it's a directory
-					if ( stats.isDirectory() ) {
-						continue;
-					}
-				} catch {
-					/**
-					 * If the file does not exist, skip it.
-					 * This can happen if a empty directory is included in the backup
-					 * because the empty directory won't be included in the extraction.
-					 */
+		for ( const file of this.backup.wpContentFiles ) {
+			try {
+				const stats = await lstat( file );
+				// Skip if it's a directory
+				if ( stats.isDirectory() ) {
 					continue;
 				}
-				const relativePath = path.relative(
-					path.join( extractionDirectory, wpContentSourceDir ),
-					file
-				);
-				const destPath = path.join( wpContentDestDir, relativePath );
-				await fsPromises.mkdir( path.dirname( destPath ), { recursive: true } );
-				await fsPromises.copyFile( file, destPath );
+			} catch {
+				/**
+				 * If the file does not exist, skip it.
+				 * This can happen if a empty directory is included in the backup
+				 * because the empty directory won't be included in the extraction.
+				 */
+				continue;
 			}
+			const relativePath = path.relative(
+				path.join( extractionDirectory, wpContentSourceDir ),
+				file
+			);
+			const destPath = path.join( wpContentDestDir, relativePath );
+			await fsPromises.mkdir( path.dirname( destPath ), { recursive: true } );
+			await fsPromises.copyFile( file, destPath );
 		}
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_COMPLETE );
 	}
@@ -251,6 +250,70 @@ abstract class BaseBackupImporter extends BaseImporter {
 }
 
 export class JetpackImporter extends BaseBackupImporter {
+	async import( rootPath: string, siteId: string ): Promise< ImporterResult > {
+		this.emit( ImportEvents.IMPORT_START );
+
+		try {
+			// For Jetpack imports from sync, we don't want to delete existing wp-content
+			// We only merge the files, overriding existing ones but keeping files that aren't in the backup
+			await this.importWpConfig( rootPath );
+			await this.importWpContentMerge( rootPath );
+			if ( this.backup.metaFile ) {
+				this.meta = await this.parseMetaFile();
+			}
+			if ( this.backup.sqlFiles.length ) {
+				const databaseDir = path.join( rootPath, 'wp-content', 'database' );
+				const dbPath = path.join( databaseDir, '.ht.sqlite' );
+
+				await this.moveExistingDatabaseToTrash( dbPath );
+				await this.createEmptyDatabase( dbPath );
+				await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
+			}
+
+			this.emit( ImportEvents.IMPORT_COMPLETE );
+			return {
+				extractionDirectory: this.backup.extractionDirectory,
+				sqlFiles: this.backup.sqlFiles,
+				wpContentFiles: this.backup.wpContentFiles,
+				wpContentDirectory: this.backup.wpContentDirectory,
+				wpConfig: this.backup.wpConfig,
+				meta: this.meta,
+				importerType: this.constructor.name,
+			};
+		} catch ( error ) {
+			this.emit( ImportEvents.IMPORT_ERROR, error );
+			throw error;
+		}
+	}
+
+	protected async importWpContentMerge( rootPath: string ): Promise< void > {
+		this.emit( ImportEvents.IMPORT_WP_CONTENT_START );
+		const extractionDirectory = this.backup.extractionDirectory;
+		const wpContentSourceDir = this.backup.wpContentDirectory;
+		const wpContentDestDir = path.join( rootPath, 'wp-content' );
+
+		for ( const file of this.backup.wpContentFiles ) {
+			try {
+				const stats = await lstat( file );
+				// Skip if it's a directory
+				if ( stats.isDirectory() ) {
+					continue;
+				}
+			} catch {
+				// If the file does not exist, skip it
+				continue;
+			}
+			const relativePath = path.relative(
+				path.join( extractionDirectory, wpContentSourceDir ),
+				file
+			);
+			const destPath = path.join( wpContentDestDir, relativePath );
+			await fsPromises.mkdir( path.dirname( destPath ), { recursive: true } );
+			await fsPromises.copyFile( file, destPath );
+		}
+		this.emit( ImportEvents.IMPORT_WP_CONTENT_COMPLETE );
+	}
+
 	protected async parseMetaFile(): Promise< MetaFileData | undefined > {
 		const metaFilePath = this.backup.metaFile;
 		if ( ! metaFilePath ) {
@@ -337,7 +400,7 @@ export class SQLImporter extends BaseImporter {
 				extractionDirectory: this.backup.extractionDirectory,
 				sqlFiles: this.backup.sqlFiles,
 				wpConfig: this.backup.wpConfig,
-				wpContent: this.backup.wpContent,
+				wpContentFiles: this.backup.wpContentFiles,
 				wpContentDirectory: this.backup.wpContentDirectory,
 				importerType: this.constructor.name,
 			};

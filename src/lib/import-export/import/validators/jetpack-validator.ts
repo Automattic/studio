@@ -29,13 +29,7 @@ export class JetpackValidator extends EventEmitter implements Validator {
 			extractionDirectory: extractionDirectory,
 			sqlFiles: [],
 			wpConfig: '',
-			wpContent: {
-				uploads: [],
-				plugins: [],
-				themes: [],
-				muPlugins: [],
-				fonts: [],
-			},
+			wpContentFiles: [],
 			wpContentDirectory: 'wp-content',
 		};
 		/* File rules:
@@ -53,16 +47,8 @@ export class JetpackValidator extends EventEmitter implements Validator {
 
 			if ( file.startsWith( 'sql/' ) && file.endsWith( '.sql' ) ) {
 				extractedBackup.sqlFiles.push( fullPath );
-			} else if ( file.startsWith( 'wp-content/uploads/' ) ) {
-				extractedBackup.wpContent.uploads.push( fullPath );
-			} else if ( file.startsWith( 'wp-content/plugins/' ) ) {
-				extractedBackup.wpContent.plugins.push( fullPath );
-			} else if ( file.startsWith( 'wp-content/themes/' ) ) {
-				extractedBackup.wpContent.themes.push( fullPath );
-			} else if ( file.startsWith( 'wp-content/mu-plugins/' ) ) {
-				extractedBackup.wpContent.muPlugins!.push( fullPath );
-			} else if ( file.startsWith( 'wp-content/fonts/' ) ) {
-				extractedBackup.wpContent.fonts!.push( fullPath );
+			} else if ( file.startsWith( 'wp-content/' ) ) {
+				extractedBackup.wpContentFiles.push( fullPath );
 			} else if ( file === 'studio.json' || file === 'meta.json' ) {
 				extractedBackup.metaFile = fullPath;
 			}

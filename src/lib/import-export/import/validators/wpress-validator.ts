@@ -20,13 +20,7 @@ export class WpressValidator extends EventEmitter implements Validator {
 			extractionDirectory,
 			sqlFiles: [],
 			wpConfig: '',
-			wpContent: {
-				uploads: [],
-				plugins: [],
-				themes: [],
-				muPlugins: [],
-				fonts: [],
-			},
+			wpContentFiles: [],
 			wpContentDirectory: '',
 		};
 		/* File rules:
@@ -39,16 +33,14 @@ export class WpressValidator extends EventEmitter implements Validator {
 			const fullPath = path.join( extractionDirectory, file );
 			if ( file === 'database.sql' ) {
 				extractedBackup.sqlFiles.push( fullPath );
-			} else if ( file.startsWith( 'uploads' + path.sep ) ) {
-				extractedBackup.wpContent.uploads.push( fullPath );
-			} else if ( file.startsWith( 'plugins' + path.sep ) ) {
-				extractedBackup.wpContent.plugins.push( fullPath );
-			} else if ( file.startsWith( 'themes' + path.sep ) ) {
-				extractedBackup.wpContent.themes.push( fullPath );
-			} else if ( file.startsWith( 'mu-plugins' + path.sep ) ) {
-				extractedBackup.wpContent.muPlugins!.push( fullPath );
-			} else if ( file.startsWith( 'fonts' + path.sep ) ) {
-				extractedBackup.wpContent.fonts!.push( fullPath );
+			} else if (
+				file.startsWith( 'uploads' + path.sep ) ||
+				file.startsWith( 'plugins' + path.sep ) ||
+				file.startsWith( 'themes' + path.sep ) ||
+				file.startsWith( 'mu-plugins' + path.sep ) ||
+				file.startsWith( 'fonts' + path.sep )
+			) {
+				extractedBackup.wpContentFiles.push( fullPath );
 			} else if ( file === 'package.json' ) {
 				extractedBackup.metaFile = fullPath;
 			}

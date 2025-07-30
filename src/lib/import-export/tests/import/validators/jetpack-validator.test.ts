@@ -72,13 +72,13 @@ platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
 				extractionDirectory,
 				sqlFiles: [ normalize( '/tmp/extracted/sql/wp_options.sql' ) ],
 				wpConfig: '',
-				wpContent: {
-					fonts: [ normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ) ],
-					uploads: [ normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ) ],
-					plugins: [ normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ) ],
-					themes: [ normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ) ],
-					muPlugins: [ normalize( '/tmp/extracted/wp-content/mu-plugins/hello.php' ) ],
-				},
+				wpContentFiles: [
+					normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ),
+					normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ),
+					normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ),
+					normalize( '/tmp/extracted/wp-content/mu-plugins/hello.php' ),
+					normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ),
+				],
 				wpContentDirectory: normalize( 'wp-content' ),
 				metaFile: normalize( '/tmp/extracted/meta.json' ),
 			} );
@@ -107,13 +107,13 @@ platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
 				extractionDirectory,
 				sqlFiles: [ normalize( '/tmp/extracted/sql/wp_options.sql' ) ],
 				wpConfig: normalize( '/tmp/extracted/wp-config.php' ),
-				wpContent: {
-					fonts: [ normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ) ],
-					uploads: [ normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ) ],
-					plugins: [ normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ) ],
-					themes: [ normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ) ],
-					muPlugins: [ normalize( '/tmp/extracted/wp-content/mu-plugins/hello.php' ) ],
-				},
+				wpContentFiles: [
+					normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ),
+					normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ),
+					normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ),
+					normalize( '/tmp/extracted/wp-content/mu-plugins/hello.php' ),
+					normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ),
+				],
 				wpContentDirectory: normalize( 'wp-content' ),
 				metaFile: normalize( '/tmp/extracted/meta.json' ),
 			} );

@@ -15,11 +15,7 @@ export class SqlValidator extends EventEmitter implements Validator {
 			extractionDirectory: extractionDirectory,
 			sqlFiles: [],
 			wpConfig: '',
-			wpContent: {
-				uploads: [],
-				plugins: [],
-				themes: [],
-			},
+			wpContentFiles: [],
 			wpContentDirectory: '',
 		};
 

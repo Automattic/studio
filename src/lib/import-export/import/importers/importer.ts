@@ -11,7 +11,6 @@ import { getSiteUrl } from 'src/lib/get-site-url';
 import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
 import { ImportEvents } from 'src/lib/import-export/import/events';
 import { BackupContents, MetaFileData } from 'src/lib/import-export/import/types';
-import { filterWpContentFilesByType } from 'src/lib/import-export/import/utils/file-filters';
 import { serializePlugins } from 'src/lib/serialize-plugins';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import { getWordPressProvider } from 'src/lib/wordpress-provider';
@@ -160,21 +159,6 @@ abstract class BaseBackupImporter extends BaseImporter {
 				/^index\.php$/, // Exact match for index.php
 				/^languages(\/|\\)?.*/, // Match languages dir and all contents
 			];
-
-			// Directories to preserve if they are not included in the backup.
-			const directoriesToCheck = [ 'plugins', 'themes', 'fonts', 'uploads', 'muPlugins' ] as const;
-
-			for ( const directory of directoriesToCheck ) {
-				const filesInDir = filterWpContentFilesByType(
-					this.backup.wpContentFiles,
-					directory,
-					this.backup.wpContentDirectory
-				);
-				if ( filesInDir.length === 0 ) {
-					const dirName = directory === 'muPlugins' ? 'mu-plugins' : directory;
-					contentToKeep.push( new RegExp( `^${ dirName }(/|\\\\)?.*` ) );
-				}
-			}
 
 			const contents = await fsPromises.readdir( wpContentDir, { recursive: true } );
 

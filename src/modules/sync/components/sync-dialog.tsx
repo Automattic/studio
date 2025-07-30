@@ -123,7 +123,12 @@ export function SyncDialog( {
 	const remoteSiteName = <SiteNameBox siteName={ remoteSite.name } envType={ siteEnv } />;
 
 	let syncFrom, syncTo, syncFromText, syncToText;
-	let pullBackupInformation = null;
+	let pullBackupInformation: {
+		tooltipText: string;
+		disabled: boolean;
+		backupUrl: string;
+		backupDate: string | null;
+	} | null = null;
 	if ( type === 'push' ) {
 		syncFrom = localSiteName;
 		syncTo = remoteSiteName;

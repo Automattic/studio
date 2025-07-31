@@ -52,7 +52,7 @@ const useDynamicTreeState = (
 							id: `${ wpType }-${ item.name }`,
 							name: item.name,
 							label: item.name,
-							checked: true,
+							checked: false,
 							type: item.type,
 					  } ) );
 
@@ -105,11 +105,11 @@ export function SyncDialog( {
 	const handleExpanderChange = ( value: boolean ) => {
 		setShowAllFiles( value );
 
-		const toUpdate: { expanded: boolean; checked?: boolean } = { expanded: value };
-
-		if ( ! value ) {
-			toUpdate.checked = true;
-		}
+		const previousFilesAndFolders = treeState.find( ( node ) => node.id === 'filesAndFolders' );
+		const toUpdate: { expanded: boolean; checked?: boolean } = {
+			...previousFilesAndFolders,
+			expanded: value,
+		};
 
 		setTreeState( ( prev ) => updateNodeById( prev, 'filesAndFolders', toUpdate ) );
 	};

@@ -573,6 +573,23 @@ describe( 'ContentTabSync', () => {
 		expect( dialogPullButton ).toBeDisabled();
 	} );
 
+	it( 'disables the push button when all checkboxes are unchecked, which is the initial state', async () => {
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
+		( useSyncSites as jest.Mock ).mockReturnValue( {
+			...mockSyncSites,
+			connectedSites: [ fakeSyncSite ],
+		} );
+
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+		const pushButton = screen.getByRole( 'button', { name: /Push/i } );
+		fireEvent.click( pushButton );
+
+		await screen.findByText( 'Push to Production' );
+		const dialogPushButton = screen.getAllByRole( 'button', { name: /Push/i } )[ 1 ];
+		expect( dialogPushButton ).toBeDisabled();
+	} );
+
 	it( 'enables the pull button when at least one checkbox is checked', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		( useSyncSites as jest.Mock ).mockReturnValue( {

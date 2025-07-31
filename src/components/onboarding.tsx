@@ -2,13 +2,10 @@ import { speak } from '@wordpress/a11y';
 import { sprintf } from '@wordpress/i18n';
 import { Icon, wordpress } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect } from 'react';
 import Button from 'src/components/button';
-import DragAndDropOverlay from 'src/components/drag-and-drop-overlay';
 import { SiteForm } from 'src/components/site-form';
-import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useAddSite } from 'src/hooks/use-add-site';
-import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch } from 'src/stores';
@@ -54,8 +51,6 @@ export default function Onboarding() {
 		handleAddSiteClick,
 		handleSiteNameChange,
 		handlePathSelectorClick,
-		setFileForImport,
-		fileForImport,
 		phpVersion,
 		wpVersion,
 		useCustomDomain,
@@ -68,29 +63,12 @@ export default function Onboarding() {
 		setEnableHttps,
 		loadAllCustomDomains,
 	} = useAddSite();
-	const [ fileError, setFileError ] = useState( '' );
 
 	const siteAddedMessage = sprintf(
 		// translators: %s is the site name.
 		__( '%s site added.' ),
 		siteName
 	);
-
-	const { dropRef, isDraggingOver } = useDragAndDropFile< HTMLDivElement >( {
-		onFileDrop: ( file: File ) => {
-			const isAccepted = ACCEPTED_IMPORT_FILE_TYPES.some( ( ext ) =>
-				file.name.toLowerCase().endsWith( ext )
-			);
-
-			if ( isAccepted ) {
-				setFileForImport( file );
-				setFileError( '' );
-			} else {
-				setFileError( __( 'Invalid file type. Please select a valid backup file.' ) );
-				setFileForImport( null );
-			}
-		},
-	} );
 
 	const { data: versions = [] } = useGetWordPressVersions();
 	const latestStableVersion = versions.find( ( version ) => version.value === 'latest' );
@@ -141,14 +119,6 @@ export default function Onboarding() {
 		[ handleAddSiteClick, siteAddedMessage, dispatch ]
 	);
 
-	const handleImportFile = useCallback(
-		async ( file: File ) => {
-			setFileForImport( file );
-			setFileError( '' );
-		},
-		[ setFileForImport ]
-	);
-
 	return (
 		<div className="flex flex-row flex-grow" data-testid="onboarding">
 			<div className="w-1/2 bg-a8c-blue-50 pb-[50px] pt-[46px] px-[50px] flex flex-col justify-between">
@@ -158,11 +128,7 @@ export default function Onboarding() {
 				<GradientBox />
 			</div>
 
-			<div
-				className="w-1/2 bg-white p-[50px] flex flex-col relative overflow-y-auto app-no-drag-region"
-				ref={ dropRef }
-			>
-				{ isDraggingOver && <DragAndDropOverlay /> }
+			<div className="w-1/2 bg-white p-[50px] flex flex-col relative overflow-y-auto app-no-drag-region">
 				<div className="flex flex-col justify-center items-start flex-[1_0_0%] gap-8">
 					<div className="flex flex-col items-start self-stretch gap-6">
 						<h1 className="font-normal text-xl leading-5">{ __( 'Add your first site' ) }</h1>
@@ -175,10 +141,6 @@ export default function Onboarding() {
 							error={ error }
 							doesPathContainWordPress={ doesPathContainWordPress }
 							onSubmit={ handleSubmit }
-							fileForImport={ fileForImport }
-							setFileForImport={ setFileForImport }
-							onFileSelected={ handleImportFile }
-							fileError={ fileError }
 							phpVersion={ phpVersion }
 							setPhpVersion={ setPhpVersion }
 							wpVersion={ wpVersion }

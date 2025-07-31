@@ -27,13 +27,10 @@ interface FeatureFlagsProviderProps {
 
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
 	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( () => {
-		if ( window.appGlobals ) {
-			return {
-				...defaultFeatureFlags,
-				...window.appGlobals,
-			};
-		}
-		return { ...defaultFeatureFlags };
+		return {
+			...defaultFeatureFlags,
+			...window.appGlobals,
+		};
 	} );
 	const { isAuthenticated, client } = useAuth();
 	const [ apiFlags, setApiFlags ] = useState< Partial< FeatureFlags > >( {} );

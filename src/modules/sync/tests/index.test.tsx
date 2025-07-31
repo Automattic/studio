@@ -490,6 +490,11 @@ describe( 'ContentTabSync', () => {
 
 		await screen.findByText( 'Pull from Production' );
 
+		const filesAndFoldersCheckbox = screen.getByRole( 'checkbox', { name: 'Files and folders' } );
+		fireEvent.click( filesAndFoldersCheckbox );
+		const databaseCheckbox = screen.getByRole( 'checkbox', { name: 'Database' } );
+		fireEvent.click( databaseCheckbox );
+
 		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } );
 		fireEvent.click( dialogPullButton[ 1 ] );
 
@@ -530,10 +535,18 @@ describe( 'ContentTabSync', () => {
 
 		await screen.findByText( 'Pull from Production' );
 
-		const select = screen.getByRole( 'combobox', { name: 'Select files and folders to sync' } );
-		fireEvent.change( select, { target: { value: true } } );
+		const databaseCheckbox = screen.getByRole( 'checkbox', { name: 'Database' } );
+		fireEvent.click( databaseCheckbox );
 
-		fireEvent.click( screen.getByText( 'themes' ) );
+		// Open specific files and folders selector
+		const select = screen.getByRole( 'combobox', { name: 'Select files and folders to sync' } );
+		fireEvent.change( select, { target: { value: 'true' } } );
+
+		// Check plugins and uploads
+		const pluginsCheckbox = screen.getByRole( 'checkbox', { name: 'plugins' } );
+		fireEvent.click( pluginsCheckbox );
+		const uploadsCheckbox = screen.getByRole( 'checkbox', { name: 'uploads' } );
+		fireEvent.click( uploadsCheckbox );
 
 		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } );
 		fireEvent.click( dialogPullButton[ 1 ] );
@@ -543,7 +556,7 @@ describe( 'ContentTabSync', () => {
 		} );
 	} );
 
-	it( 'disables the pull button when all checkboxes are unchecked', async () => {
+	it( 'disables the pull button when all checkboxes are unchecked, which is the initial state', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
 			...mockSyncSites,
@@ -556,13 +569,6 @@ describe( 'ContentTabSync', () => {
 		fireEvent.click( pullButton );
 
 		await screen.findByText( 'Pull from Production' );
-
-		// Uncheck all checkboxes
-		const filesAndFoldersCheckbox = screen.getByRole( 'checkbox', { name: 'Files and folders' } );
-		fireEvent.click( filesAndFoldersCheckbox );
-		const databaseCheckbox = screen.getByRole( 'checkbox', { name: 'Database' } );
-		fireEvent.click( databaseCheckbox );
-
 		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } )[ 1 ];
 		expect( dialogPullButton ).toBeDisabled();
 	} );
@@ -579,11 +585,12 @@ describe( 'ContentTabSync', () => {
 		const pullButton = screen.getByRole( 'button', { name: /Pull/i } );
 		fireEvent.click( pullButton );
 
-		// Uncheck one option, the databases
-		const filesAndFoldersCheckbox = screen.getByRole( 'checkbox', { name: 'Files and folders' } );
-		fireEvent.click( filesAndFoldersCheckbox );
-
 		await screen.findByText( 'Pull from Production' );
+
+		// Check the database checkbox
+		const databaseCheckbox = screen.getByRole( 'checkbox', { name: 'Database' } );
+		fireEvent.click( databaseCheckbox );
+
 		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } )[ 1 ];
 		expect( dialogPullButton ).not.toBeDisabled();
 	} );
@@ -600,21 +607,18 @@ describe( 'ContentTabSync', () => {
 		const pullButton = screen.getByRole( 'button', { name: /Pull/i } );
 		fireEvent.click( pullButton );
 
-		// leave checked only one children option
-		const filesAndFoldersCheckbox = screen.getByRole( 'checkbox', { name: 'Files and folders' } );
-		fireEvent.click( filesAndFoldersCheckbox );
-		const databaseCheckbox = screen.getByRole( 'checkbox', { name: 'Database' } );
-		fireEvent.click( databaseCheckbox );
+		await screen.findByText( 'Pull from Production' );
 		const select = screen.getByRole( 'combobox', { name: 'Select files and folders to sync' } );
-		fireEvent.change( select, { target: { value: true } } );
+		fireEvent.change( select, { target: { value: 'true' } } );
 		const pluginsCheckbox = screen.getByRole( 'checkbox', { name: 'plugins' } );
 		fireEvent.click( pluginsCheckbox );
+		const filesAndFoldersCheckbox = screen.getByRole( 'checkbox', { name: 'Files and folders' } );
+		const databaseCheckbox = screen.getByRole( 'checkbox', { name: 'Database' } );
 
 		expect( pluginsCheckbox ).toBeChecked();
 		expect( databaseCheckbox ).not.toBeChecked();
 		expect( filesAndFoldersCheckbox ).not.toBeChecked();
 
-		await screen.findByText( 'Pull from Production' );
 		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } )[ 1 ];
 		expect( dialogPullButton ).not.toBeDisabled();
 	} );
@@ -631,13 +635,6 @@ describe( 'ContentTabSync', () => {
 		fireEvent.click( pushButton );
 
 		await screen.findByText( 'Push to Production' );
-
-		// Uncheck all checkboxes
-		const filesAndFoldersCheckbox = screen.getByRole( 'checkbox', { name: 'Files and folders' } );
-		fireEvent.click( filesAndFoldersCheckbox );
-		const databaseCheckbox = screen.getByRole( 'checkbox', { name: 'Database' } );
-		fireEvent.click( databaseCheckbox );
-
 		const dialogPushButton = screen.getAllByRole( 'button', { name: /Push/i } )[ 1 ];
 		expect( dialogPushButton ).toBeDisabled();
 	} );
@@ -654,11 +651,10 @@ describe( 'ContentTabSync', () => {
 		const pushButton = screen.getByRole( 'button', { name: /Push/i } );
 		fireEvent.click( pushButton );
 
-		// Uncheck one option, the databases
-		const filesAndFoldersCheckbox = screen.getByRole( 'checkbox', { name: 'Files and folders' } );
-		fireEvent.click( filesAndFoldersCheckbox );
-
 		await screen.findByText( 'Push to Production' );
+		const databaseCheckbox = screen.getByRole( 'checkbox', { name: 'Database' } );
+		fireEvent.click( databaseCheckbox );
+
 		const dialogPushButton = screen.getAllByRole( 'button', { name: /Push/i } )[ 1 ];
 		expect( dialogPushButton ).not.toBeDisabled();
 	} );
@@ -675,21 +671,20 @@ describe( 'ContentTabSync', () => {
 		const pushButton = screen.getByRole( 'button', { name: /Push/i } );
 		fireEvent.click( pushButton );
 
-		// leave checked only one children option
-		const filesAndFoldersCheckbox = screen.getByRole( 'checkbox', { name: 'Files and folders' } );
-		fireEvent.click( filesAndFoldersCheckbox );
-		const databaseCheckbox = screen.getByRole( 'checkbox', { name: 'Database' } );
-		fireEvent.click( databaseCheckbox );
+		await screen.findByText( 'Push to Production' );
 		const select = screen.getByRole( 'combobox', { name: 'Select files and folders to sync' } );
-		fireEvent.change( select, { target: { value: true } } );
+		fireEvent.change( select, { target: { value: 'true' } } );
+
 		const pluginsCheckbox = screen.getByRole( 'checkbox', { name: 'plugins' } );
 		fireEvent.click( pluginsCheckbox );
+
+		const filesAndFoldersCheckbox = screen.getByRole( 'checkbox', { name: 'Files and folders' } );
+		const databaseCheckbox = screen.getByRole( 'checkbox', { name: 'Database' } );
 
 		expect( pluginsCheckbox ).toBeChecked();
 		expect( databaseCheckbox ).not.toBeChecked();
 		expect( filesAndFoldersCheckbox ).not.toBeChecked();
 
-		await screen.findByText( 'Push to Production' );
 		const dialogPushButton = screen.getAllByRole( 'button', { name: /Push/i } )[ 1 ];
 		expect( dialogPushButton ).not.toBeDisabled();
 	} );

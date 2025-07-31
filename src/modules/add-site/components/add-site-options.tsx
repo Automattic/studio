@@ -4,16 +4,17 @@ import {
 	__experimentalHeading as Heading,
 	__experimentalText as Text,
 } from '@wordpress/components';
-import { Icon, create, preformatted, backup, chevronRight } from '@wordpress/icons';
+import { Icon, create, backup, chevronRight } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useOffline } from 'src/hooks/use-offline';
+import { BlueprintIcon } from './blueprint-icon';
 
 interface AddSiteOptionsProps {
 	onOptionSelect: ( option: 'create' | 'blueprint' | 'backup' ) => void;
 }
 
 interface OptionButtonProps {
-	icon: JSX.Element;
+	icon: React.ReactNode;
 	title: string;
 	description: string;
 	onClick: () => void;
@@ -34,8 +35,9 @@ function OptionButton( {
 			alignment="top"
 			onClick={ onClick }
 			disabled={ disabled }
+			spacing={ 5 }
 		>
-			<Icon className="mt-0.5" icon={ icon } size={ 24 } fill="#3858E9" />
+			{ icon }
 			<VStack className="flex-1">
 				<Heading className="text-xl" weight="500">
 					{ title }
@@ -60,20 +62,20 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 				{ __( 'Add a clean site, start from a blueprint or import site from a backup' ) }
 			</Text>
 			<OptionButton
-				icon={ create }
+				icon={ <Icon className="" icon={ create } size={ 36 } fill="#3858E9" /> }
 				title={ __( 'Create a site' ) }
 				description={ __( 'Create a clean site' ) }
 				onClick={ () => onOptionSelect( 'create' ) }
 			/>
 			<OptionButton
-				icon={ preformatted }
+				icon={ <BlueprintIcon /> }
 				title={ __( 'Start from a blueprint' ) }
 				description={ __( 'Choose one from the list or select your own' ) }
 				onClick={ () => onOptionSelect( 'blueprint' ) }
 				disabled={ isOffline }
 			/>
 			<OptionButton
-				icon={ backup }
+				icon={ <Icon icon={ backup } size={ 24 } fill="#3858E9" /> }
 				title={ __( 'Import from a backup' ) }
 				description={ __( 'Start a site from a backup' ) }
 				onClick={ () => onOptionSelect( 'backup' ) }

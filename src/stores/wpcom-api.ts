@@ -43,6 +43,20 @@ const snapshotUsageSchema = z
 		siteCreationBlocked: data.site_creation_blocked,
 	} ) );
 
+const blueprintSchema = z.object( {
+	slug: z.string(),
+	title: z.string(),
+	excerpt: z.string(),
+	image: z.string(),
+	playground_url: z.string(),
+	blueprint: z.record( z.unknown() ),
+} );
+
+const blueprintsResponseSchema = z.object( {
+	blueprints: z.array( blueprintSchema ),
+	total: z.number(),
+} );
+
 let wpcomClient: WPCOM | undefined;
 
 export const setWpcomClient = ( client: WPCOM | undefined ) => {
@@ -89,7 +103,7 @@ function calculateDaysUntilQuotaReset( quotaResetDate: string ): number {
 export const wpcomApi = createApi( {
 	reducerPath: 'wpcomApi',
 	baseQuery: wpcomBaseQuery,
-	tagTypes: [ 'AssistantQuota', 'SnapshotUsage' ],
+	tagTypes: [ 'AssistantQuota', 'SnapshotUsage', 'Blueprints' ],
 	endpoints: ( builder ) => ( {
 		getWelcomeMessages: builder.query< z.infer< typeof welcomeMessageSchema >, void >( {
 			query: () => ( {
@@ -117,6 +131,16 @@ export const wpcomApi = createApi( {
 			keepUnusedDataFor: 60 * 60,
 			providesTags: [ 'SnapshotUsage' ],
 		} ),
+		getBlueprints: builder.query< z.infer< typeof blueprintsResponseSchema >, void >( {
+			query: () => ( {
+				path: '/studio-app/blueprints',
+				apiNamespace: 'wpcom/v2',
+			} ),
+			transformResponse: ( response: unknown ) =>
+				parseResponse( response, blueprintsResponseSchema ),
+			keepUnusedDataFor: 60 * 60,
+			providesTags: [ 'Blueprints' ],
+		} ),
 	} ),
 } );
 
@@ -141,4 +165,8 @@ export const useGetAssistantQuota = withWpcomClientCheck(
 
 export const useGetSnapshotUsage = withWpcomClientCheck(
 	withOfflineCheck( wpcomApi.useGetSnapshotUsageQuery )
+);
+
+export const useGetBlueprints = withWpcomClientCheck(
+	withOfflineCheck( wpcomApi.useGetBlueprintsQuery )
 );

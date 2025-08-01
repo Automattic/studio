@@ -4,9 +4,10 @@ import {
 	__experimentalHeading as Heading,
 	__experimentalText as Text,
 } from '@wordpress/components';
-import { Icon, create, backup, chevronRight } from '@wordpress/icons';
+import { Icon, create, backup, chevronRight, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useOffline } from 'src/hooks/use-offline';
+import { cx } from 'src/lib/cx';
 import { BlueprintIcon } from './blueprint-icon';
 
 interface AddSiteOptionsProps {
@@ -28,10 +29,17 @@ function OptionButton( {
 	onClick,
 	disabled = false,
 }: OptionButtonProps ) {
+	const { isRTL } = useI18n();
+	const chevron = isRTL() ? chevronLeft : chevronRight;
 	return (
 		<HStack
 			as="button"
-			className="w-full max-w-xl p-5 border border-gray-200 rounded-xl text-left hover:border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+			className={ cx(
+				'w-full max-w-xl p-5 border border-gray-200 rounded-xl text-left',
+				'rtl:text-right',
+				'hover:border-gray-300 hover:bg-gray-50',
+				'disabled:opacity-50 disabled:cursor-not-allowed'
+			) }
 			alignment="top"
 			onClick={ onClick }
 			disabled={ disabled }
@@ -46,7 +54,7 @@ function OptionButton( {
 					{ description }
 				</Text>
 			</VStack>
-			<Icon className="mt-0.5" icon={ chevronRight } size={ 24 } fill="#949494" />
+			<Icon className="mt-0.5" icon={ chevron } size={ 24 } fill="#949494" />
 		</HStack>
 	);
 }
@@ -56,26 +64,26 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 	const isOffline = useOffline();
 
 	return (
-		<VStack className="text-center" alignment="center" spacing="3">
+		<VStack className="text-center w-full" alignment="top" spacing="3">
 			<Heading className="text-4xl">{ __( 'Add a site' ) }</Heading>
 			<Text className="text-xl font-light text-gray-500 w-96 mb-10">
 				{ __( 'Add a clean site, start from a blueprint or import site from a backup' ) }
 			</Text>
 			<OptionButton
-				icon={ <Icon className="" icon={ create } size={ 36 } fill="#3858E9" /> }
+				icon={ <Icon className="" icon={ create } size={ 32 } fill="#3858E9" /> }
 				title={ __( 'Create a site' ) }
 				description={ __( 'Create a clean site' ) }
 				onClick={ () => onOptionSelect( 'create' ) }
 			/>
 			<OptionButton
-				icon={ <BlueprintIcon /> }
+				icon={ <BlueprintIcon size={ 32 } /> }
 				title={ __( 'Start from a blueprint' ) }
 				description={ __( 'Choose one from the list or select your own' ) }
 				onClick={ () => onOptionSelect( 'blueprint' ) }
 				disabled={ isOffline }
 			/>
 			<OptionButton
-				icon={ <Icon icon={ backup } size={ 24 } fill="#3858E9" /> }
+				icon={ <Icon icon={ backup } size={ 32 } fill="#3858E9" /> }
 				title={ __( 'Import from a backup' ) }
 				description={ __( 'Start a site from a backup' ) }
 				onClick={ () => onOptionSelect( 'backup' ) }

@@ -60,7 +60,9 @@ export const FullscreenModal: React.FC< FullscreenModalProps > = ( {
 			<HStack className="flex justify-end rtl:justify-start p-4">
 				<Button icon={ close } onClick={ onClose } label="Close" />
 			</HStack>
-			<VStack className="flex-1 overflow-y-auto px-6 pb-6">{ children }</VStack>
+			<VStack alignment="top" className="w-full flex-1 overflow-y-auto px-6 pb-6">
+				{ children }
+			</VStack>
 		</VStack>
 	);
 };

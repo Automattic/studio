@@ -1,5 +1,11 @@
-export const BlueprintIcon = () => (
-	<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+export const BlueprintIcon = ( { size = 32 }: { size?: number } ) => (
+	<svg
+		width={ size }
+		height={ size }
+		viewBox={ `0 0 ${ size } ${ size }` }
+		fill="none"
+		xmlns="http://www.w3.org/2000/svg"
+	>
 		<path
 			d="M17.3334 19.8828C14.6667 19.8828 10.6667 21.2161 10.6667 26.5495"
 			stroke="#3858E9"

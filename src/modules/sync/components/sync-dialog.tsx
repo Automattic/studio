@@ -111,6 +111,10 @@ export function SyncDialog( {
 			expanded: value,
 		};
 
+		if ( ! value && previousFilesAndFolders ) {
+			toUpdate.checked = previousFilesAndFolders.checked || previousFilesAndFolders.indeterminate;
+		}
+
 		setTreeState( ( prev ) => updateNodeById( prev, 'filesAndFolders', toUpdate ) );
 	};
 

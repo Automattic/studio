@@ -1,9 +1,9 @@
 import { __ } from '@wordpress/i18n';
-import AddSite from 'src/components/add-site';
 import { RunningSites } from 'src/components/running-sites';
 import SiteMenu from 'src/components/site-menu';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
+import AddSite from 'src/modules/add-site';
 
 interface MainSidebarProps {
 	className?: string;

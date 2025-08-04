@@ -48,7 +48,7 @@ const useDynamicTreeState = (
 			const loadRemoteTree = async () => {
 				try {
 					if ( rewindId ) {
-						const remoteTree = await fetchChildren( remoteSiteId, rewindId, '/wp-content/', true );
+						const remoteTree = await fetchChildren( remoteSiteId, rewindId, '/wp-content/', false );
 						if ( remoteTree ) {
 							setTreeState( ( treeState ) =>
 								updateNodeById( treeState, 'wp-content', { children: remoteTree } )

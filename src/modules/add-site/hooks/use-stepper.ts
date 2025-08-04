@@ -20,14 +20,24 @@ export function useStepper(): StepperContext {
 	const stepperConfig = useMemo( () => {
 		const blueprintSteps = [
 			{ id: 'choose-blueprint', label: __( 'Choose blueprint' ), path: '/blueprint' },
-			{ id: 'site-details', label: __( 'Site name & details' ), path: '/blueprint/details' },
+			{ id: 'site-details', label: __( 'Site name & details' ), path: '/blueprint/create' },
 		];
 
-		// Determine which flow we're in based on the current path
+		const createSteps = [
+			{ id: 'create-site', label: __( 'Site name & details' ), path: '/create' },
+		];
+
 		if ( location.path?.startsWith( '/blueprint' ) ) {
 			return {
 				flow: 'blueprint',
 				steps: blueprintSteps,
+			};
+		}
+
+		if ( location.path === '/create' ) {
+			return {
+				flow: 'create',
+				steps: createSteps,
 			};
 		}
 

@@ -95,7 +95,6 @@ export function useRemoteFileTree() {
 			parentChecked: boolean = false
 		): Promise< TreeNode[] | null > => {
 			if ( ! client ) {
-				console.error( 'No client available' );
 				return null;
 			}
 

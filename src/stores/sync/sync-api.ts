@@ -50,7 +50,6 @@ const convertBackupItemToTreeNode = (
 	};
 };
 
-// Create the API slice using injectEndpoints pattern for GET requests
 export const syncApi = wpcomApi.injectEndpoints( {
 	endpoints: ( builder ) => ( {
 		getLatestRewindId: builder.query< string | null, number >( {
@@ -80,9 +79,8 @@ export const syncApi = wpcomApi.injectEndpoints( {
 			keepUnusedDataFor: 60 * 5, // Cache for 5 minutes
 		} ),
 	} ),
-} ) || wpcomApi;
+} );
 
-// For POST requests, we need to create async thunks since wpcomApi doesn't support POST
 export const fetchRemoteFileTree = createAsyncThunk(
 	'sync/fetchRemoteFileTree',
 	async ( {
@@ -92,7 +90,11 @@ export const fetchRemoteFileTree = createAsyncThunk(
 		path,
 		parentChecked = false,
 	}: {
-		client: { req: { post: ( args: { path: string; apiNamespace: string; body: unknown } ) => Promise< unknown > } };
+		client: {
+			req: {
+				post: ( args: { path: string; apiNamespace: string; body: unknown } ) => Promise< unknown >;
+			};
+		};
 		remoteSiteId: number;
 		rewindId: string;
 		path: string;
@@ -142,5 +144,4 @@ export const fetchRemoteFileTree = createAsyncThunk(
 	}
 );
 
-// Export hooks (with fallback for tests)
-export const { useGetLatestRewindIdQuery } = syncApi || { useGetLatestRewindIdQuery: () => ({}) };
+export const { useGetLatestRewindIdQuery } = syncApi;

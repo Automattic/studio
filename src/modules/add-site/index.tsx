@@ -1,6 +1,6 @@
 import { Navigator, useNavigator } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import Button from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite } from 'src/hooks/use-add-site';
@@ -42,6 +42,11 @@ function NavigationContent( { blueprintsData, isLoadingBlueprints }: NavigationC
 		console.log( 'Selected blueprint:', blueprintId );
 	}, [] );
 
+	const blueprints = useMemo(
+		() => blueprintsData.blueprints.slice().reverse() || [],
+		[ blueprintsData ]
+	);
+
 	return (
 		<>
 			<Navigator.Screen className="flex-1" path="/">
@@ -50,7 +55,7 @@ function NavigationContent( { blueprintsData, isLoadingBlueprints }: NavigationC
 			<Navigator.Screen className="flex-1" path="/blueprint">
 				<AddSiteBlueprintSelector
 					onSelectBlueprint={ handleBlueprintSelect }
-					blueprints={ blueprintsData?.blueprints || [] }
+					blueprints={ blueprints }
 					isLoading={ isLoadingBlueprints }
 				/>
 			</Navigator.Screen>

@@ -6,7 +6,9 @@ import { convertTreeToOptionsToSync } from 'src/modules/sync/lib/convert-tree-to
 describe( 'convertTreeToOptionsToSync', () => {
 	it( 'returns ["all"] when all options are selected', () => {
 		const { result } = renderHook( () => useDefaultSyncTree( 'push' ) );
-		const tree = result.current;
+		let tree = result.current;
+		tree = updateNodeById( tree, 'filesAndFolders', { checked: true } );
+		tree = updateNodeById( tree, 'sqls', { checked: true } );
 
 		const optionsToSync = convertTreeToOptionsToSync( tree );
 		expect( optionsToSync ).toEqual( { optionsToSync: [ 'all' ], specificSelections: undefined } );
@@ -16,7 +18,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 		const { result } = renderHook( () => useDefaultSyncTree( 'push' ) );
 		let tree = result.current;
 
-		tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
+		tree = updateNodeById( tree, 'sqls', { checked: true } );
 
 		const optionsToSync = convertTreeToOptionsToSync( tree );
 		expect( optionsToSync ).toEqual( { optionsToSync: [ 'sqls' ], specificSelections: undefined } );
@@ -56,7 +58,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 		const { result } = renderHook( () => useDefaultSyncTree( 'push' ) );
 		let tree = result.current;
 
-		tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
+		tree = updateNodeById( tree, 'sqls', { checked: true } );
 		tree = updateNodeById( tree, 'plugins', { checked: true } );
 
 		const optionsToSync = convertTreeToOptionsToSync( tree );
@@ -284,10 +286,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 			const { result } = renderHook( () => useDefaultSyncTree( 'push' ) );
 			let tree = result.current;
 
-			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
-			tree = updateNodeById( tree, 'themes', { checked: false } );
-			tree = updateNodeById( tree, 'uploads', { checked: false } );
-			tree = updateNodeById( tree, 'contents', { checked: false } );
+			tree = updateNodeById( tree, 'sqls', { checked: true } );
 
 			const wpContentNode = tree
 				.find( ( node ) => node.id === 'filesAndFolders' )
@@ -318,6 +317,8 @@ describe( 'convertTreeToOptionsToSync', () => {
 		const { result } = renderHook( () => useDefaultSyncTree( 'push' ) );
 		let tree = result.current;
 
+		tree = updateNodeById( tree, 'sqls', { checked: true } );
+
 		tree = updateNodeById( tree, 'plugins', {
 			children: [
 				{
@@ -339,7 +340,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 
 		const optionsToSync = convertTreeToOptionsToSync( tree );
 		expect( optionsToSync ).toEqual( {
-			optionsToSync: [ 'sqls', 'plugins', 'themes', 'uploads', 'contents' ],
+			optionsToSync: [ 'sqls', 'plugins' ],
 			specificSelections: {
 				plugins: [ 'my-plugin' ],
 			},

@@ -23,11 +23,12 @@ import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 
 interface AddSiteProps {
 	className?: string;
+	showModal: boolean;
+	setShowModal: ( showModal: boolean ) => void;
 }
 
-export default function AddSite( { className }: AddSiteProps ) {
+export default function AddSite( { className, showModal, setShowModal }: AddSiteProps ) {
 	const { __ } = useI18n();
-	const [ showModal, setShowModal ] = useState( false );
 	const [ nameSuggested, setNameSuggested ] = useState( false );
 	const [ fileError, setFileError ] = useState( '' );
 	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
@@ -112,7 +113,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 
 	const openModal = useCallback( () => {
 		setShowModal( true );
-	}, [] );
+	}, [ setShowModal ] );
 
 	const closeModal = useCallback( () => {
 		setShowModal( false );
@@ -139,6 +140,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setEnableHttps,
 		defaultWordPressVersion,
 		defaultPhpVersion,
+		setShowModal,
 	] );
 
 	const handleSubmit = useCallback(

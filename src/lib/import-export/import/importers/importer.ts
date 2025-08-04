@@ -463,7 +463,7 @@ export class WpressImporter extends BaseBackupImporter {
 		const serializedPlugins = serializePlugins( plugins );
 		const activatePluginsSql = `
 			INSERT INTO wp_options (option_name, option_value, autoload) VALUES ('active_plugins', '${ serializedPlugins }', 'yes')
-			ON CONFLICT(option_name) DO UPDATE SET option_value = excluded.option_value, autoload = excluded.autoload;
+			ON DUPLICATE KEY UPDATE option_value = VALUES(option_value), autoload = VALUES(autoload);
 		`;
 
 		const sqliteActivatePluginsPath = path.join(

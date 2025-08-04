@@ -96,7 +96,7 @@ const TreeItem = ( {
 	renderBeforeChildren?: ( nodeId: string ) => React.ReactNode;
 } ) => {
 	const { __ } = useI18n();
-	const isLevel0 = level === 0;
+	const isFirstLevel = level === 1;
 	const expanded = node.expanded ?? true;
 
 	return (
@@ -111,8 +111,7 @@ const TreeItem = ( {
 				aria-label={ node.label }
 				className={ cx(
 					'flex items-center py-2 relative gap-2',
-					isLevel0 ? 'border-b border-gray-300 py-4' : '',
-					isLast ? 'border-white' : ''
+					isFirstLevel ? 'border-b border-gray-300 py-4' : ''
 				) }
 			>
 				<label
@@ -170,7 +169,7 @@ const TreeItem = ( {
 			{ expanded && node.children && (
 				<div
 					role="group"
-					className={ cx( 'ps-6', isLevel0 ? 'border-b border-gray-300 py-2' : '' ) }
+					className={ cx( 'ps-6', isFirstLevel ? 'border-b border-gray-300 py-2' : '' ) }
 				>
 					{ renderBeforeChildren && renderBeforeChildren( node.id ) }
 					{ node.children.length === 0 ? (

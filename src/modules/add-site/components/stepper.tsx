@@ -47,7 +47,7 @@ export default function Stepper( { currentPath, onBack, onSubmit, canSubmit }: S
 
 			<div className="flex gap-4">
 				{ currentPath && currentPath !== '/' && onBack && (
-					<Button variant="secondary" onClick={ onBack }>
+					<Button variant="tertiary" onClick={ onBack }>
 						{ __( 'Back' ) }
 					</Button>
 				) }

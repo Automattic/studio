@@ -84,7 +84,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		[ blueprintsData ]
 	);
 
-	const isOnCreatePath = location.path === '/create';
+	const isOnCreatePath = location.path === '/create' || location.path === '/blueprint/create';
 	const canSubmit =
 		isOnCreatePath &&
 		createSiteProps.siteName?.trim() &&
@@ -260,14 +260,10 @@ export default function AddSite( { className }: AddSiteProps ) {
 	const handleSubmit = useCallback(
 		async ( event: FormEvent ) => {
 			event.preventDefault();
-			try {
-				await handleAddSiteClick();
-				speak( siteAddedMessage );
-				setNameSuggested( false );
-				closeModal();
-			} catch {
-				// No need to handle error here, it's already handled in handleAddSiteClick
-			}
+			closeModal();
+			await handleAddSiteClick();
+			speak( siteAddedMessage );
+			setNameSuggested( false );
 		},
 		[ handleAddSiteClick, siteAddedMessage, closeModal ]
 	);

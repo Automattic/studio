@@ -53,9 +53,7 @@ export function useStepper(): StepperContext {
 			let status: 'completed' | 'current' | 'pending' = 'pending';
 
 			// Determine status based on current path
-			const currentStepIndex = stepperConfig.steps.findIndex(
-				( s ) => location.path === s.path || location.path?.startsWith( s.path + '/' )
-			);
+			const currentStepIndex = stepperConfig.steps.findIndex( ( s ) => location.path === s.path );
 			const stepIndex = stepperConfig.steps.indexOf( step );
 
 			if ( stepIndex < currentStepIndex ) {

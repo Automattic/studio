@@ -11,8 +11,6 @@ import Modal from 'src/components/modal';
 import { Tooltip } from 'src/components/tooltip';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
 import { SYNC_OPTIONS } from 'src/constants';
-import { useLatestRewindId } from 'src/hooks/sync-sites/use-latest-rewind-id';
-import { useRemoteFileTree } from 'src/hooks/sync-sites/use-remote-file-tree';
 import { useContentFolders } from 'src/hooks/use-content-folders';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
@@ -22,6 +20,7 @@ import { useDefaultSyncTree } from 'src/modules/sync/hooks/use-default-sync-tree
 import { useSyncDialogTexts } from 'src/modules/sync/hooks/use-sync-dialog-texts';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
+import { useLatestRewindId, useRemoteFileTree } from 'src/stores/sync';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 type SyncDialogProps = {

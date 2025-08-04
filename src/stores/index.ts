@@ -18,6 +18,7 @@ import providerConstantsReducer, {
 	setProviderConstants,
 } from 'src/stores/provider-constants-slice';
 import { reducer as snapshotReducer, updateSnapshotLocally } from 'src/stores/snapshot-slice';
+import { syncReducer } from 'src/stores/sync';
 import { wpcomApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from 'common/lib/locale';
@@ -29,6 +30,7 @@ export type RootState = {
 	installedAppsApi: ReturnType< typeof installedAppsApi.reducer >;
 	providerConstants: ReturnType< typeof providerConstantsReducer >;
 	snapshot: ReturnType< typeof snapshotReducer >;
+	sync: ReturnType< typeof syncReducer >;
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
 	certificateTrustApi: ReturnType< typeof certificateTrustApi.reducer >;
@@ -81,6 +83,7 @@ export const rootReducer = combineReducers( {
 	installedAppsApi: installedAppsApi.reducer,
 	providerConstants: providerConstantsReducer,
 	snapshot: snapshotReducer,
+	sync: syncReducer,
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,
 	certificateTrustApi: certificateTrustApi.reducer,

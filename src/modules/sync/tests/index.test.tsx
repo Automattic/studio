@@ -3,13 +3,13 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import escapeRegExp from 'lodash/escapeRegExp';
 import { Provider } from 'react-redux';
 import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
-import { useLatestRewindId } from 'src/hooks/sync-sites/use-latest-rewind-id';
 import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ContentTabSync } from 'src/modules/sync';
 import { store } from 'src/stores';
+import { useLatestRewindId } from 'src/stores/sync';
 
 jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/lib/get-ipc-api' );
@@ -18,7 +18,8 @@ jest.mock( 'src/hooks/sync-sites/sync-sites-context', () => ( {
 	useSyncSites: jest.fn(),
 } ) );
 
-jest.mock( 'src/hooks/sync-sites/use-latest-rewind-id', () => ( {
+jest.mock( 'src/stores/sync', () => ( {
+	...jest.requireActual( 'src/stores/sync' ),
 	useLatestRewindId: jest.fn(),
 } ) );
 

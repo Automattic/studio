@@ -40,8 +40,18 @@ const useDynamicTreeState = (
 ) => {
 	const wpFolders = useMemo( () => [ ...GRANULAR_SYNC_FOLDERS ], [] );
 	const wpContent = useContentFolders( localSiteId, wpFolders );
-	const { error: rewindError, rewindId } = useLatestRewindId( remoteSiteId );
+	const { rewindId, isLoading: isLoadingRewindId } = useLatestRewindId( remoteSiteId );
 	const { fetchChildren, error: treeError } = useRemoteFileTree();
+
+	// Pre-check all options when there's no rewind ID
+	useEffect( () => {
+		if ( type === 'pull' && ! isLoadingRewindId && ! rewindId && remoteSiteId ) {
+			setTreeState( ( prev ) => {
+				const treeToUpdate = updateNodeById( prev, 'filesAndFolders', { checked: true } );
+				return updateNodeById( treeToUpdate, 'sqls', { checked: true } );
+			} );
+		}
+	}, [ type, isLoadingRewindId, rewindId, remoteSiteId, setTreeState ] );
 
 	useEffect( () => {
 		if ( type === 'pull' && remoteSiteId ) {
@@ -90,7 +100,7 @@ const useDynamicTreeState = (
 		}
 	}, [ type, wpContent, setTreeState, wpFolders, remoteSiteId, rewindId, fetchChildren ] );
 
-	return { rewindId, rewindError, treeError, fetchChildren };
+	return { rewindId, treeError, fetchChildren, isLoadingRewindId };
 };
 
 export function SyncDialog( {
@@ -111,7 +121,7 @@ export function SyncDialog( {
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );
 	const isSubmitDisabled = treeState.every( ( node ) => ! node.checked && ! node.indeterminate );
 
-	const { fetchChildren, rewindId } = useDynamicTreeState(
+	const { fetchChildren, rewindId, isLoadingRewindId } = useDynamicTreeState(
 		type,
 		localSite.id,
 		remoteSite.id,
@@ -142,7 +152,7 @@ export function SyncDialog( {
 			tooltipText: __(
 				'Selective Sync will be enabled automatically once your backup is complete.'
 			),
-			disabled: ! rewindId,
+			disabled: ! rewindId || isLoadingRewindId,
 			backupUrl: `https://wordpress.com/backup/${ remoteSite.url.replace( /^https?:\/\//, '' ) }`,
 			backupDate: rewindId && format( parseInt( rewindId ) * 1000, 'MMM d, h:mm a' ),
 		};
@@ -302,7 +312,7 @@ export function SyncDialog( {
 							<Button
 								variant="primary"
 								onClick={ handleSubmit }
-								disabled={ isSubmitDisabled || pullBackupInformation?.disabled }
+								disabled={ isSubmitDisabled || isLoadingRewindId }
 							>
 								{ syncTexts.submit }
 							</Button>

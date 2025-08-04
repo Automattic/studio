@@ -1,6 +1,16 @@
 Unreleased
 ==========
+
+1.5.6
+=====
 * Fixed listing sites with a custom environment type #1595
+* Update SQLite plugin to 2.2.5 and enabled new AST driver #1506, #1628
+* Changed behavior to open the Overview tab after deleting and creating site #1572
+* Update multiple dependencies to the latest versions
+* Suppressed punycode warnings for both CLI and the app #1579
+* Improved crash screen and fixed startup crash from read-only Studio directory #1599
+* Added support for sites with custom environment types #1595
+* Set the selective sync checkboxes to be unchecked as the initial state #1626
 
 1.5.5
 =====

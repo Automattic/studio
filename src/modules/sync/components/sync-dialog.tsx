@@ -251,23 +251,32 @@ export function SyncDialog( {
 							tree={ treeState }
 							setTree={ setTreeState }
 							onExpand={ handleExpand }
+							renderBeforeChildren={ ( nodeId ) => {
+								if (
+									nodeId === 'filesAndFolders' &&
+									showAllFiles &&
+									pullBackupInformation &&
+									rewindId
+								) {
+									return (
+										<div className="mt-2 pb-2 text-xs text-gray-600">
+											{ sprintf(
+												__( 'Listing files from the latest backup: %s.' ),
+												pullBackupInformation.backupDate
+											) }{ ' ' }
+											<Button
+												variant="link"
+												className="p-0 h-auto text-xs"
+												onClick={ () => getIpcApi().openURL( pullBackupInformation!.backupUrl ) }
+											>
+												{ __( 'Create fresh backup now ↗' ) }
+											</Button>
+										</div>
+									);
+								}
+								return null;
+							} }
 						/>
-
-						{ pullBackupInformation && rewindId && (
-							<div className="pt-2 text-xs text-gray-600">
-								{ sprintf(
-									__( 'Listing files from the latest backup: %s.' ),
-									pullBackupInformation.backupDate
-								) }{ ' ' }
-								<Button
-									variant="link"
-									className="p-0 h-auto text-xs"
-									onClick={ () => getIpcApi().openURL( pullBackupInformation!.backupUrl ) }
-								>
-									{ __( 'Create fresh backup now ↗' ) }
-								</Button>
-							</div>
-						) }
 					</div>
 				</Tooltip>
 

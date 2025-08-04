@@ -13,6 +13,7 @@ import {
 } from '@wordpress/components';
 import { Icon, info, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import { useRef } from 'react';
 import StudioButton from 'src/components/button';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
@@ -22,7 +23,13 @@ interface Blueprint {
 	excerpt: string;
 	image: string;
 	playground_url: string;
-	blueprint: Record< string, unknown >;
+	blueprint: {
+		meta?: {
+			categories?: string[];
+			[ key: string ]: unknown;
+		};
+		[ key: string ]: unknown;
+	};
 }
 
 interface AddSiteBlueprintProps {
@@ -34,7 +41,8 @@ interface AddSiteBlueprintProps {
 function BlueprintCard( { blueprint, onSelect }: { blueprint: Blueprint; onSelect: () => void } ) {
 	const { __ } = useI18n();
 
-	const handlePlaygroundLink = () => {
+	const handlePlaygroundLink = ( e: React.MouseEvent ) => {
+		e.stopPropagation();
 		getIpcApi().openURL( blueprint.playground_url );
 	};
 
@@ -52,19 +60,27 @@ function BlueprintCard( { blueprint, onSelect }: { blueprint: Blueprint; onSelec
 
 			<CardBody className="px-0">
 				<HStack spacing={ 3 } wrap alignment="left">
-					{ [ 'WordPress', 'Starter' ].map( ( category ) => (
-						<Text
-							as="span"
-							key={ category }
-							className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-sm flex items-center"
-						>
-							{ category }
-						</Text>
-					) ) }
+					{ ( blueprint.blueprint.meta?.categories || [] )
+						.filter( ( category ) => category !== 'Studio' )
+						.map( ( category ) => (
+							<Text
+								as="span"
+								key={ category }
+								className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-sm flex items-center"
+							>
+								{ category }
+							</Text>
+						) ) }
 				</HStack>
 			</CardBody>
 			<CardBody className="px-0 h-20">
-				<Text className="text-base text-gray-600" weight={ 400 } truncate numberOfLines={ 3 }>
+				<Text
+					className="text-base text-gray-600"
+					weight={ 400 }
+					truncate
+					numberOfLines={ 3 }
+					title={ blueprint.excerpt }
+				>
 					{ blueprint.excerpt }
 				</Text>
 			</CardBody>
@@ -85,6 +101,7 @@ export default function AddSiteBlueprint( {
 	isLoading,
 }: AddSiteBlueprintProps ) {
 	const { __ } = useI18n();
+	const fileRef = useRef< HTMLInputElement | null >( null );
 
 	const handleFileSelect = ( event: React.ChangeEvent< HTMLInputElement > ) => {
 		const file = event.target.files?.[ 0 ];
@@ -123,6 +140,7 @@ export default function AddSiteBlueprint( {
 				</HStack>
 				<label className="flex-shrink-0">
 					<input
+						ref={ fileRef }
 						type="file"
 						accept=".json,application/json"
 						onChange={ handleFileSelect }
@@ -131,9 +149,8 @@ export default function AddSiteBlueprint( {
 					<Button
 						variant="secondary"
 						className="flex-shrink-0 cursor-pointer"
-						onClick={ ( e ) => {
-							e.preventDefault();
-							( e.currentTarget.previousElementSibling as HTMLInputElement )?.click();
+						onClick={ () => {
+							fileRef.current?.click();
 						} }
 					>
 						{ __( 'Choose blueprint file' ) }

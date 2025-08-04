@@ -70,6 +70,22 @@ jest.mock( 'src/hooks/use-offline', () => ( {
 	useOffline: jest.fn().mockReturnValue( false ),
 } ) );
 
+jest.mock( 'src/stores/wpcom-api', () => {
+	const actual = jest.requireActual( 'src/stores/wpcom-api' ) || {};
+	return {
+		...actual,
+		useGetBlueprints: jest.fn().mockReturnValue( {
+			data: {
+				blueprints: [],
+				total: 0,
+			},
+			isLoading: false,
+			refetch: jest.fn(),
+			isUninitialized: false,
+		} ),
+	};
+} );
+
 const renderWithProvider = ( children: React.ReactElement ) => {
 	const store = createTestStore( {
 		providerConstants: {

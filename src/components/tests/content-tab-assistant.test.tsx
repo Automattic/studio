@@ -37,6 +37,11 @@ jest.mock( 'src/stores/wpcom-api', () => ( {
 		reducer: () => ( {} ),
 		middleware: () => ( next: Dispatch ) => ( action: UnknownAction ) => next( action ),
 	},
+	wpcomPublicApi: {
+		reducerPath: 'wpcomPublicApi',
+		reducer: () => ( {} ),
+		middleware: () => ( next: Dispatch ) => ( action: UnknownAction ) => next( action ),
+	},
 } ) );
 
 const runningSite = {

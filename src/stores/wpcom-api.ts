@@ -1,10 +1,10 @@
 import { createApi, TypedUseQuery } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
+import WPCOM from 'wpcom';
 import { z } from 'zod';
 import { DAY_MS } from 'common/constants';
 import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
 import type { BaseQueryFn, FetchBaseQueryError } from '@reduxjs/toolkit/query';
-import type WPCOM from 'wpcom';
 
 const welcomeMessageSchema = z.object( {
 	messages: z.array( z.string() ),
@@ -58,10 +58,19 @@ const blueprintsResponseSchema = z.object( {
 } );
 
 let wpcomClient: WPCOM | undefined;
+let publicWpcomClient: WPCOM | undefined;
 
 export const setWpcomClient = ( client: WPCOM | undefined ) => {
 	wpcomClient = client;
 };
+
+// Get or create a public WPCOM client for unauthenticated requests
+function getPublicWpcomClient(): WPCOM {
+	if ( ! publicWpcomClient ) {
+		publicWpcomClient = new WPCOM();
+	}
+	return publicWpcomClient;
+}
 
 const wpcomBaseQuery: BaseQueryFn<
 	{ path: string; apiNamespace?: string },
@@ -70,6 +79,26 @@ const wpcomBaseQuery: BaseQueryFn<
 > = async ( args ) => {
 	try {
 		const response = await wpcomClient!.req.get( args );
+		return { data: response };
+	} catch ( error ) {
+		return {
+			error: {
+				status: 500,
+				data: error,
+			},
+		};
+	}
+};
+
+// Base query for public endpoints that don't require authentication
+const wpcomPublicBaseQuery: BaseQueryFn<
+	{ path: string; apiNamespace?: string },
+	unknown,
+	FetchBaseQueryError
+> = async ( args ) => {
+	try {
+		const client = getPublicWpcomClient();
+		const response = await client.req.get( args );
 		return { data: response };
 	} catch ( error ) {
 		return {
@@ -103,7 +132,7 @@ function calculateDaysUntilQuotaReset( quotaResetDate: string ): number {
 export const wpcomApi = createApi( {
 	reducerPath: 'wpcomApi',
 	baseQuery: wpcomBaseQuery,
-	tagTypes: [ 'AssistantQuota', 'SnapshotUsage', 'Blueprints' ],
+	tagTypes: [ 'AssistantQuota', 'SnapshotUsage' ],
 	endpoints: ( builder ) => ( {
 		getWelcomeMessages: builder.query< z.infer< typeof welcomeMessageSchema >, void >( {
 			query: () => ( {
@@ -131,6 +160,15 @@ export const wpcomApi = createApi( {
 			keepUnusedDataFor: 60 * 60,
 			providesTags: [ 'SnapshotUsage' ],
 		} ),
+	} ),
+} );
+
+// Public API for endpoints that don't require authentication
+export const wpcomPublicApi = createApi( {
+	reducerPath: 'wpcomPublicApi',
+	baseQuery: wpcomPublicBaseQuery,
+	tagTypes: [ 'Blueprints' ],
+	endpoints: ( builder ) => ( {
 		getBlueprints: builder.query< z.infer< typeof blueprintsResponseSchema >, void >( {
 			query: () => ( {
 				path: '/studio-app/blueprints',
@@ -167,6 +205,5 @@ export const useGetSnapshotUsage = withWpcomClientCheck(
 	withOfflineCheck( wpcomApi.useGetSnapshotUsageQuery )
 );
 
-export const useGetBlueprints = withWpcomClientCheck(
-	withOfflineCheck( wpcomApi.useGetBlueprintsQuery )
-);
+// Blueprints use the public API and don't require authentication
+export const useGetBlueprints = withOfflineCheck( wpcomPublicApi.useGetBlueprintsQuery );

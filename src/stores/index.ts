@@ -19,7 +19,7 @@ import providerConstantsReducer, {
 	setProviderConstants,
 } from 'src/stores/provider-constants-slice';
 import { reducer as snapshotReducer, updateSnapshotLocally } from 'src/stores/snapshot-slice';
-import { wpcomApi } from 'src/stores/wpcom-api';
+import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from 'common/lib/locale';
 
@@ -33,6 +33,7 @@ export type RootState = {
 	snapshot: ReturnType< typeof snapshotReducer >;
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
+	wpcomPublicApi: ReturnType< typeof wpcomPublicApi.reducer >;
 	certificateTrustApi: ReturnType< typeof certificateTrustApi.reducer >;
 	i18n: ReturnType< typeof i18nReducer >;
 };
@@ -86,6 +87,7 @@ export const rootReducer = combineReducers( {
 	snapshot: snapshotReducer,
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,
+	wpcomPublicApi: wpcomPublicApi.reducer,
 	certificateTrustApi: certificateTrustApi.reducer,
 	i18n: i18nReducer,
 } );
@@ -99,6 +101,7 @@ export const store = configureStore( {
 			.concat( installedAppsApi.middleware )
 			.concat( wordpressVersionsApi.middleware )
 			.concat( wpcomApi.middleware )
+			.concat( wpcomPublicApi.middleware )
 			.concat( certificateTrustApi.middleware ),
 } );
 

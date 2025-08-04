@@ -8,9 +8,10 @@ import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useGetBlueprints } from 'src/stores/wpcom-api';
-import AddSiteBlueprintSelector from './components/add-site-blueprints';
 import AddSiteLegacy from './components/add-site-legacy';
-import AddSiteOptions from './components/add-site-options';
+import AddSiteBlueprintSelector from './components/blueprints';
+import AddSiteOptions from './components/options';
+import StepperWrapper from './components/stepper';
 
 interface AddSiteProps {
 	className?: string;
@@ -43,16 +44,17 @@ function NavigationContent( { blueprintsData, isLoadingBlueprints }: NavigationC
 
 	return (
 		<>
-			<Navigator.Screen path="/">
+			<Navigator.Screen className="flex-1" path="/">
 				<AddSiteOptions onOptionSelect={ handleOptionSelect } />
 			</Navigator.Screen>
-			<Navigator.Screen path="/blueprint">
+			<Navigator.Screen className="flex-1" path="/blueprint">
 				<AddSiteBlueprintSelector
 					onSelectBlueprint={ handleBlueprintSelect }
 					blueprints={ blueprintsData?.blueprints || [] }
 					isLoading={ isLoadingBlueprints }
 				/>
 			</Navigator.Screen>
+			<StepperWrapper />
 		</>
 	);
 }
@@ -61,7 +63,12 @@ export default function AddSite( { className }: AddSiteProps ) {
 	const { __ } = useI18n();
 	const { enableBlueprints } = useFeatureFlags();
 	const [ showModal, setShowModal ] = useState( false );
-	const { data: blueprintsData, isLoading: isLoadingBlueprints, refetch } = useGetBlueprints();
+	const {
+		data: blueprintsData,
+		isLoading: isLoadingBlueprints,
+		refetch,
+		isUninitialized,
+	} = useGetBlueprints();
 
 	const { importState } = useImportExport();
 	const { sites } = useAddSite();
@@ -71,9 +78,11 @@ export default function AddSite( { className }: AddSiteProps ) {
 	);
 
 	const openModal = useCallback( () => {
-		void refetch();
+		if ( ! isUninitialized ) {
+			void refetch();
+		}
 		setShowModal( true );
-	}, [ refetch ] );
+	}, [ refetch, isUninitialized ] );
 
 	const closeModal = useCallback( () => {
 		setShowModal( false );
@@ -99,7 +108,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 	return (
 		<>
 			<FullscreenModal isOpen={ showModal } onClose={ closeModal }>
-				<Navigator className="w-full" initialPath="/">
+				<Navigator className="w-full h-full" initialPath="/">
 					<NavigationContent
 						blueprintsData={ blueprintsData }
 						isLoadingBlueprints={ isLoadingBlueprints }

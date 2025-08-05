@@ -57,6 +57,7 @@ function NavigationContent( props: NavigationContentProps ) {
 	const { __ } = useI18n();
 	const { goTo, location } = useNavigator();
 	const { blueprintsData, isLoadingBlueprints, ...createSiteProps } = props;
+	const [ selectedBlueprint, setSelectedBlueprint ] = useState< string | null >( null );
 
 	const handleOptionSelect = useCallback(
 		( option: 'create' | 'blueprint' | 'backup' ) => {
@@ -78,6 +79,12 @@ function NavigationContent( props: NavigationContentProps ) {
 		},
 		[ goTo ]
 	);
+
+	const handleBlueprintContinue = useCallback( () => {
+		if ( selectedBlueprint ) {
+			handleBlueprintSelect( selectedBlueprint );
+		}
+	}, [ selectedBlueprint, handleBlueprintSelect ] );
 
 	const blueprints = useMemo(
 		() => blueprintsData.blueprints.slice().reverse() || [],
@@ -106,9 +113,10 @@ function NavigationContent( props: NavigationContentProps ) {
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint">
 				<AddSiteBlueprintSelector
-					onSelectBlueprint={ handleBlueprintSelect }
 					blueprints={ blueprints }
 					isLoading={ isLoadingBlueprints }
+					selectedBlueprint={ selectedBlueprint }
+					onBlueprintChange={ setSelectedBlueprint }
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/create">
@@ -120,8 +128,12 @@ function NavigationContent( props: NavigationContentProps ) {
 			<Stepper
 				currentPath={ location.path }
 				onBack={ handleBack }
-				onSubmit={ () => createSiteProps.handleSubmit( { preventDefault: () => {} } as FormEvent ) }
-				canSubmit={ !! canSubmit }
+				onSubmit={
+					location.path === '/blueprint'
+						? handleBlueprintContinue
+						: () => createSiteProps.handleSubmit( { preventDefault: () => {} } as FormEvent )
+				}
+				canSubmit={ location.path === '/blueprint' ? !! selectedBlueprint : !! canSubmit }
 			/>
 		</>
 	);

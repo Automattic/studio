@@ -11,6 +11,10 @@ interface StepperStep {
 interface StepperContext {
 	steps: StepperStep[];
 	isVisible: boolean;
+	actionButton?: {
+		label: string;
+		isVisible: boolean;
+	};
 }
 
 export function useStepper(): StepperContext {
@@ -73,8 +77,32 @@ export function useStepper(): StepperContext {
 	// Only show stepper when we're in a multi-step flow
 	const isVisible = stepperConfig !== null && location.path !== '/';
 
+	// Determine action button configuration based on current path
+	const actionButton = useMemo( () => {
+		if ( ! location.path || location.path === '/' ) {
+			return undefined;
+		}
+
+		switch ( location.path ) {
+			case '/blueprint':
+				return {
+					label: __( 'Continue' ),
+					isVisible: true,
+				};
+			case '/create':
+			case '/blueprint/create':
+				return {
+					label: __( 'Add site' ),
+					isVisible: true,
+				};
+			default:
+				return undefined;
+		}
+	}, [ location.path, __ ] );
+
 	return {
 		steps,
 		isVisible,
+		actionButton,
 	};
 }

@@ -17,13 +17,11 @@ interface StepperProps {
 
 export default function Stepper( { currentPath, onBack, onSubmit, canSubmit }: StepperProps ) {
 	const { __ } = useI18n();
-	const { steps, isVisible } = useStepper();
+	const { steps, isVisible, actionButton } = useStepper();
 
 	if ( ! isVisible ) {
 		return null;
 	}
-
-	const isOnCreatePath = currentPath === '/create' || currentPath === '/blueprint/create';
 
 	return (
 		<div className="flex justify-between items-center p-6">
@@ -51,9 +49,9 @@ export default function Stepper( { currentPath, onBack, onSubmit, canSubmit }: S
 						{ __( 'Back' ) }
 					</Button>
 				) }
-				{ isOnCreatePath && onSubmit && (
+				{ actionButton?.isVisible && onSubmit && (
 					<Button variant="primary" onClick={ onSubmit } disabled={ ! canSubmit }>
-						{ __( 'Add site' ) }
+						{ actionButton.label }
 					</Button>
 				) }
 			</div>

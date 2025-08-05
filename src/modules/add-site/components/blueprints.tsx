@@ -13,8 +13,9 @@ import {
 } from '@wordpress/components';
 import { Icon, info, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import StudioButton from 'src/components/button';
+import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface Blueprint {
@@ -33,12 +34,21 @@ interface Blueprint {
 }
 
 interface AddSiteBlueprintProps {
-	onSelectBlueprint: ( blueprintId: string ) => void;
 	blueprints: Blueprint[];
 	isLoading: boolean;
+	selectedBlueprint?: string | null;
+	onBlueprintChange?: ( blueprintId: string | null ) => void;
 }
 
-function BlueprintCard( { blueprint, onSelect }: { blueprint: Blueprint; onSelect: () => void } ) {
+function BlueprintCard( {
+	blueprint,
+	onSelect,
+	isSelected,
+}: {
+	blueprint: Blueprint;
+	onSelect: () => void;
+	isSelected: boolean;
+} ) {
 	const { __ } = useI18n();
 
 	const handlePlaygroundLink = ( e: React.MouseEvent ) => {
@@ -47,9 +57,28 @@ function BlueprintCard( { blueprint, onSelect }: { blueprint: Blueprint; onSelec
 	};
 
 	return (
-		<Card isBorderless onClick={ onSelect } size="xSmall" className="cursor-pointer">
-			<CardMedia>
-				<img src={ blueprint.image } alt={ blueprint.title } className="object-contain" />
+		<Card
+			isBorderless
+			size="xSmall"
+			className="relative"
+		>
+			<CardMedia 
+				className={ cx(
+					"overflow-hidden cursor-pointer transition-all duration-150 rounded-lg group",
+					"hover:shadow-md hover:outline hover:outline-2 hover:outline-blue-500",
+					isSelected && "outline outline-2 outline-blue-500 shadow-md"
+				) }
+				onClick={ onSelect }
+			>
+				<img
+					src={ blueprint.image }
+					alt={ blueprint.title }
+					className={ cx(
+						"object-contain transition-transform duration-150",
+						"group-hover:scale-105",
+						isSelected && "scale-105"
+					) }
+				/>
 			</CardMedia>
 
 			<CardHeader className="px-0">
@@ -96,12 +125,20 @@ function BlueprintCard( { blueprint, onSelect }: { blueprint: Blueprint; onSelec
 }
 
 export default function AddSiteBlueprint( {
-	onSelectBlueprint,
 	blueprints,
 	isLoading,
+	selectedBlueprint: externalSelectedBlueprint,
+	onBlueprintChange,
 }: AddSiteBlueprintProps ) {
 	const { __ } = useI18n();
 	const fileRef = useRef< HTMLInputElement | null >( null );
+	const [ internalSelectedBlueprint, setInternalSelectedBlueprint ] = useState< string | null >(
+		null
+	);
+
+	const selectedBlueprint =
+		externalSelectedBlueprint !== undefined ? externalSelectedBlueprint : internalSelectedBlueprint;
+	const setSelectedBlueprint = onBlueprintChange || setInternalSelectedBlueprint;
 
 	const handleFileSelect = ( event: React.ChangeEvent< HTMLInputElement > ) => {
 		const file = event.target.files?.[ 0 ];
@@ -121,7 +158,7 @@ export default function AddSiteBlueprint( {
 	}
 
 	return (
-		<VStack className="w-full max-w-6xl mx-auto" spacing={ 6 }>
+		<VStack className="w-full max-w-6xl mx-auto p-2" spacing={ 6 }>
 			<Heading className="text-center text-4xl">{ __( 'Start from a blueprint' ) }</Heading>
 
 			<HStack spacing={ 2 } alignment="edge" className="w-full pr-1">
@@ -158,12 +195,13 @@ export default function AddSiteBlueprint( {
 				</label>
 			</HStack>
 
-			<div className="grid grid-cols-3 gap-6 items-stretch">
+			<div className="grid grid-cols-3 gap-6 items-stretch p-2">
 				{ blueprints.map( ( blueprint ) => (
 					<div key={ blueprint.slug } className="h-full">
 						<BlueprintCard
 							blueprint={ blueprint }
-							onSelect={ () => onSelectBlueprint( blueprint.slug ) }
+							onSelect={ () => setSelectedBlueprint( blueprint.slug ) }
+							isSelected={ selectedBlueprint === blueprint.slug }
 						/>
 					</div>
 				) ) }

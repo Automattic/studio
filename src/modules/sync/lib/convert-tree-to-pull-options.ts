@@ -14,17 +14,27 @@ const collectPathIds = ( nodes: TreeNode[], pathIds: string[] = [] ): string[] =
 	return pathIds;
 };
 
-export const convertTreeToPullOptions = ( tree: TreeNode[] ): PullSiteOptions => {
-	const isDatabaseSelected = tree.find( ( node ) => node.id === SYNC_OPTIONS.sqls )?.checked;
+export const convertTreeToPullOptions = ( tree: TreeNode[], rewindId: string ): PullSiteOptions => {
+	const isDatabaseSelected = tree.find( ( node ) => node.id === SYNC_OPTIONS.sqls );
 	const filesAndFolders = tree.find( ( node ) => node.id === 'filesAndFolders' );
-	if ( ! filesAndFolders ) {
-		return isDatabaseSelected ? { optionsToSync: [ SYNC_OPTIONS.sqls ] } : { optionsToSync: [] };
+	if ( ! filesAndFolders || ! isDatabaseSelected ) {
+		throw new Error(
+			'Error when converting tree to pull options. Database or files and folders not found'
+		);
 	}
+
+	if ( isDatabaseSelected.checked && filesAndFolders.checked ) {
+		return {
+			optionsToSync: [ SYNC_OPTIONS.all ],
+		};
+	}
+
 	const wpContent = filesAndFolders.children?.find( ( node ) => node.id === 'wp-content' );
 	const pathIds = collectPathIds( wpContent?.children ?? [] );
 
 	const pullOptions: PullSiteOptions = {
 		optionsToSync: pathIds.length > 0 ? [ SYNC_OPTIONS.paths ] : [],
+		rewindId,
 	};
 
 	if ( pathIds.length > 0 ) {

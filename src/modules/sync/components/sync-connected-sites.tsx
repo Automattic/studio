@@ -156,12 +156,12 @@ const SyncConnectedSiteControls = ( {
 						localSite={ selectedSite }
 						remoteSite={ connectedSite }
 						onPush={ ( tree ) => {
-							const syncOptions = convertTreeToOptionsToSync( tree );
-							void pushSite( connectedSite, selectedSite, syncOptions );
+							const pushOptions = convertTreeToOptionsToSync( tree );
+							void pushSite( connectedSite, selectedSite, pushOptions );
 						} }
 						onPull={ ( tree, rewindId ) => {
-							const pullOptions = convertTreeToPullOptions( tree );
-							pullSite( connectedSite, selectedSite, { ...pullOptions, rewindId } );
+							const pullOptions = convertTreeToPullOptions( tree, rewindId );
+							pullSite( connectedSite, selectedSite, pullOptions );
 						} }
 						onRequestClose={ () => setSyncDialogType( null ) }
 					/>

@@ -516,7 +516,50 @@ describe( 'ContentTabSync', () => {
 		fireEvent.click( dialogPullButton[ 1 ] );
 
 		expect( mockPullSite ).toHaveBeenCalledWith( fakeSyncSite, selectedSite, {
-			options: [ 'sqls' ],
+			optionsToSync: [ 'all' ],
+		} );
+	} );
+
+	it( 'calls pullSite with correct optionsToSync when only database is selected', async () => {
+		const mockPullSite = jest.fn();
+		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+		const fakeSyncSite = {
+			id: 6,
+			name: 'My simple business site that needs a transfer',
+			url: 'https:/developer.wordpress.com/studio/',
+			syncSupport: 'already-connected',
+		};
+		( useSyncSites as jest.Mock ).mockReturnValue( {
+			connectedSites: [ fakeSyncSite ],
+			syncSites: [ fakeSyncSite ],
+			pullSite: mockPullSite,
+			isAnySitePulling: false,
+			isAnySitePushing: false,
+			getPullState: jest.fn(),
+			getPushState: jest.fn(),
+			refetchSites: jest.fn(),
+			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
+			isSiteIdPulling: jest.fn(),
+			isSiteIdPushing: jest.fn(),
+			clearTimeout: jest.fn(),
+		} );
+
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+		const pullButton = screen.getByRole( 'button', { name: /Pull/i } );
+		expect( pullButton ).toBeInTheDocument();
+		fireEvent.click( pullButton );
+
+		await screen.findByText( 'Pull from Production' );
+
+		const databaseCheckbox = screen.getByRole( 'checkbox', { name: 'Database' } );
+		fireEvent.click( databaseCheckbox );
+
+		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } );
+		fireEvent.click( dialogPullButton[ 1 ] );
+
+		expect( mockPullSite ).toHaveBeenCalledWith( fakeSyncSite, selectedSite, {
+			optionsToSync: [ 'sqls' ],
 			rewindId: '1704067200',
 		} );
 	} );
@@ -570,7 +613,7 @@ describe( 'ContentTabSync', () => {
 		fireEvent.click( dialogPullButton[ 1 ] );
 
 		expect( mockPullSite ).toHaveBeenCalledWith( fakeSyncSite, selectedSite, {
-			options: [ 'sqls' ],
+			optionsToSync: [ 'sqls' ],
 			rewindId: '1704067200',
 		} );
 	} );

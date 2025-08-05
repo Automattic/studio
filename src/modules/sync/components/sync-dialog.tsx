@@ -41,7 +41,7 @@ const useDynamicTreeState = (
 	const wpFolders = useMemo( () => [ ...GRANULAR_SYNC_FOLDERS ], [] );
 	const wpContent = useContentFolders( localSiteId, wpFolders );
 	const { rewindId, isLoading: isLoadingRewindId } = useLatestRewindId( remoteSiteId );
-	const { fetchChildren, error: treeError } = useRemoteFileTree();
+	const { fetchChildren } = useRemoteFileTree();
 
 	// Pre-check all options when there's no rewind ID
 	useEffect( () => {
@@ -55,11 +55,12 @@ const useDynamicTreeState = (
 
 	useEffect( () => {
 		if ( type === 'pull' && remoteSiteId ) {
+			let isCancelled = false;
 			const loadRemoteTree = async () => {
 				try {
 					if ( rewindId ) {
 						const remoteTree = await fetchChildren( remoteSiteId, rewindId, '/wp-content/', false );
-						if ( remoteTree ) {
+						if ( remoteTree && ! isCancelled ) {
 							setTreeState( ( treeState ) =>
 								updateNodeById( treeState, 'wp-content', { children: remoteTree } )
 							);
@@ -70,7 +71,9 @@ const useDynamicTreeState = (
 				}
 			};
 			void loadRemoteTree();
-			return;
+			return () => {
+				isCancelled = true;
+			};
 		}
 
 		if ( type === 'push' ) {
@@ -100,7 +103,7 @@ const useDynamicTreeState = (
 		}
 	}, [ type, wpContent, setTreeState, wpFolders, remoteSiteId, rewindId, fetchChildren ] );
 
-	return { rewindId, treeError, fetchChildren, isLoadingRewindId };
+	return { rewindId, fetchChildren, isLoadingRewindId };
 };
 
 export function SyncDialog( {
@@ -277,7 +280,7 @@ export function SyncDialog( {
 											<Button
 												variant="link"
 												className="p-0 h-auto text-xs"
-												onClick={ () => getIpcApi().openURL( pullBackupInformation!.backupUrl ) }
+												onClick={ () => getIpcApi().openURL( pullBackupInformation.backupUrl ) }
 											>
 												{ __( 'Create fresh backup now ↗' ) }
 											</Button>

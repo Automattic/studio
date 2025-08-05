@@ -57,16 +57,12 @@ function BlueprintCard( {
 	};
 
 	return (
-		<Card
-			isBorderless
-			size="xSmall"
-			className="relative"
-		>
-			<CardMedia 
+		<Card isBorderless size="xSmall" className="relative">
+			<CardMedia
 				className={ cx(
-					"overflow-hidden cursor-pointer transition-all duration-150 rounded-lg group",
-					"hover:shadow-md hover:outline hover:outline-2 hover:outline-blue-500",
-					isSelected && "outline outline-2 outline-blue-500 shadow-md"
+					'overflow-hidden cursor-pointer transition-all duration-150 rounded-lg group',
+					'hover:shadow-md hover:outline hover:outline-2 hover:outline-blue-500',
+					isSelected && 'outline outline-2 outline-blue-500 shadow-md'
 				) }
 				onClick={ onSelect }
 			>
@@ -74,9 +70,9 @@ function BlueprintCard( {
 					src={ blueprint.image }
 					alt={ blueprint.title }
 					className={ cx(
-						"object-contain transition-transform duration-150",
-						"group-hover:scale-105",
-						isSelected && "scale-105"
+						'object-contain transition-transform duration-150',
+						'group-hover:scale-105',
+						isSelected && 'scale-105'
 					) }
 				/>
 			</CardMedia>

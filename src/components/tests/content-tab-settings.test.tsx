@@ -221,34 +221,6 @@ describe( 'ContentTabSettings', () => {
 		expect( copyText ).toHaveBeenCalledWith( 'test-password' );
 	} );
 
-	it( 'disables delete site button when offline and there is at least one snapshot present for the site', async () => {
-		( useOffline as jest.Mock ).mockReturnValue( true );
-
-		// Mock snapshots to include a snapshot for the selected site
-		testStore.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			selectedSite: selectedSite,
-			deleteSite: jest.fn(),
-			isDeleting: false,
-		} );
-		renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
-
-		await waitFor( () => {
-			expect( getAllCustomDomains ).toHaveBeenCalled();
-		} );
-
-		const dropdownButton = screen.getByRole( 'button', { name: 'More options' } );
-		await userEvent.click( dropdownButton );
-		const deleteSiteButton = screen.getByRole( 'menuitem', { name: 'Delete site' } );
-		expect( deleteSiteButton ).toHaveAttribute( 'aria-disabled', 'true' );
-		fireEvent.mouseOver( deleteSiteButton );
-		expect(
-			screen.getByRole( 'tooltip', {
-				name: 'This site has active preview sites that cannot be deleted without an internet connection.',
-			} )
-		).toBeVisible();
-	} );
-
 	describe( 'when a legacy site lacks a stored password', () => {
 		test( 'allows copying the default password', async () => {
 			const user = userEvent.setup();

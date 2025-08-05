@@ -10,6 +10,7 @@ import {
 	useState,
 } from 'react';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
+import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { sortSites } from 'src/lib/sort-sites';
 import { useAppDispatch } from 'src/stores';
@@ -91,6 +92,7 @@ function useSelectedSite( firstSiteId: string | null ) {
 function useDeleteSite() {
 	const [ isLoading, setIsLoading ] = useState< Record< string, boolean > >( {} );
 	const dispatch = useAppDispatch();
+	const isOffline = useOffline();
 
 	const deleteSite = useCallback(
 		async ( siteId: string, removeLocal: boolean ): Promise< void > => {
@@ -98,15 +100,18 @@ function useDeleteSite() {
 				return;
 			}
 
-			const allSiteRemovePromises = dispatch(
-				snapshotThunks.deleteAllSnapshotsForSite( { siteId } )
-			);
+			const allSiteRemovePromises = isOffline
+				? Promise.resolve()
+				: dispatch( snapshotThunks.deleteAllSnapshotsForSite( { siteId } ) );
 
 			try {
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: true } ) );
 
 				await getIpcApi().deleteSite( siteId, removeLocal );
-				await allSiteRemovePromises;
+
+				if ( ! isOffline ) {
+					await allSiteRemovePromises;
+				}
 
 				// After site is deleted successfully, clean up wpcom connections
 				try {
@@ -131,7 +136,7 @@ function useDeleteSite() {
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: false } ) );
 			}
 		},
-		[ dispatch ]
+		[ dispatch, isOffline ]
 	);
 	return { deleteSite, isLoading };
 }

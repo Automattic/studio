@@ -1,5 +1,7 @@
 import { net } from 'electron';
 import nodePath from 'path';
+import { SupportedPHPVersions } from '@php-wasm/universal';
+import { RecommendedPHPVersion } from '@wp-playground/common';
 import fs from 'fs-extra';
 import { recursiveCopyDirectory, pathExists } from 'src/lib/fs-utils';
 import { installSqliteIntegration } from 'src/lib/sqlite-versions';
@@ -28,10 +30,9 @@ export const PLAYGROUND_CLI_PROVIDER_NAME = 'playground-cli';
 export class PlaygroundCliProvider implements WordPressProvider {
 	readonly PROVIDER_TYPE = PLAYGROUND_CLI_PROVIDER_NAME;
 
-	// Constants
-	static readonly DEFAULT_PHP_VERSION = '8.3';
-	static readonly DEFAULT_WORDPRESS_VERSION = '6.6';
-	static readonly ALLOWED_PHP_VERSIONS = [ '7.4', '8.0', '8.1', '8.2', '8.3' ];
+	static readonly DEFAULT_PHP_VERSION = RecommendedPHPVersion;
+	static readonly DEFAULT_WORDPRESS_VERSION = 'latest';
+	static readonly ALLOWED_PHP_VERSIONS = [ ...SupportedPHPVersions ];
 	static readonly SQLITE_FILENAME = 'sqlite-database-integration';
 	static readonly SQLITE_FILENAME_LEGACY = 'sqlite-database-integration-main';
 
@@ -104,9 +105,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	}
 
 	async setupWordPressSite( server: SiteServer, wpVersion = 'latest' ): Promise< boolean > {
-		console.log(
-			'[playground-cli] Setting up WordPress site by starting server with WordPress setup'
-		);
 		const { path, port, adminPassword, name, phpVersion } = server.details;
 
 		try {
@@ -137,7 +135,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 
 				try {
 					await recursiveCopyDirectory( bundledWPPath, path );
-					console.log( '[playground-cli] Successfully copied bundled WordPress files' );
 				} catch ( error ) {
 					throw new Error(
 						'Failed to copy WordPress files for offline setup. Please check directory permissions.'
@@ -148,7 +145,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			// Ensure SQLite integration is installed before starting the server
 			const wpConfigPath = path + '/wp-config.php';
 			if ( ! ( await fs.pathExists( wpConfigPath ) ) ) {
-				console.log( '[playground-cli] Installing SQLite integration for new site' );
 				await installSqliteIntegration( path );
 			}
 
@@ -165,16 +161,9 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				isSetupMode: needsSetup,
 			} );
 
-			console.log(
-				`[playground-cli] Server instance wordPressVersion: ${ serverInstance.options.wordPressVersion }`
-			);
-
 			const serverProcess = this.createServerProcess( serverInstance );
-			console.log( '[playground-cli] Starting server for WordPress setup...' );
 			await serverProcess.start();
-			console.log( '[playground-cli] Server started successfully' );
 			await serverProcess.stop();
-			console.log( '[playground-cli] WordPress site setup completed successfully' );
 			return true;
 		} catch ( error ) {
 			console.error( 'Failed to setup WordPress site:', error );

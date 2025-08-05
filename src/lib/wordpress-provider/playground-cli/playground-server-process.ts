@@ -23,7 +23,6 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 
 	async start(): Promise< void > {
 		if ( this.process ) {
-			console.log( '[playground-cli] Server process is already running, skipping start' );
 			return;
 		}
 
@@ -49,8 +48,6 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 				} else {
 					handler.resolve( msg.result );
 				}
-			} else {
-				console.log( '[playground-cli] Received message with unknown ID or no handler:', msg.id );
 			}
 		} );
 
@@ -95,7 +92,6 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 			await this.sendMessage( 'stop-server', {} );
 		} catch ( error ) {
 			// Process might have already exited
-			console.error( 'Error stopping server:', error );
 		}
 
 		// Force kill if still running

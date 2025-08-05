@@ -14,6 +14,23 @@ interface Message {
 	};
 }
 
+// Intercept and prefix all console output from playground-cli
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+
+console.log = ( ...args: any[] ) => {
+	originalConsoleLog( '[playground-cli]', ...args );
+};
+
+console.error = ( ...args: any[] ) => {
+	originalConsoleError( '[playground-cli]', ...args );
+};
+
+console.warn = ( ...args: any[] ) => {
+	originalConsoleWarn( '[playground-cli]', ...args );
+};
+
 let server: RunCLIServer | null = null;
 
 process.parentPort.on( 'message', async ( event ) => {
@@ -86,11 +103,9 @@ async function setSiteOptions(
 		echo "Site options updated successfully";
 	?>`;
 
-	const response = await server.playground.run( {
+	await server.playground.run( {
 		code: phpCode,
 	} );
-
-	console.log( '[playground-cli-child] Site options PHP result:', response.text );
 }
 
 async function startServer(
@@ -98,7 +113,6 @@ async function startServer(
 	serverOptions: WordPressServerOptions
 ): Promise< void > {
 	if ( server ) {
-		console.log( '[playground-cli-child] Server is already running, skipping start' );
 		return;
 	}
 
@@ -121,7 +135,7 @@ async function startServer(
 		];
 
 		const args: RunCLIArgs = {
-			command: 'run-blueprint',
+			command: 'server',
 			internalCookieStore: true,
 			followSymlinks: true,
 			skipSqliteSetup: true,
@@ -131,7 +145,6 @@ async function startServer(
 		};
 
 		if ( ! options.isSetupMode ) {
-			args.command = 'server';
 			args.skipWordPressSetup = true;
 		}
 
@@ -146,11 +159,7 @@ async function startServer(
 		server = await runCLI( args );
 
 		if ( serverOptions.siteTitle || serverOptions.adminPassword ) {
-			try {
-				await setSiteOptions( server, serverOptions );
-			} catch ( error ) {
-				console.warn( '[playground-cli-child] Failed to set site options via PHP:', error );
-			}
+			await setSiteOptions( server, serverOptions );
 		}
 	} catch ( error ) {
 		server = null;

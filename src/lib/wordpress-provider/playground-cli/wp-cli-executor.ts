@@ -1,8 +1,17 @@
 import { readFileSync } from 'fs';
 import nodePath from 'path';
+import { rootCertificates } from 'tls';
 import { loadNodeRuntime, createNodeFsMountHandler } from '@php-wasm/node';
-import { PHP, MountHandler, SupportedPHPVersion } from '@php-wasm/universal';
+import {
+	PHP,
+	MountHandler,
+	SupportedPHPVersion,
+	writeFiles,
+	setPhpIniEntries,
+} from '@php-wasm/universal';
 import { pathExists } from 'src/lib/fs-utils';
+
+const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';
 
 /**
  * Execute WP-CLI commands with pre-resolved paths
@@ -17,8 +26,6 @@ export async function executeWPCli(
 		sqliteCommandPath: string;
 	}
 ): Promise< { stdout: string; stderr: string; exitCode: number } > {
-	console.log( '[playground-cli] Executing WP-CLI:', args.join( ' ' ) );
-
 	const phpVersion = options.phpVersion || '8.3';
 
 	// Create a fresh PHP instance (similar to wp-now's approach)
@@ -62,6 +69,17 @@ export async function executeWPCli(
 
 		// Create minimal MU plugins for CLI mode
 		await mountCleanMuPlugins( php );
+
+		// Create CA bundle certificate file for SSL verification (following wp-now approach)
+		php.mkdir( PLAYGROUND_INTERNAL_SHARED_FOLDER );
+		const caBundlePath = nodePath.posix.join( PLAYGROUND_INTERNAL_SHARED_FOLDER, 'ca-bundle.crt' );
+		await writeFiles( php, '/', {
+			[ caBundlePath ]: rootCertificates.join( '\n' ),
+		} );
+
+		await setPhpIniEntries( php, {
+			'openssl.cafile': caBundlePath,
+		} );
 
 		// Execute WP-CLI command
 		return await executeWPCliInPHP( php, args, '/wordpress' );

@@ -2,7 +2,7 @@ import { SYNC_OPTIONS } from 'src/constants';
 import type { TreeNode } from 'src/components/tree-view';
 import type { SyncOption } from 'src/types';
 
-type SyncOptionsWithSelections = {
+type PushOptionsWithSelections = {
 	optionsToSync: SyncOption[];
 	specificSelections?: {
 		plugins?: string[];
@@ -15,9 +15,9 @@ const isSyncOption = ( value: string ): value is SyncOption => {
 	return Object.keys( SYNC_OPTIONS ).includes( value );
 };
 
-export const convertTreeToOptionsToSync = ( tree: TreeNode[] ): SyncOptionsWithSelections => {
+export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSelections => {
 	const optionsToSync: SyncOption[] = [];
-	let specificSelections: SyncOptionsWithSelections[ 'specificSelections' ] = undefined;
+	let specificSelections: PushOptionsWithSelections[ 'specificSelections' ] = undefined;
 
 	const isAll = tree.every( ( node ) => node.checked );
 	if ( isAll ) {

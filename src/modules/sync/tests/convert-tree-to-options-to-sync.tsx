@@ -1,16 +1,16 @@
 import { renderHook } from '@testing-library/react';
 import { updateNodeById } from 'src/components/tree-view';
 import { useDefaultSyncTree } from 'src/modules/sync/hooks/use-default-sync-tree';
-import { convertTreeToOptionsToSync } from 'src/modules/sync/lib/convert-tree-to-options-to-sync';
+import { convertTreeToPushOptions } from 'src/modules/sync/lib/convert-tree-to-push-options';
 
-describe( 'convertTreeToOptionsToSync', () => {
+describe( 'convertTreeToPushOptions', () => {
 	it( 'returns ["all"] when all options are selected', () => {
 		const { result } = renderHook( () => useDefaultSyncTree( 'push' ) );
 		let tree = result.current;
 		tree = updateNodeById( tree, 'filesAndFolders', { checked: true } );
 		tree = updateNodeById( tree, 'sqls', { checked: true } );
 
-		const optionsToSync = convertTreeToOptionsToSync( tree );
+		const optionsToSync = convertTreeToPushOptions( tree );
 		expect( optionsToSync ).toEqual( { optionsToSync: [ 'all' ], specificSelections: undefined } );
 	} );
 
@@ -20,7 +20,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 
 		tree = updateNodeById( tree, 'sqls', { checked: true } );
 
-		const optionsToSync = convertTreeToOptionsToSync( tree );
+		const optionsToSync = convertTreeToPushOptions( tree );
 		expect( optionsToSync ).toEqual( { optionsToSync: [ 'sqls' ], specificSelections: undefined } );
 	} );
 
@@ -32,7 +32,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 		tree = updateNodeById( tree, 'sqls', { checked: false } );
 		tree = updateNodeById( tree, 'plugins', { checked: true } );
 
-		const optionsToSync = convertTreeToOptionsToSync( tree );
+		const optionsToSync = convertTreeToPushOptions( tree );
 		expect( optionsToSync ).toEqual( {
 			optionsToSync: [ 'plugins' ],
 			specificSelections: undefined,
@@ -47,7 +47,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 		tree = updateNodeById( tree, 'sqls', { checked: false } );
 		tree = updateNodeById( tree, 'uploads', { checked: true } );
 
-		const optionsToSync = convertTreeToOptionsToSync( tree );
+		const optionsToSync = convertTreeToPushOptions( tree );
 		expect( optionsToSync ).toEqual( {
 			optionsToSync: [ 'uploads' ],
 			specificSelections: undefined,
@@ -61,7 +61,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 		tree = updateNodeById( tree, 'sqls', { checked: true } );
 		tree = updateNodeById( tree, 'plugins', { checked: true } );
 
-		const optionsToSync = convertTreeToOptionsToSync( tree );
+		const optionsToSync = convertTreeToPushOptions( tree );
 		expect( optionsToSync ).toEqual( {
 			optionsToSync: [ 'sqls', 'plugins' ],
 			specificSelections: undefined,
@@ -95,7 +95,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 				}
 			}
 
-			const optionsToSync = convertTreeToOptionsToSync( tree );
+			const optionsToSync = convertTreeToPushOptions( tree );
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'plugins' ],
 				specificSelections: {
@@ -131,7 +131,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 				}
 			}
 
-			const optionsToSync = convertTreeToOptionsToSync( tree );
+			const optionsToSync = convertTreeToPushOptions( tree );
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'themes' ],
 				specificSelections: {
@@ -166,7 +166,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 				}
 			}
 
-			const optionsToSync = convertTreeToOptionsToSync( tree );
+			const optionsToSync = convertTreeToPushOptions( tree );
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'uploads' ],
 				specificSelections: {
@@ -210,7 +210,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 				}
 			}
 
-			const optionsToSync = convertTreeToOptionsToSync( tree );
+			const optionsToSync = convertTreeToPushOptions( tree );
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'plugins', 'themes' ],
 				specificSelections: {
@@ -244,7 +244,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 				}
 			}
 
-			const optionsToSync = convertTreeToOptionsToSync( tree );
+			const optionsToSync = convertTreeToPushOptions( tree );
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'plugins' ],
 				specificSelections: undefined,
@@ -275,7 +275,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 				}
 			}
 
-			const optionsToSync = convertTreeToOptionsToSync( tree );
+			const optionsToSync = convertTreeToPushOptions( tree );
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [],
 				specificSelections: undefined,
@@ -303,7 +303,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 				}
 			}
 
-			const optionsToSync = convertTreeToOptionsToSync( tree );
+			const optionsToSync = convertTreeToPushOptions( tree );
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'sqls', 'plugins' ],
 				specificSelections: {
@@ -338,7 +338,7 @@ describe( 'convertTreeToOptionsToSync', () => {
 			],
 		} );
 
-		const optionsToSync = convertTreeToOptionsToSync( tree );
+		const optionsToSync = convertTreeToPushOptions( tree );
 		expect( optionsToSync ).toEqual( {
 			optionsToSync: [ 'sqls', 'plugins' ],
 			specificSelections: {

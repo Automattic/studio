@@ -9,7 +9,7 @@ import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ContentTabSync } from 'src/modules/sync';
 import { store } from 'src/stores';
-import { useLatestRewindId } from 'src/stores/sync';
+import { useLatestRewindId, useRemoteFileTree } from 'src/stores/sync';
 
 jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/lib/get-ipc-api' );
@@ -21,6 +21,11 @@ jest.mock( 'src/hooks/sync-sites/sync-sites-context', () => ( {
 jest.mock( 'src/stores/sync', () => ( {
 	...jest.requireActual( 'src/stores/sync' ),
 	useLatestRewindId: jest.fn(),
+	useRemoteFileTree: jest.fn().mockReturnValue( {
+		fetchChildren: jest.fn().mockResolvedValue( [] ),
+		error: null,
+		isLoading: false,
+	} ),
 } ) );
 
 const createAuthMock = ( isAuthenticated: boolean = false ) => ( {
@@ -91,6 +96,36 @@ describe( 'ContentTabSync', () => {
 			rewindId: '1704067200',
 			isLoading: false,
 			error: null,
+		} );
+		( useRemoteFileTree as jest.Mock ).mockReturnValue( {
+			fetchChildren: jest.fn().mockResolvedValue( [
+				{
+					id: 'plugins',
+					name: 'plugins',
+					label: 'plugins',
+					checked: false,
+					type: 'folder',
+					pathId: 'cjI6,ZjI6Lw==',
+					path: '/wp-content/plugins/',
+					loading: false,
+					children: [],
+					expanded: false,
+				},
+				{
+					id: 'uploads',
+					name: 'uploads',
+					label: 'uploads',
+					checked: false,
+					type: 'folder',
+					pathId: 'ZjM6Lw==',
+					path: '/wp-content/uploads/',
+					loading: false,
+					children: [],
+					expanded: false,
+				},
+			] ),
+			error: null,
+			isLoading: false,
 		} );
 
 		Object.defineProperty( window, 'matchMedia', {
@@ -567,6 +602,71 @@ describe( 'ContentTabSync', () => {
 	it( 'calls pullSite with correct optionsToSync when options partially are selected', async () => {
 		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+		( useRemoteFileTree as jest.Mock ).mockReturnValue( {
+			fetchChildren: jest.fn().mockResolvedValue( [
+				{
+					id: 'mu-plugins',
+					name: 'mu-plugins',
+					label: 'mu-plugins',
+					checked: false,
+					type: 'folder',
+					pathId: 'ZjY6L211LXBsdWdpbnMv',
+					path: '/wp-content/mu-plugins/',
+					loading: false,
+					children: [],
+					expanded: false,
+				},
+				{
+					id: 'index.php',
+					name: 'index.php',
+					label: 'index.php',
+					checked: false,
+					type: 'file',
+					pathId: 'ZjY6L2luZGV4LnBocA==',
+					path: '/wp-content/index.php/',
+					loading: false,
+					expanded: false,
+				},
+				{
+					id: 'themes',
+					name: 'themes',
+					label: 'themes',
+					checked: false,
+					type: 'folder',
+					pathId: 'cjE6,ZjE6Lw==',
+					path: '/wp-content/themes/',
+					loading: false,
+					children: [],
+					expanded: false,
+				},
+				{
+					id: 'plugins',
+					name: 'plugins',
+					label: 'plugins',
+					checked: false,
+					type: 'folder',
+					pathId: 'cjI6,ZjI6Lw==',
+					path: '/wp-content/plugins/',
+					loading: false,
+					children: [],
+					expanded: false,
+				},
+				{
+					id: 'uploads',
+					name: 'uploads',
+					label: 'uploads',
+					checked: false,
+					type: 'folder',
+					pathId: 'ZjM6Lw==',
+					path: '/wp-content/uploads/',
+					loading: false,
+					children: [],
+					expanded: false,
+				},
+			] ),
+			error: null,
+			isLoading: false,
+		} );
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
@@ -613,7 +713,8 @@ describe( 'ContentTabSync', () => {
 		fireEvent.click( dialogPullButton[ 1 ] );
 
 		expect( mockPullSite ).toHaveBeenCalledWith( fakeSyncSite, selectedSite, {
-			optionsToSync: [ 'sqls' ],
+			optionsToSync: [ 'paths', 'sqls' ],
+			include_path_list: [ 'cjI6,ZjI6Lw==', 'ZjM6Lw==' ],
 			rewindId: '1704067200',
 		} );
 	} );

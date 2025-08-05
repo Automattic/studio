@@ -53,6 +53,7 @@ export const SYNC_OPTIONS = {
 	uploads: 'uploads',
 	sqls: 'sqls',
 	contents: 'contents',
+	paths: 'paths',
 } as const;
 
 // AI Assistant constants

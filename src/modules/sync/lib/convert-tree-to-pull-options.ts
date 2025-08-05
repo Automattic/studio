@@ -1,10 +1,6 @@
 import { SYNC_OPTIONS } from 'src/constants';
+import { PullSiteOptions } from 'src/hooks/sync-sites/use-sync-pull';
 import type { TreeNode } from 'src/components/tree-view';
-
-export interface PullSyncOptions {
-	options: string[];
-	include_path_list?: string[];
-}
 
 const collectPathIds = ( nodes: TreeNode[], pathIds: string[] = [] ): string[] => {
 	nodes.forEach( ( node ) => {
@@ -18,17 +14,17 @@ const collectPathIds = ( nodes: TreeNode[], pathIds: string[] = [] ): string[] =
 	return pathIds;
 };
 
-export const convertTreeToPullOptions = ( tree: TreeNode[] ): PullSyncOptions => {
+export const convertTreeToPullOptions = ( tree: TreeNode[] ): PullSiteOptions => {
 	const isDatabaseSelected = tree.find( ( node ) => node.id === SYNC_OPTIONS.sqls )?.checked;
 	const filesAndFolders = tree.find( ( node ) => node.id === 'filesAndFolders' );
 	if ( ! filesAndFolders ) {
-		return isDatabaseSelected ? { options: [ SYNC_OPTIONS.sqls ] } : { options: [] };
+		return isDatabaseSelected ? { optionsToSync: [ SYNC_OPTIONS.sqls ] } : { optionsToSync: [] };
 	}
 	const wpContent = filesAndFolders.children?.find( ( node ) => node.id === 'wp-content' );
 	const pathIds = collectPathIds( wpContent?.children ?? [] );
 
-	const pullOptions: PullSyncOptions = {
-		options: pathIds.length > 0 ? [ 'paths' ] : [],
+	const pullOptions: PullSiteOptions = {
+		optionsToSync: pathIds.length > 0 ? [ SYNC_OPTIONS.paths ] : [],
 	};
 
 	if ( pathIds.length > 0 ) {
@@ -36,7 +32,7 @@ export const convertTreeToPullOptions = ( tree: TreeNode[] ): PullSyncOptions =>
 	}
 
 	if ( isDatabaseSelected ) {
-		pullOptions.options.push( SYNC_OPTIONS.sqls );
+		pullOptions.optionsToSync.push( SYNC_OPTIONS.sqls );
 	}
 
 	return pullOptions;

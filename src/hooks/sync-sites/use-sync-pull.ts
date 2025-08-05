@@ -32,23 +32,18 @@ export type SyncBackupState = {
 	remoteSiteUrl: string;
 };
 
-type PullSiteOptions =
-	| {
-			optionsToSync?: SyncOption[];
-			rewindId?: string;
-	  }
-	| {
-			options: string[];
-			include_path_list?: string[];
-			rewindId?: string;
-	  };
+export type PullSiteOptions = {
+	optionsToSync: SyncOption[];
+	include_path_list?: string[];
+	rewindId?: string;
+};
 
 export type PullStates = Record< string, SyncBackupState >;
 type OnPullSuccess = ( siteId: number, localSiteId: string ) => void;
 type PullSite = (
 	connectedSite: SyncSite,
 	selectedSite: SiteDetails,
-	options?: PullSiteOptions,
+	options: PullSiteOptions,
 	rewindId?: string
 ) => void;
 type IsSiteIdPulling = ( selectedSiteId: string, remoteSiteId?: number ) => boolean;
@@ -138,20 +133,11 @@ export function useSyncPull( {
 					rewind_id?: string;
 				} = {};
 
-				if ( options && 'options' in options ) {
-					// New path-based format
-					requestBody = {
-						options: options.options,
-						include_path_list: options.include_path_list,
-						rewind_id: options.rewindId,
-					};
-				} else if ( options && 'optionsToSync' in options ) {
-					// Legacy format
-					requestBody = {
-						options: options.optionsToSync,
-						rewind_id: options.rewindId,
-					};
-				}
+				requestBody = {
+					options: options.optionsToSync,
+					include_path_list: options.include_path_list,
+					rewind_id: options.rewindId,
+				};
 
 				const response = await client.req.post< { success: boolean; backup_id: string } >( {
 					path: `/sites/${ remoteSiteId }/studio-app/sync/backup`,

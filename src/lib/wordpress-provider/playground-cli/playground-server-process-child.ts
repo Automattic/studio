@@ -147,14 +147,16 @@ async function startServer(
 		if ( ! options.isSetupMode ) {
 			args.command = 'server';
 			args.skipWordPressSetup = true;
+			// Don't pass wp version when starting server mode - WordPress is already installed
+		} else {
+			// Only pass WordPress version during initial setup with run-blueprint
+			if ( serverOptions.wordPressVersion ) {
+				args.wp = serverOptions.wordPressVersion;
+			}
 		}
 
 		if ( options.phpVersion ) {
 			args.php = options.phpVersion as SupportedPHPVersion;
-		}
-
-		if ( serverOptions.wordPressVersion ) {
-			args.wp = serverOptions.wordPressVersion;
 		}
 
 		server = await runCLI( args );

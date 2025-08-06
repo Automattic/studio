@@ -163,7 +163,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 
 			const serverProcess = this.createServerProcess( serverInstance );
 			await serverProcess.start();
-			await serverProcess.stop();
 			return true;
 		} catch ( error ) {
 			console.error( 'Failed to setup WordPress site:', error );

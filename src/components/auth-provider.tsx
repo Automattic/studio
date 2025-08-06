@@ -3,6 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { createContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import WPCOM from 'wpcom';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
+import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useI18nLocale } from 'src/stores';
 import { setWpcomClient } from 'src/stores/wpcom-api';
@@ -39,6 +40,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	const [ user, setUser ] = useState< AuthContextType[ 'user' ] >( undefined );
 	const locale = useI18nLocale();
 	const { __ } = useI18n();
+	const isOffline = useOffline();
 
 	const authenticate = useCallback( () => getIpcApi().authenticate(), [] );
 
@@ -66,21 +68,25 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 
 	const logout = useCallback( async () => {
 		try {
-			client?.request(
-				{
-					apiNamespace: 'wpcom/v2',
-					method: 'DELETE',
-					path: '/studio-app/token',
-				},
-				( err: unknown, response: unknown ) => {
-					if ( err ) {
-						console.error( 'Failed to revoke token:', err );
-						Sentry.captureException( err );
-					} else {
-						console.log( 'Token revoked:', response );
+			if ( ! isOffline && client ) {
+				client.request(
+					{
+						apiNamespace: 'wpcom/v2',
+						method: 'DELETE',
+						path: '/studio-app/token',
+					},
+					( err: unknown, response: unknown ) => {
+						if ( err ) {
+							console.error( 'Failed to revoke token:', err );
+							Sentry.captureException( err );
+						} else {
+							console.log( 'Token revoked:', response );
+						}
 					}
-				}
-			);
+				);
+			} else if ( isOffline ) {
+				console.log( 'Offline: Skipping token revocation request' );
+			}
 
 			await getIpcApi().clearAuthenticationToken();
 			setIsAuthenticated( false );
@@ -91,7 +97,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			console.error( err );
 			Sentry.captureException( err );
 		}
-	}, [ client ] );
+	}, [ client, isOffline ] );
 
 	useEffect( () => {
 		async function run() {

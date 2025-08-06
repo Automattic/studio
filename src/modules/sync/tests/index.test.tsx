@@ -460,6 +460,44 @@ describe( 'ContentTabSync', () => {
 		);
 	} );
 
+	it( 'opens sync pullSite dialog and displays production when the environment is not supported', async () => {
+		const mockPullSite = jest.fn();
+		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
+		const fakeSyncSite = {
+			id: 6,
+			name: 'My simple business site that needs a transfer',
+			url: 'https:/developer.wordpress.com/studio/',
+			syncSupport: 'already-connected',
+			isPressable: true,
+			environmentType: 'non-supported-environment-example-or-sandbox',
+		};
+		( useSyncSites as jest.Mock ).mockReturnValue( {
+			connectedSites: [ fakeSyncSite ],
+			syncSites: [ fakeSyncSite ],
+			pullSite: mockPullSite,
+			isAnySitePulling: false,
+			isAnySitePushing: false,
+			getPullState: jest.fn(),
+			getPushState: jest.fn(),
+			refetchSites: jest.fn(),
+			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
+			isSiteIdPulling: jest.fn(),
+			isSiteIdPushing: jest.fn(),
+			clearTimeout: jest.fn(),
+		} );
+
+		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+		const pullButton = screen.getByRole( 'button', { name: /Pull/i } );
+		expect( pullButton ).toBeInTheDocument();
+		fireEvent.click( pullButton );
+
+		await screen.findByText( 'Pull from Production' );
+		await screen.findByText(
+			"Pulling will overwrite your Studio site's selected files and database with a copy from your production site. Unchecked items will not be changed."
+		);
+	} );
+
 	it( 'calls pullSite with correct optionsToSync when all options are selected', async () => {
 		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );

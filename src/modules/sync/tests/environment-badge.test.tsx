@@ -40,14 +40,14 @@ describe( 'EnvironmentBadge', () => {
 		expect( badgeElement.className ).toContain( 'bg-a8c-yellow-10' );
 	} );
 
-	it( 'applies specific classes for the Sandbox badge', () => {
-		const { container } = render( <EnvironmentBadge type="sandbox" /> );
+	it( 'applies specific classes for the Development badge', () => {
+		const { container } = render( <EnvironmentBadge type="development" /> );
 
 		const badgeElement = container.firstChild as HTMLElement;
 		expect( badgeElement ).toBeInTheDocument();
 
-		expect( badgeElement.className ).toContain( 'text-sandbox-text' );
-		expect( badgeElement.className ).toContain( 'bg-sandbox-bg' );
+		expect( badgeElement.className ).toContain( 'text-development-text' );
+		expect( badgeElement.className ).toContain( 'bg-development-bg' );
 	} );
 
 	it( 'applies "selected" styling when selected prop is true', () => {

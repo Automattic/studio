@@ -1,11 +1,13 @@
 import { __ } from '@wordpress/i18n';
+import { z } from 'zod';
 import { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
-export const getSiteEnvironment = ( connectedSite: SyncSite ): string => {
-	if ( connectedSite.isPressable ) {
-		return connectedSite.environmentType ?? 'production';
-	}
-	return connectedSite.isStaging ? 'staging' : 'production';
+const EnvironmentSchema = z.enum( [ 'production', 'staging', 'development', 'local' ] );
+export type EnvironmentType = z.infer< typeof EnvironmentSchema >;
+
+export const getSiteEnvironment = ( site: SyncSite ): EnvironmentType => {
+	const parsed = EnvironmentSchema.safeParse( site.environmentType );
+	return parsed.success ? parsed.data : 'production';
 };
 
 export const getEnvironmentLabel = ( type: string ): string => {

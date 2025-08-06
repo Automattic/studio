@@ -123,7 +123,7 @@ function FormPathInputComponent( {
 				aria-label={ `${ value }, ${ __( 'Select different local path' ) }` }
 				className={ cx(
 					'flex flex-row items-stretch rounded-sm border border-[#949494] focus:border-a8c-blue-50 focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blue-50 outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blue-50 [&:disabled]:cursor-not-allowed',
-					error ? 'border-red-500 [&_.local-path-icon]:border-l-red-500' : ''
+					error && 'border-red-500 [&_.local-path-icon]:border-l-red-500'
 				) }
 				data-testid="select-path-button"
 				disabled={ isDisabled }
@@ -192,8 +192,8 @@ function FormImportComponent( {
 					aria-label={ `${ value }, ${ __( 'Select different file' ) }` }
 					className={ cx(
 						'flex items-center flex-grow rounded-sm border border-[#949494] focus:border-a8c-blue-50 focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blue-50 outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blue-50 [&:disabled]:cursor-not-allowed',
-						error ? 'border-red-500 [&_.local-path-icon]:border-l-red-500' : '',
-						fileName ? 'border-r-0 rounded-r-none focus:border' : ''
+						error && 'border-red-500 [&_.local-path-icon]:border-l-red-500',
+						fileName && 'border-r-0 rounded-r-none focus:border'
 					) }
 					onClick={ () => inputFileRef.current?.click() }
 				>
@@ -345,10 +345,8 @@ export const SiteForm = ( {
 					<>
 						<div className="flex flex-row items-center mb-0">
 							<Button className="pl-0" onClick={ handleAdvancedSettingsClick }>
-								<Icon size={ 24 } icon={ chevronIcon } className={ error ? 'text-red-500' : '' } />
-								<div
-									className={ cx( 'text-[13px] leading-[16px] ml-2', error ? 'text-red-500' : '' ) }
-								>
+								<Icon size={ 24 } icon={ chevronIcon } className={ error && 'text-red-500' } />
+								<div className={ cx( 'text-[13px] leading-[16px] ml-2', error && 'text-red-500' ) }>
 									{ __( 'Advanced settings' ) }
 								</div>
 							</Button>

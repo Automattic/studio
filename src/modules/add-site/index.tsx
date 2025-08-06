@@ -155,37 +155,26 @@ export default function AddSite( { className }: AddSiteProps ) {
 	} = useGetBlueprints();
 
 	const { importState } = useImportExport();
+	const addSiteProps = useAddSite();
 	const {
 		handleAddSiteClick,
 		siteName,
 		setSiteName,
-		phpVersion,
 		setPhpVersion,
-		wpVersion,
 		setWpVersion,
 		setProposedSitePath,
-		sitePath,
 		setSitePath,
-		error,
 		setError,
-		doesPathContainWordPress,
 		setDoesPathContainWordPress,
-		handleSiteNameChange,
-		handlePathSelectorClick,
 		loadingSites,
 		sites,
-		useCustomDomain,
 		setUseCustomDomain,
-		customDomain,
 		setCustomDomain,
-		customDomainError,
 		setCustomDomainError,
-		enableHttps,
 		setEnableHttps,
-		loadAllCustomDomains,
-		fileForImport,
 		setFileForImport,
-	} = useAddSite();
+		loadAllCustomDomains,
+	} = addSiteProps;
 
 	const isAnySiteProcessing = sites.some(
 		( site ) => site.isAddingSite || importState[ site.id ]?.isNewSite
@@ -302,26 +291,10 @@ export default function AddSite( { className }: AddSiteProps ) {
 			<FullscreenModal isOpen={ showModal } onClose={ closeModal }>
 				<Navigator className="w-full h-full" initialPath="/">
 					<NavigationContent
+						{ ...addSiteProps }
 						blueprintsData={ blueprintsData }
 						isLoadingBlueprints={ isLoadingBlueprints }
-						siteName={ siteName }
-						handleSiteNameChange={ handleSiteNameChange }
-						phpVersion={ phpVersion }
-						setPhpVersion={ setPhpVersion }
-						wpVersion={ wpVersion }
-						setWpVersion={ setWpVersion }
-						sitePath={ sitePath }
-						handlePathSelectorClick={ handlePathSelectorClick }
-						error={ error }
 						handleSubmit={ handleSubmit }
-						doesPathContainWordPress={ doesPathContainWordPress }
-						useCustomDomain={ useCustomDomain }
-						setUseCustomDomain={ setUseCustomDomain }
-						customDomain={ customDomain }
-						setCustomDomain={ setCustomDomain }
-						customDomainError={ customDomainError }
-						enableHttps={ enableHttps }
-						setEnableHttps={ setEnableHttps }
 					/>
 				</Navigator>
 			</FullscreenModal>

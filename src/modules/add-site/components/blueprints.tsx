@@ -3,17 +3,12 @@ import {
 	__experimentalHStack as HStack,
 	__experimentalHeading as Heading,
 	__experimentalText as Text,
-	Tooltip,
 	Button,
-	Card,
-	CardBody,
-	CardHeader,
-	CardFooter,
-	CardMedia,
 } from '@wordpress/components';
-import { Icon, info, external } from '@wordpress/icons';
+import { DataViews, View } from '@wordpress/dataviews';
+import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import StudioButton from 'src/components/button';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -33,116 +28,154 @@ interface Blueprint {
 	};
 }
 
+interface DataViewBlueprint extends Blueprint {
+	isSelected: boolean;
+	categories: string[];
+}
+
 interface AddSiteBlueprintProps {
 	blueprints: Blueprint[];
 	isLoading: boolean;
-	selectedBlueprint?: string | null;
-	onBlueprintChange?: ( blueprintId: string | null ) => void;
-}
-
-function BlueprintCard( {
-	blueprint,
-	onSelect,
-	isSelected,
-}: {
-	blueprint: Blueprint;
-	onSelect: () => void;
-	isSelected: boolean;
-} ) {
-	const { __ } = useI18n();
-
-	const handlePlaygroundLink = ( e: React.MouseEvent ) => {
-		e.stopPropagation();
-		getIpcApi().openURL( blueprint.playground_url );
-	};
-
-	return (
-		<Card isBorderless size="xSmall" className="relative">
-			<CardMedia
-				className={ cx(
-					'overflow-hidden cursor-pointer transition-all duration-150 rounded-lg group',
-					'hover:shadow-md hover:outline hover:outline-2 hover:outline-blue-500',
-					isSelected && 'outline outline-2 outline-blue-500 shadow-md'
-				) }
-				onClick={ onSelect }
-			>
-				<img
-					src={ blueprint.image }
-					alt={ blueprint.title }
-					className={ cx(
-						'object-contain transition-transform duration-150',
-						'group-hover:scale-105',
-						isSelected && 'scale-105'
-					) }
-				/>
-			</CardMedia>
-
-			<CardHeader className="px-0">
-				<Heading level={ 3 } className="text-xl" weight={ 500 }>
-					{ blueprint.title }
-				</Heading>
-			</CardHeader>
-
-			<CardBody className="px-0">
-				<HStack spacing={ 3 } wrap alignment="left">
-					{ ( blueprint.blueprint.meta?.categories || [] )
-						.filter( ( category ) => category !== 'Studio' )
-						.map( ( category ) => (
-							<Text
-								as="span"
-								key={ category }
-								className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-sm flex items-center"
-							>
-								{ category }
-							</Text>
-						) ) }
-				</HStack>
-			</CardBody>
-			<CardBody className="px-0 h-20">
-				<Text
-					className="text-base text-gray-600"
-					weight={ 400 }
-					truncate
-					numberOfLines={ 3 }
-					title={ blueprint.excerpt }
-				>
-					{ blueprint.excerpt }
-				</Text>
-			</CardBody>
-
-			<CardFooter className="px-0">
-				<StudioButton variant="link" size="small" className="!p-0" onClick={ handlePlaygroundLink }>
-					{ __( 'Preview blueprint' ) }
-					<Icon icon={ external } size={ 16 } className="ml-1" />
-				</StudioButton>
-			</CardFooter>
-		</Card>
-	);
+	selectedBlueprint: string | null;
+	onBlueprintChange: ( blueprintId: string ) => void;
 }
 
 export default function AddSiteBlueprint( {
 	blueprints,
 	isLoading,
-	selectedBlueprint: externalSelectedBlueprint,
+	selectedBlueprint,
 	onBlueprintChange,
 }: AddSiteBlueprintProps ) {
 	const { __ } = useI18n();
 	const fileRef = useRef< HTMLInputElement | null >( null );
-	const [ internalSelectedBlueprint, setInternalSelectedBlueprint ] = useState< string | null >(
-		null
-	);
+	const [ view, setView ] = useState< View >( {
+		type: 'grid',
+		perPage: 9,
+		page: 1,
+		fields: [ 'categories', 'excerpt', 'preview' ],
+		mediaField: 'image',
+		titleField: 'title',
+		search: '',
+		filters: [],
+		layout: {
+			badgeFields: [ 'categories', 'excerpt', 'preview' ],
+		},
+	} );
 
-	const selectedBlueprint =
-		externalSelectedBlueprint !== undefined ? externalSelectedBlueprint : internalSelectedBlueprint;
-	const setSelectedBlueprint = onBlueprintChange || setInternalSelectedBlueprint;
+	const fields = useMemo(
+		() => [
+			{
+				id: 'image',
+				label: __( 'Thumbnail' ),
+				type: 'media' as const,
+				render: ( { item }: { item: DataViewBlueprint } ) => (
+					<img
+						src={ item.image }
+						alt={ item.title }
+						className={ cx(
+							'w-full h-48 object-cover object-top cursor-pointer transition-all duration-150 rounded-lg group',
+							'hover:shadow-md hover:outline hover:outline-2 hover:outline-blue-500',
+							'transition-transform duration-150',
+							'hover:scale-105',
+							item.isSelected && 'outline outline-2 outline-blue-500 shadow-md scale-105'
+						) }
+					/>
+				),
+			},
+			{
+				id: 'title',
+				label: __( 'Title' ),
+				type: 'text' as const,
+				render: ( { item }: { item: DataViewBlueprint } ) => (
+					<Heading level={ 3 } className="text-sm mt-3 mb-2 text-gray-800" weight={ 500 }>
+						{ item.title }
+					</Heading>
+				),
+			},
+			{
+				id: 'excerpt',
+				label: __( 'Description' ),
+				type: 'text' as const,
+				render: ( { item }: { item: DataViewBlueprint } ) => (
+					<Text
+						className="text-sm text-gray-600 h-16"
+						weight={ 400 }
+						truncate
+						numberOfLines={ 3 }
+						title={ item.excerpt }
+					>
+						{ item.excerpt }
+					</Text>
+				),
+			},
+			{
+				id: 'categories',
+				label: __( 'Categories' ),
+				type: 'array' as const,
+				elements: blueprints
+					.flatMap( ( blueprint ) => blueprint.blueprint.meta?.categories || [] )
+					.filter( ( category, index, arr ) => arr.indexOf( category ) === index )
+					.map( ( category ) => ( { label: category, value: category } ) ),
+				render: ( { item }: { item: DataViewBlueprint } ) => (
+					<HStack spacing={ 3 } wrap alignment="left">
+						{ ( item.blueprint.meta?.categories || [] )
+							.filter( ( category ) => category !== 'Studio' )
+							.map( ( category ) => (
+								<Text
+									as="span"
+									key={ category }
+									className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-sm flex items-center"
+								>
+									{ category }
+								</Text>
+							) ) }
+					</HStack>
+				),
+			},
+			{
+				id: 'preview',
+				label: __( 'Preview' ),
+				type: 'text' as const,
+				render: ( { item }: { item: DataViewBlueprint } ) => (
+					<StudioButton
+						variant="link"
+						size="small"
+						className="!p-0"
+						onClick={ () => getIpcApi().openURL( item.playground_url ) }
+					>
+						{ __( 'Preview blueprint' ) }
+						<Icon icon={ external } size={ 16 } className="ml-1" />
+					</StudioButton>
+				),
+			},
+		],
+		[ blueprints, __ ]
+	);
 
 	const handleFileSelect = ( event: React.ChangeEvent< HTMLInputElement > ) => {
 		const file = event.target.files?.[ 0 ];
 		if ( file && file.type === 'application/json' ) {
-			// TODO: Handle JSON file upload
 			console.log( 'Selected JSON file:', file.name );
 		}
 	};
+
+	const paginationInfo = useMemo(
+		() => ( {
+			totalItems: blueprints.length,
+			totalPages: Math.ceil( blueprints.length / ( view.perPage || 9 ) ),
+		} ),
+		[ blueprints.length, view.perPage ]
+	);
+
+	const dataViewBlueprints = useMemo(
+		() =>
+			blueprints.map( ( blueprint ) => ( {
+				...blueprint,
+				isSelected: blueprint.slug === selectedBlueprint,
+				categories: blueprint.blueprint.meta?.categories || [],
+			} ) ),
+		[ blueprints, selectedBlueprint ]
+	);
 
 	if ( isLoading ) {
 		return (
@@ -162,14 +195,6 @@ export default function AddSiteBlueprint( {
 					<Text className="text-xl" weight={ 500 }>
 						{ __( 'Suggested blueprints' ) }
 					</Text>
-					<Tooltip
-						text={ __(
-							'Blueprints are pre-configured WordPress sites with themes, plugins, and content ready to use.'
-						) }
-						placement="top-start"
-					>
-						<Icon icon={ info } size={ 20 } className="fill-[#3858E9]" />
-					</Tooltip>
 				</HStack>
 				<label className="flex-shrink-0">
 					<input
@@ -191,16 +216,23 @@ export default function AddSiteBlueprint( {
 				</label>
 			</HStack>
 
-			<div className="grid grid-cols-3 gap-6 items-stretch p-2">
-				{ blueprints.map( ( blueprint ) => (
-					<div key={ blueprint.slug } className="h-full">
-						<BlueprintCard
-							blueprint={ blueprint }
-							onSelect={ () => setSelectedBlueprint( blueprint.slug ) }
-							isSelected={ selectedBlueprint === blueprint.slug }
-						/>
-					</div>
-				) ) }
+			<div className="w-full px-2 [&_.dataviews-view-grid]:!grid-cols-3 [&_.components-badge]:!bg-transparent [&_.components-badge]:!p-0">
+				<DataViews
+					data={ dataViewBlueprints }
+					fields={ fields }
+					view={ view }
+					onChangeView={ setView }
+					defaultLayouts={ {
+						grid: {},
+					} }
+					paginationInfo={ paginationInfo }
+					getItemId={ ( item: DataViewBlueprint ) => item.slug }
+					selection={ selectedBlueprint ? [ selectedBlueprint ] : [] }
+					onClickItem={ ( item ) => onBlueprintChange( item.slug ) }
+					isItemClickable={ () => true }
+				>
+					<DataViews.Layout />
+				</DataViews>
 			</div>
 		</VStack>
 	);

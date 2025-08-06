@@ -72,6 +72,10 @@ export class WpNowProvider implements WordPressProvider {
 		return getSqlitePath();
 	}
 
+	getWpLoadPath( serverProcess: WordPressServerProcess ): string {
+		return `${ serverProcess.php?.documentRoot }/wp-load.php`;
+	}
+
 	getWpCliPath(): string {
 		return WpNowProvider.getWpCliPath();
 	}

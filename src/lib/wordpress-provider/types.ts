@@ -55,6 +55,7 @@ export interface WordPressProvider {
 
 	// Path utilities
 	getSqlitePath(): string;
+	getWpLoadPath( serverProcess: WordPressServerProcess ): string;
 
 	// Core functionality
 	setupWordPressSite( server: SiteServer, wpVersion?: string ): Promise< boolean >;

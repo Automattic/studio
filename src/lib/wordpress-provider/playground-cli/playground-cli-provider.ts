@@ -104,6 +104,11 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		return nodePath.join( getResourcesPath(), 'wp-files', this.SQLITE_FILENAME );
 	}
 
+	getWpLoadPath( _serverProcess: WordPressServerProcess ): string {
+		// Playground CLI mounts the WordPress directory at /wordpress in VFS
+		return '/wordpress/wp-load.php';
+	}
+
 	async setupWordPressSite( server: SiteServer, wpVersion = 'latest' ): Promise< boolean > {
 		const { path, port, adminPassword, name, phpVersion } = server.details;
 

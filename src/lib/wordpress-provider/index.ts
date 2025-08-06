@@ -65,6 +65,9 @@ export function sendProviderConstantsChanged( provider: WordPressProvider ): voi
 export const getSqlitePath = ( ...args: Parameters< WordPressProvider[ 'getSqlitePath' ] > ) =>
 	getWordPressProvider().getSqlitePath( ...args );
 
+export const getWpLoadPath = ( ...args: Parameters< WordPressProvider[ 'getWpLoadPath' ] > ) =>
+	getWordPressProvider().getWpLoadPath( ...args );
+
 export const setupWordPressSite = (
 	...args: Parameters< WordPressProvider[ 'setupWordPressSite' ] >
 ) => getWordPressProvider().setupWordPressSite( ...args );

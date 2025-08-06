@@ -32,7 +32,6 @@ console.warn = ( ...args: any[] ) => {
 };
 
 let server: RunCLIServer | null = null;
-let isSetupMode = false;
 
 process.parentPort.on( 'message', async ( event ) => {
 	const message = event.data as Message;
@@ -116,9 +115,6 @@ async function startServer(
 	if ( server ) {
 		return;
 	}
-
-	// Track if we're in setup mode
-	isSetupMode = options.isSetupMode || false;
 
 	try {
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( serverOptions );

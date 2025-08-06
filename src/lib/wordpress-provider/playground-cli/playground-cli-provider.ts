@@ -78,7 +78,8 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			adminPassword: options.adminPassword,
 			siteTitle: options.siteTitle,
 			siteLanguage: options.siteLanguage,
-			wordPressVersion: options.wpVersion,
+			// Only include wordPressVersion if it's defined and we're in setup mode
+			...(options.isSetupMode && options.wpVersion ? { wordPressVersion: options.wpVersion } : {}),
 			isWpAutoUpdating: options.isWpAutoUpdating,
 		};
 

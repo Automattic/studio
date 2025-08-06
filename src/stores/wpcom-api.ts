@@ -58,19 +58,11 @@ const blueprintsResponseSchema = z.object( {
 } );
 
 let wpcomClient: WPCOM | undefined;
-let publicWpcomClient: WPCOM | undefined;
+const publicWpcomClient = new WPCOM();
 
 export const setWpcomClient = ( client: WPCOM | undefined ) => {
 	wpcomClient = client;
 };
-
-// Get or create a public WPCOM client for unauthenticated requests
-function getPublicWpcomClient(): WPCOM {
-	if ( ! publicWpcomClient ) {
-		publicWpcomClient = new WPCOM();
-	}
-	return publicWpcomClient;
-}
 
 const wpcomBaseQuery: BaseQueryFn<
 	{ path: string; apiNamespace?: string },
@@ -97,7 +89,7 @@ const wpcomPublicBaseQuery: BaseQueryFn<
 	FetchBaseQueryError
 > = async ( args ) => {
 	try {
-		const client = getPublicWpcomClient();
+		const client = publicWpcomClient;
 		const response = await client.req.get( args );
 		return { data: response };
 	} catch ( error ) {

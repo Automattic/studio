@@ -44,7 +44,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		openModal();
 	} );
 
-	if ( true || ! enableBlueprints ) {
+	if ( ! enableBlueprints ) {
 		return (
 			<AddSiteLegacy
 				className={ className }

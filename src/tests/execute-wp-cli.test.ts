@@ -140,7 +140,15 @@ describe( 'executeWPCli', () => {
 					'wp-cli',
 					'wp-cli.phar'
 				);
-				expect( expectedPharPath ).toBe( '/mock/resources/wp-files/wp-cli/wp-cli.phar' );
+				const expectedPath = path.posix.join(
+					'/mock/resources',
+					'wp-files',
+					'wp-cli',
+					'wp-cli.phar'
+				);
+				expect( path.posix.normalize( expectedPharPath.replace( /\\/g, '/' ) ) ).toBe(
+					expectedPath
+				);
 			}
 		} );
 

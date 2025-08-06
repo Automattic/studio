@@ -151,31 +151,17 @@ async function startServer(
 		if ( ! options.isSetupMode ) {
 			args.command = 'server';
 			args.skipWordPressSetup = true;
-			// Don't pass wp version when starting server mode - WordPress is already installed
-			// The wp parameter should not be set at all for server mode
-		} else {
-			// Only pass WordPress version during initial setup with run-blueprint
-			if ( serverOptions.wordPressVersion ) {
-				args.wp = serverOptions.wordPressVersion;
-			}
 		}
 
 		if ( options.phpVersion ) {
 			args.php = options.phpVersion as SupportedPHPVersion;
 		}
 
-		server = await runCLI( args );
-
-		// In setup mode, the CLI should exit after blueprint execution
-		// On Windows, we may need to help it along
-		if ( isSetupMode && process.platform === 'win32' ) {
-			// Set a timeout to force exit if the process doesn't exit naturally
-			setTimeout( () => {
-				if ( server ) {
-					process.exit( 0 );
-				}
-			}, 5000 ); // 5 second timeout
+		if ( serverOptions.wordPressVersion ) {
+			args.wp = serverOptions.wordPressVersion;
 		}
+
+		server = await runCLI( args );
 
 		if ( serverOptions.siteTitle || serverOptions.adminPassword ) {
 			await setSiteOptions( server, serverOptions );

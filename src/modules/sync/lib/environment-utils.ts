@@ -13,7 +13,8 @@ export const getSiteEnvironment = ( site: SyncSite ): EnvironmentType => {
 export const getEnvironmentLabel = ( type: string ): string => {
 	const labels: Record< string, string > = {
 		staging: __( 'Staging' ),
-		sandbox: __( 'Sandbox' ),
+		development: __( 'Development' ),
+		local: __( 'Local' ),
 		production: __( 'Production' ),
 	};
 	return labels[ type ] || type.charAt( 0 ).toUpperCase() + type.slice( 1 );

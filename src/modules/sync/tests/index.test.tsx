@@ -217,6 +217,7 @@ describe( 'ContentTabSync', () => {
 			isStaging: false,
 			stagingSiteIds: [ 7 ],
 			syncSupport: 'already-connected',
+			environmentType: 'production',
 		};
 		const fakeStagingSite = {
 			id: 7,
@@ -225,6 +226,7 @@ describe( 'ContentTabSync', () => {
 			isStaging: true,
 			stagingSiteIds: [],
 			syncSupport: 'already-connected',
+			environmentType: 'staging',
 		};
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 
@@ -332,7 +334,7 @@ describe( 'ContentTabSync', () => {
 		expect( connectButton ).toBeInTheDocument();
 	} );
 
-	it( 'displays environment badges for Pressable sites with production, staging and sandbox environments', () => {
+	it( 'displays environment badges for Pressable sites with production, staging and development environments', () => {
 		const fakePressableProductionSite = {
 			id: 6,
 			name: 'My Pressable Production site',
@@ -353,13 +355,13 @@ describe( 'ContentTabSync', () => {
 			stagingSiteIds: [],
 			syncSupport: 'already-connected',
 		};
-		const fakePressableSandboxSite = {
+		const fakePressableDevelopmentSite = {
 			id: 8,
-			name: 'My Pressable Sandbox site',
-			url: 'https://sandbox-pressable-site.com',
+			name: 'My Pressable Development site',
+			url: 'https://development-pressable-site.com',
 			isStaging: false,
 			isPressable: true,
-			environmentType: 'sandbox',
+			environmentType: 'development',
 			stagingSiteIds: [],
 			syncSupport: 'already-connected',
 		};
@@ -368,7 +370,7 @@ describe( 'ContentTabSync', () => {
 			connectedSites: [
 				fakePressableProductionSite,
 				fakePressableStagingSite,
-				fakePressableSandboxSite,
+				fakePressableDevelopmentSite,
 			],
 			syncSites: [ fakePressableProductionSite ],
 			pullSite: jest.fn(),
@@ -387,11 +389,11 @@ describe( 'ContentTabSync', () => {
 
 		expect( screen.getByText( fakePressableProductionSite.name ) ).toBeInTheDocument();
 		expect( screen.getByText( fakePressableStagingSite.name ) ).toBeInTheDocument();
-		expect( screen.getByText( fakePressableSandboxSite.name ) ).toBeInTheDocument();
+		expect( screen.getByText( fakePressableDevelopmentSite.name ) ).toBeInTheDocument();
 
 		expect( screen.getByText( 'Production' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Staging' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Sandbox' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Development' ) ).toBeInTheDocument();
 	} );
 	it( 'displays the progress bar when the site is being pushed', () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
@@ -420,7 +422,7 @@ describe( 'ContentTabSync', () => {
 		expect( screen.getByRole( 'progressbar' ) ).toBeInTheDocument();
 	} );
 
-	it( 'opens sync pullSite dialog with sandbox environment label', async () => {
+	it( 'opens sync pullSite dialog with development environment label', async () => {
 		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 		const fakeSyncSite = {
@@ -429,7 +431,7 @@ describe( 'ContentTabSync', () => {
 			url: 'https:/developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 			isPressable: true,
-			environmentType: 'sandbox',
+			environmentType: 'development',
 		};
 		( useSyncSites as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
@@ -452,9 +454,9 @@ describe( 'ContentTabSync', () => {
 		expect( pullButton ).toBeInTheDocument();
 		fireEvent.click( pullButton );
 
-		await screen.findByText( 'Pull from Sandbox' );
+		await screen.findByText( 'Pull from Development' );
 		await screen.findByText(
-			"Pulling will overwrite your Studio site's selected files and database with a copy from your sandbox site. Unchecked items will not be changed."
+			"Pulling will overwrite your Studio site's selected files and database with a copy from your development site. Unchecked items will not be changed."
 		);
 	} );
 

@@ -22,7 +22,7 @@ export function EnvironmentBadge( { type, selected, className }: EnvironmentBadg
 
 		const classes: Record< string, string > = {
 			production: 'bg-a8c-green-5 text-a8c-green-80',
-			sandbox: 'text-sandbox-text bg-sandbox-bg',
+			development: 'text-development-text bg-development-bg',
 			staging: 'text-a8c-yellow-80 bg-a8c-yellow-10',
 		};
 

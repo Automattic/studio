@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react';
 import { updateNodeById } from 'src/components/tree-view';
 import { useDefaultSyncTree } from 'src/modules/sync/hooks/use-default-sync-tree';
-import { convertTreeToPushOptions } from 'src/modules/sync/lib/convert-tree-to-push-options';
+import { convertTreeToPushOptions } from 'src/modules/sync/lib/convert-tree-to-sync-options';
 
 describe( 'convertTreeToPushOptions', () => {
 	it( 'returns ["all"] when all options are selected', () => {

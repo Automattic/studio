@@ -23,8 +23,10 @@ import { OpenSitesSyncSelector } from 'src/modules/sync';
 import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
 import { SyncDialog } from 'src/modules/sync/components/sync-dialog';
 import { SyncPullPushClear } from 'src/modules/sync/components/sync-pull-push-clear';
-import { convertTreeToPullOptions } from 'src/modules/sync/lib/convert-tree-to-pull-options';
-import { convertTreeToPushOptions } from 'src/modules/sync/lib/convert-tree-to-push-options';
+import {
+	convertTreeToPullOptions,
+	convertTreeToPushOptions,
+} from 'src/modules/sync/lib/convert-tree-to-sync-options';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';

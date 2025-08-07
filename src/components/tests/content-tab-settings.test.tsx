@@ -116,6 +116,7 @@ describe( 'ContentTabSettings', () => {
 			json: jest.fn().mockResolvedValue( {
 				offers: [],
 			} ),
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		} as any );
 
 		// Create a fresh store for each test

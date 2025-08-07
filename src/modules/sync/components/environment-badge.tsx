@@ -22,6 +22,7 @@ export function EnvironmentBadge( { type, selected, className }: EnvironmentBadg
 			production: 'bg-a8c-green-5 text-a8c-green-80',
 			development: 'text-development-text bg-development-bg',
 			staging: 'text-a8c-yellow-80 bg-a8c-yellow-10',
+			local: 'text-a8c-gray-80 bg-a8c-gray-10',
 		};
 
 		return classes[ type ] || 'text-a8c-gray-80 bg-a8c-gray-10';

@@ -215,18 +215,18 @@ describe( 'ContentTabSync', () => {
 			name: 'My simple business site',
 			url: 'https://developer.wordpress.com/studio/',
 			isStaging: false,
-			environmentType: 'production',
 			stagingSiteIds: [ 7 ],
 			syncSupport: 'already-connected',
+			environmentType: 'production',
 		};
 		const fakeStagingSite = {
 			id: 7,
 			name: 'Staging: My simple business site',
 			url: 'https://developer-staging.wordpress.com/studio/',
 			isStaging: true,
-			environmentType: 'staging',
 			stagingSiteIds: [],
 			syncSupport: 'already-connected',
+			environmentType: 'staging',
 		};
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 

@@ -14,6 +14,7 @@ import { reducer as chatReducer } from 'src/stores/chat-slice';
 import i18nReducer from 'src/stores/i18n-slice';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
 import { reducer as newSitesReducer } from 'src/stores/new-sites-slice';
+import onboardingReducer from 'src/stores/onboarding-slice';
 import providerConstantsReducer, {
 	setProviderConstants,
 } from 'src/stores/provider-constants-slice';
@@ -27,6 +28,7 @@ export type RootState = {
 	chat: ReturnType< typeof chatReducer >;
 	newSites: ReturnType< typeof newSitesReducer >;
 	installedAppsApi: ReturnType< typeof installedAppsApi.reducer >;
+	onboarding: ReturnType< typeof onboardingReducer >;
 	providerConstants: ReturnType< typeof providerConstantsReducer >;
 	snapshot: ReturnType< typeof snapshotReducer >;
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
@@ -79,6 +81,7 @@ export const rootReducer = combineReducers( {
 	chat: chatReducer,
 	newSites: newSitesReducer,
 	installedAppsApi: installedAppsApi.reducer,
+	onboarding: onboardingReducer,
 	providerConstants: providerConstantsReducer,
 	snapshot: snapshotReducer,
 	wordpressVersionsApi: wordpressVersionsApi.reducer,

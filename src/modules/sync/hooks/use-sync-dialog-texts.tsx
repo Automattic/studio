@@ -49,7 +49,7 @@ export const useSyncDialogTexts = (
 				local: {
 					title: __( 'Pull from remote Local' ),
 					description: __(
-						"Pulling will overwrite your Studio site's selected files and database with a copy from your local site. Unchecked items will not be changed."
+						"Pulling will overwrite your Studio site's selected files and database with a copy from your remote site with local environment. Unchecked items will not be changed."
 					),
 				},
 			};
@@ -67,25 +67,25 @@ export const useSyncDialogTexts = (
 				production: {
 					title: __( 'Push to Production' ),
 					description: __(
-						"Pushing will overwrite your production site's selected files and database with content from your local site. Unchecked items will not be changed. The production site will be backed up before any changes are applied."
+						"Pushing will overwrite your production site's selected files and database with content from your Studio site. Unchecked items will not be changed. The production site will be backed up before any changes are applied."
 					),
 				},
 				staging: {
 					title: __( 'Push to Staging' ),
 					description: __(
-						"Pushing will overwrite your staging site's selected files and database with content from your local site. Unchecked items will not be changed. The staging site will be backed up before any changes are applied."
+						"Pushing will overwrite your staging site's selected files and database with content from your Studio site. Unchecked items will not be changed. The staging site will be backed up before any changes are applied."
 					),
 				},
 				development: {
 					title: __( 'Push to Development' ),
 					description: __(
-						"Pushing will overwrite your development site's selected files and database with content from your local site. Unchecked items will not be changed. The development site will be backed up before any changes are applied."
+						"Pushing will overwrite your development site's selected files and database with content from your Studio site. Unchecked items will not be changed. The development site will be backed up before any changes are applied."
 					),
 				},
 				local: {
 					title: __( 'Push to remote Local' ),
 					description: __(
-						"Pushing will overwrite your local site's selected files and database with content from your local site. Unchecked items will not be changed. The local site will be backed up before any changes are applied."
+						"Pushing will overwrite your remote site's selected files and database with content from your Studio site. Unchecked items will not be changed. The local site will be backed up before any changes are applied."
 					),
 				},
 			};

@@ -122,17 +122,6 @@ function getStandardMuPlugins( options: Partial< WordPressServerOptions > ): MuP
 		if ( isset( $_GET['studio-hide-adminbar'] ) ) {
 			add_filter( 'show_admin_bar', '__return_false' );
 		}
-		
-		// Health check endpoint to verify WordPress and mu-plugins are loaded
-		if ( isset( $_GET['studio-health-check'] ) ) {
-			header( 'Content-Type: application/json' );
-			echo json_encode( array( 
-				'status' => 'ready',
-				'mu_plugins_loaded' => true,
-				'admin_bar_filter' => has_filter( 'show_admin_bar', '__return_false' )
-			) );
-			exit;
-		}
 		`,
 	} );
 

@@ -36,20 +36,19 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 
 		this.process = utilityProcess.fork( PLAYGROUND_SERVER_PROCESS_MODULE_PATH );
 
-		this.process.on( 'message', ( message: unknown ) => {
-			const msg = message as { type?: string; id?: number; error?: string; result?: unknown };
-			if ( msg.type === 'ready' ) {
+		this.process.on( 'message', ( message:  { type?: string; id?: number; error?: string; result?: unknown } ) => {
+			if ( message.type === 'ready' ) {
 				return;
 			}
 
-			if ( msg.id !== undefined && this.responseHandlers.has( msg.id ) ) {
-				const handler = this.responseHandlers.get( msg.id )!;
-				this.responseHandlers.delete( msg.id );
+			if ( message.id !== undefined && this.responseHandlers.has( message.id ) ) {
+				const handler = this.responseHandlers.get( message.id )!;
+				this.responseHandlers.delete( message.id );
 
-				if ( msg.error ) {
-					handler.reject( new Error( msg.error ) );
+				if ( message.error ) {
+					handler.reject( new Error( message.error ) );
 				} else {
-					handler.resolve( msg.result );
+					handler.resolve( message.result );
 				}
 			}
 		} );
@@ -77,9 +76,8 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 
 		// Wait for child process to be ready
 		await new Promise< void >( ( resolve ) => {
-			const readyHandler = ( message: unknown ) => {
-				const msg = message as { type?: string };
-				if ( msg.type === 'ready' ) {
+			const readyHandler = ( message: { type?: string } ) => {
+				if ( message.type === 'ready' ) {
 					this.process!.off( 'message', readyHandler );
 					resolve();
 				}

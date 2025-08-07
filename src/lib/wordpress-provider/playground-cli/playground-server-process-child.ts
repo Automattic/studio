@@ -176,7 +176,7 @@ async function stopServerFunc(): Promise< void > {
 	try {
 		await server[ Symbol.asyncDispose ]();
 	} catch ( error ) {
-		// Don't re-throw the error, just continue cleanup
+		console.warn( error );
 	} finally {
 		server = null;
 	}

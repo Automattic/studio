@@ -216,7 +216,7 @@ export default function AddSiteBlueprint( {
 				</label>
 			</HStack>
 
-			<div className="w-full px-2 [&_.dataviews-view-grid]:!grid-cols-3 [&_.components-badge]:!bg-transparent [&_.components-badge]:!p-0">
+			<div className="w-full px-2 [&_.dataviews-view-grid]:!grid [&_.dataviews-view-grid]:!grid-cols-3 [&_.dataviews-view-grid]:!gap-4 [&_.components-badge]:!bg-transparent [&_.components-badge]:!p-0">
 				<DataViews
 					data={ dataViewBlueprints }
 					fields={ fields }

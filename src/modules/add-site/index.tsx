@@ -91,9 +91,9 @@ function NavigationContent( props: NavigationContentProps ) {
 	}, [ selectedBlueprint, handleBlueprintSelect ] );
 
 	const handleBackupFileSelect = useCallback(
-		( file: File ) => {
-			setBackupFile( file );
-			createSiteProps.setFileForImport( file );
+		( file?: File ) => {
+			setBackupFile( file || null );
+			createSiteProps.setFileForImport( file || null );
 		},
 		[ createSiteProps ]
 	);
@@ -105,7 +105,7 @@ function NavigationContent( props: NavigationContentProps ) {
 	}, [ backupFile, goTo ] );
 
 	const blueprints = useMemo(
-		() => blueprintsData.blueprints.slice().reverse() || [],
+		() => blueprintsData?.blueprints.slice().reverse() || [],
 		[ blueprintsData ]
 	);
 

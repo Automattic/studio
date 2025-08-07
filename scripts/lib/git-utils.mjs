@@ -8,7 +8,7 @@ export const getLatestTag = () => {
 	try {
 		// List all tags sorted by version, then filter for release tags only
 		const tags = child_process
-			.execSync( 'git tag --sort=-v:refname' )
+			.execSync( 'git tag --sort=-v:refname --merged=HEAD' )
 			.toString()
 			.trim()
 			.split( '\n' );

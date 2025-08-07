@@ -5,19 +5,40 @@ import {
 } from '@wordpress/components';
 import { published, border } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import { FormEvent } from 'react';
 import Button from 'src/components/button';
 import { useStepper } from '../hooks/use-stepper';
 
 interface StepperProps {
 	currentPath?: string;
 	onBack?: () => void;
-	onSubmit?: () => void;
-	canSubmit?: boolean;
+	onBlueprintContinue?: () => void;
+	onBackupContinue?: () => void;
+	onCreateSubmit?: ( event: FormEvent ) => void;
+	canSubmitBlueprint?: boolean;
+	canSubmitBackup?: boolean;
+	canSubmitCreate?: boolean;
 }
 
-export default function Stepper( { currentPath, onBack, onSubmit, canSubmit }: StepperProps ) {
+export default function Stepper( {
+	currentPath,
+	onBack,
+	onBlueprintContinue,
+	onBackupContinue,
+	onCreateSubmit,
+	canSubmitBlueprint,
+	canSubmitBackup,
+	canSubmitCreate,
+}: StepperProps ) {
 	const { __ } = useI18n();
-	const { steps, isVisible, actionButton } = useStepper();
+	const { steps, isVisible, actionButton, onSubmit, canSubmit } = useStepper( {
+		onBlueprintContinue,
+		onBackupContinue,
+		onCreateSubmit,
+		canSubmitBlueprint,
+		canSubmitBackup,
+		canSubmitCreate,
+	} );
 
 	if ( ! isVisible ) {
 		return null;

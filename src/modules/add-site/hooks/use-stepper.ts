@@ -1,11 +1,20 @@
 import { useNavigator } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useMemo } from 'react';
+import { FormEvent, useCallback, useMemo } from 'react';
 
 interface StepperStep {
 	id: string;
 	label: string;
 	status: 'completed' | 'current' | 'pending';
+}
+
+interface StepperConfig {
+	onBlueprintContinue?: () => void;
+	onBackupContinue?: () => void;
+	onCreateSubmit?: ( event: FormEvent ) => void;
+	canSubmitBlueprint?: boolean;
+	canSubmitBackup?: boolean;
+	canSubmitCreate?: boolean;
 }
 
 interface StepperContext {
@@ -15,9 +24,11 @@ interface StepperContext {
 		label: string;
 		isVisible: boolean;
 	};
+	onSubmit: () => void;
+	canSubmit: boolean;
 }
 
-export function useStepper(): StepperContext {
+export function useStepper( config?: StepperConfig ): StepperContext {
 	const { __ } = useI18n();
 	const { location } = useNavigator();
 
@@ -114,9 +125,48 @@ export function useStepper(): StepperContext {
 		}
 	}, [ location.path, __ ] );
 
+	// Determine the submit handler based on current path
+	const onSubmit = useCallback( () => {
+		if ( ! location.path ) return;
+
+		switch ( location.path ) {
+			case '/blueprint':
+				config?.onBlueprintContinue?.();
+				break;
+			case '/backup':
+				config?.onBackupContinue?.();
+				break;
+			case '/create':
+			case '/blueprint/create':
+			case '/backup/create':
+				config?.onCreateSubmit?.( { preventDefault: () => {} } as FormEvent );
+				break;
+		}
+	}, [ location.path, config ] );
+
+	// Determine if submission is allowed based on current path
+	const canSubmit = useMemo( () => {
+		if ( ! location.path ) return false;
+
+		switch ( location.path ) {
+			case '/blueprint':
+				return config?.canSubmitBlueprint ?? false;
+			case '/backup':
+				return config?.canSubmitBackup ?? false;
+			case '/create':
+			case '/blueprint/create':
+			case '/backup/create':
+				return config?.canSubmitCreate ?? false;
+			default:
+				return false;
+		}
+	}, [ location.path, config ] );
+
 	return {
 		steps,
 		isVisible,
 		actionButton,
+		onSubmit,
+		canSubmit,
 	};
 }

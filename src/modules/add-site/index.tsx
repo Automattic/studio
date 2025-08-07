@@ -17,7 +17,7 @@ import {
 	selectDefaultWordPressVersion,
 } from 'src/stores/provider-constants-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
-import { useGetBlueprints } from 'src/stores/wpcom-api';
+import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
 import AddSiteLegacy from './components/add-site-legacy';
 import AddSiteBlueprintSelector from './components/blueprints';
 import CreateSite from './components/create-site';
@@ -52,15 +52,16 @@ interface NavigationContentProps {
 	customDomainError: string;
 	enableHttps: boolean;
 	setEnableHttps: ( enable: boolean ) => void;
+	fileForImport: File | null;
 	setFileForImport: ( file: File | null ) => void;
+	setSelectedBlueprint: ( blueprint: Blueprint | null ) => void;
+	selectedBlueprint: Blueprint | null;
 }
 
 function NavigationContent( props: NavigationContentProps ) {
 	const { __ } = useI18n();
 	const { goTo, location } = useNavigator();
 	const { blueprintsData, isLoadingBlueprints, ...createSiteProps } = props;
-	const [ selectedBlueprint, setSelectedBlueprint ] = useState< string | null >( null );
-	const [ backupFile, setBackupFile ] = useState< File | null >( null );
 
 	const handleOptionSelect = useCallback(
 		( option: 'create' | 'blueprint' | 'backup' ) => {
@@ -77,32 +78,33 @@ function NavigationContent( props: NavigationContentProps ) {
 
 	const handleBlueprintSelect = useCallback(
 		( blueprintId: string ) => {
-			// TODO: Store the selected blueprint ID
-			console.log( 'Selected blueprint:', blueprintId );
+			const blueprint = blueprintsData?.blueprints.find(
+				( b: Blueprint ) => b.slug === blueprintId
+			);
+			createSiteProps.setSelectedBlueprint( blueprint || null );
 			goTo( '/blueprint/create' );
 		},
-		[ goTo ]
+		[ goTo, blueprintsData, createSiteProps ]
 	);
 
 	const handleBlueprintContinue = useCallback( () => {
-		if ( selectedBlueprint ) {
-			handleBlueprintSelect( selectedBlueprint );
+		if ( createSiteProps.selectedBlueprint ) {
+			handleBlueprintSelect( createSiteProps.selectedBlueprint.slug );
 		}
-	}, [ selectedBlueprint, handleBlueprintSelect ] );
+	}, [ createSiteProps.selectedBlueprint, handleBlueprintSelect ] );
 
 	const handleBackupFileSelect = useCallback(
 		( file?: File ) => {
-			setBackupFile( file || null );
 			createSiteProps.setFileForImport( file || null );
 		},
 		[ createSiteProps ]
 	);
 
 	const handleBackupContinue = useCallback( () => {
-		if ( backupFile ) {
+		if ( createSiteProps.fileForImport ) {
 			goTo( '/backup/create' );
 		}
-	}, [ backupFile, goTo ] );
+	}, [ createSiteProps, goTo ] );
 
 	const blueprints = useMemo(
 		() => blueprintsData?.blueprints.slice().reverse() || [],
@@ -123,7 +125,6 @@ function NavigationContent( props: NavigationContentProps ) {
 		if ( location.path === '/blueprint/create' ) {
 			goTo( '/blueprint' );
 		} else if ( location.path === '/backup/create' ) {
-			setBackupFile( null );
 			createSiteProps.setFileForImport( null );
 			goTo( '/backup' );
 		} else if (
@@ -132,14 +133,26 @@ function NavigationContent( props: NavigationContentProps ) {
 			location.path === '/create'
 		) {
 			if ( location.path === '/backup' ) {
-				setBackupFile( null );
 				createSiteProps.setFileForImport( null );
+			}
+			if ( location.path === '/blueprint' ) {
+				createSiteProps.setSelectedBlueprint( null );
 			}
 			goTo( '/' );
 		} else {
 			goTo( '/' );
 		}
 	}, [ goTo, location.path, createSiteProps ] );
+
+	const handleBlueprintChange = useCallback(
+		( blueprintId: string ) => {
+			const blueprint = blueprintsData?.blueprints.find(
+				( b: Blueprint ) => b.slug === blueprintId
+			);
+			createSiteProps.setSelectedBlueprint( blueprint || null );
+		},
+		[ blueprintsData?.blueprints, createSiteProps ]
+	);
 
 	return (
 		<>
@@ -150,8 +163,8 @@ function NavigationContent( props: NavigationContentProps ) {
 				<AddSiteBlueprintSelector
 					blueprints={ blueprints }
 					isLoading={ isLoadingBlueprints }
-					selectedBlueprint={ selectedBlueprint }
-					onBlueprintChange={ setSelectedBlueprint }
+					selectedBlueprint={ createSiteProps.selectedBlueprint?.slug || null }
+					onBlueprintChange={ handleBlueprintChange }
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/create">
@@ -169,20 +182,12 @@ function NavigationContent( props: NavigationContentProps ) {
 			<Stepper
 				currentPath={ location.path }
 				onBack={ handleBack }
-				onSubmit={
-					location.path === '/blueprint'
-						? handleBlueprintContinue
-						: location.path === '/backup'
-						? handleBackupContinue
-						: () => createSiteProps.handleSubmit( { preventDefault: () => {} } as FormEvent )
-				}
-				canSubmit={
-					location.path === '/blueprint'
-						? !! selectedBlueprint
-						: location.path === '/backup'
-						? !! backupFile
-						: !! canSubmit
-				}
+				onBlueprintContinue={ handleBlueprintContinue }
+				onBackupContinue={ handleBackupContinue }
+				onCreateSubmit={ createSiteProps.handleSubmit }
+				canSubmitBlueprint={ !! createSiteProps.selectedBlueprint }
+				canSubmitBackup={ !! createSiteProps.fileForImport }
+				canSubmitCreate={ !! canSubmit }
 			/>
 		</>
 	);
@@ -223,6 +228,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setEnableHttps,
 		setFileForImport,
 		loadAllCustomDomains,
+		setSelectedBlueprint,
 	} = addSiteProps;
 
 	const isAnySiteProcessing = sites.some(
@@ -243,6 +249,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setCustomDomainError( '' );
 		setEnableHttps( false );
 		setFileForImport( null );
+		setSelectedBlueprint( null );
 	}, [
 		setSitePath,
 		setDoesPathContainWordPress,
@@ -253,6 +260,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setCustomDomainError,
 		setEnableHttps,
 		setFileForImport,
+		setSelectedBlueprint,
 		defaultWordPressVersion,
 		defaultPhpVersion,
 	] );

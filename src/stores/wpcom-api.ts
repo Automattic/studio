@@ -57,6 +57,9 @@ const blueprintsResponseSchema = z.object( {
 	total: z.number(),
 } );
 
+export type Blueprint = z.infer< typeof blueprintSchema >;
+export type BlueprintsResponse = z.infer< typeof blueprintsResponseSchema >;
+
 let wpcomClient: WPCOM | undefined;
 const publicWpcomClient = new WPCOM();
 

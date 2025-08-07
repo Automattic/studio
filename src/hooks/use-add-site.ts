@@ -11,6 +11,7 @@ import {
 	selectDefaultPhpVersion,
 	selectDefaultWordPressVersion,
 } from 'src/stores/provider-constants-slice';
+import type { Blueprint } from 'src/stores/wpcom-api';
 
 export function useAddSite() {
 	const { __ } = useI18n();
@@ -33,6 +34,7 @@ export function useAddSite() {
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
 	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
 	const [ enableHttps, setEnableHttps ] = useState( false );
+	const [ selectedBlueprint, setSelectedBlueprint ] = useState< Blueprint | null >( null );
 
 	const loadAllCustomDomains = useCallback( () => {
 		getIpcApi()
@@ -114,6 +116,7 @@ export function useAddSite() {
 				wpVersion,
 				usedCustomDomain,
 				useCustomDomain ? enableHttps : false,
+				selectedBlueprint,
 				async ( newSite ) => {
 					let updatedSite = { ...newSite };
 
@@ -168,6 +171,7 @@ export function useAddSite() {
 		customDomain,
 		useCustomDomain,
 		enableHttps,
+		selectedBlueprint,
 	] );
 
 	const handleSiteNameChange = useCallback(
@@ -237,6 +241,8 @@ export function useAddSite() {
 			enableHttps,
 			setEnableHttps,
 			loadAllCustomDomains,
+			selectedBlueprint,
+			setSelectedBlueprint,
 		};
 	}, [
 		doesPathContainWordPress,
@@ -261,5 +267,6 @@ export function useAddSite() {
 		enableHttps,
 		setEnableHttps,
 		loadAllCustomDomains,
+		selectedBlueprint,
 	] );
 }

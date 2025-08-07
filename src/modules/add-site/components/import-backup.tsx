@@ -108,11 +108,8 @@ export default function ImportBackup( { onFileSelect }: ImportBackupProps ) {
 	}, [] );
 
 	return (
-		<VStack className="text-center w-full" alignment="top" spacing="3">
-			<Heading className="text-4xl">{ __( 'Add a site' ) }</Heading>
-			<Text className="text-xl font-light text-gray-500 w-96 mb-10">
-				{ __( 'Add a clean site, start from a blueprint or import site from a backup' ) }
-			</Text>
+		<VStack className="text-center w-full" alignment="top" spacing={ 6 }>
+			<Heading className="text-4xl mb-10">{ __( 'Import from a backup' ) }</Heading>
 
 			<div
 				className={ cx(

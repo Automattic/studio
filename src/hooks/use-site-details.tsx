@@ -16,6 +16,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { sortSites } from 'src/lib/sort-sites';
 import { useAppDispatch } from 'src/stores';
 import { snapshotThunks } from 'src/stores/snapshot-slice';
+import type { Blueprint } from 'src/stores/wpcom-api';
 
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
@@ -28,6 +29,7 @@ interface SiteDetailsContext {
 		wpVersion?: string,
 		customDomain?: string,
 		enableHttps?: boolean,
+		blueprint?: Blueprint | null,
 		callback?: ( site: SiteDetails ) => Promise< void >
 	) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
@@ -191,6 +193,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			wpVersion?: string,
 			customDomain?: string,
 			enableHttps?: boolean,
+			blueprint?: Blueprint | null,
 			callback?: ( site: SiteDetails ) => Promise< void >
 		) => {
 			// Function to handle error messages and cleanup
@@ -231,12 +234,14 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			setSelectedSiteId( tempSiteId ); // Set the temporary ID as the selected site
 
 			try {
+				// TODO: Pass blueprint parameter once IPC handler is updated
 				const newSite = await getIpcApi().createSite(
 					path,
 					siteName,
 					wpVersion,
 					customDomain,
 					enableHttps
+					// blueprint - will be added when IPC handler supports it
 				);
 				if ( ! newSite ) {
 					showError();

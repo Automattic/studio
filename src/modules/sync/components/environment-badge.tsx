@@ -20,8 +20,8 @@ export function EnvironmentBadge( { type, selected, className }: EnvironmentBadg
 
 		const classes: Record< string, string > = {
 			production: 'bg-a8c-green-5 text-a8c-green-80',
-			development: 'text-development-text bg-development-bg',
 			staging: 'text-a8c-yellow-80 bg-a8c-yellow-10',
+			development: 'text-development-text bg-development-bg',
 			local: 'text-a8c-gray-80 bg-a8c-gray-10',
 		};
 

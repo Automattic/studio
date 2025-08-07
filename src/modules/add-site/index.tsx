@@ -21,6 +21,7 @@ import { useGetBlueprints } from 'src/stores/wpcom-api';
 import AddSiteLegacy from './components/add-site-legacy';
 import AddSiteBlueprintSelector from './components/blueprints';
 import CreateSite from './components/create-site';
+import ImportBackup from './components/import-backup';
 import AddSiteOptions from './components/options';
 import Stepper from './components/stepper';
 
@@ -51,6 +52,7 @@ interface NavigationContentProps {
 	customDomainError: string;
 	enableHttps: boolean;
 	setEnableHttps: ( enable: boolean ) => void;
+	setFileForImport: ( file: File | null ) => void;
 }
 
 function NavigationContent( props: NavigationContentProps ) {
@@ -58,6 +60,7 @@ function NavigationContent( props: NavigationContentProps ) {
 	const { goTo, location } = useNavigator();
 	const { blueprintsData, isLoadingBlueprints, ...createSiteProps } = props;
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< string | null >( null );
+	const [ backupFile, setBackupFile ] = useState< File | null >( null );
 
 	const handleOptionSelect = useCallback(
 		( option: 'create' | 'blueprint' | 'backup' ) => {
@@ -65,8 +68,9 @@ function NavigationContent( props: NavigationContentProps ) {
 				goTo( '/blueprint' );
 			} else if ( option === 'create' ) {
 				goTo( '/create' );
+			} else if ( option === 'backup' ) {
+				goTo( '/backup' );
 			}
-			// TODO: Handle backup option
 		},
 		[ goTo ]
 	);
@@ -86,12 +90,29 @@ function NavigationContent( props: NavigationContentProps ) {
 		}
 	}, [ selectedBlueprint, handleBlueprintSelect ] );
 
+	const handleBackupFileSelect = useCallback(
+		( file: File ) => {
+			setBackupFile( file );
+			createSiteProps.setFileForImport( file );
+		},
+		[ createSiteProps ]
+	);
+
+	const handleBackupContinue = useCallback( () => {
+		if ( backupFile ) {
+			goTo( '/backup/create' );
+		}
+	}, [ backupFile, goTo ] );
+
 	const blueprints = useMemo(
 		() => blueprintsData.blueprints.slice().reverse() || [],
 		[ blueprintsData ]
 	);
 
-	const isOnCreatePath = location.path === '/create' || location.path === '/blueprint/create';
+	const isOnCreatePath =
+		location.path === '/create' ||
+		location.path === '/blueprint/create' ||
+		location.path === '/backup/create';
 	const canSubmit =
 		isOnCreatePath &&
 		createSiteProps.siteName?.trim() &&
@@ -101,10 +122,24 @@ function NavigationContent( props: NavigationContentProps ) {
 	const handleBack = useCallback( () => {
 		if ( location.path === '/blueprint/create' ) {
 			goTo( '/blueprint' );
+		} else if ( location.path === '/backup/create' ) {
+			setBackupFile( null );
+			createSiteProps.setFileForImport( null );
+			goTo( '/backup' );
+		} else if (
+			location.path === '/backup' ||
+			location.path === '/blueprint' ||
+			location.path === '/create'
+		) {
+			if ( location.path === '/backup' ) {
+				setBackupFile( null );
+				createSiteProps.setFileForImport( null );
+			}
+			goTo( '/' );
 		} else {
 			goTo( '/' );
 		}
-	}, [ goTo, location.path ] );
+	}, [ goTo, location.path, createSiteProps ] );
 
 	return (
 		<>
@@ -125,15 +160,29 @@ function NavigationContent( props: NavigationContentProps ) {
 			<Navigator.Screen className="flex-1" path="/create">
 				<CreateSite { ...createSiteProps } />
 			</Navigator.Screen>
+			<Navigator.Screen className="flex-1" path="/backup">
+				<ImportBackup onFileSelect={ handleBackupFileSelect } />
+			</Navigator.Screen>
+			<Navigator.Screen className="flex-1" path="/backup/create">
+				<CreateSite { ...createSiteProps } />
+			</Navigator.Screen>
 			<Stepper
 				currentPath={ location.path }
 				onBack={ handleBack }
 				onSubmit={
 					location.path === '/blueprint'
 						? handleBlueprintContinue
+						: location.path === '/backup'
+						? handleBackupContinue
 						: () => createSiteProps.handleSubmit( { preventDefault: () => {} } as FormEvent )
 				}
-				canSubmit={ location.path === '/blueprint' ? !! selectedBlueprint : !! canSubmit }
+				canSubmit={
+					location.path === '/blueprint'
+						? !! selectedBlueprint
+						: location.path === '/backup'
+						? !! backupFile
+						: !! canSubmit
+				}
 			/>
 		</>
 	);

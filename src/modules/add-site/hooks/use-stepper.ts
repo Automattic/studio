@@ -27,6 +27,11 @@ export function useStepper(): StepperContext {
 			{ id: 'site-details', label: __( 'Site name & details' ), path: '/blueprint/create' },
 		];
 
+		const backupSteps = [
+			{ id: 'select-file', label: __( 'Select or drop a file' ), path: '/backup' },
+			{ id: 'add-site', label: __( 'Site name & details' ), path: '/backup/create' },
+		];
+
 		const createSteps = [
 			{ id: 'create-site', label: __( 'Site name & details' ), path: '/create' },
 		];
@@ -35,6 +40,13 @@ export function useStepper(): StepperContext {
 			return {
 				flow: 'blueprint',
 				steps: blueprintSteps,
+			};
+		}
+
+		if ( location.path?.startsWith( '/backup' ) ) {
+			return {
+				flow: 'backup',
+				steps: backupSteps,
 			};
 		}
 
@@ -85,12 +97,14 @@ export function useStepper(): StepperContext {
 
 		switch ( location.path ) {
 			case '/blueprint':
+			case '/backup':
 				return {
 					label: __( 'Continue' ),
 					isVisible: true,
 				};
 			case '/create':
 			case '/blueprint/create':
+			case '/backup/create':
 				return {
 					label: __( 'Add site' ),
 					isVisible: true,

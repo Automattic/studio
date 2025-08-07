@@ -153,8 +153,11 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				await installSqliteIntegration( path );
 			}
 
-			// If we copied WordPress files offline, skip setup since files are already there
-			const needsSetup = isOnline;
+			if ( ! isOnline ) {
+				return true;
+			}
+
+			// Online mode: run the blueprint setup
 			const serverInstance = await this.startServer( {
 				path,
 				port,
@@ -163,7 +166,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				phpVersion: phpVersion || this.DEFAULT_PHP_VERSION,
 				wpVersion,
 				isWpAutoUpdating: false,
-				isSetupMode: needsSetup,
+				isSetupMode: true,
 			} );
 
 			const serverProcess = this.createServerProcess( serverInstance );

@@ -14,9 +14,15 @@ describe( 'EnvironmentBadge', () => {
 		expect( badge ).toBeInTheDocument();
 	} );
 
-	it( 'renders the Sandbox badge with correct label', () => {
-		render( <EnvironmentBadge type="sandbox" /> );
-		const badge = screen.getByText( 'Sandbox' );
+	it( 'renders the Development badge with correct label', () => {
+		render( <EnvironmentBadge type="development" /> );
+		const badge = screen.getByText( 'Development' );
+		expect( badge ).toBeInTheDocument();
+	} );
+
+	it( 'renders the Local badge with correct label', () => {
+		render( <EnvironmentBadge type="local" /> );
+		const badge = screen.getByText( 'Local' );
 		expect( badge ).toBeInTheDocument();
 	} );
 

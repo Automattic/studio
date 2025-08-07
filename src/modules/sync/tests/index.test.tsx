@@ -218,7 +218,6 @@ describe( 'ContentTabSync', () => {
 			environmentType: 'production',
 			stagingSiteIds: [ 7 ],
 			syncSupport: 'already-connected',
-			environmentType: 'production',
 		};
 		const fakeStagingSite = {
 			id: 7,
@@ -228,7 +227,6 @@ describe( 'ContentTabSync', () => {
 			environmentType: 'staging',
 			stagingSiteIds: [],
 			syncSupport: 'already-connected',
-			environmentType: 'staging',
 		};
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
 

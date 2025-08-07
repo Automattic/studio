@@ -10,8 +10,8 @@ export const getSiteEnvironment = ( site: SyncSite ): EnvironmentType => {
 	return parsed.success ? parsed.data : 'production';
 };
 
-export const getEnvironmentLabel = ( type: string ): string => {
-	const labels: Record< string, string > = {
+export const getEnvironmentLabel = ( type: EnvironmentType ): string => {
+	const labels: Record< EnvironmentType, string > = {
 		staging: __( 'Staging' ),
 		development: __( 'Development' ),
 		local: __( 'Local' ),

@@ -35,7 +35,7 @@ export default function Stepper( { currentPath, onBack, onSubmit, canSubmit }: S
 							<Icon
 								icon={ isCompleted || isCurrent ? published : border }
 								size={ 30 }
-								className="fill-gray-500"
+								className={ isCompleted && ! isCurrent ? 'fill-a8c-blue-50' : 'fill-gray-500' }
 							/>
 							<Text className={ 'text-base text-gray-500' }>{ step.label }</Text>
 						</HStack>

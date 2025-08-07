@@ -183,6 +183,7 @@ function ListSites( {
 					site={ site }
 					isSelected={ site.id === selectedSiteId }
 					onClick={ () => onSelectSite( site.id ) }
+					allSites={ syncSites }
 				/>
 			) ) }
 		</div>
@@ -193,10 +194,12 @@ function SiteItem( {
 	site,
 	isSelected,
 	onClick,
+	allSites,
 }: {
 	site: SyncSite;
 	isSelected: boolean;
 	onClick: () => void;
+	allSites: SyncSite[];
 } ) {
 	const { __ } = useI18n();
 	if ( site.isStaging ) {
@@ -211,6 +214,16 @@ function SiteItem( {
 	const isUnsupported = site.syncSupport === 'unsupported';
 	const isPressable = site.isPressable;
 	const isDisabled = isDeleted || isUnsupported || needsUpgrade || isMissingPermissions;
+
+	const renderStagingSiteBadge = () => {
+		const stagingSiteId = site.stagingSiteIds[ 0 ];
+		const stagingSite = allSites.find( ( s ) => s.id === stagingSiteId );
+
+		if ( ! stagingSite ) {
+			return null;
+		}
+		return <EnvironmentBadge type={ getSiteEnvironment( stagingSite ) } selected={ isSelected } />;
+	};
 
 	return (
 		<div
@@ -286,10 +299,8 @@ function SiteItem( {
 				<div className="flex gap-2">
 					{ ! isPressable && (
 						<>
-							<EnvironmentBadge type="production" selected={ isSelected } />
-							{ site.stagingSiteIds.length > 0 && (
-								<EnvironmentBadge type="staging" selected={ isSelected } />
-							) }
+							<EnvironmentBadge type={ getSiteEnvironment( site ) } selected={ isSelected } />
+							{ site.stagingSiteIds.length > 0 && renderStagingSiteBadge() }
 						</>
 					) }
 					{ isPressable && (

@@ -26,15 +26,21 @@ interface FeatureFlagsProviderProps {
 }
 
 export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { children } ) => {
-	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( {
-		...defaultFeatureFlags,
+	const [ featureFlags, setFeatureFlags ] = useState< FeatureFlagsContextType >( () => {
+		return {
+			...defaultFeatureFlags,
+			...window.appGlobals,
+		};
 	} );
 	const { isAuthenticated, client } = useAuth();
+	const [ apiFlags, setApiFlags ] = useState< Partial< FeatureFlags > >( {} );
 
 	useIpcListener( 'refresh-app-globals', async () => {
 		window.appGlobals = await getIpcApi().getAppGlobals();
 		setFeatureFlags( {
-			...featureFlags,
+			...defaultFeatureFlags,
+			...window.appGlobals,
+			...apiFlags,
 		} );
 	} );
 
@@ -53,8 +59,10 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 				if ( cancel ) {
 					return;
 				}
+				setApiFlags( flags );
 				setFeatureFlags( {
 					...defaultFeatureFlags,
+					...window.appGlobals,
 					...flags,
 				} );
 			} catch ( error ) {

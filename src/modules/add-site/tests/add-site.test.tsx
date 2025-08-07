@@ -3,10 +3,10 @@ import { jest } from '@jest/globals';
 import { render, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import AddSite from 'src/components/add-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 import { createTestStore } from 'src/lib/test-utils';
+import AddSite from 'src/modules/add-site';
 
 jest.mock( 'src/stores/certificate-trust-api', () => {
 	const actual = jest.requireActual( 'src/stores/certificate-trust-api' ) || {};

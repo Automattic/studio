@@ -2,13 +2,8 @@ import * as Sentry from '@sentry/electron/renderer';
 import { MenuItem } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import offlineIcon from 'src/components/offline-icon';
-import { Tooltip } from 'src/components/tooltip';
-import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useRootSelector } from 'src/stores';
-import { snapshotSelectors } from 'src/stores/snapshot-slice';
 
 const MAX_LENGTH_SITE_TITLE = 35;
 
@@ -19,15 +14,6 @@ type DeleteSiteProps = {
 const DeleteSite = ( { onClose }: DeleteSiteProps ) => {
 	const { __ } = useI18n();
 	const { selectedSite, deleteSite, isDeleting } = useSiteDetails();
-	const isOffline = useOffline();
-
-	const offlineMessage = __(
-		'This site has active preview sites that cannot be deleted without an internet connection.'
-	);
-
-	const snapshotsOnSite = useRootSelector( ( state ) =>
-		snapshotSelectors.selectSnapshotsBySite( state, selectedSite?.id ?? '' )
-	);
 
 	const handleDeleteSite = async () => {
 		if ( ! selectedSite ) {
@@ -73,32 +59,23 @@ const DeleteSite = ( { onClose }: DeleteSiteProps ) => {
 			? `${ name.substring( 0, MAX_LENGTH_SITE_TITLE - 3 ) }…`
 			: name;
 
-	const isSiteDeletionDisabled =
-		! selectedSite || ( isOffline && snapshotsOnSite.length > 0 ) || isDeleting;
+	const isSiteDeletionDisabled = ! selectedSite || isDeleting;
 
 	return (
-		<Tooltip
-			disabled={ ! ( isOffline && snapshotsOnSite.length > 0 ) }
-			icon={ offlineIcon }
-			text={ offlineMessage }
-			placement="left"
+		<MenuItem
+			aria-disabled={ isSiteDeletionDisabled }
+			onClick={ () => {
+				if ( isSiteDeletionDisabled ) {
+					return;
+				}
+				onClose();
+				void handleDeleteSite();
+			} }
+			isDestructive
+			disabled={ isSiteDeletionDisabled }
 		>
-			<MenuItem
-				aria-disabled={ isSiteDeletionDisabled }
-				aria-description={ isOffline && snapshotsOnSite.length > 0 ? offlineMessage : '' }
-				onClick={ () => {
-					if ( isSiteDeletionDisabled ) {
-						return;
-					}
-					onClose();
-					void handleDeleteSite();
-				} }
-				isDestructive
-				disabled={ isSiteDeletionDisabled }
-			>
-				{ __( 'Delete site' ) }
-			</MenuItem>
-		</Tooltip>
+			{ __( 'Delete site' ) }
+		</MenuItem>
 	);
 };
 export default DeleteSite;

@@ -237,7 +237,6 @@ export class SiteServer {
 		this.details = { running: false, autoStart: false, ...rest };
 	}
 
-
 	async updateCachedThumbnail() {
 		if ( ! this.details.running ) {
 			console.warn( `Thumbnail update skipped: server ${ this.details.id } is not running.` );

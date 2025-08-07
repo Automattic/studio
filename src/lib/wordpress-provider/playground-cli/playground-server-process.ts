@@ -36,22 +36,25 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 
 		this.process = utilityProcess.fork( PLAYGROUND_SERVER_PROCESS_MODULE_PATH );
 
-		this.process.on( 'message', ( message:  { type?: string; id?: number; error?: string; result?: unknown } ) => {
-			if ( message.type === 'ready' ) {
-				return;
-			}
+		this.process.on(
+			'message',
+			( message: { type?: string; id?: number; error?: string; result?: unknown } ) => {
+				if ( message.type === 'ready' ) {
+					return;
+				}
 
-			if ( message.id !== undefined && this.responseHandlers.has( message.id ) ) {
-				const handler = this.responseHandlers.get( message.id )!;
-				this.responseHandlers.delete( message.id );
+				if ( message.id !== undefined && this.responseHandlers.has( message.id ) ) {
+					const handler = this.responseHandlers.get( message.id )!;
+					this.responseHandlers.delete( message.id );
 
-				if ( message.error ) {
-					handler.reject( new Error( message.error ) );
-				} else {
-					handler.resolve( message.result );
+					if ( message.error ) {
+						handler.reject( new Error( message.error ) );
+					} else {
+						handler.resolve( message.result );
+					}
 				}
 			}
-		} );
+		);
 
 		this.process.on( 'exit', () => {
 			this.process = null;

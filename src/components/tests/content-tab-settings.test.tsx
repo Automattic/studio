@@ -111,13 +111,12 @@ describe( 'ContentTabSettings', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
 
-		// Mock fetch to prevent console errors from wordpress-versions-api
-		global.fetch = jest.fn().mockResolvedValue( {
+		jest.spyOn( global, 'fetch' ).mockResolvedValue( {
 			ok: true,
 			json: jest.fn().mockResolvedValue( {
 				offers: [],
 			} ),
-		} );
+		} as any );
 
 		// Create a fresh store for each test
 		testStore = createCustomTestStore();

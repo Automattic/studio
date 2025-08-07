@@ -3,7 +3,7 @@ Unreleased
 
 1.5.6
 =====
-* Updated SQLite plugin to 2.2.5 and enabled new AST driver #1506, #1628
+* Updated SQLite plugin to 2.2.6 and enabled new AST driver #1506, #1628
 * Changed behavior to open the Overview tab after deleting and creating site #1572
 * Suppressed punycode warnings for both CLI and the app #1579
 * Improved crash screen and fixed a startup crash caused by Studio running from read-only directory #1599

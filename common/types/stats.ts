@@ -4,6 +4,7 @@ export enum StatsGroup {
 	STUDIO_APP_LAUNCH_TOTAL = 'studio-app-launch-total',
 	STUDIO_APP_LAUNCH_UNIQUE = 'studio-app-launch-uniques',
 	STUDIO_APP_LAUNCH_UNIQUE_MONTHLY = 'studio-app-launch-uniques-monthly',
+	STUDIO_SITE_CREATE = 'studio-app-site-create',
 	STUDIO_IMPORT = 'studio-app-import',
 	STUDIO_EXPORT = 'studio-app-export',
 	// Studio CLI
@@ -28,6 +29,9 @@ export enum StatsMetric {
 	PLAYGROUND_IMPORTER = 'PlaygroundImporter',
 	WPRESS_IMPORTER = 'WpressImporter',
 	UNKNOWN_IMPORTER = 'UnknownImporter',
+	// Site creation
+	BLUEPRINT_SELECTED = 'blueprint-selected',
+	BLANK_SITE = 'blank-site',
 }
 
 export type AggregateInterval = 'daily' | 'weekly' | 'monthly';

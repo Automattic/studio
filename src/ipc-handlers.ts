@@ -173,9 +173,16 @@ export async function createSite(
 	wpVersion?: string,
 	customDomain?: string,
 	enableHttps?: boolean,
-	siteId?: string
+	siteId?: string,
+	blueprint?: string | null
 ): Promise< SiteDetails > {
 	const forceSetupSqlite = false;
+
+	bumpStat(
+		StatsGroup.STUDIO_SITE_CREATE,
+		blueprint ? StatsMetric.BLUEPRINT_SELECTED : StatsMetric.BLANK_SITE
+	);
+
 	// We only recursively create the directory if the user has not selected a
 	// path from the dialog (and thus they use the "default" or suggested path).
 	if ( ! ( await pathExists( path ) ) && path.startsWith( DEFAULT_SITE_PATH ) ) {

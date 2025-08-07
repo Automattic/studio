@@ -9,6 +9,7 @@ Unreleased
 * Improved crash screen and fixed a startup crash caused by Studio running from read-only directory #1599
 * Added support for sites with custom environment types #1595
 * Set the selective sync checkboxes to be unchecked as the initial state #1626
+* Improved offline functionality for site deletion and logout #1637, #1638, #1641
 * Updated multiple dependencies to the latest versions
 
 1.5.5

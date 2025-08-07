@@ -6,6 +6,9 @@ import * as child_process from 'child_process';
  */
 export const getLatestTag = () => {
 	try {
+		// Fetch all tags to ensure they're available
+		child_process.execSync( 'git fetch --tags --force', { stdio: 'pipe' } );
+
 		// Get the latest reachable release tag that is not a beta tag
 		const latestReleaseTag = child_process
 			.execSync( 'git describe --tags --abbrev=0 --match \'v*\' --exclude \'*-beta*\'' )

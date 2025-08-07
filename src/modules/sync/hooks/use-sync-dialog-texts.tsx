@@ -85,7 +85,7 @@ export const useSyncDialogTexts = (
 				local: {
 					title: __( 'Push to remote Local' ),
 					description: __(
-						"Pushing will overwrite your remote site's selected files and database with content from your Studio site. Unchecked items will not be changed. The local site will be backed up before any changes are applied."
+						"Pushing will overwrite your remote site's selected files and database with content from your Studio site. Unchecked items will not be changed. The remote site will be backed up before any changes are applied."
 					),
 				},
 			};

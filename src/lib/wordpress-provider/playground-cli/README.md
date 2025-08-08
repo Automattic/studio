@@ -21,7 +21,7 @@ graph TB
 
     CreateSite --> ValidatePath{Path Valid?}
     ValidatePath --> |No| Error[Show Error]
-    ValidatePath --> |Yes| GetPort[portFinder.getOpenPort()]
+    ValidatePath --> |Yes| GetPort["portFinder.getOpenPort()"]
 
     GetPort --> CreateServer[SiteServer.create()<br/>src/site-server.ts:74]
 
@@ -41,17 +41,17 @@ graph TB
 
     CopyBundled --> InstallSQLite[Install SQLite Integration]
 
-    StartSetupMode --> CreateInstance[provider.startServer()<br/>Creates WordPressServerInstance<br/>with PlaygroundCliOptions]
+    StartSetupMode --> CreateInstance["provider.startServer()<br/>Creates WordPressServerInstance<br/>with PlaygroundCliOptions"]
 
-    CreateInstance --> CreateProcess[provider.createServerProcess()<br/>Creates PlaygroundServerProcess]
+    CreateInstance --> CreateProcess["provider.createServerProcess()<br/>Creates PlaygroundServerProcess"]
 
-    CreateProcess --> StartProcess[serverProcess.start()<br/>playground-server-process.ts:27]
+    CreateProcess --> StartProcess["serverProcess.start()<br/>playground-server-process.ts:27"]
 
-    StartProcess --> ForkUtility[utilityProcess.fork()<br/>Spawns child process]
+    StartProcess --> ForkUtility["utilityProcess.fork()<br/>Spawns child process"]
 
     ForkUtility --> ChildProcess[playground-server-process-child.ts]
 
-    ChildProcess --> RunCLI[runCLI() from @wp-playground/cli]
+    ChildProcess --> RunCLI["runCLI() from @wp-playground/cli"]
 
     RunCLI --> SetupMode{Setup Mode?}
 
@@ -77,20 +77,20 @@ graph TB
 graph TB
     Start([User clicks Start Site]) --> LoadSite[Load Site from userData]
 
-    LoadSite --> GetServer[SiteServer.get(id)]
+    LoadSite --> GetServer["SiteServer.get(id)"]
 
-    GetServer --> StartSite[startSite()<br/>src/site-server.ts]
+    GetServer --> StartSite["startSite()<br/>src/site-server.ts"]
 
     StartSite --> CheckProvider{Blueprints<br/>Enabled?}
 
     CheckProvider --> |Yes| UsePlaygroundCLI[PlaygroundCliProvider]
     CheckProvider --> |No| UseWpNow[WpNowProvider]
 
-    UsePlaygroundCLI --> CreateServerInstance[provider.startServer()<br/>Returns WordPressServerInstance]
+    UsePlaygroundCLI --> CreateServerInstance["provider.startServer()<br/>Returns WordPressServerInstance"]
 
-    CreateServerInstance --> CreateServerProcess[provider.createServerProcess()<br/>Returns PlaygroundServerProcess]
+    CreateServerInstance --> CreateServerProcess["provider.createServerProcess()<br/>Returns PlaygroundServerProcess"]
 
-    CreateServerProcess --> StartProcess[serverProcess.start()]
+    CreateServerProcess --> StartProcess["serverProcess.start()"]
 
     StartProcess --> ForkChild[Fork utility process<br/>playground-server-process-child.ts]
 
@@ -184,7 +184,7 @@ sequenceDiagram
     Provider->>Process: new PlaygroundServerProcess()
     Process->>Process: start()
     Process->>Child: fork utility process
-    Child->>CLI: runCLI()
+    Child->>CLI: "runCLI()"
     CLI->>CLI: Setup WordPress
     CLI->>Child: ready
     Child->>Process: ready message

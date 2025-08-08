@@ -110,15 +110,10 @@ const TreeItem = ( {
 				aria-label={ node.label }
 				className={ cx(
 					'flex items-center py-2 relative gap-2',
-					isFirstLevel ? 'border-b border-gray-300 py-4' : ''
+					isFirstLevel && 'border-b border-gray-300 py-4'
 				) }
 			>
-				<label
-					className={ cx(
-						'flex items-center',
-						disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
-					) }
-				>
+				<label className={ cx( 'flex items-center', disabled && 'cursor-not-allowed opacity-60' ) }>
 					<CheckboxControl
 						id={ node.id }
 						checked={ node.checked }
@@ -168,7 +163,7 @@ const TreeItem = ( {
 			{ expanded && node.children && (
 				<div
 					role="group"
-					className={ cx( 'ps-6', isFirstLevel ? 'border-b border-gray-300 py-2' : '' ) }
+					className={ cx( 'ps-6', isFirstLevel && 'border-b border-gray-300 py-2' ) }
 				>
 					{ renderBeforeChildren && renderBeforeChildren( node.id ) }
 					{ node.children.length === 0 ? (

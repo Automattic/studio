@@ -1,9 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { Badge } from 'src/components/badge';
 import { cx } from 'src/lib/cx';
-import { getEnvironmentLabel } from 'src/modules/sync/lib/environment-utils';
-
-export type EnvironmentType = string;
+import { getEnvironmentLabel, EnvironmentType } from 'src/modules/sync/lib/environment-utils';
 
 interface EnvironmentBadgeProps {
 	type: EnvironmentType;
@@ -22,8 +20,8 @@ export function EnvironmentBadge( { type, selected, className }: EnvironmentBadg
 
 		const classes: Record< string, string > = {
 			production: 'bg-a8c-green-5 text-a8c-green-80',
-			sandbox: 'text-sandbox-text bg-sandbox-bg',
 			staging: 'text-a8c-yellow-80 bg-a8c-yellow-10',
+			development: 'text-development-text bg-development-bg',
 		};
 
 		return classes[ type ] || 'text-a8c-gray-80 bg-a8c-gray-10';

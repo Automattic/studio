@@ -80,7 +80,6 @@ const TreeItem = ( {
 	onExpand,
 	level,
 	index,
-	isLast = false,
 	siblingsLength,
 	disabled,
 	renderBeforeChildren,

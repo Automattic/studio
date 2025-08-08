@@ -178,13 +178,13 @@ sequenceDiagram
     participant CLI as @wp-playground/cli
 
     UI->>Main: createSite IPC
-    Main->>Server: "SiteServer.create()"
-    Server->>Provider: "setupWordPressSite()"
-    Provider->>Provider: "startServer()"
-    Provider->>Process: "new PlaygroundServerProcess()"
-    Process->>Process: "start()"
+    Main->>Server: "SiteServer.create"
+    Server->>Provider: "setupWordPressSite"
+    Provider->>Provider: "startServer"
+    Provider->>Process: "new PlaygroundServerProcess"
+    Process->>Process: "start"
     Process->>Child: fork utility process
-    Child->>CLI: "runCLI()"
+    Child->>CLI: "runCLI"
     CLI->>CLI: Setup WordPress
     CLI->>Child: ready
     Child->>Process: ready message

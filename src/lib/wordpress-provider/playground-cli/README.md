@@ -115,9 +115,9 @@ graph TB
   - `true` → PlaygroundCliProvider
   - `false` → WpNowProvider (legacy)
 - **Provider Interface**: WordPressProvider with methods:
-  - `setupWordPressSite()` - Initial WP setup
-  - `startServer()` - Create server instance
-  - `createServerProcess()` - Create process handler
+  - setupWordPressSite - Initial WP setup
+  - startServer - Create server instance
+  - createServerProcess - Create process handler
 
 ### 2. **PlaygroundCliProvider** (`playground-cli-provider.ts`)
 
@@ -130,7 +130,7 @@ graph TB
 ### 3. **PlaygroundServerProcess** (`playground-server-process.ts`)
 
 - **Process Management**:
-  - Uses Electron's `utilityProcess.fork()` for child process
+  - Uses Electron's utilityProcess.fork for child process
   - Message-based IPC communication
   - Handles start/stop/run-php commands
   - Manages process lifecycle and cleanup
@@ -138,8 +138,8 @@ graph TB
 ### 4. **Child Process** (`playground-server-process-child.ts`)
 
 - **Playground CLI Integration**:
-  - Imports `@wp-playground/cli` package
-  - Runs either `run-blueprint` (setup) or `server` (runtime)
+  - Imports @wp-playground/cli package
+  - Runs either run-blueprint (setup) or server (runtime)
   - Mounts local directories into Playground VFS
   - Handles PHP execution requests
 
@@ -154,10 +154,10 @@ Host System → Playground VFS
 
 ### 6. **Setup vs Runtime Modes**
 
-| Mode         | Command         | Purpose                   | Process Behavior    |
-| ------------ | --------------- | ------------------------- | ------------------- |
-| Setup Mode   | `run-blueprint` | Install WP, run blueprint | Exits on completion |
-| Runtime Mode | `server`        | Run existing site         | Keeps running       |
+| Mode         | Command       | Purpose                   | Process Behavior    |
+| ------------ | ------------- | ------------------------- | ------------------- |
+| Setup Mode   | run-blueprint | Install WP, run blueprint | Exits on completion |
+| Runtime Mode | server        | Run existing site         | Keeps running       |
 
 ### 7. **Blueprint Support**
 

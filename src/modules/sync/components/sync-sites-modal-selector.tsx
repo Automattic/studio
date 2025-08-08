@@ -214,16 +214,7 @@ function SiteItem( {
 	const isUnsupported = site.syncSupport === 'unsupported';
 	const isPressable = site.isPressable;
 	const isDisabled = isDeleted || isUnsupported || needsUpgrade || isMissingPermissions;
-
-	const renderStagingSiteBadge = () => {
-		const stagingSiteId = site.stagingSiteIds[ 0 ];
-		const stagingSite = allSites.find( ( s ) => s.id === stagingSiteId );
-
-		if ( ! stagingSite ) {
-			return null;
-		}
-		return <EnvironmentBadge type={ getSiteEnvironment( stagingSite ) } selected={ isSelected } />;
-	};
+	const stagingSite = allSites.find( ( s ) => s.id === site.stagingSiteIds[ 0 ] );
 
 	return (
 		<div
@@ -300,7 +291,12 @@ function SiteItem( {
 					{ ! isPressable && (
 						<>
 							<EnvironmentBadge type={ getSiteEnvironment( site ) } selected={ isSelected } />
-							{ site.stagingSiteIds.length > 0 && renderStagingSiteBadge() }
+							{ stagingSite && (
+								<EnvironmentBadge
+									type={ getSiteEnvironment( stagingSite ) }
+									selected={ isSelected }
+								/>
+							) }
 						</>
 					) }
 					{ isPressable && (

@@ -37,6 +37,8 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		'wp-content/mu-plugins/0-wp-config-constants-polyfill.php',
 		'wp-content/mu-plugins/0-sqlite.php',
 		'wp-content/mu-plugins/0-thumbnails.php',
+		'wp-content/mu-plugins/0-https-for-reverse-proxy.php',
+		'wp-content/mu-plugins/0-sqlite-command.php',
 	];
 
 	constructor( options: ExportOptions ) {

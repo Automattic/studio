@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { getWpLoadPath } from 'src/lib/wordpress-provider';
 import type { WordPressServerProcess } from 'src/lib/wordpress-provider/types';
 
 const themeDetailsSchema = z.object( {
@@ -17,8 +18,10 @@ export async function phpGetThemeDetails(
 		throw Error( 'PHP is not instantiated' );
 	}
 
+	const wpLoadPath = getWpLoadPath( server );
+
 	const themeDetailsPhp = `<?php
-	require_once('${ server.php.documentRoot }/wp-load.php');
+	require_once('${ wpLoadPath }');
 	$theme = wp_get_theme();
 	echo json_encode([
 		'name' => $theme->get('Name'),

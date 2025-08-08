@@ -6,8 +6,11 @@ const EnvironmentSchema = z.enum( [ 'production', 'staging', 'development', 'loc
 export type EnvironmentType = z.infer< typeof EnvironmentSchema >;
 
 export const getSiteEnvironment = ( site: SyncSite ): EnvironmentType => {
-	const parsed = EnvironmentSchema.safeParse( site.environmentType );
-	return parsed.success ? parsed.data : 'production';
+	if ( site.isPressable ) {
+		const parsed = EnvironmentSchema.safeParse( site.environmentType );
+		return parsed.success ? parsed.data : 'production';
+	}
+	return site.isStaging ? 'staging' : 'production';
 };
 
 export const getEnvironmentLabel = ( type: EnvironmentType ): string => {

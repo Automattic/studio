@@ -42,7 +42,7 @@ type OnPullSuccess = ( siteId: number, localSiteId: string ) => void;
 type PullSite = (
 	connectedSite: SyncSite,
 	selectedSite: SiteDetails,
-	options: PullSiteOptions,
+	options: PullSiteOptions
 ) => void;
 type IsSiteIdPulling = ( selectedSiteId: string, remoteSiteId?: number ) => boolean;
 
@@ -126,8 +126,8 @@ export function useSyncPull( {
 			try {
 				// Initializing backup on remote
 				const requestBody: {
-					options: SyncOption[],
-					include_path_list: PullSiteOptions['include_path_list']
+					options: SyncOption[];
+					include_path_list: PullSiteOptions[ 'include_path_list' ];
 				} = {
 					options: options.optionsToSync,
 					include_path_list: options.include_path_list,

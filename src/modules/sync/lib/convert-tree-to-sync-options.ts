@@ -106,7 +106,7 @@ export const convertTreeToPullOptions = ( tree: TreeNode[] ): PullSiteOptions =>
 	const pathIds = collectPathIds( wpContent?.children ?? [] );
 
 	const pullOptions: PullSiteOptions = {
-		optionsToSync: pathIds.length > 0 ? [ SYNC_OPTIONS.paths ] : []
+		optionsToSync: pathIds.length > 0 ? [ SYNC_OPTIONS.paths ] : [],
 	};
 
 	if ( pathIds.length > 0 ) {

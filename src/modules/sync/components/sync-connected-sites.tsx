@@ -161,7 +161,7 @@ const SyncConnectedSiteControls = ( {
 							const pushOptions = convertTreeToPushOptions( tree );
 							void pushSite( connectedSite, selectedSite, pushOptions );
 						} }
-						onPull={ ( tree, rewindId ) => {
+						onPull={ ( tree ) => {
 							const pullOptions = convertTreeToPullOptions( tree );
 							pullSite( connectedSite, selectedSite, pullOptions );
 						} }

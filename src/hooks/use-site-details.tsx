@@ -9,7 +9,9 @@ import {
 	useMemo,
 	useState,
 } from 'react';
+import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
+import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { sortSites } from 'src/lib/sort-sites';
 import { useAppDispatch } from 'src/stores';
@@ -91,6 +93,8 @@ function useSelectedSite( firstSiteId: string | null ) {
 function useDeleteSite() {
 	const [ isLoading, setIsLoading ] = useState< Record< string, boolean > >( {} );
 	const dispatch = useAppDispatch();
+	const isOffline = useOffline();
+	const { isAuthenticated } = useAuth();
 
 	const deleteSite = useCallback(
 		async ( siteId: string, removeLocal: boolean ): Promise< void > => {
@@ -98,15 +102,20 @@ function useDeleteSite() {
 				return;
 			}
 
-			const allSiteRemovePromises = dispatch(
-				snapshotThunks.deleteAllSnapshotsForSite( { siteId } )
-			);
+			const shouldDeletePreviewSites = ! isOffline && isAuthenticated;
+
+			const allSiteRemovePromises = shouldDeletePreviewSites
+				? dispatch( snapshotThunks.deleteAllSnapshotsForSite( { siteId } ) )
+				: Promise.resolve();
 
 			try {
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: true } ) );
 
 				await getIpcApi().deleteSite( siteId, removeLocal );
-				await allSiteRemovePromises;
+
+				if ( shouldDeletePreviewSites ) {
+					await allSiteRemovePromises;
+				}
 
 				// After site is deleted successfully, clean up wpcom connections
 				try {
@@ -131,7 +140,7 @@ function useDeleteSite() {
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: false } ) );
 			}
 		},
-		[ dispatch ]
+		[ dispatch, isOffline, isAuthenticated ]
 	);
 	return { deleteSite, isLoading };
 }

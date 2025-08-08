@@ -25,7 +25,7 @@ export default class Onboarding {
 	}
 
 	get continueButton() {
-		return this.locator.getByRole( 'button', { name: 'Add site' } );
+		return this.locator.getByRole( 'button', { name: /Continue|Add site/ } );
 	}
 
 	async selectLocalPathForTesting() {

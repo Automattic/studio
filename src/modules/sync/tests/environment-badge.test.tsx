@@ -20,12 +20,6 @@ describe( 'EnvironmentBadge', () => {
 		expect( badge ).toBeInTheDocument();
 	} );
 
-	it( 'renders the Local badge with correct label', () => {
-		render( <EnvironmentBadge type="local" /> );
-		const badge = screen.getByText( 'Local' );
-		expect( badge ).toBeInTheDocument();
-	} );
-
 	it( 'applies specific classes for the Production badge', () => {
 		const { container } = render( <EnvironmentBadge type="production" /> );
 

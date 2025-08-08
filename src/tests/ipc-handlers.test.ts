@@ -209,6 +209,9 @@ describe( 'importSite', () => {
 				phpVersion: '8.3',
 			},
 			updateSiteDetails: jest.fn(),
+			executeWpCliCommand: jest
+				.fn()
+				.mockResolvedValue( { stdout: 'New Site Title', stderr: '', exitCode: 0 } ),
 		};
 		( SiteServer.get as jest.Mock ).mockReturnValue( mockSite );
 		( importBackup as jest.Mock ).mockResolvedValue( {
@@ -244,6 +247,9 @@ describe( 'importSite', () => {
 			details: {
 				id: 'test-site',
 			},
+			executeWpCliCommand: jest
+				.fn()
+				.mockResolvedValue( { stdout: 'New Site Title', stderr: '', exitCode: 0 } ),
 		};
 		( SiteServer.get as jest.Mock ).mockReturnValue( mockSite );
 		( importBackup as jest.Mock ).mockRejectedValue( mockError );

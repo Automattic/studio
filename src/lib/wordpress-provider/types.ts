@@ -1,3 +1,5 @@
+import { SiteServer } from 'src/site-server';
+
 export type AllowedPHPVersion = string;
 
 export interface ServerOptions {
@@ -42,6 +44,8 @@ export interface WordPressServerProcess {
 }
 
 export interface WordPressProvider {
+	readonly PROVIDER_TYPE: string;
+
 	// Constants
 	readonly DEFAULT_PHP_VERSION: string;
 	readonly DEFAULT_WORDPRESS_VERSION: string;
@@ -50,18 +54,11 @@ export interface WordPressProvider {
 	readonly SQLITE_FILENAME_LEGACY: string;
 
 	// Path utilities
-	getWordPressVersionPath( version: string ): string;
 	getSqlitePath(): string;
-	getWpCliPath(): string;
-	getWpCliFolderPath(): string;
-
-	// Download functionality
-	downloadWordPress( version?: string, options?: { overwrite: boolean } ): Promise< void >;
-	downloadWpCli( overwrite?: boolean ): Promise< { downloaded: boolean; statusCode: number } >;
-	downloadSQLiteCommand( downloadUrl: string, targetPath: string ): Promise< void >;
+	getWpLoadPath( serverProcess: WordPressServerProcess ): string;
 
 	// Core functionality
-	setupWordPressSite( path: string, wpVersion?: string ): Promise< boolean >;
+	setupWordPressSite( server: SiteServer, wpVersion?: string ): Promise< boolean >;
 	startServer( options: ServerOptions ): Promise< WordPressServerInstance >;
 
 	// Server process management
@@ -69,17 +66,6 @@ export interface WordPressProvider {
 
 	// Version utilities
 	isValidWordPressVersion( version: string ): boolean;
-
-	// WP-CLI
-	executeWPCli(
-		projectPath: string,
-		args: string[],
-		options?: { phpVersion?: string }
-	): Promise< {
-		stdout: string;
-		stderr: string;
-		exitCode: number;
-	} >;
 
 	// Configuration
 	getConfig( options: { path: string } ): Promise< { wpContentPath?: string } >;

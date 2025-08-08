@@ -42,6 +42,16 @@ export function createScreenshotWindow( captureUrl: string ) {
 			::-webkit-scrollbar {
 				display: none;
 			}
+			#wpadminbar {
+				display: none !important;
+			}
+			html.admin-bar {
+				margin-top: 0 !important;
+			}
+			html.admin-bar body {
+				margin-top: 0 !important;
+				padding-top: 0 !important;
+			}
 		` );
 
 		// Oftentimes, web pages need a bit more time for images to load and layouts to settle

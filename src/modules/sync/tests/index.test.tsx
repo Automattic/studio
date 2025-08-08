@@ -635,7 +635,6 @@ describe( 'ContentTabSync', () => {
 
 		expect( mockPullSite ).toHaveBeenCalledWith( fakeSyncSite, selectedSite, {
 			optionsToSync: [ 'sqls' ],
-			rewindId: '1704067200',
 		} );
 	} );
 
@@ -755,7 +754,6 @@ describe( 'ContentTabSync', () => {
 		expect( mockPullSite ).toHaveBeenCalledWith( fakeSyncSite, selectedSite, {
 			optionsToSync: [ 'paths', 'sqls' ],
 			include_path_list: [ 'cjI6,ZjI6Lw==', 'ZjM6Lw==' ],
-			rewindId: '1704067200',
 		} );
 	} );
 

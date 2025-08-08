@@ -18,11 +18,12 @@ if ($BuildType -notin $VALID_BUILD_TYPES) {
     Exit 1
 }
 
-Write-Host "--- :npm: Installing Node dependencies"
-bash .buildkite/commands/install-node-dependencies.sh
+# prepare_windows_host_for_app_distribution.ps1 comes from CI Toolkit Plugin
+& "prepare_windows_host_for_app_distribution.ps1" -InstallPython $true -InstallNativeCompilationTools $true
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
-& "prepare_windows_host_for_app_distribution.ps1" # via CI toolkit plugin
+Write-Host "--- :npm: Installing Node dependencies"
+bash .buildkite/commands/install-node-dependencies.sh
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 Write-Host "--- :node: Building App for Windows ($BuildType)"

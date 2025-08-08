@@ -6,15 +6,15 @@ import * as child_process from 'child_process';
  */
 export const getLatestTag = () => {
 	try {
-		// List all tags sorted by version, then filter for release tags only
-		const tags = child_process
-			.execSync( 'git tag --sort=-v:refname' )
-			.toString()
-			.trim()
-			.split( '\n' );
+		// Fetch all tags to ensure they're available
+		child_process.execSync( 'git fetch --tags --force', { stdio: 'pipe' } );
 
-		// Find first tag that doesn't include '-' (no pre-release part)
-		const latestReleaseTag = tags.find( ( tag ) => ! tag.includes( '-' ) );
+		// Get the latest reachable release tag that is not a beta tag
+		const latestReleaseTag = child_process
+			.execSync( 'git describe --tags --abbrev=0 --match "v*" --exclude "*-beta*"' )
+			.toString()
+			.trim();
+
 		return latestReleaseTag || '';
 	} catch ( error ) {
 		// If no tags exist, return empty string

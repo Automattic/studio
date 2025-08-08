@@ -12,6 +12,34 @@ if ( typeof globalThis.ReadableStream === 'undefined' ) {
 	globalThis.TransformStream = streams.TransformStream;
 }
 
+// Mock CSS parsing to handle modern CSS selectors that JSDOM doesn't support
+if (typeof window !== 'undefined') {
+	// Mock the CSS parser to ignore problematic selectors
+	const originalGetComputedStyle = window.getComputedStyle;
+	window.getComputedStyle = function(element: Element, pseudoElement?: string | null) {
+		try {
+			return originalGetComputedStyle.call(this, element, pseudoElement);
+		} catch (error) {
+			// Return a minimal computed style object to prevent crashes
+			return {
+				getPropertyValue: () => '',
+				setProperty: () => {},
+				removeProperty: () => {},
+				item: () => '',
+				length: 0,
+				[Symbol.iterator]: function* () {},
+			} as any;
+		}
+	};
+}
+
+
+
+// Define global variables that were previously in jest.config.ts
+(global as any).COMMIT_HASH = 'mock-hash';
+(global as any).MAIN_WINDOW_WEBPACK_ENTRY = 'main-window-webpack-entry';
+(global as any).MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY = 'main-window-preload-webpack-entry';
+
 // Silence console.log for all tests
 beforeEach( () => {
 	console.log = jest.fn();

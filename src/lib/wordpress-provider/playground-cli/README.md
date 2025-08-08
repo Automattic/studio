@@ -23,7 +23,7 @@ graph TB
     ValidatePath --> |No| Error[Show Error]
     ValidatePath --> |Yes| GetPort["portFinder.getOpenPort()"]
 
-    GetPort --> CreateServer[SiteServer.create()<br/>src/site-server.ts:74]
+    GetPort --> CreateServer["SiteServer.create()<br/>src/site-server.ts:74"]
 
     CreateServer --> SetMeta[Set Server Metadata<br/>- wpVersion<br/>- blueprint]
 
@@ -178,11 +178,11 @@ sequenceDiagram
     participant CLI as @wp-playground/cli
 
     UI->>Main: createSite IPC
-    Main->>Server: SiteServer.create()
-    Server->>Provider: setupWordPressSite()
-    Provider->>Provider: startServer()
-    Provider->>Process: new PlaygroundServerProcess()
-    Process->>Process: start()
+    Main->>Server: "SiteServer.create()"
+    Server->>Provider: "setupWordPressSite()"
+    Provider->>Provider: "startServer()"
+    Provider->>Process: "new PlaygroundServerProcess()"
+    Process->>Process: "start()"
     Process->>Child: fork utility process
     Child->>CLI: "runCLI()"
     CLI->>CLI: Setup WordPress

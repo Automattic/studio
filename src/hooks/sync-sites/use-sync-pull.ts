@@ -35,7 +35,6 @@ export type SyncBackupState = {
 export type PullSiteOptions = {
 	optionsToSync: SyncOption[];
 	include_path_list?: string[];
-	rewindId?: string;
 };
 
 export type PullStates = Record< string, SyncBackupState >;
@@ -44,7 +43,6 @@ type PullSite = (
 	connectedSite: SyncSite,
 	selectedSite: SiteDetails,
 	options: PullSiteOptions,
-	rewindId?: string
 ) => void;
 type IsSiteIdPulling = ( selectedSiteId: string, remoteSiteId?: number ) => boolean;
 
@@ -127,16 +125,12 @@ export function useSyncPull( {
 
 			try {
 				// Initializing backup on remote
-				let requestBody: {
-					options?: string[] | SyncOption[];
-					include_path_list?: string[];
-					rewind_id?: string;
-				} = {};
-
-				requestBody = {
+				const requestBody: {
+					options: SyncOption[],
+					include_path_list: PullSiteOptions['include_path_list']
+				} = {
 					options: options.optionsToSync,
 					include_path_list: options.include_path_list,
-					rewind_id: options.rewindId,
 				};
 
 				const response = await client.req.post< { success: boolean; backup_id: string } >( {

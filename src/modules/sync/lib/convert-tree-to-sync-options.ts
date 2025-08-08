@@ -88,7 +88,7 @@ export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSel
 };
 
 // Pull conversion
-export const convertTreeToPullOptions = ( tree: TreeNode[], rewindId: string ): PullSiteOptions => {
+export const convertTreeToPullOptions = ( tree: TreeNode[] ): PullSiteOptions => {
 	const { isDatabaseSelected, filesAndFolders, wpContent } = getCommonNodes( tree );
 
 	if ( ! filesAndFolders || ! isDatabaseSelected ) {
@@ -106,8 +106,7 @@ export const convertTreeToPullOptions = ( tree: TreeNode[], rewindId: string ): 
 	const pathIds = collectPathIds( wpContent?.children ?? [] );
 
 	const pullOptions: PullSiteOptions = {
-		optionsToSync: pathIds.length > 0 ? [ SYNC_OPTIONS.paths ] : [],
-		rewindId,
+		optionsToSync: pathIds.length > 0 ? [ SYNC_OPTIONS.paths ] : []
 	};
 
 	if ( pathIds.length > 0 ) {

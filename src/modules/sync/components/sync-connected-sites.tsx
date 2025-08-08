@@ -162,7 +162,7 @@ const SyncConnectedSiteControls = ( {
 							void pushSite( connectedSite, selectedSite, pushOptions );
 						} }
 						onPull={ ( tree, rewindId ) => {
-							const pullOptions = convertTreeToPullOptions( tree, rewindId );
+							const pullOptions = convertTreeToPullOptions( tree );
 							pullSite( connectedSite, selectedSite, pullOptions );
 						} }
 						onRequestClose={ () => setSyncDialogType( null ) }

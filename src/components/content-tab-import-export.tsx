@@ -6,6 +6,8 @@ import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
+import { CheckIcon } from 'src/components/check-icon';
+import { ErrorIcon } from 'src/components/error-icon';
 import ProgressBar from 'src/components/progress-bar';
 import { Tooltip } from 'src/components/tooltip';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
@@ -23,6 +25,34 @@ interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
 }
 
+const ExportClear = ( {
+	onClick,
+	children,
+	isError,
+}: {
+	onClick: () => void;
+	children: React.ReactNode;
+	isError?: boolean;
+} ) => {
+	const { __ } = useI18n();
+	return (
+		<div
+			className={ cx(
+				'flex gap-4 items-center',
+				isError ? 'text-a8c-red-50' : 'text-a8c-green-50'
+			) }
+		>
+			<span className="flex items-center gap-2">
+				{ isError ? <ErrorIcon /> : <CheckIcon /> }
+				{ children }
+			</span>
+			<Button variant="link" className="ms-3" onClick={ onClick }>
+				{ __( 'Clear' ) }
+			</Button>
+		</div>
+	);
+};
+
 export const ExportSite = ( {
 	selectedSite,
 	isThisSiteSyncing,
@@ -31,10 +61,14 @@ export const ExportSite = ( {
 	isThisSiteSyncing: boolean;
 } ) => {
 	const { __ } = useI18n();
-	const { exportState, exportFullSite, exportDatabase, importState } = useImportExport();
+	const { exportState, exportFullSite, exportDatabase, importState, clearExportState } =
+		useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
 	const isImporting = importState[ selectedSite.id ]?.progress < 100;
 	const isExportDisabled = isImporting || isThisSiteSyncing;
+	const isExporting = currentProgress && currentProgress.progress < 100;
+	const isExportCompleted = currentProgress && currentProgress.progress === 100;
+	const isExportError = currentProgress && currentProgress.statusMessage.includes( 'failed' );
 
 	let tooltipText;
 	if ( isThisSiteSyncing ) {
@@ -54,6 +88,10 @@ export const ExportSite = ( {
 		}
 	};
 
+	const handleClearExport = () => {
+		clearExportState( selectedSite.id );
+	};
+
 	return (
 		<div className="flex flex-col gap-4">
 			<div>
@@ -64,8 +102,22 @@ export const ExportSite = ( {
 			</div>
 			{ currentProgress ? (
 				<div className="flex flex-col gap-4 max-w-[300px]">
-					<ProgressBar value={ currentProgress.progress } maxValue={ 100 } />
-					<div className="text-a8c-gray-70 a8c-body">{ currentProgress.statusMessage }</div>
+					{ isExporting && (
+						<>
+							<ProgressBar value={ currentProgress.progress } maxValue={ 100 } />
+							<div className="text-a8c-gray-70 a8c-body">{ currentProgress.statusMessage }</div>
+						</>
+					) }
+					{ isExportCompleted && (
+						<ExportClear onClick={ handleClearExport }>
+							{ currentProgress.statusMessage }
+						</ExportClear>
+					) }
+					{ isExportError && (
+						<ExportClear onClick={ handleClearExport } isError>
+							{ currentProgress.statusMessage }
+						</ExportClear>
+					) }
 				</div>
 			) : (
 				<Tooltip text={ tooltipText } disabled={ ! isExportDisabled } placement="top-start">

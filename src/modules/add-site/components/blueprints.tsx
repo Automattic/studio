@@ -8,7 +8,7 @@ import {
 import { DataViews, View } from '@wordpress/dataviews';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useRef, useState, useMemo } from 'react';
+import { useCallback, useRef, useState, useMemo } from 'react';
 import StudioButton from 'src/components/button';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -38,6 +38,7 @@ interface AddSiteBlueprintProps {
 	isLoading: boolean;
 	selectedBlueprint: string | null;
 	onBlueprintChange: ( blueprintId: string ) => void;
+	onFileBlueprintSelect?: ( blueprint: Blueprint ) => void;
 }
 
 export default function AddSiteBlueprint( {
@@ -45,9 +46,21 @@ export default function AddSiteBlueprint( {
 	isLoading,
 	selectedBlueprint,
 	onBlueprintChange,
+	onFileBlueprintSelect,
 }: AddSiteBlueprintProps ) {
 	const { __ } = useI18n();
 	const fileRef = useRef< HTMLInputElement | null >( null );
+
+	// Check if current selection is a file-based blueprint
+	const isFileBasedSelection = selectedBlueprint && selectedBlueprint.startsWith( 'file:' );
+	const selectedFileName = isFileBasedSelection ? selectedBlueprint.replace( 'file:', '' ) : null;
+
+	const handleRemoveFile = useCallback( () => {
+		onBlueprintChange( '' );
+		if ( fileRef.current ) {
+			fileRef.current.value = '';
+		}
+	}, [ onBlueprintChange ] );
 	const [ view, setView ] = useState< View >( {
 		type: 'grid',
 		perPage: 9,
@@ -152,10 +165,30 @@ export default function AddSiteBlueprint( {
 		[ blueprints, __ ]
 	);
 
-	const handleFileSelect = ( event: React.ChangeEvent< HTMLInputElement > ) => {
+	const handleFileSelect = async ( event: React.ChangeEvent< HTMLInputElement > ) => {
 		const file = event.target.files?.[ 0 ];
-		if ( file && file.type === 'application/json' ) {
-			console.log( 'Selected JSON file:', file.name );
+		if ( file && file.type === 'application/json' && onFileBlueprintSelect ) {
+			try {
+				const text = await file.text();
+				const blueprintJson = JSON.parse( text );
+
+				// Create a "fake" Blueprint object from the file
+				const fileBlueprint: Blueprint = {
+					slug: `file:${ file.name }`, // Use filename as part of the slug
+					title: blueprintJson.meta?.title || file.name.replace( '.json', '' ),
+					excerpt: blueprintJson.meta?.description || __( 'Blueprint loaded from file' ),
+					image: '', // No image for file-based blueprints
+					playground_url: '', // No playground URL for file-based blueprints
+					blueprint: blueprintJson, // The actual blueprint JSON
+				};
+
+				onFileBlueprintSelect( fileBlueprint );
+			} catch ( error ) {
+				console.error( 'Failed to parse blueprint file:', error );
+			}
+		}
+		if ( fileRef.current ) {
+			fileRef.current.value = '';
 		}
 	};
 
@@ -196,24 +229,42 @@ export default function AddSiteBlueprint( {
 						{ __( 'Suggested blueprints' ) }
 					</Text>
 				</HStack>
-				<label className="flex-shrink-0">
-					<input
-						ref={ fileRef }
-						type="file"
-						accept=".json,application/json"
-						onChange={ handleFileSelect }
-						className="hidden"
-					/>
-					<Button
-						variant="secondary"
-						className="flex-shrink-0 cursor-pointer"
-						onClick={ () => {
-							fileRef.current?.click();
-						} }
-					>
-						{ __( 'Choose blueprint file' ) }
-					</Button>
-				</label>
+				{ selectedFileName ? (
+					<HStack spacing={ 2 } className="h-9 w-fit flex-shrink-0 items-center">
+						<Text
+							className="text-sm font-medium text-gray-900 truncate max-w-48"
+							title={ selectedFileName }
+						>
+							{ selectedFileName }
+						</Text>
+						<button
+							type="button"
+							className="text-sm text-blue-600 hover:text-blue-700 focus:outline-none"
+							onClick={ handleRemoveFile }
+						>
+							{ __( 'Remove' ) }
+						</button>
+					</HStack>
+				) : (
+					<label className="flex-shrink-0">
+						<input
+							ref={ fileRef }
+							type="file"
+							accept=".json,application/json"
+							onChange={ handleFileSelect }
+							className="hidden"
+						/>
+						<Button
+							variant="secondary"
+							className="flex-shrink-0 cursor-pointer"
+							onClick={ () => {
+								fileRef.current?.click();
+							} }
+						>
+							{ __( 'Choose blueprint file' ) }
+						</Button>
+					</label>
+				) }
 			</HStack>
 
 			<div className="w-full px-2 [&_.dataviews-view-grid]:!grid [&_.dataviews-view-grid]:!grid-cols-3 [&_.dataviews-view-grid]:!gap-4 [&_.components-badge]:!bg-transparent [&_.components-badge]:!p-0">

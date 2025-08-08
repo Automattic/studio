@@ -157,6 +157,10 @@ async function startServer(
 			args.wp = serverOptions.wordPressVersion;
 		}
 
+		if ( options.blueprint ) {
+			args.blueprint = options.blueprint;
+		}
+
 		server = await runCLI( args );
 
 		if ( serverOptions.siteTitle || serverOptions.adminPassword ) {

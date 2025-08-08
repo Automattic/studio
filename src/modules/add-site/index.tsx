@@ -76,22 +76,11 @@ function NavigationContent( props: NavigationContentProps ) {
 		[ goTo ]
 	);
 
-	const handleBlueprintSelect = useCallback(
-		( blueprintId: string ) => {
-			const blueprint = blueprintsData?.blueprints.find(
-				( b: Blueprint ) => b.slug === blueprintId
-			);
-			createSiteProps.setSelectedBlueprint( blueprint || null );
-			goTo( '/blueprint/create' );
-		},
-		[ goTo, blueprintsData, createSiteProps ]
-	);
-
 	const handleBlueprintContinue = useCallback( () => {
 		if ( createSiteProps.selectedBlueprint ) {
-			handleBlueprintSelect( createSiteProps.selectedBlueprint.slug );
+			goTo( '/blueprint/create' );
 		}
-	}, [ createSiteProps.selectedBlueprint, handleBlueprintSelect ] );
+	}, [ createSiteProps.selectedBlueprint, goTo ] );
 
 	const handleBackupFileSelect = useCallback(
 		( file?: File ) => {
@@ -154,6 +143,13 @@ function NavigationContent( props: NavigationContentProps ) {
 		[ blueprintsData?.blueprints, createSiteProps ]
 	);
 
+	const handleFileBlueprintSelect = useCallback(
+		( blueprint: Blueprint ) => {
+			createSiteProps.setSelectedBlueprint( blueprint );
+		},
+		[ createSiteProps ]
+	);
+
 	return (
 		<>
 			<Navigator.Screen className="flex-1" path="/">
@@ -165,6 +161,7 @@ function NavigationContent( props: NavigationContentProps ) {
 					isLoading={ isLoadingBlueprints }
 					selectedBlueprint={ createSiteProps.selectedBlueprint?.slug || null }
 					onBlueprintChange={ handleBlueprintChange }
+					onFileBlueprintSelect={ handleFileBlueprintSelect }
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/create">

@@ -197,15 +197,36 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			callback?: ( site: SiteDetails ) => Promise< void >
 		) => {
 			// Function to handle error messages and cleanup
-			const showError = ( error?: unknown ) => {
+			const showError = ( error?: unknown, hasBlueprint?: boolean ) => {
 				console.error( 'Failed to create site' );
-				getIpcApi().showErrorMessageBox( {
-					title: __( 'Failed to create site' ),
-					message: __(
+
+				// Check if it's a blueprint-related error
+				const errorMessage = error instanceof Error ? error.message : String( error );
+				const isBlueprintError =
+					errorMessage.includes( 'blueprint' ) ||
+					errorMessage.includes( 'PHP.run() failed' ) ||
+					errorMessage.includes( 'Could not start server' );
+
+				let title: string;
+				let message: string;
+
+				if ( isBlueprintError && hasBlueprint ) {
+					title = __( 'Blueprint execution failed' );
+					message = __(
+						'The selected blueprint failed to execute properly. This could be due to invalid PHP code, missing plugins, or other issues in the blueprint file. Please check your blueprint file and try again.'
+					);
+				} else {
+					title = __( 'Failed to create site' );
+					message = __(
 						'An error occurred while creating the site. Verify your selected local path is an empty directory or an existing WordPress folder and try again. If this problem persists, please contact support.'
-					),
-					error,
-					showOpenLogs: true,
+					);
+				}
+
+				getIpcApi().showErrorMessageBox( {
+					title,
+					message,
+					error: isBlueprintError && hasBlueprint ? undefined : error,
+					showOpenLogs: ! isBlueprintError || ! hasBlueprint,
 				} );
 
 				// Remove the temporary site immediately, but with a minor delay to ensure state updates properly
@@ -234,17 +255,17 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			setSelectedSiteId( tempSiteId ); // Set the temporary ID as the selected site
 
 			try {
-				// TODO: Pass blueprint parameter once IPC handler is updated
 				const newSite = await getIpcApi().createSite(
 					path,
 					siteName,
 					wpVersion,
 					customDomain,
-					enableHttps
-					// blueprint - will be added when IPC handler supports it
+					enableHttps,
+					undefined,
+					blueprint || undefined
 				);
 				if ( ! newSite ) {
-					showError();
+					showError( undefined, !! blueprint );
 					return;
 				}
 				// Update the selected site to the new site's ID if the user didn't change it
@@ -276,7 +297,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 				return newSite;
 			} catch ( error ) {
-				showError( error );
+				showError( error, !! blueprint );
 			}
 		},
 		[ selectedTab, setSelectedSiteId, setSelectedTab ]

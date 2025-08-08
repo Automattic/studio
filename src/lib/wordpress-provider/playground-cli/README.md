@@ -13,58 +13,58 @@ graph TB
     BlueprintSelect --> |Select Blueprint| CreatePath
     BackupSelect --> |Select File| CreatePath
 
-    CreatePath --> FillDetails[Fill Site Details<br/>- Name<br/>- Path<br/>- PHP Version<br/>- WP Version<br/>- Custom Domain<br/>- HTTPS]
+    CreatePath --> FillDetails["Fill Site Details<br/>Name Path PHP Version<br/>WP Version Custom Domain HTTPS"]
 
     FillDetails --> Submit[Submit Form]
 
-    Submit --> CreateSite[createSite IPC Handler<br/>src/ipc-handlers.ts:182]
+    Submit --> CreateSite["createSite IPC Handler<br/>src ipc-handlers ts line 182"]
 
     CreateSite --> ValidatePath{Path Valid?}
     ValidatePath --> |No| Error[Show Error]
-    ValidatePath --> |Yes| GetPort["portFinder.getOpenPort()"]
+    ValidatePath --> |Yes| GetPort["portFinder getOpenPort"]
 
-    GetPort --> CreateServer["SiteServer.create()<br/>src/site-server.ts:74"]
+    GetPort --> CreateServer["SiteServer create<br/>src site-server ts line 74"]
 
-    CreateServer --> SetMeta[Set Server Metadata<br/>- wpVersion<br/>- blueprint]
+    CreateServer --> SetMeta["Set Server Metadata<br/>wpVersion and blueprint"]
 
     SetMeta --> CheckProvider{Blueprints<br/>Enabled?}
 
-    CheckProvider --> |Yes| UsePlaygroundCLI[Use PlaygroundCliProvider<br/>src/lib/wordpress-provider/playground-cli/]
+    CheckProvider --> |Yes| UsePlaygroundCLI["Use PlaygroundCliProvider<br/>src lib wordpress-provider playground-cli"]
     CheckProvider --> |No| UseWpNow[Use WpNowProvider]
 
-    UsePlaygroundCLI --> SetupWP[setupWordPressSite()<br/>playground-cli-provider.ts:116]
+    UsePlaygroundCLI --> SetupWP["setupWordPressSite<br/>playground-cli-provider ts line 116"]
 
     SetupWP --> CheckOnline{Online?}
 
-    CheckOnline --> |Offline| CopyBundled[Copy bundled WP files<br/>from resources/wp-files/latest/]
-    CheckOnline --> |Online| StartSetupMode[Start in Setup Mode<br/>isSetupMode: true]
+    CheckOnline --> |Offline| CopyBundled["Copy bundled WP files<br/>from resources wp-files latest"]
+    CheckOnline --> |Online| StartSetupMode["Start in Setup Mode<br/>isSetupMode true"]
 
     CopyBundled --> InstallSQLite[Install SQLite Integration]
 
-    StartSetupMode --> CreateInstance["provider.startServer()<br/>Creates WordPressServerInstance<br/>with PlaygroundCliOptions"]
+    StartSetupMode --> CreateInstance["provider startServer<br/>Creates WordPressServerInstance<br/>with PlaygroundCliOptions"]
 
-    CreateInstance --> CreateProcess["provider.createServerProcess()<br/>Creates PlaygroundServerProcess"]
+    CreateInstance --> CreateProcess["provider createServerProcess<br/>Creates PlaygroundServerProcess"]
 
-    CreateProcess --> StartProcess["serverProcess.start()<br/>playground-server-process.ts:27"]
+    CreateProcess --> StartProcess["serverProcess start<br/>playground-server-process ts line 27"]
 
-    StartProcess --> ForkUtility["utilityProcess.fork()<br/>Spawns child process"]
+    StartProcess --> ForkUtility["utilityProcess fork<br/>Spawns child process"]
 
-    ForkUtility --> ChildProcess[playground-server-process-child.ts]
+    ForkUtility --> ChildProcess[playground-server-process-child ts]
 
-    ChildProcess --> RunCLI["runCLI() from @wp-playground/cli"]
+    ChildProcess --> RunCLI["runCLI from wp-playground cli"]
 
     RunCLI --> SetupMode{Setup Mode?}
 
-    SetupMode --> |Yes| RunBlueprint[Command: 'run-blueprint'<br/>- Installs WP if needed<br/>- Runs blueprint steps<br/>- Process exits on completion]
-    SetupMode --> |No| StartServer[Command: 'server'<br/>- skipWordPressSetup: true<br/>- Keeps process running]
+    SetupMode --> |Yes| RunBlueprint["Command run-blueprint<br/>Installs WP if needed<br/>Runs blueprint steps<br/>Process exits on completion"]
+    SetupMode --> |No| StartServer["Command server<br/>skipWordPressSetup true<br/>Keeps process running"]
 
-    RunBlueprint --> MountDirs[Mount Directories:<br/>- /wordpress → site path<br/>- /internal/studio/mu-plugins<br/>- /internal/shared/mu-plugins]
+    RunBlueprint --> MountDirs["Mount Directories<br/>wordpress to site path<br/>internal studio mu-plugins<br/>internal shared mu-plugins"]
 
     StartServer --> MountDirs
 
-    MountDirs --> ConfigureWP[Configure WordPress:<br/>- Set site title<br/>- Set admin password<br/>- Update site URL]
+    MountDirs --> ConfigureWP["Configure WordPress<br/>Set site title<br/>Set admin password<br/>Update site URL"]
 
-    ConfigureWP --> SaveSite[Save to userData<br/>sites array]
+    ConfigureWP --> SaveSite["Save to userData<br/>sites array"]
 
     SaveSite --> SiteReady([Site Ready])
 
@@ -77,32 +77,32 @@ graph TB
 graph TB
     Start([User clicks Start Site]) --> LoadSite[Load Site from userData]
 
-    LoadSite --> GetServer["SiteServer.get(id)"]
+    LoadSite --> GetServer["SiteServer get by id"]
 
-    GetServer --> StartSite["startSite()<br/>src/site-server.ts"]
+    GetServer --> StartSite["startSite<br/>src site-server ts"]
 
     StartSite --> CheckProvider{Blueprints<br/>Enabled?}
 
     CheckProvider --> |Yes| UsePlaygroundCLI[PlaygroundCliProvider]
     CheckProvider --> |No| UseWpNow[WpNowProvider]
 
-    UsePlaygroundCLI --> CreateServerInstance["provider.startServer()<br/>Returns WordPressServerInstance"]
+    UsePlaygroundCLI --> CreateServerInstance["provider startServer<br/>Returns WordPressServerInstance"]
 
-    CreateServerInstance --> CreateServerProcess["provider.createServerProcess()<br/>Returns PlaygroundServerProcess"]
+    CreateServerInstance --> CreateServerProcess["provider createServerProcess<br/>Returns PlaygroundServerProcess"]
 
-    CreateServerProcess --> StartProcess["serverProcess.start()"]
+    CreateServerProcess --> StartProcess["serverProcess start"]
 
-    StartProcess --> ForkChild[Fork utility process<br/>playground-server-process-child.ts]
+    StartProcess --> ForkChild["Fork utility process<br/>playground-server-process-child ts"]
 
-    ForkChild --> RunServer[runCLI with 'server' command<br/>- skipWordPressSetup: true<br/>- port: assigned port<br/>- mount paths]
+    ForkChild --> RunServer["runCLI with server command<br/>skipWordPressSetup true<br/>port assigned port<br/>mount paths"]
 
-    RunServer --> WaitReady[Wait for 'ready' message]
+    RunServer --> WaitReady[Wait for ready message]
 
-    WaitReady --> SendStart[Send 'start-server' message<br/>to child process]
+    WaitReady --> SendStart["Send start-server message<br/>to child process"]
 
-    SendStart --> ServerRunning[Server Running<br/>at http://127.0.0.1:port]
+    SendStart --> ServerRunning["Server Running<br/>at http 127.0.0.1 port"]
 
-    ServerRunning --> UpdateStatus[Update site status<br/>running: true]
+    ServerRunning --> UpdateStatus["Update site status<br/>running true"]
 
     UpdateStatus --> Ready([Site Accessible])
 ```
@@ -178,13 +178,13 @@ sequenceDiagram
     participant CLI as @wp-playground/cli
 
     UI->>Main: createSite IPC
-    Main->>Server: "SiteServer.create"
-    Server->>Provider: "setupWordPressSite"
-    Provider->>Provider: "startServer"
-    Provider->>Process: "new PlaygroundServerProcess"
-    Process->>Process: "start"
+    Main->>Server: SiteServer create
+    Server->>Provider: setupWordPressSite
+    Provider->>Provider: startServer
+    Provider->>Process: new PlaygroundServerProcess
+    Process->>Process: start
     Process->>Child: fork utility process
-    Child->>CLI: "runCLI"
+    Child->>CLI: runCLI
     CLI->>CLI: Setup WordPress
     CLI->>Child: ready
     Child->>Process: ready message
@@ -223,6 +223,6 @@ src/lib/wordpress-provider/
 3. **VFS Mounting**: All file access goes through Playground's virtual filesystem
 4. **Blueprint Execution**: Happens during site creation, not on every start
 5. **SQLite Integration**: Automatically installed if wp-config.php doesn't exist
-6. **Port Management**: Uses `portFinder` to avoid conflicts
+6. **Port Management**: Uses portFinder to avoid conflicts
 7. **Password Generation**: Automatic secure password for admin user
 8. **Custom Domains**: Handled via proxy server and hosts file modifications

@@ -73,6 +73,21 @@ jest.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
 } ) );
 
+jest.mock( 'src/stores/wordpress-versions-api', () => {
+	const actual = jest.requireActual( 'src/stores/wordpress-versions-api' );
+	return {
+		...actual,
+		useGetWordPressVersions: jest.fn( () => ( {
+			data: [
+				{ label: 'Latest', value: 'latest', isBeta: false, isDevelopment: false },
+				{ label: '6.4', value: '6.4', isBeta: false, isDevelopment: false },
+				{ label: '6.3', value: '6.3', isBeta: false, isDevelopment: false },
+			],
+			isLoading: false,
+		} ) ),
+	};
+} );
+
 const selectedSite: SiteDetails = {
 	name: 'Test Site',
 	port: 8881,
@@ -110,14 +125,6 @@ describe( 'ContentTabSettings', () => {
 
 	beforeEach( () => {
 		jest.clearAllMocks();
-
-		jest.spyOn( global, 'fetch' ).mockResolvedValue( {
-			ok: true,
-			json: jest.fn().mockResolvedValue( {
-				offers: [],
-			} ),
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		} as any );
 
 		// Create a fresh store for each test
 		testStore = createCustomTestStore();

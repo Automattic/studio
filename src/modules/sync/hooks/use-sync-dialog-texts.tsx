@@ -46,12 +46,6 @@ export const useSyncDialogTexts = (
 						"Pulling will overwrite your Studio site's selected files and database with a copy from your development site. Unchecked items will not be changed."
 					),
 				},
-				local: {
-					title: __( 'Pull from remote Local' ),
-					description: __(
-						"Pulling will overwrite your Studio site's selected files and database with a copy from your remote site with local environment. Unchecked items will not be changed."
-					),
-				},
 			};
 			return {
 				title: textByEnvironment[ siteEnv ].title,
@@ -80,12 +74,6 @@ export const useSyncDialogTexts = (
 					title: __( 'Push to Development' ),
 					description: __(
 						"Pushing will overwrite your development site's selected files and database with content from your Studio site. Unchecked items will not be changed. The development site will be backed up before any changes are applied."
-					),
-				},
-				local: {
-					title: __( 'Push to remote Local' ),
-					description: __(
-						"Pushing will overwrite your remote site's selected files and database with content from your Studio site. Unchecked items will not be changed. The remote site will be backed up before any changes are applied."
 					),
 				},
 			};

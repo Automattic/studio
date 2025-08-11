@@ -24,6 +24,10 @@ const mapItemTypeToSyncOption = ( name: string ): string => {
 	}
 };
 
+const getParentFolder = ( parentPath: string ) => {
+	return parentPath.split( '/' ).filter( Boolean ).pop() ?? '';
+};
+
 const convertBackupItemToTreeNode = (
 	name: string,
 	item: BackupLsItem,
@@ -36,6 +40,12 @@ const convertBackupItemToTreeNode = (
 		: `${ parentPath }/${ name }/`;
 
 	const isFolder = item.type === 'dir' || item.has_children === true;
+
+	const isPlugin =
+		( isFolder && getParentFolder( parentPath ) === SYNC_OPTIONS.plugins ) ||
+		getParentFolder( parentPath ) === 'mu-plugins';
+	const isTheme = isFolder && getParentFolder( parentPath ) === SYNC_OPTIONS.themes;
+
 	return {
 		id: nodeId,
 		name,
@@ -47,6 +57,7 @@ const convertBackupItemToTreeNode = (
 		loading: false,
 		children: isFolder ? [] : undefined,
 		expanded: false,
+		hideExpandButton: isPlugin || isTheme,
 	};
 };
 

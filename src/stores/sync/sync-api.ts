@@ -46,12 +46,21 @@ const convertBackupItemToTreeNode = (
 		getParentFolder( parentPath ) === 'mu-plugins';
 	const isTheme = isFolder && getParentFolder( parentPath ) === SYNC_OPTIONS.themes;
 
+	let type: TreeNode[ 'type' ] = 'file';
+	if ( isPlugin ) {
+		type = 'plugin';
+	} else if ( isTheme ) {
+		type = 'theme';
+	} else if ( isFolder ) {
+		type = 'folder';
+	}
+
 	return {
 		id: nodeId,
 		name,
 		label: name,
 		checked: parentChecked,
-		type: isFolder ? 'folder' : 'file',
+		type,
 		pathId: item.id,
 		path: fullPath,
 		loading: false,

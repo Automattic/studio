@@ -1,11 +1,11 @@
 import { CheckboxControl, Icon, Spinner } from '@wordpress/components';
-import { file, moreHorizontal, page } from '@wordpress/icons';
+import { file, moreHorizontal, page, plugins, brush } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React from 'react';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import { cx } from 'src/lib/cx';
 
-type TreeNodeType = 'folder' | 'file' | 'more';
+type TreeNodeType = 'folder' | 'file' | 'plugin' | 'theme' | 'more';
 export type TreeNode = {
 	id: string;
 	name: string;
@@ -24,6 +24,8 @@ export type TreeNode = {
 const TREE_NODE_ICONS: Record< TreeNodeType, React.JSX.Element > = {
 	folder: file,
 	file: page,
+	plugin: plugins,
+	theme: brush,
 	more: moreHorizontal,
 };
 

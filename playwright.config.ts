@@ -13,4 +13,9 @@ export default defineConfig( {
 	},
 
 	timeout: 60_000,
+
+	// Global expect timeout for all assertions
+	expect: {
+		timeout: 10_000,
+	},
 } );

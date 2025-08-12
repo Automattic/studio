@@ -77,6 +77,7 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
+import { Blueprint } from './stores/wpcom-api';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 import type { GranularSyncFolders } from 'src/modules/sync/types';
@@ -185,7 +186,8 @@ export async function createSite(
 	wpVersion?: string,
 	customDomain?: string,
 	enableHttps?: boolean,
-	siteId?: string
+	siteId?: string,
+	blueprint?: Blueprint
 ): Promise< SiteDetails > {
 	const forceSetupSqlite = false;
 	// We only recursively create the directory if the user has not selected a
@@ -220,7 +222,7 @@ export async function createSite(
 		enableHttps,
 	} as const;
 
-	const server = SiteServer.create( details, { wpVersion } );
+	const server = SiteServer.create( details, { wpVersion, blueprint } );
 
 	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
 		try {

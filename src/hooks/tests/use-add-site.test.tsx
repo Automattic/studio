@@ -134,16 +134,18 @@ describe( 'useAddSite', () => {
 	} );
 
 	it( 'should pass WordPress version to createSite when handleAddSiteClick is called', async () => {
-		mockCreateSite.mockImplementation( ( path, name, wpVersion, callback ) => {
-			callback( {
-				id: 'test-id',
-				name: name || 'Test Site',
-				path: path,
-				wpVersion: wpVersion,
-				phpVersion: '8.2',
-			} );
-			return Promise.resolve();
-		} );
+		mockCreateSite.mockImplementation(
+			( path, name, wpVersion, customDomain, enableHttps, blueprint, callback ) => {
+				callback( {
+					id: 'test-id',
+					name: name || 'Test Site',
+					path: path,
+					wpVersion: wpVersion,
+					phpVersion: '8.2',
+				} );
+				return Promise.resolve();
+			}
+		);
 
 		const { result } = renderHookWithProvider( () => useAddSite() );
 
@@ -162,6 +164,7 @@ describe( 'useAddSite', () => {
 			'6.1.7',
 			undefined,
 			false,
+			null, // blueprint parameter
 			expect.any( Function )
 		);
 	} );
@@ -177,7 +180,7 @@ describe( 'useAddSite', () => {
 		};
 
 		mockCreateSite.mockImplementation(
-			( path, name, version, customDomain, enableHttps, callback ) => {
+			( path, name, version, customDomain, enableHttps, blueprint, callback ) => {
 				callback( {
 					...newSite,
 					wpVersion: version,

@@ -30,8 +30,9 @@ export enum StatsMetric {
 	WPRESS_IMPORTER = 'WpressImporter',
 	UNKNOWN_IMPORTER = 'UnknownImporter',
 	// Site creation
-	BLUEPRINT_SELECTED = 'blueprint-selected',
-	BLANK_SITE = 'blank-site',
+	REMOTE_BLUEPRINT = 'remote-blueprint',
+	FILE_BLUEPRINT = 'file-blueprint',
+	NO_BLUEPRINT = 'no-blueprint',
 }
 
 export type AggregateInterval = 'daily' | 'weekly' | 'monthly';

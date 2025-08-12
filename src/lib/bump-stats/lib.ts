@@ -36,3 +36,13 @@ export function getImporterMetric( importer?: string ): StatsMetric {
 			return StatsMetric.UNKNOWN_IMPORTER;
 	}
 }
+
+export function getBlueprintMetric( blueprintSlug: string | undefined ) {
+	if ( ! blueprintSlug ) {
+		return StatsMetric.NO_BLUEPRINT;
+	}
+	if ( blueprintSlug?.startsWith( 'file:' ) ) {
+		return StatsMetric.FILE_BLUEPRINT;
+	}
+	return StatsMetric.REMOTE_BLUEPRINT;
+}

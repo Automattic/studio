@@ -40,6 +40,11 @@ jest.mock( 'src/stores/wpcom-api', () => ( {
 			useGetLatestRewindIdQuery: jest.fn(),
 		} ),
 	},
+	wpcomPublicApi: {
+		reducerPath: 'wpcomPublicApi',
+		reducer: () => ( {} ),
+		middleware: () => ( next: Dispatch ) => ( action: UnknownAction ) => next( action ),
+	},
 } ) );
 
 const runningSite = {

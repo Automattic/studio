@@ -123,7 +123,7 @@ function FormPathInputComponent( {
 				aria-label={ `${ value }, ${ __( 'Select different local path' ) }` }
 				className={ cx(
 					'flex flex-row items-stretch rounded-sm border border-[#949494] focus:border-a8c-blue-50 focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blue-50 outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blue-50 [&:disabled]:cursor-not-allowed',
-					error ? 'border-red-500 [&_.local-path-icon]:border-l-red-500' : ''
+					error && 'border-red-500 [&_.local-path-icon]:border-l-red-500'
 				) }
 				data-testid="select-path-button"
 				disabled={ isDisabled }
@@ -192,8 +192,8 @@ function FormImportComponent( {
 					aria-label={ `${ value }, ${ __( 'Select different file' ) }` }
 					className={ cx(
 						'flex items-center flex-grow rounded-sm border border-[#949494] focus:border-a8c-blue-50 focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blue-50 outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blue-50 [&:disabled]:cursor-not-allowed',
-						error ? 'border-red-500 [&_.local-path-icon]:border-l-red-500' : '',
-						fileName ? 'border-r-0 rounded-r-none focus:border' : ''
+						error && 'border-red-500 [&_.local-path-icon]:border-l-red-500',
+						fileName && 'border-r-0 rounded-r-none focus:border'
 					) }
 					onClick={ () => inputFileRef.current?.click() }
 				>
@@ -338,166 +338,158 @@ export const SiteForm = ( {
 								error={ fileError }
 							/>
 						</div>
-						{ onSelectPath && (
-							<>
-								<div className="flex flex-row items-center mb-0">
-									<Button className="pl-0" onClick={ handleAdvancedSettingsClick }>
-										<Icon
-											size={ 24 }
-											icon={ chevronIcon }
-											className={ error ? 'text-red-500' : '' }
-										/>
-										<div
-											className={ cx(
-												'text-[13px] leading-[16px] ml-2',
-												error ? 'text-red-500' : ''
-											) }
-										>
-											{ __( 'Advanced settings' ) }
-										</div>
-									</Button>
-									{ errorCount > 0 && (
-										<span className="text-red-500 text-[13px] leading-[16px] ml-2 flex items-center">
-											<Icon icon={ warning } size={ 16 } className="mr-1 fill-red-500" />
-											{ sprintf(
-												/* translators: %d: number of errors found */
-												_n( '%d error found', '%d errors found', errorCount ),
-												errorCount
-											) }
-										</span>
-									) }
+					</>
+				) }
+
+				{ onSelectPath && (
+					<>
+						<div className="flex flex-row items-center mb-0">
+							<Button className="pl-0" onClick={ handleAdvancedSettingsClick }>
+								<Icon size={ 24 } icon={ chevronIcon } className={ error && 'text-red-500' } />
+								<div className={ cx( 'text-[13px] leading-[16px] ml-2', error && 'text-red-500' ) }>
+									{ __( 'Advanced settings' ) }
 								</div>
-								<div
-									className={ cx(
-										'transition-all duration-500 ease-in-out overflow-hidden flex flex-col gap-2 interpolate-size-allow-keywords',
-										isAdvancedSettingsVisible ? 'h-auto opacity-100' : 'h-0 opacity-0'
+							</Button>
+							{ errorCount > 0 && (
+								<span className="text-red-500 text-[13px] leading-[16px] ml-2 flex items-center">
+									<Icon icon={ warning } size={ 16 } className="mr-1 fill-red-500" />
+									{ sprintf(
+										/* translators: %d: number of errors found */
+										_n( '%d error found', '%d errors found', errorCount ),
+										errorCount
 									) }
-								>
-									<div className={ cx( 'flex flex-col gap-1.5 leading-4 py-4' ) }>
-										<label onClick={ onSelectPath } className="font-semibold">
-											{ __( 'Local path' ) }
-										</label>
-										<span className="text-a8c-gray-50 text-xs">
-											{ createInterpolateElement(
-												__(
-													'Select an empty directory or a directory with an existing WordPress site. <button>Learn more</button>'
-												),
-												{
-													button: (
-														<Button
-															variant="link"
-															className="text-xs"
-															onClick={ () =>
-																getIpcApi().openURL( getLocalizedLink( locale, 'docsSites' ) )
-															}
-														/>
-													),
-												}
-											) }
-										</span>
-										<FormPathInputComponent
-											isDisabled={ isPathInputDisabled }
-											doesPathContainWordPress={ doesPathContainWordPress }
-											error={ error }
-											value={ sitePath }
-											onClick={ onSelectPath }
-										/>
-										<div className="grid grid-cols-2 gap-4 mt-4">
-											<div className="flex flex-col gap-1.5 leading-4">
-												<label className="font-semibold" htmlFor="php-version-select">
-													{ __( 'PHP version' ) }
-												</label>
-												<SelectControl
-													id="php-version-select"
-													value={ phpVersion }
-													options={ allowedPhpVersions.map( ( version ) => ( {
-														label: version,
-														value: version,
-													} ) ) }
-													onChange={ setPhpVersion as ( value: string ) => void }
-													__next40pxDefaultSize
-													__nextHasNoMarginBottom
-												/>
-											</div>
-
-											<WPVersionSelector
-												selectedValue={ wpVersion }
-												onChange={ setWpVersion }
-												fallbackOptions={ [
-													{ label: __( 'Latest' ), value: defaultWordPressVersion },
-												] }
-												offlineMessage={ __(
-													'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
-												) }
-											/>
-										</div>
-
-										{ setUseCustomDomain && setCustomDomain && (
-											<div className="flex items-center gap-2 mt-4">
-												<input
-													type="checkbox"
-													id="use-custom-domain"
-													checked={ useCustomDomain }
-													onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
-												/>
-												<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
-											</div>
-										) }
-
-										{ setUseCustomDomain && setCustomDomain && (
-											<div className="text-a8c-gray-50 text-xs mt-2">
-												{ __( 'Your system password will be required to set up the domain.' ) }
-											</div>
-										) }
-
-										{ useCustomDomain && setCustomDomain && (
-											<div className="flex flex-col gap-2 mt-4">
-												<label htmlFor="custom-domain" className="font-semibold">
-													{ __( 'Domain name' ) }
-												</label>
-												<TextControlComponent
-													id="custom-domain"
-													value={ customDomain !== null ? customDomain : generatedDomainName }
-													onChange={ setCustomDomain }
-												/>
-												{ customDomainError && <SiteFormError error={ customDomainError } /> }
-											</div>
-										) }
-
-										{ useCustomDomain && setEnableHttps && (
-											<div className="flex items-center gap-2 mt-4">
-												<input
-													type="checkbox"
-													id="enable-https"
-													checked={ enableHttps }
-													onChange={ ( e ) => setEnableHttps( e.target.checked ) }
-												/>
-												<label htmlFor="enable-https">{ __( 'Enable HTTPS' ) }</label>
-											</div>
-										) }
-
-										{ ! isCertificateTrusted && useCustomDomain && setEnableHttps && (
-											<div className="text-a8c-gray-50 text-xs mt-2">
-												{ __(
-													'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'
-												) }{ ' ' }
+								</span>
+							) }
+						</div>
+						<div
+							className={ cx(
+								'transition-all duration-500 ease-in-out overflow-hidden flex flex-col gap-2 interpolate-size-allow-keywords',
+								isAdvancedSettingsVisible ? 'h-auto opacity-100' : 'h-0 opacity-0'
+							) }
+						>
+							<div className={ cx( 'flex flex-col gap-1.5 leading-4 py-4' ) }>
+								<label onClick={ onSelectPath } className="font-semibold">
+									{ __( 'Local path' ) }
+								</label>
+								<span className="text-a8c-gray-50 text-xs">
+									{ createInterpolateElement(
+										__(
+											'Select an empty directory or a directory with an existing WordPress site. <button>Learn more</button>'
+										),
+										{
+											button: (
 												<Button
 													variant="link"
-													onClick={ () => {
-														getIpcApi().openURL(
-															'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
-														);
-													} }
-												>
-													{ __( 'Learn how' ) }
-													<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
-												</Button>
-											</div>
-										) }
+													className="text-xs"
+													onClick={ () =>
+														getIpcApi().openURL( getLocalizedLink( locale, 'docsSites' ) )
+													}
+												/>
+											),
+										}
+									) }
+								</span>
+								<FormPathInputComponent
+									isDisabled={ isPathInputDisabled }
+									doesPathContainWordPress={ doesPathContainWordPress }
+									error={ error }
+									value={ sitePath }
+									onClick={ onSelectPath }
+								/>
+								<div className="grid grid-cols-2 gap-4 mt-4">
+									<div className="flex flex-col gap-1.5 leading-4">
+										<label className="font-semibold" htmlFor="php-version-select">
+											{ __( 'PHP version' ) }
+										</label>
+										<SelectControl
+											id="php-version-select"
+											value={ phpVersion }
+											options={ allowedPhpVersions.map( ( version ) => ( {
+												label: version,
+												value: version,
+											} ) ) }
+											onChange={ setPhpVersion as ( value: string ) => void }
+											__next40pxDefaultSize
+											__nextHasNoMarginBottom
+										/>
 									</div>
+
+									<WPVersionSelector
+										selectedValue={ wpVersion }
+										onChange={ setWpVersion }
+										fallbackOptions={ [
+											{ label: __( 'Latest' ), value: defaultWordPressVersion },
+										] }
+										offlineMessage={ __(
+											'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
+										) }
+									/>
 								</div>
-							</>
-						) }
+
+								{ setUseCustomDomain && setCustomDomain && (
+									<div className="flex items-center gap-2 mt-4">
+										<input
+											type="checkbox"
+											id="use-custom-domain"
+											checked={ useCustomDomain }
+											onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
+										/>
+										<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
+									</div>
+								) }
+
+								{ setUseCustomDomain && setCustomDomain && (
+									<div className="text-a8c-gray-50 text-xs mt-2">
+										{ __( 'Your system password will be required to set up the domain.' ) }
+									</div>
+								) }
+
+								{ useCustomDomain && setCustomDomain && (
+									<div className="flex flex-col gap-2 mt-4">
+										<label htmlFor="custom-domain" className="font-semibold">
+											{ __( 'Domain name' ) }
+										</label>
+										<TextControlComponent
+											id="custom-domain"
+											value={ customDomain !== null ? customDomain : generatedDomainName }
+											onChange={ setCustomDomain }
+										/>
+										{ customDomainError && <SiteFormError error={ customDomainError } /> }
+									</div>
+								) }
+
+								{ useCustomDomain && setEnableHttps && (
+									<div className="flex items-center gap-2 mt-4">
+										<input
+											type="checkbox"
+											id="enable-https"
+											checked={ enableHttps }
+											onChange={ ( e ) => setEnableHttps( e.target.checked ) }
+										/>
+										<label htmlFor="enable-https">{ __( 'Enable HTTPS' ) }</label>
+									</div>
+								) }
+
+								{ ! isCertificateTrusted && useCustomDomain && setEnableHttps && (
+									<div className="text-a8c-gray-50 text-xs mt-2">
+										{ __(
+											'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'
+										) }{ ' ' }
+										<Button
+											variant="link"
+											onClick={ () => {
+												getIpcApi().openURL(
+													'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
+												);
+											} }
+										>
+											{ __( 'Learn how' ) }
+											<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
+										</Button>
+									</div>
+								) }
+							</div>
+						</div>
 					</>
 				) }
 			</div>

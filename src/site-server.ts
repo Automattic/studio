@@ -20,16 +20,17 @@ import {
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
+import { Blueprint } from './stores/wpcom-api';
 import type { WordPressServerProcess } from 'src/lib/wordpress-provider/types';
 
 const servers = new Map< string, SiteServer >();
 const deletedServers: string[] = [];
 
 export async function createSiteWorkingDirectory(
-	path: string,
+	server: SiteServer,
 	wpVersion = 'latest'
 ): Promise< boolean > {
-	return setupWordPressSite( path, wpVersion );
+	return setupWordPressSite( server, wpVersion );
 }
 
 export async function stopAllServersOnQuit() {
@@ -50,6 +51,7 @@ function getAbsoluteUrl( details: SiteDetails ): string {
 // We use SiteDetails for storing it in appdata-v1.json, so this meta was introduced for extra data which is not stored locally
 type SiteServerMeta = {
 	wpVersion?: string;
+	blueprint?: Blueprint;
 };
 
 export class SiteServer {

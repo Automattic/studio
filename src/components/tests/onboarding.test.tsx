@@ -137,7 +137,7 @@ describe( 'Onboarding Component', () => {
 	it( 'renders onboarding screen correctly', () => {
 		const { getByText } = renderWithProvider( <Onboarding /> );
 		expect( getByText( 'Add your first site' ) ).toBeVisible();
-		expect( getByText( 'Add site' ) ).toBeVisible();
+		expect( getByText( 'Continue' ) ).toBeVisible();
 	} );
 
 	it( 'completes onboarding when the final button is clicked', async () => {
@@ -145,7 +145,7 @@ describe( 'Onboarding Component', () => {
 
 		const { getByText } = renderWithProvider( <Onboarding /> );
 
-		await user.click( getByText( 'Add site' ) );
+		await user.click( getByText( 'Continue' ) );
 
 		await waitFor( () => expect( handleAddSiteClick ).toHaveBeenCalled() );
 	} );
@@ -216,7 +216,7 @@ describe( 'Onboarding Component', () => {
 
 		await user.selectOptions( wpVersionDropdown, '6.3.3' );
 
-		const addSiteButton = screen.getByText( 'Add site' );
+		const addSiteButton = screen.getByText( 'Continue' );
 		await user.click( addSiteButton );
 
 		await waitFor( () => {

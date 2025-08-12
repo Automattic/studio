@@ -14,11 +14,12 @@ import { reducer as chatReducer } from 'src/stores/chat-slice';
 import i18nReducer from 'src/stores/i18n-slice';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
 import { reducer as newSitesReducer } from 'src/stores/new-sites-slice';
+import onboardingReducer from 'src/stores/onboarding-slice';
 import providerConstantsReducer, {
 	setProviderConstants,
 } from 'src/stores/provider-constants-slice';
 import { reducer as snapshotReducer, updateSnapshotLocally } from 'src/stores/snapshot-slice';
-import { wpcomApi } from 'src/stores/wpcom-api';
+import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from 'common/lib/locale';
 
@@ -27,10 +28,12 @@ export type RootState = {
 	chat: ReturnType< typeof chatReducer >;
 	newSites: ReturnType< typeof newSitesReducer >;
 	installedAppsApi: ReturnType< typeof installedAppsApi.reducer >;
+	onboarding: ReturnType< typeof onboardingReducer >;
 	providerConstants: ReturnType< typeof providerConstantsReducer >;
 	snapshot: ReturnType< typeof snapshotReducer >;
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
+	wpcomPublicApi: ReturnType< typeof wpcomPublicApi.reducer >;
 	certificateTrustApi: ReturnType< typeof certificateTrustApi.reducer >;
 	i18n: ReturnType< typeof i18nReducer >;
 };
@@ -79,10 +82,12 @@ export const rootReducer = combineReducers( {
 	chat: chatReducer,
 	newSites: newSitesReducer,
 	installedAppsApi: installedAppsApi.reducer,
+	onboarding: onboardingReducer,
 	providerConstants: providerConstantsReducer,
 	snapshot: snapshotReducer,
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,
+	wpcomPublicApi: wpcomPublicApi.reducer,
 	certificateTrustApi: certificateTrustApi.reducer,
 	i18n: i18nReducer,
 } );
@@ -96,6 +101,7 @@ export const store = configureStore( {
 			.concat( installedAppsApi.middleware )
 			.concat( wordpressVersionsApi.middleware )
 			.concat( wpcomApi.middleware )
+			.concat( wpcomPublicApi.middleware )
 			.concat( certificateTrustApi.middleware ),
 } );
 

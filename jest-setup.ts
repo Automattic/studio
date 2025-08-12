@@ -1,14 +1,49 @@
 import '@testing-library/jest-dom';
+import nock from 'nock';
 // We need this polyfill because the `ReadableStream` class is
 // used by `@php-wasm/universal` and it's not available in the Jest environment.
-// eslint-disable-next-line import/no-unresolved
-import 'web-streams-polyfill/polyfill';
-import nock from 'nock';
+// Import ponyfill to avoid global pollution issues with php-wasm 1.2.3
+const streams = require( 'web-streams-polyfill/dist/ponyfill.js' );
+
+// Assign to global only if not already available
+if ( typeof globalThis.ReadableStream === 'undefined' ) {
+	globalThis.ReadableStream = streams.ReadableStream;
+	globalThis.WritableStream = streams.WritableStream;
+	globalThis.TransformStream = streams.TransformStream;
+}
+
+// Mock CSS parsing to handle modern CSS selectors that JSDOM doesn't support
+if (typeof window !== 'undefined') {
+	// Mock the CSS parser to ignore problematic selectors
+	const originalGetComputedStyle = window.getComputedStyle;
+	window.getComputedStyle = function(element: Element, pseudoElement?: string | null) {
+		try {
+			return originalGetComputedStyle.call(this, element, pseudoElement);
+		} catch (error) {
+			// Return a minimal computed style object to prevent crashes
+			return {
+				getPropertyValue: () => '',
+				setProperty: () => {},
+				removeProperty: () => {},
+				item: () => '',
+				length: 0,
+				[Symbol.iterator]: function* () {},
+			} as any;
+		}
+	};
+}
+
+
+
+// Define global variables that were previously in jest.config.ts
+(global as any).COMMIT_HASH = 'mock-hash';
+(global as any).MAIN_WINDOW_WEBPACK_ENTRY = 'main-window-webpack-entry';
+(global as any).MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY = 'main-window-preload-webpack-entry';
 
 // Silence console.log for all tests
-beforeEach(() => {
+beforeEach( () => {
 	console.log = jest.fn();
-});
+} );
 
 if ( typeof window !== 'undefined' ) {
 	// The ipcListener global is usually defined in preload.ts

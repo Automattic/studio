@@ -286,7 +286,7 @@ function SiteItem( {
 				<div className="flex gap-2">
 					{ ! isPressable && (
 						<>
-							<EnvironmentBadge type="production" selected={ isSelected } />
+							<EnvironmentBadge type={ getSiteEnvironment( site ) } selected={ isSelected } />
 							{ site.stagingSiteIds.length > 0 && (
 								<EnvironmentBadge type="staging" selected={ isSelected } />
 							) }

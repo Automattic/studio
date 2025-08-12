@@ -1,13 +1,12 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-settings.test.tsx` from the root directory
 import { UnknownAction } from '@reduxjs/toolkit';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { produce } from 'immer';
 import { Provider } from 'react-redux';
 import { Snapshot } from 'common/types/snapshot';
 import { ContentTabSettings } from 'src/components/content-tab-settings';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
-import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { createTestStore } from 'src/lib/test-utils';
@@ -73,6 +72,21 @@ jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
 } ) );
+
+jest.mock( 'src/stores/wordpress-versions-api', () => {
+	const actual = jest.requireActual( 'src/stores/wordpress-versions-api' );
+	return {
+		...actual,
+		useGetWordPressVersions: jest.fn( () => ( {
+			data: [
+				{ label: 'Latest', value: 'latest', isBeta: false, isDevelopment: false },
+				{ label: '6.4', value: '6.4', isBeta: false, isDevelopment: false },
+				{ label: '6.3', value: '6.3', isBeta: false, isDevelopment: false },
+			],
+			isLoading: false,
+		} ) ),
+	};
+} );
 
 const selectedSite: SiteDetails = {
 	name: 'Test Site',

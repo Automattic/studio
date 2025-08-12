@@ -77,6 +77,7 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
+import { Blueprint } from './stores/wpcom-api';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 import type { GranularSyncFolders } from 'src/modules/sync/types';
@@ -158,6 +159,18 @@ export async function importSite(
 		if ( result?.meta?.phpVersion ) {
 			site.details.phpVersion = result.meta.phpVersion;
 		}
+
+		try {
+			const { stdout: siteTitle } = await site.executeWpCliCommand( 'option get blogname', {
+				skipPluginsAndThemes: true,
+			} );
+			if ( siteTitle && siteTitle.trim() ) {
+				site.details.name = siteTitle.trim();
+			}
+		} catch ( error ) {
+			console.warn( 'Failed to get site title after import:', error );
+		}
+
 		return site.details;
 	} catch ( e ) {
 		bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
@@ -174,7 +187,7 @@ export async function createSite(
 	customDomain?: string,
 	enableHttps?: boolean,
 	siteId?: string,
-	blueprint?: string | null
+	blueprint?: Blueprint
 ): Promise< SiteDetails > {
 	const forceSetupSqlite = false;
 
@@ -200,17 +213,6 @@ export async function createSite(
 		throw new Error( 'The selected directory is already in use.' );
 	}
 
-	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
-		try {
-			await createSiteWorkingDirectory( path, wpVersion );
-		} catch ( error ) {
-			// If site creation failed, remove the generated files and re-throw the
-			// error so it can be handled by the caller.
-			await shell.trashItem( path );
-			throw error;
-		}
-	}
-
 	const port = await portFinder.getOpenPort();
 
 	const details = {
@@ -226,7 +228,18 @@ export async function createSite(
 		enableHttps,
 	} as const;
 
-	const server = SiteServer.create( details, { wpVersion } );
+	const server = SiteServer.create( details, { wpVersion, blueprint } );
+
+	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
+		try {
+			await createSiteWorkingDirectory( server, wpVersion );
+		} catch ( error ) {
+			// If site creation failed, remove the generated files and re-throw the
+			// error so it can be handled by the caller.
+			await shell.trashItem( path );
+			throw error;
+		}
+	}
 
 	if ( isWordPressDirectory( path ) ) {
 		// If the directory contains a WordPress installation, and user wants to force SQLite

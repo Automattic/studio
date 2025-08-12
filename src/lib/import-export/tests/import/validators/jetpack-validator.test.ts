@@ -58,11 +58,11 @@ platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
 		it( 'should correctly parse backup contents', () => {
 			const fileList = [
 				'sql/wp_options.sql',
+				'wp-content/fonts/open-sans.woff2',
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
 				'wp-content/mu-plugins/hello.php',
-				'wp-content/fonts/open-sans.woff2',
 				'meta.json',
 			];
 			const extractionDirectory = '/tmp/extracted';
@@ -73,11 +73,11 @@ platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
 				sqlFiles: [ normalize( '/tmp/extracted/sql/wp_options.sql' ) ],
 				wpConfig: '',
 				wpContentFiles: [
+					normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ),
 					normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ),
 					normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ),
 					normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ),
 					normalize( '/tmp/extracted/wp-content/mu-plugins/hello.php' ),
-					normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ),
 				],
 				wpContentDirectory: normalize( 'wp-content' ),
 				metaFile: normalize( '/tmp/extracted/meta.json' ),
@@ -93,11 +93,11 @@ platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
 				'wp-config.php',
 				'wp-load.php',
 				'wp-admin/wp-admin.php',
+				'wp-content/fonts/open-sans.woff2',
 				'wp-content/uploads/2023/image.jpg',
 				'wp-content/plugins/jetpack/jetpack.php',
 				'wp-content/themes/twentytwentyone/style.css',
 				'wp-content/mu-plugins/hello.php',
-				'wp-content/fonts/open-sans.woff2',
 				'meta.json',
 			];
 			const extractionDirectory = '/tmp/extracted';
@@ -108,11 +108,11 @@ platformTestSuite( 'JetpackValidator', ( { normalize } ) => {
 				sqlFiles: [ normalize( '/tmp/extracted/sql/wp_options.sql' ) ],
 				wpConfig: normalize( '/tmp/extracted/wp-config.php' ),
 				wpContentFiles: [
+					normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ),
 					normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ),
 					normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ),
 					normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ),
 					normalize( '/tmp/extracted/wp-content/mu-plugins/hello.php' ),
-					normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ),
 				],
 				wpContentDirectory: normalize( 'wp-content' ),
 				metaFile: normalize( '/tmp/extracted/meta.json' ),

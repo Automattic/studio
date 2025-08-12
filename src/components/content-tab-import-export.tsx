@@ -25,7 +25,7 @@ interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
 }
 
-const ExportClear = ( {
+export const ClearAction = ( {
 	onClick,
 	children,
 	isError,
@@ -109,14 +109,14 @@ export const ExportSite = ( {
 						</>
 					) }
 					{ isExportCompleted && (
-						<ExportClear onClick={ handleClearExport }>
+						<ClearAction onClick={ handleClearExport }>
 							{ currentProgress.statusMessage }
-						</ExportClear>
+						</ClearAction>
 					) }
 					{ isExportError && (
-						<ExportClear onClick={ handleClearExport } isError>
+						<ClearAction onClick={ handleClearExport } isError>
 							{ currentProgress.statusMessage }
-						</ExportClear>
+						</ClearAction>
 					) }
 				</div>
 			) : (

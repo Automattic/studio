@@ -33,7 +33,9 @@ export async function installCLIOnMacOSWithConfirmation() {
 		Sentry.captureException( error );
 		console.error( 'Failed to install CLI', error );
 
-		let message = __( 'There was an unknown error. Please check the logs for more information.' );
+		let message: string = __(
+			'There was an unknown error. Please check the logs for more information.'
+		);
 
 		if ( error instanceof Error ) {
 			if ( error.message === ERROR_FILE_ALREADY_EXISTS ) {

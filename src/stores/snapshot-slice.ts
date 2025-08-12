@@ -461,18 +461,18 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 	if ( operation.type === 'create' ) {
 		getIpcApi().showNotification( {
 			title: operation.snapshotName,
-			body: sprintf( __( "Preview site '%s' has been created." ), operation.snapshotUrl ),
+			body: sprintf( __( "Preview site '%s' has been created." ), operation.snapshotUrl || '' ),
 		} );
 	} else if ( operation.type === 'update' ) {
 		getIpcApi().showNotification( {
 			title: operation.snapshotName,
-			body: sprintf( __( "Preview site '%s' has been updated." ), operation.snapshotUrl ),
+			body: sprintf( __( "Preview site '%s' has been updated." ), operation.snapshotUrl || '' ),
 		} );
 	} else if ( operation.type === 'delete' ) {
 		if ( ! bulkOperation ) {
 			getIpcApi().showNotification( {
 				title: operation.snapshotName,
-				body: sprintf( __( "Preview site '%s' has been deleted." ), operation.snapshotUrl ),
+				body: sprintf( __( "Preview site '%s' has been deleted." ), operation.snapshotUrl || '' ),
 			} );
 		} else if ( bulkOperationIsSettled ) {
 			getIpcApi().showNotification( {

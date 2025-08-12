@@ -182,7 +182,7 @@ export function useSyncPull( {
 						message: __( "Large site's backup" ),
 						detail: sprintf(
 							__(
-								"Your site's backup exceeds %s GB. Pulling it will prevent you from pushing the site back.\n\nDo you want to continue?"
+								"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back.\n\nDo you want to continue?"
 							),
 							SYNC_PUSH_SIZE_LIMIT_GB
 						),

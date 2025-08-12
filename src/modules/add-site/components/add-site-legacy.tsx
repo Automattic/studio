@@ -74,7 +74,7 @@ export default function AddSite( { className, showModal, setShowModal }: AddSite
 	const siteAddedMessage = sprintf(
 		// translators: %s is the site name.
 		__( '%s site added.' ),
-		siteName
+		siteName || ''
 	);
 
 	const { data: versions = [] } = useGetWordPressVersions();

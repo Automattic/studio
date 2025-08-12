@@ -1,5 +1,6 @@
 Unreleased
 ==========
+* Upgraded Playground dependencies, resulting in faster offline site creation #1594
 
 1.5.6
 =====

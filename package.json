@@ -84,7 +84,7 @@
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-import-resolver-typescript": "^3.7.0",
 		"eslint-plugin-import": "^2.31.0",
-		"eslint-plugin-jest-dom": "^5.1.0",
+		"eslint-plugin-jest-dom": "^5.5.0",
 		"eslint-plugin-prettier": "^5.5.3",
 		"eslint-plugin-react-hooks": "^5.2.0",
 		"extract-zip": "^2.0.1",

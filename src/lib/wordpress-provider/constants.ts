@@ -1,0 +1,8 @@
+export {
+	DEFAULT_PHP_VERSION,
+	DEFAULT_WORDPRESS_VERSION,
+	ALLOWED_PHP_VERSIONS,
+	type AllowedPHPVersion,
+	SQLITE_FILENAME,
+	SQLITE_FILENAME_LEGACY,
+} from 'vendor/wp-now/src/constants';

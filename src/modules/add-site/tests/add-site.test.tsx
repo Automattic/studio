@@ -3,10 +3,10 @@ import { jest } from '@jest/globals';
 import { render, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import AddSite from 'src/components/add-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { FolderDialogResponse } from 'src/ipc-handlers';
-import { store } from 'src/stores';
+import { createTestStore } from 'src/lib/test-utils';
+import AddSite from 'src/modules/add-site';
 
 jest.mock( 'src/stores/certificate-trust-api', () => {
 	const actual = jest.requireActual( 'src/stores/certificate-trust-api' ) || {};
@@ -70,7 +70,30 @@ jest.mock( 'src/hooks/use-offline', () => ( {
 	useOffline: jest.fn().mockReturnValue( false ),
 } ) );
 
+jest.mock( 'src/stores/wpcom-api', () => {
+	const actual = jest.requireActual( 'src/stores/wpcom-api' ) || {};
+	return {
+		...actual,
+		useGetBlueprints: jest.fn().mockReturnValue( {
+			data: {
+				blueprints: [],
+				total: 0,
+			},
+			isLoading: false,
+			refetch: jest.fn(),
+			isUninitialized: false,
+		} ),
+	};
+} );
+
 const renderWithProvider = ( children: React.ReactElement ) => {
+	const store = createTestStore( {
+		providerConstants: {
+			defaultPhpVersion: '8.3',
+			defaultWordPressVersion: 'latest',
+			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+		},
+	} );
 	return render( <Provider store={ store }>{ children }</Provider> );
 };
 
@@ -157,6 +180,7 @@ describe( 'AddSite', () => {
 				'latest',
 				undefined,
 				false,
+				null, // blueprint parameter
 				expect.any( Function )
 			);
 		} );
@@ -340,6 +364,7 @@ describe( 'AddSite', () => {
 				'6.3.3',
 				undefined,
 				false,
+				null, // blueprint parameter
 				expect.any( Function )
 			);
 		} );

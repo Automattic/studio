@@ -1,9 +1,12 @@
 // Run tests: yarn test -- src/hooks/tests/use-add-site.test.tsx
+import { configureStore } from '@reduxjs/toolkit';
 import { renderHook, act } from '@testing-library/react';
 import nock from 'nock';
+import { Provider } from 'react-redux';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
+import { getWordPressProvider } from 'src/lib/wordpress-provider';
+import providerConstantsReducer from 'src/stores/provider-constants-slice';
 
 jest.mock( 'src/hooks/use-site-details' );
 jest.mock( 'src/hooks/use-feature-flags' );
@@ -26,6 +29,33 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		getAllCustomDomains: jest.fn().mockResolvedValue( [] ),
 	} ),
 } ) );
+
+// Helper to create a store with preloaded provider constants
+function makeStoreWithProviderConstants( overrides = {} ) {
+	return configureStore( {
+		reducer: {
+			providerConstants: providerConstantsReducer,
+			// ...add other reducers as needed
+		},
+		preloadedState: {
+			providerConstants: {
+				defaultPhpVersion: '8.3',
+				defaultWordPressVersion: 'latest',
+				allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+				...overrides,
+			},
+		},
+	} );
+}
+
+const renderHookWithProvider = (
+	hook: () => ReturnType< typeof useAddSite >,
+	store = makeStoreWithProviderConstants()
+) => {
+	return renderHook< ReturnType< typeof useAddSite >, void >( hook, {
+		wrapper: ( { children } ) => <Provider store={ store }>{ children }</Provider>,
+	} );
+};
 
 describe( 'useAddSite', () => {
 	const mockCreateSite = jest.fn();
@@ -72,19 +102,19 @@ describe( 'useAddSite', () => {
 	} );
 
 	it( 'should initialize with default WordPress version', () => {
-		const { result } = renderHook( () => useAddSite() );
+		const { result } = renderHookWithProvider( () => useAddSite() );
 
-		expect( result.current.wpVersion ).toBe( DEFAULT_WORDPRESS_VERSION );
+		expect( result.current.wpVersion ).toBe( getWordPressProvider().DEFAULT_WORDPRESS_VERSION );
 	} );
 
 	it( 'should initialize with default PHP version', () => {
-		const { result } = renderHook( () => useAddSite() );
+		const { result } = renderHookWithProvider( () => useAddSite() );
 
-		expect( result.current.phpVersion ).toBe( DEFAULT_PHP_VERSION );
+		expect( result.current.phpVersion ).toBe( '8.3' );
 	} );
 
 	it( 'should update WordPress version when setWpVersion is called', () => {
-		const { result } = renderHook( () => useAddSite() );
+		const { result } = renderHookWithProvider( () => useAddSite() );
 
 		act( () => {
 			result.current.setWpVersion( '6.1.7' );
@@ -94,7 +124,7 @@ describe( 'useAddSite', () => {
 	} );
 
 	it( 'should update PHP version when setPhpVersion is called', () => {
-		const { result } = renderHook( () => useAddSite() );
+		const { result } = renderHookWithProvider( () => useAddSite() );
 
 		act( () => {
 			result.current.setPhpVersion( '8.2' );
@@ -104,18 +134,20 @@ describe( 'useAddSite', () => {
 	} );
 
 	it( 'should pass WordPress version to createSite when handleAddSiteClick is called', async () => {
-		mockCreateSite.mockImplementation( ( path, name, wpVersion, callback ) => {
-			callback( {
-				id: 'test-id',
-				name: name || 'Test Site',
-				path: path,
-				wpVersion: wpVersion,
-				phpVersion: '8.2',
-			} );
-			return Promise.resolve();
-		} );
+		mockCreateSite.mockImplementation(
+			( path, name, wpVersion, customDomain, enableHttps, blueprint, callback ) => {
+				callback( {
+					id: 'test-id',
+					name: name || 'Test Site',
+					path: path,
+					wpVersion: wpVersion,
+					phpVersion: '8.2',
+				} );
+				return Promise.resolve();
+			}
+		);
 
-		const { result } = renderHook( () => useAddSite() );
+		const { result } = renderHookWithProvider( () => useAddSite() );
 
 		act( () => {
 			result.current.setWpVersion( '6.1.7' );
@@ -132,6 +164,7 @@ describe( 'useAddSite', () => {
 			'6.1.7',
 			undefined,
 			false,
+			null, // blueprint parameter
 			expect.any( Function )
 		);
 	} );
@@ -147,7 +180,7 @@ describe( 'useAddSite', () => {
 		};
 
 		mockCreateSite.mockImplementation(
-			( path, name, version, customDomain, enableHttps, callback ) => {
+			( path, name, version, customDomain, enableHttps, blueprint, callback ) => {
 				callback( {
 					...newSite,
 					wpVersion: version,
@@ -156,7 +189,7 @@ describe( 'useAddSite', () => {
 			}
 		);
 
-		const { result } = renderHook( () => useAddSite() );
+		const { result } = renderHookWithProvider( () => useAddSite() );
 
 		act( () => {
 			result.current.setWpVersion( wpVersion );

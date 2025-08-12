@@ -26,14 +26,33 @@ jest.mock( 'src/stores/wordpress-versions-api', () => ( {
 	} ) ),
 } ) );
 
-const mockOpenURL = jest.fn();
+jest.mock( 'src/stores/wpcom-api', () => ( {
+	wpcomApi: {
+		reducer: () => ( {} ),
+		middleware: () => () => () => {},
+	},
+	wpcomPublicApi: {
+		reducer: () => ( {} ),
+		middleware: () => () => () => {},
+	},
+	useGetBlueprints: jest.fn().mockReturnValue( {
+		data: {
+			blueprints: [],
+			total: 0,
+		},
+		isLoading: false,
+		refetch: jest.fn(),
+		isUninitialized: false,
+	} ),
+} ) );
+
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
 	default: jest.fn(),
 	getIpcApi: () => ( {
 		showOpenFolderDialog: jest.fn(),
 		generateProposedSitePath: jest.fn(),
-		openURL: mockOpenURL,
+		openURL: jest.fn(),
 		getAllCustomDomains: jest.fn().mockResolvedValue( [] ),
 	} ),
 } ) );

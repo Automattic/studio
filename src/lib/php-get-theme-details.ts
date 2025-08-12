@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import SiteServerProcess from 'src/lib/site-server-process';
+import { getWpLoadPath } from 'src/lib/wordpress-provider';
+import type { WordPressServerProcess } from 'src/lib/wordpress-provider/types';
 
 const themeDetailsSchema = z.object( {
 	name: z.string().catch( '' ),
@@ -11,14 +12,16 @@ const themeDetailsSchema = z.object( {
 } );
 
 export async function phpGetThemeDetails(
-	server: SiteServerProcess
+	server: WordPressServerProcess
 ): Promise< StartedSiteDetails[ 'themeDetails' ] > {
 	if ( ! server.php ) {
 		throw Error( 'PHP is not instantiated' );
 	}
 
+	const wpLoadPath = getWpLoadPath( server );
+
 	const themeDetailsPhp = `<?php
-	require_once('${ server.php.documentRoot }/wp-load.php');
+	require_once('${ wpLoadPath }');
 	$theme = wp_get_theme();
 	echo json_encode([
 		'name' => $theme->get('Name'),

@@ -21,7 +21,16 @@ jest.mock( 'fs-extra' );
 jest.mock( 'src/lib/fs-utils' );
 jest.mock( 'src/site-server' );
 jest.mock( 'src/lib/sqlite-versions' );
-jest.mock( 'vendor/wp-now/src/download' );
+jest.mock( 'src/lib/wordpress-provider', () => ( {
+	downloadWordPress: jest.fn(),
+	downloadWpCli: jest.fn(),
+	downloadSQLiteCommand: jest.fn(),
+	getWordPressProvider: jest.fn().mockReturnValue( {
+		DEFAULT_PHP_VERSION: '8.3',
+		DEFAULT_WORDPRESS_VERSION: 'latest',
+		SQLITE_FILENAME: 'sqlite.php',
+	} ),
+} ) );
 jest.mock( 'src/main-window' );
 jest.mock( '@sentry/electron/main' );
 jest.mock( 'src/lib/import-export/import/import-manager' );
@@ -200,6 +209,9 @@ describe( 'importSite', () => {
 				phpVersion: '8.3',
 			},
 			updateSiteDetails: jest.fn(),
+			executeWpCliCommand: jest
+				.fn()
+				.mockResolvedValue( { stdout: 'New Site Title', stderr: '', exitCode: 0 } ),
 		};
 		( SiteServer.get as jest.Mock ).mockReturnValue( mockSite );
 		( importBackup as jest.Mock ).mockResolvedValue( {
@@ -235,6 +247,9 @@ describe( 'importSite', () => {
 			details: {
 				id: 'test-site',
 			},
+			executeWpCliCommand: jest
+				.fn()
+				.mockResolvedValue( { stdout: 'New Site Title', stderr: '', exitCode: 0 } ),
 		};
 		( SiteServer.get as jest.Mock ).mockReturnValue( mockSite );
 		( importBackup as jest.Mock ).mockRejectedValue( mockError );

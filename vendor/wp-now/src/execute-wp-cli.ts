@@ -4,7 +4,7 @@ import { rootCertificates } from 'tls';
 import { createNodeFsMountHandler, loadNodeRuntime } from '@php-wasm/node';
 import { PHP, MountHandler, writeFiles, setPhpIniEntries } from '@php-wasm/universal';
 import { phpVar } from '@php-wasm/util';
-import { getSqliteCommandPath } from '../../../src/lib/sqlite-command-versions';
+import { getSqliteCommandPath } from 'src/lib/sqlite-command-path';
 import getWpNowConfig, { WPNowMode } from './config';
 import {
 	DEFAULT_PHP_VERSION,

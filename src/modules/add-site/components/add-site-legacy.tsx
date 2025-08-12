@@ -14,18 +14,25 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useRootSelector } from 'src/stores';
+import {
+	selectDefaultPhpVersion,
+	selectDefaultWordPressVersion,
+} from 'src/stores/provider-constants-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
-import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 
 interface AddSiteProps {
 	className?: string;
+	showModal: boolean;
+	setShowModal: ( showModal: boolean ) => void;
 }
 
-export default function AddSite( { className }: AddSiteProps ) {
+export default function AddSite( { className, showModal, setShowModal }: AddSiteProps ) {
 	const { __ } = useI18n();
-	const [ showModal, setShowModal ] = useState( false );
 	const [ nameSuggested, setNameSuggested ] = useState( false );
 	const [ fileError, setFileError ] = useState( '' );
+	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
+	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 
 	const {
 		handleAddSiteClick,
@@ -106,7 +113,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 
 	const openModal = useCallback( () => {
 		setShowModal( true );
-	}, [] );
+	}, [ setShowModal ] );
 
 	const closeModal = useCallback( () => {
 		setShowModal( false );
@@ -115,8 +122,8 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setDoesPathContainWordPress( false );
 		setFileForImport( null );
 		setFileError( '' );
-		setWpVersion( DEFAULT_WORDPRESS_VERSION );
-		setPhpVersion( DEFAULT_PHP_VERSION as SupportedPHPVersion );
+		setWpVersion( defaultWordPressVersion );
+		setPhpVersion( defaultPhpVersion as SupportedPHPVersion );
 		setUseCustomDomain( false );
 		setCustomDomain( null );
 		setCustomDomainError( '' );
@@ -131,6 +138,9 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setCustomDomain,
 		setCustomDomainError,
 		setEnableHttps,
+		defaultWordPressVersion,
+		defaultPhpVersion,
+		setShowModal,
 	] );
 
 	const handleSubmit = useCallback(

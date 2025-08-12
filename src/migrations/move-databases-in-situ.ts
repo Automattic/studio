@@ -1,16 +1,14 @@
 import path from 'node:path';
 import fs from 'fs-extra';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
+import { getSqlitePath, getConfig, getWordPressProvider } from 'src/lib/wordpress-provider';
 import { loadUserData } from 'src/storage/user-data';
-import getWpNowConfig from 'vendor/wp-now/src/config';
-import { SQLITE_FILENAME } from 'vendor/wp-now/src/constants';
-import getSqlitePath from 'vendor/wp-now/src/get-sqlite-path';
 
 async function moveDatabasesInSitu( projectPath: string ) {
 	const dbPhpPath = path.join( projectPath, 'wp-content', 'db.php' );
 	const hasDbPhpInSitu = fs.existsSync( dbPhpPath ) && fs.lstatSync( dbPhpPath ).isFile();
 
-	const { wpContentPath } = await getWpNowConfig( { path: projectPath } );
+	const { wpContentPath } = await getConfig( { path: projectPath } );
 	if (
 		wpContentPath &&
 		fs.existsSync( path.join( wpContentPath, 'database' ) ) &&
@@ -21,7 +19,12 @@ async function moveDatabasesInSitu( projectPath: string ) {
 		fs.rmdirSync( databasePath );
 		fs.moveSync( path.join( wpContentPath, 'database' ), databasePath );
 
-		const sqlitePath = path.join( projectPath, 'wp-content', 'plugins', SQLITE_FILENAME );
+		const sqlitePath = path.join(
+			projectPath,
+			'wp-content',
+			'plugins',
+			getWordPressProvider().SQLITE_FILENAME
+		);
 		fs.rmdirSync( sqlitePath );
 		fs.copySync( path.join( getSqlitePath() ), sqlitePath );
 

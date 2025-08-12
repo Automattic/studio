@@ -14,7 +14,7 @@ const ProgressBar = ( { value, maxValue }: ProgressBarProps ) => {
 			<div
 				role="progressbar"
 				aria-valuenow={ fillPercentage }
-				className="h-full bg-a8c-blueberry rounded-[4.5px] transition-all"
+				className="h-full bg-a8c-blue-50 rounded-[4.5px] transition-all"
 				style={ {
 					width: `${ fillPercentage }%`,
 				} }

@@ -5,16 +5,20 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
+import { useRootSelector } from 'src/stores';
 import {
-	DEFAULT_PHP_VERSION,
-	DEFAULT_WORDPRESS_VERSION,
-	AllowedPHPVersion,
-} from 'vendor/wp-now/src/constants';
+	selectDefaultPhpVersion,
+	selectDefaultWordPressVersion,
+} from 'src/stores/provider-constants-slice';
+import type { Blueprint } from 'src/stores/wpcom-api';
 
 export function useAddSite() {
 	const { __ } = useI18n();
 	const { createSite, data: sites, loadingSites, startServer, updateSite } = useSiteDetails();
 	const { importFile, clearImportState } = useImportExport();
+	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
+	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 	const [ error, setError ] = useState( '' );
 	const [ siteName, setSiteName ] = useState< string | null >( null );
 	const [ sitePath, setSitePath ] = useState( '' );
@@ -22,14 +26,15 @@ export function useAddSite() {
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
 	const [ fileForImport, setFileForImport ] = useState< File | null >( null );
 	const [ phpVersion, setPhpVersion ] = useState< AllowedPHPVersion >(
-		DEFAULT_PHP_VERSION as AllowedPHPVersion
+		defaultPhpVersion as AllowedPHPVersion
 	);
-	const [ wpVersion, setWpVersion ] = useState( DEFAULT_WORDPRESS_VERSION );
+	const [ wpVersion, setWpVersion ] = useState( defaultWordPressVersion );
 	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
 	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
 	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
 	const [ enableHttps, setEnableHttps ] = useState( false );
+	const [ selectedBlueprint, setSelectedBlueprint ] = useState< Blueprint | null >( null );
 
 	const loadAllCustomDomains = useCallback( () => {
 		getIpcApi()
@@ -111,6 +116,7 @@ export function useAddSite() {
 				wpVersion,
 				usedCustomDomain,
 				useCustomDomain ? enableHttps : false,
+				selectedBlueprint,
 				async ( newSite ) => {
 					let updatedSite = { ...newSite };
 
@@ -165,6 +171,7 @@ export function useAddSite() {
 		customDomain,
 		useCustomDomain,
 		enableHttps,
+		selectedBlueprint,
 	] );
 
 	const handleSiteNameChange = useCallback(
@@ -234,6 +241,8 @@ export function useAddSite() {
 			enableHttps,
 			setEnableHttps,
 			loadAllCustomDomains,
+			selectedBlueprint,
+			setSelectedBlueprint,
 		};
 	}, [
 		doesPathContainWordPress,
@@ -258,5 +267,6 @@ export function useAddSite() {
 		enableHttps,
 		setEnableHttps,
 		loadAllCustomDomains,
+		selectedBlueprint,
 	] );
 }

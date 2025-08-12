@@ -4,7 +4,6 @@ import path from 'path';
 import followRedirects, { FollowResponse } from 'follow-redirects';
 import fs from 'fs-extra';
 import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
-import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
 import unzipper from 'unzipper';
 import { DEFAULT_WORDPRESS_VERSION, WP_CLI_URL } from './constants';
 import getWordpressVersionsPath from './get-wordpress-versions-path';
@@ -34,6 +33,32 @@ interface DownloadFileAndUnzipResult {
 }
 
 const { https } = followRedirects;
+
+// Local copy of WordPress version utilities to avoid Studio dependencies
+function isWordPressDevVersion( version: string ): boolean {
+	// Match nightly build patterns that end with a build number
+	// Examples: 6.8-alpha1-12345, 6.8-beta2-59979, 6.8-dev-12345, 6.8-59979
+	return /^\d+\.\d+(?:\.\d+)?(?:-[a-zA-Z0-9]+)*-\d+$/.test( version );
+}
+
+function isValidWordPressVersion( version: string ): boolean {
+	const versionPattern =
+		/^latest$|^(?:(\d+)\.(\d+)(?:\.(\d+))?)((?:-beta(?:\d+)?)|(?:-RC(?:\d+)?))?$/;
+	return versionPattern.test( version );
+}
+
+function getWordPressVersionUrl( version = DEFAULT_WORDPRESS_VERSION ): string {
+	if ( isWordPressDevVersion( version ) ) {
+		return 'https://wordpress.org/nightly-builds/wordpress-latest.zip';
+	}
+
+	if ( ! isValidWordPressVersion( version ) ) {
+		throw new Error(
+			'Unrecognized WordPress version. Please use "latest" or numeric versions such as "6.2", "6.0.1", "6.2-beta1", or "6.2-RC1"'
+		);
+	}
+	return `https://wordpress.org/wordpress-${ version }.zip`;
+}
 
 async function downloadFile( {
 	url,

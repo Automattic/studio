@@ -127,11 +127,8 @@ for ( const [ key, value ] of Object.entries( palette.colors ) ) {
 	a8cToTailwindColors[ colorName ][ shade ] = value;
 }
 
-// These colors are in the palette but not included because the color name contains more than one word.
-// Reference: https://github.com/Automattic/color-studio/blob/55218ffdaecc770cd697639071f1d2083f744f66/dist/colors.json#L123-L187
-a8cToTailwindColors[ `${ PREFIX }-blueberry-5` ] = '#F7F8FE'; // WordPress Blue 5
-a8cToTailwindColors[ `${ PREFIX }-blueberry` ] = '#3858E9'; // WordPress Blue
-a8cToTailwindColors[ `${ PREFIX }-blueberry-70` ] = '#1d35b4'; // WordPress Blue 70
+// These colors are not in the color studio but are used in the design system.
+// Reference: https://github.com/WordPress/gutenberg/blob/trunk/packages/base-styles/_colors.scss
 a8cToTailwindColors[ `${ PREFIX }-gray-700` ] = '#757575'; // Gray 700
 a8cToTailwindColors[ `${ PREFIX }-gray-400` ] = '#CCC'; // Gray 400
 a8cToTailwindColors[ `${ PREFIX }-gray-600` ] = '#949494'; // Gray 600
@@ -146,8 +143,8 @@ module.exports = {
 				...a8cToTailwindColors,
 				chrome: 'rgba(30, 30, 30, 1)',
 				'chrome-inverted': '#fff',
-				'sandbox-bg': 'hsl(200, 95%, 85%)',
-				'sandbox-text': 'hsl(200, 95%, 28%)',
+				'development-bg': 'hsl(200, 95%, 85%)',
+				'development-text': 'hsl(200, 95%, 28%)',
 				'circle-env-production': '#069e08',
 				'circle-env-staging': '#f7ba42',
 			},

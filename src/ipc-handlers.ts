@@ -33,6 +33,7 @@ import {
 	trustRootCA,
 } from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
+import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { isEmptyDir, pathExists, sanitizeFolderName } from 'src/lib/fs-utils';
 import { getImageData } from 'src/lib/get-image-data';
 import { getSiteUrl } from 'src/lib/get-site-url';
@@ -55,6 +56,10 @@ import { sortSites } from 'src/lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
+import {
+	getWordPressProvider,
+	getProviderConstants as getProviderConstantsFromProvider,
+} from 'src/lib/wordpress-provider';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
@@ -72,7 +77,7 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
-import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
+import { Blueprint } from './stores/wpcom-api';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 import type { GranularSyncFolders } from 'src/modules/sync/types';
@@ -154,6 +159,18 @@ export async function importSite(
 		if ( result?.meta?.phpVersion ) {
 			site.details.phpVersion = result.meta.phpVersion;
 		}
+
+		try {
+			const { stdout: siteTitle } = await site.executeWpCliCommand( 'option get blogname', {
+				skipPluginsAndThemes: true,
+			} );
+			if ( siteTitle && siteTitle.trim() ) {
+				site.details.name = siteTitle.trim();
+			}
+		} catch ( error ) {
+			console.warn( 'Failed to get site title after import:', error );
+		}
+
 		return site.details;
 	} catch ( e ) {
 		bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
@@ -169,7 +186,8 @@ export async function createSite(
 	wpVersion?: string,
 	customDomain?: string,
 	enableHttps?: boolean,
-	siteId?: string
+	siteId?: string,
+	blueprint?: Blueprint
 ): Promise< SiteDetails > {
 	const forceSetupSqlite = false;
 	// We only recursively create the directory if the user has not selected a
@@ -189,17 +207,6 @@ export async function createSite(
 		throw new Error( 'The selected directory is already in use.' );
 	}
 
-	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
-		try {
-			await createSiteWorkingDirectory( path, wpVersion );
-		} catch ( error ) {
-			// If site creation failed, remove the generated files and re-throw the
-			// error so it can be handled by the caller.
-			await shell.trashItem( path );
-			throw error;
-		}
-	}
-
 	const port = await portFinder.getOpenPort();
 
 	const details = {
@@ -209,13 +216,24 @@ export async function createSite(
 		adminPassword: createPassword(),
 		port,
 		running: false,
-		phpVersion: DEFAULT_PHP_VERSION,
-		isWpAutoUpdating: wpVersion === DEFAULT_WORDPRESS_VERSION,
+		phpVersion: getWordPressProvider().DEFAULT_PHP_VERSION,
+		isWpAutoUpdating: wpVersion === getWordPressProvider().DEFAULT_WORDPRESS_VERSION,
 		customDomain,
 		enableHttps,
 	} as const;
 
-	const server = SiteServer.create( details, { wpVersion } );
+	const server = SiteServer.create( details, { wpVersion, blueprint } );
+
+	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
+		try {
+			await createSiteWorkingDirectory( server, wpVersion );
+		} catch ( error ) {
+			// If site creation failed, remove the generated files and re-throw the
+			// error so it can be handled by the caller.
+			await shell.trashItem( path );
+			throw error;
+		}
+	}
 
 	if ( isWordPressDirectory( path ) ) {
 		// If the directory contains a WordPress installation, and user wants to force SQLite
@@ -882,6 +900,7 @@ export function getAppGlobals(): AppGlobals {
 		appName: app.name,
 		appVersion: app.getVersion(),
 		arm64Translation: app.runningUnderARM64Translation,
+		...buildFeatureFlags(),
 	};
 }
 
@@ -1423,4 +1442,9 @@ export async function listWpContentFolders(
 	} catch ( err ) {
 		return [];
 	}
+}
+
+export async function getProviderConstants( _event: IpcMainInvokeEvent ) {
+	const provider = getWordPressProvider();
+	return getProviderConstantsFromProvider( provider );
 }

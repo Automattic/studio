@@ -45,7 +45,7 @@ const PageContent = ( {
 			{ learnMoreUrl && (
 				<button
 					onClick={ () => getIpcApi().openURL( learnMoreUrl ) }
-					className="text-a8c-blueberry text-m leading-s cursor-pointer"
+					className="text-a8c-blue-50 text-m leading-s cursor-pointer"
 				>
 					{ __( 'Learn more' ) }
 				</button>
@@ -61,7 +61,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			image: selectiveSyncIllustration,
 			title: __( 'Synchronize with precision' ),
 			description: __(
-				'Choose the parts of your site to synchronize, speeding up the process and reducing unnecessary changes.'
+				'Synchronize specific plugins, themes, or the database for fast, precise updates to your WordPress.com or Pressable sites.'
 			),
 			learnMoreUrl: `${ getLocalizedLink( locale, 'docsSync' ) }#pull`,
 		},
@@ -86,7 +86,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			title: __( 'Introducing Studio CLI' ),
 			description: interpolateComponents( {
 				mixedString: sprintf(
-					/* translators: %s is the name of the Studio CLI command ("studio") */
+					/* translators: %s is the name of the WordPress Studio CLI command ("studio") */
 					__(
 						'Run the %s command in your terminal to create, list, update, and delete preview sites with our new CLI tool.'
 					),
@@ -125,7 +125,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			onFinish={ onClose }
 			contentLabel={ __( "What's New in Studio" ) }
 			className={ cx(
-				"whats-new-modal !w-[360px] !h-[470px] overflow-hidden [&_button[aria-label='Close']_svg]:fill-white [&_.components-button.is-tertiary]:!outline-1 [&_.components-button.is-tertiary]:!outline-solid [&_.components-button.is-tertiary]:!outline-a8c-blueberry",
+				"whats-new-modal !w-[360px] !h-[470px] overflow-hidden [&_button[aria-label='Close']_svg]:fill-white [&_.components-button.is-tertiary]:!outline-1 [&_.components-button.is-tertiary]:!outline-solid [&_.components-button.is-tertiary]:!outline-a8c-blue-50",
 				'[&_*]:select-none',
 				'focus:outline-none'
 			) }

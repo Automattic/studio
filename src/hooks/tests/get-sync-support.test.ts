@@ -22,6 +22,8 @@ const baseSite = {
 	},
 };
 
+jest.mock( 'src/lib/get-ipc-api' );
+
 describe( 'getSyncSupport', () => {
 	it( 'returns "deleted" if site is deleted', () => {
 		const site = { ...baseSite, is_deleted: true };

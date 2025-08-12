@@ -17,6 +17,7 @@ import {
 	REDUX_DEVTOOLS,
 } from 'electron-devtools-installer';
 import { PROTOCOL_PREFIX } from 'common/constants';
+import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
 import { StatsGroup } from 'common/types/stats';
 import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
@@ -28,6 +29,7 @@ import { onOpenUrlCallback } from 'src/lib/oauth';
 import { stopProxyServer } from 'src/lib/proxy-server';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-watcher';
+import { getWordPressProvider } from 'src/lib/wordpress-provider';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';
 import {
@@ -56,6 +58,8 @@ if ( ! process.env.IS_DEV_BUILD ) {
 		environment: isDevEnvironment ? 'development' : 'production',
 	} );
 }
+
+suppressPunycodeWarning();
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -248,7 +252,7 @@ async function appBoot() {
 			const basePolicies = [
 				"default-src 'self'", // Allow resources from these domains
 				"script-src-attr 'none'",
-				"img-src 'self' https://*.gravatar.com https://*.wp.com data:",
+				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com data:",
 				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
 				"script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
 			];
@@ -310,8 +314,15 @@ async function appBoot() {
 			getPlatformMetric( process.platform ),
 			'weekly'
 		);
+		// Bump stat for unique monthly app launch, approximates monthly active users
+		bumpAggregatedUniqueStat(
+			StatsGroup.STUDIO_APP_LAUNCH_UNIQUE_MONTHLY,
+			getPlatformMetric( process.platform ),
+			'monthly'
+		);
 
 		await installCLIOnWindows();
+		getWordPressProvider();
 
 		finishedInitialization = true;
 	} );

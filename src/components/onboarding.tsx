@@ -1,16 +1,15 @@
 import { speak } from '@wordpress/a11y';
 import { sprintf } from '@wordpress/i18n';
-import { Icon, wordpress } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect } from 'react';
 import Button from 'src/components/button';
-import DragAndDropOverlay from 'src/components/drag-and-drop-overlay';
 import { SiteForm } from 'src/components/site-form';
-import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
+import { StudioLogo } from 'src/components/studio-logo';
 import { useAddSite } from 'src/hooks/use-add-site';
-import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useAppDispatch } from 'src/stores';
+import { saveOnboardingStatus } from 'src/stores/onboarding-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 
 const GradientBox = () => {
@@ -36,6 +35,7 @@ const GradientBox = () => {
 
 export default function Onboarding() {
 	const { __ } = useI18n();
+	const dispatch = useAppDispatch();
 	const {
 		setSiteName,
 		setProposedSitePath,
@@ -51,8 +51,6 @@ export default function Onboarding() {
 		handleAddSiteClick,
 		handleSiteNameChange,
 		handlePathSelectorClick,
-		setFileForImport,
-		fileForImport,
 		phpVersion,
 		wpVersion,
 		useCustomDomain,
@@ -65,29 +63,12 @@ export default function Onboarding() {
 		setEnableHttps,
 		loadAllCustomDomains,
 	} = useAddSite();
-	const [ fileError, setFileError ] = useState( '' );
 
 	const siteAddedMessage = sprintf(
 		// translators: %s is the site name.
 		__( '%s site added.' ),
 		siteName
 	);
-
-	const { dropRef, isDraggingOver } = useDragAndDropFile< HTMLDivElement >( {
-		onFileDrop: ( file: File ) => {
-			const isAccepted = ACCEPTED_IMPORT_FILE_TYPES.some( ( ext ) =>
-				file.name.toLowerCase().endsWith( ext )
-			);
-
-			if ( isAccepted ) {
-				setFileForImport( file );
-				setFileError( '' );
-			} else {
-				setFileError( __( 'Invalid file type. Please select a valid backup file.' ) );
-				setFileForImport( null );
-			}
-		},
-	} );
 
 	const { data: versions = [] } = useGetWordPressVersions();
 	const latestStableVersion = versions.find( ( version ) => version.value === 'latest' );
@@ -128,39 +109,34 @@ export default function Onboarding() {
 
 			try {
 				await handleAddSiteClick();
+				// Save onboarding completion after site is successfully created
+				await dispatch( saveOnboardingStatus( true ) );
 				speak( siteAddedMessage );
 			} catch {
 				// No need to handle error here, it's already handled in handleAddSiteClick
 			}
 		},
-		[ handleAddSiteClick, siteAddedMessage ]
-	);
-
-	const handleImportFile = useCallback(
-		async ( file: File ) => {
-			setFileForImport( file );
-			setFileError( '' );
-		},
-		[ setFileForImport ]
+		[ handleAddSiteClick, siteAddedMessage, dispatch ]
 	);
 
 	return (
 		<div className="flex flex-row flex-grow" data-testid="onboarding">
-			<div className="w-1/2 bg-a8c-blueberry pb-[50px] pt-[46px] px-[50px] flex flex-col justify-between">
-				<div className="flex justify-end fill-white items-center gap-1">
-					<Icon size={ 24 } icon={ wordpress } />
+			<div className="w-1/2 bg-a8c-blue-50 pb-[50px] pt-[46px] px-[50px] flex flex-col justify-between">
+				<div className="flex justify-start items-center gap-1 mt-6">
+					<StudioLogo className="fill-white" />
 				</div>
 				<GradientBox />
 			</div>
 
-			<div
-				className="w-1/2 bg-white p-[50px] flex flex-col relative overflow-y-auto app-no-drag-region"
-				ref={ dropRef }
-			>
-				{ isDraggingOver && <DragAndDropOverlay /> }
-				<div className="flex flex-col justify-center items-start flex-[1_0_0%] gap-8">
-					<div className="flex flex-col items-start self-stretch gap-6">
-						<h1 className="font-normal text-xl leading-5">{ __( 'Add your first site' ) }</h1>
+			<div className="w-1/2 bg-white p-[50px] flex flex-col relative overflow-y-auto app-no-drag-region">
+				<div className="flex flex-col justify-center items-center flex-[1_0_0%] gap-8">
+					<div className="flex flex-col items-center self-stretch gap-6">
+						<div className="flex flex-col items-center gap-4">
+							<h1 className="font-normal text-3xl leading-5">{ __( 'Add your first site' ) }</h1>
+							<p className="text-a8c-gray-50 text-sm px-10 text-center">
+								{ __( "Add your first site and explore Studio's powerful workflow and features." ) }
+							</p>
+						</div>
 						<SiteForm
 							className="self-stretch"
 							siteName={ siteName || '' }
@@ -170,10 +146,6 @@ export default function Onboarding() {
 							error={ error }
 							doesPathContainWordPress={ doesPathContainWordPress }
 							onSubmit={ handleSubmit }
-							fileForImport={ fileForImport }
-							setFileForImport={ setFileForImport }
-							onFileSelected={ handleImportFile }
-							fileError={ fileError }
 							phpVersion={ phpVersion }
 							setPhpVersion={ setPhpVersion }
 							wpVersion={ wpVersion }
@@ -186,9 +158,9 @@ export default function Onboarding() {
 							enableHttps={ enableHttps }
 							setEnableHttps={ setEnableHttps }
 						>
-							<div className="flex flex-row gap-x-5 mt-6 justify-end">
-								<Button type="submit" variant="primary">
-									{ __( 'Add site' ) }
+							<div className="flex flex-row mt-6 justify-center">
+								<Button type="submit" variant="primary" className="w-full">
+									{ __( 'Continue' ) }
 								</Button>
 							</div>
 						</SiteForm>

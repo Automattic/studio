@@ -1,33 +1,66 @@
 ![Crash Free Sessions Rate](https://img.shields.io/badge/Crash_Free_Session_Rate-98.31%25-blue)
 
-# Studio by WordPress.com
+# WordPress Studio
 
-A desktop application for creating local WordPress environments, powered by WordPress.com and WordPress Playground.
+[WordPress Studio](https://developer.wordpress.com/studio/) is an open source desktop application for creating and managing WordPress sites and testing and building plugins and themes locally. Powered by [WordPress Playground](https://developer.wordpress.org/playground/) and [WordPress.com](https://wordpress.com/), it streamlines modern WordPress development workflows and requires no external dependencies.
 
-![](https://raw.githubusercontent.com/Automattic/studio/trunk/demo.png)
+Spin up sites in seconds, sync with WordPress.com or Pressable, or import any WordPress site to work on it locally. Use the Studio CLI to access WordPress Studio features outside the desktop application. Share live preview links with clients, and collaborate with the built-in AI Assistant that runs WP-CLI commands natively.
 
-## Getting Started
+![WordPress Studio](/docs/assets/wordpress-studio-main.png)
 
-Studio is open source and is available to download for free!
+## Get started
 
-**Step 1: Download the App**
+WordPress Studio is free to use for Mac and Windows. Simply download the app to start building and testing — no dependencies required.
 
-[Download Studio for macOS (Intel or Silicon) or Windows](https://developer.wordpress.com/studio/) for free today.
+[Download WordPress Studio](https://developer.wordpress.com/studio/) for:
 
-**Step 2: Explore the Documentation**
+- macOS (Intel or Apple Silicon)
+- Windows
 
-[Visit the Studio documentation](https://developer.wordpress.com/docs/developer-tools/studio/) for detailed instructions, feature descriptions, and frequently asked questions.
+## Highlights
 
-**Step 3: Give Feedback**
+### Studio Sync
 
-We’d love to get your thoughts and feedback on your experience with Studio. If you have a question or suggestion, [reach out to our Happiness Engineers](https://developer.wordpress.com/contact/). Also, see the Contributing section for more information on how to get in touch with us.
+![WordPress Studio - Selective Sync](/docs/assets/wordpress-studio-sync.png)
 
-## Contributing
+Push updates or pull down a WordPress.com or Pressable production or staging site with just a few clicks. Choose exactly which parts of your site to sync, like specific plugins, standalone themes, or the database, so you’re always in control. [Learn more about Studio Sync →](https://developer.wordpress.com/docs/developer-tools/studio/sync/)
 
-Our mission is for Studio to be the fastest and simplest way for developers to build a WordPress site. We welcome all contributions in pursuit of this mission. Think fewer buttons, not more.
+### Free Cloud-hosted Preview Sites
 
-Feel free to [open an issue](https://github.com/Automattic/studio/issues/new/choose) to discuss your proposed improvement. Pull requests are welcome for bug fixes and enhancements. New features will need to go through our internal vetting process before they are accepted.
+![WordPress Studio - Preview Sites](/docs/assets/wordpress-studio-preview-sites.png)
 
-To learn more about how to contribute, please read the [Contributing Guidelines](./CONTRIBUTING.md).
+Preview, polish, then hand it off. Share a stable, cloud-hosted preview link that your clients or team can access at any time. Preview sites expire after seven days without updates. [Learn more about Preview Sites →](https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/)
 
-For information on setting up your development environment for contributing code, see the [Code Contributions](./docs/code-contributions.md).
+### AI Assistant
+
+![WordPress Studio - AI Assistant](/docs/assets/wordpress-studio-ai-assistant.png)
+
+Skip the repetitive setup and ask the assistant to install plugins, create pages, or run WP-CLI commands without leaving the app or searching for syntax. [Learn more about the Studio Assistant →](https://developer.wordpress.com/docs/developer-tools/studio/assistant/)
+
+### Powered by WordPress Playground
+
+![WordPress Studio - Powered by Playground](/docs/assets/wordpress-studio-powered-by-playground.png)
+
+Studio stays aligned with the latest innovations in WordPress development, giving you early access to cutting-edge tools, version support, and experimental features without needing to configure anything manually or run any dependencies.
+
+## Explore the documentation
+
+[Review the documentation](https://developer.wordpress.com/docs/developer-tools/studio/) for:
+
+- Installation instructions  
+- Feature guides  
+- Troubleshooting and FAQs  
+
+## Give feedback and contribute
+
+We’d love to hear about your experience using Studio. If you have questions, suggestions, or run into issues, reach out to our [Happiness Engineers](https://developer.wordpress.com/contact/). Because Studio is open source, you can also:
+
+- Open a GitHub Issue to to [suggest ideas](https://github.com/Automattic/studio/issues/new?assignees=&labels=%5BType%5D+Feature+Request&projects=&template=feature_request.yml&title=Feature+Request%3A) or [report bugs](https://github.com/Automattic/studio/issues/new?assignees=&labels=Needs+triage%2C%5BType%5D+Bug&projects=&template=bug_report.yml)  
+- Submit pull requests for bug fixes and enhancements  
+- Proposals for new features may require additional review and discussion
+
+For details, please see our [Contributing Guidelines](CONTRIBUTING.md) and [Code Contributions](docs/code-contributions.md) guide.
+
+## License
+
+WordPress Studio is [GPLv2 licensed](LICENSE.md).

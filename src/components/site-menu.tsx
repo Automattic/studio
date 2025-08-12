@@ -76,7 +76,7 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 					}
 					return running ? stopServer( id ) : startServer( id );
 				} }
-				className="w-7 h-8 rounded-tr rounded-br group grid focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blueberry"
+				className="w-7 h-8 rounded-tr rounded-br group grid focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blue-50"
 				aria-label={ sprintf( running ? __( 'stop %s site' ) : __( 'start %s site' ), name ) }
 			>
 				{ /* Circle */ }
@@ -137,7 +137,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 			) }
 		>
 			<button
-				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blueberry"
+				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blue-50"
 				onClick={ () => {
 					setSelectedSiteId( site.id );
 				} }

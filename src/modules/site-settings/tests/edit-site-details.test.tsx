@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { Provider } from 'react-redux';
 import { useOffline } from 'src/hooks/use-offline';
+import { createTestStore } from 'src/lib/test-utils';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 
@@ -46,26 +48,45 @@ jest.mock( '@wordpress/react-i18n', () => ( {
 	} ),
 } ) );
 
-jest.mock( 'src/stores/wordpress-versions-api', () => ( {
-	useGetWordPressVersions: jest.fn( () => ( {
-		data: [
-			{ label: 'Latest', value: '6.7.2' },
-			{ label: '6.8-beta1', value: '6.8-beta1', isBeta: true, isDevelopment: false },
-			{ label: '6.4', value: '6.4', isBeta: false, isDevelopment: false },
-			{ label: '6.3', value: '6.3', isBeta: false, isDevelopment: false },
-			{ label: '6.2', value: '6.2', isBeta: false, isDevelopment: false },
-		],
-		isLoading: false,
-	} ) ),
-} ) );
+jest.mock( 'src/stores/wordpress-versions-api', () => {
+	const actual = jest.requireActual( 'src/stores/wordpress-versions-api' );
+	return {
+		...actual,
+		useGetWordPressVersions: jest.fn( () => ( {
+			data: [
+				{ label: 'Latest', value: '6.7.2' },
+				{ label: '6.8-beta1', value: '6.8-beta1', isBeta: true, isDevelopment: false },
+				{ label: '6.4', value: '6.4', isBeta: false, isDevelopment: false },
+				{ label: '6.3', value: '6.3', isBeta: false, isDevelopment: false },
+				{ label: '6.2', value: '6.2', isBeta: false, isDevelopment: false },
+			],
+			isLoading: false,
+		} ) ),
+	};
+} );
 
-jest.mock( 'src/stores/certificate-trust-api', () => ( {
-	useCheckCertificateTrustQuery: jest.fn().mockReturnValue( { data: true } ),
-} ) );
+jest.mock( 'src/stores/certificate-trust-api', () => {
+	const actual = jest.requireActual( 'src/stores/certificate-trust-api' );
+	return {
+		...actual,
+		useCheckCertificateTrustQuery: jest.fn().mockReturnValue( { data: true } ),
+	};
+} );
 
 jest.mock( 'src/hooks/use-offline', () => ( {
 	useOffline: jest.fn().mockReturnValue( false ),
 } ) );
+
+const renderWithProvider = ( children: React.ReactElement ) => {
+	const store = createTestStore( {
+		providerConstants: {
+			defaultPhpVersion: '8.3',
+			defaultWordPressVersion: 'latest',
+			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+		},
+	} );
+	return render( <Provider store={ store }>{ children }</Provider> );
+};
 
 describe( 'EditSiteDetails', () => {
 	const defaultProps = {
@@ -79,7 +100,7 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should render the edit button', async () => {
-		render( <EditSiteDetails { ...defaultProps } /> );
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
 		} );
@@ -87,7 +108,7 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should open the modal when edit button is clicked', async () => {
-		render( <EditSiteDetails { ...defaultProps } /> );
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
 		} );
@@ -102,7 +123,7 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should close the modal when cancel button is clicked', async () => {
-		render( <EditSiteDetails { ...defaultProps } /> );
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
 		} );
@@ -115,7 +136,7 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should disable the save button when no changes are made', async () => {
-		render( <EditSiteDetails { ...defaultProps } /> );
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
 		} );
@@ -127,7 +148,7 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should enable the save button when site name is changed', async () => {
-		render( <EditSiteDetails { ...defaultProps } /> );
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
 		} );
@@ -143,7 +164,7 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should enable the save button when PHP version is changed', async () => {
-		render( <EditSiteDetails { ...defaultProps } /> );
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
 		} );
@@ -158,7 +179,7 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should enable the save button when WordPress version is changed', async () => {
-		render( <EditSiteDetails { ...defaultProps } /> );
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
 		} );
@@ -173,7 +194,7 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should disable the save button when site name is empty', async () => {
-		render( <EditSiteDetails { ...defaultProps } /> );
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
 		} );
@@ -188,7 +209,7 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should update site when save button is clicked with changed site name', async () => {
-		render( <EditSiteDetails { ...defaultProps } /> );
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
 		} );
@@ -210,7 +231,7 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should update site and restart server when PHP version is changed', async () => {
-		render( <EditSiteDetails { ...defaultProps } /> );
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
 		} );
@@ -233,7 +254,7 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should update isWpAutoUpdating to false when changed from latest to specific version', async () => {
-		render( <EditSiteDetails { ...defaultProps } /> );
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
@@ -256,7 +277,7 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should update WordPress version when changed to beta', async () => {
-		render( <EditSiteDetails { ...defaultProps } /> );
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
@@ -277,7 +298,7 @@ describe( 'EditSiteDetails', () => {
 		const consoleSpy = jest.spyOn( console, 'error' ).mockImplementation( () => {} );
 		mockExecuteWPCLiInline.mockResolvedValue( { exitCode: 1, stderr: 'Update failed' } );
 
-		render( <EditSiteDetails { ...defaultProps } /> );
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
@@ -303,7 +324,7 @@ describe( 'EditSiteDetails', () => {
 			() => new Promise( ( resolve ) => setTimeout( resolve, 100 ) )
 		);
 
-		render( <EditSiteDetails { ...defaultProps } /> );
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
@@ -331,7 +352,7 @@ describe( 'EditSiteDetails', () => {
 	it( 'should disable WordPress version field when offline', async () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
 
-		render( <EditSiteDetails { ...defaultProps } /> );
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
@@ -343,7 +364,7 @@ describe( 'EditSiteDetails', () => {
 	it( 'should enable WordPress version field when online', async () => {
 		( useOffline as jest.Mock ).mockReturnValue( false );
 
-		render( <EditSiteDetails { ...defaultProps } /> );
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
@@ -355,7 +376,7 @@ describe( 'EditSiteDetails', () => {
 	it( 'should show tooltip with offline message when hovering over disabled WordPress version field', async () => {
 		( useOffline as jest.Mock ).mockReturnValue( true );
 
-		render( <EditSiteDetails { ...defaultProps } /> );
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
@@ -371,7 +392,7 @@ describe( 'EditSiteDetails', () => {
 	it( 'should not show tooltip when hovering over WordPress version field while online', async () => {
 		( useOffline as jest.Mock ).mockReturnValue( false );
 
-		render( <EditSiteDetails { ...defaultProps } /> );
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
@@ -385,7 +406,7 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should fetch WordPress versions when clicking edit site', async () => {
-		render( <EditSiteDetails { ...defaultProps } /> );
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );

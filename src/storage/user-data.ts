@@ -4,12 +4,12 @@ import nodePath from 'node:path';
 import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/main';
 import { readFile, writeFile } from 'atomically';
-import { LOCKFILE_NAME, LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/constants';
+import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/constants';
 import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
 import { isErrnoException } from 'src/lib/is-errno-exception';
 import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for-logging';
 import { sortSites } from 'src/lib/sort-sites';
-import { getResourcesPath, getUserDataFilePath } from 'src/storage/paths';
+import { getUserDataFilePath, getUserDataLockFilePath } from 'src/storage/paths';
 import type { PersistedUserData, UserData, WindowBounds } from 'src/storage/storage-types';
 
 // Before persisting the PHP version of sites, the default PHP version used was 8.0.
@@ -107,7 +107,7 @@ export async function saveUserData( data: UserData ): Promise< void > {
 	await writeFile( filePath, asString, 'utf-8' );
 }
 
-const LOCKFILE_PATH = nodePath.join( getResourcesPath(), LOCKFILE_NAME );
+const LOCKFILE_PATH = getUserDataLockFilePath();
 
 export async function lockAppdata() {
 	return lockFileAsync( LOCKFILE_PATH, { stale: LOCKFILE_STALE_TIME, wait: LOCKFILE_WAIT_TIME } );

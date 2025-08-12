@@ -1,16 +1,16 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-settings.test.tsx` from the root directory
 import { UnknownAction } from '@reduxjs/toolkit';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { produce } from 'immer';
 import { Provider } from 'react-redux';
 import { Snapshot } from 'common/types/snapshot';
 import { ContentTabSettings } from 'src/components/content-tab-settings';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
-import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { RootState, store } from 'src/stores';
+import { createTestStore } from 'src/lib/test-utils';
+import { RootState } from 'src/stores';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
 function snapshotTestReducer( state: RootState | undefined, action: UnknownAction ) {
@@ -24,7 +24,18 @@ function snapshotTestReducer( state: RootState | undefined, action: UnknownActio
 		} );
 	}
 
-	return testReducer( state, action );
+	// Use the test reducer but preserve provider constants
+	const newState = testReducer( state, action );
+
+	// If we have provider constants in the current state, preserve them
+	if ( state?.providerConstants ) {
+		return {
+			...newState,
+			providerConstants: state.providerConstants,
+		};
+	}
+
+	return newState;
 }
 
 const snapshotTestActions = {
@@ -33,7 +44,27 @@ const snapshotTestActions = {
 	},
 };
 
-store.replaceReducer( snapshotTestReducer );
+// Create test store with provider constants
+let testStore = createTestStore( {
+	providerConstants: {
+		defaultPhpVersion: '8.3',
+		defaultWordPressVersion: 'latest',
+		allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+	},
+} );
+
+// We need to create a new store each time to avoid reducer conflicts
+function createCustomTestStore() {
+	const store = createTestStore( {
+		providerConstants: {
+			defaultPhpVersion: '8.3',
+			defaultWordPressVersion: 'latest',
+			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+		},
+	} );
+	store.replaceReducer( snapshotTestReducer );
+	return store;
+}
 
 jest.mock( 'src/hooks/use-get-wp-version' );
 jest.mock( 'src/hooks/use-site-details' );
@@ -41,6 +72,21 @@ jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
 } ) );
+
+jest.mock( 'src/stores/wordpress-versions-api', () => {
+	const actual = jest.requireActual( 'src/stores/wordpress-versions-api' );
+	return {
+		...actual,
+		useGetWordPressVersions: jest.fn( () => ( {
+			data: [
+				{ label: 'Latest', value: 'latest', isBeta: false, isDevelopment: false },
+				{ label: '6.4', value: '6.4', isBeta: false, isDevelopment: false },
+				{ label: '6.3', value: '6.3', isBeta: false, isDevelopment: false },
+			],
+			isLoading: false,
+		} ) ),
+	};
+} );
 
 const selectedSite: SiteDetails = {
 	name: 'Test Site',
@@ -53,14 +99,14 @@ const selectedSite: SiteDetails = {
 };
 
 function renderWithProvider( component: React.ReactElement ) {
-	return render( <Provider store={ store }>{ component }</Provider> );
+	return render( <Provider store={ testStore }>{ component }</Provider> );
 }
 
 function rerenderWithProvider(
 	rerender: ( component: React.ReactElement ) => void,
 	component: React.ReactElement
 ) {
-	rerender( <Provider store={ store }>{ component }</Provider> );
+	rerender( <Provider store={ testStore }>{ component }</Provider> );
 }
 
 describe( 'ContentTabSettings', () => {
@@ -79,6 +125,10 @@ describe( 'ContentTabSettings', () => {
 
 	beforeEach( () => {
 		jest.clearAllMocks();
+
+		// Create a fresh store for each test
+		testStore = createCustomTestStore();
+
 		( useGetWpVersion as jest.Mock ).mockReturnValue( [ '7.7.7', jest.fn() ] );
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			copyText,
@@ -88,7 +138,7 @@ describe( 'ContentTabSettings', () => {
 			isCATrusted: jest.fn( () => Promise.resolve( true ) ),
 		} );
 
-		store.dispatch( testActions.resetState() );
+		testStore.dispatch( testActions.resetState() );
 
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite,
@@ -185,34 +235,6 @@ describe( 'ContentTabSettings', () => {
 		expect( copyText ).toHaveBeenCalledWith( 'test-password' );
 	} );
 
-	it( 'disables delete site button when offline and there is at least one snapshot present for the site', async () => {
-		( useOffline as jest.Mock ).mockReturnValue( true );
-
-		// Mock snapshots to include a snapshot for the selected site
-		store.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			selectedSite: selectedSite,
-			deleteSite: jest.fn(),
-			isDeleting: false,
-		} );
-		renderWithProvider( <ContentTabSettings selectedSite={ selectedSite } /> );
-
-		await waitFor( () => {
-			expect( getAllCustomDomains ).toHaveBeenCalled();
-		} );
-
-		const dropdownButton = screen.getByRole( 'button', { name: 'More options' } );
-		await userEvent.click( dropdownButton );
-		const deleteSiteButton = screen.getByRole( 'menuitem', { name: 'Delete site' } );
-		expect( deleteSiteButton ).toHaveAttribute( 'aria-disabled', 'true' );
-		fireEvent.mouseOver( deleteSiteButton );
-		expect(
-			screen.getByRole( 'tooltip', {
-				name: 'This site has active preview sites that cannot be deleted without an internet connection.',
-			} )
-		).toBeVisible();
-	} );
-
 	describe( 'when a legacy site lacks a stored password', () => {
 		test( 'allows copying the default password', async () => {
 			const user = userEvent.setup();
@@ -237,7 +259,7 @@ describe( 'ContentTabSettings', () => {
 			const startServer = jest.fn();
 			const stopServer = jest.fn();
 
-			store.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
+			testStore.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
 
 			// Mock snapshots to include a snapshot for the selected site
 			( useSiteDetails as jest.Mock ).mockReturnValue( {
@@ -254,12 +276,7 @@ describe( 'ContentTabSettings', () => {
 			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
 			const dialog = screen.getByRole( 'dialog' );
 			expect( dialog ).toBeVisible();
-			await user.selectOptions(
-				within( dialog ).getByRole( 'combobox', {
-					name: 'PHP version',
-				} ),
-				'8.2'
-			);
+			await user.selectOptions( within( dialog ).getByLabelText( 'PHP version' ), '8.2' );
 			await user.click(
 				within( dialog ).getByRole( 'button', {
 					name: 'Save',
@@ -290,7 +307,7 @@ describe( 'ContentTabSettings', () => {
 			const startServer = jest.fn();
 			const stopServer = jest.fn();
 			// Mock snapshots to include a snapshot for the selected site
-			store.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
+			testStore.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
 			( useSiteDetails as jest.Mock ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: true } as SiteDetails,
 				updateSite,
@@ -305,12 +322,7 @@ describe( 'ContentTabSettings', () => {
 			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
 			const dialog = screen.getByRole( 'dialog' );
 			expect( dialog ).toBeVisible();
-			await user.selectOptions(
-				within( dialog ).getByRole( 'combobox', {
-					name: 'PHP version',
-				} ),
-				'8.2'
-			);
+			await user.selectOptions( within( dialog ).getByLabelText( 'PHP version' ), '8.2' );
 			await user.click(
 				within( dialog ).getByRole( 'button', {
 					name: 'Save',

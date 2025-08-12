@@ -23,10 +23,11 @@ const packageJsonPath = path.resolve( __dirname, '../package.json' );
 const packageJsonText = await fs.readFile( packageJsonPath, 'utf-8' );
 const packageJson = JSON.parse( packageJsonText );
 
-// Parse the version using semver to get just the core version numbers
-const parsedVersion = semver.parse( packageJson.version );
+// Use version from latestTag (strip leading 'v' if present)
+const tagVersion = latestTag.startsWith('v') ? latestTag.slice(1) : latestTag;
+const parsedVersion = semver.parse( tagVersion );
 if ( ! parsedVersion ) {
-	throw new Error( `Invalid version in package.json: ${ packageJson.version }` );
+	throw new Error( `Invalid version in latestTag: ${ latestTag }` );
 }
 
 // Create dev version using just the core version numbers (major.minor.patch)

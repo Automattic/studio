@@ -100,7 +100,7 @@ export function useSyncStatesProgressInfo() {
 			creatingRemoteBackup: {
 				key: 'creatingRemoteBackup',
 				progress: 50,
-				message: __( 'Keeping your site safe…' ),
+				message: __( 'Backing up remote site…' ),
 			},
 			applyingChanges: {
 				key: 'applyingChanges',

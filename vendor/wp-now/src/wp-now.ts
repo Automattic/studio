@@ -380,7 +380,9 @@ async function initWordPress( php: PHP, wordPressVersion: string, vfsDocumentRoo
 		initializeDefaultDatabase = true;
 	}
 
-	const wpConfigConsts = {};
+	const wpConfigConsts = {
+		WP_SQLITE_AST_DRIVER: true,
+	};
 
 	if ( wordPressVersion !== 'user-provided' ) {
 		wpConfigConsts[ 'WP_AUTO_UPDATE_CORE' ] = wordPressVersion === 'latest';
@@ -471,6 +473,7 @@ async function mountInternalMuPlugins( php: PHP, options: WPNowOptions ) {
 		if ( isset( $_GET['studio-hide-adminbar'] ) ) {
 			add_filter( 'show_admin_bar', '__return_false' );
 		}
+
 		`
 	);
 

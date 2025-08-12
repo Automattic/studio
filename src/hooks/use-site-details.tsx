@@ -9,10 +9,14 @@ import {
 	useMemo,
 	useState,
 } from 'react';
+import { useAuth } from 'src/hooks/use-auth';
+import { useContentTabs } from 'src/hooks/use-content-tabs';
+import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { sortSites } from 'src/lib/sort-sites';
 import { useAppDispatch } from 'src/stores';
 import { snapshotThunks } from 'src/stores/snapshot-slice';
+import type { Blueprint } from 'src/stores/wpcom-api';
 
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
@@ -25,6 +29,7 @@ interface SiteDetailsContext {
 		wpVersion?: string,
 		customDomain?: string,
 		enableHttps?: boolean,
+		blueprint?: Blueprint | null,
 		callback?: ( site: SiteDetails ) => Promise< void >
 	) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
@@ -90,6 +95,8 @@ function useSelectedSite( firstSiteId: string | null ) {
 function useDeleteSite() {
 	const [ isLoading, setIsLoading ] = useState< Record< string, boolean > >( {} );
 	const dispatch = useAppDispatch();
+	const isOffline = useOffline();
+	const { isAuthenticated } = useAuth();
 
 	const deleteSite = useCallback(
 		async ( siteId: string, removeLocal: boolean ): Promise< void > => {
@@ -97,15 +104,20 @@ function useDeleteSite() {
 				return;
 			}
 
-			const allSiteRemovePromises = dispatch(
-				snapshotThunks.deleteAllSnapshotsForSite( { siteId } )
-			);
+			const shouldDeletePreviewSites = ! isOffline && isAuthenticated;
+
+			const allSiteRemovePromises = shouldDeletePreviewSites
+				? dispatch( snapshotThunks.deleteAllSnapshotsForSite( { siteId } ) )
+				: Promise.resolve();
 
 			try {
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: true } ) );
 
 				await getIpcApi().deleteSite( siteId, removeLocal );
-				await allSiteRemovePromises;
+
+				if ( shouldDeletePreviewSites ) {
+					await allSiteRemovePromises;
+				}
 
 				// After site is deleted successfully, clean up wpcom connections
 				try {
@@ -130,7 +142,7 @@ function useDeleteSite() {
 				setIsLoading( ( loading ) => ( { ...loading, [ siteId ]: false } ) );
 			}
 		},
-		[ dispatch ]
+		[ dispatch, isOffline, isAuthenticated ]
 	);
 	return { deleteSite, isLoading };
 }
@@ -151,6 +163,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const { selectedSiteId, setSelectedSiteId } = useSelectedSite( firstSite?.id );
 	const [ uploadingSites, setUploadingSites ] = useState< { [ siteId: string ]: boolean } >( {} );
 	const { deleteSite, isLoading: isDeleting } = useDeleteSite();
+	const { setSelectedTab, selectedTab } = useContentTabs();
 
 	const toggleLoadingServerForSite = useCallback( ( siteId: string ) => {
 		setLoadingServer( ( currentLoading ) => ( {
@@ -166,8 +179,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			setData( newSites );
 			const selectedSite = newSites.length ? newSites[ 0 ].id : '';
 			setSelectedSiteId( selectedSite );
+			if ( selectedTab !== 'overview' ) {
+				setSelectedTab( 'overview' );
+			}
 		},
-		[ deleteSite, setSelectedSiteId ]
+		[ deleteSite, setSelectedSiteId, selectedTab, setSelectedTab ]
 	);
 
 	const createSite = useCallback(
@@ -177,18 +193,40 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			wpVersion?: string,
 			customDomain?: string,
 			enableHttps?: boolean,
+			blueprint?: Blueprint | null,
 			callback?: ( site: SiteDetails ) => Promise< void >
 		) => {
 			// Function to handle error messages and cleanup
-			const showError = ( error?: unknown ) => {
+			const showError = ( error?: unknown, hasBlueprint?: boolean ) => {
 				console.error( 'Failed to create site' );
-				getIpcApi().showErrorMessageBox( {
-					title: __( 'Failed to create site' ),
-					message: __(
+
+				// Check if it's a blueprint-related error
+				const errorMessage = error instanceof Error ? error.message : String( error );
+				const isBlueprintError =
+					errorMessage.includes( 'blueprint' ) ||
+					errorMessage.includes( 'PHP.run() failed' ) ||
+					errorMessage.includes( 'Could not start server' );
+
+				let title: string;
+				let message: string;
+
+				if ( isBlueprintError && hasBlueprint ) {
+					title = __( 'Blueprint execution failed' );
+					message = __(
+						'The selected blueprint failed to execute properly. This could be due to invalid PHP code, missing plugins, or other issues in the blueprint file. Please check your blueprint file and try again.'
+					);
+				} else {
+					title = __( 'Failed to create site' );
+					message = __(
 						'An error occurred while creating the site. Verify your selected local path is an empty directory or an existing WordPress folder and try again. If this problem persists, please contact support.'
-					),
-					error,
-					showOpenLogs: true,
+					);
+				}
+
+				getIpcApi().showErrorMessageBox( {
+					title,
+					message,
+					error: isBlueprintError && hasBlueprint ? undefined : error,
+					showOpenLogs: ! isBlueprintError || ! hasBlueprint,
 				} );
 
 				// Remove the temporary site immediately, but with a minor delay to ensure state updates properly
@@ -222,15 +260,20 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					siteName,
 					wpVersion,
 					customDomain,
-					enableHttps
+					enableHttps,
+					undefined,
+					blueprint || undefined
 				);
 				if ( ! newSite ) {
-					showError();
+					showError( undefined, !! blueprint );
 					return;
 				}
 				// Update the selected site to the new site's ID if the user didn't change it
 				setSelectedSiteId( ( prevSelectedSiteId ) => {
 					if ( prevSelectedSiteId === tempSiteId ) {
+						if ( selectedTab !== 'overview' ) {
+							setSelectedTab( 'overview' );
+						}
 						return newSite.id;
 					}
 					return prevSelectedSiteId;
@@ -254,10 +297,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 				return newSite;
 			} catch ( error ) {
-				showError( error );
+				showError( error, !! blueprint );
 			}
 		},
-		[ setSelectedSiteId ]
+		[ selectedTab, setSelectedSiteId, setSelectedTab ]
 	);
 
 	const updateSite = useCallback( async ( site: SiteDetails ) => {

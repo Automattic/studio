@@ -1,30 +1,55 @@
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
+import { EnvironmentType } from 'src/modules/sync/lib/environment-utils';
 
-export const useSyncDialogTexts = ( type: 'pull' | 'push' ) => {
+type TextByEnvironment = {
+	[ key in EnvironmentType ]: {
+		title: string;
+		description: string;
+	};
+};
+
+type SyncDialogTexts = {
+	title: string;
+	description: string;
+	fromLabel: string;
+	toLabel: string;
+	subtitleSelector: string;
+	envSync: string;
+	submit: string;
+};
+
+export const useSyncDialogTexts = (
+	type: 'pull' | 'push',
+	siteEnv: EnvironmentType
+): SyncDialogTexts => {
 	const { __ } = useI18n();
 
 	return useMemo( () => {
 		if ( type === 'pull' ) {
-			return {
-				staging: {
-					title: __( 'Pull from Staging' ),
-					description: __(
-						"Pulling will replace your Studio site's files and database with a copy from your staging site."
-					),
-				},
-				sandbox: {
-					title: __( 'Pull from Sandbox' ),
-					description: __(
-						"Pulling will replace your Studio site's files and database with a copy from your sandbox site."
-					),
-				},
+			const textByEnvironment: TextByEnvironment = {
 				production: {
 					title: __( 'Pull from Production' ),
 					description: __(
-						"Pulling will replace your Studio site's files and database with a copy from your production site."
+						"Pulling will overwrite your Studio site's selected files and database with a copy from your production site. Unchecked items will not be changed."
 					),
 				},
+				staging: {
+					title: __( 'Pull from Staging' ),
+					description: __(
+						"Pulling will overwrite your Studio site's selected files and database with a copy from your staging site. Unchecked items will not be changed."
+					),
+				},
+				development: {
+					title: __( 'Pull from Development' ),
+					description: __(
+						"Pulling will overwrite your Studio site's selected files and database with a copy from your development site. Unchecked items will not be changed."
+					),
+				},
+			};
+			return {
+				title: textByEnvironment[ siteEnv ].title,
+				description: textByEnvironment[ siteEnv ].description,
 				fromLabel: __( 'Pull' ),
 				toLabel: __( 'To' ),
 				subtitleSelector: __( 'What would you like to pull?' ),
@@ -32,25 +57,29 @@ export const useSyncDialogTexts = ( type: 'pull' | 'push' ) => {
 				submit: __( 'Pull' ),
 			};
 		} else {
-			return {
-				staging: {
-					title: __( 'Push to Staging' ),
-					description: __(
-						'Pushing will replace the existing files and database with a copy from your local site.\n\n The staging site will be backed up before any changes are applied.'
-					),
-				},
-				sandbox: {
-					title: __( 'Push to Sandbox' ),
-					description: __(
-						'Pushing will replace the existing files and database with a copy from your local site.\n\n The sandbox site will be backed up before any changes are applied.'
-					),
-				},
+			const textByEnvironment: TextByEnvironment = {
 				production: {
 					title: __( 'Push to Production' ),
 					description: __(
-						'Pushing will replace the existing files and database with a copy from your local site.\n\n The production site will be backed up before any changes are applied.'
+						"Pushing will overwrite your production site's selected files and database with content from your Studio site. Unchecked items will not be changed. The production site will be backed up before any changes are applied."
 					),
 				},
+				staging: {
+					title: __( 'Push to Staging' ),
+					description: __(
+						"Pushing will overwrite your staging site's selected files and database with content from your Studio site. Unchecked items will not be changed. The staging site will be backed up before any changes are applied."
+					),
+				},
+				development: {
+					title: __( 'Push to Development' ),
+					description: __(
+						"Pushing will overwrite your development site's selected files and database with content from your Studio site. Unchecked items will not be changed. The development site will be backed up before any changes are applied."
+					),
+				},
+			};
+			return {
+				title: textByEnvironment[ siteEnv ].title,
+				description: textByEnvironment[ siteEnv ].description,
 				fromLabel: __( 'Push' ),
 				toLabel: __( 'To' ),
 				subtitleSelector: __( 'What would you like to push?' ),
@@ -58,5 +87,5 @@ export const useSyncDialogTexts = ( type: 'pull' | 'push' ) => {
 				submit: __( 'Push' ),
 			};
 		}
-	}, [ type, __ ] );
+	}, [ type, __, siteEnv ] );
 };

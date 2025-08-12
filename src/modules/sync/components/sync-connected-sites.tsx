@@ -6,7 +6,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useState, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
-import { EnvironmentBadge, getSiteEnvironment } from 'src/components/environment-badge';
 import { CircleRedCrossIcon } from 'src/components/icons/circle-red-cross';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
@@ -21,9 +20,11 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { OpenSitesSyncSelector } from 'src/modules/sync';
+import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
 import { SyncDialog } from 'src/modules/sync/components/sync-dialog';
 import { SyncPullPushClear } from 'src/modules/sync/components/sync-pull-push-clear';
 import { convertTreeToOptionsToSync } from 'src/modules/sync/lib/convert-tree-to-options-to-sync';
+import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
@@ -98,7 +99,7 @@ const SyncConnectedSiteControls = ( {
 								! isOffline &&
 									! isAnySitePulling &&
 									! isAnySitePushing &&
-									'!text-black hover:!text-a8c-blueberry'
+									'!text-black hover:!text-a8c-blue-50'
 							) }
 							onClick={ () => setSyncDialogType( 'pull' ) }
 							disabled={ isAnySiteSyncing || isOffline }
@@ -138,7 +139,7 @@ const SyncConnectedSiteControls = ( {
 								! isOffline &&
 									! isAnySitePulling &&
 									! isAnySitePushing &&
-									'!text-black hover:!text-a8c-blueberry'
+									'!text-black hover:!text-a8c-blue-50'
 							) }
 							onClick={ () => setSyncDialogType( 'push' ) }
 							disabled={ isAnySiteSyncing || isOffline }
@@ -218,7 +219,7 @@ const SyncConnectedSitesList = ( {
 
 						<Button
 							variant="link"
-							className="!text-a8c-gray-70 hover:!text-a8c-blueberry max-w-full overflow-hidden"
+							className="!text-a8c-gray-70 hover:!text-a8c-blue-50 max-w-full overflow-hidden"
 							onClick={ () => {
 								getIpcApi().openURL( connectedSite.url );
 							} }

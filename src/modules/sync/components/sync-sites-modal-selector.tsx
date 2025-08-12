@@ -4,7 +4,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
-import { EnvironmentBadge, getSiteEnvironment } from 'src/components/environment-badge';
 import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
@@ -14,6 +13,8 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { CreateButton } from 'src/modules/sync/components/create-button';
+import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
+import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
@@ -215,11 +216,11 @@ function SiteItem( {
 		<div
 			className={ cx(
 				'flex py-3 px-8 items-center border-b justify-between gap-4',
-				isSelected && 'bg-a8c-blueberry text-white border-a8c-blueberry',
+				isSelected && 'bg-a8c-blue-50 text-white border-a8c-blue-50',
 				! isSelected && 'border-a8c-gray-0',
-				! isSelected && isSyncable && 'hover:bg-a8c-blueberry-5',
+				! isSelected && isSyncable && 'hover:bg-a8c-blue-5',
 				isSyncable &&
-					'focus:outline-none focus:ring-1 focus:ring-a8c-blueberry focus:relative focus:z-10'
+					'focus:outline-none focus:ring-1 focus:ring-a8c-blue-50 focus:relative focus:z-10'
 			) }
 			role={ isSyncable ? 'button' : undefined }
 			tabIndex={ isSyncable ? 0 : -1 }
@@ -285,7 +286,7 @@ function SiteItem( {
 				<div className="flex gap-2">
 					{ ! isPressable && (
 						<>
-							<EnvironmentBadge type="production" selected={ isSelected } />
+							<EnvironmentBadge type={ getSiteEnvironment( site ) } selected={ isSelected } />
 							{ site.stagingSiteIds.length > 0 && (
 								<EnvironmentBadge type="staging" selected={ isSelected } />
 							) }

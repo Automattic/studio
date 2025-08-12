@@ -119,6 +119,7 @@ def distribute_builds(
 )
   UI.message("Running in #{DRY_RUN ? 'DRY RUN' : 'NORMAL'} mode")
 
+
   build_type = if release_tag.nil?
     'Nightly'
   elsif release_tag.downcase.include?('beta')
@@ -128,6 +129,7 @@ def distribute_builds(
   end
   version = release_tag.nil? ? "dev" : release_tag
   suffix = release_tag.nil? ? "v#{PACKAGE_VERSION}" : release_tag
+  appx_version = "#{suffix[/\d+\.\d+\.\d+/]}.0"
   release_notes = release_tag.nil? ? "Development build #{suffix}-#{build_number}" : "Release #{release_tag}"
 
   # Make sure the WPCOM API token is set
@@ -176,7 +178,14 @@ def distribute_builds(
       name: 'Windows',
       platform: 'Windows',
       install_type: 'Full Install'
-    }
+    },
+	windows_appx_unsigned: {
+		binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-unsigned', "Studio #{appx_version} unsigned.appx"),
+		name: 'Windows (Unsigned Appx)'
+		platform: 'Windows',
+		install_type: 'Full Install',
+		sha: commit_hash
+	},
   }
 
   builds_to_upload = release_tag.nil? ? update_builds : { **update_builds, **full_install_builds }

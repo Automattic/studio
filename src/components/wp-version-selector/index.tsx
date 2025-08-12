@@ -8,8 +8,9 @@ import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { isWordPressDevVersion } from 'src/lib/version-utils';
 import { isWordPressBetaVersion } from 'src/lib/wordpress-version-utils';
+import { useRootSelector } from 'src/stores';
+import { selectDefaultWordPressVersion } from 'src/stores/provider-constants-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
-import { DEFAULT_WORDPRESS_VERSION } from 'vendor/wp-now/src/constants';
 import { addWpVersionToList } from './add-wp-version-to-list';
 
 type WPVersionSelectorProps = {
@@ -39,14 +40,15 @@ export const WPVersionSelector = ( {
 	const defaultOfflineMessage = __( 'Changing WordPress version requires an internet connection.' );
 	const message = offlineMessage || defaultOfflineMessage;
 	const { data: wpVersions = [] } = useGetWordPressVersions();
+	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 
 	// Force latest version if the user goes offline
 	useEffect( () => {
 		if ( isOffline ) {
 			// Always force to latest when offline
-			onChange( DEFAULT_WORDPRESS_VERSION );
+			onChange( defaultWordPressVersion );
 		}
-	}, [ isOffline, onChange ] );
+	}, [ isOffline, onChange, defaultWordPressVersion ] );
 
 	let betaVersions: { label: string; value: string }[] = wpVersions.filter(
 		( version ) => version.isBeta || version.isDevelopment
@@ -101,7 +103,7 @@ export const WPVersionSelector = ( {
 					{ wpVersions.length > 0 ? (
 						<>
 							<optgroup label={ __( 'Auto-updating' ) }>
-								<option key={ DEFAULT_WORDPRESS_VERSION } value={ DEFAULT_WORDPRESS_VERSION }>
+								<option key={ defaultWordPressVersion } value={ defaultWordPressVersion }>
 									{ __( 'latest' ) }
 								</option>
 							</optgroup>

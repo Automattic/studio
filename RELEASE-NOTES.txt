@@ -1,5 +1,24 @@
 Unreleased
 ==========
+* Upgraded Playground dependencies to support Playground CLI and make offline site creation faster #1594
+
+1.5.6
+=====
+* Updated SQLite plugin to 2.2.6 and enabled new AST driver #1506, #1628
+* Changed behavior to open the Overview tab after deleting and creating site #1572
+* Suppressed punycode warnings for both CLI and the app #1579
+* Improved crash screen and fixed a startup crash caused by Studio running from read-only directory #1599
+* Added support for sites with custom environment types #1595
+* Set the selective sync checkboxes to be unchecked as the initial state #1626
+* Improved offline functionality for site deletion and logout #1637, #1638, #1641
+* Updated multiple dependencies to the latest versions
+
+1.5.5
+=====
+* Improved the pull and push functionality to allow selective sync
+* Renamed Studio by WordPress.com to WordPress Studio
+* Added token revoke call during logout to improve security #1538
+* Misc UI fixes #1533, #1534, #1494
 
 1.5.4
 =====
@@ -29,14 +48,14 @@ Unreleased
 * Fixed opening Warp terminal app on Windows #1428
 * Fixed issue with plugin updates timing out in certain cases ​​#1407
 * Translated What’s new modal documentation links #1368, #1375, 1431
-* Ensured site gets created with latest WordPress version when offline #1383 
+* Ensured site gets created with latest WordPress version when offline #1383
 * Various UI updates and fixes #1399, #1413, #1420, #1412, #1419, #1423, #1384, #1435
 * Upgraded Electron, Node.js and @wordpress/components #1372, #1398
 
 1.5.1
 =====
 * Added ability to choose preferred editor and terminal apps
-* Hid all HTTPS help messages when the certificate is trusted #1117  
+* Hid all HTTPS help messages when the certificate is trusted #1117
 * Automated root certificate installation on Windows #1327
 * Changed default PHP version to 8.3 #1352
 * Changed Customize buttons to make them always active #1344

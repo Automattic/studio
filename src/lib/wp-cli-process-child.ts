@@ -1,5 +1,4 @@
 import { setupLogging } from 'src/logging';
-import { executeWPCli } from 'vendor/wp-now/src/execute-wp-cli';
 import type { MessageName } from 'src/lib/wp-cli-process';
 
 type Handler = ( message: string, messageId: number, data: unknown ) => void;
@@ -19,15 +18,43 @@ const handlers: Handlers = {
 };
 
 async function execute( data: unknown ) {
-	const { projectPath, args, phpVersion } = data as {
+	const { projectPath, args, phpVersion, resourcesPath, sqliteCommandPath } = data as {
 		projectPath: string;
 		args: string[];
 		phpVersion: string;
+		resourcesPath?: string;
+		sqliteCommandPath?: string;
 	};
 	if ( ! projectPath || ! args ) {
 		throw Error( 'Command execution needs project path and arguments' );
 	}
-	return await executeWPCli( projectPath, args, { phpVersion } );
+
+	// Lazy load the provider based on environment variable
+	const providerType = process.env.WORDPRESS_PROVIDER_TYPE || 'wp-now';
+
+	switch ( providerType ) {
+		case 'wp-now': {
+			const { executeWPCli } = await import( 'vendor/wp-now/src/execute-wp-cli' );
+			return await executeWPCli( projectPath, args, { phpVersion } );
+		}
+		case 'playground-cli': {
+			const { executeWPCli } = await import(
+				'src/lib/wordpress-provider/playground-cli/wp-cli-executor'
+			);
+
+			if ( ! resourcesPath || ! sqliteCommandPath ) {
+				throw new Error( 'Required paths not provided for playground-cli provider' );
+			}
+
+			return await executeWPCli( projectPath, args, {
+				phpVersion,
+				resourcesPath,
+				sqliteCommandPath,
+			} );
+		}
+		default:
+			throw new Error( `Unknown WordPress provider type: ${ providerType }` );
+	}
 }
 
 function createHandler< T >( handler: ( data: unknown ) => T ) {

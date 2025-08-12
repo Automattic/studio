@@ -94,9 +94,9 @@ export async function importBackup(
 }
 
 export const defaultImporterOptions: ImporterOption[] = [
+	{ validator: new PlaygroundValidator(), importer: PlaygroundImporter },
 	{ validator: new JetpackValidator(), importer: JetpackImporter },
 	{ validator: new LocalValidator(), importer: LocalImporter },
 	{ validator: new SqlValidator(), importer: SQLImporter },
-	{ validator: new PlaygroundValidator(), importer: PlaygroundImporter },
 	{ validator: new WpressValidator(), importer: WpressImporter },
 ];

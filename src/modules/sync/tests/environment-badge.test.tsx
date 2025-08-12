@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { EnvironmentBadge } from 'src/components/environment-badge';
+import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
 
 describe( 'EnvironmentBadge', () => {
 	it( 'renders the Production badge with correct label', () => {
@@ -14,9 +14,9 @@ describe( 'EnvironmentBadge', () => {
 		expect( badge ).toBeInTheDocument();
 	} );
 
-	it( 'renders the Sandbox badge with correct label', () => {
-		render( <EnvironmentBadge type="sandbox" /> );
-		const badge = screen.getByText( 'Sandbox' );
+	it( 'renders the Development badge with correct label', () => {
+		render( <EnvironmentBadge type="development" /> );
+		const badge = screen.getByText( 'Development' );
 		expect( badge ).toBeInTheDocument();
 	} );
 
@@ -40,14 +40,14 @@ describe( 'EnvironmentBadge', () => {
 		expect( badgeElement.className ).toContain( 'bg-a8c-yellow-10' );
 	} );
 
-	it( 'applies specific classes for the Sandbox badge', () => {
-		const { container } = render( <EnvironmentBadge type="sandbox" /> );
+	it( 'applies specific classes for the Development badge', () => {
+		const { container } = render( <EnvironmentBadge type="development" /> );
 
 		const badgeElement = container.firstChild as HTMLElement;
 		expect( badgeElement ).toBeInTheDocument();
 
-		expect( badgeElement.className ).toContain( 'text-sandbox-text' );
-		expect( badgeElement.className ).toContain( 'bg-sandbox-bg' );
+		expect( badgeElement.className ).toContain( 'text-development-text' );
+		expect( badgeElement.className ).toContain( 'bg-development-bg' );
 	} );
 
 	it( 'applies "selected" styling when selected prop is true', () => {
@@ -57,6 +57,6 @@ describe( 'EnvironmentBadge', () => {
 		expect( badgeElement ).toBeInTheDocument();
 
 		expect( badgeElement.className ).toContain( 'bg-white' );
-		expect( badgeElement.className ).toContain( 'text-a8c-blueberry' );
+		expect( badgeElement.className ).toContain( 'text-a8c-blue-50' );
 	} );
 } );

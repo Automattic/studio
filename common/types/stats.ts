@@ -3,6 +3,7 @@ export enum StatsGroup {
 	STUDIO_APP_LAUNCH = 'studio-app-launch-first',
 	STUDIO_APP_LAUNCH_TOTAL = 'studio-app-launch-total',
 	STUDIO_APP_LAUNCH_UNIQUE = 'studio-app-launch-uniques',
+	STUDIO_APP_LAUNCH_UNIQUE_MONTHLY = 'studio-app-launch-uniqs-mon',
 	STUDIO_IMPORT = 'studio-app-import',
 	STUDIO_EXPORT = 'studio-app-export',
 	// Studio CLI

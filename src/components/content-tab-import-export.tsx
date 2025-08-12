@@ -81,9 +81,7 @@ export const ExportSite = ( {
 							onClick={ () => handleExport( exportDatabase ) }
 							type="submit"
 							variant="secondary"
-							className={ cx(
-								isExportDisabled ? '' : '!text-a8c-blueberry !shadow-a8c-blueberry'
-							) }
+							className={ cx( isExportDisabled ? '' : '!text-a8c-blue-50 !shadow-a8c-blue-50' ) }
 							disabled={ isExportDisabled }
 						>
 							{ __( 'Export database' ) }
@@ -128,7 +126,7 @@ const InitialImportButton = ( {
 					'w-full',
 					disabled
 						? '[&>div.border-zinc-300]:border-gray-400 cursor-not-allowed opacity-50'
-						: '[&>div.border-zinc-300]:hover:border-a8c-blueberry'
+						: '[&>div.border-zinc-300]:hover:border-a8c-blue-50'
 				) }
 				onClick={ openFileSelector }
 				disabled={ disabled }
@@ -239,7 +237,7 @@ const ImportSite = ( {
 					<div
 						className={ cx(
 							'h-36 w-full rounded-sm border border-zinc-300 flex-col justify-center items-center inline-flex',
-							isDraggingOver && ! isImporting && 'border-a8c-blueberry bg-a8c-gray-0'
+							isDraggingOver && ! isImporting && 'border-a8c-blue-50 bg-a8c-gray-0'
 						) }
 					>
 						{ isImporting && (

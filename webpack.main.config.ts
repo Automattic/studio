@@ -21,13 +21,18 @@ const wasmDirs = getWasmDirs( phpWasmDir );
 const extraEntries = [
 	{
 		name: 'siteServerProcess',
-		path: './src/lib/site-server-process-child.ts',
+		path: './src/lib/wordpress-provider/wp-now/site-server-process-child.ts',
 		exportName: 'SITE_SERVER_PROCESS_MODULE_PATH',
 	},
 	{
 		name: 'wpCliProcess',
 		path: './src/lib/wp-cli-process-child.ts',
 		exportName: 'WP_CLI_PROCESS_MODULE_PATH',
+	},
+	{
+		name: 'playgroundServerProcess',
+		path: './src/lib/wordpress-provider/playground-cli/playground-server-process-child.ts',
+		exportName: 'PLAYGROUND_SERVER_PROCESS_MODULE_PATH',
 	},
 ];
 
@@ -105,5 +110,8 @@ export const mainBaseConfig: Configuration = {
 			vendor: path.resolve( __dirname, 'vendor/' ),
 			common: path.resolve( __dirname, 'common/' ),
 		},
+	},
+	externals: {
+		'@wp-playground/cli': 'commonjs @wp-playground/cli',
 	},
 };

@@ -5,7 +5,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
-import { EnvironmentBadge, getSiteEnvironment } from 'src/components/environment-badge';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
@@ -13,9 +12,11 @@ import { SYNC_OPTIONS } from 'src/constants';
 import { useContentFolders } from 'src/hooks/use-content-folders';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
+import { SiteNameBox } from 'src/modules/sync/components/site-name-box';
 import { GRANULAR_SYNC_FOLDERS } from 'src/modules/sync/constants';
 import { useDefaultSyncTree } from 'src/modules/sync/hooks/use-default-sync-tree';
 import { useSyncDialogTexts } from 'src/modules/sync/hooks/use-sync-dialog-texts';
+import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
@@ -51,7 +52,7 @@ const useDynamicTreeState = (
 							id: `${ wpType }-${ item.name }`,
 							name: item.name,
 							label: item.name,
-							checked: true,
+							checked: false,
 							type: item.type,
 					  } ) );
 
@@ -75,25 +76,18 @@ export function SyncDialog( {
 }: SyncDialogProps ) {
 	const locale = useI18nLocale();
 	const { __ } = useI18n();
-	const copy = useSyncDialogTexts( type );
-	const defaultTree = useDefaultSyncTree();
+	const siteEnv = getSiteEnvironment( remoteSite );
+	const syncTexts = useSyncDialogTexts( type, siteEnv );
+	const defaultTree = useDefaultSyncTree( type );
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );
+	const isSubmitDisabled = treeState.every( ( node ) => ! node.checked && ! node.indeterminate );
 
 	useDynamicTreeState( type, localSite.id, setTreeState );
 
-	const siteEnv = getSiteEnvironment( remoteSite );
-
-	const localSiteName = localSite.name;
-	const remoteSiteName = (
-		<div>
-			<span className="inline-block">
-				<EnvironmentBadge type={ siteEnv } />
-			</span>
-			<span className="text-gray-600"> { remoteSite.name } </span>
-		</div>
-	);
+	const localSiteName = <SiteNameBox siteName={ localSite.name } envType="studio" />;
+	const remoteSiteName = <SiteNameBox siteName={ remoteSite.name } envType={ siteEnv } />;
 
 	let syncFrom, syncTo, syncFromText, syncToText;
 	if ( type === 'push' ) {
@@ -111,10 +105,14 @@ export function SyncDialog( {
 	const handleExpanderChange = ( value: boolean ) => {
 		setShowAllFiles( value );
 
-		const toUpdate: { expanded: boolean; checked?: boolean } = { expanded: value };
+		const previousFilesAndFolders = treeState.find( ( node ) => node.id === 'filesAndFolders' );
+		const toUpdate: { expanded: boolean; checked?: boolean } = {
+			...previousFilesAndFolders,
+			expanded: value,
+		};
 
-		if ( ! value ) {
-			toUpdate.checked = true;
+		if ( ! value && previousFilesAndFolders ) {
+			toUpdate.checked = previousFilesAndFolders.checked || previousFilesAndFolders.indeterminate;
 		}
 
 		setTreeState( ( prev ) => updateNodeById( prev, 'filesAndFolders', toUpdate ) );
@@ -130,10 +128,10 @@ export function SyncDialog( {
 		<Modal
 			className="sync-dialog-wrapper w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
-			title={ copy[ siteEnv ].title }
+			title={ syncTexts.title }
 		>
 			<div className="pb-[70px]">
-				<div className="px-8 pb-6 pt-2">{ copy[ siteEnv ].description }</div>
+				<div className="px-8 pb-6 pt-3">{ syncTexts.description }</div>
 				<div className="px-8">
 					<span className="sr-only">
 						{ /* translators: first %s is the source site name, second %s is the destination site name */ }
@@ -141,27 +139,23 @@ export function SyncDialog( {
 					</span>
 					<div
 						aria-hidden="true"
-						className="flex items-start gap-1 pb-7 border-b border-a8c-gray-5"
+						className="flex max-w-full overflow-hidden pb-6 border-b border-a8c-gray-5"
 					>
-						<div className="flex-1">
-							<div className="leading-[32px]">{ copy.fromLabel }</div>
-							<div className="border border-gray-300 rounded-[2px] min-h-12 px-[19px] flex items-center py-2">
-								{ syncFrom }
-							</div>
+						<div className="overflow-hidden max-w-[calc(50%-25px)]">
+							<div className="leading-[32px]">{ syncTexts.fromLabel }</div>
+							<div className="whitespace-nowrap truncate">{ syncFrom }</div>
 						</div>
-						<div className="w-10 mt-[32px] h-12 flex items-center justify-center">
+						<div className="mt-[32px] w-[50px] flex items-center justify-center text-a8c-gray-600">
 							<RightArrowIcon />
 						</div>
-						<div className="flex-1">
-							<div className="leading-[32px]">{ copy.toLabel }</div>
-							<div className="border border-gray-300 rounded-[2px] min-h-12 px-[19px] flex items-center py-2">
-								{ syncTo }
-							</div>
+						<div className="overflow-hidden max-w-[calc(50%-25px)]">
+							<div className="leading-[32px]">{ __( 'To' ) }</div>
+							<div className="whitespace-nowrap truncate">{ syncTo }</div>
 						</div>
 					</div>
 				</div>
-				<div className="px-8 pt-7 pb-3">{ copy.subtitleSelector }</div>
-				<div className="px-8 relative">
+				<div className="px-8 pt-7 pb-3">{ syncTexts.subtitleSelector }</div>
+				<div className="px-8 pb-2 relative">
 					<div className="absolute end-6 z-10">
 						<SelectControl
 							value={ showAllFiles ? 'true' : 'false' }
@@ -187,7 +181,7 @@ export function SyncDialog( {
 				</div>
 				<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center absolute left-0 right-0 bottom-0 bg-white z-10">
 					<div>
-						{ createInterpolateElement( copy.envSync, {
+						{ createInterpolateElement( syncTexts.envSync, {
 							a: (
 								<Button
 									variant="link"
@@ -204,8 +198,8 @@ export function SyncDialog( {
 							<Button variant="link" onClick={ onRequestClose }>
 								{ __( 'Cancel' ) }
 							</Button>
-							<Button variant="primary" onClick={ handleSubmit }>
-								{ copy.submit }
+							<Button variant="primary" onClick={ handleSubmit } disabled={ isSubmitDisabled }>
+								{ syncTexts.submit }
 							</Button>
 						</div>
 					</div>

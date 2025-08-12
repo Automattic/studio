@@ -28,12 +28,14 @@ const config: ForgeConfig = {
 		icon: './assets/studio-app-icon',
 		osxSign: {},
 	},
-	rebuildConfig: {},
+	rebuildConfig: {
+		ignoreModules: [ 'fs-ext' ],
+	},
 	makers: [
 		new MakerZIP( {}, [ 'darwin' ] ),
 		new MakerDeb( {
 			options: {
-				genericName: 'Studio by WordPress.com',
+				genericName: 'WordPress Studio',
 				categories: [ 'Utility' ],
 				name: 'studio',
 			},
@@ -57,7 +59,6 @@ const config: ForgeConfig = {
 			? []
 			: [
 					new MakerDMG(
-						// @ts-expect-error - https://github.com/electron/forge/issues/3712
 						{
 							icon: 'assets/studio-app-icon.icns',
 							background: 'assets/dmg-background.png',

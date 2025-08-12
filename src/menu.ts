@@ -13,7 +13,6 @@ import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import {
 	FEATURE_FLAGS,
 	FeatureFlagDefinition,
-	FeatureFlags,
 	getFeatureFlagFromEnv,
 	setFeatureFlagInEnv,
 } from 'src/lib/feature-flags';
@@ -98,7 +97,7 @@ function getAppMenu(
 			role: 'appMenu',
 			submenu: [
 				{
-					label: __( 'About Studio' ),
+					label: __( 'About WordPress Studio' ),
 					click: openAboutWindow,
 				},
 				...( isUpdateReadyToInstall()
@@ -267,7 +266,7 @@ function getAppMenu(
 			role: 'help',
 			submenu: [
 				{
-					label: __( 'Studio Help' ),
+					label: __( 'WordPress Studio Help' ),
 					click: async () => {
 						const locale = await getUserLocaleWithFallback();
 						void shellOpenExternalWrapper( getLocalizedLink( locale, 'docsStudio' ) );
@@ -284,7 +283,7 @@ function getAppMenu(
 				...( process.platform === 'win32'
 					? [
 							{
-								label: __( 'How can I make Studio faster?' ),
+								label: __( 'How can I make WordPress Studio faster?' ),
 								click: () => {
 									void promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: false } );
 								},

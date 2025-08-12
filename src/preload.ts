@@ -25,8 +25,17 @@ const api: IpcApi = {
 	exportSiteToPush: ( id, configuration ) =>
 		ipcRendererInvoke( 'exportSiteToPush', id, configuration ),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
-	createSite: ( path, name, wpVersion, customDomain, enableHttps ) =>
-		ipcRendererInvoke( 'createSite', path, name, wpVersion, customDomain, enableHttps ),
+	createSite: ( path, name, wpVersion, customDomain, enableHttps, siteId, blueprint ) =>
+		ipcRendererInvoke(
+			'createSite',
+			path,
+			name,
+			wpVersion,
+			customDomain,
+			enableHttps,
+			siteId,
+			blueprint
+		),
 	updateSite: ( updatedSite ) => ipcRendererInvoke( 'updateSite', updatedSite ),
 	connectWpcomSites: ( ...args ) => ipcRendererInvoke( 'connectWpcomSites', ...args ),
 	disconnectWpcomSites: ( ...args ) => ipcRendererInvoke( 'disconnectWpcomSites', ...args ),
@@ -121,6 +130,7 @@ const api: IpcApi = {
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
 	listWpContentFolders: ( siteId, subdir ) =>
 		ipcRenderer.invoke( 'listWpContentFolders', siteId, subdir ),
+	getProviderConstants: () => ipcRendererInvoke( 'getProviderConstants' ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

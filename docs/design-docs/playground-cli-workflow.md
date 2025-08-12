@@ -2,11 +2,11 @@
 
 ## About this doc
 
-This document outlines the design and implementation details for the flow of creation and starting a site with Blueprints. Also informatio nabout integration of Playground CLI which is replaces wp-now.  It covers the high-level approach, data flow and details of teh implementation.
+This document outlines the design and implementation details for the flow of creating and starting a site with Blueprints. Also, information about the integration of Playground CLI, which replaces wp-now. It covers the high-level approach, data flow and details of teh implementation.
 
 ## Context
 
-Before we used `wp-now` but since we are implementing support of Blueprints v2, we had to move to Playground CLI, since wp-now supported only Blueprints v1.
+Before we used wp-now but since we are implementing support of Blueprints v2, we had to move to Playground CLI, since wp-now supported only Blueprints v1.
 
 ## Site Creation and Startup Flow
 

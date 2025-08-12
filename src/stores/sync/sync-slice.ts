@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { TreeNode } from 'src/components/tree-view';
 import { useAuth } from 'src/hooks/use-auth';
 import { useAppDispatch, useRootSelector, RootState } from 'src/stores';
-import { fetchRemoteFileTree } from './sync-api';
+import { fetchRemoteFileTree, useGetLatestRewindIdQuery } from './sync-api';
 
 interface RemoteFileTreeState {
 	loading: boolean;
@@ -63,15 +63,20 @@ export const syncSelectors = {
 	selectFileTreeError: ( state: RootState ) => state.sync.remoteFileTrees.error,
 };
 
-export function useLatestRewindId( remoteSiteId: number | undefined ) {
-	const { useGetLatestRewindIdQuery } = require( './sync-api' );
+export function useLatestRewindId(
+	remoteSiteId: number | undefined,
+	options?: {
+		skip: boolean;
+	}
+) {
+	const { skip = false } = options || {};
 
 	const {
 		data: rewindId,
 		isLoading,
 		error,
 	} = useGetLatestRewindIdQuery( remoteSiteId || 0, {
-		skip: ! remoteSiteId,
+		skip: ! remoteSiteId || skip,
 	} );
 
 	return {

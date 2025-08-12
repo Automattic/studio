@@ -8,7 +8,6 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
-import { Tooltip } from 'src/components/tooltip';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
 import { SYNC_OPTIONS } from 'src/constants';
 import { useContentFolders } from 'src/hooks/use-content-folders';
@@ -21,6 +20,7 @@ import { useSyncDialogTexts } from 'src/modules/sync/hooks/use-sync-dialog-texts
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
 import { useLatestRewindId, useRemoteFileTree } from 'src/stores/sync';
+import { TreeViewLoadingSkeleton } from './tree-view-loading-skeleton';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 type SyncDialogProps = {
@@ -40,7 +40,9 @@ const useDynamicTreeState = (
 ) => {
 	const wpFolders = useMemo( () => [ ...GRANULAR_SYNC_FOLDERS ], [] );
 	const wpContent = useContentFolders( localSiteId, wpFolders );
-	const { rewindId, isLoading: isLoadingRewindId } = useLatestRewindId( remoteSiteId );
+	const { rewindId, isLoading: isLoadingRewindId } = useLatestRewindId( remoteSiteId, {
+		skip: type === 'push',
+	} );
 	const { fetchChildren } = useRemoteFileTree();
 
 	// Pre-check all options when there's no rewind ID
@@ -230,68 +232,64 @@ export function SyncDialog( {
 					</div>
 				</div>
 				<div className="px-8 pt-7 pb-3">{ syncTexts.subtitleSelector }</div>
-				<Tooltip
-					className="w-full"
-					text={ pullBackupInformation?.tooltipText }
-					disabled={ ! pullBackupInformation?.disabled }
-				>
-					<div className="px-8 pb-2 relative">
-						<div className="absolute end-6 z-10">
-							<SelectControl
-								value={ showAllFiles ? 'true' : 'false' }
-								variant="minimal"
-								options={ [
-									{
-										label: __( 'All files and folders' ),
-										value: 'false',
-									},
-									{
-										label: __( 'Specific files and folders' ),
-										value: 'true',
-									},
-								] }
-								onChange={ ( value ) => handleExpanderChange( value === 'true' ) }
-								disabled={ pullBackupInformation?.disabled }
-								__next40pxDefaultSize
-								__nextHasNoMarginBottom
-								aria-label={ __( 'Select files and folders to sync' ) }
-								className="h-9"
+				<div className="px-8 pb-2 relative">
+					{ type === 'pull' && isLoadingRewindId && <TreeViewLoadingSkeleton /> }
+					{ ! isLoadingRewindId && (
+						<>
+							<div className="absolute end-6 z-10">
+								<SelectControl
+									value={ showAllFiles ? 'true' : 'false' }
+									variant="minimal"
+									options={ [
+										{
+											label: __( 'All files and folders' ),
+											value: 'false',
+										},
+										{
+											label: __( 'Specific files and folders' ),
+											value: 'true',
+										},
+									] }
+									onChange={ ( value ) => handleExpanderChange( value === 'true' ) }
+									__next40pxDefaultSize
+									__nextHasNoMarginBottom
+									aria-label={ __( 'Select files and folders to sync' ) }
+									className="h-9"
+								/>
+							</div>
+							<TreeView
+								tree={ treeState }
+								setTree={ setTreeState }
+								onExpand={ handleExpand }
+								renderBeforeChildren={ ( nodeId ) => {
+									if (
+										nodeId === 'filesAndFolders' &&
+										showAllFiles &&
+										pullBackupInformation &&
+										rewindId
+									) {
+										return (
+											<div className="mt-2 pb-2 text-xs text-gray-600">
+												{ sprintf(
+													__( 'Listing files from the latest backup: %s.' ),
+													pullBackupInformation.backupDate
+												) }{ ' ' }
+												<Button
+													variant="link"
+													className="p-0 h-auto text-xs"
+													onClick={ () => getIpcApi().openURL( pullBackupInformation.backupUrl ) }
+												>
+													{ __( 'Create fresh backup now ↗' ) }
+												</Button>
+											</div>
+										);
+									}
+									return null;
+								} }
 							/>
-						</div>
-
-						<TreeView
-							disabled={ pullBackupInformation?.disabled }
-							tree={ treeState }
-							setTree={ setTreeState }
-							onExpand={ handleExpand }
-							renderBeforeChildren={ ( nodeId ) => {
-								if (
-									nodeId === 'filesAndFolders' &&
-									showAllFiles &&
-									pullBackupInformation &&
-									rewindId
-								) {
-									return (
-										<div className="mt-2 pb-2 text-xs text-gray-600">
-											{ sprintf(
-												__( 'Listing files from the latest backup: %s.' ),
-												pullBackupInformation.backupDate
-											) }{ ' ' }
-											<Button
-												variant="link"
-												className="p-0 h-auto text-xs"
-												onClick={ () => getIpcApi().openURL( pullBackupInformation.backupUrl ) }
-											>
-												{ __( 'Create fresh backup now ↗' ) }
-											</Button>
-										</div>
-									);
-								}
-								return null;
-							} }
-						/>
-					</div>
-				</Tooltip>
+						</>
+					) }
+				</div>
 
 				<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center absolute left-0 right-0 bottom-0 bg-white z-10">
 					<div>

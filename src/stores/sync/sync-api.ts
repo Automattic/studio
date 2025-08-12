@@ -11,7 +11,7 @@ import {
 } from './sync-types';
 
 // Helper functions for transforming data
-const mapItemTypeToSyncOption = ( name: string ): string => {
+const mapItemTypeToSyncOption = ( name: string, id: string ): string => {
 	switch ( name ) {
 		case 'themes':
 			return SYNC_OPTIONS.themes;
@@ -20,7 +20,7 @@ const mapItemTypeToSyncOption = ( name: string ): string => {
 		case 'uploads':
 			return SYNC_OPTIONS.uploads;
 		default:
-			return name;
+			return id;
 	}
 };
 
@@ -34,7 +34,7 @@ const convertBackupItemToTreeNode = (
 	parentPath: string,
 	parentChecked: boolean = false
 ): TreeNode => {
-	const nodeId = mapItemTypeToSyncOption( name );
+	const nodeId = mapItemTypeToSyncOption( name, item.id );
 	const fullPath = parentPath.endsWith( '/' )
 		? `${ parentPath }${ name }/`
 		: `${ parentPath }/${ name }/`;

@@ -10,17 +10,13 @@ import { FormatDistanceFn } from 'date-fns';
  * @returns localized distance string
  */
 export const formatDistance: FormatDistanceFn = ( token, count ) => {
-	let stringToFormat = '';
 	switch ( token ) {
 		case 'xDays':
-			stringToFormat = _n( '%d day', '%d days', count );
-			break;
+			return sprintf( _n( '%d day', '%d days', count ), count );
 		case 'xHours':
-			stringToFormat = _n( '%d hour', '%d hours', count );
-			break;
+			return sprintf( _n( '%d hour', '%d hours', count ), count );
 		case 'xMinutes':
-			stringToFormat = _n( '%d minute', '%d minutes', count );
-			break;
+			return sprintf( _n( '%d minute', '%d minutes', count ), count );
 	}
-	return sprintf( stringToFormat, count );
+	return '';
 };

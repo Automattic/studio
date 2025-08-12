@@ -30,7 +30,7 @@ export async function validateSiteSize( siteFolder: string ): Promise< true > {
 		throw new LoggerError(
 			sprintf(
 				__(
-					'Your site exceeds the %s GB size limit. Please, consider removing unnecessary media files, plugins, or themes from wp-content.'
+					'Your site exceeds the %d GB size limit. Please, consider removing unnecessary media files, plugins, or themes from wp-content.'
 				),
 				DEMO_SITE_SIZE_LIMIT_GB
 			)

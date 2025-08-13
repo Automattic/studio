@@ -55,10 +55,10 @@ export default function Stepper( {
 						<HStack key={ step.id } spacing={ 2 } alignment="left" className="w-fit">
 							<Icon
 								icon={ isCompleted || isCurrent ? published : border }
-								size={ 30 }
+								size={ 24 }
 								className={ isCompleted && ! isCurrent ? 'fill-a8c-blue-50' : 'fill-gray-500' }
 							/>
-							<Text className={ 'text-base text-gray-500' }>{ step.label }</Text>
+							<Text className={ 'text-[13px] text-gray-500' }>{ step.label }</Text>
 						</HStack>
 					);
 				} ) }

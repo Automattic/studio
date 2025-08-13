@@ -7,53 +7,53 @@ export const BlueprintIcon = ( { size = 32 }: { size?: number } ) => (
 		xmlns="http://www.w3.org/2000/svg"
 	>
 		<path
-			d="M17.3334 19.8828C14.6667 19.8828 10.6667 21.2161 10.6667 26.5495"
+			d="M13.2434 14.7355C11.242 14.7355 8.23975 15.7362 8.23975 19.7392"
 			stroke="#3858E9"
-			strokeWidth="2"
-			strokeLinecap="round"
-			strokeLinejoin="round"
+			stroke-width="1.5011"
+			stroke-linecap="round"
+			stroke-linejoin="round"
 		/>
 		<path
-			d="M5.33374 17.2214C5.33374 16.5141 5.61469 15.8358 6.11479 15.3357C6.61489 14.8356 7.29316 14.5547 8.00041 14.5547H14.6671C15.3743 14.5547 16.0526 14.8356 16.5527 15.3357C17.0528 15.8358 17.3337 16.5141 17.3337 17.2214V23.888C17.3337 24.5953 17.0528 25.2735 16.5527 25.7736C16.0526 26.2737 15.3743 26.5547 14.6671 26.5547H8.00041C7.29316 26.5547 6.61489 26.2737 6.11479 25.7736C5.61469 25.2735 5.33374 24.5953 5.33374 23.888V17.2214Z"
+			d="M4.23682 12.734C4.23682 12.2031 4.44769 11.694 4.82303 11.3187C5.19838 10.9434 5.70746 10.7325 6.23829 10.7325H11.242C11.7728 10.7325 12.2819 10.9434 12.6572 11.3187C13.0326 11.694 13.2434 12.2031 13.2434 12.734V17.7376C13.2434 18.2685 13.0326 18.7775 12.6572 19.1529C12.2819 19.5282 11.7728 19.7391 11.242 19.7391H6.23829C5.70746 19.7391 5.19838 19.5282 4.82303 19.1529C4.44769 18.7775 4.23682 18.2685 4.23682 17.7376V12.734Z"
 			stroke="#3858E9"
-			strokeWidth="2"
-			strokeLinecap="round"
-			strokeLinejoin="round"
+			stroke-width="1.5011"
+			stroke-linecap="round"
+			stroke-linejoin="round"
 		/>
 		<path
-			d="M5.33374 9.21094V6.54427C5.33374 6.19065 5.47422 5.85151 5.72426 5.60146C5.97431 5.35141 6.31345 5.21094 6.66707 5.21094H9.33374"
+			d="M4.23682 6.72956V4.72809C4.23682 4.46268 4.34225 4.20814 4.52993 4.02046C4.7176 3.83279 4.97214 3.72736 5.23755 3.72736H7.23902"
 			stroke="#3858E9"
-			strokeWidth="2"
-			strokeLinecap="round"
-			strokeLinejoin="round"
+			stroke-width="1.5011"
+			stroke-linecap="round"
+			stroke-linejoin="round"
 		/>
 		<path
-			d="M14.6667 5.21094H17.3334"
+			d="M11.2422 3.72736H13.2437"
 			stroke="#3858E9"
-			strokeWidth="2"
-			strokeLinecap="round"
-			strokeLinejoin="round"
+			stroke-width="1.5011"
+			stroke-linecap="round"
+			stroke-linejoin="round"
 		/>
 		<path
-			d="M22.6667 5.21094H25.3334C25.687 5.21094 26.0262 5.35141 26.2762 5.60146C26.5263 5.85151 26.6667 6.19065 26.6667 6.54427V9.21094"
+			d="M17.2466 3.72736H19.2481C19.5135 3.72736 19.768 3.83279 19.9557 4.02046C20.1434 4.20814 20.2488 4.46268 20.2488 4.72809V6.72956"
 			stroke="#3858E9"
-			strokeWidth="2"
-			strokeLinecap="round"
-			strokeLinejoin="round"
+			stroke-width="1.5011"
+			stroke-linecap="round"
+			stroke-linejoin="round"
 		/>
 		<path
-			d="M26.6667 14.5547V17.2214"
+			d="M20.2485 10.7325V12.734"
 			stroke="#3858E9"
-			strokeWidth="2"
-			strokeLinecap="round"
-			strokeLinejoin="round"
+			stroke-width="1.5011"
+			stroke-linecap="round"
+			stroke-linejoin="round"
 		/>
 		<path
-			d="M26.6667 22.5547V25.2214C26.6667 25.575 26.5263 25.9141 26.2762 26.1642C26.0262 26.4142 25.687 26.5547 25.3334 26.5547H22.6667"
+			d="M20.2488 16.7369V18.7384C20.2488 19.0038 20.1434 19.2584 19.9557 19.446C19.768 19.6337 19.5135 19.7391 19.2481 19.7391H17.2466"
 			stroke="#3858E9"
-			strokeWidth="2"
-			strokeLinecap="round"
-			strokeLinejoin="round"
+			stroke-width="1.5011"
+			stroke-linecap="round"
+			stroke-linejoin="round"
 		/>
 	</svg>
 );

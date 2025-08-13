@@ -96,7 +96,11 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 	}
 }
 
+type WpContentImportStrategy = 'replace' | 'merge';
+
 abstract class BaseBackupImporter extends BaseImporter {
+	protected wpContentImportStrategy: WpContentImportStrategy = 'replace';
+
 	async import( rootPath: string, siteId: string ): Promise< ImporterResult > {
 		this.emit( ImportEvents.IMPORT_START );
 
@@ -146,6 +150,11 @@ abstract class BaseBackupImporter extends BaseImporter {
 	}
 
 	protected async moveExistingWpContentToTrash( rootPath: string ): Promise< void > {
+		if ( this.wpContentImportStrategy === 'merge' ) {
+			// Skip removing existing content for 'merge' strategy
+			return;
+		}
+
 		const wpContentDir = path.join( rootPath, 'wp-content' );
 		try {
 			if ( ! fs.existsSync( wpContentDir ) ) {
@@ -234,66 +243,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 }
 
 export class JetpackImporter extends BaseBackupImporter {
-	async import( rootPath: string, siteId: string ): Promise< ImporterResult > {
-		this.emit( ImportEvents.IMPORT_START );
-
-		try {
-			// For Jetpack imports we merge the files, overriding existing ones but keeping files that aren't in the backup
-			await this.importWpConfig( rootPath );
-			await this.importWpContentMerge( rootPath );
-			if ( this.backup.metaFile ) {
-				this.meta = await this.parseMetaFile();
-			}
-			if ( this.backup.sqlFiles.length ) {
-				const databaseDir = path.join( rootPath, 'wp-content', 'database' );
-				const dbPath = path.join( databaseDir, '.ht.sqlite' );
-
-				await this.moveExistingDatabaseToTrash( dbPath );
-				await this.createEmptyDatabase( dbPath );
-				await this.importDatabase( rootPath, siteId, this.backup.sqlFiles );
-			}
-
-			this.emit( ImportEvents.IMPORT_COMPLETE );
-			return {
-				extractionDirectory: this.backup.extractionDirectory,
-				sqlFiles: this.backup.sqlFiles,
-				wpContentFiles: this.backup.wpContentFiles,
-				wpContentDirectory: this.backup.wpContentDirectory,
-				wpConfig: this.backup.wpConfig,
-				meta: this.meta,
-				importerType: this.constructor.name,
-			};
-		} catch ( error ) {
-			this.emit( ImportEvents.IMPORT_ERROR, error );
-			throw error;
-		}
-	}
-
-	protected async importWpContentMerge( rootPath: string ): Promise< void > {
-		this.emit( ImportEvents.IMPORT_WP_CONTENT_START );
-		const extractionDirectory = this.backup.extractionDirectory;
-		const wpContentSourceDir = this.backup.wpContentDirectory;
-		const wpContentDestDir = path.join( rootPath, 'wp-content' );
-
-		for ( const file of this.backup.wpContentFiles ) {
-			try {
-				const stats = await lstat( file );
-				if ( stats.isDirectory() ) {
-					continue;
-				}
-			} catch {
-				continue;
-			}
-			const relativePath = path.relative(
-				path.join( extractionDirectory, wpContentSourceDir ),
-				file
-			);
-			const destPath = path.join( wpContentDestDir, relativePath );
-			await fsPromises.mkdir( path.dirname( destPath ), { recursive: true } );
-			await fsPromises.copyFile( file, destPath );
-		}
-		this.emit( ImportEvents.IMPORT_WP_CONTENT_COMPLETE );
-	}
+	protected wpContentImportStrategy: WpContentImportStrategy = 'merge';
 
 	protected async parseMetaFile(): Promise< MetaFileData | undefined > {
 		const metaFilePath = this.backup.metaFile;

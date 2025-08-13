@@ -116,22 +116,18 @@ export const fetchRemoteFileTree = createAsyncThunk(
 			body: requestBody,
 		} );
 
-		// Validate just the body since that's what we get from the API client
 		const validationResult = BackupLsResponseSchema.shape.body.safeParse( rawResponse );
-
 		if ( ! validationResult.success ) {
 			console.error( 'Invalid response format:', validationResult.error );
 			throw new Error( 'Invalid response format from server' );
 		}
 
 		const response = validationResult.data;
-
 		if ( ! response.ok ) {
 			throw new Error( response.error || 'Failed to fetch remote file tree' );
 		}
 
 		const children: TreeNode[] = [];
-
 		for ( const [ name, rawItem ] of Object.entries( response.contents ) ) {
 			const itemValidation = BackupLsItemSchema.safeParse( rawItem );
 			if ( itemValidation.success ) {

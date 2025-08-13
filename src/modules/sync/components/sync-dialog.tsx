@@ -45,7 +45,8 @@ const useDynamicTreeState = (
 	} );
 	const { fetchChildren } = useRemoteFileTree();
 
-	// Pre-check all options when there's no rewind ID
+	// If the site was just created and if there is no rewind_id yet,
+	// then all options are pre-checked to allow only a full sync
 	useEffect( () => {
 		if ( type === 'pull' && ! isLoadingRewindId && ! rewindId && remoteSiteId ) {
 			setTreeState( ( prev ) => {

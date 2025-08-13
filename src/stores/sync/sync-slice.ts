@@ -8,7 +8,6 @@ import { fetchRemoteFileTree, useGetLatestRewindIdQuery } from './sync-api';
 interface RemoteFileTreeState {
 	loading: boolean;
 	error: string | null;
-	// key: `${siteId}-${rewindId}-${path}`
 	cache: Record< string, TreeNode[] >;
 }
 
@@ -37,7 +36,6 @@ const syncSlice = createSlice( {
 	},
 	extraReducers: ( builder ) => {
 		builder
-			// Handle fetchRemoteFileTree
 			.addCase( fetchRemoteFileTree.pending, ( state ) => {
 				state.remoteFileTrees.loading = true;
 				state.remoteFileTrees.error = null;

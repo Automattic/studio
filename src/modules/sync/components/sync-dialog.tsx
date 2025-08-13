@@ -137,12 +137,6 @@ export function SyncDialog( {
 	const remoteSiteName = <SiteNameBox siteName={ remoteSite.name } envType={ siteEnv } />;
 
 	let syncFrom, syncTo, syncFromText, syncToText;
-	let pullBackupInformation: {
-		tooltipText: string;
-		disabled: boolean;
-		backupUrl: string;
-		backupDate: string | null;
-	} | null = null;
 	if ( type === 'push' ) {
 		syncFrom = localSiteName;
 		syncTo = remoteSiteName;
@@ -153,14 +147,6 @@ export function SyncDialog( {
 		syncTo = localSiteName;
 		syncFromText = remoteSite.name;
 		syncToText = localSite.name;
-		pullBackupInformation = {
-			tooltipText: __(
-				'Selective Sync will be enabled automatically once your backup is complete.'
-			),
-			disabled: ! rewindId || isLoadingRewindId,
-			backupUrl: `https://wordpress.com/backup/${ remoteSite.url.replace( /^https?:\/\//, '' ) }`,
-			backupDate: rewindId && format( parseInt( rewindId ) * 1000, 'MMM d, h:mm a' ),
-		};
 	}
 
 	const handleExpanderChange = ( value: boolean ) => {
@@ -262,22 +248,19 @@ export function SyncDialog( {
 								setTree={ setTreeState }
 								onExpand={ handleExpand }
 								renderBeforeChildren={ ( nodeId ) => {
-									if (
-										nodeId === 'filesAndFolders' &&
-										showAllFiles &&
-										pullBackupInformation &&
-										rewindId
-									) {
+									if ( nodeId === 'filesAndFolders' && showAllFiles && rewindId ) {
+										const backupUrl = `https://wordpress.com/backup/${ remoteSite.url.replace(
+											/^https?:\/\//,
+											''
+										) }`;
+										const backupDate = format( parseInt( rewindId ) * 1000, 'MMM d, h:mm a' );
 										return (
 											<div className="mt-2 pb-2 text-xs text-gray-600">
-												{ sprintf(
-													__( 'Listing files from the latest backup: %s.' ),
-													pullBackupInformation.backupDate
-												) }{ ' ' }
+												{ sprintf( __( 'Listing files from the latest backup: %s.' ), backupDate ) }{ ' ' }
 												<Button
 													variant="link"
 													className="p-0 h-auto text-xs"
-													onClick={ () => getIpcApi().openURL( pullBackupInformation.backupUrl ) }
+													onClick={ () => getIpcApi().openURL( backupUrl ) }
 												>
 													{ __( 'Create fresh backup now ↗' ) }
 												</Button>

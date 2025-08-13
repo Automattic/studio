@@ -166,7 +166,7 @@ export function SyncDialog( {
 	};
 
 	const handleExpand = async ( node: TreeNode ) => {
-		if ( type === 'pull' && rewindId && node.path && node.children && node.children.length === 0 ) {
+		if ( type === 'pull' && rewindId && node.path && node.children?.length === 0 ) {
 			const children = await fetchChildren( remoteSite.id, rewindId, node.path, node.checked );
 			if ( children ) {
 				setTreeState( ( prev ) => updateNodeById( prev, node.id, { children } ) );

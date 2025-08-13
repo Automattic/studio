@@ -10,19 +10,6 @@ import {
 	type BackupLsItem,
 } from './sync-types';
 
-const mapItemTypeToSyncOption = ( name: string, id: string ): string => {
-	switch ( name ) {
-		case 'themes':
-			return SYNC_OPTIONS.themes;
-		case 'plugins':
-			return SYNC_OPTIONS.plugins;
-		case 'uploads':
-			return SYNC_OPTIONS.uploads;
-		default:
-			return id;
-	}
-};
-
 const getParentFolder = ( parentPath: string ) => {
 	return parentPath.split( '/' ).filter( Boolean ).pop() ?? '';
 };
@@ -33,7 +20,6 @@ const convertBackupItemToTreeNode = (
 	parentPath: string,
 	parentChecked: boolean = false
 ): TreeNode => {
-	const nodeId = mapItemTypeToSyncOption( name, item.id );
 	const fullPath = parentPath.endsWith( '/' )
 		? `${ parentPath }${ name }/`
 		: `${ parentPath }/${ name }/`;
@@ -55,7 +41,7 @@ const convertBackupItemToTreeNode = (
 	}
 
 	return {
-		id: nodeId,
+		id: item.id,
 		name,
 		label: name,
 		checked: parentChecked,

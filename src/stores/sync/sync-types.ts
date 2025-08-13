@@ -28,11 +28,6 @@ export const BackupLsResponseSchema = z.object( {
 	} ),
 } );
 
-export const BackupLsRequestSchema = z.object( {
-	backup_id: z.string(),
-	path: z.string(),
-} );
-
 // Known file types from the API
 export const KNOWN_FILE_TYPES = {
 	FILE: 'file',
@@ -55,4 +50,7 @@ export const mapRemoteTypeToKnown = ( remoteType: string ): KnownFileType => {
 export type LatestRewindIdResponse = z.infer< typeof LatestRewindIdResponseSchema >;
 export type BackupLsItem = z.infer< typeof BackupLsItemSchema >;
 export type BackupLsResponse = z.infer< typeof BackupLsResponseSchema >;
-export type BackupLsRequest = z.infer< typeof BackupLsRequestSchema >;
+export type BackupLsRequest = {
+	backup_id: string;
+	path: string;
+};

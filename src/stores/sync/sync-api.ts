@@ -10,7 +10,6 @@ import {
 	type BackupLsItem,
 } from './sync-types';
 
-// Helper functions for transforming data
 const mapItemTypeToSyncOption = ( name: string, id: string ): string => {
 	switch ( name ) {
 		case 'themes':

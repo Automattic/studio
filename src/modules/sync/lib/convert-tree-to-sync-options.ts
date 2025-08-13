@@ -3,7 +3,6 @@ import { PullSiteOptions } from 'src/hooks/sync-sites/use-sync-pull';
 import type { TreeNode } from 'src/components/tree-view';
 import type { SyncOption } from 'src/types';
 
-// Types
 type PushOptionsWithSelections = {
 	optionsToSync: SyncOption[];
 	specificSelections?: {
@@ -13,7 +12,6 @@ type PushOptionsWithSelections = {
 	};
 };
 
-// Shared utilities
 const isSyncOption = ( value: string ): value is SyncOption => {
 	return Object.keys( SYNC_OPTIONS ).includes( value );
 };
@@ -37,7 +35,6 @@ const getCommonNodes = ( tree: TreeNode[] ) => {
 	return { isDatabaseSelected, filesAndFolders, wpContent };
 };
 
-// Push conversion
 export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSelections => {
 	const optionsToSync: SyncOption[] = [];
 	let specificSelections: PushOptionsWithSelections[ 'specificSelections' ] = undefined;
@@ -87,7 +84,6 @@ export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSel
 	};
 };
 
-// Pull conversion
 export const convertTreeToPullOptions = ( tree: TreeNode[] ): PullSiteOptions => {
 	const { isDatabaseSelected, filesAndFolders, wpContent } = getCommonNodes( tree );
 

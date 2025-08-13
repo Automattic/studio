@@ -30,6 +30,7 @@ type ExportProgressState = {
 	[ siteId: string ]: {
 		statusMessage: string;
 		progress: number;
+		exportType?: 'full' | 'database';
 	};
 };
 
@@ -46,6 +47,7 @@ interface ImportExportContext {
 	exportState: ExportProgressState;
 	exportFullSite: ( selectedSite: SiteDetails ) => Promise< string | undefined >;
 	exportDatabase: ( selectedSite: SiteDetails ) => Promise< string | undefined >;
+	clearExportState: ( siteId: string ) => void;
 }
 
 const ImportExportContext = createContext< ImportExportContext >( {
@@ -57,6 +59,7 @@ const ImportExportContext = createContext< ImportExportContext >( {
 	exportState: {},
 	exportFullSite: async () => undefined,
 	exportDatabase: async () => undefined,
+	clearExportState: () => undefined,
 } );
 
 export const ImportExportProvider = ( { children }: { children: React.ReactNode } ) => {
@@ -253,7 +256,11 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 	} );
 
 	const exportSite = useCallback(
-		async ( selectedSite: SiteDetails, options: ExportOptions ): Promise< string | undefined > => {
+		async (
+			selectedSite: SiteDetails,
+			options: ExportOptions,
+			exportType: 'full' | 'database'
+		): Promise< string | undefined > => {
 			if ( exportState[ selectedSite.id ] ) {
 				return;
 			}
@@ -263,6 +270,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				[ selectedSite.id ]: {
 					statusMessage: __( 'Starting export…' ),
 					progress: 5,
+					exportType,
 				},
 			} ) );
 
@@ -294,10 +302,6 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			} catch ( error ) {
 				Sentry.captureException( error );
 				await handleExportError( error );
-			} finally {
-				setExportState( ( { [ selectedSite.id ]: currentProgress, ...rest } ) => ( {
-					...rest,
-				} ) );
 			}
 		},
 		[ exportState ]
@@ -337,7 +341,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				},
 				phpVersion: selectedSite.phpVersion,
 			};
-			return exportSite( selectedSite, options );
+			return exportSite( selectedSite, options, 'full' );
 		},
 		[ exportSite ]
 	);
@@ -371,10 +375,16 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				},
 				phpVersion: selectedSite.phpVersion,
 			};
-			return exportSite( selectedSite, options );
+			return exportSite( selectedSite, options, 'database' );
 		},
 		[ exportSite ]
 	);
+
+	const clearExportState = useCallback( ( siteId: string ) => {
+		setExportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
+			...rest,
+		} ) );
+	}, [] );
 
 	useIpcListener( 'on-export', ( _, { event, data }, siteId ) => {
 		if ( ! siteId ) {
@@ -386,6 +396,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				setExportState( ( prevState ) => ( {
 					...prevState,
 					[ siteId ]: {
+						...prevState[ siteId ],
 						statusMessage: __( 'Starting export…' ),
 						progress: 5,
 					},
@@ -438,7 +449,10 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					...rest,
 					[ siteId ]: {
 						...currentProgress,
-						statusMessage: __( 'Export completed' ),
+						statusMessage:
+							currentProgress?.exportType === 'database'
+								? __( 'Database export completed' )
+								: __( 'Site export completed' ),
 						progress: 100,
 					},
 				} ) );
@@ -449,6 +463,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					[ siteId ]: {
 						...currentProgress,
 						statusMessage: __( 'Export failed. Please try again.' ),
+						progress: 100,
 					},
 				} ) );
 				break;
@@ -465,6 +480,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			exportState,
 			exportFullSite,
 			exportDatabase,
+			clearExportState,
 		} ),
 		[
 			importState,
@@ -475,6 +491,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 			exportState,
 			exportFullSite,
 			exportDatabase,
+			clearExportState,
 		]
 	);
 

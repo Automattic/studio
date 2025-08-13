@@ -8,7 +8,7 @@ import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
 import { setProviderConstants } from 'src/stores/provider-constants-slice';
 import { wordpressVersionsApi } from 'src/stores/wordpress-versions-api';
-import { wpcomApi } from 'src/stores/wpcom-api';
+import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 
 interface TestStoreOptions {
 	providerConstants?: {
@@ -29,6 +29,7 @@ export function createTestStore( options: TestStoreOptions = {} ) {
 				.concat( installedAppsApi.middleware )
 				.concat( wordpressVersionsApi.middleware )
 				.concat( wpcomApi.middleware )
+				.concat( wpcomPublicApi.middleware )
 				.concat( certificateTrustApi.middleware ),
 	} );
 

@@ -27,6 +27,7 @@ jest.mock( 'src/stores/wpcom-api', () => {
 
 	return {
 		wpcomApi: createApi(),
+		wpcomPublicApi: createApi(),
 		setWpcomClient: jest.fn(),
 		useGetWelcomeMessages: jest.fn(),
 		useGetSnapshotUsage: jest.fn().mockReturnValue( {

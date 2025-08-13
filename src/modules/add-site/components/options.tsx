@@ -35,7 +35,7 @@ function OptionButton( {
 		<HStack
 			as="button"
 			className={ cx(
-				'w-full max-w-xl p-5 border border-gray-200 rounded-xl text-left',
+				'w-full max-w-lg p-5 border border-gray-200 rounded-xl text-left',
 				'rtl:text-right',
 				'hover:border-gray-300 hover:bg-gray-50',
 				'disabled:opacity-50 disabled:cursor-not-allowed'
@@ -46,7 +46,7 @@ function OptionButton( {
 			spacing={ 5 }
 		>
 			{ icon }
-			<VStack className="flex-1">
+			<VStack className="flex-1" spacing={ 1 }>
 				<Heading className="text-xl" weight="500">
 					{ title }
 				</Heading>

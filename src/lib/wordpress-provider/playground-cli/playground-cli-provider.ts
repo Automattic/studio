@@ -1,6 +1,7 @@
 import { net } from 'electron';
 import nodePath from 'path';
 import { SupportedPHPVersions } from '@php-wasm/universal';
+import { Blueprint } from '@wp-playground/blueprints';
 import { RecommendedPHPVersion } from '@wp-playground/common';
 import fs from 'fs-extra';
 import { recursiveCopyDirectory, pathExists } from 'src/lib/fs-utils';
@@ -23,6 +24,7 @@ export interface PlaygroundCliOptions {
 	autoMount: boolean;
 	skipWordpressSetup: boolean;
 	isSetupMode?: boolean;
+	blueprint?: Blueprint;
 }
 
 export const PLAYGROUND_CLI_PROVIDER_NAME = 'playground-cli';
@@ -56,6 +58,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		siteLanguage?: string;
 		isSetupMode?: boolean;
 		wpCliPharPath?: string;
+		blueprint?: Blueprint;
 	} ): Promise< WordPressServerInstance > {
 		const port = options.port;
 		const phpVersion = options.phpVersion || '8.3';
@@ -67,6 +70,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			autoMount: true,
 			skipWordpressSetup: true,
 			isSetupMode: options.isSetupMode || false,
+			blueprint: options.blueprint,
 		};
 
 		const serverOptions: WordPressServerOptions = {
@@ -111,6 +115,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 
 	async setupWordPressSite( server: SiteServer, wpVersion = 'latest' ): Promise< boolean > {
 		const { path, port, adminPassword, name, phpVersion } = server.details;
+		const { blueprint } = server.meta;
 
 		try {
 			const isOnline = net.isOnline();
@@ -167,6 +172,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				wpVersion,
 				isWpAutoUpdating: false,
 				isSetupMode: true,
+				blueprint: blueprint?.blueprint,
 			} );
 
 			const serverProcess = this.createServerProcess( serverInstance );
@@ -174,7 +180,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			return true;
 		} catch ( error ) {
 			console.error( 'Failed to setup WordPress site:', error );
-			return false;
+			throw error;
 		}
 	}
 

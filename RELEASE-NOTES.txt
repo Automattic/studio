@@ -1,5 +1,6 @@
 Unreleased
 ==========
+* Upgraded Playground dependencies to support Playground CLI and make offline site creation faster #1594
 
 1.5.6
 =====

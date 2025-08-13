@@ -47,10 +47,33 @@ describe( 'useImportExport hook', () => {
 		const mockShowSaveAsDialog = getIpcApi().showSaveAsDialog as jest.Mock;
 		mockShowSaveAsDialog.mockResolvedValue( '/path/to/exported-site.tar.gz' );
 
+		let onEvent: ( ...args: any[] ) => void = jest.fn();
+		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+			if ( event === 'on-export' ) {
+				onEvent = callback;
+			}
+		} );
+
+		const emitExportEvent = ( siteId: string, event: ExportEventType, data: unknown = {} ) =>
+			act( () => onEvent( null, { event, data }, siteId ) );
+
 		const { result } = renderHook( () => useImportExport(), { wrapper } );
+
+		// Clear any existing export state first
+		act( () => result.current.clearExportState( SITE_ID ) );
+
 		await act( () => result.current.exportFullSite( selectedSite ) );
 
-		expect( result.current.exportState ).toEqual( {} );
+		// Simulate the export completion event
+		emitExportEvent( SITE_ID, ExportEvents.EXPORT_COMPLETE );
+
+		expect( result.current.exportState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Site export completed',
+				progress: 100,
+				exportType: 'full',
+			},
+		} );
 		expect( getIpcApi().exportSite ).toHaveBeenCalledWith(
 			{
 				site: selectedSite,
@@ -80,10 +103,33 @@ describe( 'useImportExport hook', () => {
 
 		( getIpcApi().exportSite as jest.Mock ).mockRejectedValue( 'error' );
 
+		let onEvent: ( ...args: any[] ) => void = jest.fn();
+		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+			if ( event === 'on-export' ) {
+				onEvent = callback;
+			}
+		} );
+
+		const emitExportEvent = ( siteId: string, event: ExportEventType, data: unknown = {} ) =>
+			act( () => onEvent( null, { event, data }, siteId ) );
+
 		const { result } = renderHook( () => useImportExport(), { wrapper } );
+
+		// Clear any existing export state first
+		act( () => result.current.clearExportState( SITE_ID ) );
+
 		await act( () => result.current.exportFullSite( selectedSite ) );
 
-		expect( result.current.exportState ).toEqual( {} );
+		// Simulate the export error event
+		emitExportEvent( SITE_ID, ExportEvents.EXPORT_ERROR );
+
+		expect( result.current.exportState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Export failed. Please try again.',
+				progress: 100,
+				exportType: 'full',
+			},
+		} );
 		expect( getIpcApi().exportSite ).toHaveBeenCalledWith(
 			{
 				site: selectedSite,
@@ -113,10 +159,33 @@ describe( 'useImportExport hook', () => {
 		const mockShowSaveAsDialog = getIpcApi().showSaveAsDialog as jest.Mock;
 		mockShowSaveAsDialog.mockResolvedValue( '/path/to/exported-database.sql' );
 
+		let onEvent: ( ...args: any[] ) => void = jest.fn();
+		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+			if ( event === 'on-export' ) {
+				onEvent = callback;
+			}
+		} );
+
+		const emitExportEvent = ( siteId: string, event: ExportEventType, data: unknown = {} ) =>
+			act( () => onEvent( null, { event, data }, siteId ) );
+
 		const { result } = renderHook( () => useImportExport(), { wrapper } );
+
+		// Clear any existing export state first
+		act( () => result.current.clearExportState( SITE_ID ) );
+
 		await act( () => result.current.exportDatabase( selectedSite ) );
 
-		expect( result.current.exportState ).toEqual( {} );
+		// Simulate the export completion event
+		emitExportEvent( SITE_ID, ExportEvents.EXPORT_COMPLETE );
+
+		expect( result.current.exportState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Database export completed',
+				progress: 100,
+				exportType: 'database',
+			},
+		} );
 		expect( getIpcApi().exportSite ).toHaveBeenCalledWith(
 			{
 				site: selectedSite,
@@ -218,10 +287,37 @@ describe( 'useImportExport hook', () => {
 		emitExportEvent( SITE_ID, ExportEvents.EXPORT_COMPLETE );
 		expect( result.current.exportState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Export completed',
+				statusMessage: 'Site export completed',
 				progress: 100,
 			},
 		} );
+	} );
+
+	it( 'clears export state when clearExportState is called', () => {
+		let onEvent: ( ...args: any[] ) => void = jest.fn();
+		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+			if ( event === 'on-export' ) {
+				onEvent = callback;
+			}
+		} );
+
+		const emitExportEvent = ( siteId: string, event: ExportEventType, data: unknown = {} ) =>
+			act( () => onEvent( null, { event, data }, siteId ) );
+
+		const { result } = renderHook( () => useImportExport(), { wrapper } );
+
+		// Set up a completed export state
+		emitExportEvent( SITE_ID, ExportEvents.EXPORT_COMPLETE );
+		expect( result.current.exportState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Site export completed',
+				progress: 100,
+			},
+		} );
+
+		// Clear the export state
+		act( () => result.current.clearExportState( SITE_ID ) );
+		expect( result.current.exportState ).toEqual( {} );
 	} );
 
 	it( 'imports site', async () => {

@@ -181,7 +181,7 @@ def distribute_builds(
     },
 	windows_appx_unsigned: {
 		binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-unsigned', "Studio #{appx_version} unsigned.appx"),
-		name: 'Windows (Unsigned Appx)'
+		name: 'Windows (Unsigned Appx)',
 		platform: 'Windows',
 		install_type: 'Full Install',
 		sha: commit_hash

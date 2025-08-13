@@ -142,8 +142,7 @@ const TreeItem = ( {
 							if (
 								! expanded &&
 								onExpand &&
-								node.children &&
-								node.children.length === 0 &&
+								node.children?.length === 0 &&
 								node.type === 'folder'
 							) {
 								onPatchNode( node.id, { loading: true } );

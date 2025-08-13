@@ -177,7 +177,18 @@ Response
 }
 ```
 
-Instead of sending the options to the backend to pull, Studio will send the options: ['paths'] and include_path_list: [ the path ids from /ls endpoint ].
+The sync options used by Studio are: `all, paths, sqls`.
+Instead of sending the options (plugins, themes or uploads) to the backend to pull, Studio will send the options: `['paths']` and include_path_list: [ the path ids from /ls endpoint ].
+For example, if the user selects the database and the fonts folder, the request will be:
+
+```json
+{
+    "options": ["paths", "sqls"],
+    "include_path_list": ["ZjY6L2ZvbnRzLw=="]
+}
+```
+
+If all the files and folders and the database are checked, then Studio will only send the options `['all']`, without include_path_list.
 
 ### File Merge Behavior
 

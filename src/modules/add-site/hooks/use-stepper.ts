@@ -5,7 +5,8 @@ import { FormEvent, useCallback, useMemo } from 'react';
 interface StepperStep {
 	id: string;
 	label: string;
-	status: 'completed' | 'current' | 'pending';
+	status?: 'completed' | 'current' | 'pending';
+	path?: string;
 }
 
 interface StepperConfig {
@@ -18,32 +19,33 @@ interface StepperConfig {
 }
 
 interface StepperContext {
+	flow?: 'blueprint' | 'backup' | 'create';
 	steps: StepperStep[];
-	isVisible: boolean;
+	isVisible?: boolean;
 	actionButton?: {
 		label: string;
 		isVisible: boolean;
 	};
-	onSubmit: () => void;
-	canSubmit: boolean;
+	onSubmit?: () => void;
+	canSubmit?: boolean;
 }
 
 export function useStepper( config?: StepperConfig ): StepperContext {
 	const { __ } = useI18n();
 	const { location } = useNavigator();
 
-	const stepperConfig = useMemo( () => {
-		const blueprintSteps = [
+	const stepperConfig = useMemo( (): StepperContext | null => {
+		const blueprintSteps: StepperStep[] = [
 			{ id: 'choose-blueprint', label: __( 'Choose blueprint' ), path: '/blueprint' },
 			{ id: 'site-details', label: __( 'Site name & details' ), path: '/blueprint/create' },
 		];
 
-		const backupSteps = [
+		const backupSteps: StepperStep[] = [
 			{ id: 'select-file', label: __( 'Select or drop a file' ), path: '/backup' },
 			{ id: 'add-site', label: __( 'Site name & details' ), path: '/backup/create' },
 		];
 
-		const createSteps = [
+		const createSteps: StepperStep[] = [
 			{ id: 'create-site', label: __( 'Site name & details' ), path: '/create' },
 		];
 
@@ -71,12 +73,12 @@ export function useStepper( config?: StepperConfig ): StepperContext {
 		return null;
 	}, [ location.path, __ ] );
 
-	const steps = useMemo( () => {
+	const steps = useMemo( (): StepperStep[] => {
 		if ( ! stepperConfig ) {
 			return [];
 		}
 
-		return stepperConfig.steps.map( ( step ) => {
+		return stepperConfig.steps.map( ( step ): StepperStep => {
 			let status: 'completed' | 'current' | 'pending' = 'pending';
 
 			// Determine status based on current path

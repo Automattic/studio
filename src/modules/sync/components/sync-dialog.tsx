@@ -28,7 +28,7 @@ type SyncDialogProps = {
 	localSite: SiteDetails;
 	remoteSite: SyncSite;
 	onPush: ( syncData: TreeNode[] ) => void;
-	onPull: ( syncData: TreeNode[], rewindId: string ) => void;
+	onPull: ( syncData: TreeNode[] ) => void;
 	onRequestClose: () => void;
 };
 
@@ -193,7 +193,7 @@ export function SyncDialog( {
 			if ( ! rewindId ) {
 				return;
 			}
-			onPull( treeState, rewindId );
+			onPull( treeState );
 		} else {
 			onPush( treeState );
 		}

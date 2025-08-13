@@ -4,7 +4,7 @@ import { CheckIcon } from 'src/components/check-icon';
 import { ErrorIcon } from 'src/components/error-icon';
 import { cx } from 'src/lib/cx';
 
-export function SyncPullPushClear( {
+export function ClearAction( {
 	onClick,
 	children,
 	isError,

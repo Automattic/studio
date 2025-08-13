@@ -14,12 +14,12 @@ platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 		extractionDirectory: normalize( '/tmp/extracted' ),
 		sqlFiles: [ normalize( '/tmp/extracted/wp-content/database/.ht.sqlite' ) ],
 		wpConfig: normalize( 'wp-config.php' ),
-		wpContent: {
-			uploads: [ normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ) ],
-			plugins: [ normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ) ],
-			themes: [ normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ) ],
-			fonts: [ normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ) ],
-		},
+		wpContentFiles: [
+			normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ),
+			normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ),
+			normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ),
+			normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ),
+		],
 		wpContentDirectory: normalize( 'wp-content' ),
 	};
 
@@ -105,10 +105,9 @@ platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 		it( 'should handle missing fonts directory gracefully', async () => {
 			const backupWithoutFonts = {
 				...mockBackupContents,
-				wpContent: {
-					...mockBackupContents.wpContent,
-					fonts: [],
-				},
+				wpContentFiles: mockBackupContents.wpContentFiles.filter(
+					( file ) => ! file.includes( 'fonts' )
+				),
 			};
 			const importer = new PlaygroundImporter( backupWithoutFonts );
 			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );

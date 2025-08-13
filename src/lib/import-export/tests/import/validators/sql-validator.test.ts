@@ -40,11 +40,7 @@ platformTestSuite( 'SqlValidator', ( { normalize } ) => {
 				extractionDirectory,
 				sqlFiles: [ normalize( '/tmp/extracted/backup.sql' ) ],
 				wpConfig: '',
-				wpContent: {
-					uploads: [],
-					plugins: [],
-					themes: [],
-				},
+				wpContentFiles: [],
 				wpContentDirectory: '',
 			} );
 		} );

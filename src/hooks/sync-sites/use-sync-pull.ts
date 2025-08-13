@@ -32,8 +32,9 @@ export type SyncBackupState = {
 	remoteSiteUrl: string;
 };
 
-type PullSiteOptions = {
-	optionsToSync?: SyncOption[];
+export type PullSiteOptions = {
+	optionsToSync: SyncOption[];
+	include_path_list?: string[];
 };
 
 export type PullStates = Record< string, SyncBackupState >;
@@ -41,7 +42,7 @@ type OnPullSuccess = ( siteId: number, localSiteId: string ) => void;
 type PullSite = (
 	connectedSite: SyncSite,
 	selectedSite: SiteDetails,
-	options?: PullSiteOptions
+	options: PullSiteOptions
 ) => void;
 type IsSiteIdPulling = ( selectedSiteId: string, remoteSiteId?: number ) => boolean;
 
@@ -124,12 +125,18 @@ export function useSyncPull( {
 
 			try {
 				// Initializing backup on remote
+				const requestBody: {
+					options: SyncOption[];
+					include_path_list: PullSiteOptions[ 'include_path_list' ];
+				} = {
+					options: options.optionsToSync,
+					include_path_list: options.include_path_list,
+				};
+
 				const response = await client.req.post< { success: boolean; backup_id: string } >( {
 					path: `/sites/${ remoteSiteId }/studio-app/sync/backup`,
 					apiNamespace: 'wpcom/v2',
-					body: {
-						options: options?.optionsToSync,
-					},
+					body: requestBody,
 				} );
 
 				if ( response.success ) {

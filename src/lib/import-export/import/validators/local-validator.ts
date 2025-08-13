@@ -24,13 +24,7 @@ export class LocalValidator extends EventEmitter implements Validator {
 			extractionDirectory: extractionDirectory,
 			sqlFiles: [],
 			wpConfig: '',
-			wpContent: {
-				uploads: [],
-				plugins: [],
-				themes: [],
-				muPlugins: [],
-				fonts: [],
-			},
+			wpContentFiles: [],
 			wpContentDirectory: path.normalize( 'app/public/wp-content' ),
 		};
 		/* File rules:
@@ -48,16 +42,8 @@ export class LocalValidator extends EventEmitter implements Validator {
 
 			if ( file.startsWith( 'app/sql/' ) && file.endsWith( '.sql' ) ) {
 				extractedBackup.sqlFiles.push( fullPath );
-			} else if ( file.startsWith( 'app/public/wp-content/uploads/' ) ) {
-				extractedBackup.wpContent.uploads.push( fullPath );
-			} else if ( file.startsWith( 'app/public/wp-content/plugins/' ) ) {
-				extractedBackup.wpContent.plugins.push( fullPath );
-			} else if ( file.startsWith( 'app/public/wp-content/themes/' ) ) {
-				extractedBackup.wpContent.themes.push( fullPath );
-			} else if ( file.startsWith( 'app/public/wp-content/mu-plugins/' ) ) {
-				extractedBackup.wpContent.muPlugins!.push( fullPath );
-			} else if ( file.startsWith( 'app/public/wp-content/fonts/' ) ) {
-				extractedBackup.wpContent.fonts!.push( fullPath );
+			} else if ( file.startsWith( 'app/public/wp-content/' ) ) {
+				extractedBackup.wpContentFiles.push( fullPath );
 			} else if ( file === 'local-site.json' ) {
 				extractedBackup.metaFile = fullPath;
 			}

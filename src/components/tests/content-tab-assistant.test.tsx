@@ -36,6 +36,9 @@ jest.mock( 'src/stores/wpcom-api', () => ( {
 		reducerPath: 'wpcomApi',
 		reducer: () => ( {} ),
 		middleware: () => ( next: Dispatch ) => ( action: UnknownAction ) => next( action ),
+		injectEndpoints: jest.fn().mockReturnValue( {
+			useGetLatestRewindIdQuery: jest.fn(),
+		} ),
 	},
 	wpcomPublicApi: {
 		reducerPath: 'wpcomPublicApi',

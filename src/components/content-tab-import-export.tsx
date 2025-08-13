@@ -6,6 +6,7 @@ import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
+import { ClearAction } from 'src/components/clear-action';
 import ProgressBar from 'src/components/progress-bar';
 import { Tooltip } from 'src/components/tooltip';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
@@ -31,10 +32,14 @@ export const ExportSite = ( {
 	isThisSiteSyncing: boolean;
 } ) => {
 	const { __ } = useI18n();
-	const { exportState, exportFullSite, exportDatabase, importState } = useImportExport();
+	const { exportState, exportFullSite, exportDatabase, importState, clearExportState } =
+		useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = exportState;
 	const isImporting = importState[ selectedSite.id ]?.progress < 100;
 	const isExportDisabled = isImporting || isThisSiteSyncing;
+	const isExporting = currentProgress && currentProgress.progress < 100;
+	const isExportCompleted = currentProgress && currentProgress.progress === 100;
+	const isExportError = currentProgress && currentProgress.statusMessage.includes( 'failed' );
 
 	let tooltipText;
 	if ( isThisSiteSyncing ) {
@@ -54,6 +59,10 @@ export const ExportSite = ( {
 		}
 	};
 
+	const handleClearExport = () => {
+		clearExportState( selectedSite.id );
+	};
+
 	return (
 		<div className="flex flex-col gap-4">
 			<div>
@@ -64,8 +73,22 @@ export const ExportSite = ( {
 			</div>
 			{ currentProgress ? (
 				<div className="flex flex-col gap-4 max-w-[300px]">
-					<ProgressBar value={ currentProgress.progress } maxValue={ 100 } />
-					<div className="text-a8c-gray-70 a8c-body">{ currentProgress.statusMessage }</div>
+					{ isExporting && (
+						<>
+							<ProgressBar value={ currentProgress.progress } maxValue={ 100 } />
+							<div className="text-a8c-gray-70 a8c-body">{ currentProgress.statusMessage }</div>
+						</>
+					) }
+					{ isExportCompleted && ! isExportError && (
+						<ClearAction onClick={ handleClearExport }>
+							{ currentProgress.statusMessage }
+						</ClearAction>
+					) }
+					{ isExportError && (
+						<ClearAction onClick={ handleClearExport } isError>
+							{ currentProgress.statusMessage }
+						</ClearAction>
+					) }
 				</div>
 			) : (
 				<Tooltip text={ tooltipText } disabled={ ! isExportDisabled } placement="top-start">

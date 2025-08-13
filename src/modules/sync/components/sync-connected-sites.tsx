@@ -6,6 +6,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useState, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
+import { ClearAction } from 'src/components/clear-action';
 import { CircleRedCrossIcon } from 'src/components/icons/circle-red-cross';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
@@ -22,8 +23,10 @@ import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { OpenSitesSyncSelector } from 'src/modules/sync';
 import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
 import { SyncDialog } from 'src/modules/sync/components/sync-dialog';
-import { SyncPullPushClear } from 'src/modules/sync/components/sync-pull-push-clear';
-import { convertTreeToOptionsToSync } from 'src/modules/sync/lib/convert-tree-to-options-to-sync';
+import {
+	convertTreeToPullOptions,
+	convertTreeToPushOptions,
+} from 'src/modules/sync/lib/convert-tree-to-sync-options';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
@@ -154,14 +157,13 @@ const SyncConnectedSiteControls = ( {
 						type={ syncDialogType }
 						localSite={ selectedSite }
 						remoteSite={ connectedSite }
-						onSubmit={ ( tree ) => {
-							const syncOptions = convertTreeToOptionsToSync( tree );
-
-							if ( syncDialogType === 'push' ) {
-								void pushSite( connectedSite, selectedSite, syncOptions );
-							} else {
-								pullSite( connectedSite, selectedSite, syncOptions );
-							}
+						onPush={ ( tree ) => {
+							const pushOptions = convertTreeToPushOptions( tree );
+							void pushSite( connectedSite, selectedSite, pushOptions );
+						} }
+						onPull={ ( tree ) => {
+							const pullOptions = convertTreeToPullOptions( tree );
+							pullSite( connectedSite, selectedSite, pullOptions );
 						} }
 						onRequestClose={ () => setSyncDialogType( null ) }
 					/>
@@ -236,27 +238,25 @@ const SyncConnectedSitesList = ( {
 								</div>
 							) }
 							{ isPullError && (
-								<SyncPullPushClear
+								<ClearAction
 									onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }
 									isError
 								>
 									{ __( 'Error pulling changes' ) }
-								</SyncPullPushClear>
+								</ClearAction>
 							) }
 							{ isPushError && (
-								<SyncPullPushClear
+								<ClearAction
 									onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }
 									isError
 								>
 									{ __( 'Error pushing changes' ) }
-								</SyncPullPushClear>
+								</ClearAction>
 							) }
 							{ hasPullFinished && (
-								<SyncPullPushClear
-									onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }
-								>
+								<ClearAction onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }>
 									{ __( 'Pull complete' ) }
-								</SyncPullPushClear>
+								</ClearAction>
 							) }
 							{ pushState?.status && isPushing && (
 								<Tooltip
@@ -276,11 +276,9 @@ const SyncConnectedSitesList = ( {
 							) }
 
 							{ pushState?.status && hasPushFinished && (
-								<SyncPullPushClear
-									onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }
-								>
+								<ClearAction onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }>
 									{ pushState.status.message }
-								</SyncPullPushClear>
+								</ClearAction>
 							) }
 							{ ! isPulling &&
 								! hasPullFinished &&

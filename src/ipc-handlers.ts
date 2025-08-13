@@ -26,7 +26,7 @@ import { ARCHIVER_OPTIONS, DEFAULT_TERMINAL, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } fro
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { bumpStat } from 'src/lib/bump-stats';
-import { getImporterMetric } from 'src/lib/bump-stats/lib';
+import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
@@ -190,6 +190,10 @@ export async function createSite(
 	blueprint?: Blueprint
 ): Promise< SiteDetails > {
 	const forceSetupSqlite = false;
+
+	const metric = getBlueprintMetric( blueprint?.slug );
+	bumpStat( StatsGroup.STUDIO_SITE_CREATE, metric );
+
 	// We only recursively create the directory if the user has not selected a
 	// path from the dialog (and thus they use the "default" or suggested path).
 	if ( ! ( await pathExists( path ) ) && path.startsWith( DEFAULT_SITE_PATH ) ) {

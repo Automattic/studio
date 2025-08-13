@@ -68,13 +68,9 @@ platformTestSuite( 'WpressValidator', ( { sep: separator } ) => {
 			expect( result.sqlFiles ).toEqual( [
 				[ extractionDirectory, 'database.sql' ].join( separator ),
 			] );
-			expect( result.wpContent.uploads ).toEqual( [
+			expect( result.wpContentFiles ).toEqual( [
 				[ extractionDirectory, 'uploads', 'image.jpg' ].join( separator ),
-			] );
-			expect( result.wpContent.plugins ).toEqual( [
 				[ extractionDirectory, 'plugins', 'some-plugin', 'plugin.php' ].join( separator ),
-			] );
-			expect( result.wpContent.themes ).toEqual( [
 				[ extractionDirectory, 'themes', 'some-theme', 'style.css' ].join( separator ),
 			] );
 			expect( result.metaFile ).toBe( [ extractionDirectory, 'package.json' ].join( separator ) );

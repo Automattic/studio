@@ -26,12 +26,7 @@ export class PlaygroundValidator extends EventEmitter implements Validator {
 			extractionDirectory: extractionDirectory,
 			sqlFiles: [],
 			wpConfig: '',
-			wpContent: {
-				uploads: [],
-				plugins: [],
-				themes: [],
-				muPlugins: [],
-			},
+			wpContentFiles: [],
 			wpContentDirectory: 'wp-content',
 		};
 
@@ -50,14 +45,8 @@ export class PlaygroundValidator extends EventEmitter implements Validator {
 
 			if ( file.startsWith( 'wp-content/database' ) && file.endsWith( '.ht.sqlite' ) ) {
 				extractedBackup.sqlFiles.push( fullPath );
-			} else if ( file.startsWith( 'wp-content/uploads/' ) ) {
-				extractedBackup.wpContent.uploads.push( fullPath );
-			} else if ( file.startsWith( 'wp-content/plugins/' ) ) {
-				extractedBackup.wpContent.plugins.push( fullPath );
-			} else if ( file.startsWith( 'wp-content/themes/' ) ) {
-				extractedBackup.wpContent.themes.push( fullPath );
-			} else if ( file.startsWith( 'wp-content/mu-plugins/' ) ) {
-				extractedBackup.wpContent.muPlugins!.push( fullPath );
+			} else if ( file.startsWith( 'wp-content/' ) ) {
+				extractedBackup.wpContentFiles.push( fullPath );
 			}
 		}
 		this.emit( ImportEvents.IMPORT_VALIDATION_COMPLETE );

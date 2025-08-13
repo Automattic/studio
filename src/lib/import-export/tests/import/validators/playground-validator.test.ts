@@ -62,12 +62,12 @@ platformTestSuite( 'PlaygroundValidator', ( { normalize } ) => {
 				extractionDirectory,
 				sqlFiles: [ normalize( '/tmp/extracted/wp-content/database/.ht.sqlite' ) ],
 				wpConfig: '',
-				wpContent: {
-					uploads: [ normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ) ],
-					plugins: [ normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ) ],
-					themes: [ normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ) ],
-					muPlugins: [ normalize( '/tmp/extracted/wp-content/mu-plugins/hello.php' ) ],
-				},
+				wpContentFiles: [
+					normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ),
+					normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ),
+					normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ),
+					normalize( '/tmp/extracted/wp-content/mu-plugins/hello.php' ),
+				],
 				wpContentDirectory: 'wp-content',
 			} );
 		} );
@@ -91,12 +91,12 @@ platformTestSuite( 'PlaygroundValidator', ( { normalize } ) => {
 				extractionDirectory,
 				sqlFiles: [ normalize( '/tmp/extracted/wp-content/database/.ht.sqlite' ) ],
 				wpConfig: normalize( '/tmp/extracted/wp-config.php' ),
-				wpContent: {
-					uploads: [ normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ) ],
-					plugins: [ normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ) ],
-					themes: [ normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ) ],
-					muPlugins: [ normalize( '/tmp/extracted/wp-content/mu-plugins/hello.php' ) ],
-				},
+				wpContentFiles: [
+					normalize( '/tmp/extracted/wp-content/uploads/2023/image.jpg' ),
+					normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ),
+					normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ),
+					normalize( '/tmp/extracted/wp-content/mu-plugins/hello.php' ),
+				],
 				wpContentDirectory: 'wp-content',
 			} );
 		} );

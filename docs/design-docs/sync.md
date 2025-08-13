@@ -85,26 +85,30 @@ Currently, Studio Sync does not support selective syncing of specific site eleme
 
 The limit for Jetpack Backup when pushing is 2GB.
 
+## Selective Sync Pull
 
-## Selective Sync Pull from latest backup
-
-When the modal is opened in pull mode, Studio fetches the latest backup from the API to save the rewind_id.
+When the modal is opened in pull mode, Studio fetches the latest rewind_id to display the remote files tree. The rewind_id is not sent back to the backend, and a new fresh backup is generated when the user starts the pull.
 
 GET https://public-api.wordpress.com/wpcom/v2/sites/234098253/studio-app/sync/get-latest-rewind-id
 
 Response
+
 ```json
 {"body":{"success":true,"rewind_id":"1753295179"},"status":200,"headers":[]}
 ```
 
+Once Studio receives the rewind_id, it requests the files under wp-content. Additional requests are made after the user clicks the arrow to expand a specific folder.
+
 POST https://public-api.wordpress.com/wpcom/v2/sites/${ remoteSiteId }/rewind/backup/ls
 
 Payload
+
 ```json
 {"backup_id":"1753295179","path":"/wp-content/"}
 ```
 
 Response
+
 ```json
 {
     "body": {

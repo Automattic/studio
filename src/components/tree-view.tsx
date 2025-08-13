@@ -1,11 +1,11 @@
 import { CheckboxControl, Icon, Spinner } from '@wordpress/components';
-import { file, moreHorizontal, page } from '@wordpress/icons';
+import { file, moreHorizontal, page, plugins, brush } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React from 'react';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import { cx } from 'src/lib/cx';
 
-type TreeNodeType = 'folder' | 'file' | 'more';
+type TreeNodeType = 'folder' | 'file' | 'plugin' | 'theme' | 'more';
 export type TreeNode = {
 	id: string;
 	name: string;
@@ -17,11 +17,15 @@ export type TreeNode = {
 	children?: TreeNode[];
 	type?: TreeNodeType;
 	loading?: boolean;
+	pathId?: string;
+	path?: string;
 };
 
 const TREE_NODE_ICONS: Record< TreeNodeType, React.JSX.Element > = {
 	folder: file,
 	file: page,
+	plugin: plugins,
+	theme: brush,
 	more: moreHorizontal,
 };
 
@@ -75,20 +79,25 @@ export const updateNodeById = (
 const TreeItem = ( {
 	node,
 	onPatchNode,
+	onExpand,
 	level,
 	index,
-	isLast = false,
 	siblingsLength,
+	disabled,
+	renderBeforeChildren,
 }: {
 	node: TreeNode;
 	onPatchNode: ( id: string, patchNode: Partial< TreeNode > ) => void;
+	onExpand?: ( node: TreeNode ) => Promise< void >;
 	level: number;
 	index: number;
 	siblingsLength?: number;
 	isLast?: boolean;
+	disabled?: boolean;
+	renderBeforeChildren?: ( nodeId: string ) => React.ReactNode;
 } ) => {
 	const { __ } = useI18n();
-	const isLevel0 = level === 0;
+	const isFirstLevel = level === 1;
 	const expanded = node.expanded ?? true;
 
 	return (
@@ -103,16 +112,16 @@ const TreeItem = ( {
 				aria-label={ node.label }
 				className={ cx(
 					'flex items-center py-2 relative gap-2',
-					isLevel0 ? 'border-b border-gray-300 py-4' : '',
-					isLast ? 'border-white' : ''
+					isFirstLevel && 'border-b border-gray-300 py-4'
 				) }
 			>
-				<label className="flex items-center cursor-pointer">
+				<label className={ cx( 'flex items-center', disabled && 'cursor-not-allowed opacity-60' ) }>
 					<CheckboxControl
 						id={ node.id }
 						checked={ node.checked }
 						indeterminate={ node.indeterminate }
 						onChange={ ( checked: boolean ) => onPatchNode( node.id, { checked } ) }
+						disabled={ disabled }
 						__nextHasNoMarginBottom
 					/>
 					{ node.type && (
@@ -129,7 +138,22 @@ const TreeItem = ( {
 				{ ! node.loading && node.children && ! node.hideExpandButton && (
 					<button
 						aria-label={ expanded ? __( 'Collapse' ) : __( 'Expand' ) }
-						onClick={ () => onPatchNode( node.id, { expanded: ! expanded } ) }
+						onClick={ async () => {
+							if (
+								! expanded &&
+								onExpand &&
+								node.children?.length === 0 &&
+								node.type === 'folder'
+							) {
+								onPatchNode( node.id, { loading: true } );
+								try {
+									await onExpand( node );
+								} finally {
+									onPatchNode( node.id, { loading: false } );
+								}
+							}
+							onPatchNode( node.id, { expanded: ! expanded } );
+						} }
 					>
 						<div className={ expanded ? 'rotate-90' : '' }>
 							<RightArrowIcon width={ 16 } />
@@ -140,8 +164,9 @@ const TreeItem = ( {
 			{ expanded && node.children && (
 				<div
 					role="group"
-					className={ cx( 'ps-6', isLevel0 ? 'border-b border-gray-300 py-2' : '' ) }
+					className={ cx( 'ps-6', isFirstLevel && 'border-b border-gray-300 py-2' ) }
 				>
+					{ renderBeforeChildren && renderBeforeChildren( node.id ) }
 					{ node.children.length === 0 ? (
 						<div className="text-gray-500 italic" aria-label={ __( 'Empty folder' ) }>
 							{ __( 'Empty' ) }
@@ -152,9 +177,11 @@ const TreeItem = ( {
 								key={ child.id }
 								node={ child }
 								onPatchNode={ onPatchNode }
+								onExpand={ onExpand }
 								level={ level + 1 }
 								index={ idx }
 								siblingsLength={ node.children?.length }
+								renderBeforeChildren={ renderBeforeChildren }
 							/>
 						) )
 					) }
@@ -167,9 +194,18 @@ const TreeItem = ( {
 export type TreeViewProps = {
 	tree: TreeNode[];
 	setTree: React.Dispatch< React.SetStateAction< TreeNode[] > >;
+	onExpand?: ( node: TreeNode ) => Promise< void >;
+	disabled?: boolean;
+	renderBeforeChildren?: ( nodeId: string ) => React.ReactNode;
 };
 
-export const TreeView = ( { tree, setTree }: TreeViewProps ) => {
+export const TreeView = ( {
+	tree,
+	setTree,
+	onExpand,
+	disabled,
+	renderBeforeChildren,
+}: TreeViewProps ) => {
 	const handlePatchNode = ( id: string, partialNode: Partial< TreeNode > ) => {
 		setTree( ( prev: TreeNode[] ) => updateNodeById( prev, id, partialNode ) );
 	};
@@ -181,10 +217,13 @@ export const TreeView = ( { tree, setTree }: TreeViewProps ) => {
 					key={ node.id }
 					node={ node }
 					onPatchNode={ handlePatchNode }
+					onExpand={ onExpand }
 					level={ 1 }
 					index={ index }
 					siblingsLength={ tree.length }
 					isLast={ index === tree.length - 1 }
+					disabled={ disabled }
+					renderBeforeChildren={ renderBeforeChildren }
 				/>
 			) ) }
 		</div>

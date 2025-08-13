@@ -84,3 +84,120 @@ The backend will send a success email after the push finishes, telling the user 
 Currently, Studio Sync does not support selective syncing of specific site elements, such as syncing only a single plugin, specific folder, or table. All sync operations involve the entire site, including the full database and wp-content files.
 
 The limit for Jetpack Backup when pushing is 2GB.
+
+## Selective Sync Pull
+
+When the modal is opened in pull mode, Studio fetches the latest rewind_id to display the remote files tree. The rewind_id is not sent back to the backend, and a new fresh backup is generated when the user starts the pull.
+
+GET https://public-api.wordpress.com/wpcom/v2/sites/234098253/studio-app/sync/get-latest-rewind-id
+
+Response
+
+```json
+{"body":{"success":true,"rewind_id":"1753295179"},"status":200,"headers":[]}
+```
+
+Once Studio receives the rewind_id, it requests the files under wp-content. Additional requests are made after the user clicks the arrow to expand a specific folder.
+
+POST https://public-api.wordpress.com/wpcom/v2/sites/${ remoteSiteId }/rewind/backup/ls
+
+Payload
+
+```json
+{"backup_id":"1753295179","path":"/wp-content/"}
+```
+
+Response
+
+```json
+{
+    "body": {
+        "ok": true,
+        "error": "",
+        "contents": {
+            "mu-plugins": {
+                "type": "file",
+                "has_children": true,
+                "period": "1752575566",
+                "id": "ZjY6L211LXBsdWdpbnMv",
+                "total_items": 3
+            },
+            "index.php": {
+                "type": "file",
+                "has_children": false,
+                "period": "1747227384",
+                "id": "ZjY6L2luZGV4LnBocA==",
+                "manifest_path": "f6:\/index.php"
+            },
+            "fonts": {
+                "type": "file",
+                "has_children": true,
+                "period": "1752229230",
+                "id": "ZjY6L2ZvbnRzLw==",
+                "total_items": 2
+            },
+            "wp-content.php": {
+                "type": "file",
+                "has_children": false,
+                "period": "1752189576",
+                "id": "ZjY6L3dwLWNvbnRlbnQucGhw",
+                "manifest_path": "f6:\/wp-content.php"
+            },
+            "extra-folder": {
+                "type": "file",
+                "has_children": true,
+                "period": "1752189306",
+                "id": "ZjY6L2V4dHJhLWZvbGRlci8=",
+                "total_items": 1
+            },
+            "themes": {
+                "type": "dir",
+                "has_children": true,
+                "id": "cjE6,ZjE6Lw==",
+                "total_items": 234
+            },
+            "plugins": {
+                "type": "dir",
+                "has_children": true,
+                "id": "cjI6,ZjI6Lw==",
+                "total_items": 39
+            },
+            "uploads": {
+                "type": "dir",
+                "has_children": true,
+                "id": "ZjM6Lw==",
+                "total_items": 8
+            }
+        }
+    },
+    "status": 200,
+    "headers": {
+        "Allow": "POST"
+    }
+}
+```
+
+The sync options used by Studio are: `all, paths, sqls`.
+Instead of sending the options (plugins, themes or uploads) to the backend to pull, Studio will send the options: `['paths']` and include_path_list: [ the path ids from /ls endpoint ].
+For example, if the user selects the database and the fonts folder, the request will be:
+
+```json
+{
+    "options": ["paths", "sqls"],
+    "include_path_list": ["ZjY6L2ZvbnRzLw=="]
+}
+```
+
+If all the files and folders and the database are checked, then Studio will only send the options `['all']`, without include_path_list.
+
+### File Merge Behavior
+
+When pulling from a Jetpack backup, Studio now uses a merge strategy for wp-content files:
+
+- **Files are merged, not replaced**: The import process copies files from the backup into the local wp-content directory without removing existing files
+- **Existing files are overwritten**: If a file exists in both the backup and local site, the backup version overwrites the local version
+- **Local-only files are preserved**: Files that exist only in the local site (not in the backup) remain untouched
+- **Dynamic folder support**: Any folder structure within wp-content is supported (not limited to plugins, themes, uploads)
+- **Example**: If the backup contains `wp-content/extra-folder/index.php` and the local site has `wp-content/extra-folder/example-file.php`, after import both files will exist
+
+This merge behavior ensures that custom files and folders in the local development environment are not lost during sync operations.

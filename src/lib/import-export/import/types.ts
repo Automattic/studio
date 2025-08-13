@@ -7,20 +7,11 @@ export interface MetaFileData {
 	stylesheet?: string;
 	plugins?: string[];
 }
-
-export interface WpContent {
-	uploads: string[];
-	plugins: string[];
-	themes: string[];
-	muPlugins?: string[];
-	fonts?: string[];
-}
-
 export interface BackupContents {
 	extractionDirectory: string;
 	wpConfig: string;
 	sqlFiles: string[];
-	wpContent: WpContent;
+	wpContentFiles: string[];
 	wpContentDirectory: string;
 	metaFile?: string;
 }

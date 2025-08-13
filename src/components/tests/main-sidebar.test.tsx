@@ -26,25 +26,21 @@ jest.mock( 'src/stores/wordpress-versions-api', () => ( {
 	} ) ),
 } ) );
 
-jest.mock( 'src/stores/wpcom-api', () => ( {
-	wpcomApi: {
-		reducer: () => ( {} ),
-		middleware: () => () => () => {},
-	},
-	wpcomPublicApi: {
-		reducer: () => ( {} ),
-		middleware: () => () => () => {},
-	},
-	useGetBlueprints: jest.fn().mockReturnValue( {
-		data: {
-			blueprints: [],
-			total: 0,
-		},
-		isLoading: false,
-		refetch: jest.fn(),
-		isUninitialized: false,
-	} ),
-} ) );
+jest.mock( 'src/stores/wpcom-api', () => {
+	const actual = jest.requireActual( 'src/stores/wpcom-api' ) || {};
+	return {
+		...actual,
+		useGetBlueprints: jest.fn().mockReturnValue( {
+			data: {
+				blueprints: [],
+				total: 0,
+			},
+			isLoading: false,
+			refetch: jest.fn(),
+			isUninitialized: false,
+		} ),
+	};
+} );
 
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,

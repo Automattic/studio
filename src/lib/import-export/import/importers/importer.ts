@@ -96,16 +96,14 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 	}
 }
 
-type WpContentImportStrategy = 'replace' | 'merge';
-
 abstract class BaseBackupImporter extends BaseImporter {
-	protected wpContentImportStrategy: WpContentImportStrategy = 'replace';
+	protected shouldCleanUpBeforeImport: boolean = true;
 
 	async import( rootPath: string, siteId: string ): Promise< ImporterResult > {
 		this.emit( ImportEvents.IMPORT_START );
 
 		try {
-			if ( this.wpContentImportStrategy === 'replace' ) {
+			if ( this.shouldCleanUpBeforeImport ) {
 				await this.moveExistingWpContentToTrash( rootPath );
 			}
 			await this.importWpConfig( rootPath );
@@ -240,7 +238,8 @@ abstract class BaseBackupImporter extends BaseImporter {
 }
 
 export class JetpackImporter extends BaseBackupImporter {
-	protected wpContentImportStrategy: WpContentImportStrategy = 'merge';
+	// Jetpack importer follows merge strategy to support selective sync
+	protected shouldCleanUpBeforeImport = false;
 
 	protected async parseMetaFile(): Promise< MetaFileData | undefined > {
 		const metaFilePath = this.backup.metaFile;

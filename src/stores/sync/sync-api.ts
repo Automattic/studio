@@ -81,7 +81,7 @@ export const syncApi = wpcomApi.injectEndpoints( {
 
 				throw new Error( 'Failed to fetch latest rewind ID' );
 			},
-			keepUnusedDataFor: 60 * 5, // Cache for 5 minutes
+			keepUnusedDataFor: 60, // Cache for 1 minute
 		} ),
 	} ),
 } );

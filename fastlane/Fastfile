@@ -171,7 +171,6 @@ def distribute_builds(
       name: 'Mac Apple Silicon (DMG)',
       platform: 'Mac - Silicon',
       install_type: 'Full Install',
-      sha: commit_hash
     },
     windows: {
       binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'x64', 'studio-setup.exe'),
@@ -184,7 +183,6 @@ def distribute_builds(
 		name: 'Windows (Unsigned Appx)',
 		platform: 'Windows',
 		install_type: 'Full Install',
-		sha: commit_hash
 	},
   }
 

@@ -80,7 +80,7 @@ export function useLatestRewindId(
 	return {
 		rewindId: rewindId || null,
 		isLoading,
-		error: error ? new Error( error as unknown as string ) : null,
+		isError: Boolean( error ),
 	};
 }
 

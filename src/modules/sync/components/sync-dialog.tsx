@@ -120,7 +120,7 @@ export function SyncDialog( {
 	const { __ } = useI18n();
 	const siteEnv = getSiteEnvironment( remoteSite );
 	const syncTexts = useSyncDialogTexts( type, siteEnv );
-	const defaultTree = useDefaultSyncTree( type );
+	const defaultTree = useDefaultSyncTree();
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );

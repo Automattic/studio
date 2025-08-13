@@ -79,7 +79,7 @@ export const ExportSite = ( {
 							<div className="text-a8c-gray-70 a8c-body">{ currentProgress.statusMessage }</div>
 						</>
 					) }
-					{ isExportCompleted && (
+					{ isExportCompleted && ! isExportError && (
 						<ClearAction onClick={ handleClearExport }>
 							{ currentProgress.statusMessage }
 						</ClearAction>

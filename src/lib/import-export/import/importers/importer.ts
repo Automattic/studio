@@ -105,7 +105,9 @@ abstract class BaseBackupImporter extends BaseImporter {
 		this.emit( ImportEvents.IMPORT_START );
 
 		try {
-			await this.moveExistingWpContentToTrash( rootPath );
+			if ( this.wpContentImportStrategy === 'replace' ) {
+				await this.moveExistingWpContentToTrash( rootPath );
+			}
 			await this.importWpConfig( rootPath );
 			await this.importWpContent( rootPath );
 			if ( this.backup.metaFile ) {
@@ -150,11 +152,6 @@ abstract class BaseBackupImporter extends BaseImporter {
 	}
 
 	protected async moveExistingWpContentToTrash( rootPath: string ): Promise< void > {
-		if ( this.wpContentImportStrategy === 'merge' ) {
-			// Skip removing existing content for 'merge' strategy
-			return;
-		}
-
 		const wpContentDir = path.join( rootPath, 'wp-content' );
 		try {
 			if ( ! fs.existsSync( wpContentDir ) ) {

@@ -1,15 +1,12 @@
 import { __, sprintf } from '@wordpress/i18n';
 import React, { createContext, useCallback, useContext, useState } from 'react';
 import { useListenDeepLinkConnection } from 'src/hooks/sync-sites/use-listen-deep-link-connection';
-import {
-	UseSiteSyncManagement,
-	useSiteSyncManagement,
-} from 'src/hooks/sync-sites/use-site-sync-management';
 import { PullStates, UseSyncPull, useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
 import { PushStates, UseSyncPush, useSyncPush } from 'src/hooks/sync-sites/use-sync-push';
 import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import { useConnectedSites } from 'src/stores/sync';
+import type { UseSiteSyncManagement } from 'src/stores/sync';
 
 type GetLastSyncTimeText = ( timestamp: string | null, type: 'pull' | 'push' ) => string;
 type UpdateSiteTimestamp = (
@@ -34,7 +31,6 @@ const SyncSitesContext = createContext< SyncSitesContextType | undefined >( unde
 export function SyncSitesProvider( { children }: { children: React.ReactNode } ) {
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 	const [ pullStates, setPullStates ] = useState< PullStates >( {} );
-	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
 	const [ isSyncSitesSelectorOpen, setIsSyncSitesSelectorOpen ] =
 		useState< IsSyncSitesSelectorOpen >( false );
 	const closeSyncSitesSelector = useCallback( () => setIsSyncSitesSelectorOpen( false ), [] );
@@ -57,6 +53,16 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 		[ formatRelativeTime ]
 	);
 
+	const {
+		connectSite,
+		disconnectSite,
+		syncSites,
+		isFetching,
+		refetchSites,
+		connectedSites,
+		loadConnectedSites,
+	} = useConnectedSites( closeSyncSitesSelector );
+
 	const updateSiteTimestamp = useCallback< UpdateSiteTimestamp >(
 		async ( siteId, localSiteId, type ) => {
 			const site = connectedSites.find(
@@ -74,14 +80,12 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				};
 
 				await getIpcApi().updateSingleConnectedWpcomSite( updatedSite );
-				setConnectedSites( ( sites ) =>
-					sites.map( ( s ) => ( s.id === site.id ? updatedSite : s ) )
-				);
+				await loadConnectedSites();
 			} catch ( error ) {
 				console.error( 'Failed to update timestamp:', error );
 			}
 		},
-		[ connectedSites ]
+		[ connectedSites, loadConnectedSites ]
 	);
 
 	const { pullSite, isAnySitePulling, isSiteIdPulling, clearPullState, getPullState } = useSyncPull(
@@ -102,13 +106,6 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				updateSiteTimestamp( remoteSiteId, localSiteId, 'push' ),
 		}
 	);
-
-	const { connectSite, disconnectSite, syncSites, isFetching, refetchSites } =
-		useSiteSyncManagement( {
-			connectedSites,
-			setConnectedSites,
-			closeSyncSitesSelector,
-		} );
 
 	useListenDeepLinkConnection( { connectSite, refetchSites } );
 

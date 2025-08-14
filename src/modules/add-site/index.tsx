@@ -246,7 +246,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setCustomDomainError( '' );
 		setEnableHttps( false );
 		setFileForImport( null );
-		setSelectedBlueprint( null );
+		setSelectedBlueprint( undefined );
 	}, [
 		setSitePath,
 		setDoesPathContainWordPress,

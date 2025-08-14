@@ -75,8 +75,8 @@ const UsageLimitReached = () => {
 			? __( "You've reached your <a>usage limit</a> for this month. Your limit will reset today." )
 			: sprintf(
 					_n(
-						"You've reached your <a>usage limit</a> for this month. Your limit will reset in %s day.",
-						"You've reached your <a>usage limit</a> for this month. Your limit will reset in %s days.",
+						"You've reached your <a>usage limit</a> for this month. Your limit will reset in %d day.",
+						"You've reached your <a>usage limit</a> for this month. Your limit will reset in %d days.",
 						daysUntilReset
 					),
 					daysUntilReset

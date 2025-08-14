@@ -65,8 +65,8 @@ export function CreatePreviewButton( { onClick, selectedSite, user }: CreatePrev
 	);
 	const allotmentConsumptionMessage = sprintf(
 		_n(
-			"You've used %s preview sites available on your account.",
-			"You've used all %s preview sites available on your account.",
+			"You've used %d preview sites available on your account.",
+			"You've used all %d preview sites available on your account.",
 			snapshotQuota
 		),
 		snapshotQuota
@@ -74,7 +74,7 @@ export function CreatePreviewButton( { onClick, selectedSite, user }: CreatePrev
 	const offlineMessage = __( 'Creating a preview site requires an internet connection.' );
 	const overLimitMessage = sprintf(
 		__(
-			'Your site exceeds the %s GB size limit. Please, consider removing unnecessary media files, plugins, or themes from wp-content.'
+			'Your site exceeds the %d GB size limit. Please, consider removing unnecessary media files, plugins, or themes from wp-content.'
 		),
 		DEMO_SITE_SIZE_LIMIT_GB
 	);

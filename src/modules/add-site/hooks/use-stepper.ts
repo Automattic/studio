@@ -5,7 +5,8 @@ import { FormEvent, useCallback, useMemo } from 'react';
 interface StepperStep {
 	id: string;
 	label: string;
-	status: 'completed' | 'current' | 'pending';
+	status?: 'completed' | 'current' | 'pending';
+	path?: string;
 }
 
 interface StepperConfig {
@@ -18,6 +19,11 @@ interface StepperConfig {
 }
 
 interface StepperContext {
+	flow: 'blueprint' | 'backup' | 'create';
+	steps: StepperStep[];
+}
+
+interface UseStepper {
 	steps: StepperStep[];
 	isVisible: boolean;
 	actionButton?: {
@@ -28,22 +34,22 @@ interface StepperContext {
 	canSubmit: boolean;
 }
 
-export function useStepper( config?: StepperConfig ): StepperContext {
+export function useStepper( config?: StepperConfig ): UseStepper {
 	const { __ } = useI18n();
 	const { location } = useNavigator();
 
-	const stepperConfig = useMemo( () => {
-		const blueprintSteps = [
+	const stepperContext = useMemo( (): StepperContext | null => {
+		const blueprintSteps: StepperStep[] = [
 			{ id: 'choose-blueprint', label: __( 'Choose blueprint' ), path: '/blueprint' },
 			{ id: 'site-details', label: __( 'Site name & details' ), path: '/blueprint/create' },
 		];
 
-		const backupSteps = [
+		const backupSteps: StepperStep[] = [
 			{ id: 'select-file', label: __( 'Select or drop a file' ), path: '/backup' },
 			{ id: 'add-site', label: __( 'Site name & details' ), path: '/backup/create' },
 		];
 
-		const createSteps = [
+		const createSteps: StepperStep[] = [
 			{ id: 'create-site', label: __( 'Site name & details' ), path: '/create' },
 		];
 
@@ -71,17 +77,17 @@ export function useStepper( config?: StepperConfig ): StepperContext {
 		return null;
 	}, [ location.path, __ ] );
 
-	const steps = useMemo( () => {
-		if ( ! stepperConfig ) {
+	const steps = useMemo( (): StepperStep[] => {
+		if ( ! stepperContext ) {
 			return [];
 		}
 
-		return stepperConfig.steps.map( ( step ) => {
+		return stepperContext.steps.map( ( step ): StepperStep => {
 			let status: 'completed' | 'current' | 'pending' = 'pending';
 
 			// Determine status based on current path
-			const currentStepIndex = stepperConfig.steps.findIndex( ( s ) => location.path === s.path );
-			const stepIndex = stepperConfig.steps.indexOf( step );
+			const currentStepIndex = stepperContext.steps.findIndex( ( s ) => location.path === s.path );
+			const stepIndex = stepperContext.steps.indexOf( step );
 
 			if ( stepIndex < currentStepIndex ) {
 				status = 'completed';
@@ -95,10 +101,10 @@ export function useStepper( config?: StepperConfig ): StepperContext {
 				status,
 			};
 		} );
-	}, [ stepperConfig, location.path ] );
+	}, [ stepperContext, location.path ] );
 
 	// Only show stepper when we're in a multi-step flow
-	const isVisible = stepperConfig !== null && location.path !== '/';
+	const isVisible = stepperContext !== null && location.path !== '/';
 
 	// Determine action button configuration based on current path
 	const actionButton = useMemo( () => {

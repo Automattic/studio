@@ -81,7 +81,7 @@ function Authentication() {
 				variant="icon"
 				className="text-white hover:!text-white !px-1 py-1 !h-6 gap-2"
 			>
-				<span>{ sprintf( __( 'Howdy, %s' ), user?.displayName ) }</span>{ ' ' }
+				<span>{ sprintf( __( 'Howdy, %s' ), user?.displayName || '' ) }</span>{ ' ' }
 				<Gravatar size={ 18 } className="border-white border-[1.5px]" />
 			</Button>
 		);

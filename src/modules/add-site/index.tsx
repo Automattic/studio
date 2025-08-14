@@ -277,7 +277,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 	const siteAddedMessage = sprintf(
 		// translators: %s is the site name.
 		__( '%s site added.' ),
-		siteName
+		siteName || ''
 	);
 
 	const initializeForm = useCallback( async () => {

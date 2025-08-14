@@ -25,13 +25,13 @@ interface StepperContext {
 
 interface UseStepper {
 	steps: StepperStep[];
-	isVisible?: boolean;
+	isVisible: boolean;
 	actionButton?: {
 		label: string;
 		isVisible: boolean;
 	};
-	onSubmit?: () => void;
-	canSubmit?: boolean;
+	onSubmit: () => void;
+	canSubmit: boolean;
 }
 
 export function useStepper( config?: StepperConfig ): UseStepper {

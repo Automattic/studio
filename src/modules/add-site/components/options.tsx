@@ -66,7 +66,7 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 	return (
 		<VStack className="text-center w-full" alignment="top" spacing="3">
 			<Heading className="text-[32px] text-gray-900" weight={ 500 }>
-				{ __( 'Add a site 1' ) }
+				{ __( 'Add a site' ) }
 			</Heading>
 			<Text className="text-[15px] font-light text-gray-700 w-72 mb-[28px]">
 				{ __( 'Add a clean site, start from a blueprint or import site from a backup' ) }

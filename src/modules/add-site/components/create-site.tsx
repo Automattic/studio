@@ -52,7 +52,7 @@ export default function CreateSite( {
 	return (
 		<VStack className="w-full max-w-[402px] mx-auto text-black" spacing={ 6 }>
 			<Heading className="text-[32px] text-gray-900 text-center" weight={ 500 }>
-				{ __( 'Add a site 2' ) }
+				{ __( 'Add a site' ) }
 			</Heading>
 
 			<SiteForm

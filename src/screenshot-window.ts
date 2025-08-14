@@ -58,7 +58,12 @@ export function createScreenshotWindow( captureUrl: string ) {
 		const LOAD_TIMEOUT = process.platform === 'win32' ? 2000 : 500;
 		await new Promise( ( resolve ) => setTimeout( resolve, LOAD_TIMEOUT ) );
 
-		return window.webContents.capturePage();
+		// Force the window to the exact dimensions we want - in some cases, the window may not
+		// respect the size set in the constructor, especially on macOS, where it might adjust
+		// the size based on the content.
+		window.setSize( SCREENSHOT_WIDTH, SCREENSHOT_HEIGHT );
+
+		return await window.webContents.capturePage();
 	};
 
 	return { window, waitForCapture };

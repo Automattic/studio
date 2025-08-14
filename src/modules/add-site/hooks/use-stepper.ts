@@ -19,7 +19,11 @@ interface StepperConfig {
 }
 
 interface StepperContext {
-	flow?: 'blueprint' | 'backup' | 'create';
+	flow: 'blueprint' | 'backup' | 'create';
+	steps: StepperStep[];
+}
+
+interface UseStepper {
 	steps: StepperStep[];
 	isVisible?: boolean;
 	actionButton?: {
@@ -30,7 +34,7 @@ interface StepperContext {
 	canSubmit?: boolean;
 }
 
-export function useStepper( config?: StepperConfig ): StepperContext {
+export function useStepper( config?: StepperConfig ): UseStepper {
 	const { __ } = useI18n();
 	const { location } = useNavigator();
 

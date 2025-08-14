@@ -458,21 +458,23 @@ window.ipcListener.subscribe( 'snapshot-success', ( event, payload ) => {
 		);
 	}
 
+	const { snapshotUrl = '' } = operation;
+
 	if ( operation.type === 'create' ) {
 		getIpcApi().showNotification( {
 			title: operation.snapshotName,
-			body: sprintf( __( "Preview site '%s' has been created." ), operation.snapshotUrl || '' ),
+			body: sprintf( __( "Preview site '%s' has been created." ), snapshotUrl ),
 		} );
 	} else if ( operation.type === 'update' ) {
 		getIpcApi().showNotification( {
 			title: operation.snapshotName,
-			body: sprintf( __( "Preview site '%s' has been updated." ), operation.snapshotUrl || '' ),
+			body: sprintf( __( "Preview site '%s' has been updated." ), snapshotUrl ),
 		} );
 	} else if ( operation.type === 'delete' ) {
 		if ( ! bulkOperation ) {
 			getIpcApi().showNotification( {
 				title: operation.snapshotName,
-				body: sprintf( __( "Preview site '%s' has been deleted." ), operation.snapshotUrl || '' ),
+				body: sprintf( __( "Preview site '%s' has been deleted." ), snapshotUrl ),
 			} );
 		} else if ( bulkOperationIsSettled ) {
 			getIpcApi().showNotification( {

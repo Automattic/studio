@@ -108,12 +108,14 @@ export default function ImportBackup( { onFileSelect }: ImportBackupProps ) {
 	}, [] );
 
 	return (
-		<VStack className="text-center w-full" alignment="top" spacing={ 6 }>
-			<Heading className="text-4xl mb-10">{ __( 'Import from a backup' ) }</Heading>
+		<VStack className="text-center w-full" alignment="top" spacing={ 0 }>
+			<Heading className="text-center text-[32px] text-gray-900 mb-[59px]" weight={ 500 }>
+				{ __( 'Import from a backup' ) }
+			</Heading>
 
 			<div
 				className={ cx(
-					'w-full max-w-2xl h-80 mx-auto p-12 border-2 rounded-xl',
+					'w-full max-w-[400px] h-[200px] mx-auto p-12 border-2 rounded-xl',
 					'transition-colors cursor-pointer',
 					isDragging
 						? 'border-blue-500 bg-blue-50'
@@ -154,11 +156,11 @@ export default function ImportBackup( { onFileSelect }: ImportBackupProps ) {
 						</HStack>
 					</VStack>
 				) : (
-					<VStack className="items-center justify-center h-full" spacing={ 4 }>
+					<VStack className="items-center justify-center h-full" spacing={ 2 }>
 						<Icon icon={ download } size={ 24 } className="fill-gray-400" />
 						<>
 							<Heading
-								className="text-base leading-4 font-normal text-center text-gray-700"
+								className="text-[14px] leading-4 font-normal text-center text-gray-700"
 								weight="400"
 							>
 								{ isDragging

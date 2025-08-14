@@ -86,7 +86,7 @@ export default function AddSiteBlueprint( {
 						src={ item.image }
 						alt={ item.title }
 						className={ cx(
-							'w-full h-48 object-cover object-top cursor-pointer transition-all duration-150 rounded-lg group',
+							'w-full h-32 object-cover object-top cursor-pointer transition-all duration-150 rounded-lg group',
 							'hover:shadow-md hover:outline hover:outline-2 hover:outline-blue-500',
 							'transition-transform duration-150',
 							'hover:scale-105',
@@ -100,7 +100,7 @@ export default function AddSiteBlueprint( {
 				label: __( 'Title' ),
 				type: 'text' as const,
 				render: ( { item }: { item: DataViewBlueprint } ) => (
-					<Heading level={ 3 } className="text-sm mt-3 mb-2 text-gray-800" weight={ 500 }>
+					<Heading level={ 3 } className="text-[13px] mt-3 mb-2 text-gray-800" weight={ 500 }>
 						{ item.title }
 					</Heading>
 				),
@@ -111,7 +111,7 @@ export default function AddSiteBlueprint( {
 				type: 'text' as const,
 				render: ( { item }: { item: DataViewBlueprint } ) => (
 					<Text
-						className="text-sm text-gray-600 h-16"
+						className="text-[13px] text-gray-600 h-[454x]"
 						weight={ 400 }
 						truncate
 						numberOfLines={ 3 }
@@ -152,8 +152,7 @@ export default function AddSiteBlueprint( {
 				render: ( { item }: { item: DataViewBlueprint } ) => (
 					<StudioButton
 						variant="link"
-						size="small"
-						className="!p-0"
+						className="!p-0 text-[12px]"
 						onClick={ () => getIpcApi().openURL( item.playground_url ) }
 					>
 						{ __( 'Preview blueprint' ) }
@@ -212,25 +211,29 @@ export default function AddSiteBlueprint( {
 
 	if ( isLoading ) {
 		return (
-			<VStack className="w-full max-w-6xl mx-auto" spacing={ 6 }>
-				<Heading className="text-center text-4xl">{ __( 'Start from a blueprint' ) }</Heading>
+			<VStack className="w-full max-w-6xl mx-auto">
+				<Heading className="text-center text-[32px] text-gray-900 mb-[28px]" weight={ 500 }>
+					{ __( 'Start from a blueprint' ) }
+				</Heading>
 				<Text>{ __( 'Loading blueprints...' ) }</Text>
 			</VStack>
 		);
 	}
 
 	return (
-		<VStack className="w-full max-w-6xl mx-auto p-2" spacing={ 6 }>
-			<Heading className="text-center text-4xl">{ __( 'Start from a blueprint' ) }</Heading>
+		<VStack className="w-full max-w-6xl mx-auto" spacing={ 0 }>
+			<Heading className="text-center text-[32px] text-gray-900 mb-[28px]" weight={ 500 }>
+				{ __( 'Start from a blueprint' ) }
+			</Heading>
 
-			<HStack spacing={ 2 } alignment="edge" className="w-full pr-1">
+			<HStack alignment="edge" className="w-full mb-[22px] px-3">
 				<HStack alignment="left" className="flex-1">
-					<Text className="text-xl" weight={ 500 }>
+					<Text className="text-[16px]" weight={ 500 }>
 						{ __( 'Suggested blueprints' ) }
 					</Text>
 				</HStack>
 				{ selectedFileName ? (
-					<HStack spacing={ 2 } className="h-9 w-fit flex-shrink-0 items-center">
+					<HStack className="h-9 w-fit flex-shrink-0 items-center">
 						<Text
 							className="text-sm font-medium text-gray-900 truncate max-w-48"
 							title={ selectedFileName }
@@ -267,7 +270,7 @@ export default function AddSiteBlueprint( {
 				) }
 			</HStack>
 
-			<div className="w-full px-2 [&_.dataviews-view-grid]:!grid [&_.dataviews-view-grid]:!grid-cols-3 [&_.dataviews-view-grid]:!gap-4 [&_.components-badge]:!bg-transparent [&_.components-badge]:!p-0">
+			<div className="w-full px-3 [&_.dataviews-view-grid]:!grid [&_.dataviews-view-grid]:!grid-cols-3 [&_.dataviews-view-grid]:!gap-4 [&_.components-badge]:!bg-transparent [&_.components-badge]:!p-0">
 				<DataViews
 					data={ dataViewBlueprints }
 					fields={ fields }

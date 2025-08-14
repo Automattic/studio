@@ -8,9 +8,17 @@ import {
 import { sprintf } from '@wordpress/i18n';
 import { download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useRef, useState, useMemo } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { cx } from 'src/lib/cx';
+
+const formatFileSize = ( bytes: number ) => {
+	if ( bytes === 0 ) return '0 Bytes';
+	const k = 1024;
+	const sizes = [ 'Bytes', 'KB', 'MB', 'GB' ];
+	const i = Math.floor( Math.log( bytes ) / Math.log( k ) );
+	return Math.round( ( bytes / Math.pow( k, i ) ) * 100 ) / 100 + ' ' + sizes[ i ];
+};
 
 interface ImportBackupProps {
 	onFileSelect: ( file?: File ) => void;
@@ -88,25 +96,6 @@ export default function ImportBackup( { onFileSelect }: ImportBackupProps ) {
 		[ onFileSelect ]
 	);
 
-	// Format the file types for display
-	const supportedFormatsText = useMemo( () => {
-		const formats = ACCEPTED_IMPORT_FILE_TYPES.map( ( ext ) =>
-			ext.replace( '.', '' ).toUpperCase()
-		);
-		// Remove duplicates and format nicely
-		const uniqueFormats = [ ...new Set( formats ) ];
-		return uniqueFormats.join( ', ' );
-	}, [] );
-
-	// Format file size
-	const formatFileSize = useCallback( ( bytes: number ) => {
-		if ( bytes === 0 ) return '0 Bytes';
-		const k = 1024;
-		const sizes = [ 'Bytes', 'KB', 'MB', 'GB' ];
-		const i = Math.floor( Math.log( bytes ) / Math.log( k ) );
-		return Math.round( ( bytes / Math.pow( k, i ) ) * 100 ) / 100 + ' ' + sizes[ i ];
-	}, [] );
-
 	return (
 		<VStack className="text-center w-full" alignment="top" spacing={ 0 }>
 			<Heading className="text-center text-[32px] text-gray-900 mb-[59px]" weight={ 500 }>
@@ -171,7 +160,9 @@ export default function ImportBackup( { onFileSelect }: ImportBackupProps ) {
 								{ sprintf(
 									/* translators: %s: List of supported file formats */
 									__( 'Supported formats: %s' ),
-									supportedFormatsText
+									ACCEPTED_IMPORT_FILE_TYPES.map( ( ext ) =>
+										ext.replace( '.', '' ).toUpperCase()
+									).join( ', ' )
 								) }
 							</Text>
 						</>

@@ -6,6 +6,7 @@ import {
 } from '@wordpress/components';
 import { Icon, plus, backup, chevronRight, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { BlueprintIcon } from './blueprint-icon';
@@ -20,6 +21,7 @@ interface OptionButtonProps {
 	description: string;
 	onClick: () => void;
 	disabled?: boolean;
+	disabledTooltip?: string;
 }
 
 function OptionButton( {
@@ -28,40 +30,48 @@ function OptionButton( {
 	description,
 	onClick,
 	disabled = false,
+	disabledTooltip,
 }: OptionButtonProps ) {
 	const { isRTL } = useI18n();
 	const chevron = isRTL() ? chevronLeft : chevronRight;
 	return (
-		<HStack
-			as="button"
-			className={ cx(
-				'w-full max-w-[422px] p-[24px] border border-gray-200 rounded-xl text-left',
-				'rtl:text-right',
-				'hover:border-gray-300 hover:bg-gray-50',
-				'disabled:opacity-50 disabled:cursor-not-allowed'
-			) }
-			alignment="top"
-			onClick={ onClick }
-			disabled={ disabled }
-			spacing={ 5 }
+		<Tooltip
+			text={ disabledTooltip }
+			disabled={ ! disabled }
+			className={ cx( 'w-full max-w-[422px]' ) }
 		>
-			<div className="mt-[-2px]">{ icon }</div>
-			<VStack className="flex-1 gap-[8px]">
-				<Heading className="text-[15px]" weight="500">
-					{ title }
-				</Heading>
-				<Text className="text-[13px] text-gray-500" weight="400">
-					{ description }
-				</Text>
-			</VStack>
-			<Icon className="mt-0.5" icon={ chevron } size={ 24 } fill="#949494" />
-		</HStack>
+			<HStack
+				as="button"
+				className={ cx(
+					'w-full p-[24px] border border-gray-200 rounded-xl text-left',
+					'rtl:text-right',
+					'hover:border-gray-300 hover:bg-gray-50',
+					'disabled:opacity-50 disabled:cursor-not-allowed'
+				) }
+				alignment="top"
+				onClick={ onClick }
+				disabled={ disabled }
+				spacing={ 5 }
+			>
+				<div className="mt-[-2px]">{ icon }</div>
+				<VStack className="flex-1 gap-[8px]">
+					<Heading className="text-[15px]" weight="500">
+						{ title }
+					</Heading>
+					<Text className="text-[13px] text-gray-500" weight="400">
+						{ description }
+					</Text>
+				</VStack>
+				<Icon className="mt-0.5" icon={ chevron } size={ 24 } fill="#949494" />
+			</HStack>
+		</Tooltip>
 	);
 }
 
 export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps ) {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
+	const offlineMessage = __( "You're currently offline." );
 
 	return (
 		<VStack className="text-center w-full" alignment="top" spacing="3">
@@ -83,6 +93,7 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 				description={ __( 'Choose one from the list or select your own' ) }
 				onClick={ () => onOptionSelect( 'blueprint' ) }
 				disabled={ isOffline }
+				disabledTooltip={ offlineMessage }
 			/>
 			<OptionButton
 				icon={ <Icon icon={ backup } size={ 24 } fill="#3858E9" /> }

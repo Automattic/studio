@@ -1,6 +1,7 @@
 module.exports = {
 	roots: [ '<rootDir>/src', '<rootDir>/cli', '<rootDir>/common' ],
 	preset: 'ts-jest',
+	workerIdleMemoryLimit: '1GB',
 	transform: {
 		'^.+\\.(ts|tsx)$': [
 			'ts-jest',

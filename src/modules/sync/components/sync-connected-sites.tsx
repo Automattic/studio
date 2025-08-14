@@ -28,7 +28,7 @@ import {
 } from 'src/modules/sync/lib/convert-tree-to-sync-options';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useAppDispatch, useI18nLocale } from 'src/stores';
-import { connectedSitesActions } from 'src/stores/sync';
+import { connectedSitesActions, useConnectedSitesData } from 'src/stores/sync';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 interface ConnectedSiteSection {
@@ -56,8 +56,8 @@ const SyncConnectedSiteControls = ( {
 		isSiteIdPulling,
 		isSiteIdPushing,
 		getLastSyncTimeText,
-		connectedSites,
 	} = useSyncSites();
+	const { connectedSites } = useConnectedSitesData();
 	const isAnyConnectedSiteSyncing = connectedSites.some(
 		( site ) =>
 			isSiteIdPulling( selectedSite.id, site.id ) || isSiteIdPushing( selectedSite.id, site.id )

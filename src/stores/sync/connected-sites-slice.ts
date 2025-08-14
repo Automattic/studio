@@ -163,11 +163,9 @@ export const connectedSitesSelectors = {
 export const useConnectedSitesData = () => {
 	const { selectedSite } = useSiteDetails();
 	const localSiteId = selectedSite?.id;
-
 	const connectedSites = useRootSelector( ( state ) =>
 		connectedSitesSelectors.selectSitesByLocalSiteId( state, localSiteId )
 	);
-
 	const loading = useRootSelector( connectedSitesSelectors.selectLoading );
 
 	return { connectedSites, loading, localSiteId };

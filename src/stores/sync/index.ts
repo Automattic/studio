@@ -5,7 +5,6 @@ export {
 	connectedSitesReducer,
 	connectedSitesActions,
 	connectedSitesSelectors,
-	useConnectedSites,
 	useConnectedSitesData,
 	useSyncSitesData,
 	useConnectedSitesOperations,
@@ -14,5 +13,4 @@ export {
 	connectSite,
 	disconnectSite,
 } from './connected-sites-slice';
-export type { UseSiteSyncManagement } from './connected-sites-slice';
 export * from './sync-types';

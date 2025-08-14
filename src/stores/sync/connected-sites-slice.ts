@@ -8,11 +8,13 @@ import { useAppDispatch, useRootSelector, RootState } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 type ConnectedSites = SyncSite[];
+type ModalState = false | true | { disconnectSiteId?: number };
 
 interface ConnectedSitesState {
 	sites: Record< string, ConnectedSites >; // Keyed by localSiteId for efficient lookups
 	loading: boolean;
 	error: string | null;
+	isModalOpen: ModalState;
 }
 
 interface ConnectSiteParams {
@@ -31,6 +33,7 @@ const initialState: ConnectedSitesState = {
 	sites: {},
 	loading: false,
 	error: null,
+	isModalOpen: false,
 };
 
 export const loadConnectedSites = createAsyncThunk(
@@ -54,6 +57,7 @@ export const connectSite = createAsyncThunk(
 		] );
 
 		const actualConnectedSites = await getIpcApi().getConnectedWpcomSites( localSiteId );
+
 		return {
 			localSiteId,
 			connectedSites: actualConnectedSites,
@@ -103,6 +107,14 @@ const connectedSitesSlice = createSlice( {
 		clearSitesForLocalSite: ( state, action: PayloadAction< string > ) => {
 			delete state.sites[ action.payload ];
 		},
+
+		openModal: ( state ) => {
+			state.isModalOpen = true;
+		},
+
+		closeModal: ( state ) => {
+			state.isModalOpen = false;
+		},
 	},
 	extraReducers: ( builder ) => {
 		builder
@@ -140,6 +152,7 @@ const selectConnectedSitesState = ( state: RootState ) => state.connectedSites;
 
 export const connectedSitesSelectors = {
 	selectLoading: ( state: RootState ) => state.connectedSites.loading,
+	selectIsModalOpen: ( state: RootState ) => state.connectedSites.isModalOpen,
 	selectSitesByLocalSiteId: createSelector(
 		[ selectConnectedSitesState, ( _: RootState, localSiteId: string | undefined ) => localSiteId ],
 		( connectedSitesState, localSiteId ) =>
@@ -204,6 +217,8 @@ export const useConnectedSitesOperations = () => {
 						localSiteId: targetLocalSiteId,
 					} )
 				).unwrap();
+
+				dispatch( connectedSitesActions.closeModal() );
 
 				if ( overrideLocalSiteId && overrideLocalSiteId !== localSiteId ) {
 					await dispatch( loadConnectedSites( overrideLocalSiteId ) );

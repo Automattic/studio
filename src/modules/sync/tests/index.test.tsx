@@ -330,12 +330,6 @@ describe( 'ContentTabSync', () => {
 		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
 		fireEvent.click( connectSiteButton );
 
-		expect( useSyncSites().setIsSyncSitesSelectorOpen ).toHaveBeenCalledWith( true );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			...useSyncSites(),
-			isSyncSitesSelectorOpen: true,
-		} );
-
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		const createNewSiteButton = screen.getByRole( 'button', {
 			name: /Create a new WordPress.com site ↗/i,

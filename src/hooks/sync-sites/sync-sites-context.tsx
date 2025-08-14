@@ -22,15 +22,10 @@ type UpdateSiteTimestamp = (
 	type: 'pull' | 'push'
 ) => Promise< void >;
 
-type IsSyncSitesSelectorOpen = boolean | { disconnectSiteId?: number };
-
 export type SyncSitesContextType = Omit< UseSyncPull, 'pullStates' > &
 	Omit< UseSyncPush, 'pushStates' > &
 	ReturnType< typeof useSyncSitesData > & {
 		getLastSyncTimeText: GetLastSyncTimeText;
-		isSyncSitesSelectorOpen: IsSyncSitesSelectorOpen;
-		setIsSyncSitesSelectorOpen: ( open: IsSyncSitesSelectorOpen ) => void;
-		closeSyncSitesSelector: () => void;
 		connectSite: ( site: SyncSite, overrideLocalSiteId?: string ) => Promise< void >;
 		disconnectSite: ( siteId: number ) => Promise< void >;
 		connectedSites: ReturnType< typeof useConnectedSitesData >[ 'connectedSites' ];
@@ -41,9 +36,6 @@ const SyncSitesContext = createContext< SyncSitesContextType | undefined >( unde
 export function SyncSitesProvider( { children }: { children: React.ReactNode } ) {
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 	const [ pullStates, setPullStates ] = useState< PullStates >( {} );
-	const [ isSyncSitesSelectorOpen, setIsSyncSitesSelectorOpen ] =
-		useState< IsSyncSitesSelectorOpen >( false );
-	const closeSyncSitesSelector = useCallback( () => setIsSyncSitesSelectorOpen( false ), [] );
 
 	const getLastSyncTimeText = useCallback< GetLastSyncTimeText >(
 		( timestamp, type ) => {
@@ -73,9 +65,8 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 	const connectSite = useCallback(
 		async ( site: SyncSite, overrideLocalSiteId?: string ) => {
 			await connectSiteBase( site, overrideLocalSiteId );
-			closeSyncSitesSelector();
 		},
-		[ connectSiteBase, closeSyncSitesSelector ]
+		[ connectSiteBase ]
 	);
 
 	const updateSiteTimestamp = useCallback< UpdateSiteTimestamp >(
@@ -150,9 +141,6 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				isSiteIdPushing,
 				clearPushState,
 				getLastSyncTimeText,
-				isSyncSitesSelectorOpen,
-				setIsSyncSitesSelectorOpen,
-				closeSyncSitesSelector,
 			} }
 		>
 			{ children }

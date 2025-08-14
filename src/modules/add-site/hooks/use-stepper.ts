@@ -10,12 +10,12 @@ interface StepperStep {
 }
 
 interface StepperConfig {
-	onBlueprintContinue?: () => void;
-	onBackupContinue?: () => void;
-	onCreateSubmit?: ( event: FormEvent ) => void;
-	canSubmitBlueprint?: boolean;
-	canSubmitBackup?: boolean;
-	canSubmitCreate?: boolean;
+	onBlueprintContinue: () => void;
+	onBackupContinue: () => void;
+	onCreateSubmit: ( event: FormEvent ) => void;
+	canSubmitBlueprint: boolean;
+	canSubmitBackup: boolean;
+	canSubmitCreate: boolean;
 }
 
 interface StepperContext {

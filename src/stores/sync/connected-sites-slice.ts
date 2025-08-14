@@ -1,7 +1,7 @@
 import { createAsyncThunk, createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { useCallback, useEffect } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
-import { FetchSites, useFetchWpComSites } from 'src/hooks/use-fetch-wpcom-sites';
+import { useFetchWpComSites } from 'src/hooks/use-fetch-wpcom-sites';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch, useRootSelector, RootState } from 'src/stores';
@@ -147,34 +147,34 @@ export const connectedSitesSelectors = {
 	),
 };
 
-export type UseSiteSyncManagement = {
-	connectedSites: ConnectedSites;
-	loadConnectedSites: () => Promise< void >;
-	connectSite: ( site: SyncSite, overrideLocalSiteId?: string ) => Promise< void >;
-	disconnectSite: ( siteId: number ) => Promise< void >;
-	syncSites: SyncSite[];
-	isFetching: boolean;
-	refetchSites: FetchSites;
-};
-
-export const useConnectedSites = ( closeSyncSitesSelector: () => void ): UseSiteSyncManagement => {
-	const dispatch = useAppDispatch();
-	const { isAuthenticated } = useAuth();
+export const useConnectedSitesData = () => {
 	const { selectedSite } = useSiteDetails();
 	const localSiteId = selectedSite?.id;
 
-	// Get connected sites for current local site
 	const connectedSites = useRootSelector( ( state ) =>
 		connectedSitesSelectors.selectSitesByLocalSiteId( state, localSiteId )
 	);
 
 	const loading = useRootSelector( connectedSitesSelectors.selectLoading );
 
+	return { connectedSites, loading, localSiteId };
+};
+
+export const useSyncSitesData = () => {
+	const { connectedSites } = useConnectedSitesData();
 	const { syncSites, isFetching, refetchSites } = useFetchWpComSites(
 		connectedSites.map( ( { id } ) => id )
 	);
 
-	const handleLoadConnectedSites = useCallback( async () => {
+	return { syncSites, isFetching, refetchSites };
+};
+
+export const useConnectedSitesOperations = () => {
+	const dispatch = useAppDispatch();
+	const { localSiteId, connectedSites } = useConnectedSitesData();
+	const { syncSites } = useSyncSitesData();
+
+	const loadConnectedSitesAction = useCallback( async () => {
 		if ( ! localSiteId ) return;
 
 		try {
@@ -184,13 +184,7 @@ export const useConnectedSites = ( closeSyncSitesSelector: () => void ): UseSite
 		}
 	}, [ dispatch, localSiteId ] );
 
-	useEffect( () => {
-		if ( isAuthenticated && localSiteId ) {
-			void handleLoadConnectedSites();
-		}
-	}, [ isAuthenticated, localSiteId, handleLoadConnectedSites ] );
-
-	const handleConnectSite = useCallback(
+	const connectSiteToLocal = useCallback(
 		async ( site: SyncSite, overrideLocalSiteId?: string ) => {
 			const targetLocalSiteId = overrideLocalSiteId || localSiteId;
 
@@ -211,8 +205,6 @@ export const useConnectedSites = ( closeSyncSitesSelector: () => void ): UseSite
 					} )
 				).unwrap();
 
-				closeSyncSitesSelector();
-
 				if ( overrideLocalSiteId && overrideLocalSiteId !== localSiteId ) {
 					await dispatch( loadConnectedSites( overrideLocalSiteId ) );
 				}
@@ -221,10 +213,10 @@ export const useConnectedSites = ( closeSyncSitesSelector: () => void ): UseSite
 				throw error;
 			}
 		},
-		[ dispatch, syncSites, localSiteId, closeSyncSitesSelector ]
+		[ dispatch, syncSites, localSiteId ]
 	);
 
-	const handleDisconnectSite = useCallback(
+	const disconnectSiteFromLocal = useCallback(
 		async ( siteId: number ) => {
 			if ( ! localSiteId ) {
 				throw new Error( 'No local site ID available' );
@@ -253,12 +245,20 @@ export const useConnectedSites = ( closeSyncSitesSelector: () => void ): UseSite
 	);
 
 	return {
-		connectedSites,
-		loadConnectedSites: handleLoadConnectedSites,
-		connectSite: handleConnectSite,
-		disconnectSite: handleDisconnectSite,
-		syncSites,
-		isFetching: isFetching || loading,
-		refetchSites,
+		loadConnectedSites: loadConnectedSitesAction,
+		connectSite: connectSiteToLocal,
+		disconnectSite: disconnectSiteFromLocal,
 	};
+};
+
+export const useAutoLoadConnectedSites = () => {
+	const { isAuthenticated } = useAuth();
+	const { localSiteId } = useConnectedSitesData();
+	const { loadConnectedSites } = useConnectedSitesOperations();
+
+	useEffect( () => {
+		if ( isAuthenticated && localSiteId ) {
+			void loadConnectedSites();
+		}
+	}, [ isAuthenticated, localSiteId, loadConnectedSites ] );
 };

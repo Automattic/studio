@@ -30,7 +30,7 @@
 		"cli:watch": "webpack --config webpack.cli.config.ts --watch",
 		"lint": "eslint --ext .ts,.tsx,.js,.jsx,.mjs {cli,common,src}",
 		"format": "prettier . --write",
-		"test": "cross-env NODE_OPTIONS='--no-deprecation --max-old-space-size=16384' jest",
+		"test": "cross-env NODE_OPTIONS='--no-deprecation --max-old-space-size=16384' jest --detectOpenHandles",
 		"test:watch": "cross-env NODE_OPTIONS='--no-deprecation' jest --watch",
 		"e2e": "npx playwright install && npx playwright test",
 		"test:metrics": "npx playwright test --config=./metrics/playwright.metrics.config.ts",

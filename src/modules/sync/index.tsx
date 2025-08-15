@@ -17,7 +17,6 @@ import {
 	useConnectedSitesData,
 	useSyncSitesData,
 	useConnectedSitesOperations,
-	useAutoLoadConnectedSites,
 	connectedSitesSelectors,
 	connectedSitesActions,
 } from 'src/stores/sync';
@@ -126,8 +125,6 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const { connectSite, disconnectSite } = useConnectedSitesOperations();
 
 	const { isAuthenticated } = useAuth();
-
-	useAutoLoadConnectedSites();
 
 	useEffect( () => {
 		if ( isAuthenticated ) {

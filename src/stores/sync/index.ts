@@ -8,8 +8,7 @@ export {
 	useConnectedSitesData,
 	useSyncSitesData,
 	useConnectedSitesOperations,
-	useAutoLoadConnectedSites,
-	loadConnectedSites,
+	loadAllConnectedSites,
 	connectSite,
 	disconnectSite,
 } from './connected-sites-slice';

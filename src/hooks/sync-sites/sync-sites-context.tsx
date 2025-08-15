@@ -10,7 +10,6 @@ import {
 	useConnectedSitesData,
 	useSyncSitesData,
 	useConnectedSitesOperations,
-	useAutoLoadConnectedSites,
 	connectedSitesActions,
 } from 'src/stores/sync';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
@@ -59,8 +58,6 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 	const { syncSites, isFetching, refetchSites } = useSyncSitesData();
 	const { connectSite: connectSiteBase, disconnectSite } = useConnectedSitesOperations();
 	const dispatch = useAppDispatch();
-
-	useAutoLoadConnectedSites();
 
 	const connectSite = useCallback(
 		async ( site: SyncSite, overrideLocalSiteId?: string ) => {

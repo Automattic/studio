@@ -78,7 +78,10 @@ describe( 'createSite', () => {
 		( isEmptyDir as jest.Mock ).mockResolvedValueOnce( true );
 		( pathExists as jest.Mock ).mockResolvedValueOnce( true );
 
-		const userData = await createSite( mockIpcMainInvokeEvent, '/test', 'Test', '6.4' );
+		const userData = await createSite( mockIpcMainInvokeEvent, '/test', {
+			siteName: 'Test',
+			wpVersion: '6.4',
+		} );
 
 		expect( userData ).toEqual( {
 			adminPassword: expect.any( String ),
@@ -99,15 +102,11 @@ describe( 'createSite', () => {
 		( pathExists as jest.Mock ).mockResolvedValueOnce( true );
 
 		const customSiteId = 'custom-site-id-123';
-		const userData = await createSite(
-			mockIpcMainInvokeEvent,
-			'/test',
-			'Test',
-			'6.4',
-			undefined,
-			undefined,
-			customSiteId
-		);
+		const userData = await createSite( mockIpcMainInvokeEvent, '/test', {
+			siteName: 'Test',
+			wpVersion: '6.4',
+			siteId: customSiteId,
+		} );
 
 		expect( userData ).toEqual( {
 			adminPassword: expect.any( String ),
@@ -131,7 +130,7 @@ describe( 'createSite', () => {
 				throw new Error( 'Intentional test error' );
 			} );
 
-			createSite( mockIpcMainInvokeEvent, '/test', 'Test', '6.4' )
+			createSite( mockIpcMainInvokeEvent, '/test', { siteName: 'Test', wpVersion: '6.4' } )
 				.catch( () => '6.4' )
 				.catch( () => {
 					expect( shell.trashItem ).toHaveBeenCalledTimes( 1 );

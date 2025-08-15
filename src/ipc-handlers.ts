@@ -182,13 +182,17 @@ export async function importSite(
 export async function createSite(
 	event: IpcMainInvokeEvent,
 	path: string,
-	siteName?: string,
-	wpVersion?: string,
-	customDomain?: string,
-	enableHttps?: boolean,
-	siteId?: string,
-	blueprint?: Blueprint
+	config: {
+		siteName?: string;
+		wpVersion?: string;
+		customDomain?: string;
+		enableHttps?: boolean;
+		siteId?: string;
+		blueprint?: Blueprint;
+	} = {}
 ): Promise< SiteDetails > {
+	const { siteName, wpVersion, customDomain, enableHttps, siteId, blueprint } = config;
+
 	const forceSetupSqlite = false;
 
 	const metric = getBlueprintMetric( blueprint?.slug );
@@ -1409,7 +1413,7 @@ export async function deleteSnapshot(
 
 export async function handleNewSite( event: IpcMainInvokeEvent, newSite: NewSiteDetails ) {
 	try {
-		await createSite( event, newSite.path, undefined, undefined, undefined, undefined, newSite.id );
+		await createSite( event, newSite.path, { siteId: newSite.id } );
 		await lockAppdata();
 		const userData = await loadUserData();
 		const newSites = userData.newSites?.filter( ( s ) => s.id !== newSite.id );

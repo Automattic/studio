@@ -54,8 +54,8 @@ interface NavigationContentProps {
 	setEnableHttps: ( enable: boolean ) => void;
 	fileForImport: File | null;
 	setFileForImport: ( file: File | null ) => void;
-	setSelectedBlueprint: ( blueprint: Blueprint | null ) => void;
-	selectedBlueprint: Blueprint | null;
+	setSelectedBlueprint: ( blueprint?: Blueprint ) => void;
+	selectedBlueprint?: Blueprint;
 }
 
 function NavigationContent( props: NavigationContentProps ) {
@@ -125,7 +125,7 @@ function NavigationContent( props: NavigationContentProps ) {
 				createSiteProps.setFileForImport( null );
 			}
 			if ( location.path === '/blueprint' ) {
-				createSiteProps.setSelectedBlueprint( null );
+				createSiteProps.setSelectedBlueprint();
 			}
 			goTo( '/' );
 		} else {
@@ -138,7 +138,7 @@ function NavigationContent( props: NavigationContentProps ) {
 			const blueprint = blueprintsData?.blueprints.find(
 				( b: Blueprint ) => b.slug === blueprintId
 			);
-			createSiteProps.setSelectedBlueprint( blueprint || null );
+			createSiteProps.setSelectedBlueprint( blueprint );
 		},
 		[ blueprintsData?.blueprints, createSiteProps ]
 	);
@@ -246,7 +246,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setCustomDomainError( '' );
 		setEnableHttps( false );
 		setFileForImport( null );
-		setSelectedBlueprint( null );
+		setSelectedBlueprint( undefined );
 	}, [
 		setSitePath,
 		setDoesPathContainWordPress,

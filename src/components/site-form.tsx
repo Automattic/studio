@@ -301,7 +301,16 @@ export const SiteForm = ( {
 			<div className="flex flex-col">
 				<label className="flex flex-col gap-1.5 leading-4 mb-6">
 					<span className="font-semibold">{ __( 'Site name' ) }</span>
-					<TextControlComponent onChange={ setSiteName } value={ siteName }></TextControlComponent>
+					<TextControlComponent
+						onChange={ setSiteName }
+						value={ siteName }
+						onKeyDown={ ( event ) => {
+							if ( event.key === 'Enter' ) {
+								event.preventDefault();
+								onSubmit( event as FormEvent );
+							}
+						} }
+					></TextControlComponent>
 				</label>
 
 				{ setFileForImport && (

@@ -1,12 +1,11 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
-import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useFetchWpComSites } from 'src/hooks/use-fetch-wpcom-sites';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { store } from 'src/stores';
-import { useConnectedSitesData } from 'src/stores/sync';
+import { useConnectedSitesData, useConnectedSitesOperations } from 'src/stores/sync';
+import { SyncSite } from '../use-fetch-wpcom-sites/types';
 
 jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/hooks/use-site-details' );
@@ -14,9 +13,10 @@ jest.mock( 'src/hooks/use-fetch-wpcom-sites' );
 jest.mock( 'src/stores/sync', () => ( {
 	...jest.requireActual( 'src/stores/sync' ),
 	useConnectedSitesData: jest.fn(),
+	useConnectedSitesOperations: jest.fn(),
 } ) );
 
-const mockConnectedWpcomSites = [
+const mockConnectedWpcomSites: SyncSite[] = [
 	{
 		id: 6,
 		localSiteId: '788a7e0c-62d2-427e-8b1a-e6d5ac84b61c',
@@ -43,7 +43,7 @@ const mockConnectedWpcomSites = [
 	},
 ];
 
-const mockSyncSites = [
+const mockSyncSites: SyncSite[] = [
 	{
 		id: 8,
 		localSiteId: '',
@@ -70,28 +70,24 @@ const mockSyncSites = [
 	},
 ];
 
-const disconnectWpcomSiteMock = jest.fn().mockResolvedValue( [] );
-const connectWpcomSiteMock = jest
-	.fn()
-	.mockResolvedValue( [ ...mockConnectedWpcomSites, { id: 6, stagingSiteIds: [] } ] );
-
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		getConnectedWpcomSites: jest.fn().mockResolvedValue( mockConnectedWpcomSites ),
-		connectWpcomSites: connectWpcomSiteMock,
-		disconnectWpcomSites: disconnectWpcomSiteMock,
+		connectWpcomSites: jest.fn(),
+		disconnectWpcomSites: jest.fn(),
 		updateConnectedWpcomSites: jest.fn(),
 	} ),
 } ) );
 
-describe( 'useSyncSites management', () => {
+describe( 'useConnectedSitesOperations', () => {
 	const wrapper = ( { children }: { children: React.ReactNode } ) => (
-		<Provider store={ store }>
-			<ContentTabsProvider>
-				<SyncSitesProvider>{ children }</SyncSitesProvider>
-			</ContentTabsProvider>
-		</Provider>
+		<Provider store={ store }>{ children }</Provider>
 	);
+
+	const mockDisconnectSite = jest.fn().mockResolvedValue( [] );
+	const mockConnectSite = jest
+		.fn()
+		.mockResolvedValue( [ ...mockConnectedWpcomSites, { id: 6, stagingSiteIds: [] } ] );
 
 	beforeEach( () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
@@ -104,8 +100,11 @@ describe( 'useSyncSites management', () => {
 		} );
 		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: mockConnectedWpcomSites,
-			loading: false,
 			localSiteId: '788a7e0c-62d2-427e-8b1a-e6d5ac84b61c',
+		} );
+		( useConnectedSitesOperations as jest.Mock ).mockReturnValue( {
+			connectSite: mockConnectSite,
+			disconnectSite: mockDisconnectSite,
 		} );
 	} );
 
@@ -114,7 +113,7 @@ describe( 'useSyncSites management', () => {
 	} );
 
 	it( 'loads connected sites on mount when authenticated', async () => {
-		const { result } = renderHook( () => useSyncSites(), { wrapper } );
+		const { result } = renderHook( () => useConnectedSitesData(), { wrapper } );
 
 		await waitFor( () => {
 			expect( result.current.connectedSites ).toEqual( mockConnectedWpcomSites );
@@ -128,7 +127,7 @@ describe( 'useSyncSites management', () => {
 			loading: false,
 			localSiteId: '788a7e0c-62d2-427e-8b1a-e6d5ac84b61c',
 		} );
-		const { result } = renderHook( () => useSyncSites(), { wrapper } );
+		const { result } = renderHook( () => useConnectedSitesData(), { wrapper } );
 
 		await waitFor( () => {
 			expect( result.current.connectedSites ).toEqual( [] );
@@ -136,7 +135,7 @@ describe( 'useSyncSites management', () => {
 	} );
 
 	it( 'connects a site and its staging sites successfully', async () => {
-		const { result } = renderHook( () => useSyncSites(), { wrapper } );
+		const { result } = renderHook( () => useConnectedSitesOperations(), { wrapper } );
 		const siteToConnect = mockSyncSites[ 0 ];
 
 		await waitFor( async () => {
@@ -148,33 +147,26 @@ describe( 'useSyncSites management', () => {
 		} );
 
 		await waitFor( () => {
-			expect( connectWpcomSiteMock ).toHaveBeenCalledWith( [
-				{
-					localSiteId: '788a7e0c-62d2-427e-8b1a-e6d5ac84b61c',
-					sites: [ siteToConnect, mockSyncSites[ 1 ] ],
-				},
-			] );
+			expect( mockConnectSite ).toHaveBeenCalledWith( siteToConnect );
 		} );
 	} );
 
 	it( 'disconnects a site and its staging sites successfully', async () => {
-		const { result } = renderHook( () => useSyncSites(), { wrapper } );
+		const { result } = renderHook( () => useConnectedSitesOperations(), { wrapper } );
+		const { result: resultConnectedSites } = renderHook( () => useConnectedSitesData(), {
+			wrapper,
+		} );
 		const siteToDisconnect = mockConnectedWpcomSites[ 0 ];
 
 		await waitFor( () => {
-			expect( result.current.connectedSites ).toBeDefined();
-			expect( result.current.connectedSites ).toEqual( mockConnectedWpcomSites );
+			expect( resultConnectedSites.current.connectedSites ).toBeDefined();
+			expect( resultConnectedSites.current.connectedSites ).toEqual( mockConnectedWpcomSites );
 		} );
 
 		await waitFor( async () => {
 			await result.current.disconnectSite( siteToDisconnect.id );
 		} );
 
-		expect( disconnectWpcomSiteMock ).toHaveBeenCalledWith( [
-			{
-				localSiteId: '788a7e0c-62d2-427e-8b1a-e6d5ac84b61c',
-				siteIds: [ siteToDisconnect.id, ...siteToDisconnect.stagingSiteIds ],
-			},
-		] );
+		expect( mockDisconnectSite ).toHaveBeenCalledWith( siteToDisconnect.id );
 	} );
 } );

@@ -53,7 +53,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 
 	const { connectedSites } = useConnectedSitesData();
 	const { syncSites, isFetching, refetchSites } = useSyncSitesData();
-	const { connectSite: connectSiteBase, disconnectSite } = useConnectedSitesOperations();
+	const { connectSite: connectSiteBase } = useConnectedSitesOperations();
 	const dispatch = useAppDispatch();
 
 	const connectSite = useCallback(

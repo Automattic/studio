@@ -180,7 +180,7 @@ describe( 'AddSite', () => {
 				'latest',
 				undefined,
 				false,
-				null, // blueprint parameter
+				undefined, // blueprint parameter
 				expect.any( Function )
 			);
 		} );
@@ -364,7 +364,7 @@ describe( 'AddSite', () => {
 				'6.3.3',
 				undefined,
 				false,
-				null, // blueprint parameter
+				undefined, // blueprint parameter
 				expect.any( Function )
 			);
 		} );

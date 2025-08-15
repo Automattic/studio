@@ -136,10 +136,9 @@ async function initializeProviderConstants() {
 // Initialize provider constants immediately, but skip in test environment
 if ( typeof jest === 'undefined' && process.env.NODE_ENV !== 'test' ) {
 	void initializeProviderConstants();
+	// Initialize connected sites on store initialization only in non-test environment
+	void store.dispatch( loadAllConnectedSites() );
 }
-
-// Initialize connected sites on store initialization
-void store.dispatch( loadAllConnectedSites() );
 
 export type AppDispatch = typeof store.dispatch;
 

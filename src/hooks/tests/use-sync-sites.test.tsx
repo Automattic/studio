@@ -1,13 +1,20 @@
 import { renderHook, waitFor } from '@testing-library/react';
+import { Provider } from 'react-redux';
 import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useFetchWpComSites } from 'src/hooks/use-fetch-wpcom-sites';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { store } from 'src/stores';
+import { useConnectedSitesData } from 'src/stores/sync';
 
 jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/hooks/use-site-details' );
 jest.mock( 'src/hooks/use-fetch-wpcom-sites' );
+jest.mock( 'src/stores/sync', () => ( {
+	...jest.requireActual( 'src/stores/sync' ),
+	useConnectedSitesData: jest.fn(),
+} ) );
 
 const mockConnectedWpcomSites = [
 	{
@@ -79,9 +86,11 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 
 describe( 'useSyncSites management', () => {
 	const wrapper = ( { children }: { children: React.ReactNode } ) => (
-		<ContentTabsProvider>
-			<SyncSitesProvider>{ children }</SyncSitesProvider>
-		</ContentTabsProvider>
+		<Provider store={ store }>
+			<ContentTabsProvider>
+				<SyncSitesProvider>{ children }</SyncSitesProvider>
+			</ContentTabsProvider>
+		</Provider>
 	);
 
 	beforeEach( () => {
@@ -92,6 +101,11 @@ describe( 'useSyncSites management', () => {
 		( useFetchWpComSites as jest.Mock ).mockReturnValue( {
 			syncSites: mockSyncSites,
 			isFetching: false,
+		} );
+		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
+			connectedSites: mockConnectedWpcomSites,
+			loading: false,
+			localSiteId: '788a7e0c-62d2-427e-8b1a-e6d5ac84b61c',
 		} );
 	} );
 
@@ -109,6 +123,11 @@ describe( 'useSyncSites management', () => {
 
 	it( 'does not load connected sites when not authenticated', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false } );
+		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
+			connectedSites: [],
+			loading: false,
+			localSiteId: '788a7e0c-62d2-427e-8b1a-e6d5ac84b61c',
+		} );
 		const { result } = renderHook( () => useSyncSites(), { wrapper } );
 
 		await waitFor( () => {

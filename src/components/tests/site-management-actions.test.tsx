@@ -1,11 +1,20 @@
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { Provider } from 'react-redux';
 import {
 	SiteManagementActionProps,
 	SiteManagementActions,
 } from 'src/components/site-management-actions';
 import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { store } from 'src/stores';
+
+jest.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: () => ( {
+		getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
+		updateSingleConnectedWpcomSite: jest.fn().mockResolvedValue( {} ),
+	} ),
+} ) );
 
 const defaultProps = {
 	onStart: jest.fn(),
@@ -18,9 +27,11 @@ describe( 'SiteManagementActions', () => {
 	} );
 	const renderWithProvider = ( children: React.ReactElement ) => {
 		return render(
-			<ContentTabsProvider>
-				<SyncSitesProvider>{ children }</SyncSitesProvider>
-			</ContentTabsProvider>
+			<Provider store={ store }>
+				<ContentTabsProvider>
+					<SyncSitesProvider>{ children }</SyncSitesProvider>
+				</ContentTabsProvider>
+			</Provider>
 		);
 	};
 	it( 'should not render when selectedSite is undefined', () => {

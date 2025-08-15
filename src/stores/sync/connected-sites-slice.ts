@@ -1,6 +1,5 @@
 import { createAsyncThunk, createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { useCallback, useEffect } from 'react';
-import { useAuth } from 'src/hooks/use-auth';
+import { useCallback } from 'react';
 import { useFetchWpComSites } from 'src/hooks/use-fetch-wpcom-sites';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -12,8 +11,6 @@ type ModalState = false | true | { disconnectSiteId?: number };
 
 interface ConnectedSitesState {
 	sites: Record< string, ConnectedSites >; // Keyed by localSiteId for efficient lookups
-	loading: boolean;
-	error: string | null;
 	isModalOpen: ModalState;
 }
 
@@ -31,18 +28,22 @@ interface DisconnectSiteParams {
 
 const initialState: ConnectedSitesState = {
 	sites: {},
-	loading: false,
-	error: null,
 	isModalOpen: false,
 };
 
-export const loadConnectedSites = createAsyncThunk(
-	'connectedSites/load',
-	async ( localSiteId: string ) => {
-		const sites = await getIpcApi().getConnectedWpcomSites( localSiteId );
-		return { localSiteId, sites };
-	}
-);
+export const loadAllConnectedSites = createAsyncThunk( 'connectedSites/loadAll', async () => {
+	const allSites = await getIpcApi().getConnectedWpcomSites();
+
+	const sitesByLocalSiteId: Record< string, ConnectedSites > = {};
+	allSites.forEach( ( site ) => {
+		if ( ! sitesByLocalSiteId[ site.localSiteId ] ) {
+			sitesByLocalSiteId[ site.localSiteId ] = [];
+		}
+		sitesByLocalSiteId[ site.localSiteId ].push( site );
+	} );
+
+	return sitesByLocalSiteId;
+} );
 
 export const connectSite = createAsyncThunk(
 	'connectedSites/connect',
@@ -100,10 +101,6 @@ const connectedSitesSlice = createSlice( {
 			}
 		},
 
-		clearError: ( state ) => {
-			state.error = null;
-		},
-
 		clearSitesForLocalSite: ( state, action: PayloadAction< string > ) => {
 			delete state.sites[ action.payload ];
 		},
@@ -118,26 +115,13 @@ const connectedSitesSlice = createSlice( {
 	},
 	extraReducers: ( builder ) => {
 		builder
-			.addCase( loadConnectedSites.pending, ( state ) => {
-				state.loading = true;
-				state.error = null;
+			.addCase( loadAllConnectedSites.fulfilled, ( state, action ) => {
+				state.sites = action.payload;
 			} )
-			.addCase( loadConnectedSites.fulfilled, ( state, action ) => {
-				state.loading = false;
-				state.sites[ action.payload.localSiteId ] = action.payload.sites;
-			} )
-			.addCase( loadConnectedSites.rejected, ( state, action ) => {
-				state.loading = false;
-				state.error = action.error.message || 'Failed to load connected sites';
-			} )
-
-			// Connect site
 			.addCase( connectSite.fulfilled, ( state, action ) => {
 				const { localSiteId, connectedSites } = action.payload;
 				state.sites[ localSiteId ] = connectedSites;
 			} )
-
-			// Disconnect site
 			.addCase( disconnectSite.fulfilled, ( state, action ) => {
 				const { localSiteId, connectedSites } = action.payload;
 				state.sites[ localSiteId ] = connectedSites;
@@ -151,7 +135,6 @@ export const connectedSitesReducer = connectedSitesSlice.reducer;
 const selectConnectedSitesState = ( state: RootState ) => state.connectedSites;
 
 export const connectedSitesSelectors = {
-	selectLoading: ( state: RootState ) => state.connectedSites.loading,
 	selectIsModalOpen: ( state: RootState ) => state.connectedSites.isModalOpen,
 	selectSitesByLocalSiteId: createSelector(
 		[ selectConnectedSitesState, ( _: RootState, localSiteId: string | undefined ) => localSiteId ],
@@ -166,9 +149,8 @@ export const useConnectedSitesData = () => {
 	const connectedSites = useRootSelector( ( state ) =>
 		connectedSitesSelectors.selectSitesByLocalSiteId( state, localSiteId )
 	);
-	const loading = useRootSelector( connectedSitesSelectors.selectLoading );
 
-	return { connectedSites, loading, localSiteId };
+	return { connectedSites, localSiteId };
 };
 
 export const useSyncSitesData = () => {
@@ -184,16 +166,6 @@ export const useConnectedSitesOperations = () => {
 	const dispatch = useAppDispatch();
 	const { localSiteId, connectedSites } = useConnectedSitesData();
 	const { syncSites } = useSyncSitesData();
-
-	const loadConnectedSitesAction = useCallback( async () => {
-		if ( ! localSiteId ) return;
-
-		try {
-			await dispatch( loadConnectedSites( localSiteId ) ).unwrap();
-		} catch ( error ) {
-			console.error( 'Failed to load connected sites:', error );
-		}
-	}, [ dispatch, localSiteId ] );
 
 	const connectSiteToLocal = useCallback(
 		async ( site: SyncSite, overrideLocalSiteId?: string ) => {
@@ -219,7 +191,7 @@ export const useConnectedSitesOperations = () => {
 				dispatch( connectedSitesActions.closeModal() );
 
 				if ( overrideLocalSiteId && overrideLocalSiteId !== localSiteId ) {
-					await dispatch( loadConnectedSites( overrideLocalSiteId ) );
+					await dispatch( loadAllConnectedSites() );
 				}
 			} catch ( error ) {
 				console.error( 'Failed to connect site:', error );
@@ -258,20 +230,7 @@ export const useConnectedSitesOperations = () => {
 	);
 
 	return {
-		loadConnectedSites: loadConnectedSitesAction,
 		connectSite: connectSiteToLocal,
 		disconnectSite: disconnectSiteFromLocal,
 	};
-};
-
-export const useAutoLoadConnectedSites = () => {
-	const { isAuthenticated } = useAuth();
-	const { localSiteId } = useConnectedSitesData();
-	const { loadConnectedSites } = useConnectedSitesOperations();
-
-	useEffect( () => {
-		if ( isAuthenticated && localSiteId ) {
-			void loadConnectedSites();
-		}
-	}, [ isAuthenticated, localSiteId, loadConnectedSites ] );
 };

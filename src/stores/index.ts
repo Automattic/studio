@@ -20,7 +20,10 @@ import providerConstantsReducer, {
 } from 'src/stores/provider-constants-slice';
 import { reducer as snapshotReducer, updateSnapshotLocally } from 'src/stores/snapshot-slice';
 import { syncReducer } from 'src/stores/sync';
-import { connectedSitesReducer } from 'src/stores/sync/connected-sites-slice';
+import {
+	connectedSitesReducer,
+	loadAllConnectedSites,
+} from 'src/stores/sync/connected-sites-slice';
 import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from 'common/lib/locale';
@@ -134,6 +137,9 @@ async function initializeProviderConstants() {
 if ( typeof jest === 'undefined' && process.env.NODE_ENV !== 'test' ) {
 	void initializeProviderConstants();
 }
+
+// Initialize connected sites on store initialization
+void store.dispatch( loadAllConnectedSites() );
 
 export type AppDispatch = typeof store.dispatch;
 

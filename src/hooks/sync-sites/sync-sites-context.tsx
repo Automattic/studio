@@ -25,8 +25,6 @@ export type SyncSitesContextType = Omit< UseSyncPull, 'pullStates' > &
 	Omit< UseSyncPush, 'pushStates' > &
 	ReturnType< typeof useSyncSitesData > & {
 		getLastSyncTimeText: GetLastSyncTimeText;
-		connectSite: ( site: SyncSite, overrideLocalSiteId?: string ) => Promise< void >;
-		disconnectSite: ( siteId: number ) => Promise< void >;
 	};
 
 const SyncSitesContext = createContext< SyncSitesContextType | undefined >( undefined );
@@ -124,8 +122,6 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				isAnySitePulling,
 				isSiteIdPulling,
 				clearPullState,
-				connectSite,
-				disconnectSite,
 				syncSites,
 				refetchSites,
 				isFetching,

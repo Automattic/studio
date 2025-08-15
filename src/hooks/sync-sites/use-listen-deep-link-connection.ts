@@ -2,12 +2,13 @@ import { SyncSitesContextType } from 'src/hooks/sync-sites/sync-sites-context';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { useConnectedSitesOperations } from 'src/stores/sync';
 
 export function useListenDeepLinkConnection( {
 	connectSite,
 	refetchSites,
 }: {
-	connectSite: SyncSitesContextType[ 'connectSite' ];
+	connectSite: ReturnType< typeof useConnectedSitesOperations >[ 'connectSite' ];
 	refetchSites: SyncSitesContextType[ 'refetchSites' ];
 } ) {
 	const { selectedSite, setSelectedSiteId } = useSiteDetails();

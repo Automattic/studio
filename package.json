@@ -58,7 +58,7 @@
 		"@types/follow-redirects": "^1.14.4",
 		"@types/jest": "^30.0.0",
 		"@types/lockfile": "^1.0.4",
-		"@types/lodash": "^4.17.16",
+		"@types/lodash": "^4.17.20",
 		"@types/node-fetch": "^2.6.12",
 		"@types/react": "^18.2.42",
 		"@types/react-dom": "^18.2.17",

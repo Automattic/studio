@@ -15,10 +15,20 @@ import { cx } from 'src/lib/cx';
 import { ContentTabSync } from 'src/modules/sync';
 
 export function SiteContentTabs() {
-	const { selectedSite } = useSiteDetails();
+	const { selectedSite, data: localSites } = useSiteDetails();
 	const { importState } = useImportExport();
 	const { tabs, selectedTab, setSelectedTab } = useContentTabs();
 	const { __ } = useI18n();
+
+	if ( ! localSites.length ) {
+		return (
+			<div className="w-full h-full flex items-center justify-center app-no-drag-region">
+				<p className="text-lg text-gray-600">
+					{ __( 'All sites removed. Add a new one to get started again.' ) }
+				</p>
+			</div>
+		);
+	}
 
 	if ( ! selectedSite ) {
 		return (

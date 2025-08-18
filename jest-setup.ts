@@ -42,16 +42,12 @@ if (typeof window !== 'undefined') {
 
 // Silence console.log for all tests
 beforeEach( () => {
-	// console.log = jest.fn();
+	console.log = jest.fn();
 } );
 
 // Force garbage collection after each test
 afterAll(() => {
-	console.log('afterAll')
-	console.log(global.gc)
 	if (global.gc) {
-		console.log('---')
-		console.log('Running GC')
 		global.gc();
 	}
 });

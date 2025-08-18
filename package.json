@@ -62,7 +62,7 @@
 		"@types/node-fetch": "^2.6.12",
 		"@types/react": "^18.2.42",
 		"@types/react-dom": "^18.2.17",
-		"@types/semver": "^7.5.8",
+		"@types/semver": "^7.7.0",
 		"@types/shell-quote": "^1.7.5",
 		"@types/winreg": "^1.2.36",
 		"@types/yauzl": "^2.10.3",

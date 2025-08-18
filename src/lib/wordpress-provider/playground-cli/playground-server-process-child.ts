@@ -157,8 +157,22 @@ async function startServer(
 			args.wp = serverOptions.wordPressVersion;
 		}
 
+		const defaultConstants = {
+			WP_SQLITE_AST_DRIVER: true,
+		};
+
 		if ( options.blueprint ) {
-			args.blueprint = options.blueprint;
+			args.blueprint = {
+				...options.blueprint,
+				constants: {
+					...options.blueprint.constants,
+					...defaultConstants,
+				},
+			};
+		} else {
+			args.blueprint = {
+				constants: defaultConstants,
+			};
 		}
 
 		server = await runCLI( args );

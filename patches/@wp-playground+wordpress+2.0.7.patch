@@ -11,3 +11,15 @@ index e05c5a8..6d7c71e 100644
  			ob_start();
  			$wp_load = getenv('DOCUMENT_ROOT') . '/wp-load.php';
  			if (!file_exists($wp_load)) {
+diff --git a/node_modules/@wp-playground/wordpress/index.js b/node_modules/@wp-playground/wordpress/index.js
+index 3e8435c..71a7411 100644
+--- a/node_modules/@wp-playground/wordpress/index.js
++++ b/node_modules/@wp-playground/wordpress/index.js
+@@ -366,7 +366,6 @@ async function v(e, r, n, t = "rewrite") {
+ }
+ async function x(e, r) {
+   const n = s(r, "wp-config.php"), t = {
+-    DB_NAME: "wordpress"
+   };
+   !e.fileExists(n) && e.fileExists(s(r, "wp-config-sample.php")) && await e.writeFile(
+     n,

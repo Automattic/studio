@@ -1,13 +1,7 @@
 diff --git a/node_modules/@wp-playground/wordpress/index.cjs b/node_modules/@wp-playground/wordpress/index.cjs
-index e05c5a8..daa4263 100644
+index e05c5a8..6d7c71e 100644
 --- a/node_modules/@wp-playground/wordpress/index.cjs
 +++ b/node_modules/@wp-playground/wordpress/index.cjs
-@@ -1,4 +1,4 @@
--"use strict";Object.defineProperty(exports,Symbol.toStringTag,{value:"Module"});const o=require("@php-wasm/util"),p=require("@wp-playground/common"),c=require("@php-wasm/logger"),d=require("@php-wasm/universal"),T=`<?php
-+"use strict";console.log("I am cjs");Object.defineProperty(exports,Symbol.toStringTag,{value:"Module"});const o=require("@php-wasm/util"),p=require("@wp-playground/common"),c=require("@php-wasm/logger"),d=require("@php-wasm/universal"),T=`<?php
- 
- /**
-  * Rewrites the wp-config.php file to ensure specific constants are defined
 @@ -352,7 +352,7 @@ function skip_whitespace($tokens) {
  			ob_clean();
  			echo false === $return_value ? '0' : '1';

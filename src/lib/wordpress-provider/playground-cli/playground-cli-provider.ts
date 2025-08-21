@@ -86,10 +86,8 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			isWpAutoUpdating: options.isWpAutoUpdating,
 		};
 
-		const url = `http://127.0.0.1:${ port }`;
-
 		return {
-			url,
+			url: `http://localhost:${ port }`,
 			options: serverOptions,
 			_internal: playgroundOptions,
 		};

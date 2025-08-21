@@ -1,6 +1,7 @@
 module.exports = {
 	roots: [ '<rootDir>/src', '<rootDir>/cli', '<rootDir>/common' ],
 	preset: 'ts-jest',
+	workerIdleMemoryLimit: '1GB',
 	transform: {
 		'^.+\\.(ts|tsx)$': [
 			'ts-jest',
@@ -34,4 +35,5 @@ module.exports = {
 	globalSetup: '<rootDir>/jest-global-setup.ts',
 	setupFilesAfterEnv: [ '<rootDir>/jest-setup.ts' ],
 	watchPlugins: [ 'jest-watch-typeahead/filename', 'jest-watch-typeahead/testname' ],
+	logHeapUsage: true,
 };

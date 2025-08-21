@@ -43,6 +43,7 @@ export class E2ESession {
 				E2E: 'true', // allow app to determine whether it's running as an end-to-end test
 				E2E_APP_DATA_PATH: this.appDataPath,
 				E2E_HOME_PATH: this.homePath,
+				ENABLE_BLUEPRINTS: 'true',
 			},
 			timeout: 60_000,
 		} );

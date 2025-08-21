@@ -113,5 +113,7 @@ export const mainBaseConfig: Configuration = {
 	},
 	externals: {
 		'@wp-playground/cli': 'commonjs @wp-playground/cli',
+		'@php-wasm/node': 'commonjs @php-wasm/node',
+		'@php-wasm/logger': 'commonjs @php-wasm/logger',
 	},
 };

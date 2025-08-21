@@ -13,7 +13,10 @@ function getWasmDirs( dir: string ) {
 		.filter( ( name: string ) => name !== 'node_modules' );
 }
 
-const phpWasmDir = path.resolve( __dirname, 'node_modules/@php-wasm/node' );
+// Resolve the installed path to '@php-wasm/node' reliably
+// Using require.resolve avoids issues with cwd during packaging
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const phpWasmDir = path.dirname( require.resolve( '@php-wasm/node/package.json' ) );
 const wasmDirs = getWasmDirs( phpWasmDir );
 
 // Extra entries are bundled separately from the main bundle. They are primarily used
@@ -99,6 +102,17 @@ export const mainBaseConfig: Configuration = {
 					from: path.join( phpWasmDir, dir ),
 					to: path.resolve( __dirname, `.webpack/main/${ dir }` ),
 				} ) ),
+				{
+					from: path.resolve( __dirname, 'node_modules/@php-wasm/logger' ),
+					to: path.resolve( __dirname, '.webpack/main/node_modules/@php-wasm/logger' ),
+				},
+				{
+					context: phpWasmDir,
+					from: '**/*',
+					to: path.resolve( __dirname, '.webpack/main/node_modules/@php-wasm/node' ),
+					noErrorOnMissing: true,
+					globOptions: { ignore: [ '**/node_modules/**' ] },
+				},
 			],
 		} ),
 	],
@@ -113,7 +127,5 @@ export const mainBaseConfig: Configuration = {
 	},
 	externals: {
 		'@wp-playground/cli': 'commonjs @wp-playground/cli',
-		'@php-wasm/node': 'commonjs @php-wasm/node',
-		'@php-wasm/logger': 'commonjs @php-wasm/logger',
 	},
 };

@@ -41,6 +41,9 @@ test.describe( 'Servers', () => {
 		const sidebar = new MainSidebar( session.mainWindow );
 		const modal = await sidebar.openAddSiteModal();
 
+		await expect( modal.createSiteButton ).toBeVisible();
+		await modal.createSiteButton.click();
+
 		await modal.siteNameInput.fill( siteName );
 		await modal.addSiteButton.click();
 

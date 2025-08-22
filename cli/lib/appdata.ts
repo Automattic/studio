@@ -36,10 +36,7 @@ const userDataSchema = z
 			.passthrough()
 			.optional(),
 		lastBumpStats: z
-			.record(
-				z.union( [ z.nativeEnum( StatsGroup ), z.literal( 'local-environment-launch-uniques' ) ] ),
-				z.record( z.nativeEnum( StatsMetric ), z.number() )
-			)
+			.record( z.string(), z.record( z.nativeEnum( StatsMetric ), z.number() ) )
 			.optional(),
 	} )
 	.passthrough();

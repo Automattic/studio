@@ -99,6 +99,11 @@ export const mainBaseConfig: Configuration = {
 					from: path.join( phpWasmDir, dir ),
 					to: path.resolve( __dirname, `.webpack/main/${ dir }` ),
 				} ) ),
+				// Copy @wp-playground/cli worker files
+				{
+					from: path.resolve( __dirname, 'node_modules/@wp-playground/cli/worker-thread-*' ),
+					to: path.resolve( __dirname, '.webpack/main/[name][ext]' ),
+				},
 			],
 		} ),
 	],
@@ -110,10 +115,5 @@ export const mainBaseConfig: Configuration = {
 			vendor: path.resolve( __dirname, 'vendor/' ),
 			common: path.resolve( __dirname, 'common/' ),
 		},
-	},
-	externals: {
-		'@wp-playground/cli': 'commonjs @wp-playground/cli',
-		'@php-wasm/node': 'commonjs @php-wasm/node',
-		'@php-wasm/logger': 'commonjs @php-wasm/logger',
 	},
 };

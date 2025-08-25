@@ -103,10 +103,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	}
 
 	getSqlitePath(): string {
-		if ( process.env.NODE_ENV !== 'test' ) {
-			return nodePath.join( getServerFilesPath(), this.SQLITE_FILENAME );
-		}
-		return nodePath.join( getResourcesPath(), 'wp-files', this.SQLITE_FILENAME );
+		return nodePath.join( getServerFilesPath(), this.SQLITE_FILENAME );
 	}
 
 	getWpLoadPath( _serverProcess: WordPressServerProcess ): string {

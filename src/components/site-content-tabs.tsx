@@ -5,6 +5,7 @@ import { ContentTabImportExport } from 'src/components/content-tab-import-export
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { ContentTabPreviews } from 'src/components/content-tab-previews';
 import { ContentTabSettings } from 'src/components/content-tab-settings';
+import { EmptyStudio } from 'src/components/empty-studio';
 import Header from 'src/components/header';
 import { SiteLoadingIndicator } from 'src/components/site-loading-indicator';
 import { MIN_WIDTH_CLASS_TO_MEASURE } from 'src/constants';
@@ -21,13 +22,7 @@ export function SiteContentTabs() {
 	const { __ } = useI18n();
 
 	if ( ! localSites.length ) {
-		return (
-			<div className="w-full h-full flex items-center justify-center app-no-drag-region">
-				<p className="text-lg text-gray-600">
-					{ __( 'All sites removed. Add a new one to get started again.' ) }
-				</p>
-			</div>
-		);
+		return <EmptyStudio onSubmit={ () => {} } />;
 	}
 
 	if ( ! selectedSite ) {

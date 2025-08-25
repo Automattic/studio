@@ -395,7 +395,21 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		const unsubscribe = window.ipcListener.subscribe( 'user-data-updated', async ( _, payload ) => {
 			if ( ! fastDeepEqual( payload.newSites, payload.sites ) ) {
 				const updatedSites = await getIpcApi().getSiteDetails();
-				setData( updatedSites );
+				setData( ( prevData ) => {
+					const tempSite = prevData.find( ( site ) => site.isAddingSite );
+
+					if ( ! tempSite ) {
+						return updatedSites;
+					}
+
+					const tempSiteExists = updatedSites.some( ( site ) => site.id === tempSite.id );
+
+					if ( ! tempSiteExists ) {
+						return sortSites( [ ...updatedSites, tempSite ] );
+					}
+
+					return updatedSites;
+				} );
 			}
 		} );
 

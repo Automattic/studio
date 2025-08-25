@@ -22,7 +22,7 @@ export function SiteContentTabs() {
 	const { __ } = useI18n();
 
 	if ( ! localSites.length ) {
-		return <EmptyStudio onSubmit={ () => {} } />;
+		return <EmptyStudio />;
 	}
 
 	if ( ! selectedSite ) {

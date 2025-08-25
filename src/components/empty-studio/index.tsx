@@ -1,12 +1,8 @@
 import { useI18n } from '@wordpress/react-i18n';
-import Button from 'src/components/button';
 import emptyStudioIllustration from 'src/components/empty-studio/empty-studio.svg';
+import AddSite from 'src/modules/add-site';
 
-type EmptyStudioProps = {
-	onSubmit: () => void;
-};
-
-export function EmptyStudio( { onSubmit }: EmptyStudioProps ) {
+export function EmptyStudio() {
 	const { __ } = useI18n();
 
 	return (
@@ -20,9 +16,7 @@ export function EmptyStudio( { onSubmit }: EmptyStudioProps ) {
 						{ __( "You don't have any sites right now. Add a new one to get started again." ) }
 					</p>
 
-					<Button variant="primary" onClick={ onSubmit }>
-						{ __( 'Add site' ) }
-					</Button>
+					<AddSite variant="primary" />
 				</div>
 
 				<img src={ emptyStudioIllustration } alt={ __( 'Empty Studio illustration' ) } />

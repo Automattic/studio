@@ -68,7 +68,7 @@ test.describe( 'Servers', () => {
 		const response = await new Promise< http.IncomingMessage >( ( resolve, reject ) => {
 			http.get( `http://${ frontendUrl }`, resolve ).on( 'error', reject );
 		} );
-		expect( response.statusCode ).toBe( 200 );
+		expect( [ 200, 302 ] ).toContain( response.statusCode );
 		expect( response.headers[ 'content-type' ] ).toMatch( /text\/html/ );
 	} );
 

@@ -67,9 +67,6 @@ export async function executeWPCli(
 			php.writeFile( '/tmp/wp-cli.phar', readFileSync( wpCliPharPath ) );
 		}
 
-		// Create minimal MU plugins for CLI mode
-		await mountCleanMuPlugins( php );
-
 		// Create CA bundle certificate file for SSL verification (following wp-now approach)
 		php.mkdir( PLAYGROUND_INTERNAL_SHARED_FOLDER );
 		const caBundlePath = nodePath.posix.join( PLAYGROUND_INTERNAL_SHARED_FOLDER, 'ca-bundle.crt' );
@@ -86,47 +83,6 @@ export async function executeWPCli(
 	} finally {
 		// Clean up PHP instance
 		php.exit();
-	}
-}
-
-/**
- * Mount only essential MU plugins for CLI mode (no database setup plugins)
- */
-async function mountCleanMuPlugins( php: PHP ): Promise< void > {
-	const muPluginsPath = '/wordpress/wp-content/mu-plugins';
-	php.mkdir( muPluginsPath );
-
-	// Only include essential plugins that don't interfere with database
-	const cleanMuPlugins = [
-		{
-			filename: '0-https-for-reverse-proxy.php',
-			content: `<?php
-				if( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && strpos( $_SERVER['HTTP_X_FORWARDED_PROTO'], 'https') !== false ){
-					$_SERVER['HTTPS'] = 'on';
-				}
-			`,
-		},
-		{
-			filename: '0-permalinks.php',
-			content: `<?php
-				// Support permalinks without "index.php"
-				add_filter( 'got_url_rewrite', '__return_true' );
-			`,
-		},
-		{
-			filename: '0-sqlite-command.php',
-			content: `<?php
-				// Ensure SQLite command can find the plugin
-				add_filter( 'sqlite_command_sqlite_plugin_directories', function( $directories ) {
-					$directories[] = '/wordpress/wp-content/mu-plugins/sqlite-database-integration';
-					return $directories;
-				} );
-			`,
-		},
-	];
-
-	for ( const plugin of cleanMuPlugins ) {
-		php.writeFile( nodePath.posix.join( muPluginsPath, plugin.filename ), plugin.content );
 	}
 }
 

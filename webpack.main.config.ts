@@ -101,8 +101,12 @@ export const mainBaseConfig: Configuration = {
 				} ) ),
 				// Copy @wp-playground/cli worker files
 				{
-					from: path.resolve( __dirname, 'node_modules/@wp-playground/cli/worker-thread-*' ),
-					to: path.resolve( __dirname, '.webpack/main/[name][ext]' ),
+					from: path.resolve( __dirname, 'node_modules/@wp-playground/cli' ),
+					to: path.resolve( __dirname, '.webpack/main' ),
+					filter: ( resourcePath: string ) => {
+						const fileName = path.basename( resourcePath );
+						return fileName.startsWith( 'worker-thread-' );
+					},
 				},
 			],
 		} ),

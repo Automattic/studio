@@ -5,12 +5,16 @@ import {
 	__experimentalText as Text,
 	Icon,
 } from '@wordpress/components';
-import { sprintf } from '@wordpress/i18n';
+import { createInterpolateElement } from '@wordpress/element';
 import { download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useRef, useState } from 'react';
+import Button from 'src/components/button';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getLocalizedLink } from 'src/lib/get-localized-link';
+import { useI18nLocale } from 'src/stores';
 
 const formatFileSize = ( bytes: number ) => {
 	if ( bytes === 0 ) return '0 Bytes';
@@ -26,6 +30,7 @@ interface ImportBackupProps {
 
 export default function ImportBackup( { onFileSelect }: ImportBackupProps ) {
 	const { __ } = useI18n();
+	const locale = useI18nLocale();
 	const [ isDragging, setIsDragging ] = useState( false );
 	const [ selectedFile, setSelectedFile ] = useState< File | null >( null );
 	const fileInputRef = useRef< HTMLInputElement >( null );
@@ -147,25 +152,31 @@ export default function ImportBackup( { onFileSelect }: ImportBackupProps ) {
 				) : (
 					<VStack className="items-center justify-center h-full" spacing={ 2 }>
 						<Icon icon={ download } size={ 24 } className="fill-gray-400" />
-						<>
-							<Heading
-								className="text-[14px] leading-4 font-normal text-center text-gray-700"
-								weight="400"
-							>
-								{ isDragging
-									? __( 'Drop your backup file here' )
-									: __( 'Drag a file here, or click to select a file' ) }
-							</Heading>
-							<Text className="text-xs leading-4 font-normal text-center text-gray-700">
-								{ sprintf(
-									/* translators: %s: List of supported file formats */
-									__( 'Supported formats: %s' ),
-									ACCEPTED_IMPORT_FILE_TYPES.map( ( ext ) =>
-										ext.replace( '.', '' ).toUpperCase()
-									).join( ', ' )
-								) }
-							</Text>
-						</>
+						<Heading
+							className="text-[14px] leading-4 font-normal text-center text-gray-700"
+							weight="400"
+						>
+							{ isDragging
+								? __( 'Drop your backup file here' )
+								: createInterpolateElement(
+										__(
+											'Import a Jetpack backup or a full-site backup in another format. <button>Learn more</button>'
+										),
+										{
+											button: (
+												<Button
+													variant="link"
+													className="text-xs"
+													onClick={ ( e: React.MouseEvent ) => {
+														e.stopPropagation();
+
+														getIpcApi().openURL( getLocalizedLink( locale, 'docsImportExport' ) );
+													} }
+												/>
+											),
+										}
+								  ) }
+						</Heading>
 					</VStack>
 				) }
 			</div>

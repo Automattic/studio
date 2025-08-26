@@ -3,7 +3,7 @@ import { speak } from '@wordpress/a11y';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import Button from 'src/components/button';
+import Button, { ButtonVariant } from 'src/components/button';
 import DragAndDropOverlay from 'src/components/drag-and-drop-overlay';
 import Modal from 'src/components/modal';
 import { SiteForm } from 'src/components/site-form';
@@ -25,9 +25,15 @@ interface AddSiteProps {
 	className?: string;
 	showModal: boolean;
 	setShowModal: ( showModal: boolean ) => void;
+	variant?: ButtonVariant;
 }
 
-export default function AddSite( { className, showModal, setShowModal }: AddSiteProps ) {
+export default function AddSite( {
+	className,
+	showModal,
+	setShowModal,
+	variant = 'outlined',
+}: AddSiteProps ) {
 	const { __ } = useI18n();
 	const [ nameSuggested, setNameSuggested ] = useState( false );
 	const [ fileError, setFileError ] = useState( '' );
@@ -247,7 +253,7 @@ export default function AddSite( { className, showModal, setShowModal }: AddSite
 				</Modal>
 			) }
 			<Button
-				variant="outlined"
+				variant={ variant }
 				className={ className }
 				onClick={ openModal }
 				disabled={ isAnySiteProcessing }

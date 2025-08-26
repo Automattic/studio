@@ -334,6 +334,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 	if ( ! enableBlueprints ) {
 		return (
 			<AddSiteLegacy
+				variant={ variant }
 				className={ className }
 				showModal={ showModal }
 				setShowModal={ setShowModal }

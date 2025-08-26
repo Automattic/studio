@@ -3,7 +3,7 @@ import { Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import Button from 'src/components/button';
+import Button, { ButtonVariant } from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
@@ -27,6 +27,7 @@ import Stepper from './components/stepper';
 
 interface AddSiteProps {
 	className?: string;
+	variant?: ButtonVariant;
 }
 
 type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
@@ -190,7 +191,7 @@ function NavigationContent( props: NavigationContentProps ) {
 	);
 }
 
-export default function AddSite( { className }: AddSiteProps ) {
+export default function AddSite( { className, variant = 'outlined' }: AddSiteProps ) {
 	const { __ } = useI18n();
 	const { enableBlueprints } = useFeatureFlags();
 	const [ showModal, setShowModal ] = useState( false );
@@ -353,7 +354,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 				</Navigator>
 			</FullscreenModal>
 			<Button
-				variant="outlined"
+				variant={ variant }
 				className={ className }
 				onClick={ openModal }
 				disabled={ isAnySiteProcessing }

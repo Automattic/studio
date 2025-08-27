@@ -36,6 +36,32 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	} ),
 } ) );
 
+jest.mock( 'src/stores/wordpress-versions-api', () => {
+	const actual = jest.requireActual( 'src/stores/wordpress-versions-api' );
+	return {
+		...actual,
+		useGetWordPressVersions: jest.fn( () => ( {
+			data: [
+				{ label: 'Latest', value: 'latest', isBeta: false, isDevelopment: false },
+				{ label: '6.4', value: '6.4', isBeta: false, isDevelopment: false },
+				{ label: '6.3', value: '6.3', isBeta: false, isDevelopment: false },
+			],
+			isLoading: false,
+		} ) ),
+	};
+} );
+
+jest.mock( 'src/stores/wpcom-api', () => {
+	const actual = jest.requireActual( 'src/stores/wpcom-api' );
+	return {
+		...actual,
+		useGetBlueprints: jest.fn( () => ( {
+			data: { blueprints: [], total: 0 },
+			isLoading: false,
+		} ) ),
+	};
+} );
+
 store.replaceReducer( testReducer );
 
 describe( 'SiteContentTabs', () => {

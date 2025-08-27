@@ -5,6 +5,7 @@ import {
 	__experimentalText as Text,
 	Button,
 	Notice,
+	Tooltip,
 } from '@wordpress/components';
 import { DataViews, View } from '@wordpress/dataviews';
 import { sprintf } from '@wordpress/i18n';
@@ -142,11 +143,17 @@ export default function AddSiteBlueprint( {
 					.flatMap( ( blueprint ) => blueprint.blueprint.meta?.categories || [] )
 					.filter( ( category, index, arr ) => arr.indexOf( category ) === index )
 					.map( ( category ) => ( { label: category, value: category } ) ),
-				render: ( { item }: { item: DataViewBlueprint } ) => (
-					<HStack spacing={ 3 } wrap alignment="left">
-						{ ( item.blueprint.meta?.categories || [] )
-							.filter( ( category ) => category !== 'Studio' )
-							.map( ( category ) => (
+				render: ( { item }: { item: DataViewBlueprint } ) => {
+					const categories = ( item.blueprint.meta?.categories || [] ).filter(
+						( category ) => category !== 'Studio'
+					);
+					const maxCategoriesToShow = 3;
+					const visibleCategories = categories.slice( 0, maxCategoriesToShow );
+					const remainingCount = categories.length - maxCategoriesToShow;
+
+					return (
+						<HStack spacing={ 3 } wrap alignment="left">
+							{ visibleCategories.map( ( category ) => (
 								<Text
 									as="span"
 									key={ category }
@@ -155,8 +162,24 @@ export default function AddSiteBlueprint( {
 									{ category }
 								</Text>
 							) ) }
-					</HStack>
-				),
+							{ remainingCount > 0 && (
+								<Tooltip 
+									text={ categories.slice( maxCategoriesToShow ).join( ', ' ) } 
+									delay={ 200 }
+									position="top right"
+									className="max-w-xs"
+								>
+									<Text
+										as="span"
+										className="px-2.5 py-1 text-xs bg-gray-200 text-gray-600 rounded-sm inline-flex items-center font-medium cursor-default"
+									>
+										+{ remainingCount } more
+									</Text>
+								</Tooltip>
+							) }
+						</HStack>
+					);
+				},
 			},
 			{
 				id: 'preview',

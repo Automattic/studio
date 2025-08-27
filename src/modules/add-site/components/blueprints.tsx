@@ -64,6 +64,15 @@ export default function AddSiteBlueprint( {
 			fileRef.current.value = '';
 		}
 	}, [ onBlueprintChange ] );
+
+	const handleBlueprintClick = useCallback(
+		( item: DataViewBlueprint ) => {
+			setValidationError( null );
+			onBlueprintChange( item.slug );
+		},
+		[ onBlueprintChange ]
+	);
+
 	const [ view, setView ] = useState< View >( {
 		type: 'grid',
 		perPage: 9,
@@ -316,7 +325,7 @@ export default function AddSiteBlueprint( {
 					paginationInfo={ paginationInfo }
 					getItemId={ ( item: DataViewBlueprint ) => item.slug }
 					selection={ selectedBlueprint ? [ selectedBlueprint ] : [] }
-					onClickItem={ ( item ) => onBlueprintChange( item.slug ) }
+					onClickItem={ handleBlueprintClick }
 					isItemClickable={ () => true }
 				>
 					<DataViews.Layout />

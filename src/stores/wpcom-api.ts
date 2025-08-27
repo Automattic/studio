@@ -195,13 +195,6 @@ export const wpcomPublicApi = createApi( {
 					}
 				}
 
-				const invalidBlueprintsLength = blueprints.length - validBlueprints.length;
-				if ( invalidBlueprintsLength > 0 ) {
-					console.warn(
-						`Filtered out ${ invalidBlueprintsLength } invalid blueprint items out of ${ blueprints.length } total`
-					);
-				}
-
 				return {
 					blueprints: validBlueprints,
 					total: total,

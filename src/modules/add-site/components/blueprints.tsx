@@ -205,7 +205,6 @@ export default function AddSiteBlueprint( {
 				};
 
 				onFileBlueprintSelect( fileBlueprint );
-				setValidationError( null );
 			} catch ( error ) {
 				if ( error instanceof SyntaxError ) {
 					setValidationError( __( 'Invalid JSON file. Please check the file format.' ) );

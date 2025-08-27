@@ -1460,7 +1460,7 @@ export async function getProviderConstants( _event: IpcMainInvokeEvent ) {
 
 export async function validateBlueprint(
 	_event: IpcMainInvokeEvent,
-	blueprintJson: string
+	blueprintJson: object
 ): Promise< { valid: boolean; error?: string } > {
 	try {
 		await compileBlueprint( blueprintJson );

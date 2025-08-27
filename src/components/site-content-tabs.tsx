@@ -5,6 +5,7 @@ import { ContentTabImportExport } from 'src/components/content-tab-import-export
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { ContentTabPreviews } from 'src/components/content-tab-previews';
 import { ContentTabSettings } from 'src/components/content-tab-settings';
+import { EmptyStudio } from 'src/components/empty-studio';
 import Header from 'src/components/header';
 import { SiteLoadingIndicator } from 'src/components/site-loading-indicator';
 import { MIN_WIDTH_CLASS_TO_MEASURE } from 'src/constants';
@@ -15,10 +16,14 @@ import { cx } from 'src/lib/cx';
 import { ContentTabSync } from 'src/modules/sync';
 
 export function SiteContentTabs() {
-	const { selectedSite } = useSiteDetails();
+	const { selectedSite, data: localSites } = useSiteDetails();
 	const { importState } = useImportExport();
 	const { tabs, selectedTab, setSelectedTab } = useContentTabs();
 	const { __ } = useI18n();
+
+	if ( ! localSites.length ) {
+		return <EmptyStudio />;
+	}
 
 	if ( ! selectedSite ) {
 		return (

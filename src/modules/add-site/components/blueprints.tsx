@@ -171,7 +171,7 @@ export default function AddSiteBlueprint( {
 								>
 									<Text
 										as="span"
-										className="px-2.5 py-1 text-xs bg-gray-200 text-gray-600 rounded-sm inline-flex items-center font-medium cursor-default"
+										className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-sm flex items-center font-medium"
 									>
 										+{ remainingCount } more
 									</Text>

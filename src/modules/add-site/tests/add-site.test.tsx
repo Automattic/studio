@@ -1,6 +1,6 @@
 // Run tests: yarn test -- src/components/add-site-button.test.tsx
 import { jest } from '@jest/globals';
-import { render, waitFor, screen } from '@testing-library/react';
+import { render, waitFor, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { useOffline } from 'src/hooks/use-offline';
@@ -120,7 +120,7 @@ describe( 'AddSite', () => {
 		jest.clearAllMocks();
 	} );
 
-	it( 'should dismiss the modal when the cancel button is activated via keyboard', async () => {
+	it( 'should dismiss the modal when the close button is activated via keyboard', async () => {
 		const user = userEvent.setup();
 		mockGenerateProposedSitePath.mockResolvedValue( {
 			path: '/default_path/my-wordpress-website',
@@ -131,24 +131,25 @@ describe( 'AddSite', () => {
 		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getByRole( 'heading', { name: 'Create a site' } ) );
 
-		// Find the Cancel button
-		const cancelButton = screen.getByRole( 'button', { name: 'Cancel' } );
-		expect( cancelButton ).toBeInTheDocument();
+		// Find the Close button
+		const closeButton = screen.getByRole( 'button', { name: 'Close' } );
+		expect( closeButton ).toBeInTheDocument();
 
-		// Tab until we reach the Cancel button
+		// Tab until we reach the Closes button
 		let currentButton;
 		do {
 			await user.tab();
 			currentButton = document.activeElement;
-		} while ( currentButton !== cancelButton );
+		} while ( currentButton !== closeButton );
 
 		await user.keyboard( '{Enter}' );
 		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
 		expect( mockCreateSite ).not.toHaveBeenCalled();
 	} );
 
-	it( 'calls createSite with selected path when add site button is clicked', async () => {
+	it( 'calls createSite with selected path when create a site button is clicked', async () => {
 		const user = userEvent.setup();
 		mockGenerateProposedSitePath.mockResolvedValue( {
 			path: '/default_path/my-wordpress-website',
@@ -167,11 +168,16 @@ describe( 'AddSite', () => {
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
+
+		await user.click( screen.getByRole( 'button', { name: 'Create a site Create a clean site' } ) );
+
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
 		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site', '' );
-		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		const dialog = screen.getByRole( 'dialog' );
+		const addSiteButton = within( dialog ).getByRole( 'button', { name: 'Add site' } );
+		await user.click( addSiteButton );
 
 		await waitFor( () => {
 			expect( mockCreateSite ).toHaveBeenCalledWith(
@@ -202,15 +208,20 @@ describe( 'AddSite', () => {
 		} );
 		renderWithProvider( <AddSite /> );
 
-		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getAllByRole( 'button', { name: 'Add site' } )[ 0 ] );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
+
+		await user.click( screen.getByRole( 'button', { name: 'Create a site Create a clean site' } ) );
+
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
 		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site', '' );
 
 		await waitFor( () => {
-			expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toBeDisabled();
+			const dialog = screen.getByRole( 'dialog' );
+			const addSiteButton = within( dialog ).getByRole( 'button', { name: 'Add site' } );
+			expect( addSiteButton ).toBeDisabled();
 			expect( screen.getByRole( 'alert' ) ).toHaveTextContent(
 				'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
 			);
@@ -236,13 +247,18 @@ describe( 'AddSite', () => {
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
+
+		await user.click( screen.getByRole( 'button', { name: 'Create a site Create a clean site' } ) );
+
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
 		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site', '' );
 
 		await waitFor( () => {
-			expect( screen.getByRole( 'button', { name: 'Add site' } ) ).not.toBeDisabled();
+			const dialog = screen.getByRole( 'dialog' );
+			const addSiteButton = within( dialog ).getByRole( 'button', { name: 'Add site' } );
+			expect( addSiteButton ).not.toBeDisabled();
 			expect( screen.getByRole( 'alert' ) ).toHaveTextContent(
 				'The existing WordPress site at this path will be added.'
 			);
@@ -265,6 +281,8 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
 
+		await user.click( screen.getByRole( 'button', { name: 'Create a site Create a clean site' } ) );
+
 		const siteNameInput = screen.getByDisplayValue( 'My WordPress Website' );
 		await user.click( siteNameInput );
 		await user.type( siteNameInput, ' changed' );
@@ -281,6 +299,9 @@ describe( 'AddSite', () => {
 		} );
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
+
+		await user.click( screen.getByRole( 'button', { name: 'Create a site Create a clean site' } ) );
+
 		expect( screen.getByDisplayValue( 'My WordPress Website' ) ).toBeVisible();
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		expect( screen.getByDisplayValue( '/default_path/my-wordpress-website' ) ).toBeVisible();
@@ -306,6 +327,9 @@ describe( 'AddSite', () => {
 		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+
+		await user.click( screen.getByRole( 'button', { name: 'Create a site Create a clean site' } ) );
+
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
@@ -336,6 +360,9 @@ describe( 'AddSite', () => {
 		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+
+		await user.click( screen.getByRole( 'button', { name: 'Create a site Create a clean site' } ) );
+
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
 		expect( screen.getByText( 'WordPress version' ) ).toBeInTheDocument();
@@ -355,7 +382,9 @@ describe( 'AddSite', () => {
 			isWordPress: false,
 		} );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
-		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		const dialog = screen.getByRole( 'dialog' );
+		const addSiteButton = within( dialog ).getByRole( 'button', { name: 'Add site' } );
+		await user.click( addSiteButton );
 
 		await waitFor( () => {
 			expect( mockCreateSite ).toHaveBeenCalledWith(
@@ -382,6 +411,9 @@ describe( 'AddSite', () => {
 		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+
+		await user.click( screen.getByRole( 'button', { name: 'Create a site Create a clean site' } ) );
+
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
 		expect( screen.getByText( 'PHP version' ) ).toBeInTheDocument();
@@ -401,7 +433,9 @@ describe( 'AddSite', () => {
 			isWordPress: false,
 		} );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
-		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		const dialog = screen.getByRole( 'dialog' );
+		const addSiteButton = within( dialog ).getByRole( 'button', { name: 'Add site' } );
+		await user.click( addSiteButton );
 
 		await waitFor( () => {
 			expect( mockCreateSite ).toHaveBeenCalled();
@@ -415,6 +449,7 @@ describe( 'AddSite', () => {
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Create a site Create a clean site' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
 		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
@@ -428,6 +463,7 @@ describe( 'AddSite', () => {
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Create a site Create a clean site' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
 		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
@@ -441,6 +477,7 @@ describe( 'AddSite', () => {
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Create a site Create a clean site' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
 		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
@@ -460,6 +497,7 @@ describe( 'AddSite', () => {
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Create a site Create a clean site' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
 		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );

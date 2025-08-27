@@ -137,7 +137,7 @@ describe( 'AddSite', () => {
 		const closeButton = screen.getByRole( 'button', { name: 'Close' } );
 		expect( closeButton ).toBeInTheDocument();
 
-		// Tab until we reach the Cancel button
+		// Tab until we reach the Closes button
 		let currentButton;
 		do {
 			await user.tab();

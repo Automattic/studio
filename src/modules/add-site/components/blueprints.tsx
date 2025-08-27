@@ -44,6 +44,8 @@ interface AddSiteBlueprintProps {
 	onFileBlueprintSelect?: ( blueprint: Blueprint ) => void;
 }
 
+const MAX_BLUEPRINTS_CATEGORIES = 3;
+
 export default function AddSiteBlueprint( {
 	blueprints,
 	isLoading,
@@ -147,9 +149,8 @@ export default function AddSiteBlueprint( {
 					const categories = ( item.blueprint.meta?.categories || [] ).filter(
 						( category ) => category !== 'Studio'
 					);
-					const maxCategoriesToShow = 3;
-					const visibleCategories = categories.slice( 0, maxCategoriesToShow );
-					const remainingCount = categories.length - maxCategoriesToShow;
+					const visibleCategories = categories.slice( 0, MAX_BLUEPRINTS_CATEGORIES );
+					const remainingCount = categories.length - MAX_BLUEPRINTS_CATEGORIES;
 
 					return (
 						<HStack spacing={ 3 } wrap alignment="left">
@@ -164,7 +165,7 @@ export default function AddSiteBlueprint( {
 							) ) }
 							{ remainingCount > 0 && (
 								<Tooltip
-									text={ categories.slice( maxCategoriesToShow ).join( ', ' ) }
+									text={ categories.slice( MAX_BLUEPRINTS_CATEGORIES ).join( ', ' ) }
 									delay={ 200 }
 									position="top right"
 									className="max-w-xs"

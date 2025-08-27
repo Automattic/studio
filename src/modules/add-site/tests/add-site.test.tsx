@@ -133,7 +133,7 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		await user.click( screen.getByRole( 'heading', { name: 'Create a site' } ) );
 
-		// Find the Cancel button
+		// Find the Close button
 		const closeButton = screen.getByRole( 'button', { name: 'Close' } );
 		expect( closeButton ).toBeInTheDocument();
 

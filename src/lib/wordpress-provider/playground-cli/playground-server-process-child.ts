@@ -142,6 +142,7 @@ async function startServer(
 			port: options.port,
 			login: true,
 			'mount-before-install': mounts,
+			'site-url': serverOptions.absoluteUrl,
 		};
 
 		if ( ! options.isSetupMode ) {

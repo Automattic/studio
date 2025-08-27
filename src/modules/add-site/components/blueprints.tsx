@@ -123,7 +123,7 @@ export default function AddSiteBlueprint( {
 				type: 'text' as const,
 				render: ( { item }: { item: DataViewBlueprint } ) => (
 					<Text
-						className="text-[13px] text-gray-600 h-[454x]"
+						className="text-[13px] text-gray-600 h-[54px]"
 						weight={ 400 }
 						truncate
 						numberOfLines={ 3 }
@@ -185,7 +185,6 @@ export default function AddSiteBlueprint( {
 				const text = await file.text();
 				const blueprintJson = JSON.parse( text );
 
-				// Validate the blueprint using IPC
 				const validation = await getIpcApi().validateBlueprint( blueprintJson );
 				if ( ! validation.valid ) {
 					setValidationError( validation.error || __( 'Invalid Blueprint format' ) );

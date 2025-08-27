@@ -163,8 +163,8 @@ export default function AddSiteBlueprint( {
 								</Text>
 							) ) }
 							{ remainingCount > 0 && (
-								<Tooltip 
-									text={ categories.slice( maxCategoriesToShow ).join( ', ' ) } 
+								<Tooltip
+									text={ categories.slice( maxCategoriesToShow ).join( ', ' ) }
 									delay={ 200 }
 									position="top right"
 									className="max-w-xs"

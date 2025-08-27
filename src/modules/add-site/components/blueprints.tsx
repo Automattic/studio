@@ -185,6 +185,16 @@ export default function AddSiteBlueprint( {
 				const text = await file.text();
 				const blueprintJson = JSON.parse( text );
 
+				if ( blueprintJson.version === 2 ) {
+					setValidationError(
+						__( 'Blueprint v2 format is not supported yet. Please use Blueprint v1 format.' )
+					);
+					if ( fileRef.current ) {
+						fileRef.current.value = '';
+					}
+					return;
+				}
+
 				const validation = await getIpcApi().validateBlueprint( blueprintJson );
 				if ( ! validation.valid ) {
 					setValidationError( validation.error || __( 'Invalid Blueprint format' ) );

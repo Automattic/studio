@@ -26,15 +26,22 @@ const mapLowLevelFetchError = ( code: unknown ): string => {
 const extractMsg = ( data: unknown ): string | undefined => {
 	if ( ! data ) return;
 
-	if ( typeof data === 'string') return data;
-	if ( typeof ( data as any )?.message === 'string' ) return ( data as any ).message;
-	if ( typeof ( data as any )?.error === 'string' ) return ( data as any ).error;
-	if (
-		Array.isArray( ( data as any )?.errors ) &&
-		typeof ( data as any ).errors[ 0 ]?.message === 'string'
-	) {
-		return ( data as any ).errors[0].message;
+	if ( typeof data === 'string' ) return data;
+	if ( typeof ( data as { message: string } )?.message === 'string' ) {
+		return ( data as { message: string } ).message;
 	}
+
+	if ( typeof ( data as { error: string } )?.error === 'string' ) {
+		return ( data as { error: string } ).error;
+	}
+
+	if (
+		Array.isArray( ( data as { errors: { message: string }[] } )?.errors ) &&
+		typeof ( data as { errors: { message: string }[] } ).errors[ 0 ]?.message === 'string'
+	) {
+		return ( data as { errors: { message: string }[] } ).errors[ 0 ].message;
+	}
+
 	try {
 		return JSON.stringify( data );
 	} catch {
@@ -49,11 +56,11 @@ export const formatRtkError = ( error: AnyRtkError ): string | undefined => {
 	if ( isFetchErr( error ) ) {
 		// Low-level fetchBaseQuery errors (no HTTP status)
 		if ( 'error' in error ) {
-			return mapLowLevelFetchError( ( error as any ).error );
+			return mapLowLevelFetchError( ( error as { error: unknown } ).error );
 		}
 		// HTTP errors with possible payload
 		const status = typeof error.status === 'number' ? error.status : undefined;
-		const msg = extractMsg( ( error as any ).data ) ?? 'Request failed';
+		const msg = extractMsg( ( error as { data: unknown } ).data ) ?? 'Request failed';
 		return status ? `[${ status }] ${ msg }` : msg;
 	}
 

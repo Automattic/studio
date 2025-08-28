@@ -160,17 +160,6 @@ export async function importSite(
 			site.details.phpVersion = result.meta.phpVersion;
 		}
 
-		try {
-			const { stdout: siteTitle } = await site.executeWpCliCommand( 'option get blogname', {
-				skipPluginsAndThemes: true,
-			} );
-			if ( siteTitle && siteTitle.trim() ) {
-				site.details.name = siteTitle.trim();
-			}
-		} catch ( error ) {
-			console.warn( 'Failed to get site title after import:', error );
-		}
-
 		return site.details;
 	} catch ( e ) {
 		bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );

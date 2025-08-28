@@ -6,6 +6,7 @@ import {
 	Button,
 } from '@wordpress/components';
 import { DataViews, View } from '@wordpress/dataviews';
+import { sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useRef, useState, useMemo } from 'react';
@@ -35,6 +36,7 @@ interface DataViewBlueprint extends Blueprint {
 
 interface AddSiteBlueprintProps {
 	blueprints: Blueprint[];
+	errorMessage?: string;
 	isLoading: boolean;
 	selectedBlueprint: string | null;
 	onBlueprintChange: ( blueprintId: string ) => void;
@@ -43,6 +45,7 @@ interface AddSiteBlueprintProps {
 
 export default function AddSiteBlueprint( {
 	blueprints,
+	errorMessage,
 	isLoading,
 	selectedBlueprint,
 	onBlueprintChange,
@@ -271,6 +274,13 @@ export default function AddSiteBlueprint( {
 			</HStack>
 
 			<div className="w-full px-3 [&_.dataviews-view-grid]:!grid [&_.dataviews-view-grid]:!grid-cols-3 [&_.dataviews-view-grid]:!gap-4 [&_.components-badge]:!bg-transparent [&_.components-badge]:!p-0">
+				{ errorMessage && (
+					<Text className="text-red-500 text-[14px] block text-center py-[100px]">
+						{ sprintf( __( 'Error loading suggested blueprints: %s' ), errorMessage ) }
+						<br />
+						{ __( 'You can use your own blueprint by uploading a file.' ) }
+					</Text>
+				) }
 				<DataViews
 					data={ dataViewBlueprints }
 					fields={ fields }

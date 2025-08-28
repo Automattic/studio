@@ -12,6 +12,7 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useRootSelector } from 'src/stores';
+import { formatRtkError } from 'src/stores/format-rtk-error';
 import {
 	selectDefaultPhpVersion,
 	selectDefaultWordPressVersion,
@@ -57,12 +58,13 @@ interface NavigationContentProps {
 	setFileForImport: ( file: File | null ) => void;
 	setSelectedBlueprint: ( blueprint?: Blueprint ) => void;
 	selectedBlueprint?: Blueprint;
+	blueprintsErrorMessage?: string | undefined;
 }
 
 function NavigationContent( props: NavigationContentProps ) {
 	const { __ } = useI18n();
 	const { goTo, location } = useNavigator();
-	const { blueprintsData, isLoadingBlueprints, ...createSiteProps } = props;
+	const { blueprintsData, isLoadingBlueprints, blueprintsErrorMessage, ...createSiteProps } = props;
 
 	const handleOptionSelect = useCallback(
 		( option: 'create' | 'blueprint' | 'backup' ) => {
@@ -159,6 +161,7 @@ function NavigationContent( props: NavigationContentProps ) {
 			<Navigator.Screen className="flex-1" path="/blueprint">
 				<AddSiteBlueprintSelector
 					blueprints={ blueprints }
+					errorMessage={ blueprintsErrorMessage }
 					isLoading={ isLoadingBlueprints }
 					selectedBlueprint={ createSiteProps.selectedBlueprint?.slug || null }
 					onBlueprintChange={ handleBlueprintChange }
@@ -204,6 +207,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		isLoading: isLoadingBlueprints,
 		refetch,
 		isUninitialized,
+		error: blueprintsError,
 	} = useGetBlueprints();
 
 	const { importState } = useImportExport();
@@ -349,6 +353,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 					<NavigationContent
 						{ ...addSiteProps }
 						blueprintsData={ blueprintsData }
+						blueprintsErrorMessage={ formatRtkError( blueprintsError ) }
 						isLoadingBlueprints={ isLoadingBlueprints }
 						handleSubmit={ handleSubmit }
 					/>

@@ -368,6 +368,14 @@ async function appBoot() {
 		void stopAllServersOnQuit();
 		stopProxyServer().catch( ( error ) => console.error( 'Error stopping proxy server:', error ) );
 		stopUserDataWatcher();
+		
+		// Clean up any managed instances
+		const provider = getWordPressProvider();
+		if ( provider.cleanupAllInstances ) {
+			provider.cleanupAllInstances().catch( ( error: Error ) => 
+				console.error( 'Error cleaning up managed instances:', error )
+			);
+		}
 	} );
 
 	app.on( 'activate', () => {

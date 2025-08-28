@@ -59,16 +59,10 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 		this.process.on( 'exit', () => {
 			this.process = null;
 
-			// In setup mode (run-blueprint), process exit is expected after completion
-			if ( ! this.isSetupMode ) {
-				this.responseHandlers.forEach( ( { reject } ) => {
-					reject( new Error( 'Process exited unexpectedly' ) );
-				} );
-			} else {
-				this.responseHandlers.forEach( ( { resolve } ) => {
-					resolve( undefined );
-				} );
-			}
+			// Process exit is now always unexpected since we use server mode
+			this.responseHandlers.forEach( ( { reject } ) => {
+				reject( new Error( 'Process exited unexpectedly' ) );
+			} );
 			this.responseHandlers.clear();
 
 			if ( this.exitResolve ) {

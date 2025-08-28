@@ -16,6 +16,7 @@ import {
 	WordPressServerProcess,
 } from '../types';
 import { PlaygroundServerProcess } from './playground-server-process';
+import { PlaygroundInstanceManager } from './playground-instance-manager';
 
 export interface PlaygroundCliOptions {
 	port: number;
@@ -59,16 +60,41 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		isSetupMode?: boolean;
 		wpCliPharPath?: string;
 		blueprint?: Blueprint;
+		siteId?: string; // Add siteId for instance tracking
 	} ): Promise< WordPressServerInstance > {
 		const port = options.port;
 		const phpVersion = options.phpVersion || '8.3';
+
+		// Check if we have an existing instance for this site
+		// Only reuse if we're not in setup mode (i.e., for regular startServer calls)
+		if ( options.siteId && ! options.isSetupMode ) {
+			const instanceManager = PlaygroundInstanceManager.getInstance();
+			const existing = instanceManager.get( options.siteId );
+			
+			if ( existing ) {
+				console.log( `Transferring Playground server for site ${ options.siteId } to SiteServer management` );
+				// Update the server options if needed
+				existing.serverInstance.options = {
+					...existing.serverInstance.options,
+					absoluteUrl: options.absoluteUrl,
+					adminPassword: options.adminPassword,
+					siteTitle: options.siteTitle,
+				};
+				// Mark as reused so we know to skip port checks
+				existing.serverInstance.isReused = true;
+				// Remove from instance manager as SiteServer will manage it now
+				// Note: We don't stop the process, just remove it from tracking
+				instanceManager.untrack( options.siteId );
+				return existing.serverInstance;
+			}
+		}
 
 		const playgroundOptions: PlaygroundCliOptions = {
 			port,
 			phpVersion,
 			documentRoot: options.path,
 			autoMount: true,
-			skipWordpressSetup: true,
+			skipWordpressSetup: ! options.isSetupMode, // Only skip if not in setup mode
 			isSetupMode: options.isSetupMode || false,
 			blueprint: options.blueprint,
 		};
@@ -90,16 +116,35 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			url: `http://localhost:${ port }`,
 			options: serverOptions,
 			_internal: playgroundOptions,
+			siteId: options.siteId, // Store siteId for tracking
 		};
 	}
 
 	createServerProcess( serverInstance: WordPressServerInstance ): WordPressServerProcess {
+		// Check if we already have a running process for this site
+		if ( serverInstance.siteId ) {
+			const instanceManager = PlaygroundInstanceManager.getInstance();
+			const existing = instanceManager.get( serverInstance.siteId );
+			
+			if ( existing && existing.serverProcess ) {
+				console.log( `Transferring existing Playground process for site ${ serverInstance.siteId } to SiteServer` );
+				// Untrack from instance manager as SiteServer will manage it
+				instanceManager.untrack( serverInstance.siteId );
+				return existing.serverProcess;
+			}
+		}
+		
 		const playgroundOptions = serverInstance._internal as PlaygroundCliOptions;
-		return new PlaygroundServerProcess(
+		const process = new PlaygroundServerProcess(
 			serverInstance.url,
 			playgroundOptions,
 			serverInstance.options
 		);
+		
+		// Don't register in instance manager if this is a normal start
+		// (only register during setupWordPressSite)
+		
+		return process;
 	}
 
 	getSqlitePath(): string {
@@ -112,7 +157,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	}
 
 	async setupWordPressSite( server: SiteServer, wpVersion = 'latest' ): Promise< boolean > {
-		const { path, port, adminPassword, name, phpVersion } = server.details;
+		const { path, port, adminPassword, name, phpVersion, id } = server.details;
 		const { blueprint } = server.meta;
 
 		try {
@@ -160,7 +205,8 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				return true;
 			}
 
-			// Online mode: run the blueprint setup
+			// Online mode: Start server in setup mode to install WP and run blueprint
+			// The server will handle both setup and runtime in a single process
 			const serverInstance = await this.startServer( {
 				path,
 				port,
@@ -169,13 +215,31 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				phpVersion: phpVersion || this.DEFAULT_PHP_VERSION,
 				wpVersion,
 				isWpAutoUpdating: false,
-				isSetupMode: true,
+				isSetupMode: true, // Keep setup mode to ensure WP installation and blueprint execution
 				blueprint: blueprint?.blueprint,
+				siteId: id, // Pass site ID for instance tracking
 			} );
 
 			const serverProcess = this.createServerProcess( serverInstance );
-			await serverProcess.start();
-			return true;
+			
+			try {
+				await serverProcess.start();
+				
+				// Register the running instance for reuse
+				const instanceManager = PlaygroundInstanceManager.getInstance();
+				instanceManager.register( id, serverInstance, serverProcess, true );
+				
+				console.log( `WordPress site setup complete and server running for site ${ id }` );
+				return true;
+			} catch ( error ) {
+				// If setup fails, make sure to clean up
+				try {
+					await serverProcess.stop();
+				} catch ( stopError ) {
+					console.error( 'Failed to stop server after setup error:', stopError );
+				}
+				throw error;
+			}
 		} catch ( error ) {
 			console.error( 'Failed to setup WordPress site:', error );
 			throw error;
@@ -194,5 +258,21 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		}
 
 		return { wpContentPath: undefined };
+	}
+
+	/**
+	 * Clean up managed instances for a specific site
+	 */
+	async cleanupInstance( siteId: string ): Promise< void > {
+		const instanceManager = PlaygroundInstanceManager.getInstance();
+		await instanceManager.remove( siteId );
+	}
+
+	/**
+	 * Clean up all managed instances
+	 */
+	async cleanupAllInstances(): Promise< void > {
+		const instanceManager = PlaygroundInstanceManager.getInstance();
+		await instanceManager.cleanupAll();
 	}
 }

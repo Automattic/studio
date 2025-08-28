@@ -100,6 +100,12 @@ export class SiteServer {
 			}
 		}
 
+		// Clean up any managed instances for this site
+		const provider = getWordPressProvider();
+		if ( provider.cleanupInstance ) {
+			await provider.cleanupInstance( this.details.id );
+		}
+
 		await this.stop();
 		await this.wpCliExecutor?.stop();
 		deletedServers.push( this.details.id );
@@ -141,18 +147,25 @@ export class SiteServer {
 			wpVersion: this.meta.wpVersion,
 			isWpAutoUpdating: this.details.isWpAutoUpdating,
 			absoluteUrl: getAbsoluteUrl( this.details ),
+			siteId: this.details.id, // Pass site ID for instance tracking
 		} );
-
-		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
-		if ( ! isPortAvailable ) {
-			throw new Error(
-				`Port ${ this.details.port } is not available. error code: ERROR_PORT_IN_USE`
-			);
-		}
 
 		console.log( `Starting server for '${ this.details.name }'` );
 		this.server = createServerProcess( serverInstance );
-		await this.server.start();
+		
+		// Only check port and start the server if this is not a reused instance
+		// (when reusing an existing instance, it's already running)
+		if ( ! serverInstance.isReused ) {
+			const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
+			if ( ! isPortAvailable ) {
+				throw new Error(
+					`Port ${ this.details.port } is not available. error code: ERROR_PORT_IN_USE`
+				);
+			}
+			await this.server.start();
+		} else {
+			console.log( `Server already running for '${ this.details.name }' (reused instance)` );
+		}
 
 		if ( serverInstance.options.port === undefined ) {
 			throw new Error( 'Server started with no port' );

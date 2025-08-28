@@ -134,8 +134,9 @@ async function startServer(
 			},
 		];
 
+		// Always use server mode now, which can handle both setup and runtime
 		const args: RunCLIArgs = {
-			command: 'run-blueprint',
+			command: 'server',
 			internalCookieStore: true,
 			followSymlinks: true,
 			skipSqliteSetup: true,
@@ -145,8 +146,8 @@ async function startServer(
 			'site-url': serverOptions.absoluteUrl,
 		};
 
+		// Only skip WordPress setup if we're not in setup mode
 		if ( ! options.isSetupMode ) {
-			args.command = 'server';
 			args.skipWordPressSetup = true;
 		}
 
@@ -162,6 +163,7 @@ async function startServer(
 			WP_SQLITE_AST_DRIVER: true,
 		};
 
+		// Include blueprint if provided (for initial setup)
 		if ( options.blueprint ) {
 			args.blueprint = {
 				...options.blueprint,

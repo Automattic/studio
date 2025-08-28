@@ -12,6 +12,7 @@ export interface ServerOptions {
 	isWpAutoUpdating?: boolean;
 	absoluteUrl?: string;
 	siteLanguage?: string;
+	siteId?: string; // Add siteId for instance tracking
 }
 
 export interface WordPressServerOptions {
@@ -33,6 +34,8 @@ export interface WordPressServerInstance {
 	options: WordPressServerOptions;
 	// Internal options for server process implementation
 	_internal?: unknown;
+	siteId?: string; // Add siteId for instance tracking
+	isReused?: boolean; // Flag to indicate if this is a reused instance
 }
 
 export interface WordPressServerProcess {
@@ -69,4 +72,8 @@ export interface WordPressProvider {
 
 	// Configuration
 	getConfig( options: { path: string } ): Promise< { wpContentPath?: string } >;
+
+	// Instance management (optional - only for providers that manage instances)
+	cleanupInstance?( siteId: string ): Promise< void >;
+	cleanupAllInstances?(): Promise< void >;
 }

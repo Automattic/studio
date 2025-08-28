@@ -7,6 +7,7 @@ import {
 	Notice,
 } from '@wordpress/components';
 import { DataViews, View } from '@wordpress/dataviews';
+import { sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useRef, useState, useMemo } from 'react';
@@ -217,7 +218,13 @@ export default function AddSiteBlueprint( {
 				onFileBlueprintSelect( fileBlueprint );
 			} catch ( error ) {
 				if ( error instanceof SyntaxError ) {
-					setValidationError( __( 'Invalid JSON file. Please check the file format.' ) );
+					setValidationError(
+						sprintf(
+							// translators: %s is error message of the JSON parsing error
+							__( 'Invalid JSON format: %s' ),
+							error.message
+						)
+					);
 				} else {
 					setValidationError( __( 'Failed to load blueprint file. Please try again.' ) );
 				}

@@ -40,6 +40,7 @@ const createMockInstalledApps = (
 	webstorm: false,
 	windsurf: false,
 	cursor: false,
+	sublime: false,
 	terminal: false,
 	iterm: false,
 	warp: false,

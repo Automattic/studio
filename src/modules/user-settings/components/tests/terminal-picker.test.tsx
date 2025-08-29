@@ -48,6 +48,7 @@ describe( 'TerminalPicker', () => {
 					webstorm: false,
 					windsurf: false,
 					cursor: false,
+					sublime: false,
 					terminal: true,
 					iterm: true,
 					warp: false,
@@ -76,6 +77,7 @@ describe( 'TerminalPicker', () => {
 					webstorm: false,
 					windsurf: false,
 					cursor: false,
+					sublime: false,
 					// Terminal properties
 					terminal: true,
 					iterm: true,

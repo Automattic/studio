@@ -44,6 +44,7 @@ const installationPaths: Record< string, PlatformPaths > = {
 		cursor: [ 'Cursor.app' ],
 		windsurf: [ 'Windsurf.app' ],
 		webstorm: [ 'WebStorm.app' ],
+		sublime: [ 'Sublime Text.app' ],
 		iterm: [ 'iTerm.app' ],
 		terminal: [ 'Terminal.app' ],
 		warp: [ 'Warp.app' ],
@@ -55,6 +56,7 @@ const installationPaths: Record< string, PlatformPaths > = {
 		cursor: [ '/usr/bin/cursor' ],
 		windsurf: [ '/usr/bin/windsurf' ],
 		webstorm: [ '/usr/bin/webstorm' ],
+		sublime: [ '/usr/bin/subl' ],
 		iterm: [],
 		terminal: [],
 		warp: [ '/usr/bin/warp' ],
@@ -80,6 +82,11 @@ const installationPaths: Record< string, PlatformPaths > = {
 		webstorm: [
 			path.win32.join( getProgramFilesPath(), 'JetBrains\\WebStorm' ),
 			path.win32.join( getLocalProgramsPath(), 'WebStorm' ),
+		],
+		sublime: [
+			path.win32.join( getProgramFilesPath(), 'Sublime Text' ),
+			path.win32.join( getProgramFilesPath(), 'Sublime Text 4' ),
+			path.win32.join( getProgramFilesPath(), 'Sublime Text 3' ),
 		],
 		iterm: [],
 		terminal: [],

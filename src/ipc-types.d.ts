@@ -53,6 +53,7 @@ type InstalledApps = {
 	webstorm: boolean;
 	windsurf: boolean;
 	cursor: boolean;
+	sublime: boolean;
 	terminal: boolean;
 	iterm: boolean;
 	warp: boolean;

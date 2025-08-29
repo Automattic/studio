@@ -98,22 +98,6 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			} ),
 			learnMoreUrl: getLocalizedLink( locale, 'docsCli' ),
 		},
-		{
-			image: customDomainIllustration,
-			title: __( 'Choose a custom domain with HTTPS support' ),
-			description: __(
-				'Easily identify your local Studio sites with custom domain names. Personalize and organize your workflow!'
-			),
-			learnMoreUrl: getLocalizedLink( locale, 'blogCustomDomainsHttps' ),
-		},
-		{
-			image: versionSwitchIllustration,
-			title: __( 'Select WordPress and PHP versions in Studio' ),
-			description: __(
-				'Select your preferred WordPress and PHP versions for existing sites or when creating a new one.'
-			),
-			learnMoreUrl: getLocalizedLink( locale, 'blogPhpVersions' ),
-		},
 	];
 
 	if ( ! showModal ) {

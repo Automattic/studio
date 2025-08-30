@@ -9,7 +9,7 @@ import {
 	writeFiles,
 	setPhpIniEntries,
 } from '@php-wasm/universal';
-import { pathExists } from 'src/lib/fs-utils';
+import { pathExists } from 'common/lib/fs-utils';
 
 const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';
 

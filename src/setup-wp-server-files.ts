@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
-import { recursiveCopyDirectory } from 'src/lib/fs-utils';
+import { recursiveCopyDirectory } from 'common/lib/fs-utils';
 import {
 	getSqliteCommandPath,
 	updateLatestSQLiteCommandVersion,

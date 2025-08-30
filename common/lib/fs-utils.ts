@@ -1,5 +1,6 @@
-import fs from 'fs';
+import fs, { promises as fsPromises } from 'fs';
 import path from 'path';
+import { isErrnoException } from './is-errno-exception';
 
 /**
  * Calculates the total size of a directory by recursively traversing its contents.
@@ -13,7 +14,7 @@ export function calculateDirectorySize( directoryPath: string ): Promise< number
 
 		async function calculateSize( dirPath: string ): Promise< void > {
 			try {
-				const files = await fs.promises.readdir( dirPath, { withFileTypes: true } );
+				const files = await fsPromises.readdir( dirPath, { withFileTypes: true } );
 
 				await Promise.all(
 					files.map( async ( file ) => {
@@ -22,7 +23,7 @@ export function calculateDirectorySize( directoryPath: string ): Promise< number
 							if ( file.isDirectory() ) {
 								await calculateSize( filePath );
 							} else {
-								const stats = await fs.promises.stat( filePath );
+								const stats = await fsPromises.stat( filePath );
 								totalSize += stats.size;
 							}
 						} catch ( error ) {
@@ -62,4 +63,45 @@ export function arePathsEqual( path1: string, path2: string ) {
 	} catch ( error ) {
 		return false;
 	}
+}
+
+export async function pathExists( path: string ): Promise< boolean > {
+	try {
+		await fsPromises.access( path );
+		return true;
+	} catch ( err: unknown ) {
+		if ( isErrnoException( err ) && err.code === 'ENOENT' ) {
+			return false;
+		}
+		throw err;
+	}
+}
+
+export async function recursiveCopyDirectory(
+	source: string,
+	destination: string
+): Promise< void > {
+	await fsPromises.mkdir( destination, { recursive: true } );
+
+	const entries = await fsPromises.readdir( source, { withFileTypes: true } );
+
+	for ( const entry of entries ) {
+		const sourcePath = path.join( source, entry.name );
+		const destinationPath = path.join( destination, entry.name );
+
+		if ( entry.isDirectory() ) {
+			await recursiveCopyDirectory( sourcePath, destinationPath );
+		} else if ( entry.isFile() ) {
+			await fsPromises.copyFile( sourcePath, destinationPath );
+		}
+	}
+}
+
+export async function isEmptyDir( directory: string ): Promise< boolean > {
+	const stats = await fsPromises.stat( directory );
+	if ( ! stats.isDirectory() ) {
+		return false;
+	}
+	const files = await fsPromises.readdir( directory );
+	return files.length === 0;
 }

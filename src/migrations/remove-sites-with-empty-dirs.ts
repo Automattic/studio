@@ -1,4 +1,4 @@
-import { isEmptyDir } from 'src/lib/fs-utils';
+import { isEmptyDir } from 'common/lib/fs-utils';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 
 export async function removeSitesWithEmptyDirectories() {

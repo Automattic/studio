@@ -6,10 +6,10 @@ import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { readFile } from 'atomically';
+import { isEmptyDir, pathExists } from 'common/lib/fs-utils';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { createSite, startServer, isFullscreen, importSite } from 'src/ipc-handlers';
 import { bumpStat } from 'src/lib/bump-stats';
-import { isEmptyDir, pathExists } from 'src/lib/fs-utils';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
@@ -18,7 +18,7 @@ import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 
 jest.mock( 'fs' );
 jest.mock( 'fs-extra' );
-jest.mock( 'src/lib/fs-utils' );
+jest.mock( 'common/lib/fs-utils' );
 jest.mock( 'src/site-server' );
 jest.mock( 'src/lib/sqlite-versions' );
 jest.mock( 'src/lib/wordpress-provider', () => ( {

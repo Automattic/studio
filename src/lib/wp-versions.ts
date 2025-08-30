@@ -1,8 +1,8 @@
 import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
+import { recursiveCopyDirectory } from 'common/lib/fs-utils';
 import { WpNowProvider } from 'src/lib/wordpress-provider/wp-now';
-import { recursiveCopyDirectory } from './fs-utils';
 
 export const MINIMUM_SUPPORTED_WP_VERSION = 6;
 

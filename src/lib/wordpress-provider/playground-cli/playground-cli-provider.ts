@@ -4,7 +4,7 @@ import { SupportedPHPVersions } from '@php-wasm/universal';
 import { Blueprint } from '@wp-playground/blueprints';
 import { RecommendedPHPVersion } from '@wp-playground/common';
 import fs from 'fs-extra';
-import { recursiveCopyDirectory, pathExists } from 'src/lib/fs-utils';
+import { recursiveCopyDirectory, pathExists } from 'common/lib/fs-utils';
 import { installSqliteIntegration } from 'src/lib/sqlite-versions';
 import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
 import { SiteServer } from 'src/site-server';

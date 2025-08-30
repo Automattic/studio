@@ -14,7 +14,7 @@ import { WebpackPlugin } from '@electron-forge/plugin-webpack';
 import ForgeExternalsPlugin from '@timfish/forge-externals-plugin';
 import ejs from 'ejs';
 import { webpack } from 'webpack';
-import { isErrnoException } from './src/lib/is-errno-exception';
+import { isErrnoException } from './common/lib/is-errno-exception';
 import cliConfig from './webpack.cli.config';
 import mainConfig, { mainBaseConfig } from './webpack.main.config';
 import { rendererConfig } from './webpack.renderer.config';

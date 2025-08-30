@@ -1,10 +1,10 @@
-import { net } from 'electron';
 import nodePath from 'path';
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import { Blueprint } from '@wp-playground/blueprints';
 import { RecommendedPHPVersion } from '@wp-playground/common';
 import fs from 'fs-extra';
 import { recursiveCopyDirectory, pathExists } from 'common/lib/fs-utils';
+import { isOnline } from 'common/lib/network-utils';
 import { installSqliteIntegration } from 'src/lib/sqlite-versions';
 import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
 import { SiteServer } from 'src/site-server';
@@ -116,9 +116,9 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		const { blueprint } = server.meta;
 
 		try {
-			const isOnline = net.isOnline();
+			const isOnlineStatus = await isOnline();
 
-			if ( ! isOnline ) {
+			if ( ! isOnlineStatus ) {
 				if ( wpVersion !== 'latest' ) {
 					throw new Error(
 						`Cannot set up WordPress version '${ wpVersion }' while offline. ` +
@@ -156,7 +156,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				await installSqliteIntegration( path );
 			}
 
-			if ( ! isOnline ) {
+			if ( ! isOnlineStatus ) {
 				return true;
 			}
 

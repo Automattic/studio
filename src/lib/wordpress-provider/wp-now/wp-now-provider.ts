@@ -2,6 +2,13 @@ import { net } from 'electron';
 import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
+import {
+	DEFAULT_PHP_VERSION,
+	DEFAULT_WORDPRESS_VERSION,
+	ALLOWED_PHP_VERSIONS,
+	SQLITE_FILENAME,
+	SQLITE_FILENAME_LEGACY,
+} from 'common/lib/wordpress-provider/constants';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from 'src/lib/fs-utils';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
@@ -15,13 +22,6 @@ import {
 	downloadSQLiteCommand,
 } from 'vendor/wp-now/src/download';
 import { executeWPCli } from 'vendor/wp-now/src/execute-wp-cli';
-import {
-	DEFAULT_PHP_VERSION,
-	DEFAULT_WORDPRESS_VERSION,
-	ALLOWED_PHP_VERSIONS,
-	SQLITE_FILENAME,
-	SQLITE_FILENAME_LEGACY,
-} from '../constants';
 import {
 	getWordPressVersionPath,
 	getSqlitePath,

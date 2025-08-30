@@ -7,6 +7,7 @@ import { registerCommand as registerCreateCommand } from 'cli/commands/preview/c
 import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/delete';
 import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
 import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/update';
+import { registerCommand as registerSitesCreateCommand } from 'cli/commands/sites/create';
 import { registerCommand as registerSitesListCommand } from 'cli/commands/sites/list';
 import { loadTranslations } from 'cli/lib/i18n';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
@@ -52,6 +53,7 @@ async function main() {
 		} )
 		.command( 'sites', __( 'Manage local sites' ), ( sitesYargs ) => {
 			registerSitesListCommand( sitesYargs );
+			registerSitesCreateCommand( sitesYargs );
 			sitesYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )

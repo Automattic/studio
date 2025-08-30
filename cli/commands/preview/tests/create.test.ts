@@ -4,7 +4,7 @@ import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { saveSnapshotToAppdata } from 'cli/lib/snapshots';
-import { validateSiteFolder } from 'cli/lib/validation';
+import { validateReadSitePath, validateSiteSize } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 
 jest.mock( 'cli/lib/appdata', () => ( {
@@ -54,7 +54,8 @@ describe( 'Preview Create Command', () => {
 		( Logger as jest.Mock ).mockReturnValue( mockLogger );
 
 		( getAuthToken as jest.Mock ).mockResolvedValue( mockAuthToken );
-		( validateSiteFolder as jest.Mock ).mockReturnValue( true );
+		( validateReadSitePath as jest.Mock ).mockReturnValue( { valid: true } );
+		( validateSiteSize as jest.Mock ).mockResolvedValue( { valid: true } );
 		( archiveSiteContent as jest.Mock ).mockResolvedValue( mockArchiver );
 		( cleanup as jest.Mock ).mockImplementation( () => {} );
 		( uploadArchive as jest.Mock ).mockResolvedValue( {
@@ -73,7 +74,7 @@ describe( 'Preview Create Command', () => {
 		const { runCommand } = await import( '../create' );
 		await runCommand( mockFolder );
 
-		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
+		expect( validateReadSitePath ).toHaveBeenCalledWith( mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 
@@ -114,14 +115,12 @@ describe( 'Preview Create Command', () => {
 		const { runCommand } = await import( '../create' );
 		await runCommand( process.cwd() );
 
-		expect( validateSiteFolder ).toHaveBeenCalledWith( process.cwd() );
+		expect( validateReadSitePath ).toHaveBeenCalledWith( process.cwd() );
 	} );
 
 	it( 'should handle validation errors', async () => {
 		const errorMessage = 'Validation failed';
-		( validateSiteFolder as jest.Mock ).mockImplementation( () => {
-			throw new LoggerError( errorMessage );
-		} );
+		( validateReadSitePath as jest.Mock ).mockReturnValue( { valid: false, error: errorMessage } );
 
 		const { runCommand } = await import( '../create' );
 		await runCommand( mockFolder );

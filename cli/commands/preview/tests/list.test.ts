@@ -1,6 +1,6 @@
 import { getAuthToken } from 'cli/lib/appdata';
 import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
-import { validateSiteFolder } from 'cli/lib/validation';
+import { validateReadSitePath } from 'cli/lib/validation';
 import { Logger } from 'cli/logger';
 
 jest.mock( 'cli/lib/appdata', () => ( {
@@ -51,7 +51,7 @@ describe( 'Preview List Command', () => {
 		};
 
 		( Logger as jest.Mock ).mockReturnValue( mockLogger );
-		( validateSiteFolder as jest.Mock ).mockReturnValue( true );
+		( validateReadSitePath as jest.Mock ).mockReturnValue( { valid: true } );
 		( getAuthToken as jest.Mock ).mockResolvedValue( mockAuthToken );
 		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( mockSnapshots );
 	} );
@@ -64,7 +64,7 @@ describe( 'Preview List Command', () => {
 		const { runCommand } = await import( '../list' );
 		await runCommand( mockFolder, 'table' );
 
-		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
+		expect( validateReadSitePath ).toHaveBeenCalledWith( mockFolder );
 		expect( getSnapshotsFromAppdata ).toHaveBeenCalledWith( mockAuthToken.id, mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
@@ -77,8 +77,9 @@ describe( 'Preview List Command', () => {
 
 	it( 'should handle validation errors', async () => {
 		const { runCommand } = await import( '../list' );
-		( validateSiteFolder as jest.Mock ).mockImplementation( () => {
-			throw new Error( 'Invalid site folder' );
+		( validateReadSitePath as jest.Mock ).mockReturnValue( {
+			valid: false,
+			error: 'Invalid site folder',
 		} );
 
 		await runCommand( mockFolder, 'table' );

@@ -7,7 +7,7 @@ import {
 	getSnapshotsFromAppdata,
 	isSnapshotExpired,
 } from 'cli/lib/snapshots';
-import { validateSiteFolder } from 'cli/lib/validation';
+import { validateReadSitePath } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -16,7 +16,10 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
-		validateSiteFolder( siteFolder );
+		const pathValidation = validateReadSitePath( siteFolder );
+		if ( ! pathValidation.valid ) {
+			throw new LoggerError( pathValidation.error! );
+		}
 		const token = await getAuthToken();
 		logger.reportSuccess( __( 'Validation successful' ), true );
 

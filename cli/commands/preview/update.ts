@@ -10,7 +10,7 @@ import { getAuthToken, getOrCreateSiteByFolder, getSiteByFolder } from 'cli/lib/
 import { cleanup, archiveSiteContent } from 'cli/lib/archive';
 import { getSnapshotsFromAppdata, updateSnapshotInAppdata } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
-import { validateSiteFolder } from 'cli/lib/validation';
+import { validateReadSitePath } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -59,7 +59,10 @@ export async function runCommand(
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
-		validateSiteFolder( siteFolder );
+		const pathValidation = validateReadSitePath( siteFolder );
+		if ( ! pathValidation.valid ) {
+			throw new LoggerError( pathValidation.error! );
+		}
 		const token = await getAuthToken();
 		const snapshots = await getSnapshotsFromAppdata( token.id );
 		const snapshotToUpdate = await getSnapshotToUpdate( snapshots, host, siteFolder, overwrite );

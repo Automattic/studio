@@ -5,7 +5,7 @@ import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken, getOrCreateSiteByFolder, getSiteByFolder } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { updateSnapshotInAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
-import { validateSiteFolder } from 'cli/lib/validation';
+import { validateReadSitePath } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 
 jest.mock( 'cli/lib/appdata', () => ( {
@@ -59,7 +59,7 @@ describe( 'Preview Update Command', () => {
 		( Logger as jest.Mock ).mockReturnValue( mockLogger );
 
 		( getAuthToken as jest.Mock ).mockResolvedValue( mockAuthToken );
-		( validateSiteFolder as jest.Mock ).mockReturnValue( true );
+		( validateReadSitePath as jest.Mock ).mockReturnValue( { valid: true } );
 		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [ mockSnapshot ] );
 		( archiveSiteContent as jest.Mock ).mockResolvedValue( undefined );
 		( uploadArchive as jest.Mock ).mockResolvedValue( {
@@ -83,7 +83,7 @@ describe( 'Preview Update Command', () => {
 		const { runCommand } = await import( '../update' );
 		await runCommand( mockFolder, mockSiteUrl, false );
 
-		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
+		expect( validateReadSitePath ).toHaveBeenCalledWith( mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 
@@ -122,14 +122,12 @@ describe( 'Preview Update Command', () => {
 		const { runCommand } = await import( '../update' );
 		await runCommand( process.cwd(), mockSiteUrl, false );
 
-		expect( validateSiteFolder ).toHaveBeenCalledWith( process.cwd() );
+		expect( validateReadSitePath ).toHaveBeenCalledWith( process.cwd() );
 	} );
 
 	it( 'should handle validation errors', async () => {
 		const errorMessage = 'Validation failed';
-		( validateSiteFolder as jest.Mock ).mockImplementation( () => {
-			throw new LoggerError( errorMessage );
-		} );
+		( validateReadSitePath as jest.Mock ).mockReturnValue( { valid: false, error: errorMessage } );
 
 		const { runCommand } = await import( '../update' );
 		await runCommand( mockFolder, mockSiteUrl, false );

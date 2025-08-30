@@ -2,6 +2,7 @@ import { SelectControl, Icon } from '@wordpress/components';
 import { info } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect } from 'react';
+import { getGroupedWordPressVersions } from 'common/lib/wp-org/version-groups';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
@@ -11,7 +12,6 @@ import { isWordPressBetaVersion } from 'src/lib/wordpress-version-utils';
 import { useRootSelector } from 'src/stores';
 import { selectDefaultWordPressVersion } from 'src/stores/provider-constants-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
-import { addWpVersionToList } from './add-wp-version-to-list';
 
 type WPVersionSelectorProps = {
 	selectedValue: string;
@@ -50,27 +50,20 @@ export const WPVersionSelector = ( {
 		}
 	}, [ isOffline, onChange, defaultWordPressVersion ] );
 
-	let betaVersions: { label: string; value: string }[] = wpVersions.filter(
-		( version ) => version.isBeta || version.isDevelopment
-	);
-	let stableVersions: { label: string; value: string }[] = wpVersions.filter(
-		( version ) => ! version.isBeta && ! version.isDevelopment && version.value !== 'latest'
-	);
+	const versionsWithExtras = [ ...wpVersions ];
 	extraOptions?.forEach( ( extraOption ) => {
 		const alreadyExists = wpVersions.some( ( version ) => version.value === extraOption.value );
-		if ( alreadyExists ) {
-			return;
-		}
-
-		if (
-			isWordPressBetaVersion( extraOption.value ) ||
-			isWordPressDevVersion( extraOption.value )
-		) {
-			betaVersions = addWpVersionToList( extraOption, betaVersions );
-		} else {
-			stableVersions = addWpVersionToList( extraOption, stableVersions );
+		if ( ! alreadyExists ) {
+			// Convert to WordPressVersion format and add to list
+			const extraVersion = {
+				...extraOption,
+				isBeta: isWordPressBetaVersion( extraOption.value ),
+				isDevelopment: isWordPressDevVersion( extraOption.value ),
+			};
+			versionsWithExtras.push( extraVersion );
 		}
 	} );
+	const groups = getGroupedWordPressVersions( versionsWithExtras );
 
 	return (
 		<label className="flex flex-1 flex-col gap-1.5 leading-4">
@@ -102,25 +95,18 @@ export const WPVersionSelector = ( {
 				>
 					{ wpVersions.length > 0 ? (
 						<>
-							<optgroup label={ __( 'Auto-updating' ) }>
-								<option key={ defaultWordPressVersion } value={ defaultWordPressVersion }>
-									{ __( 'latest' ) }
-								</option>
-							</optgroup>
-							<optgroup label={ __( 'Beta & Nightly' ) }>
-								{ betaVersions.map( ( { label, value } ) => (
-									<option key={ value } value={ value }>
-										{ label }
-									</option>
-								) ) }
-							</optgroup>
-							<optgroup label={ __( 'Stable Versions' ) }>
-								{ stableVersions.map( ( { label, value } ) => (
-									<option key={ value } value={ value }>
-										{ label }
-									</option>
-								) ) }
-							</optgroup>
+							{ groups.map(
+								( group ) =>
+									group.versions.length > 0 && (
+										<optgroup key={ group.id } label={ group.label }>
+											{ group.versions.map( ( { label, value } ) => (
+												<option key={ value } value={ value }>
+													{ label }
+												</option>
+											) ) }
+										</optgroup>
+									)
+							) }
 						</>
 					) : (
 						fallbackOptions.map( ( { label, value } ) => (

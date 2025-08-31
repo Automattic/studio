@@ -4,7 +4,7 @@ import { match } from '@formatjs/intl-localematcher';
 import fs from 'fs-extra';
 import { DEFAULT_LOCALE } from 'common/lib/locale';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
-import { storagePaths } from 'src/storage/paths';
+import { getResourcesPath } from 'src/storage/paths';
 
 interface TranslationsData {
 	translations: Translation[];
@@ -28,7 +28,7 @@ const SKIP_LOCALE_TAGS = [ 'formal', 'informal' ];
 
 function getLatestVersionTranslations(): TranslationsData | undefined {
 	const latestVersionTranslationsPath = path.join(
-		storagePaths.getResourcesPath(),
+		getResourcesPath(),
 		'wp-files',
 		'latest',
 		'available-site-translations.json'

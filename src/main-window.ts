@@ -1,4 +1,5 @@
 import { BrowserWindow, type BrowserWindowConstructorOptions, screen } from 'electron';
+import { portFinder } from 'common/lib/port-finder';
 import {
 	DEFAULT_WIDTH,
 	MAIN_MIN_HEIGHT,
@@ -6,7 +7,6 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
-import { portFinder } from 'src/lib/port-finder';
 import { removeMenu } from 'src/menu';
 import {
 	loadUserData,

@@ -3,18 +3,20 @@ import fs from 'fs';
 import path from 'path';
 import { input, select, Separator } from '@inquirer/prompts';
 import { __, sprintf } from '@wordpress/i18n';
-import { arePathsEqual } from 'common/lib/fs-utils';
+import { portFinder } from 'common/lib/port-finder';
 import {
 	DEFAULT_PHP_VERSION,
 	ALLOWED_PHP_VERSIONS,
 	DEFAULT_WORDPRESS_VERSION,
 } from 'common/lib/wordpress-provider/constants';
+import { setupWordPressSite } from 'common/lib/wordpress-setup';
 import { getGroupedWordPressVersions } from 'common/lib/wp-org/version-groups';
 import { fetchWordPressVersions } from 'common/lib/wp-org/versions';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { readAppdata, saveAppdata, lockAppdata, unlockAppdata } from 'cli/lib/appdata';
 import { validateCreateSitePath } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
+import { storagePaths } from 'cli/storage/paths';
 import { StudioArgv } from 'cli/types';
 
 interface SiteCreationData {
@@ -59,33 +61,12 @@ function generateSiteNameFromPath( sitePath: string ): string {
 		.join( ' ' ); // Join with spaces
 }
 
-async function checkPathInUse( sitePath: string ): Promise< boolean > {
-	try {
-		const appdata = await readAppdata();
-		const allSites = [ ...appdata.sites, ...appdata.newSites ];
-		return allSites.some( ( site ) => arePathsEqual( site.path, sitePath ) );
-	} catch {
-		return false;
-	}
-}
-
 async function promptForSiteData(): Promise< SiteCreationData > {
 	const sitePath = await input( {
 		message: __( 'Site path:' ),
 		default: process.cwd(),
 		validate: async ( inputPath: string ) => {
-			const pathValidation = validateCreateSitePath( inputPath );
-			if ( ! pathValidation.valid ) {
-				return false;
-			}
-
-			const resolvedPath = path.resolve( inputPath );
-			const inUse = await checkPathInUse( resolvedPath );
-			if ( inUse ) {
-				return __( 'This path is already used by another site' );
-			}
-
-			return true;
+			return validateCreateSitePath( inputPath ).valid;
 		},
 	} );
 
@@ -134,35 +115,50 @@ async function createSite( siteData: SiteCreationData ): Promise< void > {
 		logger.reportStart( LoggerAction.APPDATA, __( 'Creating site...' ) );
 
 		const siteId = crypto.randomUUID();
+		const port = await portFinder.getOpenPort();
+
 		const siteEntry = {
 			id: siteId,
 			name: siteData.name,
 			path: resolvedPath,
+			port,
+			phpVersion: siteData.phpVersion,
+			running: false,
+			isWpAutoUpdating: false,
 		};
 
 		if ( ! fs.existsSync( resolvedPath ) ) {
 			fs.mkdirSync( resolvedPath, { recursive: true } );
 		}
+
+		// Setup WordPress files in the site directory
+		logger.reportStart( LoggerAction.APPDATA, __( 'Setting up WordPress files...' ) );
+		await setupWordPressSite( {
+			sitePath: resolvedPath,
+			wpVersion: siteData.wpVersion,
+			serverFilesPath: storagePaths.getServerFilesPath(),
+		} );
+
 		await lockAppdata();
 		const appdata = await readAppdata();
-
-		const allSites = [ ...appdata.sites, ...appdata.newSites ];
-		const pathInUse = allSites.some( ( site ) => arePathsEqual( site.path, resolvedPath ) );
-		if ( pathInUse ) {
-			throw new LoggerError( __( 'This path is already used by another site' ) );
-		}
-
-		appdata.newSites.push( siteEntry );
+		appdata.sites.push( siteEntry );
 		await saveAppdata( appdata );
 
 		logger.reportSuccess( sprintf( __( 'Site "%s" created successfully' ), siteData.name ) );
 		console.log( __( '\nSite details:' ) );
 		console.log( sprintf( __( '  Name: %s' ), siteData.name ) );
 		console.log( sprintf( __( '  Path: %s' ), resolvedPath ) );
+		console.log( sprintf( __( '  WordPress Version: %s' ), siteData.wpVersion ) );
+		console.log( sprintf( __( '  PHP Version: %s' ), siteData.phpVersion ) );
+		console.log( sprintf( __( '  Port: %d' ), port ) );
 		console.log( sprintf( __( '  ID: %s' ), siteEntry.id ) );
 
 		console.log( __( '\nUse "studio sites list" to see all your sites.' ) );
 	} catch ( error ) {
+		// Clean up the directory if WordPress setup failed
+		if ( fs.existsSync( resolvedPath ) ) {
+			fs.rmSync( resolvedPath, { recursive: true, force: true } );
+		}
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {

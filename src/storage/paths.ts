@@ -46,7 +46,10 @@ function getAppName(): string {
 	return app.getName();
 }
 
-function getAppResourcesPath(): string {
+// Create the common storage paths
+export const storagePaths = createStoragePaths( getAppDataPath(), getAppName() );
+
+export function getResourcesPath(): string {
 	if ( ! app ) {
 		throw new Error( 'Electron app not available in child process' );
 	}
@@ -63,15 +66,6 @@ function getAppResourcesPath(): string {
 
 	return path.join( exePath, 'resources' );
 }
-
-// Create the common storage paths
-const commonStoragePaths = createStoragePaths( getAppDataPath(), getAppName() );
-
-// Extend with Electron-specific getResourcesPath method
-export const storagePaths: StoragePaths & { getResourcesPath(): string } = {
-	...commonStoragePaths,
-	getResourcesPath: getAppResourcesPath,
-};
 
 export function getUserDataFilePath(): string {
 	return path.join( storagePaths.getStudioDataPath(), 'appdata-v1.json' );
@@ -98,6 +92,6 @@ export function getSiteThumbnailPath( siteId: string ): string {
 
 export function getCliPath(): string {
 	return process.env.NODE_ENV === 'development'
-		? path.join( storagePaths.getResourcesPath(), 'dist', 'cli', 'main.js' )
-		: path.join( storagePaths.getResourcesPath(), 'cli', 'main.js' );
+		? path.join( getResourcesPath(), 'dist', 'cli', 'main.js' )
+		: path.join( getResourcesPath(), 'cli', 'main.js' );
 }

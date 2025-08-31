@@ -9,7 +9,10 @@ export interface ValidationResult {
 	error?: string;
 }
 
-export function validateReadSitePath( sitePath: string ): ValidationResult {
+export function validateReadSitePath(
+	sitePath: string,
+	ignoreWordPressCheck: boolean = false
+): ValidationResult {
 	if ( ! fs.existsSync( sitePath ) ) {
 		return { valid: false, error: sprintf( __( 'Folder not found: %s' ), sitePath ) };
 	}
@@ -19,7 +22,7 @@ export function validateReadSitePath( sitePath: string ): ValidationResult {
 		return { valid: false, error: __( 'Path must be a directory' ) };
 	}
 
-	if ( ! isWordPressDirectory( sitePath ) ) {
+	if ( ! ignoreWordPressCheck && ! isWordPressDirectory( sitePath ) ) {
 		return {
 			valid: false,
 			error: __(
@@ -43,12 +46,10 @@ export function validateCreateSitePath( sitePath: string ): ValidationResult {
 
 		const files = fs.readdirSync( resolvedPath );
 		if ( files.length > 0 ) {
-			if ( ! isWordPressDirectory( resolvedPath ) ) {
-				return {
-					valid: false,
-					error: __( 'Directory is not empty and does not appear to be a WordPress site' ),
-				};
-			}
+			return {
+				valid: false,
+				error: __( 'Directory is not empty' ),
+			};
 		}
 		return { valid: true };
 	} else {

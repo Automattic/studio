@@ -25,7 +25,7 @@ export async function removeLegacySqliteIntegrationPlugin( installPath: string )
 }
 
 /**
- * Sets up the SQLite database integration in a WordPress site. This includes the 
+ * Sets up the SQLite database integration in a WordPress site. This includes the
  * must-use plugin and the database configuration file.
  *
  * @param sitePath Path of the site.

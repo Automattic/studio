@@ -2,10 +2,9 @@ import nodePath from 'path';
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import { Blueprint } from '@wp-playground/blueprints';
 import { RecommendedPHPVersion } from '@wp-playground/common';
-import fs from 'fs-extra';
-import { recursiveCopyDirectory, pathExists } from 'common/lib/fs-utils';
+import { pathExists } from 'common/lib/fs-utils';
 import { isOnline } from 'common/lib/network-utils';
-import { setupSqliteDatabase } from 'common/lib/sqlite-setup';
+import { setupWordPressSite as commonSetupWordPressSite } from 'common/lib/wordpress-setup';
 import { isValidWordPressVersion } from 'common/lib/wordpress-version-utils';
 import { SiteServer } from 'src/site-server';
 import { storagePaths } from 'src/storage/paths';
@@ -118,43 +117,12 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		try {
 			const isOnlineStatus = await isOnline();
 
-			if ( ! isOnlineStatus ) {
-				if ( wpVersion !== 'latest' ) {
-					throw new Error(
-						`Cannot set up WordPress version '${ wpVersion }' while offline. ` +
-							'Specific WordPress versions require an internet connection to download. ' +
-							'Try using "latest" version or ensure internet connectivity.'
-					);
-				}
-
-				const bundledWPPath = nodePath.join(
-					storagePaths.getResourcesPath(),
-					'wp-files',
-					'latest',
-					'wordpress'
-				);
-
-				if ( ! ( await pathExists( bundledWPPath ) ) ) {
-					throw new Error(
-						'Cannot set up WordPress while offline. Bundled WordPress files not found. ' +
-							'Please connect to the internet or reinstall WordPress Studio.'
-					);
-				}
-
-				try {
-					await recursiveCopyDirectory( bundledWPPath, path );
-				} catch ( error ) {
-					throw new Error(
-						'Failed to copy WordPress files for offline setup. Please check directory permissions.'
-					);
-				}
-			}
-
-			// Ensure SQLite integration is installed before starting the server
-			const wpConfigPath = path + '/wp-config.php';
-			if ( ! ( await fs.pathExists( wpConfigPath ) ) ) {
-				await setupSqliteDatabase( path, storagePaths.getServerFilesPath() );
-			}
+			// Use common WordPress setup function for file installation
+			await commonSetupWordPressSite( {
+				sitePath: path,
+				wpVersion,
+				serverFilesPath: storagePaths.getServerFilesPath(),
+			} );
 
 			if ( ! isOnlineStatus ) {
 				return true;

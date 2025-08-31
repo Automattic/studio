@@ -44,9 +44,7 @@ export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 		logger.reportStart( LoggerAction.LOAD, __( 'Loading sites…' ) );
 		const appdata = await readAppdata();
 
-		// Combine both regular sites and new sites
-		const allSites = [ ...appdata.sites, ...appdata.newSites ];
-
+		const allSites = appdata.sites;
 		if ( allSites.length === 0 ) {
 			logger.reportSuccess( __( 'No sites found' ) );
 			return;

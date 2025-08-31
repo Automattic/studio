@@ -37,7 +37,7 @@ jest.mock( 'src/lib/import-export/import/import-manager' );
 jest.mock( 'src/lib/bump-stats' );
 jest.mock( 'atomically' );
 
-jest.mock( 'src/lib/port-finder', () => ( {
+jest.mock( 'common/lib/port-finder', () => ( {
 	portFinder: {
 		getOpenPort: jest.fn().mockResolvedValue( 9999 ),
 	},

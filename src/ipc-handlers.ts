@@ -28,6 +28,7 @@ import {
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
+import { portFinder } from 'common/lib/port-finder';
 import { setupSqliteDatabase } from 'common/lib/sqlite-setup';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
@@ -58,7 +59,6 @@ import * as oauthClient from 'src/lib/oauth';
 import { getSignUpUrl } from 'src/lib/oauth';
 import { createPassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
-import { portFinder } from 'src/lib/port-finder';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { sortSites } from 'src/lib/sort-sites';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';

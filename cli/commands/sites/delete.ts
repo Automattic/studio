@@ -90,7 +90,7 @@ export async function runCommand( sitePath: string ): Promise< void > {
 		console.log( __( 'Press Ctrl+C to cancel at any time.\n' ) );
 
 		// Validate site path
-		const pathValidation = validateReadSitePath( sitePath );
+		const pathValidation = validateReadSitePath( sitePath, true );
 		if ( ! pathValidation.valid ) {
 			throw new LoggerError( pathValidation.error! );
 		}

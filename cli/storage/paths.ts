@@ -12,7 +12,4 @@ const appDataPath =
 		  } )()
 		: path.join( os.homedir(), 'Library', 'Application Support' );
 
-const studioDataPath = path.join( appDataPath, 'Studio' );
-const cliResourcesPath = path.join( studioDataPath, 'cli-resources' );
-
-export const storagePaths = createStoragePaths( appDataPath, 'Studio', cliResourcesPath );
+export const storagePaths = createStoragePaths( appDataPath, 'Studio' );

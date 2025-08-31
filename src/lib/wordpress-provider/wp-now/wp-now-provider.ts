@@ -10,8 +10,8 @@ import {
 	SQLITE_FILENAME,
 	SQLITE_FILENAME_LEGACY,
 } from 'common/lib/wordpress-provider/constants';
+import { isValidWordPressVersion } from 'common/lib/wordpress-version-utils';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
-import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
 import { copyBundledLatestWPVersion } from 'src/setup-wp-server-files';
 import { SiteServer } from 'src/site-server';
 import { getWpNowConfig } from 'vendor/wp-now/src';

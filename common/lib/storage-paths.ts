@@ -17,12 +17,6 @@ export interface StoragePaths {
 	getStudioDataPath(): string;
 
 	/**
-	 * Bundled resources directory (WordPress files, SQLite, etc.)
-	 * @returns Platform-specific path to bundled resources
-	 */
-	getResourcesPath(): string;
-
-	/**
 	 * Server files directory for downloaded/cached components
 	 * @returns ~/Library/Application Support/Studio/server-files
 	 */
@@ -34,20 +28,14 @@ export interface StoragePaths {
  *
  * @param appDataPath Platform-specific base app data path
  * @param appName Application name (usually 'Studio')
- * @param resourcesPath Platform-specific resources path
  * @returns StoragePaths interface
  */
-export function createStoragePaths(
-	appDataPath: string,
-	appName: string,
-	resourcesPath: string
-): StoragePaths {
+export function createStoragePaths( appDataPath: string, appName: string ): StoragePaths {
 	const studioDataPath = path.join( appDataPath, appName );
 
 	return {
 		getAppDataPath: () => appDataPath,
 		getStudioDataPath: () => studioDataPath,
-		getResourcesPath: () => resourcesPath,
 		getServerFilesPath: () => path.join( studioDataPath, 'server-files' ),
 	};
 }

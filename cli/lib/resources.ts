@@ -7,13 +7,11 @@ import { storagePaths } from 'cli/storage/paths';
  * Check if all required WordPress resources are available locally
  */
 async function resourcesExist(): Promise< boolean > {
-	const resourcesPath = storagePaths.getResourcesPath();
-	const wpFilesPath = path.join( resourcesPath, 'wp-files' );
+	const serverFilesPath = storagePaths.getServerFilesPath();
 
-	// Check for essential WordPress files
-	const wordpressPath = path.join( wpFilesPath, 'latest', 'wordpress' );
-	const sqlitePath = path.join( wpFilesPath, 'sqlite-database-integration' );
-	const wpCliPath = path.join( wpFilesPath, 'wp-cli', 'wp-cli.phar' );
+	const wordpressPath = path.join( serverFilesPath, 'latest', 'wordpress' );
+	const sqlitePath = path.join( serverFilesPath, 'sqlite-database-integration' );
+	const wpCliPath = path.join( serverFilesPath, 'wp-cli.phar' );
 
 	return (
 		( await pathExists( wordpressPath ) ) &&
@@ -23,19 +21,15 @@ async function resourcesExist(): Promise< boolean > {
 }
 
 /**
- * Download all WordPress resources to CLI resources directory
+ * Download all WordPress resources to server files directory
  */
 async function downloadAllResources(): Promise< void > {
-	const resourcesPath = storagePaths.getResourcesPath();
-	const wpFilesPath = path.join( resourcesPath, 'wp-files' );
+	const serverFilesPath = storagePaths.getServerFilesPath();
+	const files = getWordPressResourceFiles( serverFilesPath );
 
-	const files = getWordPressResourceFiles( wpFilesPath );
-
-	// Download files sequentially with error handling
 	try {
-		await downloadFiles( files, wpFilesPath, { silent: true } );
+		await downloadFiles( files, serverFilesPath, { silent: true } );
 	} catch ( error ) {
-		// Re-throw with more context
 		throw new Error( `Failed to download WordPress resources: ${ ( error as Error ).message }` );
 	}
 }
@@ -45,12 +39,10 @@ async function downloadAllResources(): Promise< void > {
  * This is a mandatory requirement - CLI will not work without resources
  */
 export async function ensureResourcesAvailable(): Promise< void > {
-	// Fast check - return immediately if resources exist
 	if ( await resourcesExist() ) {
 		return;
 	}
 
-	// Show comprehensive setup message
 	console.log( `
 🚀 Welcome to WordPress Studio CLI!
 

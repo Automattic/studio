@@ -5,8 +5,8 @@ import { RecommendedPHPVersion } from '@wp-playground/common';
 import fs from 'fs-extra';
 import { recursiveCopyDirectory, pathExists } from 'common/lib/fs-utils';
 import { isOnline } from 'common/lib/network-utils';
-import { installSqliteIntegration } from 'src/lib/sqlite-versions';
-import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
+import { setupSqliteDatabase } from 'common/lib/sqlite-setup';
+import { isValidWordPressVersion } from 'common/lib/wordpress-version-utils';
 import { SiteServer } from 'src/site-server';
 import { storagePaths } from 'src/storage/paths';
 import {
@@ -153,7 +153,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			// Ensure SQLite integration is installed before starting the server
 			const wpConfigPath = path + '/wp-config.php';
 			if ( ! ( await fs.pathExists( wpConfigPath ) ) ) {
-				await installSqliteIntegration( path );
+				await setupSqliteDatabase( path, storagePaths.getServerFilesPath() );
 			}
 
 			if ( ! isOnlineStatus ) {

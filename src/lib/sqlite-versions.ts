@@ -1,8 +1,8 @@
 import path from 'path';
-import * as Sentry from '@sentry/electron/main';
 import fs from 'fs-extra';
 import semver from 'semver';
-import { SQLITE_DATABASE_INTEGRATION_VERSION } from 'src/constants';
+import { SQLITE_DATABASE_INTEGRATION_VERSION } from 'common/constants';
+import { setupSqliteDatabase, removeLegacySqliteIntegrationPlugin } from 'common/lib/sqlite-setup';
 import { getSqlitePath, getWordPressProvider } from 'src/lib/wordpress-provider';
 import { storagePaths } from 'src/storage/paths';
 
@@ -72,28 +72,6 @@ export async function getSqliteVersionFromInstallation(
 }
 
 /**
- * Removes legacy `sqlite-integration-plugin` installations from the specified
- * installation path that including a `-main` branch suffix.
- *
- * @param installPath The path where the plugin is installed.
- *
- * @returns A promise that resolves when the plugin is successfully removed.
- *
- * @todo Remove this function after a few releases.
- */
-export async function removeLegacySqliteIntegrationPlugin( installPath: string ) {
-	try {
-		const legacySqlitePluginPath = `${ installPath }-main`;
-		if ( await fs.pathExists( legacySqlitePluginPath ) ) {
-			await fs.remove( legacySqlitePluginPath );
-		}
-	} catch ( error ) {
-		// If the removal fails, log the error but don't throw
-		Sentry.captureException( error );
-	}
-}
-
-/**
  * Updates the SQLite integration in a site if it's outdated compared to the version
  * located in the server files.
  *
@@ -114,41 +92,6 @@ export async function keepSqliteIntegrationUpdated( sitePath: string ) {
 	const sqliteOutdated = sqliteInstalled && ( await isSqliteInstallationOutdated( sqlitePath ) );
 
 	if ( ( ! sqliteInstalled && ! hasWpConfig ) || sqliteOutdated ) {
-		await installSqliteIntegration( sitePath );
+		await setupSqliteDatabase( sitePath, storagePaths.getServerFilesPath() );
 	}
-}
-
-/**
- * Installs the SQLite integration in a site. This includes the must-used plugin
- * and the database file.
- *
- * @param sitePath Path of the site.
- */
-export async function installSqliteIntegration( sitePath: string ) {
-	const wpContentPath = path.join( sitePath, 'wp-content' );
-	const databasePath = path.join( wpContentPath, 'database' );
-
-	await fs.mkdir( databasePath, { recursive: true } );
-
-	const dbPhpPath = path.join( wpContentPath, 'db.php' );
-	const provider = getWordPressProvider();
-	await fs.copyFile(
-		path.join( storagePaths.getServerFilesPath(), provider.SQLITE_FILENAME, 'db.copy' ),
-		dbPhpPath
-	);
-	const dbCopyContent = ( await fs.readFile( dbPhpPath, 'utf8' ) ).toString();
-	await fs.writeFile(
-		dbPhpPath,
-		dbCopyContent.replace(
-			"'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
-			`realpath( __DIR__ . '/mu-plugins/${ provider.SQLITE_FILENAME }' )`
-		)
-	);
-	const sqlitePluginPath = path.join( wpContentPath, 'mu-plugins', provider.SQLITE_FILENAME );
-	await fs.copy(
-		path.join( storagePaths.getServerFilesPath(), provider.SQLITE_FILENAME ),
-		sqlitePluginPath
-	);
-
-	await removeLegacySqliteIntegrationPlugin( sqlitePluginPath );
 }

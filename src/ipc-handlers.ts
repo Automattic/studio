@@ -28,6 +28,7 @@ import {
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
+import { setupSqliteDatabase } from 'common/lib/sqlite-setup';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { ARCHIVER_OPTIONS, DEFAULT_TERMINAL, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
@@ -60,7 +61,7 @@ import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { portFinder } from 'src/lib/port-finder';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { sortSites } from 'src/lib/sort-sites';
-import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
+import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import {
@@ -76,7 +77,7 @@ import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { UserSettingsTabName } from 'src/modules/user-settings/user-settings-types';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
-import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
+import { DEFAULT_SITE_PATH, getSiteThumbnailPath, storagePaths } from 'src/storage/paths';
 import {
 	loadUserData,
 	lockAppdata,
@@ -251,7 +252,7 @@ export async function createSite(
 		}
 
 		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
-			await installSqliteIntegration( path );
+			await setupSqliteDatabase( path, storagePaths.getServerFilesPath() );
 		} else {
 			await updateSiteUrl( server, getSiteUrl( details ) );
 		}

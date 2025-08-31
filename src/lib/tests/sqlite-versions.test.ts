@@ -1,6 +1,6 @@
 import fs from 'fs-extra';
-import { SQLITE_DATABASE_INTEGRATION_VERSION } from 'src/constants';
-import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
+import { SQLITE_DATABASE_INTEGRATION_VERSION } from 'common/constants';
+import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 
 const SQLITE_FILENAME = 'sqlite-database-integration';
@@ -116,34 +116,5 @@ platformTestSuite( 'keepSqliteIntegrationUpdated', ( { normalize } ) => {
 				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }` )
 			);
 		} );
-	} );
-} );
-
-platformTestSuite( 'installSqliteIntegration', ( { normalize } ) => {
-	it( 'should install SQLite integration', async () => {
-		// Mock site default db.php
-		( fs as MockedFsExtra ).__setFileContents(
-			normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
-			"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'"
-		);
-
-		await installSqliteIntegration( MOCK_SITE_PATH );
-
-		expect( fs.mkdir ).toHaveBeenCalledWith(
-			normalize( `${ MOCK_SITE_PATH }/wp-content/database` ),
-			{ recursive: true }
-		);
-		expect( fs.copyFile ).toHaveBeenCalledWith(
-			normalize( `server-files/${ SQLITE_FILENAME }/db.copy` ),
-			normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` )
-		);
-		expect( fs.writeFile ).toHaveBeenCalledWith(
-			normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
-			`SQLIntegration path: realpath( __DIR__ . '/mu-plugins/${ SQLITE_FILENAME }' )`
-		);
-		expect( fs.copy ).toHaveBeenCalledWith(
-			normalize( `server-files/${ SQLITE_FILENAME }` ),
-			normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }` )
-		);
 	} );
 } );

@@ -2,6 +2,7 @@ import os from 'os';
 import path from 'path';
 import extract from 'extract-zip';
 import fs from 'fs-extra';
+import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../constants';
 
 export interface FileToDownload {
 	name: string;
@@ -103,9 +104,6 @@ async function getUrl( url: string | ( () => Promise< string > ) ): Promise< str
  * @param basePath Base path where files should be downloaded
  */
 export function getWordPressResourceFiles( basePath: string ): FileToDownload[] {
-	// Import constants dynamically to avoid circular dependencies
-	const { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } = require( 'src/constants' );
-
 	return [
 		{
 			name: 'wordpress',
@@ -122,7 +120,6 @@ export function getWordPressResourceFiles( basePath: string ): FileToDownload[] 
 			name: 'wp-cli',
 			description: 'WP-CLI tools',
 			url: 'https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar',
-			destinationPath: path.join( basePath, 'wp-cli' ),
 		},
 		{
 			name: 'sqlite-command',

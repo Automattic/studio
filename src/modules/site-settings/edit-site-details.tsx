@@ -3,6 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import stripAnsi from 'strip-ansi';
 import { AllowedPHPVersion } from 'common/lib/wordpress-provider/constants';
+import { getWordPressVersionUrl } from 'common/lib/wordpress-version-utils';
 import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
 import Modal from 'src/components/modal';
@@ -12,7 +13,6 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
 import { useRootSelector } from 'src/stores';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import {

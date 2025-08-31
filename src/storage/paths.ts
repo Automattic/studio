@@ -64,11 +64,14 @@ function getAppResourcesPath(): string {
 	return path.join( exePath, 'resources' );
 }
 
-export const storagePaths: StoragePaths = createStoragePaths(
-	getAppDataPath(),
-	getAppName(),
-	getAppResourcesPath()
-);
+// Create the common storage paths
+const commonStoragePaths = createStoragePaths( getAppDataPath(), getAppName() );
+
+// Extend with Electron-specific getResourcesPath method
+export const storagePaths: StoragePaths & { getResourcesPath(): string } = {
+	...commonStoragePaths,
+	getResourcesPath: getAppResourcesPath,
+};
 
 export function getUserDataFilePath(): string {
 	return path.join( storagePaths.getStudioDataPath(), 'appdata-v1.json' );

@@ -11,6 +11,7 @@ import { registerCommand as registerSitesCreateCommand } from 'cli/commands/site
 import { registerCommand as registerSitesDeleteCommand } from 'cli/commands/sites/delete';
 import { registerCommand as registerSitesListCommand } from 'cli/commands/sites/list';
 import { loadTranslations } from 'cli/lib/i18n';
+import { ensureResourcesAvailable } from 'cli/lib/resources';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
 import { version } from 'cli/package.json';
 import { StudioArgv } from 'cli/types';
@@ -18,6 +19,8 @@ import { StudioArgv } from 'cli/types';
 suppressPunycodeWarning();
 
 async function main() {
+	await ensureResourcesAvailable();
+
 	const locale = await loadTranslations();
 
 	const studioArgv: StudioArgv = yargs( process.argv.slice( 2 ) )

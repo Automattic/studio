@@ -18,6 +18,7 @@ import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { compileBlueprint } from '@wp-playground/blueprints';
 import archiver from 'archiver';
+import { download } from 'common/lib/download';
 import {
 	calculateDirectorySize,
 	isWordPressDirectory,
@@ -42,7 +43,6 @@ import {
 	isRootCATrusted,
 	trustRootCA,
 } from 'src/lib/certificate-manager';
-import { download } from 'src/lib/download';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { sanitizeFolderName } from 'src/lib/generate-site-name';
 import { getImageData } from 'src/lib/get-image-data';

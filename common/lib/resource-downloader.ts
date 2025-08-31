@@ -2,6 +2,7 @@ import os from 'os';
 import path from 'path';
 import extract from 'extract-zip';
 import fs from 'fs-extra';
+import { download } from 'common/lib/download';
 import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../constants';
 
 export interface FileToDownload {
@@ -39,7 +40,6 @@ export async function downloadFile(
 	}
 
 	// Import download function dynamically to avoid circular imports
-	const { download } = await import( 'src/lib/download' );
 	await download( url, zipPath, true, name );
 
 	if ( name === 'wp-cli' ) {

@@ -1,12 +1,11 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
 import { LOCKFILE_NAME, LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/constants';
 import { arePathsEqual } from 'common/lib/fs-utils';
 import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
-import { getAuthenticationUrl } from 'common/lib/oauth';
 import { snapshotSchema } from 'common/types/snapshot';
 import { StatsMetric } from 'common/types/stats';
 import { z } from 'zod';
@@ -32,6 +31,10 @@ const userDataSchema = z
 			.object( {
 				accessToken: z.string().min( 1, __( 'Access token cannot be empty' ) ),
 				id: z.number(),
+				expiresIn: z.number(),
+				expirationTime: z.number(),
+				email: z.string().email(),
+				displayName: z.string(),
 			} )
 			.passthrough()
 			.optional(),
@@ -127,13 +130,9 @@ export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken
 
 		return authToken;
 	} catch ( error ) {
-		const authUrl = getAuthenticationUrl( 'en' );
-
 		throw new LoggerError(
-			sprintf(
-				// translators: %s is a URL to log in to WordPress.com
-				__( 'Authentication required. Please log in to WordPress.com first:\n%s' ),
-				authUrl
+			__(
+				'Authentication required. Please run "studio auth login" to authenticate with WordPress.com.'
 			)
 		);
 	}

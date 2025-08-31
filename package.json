@@ -60,6 +60,7 @@
 		"@types/lockfile": "^1.0.4",
 		"@types/lodash": "^4.17.20",
 		"@types/node-fetch": "^2.6.12",
+		"@types/plist": "^3.0.5",
 		"@types/react": "^18.2.42",
 		"@types/react-dom": "^18.2.17",
 		"@types/semver": "^7.7.0",

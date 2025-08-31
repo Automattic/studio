@@ -1,6 +1,5 @@
 import crypto from 'crypto';
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
 import { __, sprintf } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
@@ -13,6 +12,7 @@ import { StatsMetric } from 'common/types/stats';
 import { z } from 'zod';
 import { validateAccessToken } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
+import { storagePaths } from 'cli/storage/paths';
 
 const siteSchema = z
 	.object( {
@@ -45,15 +45,7 @@ type UserData = z.infer< typeof userDataSchema >;
 type SiteData = z.infer< typeof siteSchema >;
 
 export function getAppdataDirectory(): string {
-	if ( process.platform === 'win32' ) {
-		if ( ! process.env.APPDATA ) {
-			throw new LoggerError( __( 'Studio config file path not found.' ) );
-		}
-
-		return path.join( process.env.APPDATA, 'Studio' );
-	}
-
-	return path.join( os.homedir(), 'Library', 'Application Support', 'Studio' );
+	return storagePaths.getStudioDataPath();
 }
 
 export function getAppdataPath(): string {
@@ -113,7 +105,7 @@ export async function saveAppdata( userData: UserData ): Promise< void > {
 	}
 }
 
-const LOCKFILE_PATH = path.join( getAppdataDirectory(), LOCKFILE_NAME );
+const LOCKFILE_PATH = path.join( storagePaths.getStudioDataPath(), LOCKFILE_NAME );
 
 export async function lockAppdata(): Promise< void > {
 	await lockFileAsync( LOCKFILE_PATH, { wait: LOCKFILE_WAIT_TIME, stale: LOCKFILE_STALE_TIME } );

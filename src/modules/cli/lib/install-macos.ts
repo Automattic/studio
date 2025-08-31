@@ -6,12 +6,12 @@ import { __, sprintf } from '@wordpress/i18n';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import { sudoExec } from 'src/lib/sudo-exec';
 import { getMainWindow } from 'src/main-window';
-import { getResourcesPath } from 'src/storage/paths';
+import { storagePaths } from 'src/storage/paths';
 import packageJson from '../../../../package.json';
 
 const cliSymlinkPath = '/usr/local/bin/studio';
 
-const binPath = path.join( getResourcesPath(), 'bin' );
+const binPath = path.join( storagePaths.getResourcesPath(), 'bin' );
 const cliPackagedPath = path.join( binPath, 'studio-cli.sh' );
 const installScriptPath = path.join( binPath, 'install-studio-cli.sh' );
 

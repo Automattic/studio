@@ -1,13 +1,13 @@
 import path from 'path';
+import { storagePaths } from '../../../src/storage/paths';
 import getWpCliTmpPath from './get-wp-cli-tmp-path';
-import { getServerFilesPath } from '../../../src/storage/paths';
 
 /**
  * The path to the wp-cli folder within the WP Now folder.
  */
 export function getWpCliFolderPath() {
 	if ( process.env.NODE_ENV !== 'test' ) {
-		return path.join( getServerFilesPath() );
+		return path.join( storagePaths.getServerFilesPath() );
 	}
 	return path.join( getWpCliTmpPath() );
 }

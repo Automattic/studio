@@ -4,7 +4,7 @@ import fs from 'fs-extra';
 import semver from 'semver';
 import { SQLITE_DATABASE_INTEGRATION_VERSION } from 'src/constants';
 import { getSqlitePath, getWordPressProvider } from 'src/lib/wordpress-provider';
-import { getServerFilesPath } from 'src/storage/paths';
+import { storagePaths } from 'src/storage/paths';
 
 export async function isSqlLiteInstalled( installPath: string ) {
 	// Check both standard and legacy (-main) paths
@@ -133,7 +133,7 @@ export async function installSqliteIntegration( sitePath: string ) {
 	const dbPhpPath = path.join( wpContentPath, 'db.php' );
 	const provider = getWordPressProvider();
 	await fs.copyFile(
-		path.join( getServerFilesPath(), provider.SQLITE_FILENAME, 'db.copy' ),
+		path.join( storagePaths.getServerFilesPath(), provider.SQLITE_FILENAME, 'db.copy' ),
 		dbPhpPath
 	);
 	const dbCopyContent = ( await fs.readFile( dbPhpPath, 'utf8' ) ).toString();
@@ -145,7 +145,10 @@ export async function installSqliteIntegration( sitePath: string ) {
 		)
 	);
 	const sqlitePluginPath = path.join( wpContentPath, 'mu-plugins', provider.SQLITE_FILENAME );
-	await fs.copy( path.join( getServerFilesPath(), provider.SQLITE_FILENAME ), sqlitePluginPath );
+	await fs.copy(
+		path.join( storagePaths.getServerFilesPath(), provider.SQLITE_FILENAME ),
+		sqlitePluginPath
+	);
 
 	await removeLegacySqliteIntegrationPlugin( sqlitePluginPath );
 }

@@ -1,7 +1,7 @@
 import { app } from 'electron';
 import path from 'path';
 import { pathExists, recursiveCopyDirectory } from 'common/lib/fs-utils';
-import { getServerFilesPath } from 'src/storage/paths';
+import { storagePaths } from 'src/storage/paths';
 import { loadUserData } from 'src/storage/user-data';
 
 const wpNowPath = path.join( app.getPath( 'home' ), '.wp-now' );
@@ -14,7 +14,7 @@ export async function needsToMigrateFromWpNowFolder() {
 		return false;
 	}
 
-	if ( await pathExists( getServerFilesPath() ) ) {
+	if ( await pathExists( storagePaths.getServerFilesPath() ) ) {
 		// Either the migration has already been done, or they weren't an early adopter.
 		return false;
 	}
@@ -26,5 +26,5 @@ export async function needsToMigrateFromWpNowFolder() {
 }
 
 export async function migrateFromWpNowFolder() {
-	await recursiveCopyDirectory( wpNowPath, getServerFilesPath() );
+	await recursiveCopyDirectory( wpNowPath, storagePaths.getServerFilesPath() );
 }

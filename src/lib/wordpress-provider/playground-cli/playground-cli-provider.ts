@@ -8,7 +8,7 @@ import { isOnline } from 'common/lib/network-utils';
 import { installSqliteIntegration } from 'src/lib/sqlite-versions';
 import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
 import { SiteServer } from 'src/site-server';
-import { getResourcesPath, getServerFilesPath } from 'src/storage/paths';
+import { storagePaths } from 'src/storage/paths';
 import {
 	WordPressProvider,
 	WordPressServerInstance,
@@ -103,7 +103,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	}
 
 	getSqlitePath(): string {
-		return nodePath.join( getServerFilesPath(), this.SQLITE_FILENAME );
+		return nodePath.join( storagePaths.getServerFilesPath(), this.SQLITE_FILENAME );
 	}
 
 	getWpLoadPath( _serverProcess: WordPressServerProcess ): string {
@@ -128,7 +128,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				}
 
 				const bundledWPPath = nodePath.join(
-					getResourcesPath(),
+					storagePaths.getResourcesPath(),
 					'wp-files',
 					'latest',
 					'wordpress'

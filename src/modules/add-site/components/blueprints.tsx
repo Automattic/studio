@@ -5,6 +5,7 @@ import {
 	__experimentalText as Text,
 	Button,
 	Notice,
+	Tooltip,
 } from '@wordpress/components';
 import { DataViews, View } from '@wordpress/dataviews';
 import { sprintf } from '@wordpress/i18n';
@@ -42,6 +43,8 @@ interface AddSiteBlueprintProps {
 	onBlueprintChange: ( blueprintId: string ) => void;
 	onFileBlueprintSelect?: ( blueprint: Blueprint ) => void;
 }
+
+const MAX_BLUEPRINTS_CATEGORIES = 3;
 
 export default function AddSiteBlueprint( {
 	blueprints,
@@ -142,11 +145,16 @@ export default function AddSiteBlueprint( {
 					.flatMap( ( blueprint ) => blueprint.blueprint.meta?.categories || [] )
 					.filter( ( category, index, arr ) => arr.indexOf( category ) === index )
 					.map( ( category ) => ( { label: category, value: category } ) ),
-				render: ( { item }: { item: DataViewBlueprint } ) => (
-					<HStack spacing={ 3 } wrap alignment="left">
-						{ ( item.blueprint.meta?.categories || [] )
-							.filter( ( category ) => category !== 'Studio' )
-							.map( ( category ) => (
+				render: ( { item }: { item: DataViewBlueprint } ) => {
+					const categories = ( item.blueprint.meta?.categories || [] ).filter(
+						( category ) => category !== 'Studio'
+					);
+					const visibleCategories = categories.slice( 0, MAX_BLUEPRINTS_CATEGORIES );
+					const remainingCount = categories.length - MAX_BLUEPRINTS_CATEGORIES;
+
+					return (
+						<HStack spacing={ 3 } wrap alignment="left">
+							{ visibleCategories.map( ( category ) => (
 								<Text
 									as="span"
 									key={ category }
@@ -155,8 +163,24 @@ export default function AddSiteBlueprint( {
 									{ category }
 								</Text>
 							) ) }
-					</HStack>
-				),
+							{ remainingCount > 0 && (
+								<Tooltip
+									text={ categories.slice( MAX_BLUEPRINTS_CATEGORIES ).join( ', ' ) }
+									delay={ 200 }
+									position="top right"
+									className="max-w-xs"
+								>
+									<Text
+										as="span"
+										className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-sm flex items-center font-medium"
+									>
+										+{ remainingCount } more
+									</Text>
+								</Tooltip>
+							) }
+						</HStack>
+					);
+				},
 			},
 			{
 				id: 'preview',
@@ -328,7 +352,7 @@ export default function AddSiteBlueprint( {
 				) }
 			</HStack>
 
-			<div className="w-full px-3 [&_.dataviews-view-grid]:!grid [&_.dataviews-view-grid]:!grid-cols-3 [&_.dataviews-view-grid]:!gap-4 [&_.components-badge]:!bg-transparent [&_.components-badge]:!p-0">
+			<div className="w-full px-3 [&_.dataviews-view-grid]:!grid [&_.dataviews-view-grid]:!grid-cols-3 [&_.dataviews-view-grid]:!gap-4 [&_.dataviews-view-grid]:!items-start [&_.components-badge]:!bg-transparent [&_.components-badge]:!p-0">
 				<DataViews
 					data={ dataViewBlueprints }
 					fields={ fields }

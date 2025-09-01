@@ -6,11 +6,9 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
-import customDomainIllustration from 'src/modules/whats-new/assets/custom-domains-illustration.svg';
 import preferredAppsIllustration from 'src/modules/whats-new/assets/preferred-apps-illustration.svg';
 import pressableSyncIllustration from 'src/modules/whats-new/assets/pressable-sync-illustration.svg';
 import selectiveSyncIllustration from 'src/modules/whats-new/assets/selective-sync-illustration.svg';
-import versionSwitchIllustration from 'src/modules/whats-new/assets/version-switch-illustration.svg';
 import { useI18nLocale } from 'src/stores';
 
 interface WhatsNewPage {

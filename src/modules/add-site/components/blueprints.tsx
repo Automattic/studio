@@ -4,8 +4,10 @@ import {
 	__experimentalHeading as Heading,
 	__experimentalText as Text,
 	Button,
+	Notice,
 } from '@wordpress/components';
 import { DataViews, View } from '@wordpress/dataviews';
+import { sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useRef, useState, useMemo } from 'react';
@@ -50,6 +52,7 @@ export default function AddSiteBlueprint( {
 }: AddSiteBlueprintProps ) {
 	const { __ } = useI18n();
 	const fileRef = useRef< HTMLInputElement | null >( null );
+	const [ validationError, setValidationError ] = useState< string | null >( null );
 
 	// Check if current selection is a file-based blueprint
 	const isFileBasedSelection = selectedBlueprint && selectedBlueprint.startsWith( 'file:' );
@@ -57,10 +60,20 @@ export default function AddSiteBlueprint( {
 
 	const handleRemoveFile = useCallback( () => {
 		onBlueprintChange( '' );
+		setValidationError( null );
 		if ( fileRef.current ) {
 			fileRef.current.value = '';
 		}
 	}, [ onBlueprintChange ] );
+
+	const handleBlueprintClick = useCallback(
+		( item: DataViewBlueprint ) => {
+			setValidationError( null );
+			onBlueprintChange( item.slug );
+		},
+		[ onBlueprintChange ]
+	);
+
 	const [ view, setView ] = useState< View >( {
 		type: 'grid',
 		perPage: 9,
@@ -111,7 +124,7 @@ export default function AddSiteBlueprint( {
 				type: 'text' as const,
 				render: ( { item }: { item: DataViewBlueprint } ) => (
 					<Text
-						className="text-[13px] text-gray-600 h-[454x]"
+						className="text-[13px] text-gray-600 h-[54px]"
 						weight={ 400 }
 						truncate
 						numberOfLines={ 3 }
@@ -166,10 +179,31 @@ export default function AddSiteBlueprint( {
 
 	const handleFileSelect = async ( event: React.ChangeEvent< HTMLInputElement > ) => {
 		const file = event.target.files?.[ 0 ];
+		setValidationError( null );
+
 		if ( file && file.type === 'application/json' && onFileBlueprintSelect ) {
 			try {
 				const text = await file.text();
 				const blueprintJson = JSON.parse( text );
+
+				if ( blueprintJson.version === 2 ) {
+					setValidationError(
+						__( 'Blueprint v2 format is not supported yet. Please use Blueprint v1 format.' )
+					);
+					if ( fileRef.current ) {
+						fileRef.current.value = '';
+					}
+					return;
+				}
+
+				const validation = await getIpcApi().validateBlueprint( blueprintJson );
+				if ( ! validation.valid ) {
+					setValidationError( validation.error || __( 'Invalid Blueprint format' ) );
+					if ( fileRef.current ) {
+						fileRef.current.value = '';
+					}
+					return;
+				}
 
 				// Create a "fake" Blueprint object from the file
 				const fileBlueprint: Blueprint = {
@@ -183,6 +217,17 @@ export default function AddSiteBlueprint( {
 
 				onFileBlueprintSelect( fileBlueprint );
 			} catch ( error ) {
+				if ( error instanceof SyntaxError ) {
+					setValidationError(
+						sprintf(
+							// translators: %s is error message of the JSON parsing error
+							__( 'Invalid JSON format: %s' ),
+							error.message
+						)
+					);
+				} else {
+					setValidationError( __( 'Failed to load blueprint file. Please try again.' ) );
+				}
 				console.error( 'Failed to parse blueprint file:', error );
 			}
 		}
@@ -225,6 +270,19 @@ export default function AddSiteBlueprint( {
 			<Heading className="text-center text-[32px] text-gray-900 mb-[28px]" weight={ 500 }>
 				{ __( 'Start from a blueprint' ) }
 			</Heading>
+
+			{ validationError && (
+				<Notice
+					status="error"
+					isDismissible={ true }
+					onRemove={ () => setValidationError( null ) }
+					className="mx-3 mb-4"
+				>
+					<strong>{ __( 'Blueprint validation failed' ) }</strong>
+					<br />
+					{ validationError }
+				</Notice>
+			) }
 
 			<HStack alignment="edge" className="w-full mb-[22px] px-3">
 				<HStack alignment="left" className="flex-1">
@@ -282,7 +340,7 @@ export default function AddSiteBlueprint( {
 					paginationInfo={ paginationInfo }
 					getItemId={ ( item: DataViewBlueprint ) => item.slug }
 					selection={ selectedBlueprint ? [ selectedBlueprint ] : [] }
-					onClickItem={ ( item ) => onBlueprintChange( item.slug ) }
+					onClickItem={ handleBlueprintClick }
 					isItemClickable={ () => true }
 				>
 					<DataViews.Layout />

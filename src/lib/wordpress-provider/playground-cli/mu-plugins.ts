@@ -86,6 +86,17 @@ function getStandardMuPlugins( options: Partial< WordPressServerOptions > ): MuP
 			$current_host = $_SERVER['HTTP_HOST'] ?? '';
 
 			if ( preg_match( '/^localhost:\\d+$/', $current_host ) ) {
+				$wp_siteurl_host = parse_url( WP_SITEURL, PHP_URL_HOST );
+				$wp_siteurl_port = parse_url( WP_SITEURL, PHP_URL_PORT );
+				$wp_siteurl_host_with_port = $wp_siteurl_host;
+				if ( $wp_siteurl_port ) {
+					$wp_siteurl_host_with_port .= ':' . $wp_siteurl_port;
+				}
+
+				if ( $current_host === $wp_siteurl_host_with_port ) {
+					return;
+				}
+
 				$requested_uri = $_SERVER['REQUEST_URI'] ?? '/';
 				wp_redirect( rtrim( WP_SITEURL, '/' ) . $requested_uri, 302 );
 				exit;

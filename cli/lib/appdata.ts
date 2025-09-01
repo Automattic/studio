@@ -6,20 +6,13 @@ import { readFile, writeFile } from 'atomically';
 import { LOCKFILE_NAME, LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/constants';
 import { arePathsEqual } from 'common/lib/fs-utils';
 import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
+import { siteSchema, type SiteDetails } from 'common/types/sites';
 import { snapshotSchema } from 'common/types/snapshot';
 import { StatsMetric } from 'common/types/stats';
 import { z } from 'zod';
 import { validateAccessToken } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
 import { storagePaths } from 'cli/storage/paths';
-
-const siteSchema = z
-	.object( {
-		id: z.string(),
-		path: z.string(),
-		name: z.string(),
-	} )
-	.passthrough();
 
 const userDataSchema = z
 	.object( {
@@ -45,7 +38,6 @@ const userDataSchema = z
 	.passthrough();
 
 type UserData = z.infer< typeof userDataSchema >;
-type SiteData = z.infer< typeof siteSchema >;
 
 export function getAppdataDirectory(): string {
 	return storagePaths.getStudioDataPath();
@@ -138,7 +130,7 @@ export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken
 	}
 }
 
-export async function getSiteByFolder( siteFolder: string ): Promise< SiteData > {
+export async function getSiteByFolder( siteFolder: string ): Promise< SiteDetails > {
 	const userData = await readAppdata();
 	const site = [ ...userData.sites, ...userData.newSites ].find( ( site ) =>
 		arePathsEqual( site.path, siteFolder )
@@ -151,7 +143,7 @@ export async function getSiteByFolder( siteFolder: string ): Promise< SiteData >
 	return site;
 }
 
-export function getNewSitePartial( siteFolder: string ): SiteData {
+export function getNewSitePartial( siteFolder: string ): SiteDetails {
 	const newSite = {
 		id: crypto.randomUUID(),
 		path: siteFolder,
@@ -161,7 +153,7 @@ export function getNewSitePartial( siteFolder: string ): SiteData {
 	return newSite;
 }
 
-const createNewSite = async ( siteFolder: string ): Promise< SiteData > => {
+const createNewSite = async ( siteFolder: string ): Promise< SiteDetails > => {
 	try {
 		await lockAppdata();
 		const userData = await readAppdata();
@@ -174,7 +166,7 @@ const createNewSite = async ( siteFolder: string ): Promise< SiteData > => {
 	}
 };
 
-export const getOrCreateSiteByFolder = async ( siteFolder: string ): Promise< SiteData > => {
+export const getOrCreateSiteByFolder = async ( siteFolder: string ): Promise< SiteDetails > => {
 	try {
 		return await getSiteByFolder( siteFolder );
 	} catch ( error ) {

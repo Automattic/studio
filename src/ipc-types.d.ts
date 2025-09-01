@@ -35,6 +35,7 @@ interface StoppedSiteDetails {
 	};
 	isAddingSite?: boolean;
 	autoStart?: boolean;
+	pid?: number;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {

@@ -1,52 +1,13 @@
-import { spawn } from 'child_process';
 import { __ } from '@wordpress/i18n';
 import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { validateAccessToken } from 'cli/lib/api';
 import { readAppdata } from 'cli/lib/appdata';
+import { openBrowser } from 'cli/lib/browser';
 import { registerProtocolHandler, unregisterProtocolHandler } from 'cli/lib/protocol-handler';
 import { waitForAuthenticationToken, getAuthStartTimestamp } from 'cli/lib/token-waiter';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-
-async function openBrowser( url: string ): Promise< void > {
-	const platform = process.platform;
-	let cmd: string;
-	let args: string[];
-
-	switch ( platform ) {
-		case 'darwin':
-			cmd = 'open';
-			args = [ url ];
-			break;
-		case 'win32':
-			cmd = 'rundll32';
-			args = [ 'url.dll,FileProtocolHandler', url ];
-			break;
-		default:
-			cmd = 'xdg-open';
-			args = [ url ];
-			break;
-	}
-
-	return new Promise( ( resolve, reject ) => {
-		const child = spawn( cmd, args );
-
-		child.on( 'error', ( error ) => {
-			reject(
-				new LoggerError( __( 'Failed to open browser. Please open the URL manually.' ), error )
-			);
-		} );
-
-		child.on( 'exit', ( code ) => {
-			if ( code === 0 ) {
-				resolve();
-			} else {
-				reject( new LoggerError( __( 'Failed to open browser. Please open the URL manually.' ) ) );
-			}
-		} );
-	} );
-}
 
 export async function runCommand( locale: SupportedLocale = 'en' ): Promise< void > {
 	const logger = new Logger();

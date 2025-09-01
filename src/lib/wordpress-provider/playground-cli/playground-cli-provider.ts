@@ -8,7 +8,7 @@ import { recursiveCopyDirectory, pathExists } from 'src/lib/fs-utils';
 import { installSqliteIntegration } from 'src/lib/sqlite-versions';
 import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
 import { SiteServer } from 'src/site-server';
-import { getResourcesPath } from 'src/storage/paths';
+import { getResourcesPath, getServerFilesPath } from 'src/storage/paths';
 import {
 	WordPressProvider,
 	WordPressServerInstance,
@@ -86,10 +86,8 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			isWpAutoUpdating: options.isWpAutoUpdating,
 		};
 
-		const url = `http://127.0.0.1:${ port }`;
-
 		return {
-			url,
+			url: `http://localhost:${ port }`,
 			options: serverOptions,
 			_internal: playgroundOptions,
 		};
@@ -105,7 +103,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	}
 
 	getSqlitePath(): string {
-		return nodePath.join( getResourcesPath(), 'wp-files', this.SQLITE_FILENAME );
+		return nodePath.join( getServerFilesPath(), this.SQLITE_FILENAME );
 	}
 
 	getWpLoadPath( _serverProcess: WordPressServerProcess ): string {

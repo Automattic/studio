@@ -36,6 +36,32 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	} ),
 } ) );
 
+jest.mock( 'src/stores/wordpress-versions-api', () => {
+	const actual = jest.requireActual( 'src/stores/wordpress-versions-api' );
+	return {
+		...actual,
+		useGetWordPressVersions: jest.fn( () => ( {
+			data: [
+				{ label: 'Latest', value: 'latest', isBeta: false, isDevelopment: false },
+				{ label: '6.4', value: '6.4', isBeta: false, isDevelopment: false },
+				{ label: '6.3', value: '6.3', isBeta: false, isDevelopment: false },
+			],
+			isLoading: false,
+		} ) ),
+	};
+} );
+
+jest.mock( 'src/stores/wpcom-api', () => {
+	const actual = jest.requireActual( 'src/stores/wpcom-api' );
+	return {
+		...actual,
+		useGetBlueprints: jest.fn( () => ( {
+			data: { blueprints: [], total: 0 },
+			isLoading: false,
+		} ) ),
+	};
+} );
+
 store.replaceReducer( testReducer );
 
 describe( 'SiteContentTabs', () => {
@@ -56,6 +82,7 @@ describe( 'SiteContentTabs', () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite,
 			snapshots: [],
+			data: [ selectedSite ],
 			loadingServer: {},
 		} );
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
@@ -71,6 +98,7 @@ describe( 'SiteContentTabs', () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite,
 			snapshots: [],
+			data: [ selectedSite ],
 			loadingServer: {},
 		} );
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
@@ -81,7 +109,7 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Assistant', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Backup', selected: false } ) ).toBeNull();
 	} );
-	it( 'should render a "No Site" screen if selected site is absent', async () => {
+	it( 'should render a "No Site" screen if all sites are removed', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			undefined,
 			snapshots: [],
@@ -95,6 +123,8 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Launchpad' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).toBeNull();
-		expect( screen.getByText( 'Select a site to view details.' ) ).toBeVisible();
+		expect(
+			screen.getByText( "You don't have any sites right now. Add a new one to get started again." )
+		).toBeVisible();
 	} );
 } );

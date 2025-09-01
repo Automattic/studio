@@ -106,8 +106,6 @@ const config: ForgeConfig = {
 			// By default the dev server uses the same port as calypso.localhost
 			port: 3456,
 		} ),
-		// This plugin bundles the externals defined in the Webpack config file.
-		new ForgeExternalsPlugin( { externals: Object.keys( mainBaseConfig.externals ?? {} ) } ),
 	],
 	hooks: {
 		generateAssets: async () => {

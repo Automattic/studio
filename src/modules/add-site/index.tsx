@@ -3,7 +3,7 @@ import { Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import Button from 'src/components/button';
+import Button, { ButtonVariant } from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
@@ -27,6 +27,7 @@ import Stepper from './components/stepper';
 
 interface AddSiteProps {
 	className?: string;
+	variant?: ButtonVariant;
 }
 
 type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
@@ -54,8 +55,8 @@ interface NavigationContentProps {
 	setEnableHttps: ( enable: boolean ) => void;
 	fileForImport: File | null;
 	setFileForImport: ( file: File | null ) => void;
-	setSelectedBlueprint: ( blueprint: Blueprint | null ) => void;
-	selectedBlueprint: Blueprint | null;
+	setSelectedBlueprint: ( blueprint?: Blueprint ) => void;
+	selectedBlueprint?: Blueprint;
 }
 
 function NavigationContent( props: NavigationContentProps ) {
@@ -125,7 +126,7 @@ function NavigationContent( props: NavigationContentProps ) {
 				createSiteProps.setFileForImport( null );
 			}
 			if ( location.path === '/blueprint' ) {
-				createSiteProps.setSelectedBlueprint( null );
+				createSiteProps.setSelectedBlueprint();
 			}
 			goTo( '/' );
 		} else {
@@ -138,7 +139,7 @@ function NavigationContent( props: NavigationContentProps ) {
 			const blueprint = blueprintsData?.blueprints.find(
 				( b: Blueprint ) => b.slug === blueprintId
 			);
-			createSiteProps.setSelectedBlueprint( blueprint || null );
+			createSiteProps.setSelectedBlueprint( blueprint );
 		},
 		[ blueprintsData?.blueprints, createSiteProps ]
 	);
@@ -190,7 +191,7 @@ function NavigationContent( props: NavigationContentProps ) {
 	);
 }
 
-export default function AddSite( { className }: AddSiteProps ) {
+export default function AddSite( { className, variant = 'outlined' }: AddSiteProps ) {
 	const { __ } = useI18n();
 	const { enableBlueprints } = useFeatureFlags();
 	const [ showModal, setShowModal ] = useState( false );
@@ -246,7 +247,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setCustomDomainError( '' );
 		setEnableHttps( false );
 		setFileForImport( null );
-		setSelectedBlueprint( null );
+		setSelectedBlueprint( undefined );
 	}, [
 		setSitePath,
 		setDoesPathContainWordPress,
@@ -333,6 +334,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 	if ( ! enableBlueprints ) {
 		return (
 			<AddSiteLegacy
+				variant={ variant }
 				className={ className }
 				showModal={ showModal }
 				setShowModal={ setShowModal }
@@ -353,7 +355,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 				</Navigator>
 			</FullscreenModal>
 			<Button
-				variant="outlined"
+				variant={ variant }
 				className={ className }
 				onClick={ openModal }
 				disabled={ isAnySiteProcessing }

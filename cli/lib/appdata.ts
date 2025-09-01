@@ -9,7 +9,7 @@ import { arePathsEqual } from 'common/lib/fs-utils';
 import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { snapshotSchema } from 'common/types/snapshot';
-import { StatsGroup, StatsMetric } from 'common/types/stats';
+import { StatsMetric } from 'common/types/stats';
 import { z } from 'zod';
 import { validateAccessToken } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
@@ -36,10 +36,7 @@ const userDataSchema = z
 			.passthrough()
 			.optional(),
 		lastBumpStats: z
-			.record(
-				z.union( [ z.nativeEnum( StatsGroup ), z.literal( 'local-environment-launch-uniques' ) ] ),
-				z.record( z.nativeEnum( StatsMetric ), z.number() )
-			)
+			.record( z.string(), z.record( z.nativeEnum( StatsMetric ), z.number() ) )
 			.optional(),
 	} )
 	.passthrough();

@@ -52,13 +52,7 @@ const blueprintSchema = z.object( {
 	blueprint: z.record( z.unknown() ),
 } );
 
-const blueprintsResponseSchema = z.object( {
-	blueprints: z.array( blueprintSchema ),
-	total: z.number(),
-} );
-
 export type Blueprint = z.infer< typeof blueprintSchema >;
-export type BlueprintsResponse = z.infer< typeof blueprintsResponseSchema >;
 
 let wpcomClient: WPCOM | undefined;
 const publicWpcomClient = new WPCOM();
@@ -164,13 +158,48 @@ export const wpcomPublicApi = createApi( {
 	baseQuery: wpcomPublicBaseQuery,
 	tagTypes: [ 'Blueprints' ],
 	endpoints: ( builder ) => ( {
-		getBlueprints: builder.query< z.infer< typeof blueprintsResponseSchema >, void >( {
+		getBlueprints: builder.query<
+			{ blueprints: z.infer< typeof blueprintSchema >[]; total: number },
+			void
+		>( {
 			query: () => ( {
 				path: '/studio-app/blueprints',
 				apiNamespace: 'wpcom/v2',
 			} ),
-			transformResponse: ( response: unknown ) =>
-				parseResponse( response, blueprintsResponseSchema ),
+			transformResponse: ( response: unknown ) => {
+				if ( ! response || typeof response !== 'object' ) {
+					throw new Error( 'Invalid response format' );
+				}
+
+				const responseObj = response as Record< string, unknown >;
+				const blueprints = responseObj.blueprints;
+				const total = responseObj.total;
+
+				if ( typeof total !== 'number' ) {
+					throw new Error( 'Invalid total count in response' );
+				}
+
+				if ( ! Array.isArray( blueprints ) ) {
+					throw new Error( 'Invalid blueprints array in response' );
+				}
+
+				// Filter out invalid blueprint items to avoid failing the request
+				const validBlueprints: z.infer< typeof blueprintSchema >[] = [];
+
+				for ( const blueprint of blueprints ) {
+					try {
+						const validatedBlueprint = blueprintSchema.parse( blueprint );
+						validBlueprints.push( validatedBlueprint );
+					} catch ( error ) {
+						console.warn( 'Invalid blueprint item filtered out:', blueprint, error );
+					}
+				}
+
+				return {
+					blueprints: validBlueprints,
+					total: total,
+				};
+			},
 			keepUnusedDataFor: 60 * 60,
 			providesTags: [ 'Blueprints' ],
 		} ),

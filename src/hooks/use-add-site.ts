@@ -34,7 +34,7 @@ export function useAddSite() {
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
 	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
 	const [ enableHttps, setEnableHttps ] = useState( false );
-	const [ selectedBlueprint, setSelectedBlueprint ] = useState< Blueprint | null >( null );
+	const [ selectedBlueprint, setSelectedBlueprint ] = useState< Blueprint | undefined >();
 
 	const loadAllCustomDomains = useCallback( () => {
 		getIpcApi()

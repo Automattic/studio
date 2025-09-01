@@ -74,10 +74,8 @@ function getAppDataPath(): string {
 		return process.env.STUDIO_APP_DATA_PATH;
 	}
 	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
-		if ( ! app ) {
-			throw new Error( 'Electron app not available in child process' );
-		}
-		return path.join( process.env.E2E_APP_DATA_PATH, app.getName(), 'appdata-v1.json' );
+		// In E2E mode, return the base appData path directly. Callers append app name and subpaths.
+		return process.env.E2E_APP_DATA_PATH;
 	}
 	if ( ! app ) {
 		throw new Error( 'Electron app not available in child process' );

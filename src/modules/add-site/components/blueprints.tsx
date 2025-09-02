@@ -38,6 +38,7 @@ interface DataViewBlueprint extends Blueprint {
 
 interface AddSiteBlueprintProps {
 	blueprints: Blueprint[];
+	errorMessage?: string;
 	isLoading: boolean;
 	selectedBlueprint: string | null;
 	onBlueprintChange: ( blueprintId: string ) => void;
@@ -48,6 +49,7 @@ const MAX_BLUEPRINTS_CATEGORIES = 3;
 
 export default function AddSiteBlueprint( {
 	blueprints,
+	errorMessage,
 	isLoading,
 	selectedBlueprint,
 	onBlueprintChange,
@@ -353,6 +355,13 @@ export default function AddSiteBlueprint( {
 			</HStack>
 
 			<div className="w-full px-3 [&_.dataviews-view-grid]:!grid [&_.dataviews-view-grid]:!grid-cols-3 [&_.dataviews-view-grid]:!gap-4 [&_.dataviews-view-grid]:!items-start [&_.components-badge]:!bg-transparent [&_.components-badge]:!p-0">
+				{ errorMessage && (
+					<Text className="text-red-500 text-[14px] block text-center py-[100px]">
+						{ sprintf( __( 'Error loading suggested blueprints: %s' ), errorMessage ) }
+						<br />
+						{ __( 'You can use your own blueprint by uploading a file.' ) }
+					</Text>
+				) }
 				<DataViews
 					data={ dataViewBlueprints }
 					fields={ fields }

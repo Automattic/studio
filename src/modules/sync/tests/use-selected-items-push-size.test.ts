@@ -1,8 +1,8 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { TreeNode } from 'src/components/tree-view';
 import { SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
-import { useSelectedItemsPushSize } from 'src/hooks/use-selected-items-push-size';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
 
 jest.mock( 'src/lib/get-ipc-api' );
 

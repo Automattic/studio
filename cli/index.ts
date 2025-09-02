@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import yargs from 'yargs';
+import { registerCommand as registerAiAskCommand } from 'cli/commands/ai/ask';
 import { registerCommand as registerAuthCallbackCommand } from 'cli/commands/auth/callback';
 import { registerCommand as registerAuthLoginCommand } from 'cli/commands/auth/login';
 import { registerCommand as registerAuthLogoutCommand } from 'cli/commands/auth/logout';
@@ -53,6 +54,10 @@ async function main() {
 					'weekly'
 				);
 			}
+		} )
+		.command( 'ai', __( 'AI assistant commands' ), ( aiYargs ) => {
+			registerAiAskCommand( aiYargs );
+			aiYargs.demandCommand( 1, __( 'You must provide a valid AI command' ) );
 		} )
 		.command( 'auth', __( 'Manage authentication' ), ( authYargs ) => {
 			registerAuthLoginCommand( authYargs );

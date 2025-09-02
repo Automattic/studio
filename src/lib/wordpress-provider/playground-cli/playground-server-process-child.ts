@@ -195,7 +195,12 @@ async function stopServerFunc(): Promise< void > {
 	try {
 		await server[ Symbol.asyncDispose ]();
 	} catch ( error ) {
-		console.warn( error );
+		// Suppress expected disposal errors that occur during site deletion
+		// These are typically race conditions that don't affect functionality
+		const errorMessage = error instanceof Error ? error.message : String( error );
+		if ( ! errorMessage.includes( 'Cannot read properties of undefined' ) ) {
+			console.warn( 'Error during server disposal:', error );
+		}
 	} finally {
 		server = null;
 	}

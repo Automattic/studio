@@ -16,6 +16,7 @@ import https from 'node:https';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
+import { compileBlueprint } from '@wp-playground/blueprints';
 import archiver from 'archiver';
 import { calculateDirectorySize, isWordPressDirectory, arePathsEqual } from 'common/lib/fs-utils';
 import { SupportedLocale } from 'common/lib/locale';
@@ -158,17 +159,6 @@ export async function importSite(
 
 		if ( result?.meta?.phpVersion ) {
 			site.details.phpVersion = result.meta.phpVersion;
-		}
-
-		try {
-			const { stdout: siteTitle } = await site.executeWpCliCommand( 'option get blogname', {
-				skipPluginsAndThemes: true,
-			} );
-			if ( siteTitle && siteTitle.trim() ) {
-				site.details.name = siteTitle.trim();
-			}
-		} catch ( error ) {
-			console.warn( 'Failed to get site title after import:', error );
 		}
 
 		return site.details;
@@ -1455,4 +1445,21 @@ export async function listWpContentFolders(
 export async function getProviderConstants( _event: IpcMainInvokeEvent ) {
 	const provider = getWordPressProvider();
 	return getProviderConstantsFromProvider( provider );
+}
+
+export async function validateBlueprint(
+	_event: IpcMainInvokeEvent,
+	blueprintJson: object
+): Promise< { valid: boolean; error?: string } > {
+	try {
+		await compileBlueprint( blueprintJson );
+
+		return { valid: true };
+	} catch ( error ) {
+		const errorMessage = error instanceof Error ? error.message : 'Invalid Blueprint format';
+		return {
+			valid: false,
+			error: errorMessage,
+		};
+	}
 }

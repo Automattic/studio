@@ -5,12 +5,11 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useConnectedSitesOperations } from 'src/stores/sync';
 
 export function useListenDeepLinkConnection( {
-	connectSite,
 	refetchSites,
 }: {
-	connectSite: ReturnType< typeof useConnectedSitesOperations >[ 'connectSite' ];
 	refetchSites: SyncSitesContextType[ 'refetchSites' ];
 } ) {
+	const { connectSite } = useConnectedSitesOperations();
 	const { selectedSite, setSelectedSiteId } = useSiteDetails();
 	const { setSelectedTab, selectedTab } = useContentTabs();
 

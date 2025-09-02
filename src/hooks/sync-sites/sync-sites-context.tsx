@@ -6,13 +6,7 @@ import { PushStates, UseSyncPush, useSyncPush } from 'src/hooks/sync-sites/use-s
 import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch } from 'src/stores';
-import {
-	useConnectedSitesData,
-	useSyncSitesData,
-	useConnectedSitesOperations,
-	connectedSitesActions,
-} from 'src/stores/sync';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import { useConnectedSitesData, useSyncSitesData, connectedSitesActions } from 'src/stores/sync';
 
 type GetLastSyncTimeText = ( timestamp: string | null, type: 'pull' | 'push' ) => string;
 type UpdateSiteTimestamp = (
@@ -53,7 +47,6 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 
 	const { connectedSites } = useConnectedSitesData();
 	const { syncSites, isFetching, refetchSites } = useSyncSitesData();
-	const { connectSite } = useConnectedSitesOperations();
 	const dispatch = useAppDispatch();
 
 	const updateSiteTimestamp = useCallback< UpdateSiteTimestamp >(
@@ -106,7 +99,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 		}
 	);
 
-	useListenDeepLinkConnection( { connectSite, refetchSites } );
+	useListenDeepLinkConnection( { refetchSites } );
 
 	return (
 		<SyncSitesContext.Provider

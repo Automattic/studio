@@ -1,15 +1,17 @@
 export { syncReducer, syncActions, syncSelectors } from './sync-slice';
-export { useLatestRewindId, useRemoteFileTree } from './sync-slice';
+export { useLatestRewindId, useRemoteFileTree } from './sync-hooks';
 export { useGetLatestRewindIdQuery, fetchRemoteFileTree } from './sync-api';
 export {
 	connectedSitesReducer,
 	connectedSitesActions,
 	connectedSitesSelectors,
-	useConnectedSitesData,
-	useSyncSitesData,
-	useConnectedSitesOperations,
 	loadAllConnectedSites,
 	connectSite,
 	disconnectSite,
 } from './connected-sites-slice';
+export {
+	useConnectedSitesData,
+	useSyncSitesData,
+	useConnectedSitesOperations,
+} from './connected-sites-hooks';
 export * from './sync-types';

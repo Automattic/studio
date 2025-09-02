@@ -12,7 +12,7 @@ export function useSiteSize( siteId: string ) {
 		}
 
 		try {
-			const size = await getIpcApi().getWpContentSize( siteId );
+			const size = await getIpcApi().getDirectorySize( siteId, [ 'wp-content' ] );
 			setIsOverLimit( size > DEMO_SITE_SIZE_LIMIT_BYTES );
 		} catch ( error ) {
 			console.error( 'Error checking site size:', error );

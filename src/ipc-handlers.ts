@@ -1273,12 +1273,12 @@ export function clearSyncOperation( event: IpcMainInvokeEvent, id: string ) {
 	ACTIVE_SYNC_OPERATIONS.delete( id );
 }
 
-export function getWpContentSize( _event: IpcMainInvokeEvent, siteId: string ) {
+export function getDirectorySize( _event: IpcMainInvokeEvent, siteId: string, subdir: string[] ) {
 	const site = SiteServer.get( siteId );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	return calculateDirectorySize( nodePath.join( site.details.path, 'wp-content' ) );
+	return calculateDirectorySize( nodePath.join( site.details.path, ...subdir ) );
 }
 
 export function openCertificate( _event: IpcMainInvokeEvent ) {

@@ -106,7 +106,7 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'getConnectedWpcomSites', localSiteId ),
 	addSyncOperation: ( id ) => ipcRendererSend( 'addSyncOperation', id ),
 	clearSyncOperation: ( id ) => ipcRendererSend( 'clearSyncOperation', id ),
-	getWpContentSize: ( id ) => ipcRendererInvoke( 'getWpContentSize', id ),
+	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),
 	getFileContent: ( filePath ) => ipcRendererInvoke( 'getFileContent', filePath ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),

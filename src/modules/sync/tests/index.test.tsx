@@ -6,16 +6,29 @@ import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
 import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ContentTabSync } from 'src/modules/sync';
 import { store } from 'src/stores';
-import { useLatestRewindId, useRemoteFileTree } from 'src/stores/sync';
+import {
+	useLatestRewindId,
+	useRemoteFileTree,
+	useConnectedSitesData,
+	useSyncSitesData,
+	useConnectedSitesOperations,
+	connectedSitesSelectors,
+} from 'src/stores/sync';
 
 jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/hooks/sync-sites/sync-sites-context', () => ( {
 	...jest.requireActual( '../../../hooks/sync-sites/sync-sites-context' ),
 	useSyncSites: jest.fn(),
+} ) );
+
+jest.mock( 'src/stores', () => ( {
+	...jest.requireActual( 'src/stores' ),
+	useAppDispatch: jest.fn(),
 } ) );
 
 jest.mock( 'src/stores/sync', () => ( {
@@ -26,6 +39,20 @@ jest.mock( 'src/stores/sync', () => ( {
 		error: null,
 		isLoading: false,
 	} ),
+	useConnectedSitesData: jest.fn(),
+	useSyncSitesData: jest.fn(),
+	useConnectedSitesOperations: jest.fn(),
+	connectedSitesSelectors: {
+		selectIsModalOpen: jest.fn(),
+	},
+	connectedSitesActions: {
+		openModal: jest.fn().mockImplementation( () => {
+			return { type: 'connectedSites/openModal' };
+		} ),
+		closeModal: jest.fn().mockImplementation( () => {
+			return { type: 'connectedSites/closeModal' };
+		} ),
+	},
 } ) );
 
 const createAuthMock = ( isAuthenticated: boolean = false ) => ( {
@@ -63,22 +90,32 @@ const fakeSyncSite = {
 
 describe( 'ContentTabSync', () => {
 	const mockSyncSites = {
-		connectedSites: [],
-		syncSites: [],
 		pullSite: jest.fn(),
 		isAnySitePulling: false,
 		isAnySitePushing: false,
 		getPullState: jest.fn(),
 		getPushState: jest.fn().mockReturnValue( inProgressPushState ),
-		refetchSites: jest.fn(),
 		updateTimestamp: jest.fn(),
 		getLastSyncTimeWithType: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
 		isSiteIdPulling: jest.fn(),
 		isSiteIdPushing: jest.fn(),
 		clearTimeout: jest.fn(),
-		isSyncSitesSelectorOpen: false,
-		setIsSyncSitesSelectorOpen: jest.fn(),
-		closeSyncSitesSelector: jest.fn(),
+	};
+
+	const setupConnectedSitesMocks = (
+		connectedSites: SyncSite[] = [],
+		syncSites: SyncSite[] = []
+	) => {
+		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
+			connectedSites,
+			loading: false,
+			localSiteId: 'site-id',
+		} );
+		( useSyncSitesData as jest.Mock ).mockReturnValue( {
+			syncSites,
+			isFetching: false,
+			refetchSites: jest.fn(),
+		} );
 	};
 	beforeEach( () => {
 		jest.resetAllMocks();
@@ -97,6 +134,28 @@ describe( 'ContentTabSync', () => {
 			isLoading: false,
 			error: null,
 		} );
+
+		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
+			connectedSites: [],
+			loading: false,
+			localSiteId: 'site-id',
+		} );
+
+		( useSyncSitesData as jest.Mock ).mockReturnValue( {
+			syncSites: [],
+			isFetching: false,
+			refetchSites: jest.fn(),
+		} );
+
+		( useConnectedSitesOperations as jest.Mock ).mockReturnValue( {
+			connectSite: jest.fn(),
+			disconnectSite: jest.fn(),
+		} );
+
+		const { useAppDispatch } = jest.requireMock( 'src/stores' );
+		useAppDispatch.mockReturnValue( jest.fn() );
+
+		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( false );
 		( useRemoteFileTree as jest.Mock ).mockReturnValue( {
 			fetchChildren: jest.fn().mockResolvedValue( [
 				{
@@ -184,10 +243,7 @@ describe( 'ContentTabSync', () => {
 		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
 		fireEvent.click( connectSiteButton );
 
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			...useSyncSites(),
-			isSyncSitesSelectorOpen: true,
-		} );
+		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( true );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		expect( screen.getByTestId( 'sync-sites-modal-selector' ) ).toBeInTheDocument();
@@ -203,15 +259,17 @@ describe( 'ContentTabSync', () => {
 			syncSupport: 'already-connected',
 		};
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
+		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
-			syncSites: [ fakeSyncSite ],
+			loading: false,
+			localSiteId: 'site-id',
+		} );
+		( useSyncSites as jest.Mock ).mockReturnValue( {
 			pullSite: jest.fn(),
 			isAnySitePulling: false,
 			isAnySitePushing: false,
 			getPullState: jest.fn(),
 			getPushState: jest.fn().mockReturnValue( undefined ),
-			refetchSites: jest.fn(),
 			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
 			isSiteIdPulling: jest.fn(),
 			isSiteIdPushing: jest.fn(),
@@ -236,15 +294,17 @@ describe( 'ContentTabSync', () => {
 			syncSupport: 'already-connected',
 		};
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
+		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
-			syncSites: [ fakeSyncSite ],
+			loading: false,
+			localSiteId: 'site-id',
+		} );
+		( useSyncSites as jest.Mock ).mockReturnValue( {
 			pullSite: jest.fn(),
 			isAnySitePulling: false,
 			isAnySitePushing: false,
 			getPullState: jest.fn(),
 			getPushState: jest.fn().mockReturnValue( inProgressPushState ),
-			refetchSites: jest.fn(),
 			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
 			isSiteIdPulling: jest.fn(),
 			isSiteIdPushing: jest.fn(),
@@ -262,7 +322,7 @@ describe( 'ContentTabSync', () => {
 	} );
 
 	it( 'displays both production and staging sites when a production site is connected', async () => {
-		const fakeProductionSite = {
+		const fakeProductionSite: SyncSite = {
 			id: 6,
 			name: 'My simple business site',
 			url: 'https://developer.wordpress.com/studio/',
@@ -270,8 +330,12 @@ describe( 'ContentTabSync', () => {
 			stagingSiteIds: [ 7 ],
 			syncSupport: 'already-connected',
 			environmentType: 'production',
+			localSiteId: 'site-id',
+			isPressable: false,
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
 		};
-		const fakeStagingSite = {
+		const fakeStagingSite: SyncSite = {
 			id: 7,
 			name: 'Staging: My simple business site',
 			url: 'https://developer-staging.wordpress.com/studio/',
@@ -279,18 +343,19 @@ describe( 'ContentTabSync', () => {
 			stagingSiteIds: [],
 			syncSupport: 'already-connected',
 			environmentType: 'staging',
+			localSiteId: 'site-id',
+			isPressable: false,
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
 		};
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-
+		setupConnectedSitesMocks( [ fakeProductionSite, fakeStagingSite ], [ fakeProductionSite ] );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
-			connectedSites: [ fakeProductionSite, fakeStagingSite ],
-			syncSites: [ fakeProductionSite ],
 			pullSite: jest.fn(),
 			isAnySitePulling: false,
 			isAnySitePushing: false,
 			getPullState: jest.fn(),
 			getPushState: jest.fn().mockReturnValue( undefined ),
-			refetchSites: jest.fn(),
 			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
 			isSiteIdPulling: jest.fn(),
 			isSiteIdPushing: jest.fn(),
@@ -328,14 +393,9 @@ describe( 'ContentTabSync', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
+		expect( connectSiteButton ).toBeInTheDocument();
 		fireEvent.click( connectSiteButton );
-
-		expect( useSyncSites().setIsSyncSitesSelectorOpen ).toHaveBeenCalledWith( true );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			...useSyncSites(),
-			isSyncSitesSelectorOpen: true,
-		} );
-
+		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( true );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		const createNewSiteButton = screen.getByRole( 'button', {
 			name: /Create a new WordPress.com site ↗/i,
@@ -352,32 +412,34 @@ describe( 'ContentTabSync', () => {
 	} );
 
 	it( 'displays the ConnectButton at the bottom when there are multiple connected sites', () => {
-		const fakeSyncSite = {
+		const fakeSyncSite: SyncSite = {
 			id: 6,
 			name: 'My simple business site',
 			url: 'https://developer.wordpress.com/studio/',
 			isStaging: false,
 			stagingSiteIds: [],
 			syncSupport: 'already-connected',
+			localSiteId: 'site-id',
+			isPressable: false,
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
 		};
 
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
+		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
+		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
-			syncSites: [ fakeSyncSite ],
+		} );
+		( useSyncSites as jest.Mock ).mockReturnValue( {
 			pullSite: jest.fn(),
 			isAnySitePulling: false,
 			isAnySitePushing: false,
 			getPullState: jest.fn(),
 			getPushState: jest.fn().mockReturnValue( undefined ),
-			refetchSites: jest.fn(),
 			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
 			isSiteIdPulling: jest.fn(),
 			isSiteIdPushing: jest.fn(),
 			clearTimeout: jest.fn(),
-			isSyncSitesSelectorOpen: false,
-			setIsSyncSitesSelectorOpen: jest.fn(),
-			closeSyncSitesSelector: jest.fn(),
 		} );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
@@ -387,7 +449,7 @@ describe( 'ContentTabSync', () => {
 	} );
 
 	it( 'displays environment badges for Pressable sites with production, staging and development environments', () => {
-		const fakePressableProductionSite = {
+		const fakePressableProductionSite: SyncSite = {
 			id: 6,
 			name: 'My Pressable Production site',
 			url: 'https://pressable-site.com',
@@ -396,8 +458,11 @@ describe( 'ContentTabSync', () => {
 			environmentType: 'production',
 			stagingSiteIds: [],
 			syncSupport: 'already-connected',
+			localSiteId: 'site-id',
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
 		};
-		const fakePressableStagingSite = {
+		const fakePressableStagingSite: SyncSite = {
 			id: 7,
 			name: 'My Pressable Staging site',
 			url: 'https://staging-pressable-site.com',
@@ -406,8 +471,11 @@ describe( 'ContentTabSync', () => {
 			environmentType: 'staging',
 			stagingSiteIds: [],
 			syncSupport: 'already-connected',
+			localSiteId: 'site-id',
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
 		};
-		const fakePressableDevelopmentSite = {
+		const fakePressableDevelopmentSite: SyncSite = {
 			id: 8,
 			name: 'My Pressable Development site',
 			url: 'https://development-pressable-site.com',
@@ -416,21 +484,27 @@ describe( 'ContentTabSync', () => {
 			environmentType: 'development',
 			stagingSiteIds: [],
 			syncSupport: 'already-connected',
+			localSiteId: 'site-id',
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
 		};
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+
+		const allSites = [
+			fakePressableProductionSite,
+			fakePressableStagingSite,
+			fakePressableDevelopmentSite,
+		];
+		setupConnectedSitesMocks( allSites, [ fakePressableProductionSite ] );
+
 		( useSyncSites as jest.Mock ).mockReturnValue( {
-			connectedSites: [
-				fakePressableProductionSite,
-				fakePressableStagingSite,
-				fakePressableDevelopmentSite,
-			],
+			connectedSites: allSites,
 			syncSites: [ fakePressableProductionSite ],
 			pullSite: jest.fn(),
 			isAnySitePulling: false,
 			isAnySitePushing: false,
 			getPullState: jest.fn(),
 			getPushState: jest.fn().mockReturnValue( undefined ),
-			refetchSites: jest.fn(),
 			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
 			isSiteIdPulling: jest.fn(),
 			isSiteIdPushing: jest.fn(),
@@ -449,21 +523,29 @@ describe( 'ContentTabSync', () => {
 	} );
 	it( 'displays the progress bar when the site is being pushed', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		const fakeSyncSite = {
+		const fakeSyncSite: SyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
 			url: 'https:/developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
+			isStaging: false,
+			stagingSiteIds: [],
+			localSiteId: 'site-id',
+			isPressable: false,
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
 		};
-		( useSyncSites as jest.Mock ).mockReturnValue( {
+
+		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
+		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
-			syncSites: [ fakeSyncSite ],
+		} );
+		( useSyncSites as jest.Mock ).mockReturnValue( {
 			pullSite: jest.fn(),
 			isAnySitePulling: false,
 			isAnySitePushing: false,
 			getPullState: jest.fn(),
 			getPushState: jest.fn().mockReturnValue( inProgressPushState ),
-			refetchSites: jest.fn(),
 			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
 			isSiteIdPulling: jest.fn(),
 			isSiteIdPushing: jest.fn().mockReturnValue( true ),
@@ -485,15 +567,16 @@ describe( 'ContentTabSync', () => {
 			isPressable: true,
 			environmentType: 'development',
 		};
-		( useSyncSites as jest.Mock ).mockReturnValue( {
+		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
+		} );
+		( useSyncSites as jest.Mock ).mockReturnValue( {
 			syncSites: [ fakeSyncSite ],
 			pullSite: mockPullSite,
 			isAnySitePulling: false,
 			isAnySitePushing: false,
 			getPullState: jest.fn(),
 			getPushState: jest.fn(),
-			refetchSites: jest.fn(),
 			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
 			isSiteIdPulling: jest.fn(),
 			isSiteIdPushing: jest.fn(),
@@ -523,15 +606,15 @@ describe( 'ContentTabSync', () => {
 			isPressable: true,
 			environmentType: 'non-supported-environment-example-or-sandbox',
 		};
-		( useSyncSites as jest.Mock ).mockReturnValue( {
+		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
-			syncSites: [ fakeSyncSite ],
+		} );
+		( useSyncSites as jest.Mock ).mockReturnValue( {
 			pullSite: mockPullSite,
 			isAnySitePulling: false,
 			isAnySitePushing: false,
 			getPullState: jest.fn(),
 			getPushState: jest.fn(),
-			refetchSites: jest.fn(),
 			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
 			isSiteIdPulling: jest.fn(),
 			isSiteIdPushing: jest.fn(),
@@ -559,15 +642,15 @@ describe( 'ContentTabSync', () => {
 			url: 'https:/developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 		};
-		( useSyncSites as jest.Mock ).mockReturnValue( {
+		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
-			syncSites: [ fakeSyncSite ],
+		} );
+		( useSyncSites as jest.Mock ).mockReturnValue( {
 			pullSite: mockPullSite,
 			isAnySitePulling: false,
 			isAnySitePushing: false,
 			getPullState: jest.fn(),
 			getPushState: jest.fn(),
-			refetchSites: jest.fn(),
 			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
 			isSiteIdPulling: jest.fn(),
 			isSiteIdPushing: jest.fn(),
@@ -604,15 +687,15 @@ describe( 'ContentTabSync', () => {
 			url: 'https:/developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 		};
-		( useSyncSites as jest.Mock ).mockReturnValue( {
+		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
-			syncSites: [ fakeSyncSite ],
+		} );
+		( useSyncSites as jest.Mock ).mockReturnValue( {
 			pullSite: mockPullSite,
 			isAnySitePulling: false,
 			isAnySitePushing: false,
 			getPullState: jest.fn(),
 			getPushState: jest.fn(),
-			refetchSites: jest.fn(),
 			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
 			isSiteIdPulling: jest.fn(),
 			isSiteIdPushing: jest.fn(),
@@ -712,15 +795,15 @@ describe( 'ContentTabSync', () => {
 			url: 'https:/developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 		};
-		( useSyncSites as jest.Mock ).mockReturnValue( {
+		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
-			syncSites: [ fakeSyncSite ],
+		} );
+		( useSyncSites as jest.Mock ).mockReturnValue( {
 			pullSite: mockPullSite,
 			isAnySitePulling: false,
 			isAnySitePushing: false,
 			getPullState: jest.fn(),
 			getPushState: jest.fn(),
-			refetchSites: jest.fn(),
 			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
 			isSiteIdPulling: jest.fn(),
 			isSiteIdPushing: jest.fn(),
@@ -759,8 +842,7 @@ describe( 'ContentTabSync', () => {
 
 	it( 'disables the pull button when all checkboxes are unchecked, which is the initial state', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			...mockSyncSites,
+		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
 		} );
 
@@ -776,8 +858,7 @@ describe( 'ContentTabSync', () => {
 
 	it( 'disables the push button when all checkboxes are unchecked, which is the initial state', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			...mockSyncSites,
+		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
 		} );
 
@@ -793,8 +874,7 @@ describe( 'ContentTabSync', () => {
 
 	it( 'enables the pull button when at least one checkbox is checked', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			...mockSyncSites,
+		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
 		} );
 
@@ -815,8 +895,7 @@ describe( 'ContentTabSync', () => {
 
 	it( 'enables the pull button when at least one checkbox children is checked', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			...mockSyncSites,
+		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
 		} );
 
@@ -843,8 +922,7 @@ describe( 'ContentTabSync', () => {
 	} );
 	it( 'disables the push button when all checkboxes are unchecked', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			...mockSyncSites,
+		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
 		} );
 
@@ -860,8 +938,7 @@ describe( 'ContentTabSync', () => {
 
 	it( 'enables the push button when at least one checkbox is checked', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			...mockSyncSites,
+		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
 		} );
 
@@ -880,8 +957,7 @@ describe( 'ContentTabSync', () => {
 
 	it( 'enables the push button when at least one checkbox children is checked', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			...mockSyncSites,
+		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
 		} );
 

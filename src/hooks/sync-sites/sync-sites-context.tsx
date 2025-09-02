@@ -46,7 +46,6 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 	);
 
 	const { connectedSites } = useConnectedSitesData();
-	const { syncSites, isFetching, refetchSites } = useSyncSitesData();
 	const dispatch = useAppDispatch();
 
 	const updateSiteTimestamp = useCallback< UpdateSiteTimestamp >(
@@ -99,6 +98,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 		}
 	);
 
+	const { syncSites, isFetching, refetchSites } = useSyncSitesData();
 	useListenDeepLinkConnection( { refetchSites } );
 
 	return (

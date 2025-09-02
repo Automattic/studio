@@ -7,6 +7,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
 import preferredAppsIllustration from 'src/modules/whats-new/assets/preferred-apps-illustration.svg';
+import blueprintsIllustration from 'src/modules/whats-new/assets/blueprints-illustration.svg';
 import pressableSyncIllustration from 'src/modules/whats-new/assets/pressable-sync-illustration.svg';
 import selectiveSyncIllustration from 'src/modules/whats-new/assets/selective-sync-illustration.svg';
 import { useI18nLocale } from 'src/stores';
@@ -55,6 +56,13 @@ const PageContent = ( {
 export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProps ) {
 	const locale = useI18nLocale();
 	const whatsNewPages: WhatsNewPage[] = [
+		{
+			image: blueprintsIllustration,
+			title: __( 'Introducing Blueprints, a way to streamline your process' ),
+			description: __(
+				'Select a setup that fits your needs and build your WordPress site even faster.'
+			),
+		},
 		{
 			image: selectiveSyncIllustration,
 			title: __( 'Synchronize with precision' ),

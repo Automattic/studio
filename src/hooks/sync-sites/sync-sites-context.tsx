@@ -53,15 +53,8 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 
 	const { connectedSites } = useConnectedSitesData();
 	const { syncSites, isFetching, refetchSites } = useSyncSitesData();
-	const { connectSite: connectSiteBase } = useConnectedSitesOperations();
+	const { connectSite } = useConnectedSitesOperations();
 	const dispatch = useAppDispatch();
-
-	const connectSite = useCallback(
-		async ( site: SyncSite, overrideLocalSiteId?: string ) => {
-			await connectSiteBase( site, overrideLocalSiteId );
-		},
-		[ connectSiteBase ]
-	);
 
 	const updateSiteTimestamp = useCallback< UpdateSiteTimestamp >(
 		async ( siteId, localSiteIdParam, type ) => {

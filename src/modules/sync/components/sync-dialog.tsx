@@ -10,8 +10,9 @@ import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { Tooltip } from 'src/components/tooltip';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
-import { SYNC_OPTIONS } from 'src/constants';
+import { SYNC_OPTIONS, SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
 import { useContentFolders } from 'src/hooks/use-content-folders';
+import { useSiteSize } from 'src/hooks/use-site-size';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
@@ -132,6 +133,9 @@ export function SyncDialog( {
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );
 	const isSubmitDisabled = treeState.every( ( node ) => ! node.checked && ! node.indeterminate );
+	const { isOverLimit } = useSiteSize( localSite.id );
+	const isPushOverLimit =
+		isOverLimit && type === 'push' && treeState.every( ( node ) => node.checked );
 
 	const { fetchChildren, rewindId, isLoadingRewindId, isErrorRewindId } = useDynamicTreeState(
 		type,
@@ -317,13 +321,23 @@ export function SyncDialog( {
 							<Button variant="link" onClick={ onRequestClose }>
 								{ __( 'Cancel' ) }
 							</Button>
-							<Button
-								variant="primary"
-								onClick={ handleSubmit }
-								disabled={ isSubmitDisabled || isLoadingRewindId }
+							<Tooltip
+								text={ sprintf(
+									__(
+										'Your site exceeds the %d GB size limit. Please, consider selecting specific files and folders to sync.'
+									),
+									SYNC_PUSH_SIZE_LIMIT_GB
+								) }
+								disabled={ ! isPushOverLimit }
 							>
-								{ syncTexts.submit }
-							</Button>
+								<Button
+									variant="primary"
+									onClick={ handleSubmit }
+									disabled={ isSubmitDisabled || isLoadingRewindId || isPushOverLimit }
+								>
+									{ syncTexts.submit }
+								</Button>
+							</Tooltip>
 						</div>
 					</div>
 				</div>

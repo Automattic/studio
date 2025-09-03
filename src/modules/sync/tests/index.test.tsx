@@ -8,6 +8,7 @@ import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ContentTabSync } from 'src/modules/sync';
+import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
 import { store } from 'src/stores';
 import { useLatestRewindId, useRemoteFileTree } from 'src/stores/sync';
 
@@ -27,6 +28,8 @@ jest.mock( 'src/stores/sync', () => ( {
 		isLoading: false,
 	} ),
 } ) );
+
+jest.mock( 'src/modules/sync/hooks/use-selected-items-push-size' );
 
 const createAuthMock = ( isAuthenticated: boolean = false ) => ( {
 	isAuthenticated,
@@ -90,6 +93,11 @@ describe( 'ContentTabSync', () => {
 			showMessageBox: jest.fn(),
 			updateConnectedWpcomSites: jest.fn(),
 			getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
+			getDirectorySize: jest.fn().mockResolvedValue( 0 ),
+		} );
+		( useSelectedItemsPushSize as jest.Mock ).mockReturnValue( {
+			isPushSelectionOverLimit: false,
+			isLoading: false,
 		} );
 		( useSyncSites as jest.Mock ).mockReturnValue( mockSyncSites );
 		( useLatestRewindId as jest.Mock ).mockReturnValue( {

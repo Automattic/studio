@@ -305,9 +305,9 @@ export function SyncDialog( {
 				</Tooltip>
 
 				<div className="px-8 py-4 border-t border-a8c-gray-5 absolute left-0 right-0 bottom-0 bg-white z-10">
-					{ isPushSelectionOverLimit && (
+					{ type === 'push' && isPushSelectionOverLimit && (
 						<Notice status="warning" isDismissible={ false } className="mb-4">
-							<p className="text-sm">
+							<p className="text-sm" data-testid="push-selection-over-limit-notice">
 								{ sprintf(
 									__(
 										'The current selection exceeds the %d GB push limit. To continue, please change your selection to reduce the total size.'

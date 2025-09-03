@@ -915,4 +915,75 @@ describe( 'ContentTabSync', () => {
 		const dialogPushButton = screen.getAllByRole( 'button', { name: /Push/i } )[ 1 ];
 		expect( dialogPushButton ).not.toBeDisabled();
 	} );
+
+	describe( 'Sync Dialog Push Selection Over Limit Notice', () => {
+		it( 'shows warning notice when push selection exceeds limit', async () => {
+			( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+			( useSyncSites as jest.Mock ).mockReturnValue( {
+				...mockSyncSites,
+				connectedSites: [ fakeSyncSite ],
+			} );
+			( useSelectedItemsPushSize as jest.Mock ).mockReturnValue( {
+				isPushSelectionOverLimit: true,
+				isLoading: false,
+			} );
+
+			renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+			const pushButton = screen.getByRole( 'button', { name: /Push/i } );
+			fireEvent.click( pushButton );
+
+			await screen.findByText( 'Push to Production' );
+
+			const warningNotice = screen.getByTestId( 'push-selection-over-limit-notice' );
+			expect( warningNotice ).toBeInTheDocument();
+
+			const dialogPushButton = screen.getAllByRole( 'button', { name: /Push/i } )[ 1 ];
+			expect( dialogPushButton ).toBeDisabled();
+		} );
+
+		it( 'does not show warning notice when push selection is within limit', async () => {
+			( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+			( useSyncSites as jest.Mock ).mockReturnValue( {
+				...mockSyncSites,
+				connectedSites: [ fakeSyncSite ],
+			} );
+			( useSelectedItemsPushSize as jest.Mock ).mockReturnValue( {
+				isPushSelectionOverLimit: false,
+				isLoading: false,
+			} );
+
+			renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+			const pushButton = screen.getByRole( 'button', { name: /Push/i } );
+			fireEvent.click( pushButton );
+
+			await screen.findByText( 'Push to Production' );
+
+			const warningNotice = screen.queryByTestId( 'push-selection-over-limit-notice' );
+			expect( warningNotice ).not.toBeInTheDocument();
+		} );
+
+		it( 'does not show warning notice for pull operations even when limit exceeded', async () => {
+			( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+			( useSyncSites as jest.Mock ).mockReturnValue( {
+				...mockSyncSites,
+				connectedSites: [ fakeSyncSite ],
+			} );
+			( useSelectedItemsPushSize as jest.Mock ).mockReturnValue( {
+				isPushSelectionOverLimit: true,
+				isLoading: false,
+			} );
+
+			renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+			const pullButton = screen.getByRole( 'button', { name: /Pull/i } );
+			fireEvent.click( pullButton );
+
+			await screen.findByText( 'Pull from Production' );
+
+			const warningNotice = screen.queryByTestId( 'push-selection-over-limit-notice' );
+			expect( warningNotice ).not.toBeInTheDocument();
+		} );
+	} );
 } );

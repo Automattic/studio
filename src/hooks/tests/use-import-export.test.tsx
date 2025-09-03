@@ -509,4 +509,209 @@ describe( 'useImportExport hook', () => {
 
 		expect( useSiteDetails().updateSite ).toHaveBeenCalledWith( importedSite );
 	} );
+
+	it( 'handles verbose backup extraction progress with file counts', async () => {
+		let onEvent: ( ...args: any[] ) => void = jest.fn();
+		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+			if ( event === 'on-import' ) {
+				onEvent = callback;
+			}
+		} );
+		const emitImportEvent = ( siteId: string, event: ImportEventType, data: unknown = {} ) =>
+			act( () => onEvent( null, { event, data }, siteId ) );
+
+		const { result } = renderHook( () => useImportExport(), { wrapper } );
+		const file = { path: 'backup.zip', type: 'application/zip' };
+		await act( () => result.current.importFile( file, selectedSite ) );
+
+		// Test extraction progress with file count data
+		emitImportEvent( SITE_ID, ImportEvents.BACKUP_EXTRACT_PROGRESS, {
+			progress: 0.5,
+			processedFiles: 123,
+			totalFiles: 250,
+			currentFile: 'wp-content/themes/twentytwentythree/style.css',
+			extractedBytes: 1024000,
+			totalBytes: 2048000,
+		} );
+
+		expect( result.current.importState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Extracting backup… (123/250 files)',
+				progress: 27.5, // 5 + (0.5 * 45)
+				isNewSite: false,
+			},
+		} );
+
+		// Test extraction progress without file count data (fallback)
+		emitImportEvent( SITE_ID, ImportEvents.BACKUP_EXTRACT_PROGRESS, {
+			progress: 0.8,
+		} );
+
+		expect( result.current.importState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Extracting backup files…',
+				progress: 41, // 5 + (0.8 * 45)
+				isNewSite: false,
+			},
+		} );
+	} );
+
+	it( 'handles verbose database import progress', async () => {
+		let onEvent: ( ...args: any[] ) => void = jest.fn();
+		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+			if ( event === 'on-import' ) {
+				onEvent = callback;
+			}
+		} );
+		const emitImportEvent = ( siteId: string, event: ImportEventType, data: unknown = {} ) =>
+			act( () => onEvent( null, { event, data }, siteId ) );
+
+		const { result } = renderHook( () => useImportExport(), { wrapper } );
+		const file = { path: 'backup.zip', type: 'application/zip' };
+		await act( () => result.current.importFile( file, selectedSite ) );
+
+		// Start database import
+		emitImportEvent( SITE_ID, ImportEvents.IMPORT_DATABASE_START );
+		expect( result.current.importState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Importing database…',
+				progress: 60,
+				isNewSite: false,
+			},
+		} );
+
+		// Test database progress with SQL file tracking
+		emitImportEvent( SITE_ID, ImportEvents.IMPORT_DATABASE_PROGRESS, {
+			currentFile: 'database1.sql',
+			processedFiles: 1,
+			totalFiles: 3,
+		} );
+
+		expect( result.current.importState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Importing database… (1/3 SQL files)',
+				progress: Math.min( 80, 60 + ( 1 / 3 ) * 20 ), // ~66.67
+				isNewSite: false,
+			},
+		} );
+
+		// Test database progress with multiple files
+		emitImportEvent( SITE_ID, ImportEvents.IMPORT_DATABASE_PROGRESS, {
+			currentFile: 'database2.sql',
+			processedFiles: 2,
+			totalFiles: 3,
+		} );
+
+		expect( result.current.importState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Importing database… (2/3 SQL files)',
+				progress: Math.min( 80, 60 + ( 2 / 3 ) * 20 ), // ~73.33
+				isNewSite: false,
+			},
+		} );
+	} );
+
+	it( 'handles verbose WordPress content import progress with categorization', async () => {
+		let onEvent: ( ...args: any[] ) => void = jest.fn();
+		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+			if ( event === 'on-import' ) {
+				onEvent = callback;
+			}
+		} );
+		const emitImportEvent = ( siteId: string, event: ImportEventType, data: unknown = {} ) =>
+			act( () => onEvent( null, { event, data }, siteId ) );
+
+		const { result } = renderHook( () => useImportExport(), { wrapper } );
+		const file = { path: 'backup.zip', type: 'application/zip' };
+		await act( () => result.current.importFile( file, selectedSite ) );
+
+		// Start WordPress content import
+		emitImportEvent( SITE_ID, ImportEvents.IMPORT_WP_CONTENT_START );
+		expect( result.current.importState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Importing WordPress content…',
+				progress: 5, // Progress is preserved from the initial import file call
+				isNewSite: false,
+			},
+		} );
+
+		// Test plugins import progress
+		emitImportEvent( SITE_ID, ImportEvents.IMPORT_WP_CONTENT_PROGRESS, {
+			type: 'plugins',
+			currentItem: 'wp-content/plugins/akismet/akismet.php',
+			processedItems: 5,
+			totalItems: 12,
+		} );
+
+		expect( result.current.importState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Importing plugins… (5/12)',
+				progress: Math.min( 90, 80 + ( 5 / 12 ) * 10 ), // ~84.17
+				isNewSite: false,
+			},
+		} );
+
+		// Test themes import progress
+		emitImportEvent( SITE_ID, ImportEvents.IMPORT_WP_CONTENT_PROGRESS, {
+			type: 'themes',
+			currentItem: 'wp-content/themes/twentytwentythree/style.css',
+			processedItems: 2,
+			totalItems: 3,
+		} );
+
+		expect( result.current.importState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Importing themes… (2/3)',
+				progress: Math.min( 90, 80 + ( 2 / 3 ) * 10 ), // ~86.67
+				isNewSite: false,
+			},
+		} );
+
+		// Test uploads import progress
+		emitImportEvent( SITE_ID, ImportEvents.IMPORT_WP_CONTENT_PROGRESS, {
+			type: 'uploads',
+			currentItem: 'wp-content/uploads/2024/01/image.jpg',
+			processedItems: 150,
+			totalItems: 500,
+		} );
+
+		expect( result.current.importState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Importing media uploads… (150/500)',
+				progress: Math.min( 90, 80 + ( 150 / 500 ) * 10 ), // 83
+				isNewSite: false,
+			},
+		} );
+
+		// Test other files import progress
+		emitImportEvent( SITE_ID, ImportEvents.IMPORT_WP_CONTENT_PROGRESS, {
+			type: 'other',
+			currentItem: 'wp-content/index.php',
+			processedItems: 10,
+			totalItems: 25,
+		} );
+
+		expect( result.current.importState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Importing other files… (10/25)',
+				progress: Math.min( 90, 80 + ( 10 / 25 ) * 10 ), // 84
+				isNewSite: false,
+			},
+		} );
+
+		// Test fallback for unknown content type
+		emitImportEvent( SITE_ID, ImportEvents.IMPORT_WP_CONTENT_PROGRESS, {
+			type: 'unknown',
+			processedItems: 10,
+			totalItems: 25,
+		} );
+
+		expect( result.current.importState ).toEqual( {
+			[ SITE_ID ]: {
+				statusMessage: 'Importing files… (10/25)',
+				progress: Math.min( 90, 80 + ( 10 / 25 ) * 10 ), // 84
+				isNewSite: false,
+			},
+		} );
+	} );
 } );

@@ -28,6 +28,9 @@ const DOCS_LINKS = {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/cli/',
 		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/cli/',
 	},
+	docsBlueprints: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/blueprints/',
+	},
 } satisfies Record< `docs${ string }`, TranslatedLink >;
 
 const BLOG_LINKS = {

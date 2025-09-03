@@ -62,6 +62,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			description: __(
 				'Select a setup that fits your needs and build your WordPress site even faster.'
 			),
+			learnMoreUrl: getLocalizedLink( locale, 'docsBlueprints' ),
 		},
 		{
 			image: selectiveSyncIllustration,

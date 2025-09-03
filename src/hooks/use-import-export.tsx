@@ -17,6 +17,8 @@ import {
 import {
 	BackupArchiveInfo,
 	BackupExtractProgressEventData,
+	ImportDatabaseProgressEventData,
+	ImportWpContentProgressEventData,
 } from 'src/lib/import-export/import/types';
 
 export type ImportProgressState = {
@@ -176,12 +178,23 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 
 		switch ( event ) {
 			case BackupExtractEvents.BACKUP_EXTRACT_PROGRESS: {
-				const progress = ( data as BackupExtractProgressEventData )?.progress ?? 0;
+				const progressData = data as BackupExtractProgressEventData;
+				const progress = progressData?.progress ?? 0;
+				let statusMessage: string = __( 'Extracting backup files…' );
+
+				if ( progressData.processedFiles && progressData.totalFiles ) {
+					statusMessage = sprintf(
+						__( 'Extracting backup… (%1$d/%2$d files)' ),
+						progressData.processedFiles,
+						progressData.totalFiles
+					);
+				}
+
 				setImportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
 					...rest,
 					[ siteId ]: {
 						...currentProgress,
-						statusMessage: __( 'Extracting backup files…' ),
+						statusMessage,
 						progress: 5 + progress * 45, // Backup extraction takes progress from 5% to 50%
 					},
 				} ) );
@@ -207,6 +220,32 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					},
 				} ) );
 				break;
+			case ImporterEvents.IMPORT_DATABASE_PROGRESS: {
+				const progressData = data as ImportDatabaseProgressEventData;
+				let statusMessage: string = __( 'Importing database…' );
+
+				if ( progressData.processedFiles && progressData.totalFiles ) {
+					statusMessage = sprintf(
+						__( 'Importing database… (%1$d/%2$d SQL files)' ),
+						progressData.processedFiles,
+						progressData.totalFiles
+					);
+				}
+
+				const progressIncrement = progressData.totalFiles
+					? ( ( progressData.processedFiles || 0 ) / progressData.totalFiles ) * 20
+					: 0;
+
+				setImportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
+					...rest,
+					[ siteId ]: {
+						...currentProgress,
+						statusMessage,
+						progress: Math.min( 80, 60 + progressIncrement ),
+					},
+				} ) );
+				break;
+			}
 			case ImporterEvents.IMPORT_DATABASE_COMPLETE:
 				setImportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
 					...rest,
@@ -225,6 +264,40 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					},
 				} ) );
 				break;
+			case ImporterEvents.IMPORT_WP_CONTENT_PROGRESS: {
+				const progressData = data as ImportWpContentProgressEventData;
+				let statusMessage: string = __( 'Importing WordPress content…' );
+
+				if ( progressData.type && progressData.processedItems && progressData.totalItems ) {
+					const typeLabels: Record< string, string > = {
+						plugins: __( 'Importing plugins…' ),
+						themes: __( 'Importing themes…' ),
+						uploads: __( 'Importing media uploads…' ),
+						other: __( 'Importing other files…' ),
+					};
+
+					statusMessage = sprintf(
+						__( '%1$s (%2$d/%3$d)' ),
+						typeLabels[ progressData.type ] || __( 'Importing files…' ),
+						progressData.processedItems,
+						progressData.totalItems
+					);
+				}
+
+				const progressIncrement = progressData.totalItems
+					? ( ( progressData.processedItems || 0 ) / progressData.totalItems ) * 10
+					: 0;
+
+				setImportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
+					...rest,
+					[ siteId ]: {
+						...currentProgress,
+						statusMessage,
+						progress: Math.min( 90, 80 + progressIncrement ),
+					},
+				} ) );
+				break;
+			}
 			case ImporterEvents.IMPORT_WP_CONTENT_COMPLETE:
 				setImportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
 					...rest,

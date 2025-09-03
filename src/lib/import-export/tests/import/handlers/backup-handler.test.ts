@@ -177,6 +177,8 @@ describe( 'BackupHandlerFactory', () => {
 			).resolves.not.toThrow();
 			expect( tar.x ).toHaveBeenCalledWith( {
 				cwd: extractionDirectory,
+				onReadEntry: expect.any( Function ),
+				onwarn: expect.any( Function ),
 			} );
 		} );
 

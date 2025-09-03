@@ -336,28 +336,18 @@ export function SyncDialog( {
 								<Button variant="link" onClick={ onRequestClose }>
 									{ __( 'Cancel' ) }
 								</Button>
-								<Tooltip
-									text={ sprintf(
-										__(
-											'The current selection exceeds the %d GB push limit. To continue, please change your selection.'
-										),
-										SYNC_PUSH_SIZE_LIMIT_GB
-									) }
-									disabled={ ! isPushSelectionOverLimit }
+								<Button
+									variant="primary"
+									onClick={ handleSubmit }
+									disabled={
+										isSubmitDisabled ||
+										isLoadingRewindId ||
+										isPushSelectionOverLimit ||
+										isSizeCheckLoading
+									}
 								>
-									<Button
-										variant="primary"
-										onClick={ handleSubmit }
-										disabled={
-											isSubmitDisabled ||
-											isLoadingRewindId ||
-											isPushSelectionOverLimit ||
-											isSizeCheckLoading
-										}
-									>
-										{ syncTexts.submit }
-									</Button>
-								</Tooltip>
+									{ syncTexts.submit }
+								</Button>
 							</div>
 						</div>
 					</div>

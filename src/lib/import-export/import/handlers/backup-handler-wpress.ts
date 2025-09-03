@@ -4,6 +4,7 @@ import { constants } from 'fs';
 import * as path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import * as fse from 'fs-extra';
+import { ImportEvents } from 'src/lib/import-export/import/events';
 import { BackupHandler } from 'src/lib/import-export/import/handlers/backup-handler-factory';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 
@@ -139,6 +140,8 @@ async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outp
 export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 	private bytesRead: number;
 	private eof: Buffer;
+	private totalFiles: number = 0;
+	private processedFiles: number = 0;
 
 	constructor() {
 		super();
@@ -199,6 +202,17 @@ export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 
 		await fse.emptyDir( extractionDirectory );
 
+		// First pass: count total files
+		const fileNames = await this.listFiles( file );
+		this.totalFiles = fileNames.length;
+		this.processedFiles = 0;
+
+		this.emit( ImportEvents.BACKUP_EXTRACT_START, {
+			progress: 0,
+			totalFiles: this.totalFiles,
+			processedFiles: 0,
+		} );
+
 		const inputFile = await fs.promises.open( file.path, 'r' );
 
 		let header;
@@ -207,8 +221,38 @@ export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 				if ( ! header ) {
 					break;
 				}
+
+				// Emit progress before processing file
+				const currentFile = path.join( header.prefix, header.name );
+				const progress =
+					this.totalFiles > 0 ? Math.round( ( this.processedFiles / this.totalFiles ) * 100 ) : 0;
+
+				this.emit( ImportEvents.BACKUP_EXTRACT_FILE_START, {
+					progress,
+					processedFiles: this.processedFiles,
+					totalFiles: this.totalFiles,
+					currentFile,
+				} );
+
 				await readBlockToFile( inputFile, header, extractionDirectory );
+				this.processedFiles++;
+
+				// Emit progress after processing file
+				const newProgress =
+					this.totalFiles > 0 ? Math.round( ( this.processedFiles / this.totalFiles ) * 100 ) : 100;
+				this.emit( ImportEvents.BACKUP_EXTRACT_PROGRESS, {
+					progress: newProgress,
+					processedFiles: this.processedFiles,
+					totalFiles: this.totalFiles,
+					currentFile,
+				} );
 			}
+
+			this.emit( ImportEvents.BACKUP_EXTRACT_COMPLETE, {
+				progress: 100,
+				processedFiles: this.totalFiles,
+				totalFiles: this.totalFiles,
+			} );
 		} catch ( err ) {
 			Sentry.captureException( err, {
 				extra: {

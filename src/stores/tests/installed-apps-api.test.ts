@@ -214,9 +214,9 @@ describe( 'Installed Apps API', () => {
 				const mockInstalledApps = createMockInstalledApps( { vscode: true, cursor: true } );
 				const result = selectUninstalledEditors( mockInstalledApps );
 
-				expect( result ).toHaveLength( 3 );
+				expect( result ).toHaveLength( 4 );
 				expect( result.map( ( [ editor ] ) => editor ) ).toEqual(
-					expect.arrayContaining( [ 'phpstorm', 'windsurf', 'webstorm' ] )
+					expect.arrayContaining( [ 'phpstorm', 'windsurf', 'webstorm', 'sublime' ] )
 				);
 			} );
 
@@ -224,7 +224,7 @@ describe( 'Installed Apps API', () => {
 				const mockInstalledApps = createMockInstalledApps();
 				const result = selectUninstalledEditors( mockInstalledApps );
 
-				expect( result ).toHaveLength( 5 );
+				expect( result ).toHaveLength( 6 );
 			} );
 		} );
 

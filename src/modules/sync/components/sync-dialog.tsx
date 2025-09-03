@@ -1,4 +1,4 @@
-import { SelectControl } from '@wordpress/components';
+import { SelectControl, Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf, __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
@@ -212,7 +212,7 @@ export function SyncDialog( {
 			onRequestClose={ onRequestClose }
 			title={ syncTexts.title }
 		>
-			<div className="pb-[70px]">
+			<div className={ isPushSelectionOverLimit ? 'pb-[140px]' : 'pb-[70px]' }>
 				<div className="px-8 pb-6 pt-3">{ syncTexts.description }</div>
 				<div className="px-8">
 					<span className="sr-only">
@@ -304,47 +304,61 @@ export function SyncDialog( {
 					</div>
 				</Tooltip>
 
-				<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center absolute left-0 right-0 bottom-0 bg-white z-10">
-					<div>
-						{ createInterpolateElement( syncTexts.envSync, {
-							a: (
-								<Button
-									variant="link"
-									onClick={ () =>
-										getIpcApi().openURL( getLocalizedLink( locale, 'docsSync' ) + '#' + type )
-									}
-								/>
-							),
-							ArrowIcon: <ArrowIcon />,
-						} ) }
-					</div>
-					<div>
-						<div className="flex gap-4 justify-end">
-							<Button variant="link" onClick={ onRequestClose }>
-								{ __( 'Cancel' ) }
-							</Button>
-							<Tooltip
-								text={ sprintf(
+				<div className="px-8 py-4 border-t border-a8c-gray-5 absolute left-0 right-0 bottom-0 bg-white z-10">
+					{ isPushSelectionOverLimit && (
+						<Notice status="warning" isDismissible={ false } className="mb-4">
+							<p className="text-sm">
+								{ sprintf(
 									__(
-										'The current selection exceeds the %d GB push limit. To continue, please change your selection.'
+										'The current selection exceeds the %d GB push limit. To continue, please change your selection to reduce the total size.'
 									),
 									SYNC_PUSH_SIZE_LIMIT_GB
 								) }
-								disabled={ ! isPushSelectionOverLimit }
-							>
-								<Button
-									variant="primary"
-									onClick={ handleSubmit }
-									disabled={
-										isSubmitDisabled ||
-										isLoadingRewindId ||
-										isPushSelectionOverLimit ||
-										isSizeCheckLoading
-									}
-								>
-									{ syncTexts.submit }
+							</p>
+						</Notice>
+					) }
+					<div className="flex justify-between items-center">
+						<div>
+							{ createInterpolateElement( syncTexts.envSync, {
+								a: (
+									<Button
+										variant="link"
+										onClick={ () =>
+											getIpcApi().openURL( getLocalizedLink( locale, 'docsSync' ) + '#' + type )
+										}
+									/>
+								),
+								ArrowIcon: <ArrowIcon />,
+							} ) }
+						</div>
+						<div>
+							<div className="flex gap-4 justify-end">
+								<Button variant="link" onClick={ onRequestClose }>
+									{ __( 'Cancel' ) }
 								</Button>
-							</Tooltip>
+								<Tooltip
+									text={ sprintf(
+										__(
+											'The current selection exceeds the %d GB push limit. To continue, please change your selection.'
+										),
+										SYNC_PUSH_SIZE_LIMIT_GB
+									) }
+									disabled={ ! isPushSelectionOverLimit }
+								>
+									<Button
+										variant="primary"
+										onClick={ handleSubmit }
+										disabled={
+											isSubmitDisabled ||
+											isLoadingRewindId ||
+											isPushSelectionOverLimit ||
+											isSizeCheckLoading
+										}
+									>
+										{ syncTexts.submit }
+									</Button>
+								</Tooltip>
+							</div>
 						</div>
 					</div>
 				</div>

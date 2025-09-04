@@ -262,8 +262,18 @@ export async function runPerformanceTests(
 		// Verify build completed successfully
 		const expectedOutDir = path.join( buildDir, 'out' );
 		logAtIndent( 3, 'Verifying build completed successfully' );
+		
+		// Check what actually exists in the build directory
+		logAtIndent( 3, 'Listing build directory contents:' );
+		try {
+			const allContents = fs.readdirSync( buildDir );
+			logAtIndent( 3, `Found ${ allContents.length } items:`, formats.warning( allContents.join( ', ' ) ) );
+		} catch ( error ) {
+			logAtIndent( 3, 'Could not read build directory:', formats.error( buildDir ) );
+		}
+		
 		if ( ! fs.existsSync( expectedOutDir ) ) {
-			throw new Error( `Build failed for branch ${ branch }: output directory not found at ${ expectedOutDir }` );
+			throw new Error( `Build failed for branch ${ branch }: output directory not found at ${ expectedOutDir }. Check the build command output above for errors.` );
 		}
 
 		const buildContents = fs.readdirSync( expectedOutDir );

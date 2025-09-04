@@ -995,9 +995,10 @@ describe( 'ContentTabSync', () => {
 	describe( 'Sync Dialog Push Selection Over Limit Notice', () => {
 		it( 'shows warning notice when push selection exceeds limit', async () => {
 			( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-			( useSyncSites as jest.Mock ).mockReturnValue( {
-				...mockSyncSites,
+			( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 				connectedSites: [ fakeSyncSite ],
+				loading: false,
+				localSiteId: 'site-id',
 			} );
 			( useSelectedItemsPushSize as jest.Mock ).mockReturnValue( {
 				isPushSelectionOverLimit: true,
@@ -1020,9 +1021,10 @@ describe( 'ContentTabSync', () => {
 
 		it( 'does not show warning notice when push selection is within limit', async () => {
 			( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-			( useSyncSites as jest.Mock ).mockReturnValue( {
-				...mockSyncSites,
+			( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 				connectedSites: [ fakeSyncSite ],
+				loading: false,
+				localSiteId: 'site-id',
 			} );
 			( useSelectedItemsPushSize as jest.Mock ).mockReturnValue( {
 				isPushSelectionOverLimit: false,
@@ -1042,9 +1044,10 @@ describe( 'ContentTabSync', () => {
 
 		it( 'does not show warning notice for pull operations even when limit exceeded', async () => {
 			( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-			( useSyncSites as jest.Mock ).mockReturnValue( {
-				...mockSyncSites,
+			( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 				connectedSites: [ fakeSyncSite ],
+				loading: false,
+				localSiteId: 'site-id',
 			} );
 			( useSelectedItemsPushSize as jest.Mock ).mockReturnValue( {
 				isPushSelectionOverLimit: true,

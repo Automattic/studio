@@ -2,29 +2,29 @@ import { getLocalizedLink } from 'src/lib/get-localized-link';
 
 describe( 'getLocalizedLink', () => {
 	it( 'should return the English URL when locale is en', () => {
-		expect( getLocalizedLink( 'en', 'blogPhpVersions' ) ).toBe(
+		expect( getLocalizedLink( 'en', 'blogPreviewSites' ) ).toBe(
 			'https://wordpress.com/blog/2025/03/17/studio-wordpress-php-versions/'
 		);
 	} );
 
 	it( 'should return the English URL when locale has no translation', () => {
-		expect( getLocalizedLink( 'uk', 'blogPhpVersions' ) ).toBe(
+		expect( getLocalizedLink( 'uk', 'blogPreviewSites' ) ).toBe(
 			'https://wordpress.com/blog/2025/03/17/studio-wordpress-php-versions/'
 		);
-		expect( getLocalizedLink( 'tr', 'blogPhpVersions' ) ).toBe(
+		expect( getLocalizedLink( 'tr', 'blogPreviewSites' ) ).toBe(
 			'https://wordpress.com/blog/2025/03/17/studio-wordpress-php-versions/'
 		);
 	} );
 
 	it( 'should return the translated URL when locale exists', () => {
-		expect( getLocalizedLink( 'es', 'blogPhpVersions' ) ).toBe(
-			'https://wordpress.com/es/blog/2025/04/02/modifica-las-versiones-de-wordpress-y-php-de-tu-sitio-local-con-studio/'
+		expect( getLocalizedLink( 'es', 'blogPreviewSites' ) ).toBe(
+			'https://wordpress.com/es/blog/2025/03/05/colabora-mas-y-mejor-en-studio-con-los-sitios-de-vista-previa/'
 		);
 		expect( getLocalizedLink( 'ja', 'blogPreviewSites' ) ).toBe(
 			'https://wordpress.com/ja/blog/2025/03/28/studio-preview-sites/'
 		);
-		expect( getLocalizedLink( 'pt-br', 'blogPhpVersions' ) ).toBe(
-			'https://wordpress.com/pt-br/blog/2025/04/02/estudio-wordpress-php-versoes/'
+		expect( getLocalizedLink( 'pt-br', 'blogPreviewSites' ) ).toBe(
+			'https://wordpress.com/pt-br/blog/2025/03/06/estudio-visualizar-sites/'
 		);
 	} );
 	describe( 'getLocalizedLink for docs', () => {

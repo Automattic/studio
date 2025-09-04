@@ -258,6 +258,20 @@ export async function runPerformanceTests(
 		await runShellScript( config.setupCommand, buildDir, {
 			GITHUB_TOKEN: process.env.GITHUB_TOKEN,
 		} );
+
+		// Verify build completed successfully
+		const expectedOutDir = path.join( buildDir, 'out' );
+		logAtIndent( 3, 'Verifying build completed successfully' );
+		if ( ! fs.existsSync( expectedOutDir ) ) {
+			throw new Error( `Build failed for branch ${ branch }: output directory not found at ${ expectedOutDir }` );
+		}
+
+		const buildContents = fs.readdirSync( expectedOutDir );
+		if ( buildContents.length === 0 ) {
+			throw new Error( `Build failed for branch ${ branch }: output directory is empty at ${ expectedOutDir }` );
+		}
+
+		logAtIndent( 3, 'Build verification passed:', formats.success( `Found ${ buildContents.length } items in out directory` ) );
 	}
 
 	logAtIndent( 0, 'Looking for test files' );

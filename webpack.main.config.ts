@@ -94,10 +94,6 @@ export const mainBaseConfig: Configuration = {
 	},
 	// Put your normal webpack config below here
 	devtool: 'source-map',
-	node: {
-		__dirname: false,
-		__filename: false,
-	},
 	module: {
 		rules,
 	},

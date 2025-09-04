@@ -1,7 +1,7 @@
 import path from 'path';
 import CopyWebpackPlugin from 'copy-webpack-plugin';
 import fs from 'fs-extra';
-import { type Configuration, DefinePlugin } from 'webpack';
+import { type Configuration, DefinePlugin, NormalModuleReplacementPlugin } from 'webpack';
 import { plugins } from './webpack.plugins';
 import { rules } from './webpack.rules';
 
@@ -34,26 +34,47 @@ const extraEntries = [
 		path: './src/lib/wordpress-provider/playground-cli/playground-server-process-child.ts',
 		exportName: 'PLAYGROUND_SERVER_PROCESS_MODULE_PATH',
 	},
+	// Add playground CLI worker threads as webpack entries to bundle dependencies
+	{
+		name: 'worker-thread-v1-BTJIbQLy',
+		path: './node_modules/@wp-playground/cli/worker-thread-v1-BTJIbQLy.js',
+		exportName: null,
+	},
+	{
+		name: 'worker-thread-v2-Pfv6UYF4',
+		path: './node_modules/@wp-playground/cli/worker-thread-v2-Pfv6UYF4.js',
+		exportName: null,
+	},
 ];
 
 export default function mainConfig( _env: unknown, args: Record< string, unknown > ) {
 	const isProduction = args.mode === 'production';
 
 	// Generates the necessary plugins to expose the module path of extra entries.
-	const definePlugins = extraEntries.map( ( entry ) => {
-		// The path calculation is based on how the Forge's webpack plugin generates the path for Electron files.
-		// Reference: https://github.com/electron/forge/blob/b298b2967bdc79bdc4e09681ea1ccc46a371635a/packages/plugin/webpack/src/WebpackConfig.ts#L113-L140
-		const modulePath = isProduction
-			? `require('path').resolve(__dirname, '..', 'main', '${ entry.name }.js')`
-			: JSON.stringify( path.resolve( __dirname, `.webpack/main/${ entry.name }.js` ) );
-		return new DefinePlugin( {
-			[ entry.exportName ]: modulePath,
+	const definePlugins = extraEntries
+		.filter( entry => entry.exportName !== null )
+		.map( ( entry ) => {
+			// The path calculation is based on how the Forge's webpack plugin generates the path for Electron files.
+			// Reference: https://github.com/electron/forge/blob/b298b2967bdc79bdc4e09681ea1ccc46a371635a/packages/plugin/webpack/src/WebpackConfig.ts#L113-L140
+			const modulePath = isProduction
+				? `require('path').resolve(__dirname, '..', 'main', '${ entry.name }.js')`
+				: JSON.stringify( path.resolve( __dirname, `.webpack/main/${ entry.name }.js` ) );
+			return new DefinePlugin( {
+				[ entry.exportName! ]: modulePath,
+			} );
 		} );
+
+	// Fix import.meta.dirname issue in @php-wasm/node for worker thread bundles
+	const phpWasmFixPlugin = new DefinePlugin( {
+		// Replace import.meta.dirname with the correct path
+		'import.meta.dirname': isProduction
+			? 'require("path").join(process.resourcesPath, "app.asar", ".webpack", "main")'
+			: JSON.stringify( path.resolve( __dirname, '.webpack/main' ) ),
 	} );
 
 	return {
 		...mainBaseConfig,
-		plugins: [ ...( mainBaseConfig.plugins || [] ), ...definePlugins ],
+		plugins: [ ...( mainBaseConfig.plugins || [] ), ...definePlugins, phpWasmFixPlugin ],
 	};
 }
 
@@ -73,6 +94,10 @@ export const mainBaseConfig: Configuration = {
 	},
 	// Put your normal webpack config below here
 	devtool: 'source-map',
+	node: {
+		__dirname: false,
+		__filename: false,
+	},
 	module: {
 		rules,
 	},
@@ -99,15 +124,7 @@ export const mainBaseConfig: Configuration = {
 					from: path.join( phpWasmDir, dir ),
 					to: path.resolve( __dirname, `.webpack/main/${ dir }` ),
 				} ) ),
-				// Copy @wp-playground/cli worker files
-				{
-					from: path.resolve( __dirname, 'node_modules/@wp-playground/cli' ),
-					to: path.resolve( __dirname, '.webpack/main' ),
-					filter: ( resourcePath: string ) => {
-						const fileName = path.basename( resourcePath );
-						return fileName.startsWith( 'worker-thread-' );
-					},
-				},
+				// Note: worker threads are now bundled as webpack entries
 			],
 		} ),
 	],

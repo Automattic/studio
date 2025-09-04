@@ -51,18 +51,16 @@ export default function mainConfig( _env: unknown, args: Record< string, unknown
 	const isProduction = args.mode === 'production';
 
 	// Generates the necessary plugins to expose the module path of extra entries.
-	const definePlugins = extraEntries
-		.filter( entry => entry.exportName !== null )
-		.map( ( entry ) => {
-			// The path calculation is based on how the Forge's webpack plugin generates the path for Electron files.
-			// Reference: https://github.com/electron/forge/blob/b298b2967bdc79bdc4e09681ea1ccc46a371635a/packages/plugin/webpack/src/WebpackConfig.ts#L113-L140
-			const modulePath = isProduction
-				? `require('path').resolve(__dirname, '..', 'main', '${ entry.name }.js')`
-				: JSON.stringify( path.resolve( __dirname, `.webpack/main/${ entry.name }.js` ) );
-			return new DefinePlugin( {
-				[ entry.exportName! ]: modulePath,
-			} );
+	const definePlugins = extraEntries.map( ( entry ) => {
+		// The path calculation is based on how the Forge's webpack plugin generates the path for Electron files.
+		// Reference: https://github.com/electron/forge/blob/b298b2967bdc79bdc4e09681ea1ccc46a371635a/packages/plugin/webpack/src/WebpackConfig.ts#L113-L140
+		const modulePath = isProduction
+			? `require('path').resolve(__dirname, '..', 'main', '${ entry.name }.js')`
+			: JSON.stringify( path.resolve( __dirname, `.webpack/main/${ entry.name }.js` ) );
+		return new DefinePlugin( {
+			[ entry.exportName ]: modulePath,
 		} );
+	} );
 
 	// Fix import.meta.dirname issue in @php-wasm/node for worker thread bundles
 	const phpWasmFixPlugin = new DefinePlugin( {
@@ -120,7 +118,6 @@ export const mainBaseConfig: Configuration = {
 					from: path.join( phpWasmDir, dir ),
 					to: path.resolve( __dirname, `.webpack/main/${ dir }` ),
 				} ) ),
-				// Note: worker threads are now bundled as webpack entries
 			],
 		} ),
 	],

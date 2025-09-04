@@ -24,6 +24,23 @@ const formatFileSize = ( bytes: number ) => {
 	return Math.round( ( bytes / Math.pow( k, i ) ) * 100 ) / 100 + ' ' + sizes[ i ];
 };
 
+const truncateMiddle = ( filename: string, maxLength: number = 30 ): string => {
+	if ( filename.length <= maxLength ) {
+		return filename;
+	}
+
+	const ellipsis = '…';
+	const charsToShow = maxLength - ellipsis.length;
+	const frontChars = Math.ceil( charsToShow / 2 );
+	const backChars = Math.floor( charsToShow / 2 );
+
+	return (
+		filename.substring( 0, frontChars ) +
+		ellipsis +
+		filename.substring( filename.length - backChars )
+	);
+};
+
 interface ImportBackupProps {
 	onFileSelect: ( file?: File ) => void;
 }
@@ -130,11 +147,11 @@ export default function ImportBackup( { onFileSelect }: ImportBackupProps ) {
 				{ selectedFile ? (
 					<VStack className="items-center justify-center h-full" spacing={ 2 }>
 						<Text
-							className="text-base font-medium text-gray-900 max-w-md truncate px-4"
+							className="text-base font-medium text-gray-900 max-w-md px-4"
 							weight={ 400 }
 							title={ selectedFile.name }
 						>
-							{ selectedFile.name }
+							{ truncateMiddle( selectedFile.name ) }
 						</Text>
 						<HStack spacing={ 2 } alignment="center">
 							<Text className="text-base text-gray-600">

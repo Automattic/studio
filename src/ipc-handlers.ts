@@ -133,6 +133,7 @@ export function getInstalledAppsAndTerminals(): InstalledApps {
 		webstorm: isInstalled( 'webstorm' ),
 		windsurf: isInstalled( 'windsurf' ),
 		cursor: isInstalled( 'cursor' ),
+		sublime: isInstalled( 'sublime' ),
 		terminal: true, // Terminal.app is always available on macOS
 		iterm: isInstalled( 'iterm' ),
 		warp: isInstalled( 'warp' ),

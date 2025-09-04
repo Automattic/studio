@@ -3,16 +3,16 @@ import { getLocalizedLink } from 'src/lib/get-localized-link';
 describe( 'getLocalizedLink', () => {
 	it( 'should return the English URL when locale is en', () => {
 		expect( getLocalizedLink( 'en', 'blogPreviewSites' ) ).toBe(
-			'https://wordpress.com/blog/2025/03/17/studio-wordpress-php-versions/'
+			'https://wordpress.com/blog/2025/02/24/studio-preview-sites/'
 		);
 	} );
 
 	it( 'should return the English URL when locale has no translation', () => {
 		expect( getLocalizedLink( 'uk', 'blogPreviewSites' ) ).toBe(
-			'https://wordpress.com/blog/2025/03/17/studio-wordpress-php-versions/'
+			'https://wordpress.com/blog/2025/02/24/studio-preview-sites/'
 		);
 		expect( getLocalizedLink( 'tr', 'blogPreviewSites' ) ).toBe(
-			'https://wordpress.com/blog/2025/03/17/studio-wordpress-php-versions/'
+			'https://wordpress.com/blog/2025/02/24/studio-preview-sites/'
 		);
 	} );
 

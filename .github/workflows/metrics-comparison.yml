@@ -14,7 +14,7 @@ permissions: {}
 jobs:
   metrics:
     name: Run metrics tests
-    runs-on: macos-13
+    runs-on: macos-13-xlarge
     permissions:
       contents: read
     env:
@@ -22,7 +22,6 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       FORCE_COLOR: '1'
       CODEVITALS_AUTH_TOKEN: ${{ secrets.CODEVITALS_AUTH_TOKEN }}
-      NODE_OPTIONS: '--max-old-space-size=4096'  # Increase memory for webpack builds
 
     steps:
       - uses: actions/checkout@v5

@@ -62,18 +62,33 @@ export default function mainConfig( _env: unknown, args: Record< string, unknown
 		} );
 	} );
 
-	// Fix import.meta.dirname issue in @php-wasm/node for worker thread bundles
-	const phpWasmFixPlugin = new DefinePlugin( {
-		// Replace import.meta.dirname with the correct path
-		'import.meta.dirname': isProduction
-			? 'require("path").join(process.resourcesPath, "app.asar", ".webpack", "main")'
-			: JSON.stringify( path.resolve( __dirname, '.webpack/main' ) ),
-	} );
-
-	return {
+	const customConfig = {
 		...mainBaseConfig,
-		plugins: [ ...( mainBaseConfig.plugins || [] ), ...definePlugins, phpWasmFixPlugin ],
+		module: {
+			...mainBaseConfig.module,
+			rules: [
+				{
+					test: /\.js$/,
+					include: [
+						path.resolve( __dirname, 'node_modules/@php-wasm/node' ),
+						path.resolve( __dirname, 'node_modules/@wp-playground/cli' ),
+					],
+					use: [
+						{
+							loader: path.resolve(
+								__dirname,
+								'webpack-loaders/fix-import-meta-dirname-loader.js'
+							),
+						},
+					],
+				},
+				...mainBaseConfig.module.rules,
+			],
+		},
+		plugins: [ ...( mainBaseConfig.plugins || [] ), ...definePlugins ],
 	};
+
+	return customConfig;
 }
 
 export const mainBaseConfig: Configuration = {

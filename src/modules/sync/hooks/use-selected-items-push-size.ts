@@ -51,13 +51,21 @@ export function useSelectedItemsPushSize(
 					} else if ( child.indeterminate && child.children ) {
 						for ( const subChild of child.children ) {
 							if ( subChild.checked || subChild.indeterminate ) {
-								sizePromises.push(
-									getIpcApi().getDirectorySize( siteId, [
+								let sizePromise: Promise< number >;
+								if ( subChild.type === 'file' ) {
+									sizePromise = getIpcApi().getFileSize( siteId, [
 										'wp-content',
 										child.name,
 										subChild.name,
-									] )
-								);
+									] );
+								} else {
+									sizePromise = getIpcApi().getDirectorySize( siteId, [
+										'wp-content',
+										child.name,
+										subChild.name,
+									] );
+								}
+								sizePromises.push( sizePromise );
 							}
 						}
 					}

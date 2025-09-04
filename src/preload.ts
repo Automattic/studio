@@ -107,6 +107,7 @@ const api: IpcApi = {
 	addSyncOperation: ( id ) => ipcRendererSend( 'addSyncOperation', id ),
 	clearSyncOperation: ( id ) => ipcRendererSend( 'clearSyncOperation', id ),
 	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
+	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),
 	getFileContent: ( filePath ) => ipcRendererInvoke( 'getFileContent', filePath ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),

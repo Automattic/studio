@@ -1281,6 +1281,14 @@ export function getDirectorySize( _event: IpcMainInvokeEvent, siteId: string, su
 	return calculateDirectorySize( nodePath.join( site.details.path, ...subdir ) );
 }
 
+export function getFileSize( _event: IpcMainInvokeEvent, siteId: string, filePath: string[] ) {
+	const site = SiteServer.get( siteId );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+	return fs.statSync( nodePath.join( site.details.path, ...filePath ) ).size;
+}
+
 export function openCertificate( _event: IpcMainInvokeEvent ) {
 	return openCertificateDialog();
 }

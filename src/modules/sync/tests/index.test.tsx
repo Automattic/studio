@@ -9,6 +9,7 @@ import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ContentTabSync } from 'src/modules/sync';
+import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
 import { store } from 'src/stores';
 import {
 	useLatestRewindId,
@@ -54,6 +55,8 @@ jest.mock( 'src/stores/sync', () => ( {
 		} ),
 	},
 } ) );
+
+jest.mock( 'src/modules/sync/hooks/use-selected-items-push-size' );
 
 const createAuthMock = ( isAuthenticated: boolean = false ) => ( {
 	isAuthenticated,
@@ -127,6 +130,11 @@ describe( 'ContentTabSync', () => {
 			showMessageBox: jest.fn(),
 			updateConnectedWpcomSites: jest.fn(),
 			getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
+			getDirectorySize: jest.fn().mockResolvedValue( 0 ),
+		} );
+		( useSelectedItemsPushSize as jest.Mock ).mockReturnValue( {
+			isPushSelectionOverLimit: false,
+			isLoading: false,
 		} );
 		( useSyncSites as jest.Mock ).mockReturnValue( mockSyncSites );
 		( useLatestRewindId as jest.Mock ).mockReturnValue( {
@@ -982,5 +990,76 @@ describe( 'ContentTabSync', () => {
 
 		const dialogPushButton = screen.getAllByRole( 'button', { name: /Push/i } )[ 1 ];
 		expect( dialogPushButton ).not.toBeDisabled();
+	} );
+
+	describe( 'Sync Dialog Push Selection Over Limit Notice', () => {
+		it( 'shows warning notice when push selection exceeds limit', async () => {
+			( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+			( useSyncSites as jest.Mock ).mockReturnValue( {
+				...mockSyncSites,
+				connectedSites: [ fakeSyncSite ],
+			} );
+			( useSelectedItemsPushSize as jest.Mock ).mockReturnValue( {
+				isPushSelectionOverLimit: true,
+				isLoading: false,
+			} );
+
+			renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+			const pushButton = screen.getByRole( 'button', { name: /Push/i } );
+			fireEvent.click( pushButton );
+
+			await screen.findByText( 'Push to Production' );
+
+			const warningNotice = screen.getByTestId( 'push-selection-over-limit-notice' );
+			expect( warningNotice ).toBeInTheDocument();
+
+			const dialogPushButton = screen.getAllByRole( 'button', { name: /Push/i } )[ 1 ];
+			expect( dialogPushButton ).toBeDisabled();
+		} );
+
+		it( 'does not show warning notice when push selection is within limit', async () => {
+			( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+			( useSyncSites as jest.Mock ).mockReturnValue( {
+				...mockSyncSites,
+				connectedSites: [ fakeSyncSite ],
+			} );
+			( useSelectedItemsPushSize as jest.Mock ).mockReturnValue( {
+				isPushSelectionOverLimit: false,
+				isLoading: false,
+			} );
+
+			renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+			const pushButton = screen.getByRole( 'button', { name: /Push/i } );
+			fireEvent.click( pushButton );
+
+			await screen.findByText( 'Push to Production' );
+
+			const warningNotice = screen.queryByTestId( 'push-selection-over-limit-notice' );
+			expect( warningNotice ).not.toBeInTheDocument();
+		} );
+
+		it( 'does not show warning notice for pull operations even when limit exceeded', async () => {
+			( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+			( useSyncSites as jest.Mock ).mockReturnValue( {
+				...mockSyncSites,
+				connectedSites: [ fakeSyncSite ],
+			} );
+			( useSelectedItemsPushSize as jest.Mock ).mockReturnValue( {
+				isPushSelectionOverLimit: true,
+				isLoading: false,
+			} );
+
+			renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
+
+			const pullButton = screen.getByRole( 'button', { name: /Pull/i } );
+			fireEvent.click( pullButton );
+
+			await screen.findByText( 'Pull from Production' );
+
+			const warningNotice = screen.queryByTestId( 'push-selection-over-limit-notice' );
+			expect( warningNotice ).not.toBeInTheDocument();
+		} );
 	} );
 } );

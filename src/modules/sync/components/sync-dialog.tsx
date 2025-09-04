@@ -1,4 +1,4 @@
-import { SelectControl } from '@wordpress/components';
+import { SelectControl, Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf, __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
@@ -10,7 +10,7 @@ import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { Tooltip } from 'src/components/tooltip';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
-import { SYNC_OPTIONS } from 'src/constants';
+import { SYNC_OPTIONS, SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
 import { useContentFolders } from 'src/hooks/use-content-folders';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -18,6 +18,7 @@ import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { SiteNameBox } from 'src/modules/sync/components/site-name-box';
 import { GRANULAR_SYNC_FOLDERS } from 'src/modules/sync/constants';
 import { useDefaultSyncTree } from 'src/modules/sync/hooks/use-default-sync-tree';
+import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
 import { useSyncDialogTexts } from 'src/modules/sync/hooks/use-sync-dialog-texts';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
@@ -132,6 +133,11 @@ export function SyncDialog( {
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );
 	const isSubmitDisabled = treeState.every( ( node ) => ! node.checked && ! node.indeterminate );
+	const { isPushSelectionOverLimit, isLoading: isSizeCheckLoading } = useSelectedItemsPushSize(
+		localSite.id,
+		treeState,
+		type
+	);
 
 	const { fetchChildren, rewindId, isLoadingRewindId, isErrorRewindId } = useDynamicTreeState(
 		type,
@@ -206,7 +212,7 @@ export function SyncDialog( {
 			onRequestClose={ onRequestClose }
 			title={ syncTexts.title }
 		>
-			<div className="pb-[70px]">
+			<div className={ isPushSelectionOverLimit ? 'pb-[140px]' : 'pb-[70px]' }>
 				<div className="px-8 pb-6 pt-3">{ syncTexts.description }</div>
 				<div className="px-8">
 					<span className="sr-only">
@@ -298,32 +304,51 @@ export function SyncDialog( {
 					</div>
 				</Tooltip>
 
-				<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center absolute left-0 right-0 bottom-0 bg-white z-10">
-					<div>
-						{ createInterpolateElement( syncTexts.envSync, {
-							a: (
+				<div className="px-8 py-4 border-t border-a8c-gray-5 absolute left-0 right-0 bottom-0 bg-white z-10">
+					{ type === 'push' && isPushSelectionOverLimit && (
+						<Notice status="warning" isDismissible={ false } className="mb-4">
+							<p data-testid="push-selection-over-limit-notice">
+								{ sprintf(
+									__(
+										'The current selection exceeds the %d GB push limit. To continue, please change your selection to reduce the total size.'
+									),
+									SYNC_PUSH_SIZE_LIMIT_GB
+								) }
+							</p>
+						</Notice>
+					) }
+					<div className="flex justify-between items-center">
+						<div>
+							{ createInterpolateElement( syncTexts.envSync, {
+								a: (
+									<Button
+										variant="link"
+										onClick={ () =>
+											getIpcApi().openURL( getLocalizedLink( locale, 'docsSync' ) + '#' + type )
+										}
+									/>
+								),
+								ArrowIcon: <ArrowIcon />,
+							} ) }
+						</div>
+						<div>
+							<div className="flex gap-4 justify-end">
+								<Button variant="link" onClick={ onRequestClose }>
+									{ __( 'Cancel' ) }
+								</Button>
 								<Button
-									variant="link"
-									onClick={ () =>
-										getIpcApi().openURL( getLocalizedLink( locale, 'docsSync' ) + '#' + type )
+									variant="primary"
+									onClick={ handleSubmit }
+									disabled={
+										isSubmitDisabled ||
+										isLoadingRewindId ||
+										isPushSelectionOverLimit ||
+										isSizeCheckLoading
 									}
-								/>
-							),
-							ArrowIcon: <ArrowIcon />,
-						} ) }
-					</div>
-					<div>
-						<div className="flex gap-4 justify-end">
-							<Button variant="link" onClick={ onRequestClose }>
-								{ __( 'Cancel' ) }
-							</Button>
-							<Button
-								variant="primary"
-								onClick={ handleSubmit }
-								disabled={ isSubmitDisabled || isLoadingRewindId }
-							>
-								{ syncTexts.submit }
-							</Button>
+								>
+									{ syncTexts.submit }
+								</Button>
+							</div>
 						</div>
 					</div>
 				</div>

@@ -1,7 +1,7 @@
 import path from 'path';
 import CopyWebpackPlugin from 'copy-webpack-plugin';
 import fs from 'fs-extra';
-import { type Configuration, DefinePlugin, NormalModuleReplacementPlugin } from 'webpack';
+import { type Configuration, DefinePlugin } from 'webpack';
 import { plugins } from './webpack.plugins';
 import { rules } from './webpack.rules';
 

@@ -28,25 +28,10 @@ export function runShellScript( script: string, cwd?: string, env: NodeJS.Proces
 			},
 			function ( error, stdout, stderr ) {
 				if ( error ) {
-					console.log( chalk.red( `\nCommand failed: ${ script }` ) );
-					console.log( chalk.red( `Working directory: ${ cwd || process.cwd() }` ) );
-					console.log( chalk.red( `Exit code: ${ error.code }` ) );
-					if ( stdout ) {
-						console.log( chalk.yellow( '\nSTDOUT:' ) );
-						console.log( stdout );
-					}
-					if ( stderr ) {
-						console.log( chalk.red( '\nSTDERR:' ) );
-						console.log( stderr );
-					}
-					reject( new Error( `Command failed: ${ script } (exit code: ${ error.code })` ) );
+					console.log( stdout ); // Sometimes the error message is thrown via stdout.
+					console.log( stderr );
+					reject( error );
 				} else {
-					// Log successful commands for debugging
-					console.log( chalk.gray( `✓ Command completed: ${ script }` ) );
-					if ( stdout && stdout.trim() ) {
-						console.log( chalk.gray( 'Output:' ) );
-						console.log( stdout );
-					}
 					resolve( true );
 				}
 			}

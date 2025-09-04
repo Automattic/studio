@@ -6,7 +6,6 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import Button, { ButtonVariant } from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite } from 'src/hooks/use-add-site';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { generateSiteName } from 'src/lib/generate-site-name';
@@ -19,7 +18,6 @@ import {
 } from 'src/stores/provider-constants-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
-import AddSiteLegacy from './components/add-site-legacy';
 import AddSiteBlueprintSelector from './components/blueprints';
 import CreateSite from './components/create-site';
 import ImportBackup from './components/import-backup';
@@ -196,7 +194,6 @@ function NavigationContent( props: NavigationContentProps ) {
 
 export default function AddSite( { className, variant = 'outlined' }: AddSiteProps ) {
 	const { __ } = useI18n();
-	const { enableBlueprints } = useFeatureFlags();
 	const [ showModal, setShowModal ] = useState( false );
 	const [ nameSuggested, setNameSuggested ] = useState( false );
 	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
@@ -334,17 +331,6 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		}
 		openModal();
 	} );
-
-	if ( ! enableBlueprints ) {
-		return (
-			<AddSiteLegacy
-				variant={ variant }
-				className={ className }
-				showModal={ showModal }
-				setShowModal={ setShowModal }
-			/>
-		);
-	}
 
 	return (
 		<>

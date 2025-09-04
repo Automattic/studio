@@ -19,6 +19,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
+import { useConnectedSitesData } from 'src/stores/sync';
 
 interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
@@ -318,7 +319,8 @@ const ImportSite = ( {
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
 	const { __ } = useI18n();
 	const [ isSupported, setIsSupported ] = useState< boolean | null >( null );
-	const { isSiteIdPulling, isSiteIdPushing, connectedSites } = useSyncSites();
+	const { isSiteIdPulling, isSiteIdPushing } = useSyncSites();
+	const { connectedSites } = useConnectedSitesData();
 	const isPulling = connectedSites.some( ( site ) => isSiteIdPulling( selectedSite.id, site.id ) );
 	const isPushing = connectedSites.some( ( site ) => isSiteIdPushing( selectedSite.id, site.id ) );
 	const isThisSiteSyncing = isPulling || isPushing;

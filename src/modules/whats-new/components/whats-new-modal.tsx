@@ -5,6 +5,7 @@ import { ReactNode } from 'react';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
+import blueprintsIllustration from 'src/modules/whats-new/assets/blueprints-illustration.svg';
 import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
 import preferredAppsIllustration from 'src/modules/whats-new/assets/preferred-apps-illustration.svg';
 import pressableSyncIllustration from 'src/modules/whats-new/assets/pressable-sync-illustration.svg';
@@ -55,6 +56,14 @@ const PageContent = ( {
 export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProps ) {
 	const locale = useI18nLocale();
 	const whatsNewPages: WhatsNewPage[] = [
+		{
+			image: blueprintsIllustration,
+			title: __( 'Introducing Blueprints, a way to streamline your process' ),
+			description: __(
+				'Select a setup that fits your needs and build your WordPress site even faster.'
+			),
+			learnMoreUrl: getLocalizedLink( locale, 'docsBlueprints' ),
+		},
 		{
 			image: selectiveSyncIllustration,
 			title: __( 'Synchronize with precision' ),

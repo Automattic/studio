@@ -5,7 +5,6 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
-import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -13,6 +12,14 @@ import { ConnectButton } from 'src/modules/sync/components/connect-button';
 import { SyncConnectedSites } from 'src/modules/sync/components/sync-connected-sites';
 import { SyncSitesModalSelector } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import {
+	useConnectedSitesData,
+	useSyncSitesData,
+	useConnectedSitesOperations,
+	connectedSitesSelectors,
+	connectedSitesActions,
+} from 'src/stores/sync';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {
@@ -111,17 +118,12 @@ export type OpenSitesSyncSelector = ( options?: { disconnectSiteId?: number } ) 
 
 export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { __ } = useI18n();
-	const {
-		connectedSites,
-		connectSite,
-		disconnectSite,
-		syncSites,
-		isFetching,
-		refetchSites,
-		isSyncSitesSelectorOpen,
-		setIsSyncSitesSelectorOpen,
-		closeSyncSitesSelector,
-	} = useSyncSites();
+	const dispatch = useAppDispatch();
+	const isModalOpen = useRootSelector( connectedSitesSelectors.selectIsModalOpen );
+	const { connectedSites } = useConnectedSitesData();
+	const { syncSites, isFetching, refetchSites } = useSyncSitesData();
+	const { connectSite, disconnectSite } = useConnectedSitesOperations();
+
 	const { isAuthenticated } = useAuth();
 
 	useEffect( () => {
@@ -152,13 +154,12 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					<SyncConnectedSites
 						connectedSites={ connectedSites }
 						selectedSite={ selectedSite }
-						openSitesSyncSelector={ ( options ) => setIsSyncSitesSelectorOpen( options || true ) }
-						disconnectSite={ ( id: number ) => disconnectSite( id ) }
+						disconnectSite={ disconnectSite }
 					/>
 					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 						<ConnectButton
 							variant="primary"
-							connectSite={ () => setIsSyncSitesSelectorOpen( true ) }
+							connectSite={ () => dispatch( connectedSitesActions.openModal() ) }
 							disableConnectButtonStyle={ true }
 						>
 							{ __( 'Connect another site' ) }
@@ -170,7 +171,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					<div className="mt-8">
 						<ConnectButton
 							variant="primary"
-							connectSite={ () => setIsSyncSitesSelectorOpen( true ) }
+							connectSite={ () => dispatch( connectedSitesActions.openModal() ) }
 							disableConnectButtonStyle={ true }
 						>
 							{ __( 'Connect site' ) }
@@ -179,17 +180,15 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				</SiteSyncDescription>
 			) }
 
-			{ isSyncSitesSelectorOpen && (
+			{ isModalOpen && (
 				<SyncSitesModalSelector
 					isLoading={ isFetching }
-					onRequestClose={ closeSyncSitesSelector }
+					onRequestClose={ () => dispatch( connectedSitesActions.closeModal() ) }
 					syncSites={ syncSites }
 					onInitialRender={ refetchSites }
 					onConnect={ async ( siteId ) => {
 						const disconnectSiteId =
-							typeof isSyncSitesSelectorOpen === 'object'
-								? isSyncSitesSelectorOpen.disconnectSiteId
-								: undefined;
+							typeof isModalOpen === 'object' ? isModalOpen.disconnectSiteId : undefined;
 
 						if ( disconnectSiteId ) {
 							await disconnectSite( disconnectSiteId );

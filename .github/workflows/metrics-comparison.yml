@@ -12,34 +12,9 @@ concurrency:
 permissions: {}
 
 jobs:
-  build:
-    name: Build application
-    runs-on: macos-13
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: '.nvmrc'
-
-      - name: Build application
-        run: |
-          npm ci
-          IS_DEV_BUILD=true npm run package
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: studio-build
-          path: out/
-
   metrics:
     name: Run metrics tests
-    runs-on: macos-13
-    needs: build
+    runs-on: macos-latest
     permissions:
       contents: read
     env:
@@ -57,12 +32,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: studio-build
-          path: out/
 
       - name: Compare performance with trunk
         if: github.event_name == 'pull_request'

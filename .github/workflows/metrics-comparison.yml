@@ -22,6 +22,7 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       FORCE_COLOR: '1'
       CODEVITALS_AUTH_TOKEN: ${{ secrets.CODEVITALS_AUTH_TOKEN }}
+      SKIP_WORKER_THREAD_BUILD: 'true'
 
     steps:
       - uses: actions/checkout@v5

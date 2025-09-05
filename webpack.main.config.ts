@@ -34,6 +34,20 @@ const extraEntries = [
 		path: './src/lib/wordpress-provider/playground-cli/playground-server-process-child.ts',
 		exportName: 'PLAYGROUND_SERVER_PROCESS_MODULE_PATH',
 	},
+	// Skip building worker threads when SKIP_WORKER_THREAD_BUILD is set (performance tests)
+	// Otherwise build them (needed for /Applications/ deployment)
+	...( !process.env.SKIP_WORKER_THREAD_BUILD ? [
+		{
+			name: 'worker-thread-v1-BTJIbQLy',
+			path: './node_modules/@wp-playground/cli/worker-thread-v1-BTJIbQLy.js',
+			exportName: null,
+		},
+		{
+			name: 'worker-thread-v2-Pfv6UYF4',
+			path: './node_modules/@wp-playground/cli/worker-thread-v2-Pfv6UYF4.js',
+			exportName: null,
+		},
+	] : [] ),
 ];
 
 export default function mainConfig( _env: unknown, args: Record< string, unknown > ) {
@@ -51,8 +65,34 @@ export default function mainConfig( _env: unknown, args: Record< string, unknown
 		} );
 	} );
 
+	// Only use custom loader when building worker threads (not when copying them)
+	const useCustomLoader = !process.env.SKIP_WORKER_THREAD_BUILD;
+
 	return {
 		...mainBaseConfig,
+		module: {
+			...mainBaseConfig.module,
+			rules: useCustomLoader
+				? [
+						{
+							test: /\.js$/,
+							include: [
+								path.resolve( __dirname, 'node_modules/@php-wasm/node' ),
+								path.resolve( __dirname, 'node_modules/@wp-playground/cli' ),
+							],
+							use: [
+								{
+									loader: path.resolve(
+										__dirname,
+										'webpack-loaders/fix-import-meta-dirname-loader.js'
+									),
+								},
+							],
+						},
+						...mainBaseConfig.module.rules,
+				  ]
+				: mainBaseConfig.module.rules,
+		},
 		plugins: [ ...( mainBaseConfig.plugins || [] ), ...definePlugins ],
 	};
 }
@@ -99,15 +139,17 @@ export const mainBaseConfig: Configuration = {
 					from: path.join( phpWasmDir, dir ),
 					to: path.resolve( __dirname, `.webpack/main/${ dir }` ),
 				} ) ),
-				// Copy @wp-playground/cli worker files
-				{
-					from: path.resolve( __dirname, 'node_modules/@wp-playground/cli' ),
-					to: path.resolve( __dirname, '.webpack/main' ),
-					filter: ( resourcePath: string ) => {
-						const fileName = path.basename( resourcePath );
-						return fileName.startsWith( 'worker-thread-' );
+				// Copy @wp-playground/cli worker files when skipping webpack building (performance tests)
+				...( process.env.SKIP_WORKER_THREAD_BUILD ? [
+					{
+						from: path.resolve( __dirname, 'node_modules/@wp-playground/cli' ),
+						to: path.resolve( __dirname, '.webpack/main' ),
+						filter: ( resourcePath: string ) => {
+							const fileName = path.basename( resourcePath );
+							return fileName.startsWith( 'worker-thread-' );
+						},
 					},
-				},
+				] : [] ),
 			],
 		} ),
 	],

@@ -62,32 +62,28 @@ export default function mainConfig( _env: unknown, args: Record< string, unknown
 		} );
 	} );
 
-	const skipCustomLoader = process.env.CI || process.env.GITHUB_ACTIONS;
-
 	return {
 		...mainBaseConfig,
 		module: {
 			...mainBaseConfig.module,
-			rules: skipCustomLoader
-				? mainBaseConfig.module.rules
-				: [
+			rules: [
+				{
+					test: /\.js$/,
+					include: [
+						path.resolve( __dirname, 'node_modules/@php-wasm/node' ),
+						path.resolve( __dirname, 'node_modules/@wp-playground/cli' ),
+					],
+					use: [
 						{
-							test: /\.js$/,
-							include: [
-								path.resolve( __dirname, 'node_modules/@php-wasm/node' ),
-								path.resolve( __dirname, 'node_modules/@wp-playground/cli' ),
-							],
-							use: [
-								{
-									loader: path.resolve(
-										__dirname,
-										'webpack-loaders/fix-import-meta-dirname-loader.js'
-									),
-								},
-							],
+							loader: path.resolve(
+								__dirname,
+								'webpack-loaders/fix-import-meta-dirname-loader.js'
+							),
 						},
-						...mainBaseConfig.module.rules,
-				  ],
+					],
+				},
+				...mainBaseConfig.module.rules,
+			],
 		},
 		plugins: [ ...( mainBaseConfig.plugins || [] ), ...definePlugins ],
 	};

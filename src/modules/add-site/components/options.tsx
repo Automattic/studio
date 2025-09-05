@@ -7,6 +7,7 @@ import {
 import { Icon, plus, backup, chevronRight, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { Tooltip } from 'src/components/tooltip';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { BlueprintIcon } from './blueprint-icon';
@@ -70,6 +71,7 @@ function OptionButton( {
 
 export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps ) {
 	const { __ } = useI18n();
+	const { enableBlueprints } = useFeatureFlags();
 	const isOffline = useOffline();
 	const offlineMessage = __( "You're currently offline." );
 
@@ -87,14 +89,16 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 				description={ __( 'Create a clean site' ) }
 				onClick={ () => onOptionSelect( 'create' ) }
 			/>
-			<OptionButton
-				icon={ <BlueprintIcon size={ 24 } /> }
-				title={ __( 'Start from a blueprint' ) }
-				description={ __( 'Choose one from the list or select your own' ) }
-				onClick={ () => onOptionSelect( 'blueprint' ) }
-				disabled={ isOffline }
-				disabledTooltip={ offlineMessage }
-			/>
+			{ enableBlueprints && (
+				<OptionButton
+					icon={ <BlueprintIcon size={ 24 } /> }
+					title={ __( 'Start from a blueprint' ) }
+					description={ __( 'Choose one from the list or select your own' ) }
+					onClick={ () => onOptionSelect( 'blueprint' ) }
+					disabled={ isOffline }
+					disabledTooltip={ offlineMessage }
+				/>
+			) }
 			<OptionButton
 				icon={ <Icon icon={ backup } size={ 24 } fill="#3858E9" /> }
 				title={ __( 'Import from a backup' ) }

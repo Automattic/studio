@@ -34,17 +34,20 @@ const extraEntries = [
 		path: './src/lib/wordpress-provider/playground-cli/playground-server-process-child.ts',
 		exportName: 'PLAYGROUND_SERVER_PROCESS_MODULE_PATH',
 	},
-	// Playground CLI worker threads needed to prevent build errors
-	{
-		name: 'worker-thread-v1-BTJIbQLy',
-		path: './node_modules/@wp-playground/cli/worker-thread-v1-BTJIbQLy.js',
-		exportName: null,
-	},
-	{
-		name: 'worker-thread-v2-Pfv6UYF4',
-		path: './node_modules/@wp-playground/cli/worker-thread-v2-Pfv6UYF4.js',
-		exportName: null,
-	},
+	// Only build worker threads for production (needed for /Applications/ deployment)
+	// In dev/CI, we'll copy them instead for faster builds
+	...( process.env.NODE_ENV === 'production' && !process.env.IS_DEV_BUILD ? [
+		{
+			name: 'worker-thread-v1-BTJIbQLy',
+			path: './node_modules/@wp-playground/cli/worker-thread-v1-BTJIbQLy.js',
+			exportName: null,
+		},
+		{
+			name: 'worker-thread-v2-Pfv6UYF4',
+			path: './node_modules/@wp-playground/cli/worker-thread-v2-Pfv6UYF4.js',
+			exportName: null,
+		},
+	] : [] ),
 ];
 
 export default function mainConfig( _env: unknown, args: Record< string, unknown > ) {
@@ -62,28 +65,33 @@ export default function mainConfig( _env: unknown, args: Record< string, unknown
 		} );
 	} );
 
+	// Only use custom loader in production builds (when worker threads are built, not copied)
+	const useCustomLoader = process.env.NODE_ENV === 'production' && !process.env.IS_DEV_BUILD;
+
 	return {
 		...mainBaseConfig,
 		module: {
 			...mainBaseConfig.module,
-			rules: [
-				{
-					test: /\.js$/,
-					include: [
-						path.resolve( __dirname, 'node_modules/@php-wasm/node' ),
-						path.resolve( __dirname, 'node_modules/@wp-playground/cli' ),
-					],
-					use: [
+			rules: useCustomLoader
+				? [
 						{
-							loader: path.resolve(
-								__dirname,
-								'webpack-loaders/fix-import-meta-dirname-loader.js'
-							),
+							test: /\.js$/,
+							include: [
+								path.resolve( __dirname, 'node_modules/@php-wasm/node' ),
+								path.resolve( __dirname, 'node_modules/@wp-playground/cli' ),
+							],
+							use: [
+								{
+									loader: path.resolve(
+										__dirname,
+										'webpack-loaders/fix-import-meta-dirname-loader.js'
+									),
+								},
+							],
 						},
-					],
-				},
-				...mainBaseConfig.module.rules,
-			],
+						...mainBaseConfig.module.rules,
+				  ]
+				: mainBaseConfig.module.rules,
 		},
 		plugins: [ ...( mainBaseConfig.plugins || [] ), ...definePlugins ],
 	};
@@ -131,6 +139,17 @@ export const mainBaseConfig: Configuration = {
 					from: path.join( phpWasmDir, dir ),
 					to: path.resolve( __dirname, `.webpack/main/${ dir }` ),
 				} ) ),
+				// Copy @wp-playground/cli worker files for dev/CI builds (faster than webpack building)
+				...( process.env.NODE_ENV !== 'production' || process.env.IS_DEV_BUILD ? [
+					{
+						from: path.resolve( __dirname, 'node_modules/@wp-playground/cli' ),
+						to: path.resolve( __dirname, '.webpack/main' ),
+						filter: ( resourcePath: string ) => {
+							const fileName = path.basename( resourcePath );
+							return fileName.startsWith( 'worker-thread-' );
+						},
+					},
+				] : [] ),
 			],
 		} ),
 	],

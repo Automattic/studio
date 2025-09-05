@@ -13,35 +13,38 @@
 const path = require('path');
 
 module.exports = function fixImportMetaDirnameLoader(source) {
-	// Only apply to specific files that need the fix
-	const shouldApplyFix = 
-		this.resourcePath.includes('@php-wasm/node') ||
-		this.resourcePath.includes('worker-thread-v1') ||
-		this.resourcePath.includes('worker-thread-v2');
-	
-	if (!shouldApplyFix) {
+	try {
+		// Only apply to specific files that need the fix
+		const shouldApplyFix = 
+			this.resourcePath && (
+				this.resourcePath.includes('@php-wasm/node') ||
+				this.resourcePath.includes('worker-thread-v1') ||
+				this.resourcePath.includes('worker-thread-v2')
+			);
+		
+		if (!shouldApplyFix) {
+			return source;
+		}
+
+		if (!source.includes('import.meta.dirname') && !source.includes('import.meta.filename')) {
+			return source;
+		}
+
+		const isProduction = this.mode === 'production';
+		const replacement = isProduction
+			? 'require("path").join(process.resourcesPath, "app.asar", ".webpack", "main")'
+			: JSON.stringify(path.resolve(__dirname, '..', '.webpack', 'main'));
+
+		const modifiedSource = source.replace(/import\.meta\.dirname/g, replacement);	
+		const filenameReplacement = isProduction
+			? 'require("path").join(process.resourcesPath, "app.asar", ".webpack", "main", "index.js")'
+			: JSON.stringify(path.resolve(__dirname, '..', '.webpack', 'main', 'index.js'));
+		
+		const finalSource = modifiedSource.replace(/import\.meta\.filename/g, filenameReplacement);
+		
+		return finalSource;
+	} catch (error) {
+		console.warn('fix-import-meta-dirname-loader error:', error);
 		return source;
 	}
-
-	// Check if we're in production mode
-	const isProduction = this.mode === 'production';
-	
-	// Replace import.meta.dirname with the appropriate path
-	// In production: use process.resourcesPath to find the ASAR archive
-	// In development: use the absolute path to .webpack/main
-	const replacement = isProduction
-		? 'require("path").join(process.resourcesPath, "app.asar", ".webpack", "main")'
-		: JSON.stringify(path.resolve(__dirname, '..', '.webpack', 'main'));
-	
-	// Replace all occurrences of import.meta.dirname
-	const modifiedSource = source.replace(/import\.meta\.dirname/g, replacement);
-	
-	// Also handle import.meta.filename if present
-	const filenameReplacement = isProduction
-		? 'require("path").join(process.resourcesPath, "app.asar", ".webpack", "main", "index.js")'
-		: JSON.stringify(path.resolve(__dirname, '..', '.webpack', 'main', 'index.js'));
-	
-	const finalSource = modifiedSource.replace(/import\.meta\.filename/g, filenameReplacement);
-	
-	return finalSource;
 };

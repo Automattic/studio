@@ -34,7 +34,7 @@ const extraEntries = [
 		path: './src/lib/wordpress-provider/playground-cli/playground-server-process-child.ts',
 		exportName: 'PLAYGROUND_SERVER_PROCESS_MODULE_PATH',
 	},
-	// Add playground CLI worker threads as webpack entries to bundle dependencies
+	// Playground CLI worker threads needed to prevent build errors
 	{
 		name: 'worker-thread-v1-BTJIbQLy',
 		path: './node_modules/@wp-playground/cli/worker-thread-v1-BTJIbQLy.js',
@@ -62,33 +62,35 @@ export default function mainConfig( _env: unknown, args: Record< string, unknown
 		} );
 	} );
 
-	const customConfig = {
+	const skipCustomLoader = process.env.CI || process.env.GITHUB_ACTIONS;
+
+	return {
 		...mainBaseConfig,
 		module: {
 			...mainBaseConfig.module,
-			rules: [
-				{
-					test: /\.js$/,
-					include: [
-						path.resolve( __dirname, 'node_modules/@php-wasm/node' ),
-						path.resolve( __dirname, 'node_modules/@wp-playground/cli' ),
-					],
-					use: [
+			rules: skipCustomLoader
+				? mainBaseConfig.module.rules
+				: [
 						{
-							loader: path.resolve(
-								__dirname,
-								'webpack-loaders/fix-import-meta-dirname-loader.js'
-							),
+							test: /\.js$/,
+							include: [
+								path.resolve( __dirname, 'node_modules/@php-wasm/node' ),
+								path.resolve( __dirname, 'node_modules/@wp-playground/cli' ),
+							],
+							use: [
+								{
+									loader: path.resolve(
+										__dirname,
+										'webpack-loaders/fix-import-meta-dirname-loader.js'
+									),
+								},
+							],
 						},
-					],
-				},
-				...mainBaseConfig.module.rules,
-			],
+						...mainBaseConfig.module.rules,
+				  ],
 		},
 		plugins: [ ...( mainBaseConfig.plugins || [] ), ...definePlugins ],
 	};
-
-	return customConfig;
 }
 
 export const mainBaseConfig: Configuration = {

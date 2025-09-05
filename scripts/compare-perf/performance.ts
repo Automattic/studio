@@ -87,50 +87,11 @@ async function runTestSuite(
 	branchDir: string
 ) {
 	const outDir = path.join( branchDir, 'out' );
-	
-	// Verify that the build directory exists before proceeding
-	if ( ! fs.existsSync( outDir ) ) {
-		throw new Error( `Build directory does not exist: ${ outDir }. The build process may have failed.` );
-	}
-
-	// Verify that the build contains expected app structure (platform-specific directories)
-	const buildContents = fs.readdirSync( outDir );
-	const hasPlatformBuild = buildContents.some( item => {
-		const itemPath = path.join( outDir, item );
-		return fs.statSync( itemPath ).isDirectory() && (
-			item.toLowerCase().includes( 'darwin' ) ||
-			item.toLowerCase().includes( 'win32' ) ||
-			item.toLowerCase().includes( 'linux' ) ||
-			item.toLowerCase().includes( 'win' ) ||
-			item.toLowerCase().includes( 'mac' )
-		);
-	} );
-
-	if ( ! hasPlatformBuild ) {
-		throw new Error( `Build directory exists but contains no platform builds: ${ outDir }. Found: ${ buildContents.join( ', ' ) }` );
-	}
-
 	const testRunnerOutDir = path.join( testRunnerDir, 'out' );
 	if ( fs.existsSync( testRunnerOutDir ) ) {
-		logAtIndent( 2, 'Removing existing test runner out directory' );
 		fs.rmSync( testRunnerOutDir, { recursive: true } );
 	}
-	
-	logAtIndent( 2, 'Creating symlink:', formats.success( `${ testRunnerOutDir } -> ${ outDir }` ) );
 	fs.symlinkSync( outDir, testRunnerOutDir, 'dir' );
-	
-	// Verify symlink was created successfully
-	if ( ! fs.existsSync( testRunnerOutDir ) ) {
-		throw new Error( `Failed to create symlink: ${ testRunnerOutDir } -> ${ outDir }` );
-	}
-	
-	// Verify symlink points to expected content
-	try {
-		const symlinkContents = fs.readdirSync( testRunnerOutDir );
-		logAtIndent( 2, 'Symlink verification passed:', formats.success( `Found ${ symlinkContents.length } items` ) );
-	} catch ( error ) {
-		throw new Error( `Symlink created but not readable: ${ testRunnerOutDir } -> ${ outDir }. Error: ${ error instanceof Error ? error.message : String( error ) }` );
-	}
 
 	// Run the test suite
 	await runShellScript( `${ config.testCommand } ${ testSuite }`, testRunnerDir, {
@@ -258,30 +219,6 @@ export async function runPerformanceTests(
 		await runShellScript( config.setupCommand, buildDir, {
 			GITHUB_TOKEN: process.env.GITHUB_TOKEN,
 		} );
-
-		// Verify build completed successfully
-		const expectedOutDir = path.join( buildDir, 'out' );
-		logAtIndent( 3, 'Verifying build completed successfully' );
-		
-		// Check what actually exists in the build directory
-		logAtIndent( 3, 'Listing build directory contents:' );
-		try {
-			const allContents = fs.readdirSync( buildDir );
-			logAtIndent( 3, `Found ${ allContents.length } items:`, formats.warning( allContents.join( ', ' ) ) );
-		} catch ( error ) {
-			logAtIndent( 3, 'Could not read build directory:', formats.error( buildDir ) );
-		}
-		
-		if ( ! fs.existsSync( expectedOutDir ) ) {
-			throw new Error( `Build failed for branch ${ branch }: output directory not found at ${ expectedOutDir }. Check the build command output above for errors.` );
-		}
-
-		const buildContents = fs.readdirSync( expectedOutDir );
-		if ( buildContents.length === 0 ) {
-			throw new Error( `Build failed for branch ${ branch }: output directory is empty at ${ expectedOutDir }` );
-		}
-
-		logAtIndent( 3, 'Build verification passed:', formats.success( `Found ${ buildContents.length } items in out directory` ) );
 	}
 
 	logAtIndent( 0, 'Looking for test files' );

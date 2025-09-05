@@ -14,7 +14,7 @@ permissions: {}
 jobs:
   metrics:
     name: Run metrics tests
-    runs-on: macos-latest
+    runs-on: macos-13
     permissions:
       contents: read
     env:

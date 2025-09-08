@@ -10,10 +10,10 @@ export function EmptyStudio() {
 			<div className="mx-auto px-[85px] flex items-center gap-[44px] max-w-[786px]">
 				<div>
 					<div className="text-[16px] font-semibold text-black mb-[4px]">
-						{ __( 'Ready for a new start?' ) }
+						{ __( 'Ready to start building?' ) }
 					</div>
 					<p className="text-[13px] text-gray-700 mb-[32px]">
-						{ __( "You don't have any sites right now. Add a new one to get started again." ) }
+						{ __( "You don't have any sites right now. Add a new site to get started." ) }
 					</p>
 
 					<AddSite variant="primary" />

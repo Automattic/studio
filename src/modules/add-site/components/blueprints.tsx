@@ -313,7 +313,7 @@ export default function AddSiteBlueprint( {
 			<HStack alignment="edge" className="w-full mb-[22px] px-3">
 				<HStack alignment="left" className="flex-1">
 					<Text className="text-[16px]" weight={ 500 }>
-						{ __( 'Suggested blueprints' ) }
+						{ __( 'Featured blueprints' ) }
 					</Text>
 				</HStack>
 				{ selectedFileName ? (
@@ -357,7 +357,7 @@ export default function AddSiteBlueprint( {
 			<div className="w-full px-3 [&_.dataviews-view-grid]:!grid [&_.dataviews-view-grid]:!grid-cols-3 [&_.dataviews-view-grid]:!gap-4 [&_.dataviews-view-grid]:!items-start [&_.components-badge]:!bg-transparent [&_.components-badge]:!p-0">
 				{ errorMessage && (
 					<Text className="text-red-500 text-[14px] block text-center py-[100px]">
-						{ sprintf( __( 'Error loading suggested blueprints: %s' ), errorMessage ) }
+						{ sprintf( __( 'Error loading featured blueprints: %s' ), errorMessage ) }
 						<br />
 						{ __( 'You can use your own blueprint by uploading a file.' ) }
 					</Text>

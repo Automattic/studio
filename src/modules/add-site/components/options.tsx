@@ -86,14 +86,14 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 			<OptionButton
 				icon={ <Icon className="" icon={ plus } size={ 26 } fill="#3858E9" /> }
 				title={ __( 'Create a site' ) }
-				description={ __( 'Create a clean site' ) }
+				description={ __( 'Start from scratch' ) }
 				onClick={ () => onOptionSelect( 'create' ) }
 			/>
 			{ enableBlueprints && (
 				<OptionButton
 					icon={ <BlueprintIcon size={ 24 } /> }
 					title={ __( 'Start from a blueprint' ) }
-					description={ __( 'Choose one from the list or select your own' ) }
+					description={ __( 'Choose a featured blueprint or use your own' ) }
 					onClick={ () => onOptionSelect( 'blueprint' ) }
 					disabled={ isOffline }
 					disabledTooltip={ offlineMessage }

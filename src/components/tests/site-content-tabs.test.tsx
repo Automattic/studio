@@ -124,7 +124,7 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).toBeNull();
 		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).toBeNull();
 		expect(
-			screen.getByText( "You don't have any sites right now. Add a new one to get started again." )
+			screen.getByText( "You don't have any sites right now. Add a new site to get started." )
 		).toBeVisible();
 	} );
 } );

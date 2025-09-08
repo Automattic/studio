@@ -58,9 +58,9 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 	const whatsNewPages: WhatsNewPage[] = [
 		{
 			image: blueprintsIllustration,
-			title: __( 'Introducing Blueprints, a way to streamline your process' ),
+			title: __( 'Introducing Blueprints, a new way to streamline site creation.' ),
 			description: __(
-				'Select a setup that fits your needs and build your WordPress site even faster.'
+				'Select a blueprint that fits your needs and build your WordPress site even faster.'
 			),
 			learnMoreUrl: getLocalizedLink( locale, 'docsBlueprints' ),
 		},

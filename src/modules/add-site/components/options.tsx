@@ -93,7 +93,7 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 				<OptionButton
 					icon={ <BlueprintIcon size={ 24 } /> }
 					title={ __( 'Start from a blueprint' ) }
-					description={ __( 'Choose a featured blueprint or use your own.' ) }
+					description={ __( 'Choose a featured blueprint or use your own' ) }
 					onClick={ () => onOptionSelect( 'blueprint' ) }
 					disabled={ isOffline }
 					disabledTooltip={ offlineMessage }

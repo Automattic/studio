@@ -11,7 +11,7 @@ import { DataViews, View } from '@wordpress/dataviews';
 import { sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useRef, useState, useMemo } from 'react';
+import { useCallback, useRef, useState, useMemo, useEffect } from 'react';
 import StudioButton from 'src/components/button';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -58,6 +58,16 @@ export default function AddSiteBlueprint( {
 	const { __ } = useI18n();
 	const fileRef = useRef< HTMLInputElement | null >( null );
 	const [ validationError, setValidationError ] = useState< string | null >( null );
+	const [ windowHeight, setWindowHeight ] = useState( window.innerHeight );
+
+	useEffect( () => {
+		const handleResize = () => {
+			setWindowHeight( window.innerHeight );
+		};
+
+		window.addEventListener( 'resize', handleResize );
+		return () => window.removeEventListener( 'resize', handleResize );
+	}, [] );
 
 	// Check if current selection is a file-based blueprint
 	const isFileBasedSelection = selectedBlueprint && selectedBlueprint.startsWith( 'file:' );
@@ -104,7 +114,8 @@ export default function AddSiteBlueprint( {
 						src={ item.image }
 						alt={ item.title }
 						className={ cx(
-							'w-full h-32 object-cover object-top cursor-pointer transition-all duration-150 rounded-lg group',
+							'w-full object-cover object-top cursor-pointer transition-all duration-150 rounded-lg group ',
+							windowHeight > 680 ? 'h-48' : 'h-32',
 							'hover:shadow-md hover:outline hover:outline-2 hover:outline-blue-500',
 							'transition-transform duration-150',
 							'hover:scale-105',
@@ -200,7 +211,7 @@ export default function AddSiteBlueprint( {
 				),
 			},
 		],
-		[ blueprints, __ ]
+		[ blueprints, __, windowHeight ]
 	);
 
 	const handleFileSelect = async ( event: React.ChangeEvent< HTMLInputElement > ) => {

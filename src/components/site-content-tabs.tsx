@@ -8,7 +8,6 @@ import { ContentTabSettings } from 'src/components/content-tab-settings';
 import { EmptyStudio } from 'src/components/empty-studio';
 import Header from 'src/components/header';
 import { SiteIsBeingCreated } from 'src/components/site-is-being-created';
-import { SiteIsBeingImported } from 'src/components/site-is-being-imported';
 import { MIN_WIDTH_CLASS_TO_MEASURE } from 'src/constants';
 import { TabName, useContentTabs } from 'src/hooks/use-content-tabs';
 import { useImportExport } from 'src/hooks/use-import-export';
@@ -34,11 +33,7 @@ export function SiteContentTabs() {
 		);
 	}
 
-	if ( importState[ selectedSite?.id ]?.isNewSite ) {
-		return <SiteIsBeingImported selectedSite={ selectedSite } />;
-	}
-
-	if ( selectedSite?.isAddingSite ) {
+	if ( selectedSite?.isAddingSite || importState[ selectedSite?.id ]?.isNewSite ) {
 		return <SiteIsBeingCreated siteName={ selectedSite?.name } />;
 	}
 

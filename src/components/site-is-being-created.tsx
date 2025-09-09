@@ -8,7 +8,6 @@ export function SiteIsBeingCreated( { siteName }: { siteName: string } ) {
 
 	const statusMessages = [
 		__( 'Creating site…' ),
-		__( 'Creating site…' ), // intentionally duplicated, I feel it's ok to keep it 2x
 		__( 'Preparing site directory…' ),
 		__( 'Downloading WordPress files…' ),
 		__( 'Setting up WordPress core…' ),

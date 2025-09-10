@@ -9,7 +9,7 @@ Unreleased
 * Improved support for pushing large sites #1732
 * Added support for Sublime Text as a code editor #1723
 * Improved export controls to preserve information about completed export #1657
-* Updated environment types and related badge handling #1645
+* Revised environment types and badge display logic #1645
 * Fixed issue with site screenshot taken on Mac having different sizes #1676
 * Updated multiple dependencies to the latest versions
 

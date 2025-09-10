@@ -22,7 +22,7 @@ export function SiteIsBeingCreated( { siteName }: { siteName: string } ) {
 
 				return nextIndex >= statusMessages.length ? prevIndex : nextIndex;
 			} );
-		}, 3000 );
+		}, 5000 );
 
 		return () => clearInterval( interval );
 	}, [ statusMessages.length ] );

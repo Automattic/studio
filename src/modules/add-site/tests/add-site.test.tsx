@@ -7,6 +7,7 @@ import { useOffline } from 'src/hooks/use-offline';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 import { createTestStore } from 'src/lib/test-utils';
 import AddSite from 'src/modules/add-site';
+import { useGetBlueprints } from 'src/stores/wpcom-api';
 
 jest.mock( 'src/stores/certificate-trust-api', () => {
 	const actual = jest.requireActual( 'src/stores/certificate-trust-api' ) || {};
@@ -85,6 +86,8 @@ jest.mock( 'src/stores/wpcom-api', () => {
 		} ),
 	};
 } );
+
+const mockUseGetBlueprints = useGetBlueprints as jest.MockedFunction< typeof useGetBlueprints >;
 
 const renderWithProvider = ( children: React.ReactElement ) => {
 	const store = createTestStore( {
@@ -507,6 +510,123 @@ describe( 'AddSite', () => {
 			screen.queryByText(
 				'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
 			)
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'should show warning when blueprint preferred versions differ from selected versions', async () => {
+		const mockBlueprintData = {
+			data: {
+				blueprints: [
+					{
+						slug: 'test-blueprint',
+						title: 'Test Blueprint',
+						excerpt: 'A test blueprint',
+						image: '',
+						playground_url: '',
+						blueprint: {
+							preferredVersions: {
+								php: '8.1',
+								wp: '6.4.0',
+							},
+						},
+					},
+				],
+				total: 1,
+			},
+			isLoading: false,
+			refetch: jest.fn(),
+			isUninitialized: false,
+		};
+
+		mockUseGetBlueprints.mockReturnValue(
+			mockBlueprintData as ReturnType< typeof useGetBlueprints >
+		);
+
+		renderWithProvider( <AddSite /> );
+		const user = userEvent.setup();
+
+		// Open modal and navigate to blueprint selection
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click(
+			screen.getByRole( 'button', {
+				name: 'Start from a blueprint Choose a featured blueprint or use your own',
+			} )
+		);
+
+		// Select the blueprint with preferred versions
+		await user.click( screen.getByText( 'Test Blueprint' ) );
+
+		// Continue to create site form
+		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
+
+		// Open advanced settings to access version selectors
+		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
+
+		// Change PHP version to something different from preferred
+		const phpVersionSelect = screen.getByLabelText( 'PHP version' );
+		await user.selectOptions( phpVersionSelect, '8.3' );
+
+		// Should show warning since PHP version differs from preferred (8.1)
+		await waitFor( () => {
+			expect(
+				screen.getByText( 'Version differs from blueprint recommendation' )
+			).toBeInTheDocument();
+			expect( screen.getByText( 'PHP 8.1 (currently 8.3)' ) ).toBeInTheDocument();
+		} );
+	} );
+
+	it( 'should not show warning when versions match blueprint preferred versions', async () => {
+		const mockBlueprintData = {
+			data: {
+				blueprints: [
+					{
+						slug: 'test-blueprint-2',
+						title: 'Test Blueprint 2',
+						excerpt: 'Another test blueprint',
+						image: '',
+						playground_url: '',
+						blueprint: {
+							preferredVersions: {
+								php: '8.3', // Same as default in store
+								wp: 'latest',
+							},
+						},
+					},
+				],
+				total: 1,
+			},
+			isLoading: false,
+			refetch: jest.fn(),
+			isUninitialized: false,
+		};
+
+		mockUseGetBlueprints.mockReturnValue(
+			mockBlueprintData as ReturnType< typeof useGetBlueprints >
+		);
+
+		renderWithProvider( <AddSite /> );
+		const user = userEvent.setup();
+
+		// Open modal and navigate to blueprint selection
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click(
+			screen.getByRole( 'button', {
+				name: 'Start from a blueprint Choose a featured blueprint or use your own',
+			} )
+		);
+
+		// Select the blueprint
+		await user.click( screen.getByText( 'Test Blueprint 2' ) );
+
+		// Continue to create site form
+		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
+
+		// Open advanced settings
+		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
+
+		// Should not show warning since versions match preferred versions
+		expect(
+			screen.queryByText( 'Version differs from blueprint recommendation' )
 		).not.toBeInTheDocument();
 	} );
 } );

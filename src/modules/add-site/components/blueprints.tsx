@@ -8,6 +8,7 @@ import {
 	Tooltip,
 } from '@wordpress/components';
 import { DataViews, View } from '@wordpress/dataviews';
+import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
@@ -15,6 +16,7 @@ import { useCallback, useRef, useState, useMemo } from 'react';
 import StudioButton from 'src/components/button';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useGetBlueprints } from 'src/stores/wpcom-api';
 import { useOverflowItems } from '../hooks/use-overflow-items';
 
 interface Blueprint {
@@ -89,7 +91,7 @@ function CategoryBadges( { categories }: { categories: string[] } ) {
 	);
 }
 
-export default function AddSiteBlueprint( {
+export function AddSiteBlueprintSelector( {
 	blueprints,
 	errorMessage,
 	isLoading,
@@ -98,6 +100,7 @@ export default function AddSiteBlueprint( {
 	onFileBlueprintSelect,
 }: AddSiteBlueprintProps ) {
 	const { __ } = useI18n();
+	const { refetch: refetchBlueprints, isFetching: isFetchingBlueprints } = useGetBlueprints();
 	const fileRef = useRef< HTMLInputElement | null >( null );
 	const [ validationError, setValidationError ] = useState< string | null >( null );
 
@@ -368,13 +371,24 @@ export default function AddSiteBlueprint( {
 			</HStack>
 
 			<div className="w-full px-3 [&_.dataviews-view-grid]:!grid [&_.dataviews-view-grid]:!grid-cols-3 [&_.dataviews-view-grid]:!gap-4 [&_.dataviews-view-grid]:!items-start [&_.components-badge]:!bg-transparent [&_.components-badge]:!p-0 [&_.components-badge]:!w-full [&_.components-badge_.components-badge__content]:!w-full [&_.components-badge>*]:!w-full">
-				{ errorMessage && (
-					<Text className="text-red-500 text-[14px] block text-center py-[100px]">
-						{ sprintf( __( 'Error loading featured blueprints: %s' ), errorMessage ) }
-						<br />
-						{ __( 'You can use your own blueprint by uploading a file.' ) }
+				{ isFetchingBlueprints && (
+					<Text className="text-[14px] block text-center py-[100px]">
+						{ __( 'Loading blueprints...' ) }
 					</Text>
 				) }
+				{ errorMessage && ! isFetchingBlueprints && (
+					<Text className="text-[14px] block text-center py-[100px]">
+						{ createInterpolateElement(
+							__(
+								'Studio could not load blueprints. <button>Try again</button> or use your own blueprint.'
+							),
+							{
+								button: <Button variant="link" onClick={ refetchBlueprints } />,
+							}
+						) }
+					</Text>
+				) }
+
 				<DataViews
 					data={ dataViewBlueprints }
 					fields={ fields }

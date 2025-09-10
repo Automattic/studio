@@ -1,4 +1,4 @@
-import { Icon, SelectControl } from '@wordpress/components';
+import { Icon, SelectControl, Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { tip, warning, trash, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
@@ -72,6 +72,7 @@ interface SiteFormProps {
 	setEnableHttps?: ( use: boolean ) => void;
 	wpVersion: string;
 	setWpVersion: ( version: string ) => void;
+	blueprintPreferredVersions?: { php?: string; wp?: string };
 }
 
 const SiteFormError = ( { error, tipMessage = '', className = '' }: SiteFormErrorProps ) => {
@@ -262,6 +263,7 @@ export const SiteForm = ( {
 	customDomainError,
 	enableHttps,
 	setEnableHttps,
+	blueprintPreferredVersions,
 }: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const locale = useI18nLocale();
@@ -295,6 +297,12 @@ export const SiteForm = ( {
 		chevronIcon = chevronRight;
 	}
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
+
+	// Check if current versions differ from blueprint recommendations
+	const showBlueprintVersionWarning =
+		blueprintPreferredVersions &&
+		( ( blueprintPreferredVersions.php && blueprintPreferredVersions.php !== phpVersion ) ||
+			( blueprintPreferredVersions.wp && blueprintPreferredVersions.wp !== wpVersion ) );
 
 	return (
 		<form className={ className } onSubmit={ onSubmit }>
@@ -434,6 +442,39 @@ export const SiteForm = ( {
 										) }
 									/>
 								</div>
+
+								{ showBlueprintVersionWarning && (
+									<Notice status="warning" isDismissible={ false } className="mt-4">
+										<strong>{ __( 'Version differs from blueprint recommendation' ) }</strong>
+										<br />
+										{ __( 'This blueprint recommends:' ) }
+										<ul style={ { marginTop: '8px', marginBottom: '4px', paddingLeft: '20px' } }>
+											{ blueprintPreferredVersions.php &&
+												blueprintPreferredVersions.php !== phpVersion && (
+													<li>
+														{ sprintf(
+															/* translators: %1$s: recommended PHP version, %2$s: currently selected PHP version */
+															__( 'PHP %s (currently %s)' ),
+															blueprintPreferredVersions.php,
+															phpVersion
+														) }
+													</li>
+												) }
+											{ blueprintPreferredVersions.wp &&
+												blueprintPreferredVersions.wp !== wpVersion && (
+													<li>
+														{ sprintf(
+															/* translators: %1$s: recommended WordPress version, %2$s: currently selected WordPress version */
+															__( 'WordPress %s (currently %s)' ),
+															blueprintPreferredVersions.wp,
+															wpVersion
+														) }
+													</li>
+												) }
+										</ul>
+										{ __( 'Using different versions may cause compatibility issues.' ) }
+									</Notice>
+								) }
 
 								{ setUseCustomDomain && setCustomDomain && (
 									<div className="flex items-center gap-2 mt-4">

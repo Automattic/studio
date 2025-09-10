@@ -1,19 +1,13 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 import Table from 'cli-table3';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { readAppdata } from 'cli/lib/appdata';
+import { readAppdata, type SiteData } from 'cli/lib/appdata';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-interface SiteData {
-	id: string;
-	name: string;
-	path: string;
-}
-
 function getSitesCliTable( sites: SiteData[] ) {
 	const table = new Table( {
-		head: [ __( 'Name' ), __( 'Path' ), __( 'ID' ) ],
+		head: [ __( 'Name' ), __( 'Path' ), __( 'ID' ), __( 'Status' ), __( 'URL' ), __( 'PHP' ) ],
 		style: {
 			head: [ 'cyan' ],
 			border: [ 'grey' ],
@@ -23,7 +17,14 @@ function getSitesCliTable( sites: SiteData[] ) {
 	} );
 
 	sites.forEach( ( site ) => {
-		table.push( [ site.name, site.path, site.id ] );
+		table.push( [
+			site.name,
+			site.path,
+			site.id,
+			site.running ? __( 'Running' ) : __( 'Stopped' ),
+			site.url || '—',
+			site.phpVersion,
+		] );
 	} );
 
 	return table;
@@ -34,6 +35,9 @@ function getSitesCliJson( sites: SiteData[] ): SiteData[] {
 		id: site.id,
 		name: site.name,
 		path: site.path,
+		running: site.running,
+		url: site.url,
+		phpVersion: site.phpVersion,
 	} ) );
 }
 
@@ -43,7 +47,6 @@ export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.LOAD, __( 'Loading sites…' ) );
 		const appdata = await readAppdata();
-
 		const allSites = appdata.sites;
 
 		if ( allSites.length === 0 ) {

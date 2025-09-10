@@ -22,13 +22,6 @@ describe( 'Sites List Command', () => {
 				path: '/path/to/site2',
 			},
 		],
-		newSites: [
-			{
-				id: 'new-site-1',
-				name: 'New Test Site',
-				path: '/path/to/newsite',
-			},
-		],
 		snapshots: [],
 	};
 
@@ -61,7 +54,7 @@ describe( 'Sites List Command', () => {
 
 		expect( readAppdata ).toHaveBeenCalled();
 		expect( mockLogger.reportStart ).toHaveBeenCalledWith( 'load', 'Loading sites…' );
-		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Found 3 sites' );
+		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Found 2 sites' );
 	} );
 
 	it( 'should handle no sites found', async () => {
@@ -92,13 +85,12 @@ describe( 'Sites List Command', () => {
 		const { runCommand } = await import( '../list' );
 		await runCommand( 'json' );
 
-		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Found 3 sites' );
+		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Found 2 sites' );
 		expect( consoleSpy ).toHaveBeenCalledWith(
 			JSON.stringify(
 				[
 					{ id: 'site-1', name: 'Test Site 1', path: '/path/to/site1' },
 					{ id: 'site-2', name: 'Test Site 2', path: '/path/to/site2' },
-					{ id: 'new-site-1', name: 'New Test Site', path: '/path/to/newsite' },
 				],
 				null,
 				2

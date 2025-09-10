@@ -19,12 +19,23 @@ const siteSchema = z
 		id: z.string(),
 		path: z.string(),
 		name: z.string(),
+		phpVersion: z.string(),
+		running: z.boolean().optional(),
+		url: z.string().url().optional(),
+	} )
+	.passthrough();
+
+const newSiteSchema = z
+	.object( {
+		id: z.string(),
+		path: z.string(),
+		name: z.string(),
 	} )
 	.passthrough();
 
 const userDataSchema = z
 	.object( {
-		newSites: z.array( siteSchema ).default( () => [] ),
+		newSites: z.array( newSiteSchema ).default( () => [] ),
 		sites: z.array( siteSchema ).default( () => [] ),
 		snapshots: z.array( snapshotSchema ).default( () => [] ),
 		locale: z.string().optional(),
@@ -42,7 +53,8 @@ const userDataSchema = z
 	.passthrough();
 
 type UserData = z.infer< typeof userDataSchema >;
-type SiteData = z.infer< typeof siteSchema >;
+type NewSiteData = z.infer< typeof newSiteSchema >;
+export type SiteData = z.infer< typeof siteSchema >;
 
 export function getAppdataDirectory(): string {
 	if ( process.platform === 'win32' ) {
@@ -147,7 +159,7 @@ export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken
 	}
 }
 
-export async function getSiteByFolder( siteFolder: string ): Promise< SiteData > {
+export async function getSiteByFolder( siteFolder: string ): Promise< NewSiteData > {
 	const userData = await readAppdata();
 	const site = [ ...userData.sites, ...userData.newSites ].find( ( site ) =>
 		arePathsEqual( site.path, siteFolder )
@@ -160,7 +172,7 @@ export async function getSiteByFolder( siteFolder: string ): Promise< SiteData >
 	return site;
 }
 
-export function getNewSitePartial( siteFolder: string ): SiteData {
+export function getNewSitePartial( siteFolder: string ): NewSiteData {
 	const newSite = {
 		id: crypto.randomUUID(),
 		path: siteFolder,
@@ -170,7 +182,7 @@ export function getNewSitePartial( siteFolder: string ): SiteData {
 	return newSite;
 }
 
-const createNewSite = async ( siteFolder: string ): Promise< SiteData > => {
+const createNewSite = async ( siteFolder: string ): Promise< NewSiteData > => {
 	try {
 		await lockAppdata();
 		const userData = await readAppdata();
@@ -183,7 +195,7 @@ const createNewSite = async ( siteFolder: string ): Promise< SiteData > => {
 	}
 };
 
-export const getOrCreateSiteByFolder = async ( siteFolder: string ): Promise< SiteData > => {
+export const getOrCreateSiteByFolder = async ( siteFolder: string ): Promise< NewSiteData > => {
 	try {
 		return await getSiteByFolder( siteFolder );
 	} catch ( error ) {

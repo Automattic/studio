@@ -18,7 +18,7 @@ import {
 } from 'src/stores/provider-constants-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
-import AddSiteBlueprintSelector from './components/blueprints';
+import { AddSiteBlueprintSelector } from './components/blueprints';
 import CreateSite from './components/create-site';
 import ImportBackup from './components/import-backup';
 import AddSiteOptions from './components/options';

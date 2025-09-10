@@ -47,6 +47,7 @@ interface AddSiteBlueprintProps {
 }
 
 function CategoryBadges( { categories }: { categories: string[] } ) {
+	const { __ } = useI18n();
 	const containerRef = useRef< HTMLDivElement >( null );
 	const { visible, hidden, hiddenCount, itemRefs } = useOverflowItems( categories, containerRef );
 
@@ -79,7 +80,8 @@ function CategoryBadges( { categories }: { categories: string[] } ) {
 						as="span"
 						className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-sm flex items-center font-medium whitespace-nowrap flex-shrink-0"
 					>
-						+{ hiddenCount } more
+						{ /* translators: %d: Number of hidden categories */ }
+						{ sprintf( __( '+%d more' ), hiddenCount ) }
 					</Text>
 				</Tooltip>
 			) }

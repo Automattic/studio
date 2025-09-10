@@ -58,16 +58,6 @@ export default function AddSiteBlueprint( {
 	const { __ } = useI18n();
 	const fileRef = useRef< HTMLInputElement | null >( null );
 	const [ validationError, setValidationError ] = useState< string | null >( null );
-	const [ windowHeight, setWindowHeight ] = useState( window.innerHeight );
-
-	useEffect( () => {
-		const handleResize = () => {
-			setWindowHeight( window.innerHeight );
-		};
-
-		window.addEventListener( 'resize', handleResize );
-		return () => window.removeEventListener( 'resize', handleResize );
-	}, [] );
 
 	// Check if current selection is a file-based blueprint
 	const isFileBasedSelection = selectedBlueprint && selectedBlueprint.startsWith( 'file:' );
@@ -114,8 +104,8 @@ export default function AddSiteBlueprint( {
 						src={ item.image }
 						alt={ item.title }
 						className={ cx(
-							'w-full object-cover object-top cursor-pointer transition-all duration-150 rounded-lg group ',
-							windowHeight > 680 ? 'h-48' : 'h-32',
+							'w-full h-32 object-cover object-top cursor-pointer transition-all duration-150 rounded-lg group ',
+							'[@media(min-height:680px)]:h-48',
 							'hover:shadow-md hover:outline hover:outline-2 hover:outline-blue-500',
 							'transition-transform duration-150',
 							'hover:scale-105',
@@ -166,12 +156,12 @@ export default function AddSiteBlueprint( {
 					const remainingCount = categories.length - MAX_BLUEPRINTS_CATEGORIES;
 
 					return (
-						<HStack spacing={ 3 } wrap alignment="left">
+						<HStack spacing={ 3 } alignment="left">
 							{ visibleCategories.map( ( category ) => (
 								<Text
 									as="span"
 									key={ category }
-									className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-sm flex items-center"
+									className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-sm flex items-center flex-shrink-0"
 								>
 									{ category }
 								</Text>
@@ -211,7 +201,7 @@ export default function AddSiteBlueprint( {
 				),
 			},
 		],
-		[ blueprints, __, windowHeight ]
+		[ blueprints, __ ]
 	);
 
 	const handleFileSelect = async ( event: React.ChangeEvent< HTMLInputElement > ) => {

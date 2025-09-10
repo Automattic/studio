@@ -7,16 +7,12 @@ export function SiteIsBeingCreated( { siteName }: { siteName: string } ) {
 	const [ currentMessageIndex, setCurrentMessageIndex ] = useState( 0 );
 
 	const statusMessages = [
-		__( 'Creating your site…' ),
-		__( 'Preparing your workspace…' ),
-		__( 'Setting up your environment…' ),
-		__( 'Configuring your site…' ),
-		__( 'Installing site components…' ),
-		__( 'Optimizing your setup…' ),
-		__( 'Customizing your workspace…' ),
-		__( 'Enhancing your site…' ),
-		__( 'Polishing your environment…' ),
-		__( 'Finalizing your site…' ),
+		__( 'Setting up your new site…' ),
+		__( 'Getting everything ready…' ),
+		__( 'Almost there…' ),
+		__( 'Working on your site…' ),
+		__( 'Making progress…' ),
+		__( 'Nearly finished' ),
 	];
 
 	useEffect( () => {

@@ -15,6 +15,7 @@ import { useCallback, useRef, useState, useMemo } from 'react';
 import StudioButton from 'src/components/button';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useOverflowItems } from '../hooks/use-overflow-items';
 
 interface Blueprint {
 	slug: string;
@@ -45,7 +46,48 @@ interface AddSiteBlueprintProps {
 	onFileBlueprintSelect?: ( blueprint: Blueprint ) => void;
 }
 
-const MAX_BLUEPRINTS_CATEGORIES = 3;
+function CategoryBadges( { categories }: { categories: string[] } ) {
+	const { __ } = useI18n();
+	const containerRef = useRef< HTMLDivElement >( null );
+	const { visible, hidden, hiddenCount, itemRefs } = useOverflowItems( categories, containerRef );
+
+	return (
+		<HStack ref={ containerRef } spacing={ 3 } alignment="left" className="w-full">
+			{ categories.map( ( category, index ) => (
+				<Text
+					as="span"
+					key={ category }
+					ref={ ( el ) => {
+						itemRefs.current[ index ] = el;
+					} }
+					className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-sm flex items-center flex-shrink-0 max-w-32 truncate"
+					style={ {
+						visibility: index < visible.length ? 'visible' : 'hidden',
+						position: index >= visible.length ? 'absolute' : 'static',
+					} }
+				>
+					{ category }
+				</Text>
+			) ) }
+			{ hiddenCount > 0 && (
+				<Tooltip
+					text={ hidden.join( ', ' ) }
+					delay={ 200 }
+					placement="top-end"
+					className="max-w-xs"
+				>
+					<Text
+						as="span"
+						className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-sm flex items-center font-medium whitespace-nowrap flex-shrink-0"
+					>
+						{ /* translators: %d: Number of hidden categories */ }
+						{ sprintf( __( '+%d more' ), hiddenCount ) }
+					</Text>
+				</Tooltip>
+			) }
+		</HStack>
+	);
+}
 
 export default function AddSiteBlueprint( {
 	blueprints,
@@ -152,37 +194,7 @@ export default function AddSiteBlueprint( {
 					const categories = ( item.blueprint.meta?.categories || [] ).filter(
 						( category ) => category !== 'Studio'
 					);
-					const visibleCategories = categories.slice( 0, MAX_BLUEPRINTS_CATEGORIES );
-					const remainingCount = categories.length - MAX_BLUEPRINTS_CATEGORIES;
-
-					return (
-						<HStack spacing={ 3 } alignment="left">
-							{ visibleCategories.map( ( category ) => (
-								<Text
-									as="span"
-									key={ category }
-									className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-sm flex items-center flex-shrink-0"
-								>
-									{ category }
-								</Text>
-							) ) }
-							{ remainingCount > 0 && (
-								<Tooltip
-									text={ categories.slice( MAX_BLUEPRINTS_CATEGORIES ).join( ', ' ) }
-									delay={ 200 }
-									position="top right"
-									className="max-w-xs"
-								>
-									<Text
-										as="span"
-										className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-sm flex items-center font-medium"
-									>
-										+{ remainingCount } more
-									</Text>
-								</Tooltip>
-							) }
-						</HStack>
-					);
+					return <CategoryBadges categories={ categories } />;
 				},
 			},
 			{
@@ -355,7 +367,7 @@ export default function AddSiteBlueprint( {
 				) }
 			</HStack>
 
-			<div className="w-full px-3 [&_.dataviews-view-grid]:!grid [&_.dataviews-view-grid]:!grid-cols-3 [&_.dataviews-view-grid]:!gap-4 [&_.dataviews-view-grid]:!items-start [&_.components-badge]:!bg-transparent [&_.components-badge]:!p-0">
+			<div className="w-full px-3 [&_.dataviews-view-grid]:!grid [&_.dataviews-view-grid]:!grid-cols-3 [&_.dataviews-view-grid]:!gap-4 [&_.dataviews-view-grid]:!items-start [&_.components-badge]:!bg-transparent [&_.components-badge]:!p-0 [&_.components-badge]:!w-full [&_.components-badge_.components-badge__content]:!w-full [&_.components-badge>*]:!w-full">
 				{ errorMessage && (
 					<Text className="text-red-500 text-[14px] block text-center py-[100px]">
 						{ sprintf( __( 'Error loading featured blueprints: %s' ), errorMessage ) }

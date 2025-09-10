@@ -25,6 +25,7 @@ interface CreateSiteProps {
 	customDomainError: string;
 	enableHttps: boolean;
 	setEnableHttps: ( enable: boolean ) => void;
+	blueprintPreferredVersions?: { php?: string; wp?: string };
 }
 
 export default function CreateSite( {
@@ -46,6 +47,7 @@ export default function CreateSite( {
 	customDomainError,
 	enableHttps,
 	setEnableHttps,
+	blueprintPreferredVersions,
 }: CreateSiteProps ) {
 	const { __ } = useI18n();
 
@@ -74,6 +76,7 @@ export default function CreateSite( {
 				customDomainError={ customDomainError }
 				enableHttps={ enableHttps }
 				setEnableHttps={ setEnableHttps }
+				blueprintPreferredVersions={ blueprintPreferredVersions }
 			/>
 		</VStack>
 	);

@@ -11,7 +11,7 @@ import { DataViews, View } from '@wordpress/dataviews';
 import { sprintf } from '@wordpress/i18n';
 import { Icon, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useRef, useState, useMemo, useEffect } from 'react';
+import { useCallback, useRef, useState, useMemo } from 'react';
 import StudioButton from 'src/components/button';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -104,7 +104,7 @@ export default function AddSiteBlueprint( {
 						src={ item.image }
 						alt={ item.title }
 						className={ cx(
-							'w-full h-32 object-cover object-top cursor-pointer transition-all duration-150 rounded-lg group ',
+							'w-full h-32 object-cover object-top cursor-pointer transition-all duration-150 rounded-lg group',
 							'[@media(min-height:680px)]:h-48',
 							'hover:shadow-md hover:outline hover:outline-2 hover:outline-blue-500',
 							'transition-transform duration-150',

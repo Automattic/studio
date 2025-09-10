@@ -367,7 +367,7 @@ export function AddSiteBlueprintSelector( {
 					<Text className="text-[14px] block text-center py-[100px]">
 						{ createInterpolateElement(
 							__(
-								'Studio could not load blueprints. <button>Try again</button> or use your own blueprint'
+								'Studio could not load blueprints. <button>Try again</button> or use your own blueprint.'
 							),
 							{
 								button: <Button variant="link" onClick={ refetchBlueprints } />,

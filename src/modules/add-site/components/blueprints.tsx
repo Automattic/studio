@@ -370,7 +370,7 @@ export function AddSiteBlueprintSelector( {
 								'Studio could not load blueprints. <button>Try again</button> or use your own blueprint'
 							),
 							{
-								button: <Button variant="link" className="text-xs" onClick={ refetchBlueprints } />,
+								button: <Button variant="link" onClick={ refetchBlueprints } />,
 							}
 						) }
 					</Text>

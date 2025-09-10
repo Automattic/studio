@@ -51,6 +51,9 @@ async function main() {
 			previewYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.command( 'sites', __( 'Manage local sites' ), ( sitesYargs ) => {
+			sitesYargs.option( 'path', {
+				hidden: true,
+			} );
 			registerSitesListCommand( sitesYargs );
 			sitesYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )

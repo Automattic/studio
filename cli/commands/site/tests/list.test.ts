@@ -89,8 +89,20 @@ describe( 'Sites List Command', () => {
 		expect( consoleSpy ).toHaveBeenCalledWith(
 			JSON.stringify(
 				[
-					{ id: 'site-1', name: 'Test Site 1', path: '/path/to/site1' },
-					{ id: 'site-2', name: 'Test Site 2', path: '/path/to/site2' },
+					{
+						id: 'site-1',
+						name: 'Test Site 1',
+						path: '/path/to/site1',
+						status: 'Stopped',
+						phpVersion: undefined,
+					},
+					{
+						id: 'site-2',
+						name: 'Test Site 2',
+						path: '/path/to/site2',
+						status: 'Stopped',
+						phpVersion: undefined,
+					},
 				],
 				null,
 				2

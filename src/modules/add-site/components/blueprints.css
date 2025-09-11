@@ -5,11 +5,6 @@
     @apply cursor-pointer hover:shadow-md hover:outline hover:outline-2 hover:outline-blue-500 transition-transform duration-150 hover:scale-105;
 }
 
-<<<<<<< Updated upstream
-
-||||||| Stash base
-=======
-.dataviews-view-grid__card.is-selected {
+.dataviews-view-grid__card:has(.is-selected) {
     @apply outline outline-2 outline-blue-500 shadow-md scale-105;
 }
->>>>>>> Stashed changes

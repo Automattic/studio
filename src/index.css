@@ -299,10 +299,3 @@ blockquote {
 .sync-dialog-wrapper .components-modal__header {
 	border-bottom-color: #ddd;
 }
-
-/* Fix the font size of the select control in the smaller viewport */
-@media (max-width: 782px) {
-    .components-base-control .components-base-control__field .components-select-control__input {
-        font-size: 13px;
-    }
-}

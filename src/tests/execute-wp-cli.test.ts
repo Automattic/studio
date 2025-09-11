@@ -1,15 +1,12 @@
 /**
  * @jest-environment node
  */
-
-import fs from 'fs';
-import os from 'os';
-// eslint-disable-next-line import/order
-import path from 'path';
-
 const originalUniversal = jest.requireActual( '@php-wasm/universal' );
 const originalNode = jest.requireActual( '@php-wasm/node' );
 
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { executeWPCli } from 'src/lib/wordpress-provider/playground-cli/wp-cli-executor';
 import { WpNowProvider } from 'src/lib/wordpress-provider/wp-now';
 

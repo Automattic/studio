@@ -5,9 +5,17 @@ import { readAppdata, type SiteData } from 'cli/lib/appdata';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
+interface SiteTable {
+	id: string;
+	name: string;
+	path: string;
+	status: string;
+	phpVersion: string;
+}
+
 function getSitesCliTable( sites: SiteData[] ) {
 	const table = new Table( {
-		head: [ __( 'Name' ), __( 'Path' ), __( 'ID' ), __( 'Status' ), __( 'URL' ), __( 'PHP' ) ],
+		head: [ __( 'Name' ), __( 'Path' ), __( 'ID' ), __( 'Status' ), __( 'PHP' ) ],
 		style: {
 			head: [ 'cyan' ],
 			border: [ 'grey' ],
@@ -22,7 +30,6 @@ function getSitesCliTable( sites: SiteData[] ) {
 			site.path,
 			site.id,
 			site.running ? __( 'Running' ) : __( 'Stopped' ),
-			site.url || '—',
 			site.phpVersion,
 		] );
 	} );
@@ -30,13 +37,12 @@ function getSitesCliTable( sites: SiteData[] ) {
 	return table;
 }
 
-function getSitesCliJson( sites: SiteData[] ): SiteData[] {
+function getSitesCliJson( sites: SiteData[] ): SiteTable[] {
 	return sites.map( ( site ) => ( {
 		id: site.id,
 		name: site.name,
 		path: site.path,
-		running: site.running,
-		url: site.url,
+		status: site.running ? __( 'Running' ) : __( 'Stopped' ),
 		phpVersion: site.phpVersion,
 	} ) );
 }

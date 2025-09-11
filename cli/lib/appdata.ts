@@ -21,7 +21,6 @@ const siteSchema = z
 		name: z.string(),
 		phpVersion: z.string(),
 		running: z.boolean().optional(),
-		url: z.string().url().optional(),
 	} )
 	.passthrough();
 

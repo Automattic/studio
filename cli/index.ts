@@ -50,15 +50,18 @@ async function main() {
 			registerUpdateCommand( previewYargs );
 			previewYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
-		.command( 'site', __( 'Manage local sites' ), ( sitesYargs ) => {
+		.demandCommand( 1, __( 'You must provide a valid command' ) )
+		.strict();
+
+	if ( process.env.ENABLE_CLI_V2 === 'true' ) {
+		studioArgv.command( 'site', __( 'Manage local sites' ), ( sitesYargs ) => {
 			sitesYargs.option( 'path', {
 				hidden: true,
 			} );
 			registerSiteListCommand( sitesYargs );
 			sitesYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
-		} )
-		.demandCommand( 1, __( 'You must provide a valid command' ) )
-		.strict();
+		} );
+	}
 
 	await studioArgv.argv;
 }

@@ -164,13 +164,17 @@ function createWpcomClient(
 ): WPCOM {
 	const wpcom = new WPCOM( token );
 
+	let isAuthErrorDialogOpen = false;
 	const handleInvalidTokenError = async ( response: unknown ) => {
-		if ( isInvalidTokenError( response ) && onInvalidToken ) {
-			getIpcApi().showErrorMessageBox( {
-				title: 'Session Expired',
-				message: 'Your session has expired. Please log in again.',
-			} );
+		if ( isInvalidTokenError( response ) && onInvalidToken && ! isAuthErrorDialogOpen ) {
+			isAuthErrorDialogOpen = true;
 			await onInvalidToken();
+			await getIpcApi().showMessageBox( {
+				type: 'error',
+				message: 'Session Expired',
+				detail: 'Your session has expired. Please log in again.',
+			} );
+			isAuthErrorDialogOpen = false;
 		}
 	};
 

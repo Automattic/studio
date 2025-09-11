@@ -24,10 +24,6 @@
     @apply !bg-transparent !p-0 !w-full;
 }
 
-.blueprints-container .components-badge .components-badge__content {
-    @apply !w-full;
-}
-
 .blueprints-container .components-badge > * {
     @apply !w-full;
 }

@@ -7,6 +7,7 @@ import { registerCommand as registerCreateCommand } from 'cli/commands/preview/c
 import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/delete';
 import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
 import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/update';
+import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
 import { loadTranslations } from 'cli/lib/i18n';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
 import { version } from 'cli/package.json';
@@ -51,6 +52,16 @@ async function main() {
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();
+
+	if ( process.env.ENABLE_CLI_V2 === 'true' ) {
+		studioArgv.command( 'site', __( 'Manage local sites' ), ( sitesYargs ) => {
+			sitesYargs.option( 'path', {
+				hidden: true,
+			} );
+			registerSiteListCommand( sitesYargs );
+			sitesYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
+		} );
+	}
 
 	await studioArgv.argv;
 }

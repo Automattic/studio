@@ -150,7 +150,10 @@ export function AddSiteBlueprintSelector( {
 					<img
 						src={ item.image }
 						alt={ item.title }
-						className={ cx( 'w-full h-32 object-cover object-top rounded-lg group') }
+						className={ cx(
+							'w-full h-32 object-cover object-top rounded-lg group',
+							item.isSelected && 'is-selected'
+						) }
 					/>
 				),
 			},

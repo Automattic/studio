@@ -31,6 +31,11 @@ export function createScreenshotWindow( captureUrl: string ) {
 		} );
 	} );
 
+	responseStatusCodePromise.catch( () => {
+		// This catch is intentionally empty - prevents unhandled rejection warnings
+		// The actual error handling is done in the waitForCapture function
+	} );
+
 	const waitForCapture = async () => {
 		await window.loadURL( captureUrl );
 		await responseStatusCodePromise;

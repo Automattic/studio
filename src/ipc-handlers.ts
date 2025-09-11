@@ -988,7 +988,12 @@ export async function getThemeDetails(
 			details: themeDetails,
 		} );
 
-		void server.updateCachedThumbnail().then( () => sendThumbnailChangedEvent( event, id ) );
+		void server
+			.updateCachedThumbnail()
+			.then( () => sendThumbnailChangedEvent( event, id ) )
+			.catch( ( error ) => {
+				console.error( `Failed to update thumbnail for server ${ id }:`, error );
+			} );
 		server.details.themeDetails = themeDetails;
 		await updateSite( event, updatedSite );
 	}

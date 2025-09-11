@@ -259,7 +259,14 @@ export class SiteServer {
 			.then( ( image ) => fs.promises.writeFile( outPath, image.toPNG() ) )
 			.catch( async ( error ) => {
 				Sentry.captureException( error );
-				await fs.promises.unlink( outPath );
+				try {
+					await fs.promises.unlink( outPath );
+				} catch ( unlinkError ) {
+					// Ignore ENOENT errors as the file might not exist
+					if ( ( unlinkError as NodeJS.ErrnoException ).code !== 'ENOENT' ) {
+						console.error( 'Failed to cleanup thumbnail file:', unlinkError );
+					}
+				}
 			} )
 			.finally( () => window.destroy() );
 	}

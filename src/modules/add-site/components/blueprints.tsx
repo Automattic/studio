@@ -368,7 +368,7 @@ export function AddSiteBlueprintSelector( {
 				) }
 			</HStack>
 
-			<div className="w-full px-3 py-3 [&_.dataviews-view-grid]:!grid [&_.dataviews-view-grid]:!grid-cols-3 [&_.dataviews-view-grid]:!gap-4 [&_.dataviews-view-grid]:!items-start [&_.components-badge]:!bg-transparent [&_.components-badge]:!p-0 [&_.components-badge]:!w-full [&_.components-badge_.components-badge__content]:!w-full [&_.components-badge>*]:!w-full">
+			<div className="blueprints-container w-full px-3 py-3">
 				{ isFetchingBlueprints && (
 					<Text className="text-[14px] block text-center py-[100px]">
 						{ __( 'Loading blueprints...' ) }

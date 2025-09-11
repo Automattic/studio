@@ -19,6 +19,8 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetBlueprints } from 'src/stores/wpcom-api';
 import { useOverflowItems } from '../hooks/use-overflow-items';
 
+import './blueprints.css';
+
 interface Blueprint {
 	slug: string;
 	title: string;
@@ -148,14 +150,7 @@ export function AddSiteBlueprintSelector( {
 					<img
 						src={ item.image }
 						alt={ item.title }
-						className={ cx(
-							'w-full h-32 object-cover object-top cursor-pointer transition-all duration-150 rounded-lg group',
-							'[@media(min-height:680px)]:h-48',
-							'hover:shadow-md hover:outline hover:outline-2 hover:outline-blue-500',
-							'transition-transform duration-150',
-							'hover:scale-105',
-							item.isSelected && 'outline outline-2 outline-blue-500 shadow-md scale-105'
-						) }
+						className={ cx( 'w-full h-32 object-cover object-top rounded-lg group') }
 					/>
 				),
 			},
@@ -370,7 +365,7 @@ export function AddSiteBlueprintSelector( {
 				) }
 			</HStack>
 
-			<div className="w-full px-3 [&_.dataviews-view-grid]:!grid [&_.dataviews-view-grid]:!grid-cols-3 [&_.dataviews-view-grid]:!gap-4 [&_.dataviews-view-grid]:!items-start [&_.components-badge]:!bg-transparent [&_.components-badge]:!p-0 [&_.components-badge]:!w-full [&_.components-badge_.components-badge__content]:!w-full [&_.components-badge>*]:!w-full">
+			<div className="w-full px-3 py-3 [&_.dataviews-view-grid]:!grid [&_.dataviews-view-grid]:!grid-cols-3 [&_.dataviews-view-grid]:!gap-4 [&_.dataviews-view-grid]:!items-start [&_.components-badge]:!bg-transparent [&_.components-badge]:!p-0 [&_.components-badge]:!w-full [&_.components-badge_.components-badge__content]:!w-full [&_.components-badge>*]:!w-full">
 				{ isFetchingBlueprints && (
 					<Text className="text-[14px] block text-center py-[100px]">
 						{ __( 'Loading blueprints...' ) }

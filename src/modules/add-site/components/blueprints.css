@@ -1,0 +1,8 @@
+.dataviews-view-grid__card {
+    @apply p-4;
+}
+.dataviews-view-grid__card:hover {
+    @apply cursor-pointer hover:shadow-md hover:outline hover:outline-2 hover:outline-blue-500 transition-transform duration-150 hover:scale-105;
+}
+
+

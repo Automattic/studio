@@ -9,13 +9,12 @@ interface SiteTable {
 	id: string;
 	name: string;
 	path: string;
-	status: string;
 	phpVersion: string;
 }
 
 function getSitesCliTable( sites: SiteData[] ) {
 	const table = new Table( {
-		head: [ __( 'Name' ), __( 'Path' ), __( 'ID' ), __( 'Status' ), __( 'PHP' ) ],
+		head: [ __( 'Name' ), __( 'Path' ), __( 'ID' ), __( 'PHP' ) ],
 		style: {
 			head: [ 'cyan' ],
 			border: [ 'grey' ],
@@ -25,13 +24,7 @@ function getSitesCliTable( sites: SiteData[] ) {
 	} );
 
 	sites.forEach( ( site ) => {
-		table.push( [
-			site.name,
-			site.path,
-			site.id,
-			site.running ? __( 'Running' ) : __( 'Stopped' ),
-			site.phpVersion,
-		] );
+		table.push( [ site.name, site.path, site.id, site.phpVersion ] );
 	} );
 
 	return table;
@@ -42,7 +35,6 @@ function getSitesCliJson( sites: SiteData[] ): SiteTable[] {
 		id: site.id,
 		name: site.name,
 		path: site.path,
-		status: site.running ? __( 'Running' ) : __( 'Stopped' ),
 		phpVersion: site.phpVersion,
 	} ) );
 }

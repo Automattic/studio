@@ -20,7 +20,6 @@ const siteSchema = z
 		path: z.string(),
 		name: z.string(),
 		phpVersion: z.string(),
-		running: z.boolean().optional(),
 	} )
 	.passthrough();
 

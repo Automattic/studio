@@ -25,6 +25,7 @@ module.exports = {
 		'^src/(.*)$': '<rootDir>/src/$1',
 		'^vendor/(.*)$': '<rootDir>/vendor/$1',
 		'^common/(.*)$': '<rootDir>/common/$1',
+		'\\.css$': '<rootDir>/src/tests/utils/style-mock.js',
 	},
 	testEnvironment: 'jsdom',
 	testEnvironmentOptions: {

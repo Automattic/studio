@@ -1,10 +1,16 @@
 .dataviews-view-grid__card {
     @apply p-4;
 }
-.dataviews-view-grid__card:hover {
-    @apply hover:shadow-md hover:outline hover:outline-2 hover:outline-blue-500 transition-transform duration-150 hover:scale-105;
+.dataviews-view-grid__card:hover:not(:has(.is-selected)) {
+    @apply hover:shadow-md hover:outline hover:outline-1 hover:outline-blue-500 transition-transform duration-150 hover:scale-105;
 }
 
 .dataviews-view-grid__card:has(.is-selected) {
-    @apply outline outline-2 outline-blue-500 shadow-md scale-105;
+    @apply outline outline-2 outline-blue-600 shadow-md scale-105;
+}
+
+/* Small icon on the bottom right of the card if selected */
+.dataviews-view-grid__card:has(.is-selected)::after {
+    content: "✓";
+    @apply absolute bottom-1.5 right-1.5 text-sm text-blue-500 rounded-full px-1.5 py-0.5;
 }

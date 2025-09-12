@@ -30,16 +30,16 @@ export const sitesEndpointSiteSchema = z.object( {
 		.optional(),
 	plan: z
 		.object( {
-			expired: z.boolean(),
+			expired: z.boolean().optional(),
 			features: z.object( {
 				active: z.array( z.string() ),
 				available: z.record( z.string(), z.array( z.string() ) ).optional(),
 			} ),
-			is_free: z.boolean(),
-			product_id: z.number(),
+			is_free: z.boolean().optional(),
+			product_id: z.coerce.number(),
 			product_name_short: z.string(),
 			product_slug: z.string(),
-			user_is_owner: z.boolean(),
+			user_is_owner: z.boolean().optional(),
 		} )
 		.optional(),
 } );

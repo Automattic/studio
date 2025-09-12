@@ -78,7 +78,7 @@ describe( 'executeWPCli', () => {
 			const mockSqliteCommandPath = '/mock/sqlite';
 
 			jest
-				.spyOn( require( 'src/lib/fs-utils' ), 'pathExists' )
+				.spyOn( require( 'common/lib/fs-utils' ), 'pathExists' )
 				.mockImplementation( async ( ...args: any[] ) => {
 					const filePath = args[ 0 ] as string;
 					if (
@@ -154,7 +154,7 @@ describe( 'executeWPCli', () => {
 
 		it( 'should handle missing phar gracefully', async () => {
 			// Mock pathExists to return false for phar file
-			jest.spyOn( require( 'src/lib/fs-utils' ), 'pathExists' ).mockResolvedValue( false );
+			jest.spyOn( require( 'common/lib/fs-utils' ), 'pathExists' ).mockResolvedValue( false );
 
 			const mockPHP = {
 				setSapiName: jest.fn(),

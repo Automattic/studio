@@ -1,7 +1,7 @@
 import http from 'http';
 import path from 'path';
 import { test, expect } from '@playwright/test';
-import { pathExists } from '../src/lib/fs-utils';
+import { pathExists } from '../common/lib/fs-utils';
 import { E2ESession } from './e2e-helpers';
 import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';

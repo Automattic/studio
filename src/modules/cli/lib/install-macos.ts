@@ -3,7 +3,7 @@ import { mkdir, readlink, symlink, unlink, lstat } from 'node:fs/promises';
 import path from 'node:path';
 import * as Sentry from '@sentry/electron/main';
 import { __, sprintf } from '@wordpress/i18n';
-import { isErrnoException } from 'src/lib/is-errno-exception';
+import { isErrnoException } from 'common/lib/is-errno-exception';
 import { sudoExec } from 'src/lib/sudo-exec';
 import { getMainWindow } from 'src/main-window';
 import { getResourcesPath } from 'src/storage/paths';

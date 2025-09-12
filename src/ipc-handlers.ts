@@ -18,7 +18,14 @@ import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { compileBlueprint } from '@wp-playground/blueprints';
 import archiver from 'archiver';
-import { calculateDirectorySize, isWordPressDirectory, arePathsEqual } from 'common/lib/fs-utils';
+import {
+	calculateDirectorySize,
+	isWordPressDirectory,
+	arePathsEqual,
+	isEmptyDir,
+	pathExists,
+} from 'common/lib/fs-utils';
+import { isErrnoException } from 'common/lib/is-errno-exception';
 import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { portFinder } from 'common/lib/port-finder';
@@ -36,7 +43,7 @@ import {
 } from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
-import { isEmptyDir, pathExists, sanitizeFolderName } from 'src/lib/fs-utils';
+import { sanitizeFolderName } from 'src/lib/generate-site-name';
 import { getImageData } from 'src/lib/get-image-data';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
@@ -45,7 +52,6 @@ import { ExportOptions } from 'src/lib/import-export/export/types';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { defaultImporterOptions, importBackup } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
-import { isErrnoException } from 'src/lib/is-errno-exception';
 import { isInstalled } from 'src/lib/is-installed';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import * as oauthClient from 'src/lib/oauth';

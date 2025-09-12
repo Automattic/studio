@@ -2,7 +2,7 @@ import { net } from 'electron';
 import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
-import { pathExists, recursiveCopyDirectory, isEmptyDir } from 'src/lib/fs-utils';
+import { pathExists, recursiveCopyDirectory, isEmptyDir } from 'common/lib/fs-utils';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
 import { copyBundledLatestWPVersion } from 'src/setup-wp-server-files';

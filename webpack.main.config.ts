@@ -139,8 +139,8 @@ export const mainBaseConfig: Configuration = {
 					from: path.join( phpWasmDir, dir ),
 					to: path.resolve( __dirname, `.webpack/main/${ dir }` ),
 				} ) ),
-				// Copy @wp-playground/cli worker files for dev/CI builds (faster than webpack building)
-				...( process.env.NODE_ENV !== 'production' || process.env.IS_DEV_BUILD ? [
+				// Copy @wp-playground/cli worker files when skipping webpack building (performance tests)
+				...( process.env.SKIP_WORKER_THREAD_BUILD ? [
 					{
 						from: path.resolve( __dirname, 'node_modules/@wp-playground/cli' ),
 						to: path.resolve( __dirname, '.webpack/main' ),

@@ -65,34 +65,8 @@ export default function mainConfig( _env: unknown, args: Record< string, unknown
 		} );
 	} );
 
-	// Only use custom loader when building worker threads (not when copying them)
-	const useCustomLoader = !process.env.SKIP_WORKER_THREAD_BUILD;
-
 	return {
 		...mainBaseConfig,
-		module: {
-			...mainBaseConfig.module,
-			rules: useCustomLoader
-				? [
-						{
-							test: /\.js$/,
-							include: [
-								path.resolve( __dirname, 'node_modules/@php-wasm/node' ),
-								path.resolve( __dirname, 'node_modules/@wp-playground/cli' ),
-							],
-							use: [
-								{
-									loader: path.resolve(
-										__dirname,
-										'webpack-loaders/fix-import-meta-dirname-loader.js'
-									),
-								},
-							],
-						},
-						...mainBaseConfig.module.rules,
-				  ]
-				: mainBaseConfig.module.rules,
-		},
 		plugins: [ ...( mainBaseConfig.plugins || [] ), ...definePlugins ],
 	};
 }
@@ -122,6 +96,9 @@ export const mainBaseConfig: Configuration = {
 			COMMIT_HASH: JSON.stringify(
 				process.env.GITHUB_SHA ?? process.env.BUILDKITE_COMMIT ?? undefined
 			),
+			// Polyfill import.meta.dirname and import.meta.filename for @php-wasm/node compatibility
+			'import.meta.dirname': '__dirname',
+			'import.meta.filename': '__filename',
 		} ),
 		new CopyWebpackPlugin( {
 			patterns: [
@@ -139,6 +116,11 @@ export const mainBaseConfig: Configuration = {
 					from: path.join( phpWasmDir, dir ),
 					to: path.resolve( __dirname, `.webpack/main/${ dir }` ),
 				} ) ),
+				// Copy ICU data file for @php-wasm/node internationalization support
+				{
+					from: path.resolve( __dirname, 'node_modules/@php-wasm/node/shared/icudt74l.dat' ),
+					to: path.resolve( __dirname, '.webpack/main/shared/icudt74l.dat' ),
+				},
 				// Copy @wp-playground/cli worker files when skipping webpack building (performance tests)
 				...( process.env.SKIP_WORKER_THREAD_BUILD ? [
 					{

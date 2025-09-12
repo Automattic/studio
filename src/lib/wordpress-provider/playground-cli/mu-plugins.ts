@@ -40,6 +40,8 @@ async function createLoaderMuPlugin(): Promise< string > {
 		if ( ! defined( 'DB_HOST' ) ) define( 'DB_HOST', 'localhost' );
 		if ( ! defined( 'DB_CHARSET' ) ) define( 'DB_CHARSET', 'utf8' );
 		if ( ! defined( 'DB_COLLATE' ) ) define( 'DB_COLLATE', '' );
+		
+		// Set environment type to local if not already defined
 		if ( ! defined( 'WP_ENVIRONMENT_TYPE' ) ) define( 'WP_ENVIRONMENT_TYPE', 'local' );
 
 		$studio_mu_plugins_dir = '/internal/studio/mu-plugins';

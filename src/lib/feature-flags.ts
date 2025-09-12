@@ -10,7 +10,7 @@ export const FEATURE_FLAGS_DEFINITION: Record< keyof FeatureFlags, FeatureFlagDe
 		label: 'Enable Blueprints',
 		env: 'ENABLE_BLUEPRINTS',
 		flag: 'enableBlueprints',
-		default: false,
+		default: true,
 	},
 } as const;
 

@@ -10,3 +10,10 @@ export enum PreviewCommandLoggerAction {
 	READY = 'ready',
 	APPDATA = 'appdata',
 }
+
+export enum AuthCommandLoggerAction {
+	CHECK = 'check',
+	BROWSER = 'browser',
+	WAIT = 'wait',
+	LOGOUT = 'logout',
+}

@@ -198,12 +198,12 @@ function createWpcomClient(
 
 	return Object.assign( wpcom, {
 		request: function ( params: WpcomParams, callback: unknown ) {
-			const wrappedCallback = ( err: unknown, response: unknown ) => {
+			const wrappedCallback = ( err: unknown, response: unknown, headers: unknown ) => {
 				if ( err ) {
 					void handleInvalidTokenError( err );
 				}
 				if ( typeof callback === 'function' ) {
-					callback( err, response );
+					callback( err, response, headers );
 				}
 			};
 

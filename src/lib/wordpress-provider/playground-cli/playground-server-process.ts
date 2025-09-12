@@ -1,4 +1,5 @@
-import { utilityProcess } from 'electron';
+import { app, utilityProcess } from 'electron';
+import { getWordPressProviderType } from 'src/lib/wordpress-provider';
 import { WordPressServerProcess, WordPressServerOptions } from '../types';
 import { PlaygroundCliOptions } from './playground-cli-provider';
 
@@ -34,7 +35,17 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 			this.exitResolve = resolve;
 		} );
 
-		this.process = utilityProcess.fork( PLAYGROUND_SERVER_PROCESS_MODULE_PATH );
+		this.process = utilityProcess.fork( PLAYGROUND_SERVER_PROCESS_MODULE_PATH, [], {
+			serviceName: 'studio-site-server',
+			env: {
+				...process.env,
+				STUDIO_IN_CHILD_PROCESS: 'true',
+				STUDIO_APP_NAME: app.name,
+				STUDIO_APP_DATA_PATH: app.getPath( 'appData' ),
+				STUDIO_APP_LOGS_PATH: app.getPath( 'logs' ),
+				WORDPRESS_PROVIDER_TYPE: getWordPressProviderType(),
+			},
+		} );
 
 		this.process.on(
 			'message',

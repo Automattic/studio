@@ -96,16 +96,19 @@ steps:
           echo "--- :node: Building Binary"
           npm run make:macos-{{matrix}}
 
-          echo "--- :node: Packaging in DMG"
-          npm run make:dmg-{{matrix}}
+          tar -czf out/output.tar.gz out/Studio-darwin-arm64
 
-          echo "--- 📃 Notarizing Binary"
-          bundle exec fastlane notarize_binary
+#          echo "--- :node: Packaging in DMG"
+#          npm run make:dmg-{{matrix}}
+
+#          echo "--- 📃 Notarizing Binary"
+#          bundle exec fastlane notarize_binary
 #          sleep 86400
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         artifact_paths:
           - out/**/*.app.zip
           - out/*.dmg
+          - out/*.tar.gz
         matrix:
           #- x64
           - arm64

@@ -22,7 +22,11 @@ export function getFeatureFlagFromEnv( flag: keyof FeatureFlags ): boolean {
 	if ( ! flagDefinition ) {
 		return false;
 	}
-	return process.env[ flagDefinition.env ] === 'true';
+	const envValue = process.env[ flagDefinition.env ];
+	if ( envValue === undefined ) {
+		return flagDefinition.default;
+	}
+	return envValue === 'true';
 }
 
 export function setFeatureFlagInEnv( flag: keyof FeatureFlags, value: boolean ): void {

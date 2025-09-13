@@ -5,7 +5,11 @@ export default class AddSiteModal {
 	constructor( private page: Page ) {}
 
 	get locator() {
-		return this.page.getByRole( 'dialog', { name: 'Add a site' } );
+		return this.page.getByRole( 'dialog' );
+	}
+
+	get createSiteButton() {
+		return this.page.locator( 'button:has-text("Create a site")' ).first();
 	}
 
 	private get siteForm() {

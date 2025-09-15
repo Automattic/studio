@@ -50,13 +50,19 @@ interface AddSiteBlueprintProps {
 	onFileBlueprintSelect?: ( blueprint: Blueprint ) => void;
 }
 
-function CategoryBadges( { categories }: { categories: string[] } ) {
+function CategoryBadges( { categories, onClick }: { categories: string[]; onClick: () => void } ) {
 	const { __ } = useI18n();
 	const containerRef = useRef< HTMLDivElement >( null );
 	const { visible, hidden, hiddenCount, itemRefs } = useOverflowItems( categories, containerRef );
 
 	return (
-		<HStack ref={ containerRef } spacing={ 3 } alignment="left" className="w-full">
+		<HStack
+			ref={ containerRef }
+			onClick={ onClick }
+			spacing={ 3 }
+			alignment="left"
+			className="w-full"
+		>
 			{ categories.map( ( category, index ) => (
 				<Text
 					as="span"
@@ -178,6 +184,7 @@ export function AddSiteBlueprintSelector( {
 						truncate
 						numberOfLines={ 3 }
 						title={ item.excerpt }
+						onClick={ () => handleBlueprintClick( item ) }
 					>
 						{ item.excerpt }
 					</Text>
@@ -195,7 +202,12 @@ export function AddSiteBlueprintSelector( {
 					const categories = ( item.blueprint.meta?.categories || [] ).filter(
 						( category ) => category !== 'Studio'
 					);
-					return <CategoryBadges categories={ categories } />;
+					return (
+						<CategoryBadges
+							categories={ categories }
+							onClick={ () => handleBlueprintClick( item ) }
+						/>
+					);
 				},
 			},
 			{

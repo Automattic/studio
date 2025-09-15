@@ -1,4 +1,5 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
+// eslint-disable-next-line import/no-named-as-default
 import Table from 'cli-table3';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { readAppdata, type SiteData } from 'cli/lib/appdata';

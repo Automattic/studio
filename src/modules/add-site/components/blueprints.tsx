@@ -159,11 +159,6 @@ export function AddSiteBlueprintSelector( {
 							src={ item.image }
 							alt={ item.title }
 							className="w-full h-full object-cover object-center"
-							style={ {
-								imageRendering: 'auto',
-								backfaceVisibility: 'hidden',
-								transform: 'translateZ(0)',
-							} }
 						/>
 					</div>
 				),

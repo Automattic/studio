@@ -215,18 +215,20 @@ export function AddSiteBlueprintSelector( {
 				label: __( 'Preview' ),
 				type: 'text' as const,
 				render: ( { item }: { item: DataViewBlueprint } ) => (
-					<StudioButton
-						variant="link"
-						className="!p-0 text-[12px]"
-						onClick={ () => getIpcApi().openURL( item.playground_url ) }
-					>
-						{ __( 'Preview blueprint' ) }
-						<Icon icon={ external } size={ 16 } className="ml-1" />
-					</StudioButton>
+					<div onClick={ () => handleBlueprintClick( item ) }>
+						<StudioButton
+							variant="link"
+							className="!p-0 text-[12px]"
+							onClick={ () => getIpcApi().openURL( item.playground_url ) }
+						>
+							{ __( 'Preview blueprint' ) }
+							<Icon icon={ external } size={ 16 } className="ml-1" />
+						</StudioButton>
+					</div>
 				),
 			},
 		],
-		[ blueprints, __ ]
+		[ blueprints, handleBlueprintClick, __ ]
 	);
 
 	const handleFileSelect = async ( event: React.ChangeEvent< HTMLInputElement > ) => {

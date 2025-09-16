@@ -2,7 +2,7 @@
 	@apply px-5 w-full;
 }
 .blueprints-container .dataviews-view-grid__card {
-	@apply pb-5 outline outline-gray-300 rounded-[4px] h-[372px];
+	@apply relative pb-5 outline outline-a8c-gray-5 rounded h-[340px];
 }
 
 .blueprints-container .dataviews-view-grid__card {
@@ -16,7 +16,7 @@
 /* Small icon on the bottom right of the card if selected (bottom left in RTL) */
 .blueprints-container .dataviews-view-grid__card:has( .is-selected )::after {
 	content: '✓';
-	@apply absolute bottom-1.5 ltr:right-1.5 rtl:left-1.5 text-sm text-blue-500 rounded-full px-1.5 py-0.5;
+	@apply absolute top-1.5 left-1.5 text-sm text-white rounded-sm px-1.5 py-0.5;
 }
 
 .blueprints-container .dataviews-view-grid {

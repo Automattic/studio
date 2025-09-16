@@ -136,13 +136,13 @@ export function AddSiteBlueprintSelector( {
 		type: 'grid',
 		perPage: 9,
 		page: 1,
-		fields: [ 'excerpt', 'preview' ],
+		fields: [ 'excerpt' ],
 		mediaField: 'image',
 		titleField: 'title',
 		search: '',
 		filters: [],
 		layout: {
-			badgeFields: [ 'excerpt', 'preview' ],
+			badgeFields: [ 'excerpt' ],
 		},
 	} );
 
@@ -173,9 +173,19 @@ export function AddSiteBlueprintSelector( {
 				label: __( 'Title' ),
 				type: 'text' as const,
 				render: ( { item }: { item: DataViewBlueprint } ) => (
-					<Heading level={ 3 } className="text-[13px] mt-4 mb-3 text-gray-800" weight={ 500 }>
-						{ item.title }
-					</Heading>
+					<HStack alignment="edge" style={ { alignItems: 'baseline' } }>
+						<Heading level={ 3 } className="text-[13px] mt-5 mb-3 text-a8c-gray-800" weight={ 500 }>
+							{ item.title }
+						</Heading>
+						<StudioButton
+							variant="link"
+							className="!p-0 text-[12px] [&.is-link]:text-a8c-gray-30 [&.is-link]:hover:text-a8c-blue-50"
+							onClick={ () => getIpcApi().openURL( item.playground_url ) }
+						>
+							{ __( 'Preview blueprint' ) }
+							<Icon icon={ external } size={ 16 } className="ml-1" />
+						</StudioButton>
+					</HStack>
 				),
 			},
 			{
@@ -184,7 +194,7 @@ export function AddSiteBlueprintSelector( {
 				type: 'text' as const,
 				render: ( { item }: { item: DataViewBlueprint } ) => (
 					<Text
-						className="text-[13px] text-gray-600 min-h-[80px]"
+						className="text-[13px] text-a8c-gray-700 min-h-[80px]"
 						weight={ 400 }
 						title={ item.excerpt }
 						onClick={ () => handleBlueprintClick( item ) }
@@ -221,7 +231,7 @@ export function AddSiteBlueprintSelector( {
 					<div onClick={ () => handleBlueprintClick( item ) }>
 						<StudioButton
 							variant="link"
-							className="!p-0 text-[12px] [&.is-link]:text-a8c-gray-50 [&.is-link]:hover:text-a8c-blue-50"
+							className="!p-0 text-[12px] [&.is-link]:text-a8c-gray-30 [&.is-link]:hover:text-a8c-blue-50"
 							onClick={ () => getIpcApi().openURL( item.playground_url ) }
 						>
 							{ __( 'Preview blueprint' ) }

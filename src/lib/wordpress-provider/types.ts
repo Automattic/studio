@@ -28,6 +28,7 @@ export interface WordPressServerOptions {
 	adminPassword?: string;
 	siteTitle?: string;
 	siteLanguage?: string;
+	blueprint?: Blueprint;
 }
 
 export interface WordPressServerInstance {

@@ -88,7 +88,6 @@ type IpcApi = {
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface FeatureFlags {
 	enableBlueprints: boolean;
-	useWpNowProvider: boolean;
 }
 
 interface AppGlobals extends FeatureFlags {

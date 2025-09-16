@@ -10,24 +10,26 @@ import type { WordPressProvider } from './types';
 let provider: WordPressProvider | null = null;
 
 export function getWordPressProvider(): WordPressProvider {
-	const useWpNowProvider = getFeatureFlagFromEnv( 'useWpNowProvider' );
+	const blueprintsEnabled = getFeatureFlagFromEnv( 'enableBlueprints' );
 
-	if ( useWpNowProvider ) {
-		if ( provider?.PROVIDER_TYPE !== 'wp-now' ) {
-			provider = new WpNowProvider();
+	if ( blueprintsEnabled ) {
+		if ( provider?.PROVIDER_TYPE !== 'playground-cli' ) {
+			provider = new PlaygroundCliProvider();
 		}
 		return provider;
 	}
 
-	if ( provider?.PROVIDER_TYPE !== 'playground-cli' ) {
-		provider = new PlaygroundCliProvider();
+	// If blueprints are disabled, ensure we use WpNowProvider
+	if ( provider?.PROVIDER_TYPE !== 'wp-now' ) {
+		provider = new WpNowProvider();
 	}
+
 	return provider;
 }
 
 export function getWordPressProviderType(): string {
-	const useWpNowProvider = getFeatureFlagFromEnv( 'useWpNowProvider' );
-	return useWpNowProvider ? 'wp-now' : 'playground-cli';
+	const blueprintsEnabled = getFeatureFlagFromEnv( 'enableBlueprints' );
+	return blueprintsEnabled ? 'playground-cli' : 'wp-now';
 }
 
 export const getProviderConstants = (

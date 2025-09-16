@@ -86,7 +86,7 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 			<OptionButton
 				icon={ <Icon className="" icon={ plus } size={ 26 } fill="#3858E9" /> }
 				title={ __( 'Create a site' ) }
-				description={ __( 'Start from scratch' ) }
+				description={ __( 'Start with an empty site' ) }
 				onClick={ () => onOptionSelect( 'create' ) }
 			/>
 			{ enableBlueprints && (

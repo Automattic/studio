@@ -136,13 +136,13 @@ export function AddSiteBlueprintSelector( {
 		type: 'grid',
 		perPage: 9,
 		page: 1,
-		fields: [ 'categories', 'excerpt', 'preview' ],
+		fields: [ 'excerpt', 'preview' ],
 		mediaField: 'image',
 		titleField: 'title',
 		search: '',
 		filters: [],
 		layout: {
-			badgeFields: [ 'categories', 'excerpt', 'preview' ],
+			badgeFields: [ 'excerpt', 'preview' ],
 		},
 	} );
 
@@ -223,7 +223,7 @@ export function AddSiteBlueprintSelector( {
 					<div onClick={ () => handleBlueprintClick( item ) }>
 						<StudioButton
 							variant="link"
-							className="!p-0 text-[12px]"
+							className="!p-0 text-[12px] [&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blue-50"
 							onClick={ () => getIpcApi().openURL( item.playground_url ) }
 						>
 							{ __( 'Preview blueprint' ) }

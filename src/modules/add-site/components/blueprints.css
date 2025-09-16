@@ -1,13 +1,12 @@
-.blueprints-container .dataviews-view-grid__card {
-	@apply p-3;
-}
-
 .blueprints-container .dataviews-title-field {
-	@apply w-full;
+	@apply ps-4 w-full;
+}
+.blueprints-container .dataviews-view-grid__card {
+	@apply pb-6;
 }
 
 .blueprints-container .dataviews-view-grid__card:hover:not( :has( .is-selected ) ) {
-	@apply cursor-pointer hover:shadow-md hover:outline hover:outline-1 hover:outline-blue-500 transition-transform duration-150 hover:scale-105;
+	@apply cursor-pointer hover:shadow-md hover:outline hover:outline-1 hover:outline-blue-500 transition-transform duration-150;
 }
 
 .blueprints-container .dataviews-view-grid__card:has( .is-selected ) {
@@ -26,7 +25,7 @@
 }
 
 .blueprints-container .components-badge {
-	@apply !bg-transparent !p-0 !w-full;
+	@apply !bg-transparent p-0 ps-4 !w-full;
 }
 
 .blueprints-container .components-badge > * {

@@ -10,7 +10,7 @@ import {
 import { DataViews, View } from '@wordpress/dataviews';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
-import { Icon, external } from '@wordpress/icons';
+import { Icon, external, upload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useRef, useState, useMemo } from 'react';
 import StudioButton from 'src/components/button';
@@ -363,11 +363,12 @@ export function AddSiteBlueprintSelector( {
 						/>
 						<Button
 							variant="secondary"
-							className="flex-shrink-0 cursor-pointer"
+							className="flex-shrink-0 cursor-pointer flex items-center"
 							onClick={ () => {
 								fileRef.current?.click();
 							} }
 						>
+							<Icon icon={ upload } size={ 20 } className="mr-1.5" />
 							{ __( 'Choose blueprint file' ) }
 						</Button>
 					</label>

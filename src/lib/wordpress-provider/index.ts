@@ -2,24 +2,14 @@ export * from './types';
 export { WpNowProvider } from './wp-now';
 export { PlaygroundCliProvider, PLAYGROUND_CLI_PROVIDER_NAME } from './playground-cli';
 
-import { getFeatureFlagFromEnv } from 'src/lib/feature-flags';
-import { PlaygroundCliProvider } from './playground-cli/playground-cli-provider';
 import { WpNowProvider } from './wp-now';
 import type { WordPressProvider } from './types';
 
 let provider: WordPressProvider | null = null;
 
 export function getWordPressProvider(): WordPressProvider {
-	const blueprintsEnabled = getFeatureFlagFromEnv( 'enableBlueprints' );
-
-	if ( blueprintsEnabled ) {
-		if ( provider?.PROVIDER_TYPE !== 'playground-cli' ) {
-			provider = new PlaygroundCliProvider();
-		}
-		return provider;
-	}
-
-	// If blueprints are disabled, ensure we use WpNowProvider
+	// For testing: Always use WpNowProvider to test blueprint support with wp-now
+	// TODO: Later, introduce separate feature flags for provider selection and blueprint enablement
 	if ( provider?.PROVIDER_TYPE !== 'wp-now' ) {
 		provider = new WpNowProvider();
 	}
@@ -28,8 +18,9 @@ export function getWordPressProvider(): WordPressProvider {
 }
 
 export function getWordPressProviderType(): string {
-	const blueprintsEnabled = getFeatureFlagFromEnv( 'enableBlueprints' );
-	return blueprintsEnabled ? 'playground-cli' : 'wp-now';
+	// For testing: Always return 'wp-now' to test blueprint support with wp-now
+	// TODO: Later, introduce separate feature flags for provider selection and blueprint enablement
+	return 'wp-now';
 }
 
 export const getProviderConstants = (

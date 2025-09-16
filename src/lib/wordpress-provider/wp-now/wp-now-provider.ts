@@ -157,6 +157,11 @@ export class WpNowProvider implements WordPressProvider {
 			isWpAutoUpdating: options.isWpAutoUpdating,
 		} );
 
+		// Add blueprint support if a blueprint is provided
+		if ( options.blueprint?.blueprint ) {
+			wpNowOptions.blueprintObject = options.blueprint.blueprint;
+		}
+
 		if ( options.absoluteUrl ) {
 			wpNowOptions.absoluteUrl = options.absoluteUrl;
 		}

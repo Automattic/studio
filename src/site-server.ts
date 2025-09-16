@@ -141,6 +141,7 @@ export class SiteServer {
 			wpVersion: this.meta.wpVersion,
 			isWpAutoUpdating: this.details.isWpAutoUpdating,
 			absoluteUrl: getAbsoluteUrl( this.details ),
+			blueprint: this.meta.blueprint,
 		} );
 
 		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );

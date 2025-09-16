@@ -14,6 +14,7 @@ import {
 	WordPressServerInstance,
 	WordPressServerOptions,
 	WordPressServerProcess,
+	ServerOptions,
 } from '../types';
 import { PlaygroundServerProcess } from './playground-server-process';
 
@@ -46,20 +47,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	readonly SQLITE_FILENAME_LEGACY = PlaygroundCliProvider.SQLITE_FILENAME_LEGACY;
 
 	// Start/Stop functionality only
-	async startServer( options: {
-		path: string;
-		port: number;
-		adminPassword: string;
-		siteTitle: string;
-		phpVersion?: string;
-		wpVersion?: string;
-		isWpAutoUpdating?: boolean;
-		absoluteUrl?: string;
-		siteLanguage?: string;
-		isSetupMode?: boolean;
-		wpCliPharPath?: string;
-		blueprint?: Blueprint;
-	} ): Promise< WordPressServerInstance > {
+	async startServer( options: ServerOptions ): Promise< WordPressServerInstance > {
 		const port = options.port;
 		const phpVersion = options.phpVersion || '8.3';
 
@@ -69,8 +57,8 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			documentRoot: options.path,
 			autoMount: true,
 			skipWordpressSetup: true,
-			isSetupMode: options.isSetupMode || false,
-			blueprint: options.blueprint,
+			isSetupMode: false,
+			blueprint: options.blueprint?.blueprint as Blueprint,
 		};
 
 		const serverOptions: WordPressServerOptions = {
@@ -169,8 +157,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				phpVersion: phpVersion || this.DEFAULT_PHP_VERSION,
 				wpVersion,
 				isWpAutoUpdating: false,
-				isSetupMode: true,
-				blueprint: blueprint?.blueprint,
+				blueprint,
 			} );
 
 			const serverProcess = this.createServerProcess( serverInstance );

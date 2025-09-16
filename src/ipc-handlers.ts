@@ -18,9 +18,17 @@ import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { compileBlueprint } from '@wp-playground/blueprints';
 import archiver from 'archiver';
-import { calculateDirectorySize, isWordPressDirectory, arePathsEqual } from 'common/lib/fs-utils';
+import {
+	calculateDirectorySize,
+	isWordPressDirectory,
+	arePathsEqual,
+	isEmptyDir,
+	pathExists,
+} from 'common/lib/fs-utils';
+import { isErrnoException } from 'common/lib/is-errno-exception';
 import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
+import { portFinder } from 'common/lib/port-finder';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { ARCHIVER_OPTIONS, DEFAULT_TERMINAL, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
@@ -35,7 +43,7 @@ import {
 } from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
-import { isEmptyDir, pathExists, sanitizeFolderName } from 'src/lib/fs-utils';
+import { sanitizeFolderName } from 'src/lib/generate-site-name';
 import { getImageData } from 'src/lib/get-image-data';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
@@ -44,14 +52,12 @@ import { ExportOptions } from 'src/lib/import-export/export/types';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { defaultImporterOptions, importBackup } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
-import { isErrnoException } from 'src/lib/is-errno-exception';
 import { isInstalled } from 'src/lib/is-installed';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import * as oauthClient from 'src/lib/oauth';
 import { getSignUpUrl } from 'src/lib/oauth';
 import { createPassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
-import { portFinder } from 'src/lib/port-finder';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { sortSites } from 'src/lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
@@ -982,7 +988,12 @@ export async function getThemeDetails(
 			details: themeDetails,
 		} );
 
-		void server.updateCachedThumbnail().then( () => sendThumbnailChangedEvent( event, id ) );
+		void server
+			.updateCachedThumbnail()
+			.then( () => sendThumbnailChangedEvent( event, id ) )
+			.catch( ( error ) => {
+				console.error( `Failed to update thumbnail for server ${ id }:`, error );
+			} );
 		server.details.themeDetails = themeDetails;
 		await updateSite( event, updatedSite );
 	}

@@ -243,6 +243,7 @@ describe( 'Appdata Module', () => {
 				id: 'existing-id',
 				path: folderPath,
 				name: 'existing-site',
+				phpVersion: '8.0',
 			};
 			( readFile as jest.Mock ).mockReturnValueOnce(
 				JSON.stringify( { sites: [ existingSite ], newSites: [], snapshots: [] } )

@@ -65,6 +65,7 @@ describe( 'Snapshots Module', () => {
 						id: mockSiteId,
 						path: mockSiteFolder,
 						name: 'Test Site',
+						phpVersion: '8.0',
 					},
 				],
 				snapshots: [],
@@ -112,6 +113,7 @@ describe( 'Snapshots Module', () => {
 						id: mockSiteId,
 						path: mockSiteFolder,
 						name: 'Test Site',
+						phpVersion: '8.0',
 					},
 				],
 				snapshots: [ existingSnapshot ],
@@ -149,6 +151,7 @@ describe( 'Snapshots Module', () => {
 						id: 'site-123',
 						path: '/different/path',
 						name: 'Different Site',
+						phpVersion: '8.0',
 					},
 				],
 				snapshots: [],
@@ -332,6 +335,7 @@ describe( 'Snapshots Module', () => {
 						id: mockSiteId,
 						path: mockSiteFolder,
 						name: 'Test Site',
+						phpVersion: '8.0',
 					},
 				],
 			};
@@ -419,7 +423,7 @@ describe( 'Snapshots Module', () => {
 						sequence: 1,
 					},
 				],
-				sites: [ { id: 'site1', path: mockSiteFolder, name: 'Test Site' } ],
+				sites: [ { id: 'site1', path: mockSiteFolder, name: 'Test Site', phpVersion: '8.0' } ],
 			};
 
 			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );

@@ -43,8 +43,8 @@ const extraEntries = [
 			exportName: null,
 		},
 		{
-			name: 'worker-thread-v2-Pfv6UYF4',
-			path: './node_modules/@wp-playground/cli/worker-thread-v2-Pfv6UYF4.js',
+			name: 'worker-thread-v2-BgOQY8w7',
+			path: './node_modules/@wp-playground/cli/worker-thread-v2-BgOQY8w7.js',
 			exportName: null,
 		},
 	] : [] ),

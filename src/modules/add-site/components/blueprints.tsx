@@ -153,14 +153,19 @@ export function AddSiteBlueprintSelector( {
 				label: __( 'Thumbnail' ),
 				type: 'media' as const,
 				render: ( { item }: { item: DataViewBlueprint } ) => (
-					<img
-						src={ item.image }
-						alt={ item.title }
+					<div
 						className={ cx(
-							'w-full h-32 object-cover object-top rounded-lg group',
+							'w-full h-32 bg-gray-50 rounded-lg overflow-hidden cursor-pointer transition-all duration-150',
+							'[@media(min-height:680px)]:h-48',
 							item.isSelected && 'is-selected'
 						) }
-					/>
+					>
+						<img
+							src={ item.image }
+							alt={ item.title }
+							className="w-full h-full object-cover object-center"
+						/>
+					</div>
 				),
 			},
 			{

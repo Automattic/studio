@@ -52,6 +52,7 @@ function getAbsoluteUrl( details: SiteDetails ): string {
 type SiteServerMeta = {
 	wpVersion?: string;
 	blueprint?: Blueprint;
+	blueprintExecuted?: boolean;
 };
 
 export class SiteServer {
@@ -141,7 +142,7 @@ export class SiteServer {
 			wpVersion: this.meta.wpVersion,
 			isWpAutoUpdating: this.details.isWpAutoUpdating,
 			absoluteUrl: getAbsoluteUrl( this.details ),
-			blueprint: this.meta.blueprint,
+			blueprint: this.meta.blueprintExecuted ? undefined : this.meta.blueprint,
 		} );
 
 		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
@@ -154,6 +155,10 @@ export class SiteServer {
 		console.log( `Starting server for '${ this.details.name }'` );
 		this.server = createServerProcess( serverInstance );
 		await this.server.start();
+
+		if ( this.meta.blueprint && ! this.meta.blueprintExecuted ) {
+			this.meta.blueprintExecuted = true;
+		}
 
 		if ( serverInstance.options.port === undefined ) {
 			throw new Error( 'Server started with no port' );

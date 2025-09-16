@@ -157,7 +157,6 @@ export class WpNowProvider implements WordPressProvider {
 			isWpAutoUpdating: options.isWpAutoUpdating,
 		} );
 
-		// Add blueprint support if a blueprint is provided
 		if ( options.blueprint?.blueprint ) {
 			wpNowOptions.blueprintObject = options.blueprint.blueprint;
 		}
@@ -191,6 +190,7 @@ export class WpNowProvider implements WordPressProvider {
 			adminPassword: wpNowOptions.adminPassword,
 			siteTitle: wpNowOptions.siteTitle,
 			siteLanguage: wpNowOptions.siteLanguage,
+			blueprint: options.blueprint,
 		};
 
 		return {

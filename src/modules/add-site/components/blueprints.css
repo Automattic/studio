@@ -2,15 +2,15 @@
 	@apply px-5 w-full;
 }
 .blueprints-container .dataviews-view-grid__card {
-	@apply pb-5 border border-gray-300 rounded-[4px] h-[372px];
+	@apply pb-5 outline outline-gray-300 rounded-[4px] h-[372px];
 }
 
-.blueprints-container .dataviews-view-grid__card:hover:not( :has( .is-selected ) ) {
-	@apply cursor-pointer hover:shadow-md hover:outline hover:outline-1 hover:outline-blue-500 transition-transform duration-150;
+.blueprints-container .dataviews-view-grid__card {
+	@apply cursor-pointer hover:shadow-md hover:outline hover:outline-1 hover:outline-a8c-blue-50 transition-transform duration-150;
 }
 
 .blueprints-container .dataviews-view-grid__card:has( .is-selected ) {
-	@apply cursor-pointer outline outline-2 outline-blue-600 shadow-md scale-105;
+	@apply outline outline-1 outline-a8c-blue-50;
 }
 
 /* Small icon on the bottom right of the card if selected (bottom left in RTL) */
@@ -19,7 +19,6 @@
 	@apply absolute bottom-1.5 ltr:right-1.5 rtl:left-1.5 text-sm text-blue-500 rounded-full px-1.5 py-0.5;
 }
 
-/* Dataviews and components styling */
 .blueprints-container .dataviews-view-grid {
 	@apply !grid !grid-cols-3 !gap-5 !items-start;
 }

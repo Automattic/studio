@@ -104,8 +104,7 @@ export function AddSiteBlueprintSelector( {
 				render: ( { item }: { item: DataViewBlueprint } ) => (
 					<div
 						className={ cx(
-							'w-full h-32 bg-gray-50 rounded-t-sm overflow-hidden',
-							'[@media(min-height:680px)]:h-48',
+							'w-full bg-gray-50 rounded-t-sm overflow-hidden h-48',
 							item.isSelected && 'is-selected'
 						) }
 					>
@@ -246,7 +245,7 @@ export function AddSiteBlueprintSelector( {
 
 	return (
 		<VStack className="w-full max-w-4xl mx-auto" spacing={ 0 }>
-			<Heading className="text-center text-[32px] text-gray-900 mb-[28px]" weight={ 500 }>
+			<Heading className="text-center text-[32px] text-gray-900 mb-5" weight={ 500 }>
 				{ __( 'Start from a blueprint' ) }
 			</Heading>
 
@@ -263,7 +262,7 @@ export function AddSiteBlueprintSelector( {
 				</Notice>
 			) }
 
-			<HStack alignment="edge" className="w-full mb-[22px] px-3">
+			<HStack alignment="edge" className="w-full mb-5 ">
 				<HStack alignment="left" className="flex-1">
 					<Text className="text-[16px]" weight={ 500 }>
 						{ __( 'Featured blueprints' ) }
@@ -307,7 +306,7 @@ export function AddSiteBlueprintSelector( {
 				) }
 			</HStack>
 
-			<div className="blueprints-container w-full px-3 py-3">
+			<div className="blueprints-container w-full pb-1">
 				{ isFetchingBlueprints && (
 					<Text className="text-[14px] block text-center py-[100px]">
 						{ __( 'Loading blueprints...' ) }

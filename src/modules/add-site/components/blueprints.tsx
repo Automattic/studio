@@ -5,7 +5,6 @@ import {
 	__experimentalText as Text,
 	Button,
 	Notice,
-	Tooltip,
 } from '@wordpress/components';
 import { DataViews, View } from '@wordpress/dataviews';
 import { createInterpolateElement } from '@wordpress/element';
@@ -17,7 +16,6 @@ import StudioButton from 'src/components/button';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetBlueprints } from 'src/stores/wpcom-api';
-import { useOverflowItems } from '../hooks/use-overflow-items';
 
 import './blueprints.css';
 
@@ -48,55 +46,6 @@ interface AddSiteBlueprintProps {
 	selectedBlueprint: string | null;
 	onBlueprintChange: ( blueprintId: string ) => void;
 	onFileBlueprintSelect?: ( blueprint: Blueprint ) => void;
-}
-
-function CategoryBadges( { categories, onClick }: { categories: string[]; onClick: () => void } ) {
-	const { __ } = useI18n();
-	const containerRef = useRef< HTMLDivElement >( null );
-	const { visible, hidden, hiddenCount, itemRefs } = useOverflowItems( categories, containerRef );
-
-	return (
-		<HStack
-			ref={ containerRef }
-			onClick={ onClick }
-			spacing={ 3 }
-			alignment="left"
-			className="w-full"
-		>
-			{ categories.map( ( category, index ) => (
-				<Text
-					as="span"
-					key={ category }
-					ref={ ( el ) => {
-						itemRefs.current[ index ] = el;
-					} }
-					className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-sm flex items-center flex-shrink-0 max-w-32 truncate"
-					style={ {
-						visibility: index < visible.length ? 'visible' : 'hidden',
-						position: index >= visible.length ? 'absolute' : 'static',
-					} }
-				>
-					{ category }
-				</Text>
-			) ) }
-			{ hiddenCount > 0 && (
-				<Tooltip
-					text={ hidden.join( ', ' ) }
-					delay={ 200 }
-					placement="top-end"
-					className="max-w-xs"
-				>
-					<Text
-						as="span"
-						className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-sm flex items-center font-medium whitespace-nowrap flex-shrink-0"
-					>
-						{ /* translators: %d: Number of hidden categories */ }
-						{ sprintf( __( '+%d more' ), hiddenCount ) }
-					</Text>
-				</Tooltip>
-			) }
-		</HStack>
-	);
 }
 
 export function AddSiteBlueprintSelector( {
@@ -203,45 +152,8 @@ export function AddSiteBlueprintSelector( {
 					</Text>
 				),
 			},
-			{
-				id: 'categories',
-				label: __( 'Categories' ),
-				type: 'array' as const,
-				elements: blueprints
-					.flatMap( ( blueprint ) => blueprint.blueprint.meta?.categories || [] )
-					.filter( ( category, index, arr ) => arr.indexOf( category ) === index )
-					.map( ( category ) => ( { label: category, value: category } ) ),
-				render: ( { item }: { item: DataViewBlueprint } ) => {
-					const categories = ( item.blueprint.meta?.categories || [] ).filter(
-						( category ) => category !== 'Studio'
-					);
-					return (
-						<CategoryBadges
-							categories={ categories }
-							onClick={ () => handleBlueprintClick( item ) }
-						/>
-					);
-				},
-			},
-			{
-				id: 'preview',
-				label: __( 'Preview' ),
-				type: 'text' as const,
-				render: ( { item }: { item: DataViewBlueprint } ) => (
-					<div onClick={ () => handleBlueprintClick( item ) }>
-						<StudioButton
-							variant="link"
-							className="!p-0 text-[12px] [&.is-link]:text-a8c-gray-30 [&.is-link]:hover:text-a8c-blue-50"
-							onClick={ () => getIpcApi().openURL( item.playground_url ) }
-						>
-							{ __( 'Preview blueprint' ) }
-							<Icon icon={ external } size={ 16 } className="ml-1" />
-						</StudioButton>
-					</div>
-				),
-			},
 		],
-		[ blueprints, handleBlueprintClick, __ ]
+		[ handleBlueprintClick, __ ]
 	);
 
 	const handleFileSelect = async ( event: React.ChangeEvent< HTMLInputElement > ) => {

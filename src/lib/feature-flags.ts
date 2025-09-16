@@ -6,11 +6,11 @@ export interface FeatureFlagDefinition {
 }
 
 export const FEATURE_FLAGS_DEFINITION: Record< keyof FeatureFlags, FeatureFlagDefinition > = {
-	enableBlueprints: {
-		label: 'Enable Blueprints',
-		env: 'ENABLE_BLUEPRINTS',
-		flag: 'enableBlueprints',
-		default: true,
+	enablePlaygroundCli: {
+		label: 'Enable Playground CLI',
+		env: 'ENABLE_PLAYGROUND_CLI',
+		flag: 'enablePlaygroundCli',
+		default: false,
 	},
 } as const;
 

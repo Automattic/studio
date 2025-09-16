@@ -119,7 +119,7 @@ graph TB
 
 ### 1. **Provider System** (`src/lib/wordpress-provider/`)
 
-- **Provider Selection**: Based on `enableBlueprints` feature flag
+- **Provider Selection**: Based on `enablePlaygroundCli` feature flag
   - `true` → PlaygroundCliProvider
   - `false` → WpNowProvider (legacy)
 - **Provider Interface**: WordPressProvider with methods:
@@ -226,7 +226,7 @@ src/lib/wordpress-provider/
 
 ## Notes for Team Members
 
-1. **Feature Flag**: The Playground CLI provider is activated when `enableBlueprints` feature flag is true
+1. **Feature Flag**: The Playground CLI provider is activated when `enablePlaygroundCli` feature flag is true
 2. **Process Architecture**: Uses Electron's utility process for isolation
 3. **VFS Mounting**: All file access goes through Playground's virtual filesystem
 4. **Blueprint Execution**: Happens during site creation, not on every start

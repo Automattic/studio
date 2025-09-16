@@ -172,7 +172,9 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
 
-		await user.click( screen.getByRole( 'button', { name: 'Create a site Start from scratch' } ) );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
 
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
@@ -214,7 +216,9 @@ describe( 'AddSite', () => {
 		await user.click( screen.getAllByRole( 'button', { name: 'Add site' } )[ 0 ] );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
 
-		await user.click( screen.getByRole( 'button', { name: 'Create a site Start from scratch' } ) );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
 
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
@@ -251,7 +255,9 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
 
-		await user.click( screen.getByRole( 'button', { name: 'Create a site Start from scratch' } ) );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
 
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
@@ -284,7 +290,9 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
 
-		await user.click( screen.getByRole( 'button', { name: 'Create a site Start from scratch' } ) );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
 
 		const siteNameInput = screen.getByDisplayValue( 'My WordPress Website' );
 		await user.click( siteNameInput );
@@ -303,7 +311,9 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
 
-		await user.click( screen.getByRole( 'button', { name: 'Create a site Start from scratch' } ) );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
 
 		expect( screen.getByDisplayValue( 'My WordPress Website' ) ).toBeVisible();
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
@@ -331,7 +341,9 @@ describe( 'AddSite', () => {
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 
-		await user.click( screen.getByRole( 'button', { name: 'Create a site Start from scratch' } ) );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
 
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
@@ -364,7 +376,9 @@ describe( 'AddSite', () => {
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 
-		await user.click( screen.getByRole( 'button', { name: 'Create a site Start from scratch' } ) );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
 
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
@@ -415,7 +429,9 @@ describe( 'AddSite', () => {
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 
-		await user.click( screen.getByRole( 'button', { name: 'Create a site Start from scratch' } ) );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
 
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
@@ -452,7 +468,9 @@ describe( 'AddSite', () => {
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
-		await user.click( screen.getByRole( 'button', { name: 'Create a site Start from scratch' } ) );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
 		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
@@ -466,7 +484,9 @@ describe( 'AddSite', () => {
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
-		await user.click( screen.getByRole( 'button', { name: 'Create a site Start from scratch' } ) );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
 		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
@@ -480,7 +500,9 @@ describe( 'AddSite', () => {
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
-		await user.click( screen.getByRole( 'button', { name: 'Create a site Start from scratch' } ) );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
 		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
@@ -500,7 +522,9 @@ describe( 'AddSite', () => {
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
-		await user.click( screen.getByRole( 'button', { name: 'Create a site Start from scratch' } ) );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
 		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );

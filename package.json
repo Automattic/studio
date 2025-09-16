@@ -39,13 +39,13 @@
 	"devDependencies": {
 		"@automattic/color-studio": "^4.1.0",
 		"@automattic/wp-babel-makepot": "^1.2.0",
-		"@electron-forge/cli": "^7.8.3",
-		"@electron-forge/maker-deb": "^7.8.3",
-		"@electron-forge/maker-dmg": "^7.8.3",
-		"@electron-forge/maker-squirrel": "^7.8.3",
-		"@electron-forge/maker-zip": "^7.8.3",
-		"@electron-forge/plugin-auto-unpack-natives": "^7.8.3",
-		"@electron-forge/plugin-webpack": "^7.8.3",
+		"@electron-forge/cli": "^7.9.0",
+		"@electron-forge/maker-deb": "^7.9.0",
+		"@electron-forge/maker-dmg": "^7.9.0",
+		"@electron-forge/maker-squirrel": "^7.9.0",
+		"@electron-forge/maker-zip": "^7.9.0",
+		"@electron-forge/plugin-auto-unpack-natives": "^7.9.0",
+		"@electron-forge/plugin-webpack": "^7.9.0",
 		"@playwright/test": "^1.52.0",
 		"@sentry/react": "^7.120.3",
 		"@studio/eslint-plugin": "file:packages/eslint-plugin-studio",
@@ -173,8 +173,5 @@
 	},
 	"optionalDependencies": {
 		"appdmg": "^0.6.6"
-	},
-	"overrides": {
-		"@electron/packager": "18.1.3"
 	}
 }

@@ -155,7 +155,7 @@ export function AddSiteBlueprintSelector( {
 				render: ( { item }: { item: DataViewBlueprint } ) => (
 					<div
 						className={ cx(
-							'w-full h-32 bg-gray-50 rounded-lg overflow-hidden cursor-pointer transition-all duration-150',
+							'w-full h-32 bg-gray-50 rounded-t-sm overflow-hidden',
 							'[@media(min-height:680px)]:h-48',
 							item.isSelected && 'is-selected'
 						) }
@@ -173,7 +173,7 @@ export function AddSiteBlueprintSelector( {
 				label: __( 'Title' ),
 				type: 'text' as const,
 				render: ( { item }: { item: DataViewBlueprint } ) => (
-					<Heading level={ 3 } className="text-[13px] mt-3 mb-2 text-gray-800" weight={ 500 }>
+					<Heading level={ 3 } className="text-[13px] mt-4 mb-3 text-gray-800" weight={ 500 }>
 						{ item.title }
 					</Heading>
 				),
@@ -184,10 +184,8 @@ export function AddSiteBlueprintSelector( {
 				type: 'text' as const,
 				render: ( { item }: { item: DataViewBlueprint } ) => (
 					<Text
-						className="text-[13px] text-gray-600 h-[54px]"
+						className="text-[13px] text-gray-600 min-h-[80px]"
 						weight={ 400 }
-						truncate
-						numberOfLines={ 3 }
 						title={ item.excerpt }
 						onClick={ () => handleBlueprintClick( item ) }
 					>
@@ -223,7 +221,7 @@ export function AddSiteBlueprintSelector( {
 					<div onClick={ () => handleBlueprintClick( item ) }>
 						<StudioButton
 							variant="link"
-							className="!p-0 text-[12px] [&.is-link]:text-a8c-gray-70 [&.is-link]:hover:text-a8c-blue-50"
+							className="!p-0 text-[12px] [&.is-link]:text-a8c-gray-50 [&.is-link]:hover:text-a8c-blue-50"
 							onClick={ () => getIpcApi().openURL( item.playground_url ) }
 						>
 							{ __( 'Preview blueprint' ) }
@@ -325,7 +323,7 @@ export function AddSiteBlueprintSelector( {
 	}
 
 	return (
-		<VStack className="w-full max-w-6xl mx-auto" spacing={ 0 }>
+		<VStack className="w-full max-w-4xl mx-auto" spacing={ 0 }>
 			<Heading className="text-center text-[32px] text-gray-900 mb-[28px]" weight={ 500 }>
 				{ __( 'Start from a blueprint' ) }
 			</Heading>

@@ -1,8 +1,8 @@
 .blueprints-container .dataviews-title-field {
-	@apply ps-4 w-full;
+	@apply px-5 w-full;
 }
 .blueprints-container .dataviews-view-grid__card {
-	@apply pb-6;
+	@apply pb-5 border border-gray-300 rounded-[4px] h-[372px];
 }
 
 .blueprints-container .dataviews-view-grid__card:hover:not( :has( .is-selected ) ) {
@@ -21,11 +21,17 @@
 
 /* Dataviews and components styling */
 .blueprints-container .dataviews-view-grid {
-	@apply !grid !grid-cols-3 !gap-7 !items-start;
+	@apply !grid !grid-cols-3 !gap-5 !items-start;
+}
+
+.blueprints-container
+	.dataviews-view-grid__badge-fields
+	.dataviews-view-grid__field-value:first-child {
+	@apply min-h-[80px];
 }
 
 .blueprints-container .components-badge {
-	@apply !bg-transparent p-0 ps-4 !w-full;
+	@apply !bg-transparent p-0 px-5 !w-full;
 }
 
 .blueprints-container .components-badge > * {

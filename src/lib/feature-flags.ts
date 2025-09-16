@@ -12,6 +12,12 @@ export const FEATURE_FLAGS_DEFINITION: Record< keyof FeatureFlags, FeatureFlagDe
 		flag: 'enableBlueprints',
 		default: true,
 	},
+	useWpNowProvider: {
+		label: 'Use WP Now provider',
+		env: 'USE_WP_NOW_PROVIDER',
+		flag: 'useWpNowProvider',
+		default: true,
+	},
 } as const;
 
 export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > =

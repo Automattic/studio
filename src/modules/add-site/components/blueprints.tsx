@@ -122,13 +122,17 @@ export function AddSiteBlueprintSelector( {
 				label: __( 'Title' ),
 				type: 'text' as const,
 				render: ( { item }: { item: DataViewBlueprint } ) => (
-					<HStack alignment="edge" style={ { alignItems: 'baseline' } }>
-						<Heading level={ 3 } className="text-[13px] mt-5 mb-3 text-a8c-gray-800" weight={ 500 }>
+					<HStack
+						alignment="edge"
+						style={ { alignItems: 'baseline', paddingTop: '24px', paddingBottom: '10px' } }
+						wrap
+					>
+						<Heading level={ 3 } className="text-[13px] text-a8c-gray-800" weight={ 500 }>
 							{ item.title }
 						</Heading>
 						<StudioButton
 							variant="link"
-							className="!p-0 text-[12px] [&.is-link]:text-a8c-gray-30 [&.is-link]:hover:text-a8c-blue-50"
+							className="!p-0 text-[12px] [&.is-link]:text-a8c-gray-30 [&.is-link]:hover:text-a8c-blue-50 whitespace-nowrap"
 							onClick={ () => getIpcApi().openURL( item.playground_url ) }
 						>
 							{ __( 'Preview blueprint' ) }
@@ -143,8 +147,10 @@ export function AddSiteBlueprintSelector( {
 				type: 'text' as const,
 				render: ( { item }: { item: DataViewBlueprint } ) => (
 					<Text
-						className="text-[13px] text-a8c-gray-700 min-h-[80px]"
+						className="text-[13px] text-a8c-gray-700 h-[80px] leading-5"
 						weight={ 400 }
+						truncate
+						numberOfLines={ 4 }
 						title={ item.excerpt }
 						onClick={ () => handleBlueprintClick( item ) }
 					>

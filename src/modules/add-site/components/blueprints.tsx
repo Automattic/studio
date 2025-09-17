@@ -368,7 +368,7 @@ export function AddSiteBlueprintSelector( {
 								fileRef.current?.click();
 							} }
 						>
-							<Icon icon={ upload } size={ 20 } className="mr-1.5" />
+							<Icon icon={ upload } size={ 20 } className="me-1.5" />
 							{ __( 'Choose blueprint file' ) }
 						</Button>
 					</label>

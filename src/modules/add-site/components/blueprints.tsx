@@ -245,7 +245,7 @@ export function AddSiteBlueprintSelector( {
 	}
 
 	return (
-		<VStack className="w-full max-w-4xl mx-auto px-1" spacing={ 0 }>
+		<VStack className="w-full max-w-4xl mx-auto px-0.5" spacing={ 0 }>
 			<Heading className="text-center text-[32px] text-gray-900 mb-5" weight={ 500 }>
 				{ __( 'Start from a blueprint' ) }
 			</Heading>

@@ -5,7 +5,6 @@ import {
 	__experimentalText as Text,
 	Button,
 	Notice,
-	Tooltip,
 } from '@wordpress/components';
 import { DataViews, View } from '@wordpress/dataviews';
 import { createInterpolateElement } from '@wordpress/element';
@@ -17,7 +16,8 @@ import StudioButton from 'src/components/button';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetBlueprints } from 'src/stores/wpcom-api';
-import { useOverflowItems } from '../hooks/use-overflow-items';
+
+import './blueprints.css';
 
 interface Blueprint {
 	slug: string;
@@ -46,49 +46,6 @@ interface AddSiteBlueprintProps {
 	selectedBlueprint: string | null;
 	onBlueprintChange: ( blueprintId: string ) => void;
 	onFileBlueprintSelect?: ( blueprint: Blueprint ) => void;
-}
-
-function CategoryBadges( { categories }: { categories: string[] } ) {
-	const { __ } = useI18n();
-	const containerRef = useRef< HTMLDivElement >( null );
-	const { visible, hidden, hiddenCount, itemRefs } = useOverflowItems( categories, containerRef );
-
-	return (
-		<HStack ref={ containerRef } spacing={ 3 } alignment="left" className="w-full">
-			{ categories.map( ( category, index ) => (
-				<Text
-					as="span"
-					key={ category }
-					ref={ ( el ) => {
-						itemRefs.current[ index ] = el;
-					} }
-					className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-sm flex items-center flex-shrink-0 max-w-32 truncate"
-					style={ {
-						visibility: index < visible.length ? 'visible' : 'hidden',
-						position: index >= visible.length ? 'absolute' : 'static',
-					} }
-				>
-					{ category }
-				</Text>
-			) ) }
-			{ hiddenCount > 0 && (
-				<Tooltip
-					text={ hidden.join( ', ' ) }
-					delay={ 200 }
-					placement="top-end"
-					className="max-w-xs"
-				>
-					<Text
-						as="span"
-						className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-sm flex items-center font-medium whitespace-nowrap flex-shrink-0"
-					>
-						{ /* translators: %d: Number of hidden categories */ }
-						{ sprintf( __( '+%d more' ), hiddenCount ) }
-					</Text>
-				</Tooltip>
-			) }
-		</HStack>
-	);
 }
 
 export function AddSiteBlueprintSelector( {
@@ -124,17 +81,25 @@ export function AddSiteBlueprintSelector( {
 		[ onBlueprintChange ]
 	);
 
+	const handlePreviewClick = useCallback(
+		( e: React.MouseEvent< HTMLButtonElement >, item: DataViewBlueprint ) => {
+			e.stopPropagation();
+			getIpcApi().openURL( item.playground_url );
+		},
+		[]
+	);
+
 	const [ view, setView ] = useState< View >( {
 		type: 'grid',
 		perPage: 9,
 		page: 1,
-		fields: [ 'categories', 'excerpt', 'preview' ],
+		fields: [ 'excerpt' ],
 		mediaField: 'image',
 		titleField: 'title',
 		search: '',
 		filters: [],
 		layout: {
-			badgeFields: [ 'categories', 'excerpt', 'preview' ],
+			badgeFields: [ 'excerpt' ],
 		},
 	} );
 
@@ -147,12 +112,9 @@ export function AddSiteBlueprintSelector( {
 				render: ( { item }: { item: DataViewBlueprint } ) => (
 					<div
 						className={ cx(
-							'w-full h-32 bg-gray-50 rounded-lg overflow-hidden cursor-pointer transition-all duration-150',
-							'[@media(min-height:680px)]:h-48',
-							'hover:shadow-md hover:outline hover:outline-2 hover:outline-blue-500',
-							'transition-transform duration-150',
-							'hover:scale-105',
-							item.isSelected && 'outline outline-2 outline-blue-500 shadow-md scale-105'
+							'w-full bg-gray-50 h-32 rounded-t-sm overflow-hidden',
+							'[@media(min-height:680px)]:h-[175px]',
+							item.isSelected && 'is-selected'
 						) }
 					>
 						<img
@@ -168,9 +130,25 @@ export function AddSiteBlueprintSelector( {
 				label: __( 'Title' ),
 				type: 'text' as const,
 				render: ( { item }: { item: DataViewBlueprint } ) => (
-					<Heading level={ 3 } className="text-[13px] mt-3 mb-2 text-gray-800" weight={ 500 }>
-						{ item.title }
-					</Heading>
+					<HStack
+						alignment="edge"
+						style={ { alignItems: 'baseline', paddingTop: '24px', paddingBottom: '10px' } }
+						wrap
+					>
+						<Heading level={ 3 } className="text-[13px] text-a8c-gray-800" weight={ 500 }>
+							{ item.title }
+						</Heading>
+						<StudioButton
+							variant="link"
+							className="!p-0 text-[12px] [&.is-link]:text-a8c-gray-30 [&.is-link]:hover:text-a8c-blue-50 whitespace-nowrap"
+							onClick={ ( e: React.MouseEvent< HTMLButtonElement > ) =>
+								handlePreviewClick( e, item )
+							}
+						>
+							{ __( 'Preview blueprint' ) }
+							<Icon icon={ external } size={ 16 } className="ml-1" />
+						</StudioButton>
+					</HStack>
 				),
 			},
 			{
@@ -178,49 +156,21 @@ export function AddSiteBlueprintSelector( {
 				label: __( 'Description' ),
 				type: 'text' as const,
 				render: ( { item }: { item: DataViewBlueprint } ) => (
-					<Text
-						className="text-[13px] text-gray-600 h-[54px]"
-						weight={ 400 }
-						truncate
-						numberOfLines={ 3 }
-						title={ item.excerpt }
-					>
-						{ item.excerpt }
-					</Text>
-				),
-			},
-			{
-				id: 'categories',
-				label: __( 'Categories' ),
-				type: 'array' as const,
-				elements: blueprints
-					.flatMap( ( blueprint ) => blueprint.blueprint.meta?.categories || [] )
-					.filter( ( category, index, arr ) => arr.indexOf( category ) === index )
-					.map( ( category ) => ( { label: category, value: category } ) ),
-				render: ( { item }: { item: DataViewBlueprint } ) => {
-					const categories = ( item.blueprint.meta?.categories || [] ).filter(
-						( category ) => category !== 'Studio'
-					);
-					return <CategoryBadges categories={ categories } />;
-				},
-			},
-			{
-				id: 'preview',
-				label: __( 'Preview' ),
-				type: 'text' as const,
-				render: ( { item }: { item: DataViewBlueprint } ) => (
-					<StudioButton
-						variant="link"
-						className="!p-0 text-[12px]"
-						onClick={ () => getIpcApi().openURL( item.playground_url ) }
-					>
-						{ __( 'Preview blueprint' ) }
-						<Icon icon={ external } size={ 16 } className="ml-1" />
-					</StudioButton>
+					<div className="px-5 pb-5" onClick={ () => handleBlueprintClick( item ) }>
+						<Text
+							className="text-[13px] text-a8c-gray-700 h-[80px] leading-5"
+							weight={ 400 }
+							truncate
+							numberOfLines={ 4 }
+							title={ item.excerpt }
+						>
+							{ item.excerpt }
+						</Text>
+					</div>
 				),
 			},
 		],
-		[ blueprints, __ ]
+		[ handleBlueprintClick, handlePreviewClick, __ ]
 	);
 
 	const handleFileSelect = async ( event: React.ChangeEvent< HTMLInputElement > ) => {
@@ -312,8 +262,8 @@ export function AddSiteBlueprintSelector( {
 	}
 
 	return (
-		<VStack className="w-full max-w-6xl mx-auto" spacing={ 0 }>
-			<Heading className="text-center text-[32px] text-gray-900 mb-[28px]" weight={ 500 }>
+		<VStack className="w-full max-w-4xl mx-auto px-0.5" spacing={ 0 }>
+			<Heading className="text-center text-[32px] text-gray-900 mb-5" weight={ 500 }>
 				{ __( 'Start from a blueprint' ) }
 			</Heading>
 
@@ -330,7 +280,7 @@ export function AddSiteBlueprintSelector( {
 				</Notice>
 			) }
 
-			<HStack alignment="edge" className="w-full mb-[22px] px-3">
+			<HStack alignment="edge" className="w-full mb-5 ">
 				<HStack alignment="left" className="flex-1">
 					<Text className="text-[16px]" weight={ 500 }>
 						{ __( 'Featured blueprints' ) }
@@ -374,7 +324,7 @@ export function AddSiteBlueprintSelector( {
 				) }
 			</HStack>
 
-			<div className="w-full px-3 [&_.dataviews-view-grid]:!grid [&_.dataviews-view-grid]:!grid-cols-3 [&_.dataviews-view-grid]:!gap-4 [&_.dataviews-view-grid]:!items-start [&_.components-badge]:!bg-transparent [&_.components-badge]:!p-0 [&_.components-badge]:!w-full [&_.components-badge_.components-badge__content]:!w-full [&_.components-badge>*]:!w-full">
+			<div className="blueprints-container w-full pb-1">
 				{ isFetchingBlueprints && (
 					<Text className="text-[14px] block text-center py-[100px]">
 						{ __( 'Loading blueprints...' ) }

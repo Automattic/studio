@@ -81,6 +81,14 @@ export function AddSiteBlueprintSelector( {
 		[ onBlueprintChange ]
 	);
 
+	const handlePreviewClick = useCallback(
+		( e: React.MouseEvent< HTMLButtonElement >, item: DataViewBlueprint ) => {
+			e.stopPropagation();
+			getIpcApi().openURL( item.playground_url );
+		},
+		[]
+	);
+
 	const [ view, setView ] = useState< View >( {
 		type: 'grid',
 		perPage: 9,
@@ -133,7 +141,9 @@ export function AddSiteBlueprintSelector( {
 						<StudioButton
 							variant="link"
 							className="!p-0 text-[12px] [&.is-link]:text-a8c-gray-30 [&.is-link]:hover:text-a8c-blue-50 whitespace-nowrap"
-							onClick={ () => getIpcApi().openURL( item.playground_url ) }
+							onClick={ ( e: React.MouseEvent< HTMLButtonElement > ) =>
+								handlePreviewClick( e, item )
+							}
 						>
 							{ __( 'Preview blueprint' ) }
 							<Icon icon={ external } size={ 16 } className="ml-1" />
@@ -160,7 +170,7 @@ export function AddSiteBlueprintSelector( {
 				),
 			},
 		],
-		[ handleBlueprintClick, __ ]
+		[ handleBlueprintClick, handlePreviewClick, __ ]
 	);
 
 	const handleFileSelect = async ( event: React.ChangeEvent< HTMLInputElement > ) => {

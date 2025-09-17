@@ -5,8 +5,12 @@
 	@apply cursor-pointer relative justify-between outline outline-a8c-gray-5 rounded h-[279px] [@media(min-height:680px)]:h-[340px] min-w-32;
 }
 
+.blueprints-container .dataviews-view-grid__card img {
+	@apply transition-transform duration-150;
+}
+
 .blueprints-container .dataviews-view-grid__card:hover img {
-	@apply scale-110 transition-transform duration-150;
+	@apply scale-110;
 }
 
 .blueprints-container .dataviews-view-grid__card:has( .is-selected ) {

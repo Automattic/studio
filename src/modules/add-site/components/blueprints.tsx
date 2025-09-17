@@ -363,7 +363,7 @@ export function AddSiteBlueprintSelector( {
 						/>
 						<Button
 							variant="secondary"
-							className="flex-shrink-0 cursor-pointer flex items-center"
+							className="flex-shrink-0 cursor-pointer"
 							onClick={ () => {
 								fileRef.current?.click();
 							} }

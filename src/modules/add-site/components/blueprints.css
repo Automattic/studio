@@ -2,7 +2,7 @@
 	@apply px-5 w-full;
 }
 .blueprints-container .dataviews-view-grid__card {
-	@apply relative pb-5 outline outline-a8c-gray-5 rounded h-[279px] [@media(min-height:680px)]:h-[340px] min-w-32;
+	@apply relative justify-between outline outline-a8c-gray-5 rounded h-[279px] [@media(min-height:680px)]:h-[340px] min-w-32;
 }
 
 .blueprints-container .dataviews-view-grid__card {
@@ -23,16 +23,6 @@
 	@apply !grid !grid-cols-3 !gap-5 !items-start;
 }
 
-.blueprints-container
-	.dataviews-view-grid__badge-fields
-	.dataviews-view-grid__field-value:first-child {
-	@apply min-h-[80px];
-}
-
 .blueprints-container .components-badge {
-	@apply !bg-transparent p-0 px-5 !w-full;
-}
-
-.blueprints-container .components-badge > * {
-	@apply !w-full;
+	@apply !bg-transparent p-0 !w-full;
 }

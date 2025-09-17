@@ -105,7 +105,7 @@ export function AddSiteBlueprintSelector( {
 					<div
 						className={ cx(
 							'w-full bg-gray-50 h-32 rounded-t-sm overflow-hidden',
-							'[@media(min-height:680px)]:h-48',
+							'[@media(min-height:680px)]:h-[175px]',
 							item.isSelected && 'is-selected'
 						) }
 					>
@@ -146,16 +146,17 @@ export function AddSiteBlueprintSelector( {
 				label: __( 'Description' ),
 				type: 'text' as const,
 				render: ( { item }: { item: DataViewBlueprint } ) => (
-					<Text
-						className="text-[13px] text-a8c-gray-700 h-[80px] leading-5"
-						weight={ 400 }
-						truncate
-						numberOfLines={ 4 }
-						title={ item.excerpt }
-						onClick={ () => handleBlueprintClick( item ) }
-					>
-						{ item.excerpt }
-					</Text>
+					<div className="px-5 pb-5" onClick={ () => handleBlueprintClick( item ) }>
+						<Text
+							className="text-[13px] text-a8c-gray-700 h-[80px] leading-5"
+							weight={ 400 }
+							truncate
+							numberOfLines={ 4 }
+							title={ item.excerpt }
+						>
+							{ item.excerpt }
+						</Text>
+					</div>
 				),
 			},
 		],

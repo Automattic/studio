@@ -2,9 +2,11 @@ import path from 'path';
 import { rootCertificates } from 'tls';
 import { createNodeFsMountHandler, loadNodeRuntime } from '@php-wasm/node';
 import {
+	SupportedPHPVersion,
 	MountHandler,
 	PHP,
 	PHPRequestHandler,
+	PHPRunOptions,
 	proxyFileSystem,
 	rotatePHPRuntime,
 	setPhpIniEntries,
@@ -26,6 +28,7 @@ import {
 import fs from 'fs-extra';
 import { WPNowOptions, WPNowMode } from './config';
 import {
+	DEFAULT_PHP_VERSION,
 	PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER,
 	PLAYGROUND_INTERNAL_PRELOAD_PATH,
 	PLAYGROUND_INTERNAL_SHARED_FOLDER,
@@ -46,6 +49,10 @@ import {
 	getPluginFile,
 	readFileHead,
 } from './wp-playground-wordpress';
+
+const WP_CLI_SCRIPT_FILENAME = 'run-cli.php';
+const CLI_SAPI_NAME = 'cli';
+const WP_CLI_RUN_WRAPPED = Symbol( 'studio-wp-cli-run-wrapped' );
 
 export default async function startWPNow(
 	options: Partial< WPNowOptions > = {}
@@ -144,6 +151,21 @@ async function getPHPInstance(
 	} );
 	const php = new PHP( id );
 	php.requestHandler = requestHandler;
+	const documentRoot = requestHandler?.documentRoot || options.documentRoot || '/wordpress';
+	const phpVersion = options.phpVersion || DEFAULT_PHP_VERSION;
+
+	if ( ! php[ WP_CLI_RUN_WRAPPED ] ) {
+		const originalRun = php.run.bind( php );
+
+		php[ WP_CLI_RUN_WRAPPED ] = true;
+		php.run = ( async ( runOptions: PHPRunOptions ) => {
+			if ( ! shouldHandleWithCliRuntime( runOptions ) ) {
+				return originalRun( runOptions );
+			}
+
+			return await runWpCliInCliRuntime( php, runOptions, phpVersion, documentRoot );
+		} ) as typeof php.run;
+	}
 
 	await setPhpIniEntries( php, {
 		memory_limit: '256M',
@@ -153,6 +175,43 @@ async function getPHPInstance(
 	} );
 
 	return { php, runtimeId: id };
+}
+
+function shouldHandleWithCliRuntime( options: PHPRunOptions ) {
+	const scriptPath = options?.scriptPath;
+	return typeof scriptPath === 'string' && scriptPath.endsWith( WP_CLI_SCRIPT_FILENAME );
+}
+
+async function runWpCliInCliRuntime(
+	primaryPhp: PHP,
+	runOptions: PHPRunOptions,
+	phpVersion: SupportedPHPVersion,
+	documentRoot: string
+) {
+	const id = await loadNodeRuntime( phpVersion, {
+		followSymlinks: true,
+	} );
+	const cliPhp = new PHP( id );
+
+	try {
+		await cliPhp.setSapiName( CLI_SAPI_NAME );
+		await setPhpIniEntries( cliPhp, {
+			memory_limit: '256M',
+			disable_functions: '',
+			allow_url_fopen: '1',
+			'openssl.cafile': path.posix.join( PLAYGROUND_INTERNAL_SHARED_FOLDER, 'ca-bundle.crt' ),
+		} );
+
+		await proxyFileSystem( primaryPhp, cliPhp, [
+			'/tmp',
+			documentRoot,
+			PLAYGROUND_INTERNAL_SHARED_FOLDER,
+		] );
+
+		return await cliPhp.run( runOptions );
+	} finally {
+		cliPhp.exit();
+	}
 }
 
 async function prepareDocumentRoot( php: PHP, options: WPNowOptions ) {

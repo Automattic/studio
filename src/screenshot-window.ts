@@ -17,28 +17,9 @@ export function createScreenshotWindow( captureUrl: string ) {
 		webPreferences: { session: newSession },
 	} );
 
-	const responseStatusCodePromise = new Promise< void >( ( resolve, reject ) => {
-		newSession.webRequest.onCompleted( ( details ) => {
-			if ( details.resourceType !== 'mainFrame' ) {
-				return;
-			}
-
-			if ( details.statusCode < 200 || details.statusCode >= 400 ) {
-				reject( new Error( `Page returned status code: ${ details.statusCode }` ) );
-			} else {
-				resolve();
-			}
-		} );
-	} );
-
-	responseStatusCodePromise.catch( () => {
-		// This catch is intentionally empty - prevents unhandled rejection warnings
-		// The actual error handling is done in the waitForCapture function
-	} );
-
 	const waitForCapture = async () => {
 		await window.loadURL( captureUrl );
-		await responseStatusCodePromise;
+
 		await window.webContents.insertCSS( `
 			body, html {
 				overflow: hidden;

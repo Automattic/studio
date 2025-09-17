@@ -98,7 +98,7 @@ async function setupSentryUserId() {
 // https://github.com/electron/electron/issues/41613
 function launchExtensionBackgroundWorkers( appSession = session.defaultSession ) {
 	return Promise.all(
-		appSession.getAllExtensions().map( async ( extension ) => {
+		appSession.extensions.getAllExtensions().map( async ( extension ) => {
 			const manifest = extension.manifest;
 			if ( manifest.manifest_version === 3 && manifest?.background?.service_worker ) {
 				await appSession.serviceWorkers.startWorkerForScope( extension.url );

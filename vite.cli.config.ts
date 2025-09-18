@@ -11,7 +11,7 @@ export default defineConfig({
 			viteStaticCopy({
 				targets: [
 					{
-						src: yargsLocalesPath,
+						src: 'node_modules/yargs/locales/*',
 						dest: '../locales' // Relative to outDir (dist/cli), so this goes to dist/locales
 					}
 				]

@@ -50,7 +50,9 @@ function mockElectron() {
 			session: {
 				defaultSession: {
 					...electron.session.defaultSession,
-					getAllExtensions: jest.fn().mockReturnValue( [] ),
+					extensions: {
+						getAllExtensions: jest.fn().mockReturnValue( [] ),
+					},
 					serviceWorkers: {
 						startWorkerForScope: jest.fn().mockResolvedValue( undefined ),
 					},

@@ -85,15 +85,12 @@ export default defineConfig( {
 			viteStaticCopy( {
 				targets: [
 					{
-						src: resolve( __dirname, 'node_modules/@wordpress/components/build-style/style.css' ),
+						src: 'node_modules/@wordpress/components/build-style/style.css',
 						dest: 'main_window/styles',
 						rename: 'wordpress-components-style.css',
 					},
 					{
-						src: resolve(
-							__dirname,
-							'node_modules/@wordpress/components/build-style/style-rtl.css'
-						),
+						src: 'node_modules/@wordpress/components/build-style/style-rtl.css',
 						dest: 'main_window/styles',
 						rename: 'wordpress-components-style-rtl.css',
 					},

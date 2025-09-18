@@ -1,2 +1,0 @@
-/* Import WordPress component styles directly to ensure they load before custom styles */
-@import '@wordpress/components/build-style/style.css';

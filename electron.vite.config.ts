@@ -5,10 +5,26 @@ import react from '@vitejs/plugin-react';
 import topLevelAwait from 'vite-plugin-top-level-await';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import wasm from 'vite-plugin-wasm';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
+import checker from 'vite-plugin-checker';
+import { getSentryReleaseInfo } from './src/lib/sentry-release';
+
+const version = process.env.npm_package_version || '';
+const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo( version );
+console.log( 'Sentry release version:', sentryRelease );
+console.log( 'Sentry environment:', isDevEnvironment ? 'development' : 'production' );
 
 export default defineConfig( {
 	main: {
-		plugins: [ externalizeDepsPlugin() ],
+		plugins: [
+			externalizeDepsPlugin(),
+			...(isDevEnvironment ? [checker({
+				typescript: {
+					tsconfigPath: resolve(__dirname, 'tsconfig.json'),
+					exclude: ['vendor/**/*'],
+				},
+			})] : []),
+		],
 		resolve: {
 			alias: {
 				src: resolve( 'src' ),
@@ -97,7 +113,24 @@ export default defineConfig( {
 					},
 				],
 			} ),
-		],
+			...(isDevEnvironment ? [checker({
+				typescript: {
+					tsconfigPath: resolve(__dirname, 'tsconfig.json'),
+					exclude: ['vendor/**/*'],
+				},
+			})] : []),
+			// Sentry must be the last plugin
+			!isDevEnvironment &&
+				!!process.env.SENTRY_AUTH_TOKEN &&
+				sentryVitePlugin({
+					authToken: process.env.SENTRY_AUTH_TOKEN,
+					org: 'a8c',
+					project: 'studio',
+					release: {
+						name: sentryRelease,
+					},
+				}),
+		].filter(Boolean),
 		css: {
 			// Ensure CSS injection order is preserved - WordPress styles first, then custom styles
 			devSourcemap: true,

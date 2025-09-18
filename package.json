@@ -17,7 +17,7 @@
 		"start": "electron-forge start",
 		"start-wayland": "npm run prestart && electron-forge start -- --enable-features=UseOzonePlatform --ozone-platform=wayland .",
 		"postinstall": "patch-package && ts-node scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs",
-		"package": "electron-forge package",
+		"package": "electron-vite build --outDir=dist && electron-forge package",
 		"make": "electron-vite build --outDir=dist && electron-forge make",
 		"make:windows-release": "powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType release",
 		"make:windows-dev": "powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev",

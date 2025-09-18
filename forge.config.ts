@@ -10,9 +10,9 @@ import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
-import { webpack } from 'webpack';
 import { isErrnoException } from './common/lib/is-errno-exception';
-import cliConfig from './webpack.cli.config';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const config: ForgeConfig = {
@@ -134,16 +134,8 @@ const config: ForgeConfig = {
 			}
 
 			console.log( 'Building CLI ...' );
-			const compiler = webpack( { ...cliConfig, mode: 'production' } );
-
-			await new Promise< void >( ( resolve, reject ) => {
-				compiler.run( ( error ) => {
-					if ( error ) {
-						reject( error );
-					}
-					resolve();
-				} );
-			} );
+			const execAsync = promisify( exec );
+			await execAsync( 'npm run cli:build' );
 		},
 	},
 };

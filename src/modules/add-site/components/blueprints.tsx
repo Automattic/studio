@@ -112,7 +112,7 @@ export function AddSiteBlueprintSelector( {
 				render: ( { item }: { item: DataViewBlueprint } ) => (
 					<div
 						className={ cx(
-							'w-full bg-gray-50 h-32 rounded-t-sm overflow-hidden',
+							'w-full bg-gray-50 h-32 rounded-t overflow-hidden',
 							'[@media(min-height:680px)]:h-[175px]',
 							item.isSelected && 'is-selected'
 						) }

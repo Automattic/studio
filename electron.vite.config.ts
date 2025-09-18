@@ -1,4 +1,5 @@
 import { resolve } from 'path';
+import { pathToFileURL } from 'url';
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 import topLevelAwait from 'vite-plugin-top-level-await';
@@ -20,7 +21,7 @@ export default defineConfig( {
 			MAIN_WINDOW_WEBPACK_ENTRY: JSON.stringify(
 				process.env.NODE_ENV === 'development'
 					? 'http://localhost:5173'
-					: `file://${resolve( __dirname, 'dist/renderer/index.html' )}`
+					: 'dist/renderer/index.html'
 			),
 			MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: JSON.stringify(
 				resolve( __dirname, 'dist/preload/preload.js' )

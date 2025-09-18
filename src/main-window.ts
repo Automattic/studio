@@ -91,7 +91,11 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		mainWindow.setFullScreen( true );
 	}
 
-	void mainWindow.loadURL( MAIN_WINDOW_WEBPACK_ENTRY );
+	if ( MAIN_WINDOW_WEBPACK_ENTRY.startsWith( 'http' ) ) {
+		void mainWindow.loadURL( MAIN_WINDOW_WEBPACK_ENTRY );
+	} else {
+		void mainWindow.loadFile( MAIN_WINDOW_WEBPACK_ENTRY );
+	}
 
 	// Open the DevTools if the user had it open last time they used the app.
 	// During development the dev tools default to open.

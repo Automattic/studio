@@ -35,7 +35,7 @@
 		"e2e": "npx playwright install && npx playwright test",
 		"test:metrics": "npx playwright test --config=./metrics/playwright.metrics.config.ts",
 		"make-pot": "node ./scripts/make-pot.mjs",
-		"dev": "electron-vite dev",
+		"dev": "electron-vite dev --watch",
 		"build": "electron-vite build",
 		"preview": "electron-vite preview"
 	},

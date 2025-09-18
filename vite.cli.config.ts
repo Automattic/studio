@@ -1,17 +1,22 @@
 import { resolve } from 'path';
 import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
+import { existsSync } from 'fs';
+
+const yargsLocalesPath = resolve(__dirname, 'node_modules/yargs/locales');
 
 export default defineConfig({
 	plugins: [
-		viteStaticCopy({
-			targets: [
-				{
-					src: resolve(__dirname, 'node_modules/yargs/locales'),
-					dest: '../locales' // Relative to outDir (dist/cli), so this goes to dist/locales
-				}
-			]
-		})
+		...(existsSync(yargsLocalesPath) ? [
+			viteStaticCopy({
+				targets: [
+					{
+						src: yargsLocalesPath,
+						dest: '../locales' // Relative to outDir (dist/cli), so this goes to dist/locales
+					}
+				]
+			})
+		] : [])
 	],
 	build: {
 		lib: {

@@ -6,7 +6,6 @@ import topLevelAwait from 'vite-plugin-top-level-await';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import wasm from 'vite-plugin-wasm';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
-import checker from 'vite-plugin-checker';
 import { getSentryReleaseInfo } from './src/lib/sentry-release';
 
 const version = process.env.npm_package_version || '';
@@ -18,12 +17,6 @@ export default defineConfig( {
 	main: {
 		plugins: [
 			externalizeDepsPlugin(),
-			...(isDevEnvironment ? [checker({
-				typescript: {
-					tsconfigPath: resolve(__dirname, 'tsconfig.json'),
-					exclude: ['vendor/**/*'],
-				},
-			})] : []),
 		],
 		resolve: {
 			alias: {
@@ -113,12 +106,6 @@ export default defineConfig( {
 					},
 				],
 			} ),
-			...(isDevEnvironment ? [checker({
-				typescript: {
-					tsconfigPath: resolve(__dirname, 'tsconfig.json'),
-					exclude: ['vendor/**/*'],
-				},
-			})] : []),
 			// Sentry must be the last plugin
 			!isDevEnvironment &&
 				!!process.env.SENTRY_AUTH_TOKEN &&

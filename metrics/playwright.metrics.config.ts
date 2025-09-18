@@ -22,7 +22,7 @@ export default defineConfig( {
 		// Enable only for debugging.
 		trace: 'off',
 		screenshot: 'only-on-failure',
-		video: 'retain-on-failure',
+		video: 'off',
 	},
 	expect: {
 		timeout: 300_000, // 5 minutes.

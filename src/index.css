@@ -1,3 +1,6 @@
+@import './wordpress-components.css';
+@import '@wordpress/components/build-style/style-rtl.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

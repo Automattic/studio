@@ -6,7 +6,7 @@
 	"version": "1.6.0-beta3",
 	"description": "Local WordPress development environment using Playgrounds",
 	"license": "GPL-2.0-or-later",
-	"main": ".webpack/main",
+	"main": "out/main/index.js",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/Automattic/studio.git",
@@ -18,7 +18,7 @@
 		"start-wayland": "npm run prestart && electron-forge start -- --enable-features=UseOzonePlatform --ozone-platform=wayland .",
 		"postinstall": "patch-package && ts-node scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs",
 		"package": "electron-forge package",
-		"make": "electron-forge make",
+		"make": "electron-vite build --outDir=dist && electron-forge make",
 		"make:windows-release": "powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType release",
 		"make:windows-dev": "powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev",
 		"make:macos-x64": "SKIP_DMG=true FILE_ARCHITECTURE=x64 electron-forge make --arch=x64 --platform=darwin",
@@ -34,7 +34,10 @@
 		"test:watch": "cross-env NODE_OPTIONS='--no-deprecation' jest --watch",
 		"e2e": "npx playwright install && npx playwright test",
 		"test:metrics": "npx playwright test --config=./metrics/playwright.metrics.config.ts",
-		"make-pot": "node ./scripts/make-pot.mjs"
+		"make-pot": "node ./scripts/make-pot.mjs",
+		"dev": "electron-vite dev",
+		"build": "electron-vite build",
+		"preview": "electron-vite preview"
 	},
 	"devDependencies": {
 		"@automattic/color-studio": "^4.1.0",
@@ -69,6 +72,7 @@
 		"@typescript-eslint/eslint-plugin": "^8.39.1",
 		"@typescript-eslint/parser": "^8.21.0",
 		"@vercel/webpack-asset-relocator-loader": "1.7.3",
+		"@vitejs/plugin-react": "^5.0.3",
 		"@wordpress/components": "^30.3.0",
 		"@wordpress/element": "^6.26.0",
 		"@wordpress/react-i18n": "^3.48.0",
@@ -80,6 +84,7 @@
 		"electron": "37.5.1",
 		"electron-devtools-installer": "^4.0.0",
 		"electron-playwright-helpers": "^1.7.1",
+		"electron-vite": "^4.0.0",
 		"eslint": "^8.57.1",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-import-resolver-typescript": "^3.7.0",
@@ -108,6 +113,11 @@
 		"ts-loader": "^9.5.4",
 		"ts-node": "^10.0.0",
 		"typescript": "~5.9.2",
+		"vite": "^7.1.5",
+		"vite-plugin-ejs": "^1.7.0",
+		"vite-plugin-static-copy": "^3.1.2",
+		"vite-plugin-top-level-await": "^1.6.0",
+		"vite-plugin-wasm": "^3.5.0",
 		"web-streams-polyfill": "^4.0.0",
 		"webpack-cli": "^6.0.1",
 		"webpack-dev-middleware": "5.3.4"

@@ -69,6 +69,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		minWidth: MAIN_MIN_WIDTH,
 		webPreferences: {
 			preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+			webSecurity: process.env.NODE_ENV !== 'development',
 		},
 		...getOSWindowOptions(),
 	};

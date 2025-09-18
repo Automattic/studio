@@ -1,9 +1,6 @@
-import riveWASMResource from '@rive-app/canvas/rive.wasm';
-import { useRive, useStateMachineInput, RuntimeLoader } from '@rive-app/react-canvas';
+import { useRive, useStateMachineInput } from '@rive-app/react-canvas';
 import { useCallback, useEffect } from '@wordpress/element';
-import aiImage from '../../assets/ai-icon.riv';
-
-RuntimeLoader.setWasmUrl( riveWASMResource );
+import aiImage from '../../assets/ai-icon.riv?url';
 
 const useAiIcon = () => {
 	const stateMachineName = 'State Machine A';

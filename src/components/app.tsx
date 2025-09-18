@@ -34,16 +34,6 @@ export default function App() {
 
 	return (
 		<>
-			<DynamicStylesheet
-				id="wordpress-components-style"
-				href={
-					i18n?.isRTL()
-						? '../main_window/styles/wordpress-components-style-rtl.css'
-						: '../main_window/styles/wordpress-components-style.css'
-				}
-			/>
-			<DynamicStylesheet id="main-window-style" href={ '../main_window.css' } />
-
 			{ needsOnboarding ? (
 				<VStack
 					className={ cx( 'h-screen backdrop-blur-3xl app-drag-region select-none' ) }

@@ -21,7 +21,7 @@ export default defineConfig( {
 		headless: true,
 		// Enable only for debugging.
 		trace: 'off',
-		screenshot: 'off',
+		screenshot: 'only-on-failure',
 		video: 'off',
 	},
 	expect: {

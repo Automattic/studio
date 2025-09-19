@@ -1495,7 +1495,7 @@ export function showSiteContextMenu(
 
 	menu.append(
 		new MenuItem( {
-			label: __( 'Delete Site…' ),
+			label: __( 'Delete site…' ),
 			enabled: !isAddingSite,
 			click: () => {
 				sendIpcEventToRendererWithWindow(

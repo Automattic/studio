@@ -1478,6 +1478,23 @@ export function showSiteContextMenu(
 
 	menu.append(
 		new MenuItem( {
+			label: __( 'Edit site…' ),
+			enabled: !isAddingSite,
+			click: () => {
+				sendIpcEventToRendererWithWindow(
+					BrowserWindow.fromWebContents( event.sender ),
+					'site-context-menu-action',
+					{
+						action: 'edit-site',
+						siteId,
+					}
+				);
+			},
+		} )
+	);
+
+	menu.append(
+		new MenuItem( {
 			label: __( 'Delete Site…' ),
 			enabled: !isAddingSite,
 			click: () => {

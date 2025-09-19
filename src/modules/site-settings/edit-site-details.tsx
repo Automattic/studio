@@ -1,6 +1,6 @@
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import stripAnsi from 'strip-ansi';
 import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
@@ -26,7 +26,12 @@ type EditSiteDetailsProps = {
 	onSave: () => void;
 };
 
-export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteDetailsProps ) {
+export interface EditSiteDetailsRef {
+	openModal: () => void;
+}
+
+const EditSiteDetails = forwardRef< EditSiteDetailsRef, EditSiteDetailsProps >(
+	( { currentWpVersion, onSave }, ref ) => {
 	const { __ } = useI18n();
 	const { updateSite, selectedSite, stopServer, startServer } = useSiteDetails();
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
@@ -64,6 +69,11 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
 	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
 	const [ enableHttps, setEnableHttps ] = useState( false );
+
+	// Expose openModal method through ref
+	useImperativeHandle( ref, () => ( {
+		openModal: () => setShowModal( true ),
+	} ), [] );
 
 	useEffect( () => {
 		getIpcApi()
@@ -348,4 +358,8 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 			</Button>
 		</>
 	);
-}
+} );
+
+EditSiteDetails.displayName = 'EditSiteDetails';
+
+export default EditSiteDetails;

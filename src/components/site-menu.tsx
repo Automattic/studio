@@ -198,6 +198,12 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 								alert( __( 'Could not open the terminal.' ) );
 							}
 							break;
+						case 'edit-site':
+							// Trigger edit site modal by sending a custom event
+							window.dispatchEvent( new CustomEvent( 'edit-site-request', {
+								detail: { siteId: site.id }
+							} ) );
+							break;
 						case 'delete':
 							// Handle delete with confirmation dialog
 							const DELETE_BUTTON_INDEX = 0;

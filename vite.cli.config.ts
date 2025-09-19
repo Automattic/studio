@@ -33,13 +33,14 @@ export default defineConfig( {
 			external: [
 				/^node:/,
 				/^(path|fs|os|child_process|crypto|http|https|url|querystring|stream|util|events|buffer|assert|net|tty|readline|zlib|constants)$/,
-				'superagent',
-				'archiver',
 			],
 			output: {
 				format: 'cjs',
 				entryFileNames: 'main.js',
 			},
+		},
+		commonjsOptions: {
+			ignoreDynamicRequires: true,
 		},
 		sourcemap: true,
 		minify: false,
@@ -52,5 +53,6 @@ export default defineConfig( {
 			common: resolve( __dirname, 'common' ),
 		},
 		conditions: [ 'node' ],
+		mainFields: [ 'main' ],
 	},
 } );

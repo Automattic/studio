@@ -17,6 +17,18 @@ export default defineConfig( {
 	main: {
 		plugins: [
 			externalizeDepsPlugin(),
+			viteStaticCopy( {
+				targets: [
+					{
+						src: 'src/about-menu/about-menu.html',
+						dest: '.',
+					},
+					{
+						src: 'src/about-menu/studio-app-icon.png',
+						dest: '.',
+					},
+				],
+			} ),
 		],
 		resolve: {
 			alias: {
@@ -105,7 +117,7 @@ export default defineConfig( {
 			devSourcemap: true,
 			postcss: './postcss.config.js',
 		},
-		assetsInclude: [ '**/*.riv' ],
+		assetsInclude: [ '**/*.riv', '**/*.wasm' ],
 		optimizeDeps: {
 			include: [ '@wordpress/i18n', '@rive-app/react-canvas', '@rive-app/canvas' ],
 			esbuildOptions: {

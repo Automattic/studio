@@ -1,6 +1,6 @@
 import { useRive, useStateMachineInput } from '@rive-app/react-canvas';
 import { useCallback, useEffect } from '@wordpress/element';
-import aiImage from '../../assets/ai-icon.riv?url';
+import aiImage from '../../assets/ai-icon.riv';
 
 const useAiIcon = () => {
 	const stateMachineName = 'State Machine A';

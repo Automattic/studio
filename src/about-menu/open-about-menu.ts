@@ -12,7 +12,7 @@ export function escapeSingleQuotes( str: string ) {
 }
 
 export function openAboutWindow() {
-	const aboutPath = path.join( __dirname, 'menu', 'about-menu.html' );
+	const aboutPath = path.join( __dirname, 'about-menu.html' );
 
 	if ( aboutWindow ) {
 		aboutWindow.focus();

@@ -1,9 +1,17 @@
+import { RuntimeLoader } from '@rive-app/canvas';
 import { useRive, useStateMachineInput } from '@rive-app/react-canvas';
 import { useCallback, useEffect } from '@wordpress/element';
-import aiImage from '../../assets/ai-icon.riv';
+// eslint-disable-next-line import/no-unresolved
+import aiImage from '/assets/ai-icon.riv';
 
 const useAiIcon = () => {
 	const stateMachineName = 'State Machine A';
+
+	// Configure Rive to use local WASM files
+	useEffect( () => {
+		RuntimeLoader.setWasmUrl( './assets/rive.wasm' );
+	}, [] );
+
 	const { rive, RiveComponent } = useRive( {
 		src: aiImage,
 		stateMachines: stateMachineName,

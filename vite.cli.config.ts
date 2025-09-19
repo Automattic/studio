@@ -33,6 +33,8 @@ export default defineConfig( {
 			external: [
 				/^node:/,
 				/^(path|fs|os|child_process|crypto|http|https|url|querystring|stream|util|events|buffer|assert|net|tty|readline|zlib|constants)$/,
+				'superagent',
+				'archiver',
 			],
 			output: {
 				format: 'cjs',
@@ -49,5 +51,6 @@ export default defineConfig( {
 			vendor: resolve( __dirname, 'vendor' ),
 			common: resolve( __dirname, 'common' ),
 		},
+		conditions: [ 'node' ],
 	},
 } );

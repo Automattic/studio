@@ -98,6 +98,14 @@ export default defineConfig( {
 						dest: 'main_window/styles',
 						rename: 'wordpress-components-style-rtl.css',
 					},
+					{
+						src: 'node_modules/@rive-app/canvas/rive.wasm',
+						dest: 'assets',
+					},
+					{
+						src: 'node_modules/@rive-app/canvas/rive_fallback.wasm',
+						dest: 'assets',
+					},
 				],
 			} ),
 			// Sentry must be the last plugin

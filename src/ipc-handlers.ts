@@ -1337,6 +1337,7 @@ export function showSiteContextMenu(
 	sitePath: string,
 	isRunning: boolean,
 	isLoading: boolean,
+	isAddingSite: boolean,
 	finderLabel: string,
 	editorLabel: string | null,
 	terminalLabel: string
@@ -1347,6 +1348,7 @@ export function showSiteContextMenu(
 		menu.append(
 			new MenuItem( {
 				label: __( 'Stop' ),
+				enabled: !isAddingSite,
 				click: () => {
 					sendIpcEventToRendererWithWindow(
 						BrowserWindow.fromWebContents( event.sender ),
@@ -1363,7 +1365,7 @@ export function showSiteContextMenu(
 		menu.append(
 			new MenuItem( {
 				label: __( 'Start' ),
-				enabled: !isLoading,
+				enabled: !isLoading && !isAddingSite,
 				click: () => {
 					sendIpcEventToRendererWithWindow(
 						BrowserWindow.fromWebContents( event.sender ),
@@ -1383,7 +1385,7 @@ export function showSiteContextMenu(
 	menu.append(
 		new MenuItem( {
 			label: __( 'Open site' ),
-			enabled: isRunning,
+			enabled: isRunning && !isAddingSite,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
 					BrowserWindow.fromWebContents( event.sender ),
@@ -1400,7 +1402,7 @@ export function showSiteContextMenu(
 	menu.append(
 		new MenuItem( {
 			label: __( 'WP admin' ),
-			enabled: isRunning,
+			enabled: isRunning && !isAddingSite,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
 					BrowserWindow.fromWebContents( event.sender ),
@@ -1420,6 +1422,7 @@ export function showSiteContextMenu(
 	menu.append(
 		new MenuItem( {
 			label: sprintf( __( 'Open in %s' ), finderLabel ),
+			enabled: !isAddingSite,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
 					BrowserWindow.fromWebContents( event.sender ),
@@ -1438,6 +1441,7 @@ export function showSiteContextMenu(
 		menu.append(
 			new MenuItem( {
 				label: sprintf( __( 'Open in %s' ), editorLabel ),
+				enabled: !isAddingSite,
 				click: () => {
 					sendIpcEventToRendererWithWindow(
 						BrowserWindow.fromWebContents( event.sender ),
@@ -1456,6 +1460,7 @@ export function showSiteContextMenu(
 	menu.append(
 		new MenuItem( {
 			label: sprintf( __( 'Open in %s' ), terminalLabel ),
+			enabled: !isAddingSite,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
 					BrowserWindow.fromWebContents( event.sender ),
@@ -1474,6 +1479,7 @@ export function showSiteContextMenu(
 	menu.append(
 		new MenuItem( {
 			label: __( 'Delete Site…' ),
+			enabled: !isAddingSite,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
 					BrowserWindow.fromWebContents( event.sender ),

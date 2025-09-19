@@ -140,6 +140,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 		e.preventDefault();
 		const ipcApi = getIpcApi();
 		const isLoading = loadingServer[ site.id ] || false;
+		const isAddingSite = site.isAddingSite || false;
 
 		// Get labels for the menu items
 		const finderLabel = isWindows() ? __( 'File Explorer' ) : __( 'Finder' );
@@ -154,6 +155,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 			site.path,
 			site.running,
 			isLoading,
+			isAddingSite,
 			finderLabel,
 			editorLabel,
 			terminalLabel

@@ -27,26 +27,8 @@ export default defineConfig( {
 			},
 		},
 		define: {
-			MAIN_WINDOW_WEBPACK_ENTRY: JSON.stringify(
-				process.env.NODE_ENV === 'development'
-					? 'http://localhost:5173'
-					: 'dist/renderer/index.html'
-			),
-			MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: JSON.stringify(
-				resolve( __dirname, 'dist/preload/preload.js' )
-			),
 			COMMIT_HASH: JSON.stringify(
 				process.env.GITHUB_SHA ?? process.env.BUILDKITE_COMMIT ?? 'dev'
-			),
-			// Process module paths for forked processes and worker threads
-			SITE_SERVER_PROCESS_MODULE_PATH: JSON.stringify(
-				resolve( __dirname, 'dist/main/siteServerProcess.js' )
-			),
-			WP_CLI_PROCESS_MODULE_PATH: JSON.stringify(
-				resolve( __dirname, 'dist/main/wpCliProcess.js' )
-			),
-			PLAYGROUND_SERVER_PROCESS_MODULE_PATH: JSON.stringify(
-				resolve( __dirname, 'dist/main/playgroundServerProcess.js' )
 			),
 		},
 		build: {
@@ -66,7 +48,7 @@ export default defineConfig( {
 				output: {
 					entryFileNames: '[name].js',
 				},
-				external: [ '@php-wasm/node', '@php-wasm/web' ],
+				external: [ '@php-wasm/node', '@php-wasm/web', '@php-wasm/logger', '@php-wasm/universal', '@php-wasm/scopes' ],
 			},
 		},
 	},

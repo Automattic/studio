@@ -50,11 +50,11 @@ import packageJson from '../package.json';
 
 // Helper function to get the actual URL for validation
 function getRendererUrl(): string {
-	if ( MAIN_WINDOW_WEBPACK_ENTRY.startsWith( 'http' ) ) {
-		return MAIN_WINDOW_WEBPACK_ENTRY;
+	if ( ! app.isPackaged && process.env[ 'ELECTRON_RENDERER_URL' ] ) {
+		return process.env[ 'ELECTRON_RENDERER_URL' ];
 	} else {
 		// For production file paths, convert to file:// URL
-		return pathToFileURL( path.join( app.getAppPath(), MAIN_WINDOW_WEBPACK_ENTRY ) ).href;
+		return pathToFileURL( path.join( __dirname, '../renderer/index.html' ) ).href;
 	}
 }
 

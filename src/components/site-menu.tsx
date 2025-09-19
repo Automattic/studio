@@ -113,7 +113,8 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 	);
 }
 function SiteItem( { site }: { site: SiteDetails } ) {
-	const { selectedSite, setSelectedSiteId, startServer, stopServer, deleteSite, loadingServer } = useSiteDetails();
+	const { selectedSite, setSelectedSiteId, startServer, stopServer, deleteSite, loadingServer } =
+		useSiteDetails();
 	const isSelected = site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
 	const { isSiteIdPulling } = useSyncSites();
@@ -144,9 +145,8 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 
 		// Get labels for the menu items
 		const finderLabel = isWindows() ? __( 'File Explorer' ) : __( 'Finder' );
-		const editorLabel = editor && supportedEditorConfig[ editor ]
-			? supportedEditorConfig[ editor ].label
-			: null;
+		const editorLabel =
+			editor && supportedEditorConfig[ editor ] ? supportedEditorConfig[ editor ].label : null;
 		const terminalLabel = getTerminalName( terminal );
 
 		ipcApi.showSiteContextMenu(
@@ -171,10 +171,10 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 					const ipcApi = getIpcApi();
 					switch ( data.action ) {
 						case 'start':
-							startServer( site.id );
+							void startServer( site.id );
 							break;
 						case 'stop':
-							stopServer( site.id );
+							void stopServer( site.id );
 							break;
 						case 'open-site':
 							ipcApi.openSiteURL( site.id );
@@ -187,32 +187,37 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 							break;
 						case 'open-editor':
 							if ( editor ) {
-								ipcApi.openAppAtPath( editor, site.path );
+								void ipcApi.openAppAtPath( editor, site.path );
 							}
 							break;
 						case 'open-terminal':
-							try {
-								ipcApi.openTerminalAtPath( site.path );
-							} catch ( error ) {
-								Sentry.captureException( error );
-								alert( __( 'Could not open the terminal.' ) );
-							}
+							void ( async () => {
+								try {
+									await ipcApi.openTerminalAtPath( site.path );
+								} catch ( error ) {
+									Sentry.captureException( error );
+									alert( __( 'Could not open the terminal.' ) );
+								}
+							} )();
 							break;
 						case 'edit-site':
 							// Trigger edit site modal by sending a custom event
-							window.dispatchEvent( new CustomEvent( 'edit-site-request', {
-								detail: { siteId: site.id }
-							} ) );
+							window.dispatchEvent(
+								new CustomEvent( 'edit-site-request', {
+									detail: { siteId: site.id },
+								} )
+							);
 							break;
-						case 'delete':
+						case 'delete': {
 							// Handle delete with confirmation dialog
 							const DELETE_BUTTON_INDEX = 0;
 							const CANCEL_BUTTON_INDEX = 1;
 							const MAX_LENGTH_SITE_TITLE = 35;
 
-							const trimmedSiteTitle = site.name.length > MAX_LENGTH_SITE_TITLE
-								? `${ site.name.substring( 0, MAX_LENGTH_SITE_TITLE - 3 ) }…`
-								: site.name;
+							const trimmedSiteTitle =
+								site.name.length > MAX_LENGTH_SITE_TITLE
+									? `${ site.name.substring( 0, MAX_LENGTH_SITE_TITLE - 3 ) }…`
+									: site.name;
 
 							const { response, checkboxChecked } = await ipcApi.showMessageBox( {
 								type: 'warning',
@@ -242,6 +247,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 								}
 							}
 							break;
+						}
 					}
 				}
 			}

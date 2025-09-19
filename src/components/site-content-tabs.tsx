@@ -29,7 +29,7 @@ export function SiteContentTabs() {
 			const { siteId } = event.detail;
 
 			// Find the site in the local sites list
-			const targetSite = localSites.find( site => site.id === siteId );
+			const targetSite = localSites.find( ( site ) => site.id === siteId );
 			if ( ! targetSite ) {
 				return;
 			}

@@ -31,7 +31,11 @@ function SettingsRow( { children, label }: PropsWithChildren< { label: string } 
 	);
 }
 
-export function ContentTabSettings( { selectedSite, shouldOpenEditModal, onEditModalOpened }: ContentTabSettingsProps ) {
+export function ContentTabSettings( {
+	selectedSite,
+	shouldOpenEditModal,
+	onEditModalOpened,
+}: ContentTabSettingsProps ) {
 	const dispatch = useAppDispatch();
 	const { __ } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();

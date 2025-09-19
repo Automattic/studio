@@ -110,7 +110,7 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 	);
 }
 function SiteItem( { site }: { site: SiteDetails } ) {
-	const { selectedSite, setSelectedSiteId, startServer, stopServer, deleteSite } = useSiteDetails();
+	const { selectedSite, setSelectedSiteId, startServer, stopServer, deleteSite, loadingServer } = useSiteDetails();
 	const isSelected = site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
 	const { isSiteIdPulling } = useSyncSites();
@@ -134,7 +134,8 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 	const handleContextMenu = ( e: React.MouseEvent ) => {
 		e.preventDefault();
 		const ipcApi = getIpcApi();
-		ipcApi.showSiteContextMenu( site.id, site.name, site.running );
+		const isLoading = loadingServer[ site.id ] || false;
+		ipcApi.showSiteContextMenu( site.id, site.name, site.running, isLoading );
 	};
 
 	// Listen for context menu actions

@@ -1334,43 +1334,45 @@ export function showSiteContextMenu(
 	event: IpcMainInvokeEvent,
 	siteId: string,
 	siteName: string,
-	isRunning: boolean
+	isRunning: boolean,
+	isLoading: boolean
 ) {
 	const menu = new Menu();
 
-	menu.append(
-		new MenuItem( {
-			label: __( 'Start' ),
-			enabled: !isRunning,
-			click: () => {
-				sendIpcEventToRendererWithWindow(
-					BrowserWindow.fromWebContents( event.sender ),
-					'site-context-menu-action',
-					{
-						action: 'start',
-						siteId,
-					}
-				);
-			},
-		} )
-	);
-
-	menu.append(
-		new MenuItem( {
-			label: __( 'Stop' ),
-			enabled: isRunning,
-			click: () => {
-				sendIpcEventToRendererWithWindow(
-					BrowserWindow.fromWebContents( event.sender ),
-					'site-context-menu-action',
-					{
-						action: 'stop',
-						siteId,
-					}
-				);
-			},
-		} )
-	);
+	if ( isRunning ) {
+		menu.append(
+			new MenuItem( {
+				label: __( 'Stop' ),
+				click: () => {
+					sendIpcEventToRendererWithWindow(
+						BrowserWindow.fromWebContents( event.sender ),
+						'site-context-menu-action',
+						{
+							action: 'stop',
+							siteId,
+						}
+					);
+				},
+			} )
+		);
+	} else {
+		menu.append(
+			new MenuItem( {
+				label: __( 'Start' ),
+				enabled: !isLoading,
+				click: () => {
+					sendIpcEventToRendererWithWindow(
+						BrowserWindow.fromWebContents( event.sender ),
+						'site-context-menu-action',
+						{
+							action: 'start',
+							siteId,
+						}
+					);
+				},
+			} )
+		);
+	}
 
 	menu.append( new MenuItem( { type: 'separator' } ) );
 

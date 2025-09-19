@@ -7,9 +7,12 @@ import { Tooltip } from 'src/components/tooltip';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { isMac } from 'src/lib/app-globals';
+import { isMac, isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
+import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
+import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
 
 interface SiteMenuProps {
 	className?: string;
@@ -114,6 +117,8 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 	const isSelected = site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
 	const { isSiteIdPulling } = useSyncSites();
+	const { data: editor } = useGetUserEditorQuery();
+	const { data: terminal } = useGetUserTerminalQuery();
 	const isImporting = isSiteImporting( site.id );
 	const isExporting = isSiteExporting( site.id );
 	const isPulling = isSiteIdPulling( site.id );
@@ -135,7 +140,24 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 		e.preventDefault();
 		const ipcApi = getIpcApi();
 		const isLoading = loadingServer[ site.id ] || false;
-		ipcApi.showSiteContextMenu( site.id, site.name, site.running, isLoading );
+
+		// Get labels for the menu items
+		const finderLabel = isWindows() ? __( 'File Explorer' ) : __( 'Finder' );
+		const editorLabel = editor && supportedEditorConfig[ editor ]
+			? supportedEditorConfig[ editor ].label
+			: null;
+		const terminalLabel = getTerminalName( terminal );
+
+		ipcApi.showSiteContextMenu(
+			site.id,
+			site.name,
+			site.path,
+			site.running,
+			isLoading,
+			finderLabel,
+			editorLabel,
+			terminalLabel
+		);
 	};
 
 	// Listen for context menu actions
@@ -157,6 +179,22 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 							break;
 						case 'open-admin':
 							ipcApi.openSiteURL( site.id, '/wp-admin/' );
+							break;
+						case 'open-finder':
+							ipcApi.openLocalPath( site.path );
+							break;
+						case 'open-editor':
+							if ( editor ) {
+								ipcApi.openAppAtPath( editor, site.path );
+							}
+							break;
+						case 'open-terminal':
+							try {
+								ipcApi.openTerminalAtPath( site.path );
+							} catch ( error ) {
+								Sentry.captureException( error );
+								alert( __( 'Could not open the terminal.' ) );
+							}
 							break;
 						case 'delete':
 							// Handle delete with confirmation dialog
@@ -204,7 +242,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 		return () => {
 			unsubscribe();
 		};
-	}, [ site.id, site.name, startServer, stopServer, deleteSite ] );
+	}, [ site.id, site.name, site.path, startServer, stopServer, deleteSite, editor ] );
 
 	return (
 		<li

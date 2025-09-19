@@ -123,8 +123,8 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'listWpContentFolders', siteId, subdir ),
 	getProviderConstants: () => ipcRendererInvoke( 'getProviderConstants' ),
 	validateBlueprint: ( blueprintJson ) => ipcRendererInvoke( 'validateBlueprint', blueprintJson ),
-	showSiteContextMenu: ( siteId, siteName, isRunning, isLoading ) =>
-		ipcRendererSend( 'showSiteContextMenu', siteId, siteName, isRunning, isLoading ),
+	showSiteContextMenu: ( siteId, siteName, sitePath, isRunning, isLoading, finderLabel, editorLabel, terminalLabel ) =>
+		ipcRendererSend( 'showSiteContextMenu', siteId, siteName, sitePath, isRunning, isLoading, finderLabel, editorLabel, terminalLabel ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

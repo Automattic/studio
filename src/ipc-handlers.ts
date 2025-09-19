@@ -17,7 +17,7 @@ import fsPromises from 'fs/promises';
 import https from 'node:https';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
+import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { compileBlueprint } from '@wp-playground/blueprints';
 import archiver from 'archiver';
 import {
@@ -1334,8 +1334,12 @@ export function showSiteContextMenu(
 	event: IpcMainInvokeEvent,
 	siteId: string,
 	siteName: string,
+	sitePath: string,
 	isRunning: boolean,
-	isLoading: boolean
+	isLoading: boolean,
+	finderLabel: string,
+	editorLabel: string | null,
+	terminalLabel: string
 ) {
 	const menu = new Menu();
 
@@ -1403,6 +1407,61 @@ export function showSiteContextMenu(
 					'site-context-menu-action',
 					{
 						action: 'open-admin',
+						siteId,
+					}
+				);
+			},
+		} )
+	);
+
+	menu.append( new MenuItem( { type: 'separator' } ) );
+
+	// Add Open in Finder/Explorer
+	menu.append(
+		new MenuItem( {
+			label: sprintf( __( 'Open in %s' ), finderLabel ),
+			click: () => {
+				sendIpcEventToRendererWithWindow(
+					BrowserWindow.fromWebContents( event.sender ),
+					'site-context-menu-action',
+					{
+						action: 'open-finder',
+						siteId,
+					}
+				);
+			},
+		} )
+	);
+
+	// Add Open in Code Editor if available
+	if ( editorLabel ) {
+		menu.append(
+			new MenuItem( {
+				label: sprintf( __( 'Open in %s' ), editorLabel ),
+				click: () => {
+					sendIpcEventToRendererWithWindow(
+						BrowserWindow.fromWebContents( event.sender ),
+						'site-context-menu-action',
+						{
+							action: 'open-editor',
+							siteId,
+						}
+					);
+				},
+			} )
+		);
+	}
+
+	// Add Open in Terminal
+	menu.append(
+		new MenuItem( {
+			label: sprintf( __( 'Open in %s' ), terminalLabel ),
+			click: () => {
+				sendIpcEventToRendererWithWindow(
+					BrowserWindow.fromWebContents( event.sender ),
+					'site-context-menu-action',
+					{
+						action: 'open-terminal',
 						siteId,
 					}
 				);

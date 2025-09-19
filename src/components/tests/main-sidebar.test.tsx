@@ -50,6 +50,8 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		generateProposedSitePath: jest.fn(),
 		openURL: jest.fn(),
 		getAllCustomDomains: jest.fn().mockResolvedValue( [] ),
+		getUserEditor: jest.fn().mockResolvedValue( 'cursor' ),
+		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
 	} ),
 } ) );
 

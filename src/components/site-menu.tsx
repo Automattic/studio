@@ -254,7 +254,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 		);
 
 		return () => {
-			unsubscribe();
+			unsubscribe?.();
 		};
 	}, [ site.id, site.name, site.path, startServer, stopServer, deleteSite, editor ] );
 

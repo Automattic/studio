@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/electron/renderer';
 import { speak } from '@wordpress/a11y';
 import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
@@ -8,6 +9,7 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface SiteMenuProps {
 	className?: string;
@@ -108,7 +110,7 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 	);
 }
 function SiteItem( { site }: { site: SiteDetails } ) {
-	const { selectedSite, setSelectedSiteId } = useSiteDetails();
+	const { selectedSite, setSelectedSiteId, startServer, stopServer, deleteSite } = useSiteDetails();
 	const isSelected = site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
 	const { isSiteIdPulling } = useSyncSites();
@@ -128,6 +130,81 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 		tooltipText = __( 'Loading' );
 	}
 
+	// Handle context menu
+	const handleContextMenu = ( e: React.MouseEvent ) => {
+		e.preventDefault();
+		const ipcApi = getIpcApi();
+		ipcApi.showSiteContextMenu( site.id, site.name, site.running );
+	};
+
+	// Listen for context menu actions
+	useEffect( () => {
+		const unsubscribe = window.ipcListener.subscribe(
+			'site-context-menu-action',
+			async ( _, data: { action: string; siteId: string } ) => {
+				if ( data.siteId === site.id ) {
+					const ipcApi = getIpcApi();
+					switch ( data.action ) {
+						case 'start':
+							startServer( site.id );
+							break;
+						case 'stop':
+							stopServer( site.id );
+							break;
+						case 'open-site':
+							ipcApi.openSiteURL( site.id );
+							break;
+						case 'open-admin':
+							ipcApi.openSiteURL( site.id, '/wp-admin/' );
+							break;
+						case 'delete':
+							// Handle delete with confirmation dialog
+							const DELETE_BUTTON_INDEX = 0;
+							const CANCEL_BUTTON_INDEX = 1;
+							const MAX_LENGTH_SITE_TITLE = 35;
+
+							const trimmedSiteTitle = site.name.length > MAX_LENGTH_SITE_TITLE
+								? `${ site.name.substring( 0, MAX_LENGTH_SITE_TITLE - 3 ) }…`
+								: site.name;
+
+							const { response, checkboxChecked } = await ipcApi.showMessageBox( {
+								type: 'warning',
+								message: sprintf( __( 'Delete %s' ), trimmedSiteTitle ),
+								detail: __(
+									"The site's database will be lost. Including all posts, pages, comments, and media."
+								),
+								buttons: [ __( 'Delete site' ), __( 'Cancel' ) ],
+								cancelId: CANCEL_BUTTON_INDEX,
+								checkboxLabel: __( 'Delete site files from my computer' ),
+								checkboxChecked: true,
+							} );
+
+							if ( response === DELETE_BUTTON_INDEX ) {
+								try {
+									await deleteSite( site.id, checkboxChecked );
+								} catch ( error ) {
+									ipcApi.showErrorMessageBox( {
+										title: __( 'Deletion failed' ),
+										message: sprintf(
+											__( "We couldn't delete the site '%s'. Please try again" ),
+											trimmedSiteTitle
+										),
+										error,
+									} );
+									Sentry.captureException( error );
+								}
+							}
+							break;
+					}
+				}
+			}
+		);
+
+		return () => {
+			unsubscribe();
+		};
+	}, [ site.id, site.name, startServer, stopServer, deleteSite ] );
+
 	return (
 		<li
 			className={ cx(
@@ -135,6 +212,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 				isMac() ? 'me-5' : 'me-4',
 				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19]'
 			) }
+			onContextMenu={ handleContextMenu }
 		>
 			<button
 				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blue-50"

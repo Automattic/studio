@@ -2,6 +2,8 @@ import { exec, ExecOptions } from 'child_process';
 import crypto from 'crypto';
 import {
 	BrowserWindow,
+	Menu,
+	MenuItem,
 	app,
 	clipboard,
 	dialog,
@@ -1325,6 +1327,108 @@ export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< vo
 		}
 	} else {
 		await openCertificateDialog();
+	}
+}
+
+export function showSiteContextMenu(
+	event: IpcMainInvokeEvent,
+	siteId: string,
+	siteName: string,
+	isRunning: boolean
+) {
+	const menu = new Menu();
+
+	menu.append(
+		new MenuItem( {
+			label: __( 'Start' ),
+			enabled: !isRunning,
+			click: () => {
+				sendIpcEventToRendererWithWindow(
+					BrowserWindow.fromWebContents( event.sender ),
+					'site-context-menu-action',
+					{
+						action: 'start',
+						siteId,
+					}
+				);
+			},
+		} )
+	);
+
+	menu.append(
+		new MenuItem( {
+			label: __( 'Stop' ),
+			enabled: isRunning,
+			click: () => {
+				sendIpcEventToRendererWithWindow(
+					BrowserWindow.fromWebContents( event.sender ),
+					'site-context-menu-action',
+					{
+						action: 'stop',
+						siteId,
+					}
+				);
+			},
+		} )
+	);
+
+	menu.append( new MenuItem( { type: 'separator' } ) );
+
+	menu.append(
+		new MenuItem( {
+			label: __( 'Open site' ),
+			enabled: isRunning,
+			click: () => {
+				sendIpcEventToRendererWithWindow(
+					BrowserWindow.fromWebContents( event.sender ),
+					'site-context-menu-action',
+					{
+						action: 'open-site',
+						siteId,
+					}
+				);
+			},
+		} )
+	);
+
+	menu.append(
+		new MenuItem( {
+			label: __( 'WP admin' ),
+			enabled: isRunning,
+			click: () => {
+				sendIpcEventToRendererWithWindow(
+					BrowserWindow.fromWebContents( event.sender ),
+					'site-context-menu-action',
+					{
+						action: 'open-admin',
+						siteId,
+					}
+				);
+			},
+		} )
+	);
+
+	menu.append( new MenuItem( { type: 'separator' } ) );
+
+	menu.append(
+		new MenuItem( {
+			label: __( 'Delete Site…' ),
+			click: () => {
+				sendIpcEventToRendererWithWindow(
+					BrowserWindow.fromWebContents( event.sender ),
+					'site-context-menu-action',
+					{
+						action: 'delete',
+						siteId,
+					}
+				);
+			},
+		} )
+	);
+
+	const window = BrowserWindow.fromWebContents( event.sender );
+	if ( window ) {
+		menu.popup( { window } );
 	}
 }
 

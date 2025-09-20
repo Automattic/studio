@@ -23,26 +23,20 @@ export function SiteContentTabs() {
 	const { __ } = useI18n();
 	const [ shouldOpenEditModal, setShouldOpenEditModal ] = useState( false );
 
-	// Listen for edit site requests from context menu
 	useEffect( () => {
 		const handleEditSiteRequest = ( event: CustomEvent ) => {
 			const { siteId } = event.detail;
-
-			// Find the site in the local sites list
 			const targetSite = localSites.find( ( site ) => site.id === siteId );
+
 			if ( ! targetSite ) {
 				return;
 			}
 
-			// If this is not the currently selected site, switch to it first
 			if ( siteId !== selectedSite?.id ) {
-				// Switch to the target site
 				setSelectedSiteId( siteId );
 			}
 
-			// Switch to settings tab
 			setSelectedTab( 'settings' );
-			// Set flag to open modal once settings tab is rendered
 			setShouldOpenEditModal( true );
 		};
 

@@ -60,7 +60,6 @@ export function ContentTabSettings( {
 	// Open edit modal when requested from context menu
 	useEffect( () => {
 		if ( shouldOpenEditModal ) {
-			// Open edit modal after a brief delay to ensure tab is fully rendered
 			setTimeout( () => {
 				editSiteRef.current?.openModal();
 				onEditModalOpened?.();

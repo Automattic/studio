@@ -79,7 +79,6 @@ const EditSiteDetails = forwardRef< EditSiteDetailsRef, EditSiteDetailsProps >(
 		const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
 		const [ enableHttps, setEnableHttps ] = useState( false );
 
-		// Expose openModal method through ref
 		useImperativeHandle(
 			ref,
 			() => ( {

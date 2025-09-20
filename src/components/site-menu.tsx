@@ -136,14 +136,11 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 		tooltipText = __( 'Loading' );
 	}
 
-	// Handle context menu
 	const handleContextMenu = ( e: React.MouseEvent ) => {
 		e.preventDefault();
 		const ipcApi = getIpcApi();
 		const isLoading = loadingServer[ site.id ] || false;
 		const isAddingSite = site.isAddingSite || false;
-
-		// Get labels for the menu items
 		const finderLabel = isWindows() ? __( 'File Explorer' ) : __( 'Finder' );
 		const editorLabel =
 			editor && supportedEditorConfig[ editor ] ? supportedEditorConfig[ editor ].label : null;
@@ -162,7 +159,6 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 		);
 	};
 
-	// Listen for context menu actions
 	useEffect( () => {
 		const unsubscribe = window.ipcListener.subscribe(
 			'site-context-menu-action',
@@ -201,7 +197,6 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 							} )();
 							break;
 						case 'edit-site':
-							// Trigger edit site modal by sending a custom event
 							window.dispatchEvent(
 								new CustomEvent( 'edit-site-request', {
 									detail: { siteId: site.id },
@@ -209,7 +204,6 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 							);
 							break;
 						case 'delete': {
-							// Handle delete with confirmation dialog
 							const DELETE_BUTTON_INDEX = 0;
 							const CANCEL_BUTTON_INDEX = 1;
 							const MAX_LENGTH_SITE_TITLE = 35;

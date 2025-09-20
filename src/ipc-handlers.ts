@@ -1385,7 +1385,7 @@ export function showSiteContextMenu(
 	menu.append(
 		new MenuItem( {
 			label: __( 'Open site' ),
-			enabled: isRunning && ! isAddingSite,
+			enabled: ! isLoading && ! isAddingSite,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
 					BrowserWindow.fromWebContents( event.sender ),
@@ -1402,7 +1402,7 @@ export function showSiteContextMenu(
 	menu.append(
 		new MenuItem( {
 			label: __( 'WP admin' ),
-			enabled: isRunning && ! isAddingSite,
+			enabled: ! isLoading && ! isAddingSite,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
 					BrowserWindow.fromWebContents( event.sender ),

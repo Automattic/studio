@@ -173,9 +173,15 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 							void stopServer( site.id );
 							break;
 						case 'open-site':
-							ipcApi.openSiteURL( site.id );
+							if ( ! site.running ) {
+								await startServer( site.id );
+							}
+							ipcApi.openSiteURL( site.id, '', { autoLogin: false } );
 							break;
 						case 'open-admin':
+							if ( ! site.running ) {
+								await startServer( site.id );
+							}
 							ipcApi.openSiteURL( site.id, '/wp-admin/' );
 							break;
 						case 'open-finder':
@@ -250,7 +256,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 		return () => {
 			unsubscribe?.();
 		};
-	}, [ site.id, site.name, site.path, startServer, stopServer, deleteSite, editor ] );
+	}, [ site.id, site.name, site.path, site.running, startServer, stopServer, deleteSite, editor ] );
 
 	return (
 		<li

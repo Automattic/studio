@@ -20,8 +20,8 @@ import {
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
-import { Blueprint } from './stores/wpcom-api';
 import type { WordPressServerProcess } from 'src/lib/wordpress-provider/types';
+import type { Blueprint } from 'src/stores/wpcom-api';
 
 const servers = new Map< string, SiteServer >();
 const deletedServers: string[] = [];
@@ -141,6 +141,7 @@ export class SiteServer {
 			wpVersion: this.meta.wpVersion,
 			isWpAutoUpdating: this.details.isWpAutoUpdating,
 			absoluteUrl: getAbsoluteUrl( this.details ),
+			blueprint: this.meta.blueprint?.blueprint,
 		} );
 
 		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
@@ -170,6 +171,10 @@ export class SiteServer {
 			autoStart: true,
 			themeDetails,
 		};
+
+		if ( this.meta.blueprint ) {
+			delete this.meta.blueprint;
+		}
 	}
 
 	async updateSiteDetails( site: SiteDetails ) {

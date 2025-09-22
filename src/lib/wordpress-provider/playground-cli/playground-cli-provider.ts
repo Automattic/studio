@@ -154,7 +154,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			}
 
 			if ( ! isOnline ) {
-				console.log( '[DEBUG] setupWordPressSite - Offline mode, WordPress files copied' );
 				return true;
 			}
 			return true;

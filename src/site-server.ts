@@ -173,7 +173,7 @@ export class SiteServer {
 		};
 
 		if ( this.meta.blueprint ) {
-			this.meta.blueprint = undefined;
+			delete this.meta.blueprint;
 		}
 	}
 

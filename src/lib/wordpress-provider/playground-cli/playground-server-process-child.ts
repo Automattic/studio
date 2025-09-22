@@ -135,7 +135,7 @@ async function startServer(
 		];
 
 		const args: RunCLIArgs = {
-			command: 'run-blueprint',
+			command: 'server',
 			internalCookieStore: true,
 			followSymlinks: true,
 			skipSqliteSetup: true,
@@ -143,12 +143,8 @@ async function startServer(
 			login: true,
 			'mount-before-install': mounts,
 			'site-url': serverOptions.absoluteUrl,
+			skipWordPressSetup: options.skipWordpressSetup,
 		};
-
-		if ( ! options.isSetupMode ) {
-			args.command = 'server';
-			args.skipWordPressSetup = true;
-		}
 
 		if ( options.phpVersion ) {
 			args.php = options.phpVersion as SupportedPHPVersion;

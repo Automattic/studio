@@ -14,15 +14,12 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 	>();
 	private exitPromise: Promise< void > | null = null;
 	private exitResolve: ( () => void ) | null = null;
-	private isSetupMode = false;
 
 	constructor(
 		public url: string,
 		private options: PlaygroundCliOptions,
 		private serverOptions: WordPressServerOptions
-	) {
-		this.isSetupMode = options.isSetupMode || false;
-	}
+	) {}
 
 	async start(): Promise< void > {
 		if ( this.process ) {
@@ -58,17 +55,9 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 
 		this.process.on( 'exit', () => {
 			this.process = null;
-
-			// In setup mode (run-blueprint), process exit is expected after completion
-			if ( ! this.isSetupMode ) {
-				this.responseHandlers.forEach( ( { reject } ) => {
-					reject( new Error( 'Process exited unexpectedly' ) );
-				} );
-			} else {
-				this.responseHandlers.forEach( ( { resolve } ) => {
-					resolve( undefined );
-				} );
-			}
+			this.responseHandlers.forEach( ( { reject } ) => {
+				reject( new Error( 'Process exited unexpectedly' ) );
+			} );
 			this.responseHandlers.clear();
 
 			if ( this.exitResolve ) {
@@ -142,8 +131,7 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 			const messageToSend = { id, type, data };
 			this.process!.postMessage( messageToSend );
 
-			// Timeout after 60 seconds for setup mode, 30 seconds otherwise
-			const timeout = this.isSetupMode && type === 'start-server' ? 60000 : 30000;
+			const timeout = type === 'start-server' ? 60000 : 30000;
 			setTimeout( () => {
 				if ( this.responseHandlers.has( id ) ) {
 					this.responseHandlers.delete( id );

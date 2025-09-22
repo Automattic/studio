@@ -21,7 +21,7 @@ export function SiteContentTabs() {
 	const { importState } = useImportExport();
 	const { tabs, selectedTab, setSelectedTab } = useContentTabs();
 	const { __ } = useI18n();
-	const [ shouldOpenEditModal, setShouldOpenEditModal ] = useState( false );
+	const [ isEditModalOpen, setIsEditModalOpen ] = useState( false );
 
 	useEffect( () => {
 		const handleEditSiteRequest = ( event: CustomEvent ) => {
@@ -37,7 +37,7 @@ export function SiteContentTabs() {
 			}
 
 			setSelectedTab( 'settings' );
-			setShouldOpenEditModal( true );
+			setIsEditModalOpen( true );
 		};
 
 		window.addEventListener( 'edit-site-request', handleEditSiteRequest as EventListener );
@@ -90,8 +90,8 @@ export function SiteContentTabs() {
 						{ name === 'settings' && (
 							<ContentTabSettings
 								selectedSite={ selectedSite }
-								shouldOpenEditModal={ shouldOpenEditModal }
-								onEditModalOpened={ () => setShouldOpenEditModal( false ) }
+								isEditModalOpen={ isEditModalOpen }
+								setIsEditModalOpen={ setIsEditModalOpen }
 							/>
 						) }
 						{ name === 'assistant' && <ContentTabAssistant selectedSite={ selectedSite } /> }

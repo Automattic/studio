@@ -73,6 +73,8 @@ function NavigationContent( props: NavigationContentProps ) {
 		...createSiteProps
 	} = props;
 
+	const { setSelectedBlueprint, setPhpVersion, setWpVersion } = createSiteProps;
+
 	const handleOptionSelect = useCallback(
 		( option: 'create' | 'blueprint' | 'backup' ) => {
 			if ( option === 'blueprint' ) {
@@ -155,16 +157,16 @@ function NavigationContent( props: NavigationContentProps ) {
 
 				// Apply the preferred versions to the form
 				if ( preferredVersions.php && preferredVersions.php !== 'latest' ) {
-					createSiteProps.setPhpVersion( preferredVersions.php );
+					setPhpVersion( preferredVersions.php );
 				}
 				if ( preferredVersions.wp && preferredVersions.wp !== 'latest' ) {
-					createSiteProps.setWpVersion( preferredVersions.wp );
+					setWpVersion( preferredVersions.wp );
 				}
 			} else {
 				setBlueprintPreferredVersions( undefined );
 			}
 		},
-		[ createSiteProps, setBlueprintPreferredVersions ]
+		[ setBlueprintPreferredVersions, setPhpVersion, setWpVersion ]
 	);
 
 	const handleBlueprintChange = useCallback(
@@ -172,18 +174,18 @@ function NavigationContent( props: NavigationContentProps ) {
 			const blueprint = blueprintsData?.blueprints.find(
 				( b: Blueprint ) => b.slug === blueprintId
 			);
-			createSiteProps.setSelectedBlueprint( blueprint );
+			setSelectedBlueprint( blueprint );
 			applyBlueprintVersions( blueprint );
 		},
-		[ blueprintsData?.blueprints, createSiteProps, applyBlueprintVersions ]
+		[ blueprintsData?.blueprints, setSelectedBlueprint, applyBlueprintVersions ]
 	);
 
 	const handleFileBlueprintSelect = useCallback(
 		( blueprint: Blueprint ) => {
-			createSiteProps.setSelectedBlueprint( blueprint );
+			setSelectedBlueprint( blueprint );
 			applyBlueprintVersions( blueprint );
 		},
-		[ createSiteProps, applyBlueprintVersions ]
+		[ setSelectedBlueprint, applyBlueprintVersions ]
 	);
 
 	return (

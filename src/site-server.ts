@@ -20,8 +20,8 @@ import {
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
-import type { Blueprint } from 'src/stores/wpcom-api';
 import type { WordPressServerProcess } from 'src/lib/wordpress-provider/types';
+import type { Blueprint } from 'src/stores/wpcom-api';
 
 const servers = new Map< string, SiteServer >();
 const deletedServers: string[] = [];

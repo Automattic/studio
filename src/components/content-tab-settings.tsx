@@ -16,8 +16,6 @@ import {
 
 interface ContentTabSettingsProps {
 	selectedSite: SiteDetails;
-	isEditModalOpen: boolean;
-	setIsEditModalOpen: ( isEditModalOpen: boolean ) => void;
 }
 
 function SettingsRow( { children, label }: PropsWithChildren< { label: string } > ) {
@@ -31,11 +29,7 @@ function SettingsRow( { children, label }: PropsWithChildren< { label: string } 
 	);
 }
 
-export function ContentTabSettings( {
-	selectedSite,
-	isEditModalOpen,
-	setIsEditModalOpen,
-}: ContentTabSettingsProps ) {
+export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) {
 	const dispatch = useAppDispatch();
 	const { __ } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
@@ -63,12 +57,7 @@ export function ContentTabSettings( {
 					{ __( 'Site details' ) }
 				</h3>
 				<div className="flex items-center gap-1">
-					<EditSiteDetails
-						currentWpVersion={ wpVersion }
-						onSave={ refreshWpVersion }
-						isEditModalOpen={ isEditModalOpen }
-						setIsEditModalOpen={ setIsEditModalOpen }
-					/>
+					<EditSiteDetails currentWpVersion={ wpVersion } onSave={ refreshWpVersion } />
 					<DropdownMenu
 						icon={ moreVertical }
 						label={ __( 'More options' ) }

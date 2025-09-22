@@ -24,18 +24,12 @@ import {
 type EditSiteDetailsProps = {
 	currentWpVersion: string;
 	onSave: () => void;
-	isEditModalOpen: boolean;
-	setIsEditModalOpen: ( isEditModalOpen: boolean ) => void;
 };
 
-const EditSiteDetails = ( {
-	currentWpVersion,
-	onSave,
-	isEditModalOpen,
-	setIsEditModalOpen,
-}: EditSiteDetailsProps ) => {
+const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) => {
 	const { __ } = useI18n();
-	const { updateSite, selectedSite, stopServer, startServer } = useSiteDetails();
+	const { updateSite, selectedSite, stopServer, startServer, isEditModalOpen, setIsEditModalOpen } =
+		useSiteDetails();
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 	const allowedPhpVersions = useRootSelector( selectAllowedPhpVersions );
 	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );

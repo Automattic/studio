@@ -1,0 +1,14 @@
+{
+	"$schema": "https://playground.wordpress.net/blueprint-schema.json",
+	"landingPage": "/wp-admin/options-general.php",
+	"steps": [
+		{
+			"step": "wp-cli",
+			"command": "wp option update blogname 'WP-CLI Test Site'"
+		},
+		{
+			"step": "wp-cli",
+			"command": "wp option update blogdescription 'Updated via WP-CLI'"
+		}
+	]
+}

@@ -11,7 +11,8 @@ Unreleased
 * Improved export controls to preserve information about completed export #1657
 * Revised environment types and badge display logic #1645
 * Fixed issue with site screenshot taken on Mac having different sizes #1676
-* Updated multiple dependencies to the latest versions
+* Migrated bundler from Webpack to Vite #1794
+* Updated multiple dependencies, including Electron, Forge, Playground, and SQLite plugin, to the latest versions
 
 1.5.6
 =====

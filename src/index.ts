@@ -9,6 +9,7 @@ import {
 	dialog,
 } from 'electron';
 import path from 'path';
+import { pathToFileURL } from 'url';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
 import {
@@ -46,6 +47,16 @@ import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/stor
 import { setupUpdates } from 'src/updates';
 // eslint-disable-next-line import/order
 import packageJson from '../package.json';
+
+// Helper function to get the actual URL for validation
+function getRendererUrl(): string {
+	if ( ! app.isPackaged && process.env[ 'ELECTRON_RENDERER_URL' ] ) {
+		return process.env[ 'ELECTRON_RENDERER_URL' ];
+	} else {
+		// For production file paths, convert to file:// URL
+		return pathToFileURL( path.join( __dirname, '../renderer/index.html' ) ).href;
+	}
+}
 
 if ( ! process.env.IS_DEV_BUILD ) {
 	const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo( app.getVersion() );
@@ -136,7 +147,7 @@ async function appBoot() {
 	app.on( 'web-contents-created', ( _event, contents ) => {
 		contents.on( 'will-navigate', ( event, navigationUrl ) => {
 			const { origin } = new URL( navigationUrl );
-			const allowedOrigins = [ new URL( MAIN_WINDOW_WEBPACK_ENTRY ).origin ];
+			const allowedOrigins = [ new URL( getRendererUrl() ).origin ];
 			if ( ! allowedOrigins.includes( origin ) ) {
 				event.preventDefault();
 			}
@@ -153,7 +164,7 @@ async function appBoot() {
 			);
 		}
 
-		if ( new URL( event.senderFrame.url ).origin === new URL( MAIN_WINDOW_WEBPACK_ENTRY ).origin ) {
+		if ( new URL( event.senderFrame.url ).origin === new URL( getRendererUrl() ).origin ) {
 			return true;
 		}
 
@@ -244,7 +255,7 @@ async function appBoot() {
 		session.defaultSession.webRequest.onHeadersReceived( ( details, callback ) => {
 			// Only set a custom CSP header the main window UI. For other pages (like login) we should
 			// use the CSP provided by the server, which is more likely to be up-to-date and complete.
-			if ( details.url !== MAIN_WINDOW_WEBPACK_ENTRY ) {
+			if ( details.url !== getRendererUrl() ) {
 				callback( details );
 				return;
 			}

@@ -1,6 +1,6 @@
 import http from 'http';
 import net from 'net';
-import killPort from 'cross-port-killer';
+import { kill as killPort } from 'cross-port-killer';
 
 const DEFAULT_PORT = 8881;
 

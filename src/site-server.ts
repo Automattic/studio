@@ -132,6 +132,13 @@ export class SiteServer {
 			await startProxyServer();
 		}
 
+		// Filter out unsupported blueprint features before execution
+		let filteredBlueprint = this.meta.blueprint?.blueprint;
+		if ( filteredBlueprint ) {
+			const { filterUnsupportedFeatures } = await import( 'src/lib/blueprint-features' );
+			filteredBlueprint = filterUnsupportedFeatures( filteredBlueprint );
+		}
+
 		const serverInstance = await startServer( {
 			path: this.details.path,
 			port: this.details.port,
@@ -141,6 +148,7 @@ export class SiteServer {
 			wpVersion: this.meta.wpVersion,
 			isWpAutoUpdating: this.details.isWpAutoUpdating,
 			absoluteUrl: getAbsoluteUrl( this.details ),
+			blueprint: filteredBlueprint,
 		} );
 
 		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );

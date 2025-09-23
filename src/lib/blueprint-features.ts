@@ -1,0 +1,90 @@
+import { Blueprint } from 'src/stores/wpcom-api';
+
+export interface UnsupportedFeature {
+	type: 'step' | 'property';
+	name: string;
+	reason: string;
+}
+
+/**
+ * List of blueprint features that are not supported in Studio
+ */
+export const UNSUPPORTED_BLUEPRINT_FEATURES: UnsupportedFeature[] = [
+	{
+		type: 'step',
+		name: 'enableMultisite',
+		reason: 'Multisite functionality is not currently supported in Studio',
+	},
+	{
+		type: 'step',
+		name: 'login',
+		reason: 'Studio automatically creates and logs in the admin user during site creation',
+	},
+];
+
+export function isStepSupported( stepName: string ): boolean {
+	return ! UNSUPPORTED_BLUEPRINT_FEATURES.some(
+		( feature ) => feature.type === 'step' && feature.name === stepName
+	);
+}
+
+export function isPropertySupported( propertyName: string ): boolean {
+	return ! UNSUPPORTED_BLUEPRINT_FEATURES.some(
+		( feature ) => feature.type === 'property' && feature.name === propertyName
+	);
+}
+
+export function getUnsupportedFeatureInfo( name: string ): UnsupportedFeature | undefined {
+	return UNSUPPORTED_BLUEPRINT_FEATURES.find( ( feature ) => feature.name === name );
+}
+
+export function scanBlueprintForUnsupportedFeatures(
+	blueprint: Blueprint[ 'blueprint' ]
+): UnsupportedFeature[] {
+	const foundUnsupported: UnsupportedFeature[] = [];
+
+	if ( blueprint.steps && Array.isArray( blueprint.steps ) ) {
+		for ( const step of blueprint.steps ) {
+			if ( step.step && ! isStepSupported( step.step ) ) {
+				const featureInfo = getUnsupportedFeatureInfo( step.step );
+				if ( featureInfo ) {
+					foundUnsupported.push( featureInfo );
+				}
+			}
+		}
+	}
+
+	for ( const [ key ] of Object.entries( blueprint ) ) {
+		if ( ! isPropertySupported( key ) ) {
+			const featureInfo = getUnsupportedFeatureInfo( key );
+			if ( featureInfo ) {
+				foundUnsupported.push( featureInfo );
+			}
+		}
+	}
+
+	return foundUnsupported.filter(
+		( feature, index, self ) =>
+			index === self.findIndex( ( f ) => f.name === feature.name && f.type === feature.type )
+	);
+}
+
+export function filterUnsupportedFeatures(
+	blueprint: Blueprint[ 'blueprint' ]
+): Blueprint[ 'blueprint' ] {
+	const filtered = { ...blueprint };
+
+	if ( filtered.steps && Array.isArray( filtered.steps ) ) {
+		filtered.steps = filtered.steps.filter(
+			( step: { step: string } ) => step.step && isStepSupported( step.step )
+		);
+	}
+
+	for ( const [ key ] of Object.entries( filtered ) ) {
+		if ( ! isPropertySupported( key ) ) {
+			delete filtered[ key ];
+		}
+	}
+
+	return filtered;
+}

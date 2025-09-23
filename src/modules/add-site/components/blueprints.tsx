@@ -4,12 +4,13 @@ import {
 	__experimentalHeading as Heading,
 	__experimentalText as Text,
 	Button,
+	Modal,
 	Notice,
 } from '@wordpress/components';
 import { DataViews, View } from '@wordpress/dataviews';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
-import { Icon, external, upload } from '@wordpress/icons';
+import { Icon, external, upload, error, caution } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useRef, useState, useMemo } from 'react';
 import StudioButton from 'src/components/button';
@@ -39,6 +40,114 @@ interface DataViewBlueprint extends Blueprint {
 	categories: string[];
 }
 
+interface BlueprintDetailsModalProps {
+	warnings: Array< { feature: string; reason: string } > | null;
+	validationError: string | null;
+	fileName: string;
+	isOpen: boolean;
+	onClose: () => void;
+}
+
+function BlueprintDetailsModal( {
+	warnings,
+	validationError,
+	fileName,
+	isOpen,
+	onClose,
+}: BlueprintDetailsModalProps ) {
+	const { __ } = useI18n();
+
+	if ( ! isOpen ) {
+		return null;
+	}
+
+	const hasWarnings = warnings && warnings.length > 0;
+	const hasError = !! validationError;
+
+	return (
+		<Modal
+			title={ __( 'Blueprint Details' ) }
+			onRequestClose={ onClose }
+			className="blueprint-details-modal"
+			size="medium"
+		>
+			<VStack spacing={ 4 }>
+				<Text className="font-medium text-gray-900">{ fileName }</Text>
+
+				{ hasError && (
+					<div className="max-h-64 overflow-y-auto">
+						<VStack spacing={ 3 }>
+							<div>
+								<HStack alignment="topLeft" spacing={ 2 }>
+									<Icon icon={ error } className="text-red-500 mt-1 flex-shrink-0" size={ 20 } />
+									<VStack spacing={ 1 }>
+										<Text weight={ 600 } className="text-base">
+											{ __( 'Validation Error' ) }
+										</Text>
+										<Text className="text-sm text-gray-700">{ validationError }</Text>
+									</VStack>
+								</HStack>
+							</div>
+						</VStack>
+					</div>
+				) }
+
+				{ hasWarnings && (
+					<>
+						<Text>
+							{ sprintf(
+								// translators: %d is the number of unsupported features
+								__(
+									'The following %d feature(s) are not supported in Studio and will be automatically removed:'
+								),
+								warnings.length
+							) }
+						</Text>
+
+						<div className="max-h-64 overflow-y-auto">
+							<VStack spacing={ 3 } className="divide-y divide-gray-200">
+								{ warnings.map( ( warningItem, index ) => (
+									<div key={ index } className={ index > 0 ? 'pt-3' : '' }>
+										<HStack alignment="topLeft" spacing={ 2 }>
+											<Icon
+												icon={ caution }
+												className="text-orange-500 mt-1 flex-shrink-0"
+												size={ 20 }
+											/>
+											<VStack spacing={ 1 }>
+												<Text weight={ 600 } className="text-base">
+													{ warningItem.feature }
+												</Text>
+												<Text className="text-sm text-gray-700">{ warningItem.reason }</Text>
+											</VStack>
+										</HStack>
+									</div>
+								) ) }
+							</VStack>
+						</div>
+					</>
+				) }
+
+				{ hasWarnings && ! hasError && (
+					<div className="pt-4 border-t border-gray-200">
+						<Text className="text-sm text-gray-600">
+							{ __(
+								'Your blueprint will still work, but these features will be skipped during site creation.'
+							) }
+						</Text>
+					</div>
+				) }
+
+				<HStack alignment="right">
+					<Button variant="primary" onClick={ onClose }>
+						{ __( 'Got it' ) }
+					</Button>
+				</HStack>
+			</VStack>
+		</Modal>
+	);
+}
+
 interface AddSiteBlueprintProps {
 	blueprints: Blueprint[];
 	errorMessage?: string;
@@ -60,14 +169,24 @@ export function AddSiteBlueprintSelector( {
 	const { refetch: refetchBlueprints, isFetching: isFetchingBlueprints } = useGetBlueprints();
 	const fileRef = useRef< HTMLInputElement | null >( null );
 	const [ validationError, setValidationError ] = useState< string | null >( null );
+	const [ blueprintWarnings, setBlueprintWarnings ] = useState< Array< {
+		feature: string;
+		reason: string;
+		alternative?: string;
+	} > | null >( null );
+	const [ showWarningsModal, setShowWarningsModal ] = useState( false );
+	const [ uploadedFileName, setUploadedFileName ] = useState< string | null >( null );
 
 	// Check if current selection is a file-based blueprint
 	const isFileBasedSelection = selectedBlueprint && selectedBlueprint.startsWith( 'file:' );
-	const selectedFileName = isFileBasedSelection ? selectedBlueprint.replace( 'file:', '' ) : null;
+	const selectedFileName =
+		uploadedFileName || ( isFileBasedSelection ? selectedBlueprint.replace( 'file:', '' ) : null );
 
 	const handleRemoveFile = useCallback( () => {
 		onBlueprintChange( '' );
 		setValidationError( null );
+		setBlueprintWarnings( null );
+		setUploadedFileName( null );
 		if ( fileRef.current ) {
 			fileRef.current.value = '';
 		}
@@ -76,6 +195,7 @@ export function AddSiteBlueprintSelector( {
 	const handleBlueprintClick = useCallback(
 		( item: DataViewBlueprint ) => {
 			setValidationError( null );
+			setBlueprintWarnings( null );
 			onBlueprintChange( item.slug );
 		},
 		[ onBlueprintChange ]
@@ -176,8 +296,13 @@ export function AddSiteBlueprintSelector( {
 	const handleFileSelect = async ( event: React.ChangeEvent< HTMLInputElement > ) => {
 		const file = event.target.files?.[ 0 ];
 		setValidationError( null );
+		setBlueprintWarnings( null );
+		setUploadedFileName( null );
 
 		if ( file && file.type === 'application/json' && onFileBlueprintSelect ) {
+			// Set the filename immediately so it shows in the UI
+			setUploadedFileName( file.name );
+
 			try {
 				const text = await file.text();
 				const blueprintJson = JSON.parse( text );
@@ -186,6 +311,7 @@ export function AddSiteBlueprintSelector( {
 					setValidationError(
 						__( 'Blueprint v2 format is not supported yet. Please use Blueprint v1 format.' )
 					);
+					// Keep the filename displayed but clear the input
 					if ( fileRef.current ) {
 						fileRef.current.value = '';
 					}
@@ -195,10 +321,16 @@ export function AddSiteBlueprintSelector( {
 				const validation = await getIpcApi().validateBlueprint( blueprintJson );
 				if ( ! validation.valid ) {
 					setValidationError( validation.error || __( 'Invalid Blueprint format' ) );
+					// Keep the filename displayed but clear the input
 					if ( fileRef.current ) {
 						fileRef.current.value = '';
 					}
 					return;
+				}
+
+				// Set warnings if any unsupported features are detected
+				if ( validation.warnings && validation.warnings.length > 0 ) {
+					setBlueprintWarnings( validation.warnings );
 				}
 
 				// Create a "fake" Blueprint object from the file
@@ -211,6 +343,8 @@ export function AddSiteBlueprintSelector( {
 					blueprint: blueprintJson, // The actual blueprint JSON
 				};
 
+				// Clear the uploaded filename since we're now tracking it through selectedBlueprint
+				setUploadedFileName( null );
 				onFileBlueprintSelect( fileBlueprint );
 			} catch ( error ) {
 				if ( error instanceof SyntaxError ) {
@@ -267,16 +401,43 @@ export function AddSiteBlueprintSelector( {
 				{ __( 'Start from a blueprint' ) }
 			</Heading>
 
+			<BlueprintDetailsModal
+				warnings={ blueprintWarnings }
+				validationError={ validationError }
+				fileName={ selectedFileName || '' }
+				isOpen={ showWarningsModal }
+				onClose={ () => setShowWarningsModal( false ) }
+			/>
+
 			{ validationError && (
 				<Notice
 					status="error"
-					isDismissible={ true }
+					isDismissible={ false }
 					onRemove={ () => setValidationError( null ) }
 					className="mx-3 mb-4"
 				>
 					<strong>{ __( 'Blueprint validation failed' ) }</strong>
 					<br />
 					{ validationError }
+				</Notice>
+			) }
+
+			{ ! validationError && blueprintWarnings && blueprintWarnings.length > 0 && (
+				<Notice status="warning" isDismissible={ false } className="mx-3 mb-4">
+					<div className="flex justify-between items-center w-full">
+						<span>
+							{ __(
+								'This blueprint uses some unsupported features in Studio and might not work as expected.'
+							) }
+						</span>
+						<Button
+							variant="link"
+							onClick={ () => setShowWarningsModal( true ) }
+							className="!text-inherit !p-0 !underline"
+						>
+							{ __( 'View details' ) }
+						</Button>
+					</div>
 				</Notice>
 			) }
 
@@ -287,20 +448,16 @@ export function AddSiteBlueprintSelector( {
 					</Text>
 				</HStack>
 				{ selectedFileName ? (
-					<HStack className="h-9 w-fit flex-shrink-0 items-center">
+					<HStack className="flex-1 items-center justify-end gap-1">
 						<Text
 							className="text-sm font-medium text-gray-900 truncate max-w-48"
 							title={ selectedFileName }
 						>
 							{ selectedFileName }
 						</Text>
-						<button
-							type="button"
-							className="text-sm text-blue-600 hover:text-blue-700 focus:outline-none"
-							onClick={ handleRemoveFile }
-						>
+						<Button variant="tertiary" size="small" onClick={ handleRemoveFile } isDestructive>
 							{ __( 'Remove' ) }
-						</button>
+						</Button>
 					</HStack>
 				) : (
 					<label className="flex-shrink-0">

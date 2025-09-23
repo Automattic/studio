@@ -300,7 +300,6 @@ export function AddSiteBlueprintSelector( {
 		setUploadedFileName( null );
 
 		if ( file && file.type === 'application/json' && onFileBlueprintSelect ) {
-			// Set the filename immediately so it shows in the UI
 			setUploadedFileName( file.name );
 
 			try {
@@ -311,7 +310,6 @@ export function AddSiteBlueprintSelector( {
 					setValidationError(
 						__( 'Blueprint v2 format is not supported yet. Please use Blueprint v1 format.' )
 					);
-					// Keep the filename displayed but clear the input
 					if ( fileRef.current ) {
 						fileRef.current.value = '';
 					}
@@ -321,19 +319,16 @@ export function AddSiteBlueprintSelector( {
 				const validation = await getIpcApi().validateBlueprint( blueprintJson );
 				if ( ! validation.valid ) {
 					setValidationError( validation.error || __( 'Invalid Blueprint format' ) );
-					// Keep the filename displayed but clear the input
 					if ( fileRef.current ) {
 						fileRef.current.value = '';
 					}
 					return;
 				}
 
-				// Set warnings if any unsupported features are detected
 				if ( validation.warnings && validation.warnings.length > 0 ) {
 					setBlueprintWarnings( validation.warnings );
 				}
 
-				// Create a "fake" Blueprint object from the file
 				const fileBlueprint: Blueprint = {
 					slug: `file:${ file.name }`, // Use filename as part of the slug
 					title: blueprintJson.meta?.title || file.name.replace( '.json', '' ),
@@ -343,7 +338,6 @@ export function AddSiteBlueprintSelector( {
 					blueprint: blueprintJson, // The actual blueprint JSON
 				};
 
-				// Clear the uploaded filename since we're now tracking it through selectedBlueprint
 				setUploadedFileName( null );
 				onFileBlueprintSelect( fileBlueprint );
 			} catch ( error ) {

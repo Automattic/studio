@@ -408,7 +408,7 @@ export function AddSiteBlueprintSelector( {
 					status="error"
 					isDismissible={ false }
 					onRemove={ () => setValidationError( null ) }
-					className="mx-3 mb-4"
+					className="mx-0 mb-4"
 				>
 					<strong>{ __( 'Blueprint validation failed' ) }</strong>
 					<br />
@@ -417,7 +417,7 @@ export function AddSiteBlueprintSelector( {
 			) }
 
 			{ ! validationError && blueprintWarnings && blueprintWarnings.length > 0 && (
-				<Notice status="warning" isDismissible={ false } className="mx-3 mb-4">
+				<Notice status="warning" isDismissible={ false } className="mx-0 mb-4">
 					<div className="flex justify-between items-center w-full">
 						<span>
 							{ __(

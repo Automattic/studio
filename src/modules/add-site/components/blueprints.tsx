@@ -192,8 +192,8 @@ export function AddSiteBlueprintSelector( {
 
 	const handleBlueprintClick = useCallback(
 		( item: DataViewBlueprint ) => {
-			setValidationError( null );
-			setBlueprintWarnings( null );
+			setValidationError( undefined );
+			setBlueprintWarnings( undefined );
 			onBlueprintChange( item.slug );
 		},
 		[ onBlueprintChange ]

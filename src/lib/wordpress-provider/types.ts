@@ -1,4 +1,5 @@
 import { SiteServer } from 'src/site-server';
+import { Blueprint } from 'src/stores/wpcom-api';
 
 export type AllowedPHPVersion = string;
 
@@ -12,6 +13,7 @@ export interface ServerOptions {
 	isWpAutoUpdating?: boolean;
 	absoluteUrl?: string;
 	siteLanguage?: string;
+	blueprint?: Blueprint[ 'blueprint' ];
 }
 
 export interface WordPressServerOptions {

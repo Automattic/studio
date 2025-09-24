@@ -4,7 +4,7 @@ import { SupportedPHPVersions } from '@php-wasm/universal';
 import { Blueprint } from '@wp-playground/blueprints';
 import { RecommendedPHPVersion } from '@wp-playground/common';
 import fs from 'fs-extra';
-import { recursiveCopyDirectory, pathExists, isWordPressDirectory } from 'common/lib/fs-utils';
+import { recursiveCopyDirectory, pathExists } from 'common/lib/fs-utils';
 import { installSqliteIntegration } from 'src/lib/sqlite-versions';
 import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
 import { SiteServer } from 'src/site-server';
@@ -23,6 +23,7 @@ export interface PlaygroundCliOptions {
 	documentRoot: string;
 	autoMount: boolean;
 	skipWordpressSetup: boolean;
+	isSetupMode?: boolean;
 	blueprint?: Blueprint;
 }
 
@@ -55,19 +56,20 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		isWpAutoUpdating?: boolean;
 		absoluteUrl?: string;
 		siteLanguage?: string;
+		isSetupMode?: boolean;
 		wpCliPharPath?: string;
 		blueprint?: Blueprint;
 	} ): Promise< WordPressServerInstance > {
 		const port = options.port;
 		const phpVersion = options.phpVersion || '8.3';
-		const hasWordPress = isWordPressDirectory( options.path );
 
 		const playgroundOptions: PlaygroundCliOptions = {
 			port,
 			phpVersion,
 			documentRoot: options.path,
 			autoMount: true,
-			skipWordpressSetup: hasWordPress,
+			skipWordpressSetup: true,
+			isSetupMode: options.isSetupMode || false,
 			blueprint: options.blueprint,
 		};
 
@@ -110,7 +112,8 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	}
 
 	async setupWordPressSite( server: SiteServer, wpVersion = 'latest' ): Promise< boolean > {
-		const { path } = server.details;
+		const { path, port, adminPassword, name, phpVersion } = server.details;
+		const { blueprint } = server.meta;
 
 		try {
 			const isOnline = net.isOnline();
@@ -156,6 +159,22 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			if ( ! isOnline ) {
 				return true;
 			}
+
+			// Online mode: run the blueprint setup
+			const serverInstance = await this.startServer( {
+				path,
+				port,
+				adminPassword: adminPassword || 'password',
+				siteTitle: name,
+				phpVersion: phpVersion || this.DEFAULT_PHP_VERSION,
+				wpVersion,
+				isWpAutoUpdating: false,
+				isSetupMode: true,
+				blueprint: blueprint?.blueprint,
+			} );
+
+			const serverProcess = this.createServerProcess( serverInstance );
+			await serverProcess.start();
 			return true;
 		} catch ( error ) {
 			console.error( 'Failed to setup WordPress site:', error );

@@ -12,7 +12,6 @@ export interface ServerOptions {
 	isWpAutoUpdating?: boolean;
 	absoluteUrl?: string;
 	siteLanguage?: string;
-	blueprint?: unknown;
 }
 
 export interface WordPressServerOptions {

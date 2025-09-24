@@ -1,5 +1,5 @@
-import { Blueprint } from 'src/stores/wpcom-api';
 import { __ } from '@wordpress/i18n';
+import { Blueprint } from 'src/stores/wpcom-api';
 
 interface UnsupportedFeature {
 	type: 'step' | 'property';
@@ -24,7 +24,9 @@ const UNSUPPORTED_BLUEPRINT_FEATURES: UnsupportedFeature[] = [
 	{
 		type: 'step',
 		name: 'defineSiteUrl',
-		reason: __( 'Studio manages site URLs internally and cannot accept custom URLs from blueprints' ),
+		reason: __(
+			'Studio manages site URLs internally and cannot accept custom URLs from blueprints'
+		),
 	},
 ];
 

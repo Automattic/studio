@@ -65,11 +65,7 @@ function BlueprintIssuesModal( {
 	const hasError = !! validationError;
 
 	return (
-		<Modal
-			title={ __( 'Blueprint Details' ) }
-			onRequestClose={ onClose }
-			size="medium"
-		>
+		<Modal title={ __( 'Blueprint Details' ) } onRequestClose={ onClose } size="medium">
 			<VStack spacing={ 4 }>
 				<Text className="font-medium text-gray-900">{ fileName }</Text>
 
@@ -168,11 +164,14 @@ export function AddSiteBlueprintSelector( {
 	const { refetch: refetchBlueprints, isFetching: isFetchingBlueprints } = useGetBlueprints();
 	const fileRef = useRef< HTMLInputElement | null >( null );
 	const [ validationError, setValidationError ] = useState< string | undefined >( undefined );
-	const [ blueprintWarnings, setBlueprintWarnings ] = useState< Array< {
-		feature: string;
-		reason: string;
-		alternative?: string;
-	} > | undefined >( undefined );
+	const [ blueprintWarnings, setBlueprintWarnings ] = useState<
+		| Array< {
+				feature: string;
+				reason: string;
+				alternative?: string;
+		  } >
+		| undefined
+	>( undefined );
 	const [ uploadedFileName, setUploadedFileName ] = useState< string | null >( null );
 	const [ showIssuesModal, setShowIssuesModal ] = useState( false );
 

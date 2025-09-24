@@ -40,21 +40,21 @@ interface DataViewBlueprint extends Blueprint {
 	categories: string[];
 }
 
-interface BlueprintDetailsModalProps {
-	warnings: Array< { feature: string; reason: string } > | null;
-	validationError: string | null;
+interface BlueprintIssuesModalProps {
+	warnings: Array< { feature: string; reason: string } > | undefined;
+	validationError: string | undefined;
 	fileName: string;
 	isOpen: boolean;
 	onClose: () => void;
 }
 
-function BlueprintDetailsModal( {
+function BlueprintIssuesModal( {
 	warnings,
 	validationError,
 	fileName,
 	isOpen,
 	onClose,
-}: BlueprintDetailsModalProps ) {
+}: BlueprintIssuesModalProps ) {
 	const { __ } = useI18n();
 
 	if ( ! isOpen ) {
@@ -68,7 +68,6 @@ function BlueprintDetailsModal( {
 		<Modal
 			title={ __( 'Blueprint Details' ) }
 			onRequestClose={ onClose }
-			className="blueprint-details-modal"
 			size="medium"
 		>
 			<VStack spacing={ 4 }>
@@ -168,14 +167,14 @@ export function AddSiteBlueprintSelector( {
 	const { __ } = useI18n();
 	const { refetch: refetchBlueprints, isFetching: isFetchingBlueprints } = useGetBlueprints();
 	const fileRef = useRef< HTMLInputElement | null >( null );
-	const [ validationError, setValidationError ] = useState< string | null >( null );
+	const [ validationError, setValidationError ] = useState< string | undefined >( undefined );
 	const [ blueprintWarnings, setBlueprintWarnings ] = useState< Array< {
 		feature: string;
 		reason: string;
 		alternative?: string;
-	} > | null >( null );
-	const [ showWarningsModal, setShowWarningsModal ] = useState( false );
+	} > | undefined >( undefined );
 	const [ uploadedFileName, setUploadedFileName ] = useState< string | null >( null );
+	const [ showIssuesModal, setShowIssuesModal ] = useState( false );
 
 	// Check if current selection is a file-based blueprint
 	const isFileBasedSelection = selectedBlueprint && selectedBlueprint.startsWith( 'file:' );
@@ -184,8 +183,8 @@ export function AddSiteBlueprintSelector( {
 
 	const handleRemoveFile = useCallback( () => {
 		onBlueprintChange( '' );
-		setValidationError( null );
-		setBlueprintWarnings( null );
+		setValidationError( undefined );
+		setBlueprintWarnings( undefined );
 		setUploadedFileName( null );
 		if ( fileRef.current ) {
 			fileRef.current.value = '';
@@ -295,8 +294,8 @@ export function AddSiteBlueprintSelector( {
 
 	const handleFileSelect = async ( event: React.ChangeEvent< HTMLInputElement > ) => {
 		const file = event.target.files?.[ 0 ];
-		setValidationError( null );
-		setBlueprintWarnings( null );
+		setValidationError( undefined );
+		setBlueprintWarnings( undefined );
 		setUploadedFileName( null );
 
 		if ( file && file.type === 'application/json' && onFileBlueprintSelect ) {
@@ -395,19 +394,19 @@ export function AddSiteBlueprintSelector( {
 				{ __( 'Start from a blueprint' ) }
 			</Heading>
 
-			<BlueprintDetailsModal
+			<BlueprintIssuesModal
 				warnings={ blueprintWarnings }
 				validationError={ validationError }
 				fileName={ selectedFileName || '' }
-				isOpen={ showWarningsModal }
-				onClose={ () => setShowWarningsModal( false ) }
+				isOpen={ showIssuesModal }
+				onClose={ () => setShowIssuesModal( false ) }
 			/>
 
 			{ validationError && (
 				<Notice
 					status="error"
 					isDismissible={ false }
-					onRemove={ () => setValidationError( null ) }
+					onRemove={ () => setValidationError( undefined ) }
 					className="mx-0 mb-4"
 				>
 					<strong>{ __( 'Blueprint validation failed' ) }</strong>
@@ -421,12 +420,12 @@ export function AddSiteBlueprintSelector( {
 					<div className="flex justify-between items-center w-full">
 						<span>
 							{ __(
-								'This blueprint uses some unsupported features in Studio and might not work as expected.'
+								'This blueprint uses unsupported features in Studio and might not work as expected.'
 							) }
 						</span>
 						<Button
 							variant="link"
-							onClick={ () => setShowWarningsModal( true ) }
+							onClick={ () => setShowIssuesModal( true ) }
 							className="!text-inherit !p-0 !underline"
 						>
 							{ __( 'View details' ) }

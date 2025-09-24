@@ -4,7 +4,7 @@ import * as Sentry from '@sentry/electron/main';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { portFinder } from 'common/lib/port-finder';
-import { filterUnsupportedFeatures } from 'src/lib/blueprint-features';
+import { filterUnsupportedBlueprintFeatures } from 'src/lib/blueprint-features';
 import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { addDomainToHosts, removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
@@ -133,10 +133,7 @@ export class SiteServer {
 			await startProxyServer();
 		}
 
-		let filteredBlueprint = this.meta.blueprint?.blueprint;
-		if ( filteredBlueprint ) {
-			filteredBlueprint = filterUnsupportedFeatures( filteredBlueprint );
-		}
+		const filteredBlueprint = filterUnsupportedBlueprintFeatures( this.meta.blueprint?.blueprint );
 
 		const serverInstance = await startServer( {
 			path: this.details.path,

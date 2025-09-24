@@ -1,6 +1,7 @@
 import { Blueprint } from 'src/stores/wpcom-api';
+import { __ } from '@wordpress/i18n';
 
-export interface UnsupportedFeature {
+interface UnsupportedFeature {
 	type: 'step' | 'property';
 	name: string;
 	reason: string;
@@ -9,48 +10,48 @@ export interface UnsupportedFeature {
 /**
  * List of blueprint features that are not supported in Studio
  */
-export const UNSUPPORTED_BLUEPRINT_FEATURES: UnsupportedFeature[] = [
+const UNSUPPORTED_BLUEPRINT_FEATURES: UnsupportedFeature[] = [
 	{
 		type: 'step',
 		name: 'enableMultisite',
-		reason: 'Multisite functionality is not currently supported in Studio',
+		reason: __( 'Multisite functionality is not currently supported in Studio' ),
 	},
 	{
 		type: 'step',
 		name: 'login',
-		reason: 'Studio automatically creates and logs in the admin user during site creation',
+		reason: __( 'Studio automatically creates and logs in the admin user during site creation' ),
 	},
 	{
 		type: 'step',
 		name: 'defineSiteUrl',
-		reason: 'Studio manages site URLs internally and cannot accept custom URLs from blueprints',
+		reason: __( 'Studio manages site URLs internally and cannot accept custom URLs from blueprints' ),
 	},
 ];
 
 /**
  * Blueprint properties that are not supported in Studio
  */
-export const UNSUPPORTED_BLUEPRINT_PROPERTIES: UnsupportedFeature[] = [
+const UNSUPPORTED_BLUEPRINT_PROPERTIES: UnsupportedFeature[] = [
 	{
 		type: 'property',
 		name: 'landingPage',
-		reason: 'Studio manages its own navigation and landing pages',
+		reason: __( 'Studio manages its own navigation and landing pages' ),
 	},
 ];
 
-export function isStepSupported( stepName: string ): boolean {
+function isStepSupported( stepName: string ): boolean {
 	return ! UNSUPPORTED_BLUEPRINT_FEATURES.some(
 		( feature ) => feature.type === 'step' && feature.name === stepName
 	);
 }
 
-export function isPropertySupported( propertyName: string ): boolean {
+function isPropertySupported( propertyName: string ): boolean {
 	return ! UNSUPPORTED_BLUEPRINT_PROPERTIES.some(
 		( feature ) => feature.type === 'property' && feature.name === propertyName
 	);
 }
 
-export function getUnsupportedFeatureInfo( name: string ): UnsupportedFeature | undefined {
+function getUnsupportedFeatureInfo( name: string ): UnsupportedFeature | undefined {
 	return (
 		UNSUPPORTED_BLUEPRINT_FEATURES.find( ( feature ) => feature.name === name ) ||
 		UNSUPPORTED_BLUEPRINT_PROPERTIES.find( ( feature ) => feature.name === name )
@@ -88,9 +89,12 @@ export function scanBlueprintForUnsupportedFeatures(
 	);
 }
 
-export function filterUnsupportedFeatures(
-	blueprint: Blueprint[ 'blueprint' ]
-): Blueprint[ 'blueprint' ] {
+export function filterUnsupportedBlueprintFeatures(
+	blueprint: Blueprint[ 'blueprint' ] | undefined
+): Blueprint[ 'blueprint' ] | undefined {
+	if ( ! blueprint ) {
+		return undefined;
+	}
 	const filtered = { ...blueprint };
 
 	if ( filtered.steps && Array.isArray( filtered.steps ) ) {

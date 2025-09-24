@@ -1478,22 +1478,23 @@ export async function validateBlueprint(
 } > {
 	try {
 		await compileBlueprint( blueprintJson );
-		const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson );
-
-		const warnings = unsupportedFeatures.map( ( feature ) => ( {
-			feature: feature.name,
-			reason: feature.reason,
-		} ) );
-
-		return {
-			valid: true,
-			warnings: warnings.length > 0 ? warnings : undefined,
-		};
 	} catch ( error ) {
-		const errorMessage = error instanceof Error ? error.message : 'Invalid Blueprint format';
+		const errorMessage = error instanceof Error ? error.message : __( 'Invalid Blueprint format' );
 		return {
 			valid: false,
 			error: errorMessage,
 		};
 	}
+
+	const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson );
+
+	const warnings = unsupportedFeatures.map( ( feature ) => ( {
+		feature: feature.name,
+		reason: feature.reason,
+	} ) );
+
+	return {
+		valid: true,
+		warnings: warnings.length > 0 ? warnings : undefined,
+	};
 }

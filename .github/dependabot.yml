@@ -16,6 +16,7 @@ updates:
       - dependency-name: "@electron-forge/*"
       - dependency-name: "@wordpress/*"
       - dependency-name: "@wp-playground/*"
+      - dependency-name: "@php-wasm/*"
       - dependency-name: "@types/*"
       - dependency-name: "eslint"
       - dependency-name: "eslint-*"

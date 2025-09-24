@@ -34,6 +34,7 @@ import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { ARCHIVER_OPTIONS, DEFAULT_TERMINAL, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
+import { scanBlueprintForUnsupportedFeatures } from 'src/lib/blueprint-features';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
 import {
@@ -1469,17 +1470,31 @@ export async function getProviderConstants( _event: IpcMainInvokeEvent ) {
 
 export async function validateBlueprint(
 	_event: IpcMainInvokeEvent,
-	blueprintJson: object
-): Promise< { valid: boolean; error?: string } > {
+	blueprintJson: Blueprint[ 'blueprint' ]
+): Promise< {
+	valid: boolean;
+	error?: string;
+	warnings?: Array< { feature: string; reason: string; alternative?: string } >;
+} > {
 	try {
 		await compileBlueprint( blueprintJson );
-
-		return { valid: true };
 	} catch ( error ) {
-		const errorMessage = error instanceof Error ? error.message : 'Invalid Blueprint format';
+		const errorMessage = error instanceof Error ? error.message : __( 'Invalid Blueprint format' );
 		return {
 			valid: false,
 			error: errorMessage,
 		};
 	}
+
+	const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson );
+
+	const warnings = unsupportedFeatures.map( ( feature ) => ( {
+		feature: feature.name,
+		reason: feature.reason,
+	} ) );
+
+	return {
+		valid: true,
+		warnings: warnings.length > 0 ? warnings : undefined,
+	};
 }

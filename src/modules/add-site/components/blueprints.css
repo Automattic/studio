@@ -30,3 +30,7 @@
 .blueprints-container .components-badge {
 	@apply !bg-transparent p-0 !w-full;
 }
+
+.blueprints-issues-modal .components-modal__header + div {
+	height: 100%;
+}

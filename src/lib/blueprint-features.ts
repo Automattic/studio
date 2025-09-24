@@ -20,6 +20,22 @@ export const UNSUPPORTED_BLUEPRINT_FEATURES: UnsupportedFeature[] = [
 		name: 'login',
 		reason: 'Studio automatically creates and logs in the admin user during site creation',
 	},
+	{
+		type: 'step',
+		name: 'defineSiteUrl',
+		reason: 'Studio manages site URLs internally and cannot accept custom URLs from blueprints',
+	},
+];
+
+/**
+ * Blueprint properties that are not supported in Studio
+ */
+export const UNSUPPORTED_BLUEPRINT_PROPERTIES: UnsupportedFeature[] = [
+	{
+		type: 'property',
+		name: 'landingPage',
+		reason: 'Studio manages its own navigation and landing pages',
+	},
 ];
 
 export function isStepSupported( stepName: string ): boolean {
@@ -29,13 +45,16 @@ export function isStepSupported( stepName: string ): boolean {
 }
 
 export function isPropertySupported( propertyName: string ): boolean {
-	return ! UNSUPPORTED_BLUEPRINT_FEATURES.some(
+	return ! UNSUPPORTED_BLUEPRINT_PROPERTIES.some(
 		( feature ) => feature.type === 'property' && feature.name === propertyName
 	);
 }
 
 export function getUnsupportedFeatureInfo( name: string ): UnsupportedFeature | undefined {
-	return UNSUPPORTED_BLUEPRINT_FEATURES.find( ( feature ) => feature.name === name );
+	return (
+		UNSUPPORTED_BLUEPRINT_FEATURES.find( ( feature ) => feature.name === name ) ||
+		UNSUPPORTED_BLUEPRINT_PROPERTIES.find( ( feature ) => feature.name === name )
+	);
 }
 
 export function scanBlueprintForUnsupportedFeatures(

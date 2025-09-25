@@ -110,12 +110,10 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 						),
 					} );
 				} else {
-					// For SQL imports, simplify the error to just the first line
 					let errorToShow = error;
 					if ( file instanceof File && file.name.endsWith( '.sql' ) ) {
 						const errorMessage = ( error as Error )?.message;
 						if ( errorMessage ) {
-							// Extract just the first line of the error
 							const firstLine = errorMessage.split( '\n' )[ 0 ].trim();
 							errorToShow = new Error( firstLine );
 						}

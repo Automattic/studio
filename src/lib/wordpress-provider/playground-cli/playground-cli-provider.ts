@@ -81,9 +81,9 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			projectPath: options.path,
 			adminPassword: options.adminPassword,
 			siteTitle: options.siteTitle,
+			siteLanguage: options.siteLanguage,
 			wordPressVersion: options.wpVersion,
 			isWpAutoUpdating: options.isWpAutoUpdating,
-			siteLanguage: options.siteLanguage,
 		};
 
 		return {

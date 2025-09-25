@@ -1137,7 +1137,6 @@ export async function showErrorMessageBox(
 		/Error invoking remote method '\w+': Error:/g,
 		''
 	);
-
 	const response = await showMessageBox( event, {
 		type: 'error',
 		message: title,

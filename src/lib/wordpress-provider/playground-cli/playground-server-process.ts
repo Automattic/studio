@@ -1,9 +1,7 @@
 import { utilityProcess } from 'electron';
+import path from 'path';
 import { WordPressServerProcess, WordPressServerOptions } from '../types';
 import { PlaygroundCliOptions } from './playground-cli-provider';
-
-// This constant is defined by webpack
-declare const PLAYGROUND_SERVER_PROCESS_MODULE_PATH: string;
 
 export class PlaygroundServerProcess implements WordPressServerProcess {
 	private process: Electron.UtilityProcess | null = null;
@@ -34,7 +32,7 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 			this.exitResolve = resolve;
 		} );
 
-		this.process = utilityProcess.fork( PLAYGROUND_SERVER_PROCESS_MODULE_PATH );
+		this.process = utilityProcess.fork( path.join( __dirname, 'playgroundServerProcess.js' ) );
 
 		this.process.on(
 			'message',

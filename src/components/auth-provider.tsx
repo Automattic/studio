@@ -5,6 +5,7 @@ import WPCOM from 'wpcom';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { isInvalidTokenError } from 'src/lib/is-invalid-oauth-token-error';
 import { useI18nLocale } from 'src/stores';
 import { setWpcomClient } from 'src/stores/wpcom-api';
 
@@ -44,6 +45,20 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 
 	const authenticate = useCallback( () => getIpcApi().authenticate(), [] );
 
+	const handleInvalidToken = useCallback( async () => {
+		try {
+			void getIpcApi().logRendererMessage( 'info', 'Detected invalid token. Logging out.' );
+			await getIpcApi().clearAuthenticationToken();
+			setIsAuthenticated( false );
+			setClient( undefined );
+			setWpcomClient( undefined );
+			setUser( undefined );
+		} catch ( err ) {
+			console.error( 'Failed to handle invalid token:', err );
+			Sentry.captureException( err );
+		}
+	}, [] );
+
 	useIpcListener( 'auth-updated', ( _event, payload ) => {
 		if ( 'error' in payload ) {
 			getIpcApi().showErrorMessageBox( {
@@ -54,7 +69,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 		}
 
 		const { token } = payload;
-		const newClient = createWpcomClient( token.accessToken, locale );
+		const newClient = createWpcomClient( token.accessToken, locale, handleInvalidToken );
 
 		setIsAuthenticated( true );
 		setClient( newClient );
@@ -109,7 +124,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 					return;
 				}
 
-				const newClient = createWpcomClient( token.accessToken, locale );
+				const newClient = createWpcomClient( token.accessToken, locale, handleInvalidToken );
 
 				setIsAuthenticated( true );
 				setClient( newClient );
@@ -125,7 +140,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			}
 		}
 		void run();
-	}, [ locale ] );
+	}, [ locale, handleInvalidToken ] );
 
 	// Memoize the context value to avoid unnecessary renders
 	const contextValue: AuthContextType = useMemo(
@@ -142,17 +157,31 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	return <AuthContext.Provider value={ contextValue }>{ children }</AuthContext.Provider>;
 };
 
-function createWpcomClient( token?: string, locale?: string ): WPCOM {
+function createWpcomClient(
+	token?: string,
+	locale?: string,
+	onInvalidToken?: () => Promise< void >
+): WPCOM {
 	const wpcom = new WPCOM( token );
 
-	if ( ! locale || locale === 'en' ) {
-		return wpcom;
-	}
+	let isAuthErrorDialogOpen = false;
+	const handleInvalidTokenError = async ( response: unknown ) => {
+		if ( isInvalidTokenError( response ) && onInvalidToken && ! isAuthErrorDialogOpen ) {
+			isAuthErrorDialogOpen = true;
+			await onInvalidToken();
+			await getIpcApi().showMessageBox( {
+				type: 'error',
+				message: 'Session Expired',
+				detail: 'Your session has expired. Please log in again.',
+			} );
+			isAuthErrorDialogOpen = false;
+		}
+	};
 
 	const originalRequestHandler = wpcom.request.bind( wpcom );
 
-	return Object.assign( wpcom, {
-		request: function ( params: WpcomParams, callback: unknown ) {
+	const addLocaleToParams = ( params: WpcomParams ) => {
+		if ( locale && locale !== 'en' ) {
 			const queryParams = new URLSearchParams(
 				'query' in params && typeof params.query === 'string' ? params.query : ''
 			);
@@ -163,8 +192,22 @@ function createWpcomClient( token?: string, locale?: string ): WPCOM {
 			Object.assign( params, {
 				query: queryParams.toString(),
 			} );
+		}
+		return params;
+	};
 
-			return originalRequestHandler( params, callback );
+	return Object.assign( wpcom, {
+		request: function ( params: WpcomParams, callback: unknown ) {
+			const wrappedCallback = ( err: unknown, response: unknown, headers: unknown ) => {
+				if ( err ) {
+					void handleInvalidTokenError( err );
+				}
+				if ( typeof callback === 'function' ) {
+					callback( err, response, headers );
+				}
+			};
+
+			return originalRequestHandler( addLocaleToParams( params ), wrappedCallback );
 		},
 	} );
 }

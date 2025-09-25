@@ -110,12 +110,21 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 						),
 					} );
 				} else {
+					let errorToShow = error;
+					if ( file instanceof File && file.name.endsWith( '.sql' ) ) {
+						const errorMessage = ( error as Error )?.message;
+						if ( errorMessage ) {
+							const firstLine = errorMessage.split( '\n' )[ 0 ].trim();
+							errorToShow = new Error( firstLine );
+						}
+					}
+
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Failed importing site' ),
 						message: __(
 							'An error occurred while importing the site. Verify the file is a valid Jetpack backup, Local, Playground, .wpress or .sql database file and try again. If this problem persists, please contact support.'
 						),
-						error,
+						error: errorToShow,
 						showOpenLogs: true,
 					} );
 				}

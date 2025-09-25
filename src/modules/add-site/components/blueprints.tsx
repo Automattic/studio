@@ -4,20 +4,21 @@ import {
 	__experimentalHeading as Heading,
 	__experimentalText as Text,
 	Button,
+	Modal,
 	Notice,
-	Tooltip,
 } from '@wordpress/components';
 import { DataViews, View } from '@wordpress/dataviews';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
-import { Icon, external } from '@wordpress/icons';
+import { Icon, external, upload, caution } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useRef, useState, useMemo } from 'react';
 import StudioButton from 'src/components/button';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetBlueprints } from 'src/stores/wpcom-api';
-import { useOverflowItems } from '../hooks/use-overflow-items';
+
+import './blueprints.css';
 
 interface Blueprint {
 	slug: string;
@@ -39,6 +40,82 @@ interface DataViewBlueprint extends Blueprint {
 	categories: string[];
 }
 
+interface BlueprintIssuesModalProps {
+	warnings: Array< { feature: string; reason: string } > | undefined;
+	fileName: string;
+	isOpen: boolean;
+	onClose: () => void;
+}
+
+function BlueprintIssuesModal( {
+	warnings,
+	fileName,
+	isOpen,
+	onClose,
+}: BlueprintIssuesModalProps ) {
+	const { __ } = useI18n();
+
+	if ( ! isOpen ) {
+		return null;
+	}
+
+	return (
+		<Modal
+			className="blueprints-issues-modal"
+			title={ __( 'Blueprint Details' ) }
+			onRequestClose={ onClose }
+			size="medium"
+		>
+			<div className="h-full flex flex-col gap-1">
+				<Text className="font-medium text-gray-900">{ fileName }</Text>
+				<Text>
+					{ warnings?.length &&
+						sprintf(
+							// translators: %d is the number of unsupported features
+							__(
+								'The following %d feature(s) are not supported in Studio and will be automatically removed:'
+							),
+							warnings.length
+						) }
+				</Text>
+				<div className="flex-1 overflow-y-auto">
+					<VStack spacing={ 3 } className="divide-y divide-gray-200">
+						{ warnings?.map( ( warningItem, index ) => (
+							<div key={ index } className={ index > 0 ? 'pt-3' : '' }>
+								<HStack alignment="topLeft" spacing={ 2 }>
+									<Icon
+										icon={ caution }
+										className="text-orange-500 mt-1 flex-shrink-0"
+										size={ 20 }
+									/>
+									<VStack spacing={ 1 }>
+										<Text weight={ 600 } className="text-base">
+											{ warningItem.feature }
+										</Text>
+										<Text className="text-sm text-gray-700">{ warningItem.reason }</Text>
+									</VStack>
+								</HStack>
+							</div>
+						) ) }
+					</VStack>
+				</div>
+				<div className="pt-4 border-t border-gray-200">
+					<Text className="text-sm text-gray-600">
+						{ __(
+							'Your blueprint will still work, but these features will be skipped during site creation.'
+						) }
+					</Text>
+				</div>
+				<HStack alignment="right">
+					<Button variant="primary" onClick={ onClose }>
+						{ __( 'Got it' ) }
+					</Button>
+				</HStack>
+			</div>
+		</Modal>
+	);
+}
+
 interface AddSiteBlueprintProps {
 	blueprints: Blueprint[];
 	errorMessage?: string;
@@ -46,49 +123,6 @@ interface AddSiteBlueprintProps {
 	selectedBlueprint: string | null;
 	onBlueprintChange: ( blueprintId: string ) => void;
 	onFileBlueprintSelect?: ( blueprint: Blueprint ) => void;
-}
-
-function CategoryBadges( { categories }: { categories: string[] } ) {
-	const { __ } = useI18n();
-	const containerRef = useRef< HTMLDivElement >( null );
-	const { visible, hidden, hiddenCount, itemRefs } = useOverflowItems( categories, containerRef );
-
-	return (
-		<HStack ref={ containerRef } spacing={ 3 } alignment="left" className="w-full">
-			{ categories.map( ( category, index ) => (
-				<Text
-					as="span"
-					key={ category }
-					ref={ ( el ) => {
-						itemRefs.current[ index ] = el;
-					} }
-					className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-sm flex items-center flex-shrink-0 max-w-32 truncate"
-					style={ {
-						visibility: index < visible.length ? 'visible' : 'hidden',
-						position: index >= visible.length ? 'absolute' : 'static',
-					} }
-				>
-					{ category }
-				</Text>
-			) ) }
-			{ hiddenCount > 0 && (
-				<Tooltip
-					text={ hidden.join( ', ' ) }
-					delay={ 200 }
-					placement="top-end"
-					className="max-w-xs"
-				>
-					<Text
-						as="span"
-						className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-sm flex items-center font-medium whitespace-nowrap flex-shrink-0"
-					>
-						{ /* translators: %d: Number of hidden categories */ }
-						{ sprintf( __( '+%d more' ), hiddenCount ) }
-					</Text>
-				</Tooltip>
-			) }
-		</HStack>
-	);
 }
 
 export function AddSiteBlueprintSelector( {
@@ -102,15 +136,28 @@ export function AddSiteBlueprintSelector( {
 	const { __ } = useI18n();
 	const { refetch: refetchBlueprints, isFetching: isFetchingBlueprints } = useGetBlueprints();
 	const fileRef = useRef< HTMLInputElement | null >( null );
-	const [ validationError, setValidationError ] = useState< string | null >( null );
+	const [ validationError, setValidationError ] = useState< string | undefined >( undefined );
+	const [ blueprintWarnings, setBlueprintWarnings ] = useState<
+		| Array< {
+				feature: string;
+				reason: string;
+				alternative?: string;
+		  } >
+		| undefined
+	>( undefined );
+	const [ uploadedFileName, setUploadedFileName ] = useState< string | null >( null );
+	const [ showIssuesModal, setShowIssuesModal ] = useState( false );
 
 	// Check if current selection is a file-based blueprint
 	const isFileBasedSelection = selectedBlueprint && selectedBlueprint.startsWith( 'file:' );
-	const selectedFileName = isFileBasedSelection ? selectedBlueprint.replace( 'file:', '' ) : null;
+	const selectedFileName =
+		uploadedFileName || ( isFileBasedSelection ? selectedBlueprint.replace( 'file:', '' ) : null );
 
 	const handleRemoveFile = useCallback( () => {
 		onBlueprintChange( '' );
-		setValidationError( null );
+		setValidationError( undefined );
+		setBlueprintWarnings( undefined );
+		setUploadedFileName( null );
 		if ( fileRef.current ) {
 			fileRef.current.value = '';
 		}
@@ -118,23 +165,32 @@ export function AddSiteBlueprintSelector( {
 
 	const handleBlueprintClick = useCallback(
 		( item: DataViewBlueprint ) => {
-			setValidationError( null );
+			setValidationError( undefined );
+			setBlueprintWarnings( undefined );
 			onBlueprintChange( item.slug );
 		},
 		[ onBlueprintChange ]
+	);
+
+	const handlePreviewClick = useCallback(
+		( e: React.MouseEvent< HTMLButtonElement >, item: DataViewBlueprint ) => {
+			e.stopPropagation();
+			getIpcApi().openURL( item.playground_url );
+		},
+		[]
 	);
 
 	const [ view, setView ] = useState< View >( {
 		type: 'grid',
 		perPage: 9,
 		page: 1,
-		fields: [ 'categories', 'excerpt', 'preview' ],
+		fields: [ 'excerpt' ],
 		mediaField: 'image',
 		titleField: 'title',
 		search: '',
 		filters: [],
 		layout: {
-			badgeFields: [ 'categories', 'excerpt', 'preview' ],
+			badgeFields: [ 'excerpt' ],
 		},
 	} );
 
@@ -145,18 +201,19 @@ export function AddSiteBlueprintSelector( {
 				label: __( 'Thumbnail' ),
 				type: 'media' as const,
 				render: ( { item }: { item: DataViewBlueprint } ) => (
-					<img
-						src={ item.image }
-						alt={ item.title }
+					<div
 						className={ cx(
-							'w-full h-32 object-cover object-top cursor-pointer transition-all duration-150 rounded-lg group',
-							'[@media(min-height:680px)]:h-48',
-							'hover:shadow-md hover:outline hover:outline-2 hover:outline-blue-500',
-							'transition-transform duration-150',
-							'hover:scale-105',
-							item.isSelected && 'outline outline-2 outline-blue-500 shadow-md scale-105'
+							'w-full bg-gray-50 h-32 rounded-t overflow-hidden',
+							'[@media(min-height:680px)]:h-[175px]',
+							item.isSelected && 'is-selected'
 						) }
-					/>
+					>
+						<img
+							src={ item.image }
+							alt={ item.title }
+							className="w-full h-full object-cover object-center"
+						/>
+					</div>
 				),
 			},
 			{
@@ -164,9 +221,25 @@ export function AddSiteBlueprintSelector( {
 				label: __( 'Title' ),
 				type: 'text' as const,
 				render: ( { item }: { item: DataViewBlueprint } ) => (
-					<Heading level={ 3 } className="text-[13px] mt-3 mb-2 text-gray-800" weight={ 500 }>
-						{ item.title }
-					</Heading>
+					<HStack
+						alignment="edge"
+						style={ { alignItems: 'baseline', paddingTop: '24px', paddingBottom: '10px' } }
+						wrap
+					>
+						<Heading level={ 3 } className="text-[13px] text-a8c-gray-800" weight={ 500 }>
+							{ item.title }
+						</Heading>
+						<StudioButton
+							variant="link"
+							className="!p-0 text-[12px] [&.is-link]:text-a8c-gray-30 [&.is-link]:hover:text-a8c-blue-50 whitespace-nowrap"
+							onClick={ ( e: React.MouseEvent< HTMLButtonElement > ) =>
+								handlePreviewClick( e, item )
+							}
+						>
+							{ __( 'Preview blueprint' ) }
+							<Icon icon={ external } size={ 16 } className="ml-1" />
+						</StudioButton>
+					</HStack>
 				),
 			},
 			{
@@ -174,56 +247,32 @@ export function AddSiteBlueprintSelector( {
 				label: __( 'Description' ),
 				type: 'text' as const,
 				render: ( { item }: { item: DataViewBlueprint } ) => (
-					<Text
-						className="text-[13px] text-gray-600 h-[54px]"
-						weight={ 400 }
-						truncate
-						numberOfLines={ 3 }
-						title={ item.excerpt }
-					>
-						{ item.excerpt }
-					</Text>
-				),
-			},
-			{
-				id: 'categories',
-				label: __( 'Categories' ),
-				type: 'array' as const,
-				elements: blueprints
-					.flatMap( ( blueprint ) => blueprint.blueprint.meta?.categories || [] )
-					.filter( ( category, index, arr ) => arr.indexOf( category ) === index )
-					.map( ( category ) => ( { label: category, value: category } ) ),
-				render: ( { item }: { item: DataViewBlueprint } ) => {
-					const categories = ( item.blueprint.meta?.categories || [] ).filter(
-						( category ) => category !== 'Studio'
-					);
-					return <CategoryBadges categories={ categories } />;
-				},
-			},
-			{
-				id: 'preview',
-				label: __( 'Preview' ),
-				type: 'text' as const,
-				render: ( { item }: { item: DataViewBlueprint } ) => (
-					<StudioButton
-						variant="link"
-						className="!p-0 text-[12px]"
-						onClick={ () => getIpcApi().openURL( item.playground_url ) }
-					>
-						{ __( 'Preview blueprint' ) }
-						<Icon icon={ external } size={ 16 } className="ml-1" />
-					</StudioButton>
+					<div className="px-5 pb-5" onClick={ () => handleBlueprintClick( item ) }>
+						<Text
+							className="text-[13px] text-a8c-gray-700 h-[80px] leading-5"
+							weight={ 400 }
+							truncate
+							numberOfLines={ 4 }
+							title={ item.excerpt }
+						>
+							{ item.excerpt }
+						</Text>
+					</div>
 				),
 			},
 		],
-		[ blueprints, __ ]
+		[ handleBlueprintClick, handlePreviewClick, __ ]
 	);
 
 	const handleFileSelect = async ( event: React.ChangeEvent< HTMLInputElement > ) => {
 		const file = event.target.files?.[ 0 ];
-		setValidationError( null );
+		setValidationError( undefined );
+		setBlueprintWarnings( undefined );
+		setUploadedFileName( null );
 
 		if ( file && file.type === 'application/json' && onFileBlueprintSelect ) {
+			setUploadedFileName( file.name );
+
 			try {
 				const text = await file.text();
 				const blueprintJson = JSON.parse( text );
@@ -247,7 +296,10 @@ export function AddSiteBlueprintSelector( {
 					return;
 				}
 
-				// Create a "fake" Blueprint object from the file
+				if ( validation.warnings && validation.warnings.length > 0 ) {
+					setBlueprintWarnings( validation.warnings );
+				}
+
 				const fileBlueprint: Blueprint = {
 					slug: `file:${ file.name }`, // Use filename as part of the slug
 					title: blueprintJson.meta?.title || file.name.replace( '.json', '' ),
@@ -257,6 +309,7 @@ export function AddSiteBlueprintSelector( {
 					blueprint: blueprintJson, // The actual blueprint JSON
 				};
 
+				setUploadedFileName( null );
 				onFileBlueprintSelect( fileBlueprint );
 			} catch ( error ) {
 				if ( error instanceof SyntaxError ) {
@@ -308,17 +361,24 @@ export function AddSiteBlueprintSelector( {
 	}
 
 	return (
-		<VStack className="w-full max-w-6xl mx-auto" spacing={ 0 }>
-			<Heading className="text-center text-[32px] text-gray-900 mb-[28px]" weight={ 500 }>
+		<VStack className="w-full max-w-4xl mx-auto px-0.5" spacing={ 0 }>
+			<Heading className="text-center text-[32px] text-gray-900 mb-5" weight={ 500 }>
 				{ __( 'Start from a blueprint' ) }
 			</Heading>
+
+			<BlueprintIssuesModal
+				warnings={ blueprintWarnings }
+				fileName={ selectedFileName || '' }
+				isOpen={ showIssuesModal }
+				onClose={ () => setShowIssuesModal( false ) }
+			/>
 
 			{ validationError && (
 				<Notice
 					status="error"
-					isDismissible={ true }
-					onRemove={ () => setValidationError( null ) }
-					className="mx-3 mb-4"
+					isDismissible={ false }
+					onRemove={ () => setValidationError( undefined ) }
+					className="mx-0 mb-4"
 				>
 					<strong>{ __( 'Blueprint validation failed' ) }</strong>
 					<br />
@@ -326,27 +386,42 @@ export function AddSiteBlueprintSelector( {
 				</Notice>
 			) }
 
-			<HStack alignment="edge" className="w-full mb-[22px] px-3">
+			{ ! validationError && blueprintWarnings && blueprintWarnings.length > 0 && (
+				<Notice status="warning" isDismissible={ false } className="mx-0 mb-4">
+					<div className="flex justify-between items-center w-full">
+						<span>
+							{ __(
+								'This blueprint uses unsupported features in Studio and might not work as expected.'
+							) }
+						</span>
+						<Button
+							variant="link"
+							onClick={ () => setShowIssuesModal( true ) }
+							className="!text-inherit !p-0 !underline"
+						>
+							{ __( 'View details' ) }
+						</Button>
+					</div>
+				</Notice>
+			) }
+
+			<HStack alignment="edge" className="w-full mb-5 ">
 				<HStack alignment="left" className="flex-1">
 					<Text className="text-[16px]" weight={ 500 }>
 						{ __( 'Featured blueprints' ) }
 					</Text>
 				</HStack>
 				{ selectedFileName ? (
-					<HStack className="h-9 w-fit flex-shrink-0 items-center">
+					<HStack className="flex-1 items-center justify-end gap-1">
 						<Text
 							className="text-sm font-medium text-gray-900 truncate max-w-48"
 							title={ selectedFileName }
 						>
 							{ selectedFileName }
 						</Text>
-						<button
-							type="button"
-							className="text-sm text-blue-600 hover:text-blue-700 focus:outline-none"
-							onClick={ handleRemoveFile }
-						>
+						<Button variant="tertiary" size="small" onClick={ handleRemoveFile } isDestructive>
 							{ __( 'Remove' ) }
-						</button>
+						</Button>
 					</HStack>
 				) : (
 					<label className="flex-shrink-0">
@@ -363,6 +438,7 @@ export function AddSiteBlueprintSelector( {
 							onClick={ () => {
 								fileRef.current?.click();
 							} }
+							icon={ upload }
 						>
 							{ __( 'Choose blueprint file' ) }
 						</Button>
@@ -370,7 +446,7 @@ export function AddSiteBlueprintSelector( {
 				) }
 			</HStack>
 
-			<div className="w-full px-3 [&_.dataviews-view-grid]:!grid [&_.dataviews-view-grid]:!grid-cols-3 [&_.dataviews-view-grid]:!gap-4 [&_.dataviews-view-grid]:!items-start [&_.components-badge]:!bg-transparent [&_.components-badge]:!p-0 [&_.components-badge]:!w-full [&_.components-badge_.components-badge__content]:!w-full [&_.components-badge>*]:!w-full">
+			<div className="blueprints-container w-full pb-1">
 				{ isFetchingBlueprints && (
 					<Text className="text-[14px] block text-center py-[100px]">
 						{ __( 'Loading blueprints...' ) }

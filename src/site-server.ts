@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/electron/main';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { portFinder } from 'common/lib/port-finder';
+import { filterUnsupportedBlueprintFeatures } from 'src/lib/blueprint-features';
 import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { addDomainToHosts, removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
@@ -132,6 +133,8 @@ export class SiteServer {
 			await startProxyServer();
 		}
 
+		const filteredBlueprint = filterUnsupportedBlueprintFeatures( this.meta.blueprint?.blueprint );
+
 		const serverInstance = await startServer( {
 			path: this.details.path,
 			port: this.details.port,
@@ -141,6 +144,7 @@ export class SiteServer {
 			wpVersion: this.meta.wpVersion,
 			isWpAutoUpdating: this.details.isWpAutoUpdating,
 			absoluteUrl: getAbsoluteUrl( this.details ),
+			blueprint: filteredBlueprint,
 		} );
 
 		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
@@ -259,7 +263,14 @@ export class SiteServer {
 			.then( ( image ) => fs.promises.writeFile( outPath, image.toPNG() ) )
 			.catch( async ( error ) => {
 				Sentry.captureException( error );
-				await fs.promises.unlink( outPath );
+				try {
+					await fs.promises.unlink( outPath );
+				} catch ( unlinkError ) {
+					// Ignore ENOENT errors as the file might not exist
+					if ( ( unlinkError as NodeJS.ErrnoException ).code !== 'ENOENT' ) {
+						console.error( 'Failed to cleanup thumbnail file:', unlinkError );
+					}
+				}
 			} )
 			.finally( () => window.destroy() );
 	}

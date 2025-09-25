@@ -2,9 +2,7 @@ import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
-import { useI18n } from '@wordpress/react-i18n';
 import { useEffect } from 'react';
-import { DynamicStylesheet } from 'src/components/dynamic-stylesheet';
 import MacTitlebar from 'src/components/mac-titlebar';
 import MainSidebar from 'src/components/main-sidebar';
 import Onboarding from 'src/components/onboarding';
@@ -26,7 +24,6 @@ export default function App() {
 	const { needsOnboarding } = useOnboarding();
 	const { isSidebarVisible, toggleSidebar } = useSidebarVisibility();
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
-	const i18n = useI18n();
 
 	useEffect( () => {
 		void getIpcApi().setupAppMenu( { needsOnboarding } );
@@ -34,16 +31,6 @@ export default function App() {
 
 	return (
 		<>
-			<DynamicStylesheet
-				id="wordpress-components-style"
-				href={
-					i18n?.isRTL()
-						? '../main_window/styles/wordpress-components-style-rtl.css'
-						: '../main_window/styles/wordpress-components-style.css'
-				}
-			/>
-			<DynamicStylesheet id="main-window-style" href={ '../main_window.css' } />
-
 			{ needsOnboarding ? (
 				<VStack
 					className={ cx( 'h-screen backdrop-blur-3xl app-drag-region select-none' ) }

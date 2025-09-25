@@ -176,6 +176,27 @@ async function startServer(
 			};
 		}
 
+		if ( serverOptions.siteLanguage ) {
+			if ( ! args.blueprint.steps ) {
+				args.blueprint.steps = [];
+			}
+
+			args.blueprint.steps.unshift(
+				...[
+					{
+						step: 'setSiteLanguage',
+						language: serverOptions.siteLanguage,
+					},
+					{
+						step: 'runPHP',
+						code: `<?php require_once( '/wordpress/wp-load.php' ); update_option( 'WPLANG', '${ escapePhpString(
+							serverOptions.siteLanguage
+						) }' ); echo "Language set to: ${ escapePhpString( serverOptions.siteLanguage ) }"; ?>`,
+					},
+				]
+			);
+		}
+
 		server = await runCLI( args );
 
 		if ( serverOptions.siteTitle || serverOptions.adminPassword ) {

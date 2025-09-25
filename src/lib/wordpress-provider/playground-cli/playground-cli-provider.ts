@@ -5,6 +5,7 @@ import { Blueprint } from '@wp-playground/blueprints';
 import { RecommendedPHPVersion } from '@wp-playground/common';
 import fs from 'fs-extra';
 import { recursiveCopyDirectory, pathExists } from 'common/lib/fs-utils';
+import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import { installSqliteIntegration } from 'src/lib/sqlite-versions';
 import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
 import { SiteServer } from 'src/site-server';
@@ -70,7 +71,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			autoMount: true,
 			skipWordpressSetup: true,
 			isSetupMode: options.isSetupMode || false,
-			blueprint: options.blueprint,
 		};
 
 		const serverOptions: WordPressServerOptions = {
@@ -81,9 +81,9 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			projectPath: options.path,
 			adminPassword: options.adminPassword,
 			siteTitle: options.siteTitle,
-			siteLanguage: options.siteLanguage,
 			wordPressVersion: options.wpVersion,
 			isWpAutoUpdating: options.isWpAutoUpdating,
+			siteLanguage: options.siteLanguage,
 		};
 
 		return {
@@ -160,7 +160,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				return true;
 			}
 
-			// Online mode: run the blueprint setup
+			const siteLanguage = await getPreferredSiteLanguage( wpVersion );
 			const serverInstance = await this.startServer( {
 				path,
 				port,
@@ -171,6 +171,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				isWpAutoUpdating: false,
 				isSetupMode: true,
 				blueprint: blueprint?.blueprint,
+				siteLanguage,
 			} );
 
 			const serverProcess = this.createServerProcess( serverInstance );

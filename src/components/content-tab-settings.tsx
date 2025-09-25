@@ -1,13 +1,13 @@
 import { DropdownMenu, MenuGroup, Button } from '@wordpress/components';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useEffect, useRef } from 'react';
+import { PropsWithChildren } from 'react';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import DeleteSite from 'src/components/delete-site';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { decodePassword } from 'src/lib/passwords';
-import EditSiteDetails, { EditSiteDetailsRef } from 'src/modules/site-settings/edit-site-details';
+import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
 import { useAppDispatch } from 'src/stores';
 import {
 	certificateTrustApi,
@@ -16,8 +16,6 @@ import {
 
 interface ContentTabSettingsProps {
 	selectedSite: SiteDetails;
-	shouldOpenEditModal?: boolean;
-	onEditModalOpened?: () => void;
 }
 
 function SettingsRow( { children, label }: PropsWithChildren< { label: string } > ) {
@@ -31,15 +29,10 @@ function SettingsRow( { children, label }: PropsWithChildren< { label: string } 
 	);
 }
 
-export function ContentTabSettings( {
-	selectedSite,
-	shouldOpenEditModal,
-	onEditModalOpened,
-}: ContentTabSettingsProps ) {
+export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) {
 	const dispatch = useAppDispatch();
 	const { __ } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
-	const editSiteRef = useRef< EditSiteDetailsRef >( null );
 	const username = 'admin';
 	// Empty strings account for legacy sites lacking a stored password.
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
@@ -57,16 +50,6 @@ export function ContentTabSettings( {
 		await dispatch( certificateTrustApi.util.invalidateTags( [ 'CertificateTrust' ] ) );
 	};
 
-	// Open edit modal when requested from context menu
-	useEffect( () => {
-		if ( shouldOpenEditModal ) {
-			setTimeout( () => {
-				editSiteRef.current?.openModal();
-				onEditModalOpened?.();
-			}, 100 );
-		}
-	}, [ shouldOpenEditModal, onEditModalOpened ] );
-
 	return (
 		<div className="p-8 ltr:pr-4 rtl:pl-4">
 			<div className="flex justify-between items-center mb-4">
@@ -74,11 +57,7 @@ export function ContentTabSettings( {
 					{ __( 'Site details' ) }
 				</h3>
 				<div className="flex items-center gap-1">
-					<EditSiteDetails
-						ref={ editSiteRef }
-						currentWpVersion={ wpVersion }
-						onSave={ refreshWpVersion }
-					/>
+					<EditSiteDetails currentWpVersion={ wpVersion } onSave={ refreshWpVersion } />
 					<DropdownMenu
 						icon={ moreVertical }
 						label={ __( 'More options' ) }

@@ -5,6 +5,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import { Tooltip } from 'src/components/tooltip';
 import { useSyncSites } from 'src/hooks/sync-sites';
+import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isMac, isWindows } from 'src/lib/app-globals';
@@ -113,8 +114,16 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 	);
 }
 function SiteItem( { site }: { site: SiteDetails } ) {
-	const { selectedSite, setSelectedSiteId, startServer, stopServer, deleteSite, loadingServer } =
-		useSiteDetails();
+	const {
+		selectedSite,
+		setSelectedSiteId,
+		startServer,
+		stopServer,
+		deleteSite,
+		loadingServer,
+		setIsEditModalOpen,
+	} = useSiteDetails();
+	const { setSelectedTab } = useContentTabs();
 	const isSelected = site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
 	const { isSiteIdPulling } = useSyncSites();
@@ -203,11 +212,11 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 							} )();
 							break;
 						case 'edit-site':
-							window.dispatchEvent(
-								new CustomEvent( 'edit-site-request', {
-									detail: { siteId: site.id },
-								} )
-							);
+							if ( site.id !== selectedSite?.id ) {
+								setSelectedSiteId( site.id );
+							}
+							setSelectedTab( 'settings' );
+							setIsEditModalOpen( true );
 							break;
 						case 'delete': {
 							const DELETE_BUTTON_INDEX = 0;

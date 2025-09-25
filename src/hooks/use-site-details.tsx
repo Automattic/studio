@@ -41,6 +41,8 @@ interface SiteDetailsContext {
 	isDeleting: boolean;
 	uploadingSites: { [ siteId: string ]: boolean };
 	setUploadingSites: React.Dispatch< React.SetStateAction< { [ siteId: string ]: boolean } > >;
+	isEditModalOpen: boolean;
+	setIsEditModalOpen: React.Dispatch< React.SetStateAction< boolean > >;
 }
 
 const defaultContext: SiteDetailsContext = {
@@ -58,6 +60,8 @@ const defaultContext: SiteDetailsContext = {
 	isDeleting: false,
 	uploadingSites: {},
 	setUploadingSites: () => undefined,
+	isEditModalOpen: false,
+	setIsEditModalOpen: () => undefined,
 };
 
 export const siteDetailsContext = createContext< SiteDetailsContext >( defaultContext );
@@ -462,6 +466,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		setData( data.map( ( site ) => ( site.running ? { ...site, running: false } : site ) ) );
 	}, [ data ] );
 
+	const [ isEditModalOpen, setIsEditModalOpen ] = useState( false );
+
 	const context = useMemo(
 		() => ( {
 			selectedSite: data.find( ( site ) => site.id === selectedSiteId ) || firstSite,
@@ -478,6 +484,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			loadingSites,
 			uploadingSites,
 			setUploadingSites,
+			isEditModalOpen,
+			setIsEditModalOpen,
 		} ),
 		[
 			data,
@@ -494,6 +502,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			isDeleting,
 			loadingSites,
 			uploadingSites,
+			isEditModalOpen,
+			setIsEditModalOpen,
 		]
 	);
 

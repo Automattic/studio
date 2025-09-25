@@ -41,7 +41,6 @@ import {
 	isRootCATrusted,
 	trustRootCA,
 } from 'src/lib/certificate-manager';
-import { cleanErrorMessage } from 'src/lib/clean-error-message';
 import { download } from 'src/lib/download';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { sanitizeFolderName } from 'src/lib/generate-site-name';
@@ -1134,14 +1133,10 @@ export async function showErrorMessageBox(
 	}: { title: string; message: string; error?: unknown; showOpenLogs?: boolean }
 ) {
 	// Remove prepended error message added by IPC handler
-	let filteredError = ( error as Error )?.message?.replace(
+	const filteredError = ( error as Error )?.message?.replace(
 		/Error invoking remote method '\w+': Error:/g,
 		''
 	);
-
-	if ( filteredError ) {
-		filteredError = cleanErrorMessage( filteredError );
-	}
 
 	const response = await showMessageBox( event, {
 		type: 'error',

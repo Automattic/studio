@@ -3,6 +3,7 @@ import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import { WordPressServerOptions } from '../types';
 import { getMuPlugins } from './mu-plugins';
 import { PlaygroundCliOptions } from './playground-cli-provider';
+import { DEFAULT_LOCALE } from 'common/lib/locale';
 
 interface Message {
 	id: number;
@@ -176,7 +177,7 @@ async function startServer(
 			};
 		}
 
-		if ( serverOptions.siteLanguage ) {
+		if ( serverOptions.siteLanguage && serverOptions.siteLanguage !== DEFAULT_LOCALE ) {
 			if ( ! args.blueprint.steps ) {
 				args.blueprint.steps = [];
 			}

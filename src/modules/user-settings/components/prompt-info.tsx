@@ -23,7 +23,7 @@ export function PromptInfo() {
 							<span className="text-a8c-gray-70">
 								{ isOffline
 									? __( "You're currently offline" )
-									: sprintf( __( '%1s of %2s monthly prompts used' ), promptCount, promptLimit ) }
+									: sprintf( __( '%1$d of %2$d monthly prompts used' ), promptCount, promptLimit ) }
 							</span>
 						</div>
 					</div>

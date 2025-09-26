@@ -15,7 +15,10 @@ export const sitesEndpointSiteSchema = z.object( {
 	jetpack: z.boolean().optional(),
 	is_deleted: z.boolean(),
 	hosting_provider_guess: z.string().optional(),
-	environment_type: z.string().nullable().optional(),
+	environment_type: z
+		.enum( [ 'production', 'staging', 'development', 'sandbox', 'local' ] )
+		.nullable()
+		.optional(),
 	is_a8c: z.boolean().optional(),
 	options: z
 		.object( {
@@ -30,16 +33,16 @@ export const sitesEndpointSiteSchema = z.object( {
 		.optional(),
 	plan: z
 		.object( {
-			expired: z.boolean(),
+			expired: z.boolean().optional(),
 			features: z.object( {
 				active: z.array( z.string() ),
 				available: z.record( z.string(), z.array( z.string() ) ).optional(),
 			} ),
-			is_free: z.boolean(),
-			product_id: z.number(),
+			is_free: z.boolean().optional(),
+			product_id: z.coerce.number(),
 			product_name_short: z.string(),
 			product_slug: z.string(),
-			user_is_owner: z.boolean(),
+			user_is_owner: z.boolean().optional(),
 		} )
 		.optional(),
 } );

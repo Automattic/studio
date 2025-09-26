@@ -1,9 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { useCallback } from 'react';
 import { TreeNode } from 'src/components/tree-view';
-import { useAuth } from 'src/hooks/use-auth';
-import { useAppDispatch, useRootSelector, RootState } from 'src/stores';
-import { fetchRemoteFileTree, useGetLatestRewindIdQuery } from './sync-api';
+import { fetchRemoteFileTree } from './sync-api';
 
 interface RemoteFileTreeState {
 	loading: boolean;
@@ -55,75 +52,8 @@ export const syncActions = syncSlice.actions;
 export const syncReducer = syncSlice.reducer;
 
 export const syncSelectors = {
-	selectRemoteFileTree: ( state: RootState, key: string ) =>
+	selectRemoteFileTree: ( state: { sync: SyncState }, key: string ) =>
 		state.sync.remoteFileTrees.cache[ key ],
-	selectIsLoadingFileTree: ( state: RootState ) => state.sync.remoteFileTrees.loading,
-	selectFileTreeError: ( state: RootState ) => state.sync.remoteFileTrees.error,
+	selectIsLoadingFileTree: ( state: { sync: SyncState } ) => state.sync.remoteFileTrees.loading,
+	selectFileTreeError: ( state: { sync: SyncState } ) => state.sync.remoteFileTrees.error,
 };
-
-export function useLatestRewindId(
-	remoteSiteId: number | undefined,
-	options?: {
-		skip: boolean;
-	}
-) {
-	const { skip = false } = options || {};
-
-	const {
-		data: rewindId,
-		isLoading,
-		error,
-	} = useGetLatestRewindIdQuery( remoteSiteId || 0, {
-		skip: ! remoteSiteId || skip,
-	} );
-
-	return {
-		rewindId: rewindId || null,
-		isLoading,
-		error: error ? new Error( error as unknown as string ) : null,
-	};
-}
-
-export function useRemoteFileTree() {
-	const dispatch = useAppDispatch();
-	const { client } = useAuth();
-	const isLoading = useRootSelector( syncSelectors.selectIsLoadingFileTree );
-	const error = useRootSelector( syncSelectors.selectFileTreeError );
-
-	const fetchChildren = useCallback(
-		async (
-			remoteSiteId: number,
-			rewindId: string,
-			path: string,
-			parentChecked: boolean = false
-		): Promise< TreeNode[] | null > => {
-			if ( ! client ) {
-				return null;
-			}
-
-			try {
-				const result = await dispatch(
-					fetchRemoteFileTree( {
-						client,
-						remoteSiteId,
-						rewindId,
-						path,
-						parentChecked,
-					} )
-				).unwrap();
-
-				return result.children;
-			} catch ( err ) {
-				console.error( 'Failed to fetch remote file tree:', err );
-				return null;
-			}
-		},
-		[ client, dispatch ]
-	);
-
-	return {
-		isLoading,
-		error: error ? new Error( error ) : null,
-		fetchChildren,
-	};
-}

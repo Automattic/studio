@@ -1,3 +1,5 @@
+import createCache from '@emotion/cache';
+import { CacheProvider } from '@emotion/react';
 import { defaultI18n } from '@wordpress/i18n';
 import { I18nProvider } from '@wordpress/react-i18n';
 import { useEffect } from 'react';
@@ -16,6 +18,12 @@ import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
 import { store } from 'src/stores';
 import { initializeUserLocale } from 'src/stores/i18n-slice';
 
+// Create Emotion cache that injects styles first (before our Tailwind utilities)
+const emotionCache = createCache( {
+	key: 'wordpress-components',
+	prepend: true, // This ensures WordPress component styles load before our custom styles
+} );
+
 const Root = () => {
 	useEffect( () => {
 		void store.dispatch( initializeUserLocale() );
@@ -23,27 +31,29 @@ const Root = () => {
 	return (
 		<ErrorBoundary>
 			<CrashTester />
-			<ReduxProvider store={ store }>
-				<I18nProvider i18n={ defaultI18n }>
-					<AuthProvider>
-						<ContentTabsProvider>
-							<SiteDetailsProvider>
-								<FeatureFlagsProvider>
-									<ThemeDetailsProvider>
-										<OnboardingProvider>
-											<ImportExportProvider>
-												<SyncSitesProvider>
-													<App />
-												</SyncSitesProvider>
-											</ImportExportProvider>
-										</OnboardingProvider>
-									</ThemeDetailsProvider>
-								</FeatureFlagsProvider>
-							</SiteDetailsProvider>
-						</ContentTabsProvider>
-					</AuthProvider>
-				</I18nProvider>
-			</ReduxProvider>
+			<CacheProvider value={ emotionCache }>
+				<ReduxProvider store={ store }>
+					<I18nProvider i18n={ defaultI18n }>
+						<AuthProvider>
+							<ContentTabsProvider>
+								<SiteDetailsProvider>
+									<FeatureFlagsProvider>
+										<ThemeDetailsProvider>
+											<OnboardingProvider>
+												<ImportExportProvider>
+													<SyncSitesProvider>
+														<App />
+													</SyncSitesProvider>
+												</ImportExportProvider>
+											</OnboardingProvider>
+										</ThemeDetailsProvider>
+									</FeatureFlagsProvider>
+								</SiteDetailsProvider>
+							</ContentTabsProvider>
+						</AuthProvider>
+					</I18nProvider>
+				</ReduxProvider>
+			</CacheProvider>
 		</ErrorBoundary>
 	);
 };

@@ -10,14 +10,9 @@ import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
-import { WebpackPlugin } from '@electron-forge/plugin-webpack';
-import ForgeExternalsPlugin from '@timfish/forge-externals-plugin';
-import ejs from 'ejs';
-import { webpack } from 'webpack';
-import { isErrnoException } from './src/lib/is-errno-exception';
-import cliConfig from './webpack.cli.config';
-import mainConfig, { mainBaseConfig } from './webpack.main.config';
-import { rendererConfig } from './webpack.renderer.config';
+import { isErrnoException } from './common/lib/is-errno-exception';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const config: ForgeConfig = {
@@ -27,6 +22,44 @@ const config: ForgeConfig = {
 		executableName: process.platform === 'linux' ? 'studio' : undefined,
 		icon: './assets/studio-app-icon',
 		osxSign: {},
+		ignore: [
+			// Exclude major development directories
+			/^\/\..*/, // All dotfiles and dot directories
+			/^\/src/,
+			/^\/common/,
+			/^\/cli/,
+			/^\/vendor/,
+			/^\/fastlane/,
+			/^\/docs/,
+			/^\/e2e/,
+			/^\/scripts/,
+			/^\/packages/,
+			/^\/patches/,
+			/^\/metrics/,
+			/^\/test-results/,
+			/^\/webpack-loaders/,
+			/^\/installers/,
+			// Config files
+			/^\/webpack\./,
+			/^\/tsconfig\./,
+			/^\/jest\./,
+			/^\/playwright\./,
+			/^\/postcss\./,
+			/^\/tailwind\./,
+			/^\/forge\./,
+			/^\/electron\./,
+			/^\/index\.html$/,
+			/^\/Gemfile/,
+			/^\/.*\.md$/,
+			/^\/.*\.txt$/,
+			/^\/.*\.log$/,
+			// External resources (shouldn't be in asar)
+			/^\/assets/,
+			/^\/bin/,
+			/^\/wp-files/,
+			/^\/dist\/cli/,
+			/^\/dist\/playground-cli/,
+		],
 	},
 	rebuildConfig: {
 		ignoreModules: [ 'fs-ext' ],
@@ -88,36 +121,8 @@ const config: ForgeConfig = {
 	],
 	plugins: [
 		new AutoUnpackNativesPlugin( {} ),
-		new WebpackPlugin( {
-			mainConfig,
-			renderer: {
-				config: rendererConfig,
-				entryPoints: [
-					{
-						html: './dist/index.html',
-						js: './src/renderer.ts',
-						name: 'main_window',
-						preload: {
-							js: './src/preload.ts',
-						},
-					},
-				],
-			},
-			// By default the dev server uses the same port as calypso.localhost
-			port: 3456,
-		} ),
-		// This plugin bundles the externals defined in the Webpack config file.
-		new ForgeExternalsPlugin( { externals: Object.keys( mainBaseConfig.externals ?? {} ) } ),
 	],
 	hooks: {
-		generateAssets: async () => {
-			console.log( 'Building the HTML entry file ...' );
-
-			const ejsTemplate = fs.readFileSync( './src/index.ejs', 'utf8' );
-			const renderedHtml = ejs.render( ejsTemplate );
-			fs.mkdirSync( './dist', { recursive: true } );
-			fs.writeFileSync( './dist/index.html', renderedHtml );
-		},
 		prePackage: async () => {
 			console.log( "Ensuring latest WordPress zip isn't included in production build ..." );
 
@@ -129,16 +134,8 @@ const config: ForgeConfig = {
 			}
 
 			console.log( 'Building CLI ...' );
-			const compiler = webpack( { ...cliConfig, mode: 'production' } );
-
-			await new Promise< void >( ( resolve, reject ) => {
-				compiler.run( ( error ) => {
-					if ( error ) {
-						reject( error );
-					}
-					resolve();
-				} );
-			} );
+			const execAsync = promisify( exec );
+			await execAsync( 'npm run cli:build' );
 		},
 	},
 };

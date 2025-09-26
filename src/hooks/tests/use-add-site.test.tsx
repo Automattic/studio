@@ -164,7 +164,7 @@ describe( 'useAddSite', () => {
 			'6.1.7',
 			undefined,
 			false,
-			null, // blueprint parameter
+			undefined, // blueprint parameter
 			expect.any( Function )
 		);
 	} );

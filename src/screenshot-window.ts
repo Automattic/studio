@@ -17,23 +17,9 @@ export function createScreenshotWindow( captureUrl: string ) {
 		webPreferences: { session: newSession },
 	} );
 
-	const responseStatusCodePromise = new Promise< void >( ( resolve, reject ) => {
-		newSession.webRequest.onCompleted( ( details ) => {
-			if ( details.resourceType !== 'mainFrame' ) {
-				return;
-			}
-
-			if ( details.statusCode < 200 || details.statusCode >= 400 ) {
-				reject( new Error( `Page returned status code: ${ details.statusCode }` ) );
-			} else {
-				resolve();
-			}
-		} );
-	} );
-
 	const waitForCapture = async () => {
 		await window.loadURL( captureUrl );
-		await responseStatusCodePromise;
+
 		await window.webContents.insertCSS( `
 			body, html {
 				overflow: hidden;
@@ -58,7 +44,12 @@ export function createScreenshotWindow( captureUrl: string ) {
 		const LOAD_TIMEOUT = process.platform === 'win32' ? 2000 : 500;
 		await new Promise( ( resolve ) => setTimeout( resolve, LOAD_TIMEOUT ) );
 
-		return window.webContents.capturePage();
+		// Force the window to the exact dimensions we want - in some cases, the window may not
+		// respect the size set in the constructor, especially on macOS, where it might adjust
+		// the size based on the content.
+		window.setSize( SCREENSHOT_WIDTH, SCREENSHOT_HEIGHT );
+
+		return await window.webContents.capturePage();
 	};
 
 	return { window, waitForCapture };

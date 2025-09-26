@@ -33,10 +33,9 @@ test.describe( 'Site Editor Load Metrics', () => {
 		// Setup WordPress site
 		const onboarding = new Onboarding( session.mainWindow );
 		await expect( onboarding.heading ).toBeVisible();
-		
 		// Wait for store initialization to complete (provider constants loading)
 		await new Promise( ( resolve ) => setTimeout( resolve, 500 ) );
-		
+		await onboarding.siteNameInput.fill( siteName );
 		await onboarding.continueButton.click();
 
 		// Handle the What's New modal if it appears
@@ -46,6 +45,8 @@ test.describe( 'Site Editor Load Metrics', () => {
 		}
 
 		const siteContent = new SiteContent( session.mainWindow, siteName );
+
+		await expect( siteContent.siteNameHeading ).toBeVisible();
 		await expect( siteContent.runningButton ).toBeAttached();
 
 		// Get the WordPress admin URL from settings

@@ -29,7 +29,7 @@ export const SiteManagementActions = ( {
 	const isPulling = isSiteIdPulling( selectedSite.id );
 	const disabled = isImporting || isPulling;
 
-	let buttonLabelOnDisabled = __( 'Importing…' );
+	let buttonLabelOnDisabled: string = __( 'Importing…' );
 	if ( isPulling ) {
 		buttonLabelOnDisabled = __( 'Pulling…' );
 	}

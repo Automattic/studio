@@ -1,5 +1,6 @@
 import { SupportedPHPVersion, PHPRunOptions } from '@php-wasm/universal';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
+import { DEFAULT_LOCALE } from 'common/lib/locale';
 import { WordPressServerOptions } from '../types';
 import { getMuPlugins } from './mu-plugins';
 import { PlaygroundCliOptions } from './playground-cli-provider';
@@ -142,6 +143,7 @@ async function startServer(
 			port: options.port,
 			login: true,
 			'mount-before-install': mounts,
+			'site-url': serverOptions.absoluteUrl,
 		};
 
 		if ( ! options.isSetupMode ) {
@@ -157,8 +159,40 @@ async function startServer(
 			args.wp = serverOptions.wordPressVersion;
 		}
 
+		const defaultConstants = {
+			WP_SQLITE_AST_DRIVER: true,
+		};
+
 		if ( options.blueprint ) {
-			args.blueprint = options.blueprint;
+			args.blueprint = {
+				...options.blueprint,
+				constants: {
+					...options.blueprint.constants,
+					...defaultConstants,
+				},
+			};
+		} else {
+			args.blueprint = {
+				constants: defaultConstants,
+			};
+		}
+
+		if ( serverOptions.siteLanguage && serverOptions.siteLanguage !== DEFAULT_LOCALE ) {
+			args.blueprint.steps = [
+				...[
+					{
+						step: 'setSiteLanguage',
+						language: serverOptions.siteLanguage,
+					},
+					{
+						step: 'runPHP',
+						code: `<?php require_once( '/wordpress/wp-load.php' ); update_option( 'WPLANG', '${ escapePhpString(
+							serverOptions.siteLanguage
+						) }' ); echo "Language set to: ${ escapePhpString( serverOptions.siteLanguage ) }"; ?>`,
+					},
+				],
+				...( args.blueprint.steps || [] ),
+			];
 		}
 
 		server = await runCLI( args );
@@ -180,7 +214,12 @@ async function stopServerFunc(): Promise< void > {
 	try {
 		await server[ Symbol.asyncDispose ]();
 	} catch ( error ) {
-		console.warn( error );
+		// Suppress expected disposal errors that occur during site deletion
+		// These are typically race conditions that don't affect functionality
+		const errorMessage = error instanceof Error ? error.message : String( error );
+		if ( ! errorMessage.includes( 'Cannot read properties of undefined' ) ) {
+			console.warn( 'Error during server disposal:', error );
+		}
 	} finally {
 		server = null;
 	}

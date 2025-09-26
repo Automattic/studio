@@ -1,12 +1,13 @@
 // Run tests: yarn test -- src/components/add-site-button.test.tsx
 import { jest } from '@jest/globals';
-import { render, waitFor, screen } from '@testing-library/react';
+import { render, waitFor, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { useOffline } from 'src/hooks/use-offline';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 import { createTestStore } from 'src/lib/test-utils';
 import AddSite from 'src/modules/add-site';
+import { useGetBlueprints } from 'src/stores/wpcom-api';
 
 jest.mock( 'src/stores/certificate-trust-api', () => {
 	const actual = jest.requireActual( 'src/stores/certificate-trust-api' ) || {};
@@ -55,6 +56,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		showOpenFolderDialog: mockShowOpenFolderDialog,
 		generateProposedSitePath: mockGenerateProposedSitePath,
 		getAllCustomDomains: mockGetAllCustomDomains,
+		setWindowControlVisibility: jest.fn(),
 	} ),
 } ) );
 
@@ -85,6 +87,8 @@ jest.mock( 'src/stores/wpcom-api', () => {
 		} ),
 	};
 } );
+
+const mockUseGetBlueprints = useGetBlueprints as jest.MockedFunction< typeof useGetBlueprints >;
 
 const renderWithProvider = ( children: React.ReactElement ) => {
 	const store = createTestStore( {
@@ -120,7 +124,7 @@ describe( 'AddSite', () => {
 		jest.clearAllMocks();
 	} );
 
-	it( 'should dismiss the modal when the cancel button is activated via keyboard', async () => {
+	it( 'should dismiss the modal when the close button is activated via keyboard', async () => {
 		const user = userEvent.setup();
 		mockGenerateProposedSitePath.mockResolvedValue( {
 			path: '/default_path/my-wordpress-website',
@@ -131,24 +135,25 @@ describe( 'AddSite', () => {
 		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getByRole( 'heading', { name: 'Create a site' } ) );
 
-		// Find the Cancel button
-		const cancelButton = screen.getByRole( 'button', { name: 'Cancel' } );
-		expect( cancelButton ).toBeInTheDocument();
+		// Find the Close button
+		const closeButton = screen.getByRole( 'button', { name: 'Close' } );
+		expect( closeButton ).toBeInTheDocument();
 
-		// Tab until we reach the Cancel button
+		// Tab until we reach the Closes button
 		let currentButton;
 		do {
 			await user.tab();
 			currentButton = document.activeElement;
-		} while ( currentButton !== cancelButton );
+		} while ( currentButton !== closeButton );
 
 		await user.keyboard( '{Enter}' );
 		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
 		expect( mockCreateSite ).not.toHaveBeenCalled();
 	} );
 
-	it( 'calls createSite with selected path when add site button is clicked', async () => {
+	it( 'calls createSite with selected path when create a site button is clicked', async () => {
 		const user = userEvent.setup();
 		mockGenerateProposedSitePath.mockResolvedValue( {
 			path: '/default_path/my-wordpress-website',
@@ -167,11 +172,18 @@ describe( 'AddSite', () => {
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
+
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
+
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
 		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site', '' );
-		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		const dialog = screen.getByRole( 'dialog' );
+		const addSiteButton = within( dialog ).getByRole( 'button', { name: 'Add site' } );
+		await user.click( addSiteButton );
 
 		await waitFor( () => {
 			expect( mockCreateSite ).toHaveBeenCalledWith(
@@ -180,7 +192,7 @@ describe( 'AddSite', () => {
 				'latest',
 				undefined,
 				false,
-				null, // blueprint parameter
+				undefined, // blueprint parameter
 				expect.any( Function )
 			);
 		} );
@@ -202,15 +214,22 @@ describe( 'AddSite', () => {
 		} );
 		renderWithProvider( <AddSite /> );
 
-		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getAllByRole( 'button', { name: 'Add site' } )[ 0 ] );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
+
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
+
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
 		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site', '' );
 
 		await waitFor( () => {
-			expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toBeDisabled();
+			const dialog = screen.getByRole( 'dialog' );
+			const addSiteButton = within( dialog ).getByRole( 'button', { name: 'Add site' } );
+			expect( addSiteButton ).toBeDisabled();
 			expect( screen.getByRole( 'alert' ) ).toHaveTextContent(
 				'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
 			);
@@ -236,13 +255,20 @@ describe( 'AddSite', () => {
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
+
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
+
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
 		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site', '' );
 
 		await waitFor( () => {
-			expect( screen.getByRole( 'button', { name: 'Add site' } ) ).not.toBeDisabled();
+			const dialog = screen.getByRole( 'dialog' );
+			const addSiteButton = within( dialog ).getByRole( 'button', { name: 'Add site' } );
+			expect( addSiteButton ).not.toBeDisabled();
 			expect( screen.getByRole( 'alert' ) ).toHaveTextContent(
 				'The existing WordPress site at this path will be added.'
 			);
@@ -265,6 +291,10 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
 
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
+
 		const siteNameInput = screen.getByDisplayValue( 'My WordPress Website' );
 		await user.click( siteNameInput );
 		await user.type( siteNameInput, ' changed' );
@@ -281,6 +311,11 @@ describe( 'AddSite', () => {
 		} );
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
+
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
+
 		expect( screen.getByDisplayValue( 'My WordPress Website' ) ).toBeVisible();
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		expect( screen.getByDisplayValue( '/default_path/my-wordpress-website' ) ).toBeVisible();
@@ -306,6 +341,11 @@ describe( 'AddSite', () => {
 		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
+
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
@@ -336,6 +376,11 @@ describe( 'AddSite', () => {
 		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
+
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
 		expect( screen.getByText( 'WordPress version' ) ).toBeInTheDocument();
@@ -355,7 +400,9 @@ describe( 'AddSite', () => {
 			isWordPress: false,
 		} );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
-		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		const dialog = screen.getByRole( 'dialog' );
+		const addSiteButton = within( dialog ).getByRole( 'button', { name: 'Add site' } );
+		await user.click( addSiteButton );
 
 		await waitFor( () => {
 			expect( mockCreateSite ).toHaveBeenCalledWith(
@@ -364,7 +411,7 @@ describe( 'AddSite', () => {
 				'6.3.3',
 				undefined,
 				false,
-				null, // blueprint parameter
+				undefined, // blueprint parameter
 				expect.any( Function )
 			);
 		} );
@@ -382,6 +429,11 @@ describe( 'AddSite', () => {
 		renderWithProvider( <AddSite /> );
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
+
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
 		expect( screen.getByText( 'PHP version' ) ).toBeInTheDocument();
@@ -401,7 +453,9 @@ describe( 'AddSite', () => {
 			isWordPress: false,
 		} );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
-		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		const dialog = screen.getByRole( 'dialog' );
+		const addSiteButton = within( dialog ).getByRole( 'button', { name: 'Add site' } );
+		await user.click( addSiteButton );
 
 		await waitFor( () => {
 			expect( mockCreateSite ).toHaveBeenCalled();
@@ -415,6 +469,9 @@ describe( 'AddSite', () => {
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
 		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
@@ -428,6 +485,9 @@ describe( 'AddSite', () => {
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
 		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
@@ -441,6 +501,9 @@ describe( 'AddSite', () => {
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
 		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
@@ -460,6 +523,9 @@ describe( 'AddSite', () => {
 		const user = userEvent.setup();
 
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
 		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
@@ -469,6 +535,123 @@ describe( 'AddSite', () => {
 			screen.queryByText(
 				'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
 			)
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'should show warning when blueprint preferred versions differ from selected versions', async () => {
+		const mockBlueprintData = {
+			data: {
+				blueprints: [
+					{
+						slug: 'test-blueprint',
+						title: 'Test Blueprint',
+						excerpt: 'A test blueprint',
+						image: '',
+						playground_url: '',
+						blueprint: {
+							preferredVersions: {
+								php: '8.1',
+								wp: '6.4.0',
+							},
+						},
+					},
+				],
+				total: 1,
+			},
+			isLoading: false,
+			refetch: jest.fn(),
+			isUninitialized: false,
+		};
+
+		mockUseGetBlueprints.mockReturnValue(
+			mockBlueprintData as ReturnType< typeof useGetBlueprints >
+		);
+
+		renderWithProvider( <AddSite /> );
+		const user = userEvent.setup();
+
+		// Open modal and navigate to blueprint selection
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click(
+			screen.getByRole( 'button', {
+				name: 'Start from a blueprint Choose a featured blueprint or use your own',
+			} )
+		);
+
+		// Select the blueprint with preferred versions
+		await user.click( screen.getByText( 'Test Blueprint' ) );
+
+		// Continue to create site form
+		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
+
+		// Open advanced settings to access version selectors
+		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
+
+		// Change PHP version to something different from preferred
+		const phpVersionSelect = screen.getByLabelText( 'PHP version' );
+		await user.selectOptions( phpVersionSelect, '8.3' );
+
+		// Should show warning since PHP version differs from preferred (8.1)
+		await waitFor( () => {
+			expect(
+				screen.getByText( 'Version differs from blueprint recommendation' )
+			).toBeInTheDocument();
+			expect( screen.getByText( 'PHP 8.1 (currently 8.3)' ) ).toBeInTheDocument();
+		} );
+	} );
+
+	it( 'should not show warning when versions match blueprint preferred versions', async () => {
+		const mockBlueprintData = {
+			data: {
+				blueprints: [
+					{
+						slug: 'test-blueprint-2',
+						title: 'Test Blueprint 2',
+						excerpt: 'Another test blueprint',
+						image: '',
+						playground_url: '',
+						blueprint: {
+							preferredVersions: {
+								php: '8.3', // Same as default in store
+								wp: 'latest',
+							},
+						},
+					},
+				],
+				total: 1,
+			},
+			isLoading: false,
+			refetch: jest.fn(),
+			isUninitialized: false,
+		};
+
+		mockUseGetBlueprints.mockReturnValue(
+			mockBlueprintData as ReturnType< typeof useGetBlueprints >
+		);
+
+		renderWithProvider( <AddSite /> );
+		const user = userEvent.setup();
+
+		// Open modal and navigate to blueprint selection
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click(
+			screen.getByRole( 'button', {
+				name: 'Start from a blueprint Choose a featured blueprint or use your own',
+			} )
+		);
+
+		// Select the blueprint
+		await user.click( screen.getByText( 'Test Blueprint 2' ) );
+
+		// Continue to create site form
+		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
+
+		// Open advanced settings
+		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
+
+		// Should not show warning since versions match preferred versions
+		expect(
+			screen.queryByText( 'Version differs from blueprint recommendation' )
 		).not.toBeInTheDocument();
 	} );
 } );

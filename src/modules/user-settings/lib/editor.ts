@@ -6,6 +6,7 @@ export const SUPPORTED_EDITORS = [
 	'phpstorm',
 	'windsurf',
 	'webstorm',
+	'sublime',
 ] as const;
 export type SupportedEditor = ( typeof SUPPORTED_EDITORS )[ number ];
 
@@ -66,6 +67,17 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 		winPaths: [
 			'%LOCALAPPDATA%\\Programs\\cursor\\Cursor.exe',
 			'%PROGRAMFILES%\\cursor\\Cursor.exe',
+		],
+	},
+	sublime: {
+		// translators: "Sublime Text" is the brand name for an IDE and does not need to be translated
+		label: __( 'Sublime Text' ),
+		url: ( path: string ) => `subl://open?url=file://${ path }`,
+		macOSBundleId: 'com.sublimetext.4',
+		winPaths: [
+			'%PROGRAMFILES%\\Sublime Text\\sublime_text.exe',
+			'%PROGRAMFILES%\\Sublime Text 4\\sublime_text.exe',
+			'%PROGRAMFILES%\\Sublime Text 3\\sublime_text.exe',
 		],
 	},
 };

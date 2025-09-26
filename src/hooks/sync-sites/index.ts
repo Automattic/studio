@@ -1,2 +1,2 @@
 export * from './sync-sites-context';
-export { SyncBackupState } from './use-sync-pull';
+export type { SyncBackupState } from './use-sync-pull';

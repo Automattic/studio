@@ -14,7 +14,7 @@ permissions: {}
 jobs:
   metrics:
     name: Run metrics tests
-    runs-on: macos-13
+    runs-on: macos-15
     permissions:
       contents: read
     env:
@@ -22,14 +22,15 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       FORCE_COLOR: '1'
       CODEVITALS_AUTH_TOKEN: ${{ secrets.CODEVITALS_AUTH_TOKEN }}
+      SKIP_WORKER_THREAD_BUILD: 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: '.nvmrc'
 

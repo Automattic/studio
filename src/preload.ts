@@ -25,17 +25,7 @@ const api: IpcApi = {
 	exportSiteToPush: ( id, configuration ) =>
 		ipcRendererInvoke( 'exportSiteToPush', id, configuration ),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
-	createSite: ( path, name, wpVersion, customDomain, enableHttps, siteId, blueprint ) =>
-		ipcRendererInvoke(
-			'createSite',
-			path,
-			name,
-			wpVersion,
-			customDomain,
-			enableHttps,
-			siteId,
-			blueprint
-		),
+	createSite: ( path, config ) => ipcRendererInvoke( 'createSite', path, config ),
 	updateSite: ( updatedSite ) => ipcRendererInvoke( 'updateSite', updatedSite ),
 	connectWpcomSites: ( ...args ) => ipcRendererInvoke( 'connectWpcomSites', ...args ),
 	disconnectWpcomSites: ( ...args ) => ipcRendererInvoke( 'disconnectWpcomSites', ...args ),
@@ -116,7 +106,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'getConnectedWpcomSites', localSiteId ),
 	addSyncOperation: ( id ) => ipcRendererSend( 'addSyncOperation', id ),
 	clearSyncOperation: ( id ) => ipcRendererSend( 'clearSyncOperation', id ),
-	getWpContentSize: ( id ) => ipcRendererInvoke( 'getWpContentSize', id ),
+	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
+	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),
 	getFileContent: ( filePath ) => ipcRendererInvoke( 'getFileContent', filePath ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),
@@ -131,6 +122,9 @@ const api: IpcApi = {
 	listWpContentFolders: ( siteId, subdir ) =>
 		ipcRenderer.invoke( 'listWpContentFolders', siteId, subdir ),
 	getProviderConstants: () => ipcRendererInvoke( 'getProviderConstants' ),
+	validateBlueprint: ( blueprintJson ) => ipcRendererInvoke( 'validateBlueprint', blueprintJson ),
+	setWindowControlVisibility: ( visible ) =>
+		ipcRendererInvoke( 'setWindowControlVisibility', visible ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

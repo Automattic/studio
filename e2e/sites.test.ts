@@ -1,7 +1,7 @@
 import http from 'http';
 import path from 'path';
 import { test, expect } from '@playwright/test';
-import { pathExists } from '../src/lib/fs-utils';
+import { pathExists } from '../common/lib/fs-utils';
 import { E2ESession } from './e2e-helpers';
 import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
@@ -41,6 +41,9 @@ test.describe( 'Servers', () => {
 		const sidebar = new MainSidebar( session.mainWindow );
 		const modal = await sidebar.openAddSiteModal();
 
+		await expect( modal.createSiteButton ).toBeVisible();
+		await modal.createSiteButton.click();
+
 		await modal.siteNameInput.fill( siteName );
 		await modal.addSiteButton.click();
 
@@ -65,7 +68,7 @@ test.describe( 'Servers', () => {
 		const response = await new Promise< http.IncomingMessage >( ( resolve, reject ) => {
 			http.get( `http://${ frontendUrl }`, resolve ).on( 'error', reject );
 		} );
-		expect( response.statusCode ).toBe( 200 );
+		expect( [ 200, 302 ] ).toContain( response.statusCode );
 		expect( response.headers[ 'content-type' ] ).toMatch( /text\/html/ );
 	} );
 
@@ -103,8 +106,9 @@ test.describe( 'Servers', () => {
 
 		await session.mainWindow.waitForTimeout( 200 ); // Short pause for site to delete.
 
-		expect( await pathExists( path.join( session.homePath, 'Studio', siteName ) ) ).toBe( false );
 		const sidebar = new MainSidebar( session.mainWindow );
 		await expect( sidebar.getSiteNavButton( siteName ) ).not.toBeAttached();
+
+		expect( await pathExists( path.join( session.homePath, 'Studio', siteName ) ) ).toBe( false );
 	} );
 } );

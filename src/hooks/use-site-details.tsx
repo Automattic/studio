@@ -29,7 +29,7 @@ interface SiteDetailsContext {
 		wpVersion?: string,
 		customDomain?: string,
 		enableHttps?: boolean,
-		blueprint?: Blueprint | null,
+		blueprint?: Blueprint,
 		callback?: ( site: SiteDetails ) => Promise< void >
 	) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
@@ -193,7 +193,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			wpVersion?: string,
 			customDomain?: string,
 			enableHttps?: boolean,
-			blueprint?: Blueprint | null,
+			blueprint?: Blueprint,
 			callback?: ( site: SiteDetails ) => Promise< void >
 		) => {
 			// Function to handle error messages and cleanup
@@ -255,15 +255,13 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			setSelectedSiteId( tempSiteId ); // Set the temporary ID as the selected site
 
 			try {
-				const newSite = await getIpcApi().createSite(
-					path,
+				const newSite = await getIpcApi().createSite( path, {
 					siteName,
 					wpVersion,
 					customDomain,
 					enableHttps,
-					undefined,
-					blueprint || undefined
-				);
+					blueprint,
+				} );
 				if ( ! newSite ) {
 					showError( undefined, !! blueprint );
 					return;
@@ -397,7 +395,21 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		const unsubscribe = window.ipcListener.subscribe( 'user-data-updated', async ( _, payload ) => {
 			if ( ! fastDeepEqual( payload.newSites, payload.sites ) ) {
 				const updatedSites = await getIpcApi().getSiteDetails();
-				setData( updatedSites );
+				setData( ( prevData ) => {
+					const tempSite = prevData.find( ( site ) => site.isAddingSite );
+
+					if ( ! tempSite ) {
+						return updatedSites;
+					}
+
+					const tempSiteExists = updatedSites.some( ( site ) => site.id === tempSite.id );
+
+					if ( ! tempSiteExists ) {
+						return sortSites( [ ...updatedSites, tempSite ] );
+					}
+
+					return updatedSites;
+				} );
 			}
 		} );
 

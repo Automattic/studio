@@ -20,7 +20,6 @@ import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-in
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import { OpenSitesSyncSelector } from 'src/modules/sync';
 import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
 import { SyncDialog } from 'src/modules/sync/components/sync-dialog';
 import {
@@ -28,7 +27,8 @@ import {
 	convertTreeToPushOptions,
 } from 'src/modules/sync/lib/convert-tree-to-sync-options';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
-import { useI18nLocale } from 'src/stores';
+import { useAppDispatch, useI18nLocale } from 'src/stores';
+import { connectedSitesActions, useConnectedSitesData } from 'src/stores/sync';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 interface ConnectedSiteSection {
@@ -56,8 +56,8 @@ const SyncConnectedSiteControls = ( {
 		isSiteIdPulling,
 		isSiteIdPushing,
 		getLastSyncTimeText,
-		connectedSites,
 	} = useSyncSites();
+	const { connectedSites } = useConnectedSitesData();
 	const isAnyConnectedSiteSyncing = connectedSites.some(
 		( site ) =>
 			isSiteIdPulling( selectedSite.id, site.id ) || isSiteIdPushing( selectedSite.id, site.id )
@@ -303,16 +303,15 @@ type SyncConnectedSiteSectionProps = {
 	section: ConnectedSiteSection;
 	disconnectSite: ( id: number ) => void;
 	selectedSite: SiteDetails;
-	openSitesSyncSelector: OpenSitesSyncSelector;
 };
 
 const SyncConnectedSiteSection = ( {
 	section,
 	disconnectSite,
 	selectedSite,
-	openSitesSyncSelector,
 }: SyncConnectedSiteSectionProps ) => {
 	const { __ } = useI18n();
+	const dispatch = useAppDispatch();
 	const locale = useI18nLocale();
 	const { clearPullState, isSiteIdPulling, isSiteIdPushing } = useSyncSites();
 	const isOffline = useOffline();
@@ -412,7 +411,10 @@ const SyncConnectedSiteSection = ( {
 						) }
 					</div>
 					<Button
-						onClick={ () => openSitesSyncSelector( { disconnectSiteId: section.id } ) }
+						onClick={ () => {
+							disconnectSite( section.id );
+							dispatch( connectedSitesActions.openModal() );
+						} }
 						variant="primary"
 						className="ms-auto"
 					>
@@ -433,12 +435,10 @@ const SyncConnectedSiteSection = ( {
 
 export function SyncConnectedSites( {
 	connectedSites,
-	openSitesSyncSelector,
 	disconnectSite,
 	selectedSite,
 }: {
 	connectedSites: SyncSite[];
-	openSitesSyncSelector: OpenSitesSyncSelector;
 	disconnectSite: ( id: number ) => void;
 	selectedSite: SiteDetails;
 } ) {
@@ -484,7 +484,6 @@ export function SyncConnectedSites( {
 					section={ section }
 					selectedSite={ selectedSite }
 					disconnectSite={ disconnectSite }
-					openSitesSyncSelector={ openSitesSyncSelector }
 				/>
 			) ) }
 		</div>

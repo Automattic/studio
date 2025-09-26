@@ -1,3 +1,6 @@
+/* Import WordPress component styles - these are handled by Vite */
+@import '@wordpress/components/build-style/style.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -298,11 +301,4 @@ blockquote {
 
 .sync-dialog-wrapper .components-modal__header {
 	border-bottom-color: #ddd;
-}
-
-/* Fix the font size of the select control in the smaller viewport */
-@media (max-width: 782px) {
-    .components-base-control .components-base-control__field .components-select-control__input {
-        font-size: 13px;
-    }
 }

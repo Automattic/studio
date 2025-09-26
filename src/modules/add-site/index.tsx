@@ -3,23 +3,22 @@ import { Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import Button from 'src/components/button';
+import Button, { ButtonVariant } from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite } from 'src/hooks/use-add-site';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useRootSelector } from 'src/stores';
+import { formatRtkError } from 'src/stores/format-rtk-error';
 import {
 	selectDefaultPhpVersion,
 	selectDefaultWordPressVersion,
 } from 'src/stores/provider-constants-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
-import AddSiteLegacy from './components/add-site-legacy';
-import AddSiteBlueprintSelector from './components/blueprints';
+import { AddSiteBlueprintSelector } from './components/blueprints';
 import CreateSite from './components/create-site';
 import ImportBackup from './components/import-backup';
 import AddSiteOptions from './components/options';
@@ -27,6 +26,7 @@ import Stepper from './components/stepper';
 
 interface AddSiteProps {
 	className?: string;
+	variant?: ButtonVariant;
 }
 
 type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
@@ -54,14 +54,26 @@ interface NavigationContentProps {
 	setEnableHttps: ( enable: boolean ) => void;
 	fileForImport: File | null;
 	setFileForImport: ( file: File | null ) => void;
-	setSelectedBlueprint: ( blueprint: Blueprint | null ) => void;
-	selectedBlueprint: Blueprint | null;
+	setSelectedBlueprint: ( blueprint?: Blueprint ) => void;
+	selectedBlueprint?: Blueprint;
+	blueprintsErrorMessage?: string | undefined;
+	blueprintPreferredVersions?: { php?: string; wp?: string };
+	setBlueprintPreferredVersions: ( versions: { php?: string; wp?: string } | undefined ) => void;
 }
 
 function NavigationContent( props: NavigationContentProps ) {
 	const { __ } = useI18n();
 	const { goTo, location } = useNavigator();
-	const { blueprintsData, isLoadingBlueprints, ...createSiteProps } = props;
+	const {
+		blueprintsData,
+		isLoadingBlueprints,
+		blueprintsErrorMessage,
+		blueprintPreferredVersions,
+		setBlueprintPreferredVersions,
+		...createSiteProps
+	} = props;
+
+	const { setSelectedBlueprint, setPhpVersion, setWpVersion } = createSiteProps;
 
 	const handleOptionSelect = useCallback(
 		( option: 'create' | 'blueprint' | 'backup' ) => {
@@ -125,29 +137,55 @@ function NavigationContent( props: NavigationContentProps ) {
 				createSiteProps.setFileForImport( null );
 			}
 			if ( location.path === '/blueprint' ) {
-				createSiteProps.setSelectedBlueprint( null );
+				createSiteProps.setSelectedBlueprint();
+				setBlueprintPreferredVersions( undefined );
 			}
 			goTo( '/' );
 		} else {
 			goTo( '/' );
 		}
-	}, [ goTo, location.path, createSiteProps ] );
+	}, [ location.path, goTo, createSiteProps, setBlueprintPreferredVersions ] );
+
+	const applyBlueprintVersions = useCallback(
+		( blueprint?: Blueprint ) => {
+			if ( blueprint?.blueprint?.preferredVersions ) {
+				const preferredVersions = blueprint.blueprint.preferredVersions as {
+					php?: string;
+					wp?: string;
+				};
+				setBlueprintPreferredVersions( preferredVersions );
+
+				// Apply the preferred versions to the form
+				if ( preferredVersions.php && preferredVersions.php !== 'latest' ) {
+					setPhpVersion( preferredVersions.php );
+				}
+				if ( preferredVersions.wp && preferredVersions.wp !== 'latest' ) {
+					setWpVersion( preferredVersions.wp );
+				}
+			} else {
+				setBlueprintPreferredVersions( undefined );
+			}
+		},
+		[ setBlueprintPreferredVersions, setPhpVersion, setWpVersion ]
+	);
 
 	const handleBlueprintChange = useCallback(
 		( blueprintId: string ) => {
 			const blueprint = blueprintsData?.blueprints.find(
 				( b: Blueprint ) => b.slug === blueprintId
 			);
-			createSiteProps.setSelectedBlueprint( blueprint || null );
+			setSelectedBlueprint( blueprint );
+			applyBlueprintVersions( blueprint );
 		},
-		[ blueprintsData?.blueprints, createSiteProps ]
+		[ blueprintsData?.blueprints, setSelectedBlueprint, applyBlueprintVersions ]
 	);
 
 	const handleFileBlueprintSelect = useCallback(
 		( blueprint: Blueprint ) => {
-			createSiteProps.setSelectedBlueprint( blueprint );
+			setSelectedBlueprint( blueprint );
+			applyBlueprintVersions( blueprint );
 		},
-		[ createSiteProps ]
+		[ setSelectedBlueprint, applyBlueprintVersions ]
 	);
 
 	return (
@@ -158,6 +196,7 @@ function NavigationContent( props: NavigationContentProps ) {
 			<Navigator.Screen className="flex-1" path="/blueprint">
 				<AddSiteBlueprintSelector
 					blueprints={ blueprints }
+					errorMessage={ blueprintsErrorMessage }
 					isLoading={ isLoadingBlueprints }
 					selectedBlueprint={ createSiteProps.selectedBlueprint?.slug || null }
 					onBlueprintChange={ handleBlueprintChange }
@@ -165,7 +204,10 @@ function NavigationContent( props: NavigationContentProps ) {
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/create">
-				<CreateSite { ...createSiteProps } />
+				<CreateSite
+					{ ...createSiteProps }
+					blueprintPreferredVersions={ blueprintPreferredVersions }
+				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/create">
 				<CreateSite { ...createSiteProps } />
@@ -190,19 +232,22 @@ function NavigationContent( props: NavigationContentProps ) {
 	);
 }
 
-export default function AddSite( { className }: AddSiteProps ) {
+export default function AddSite( { className, variant = 'outlined' }: AddSiteProps ) {
 	const { __ } = useI18n();
-	const { enableBlueprints } = useFeatureFlags();
 	const [ showModal, setShowModal ] = useState( false );
 	const [ nameSuggested, setNameSuggested ] = useState( false );
 	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
+	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
+		{ php?: string; wp?: string } | undefined
+	>();
 
 	const {
 		data: blueprintsData,
 		isLoading: isLoadingBlueprints,
 		refetch,
 		isUninitialized,
+		error: blueprintsError,
 	} = useGetBlueprints();
 
 	const { importState } = useImportExport();
@@ -246,7 +291,8 @@ export default function AddSite( { className }: AddSiteProps ) {
 		setCustomDomainError( '' );
 		setEnableHttps( false );
 		setFileForImport( null );
-		setSelectedBlueprint( null );
+		setSelectedBlueprint( undefined );
+		setBlueprintPreferredVersions( undefined );
 	}, [
 		setSitePath,
 		setDoesPathContainWordPress,
@@ -277,7 +323,7 @@ export default function AddSite( { className }: AddSiteProps ) {
 	const siteAddedMessage = sprintf(
 		// translators: %s is the site name.
 		__( '%s site added.' ),
-		siteName
+		siteName || ''
 	);
 
 	const initializeForm = useCallback( async () => {
@@ -330,16 +376,6 @@ export default function AddSite( { className }: AddSiteProps ) {
 		openModal();
 	} );
 
-	if ( ! enableBlueprints ) {
-		return (
-			<AddSiteLegacy
-				className={ className }
-				showModal={ showModal }
-				setShowModal={ setShowModal }
-			/>
-		);
-	}
-
 	return (
 		<>
 			<FullscreenModal isOpen={ showModal } onClose={ closeModal }>
@@ -347,13 +383,16 @@ export default function AddSite( { className }: AddSiteProps ) {
 					<NavigationContent
 						{ ...addSiteProps }
 						blueprintsData={ blueprintsData }
+						blueprintsErrorMessage={ formatRtkError( blueprintsError ) }
 						isLoadingBlueprints={ isLoadingBlueprints }
 						handleSubmit={ handleSubmit }
+						blueprintPreferredVersions={ blueprintPreferredVersions }
+						setBlueprintPreferredVersions={ setBlueprintPreferredVersions }
 					/>
 				</Navigator>
 			</FullscreenModal>
 			<Button
-				variant="outlined"
+				variant={ variant }
 				className={ className }
 				onClick={ openModal }
 				disabled={ isAnySiteProcessing }

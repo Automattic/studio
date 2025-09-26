@@ -20,6 +20,10 @@ import providerConstantsReducer, {
 } from 'src/stores/provider-constants-slice';
 import { reducer as snapshotReducer, updateSnapshotLocally } from 'src/stores/snapshot-slice';
 import { syncReducer } from 'src/stores/sync';
+import {
+	connectedSitesReducer,
+	loadAllConnectedSites,
+} from 'src/stores/sync/connected-sites-slice';
 import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from 'common/lib/locale';
@@ -33,6 +37,7 @@ export type RootState = {
 	providerConstants: ReturnType< typeof providerConstantsReducer >;
 	snapshot: ReturnType< typeof snapshotReducer >;
 	sync: ReturnType< typeof syncReducer >;
+	connectedSites: ReturnType< typeof connectedSitesReducer >;
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
 	wpcomPublicApi: ReturnType< typeof wpcomPublicApi.reducer >;
@@ -88,6 +93,7 @@ export const rootReducer = combineReducers( {
 	providerConstants: providerConstantsReducer,
 	snapshot: snapshotReducer,
 	sync: syncReducer,
+	connectedSites: connectedSitesReducer,
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,
 	wpcomPublicApi: wpcomPublicApi.reducer,
@@ -130,6 +136,8 @@ async function initializeProviderConstants() {
 // Initialize provider constants immediately, but skip in test environment
 if ( typeof jest === 'undefined' && process.env.NODE_ENV !== 'test' ) {
 	void initializeProviderConstants();
+	// Initialize connected sites on store initialization only in non-test environment
+	void store.dispatch( loadAllConnectedSites() );
 }
 
 export type AppDispatch = typeof store.dispatch;

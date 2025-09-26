@@ -5,12 +5,11 @@ import { ReactNode } from 'react';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
+import blueprintsIllustration from 'src/modules/whats-new/assets/blueprints-illustration.svg';
 import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
-import customDomainIllustration from 'src/modules/whats-new/assets/custom-domains-illustration.svg';
 import preferredAppsIllustration from 'src/modules/whats-new/assets/preferred-apps-illustration.svg';
 import pressableSyncIllustration from 'src/modules/whats-new/assets/pressable-sync-illustration.svg';
 import selectiveSyncIllustration from 'src/modules/whats-new/assets/selective-sync-illustration.svg';
-import versionSwitchIllustration from 'src/modules/whats-new/assets/version-switch-illustration.svg';
 import { useI18nLocale } from 'src/stores';
 
 interface WhatsNewPage {
@@ -58,6 +57,14 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 	const locale = useI18nLocale();
 	const whatsNewPages: WhatsNewPage[] = [
 		{
+			image: blueprintsIllustration,
+			title: __( 'Introducing Blueprints, a new way to streamline site creation.' ),
+			description: __(
+				'Select a blueprint that fits your needs and build your WordPress site even faster.'
+			),
+			learnMoreUrl: getLocalizedLink( locale, 'docsBlueprints' ),
+		},
+		{
 			image: selectiveSyncIllustration,
 			title: __( 'Synchronize with precision' ),
 			description: __(
@@ -98,22 +105,6 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			} ),
 			learnMoreUrl: getLocalizedLink( locale, 'docsCli' ),
 		},
-		{
-			image: customDomainIllustration,
-			title: __( 'Choose a custom domain with HTTPS support' ),
-			description: __(
-				'Easily identify your local Studio sites with custom domain names. Personalize and organize your workflow!'
-			),
-			learnMoreUrl: getLocalizedLink( locale, 'blogCustomDomainsHttps' ),
-		},
-		{
-			image: versionSwitchIllustration,
-			title: __( 'Select WordPress and PHP versions in Studio' ),
-			description: __(
-				'Select your preferred WordPress and PHP versions for existing sites or when creating a new one.'
-			),
-			learnMoreUrl: getLocalizedLink( locale, 'blogPhpVersions' ),
-		},
 	];
 
 	if ( ! showModal ) {
@@ -125,7 +116,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			onFinish={ onClose }
 			contentLabel={ __( "What's New in Studio" ) }
 			className={ cx(
-				"whats-new-modal !w-[360px] !h-[470px] overflow-hidden [&_button[aria-label='Close']_svg]:fill-white [&_.components-button.is-tertiary]:!outline-1 [&_.components-button.is-tertiary]:!outline-solid [&_.components-button.is-tertiary]:!outline-a8c-blue-50",
+				'whats-new-modal !w-[360px] !h-[470px] overflow-hidden [&_.components-button.is-compact.has-icon_svg]:!fill-white [&_.components-button.is-tertiary]:!outline-1 [&_.components-button.is-tertiary]:!outline-solid [&_.components-button.is-tertiary]:!outline-a8c-blue-50',
 				'[&_*]:select-none',
 				'focus:outline-none'
 			) }

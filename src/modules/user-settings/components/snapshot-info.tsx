@@ -47,7 +47,7 @@ export const SnapshotInfo = ( {
 								<div className="flex flex-row items-center text-right">
 									{ isDeleting && <Spinner className="!mt-0 !mx-2" /> }
 									<span className="text-a8c-gray-70">
-										{ sprintf( __( '%1s of %2s active preview sites' ), siteCount, siteLimit ) }
+										{ sprintf( __( '%1$d of %2$d active preview sites' ), siteCount, siteLimit ) }
 									</span>
 								</div>
 							</div>

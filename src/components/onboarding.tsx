@@ -67,7 +67,7 @@ export default function Onboarding() {
 	const siteAddedMessage = sprintf(
 		// translators: %s is the site name.
 		__( '%s site added.' ),
-		siteName
+		siteName || ''
 	);
 
 	const { data: versions = [] } = useGetWordPressVersions();

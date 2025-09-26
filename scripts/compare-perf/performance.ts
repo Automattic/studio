@@ -218,6 +218,7 @@ export async function runPerformanceTests(
 		logAtIndent( 3, 'Installing dependencies and building' );
 		await runShellScript( config.setupCommand, buildDir, {
 			GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+			SKIP_WORKER_THREAD_BUILD: process.env.SKIP_WORKER_THREAD_BUILD,
 		} );
 	}
 

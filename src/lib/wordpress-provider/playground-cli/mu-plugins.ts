@@ -31,6 +31,19 @@ async function createLoaderMuPlugin(): Promise< string > {
 		 * Loads Studio-specific mu-plugins from /internal/studio/mu-plugins/
 		 */
 
+		// Define database constants if not already defined. It fixes the error
+		// for imported sites that don't have those defined e.g. WP Cloud and
+		// include plugins which try to access those directly e.g. Mailpoet
+		if ( ! defined( 'DB_NAME' ) ) define( 'DB_NAME', 'database_name_here' );
+		if ( ! defined( 'DB_USER' ) ) define( 'DB_USER', 'username_here' );
+		if ( ! defined( 'DB_PASSWORD' ) ) define( 'DB_PASSWORD', 'password_here' );
+		if ( ! defined( 'DB_HOST' ) ) define( 'DB_HOST', 'localhost' );
+		if ( ! defined( 'DB_CHARSET' ) ) define( 'DB_CHARSET', 'utf8' );
+		if ( ! defined( 'DB_COLLATE' ) ) define( 'DB_COLLATE', '' );
+		
+		// Set environment type to local if not already defined
+		if ( ! defined( 'WP_ENVIRONMENT_TYPE' ) ) define( 'WP_ENVIRONMENT_TYPE', 'local' );
+
 		$studio_mu_plugins_dir = '/internal/studio/mu-plugins';
 
 		if ( is_dir( $studio_mu_plugins_dir ) ) {
@@ -86,6 +99,17 @@ function getStandardMuPlugins( options: Partial< WordPressServerOptions > ): MuP
 			$current_host = $_SERVER['HTTP_HOST'] ?? '';
 
 			if ( preg_match( '/^localhost:\\d+$/', $current_host ) ) {
+				$wp_siteurl_host = parse_url( WP_SITEURL, PHP_URL_HOST );
+				$wp_siteurl_port = parse_url( WP_SITEURL, PHP_URL_PORT );
+				$wp_siteurl_host_with_port = $wp_siteurl_host;
+				if ( $wp_siteurl_port ) {
+					$wp_siteurl_host_with_port .= ':' . $wp_siteurl_port;
+				}
+
+				if ( $current_host === $wp_siteurl_host_with_port ) {
+					return;
+				}
+
 				$requested_uri = $_SERVER['REQUEST_URI'] ?? '/';
 				wp_redirect( rtrim( WP_SITEURL, '/' ) . $requested_uri, 302 );
 				exit;
@@ -205,25 +229,6 @@ function getStandardMuPlugins( options: Partial< WordPressServerOptions > ): MuP
 	`,
 	} );
 
-	// WordPress config constants polyfill
-	muPlugins.push( {
-		filename: '0-wp-config-constants-polyfill.php',
-		content: `<?php
-		// Define database constants if not already defined. It fixes the error
-		// for imported sites that don't have those defined e.g. WP Cloud and
-		// include plugins which try to access those directly e.g. Mailpoet
-		if (!defined('DB_NAME')) define('DB_NAME', 'database_name_here');
-		if (!defined('DB_USER')) define('DB_USER', 'username_here');
-		if (!defined('DB_PASSWORD')) define('DB_PASSWORD', 'password_here');
-		if (!defined('DB_HOST')) define('DB_HOST', 'localhost');
-		if (!defined('DB_CHARSET')) define('DB_CHARSET', 'utf8');
-		if (!defined('DB_COLLATE')) define('DB_COLLATE', '');
-
-		// Set environment type to local if not already defined
-		if (!defined('WP_ENVIRONMENT_TYPE')) define('WP_ENVIRONMENT_TYPE', 'local');
-		`,
-	} );
-
 	// Suppress DNS warnings
 	muPlugins.push( {
 		filename: '0-suppress-dns-get-record-warnings.php',
@@ -284,6 +289,18 @@ function getStandardMuPlugins( options: Partial< WordPressServerOptions > ): MuP
 				}
 			}
 	`,
+	} );
+
+	// WP-CLI specific: SQLite command support
+	muPlugins.push( {
+		filename: '0-sqlite-command.php',
+		content: `<?php
+		// Ensure SQLite command can find the plugin
+		add_filter( 'sqlite_command_sqlite_plugin_directories', function( $directories ) {
+			$directories[] = '/wordpress/wp-content/mu-plugins/sqlite-database-integration';
+			return $directories;
+		} );
+		`,
 	} );
 
 	return muPlugins;

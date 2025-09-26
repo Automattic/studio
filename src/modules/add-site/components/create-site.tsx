@@ -25,6 +25,7 @@ interface CreateSiteProps {
 	customDomainError: string;
 	enableHttps: boolean;
 	setEnableHttps: ( enable: boolean ) => void;
+	blueprintPreferredVersions?: { php?: string; wp?: string };
 }
 
 export default function CreateSite( {
@@ -46,12 +47,15 @@ export default function CreateSite( {
 	customDomainError,
 	enableHttps,
 	setEnableHttps,
+	blueprintPreferredVersions,
 }: CreateSiteProps ) {
 	const { __ } = useI18n();
 
 	return (
-		<VStack className="w-full max-w-xl mx-auto text-black" spacing={ 6 }>
-			<Heading className="text-center text-4xl">{ __( 'Add a site' ) }</Heading>
+		<VStack className="w-full max-w-[402px] mx-auto text-black" spacing={ 6 }>
+			<Heading className="text-[32px] text-gray-900 text-center" weight={ 500 }>
+				{ __( 'Add a site' ) }
+			</Heading>
 
 			<SiteForm
 				siteName={ siteName || '' }
@@ -72,6 +76,7 @@ export default function CreateSite( {
 				customDomainError={ customDomainError }
 				enableHttps={ enableHttps }
 				setEnableHttps={ setEnableHttps }
+				blueprintPreferredVersions={ blueprintPreferredVersions }
 			/>
 		</VStack>
 	);

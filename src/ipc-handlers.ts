@@ -16,15 +16,25 @@ import https from 'node:https';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
+import { compileBlueprint } from '@wp-playground/blueprints';
 import archiver from 'archiver';
-import { calculateDirectorySize, isWordPressDirectory, arePathsEqual } from 'common/lib/fs-utils';
+import {
+	calculateDirectorySize,
+	isWordPressDirectory,
+	arePathsEqual,
+	isEmptyDir,
+	pathExists,
+} from 'common/lib/fs-utils';
+import { isErrnoException } from 'common/lib/is-errno-exception';
 import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
+import { portFinder } from 'common/lib/port-finder';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { ARCHIVER_OPTIONS, DEFAULT_TERMINAL, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
+import { scanBlueprintForUnsupportedFeatures } from 'src/lib/blueprint-features';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
 import {
@@ -34,7 +44,7 @@ import {
 } from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
-import { isEmptyDir, pathExists, sanitizeFolderName } from 'src/lib/fs-utils';
+import { sanitizeFolderName } from 'src/lib/generate-site-name';
 import { getImageData } from 'src/lib/get-image-data';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
@@ -43,14 +53,12 @@ import { ExportOptions } from 'src/lib/import-export/export/types';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { defaultImporterOptions, importBackup } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
-import { isErrnoException } from 'src/lib/is-errno-exception';
 import { isInstalled } from 'src/lib/is-installed';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import * as oauthClient from 'src/lib/oauth';
 import { getSignUpUrl } from 'src/lib/oauth';
 import { createPassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
-import { portFinder } from 'src/lib/port-finder';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { sortSites } from 'src/lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
@@ -132,6 +140,7 @@ export function getInstalledAppsAndTerminals(): InstalledApps {
 		webstorm: isInstalled( 'webstorm' ),
 		windsurf: isInstalled( 'windsurf' ),
 		cursor: isInstalled( 'cursor' ),
+		sublime: isInstalled( 'sublime' ),
 		terminal: true, // Terminal.app is always available on macOS
 		iterm: isInstalled( 'iterm' ),
 		warp: isInstalled( 'warp' ),
@@ -160,17 +169,6 @@ export async function importSite(
 			site.details.phpVersion = result.meta.phpVersion;
 		}
 
-		try {
-			const { stdout: siteTitle } = await site.executeWpCliCommand( 'option get blogname', {
-				skipPluginsAndThemes: true,
-			} );
-			if ( siteTitle && siteTitle.trim() ) {
-				site.details.name = siteTitle.trim();
-			}
-		} catch ( error ) {
-			console.warn( 'Failed to get site title after import:', error );
-		}
-
 		return site.details;
 	} catch ( e ) {
 		bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
@@ -182,13 +180,17 @@ export async function importSite(
 export async function createSite(
 	event: IpcMainInvokeEvent,
 	path: string,
-	siteName?: string,
-	wpVersion?: string,
-	customDomain?: string,
-	enableHttps?: boolean,
-	siteId?: string,
-	blueprint?: Blueprint
+	config: {
+		siteName?: string;
+		wpVersion?: string;
+		customDomain?: string;
+		enableHttps?: boolean;
+		siteId?: string;
+		blueprint?: Blueprint;
+	} = {}
 ): Promise< SiteDetails > {
+	const { siteName, wpVersion, customDomain, enableHttps, siteId, blueprint } = config;
+
 	const forceSetupSqlite = false;
 
 	const metric = getBlueprintMetric( blueprint?.slug );
@@ -987,7 +989,12 @@ export async function getThemeDetails(
 			details: themeDetails,
 		} );
 
-		void server.updateCachedThumbnail().then( () => sendThumbnailChangedEvent( event, id ) );
+		void server
+			.updateCachedThumbnail()
+			.then( () => sendThumbnailChangedEvent( event, id ) )
+			.catch( ( error ) => {
+				console.error( `Failed to update thumbnail for server ${ id }:`, error );
+			} );
 		server.details.themeDetails = themeDetails;
 		await updateSite( event, updatedSite );
 	}
@@ -1279,12 +1286,20 @@ export function clearSyncOperation( event: IpcMainInvokeEvent, id: string ) {
 	ACTIVE_SYNC_OPERATIONS.delete( id );
 }
 
-export function getWpContentSize( _event: IpcMainInvokeEvent, siteId: string ) {
+export function getDirectorySize( _event: IpcMainInvokeEvent, siteId: string, subdir: string[] ) {
 	const site = SiteServer.get( siteId );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	return calculateDirectorySize( nodePath.join( site.details.path, 'wp-content' ) );
+	return calculateDirectorySize( nodePath.join( site.details.path, ...subdir ) );
+}
+
+export function getFileSize( _event: IpcMainInvokeEvent, siteId: string, filePath: string[] ) {
+	const site = SiteServer.get( siteId );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+	return fs.statSync( nodePath.join( site.details.path, ...filePath ) ).size;
 }
 
 export function openCertificate( _event: IpcMainInvokeEvent ) {
@@ -1409,7 +1424,7 @@ export async function deleteSnapshot(
 
 export async function handleNewSite( event: IpcMainInvokeEvent, newSite: NewSiteDetails ) {
 	try {
-		await createSite( event, newSite.path, undefined, undefined, undefined, undefined, newSite.id );
+		await createSite( event, newSite.path, { siteId: newSite.id } );
 		await lockAppdata();
 		const userData = await loadUserData();
 		const newSites = userData.newSites?.filter( ( s ) => s.id !== newSite.id );
@@ -1451,4 +1466,42 @@ export async function listWpContentFolders(
 export async function getProviderConstants( _event: IpcMainInvokeEvent ) {
 	const provider = getWordPressProvider();
 	return getProviderConstantsFromProvider( provider );
+}
+
+export async function validateBlueprint(
+	_event: IpcMainInvokeEvent,
+	blueprintJson: Blueprint[ 'blueprint' ]
+): Promise< {
+	valid: boolean;
+	error?: string;
+	warnings?: Array< { feature: string; reason: string; alternative?: string } >;
+} > {
+	try {
+		await compileBlueprint( blueprintJson );
+	} catch ( error ) {
+		const errorMessage = error instanceof Error ? error.message : __( 'Invalid Blueprint format' );
+		return {
+			valid: false,
+			error: errorMessage,
+		};
+	}
+
+	const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson );
+
+	const warnings = unsupportedFeatures.map( ( feature ) => ( {
+		feature: feature.name,
+		reason: feature.reason,
+	} ) );
+
+	return {
+		valid: true,
+		warnings: warnings.length > 0 ? warnings : undefined,
+	};
+}
+
+export async function setWindowControlVisibility( event: IpcMainInvokeEvent, visible: boolean ) {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( parentWindow && process.platform === 'darwin' ) {
+		parentWindow.setWindowButtonVisibility( visible );
+	}
 }

@@ -28,6 +28,7 @@ export const app = {
 // eslint-disable-next-line @typescript-eslint/no-empty-function
 export function BrowserWindow() {}
 BrowserWindow.prototype.loadURL = jest.fn();
+BrowserWindow.prototype.loadFile = jest.fn();
 BrowserWindow.prototype.isDestroyed = jest.fn( () => false );
 BrowserWindow.prototype.on = jest.fn();
 BrowserWindow.prototype.getBounds = jest.fn( () => ( { x: 0, y: 0, width: 800, height: 600 } ) );

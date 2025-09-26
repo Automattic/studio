@@ -1,9 +1,9 @@
 import { SupportedPHPVersion, PHPRunOptions } from '@php-wasm/universal';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
+import { DEFAULT_LOCALE } from 'common/lib/locale';
 import { WordPressServerOptions } from '../types';
 import { getMuPlugins } from './mu-plugins';
 import { PlaygroundCliOptions } from './playground-cli-provider';
-import { DEFAULT_LOCALE } from 'common/lib/locale';
 
 interface Message {
 	id: number;

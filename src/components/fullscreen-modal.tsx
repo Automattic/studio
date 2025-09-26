@@ -5,6 +5,7 @@ import {
 } from '@wordpress/components';
 import { close } from '@wordpress/icons';
 import React, { useEffect, useRef } from 'react';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface FullscreenModalProps {
 	isOpen: boolean;
@@ -28,6 +29,7 @@ export const FullscreenModal: React.FC< FullscreenModalProps > = ( {
 		};
 
 		if ( isOpen ) {
+			void getIpcApi().setWindowControlVisibility( false );
 			document.addEventListener( 'keydown', handleEscKey );
 			document.body.style.overflow = 'hidden';
 			previousActiveElement.current = document.activeElement as HTMLElement;
@@ -37,6 +39,7 @@ export const FullscreenModal: React.FC< FullscreenModalProps > = ( {
 		}
 
 		return () => {
+			void getIpcApi().setWindowControlVisibility( true );
 			document.removeEventListener( 'keydown', handleEscKey );
 			document.body.style.overflow = '';
 			if ( previousActiveElement.current && previousActiveElement.current.focus ) {

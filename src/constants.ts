@@ -86,6 +86,7 @@ export const IPC_VOID_HANDLERS = < const >[
 	'openSiteURL',
 	'openURL',
 	'popupAppMenu',
+	'setWindowButtonVisibility',
 	'showErrorMessageBox',
 	'showItemInFolder',
 	'showNotification',

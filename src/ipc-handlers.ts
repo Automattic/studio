@@ -1498,3 +1498,10 @@ export async function validateBlueprint(
 		warnings: warnings.length > 0 ? warnings : undefined,
 	};
 }
+
+export async function setWindowControlVisibility( event: IpcMainInvokeEvent, visible: boolean ) {
+	const window = BrowserWindow.fromWebContents( event.sender );
+	if ( window && process.platform === 'darwin' ) {
+		window.setWindowButtonVisibility( visible );
+	}
+}

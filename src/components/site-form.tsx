@@ -445,9 +445,9 @@ export const SiteForm = ( {
 
 								{ showBlueprintVersionWarning && (
 									<Notice status="warning" isDismissible={ false } className="mt-4">
-										<strong>{ __( 'Version differs from blueprint recommendation' ) }</strong>
+										<strong>{ __( 'Version differs from Blueprint recommendation' ) }</strong>
 										<br />
-										{ __( 'This blueprint recommends:' ) }
+										{ __( 'This Blueprint recommends:' ) }
 										<ul style={ { marginTop: '8px', marginBottom: '4px', paddingLeft: '20px' } }>
 											{ blueprintPreferredVersions.php &&
 												blueprintPreferredVersions.php !== phpVersion && (

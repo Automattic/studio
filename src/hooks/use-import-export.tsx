@@ -111,12 +111,10 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					} );
 				} else {
 					let errorToShow = error;
-					if ( file instanceof File && file.name.endsWith( '.sql' ) ) {
-						const errorMessage = ( error as Error )?.message;
-						if ( errorMessage ) {
-							const firstLine = errorMessage.split( '\n' )[ 0 ].trim();
-							errorToShow = new Error( firstLine );
-						}
+					const errorMessage = ( error as Error )?.message;
+					if ( errorMessage ) {
+						const firstLine = errorMessage.split( '\n' )[ 0 ].trim();
+						errorToShow = new Error( firstLine );
 					}
 
 					getIpcApi().showErrorMessageBox( {

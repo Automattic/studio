@@ -213,7 +213,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		siteTitle: string;
 		siteLanguage: string;
 	} ): Promise< void > {
-		// Start a temporary server instance to run installation steps
 		const serverInstance = await this.startServer( {
 			path: options.path,
 			port: options.port,
@@ -222,7 +221,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			phpVersion: this.DEFAULT_PHP_VERSION,
 			wpVersion: 'latest',
 			isWpAutoUpdating: false,
-			isSetupMode: false, // Don't use setup mode to avoid language downloads
+			isSetupMode: false,
 			siteLanguage: options.siteLanguage,
 		} );
 
@@ -230,9 +229,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 
 		try {
 			await serverProcess.start();
-
-			// Run the installation steps directly using PHP requests
-			// Step 2 is the main installation step that creates database tables
 			await serverProcess.runPhp( {
 				code: `<?php
 					$_POST = array(

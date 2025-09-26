@@ -5,6 +5,8 @@ import {
 } from '@wordpress/components';
 import { close } from '@wordpress/icons';
 import React, { useEffect, useRef } from 'react';
+import { isWindows } from 'src/lib/app-globals';
+import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface FullscreenModalProps {
@@ -60,7 +62,9 @@ export const FullscreenModal: React.FC< FullscreenModalProps > = ( {
 			role="dialog"
 			aria-modal="true"
 		>
-			<HStack className="flex justify-end p-4 app-no-drag-region">
+			<HStack
+				className={ cx( 'flex justify-end p-4 app-no-drag-region', isWindows() && 'ltr:pt-8' ) }
+			>
 				<Button icon={ close } onClick={ onClose } label="Close" />
 			</HStack>
 			<VStack alignment="top" className="w-full flex-1 overflow-y-auto px-6 pb-6">

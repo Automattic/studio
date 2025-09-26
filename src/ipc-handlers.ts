@@ -1500,8 +1500,8 @@ export async function validateBlueprint(
 }
 
 export async function setWindowControlVisibility( event: IpcMainInvokeEvent, visible: boolean ) {
-	const window = BrowserWindow.fromWebContents( event.sender );
-	if ( window && process.platform === 'darwin' ) {
-		window.setWindowButtonVisibility( visible );
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( parentWindow && process.platform === 'darwin' ) {
+		parentWindow.setWindowButtonVisibility( visible );
 	}
 }

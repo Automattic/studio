@@ -1,5 +1,6 @@
 import { SupportedPHPVersion, PHPRunOptions } from '@php-wasm/universal';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
+import { DEFAULT_LOCALE } from 'common/lib/locale';
 import { WordPressServerOptions } from '../types';
 import { getMuPlugins } from './mu-plugins';
 import { PlaygroundCliOptions } from './playground-cli-provider';
@@ -174,6 +175,24 @@ async function startServer(
 			args.blueprint = {
 				constants: defaultConstants,
 			};
+		}
+
+		if ( serverOptions.siteLanguage && serverOptions.siteLanguage !== DEFAULT_LOCALE ) {
+			args.blueprint.steps = [
+				...[
+					{
+						step: 'setSiteLanguage',
+						language: serverOptions.siteLanguage,
+					},
+					{
+						step: 'runPHP',
+						code: `<?php require_once( '/wordpress/wp-load.php' ); update_option( 'WPLANG', '${ escapePhpString(
+							serverOptions.siteLanguage
+						) }' ); echo "Language set to: ${ escapePhpString( serverOptions.siteLanguage ) }"; ?>`,
+					},
+				],
+				...( args.blueprint.steps || [] ),
+			];
 		}
 
 		server = await runCLI( args );

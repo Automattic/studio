@@ -102,7 +102,7 @@ function BlueprintIssuesModal( {
 				<div className="pt-4 border-t border-gray-200">
 					<Text className="text-sm text-gray-600">
 						{ __(
-							'Your blueprint will still work, but these features will be skipped during site creation.'
+							'Your Blueprint will still work, but these features will be skipped during site creation.'
 						) }
 					</Text>
 				</div>
@@ -236,7 +236,7 @@ export function AddSiteBlueprintSelector( {
 								handlePreviewClick( e, item )
 							}
 						>
-							{ __( 'Preview blueprint' ) }
+							{ __( 'Preview Blueprint' ) }
 							<Icon icon={ external } size={ 16 } className="ml-1" />
 						</StudioButton>
 					</HStack>
@@ -321,7 +321,7 @@ export function AddSiteBlueprintSelector( {
 						)
 					);
 				} else {
-					setValidationError( __( 'Failed to load blueprint file. Please try again.' ) );
+					setValidationError( __( 'Failed to load Blueprint file. Please try again.' ) );
 				}
 				console.error( 'Failed to parse blueprint file:', error );
 			}
@@ -353,9 +353,9 @@ export function AddSiteBlueprintSelector( {
 		return (
 			<VStack className="w-full max-w-6xl mx-auto">
 				<Heading className="text-center text-[32px] text-gray-900 mb-[28px]" weight={ 500 }>
-					{ __( 'Start from a blueprint' ) }
+					{ __( 'Start from a Blueprint' ) }
 				</Heading>
-				<Text>{ __( 'Loading blueprints...' ) }</Text>
+				<Text>{ __( 'Loading Blueprints...' ) }</Text>
 			</VStack>
 		);
 	}
@@ -363,7 +363,7 @@ export function AddSiteBlueprintSelector( {
 	return (
 		<VStack className="w-full max-w-4xl mx-auto px-0.5" spacing={ 0 }>
 			<Heading className="text-center text-[32px] text-gray-900 mb-5" weight={ 500 }>
-				{ __( 'Start from a blueprint' ) }
+				{ __( 'Start from a Blueprint' ) }
 			</Heading>
 
 			<BlueprintIssuesModal
@@ -391,7 +391,7 @@ export function AddSiteBlueprintSelector( {
 					<div className="flex justify-between items-center w-full">
 						<span>
 							{ __(
-								'This blueprint uses unsupported features in Studio and might not work as expected.'
+								'This Blueprint uses unsupported features in Studio and might not work as expected.'
 							) }
 						</span>
 						<Button
@@ -408,7 +408,7 @@ export function AddSiteBlueprintSelector( {
 			<HStack alignment="edge" className="w-full mb-5 ">
 				<HStack alignment="left" className="flex-1">
 					<Text className="text-[16px]" weight={ 500 }>
-						{ __( 'Featured blueprints' ) }
+						{ __( 'Featured Blueprints' ) }
 					</Text>
 				</HStack>
 				{ selectedFileName ? (
@@ -440,7 +440,7 @@ export function AddSiteBlueprintSelector( {
 							} }
 							icon={ upload }
 						>
-							{ __( 'Choose blueprint file' ) }
+							{ __( 'Choose Blueprint file' ) }
 						</Button>
 					</label>
 				) }
@@ -449,14 +449,14 @@ export function AddSiteBlueprintSelector( {
 			<div className="blueprints-container w-full pb-1">
 				{ isFetchingBlueprints && (
 					<Text className="text-[14px] block text-center py-[100px]">
-						{ __( 'Loading blueprints...' ) }
+						{ __( 'Loading Blueprints...' ) }
 					</Text>
 				) }
 				{ errorMessage && ! isFetchingBlueprints && (
 					<Text className="text-[14px] block text-center py-[100px]">
 						{ createInterpolateElement(
 							__(
-								'Studio could not load blueprints. <button>Try again</button> or use your own blueprint.'
+								'Studio could not load Blueprints. <button>Try again</button> or use your own Blueprint.'
 							),
 							{
 								button: <Button variant="link" onClick={ refetchBlueprints } />,

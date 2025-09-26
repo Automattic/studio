@@ -213,7 +213,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				if ( isBlueprintError && hasBlueprint ) {
 					title = __( 'Blueprint execution failed' );
 					message = __(
-						'The selected blueprint failed to execute properly. This could be due to invalid PHP code, missing plugins, or other issues in the blueprint file. Please check your blueprint file and try again.'
+						'The selected Blueprint failed to execute properly. This could be due to invalid PHP code, missing plugins, or other issues in the Blueprint file. Please check your Blueprint file and try again.'
 					);
 				} else {
 					title = __( 'Failed to create site' );

@@ -13,7 +13,7 @@ export default class AddSiteModal {
 	}
 
 	get blueprintButton() {
-		return this.page.locator( 'button:has-text("Start from a blueprint")' ).first();
+		return this.page.locator( 'button:has-text("Start from a Blueprint")' ).first();
 	}
 
 	get continueButton() {

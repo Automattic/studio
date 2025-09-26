@@ -57,7 +57,7 @@ export const FullscreenModal: React.FC< FullscreenModalProps > = ( {
 			role="dialog"
 			aria-modal="true"
 		>
-			<HStack className="flex justify-end rtl:justify-start p-4">
+			<HStack className="flex justify-end p-4 rtl:mt-6">
 				<Button icon={ close } onClick={ onClose } label="Close" />
 			</HStack>
 			<VStack alignment="top" className="w-full flex-1 overflow-y-auto px-6 pb-6">

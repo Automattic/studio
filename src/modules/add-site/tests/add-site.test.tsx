@@ -56,6 +56,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		showOpenFolderDialog: mockShowOpenFolderDialog,
 		generateProposedSitePath: mockGenerateProposedSitePath,
 		getAllCustomDomains: mockGetAllCustomDomains,
+		setWindowControlVisibility: jest.fn(),
 	} ),
 } ) );
 

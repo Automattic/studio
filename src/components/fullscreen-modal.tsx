@@ -5,6 +5,9 @@ import {
 } from '@wordpress/components';
 import { close } from '@wordpress/icons';
 import React, { useEffect, useRef } from 'react';
+import { isWindows } from 'src/lib/app-globals';
+import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface FullscreenModalProps {
 	isOpen: boolean;
@@ -28,6 +31,7 @@ export const FullscreenModal: React.FC< FullscreenModalProps > = ( {
 		};
 
 		if ( isOpen ) {
+			void getIpcApi().setWindowControlVisibility( false );
 			document.addEventListener( 'keydown', handleEscKey );
 			document.body.style.overflow = 'hidden';
 			previousActiveElement.current = document.activeElement as HTMLElement;
@@ -37,6 +41,7 @@ export const FullscreenModal: React.FC< FullscreenModalProps > = ( {
 		}
 
 		return () => {
+			void getIpcApi().setWindowControlVisibility( true );
 			document.removeEventListener( 'keydown', handleEscKey );
 			document.body.style.overflow = '';
 			if ( previousActiveElement.current && previousActiveElement.current.focus ) {
@@ -57,7 +62,9 @@ export const FullscreenModal: React.FC< FullscreenModalProps > = ( {
 			role="dialog"
 			aria-modal="true"
 		>
-			<HStack className="flex justify-end rtl:justify-start p-4">
+			<HStack
+				className={ cx( 'flex justify-end p-4 app-no-drag-region', isWindows() && 'ltr:pt-8' ) }
+			>
 				<Button icon={ close } onClick={ onClose } label="Close" />
 			</HStack>
 			<VStack alignment="top" className="w-full flex-1 overflow-y-auto px-6 pb-6">

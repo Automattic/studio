@@ -71,6 +71,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			autoMount: true,
 			skipWordpressSetup: true,
 			isSetupMode: options.isSetupMode || false,
+			blueprint: options.blueprint,
 		};
 
 		const serverOptions: WordPressServerOptions = {

@@ -178,11 +178,7 @@ async function startServer(
 		}
 
 		if ( serverOptions.siteLanguage && serverOptions.siteLanguage !== DEFAULT_LOCALE ) {
-			if ( ! args.blueprint.steps ) {
-				args.blueprint.steps = [];
-			}
-
-			args.blueprint.steps.unshift(
+			args.blueprint.steps = [
 				...[
 					{
 						step: 'setSiteLanguage',
@@ -194,8 +190,9 @@ async function startServer(
 							serverOptions.siteLanguage
 						) }' ); echo "Language set to: ${ escapePhpString( serverOptions.siteLanguage ) }"; ?>`,
 					},
-				]
-			);
+				],
+				...( args.blueprint.steps || [] ),
+			];
 		}
 
 		server = await runCLI( args );

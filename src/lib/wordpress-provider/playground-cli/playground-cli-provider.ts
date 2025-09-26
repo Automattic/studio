@@ -204,6 +204,13 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	}
 
 	/**
+	 * Properly escape a string for safe use in PHP code
+	 */
+	private escapePhpString( str: string ): string {
+		return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
+	}
+
+	/**
 	 * Run WordPress installation steps directly to avoid web-based setup wizard
 	 */
 	private async runWordPressInstallation( options: {
@@ -232,12 +239,12 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			await serverProcess.runPhp( {
 				code: `<?php
 					$_POST = array(
-						'language' => '${ options.siteLanguage }',
+						'language' => '${ this.escapePhpString( options.siteLanguage ) }',
 						'prefix' => 'wp_',
-						'weblog_title' => '${ options.siteTitle.replace( /'/g, "\\'" ) }',
+						'weblog_title' => '${ this.escapePhpString( options.siteTitle ) }',
 						'user_name' => 'admin',
-						'admin_password' => '${ options.adminPassword.replace( /'/g, "\\'" ) }',
-						'admin_password2' => '${ options.adminPassword.replace( /'/g, "\\'" ) }',
+						'admin_password' => '${ this.escapePhpString( options.adminPassword ) }',
+						'admin_password2' => '${ this.escapePhpString( options.adminPassword ) }',
 						'Submit' => 'Install WordPress',
 						'pw_weak' => '1',
 						'admin_email' => 'admin@localhost.com',

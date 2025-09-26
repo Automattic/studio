@@ -144,6 +144,15 @@ export class PlaygroundCliProvider implements WordPressProvider {
 
 				try {
 					await recursiveCopyDirectory( bundledWPPath, path );
+					await installSqliteIntegration( path );
+					await this.runWordPressInstallation( {
+						path,
+						port,
+						adminPassword: adminPassword || 'password',
+						siteTitle: name,
+						siteLanguage: 'en',
+					} );
+					return true;
 				} catch ( error ) {
 					throw new Error(
 						'Failed to copy WordPress files for offline setup. Please check directory permissions.'
@@ -155,10 +164,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			const wpConfigPath = path + '/wp-config.php';
 			if ( ! ( await fs.pathExists( wpConfigPath ) ) ) {
 				await installSqliteIntegration( path );
-			}
-
-			if ( ! isOnline ) {
-				return true;
 			}
 
 			const siteLanguage = await getPreferredSiteLanguage( wpVersion );
@@ -196,5 +201,62 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		}
 
 		return { wpContentPath: undefined };
+	}
+
+	/**
+	 * Run WordPress installation steps directly to avoid web-based setup wizard
+	 */
+	private async runWordPressInstallation( options: {
+		path: string;
+		port: number;
+		adminPassword: string;
+		siteTitle: string;
+		siteLanguage: string;
+	} ): Promise< void > {
+		// Start a temporary server instance to run installation steps
+		const serverInstance = await this.startServer( {
+			path: options.path,
+			port: options.port,
+			adminPassword: options.adminPassword,
+			siteTitle: options.siteTitle,
+			phpVersion: this.DEFAULT_PHP_VERSION,
+			wpVersion: 'latest',
+			isWpAutoUpdating: false,
+			isSetupMode: false, // Don't use setup mode to avoid language downloads
+			siteLanguage: options.siteLanguage,
+		} );
+
+		const serverProcess = this.createServerProcess( serverInstance );
+
+		try {
+			await serverProcess.start();
+
+			// Run the installation steps directly using PHP requests
+			// Step 2 is the main installation step that creates database tables
+			await serverProcess.runPhp( {
+				code: `<?php
+					$_POST = array(
+						'language' => '${ options.siteLanguage }',
+						'prefix' => 'wp_',
+						'weblog_title' => '${ options.siteTitle.replace( /'/g, "\\'" ) }',
+						'user_name' => 'admin',
+						'admin_password' => '${ options.adminPassword.replace( /'/g, "\\'" ) }',
+						'admin_password2' => '${ options.adminPassword.replace( /'/g, "\\'" ) }',
+						'Submit' => 'Install WordPress',
+						'pw_weak' => '1',
+						'admin_email' => 'admin@localhost.com',
+					);
+					$_REQUEST = $_POST;
+					$_GET['step'] = 2;
+
+					// Include WordPress installation
+					require_once('/wordpress/wp-admin/install.php');
+				`,
+			} );
+
+			console.log( 'WordPress installation completed successfully' );
+		} finally {
+			await serverProcess.stop();
+		}
 	}
 }

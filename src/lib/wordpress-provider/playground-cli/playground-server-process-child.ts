@@ -200,8 +200,6 @@ async function startServer(
 			];
 		}
 
-		console.log( args );
-
 		server = await runCLI( args );
 
 		if ( serverOptions.siteTitle || serverOptions.adminPassword ) {

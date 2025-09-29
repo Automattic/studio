@@ -140,8 +140,8 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 			const messageToSend = { id, type, data };
 			this.process!.postMessage( messageToSend );
 
-			// Timeout after 60 seconds for setup mode, 30 seconds otherwise
-			const timeout = this.isSetupMode && type === 'start-server' ? 60000 : 30000;
+			// Timeout after 2 minutes for server start and PHP operations, 30 seconds for other operations
+			const timeout = type === 'start-server' || type === 'run-php' ? 120000 : 30000;
 			setTimeout( () => {
 				if ( this.responseHandlers.has( id ) ) {
 					this.responseHandlers.delete( id );

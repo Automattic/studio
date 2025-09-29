@@ -155,7 +155,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 					return true;
 				} catch ( error ) {
 					throw new Error(
-						'Failed to copy WordPress files for offline setup. Please check directory permissions.'
+						`Failed to copy WordPress files for offline setup: ${ ( error as Error ).message }`
 					);
 				}
 			}

@@ -6,7 +6,7 @@ import { RecommendedPHPVersion } from '@wp-playground/common';
 import fs from 'fs-extra';
 import { recursiveCopyDirectory, pathExists } from 'common/lib/fs-utils';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
-import { installSqliteIntegration } from 'src/lib/sqlite-versions';
+import { installSqliteIntegration, isSqlLiteInstalled } from 'src/lib/sqlite-versions';
 import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
 import { SiteServer } from 'src/site-server';
 import { getResourcesPath, getServerFilesPath } from 'src/storage/paths';
@@ -161,9 +161,13 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			}
 
 			// Ensure SQLite integration is installed before starting the server
-			const wpConfigPath = path + '/wp-config.php';
-			if ( ! ( await fs.pathExists( wpConfigPath ) ) ) {
-				await installSqliteIntegration( path );
+			const hasSqlite = await isSqlLiteInstalled( path );
+			if ( ! hasSqlite ) {
+				console.log( 'needs sqlite' );
+				const wpConfigPath = path + '/wp-config.php';
+				if ( ! ( await fs.pathExists( wpConfigPath ) ) ) {
+					await installSqliteIntegration( path );
+				}
 			}
 
 			const siteLanguage = await getPreferredSiteLanguage( wpVersion );

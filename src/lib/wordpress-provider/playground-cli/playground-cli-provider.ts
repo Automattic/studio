@@ -3,10 +3,10 @@ import nodePath from 'path';
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import { Blueprint } from '@wp-playground/blueprints';
 import { RecommendedPHPVersion } from '@wp-playground/common';
-import fs from 'fs-extra';
 import { recursiveCopyDirectory, pathExists } from 'common/lib/fs-utils';
+import { DEFAULT_LOCALE } from 'common/lib/locale';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
-import { installSqliteIntegration, isSqlLiteInstalled } from 'src/lib/sqlite-versions';
+import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
 import { SiteServer } from 'src/site-server';
 import { getResourcesPath, getServerFilesPath } from 'src/storage/paths';
@@ -115,6 +115,20 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	async setupWordPressSite( server: SiteServer, wpVersion = 'latest' ): Promise< boolean > {
 		const { path, port, adminPassword, name, phpVersion } = server.details;
 		const { blueprint } = server.meta;
+		const siteLanguage = await getPreferredSiteLanguage( wpVersion );
+		const serverOptions = {
+			path,
+			port,
+			adminPassword: adminPassword || 'password',
+			siteTitle: name,
+			phpVersion: phpVersion || this.DEFAULT_PHP_VERSION,
+			wpVersion,
+			isWpAutoUpdating: false,
+			isSetupMode: true,
+			blueprint: blueprint?.blueprint,
+			siteLanguage,
+		};
+		let serverProcess;
 
 		try {
 			const isOnline = net.isOnline();
@@ -144,15 +158,11 @@ export class PlaygroundCliProvider implements WordPressProvider {
 
 				try {
 					await recursiveCopyDirectory( bundledWPPath, path );
-					await installSqliteIntegration( path );
-					await this.runWordPressInstallation( {
-						path,
-						port,
-						adminPassword: adminPassword || 'password',
-						siteTitle: name,
-						siteLanguage: 'en',
-					} );
-					return true;
+					serverOptions.wpVersion = this.DEFAULT_WORDPRESS_VERSION;
+					serverOptions.siteLanguage = DEFAULT_LOCALE;
+					serverOptions.isSetupMode = false;
+					serverOptions.isWpAutoUpdating = true;
+					serverOptions.blueprint = undefined;
 				} catch ( error ) {
 					throw new Error(
 						`Failed to copy WordPress files for offline setup: ${ ( error as Error ).message }`
@@ -160,36 +170,25 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				}
 			}
 
-			// Ensure SQLite integration is installed before starting the server
-			const hasSqlite = await isSqlLiteInstalled( path );
-			if ( ! hasSqlite ) {
-				console.log( 'needs sqlite' );
-				const wpConfigPath = path + '/wp-config.php';
-				if ( ! ( await fs.pathExists( wpConfigPath ) ) ) {
-					await installSqliteIntegration( path );
-				}
+			await keepSqliteIntegrationUpdated( path );
+
+			const serverInstance = await this.startServer( serverOptions );
+			serverProcess = this.createServerProcess( serverInstance );
+			await serverProcess.start();
+
+			if ( ! serverOptions.isSetupMode ) {
+				await this.runWordPressInstallation( serverProcess, serverOptions );
 			}
 
-			const siteLanguage = await getPreferredSiteLanguage( wpVersion );
-			const serverInstance = await this.startServer( {
-				path,
-				port,
-				adminPassword: adminPassword || 'password',
-				siteTitle: name,
-				phpVersion: phpVersion || this.DEFAULT_PHP_VERSION,
-				wpVersion,
-				isWpAutoUpdating: false,
-				isSetupMode: true,
-				blueprint: blueprint?.blueprint,
-				siteLanguage,
-			} );
+			// remove blueprint since we only want to run it once
+			server.meta.blueprint = undefined;
 
-			const serverProcess = this.createServerProcess( serverInstance );
-			await serverProcess.start();
 			return true;
 		} catch ( error ) {
 			console.error( 'Failed to setup WordPress site:', error );
 			throw error;
+		} finally {
+			await serverProcess?.stop();
 		}
 	}
 
@@ -217,31 +216,18 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	/**
 	 * Run WordPress installation steps directly to avoid web-based setup wizard
 	 */
-	private async runWordPressInstallation( options: {
-		path: string;
-		port: number;
-		adminPassword: string;
-		siteTitle: string;
-		siteLanguage: string;
-	} ): Promise< void > {
-		const serverInstance = await this.startServer( {
-			path: options.path,
-			port: options.port,
-			adminPassword: options.adminPassword,
-			siteTitle: options.siteTitle,
-			phpVersion: this.DEFAULT_PHP_VERSION,
-			wpVersion: 'latest',
-			isWpAutoUpdating: false,
-			isSetupMode: false,
-			siteLanguage: options.siteLanguage,
-		} );
-
-		const serverProcess = this.createServerProcess( serverInstance );
-
-		try {
-			await serverProcess.start();
-			await serverProcess.runPhp( {
-				code: `<?php
+	private async runWordPressInstallation(
+		serverProcess: WordPressServerProcess,
+		options: {
+			path: string;
+			port: number;
+			adminPassword: string;
+			siteTitle: string;
+			siteLanguage: string;
+		}
+	): Promise< void > {
+		await serverProcess.runPhp( {
+			code: `<?php
 					$_POST = array(
 						'language' => '${ this.escapePhpString( options.siteLanguage ) }',
 						'prefix' => 'wp_',
@@ -259,11 +245,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 					// Include WordPress installation
 					require_once('/wordpress/wp-admin/install.php');
 				`,
-			} );
-
-			console.log( 'WordPress installation completed successfully' );
-		} finally {
-			await serverProcess.stop();
-		}
+		} );
 	}
 }

@@ -70,6 +70,11 @@ export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS = 6;
 export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT =
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS * 60 * 60 * 1000; // 6hr
 
+// Playground CLI
+export const PLAYGROUND_CLI_INACTIVITY_TIMEOUT = 60 * 1000; // 60 seconds of no output = timeout
+export const PLAYGROUND_CLI_MAX_TIMEOUT = 10 * 60 * 1000; // 10 minutes absolute maximum
+export const PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL = 5 * 1000; // Check for inactivity every 5 seconds
+
 // SQLite
 export const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.2.10';
 

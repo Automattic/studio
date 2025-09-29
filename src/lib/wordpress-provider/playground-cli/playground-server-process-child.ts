@@ -22,14 +22,20 @@ const originalConsoleWarn = console.warn;
 
 console.log = ( ...args: any[] ) => {
 	originalConsoleLog( '[playground-cli]', ...args );
+	// Send activity heartbeat to parent process to reset inactivity timeout
+	process.parentPort.postMessage( { type: 'activity' } );
 };
 
 console.error = ( ...args: any[] ) => {
 	originalConsoleError( '[playground-cli]', ...args );
+	// Send activity heartbeat to parent process to reset inactivity timeout
+	process.parentPort.postMessage( { type: 'activity' } );
 };
 
 console.warn = ( ...args: any[] ) => {
 	originalConsoleWarn( '[playground-cli]', ...args );
+	// Send activity heartbeat to parent process to reset inactivity timeout
+	process.parentPort.postMessage( { type: 'activity' } );
 };
 
 let server: RunCLIServer | null = null;

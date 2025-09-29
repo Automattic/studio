@@ -72,8 +72,7 @@ function BlueprintIssuesModal( {
 					{ warnings?.length &&
 						__(
 							'The following features are not supported in Studio and will be automatically removed:'
-						)
-					}
+						) }
 				</Text>
 				<div className="flex-1 overflow-y-auto">
 					<VStack spacing={ 3 } className="divide-y divide-gray-200">

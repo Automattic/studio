@@ -58,7 +58,7 @@ describe( 'WordPress Versions API', () => {
 			} );
 			const store = createTestStore();
 			const result = await store.dispatch(
-				wordpressVersionsApi.endpoints.getWordPressVersions.initiate( undefined )
+				wordpressVersionsApi.endpoints.getWordPressVersions.initiate( {} )
 			);
 
 			// Verify both API calls were made with correct parameters
@@ -129,7 +129,7 @@ describe( 'WordPress Versions API', () => {
 
 		const store = createTestStore();
 		const result = await store.dispatch(
-			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( undefined )
+			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( {} )
 		);
 
 		// Should only take the first development version
@@ -159,7 +159,7 @@ describe( 'WordPress Versions API', () => {
 
 		const store = createTestStore();
 		const result = await store.dispatch(
-			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( undefined )
+			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( {} )
 		);
 
 		expect( result.isError ).toBe( true );
@@ -207,7 +207,7 @@ describe( 'WordPress Versions API', () => {
 
 		const store = createTestStore();
 		const result = await store.dispatch(
-			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( undefined )
+			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( {} )
 		);
 
 		expect( result.isSuccess ).toBe( true );
@@ -259,7 +259,7 @@ describe( 'WordPress Versions API', () => {
 
 		const store = createTestStore();
 		const result = await store.dispatch(
-			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( undefined )
+			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( {} )
 		);
 
 		expect( result.isSuccess ).toBe( true );
@@ -274,7 +274,7 @@ describe( 'WordPress Versions API', () => {
 
 		const store = createTestStore();
 		const result = await store.dispatch(
-			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( undefined )
+			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( {} )
 		);
 		expect( result.isError ).toBe( true );
 		expect( result.error ).toBeDefined();
@@ -313,7 +313,7 @@ describe( 'WordPress Versions API', () => {
 
 		const store = createTestStore();
 		const result = await store.dispatch(
-			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( undefined )
+			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( {} )
 		);
 		const versions = result.data || [];
 
@@ -355,7 +355,7 @@ describe( 'WordPress Versions API', () => {
 
 		const store = createTestStore();
 		const result = await store.dispatch(
-			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( undefined )
+			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( {} )
 		);
 
 		const versions = result.data || [];
@@ -402,7 +402,7 @@ describe( 'WordPress Versions API', () => {
 
 		const store = createTestStore();
 		const result = await store.dispatch(
-			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( undefined )
+			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( {} )
 		);
 		const versions = result.data || [];
 
@@ -461,7 +461,7 @@ describe( 'WordPress Versions API', () => {
 
 		const store = createTestStore();
 		const result = await store.dispatch(
-			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( undefined )
+			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( {} )
 		);
 
 		const versions = result.data || [];
@@ -502,7 +502,7 @@ describe( 'WordPress Versions API', () => {
 			} );
 
 			const result = await store.dispatch(
-				wordpressVersionsApi.endpoints.getWordPressVersions.initiate( undefined )
+				wordpressVersionsApi.endpoints.getWordPressVersions.initiate( {} )
 			);
 			const versions = result.data || [];
 
@@ -553,7 +553,7 @@ describe( 'WordPress Versions API', () => {
 
 			const store = createTestStore();
 			const result = await store.dispatch(
-				wordpressVersionsApi.endpoints.getWordPressVersions.initiate( undefined )
+				wordpressVersionsApi.endpoints.getWordPressVersions.initiate( {} )
 			);
 			const versions = result.data || [];
 

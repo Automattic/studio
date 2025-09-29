@@ -277,7 +277,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		( site ) => site.isAddingSite || importState[ site.id ]?.isNewSite
 	);
 
-	const { data: versions = [] } = useGetWordPressVersions();
+	const { data: versions = [] } = useGetWordPressVersions( {} );
 	const latestStableVersion = versions.find( ( version ) => version.value === 'latest' );
 
 	const resetForm = useCallback( () => {

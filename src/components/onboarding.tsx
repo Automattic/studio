@@ -70,7 +70,7 @@ export default function Onboarding() {
 		siteName || ''
 	);
 
-	const { data: versions = [] } = useGetWordPressVersions();
+	const { data: versions = [] } = useGetWordPressVersions( {} );
 	const latestStableVersion = versions.find( ( version ) => version.value === 'latest' );
 
 	useEffect( () => {

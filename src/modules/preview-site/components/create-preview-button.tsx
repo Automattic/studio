@@ -41,7 +41,7 @@ export function CreatePreviewButton( { onClick, selectedSite, user }: CreatePrev
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const isOffline = useOffline();
 	const [ wpVersion ] = useGetWpVersion( selectedSite );
-	const { data: wpVersions = [] } = useGetWordPressVersions();
+	const { data: wpVersions = [] } = useGetWordPressVersions( {} );
 
 	const isAnySiteArchiving = !! activeOperationsForAnySite.length;
 	const isCurrentSiteArchiving = !! activeOperationsForCurrentSite;

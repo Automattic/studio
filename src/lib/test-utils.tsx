@@ -15,6 +15,7 @@ interface TestStoreOptions {
 		defaultPhpVersion?: string;
 		defaultWordPressVersion?: string;
 		allowedPhpVersions?: string[];
+		minimumWordPressVersion?: string;
 	};
 	preloadedState?: Partial< RootState >;
 }
@@ -40,6 +41,7 @@ export function createTestStore( options: TestStoreOptions = {} ) {
 				defaultPhpVersion: options.providerConstants.defaultPhpVersion || '',
 				defaultWordPressVersion: options.providerConstants.defaultWordPressVersion || '',
 				allowedPhpVersions: options.providerConstants.allowedPhpVersions || [],
+				minimumWordPressVersion: options.providerConstants.minimumWordPressVersion || '',
 			} )
 		);
 	}

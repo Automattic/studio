@@ -5,12 +5,14 @@ interface ProviderConstantsState {
 	defaultPhpVersion: string;
 	defaultWordPressVersion: string;
 	allowedPhpVersions: string[];
+	minimumWordPressVersion: string;
 }
 
 const initialState: ProviderConstantsState = {
 	defaultPhpVersion: '',
 	defaultWordPressVersion: '',
 	allowedPhpVersions: [],
+	minimumWordPressVersion: '',
 };
 
 const providerConstantsSlice = createSlice( {
@@ -32,6 +34,8 @@ export const selectDefaultWordPressVersion = ( state: RootState ) =>
 	state.providerConstants.defaultWordPressVersion;
 export const selectAllowedPhpVersions = ( state: RootState ) =>
 	state.providerConstants.allowedPhpVersions;
+export const selectMinimumWordPressVersion = ( state: RootState ) =>
+	state.providerConstants.minimumWordPressVersion;
 export const selectProviderConstants = ( state: RootState ) => state.providerConstants;
 
 export default providerConstantsSlice.reducer;

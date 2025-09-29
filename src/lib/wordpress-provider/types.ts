@@ -52,6 +52,7 @@ export interface WordPressProvider {
 	readonly DEFAULT_PHP_VERSION: string;
 	readonly DEFAULT_WORDPRESS_VERSION: string;
 	readonly ALLOWED_PHP_VERSIONS: string[];
+	readonly MINIMUM_WORDPRESS_VERSION: string;
 	readonly SQLITE_FILENAME: string;
 	readonly SQLITE_FILENAME_LEGACY: string;
 

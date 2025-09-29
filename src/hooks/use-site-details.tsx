@@ -449,24 +449,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const stopServer = useCallback(
 		async ( id: string ) => {
 			toggleLoadingServerForSite( id );
-			try {
-				const updatedSite = await getIpcApi().stopServer( id );
-				if ( updatedSite ) {
-					setData( ( prevData ) =>
-						prevData.map( ( site ) => ( site.id === id ? { ...site, ...updatedSite } : site ) )
-					);
-				}
-			} catch ( error ) {
-				// Simplify the error for user display
-				const errorToShow = simplifyErrorForDisplay( error );
-				getIpcApi().showErrorMessageBox( {
-					title: __( 'Failed to stop the site server' ),
-					message: __(
-						'An error occurred while stopping the site. If this problem persists, please contact support.'
-					),
-					error: errorToShow,
-					showOpenLogs: true,
-				} );
+			const updatedSite = await getIpcApi().stopServer( id );
+			if ( updatedSite ) {
+				setData( ( prevData ) =>
+					prevData.map( ( site ) => ( site.id === id ? { ...site, ...updatedSite } : site ) )
+				);
 			}
 			toggleLoadingServerForSite( id );
 		},

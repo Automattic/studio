@@ -193,18 +193,26 @@ async function startServer(
 			};
 		}
 
-		if ( serverOptions.siteLanguage && serverOptions.siteLanguage !== DEFAULT_LOCALE ) {
+		/* Workaround for https://github.com/WordPress/wordpress-playground/issues/2700
+		 * Let's revisit this code when the issue is fixed
+		 * If setSiteLanguage is set in blueprint we shouldn't need to change the language*/
+		const blueprintLanguageStep = args.blueprint?.steps?.find(
+			( step: { step: string; language?: string } ) => step.step === 'setSiteLanguage'
+		);
+		const siteLanguage = blueprintLanguageStep?.language || serverOptions.siteLanguage;
+
+		if ( siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
 			args.blueprint.steps = [
 				...[
 					{
 						step: 'setSiteLanguage',
-						language: serverOptions.siteLanguage,
+						language: siteLanguage,
 					},
 					{
 						step: 'runPHP',
 						code: `<?php require_once( '/wordpress/wp-load.php' ); update_option( 'WPLANG', '${ escapePhpString(
-							serverOptions.siteLanguage
-						) }' ); echo "Language set to: ${ escapePhpString( serverOptions.siteLanguage ) }"; ?>`,
+							siteLanguage
+						) }' ); echo "Language set to: ${ escapePhpString( siteLanguage ) }"; ?>`,
 					},
 				],
 				...( args.blueprint.steps || [] ),

@@ -1,5 +1,10 @@
 import { utilityProcess } from 'electron';
 import path from 'path';
+import {
+	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
+	PLAYGROUND_CLI_MAX_TIMEOUT,
+	PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL,
+} from 'src/constants';
 import { WordPressServerProcess, WordPressServerOptions } from '../types';
 import { PlaygroundCliOptions } from './playground-cli-provider';
 
@@ -13,6 +18,7 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 	private exitPromise: Promise< void > | null = null;
 	private exitResolve: ( () => void ) | null = null;
 	private isSetupMode = false;
+	private lastActivityTimestamp = 0;
 
 	constructor(
 		public url: string,
@@ -39,6 +45,10 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 			( message: { type?: string; id?: number; error?: string; result?: unknown } ) => {
 				if ( message.type === 'ready' ) {
 					return;
+				}
+
+				if ( message.type === 'activity' || message.id !== undefined ) {
+					this.lastActivityTimestamp = Date.now();
 				}
 
 				if ( message.id !== undefined && this.responseHandlers.has( message.id ) ) {
@@ -140,14 +150,36 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 			const messageToSend = { id, type, data };
 			this.process!.postMessage( messageToSend );
 
-			// Timeout after 2 minutes for server start and PHP operations, 30 seconds for other operations
-			const timeout = type === 'start-server' || type === 'run-php' ? 120000 : 30000;
-			setTimeout( () => {
-				if ( this.responseHandlers.has( id ) ) {
-					this.responseHandlers.delete( id );
-					reject( new Error( `Timeout waiting for response to message ${ id }` ) );
+			this.lastActivityTimestamp = Date.now();
+			const startTime = Date.now();
+
+			const activityCheckInterval = setInterval( () => {
+				if ( ! this.responseHandlers.has( id ) ) {
+					clearInterval( activityCheckInterval );
+					return;
 				}
-			}, timeout );
+
+				const now = Date.now();
+				const timeSinceLastActivity = now - this.lastActivityTimestamp;
+				const totalElapsedTime = now - startTime;
+
+				if (
+					timeSinceLastActivity > PLAYGROUND_CLI_INACTIVITY_TIMEOUT ||
+					totalElapsedTime > PLAYGROUND_CLI_MAX_TIMEOUT
+				) {
+					clearInterval( activityCheckInterval );
+					if ( this.responseHandlers.has( id ) ) {
+						this.responseHandlers.delete( id );
+						const timeoutReason =
+							totalElapsedTime > PLAYGROUND_CLI_MAX_TIMEOUT
+								? `Maximum timeout of ${ PLAYGROUND_CLI_MAX_TIMEOUT / 1000 }s exceeded`
+								: `No activity for ${ PLAYGROUND_CLI_INACTIVITY_TIMEOUT / 1000 }s`;
+						reject(
+							new Error( `Timeout waiting for response to message ${ id }: ${ timeoutReason }` )
+						);
+					}
+				}
+			}, PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL );
 		} );
 	}
 

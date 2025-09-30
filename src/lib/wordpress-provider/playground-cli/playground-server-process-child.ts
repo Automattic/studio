@@ -22,15 +22,31 @@ const originalConsoleWarn = console.warn;
 
 console.log = ( ...args: any[] ) => {
 	originalConsoleLog( '[playground-cli]', ...args );
+	process.parentPort.postMessage( { type: 'activity' } );
 };
 
 console.error = ( ...args: any[] ) => {
 	originalConsoleError( '[playground-cli]', ...args );
+	process.parentPort.postMessage( { type: 'activity' } );
 };
 
 console.warn = ( ...args: any[] ) => {
 	originalConsoleWarn( '[playground-cli]', ...args );
+	process.parentPort.postMessage( { type: 'activity' } );
 };
+
+const originalStdoutWrite = process.stdout.write.bind( process.stdout );
+const originalStderrWrite = process.stderr.write.bind( process.stderr );
+
+process.stdout.write = function ( ...args: Parameters< typeof originalStdoutWrite > ) {
+	process.parentPort.postMessage( { type: 'activity' } );
+	return originalStdoutWrite( ...args );
+} as typeof process.stdout.write;
+
+process.stderr.write = function ( ...args: Parameters< typeof originalStderrWrite > ) {
+	process.parentPort.postMessage( { type: 'activity' } );
+	return originalStderrWrite( ...args );
+} as typeof process.stderr.write;
 
 let server: RunCLIServer | null = null;
 

@@ -45,7 +45,7 @@ export class WpNowProvider implements WordPressProvider {
 	static readonly DEFAULT_PHP_VERSION = DEFAULT_PHP_VERSION;
 	static readonly DEFAULT_WORDPRESS_VERSION = DEFAULT_WORDPRESS_VERSION;
 	static readonly ALLOWED_PHP_VERSIONS = ALLOWED_PHP_VERSIONS;
-	static readonly MINIMUM_WORDPRESS_VERSION = '5.9.9';
+	static readonly MINIMUM_WORDPRESS_VERSION = '6.2.6';
 	static readonly SQLITE_FILENAME = SQLITE_FILENAME;
 	static readonly SQLITE_FILENAME_LEGACY = SQLITE_FILENAME_LEGACY;
 

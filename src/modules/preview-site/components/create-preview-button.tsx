@@ -10,6 +10,7 @@ import { useOffline } from 'src/hooks/use-offline';
 import { useSiteSize } from 'src/hooks/use-site-size';
 import { hasVersionMismatch } from 'src/modules/preview-site/lib/version-comparison';
 import { useRootSelector } from 'src/stores';
+import { selectMinimumWordPressVersion } from 'src/stores/provider-constants-slice';
 import { snapshotSelectors } from 'src/stores/snapshot-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
@@ -41,7 +42,10 @@ export function CreatePreviewButton( { onClick, selectedSite, user }: CreatePrev
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const isOffline = useOffline();
 	const [ wpVersion ] = useGetWpVersion( selectedSite );
-	const { data: wpVersions = [] } = useGetWordPressVersions( {} );
+	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
+	const { data: wpVersions = [] } = useGetWordPressVersions( {
+		minimumVersion: minimumWordPressVersion,
+	} );
 
 	const isAnySiteArchiving = !! activeOperationsForAnySite.length;
 	const isCurrentSiteArchiving = !! activeOperationsForCurrentSite;

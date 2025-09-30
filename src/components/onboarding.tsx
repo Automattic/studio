@@ -8,8 +8,9 @@ import { StudioLogo } from 'src/components/studio-logo';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useAppDispatch } from 'src/stores';
+import { useAppDispatch, useRootSelector } from 'src/stores';
 import { saveOnboardingStatus } from 'src/stores/onboarding-slice';
+import { selectMinimumWordPressVersion } from 'src/stores/provider-constants-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 
 const GradientBox = () => {
@@ -70,7 +71,10 @@ export default function Onboarding() {
 		siteName || ''
 	);
 
-	const { data: versions = [] } = useGetWordPressVersions( {} );
+	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
+	const { data: versions = [] } = useGetWordPressVersions( {
+		minimumVersion: minimumWordPressVersion,
+	} );
 	const latestStableVersion = versions.find( ( version ) => version.value === 'latest' );
 
 	useEffect( () => {

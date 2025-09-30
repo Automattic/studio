@@ -4,6 +4,7 @@ import { createContext, useMemo, useState, useCallback, useContext } from 'react
 import { WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS } from 'src/constants';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ExportEvents } from 'src/lib/import-export/export/events';
 import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
@@ -110,12 +111,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 						),
 					} );
 				} else {
-					let errorToShow = error;
-					const errorMessage = ( error as Error )?.message;
-					if ( errorMessage ) {
-						const firstLine = errorMessage.split( '\n' )[ 0 ].trim();
-						errorToShow = new Error( firstLine );
-					}
+					const errorToShow = simplifyErrorForDisplay( error );
 
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Failed importing site' ),

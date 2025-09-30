@@ -12,6 +12,7 @@ import {
 import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useOffline } from 'src/hooks/use-offline';
+import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { sortSites } from 'src/lib/sort-sites';
 import { useAppDispatch } from 'src/stores';
@@ -209,23 +210,27 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 				let title: string;
 				let message: string;
+				let errorToShow = error;
 
 				if ( isBlueprintError && hasBlueprint ) {
 					title = __( 'Blueprint execution failed' );
 					message = __(
 						'The selected Blueprint failed to execute properly. This could be due to invalid PHP code, missing plugins, or other issues in the Blueprint file. Please check your Blueprint file and try again.'
 					);
+					errorToShow = undefined;
 				} else {
 					title = __( 'Failed to create site' );
 					message = __(
 						'An error occurred while creating the site. Verify your selected local path is an empty directory or an existing WordPress folder and try again. If this problem persists, please contact support.'
 					);
+					// Simplify the error for user display
+					errorToShow = simplifyErrorForDisplay( error );
 				}
 
 				getIpcApi().showErrorMessageBox( {
 					title,
 					message,
-					error: isBlueprintError && hasBlueprint ? undefined : error,
+					error: errorToShow,
 					showOpenLogs: ! isBlueprintError || ! hasBlueprint,
 				} );
 
@@ -355,12 +360,13 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 						showOpenLogs: false,
 					} );
 				} else {
+					const errorToShow = simplifyErrorForDisplay( error );
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Failed to start the site server' ),
 						message: __(
 							"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
 						),
-						error,
+						error: errorToShow,
 						showOpenLogs: true,
 					} );
 				}

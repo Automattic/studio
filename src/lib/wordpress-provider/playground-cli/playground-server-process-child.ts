@@ -227,7 +227,11 @@ async function startServer(
 		server = await runCLI( args );
 
 		if ( serverOptions.siteTitle || serverOptions.adminPassword ) {
-			await setSiteOptions( server, serverOptions );
+			try {
+				await setSiteOptions( server, serverOptions );
+			} catch ( error ) {
+				console.warn( 'Failed to set site options, but server started successfully:', error );
+			}
 		}
 	} catch ( error ) {
 		server = null;

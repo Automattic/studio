@@ -177,6 +177,9 @@ async function startServer(
 			};
 		}
 
+		/* Workaround for https://github.com/WordPress/wordpress-playground/issues/2700
+		 * Let's revisit this code when the issue is fixed
+		 * If setSiteLanguage is set in blueprint we shouldn't need to change the language*/
 		const blueprintLanguageStep = args.blueprint?.steps?.find(
 			( step: { step: string; language?: string } ) => step.step === 'setSiteLanguage'
 		);

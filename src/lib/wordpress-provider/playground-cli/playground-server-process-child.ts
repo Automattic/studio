@@ -1,6 +1,7 @@
 import { SupportedPHPVersion, PHPRunOptions } from '@php-wasm/universal';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import { DEFAULT_LOCALE } from 'common/lib/locale';
+import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
 import { WordPressServerOptions } from '../types';
 import { getMuPlugins } from './mu-plugins';
 import { PlaygroundCliOptions } from './playground-cli-provider';
@@ -172,7 +173,11 @@ async function startServer(
 		}
 
 		if ( serverOptions.wordPressVersion ) {
-			args.wp = serverOptions.wordPressVersion;
+			if ( isWordPressDevVersion( serverOptions.wordPressVersion ) ) {
+				args.wp = 'nightly';
+			} else {
+				args.wp = serverOptions.wordPressVersion;
+			}
 		}
 
 		const defaultConstants = {

@@ -38,11 +38,13 @@ export const getProviderConstants = (
 	defaultPhpVersion: string;
 	defaultWordPressVersion: string;
 	allowedPhpVersions: string[];
+	minimumWordPressVersion: string;
 } => {
 	return {
 		defaultPhpVersion: provider.DEFAULT_PHP_VERSION,
 		defaultWordPressVersion: provider.DEFAULT_WORDPRESS_VERSION,
 		allowedPhpVersions: provider.ALLOWED_PHP_VERSIONS,
+		minimumWordPressVersion: provider.MINIMUM_WORDPRESS_VERSION,
 	};
 };
 

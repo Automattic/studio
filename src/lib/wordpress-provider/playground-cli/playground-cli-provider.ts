@@ -36,6 +36,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	static readonly DEFAULT_PHP_VERSION = RecommendedPHPVersion;
 	static readonly DEFAULT_WORDPRESS_VERSION = 'latest';
 	static readonly ALLOWED_PHP_VERSIONS = [ ...SupportedPHPVersions ];
+	static readonly MINIMUM_WORDPRESS_VERSION = '6.2.1'; // https://wordpress.github.io/wordpress-playground/blueprints/examples/#load-an-older-wordpress-version
 	static readonly SQLITE_FILENAME = 'sqlite-database-integration';
 	static readonly SQLITE_FILENAME_LEGACY = 'sqlite-database-integration-main';
 
@@ -43,6 +44,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	readonly DEFAULT_PHP_VERSION = PlaygroundCliProvider.DEFAULT_PHP_VERSION;
 	readonly DEFAULT_WORDPRESS_VERSION = PlaygroundCliProvider.DEFAULT_WORDPRESS_VERSION;
 	readonly ALLOWED_PHP_VERSIONS = PlaygroundCliProvider.ALLOWED_PHP_VERSIONS;
+	readonly MINIMUM_WORDPRESS_VERSION = PlaygroundCliProvider.MINIMUM_WORDPRESS_VERSION;
 	readonly SQLITE_FILENAME = PlaygroundCliProvider.SQLITE_FILENAME;
 	readonly SQLITE_FILENAME_LEGACY = PlaygroundCliProvider.SQLITE_FILENAME_LEGACY;
 

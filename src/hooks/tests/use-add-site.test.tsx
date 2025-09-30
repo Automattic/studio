@@ -42,6 +42,7 @@ function makeStoreWithProviderConstants( overrides = {} ) {
 				defaultPhpVersion: '8.3',
 				defaultWordPressVersion: 'latest',
 				allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+				minimumWordPressVersion: '5.9.9',
 				...overrides,
 			},
 		},

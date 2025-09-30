@@ -70,12 +70,8 @@ function BlueprintIssuesModal( {
 				<Text className="font-medium text-gray-900">{ fileName }</Text>
 				<Text>
 					{ warnings?.length &&
-						sprintf(
-							// translators: %d is the number of unsupported features
-							__(
-								'The following %d feature(s) are not supported in Studio and will be automatically removed:'
-							),
-							warnings.length
+						__(
+							'The following features are not supported in Studio and will be automatically removed:'
 						) }
 				</Text>
 				<div className="flex-1 overflow-y-auto">

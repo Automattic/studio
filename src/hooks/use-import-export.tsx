@@ -65,6 +65,13 @@ const ImportExportContext = createContext< ImportExportContext >( {
 	clearExportState: () => undefined,
 } );
 
+const WP_CONTENT_TYPE_LABELS: Record< string, string > = {
+	plugins: __( 'Importing plugins…' ),
+	themes: __( 'Importing themes…' ),
+	uploads: __( 'Importing media uploads…' ),
+	other: __( 'Importing other files…' ),
+};
+
 export const ImportExportProvider = ( { children }: { children: React.ReactNode } ) => {
 	const [ importState, setImportState ] = useState< ImportProgressState >( {} );
 	const [ exportState, setExportState ] = useState< ExportProgressState >( {} );
@@ -269,16 +276,9 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				let statusMessage: string = __( 'Importing WordPress content…' );
 
 				if ( progressData.type && progressData.processedItems && progressData.totalItems ) {
-					const typeLabels: Record< string, string > = {
-						plugins: __( 'Importing plugins…' ),
-						themes: __( 'Importing themes…' ),
-						uploads: __( 'Importing media uploads…' ),
-						other: __( 'Importing other files…' ),
-					};
-
 					statusMessage = sprintf(
 						__( '%1$s (%2$d/%3$d)' ),
-						typeLabels[ progressData.type ] || __( 'Importing files…' ),
+						WP_CONTENT_TYPE_LABELS[ progressData.type ] || __( 'Importing files…' ),
 						progressData.processedItems,
 						progressData.totalItems
 					);

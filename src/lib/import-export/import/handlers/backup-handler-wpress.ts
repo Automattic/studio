@@ -149,6 +149,10 @@ export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 		this.eof = Buffer.alloc( HEADER_SIZE, '\0' );
 	}
 
+	private calculateProgress(): number {
+		return this.totalFiles > 0 ? Math.round( ( this.processedFiles / this.totalFiles ) * 100 ) : 0;
+	}
+
 	/**
 	 * Lists all files in a .wpress backup file by reading the headers sequentially.
 	 *
@@ -224,11 +228,9 @@ export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 
 				// Emit progress before processing file
 				const currentFile = path.join( header.prefix, header.name );
-				const progress =
-					this.totalFiles > 0 ? Math.round( ( this.processedFiles / this.totalFiles ) * 100 ) : 0;
 
 				this.emit( ImportEvents.BACKUP_EXTRACT_FILE_START, {
-					progress,
+					progress: this.calculateProgress(),
 					processedFiles: this.processedFiles,
 					totalFiles: this.totalFiles,
 					currentFile,
@@ -238,10 +240,8 @@ export class BackupHandlerWpress extends EventEmitter implements BackupHandler {
 				this.processedFiles++;
 
 				// Emit progress after processing file
-				const newProgress =
-					this.totalFiles > 0 ? Math.round( ( this.processedFiles / this.totalFiles ) * 100 ) : 100;
 				this.emit( ImportEvents.BACKUP_EXTRACT_PROGRESS, {
-					progress: newProgress,
+					progress: this.calculateProgress(),
 					processedFiles: this.processedFiles,
 					totalFiles: this.totalFiles,
 					currentFile,

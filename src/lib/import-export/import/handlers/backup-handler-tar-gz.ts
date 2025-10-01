@@ -43,6 +43,10 @@ export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
 			throw error;
 		}
 
+		// Get total file count first
+		const fileList = await this.listFiles( file );
+		const totalFiles = fileList.length;
+
 		return new Promise< void >( ( resolve, reject ) => {
 			this.emit( ImportEvents.BACKUP_EXTRACT_START );
 			fs.createReadStream( file.path )
@@ -51,6 +55,7 @@ export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
 					this.emit( ImportEvents.BACKUP_EXTRACT_PROGRESS, {
 						progress: processedSize / totalSize,
 						processedFiles,
+						totalFiles,
 						currentFile,
 						extractedBytes: processedSize,
 						totalBytes: totalSize,
@@ -73,6 +78,7 @@ export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
 							this.emit( ImportEvents.BACKUP_EXTRACT_FILE_START, {
 								currentFile,
 								processedFiles,
+								totalFiles,
 							} as BackupExtractProgressEventData );
 						},
 					} )

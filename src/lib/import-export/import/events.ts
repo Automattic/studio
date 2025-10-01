@@ -3,6 +3,7 @@ export const BackupExtractEvents = {
 	BACKUP_EXTRACT_PROGRESS: 'backup_extract_progress',
 	BACKUP_EXTRACT_FILE_START: 'backup_extract_file_start',
 	BACKUP_EXTRACT_COMPLETE: 'backup_extract_complete',
+	BACKUP_EXTRACT_WARNING: 'backup_extract_warning',
 	BACKUP_EXTRACT_ERROR: 'backup_extract_error',
 } as const;
 

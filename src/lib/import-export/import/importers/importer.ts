@@ -261,11 +261,14 @@ abstract class BaseBackupImporter extends BaseImporter {
 		};
 
 		for ( const file of files ) {
-			if ( file.includes( '/plugins/' ) || file.includes( '\\plugins\\' ) ) {
+			// Split path by both Unix and Windows separators to handle cross-platform paths
+			const segments = file.split( /[/\\]/ );
+
+			if ( segments.includes( 'plugins' ) ) {
 				categorized.plugins.push( file );
-			} else if ( file.includes( '/themes/' ) || file.includes( '\\themes\\' ) ) {
+			} else if ( segments.includes( 'themes' ) ) {
 				categorized.themes.push( file );
-			} else if ( file.includes( '/uploads/' ) || file.includes( '\\uploads\\' ) ) {
+			} else if ( segments.includes( 'uploads' ) ) {
 				categorized.uploads.push( file );
 			} else {
 				categorized.other.push( file );

@@ -34,7 +34,13 @@ export function SiteContentTabs() {
 	}
 
 	if ( selectedSite?.isAddingSite || importState[ selectedSite?.id ]?.isNewSite ) {
-		return <SiteIsBeingCreated siteName={ selectedSite?.name } />;
+		const siteImportState = importState[ selectedSite?.id ];
+		return (
+			<SiteIsBeingCreated
+				siteName={ selectedSite?.name }
+				importStatusMessage={ siteImportState?.statusMessage }
+			/>
+		);
 	}
 
 	return (

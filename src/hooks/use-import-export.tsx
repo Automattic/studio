@@ -189,7 +189,11 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				const progress = progressData?.progress ?? 0;
 				let statusMessage: string = __( 'Extracting backup files…' );
 
-				if ( progressData.processedFiles && progressData.totalFiles ) {
+				if (
+					progressData.processedFiles != null &&
+					progressData.totalFiles != null &&
+					progressData.totalFiles > 0
+				) {
 					statusMessage = sprintf(
 						__( 'Extracting backup… (%1$d/%2$d files)' ),
 						progressData.processedFiles,
@@ -231,7 +235,11 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				const progressData = data as ImportDatabaseProgressEventData;
 				let statusMessage: string = __( 'Importing database…' );
 
-				if ( progressData.processedFiles && progressData.totalFiles ) {
+				if (
+					progressData.processedFiles != null &&
+					progressData.totalFiles != null &&
+					progressData.totalFiles > 0
+				) {
 					statusMessage = sprintf(
 						__( 'Importing database… (%1$d/%2$d SQL files)' ),
 						progressData.processedFiles,
@@ -275,7 +283,12 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				const progressData = data as ImportWpContentProgressEventData;
 				let statusMessage: string = __( 'Importing WordPress content…' );
 
-				if ( progressData.type && progressData.processedItems && progressData.totalItems ) {
+				if (
+					progressData.type &&
+					progressData.processedItems != null &&
+					progressData.totalItems != null &&
+					progressData.totalItems > 0
+				) {
 					statusMessage = sprintf(
 						__( '%1$s (%2$d/%3$d)' ),
 						WP_CONTENT_TYPE_LABELS[ progressData.type ] || __( 'Importing files…' ),

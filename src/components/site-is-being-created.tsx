@@ -7,10 +7,7 @@ interface SiteIsBeingCreatedProps {
 	importStatusMessage?: string;
 }
 
-export function SiteIsBeingCreated( {
-	siteName,
-	importStatusMessage,
-}: SiteIsBeingCreatedProps ) {
+export function SiteIsBeingCreated( { siteName, importStatusMessage }: SiteIsBeingCreatedProps ) {
 	const { __ } = useI18n();
 	const [ currentMessageIndex, setCurrentMessageIndex ] = useState( 0 );
 

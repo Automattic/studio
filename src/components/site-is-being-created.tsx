@@ -32,7 +32,6 @@ export function SiteIsBeingCreated( { siteName, importStatusMessage }: SiteIsBei
 		return () => clearInterval( interval );
 	}, [ statusMessages.length ] );
 
-	// Use import message if available, otherwise use generic cycling messages
 	const displayMessage = importStatusMessage || statusMessages[ currentMessageIndex ];
 
 	return (

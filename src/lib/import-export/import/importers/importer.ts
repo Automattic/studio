@@ -262,7 +262,6 @@ abstract class BaseBackupImporter extends BaseImporter {
 		};
 
 		for ( const file of files ) {
-			// Split path by both Unix and Windows separators to handle cross-platform paths
 			const segments = file.split( /[/\\]/ );
 
 			if ( segments.includes( 'plugins' ) ) {

@@ -230,23 +230,24 @@ abstract class BaseBackupImporter extends BaseImporter {
 					continue;
 				}
 
-				processedItems++;
 				const relativePath = path.relative(
 					path.join( extractionDirectory, wpContentSourceDir ),
 					file
 				);
 
-				// Emit progress event
+				const destPath = path.join( wpContentDestDir, relativePath );
+				await fsPromises.mkdir( path.dirname( destPath ), { recursive: true } );
+				await fsPromises.copyFile( file, destPath );
+
+				processedItems++;
+
+				// Emit progress event after file is copied
 				this.emit( ImportEvents.IMPORT_WP_CONTENT_PROGRESS, {
 					type: type as 'plugins' | 'themes' | 'uploads' | 'other',
 					currentItem: relativePath,
 					processedItems,
 					totalItems,
 				} as ImportWpContentProgressEventData );
-
-				const destPath = path.join( wpContentDestDir, relativePath );
-				await fsPromises.mkdir( path.dirname( destPath ), { recursive: true } );
-				await fsPromises.copyFile( file, destPath );
 			}
 		}
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_COMPLETE );

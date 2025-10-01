@@ -3,8 +3,8 @@ import {
 	__experimentalHStack as HStack,
 	__experimentalVStack as VStack,
 } from '@wordpress/components';
+import { __ } from '@wordpress/i18n';
 import { close } from '@wordpress/icons';
-import { useI18n } from '@wordpress/react-i18n';
 import React, { useEffect, useRef } from 'react';
 import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
@@ -21,7 +21,6 @@ export const FullscreenModal: React.FC< FullscreenModalProps > = ( {
 	onClose,
 	children,
 } ) => {
-	const { __ } = useI18n();
 	const modalRef = useRef< HTMLDivElement >( null );
 	const previousActiveElement = useRef< HTMLElement | null >( null );
 

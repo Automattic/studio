@@ -3,6 +3,7 @@ import {
 	__experimentalHStack as HStack,
 	__experimentalVStack as VStack,
 } from '@wordpress/components';
+import { __ } from '@wordpress/i18n';
 import { close } from '@wordpress/icons';
 import React, { useEffect, useRef } from 'react';
 import { isWindows } from 'src/lib/app-globals';
@@ -65,7 +66,7 @@ export const FullscreenModal: React.FC< FullscreenModalProps > = ( {
 			<HStack
 				className={ cx( 'flex justify-end p-4 app-no-drag-region', isWindows() && 'ltr:pt-8' ) }
 			>
-				<Button icon={ close } onClick={ onClose } label="Close" />
+				<Button icon={ close } onClick={ onClose } label={ __( 'Close' ) } />
 			</HStack>
 			<VStack alignment="top" className="w-full flex-1 overflow-y-auto px-6 pb-6">
 				{ children }

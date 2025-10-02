@@ -28,6 +28,7 @@ export interface WordPressServerOptions {
 	adminPassword?: string;
 	siteTitle?: string;
 	siteLanguage?: string;
+	isSetupMode?: boolean;
 }
 
 export interface WordPressServerInstance {

@@ -1,7 +1,6 @@
 import { SupportedPHPVersion, PHPRunOptions } from '@php-wasm/universal';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import { DEFAULT_LOCALE } from 'common/lib/locale';
-import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
 import { WordPressServerOptions } from '../types';
 import { getMuPlugins } from './mu-plugins';
@@ -84,42 +83,22 @@ function escapePhpString( str: string ): string {
 	return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
 }
 
-async function setSiteOptions(
-	server: RunCLIServer,
-	serverOptions: WordPressServerOptions
-): Promise< void > {
+async function setAdminPassword( server: RunCLIServer, adminPassword: string ): Promise< void > {
 	const phpCode = `<?php
 		require_once( '/wordpress/wp-load.php' );
-
-		// Set site title if provided (wp-now doesn't do this post-install, but it's the correct way)
-		${
-			serverOptions.siteTitle
-				? `update_option( 'blogname', '${ escapePhpString( serverOptions.siteTitle ) }' );`
-				: ''
-		}
-
-		// Set admin password
-		${
-			serverOptions.adminPassword
-				? `
 		$user = get_user_by( 'login', 'admin' );
 		if ( $user ) {
-			wp_set_password( '${ escapePhpString( serverOptions.adminPassword ) }', $user->ID );
+			wp_set_password( '${ escapePhpString( adminPassword ) }', $user->ID );
 		} else {
 			$user_data = array(
 				'user_login' => 'admin',
-				'user_pass' => '${ escapePhpString( serverOptions.adminPassword ) }',
+				'user_pass' => '${ escapePhpString( adminPassword ) }',
 				'user_email' => 'admin@localhost.com',
 				'role' => 'administrator',
 			);
-			$user_id = wp_insert_user( $user_data );
-			$user = get_user_by( 'id', $user_id );
+			wp_insert_user( $user_data );
 		}
-		`
-				: ''
-		}
-
-		echo "Site options updated successfully";
+		echo "Admin password updated";
 	?>`;
 
 	await server.playground.run( {
@@ -137,7 +116,10 @@ async function startServer(
 
 	try {
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( serverOptions );
-
+		const setupSteps = [];
+		const defaultConstants = {
+			WP_SQLITE_AST_DRIVER: true,
+		};
 		const mounts = [
 			{
 				hostPath: options.documentRoot,
@@ -162,6 +144,7 @@ async function startServer(
 			login: true,
 			'mount-before-install': mounts,
 			'site-url': serverOptions.absoluteUrl,
+			blueprint: options.blueprint || {},
 		};
 
 		if ( ! options.isSetupMode ) {
@@ -181,35 +164,16 @@ async function startServer(
 			}
 		}
 
-		const defaultConstants = {
-			WP_SQLITE_AST_DRIVER: true,
-		};
-
-		if ( options.blueprint ) {
-			args.blueprint = {
-				...options.blueprint,
-				constants: {
-					...options.blueprint.constants,
-					...defaultConstants,
-				},
-			};
-		} else {
-			args.blueprint = {
-				constants: defaultConstants,
-			};
-		}
-
-		/* Workaround for https://github.com/WordPress/wordpress-playground/issues/2700
-		 * Let's revisit this code when the issue is fixed
-		 * If setSiteLanguage is set in blueprint we shouldn't need to change the language*/
-		const blueprintLanguageStep = args.blueprint?.steps?.find(
-			( step: { step: string; language?: string } ) => step.step === 'setSiteLanguage'
-		);
-		const siteLanguage = blueprintLanguageStep?.language || serverOptions.siteLanguage;
-
-		if ( siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
-			args.blueprint.steps = [
-				...[
+		if ( options.isSetupMode ) {
+			/* Workaround for https://github.com/WordPress/wordpress-playground/issues/2700
+			 * Let's revisit this code when the issue is fixed
+			 * If setSiteLanguage is set in blueprint we shouldn't need to change the language*/
+			const blueprintLanguageStep = args.blueprint?.steps?.find(
+				( step: { step: string; language?: string } ) => step.step === 'setSiteLanguage'
+			);
+			const siteLanguage = blueprintLanguageStep?.language || serverOptions.siteLanguage;
+			if ( siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
+				setupSteps.push(
 					{
 						step: 'setSiteLanguage',
 						language: siteLanguage,
@@ -219,17 +183,30 @@ async function startServer(
 						code: `<?php require_once( '/wordpress/wp-load.php' ); update_option( 'WPLANG', '${ escapePhpString(
 							siteLanguage
 						) }' ); echo "Language set to: ${ escapePhpString( siteLanguage ) }"; ?>`,
-					},
-				],
-				...( args.blueprint.steps || [] ),
-			];
+					}
+				);
+			}
+
+			if ( serverOptions.siteTitle ) {
+				setupSteps.push( {
+					step: 'runPHP',
+					code: `<?php
+						require_once( '/wordpress/wp-load.php' );
+						update_option( 'blogname', '${ escapePhpString( serverOptions.siteTitle ) }' );
+						echo "Site title set to: ${ escapePhpString( serverOptions.siteTitle ) }";
+					?>`,
+				} );
+			}
 		}
+
+		args.blueprint.steps = [ ...setupSteps, ...( args.blueprint.steps || [] ) ];
+		args.blueprint.constants = { ...args.blueprint.constants, ...defaultConstants };
 
 		server = await runCLI( args );
 
-		if ( serverOptions.siteTitle || serverOptions.adminPassword ) {
+		if ( serverOptions.adminPassword ) {
 			try {
-				await setSiteOptions( server, serverOptions );
+				await setAdminPassword( server, serverOptions.adminPassword );
 			} catch {
 				console.warn(
 					'Failed to set site options, but the server started successfully. Please check your site error log in wp-content/debug.log for more details'

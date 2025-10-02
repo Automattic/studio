@@ -54,6 +54,14 @@ jest.mock( 'src/stores/certificate-trust-api', () => {
 	};
 } );
 
+jest.mock( 'src/stores/app-version-api', () => {
+	const actual = jest.requireActual( 'src/stores/app-version-api' ) || {};
+	return {
+		...actual,
+		useSaveLastSeenVersionMutation: jest.fn( () => [ jest.fn() ] ),
+	};
+} );
+
 const mockGenerateProposedSitePath =
 	jest.fn< ( siteName: string ) => Promise< FolderDialogResponse > >();
 
@@ -324,5 +332,32 @@ describe( 'Onboarding Component', () => {
 				'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
 			)
 		).not.toBeInTheDocument();
+	} );
+
+	it( 'should save the current app version when onboarding completes', async () => {
+		const mockSaveLastSeenVersion = jest.fn();
+		const mockAppVersion = '1.0.0';
+
+		// Mock window.appGlobals
+		window.appGlobals = { appVersion: mockAppVersion } as typeof window.appGlobals;
+
+		const appVersionApi = jest.requireMock< {
+			useSaveLastSeenVersionMutation: jest.Mock;
+		} >( 'src/stores/app-version-api' );
+		appVersionApi.useSaveLastSeenVersionMutation.mockReturnValue( [ mockSaveLastSeenVersion ] );
+
+		const mockHandleAddSiteClick = jest.fn();
+		( useAddSite as jest.Mock ).mockReturnValue( {
+			...useAddSiteMockValue,
+			handleAddSiteClick: mockHandleAddSiteClick,
+		} );
+
+		const { getByText } = renderWithProvider( <Onboarding /> );
+
+		await user.click( getByText( 'Continue' ) );
+
+		await waitFor( () => {
+			expect( mockSaveLastSeenVersion ).toHaveBeenCalledWith( mockAppVersion );
+		} );
 	} );
 } );

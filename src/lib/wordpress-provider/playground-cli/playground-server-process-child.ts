@@ -1,6 +1,7 @@
 import { SupportedPHPVersion, PHPRunOptions } from '@php-wasm/universal';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import { DEFAULT_LOCALE } from 'common/lib/locale';
+import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
 import { WordPressServerOptions } from '../types';
 import { getMuPlugins } from './mu-plugins';
@@ -230,7 +231,8 @@ async function startServer(
 			try {
 				await setSiteOptions( server, serverOptions );
 			} catch ( error ) {
-				console.warn( 'Failed to set site options, but server started successfully:', error );
+				const displayErr = simplifyErrorForDisplay( error );
+				console.warn( 'Failed to set site options, but server started successfully:', displayErr );
 			}
 		}
 	} catch ( error ) {

@@ -230,9 +230,10 @@ async function startServer(
 		if ( serverOptions.siteTitle || serverOptions.adminPassword ) {
 			try {
 				await setSiteOptions( server, serverOptions );
-			} catch ( error ) {
-				const displayErr = simplifyErrorForDisplay( error );
-				console.warn( 'Failed to set site options, but server started successfully:', displayErr );
+			} catch {
+				console.warn(
+					'Failed to set site options, but the server started successfully. Please check your site error log in wp-content/debug.log for more details'
+				);
 			}
 		}
 	} catch ( error ) {

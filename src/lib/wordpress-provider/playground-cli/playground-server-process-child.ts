@@ -1,6 +1,7 @@
 import { SupportedPHPVersion, PHPRunOptions } from '@php-wasm/universal';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import { DEFAULT_LOCALE } from 'common/lib/locale';
+import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
 import { WordPressServerOptions } from '../types';
 import { getMuPlugins } from './mu-plugins';
@@ -227,7 +228,13 @@ async function startServer(
 		server = await runCLI( args );
 
 		if ( serverOptions.siteTitle || serverOptions.adminPassword ) {
-			await setSiteOptions( server, serverOptions );
+			try {
+				await setSiteOptions( server, serverOptions );
+			} catch {
+				console.warn(
+					'Failed to set site options, but the server started successfully. Please check your site error log in wp-content/debug.log for more details'
+				);
+			}
 		}
 	} catch ( error ) {
 		server = null;

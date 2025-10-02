@@ -40,7 +40,7 @@ const userDataSchema = z
 		authToken: z
 			.object( {
 				accessToken: z.string().min( 1, __( 'Access token cannot be empty' ) ),
-				id: z.number(),
+				id: z.number().optional(),
 			} )
 			.passthrough()
 			.optional(),
@@ -137,7 +137,7 @@ export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken
 	try {
 		const { authToken } = await readAppdata();
 
-		if ( ! authToken?.accessToken ) {
+		if ( ! authToken?.accessToken || ! authToken?.id ) {
 			throw new Error( 'Authentication required' );
 		}
 

@@ -209,7 +209,7 @@ async function startServer(
 				await setAdminPassword( server, serverOptions.adminPassword );
 			} catch {
 				console.warn(
-					'Failed to set site options, but the server started successfully. Please check your site error log in wp-content/debug.log for more details'
+					'Failed to set admin password, but the server started successfully. Please check your site error log in wp-content/debug.log for more details'
 				);
 			}
 		}

@@ -54,11 +54,13 @@ jest.mock( 'src/stores/certificate-trust-api', () => {
 	};
 } );
 
+const mockSaveLastSeenVersion = jest.fn();
+
 jest.mock( 'src/stores/app-version-api', () => {
 	const actual = jest.requireActual( 'src/stores/app-version-api' ) || {};
 	return {
 		...actual,
-		useSaveLastSeenVersionMutation: jest.fn( () => [ jest.fn() ] ),
+		useSaveLastSeenVersionMutation: jest.fn( () => [ mockSaveLastSeenVersion ] ),
 	};
 } );
 
@@ -136,6 +138,8 @@ describe( 'Onboarding Component', () => {
 
 	beforeEach( () => {
 		jest.clearAllMocks();
+		mockSaveLastSeenVersion.mockResolvedValue( { data: undefined } as never );
+		window.appGlobals = { appVersion: '1.0.0' } as typeof window.appGlobals;
 
 		( useOnboarding as jest.Mock ).mockReturnValue( {
 			needsOnboarding: true,

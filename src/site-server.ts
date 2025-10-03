@@ -109,12 +109,17 @@ export class SiteServer {
 	}
 
 	async start() {
+		const siteStartTime = Date.now();
+		console.log( `[PERF] SiteServer.start: Starting site '${ this.details.name }'` );
+
 		if ( this.details.running || this.server ) {
+			console.log( '[PERF] SiteServer.start: Site already running, skipping' );
 			return;
 		}
 
 		// Handle custom domain if necessary
 		if ( this.details.customDomain ) {
+			const domainSetupStart = Date.now();
 			await addDomainToHosts( this.details.customDomain, this.details.port );
 			// Generate certificates for HTTPS sites *before* the server starts
 			// This ensures the certs are ready when the proxy server needs them
@@ -123,7 +128,9 @@ export class SiteServer {
 					`Generating certificates for ${ this.details.customDomain } during server start`
 				);
 
+				const certStart = Date.now();
 				const { cert, key } = await generateSiteCertificate( this.details.customDomain );
+				console.log( `[PERF] SiteServer.start: Certificate generation took ${ Date.now() - certStart }ms` );
 				this.details = {
 					...this.details,
 					tlsKey: key,
@@ -131,10 +138,14 @@ export class SiteServer {
 				};
 			}
 			await startProxyServer();
+			console.log( `[PERF] SiteServer.start: Domain setup took ${ Date.now() - domainSetupStart }ms` );
 		}
 
+		const blueprintFilterStart = Date.now();
 		const filteredBlueprint = filterUnsupportedBlueprintFeatures( this.meta.blueprint?.blueprint );
+		console.log( `[PERF] SiteServer.start: Blueprint filtering took ${ Date.now() - blueprintFilterStart }ms` );
 
+		const startServerCallTime = Date.now();
 		const serverInstance = await startServer( {
 			path: this.details.path,
 			port: this.details.port,
@@ -146,23 +157,33 @@ export class SiteServer {
 			absoluteUrl: getAbsoluteUrl( this.details ),
 			blueprint: filteredBlueprint,
 		} );
+		console.log( `[PERF] SiteServer.start: startServer call took ${ Date.now() - startServerCallTime }ms` );
 
+		const portCheckStart = Date.now();
 		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
 		if ( ! isPortAvailable ) {
 			throw new Error(
 				`Port ${ this.details.port } is not available. error code: ERROR_PORT_IN_USE`
 			);
 		}
+		console.log( `[PERF] SiteServer.start: Port check took ${ Date.now() - portCheckStart }ms` );
 
 		console.log( `Starting server for '${ this.details.name }'` );
+		const createProcessStart = Date.now();
 		this.server = createServerProcess( serverInstance );
+		console.log( `[PERF] SiteServer.start: createServerProcess took ${ Date.now() - createProcessStart }ms` );
+
+		const serverProcessStart = Date.now();
 		await this.server.start();
+		console.log( `[PERF] SiteServer.start: server.start took ${ Date.now() - serverProcessStart }ms` );
 
 		if ( serverInstance.options.port === undefined ) {
 			throw new Error( 'Server started with no port' );
 		}
 
+		const themeDetailsStart = Date.now();
 		const themeDetails = await phpGetThemeDetails( this.server );
+		console.log( `[PERF] SiteServer.start: phpGetThemeDetails took ${ Date.now() - themeDetailsStart }ms` );
 
 		this.details = {
 			...this.details,
@@ -174,6 +195,8 @@ export class SiteServer {
 			autoStart: true,
 			themeDetails,
 		};
+
+		console.log( `[PERF] SiteServer.start: Total site start time ${ Date.now() - siteStartTime }ms` );
 	}
 
 	async updateSiteDetails( site: SiteDetails ) {

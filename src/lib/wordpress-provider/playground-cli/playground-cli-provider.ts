@@ -116,9 +116,16 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	}
 
 	async setupWordPressSite( server: SiteServer, wpVersion = 'latest' ): Promise< boolean > {
+		const setupStartTime = Date.now();
+		console.log( '[PERF] setupWordPressSite: Starting setup' );
+
 		const { path, port, adminPassword, name, phpVersion } = server.details;
 		const { blueprint } = server.meta;
+
+		const languageStart = Date.now();
 		const siteLanguage = await getPreferredSiteLanguage( wpVersion );
+		console.log( `[PERF] setupWordPressSite: getPreferredSiteLanguage took ${ Date.now() - languageStart }ms` );
+
 		const serverOptions = {
 			path,
 			port,
@@ -134,9 +141,12 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		let serverProcess;
 
 		try {
+			const isOnlineCheckStart = Date.now();
 			const isOnline = net.isOnline();
+			console.log( `[PERF] setupWordPressSite: Online check took ${ Date.now() - isOnlineCheckStart }ms` );
 
 			if ( ! isOnline ) {
+				console.log( '[PERF] setupWordPressSite: Offline mode detected' );
 				if ( wpVersion !== 'latest' ) {
 					throw new Error(
 						`Cannot set up WordPress version '${ wpVersion }' while offline. ` +
@@ -160,7 +170,9 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				}
 
 				try {
+					const copyStartTime = Date.now();
 					await recursiveCopyDirectory( bundledWPPath, path );
+					console.log( `[PERF] setupWordPressSite: Copy WordPress files took ${ Date.now() - copyStartTime }ms` );
 					serverOptions.wpVersion = this.DEFAULT_WORDPRESS_VERSION;
 					serverOptions.siteLanguage = DEFAULT_LOCALE;
 					serverOptions.isSetupMode = false;
@@ -173,25 +185,40 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				}
 			}
 
+			const sqliteStartTime = Date.now();
 			await keepSqliteIntegrationUpdated( path );
+			console.log( `[PERF] setupWordPressSite: SQLite integration update took ${ Date.now() - sqliteStartTime }ms` );
 
+			const serverInstanceStart = Date.now();
 			const serverInstance = await this.startServer( serverOptions );
+			console.log( `[PERF] setupWordPressSite: startServer took ${ Date.now() - serverInstanceStart }ms` );
+
+			const processCreateStart = Date.now();
 			serverProcess = this.createServerProcess( serverInstance );
+			console.log( `[PERF] setupWordPressSite: createServerProcess took ${ Date.now() - processCreateStart }ms` );
+
+			const processStartTime = Date.now();
 			await serverProcess.start();
+			console.log( `[PERF] setupWordPressSite: serverProcess.start took ${ Date.now() - processStartTime }ms` );
 
 			if ( ! serverOptions.isSetupMode ) {
+				const installStartTime = Date.now();
 				await this.runWordPressInstallation( serverProcess, serverOptions );
+				console.log( `[PERF] setupWordPressSite: WordPress installation took ${ Date.now() - installStartTime }ms` );
 			}
 
 			// remove blueprint since we only want to run it once
 			server.meta.blueprint = undefined;
 
+			console.log( `[PERF] setupWordPressSite: Total setup time ${ Date.now() - setupStartTime }ms` );
 			return true;
 		} catch ( error ) {
 			console.error( 'Failed to setup WordPress site:', error );
 			throw error;
 		} finally {
+			const stopStart = Date.now();
 			await serverProcess?.stop();
+			console.log( `[PERF] setupWordPressSite: Stop server took ${ Date.now() - stopStart }ms` );
 		}
 	}
 

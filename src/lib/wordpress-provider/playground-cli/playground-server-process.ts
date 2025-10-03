@@ -29,7 +29,11 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 	}
 
 	async start(): Promise< void > {
+		const startTime = Date.now();
+		console.log( '[PERF] PlaygroundServerProcess.start: Starting process' );
+
 		if ( this.process ) {
+			console.log( '[PERF] PlaygroundServerProcess.start: Process already running, skipping' );
 			return;
 		}
 
@@ -38,8 +42,11 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 			this.exitResolve = resolve;
 		} );
 
+		const forkStartTime = Date.now();
 		this.process = utilityProcess.fork( path.join( __dirname, 'playgroundServerProcess.js' ) );
+		console.log( `[PERF] PlaygroundServerProcess.start: Fork process took ${ Date.now() - forkStartTime }ms` );
 
+		const setupListenersStart = Date.now();
 		this.process.on(
 			'message',
 			( message: { type?: string; id?: number; error?: string; result?: unknown } ) => {
@@ -84,8 +91,10 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 				this.exitResolve = null;
 			}
 		} );
+		console.log( `[PERF] PlaygroundServerProcess.start: Setup listeners took ${ Date.now() - setupListenersStart }ms` );
 
 		// Wait for child process to be ready
+		const readyWaitStart = Date.now();
 		await new Promise< void >( ( resolve ) => {
 			const readyHandler = ( message: { type?: string } ) => {
 				if ( message.type === 'ready' ) {
@@ -95,11 +104,15 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 			};
 			this.process!.on( 'message', readyHandler );
 		} );
+		console.log( `[PERF] PlaygroundServerProcess.start: Wait for ready took ${ Date.now() - readyWaitStart }ms` );
 
+		const sendMessageStart = Date.now();
 		await this.sendMessage( 'start-server', {
 			options: this.options,
 			serverOptions: this.serverOptions,
 		} );
+		console.log( `[PERF] PlaygroundServerProcess.start: Send start-server message took ${ Date.now() - sendMessageStart }ms` );
+		console.log( `[PERF] PlaygroundServerProcess.start: Total start time ${ Date.now() - startTime }ms` );
 	}
 
 	async stop(): Promise< void > {

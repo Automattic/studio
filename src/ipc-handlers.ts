@@ -234,10 +234,12 @@ export async function createSite(
 
 	const server = SiteServer.create( details, { wpVersion, blueprint } );
 
+	let createdNewSite = false;
 	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
 		try {
 			const setupDirStart = Date.now();
 			await createSiteWorkingDirectory( server, wpVersion );
+			createdNewSite = true;
 			console.log(
 				`[PERF] createSite: createSiteWorkingDirectory took ${ Date.now() - setupDirStart }ms`
 			);
@@ -272,10 +274,14 @@ export async function createSite(
 			const installStart = Date.now();
 			await installSqliteIntegration( path );
 			console.log( `[PERF] createSite: installSqliteIntegration took ${ Date.now() - installStart }ms` );
-		} else {
+		} else if ( ! createdNewSite ) {
+			// Only update site URL if this is an existing site being imported
+			// If we just created the site, the URL is already correct
 			const updateUrlStart = Date.now();
 			await updateSiteUrl( server, getSiteUrl( details ) );
 			console.log( `[PERF] createSite: updateSiteUrl took ${ Date.now() - updateUrlStart }ms` );
+		} else {
+			console.log( `[PERF] createSite: Skipping updateSiteUrl for newly created site` );
 		}
 		console.log(
 			`[PERF] createSite: SQLite integration operations took ${ Date.now() - sqliteStart }ms`

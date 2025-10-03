@@ -111,7 +111,8 @@ async function startServer(
 	serverOptions: WordPressServerOptions
 ): Promise< void > {
 	const startServerTime = Date.now();
-	console.log( '[PERF] startServer (child): Starting server' );
+	console.log( `[PERF] startServer (child): Starting server at ${new Date().toISOString()}` );
+	console.log( `[PERF] startServer (child): Start timestamp: ${startServerTime}` );
 
 	if ( server ) {
 		return;
@@ -120,7 +121,9 @@ async function startServer(
 	try {
 		const muPluginsStart = Date.now();
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( serverOptions );
-		console.log( `[PERF] startServer (child): getMuPlugins took ${ Date.now() - muPluginsStart }ms` );
+		console.log(
+			`[PERF] startServer (child): getMuPlugins took ${ Date.now() - muPluginsStart }ms`
+		);
 		const setupSteps = [];
 		const defaultConstants = {
 			WP_SQLITE_AST_DRIVER: true,
@@ -227,8 +230,11 @@ async function startServer(
 			}
 		}
 
+		const endTime = Date.now();
+		console.log( `[PERF] startServer (child): Finished at ${new Date().toISOString()}` );
+		console.log( `[PERF] startServer (child): End timestamp: ${endTime}` );
 		console.log(
-			`[PERF] startServer (child): Total server start time ${ Date.now() - startServerTime }ms`
+			`[PERF] startServer (child): Total server start time ${ endTime - startServerTime }ms`
 		);
 	} catch ( error ) {
 		server = null;

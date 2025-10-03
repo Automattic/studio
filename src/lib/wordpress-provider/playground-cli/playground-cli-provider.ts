@@ -117,14 +117,17 @@ export class PlaygroundCliProvider implements WordPressProvider {
 
 	async setupWordPressSite( server: SiteServer, wpVersion = 'latest' ): Promise< boolean > {
 		const setupStartTime = Date.now();
-		console.log( '[PERF] setupWordPressSite: Starting setup' );
+		console.log( `[PERF] setupWordPressSite: Starting setup at ${new Date().toISOString()}` );
+		console.log( `[PERF] setupWordPressSite: Start timestamp: ${setupStartTime}` );
 
 		const { path, port, adminPassword, name, phpVersion } = server.details;
 		const { blueprint } = server.meta;
 
 		const languageStart = Date.now();
 		const siteLanguage = await getPreferredSiteLanguage( wpVersion );
-		console.log( `[PERF] setupWordPressSite: getPreferredSiteLanguage took ${ Date.now() - languageStart }ms` );
+		console.log(
+			`[PERF] setupWordPressSite: getPreferredSiteLanguage took ${ Date.now() - languageStart }ms`
+		);
 
 		const serverOptions = {
 			path,
@@ -143,7 +146,9 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		try {
 			const isOnlineCheckStart = Date.now();
 			const isOnline = net.isOnline();
-			console.log( `[PERF] setupWordPressSite: Online check took ${ Date.now() - isOnlineCheckStart }ms` );
+			console.log(
+				`[PERF] setupWordPressSite: Online check took ${ Date.now() - isOnlineCheckStart }ms`
+			);
 
 			if ( ! isOnline ) {
 				console.log( '[PERF] setupWordPressSite: Offline mode detected' );
@@ -172,7 +177,9 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				try {
 					const copyStartTime = Date.now();
 					await recursiveCopyDirectory( bundledWPPath, path );
-					console.log( `[PERF] setupWordPressSite: Copy WordPress files took ${ Date.now() - copyStartTime }ms` );
+					console.log(
+						`[PERF] setupWordPressSite: Copy WordPress files took ${ Date.now() - copyStartTime }ms`
+					);
 					serverOptions.wpVersion = this.DEFAULT_WORDPRESS_VERSION;
 					serverOptions.siteLanguage = DEFAULT_LOCALE;
 					serverOptions.isSetupMode = false;
@@ -187,30 +194,49 @@ export class PlaygroundCliProvider implements WordPressProvider {
 
 			const sqliteStartTime = Date.now();
 			await keepSqliteIntegrationUpdated( path );
-			console.log( `[PERF] setupWordPressSite: SQLite integration update took ${ Date.now() - sqliteStartTime }ms` );
+			console.log(
+				`[PERF] setupWordPressSite: SQLite integration update took ${
+					Date.now() - sqliteStartTime
+				}ms`
+			);
 
 			const serverInstanceStart = Date.now();
 			const serverInstance = await this.startServer( serverOptions );
-			console.log( `[PERF] setupWordPressSite: startServer took ${ Date.now() - serverInstanceStart }ms` );
+			console.log(
+				`[PERF] setupWordPressSite: startServer took ${ Date.now() - serverInstanceStart }ms`
+			);
 
 			const processCreateStart = Date.now();
 			serverProcess = this.createServerProcess( serverInstance );
-			console.log( `[PERF] setupWordPressSite: createServerProcess took ${ Date.now() - processCreateStart }ms` );
+			console.log(
+				`[PERF] setupWordPressSite: createServerProcess took ${ Date.now() - processCreateStart }ms`
+			);
 
 			const processStartTime = Date.now();
 			await serverProcess.start();
-			console.log( `[PERF] setupWordPressSite: serverProcess.start took ${ Date.now() - processStartTime }ms` );
+			console.log(
+				`[PERF] setupWordPressSite: serverProcess.start took ${ Date.now() - processStartTime }ms`
+			);
 
 			if ( ! serverOptions.isSetupMode ) {
 				const installStartTime = Date.now();
 				await this.runWordPressInstallation( serverProcess, serverOptions );
-				console.log( `[PERF] setupWordPressSite: WordPress installation took ${ Date.now() - installStartTime }ms` );
+				console.log(
+					`[PERF] setupWordPressSite: WordPress installation took ${
+						Date.now() - installStartTime
+					}ms`
+				);
 			}
 
 			// remove blueprint since we only want to run it once
 			server.meta.blueprint = undefined;
 
-			console.log( `[PERF] setupWordPressSite: Total setup time ${ Date.now() - setupStartTime }ms` );
+			const setupEndTime = Date.now();
+			console.log( `[PERF] setupWordPressSite: Finished at ${new Date().toISOString()}` );
+			console.log( `[PERF] setupWordPressSite: End timestamp: ${setupEndTime}` );
+			console.log(
+				`[PERF] setupWordPressSite: Total setup time ${ setupEndTime - setupStartTime }ms`
+			);
 			return true;
 		} catch ( error ) {
 			console.error( 'Failed to setup WordPress site:', error );

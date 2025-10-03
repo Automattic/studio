@@ -189,6 +189,10 @@ export async function createSite(
 		blueprint?: Blueprint;
 	} = {}
 ): Promise< SiteDetails > {
+	const createSiteStartTime = Date.now();
+	console.log( `[PERF] createSite: Starting at ${new Date().toISOString()}` );
+	console.log( `[PERF] createSite: Start timestamp: ${createSiteStartTime}` );
+
 	const { siteName, wpVersion, customDomain, enableHttps, siteId, blueprint } = config;
 
 	const forceSetupSqlite = false;
@@ -232,7 +236,11 @@ export async function createSite(
 
 	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
 		try {
+			const setupDirStart = Date.now();
 			await createSiteWorkingDirectory( server, wpVersion );
+			console.log(
+				`[PERF] createSite: createSiteWorkingDirectory took ${ Date.now() - setupDirStart }ms`
+			);
 		} catch ( error ) {
 			// If site creation failed, remove the generated files and re-throw the
 			// error so it can be handled by the caller.
@@ -241,7 +249,11 @@ export async function createSite(
 		}
 	}
 
-	if ( isWordPressDirectory( path ) ) {
+	const sqliteStart = Date.now();
+	const isWpDir = isWordPressDirectory( path );
+	console.log( `[PERF] createSite: isWordPressDirectory check took ${ Date.now() - sqliteStart }ms, result: ${isWpDir}` );
+
+	if ( isWpDir ) {
 		// If the directory contains a WordPress installation, and user wants to force SQLite
 		// integration, let's rename the wp-config.php file to allow WP Now to create a new one
 		// and initialize things properly.
@@ -252,15 +264,27 @@ export async function createSite(
 			);
 		}
 
-		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
+		const wpConfigCheckStart = Date.now();
+		const wpConfigExists = await pathExists( nodePath.join( path, 'wp-config.php' ) );
+		console.log( `[PERF] createSite: wp-config.php exists check took ${ Date.now() - wpConfigCheckStart }ms, exists: ${wpConfigExists}` );
+
+		if ( ! wpConfigExists ) {
+			const installStart = Date.now();
 			await installSqliteIntegration( path );
+			console.log( `[PERF] createSite: installSqliteIntegration took ${ Date.now() - installStart }ms` );
 		} else {
+			const updateUrlStart = Date.now();
 			await updateSiteUrl( server, getSiteUrl( details ) );
+			console.log( `[PERF] createSite: updateSiteUrl took ${ Date.now() - updateUrlStart }ms` );
 		}
+		console.log(
+			`[PERF] createSite: SQLite integration operations took ${ Date.now() - sqliteStart }ms`
+		);
 	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id: details.id } );
+	const appdataStart = Date.now();
 	try {
 		await lockAppdata();
 		userData = await loadUserData();
@@ -269,6 +293,15 @@ export async function createSite(
 		sortSites( userData.sites );
 
 		await saveUserData( userData );
+		console.log( `[PERF] createSite: Appdata operations took ${ Date.now() - appdataStart }ms` );
+
+		const createSiteEndTime = Date.now();
+		console.log( `[PERF] createSite: Finished at ${new Date().toISOString()}` );
+		console.log( `[PERF] createSite: End timestamp: ${createSiteEndTime}` );
+		console.log(
+			`[PERF] createSite: Total time ${ createSiteEndTime - createSiteStartTime }ms`
+		);
+
 		return server.details;
 	} finally {
 		await unlockAppdata();
@@ -464,16 +497,28 @@ export async function startServer(
 	event: IpcMainInvokeEvent,
 	id: string
 ): Promise< SiteDetails | null > {
+	const startServerIpcTime = Date.now();
+	console.log( `[PERF] startServer IPC: Starting at ${new Date().toISOString()}` );
+	console.log( `[PERF] startServer IPC: Start timestamp: ${startServerIpcTime}` );
+
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		return null;
 	}
 
+	const sqliteUpdateStart = Date.now();
 	await keepSqliteIntegrationUpdated( server.details.path );
+	console.log(
+		`[PERF] startServer IPC: keepSqliteIntegrationUpdated took ${ Date.now() - sqliteUpdateStart }ms`
+	);
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	try {
+		const serverStartCall = Date.now();
 		await server.start();
+		console.log(
+			`[PERF] startServer IPC: server.start() took ${ Date.now() - serverStartCall }ms`
+		);
 	} catch ( error ) {
 		/**
 		 * We don't want to track WASM memory errors in Sentry
@@ -507,15 +552,30 @@ export async function startServer(
 
 	if ( server.details.running ) {
 		try {
+			const thumbnailStart = Date.now();
 			await server.updateCachedThumbnail();
 			await sendThumbnailChangedEvent( event, id );
+			console.log(
+				`[PERF] startServer IPC: Thumbnail update took ${ Date.now() - thumbnailStart }ms`
+			);
 		} catch ( error ) {
 			console.error( `Failed to update thumbnail for server ${ id }:`, error );
 		}
 	}
 
 	console.log( `Server started for '${ server.details.name }'` );
+
+	const updateSiteStart = Date.now();
 	await updateSite( event, server.details );
+	console.log( `[PERF] startServer IPC: updateSite took ${ Date.now() - updateSiteStart }ms` );
+
+	const startServerIpcEndTime = Date.now();
+	console.log( `[PERF] startServer IPC: Finished at ${new Date().toISOString()}` );
+	console.log( `[PERF] startServer IPC: End timestamp: ${startServerIpcEndTime}` );
+	console.log(
+		`[PERF] startServer IPC: Total time ${ startServerIpcEndTime - startServerIpcTime }ms`
+	);
+
 	return server.details;
 }
 

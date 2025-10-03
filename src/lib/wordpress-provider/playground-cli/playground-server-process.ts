@@ -44,7 +44,9 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 
 		const forkStartTime = Date.now();
 		this.process = utilityProcess.fork( path.join( __dirname, 'playgroundServerProcess.js' ) );
-		console.log( `[PERF] PlaygroundServerProcess.start: Fork process took ${ Date.now() - forkStartTime }ms` );
+		console.log(
+			`[PERF] PlaygroundServerProcess.start: Fork process took ${ Date.now() - forkStartTime }ms`
+		);
 
 		const setupListenersStart = Date.now();
 		this.process.on(
@@ -91,7 +93,11 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 				this.exitResolve = null;
 			}
 		} );
-		console.log( `[PERF] PlaygroundServerProcess.start: Setup listeners took ${ Date.now() - setupListenersStart }ms` );
+		console.log(
+			`[PERF] PlaygroundServerProcess.start: Setup listeners took ${
+				Date.now() - setupListenersStart
+			}ms`
+		);
 
 		// Wait for child process to be ready
 		const readyWaitStart = Date.now();
@@ -104,15 +110,23 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 			};
 			this.process!.on( 'message', readyHandler );
 		} );
-		console.log( `[PERF] PlaygroundServerProcess.start: Wait for ready took ${ Date.now() - readyWaitStart }ms` );
+		console.log(
+			`[PERF] PlaygroundServerProcess.start: Wait for ready took ${ Date.now() - readyWaitStart }ms`
+		);
 
 		const sendMessageStart = Date.now();
 		await this.sendMessage( 'start-server', {
 			options: this.options,
 			serverOptions: this.serverOptions,
 		} );
-		console.log( `[PERF] PlaygroundServerProcess.start: Send start-server message took ${ Date.now() - sendMessageStart }ms` );
-		console.log( `[PERF] PlaygroundServerProcess.start: Total start time ${ Date.now() - startTime }ms` );
+		console.log(
+			`[PERF] PlaygroundServerProcess.start: Send start-server message took ${
+				Date.now() - sendMessageStart
+			}ms`
+		);
+		console.log(
+			`[PERF] PlaygroundServerProcess.start: Total start time ${ Date.now() - startTime }ms`
+		);
 	}
 
 	async stop(): Promise< void > {

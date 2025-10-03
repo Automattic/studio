@@ -3,7 +3,7 @@ import nodePath from 'path';
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import { Blueprint } from '@wp-playground/blueprints';
 import { RecommendedPHPVersion } from '@wp-playground/common';
-import { recursiveCopyDirectory, pathExists } from 'common/lib/fs-utils';
+import { recursiveCopyDirectory, pathExists, isWordPressDirectory } from 'common/lib/fs-utils';
 import { DEFAULT_LOCALE } from 'common/lib/locale';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
@@ -24,7 +24,6 @@ export interface PlaygroundCliOptions {
 	documentRoot: string;
 	autoMount: boolean;
 	skipWordpressSetup: boolean;
-	isSetupMode?: boolean;
 	blueprint?: Blueprint;
 }
 
@@ -59,20 +58,19 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		isWpAutoUpdating?: boolean;
 		absoluteUrl?: string;
 		siteLanguage?: string;
-		isSetupMode?: boolean;
 		wpCliPharPath?: string;
 		blueprint?: Blueprint;
 	} ): Promise< WordPressServerInstance > {
 		const port = options.port;
 		const phpVersion = options.phpVersion || '8.3';
+		const hasWordPress = isWordPressDirectory( options.path );
 
 		const playgroundOptions: PlaygroundCliOptions = {
 			port,
 			phpVersion,
 			documentRoot: options.path,
 			autoMount: true,
-			skipWordpressSetup: true,
-			isSetupMode: options.isSetupMode || false,
+			skipWordpressSetup: hasWordPress,
 			blueprint: options.blueprint,
 		};
 
@@ -87,7 +85,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			siteLanguage: options.siteLanguage,
 			wordPressVersion: options.wpVersion,
 			isWpAutoUpdating: options.isWpAutoUpdating,
-			isSetupMode: options.isSetupMode,
 		};
 
 		return {
@@ -115,43 +112,45 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		return '/wordpress/wp-load.php';
 	}
 
+	private escapePhpString( str: string ): string {
+		return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
+	}
+
 	async setupWordPressSite( server: SiteServer, wpVersion = 'latest' ): Promise< boolean > {
-		const setupStartTime = Date.now();
-		console.log( `[PERF] setupWordPressSite: Starting setup at ${new Date().toISOString()}` );
-		console.log( `[PERF] setupWordPressSite: Start timestamp: ${setupStartTime}` );
-
-		const { path, port, adminPassword, name, phpVersion } = server.details;
-		const { blueprint } = server.meta;
-
-		const languageStart = Date.now();
-		const siteLanguage = await getPreferredSiteLanguage( wpVersion );
-		console.log(
-			`[PERF] setupWordPressSite: getPreferredSiteLanguage took ${ Date.now() - languageStart }ms`
-		);
-
-		const serverOptions = {
-			path,
-			port,
-			adminPassword: adminPassword || 'password',
-			siteTitle: name,
-			phpVersion: phpVersion || this.DEFAULT_PHP_VERSION,
-			wpVersion,
-			isWpAutoUpdating: false,
-			isSetupMode: true,
-			blueprint: blueprint?.blueprint,
-			siteLanguage,
-		};
-		let serverProcess;
+		const { path, name, adminPassword } = server.details;
 
 		try {
-			const isOnlineCheckStart = Date.now();
 			const isOnline = net.isOnline();
-			console.log(
-				`[PERF] setupWordPressSite: Online check took ${ Date.now() - isOnlineCheckStart }ms`
-			);
+			const siteLanguage = await getPreferredSiteLanguage( wpVersion );
+
+			const setupSteps = [];
+
+			if ( isOnline && siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
+				setupSteps.push(
+					{
+						step: 'setSiteLanguage',
+						language: siteLanguage,
+					},
+					{
+						step: 'setSiteOptions',
+						options: {
+							WPLANG: siteLanguage,
+						},
+					}
+				);
+			}
+
+			if ( name ) {
+				setupSteps.push( {
+					step: 'setSiteOptions',
+					options: {
+						blogname: name,
+					},
+				} );
+			}
 
 			if ( ! isOnline ) {
-				console.log( '[PERF] setupWordPressSite: Offline mode detected' );
+				console.log( '[DEBUG] setupWordPressSite - Offline mode, copying WordPress files' );
 				if ( wpVersion !== 'latest' ) {
 					throw new Error(
 						`Cannot set up WordPress version '${ wpVersion }' while offline. ` +
@@ -175,76 +174,49 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				}
 
 				try {
-					const copyStartTime = Date.now();
 					await recursiveCopyDirectory( bundledWPPath, path );
-					console.log(
-						`[PERF] setupWordPressSite: Copy WordPress files took ${ Date.now() - copyStartTime }ms`
-					);
-					serverOptions.wpVersion = this.DEFAULT_WORDPRESS_VERSION;
-					serverOptions.siteLanguage = DEFAULT_LOCALE;
-					serverOptions.isSetupMode = false;
-					serverOptions.isWpAutoUpdating = true;
-					serverOptions.blueprint = undefined;
+					console.log( '[DEBUG] setupWordPressSite - WordPress files copied successfully' );
 				} catch ( error ) {
 					throw new Error(
 						`Failed to copy WordPress files for offline setup: ${ ( error as Error ).message }`
 					);
 				}
+
+				setupSteps.push( {
+					step: 'runPHP',
+					code: `<?php
+					$_POST = array(
+						'language' => '${ this.escapePhpString( DEFAULT_LOCALE ) }',
+						'prefix' => 'wp_',
+						'weblog_title' => '${ this.escapePhpString( name ) }',
+						'user_name' => 'admin',
+						'admin_password' => '${ this.escapePhpString( adminPassword || '' ) }',
+						'admin_password2' => '${ this.escapePhpString( adminPassword || '' ) }',
+						'Submit' => 'Install WordPress',
+						'pw_weak' => '1',
+						'admin_email' => 'admin@localhost.com',
+					);
+					$_REQUEST = $_POST;
+					$_GET['step'] = 2;
+
+					// Include WordPress installation
+					require_once('/wordpress/wp-admin/install.php');
+				`,
+				} );
 			}
 
-			const sqliteStartTime = Date.now();
+			if ( ! server.meta.blueprint ) {
+				server.meta.blueprint = {};
+			}
+			const existingSteps = ( server.meta.blueprint.steps as unknown[] ) || [];
+			server.meta.blueprint.steps = [ ...setupSteps, ...existingSteps ];
+
 			await keepSqliteIntegrationUpdated( path );
-			console.log(
-				`[PERF] setupWordPressSite: SQLite integration update took ${
-					Date.now() - sqliteStartTime
-				}ms`
-			);
 
-			const serverInstanceStart = Date.now();
-			const serverInstance = await this.startServer( serverOptions );
-			console.log(
-				`[PERF] setupWordPressSite: startServer took ${ Date.now() - serverInstanceStart }ms`
-			);
-
-			const processCreateStart = Date.now();
-			serverProcess = this.createServerProcess( serverInstance );
-			console.log(
-				`[PERF] setupWordPressSite: createServerProcess took ${ Date.now() - processCreateStart }ms`
-			);
-
-			const processStartTime = Date.now();
-			await serverProcess.start();
-			console.log(
-				`[PERF] setupWordPressSite: serverProcess.start took ${ Date.now() - processStartTime }ms`
-			);
-
-			if ( ! serverOptions.isSetupMode ) {
-				const installStartTime = Date.now();
-				await this.runWordPressInstallation( serverProcess, serverOptions );
-				console.log(
-					`[PERF] setupWordPressSite: WordPress installation took ${
-						Date.now() - installStartTime
-					}ms`
-				);
-			}
-
-			// remove blueprint since we only want to run it once
-			server.meta.blueprint = undefined;
-
-			const setupEndTime = Date.now();
-			console.log( `[PERF] setupWordPressSite: Finished at ${new Date().toISOString()}` );
-			console.log( `[PERF] setupWordPressSite: End timestamp: ${setupEndTime}` );
-			console.log(
-				`[PERF] setupWordPressSite: Total setup time ${ setupEndTime - setupStartTime }ms`
-			);
 			return true;
 		} catch ( error ) {
 			console.error( 'Failed to setup WordPress site:', error );
 			throw error;
-		} finally {
-			const stopStart = Date.now();
-			await serverProcess?.stop();
-			console.log( `[PERF] setupWordPressSite: Stop server took ${ Date.now() - stopStart }ms` );
 		}
 	}
 
@@ -260,47 +232,5 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		}
 
 		return { wpContentPath: undefined };
-	}
-
-	/**
-	 * Properly escape a string for safe use in PHP code
-	 */
-	private escapePhpString( str: string ): string {
-		return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
-	}
-
-	/**
-	 * Run WordPress installation steps directly to avoid web-based setup wizard
-	 */
-	private async runWordPressInstallation(
-		serverProcess: WordPressServerProcess,
-		options: {
-			path: string;
-			port: number;
-			adminPassword: string;
-			siteTitle: string;
-			siteLanguage: string;
-		}
-	): Promise< void > {
-		await serverProcess.runPhp( {
-			code: `<?php
-					$_POST = array(
-						'language' => '${ this.escapePhpString( options.siteLanguage ) }',
-						'prefix' => 'wp_',
-						'weblog_title' => '${ this.escapePhpString( options.siteTitle ) }',
-						'user_name' => 'admin',
-						'admin_password' => '${ this.escapePhpString( options.adminPassword ) }',
-						'admin_password2' => '${ this.escapePhpString( options.adminPassword ) }',
-						'Submit' => 'Install WordPress',
-						'pw_weak' => '1',
-						'admin_email' => 'admin@localhost.com',
-					);
-					$_REQUEST = $_POST;
-					$_GET['step'] = 2;
-
-					// Include WordPress installation
-					require_once('/wordpress/wp-admin/install.php');
-				`,
-		} );
 	}
 }

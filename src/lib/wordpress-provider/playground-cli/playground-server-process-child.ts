@@ -1,6 +1,5 @@
 import { SupportedPHPVersion, PHPRunOptions } from '@php-wasm/universal';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
-import { DEFAULT_LOCALE } from 'common/lib/locale';
 import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
 import { WordPressServerOptions } from '../types';
 import { getMuPlugins } from './mu-plugins';
@@ -110,21 +109,12 @@ async function startServer(
 	options: PlaygroundCliOptions,
 	serverOptions: WordPressServerOptions
 ): Promise< void > {
-	const startServerTime = Date.now();
-	console.log( `[PERF] startServer (child): Starting server at ${new Date().toISOString()}` );
-	console.log( `[PERF] startServer (child): Start timestamp: ${startServerTime}` );
-
 	if ( server ) {
 		return;
 	}
 
 	try {
-		const muPluginsStart = Date.now();
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( serverOptions );
-		console.log(
-			`[PERF] startServer (child): getMuPlugins took ${ Date.now() - muPluginsStart }ms`
-		);
-		const setupSteps = [];
 		const defaultConstants = {
 			WP_SQLITE_AST_DRIVER: true,
 		};
@@ -144,7 +134,7 @@ async function startServer(
 		];
 
 		const args: RunCLIArgs = {
-			command: 'run-blueprint',
+			command: 'server',
 			internalCookieStore: true,
 			followSymlinks: true,
 			skipSqliteSetup: true,
@@ -153,12 +143,8 @@ async function startServer(
 			'mount-before-install': mounts,
 			'site-url': serverOptions.absoluteUrl,
 			blueprint: options.blueprint || {},
+			skipWordPressSetup: options.skipWordpressSetup,
 		};
-
-		if ( ! options.isSetupMode ) {
-			args.command = 'server';
-			args.skipWordPressSetup = true;
-		}
 
 		if ( options.phpVersion ) {
 			args.php = options.phpVersion as SupportedPHPVersion;
@@ -172,70 +158,14 @@ async function startServer(
 			}
 		}
 
-		if ( options.isSetupMode ) {
-			/* Workaround for https://github.com/WordPress/wordpress-playground/issues/2700
-			 * Let's revisit this code when the issue is fixed
-			 * If setSiteLanguage is set in blueprint we shouldn't need to change the language */
-			const blueprintLanguageStep = args.blueprint?.steps?.find(
-				( step: { step: string; language?: string } ) => step.step === 'setSiteLanguage'
-			);
-			const siteLanguage = blueprintLanguageStep?.language || serverOptions.siteLanguage;
-			if ( siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
-				setupSteps.push(
-					{
-						step: 'setSiteLanguage',
-						language: siteLanguage,
-					},
-					{
-						step: 'setSiteOptions',
-						options: {
-							WPLANG: escapePhpString( siteLanguage ),
-						},
-					}
-				);
-			}
-
-			if ( serverOptions.siteTitle ) {
-				setupSteps.push( {
-					step: 'setSiteOptions',
-					options: {
-						blogname: escapePhpString( serverOptions.siteTitle ),
-					},
-				} );
-			}
-		}
-
-		args.blueprint.steps = [ ...setupSteps, ...( args.blueprint.steps || [] ) ];
 		args.blueprint.constants = { ...args.blueprint.constants, ...defaultConstants };
 
-		console.log( '[PERF] startServer (child): Calling runCLI' );
-		console.log(
-			`[PERF] startServer (child): Blueprint has ${ args.blueprint.steps.length } steps`
-		);
-		const runCLIStart = Date.now();
+		console.log( args );
 		server = await runCLI( args );
-		console.log( `[PERF] startServer (child): runCLI took ${ Date.now() - runCLIStart }ms` );
 
 		if ( serverOptions.adminPassword ) {
-			try {
-				const setPasswordStart = Date.now();
-				await setAdminPassword( server, serverOptions.adminPassword );
-				console.log(
-					`[PERF] startServer (child): setAdminPassword took ${ Date.now() - setPasswordStart }ms`
-				);
-			} catch {
-				console.warn(
-					'Failed to set admin password, but the server started successfully. Please check your site error log in wp-content/debug.log for more details'
-				);
-			}
+			await setAdminPassword( server, serverOptions.adminPassword );
 		}
-
-		const endTime = Date.now();
-		console.log( `[PERF] startServer (child): Finished at ${new Date().toISOString()}` );
-		console.log( `[PERF] startServer (child): End timestamp: ${endTime}` );
-		console.log(
-			`[PERF] startServer (child): Total server start time ${ endTime - startServerTime }ms`
-		);
 	} catch ( error ) {
 		server = null;
 		throw new Error( `Could not start server: ${ error }` );

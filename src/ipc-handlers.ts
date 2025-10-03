@@ -246,9 +246,7 @@ export async function createSite(
 		}
 	}
 
-	const isWpDir = isWordPressDirectory( path );
-
-	if ( isWpDir ) {
+	if ( isWordPressDirectory( path ) ) {
 		// If the directory contains a WordPress installation, and user wants to force SQLite
 		// integration, let's rename the wp-config.php file to allow WP Now to create a new one
 		// and initialize things properly.
@@ -258,8 +256,7 @@ export async function createSite(
 				nodePath.join( path, 'wp-config-studio.php' )
 			);
 		}
-		const wpConfigExists = await pathExists( nodePath.join( path, 'wp-config.php' ) );
-		if ( ! wpConfigExists ) {
+		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
 			await installSqliteIntegration( path );
 		} else {
 			await updateSiteUrl( server, getSiteUrl( details ) );
@@ -276,7 +273,6 @@ export async function createSite(
 		sortSites( userData.sites );
 
 		await saveUserData( userData );
-
 		return server.details;
 	} finally {
 		await unlockAppdata();
@@ -523,9 +519,7 @@ export async function startServer(
 	}
 
 	console.log( `Server started for '${ server.details.name }'` );
-
 	await updateSite( event, server.details );
-
 	return server.details;
 }
 

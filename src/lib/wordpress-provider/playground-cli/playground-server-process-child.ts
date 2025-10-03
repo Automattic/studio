@@ -175,8 +175,15 @@ async function stopServerFunc(): Promise< void > {
 		return;
 	}
 
+	const serverToDispose = server;
+	server = null;
+
 	try {
-		await server[ Symbol.asyncDispose ]();
+		const disposalTimeout = new Promise( ( _, reject ) =>
+			setTimeout( () => reject( new Error( 'Disposal timeout' ) ), 5000 )
+		);
+
+		await Promise.race( [ serverToDispose[ Symbol.asyncDispose ](), disposalTimeout ] );
 	} catch ( error ) {
 		// Suppress expected disposal errors that occur during site deletion
 		// These are typically race conditions that don't affect functionality

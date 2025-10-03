@@ -1,7 +1,7 @@
 import { net } from 'electron';
 import nodePath from 'path';
 import { SupportedPHPVersions } from '@php-wasm/universal';
-import { Blueprint } from '@wp-playground/blueprints';
+import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
 import { RecommendedPHPVersion } from '@wp-playground/common';
 import { recursiveCopyDirectory, pathExists, isWordPressDirectory } from 'common/lib/fs-utils';
 import { DEFAULT_LOCALE } from 'common/lib/locale';
@@ -123,7 +123,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			const isOnline = net.isOnline();
 			const siteLanguage = await getPreferredSiteLanguage( wpVersion );
 
-			const setupSteps = [];
+			const setupSteps: StepDefinition[] = [];
 
 			if ( isOnline && siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
 				setupSteps.push(
@@ -206,7 +206,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			if ( ! server.meta.blueprint ) {
 				server.meta.blueprint = {};
 			}
-			const existingSteps = ( server.meta.blueprint.steps as unknown[] ) || [];
+			const existingSteps = server.meta.blueprint.steps || [];
 			server.meta.blueprint.steps = [ ...setupSteps, ...existingSteps ];
 
 			await keepSqliteIntegrationUpdated( path );

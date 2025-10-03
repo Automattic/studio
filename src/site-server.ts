@@ -1,6 +1,7 @@
 import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { BlueprintV1Declaration } from '@wp-playground/blueprints';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { portFinder } from 'common/lib/port-finder';
@@ -51,7 +52,7 @@ function getAbsoluteUrl( details: SiteDetails ): string {
 // We use SiteDetails for storing it in appdata-v1.json, so this meta was introduced for extra data which is not stored locally
 type SiteServerMeta = {
 	wpVersion?: string;
-	blueprint?: Record< string, unknown >;
+	blueprint?: BlueprintV1Declaration;
 };
 
 export class SiteServer {

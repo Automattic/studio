@@ -510,12 +510,14 @@ export async function startServer(
 	} );
 
 	if ( server.details.running ) {
-		void server
-			.updateCachedThumbnail()
-			.then( () => sendThumbnailChangedEvent( event, id ) )
-			.catch( ( error ) => {
+		void ( async () => {
+			try {
+				await server.updateCachedThumbnail();
+				await sendThumbnailChangedEvent( event, id );
+			} catch ( error ) {
 				console.error( `Failed to update thumbnail for server ${ id }:`, error );
-			} );
+			}
+		} )();
 	}
 
 	console.log( `Server started for '${ server.details.name }'` );

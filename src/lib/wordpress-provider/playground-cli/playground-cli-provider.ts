@@ -150,7 +150,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			}
 
 			if ( ! isOnline ) {
-				console.log( '[DEBUG] setupWordPressSite - Offline mode, copying WordPress files' );
 				if ( wpVersion !== 'latest' ) {
 					throw new Error(
 						`Cannot set up WordPress version '${ wpVersion }' while offline. ` +
@@ -175,7 +174,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 
 				try {
 					await recursiveCopyDirectory( bundledWPPath, path );
-					console.log( '[DEBUG] setupWordPressSite - WordPress files copied successfully' );
 				} catch ( error ) {
 					throw new Error(
 						`Failed to copy WordPress files for offline setup: ${ ( error as Error ).message }`

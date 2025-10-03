@@ -110,12 +110,17 @@ async function startServer(
 	options: PlaygroundCliOptions,
 	serverOptions: WordPressServerOptions
 ): Promise< void > {
+	const startServerTime = Date.now();
+	console.log( '[PERF] startServer (child): Starting server' );
+
 	if ( server ) {
 		return;
 	}
 
 	try {
+		const muPluginsStart = Date.now();
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( serverOptions );
+		console.log( `[PERF] startServer (child): getMuPlugins took ${ Date.now() - muPluginsStart }ms` );
 		const setupSteps = [];
 		const defaultConstants = {
 			WP_SQLITE_AST_DRIVER: true,
@@ -179,22 +184,20 @@ async function startServer(
 						language: siteLanguage,
 					},
 					{
-						step: 'runPHP',
-						code: `<?php require_once( '/wordpress/wp-load.php' ); update_option( 'WPLANG', '${ escapePhpString(
-							siteLanguage
-						) }' ); echo "Language set to: ${ escapePhpString( siteLanguage ) }"; ?>`,
+						step: 'setSiteOptions',
+						options: {
+							WPLANG: escapePhpString( siteLanguage ),
+						},
 					}
 				);
 			}
 
 			if ( serverOptions.siteTitle ) {
 				setupSteps.push( {
-					step: 'runPHP',
-					code: `<?php
-						require_once( '/wordpress/wp-load.php' );
-						update_option( 'blogname', '${ escapePhpString( serverOptions.siteTitle ) }' );
-						echo "Site title set to: ${ escapePhpString( serverOptions.siteTitle ) }";
-					?>`,
+					step: 'setSiteOptions',
+					options: {
+						blogname: escapePhpString( serverOptions.siteTitle ),
+					},
 				} );
 			}
 		}
@@ -202,17 +205,31 @@ async function startServer(
 		args.blueprint.steps = [ ...setupSteps, ...( args.blueprint.steps || [] ) ];
 		args.blueprint.constants = { ...args.blueprint.constants, ...defaultConstants };
 
+		console.log( '[PERF] startServer (child): Calling runCLI' );
+		console.log(
+			`[PERF] startServer (child): Blueprint has ${ args.blueprint.steps.length } steps`
+		);
+		const runCLIStart = Date.now();
 		server = await runCLI( args );
+		console.log( `[PERF] startServer (child): runCLI took ${ Date.now() - runCLIStart }ms` );
 
 		if ( serverOptions.adminPassword ) {
 			try {
+				const setPasswordStart = Date.now();
 				await setAdminPassword( server, serverOptions.adminPassword );
+				console.log(
+					`[PERF] startServer (child): setAdminPassword took ${ Date.now() - setPasswordStart }ms`
+				);
 			} catch {
 				console.warn(
 					'Failed to set admin password, but the server started successfully. Please check your site error log in wp-content/debug.log for more details'
 				);
 			}
 		}
+
+		console.log(
+			`[PERF] startServer (child): Total server start time ${ Date.now() - startServerTime }ms`
+		);
 	} catch ( error ) {
 		server = null;
 		throw new Error( `Could not start server: ${ error }` );

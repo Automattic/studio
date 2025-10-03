@@ -153,6 +153,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const [ data, setData ] = useState< SiteDetails[] >( [] );
 	const [ loadingSites, setLoadingSites ] = useState< boolean >( true );
+	const [ addingSiteIds, setAddingSiteIds ] = useState< string[] >( [] );
 	const firstSite = data[ 0 ] || null;
 	const [ loadingServer, setLoadingServer ] = useState< Record< string, boolean > >(
 		firstSite?.id
@@ -236,6 +237,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 				// Remove the temporary site immediately, but with a minor delay to ensure state updates properly
 				setTimeout( () => {
+					setAddingSiteIds( ( prev ) => prev.filter( ( id ) => id !== tempSiteId ) );
 					setData( ( prevData ) =>
 						sortSites( prevData.filter( ( site ) => site.id !== tempSiteId ) )
 					);
@@ -243,6 +245,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			};
 
 			const tempSiteId = crypto.randomUUID();
+			setAddingSiteIds( ( prev ) => [ ...prev, tempSiteId ] );
 			setData( ( prevData ) =>
 				sortSites( [
 					...prevData,
@@ -259,8 +262,9 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			);
 			setSelectedSiteId( tempSiteId ); // Set the temporary ID as the selected site
 
+			let newSite: SiteDetails;
 			try {
-				const newSite = await getIpcApi().createSite( path, {
+				newSite = await getIpcApi().createSite( path, {
 					siteName,
 					wpVersion,
 					customDomain,
@@ -271,6 +275,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					showError( undefined, !! blueprint );
 					return;
 				}
+				setAddingSiteIds( ( prev ) => {
+					prev.push( newSite.id );
+					return prev;
+				} );
 				// Update the selected site to the new site's ID if the user didn't change it
 				setSelectedSiteId( ( prevSelectedSiteId ) => {
 					if ( prevSelectedSiteId === tempSiteId ) {
@@ -281,9 +289,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					}
 					return prevSelectedSiteId;
 				} );
-				// It replaces the temporary site created in React
-				// with the new site generated in the backend, but keeps isAddingSite to true
-				newSite.isAddingSite = true;
 				setData( ( prevData ) =>
 					prevData.map( ( site ) => ( site.id === tempSiteId ? newSite : site ) )
 				);
@@ -292,15 +297,13 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					await callback( newSite );
 				}
 
-				setData( ( prevData ) =>
-					prevData.map( ( site ) =>
-						site.id === newSite.id ? { ...site, isAddingSite: false } : site
-					)
-				);
-
 				return newSite;
 			} catch ( error ) {
 				showError( error, !! blueprint );
+			} finally {
+				setAddingSiteIds( ( prev ) =>
+					prev.filter( ( id ) => id !== tempSiteId && id !== newSite?.id )
+				);
 			}
 		},
 		[ selectedTab, setSelectedSiteId, setSelectedTab ]
@@ -402,7 +405,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			if ( ! fastDeepEqual( payload.newSites, payload.sites ) ) {
 				const updatedSites = await getIpcApi().getSiteDetails();
 				setData( ( prevData ) => {
-					const tempSite = prevData.find( ( site ) => site.isAddingSite );
+					const tempSite = prevData.find( ( site ) => addingSiteIds.includes( site.id ) );
 
 					if ( ! tempSite ) {
 						return updatedSites;
@@ -422,7 +425,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		return () => {
 			unsubscribe();
 		};
-	}, [] );
+	}, [ addingSiteIds ] );
 
 	useEffect( () => {
 		let cancel = false;
@@ -468,9 +471,17 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		setData( data.map( ( site ) => ( site.running ? { ...site, running: false } : site ) ) );
 	}, [ data ] );
 
+	const selectedSite = useMemo( () => {
+		const site = data.find( ( site ) => site.id === selectedSiteId ) || firstSite;
+		if ( addingSiteIds.includes( site?.id ) ) {
+			site.isAddingSite = true;
+		}
+		return site;
+	}, [ addingSiteIds, data, firstSite, selectedSiteId ] );
+
 	const context = useMemo(
 		() => ( {
-			selectedSite: data.find( ( site ) => site.id === selectedSiteId ) || firstSite,
+			selectedSite,
 			data,
 			setSelectedSiteId,
 			createSite,
@@ -486,8 +497,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			setUploadingSites,
 		} ),
 		[
+			selectedSite,
 			data,
-			firstSite,
 			setSelectedSiteId,
 			createSite,
 			updateSite,

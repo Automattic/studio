@@ -159,8 +159,6 @@ async function startServer(
 		}
 
 		args.blueprint.constants = { ...args.blueprint.constants, ...defaultConstants };
-
-		console.log( args );
 		server = await runCLI( args );
 
 		if ( serverOptions.adminPassword ) {

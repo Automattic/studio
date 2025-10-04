@@ -20,18 +20,63 @@ const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
 const originalConsoleWarn = console.warn;
 
+let lastLogTimestamp = performance.now();
+let runCliStartTimestamp = 0;
+
 console.log = ( ...args: any[] ) => {
-	originalConsoleLog( '[playground-cli]', ...args );
+	const now = performance.now();
+	const timeSinceLastLog = runCliStartTimestamp > 0 ? now - lastLogTimestamp : 0;
+	const timeSinceRunCliStart = runCliStartTimestamp > 0 ? now - runCliStartTimestamp : 0;
+
+	if ( timeSinceLastLog > 0 ) {
+		originalConsoleLog(
+			'[playground-cli]',
+			`[+${ timeSinceLastLog.toFixed( 2 ) }ms | Total: ${ timeSinceRunCliStart.toFixed( 2 ) }ms]`,
+			...args
+		);
+	} else {
+		originalConsoleLog( '[playground-cli]', ...args );
+	}
+
+	lastLogTimestamp = now;
 	process.parentPort.postMessage( { type: 'activity' } );
 };
 
 console.error = ( ...args: any[] ) => {
-	originalConsoleError( '[playground-cli]', ...args );
+	const now = performance.now();
+	const timeSinceLastLog = runCliStartTimestamp > 0 ? now - lastLogTimestamp : 0;
+	const timeSinceRunCliStart = runCliStartTimestamp > 0 ? now - runCliStartTimestamp : 0;
+
+	if ( timeSinceLastLog > 0 ) {
+		originalConsoleError(
+			'[playground-cli]',
+			`[+${ timeSinceLastLog.toFixed( 2 ) }ms | Total: ${ timeSinceRunCliStart.toFixed( 2 ) }ms]`,
+			...args
+		);
+	} else {
+		originalConsoleError( '[playground-cli]', ...args );
+	}
+
+	lastLogTimestamp = now;
 	process.parentPort.postMessage( { type: 'activity' } );
 };
 
 console.warn = ( ...args: any[] ) => {
-	originalConsoleWarn( '[playground-cli]', ...args );
+	const now = performance.now();
+	const timeSinceLastLog = runCliStartTimestamp > 0 ? now - lastLogTimestamp : 0;
+	const timeSinceRunCliStart = runCliStartTimestamp > 0 ? now - runCliStartTimestamp : 0;
+
+	if ( timeSinceLastLog > 0 ) {
+		originalConsoleWarn(
+			'[playground-cli]',
+			`[+${ timeSinceLastLog.toFixed( 2 ) }ms | Total: ${ timeSinceRunCliStart.toFixed( 2 ) }ms]`,
+			...args
+		);
+	} else {
+		originalConsoleWarn( '[playground-cli]', ...args );
+	}
+
+	lastLogTimestamp = now;
 	process.parentPort.postMessage( { type: 'activity' } );
 };
 
@@ -66,6 +111,9 @@ process.parentPort.on( 'message', async ( event ) => {
 			case 'run-php':
 				result = await runPhp( message.data );
 				break;
+			case 'http-request':
+				result = await httpRequest( message.data );
+				break;
 			default:
 				throw new Error( `Unknown message type: ${ message.type }` );
 		}
@@ -83,26 +131,22 @@ function escapePhpString( str: string ): string {
 }
 
 async function setAdminPassword( server: RunCLIServer, adminPassword: string ): Promise< void > {
-	const phpCode = `<?php
-		require_once( '/wordpress/wp-load.php' );
-		$user = get_user_by( 'login', 'admin' );
-		if ( $user ) {
-			wp_set_password( '${ escapePhpString( adminPassword ) }', $user->ID );
-		} else {
-			$user_data = array(
-				'user_login' => 'admin',
-				'user_pass' => '${ escapePhpString( adminPassword ) }',
-				'user_email' => 'admin@localhost.com',
-				'role' => 'administrator',
-			);
-			wp_insert_user( $user_data );
-		}
-		echo "Admin password updated";
-	?>`;
+	const perfStart = performance.now();
+	console.log( '[PERF] setAdminPassword: Using persistent API endpoint' );
 
-	await server.playground.run( {
-		code: phpCode,
+	// Use the persistent mu-plugin API endpoint to avoid loading WordPress again
+	await server.playground.request( {
+		url: '/?studio-admin-api',
+		method: 'POST',
+		body: {
+			action: 'set_admin_password',
+			password: adminPassword,
+		},
 	} );
+
+	console.log(
+		`[PERF] setAdminPassword: Total time ${ ( performance.now() - perfStart ).toFixed( 2 ) }ms`
+	);
 }
 
 async function startServer(
@@ -113,8 +157,18 @@ async function startServer(
 		return;
 	}
 
+	const perfStart = performance.now();
+	console.log( '[PERF] playground-server-process-child.startServer: Starting server' );
+
 	try {
+		const muPluginsStart = performance.now();
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( serverOptions );
+		console.log(
+			`[PERF] playground-server-process-child.startServer: MU-plugins generation took ${ (
+				performance.now() - muPluginsStart
+			).toFixed( 2 ) }ms`
+		);
+
 		const defaultConstants = {
 			WP_SQLITE_AST_DRIVER: true,
 		};
@@ -159,11 +213,32 @@ async function startServer(
 		}
 
 		args.blueprint.constants = { ...args.blueprint.constants, ...defaultConstants };
+
+		const runCliStart = performance.now();
+		runCliStartTimestamp = runCliStart;
+		lastLogTimestamp = runCliStart;
 		server = await runCLI( args );
+		console.log(
+			`[PERF] playground-server-process-child.startServer: runCLI took ${ (
+				performance.now() - runCliStart
+			).toFixed( 2 ) }ms`
+		);
 
 		if ( serverOptions.adminPassword ) {
+			const passwordStart = performance.now();
 			await setAdminPassword( server, serverOptions.adminPassword );
+			console.log(
+				`[PERF] playground-server-process-child.startServer: Set admin password took ${ (
+					performance.now() - passwordStart
+				).toFixed( 2 ) }ms`
+			);
 		}
+
+		console.log(
+			`[PERF] playground-server-process-child.startServer: Total time ${ (
+				performance.now() - perfStart
+			).toFixed( 2 ) }ms`
+		);
 	} catch ( error ) {
 		server = null;
 		throw new Error( `Could not start server: ${ error }` );
@@ -193,6 +268,37 @@ async function stopServerFunc(): Promise< void > {
 		}
 	} finally {
 		server = null;
+	}
+}
+
+async function httpRequest( options: {
+	url: string;
+	method: string;
+	body: Record< string, string >;
+} ): Promise< { text: string } > {
+	if ( ! server ) {
+		throw new Error( 'Server is not initialized. Make sure the server is started.' );
+	}
+
+	try {
+		const perfStart = performance.now();
+		console.log( `[PERF] httpRequest: Making request to ${ options.url }` );
+
+		const response = await server.playground.request( {
+			url: options.url,
+			method: options.method as 'GET' | 'POST',
+			body: options.body,
+		} );
+
+		console.log(
+			`[PERF] httpRequest: Request completed in ${ ( performance.now() - perfStart ).toFixed(
+				2
+			) }ms`
+		);
+
+		return { text: response.text };
+	} catch ( error ) {
+		throw new Error( `Failed to make HTTP request: ${ error }` );
 	}
 }
 

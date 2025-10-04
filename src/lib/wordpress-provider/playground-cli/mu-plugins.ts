@@ -303,6 +303,185 @@ function getStandardMuPlugins( options: Partial< WordPressServerOptions > ): MuP
 		`,
 	} );
 
+	// Studio Admin API: Persistent endpoint for admin operations
+	muPlugins.push( {
+		filename: '0-studio-admin-api.php',
+		content: `<?php
+		/**
+		 * Studio Admin API
+		 *
+		 * Provides a persistent endpoint for admin operations that can reuse
+		 * the already-loaded WordPress instance, avoiding the overhead of
+		 * loading wp-load.php multiple times.
+		 *
+		 * This endpoint should only be accessible locally.
+		 */
+
+		add_action( 'init', function() {
+			// Only handle requests to our endpoint
+			// Check both query string and REQUEST_URI
+			$is_api_request = isset( $_GET['studio-admin-api'] ) ||
+			                  strpos( $_SERVER['REQUEST_URI'] ?? '', 'studio-admin-api' ) !== false;
+
+			if ( ! $is_api_request ) {
+				return;
+			}
+
+			error_log("[PERF-PHP] Studio Admin API: Received request");
+
+			// Security: Only allow POST requests with the correct action
+			if ( $_SERVER['REQUEST_METHOD'] !== 'POST' || empty( $_POST['action'] ) ) {
+				status_header( 400 );
+				header( 'Content-Type: application/json' );
+				echo json_encode( [ 'error' => 'Invalid request', 'method' => $_SERVER['REQUEST_METHOD'], 'post' => $_POST ] );
+				exit;
+			}
+
+			$action = $_POST['action'];
+			$result = null;
+
+			$start = microtime(true);
+			error_log("[PERF-PHP] Studio Admin API: Processing action '$action'");
+
+			switch ( $action ) {
+				case 'get_theme_details':
+					$themeStart = microtime(true);
+					$theme = wp_get_theme();
+					$themeTime = (microtime(true) - $themeStart) * 1000;
+					error_log("[PERF-PHP] API wp_get_theme took " . number_format($themeTime, 2) . "ms");
+
+					$result = [
+						'name' => $theme->get('Name'),
+						'path' => $theme->get_stylesheet_directory(),
+						'slug' => $theme->get_stylesheet(),
+						'isBlockTheme' => $theme->is_block_theme(),
+						'supportsWidgets' => current_theme_supports('widgets'),
+						'supportsMenus' => get_registered_nav_menus() || current_theme_supports('menus'),
+					];
+					break;
+
+				case 'set_admin_password':
+					if ( empty( $_POST['password'] ) ) {
+						http_response_code( 400 );
+						echo json_encode( [ 'error' => 'Password is required' ] );
+						exit;
+					}
+
+					$userStart = microtime(true);
+					$user = get_user_by( 'login', 'admin' );
+					$userTime = (microtime(true) - $userStart) * 1000;
+					error_log("[PERF-PHP] API get_user_by took " . number_format($userTime, 2) . "ms");
+
+					$pwStart = microtime(true);
+					if ( $user ) {
+						wp_set_password( $_POST['password'], $user->ID );
+					} else {
+						$user_data = array(
+							'user_login' => 'admin',
+							'user_pass' => $_POST['password'],
+							'user_email' => 'admin@localhost.com',
+							'role' => 'administrator',
+						);
+						wp_insert_user( $user_data );
+					}
+					$pwTime = (microtime(true) - $pwStart) * 1000;
+					error_log("[PERF-PHP] API password operation took " . number_format($pwTime, 2) . "ms");
+
+					$result = [ 'success' => true ];
+					break;
+
+				case 'combined_startup':
+					// Combined operation: set password and get theme details in one call
+					if ( !empty( $_POST['password'] ) ) {
+						$user = get_user_by( 'login', 'admin' );
+						if ( $user ) {
+							wp_set_password( $_POST['password'], $user->ID );
+						} else {
+							$user_data = array(
+								'user_login' => 'admin',
+								'user_pass' => $_POST['password'],
+								'user_email' => 'admin@localhost.com',
+								'role' => 'administrator',
+							);
+							wp_insert_user( $user_data );
+						}
+					}
+
+					$theme = wp_get_theme();
+					$result = [
+						'theme' => [
+							'name' => $theme->get('Name'),
+							'path' => $theme->get_stylesheet_directory(),
+							'slug' => $theme->get_stylesheet(),
+							'isBlockTheme' => $theme->is_block_theme(),
+							'supportsWidgets' => current_theme_supports('widgets'),
+							'supportsMenus' => get_registered_nav_menus() || current_theme_supports('menus'),
+						],
+					];
+					break;
+
+				case 'wp_cli':
+					// Execute WP-CLI command using the persistent WordPress instance
+					if ( empty( $_POST['command'] ) ) {
+						status_header( 400 );
+						header( 'Content-Type: application/json' );
+						echo json_encode( [ 'error' => 'Command is required' ] );
+						exit;
+					}
+
+					$wpCliPath = '/tmp/wp-cli.phar';
+					if ( !file_exists( $wpCliPath ) ) {
+						status_header( 500 );
+						header( 'Content-Type: application/json' );
+						echo json_encode( [ 'error' => 'WP-CLI not found' ] );
+						exit;
+					}
+
+					// Parse the command string into arguments
+					$command = $_POST['command'];
+					error_log("[PERF-PHP] API executing WP-CLI command: $command");
+
+					// Set up WP-CLI environment
+					$_SERVER['argv'] = explode( ' ', $command );
+					$_SERVER['argc'] = count( $_SERVER['argv'] );
+
+					// Capture WP-CLI output
+					ob_start();
+					$exit_code = 0;
+					try {
+						define( 'WP_CLI', true );
+						include( $wpCliPath );
+					} catch ( Exception $e ) {
+						$exit_code = 1;
+						error_log("[PERF-PHP] WP-CLI error: " . $e->getMessage());
+					}
+					$output = ob_get_clean();
+
+					$result = [
+						'stdout' => $output,
+						'stderr' => '',
+						'exitCode' => $exit_code,
+					];
+					break;
+
+				default:
+					status_header( 400 );
+					header( 'Content-Type: application/json' );
+					echo json_encode( [ 'error' => 'Unknown action' ] );
+					exit;
+			}
+
+			$totalTime = (microtime(true) - $start) * 1000;
+			error_log("[PERF-PHP] API action '$action' total took " . number_format($totalTime, 2) . "ms");
+
+			status_header( 200 );
+			header( 'Content-Type: application/json' );
+			echo json_encode( $result );
+			exit;
+		}, 1 );
+		`,
+	} );
+
 	return muPlugins;
 }
 

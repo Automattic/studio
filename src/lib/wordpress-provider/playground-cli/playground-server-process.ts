@@ -31,12 +31,22 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 			return;
 		}
 
+		const perfStart = performance.now();
+		console.log( '[PERF] PlaygroundServerProcess.start: Starting process' );
+
 		// Create exit promise before starting the process
 		this.exitPromise = new Promise( ( resolve ) => {
 			this.exitResolve = resolve;
 		} );
 
+		const forkStart = performance.now();
 		this.process = utilityProcess.fork( path.join( __dirname, 'playgroundServerProcess.js' ) );
+		console.log(
+			`[PERF] PlaygroundServerProcess.start: Process fork took ${ (
+				performance.now() - forkStart
+			).toFixed( 2 ) }ms`
+		);
+
 		this.process.on(
 			'message',
 			( message: { type?: string; id?: number; error?: string; result?: unknown } ) => {
@@ -83,6 +93,7 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 		} );
 
 		// Wait for child process to be ready
+		const readyStart = performance.now();
 		await new Promise< void >( ( resolve ) => {
 			const readyHandler = ( message: { type?: string } ) => {
 				if ( message.type === 'ready' ) {
@@ -92,11 +103,27 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 			};
 			this.process!.on( 'message', readyHandler );
 		} );
+		console.log(
+			`[PERF] PlaygroundServerProcess.start: Wait for ready took ${ (
+				performance.now() - readyStart
+			).toFixed( 2 ) }ms`
+		);
 
+		const startServerStart = performance.now();
 		await this.sendMessage( 'start-server', {
 			options: this.options,
 			serverOptions: this.serverOptions,
 		} );
+		console.log(
+			`[PERF] PlaygroundServerProcess.start: Start server message took ${ (
+				performance.now() - startServerStart
+			).toFixed( 2 ) }ms`
+		);
+		console.log(
+			`[PERF] PlaygroundServerProcess.start: Total time ${ (
+				performance.now() - perfStart
+			).toFixed( 2 ) }ms`
+		);
 	}
 
 	async stop(): Promise< void > {
@@ -185,6 +212,14 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 			documentRoot: this.options.documentRoot,
 			run: ( options: { code: string; scriptPath?: string } ) =>
 				this.runPhp( { ...options, phpVersion: this.options.phpVersion } ),
+			request: async ( options: {
+				url: string;
+				method: string;
+				body: Record< string, string >;
+			} ) => {
+				const result = await this.sendMessage( 'http-request', options );
+				return result as { text: string };
+			},
 		};
 	}
 }

@@ -194,9 +194,6 @@ export async function createSite(
 		blueprint?: Blueprint;
 	} = {}
 ): Promise< SiteDetails > {
-	const perfStart = performance.now();
-	console.log( '[PERF] createSite: Starting site creation' );
-
 	const { siteName, wpVersion, customDomain, enableHttps, siteId, blueprint } = config;
 
 	const forceSetupSqlite = false;
@@ -206,7 +203,6 @@ export async function createSite(
 
 	// We only recursively create the directory if the user has not selected a
 	// path from the dialog (and thus they use the "default" or suggested path).
-	const validationStart = performance.now();
 	if ( ! ( await pathExists( path ) ) && path.startsWith( DEFAULT_SITE_PATH ) ) {
 		fs.mkdirSync( path, { recursive: true } );
 	}
@@ -223,7 +219,6 @@ export async function createSite(
 	}
 
 	const port = await portFinder.getOpenPort();
-	console.log( `[PERF] createSite: Validation and port allocation took ${ ( performance.now() - validationStart ).toFixed( 2 ) }ms` );
 
 	const details = {
 		id: siteId || crypto.randomUUID(),
@@ -242,9 +237,7 @@ export async function createSite(
 
 	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
 		try {
-			const setupStart = performance.now();
 			await createSiteWorkingDirectory( server, wpVersion );
-			console.log( `[PERF] createSite: WordPress setup took ${ ( performance.now() - setupStart ).toFixed( 2 ) }ms` );
 		} catch ( error ) {
 			// If site creation failed, remove the generated files and re-throw the
 			// error so it can be handled by the caller.
@@ -254,7 +247,6 @@ export async function createSite(
 	}
 
 	if ( isWordPressDirectory( path ) ) {
-		const existingWpStart = performance.now();
 		// If the directory contains a WordPress installation, and user wants to force SQLite
 		// integration, let's rename the wp-config.php file to allow WP Now to create a new one
 		// and initialize things properly.
@@ -269,13 +261,11 @@ export async function createSite(
 		} else {
 			await updateSiteUrl( server, getSiteUrl( details ) );
 		}
-		console.log( `[PERF] createSite: Existing WordPress setup took ${ ( performance.now() - existingWpStart ).toFixed( 2 ) }ms` );
 	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id: details.id } );
 	try {
-		const saveStart = performance.now();
 		await lockAppdata();
 		userData = await loadUserData();
 
@@ -283,8 +273,6 @@ export async function createSite(
 		sortSites( userData.sites );
 
 		await saveUserData( userData );
-		console.log( `[PERF] createSite: Save user data took ${ ( performance.now() - saveStart ).toFixed( 2 ) }ms` );
-		console.log( `[PERF] createSite: Total time ${ ( performance.now() - perfStart ).toFixed( 2 ) }ms` );
 		return server.details;
 	} finally {
 		await unlockAppdata();
@@ -480,24 +468,16 @@ export async function startServer(
 	event: IpcMainInvokeEvent,
 	id: string
 ): Promise< SiteDetails | null > {
-	const perfStart = performance.now();
-	console.log( `[PERF] startServer: Starting server for site ${ id }` );
-
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		return null;
 	}
 
-	const sqliteStart = performance.now();
 	await keepSqliteIntegrationUpdated( server.details.path );
-	console.log( `[PERF] startServer: SQLite integration update took ${ ( performance.now() - sqliteStart ).toFixed( 2 ) }ms` );
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	try {
-		const serverStartTime = performance.now();
 		await server.start();
-		console.log( `[PERF] startServer: server.start() took ${ ( performance.now() - serverStartTime ).toFixed( 2 ) }ms` );
-		console.log( `[PERF] startServer: Total time ${ ( performance.now() - perfStart ).toFixed( 2 ) }ms` );
 	} catch ( error ) {
 		/**
 		 * We don't want to track WASM memory errors in Sentry

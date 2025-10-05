@@ -113,12 +113,8 @@ export class SiteServer {
 			return;
 		}
 
-		const perfStart = performance.now();
-		console.log( `[PERF] SiteServer.start: Starting site '${ this.details.name }'` );
-
 		// Handle custom domain if necessary
 		if ( this.details.customDomain ) {
-			const customDomainStart = performance.now();
 			await addDomainToHosts( this.details.customDomain, this.details.port );
 			// Generate certificates for HTTPS sites *before* the server starts
 			// This ensures the certs are ready when the proxy server needs them
@@ -127,9 +123,7 @@ export class SiteServer {
 					`Generating certificates for ${ this.details.customDomain } during server start`
 				);
 
-				const certStart = performance.now();
 				const { cert, key } = await generateSiteCertificate( this.details.customDomain );
-				console.log( `[PERF] SiteServer.start: Certificate generation took ${ ( performance.now() - certStart ).toFixed( 2 ) }ms` );
 				this.details = {
 					...this.details,
 					tlsKey: key,
@@ -137,10 +131,8 @@ export class SiteServer {
 				};
 			}
 			await startProxyServer();
-			console.log( `[PERF] SiteServer.start: Custom domain setup took ${ ( performance.now() - customDomainStart ).toFixed( 2 ) }ms` );
 		}
 
-		const blueprintStart = performance.now();
 		const filteredBlueprint = filterUnsupportedBlueprintFeatures( this.meta.blueprint );
 		const serverInstance = await startServer( {
 			path: this.details.path,
@@ -153,7 +145,6 @@ export class SiteServer {
 			absoluteUrl: getAbsoluteUrl( this.details ),
 			blueprint: filteredBlueprint,
 		} );
-		console.log( `[PERF] SiteServer.start: Provider startServer took ${ ( performance.now() - blueprintStart ).toFixed( 2 ) }ms` );
 
 		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
 		if ( ! isPortAvailable ) {
@@ -163,18 +154,14 @@ export class SiteServer {
 		}
 
 		console.log( `Starting server for '${ this.details.name }'` );
-		const processStart = performance.now();
 		this.server = createServerProcess( serverInstance );
 		await this.server.start();
-		console.log( `[PERF] SiteServer.start: Server process start took ${ ( performance.now() - processStart ).toFixed( 2 ) }ms` );
 
 		if ( serverInstance.options.port === undefined ) {
 			throw new Error( 'Server started with no port' );
 		}
 
-		const themeStart = performance.now();
 		const themeDetails = await phpGetThemeDetails( this.server );
-		console.log( `[PERF] SiteServer.start: Get theme details took ${ ( performance.now() - themeStart ).toFixed( 2 ) }ms` );
 
 		this.details = {
 			...this.details,
@@ -190,8 +177,6 @@ export class SiteServer {
 		if ( this.meta.blueprint ) {
 			this.meta.blueprint = undefined;
 		}
-
-		console.log( `[PERF] SiteServer.start: Total time ${ ( performance.now() - perfStart ).toFixed( 2 ) }ms` );
 	}
 
 	async updateSiteDetails( site: SiteDetails ) {

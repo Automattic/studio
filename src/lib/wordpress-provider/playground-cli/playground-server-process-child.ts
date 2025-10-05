@@ -5,15 +5,43 @@ import { WordPressServerOptions } from '../types';
 import { getMuPlugins } from './mu-plugins';
 import { PlaygroundCliOptions } from './playground-cli-provider';
 
-interface Message {
+interface BaseMessage {
 	id: number;
 	type: string;
+}
+
+interface StartServerMessage extends BaseMessage {
+	type: 'start-server';
 	data: {
 		options: PlaygroundCliOptions;
 		serverOptions: WordPressServerOptions;
-		code: string;
 	};
 }
+
+interface StopServerMessage extends BaseMessage {
+	type: 'stop-server';
+	data: Record< string, never >;
+}
+
+interface RunPhpMessage extends BaseMessage {
+	type: 'run-php';
+	data: {
+		code: string;
+		scriptPath?: string;
+		phpVersion?: string;
+	};
+}
+
+interface HttpRequestMessage extends BaseMessage {
+	type: 'http-request';
+	data: {
+		url: string;
+		method: string;
+		body: Record< string, string >;
+	};
+}
+
+type Message = StartServerMessage | StopServerMessage | RunPhpMessage | HttpRequestMessage;
 
 // Intercept and prefix all console output from playground-cli
 const originalConsoleLog = console.log;
@@ -126,14 +154,7 @@ process.parentPort.on( 'message', async ( event ) => {
 
 process.parentPort.postMessage( { type: 'ready' } );
 
-function escapePhpString( str: string ): string {
-	return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
-}
-
 async function setAdminPassword( server: RunCLIServer, adminPassword: string ): Promise< void > {
-	const perfStart = performance.now();
-	console.log( '[PERF] setAdminPassword: Using persistent API endpoint' );
-
 	// Use the persistent mu-plugin API endpoint to avoid loading WordPress again
 	await server.playground.request( {
 		url: '/?studio-admin-api',
@@ -143,10 +164,6 @@ async function setAdminPassword( server: RunCLIServer, adminPassword: string ): 
 			password: adminPassword,
 		},
 	} );
-
-	console.log(
-		`[PERF] setAdminPassword: Total time ${ ( performance.now() - perfStart ).toFixed( 2 ) }ms`
-	);
 }
 
 async function startServer(
@@ -157,17 +174,8 @@ async function startServer(
 		return;
 	}
 
-	const perfStart = performance.now();
-	console.log( '[PERF] playground-server-process-child.startServer: Starting server' );
-
 	try {
-		const muPluginsStart = performance.now();
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( serverOptions );
-		console.log(
-			`[PERF] playground-server-process-child.startServer: MU-plugins generation took ${ (
-				performance.now() - muPluginsStart
-			).toFixed( 2 ) }ms`
-		);
 
 		const defaultConstants = {
 			WP_SQLITE_AST_DRIVER: true,
@@ -214,31 +222,13 @@ async function startServer(
 
 		args.blueprint.constants = { ...args.blueprint.constants, ...defaultConstants };
 
-		const runCliStart = performance.now();
-		runCliStartTimestamp = runCliStart;
-		lastLogTimestamp = runCliStart;
+		runCliStartTimestamp = performance.now();
+		lastLogTimestamp = runCliStartTimestamp;
 		server = await runCLI( args );
-		console.log(
-			`[PERF] playground-server-process-child.startServer: runCLI took ${ (
-				performance.now() - runCliStart
-			).toFixed( 2 ) }ms`
-		);
 
 		if ( serverOptions.adminPassword ) {
-			const passwordStart = performance.now();
 			await setAdminPassword( server, serverOptions.adminPassword );
-			console.log(
-				`[PERF] playground-server-process-child.startServer: Set admin password took ${ (
-					performance.now() - passwordStart
-				).toFixed( 2 ) }ms`
-			);
 		}
-
-		console.log(
-			`[PERF] playground-server-process-child.startServer: Total time ${ (
-				performance.now() - perfStart
-			).toFixed( 2 ) }ms`
-		);
 	} catch ( error ) {
 		server = null;
 		throw new Error( `Could not start server: ${ error }` );
@@ -281,20 +271,11 @@ async function httpRequest( options: {
 	}
 
 	try {
-		const perfStart = performance.now();
-		console.log( `[PERF] httpRequest: Making request to ${ options.url }` );
-
 		const response = await server.playground.request( {
 			url: options.url,
 			method: options.method as 'GET' | 'POST',
 			body: options.body,
 		} );
-
-		console.log(
-			`[PERF] httpRequest: Request completed in ${ ( performance.now() - perfStart ).toFixed(
-				2
-			) }ms`
-		);
 
 		return { text: response.text };
 	} catch ( error ) {

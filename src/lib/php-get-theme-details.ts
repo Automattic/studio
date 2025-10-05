@@ -18,13 +18,9 @@ export async function phpGetThemeDetails(
 		throw Error( 'PHP is not instantiated' );
 	}
 
-	const perfStart = performance.now();
-
 	try {
 		// Try to use the persistent mu-plugin API endpoint if available (Playground CLI)
 		if ( server.php.request ) {
-			console.log( '[PERF] phpGetThemeDetails: Using persistent API endpoint' );
-
 			const response = await server.php.request( {
 				url: '/?studio-admin-api',
 				method: 'POST',
@@ -33,16 +29,11 @@ export async function phpGetThemeDetails(
 				},
 			} );
 
-			console.log(
-				`[PERF] phpGetThemeDetails: Total time ${ ( performance.now() - perfStart ).toFixed( 2 ) }ms`
-			);
-
 			const themeDetailsParsed = JSON.parse( response.text );
 			return themeDetailsSchema.parse( themeDetailsParsed );
 		}
 
 		// Fallback to runPhp for WP-Now
-		console.log( '[PERF] phpGetThemeDetails: Using fallback runPhp method' );
 		const wpLoadPath = getWpLoadPath( server );
 
 		const themeDetailsPhp = `<?php
@@ -61,10 +52,6 @@ export async function phpGetThemeDetails(
 		const themeDetailsRaw = await server.runPhp( {
 			code: themeDetailsPhp,
 		} );
-
-		console.log(
-			`[PERF] phpGetThemeDetails: Total time ${ ( performance.now() - perfStart ).toFixed( 2 ) }ms`
-		);
 
 		const themeDetailsParsed = JSON.parse( themeDetailsRaw );
 		return themeDetailsSchema.parse( themeDetailsParsed );

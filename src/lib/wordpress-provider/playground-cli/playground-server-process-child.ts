@@ -1,20 +1,47 @@
 import { SupportedPHPVersion, PHPRunOptions } from '@php-wasm/universal';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
-import { DEFAULT_LOCALE } from 'common/lib/locale';
 import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
 import { WordPressServerOptions } from '../types';
 import { getMuPlugins } from './mu-plugins';
 import { PlaygroundCliOptions } from './playground-cli-provider';
 
-interface Message {
+interface BaseMessage {
 	id: number;
 	type: string;
+}
+
+interface StartServerMessage extends BaseMessage {
+	type: 'start-server';
 	data: {
 		options: PlaygroundCliOptions;
 		serverOptions: WordPressServerOptions;
-		code: string;
 	};
 }
+
+interface StopServerMessage extends BaseMessage {
+	type: 'stop-server';
+	data: Record< string, never >;
+}
+
+interface RunPhpMessage extends BaseMessage {
+	type: 'run-php';
+	data: {
+		code: string;
+		scriptPath?: string;
+		phpVersion?: string;
+	};
+}
+
+interface HttpRequestMessage extends BaseMessage {
+	type: 'http-request';
+	data: {
+		url: string;
+		method: string;
+		body: Record< string, string >;
+	};
+}
+
+type Message = StartServerMessage | StopServerMessage | RunPhpMessage | HttpRequestMessage;
 
 // Intercept and prefix all console output from playground-cli
 const originalConsoleLog = console.log;
@@ -67,8 +94,11 @@ process.parentPort.on( 'message', async ( event ) => {
 			case 'run-php':
 				result = await runPhp( message.data );
 				break;
+			case 'http-request':
+				result = await httpRequest( message.data );
+				break;
 			default:
-				throw new Error( `Unknown message type: ${ message.type }` );
+				throw new Error( `Unknown message type: ${ message }` );
 		}
 
 		process.parentPort.postMessage( { id: message.id, result } );
@@ -79,30 +109,15 @@ process.parentPort.on( 'message', async ( event ) => {
 
 process.parentPort.postMessage( { type: 'ready' } );
 
-function escapePhpString( str: string ): string {
-	return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
-}
-
 async function setAdminPassword( server: RunCLIServer, adminPassword: string ): Promise< void > {
-	const phpCode = `<?php
-		require_once( '/wordpress/wp-load.php' );
-		$user = get_user_by( 'login', 'admin' );
-		if ( $user ) {
-			wp_set_password( '${ escapePhpString( adminPassword ) }', $user->ID );
-		} else {
-			$user_data = array(
-				'user_login' => 'admin',
-				'user_pass' => '${ escapePhpString( adminPassword ) }',
-				'user_email' => 'admin@localhost.com',
-				'role' => 'administrator',
-			);
-			wp_insert_user( $user_data );
-		}
-		echo "Admin password updated";
-	?>`;
-
-	await server.playground.run( {
-		code: phpCode,
+	// Use the persistent mu-plugin API endpoint to avoid loading WordPress again
+	await server.playground.request( {
+		url: '/?studio-admin-api',
+		method: 'POST',
+		body: {
+			action: 'set_admin_password',
+			password: adminPassword,
+		},
 	} );
 }
 
@@ -116,7 +131,7 @@ async function startServer(
 
 	try {
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( serverOptions );
-		const setupSteps = [];
+
 		const defaultConstants = {
 			WP_SQLITE_AST_DRIVER: true,
 		};
@@ -136,7 +151,7 @@ async function startServer(
 		];
 
 		const args: RunCLIArgs = {
-			command: 'run-blueprint',
+			command: 'server',
 			internalCookieStore: true,
 			followSymlinks: true,
 			skipSqliteSetup: true,
@@ -145,12 +160,8 @@ async function startServer(
 			'mount-before-install': mounts,
 			'site-url': serverOptions.absoluteUrl,
 			blueprint: options.blueprint || {},
+			skipWordPressSetup: options.skipWordpressSetup,
 		};
-
-		if ( ! options.isSetupMode ) {
-			args.command = 'server';
-			args.skipWordPressSetup = true;
-		}
 
 		if ( options.phpVersion ) {
 			args.php = options.phpVersion as SupportedPHPVersion;
@@ -164,54 +175,12 @@ async function startServer(
 			}
 		}
 
-		if ( options.isSetupMode ) {
-			/* Workaround for https://github.com/WordPress/wordpress-playground/issues/2700
-			 * Let's revisit this code when the issue is fixed
-			 * If setSiteLanguage is set in blueprint we shouldn't need to change the language */
-			const blueprintLanguageStep = args.blueprint?.steps?.find(
-				( step: { step: string; language?: string } ) => step.step === 'setSiteLanguage'
-			);
-			const siteLanguage = blueprintLanguageStep?.language || serverOptions.siteLanguage;
-			if ( siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
-				setupSteps.push(
-					{
-						step: 'setSiteLanguage',
-						language: siteLanguage,
-					},
-					{
-						step: 'runPHP',
-						code: `<?php require_once( '/wordpress/wp-load.php' ); update_option( 'WPLANG', '${ escapePhpString(
-							siteLanguage
-						) }' ); echo "Language set to: ${ escapePhpString( siteLanguage ) }"; ?>`,
-					}
-				);
-			}
-
-			if ( serverOptions.siteTitle ) {
-				setupSteps.push( {
-					step: 'runPHP',
-					code: `<?php
-						require_once( '/wordpress/wp-load.php' );
-						update_option( 'blogname', '${ escapePhpString( serverOptions.siteTitle ) }' );
-						echo "Site title set to: ${ escapePhpString( serverOptions.siteTitle ) }";
-					?>`,
-				} );
-			}
-		}
-
-		args.blueprint.steps = [ ...setupSteps, ...( args.blueprint.steps || [] ) ];
 		args.blueprint.constants = { ...args.blueprint.constants, ...defaultConstants };
 
 		server = await runCLI( args );
 
 		if ( serverOptions.adminPassword ) {
-			try {
-				await setAdminPassword( server, serverOptions.adminPassword );
-			} catch {
-				console.warn(
-					'Failed to set admin password, but the server started successfully. Please check your site error log in wp-content/debug.log for more details'
-				);
-			}
+			await setAdminPassword( server, serverOptions.adminPassword );
 		}
 	} catch ( error ) {
 		server = null;
@@ -224,8 +193,15 @@ async function stopServerFunc(): Promise< void > {
 		return;
 	}
 
+	const serverToDispose = server;
+	server = null;
+
 	try {
-		await server[ Symbol.asyncDispose ]();
+		const disposalTimeout = new Promise( ( _, reject ) =>
+			setTimeout( () => reject( new Error( 'Disposal timeout' ) ), 5000 )
+		);
+
+		await Promise.race( [ serverToDispose[ Symbol.asyncDispose ](), disposalTimeout ] );
 	} catch ( error ) {
 		// Suppress expected disposal errors that occur during site deletion
 		// These are typically race conditions that don't affect functionality
@@ -235,6 +211,28 @@ async function stopServerFunc(): Promise< void > {
 		}
 	} finally {
 		server = null;
+	}
+}
+
+async function httpRequest( options: {
+	url: string;
+	method: string;
+	body: Record< string, string >;
+} ): Promise< { text: string } > {
+	if ( ! server ) {
+		throw new Error( 'Server is not initialized. Make sure the server is started.' );
+	}
+
+	try {
+		const response = await server.playground.request( {
+			url: options.url,
+			method: options.method as 'GET' | 'POST',
+			body: options.body,
+		} );
+
+		return { text: response.text };
+	} catch ( error ) {
+		throw new Error( `Failed to make HTTP request: ${ error }` );
 	}
 }
 

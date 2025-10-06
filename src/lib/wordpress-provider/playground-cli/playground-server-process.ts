@@ -24,9 +24,7 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 		public url: string,
 		private options: PlaygroundCliOptions,
 		private serverOptions: WordPressServerOptions
-	) {
-		this.isSetupMode = options.isSetupMode || false;
-	}
+	) {}
 
 	async start(): Promise< void > {
 		if ( this.process ) {
@@ -188,6 +186,14 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 			documentRoot: this.options.documentRoot,
 			run: ( options: { code: string; scriptPath?: string } ) =>
 				this.runPhp( { ...options, phpVersion: this.options.phpVersion } ),
+			request: async ( options: {
+				url: string;
+				method: string;
+				body: Record< string, string >;
+			} ) => {
+				const result = await this.sendMessage( 'http-request', options );
+				return result as { text: string };
+			},
 		};
 	}
 }

@@ -157,6 +157,12 @@ export async function importSite(
 		throw new Error( 'Site not found.' );
 	}
 	try {
+		if ( ! isWordPressDirectory( site.details.path ) ) {
+			// Workaround to have the necessary WordPress files to run the import - STU-744
+			await site.start();
+			await site.stop();
+		}
+
 		const onEvent = ( data: ImportExportEventData ) => {
 			const parentWindow = BrowserWindow.fromWebContents( event.sender );
 			sendIpcEventToRendererWithWindow( parentWindow, 'on-import', data, id );
@@ -228,7 +234,7 @@ export async function createSite(
 		enableHttps,
 	} as const;
 
-	const server = SiteServer.create( details, { wpVersion, blueprint } );
+	const server = SiteServer.create( details, { wpVersion, blueprint: blueprint?.blueprint } );
 
 	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
 		try {
@@ -251,7 +257,6 @@ export async function createSite(
 				nodePath.join( path, 'wp-config-studio.php' )
 			);
 		}
-
 		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
 			await installSqliteIntegration( path );
 		} else {
@@ -506,12 +511,14 @@ export async function startServer(
 	} );
 
 	if ( server.details.running ) {
-		try {
-			await server.updateCachedThumbnail();
-			await sendThumbnailChangedEvent( event, id );
-		} catch ( error ) {
-			console.error( `Failed to update thumbnail for server ${ id }:`, error );
-		}
+		void ( async () => {
+			try {
+				await server.updateCachedThumbnail();
+				await sendThumbnailChangedEvent( event, id );
+			} catch ( error ) {
+				console.error( `Failed to update thumbnail for server ${ id }:`, error );
+			}
+		} )();
 	}
 
 	console.log( `Server started for '${ server.details.name }'` );

@@ -143,12 +143,12 @@ export function useAddSite() {
 							body: __( 'Your new site was imported' ),
 						} );
 					} else {
+						await startServer( newSite.id );
+
 						getIpcApi().showNotification( {
 							title: newSite.name,
 							body: __( 'Your new site was created' ),
 						} );
-
-						await startServer( newSite.id );
 					}
 				}
 			);

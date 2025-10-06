@@ -40,7 +40,14 @@ export interface WordPressServerInstance {
 
 export interface WordPressServerProcess {
 	url: string;
-	php?: { documentRoot: string };
+	php?: {
+		documentRoot: string;
+		request?: ( options: {
+			url: string;
+			method: string;
+			body: Record< string, string >;
+		} ) => Promise< { text: string } >;
+	};
 	start(): Promise< void >;
 	stop(): Promise< void >;
 	runPhp( data: { code: string; [ key: string ]: unknown } ): Promise< string >;

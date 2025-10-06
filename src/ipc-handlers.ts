@@ -158,6 +158,7 @@ export async function importSite(
 	}
 	try {
 		if ( ! isWordPressDirectory( site.details.path ) ) {
+			// Workaround to have the necessary WordPress files to run the import - STU-744
 			await site.start();
 			await site.stop();
 		}

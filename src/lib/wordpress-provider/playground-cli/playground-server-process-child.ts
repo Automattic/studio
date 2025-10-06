@@ -109,6 +109,10 @@ process.parentPort.on( 'message', async ( event ) => {
 
 process.parentPort.postMessage( { type: 'ready' } );
 
+function escapePhpString( str: string ): string {
+	return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
+}
+
 async function setAdminPassword( server: RunCLIServer, adminPassword: string ): Promise< void > {
 	// Use the persistent mu-plugin API endpoint to avoid loading WordPress again
 	await server.playground.request( {
@@ -116,7 +120,7 @@ async function setAdminPassword( server: RunCLIServer, adminPassword: string ): 
 		method: 'POST',
 		body: {
 			action: 'set_admin_password',
-			password: adminPassword,
+			password: escapePhpString( adminPassword ),
 		},
 	} );
 }

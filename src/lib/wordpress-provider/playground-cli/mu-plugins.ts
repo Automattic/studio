@@ -317,14 +317,15 @@ function getStandardMuPlugins( options: Partial< WordPressServerOptions > ): MuP
 		 * This endpoint should only be accessible locally.
 		 */
 
-		add_action( 'init', function() {
-			// Only handle requests to our endpoint
-			$is_api_request = isset( $_GET['studio-admin-api'] ) ||
-			                  strpos( $_SERVER['REQUEST_URI'] ?? '', 'studio-admin-api' ) !== false;
+		// Check if this is an API request before WordPress routing
+		$is_api_request = isset( $_GET['studio-admin-api'] ) ||
+		                  strpos( $_SERVER['REQUEST_URI'] ?? '', 'studio-admin-api' ) !== false;
 
-			if ( ! $is_api_request ) {
-				return;
-			}
+		if ( ! $is_api_request ) {
+			return;
+		}
+
+		add_action( 'plugins_loaded', function() {
 
 			// Security: Only allow POST requests with the correct action
 			if ( $_SERVER['REQUEST_METHOD'] !== 'POST' || empty( $_POST['action'] ) ) {

@@ -48,63 +48,18 @@ const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
 const originalConsoleWarn = console.warn;
 
-let lastLogTimestamp = performance.now();
-let runCliStartTimestamp = 0;
-
 console.log = ( ...args: any[] ) => {
-	const now = performance.now();
-	const timeSinceLastLog = runCliStartTimestamp > 0 ? now - lastLogTimestamp : 0;
-	const timeSinceRunCliStart = runCliStartTimestamp > 0 ? now - runCliStartTimestamp : 0;
-
-	if ( timeSinceLastLog > 0 ) {
-		originalConsoleLog(
-			'[playground-cli]',
-			`[+${ timeSinceLastLog.toFixed( 2 ) }ms | Total: ${ timeSinceRunCliStart.toFixed( 2 ) }ms]`,
-			...args
-		);
-	} else {
-		originalConsoleLog( '[playground-cli]', ...args );
-	}
-
-	lastLogTimestamp = now;
+	originalConsoleLog( '[playground-cli]', ...args );
 	process.parentPort.postMessage( { type: 'activity' } );
 };
 
 console.error = ( ...args: any[] ) => {
-	const now = performance.now();
-	const timeSinceLastLog = runCliStartTimestamp > 0 ? now - lastLogTimestamp : 0;
-	const timeSinceRunCliStart = runCliStartTimestamp > 0 ? now - runCliStartTimestamp : 0;
-
-	if ( timeSinceLastLog > 0 ) {
-		originalConsoleError(
-			'[playground-cli]',
-			`[+${ timeSinceLastLog.toFixed( 2 ) }ms | Total: ${ timeSinceRunCliStart.toFixed( 2 ) }ms]`,
-			...args
-		);
-	} else {
-		originalConsoleError( '[playground-cli]', ...args );
-	}
-
-	lastLogTimestamp = now;
+	originalConsoleError( '[playground-cli]', ...args );
 	process.parentPort.postMessage( { type: 'activity' } );
 };
 
 console.warn = ( ...args: any[] ) => {
-	const now = performance.now();
-	const timeSinceLastLog = runCliStartTimestamp > 0 ? now - lastLogTimestamp : 0;
-	const timeSinceRunCliStart = runCliStartTimestamp > 0 ? now - runCliStartTimestamp : 0;
-
-	if ( timeSinceLastLog > 0 ) {
-		originalConsoleWarn(
-			'[playground-cli]',
-			`[+${ timeSinceLastLog.toFixed( 2 ) }ms | Total: ${ timeSinceRunCliStart.toFixed( 2 ) }ms]`,
-			...args
-		);
-	} else {
-		originalConsoleWarn( '[playground-cli]', ...args );
-	}
-
-	lastLogTimestamp = now;
+	originalConsoleWarn( '[playground-cli]', ...args );
 	process.parentPort.postMessage( { type: 'activity' } );
 };
 
@@ -143,7 +98,7 @@ process.parentPort.on( 'message', async ( event ) => {
 				result = await httpRequest( message.data );
 				break;
 			default:
-				throw new Error( `Unknown message type: ${ message.type }` );
+				throw new Error( `Unknown message type: ${ message }` );
 		}
 
 		process.parentPort.postMessage( { id: message.id, result } );
@@ -222,8 +177,6 @@ async function startServer(
 
 		args.blueprint.constants = { ...args.blueprint.constants, ...defaultConstants };
 
-		runCliStartTimestamp = performance.now();
-		lastLogTimestamp = runCliStartTimestamp;
 		server = await runCLI( args );
 
 		if ( serverOptions.adminPassword ) {

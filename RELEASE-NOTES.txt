@@ -11,7 +11,10 @@ Unreleased
 * Improved export controls to preserve information about completed export #1657
 * Revised environment types and badge display logic #1645
 * Fixed issue with site screenshot taken on Mac having different sizes #1676
+* Specified explicit fonts to fix the missing fonts on MacOS Tahoe #1838
+* Fixed auth token validation for older config files #1834
 * Migrated bundler from Webpack to Vite #1794
+* Hidden the What's New for newly onboarded users #1837
 * Updated multiple dependencies, including Electron, Forge, Playground, and SQLite plugin, to the latest versions
 
 1.5.6

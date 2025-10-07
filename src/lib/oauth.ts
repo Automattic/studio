@@ -35,8 +35,8 @@ async function getToken(): Promise< StoredToken | null > {
 }
 
 export function getSignUpUrl( locale: SupportedLocale ) {
-	const authUrl = encodeURIComponent( getAuthenticationUrl( locale ) );
-	return `https://wordpress.com/log-in/link?redirect_to=${ authUrl }&client_id=${ CLIENT_ID }&locale=${ locale }`;
+	const oauth2Redirect = encodeURIComponent( getAuthenticationUrl( locale ) );
+	return `https://wordpress.com/start/wpcc/oauth2-user?oauth2_client_id=${ CLIENT_ID }&oauth2_redirect=${ oauth2Redirect }&locale=${ locale }`;
 }
 
 export async function getAuthenticationToken(): Promise< StoredToken | null > {

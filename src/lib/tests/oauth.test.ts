@@ -83,20 +83,20 @@ describe( 'getSignUpUrl', () => {
 
 		const url = new URL( result );
 		expect( url.origin ).toBe( 'https://wordpress.com' );
-		expect( url.pathname ).toBe( '/log-in/link' );
-		expect( url.searchParams.get( 'client_id' ) ).toBe( '95109' );
+		expect( url.pathname ).toBe( '/start/wpcc/oauth2-user' );
+		expect( url.searchParams.get( 'oauth2_client_id' ) ).toBe( '95109' );
 		expect( url.searchParams.get( 'locale' ) ).toBe( 'en' );
-		expect( url.searchParams.has( 'redirect_to' ) ).toBe( true );
+		expect( url.searchParams.has( 'oauth2_redirect' ) ).toBe( true );
 	} );
 
-	it( 'should include encoded authentication URL as redirect_to parameter', () => {
+	it( 'should include encoded authentication URL as oauth2_redirect parameter', () => {
 		const locale: SupportedLocale = 'es';
 		const mockAuthUrl =
 			'https://public-api.wordpress.com/oauth2/authorize?response_type=token&client_id=95109&redirect_uri=wpcom-local-dev%3A%2F%2Fauth&scope=global&locale=es';
 		const result = getSignUpUrl( locale );
 
 		const url = new URL( result );
-		const redirectTo = url.searchParams.get( 'redirect_to' );
+		const redirectTo = url.searchParams.get( 'oauth2_redirect' );
 		expect( redirectTo ).toBe( mockAuthUrl );
 	} );
 

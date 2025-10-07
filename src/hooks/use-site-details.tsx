@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -42,12 +43,14 @@ interface SiteDetailsContext {
 	isDeleting: boolean;
 	uploadingSites: { [ siteId: string ]: boolean };
 	setUploadingSites: React.Dispatch< React.SetStateAction< { [ siteId: string ]: boolean } > >;
+	siteCreationMessages: { [ siteId: string ]: string };
 }
 
 const defaultContext: SiteDetailsContext = {
 	selectedSite: null,
 	updateSite: async () => undefined,
 	data: [],
+	siteCreationMessages: {},
 	setSelectedSiteId: () => undefined,
 	createSite: async () => undefined,
 	startServer: async () => undefined,
@@ -154,6 +157,9 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const [ data, setData ] = useState< SiteDetails[] >( [] );
 	const [ loadingSites, setLoadingSites ] = useState< boolean >( true );
 	const [ addingSiteIds, setAddingSiteIds ] = useState< string[] >( [] );
+	const [ siteCreationMessages, setSiteCreationMessages ] = useState< {
+		[ siteId: string ]: string;
+	} >( {} );
 	const firstSite = data[ 0 ] || null;
 	const [ loadingServer, setLoadingServer ] = useState< Record< string, boolean > >(
 		firstSite?.id
@@ -166,6 +172,15 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const [ uploadingSites, setUploadingSites ] = useState< { [ siteId: string ]: boolean } >( {} );
 	const { deleteSite, isLoading: isDeleting } = useDeleteSite();
 	const { setSelectedTab, selectedTab } = useContentTabs();
+
+	useIpcListener( 'on-site-create-progress', ( _, { siteId, message } ) => {
+		if ( siteId && message ) {
+			setSiteCreationMessages( ( prev ) => ( {
+				...prev,
+				[ siteId ]: message,
+			} ) );
+		}
+	} );
 
 	const toggleLoadingServerForSite = useCallback( ( siteId: string ) => {
 		setLoadingServer( ( currentLoading ) => ( {
@@ -269,6 +284,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					wpVersion,
 					customDomain,
 					enableHttps,
+					siteId: tempSiteId,
 					blueprint,
 				} );
 				if ( ! newSite ) {
@@ -292,6 +308,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				setData( ( prevData ) =>
 					prevData.map( ( site ) => ( site.id === tempSiteId ? newSite : site ) )
 				);
+
+				setSiteCreationMessages( ( prev ) => {
+					const { [ newSite.id ]: _, ...rest } = prev;
+					return rest;
+				} );
 
 				if ( callback ) {
 					await callback( newSite );
@@ -495,6 +516,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			loadingSites,
 			uploadingSites,
 			setUploadingSites,
+			siteCreationMessages,
 		} ),
 		[
 			selectedSite,
@@ -511,6 +533,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			isDeleting,
 			loadingSites,
 			uploadingSites,
+			siteCreationMessages,
 		]
 	);
 

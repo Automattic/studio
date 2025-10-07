@@ -1,15 +1,16 @@
-import { utilityProcess } from 'electron';
+import { BrowserWindow, utilityProcess } from 'electron';
 import path from 'path';
 import {
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 	PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL,
 } from 'src/constants';
+import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { WordPressServerProcess, WordPressServerOptions } from '../types';
 import { PlaygroundCliOptions } from './playground-cli-provider';
 
 export class PlaygroundServerProcess implements WordPressServerProcess {
-	private process: Electron.UtilityProcess | null = null;
+	private process: ( Electron.UtilityProcess & { siteId?: string } ) | null = null;
 	private messageId = 0;
 	private responseHandlers = new Map<
 		number,
@@ -19,6 +20,7 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 	private exitResolve: ( () => void ) | null = null;
 	private isSetupMode = false;
 	private lastActivityTimestamp = 0;
+	private consoleMessageCallback?: ( message: string ) => void;
 
 	constructor(
 		public url: string,
@@ -26,7 +28,11 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 		private serverOptions: WordPressServerOptions
 	) {}
 
-	async start(): Promise< void > {
+	setConsoleMessageCallback( callback: ( message: string ) => void ): void {
+		this.consoleMessageCallback = callback;
+	}
+
+	async start( siteId?: string ): Promise< void > {
 		if ( this.process ) {
 			return;
 		}
@@ -38,11 +44,37 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 
 		this.process = utilityProcess.fork( path.join( __dirname, 'playgroundServerProcess.js' ) );
 
+		if ( siteId && this.process ) {
+			this.process.siteId = siteId;
+		}
+
 		this.process.on(
 			'message',
-			( message: { type?: string; id?: number; error?: string; result?: unknown } ) => {
+			( message: {
+				type?: string;
+				id?: number;
+				error?: string;
+				result?: unknown;
+				message?: string;
+			} ) => {
 				if ( message.type === 'ready' ) {
 					return;
+				}
+
+				if ( message.type === 'console-message' && message.message ) {
+					const siteId = this.process?.siteId;
+					if ( siteId ) {
+						const allWindows = BrowserWindow.getAllWindows();
+						if ( allWindows.length > 0 ) {
+							sendIpcEventToRendererWithWindow( allWindows[ 0 ], 'on-site-create-progress', {
+								siteId,
+								message: message.message,
+							} );
+						}
+					}
+					if ( this.consoleMessageCallback ) {
+						this.consoleMessageCallback( message.message );
+					}
 				}
 
 				if ( message.type === 'activity' || message.id !== undefined ) {

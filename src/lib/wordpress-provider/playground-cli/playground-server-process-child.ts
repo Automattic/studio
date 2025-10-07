@@ -48,9 +48,24 @@ const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
 const originalConsoleWarn = console.warn;
 
+function formatMessageForUI( message: string ): string | null {
+	if ( message.includes( 'WordPress is running on' ) ) {
+		return 'WordPress is running';
+	}
+	if ( message.includes( 'Resolved WordPress release URL' ) ) {
+		return 'Downloading WordPress…';
+	}
+	return message;
+}
+
 console.log = ( ...args: any[] ) => {
 	originalConsoleLog( '[playground-cli]', ...args );
+	const message = args.join( ' ' );
 	process.parentPort.postMessage( { type: 'activity' } );
+	const formattedMessage = formatMessageForUI( message );
+	if ( formattedMessage ) {
+		process.parentPort.postMessage( { type: 'console-message', message: formattedMessage } );
+	}
 };
 
 console.error = ( ...args: any[] ) => {

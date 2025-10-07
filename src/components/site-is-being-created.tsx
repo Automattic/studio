@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react';
 
 interface SiteIsBeingCreatedProps {
 	siteName: string;
-	importStatusMessage?: string;
+	statusMessage?: string;
 }
 
-export function SiteIsBeingCreated( { siteName, importStatusMessage }: SiteIsBeingCreatedProps ) {
+export function SiteIsBeingCreated( { siteName, statusMessage }: SiteIsBeingCreatedProps ) {
 	const { __ } = useI18n();
 	const [ currentMessageIndex, setCurrentMessageIndex ] = useState( 0 );
 
@@ -32,7 +32,7 @@ export function SiteIsBeingCreated( { siteName, importStatusMessage }: SiteIsBei
 		return () => clearInterval( interval );
 	}, [ statusMessages.length ] );
 
-	const displayMessage = importStatusMessage || statusMessages[ currentMessageIndex ];
+	const displayMessage = statusMessage || statusMessages[ currentMessageIndex ];
 
 	return (
 		<div className="flex flex-col w-full h-full app-no-drag-region pt-8 overflow-y-auto justify-center items-center">

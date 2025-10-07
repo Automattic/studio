@@ -194,11 +194,10 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					progressData.totalFiles != null &&
 					progressData.totalFiles > 0
 				) {
-					statusMessage = sprintf(
-						__( 'Extracting backup… (%1$d/%2$d files)' ),
-						progressData.processedFiles,
-						progressData.totalFiles
+					const percentage = Math.round(
+						( progressData.processedFiles / progressData.totalFiles ) * 100
 					);
+					statusMessage = sprintf( __( 'Extracting backup… (%d%%)' ), percentage );
 				}
 
 				setImportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
@@ -240,11 +239,10 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					progressData.totalFiles != null &&
 					progressData.totalFiles > 0
 				) {
-					statusMessage = sprintf(
-						__( 'Importing database… (%1$d/%2$d SQL files)' ),
-						progressData.processedFiles,
-						progressData.totalFiles
+					const percentage = Math.round(
+						( progressData.processedFiles / progressData.totalFiles ) * 100
 					);
+					statusMessage = sprintf( __( 'Importing database… (%d%%)' ), percentage );
 				}
 
 				const progressIncrement = progressData.totalFiles
@@ -289,12 +287,11 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					progressData.totalItems != null &&
 					progressData.totalItems > 0
 				) {
-					statusMessage = sprintf(
-						__( '%1$s (%2$d/%3$d)' ),
-						WP_CONTENT_TYPE_LABELS[ progressData.type ] || __( 'Importing files…' ),
-						progressData.processedItems,
-						progressData.totalItems
+					const percentage = Math.round(
+						( progressData.processedItems / progressData.totalItems ) * 100
 					);
+					const baseLabel = WP_CONTENT_TYPE_LABELS[ progressData.type ] || __( 'Importing files…' );
+					statusMessage = sprintf( __( '%1$s (%2$d%%)' ), baseLabel, percentage );
 				}
 
 				const progressIncrement = progressData.totalItems

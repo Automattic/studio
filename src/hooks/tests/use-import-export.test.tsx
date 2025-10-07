@@ -536,7 +536,7 @@ describe( 'useImportExport hook', () => {
 
 		expect( result.current.importState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Extracting backup… (123/250 files)',
+				statusMessage: 'Extracting backup… (49%)',
 				progress: 27.5, // 5 + (0.5 * 45)
 				isNewSite: false,
 			},
@@ -589,7 +589,7 @@ describe( 'useImportExport hook', () => {
 
 		expect( result.current.importState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Importing database… (1/3 SQL files)',
+				statusMessage: 'Importing database… (33%)',
 				progress: Math.min( 80, 60 + ( 1 / 3 ) * 20 ), // ~66.67
 				isNewSite: false,
 			},
@@ -604,7 +604,7 @@ describe( 'useImportExport hook', () => {
 
 		expect( result.current.importState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Importing database… (2/3 SQL files)',
+				statusMessage: 'Importing database… (67%)',
 				progress: Math.min( 80, 60 + ( 2 / 3 ) * 20 ), // ~73.33
 				isNewSite: false,
 			},
@@ -645,7 +645,7 @@ describe( 'useImportExport hook', () => {
 
 		expect( result.current.importState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Importing plugins… (5/12)',
+				statusMessage: 'Importing plugins… (42%)',
 				progress: Math.min( 90, 80 + ( 5 / 12 ) * 10 ), // ~84.17
 				isNewSite: false,
 			},
@@ -661,7 +661,7 @@ describe( 'useImportExport hook', () => {
 
 		expect( result.current.importState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Importing themes… (2/3)',
+				statusMessage: 'Importing themes… (67%)',
 				progress: Math.min( 90, 80 + ( 2 / 3 ) * 10 ), // ~86.67
 				isNewSite: false,
 			},
@@ -677,7 +677,7 @@ describe( 'useImportExport hook', () => {
 
 		expect( result.current.importState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Importing media uploads… (150/500)',
+				statusMessage: 'Importing media uploads… (30%)',
 				progress: Math.min( 90, 80 + ( 150 / 500 ) * 10 ), // 83
 				isNewSite: false,
 			},
@@ -693,7 +693,7 @@ describe( 'useImportExport hook', () => {
 
 		expect( result.current.importState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Importing other files… (10/25)',
+				statusMessage: 'Importing other files… (40%)',
 				progress: Math.min( 90, 80 + ( 10 / 25 ) * 10 ), // 84
 				isNewSite: false,
 			},
@@ -708,7 +708,7 @@ describe( 'useImportExport hook', () => {
 
 		expect( result.current.importState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Importing files… (10/25)',
+				statusMessage: 'Importing files… (40%)',
 				progress: Math.min( 90, 80 + ( 10 / 25 ) * 10 ), // 84
 				isNewSite: false,
 			},

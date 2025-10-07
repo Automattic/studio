@@ -78,7 +78,7 @@
 		"cross-env": "^7.0.3",
 		"css-loader": "^6.0.0",
 		"ejs": "^3.1.10",
-		"electron": "37.5.1",
+		"electron": "38.1.1",
 		"electron-devtools-installer": "^4.0.0",
 		"electron-playwright-helpers": "^1.7.1",
 		"electron-vite": "^4.0.0",

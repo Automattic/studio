@@ -11,7 +11,7 @@ export async function isOnline(): Promise< boolean > {
 			setTimeout( () => reject( new Error( 'Timeout' ) ), 5000 )
 		);
 
-		await Promise.race( [ dns.resolve( 'google.com' ), timeoutPromise ] );
+		await Promise.race( [ dns.resolve( 'public-api.wordpress.com' ), timeoutPromise ] );
 
 		return true;
 	} catch {

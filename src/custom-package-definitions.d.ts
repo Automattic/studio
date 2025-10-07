@@ -28,6 +28,11 @@ declare module '*.riv' {
 	export default dataUri;
 }
 
+declare module '*.riv?url' {
+	const url: string;
+	export default url;
+}
+
 declare module '*.wasm' {
 	const dataUri: function;
 	export default dataUri;

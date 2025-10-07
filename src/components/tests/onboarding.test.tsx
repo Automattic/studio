@@ -54,6 +54,16 @@ jest.mock( 'src/stores/certificate-trust-api', () => {
 	};
 } );
 
+const mockSaveLastSeenVersion = jest.fn();
+
+jest.mock( 'src/stores/app-version-api', () => {
+	const actual = jest.requireActual( 'src/stores/app-version-api' ) || {};
+	return {
+		...actual,
+		useSaveLastSeenVersionMutation: jest.fn( () => [ mockSaveLastSeenVersion ] ),
+	};
+} );
+
 const mockGenerateProposedSitePath =
 	jest.fn< ( siteName: string ) => Promise< FolderDialogResponse > >();
 
@@ -79,6 +89,7 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 			defaultPhpVersion: '8.3',
 			defaultWordPressVersion: 'latest',
 			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+			minimumWordPressVersion: '6.2.6',
 		},
 	} );
 	return render( <Provider store={ store }>{ children }</Provider> );
@@ -127,6 +138,8 @@ describe( 'Onboarding Component', () => {
 
 	beforeEach( () => {
 		jest.clearAllMocks();
+		mockSaveLastSeenVersion.mockResolvedValue( { data: undefined } as never );
+		window.appGlobals = { appVersion: '1.0.0' } as typeof window.appGlobals;
 
 		( useOnboarding as jest.Mock ).mockReturnValue( {
 			needsOnboarding: true,
@@ -323,5 +336,32 @@ describe( 'Onboarding Component', () => {
 				'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
 			)
 		).not.toBeInTheDocument();
+	} );
+
+	it( 'should save the current app version when onboarding completes', async () => {
+		const mockSaveLastSeenVersion = jest.fn();
+		const mockAppVersion = '1.0.0';
+
+		// Mock window.appGlobals
+		window.appGlobals = { appVersion: mockAppVersion } as typeof window.appGlobals;
+
+		const appVersionApi = jest.requireMock< {
+			useSaveLastSeenVersionMutation: jest.Mock;
+		} >( 'src/stores/app-version-api' );
+		appVersionApi.useSaveLastSeenVersionMutation.mockReturnValue( [ mockSaveLastSeenVersion ] );
+
+		const mockHandleAddSiteClick = jest.fn();
+		( useAddSite as jest.Mock ).mockReturnValue( {
+			...useAddSiteMockValue,
+			handleAddSiteClick: mockHandleAddSiteClick,
+		} );
+
+		const { getByText } = renderWithProvider( <Onboarding /> );
+
+		await user.click( getByText( 'Continue' ) );
+
+		await waitFor( () => {
+			expect( mockSaveLastSeenVersion ).toHaveBeenCalledWith( mockAppVersion );
+		} );
 	} );
 } );

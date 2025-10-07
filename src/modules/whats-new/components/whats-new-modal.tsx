@@ -60,7 +60,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			image: blueprintsIllustration,
 			title: __( 'Introducing Blueprints, a new way to streamline site creation.' ),
 			description: __(
-				'Select a blueprint that fits your needs and build your WordPress site even faster.'
+				'Select a Blueprint that fits your needs and build your WordPress site even faster.'
 			),
 			learnMoreUrl: getLocalizedLink( locale, 'docsBlueprints' ),
 		},
@@ -116,7 +116,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			onFinish={ onClose }
 			contentLabel={ __( "What's New in Studio" ) }
 			className={ cx(
-				"whats-new-modal !w-[360px] !h-[470px] overflow-hidden [&_button[aria-label='Close']_svg]:fill-white [&_.components-button.is-tertiary]:!outline-1 [&_.components-button.is-tertiary]:!outline-solid [&_.components-button.is-tertiary]:!outline-a8c-blue-50",
+				'whats-new-modal !w-[360px] !h-[470px] overflow-hidden [&_.components-button.is-compact.has-icon_svg]:!fill-white [&_.components-button.is-tertiary]:!outline-1 [&_.components-button.is-tertiary]:!outline-solid [&_.components-button.is-tertiary]:!outline-a8c-blue-50',
 				'[&_*]:select-none',
 				'focus:outline-none'
 			) }

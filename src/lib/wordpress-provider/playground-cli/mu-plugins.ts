@@ -303,6 +303,92 @@ function getStandardMuPlugins( options: Partial< WordPressServerOptions > ): MuP
 		`,
 	} );
 
+	// Studio Admin API: Persistent endpoint for admin operations
+	muPlugins.push( {
+		filename: '0-studio-admin-api.php',
+		content: `<?php
+		/**
+		 * Studio Admin API
+		 *
+		 * Provides a persistent endpoint for admin operations that can reuse
+		 * the already-loaded WordPress instance, avoiding the overhead of
+		 * loading wp-load.php multiple times.
+		 *
+		 * This endpoint should only be accessible locally.
+		 */
+
+		// Check if this is an API request before WordPress routing
+		$is_api_request = isset( $_GET['studio-admin-api'] ) ||
+		                  strpos( $_SERVER['REQUEST_URI'] ?? '', 'studio-admin-api' ) !== false;
+
+		if ( ! $is_api_request ) {
+			return;
+		}
+
+		add_action( 'plugins_loaded', function() {
+
+			// Security: Only allow POST requests with the correct action
+			if ( $_SERVER['REQUEST_METHOD'] !== 'POST' || empty( $_POST['action'] ) ) {
+				status_header( 400 );
+				header( 'Content-Type: application/json' );
+				echo json_encode( [ 'error' => 'Invalid request' ] );
+				exit;
+			}
+
+			$action = $_POST['action'];
+			$result = null;
+
+			switch ( $action ) {
+				case 'get_theme_details':
+					$theme = wp_get_theme();
+					$result = [
+						'name' => $theme->get('Name'),
+						'path' => $theme->get_stylesheet_directory(),
+						'slug' => $theme->get_stylesheet(),
+						'isBlockTheme' => $theme->is_block_theme(),
+						'supportsWidgets' => current_theme_supports('widgets'),
+						'supportsMenus' => get_registered_nav_menus() || current_theme_supports('menus'),
+					];
+					break;
+
+				case 'set_admin_password':
+					if ( empty( $_POST['password'] ) ) {
+						status_header( 400 );
+						header( 'Content-Type: application/json' );
+						echo json_encode( [ 'error' => 'Password is required' ] );
+						exit;
+					}
+
+					$user = get_user_by( 'login', 'admin' );
+					if ( $user ) {
+						wp_set_password( $_POST['password'], $user->ID );
+					} else {
+						$user_data = array(
+							'user_login' => 'admin',
+							'user_pass' => $_POST['password'],
+							'user_email' => 'admin@localhost.com',
+							'role' => 'administrator',
+						);
+						wp_insert_user( $user_data );
+					}
+					$result = [ 'success' => true ];
+					break;
+
+				default:
+					status_header( 400 );
+					header( 'Content-Type: application/json' );
+					echo json_encode( [ 'error' => 'Unknown action' ] );
+					exit;
+			}
+
+			status_header( 200 );
+			header( 'Content-Type: application/json' );
+			echo json_encode( $result );
+			exit;
+		}, 1 );
+		`,
+	} );
+
 	return muPlugins;
 }
 

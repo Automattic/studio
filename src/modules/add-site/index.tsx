@@ -15,6 +15,7 @@ import { formatRtkError } from 'src/stores/format-rtk-error';
 import {
 	selectDefaultPhpVersion,
 	selectDefaultWordPressVersion,
+	selectMinimumWordPressVersion,
 } from 'src/stores/provider-constants-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
@@ -72,6 +73,8 @@ function NavigationContent( props: NavigationContentProps ) {
 		setBlueprintPreferredVersions,
 		...createSiteProps
 	} = props;
+
+	const { setSelectedBlueprint, setPhpVersion, setWpVersion } = createSiteProps;
 
 	const handleOptionSelect = useCallback(
 		( option: 'create' | 'blueprint' | 'backup' ) => {
@@ -155,16 +158,16 @@ function NavigationContent( props: NavigationContentProps ) {
 
 				// Apply the preferred versions to the form
 				if ( preferredVersions.php && preferredVersions.php !== 'latest' ) {
-					createSiteProps.setPhpVersion( preferredVersions.php );
+					setPhpVersion( preferredVersions.php );
 				}
 				if ( preferredVersions.wp && preferredVersions.wp !== 'latest' ) {
-					createSiteProps.setWpVersion( preferredVersions.wp );
+					setWpVersion( preferredVersions.wp );
 				}
 			} else {
 				setBlueprintPreferredVersions( undefined );
 			}
 		},
-		[ createSiteProps, setBlueprintPreferredVersions ]
+		[ setBlueprintPreferredVersions, setPhpVersion, setWpVersion ]
 	);
 
 	const handleBlueprintChange = useCallback(
@@ -172,18 +175,18 @@ function NavigationContent( props: NavigationContentProps ) {
 			const blueprint = blueprintsData?.blueprints.find(
 				( b: Blueprint ) => b.slug === blueprintId
 			);
-			createSiteProps.setSelectedBlueprint( blueprint );
+			setSelectedBlueprint( blueprint );
 			applyBlueprintVersions( blueprint );
 		},
-		[ blueprintsData?.blueprints, createSiteProps, applyBlueprintVersions ]
+		[ blueprintsData?.blueprints, setSelectedBlueprint, applyBlueprintVersions ]
 	);
 
 	const handleFileBlueprintSelect = useCallback(
 		( blueprint: Blueprint ) => {
-			createSiteProps.setSelectedBlueprint( blueprint );
+			setSelectedBlueprint( blueprint );
 			applyBlueprintVersions( blueprint );
 		},
-		[ createSiteProps, applyBlueprintVersions ]
+		[ setSelectedBlueprint, applyBlueprintVersions ]
 	);
 
 	return (
@@ -275,7 +278,10 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		( site ) => site.isAddingSite || importState[ site.id ]?.isNewSite
 	);
 
-	const { data: versions = [] } = useGetWordPressVersions();
+	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
+	const { data: versions = [] } = useGetWordPressVersions( {
+		minimumVersion: minimumWordPressVersion,
+	} );
 	const latestStableVersion = versions.find( ( version ) => version.value === 'latest' );
 
 	const resetForm = useCallback( () => {

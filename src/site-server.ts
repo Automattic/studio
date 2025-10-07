@@ -1,9 +1,11 @@
 import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { BlueprintV1Declaration } from '@wp-playground/blueprints';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { portFinder } from 'common/lib/port-finder';
+import { filterUnsupportedBlueprintFeatures } from 'src/lib/blueprint-features';
 import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { addDomainToHosts, removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
@@ -20,7 +22,6 @@ import {
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
-import { Blueprint } from './stores/wpcom-api';
 import type { WordPressServerProcess } from 'src/lib/wordpress-provider/types';
 
 const servers = new Map< string, SiteServer >();
@@ -51,7 +52,7 @@ function getAbsoluteUrl( details: SiteDetails ): string {
 // We use SiteDetails for storing it in appdata-v1.json, so this meta was introduced for extra data which is not stored locally
 type SiteServerMeta = {
 	wpVersion?: string;
-	blueprint?: Blueprint;
+	blueprint?: BlueprintV1Declaration;
 };
 
 export class SiteServer {
@@ -132,6 +133,7 @@ export class SiteServer {
 			await startProxyServer();
 		}
 
+		const filteredBlueprint = filterUnsupportedBlueprintFeatures( this.meta.blueprint );
 		const serverInstance = await startServer( {
 			path: this.details.path,
 			port: this.details.port,
@@ -141,6 +143,7 @@ export class SiteServer {
 			wpVersion: this.meta.wpVersion,
 			isWpAutoUpdating: this.details.isWpAutoUpdating,
 			absoluteUrl: getAbsoluteUrl( this.details ),
+			blueprint: filteredBlueprint,
 		} );
 
 		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
@@ -170,6 +173,10 @@ export class SiteServer {
 			autoStart: true,
 			themeDetails,
 		};
+
+		if ( this.meta.blueprint ) {
+			this.meta.blueprint = undefined;
+		}
 	}
 
 	async updateSiteDetails( site: SiteDetails ) {

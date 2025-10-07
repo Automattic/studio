@@ -50,6 +50,7 @@ let testStore = createTestStore( {
 		defaultPhpVersion: '8.3',
 		defaultWordPressVersion: 'latest',
 		allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+		minimumWordPressVersion: '6.2.6',
 	},
 } );
 
@@ -60,6 +61,7 @@ function createCustomTestStore() {
 			defaultPhpVersion: '8.3',
 			defaultWordPressVersion: 'latest',
 			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+			minimumWordPressVersion: '6.2.6',
 		},
 	} );
 	store.replaceReducer( snapshotTestReducer );

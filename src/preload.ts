@@ -146,6 +146,8 @@ const api: IpcApi = {
 			editorLabel,
 			terminalLabel
 		),
+	setWindowControlVisibility: ( visible ) =>
+		ipcRendererInvoke( 'setWindowControlVisibility', visible ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

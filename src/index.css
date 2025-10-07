@@ -1,3 +1,6 @@
+/* Import WordPress component styles - these are handled by Vite */
+@import '@wordpress/components/build-style/style.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -9,7 +12,12 @@
 }
 
 body {
-	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+	font-family:
+	  -apple-system, BlinkMacSystemFont, /* macOS/iOS system UI */
+	  'Segoe UI', Roboto, /* Windows + Android system UI */
+	  'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', /* emoji */
+	  'Noto Sans', 'Arial Unicode MS', /* broad Unicode coverage */
+	  sans-serif;
 }
 
 .app-drag-region {

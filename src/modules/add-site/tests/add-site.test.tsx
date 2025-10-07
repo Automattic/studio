@@ -56,6 +56,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		showOpenFolderDialog: mockShowOpenFolderDialog,
 		generateProposedSitePath: mockGenerateProposedSitePath,
 		getAllCustomDomains: mockGetAllCustomDomains,
+		setWindowControlVisibility: jest.fn(),
 	} ),
 } ) );
 
@@ -95,6 +96,7 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 			defaultPhpVersion: '8.3',
 			defaultWordPressVersion: 'latest',
 			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+			minimumWordPressVersion: '6.2.6',
 		},
 	} );
 	return render( <Provider store={ store }>{ children }</Provider> );
@@ -573,7 +575,7 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		await user.click(
 			screen.getByRole( 'button', {
-				name: 'Start from a blueprint Choose a featured blueprint or use your own',
+				name: 'Start from a Blueprint Choose a featured Blueprint or use your own',
 			} )
 		);
 
@@ -593,7 +595,7 @@ describe( 'AddSite', () => {
 		// Should show warning since PHP version differs from preferred (8.1)
 		await waitFor( () => {
 			expect(
-				screen.getByText( 'Version differs from blueprint recommendation' )
+				screen.getByText( 'Version differs from Blueprint recommendation' )
 			).toBeInTheDocument();
 			expect( screen.getByText( 'PHP 8.1 (currently 8.3)' ) ).toBeInTheDocument();
 		} );
@@ -635,7 +637,7 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		await user.click(
 			screen.getByRole( 'button', {
-				name: 'Start from a blueprint Choose a featured blueprint or use your own',
+				name: 'Start from a Blueprint Choose a featured Blueprint or use your own',
 			} )
 		);
 
@@ -650,7 +652,7 @@ describe( 'AddSite', () => {
 
 		// Should not show warning since versions match preferred versions
 		expect(
-			screen.queryByText( 'Version differs from blueprint recommendation' )
+			screen.queryByText( 'Version differs from Blueprint recommendation' )
 		).not.toBeInTheDocument();
 	} );
 } );

@@ -5,8 +5,6 @@ import { z } from 'zod';
 import { isWordPressDevVersion, isWordPressBetaVersion } from 'src/lib/wordpress-version-utils';
 import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
 
-const MINIMUM_WORDPRESS_VERSION = '5.9.9';
-
 const wordPressApiResponseSchema = z.object( {
 	offers: z.array( z.any() ),
 } );
@@ -109,12 +107,12 @@ export const wordpressVersionsApi = createApi( {
 	reducerPath: 'wordpressVersionsApi',
 	baseQuery: fetchBaseQuery(),
 	endpoints: ( builder ) => ( {
-		getWordPressVersions: builder.query< WordPressVersion[], void >( {
-			queryFn: async () => {
+		getWordPressVersions: builder.query< WordPressVersion[], { minimumVersion: string } >( {
+			queryFn: async ( { minimumVersion } ) => {
 				let stableData, developmentData;
 				try {
 					[ stableData, developmentData ] = await Promise.all( [
-						fetchWordPressApiData( 'beta', MINIMUM_WORDPRESS_VERSION ),
+						fetchWordPressApiData( 'beta', minimumVersion ),
 						fetchWordPressApiData( 'development' ),
 					] );
 				} catch ( error ) {

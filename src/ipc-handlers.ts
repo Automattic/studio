@@ -36,6 +36,7 @@ import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { ARCHIVER_OPTIONS, DEFAULT_TERMINAL, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
+import { scanBlueprintForUnsupportedFeatures } from 'src/lib/blueprint-features';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
 import {
@@ -158,6 +159,12 @@ export async function importSite(
 		throw new Error( 'Site not found.' );
 	}
 	try {
+		if ( ! isWordPressDirectory( site.details.path ) ) {
+			// Workaround to have the necessary WordPress files to run the import - STU-744
+			await site.start();
+			await site.stop();
+		}
+
 		const onEvent = ( data: ImportExportEventData ) => {
 			const parentWindow = BrowserWindow.fromWebContents( event.sender );
 			sendIpcEventToRendererWithWindow( parentWindow, 'on-import', data, id );
@@ -229,7 +236,7 @@ export async function createSite(
 		enableHttps,
 	} as const;
 
-	const server = SiteServer.create( details, { wpVersion, blueprint } );
+	const server = SiteServer.create( details, { wpVersion, blueprint: blueprint?.blueprint } );
 
 	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
 		try {
@@ -252,7 +259,6 @@ export async function createSite(
 				nodePath.join( path, 'wp-config-studio.php' )
 			);
 		}
-
 		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
 			await installSqliteIntegration( path );
 		} else {
@@ -507,12 +513,14 @@ export async function startServer(
 	} );
 
 	if ( server.details.running ) {
-		try {
-			await server.updateCachedThumbnail();
-			await sendThumbnailChangedEvent( event, id );
-		} catch ( error ) {
-			console.error( `Failed to update thumbnail for server ${ id }:`, error );
-		}
+		void ( async () => {
+			try {
+				await server.updateCachedThumbnail();
+				await sendThumbnailChangedEvent( event, id );
+			} catch ( error ) {
+				console.error( `Failed to update thumbnail for server ${ id }:`, error );
+			}
+		} )();
 	}
 
 	console.log( `Server started for '${ server.details.name }'` );
@@ -1657,17 +1665,38 @@ export async function getProviderConstants( _event: IpcMainInvokeEvent ) {
 
 export async function validateBlueprint(
 	_event: IpcMainInvokeEvent,
-	blueprintJson: object
-): Promise< { valid: boolean; error?: string } > {
+	blueprintJson: Blueprint[ 'blueprint' ]
+): Promise< {
+	valid: boolean;
+	error?: string;
+	warnings?: Array< { feature: string; reason: string; alternative?: string } >;
+} > {
 	try {
 		await compileBlueprint( blueprintJson );
-
-		return { valid: true };
 	} catch ( error ) {
-		const errorMessage = error instanceof Error ? error.message : 'Invalid Blueprint format';
+		const errorMessage = error instanceof Error ? error.message : __( 'Invalid Blueprint format' );
 		return {
 			valid: false,
 			error: errorMessage,
 		};
+	}
+
+	const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson );
+
+	const warnings = unsupportedFeatures.map( ( feature ) => ( {
+		feature: feature.name,
+		reason: feature.reason,
+	} ) );
+
+	return {
+		valid: true,
+		warnings: warnings.length > 0 ? warnings : undefined,
+	};
+}
+
+export async function setWindowControlVisibility( event: IpcMainInvokeEvent, visible: boolean ) {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( parentWindow && process.platform === 'darwin' ) {
+		parentWindow.setWindowButtonVisibility( visible );
 	}
 }

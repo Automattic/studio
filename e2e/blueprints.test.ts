@@ -1,0 +1,253 @@
+import path from 'path';
+import { test, expect } from '@playwright/test';
+import fs from 'fs-extra';
+import { E2ESession } from './e2e-helpers';
+import MainSidebar from './page-objects/main-sidebar';
+import Onboarding from './page-objects/onboarding';
+import SiteContent from './page-objects/site-content';
+import WhatsNewModal from './page-objects/whats-new-modal';
+
+test.describe( 'Blueprints', () => {
+	const session = new E2ESession();
+
+	test.beforeAll( async () => {
+		await session.launch();
+
+		// Complete onboarding before tests
+		const onboarding = new Onboarding( session.mainWindow );
+		await expect( onboarding.heading ).toBeVisible();
+		await onboarding.continueButton.click();
+
+		const whatsNewModal = new WhatsNewModal( session.mainWindow );
+		if ( await whatsNewModal.locator.isVisible( { timeout: 5000 } ) ) {
+			await whatsNewModal.closeButton.click();
+		}
+
+		const siteContent = new SiteContent( session.mainWindow, 'My WordPress Website' );
+		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 60_000 } );
+	} );
+
+	test.afterAll( async () => {
+		await session.cleanup();
+	} );
+
+	test( 'create site with blueprint that installs a theme', async ( { page } ) => {
+		const siteName = 'Blueprint-Theme-Install';
+		const blueprintPath = path.join( __dirname, 'test-blueprints', 'install-theme.json' );
+
+		const sidebar = new MainSidebar( session.mainWindow );
+		const modal = await sidebar.openAddSiteModal();
+
+		// Select blueprint option
+		await expect( modal.blueprintButton ).toBeVisible();
+		await modal.blueprintButton.click();
+
+		// Upload blueprint file
+		await modal.selectBlueprintFile( blueprintPath );
+
+		// Wait for file to be processed and continue button to be enabled
+		await session.mainWindow.waitForTimeout( 1000 );
+		await modal.continueButton.click();
+
+		// Fill in site name
+		await modal.siteNameInput.fill( siteName );
+		await modal.addSiteButton.click();
+
+		// Wait for site to be created and running
+		const siteContent = new SiteContent( session.mainWindow, siteName );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
+
+		// Navigate to Settings tab to get admin URL
+		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
+
+		// Verify theme was installed
+		await page.goto( wpAdminUrl + '/themes.php?playground-auto-login=true' );
+		await expect( page.locator( '.theme[data-slug="twentytwentytwo"]' ) ).toBeVisible();
+	} );
+
+	test( 'create site with blueprint that activates a theme', async ( { page } ) => {
+		const siteName = 'Blueprint-Theme-Activate';
+		const blueprintPath = path.join( __dirname, 'test-blueprints', 'activate-theme.json' );
+
+		const sidebar = new MainSidebar( session.mainWindow );
+		const modal = await sidebar.openAddSiteModal();
+
+		// Select blueprint option
+		await expect( modal.blueprintButton ).toBeVisible();
+		await modal.blueprintButton.click();
+
+		// Upload blueprint file
+		await modal.selectBlueprintFile( blueprintPath );
+
+		// Wait for file to be processed and continue button to be enabled
+		await session.mainWindow.waitForTimeout( 1000 );
+		await modal.continueButton.click();
+
+		// Fill in site name
+		await modal.siteNameInput.fill( siteName );
+		await modal.addSiteButton.click();
+
+		// Wait for site to be created and running
+		const siteContent = new SiteContent( session.mainWindow, siteName );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
+
+		// Navigate to Settings tab to get admin URL
+		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
+
+		// Verify theme was activated
+		await page.goto( wpAdminUrl + '/themes.php?playground-auto-login=true' );
+		const activeTheme = page.locator( '.theme.active' );
+		await expect( activeTheme ).toBeVisible();
+		await expect( activeTheme ).toHaveAttribute( 'data-slug', 'twentytwentyone' );
+	} );
+
+	test( 'create site with blueprint that installs a plugin', async ( { page } ) => {
+		const siteName = 'Blueprint-Plugin-Install';
+		const blueprintPath = path.join( __dirname, 'test-blueprints', 'install-plugin.json' );
+
+		const sidebar = new MainSidebar( session.mainWindow );
+		const modal = await sidebar.openAddSiteModal();
+
+		// Select blueprint option
+		await expect( modal.blueprintButton ).toBeVisible();
+		await modal.blueprintButton.click();
+
+		// Upload blueprint file
+		await modal.selectBlueprintFile( blueprintPath );
+
+		// Wait for file to be processed and continue button to be enabled
+		await session.mainWindow.waitForTimeout( 1000 );
+		await modal.continueButton.click();
+
+		// Fill in site name
+		await modal.siteNameInput.fill( siteName );
+		await modal.addSiteButton.click();
+
+		// Wait for site to be created and running
+		const siteContent = new SiteContent( session.mainWindow, siteName );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
+
+		// Navigate to Settings tab to get admin URL
+		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
+
+		// Verify plugin was installed
+		await page.goto( wpAdminUrl + '/plugins.php?playground-auto-login=true' );
+		await expect( page.locator( 'tr[data-slug="akismet"]' ) ).toBeVisible();
+	} );
+
+	test( 'create site with blueprint that activates a plugin', async ( { page } ) => {
+		const siteName = 'Blueprint-Plugin-Activate';
+		const blueprintPath = path.join( __dirname, 'test-blueprints', 'activate-plugin.json' );
+
+		const sidebar = new MainSidebar( session.mainWindow );
+		const modal = await sidebar.openAddSiteModal();
+
+		// Select blueprint option
+		await expect( modal.blueprintButton ).toBeVisible();
+		await modal.blueprintButton.click();
+
+		// Upload blueprint file
+		await modal.selectBlueprintFile( blueprintPath );
+
+		// Wait for file to be processed and continue button to be enabled
+		await session.mainWindow.waitForTimeout( 1000 );
+		await modal.continueButton.click();
+
+		// Fill in site name
+		await modal.siteNameInput.fill( siteName );
+		await modal.addSiteButton.click();
+
+		// Wait for site to be created and running
+		const siteContent = new SiteContent( session.mainWindow, siteName );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
+
+		// Navigate to Settings tab to get admin URL
+		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
+
+		// Verify plugin was activated
+		await page.goto( wpAdminUrl + '/plugins.php?playground-auto-login=true' );
+		// Be more specific - look for the active Hello Dolly plugin
+		const pluginRow = page.locator( 'tr[data-slug="hello-dolly"].active' );
+		await expect( pluginRow ).toBeVisible();
+	} );
+
+	test( 'create site with blueprint that runs PHP code', async ( { page } ) => {
+		const siteName = 'Blueprint-PHP-Code';
+		const blueprintPath = path.join( __dirname, 'test-blueprints', 'run-php-code.json' );
+
+		const sidebar = new MainSidebar( session.mainWindow );
+		const modal = await sidebar.openAddSiteModal();
+
+		// Select blueprint option
+		await expect( modal.blueprintButton ).toBeVisible();
+		await modal.blueprintButton.click();
+
+		// Upload blueprint file
+		await modal.selectBlueprintFile( blueprintPath );
+
+		// Wait for file to be processed and continue button to be enabled
+		await session.mainWindow.waitForTimeout( 1000 );
+		await modal.continueButton.click();
+
+		// Fill in site name
+		await modal.siteNameInput.fill( siteName );
+		await modal.addSiteButton.click();
+
+		// Wait for site to be created and running
+		const siteContent = new SiteContent( session.mainWindow, siteName );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
+
+		// Navigate to Settings tab to verify site is accessible
+		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
+
+		// Verify the site was created successfully and admin is accessible
+		await page.goto( wpAdminUrl + '/options-general.php?playground-auto-login=true' );
+		await expect( page.getByLabel( 'Site Title' ) ).toBeVisible();
+
+		// Verify the blueprint's landing page works
+		await expect( page ).toHaveURL( /options-general\.php/ );
+	} );
+
+	test( 'create site with blueprint that runs WP-CLI commands', async ( { page } ) => {
+		const siteName = 'Blueprint-WP-CLI';
+		const blueprintPath = path.join( __dirname, 'test-blueprints', 'wp-cli-command.json' );
+
+		const sidebar = new MainSidebar( session.mainWindow );
+		const modal = await sidebar.openAddSiteModal();
+
+		// Select blueprint option
+		await expect( modal.blueprintButton ).toBeVisible();
+		await modal.blueprintButton.click();
+
+		// Upload blueprint file
+		await modal.selectBlueprintFile( blueprintPath );
+
+		// Wait for file to be processed and continue button to be enabled
+		await session.mainWindow.waitForTimeout( 1000 );
+		await modal.continueButton.click();
+
+		// Fill in site name
+		await modal.siteNameInput.fill( siteName );
+		await modal.addSiteButton.click();
+
+		// Wait for site to be created and running
+		const siteContent = new SiteContent( session.mainWindow, siteName );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
+
+		// Navigate to Settings tab to verify site is accessible
+		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
+
+		// Verify the site was created successfully and admin is accessible
+		await page.goto( wpAdminUrl + '/options-general.php?playground-auto-login=true' );
+		await expect( page.getByLabel( 'Site Title' ) ).toBeVisible();
+
+		// Verify the blueprint's landing page works
+		await expect( page ).toHaveURL( /options-general\.php/ );
+	} );
+} );

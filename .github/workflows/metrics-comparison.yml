@@ -17,6 +17,7 @@ jobs:
     runs-on: macos-15
     permissions:
       contents: read
+      pull-requests: write
     env:
       ARTIFACTS_PATH: ${{ github.workspace }}/artifacts
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -37,6 +38,12 @@ jobs:
       - name: Compare performance with trunk
         if: github.event_name == 'pull_request'
         run: cd scripts/compare-perf && npm ci && npm run compare -- perf $GITHUB_SHA trunk --tests-branch $GITHUB_SHA
+
+      - name: Post performance results to PR
+        if: github.event_name == 'pull_request' && !cancelled()
+        run: |
+          cd scripts/compare-perf
+          npm run post-to-github -- $GITHUB_TOKEN ${{ github.repository }} ${{ github.event.pull_request.number }} trunk $GITHUB_SHA
 
       - name: Compare performance with base branch
         if: github.event_name == 'push'

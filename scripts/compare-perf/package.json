@@ -17,5 +17,9 @@
 		"inquirer": "^12.5.0",
 		"simple-git": "^3.27.0",
 		"ts-node": "^10.9.2"
+	},
+	"devDependencies": {
+		"@types/node": "^20.0.0",
+		"typescript": "^5.0.0"
 	}
 }

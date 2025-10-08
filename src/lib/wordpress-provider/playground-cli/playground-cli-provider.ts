@@ -1,10 +1,10 @@
-import { net } from 'electron';
 import nodePath from 'path';
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
 import { RecommendedPHPVersion } from '@wp-playground/common';
 import { recursiveCopyDirectory, pathExists, isWordPressDirectory } from 'common/lib/fs-utils';
 import { DEFAULT_LOCALE } from 'common/lib/locale';
+import { isOnline } from 'common/lib/network-utils';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
@@ -120,12 +120,12 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		const { path, name, adminPassword } = server.details;
 
 		try {
-			const isOnline = net.isOnline();
+			const isOnlineStatus = await isOnline();
 			const siteLanguage = await getPreferredSiteLanguage( wpVersion );
 
 			const setupSteps: StepDefinition[] = [];
 
-			if ( isOnline && siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
+			if ( isOnlineStatus && siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
 				setupSteps.push(
 					{
 						step: 'setSiteLanguage',
@@ -149,7 +149,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				} );
 			}
 
-			if ( ! isOnline ) {
+			if ( ! isOnlineStatus ) {
 				if ( wpVersion !== 'latest' ) {
 					throw new Error(
 						`Cannot set up WordPress version '${ wpVersion }' while offline. ` +

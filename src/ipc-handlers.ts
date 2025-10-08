@@ -1512,3 +1512,32 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 		parentWindow.setWindowButtonVisibility( visible );
 	}
 }
+
+export async function getBetaFeatures(): Promise< BetaFeatures > {
+	const userData = await loadUserData();
+	const { buildBetaFeatures } = await import( 'src/lib/beta-features' );
+	return buildBetaFeatures( userData.betaFeatures );
+}
+
+async function updateBetaFeature( key: keyof BetaFeatures, value: boolean ): Promise< void > {
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const betaFeatures = userData.betaFeatures || {};
+		betaFeatures[ key ] = value;
+		userData.betaFeatures = betaFeatures;
+		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
+	}
+}
+
+export async function setBetaFeature(
+	_event: IpcMainInvokeEvent,
+	key: keyof BetaFeatures,
+	value: boolean
+): Promise< void > {
+	return updateBetaFeature( key, value );
+}
+
+export { updateBetaFeature };

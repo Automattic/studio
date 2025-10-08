@@ -9,7 +9,9 @@ import {
 import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from 'src/about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
+import { getBetaFeatures, updateBetaFeature } from 'src/ipc-handlers';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { BETA_FEATURES, BetaFeatureDefinition } from 'src/lib/beta-features';
 import {
 	FEATURE_FLAGS,
 	FeatureFlagDefinition,
@@ -30,7 +32,7 @@ export async function setupMenu( config: { needsOnboarding: boolean } ) {
 		Menu.setApplicationMenu( null );
 		return;
 	}
-	const menu = getAppMenu( mainWindow, config );
+	const menu = await getAppMenu( mainWindow, config );
 	if ( process.platform === 'darwin' ) {
 		Menu.setApplicationMenu( menu );
 		return;
@@ -49,11 +51,25 @@ export function removeMenu() {
 
 export async function popupMenu() {
 	const window = await getMainWindow();
-	const menu = getAppMenu( window );
+	const menu = await getAppMenu( window );
 	menu.popup();
 }
 
-function getAppMenu(
+async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > {
+	const currentBetaFeatures = await getBetaFeatures();
+	return Object.entries< BetaFeatureDefinition >( BETA_FEATURES ).map(
+		( [ key, definition ] ) => ( {
+			label: definition.label,
+			type: 'checkbox' as const,
+			checked: currentBetaFeatures[ key as keyof BetaFeatures ],
+			click: async ( menuItem: MenuItem ) => {
+				await updateBetaFeature( key as keyof BetaFeatures, menuItem.checked );
+			},
+		} )
+	);
+}
+
+async function getAppMenu(
 	mainWindow: BrowserWindow | null,
 	{ needsOnboarding = false }: { needsOnboarding?: boolean } = {}
 ) {
@@ -91,6 +107,8 @@ function getAppMenu(
 		},
 	} ) );
 
+	const betaFeaturesMenu = await buildBetaFeaturesMenu();
+
 	return Menu.buildFromTemplate( [
 		{
 			label: app.name, // macOS ignores this name and uses the name from the .plist
@@ -124,6 +142,10 @@ function getAppMenu(
 							},
 					  ]
 					: [] ),
+				{
+					label: __( 'Beta Features' ),
+					submenu: betaFeaturesMenu,
+				},
 				{ type: 'separator' },
 				...( process.platform === 'win32'
 					? []

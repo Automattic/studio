@@ -32,6 +32,7 @@ export interface UserData {
 	preferredTerminal?: SupportedTerminal;
 	preferredEditor?: SupportedEditor;
 	newSites?: NewSiteDetails[];
+	betaFeatures?: BetaFeatures;
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {

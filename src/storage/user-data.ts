@@ -127,7 +127,8 @@ type UserDataSafeKeys =
 	| 'sentryUserId'
 	| 'lastSeenVersion'
 	| 'preferredTerminal'
-	| 'preferredEditor';
+	| 'preferredEditor'
+	| 'betaFeatures';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
 

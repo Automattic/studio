@@ -1523,7 +1523,7 @@ async function updateBetaFeature( key: keyof BetaFeatures, value: boolean ): Pro
 	try {
 		await lockAppdata();
 		const userData = await loadUserData();
-		const betaFeatures = userData.betaFeatures || {};
+		const betaFeatures: BetaFeatures = userData.betaFeatures || ( {} as BetaFeatures );
 		betaFeatures[ key ] = value;
 		userData.betaFeatures = betaFeatures;
 		await saveUserData( userData );

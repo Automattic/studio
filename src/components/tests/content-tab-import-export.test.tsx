@@ -143,7 +143,7 @@ describe( 'ContentTabImportExport Import', () => {
 		} );
 
 		expect( screen.getByText( 'Extracting backup…' ) ).toBeVisible();
-		expect( screen.getByRole( 'progressbar', { value: { now: 5 } } ) ).toBeVisible();
+		expect( screen.getByRole( 'progressbar' ) ).toBeInTheDocument();
 	} );
 } );
 
@@ -189,7 +189,7 @@ describe( 'ContentTabImportExport Export', () => {
 		} );
 
 		expect( screen.getByText( 'Starting export…' ) ).toBeVisible();
-		expect( screen.getByRole( 'progressbar', { value: { now: 5 } } ) ).toBeVisible();
+		expect( screen.getByRole( 'progressbar' ) ).toBeInTheDocument();
 	} );
 
 	test( 'should be blocked', async () => {

@@ -429,7 +429,7 @@ describe( 'useImportExport hook', () => {
 		emitImportEvent( SITE_ID, ImportEvents.BACKUP_EXTRACT_START );
 		expect( result.current.importState ).toEqual( {
 			[ SITE_ID ]: {
-				statusMessage: 'Extracting backup…',
+				statusMessage: 'Extracting backup files…',
 				progress: 5,
 				isNewSite: false,
 			},

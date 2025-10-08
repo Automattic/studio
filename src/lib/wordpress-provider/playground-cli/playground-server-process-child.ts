@@ -48,7 +48,7 @@ const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
 const originalConsoleWarn = console.warn;
 
-function formatMessageForUI( message: string ): string | null {
+function formatMessageForUI( message: string ): string {
 	if ( message.includes( 'WordPress is running on' ) ) {
 		return 'WordPress is running';
 	}

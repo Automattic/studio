@@ -184,6 +184,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 		}
 
 		switch ( event ) {
+			case BackupExtractEvents.BACKUP_EXTRACT_START:
 			case BackupExtractEvents.BACKUP_EXTRACT_PROGRESS: {
 				const progressData = data as BackupExtractProgressEventData;
 				const progress = progressData?.progress ?? 0;
@@ -200,12 +201,15 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					statusMessage = sprintf( __( 'Extracting backup… (%d%%)' ), percentage );
 				}
 
+				// Normalize progress: some handlers emit 0-100, others emit 0-1
+				const normalizedProgress = progress > 1 ? progress / 100 : progress;
+
 				setImportState( ( { [ siteId ]: currentProgress, ...rest } ) => ( {
 					...rest,
 					[ siteId ]: {
 						...currentProgress,
 						statusMessage,
-						progress: 5 + progress * 45, // Backup extraction takes progress from 5% to 50%
+						progress: 5 + normalizedProgress * 45, // Backup extraction takes progress from 5% to 50%
 					},
 				} ) );
 				break;

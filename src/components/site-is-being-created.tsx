@@ -1,6 +1,6 @@
-import { ProgressBar } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState } from 'react';
+import ProgressBar from './progress-bar';
 
 interface SiteIsBeingCreatedProps {
 	siteName: string;

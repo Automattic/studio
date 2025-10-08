@@ -53,6 +53,7 @@ function formatResultsAsMarkdown(
 	}
 
 	markdown += `\n---\n`;
+	markdown += `*Results are median values from multiple test runs.*\n\n`;
 	markdown += `*Legend: 🟢 Improvement (faster) | 🔴 Regression (slower) | ⚪ No change*\n`;
 
 	return markdown;

@@ -263,7 +263,20 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 		return () => {
 			unsubscribe?.();
 		};
-	}, [ site.id, site.name, site.path, site.running, startServer, stopServer, deleteSite, editor ] );
+	}, [
+		site.id,
+		site.name,
+		site.path,
+		site.running,
+		startServer,
+		stopServer,
+		deleteSite,
+		editor,
+		selectedSite?.id,
+		setSelectedTab,
+		setIsEditModalOpen,
+		setSelectedSiteId,
+	] );
 
 	return (
 		<li

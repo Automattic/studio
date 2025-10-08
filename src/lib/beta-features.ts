@@ -1,3 +1,5 @@
+import { lockAppdata, unlockAppdata, loadUserData, saveUserData } from 'src/storage/user-data';
+
 export interface BetaFeatureDefinition {
 	label: string;
 	key: string;
@@ -25,4 +27,25 @@ export function buildBetaFeatures( userData: BetaFeatures | undefined ): BetaFea
 			userData?.[ featureKey ] ?? definition.default;
 	} );
 	return features as BetaFeatures;
+}
+
+export async function getBetaFeatures(): Promise< BetaFeatures > {
+	const userData = await loadUserData();
+	return buildBetaFeatures( userData.betaFeatures );
+}
+
+export async function updateBetaFeature(
+	key: keyof BetaFeatures,
+	value: boolean
+): Promise< void > {
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const betaFeatures: BetaFeatures = userData.betaFeatures || ( {} as BetaFeatures );
+		betaFeatures[ key ] = value;
+		userData.betaFeatures = betaFeatures;
+		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
+	}
 }

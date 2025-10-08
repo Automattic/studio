@@ -9,9 +9,13 @@ import {
 import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from 'src/about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
-import { getBetaFeatures, updateBetaFeature } from 'src/ipc-handlers';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { BETA_FEATURES, BetaFeatureDefinition } from 'src/lib/beta-features';
+import {
+	BETA_FEATURES,
+	BetaFeatureDefinition,
+	getBetaFeatures,
+	updateBetaFeature,
+} from 'src/lib/beta-features';
 import {
 	FEATURE_FLAGS,
 	FeatureFlagDefinition,

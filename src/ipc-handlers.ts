@@ -1340,14 +1340,18 @@ export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< vo
 
 export function showSiteContextMenu(
 	event: IpcMainInvokeEvent,
-	siteId: string,
-	isRunning: boolean,
-	isLoading: boolean,
-	isAddingSite: boolean,
-	finderLabel: string,
-	editorLabel: string | null,
-	terminalLabel: string
+	context: {
+		siteId: string;
+		isRunning: boolean;
+		isLoading: boolean;
+		isAddingSite: boolean;
+		finderLabel: string;
+		editorLabel: string | null;
+		terminalLabel: string;
+	}
 ) {
+	const { siteId, isRunning, isLoading, isAddingSite, finderLabel, editorLabel, terminalLabel } =
+		context;
 	const menu = new Menu();
 
 	if ( isRunning ) {

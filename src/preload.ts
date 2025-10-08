@@ -123,25 +123,7 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'listWpContentFolders', siteId, subdir ),
 	getProviderConstants: () => ipcRendererInvoke( 'getProviderConstants' ),
 	validateBlueprint: ( blueprintJson ) => ipcRendererInvoke( 'validateBlueprint', blueprintJson ),
-	showSiteContextMenu: (
-		siteId,
-		isRunning,
-		isLoading,
-		isAddingSite,
-		finderLabel,
-		editorLabel,
-		terminalLabel
-	) =>
-		ipcRendererSend(
-			'showSiteContextMenu',
-			siteId,
-			isRunning,
-			isLoading,
-			isAddingSite,
-			finderLabel,
-			editorLabel,
-			terminalLabel
-		),
+	showSiteContextMenu: ( context ) => ipcRendererSend( 'showSiteContextMenu', context ),
 	setWindowControlVisibility: ( visible ) =>
 		ipcRendererInvoke( 'setWindowControlVisibility', visible ),
 };

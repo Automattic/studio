@@ -155,15 +155,15 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 			editor && supportedEditorConfig[ editor ] ? supportedEditorConfig[ editor ].label : null;
 		const terminalLabel = getTerminalName( terminal );
 
-		ipcApi.showSiteContextMenu(
-			site.id,
-			site.running,
+		ipcApi.showSiteContextMenu( {
+			siteId: site.id,
+			isRunning: site.running,
 			isLoading,
 			isAddingSite,
 			finderLabel,
 			editorLabel,
-			terminalLabel
-		);
+			terminalLabel,
+		} );
 	};
 
 	useEffect( () => {

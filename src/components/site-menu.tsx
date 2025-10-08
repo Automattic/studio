@@ -157,8 +157,6 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 
 		ipcApi.showSiteContextMenu(
 			site.id,
-			site.name,
-			site.path,
 			site.running,
 			isLoading,
 			isAddingSite,

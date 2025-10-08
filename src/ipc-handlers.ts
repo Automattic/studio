@@ -1341,8 +1341,6 @@ export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< vo
 export function showSiteContextMenu(
 	event: IpcMainInvokeEvent,
 	siteId: string,
-	siteName: string,
-	sitePath: string,
 	isRunning: boolean,
 	isLoading: boolean,
 	isAddingSite: boolean,

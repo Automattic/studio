@@ -125,8 +125,6 @@ const api: IpcApi = {
 	validateBlueprint: ( blueprintJson ) => ipcRendererInvoke( 'validateBlueprint', blueprintJson ),
 	showSiteContextMenu: (
 		siteId,
-		siteName,
-		sitePath,
 		isRunning,
 		isLoading,
 		isAddingSite,
@@ -137,8 +135,6 @@ const api: IpcApi = {
 		ipcRendererSend(
 			'showSiteContextMenu',
 			siteId,
-			siteName,
-			sitePath,
 			isRunning,
 			isLoading,
 			isAddingSite,

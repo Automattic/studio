@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import { readFile, writeFile } from 'atomically';
-import wpcom from 'wpcom';
+import wpcomFactory from 'wpcom';
 import { SupportedLocale } from 'common/lib/locale';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { getAuthenticationToken, getSignUpUrl, onOpenUrlCallback } from 'src/lib/oauth';
@@ -14,6 +14,7 @@ jest.mock( 'atomically', () => ( {
 	writeFile: jest.fn(),
 } ) );
 jest.mock( 'wpcom' );
+jest.mock( 'wpcom-xhr-request' );
 
 describe( 'getAuthenticationToken', () => {
 	beforeEach( () => {
@@ -139,7 +140,7 @@ describe( 'onOpenUrlCallback', () => {
 				email: 'user@example.com',
 				display_name: 'Test User',
 			} );
-			( wpcom as jest.Mock ).mockReturnValue( {
+			( wpcomFactory as jest.Mock ).mockReturnValue( {
 				req: { get: mockWpcomGet },
 			} );
 
@@ -180,7 +181,7 @@ describe( 'onOpenUrlCallback', () => {
 
 		it( 'should handle wpcom API error', async () => {
 			const mockWpcomGet = jest.fn().mockRejectedValue( new Error( 'API Error' ) );
-			( wpcom as jest.Mock ).mockReturnValue( {
+			( wpcomFactory as jest.Mock ).mockReturnValue( {
 				req: { get: mockWpcomGet },
 			} );
 

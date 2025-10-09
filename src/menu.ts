@@ -61,17 +61,24 @@ export async function popupMenu() {
 
 async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > {
 	const currentBetaFeatures = await getBetaFeatures();
-	return Object.entries< BetaFeatureDefinition >( BETA_FEATURES ).map(
-		( [ key, definition ] ) => ( {
-			label: definition.label,
+	return Object.entries< BetaFeatureDefinition >( BETA_FEATURES ).map( ( [ key, definition ] ) => {
+		// On Windows, use the description as the label for a more compact display
+		const label =
+			process.platform === 'win32' && definition.description
+				? definition.description
+				: definition.label;
+
+		return {
+			label,
 			type: 'checkbox' as const,
 			checked: currentBetaFeatures[ key as keyof BetaFeatures ],
-			sublabel: definition.description,
+			// Only use sublabel on macOS where it displays nicely
+			sublabel: process.platform === 'darwin' ? definition.description : undefined,
 			click: async ( menuItem: MenuItem ) => {
 				await updateBetaFeature( key as keyof BetaFeatures, menuItem.checked );
 			},
-		} )
-	);
+		};
+	} );
 }
 
 async function getAppMenu(

@@ -48,7 +48,7 @@ export interface WordPressServerProcess {
 			body: Record< string, string >;
 		} ) => Promise< { text: string } >;
 	};
-	start(): Promise< void >;
+	start( siteId?: string ): Promise< void >;
 	stop(): Promise< void >;
 	runPhp( data: { code: string; [ key: string ]: unknown } ): Promise< string >;
 }

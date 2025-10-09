@@ -14,10 +14,35 @@ export class BackupHandlerSql extends EventEmitter implements BackupHandler {
 	}
 
 	async extractFiles( file: BackupArchiveInfo, extractionDirectory: string ): Promise< void > {
-		this.emit( ImportEvents.BACKUP_EXTRACT_START );
-		const destPath = path.join( extractionDirectory, path.basename( file.path ) );
-		this.emit( ImportEvents.BACKUP_EXTRACT_PROGRESS );
+		const fileName = path.basename( file.path );
+		const destPath = path.join( extractionDirectory, fileName );
+
+		this.emit( ImportEvents.BACKUP_EXTRACT_START, {
+			progress: 0,
+			totalFiles: 1,
+			processedFiles: 0,
+		} );
+
+		this.emit( ImportEvents.BACKUP_EXTRACT_FILE_START, {
+			progress: 0,
+			processedFiles: 0,
+			totalFiles: 1,
+			currentFile: fileName,
+		} );
+
 		await fs.promises.copyFile( file.path, destPath );
-		this.emit( ImportEvents.BACKUP_EXTRACT_COMPLETE );
+
+		this.emit( ImportEvents.BACKUP_EXTRACT_PROGRESS, {
+			progress: 100,
+			processedFiles: 1,
+			totalFiles: 1,
+			currentFile: fileName,
+		} );
+
+		this.emit( ImportEvents.BACKUP_EXTRACT_COMPLETE, {
+			progress: 100,
+			processedFiles: 1,
+			totalFiles: 1,
+		} );
 	}
 }

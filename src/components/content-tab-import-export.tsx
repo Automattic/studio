@@ -76,7 +76,7 @@ export const ExportSite = ( {
 				<div className="flex flex-col gap-4 max-w-[300px]">
 					{ isExporting && (
 						<>
-							<ProgressBar value={ currentProgress.progress } maxValue={ 100 } />
+							<ProgressBar />
 							<div className="text-a8c-gray-70 a8c-body">{ currentProgress.statusMessage }</div>
 						</>
 					) }
@@ -267,10 +267,10 @@ const ImportSite = ( {
 						{ isImporting && (
 							<>
 								<div className="w-[240px]">
-									<ProgressBar value={ currentProgress.progress } maxValue={ 100 } />
+									<ProgressBar />
 								</div>
 								<div className="text-a8c-gray-70 a8c-body mt-4">
-									{ currentProgress.statusMessage }
+									{ currentProgress.statusMessage || __( 'Importing…' ) }
 								</div>
 							</>
 						) }

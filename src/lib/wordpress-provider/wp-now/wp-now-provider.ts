@@ -1,8 +1,8 @@
-import { net } from 'electron';
 import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from 'common/lib/fs-utils';
+import { isOnline } from 'common/lib/network-utils';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
 import { copyBundledLatestWPVersion } from 'src/setup-wp-server-files';
@@ -121,7 +121,7 @@ export class WpNowProvider implements WordPressProvider {
 			const wpVersionExists = await pathExists( wpVersionPath );
 
 			if ( ! wpVersionExists ) {
-				if ( net.isOnline() ) {
+				if ( await isOnline() ) {
 					try {
 						await WpNowProvider.downloadWordPress( wpVersion, { overwrite: false } );
 					} catch ( error ) {
@@ -250,7 +250,7 @@ export class WpNowProvider implements WordPressProvider {
 	 * @param wpVersion - The WordPress version to verify
 	 */
 	private async verifyWordPressChecksums( wpVersion: string ): Promise< void > {
-		if ( ! net.isOnline() ) {
+		if ( ! ( await isOnline() ) ) {
 			console.log( 'Skipping WordPress checksum verification - offline mode' );
 			return;
 		}

@@ -22,6 +22,7 @@ export interface IpcEvents {
 	'auth-updated': [ { token: StoredToken } | { error: unknown } ];
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];
+	'on-site-create-progress': [ { siteId: string; message: string } ];
 	providerConstantsChanged: [
 		{
 			defaultPhpVersion: string;

@@ -5,11 +5,14 @@ import {
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 	PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL,
 } from 'src/constants';
+import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { getMainWindow } from 'src/main-window';
 import { WordPressServerProcess, WordPressServerOptions } from '../types';
 import { PlaygroundCliOptions } from './playground-cli-provider';
 
 export class PlaygroundServerProcess implements WordPressServerProcess {
 	private process: Electron.UtilityProcess | null = null;
+	private siteId: string | null = null;
 	private messageId = 0;
 	private responseHandlers = new Map<
 		number,
@@ -19,6 +22,7 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 	private exitResolve: ( () => void ) | null = null;
 	private isSetupMode = false;
 	private lastActivityTimestamp = 0;
+	private consoleMessageCallback?: ( message: string ) => void;
 
 	constructor(
 		public url: string,
@@ -26,7 +30,11 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 		private serverOptions: WordPressServerOptions
 	) {}
 
-	async start(): Promise< void > {
+	setConsoleMessageCallback( callback: ( message: string ) => void ): void {
+		this.consoleMessageCallback = callback;
+	}
+
+	async start( siteId?: string ): Promise< void > {
 		if ( this.process ) {
 			return;
 		}
@@ -38,11 +46,38 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 
 		this.process = utilityProcess.fork( path.join( __dirname, 'playgroundServerProcess.js' ) );
 
+		if ( siteId ) {
+			this.siteId = siteId;
+		}
+
 		this.process.on(
 			'message',
-			( message: { type?: string; id?: number; error?: string; result?: unknown } ) => {
+			async ( message: {
+				type?: string;
+				id?: number;
+				error?: string;
+				result?: unknown;
+				message?: string;
+			} ) => {
 				if ( message.type === 'ready' ) {
 					return;
+				}
+
+				if ( message.type === 'console-message' && message.message ) {
+					if ( this.siteId ) {
+						try {
+							const mainWindow = await getMainWindow();
+							sendIpcEventToRendererWithWindow( mainWindow, 'on-site-create-progress', {
+								siteId: this.siteId,
+								message: message.message,
+							} );
+						} catch ( error ) {
+							console.error( 'Failed to get main window for site creation progress:', error );
+						}
+					}
+					if ( this.consoleMessageCallback ) {
+						this.consoleMessageCallback( message.message );
+					}
 				}
 
 				if ( message.type === 'activity' || message.id !== undefined ) {

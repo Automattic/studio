@@ -155,7 +155,7 @@ export class SiteServer {
 
 		console.log( `Starting server for '${ this.details.name }'` );
 		this.server = createServerProcess( serverInstance );
-		await this.server.start();
+		await this.server.start( this.details.id );
 
 		if ( serverInstance.options.port === undefined ) {
 			throw new Error( 'Server started with no port' );

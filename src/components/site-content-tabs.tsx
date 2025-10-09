@@ -16,7 +16,7 @@ import { cx } from 'src/lib/cx';
 import { ContentTabSync } from 'src/modules/sync';
 
 export function SiteContentTabs() {
-	const { selectedSite, data: localSites } = useSiteDetails();
+	const { selectedSite, data: localSites, siteCreationMessages } = useSiteDetails();
 	const { importState } = useImportExport();
 	const { tabs, selectedTab, setSelectedTab } = useContentTabs();
 	const { __ } = useI18n();
@@ -34,7 +34,14 @@ export function SiteContentTabs() {
 	}
 
 	if ( selectedSite?.isAddingSite || importState[ selectedSite?.id ]?.isNewSite ) {
-		return <SiteIsBeingCreated siteName={ selectedSite?.name } />;
+		const siteImportState = importState[ selectedSite?.id ];
+		const creationMessage = selectedSite?.id ? siteCreationMessages[ selectedSite.id ] : undefined;
+		return (
+			<SiteIsBeingCreated
+				siteName={ selectedSite?.name }
+				statusMessage={ siteImportState?.statusMessage || creationMessage }
+			/>
+		);
 	}
 
 	return (

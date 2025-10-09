@@ -161,7 +161,7 @@ const fetchAssistant = createTypedAsyncThunk(
 						context,
 					},
 				},
-				( error, data, headers ) => {
+				( error: Error | null, data: unknown, headers: unknown ) => {
 					if ( error ) {
 						Sentry.captureException( error );
 						return reject( error );

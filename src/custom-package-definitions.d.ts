@@ -89,9 +89,24 @@ declare module 'wpcom' {
 		/* eslint-enable @typescript-eslint/no-explicit-any */
 	}
 
-	export default class WPCOM {
-		constructor( token?: string );
-		request: ( params: object, callback: unknown ) => unknown;
+	/* eslint-disable @typescript-eslint/no-explicit-any */
+	export interface WPCOMInstance {
+		token?: string;
+		request: ( params: Record< string, any >, callback: ( ...args: any[] ) => void ) => void;
 		req: Request;
+		pinghub: Pinghub;
+		apiVersion: string;
 	}
+
+	export type WPCOMRequestHandler = ( ...args: any[] ) => any;
+
+	export interface WPCOMConstructor {
+		new ( token?: string | WPCOMRequestHandler, reqHandler?: WPCOMRequestHandler ): WPCOMInstance;
+
+		( token?: string | WPCOMRequestHandler, reqHandler?: WPCOMRequestHandler ): WPCOMInstance;
+	}
+
+	const WPCOM: WPCOMConstructor;
+	export default WPCOM;
+	/* eslint-enable @typescript-eslint/no-explicit-any */
 }

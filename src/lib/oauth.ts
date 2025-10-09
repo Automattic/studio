@@ -1,11 +1,11 @@
 import * as Sentry from '@sentry/electron/main';
-import wpcomFactory from 'wpcom';
 import wpcomXhrRequest from 'wpcom-xhr-request';
 import { z } from 'zod';
 import { CLIENT_ID } from 'common/constants';
 import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import wpcomFactory from 'src/lib/wpcom-factory';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 const authTokenSchema = z.object( {
@@ -68,10 +68,10 @@ async function handleAuthCallback( hash: string ): Promise< StoredToken > {
 	if ( isNaN( expiresIn ) || expiresIn === 0 || ! accessToken ) {
 		throw new Error( 'Error while getting token' );
 	}
-
 	const rawResponse = await wpcomFactory( accessToken, wpcomXhrRequest ).req.get(
 		'/me?fields=ID,email,display_name'
 	);
+
 	const response = meResponseSchema.parse( rawResponse );
 
 	return authTokenSchema.parse( {

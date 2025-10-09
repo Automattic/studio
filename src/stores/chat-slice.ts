@@ -1,9 +1,9 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import * as Sentry from '@sentry/electron/renderer';
-import wpcomFactory from 'wpcom';
 import { z } from 'zod';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import wpcomFactory from 'src/lib/wpcom-factory';
 // Provider constants are retrieved via IPC when needed
 // Default PHP version for initial state
 const DEFAULT_PHP_VERSION = '8.3';

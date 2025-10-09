@@ -1,9 +1,9 @@
 import { createApi, TypedUseQuery } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
-import wpcomFactory from 'wpcom';
 import wpcomXhrRequest from 'wpcom-xhr-request';
 import { z } from 'zod';
 import { DAY_MS } from 'common/constants';
+import wpcomFactory from 'src/lib/wpcom-factory';
 import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
 import type { BaseQueryFn, FetchBaseQueryError } from '@reduxjs/toolkit/query';
 

@@ -2,10 +2,10 @@
  * @jest-environment node
  */
 import { readFile, writeFile } from 'atomically';
-import wpcomFactory from 'wpcom';
 import { SupportedLocale } from 'common/lib/locale';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { getAuthenticationToken, getSignUpUrl, onOpenUrlCallback } from 'src/lib/oauth';
+import wpcomFactory from 'src/lib/wpcom-factory';
 
 jest.mock( 'src/lib/certificate-manager', () => ( {} ) );
 jest.mock( 'src/ipc-utils' );

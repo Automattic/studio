@@ -66,6 +66,7 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 			label: definition.label,
 			type: 'checkbox' as const,
 			checked: currentBetaFeatures[ key as keyof BetaFeatures ],
+			sublabel: definition.description,
 			click: async ( menuItem: MenuItem ) => {
 				await updateBetaFeature( key as keyof BetaFeatures, menuItem.checked );
 			},

@@ -4,6 +4,7 @@ export interface BetaFeatureDefinition {
 	label: string;
 	key: string;
 	default: boolean;
+	description?: string;
 }
 
 export const BETA_FEATURES_DEFINITION: Record< keyof BetaFeatures, BetaFeatureDefinition > = {
@@ -11,6 +12,7 @@ export const BETA_FEATURES_DEFINITION: Record< keyof BetaFeatures, BetaFeatureDe
 		label: 'Studio Sites CLI',
 		key: 'studioSitesCli',
 		default: false,
+		description: 'Enable "studio site" command to manage local sites from terminal',
 	},
 } as const;
 

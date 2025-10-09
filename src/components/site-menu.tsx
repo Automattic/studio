@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { Tooltip } from 'src/components/tooltip';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
+import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isMac, isWindows } from 'src/lib/app-globals';
@@ -119,11 +120,11 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 		setSelectedSiteId,
 		startServer,
 		stopServer,
-		deleteSite,
 		loadingServer,
 		setIsEditModalOpen,
 	} = useSiteDetails();
 	const { setSelectedTab } = useContentTabs();
+	const { handleDeleteSite } = useDeleteSite();
 	const isSelected = site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
 	const { isSiteIdPulling } = useSyncSites();
@@ -216,45 +217,9 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 							setSelectedTab( 'settings' );
 							setIsEditModalOpen( true );
 							break;
-						case 'delete': {
-							const DELETE_BUTTON_INDEX = 0;
-							const CANCEL_BUTTON_INDEX = 1;
-							const MAX_LENGTH_SITE_TITLE = 35;
-
-							const trimmedSiteTitle =
-								site.name.length > MAX_LENGTH_SITE_TITLE
-									? `${ site.name.substring( 0, MAX_LENGTH_SITE_TITLE - 3 ) }…`
-									: site.name;
-
-							const { response, checkboxChecked } = await ipcApi.showMessageBox( {
-								type: 'warning',
-								message: sprintf( __( 'Delete %s' ), trimmedSiteTitle ),
-								detail: __(
-									"The site's database will be lost. Including all posts, pages, comments, and media."
-								),
-								buttons: [ __( 'Delete site' ), __( 'Cancel' ) ],
-								cancelId: CANCEL_BUTTON_INDEX,
-								checkboxLabel: __( 'Delete site files from my computer' ),
-								checkboxChecked: true,
-							} );
-
-							if ( response === DELETE_BUTTON_INDEX ) {
-								try {
-									await deleteSite( site.id, checkboxChecked );
-								} catch ( error ) {
-									ipcApi.showErrorMessageBox( {
-										title: __( 'Deletion failed' ),
-										message: sprintf(
-											__( "We couldn't delete the site '%s'. Please try again" ),
-											trimmedSiteTitle
-										),
-										error,
-									} );
-									Sentry.captureException( error );
-								}
-							}
+						case 'delete':
+							await handleDeleteSite( site.id, site.name );
 							break;
-						}
 					}
 				}
 			}
@@ -270,12 +235,12 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 		site.running,
 		startServer,
 		stopServer,
-		deleteSite,
 		editor,
 		selectedSite?.id,
 		setSelectedTab,
 		setIsEditModalOpen,
 		setSelectedSiteId,
+		handleDeleteSite,
 	] );
 
 	return (

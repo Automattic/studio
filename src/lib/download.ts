@@ -1,11 +1,17 @@
 import { https } from 'follow-redirects';
 import fs from 'fs-extra';
 
-export async function download( url: string, filePath: string, showProgress = false, name = '' ) {
+export async function download(
+	url: string,
+	filePath: string,
+	showProgress = false,
+	name = '',
+	signal?: AbortSignal
+) {
 	const file = fs.createWriteStream( filePath );
 
 	await new Promise< void >( ( resolve, reject ) => {
-		https.get( url, ( response ) => {
+		const request = https.get( url, ( response ) => {
 			if ( response.statusCode !== 200 ) {
 				reject( new Error( `Request failed with status code: ${ response.statusCode }` ) );
 				return;
@@ -33,6 +39,25 @@ export async function download( url: string, filePath: string, showProgress = fa
 				file.close( () => resolve() );
 			} );
 			response.on( 'error', ( err ) => reject( err ) );
+		} );
+
+		if ( signal ) {
+			signal.addEventListener( 'abort', () => {
+				request.destroy();
+				file.close();
+				fs.remove( filePath ).catch( () => {
+					// Ignore errors during cleanup
+				} );
+				reject( new Error( 'Download aborted' ) );
+			} );
+		}
+
+		request.on( 'error', ( err ) => {
+			file.close();
+			fs.remove( filePath ).catch( () => {
+				// Ignore errors during cleanup
+			} );
+			reject( err );
 		} );
 	} );
 }

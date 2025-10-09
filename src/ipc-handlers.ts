@@ -37,6 +37,12 @@ import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { ARCHIVER_OPTIONS, DEFAULT_TERMINAL, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
+
+/**
+ * Registry to store AbortControllers for ongoing sync operations (push/pull).
+ * Key format: `${selectedSiteId}-${remoteSiteId}`
+ */
+const SYNC_ABORT_CONTROLLERS = new Map< string, AbortController >();
 import { scanBlueprintForUnsupportedFeatures } from 'src/lib/blueprint-features';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
@@ -699,6 +705,7 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string, format
 export async function exportSiteToPush(
 	event: IpcMainInvokeEvent,
 	id: string,
+	operationId: string,
 	configuration?: {
 		optionsToSync?: SyncOption[];
 		specificSelections?: {
@@ -715,36 +722,58 @@ export async function exportSiteToPush(
 	const extension = 'tar.gz';
 	const archivePath = `${ TEMP_DIR }site_${ id }.${ extension }`;
 
-	const shouldIncludeSyncOption = (
-		optionsToSync: SyncOption[] | undefined,
-		option: SyncOption
-	): boolean => {
-		return optionsToSync?.includes( option ) || optionsToSync?.includes( 'all' ) || ! optionsToSync;
-	};
+	// Create and register AbortController for this operation
+	const abortController = new AbortController();
+	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
 
-	const includes = {
-		database: shouldIncludeSyncOption( configuration?.optionsToSync, 'sqls' ),
-		uploads: shouldIncludeSyncOption( configuration?.optionsToSync, 'uploads' ),
-		plugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'plugins' ),
-		themes: shouldIncludeSyncOption( configuration?.optionsToSync, 'themes' ),
-		muPlugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
-		fonts: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
-	};
+	try {
+		// Check if already aborted before starting
+		if ( abortController.signal.aborted ) {
+			throw new Error( 'Export aborted' );
+		}
 
-	const exportOptions: ExportOptions = {
-		site: site.details,
-		backupFile: archivePath,
-		includes,
-		phpVersion: site.details.phpVersion,
-		splitDatabaseDumpByTable: true,
-		specificSelections: configuration?.specificSelections,
-	};
-	// eslint-disable-next-line @typescript-eslint/no-empty-function
-	const onEvent = () => {};
-	await exportBackup( exportOptions, onEvent );
-	const stats = fs.statSync( archivePath );
-	const archiveContent = fs.readFileSync( archivePath );
-	return { archivePath, archiveContent, archiveSizeInBytes: stats.size };
+		const shouldIncludeSyncOption = (
+			optionsToSync: SyncOption[] | undefined,
+			option: SyncOption
+		): boolean => {
+			return optionsToSync?.includes( option ) || optionsToSync?.includes( 'all' ) || ! optionsToSync;
+		};
+
+		const includes = {
+			database: shouldIncludeSyncOption( configuration?.optionsToSync, 'sqls' ),
+			uploads: shouldIncludeSyncOption( configuration?.optionsToSync, 'uploads' ),
+			plugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'plugins' ),
+			themes: shouldIncludeSyncOption( configuration?.optionsToSync, 'themes' ),
+			muPlugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
+			fonts: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
+		};
+
+		const exportOptions: ExportOptions = {
+			site: site.details,
+			backupFile: archivePath,
+			includes,
+			phpVersion: site.details.phpVersion,
+			splitDatabaseDumpByTable: true,
+			specificSelections: configuration?.specificSelections,
+		};
+		// eslint-disable-next-line @typescript-eslint/no-empty-function
+		const onEvent = () => {};
+		await exportBackup( exportOptions, onEvent );
+
+		// Check if aborted after export completes
+		if ( abortController.signal.aborted ) {
+			await fsPromises.unlink( archivePath ).catch( () => {
+				// Ignore cleanup errors
+			} );
+			throw new Error( 'Export aborted' );
+		}
+
+		const stats = fs.statSync( archivePath );
+		const archiveContent = fs.readFileSync( archivePath );
+		return { archivePath, archiveContent, archiveSizeInBytes: stats.size };
+	} finally {
+		SYNC_ABORT_CONTROLLERS.delete( operationId );
+	}
 }
 
 export function removeTemporalFile( event: IpcMainInvokeEvent, path: string ) {
@@ -1254,14 +1283,24 @@ export async function openFileInIDE(
 export async function downloadSyncBackup(
 	event: Electron.IpcMainInvokeEvent,
 	remoteSiteId: number,
-	downloadUrl: string
+	downloadUrl: string,
+	operationId: string
 ) {
 	const tmpDir = nodePath.join( app.getPath( 'temp' ), 'wp-studio-backups' );
 	await fsPromises.mkdir( tmpDir, { recursive: true } );
 
 	const filePath = getSyncBackupTempPath( remoteSiteId );
-	await download( downloadUrl, filePath );
-	return filePath;
+
+	// Create and register AbortController for this operation
+	const abortController = new AbortController();
+	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
+
+	try {
+		await download( downloadUrl, filePath, false, '', abortController.signal );
+		return filePath;
+	} finally {
+		SYNC_ABORT_CONTROLLERS.delete( operationId );
+	}
 }
 
 export async function removeSyncBackup( event: IpcMainInvokeEvent, remoteSiteId: number ) {
@@ -1288,6 +1327,19 @@ export function addSyncOperation( event: IpcMainInvokeEvent, id: string ) {
  * Clear the ID of a push/pull operation.
  */
 export function clearSyncOperation( event: IpcMainInvokeEvent, id: string ) {
+	ACTIVE_SYNC_OPERATIONS.delete( id );
+	SYNC_ABORT_CONTROLLERS.delete( id );
+}
+
+/**
+ * Cancel an ongoing push/pull operation by triggering its AbortController.
+ */
+export function cancelSyncOperation( event: IpcMainInvokeEvent, id: string ) {
+	const abortController = SYNC_ABORT_CONTROLLERS.get( id );
+	if ( abortController ) {
+		abortController.abort();
+		SYNC_ABORT_CONTROLLERS.delete( id );
+	}
 	ACTIVE_SYNC_OPERATIONS.delete( id );
 }
 

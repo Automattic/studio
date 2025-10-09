@@ -79,24 +79,34 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 		[ connectedSites, dispatch ]
 	);
 
-	const { pullSite, isAnySitePulling, isSiteIdPulling, clearPullState, getPullState } = useSyncPull(
-		{
-			pullStates,
-			setPullStates,
-			onPullSuccess: ( remoteSiteId, localSiteId ) =>
-				updateSiteTimestamp( remoteSiteId, localSiteId, 'pull' ),
-		}
-	);
+	const {
+		pullSite,
+		isAnySitePulling,
+		isSiteIdPulling,
+		clearPullState,
+		getPullState,
+		cancelPull,
+	} = useSyncPull( {
+		pullStates,
+		setPullStates,
+		onPullSuccess: ( remoteSiteId, localSiteId ) =>
+			updateSiteTimestamp( remoteSiteId, localSiteId, 'pull' ),
+	} );
 
 	const [ pushStates, setPushStates ] = useState< PushStates >( {} );
-	const { pushSite, isAnySitePushing, isSiteIdPushing, clearPushState, getPushState } = useSyncPush(
-		{
-			pushStates,
-			setPushStates,
-			onPushSuccess: ( remoteSiteId, localSiteId ) =>
-				updateSiteTimestamp( remoteSiteId, localSiteId, 'push' ),
-		}
-	);
+	const {
+		pushSite,
+		isAnySitePushing,
+		isSiteIdPushing,
+		clearPushState,
+		getPushState,
+		cancelPush,
+	} = useSyncPush( {
+		pushStates,
+		setPushStates,
+		onPushSuccess: ( remoteSiteId, localSiteId ) =>
+			updateSiteTimestamp( remoteSiteId, localSiteId, 'push' ),
+	} );
 
 	const { syncSites, isFetching, refetchSites } = useSyncSitesData();
 	useListenDeepLinkConnection( { refetchSites } );
@@ -108,6 +118,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				isAnySitePulling,
 				isSiteIdPulling,
 				clearPullState,
+				cancelPull,
 				syncSites,
 				refetchSites,
 				isFetching,
@@ -117,6 +128,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				isAnySitePushing,
 				isSiteIdPushing,
 				clearPushState,
+				cancelPush,
 				getLastSyncTimeText,
 			} }
 		>

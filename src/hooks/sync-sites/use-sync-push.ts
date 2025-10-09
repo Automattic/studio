@@ -52,6 +52,8 @@ type UseSyncPushProps = {
 	onPushSuccess?: OnPushSuccess;
 };
 
+type CancelPush = ( selectedSiteId: string, remoteSiteId: number ) => void;
+
 export type UseSyncPush = {
 	pushStates: PushStates;
 	getPushState: GetState< SyncPushState >;
@@ -59,6 +61,7 @@ export type UseSyncPush = {
 	isAnySitePushing: boolean;
 	isSiteIdPushing: IsSiteIdPushing;
 	clearPushState: ClearState;
+	cancelPush: CancelPush;
 };
 
 export function useSyncPush( {
@@ -198,7 +201,8 @@ export function useSyncPush( {
 			let archiveContent, archivePath, archiveSizeInBytes;
 
 			try {
-				const result = await getIpcApi().exportSiteToPush( selectedSite.id, {
+				const operationId = generateStateId( selectedSite.id, remoteSiteId );
+				const result = await getIpcApi().exportSiteToPush( selectedSite.id, operationId, {
 					optionsToSync: options?.optionsToSync,
 					specificSelections: options?.specificSelections,
 				} );
@@ -321,5 +325,30 @@ export function useSyncPush( {
 		[ pushStates, isKeyPushing ]
 	);
 
-	return { pushStates, getPushState, pushSite, isAnySitePushing, isSiteIdPushing, clearPushState };
+	const cancelPush = useCallback< CancelPush >(
+		( selectedSiteId, remoteSiteId ) => {
+			const operationId = generateStateId( selectedSiteId, remoteSiteId );
+			getIpcApi().cancelSyncOperation( operationId );
+
+			updatePushState( selectedSiteId, remoteSiteId, {
+				status: pushStatesProgressInfo.cancelled,
+			} );
+
+			getIpcApi().showNotification( {
+				title: __( 'Push cancelled' ),
+				body: __( 'The push operation has been cancelled.' ),
+			} );
+		},
+		[ __, pushStatesProgressInfo.cancelled, updatePushState ]
+	);
+
+	return {
+		pushStates,
+		getPushState,
+		pushSite,
+		isAnySitePushing,
+		isSiteIdPushing,
+		clearPushState,
+		cancelPush,
+	};
 }

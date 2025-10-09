@@ -52,6 +52,8 @@ type UseSyncPullProps = {
 	onPullSuccess?: OnPullSuccess;
 };
 
+type CancelPull = ( selectedSiteId: string, remoteSiteId: number ) => void;
+
 export type UseSyncPull = {
 	pullStates: PullStates;
 	getPullState: GetState< SyncBackupState >;
@@ -59,6 +61,7 @@ export type UseSyncPull = {
 	isAnySitePulling: boolean;
 	isSiteIdPulling: IsSiteIdPulling;
 	clearPullState: ClearState;
+	cancelPull: CancelPull;
 };
 
 export function useSyncPull( {
@@ -213,7 +216,12 @@ export function useSyncPull( {
 					downloadUrl,
 				} );
 
-				const filePath = await getIpcApi().downloadSyncBackup( remoteSiteId, downloadUrl );
+				const operationId = generateStateId( selectedSite.id, remoteSiteId );
+				const filePath = await getIpcApi().downloadSyncBackup(
+					remoteSiteId,
+					downloadUrl,
+					operationId
+				);
 
 				// Starting import process
 				updatePullState( selectedSite.id, remoteSiteId, {
@@ -373,5 +381,35 @@ export function useSyncPull( {
 		[ pullStates, isKeyPulling ]
 	);
 
-	return { pullStates, getPullState, pullSite, isAnySitePulling, isSiteIdPulling, clearPullState };
+	const cancelPull = useCallback< CancelPull >(
+		( selectedSiteId, remoteSiteId ) => {
+			const operationId = generateStateId( selectedSiteId, remoteSiteId );
+			getIpcApi().cancelSyncOperation( operationId );
+
+			updatePullState( selectedSiteId, remoteSiteId, {
+				status: pullStatesProgressInfo.cancelled,
+			} );
+
+			// Clean up any downloaded backup file
+			getIpcApi().removeSyncBackup( remoteSiteId ).catch( () => {
+				// Ignore errors if file doesn't exist
+			} );
+
+			getIpcApi().showNotification( {
+				title: __(  'Pull cancelled' ),
+				body: __( 'The pull operation has been cancelled.' ),
+			} );
+		},
+		[ __, pullStatesProgressInfo.cancelled, updatePullState ]
+	);
+
+	return {
+		pullStates,
+		getPullState,
+		pullSite,
+		isAnySitePulling,
+		isSiteIdPulling,
+		clearPullState,
+		cancelPull,
+	};
 }

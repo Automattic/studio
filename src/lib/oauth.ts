@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/electron/main';
-import wpcom from 'wpcom';
+import wpcomFactory from 'wpcom';
+import wpcomXhrRequest from 'wpcom-xhr-request';
 import { z } from 'zod';
 import { CLIENT_ID } from 'common/constants';
 import { SupportedLocale } from 'common/lib/locale';
@@ -68,7 +69,9 @@ async function handleAuthCallback( hash: string ): Promise< StoredToken > {
 		throw new Error( 'Error while getting token' );
 	}
 
-	const rawResponse = await new wpcom( accessToken ).req.get( '/me?fields=ID,email,display_name' );
+	const rawResponse = await wpcomFactory( accessToken, wpcomXhrRequest ).req.get(
+		'/me?fields=ID,email,display_name'
+	);
 	const response = meResponseSchema.parse( rawResponse );
 
 	return authTokenSchema.parse( {

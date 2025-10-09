@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import * as Sentry from '@sentry/electron/renderer';
-import WpcomClient from 'wpcom';
+import wpcomFactory from 'wpcom';
 import { z } from 'zod';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -10,7 +10,7 @@ const DEFAULT_PHP_VERSION = '8.3';
 import { AppDispatch, RootState } from 'src/stores';
 import { assistantQuotaSchema, wpcomApi } from 'src/stores/wpcom-api';
 
-type WPCOM = InstanceType< typeof WpcomClient >;
+type WPCOM = ReturnType< typeof wpcomFactory >;
 
 export type Message = {
 	id?: number;

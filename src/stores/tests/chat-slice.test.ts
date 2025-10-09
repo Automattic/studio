@@ -1,4 +1,4 @@
-import WpcomClient from 'wpcom';
+import wpcomFactory from 'wpcom';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
@@ -11,7 +11,7 @@ import {
 } from 'src/stores/tests/utils/test-reducer';
 import { wpcomApi } from 'src/stores/wpcom-api';
 
-type WPCOM = InstanceType< typeof WpcomClient >;
+type WPCOM = ReturnType< typeof wpcomFactory >;
 
 jest.mock( 'src/lib/get-ipc-api' );
 ( getIpcApi as jest.Mock ).mockReturnValue( {

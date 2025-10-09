@@ -1,12 +1,13 @@
 import { createApi, TypedUseQuery } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
-import WpcomClient from 'wpcom';
+import wpcomFactory from 'wpcom';
+import wpcomXhrRequest from 'wpcom-xhr-request';
 import { z } from 'zod';
 import { DAY_MS } from 'common/constants';
 import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
 import type { BaseQueryFn, FetchBaseQueryError } from '@reduxjs/toolkit/query';
 
-type WPCOM = InstanceType< typeof WpcomClient >;
+type WPCOM = ReturnType< typeof wpcomFactory >;
 
 const welcomeMessageSchema = z.object( {
 	messages: z.array( z.string() ),
@@ -57,7 +58,7 @@ const blueprintSchema = z.object( {
 export type Blueprint = z.infer< typeof blueprintSchema >;
 
 let wpcomClient: WPCOM | undefined;
-const publicWpcomClient = new WpcomClient();
+const publicWpcomClient = wpcomFactory( wpcomXhrRequest );
 
 export const setWpcomClient = ( client: WPCOM | undefined ) => {
 	wpcomClient = client;

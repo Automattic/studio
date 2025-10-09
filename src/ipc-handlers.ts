@@ -1428,10 +1428,13 @@ export function showSiteContextMenu(
 
 	menu.append( new MenuItem( { type: 'separator' } ) );
 
-	// Add Open in Finder/Explorer
 	menu.append(
 		new MenuItem( {
-			label: sprintf( __( 'Open in %s' ), finderLabel ),
+			label: sprintf(
+				/* translators: %s is the name of the file explorer. E.g. "Open in Finder" */
+				__( 'Open in %s' ),
+				finderLabel
+			),
 			enabled: ! isAddingSite,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
@@ -1446,11 +1449,14 @@ export function showSiteContextMenu(
 		} )
 	);
 
-	// Add Open in Code Editor if available
 	if ( editorLabel ) {
 		menu.append(
 			new MenuItem( {
-				label: sprintf( __( 'Open in %s' ), editorLabel ),
+				label: sprintf(
+					/* translators: %s is the name of the editor. E.g. "Open in Cursor" */
+					__( 'Open in %s' ),
+					editorLabel
+				),
 				enabled: ! isAddingSite,
 				click: () => {
 					sendIpcEventToRendererWithWindow(
@@ -1466,10 +1472,13 @@ export function showSiteContextMenu(
 		);
 	}
 
-	// Add Open in Terminal
 	menu.append(
 		new MenuItem( {
-			label: sprintf( __( 'Open in %s' ), terminalLabel ),
+			label: sprintf(
+				/* translators: %s is the name of the terminal. E.g. "Open in Terminal" */
+				__( 'Open in %s' ),
+				terminalLabel
+			),
 			enabled: ! isAddingSite,
 			click: () => {
 				sendIpcEventToRendererWithWindow(

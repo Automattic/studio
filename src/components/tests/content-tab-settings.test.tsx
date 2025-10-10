@@ -269,6 +269,8 @@ describe( 'ContentTabSettings', () => {
 				updateSite,
 				startServer,
 				stopServer,
+				isEditModalOpen: false,
+				setIsEditModalOpen: jest.fn(),
 			} );
 
 			const { rerender } = renderWithProvider(
@@ -276,6 +278,19 @@ describe( 'ContentTabSettings', () => {
 			);
 			expect( screen.getByText( '8.3' ) ).toBeVisible();
 			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
+			( useSiteDetails as jest.Mock ).mockReturnValue( {
+				selectedSite: { ...selectedSite, running: false } as SiteDetails,
+				updateSite,
+				startServer,
+				stopServer,
+				isEditModalOpen: true,
+				setIsEditModalOpen: jest.fn(),
+			} );
+			rerenderWithProvider( rerender, <ContentTabSettings selectedSite={ selectedSite } /> );
+			await waitFor( () => {
+				expect( screen.getByRole( 'dialog' ) ).toBeInTheDocument();
+			} );
+
 			const dialog = screen.getByRole( 'dialog' );
 			expect( dialog ).toBeVisible();
 			await user.selectOptions( within( dialog ).getByLabelText( 'PHP version' ), '8.2' );
@@ -284,6 +299,16 @@ describe( 'ContentTabSettings', () => {
 					name: 'Save',
 				} )
 			);
+
+			( useSiteDetails as jest.Mock ).mockReturnValue( {
+				selectedSite: { ...selectedSite, running: false } as SiteDetails,
+				updateSite,
+				startServer,
+				stopServer,
+				isEditModalOpen: false,
+				setIsEditModalOpen: jest.fn(),
+			} );
+			rerenderWithProvider( rerender, <ContentTabSettings selectedSite={ selectedSite } /> );
 
 			await waitFor( () => {
 				expect( updateSite ).toHaveBeenCalledWith(
@@ -315,6 +340,8 @@ describe( 'ContentTabSettings', () => {
 				updateSite,
 				startServer,
 				stopServer,
+				isEditModalOpen: false,
+				setIsEditModalOpen: jest.fn(),
 			} );
 
 			const { rerender } = renderWithProvider(
@@ -322,6 +349,18 @@ describe( 'ContentTabSettings', () => {
 			);
 			expect( screen.getByText( '8.3' ) ).toBeVisible();
 			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
+			( useSiteDetails as jest.Mock ).mockReturnValue( {
+				selectedSite: { ...selectedSite, running: true } as SiteDetails,
+				updateSite,
+				startServer,
+				stopServer,
+				isEditModalOpen: true,
+				setIsEditModalOpen: jest.fn(),
+			} );
+			rerenderWithProvider( rerender, <ContentTabSettings selectedSite={ selectedSite } /> );
+			await waitFor( () => {
+				expect( screen.getByRole( 'dialog' ) ).toBeInTheDocument();
+			} );
 			const dialog = screen.getByRole( 'dialog' );
 			expect( dialog ).toBeVisible();
 			await user.selectOptions( within( dialog ).getByLabelText( 'PHP version' ), '8.2' );
@@ -330,6 +369,16 @@ describe( 'ContentTabSettings', () => {
 					name: 'Save',
 				} )
 			);
+
+			( useSiteDetails as jest.Mock ).mockReturnValue( {
+				selectedSite: { ...selectedSite, running: true } as SiteDetails,
+				updateSite,
+				startServer,
+				stopServer,
+				isEditModalOpen: false,
+				setIsEditModalOpen: jest.fn(),
+			} );
+			rerenderWithProvider( rerender, <ContentTabSettings selectedSite={ selectedSite } /> );
 
 			await waitFor( () => {
 				expect( updateSite ).toHaveBeenCalledWith(

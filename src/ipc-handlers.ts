@@ -261,6 +261,11 @@ export async function createSite(
 		}
 		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
 			await installSqliteIntegration( path );
+			await getWordPressProvider().installWordPress(
+				server,
+				siteName || nodePath.basename( path ),
+				details.adminPassword
+			);
 		} else {
 			await updateSiteUrl( server, getSiteUrl( details ) );
 		}

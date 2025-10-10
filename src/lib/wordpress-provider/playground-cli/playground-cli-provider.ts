@@ -1,3 +1,4 @@
+import fs from 'fs';
 import nodePath from 'path';
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
@@ -215,6 +216,53 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		} catch ( error ) {
 			console.error( 'Failed to setup WordPress site:', error );
 			throw error;
+		}
+	}
+
+	async installWordPress( server: SiteServer, siteName: string, adminPassword: string ): Promise< void > {
+		const { path } = server.details;
+		const dbPath = nodePath.join( path, 'wp-content', 'database', '.ht.sqlite' );
+		let needsInstallation = true;
+
+		try {
+			const stats = await fs.promises.stat( dbPath );
+			// If database exists and is larger than 10KB, WordPress is already installed
+			needsInstallation = stats.size < 10 * 1024;
+		} catch {
+			// Database doesn't exist, needs installation
+			needsInstallation = true;
+		}
+
+		if ( needsInstallation ) {
+			// Add installation blueprint step to auto-install WordPress
+			if ( ! server.meta.blueprint ) {
+				server.meta.blueprint = {};
+			}
+
+			const installationStep = {
+				step: 'runPHP',
+				code: `<?php
+				$_POST = array(
+					'language' => 'en_US',
+					'prefix' => 'wp_',
+					'weblog_title' => '${ this.escapePhpString( siteName || nodePath.basename( path ) ) }',
+					'user_name' => 'admin',
+					'admin_password' => '${ this.escapePhpString( adminPassword || '' ) }',
+					'admin_password2' => '${ this.escapePhpString( adminPassword || '' ) }',
+					'Submit' => 'Install WordPress',
+					'pw_weak' => '1',
+					'admin_email' => 'admin@localhost.com',
+				);
+				$_REQUEST = $_POST;
+				$_GET['step'] = 2;
+
+				// Include WordPress installation
+				require_once('/wordpress/wp-admin/install.php');
+			`,
+			};
+
+			const existingSteps = server.meta.blueprint.steps || [];
+			server.meta.blueprint.steps = [ installationStep, ...existingSteps ];
 		}
 	}
 

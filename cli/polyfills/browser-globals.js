@@ -5,6 +5,8 @@ if ( typeof window === 'undefined' ) {
 		removeEventListener: () => {},
 		location: { href: '' },
 		document: {},
+		Blob: class Blob {},
+		File: class File {},
 	};
 }
 

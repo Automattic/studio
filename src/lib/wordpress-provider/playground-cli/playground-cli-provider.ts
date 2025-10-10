@@ -117,8 +117,32 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
 	}
 
+	private createInstallationStep( siteName: string, adminPassword: string ): StepDefinition {
+		return {
+			step: 'runPHP',
+			code: `<?php
+			$_POST = array(
+				'language' => 'en_US',
+				'prefix' => 'wp_',
+				'weblog_title' => '${ this.escapePhpString( siteName ) }',
+				'user_name' => 'admin',
+				'admin_password' => '${ this.escapePhpString( adminPassword ) }',
+				'admin_password2' => '${ this.escapePhpString( adminPassword ) }',
+				'Submit' => 'Install WordPress',
+				'pw_weak' => '1',
+				'admin_email' => 'admin@localhost.com',
+			);
+			$_REQUEST = $_POST;
+			$_GET['step'] = 2;
+
+			// Include WordPress installation
+			require_once('/wordpress/wp-admin/install.php');
+		`,
+		};
+	}
+
 	async setupWordPressSite( server: SiteServer, wpVersion = 'latest' ): Promise< boolean > {
-		const { path, name, adminPassword } = server.details;
+		const { path, name } = server.details;
 
 		try {
 			const isOnlineStatus = await isOnline();
@@ -180,28 +204,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 						`Failed to copy WordPress files for offline setup: ${ ( error as Error ).message }`
 					);
 				}
-
-				setupSteps.push( {
-					step: 'runPHP',
-					code: `<?php
-					$_POST = array(
-						'language' => '${ this.escapePhpString( DEFAULT_LOCALE ) }',
-						'prefix' => 'wp_',
-						'weblog_title' => '${ this.escapePhpString( name ) }',
-						'user_name' => 'admin',
-						'admin_password' => '${ this.escapePhpString( adminPassword || '' ) }',
-						'admin_password2' => '${ this.escapePhpString( adminPassword || '' ) }',
-						'Submit' => 'Install WordPress',
-						'pw_weak' => '1',
-						'admin_email' => 'admin@localhost.com',
-					);
-					$_REQUEST = $_POST;
-					$_GET['step'] = 2;
-
-					// Include WordPress installation
-					require_once('/wordpress/wp-admin/install.php');
-				`,
-				} );
 			}
 
 			if ( ! server.meta.blueprint ) {
@@ -219,7 +221,11 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		}
 	}
 
-	async installWordPress( server: SiteServer, siteName: string, adminPassword: string ): Promise< void > {
+	async installWordPress(
+		server: SiteServer,
+		siteName: string,
+		adminPassword: string
+	): Promise< void > {
 		const { path } = server.details;
 		const dbPath = nodePath.join( path, 'wp-content', 'database', '.ht.sqlite' );
 		let needsInstallation = true;
@@ -239,27 +245,10 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				server.meta.blueprint = {};
 			}
 
-			const installationStep = {
-				step: 'runPHP',
-				code: `<?php
-				$_POST = array(
-					'language' => 'en_US',
-					'prefix' => 'wp_',
-					'weblog_title' => '${ this.escapePhpString( siteName || nodePath.basename( path ) ) }',
-					'user_name' => 'admin',
-					'admin_password' => '${ this.escapePhpString( adminPassword || '' ) }',
-					'admin_password2' => '${ this.escapePhpString( adminPassword || '' ) }',
-					'Submit' => 'Install WordPress',
-					'pw_weak' => '1',
-					'admin_email' => 'admin@localhost.com',
-				);
-				$_REQUEST = $_POST;
-				$_GET['step'] = 2;
-
-				// Include WordPress installation
-				require_once('/wordpress/wp-admin/install.php');
-			`,
-			};
+			const installationStep = this.createInstallationStep(
+				siteName || nodePath.basename( path ),
+				adminPassword || ''
+			);
 
 			const existingSteps = server.meta.blueprint.steps || [];
 			server.meta.blueprint.steps = [ installationStep, ...existingSteps ];

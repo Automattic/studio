@@ -110,3 +110,5 @@ declare module 'wpcom' {
 	export default WPCOM;
 	/* eslint-enable @typescript-eslint/no-explicit-any */
 }
+
+declare module 'wpcom-xhr-request';

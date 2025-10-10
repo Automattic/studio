@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { __ } from '@wordpress/i18n';
-import wpcomFactory from 'wpcom';
-import wpcomXhrRequest from 'wpcom-xhr-request';
+import wpcomFactory from 'src/lib/wpcom-factory';
+import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
 

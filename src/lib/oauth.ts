@@ -1,11 +1,11 @@
 import * as Sentry from '@sentry/electron/main';
-import wpcomXhrRequest from 'wpcom-xhr-request';
 import { z } from 'zod';
 import { CLIENT_ID } from 'common/constants';
 import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import wpcomFactory from 'src/lib/wpcom-factory';
+import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 const authTokenSchema = z.object( {

@@ -1,5 +1,5 @@
 import fs from 'fs';
-import wpcomFactory from 'wpcom';
+import wpcomFactory from 'src/lib/wpcom-factory';
 import { uploadArchive, waitForSiteReady, SnapshotStatus } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
 

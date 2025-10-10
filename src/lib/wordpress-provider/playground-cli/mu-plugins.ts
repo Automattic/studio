@@ -339,18 +339,6 @@ function getStandardMuPlugins( options: Partial< WordPressServerOptions > ): MuP
 			$result = null;
 
 			switch ( $action ) {
-				case 'get_theme_details':
-					$theme = wp_get_theme();
-					$result = [
-						'name' => $theme->get('Name'),
-						'path' => $theme->get_stylesheet_directory(),
-						'slug' => $theme->get_stylesheet(),
-						'isBlockTheme' => $theme->is_block_theme(),
-						'supportsWidgets' => current_theme_supports('widgets'),
-						'supportsMenus' => get_registered_nav_menus() || current_theme_supports('menus'),
-					];
-					break;
-
 				case 'set_admin_password':
 					if ( empty( $_POST['password'] ) ) {
 						status_header( 400 );

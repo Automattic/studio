@@ -1,0 +1,48 @@
+diff --git a/node_modules/wpcom-xhr-request/build/index.js b/node_modules/wpcom-xhr-request/build/index.js
+index a57eb28..3578c6e 100644
+--- a/node_modules/wpcom-xhr-request/build/index.js
++++ b/node_modules/wpcom-xhr-request/build/index.js
+@@ -255,7 +255,7 @@ function request(options, fn) {
+ 
+ 	var apiNamespace = settings.apiNamespace,
+ 	    apiVersion = settings.apiVersion,
+-	    authToken = settings.authToken,
++	    authToken = settings.authToken || settings.token,  // Support both authToken and token fields
+ 	    body = settings.body,
+ 	    formData = settings.formData,
+ 	    headers = settings.headers,
+diff --git a/node_modules/wpcom-xhr-request/index.d.ts b/node_modules/wpcom-xhr-request/index.d.ts
+new file mode 100644
+index 0000000..f8dbd8a
+--- /dev/null
++++ b/node_modules/wpcom-xhr-request/index.d.ts
+@@ -0,0 +1,29 @@
++interface WpcomXhrRequestOptions {
++	path?: string;
++	apiVersion?: string;
++	apiNamespace?: string;
++	authToken?: string | null;
++	body?: unknown;
++	formData?: [ string, unknown, Record< string, string >? ][];
++	headers?: Record< string, string > | null;
++	method?: string;
++	query?: Record< string, unknown > | null;
++	processResponseInEnvelopeMode?: boolean;
++	onStreamRecord?: ( record: unknown ) => void;
++	proxyOrigin?: string;
++	url?: string;
++}
++
++type WpcomXhrRequestCallback = (
++	error: Error | null,
++	data: unknown,
++	headers: Record< string, string >
++) => void;
++
++declare function wpcomXhrRequest(
++	options: string | WpcomXhrRequestOptions,
++	callback: WpcomXhrRequestCallback
++): XMLHttpRequest | undefined;
++
++export = wpcomXhrRequest;
++

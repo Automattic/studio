@@ -148,7 +148,11 @@ export class WpNowProvider implements WordPressProvider {
 		}
 	}
 
-	async installWordPress( server: SiteServer, siteName: string, adminPassword: string ): Promise< void > {
+	async installWordPress(
+		_server: SiteServer,
+		_siteName: string,
+		_adminPassword: string
+	): Promise< void > {
 		// wp-now handles WordPress installation automatically via installationSteps
 		// in vendor/wp-now/src/wp-now.ts, so no action needed here
 	}

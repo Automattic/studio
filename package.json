@@ -108,7 +108,7 @@
 		"ts-jest": "^29.4.1",
 		"ts-loader": "^9.5.4",
 		"ts-node": "^10.0.0",
-		"typescript": "~5.9.2",
+		"typescript": "~5.9.3",
 		"vite": "^7.1.5",
 		"vite-plugin-checker": "^0.10.3",
 		"vite-plugin-ejs": "^1.7.0",

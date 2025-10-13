@@ -1,4 +1,3 @@
-import fs from 'fs';
 import nodePath from 'path';
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
@@ -221,38 +220,34 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		}
 	}
 
+	// Install WordPress if user adds a WordPress folder with no wp-config.php and no database.
 	async installWordPress(
 		server: SiteServer,
 		siteName: string,
 		adminPassword: string
 	): Promise< void > {
 		const { path } = server.details;
-		const dbPath = nodePath.join( path, 'wp-content', 'database', '.ht.sqlite' );
-		let needsInstallation = true;
+		const databaseExists = await pathExists(
+			nodePath.join( path, 'wp-content', 'database', '.ht.sqlite' )
+		);
+		const wpConfigExists = await pathExists( nodePath.join( path, 'wp-config.php' ) );
 
-		try {
-			const stats = await fs.promises.stat( dbPath );
-			// If database exists and is larger than 10KB, WordPress is already installed
-			needsInstallation = stats.size < 10 * 1024;
-		} catch {
-			// Database doesn't exist, needs installation
-			needsInstallation = true;
+		if ( wpConfigExists || databaseExists ) {
+			return;
 		}
 
-		if ( needsInstallation ) {
-			// Add installation blueprint step to auto-install WordPress
-			if ( ! server.meta.blueprint ) {
-				server.meta.blueprint = {};
-			}
-
-			const installationStep = this.createInstallationStep(
-				siteName || nodePath.basename( path ),
-				adminPassword || ''
-			);
-
-			const existingSteps = server.meta.blueprint.steps || [];
-			server.meta.blueprint.steps = [ installationStep, ...existingSteps ];
+		// Add installation blueprint step to auto-install WordPress
+		if ( ! server.meta.blueprint ) {
+			server.meta.blueprint = {};
 		}
+
+		const installationStep = this.createInstallationStep(
+			siteName || nodePath.basename( path ),
+			adminPassword || ''
+		);
+
+		const existingSteps = server.meta.blueprint.steps || [];
+		server.meta.blueprint.steps = [ installationStep, ...existingSteps ];
 	}
 
 	isValidWordPressVersion( version: string ): boolean {

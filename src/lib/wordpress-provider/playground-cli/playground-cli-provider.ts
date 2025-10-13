@@ -241,10 +241,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			server.meta.blueprint = {};
 		}
 
-		const installationStep = this.createInstallationStep(
-			siteName || nodePath.basename( path ),
-			adminPassword || ''
-		);
+		const installationStep = this.createInstallationStep( siteName, adminPassword );
 
 		const existingSteps = server.meta.blueprint.steps || [];
 		server.meta.blueprint.steps = [ installationStep, ...existingSteps ];

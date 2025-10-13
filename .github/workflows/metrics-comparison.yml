@@ -17,6 +17,7 @@ jobs:
     runs-on: macos-15
     permissions:
       contents: read
+      pull-requests: write
     env:
       ARTIFACTS_PATH: ${{ github.workspace }}/artifacts
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -36,7 +37,13 @@ jobs:
 
       - name: Compare performance with trunk
         if: github.event_name == 'pull_request'
-        run: cd scripts/compare-perf && npm ci && npm run compare -- perf $GITHUB_SHA trunk --tests-branch $GITHUB_SHA
+        run: cd scripts/compare-perf && npm ci && npm run compare -- perf $GITHUB_SHA trunk --tests-branch $GITHUB_SHA --rounds 3
+
+      - name: Post performance results to PR
+        if: github.event_name == 'pull_request' && !cancelled()
+        run: |
+          cd scripts/compare-perf
+          npm run post-to-github -- $GITHUB_TOKEN ${{ github.repository }} ${{ github.event.pull_request.number }} trunk $GITHUB_SHA
 
       - name: Compare performance with base branch
         if: github.event_name == 'push'
@@ -45,7 +52,7 @@ jobs:
         # it needs to be updated every time it becomes unsupported by the current performance tests.
         # It is used as a base comparison point to avoid fluctuation in the performance metrics.
         run: |
-          cd scripts/compare-perf && npm ci && npm run compare -- perf $GITHUB_SHA d1f49275f3e08fb675d5685855c2243b6cd183de --tests-branch $GITHUB_SHA
+          cd scripts/compare-perf && npm ci && npm run compare -- perf $GITHUB_SHA d1f49275f3e08fb675d5685855c2243b6cd183de --tests-branch $GITHUB_SHA --rounds 3
 
       # Log performance metrics to CodeVitals when running on trunk
       - name: Log performance metrics to CodeVitals

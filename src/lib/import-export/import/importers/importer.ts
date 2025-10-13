@@ -10,7 +10,11 @@ import semver from 'semver';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
 import { ImportEvents } from 'src/lib/import-export/import/events';
-import { BackupContents, MetaFileData } from 'src/lib/import-export/import/types';
+import {
+	BackupContents,
+	MetaFileData,
+	ImportWpContentProgressEventData,
+} from 'src/lib/import-export/import/types';
 import { serializePlugins } from 'src/lib/serialize-plugins';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import { getWordPressProvider } from 'src/lib/wordpress-provider';
@@ -51,14 +55,25 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 		this.emit( ImportEvents.IMPORT_DATABASE_START );
 
 		const sortedSqlFiles = sqlFiles.sort( ( a, b ) => a.localeCompare( b ) );
+		let processedFiles = 0;
+		const totalFiles = sortedSqlFiles.length;
+
 		for ( const sqlFile of sortedSqlFiles ) {
 			const sqlTempFile = `${ generateBackupFilename( 'sql' ) }.sql`;
 			const tmpPath = path.join( rootPath, sqlTempFile );
+			processedFiles++;
+
+			this.emit( ImportEvents.IMPORT_DATABASE_PROGRESS, {
+				currentFile: path.basename( sqlFile ),
+				processedFiles,
+				totalFiles,
+			} );
 
 			try {
 				await move( sqlFile, tmpPath );
 				await this.prepareSqlFile( tmpPath );
-				const { stderr, exitCode } = await server.executeWpCliCommand(
+				console.log( `Importing ${ sqlFile }` );
+				const { stderr, exitCode, stdout } = await server.executeWpCliCommand(
 					`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php --enable-ast-driver`,
 					// SQLite plugin requires PHP 8+
 					{
@@ -66,6 +81,10 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 						skipPluginsAndThemes: true,
 					}
 				);
+
+				if ( stdout ) {
+					console.log( `SQLite import stdout: ${ stdout }` );
+				}
 
 				if ( stderr ) {
 					console.error( `Error during import of ${ sqlFile }:`, stderr );
@@ -194,30 +213,74 @@ abstract class BaseBackupImporter extends BaseImporter {
 		const wpContentSourceDir = this.backup.wpContentDirectory;
 		const wpContentDestDir = path.join( rootPath, 'wp-content' );
 
-		for ( const file of this.backup.wpContentFiles ) {
-			try {
-				const stats = await lstat( file );
-				// Skip if it's a directory
-				if ( stats.isDirectory() ) {
+		// Group files by type
+		const filesByType = this.categorizeWpContentFiles( this.backup.wpContentFiles );
+		let processedItems = 0;
+		const totalItems = this.backup.wpContentFiles.length;
+
+		for ( const [ type, files ] of Object.entries( filesByType ) ) {
+			for ( const file of files ) {
+				try {
+					const stats = await lstat( file );
+					// Skip if it's a directory
+					if ( stats.isDirectory() ) {
+						continue;
+					}
+				} catch {
+					/**
+					 * If the file does not exist, skip it.
+					 * This can happen if a empty directory is included in the backup
+					 * because the empty directory won't be included in the extraction.
+					 */
 					continue;
 				}
-			} catch {
-				/**
-				 * If the file does not exist, skip it.
-				 * This can happen if a empty directory is included in the backup
-				 * because the empty directory won't be included in the extraction.
-				 */
-				continue;
+
+				const relativePath = path.relative(
+					path.join( extractionDirectory, wpContentSourceDir ),
+					file
+				);
+
+				const destPath = path.join( wpContentDestDir, relativePath );
+				await fsPromises.mkdir( path.dirname( destPath ), { recursive: true } );
+				await fsPromises.copyFile( file, destPath );
+
+				processedItems++;
+
+				// Emit progress event after file is copied
+				this.emit( ImportEvents.IMPORT_WP_CONTENT_PROGRESS, {
+					type: type as 'plugins' | 'themes' | 'uploads' | 'other',
+					currentItem: relativePath,
+					processedItems,
+					totalItems,
+				} as ImportWpContentProgressEventData );
 			}
-			const relativePath = path.relative(
-				path.join( extractionDirectory, wpContentSourceDir ),
-				file
-			);
-			const destPath = path.join( wpContentDestDir, relativePath );
-			await fsPromises.mkdir( path.dirname( destPath ), { recursive: true } );
-			await fsPromises.copyFile( file, destPath );
 		}
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_COMPLETE );
+	}
+
+	protected categorizeWpContentFiles( files: string[] ): Record< string, string[] > {
+		const categorized: Record< string, string[] > = {
+			plugins: [],
+			themes: [],
+			uploads: [],
+			other: [],
+		};
+
+		for ( const file of files ) {
+			const segments = file.split( /[/\\]/ );
+
+			if ( segments.includes( 'plugins' ) ) {
+				categorized.plugins.push( file );
+			} else if ( segments.includes( 'themes' ) ) {
+				categorized.themes.push( file );
+			} else if ( segments.includes( 'uploads' ) ) {
+				categorized.uploads.push( file );
+			} else {
+				categorized.other.push( file );
+			}
+		}
+
+		return categorized;
 	}
 
 	protected parsePhpVersion( version: string | undefined ): string {

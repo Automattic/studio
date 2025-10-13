@@ -44,6 +44,8 @@ export class BackupHandlerZip extends EventEmitter implements BackupHandler {
 		const openReadStream = promisify( zipFile.openReadStream.bind( zipFile ) );
 		const totalSize = fs.statSync( file.path ).size;
 		let processedSize = 0;
+		let processedFiles = 0;
+		const totalFiles = zipFile.entryCount;
 
 		this.emit( ImportEvents.BACKUP_EXTRACT_START );
 
@@ -73,6 +75,12 @@ export class BackupHandlerZip extends EventEmitter implements BackupHandler {
 					return;
 				}
 
+				this.emit( ImportEvents.BACKUP_EXTRACT_FILE_START, {
+					currentFile: entry.fileName,
+					processedFiles,
+					totalFiles,
+				} as BackupExtractProgressEventData );
+
 				try {
 					const readStream = await openReadStream( entry );
 					const writeStream = fs.createWriteStream( fullPath );
@@ -94,11 +102,17 @@ export class BackupHandlerZip extends EventEmitter implements BackupHandler {
 						processedSize += chunk.length;
 						this.emit( ImportEvents.BACKUP_EXTRACT_PROGRESS, {
 							progress: processedSize / totalSize,
+							processedFiles,
+							totalFiles,
+							currentFile: entry.fileName,
+							extractedBytes: processedSize,
+							totalBytes: totalSize,
 						} as BackupExtractProgressEventData );
 					} );
 
 					writeStream.once( 'finish', () => {
 						if ( ! extractionFailed ) {
+							processedFiles++;
 							zipFile.readEntry();
 						}
 					} );

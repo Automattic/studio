@@ -1,13 +1,20 @@
+import * as Sentry from '@sentry/electron/renderer';
 import { speak } from '@wordpress/a11y';
 import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import { Tooltip } from 'src/components/tooltip';
 import { useSyncSites } from 'src/hooks/sync-sites';
+import { useContentTabs } from 'src/hooks/use-content-tabs';
+import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { isMac } from 'src/lib/app-globals';
+import { isMac, isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
+import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
+import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
 
 interface SiteMenuProps {
 	className?: string;
@@ -108,10 +115,21 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 	);
 }
 function SiteItem( { site }: { site: SiteDetails } ) {
-	const { selectedSite, setSelectedSiteId } = useSiteDetails();
+	const {
+		selectedSite,
+		setSelectedSiteId,
+		startServer,
+		stopServer,
+		loadingServer,
+		setIsEditModalOpen,
+	} = useSiteDetails();
+	const { setSelectedTab } = useContentTabs();
+	const { handleDeleteSite } = useDeleteSite();
 	const isSelected = site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
 	const { isSiteIdPulling } = useSyncSites();
+	const { data: editor } = useGetUserEditorQuery();
+	const { data: terminal } = useGetUserTerminalQuery();
 	const isImporting = isSiteImporting( site.id );
 	const isExporting = isSiteExporting( site.id );
 	const isPulling = isSiteIdPulling( site.id );
@@ -128,6 +146,103 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 		tooltipText = __( 'Loading' );
 	}
 
+	const handleContextMenu = ( e: React.MouseEvent ) => {
+		e.preventDefault();
+		const ipcApi = getIpcApi();
+		const isLoading = loadingServer[ site.id ] || false;
+		const isAddingSite = site.isAddingSite || false;
+		const finderLabel = isWindows() ? __( 'File Explorer' ) : __( 'Finder' );
+		const editorLabel =
+			editor && supportedEditorConfig[ editor ] ? supportedEditorConfig[ editor ].label : null;
+		const terminalLabel = getTerminalName( terminal );
+
+		ipcApi.showSiteContextMenu( {
+			siteId: site.id,
+			isRunning: site.running,
+			isLoading,
+			isAddingSite,
+			finderLabel,
+			editorLabel,
+			terminalLabel,
+		} );
+	};
+
+	useEffect( () => {
+		const unsubscribe = window.ipcListener.subscribe(
+			'site-context-menu-action',
+			async ( _, data: { action: string; siteId: string } ) => {
+				if ( data.siteId === site.id ) {
+					const ipcApi = getIpcApi();
+					switch ( data.action ) {
+						case 'start':
+							void startServer( site.id );
+							break;
+						case 'stop':
+							void stopServer( site.id );
+							break;
+						case 'open-site':
+							if ( ! site.running ) {
+								await startServer( site.id );
+							}
+							ipcApi.openSiteURL( site.id, '', { autoLogin: false } );
+							break;
+						case 'open-admin':
+							if ( ! site.running ) {
+								await startServer( site.id );
+							}
+							ipcApi.openSiteURL( site.id, '/wp-admin/' );
+							break;
+						case 'open-finder':
+							ipcApi.openLocalPath( site.path );
+							break;
+						case 'open-editor':
+							if ( editor ) {
+								void ipcApi.openAppAtPath( editor, site.path );
+							}
+							break;
+						case 'open-terminal':
+							void ( async () => {
+								try {
+									await ipcApi.openTerminalAtPath( site.path );
+								} catch ( error ) {
+									Sentry.captureException( error );
+									alert( __( 'Could not open the terminal.' ) );
+								}
+							} )();
+							break;
+						case 'edit-site':
+							if ( site.id !== selectedSite?.id ) {
+								setSelectedSiteId( site.id );
+							}
+							setSelectedTab( 'settings' );
+							setIsEditModalOpen( true );
+							break;
+						case 'delete':
+							await handleDeleteSite( site.id, site.name );
+							break;
+					}
+				}
+			}
+		);
+
+		return () => {
+			unsubscribe?.();
+		};
+	}, [
+		site.id,
+		site.name,
+		site.path,
+		site.running,
+		startServer,
+		stopServer,
+		editor,
+		selectedSite?.id,
+		setSelectedTab,
+		setIsEditModalOpen,
+		setSelectedSiteId,
+		handleDeleteSite,
+	] );
+
 	return (
 		<li
 			className={ cx(
@@ -135,6 +250,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 				isMac() ? 'me-5' : 'me-4',
 				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19]'
 			) }
+			onContextMenu={ handleContextMenu }
 		>
 			<button
 				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blue-50"

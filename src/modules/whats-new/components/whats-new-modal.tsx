@@ -60,7 +60,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			image: blueprintsIllustration,
 			title: __( 'Introducing Blueprints, a new way to streamline site creation.' ),
 			description: __(
-				'Select a blueprint that fits your needs and build your WordPress site even faster.'
+				'Select a Blueprint that fits your needs and build your WordPress site even faster.'
 			),
 			learnMoreUrl: getLocalizedLink( locale, 'docsBlueprints' ),
 		},

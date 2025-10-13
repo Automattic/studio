@@ -1,5 +1,6 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
+import { useEffect, useRef, useState } from 'react';
 import { ContentTabAssistant } from 'src/components/content-tab-assistant';
 import { ContentTabImportExport } from 'src/components/content-tab-import-export';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
@@ -16,10 +17,28 @@ import { cx } from 'src/lib/cx';
 import { ContentTabSync } from 'src/modules/sync';
 
 export function SiteContentTabs() {
-	const { selectedSite, data: localSites } = useSiteDetails();
+	const { selectedSite, data: localSites, siteCreationMessages } = useSiteDetails();
 	const { importState } = useImportExport();
 	const { tabs, selectedTab, setSelectedTab } = useContentTabs();
 	const { __ } = useI18n();
+
+	// Remount: Avoid focus loss on user tab changes (no remount),
+	// but remount on programmatic changes and site switches so initial tab/content state resets.
+	const [ keyCounter, setKeyCounter ] = useState( 0 );
+	const lastChangeWasUser = useRef( false );
+	const isFirstRender = useRef( true );
+
+	useEffect( () => {
+		if ( isFirstRender.current ) {
+			isFirstRender.current = false;
+			return;
+		}
+		if ( lastChangeWasUser.current ) {
+			lastChangeWasUser.current = false;
+			return;
+		}
+		setKeyCounter( ( k ) => k + 1 );
+	}, [ selectedTab ] );
 
 	if ( ! localSites.length ) {
 		return <EmptyStudio />;
@@ -34,7 +53,14 @@ export function SiteContentTabs() {
 	}
 
 	if ( selectedSite?.isAddingSite || importState[ selectedSite?.id ]?.isNewSite ) {
-		return <SiteIsBeingCreated siteName={ selectedSite?.name } />;
+		const siteImportState = importState[ selectedSite?.id ];
+		const creationMessage = selectedSite?.id ? siteCreationMessages[ selectedSite.id ] : undefined;
+		return (
+			<SiteIsBeingCreated
+				siteName={ selectedSite?.name }
+				statusMessage={ siteImportState?.statusMessage || creationMessage }
+			/>
+		);
 	}
 
 	return (
@@ -44,9 +70,13 @@ export function SiteContentTabs() {
 				className={ `mt-6 h-full flex flex-col overflow-hidden ${ MIN_WIDTH_CLASS_TO_MEASURE }` }
 				tabs={ tabs }
 				orientation="horizontal"
-				onSelect={ ( tabName ) => setSelectedTab( tabName as TabName ) }
+				onSelect={ ( tabName ) => {
+					// Mark this as a user-initiated change so we don't remount
+					lastChangeWasUser.current = true;
+					setSelectedTab( tabName as TabName );
+				} }
 				initialTabName={ selectedTab }
-				key={ selectedTab + selectedSite.id }
+				key={ `${ selectedSite.id }-${ keyCounter }` }
 			>
 				{ ( { name } ) => (
 					<div

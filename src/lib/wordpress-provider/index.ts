@@ -38,11 +38,13 @@ export const getProviderConstants = (
 	defaultPhpVersion: string;
 	defaultWordPressVersion: string;
 	allowedPhpVersions: string[];
+	minimumWordPressVersion: string;
 } => {
 	return {
 		defaultPhpVersion: provider.DEFAULT_PHP_VERSION,
 		defaultWordPressVersion: provider.DEFAULT_WORDPRESS_VERSION,
 		allowedPhpVersions: provider.ALLOWED_PHP_VERSIONS,
+		minimumWordPressVersion: provider.MINIMUM_WORDPRESS_VERSION,
 	};
 };
 
@@ -71,6 +73,9 @@ export const getWpLoadPath = ( ...args: Parameters< WordPressProvider[ 'getWpLoa
 export const setupWordPressSite = (
 	...args: Parameters< WordPressProvider[ 'setupWordPressSite' ] >
 ) => getWordPressProvider().setupWordPressSite( ...args );
+export const installWordPressWhenNoWpConfig = (
+	...args: Parameters< WordPressProvider[ 'installWordPressWhenNoWpConfig' ] >
+) => getWordPressProvider().installWordPressWhenNoWpConfig( ...args );
 export const startServer = ( ...args: Parameters< WordPressProvider[ 'startServer' ] > ) =>
 	getWordPressProvider().startServer( ...args );
 export const isValidWordPressVersion = (

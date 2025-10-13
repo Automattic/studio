@@ -8,8 +8,10 @@ import { StudioLogo } from 'src/components/studio-logo';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useAppDispatch } from 'src/stores';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import { useSaveLastSeenVersionMutation } from 'src/stores/app-version-api';
 import { saveOnboardingStatus } from 'src/stores/onboarding-slice';
+import { selectMinimumWordPressVersion } from 'src/stores/provider-constants-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 
 const GradientBox = () => {
@@ -36,6 +38,7 @@ const GradientBox = () => {
 export default function Onboarding() {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
+	const [ saveLastSeenVersion ] = useSaveLastSeenVersionMutation();
 	const {
 		setSiteName,
 		setProposedSitePath,
@@ -70,7 +73,10 @@ export default function Onboarding() {
 		siteName || ''
 	);
 
-	const { data: versions = [] } = useGetWordPressVersions();
+	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
+	const { data: versions = [] } = useGetWordPressVersions( {
+		minimumVersion: minimumWordPressVersion,
+	} );
 	const latestStableVersion = versions.find( ( version ) => version.value === 'latest' );
 
 	useEffect( () => {
@@ -101,6 +107,8 @@ export default function Onboarding() {
 	const handleSubmit = useCallback(
 		async ( event: FormEvent ) => {
 			event.preventDefault();
+			// Save current app version to prevent What's New from showing for new users
+			await saveLastSeenVersion( window.appGlobals.appVersion );
 			try {
 				await getIpcApi().promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
 			} catch ( error ) {
@@ -116,7 +124,7 @@ export default function Onboarding() {
 				// No need to handle error here, it's already handled in handleAddSiteClick
 			}
 		},
-		[ handleAddSiteClick, siteAddedMessage, dispatch ]
+		[ handleAddSiteClick, siteAddedMessage, dispatch, saveLastSeenVersion ]
 	);
 
 	return (

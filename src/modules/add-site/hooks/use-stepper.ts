@@ -40,7 +40,7 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 
 	const stepperContext = useMemo( (): StepperContext | null => {
 		const blueprintSteps: StepperStep[] = [
-			{ id: 'choose-blueprint', label: __( 'Choose blueprint' ), path: '/blueprint' },
+			{ id: 'choose-blueprint', label: __( 'Choose Blueprint' ), path: '/blueprint' },
 			{ id: 'site-details', label: __( 'Site name & details' ), path: '/blueprint/create' },
 		];
 

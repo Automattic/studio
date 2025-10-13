@@ -2,7 +2,6 @@
  * @jest-environment node
  */
 import { IpcMainInvokeEvent, BrowserWindow, Menu, MenuItem } from 'electron';
-import fs from 'fs';
 import { showSiteContextMenu } from 'src/ipc-handlers';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 

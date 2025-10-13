@@ -7,6 +7,7 @@ Unreleased
 * Improved the import process to report progress more accurately throughout the operation #1734
 * Updated SQLite plugin to 2.2.12, which adds support for CHECK constraints, and increases compatibility with SQLite 3.37.0 #1869
 * Fixed focus loss on switching between tabs #1859
+* Fixed classic theme customize links for menus and widgets #1873
 * Updated multiple dependencies, including Electron, keycodes, a11y, compression, and dataviews to the latest versions
 
 1.6.0

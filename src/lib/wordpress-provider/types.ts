@@ -70,7 +70,11 @@ export interface WordPressProvider {
 
 	// Core functionality
 	setupWordPressSite( server: SiteServer, wpVersion?: string ): Promise< boolean >;
-	installWordPress( server: SiteServer, siteName: string, adminPassword: string ): Promise< void >;
+	installWordPressWhenNoWpConfig(
+		server: SiteServer,
+		siteName: string,
+		adminPassword: string
+	): Promise< void >;
 	startServer( options: ServerOptions ): Promise< WordPressServerInstance >;
 
 	// Server process management

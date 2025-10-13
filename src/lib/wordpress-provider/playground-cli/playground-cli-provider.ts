@@ -221,7 +221,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 	}
 
 	// Install WordPress if user adds a WordPress folder with no wp-config.php and no database.
-	async installWordPress(
+	async installWordPressWhenNoWpConfig(
 		server: SiteServer,
 		siteName: string,
 		adminPassword: string

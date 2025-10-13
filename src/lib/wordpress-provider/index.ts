@@ -73,9 +73,9 @@ export const getWpLoadPath = ( ...args: Parameters< WordPressProvider[ 'getWpLoa
 export const setupWordPressSite = (
 	...args: Parameters< WordPressProvider[ 'setupWordPressSite' ] >
 ) => getWordPressProvider().setupWordPressSite( ...args );
-export const installWordPress = (
-	...args: Parameters< WordPressProvider[ 'installWordPress' ] >
-) => getWordPressProvider().installWordPress( ...args );
+export const installWordPressWhenNoWpConfig = (
+	...args: Parameters< WordPressProvider[ 'installWordPressWhenNoWpConfig' ] >
+) => getWordPressProvider().installWordPressWhenNoWpConfig( ...args );
 export const startServer = ( ...args: Parameters< WordPressProvider[ 'startServer' ] > ) =>
 	getWordPressProvider().startServer( ...args );
 export const isValidWordPressVersion = (

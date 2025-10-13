@@ -261,7 +261,7 @@ export async function createSite(
 		}
 		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
 			await installSqliteIntegration( path );
-			await getWordPressProvider().installWordPress(
+			await getWordPressProvider().installWordPressWhenNoWpConfig(
 				server,
 				siteName || nodePath.basename( path ),
 				details.adminPassword

@@ -148,7 +148,7 @@ export class WpNowProvider implements WordPressProvider {
 		}
 	}
 
-	async installWordPress(
+	async installWordPressWhenNoWpConfig(
 		_server: SiteServer,
 		_siteName: string,
 		_adminPassword: string

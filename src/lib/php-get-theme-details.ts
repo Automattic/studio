@@ -19,21 +19,6 @@ export async function phpGetThemeDetails(
 	}
 
 	try {
-		// Try to use the persistent mu-plugin API endpoint if available (Playground CLI)
-		if ( server.php.request ) {
-			const response = await server.php.request( {
-				url: '/?studio-admin-api',
-				method: 'POST',
-				body: {
-					action: 'get_theme_details',
-				},
-			} );
-
-			const themeDetailsParsed = JSON.parse( response.text );
-			return themeDetailsSchema.parse( themeDetailsParsed );
-		}
-
-		// Fallback to runPhp for WP-Now
 		const wpLoadPath = getWpLoadPath( server );
 
 		const themeDetailsPhp = `<?php

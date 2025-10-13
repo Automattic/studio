@@ -60,7 +60,13 @@ export default defineConfig( {
 				output: {
 					entryFileNames: '[name].js',
 				},
-				external: [ '@php-wasm/node', '@php-wasm/web', '@php-wasm/logger', '@php-wasm/universal', '@php-wasm/scopes' ],
+				external: [
+					'@php-wasm/node',
+					'@php-wasm/web',
+					'@php-wasm/logger',
+					'@php-wasm/universal',
+					'@php-wasm/scopes',
+				],
 			},
 		},
 	},
@@ -109,17 +115,17 @@ export default defineConfig( {
 				],
 			} ),
 			// Sentry must be the last plugin
-			!isDevEnvironment &&
-				!!process.env.SENTRY_AUTH_TOKEN &&
-				sentryVitePlugin({
+			! isDevEnvironment &&
+				!! process.env.SENTRY_AUTH_TOKEN &&
+				sentryVitePlugin( {
 					authToken: process.env.SENTRY_AUTH_TOKEN,
 					org: 'a8c',
 					project: 'studio',
 					release: {
 						name: sentryRelease,
 					},
-				}),
-		].filter(Boolean),
+				} ),
+		].filter( Boolean ),
 		css: {
 			// Ensure CSS injection order is preserved - WordPress styles first, then custom styles
 			devSourcemap: true,
@@ -138,20 +144,21 @@ export default defineConfig( {
 			},
 		},
 		build: {
+			sourcemap: true,
 			rollupOptions: {
 				input: resolve( __dirname, 'index.html' ),
 				output: {
 					// Extract CSS into separate files (like Webpack's MiniCssExtractPlugin)
-					assetFileNames: (assetInfo) => {
-						if (assetInfo.name && assetInfo.name.endsWith('.css')) {
+					assetFileNames: ( assetInfo ) => {
+						if ( assetInfo.name && assetInfo.name.endsWith( '.css' ) ) {
 							return 'assets/[name]-[hash][extname]';
 						}
 						return 'assets/[name]-[hash][extname]';
 					},
 					// Optimize chunk splitting for better caching
 					manualChunks: {
-						vendor: ['react', 'react-dom', '@wordpress/components', '@wordpress/element'],
-						sentry: ['@sentry/react', '@sentry/electron'],
+						vendor: [ 'react', 'react-dom', '@wordpress/components', '@wordpress/element' ],
+						sentry: [ '@sentry/react', '@sentry/electron' ],
 					},
 				},
 			},

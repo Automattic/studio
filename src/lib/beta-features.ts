@@ -7,7 +7,7 @@ export interface BetaFeatureDefinition {
 	description?: string;
 }
 
-export const BETA_FEATURES_DEFINITION: Record< keyof BetaFeatures, BetaFeatureDefinition > = {
+const BETA_FEATURES_DEFINITION: Record< keyof BetaFeatures, BetaFeatureDefinition > = {
 	studioSitesCli: {
 		label: 'Studio Sites CLI',
 		key: 'studioSitesCli',
@@ -19,7 +19,7 @@ export const BETA_FEATURES_DEFINITION: Record< keyof BetaFeatures, BetaFeatureDe
 export const BETA_FEATURES: Record< keyof BetaFeatures, BetaFeatureDefinition > =
 	BETA_FEATURES_DEFINITION;
 
-export function buildBetaFeatures( userData: BetaFeatures | undefined ): BetaFeatures {
+function buildBetaFeatures( userData: BetaFeatures | undefined ): BetaFeatures {
 	const features: Partial< BetaFeatures > = {};
 	const keys = Object.keys( BETA_FEATURES );
 	keys.forEach( ( key ) => {

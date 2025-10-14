@@ -65,18 +65,26 @@ test.describe( 'Site Editor Load Metrics', () => {
 		await page.goto( `${ wpAdminUrl }?playground-auto-login=true` );
 		await page.waitForLoadState( 'networkidle' );
 
-		for ( let i = 0; i < 5; i++ ) {
+		// Run 2 iterations: 1 warmup + 1 measurement
+		// Outer rounds in CI provide additional samples across full rebuilds
+		for ( let i = 0; i < 2; i++ ) {
 			// Start timer just before navigating to the site editor
 			const startTime = Date.now();
-			await page.goto( `${ wpAdminUrl }/site-editor.php` );
+			await page.goto( `${ wpAdminUrl }/site-editor.php`, { waitUntil: 'commit' } );
 
-			// First wait for the iframe to appear
-			await page.waitForSelector( 'iframe[name="editor-canvas"]' );
+			// First wait for the iframe to appear with explicit timeout
+			await page.waitForSelector( 'iframe[name="editor-canvas"]', {
+				state: 'visible',
+				timeout: 120_000 // 2 minutes, half of the default action timeout
+			} );
 			const frame = page.frame( { name: 'editor-canvas' } );
 			if ( ! frame ) {
 				throw new Error( 'Frame not found' );
 			}
-			await frame.waitForSelector( '[data-block]' );
+
+			// Wait for frame to be ready before checking for blocks
+			await frame.waitForLoadState( 'domcontentloaded' );
+			await frame.waitForSelector( '[data-block]', { timeout: 60_000 } );
 
 			// Make sure blocks are loaded and spinners are gone
 			await frame.waitForFunction( () => {
@@ -86,7 +94,7 @@ test.describe( 'Site Editor Load Metrics', () => {
 					! document.querySelector( '.is-loading' ) &&
 					! document.querySelector( '.wp-block-editor__loading' )
 				);
-			} );
+			}, { timeout: 60_000 } );
 
 			const endTime = Date.now();
 			const duration = endTime - startTime;
@@ -94,8 +102,14 @@ test.describe( 'Site Editor Load Metrics', () => {
 				results.load.push( duration );
 			}
 
-			// Wait between runs
-			await new Promise( ( resolve ) => setTimeout( resolve, 500 ) );
+			// Wait longer between runs to let the system settle
+			await new Promise( ( resolve ) => setTimeout( resolve, 2000 ) );
+
+			// Navigate away to clear state before next iteration
+			if ( i < 1 ) {
+				await page.goto( `${ wpAdminUrl }` );
+				await page.waitForLoadState( 'networkidle' );
+			}
 		}
 		await page.close();
 		await context.close();

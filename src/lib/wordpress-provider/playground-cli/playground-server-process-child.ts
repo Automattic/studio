@@ -48,6 +48,10 @@ const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
 const originalConsoleWarn = console.warn;
 
+// Track timing for playground-cli operations
+let playgroundCliStartTime: number | null = null;
+let lastLogTime: number | null = null;
+
 function formatMessageForUI( message: string ): string {
 	if ( message.includes( 'WordPress is running on' ) ) {
 		return 'WordPress is running';
@@ -59,7 +63,21 @@ function formatMessageForUI( message: string ): string {
 }
 
 console.log = ( ...args: any[] ) => {
-	originalConsoleLog( '[playground-cli]', ...args );
+	const now = Date.now();
+
+	// Initialize timing on first log
+	if ( playgroundCliStartTime === null ) {
+		playgroundCliStartTime = now;
+		lastLogTime = now;
+	}
+
+	const elapsed = now - playgroundCliStartTime;
+	const delta = lastLogTime !== null ? now - lastLogTime : 0;
+	lastLogTime = now;
+
+	// Add timing info to the log
+	originalConsoleLog( `[playground-cli | total: ${ elapsed }ms | since last: ${ delta }ms]`, ...args );
+
 	const message = args.join( ' ' );
 	process.parentPort.postMessage( { type: 'activity' } );
 	const formattedMessage = formatMessageForUI( message );
@@ -69,12 +87,30 @@ console.log = ( ...args: any[] ) => {
 };
 
 console.error = ( ...args: any[] ) => {
-	originalConsoleError( '[playground-cli]', ...args );
+	const now = Date.now();
+	if ( playgroundCliStartTime === null ) {
+		playgroundCliStartTime = now;
+		lastLogTime = now;
+	}
+	const elapsed = now - playgroundCliStartTime;
+	const delta = lastLogTime !== null ? now - lastLogTime : 0;
+	lastLogTime = now;
+
+	originalConsoleError( `[playground-cli | total: ${ elapsed }ms | since last: ${ delta }ms]`, ...args );
 	process.parentPort.postMessage( { type: 'activity' } );
 };
 
 console.warn = ( ...args: any[] ) => {
-	originalConsoleWarn( '[playground-cli]', ...args );
+	const now = Date.now();
+	if ( playgroundCliStartTime === null ) {
+		playgroundCliStartTime = now;
+		lastLogTime = now;
+	}
+	const elapsed = now - playgroundCliStartTime;
+	const delta = lastLogTime !== null ? now - lastLogTime : 0;
+	lastLogTime = now;
+
+	originalConsoleWarn( `[playground-cli | total: ${ elapsed }ms | since last: ${ delta }ms]`, ...args );
 	process.parentPort.postMessage( { type: 'activity' } );
 };
 
@@ -144,12 +180,17 @@ async function startServer(
 	options: PlaygroundCliOptions,
 	serverOptions: WordPressServerOptions
 ): Promise< void > {
+	const startServerTime = Date.now();
+	console.log( '[PERF] startServer (child): Starting server' );
+
 	if ( server ) {
 		return;
 	}
 
 	try {
+		const muPluginsStart = Date.now();
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( serverOptions );
+		console.log( `[PERF] startServer (child): getMuPlugins took ${ Date.now() - muPluginsStart }ms` );
 
 		const defaultConstants = {
 			WP_SQLITE_AST_DRIVER: true,
@@ -196,11 +237,23 @@ async function startServer(
 
 		args.blueprint.constants = { ...args.blueprint.constants, ...defaultConstants };
 
+		console.log( '[PERF] startServer (child): Calling runCLI' );
+		console.log( `[PERF] startServer (child): Blueprint has ${ args.blueprint.steps?.length || 0 } steps` );
+		const runCLIStart = Date.now();
 		server = await runCLI( args );
+		console.log( `[PERF] startServer (child): runCLI took ${ Date.now() - runCLIStart }ms` );
 
 		if ( serverOptions.adminPassword ) {
-			await setAdminPassword( server, serverOptions.adminPassword );
+			try {
+				const setPasswordStart = Date.now();
+				await setAdminPassword( server, serverOptions.adminPassword );
+				console.log( `[PERF] startServer (child): setAdminPassword took ${ Date.now() - setPasswordStart }ms` );
+			} catch {
+				console.warn( 'Failed to set admin password, but the server started successfully. Please check your site error log in wp-content/debug.log for more details' );
+			}
 		}
+
+		console.log( `[PERF] startServer (child): Total server start time ${ Date.now() - startServerTime }ms` );
 	} catch ( error ) {
 		server = null;
 		throw new Error( `Could not start server: ${ error }` );

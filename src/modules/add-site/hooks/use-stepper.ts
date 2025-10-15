@@ -99,6 +99,7 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 				id: step.id,
 				label: step.label,
 				status,
+				path: step.path,
 			};
 		} );
 	}, [ stepperContext, location.path ] );

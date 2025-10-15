@@ -1,4 +1,8 @@
-import { __experimentalHStack as HStack, __experimentalText as Text } from '@wordpress/components';
+import {
+	__experimentalHStack as HStack,
+	__experimentalText as Text,
+	useNavigator,
+} from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent } from 'react';
 import Button from 'src/components/button';
@@ -27,6 +31,7 @@ export default function Stepper( {
 	canSubmitCreate,
 }: StepperProps ) {
 	const { __ } = useI18n();
+	const { goTo } = useNavigator();
 	const { steps, isVisible, actionButton, onSubmit, canSubmit } = useStepper( {
 		onBlueprintContinue,
 		onBackupContinue,
@@ -45,10 +50,27 @@ export default function Stepper( {
 			<HStack spacing={ 6 } alignment="left">
 				{ steps.map( ( step, index ) => {
 					const isCurrent = step.status === 'current';
+					const isCompleted = step.status === 'completed';
+					const isClickable = isCompleted && step.path;
 					const stepNumber = index + 1;
 
+					const handleStepClick = () => {
+						if ( isClickable && step.path ) {
+							goTo( step.path );
+						}
+					};
+
 					return (
-						<HStack key={ step.id } spacing={ 2 } alignment="left" className="w-fit">
+						<HStack
+							key={ step.id }
+							spacing={ 2 }
+							alignment="left"
+							className={ cx(
+								'w-fit',
+								isClickable && 'cursor-pointer hover:opacity-80 transition-opacity'
+							) }
+							onClick={ handleStepClick }
+						>
 							<div
 								className={ cx(
 									`w-6 h-6 rounded-full flex items-center justify-center text-xs font-normal border-2  bg-transparent `,

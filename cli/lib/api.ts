@@ -1,5 +1,6 @@
 import fs from 'fs';
 import { __ } from '@wordpress/i18n';
+import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import WPCOM from 'wpcom';
 import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
@@ -46,6 +47,11 @@ export async function uploadArchive(
 
 	if ( atomicSiteId !== undefined ) {
 		formData.push( [ 'site_id', atomicSiteId ] );
+	}
+
+	const wordpressVersion = await getWordPressVersion( archivePath );
+	if ( wordpressVersion.length >= 3 ) {
+		formData.push( [ 'wordpress_version', wordpressVersion ] );
 	}
 
 	try {

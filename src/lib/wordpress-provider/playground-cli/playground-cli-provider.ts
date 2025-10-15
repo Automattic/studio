@@ -173,7 +173,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				} );
 			}
 
-			if ( ! isOnlineStatus ) {
+			if ( ! isOnlineStatus || wpVersion === 'latest' ) {
 				if ( wpVersion !== 'latest' ) {
 					throw new Error(
 						`Cannot set up WordPress version '${ wpVersion }' while offline. ` +

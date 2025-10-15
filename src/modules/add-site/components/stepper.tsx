@@ -81,8 +81,8 @@ export default function Stepper( {
 							</div>
 							<Text
 								className={ cx(
-									`text-sm`,
-									isCurrent ? 'text-gray-900 font-medium' : 'text-gray-500'
+									`text-sm font-medium`,
+									isCurrent ? 'text-gray-900' : 'text-gray-500'
 								) }
 							>
 								{ step.label }

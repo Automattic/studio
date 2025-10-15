@@ -149,11 +149,15 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		try {
 			const onlineCheckStart = Date.now();
 			const isOnlineStatus = await isOnline();
-			console.log( `[PERF] setupWordPressSite: Online check took ${ Date.now() - onlineCheckStart }ms` );
+			console.log(
+				`[PERF] setupWordPressSite: Online check took ${ Date.now() - onlineCheckStart }ms`
+			);
 
 			const languageStart = Date.now();
 			const siteLanguage = await getPreferredSiteLanguage( wpVersion );
-			console.log( `[PERF] setupWordPressSite: getPreferredSiteLanguage took ${ Date.now() - languageStart }ms` );
+			console.log(
+				`[PERF] setupWordPressSite: getPreferredSiteLanguage took ${ Date.now() - languageStart }ms`
+			);
 
 			const setupSteps: StepDefinition[] = [];
 
@@ -181,8 +185,10 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				} );
 			}
 
-			if ( ! isOnlineStatus || wpVersion === 'latest' ) {
-				console.log( `[PERF] setupWordPressSite: Using bundled WordPress files (offline: ${ ! isOnlineStatus }, version: ${ wpVersion })` );
+			if ( ! isOnlineStatus ) {
+				console.log(
+					`[PERF] setupWordPressSite: Using bundled WordPress files (offline: ${ ! isOnlineStatus }, version: ${ wpVersion })`
+				);
 				if ( wpVersion !== 'latest' ) {
 					throw new Error(
 						`Cannot set up WordPress version '${ wpVersion }' while offline. ` +
@@ -208,7 +214,9 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				try {
 					const copyStartTime = Date.now();
 					await recursiveCopyDirectory( bundledWPPath, path );
-					console.log( `[PERF] setupWordPressSite: Copy WordPress files took ${ Date.now() - copyStartTime }ms` );
+					console.log(
+						`[PERF] setupWordPressSite: Copy WordPress files took ${ Date.now() - copyStartTime }ms`
+					);
 				} catch ( error ) {
 					throw new Error(
 						`Failed to copy WordPress files for offline setup: ${ ( error as Error ).message }`
@@ -224,9 +232,15 @@ export class PlaygroundCliProvider implements WordPressProvider {
 
 			const sqliteStartTime = Date.now();
 			await keepSqliteIntegrationUpdated( path );
-			console.log( `[PERF] setupWordPressSite: SQLite integration update took ${ Date.now() - sqliteStartTime }ms` );
+			console.log(
+				`[PERF] setupWordPressSite: SQLite integration update took ${
+					Date.now() - sqliteStartTime
+				}ms`
+			);
 
-			console.log( `[PERF] setupWordPressSite: Total setup time ${ Date.now() - setupStartTime }ms` );
+			console.log(
+				`[PERF] setupWordPressSite: Total setup time ${ Date.now() - setupStartTime }ms`
+			);
 			return true;
 		} catch ( error ) {
 			console.error( 'Failed to setup WordPress site:', error );

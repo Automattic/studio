@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { __ } from '@wordpress/i18n';
-import WPCOM from 'wpcom';
+import wpcomFactory from 'src/lib/wpcom-factory';
+import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
 
@@ -32,7 +33,7 @@ export async function uploadArchive(
 	token: string,
 	atomicSiteId?: number
 ): Promise< { site_url: string; site_id: number } > {
-	const wpcom = new WPCOM( token );
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 	const formData: [ string, unknown, Record< string, string >? ][] = [
 		[
 			'import',
@@ -78,7 +79,7 @@ export async function uploadArchive(
 }
 
 async function checkSiteStatus( siteId: number, token: string ): Promise< boolean > {
-	const wpcom = new WPCOM( token );
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 
 	try {
 		const rawResponse = await wpcom.req.get( '/jurassic-ninja/status', {
@@ -113,7 +114,7 @@ export async function waitForSiteReady( siteId: number, token: string ): Promise
 }
 
 export async function deleteSnapshot( atomicSiteId: number, token: string ): Promise< void > {
-	const wpcom = new WPCOM( token );
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 
 	try {
 		await wpcom.req.post( {
@@ -131,7 +132,7 @@ export async function deleteSnapshot( atomicSiteId: number, token: string ): Pro
 }
 
 export async function validateAccessToken( token: string ): Promise< void > {
-	const wpcom = new WPCOM( token );
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 	try {
 		await wpcom.req.get( '/me', { fields: 'ID' } );
 	} catch ( error ) {

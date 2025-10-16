@@ -1,10 +1,12 @@
 import fs from 'fs';
+import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import wpcom from 'wpcom';
 import { uploadArchive, waitForSiteReady, SnapshotStatus } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
 
 jest.mock( 'fs' );
 jest.mock( 'wpcom' );
+jest.mock( 'common/lib/get-wordpress-version' );
 
 describe( 'API Module', () => {
 	const mockArchivePath = '/mock/archive.zip';
@@ -20,6 +22,7 @@ describe( 'API Module', () => {
 
 	describe( 'uploadArchive', () => {
 		it( 'should successfully upload archive', async () => {
+			( getWordPressVersion as jest.Mock ).mockResolvedValue( '' );
 			const mockResponse = {
 				domain_name: mockSiteUrl,
 				atomic_site_id: mockSiteId,
@@ -52,6 +55,36 @@ describe( 'API Module', () => {
 			expect( result ).toEqual( {
 				site_url: mockSiteUrl,
 				site_id: mockSiteId,
+			} );
+		} );
+
+		it( 'should successfully send wordpress_version to create new site from zip', async () => {
+			const mockWpcom = {
+				req: {
+					post: jest.fn().mockResolvedValue( {
+						domain_name: mockSiteUrl,
+						atomic_site_id: mockSiteId,
+					} ),
+				},
+			};
+			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
+			( getWordPressVersion as jest.Mock ).mockResolvedValue( '6.8.1' );
+
+			await uploadArchive( mockArchivePath, mockToken );
+			expect( mockWpcom.req.post ).toHaveBeenCalledWith( {
+				path: '/jurassic-ninja/create-new-site-from-zip',
+				apiNamespace: 'wpcom/v2',
+				formData: [
+					[
+						'import',
+						mockReadStream,
+						{
+							filename: 'local-env-site-1.zip',
+							contentType: 'application/zip',
+						},
+					],
+					[ 'wordpress_version', '6.8.1' ],
+				],
 			} );
 		} );
 

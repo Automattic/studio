@@ -7,6 +7,10 @@ interface StepperStep {
 	label: string;
 	status?: 'completed' | 'current' | 'pending';
 	path?: string;
+	isClickable?: boolean;
+	isCurrent?: boolean;
+	isCompleted?: boolean;
+	onClick?: () => void;
 }
 
 interface StepperConfig {
@@ -96,14 +100,28 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 				status = 'current';
 			}
 
+			const isCurrent = status === 'current';
+			const isCompleted = status === 'completed';
+			const isClickable = isCompleted && Boolean( step.path );
+
+			const onClick = () => {
+				if ( isClickable && step.path ) {
+					goTo( step.path );
+				}
+			};
+
 			return {
 				id: step.id,
 				label: step.label,
 				status,
 				path: step.path,
+				isClickable,
+				isCurrent,
+				isCompleted,
+				onClick,
 			};
 		} );
-	}, [ stepperContext, location.path ] );
+	}, [ stepperContext, location.path, goTo ] );
 
 	// Only show stepper when we're in a multi-step flow
 	const isVisible = stepperContext !== null && location.path !== '/';

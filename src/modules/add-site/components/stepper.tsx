@@ -27,7 +27,7 @@ export default function Stepper( {
 	canSubmitCreate,
 }: StepperProps ) {
 	const { __ } = useI18n();
-	const { steps, isVisible, actionButton, onSubmit, canSubmit, goTo } = useStepper( {
+	const { steps, isVisible, actionButton, onSubmit, canSubmit } = useStepper( {
 		onBlueprintContinue,
 		onBackupContinue,
 		onCreateSubmit,
@@ -44,16 +44,7 @@ export default function Stepper( {
 		<div className="flex justify-between items-center p-6">
 			<HStack spacing={ 6 } alignment="left">
 				{ steps.map( ( step, index ) => {
-					const isCurrent = step.status === 'current';
-					const isCompleted = step.status === 'completed';
-					const isClickable = isCompleted && step.path;
 					const stepNumber = index + 1;
-
-					const handleStepClick = () => {
-						if ( isClickable && step.path ) {
-							goTo( step.path );
-						}
-					};
 
 					return (
 						<HStack
@@ -62,14 +53,14 @@ export default function Stepper( {
 							alignment="left"
 							className={ cx(
 								'w-fit',
-								isClickable && 'cursor-pointer hover:opacity-80 transition-opacity'
+								step.isClickable && 'cursor-pointer hover:opacity-80 transition-opacity'
 							) }
-							onClick={ handleStepClick }
+							onClick={ step.onClick }
 						>
 							<div
 								className={ cx(
 									`w-6 h-6 rounded-full flex items-center justify-center text-xs font-normal border-2  bg-transparent `,
-									isCurrent ? 'text-gray-900 border-gray-900' : 'border-gray-500 text-gray-500'
+									step.isCurrent ? 'text-gray-900 border-gray-900' : 'border-gray-500 text-gray-500'
 								) }
 							>
 								{ stepNumber }
@@ -77,7 +68,7 @@ export default function Stepper( {
 							<Text
 								className={ cx(
 									`text-sm font-medium`,
-									isCurrent ? 'text-gray-900' : 'text-gray-500'
+									step.isCurrent ? 'text-gray-900' : 'text-gray-500'
 								) }
 							>
 								{ step.label }

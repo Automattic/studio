@@ -21,7 +21,7 @@ interface ContentTabSettingsProps {
 function SettingsRow( { children, label }: PropsWithChildren< { label: string } > ) {
 	return (
 		<tr className="align-top">
-			<th className="text-nowrap text-a8c-gray-50 pb-4 ltr:pr-6 rtl:pl-6 ltr:text-left rtl:text-right font-normal">
+			<th className="text-nowrap text-a8c-gray-50 pb-4 ltr:pr-10 rtl:pl-10 ltr:text-left rtl:text-right font-normal">
 				{ label }
 			</th>
 			<td className="pb-4">{ children }</td>
@@ -126,8 +126,8 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							<span className="line-clamp-1 break-all">{ selectedSite.path }</span>
 						</CopyTextButton>
 					</SettingsRow>
-					<SettingsRow label={ __( 'WP Version' ) }>{ wpVersion }</SettingsRow>
-					<SettingsRow label={ __( 'PHP Version' ) }>
+					<SettingsRow label={ __( 'WordPress version' ) }>{ wpVersion }</SettingsRow>
+					<SettingsRow label={ __( 'PHP version' ) }>
 						<div className="flex">
 							<span className="line-clamp-1 break-all">{ selectedSite.phpVersion }</span>
 						</div>

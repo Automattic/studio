@@ -3,7 +3,6 @@ import * as Sentry from '@sentry/electron/renderer';
 import { z } from 'zod';
 import { DAY_MS } from 'common/constants';
 import wpcomFactory from 'src/lib/wpcom-factory';
-import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
 import type { BaseQueryFn, FetchBaseQueryError } from '@reduxjs/toolkit/query';
 
@@ -58,7 +57,7 @@ const blueprintSchema = z.object( {
 export type Blueprint = z.infer< typeof blueprintSchema >;
 
 let wpcomClient: WPCOM | undefined;
-const publicWpcomClient = wpcomFactory( wpcomXhrRequest );
+const publicWpcomClient = wpcomFactory();
 
 export const setWpcomClient = ( client: WPCOM | undefined ) => {
 	wpcomClient = client;

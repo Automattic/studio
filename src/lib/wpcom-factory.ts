@@ -1,9 +1,11 @@
 import wpcomModule from 'wpcom';
+import wpcomXhrRequest from 'wpcom-xhr-request';
 
-// Normalize for both ESM (Vite/browser) and CJS (Electron IPC) contexts.
-/* eslint-disable @typescript-eslint/no-explicit-any */
-const wpcomFactory: any =
-	typeof wpcomModule === 'function' ? wpcomModule : ( wpcomModule as any ).default ?? wpcomModule;
+const wpcomFactory = ( token?: string ) => {
+	if ( token ) {
+		return wpcomModule( token, wpcomXhrRequest );
+	}
+	return wpcomModule( wpcomXhrRequest );
+};
 
 export default wpcomFactory;
-/* eslint-enable @typescript-eslint/no-explicit-any */

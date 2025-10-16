@@ -6,7 +6,6 @@ import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { isInvalidTokenError } from 'src/lib/is-invalid-oauth-token-error';
 import wpcomFactory from 'src/lib/wpcom-factory';
-import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { useI18nLocale } from 'src/stores';
 import { setWpcomClient } from 'src/stores/wpcom-api';
 
@@ -165,7 +164,7 @@ function createWpcomClient(
 	locale?: string,
 	onInvalidToken?: () => Promise< void >
 ): WPCOM {
-	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+	const wpcom = wpcomFactory( token );
 
 	let isAuthErrorDialogOpen = false;
 	const handleInvalidTokenError = async ( response: unknown ) => {

@@ -5,7 +5,6 @@ import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import wpcomFactory from 'src/lib/wpcom-factory';
-import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 const authTokenSchema = z.object( {
@@ -68,7 +67,7 @@ async function handleAuthCallback( hash: string ): Promise< StoredToken > {
 	if ( isNaN( expiresIn ) || expiresIn === 0 || ! accessToken ) {
 		throw new Error( 'Error while getting token' );
 	}
-	const rawResponse = await wpcomFactory( accessToken, wpcomXhrRequest ).req.get(
+	const rawResponse = await wpcomFactory( accessToken ).req.get(
 		'/me?fields=ID,email,display_name'
 	);
 

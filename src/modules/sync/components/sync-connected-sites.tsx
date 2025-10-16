@@ -191,6 +191,7 @@ const SyncConnectedSitesList = ( {
 		isKeyPushing,
 		isKeyFinished,
 		isKeyFailed,
+		isKeyCancelled,
 		getPullStatusWithProgress,
 		canCancelPull,
 		canCancelPush,
@@ -203,6 +204,7 @@ const SyncConnectedSitesList = ( {
 				const isPulling = sitePullState && isKeyPulling( sitePullState.status.key );
 				const isPullError = sitePullState && isKeyFailed( sitePullState.status.key );
 				const hasPullFinished = sitePullState && isKeyFinished( sitePullState.status.key );
+				const hasPullCancelled = sitePullState && isKeyCancelled( sitePullState.status.key );
 				const { message: sitePullStatusMessage, progress: sitePullStatusProgress } =
 					getPullStatusWithProgress(
 						sitePullState?.status,
@@ -264,7 +266,7 @@ const SyncConnectedSitesList = ( {
 									</Tooltip>
 								</div>
 							) }
-							{ sitePullState?.status.key === 'cancelled' && (
+							{ sitePullState?.status && hasPullCancelled && (
 								<ClearAction onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }>
 									{ __( 'Pull cancelled' ) }
 								</ClearAction>
@@ -325,7 +327,7 @@ const SyncConnectedSitesList = ( {
 									</Tooltip>
 								</div>
 							) }
-							{ pushState?.status.key === 'cancelled' && (
+							{ pushState?.status && hasPullCancelled && (
 								<ClearAction onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }>
 									{ __( 'Push cancelled' ) }
 								</ClearAction>
@@ -341,7 +343,8 @@ const SyncConnectedSitesList = ( {
 								! isPullError &&
 								! isPushError &&
 								! isPushing &&
-								! hasPushFinished && (
+								! hasPushFinished &&
+								! hasPullCancelled && (
 									<SyncConnectedSiteControls
 										connectedSite={ connectedSite }
 										selectedSite={ selectedSite }

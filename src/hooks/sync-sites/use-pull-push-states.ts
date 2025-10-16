@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 
 export const generateStateId = ( selectedSiteId: string, remoteSiteId: number ) =>
 	`${ selectedSiteId }-${ remoteSiteId }`;
@@ -22,24 +22,34 @@ export function usePullPushStates< T >(
 	states: States< T >,
 	setStates: React.Dispatch< React.SetStateAction< States< T > > >
 ): UsePullPushStates< T > {
+	const statesRef = useRef( states );
+
+	useEffect( () => {
+		statesRef.current = states;
+	}, [ states ] );
+
 	const updateState = useCallback< UpdateState< T > >(
 		( selectedSiteId, remoteSiteId, state ) => {
-			setStates( ( prevStates ) => ( {
-				...prevStates,
-				[ generateStateId( selectedSiteId, remoteSiteId ) ]: {
-					...prevStates[ generateStateId( selectedSiteId, remoteSiteId ) ],
-					...state,
-				},
-			} ) );
+			setStates( ( prevStates ) => {
+				const newStates = {
+					...prevStates,
+					[ generateStateId( selectedSiteId, remoteSiteId ) ]: {
+						...prevStates[ generateStateId( selectedSiteId, remoteSiteId ) ],
+						...state,
+					},
+				};
+				statesRef.current = newStates;
+				return newStates;
+			} );
 		},
 		[ setStates ]
 	);
 
 	const getState = useCallback< GetState< T > >(
 		( selectedSiteId, remoteSiteId ): T | undefined => {
-			return states[ generateStateId( selectedSiteId, remoteSiteId ) ];
+			return statesRef.current[ generateStateId( selectedSiteId, remoteSiteId ) ];
 		},
-		[ states ]
+		[]
 	);
 
 	const clearState = useCallback< ClearState >(
@@ -47,6 +57,7 @@ export function usePullPushStates< T >(
 			setStates( ( prevStates ) => {
 				const newStates = { ...prevStates };
 				delete newStates[ generateStateId( selectedSiteId, remoteSiteId ) ];
+				statesRef.current = newStates;
 				return newStates;
 			} );
 		},

@@ -37,12 +37,6 @@ import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { ARCHIVER_OPTIONS, DEFAULT_TERMINAL, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
-
-/**
- * Registry to store AbortControllers for ongoing sync operations (push/pull).
- * Key format: `${selectedSiteId}-${remoteSiteId}`
- */
-const SYNC_ABORT_CONTROLLERS = new Map< string, AbortController >();
 import { scanBlueprintForUnsupportedFeatures } from 'src/lib/blueprint-features';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
@@ -99,6 +93,12 @@ import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 import type { GranularSyncFolders } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
+
+/**
+ * Registry to store AbortControllers for ongoing sync operations (push/pull).
+ * Key format: `${selectedSiteId}-${remoteSiteId}`
+ */
+const SYNC_ABORT_CONTROLLERS = new Map< string, AbortController >();
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
 if ( ! fs.existsSync( TEMP_DIR ) ) {
@@ -727,7 +727,6 @@ export async function exportSiteToPush(
 	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
 
 	try {
-		// Check if already aborted before starting
 		if ( abortController.signal.aborted ) {
 			throw new Error( 'Export aborted' );
 		}
@@ -736,7 +735,9 @@ export async function exportSiteToPush(
 			optionsToSync: SyncOption[] | undefined,
 			option: SyncOption
 		): boolean => {
-			return optionsToSync?.includes( option ) || optionsToSync?.includes( 'all' ) || ! optionsToSync;
+			return (
+				optionsToSync?.includes( option ) || optionsToSync?.includes( 'all' ) || ! optionsToSync
+			);
 		};
 
 		const includes = {
@@ -1298,6 +1299,13 @@ export async function downloadSyncBackup(
 	try {
 		await download( downloadUrl, filePath, false, '', abortController.signal );
 		return filePath;
+	} catch ( error ) {
+		if ( error instanceof Error && error.name === 'AbortError' ) {
+			// Download was cancelled, throw the error
+		} else {
+			console.error( `[Download] Download failed for operation: ${ operationId }`, error );
+		}
+		throw error;
 	} finally {
 		SYNC_ABORT_CONTROLLERS.delete( operationId );
 	}
@@ -1331,9 +1339,6 @@ export function clearSyncOperation( event: IpcMainInvokeEvent, id: string ) {
 	SYNC_ABORT_CONTROLLERS.delete( id );
 }
 
-/**
- * Cancel an ongoing push/pull operation by triggering its AbortController.
- */
 export function cancelSyncOperation( event: IpcMainInvokeEvent, id: string ) {
 	const abortController = SYNC_ABORT_CONTROLLERS.get( id );
 	if ( abortController ) {

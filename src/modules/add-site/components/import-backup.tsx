@@ -43,13 +43,17 @@ const truncateMiddle = ( filename: string, maxLength: number = 30 ): string => {
 
 interface ImportBackupProps {
 	onFileSelect: ( file?: File ) => void;
+	selectedFile?: File | null;
 }
 
-export default function ImportBackup( { onFileSelect }: ImportBackupProps ) {
+export default function ImportBackup( {
+	onFileSelect,
+	selectedFile: initialFile,
+}: ImportBackupProps ) {
 	const { __ } = useI18n();
 	const locale = useI18nLocale();
 	const [ isDragging, setIsDragging ] = useState( false );
-	const [ selectedFile, setSelectedFile ] = useState< File | null >( null );
+	const [ selectedFile, setSelectedFile ] = useState< File | null >( initialFile || null );
 	const fileInputRef = useRef< HTMLInputElement >( null );
 
 	const handleFileSelection = useCallback(

@@ -53,6 +53,7 @@ describe( 'API Module', () => {
 							contentType: 'application/zip',
 						},
 					],
+					[ 'wordpress_version', '6.8.1' ],
 				],
 			} );
 			expect( result ).toEqual( {

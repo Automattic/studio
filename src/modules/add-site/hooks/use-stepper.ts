@@ -32,11 +32,12 @@ interface UseStepper {
 	};
 	onSubmit: () => void;
 	canSubmit: boolean;
+	goTo: ( path: string ) => void;
 }
 
 export function useStepper( config?: StepperConfig ): UseStepper {
 	const { __ } = useI18n();
-	const { location } = useNavigator();
+	const { location, goTo } = useNavigator();
 
 	const stepperContext = useMemo( (): StepperContext | null => {
 		const blueprintSteps: StepperStep[] = [
@@ -175,5 +176,6 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 		actionButton,
 		onSubmit,
 		canSubmit,
+		goTo,
 	};
 }

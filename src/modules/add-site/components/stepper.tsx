@@ -1,8 +1,4 @@
-import {
-	__experimentalHStack as HStack,
-	__experimentalText as Text,
-	useNavigator,
-} from '@wordpress/components';
+import { __experimentalHStack as HStack, __experimentalText as Text } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent } from 'react';
 import Button from 'src/components/button';
@@ -31,8 +27,7 @@ export default function Stepper( {
 	canSubmitCreate,
 }: StepperProps ) {
 	const { __ } = useI18n();
-	const { goTo } = useNavigator();
-	const { steps, isVisible, actionButton, onSubmit, canSubmit } = useStepper( {
+	const { steps, isVisible, actionButton, onSubmit, canSubmit, goTo } = useStepper( {
 		onBlueprintContinue,
 		onBackupContinue,
 		onCreateSubmit,

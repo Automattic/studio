@@ -11,6 +11,7 @@ jest.mock( 'common/lib/get-wordpress-version' );
 describe( 'API Module', () => {
 	const mockArchivePath = '/mock/archive.zip';
 	const mockToken = 'mock-token-123';
+	const mockWordPressVersion = '6.8.1';
 	const mockSiteUrl = 'test-site.wp.build';
 	const mockSiteId = 12345;
 	const mockReadStream = { pipe: jest.fn() };
@@ -35,7 +36,7 @@ describe( 'API Module', () => {
 			};
 			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
 
-			const result = await uploadArchive( mockArchivePath, mockToken );
+			const result = await uploadArchive( mockArchivePath, mockToken, mockWordPressVersion );
 
 			expect( wpcom ).toHaveBeenCalledWith( mockToken );
 			expect( mockWpcom.req.post ).toHaveBeenCalledWith( {
@@ -70,7 +71,7 @@ describe( 'API Module', () => {
 			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
 			( getWordPressVersion as jest.Mock ).mockResolvedValue( '6.8.1' );
 
-			await uploadArchive( mockArchivePath, mockToken );
+			await uploadArchive( mockArchivePath, mockToken, mockWordPressVersion );
 			expect( mockWpcom.req.post ).toHaveBeenCalledWith( {
 				path: '/jurassic-ninja/create-new-site-from-zip',
 				apiNamespace: 'wpcom/v2',
@@ -97,9 +98,9 @@ describe( 'API Module', () => {
 			};
 			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
 
-			await expect( uploadArchive( mockArchivePath, mockToken ) ).rejects.toThrow(
-				'Failed to upload archive'
-			);
+			await expect(
+				uploadArchive( mockArchivePath, mockToken, mockWordPressVersion )
+			).rejects.toThrow( 'Failed to upload archive' );
 		} );
 
 		it( 'should throw LoggerError for invalid API response', async () => {
@@ -115,9 +116,9 @@ describe( 'API Module', () => {
 			};
 			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
 
-			await expect( uploadArchive( mockArchivePath, mockToken ) ).rejects.toThrow(
-				'Invalid API response format'
-			);
+			await expect(
+				uploadArchive( mockArchivePath, mockToken, mockWordPressVersion )
+			).rejects.toThrow( 'Invalid API response format' );
 		} );
 	} );
 

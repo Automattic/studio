@@ -4,6 +4,6 @@ import wpcomModule from 'wpcom';
 const wpcomFactory: typeof wpcomModule =
 	typeof wpcomModule === 'function'
 		? wpcomModule
-		: ( wpcomModule as { default: typeof wpcomModule } ).default ?? wpcomModule;
+		: ( wpcomModule as { default: typeof wpcomModule } ).default;
 
 export default wpcomFactory;

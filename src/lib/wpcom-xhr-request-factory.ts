@@ -4,7 +4,6 @@ import wpcomXhrRequestModule from 'wpcom-xhr-request';
 const wpcomXhrRequest: typeof wpcomXhrRequestModule =
 	typeof wpcomXhrRequestModule === 'function'
 		? wpcomXhrRequestModule
-		: ( wpcomXhrRequestModule as { default: typeof wpcomXhrRequestModule } ).default ??
-		  wpcomXhrRequestModule;
+		: ( wpcomXhrRequestModule as { default: typeof wpcomXhrRequestModule } ).default;
 
 export default wpcomXhrRequest;

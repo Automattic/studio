@@ -1,6 +1,5 @@
 import fs from 'fs';
 import { __ } from '@wordpress/i18n';
-import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import WPCOM from 'wpcom';
 import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
@@ -31,6 +30,7 @@ const POLL_INTERVAL_MS = 3000;
 export async function uploadArchive(
 	archivePath: string,
 	token: string,
+	wordpressVersion: string,
 	atomicSiteId?: number
 ): Promise< { site_url: string; site_id: number } > {
 	const wpcom = new WPCOM( token );
@@ -49,7 +49,6 @@ export async function uploadArchive(
 		formData.push( [ 'site_id', atomicSiteId ] );
 	}
 
-	const wordpressVersion = await getWordPressVersion( archivePath );
 	if ( wordpressVersion.length >= 3 ) {
 		formData.push( [ 'wordpress_version', wordpressVersion ] );
 	}

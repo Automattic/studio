@@ -2,6 +2,8 @@ import { exec, ExecOptions } from 'child_process';
 import crypto from 'crypto';
 import {
 	BrowserWindow,
+	Menu,
+	MenuItem,
 	app,
 	clipboard,
 	dialog,
@@ -15,7 +17,7 @@ import fsPromises from 'fs/promises';
 import https from 'node:https';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { __, LocaleData, defaultI18n } from '@wordpress/i18n';
+import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { compileBlueprint } from '@wp-playground/blueprints';
 import archiver from 'archiver';
 import {
@@ -25,6 +27,7 @@ import {
 	isEmptyDir,
 	pathExists,
 } from 'common/lib/fs-utils';
+import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
@@ -157,6 +160,12 @@ export async function importSite(
 		throw new Error( 'Site not found.' );
 	}
 	try {
+		if ( ! isWordPressDirectory( site.details.path ) ) {
+			// Workaround to have the necessary WordPress files to run the import - STU-744
+			await site.start();
+			await site.stop();
+		}
+
 		const onEvent = ( data: ImportExportEventData ) => {
 			const parentWindow = BrowserWindow.fromWebContents( event.sender );
 			sendIpcEventToRendererWithWindow( parentWindow, 'on-import', data, id );
@@ -228,7 +237,7 @@ export async function createSite(
 		enableHttps,
 	} as const;
 
-	const server = SiteServer.create( details, { wpVersion, blueprint } );
+	const server = SiteServer.create( details, { wpVersion, blueprint: blueprint?.blueprint } );
 
 	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
 		try {
@@ -251,9 +260,13 @@ export async function createSite(
 				nodePath.join( path, 'wp-config-studio.php' )
 			);
 		}
-
 		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
 			await installSqliteIntegration( path );
+			await getWordPressProvider().installWordPressWhenNoWpConfig(
+				server,
+				siteName || nodePath.basename( path ),
+				details.adminPassword
+			);
 		} else {
 			await updateSiteUrl( server, getSiteUrl( details ) );
 		}
@@ -506,12 +519,14 @@ export async function startServer(
 	} );
 
 	if ( server.details.running ) {
-		try {
-			await server.updateCachedThumbnail();
-			await sendThumbnailChangedEvent( event, id );
-		} catch ( error ) {
-			console.error( `Failed to update thumbnail for server ${ id }:`, error );
-		}
+		void ( async () => {
+			try {
+				await server.updateCachedThumbnail();
+				await sendThumbnailChangedEvent( event, id );
+			} catch ( error ) {
+				console.error( `Failed to update thumbnail for server ${ id }:`, error );
+			}
+		} )();
 	}
 
 	console.log( `Server started for '${ server.details.name }'` );
@@ -916,17 +931,7 @@ export function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 		return '-';
 	}
 	const wordPressPath = server.details.path;
-	let versionFileContent = '';
-	try {
-		versionFileContent = fs.readFileSync(
-			nodePath.join( wordPressPath, 'wp-includes', 'version.php' ),
-			'utf8'
-		);
-	} catch ( err ) {
-		return '-';
-	}
-	const matches = versionFileContent.match( /\$wp_version\s*=\s*'([0-9a-zA-Z.-]+)'/ );
-	return matches?.[ 1 ] || '-';
+	return getWordPressVersion( wordPressPath );
 }
 
 export async function generateProposedSitePath(
@@ -1329,6 +1334,203 @@ export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< vo
 	}
 }
 
+export function showSiteContextMenu(
+	event: IpcMainInvokeEvent,
+	context: {
+		siteId: string;
+		isRunning: boolean;
+		isLoading: boolean;
+		isAddingSite: boolean;
+		finderLabel: string;
+		editorLabel: string | null;
+		terminalLabel: string;
+	}
+) {
+	const { siteId, isRunning, isLoading, isAddingSite, finderLabel, editorLabel, terminalLabel } =
+		context;
+	const menu = new Menu();
+
+	if ( isRunning ) {
+		menu.append(
+			new MenuItem( {
+				label: __( 'Stop' ),
+				enabled: ! isAddingSite,
+				click: () => {
+					sendIpcEventToRendererWithWindow(
+						BrowserWindow.fromWebContents( event.sender ),
+						'site-context-menu-action',
+						{
+							action: 'stop',
+							siteId,
+						}
+					);
+				},
+			} )
+		);
+	} else {
+		menu.append(
+			new MenuItem( {
+				label: __( 'Start' ),
+				enabled: ! isLoading && ! isAddingSite,
+				click: () => {
+					sendIpcEventToRendererWithWindow(
+						BrowserWindow.fromWebContents( event.sender ),
+						'site-context-menu-action',
+						{
+							action: 'start',
+							siteId,
+						}
+					);
+				},
+			} )
+		);
+	}
+
+	menu.append( new MenuItem( { type: 'separator' } ) );
+
+	menu.append(
+		new MenuItem( {
+			label: __( 'Open site' ),
+			enabled: ! isLoading && ! isAddingSite,
+			click: () => {
+				sendIpcEventToRendererWithWindow(
+					BrowserWindow.fromWebContents( event.sender ),
+					'site-context-menu-action',
+					{
+						action: 'open-site',
+						siteId,
+					}
+				);
+			},
+		} )
+	);
+
+	menu.append(
+		new MenuItem( {
+			label: __( 'WP admin' ),
+			enabled: ! isLoading && ! isAddingSite,
+			click: () => {
+				sendIpcEventToRendererWithWindow(
+					BrowserWindow.fromWebContents( event.sender ),
+					'site-context-menu-action',
+					{
+						action: 'open-admin',
+						siteId,
+					}
+				);
+			},
+		} )
+	);
+
+	menu.append( new MenuItem( { type: 'separator' } ) );
+
+	menu.append(
+		new MenuItem( {
+			label: sprintf(
+				/* translators: %s is the name of the file explorer. E.g. "Open in Finder" */
+				__( 'Open in %s' ),
+				finderLabel
+			),
+			enabled: ! isAddingSite,
+			click: () => {
+				sendIpcEventToRendererWithWindow(
+					BrowserWindow.fromWebContents( event.sender ),
+					'site-context-menu-action',
+					{
+						action: 'open-finder',
+						siteId,
+					}
+				);
+			},
+		} )
+	);
+
+	if ( editorLabel ) {
+		menu.append(
+			new MenuItem( {
+				label: sprintf(
+					/* translators: %s is the name of the editor. E.g. "Open in Cursor" */
+					__( 'Open in %s' ),
+					editorLabel
+				),
+				enabled: ! isAddingSite,
+				click: () => {
+					sendIpcEventToRendererWithWindow(
+						BrowserWindow.fromWebContents( event.sender ),
+						'site-context-menu-action',
+						{
+							action: 'open-editor',
+							siteId,
+						}
+					);
+				},
+			} )
+		);
+	}
+
+	menu.append(
+		new MenuItem( {
+			label: sprintf(
+				/* translators: %s is the name of the terminal. E.g. "Open in Terminal" */
+				__( 'Open in %s' ),
+				terminalLabel
+			),
+			enabled: ! isAddingSite,
+			click: () => {
+				sendIpcEventToRendererWithWindow(
+					BrowserWindow.fromWebContents( event.sender ),
+					'site-context-menu-action',
+					{
+						action: 'open-terminal',
+						siteId,
+					}
+				);
+			},
+		} )
+	);
+
+	menu.append( new MenuItem( { type: 'separator' } ) );
+
+	menu.append(
+		new MenuItem( {
+			label: __( 'Edit site…' ),
+			enabled: ! isAddingSite,
+			click: () => {
+				sendIpcEventToRendererWithWindow(
+					BrowserWindow.fromWebContents( event.sender ),
+					'site-context-menu-action',
+					{
+						action: 'edit-site',
+						siteId,
+					}
+				);
+			},
+		} )
+	);
+
+	menu.append(
+		new MenuItem( {
+			label: __( 'Delete site…' ),
+			enabled: ! isLoading && ! isAddingSite,
+			click: () => {
+				sendIpcEventToRendererWithWindow(
+					BrowserWindow.fromWebContents( event.sender ),
+					'site-context-menu-action',
+					{
+						action: 'delete',
+						siteId,
+					}
+				);
+			},
+		} )
+	);
+
+	const window = BrowserWindow.fromWebContents( event.sender );
+	if ( window ) {
+		menu.popup( { window } );
+	}
+}
+
 export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
 	if ( ! fs.existsSync( filePath ) ) {
 		throw new Error( `File not found: ${ filePath }` );
@@ -1497,4 +1699,11 @@ export async function validateBlueprint(
 		valid: true,
 		warnings: warnings.length > 0 ? warnings : undefined,
 	};
+}
+
+export async function setWindowControlVisibility( event: IpcMainInvokeEvent, visible: boolean ) {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( parentWindow && process.platform === 'darwin' ) {
+		parentWindow.setWindowButtonVisibility( visible );
+	}
 }

@@ -84,6 +84,11 @@ interface FeatureFlags {
 	enableBlueprints: boolean;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface BetaFeatures {
+	studioSitesCli: boolean;
+}
+
 interface AppGlobals extends FeatureFlags {
 	platform: NodeJS.Platform;
 	appName: string;

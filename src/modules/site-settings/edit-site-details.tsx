@@ -26,14 +26,14 @@ type EditSiteDetailsProps = {
 	onSave: () => void;
 };
 
-export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteDetailsProps ) {
+const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) => {
 	const { __ } = useI18n();
-	const { updateSite, selectedSite, stopServer, startServer } = useSiteDetails();
+	const { updateSite, selectedSite, stopServer, startServer, isEditModalOpen, setIsEditModalOpen } =
+		useSiteDetails();
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 	const allowedPhpVersions = useRootSelector( selectAllowedPhpVersions );
 	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
 	const [ errorUpdatingWpVersion, setErrorUpdatingWpVersion ] = useState< string | null >( null );
-	const [ showModal, setShowModal ] = useState( false );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const [ needsRestart, setNeedsRestart ] = useState( false );
 
@@ -42,8 +42,8 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 		if ( isEditingSite ) {
 			return;
 		}
-		setShowModal( false );
-	}, [ isEditingSite ] );
+		setIsEditModalOpen( false );
+	}, [ isEditingSite, setIsEditModalOpen ] );
 	const [ siteName, setSiteName ] = useState( selectedSite?.name ?? '' );
 	const [ selectedPhpVersion, setSelectedPhpVersion ] = useState< AllowedPHPVersion >(
 		( selectedSite?.phpVersion as AllowedPHPVersion ) ?? defaultPhpVersion
@@ -195,7 +195,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 
 	return (
 		<>
-			{ showModal && (
+			{ isEditModalOpen && (
 				<Modal
 					size="medium"
 					title={ __( 'Edit site' ) }
@@ -338,7 +338,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 				disabled={ ! selectedSite }
 				className="shrink-0"
 				onClick={ () => {
-					setShowModal( true );
+					setIsEditModalOpen( true );
 					resetFormState();
 				} }
 				label={ __( 'Edit site' ) }
@@ -348,4 +348,7 @@ export default function EditSiteDetails( { currentWpVersion, onSave }: EditSiteD
 			</Button>
 		</>
 	);
-}
+};
+EditSiteDetails.displayName = 'EditSiteDetails';
+
+export default EditSiteDetails;

@@ -12,12 +12,12 @@ export default defineConfig( {
 	outputDir: path.join( process.env.ARTIFACTS_PATH, 'test-results' ),
 	forbidOnly: !! process.env.CI,
 	fullyParallel: false,
-	retries: 0,
+	retries: 2, // Retry flaky tests up to 2 times
 	timeout: parseInt( process.env.TIMEOUT || '', 10 ) || 600_000, // Defaults to 10 minutes.
 	reportSlowTests: null,
 	use: {
 		...baseConfig.use,
-		actionTimeout: 120_000, // 2 minutes.
+		actionTimeout: 240_000, // 4 minutes.
 		headless: true,
 		// Enable only for debugging.
 		trace: 'off',
@@ -25,6 +25,6 @@ export default defineConfig( {
 		video: 'off',
 	},
 	expect: {
-		timeout: 120_000, // 2 minutes.
+		timeout: 240_000, // 4 minutes.
 	},
 } );

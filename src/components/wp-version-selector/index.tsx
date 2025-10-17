@@ -9,7 +9,10 @@ import { cx } from 'src/lib/cx';
 import { isWordPressDevVersion } from 'src/lib/version-utils';
 import { isWordPressBetaVersion } from 'src/lib/wordpress-version-utils';
 import { useRootSelector } from 'src/stores';
-import { selectDefaultWordPressVersion } from 'src/stores/provider-constants-slice';
+import {
+	selectDefaultWordPressVersion,
+	selectMinimumWordPressVersion,
+} from 'src/stores/provider-constants-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { addWpVersionToList } from './add-wp-version-to-list';
 
@@ -39,7 +42,10 @@ export const WPVersionSelector = ( {
 	const isOffline = useOffline();
 	const defaultOfflineMessage = __( 'Changing WordPress version requires an internet connection.' );
 	const message = offlineMessage || defaultOfflineMessage;
-	const { data: wpVersions = [] } = useGetWordPressVersions();
+	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
+	const { data: wpVersions = [] } = useGetWordPressVersions( {
+		minimumVersion: minimumWordPressVersion,
+	} );
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 
 	// Force latest version if the user goes offline

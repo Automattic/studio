@@ -12,6 +12,7 @@ import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/d
 import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
 import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/update';
 import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
+import { readAppdata } from 'cli/lib/appdata';
 import { loadTranslations } from 'cli/lib/i18n';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
 import { version } from 'cli/package.json';
@@ -57,8 +58,18 @@ async function main() {
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();
 
-	if ( process.env.ENABLE_CLI_V2 === 'true' ) {
-		studioArgv.command( 'site', __( 'Manage local sites' ), ( sitesYargs ) => {
+	// Check if Studio Sites CLI beta feature is enabled
+	let isSitesCliEnabled = false;
+	try {
+		const appdata = await readAppdata();
+		isSitesCliEnabled = appdata.betaFeatures?.studioSitesCli ?? false;
+	} catch ( error ) {
+		// If we can't read appdata, the feature is not enabled
+		isSitesCliEnabled = false;
+	}
+
+	if ( isSitesCliEnabled ) {
+		studioArgv.command( 'site', __( 'Manage local sites (Beta)' ), ( sitesYargs ) => {
 			sitesYargs.option( 'path', {
 				hidden: true,
 			} );

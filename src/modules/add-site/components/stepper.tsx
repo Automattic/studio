@@ -44,23 +44,31 @@ export default function Stepper( {
 		<div className="flex justify-between items-center p-6">
 			<HStack spacing={ 6 } alignment="left">
 				{ steps.map( ( step, index ) => {
-					const isCurrent = step.status === 'current';
 					const stepNumber = index + 1;
 
 					return (
-						<HStack key={ step.id } spacing={ 2 } alignment="left" className="w-fit">
+						<HStack
+							key={ step.id }
+							spacing={ 2 }
+							alignment="left"
+							className={ cx(
+								'w-fit',
+								step.isClickable && 'cursor-pointer hover:opacity-80 transition-opacity'
+							) }
+							onClick={ step.onClick }
+						>
 							<div
 								className={ cx(
 									`w-6 h-6 rounded-full flex items-center justify-center text-xs font-normal border-2  bg-transparent `,
-									isCurrent ? 'text-gray-900 border-gray-900' : 'border-gray-500 text-gray-500'
+									step.isCurrent ? 'text-gray-900 border-gray-900' : 'border-gray-500 text-gray-500'
 								) }
 							>
 								{ stepNumber }
 							</div>
 							<Text
 								className={ cx(
-									`text-sm`,
-									isCurrent ? 'text-gray-900 font-medium' : 'text-gray-500'
+									`text-sm font-medium`,
+									step.isCurrent ? 'text-gray-900' : 'text-gray-500'
 								) }
 							>
 								{ step.label }

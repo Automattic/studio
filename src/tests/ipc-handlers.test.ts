@@ -207,6 +207,8 @@ describe( 'importSite', () => {
 				id: 'test-site',
 				phpVersion: '8.3',
 			},
+			start: jest.fn(),
+			stop: jest.fn(),
 			updateSiteDetails: jest.fn(),
 			executeWpCliCommand: jest
 				.fn()
@@ -246,6 +248,8 @@ describe( 'importSite', () => {
 			details: {
 				id: 'test-site',
 			},
+			start: jest.fn(),
+			stop: jest.fn(),
 			executeWpCliCommand: jest
 				.fn()
 				.mockResolvedValue( { stdout: 'New Site Title', stderr: '', exitCode: 0 } ),

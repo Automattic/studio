@@ -123,6 +123,9 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'listWpContentFolders', siteId, subdir ),
 	getProviderConstants: () => ipcRendererInvoke( 'getProviderConstants' ),
 	validateBlueprint: ( blueprintJson ) => ipcRendererInvoke( 'validateBlueprint', blueprintJson ),
+	showSiteContextMenu: ( context ) => ipcRendererSend( 'showSiteContextMenu', context ),
+	setWindowControlVisibility: ( visible ) =>
+		ipcRendererInvoke( 'setWindowControlVisibility', visible ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

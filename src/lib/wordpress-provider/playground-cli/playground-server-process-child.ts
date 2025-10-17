@@ -1,35 +1,95 @@
 import { SupportedPHPVersion, PHPRunOptions } from '@php-wasm/universal';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
+import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
 import { WordPressServerOptions } from '../types';
 import { getMuPlugins } from './mu-plugins';
 import { PlaygroundCliOptions } from './playground-cli-provider';
 
-interface Message {
+interface BaseMessage {
 	id: number;
 	type: string;
+}
+
+interface StartServerMessage extends BaseMessage {
+	type: 'start-server';
 	data: {
 		options: PlaygroundCliOptions;
 		serverOptions: WordPressServerOptions;
-		code: string;
 	};
 }
+
+interface StopServerMessage extends BaseMessage {
+	type: 'stop-server';
+	data: Record< string, never >;
+}
+
+interface RunPhpMessage extends BaseMessage {
+	type: 'run-php';
+	data: {
+		code: string;
+		scriptPath?: string;
+		phpVersion?: string;
+	};
+}
+
+interface HttpRequestMessage extends BaseMessage {
+	type: 'http-request';
+	data: {
+		url: string;
+		method: string;
+		body: Record< string, string >;
+	};
+}
+
+type Message = StartServerMessage | StopServerMessage | RunPhpMessage | HttpRequestMessage;
 
 // Intercept and prefix all console output from playground-cli
 const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
 const originalConsoleWarn = console.warn;
 
+function formatMessageForUI( message: string ): string {
+	if ( message.includes( 'WordPress is running on' ) ) {
+		return 'WordPress is running';
+	}
+	if ( message.includes( 'Resolved WordPress release URL' ) ) {
+		return 'Downloading WordPress…';
+	}
+	return message;
+}
+
 console.log = ( ...args: any[] ) => {
 	originalConsoleLog( '[playground-cli]', ...args );
+	const message = args.join( ' ' );
+	process.parentPort.postMessage( { type: 'activity' } );
+	const formattedMessage = formatMessageForUI( message );
+	if ( formattedMessage ) {
+		process.parentPort.postMessage( { type: 'console-message', message: formattedMessage } );
+	}
 };
 
 console.error = ( ...args: any[] ) => {
 	originalConsoleError( '[playground-cli]', ...args );
+	process.parentPort.postMessage( { type: 'activity' } );
 };
 
 console.warn = ( ...args: any[] ) => {
 	originalConsoleWarn( '[playground-cli]', ...args );
+	process.parentPort.postMessage( { type: 'activity' } );
 };
+
+const originalStdoutWrite = process.stdout.write.bind( process.stdout );
+const originalStderrWrite = process.stderr.write.bind( process.stderr );
+
+process.stdout.write = function ( ...args: Parameters< typeof originalStdoutWrite > ) {
+	process.parentPort.postMessage( { type: 'activity' } );
+	return originalStdoutWrite( ...args );
+} as typeof process.stdout.write;
+
+process.stderr.write = function ( ...args: Parameters< typeof originalStderrWrite > ) {
+	process.parentPort.postMessage( { type: 'activity' } );
+	return originalStderrWrite( ...args );
+} as typeof process.stderr.write;
 
 let server: RunCLIServer | null = null;
 
@@ -49,8 +109,11 @@ process.parentPort.on( 'message', async ( event ) => {
 			case 'run-php':
 				result = await runPhp( message.data );
 				break;
+			case 'http-request':
+				result = await httpRequest( message.data );
+				break;
 			default:
-				throw new Error( `Unknown message type: ${ message.type }` );
+				throw new Error( `Unknown message type: ${ message }` );
 		}
 
 		process.parentPort.postMessage( { id: message.id, result } );
@@ -65,46 +128,15 @@ function escapePhpString( str: string ): string {
 	return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
 }
 
-async function setSiteOptions(
-	server: RunCLIServer,
-	serverOptions: WordPressServerOptions
-): Promise< void > {
-	const phpCode = `<?php
-		require_once( '/wordpress/wp-load.php' );
-
-		// Set site title if provided (wp-now doesn't do this post-install, but it's the correct way)
-		${
-			serverOptions.siteTitle
-				? `update_option( 'blogname', '${ escapePhpString( serverOptions.siteTitle ) }' );`
-				: ''
-		}
-
-		// Set admin password
-		${
-			serverOptions.adminPassword
-				? `
-		$user = get_user_by( 'login', 'admin' );
-		if ( $user ) {
-			wp_set_password( '${ escapePhpString( serverOptions.adminPassword ) }', $user->ID );
-		} else {
-			$user_data = array(
-				'user_login' => 'admin',
-				'user_pass' => '${ escapePhpString( serverOptions.adminPassword ) }',
-				'user_email' => 'admin@localhost.com',
-				'role' => 'administrator',
-			);
-			$user_id = wp_insert_user( $user_data );
-			$user = get_user_by( 'id', $user_id );
-		}
-		`
-				: ''
-		}
-
-		echo "Site options updated successfully";
-	?>`;
-
-	await server.playground.run( {
-		code: phpCode,
+async function setAdminPassword( server: RunCLIServer, adminPassword: string ): Promise< void > {
+	// Use the persistent mu-plugin API endpoint to avoid loading WordPress again
+	await server.playground.request( {
+		url: '/?studio-admin-api',
+		method: 'POST',
+		body: {
+			action: 'set_admin_password',
+			password: escapePhpString( adminPassword ),
+		},
 	} );
 }
 
@@ -119,6 +151,9 @@ async function startServer(
 	try {
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( serverOptions );
 
+		const defaultConstants = {
+			WP_SQLITE_AST_DRIVER: true,
+		};
 		const mounts = [
 			{
 				hostPath: options.documentRoot,
@@ -135,7 +170,7 @@ async function startServer(
 		];
 
 		const args: RunCLIArgs = {
-			command: 'run-blueprint',
+			command: 'server',
 			internalCookieStore: true,
 			followSymlinks: true,
 			skipSqliteSetup: true,
@@ -143,43 +178,28 @@ async function startServer(
 			login: true,
 			'mount-before-install': mounts,
 			'site-url': serverOptions.absoluteUrl,
+			blueprint: options.blueprint || {},
+			skipWordPressSetup: options.skipWordpressSetup,
 		};
-
-		if ( ! options.isSetupMode ) {
-			args.command = 'server';
-			args.skipWordPressSetup = true;
-		}
 
 		if ( options.phpVersion ) {
 			args.php = options.phpVersion as SupportedPHPVersion;
 		}
 
 		if ( serverOptions.wordPressVersion ) {
-			args.wp = serverOptions.wordPressVersion;
+			if ( isWordPressDevVersion( serverOptions.wordPressVersion ) ) {
+				args.wp = 'nightly';
+			} else {
+				args.wp = serverOptions.wordPressVersion;
+			}
 		}
 
-		const defaultConstants = {
-			WP_SQLITE_AST_DRIVER: true,
-		};
-
-		if ( options.blueprint ) {
-			args.blueprint = {
-				...options.blueprint,
-				constants: {
-					...options.blueprint.constants,
-					...defaultConstants,
-				},
-			};
-		} else {
-			args.blueprint = {
-				constants: defaultConstants,
-			};
-		}
+		args.blueprint.constants = { ...args.blueprint.constants, ...defaultConstants };
 
 		server = await runCLI( args );
 
-		if ( serverOptions.siteTitle || serverOptions.adminPassword ) {
-			await setSiteOptions( server, serverOptions );
+		if ( serverOptions.adminPassword ) {
+			await setAdminPassword( server, serverOptions.adminPassword );
 		}
 	} catch ( error ) {
 		server = null;
@@ -192,8 +212,15 @@ async function stopServerFunc(): Promise< void > {
 		return;
 	}
 
+	const serverToDispose = server;
+	server = null;
+
 	try {
-		await server[ Symbol.asyncDispose ]();
+		const disposalTimeout = new Promise( ( _, reject ) =>
+			setTimeout( () => reject( new Error( 'Disposal timeout' ) ), 5000 )
+		);
+
+		await Promise.race( [ serverToDispose[ Symbol.asyncDispose ](), disposalTimeout ] );
 	} catch ( error ) {
 		// Suppress expected disposal errors that occur during site deletion
 		// These are typically race conditions that don't affect functionality
@@ -203,6 +230,28 @@ async function stopServerFunc(): Promise< void > {
 		}
 	} finally {
 		server = null;
+	}
+}
+
+async function httpRequest( options: {
+	url: string;
+	method: string;
+	body: Record< string, string >;
+} ): Promise< { text: string } > {
+	if ( ! server ) {
+		throw new Error( 'Server is not initialized. Make sure the server is started.' );
+	}
+
+	try {
+		const response = await server.playground.request( {
+			url: options.url,
+			method: options.method as 'GET' | 'POST',
+			body: options.body,
+		} );
+
+		return { text: response.text };
+	} catch ( error ) {
+		throw new Error( `Failed to make HTTP request: ${ error }` );
 	}
 }
 

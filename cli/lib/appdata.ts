@@ -31,6 +31,12 @@ const newSiteSchema = z
 	} )
 	.passthrough();
 
+const betaFeaturesSchema = z
+	.object( {
+		studioSitesCli: z.boolean().optional(),
+	} )
+	.passthrough();
+
 const userDataSchema = z
 	.object( {
 		newSites: z.array( newSiteSchema ).default( () => [] ),
@@ -40,19 +46,21 @@ const userDataSchema = z
 		authToken: z
 			.object( {
 				accessToken: z.string().min( 1, __( 'Access token cannot be empty' ) ),
-				id: z.number(),
+				id: z.number().optional(),
 			} )
 			.passthrough()
 			.optional(),
 		lastBumpStats: z
 			.record( z.string(), z.record( z.nativeEnum( StatsMetric ), z.number() ) )
 			.optional(),
+		betaFeatures: betaFeaturesSchema.optional(),
 	} )
 	.passthrough();
 
 type UserData = z.infer< typeof userDataSchema >;
 type NewSiteData = z.infer< typeof newSiteSchema >;
 export type SiteData = z.infer< typeof siteSchema >;
+type ValidatedAuthToken = Required< NonNullable< UserData[ 'authToken' ] > >;
 
 export function getAppdataDirectory(): string {
 	if ( process.platform === 'win32' ) {
@@ -133,17 +141,17 @@ export async function unlockAppdata(): Promise< void > {
 	await unlockFileAsync( LOCKFILE_PATH );
 }
 
-export async function getAuthToken(): Promise< NonNullable< UserData[ 'authToken' ] > > {
+export async function getAuthToken(): Promise< ValidatedAuthToken > {
 	try {
 		const { authToken } = await readAppdata();
 
-		if ( ! authToken?.accessToken ) {
+		if ( ! authToken?.accessToken || ! authToken?.id ) {
 			throw new Error( 'Authentication required' );
 		}
 
 		await validateAccessToken( authToken.accessToken );
 
-		return authToken;
+		return authToken as ValidatedAuthToken;
 	} catch ( error ) {
 		const authUrl = getAuthenticationUrl( 'en' );
 

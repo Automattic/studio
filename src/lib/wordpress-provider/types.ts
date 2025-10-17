@@ -28,6 +28,7 @@ export interface WordPressServerOptions {
 	adminPassword?: string;
 	siteTitle?: string;
 	siteLanguage?: string;
+	isSetupMode?: boolean;
 }
 
 export interface WordPressServerInstance {
@@ -39,8 +40,15 @@ export interface WordPressServerInstance {
 
 export interface WordPressServerProcess {
 	url: string;
-	php?: { documentRoot: string };
-	start(): Promise< void >;
+	php?: {
+		documentRoot: string;
+		request?: ( options: {
+			url: string;
+			method: string;
+			body: Record< string, string >;
+		} ) => Promise< { text: string } >;
+	};
+	start( siteId?: string ): Promise< void >;
 	stop(): Promise< void >;
 	runPhp( data: { code: string; [ key: string ]: unknown } ): Promise< string >;
 }
@@ -52,6 +60,7 @@ export interface WordPressProvider {
 	readonly DEFAULT_PHP_VERSION: string;
 	readonly DEFAULT_WORDPRESS_VERSION: string;
 	readonly ALLOWED_PHP_VERSIONS: string[];
+	readonly MINIMUM_WORDPRESS_VERSION: string;
 	readonly SQLITE_FILENAME: string;
 	readonly SQLITE_FILENAME_LEGACY: string;
 
@@ -61,6 +70,11 @@ export interface WordPressProvider {
 
 	// Core functionality
 	setupWordPressSite( server: SiteServer, wpVersion?: string ): Promise< boolean >;
+	installWordPressWhenNoWpConfig(
+		server: SiteServer,
+		siteName: string,
+		adminPassword: string
+	): Promise< void >;
 	startServer( options: ServerOptions ): Promise< WordPressServerInstance >;
 
 	// Server process management

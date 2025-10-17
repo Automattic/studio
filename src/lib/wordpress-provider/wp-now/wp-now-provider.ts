@@ -1,8 +1,8 @@
-import { net } from 'electron';
 import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
 import { pathExists, recursiveCopyDirectory, isEmptyDir } from 'common/lib/fs-utils';
+import { isOnline } from 'common/lib/network-utils';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
 import { copyBundledLatestWPVersion } from 'src/setup-wp-server-files';
@@ -45,6 +45,7 @@ export class WpNowProvider implements WordPressProvider {
 	static readonly DEFAULT_PHP_VERSION = DEFAULT_PHP_VERSION;
 	static readonly DEFAULT_WORDPRESS_VERSION = DEFAULT_WORDPRESS_VERSION;
 	static readonly ALLOWED_PHP_VERSIONS = ALLOWED_PHP_VERSIONS;
+	static readonly MINIMUM_WORDPRESS_VERSION = '6.2.6';
 	static readonly SQLITE_FILENAME = SQLITE_FILENAME;
 	static readonly SQLITE_FILENAME_LEGACY = SQLITE_FILENAME_LEGACY;
 
@@ -52,6 +53,7 @@ export class WpNowProvider implements WordPressProvider {
 	readonly DEFAULT_PHP_VERSION = WpNowProvider.DEFAULT_PHP_VERSION;
 	readonly DEFAULT_WORDPRESS_VERSION = WpNowProvider.DEFAULT_WORDPRESS_VERSION;
 	readonly ALLOWED_PHP_VERSIONS = WpNowProvider.ALLOWED_PHP_VERSIONS;
+	readonly MINIMUM_WORDPRESS_VERSION = WpNowProvider.MINIMUM_WORDPRESS_VERSION;
 	readonly SQLITE_FILENAME = WpNowProvider.SQLITE_FILENAME;
 	readonly SQLITE_FILENAME_LEGACY = WpNowProvider.SQLITE_FILENAME_LEGACY;
 
@@ -119,7 +121,7 @@ export class WpNowProvider implements WordPressProvider {
 			const wpVersionExists = await pathExists( wpVersionPath );
 
 			if ( ! wpVersionExists ) {
-				if ( net.isOnline() ) {
+				if ( await isOnline() ) {
 					try {
 						await WpNowProvider.downloadWordPress( wpVersion, { overwrite: false } );
 					} catch ( error ) {
@@ -144,6 +146,15 @@ export class WpNowProvider implements WordPressProvider {
 			console.error( 'Error in setupWordPressSite:', error );
 			throw error;
 		}
+	}
+
+	async installWordPressWhenNoWpConfig(
+		_server: SiteServer,
+		_siteName: string,
+		_adminPassword: string
+	): Promise< void > {
+		// wp-now handles WordPress installation automatically via installationSteps
+		// in vendor/wp-now/src/wp-now.ts, so no action needed here
 	}
 
 	async startServer( options: ServerOptions ): Promise< WordPressServerInstance > {
@@ -248,7 +259,7 @@ export class WpNowProvider implements WordPressProvider {
 	 * @param wpVersion - The WordPress version to verify
 	 */
 	private async verifyWordPressChecksums( wpVersion: string ): Promise< void > {
-		if ( ! net.isOnline() ) {
+		if ( ! ( await isOnline() ) ) {
 			console.log( 'Skipping WordPress checksum verification - offline mode' );
 			return;
 		}

@@ -15,6 +15,7 @@ import { formatRtkError } from 'src/stores/format-rtk-error';
 import {
 	selectDefaultPhpVersion,
 	selectDefaultWordPressVersion,
+	selectMinimumWordPressVersion,
 } from 'src/stores/provider-constants-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
@@ -126,7 +127,6 @@ function NavigationContent( props: NavigationContentProps ) {
 		if ( location.path === '/blueprint/create' ) {
 			goTo( '/blueprint' );
 		} else if ( location.path === '/backup/create' ) {
-			createSiteProps.setFileForImport( null );
 			goTo( '/backup' );
 		} else if (
 			location.path === '/backup' ||
@@ -213,7 +213,10 @@ function NavigationContent( props: NavigationContentProps ) {
 				<CreateSite { ...createSiteProps } />
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/backup">
-				<ImportBackup onFileSelect={ handleBackupFileSelect } />
+				<ImportBackup
+					onFileSelect={ handleBackupFileSelect }
+					selectedFile={ createSiteProps.fileForImport }
+				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/backup/create">
 				<CreateSite { ...createSiteProps } />
@@ -277,7 +280,10 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		( site ) => site.isAddingSite || importState[ site.id ]?.isNewSite
 	);
 
-	const { data: versions = [] } = useGetWordPressVersions();
+	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
+	const { data: versions = [] } = useGetWordPressVersions( {
+		minimumVersion: minimumWordPressVersion,
+	} );
 	const latestStableVersion = versions.find( ( version ) => version.value === 'latest' );
 
 	const resetForm = useCallback( () => {

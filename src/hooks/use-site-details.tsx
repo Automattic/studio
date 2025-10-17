@@ -11,7 +11,9 @@ import {
 } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
+import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { sortSites } from 'src/lib/sort-sites';
 import { useAppDispatch } from 'src/stores';
@@ -41,12 +43,16 @@ interface SiteDetailsContext {
 	isDeleting: boolean;
 	uploadingSites: { [ siteId: string ]: boolean };
 	setUploadingSites: React.Dispatch< React.SetStateAction< { [ siteId: string ]: boolean } > >;
+	isEditModalOpen: boolean;
+	setIsEditModalOpen: React.Dispatch< React.SetStateAction< boolean > >;
+	siteCreationMessages: { [ siteId: string ]: string };
 }
 
 const defaultContext: SiteDetailsContext = {
 	selectedSite: null,
 	updateSite: async () => undefined,
 	data: [],
+	siteCreationMessages: {},
 	setSelectedSiteId: () => undefined,
 	createSite: async () => undefined,
 	startServer: async () => undefined,
@@ -58,6 +64,8 @@ const defaultContext: SiteDetailsContext = {
 	isDeleting: false,
 	uploadingSites: {},
 	setUploadingSites: () => undefined,
+	isEditModalOpen: false,
+	setIsEditModalOpen: () => undefined,
 };
 
 export const siteDetailsContext = createContext< SiteDetailsContext >( defaultContext );
@@ -152,6 +160,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const [ data, setData ] = useState< SiteDetails[] >( [] );
 	const [ loadingSites, setLoadingSites ] = useState< boolean >( true );
+	const [ addingSiteIds, setAddingSiteIds ] = useState< string[] >( [] );
+	const [ siteCreationMessages, setSiteCreationMessages ] = useState< {
+		[ siteId: string ]: string;
+	} >( {} );
 	const firstSite = data[ 0 ] || null;
 	const [ loadingServer, setLoadingServer ] = useState< Record< string, boolean > >(
 		firstSite?.id
@@ -164,6 +176,15 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const [ uploadingSites, setUploadingSites ] = useState< { [ siteId: string ]: boolean } >( {} );
 	const { deleteSite, isLoading: isDeleting } = useDeleteSite();
 	const { setSelectedTab, selectedTab } = useContentTabs();
+
+	useIpcListener( 'on-site-create-progress', ( _, { siteId, message } ) => {
+		if ( siteId && message ) {
+			setSiteCreationMessages( ( prev ) => ( {
+				...prev,
+				[ siteId ]: message,
+			} ) );
+		}
+	} );
 
 	const toggleLoadingServerForSite = useCallback( ( siteId: string ) => {
 		setLoadingServer( ( currentLoading ) => ( {
@@ -209,28 +230,33 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 				let title: string;
 				let message: string;
+				let errorToShow = error;
 
 				if ( isBlueprintError && hasBlueprint ) {
 					title = __( 'Blueprint execution failed' );
 					message = __(
-						'The selected blueprint failed to execute properly. This could be due to invalid PHP code, missing plugins, or other issues in the blueprint file. Please check your blueprint file and try again.'
+						'The selected Blueprint failed to execute properly. This could be due to invalid PHP code, missing plugins, or other issues in the Blueprint file. Please check your Blueprint file and try again.'
 					);
+					errorToShow = undefined;
 				} else {
 					title = __( 'Failed to create site' );
 					message = __(
 						'An error occurred while creating the site. Verify your selected local path is an empty directory or an existing WordPress folder and try again. If this problem persists, please contact support.'
 					);
+					// Simplify the error for user display
+					errorToShow = simplifyErrorForDisplay( error );
 				}
 
 				getIpcApi().showErrorMessageBox( {
 					title,
 					message,
-					error: isBlueprintError && hasBlueprint ? undefined : error,
+					error: errorToShow,
 					showOpenLogs: ! isBlueprintError || ! hasBlueprint,
 				} );
 
 				// Remove the temporary site immediately, but with a minor delay to ensure state updates properly
 				setTimeout( () => {
+					setAddingSiteIds( ( prev ) => prev.filter( ( id ) => id !== tempSiteId ) );
 					setData( ( prevData ) =>
 						sortSites( prevData.filter( ( site ) => site.id !== tempSiteId ) )
 					);
@@ -238,6 +264,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			};
 
 			const tempSiteId = crypto.randomUUID();
+			setAddingSiteIds( ( prev ) => [ ...prev, tempSiteId ] );
 			setData( ( prevData ) =>
 				sortSites( [
 					...prevData,
@@ -254,18 +281,24 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			);
 			setSelectedSiteId( tempSiteId ); // Set the temporary ID as the selected site
 
+			let newSite: SiteDetails;
 			try {
-				const newSite = await getIpcApi().createSite( path, {
+				newSite = await getIpcApi().createSite( path, {
 					siteName,
 					wpVersion,
 					customDomain,
 					enableHttps,
+					siteId: tempSiteId,
 					blueprint,
 				} );
 				if ( ! newSite ) {
 					showError( undefined, !! blueprint );
 					return;
 				}
+				setAddingSiteIds( ( prev ) => {
+					prev.push( newSite.id );
+					return prev;
+				} );
 				// Update the selected site to the new site's ID if the user didn't change it
 				setSelectedSiteId( ( prevSelectedSiteId ) => {
 					if ( prevSelectedSiteId === tempSiteId ) {
@@ -276,26 +309,26 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					}
 					return prevSelectedSiteId;
 				} );
-				// It replaces the temporary site created in React
-				// with the new site generated in the backend, but keeps isAddingSite to true
-				newSite.isAddingSite = true;
 				setData( ( prevData ) =>
 					prevData.map( ( site ) => ( site.id === tempSiteId ? newSite : site ) )
 				);
+
+				setSiteCreationMessages( ( prev ) => {
+					const { [ newSite.id ]: _, ...rest } = prev;
+					return rest;
+				} );
 
 				if ( callback ) {
 					await callback( newSite );
 				}
 
-				setData( ( prevData ) =>
-					prevData.map( ( site ) =>
-						site.id === newSite.id ? { ...site, isAddingSite: false } : site
-					)
-				);
-
 				return newSite;
 			} catch ( error ) {
 				showError( error, !! blueprint );
+			} finally {
+				setAddingSiteIds( ( prev ) =>
+					prev.filter( ( id ) => id !== tempSiteId && id !== newSite?.id )
+				);
 			}
 		},
 		[ selectedTab, setSelectedSiteId, setSelectedTab ]
@@ -355,12 +388,13 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 						showOpenLogs: false,
 					} );
 				} else {
+					const errorToShow = simplifyErrorForDisplay( error );
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Failed to start the site server' ),
 						message: __(
 							"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
 						),
-						error,
+						error: errorToShow,
 						showOpenLogs: true,
 					} );
 				}
@@ -396,7 +430,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			if ( ! fastDeepEqual( payload.newSites, payload.sites ) ) {
 				const updatedSites = await getIpcApi().getSiteDetails();
 				setData( ( prevData ) => {
-					const tempSite = prevData.find( ( site ) => site.isAddingSite );
+					const tempSite = prevData.find( ( site ) => addingSiteIds.includes( site.id ) );
 
 					if ( ! tempSite ) {
 						return updatedSites;
@@ -416,7 +450,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		return () => {
 			unsubscribe();
 		};
-	}, [] );
+	}, [ addingSiteIds ] );
 
 	useEffect( () => {
 		let cancel = false;
@@ -462,9 +496,18 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		setData( data.map( ( site ) => ( site.running ? { ...site, running: false } : site ) ) );
 	}, [ data ] );
 
+	const [ isEditModalOpen, setIsEditModalOpen ] = useState( false );
+	const selectedSite = useMemo( () => {
+		const site = data.find( ( site ) => site.id === selectedSiteId ) || firstSite;
+		if ( addingSiteIds.includes( site?.id ) ) {
+			site.isAddingSite = true;
+		}
+		return site;
+	}, [ addingSiteIds, data, firstSite, selectedSiteId ] );
+
 	const context = useMemo(
 		() => ( {
-			selectedSite: data.find( ( site ) => site.id === selectedSiteId ) || firstSite,
+			selectedSite,
 			data,
 			setSelectedSiteId,
 			createSite,
@@ -478,10 +521,13 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			loadingSites,
 			uploadingSites,
 			setUploadingSites,
+			isEditModalOpen,
+			setIsEditModalOpen,
+			siteCreationMessages,
 		} ),
 		[
+			selectedSite,
 			data,
-			firstSite,
 			setSelectedSiteId,
 			createSite,
 			updateSite,
@@ -494,6 +540,9 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			isDeleting,
 			loadingSites,
 			uploadingSites,
+			isEditModalOpen,
+			setIsEditModalOpen,
+			siteCreationMessages,
 		]
 	);
 

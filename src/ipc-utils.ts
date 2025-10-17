@@ -22,6 +22,7 @@ export interface IpcEvents {
 	'auth-updated': [ { token: StoredToken } | { error: unknown } ];
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];
+	'on-site-create-progress': [ { siteId: string; message: string } ];
 	providerConstantsChanged: [
 		{
 			defaultPhpVersion: string;
@@ -29,6 +30,7 @@ export interface IpcEvents {
 			allowedPhpVersions: string[];
 		},
 	];
+	'site-context-menu-action': [ { action: string; siteId: string } ];
 	'snapshot-error': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
 	'snapshot-fatal-error': [ { operationId: crypto.UUID; data: { message: string } } ];
 	'snapshot-output': [ { operationId: crypto.UUID; data: SnapshotEventData } ];

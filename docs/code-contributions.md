@@ -188,12 +188,21 @@ After the build process completes, you can find the executables in the `out/` di
 
 ### Linux
 
-Linux support is currently in an experimental phase and comes with certain limitations:
-- For systems using Wayland, you may need to set the `--enable-features=UseOzonePlatform --ozone-platform=wayland`
-  flag when running the application.
-- Some features may not work as expected on Linux due to platform-specific implementations.
+Linux support is currently in an experimental phase. While official packages are not yet available, you can build Studio from source:
+
+```bash
+npm install
+npm run package
+```
+
+After building, the executable will be located at `out/Studio-linux-x64/studio`.
+
+**Important considerations:**
 - The auto-update feature is not currently supported on Linux builds.
-- While these instructions should work for most Linux distributions, you may need to adjust them based on your specific setup or distribution.
+- For Wayland systems, you may need to use additional flags when running the application.
+- Some features may not work as expected due to platform-specific implementations.
+
+For detailed instructions including how to create a desktop launcher, handle Wayland compatibility, and troubleshoot common issues, see the [**Linux Guide**](./linux.md).
 
 ## Localization
 

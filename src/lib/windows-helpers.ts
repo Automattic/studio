@@ -28,10 +28,11 @@ export async function promptWindowsSpeedUpSites( {
 	}
 
 	if (
-		skipIfAlreadyPrompted &&
-		( previousResponse === 'yes' ||
-			dontAskAgain ||
-			( previousResponse === 'no' && previousAppVersion === currentAppVersion ) )
+		process.env.E2E ||
+		( skipIfAlreadyPrompted &&
+			( previousResponse === 'yes' ||
+				dontAskAgain ||
+				( previousResponse === 'no' && previousAppVersion === currentAppVersion ) ) )
 	) {
 		return;
 	}

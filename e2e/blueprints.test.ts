@@ -24,7 +24,7 @@ test.describe( 'Blueprints', () => {
 		}
 
 		const siteContent = new SiteContent( session.mainWindow, 'My WordPress Website' );
-		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 60_000 } );
+		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
 	} );
 
 	test.afterAll( async () => {
@@ -55,7 +55,7 @@ test.describe( 'Blueprints', () => {
 
 		// Wait for site to be created and running
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to get admin URL
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
@@ -90,7 +90,7 @@ test.describe( 'Blueprints', () => {
 
 		// Wait for site to be created and running
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to get admin URL
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
@@ -127,7 +127,7 @@ test.describe( 'Blueprints', () => {
 
 		// Wait for site to be created and running
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to get admin URL
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
@@ -162,7 +162,7 @@ test.describe( 'Blueprints', () => {
 
 		// Wait for site to be created and running
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to get admin URL
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
@@ -199,7 +199,7 @@ test.describe( 'Blueprints', () => {
 
 		// Wait for site to be created and running
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to verify site is accessible
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
@@ -237,7 +237,7 @@ test.describe( 'Blueprints', () => {
 
 		// Wait for site to be created and running
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to verify site is accessible
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );

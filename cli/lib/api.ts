@@ -136,10 +136,18 @@ export async function deleteSnapshot( atomicSiteId: number, token: string ): Pro
 	}
 }
 
-export async function validateAccessToken( token: string ): Promise< void > {
+export async function validateAccessToken(
+	token: string
+): Promise< { ID: number; email: string } > {
+	const meResponseSchema = z.object( {
+		ID: z.number(),
+		email: z.string(),
+	} );
+
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 	try {
-		await wpcom.req.get( '/me', { fields: 'ID' } );
+		const rawResponse = await wpcom.req.get( '/me', { fields: 'ID,email' } );
+		return meResponseSchema.parse( rawResponse );
 	} catch ( error ) {
 		throw new LoggerError( __( 'Invalid authentication token' ), error );
 	}

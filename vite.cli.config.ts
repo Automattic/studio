@@ -7,24 +7,26 @@ const yargsLocalesPath = resolve( __dirname, 'node_modules/yargs/locales' );
 
 export default defineConfig( {
 	plugins: [
-		...( existsSync( yargsLocalesPath )
-			? [
-					viteStaticCopy( {
-						targets: [
+		viteStaticCopy( {
+			targets: [
+				...( existsSync( yargsLocalesPath )
+					? [
 							{
 								src: 'node_modules/yargs/locales/*',
 								dest: '../locales',
 							},
-						],
-					} ),
-			  ]
-			: [] ),
+					  ]
+					: [] ),
+			],
+		} ),
 	],
 	build: {
 		lib: {
-			entry: resolve( __dirname, 'cli/index.ts' ),
+			entry: {
+				main: resolve( __dirname, 'cli/index.ts' ),
+				'auth-callback-handler': resolve( __dirname, 'cli/auth-callback-handler.ts' ),
+			},
 			name: 'StudioCLI',
-			fileName: 'main',
 			formats: [ 'cjs' ],
 		},
 		outDir: 'dist/cli',
@@ -36,7 +38,7 @@ export default defineConfig( {
 			],
 			output: {
 				format: 'cjs',
-				entryFileNames: 'main.js',
+				entryFileNames: '[name].js',
 			},
 		},
 		commonjsOptions: {

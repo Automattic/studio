@@ -1,5 +1,6 @@
 import os from 'os';
 import path from 'path';
+import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
@@ -7,6 +8,7 @@ import { saveSnapshotToAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 
+jest.mock( 'common/lib/get-wordpress-version' );
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
 	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
@@ -70,6 +72,7 @@ describe( 'Preview Create Command', () => {
 	} );
 
 	it( 'should complete the preview creation process successfully', async () => {
+		( getWordPressVersion as jest.Mock ).mockResolvedValue( '6.8.1' );
 		const { runCommand } = await import( '../create' );
 		await runCommand( mockFolder );
 
@@ -81,7 +84,11 @@ describe( 'Preview Create Command', () => {
 		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [ 'archive', 'Creating archive…' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Archive created' ] );
 
-		expect( uploadArchive ).toHaveBeenCalledWith( mockArchivePath, mockAuthToken.accessToken );
+		expect( uploadArchive ).toHaveBeenCalledWith(
+			mockArchivePath,
+			mockAuthToken.accessToken,
+			'6.8.1'
+		);
 		expect( mockLogger.reportStart.mock.calls[ 2 ] ).toEqual( [ 'upload', 'Uploading archive…' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 2 ] ).toEqual( [ 'Archive uploaded' ] );
 

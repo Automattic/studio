@@ -31,6 +31,7 @@ const POLL_INTERVAL_MS = 3000;
 export async function uploadArchive(
 	archivePath: string,
 	token: string,
+	wordpressVersion: string,
 	atomicSiteId?: number
 ): Promise< { site_url: string; site_id: number } > {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
@@ -47,6 +48,10 @@ export async function uploadArchive(
 
 	if ( atomicSiteId !== undefined ) {
 		formData.push( [ 'site_id', atomicSiteId ] );
+	}
+
+	if ( wordpressVersion.length >= 3 ) {
+		formData.push( [ 'wordpress_version', wordpressVersion ] );
 	}
 
 	try {

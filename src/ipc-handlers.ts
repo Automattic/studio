@@ -27,6 +27,7 @@ import {
 	isEmptyDir,
 	pathExists,
 } from 'common/lib/fs-utils';
+import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
@@ -930,17 +931,7 @@ export function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 		return '-';
 	}
 	const wordPressPath = server.details.path;
-	let versionFileContent = '';
-	try {
-		versionFileContent = fs.readFileSync(
-			nodePath.join( wordPressPath, 'wp-includes', 'version.php' ),
-			'utf8'
-		);
-	} catch ( err ) {
-		return '-';
-	}
-	const matches = versionFileContent.match( /\$wp_version\s*=\s*'([0-9a-zA-Z.-]+)'/ );
-	return matches?.[ 1 ] || '-';
+	return getWordPressVersion( wordPressPath );
 }
 
 export async function generateProposedSitePath(

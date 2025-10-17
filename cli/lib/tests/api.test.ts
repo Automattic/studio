@@ -1,5 +1,6 @@
 import fs from 'fs';
 import wpcomFactory from 'src/lib/wpcom-factory';
+import wpcom from 'wpcom';
 import { uploadArchive, waitForSiteReady, SnapshotStatus } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
 
@@ -10,6 +11,7 @@ jest.mock( 'wpcom-xhr-request' );
 describe( 'API Module', () => {
 	const mockArchivePath = '/mock/archive.zip';
 	const mockToken = 'mock-token-123';
+	const mockWordPressVersion = '6.8.1';
 	const mockSiteUrl = 'test-site.wp.build';
 	const mockSiteId = 12345;
 	const mockReadStream = { pipe: jest.fn() };
@@ -33,7 +35,7 @@ describe( 'API Module', () => {
 			};
 			( wpcomFactory as jest.Mock ).mockReturnValue( mockWpcom );
 
-			const result = await uploadArchive( mockArchivePath, mockToken );
+			const result = await uploadArchive( mockArchivePath, mockToken, mockWordPressVersion );
 
 			expect( wpcomFactory ).toHaveBeenCalledWith( mockToken, expect.anything() );
 			expect( mockWpcom.req.post ).toHaveBeenCalledWith( {
@@ -48,11 +50,41 @@ describe( 'API Module', () => {
 							contentType: 'application/zip',
 						},
 					],
+					[ 'wordpress_version', '6.8.1' ],
 				],
 			} );
 			expect( result ).toEqual( {
 				site_url: mockSiteUrl,
 				site_id: mockSiteId,
+			} );
+		} );
+
+		it( 'should successfully send wordpress_version to create new site from zip', async () => {
+			const mockWpcom = {
+				req: {
+					post: jest.fn().mockResolvedValue( {
+						domain_name: mockSiteUrl,
+						atomic_site_id: mockSiteId,
+					} ),
+				},
+			};
+			( wpcom as jest.Mock ).mockReturnValue( mockWpcom );
+
+			await uploadArchive( mockArchivePath, mockToken, mockWordPressVersion );
+			expect( mockWpcom.req.post ).toHaveBeenCalledWith( {
+				path: '/jurassic-ninja/create-new-site-from-zip',
+				apiNamespace: 'wpcom/v2',
+				formData: [
+					[
+						'import',
+						mockReadStream,
+						{
+							filename: 'local-env-site-1.zip',
+							contentType: 'application/zip',
+						},
+					],
+					[ 'wordpress_version', '6.8.1' ],
+				],
 			} );
 		} );
 
@@ -65,9 +97,9 @@ describe( 'API Module', () => {
 			};
 			( wpcomFactory as jest.Mock ).mockReturnValue( mockWpcom );
 
-			await expect( uploadArchive( mockArchivePath, mockToken ) ).rejects.toThrow(
-				'Failed to upload archive'
-			);
+			await expect(
+				uploadArchive( mockArchivePath, mockToken, mockWordPressVersion )
+			).rejects.toThrow( 'Failed to upload archive' );
 		} );
 
 		it( 'should throw LoggerError for invalid API response', async () => {
@@ -83,9 +115,9 @@ describe( 'API Module', () => {
 			};
 			( wpcomFactory as jest.Mock ).mockReturnValue( mockWpcom );
 
-			await expect( uploadArchive( mockArchivePath, mockToken ) ).rejects.toThrow(
-				'Invalid API response format'
-			);
+			await expect(
+				uploadArchive( mockArchivePath, mockToken, mockWordPressVersion )
+			).rejects.toThrow( 'Invalid API response format' );
 		} );
 	} );
 

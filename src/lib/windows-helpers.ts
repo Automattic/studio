@@ -14,7 +14,6 @@ export async function promptWindowsSpeedUpSites( {
 
 	if (
 		process.platform !== 'win32' ||
-		process.env.E2E ||
 		( skipIfAlreadyPrompted && typeof userData.promptWindowsSpeedUpResult !== 'undefined' )
 	) {
 		return;

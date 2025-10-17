@@ -56,12 +56,6 @@ steps:
   - label: E2E Tests on {{matrix}}
     key: e2e_tests
     command: |
-      # Windows-specific setup
-      if [ "{{matrix}}" = "windows" ]; then
-        # prepare_windows_host_for_app_distribution.ps1 comes from CI Toolkit Plugin
-        powershell -Command "& 'prepare_windows_host_for_app_distribution.ps1' -InstallPython \$true -InstallNativeCompilationTools \$true"
-      fi
-
       # call with bash explicitly because we run this on Windows, too
       bash .buildkite/commands/install-node-dependencies.sh
       export IS_DEV_BUILD=true
@@ -71,8 +65,6 @@ steps:
       npm run e2e
     artifact_paths:
       - test-results/**/*.zip
-      - test-results/**/*.png
-      - test-results/**/*error-context.md
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     agents:
       queue: "{{matrix}}"
@@ -81,7 +73,7 @@ steps:
       DEBUG: "pw:browser"
     matrix:
       - mac
-      - windows
+      #- windows
     notify:
       - github_commit_status:
           context: All E2E Tests

@@ -30,7 +30,7 @@ test.describe( 'Servers', () => {
 		}
 
 		const siteContent = new SiteContent( session.mainWindow, defaultSiteName );
-		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
+		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 60_000 } );
 	} );
 
 	test.afterAll( async () => {
@@ -52,7 +52,7 @@ test.describe( 'Servers', () => {
 
 		// Check the site is running
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 30_000 } );
 		expect( await siteContent.siteNameHeading ).toHaveText( siteName );
 
 		// Check a WordPress site has been created

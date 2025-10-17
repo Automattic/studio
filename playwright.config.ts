@@ -12,7 +12,7 @@ export default defineConfig( {
 		trace: 'retain-on-failure',
 	},
 
-	timeout: 180_000,
+	timeout: 60_000,
 
 	// Global expect timeout for all assertions
 	expect: {

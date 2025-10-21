@@ -213,7 +213,7 @@ export function SyncDialog( {
 			title={ syncTexts.title }
 		>
 			<div className={ isPushSelectionOverLimit ? 'pb-[140px]' : 'pb-[70px]' }>
-				<div className="px-8 pb-6 pt-3">{ syncTexts.description }</div>
+				<div className="px-8 pb-6 pt-1">{ syncTexts.description }</div>
 				<div className="px-8">
 					<span className="sr-only">
 						{ /* translators: first %s is the source site name, second %s is the destination site name */ }
@@ -240,7 +240,7 @@ export function SyncDialog( {
 					size={ 11 }
 					weight={ 500 }
 					upperCase
-					className="px-8 pt-7 pb-3"
+					className="px-8 pt-5 pb-3"
 				>
 					{ syncTexts.subtitleSelector }
 				</Heading>

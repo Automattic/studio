@@ -224,14 +224,12 @@ export function SyncDialog( {
 						className="flex max-w-full overflow-hidden pb-6 border-b border-a8c-gray-5"
 					>
 						<div className="overflow-hidden max-w-[calc(50%-25px)]">
-							<div className="leading-[32px]">{ syncTexts.fromLabel }</div>
 							<div className="whitespace-nowrap truncate">{ syncFrom }</div>
 						</div>
-						<div className="mt-[32px] w-[50px] flex items-center justify-center text-a8c-gray-600">
+						<div className="w-[50px] flex items-center justify-center text-a8c-gray-600">
 							<RightArrowIcon />
 						</div>
 						<div className="overflow-hidden max-w-[calc(50%-25px)]">
-							<div className="leading-[32px]">{ __( 'To' ) }</div>
 							<div className="whitespace-nowrap truncate">{ syncTo }</div>
 						</div>
 					</div>

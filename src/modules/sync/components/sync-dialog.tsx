@@ -208,7 +208,7 @@ export function SyncDialog( {
 
 	return (
 		<Modal
-			className="sync-dialog-wrapper w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
+			className="w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
 			title={ syncTexts.title }
 		>

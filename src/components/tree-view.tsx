@@ -161,7 +161,7 @@ const TreeItem = ( {
 			{ expanded && node.children && (
 				<div
 					role="group"
-					className={ cx( 'ps-6', isFirstLevel && 'py-2 border border-gray-300 rounded-sm' ) }
+					className={ cx( 'ps-6', isFirstLevel && 'border border-gray-300 rounded-sm py-2' ) }
 				>
 					{ node.children.length === 0 ? (
 						<div className="text-gray-500 italic" aria-label={ __( 'Empty folder' ) }>

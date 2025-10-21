@@ -280,7 +280,7 @@ export function SyncDialog( {
 									tree={ treeState }
 									setTree={ setTreeState }
 									onExpand={ handleExpand }
-									renderBeforeChildren={ ( nodeId ) => {
+									renderAfterChildren={ ( nodeId ) => {
 										if ( nodeId === 'filesAndFolders' && showAllFiles && rewindId ) {
 											const backupUrl = `https://wordpress.com/backup/${ remoteSite.url.replace(
 												/^https?:\/\//,

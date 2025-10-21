@@ -84,7 +84,7 @@ const TreeItem = ( {
 	index,
 	siblingsLength,
 	disabled,
-	renderBeforeChildren,
+	renderAfterChildren,
 }: {
 	node: TreeNode;
 	onPatchNode: ( id: string, patchNode: Partial< TreeNode > ) => void;
@@ -94,7 +94,7 @@ const TreeItem = ( {
 	siblingsLength?: number;
 	isLast?: boolean;
 	disabled?: boolean;
-	renderBeforeChildren?: ( nodeId: string ) => React.ReactNode;
+	renderAfterChildren?: ( nodeId: string ) => React.ReactNode;
 } ) => {
 	const { __ } = useI18n();
 	const isFirstLevel = level === 1;
@@ -166,7 +166,6 @@ const TreeItem = ( {
 					role="group"
 					className={ cx( 'ps-6', isFirstLevel && 'border-b border-gray-300 py-2' ) }
 				>
-					{ renderBeforeChildren && renderBeforeChildren( node.id ) }
 					{ node.children.length === 0 ? (
 						<div className="text-gray-500 italic" aria-label={ __( 'Empty folder' ) }>
 							{ __( 'Empty' ) }
@@ -181,10 +180,11 @@ const TreeItem = ( {
 								level={ level + 1 }
 								index={ idx }
 								siblingsLength={ node.children?.length }
-								renderBeforeChildren={ renderBeforeChildren }
+								renderAfterChildren={ renderAfterChildren }
 							/>
 						) )
 					) }
+					{ renderAfterChildren && renderAfterChildren( node.id ) }
 				</div>
 			) }
 		</div>
@@ -196,7 +196,7 @@ export type TreeViewProps = {
 	setTree: React.Dispatch< React.SetStateAction< TreeNode[] > >;
 	onExpand?: ( node: TreeNode ) => Promise< void >;
 	disabled?: boolean;
-	renderBeforeChildren?: ( nodeId: string ) => React.ReactNode;
+	renderAfterChildren?: ( nodeId: string ) => React.ReactNode;
 };
 
 export const TreeView = ( {
@@ -204,7 +204,7 @@ export const TreeView = ( {
 	setTree,
 	onExpand,
 	disabled,
-	renderBeforeChildren,
+	renderAfterChildren,
 }: TreeViewProps ) => {
 	const handlePatchNode = ( id: string, partialNode: Partial< TreeNode > ) => {
 		setTree( ( prev: TreeNode[] ) => updateNodeById( prev, id, partialNode ) );
@@ -223,7 +223,7 @@ export const TreeView = ( {
 					siblingsLength={ tree.length }
 					isLast={ index === tree.length - 1 }
 					disabled={ disabled }
-					renderBeforeChildren={ renderBeforeChildren }
+					renderAfterChildren={ renderAfterChildren }
 				/>
 			) ) }
 		</div>

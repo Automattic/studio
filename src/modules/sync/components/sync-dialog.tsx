@@ -1,4 +1,4 @@
-import { SelectControl, Notice } from '@wordpress/components';
+import { SelectControl, Notice, __experimentalHeading as Heading } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf, __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
@@ -234,7 +234,16 @@ export function SyncDialog( {
 						</div>
 					</div>
 				</div>
-				<div className="px-8 pt-7 pb-3">{ syncTexts.subtitleSelector }</div>
+				<Heading
+					level={ 2 }
+					lineHeight="28px"
+					size={ 11 }
+					weight={ 500 }
+					upperCase
+					className="px-8 pt-7 pb-3"
+				>
+					{ syncTexts.subtitleSelector }
+				</Heading>
 				<Tooltip
 					className={ cx( 'w-full', isErrorRewindId && 'cursor-not-allowed' ) }
 					text={ tooltipNoRewindId }

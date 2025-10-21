@@ -289,16 +289,13 @@ export function SyncDialog( {
 											const backupDate = format( parseInt( rewindId ) * 1000, 'MMM d, h:mm a' );
 											return (
 												<div className="mt-2 pb-2 text-xs text-gray-600">
-													{ sprintf(
-														__( 'Listing files from the latest backup: %s.' ),
-														backupDate
-													) }{ ' ' }
+													{ sprintf( __( 'Content from the latest backup: %s.' ), backupDate ) }{ ' ' }
 													<Button
 														variant="link"
 														className="p-0 h-auto text-xs"
 														onClick={ () => getIpcApi().openURL( backupUrl ) }
 													>
-														{ __( 'Create fresh backup now ↗' ) }
+														{ __( 'Create new backup ↗' ) }
 													</Button>
 												</div>
 											);

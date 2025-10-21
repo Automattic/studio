@@ -13,16 +13,17 @@
 
 body {
 	font-family:
+	/* macOS/iOS system UI */
 		-apple-system,
 		BlinkMacSystemFont,
-		/* macOS/iOS system UI */ 'Segoe UI',
+		/* Windows + Android system UI */ 'Segoe UI',
 		Roboto,
-		/* Windows + Android system UI */ 'Apple Color Emoji',
+		/* emoji */ 'Apple Color Emoji',
 		'Segoe UI Emoji',
 		'Noto Color Emoji',
-		/* emoji */ 'Noto Sans',
+		/* broad Unicode coverage */ 'Noto Sans',
 		'Arial Unicode MS',
-		/* broad Unicode coverage */ sans-serif;
+		sans-serif;
 }
 
 .app-drag-region {

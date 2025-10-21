@@ -1,26 +1,22 @@
+import { ProgressBar as WPProgressBar } from '@wordpress/components';
 import { useEffect, useState } from 'react';
+import { cx } from 'src/lib/cx';
 
 type ProgressBarProps = {
-	value: number;
-	maxValue: number;
+	value?: number;
+	maxValue?: number;
+	className?: string;
 };
 
-const ProgressBar = ( { value, maxValue }: ProgressBarProps ) => {
-	// Calculate width percentage of the filled part
-	const fillPercentage = Math.max( 0, Math.min( 100, ( value / maxValue ) * 100 ) );
+const ProgressBar = ( { value, maxValue, className }: ProgressBarProps ) => {
+	const classNames = cx( 'w-full flex', className );
+	if ( value !== undefined && maxValue !== undefined ) {
+		const percentage = Math.max( 0, Math.min( 100, ( value / maxValue ) * 100 ) );
+		return <WPProgressBar value={ percentage } className={ classNames } />;
+	}
 
-	return (
-		<div className="w-full flex h-0.5 self-stretch rounded-[4.5px] bg-a8c-gray-5">
-			<div
-				role="progressbar"
-				aria-valuenow={ fillPercentage }
-				className="h-full bg-a8c-blue-50 rounded-[4.5px] transition-all"
-				style={ {
-					width: `${ fillPercentage }%`,
-				} }
-			></div>
-		</div>
-	);
+	// Otherwise, use indeterminate progress bar
+	return <WPProgressBar className={ classNames } />;
 };
 
 export default ProgressBar;

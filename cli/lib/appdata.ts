@@ -31,6 +31,12 @@ const newSiteSchema = z
 	} )
 	.passthrough();
 
+const betaFeaturesSchema = z
+	.object( {
+		studioSitesCli: z.boolean().optional(),
+	} )
+	.passthrough();
+
 const userDataSchema = z
 	.object( {
 		newSites: z.array( newSiteSchema ).default( () => [] ),
@@ -47,6 +53,7 @@ const userDataSchema = z
 		lastBumpStats: z
 			.record( z.string(), z.record( z.nativeEnum( StatsMetric ), z.number() ) )
 			.optional(),
+		betaFeatures: betaFeaturesSchema.optional(),
 	} )
 	.passthrough();
 

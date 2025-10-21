@@ -1,6 +1,7 @@
 import os from 'os';
 import path from 'path';
 import { DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
+import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken, getOrCreateSiteByFolder, getSiteByFolder } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
@@ -8,6 +9,7 @@ import { updateSnapshotInAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapsh
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 
+jest.mock( 'common/lib/get-wordpress-version' );
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
 	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
@@ -80,9 +82,9 @@ describe( 'Preview Update Command', () => {
 	} );
 
 	it( 'should complete the preview update process successfully', async () => {
+		( getWordPressVersion as jest.Mock ).mockResolvedValue( '6.8.1' );
 		const { runCommand } = await import( '../update' );
 		await runCommand( mockFolder, mockSiteUrl, false );
-
 		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
@@ -94,6 +96,7 @@ describe( 'Preview Update Command', () => {
 		expect( uploadArchive ).toHaveBeenCalledWith(
 			mockArchivePath,
 			mockAuthToken.accessToken,
+			'6.8.1',
 			mockSnapshot.atomicSiteId
 		);
 		expect( mockLogger.reportStart.mock.calls[ 2 ] ).toEqual( [ 'upload', 'Uploading archive…' ] );

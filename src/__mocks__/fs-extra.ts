@@ -11,7 +11,19 @@ fsExtra.__setFileContents = ( path: string, fileContents: string | string[] ) =>
 	fsExtra.__mockFiles[ path ] = fileContents;
 };
 
-( fsExtra.readFile as jest.Mock ).mockImplementation( async ( path: string ): Promise< string > => {
+( fsExtra.readFile as unknown as jest.Mock ).mockImplementation(
+	async ( path: string ): Promise< string > => {
+		const fileContents = fsExtra.__mockFiles[ path ];
+
+		if ( typeof fileContents === 'string' ) {
+			return fileContents;
+		}
+
+		return '';
+	}
+);
+
+( fsExtra.readFileSync as unknown as jest.Mock ).mockImplementation( ( path: string ): string => {
 	const fileContents = fsExtra.__mockFiles[ path ];
 
 	if ( typeof fileContents === 'string' ) {
@@ -21,17 +33,7 @@ fsExtra.__setFileContents = ( path: string, fileContents: string | string[] ) =>
 	return '';
 } );
 
-( fsExtra.readFileSync as jest.Mock ).mockImplementation( ( path: string ): string => {
-	const fileContents = fsExtra.__mockFiles[ path ];
-
-	if ( typeof fileContents === 'string' ) {
-		return fileContents;
-	}
-
-	return '';
-} );
-
-( fsExtra.readdir as jest.Mock ).mockImplementation(
+( fsExtra.readdir as unknown as jest.Mock ).mockImplementation(
 	async ( path: string ): Promise< Array< string > > => {
 		const dirContents = fsExtra.__mockFiles[ path ];
 
@@ -43,7 +45,7 @@ fsExtra.__setFileContents = ( path: string, fileContents: string | string[] ) =>
 	}
 );
 
-( fsExtra.pathExists as jest.Mock ).mockImplementation(
+( fsExtra.pathExists as unknown as jest.Mock ).mockImplementation(
 	async ( path: string ): Promise< boolean > => {
 		return !! fsExtra.__mockFiles[ path ];
 	}

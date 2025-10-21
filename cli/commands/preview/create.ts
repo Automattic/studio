@@ -1,6 +1,7 @@
 import os from 'os';
 import path from 'path';
 import { __, sprintf } from '@wordpress/i18n';
+import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
@@ -29,7 +30,8 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 		logger.reportSuccess( __( 'Archive created' ) );
 
 		logger.reportStart( LoggerAction.UPLOAD, __( 'Uploading archive…' ) );
-		const uploadResponse = await uploadArchive( archivePath, token.accessToken );
+		const wordpressVersion = await getWordPressVersion( siteFolder );
+		const uploadResponse = await uploadArchive( archivePath, token.accessToken, wordpressVersion );
 		logger.reportSuccess( __( 'Archive uploaded' ) );
 
 		logger.reportStart( LoggerAction.READY, __( 'Creating preview site…' ) );

@@ -41,12 +41,12 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 		} );
 
 		// mock move
-		( move as jest.Mock ).mockResolvedValue( null );
+		( move as unknown as jest.Mock ).mockResolvedValue( null );
 
 		jest.useFakeTimers();
 		jest.setSystemTime( new Date( '2024-08-01T12:00:00Z' ) );
 
-		( lstat as jest.Mock ).mockResolvedValue( {
+		( lstat as unknown as jest.Mock ).mockResolvedValue( {
 			isDirectory: jest.fn().mockReturnValue( false ),
 		} );
 	} );
@@ -167,6 +167,104 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 			// Should still create other directories and copy other files
 			expect( fs.mkdir ).toHaveBeenCalled();
 			expect( fs.copyFile ).toHaveBeenCalledTimes( 4 ); // One for each wp-content file + wp-config.php - fonts
+		} );
+
+		it( 'should categorize WordPress content files correctly', () => {
+			const testFiles = [
+				// Plugin files
+				normalize( '/tmp/extracted/wp-content/plugins/akismet/akismet.php' ),
+				normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ),
+				normalize( '/tmp/extracted/wp-content/plugins/woocommerce/woocommerce.php' ),
+				// Theme files
+				normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ),
+				normalize( '/tmp/extracted/wp-content/themes/twentytwentythree/index.php' ),
+				// Upload files
+				normalize( '/tmp/extracted/wp-content/uploads/2023/01/image.jpg' ),
+				normalize( '/tmp/extracted/wp-content/uploads/2024/02/document.pdf' ),
+				normalize( '/tmp/extracted/wp-content/uploads/2024/03/video.mp4' ),
+				// Other files
+				normalize( '/tmp/extracted/wp-content/index.php' ),
+				normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ),
+				normalize( '/tmp/extracted/wp-content/mu-plugins/custom.php' ),
+				// Windows path style testing
+				'C:\\tmp\\extracted\\wp-content\\plugins\\hello-world\\hello.php',
+				'C:\\tmp\\extracted\\wp-content\\themes\\custom\\functions.php',
+				'C:\\tmp\\extracted\\wp-content\\uploads\\2024\\image.png',
+				'C:\\tmp\\extracted\\wp-content\\advanced-cache.php',
+			];
+
+			const importer = new JetpackImporter( mockBackupContents );
+			// Access the protected method for testing
+			const categorizedFiles = (
+				importer as unknown as {
+					categorizeWpContentFiles: ( files: string[] ) => Record< string, string[] >;
+				}
+			 ).categorizeWpContentFiles( testFiles );
+
+			expect( categorizedFiles ).toEqual( {
+				plugins: [
+					normalize( '/tmp/extracted/wp-content/plugins/akismet/akismet.php' ),
+					normalize( '/tmp/extracted/wp-content/plugins/jetpack/jetpack.php' ),
+					normalize( '/tmp/extracted/wp-content/plugins/woocommerce/woocommerce.php' ),
+					'C:\\tmp\\extracted\\wp-content\\plugins\\hello-world\\hello.php',
+				],
+				themes: [
+					normalize( '/tmp/extracted/wp-content/themes/twentytwentyone/style.css' ),
+					normalize( '/tmp/extracted/wp-content/themes/twentytwentythree/index.php' ),
+					'C:\\tmp\\extracted\\wp-content\\themes\\custom\\functions.php',
+				],
+				uploads: [
+					normalize( '/tmp/extracted/wp-content/uploads/2023/01/image.jpg' ),
+					normalize( '/tmp/extracted/wp-content/uploads/2024/02/document.pdf' ),
+					normalize( '/tmp/extracted/wp-content/uploads/2024/03/video.mp4' ),
+					'C:\\tmp\\extracted\\wp-content\\uploads\\2024\\image.png',
+				],
+				other: [
+					normalize( '/tmp/extracted/wp-content/index.php' ),
+					normalize( '/tmp/extracted/wp-content/fonts/open-sans.woff2' ),
+					normalize( '/tmp/extracted/wp-content/mu-plugins/custom.php' ),
+					'C:\\tmp\\extracted\\wp-content\\advanced-cache.php',
+				],
+			} );
+		} );
+
+		it( 'should handle empty file list for categorization', () => {
+			const importer = new JetpackImporter( mockBackupContents );
+			const categorizedFiles = (
+				importer as unknown as {
+					categorizeWpContentFiles: ( files: string[] ) => Record< string, string[] >;
+				}
+			 ).categorizeWpContentFiles( [] );
+
+			expect( categorizedFiles ).toEqual( {
+				plugins: [],
+				themes: [],
+				uploads: [],
+				other: [],
+			} );
+		} );
+
+		it( 'should categorize files without wp-content prefix', () => {
+			const testFiles = [
+				'/plugins/test-plugin/test.php',
+				'/themes/test-theme/style.css',
+				'/uploads/image.jpg',
+				'/index.php',
+			];
+
+			const importer = new JetpackImporter( mockBackupContents );
+			const categorizedFiles = (
+				importer as unknown as {
+					categorizeWpContentFiles: ( files: string[] ) => Record< string, string[] >;
+				}
+			 ).categorizeWpContentFiles( testFiles );
+
+			expect( categorizedFiles ).toEqual( {
+				plugins: [ '/plugins/test-plugin/test.php' ],
+				themes: [ '/themes/test-theme/style.css' ],
+				uploads: [ '/uploads/image.jpg' ],
+				other: [ '/index.php' ],
+			} );
 		} );
 	} );
 } );

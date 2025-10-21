@@ -1,13 +1,16 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { createContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
-import WPCOM from 'wpcom';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { isInvalidTokenError } from 'src/lib/is-invalid-oauth-token-error';
+import wpcomFactory from 'src/lib/wpcom-factory';
+import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { useI18nLocale } from 'src/stores';
 import { setWpcomClient } from 'src/stores/wpcom-api';
+
+type WPCOM = ReturnType< typeof wpcomFactory >;
 
 export interface AuthContextType {
 	client: WPCOM | undefined;
@@ -162,7 +165,7 @@ function createWpcomClient(
 	locale?: string,
 	onInvalidToken?: () => Promise< void >
 ): WPCOM {
-	const wpcom = new WPCOM( token );
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 
 	let isAuthErrorDialogOpen = false;
 	const handleInvalidTokenError = async ( response: unknown ) => {

@@ -48,7 +48,7 @@ export interface WordPressServerProcess {
 			body: Record< string, string >;
 		} ) => Promise< { text: string } >;
 	};
-	start(): Promise< void >;
+	start( siteId?: string ): Promise< void >;
 	stop(): Promise< void >;
 	runPhp( data: { code: string; [ key: string ]: unknown } ): Promise< string >;
 }
@@ -70,6 +70,11 @@ export interface WordPressProvider {
 
 	// Core functionality
 	setupWordPressSite( server: SiteServer, wpVersion?: string ): Promise< boolean >;
+	installWordPressWhenNoWpConfig(
+		server: SiteServer,
+		siteName: string,
+		adminPassword: string
+	): Promise< void >;
 	startServer( options: ServerOptions ): Promise< WordPressServerInstance >;
 
 	// Server process management

@@ -253,7 +253,7 @@ export function SyncDialog( {
 						{ type === 'pull' && isLoadingRewindId && <TreeViewLoadingSkeleton /> }
 						{ ! isLoadingRewindId && (
 							<>
-								<div className="absolute end-6 z-10">
+								<div className="absolute end-6 z-10 top-[6px]">
 									<SelectControl
 										value={ showAllFiles ? 'true' : 'false' }
 										variant="minimal"

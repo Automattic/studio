@@ -399,7 +399,7 @@ const SyncConnectedSiteSection = ( {
 				<div className="flex items-center min-h-14 border-b border-a8c-gray-0 px-8">
 					<div className="text-[#3C434A]">
 						{ createInterpolateElement(
-							__( "Studio couldn't connect to this site. <button>Get help ↗️</button>" ),
+							__( "Studio couldn't connect to this site. <button>Get help ↗</button>" ),
 							{
 								button: (
 									<Button

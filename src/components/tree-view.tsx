@@ -110,10 +110,7 @@ const TreeItem = ( {
 				aria-posinset={ index + 1 }
 				aria-checked={ node.indeterminate ? 'mixed' : node.checked }
 				aria-label={ node.label }
-				className={ cx(
-					'flex items-center py-2 relative gap-2',
-					isFirstLevel && 'border-b border-gray-300 py-4'
-				) }
+				className={ cx( 'flex items-center py-2 relative gap-2', isFirstLevel && 'py-4' ) }
 			>
 				<label className={ cx( 'flex items-center', disabled && 'cursor-not-allowed opacity-60' ) }>
 					<CheckboxControl
@@ -164,7 +161,7 @@ const TreeItem = ( {
 			{ expanded && node.children && (
 				<div
 					role="group"
-					className={ cx( 'ps-6', isFirstLevel && 'border-b border-gray-300 py-2' ) }
+					className={ cx( 'ps-6', isFirstLevel && 'py-2 border border-gray-300 rounded-sm' ) }
 				>
 					{ node.children.length === 0 ? (
 						<div className="text-gray-500 italic" aria-label={ __( 'Empty folder' ) }>

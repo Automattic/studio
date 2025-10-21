@@ -18,7 +18,7 @@ import onboardingReducer from 'src/stores/onboarding-slice';
 import providerConstantsReducer, {
 	setProviderConstants,
 } from 'src/stores/provider-constants-slice';
-import { reducer as snapshotReducer, updateSnapshotLocally } from 'src/stores/snapshot-slice';
+import { reducer as snapshotReducer, updateSnapshotLocally, snapshotActions } from 'src/stores/snapshot-slice';
 import { syncReducer } from 'src/stores/sync';
 import {
 	connectedSitesReducer,
@@ -77,7 +77,7 @@ listenerMiddleware.startListening( {
 
 // Save snapshots to user config
 listenerMiddleware.startListening( {
-	matcher: isAnyOf( updateSnapshotLocally ),
+    matcher: isAnyOf( updateSnapshotLocally, snapshotActions.deleteSnapshotLocally ),
 	async effect( action, listenerApi ) {
 		const state = listenerApi.getState();
 		await getIpcApi().saveSnapshotsToStorage( state.snapshot.snapshots );

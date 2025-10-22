@@ -215,6 +215,7 @@ const SyncConnectedSitesList = ( {
 				const isPushing = pushState && isKeyPushing( pushState.status.key );
 				const isPushError = pushState && isKeyFailed( pushState.status.key );
 				const hasPushFinished = pushState && isKeyFinished( pushState.status.key );
+				const hasPushCancelled = pushState && isKeyCancelled( pushState.status.key );
 
 				return (
 					<div
@@ -242,8 +243,8 @@ const SyncConnectedSitesList = ( {
 
 						<div className="flex shrink-0 justify-self-end">
 							{ isPulling && (
-								<div className="flex items-center gap-2">
-									<div className="flex flex-col gap-2 min-w-44">
+								<div className="flex items-center gap-2 max-w-full">
+									<div className="flex flex-col gap-2 min-w-44 flex-shrink">
 										<div className="a8c-body-small">{ sitePullStatusMessage }</div>
 										<ProgressBar value={ sitePullStatusProgress } maxValue={ 100 } />
 									</div>
@@ -259,7 +260,7 @@ const SyncConnectedSitesList = ( {
 											variant="link"
 											onClick={ () => cancelPull( selectedSite.id, connectedSite.id ) }
 											disabled={ ! canCancelPull( sitePullState?.status.key ) }
-											className="!p-0"
+											className="!p-0 flex-shrink-0"
 										>
 											<Icon icon={ close } size={ 20 } />
 										</Button>
@@ -293,14 +294,14 @@ const SyncConnectedSitesList = ( {
 								</ClearAction>
 							) }
 							{ pushState?.status && isPushing && (
-								<div className="flex items-center gap-2">
+								<div className="flex items-center gap-2 max-w-full">
 									<Tooltip
 										text={ __(
 											'Push is in progress. We will send you an email when it is completed.'
 										) }
 										placement="top-start"
 									>
-										<div className="flex flex-col gap-2 min-w-44">
+										<div className="flex flex-col gap-2 min-w-44 flex-shrink">
 											<div className="a8c-body-small flex items-center gap-0.5">
 												<Icon icon={ info } size={ 16 } />
 												{ pushState.status.message }
@@ -320,14 +321,14 @@ const SyncConnectedSitesList = ( {
 											variant="link"
 											onClick={ () => cancelPush( selectedSite.id, connectedSite.id ) }
 											disabled={ ! canCancelPush( pushState?.status.key ) }
-											className="!p-0"
+											className="!p-0 flex-shrink-0"
 										>
 											<Icon icon={ close } size={ 20 } />
 										</Button>
 									</Tooltip>
 								</div>
 							) }
-							{ pushState?.status && hasPullCancelled && (
+							{ pushState?.status && hasPushCancelled && (
 								<ClearAction onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }>
 									{ __( 'Push cancelled' ) }
 								</ClearAction>
@@ -344,7 +345,8 @@ const SyncConnectedSitesList = ( {
 								! isPushError &&
 								! isPushing &&
 								! hasPushFinished &&
-								! hasPullCancelled && (
+								! hasPullCancelled &&
+								! hasPushCancelled && (
 									<SyncConnectedSiteControls
 										connectedSite={ connectedSite }
 										selectedSite={ selectedSite }

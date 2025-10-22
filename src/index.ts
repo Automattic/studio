@@ -22,6 +22,7 @@ import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
 import { StatsGroup } from 'common/types/stats';
 import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
+import { getSyncOperations } from 'src/ipc-handlers';
 import { hasActiveSyncOperations } from 'src/lib/active-sync-operations';
 import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
 import { getPlatformMetric } from 'src/lib/bump-stats/lib';
@@ -352,6 +353,7 @@ async function appBoot() {
 	} );
 
 	app.on( 'before-quit', ( event ) => {
+		console.log( 'before-quit', getSyncOperations() );
 		if ( ! hasActiveSyncOperations() ) {
 			return;
 		}
@@ -362,7 +364,7 @@ async function appBoot() {
 		const clickedButtonIndex = dialog.showMessageBoxSync( {
 			message: __( 'Sync in progress' ),
 			detail: __(
-				'There’s a sync operation in progress. Quitting the app will abort that operation. Are you sure you want to quit?'
+				'There‘s a sync operation in progress. If you the backup is already uploaded, the process will continue on WordPress.com servers even after quitting Studio. Are you sure you want to quit?'
 			),
 			buttons: [ __( 'Yes, quit the app' ), __( 'No, take me back' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,

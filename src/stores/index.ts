@@ -77,7 +77,7 @@ listenerMiddleware.startListening( {
 
 // Save snapshots to user config
 listenerMiddleware.startListening( {
-    matcher: isAnyOf( updateSnapshotLocally, snapshotActions.deleteSnapshotLocally ),
+	matcher: isAnyOf( updateSnapshotLocally, snapshotActions.deleteSnapshotLocally ),
 	async effect( action, listenerApi ) {
 		const state = listenerApi.getState();
 		await getIpcApi().saveSnapshotsToStorage( state.snapshot.snapshots );

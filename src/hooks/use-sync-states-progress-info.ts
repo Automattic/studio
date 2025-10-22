@@ -29,6 +29,12 @@ export type SyncBackupResponse = {
 	percent: number;
 };
 
+export type RestoreErrorData = {
+    vp_restore_status?: string;
+    vp_restore_message?: string;
+    vp_rewind_id?: string | number | null;
+};
+
 export type ImportResponse = {
 	status:
 		| 'finished'
@@ -40,6 +46,7 @@ export type ImportResponse = {
 	backup_progress: number;
 	import_progress: number;
 	error?: string;
+    error_data?: RestoreErrorData | null;
 };
 
 const IN_PROGRESS_INITIAL_VALUE = 30;

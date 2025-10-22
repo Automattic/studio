@@ -1,7 +1,10 @@
-# Accept a parameter to determine build type (required)
+# Accept parameters to determine build type and architecture
 param (
     [Parameter(Mandatory=$true)]
-    [string]$BuildType
+    [string]$BuildType,
+    
+    [Parameter(Mandatory=$false)]
+    [string]$Architecture = "x64"
 )
 
 # Stop script execution when a non-terminating error occurs
@@ -11,10 +14,17 @@ $ErrorActionPreference = "Stop"
 $BUILD_TYPE_DEV = "dev"
 $BUILD_TYPE_RELEASE = "release"
 $VALID_BUILD_TYPES = @($BUILD_TYPE_DEV, $BUILD_TYPE_RELEASE)
+$VALID_ARCHITECTURES = @("x64", "arm64")
 
 # Validate build type
 if ($BuildType -notin $VALID_BUILD_TYPES) {
     Write-Host "Error: BuildType must be one of: $($VALID_BUILD_TYPES -join ', ')" -ForegroundColor Red
+    Exit 1
+}
+
+# Validate architecture
+if ($Architecture -notin $VALID_ARCHITECTURES) {
+    Write-Host "Error: Architecture must be one of: $($VALID_ARCHITECTURES -join ', ')" -ForegroundColor Red
     Exit 1
 }
 
@@ -26,7 +36,7 @@ Write-Host "--- :npm: Installing Node dependencies"
 bash .buildkite/commands/install-node-dependencies.sh
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
-Write-Host "--- :node: Building App for Windows ($BuildType)"
+Write-Host "--- :node: Building App for Windows ($BuildType) - $Architecture"
 
 # Run appropriate script based on build type
 if ($BuildType -eq $BUILD_TYPE_DEV) {
@@ -40,7 +50,11 @@ if ($BuildType -eq $BUILD_TYPE_DEV) {
 	If ($LastExitCode -ne 0) { Exit $LastExitCode }
 }
 
-npm run make
+# Set architecture environment variable for AppX packaging
+$env:FILE_ARCHITECTURE=$Architecture
+
+Write-Host "Building for architecture: $Architecture"
+npm run "make:windows-$Architecture"
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 # Rename NuGet package files with generic name

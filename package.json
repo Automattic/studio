@@ -21,6 +21,8 @@
 		"make": "electron-vite build --outDir=dist && electron-forge make",
 		"make:windows-release": "powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType release",
 		"make:windows-dev": "powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev",
+		"make:windows-x64": "electron-vite build --outDir=dist && electron-forge make --arch=x64 --platform=win32",
+		"make:windows-arm64": "electron-vite build --outDir=dist && electron-forge make --arch=arm64 --platform=win32",
 		"make:macos-x64": "electron-vite build --outDir=dist && SKIP_DMG=true FILE_ARCHITECTURE=x64 electron-forge make --arch=x64 --platform=darwin",
 		"make:macos-arm64": "electron-vite build --outDir=dist && SKIP_DMG=true FILE_ARCHITECTURE=arm64 electron-forge make --arch=arm64 --platform=darwin",
 		"make:dmg-x64": "FILE_ARCHITECTURE=x64 node ./scripts/make-dmg.mjs",

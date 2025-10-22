@@ -42,6 +42,10 @@ const packageJson = JSON.parse( packageJsonText );
 const outPath = path.join( __dirname, '..', 'out' );
 const assetsPath = path.join( __dirname, '..', 'assets', 'appx' );
 
+// Get architecture from environment variable, default to x64 for backward compatibility
+const architecture = process.env.FILE_ARCHITECTURE || 'x64';
+console.log( `~~~ Packaging for architecture: ${ architecture }` );
+
 const normalizeWindowsVersion = ( version ) => {
 	const noPrerelease = version.replace( /-.*/, '' );
 	return `${ noPrerelease }.0`;
@@ -53,7 +57,7 @@ const appxName = packageJson.productName + '-appx';
 
 const sharedOptions = {
 	containerVirtualization: false,
-	inputDirectory: path.resolve( outPath, 'Studio-win32-x64' ),
+	inputDirectory: path.resolve( outPath, `Studio-win32-${ architecture }` ),
 	packageVersion: appStoreVersion,
 	// Results in Id being invalid (might just be a matter of escaping, though)
 	// packageName: 'WordPress Studio',
@@ -69,7 +73,7 @@ const sharedOptions = {
 	identityName: '22490Automattic.StudiobyWordPress.com',
 };
 
-const appxOutputPathUnsigned = path.resolve( outPath, `${ appxName }-unsigned` );
+const appxOutputPathUnsigned = path.resolve( outPath, `${ appxName }-${ architecture }-unsigned` );
 console.log(
 	`~~~ Creating unsigned .appx for Microsoft Store submission upload at ${ appxOutputPathUnsigned }...`
 );
@@ -82,7 +86,7 @@ await convertToWindowsStore( {
 	outputDirectory: appxOutputPathUnsigned,
 } );
 
-const appxOutputPathSigned = path.resolve( outPath, `${ appxName }-signed` );
+const appxOutputPathSigned = path.resolve( outPath, `${ appxName }-${ architecture }-signed` );
 console.log( `~~~ Creating signed .appx for local testing at ${ appxOutputPathSigned }...` );
 
 await convertToWindowsStore( {

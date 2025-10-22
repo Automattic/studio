@@ -286,7 +286,7 @@ export function SyncDialog( {
 												/^https?:\/\//,
 												''
 											) }`;
-											const backupDate = format( parseInt( rewindId ) * 1000, 'MMM d, Y, h:mm a' );
+											const backupDate = format( parseInt( rewindId ) * 1000, 'MMM d, y, h:mm a' );
 											return (
 												<div className="mt-2 pb-2 text-xs text-gray-600">
 													{ sprintf( __( 'Content from the latest backup: %s.' ), backupDate ) }{ ' ' }

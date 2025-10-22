@@ -18,7 +18,11 @@ import onboardingReducer from 'src/stores/onboarding-slice';
 import providerConstantsReducer, {
 	setProviderConstants,
 } from 'src/stores/provider-constants-slice';
-import { reducer as snapshotReducer, updateSnapshotLocally, snapshotActions } from 'src/stores/snapshot-slice';
+import {
+	reducer as snapshotReducer,
+	updateSnapshotLocally,
+	snapshotActions,
+} from 'src/stores/snapshot-slice';
 import { syncReducer } from 'src/stores/sync';
 import {
 	connectedSitesReducer,

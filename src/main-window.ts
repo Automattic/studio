@@ -15,6 +15,7 @@ import {
 	loadWindowBounds,
 	saveWindowBounds,
 } from 'src/storage/user-data';
+import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import type { WindowBounds } from 'src/storage/storage-types';
 
 let mainWindow: BrowserWindow | null;
@@ -106,6 +107,10 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	mainWindow.webContents.on( 'devtools-closed', async () => {
 		await updateAppdata( { devToolsOpen: false } );
+	} );
+
+	mainWindow.webContents.once( 'did-finish-load', () => {
+		void promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
 	} );
 
 	mainWindow.on( 'closed', () => {

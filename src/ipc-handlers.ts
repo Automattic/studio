@@ -1292,13 +1292,6 @@ export function addSyncOperation(
 	ACTIVE_SYNC_OPERATIONS.set( id, state );
 }
 
-export function getSyncOperations(): Map<
-	string,
-	PullStateProgressInfo | PushStateProgressInfo | undefined
-> {
-	return ACTIVE_SYNC_OPERATIONS;
-}
-
 /**
  * Clear the ID of a push/pull operation.
  */

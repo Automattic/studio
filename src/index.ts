@@ -22,8 +22,7 @@ import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
 import { StatsGroup } from 'common/types/stats';
 import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
-import { getSyncOperations } from 'src/ipc-handlers';
-import { hasActiveSyncOperations } from 'src/lib/active-sync-operations';
+import { hasActiveSyncOperations, isRemoteProcessingStep } from 'src/lib/active-sync-operations';
 import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
 import { getPlatformMetric } from 'src/lib/bump-stats/lib';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
@@ -348,25 +347,15 @@ async function appBoot() {
 		}
 	} );
 
+	app.on( 'will-quit', () => {
+		globalShortcut.unregisterAll();
+	} );
+
 	function getQuitConfirmationMessage(): string {
-		const syncOperations = getSyncOperations();
-
-		// Check if any operation is in a remote processing state
-		for ( const [ , state ] of syncOperations ) {
-			if ( state && 'key' in state ) {
-				// Check if this is a PushStateProgressInfo with remote processing states
-				const isRemoteProcessingState =
-					state.key === 'creatingRemoteBackup' ||
-					state.key === 'applyingChanges' ||
-					state.key === 'finishing' ||
-					state.key === 'finished';
-
-				if ( isRemoteProcessingState ) {
-					return __(
-						"There's a sync operation in progress. The process will continue on WordPress.com servers even after quitting Studio. We will send you an email when it completes. Are you sure you want to quit?"
-					);
-				}
-			}
+		if ( isRemoteProcessingStep() ) {
+			return __(
+				"There's a sync operation in progress. The process will continue on WordPress.com servers even after quitting Studio. We will send you an email when it completes. Are you sure you want to quit?"
+			);
 		}
 
 		// Default message for creatingBackup, uploading, or pull operations
@@ -375,12 +364,7 @@ async function appBoot() {
 		);
 	}
 
-	app.on( 'will-quit', () => {
-		globalShortcut.unregisterAll();
-	} );
-
 	app.on( 'before-quit', ( event ) => {
-		console.log( 'before-quit', getSyncOperations() );
 		if ( ! hasActiveSyncOperations() ) {
 			return;
 		}

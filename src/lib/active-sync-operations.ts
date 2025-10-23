@@ -17,3 +17,29 @@ export const ACTIVE_SYNC_OPERATIONS = new Map<
 export function hasActiveSyncOperations(): boolean {
 	return ACTIVE_SYNC_OPERATIONS.size > 0;
 }
+
+export function getSyncOperations(): Map<
+	string,
+	PullStateProgressInfo | PushStateProgressInfo | undefined
+> {
+	return ACTIVE_SYNC_OPERATIONS;
+}
+
+export function isRemoteProcessingStep(): boolean {
+	// Check if any operation is in a remote processing state
+	for ( const [ , state ] of ACTIVE_SYNC_OPERATIONS ) {
+		if ( state && 'key' in state ) {
+			// Check if this is a PushStateProgressInfo with remote processing states
+			const isRemoteProcessingState =
+				state.key === 'creatingRemoteBackup' ||
+				state.key === 'applyingChanges' ||
+				state.key === 'finishing' ||
+				state.key === 'finished';
+
+			if ( isRemoteProcessingState ) {
+				return true;
+			}
+		}
+	}
+	return false;
+}

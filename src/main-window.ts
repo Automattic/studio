@@ -8,6 +8,7 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { removeMenu } from 'src/menu';
 import {
 	loadUserData,
@@ -15,7 +16,6 @@ import {
 	loadWindowBounds,
 	saveWindowBounds,
 } from 'src/storage/user-data';
-import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import type { WindowBounds } from 'src/storage/storage-types';
 
 let mainWindow: BrowserWindow | null;

@@ -9,6 +9,11 @@ import { promptWindowsSpeedUpSites } from '../windows-helpers';
 jest.mock( 'electron' );
 jest.mock( 'src/main-window' );
 jest.mock( 'src/storage/user-data' );
+jest.mock( '@vscode/sudo-prompt', () => ( {
+	exec: jest.fn( ( _command, _options, callback ) => {
+		callback( null );
+	} ),
+} ) );
 
 const mockLoadUserData = loadUserData as jest.MockedFunction< typeof loadUserData >;
 const mockUpdateAppdata = updateAppdata as jest.MockedFunction< typeof updateAppdata >;

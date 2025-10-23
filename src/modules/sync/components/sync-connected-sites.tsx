@@ -1,7 +1,7 @@
 import { Icon } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
-import { cloudUpload, cloudDownload, info } from '@wordpress/icons';
+import { cloudUpload, cloudDownload, info, close } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useMemo } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
@@ -183,10 +183,19 @@ const SyncConnectedSitesList = ( {
 	connectedSites,
 }: SyncConnectedSitesListProps ) => {
 	const { __ } = useI18n();
-	const { clearPullState, getPullState, getPushState, clearPushState } = useSyncSites();
+	const { clearPullState, getPullState, getPushState, clearPushState, cancelPull, cancelPush } =
+		useSyncSites();
 	const { importState } = useImportExport();
-	const { isKeyPulling, isKeyPushing, isKeyFinished, isKeyFailed, getPullStatusWithProgress } =
-		useSyncStatesProgressInfo();
+	const {
+		isKeyPulling,
+		isKeyPushing,
+		isKeyFinished,
+		isKeyFailed,
+		isKeyCancelled,
+		getPullStatusWithProgress,
+		canCancelPull,
+		canCancelPush,
+	} = useSyncStatesProgressInfo();
 
 	return (
 		<div className="grid grid-cols-[max-content_1fr_max-content]">
@@ -195,6 +204,7 @@ const SyncConnectedSitesList = ( {
 				const isPulling = sitePullState && isKeyPulling( sitePullState.status.key );
 				const isPullError = sitePullState && isKeyFailed( sitePullState.status.key );
 				const hasPullFinished = sitePullState && isKeyFinished( sitePullState.status.key );
+				const hasPullCancelled = sitePullState && isKeyCancelled( sitePullState.status.key );
 				const { message: sitePullStatusMessage, progress: sitePullStatusProgress } =
 					getPullStatusWithProgress(
 						sitePullState?.status,
@@ -205,6 +215,7 @@ const SyncConnectedSitesList = ( {
 				const isPushing = pushState && isKeyPushing( pushState.status.key );
 				const isPushError = pushState && isKeyFailed( pushState.status.key );
 				const hasPushFinished = pushState && isKeyFinished( pushState.status.key );
+				const hasPushCancelled = pushState && isKeyCancelled( pushState.status.key );
 
 				return (
 					<div
@@ -232,10 +243,36 @@ const SyncConnectedSitesList = ( {
 
 						<div className="flex shrink-0 justify-self-end">
 							{ isPulling && (
-								<div className="flex flex-col gap-2 min-w-44">
-									<div className="a8c-body-small">{ sitePullStatusMessage }</div>
-									<ProgressBar value={ sitePullStatusProgress } maxValue={ 100 } />
+								<div className="flex items-center gap-2 max-w-full">
+									<div className="flex flex-col gap-2 min-w-44 flex-shrink">
+										<div className="a8c-body-small">{ sitePullStatusMessage }</div>
+										<ProgressBar value={ sitePullStatusProgress } maxValue={ 100 } />
+									</div>
+									<Tooltip
+										text={
+											canCancelPull( sitePullState?.status.key )
+												? __( 'Cancel pull' )
+												: __(
+														'Pull can not be cancelled while importing changes to your local site'
+												  )
+										}
+										placement="top-start"
+									>
+										<Button
+											variant="link"
+											onClick={ () => cancelPull( selectedSite.id, connectedSite.id ) }
+											disabled={ ! canCancelPull( sitePullState?.status.key ) }
+											className="!p-0 flex-shrink-0"
+										>
+											<Icon icon={ close } size={ 20 } />
+										</Button>
+									</Tooltip>
 								</div>
+							) }
+							{ sitePullState?.status && hasPullCancelled && (
+								<ClearAction onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }>
+									{ __( 'Pull cancelled' ) }
+								</ClearAction>
 							) }
 							{ isPullError && (
 								<ClearAction
@@ -259,20 +296,46 @@ const SyncConnectedSitesList = ( {
 								</ClearAction>
 							) }
 							{ pushState?.status && isPushing && (
-								<Tooltip
-									text={ __(
-										'Push is in progress. We will send you an email when it is completed.'
-									) }
-									placement="top-start"
-								>
-									<div className="flex flex-col gap-2 min-w-44">
-										<div className="a8c-body-small flex items-center gap-0.5">
-											<Icon icon={ info } size={ 16 } />
-											{ pushState.status.message }
+								<div className="flex items-center gap-2 max-w-full">
+									<Tooltip
+										text={ __(
+											'Push is in progress. We will send you an email when it is completed.'
+										) }
+										placement="top-start"
+									>
+										<div className="flex flex-col gap-2 min-w-44 flex-shrink">
+											<div className="a8c-body-small flex items-center gap-0.5">
+												<Icon icon={ info } size={ 16 } />
+												{ pushState.status.message }
+											</div>
+											<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
 										</div>
-										<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
-									</div>
-								</Tooltip>
+									</Tooltip>
+									<Tooltip
+										text={
+											canCancelPush( pushState?.status.key )
+												? __( 'Cancel push' )
+												: __(
+														'Push can not be cancelled while applying changes to the remote site'
+												  )
+										}
+										placement="top-start"
+									>
+										<Button
+											variant="link"
+											onClick={ () => cancelPush( selectedSite.id, connectedSite.id ) }
+											disabled={ ! canCancelPush( pushState?.status.key ) }
+											className="!p-0 flex-shrink-0"
+										>
+											<Icon icon={ close } size={ 20 } />
+										</Button>
+									</Tooltip>
+								</div>
+							) }
+							{ pushState?.status && hasPushCancelled && (
+								<ClearAction onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }>
+									{ __( 'Push cancelled' ) }
+								</ClearAction>
 							) }
 
 							{ pushState?.status && hasPushFinished && (
@@ -285,7 +348,9 @@ const SyncConnectedSitesList = ( {
 								! isPullError &&
 								! isPushError &&
 								! isPushing &&
-								! hasPushFinished && (
+								! hasPushFinished &&
+								! hasPullCancelled &&
+								! hasPushCancelled && (
 									<SyncConnectedSiteControls
 										connectedSite={ connectedSite }
 										selectedSite={ selectedSite }

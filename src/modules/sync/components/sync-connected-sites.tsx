@@ -316,7 +316,7 @@ const SyncConnectedSitesList = ( {
 											canCancelPush( pushState?.status.key )
 												? __( 'Cancel push' )
 												: __(
-														'Push can not be cancelled while importing changes to your local site'
+														'Push can not be cancelled while applying changes to the remote site'
 												  )
 										}
 										placement="top-start"

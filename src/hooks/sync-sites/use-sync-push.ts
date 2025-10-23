@@ -115,7 +115,7 @@ export function useSyncPush( {
 			}
 			const currentState = getPushState( syncPushState.selectedSite.id, remoteSiteId );
 
-			if ( isKeyCancelled( currentState?.status.key ) ) {
+			if ( ! currentState || isKeyCancelled( currentState?.status.key ) ) {
 				return;
 			}
 
@@ -255,7 +255,7 @@ export function useSyncPush( {
 
 			const stateBeforeUpload = getPushState( selectedSite.id, remoteSiteId );
 
-			if ( isKeyCancelled( stateBeforeUpload?.status.key ) ) {
+			if ( ! stateBeforeUpload || isKeyCancelled( stateBeforeUpload?.status.key ) ) {
 				return;
 			}
 

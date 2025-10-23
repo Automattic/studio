@@ -227,7 +227,7 @@ export function useSyncPull( {
 				);
 
 				const stateAfterDownload = getPullState( selectedSite.id, remoteSiteId );
-				if ( stateAfterDownload?.status.key === 'cancelled' ) {
+				if ( ! stateAfterDownload || isKeyCancelled( stateAfterDownload?.status.key ) ) {
 					return;
 				}
 

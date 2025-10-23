@@ -13,7 +13,7 @@ export const FEATURE_FLAGS_DEFINITION: Record< keyof FeatureFlags, FeatureFlagDe
 		default: true,
 	},
 	streamlineOnboarding: {
-		label: 'Streamline onboarding',
+		label: 'Streamline Onboarding',
 		env: 'STREAMLINE_ONBOARDING',
 		flag: 'streamlineOnboarding',
 		default: false,

@@ -129,23 +129,26 @@ steps:
               context: All Mac Dev Builds
     if: build.tag !~ /^v[0-9]+/
 
-  - label: 🔨 Windows Dev Build
+  - group: 📦 Build for Windows
     key: dev-windows
-    command: npm run make:windows-dev
-    artifact_paths:
-      - out\**\studio-setup.exe
-      - out\**\studio-update.nupkg
-      - out\**\RELEASES
-      - out\**\*.appx
-    agents:
-      queue: windows
-    env:
-      IS_DEV_BUILD: true
-    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+    steps:
+      - label: 🔨 Windows Dev Build - {{matrix}}
+        agents:
+          queue: windows
+        command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev -Architecture {{matrix}}
+        artifact_paths:
+          - out\**\studio-setup.exe
+          - out\**\studio-update.nupkg
+          - out\**\RELEASES
+          - out\**\*.appx
+        plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+        matrix:
+          - x64
+          - arm64
+        notify:
+          - github_commit_status:
+              context: All Windows Dev Builds
     if: build.tag !~ /^v[0-9]+/
-    notify:
-      - github_commit_status:
-          context: Windows Dev Build
 
   - label: ":rocket: Distribute Dev Builds"
     command: |
@@ -234,21 +237,26 @@ steps:
               context: All Mac Release Builds
     if: build.tag =~ /^v[0-9]+/
 
-  - label: 🔨 Windows Release Build
+  - group: 📦 Build for Windows
     key: release-windows
-    agents:
-      queue: windows
-    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
-    command: npm run make:windows-release
-    artifact_paths:
-      - out\**\studio-setup.exe
-      - out\**\studio-update.nupkg
-      - out\**\RELEASES
-      - out\**\*.appx
+    steps:
+      - label: 🔨 Windows Release Build - {{matrix}}
+        agents:
+          queue: windows
+        command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType release -Architecture {{matrix}}
+        artifact_paths:
+          - out\**\studio-setup.exe
+          - out\**\studio-update.nupkg
+          - out\**\RELEASES
+          - out\**\*.appx
+        plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+        matrix:
+          - x64
+          - arm64
+        notify:
+          - github_commit_status:
+              context: All Windows Release Builds
     if: build.tag =~ /^v[0-9]+/
-    notify:
-      - github_commit_status:
-          context: Windows Release Build
 
   - label: ":rocket: Publish Release Builds"
     command: |

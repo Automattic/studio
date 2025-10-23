@@ -37,6 +37,7 @@ BrowserWindow.prototype.isFullScreen = jest.fn( () => false );
 
 const mockWebContents = {
 	on: jest.fn(),
+	once: jest.fn(),
 	send: jest.fn(),
 	isDestroyed: jest.fn( () => false ),
 };

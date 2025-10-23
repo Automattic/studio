@@ -15,7 +15,8 @@ export type PushStateProgressInfo = {
 		| 'applyingChanges'
 		| 'finishing'
 		| 'finished'
-		| 'failed';
+		| 'failed'
+		| 'cancelled';
 	progress: number;
 	message: string;
 };
@@ -122,6 +123,11 @@ export function useSyncStatesProgressInfo() {
 				progress: 100,
 				message: __( 'Error pushing changes' ),
 			},
+			cancelled: {
+				key: 'cancelled',
+				progress: 0,
+				message: __( 'Cancelled' ),
+			},
 		} as const satisfies PushStateProgressInfoValues;
 	}, [ __ ] );
 
@@ -172,6 +178,13 @@ export function useSyncStatesProgressInfo() {
 	const isKeyFailed = useCallback(
 		( key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined ) => {
 			return key === 'failed';
+		},
+		[]
+	);
+
+	const isKeyCancelled = useCallback(
+		( key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined ) => {
+			return key === 'cancelled';
 		},
 		[]
 	);
@@ -264,6 +277,22 @@ export function useSyncStatesProgressInfo() {
 		]
 	);
 
+	const canCancelPull = useCallback( ( key: PullStateProgressInfo[ 'key' ] | undefined ) => {
+		const cancellableStateKeys: PullStateProgressInfo[ 'key' ][] = [ 'in-progress', 'downloading' ];
+		if ( ! key ) {
+			return false;
+		}
+		return cancellableStateKeys.includes( key );
+	}, [] );
+
+	const canCancelPush = useCallback( ( key: PushStateProgressInfo[ 'key' ] | undefined ) => {
+		const cancellableStateKeys: PushStateProgressInfo[ 'key' ][] = [ 'creatingBackup' ];
+		if ( ! key ) {
+			return false;
+		}
+		return cancellableStateKeys.includes( key );
+	}, [] );
+
 	return {
 		pullStatesProgressInfo,
 		pushStatesProgressInfo,
@@ -272,8 +301,11 @@ export function useSyncStatesProgressInfo() {
 		isKeyImporting,
 		isKeyFinished,
 		isKeyFailed,
+		isKeyCancelled,
 		getBackupStatusWithProgress,
 		getPullStatusWithProgress,
 		getPushStatusWithProgress,
+		canCancelPull,
+		canCancelPush,
 	};
 }

@@ -207,6 +207,11 @@ async function startServer(
 		}
 	} catch ( error ) {
 		server = null;
+		// Re-throw the original error to preserve stack trace
+		if ( error instanceof Error ) {
+			error.message = `Could not start server: ${ error.message }`;
+			throw error;
+		}
 		throw new Error( `Could not start server: ${ error }` );
 	}
 }

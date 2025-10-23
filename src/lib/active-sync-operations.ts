@@ -25,20 +25,55 @@ export function getSyncOperations(): Map<
 	return ACTIVE_SYNC_OPERATIONS;
 }
 
-export function isRemoteProcessingStep(): boolean {
-	// Check if any operation is in a remote processing state
-	for ( const [ , state ] of ACTIVE_SYNC_OPERATIONS ) {
-		if ( state && 'key' in state ) {
-			// Check if this is a PushStateProgressInfo with remote processing states
-			const isRemoteProcessingState =
-				state.key === 'creatingRemoteBackup' ||
-				state.key === 'applyingChanges' ||
-				state.key === 'finishing' ||
-				state.key === 'finished';
+/**
+ * Check if a pull operation can be cancelled based on its current state.
+ */
+export function canCancelPull( key: PullStateProgressInfo[ 'key' ] | undefined ): boolean {
+	const cancellableStateKeys: PullStateProgressInfo[ 'key' ][] = [ 'in-progress', 'downloading' ];
+	if ( ! key ) {
+		return false;
+	}
+	return cancellableStateKeys.includes( key );
+}
 
-			if ( isRemoteProcessingState ) {
-				return true;
-			}
+/**
+ * Check if a push operation can be cancelled based on its current state.
+ */
+export function canCancelPush( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean {
+	const cancellableStateKeys: PushStateProgressInfo[ 'key' ][] = [ 'creatingBackup' ];
+	if ( ! key ) {
+		return false;
+	}
+	return cancellableStateKeys.includes( key );
+}
+
+/**
+ * Check if a push operation is in a remote processing state.
+ */
+export function isRemoteProcessingState(
+	key: PushStateProgressInfo[ 'key' ] | undefined
+): boolean {
+	const remoteProcessingStates: PushStateProgressInfo[ 'key' ][] = [
+		'creatingRemoteBackup',
+		'applyingChanges',
+		'finishing',
+		'finished',
+	];
+	if ( ! key ) {
+		return false;
+	}
+	return remoteProcessingStates.includes( key );
+}
+
+export function isRemoteProcessingStep(): boolean {
+	//  Iterate over all the sites and check if any operation is in a remote processing state
+	for ( const [ , state ] of ACTIVE_SYNC_OPERATIONS ) {
+		if (
+			state &&
+			'key' in state &&
+			isRemoteProcessingState( state.key as PushStateProgressInfo[ 'key' ] )
+		) {
+			return true;
 		}
 	}
 	return false;

@@ -17,6 +17,7 @@ import { useSyncSites } from 'src/hooks/sync-sites';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
+import { canCancelPull, canCancelPush } from 'src/lib/active-sync-operations';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
@@ -193,8 +194,6 @@ const SyncConnectedSitesList = ( {
 		isKeyFailed,
 		isKeyCancelled,
 		getPullStatusWithProgress,
-		canCancelPull,
-		canCancelPush,
 	} = useSyncStatesProgressInfo();
 
 	return (

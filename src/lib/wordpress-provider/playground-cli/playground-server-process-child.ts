@@ -118,7 +118,11 @@ process.parentPort.on( 'message', async ( event ) => {
 
 		process.parentPort.postMessage( { id: message.id, result } );
 	} catch ( error ) {
-		process.parentPort.postMessage( { id: message.id, error: ( error as Error ).message } );
+		process.parentPort.postMessage( {
+			id: message.id,
+			error: error instanceof Error ? error.message : String( error ),
+			errorStack: error instanceof Error ? error.stack : undefined,
+		} );
 	}
 } );
 

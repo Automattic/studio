@@ -509,7 +509,11 @@ export async function startServer(
 			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
 		}
 
-		Sentry.captureException( error );
+		Sentry.captureException( error, {
+			tags: {
+				provider: getWordPressProvider().PROVIDER_TYPE,
+			},
+		} );
 		if (
 			error instanceof Error &&
 			error.message.includes( '"unreachable" WASM instruction executed' )

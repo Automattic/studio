@@ -348,6 +348,33 @@ async function appBoot() {
 		}
 	} );
 
+	function getQuitConfirmationMessage(): string {
+		const syncOperations = getSyncOperations();
+
+		// Check if any operation is in a remote processing state
+		for ( const [ , state ] of syncOperations ) {
+			if ( state && 'key' in state ) {
+				// Check if this is a PushStateProgressInfo with remote processing states
+				const isRemoteProcessingState =
+					state.key === 'creatingRemoteBackup' ||
+					state.key === 'applyingChanges' ||
+					state.key === 'finishing' ||
+					state.key === 'finished';
+
+				if ( isRemoteProcessingState ) {
+					return __(
+						"There's a sync operation in progress. The process will continue on WordPress.com servers even after quitting Studio. We will send you an email when it completes. Are you sure you want to quit?"
+					);
+				}
+			}
+		}
+
+		// Default message for creatingBackup, uploading, or pull operations
+		return __(
+			"There's a sync operation in progress. Quitting the app will abort that operation. Are you sure you want to quit?"
+		);
+	}
+
 	app.on( 'will-quit', () => {
 		globalShortcut.unregisterAll();
 	} );
@@ -361,11 +388,11 @@ async function appBoot() {
 		const QUIT_APP_BUTTON_INDEX = 0;
 		const CANCEL_BUTTON_INDEX = 1;
 
+		const detailMessage = getQuitConfirmationMessage();
+
 		const clickedButtonIndex = dialog.showMessageBoxSync( {
 			message: __( 'Sync in progress' ),
-			detail: __(
-				'There‘s a sync operation in progress. If you the backup is already uploaded, the process will continue on WordPress.com servers even after quitting Studio. Are you sure you want to quit?'
-			),
+			detail: detailMessage,
 			buttons: [ __( 'Yes, quit the app' ), __( 'No, take me back' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,
 			defaultId: QUIT_APP_BUTTON_INDEX,

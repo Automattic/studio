@@ -64,6 +64,10 @@ BrowserWindow.prototype.emit = jest.fn( ( event: string, ...args: any[] ) => {
 	handlers.forEach( ( handler ) => handler( ...args ) );
 } );
 
+export const dialog = {
+	showMessageBox: jest.fn(),
+};
+
 export const Menu = {
 	buildFromTemplate: jest.fn(),
 	setApplicationMenu: jest.fn(),

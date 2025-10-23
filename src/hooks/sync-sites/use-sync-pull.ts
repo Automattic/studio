@@ -420,7 +420,6 @@ export function useSyncPull( {
 				status: pullStatesProgressInfo.cancelled,
 			} );
 
-			// Clean up any downloaded backup file
 			getIpcApi()
 				.removeSyncBackup( remoteSiteId )
 				.catch( () => {

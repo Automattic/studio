@@ -252,7 +252,9 @@ const SyncConnectedSitesList = ( {
 										text={
 											canCancelPull( sitePullState?.status.key )
 												? __( 'Cancel pull' )
-												: __( 'Cannot cancel while importing changes to your local site' )
+												: __(
+														'Pull can not be cancelled while importing changes to your local site'
+												  )
 										}
 										placement="top-start"
 									>
@@ -313,7 +315,9 @@ const SyncConnectedSitesList = ( {
 										text={
 											canCancelPush( pushState?.status.key )
 												? __( 'Cancel push' )
-												: __( 'Cannot cancel while applying changes to the remote site' )
+												: __(
+														'Push can not be cancelled while importing changes to your local site'
+												  )
 										}
 										placement="top-start"
 									>

@@ -253,7 +253,6 @@ export function useSyncPush( {
 				return;
 			}
 
-			// Check if cancelled before starting upload
 			const stateBeforeUpload = getPushState( selectedSite.id, remoteSiteId );
 
 			if ( isKeyCancelled( stateBeforeUpload?.status.key ) ) {
@@ -285,7 +284,6 @@ export function useSyncPush( {
 					success: boolean;
 				};
 
-				// Check if cancelled after upload
 				const stateAfterUpload = getPushState( selectedSite.id, remoteSiteId );
 
 				if ( isKeyCancelled( stateAfterUpload?.status.key ) ) {

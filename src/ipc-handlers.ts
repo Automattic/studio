@@ -722,7 +722,6 @@ export async function exportSiteToPush(
 	const extension = 'tar.gz';
 	const archivePath = `${ TEMP_DIR }site_${ id }.${ extension }`;
 
-	// Create and register AbortController for this operation
 	const abortController = new AbortController();
 	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
 
@@ -761,7 +760,6 @@ export async function exportSiteToPush(
 		const onEvent = () => {};
 		await exportBackup( exportOptions, onEvent );
 
-		// Check if aborted after export completes
 		if ( abortController.signal.aborted ) {
 			await fsPromises.unlink( archivePath ).catch( () => {
 				// Ignore cleanup errors
@@ -1292,7 +1290,6 @@ export async function downloadSyncBackup(
 
 	const filePath = getSyncBackupTempPath( remoteSiteId );
 
-	// Create and register AbortController for this operation
 	const abortController = new AbortController();
 	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
 

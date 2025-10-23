@@ -32,7 +32,7 @@ export default defineConfig( {
 		rollupOptions: {
 			external: [
 				/^node:/,
-				/^(path|fs|os|child_process|crypto|http|https|url|querystring|stream|util|events|buffer|assert|net|tty|readline|zlib|constants)$/,
+				/^(path|fs|os|child_process|crypto|http|https|http2|url|querystring|stream|util|events|buffer|assert|net|tty|readline|zlib|constants)$/,
 			],
 			output: {
 				format: 'cjs',

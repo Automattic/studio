@@ -589,14 +589,23 @@ async function mountInternalMuPlugins( php: PHP, options: WPNowOptions ) {
 	php.writeFile(
 		path.posix.join( PLAYGROUND_INTERNAL_MU_PLUGINS_FOLDER, '0-http-request-timeout.php' ),
 		`<?php
-		// Increase default timeouts to 30 seconds to accommodate slower network conditions and larger requests
+		// Use low-speed timeout instead of hard timeout to handle both large downloads and stalled connections
+		// - Allows large plugin downloads (e.g., Jetpack 33MB) to complete with reasonable internet speeds
+		// - Fails fast if connection stalls (speed drops below 1KB/s for 30 seconds)
+		// - Provides quick feedback for genuinely broken/unresponsive servers
+		// Match WordPress core's timeout for plugin downloads (300s)
 		add_filter( 'http_request_timeout', function() {
-			return 30;
+			return 300; // 5 minutes - matches WordPress core, low-speed timeout catches stalls
 		} );
 
 		add_action('http_api_curl', function($curl, $url, $options) {
+			// Abort if connection can't be established within 30 seconds
 			curl_setopt( $curl, CURLOPT_CONNECTTIMEOUT, 30 );
-			curl_setopt($curl, CURLOPT_TIMEOUT, 30);
+
+			// Abort if speed drops below 1KB/s for 30 consecutive seconds
+			// This allows slow but steady downloads while catching truly stalled connections
+			curl_setopt( $curl, CURLOPT_LOW_SPEED_LIMIT, 1024 ); // 1KB/s minimum
+			curl_setopt( $curl, CURLOPT_LOW_SPEED_TIME, 30 );    // Must stay above limit for 30s
 			return $curl;
 		}, 1, 3);
 		`

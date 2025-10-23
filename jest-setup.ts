@@ -1,5 +1,15 @@
 import '@testing-library/jest-dom';
 import nock from 'nock';
+import { TextEncoder, TextDecoder } from 'util';
+
+// Polyfill TextEncoder and TextDecoder for tests
+if ( typeof globalThis.TextEncoder === 'undefined' ) {
+	globalThis.TextEncoder = TextEncoder as any;
+}
+if ( typeof globalThis.TextDecoder === 'undefined' ) {
+	globalThis.TextDecoder = TextDecoder as any;
+}
+
 // We need this polyfill because the `ReadableStream` class is
 // used by `@php-wasm/universal` and it's not available in the Jest environment.
 // Import ponyfill to avoid global pollution issues with php-wasm 1.2.3

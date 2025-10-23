@@ -22,6 +22,7 @@ import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
 import { StatsGroup } from 'common/types/stats';
 import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
+import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { hasActiveSyncOperations, isRemoteProcessingStep } from 'src/lib/active-sync-operations';
 import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
 import { getPlatformMetric } from 'src/lib/bump-stats/lib';
@@ -372,19 +373,31 @@ async function appBoot() {
 		const QUIT_APP_BUTTON_INDEX = 0;
 		const CANCEL_BUTTON_INDEX = 1;
 
-		const detailMessage = getQuitConfirmationMessage();
+		try {
+			// Pause push operations before showing dialog to prevent state transitions
+			void sendIpcEventToRenderer( 'pause-push-operations' );
 
-		const clickedButtonIndex = dialog.showMessageBoxSync( {
-			message: __( 'Sync in progress' ),
-			detail: detailMessage,
-			buttons: [ __( 'Yes, quit the app' ), __( 'No, take me back' ) ],
-			cancelId: CANCEL_BUTTON_INDEX,
-			defaultId: QUIT_APP_BUTTON_INDEX,
-			type: 'warning',
-		} );
+			// Give the renderer a moment to process the pause
+			void new Promise( ( resolve ) => setTimeout( resolve, 100 ) );
 
-		if ( clickedButtonIndex === CANCEL_BUTTON_INDEX ) {
-			event.preventDefault();
+			const detailMessage = getQuitConfirmationMessage();
+
+			const clickedButtonIndex = dialog.showMessageBoxSync( {
+				message: __( 'Sync in progress' ),
+				detail: detailMessage,
+				buttons: [ __( 'Yes, quit the app' ), __( 'No, take me back' ) ],
+				cancelId: CANCEL_BUTTON_INDEX,
+				defaultId: QUIT_APP_BUTTON_INDEX,
+				type: 'warning',
+			} );
+
+			if ( clickedButtonIndex === CANCEL_BUTTON_INDEX ) {
+				// User chose not to quit, resume push operations
+				void sendIpcEventToRenderer( 'resume-push-operations' );
+				event.preventDefault();
+			}
+		} catch ( error ) {
+			console.error( error );
 		}
 	} );
 

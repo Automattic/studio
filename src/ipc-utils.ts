@@ -30,6 +30,8 @@ export interface IpcEvents {
 			allowedPhpVersions: string[];
 		},
 	];
+	'pause-push-operations': [ void ];
+	'resume-push-operations': [ void ];
 	'site-context-menu-action': [ { action: string; siteId: string } ];
 	'snapshot-error': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
 	'snapshot-fatal-error': [ { operationId: crypto.UUID; data: { message: string } } ];

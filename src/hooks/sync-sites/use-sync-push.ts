@@ -83,6 +83,7 @@ export function useSyncPush( {
 		isKeyFinished,
 		isKeyFailed,
 		isKeyCancelled,
+		isKeyPaused,
 		getPushStatusWithProgress,
 	} = useSyncStatesProgressInfo();
 
@@ -118,7 +119,12 @@ export function useSyncPush( {
 			}
 			const currentState = getPushState( syncPushState.selectedSite.id, remoteSiteId );
 
-			if ( ! currentState || isKeyCancelled( currentState?.status.key ) ) {
+			// Don't fetch progress if the operation is cancelled or paused
+			if (
+				! currentState ||
+				isKeyCancelled( currentState?.status.key ) ||
+				isKeyPaused( currentState?.status.key )
+			) {
 				return;
 			}
 
@@ -176,6 +182,7 @@ export function useSyncPush( {
 			pushStatesProgressInfo.finished,
 			updatePushState,
 			isKeyCancelled,
+			isKeyPaused,
 		]
 	);
 
@@ -330,7 +337,8 @@ export function useSyncPush( {
 		const intervals: Record< string, NodeJS.Timeout > = {};
 
 		Object.entries( pushStates ).forEach( ( [ key, state ] ) => {
-			if ( isKeyCancelled( state.status.key ) ) {
+			// Skip polling for cancelled or paused operations
+			if ( isKeyCancelled( state.status.key ) || isKeyPaused( state.status.key ) ) {
 				return;
 			}
 
@@ -351,6 +359,7 @@ export function useSyncPush( {
 		pushStatesProgressInfo.applyingChanges.key,
 		isKeyImporting,
 		isKeyCancelled,
+		isKeyPaused,
 	] );
 
 	const isAnySitePushing = useMemo< boolean >( () => {

@@ -24,7 +24,6 @@ const mockConnectedWpcomSites: SyncSite[] = [
 		url: 'https://developer.wordpress.com/studio/',
 		isStaging: false,
 		isPressable: false,
-		stagingSiteIds: [ 7 ],
 		syncSupport: 'syncable',
 		lastPullTimestamp: null,
 		lastPushTimestamp: null,
@@ -36,7 +35,6 @@ const mockConnectedWpcomSites: SyncSite[] = [
 		url: 'https://developer-staging.wordpress.com/studio/',
 		isStaging: true,
 		isPressable: false,
-		stagingSiteIds: [],
 		syncSupport: 'syncable',
 		lastPullTimestamp: null,
 		lastPushTimestamp: null,
@@ -51,7 +49,6 @@ const mockSyncSites: SyncSite[] = [
 		url: 'https://developer.wordpress.com/studio/store',
 		isStaging: false,
 		isPressable: false,
-		stagingSiteIds: [ 9 ],
 		syncSupport: 'syncable',
 		lastPullTimestamp: null,
 		lastPushTimestamp: null,
@@ -63,7 +60,6 @@ const mockSyncSites: SyncSite[] = [
 		url: 'https://developer-staging.wordpress.com/studio/test-store',
 		isStaging: true,
 		isPressable: false,
-		stagingSiteIds: [],
 		syncSupport: 'syncable',
 		lastPullTimestamp: null,
 		lastPushTimestamp: null,
@@ -87,7 +83,7 @@ describe( 'useConnectedSitesOperations', () => {
 	const mockDisconnectSite = jest.fn().mockResolvedValue( [] );
 	const mockConnectSite = jest
 		.fn()
-		.mockResolvedValue( [ ...mockConnectedWpcomSites, { id: 6, stagingSiteIds: [] } ] );
+		.mockResolvedValue( [ ...mockConnectedWpcomSites, { id: 6 } ] );
 
 	beforeEach( () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );

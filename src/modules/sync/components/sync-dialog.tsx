@@ -140,6 +140,21 @@ export function SyncDialog( {
 		selectedSizeInBytes,
 	} = useSelectedItemsPushSize( localSite.id, treeState, type );
 
+	const hasSelectedSize = type === 'push' && ! isSizeCheckLoading && selectedSizeInBytes > 0;
+
+	const containerPaddingBottomClass = useMemo( () => {
+		if ( isPushSelectionOverLimit && hasSelectedSize ) {
+			return 'pb-[180px]';
+		}
+		if ( isPushSelectionOverLimit ) {
+			return 'pb-[140px]';
+		}
+		if ( hasSelectedSize ) {
+			return 'pb-[110px]';
+		}
+		return 'pb-[70px]';
+	}, [ isPushSelectionOverLimit, hasSelectedSize ] );
+
 	const { fetchChildren, rewindId, isLoadingRewindId, isErrorRewindId } = useDynamicTreeState(
 		type,
 		localSite.id,
@@ -213,7 +228,7 @@ export function SyncDialog( {
 			onRequestClose={ onRequestClose }
 			title={ syncTexts.title }
 		>
-			<div className={ isPushSelectionOverLimit ? 'pb-[140px]' : 'pb-[70px]' }>
+			<div className={ containerPaddingBottomClass }>
 				<div className="px-8 pb-6 pt-1">{ syncTexts.description }</div>
 				<div className="px-8">
 					<span className="sr-only">
@@ -322,13 +337,16 @@ export function SyncDialog( {
 							</p>
 						</Notice>
 					) }
+					{ type === 'push' && ! isSizeCheckLoading && selectedSizeInBytes > 0 && (
+						<div
+							className="border border-gray-300 rounded-sm py-2 px-3 text-xs text-gray-600 mb-3 w-full"
+							data-testid="selected-size"
+						>
+							{ sprintf( __( 'PUSH LIMIT: %s' ), formatBytes( selectedSizeInBytes ) ) }
+						</div>
+					) }
 					<div className="flex justify-between items-center">
 						<div>
-							{ type === 'push' && ! isSizeCheckLoading && selectedSizeInBytes > 0 && (
-								<p className="text-xs text-gray-600" data-testid="selected-size">
-									{ sprintf( __( 'Selected size: %s' ), formatBytes( selectedSizeInBytes ) ) }
-								</p>
-							) }
 							{ createInterpolateElement( syncTexts.envSync, {
 								a: (
 									<Button

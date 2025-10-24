@@ -47,32 +47,10 @@ export function canCancelPush( key: PushStateProgressInfo[ 'key' ] | undefined )
 	return cancellableStateKeys.includes( key );
 }
 
-/**
- * Check if a push operation is in a remote processing state.
- */
-export function isRemoteProcessingState(
-	key: PushStateProgressInfo[ 'key' ] | undefined
-): boolean {
-	const remoteProcessingStates: PushStateProgressInfo[ 'key' ][] = [
-		'creatingRemoteBackup',
-		'applyingChanges',
-		'finishing',
-		'finished',
-	];
-	if ( ! key ) {
-		return false;
-	}
-	return remoteProcessingStates.includes( key );
-}
-
-export function isRemoteProcessingStep(): boolean {
-	//  Iterate over all the sites and check if any operation is in a remote processing state
+export function hasCancelableSyncOperations(): boolean {
+	//  Iterate over all the sites and check if any operation is cancelable
 	for ( const [ , state ] of ACTIVE_SYNC_OPERATIONS ) {
-		if (
-			state &&
-			'key' in state &&
-			isRemoteProcessingState( state.key as PushStateProgressInfo[ 'key' ] )
-		) {
+		if ( state && 'key' in state && canCancelPush( state.key as PushStateProgressInfo[ 'key' ] ) ) {
 			return true;
 		}
 	}

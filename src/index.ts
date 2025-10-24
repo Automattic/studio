@@ -22,7 +22,10 @@ import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
 import { StatsGroup } from 'common/types/stats';
 import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
-import { hasActiveSyncOperations, isRemoteProcessingStep } from 'src/lib/active-sync-operations';
+import {
+	hasActiveSyncOperations,
+	hasCancelableSyncOperations,
+} from 'src/lib/active-sync-operations';
 import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
 import { getPlatformMetric } from 'src/lib/bump-stats/lib';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
@@ -352,7 +355,7 @@ async function appBoot() {
 	} );
 
 	function getQuitConfirmationMessage(): string {
-		if ( isRemoteProcessingStep() ) {
+		if ( ! hasCancelableSyncOperations() ) {
 			return __(
 				"There's a sync operation in progress. The process will continue on WordPress.com servers even after quitting Studio. We will send you an email when it completes. Are you sure you want to quit?"
 			);

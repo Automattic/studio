@@ -1,4 +1,4 @@
-import { SelectControl, Notice } from '@wordpress/components';
+import { SelectControl, Notice, __experimentalHeading as Heading } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf, __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
@@ -208,12 +208,12 @@ export function SyncDialog( {
 
 	return (
 		<Modal
-			className="sync-dialog-wrapper w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
+			className="w-3/5 min-w-[550px] max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
 			title={ syncTexts.title }
 		>
 			<div className={ isPushSelectionOverLimit ? 'pb-[140px]' : 'pb-[70px]' }>
-				<div className="px-8 pb-6 pt-3">{ syncTexts.description }</div>
+				<div className="px-8 pb-6 pt-1">{ syncTexts.description }</div>
 				<div className="px-8">
 					<span className="sr-only">
 						{ /* translators: first %s is the source site name, second %s is the destination site name */ }
@@ -224,19 +224,26 @@ export function SyncDialog( {
 						className="flex max-w-full overflow-hidden pb-6 border-b border-a8c-gray-5"
 					>
 						<div className="overflow-hidden max-w-[calc(50%-25px)]">
-							<div className="leading-[32px]">{ syncTexts.fromLabel }</div>
 							<div className="whitespace-nowrap truncate">{ syncFrom }</div>
 						</div>
-						<div className="mt-[32px] w-[50px] flex items-center justify-center text-a8c-gray-600">
+						<div className="w-[50px] flex items-center justify-center text-a8c-gray-600">
 							<RightArrowIcon />
 						</div>
 						<div className="overflow-hidden max-w-[calc(50%-25px)]">
-							<div className="leading-[32px]">{ __( 'To' ) }</div>
 							<div className="whitespace-nowrap truncate">{ syncTo }</div>
 						</div>
 					</div>
 				</div>
-				<div className="px-8 pt-7 pb-3">{ syncTexts.subtitleSelector }</div>
+				<Heading
+					level={ 2 }
+					lineHeight="28px"
+					size={ 11 }
+					weight={ 500 }
+					upperCase
+					className="px-8 pt-5 pb-3"
+				>
+					{ syncTexts.subtitleSelector }
+				</Heading>
 				<Tooltip
 					className={ cx( 'w-full', isErrorRewindId && 'cursor-not-allowed' ) }
 					text={ tooltipNoRewindId }
@@ -246,7 +253,7 @@ export function SyncDialog( {
 						{ type === 'pull' && isLoadingRewindId && <TreeViewLoadingSkeleton /> }
 						{ ! isLoadingRewindId && (
 							<>
-								<div className="absolute end-6 z-10">
+								<div className="absolute end-6 z-10 top-[6px]">
 									<SelectControl
 										value={ showAllFiles ? 'true' : 'false' }
 										variant="minimal"
@@ -273,25 +280,22 @@ export function SyncDialog( {
 									tree={ treeState }
 									setTree={ setTreeState }
 									onExpand={ handleExpand }
-									renderBeforeChildren={ ( nodeId ) => {
+									renderAfterChildren={ ( nodeId ) => {
 										if ( nodeId === 'filesAndFolders' && showAllFiles && rewindId ) {
 											const backupUrl = `https://wordpress.com/backup/${ remoteSite.url.replace(
 												/^https?:\/\//,
 												''
 											) }`;
-											const backupDate = format( parseInt( rewindId ) * 1000, 'MMM d, h:mm a' );
+											const backupDate = format( parseInt( rewindId ) * 1000, 'MMM d, y, h:mm a' );
 											return (
 												<div className="mt-2 pb-2 text-xs text-gray-600">
-													{ sprintf(
-														__( 'Listing files from the latest backup: %s.' ),
-														backupDate
-													) }{ ' ' }
+													{ sprintf( __( 'Content from the latest backup: %s.' ), backupDate ) }{ ' ' }
 													<Button
 														variant="link"
 														className="p-0 h-auto text-xs"
 														onClick={ () => getIpcApi().openURL( backupUrl ) }
 													>
-														{ __( 'Create fresh backup now ↗' ) }
+														{ __( 'Create new backup ↗' ) }
 													</Button>
 												</div>
 											);
@@ -304,7 +308,7 @@ export function SyncDialog( {
 					</div>
 				</Tooltip>
 
-				<div className="px-8 py-4 border-t border-a8c-gray-5 absolute left-0 right-0 bottom-0 bg-white z-10">
+				<div className="px-8 py-4 absolute left-0 right-0 bottom-0 bg-white z-10">
 					{ type === 'push' && isPushSelectionOverLimit && (
 						<Notice status="warning" isDismissible={ false } className="mb-4">
 							<p data-testid="push-selection-over-limit-notice">

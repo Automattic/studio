@@ -12,8 +12,6 @@ type TextByEnvironment = {
 type SyncDialogTexts = {
 	title: string;
 	description: string;
-	fromLabel: string;
-	toLabel: string;
 	subtitleSelector: string;
 	envSync: string;
 	submit: string;
@@ -50,8 +48,6 @@ export const useSyncDialogTexts = (
 			return {
 				title: textByEnvironment[ siteEnv ].title,
 				description: textByEnvironment[ siteEnv ].description,
-				fromLabel: __( 'Pull' ),
-				toLabel: __( 'To' ),
 				subtitleSelector: __( 'What would you like to pull?' ),
 				envSync: __( 'Read more about <a>environment pull <ArrowIcon /></a>' ),
 				submit: __( 'Pull' ),
@@ -80,8 +76,6 @@ export const useSyncDialogTexts = (
 			return {
 				title: textByEnvironment[ siteEnv ].title,
 				description: textByEnvironment[ siteEnv ].description,
-				fromLabel: __( 'Push' ),
-				toLabel: __( 'To' ),
 				subtitleSelector: __( 'What would you like to push?' ),
 				envSync: __( 'Read more about <a>environment push <ArrowIcon /></a>' ),
 				submit: __( 'Push' ),

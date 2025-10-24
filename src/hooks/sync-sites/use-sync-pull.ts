@@ -52,6 +52,8 @@ type UseSyncPullProps = {
 	onPullSuccess?: OnPullSuccess;
 };
 
+type CancelPull = ( selectedSiteId: string, remoteSiteId: number ) => void;
+
 export type UseSyncPull = {
 	pullStates: PullStates;
 	getPullState: GetState< SyncBackupState >;
@@ -59,6 +61,7 @@ export type UseSyncPull = {
 	isAnySitePulling: boolean;
 	isSiteIdPulling: IsSiteIdPulling;
 	clearPullState: ClearState;
+	cancelPull: CancelPull;
 };
 
 export function useSyncPull( {
@@ -74,6 +77,7 @@ export function useSyncPull( {
 		isKeyPulling,
 		isKeyFinished,
 		isKeyFailed,
+		isKeyCancelled,
 		getBackupStatusWithProgress,
 	} = useSyncStatesProgressInfo();
 	const {
@@ -87,13 +91,13 @@ export function useSyncPull( {
 			updateState( selectedSiteId, remoteSiteId, state );
 			const statusKey = state.status?.key;
 
-			if ( isKeyFailed( statusKey ) || isKeyFinished( statusKey ) ) {
+			if ( isKeyFailed( statusKey ) || isKeyFinished( statusKey ) || isKeyCancelled( statusKey ) ) {
 				getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
 			} else {
 				getIpcApi().addSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
 			}
 		},
-		[ isKeyFailed, isKeyFinished, updateState ]
+		[ isKeyFailed, isKeyFinished, isKeyCancelled, updateState ]
 	);
 
 	const clearPullState = useCallback< ClearState >(
@@ -114,6 +118,8 @@ export function useSyncPull( {
 
 			const remoteSiteId = connectedSite.id;
 			const remoteSiteUrl = connectedSite.url;
+
+			clearPullState( selectedSite.id, remoteSiteId );
 			updatePullState( selectedSite.id, remoteSiteId, {
 				backupId: null,
 				status: pullStatesProgressInfo[ 'in-progress' ],
@@ -161,7 +167,7 @@ export function useSyncPull( {
 				} );
 			}
 		},
-		[ __, client, pullStatesProgressInfo, updatePullState ]
+		[ __, clearPullState, client, pullStatesProgressInfo, updatePullState ]
 	);
 
 	const checkBackupFileSize = async ( downloadUrl: string ): Promise< number > => {
@@ -213,7 +219,17 @@ export function useSyncPull( {
 					downloadUrl,
 				} );
 
-				const filePath = await getIpcApi().downloadSyncBackup( remoteSiteId, downloadUrl );
+				const operationId = generateStateId( selectedSite.id, remoteSiteId );
+				const filePath = await getIpcApi().downloadSyncBackup(
+					remoteSiteId,
+					downloadUrl,
+					operationId
+				);
+
+				const stateAfterDownload = getPullState( selectedSite.id, remoteSiteId );
+				if ( ! stateAfterDownload || isKeyCancelled( stateAfterDownload?.status.key ) ) {
+					return;
+				}
 
 				// Starting import process
 				updatePullState( selectedSite.id, remoteSiteId, {
@@ -252,6 +268,12 @@ export function useSyncPull( {
 				onPullSuccess?.( remoteSiteId, selectedSite.id );
 			} catch ( error ) {
 				console.error( 'Backup completion failed:', error );
+
+				const currentState = getPullState( selectedSite.id, remoteSiteId );
+				if ( currentState && isKeyCancelled( currentState?.status.key ) ) {
+					return;
+				}
+
 				Sentry.captureException( error );
 				updatePullState( selectedSite.id, remoteSiteId, {
 					status: pullStatesProgressInfo.failed,
@@ -266,8 +288,10 @@ export function useSyncPull( {
 			__,
 			clearImportState,
 			clearPullState,
+			getPullState,
 			importFile,
 			onPullSuccess,
+			isKeyCancelled,
 			pullStatesProgressInfo.cancelled,
 			pullStatesProgressInfo.downloading,
 			pullStatesProgressInfo.failed,
@@ -284,7 +308,12 @@ export function useSyncPull( {
 				return;
 			}
 
-			const backupId = getPullState( selectedSiteId, remoteSiteId )?.backupId;
+			const currentState = getPullState( selectedSiteId, remoteSiteId );
+			if ( currentState && isKeyCancelled( currentState.status.key ) ) {
+				return;
+			}
+
+			const backupId = currentState?.backupId;
 			if ( ! backupId ) {
 				console.error( 'No backup ID found' );
 				return;
@@ -335,6 +364,7 @@ export function useSyncPull( {
 			onBackupCompleted,
 			pullStatesProgressInfo,
 			updatePullState,
+			isKeyCancelled,
 		]
 	);
 
@@ -342,6 +372,10 @@ export function useSyncPull( {
 		const intervals: Record< string, NodeJS.Timeout > = {};
 
 		Object.entries( pullStates ).forEach( ( [ key, state ] ) => {
+			if ( isKeyCancelled( state.status.key ) ) {
+				return;
+			}
+
 			if ( state.backupId && state.status.key === 'in-progress' ) {
 				intervals[ key ] = setTimeout( () => {
 					void fetchAndUpdateBackup( state.remoteSiteId, state.selectedSite.id );
@@ -352,7 +386,7 @@ export function useSyncPull( {
 		return () => {
 			Object.values( intervals ).forEach( clearTimeout );
 		};
-	}, [ pullStates, fetchAndUpdateBackup ] );
+	}, [ pullStates, fetchAndUpdateBackup, isKeyCancelled ] );
 
 	const isAnySitePulling = useMemo< boolean >( () => {
 		return Object.values( pullStates ).some( ( state ) => isKeyPulling( state.status.key ) );
@@ -361,6 +395,9 @@ export function useSyncPull( {
 	const isSiteIdPulling = useCallback< IsSiteIdPulling >(
 		( selectedSiteId, remoteSiteId ) => {
 			return Object.values( pullStates ).some( ( state ) => {
+				if ( ! state.selectedSite ) {
+					return false;
+				}
 				if ( state.selectedSite.id !== selectedSiteId ) {
 					return false;
 				}
@@ -373,5 +410,37 @@ export function useSyncPull( {
 		[ pullStates, isKeyPulling ]
 	);
 
-	return { pullStates, getPullState, pullSite, isAnySitePulling, isSiteIdPulling, clearPullState };
+	const cancelPull = useCallback< CancelPull >(
+		async ( selectedSiteId, remoteSiteId ) => {
+			const operationId = generateStateId( selectedSiteId, remoteSiteId );
+
+			await getIpcApi().cancelSyncOperation( operationId );
+
+			updatePullState( selectedSiteId, remoteSiteId, {
+				status: pullStatesProgressInfo.cancelled,
+			} );
+
+			getIpcApi()
+				.removeSyncBackup( remoteSiteId )
+				.catch( () => {
+					// Ignore errors if file doesn't exist
+				} );
+
+			getIpcApi().showNotification( {
+				title: __( 'Pull cancelled' ),
+				body: __( 'The pull operation has been cancelled.' ),
+			} );
+		},
+		[ __, pullStatesProgressInfo.cancelled, updatePullState ]
+	);
+
+	return {
+		pullStates,
+		getPullState,
+		pullSite,
+		isAnySitePulling,
+		isSiteIdPulling,
+		clearPullState,
+		cancelPull,
+	};
 }

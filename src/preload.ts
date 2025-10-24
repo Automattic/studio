@@ -22,8 +22,8 @@ function ipcRendererSend< T extends keyof IpcHandlers >(
 
 const api: IpcApi = {
 	archiveSite: ( id, format ) => ipcRendererInvoke( 'archiveSite', id, format ),
-	exportSiteToPush: ( id, configuration ) =>
-		ipcRendererInvoke( 'exportSiteToPush', id, configuration ),
+	exportSiteToPush: ( id, operationId, configuration ) =>
+		ipcRendererInvoke( 'exportSiteToPush', id, operationId, configuration ),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
 	createSite: ( path, config ) => ipcRendererInvoke( 'createSite', path, config ),
 	updateSite: ( updatedSite ) => ipcRendererInvoke( 'updateSite', updatedSite ),
@@ -99,13 +99,14 @@ const api: IpcApi = {
 		ipcRendererSend( 'openFileInIDE', relativePath, siteId ),
 	isImportExportSupported: ( siteId ) => ipcRendererInvoke( 'isImportExportSupported', siteId ),
 	checkSyncBackupSize: ( downloadUrl ) => ipcRendererInvoke( 'checkSyncBackupSize', downloadUrl ),
-	downloadSyncBackup: ( remoteSiteId, downloadUrl ) =>
-		ipcRendererInvoke( 'downloadSyncBackup', remoteSiteId, downloadUrl ),
+	downloadSyncBackup: ( remoteSiteId, downloadUrl, operationId ) =>
+		ipcRendererInvoke( 'downloadSyncBackup', remoteSiteId, downloadUrl, operationId ),
 	removeSyncBackup: ( remoteSiteId ) => ipcRendererInvoke( 'removeSyncBackup', remoteSiteId ),
 	getConnectedWpcomSites: ( localSiteId ) =>
 		ipcRendererInvoke( 'getConnectedWpcomSites', localSiteId ),
 	addSyncOperation: ( id ) => ipcRendererSend( 'addSyncOperation', id ),
 	clearSyncOperation: ( id ) => ipcRendererSend( 'clearSyncOperation', id ),
+	cancelSyncOperation: ( id ) => ipcRendererSend( 'cancelSyncOperation', id ),
 	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
 	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),

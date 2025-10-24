@@ -118,7 +118,11 @@ process.parentPort.on( 'message', async ( event ) => {
 
 		process.parentPort.postMessage( { id: message.id, result } );
 	} catch ( error ) {
-		process.parentPort.postMessage( { id: message.id, error: ( error as Error ).message } );
+		process.parentPort.postMessage( {
+			id: message.id,
+			error: error instanceof Error ? error.message : String( error ),
+			errorStack: error instanceof Error ? error.stack : undefined,
+		} );
 	}
 } );
 
@@ -203,6 +207,11 @@ async function startServer(
 		}
 	} catch ( error ) {
 		server = null;
+		// Re-throw the original error to preserve stack trace
+		if ( error instanceof Error ) {
+			error.message = `Could not start server: ${ error.message }`;
+			throw error;
+		}
 		throw new Error( `Could not start server: ${ error }` );
 	}
 }

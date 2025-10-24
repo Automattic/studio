@@ -142,21 +142,23 @@ void Promise.all( [ getIpcApi().getAppGlobals(), getIpcApi().getSentryUserId() ]
 			! localStorage.getItem( 'dontShowARM64Warning' )
 		) {
 			const showARM64MessageBox = async () => {
+				const platformMessages: Record< string, string > = {
+					darwin: __(
+						'Downloading the Mac with Apple Silicon Chip version of Studio will provide better performance.'
+					),
+					win32: __(
+						'Downloading the ARM64 version of Studio will provide better performance.'
+					),
+				};
+
+				const detailMessage =
+					platformMessages[ window.appGlobals.platform ] ||
+					__( 'Downloading the optimized version of Studio will provide better performance.' );
+
 				const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
 					type: 'warning',
 					message: __( 'This version of Studio is not optimized for your computer' ),
-					detail:
-						window.appGlobals.platform === 'darwin'
-							? __(
-									'Downloading the Mac with Apple Silicon Chip version of Studio will provide better performance.'
-							  )
-							: window.appGlobals.platform === 'win32'
-							? __(
-									'Downloading the ARM64 version of Studio will provide better performance.'
-							  )
-							: __(
-									'Downloading the optimized version of Studio will provide better performance.'
-							  ),
+					detail: detailMessage,
 					checkboxLabel: __( "Don't show this warning again" ),
 					buttons: [ __( 'Download' ), __( 'Not now' ) ],
 					cancelId: 1,

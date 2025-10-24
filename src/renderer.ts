@@ -136,10 +136,7 @@ void Promise.all( [ getIpcApi().getAppGlobals(), getIpcApi().getSentryUserId() ]
 		window.appGlobals = appGlobals;
 
 		// Show warning if running an ARM64 translator
-		if (
-			appGlobals.arm64Translation &&
-			! localStorage.getItem( 'dontShowARM64Warning' )
-		) {
+		if ( appGlobals.arm64Translation && ! localStorage.getItem( 'dontShowARM64Warning' ) ) {
 			const showARM64MessageBox = async () => {
 				const platformMessages: Record< string, string > = {
 					darwin: __(

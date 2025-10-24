@@ -14,8 +14,14 @@
 //       }
 //     },
 //     "win32": {
-//       "sha": "30a8251",
-//       "url": "https://cdn.a8c-ci.services/studio/studio-win32-v1.2.3-42-full.nupkg"
+//       "arm64": {
+//         "sha": "30a8251",
+//         "url": "https://cdn.a8c-ci.services/studio/studio-win32-arm64-v1.2.3-42-full.nupkg"
+//       },
+//       "x64": {
+//         "sha": "30a8251",
+//         "url": "https://cdn.a8c-ci.services/studio/studio-win32-x64-v1.2.3-42-full.nupkg"
+//       }
 //     }
 //   },
 //   "1.0.0": {
@@ -59,16 +65,16 @@ console.log( 'Downloading current manifest ...' );
 
 const releasesPath = path.join( __dirname, '..', 'out', 'releases.json' );
 
-async function getWindowsReleaseInfo() {
+async function getWindowsReleaseInfo( arch = 'x64' ) {
 	let windowsReleaseInfo = {};
 	try {
 		windowsReleaseInfo = await fs.readFile(
-			path.join( __dirname, '..', 'out', 'make', 'squirrel.windows', 'x64', 'RELEASES' ),
+			path.join( __dirname, '..', 'out', 'make', 'squirrel.windows', arch, 'RELEASES' ),
 			'utf8'
 		);
 	} catch ( error ) {
 		console.log(
-			`Couldn't read RELEASES file of Windows build, please ensure that the file exists to generate the release manifest.`
+			`Couldn't read RELEASES file of Windows ${ arch } build, please ensure that the file exists to generate the release manifest.`
 		);
 		process.exit( 1 );
 	}
@@ -133,11 +139,18 @@ if ( isDevBuild ) {
 	};
 
 	// Windows
-	const windowsReleaseInfo = await getWindowsReleaseInfo();
-	releasesData[ 'dev' ][ 'win32' ] = {
-		sha: windowsReleaseInfo.sha1,
-		url: `${ cdnURL }/${ baseName }-win32-v${ version }-full.nupkg`,
-		size: windowsReleaseInfo.size,
+	releasesData[ 'dev' ][ 'win32' ] = releasesData[ 'dev' ][ 'win32' ] ?? {};
+	const windowsX64ReleaseInfo = await getWindowsReleaseInfo( 'x64' );
+	releasesData[ 'dev' ][ 'win32' ][ 'x64' ] = {
+		sha: windowsX64ReleaseInfo.sha1,
+		url: `${ cdnURL }/${ baseName }-win32-x64-v${ version }-full.nupkg`,
+		size: windowsX64ReleaseInfo.size,
+	};
+	const windowsArm64ReleaseInfo = await getWindowsReleaseInfo( 'arm64' );
+	releasesData[ 'dev' ][ 'win32' ][ 'arm64' ] = {
+		sha: windowsArm64ReleaseInfo.sha1,
+		url: `${ cdnURL }/${ baseName }-win32-arm64-v${ version }-full.nupkg`,
+		size: windowsArm64ReleaseInfo.size,
 	};
 
 	await fs.writeFile( releasesPath, JSON.stringify( releasesData, null, 2 ) );
@@ -159,11 +172,18 @@ if ( isDevBuild ) {
 	};
 
 	// Windows
-	const windowsRelease = await getWindowsReleaseInfo();
-	releasesData[ version ][ 'win32' ] = {
-		sha: windowsRelease.sha1,
-		url: `${ cdnURL }/${ baseName }-win32-v${ version }-full.nupkg`,
-		size: windowsRelease.size,
+	releasesData[ version ][ 'win32' ] = releasesData[ version ][ 'win32' ] ?? {};
+	const windowsX64Release = await getWindowsReleaseInfo( 'x64' );
+	releasesData[ version ][ 'win32' ][ 'x64' ] = {
+		sha: windowsX64Release.sha1,
+		url: `${ cdnURL }/${ baseName }-win32-x64-v${ version }-full.nupkg`,
+		size: windowsX64Release.size,
+	};
+	const windowsArm64Release = await getWindowsReleaseInfo( 'arm64' );
+	releasesData[ version ][ 'win32' ][ 'arm64' ] = {
+		sha: windowsArm64Release.sha1,
+		url: `${ cdnURL }/${ baseName }-win32-arm64-v${ version }-full.nupkg`,
+		size: windowsArm64Release.size,
 	};
 
 	await fs.writeFile( releasesPath, JSON.stringify( releasesData, null, 2 ) );

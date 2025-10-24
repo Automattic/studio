@@ -146,9 +146,7 @@ void Promise.all( [ getIpcApi().getAppGlobals(), getIpcApi().getSentryUserId() ]
 					darwin: __(
 						'Downloading the Mac with Apple Silicon Chip version of Studio will provide better performance.'
 					),
-					win32: __(
-						'Downloading the ARM64 version of Studio will provide better performance.'
-					),
+					win32: __( 'Downloading the ARM64 version of Studio will provide better performance.' ),
 				};
 
 				const detailMessage =

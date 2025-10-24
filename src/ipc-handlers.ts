@@ -46,6 +46,7 @@ import {
 	trustRootCA,
 } from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
+import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { sanitizeFolderName } from 'src/lib/generate-site-name';
 import { getImageData } from 'src/lib/get-image-data';
@@ -1170,8 +1171,9 @@ export async function showErrorMessageBox(
 		showOpenLogs = false,
 	}: { title: string; message: string; error?: unknown; showOpenLogs?: boolean }
 ) {
+	const simplifiedError = simplifyErrorForDisplay( error );
 	// Remove prepended error message added by IPC handler
-	const filteredError = ( error as Error )?.message?.replace(
+	const filteredError = ( simplifiedError as Error )?.message?.replace(
 		/Error invoking remote method '\w+': Error:/g,
 		''
 	);

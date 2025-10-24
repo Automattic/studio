@@ -82,6 +82,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 				promptWindowsSpeedUpResult: {
 					response: 'no',
 					appVersion: currentVersion,
+					dontAskAgain: false,
 				},
 			} );
 
@@ -97,6 +98,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 				promptWindowsSpeedUpResult: {
 					response: 'no',
 					appVersion: '1.2.2', // Previous version
+					dontAskAgain: false,
 				},
 			} );
 			mockDialogShowMessageBox.mockResolvedValue( { response: 1, checkboxChecked: false } );
@@ -113,6 +115,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 				promptWindowsSpeedUpResult: {
 					response: 'yes',
 					appVersion: '1.2.2', // Previous version
+					dontAskAgain: false,
 				},
 			} );
 
@@ -128,6 +131,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 				promptWindowsSpeedUpResult: {
 					response: 'no',
 					appVersion: currentVersion,
+					dontAskAgain: false,
 				},
 			} );
 			mockDialogShowMessageBox.mockResolvedValue( { response: 1, checkboxChecked: false } );
@@ -168,7 +172,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 	} );
 
 	describe( 'user response handling', () => {
-		it( 'should save "yes" response with current app version', async () => {
+		it( 'should save "yes" response with current app version and dontAskAgain false', async () => {
 			mockLoadUserData.mockResolvedValue( { sites: [], snapshots: [] } );
 			mockDialogShowMessageBox.mockResolvedValue( { response: 0, checkboxChecked: false } ); // First button (yes)
 
@@ -178,11 +182,12 @@ describe( 'promptWindowsSpeedUpSites', () => {
 				promptWindowsSpeedUpResult: {
 					response: 'yes',
 					appVersion: currentVersion,
+					dontAskAgain: false,
 				},
 			} );
 		} );
 
-		it( 'should save "no" response with current app version', async () => {
+		it( 'should save "no" response with current app version and dontAskAgain false', async () => {
 			mockLoadUserData.mockResolvedValue( { sites: [], snapshots: [] } );
 			mockDialogShowMessageBox.mockResolvedValue( { response: 1, checkboxChecked: false } ); // Second button (no)
 
@@ -192,6 +197,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 				promptWindowsSpeedUpResult: {
 					response: 'no',
 					appVersion: currentVersion,
+					dontAskAgain: false,
 				},
 			} );
 		} );
@@ -213,6 +219,82 @@ describe( 'promptWindowsSpeedUpSites', () => {
 					buttons: expect.arrayContaining( [ expect.any( String ), expect.any( String ) ] ),
 				} )
 			);
+		} );
+
+		it( 'should show checkbox when skipIfAlreadyPrompted is true', async () => {
+			mockLoadUserData.mockResolvedValue( { sites: [], snapshots: [] } );
+			mockDialogShowMessageBox.mockResolvedValue( { response: 1, checkboxChecked: false } );
+
+			await promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
+
+			expect( mockDialogShowMessageBox ).toHaveBeenCalledWith(
+				expect.any( BrowserWindow ),
+				expect.objectContaining( {
+					checkboxLabel: expect.any( String ),
+				} )
+			);
+		} );
+
+		it( 'should not show checkbox when skipIfAlreadyPrompted is false', async () => {
+			mockLoadUserData.mockResolvedValue( { sites: [], snapshots: [] } );
+			mockDialogShowMessageBox.mockResolvedValue( { response: 1, checkboxChecked: false } );
+
+			await promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: false } );
+
+			expect( mockDialogShowMessageBox ).toHaveBeenCalledWith(
+				expect.any( BrowserWindow ),
+				expect.not.objectContaining( {
+					checkboxLabel: expect.anything(),
+				} )
+			);
+		} );
+	} );
+
+	describe( 'dontAskAgain functionality', () => {
+		it( 'should skip prompt when dontAskAgain is true regardless of version', async () => {
+			mockLoadUserData.mockResolvedValue( {
+				sites: [],
+				snapshots: [],
+				promptWindowsSpeedUpResult: {
+					response: 'no',
+					appVersion: '1.2.2', // Previous version
+					dontAskAgain: true,
+				},
+			} );
+
+			await promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
+
+			expect( mockDialogShowMessageBox ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should save dontAskAgain true when checkbox is checked with "yes" response', async () => {
+			mockLoadUserData.mockResolvedValue( { sites: [], snapshots: [] } );
+			mockDialogShowMessageBox.mockResolvedValue( { response: 0, checkboxChecked: true } ); // First button (yes) with checkbox
+
+			await promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
+
+			expect( mockUpdateAppdata ).toHaveBeenCalledWith( {
+				promptWindowsSpeedUpResult: {
+					response: 'yes',
+					appVersion: currentVersion,
+					dontAskAgain: true,
+				},
+			} );
+		} );
+
+		it( 'should save dontAskAgain true when checkbox is checked with "no" response', async () => {
+			mockLoadUserData.mockResolvedValue( { sites: [], snapshots: [] } );
+			mockDialogShowMessageBox.mockResolvedValue( { response: 1, checkboxChecked: true } ); // Second button (no) with checkbox
+
+			await promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
+
+			expect( mockUpdateAppdata ).toHaveBeenCalledWith( {
+				promptWindowsSpeedUpResult: {
+					response: 'no',
+					appVersion: currentVersion,
+					dontAskAgain: true,
+				},
+			} );
 		} );
 	} );
 } );

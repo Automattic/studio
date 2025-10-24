@@ -14,7 +14,6 @@ export const reconcileConnectedSites = (
 		const site = freshWpComSites.find( ( site ) => site.id === connectedSite.id );
 
 		if ( ! site ) {
-			debugger;
 			return {
 				...connectedSite,
 				syncSupport: 'deleted',

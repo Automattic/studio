@@ -81,9 +81,7 @@ describe( 'useConnectedSitesOperations', () => {
 	);
 
 	const mockDisconnectSite = jest.fn().mockResolvedValue( [] );
-	const mockConnectSite = jest
-		.fn()
-		.mockResolvedValue( [ ...mockConnectedWpcomSites, { id: 6 } ] );
+	const mockConnectSite = jest.fn().mockResolvedValue( [ ...mockConnectedWpcomSites, { id: 6 } ] );
 
 	beforeEach( () => {
 		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );

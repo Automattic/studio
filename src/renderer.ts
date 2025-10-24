@@ -137,7 +137,7 @@ void Promise.all( [ getIpcApi().getAppGlobals(), getIpcApi().getSentryUserId() ]
 
 		// Show warning if running an ARM64 translator
 		if (
-			appGlobals.platform === 'darwin' &&
+			( appGlobals.platform === 'darwin' || appGlobals.platform === 'win32' ) &&
 			appGlobals.arm64Translation &&
 			! localStorage.getItem( 'dontShowARM64Warning' )
 		) {
@@ -149,6 +149,10 @@ void Promise.all( [ getIpcApi().getAppGlobals(), getIpcApi().getSentryUserId() ]
 						window.appGlobals.platform === 'darwin'
 							? __(
 									'Downloading the Mac with Apple Silicon Chip version of Studio will provide better performance.'
+							  )
+							: window.appGlobals.platform === 'win32'
+							? __(
+									'Downloading the ARM64 version of Studio will provide better performance.'
 							  )
 							: __(
 									'Downloading the optimized version of Studio will provide better performance.'

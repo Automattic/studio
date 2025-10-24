@@ -36,7 +36,7 @@ Write-Host "--- :npm: Installing Node dependencies"
 bash .buildkite/commands/install-node-dependencies.sh
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
-Write-Host "--- :node: Building App for Windows ($BuildType) - $Architecture"
+Write-Host "--- :node: Building App for Windows ($BuildType - $Architecture)"
 
 # Run appropriate script based on build type
 if ($BuildType -eq $BUILD_TYPE_DEV) {

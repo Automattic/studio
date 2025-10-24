@@ -137,7 +137,6 @@ void Promise.all( [ getIpcApi().getAppGlobals(), getIpcApi().getSentryUserId() ]
 
 		// Show warning if running an ARM64 translator
 		if (
-			( appGlobals.platform === 'darwin' || appGlobals.platform === 'win32' ) &&
 			appGlobals.arm64Translation &&
 			! localStorage.getItem( 'dontShowARM64Warning' )
 		) {

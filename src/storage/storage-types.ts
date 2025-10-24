@@ -47,4 +47,5 @@ export interface PersistedUserData extends Omit< UserData, 'sites' > {
 export interface PromptWindowsSpeedUpResult {
 	response: 'yes' | 'no';
 	appVersion: string;
+	dontAskAgain: boolean;
 }

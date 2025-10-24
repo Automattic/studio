@@ -31,9 +31,9 @@ export type SyncBackupResponse = {
 };
 
 export type RestoreErrorData = {
-    vp_restore_status?: string;
-    vp_restore_message?: string;
-    vp_rewind_id?: string | number | null;
+	vp_restore_status?: string;
+	vp_restore_message?: string;
+	vp_rewind_id?: string | number | null;
 };
 
 export type ImportResponse = {
@@ -47,7 +47,7 @@ export type ImportResponse = {
 	backup_progress: number;
 	import_progress: number;
 	error?: string;
-    error_data?: RestoreErrorData | null;
+	error_data?: RestoreErrorData | null;
 };
 
 const IN_PROGRESS_INITIAL_VALUE = 30;

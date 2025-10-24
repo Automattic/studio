@@ -179,7 +179,7 @@ async function startServer(
 			followSymlinks: true,
 			skipSqliteSetup: true,
 			port: options.port,
-			login: true,
+			login: false,
 			'mount-before-install': mounts,
 			'site-url': serverOptions.absoluteUrl,
 			blueprint: options.blueprint || {},

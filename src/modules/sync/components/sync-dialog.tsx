@@ -139,22 +139,6 @@ export function SyncDialog( {
 		isLoading: isSizeCheckLoading,
 		selectedSizeInBytes,
 	} = useSelectedItemsPushSize( localSite.id, treeState, type );
-
-	const hasSelectedSize = type === 'push' && ! isSizeCheckLoading && selectedSizeInBytes > 0;
-
-	const containerPaddingBottomClass = useMemo( () => {
-		if ( isPushSelectionOverLimit && hasSelectedSize ) {
-			return 'pb-[180px]';
-		}
-		if ( isPushSelectionOverLimit ) {
-			return 'pb-[140px]';
-		}
-		if ( hasSelectedSize ) {
-			return 'pb-[110px]';
-		}
-		return 'pb-[70px]';
-	}, [ isPushSelectionOverLimit, hasSelectedSize ] );
-
 	const { fetchChildren, rewindId, isLoadingRewindId, isErrorRewindId } = useDynamicTreeState(
 		type,
 		localSite.id,
@@ -228,7 +212,7 @@ export function SyncDialog( {
 			onRequestClose={ onRequestClose }
 			title={ syncTexts.title }
 		>
-			<div className={ containerPaddingBottomClass }>
+			<div>
 				<div className="px-8 pb-6 pt-1">{ syncTexts.description }</div>
 				<div className="px-8">
 					<span className="sr-only">
@@ -324,7 +308,7 @@ export function SyncDialog( {
 					</div>
 				</Tooltip>
 
-				<div className="px-8 py-4 absolute left-0 right-0 bottom-0 bg-white z-10">
+				<div className="px-8 py-4 sticky bottom-0 bg-white z-10">
 					{ type === 'push' && isPushSelectionOverLimit && (
 						<Notice status="warning" isDismissible={ false } className="mb-4">
 							<p data-testid="push-selection-over-limit-notice">

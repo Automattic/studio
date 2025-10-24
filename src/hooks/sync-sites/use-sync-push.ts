@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
 import {
 	ClearState,
@@ -11,7 +11,6 @@ import {
 	usePullPushStates,
 } from 'src/hooks/sync-sites/use-pull-push-states';
 import { useAuth } from 'src/hooks/use-auth';
-import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import {
 	useSyncStatesProgressInfo,
 	PushStateProgressInfo,
@@ -72,8 +71,6 @@ export function useSyncPush( {
 }: UseSyncPushProps ): UseSyncPush {
 	const { __ } = useI18n();
 	const { client } = useAuth();
-	const pausedPushStatesRef = useRef< PushStates >( {} );
-
 	const {
 		updateState,
 		getState: getPushState,
@@ -86,7 +83,6 @@ export function useSyncPush( {
 		isKeyFinished,
 		isKeyFailed,
 		isKeyCancelled,
-		isKeyPaused,
 		getPushStatusWithProgress,
 	} = useSyncStatesProgressInfo();
 
@@ -122,12 +118,7 @@ export function useSyncPush( {
 			}
 			const currentState = getPushState( syncPushState.selectedSite.id, remoteSiteId );
 
-			// Don't fetch progress if the operation is cancelled or paused
-			if (
-				! currentState ||
-				isKeyCancelled( currentState?.status.key ) ||
-				isKeyPaused( currentState?.status.key )
-			) {
+			if ( ! currentState || isKeyCancelled( currentState?.status.key ) ) {
 				return;
 			}
 
@@ -185,7 +176,6 @@ export function useSyncPush( {
 			pushStatesProgressInfo.finished,
 			updatePushState,
 			isKeyCancelled,
-			isKeyPaused,
 		]
 	);
 
@@ -204,43 +194,6 @@ export function useSyncPush( {
 		},
 		[ __ ]
 	);
-	const pauseAllPushOperations = useCallback( () => {
-		// Store current states before pausing
-		pausedPushStatesRef.current = pushStates;
-
-		// Set all push operations to paused state
-		const pausedStates: PushStates = {};
-		Object.entries( pushStates ).forEach( ( [ key, state ] ) => {
-			if (
-				state.status.key !== 'finished' &&
-				state.status.key !== 'failed' &&
-				state.status.key !== 'cancelled'
-			) {
-				pausedStates[ key ] = {
-					...state,
-					status: pushStatesProgressInfo.paused,
-				};
-			} else {
-				pausedStates[ key ] = state;
-			}
-		} );
-		setPushStates( pausedStates );
-	}, [ pushStates, pushStatesProgressInfo.paused, setPushStates ] );
-
-	const resumeAllPushOperations = useCallback( () => {
-		// Restore previous states
-		setPushStates( { ...pausedPushStatesRef.current } );
-		pausedPushStatesRef.current = {};
-	}, [ setPushStates ] );
-
-	// Listen for pause/resume events from main process
-	useIpcListener( 'pause-push-operations', () => {
-		pauseAllPushOperations();
-	} );
-
-	useIpcListener( 'resume-push-operations', () => {
-		resumeAllPushOperations();
-	} );
 
 	const pushSite = useCallback< PushSite >(
 		async ( connectedSite, selectedSite, options ) => {
@@ -377,8 +330,7 @@ export function useSyncPush( {
 		const intervals: Record< string, NodeJS.Timeout > = {};
 
 		Object.entries( pushStates ).forEach( ( [ key, state ] ) => {
-			// Skip polling for cancelled or paused operations
-			if ( isKeyCancelled( state.status.key ) || isKeyPaused( state.status.key ) ) {
+			if ( isKeyCancelled( state.status.key ) ) {
 				return;
 			}
 
@@ -399,7 +351,6 @@ export function useSyncPush( {
 		pushStatesProgressInfo.applyingChanges.key,
 		isKeyImporting,
 		isKeyCancelled,
-		isKeyPaused,
 	] );
 
 	const isAnySitePushing = useMemo< boolean >( () => {

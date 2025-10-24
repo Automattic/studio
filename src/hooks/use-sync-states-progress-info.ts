@@ -16,8 +16,7 @@ export type PushStateProgressInfo = {
 		| 'finishing'
 		| 'finished'
 		| 'failed'
-		| 'cancelled'
-		| 'paused';
+		| 'cancelled';
 	progress: number;
 	message: string;
 };
@@ -129,11 +128,6 @@ export function useSyncStatesProgressInfo() {
 				progress: 0,
 				message: __( 'Cancelled' ),
 			},
-			paused: {
-				key: 'paused',
-				progress: 0,
-				message: __( 'Paused' ),
-			},
 		} as const satisfies PushStateProgressInfoValues;
 	}, [ __ ] );
 
@@ -156,7 +150,6 @@ export function useSyncStatesProgressInfo() {
 			'creatingRemoteBackup',
 			'applyingChanges',
 			'finishing',
-			'paused',
 		];
 		if ( ! key ) {
 			return false;
@@ -195,10 +188,6 @@ export function useSyncStatesProgressInfo() {
 		},
 		[]
 	);
-
-	const isKeyPaused = useCallback( ( key: PushStateProgressInfo[ 'key' ] | undefined ) => {
-		return key === 'paused';
-	}, [] );
 
 	const getBackupStatusWithProgress = useCallback(
 		(
@@ -297,7 +286,6 @@ export function useSyncStatesProgressInfo() {
 		isKeyFinished,
 		isKeyFailed,
 		isKeyCancelled,
-		isKeyPaused,
 		getBackupStatusWithProgress,
 		getPullStatusWithProgress,
 		getPushStatusWithProgress,

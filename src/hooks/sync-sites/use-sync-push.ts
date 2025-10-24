@@ -141,16 +141,14 @@ export function useSyncPush( {
 					remoteSiteId: syncPushState.remoteSiteId,
 					error: response.error,
 					error_data: response.error_data,
-					backup_progress: response.backup_progress,
-					import_progress: response.import_progress,
 				} );
-				// Prefer a more specific message when backend says it's failing while importing SQL
+				// If the impport dails due to a SQL import error, show a more specific message
 				const restoreMessage = response.error_data?.vp_restore_message || '';
 				const isSqlImportFailure = /importing sql dump/i.test( restoreMessage );
 				getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pushing to %s' ), syncPushState.selectedSite.name ),
 					message: isSqlImportFailure
-						? __( 'Database import failed on the remote site. Please review your database changes and try again or contact support.' )
+						? __( 'Database import failed on the remote site. Please review your database and try again or contact support and provide details from the logs below.' )
 						: response.error === 'Import timed out'
 							? __(
 									"A timeout error occurred while pushing the site, likely due to its large size. Please try reducing the site's content or files and try again. If this problem persists, please contact support."

@@ -156,6 +156,7 @@ export function useSyncStatesProgressInfo() {
 			'creatingRemoteBackup',
 			'applyingChanges',
 			'finishing',
+			'paused',
 		];
 		if ( ! key ) {
 			return false;

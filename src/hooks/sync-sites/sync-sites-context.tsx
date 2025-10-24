@@ -1,11 +1,9 @@
 import { __, sprintf } from '@wordpress/i18n';
-import React, { createContext, useCallback, useContext, useState, useRef } from 'react';
+import React, { createContext, useCallback, useContext, useState } from 'react';
 import { useListenDeepLinkConnection } from 'src/hooks/sync-sites/use-listen-deep-link-connection';
 import { PullStates, UseSyncPull, useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
 import { PushStates, UseSyncPush, useSyncPush } from 'src/hooks/sync-sites/use-sync-push';
 import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
-import { useIpcListener } from 'src/hooks/use-ipc-listener';
-import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch } from 'src/stores';
 import { useConnectedSitesData, useSyncSitesData, connectedSitesActions } from 'src/stores/sync';
@@ -21,17 +19,13 @@ export type SyncSitesContextType = Omit< UseSyncPull, 'pullStates' > &
 	Omit< UseSyncPush, 'pushStates' > &
 	ReturnType< typeof useSyncSitesData > & {
 		getLastSyncTimeText: GetLastSyncTimeText;
-		pauseAllPushOperations: () => void;
-		resumeAllPushOperations: () => void;
 	};
 
 const SyncSitesContext = createContext< SyncSitesContextType | undefined >( undefined );
 
 export function SyncSitesProvider( { children }: { children: React.ReactNode } ) {
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
-	const { pushStatesProgressInfo } = useSyncStatesProgressInfo();
 	const [ pullStates, setPullStates ] = useState< PullStates >( {} );
-	const pausedPushStatesRef = useRef< PushStates >( {} );
 
 	const getLastSyncTimeText = useCallback< GetLastSyncTimeText >(
 		( timestamp, type ) => {
@@ -102,48 +96,8 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				updateSiteTimestamp( remoteSiteId, localSiteId, 'push' ),
 		} );
 
-	const pauseAllPushOperations = useCallback( () => {
-		// Store current states before pausing
-		pausedPushStatesRef.current = pushStates;
-
-		// Set all push operations to paused state
-		const pausedStates: PushStates = {};
-		Object.entries( pushStates ).forEach( ( [ key, state ] ) => {
-			if (
-				state.status.key !== 'finished' &&
-				state.status.key !== 'failed' &&
-				state.status.key !== 'cancelled'
-			) {
-				pausedStates[ key ] = {
-					...state,
-					status: pushStatesProgressInfo.paused,
-				};
-			} else {
-				pausedStates[ key ] = state;
-			}
-		} );
-		setPushStates( pausedStates );
-	}, [ pushStates, pushStatesProgressInfo.paused ] );
-
-	const resumeAllPushOperations = useCallback( () => {
-		// Restore previous states
-		if ( Object.keys( pausedPushStatesRef.current ).length > 0 ) {
-			setPushStates( pausedPushStatesRef.current );
-			pausedPushStatesRef.current = {};
-		}
-	}, [] );
-
 	const { syncSites, isFetching, refetchSites } = useSyncSitesData();
 	useListenDeepLinkConnection( { refetchSites } );
-
-	// Listen for pause/resume events from main process
-	useIpcListener( 'pause-push-operations', () => {
-		pauseAllPushOperations();
-	} );
-
-	useIpcListener( 'resume-push-operations', () => {
-		resumeAllPushOperations();
-	} );
 
 	return (
 		<SyncSitesContext.Provider
@@ -164,8 +118,6 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				clearPushState,
 				cancelPush,
 				getLastSyncTimeText,
-				pauseAllPushOperations,
-				resumeAllPushOperations,
 			} }
 		>
 			{ children }

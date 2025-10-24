@@ -12,17 +12,12 @@ import { useCallback, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { cx } from 'src/lib/cx';
+import { formatBytes } from 'src/lib/format-bytes';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
 
-const formatFileSize = ( bytes: number ) => {
-	if ( bytes === 0 ) return '0 Bytes';
-	const k = 1024;
-	const sizes = [ 'Bytes', 'KB', 'MB', 'GB' ];
-	const i = Math.floor( Math.log( bytes ) / Math.log( k ) );
-	return Math.round( ( bytes / Math.pow( k, i ) ) * 100 ) / 100 + ' ' + sizes[ i ];
-};
+// Replaced by shared `formatBytes` util
 
 const truncateMiddle = ( filename: string, maxLength: number = 30 ): string => {
 	if ( filename.length <= maxLength ) {
@@ -158,9 +153,7 @@ export default function ImportBackup( {
 							{ truncateMiddle( selectedFile.name ) }
 						</Text>
 						<HStack spacing={ 2 } alignment="center">
-							<Text className="text-base text-gray-600">
-								{ formatFileSize( selectedFile.size ) }
-							</Text>
+							<Text className="text-base text-gray-600">{ formatBytes( selectedFile.size ) }</Text>
 							<button
 								type="button"
 								className="text-base text-blue-600 hover:text-blue-700 focus:outline-none"

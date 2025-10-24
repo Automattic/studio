@@ -13,6 +13,7 @@ import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
 import { SYNC_OPTIONS, SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
 import { useContentFolders } from 'src/hooks/use-content-folders';
 import { cx } from 'src/lib/cx';
+import { formatBytes } from 'src/lib/format-bytes';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { SiteNameBox } from 'src/modules/sync/components/site-name-box';
@@ -133,11 +134,11 @@ export function SyncDialog( {
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );
 	const isSubmitDisabled = treeState.every( ( node ) => ! node.checked && ! node.indeterminate );
-	const { isPushSelectionOverLimit, isLoading: isSizeCheckLoading } = useSelectedItemsPushSize(
-		localSite.id,
-		treeState,
-		type
-	);
+	const {
+		isPushSelectionOverLimit,
+		isLoading: isSizeCheckLoading,
+		selectedSizeInBytes,
+	} = useSelectedItemsPushSize( localSite.id, treeState, type );
 
 	const { fetchChildren, rewindId, isLoadingRewindId, isErrorRewindId } = useDynamicTreeState(
 		type,
@@ -323,6 +324,11 @@ export function SyncDialog( {
 					) }
 					<div className="flex justify-between items-center">
 						<div>
+							{ type === 'push' && ! isSizeCheckLoading && selectedSizeInBytes > 0 && (
+								<p className="text-xs text-gray-600" data-testid="selected-size">
+									{ sprintf( __( 'Selected size: %s' ), formatBytes( selectedSizeInBytes ) ) }
+								</p>
+							) }
 							{ createInterpolateElement( syncTexts.envSync, {
 								a: (
 									<Button

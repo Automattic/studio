@@ -33,7 +33,7 @@ export type SyncBackupResponse = {
 export type RestoreErrorData = {
 	vp_restore_status?: string;
 	vp_restore_message?: string;
-	vp_rewind_id?: string | number | null;
+	vp_rewind_id?: string | null;
 };
 
 export type ImportResponse = {

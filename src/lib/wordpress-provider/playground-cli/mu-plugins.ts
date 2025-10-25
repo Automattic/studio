@@ -40,7 +40,7 @@ async function createLoaderMuPlugin(): Promise< string > {
 		if ( ! defined( 'DB_HOST' ) ) define( 'DB_HOST', 'localhost' );
 		if ( ! defined( 'DB_CHARSET' ) ) define( 'DB_CHARSET', 'utf8' );
 		if ( ! defined( 'DB_COLLATE' ) ) define( 'DB_COLLATE', '' );
-		
+
 		// Set environment type to local if not already defined
 		if ( ! defined( 'WP_ENVIRONMENT_TYPE' ) ) define( 'WP_ENVIRONMENT_TYPE', 'local' );
 
@@ -383,6 +383,46 @@ function getStandardMuPlugins( options: Partial< WordPressServerOptions > ): MuP
 			echo json_encode( $result );
 			exit;
 		}, 1 );
+		`,
+	} );
+
+	// Auto-login functionality via dedicated endpoint
+	muPlugins.push( {
+		filename: '0-auto-login.php',
+		content: `<?php
+		/**
+		 * Auto-Login Endpoint
+		 *
+		 * Provides /playground-auto-login endpoint for automatic authentication
+		 * Usage: /playground-auto-login?redirect_to=/wp-admin/
+		 */
+
+		// Intercept requests to /playground-auto-login
+		add_action( 'init', function() {
+			$request_uri = $_SERVER['REQUEST_URI'] ?? '';
+			if ( strpos( $request_uri, '/playground-auto-login' ) === false ) {
+				return;
+			}
+
+			if ( is_user_logged_in() ) {
+				$redirect_url = isset( $_GET['redirect_to'] ) ? $_GET['redirect_to'] : home_url();
+				wp_safe_redirect( $redirect_url );
+				exit;
+			}
+
+			$user = get_user_by( 'login', 'admin' );
+			if ( ! $user ) {
+				wp_die( 'Auto-login failed: admin user not found' );
+			}
+
+			wp_set_current_user( $user->ID, $user->user_login );
+			wp_set_auth_cookie( $user->ID, true, false );
+			do_action( 'wp_login', $user->user_login, $user );
+			$redirect_url = isset( $_GET['redirect_to'] ) ? $_GET['redirect_to'] : home_url();
+			wp_safe_redirect( $redirect_url );
+			exit;
+
+		}, 1 ); // Priority 1 to run early
 		`,
 	} );
 

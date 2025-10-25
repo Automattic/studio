@@ -932,9 +932,11 @@ export async function openSiteURL(
 		return;
 	}
 
-	const url = new URL( relativeURL, site.server.url );
+	let url = new URL( relativeURL, site.server.url );
 	if ( autoLogin ) {
-		url.searchParams.append( 'playground-auto-login', 'true' );
+		const autoLoginUrl = new URL( '/playground-auto-login', site.server.url );
+		autoLoginUrl.searchParams.append( 'redirect_to', autoLoginUrl.toString() );
+		url = autoLoginUrl;
 	}
 
 	void shellOpenExternalWrapper( url.toString() );

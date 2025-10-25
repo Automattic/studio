@@ -175,11 +175,11 @@ async function startServer(
 
 		const args: RunCLIArgs = {
 			command: 'server',
-			internalCookieStore: true,
+			internalCookieStore: false,
+			login: false,
 			followSymlinks: true,
 			skipSqliteSetup: true,
 			port: options.port,
-			login: false,
 			'mount-before-install': mounts,
 			'site-url': serverOptions.absoluteUrl,
 			blueprint: options.blueprint || {},

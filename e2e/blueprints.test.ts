@@ -6,6 +6,7 @@ import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
 import WhatsNewModal from './page-objects/whats-new-modal';
+import { getUrlWithAutoLogin } from './utils';
 
 test.describe( 'Blueprints', () => {
 	const session = new E2ESession();
@@ -62,8 +63,9 @@ test.describe( 'Blueprints', () => {
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify theme was installed
-		const themesUrl = wpAdminUrl + '/themes.php'
-		await page.goto( `/playground-auto-login?redirect_to=${encodeURIComponent( themesUrl )}` );
+		const themesUrl = wpAdminUrl + '/themes.php';
+		await page.goto( getUrlWithAutoLogin( themesUrl ) );
+
 		await expect( page.locator( '.theme[data-slug="twentytwentytwo"]' ) ).toBeVisible();
 	} );
 
@@ -98,8 +100,8 @@ test.describe( 'Blueprints', () => {
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify theme was activated
-		const themesUrl = wpAdminUrl + '/themes.php'
-		await page.goto( `/playground-auto-login?redirect_to=${encodeURIComponent( themesUrl )}` );
+		const themesUrl = wpAdminUrl + '/themes.php';
+		await page.goto( getUrlWithAutoLogin( themesUrl ) );
 		const activeTheme = page.locator( '.theme.active' );
 		await expect( activeTheme ).toBeVisible();
 		await expect( activeTheme ).toHaveAttribute( 'data-slug', 'twentytwentyone' );
@@ -136,8 +138,8 @@ test.describe( 'Blueprints', () => {
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify plugin was installed
-		const pluginsUrl = wpAdminUrl + '/plugins.php'
-		await page.goto( `/playground-auto-login?redirect_to=${encodeURIComponent( pluginsUrl )}` );
+		const pluginsUrl =  wpAdminUrl + '/plugins.php' ;
+		await page.goto( getUrlWithAutoLogin( pluginsUrl ) );
 		await expect( page.locator( 'tr[data-slug="akismet"]' ) ).toBeVisible();
 	} );
 
@@ -172,8 +174,8 @@ test.describe( 'Blueprints', () => {
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify plugin was activated
-		const pluginsUrl = wpAdminUrl + '/plugins.php'
-		await page.goto( `/playground-auto-login?redirect_to=${encodeURIComponent( pluginsUrl )}` );
+		const pluginsUrl = wpAdminUrl + '/plugins.php';
+		await page.goto( getUrlWithAutoLogin( pluginsUrl ) );
 		// Be more specific - look for the active Hello Dolly plugin
 		const pluginRow = page.locator( 'tr[data-slug="hello-dolly"].active' );
 		await expect( pluginRow ).toBeVisible();
@@ -210,8 +212,8 @@ test.describe( 'Blueprints', () => {
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify the site was created successfully and admin is accessible
-		const optionsGeneralUrl = wpAdminUrl + '/options-general.php'
-		await page.goto( `/playground-auto-login?redirect_to=${encodeURIComponent( optionsGeneralUrl )}` );
+		const optionsGeneralUrl = wpAdminUrl + '/options-general.php';
+		await page.goto( getUrlWithAutoLogin( optionsGeneralUrl ) );
 		await expect( page.getByLabel( 'Site Title' ) ).toBeVisible();
 
 		// Verify the blueprint's landing page works
@@ -250,7 +252,7 @@ test.describe( 'Blueprints', () => {
 
 		// Verify the site was created successfully and admin is accessible
 		const optionsGeneralUrl = wpAdminUrl + '/options-general.php'
-		await page.goto( `/playground-auto-login?redirect_to=${encodeURIComponent( optionsGeneralUrl )}` );
+		await page.goto( getUrlWithAutoLogin( optionsGeneralUrl ) );
 		await expect( page.getByLabel( 'Site Title' ) ).toBeVisible();
 
 		// Verify the blueprint's landing page works

@@ -7,6 +7,7 @@ import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
 import WhatsNewModal from './page-objects/whats-new-modal';
+import { getUrlWithAutoLogin } from './utils';
 
 const skipTestOnWindows = process.platform === 'win32' ? test.skip : test;
 
@@ -81,7 +82,7 @@ test.describe( 'Servers', () => {
 
 		// page.goto opens a browser
 		const optionsGeneralUrl = wpAdminUrl + '/options-general.php'
-		await page.goto( `/playground-auto-login?redirect_to=${encodeURIComponent( optionsGeneralUrl )}` );
+		await page.goto( getUrlWithAutoLogin( optionsGeneralUrl ) );
 		const siteTitleInput = page.getByLabel( 'Site Title' );
 		await siteTitleInput.fill( 'testing site title' );
 		await siteTitleInput.press( 'Enter' );

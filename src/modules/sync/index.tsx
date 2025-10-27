@@ -122,7 +122,6 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const isModalOpen = useRootSelector( connectedSitesSelectors.selectIsModalOpen );
 	const { connectedSites } = useConnectedSitesData();
 	const { syncSites, isFetching, refetchSites } = useSyncSitesData();
-
 	const { connectSite, disconnectSite } = useConnectedSitesOperations();
 
 	const { isAuthenticated } = useAuth();

@@ -62,7 +62,8 @@ test.describe( 'Blueprints', () => {
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify theme was installed
-		await page.goto( wpAdminUrl + '/themes.php?playground-auto-login=true' );
+		const themesUrl = wpAdminUrl + '/themes.php'
+		await page.goto( `/playground-auto-login?redirect_to=${encodeURIComponent( themesUrl )}` );
 		await expect( page.locator( '.theme[data-slug="twentytwentytwo"]' ) ).toBeVisible();
 	} );
 
@@ -97,7 +98,8 @@ test.describe( 'Blueprints', () => {
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify theme was activated
-		await page.goto( wpAdminUrl + '/themes.php?playground-auto-login=true' );
+		const themesUrl = wpAdminUrl + '/themes.php'
+		await page.goto( `/playground-auto-login?redirect_to=${encodeURIComponent( themesUrl )}` );
 		const activeTheme = page.locator( '.theme.active' );
 		await expect( activeTheme ).toBeVisible();
 		await expect( activeTheme ).toHaveAttribute( 'data-slug', 'twentytwentyone' );
@@ -134,7 +136,8 @@ test.describe( 'Blueprints', () => {
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify plugin was installed
-		await page.goto( wpAdminUrl + '/plugins.php?playground-auto-login=true' );
+		const pluginsUrl = wpAdminUrl + '/plugins.php'
+		await page.goto( `/playground-auto-login?redirect_to=${encodeURIComponent( pluginsUrl )}` );
 		await expect( page.locator( 'tr[data-slug="akismet"]' ) ).toBeVisible();
 	} );
 
@@ -169,7 +172,8 @@ test.describe( 'Blueprints', () => {
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify plugin was activated
-		await page.goto( wpAdminUrl + '/plugins.php?playground-auto-login=true' );
+		const pluginsUrl = wpAdminUrl + '/plugins.php'
+		await page.goto( `/playground-auto-login?redirect_to=${encodeURIComponent( pluginsUrl )}` );
 		// Be more specific - look for the active Hello Dolly plugin
 		const pluginRow = page.locator( 'tr[data-slug="hello-dolly"].active' );
 		await expect( pluginRow ).toBeVisible();
@@ -206,7 +210,8 @@ test.describe( 'Blueprints', () => {
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify the site was created successfully and admin is accessible
-		await page.goto( wpAdminUrl + '/options-general.php?playground-auto-login=true' );
+		const optionsGeneralUrl = wpAdminUrl + '/options-general.php'
+		await page.goto( `/playground-auto-login?redirect_to=${encodeURIComponent( optionsGeneralUrl )}` );
 		await expect( page.getByLabel( 'Site Title' ) ).toBeVisible();
 
 		// Verify the blueprint's landing page works
@@ -244,7 +249,8 @@ test.describe( 'Blueprints', () => {
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify the site was created successfully and admin is accessible
-		await page.goto( wpAdminUrl + '/options-general.php?playground-auto-login=true' );
+		const optionsGeneralUrl = wpAdminUrl + '/options-general.php'
+		await page.goto( `/playground-auto-login?redirect_to=${encodeURIComponent( optionsGeneralUrl )}` );
 		await expect( page.getByLabel( 'Site Title' ) ).toBeVisible();
 
 		// Verify the blueprint's landing page works

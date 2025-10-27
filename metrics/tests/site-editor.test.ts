@@ -62,7 +62,7 @@ test.describe( 'Site Editor Load Metrics', () => {
 		const browser = await chromium.launch();
 		const context = await browser.newContext();
 		const page = await context.newPage();
-		await page.goto( `${ wpAdminUrl }?playground-auto-login=true` );
+		await page.goto( `/playground-auto-login?redirect_to=${encodeURIComponent( wpAdminUrl )}` );
 		await page.waitForLoadState( 'networkidle' );
 
 		// Run 2 iterations: 1 warmup + 1 measurement

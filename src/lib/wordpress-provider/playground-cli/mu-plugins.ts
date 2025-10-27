@@ -396,7 +396,7 @@ function getStandardMuPlugins( options: Partial< WordPressServerOptions > ): MuP
 		 * Provides /playground-auto-login endpoint for automatic authentication
 		 * Usage: /playground-auto-login?redirect_to=/wp-admin/
 		 */
-
+		
 		// Intercept requests to /playground-auto-login
 		add_action( 'init', function() {
 			$request_uri = $_SERVER['REQUEST_URI'] ?? '';

@@ -65,7 +65,6 @@ test.describe( 'Blueprints', () => {
 		// Verify theme was installed
 		const themesUrl = wpAdminUrl + '/themes.php';
 		await page.goto( getUrlWithAutoLogin( themesUrl ) );
-
 		await expect( page.locator( '.theme[data-slug="twentytwentytwo"]' ) ).toBeVisible();
 	} );
 

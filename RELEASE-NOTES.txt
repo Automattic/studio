@@ -8,12 +8,9 @@ Unreleased
 * Added support for Windows ARM64 binaries #1916
 * Improved "Add site" Stepper to allow clicks on previously completed steps #1891
 * Updated sync modal design #1910
-* Improved error logging for Playground CLI #1922
-* Fixed extreme window height for long error messages #1927
-* Fixed plugin download timeouts by using low-speed timeout instead of hard timeout #1913
-* Fixed expired previews not getting deleted #1909
-* Fixed TypeScript issue on Windows #1895
-* Changed "WP" to "WordPress" in version label #1897
+* Fixed window height for long error messages #1927
+* Fixed plugin download timeouts #1913
+* Fixed deletion of expired previews #1909
 * Updated multiple dependencies, including Electron, Electron Forge, Playground packages, SQLite plugin, and wpcom libraries to the latest versions
 
 1.6.1

@@ -76,6 +76,7 @@ import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { executePreviewCliCommand } from 'src/modules/cli/lib/execute-preview-command';
+import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tree-utils';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
@@ -92,7 +93,6 @@ import {
 import { Blueprint } from './stores/wpcom-api';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
-import type { GranularSyncFolders } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
 
 /**
@@ -1700,27 +1700,85 @@ export function comparePaths( event: IpcMainInvokeEvent, path1: string, path2: s
 	return arePathsEqual( path1, path2 );
 }
 
-export async function listWpContentFolders(
+export async function listLocalFileTree(
 	_event: Electron.IpcMainInvokeEvent,
 	siteId: string,
-	subdir: GranularSyncFolders
-): Promise< { name: string; type: 'file' | 'folder' }[] > {
+	path: string,
+	parentChecked: boolean = false
+): Promise<
+	{
+		id: string;
+		name: string;
+		label: string;
+		checked: boolean;
+		type: 'file' | 'folder' | 'plugin' | 'theme';
+		path: string;
+		pathId?: string;
+		children?: never[];
+		expanded?: boolean;
+		hideExpandButton?: boolean;
+	}[]
+> {
 	const server = SiteServer.get( siteId );
 	if ( ! server ) throw new Error( 'Site not found' );
-	const wpContentPath = nodePath.join( server.details.path, 'wp-content', subdir );
+
+	const fullPath = nodePath.join( server.details.path, path );
 
 	try {
-		const entries = await fs.promises.readdir( wpContentPath, { withFileTypes: true } );
-		return entries
-			.map( ( e ) => ( {
-				name: e.name.toString(),
-				type: e.isDirectory() ? ( 'folder' as const ) : ( 'file' as const ),
-				hidden: e.name.startsWith( '.' ),
-			} ) )
-			.filter( ( entry: { name: string; hidden: boolean } ) => {
-				return ! entry.hidden;
-			} );
+		const entries = await fs.promises.readdir( fullPath, { withFileTypes: true } );
+		const result = [];
+
+		for ( const entry of entries ) {
+			const isDirectory = entry.isDirectory();
+			const itemPath = path.endsWith( '/' )
+				? `${ path }${ entry.name }`
+				: `${ path }/${ entry.name }`;
+			const fullItemPath = itemPath.endsWith( '/' ) || ! isDirectory ? itemPath : `${ itemPath }/`;
+
+			// Skip excluded files and directories
+			if ( shouldExcludeFromSync( entry.name, itemPath ) ) {
+				continue;
+			}
+
+			// Check if we should limit depth (for plugins and themes)
+			const shouldLimit = shouldLimitDepth( itemPath );
+
+			// Determine the type based on the path context
+			let nodeType: 'file' | 'folder' | 'plugin' | 'theme' = isDirectory ? 'folder' : 'file';
+			if ( isDirectory ) {
+				const normalizedPath = itemPath.replace( /^wp-content\//, '' );
+				if ( normalizedPath.match( /^plugins\/[^/]+$/ ) ) {
+					nodeType = 'plugin';
+				} else if ( normalizedPath.match( /^themes\/[^/]+$/ ) ) {
+					nodeType = 'theme';
+				}
+			}
+
+			const treeNode = {
+				id: `local-${ itemPath.replace( /[^a-zA-Z0-9]/g, '-' ) }`,
+				name: entry.name,
+				label: entry.name,
+				checked: parentChecked,
+				type: nodeType,
+				path: fullItemPath,
+				pathId: fullItemPath,
+				children: isDirectory && ! shouldLimit ? [] : undefined,
+				expanded: false,
+				hideExpandButton: shouldLimit,
+			};
+
+			result.push( treeNode );
+		}
+
+		// Sort directories first, then files, both alphabetically
+		return result.sort( ( a, b ) => {
+			if ( a.type !== b.type ) {
+				return a.type === 'folder' ? -1 : 1;
+			}
+			return a.name.toLowerCase().localeCompare( b.name.toLowerCase() );
+		} );
 	} catch ( err ) {
+		console.error( 'Failed to list local file tree:', err );
 		return [];
 	}
 }

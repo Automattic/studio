@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { TreeNode } from 'src/components/tree-view';
 import { useAuth } from 'src/hooks/use-auth';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import { fetchRemoteFileTree, useGetLatestRewindIdQuery } from './sync-api';
 import { syncSelectors } from './sync-slice';
@@ -68,6 +69,29 @@ export function useRemoteFileTree() {
 	return {
 		isLoading,
 		error: error ? new Error( error ) : null,
+		fetchChildren,
+	};
+}
+
+export function useLocalFileTree() {
+	const fetchChildren = useCallback(
+		async (
+			siteId: string,
+			path: string,
+			parentChecked: boolean = false
+		): Promise< TreeNode[] | null > => {
+			try {
+				const result = await getIpcApi().listLocalFileTree( siteId, path, parentChecked );
+				return result;
+			} catch ( err ) {
+				console.error( 'Failed to fetch local file tree:', err );
+				return null;
+			}
+		},
+		[]
+	);
+
+	return {
 		fetchChildren,
 	};
 }

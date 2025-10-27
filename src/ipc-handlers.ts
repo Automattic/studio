@@ -934,7 +934,7 @@ export async function openSiteURL(
 
 	let url = new URL( relativeURL, site.server.url );
 	if ( autoLogin ) {
-		const autoLoginUrl = new URL( '/playground-auto-login', site.server.url );
+		const autoLoginUrl = new URL( '/studio-auto-login', site.server.url );
 		autoLoginUrl.searchParams.append( 'redirect_to', url.toString() );
 		url = autoLoginUrl;
 	}

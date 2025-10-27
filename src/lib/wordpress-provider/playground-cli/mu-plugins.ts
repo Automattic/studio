@@ -393,14 +393,14 @@ function getStandardMuPlugins( options: Partial< WordPressServerOptions > ): MuP
 		/**
 		 * Auto-Login Endpoint
 		 *
-		 * Provides /playground-auto-login endpoint for automatic authentication
-		 * Usage: /playground-auto-login?redirect_to=/wp-admin/
+		 * Provides /studio-auto-login endpoint for automatic authentication
+		 * Usage: /studio-auto-login?redirect_to=/wp-admin/
 		 */
-		
-		// Intercept requests to /playground-auto-login
+
+		// Intercept requests to /studio-auto-login
 		add_action( 'init', function() {
 			$request_uri = $_SERVER['REQUEST_URI'] ?? '';
-			if ( strpos( $request_uri, '/playground-auto-login' ) === false ) {
+			if ( strpos( $request_uri, '/studio-auto-login' ) === false ) {
 				return;
 			}
 
@@ -422,7 +422,7 @@ function getStandardMuPlugins( options: Partial< WordPressServerOptions > ): MuP
 			wp_safe_redirect( $redirect_url );
 			exit;
 
-		}, 1 ); // Priority 1 to run early
+		}, 1 );
 		`,
 	} );
 

@@ -1339,9 +1339,12 @@ export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteI
 export function addSyncOperation(
 	event: IpcMainInvokeEvent,
 	id: string,
-	state?: PullStateProgressInfo | PushStateProgressInfo
+	metadata?: {
+		type: 'push' | 'pull';
+		status: PullStateProgressInfo | PushStateProgressInfo;
+	}
 ) {
-	ACTIVE_SYNC_OPERATIONS.set( id, state );
+	ACTIVE_SYNC_OPERATIONS.set( id, metadata );
 }
 
 /**

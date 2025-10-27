@@ -2,27 +2,23 @@ import type {
 	PullStateProgressInfo,
 	PushStateProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
+
+export type SyncOperationMetadata = {
+	type: 'push' | 'pull';
+	status: PullStateProgressInfo | PushStateProgressInfo;
+};
+
 /**
- * This set is used to store the IDs of active sync operations. It's used to determine if we should
- * display a confirmation modal before quitting the app.
+ * This map stores active sync operations. The key format is `${localSiteId}-${remoteSiteId}`.
+ * This is used to determine if we should display a confirmation modal before quitting the app.
  */
-export const ACTIVE_SYNC_OPERATIONS = new Map<
-	string,
-	PullStateProgressInfo | PushStateProgressInfo | undefined
->();
+export const ACTIVE_SYNC_OPERATIONS = new Map< string, SyncOperationMetadata | undefined >();
 
 /**
  * Determine if the set of active push/pull operations has any members.
  */
 export function hasActiveSyncOperations(): boolean {
 	return ACTIVE_SYNC_OPERATIONS.size > 0;
-}
-
-export function getSyncOperations(): Map<
-	string,
-	PullStateProgressInfo | PushStateProgressInfo | undefined
-> {
-	return ACTIVE_SYNC_OPERATIONS;
 }
 
 /**
@@ -49,10 +45,11 @@ export function canCancelPush( key: PushStateProgressInfo[ 'key' ] | undefined )
 
 export function hasCancelableSyncOperations(): boolean {
 	//  Iterate over all the sites and check if any operation is cancelable
-	for ( const [ , state ] of ACTIVE_SYNC_OPERATIONS ) {
-		if ( state && 'key' in state ) {
-			return canCancelPush( state.key as PushStateProgressInfo[ 'key' ] );
+	for ( const [ , metadata ] of ACTIVE_SYNC_OPERATIONS ) {
+		if ( metadata && metadata.status && 'key' in metadata.status ) {
+			return canCancelPush( metadata.status.key as PushStateProgressInfo[ 'key' ] );
 		}
 	}
+	// If there is no metadata, is cancelable
 	return true;
 }

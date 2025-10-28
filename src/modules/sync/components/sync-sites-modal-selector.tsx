@@ -199,9 +199,6 @@ function SiteItem( {
 	onClick: () => void;
 } ) {
 	const { __ } = useI18n();
-	if ( site.isStaging ) {
-		return null;
-	}
 	const isAlreadyConnected = site.syncSupport === 'already-connected';
 	const isSyncable = site.syncSupport === 'syncable';
 	const isNeedsTransfer = site.syncSupport === 'needs-transfer';
@@ -284,17 +281,7 @@ function SiteItem( {
 			</div>
 			{ isSyncable && (
 				<div className="flex gap-2">
-					{ ! isPressable && (
-						<>
-							<EnvironmentBadge type={ getSiteEnvironment( site ) } selected={ isSelected } />
-							{ site.stagingSiteIds.length > 0 && (
-								<EnvironmentBadge type="staging" selected={ isSelected } />
-							) }
-						</>
-					) }
-					{ isPressable && (
-						<EnvironmentBadge type={ getSiteEnvironment( site ) } selected={ isSelected } />
-					) }
+					<EnvironmentBadge type={ getSiteEnvironment( site ) } selected={ isSelected } />
 				</div>
 			) }
 			{ isAlreadyConnected && (

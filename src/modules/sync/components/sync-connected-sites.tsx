@@ -3,7 +3,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
 import { cloudUpload, cloudDownload, info, close } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { ClearAction } from 'src/components/clear-action';
@@ -31,13 +31,6 @@ import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useAppDispatch, useI18nLocale } from 'src/stores';
 import { connectedSitesActions, useConnectedSitesData } from 'src/stores/sync';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
-
-interface ConnectedSiteSection {
-	id: number;
-	name: string;
-	provider: 'wpcom';
-	connectedSites: SyncSite[];
-}
 
 const SyncConnectedSiteControls = ( {
 	connectedSite,
@@ -176,12 +169,12 @@ const SyncConnectedSiteControls = ( {
 
 type SyncConnectedSitesListProps = {
 	selectedSite: SiteDetails;
-	connectedSites: SyncSite[];
+	connectedSite: SyncSite;
 };
 
-const SyncConnectedSitesList = ( {
+const SyncConnectedSitesSectionItem = ( {
 	selectedSite,
-	connectedSites,
+	connectedSite,
 }: SyncConnectedSitesListProps ) => {
 	const { __ } = useI18n();
 	const { clearPullState, getPullState, getPushState, clearPushState, cancelPull, cancelPush } =
@@ -196,181 +189,170 @@ const SyncConnectedSitesList = ( {
 		getPullStatusWithProgress,
 	} = useSyncStatesProgressInfo();
 
+	const sitePullState = getPullState( selectedSite.id, connectedSite.id );
+	const isPulling = sitePullState && isKeyPulling( sitePullState.status.key );
+	const isPullError = sitePullState && isKeyFailed( sitePullState.status.key );
+	const hasPullFinished = sitePullState && isKeyFinished( sitePullState.status.key );
+	const hasPullCancelled = sitePullState && isKeyCancelled( sitePullState.status.key );
+	const { message: sitePullStatusMessage, progress: sitePullStatusProgress } =
+		getPullStatusWithProgress( sitePullState?.status, importState[ connectedSite.localSiteId ] );
+
+	const pushState = getPushState( selectedSite.id, connectedSite.id );
+	const isPushing = pushState && isKeyPushing( pushState.status.key );
+	const isPushError = pushState && isKeyFailed( pushState.status.key );
+	const hasPushFinished = pushState && isKeyFinished( pushState.status.key );
+	const hasPushCancelled = pushState && isKeyCancelled( pushState.status.key );
+
 	return (
 		<div className="grid grid-cols-[max-content_1fr_max-content]">
-			{ connectedSites.map( ( connectedSite ) => {
-				const sitePullState = getPullState( selectedSite.id, connectedSite.id );
-				const isPulling = sitePullState && isKeyPulling( sitePullState.status.key );
-				const isPullError = sitePullState && isKeyFailed( sitePullState.status.key );
-				const hasPullFinished = sitePullState && isKeyFinished( sitePullState.status.key );
-				const hasPullCancelled = sitePullState && isKeyCancelled( sitePullState.status.key );
-				const { message: sitePullStatusMessage, progress: sitePullStatusProgress } =
-					getPullStatusWithProgress(
-						sitePullState?.status,
-						importState[ connectedSite.localSiteId ]
-					);
+			<div
+				className={ `col-span-3 grid min-h-14 px-8 gap-4 justify-items-start items-center border-b border-a8c-gray-0 ${
+					connectedSite.isPressable && ! connectedSite.environmentType
+						? 'grid-cols-[1fr_auto]'
+						: 'grid-cols-subgrid'
+				}` }
+				key={ connectedSite.id }
+			>
+				<div className="shrink-0">
+					<EnvironmentBadge type={ getSiteEnvironment( connectedSite ) } />
+				</div>
 
-				const pushState = getPushState( selectedSite.id, connectedSite.id );
-				const isPushing = pushState && isKeyPushing( pushState.status.key );
-				const isPushError = pushState && isKeyFailed( pushState.status.key );
-				const hasPushFinished = pushState && isKeyFinished( pushState.status.key );
-				const hasPushCancelled = pushState && isKeyCancelled( pushState.status.key );
+				<Button
+					variant="link"
+					className="!text-a8c-gray-70 hover:!text-a8c-blue-50 max-w-full overflow-hidden"
+					onClick={ () => {
+						getIpcApi().openURL( connectedSite.url );
+					} }
+				>
+					<span className="truncate">{ connectedSite.url.replace( /^https?:\/\//, '' ) }</span>{ ' ' }
+					<ArrowIcon />
+				</Button>
 
-				return (
-					<div
-						className={ `col-span-3 grid min-h-14 px-8 gap-4 justify-items-start items-center border-b border-a8c-gray-0 ${
-							connectedSite.isPressable && ! connectedSite.environmentType
-								? 'grid-cols-[1fr_auto]'
-								: 'grid-cols-subgrid'
-						}` }
-						key={ connectedSite.id }
-					>
-						<div className="shrink-0">
-							<EnvironmentBadge type={ getSiteEnvironment( connectedSite ) } />
+				<div className="flex shrink-0 justify-self-end">
+					{ isPulling && (
+						<div className="flex items-center gap-2 max-w-full">
+							<div className="flex flex-col gap-2 min-w-44 flex-shrink">
+								<div className="a8c-body-small">{ sitePullStatusMessage }</div>
+								<ProgressBar value={ sitePullStatusProgress } maxValue={ 100 } />
+							</div>
+							<Tooltip
+								text={
+									canCancelPull( sitePullState?.status.key )
+										? __( 'Cancel pull' )
+										: __( 'Pull can not be cancelled while importing changes to your local site' )
+								}
+								placement="top-start"
+							>
+								<Button
+									variant="link"
+									onClick={ () => cancelPull( selectedSite.id, connectedSite.id ) }
+									disabled={ ! canCancelPull( sitePullState?.status.key ) }
+									className="!p-0 flex-shrink-0"
+								>
+									<Icon icon={ close } size={ 20 } />
+								</Button>
+							</Tooltip>
 						</div>
-
-						<Button
-							variant="link"
-							className="!text-a8c-gray-70 hover:!text-a8c-blue-50 max-w-full overflow-hidden"
-							onClick={ () => {
-								getIpcApi().openURL( connectedSite.url );
-							} }
+					) }
+					{ sitePullState?.status && hasPullCancelled && (
+						<ClearAction onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }>
+							{ __( 'Pull cancelled' ) }
+						</ClearAction>
+					) }
+					{ isPullError && (
+						<ClearAction
+							onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }
+							isError
 						>
-							<span className="truncate">{ connectedSite.url.replace( /^https?:\/\//, '' ) }</span>{ ' ' }
-							<ArrowIcon />
-						</Button>
-
-						<div className="flex shrink-0 justify-self-end">
-							{ isPulling && (
-								<div className="flex items-center gap-2 max-w-full">
-									<div className="flex flex-col gap-2 min-w-44 flex-shrink">
-										<div className="a8c-body-small">{ sitePullStatusMessage }</div>
-										<ProgressBar value={ sitePullStatusProgress } maxValue={ 100 } />
-									</div>
-									<Tooltip
-										text={
-											canCancelPull( sitePullState?.status.key )
-												? __( 'Cancel pull' )
-												: __(
-														'Pull can not be cancelled while importing changes to your local site'
-												  )
-										}
-										placement="top-start"
-									>
-										<Button
-											variant="link"
-											onClick={ () => cancelPull( selectedSite.id, connectedSite.id ) }
-											disabled={ ! canCancelPull( sitePullState?.status.key ) }
-											className="!p-0 flex-shrink-0"
-										>
-											<Icon icon={ close } size={ 20 } />
-										</Button>
-									</Tooltip>
-								</div>
-							) }
-							{ sitePullState?.status && hasPullCancelled && (
-								<ClearAction onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }>
-									{ __( 'Pull cancelled' ) }
-								</ClearAction>
-							) }
-							{ isPullError && (
-								<ClearAction
-									onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }
-									isError
-								>
-									{ __( 'Error pulling changes' ) }
-								</ClearAction>
-							) }
-							{ isPushError && (
-								<ClearAction
-									onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }
-									isError
-								>
-									{ __( 'Error pushing changes' ) }
-								</ClearAction>
-							) }
-							{ hasPullFinished && (
-								<ClearAction onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }>
-									{ __( 'Pull complete' ) }
-								</ClearAction>
-							) }
-							{ pushState?.status && isPushing && (
-								<div className="flex items-center gap-2 max-w-full">
-									<Tooltip
-										text={ __(
-											'Push is in progress. We will send you an email when it is completed.'
-										) }
-										placement="top-start"
-									>
-										<div className="flex flex-col gap-2 min-w-44 flex-shrink">
-											<div className="a8c-body-small flex items-center gap-0.5">
-												<Icon icon={ info } size={ 16 } />
-												{ pushState.status.message }
-											</div>
-											<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
-										</div>
-									</Tooltip>
-									<Tooltip
-										text={
-											canCancelPush( pushState?.status.key )
-												? __( 'Cancel push' )
-												: __(
-														'Push can not be cancelled while applying changes to the remote site'
-												  )
-										}
-										placement="top-start"
-									>
-										<Button
-											variant="link"
-											onClick={ () => cancelPush( selectedSite.id, connectedSite.id ) }
-											disabled={ ! canCancelPush( pushState?.status.key ) }
-											className="!p-0 flex-shrink-0"
-										>
-											<Icon icon={ close } size={ 20 } />
-										</Button>
-									</Tooltip>
-								</div>
-							) }
-							{ pushState?.status && hasPushCancelled && (
-								<ClearAction onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }>
-									{ __( 'Push cancelled' ) }
-								</ClearAction>
-							) }
-
-							{ pushState?.status && hasPushFinished && (
-								<ClearAction onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }>
-									{ pushState.status.message }
-								</ClearAction>
-							) }
-							{ ! isPulling &&
-								! hasPullFinished &&
-								! isPullError &&
-								! isPushError &&
-								! isPushing &&
-								! hasPushFinished &&
-								! hasPullCancelled &&
-								! hasPushCancelled && (
-									<SyncConnectedSiteControls
-										connectedSite={ connectedSite }
-										selectedSite={ selectedSite }
-									/>
+							{ __( 'Error pulling changes' ) }
+						</ClearAction>
+					) }
+					{ isPushError && (
+						<ClearAction
+							onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }
+							isError
+						>
+							{ __( 'Error pushing changes' ) }
+						</ClearAction>
+					) }
+					{ hasPullFinished && (
+						<ClearAction onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }>
+							{ __( 'Pull complete' ) }
+						</ClearAction>
+					) }
+					{ pushState?.status && isPushing && (
+						<div className="flex items-center gap-2 max-w-full">
+							<Tooltip
+								text={ __(
+									'Push is in progress. We will send you an email when it is completed.'
 								) }
+								placement="top-start"
+							>
+								<div className="flex flex-col gap-2 min-w-44 flex-shrink">
+									<div className="a8c-body-small flex items-center gap-0.5">
+										<Icon icon={ info } size={ 16 } />
+										{ pushState.status.message }
+									</div>
+									<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
+								</div>
+							</Tooltip>
+							<Tooltip
+								text={
+									canCancelPush( pushState?.status.key )
+										? __( 'Cancel push' )
+										: __( 'Push can not be cancelled while applying changes to the remote site' )
+								}
+								placement="top-start"
+							>
+								<Button
+									variant="link"
+									onClick={ () => cancelPush( selectedSite.id, connectedSite.id ) }
+									disabled={ ! canCancelPush( pushState?.status.key ) }
+									className="!p-0 flex-shrink-0"
+								>
+									<Icon icon={ close } size={ 20 } />
+								</Button>
+							</Tooltip>
 						</div>
-					</div>
-				);
-			} ) }
+					) }
+					{ pushState?.status && hasPushCancelled && (
+						<ClearAction onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }>
+							{ __( 'Push cancelled' ) }
+						</ClearAction>
+					) }
+
+					{ pushState?.status && hasPushFinished && (
+						<ClearAction onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }>
+							{ pushState.status.message }
+						</ClearAction>
+					) }
+					{ ! isPulling &&
+						! hasPullFinished &&
+						! isPullError &&
+						! isPushError &&
+						! isPushing &&
+						! hasPushFinished &&
+						! hasPullCancelled &&
+						! hasPushCancelled && (
+							<SyncConnectedSiteControls
+								connectedSite={ connectedSite }
+								selectedSite={ selectedSite }
+							/>
+						) }
+				</div>
+			</div>
 		</div>
 	);
 };
 
 type SyncConnectedSiteSectionProps = {
-	section: ConnectedSiteSection;
+	connectedSite: SyncSite;
 	disconnectSite: ( id: number ) => void;
 	selectedSite: SiteDetails;
 };
 
 const SyncConnectedSiteSection = ( {
-	section,
+	connectedSite,
 	disconnectSite,
 	selectedSite,
 }: SyncConnectedSiteSectionProps ) => {
@@ -386,8 +368,8 @@ const SyncConnectedSiteSection = ( {
 			const CANCEL_BUTTON_INDEX = 1;
 			const DISCONNECT_BUTTON_INDEX = 0;
 
-			const disconnectMessage = section.name
-				? sprintf( __( 'Disconnect %s' ), section.name )
+			const disconnectMessage = connectedSite.name
+				? sprintf( __( 'Disconnect %s' ), connectedSite.name )
 				: __( 'Disconnect site' );
 
 			const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
@@ -404,38 +386,31 @@ const SyncConnectedSiteSection = ( {
 				if ( checkboxChecked ) {
 					localStorage.setItem( 'dontShowDisconnectWarning', 'true' );
 				}
-				disconnectSite( section.id );
-				section.connectedSites.forEach( ( connectedSite ) => {
-					clearPullState( selectedSite.id, connectedSite.id );
-				} );
+				disconnectSite( connectedSite.id );
+				clearPullState( selectedSite.id, connectedSite.id );
 			}
 		} else {
-			disconnectSite( section.id );
+			disconnectSite( connectedSite.id );
 		}
 	};
 
-	const mainSite = section.connectedSites.find( ( item ) => ! item.isStaging );
-	const hasConnectionErrors = mainSite?.syncSupport !== 'already-connected';
-	const isPulling = section.connectedSites.some( ( site ) =>
-		isSiteIdPulling( selectedSite.id, site.id )
-	);
-	const isPushing = section.connectedSites.some( ( site ) =>
-		isSiteIdPushing( selectedSite.id, site.id )
-	);
+	const hasConnectionErrors = connectedSite?.syncSupport !== 'already-connected';
+	const isPulling = isSiteIdPulling( selectedSite.id, connectedSite.id );
+	const isPushing = isSiteIdPushing( selectedSite.id, connectedSite.id );
 
 	let logo = <WordPressLogoCircle />;
 	if ( hasConnectionErrors ) {
 		logo = <CircleRedCrossIcon />;
-	} else if ( mainSite?.isPressable ) {
+	} else if ( connectedSite.isPressable ) {
 		logo = <PressableLogo />;
 	}
 
 	return (
-		<div key={ section.id } className="flex flex-col gap-2 mb-6">
+		<div key={ connectedSite.id } className="flex flex-col gap-2 mb-6">
 			<div className="flex items-center gap-2 border-b border-a8c-gray-0 px-8 pb-2.5">
 				{ logo }
 				<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
-					{ section.name }
+					{ connectedSite.name }
 				</div>
 				<div className="ms-auto">
 					<Tooltip
@@ -476,7 +451,7 @@ const SyncConnectedSiteSection = ( {
 					</div>
 					<Button
 						onClick={ () => {
-							disconnectSite( section.id );
+							disconnectSite( connectedSite.id );
 							dispatch( connectedSitesActions.openModal() );
 						} }
 						variant="primary"
@@ -488,9 +463,9 @@ const SyncConnectedSiteSection = ( {
 			) }
 
 			{ ! hasConnectionErrors && (
-				<SyncConnectedSitesList
+				<SyncConnectedSitesSectionItem
 					selectedSite={ selectedSite }
-					connectedSites={ section.connectedSites }
+					connectedSite={ connectedSite }
 				/>
 			) }
 		</div>
@@ -506,46 +481,12 @@ export function SyncConnectedSites( {
 	disconnectSite: ( id: number ) => void;
 	selectedSite: SiteDetails;
 } ) {
-	const siteSections: ConnectedSiteSection[] = useMemo( () => {
-		const siteSections: ConnectedSiteSection[] = [];
-		const processedSites = new Set< number >();
-
-		connectedSites.forEach( ( connectedSite ) => {
-			if ( processedSites.has( connectedSite.id ) ) {
-				return; // Skip if we've already processed this site
-			}
-
-			const section: ConnectedSiteSection = {
-				id: connectedSite.id,
-				name: connectedSite.name,
-				provider: 'wpcom',
-				connectedSites: [ connectedSite ],
-			};
-
-			processedSites.add( connectedSite.id );
-
-			if ( connectedSite.stagingSiteIds ) {
-				for ( const id of connectedSite.stagingSiteIds ) {
-					const stagingSite = connectedSites.find( ( site ) => site.id === id );
-					if ( stagingSite ) {
-						section.connectedSites.push( stagingSite );
-						processedSites.add( stagingSite.id );
-					}
-				}
-			}
-
-			siteSections.push( section );
-		} );
-
-		return siteSections;
-	}, [ connectedSites ] );
-
 	return (
 		<div className="flex flex-col flex-1 pt-8">
-			{ siteSections.map( ( section ) => (
+			{ connectedSites.map( ( connectedSite ) => (
 				<SyncConnectedSiteSection
-					key={ section.id }
-					section={ section }
+					key={ connectedSite.id }
+					connectedSite={ connectedSite }
 					selectedSite={ selectedSite }
 					disconnectSite={ disconnectSite }
 				/>

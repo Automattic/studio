@@ -46,6 +46,7 @@ import {
 	trustRootCA,
 } from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
+import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { sanitizeFolderName } from 'src/lib/generate-site-name';
 import { getImageData } from 'src/lib/get-image-data';
@@ -513,7 +514,11 @@ export async function startServer(
 			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
 		}
 
-		Sentry.captureException( error );
+		Sentry.captureException( error, {
+			tags: {
+				provider: getWordPressProvider().PROVIDER_TYPE,
+			},
+		} );
 		if (
 			error instanceof Error &&
 			error.message.includes( '"unreachable" WASM instruction executed' )
@@ -931,9 +936,11 @@ export async function openSiteURL(
 		return;
 	}
 
-	const url = new URL( relativeURL, site.server.url );
+	let url = new URL( relativeURL, site.server.url );
 	if ( autoLogin ) {
-		url.searchParams.append( 'playground-auto-login', 'true' );
+		const autoLoginUrl = new URL( '/studio-auto-login', site.server.url );
+		autoLoginUrl.searchParams.append( 'redirect_to', url.toString() );
+		url = autoLoginUrl;
 	}
 
 	void shellOpenExternalWrapper( url.toString() );
@@ -1170,8 +1177,9 @@ export async function showErrorMessageBox(
 		showOpenLogs = false,
 	}: { title: string; message: string; error?: unknown; showOpenLogs?: boolean }
 ) {
+	const simplifiedError = simplifyErrorForDisplay( error );
 	// Remove prepended error message added by IPC handler
-	const filteredError = ( error as Error )?.message?.replace(
+	const filteredError = ( simplifiedError as Error )?.message?.replace(
 		/Error invoking remote method '\w+': Error:/g,
 		''
 	);

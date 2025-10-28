@@ -11,10 +11,27 @@ export async function promptWindowsSpeedUpSites( {
 	skipIfAlreadyPrompted: boolean;
 } ) {
 	const userData = await loadUserData();
+	const currentAppVersion = app.getVersion();
+	const previousResponse = userData.promptWindowsSpeedUpResult?.response;
+	const previousAppVersion = userData.promptWindowsSpeedUpResult?.appVersion;
+	const dontAskAgain = userData.promptWindowsSpeedUpResult?.dontAskAgain;
+
+	if ( process.platform !== 'win32' ) {
+		return;
+	}
+
+	// Handle legacy promptWindowsSpeedUpResult format
+	if ( skipIfAlreadyPrompted && typeof userData.promptWindowsSpeedUpResult === 'string' ) {
+		if ( userData.promptWindowsSpeedUpResult === 'yes' ) {
+			return;
+		}
+	}
 
 	if (
-		process.platform !== 'win32' ||
-		( skipIfAlreadyPrompted && typeof userData.promptWindowsSpeedUpResult !== 'undefined' )
+		skipIfAlreadyPrompted &&
+		( previousResponse === 'yes' ||
+			dontAskAgain ||
+			( previousResponse === 'no' && previousAppVersion === currentAppVersion ) )
 	) {
 		return;
 	}
@@ -25,20 +42,27 @@ export async function promptWindowsSpeedUpSites( {
 	const buttons = [ AUTOMATIC_UPDATE, NOT_INTERESTED ];
 
 	const mainWindow = await getMainWindow();
-	const { response } = await dialog.showMessageBox( mainWindow, {
+	const { response, checkboxChecked } = await dialog.showMessageBox( mainWindow, {
 		type: 'question',
 		buttons,
 		title: __( 'Want to speed up site creation?' ),
 		message: __(
 			"Microsoft Defender's Real-time protection may slow site creation.\n\nTo create sites quickly, we recommend disabling Real-time protection for the Studio app."
 		),
+		...( skipIfAlreadyPrompted && { checkboxLabel: __( "Don't ask me again" ) } ),
 		cancelId: buttons.indexOf( NOT_INTERESTED ),
 	} );
 
 	switch ( response ) {
 		case buttons.indexOf( AUTOMATIC_UPDATE ):
 			// Update Windows Defender configuration
-			await updateAppdata( { promptWindowsSpeedUpResult: 'yes' } );
+			await updateAppdata( {
+				promptWindowsSpeedUpResult: {
+					response: 'yes',
+					appVersion: currentAppVersion,
+					dontAskAgain: checkboxChecked,
+				},
+			} );
 			try {
 				await excludeProcessInWindowsDefender();
 			} catch ( _error ) {
@@ -54,7 +78,13 @@ export async function promptWindowsSpeedUpSites( {
 			break;
 		case buttons.indexOf( NOT_INTERESTED ):
 			// Skip it, user is not interested
-			await updateAppdata( { promptWindowsSpeedUpResult: 'no' } );
+			await updateAppdata( {
+				promptWindowsSpeedUpResult: {
+					response: 'no',
+					appVersion: currentAppVersion,
+					dontAskAgain: checkboxChecked,
+				},
+			} );
 			break;
 	}
 }

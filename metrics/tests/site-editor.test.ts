@@ -3,6 +3,7 @@ import { E2ESession } from '../../e2e/e2e-helpers';
 import Onboarding from '../../e2e/page-objects/onboarding';
 import SiteContent from '../../e2e/page-objects/site-content';
 import WhatsNewModal from '../../e2e/page-objects/whats-new-modal';
+import { getUrlWithAutoLogin } from '../../e2e/utils';
 import { median } from '../utils';
 
 test.describe( 'Site Editor Load Metrics', () => {
@@ -62,7 +63,7 @@ test.describe( 'Site Editor Load Metrics', () => {
 		const browser = await chromium.launch();
 		const context = await browser.newContext();
 		const page = await context.newPage();
-		await page.goto( `${ wpAdminUrl }?playground-auto-login=true` );
+		await page.goto( getUrlWithAutoLogin( wpAdminUrl ) );
 		await page.waitForLoadState( 'networkidle' );
 
 		// Run 2 iterations: 1 warmup + 1 measurement

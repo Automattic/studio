@@ -13,7 +13,6 @@ type PushOptionsWithSelections = {
 	};
 };
 
-
 const shouldExcludePathFromSync = ( path: string ): boolean => {
 	const normalizedPath = path.replace( /^wp-content\//, '' ).replace( /^\/+|\/+$/g, '' );
 

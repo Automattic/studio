@@ -7,7 +7,7 @@ import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { SyncSite, SyncSupport } from 'src/hooks/use-fetch-wpcom-sites/types';
 
-export const sitesEndpointSiteSchema = z.object( {
+const sitesEndpointSiteSchema = z.object( {
 	ID: z.number(),
 	is_wpcom_atomic: z.boolean(),
 	name: z.string(),
@@ -50,7 +50,7 @@ export const sitesEndpointSiteSchema = z.object( {
 type SitesEndpointSite = z.infer< typeof sitesEndpointSiteSchema >;
 
 // We use a permissive schema for the API response to fail gracefully if a single site is malformed
-export const sitesEndpointResponseSchema = z.object( {
+const sitesEndpointResponseSchema = z.object( {
 	sites: z.array( z.unknown() ),
 } );
 
@@ -98,7 +98,7 @@ export function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: numbe
 	return 'syncable';
 }
 
-export function transformSingleSiteResponse(
+function transformSingleSiteResponse(
 	site: SitesEndpointSite,
 	syncSupport: SyncSupport,
 	isStaging: boolean
@@ -111,14 +111,13 @@ export function transformSingleSiteResponse(
 		isStaging,
 		isPressable: isPressableSite( site ),
 		environmentType: site.environment_type,
-		stagingSiteIds: site.options?.wpcom_staging_blog_ids ?? [],
 		syncSupport,
 		lastPullTimestamp: null,
 		lastPushTimestamp: null,
 	};
 }
 
-export function transformSitesResponse( sites: unknown[], connectedSiteIds: number[] ): SyncSite[] {
+function transformSitesResponse( sites: unknown[], connectedSiteIds: number[] ): SyncSite[] {
 	const validatedSites = sites.reduce< SitesEndpointSite[] >( ( acc, rawSite ) => {
 		try {
 			const site = sitesEndpointSiteSchema.parse( rawSite );
@@ -146,7 +145,7 @@ export function transformSitesResponse( sites: unknown[], connectedSiteIds: numb
 		} );
 }
 
-export type FetchSites = () => Promise< SyncSite[] >;
+type FetchSites = () => Promise< SyncSite[] >;
 
 export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[] ) => {
 	const [ rawSyncSites, setRawSyncSites ] = useState< unknown[] >( [] );
@@ -210,28 +209,8 @@ export const useFetchWpComSites = ( connectedSiteIdsOnlyForSelectedSite: number[
 			);
 
 			// whenever array of syncSites changes, we need to update connectedSites to keep them updated with wordpress.com
-			const { updatedConnectedSites, stagingSitesToAdd, stagingSitesToDelete } =
-				reconcileConnectedSites( allConnectedSites, syncSites );
-
+			const { updatedConnectedSites } = reconcileConnectedSites( allConnectedSites, syncSites );
 			await getIpcApi().updateConnectedWpcomSites( updatedConnectedSites );
-
-			if ( stagingSitesToDelete.length ) {
-				const data = stagingSitesToDelete.map( ( { id, localSiteId } ) => ( {
-					siteIds: [ id ],
-					localSiteId,
-				} ) );
-
-				await getIpcApi().disconnectWpcomSites( data );
-			}
-
-			if ( stagingSitesToAdd.length ) {
-				const data = stagingSitesToAdd.map( ( site ) => ( {
-					sites: [ site ],
-					localSiteId: site.localSiteId,
-				} ) );
-
-				await getIpcApi().connectWpcomSites( data );
-			}
 
 			setRawSyncSites( parsedResponse.sites );
 

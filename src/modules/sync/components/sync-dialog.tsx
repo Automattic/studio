@@ -47,7 +47,8 @@ const useDynamicTreeState = (
 		skip: type === 'push',
 	} );
 	const { fetchChildren } = useRemoteFileTree();
-	const { fetchChildren: fetchLocalChildren } = useLocalFileTree();
+	const { fetchChildren: fetchLocalChildren, isLoading: isLoadingLocalFileTree } =
+		useLocalFileTree();
 
 	// If the site was just created and if there is no rewind_id yet,
 	// then all options are pre-checked to allow only a full sync
@@ -112,7 +113,14 @@ const useDynamicTreeState = (
 		localSiteId,
 	] );
 
-	return { rewindId, fetchChildren, fetchLocalChildren, isLoadingRewindId, isErrorRewindId };
+	return {
+		rewindId,
+		fetchChildren,
+		fetchLocalChildren,
+		isLoadingRewindId,
+		isErrorRewindId,
+		isLoadingLocalFileTree,
+	};
 };
 
 export function SyncDialog( {
@@ -138,8 +146,14 @@ export function SyncDialog( {
 		type
 	);
 
-	const { fetchChildren, fetchLocalChildren, rewindId, isLoadingRewindId, isErrorRewindId } =
-		useDynamicTreeState( type, localSite.id, remoteSite.id, setTreeState );
+	const {
+		fetchChildren,
+		fetchLocalChildren,
+		rewindId,
+		isLoadingRewindId,
+		isErrorRewindId,
+		isLoadingLocalFileTree,
+	} = useDynamicTreeState( type, localSite.id, remoteSite.id, setTreeState );
 
 	const localSiteName = <SiteNameBox siteName={ localSite.name } envType="studio" />;
 	const remoteSiteName = <SiteNameBox siteName={ remoteSite.name } envType={ siteEnv } />;
@@ -256,7 +270,8 @@ export function SyncDialog( {
 				>
 					<div className="px-8 pb-2 relative">
 						{ type === 'pull' && isLoadingRewindId && <TreeViewLoadingSkeleton /> }
-						{ ! isLoadingRewindId && (
+						{ type === 'push' && isLoadingLocalFileTree && <TreeViewLoadingSkeleton /> }
+						{ ! isLoadingRewindId && ! isLoadingLocalFileTree && (
 							<>
 								<div className="absolute end-6 z-10 top-[6px]">
 									<SelectControl

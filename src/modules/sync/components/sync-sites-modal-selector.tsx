@@ -281,12 +281,7 @@ function SiteItem( {
 			</div>
 			{ isSyncable && (
 				<div className="flex gap-2">
-					{ ! isPressable && (
-						<EnvironmentBadge type={ getSiteEnvironment( site ) } selected={ isSelected } />
-					) }
-					{ isPressable && (
-						<EnvironmentBadge type={ getSiteEnvironment( site ) } selected={ isSelected } />
-					) }
+					<EnvironmentBadge type={ getSiteEnvironment( site ) } selected={ isSelected } />
 				</div>
 			) }
 			{ isAlreadyConnected && (

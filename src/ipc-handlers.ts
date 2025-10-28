@@ -172,9 +172,7 @@ export async function importSite(
 	}
 	try {
 		if ( ! isWordPressDirectory( site.details.path ) ) {
-			// Workaround to have the necessary WordPress files to run the import - STU-744
-			await site.start();
-			await site.stop();
+			await getWordPressProvider().setupWordPressFilesOnly( site.details.path );
 		}
 
 		const onEvent = ( data: ImportExportEventData ) => {
@@ -188,6 +186,9 @@ export async function importSite(
 		if ( result?.meta?.phpVersion ) {
 			site.details.phpVersion = result.meta.phpVersion;
 		}
+
+		// Clear blueprint so it doesn't overwrite imported data on first start
+		site.meta.blueprint = undefined;
 
 		return site.details;
 	} catch ( e ) {

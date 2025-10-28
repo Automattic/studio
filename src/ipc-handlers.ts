@@ -1720,17 +1720,14 @@ async function listLocalFileTreeRecursive(
 			const itemPath = path.endsWith( '/' )
 				? `${ path }${ entry.name }`
 				: `${ path }/${ entry.name }`;
-			const fullItemPath = itemPath.endsWith( '/' ) || ! isDirectory ? itemPath : `${ itemPath }/`;
+			const fullItemPath = isDirectory ? `${ itemPath }/` : itemPath;
 
-			// Skip excluded files and directories
-			if ( shouldExcludeFromSync( entry.name, itemPath ) ) {
+			if ( shouldExcludeFromSync( entry.name ) ) {
 				continue;
 			}
 
-			// Check if we should limit depth (for plugins and themes)
 			const shouldLimit = shouldLimitDepth( itemPath );
 
-			// Determine the type based on the path context
 			let nodeType: 'file' | 'folder' | 'plugin' | 'theme' = isDirectory ? 'folder' : 'file';
 			if ( isDirectory ) {
 				const normalizedPath = itemPath.replace( /^wp-content\//, '' );
@@ -1741,7 +1738,6 @@ async function listLocalFileTreeRecursive(
 				}
 			}
 
-			// For full tree load, recursively load children unless depth is limited
 			let children = undefined;
 			if ( isDirectory && isFullTreeLoad && ! shouldLimit ) {
 				try {
@@ -1770,7 +1766,6 @@ async function listLocalFileTreeRecursive(
 			result.push( treeNode );
 		}
 
-		// Sort directories first, then files, both alphabetically
 		return result.sort( ( a, b ) => {
 			if ( a.type !== b.type ) {
 				return a.type === 'folder' ? -1 : 1;

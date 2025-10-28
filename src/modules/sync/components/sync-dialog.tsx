@@ -146,14 +146,8 @@ export function SyncDialog( {
 		type
 	);
 
-	const {
-		fetchChildren,
-		fetchLocalChildren,
-		rewindId,
-		isLoadingRewindId,
-		isErrorRewindId,
-		isLoadingLocalFileTree,
-	} = useDynamicTreeState( type, localSite.id, remoteSite.id, setTreeState );
+	const { fetchChildren, rewindId, isLoadingRewindId, isErrorRewindId, isLoadingLocalFileTree } =
+		useDynamicTreeState( type, localSite.id, remoteSite.id, setTreeState );
 
 	const localSiteName = <SiteNameBox siteName={ localSite.name } envType="studio" />;
 	const remoteSiteName = <SiteNameBox siteName={ remoteSite.name } envType={ siteEnv } />;
@@ -203,19 +197,16 @@ export function SyncDialog( {
 				return;
 			}
 
+			// For pull operations, still fetch children dynamically
 			if ( type === 'pull' && rewindId && node.path && node.children?.length === 0 ) {
 				const children = await fetchChildren( remoteSite.id, rewindId, node.path, node.checked );
 				if ( children ) {
 					setTreeState( ( prev ) => updateNodeById( prev, node.id, { children } ) );
 				}
-			} else if ( type === 'push' && node.path && node.children?.length === 0 ) {
-				const children = await fetchLocalChildren( localSite.id, node.path, node.checked );
-				if ( children ) {
-					setTreeState( ( prev ) => updateNodeById( prev, node.id, { children } ) );
-				}
 			}
+			// For push operations, children are already loaded - no async fetching needed
 		},
-		[ type, rewindId, remoteSite.id, localSite.id, fetchChildren, fetchLocalChildren ]
+		[ type, rewindId, remoteSite.id, fetchChildren ]
 	);
 
 	const treeViewProps = useMemo(

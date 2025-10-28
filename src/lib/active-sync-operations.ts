@@ -50,9 +50,9 @@ export function canCancelPush( key: PushStateProgressInfo[ 'key' ] | undefined )
 export function hasCancelableSyncOperations(): boolean {
 	//  Iterate over all the sites and check if any operation is cancelable
 	for ( const [ , state ] of ACTIVE_SYNC_OPERATIONS ) {
-		if ( state && 'key' in state && canCancelPush( state.key as PushStateProgressInfo[ 'key' ] ) ) {
-			return true;
+		if ( state && 'key' in state ) {
+			return canCancelPush( state.key as PushStateProgressInfo[ 'key' ] );
 		}
 	}
-	return false;
+	return true;
 }

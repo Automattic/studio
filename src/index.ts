@@ -355,15 +355,15 @@ async function appBoot() {
 	} );
 
 	function getQuitConfirmationMessage(): string {
-		if ( ! hasCancelableSyncOperations() ) {
+		if ( hasCancelableSyncOperations() ) {
 			return __(
-				"There's a sync operation in progress. The process will continue on WordPress.com servers even after quitting Studio. We will send you an email when it completes. Are you sure you want to quit?"
+				"There's a sync operation in progress. Quitting the app will abort that operation. Are you sure you want to quit?"
 			);
 		}
 
 		// Default message for creatingBackup, uploading, or pull operations
 		return __(
-			"There's a sync operation in progress. Quitting the app will abort that operation. Are you sure you want to quit?"
+			"There's a sync operation in progress. The process will continue on WordPress.com servers even after quitting Studio. We will send you an email when it completes. Are you sure you want to quit?"
 		);
 	}
 

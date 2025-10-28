@@ -166,7 +166,8 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 							} );
 						}
 					} catch ( error ) {
-						// Silently fail for individual sites - continue checking others
+						// Continue checking other sites even if one fails
+						console.error( `Failed to check push progress for site ${ connectedSite.id }:`, error );
 					}
 				}
 
@@ -175,7 +176,8 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 					setPushStates( restoredStates );
 				}
 			} catch ( error ) {
-				// Silently fail - initialization is not critical
+				// Initialization is not critical to app functionality, but log the error
+				console.error( 'Failed to initialize push states from server:', error );
 			}
 		};
 

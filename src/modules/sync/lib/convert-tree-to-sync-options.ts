@@ -22,10 +22,6 @@ const shouldExcludePathFromSync = ( path: string ): boolean => {
 		}
 	}
 
-	if ( normalizedPath.includes( 'mu-plugins/sqlite-database-integration' ) ) {
-		return true;
-	}
-
 	return false;
 };
 

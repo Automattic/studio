@@ -3,7 +3,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { sprintf, __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { format } from 'date-fns';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
@@ -177,40 +177,56 @@ export function SyncDialog( {
 		);
 	}
 
-	const handleExpanderChange = ( value: boolean ) => {
-		setShowAllFiles( value );
+	const handleExpanderChange = useCallback(
+		( value: boolean ) => {
+			setShowAllFiles( value );
 
-		const previousFilesAndFolders = treeState.find( ( node ) => node.id === 'filesAndFolders' );
-		const toUpdate: { expanded: boolean; checked?: boolean } = {
-			...previousFilesAndFolders,
-			expanded: value,
-		};
+			const previousFilesAndFolders = treeState.find( ( node ) => node.id === 'filesAndFolders' );
+			const toUpdate: { expanded: boolean; checked?: boolean } = {
+				...previousFilesAndFolders,
+				expanded: value,
+			};
 
-		if ( ! value && previousFilesAndFolders ) {
-			toUpdate.checked = previousFilesAndFolders.checked || previousFilesAndFolders.indeterminate;
-		}
-
-		setTreeState( ( prev ) => updateNodeById( prev, 'filesAndFolders', toUpdate ) );
-	};
-
-	const handleExpand = async ( node: TreeNode ) => {
-		// Don't expand nodes that have expansion disabled
-		if ( node.hideExpandButton ) {
-			return;
-		}
-
-		if ( type === 'pull' && rewindId && node.path && node.children?.length === 0 ) {
-			const children = await fetchChildren( remoteSite.id, rewindId, node.path, node.checked );
-			if ( children ) {
-				setTreeState( ( prev ) => updateNodeById( prev, node.id, { children } ) );
+			if ( ! value && previousFilesAndFolders ) {
+				toUpdate.checked = previousFilesAndFolders.checked || previousFilesAndFolders.indeterminate;
 			}
-		} else if ( type === 'push' && node.path && node.children?.length === 0 ) {
-			const children = await fetchLocalChildren( localSite.id, node.path, node.checked );
-			if ( children ) {
-				setTreeState( ( prev ) => updateNodeById( prev, node.id, { children } ) );
+
+			setTreeState( ( prev ) => updateNodeById( prev, 'filesAndFolders', toUpdate ) );
+		},
+		[ treeState ]
+	);
+
+	const handleExpand = useCallback(
+		async ( node: TreeNode ) => {
+			// Don't expand nodes that have expansion disabled
+			if ( node.hideExpandButton ) {
+				return;
 			}
-		}
-	};
+
+			if ( type === 'pull' && rewindId && node.path && node.children?.length === 0 ) {
+				const children = await fetchChildren( remoteSite.id, rewindId, node.path, node.checked );
+				if ( children ) {
+					setTreeState( ( prev ) => updateNodeById( prev, node.id, { children } ) );
+				}
+			} else if ( type === 'push' && node.path && node.children?.length === 0 ) {
+				const children = await fetchLocalChildren( localSite.id, node.path, node.checked );
+				if ( children ) {
+					setTreeState( ( prev ) => updateNodeById( prev, node.id, { children } ) );
+				}
+			}
+		},
+		[ type, rewindId, remoteSite.id, localSite.id, fetchChildren, fetchLocalChildren ]
+	);
+
+	const treeViewProps = useMemo(
+		() => ( {
+			disabled: isErrorRewindId,
+			tree: treeState,
+			setTree: setTreeState,
+			onExpand: handleExpand,
+		} ),
+		[ isErrorRewindId, treeState, handleExpand ]
+	);
 
 	const handleSubmit = () => {
 		if ( type === 'pull' ) {
@@ -296,10 +312,7 @@ export function SyncDialog( {
 									/>
 								</div>
 								<TreeView
-									disabled={ isErrorRewindId }
-									tree={ treeState }
-									setTree={ setTreeState }
-									onExpand={ handleExpand }
+									{ ...treeViewProps }
 									renderAfterChildren={ ( nodeId ) => {
 										if ( nodeId === 'filesAndFolders' && showAllFiles && rewindId ) {
 											const backupUrl = `https://wordpress.com/backup/${ remoteSite.url.replace(

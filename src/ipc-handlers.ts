@@ -89,6 +89,10 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
+import {
+	PullStateProgressInfo,
+	PushStateProgressInfo,
+} from './hooks/use-sync-states-progress-info';
 import { Blueprint } from './stores/wpcom-api';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
@@ -1332,8 +1336,12 @@ export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteI
 /**
  * Store the ID of a push/pull operation in a deduped set.
  */
-export function addSyncOperation( event: IpcMainInvokeEvent, id: string ) {
-	ACTIVE_SYNC_OPERATIONS.add( id );
+export function addSyncOperation(
+	event: IpcMainInvokeEvent,
+	id: string,
+	state?: PullStateProgressInfo | PushStateProgressInfo
+) {
+	ACTIVE_SYNC_OPERATIONS.set( id, state );
 }
 
 /**

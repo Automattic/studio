@@ -49,6 +49,8 @@ const packageJson = JSON.parse( packageJsonText );
 const outPath = path.join( __dirname, '..', 'out' );
 const assetsPath = path.join( __dirname, '..', 'assets', 'appx' );
 
+console.log( `~~~ Packaging AppX for architecture: ${ architecture }` );
+
 const normalizeWindowsVersion = ( version ) => {
 	const noPrerelease = version.replace( /-.*/, '' );
 	return `${ noPrerelease }.0`;
@@ -57,22 +59,6 @@ const normalizeWindowsVersion = ( version ) => {
 const appStoreVersion = normalizeWindowsVersion( packageJson.version );
 
 const appxName = packageJson.productName + '-appx';
-
-console.log( `~~~ Packaging AppX for architecture: ${ architecture }` );
-
-// Create a custom manifest with the correct ProcessorArchitecture
-// electron2appx hardcodes ProcessorArchitecture="x64" in its template, so we need to override it
-const manifestTemplatePath = path.resolve( __dirname, '..', 'node_modules', 'electron2appx', 'template', 'appxmanifest.xml' );
-const manifestTemplate = await fs.readFile( manifestTemplatePath, 'utf-8' );
-
-// Replace the hardcoded x64 with the actual architecture
-// Note: We replace ProcessorArchitecture but leave other variables (${identityName}, etc.)
-// for electron2appx to process. The manifest option in electron2appx will use this
-// as a base and still do variable replacements.
-let manifestContent = manifestTemplate.replace( /ProcessorArchitecture="x64"/g, `ProcessorArchitecture="${ architecture }"` );
-const tempManifestPath = path.resolve( outPath, `AppXManifest-${ architecture }.xml` );
-await fs.writeFile( tempManifestPath, manifestContent, 'utf-8' );
-console.log( `~~~ Created architecture-specific manifest at ${ tempManifestPath }` );
 
 const sharedOptions = {
 	containerVirtualization: false,
@@ -90,9 +76,9 @@ const sharedOptions = {
 	packageDisplayName: 'WordPress Studio',
 	publisherDisplayName: 'Automattic, Inc.',
 	identityName: '22490Automattic.StudiobyWordPress.com',
-	manifest: tempManifestPath, // Use our custom manifest with correct ProcessorArchitecture
 };
 
+// Create unsigned AppX
 const appxOutputPathUnsigned = path.resolve( outPath, `${ appxName }-${ architecture }-unsigned` );
 console.log(
 	`~~~ Creating unsigned .appx for Microsoft Store submission upload at ${ appxOutputPathUnsigned }...`
@@ -106,6 +92,7 @@ await convertToWindowsStore( {
 	outputDirectory: appxOutputPathUnsigned,
 } );
 
+// Create signed AppX
 const appxOutputPathSigned = path.resolve( outPath, `${ appxName }-${ architecture }-signed` );
 console.log( `~~~ Creating signed .appx for local testing at ${ appxOutputPathSigned }...` );
 

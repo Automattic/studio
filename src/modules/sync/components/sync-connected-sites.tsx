@@ -439,13 +439,27 @@ const SyncConnectedSiteSection = ( {
 				<div className="flex items-center min-h-14 border-b border-a8c-gray-0 px-8">
 					<div className="text-[#3C434A]">
 						{ createInterpolateElement(
-							__( "Studio couldn't connect to this site. <button>Get help ↗</button>" ),
+							__(
+								'<siteUrlButton /> appears to be deleted or is currently unreachable. <button>Get help ↗</button>'
+							),
 							{
 								button: (
 									<Button
 										variant="link"
 										onClick={ () => getIpcApi().openURL( getLocalizedLink( locale, 'docsSync' ) ) }
 									/>
+								),
+								siteUrlButton: (
+									<Button
+										variant="link"
+										onClick={ () => {
+											getIpcApi().openURL( connectedSite.url );
+										} }
+									>
+										<span className="truncate">
+											{ connectedSite.url.replace( /^https?:\/\//, '' ) }
+										</span>
+									</Button>
 								),
 							}
 						) }

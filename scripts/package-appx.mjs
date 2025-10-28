@@ -29,7 +29,9 @@ try {
 }
 const windows10SDKVersionContent = await fs.readFile( windows10SDKVersionPath );
 const windows10SDKVersion = windows10SDKVersionContent.toString().trim();
-const windowsKitPath = `C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.${ windows10SDKVersion }.0\\${ architecture }`;
+// Windows SDK tools (makeappx.exe, signtool.exe) are always in the x64 directory,
+// regardless of the target architecture. The architecture only affects the manifest.
+const windowsKitPath = `C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.${ windows10SDKVersion }.0\\x64`;
 
 console.log( '~~~ Verifying Windows 10 SDK location...' );
 try {

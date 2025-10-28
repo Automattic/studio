@@ -49,10 +49,6 @@ const packageJson = JSON.parse( packageJsonText );
 const outPath = path.join( __dirname, '..', 'out' );
 const assetsPath = path.join( __dirname, '..', 'assets', 'appx' );
 
-// Get architecture from environment variable, default to x64 for backward compatibility
-const architecture = process.env.FILE_ARCHITECTURE || 'x64';
-console.log( `~~~ Packaging for architecture: ${ architecture }` );
-
 const normalizeWindowsVersion = ( version ) => {
 	const noPrerelease = version.replace( /-.*/, '' );
 	return `${ noPrerelease }.0`;

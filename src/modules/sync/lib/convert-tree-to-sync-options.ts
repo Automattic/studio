@@ -183,15 +183,17 @@ export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSel
 		const selectedPaths = collectSelectedPaths( wpContentChildren );
 		const syncOptionGroups = groupPathsBySyncOption( selectedPaths );
 
-		// Add sync options based on what file paths were selected
-		Object.entries( syncOptionGroups ).forEach( ( [ syncOption, isSelected ] ) => {
-			if (
-				isSelected &&
-				syncOption !== SYNC_OPTIONS.all &&
-				syncOption !== SYNC_OPTIONS.sqls &&
-				syncOption !== SYNC_OPTIONS.paths
-			) {
-				optionsToSync.push( syncOption as SyncOption );
+		// Add sync options based on what file paths were selected (in consistent order)
+		const syncOptionOrder = [
+			SYNC_OPTIONS.plugins,
+			SYNC_OPTIONS.themes,
+			SYNC_OPTIONS.uploads,
+			SYNC_OPTIONS.contents,
+		];
+
+		syncOptionOrder.forEach( ( syncOption ) => {
+			if ( syncOptionGroups[ syncOption ] ) {
+				optionsToSync.push( syncOption );
 			}
 		} );
 

@@ -28,8 +28,33 @@ if ($Architecture -notin $VALID_ARCHITECTURES) {
     Exit 1
 }
 
+# TEMPORARY – install Python via PowerShell until this is baked into the image
+$ver = "3.13.9"
+
+# Map architecture to the correct filename suffix
+switch ($Architecture.ToLower()) {
+    "x64"   { $archSuffix = "amd64" }
+    "arm64" { $archSuffix = "arm64" }
+    default { throw "Unsupported architecture: $VALID_ARCHITECTURES" }
+}
+
+# Construct download URL
+$uri = "https://cdn.a8c-ci.services/studio/python-$ver-$archSuffix.exe"
+$dst = "$env:TEMP\python-$ver-$archSuffix.exe"
+
+Write-Host "Downloading Python $ver for $archSuffix from $uri..."
+Invoke-WebRequest -Uri $uri -OutFile $dst
+
+# Verify publisher signature
+$sig = Get-AuthenticodeSignature $dst
+if ($sig.Status -ne 'Valid') { throw "Installer signature not valid: $($sig.Status)" }
+
+# Silent install for all users; add to PATH; skip tests
+Start-Process -FilePath $dst -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1 Include_test=0" -Wait
+Write-Host "Python installation complete."
+
 # prepare_windows_host_for_app_distribution.ps1 comes from CI Toolkit Plugin
-& "prepare_windows_host_for_app_distribution.ps1" -InstallPython $true -InstallNativeCompilationTools $true
+& "prepare_windows_host_for_app_distribution.ps1" -InstallNativeCompilationTools $true
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 Write-Host "--- :npm: Installing Node dependencies"

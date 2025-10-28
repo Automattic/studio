@@ -103,5 +103,19 @@ export async function onOpenUrlCallback( url: string ) {
 		if ( remoteSiteId && studioSiteId ) {
 			void sendIpcEventToRenderer( 'sync-connect-site', { remoteSiteId, studioSiteId } );
 		}
+	} else if ( host === 'add-site' ) {
+		const blueprintBase64 = searchParams.get( 'blueprint' );
+		if ( blueprintBase64 ) {
+			try {
+				// Decode the base64-encoded blueprint JSON
+				const blueprintJson = Buffer.from( blueprintBase64, 'base64' ).toString( 'utf-8' );
+				// Validate it's valid JSON
+				JSON.parse( blueprintJson );
+				void sendIpcEventToRenderer( 'add-site-with-blueprint', { blueprintJson } );
+			} catch ( error ) {
+				Sentry.captureException( error );
+				console.error( 'Failed to parse blueprint from deeplink:', error );
+			}
+		}
 	}
 }

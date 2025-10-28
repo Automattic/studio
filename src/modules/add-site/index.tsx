@@ -239,6 +239,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 	const { __ } = useI18n();
 	const [ showModal, setShowModal ] = useState( false );
 	const [ nameSuggested, setNameSuggested ] = useState( false );
+	const [ initialPath, setInitialPath ] = useState< string >( '/' );
 	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
@@ -314,15 +315,46 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		defaultPhpVersion,
 	] );
 
-	const openModal = useCallback( () => {
-		if ( ! isUninitialized ) {
-			void refetch();
-		}
-		setShowModal( true );
-	}, [ refetch, isUninitialized ] );
+	const openModal = useCallback(
+		( options?: { initialPath?: string; blueprint?: Blueprint } ) => {
+			if ( ! isUninitialized ) {
+				void refetch();
+			}
+			if ( options?.initialPath ) {
+				setInitialPath( options.initialPath );
+			}
+			if ( options?.blueprint ) {
+				setSelectedBlueprint( options.blueprint );
+				// Apply blueprint's preferred versions if available
+				if ( options.blueprint.blueprint?.preferredVersions ) {
+					const preferredVersions = options.blueprint.blueprint.preferredVersions as {
+						php?: string;
+						wp?: string;
+					};
+					setBlueprintPreferredVersions( preferredVersions );
+					if ( preferredVersions.php && preferredVersions.php !== 'latest' ) {
+						setPhpVersion( preferredVersions.php );
+					}
+					if ( preferredVersions.wp && preferredVersions.wp !== 'latest' ) {
+						setWpVersion( preferredVersions.wp );
+					}
+				}
+			}
+			setShowModal( true );
+		},
+		[
+			refetch,
+			isUninitialized,
+			setSelectedBlueprint,
+			setBlueprintPreferredVersions,
+			setPhpVersion,
+			setWpVersion,
+		]
+	);
 
 	const closeModal = useCallback( () => {
 		setShowModal( false );
+		setInitialPath( '/' );
 		resetForm();
 	}, [ resetForm ] );
 
@@ -382,10 +414,30 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		openModal();
 	} );
 
+	useIpcListener( 'add-site-with-blueprint', ( _event, { blueprintJson } ) => {
+		if ( isAnySiteProcessing ) {
+			return;
+		}
+		try {
+			const blueprintData = JSON.parse( blueprintJson );
+			const blueprint: Blueprint = {
+				slug: `deeplink-${ Date.now() }`,
+				title: blueprintData.meta?.title || __( 'Custom Blueprint' ),
+				excerpt: blueprintData.meta?.description || __( 'Blueprint from deeplink' ),
+				image: '',
+				playground_url: '',
+				blueprint: blueprintData,
+			};
+			openModal( { initialPath: '/blueprint/create', blueprint } );
+		} catch ( error ) {
+			console.error( 'Failed to parse blueprint from IPC event:', error );
+		}
+	} );
+
 	return (
 		<>
 			<FullscreenModal isOpen={ showModal } onClose={ closeModal }>
-				<Navigator className="w-full h-full" initialPath="/">
+				<Navigator className="w-full h-full" initialPath={ initialPath }>
 					<NavigationContent
 						{ ...addSiteProps }
 						blueprintsData={ blueprintsData }
@@ -400,7 +452,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 			<Button
 				variant={ variant }
 				className={ className }
-				onClick={ openModal }
+				onClick={ () => openModal() }
 				disabled={ isAnySiteProcessing }
 			>
 				{ __( 'Add site' ) }

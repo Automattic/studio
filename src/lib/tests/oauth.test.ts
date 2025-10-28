@@ -213,4 +213,48 @@ describe( 'onOpenUrlCallback', () => {
 			expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
 		} );
 	} );
+
+	describe( 'add-site callback', () => {
+		it( 'should handle add-site with valid base64-encoded blueprint', async () => {
+			const blueprintData = {
+				steps: [ { step: 'login', username: 'admin' } ],
+				meta: { title: 'Test Blueprint', description: 'A test blueprint' },
+			};
+			const blueprintJson = JSON.stringify( blueprintData );
+			const blueprintBase64 = Buffer.from( blueprintJson ).toString( 'base64' );
+			const url = `studio://add-site?blueprint=${ blueprintBase64 }`;
+
+			await onOpenUrlCallback( url );
+
+			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'add-site-with-blueprint', {
+				blueprintJson,
+			} );
+		} );
+
+		it( 'should not send event if blueprint parameter is missing', async () => {
+			const url = 'studio://add-site';
+			await onOpenUrlCallback( url );
+
+			expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should handle invalid base64-encoded blueprint gracefully', async () => {
+			const url = 'studio://add-site?blueprint=invalid-base64!!!';
+			await onOpenUrlCallback( url );
+
+			// Should not throw and should not send event
+			expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should handle invalid JSON in blueprint gracefully', async () => {
+			const invalidJson = 'not valid json';
+			const blueprintBase64 = Buffer.from( invalidJson ).toString( 'base64' );
+			const url = `studio://add-site?blueprint=${ blueprintBase64 }`;
+
+			await onOpenUrlCallback( url );
+
+			// Should not throw and should not send event
+			expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
+		} );
+	} );
 } );

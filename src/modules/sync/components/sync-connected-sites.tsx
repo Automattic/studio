@@ -452,7 +452,6 @@ const SyncConnectedSiteSection = ( {
 								siteUrlButton: (
 									<Button
 										variant="link"
-										className="!text-a8c-gray-70 hover:!text-a8c-blue-50 max-w-full overflow-hidden"
 										onClick={ () => {
 											getIpcApi().openURL( connectedSite.url );
 										} }

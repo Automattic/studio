@@ -29,14 +29,6 @@ interface WpcomParams extends Record< string, unknown > {
 	apiNamespace?: string;
 }
 
-// Type for accessing private request method that's not in public type definitions
-type WpcomWithRequest = WPCOM & {
-	request: (
-		params: WpcomParams,
-		callback?: ( err: unknown, response?: unknown, headers?: unknown ) => void
-	) => unknown;
-};
-
 export const AuthContext = createContext< AuthContextType >( {
 	client: undefined,
 	isAuthenticated: false,
@@ -95,21 +87,16 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	const logout = useCallback( async () => {
 		try {
 			if ( ! isOffline && client ) {
-				( client as WpcomWithRequest ).request(
-					{
+				try {
+					await client.req.del( {
 						apiNamespace: 'wpcom/v2',
-						method: 'DELETE',
 						path: '/studio-app/token',
-					},
-					( err: unknown, response: unknown ) => {
-						if ( err ) {
-							console.error( 'Failed to revoke token:', err );
-							Sentry.captureException( err );
-						} else {
-							console.log( 'Token revoked:', response );
-						}
-					}
-				);
+					} );
+					console.log( 'Token revoked' );
+				} catch ( err ) {
+					console.error( 'Failed to revoke token:', err );
+					Sentry.captureException( err );
+				}
 			} else if ( isOffline ) {
 				console.log( 'Offline: Skipping token revocation request' );
 			}
@@ -173,8 +160,6 @@ function createWpcomClient(
 	locale?: string,
 	onInvalidToken?: () => Promise< void >
 ): WPCOM {
-	const wpcom = wpcomFactory( token, wpcomXhrRequest );
-
 	let isAuthErrorDialogOpen = false;
 	const handleInvalidTokenError = async ( response: unknown ) => {
 		if ( isInvalidTokenError( response ) && onInvalidToken && ! isAuthErrorDialogOpen ) {
@@ -188,8 +173,6 @@ function createWpcomClient(
 			isAuthErrorDialogOpen = false;
 		}
 	};
-
-	const originalRequestHandler = ( wpcom as WpcomWithRequest ).request.bind( wpcom );
 
 	const addLocaleToParams = ( params: WpcomParams ) => {
 		if ( locale && locale !== 'en' ) {
@@ -207,20 +190,26 @@ function createWpcomClient(
 		return params;
 	};
 
-	return Object.assign( wpcom, {
-		request: function ( params: WpcomParams, callback: unknown ) {
-			const wrappedCallback = ( err: unknown, response: unknown, headers: unknown ) => {
-				if ( err ) {
-					void handleInvalidTokenError( err );
-				}
-				if ( typeof callback === 'function' ) {
-					callback( err, response, headers );
-				}
-			};
+	// Wrap the request handler to add locale and error handling before passing to wpcomFactory
+	const wrappedRequestHandler = (
+		params: object,
+		callback: ( err: unknown, response?: unknown, headers?: unknown ) => void
+	) => {
+		const modifiedParams = addLocaleToParams( params as WpcomParams );
+		const wrappedCallback = ( err: unknown, response: unknown, headers: unknown ) => {
+			if ( err ) {
+				void handleInvalidTokenError( err );
+			}
+			if ( typeof callback === 'function' ) {
+				callback( err, response, headers );
+			}
+		};
 
-			return originalRequestHandler( addLocaleToParams( params ), wrappedCallback );
-		},
-	} );
+		return wpcomXhrRequest( modifiedParams, wrappedCallback );
+	};
+
+	const wpcom = wpcomFactory( token, wrappedRequestHandler as typeof wpcomXhrRequest );
+	return wpcom;
 }
 
 export default AuthProvider;

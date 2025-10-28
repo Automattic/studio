@@ -1,6 +1,6 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Modal from 'src/components/modal';
 import { useAuth } from 'src/hooks/use-auth';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
@@ -11,19 +11,15 @@ import { AccountTab } from 'src/modules/user-settings/components/account-tab';
 import { NonAuthenticatedAccountTab } from 'src/modules/user-settings/components/non-authenticated-account-tab';
 import { PreferencesTab } from 'src/modules/user-settings/components/preferences-tab';
 import { UsageTab } from 'src/modules/user-settings/components/usage-tab';
-import { useRootSelector, useAppDispatch } from 'src/stores';
-import { snapshotSelectors, snapshotThunks } from 'src/stores/snapshot-slice';
-import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
-import { UserSettingsTab } from '../user-settings-types';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import { snapshotSelectors } from 'src/stores/snapshot-slice';
+import { useDeleteAllSnapshots, useGetSnapshotUsage, wpcomApi } from 'src/stores/wpcom-api';
+import { UserSettingsTab } from 'src/modules/user-settings/user-settings-types';
 
 export default function UserSettings() {
 	const { __ } = useI18n();
-	const dispatch = useAppDispatch();
 	const { isAuthenticated, logout, user } = useAuth();
-
-	const activeBulkOperationForUser = useRootSelector( ( state ) =>
-		snapshotSelectors.selectActiveBulkOperationForUser( state, user?.id ?? 0 )
-	);
+	const dispatch = useAppDispatch();
 	const snapshotsByUser = useRootSelector( ( state ) =>
 		snapshotSelectors.selectSnapshotsByUser( state, user?.id ?? 0 )
 	);
@@ -34,6 +30,8 @@ export default function UserSettings() {
 	const [ needsToOpenUserSettings, setNeedsToOpenUserSettings ] = useState( false );
 	const [ selectedTabName, setSelectedTabName ] = useState< string | undefined >();
 
+	const [ deleteAllSnapshots, { isLoading: isDeletingAllSnapshots, isError: isErrorDeletingAllSnapshots } ] = useDeleteAllSnapshots();
+
 	const isOffline = useOffline();
 
 	const resetLocalState = useCallback( () => {
@@ -41,10 +39,25 @@ export default function UserSettings() {
 		setSelectedTabName( undefined );
 	}, [] );
 
+	const showErrorMessageBox = useCallback( () => {
+		getIpcApi().showMessageBox( {
+			type: 'warning',
+			message: __( 'Failed to delete all preview sites' ),
+			detail: __( 'An error occurred while deleting all preview sites. Please try again.' ),
+			buttons: [ __( 'OK' ) ],
+		} );
+	}, [] );
+
 	useIpcListener( 'user-settings', ( _event, { tabName } ) => {
 		setSelectedTabName( tabName );
 		setNeedsToOpenUserSettings( ! needsToOpenUserSettings );
 	} );
+
+	useEffect( () => {
+		if ( isErrorDeletingAllSnapshots ) {
+			showErrorMessageBox();
+		}
+	}, [ isErrorDeletingAllSnapshots ] );
 
 	const onRemoveSnapshots = useCallback( async () => {
 		const CANCEL_BUTTON_INDEX = 0;
@@ -61,9 +74,18 @@ export default function UserSettings() {
 		} );
 
 		if ( response === DELETE_BUTTON_INDEX ) {
-			await dispatch( snapshotThunks.deleteAllSnapshotsForUser( { userId: user?.id ?? 0 } ) );
+			try {
+				await deleteAllSnapshots();
+
+				// Wait for changes to take effect on the back-end before invalidating the query
+				setTimeout( () => {
+					dispatch( wpcomApi.util.invalidateTags( [ 'SnapshotUsage' ] ) );
+				}, 8000 );
+			} catch ( error ) {
+				showErrorMessageBox();
+			}
 		}
-	}, [ __, dispatch, user?.id ] );
+	}, [ __, deleteAllSnapshots ] );
 
 	const tabs: UserSettingsTab[] = [
 		{
@@ -113,10 +135,9 @@ export default function UserSettings() {
 								{ name === 'preferences' && <PreferencesTab onClose={ resetLocalState } /> }
 								{ name === 'usage' && isAuthenticated && (
 									<UsageTab
-										loadingDeletingAllSnapshots={ !! activeBulkOperationForUser }
+										loadingDeletingAllSnapshots={ isDeletingAllSnapshots }
 										activeSnapshotCount={ definitiveSnapshotCount }
 										isLoadingSnapshotUsage={ isLoadingSnapshotUsage }
-										allSnapshots={ snapshotsByUser }
 										isOffline={ isOffline }
 										snapshotQuota={ snapshotQuota }
 										onRemoveSnapshots={ onRemoveSnapshots }

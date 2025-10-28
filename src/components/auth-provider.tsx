@@ -29,6 +29,14 @@ interface WpcomParams extends Record< string, unknown > {
 	apiNamespace?: string;
 }
 
+// Type for accessing private request method that's not in public type definitions
+type WpcomWithRequest = WPCOM & {
+	request: (
+		params: WpcomParams,
+		callback?: ( err: unknown, response?: unknown, headers?: unknown ) => void
+	) => unknown;
+};
+
 export const AuthContext = createContext< AuthContextType >( {
 	client: undefined,
 	isAuthenticated: false,
@@ -87,7 +95,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	const logout = useCallback( async () => {
 		try {
 			if ( ! isOffline && client ) {
-				client.request(
+				( client as WpcomWithRequest ).request(
 					{
 						apiNamespace: 'wpcom/v2',
 						method: 'DELETE',
@@ -181,7 +189,7 @@ function createWpcomClient(
 		}
 	};
 
-	const originalRequestHandler = wpcom.request.bind( wpcom );
+	const originalRequestHandler = ( wpcom as WpcomWithRequest ).request.bind( wpcom );
 
 	const addLocaleToParams = ( params: WpcomParams ) => {
 		if ( locale && locale !== 'en' ) {

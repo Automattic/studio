@@ -15,6 +15,10 @@ jest.mock( 'atomically', () => ( {
 } ) );
 jest.mock( 'wpcom' );
 jest.mock( 'wpcom-xhr-request' );
+jest.mock( 'src/lib/wpcom-factory', () => ( {
+	__esModule: true,
+	default: jest.fn(),
+} ) );
 
 describe( 'getAuthenticationToken', () => {
 	beforeEach( () => {
@@ -140,7 +144,7 @@ describe( 'onOpenUrlCallback', () => {
 				email: 'user@example.com',
 				display_name: 'Test User',
 			} );
-			( wpcomFactory as jest.Mock ).mockReturnValue( {
+			( wpcomFactory as unknown as jest.Mock ).mockReturnValue( {
 				req: { get: mockWpcomGet },
 			} );
 
@@ -181,7 +185,7 @@ describe( 'onOpenUrlCallback', () => {
 
 		it( 'should handle wpcom API error', async () => {
 			const mockWpcomGet = jest.fn().mockRejectedValue( new Error( 'API Error' ) );
-			( wpcomFactory as jest.Mock ).mockReturnValue( {
+			( wpcomFactory as unknown as jest.Mock ).mockReturnValue( {
 				req: { get: mockWpcomGet },
 			} );
 

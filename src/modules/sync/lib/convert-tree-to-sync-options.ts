@@ -13,22 +13,16 @@ type PushOptionsWithSelections = {
 	};
 };
 
-const isSyncOption = ( value: string ): value is SyncOption => {
-	return Object.keys( SYNC_OPTIONS ).includes( value );
-};
 
 const shouldExcludePathFromSync = ( path: string ): boolean => {
-	// Normalize path to remove leading/trailing slashes and wp-content prefix
 	const normalizedPath = path.replace( /^wp-content\//, '' ).replace( /^\/+|\/+$/g, '' );
 
-	// Check against exclusion list
 	for ( const exclusion of SYNC_EXCLUSIONS ) {
 		if ( normalizedPath === exclusion || normalizedPath.startsWith( exclusion ) ) {
 			return true;
 		}
 	}
 
-	// Check for sqlite-database-integration in mu-plugins
 	if ( normalizedPath.includes( 'mu-plugins/sqlite-database-integration' ) ) {
 		return true;
 	}
@@ -37,12 +31,10 @@ const shouldExcludePathFromSync = ( path: string ): boolean => {
 };
 
 const getPathSyncOption = ( path: string ): SyncOption | null => {
-	// Skip excluded paths
 	if ( shouldExcludePathFromSync( path ) ) {
 		return null;
 	}
 
-	// Normalize path to remove leading/trailing slashes and wp-content prefix
 	const normalizedPath = path.replace( /^wp-content\//, '' ).replace( /^\/+|\/+$/g, '' );
 
 	if ( normalizedPath.startsWith( 'plugins/' ) ) {
@@ -64,7 +56,6 @@ const getPathSyncOption = ( path: string ): SyncOption | null => {
 	) {
 		return SYNC_OPTIONS.contents;
 	}
-	// Any other wp-content files/folders also fall under contents
 	if ( normalizedPath && ! normalizedPath.includes( '../' ) ) {
 		return SYNC_OPTIONS.contents;
 	}
@@ -115,6 +106,52 @@ const groupPathsBySyncOption = ( paths: string[] ): Record< SyncOption, boolean 
 	return syncOptions;
 };
 
+const extractSpecificSelections = (
+	paths: string[]
+): PushOptionsWithSelections[ 'specificSelections' ] => {
+	const specificSelections: PushOptionsWithSelections[ 'specificSelections' ] = {};
+	const plugins = new Set< string >();
+	const themes = new Set< string >();
+	const uploads = new Set< string >();
+
+	paths.forEach( ( path ) => {
+		const normalizedPath = path.replace( /^wp-content\//, '' ).replace( /^\/+|\/+$/g, '' );
+
+		if ( normalizedPath.startsWith( 'plugins/' ) ) {
+			const pluginMatch = normalizedPath.match( /^plugins\/([^/]+)/ );
+			if ( pluginMatch ) {
+				plugins.add( pluginMatch[ 1 ] );
+			}
+		}
+
+		if ( normalizedPath.startsWith( 'themes/' ) ) {
+			const themeMatch = normalizedPath.match( /^themes\/([^/]+)/ );
+			if ( themeMatch ) {
+				themes.add( themeMatch[ 1 ] );
+			}
+		}
+
+		if ( normalizedPath.startsWith( 'uploads/' ) ) {
+			const uploadMatch = normalizedPath.match( /^uploads\/([^/]+)/ );
+			if ( uploadMatch ) {
+				uploads.add( uploadMatch[ 1 ] );
+			}
+		}
+	} );
+
+	if ( plugins.size > 0 ) {
+		specificSelections.plugins = Array.from( plugins );
+	}
+	if ( themes.size > 0 ) {
+		specificSelections.themes = Array.from( themes );
+	}
+	if ( uploads.size > 0 ) {
+		specificSelections.uploads = Array.from( uploads );
+	}
+
+	return Object.keys( specificSelections ).length > 0 ? specificSelections : undefined;
+};
+
 const getCommonNodes = ( tree: TreeNode[] ) => {
 	const isDatabaseSelected = tree.find( ( node ) => node.id === SYNC_OPTIONS.sqls );
 	const filesAndFolders = tree.find( ( node ) => node.id === 'filesAndFolders' );
@@ -125,12 +162,11 @@ const getCommonNodes = ( tree: TreeNode[] ) => {
 
 export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSelections => {
 	const optionsToSync: SyncOption[] = [];
-	const specificSelections: PushOptionsWithSelections[ 'specificSelections' ] = undefined;
 
 	const isAll = tree.every( ( node ) => node.checked );
 	if ( isAll ) {
 		optionsToSync.push( SYNC_OPTIONS.all );
-		return { optionsToSync, specificSelections };
+		return { optionsToSync, specificSelections: undefined };
 	}
 
 	const { isDatabaseSelected, wpContent } = getCommonNodes( tree );
@@ -141,6 +177,7 @@ export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSel
 
 	// Handle wp-content selections using the new file tree structure
 	const wpContentChildren = wpContent?.children || [];
+	let specificSelections: PushOptionsWithSelections[ 'specificSelections' ] = undefined;
 
 	if ( wpContentChildren.length > 0 ) {
 		// New file tree structure - collect all selected file paths and group by sync options
@@ -158,6 +195,9 @@ export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSel
 				optionsToSync.push( syncOption as SyncOption );
 			}
 		} );
+
+		// Extract specific selections for plugins, themes, uploads
+		specificSelections = extractSpecificSelections( selectedPaths );
 	}
 
 	return {

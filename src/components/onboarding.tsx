@@ -109,11 +109,6 @@ export default function Onboarding() {
 			event.preventDefault();
 			// Save current app version to prevent What's New from showing for new users
 			await saveLastSeenVersion( window.appGlobals.appVersion );
-			try {
-				await getIpcApi().promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
-			} catch ( error ) {
-				console.error( error );
-			}
 
 			try {
 				await handleAddSiteClick();

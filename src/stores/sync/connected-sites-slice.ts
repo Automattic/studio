@@ -13,13 +13,11 @@ interface ConnectedSitesState {
 
 interface ConnectSiteParams {
 	site: SyncSite;
-	stagingSites: SyncSite[];
 	localSiteId: string;
 }
 
 interface DisconnectSiteParams {
 	siteId: number;
-	stagingSiteIds: number[];
 	localSiteId: string;
 }
 
@@ -44,12 +42,10 @@ export const loadAllConnectedSites = createAsyncThunk( 'connectedSites/loadAll',
 
 export const connectSite = createAsyncThunk(
 	'connectedSites/connect',
-	async ( { site, stagingSites, localSiteId }: ConnectSiteParams ) => {
-		const sitesToConnect = [ site, ...stagingSites ];
-
+	async ( { site, localSiteId }: ConnectSiteParams ) => {
 		await getIpcApi().connectWpcomSites( [
 			{
-				sites: sitesToConnect,
+				sites: [ site ],
 				localSiteId,
 			},
 		] );
@@ -65,12 +61,10 @@ export const connectSite = createAsyncThunk(
 
 export const disconnectSite = createAsyncThunk(
 	'connectedSites/disconnect',
-	async ( { siteId, stagingSiteIds, localSiteId }: DisconnectSiteParams ) => {
-		const sitesToDisconnect = [ siteId, ...stagingSiteIds ];
-
+	async ( { siteId, localSiteId }: DisconnectSiteParams ) => {
 		await getIpcApi().disconnectWpcomSites( [
 			{
-				siteIds: sitesToDisconnect,
+				siteIds: [ siteId ],
 				localSiteId,
 			},
 		] );

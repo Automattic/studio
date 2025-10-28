@@ -305,7 +305,6 @@ describe( 'ContentTabSync', () => {
 			name: 'My simple business site that needs a transfer',
 			url: 'https:/developer.wordpress.com/studio/',
 			isStaging: false,
-			stagingSiteIds: [],
 			syncSupport: 'already-connected',
 		};
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
@@ -340,7 +339,6 @@ describe( 'ContentTabSync', () => {
 			name: 'My simple business site that needs a transfer',
 			url: 'https:/developer.wordpress.com/studio/',
 			isStaging: false,
-			stagingSiteIds: [],
 			syncSupport: 'already-connected',
 		};
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
@@ -371,74 +369,6 @@ describe( 'ContentTabSync', () => {
 		expect( getIpcApi().openURL ).toHaveBeenCalledWith( fakeSyncSite.url );
 	} );
 
-	it( 'displays both production and staging sites when a production site is connected', async () => {
-		const fakeProductionSite: SyncSite = {
-			id: 6,
-			name: 'My simple business site',
-			url: 'https://developer.wordpress.com/studio/',
-			isStaging: false,
-			stagingSiteIds: [ 7 ],
-			syncSupport: 'already-connected',
-			environmentType: 'production',
-			localSiteId: 'site-id',
-			isPressable: false,
-			lastPullTimestamp: null,
-			lastPushTimestamp: null,
-		};
-		const fakeStagingSite: SyncSite = {
-			id: 7,
-			name: 'Staging: My simple business site',
-			url: 'https://developer-staging.wordpress.com/studio/',
-			isStaging: true,
-			stagingSiteIds: [],
-			syncSupport: 'already-connected',
-			environmentType: 'staging',
-			localSiteId: 'site-id',
-			isPressable: false,
-			lastPullTimestamp: null,
-			lastPushTimestamp: null,
-		};
-		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		setupConnectedSitesMocks( [ fakeProductionSite, fakeStagingSite ], [ fakeProductionSite ] );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			pullSite: jest.fn(),
-			isAnySitePulling: false,
-			isAnySitePushing: false,
-			getPullState: jest.fn(),
-			getPushState: jest.fn().mockReturnValue( undefined ),
-			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
-			isSiteIdPulling: jest.fn(),
-			isSiteIdPushing: jest.fn(),
-			clearTimeout: jest.fn(),
-		} );
-		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-
-		expect( screen.getByText( fakeProductionSite.name ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Production' ) ).toBeInTheDocument();
-
-		expect( screen.queryByText( fakeStagingSite.name ) ).not.toBeInTheDocument();
-		expect( screen.getByText( 'Staging' ) ).toBeInTheDocument();
-
-		const disconnectButtons = screen.getAllByRole( 'button', { name: /Disconnect/i } );
-		expect( disconnectButtons ).toHaveLength( 1 );
-
-		const pullButtons = screen.getAllByRole( 'button', { name: /Pull/i } );
-		expect( pullButtons ).toHaveLength( 2 );
-
-		const pushButtons = screen.getAllByRole( 'button', { name: /Push/i } );
-		expect( pushButtons ).toHaveLength( 2 );
-
-		const productionUrl = screen.getAllByRole( 'button', {
-			name: 'developer.wordpress.com/studio/ ↗',
-		} );
-		expect( productionUrl ).toHaveLength( 1 );
-
-		const stagingUrl = screen.getAllByRole( 'button', {
-			name: 'developer-staging.wordpress.com/studio/ ↗',
-		} );
-		expect( stagingUrl ).toHaveLength( 1 );
-	} );
-
 	it( 'opens the modal and displays the create new site button', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
@@ -461,43 +391,6 @@ describe( 'ContentTabSync', () => {
 		expect( connectButton ).toBeInTheDocument();
 	} );
 
-	it( 'displays the ConnectButton at the bottom when there are multiple connected sites', () => {
-		const fakeSyncSite: SyncSite = {
-			id: 6,
-			name: 'My simple business site',
-			url: 'https://developer.wordpress.com/studio/',
-			isStaging: false,
-			stagingSiteIds: [],
-			syncSupport: 'already-connected',
-			localSiteId: 'site-id',
-			isPressable: false,
-			lastPullTimestamp: null,
-			lastPushTimestamp: null,
-		};
-
-		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
-		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-			connectedSites: [ fakeSyncSite ],
-		} );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			pullSite: jest.fn(),
-			isAnySitePulling: false,
-			isAnySitePushing: false,
-			getPullState: jest.fn(),
-			getPushState: jest.fn().mockReturnValue( undefined ),
-			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
-			isSiteIdPulling: jest.fn(),
-			isSiteIdPushing: jest.fn(),
-			clearTimeout: jest.fn(),
-		} );
-
-		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-
-		const connectButton = screen.getByRole( 'button', { name: /Connect another site/i } );
-		expect( connectButton ).toBeInTheDocument();
-	} );
-
 	it( 'displays environment badges for Pressable sites with production, staging and development environments', () => {
 		const fakePressableProductionSite: SyncSite = {
 			id: 6,
@@ -506,7 +399,6 @@ describe( 'ContentTabSync', () => {
 			isStaging: false,
 			isPressable: true,
 			environmentType: 'production',
-			stagingSiteIds: [],
 			syncSupport: 'already-connected',
 			localSiteId: 'site-id',
 			lastPullTimestamp: null,
@@ -519,7 +411,6 @@ describe( 'ContentTabSync', () => {
 			isStaging: false,
 			isPressable: true,
 			environmentType: 'staging',
-			stagingSiteIds: [],
 			syncSupport: 'already-connected',
 			localSiteId: 'site-id',
 			lastPullTimestamp: null,
@@ -532,7 +423,6 @@ describe( 'ContentTabSync', () => {
 			isStaging: false,
 			isPressable: true,
 			environmentType: 'development',
-			stagingSiteIds: [],
 			syncSupport: 'already-connected',
 			localSiteId: 'site-id',
 			lastPullTimestamp: null,
@@ -579,7 +469,6 @@ describe( 'ContentTabSync', () => {
 			url: 'https:/developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 			isStaging: false,
-			stagingSiteIds: [],
 			localSiteId: 'site-id',
 			isPressable: false,
 			lastPullTimestamp: null,

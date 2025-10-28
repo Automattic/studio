@@ -121,10 +121,10 @@ export function useSyncPush( {
 			if ( isKeyFailed( statusKey ) || isKeyFinished( statusKey ) || isKeyCancelled( statusKey ) ) {
 				getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
 			} else if ( state.status ) {
-				getIpcApi().addSyncOperation( generateStateId( selectedSiteId, remoteSiteId ), {
-					type: 'push',
-					status: state.status,
-				} );
+				getIpcApi().addSyncOperation(
+					generateStateId( selectedSiteId, remoteSiteId ),
+					state.status
+				);
 			}
 		},
 		[ isKeyFailed, isKeyFinished, isKeyCancelled, updateState ]

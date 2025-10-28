@@ -160,10 +160,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 							};
 
 							// Add to ACTIVE_SYNC_OPERATIONS for tracking
-							getIpcApi().addSyncOperation( stateId, {
-								type: 'push',
-								status,
-							} );
+							getIpcApi().addSyncOperation( stateId, status );
 						}
 					} catch ( error ) {
 						// Continue checking other sites even if one fails

@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { createContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
+import { WPCOM } from 'wpcom/types';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -9,8 +10,6 @@ import wpcomFactory from 'src/lib/wpcom-factory';
 import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { useI18nLocale } from 'src/stores';
 import { setWpcomClient } from 'src/stores/wpcom-api';
-
-type WPCOM = ReturnType< typeof wpcomFactory >;
 
 export interface AuthContextType {
 	client: WPCOM | undefined;
@@ -210,8 +209,7 @@ function createWpcomClient(
 		return wpcomXhrRequest( modifiedParams, wrappedCallback );
 	};
 
-	const wpcom = wpcomFactory( token, wrappedRequestHandler as typeof wpcomXhrRequest );
-	return wpcom;
+	return wpcomFactory( token, wrappedRequestHandler );
 }
 
 export default AuthProvider;

@@ -121,6 +121,7 @@ type UserDataSafeKeys =
 	| 'devToolsOpen'
 	| 'windowBounds'
 	| 'authToken'
+	| 'snapshots'
 	| 'onboardingCompleted'
 	| 'locale'
 	| 'promptWindowsSpeedUpResult'

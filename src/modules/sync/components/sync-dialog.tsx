@@ -192,12 +192,10 @@ export function SyncDialog( {
 
 	const handleExpand = useCallback(
 		async ( node: TreeNode ) => {
-			// Don't expand nodes that have expansion disabled
 			if ( node.hideExpandButton ) {
 				return;
 			}
 
-			// For pull operations, still fetch children dynamically
 			if ( type === 'pull' && rewindId && node.path && node.children?.length === 0 ) {
 				const children = await fetchChildren( remoteSite.id, rewindId, node.path, node.checked );
 				if ( children ) {
@@ -216,7 +214,7 @@ export function SyncDialog( {
 			setTree: setTreeState,
 			onExpand: handleExpand,
 		} ),
-		[ isErrorRewindId, treeState, handleExpand ]
+		[ isErrorRewindId, treeState, setTreeState, handleExpand ]
 	);
 
 	const handleSubmit = () => {

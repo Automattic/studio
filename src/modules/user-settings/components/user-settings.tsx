@@ -1,6 +1,6 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import Modal from 'src/components/modal';
 import { useAuth } from 'src/hooks/use-auth';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
@@ -11,10 +11,10 @@ import { AccountTab } from 'src/modules/user-settings/components/account-tab';
 import { NonAuthenticatedAccountTab } from 'src/modules/user-settings/components/non-authenticated-account-tab';
 import { PreferencesTab } from 'src/modules/user-settings/components/preferences-tab';
 import { UsageTab } from 'src/modules/user-settings/components/usage-tab';
+import { UserSettingsTab } from 'src/modules/user-settings/user-settings-types';
 import { useRootSelector } from 'src/stores';
 import { snapshotSelectors } from 'src/stores/snapshot-slice';
 import { useDeleteAllSnapshots, useGetSnapshotUsage } from 'src/stores/wpcom-api';
-import { UserSettingsTab } from 'src/modules/user-settings/user-settings-types';
 
 export default function UserSettings() {
 	const { __ } = useI18n();

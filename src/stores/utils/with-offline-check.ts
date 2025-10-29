@@ -23,7 +23,9 @@ export function withOfflineCheckMutation< TResult, TArg, TBaseQuery extends Base
 
 		const wrappedTrigger = ( ( ...args: Parameters< typeof trigger > ) => {
 			if ( isOffline ) {
-				return Promise.reject( new Error( 'Cannot perform mutation while offline' ) ) as ReturnType< typeof trigger >;
+				return Promise.reject( new Error( 'Cannot perform mutation while offline' ) ) as ReturnType<
+					typeof trigger
+				>;
 			}
 			return trigger( ...args );
 		} ) as typeof trigger;

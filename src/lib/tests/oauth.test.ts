@@ -5,7 +5,7 @@ import { readFile, writeFile } from 'atomically';
 import { WPCOM } from 'wpcom/types';
 import { SupportedLocale } from 'common/lib/locale';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { getAuthenticationToken, getSignUpUrl, onOpenUrlCallback } from 'src/lib/oauth';
+import { getAuthenticationToken, getSignUpUrl, handleAuthDeeplink } from 'src/lib/oauth';
 import wpcomFactory from 'src/lib/wpcom-factory';
 
 jest.mock( 'src/lib/certificate-manager', () => ( {} ) );
@@ -131,91 +131,70 @@ describe( 'getSignUpUrl', () => {
 	} );
 } );
 
-describe( 'onOpenUrlCallback', () => {
+describe( 'handleAuthDeeplink', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
 		( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( { sites: [] } ) );
 		( writeFile as jest.Mock ).mockResolvedValue( undefined );
 	} );
 
-	describe( 'auth callback', () => {
-		it( 'should handle successful authentication', async () => {
-			const mockWpcomGet = jest.fn().mockResolvedValue( {
-				ID: 123,
+	it( 'should handle successful authentication', async () => {
+		const mockWpcomGet = jest.fn().mockResolvedValue( {
+			ID: 123,
+			email: 'user@example.com',
+			display_name: 'Test User',
+		} );
+		jest.mocked( wpcomFactory ).mockReturnValue( {
+			req: { get: mockWpcomGet },
+		} as unknown as WPCOM );
+
+		const url = new URL( 'wpcom-local-dev://auth#access_token=mock-token&expires_in=3600' );
+		await handleAuthDeeplink( url );
+
+		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
+			token: expect.objectContaining( {
+				accessToken: 'mock-token',
+				expiresIn: 3600,
+				id: 123,
 				email: 'user@example.com',
-				display_name: 'Test User',
-			} );
-			jest.mocked( wpcomFactory ).mockReturnValue( {
-				req: { get: mockWpcomGet },
-			} as unknown as WPCOM );
-
-			const url = 'studio://auth#access_token=mock-token&expires_in=3600';
-			await onOpenUrlCallback( url );
-
-			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
-				token: expect.objectContaining( {
-					accessToken: 'mock-token',
-					expiresIn: 3600,
-					id: 123,
-					email: 'user@example.com',
-					displayName: 'Test User',
-				} ),
-			} );
-			expect( writeFile ).toHaveBeenCalled();
+				displayName: 'Test User',
+			} ),
 		} );
-
-		it( 'should handle authentication error from WordPress.com', async () => {
-			const url = 'studio://auth#error=access_denied';
-			await onOpenUrlCallback( url );
-
-			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
-				error: new Error( 'access_denied' ),
-			} );
-			expect( writeFile ).not.toHaveBeenCalled();
-		} );
-
-		it( 'should handle invalid token response', async () => {
-			const url = 'studio://auth#access_token=mock-token&expires_in=invalid';
-			await onOpenUrlCallback( url );
-
-			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
-				error: expect.any( Error ),
-			} );
-			expect( writeFile ).not.toHaveBeenCalled();
-		} );
-
-		it( 'should handle wpcom API error', async () => {
-			const mockWpcomGet = jest.fn().mockRejectedValue( new Error( 'API Error' ) );
-			jest.mocked( wpcomFactory ).mockReturnValue( {
-				req: { get: mockWpcomGet },
-			} as unknown as WPCOM );
-
-			const url = 'studio://auth#access_token=mock-token&expires_in=3600';
-			await onOpenUrlCallback( url );
-
-			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
-				error: expect.any( Error ),
-			} );
-			expect( writeFile ).not.toHaveBeenCalled();
-		} );
+		expect( writeFile ).toHaveBeenCalled();
 	} );
 
-	describe( 'sync-connect-site callback', () => {
-		it( 'should handle sync connect site callback', async () => {
-			const url = 'studio://sync-connect-site?remoteSiteId=123&studioSiteId=local-site';
-			await onOpenUrlCallback( url );
+	it( 'should handle authentication error from WordPress.com', async () => {
+		const url = new URL( 'wpcom-local-dev://auth#error=access_denied' );
+		await handleAuthDeeplink( url );
 
-			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'sync-connect-site', {
-				remoteSiteId: 123,
-				studioSiteId: 'local-site',
-			} );
+		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
+			error: new Error( 'access_denied' ),
 		} );
+		expect( writeFile ).not.toHaveBeenCalled();
+	} );
 
-		it( 'should not send sync connect site event if parameters are missing', async () => {
-			const url = 'studio://sync-connect-site?remoteSiteId=123';
-			await onOpenUrlCallback( url );
+	it( 'should handle invalid token response', async () => {
+		const url = new URL( 'wpcom-local-dev://auth#access_token=mock-token&expires_in=invalid' );
+		await handleAuthDeeplink( url );
 
-			expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
+		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
+			error: expect.any( Error ),
 		} );
+		expect( writeFile ).not.toHaveBeenCalled();
+	} );
+
+	it( 'should handle wpcom API error', async () => {
+		const mockWpcomGet = jest.fn().mockRejectedValue( new Error( 'API Error' ) );
+		jest.mocked( wpcomFactory ).mockReturnValue( {
+			req: { get: mockWpcomGet },
+		} as unknown as WPCOM );
+
+		const url = new URL( 'wpcom-local-dev://auth#access_token=mock-token&expires_in=3600' );
+		await handleAuthDeeplink( url );
+
+		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
+			error: expect.any( Error ),
+		} );
+		expect( writeFile ).not.toHaveBeenCalled();
 	} );
 } );

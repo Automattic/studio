@@ -84,24 +84,19 @@ async function handleAuthCallback( hash: string ): Promise< StoredToken > {
 	} );
 }
 
-export async function onOpenUrlCallback( url: string ) {
-	const urlObject = new URL( url );
-	const { host, hash, searchParams } = urlObject;
-
-	if ( host === 'auth' ) {
-		try {
-			const authResult = await handleAuthCallback( hash );
-			await updateAppdata( { authToken: authResult } );
-			void sendIpcEventToRenderer( 'auth-updated', { token: authResult } );
-		} catch ( error ) {
-			Sentry.captureException( error );
-			void sendIpcEventToRenderer( 'auth-updated', { error } );
-		}
-	} else if ( host === 'sync-connect-site' ) {
-		const remoteSiteId = parseInt( searchParams.get( 'remoteSiteId' ) ?? '' );
-		const studioSiteId = searchParams.get( 'studioSiteId' );
-		if ( remoteSiteId && studioSiteId ) {
-			void sendIpcEventToRenderer( 'sync-connect-site', { remoteSiteId, studioSiteId } );
-		}
+/**
+ * Handles the OAuth authentication deeplink callback.
+ * This function is called when the user completes authentication on WordPress.com
+ * and is redirected back to the app via wpcom-local-dev://auth
+ */
+export async function handleAuthDeeplink( urlObject: URL ): Promise< void > {
+	const { hash } = urlObject;
+	try {
+		const authResult = await handleAuthCallback( hash );
+		await updateAppdata( { authToken: authResult } );
+		void sendIpcEventToRenderer( 'auth-updated', { token: authResult } );
+	} catch ( error ) {
+		Sentry.captureException( error );
+		void sendIpcEventToRenderer( 'auth-updated', { error } );
 	}
 }

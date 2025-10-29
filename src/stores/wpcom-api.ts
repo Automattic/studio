@@ -45,6 +45,22 @@ const snapshotUsageSchema = z
 		siteCreationBlocked: data.site_creation_blocked,
 	} ) );
 
+const snapshotStatusSchema = z
+	.object( {
+		domain_name: z.string(),
+		atomic_site_id: z.number(),
+		status: z.string(),
+		is_deleted: z.string(),
+	} )
+	.transform( ( data ) => ( {
+		domainName: data.domain_name,
+		atomicSiteId: data.atomic_site_id,
+		status: data.status,
+		isDeleted: data.is_deleted === '1',
+	} ) );
+
+export type LiveSnapshotStatus = z.infer< typeof snapshotStatusSchema >;
+
 const blueprintSchema = z.object( {
 	slug: z.string(),
 	title: z.string(),
@@ -151,6 +167,14 @@ export const wpcomApi = createApi( {
 			keepUnusedDataFor: 60 * 60,
 			providesTags: [ 'SnapshotUsage' ],
 		} ),
+		getSnapshotStatus: builder.query< LiveSnapshotStatus, number >( {
+			query: ( siteId ) => ( {
+				path: `/jurassic-ninja/status?site_id=${ siteId }`,
+				apiNamespace: 'wpcom/v2',
+			} ),
+			transformResponse: ( response: unknown ) => parseResponse( response, snapshotStatusSchema ),
+			keepUnusedDataFor: 60 * 60,
+		} ),
 		deleteAllSnapshots: builder.mutation< void, void >( {
 			query: () => ( {
 				path: '/jurassic-ninja/delete/all',
@@ -251,6 +275,10 @@ export const useGetAssistantQuota = withWpcomClientCheck(
 
 export const useGetSnapshotUsage = withWpcomClientCheck(
 	withOfflineCheck( wpcomApi.useGetSnapshotUsageQuery )
+);
+
+export const useGetSnapshotStatus = withWpcomClientCheck(
+	withOfflineCheck( wpcomApi.useGetSnapshotStatusQuery )
 );
 
 export const useDeleteAllSnapshots = withWpcomClientCheckMutation(

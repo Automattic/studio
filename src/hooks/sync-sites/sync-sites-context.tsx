@@ -163,7 +163,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				}
 
 				if ( Object.keys( restoredStates ).length > 0 ) {
-					setPushStates( restoredStates );
+					setPushStates( ( prev ) => ( { ...prev, ...restoredStates } ) );
 				}
 			} catch ( error ) {
 				// Initialization is not critical to app functionality, but log the error

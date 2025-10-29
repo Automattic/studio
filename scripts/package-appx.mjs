@@ -62,6 +62,34 @@ const appStoreVersion = normalizeWindowsVersion( packageJson.version );
 
 const appxName = packageJson.productName + '-appx';
 
+async function addProtocolHandlerToManifest( manifestPath ) {
+	console.log( '~~~ Adding protocol handler to manifest...' );
+	const manifestContent = await fs.readFile( manifestPath, 'utf-8' );
+
+	// Check if protocol handler already exists
+	if ( manifestContent.includes( 'wpcom-local-dev' ) ) {
+		console.log( '~~~ Protocol handler already exists, skipping...' );
+		return;
+	}
+
+	// Insert the protocol handler extension before </Application>
+	const protocolExtension = `      <Extensions>
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="wpcom-local-dev">
+            <uap:DisplayName>WordPress.com Local Dev Protocol</uap:DisplayName>
+          </uap:Protocol>
+        </uap:Extension>
+      </Extensions>`;
+
+	const updatedManifest = manifestContent.replace(
+		'</Application>',
+		`${ protocolExtension }\n    </Application>`
+	);
+
+	await fs.writeFile( manifestPath, updatedManifest, 'utf-8' );
+	console.log( '~~~ Protocol handler added successfully' );
+}
+
 const sharedOptions = {
 	containerVirtualization: false,
 	inputDirectory: path.resolve( outPath, `Studio-win32-${ architecture }` ),
@@ -74,11 +102,15 @@ const sharedOptions = {
 	windowsKit: windowsKitPath,
 	deploy: false,
 	assets: assetsPath,
-	manifest: path.join( assetsPath, 'AppxManifest.xml' ),
 	makePri: false, // from electron2appx docs: "you don't need to unless you know you do"
 	packageDisplayName: 'WordPress Studio',
 	publisherDisplayName: 'Automattic, Inc.',
 	identityName: '22490Automattic.StudiobyWordPress.com',
+	finalSay: async function () {
+		// This hook runs after manifest generation but before packaging
+		const manifestPath = path.join( this.outputDirectory, 'pre-appx', 'AppXManifest.xml' );
+		await addProtocolHandlerToManifest( manifestPath );
+	},
 };
 
 // Create unsigned AppX

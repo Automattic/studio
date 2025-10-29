@@ -70,6 +70,7 @@ export interface WordPressProvider {
 
 	// Core functionality
 	setupWordPressSite( server: SiteServer, wpVersion?: string ): Promise< boolean >;
+	setupWordPressFilesOnly( path: string ): Promise< void >;
 	installWordPressWhenNoWpConfig(
 		server: SiteServer,
 		siteName: string,

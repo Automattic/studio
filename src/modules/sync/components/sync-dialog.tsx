@@ -255,6 +255,7 @@ export function SyncDialog( {
 							<>
 								<div className="absolute end-6 z-10 top-[6px]">
 									<SelectControl
+										style={ { paddingInlineEnd: '42px' } }
 										value={ showAllFiles ? 'true' : 'false' }
 										variant="minimal"
 										options={ [

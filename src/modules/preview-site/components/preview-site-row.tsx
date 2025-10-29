@@ -43,7 +43,9 @@ export function PreviewSiteRow( {
 	const deleteOperation = useRootSelector( ( state ) =>
 		snapshotSelectors.selectDeleteOperationForSnapshot( state, snapshot.url )
 	);
-	const { data: snapshotStatus, refetch: refetchSnapshotStatus } = useGetSnapshotStatus( snapshot.atomicSiteId );
+	const { data: snapshotStatus, refetch: refetchSnapshotStatus } = useGetSnapshotStatus(
+		snapshot.atomicSiteId
+	);
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 	const [ showUpdatedMessage, setShowUpdatedMessage ] = useState( false );
 	const wasUpdating = useRef( false );

@@ -13,9 +13,8 @@ import { PreferencesTab } from 'src/modules/user-settings/components/preferences
 import { UsageTab } from 'src/modules/user-settings/components/usage-tab';
 import { useRootSelector } from 'src/stores';
 import { snapshotSelectors } from 'src/stores/snapshot-slice';
-import { useDeleteAllSnapshots, useGetSnapshotUsage, wpcomApi } from 'src/stores/wpcom-api';
+import { useDeleteAllSnapshots, useGetSnapshotUsage } from 'src/stores/wpcom-api';
 import { UserSettingsTab } from 'src/modules/user-settings/user-settings-types';
-import { updateAppdata } from 'src/storage/user-data';
 
 export default function UserSettings() {
 	const { __ } = useI18n();
@@ -61,7 +60,7 @@ export default function UserSettings() {
 		if ( response === DELETE_BUTTON_INDEX ) {
 			try {
 				await deleteAllSnapshots().unwrap();
-				await updateAppdata( { snapshots: [] } );
+				await getIpcApi().saveSnapshotsToStorage( [] );
 			} catch ( error ) {
 				await getIpcApi().showMessageBox( {
 					type: 'warning',

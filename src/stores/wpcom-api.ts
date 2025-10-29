@@ -158,7 +158,6 @@ export const wpcomApi = createApi( {
 				apiNamespace: 'wpcom/v2',
 				method: 'POST',
 			} ),
-			invalidatesTags: [ 'SnapshotUsage' ],
 		} )
 	} ),
 } );

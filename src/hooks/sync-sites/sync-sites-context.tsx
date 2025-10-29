@@ -114,7 +114,6 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 
 	// Initialize push states from in-progress server operations on mount
 	useEffect( () => {
-		// Only run once, when client and connectedSites are both available
 		if ( hasInitialized.current || ! client ) {
 			return;
 		}

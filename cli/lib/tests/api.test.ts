@@ -1,5 +1,6 @@
 import fs from 'fs';
 import wpcomFactory from 'src/lib/wpcom-factory';
+import { WPCOM } from 'wpcom/types';
 import { uploadArchive, waitForSiteReady, SnapshotStatus } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
 
@@ -36,7 +37,7 @@ describe( 'API Module', () => {
 					post: jest.fn().mockResolvedValue( mockResponse ),
 				},
 			};
-			( wpcomFactory as unknown as jest.Mock ).mockReturnValue( mockWpcom );
+			jest.mocked( wpcomFactory ).mockReturnValue( mockWpcom as unknown as WPCOM );
 
 			const result = await uploadArchive( mockArchivePath, mockToken, mockWordPressVersion );
 
@@ -71,7 +72,7 @@ describe( 'API Module', () => {
 					} ),
 				},
 			};
-			( wpcomFactory as unknown as jest.Mock ).mockReturnValue( mockWpcom );
+			jest.mocked( wpcomFactory ).mockReturnValue( mockWpcom as unknown as WPCOM );
 
 			await uploadArchive( mockArchivePath, mockToken, mockWordPressVersion );
 			expect( mockWpcom.req.post ).toHaveBeenCalledWith( {
@@ -98,7 +99,7 @@ describe( 'API Module', () => {
 					post: jest.fn().mockRejectedValue( mockError ),
 				},
 			};
-			( wpcomFactory as unknown as jest.Mock ).mockReturnValue( mockWpcom );
+			jest.mocked( wpcomFactory ).mockReturnValue( mockWpcom as unknown as WPCOM );
 
 			await expect(
 				uploadArchive( mockArchivePath, mockToken, mockWordPressVersion )
@@ -116,7 +117,7 @@ describe( 'API Module', () => {
 					post: jest.fn().mockResolvedValue( invalidResponse ),
 				},
 			};
-			( wpcomFactory as unknown as jest.Mock ).mockReturnValue( mockWpcom );
+			jest.mocked( wpcomFactory ).mockReturnValue( mockWpcom as unknown as WPCOM );
 
 			await expect(
 				uploadArchive( mockArchivePath, mockToken, mockWordPressVersion )
@@ -159,7 +160,7 @@ describe( 'API Module', () => {
 						.mockResolvedValueOnce( activeResponse ),
 				},
 			};
-			( wpcomFactory as unknown as jest.Mock ).mockReturnValue( mockWpcom );
+			jest.mocked( wpcomFactory ).mockReturnValue( mockWpcom as unknown as WPCOM );
 
 			const result = await waitForSiteReady( mockSiteId, mockToken );
 			expect( mockWpcom.req.get ).toHaveBeenCalledTimes( 2 );
@@ -179,7 +180,7 @@ describe( 'API Module', () => {
 					get: jest.fn().mockResolvedValue( pendingResponse ),
 				},
 			};
-			( wpcomFactory as unknown as jest.Mock ).mockReturnValue( mockWpcom );
+			jest.mocked( wpcomFactory ).mockReturnValue( mockWpcom as unknown as WPCOM );
 
 			try {
 				await waitForSiteReady( mockSiteId, mockToken );
@@ -210,7 +211,7 @@ describe( 'API Module', () => {
 						.mockResolvedValueOnce( validResponse ),
 				},
 			};
-			( wpcomFactory as unknown as jest.Mock ).mockReturnValue( mockWpcom );
+			jest.mocked( wpcomFactory ).mockReturnValue( mockWpcom as unknown as WPCOM );
 
 			const result = await waitForSiteReady( mockSiteId, mockToken );
 			expect( mockWpcom.req.get ).toHaveBeenCalledTimes( 2 );

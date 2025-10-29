@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import { readFile, writeFile } from 'atomically';
+import { WPCOM } from 'wpcom/types';
 import { SupportedLocale } from 'common/lib/locale';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { getAuthenticationToken, getSignUpUrl, onOpenUrlCallback } from 'src/lib/oauth';
@@ -144,9 +145,9 @@ describe( 'onOpenUrlCallback', () => {
 				email: 'user@example.com',
 				display_name: 'Test User',
 			} );
-			( wpcomFactory as unknown as jest.Mock ).mockReturnValue( {
+			jest.mocked( wpcomFactory ).mockReturnValue( {
 				req: { get: mockWpcomGet },
-			} );
+			} as unknown as WPCOM );
 
 			const url = 'studio://auth#access_token=mock-token&expires_in=3600';
 			await onOpenUrlCallback( url );
@@ -185,9 +186,9 @@ describe( 'onOpenUrlCallback', () => {
 
 		it( 'should handle wpcom API error', async () => {
 			const mockWpcomGet = jest.fn().mockRejectedValue( new Error( 'API Error' ) );
-			( wpcomFactory as unknown as jest.Mock ).mockReturnValue( {
+			jest.mocked( wpcomFactory ).mockReturnValue( {
 				req: { get: mockWpcomGet },
-			} );
+			} as unknown as WPCOM );
 
 			const url = 'studio://auth#access_token=mock-token&expires_in=3600';
 			await onOpenUrlCallback( url );

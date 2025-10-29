@@ -66,16 +66,12 @@ export type UseSyncPush = {
 
 /**
  * Maps an ImportResponse status to a PushStateProgressInfo object.
- * Returns null if the operation is finished or failed (should not be restored).
+ * Returns null if the operation is not in progress or unknown.
  */
 export function mapImportResponseToPushState(
 	response: ImportResponse,
 	pushStatesProgressInfo: Record< PushStateProgressInfo[ 'key' ], PushStateProgressInfo >
 ): PushStateProgressInfo | null {
-	if ( response.status === 'finished' || response.status === 'failed' ) {
-		return null;
-	}
-
 	if ( response.status === 'initial_backup_started' ) {
 		return pushStatesProgressInfo.creatingRemoteBackup;
 	}

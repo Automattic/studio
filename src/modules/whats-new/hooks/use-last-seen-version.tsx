@@ -16,7 +16,7 @@ export function useLastSeenVersion(): UseLastSeenVersion {
 	const { lastSeenVersion, isNewVersion } = useGetLastSeenVersionQuery( undefined, {
 		selectFromResult: ( result ) => ( {
 			lastSeenVersion: result.data,
-			isNewVersion: selectIsNewVersion( result, currentVersion ),
+			isNewVersion: result.isSuccess && selectIsNewVersion( result, currentVersion ),
 		} ),
 	} );
 	const [ saveLastSeenVersion ] = useSaveLastSeenVersionMutation();

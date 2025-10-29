@@ -135,12 +135,12 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 							continue;
 						}
 
-						const response = ( await client.req.get(
+						const response = await client.req.get< ImportResponse >(
 							`/sites/${ connectedSite.id }/studio-app/sync/import`,
 							{
 								apiNamespace: 'wpcom/v2',
 							}
-						) ) as ImportResponse;
+						);
 
 						const status = mapImportResponseToPushState( response, pushStatesProgressInfo );
 

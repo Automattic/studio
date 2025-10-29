@@ -13,8 +13,24 @@ type PushOptionsWithSelections = {
 	};
 };
 
+const normalizePath = ( path: string ): string =>
+	path.replace( /^wp-content\//, '' ).replace( /^\/+|\/+$/g, '' );
+
+const PATH_SYNC_MAP = [
+	{ pattern: /^plugins\//, option: SYNC_OPTIONS.plugins },
+	{ pattern: /^themes\//, option: SYNC_OPTIONS.themes },
+	{ pattern: /^uploads\//, option: SYNC_OPTIONS.uploads },
+	{ pattern: /^(mu-plugins|fonts|languages)(\/|$)/, option: SYNC_OPTIONS.contents },
+] as const;
+
+const SPECIFIC_PATTERNS = {
+	plugins: /^plugins\/([^/]+)/,
+	themes: /^themes\/([^/]+)/,
+	uploads: /^uploads\/([^/]+)/,
+} as const;
+
 const shouldExcludePathFromSync = ( path: string ): boolean => {
-	const normalizedPath = path.replace( /^wp-content\//, '' ).replace( /^\/+|\/+$/g, '' );
+	const normalizedPath = normalizePath( path );
 
 	for ( const exclusion of SYNC_EXCLUSIONS ) {
 		if ( normalizedPath === exclusion || normalizedPath.startsWith( exclusion ) ) {
@@ -30,27 +46,14 @@ const getPathSyncOption = ( path: string ): SyncOption | null => {
 		return null;
 	}
 
-	const normalizedPath = path.replace( /^wp-content\//, '' ).replace( /^\/+|\/+$/g, '' );
+	const normalizedPath = normalizePath( path );
 
-	if ( normalizedPath.startsWith( 'plugins/' ) ) {
-		return SYNC_OPTIONS.plugins;
+	for ( const { pattern, option } of PATH_SYNC_MAP ) {
+		if ( pattern.test( normalizedPath ) ) {
+			return option;
+		}
 	}
-	if ( normalizedPath.startsWith( 'themes/' ) ) {
-		return SYNC_OPTIONS.themes;
-	}
-	if ( normalizedPath.startsWith( 'uploads/' ) ) {
-		return SYNC_OPTIONS.uploads;
-	}
-	if (
-		normalizedPath.startsWith( 'mu-plugins/' ) ||
-		normalizedPath.startsWith( 'fonts/' ) ||
-		normalizedPath.startsWith( 'languages/' ) ||
-		normalizedPath === 'mu-plugins' ||
-		normalizedPath === 'fonts' ||
-		normalizedPath === 'languages'
-	) {
-		return SYNC_OPTIONS.contents;
-	}
+
 	if ( normalizedPath && ! normalizedPath.includes( '../' ) ) {
 		return SYNC_OPTIONS.contents;
 	}
@@ -58,27 +61,29 @@ const getPathSyncOption = ( path: string ): SyncOption | null => {
 	return null;
 };
 
-const collectPathIds = ( nodes: TreeNode[], pathIds: string[] = [] ): string[] => {
+const collectNodes = < T >(
+	nodes: TreeNode[],
+	extractor: ( node: TreeNode ) => T | null,
+	collector: T[] = []
+): T[] => {
 	nodes.forEach( ( node ) => {
-		if ( node.checked && node.pathId ) {
-			pathIds.push( node.pathId );
+		if ( node.checked ) {
+			const value = extractor( node );
+			if ( value ) collector.push( value );
 		} else if ( node.indeterminate && node.children ) {
-			collectPathIds( node.children, pathIds );
+			collectNodes( node.children, extractor, collector );
 		}
 	} );
-	return pathIds;
+	return collector;
 };
 
-const collectSelectedPaths = ( nodes: TreeNode[], selectedPaths: string[] = [] ): string[] => {
-	nodes.forEach( ( node ) => {
-		if ( node.checked && node.path && ! shouldExcludePathFromSync( node.path ) ) {
-			selectedPaths.push( node.path );
-		} else if ( node.indeterminate && node.children ) {
-			collectSelectedPaths( node.children, selectedPaths );
-		}
-	} );
-	return selectedPaths;
-};
+const collectPathIds = ( nodes: TreeNode[] ): string[] =>
+	collectNodes( nodes, ( node ) => node.pathId || null );
+
+const collectSelectedPaths = ( nodes: TreeNode[] ): string[] =>
+	collectNodes( nodes, ( node ) =>
+		node.path && ! shouldExcludePathFromSync( node.path ) ? node.path : null
+	);
 
 const groupPathsBySyncOption = ( paths: string[] ): Record< SyncOption, boolean > => {
 	const syncOptions: Record< SyncOption, boolean > = {
@@ -105,44 +110,28 @@ const extractSpecificSelections = (
 	paths: string[]
 ): PushOptionsWithSelections[ 'specificSelections' ] => {
 	const specificSelections: PushOptionsWithSelections[ 'specificSelections' ] = {};
-	const plugins = new Set< string >();
-	const themes = new Set< string >();
-	const uploads = new Set< string >();
+	const collections = {
+		plugins: new Set< string >(),
+		themes: new Set< string >(),
+		uploads: new Set< string >(),
+	};
 
 	paths.forEach( ( path ) => {
-		const normalizedPath = path.replace( /^wp-content\//, '' ).replace( /^\/+|\/+$/g, '' );
+		const normalizedPath = normalizePath( path );
 
-		if ( normalizedPath.startsWith( 'plugins/' ) ) {
-			const pluginMatch = normalizedPath.match( /^plugins\/([^/]+)/ );
-			if ( pluginMatch ) {
-				plugins.add( pluginMatch[ 1 ] );
+		Object.entries( SPECIFIC_PATTERNS ).forEach( ( [ key, pattern ] ) => {
+			const match = normalizedPath.match( pattern );
+			if ( match ) {
+				collections[ key as keyof typeof collections ].add( match[ 1 ] );
 			}
-		}
-
-		if ( normalizedPath.startsWith( 'themes/' ) ) {
-			const themeMatch = normalizedPath.match( /^themes\/([^/]+)/ );
-			if ( themeMatch ) {
-				themes.add( themeMatch[ 1 ] );
-			}
-		}
-
-		if ( normalizedPath.startsWith( 'uploads/' ) ) {
-			const uploadMatch = normalizedPath.match( /^uploads\/([^/]+)/ );
-			if ( uploadMatch ) {
-				uploads.add( uploadMatch[ 1 ] );
-			}
-		}
+		} );
 	} );
 
-	if ( plugins.size > 0 ) {
-		specificSelections.plugins = Array.from( plugins );
-	}
-	if ( themes.size > 0 ) {
-		specificSelections.themes = Array.from( themes );
-	}
-	if ( uploads.size > 0 ) {
-		specificSelections.uploads = Array.from( uploads );
-	}
+	Object.entries( collections ).forEach( ( [ key, set ] ) => {
+		if ( set.size > 0 ) {
+			specificSelections[ key as keyof typeof collections ] = Array.from( set );
+		}
+	} );
 
 	return Object.keys( specificSelections ).length > 0 ? specificSelections : undefined;
 };

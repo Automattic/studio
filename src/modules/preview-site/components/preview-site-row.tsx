@@ -16,6 +16,7 @@ import { DeleteProgressRow } from 'src/modules/preview-site/components/delete-pr
 import { PreviewActionButtonsMenu } from 'src/modules/preview-site/components/preview-action-buttons-menu';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import { snapshotActions, snapshotSelectors } from 'src/stores/snapshot-slice';
+import { useGetSnapshotStatus } from 'src/stores/wpcom-api';
 
 interface PreviewSiteRowProps {
 	snapshot: Snapshot;
@@ -42,9 +43,12 @@ export function PreviewSiteRow( {
 	const deleteOperation = useRootSelector( ( state ) =>
 		snapshotSelectors.selectDeleteOperationForSnapshot( state, snapshot.url )
 	);
+	const { data: snapshotStatus, refetch: refetchSnapshotStatus } = useGetSnapshotStatus( snapshot.atomicSiteId );
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 	const [ showUpdatedMessage, setShowUpdatedMessage ] = useState( false );
 	const wasUpdating = useRef( false );
+	const isDeleted = snapshotStatus?.isDeleted;
+	const isSiteInactive = isExpired || isDeleted;
 
 	useEffect( () => {
 		if ( ! updateOperation ) {
@@ -72,6 +76,11 @@ export function PreviewSiteRow( {
 
 		return () => clearTimeout( timeoutId );
 	}, [ updateOperation ] );
+
+	// Refetch snapshot status to check if the site has been deleted
+	useEffect( () => {
+		refetchSnapshotStatus();
+	}, [ refetchSnapshotStatus ] );
 
 	const getLastUpdateTimeText = () => {
 		if ( ! date ) {
@@ -108,31 +117,41 @@ export function PreviewSiteRow( {
 		<div className="self-stretch flex-col">
 			<div className="flex items-center px-8 py-6">
 				<div className="w-[51%] overflow-hidden pe-4">
-					<div className="flex items-center">
-						<div
-							className={ cx(
-								'text-[13px] leading-5 line-clamp-1 break-all',
-								isExpired && 'line-through text-a8c-gray-700'
-							) }
-						>
-							{ /* translators: %s: Site name (e.g. "My Site Preview") */ }
-							{ snapshot.name || sprintf( __( '%s Preview' ), selectedSite.name ) }
-						</div>
-					</div>
-					<Button
-						variant="link"
-						disabled={ isExpired }
-						className={ cx(
-							'!text-a8c-gray-700 max-w-full',
-							isExpired ? 'pointer-events-none' : 'hover:!text-a8c-blue-50'
+					<Tooltip
+						text={ __(
+							'This preview site has been marked as deleted. You can no longer access it. You can clear it from you list by clicking the Clear button.'
 						) }
-						onClick={ () => getIpcApi().openURL( `https://${ url }` ) }
+						disabled={ ! isDeleted }
 					>
-						<span className={ cx( 'truncate', isExpired && 'line-through text-a8c-gray-700' ) }>
-							{ url }
-						</span>
-						{ ! isExpired && <ArrowIcon /> }
-					</Button>
+						<div className="flex flex-col">
+							<div
+								className={ cx(
+									'text-[13px] leading-5 line-clamp-1 break-all',
+									isExpired && 'line-through text-a8c-gray-700',
+									isDeleted && 'line-through text-a8c-red-50'
+								) }
+							>
+								{ /* translators: %s: Site name (e.g. "My Site Preview") */ }
+								{ snapshot.name || sprintf( __( '%s Preview' ), selectedSite.name ) }
+							</div>
+							<Button
+								variant="link"
+								disabled={ isSiteInactive }
+								className={ cx(
+									'!text-a8c-gray-700 max-w-full',
+									isSiteInactive ? 'pointer-events-none' : 'hover:!text-a8c-blue-50'
+								) }
+								onClick={ () => getIpcApi().openURL( `https://${ url }` ) }
+							>
+								<span
+									className={ cx( 'truncate', isSiteInactive && 'line-through text-a8c-gray-700' ) }
+								>
+									{ url }
+								</span>
+								{ ! isSiteInactive && <ArrowIcon /> }
+							</Button>
+						</div>
+					</Tooltip>
 				</div>
 				<div className="flex ltr:ml-auto rtl:mr-auto">
 					<div className="w-[150px] text-a8c-gray-700 flex items-center pl-4">
@@ -142,18 +161,18 @@ export function PreviewSiteRow( {
 								{ __( 'Updating' ) }
 							</div>
 						) : (
-							<Tooltip text={ dateString } disabled={ ! date }>
+							<Tooltip text={ dateString } disabled={ ! date || isSiteInactive }>
 								{ getLastUpdateTimeText() }
 							</Tooltip>
 						) }
 					</div>
 					<div className="flex items-center">
-						<Tooltip text={ expireDateString } disabled={ isExpired }>
+						<Tooltip text={ expireDateString } disabled={ isSiteInactive }>
 							<div className="w-[150px] text-a8c-gray-700 pl-4">{ countDown }</div>
 						</Tooltip>
 					</div>
 					<div className="w-[60px] flex justify-end">
-						{ isExpired ? (
+						{ isSiteInactive ? (
 							<Button
 								variant="link"
 								onClick={ () => {

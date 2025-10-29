@@ -29,7 +29,7 @@ if ($Architecture -notin $VALID_ARCHITECTURES) {
 }
 
 # prepare_windows_host_for_app_distribution.ps1 comes from CI Toolkit Plugin
-& "prepare_windows_host_for_app_distribution.ps1" -InstallPython $true -InstallNativeCompilationTools $true
+& "prepare_windows_host_for_app_distribution.ps1" -InstallNativeCompilationTools $true
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 Write-Host "--- :npm: Installing Node dependencies"

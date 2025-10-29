@@ -123,22 +123,18 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 
 		const initializePushStates = async () => {
 			try {
-				// Get all local sites to map site IDs to SiteDetails
 				const allSites = await getIpcApi().getSiteDetails();
 
 				const restoredStates: PushStates = {};
 
-				// Query the server for each connected site to check for in-progress operations
 				for ( const connectedSite of connectedSites ) {
 					try {
-						// Find the local site
 						const selectedSite = allSites.find( ( site ) => site.id === connectedSite.localSiteId );
 
 						if ( ! selectedSite ) {
 							continue;
 						}
 
-						// Query the server for the current import status
 						const response = ( await client.req.get(
 							`/sites/${ connectedSite.id }/studio-app/sync/import`,
 							{
@@ -146,10 +142,9 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 							}
 						) ) as ImportResponse;
 
-						// Map the response to a PushStateProgressInfo
 						const status = mapImportResponseToPushState( response, pushStatesProgressInfo );
 
-						// Only restore if the operation is still in progress
+						// Only restore the pushStates if the operation is still in progress
 						if ( status ) {
 							const stateId = generateStateId( connectedSite.localSiteId, connectedSite.id );
 							restoredStates[ stateId ] = {
@@ -159,7 +154,6 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 								remoteSiteUrl: connectedSite.url,
 							};
 
-							// Add to ACTIVE_SYNC_OPERATIONS for tracking
 							getIpcApi().addSyncOperation( stateId, status );
 						}
 					} catch ( error ) {
@@ -168,7 +162,6 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 					}
 				}
 
-				// Update the push states with all restored operations
 				if ( Object.keys( restoredStates ).length > 0 ) {
 					setPushStates( restoredStates );
 				}

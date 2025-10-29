@@ -119,9 +119,12 @@ export function useSyncPush( {
 				return;
 			}
 
-			const response = ( await client.req.get( `/sites/${ remoteSiteId }/studio-app/sync/import`, {
-				apiNamespace: 'wpcom/v2',
-			} ) ) as ImportResponse;
+			const response = await client.req.get< ImportResponse >(
+				`/sites/${ remoteSiteId }/studio-app/sync/import`,
+				{
+					apiNamespace: 'wpcom/v2',
+				}
+			);
 
 			let status: PushStateProgressInfo = pushStatesProgressInfo.creatingRemoteBackup;
 			if ( response.success && response.status === 'finished' ) {
@@ -276,13 +279,13 @@ export function useSyncPush( {
 			}
 
 			try {
-				const response = ( await client.req.post( {
+				const response = await client.req.post< {
+					success: boolean;
+				} >( {
 					path: `/sites/${ remoteSiteId }/studio-app/sync/import`,
 					apiNamespace: 'wpcom/v2',
 					formData,
-				} ) ) as {
-					success: boolean;
-				};
+				} );
 
 				const stateAfterUpload = getPushState( selectedSite.id, remoteSiteId );
 

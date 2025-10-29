@@ -139,11 +139,11 @@ export function useSyncPull( {
 					include_path_list: options.include_path_list,
 				};
 
-				const response = ( await client.req.post( {
+				const response = await client.req.post< { success: boolean; backup_id: string } >( {
 					path: `/sites/${ remoteSiteId }/studio-app/sync/backup`,
 					apiNamespace: 'wpcom/v2',
 					body: requestBody,
-				} ) ) as { success: boolean; backup_id: string };
+				} );
 
 				if ( response.success ) {
 					updatePullState( selectedSite.id, remoteSiteId, {
@@ -320,13 +320,13 @@ export function useSyncPull( {
 			}
 
 			try {
-				const response = ( await client.req.get(
+				const response = await client.req.get< SyncBackupResponse >(
 					`/sites/${ remoteSiteId }/studio-app/sync/backup`,
 					{
 						apiNamespace: 'wpcom/v2',
 						backup_id: backupId,
 					}
-				) ) as SyncBackupResponse;
+				);
 
 				const hasBackupCompleted = response.status === 'finished';
 				const downloadUrl = hasBackupCompleted ? response.download_url : null;

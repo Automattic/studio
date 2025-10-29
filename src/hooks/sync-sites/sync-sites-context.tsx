@@ -124,14 +124,15 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 		const initializePushStates = async () => {
 			try {
 				const allSites = await getIpcApi().getSiteDetails();
+				const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
 
 				const restoredStates: PushStates = {};
 
-				for ( const connectedSite of connectedSites ) {
+				for ( const connectedSite of allConnectedSites ) {
 					try {
-						const selectedSite = allSites.find( ( site ) => site.id === connectedSite.localSiteId );
+						const localSite = allSites.find( ( site ) => site.id === connectedSite.localSiteId );
 
-						if ( ! selectedSite ) {
+						if ( ! localSite ) {
 							continue;
 						}
 
@@ -150,7 +151,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 							restoredStates[ stateId ] = {
 								remoteSiteId: connectedSite.id,
 								status,
-								selectedSite,
+								selectedSite: localSite,
 								remoteSiteUrl: connectedSite.url,
 							};
 

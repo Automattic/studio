@@ -74,6 +74,7 @@ const sharedOptions = {
 	windowsKit: windowsKitPath,
 	deploy: false,
 	assets: assetsPath,
+	manifest: path.join( assetsPath, 'AppxManifest.xml' ),
 	makePri: false, // from electron2appx docs: "you don't need to unless you know you do"
 	packageDisplayName: 'WordPress Studio',
 	publisherDisplayName: 'Automattic, Inc.',

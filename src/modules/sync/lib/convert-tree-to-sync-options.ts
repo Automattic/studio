@@ -54,24 +54,21 @@ const getPathSyncOption = ( path: string ): SyncOption | null => {
 		}
 	}
 
-	if ( normalizedPath && ! normalizedPath.includes( '../' ) ) {
+	if ( normalizedPath ) {
 		return SYNC_OPTIONS.contents;
 	}
 
 	return null;
 };
 
-const collectNodes = < T >(
-	nodes: TreeNode[],
-	extractor: ( node: TreeNode ) => T | null,
-	collector: T[] = []
-): T[] => {
+const collectNodes = < T >( nodes: TreeNode[], extractor: ( node: TreeNode ) => T | null ): T[] => {
+	const collector: T[] = [];
 	nodes.forEach( ( node ) => {
 		if ( node.checked ) {
 			const value = extractor( node );
 			if ( value ) collector.push( value );
 		} else if ( node.indeterminate && node.children ) {
-			collectNodes( node.children, extractor, collector );
+			collector.push( ...collectNodes( node.children, extractor ) );
 		}
 	} );
 	return collector;
@@ -160,25 +157,17 @@ export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSel
 	}
 
 	// Handle wp-content selections using the new file tree structure
-	const wpContentChildren = wpContent?.children || [];
 	let specificSelections: PushOptionsWithSelections[ 'specificSelections' ] = undefined;
 
-	if ( wpContentChildren.length > 0 ) {
+	if ( wpContent?.children?.length ) {
 		// New file tree structure - collect all selected file paths and group by sync options
-		const selectedPaths = collectSelectedPaths( wpContentChildren );
+		const selectedPaths = collectSelectedPaths( wpContent.children );
 		const syncOptionGroups = groupPathsBySyncOption( selectedPaths );
 
-		// Add sync options based on what file paths were selected (in consistent order)
-		const syncOptionOrder = [
-			SYNC_OPTIONS.plugins,
-			SYNC_OPTIONS.themes,
-			SYNC_OPTIONS.uploads,
-			SYNC_OPTIONS.contents,
-		];
-
-		syncOptionOrder.forEach( ( syncOption ) => {
-			if ( syncOptionGroups[ syncOption ] ) {
-				optionsToSync.push( syncOption );
+		// Add sync options based on PATH_SYNC_MAP order
+		PATH_SYNC_MAP.forEach( ( { option } ) => {
+			if ( syncOptionGroups[ option ] ) {
+				optionsToSync.push( option );
 			}
 		} );
 

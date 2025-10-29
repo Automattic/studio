@@ -156,22 +156,18 @@ export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSel
 		optionsToSync.push( SYNC_OPTIONS.sqls );
 	}
 
-	// Handle wp-content selections using the new file tree structure
 	let specificSelections: PushOptionsWithSelections[ 'specificSelections' ] = undefined;
 
 	if ( wpContent?.children?.length ) {
-		// New file tree structure - collect all selected file paths and group by sync options
 		const selectedPaths = collectSelectedPaths( wpContent.children );
 		const syncOptionGroups = groupPathsBySyncOption( selectedPaths );
 
-		// Add sync options based on PATH_SYNC_MAP order
 		PATH_SYNC_MAP.forEach( ( { option } ) => {
 			if ( syncOptionGroups[ option ] ) {
 				optionsToSync.push( option );
 			}
 		} );
 
-		// Extract specific selections for plugins, themes, uploads
 		specificSelections = extractSpecificSelections( selectedPaths );
 	}
 

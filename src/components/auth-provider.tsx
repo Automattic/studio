@@ -91,6 +91,8 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 					await client.req.del( {
 						apiNamespace: 'wpcom/v2',
 						path: '/studio-app/token',
+						// wpcom.req.del defaults to POST; explicitly send HTTP DELETE for v2
+						method: 'DELETE',
 					} );
 					console.log( 'Token revoked' );
 				} catch ( err ) {

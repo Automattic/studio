@@ -25,6 +25,12 @@ updates:
       - dependency-name: "ts-*"
       - dependency-name: "jest"
       - dependency-name: "jest-*"
+      - dependency-name: "@playwright/*"
+      - dependency-name: "electron-playwright-helpers"
+      - dependency-name: "vite"
+      - dependency-name: "vite-*"
+      - dependency-name: "@vitejs/*"
+      - dependency-name: "electron-vite"
 
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"

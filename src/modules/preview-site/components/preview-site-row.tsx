@@ -43,9 +43,9 @@ export function PreviewSiteRow( {
 	const deleteOperation = useRootSelector( ( state ) =>
 		snapshotSelectors.selectDeleteOperationForSnapshot( state, snapshot.url )
 	);
-	const { data: snapshotStatus, refetch: refetchSnapshotStatus } = useGetSnapshotStatus(
-		snapshot.atomicSiteId
-	);
+	const { data: snapshotStatus } = useGetSnapshotStatus( snapshot.atomicSiteId, {
+		refetchOnMountOrArgChange: true,
+	} );
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
 	const [ showUpdatedMessage, setShowUpdatedMessage ] = useState( false );
 	const wasUpdating = useRef( false );
@@ -78,11 +78,6 @@ export function PreviewSiteRow( {
 
 		return () => clearTimeout( timeoutId );
 	}, [ updateOperation ] );
-
-	// Refetch snapshot status to check if the site has been deleted
-	useEffect( () => {
-		refetchSnapshotStatus();
-	}, [ refetchSnapshotStatus ] );
 
 	const getLastUpdateTimeText = () => {
 		if ( ! date ) {

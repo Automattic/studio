@@ -261,10 +261,8 @@ function SiteItem( {
 				<Button
 					variant="link"
 					className={ cx(
-						'a8c-body-small truncate !p-0 w-full !justify-start',
-						isSelected
-							? '!text-inherit hover:!text-inherit'
-							: '!text-a8c-gray-30 hover:!text-a8c-gray-30'
+						'a8c-body-small truncate !p-0 w-full !justify-start hover:!text-a8c-blue-50',
+						isSelected ? '!text-inherit hover:!text-a8c-blue-10' : '!text-a8c-gray-30'
 					) }
 					onClick={ () => getIpcApi().openURL( site.url ) }
 					onKeyDown={ ( e: React.KeyboardEvent ) => {

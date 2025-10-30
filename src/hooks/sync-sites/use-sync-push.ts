@@ -284,8 +284,7 @@ export function useSyncPush( {
 						status: pushStatesProgressInfo.creatingRemoteBackup,
 					} );
 				} else {
-					console.error( response );
-					throw new Error( 'Push request failed' );
+					throw response;
 				}
 			} catch ( error ) {
 				Sentry.captureException( error );

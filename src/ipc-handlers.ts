@@ -787,16 +787,12 @@ export async function exportSiteForPush(
 	}
 }
 
-const pushArchiveResponseSchema = z.object( {
-	success: z.boolean(),
-} );
-
 export async function pushArchive(
 	event: IpcMainInvokeEvent,
 	remoteSiteId: number,
 	archivePath: string,
 	optionsToSync?: string[]
-) {
+): Promise< { success: boolean; error?: string } > {
 	const token = await getAuthenticationToken();
 
 	if ( ! token?.accessToken ) {
@@ -819,13 +815,23 @@ export async function pushArchive(
 		formData.push( [ 'options', optionsToSync.join( ',' ) ] );
 	}
 
-	const rawResponse = await wpcom.req.post( {
-		path: `/sites/${ remoteSiteId }/studio-app/sync/import`,
-		apiNamespace: 'wpcom/v2',
-		formData,
-	} );
+	try {
+		await wpcom.req.post( {
+			path: `/sites/${ remoteSiteId }/studio-app/sync/import`,
+			apiNamespace: 'wpcom/v2',
+			formData,
+		} );
 
-	return pushArchiveResponseSchema.parse( rawResponse );
+		return { success: true };
+	} catch ( error ) {
+		const parseResult = z.object( { error: z.string() } ).safeParse( error );
+
+		if ( parseResult.success ) {
+			return { success: false, error: parseResult.data.error };
+		}
+
+		return { success: false, error: 'Unknown error' };
+	}
 }
 
 export function removeTemporaryFile( event: IpcMainInvokeEvent, path: string ) {

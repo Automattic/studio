@@ -59,8 +59,6 @@ const snapshotStatusSchema = z
 		isDeleted: data.is_deleted === '1',
 	} ) );
 
-export type LiveSnapshotStatus = z.infer< typeof snapshotStatusSchema >;
-
 const blueprintSchema = z.object( {
 	slug: z.string(),
 	title: z.string(),
@@ -167,7 +165,7 @@ export const wpcomApi = createApi( {
 			keepUnusedDataFor: 60 * 60,
 			providesTags: [ 'SnapshotUsage' ],
 		} ),
-		getSnapshotStatus: builder.query< LiveSnapshotStatus, number >( {
+		getSnapshotStatus: builder.query< z.infer< typeof snapshotStatusSchema >, number >( {
 			query: ( siteId ) => ( {
 				path: `/jurassic-ninja/status?site_id=${ siteId }`,
 				apiNamespace: 'wpcom/v2',

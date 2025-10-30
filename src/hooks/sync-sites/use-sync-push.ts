@@ -212,14 +212,14 @@ export function useSyncPush( {
 				remoteSiteUrl,
 			} );
 
-			let archiveContent, archivePath, archiveSizeInBytes;
+			let archivePath: string, archiveSizeInBytes: number;
 
 			try {
-				const result = await getIpcApi().exportSiteToPush( selectedSite.id, operationId, {
+				const result = await getIpcApi().exportSiteForPush( selectedSite.id, operationId, {
 					optionsToSync: options?.optionsToSync,
 					specificSelections: options?.specificSelections,
 				} );
-				( { archiveContent, archivePath, archiveSizeInBytes } = result );
+				( { archivePath, archiveSizeInBytes } = result );
 			} catch ( error ) {
 				if ( error instanceof Error && error.message === 'Export aborted' ) {
 					updatePushState( selectedSite.id, remoteSiteId, {
@@ -253,6 +253,7 @@ export function useSyncPush( {
 						'The site is too large to push. Please reduce the size of the site and try again.'
 					),
 				} );
+				await getIpcApi().removeTemporaryFile( archivePath );
 				return;
 			}
 
@@ -266,27 +267,12 @@ export function useSyncPush( {
 				status: pushStatesProgressInfo.uploading,
 			} );
 
-			const file = new File( [ archiveContent ], 'loca-env-site-1.tar.gz', {
-				type: 'application/gzip',
-			} );
-
-			const formData = [];
-
-			formData.push( [ 'import', file ] );
-
-			if ( options?.optionsToSync ) {
-				formData.push( [ 'options', options.optionsToSync.join( ',' ) ] );
-			}
-
 			try {
-				const response = ( await client.req.post( {
-					path: `/sites/${ remoteSiteId }/studio-app/sync/import`,
-					apiNamespace: 'wpcom/v2',
-					formData,
-				} ) ) as {
-					success: boolean;
-				};
-
+				const response = await getIpcApi().pushArchive(
+					remoteSiteId,
+					archivePath,
+					options?.optionsToSync
+				);
 				const stateAfterUpload = getPushState( selectedSite.id, remoteSiteId );
 
 				if ( isKeyCancelled( stateAfterUpload?.status.key ) ) {
@@ -311,7 +297,7 @@ export function useSyncPush( {
 					message: getErrorFromResponse( error ),
 				} );
 			} finally {
-				await getIpcApi().removeTemporalFile( archivePath );
+				await getIpcApi().removeTemporaryFile( archivePath );
 			}
 		},
 		[

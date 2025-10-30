@@ -20,6 +20,7 @@ import * as Sentry from '@sentry/electron/main';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { compileBlueprint } from '@wp-playground/blueprints';
 import archiver from 'archiver';
+import { z } from 'zod';
 import {
 	calculateDirectorySize,
 	isWordPressDirectory,
@@ -72,6 +73,8 @@ import {
 	getWordPressProvider,
 	getProviderConstants as getProviderConstantsFromProvider,
 } from 'src/lib/wordpress-provider';
+import wpcomFactory from 'src/lib/wpcom-factory';
+import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
@@ -712,7 +715,7 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string, format
 	return { archivePath, archiveSizeInBytes: stats.size };
 }
 
-export async function exportSiteToPush(
+export async function exportSiteForPush(
 	event: IpcMainInvokeEvent,
 	id: string,
 	operationId: string,
@@ -778,22 +781,62 @@ export async function exportSiteToPush(
 		}
 
 		const stats = fs.statSync( archivePath );
-		const archiveContent = fs.readFileSync( archivePath );
-		return { archivePath, archiveContent, archiveSizeInBytes: stats.size };
+		return { archivePath, archiveSizeInBytes: stats.size };
 	} finally {
 		SYNC_ABORT_CONTROLLERS.delete( operationId );
 	}
 }
 
-export function removeTemporalFile( event: IpcMainInvokeEvent, path: string ) {
+const pushArchiveResponseSchema = z.object( {
+	success: z.boolean(),
+} );
+
+export async function pushArchive(
+	event: IpcMainInvokeEvent,
+	remoteSiteId: number,
+	archivePath: string,
+	optionsToSync?: string[]
+) {
+	const token = await getAuthenticationToken();
+
+	if ( ! token?.accessToken ) {
+		throw new Error( 'No token found' );
+	}
+
+	const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
+	const formData: [ string, unknown, Record< string, string >? ][] = [
+		[
+			'import',
+			fs.createReadStream( archivePath ),
+			{
+				filename: 'loca-env-site-1.tar.gz',
+				contentType: 'application/gzip',
+			},
+		],
+	];
+
+	if ( optionsToSync ) {
+		formData.push( [ 'options', optionsToSync.join( ',' ) ] );
+	}
+
+	const rawResponse = await wpcom.req.post( {
+		path: `/sites/${ remoteSiteId }/studio-app/sync/import`,
+		apiNamespace: 'wpcom/v2',
+		formData,
+	} );
+
+	return pushArchiveResponseSchema.parse( rawResponse );
+}
+
+export function removeTemporaryFile( event: IpcMainInvokeEvent, path: string ) {
 	if ( ! path.includes( TEMP_DIR ) ) {
-		throw new Error( 'The given path is not a temporal file' );
+		throw new Error( 'The given path is not a temporary file' );
 	}
 	try {
 		fs.unlinkSync( path );
 	} catch ( error ) {
 		if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
-			// Silently ignore if the temporal file doesn't exist
+			// Silently ignore if the temporary file doesn't exist
 			Sentry.captureException( error );
 		}
 	}

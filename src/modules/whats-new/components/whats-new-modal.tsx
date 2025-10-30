@@ -10,6 +10,7 @@ import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
 import preferredAppsIllustration from 'src/modules/whats-new/assets/preferred-apps-illustration.svg';
 import pressableSyncIllustration from 'src/modules/whats-new/assets/pressable-sync-illustration.svg';
 import selectiveSyncIllustration from 'src/modules/whats-new/assets/selective-sync-illustration.svg';
+import surveyIllustration from 'src/modules/whats-new/assets/survey-illustration.svg';
 import { useI18nLocale } from 'src/stores';
 
 interface WhatsNewPage {
@@ -17,6 +18,7 @@ interface WhatsNewPage {
 	title: string;
 	description: ReactNode;
 	learnMoreUrl?: string;
+	learnMoreLabel?: string;
 }
 
 interface WhatsNewModalProps {
@@ -28,6 +30,7 @@ const PageContent = ( {
 	title,
 	description,
 	learnMoreUrl,
+	learnMoreLabel,
 	isIntroPage = false,
 }: Omit< WhatsNewPage, 'image' > & { isIntroPage?: boolean } ) => (
 	<div className="px-8 pt-3 pb-2 flex flex-col h-full">
@@ -46,7 +49,7 @@ const PageContent = ( {
 					onClick={ () => getIpcApi().openURL( learnMoreUrl ) }
 					className="text-a8c-blue-50 text-m leading-s cursor-pointer"
 				>
-					{ __( 'Learn more' ) }
+					{ learnMoreLabel || __( 'Learn more' ) }
 				</button>
 			) }
 		</div>
@@ -56,6 +59,15 @@ const PageContent = ( {
 export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProps ) {
 	const locale = useI18nLocale();
 	const whatsNewPages: WhatsNewPage[] = [
+		{
+			image: surveyIllustration,
+			title: __( "Got a minute? Here's a survey." ),
+			description: __(
+				"We'd love your thoughts on Studio and what would make it even better. Your response will help us prioritize what to build next."
+			),
+			learnMoreUrl: 'https://survey.survicate.com/8498ba9db0955a20/?p=anonymous',
+			learnMoreLabel: __( 'Take the survey' ),
+		},
 		{
 			image: blueprintsIllustration,
 			title: __( 'Introducing Blueprints, a new way to streamline site creation.' ),

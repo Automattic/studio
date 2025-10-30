@@ -19,7 +19,12 @@ export const UsageTab = ( {
 	<>
 		<SnapshotInfo
 			isDeleting={ loadingDeletingAllSnapshots || isLoadingSnapshotUsage }
-			isDisabled={ isOffline || loadingDeletingAllSnapshots || isLoadingSnapshotUsage }
+			isDisabled={
+				activeSnapshotCount === 0 ||
+				isOffline ||
+				loadingDeletingAllSnapshots ||
+				isLoadingSnapshotUsage
+			}
 			siteCount={ activeSnapshotCount }
 			siteLimit={ snapshotQuota }
 			onRemoveSnapshots={ onRemoveSnapshots }

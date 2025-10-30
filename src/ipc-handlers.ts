@@ -95,9 +95,9 @@ import {
 	PushStateProgressInfo,
 } from './hooks/use-sync-states-progress-info';
 import { Blueprint } from './stores/wpcom-api';
-import type { TreeNode } from 'src/components/tree-view';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
+import type { RawFileNode } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
 
 /**
@@ -1712,94 +1712,63 @@ export function comparePaths( event: IpcMainInvokeEvent, path1: string, path2: s
 	return arePathsEqual( path1, path2 );
 }
 
-async function listLocalFileTreeRecursive(
-	server: SiteDetails,
-	path: string,
-	parentChecked: boolean = false,
-	isFullTreeLoad: boolean = false
-): Promise< TreeNode[] > {
-	const fullPath = nodePath.join( server.path, path );
+export async function listLocalFileTree(
+	_event: Electron.IpcMainInvokeEvent,
+	siteId: string,
+	path: string = 'wp-content',
+	maxDepth: number = 3,
+	currentDepth: number = 0
+): Promise< RawFileNode[] > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) throw new Error( 'Site not found' );
+
+	const fullPath = nodePath.join( server.details.path, path );
 
 	try {
 		const entries = await fs.promises.readdir( fullPath, { withFileTypes: true } );
 		const result = [];
 
 		for ( const entry of entries ) {
+			if ( shouldExcludeFromSync( entry.name ) ) {
+				continue;
+			}
+
 			const isDirectory = entry.isDirectory();
 			const itemPath = path.endsWith( '/' )
 				? `${ path }${ entry.name }`
 				: `${ path }/${ entry.name }`;
 			const fullItemPath = isDirectory ? `${ itemPath }/` : itemPath;
 
-			if ( shouldExcludeFromSync( entry.name ) ) {
-				continue;
-			}
-
-			const shouldLimit = shouldLimitDepth( itemPath );
-
-			let nodeType: 'file' | 'folder' | 'plugin' | 'theme' = isDirectory ? 'folder' : 'file';
-			if ( isDirectory ) {
-				const normalizedPath = itemPath.replace( /^wp-content\//, '' );
-				if ( normalizedPath.match( /^plugins\/[^/]+$/ ) ) {
-					nodeType = 'plugin';
-				} else if ( normalizedPath.match( /^themes\/[^/]+$/ ) ) {
-					nodeType = 'theme';
-				}
-			}
-
-			let children = undefined;
-			if ( isDirectory && isFullTreeLoad && ! shouldLimit ) {
-				try {
-					children = await listLocalFileTreeRecursive( server, fullItemPath, parentChecked, true );
-				} catch ( childErr ) {
-					console.warn( `Failed to load children for ${ fullItemPath }:`, childErr );
-					children = [];
-				}
-			} else if ( isDirectory && ! shouldLimit ) {
-				children = [];
-			}
-
-			const treeNode = {
-				id: `local-${ itemPath.replace( /[^a-zA-Z0-9]/g, '-' ) }`,
+			const fileNode: RawFileNode = {
 				name: entry.name,
-				label: entry.name,
-				checked: parentChecked,
-				type: nodeType,
+				isDirectory,
 				path: fullItemPath,
-				pathId: fullItemPath,
-				children,
-				expanded: false,
-				hideExpandButton: shouldLimit,
 			};
 
-			result.push( treeNode );
+			const shouldLimit = shouldLimitDepth( fullItemPath );
+			if ( isDirectory && currentDepth < maxDepth && ! shouldLimit ) {
+				try {
+					fileNode.children = await listLocalFileTree(
+						_event,
+						siteId,
+						fullItemPath,
+						maxDepth,
+						currentDepth + 1
+					);
+				} catch ( childErr ) {
+					console.warn( `Failed to load children for ${ fullItemPath }:`, childErr );
+					fileNode.children = [];
+				}
+			}
+
+			result.push( fileNode );
 		}
 
-		return result.sort( ( a, b ) => {
-			if ( a.type !== b.type ) {
-				return a.type === 'folder' ? -1 : 1;
-			}
-			return a.name.toLowerCase().localeCompare( b.name.toLowerCase() );
-		} );
+		return result;
 	} catch ( err ) {
-		console.error( `Failed to list local file tree for path ${ path }:`, err );
+		console.error( `Failed to list raw file tree for path ${ path }:`, err );
 		return [];
 	}
-}
-
-export async function listLocalFileTree(
-	_event: Electron.IpcMainInvokeEvent,
-	siteId: string,
-	path: string,
-	parentChecked: boolean = false
-): Promise< TreeNode[] > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) throw new Error( 'Site not found' );
-
-	// Determine if this is a request for the complete tree (wp-content root)
-	const isFullTreeLoad = path === 'wp-content' || path === 'wp-content/';
-
-	return await listLocalFileTreeRecursive( server.details, path, parentChecked, isFullTreeLoad );
 }
 
 export async function getProviderConstants( _event: IpcMainInvokeEvent ) {

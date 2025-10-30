@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { TreeNode } from 'src/components/tree-view';
 import { useAuth } from 'src/hooks/use-auth';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { convertRawToTreeNodes } from 'src/modules/sync/lib/tree-utils';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import { fetchRemoteFileTree, useGetLatestRewindIdQuery } from './sync-api';
 import { syncSelectors } from './sync-slice';
@@ -80,14 +81,14 @@ export function useLocalFileTree() {
 	const fetchChildren = useCallback(
 		async (
 			siteId: string,
-			path: string,
+			path: string = 'wp-content',
 			parentChecked: boolean = false
 		): Promise< TreeNode[] | null > => {
 			setIsLoading( true );
 			setError( null );
 			try {
-				const result = await getIpcApi().listLocalFileTree( siteId, path, parentChecked );
-				return result;
+				const rawNodes = await getIpcApi().listLocalFileTree( siteId, path, 3 );
+				return convertRawToTreeNodes( rawNodes, parentChecked );
 			} catch ( err ) {
 				const error = err instanceof Error ? err : new Error( String( err ) );
 				setError( error );

@@ -166,7 +166,9 @@ export function PreviewSiteRow( {
 					</div>
 					<div className="flex items-center">
 						<Tooltip text={ expireDateString } disabled={ isSiteInactive }>
-							<div className="w-[150px] text-a8c-gray-700 pl-4">{ countDown }</div>
+							<div className="w-[150px] text-a8c-gray-700 pl-4">
+								{ isDeleted ? __( 'Deleted' ) : countDown }
+							</div>
 						</Tooltip>
 					</div>
 					<div className="w-[60px] flex justify-end">

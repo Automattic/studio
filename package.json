@@ -73,7 +73,7 @@
 		"@typescript-eslint/parser": "^8.21.0",
 		"@vitejs/plugin-react": "^5.0.3",
 		"@wordpress/components": "^30.6.0",
-		"@wordpress/element": "^6.26.0",
+		"@wordpress/element": "^6.34.0",
 		"@wordpress/react-i18n": "^3.48.0",
 		"autoprefixer": "^10.4.16",
 		"cross-env": "^7.0.3",

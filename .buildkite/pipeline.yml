@@ -5,6 +5,7 @@
 # Defining it at the root level propagates it too all agents, which can seem unnecessary but is a the same time convenient and DRY.
 env:
   IMAGE_ID: $IMAGE_ID
+  BUILDKITE_PLUGINS_ALWAYS_CLONE_FRESH: true
 
 steps:
   - label: Windows Unit Tests

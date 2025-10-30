@@ -148,11 +148,12 @@ export function useSyncPush( {
 				// If the impport fails due to a SQL import error, show a more specific message
 				const restoreMessage = response.error_data?.vp_restore_message || '';
 				const isSqlImportFailure = /importing sql dump/i.test( restoreMessage );
+				const isImportTimedOut = response.error === 'Import timed out';
 				const message = isSqlImportFailure
 					? __(
 							'Database import failed on the remote site. Please review your database and try again or contact support and provide details from the logs below.'
 					  )
-					: response.error === 'Import timed out'
+					: isImportTimedOut
 					? __(
 							"A timeout error occurred while pushing the site, likely due to its large size. Please try reducing the site's content or files and try again. If this problem persists, please contact support."
 					  )

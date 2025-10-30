@@ -149,17 +149,20 @@ export function useSyncPush( {
 				const restoreMessage = response.error_data?.vp_restore_message || '';
 				const isSqlImportFailure = /importing sql dump/i.test( restoreMessage );
 				const isImportTimedOut = response.error === 'Import timed out';
-				const message = isSqlImportFailure
-					? __(
-							'Database import failed on the remote site. Please review your database and try again or contact support and provide details from the logs below.'
-					  )
-					: isImportTimedOut
-					? __(
-							"A timeout error occurred while pushing the site, likely due to its large size. Please try reducing the site's content or files and try again. If this problem persists, please contact support."
-					  )
-					: __(
-							'An error occurred while pushing the site. If this problem persists, please contact support.'
-					  );
+				let message: string;
+				if ( isSqlImportFailure ) {
+					message = __(
+						'Database import failed on the remote site. Please review your database and try again or contact support and provide details from the logs below.'
+					);
+				} else if ( isImportTimedOut ) {
+					message = __(
+						"A timeout error occurred while pushing the site, likely due to its large size. Please try reducing the site's content or files and try again. If this problem persists, please contact support."
+					);
+				} else {
+					message = __(
+						'An error occurred while pushing the site. If this problem persists, please contact support.'
+					);
+				}
 
 				getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pushing to %s' ), syncPushState.selectedSite.name ),

@@ -95,7 +95,7 @@ describe( 'App initialization', () => {
 
 			const { mockedEvents } = mockElectron();
 			const mockHandleDeeplink = jest.fn();
-			jest.doMock( '../lib/deeplink-handler', () => ( { handleDeeplink: mockHandleDeeplink } ) );
+			jest.doMock( '../lib/deeplink', () => ( { handleDeeplink: mockHandleDeeplink } ) );
 
 			require( '../index' );
 			const { 'open-url': openUrl } = mockedEvents;

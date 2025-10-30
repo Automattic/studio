@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { handleSyncConnectSiteDeeplink } from 'src/lib/sync-connect-site-deeplink';
+import { handleSyncConnectSiteDeeplink } from 'src/lib/deeplink/handlers/sync-connect-site';
 
 jest.mock( 'src/ipc-utils' );
 

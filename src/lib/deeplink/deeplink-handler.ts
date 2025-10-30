@@ -1,5 +1,5 @@
-import { handleAuthDeeplink } from 'src/lib/oauth';
-import { handleSyncConnectSiteDeeplink } from 'src/lib/sync-connect-site-deeplink';
+import { handleAuthDeeplink } from 'src/lib/deeplink/handlers/auth';
+import { handleSyncConnectSiteDeeplink } from 'src/lib/deeplink/handlers/sync-connect-site';
 
 /**
  * Main deeplink handler that routes incoming deeplinks to the appropriate handler.

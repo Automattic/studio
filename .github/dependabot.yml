@@ -25,6 +25,20 @@ updates:
       - dependency-name: "ts-*"
       - dependency-name: "jest"
       - dependency-name: "jest-*"
+      - dependency-name: "@playwright/*"
+      - dependency-name: "electron-playwright-helpers"
+      - dependency-name: "vite"
+      - dependency-name: "vite-*"
+      - dependency-name: "@vitejs/*"
+      - dependency-name: "electron-vite"
+    groups:
+      electron-forge:
+        patterns:
+          - "@electron-forge/*"
+      wp-playground-php-wasm:
+        patterns:
+          - "@wp-playground/*"
+          - "@php-wasm/*"
 
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"

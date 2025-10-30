@@ -13,6 +13,13 @@ if ( ! process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD ) {
 
 const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 
+// Get architecture from environment variable, default to x64 for backward compatibility
+const architecture = process.env.FILE_ARCHITECTURE || 'x64';
+if ( architecture !== 'x64' && architecture !== 'arm64' ) {
+	console.error( `Invalid architecture: ${ architecture }. Must be 'x64' or 'arm64'.` );
+	process.exit( 1 );
+}
+
 const windows10SDKVersionPath = path.resolve( __dirname, '..', '.windows-10-sdk-version' );
 try {
 	await fs.access( windows10SDKVersionPath );
@@ -22,6 +29,8 @@ try {
 }
 const windows10SDKVersionContent = await fs.readFile( windows10SDKVersionPath );
 const windows10SDKVersion = windows10SDKVersionContent.toString().trim();
+// Windows SDK tools (makeappx.exe, signtool.exe) are always in the x64 directory,
+// regardless of the target architecture. The architecture only affects the manifest.
 const windowsKitPath = `C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.${ windows10SDKVersion }.0\\x64`;
 
 console.log( '~~~ Verifying Windows 10 SDK location...' );
@@ -42,9 +51,7 @@ const packageJson = JSON.parse( packageJsonText );
 const outPath = path.join( __dirname, '..', 'out' );
 const assetsPath = path.join( __dirname, '..', 'assets', 'appx' );
 
-// Get architecture from environment variable, default to x64 for backward compatibility
-const architecture = process.env.FILE_ARCHITECTURE || 'x64';
-console.log( `~~~ Packaging for architecture: ${ architecture }` );
+console.log( `~~~ Packaging AppX for architecture: ${ architecture }` );
 
 const normalizeWindowsVersion = ( version ) => {
 	const noPrerelease = version.replace( /-.*/, '' );
@@ -73,6 +80,7 @@ const sharedOptions = {
 	identityName: '22490Automattic.StudiobyWordPress.com',
 };
 
+// Create unsigned AppX
 const appxOutputPathUnsigned = path.resolve( outPath, `${ appxName }-${ architecture }-unsigned` );
 console.log(
 	`~~~ Creating unsigned .appx for Microsoft Store submission upload at ${ appxOutputPathUnsigned }...`
@@ -86,6 +94,7 @@ await convertToWindowsStore( {
 	outputDirectory: appxOutputPathUnsigned,
 } );
 
+// Create signed AppX
 const appxOutputPathSigned = path.resolve( outPath, `${ appxName }-${ architecture }-signed` );
 console.log( `~~~ Creating signed .appx for local testing at ${ appxOutputPathSigned }...` );
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { TreeNode } from 'src/components/tree-view';
-import { SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
+import { SYNC_OPTIONS, SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export function useSelectedItemsPushSize(
@@ -45,9 +45,19 @@ export function useSelectedItemsPushSize(
 			} else if ( wpContentNode?.children ) {
 				for ( const child of wpContentNode.children ) {
 					if ( child.checked ) {
-						sizePromises.push(
-							getIpcApi().getDirectorySize( siteId, [ 'wp-content', child.name ] )
-						);
+						// The `contents` tree node maps to `wp-content/mu-plugins` and `wp-content/fonts`
+						if ( child.id === SYNC_OPTIONS.contents ) {
+							sizePromises.push(
+								getIpcApi().getDirectorySize( siteId, [ 'wp-content', 'mu-plugins' ] )
+							);
+							sizePromises.push(
+								getIpcApi().getDirectorySize( siteId, [ 'wp-content', 'fonts' ] )
+							);
+						} else {
+							sizePromises.push(
+								getIpcApi().getDirectorySize( siteId, [ 'wp-content', child.name ] )
+							);
+						}
 					} else if ( child.indeterminate && child.children ) {
 						for ( const subChild of child.children ) {
 							if ( subChild.checked || subChild.indeterminate ) {

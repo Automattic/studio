@@ -37,7 +37,7 @@ export function PreviewSiteRow( {
 	const { url, date } = snapshot;
 	const { countDown, dateString, expireDateString, isExpired } = useExpirationDate( date );
 	const dispatch = useAppDispatch();
-	const updateOperation = useRootSelector( ( state ) =>	
+	const updateOperation = useRootSelector( ( state ) =>
 		snapshotSelectors.selectUpdateOperationForSnapshot( state, snapshot.atomicSiteId )
 	);
 	const deleteOperation = useRootSelector( ( state ) =>
@@ -126,7 +126,7 @@ export function PreviewSiteRow( {
 								className={ cx(
 									'text-[13px] leading-5 line-clamp-1 break-all',
 									isExpired && 'line-through text-a8c-gray-700',
-									( ! isExpired && isDeleted ) && 'line-through text-a8c-red-50'
+									! isExpired && isDeleted && 'line-through text-a8c-red-50'
 								) }
 							>
 								{ /* translators: %s: Site name (e.g. "My Site Preview") */ }

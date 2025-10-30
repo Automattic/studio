@@ -25,7 +25,7 @@ export const SnapshotInfo = ( {
 	const { __ } = useI18n();
 	const { data: snapshotUsage } = useGetSnapshotUsage( undefined, {
 		refetchOnMountOrArgChange: true,
-	});
+	} );
 	const snapshotCreationBlocked = snapshotUsage?.siteCreationBlocked ?? false;
 	const menuItemStyles = cx(
 		'[&_span]:min-w-0 [&_span]:p-[1px]',

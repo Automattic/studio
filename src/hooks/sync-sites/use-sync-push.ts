@@ -145,7 +145,7 @@ export function useSyncPush( {
 					error: response.error,
 					error_data: response.error_data,
 				} );
-				// If the impport dails due to a SQL import error, show a more specific message
+				// If the impport fails due to a SQL import error, show a more specific message
 				const restoreMessage = response.error_data?.vp_restore_message || '';
 				const isSqlImportFailure = /importing sql dump/i.test( restoreMessage );
 				const message = isSqlImportFailure

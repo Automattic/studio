@@ -77,7 +77,6 @@
 		"@wordpress/react-i18n": "^3.48.0",
 		"autoprefixer": "^10.4.16",
 		"cross-env": "^7.0.3",
-		"css-loader": "^6.0.0",
 		"ejs": "^3.1.10",
 		"electron": "38.2.2",
 		"electron-devtools-installer": "^4.0.0",

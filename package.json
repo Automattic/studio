@@ -131,7 +131,7 @@
 		"@sentry/electron": "^6.5.0",
 		"@types/yargs": "^17.0.33",
 		"@vscode/sudo-prompt": "^9.3.1",
-		"@wordpress/compose": "^7.26.0",
+		"@wordpress/compose": "^7.34.0",
 		"@wordpress/dataviews": "^10.1.0",
 		"@wordpress/i18n": "^6.1.0",
 		"@wordpress/icons": "^10.10.0",

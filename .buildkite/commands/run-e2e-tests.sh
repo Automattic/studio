@@ -18,4 +18,7 @@ echo '--- :package: Package app for testing'
 npm run package
 
 echo '--- :playwright: Run End To End Tests'
-npm run e2e
+echo 'Installing Playwright browsers...'
+npx playwright install
+echo 'Running Playwright tests...'
+npx playwright test

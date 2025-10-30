@@ -46,6 +46,7 @@ import {
 	trustRootCA,
 } from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
+import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { sanitizeFolderName } from 'src/lib/generate-site-name';
 import { getImageData } from 'src/lib/get-image-data';
@@ -88,6 +89,10 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
+import {
+	PullStateProgressInfo,
+	PushStateProgressInfo,
+} from './hooks/use-sync-states-progress-info';
 import { Blueprint } from './stores/wpcom-api';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
@@ -167,9 +172,7 @@ export async function importSite(
 	}
 	try {
 		if ( ! isWordPressDirectory( site.details.path ) ) {
-			// Workaround to have the necessary WordPress files to run the import - STU-744
-			await site.start();
-			await site.stop();
+			await getWordPressProvider().setupWordPressFilesOnly( site.details.path );
 		}
 
 		const onEvent = ( data: ImportExportEventData ) => {
@@ -183,6 +186,9 @@ export async function importSite(
 		if ( result?.meta?.phpVersion ) {
 			site.details.phpVersion = result.meta.phpVersion;
 		}
+
+		// Clear blueprint so it doesn't overwrite imported data on first start
+		site.meta.blueprint = undefined;
 
 		return site.details;
 	} catch ( e ) {
@@ -931,9 +937,11 @@ export async function openSiteURL(
 		return;
 	}
 
-	const url = new URL( relativeURL, site.server.url );
+	let url = new URL( relativeURL, site.server.url );
 	if ( autoLogin ) {
-		url.searchParams.append( 'playground-auto-login', 'true' );
+		const autoLoginUrl = new URL( '/studio-auto-login', site.server.url );
+		autoLoginUrl.searchParams.append( 'redirect_to', url.toString() );
+		url = autoLoginUrl;
 	}
 
 	void shellOpenExternalWrapper( url.toString() );
@@ -1170,8 +1178,9 @@ export async function showErrorMessageBox(
 		showOpenLogs = false,
 	}: { title: string; message: string; error?: unknown; showOpenLogs?: boolean }
 ) {
+	const simplifiedError = simplifyErrorForDisplay( error );
 	// Remove prepended error message added by IPC handler
-	const filteredError = ( error as Error )?.message?.replace(
+	const filteredError = ( simplifiedError as Error )?.message?.replace(
 		/Error invoking remote method '\w+': Error:/g,
 		''
 	);
@@ -1328,8 +1337,12 @@ export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteI
 /**
  * Store the ID of a push/pull operation in a deduped set.
  */
-export function addSyncOperation( event: IpcMainInvokeEvent, id: string ) {
-	ACTIVE_SYNC_OPERATIONS.add( id );
+export function addSyncOperation(
+	event: IpcMainInvokeEvent,
+	id: string,
+	state?: PullStateProgressInfo | PushStateProgressInfo
+) {
+	ACTIVE_SYNC_OPERATIONS.set( id, state );
 }
 
 /**

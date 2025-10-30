@@ -148,6 +148,10 @@ export class WpNowProvider implements WordPressProvider {
 		}
 	}
 
+	async setupWordPressFilesOnly( _path: string ): Promise< void > {
+		// No-op for wp-now provider
+	}
+
 	async installWordPressWhenNoWpConfig(
 		_server: SiteServer,
 		_siteName: string,

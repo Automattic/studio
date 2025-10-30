@@ -29,6 +29,7 @@ jest.mock( 'src/lib/wordpress-provider', () => ( {
 		DEFAULT_PHP_VERSION: '8.3',
 		DEFAULT_WORDPRESS_VERSION: 'latest',
 		SQLITE_FILENAME: 'sqlite.php',
+		setupWordPressFilesOnly: jest.fn().mockResolvedValue( undefined ),
 	} ),
 } ) );
 jest.mock( 'src/main-window' );
@@ -207,6 +208,7 @@ describe( 'importSite', () => {
 				id: 'test-site',
 				phpVersion: '8.3',
 			},
+			meta: {},
 			start: jest.fn(),
 			stop: jest.fn(),
 			updateSiteDetails: jest.fn(),

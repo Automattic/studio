@@ -284,22 +284,6 @@ export function useSyncStatesProgressInfo() {
 		]
 	);
 
-	const canCancelPull = useCallback( ( key: PullStateProgressInfo[ 'key' ] | undefined ) => {
-		const cancellableStateKeys: PullStateProgressInfo[ 'key' ][] = [ 'in-progress', 'downloading' ];
-		if ( ! key ) {
-			return false;
-		}
-		return cancellableStateKeys.includes( key );
-	}, [] );
-
-	const canCancelPush = useCallback( ( key: PushStateProgressInfo[ 'key' ] | undefined ) => {
-		const cancellableStateKeys: PushStateProgressInfo[ 'key' ][] = [ 'creatingBackup' ];
-		if ( ! key ) {
-			return false;
-		}
-		return cancellableStateKeys.includes( key );
-	}, [] );
-
 	return {
 		pullStatesProgressInfo,
 		pushStatesProgressInfo,
@@ -312,7 +296,5 @@ export function useSyncStatesProgressInfo() {
 		getBackupStatusWithProgress,
 		getPullStatusWithProgress,
 		getPushStatusWithProgress,
-		canCancelPull,
-		canCancelPush,
 	};
 }

@@ -37,6 +37,7 @@ BrowserWindow.prototype.isFullScreen = jest.fn( () => false );
 
 const mockWebContents = {
 	on: jest.fn(),
+	once: jest.fn(),
 	send: jest.fn(),
 	isDestroyed: jest.fn( () => false ),
 };
@@ -62,6 +63,10 @@ BrowserWindow.prototype.emit = jest.fn( ( event: string, ...args: any[] ) => {
 	const handlers = eventHandlers[ event ] || [];
 	handlers.forEach( ( handler ) => handler( ...args ) );
 } );
+
+export const dialog = {
+	showMessageBox: jest.fn(),
+};
 
 export const Menu = {
 	buildFromTemplate: jest.fn(),

@@ -8,6 +8,7 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { removeMenu } from 'src/menu';
 import {
 	loadUserData,
@@ -106,6 +107,10 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	mainWindow.webContents.on( 'devtools-closed', async () => {
 		await updateAppdata( { devToolsOpen: false } );
+	} );
+
+	mainWindow.webContents.once( 'did-finish-load', () => {
+		void promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
 	} );
 
 	mainWindow.on( 'closed', () => {

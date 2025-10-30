@@ -364,7 +364,9 @@ describe( 'EditSiteDetails', () => {
 		await waitFor( () => {
 			expect( mockShowErrorMessageBox ).toHaveBeenCalledWith( {
 				title: 'Error changing WordPress version',
-				message: 'Update failed',
+				message: 'An error occurred while updating the WordPress version.',
+				error: new Error( 'Update failed' ),
+				showOpenLogs: true,
 			} );
 		} );
 

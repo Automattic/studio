@@ -9,24 +9,21 @@ interface UseWhatsNew {
 }
 
 export function useWhatsNew(): UseWhatsNew {
-	const [ showWhatsNew, setShowWhatsNew ] = useState( true );
 	const [ manuallyTriggered, setManuallyTriggered ] = useState( false );
 	const { needsOnboarding } = useOnboarding();
 	const { isNewVersion, updateLastSeenVersion } = useLastSeenVersion();
 
 	useIpcListener( 'show-whats-new', () => {
 		setManuallyTriggered( true );
-		setShowWhatsNew( true );
 	} );
 
 	const closeWhatsNew = async () => {
-		setShowWhatsNew( false );
 		setManuallyTriggered( false );
 		await updateLastSeenVersion();
 	};
 
 	return {
-		showWhatsNew: ( manuallyTriggered || ( showWhatsNew && isNewVersion ) ) && ! needsOnboarding,
+		showWhatsNew: ( manuallyTriggered || isNewVersion ) && ! needsOnboarding,
 		closeWhatsNew,
 	};
 }

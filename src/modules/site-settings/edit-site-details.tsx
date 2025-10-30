@@ -140,7 +140,9 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 					const errorMessage = stripAnsi( ( wpError as Error )?.message );
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Error changing WordPress version' ),
-						message: errorMessage,
+						message: __( 'An error occurred while updating the WordPress version.' ),
+						error: new Error( errorMessage ),
+						showOpenLogs: true,
 					} );
 					setSelectedWpVersion( getEffectiveWpVersion() );
 					setIsEditingSite( false );

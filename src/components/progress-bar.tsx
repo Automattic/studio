@@ -9,7 +9,7 @@ type ProgressBarProps = {
 };
 
 const ProgressBar = ( { value, maxValue, className }: ProgressBarProps ) => {
-	const classNames = cx( 'w-full flex', className );
+	const classNames = cx( '!w-full flex', className );
 	if ( value !== undefined && maxValue !== undefined ) {
 		const percentage = Math.max( 0, Math.min( 100, ( value / maxValue ) * 100 ) );
 		return <WPProgressBar value={ percentage } className={ classNames } />;

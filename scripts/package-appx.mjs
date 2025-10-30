@@ -13,6 +13,13 @@ if ( ! process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD ) {
 
 const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 
+// Get architecture from environment variable, default to x64 for backward compatibility
+const architecture = process.env.FILE_ARCHITECTURE || 'x64';
+if ( architecture !== 'x64' && architecture !== 'arm64' ) {
+	console.error( `Invalid architecture: ${ architecture }. Must be 'x64' or 'arm64'.` );
+	process.exit( 1 );
+}
+
 const windows10SDKVersionPath = path.resolve( __dirname, '..', '.windows-10-sdk-version' );
 try {
 	await fs.access( windows10SDKVersionPath );
@@ -22,6 +29,8 @@ try {
 }
 const windows10SDKVersionContent = await fs.readFile( windows10SDKVersionPath );
 const windows10SDKVersion = windows10SDKVersionContent.toString().trim();
+// Windows SDK tools (makeappx.exe, signtool.exe) are always in the x64 directory,
+// regardless of the target architecture. The architecture only affects the manifest.
 const windowsKitPath = `C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.${ windows10SDKVersion }.0\\x64`;
 
 console.log( '~~~ Verifying Windows 10 SDK location...' );
@@ -42,6 +51,8 @@ const packageJson = JSON.parse( packageJsonText );
 const outPath = path.join( __dirname, '..', 'out' );
 const assetsPath = path.join( __dirname, '..', 'assets', 'appx' );
 
+console.log( `~~~ Packaging AppX for architecture: ${ architecture }` );
+
 const normalizeWindowsVersion = ( version ) => {
 	const noPrerelease = version.replace( /-.*/, '' );
 	return `${ noPrerelease }.0`;
@@ -53,7 +64,7 @@ const appxName = packageJson.productName + '-appx';
 
 const sharedOptions = {
 	containerVirtualization: false,
-	inputDirectory: path.resolve( outPath, 'Studio-win32-x64' ),
+	inputDirectory: path.resolve( outPath, `Studio-win32-${ architecture }` ),
 	packageVersion: appStoreVersion,
 	// Results in Id being invalid (might just be a matter of escaping, though)
 	// packageName: 'WordPress Studio',
@@ -69,7 +80,8 @@ const sharedOptions = {
 	identityName: '22490Automattic.StudiobyWordPress.com',
 };
 
-const appxOutputPathUnsigned = path.resolve( outPath, `${ appxName }-unsigned` );
+// Create unsigned AppX
+const appxOutputPathUnsigned = path.resolve( outPath, `${ appxName }-${ architecture }-unsigned` );
 console.log(
 	`~~~ Creating unsigned .appx for Microsoft Store submission upload at ${ appxOutputPathUnsigned }...`
 );
@@ -82,7 +94,8 @@ await convertToWindowsStore( {
 	outputDirectory: appxOutputPathUnsigned,
 } );
 
-const appxOutputPathSigned = path.resolve( outPath, `${ appxName }-signed` );
+// Create signed AppX
+const appxOutputPathSigned = path.resolve( outPath, `${ appxName }-${ architecture }-signed` );
 console.log( `~~~ Creating signed .appx for local testing at ${ appxOutputPathSigned }...` );
 
 await convertToWindowsStore( {

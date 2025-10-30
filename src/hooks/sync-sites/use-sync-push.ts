@@ -64,6 +64,29 @@ export type UseSyncPush = {
 	cancelPush: CancelPush;
 };
 
+/**
+ * Maps an ImportResponse status to a PushStateProgressInfo object.
+ * Returns null if the operation is not in progress or unknown.
+ */
+export function mapImportResponseToPushState(
+	response: ImportResponse,
+	pushStatesProgressInfo: Record< PushStateProgressInfo[ 'key' ], PushStateProgressInfo >
+): PushStateProgressInfo | null {
+	if ( response.status === 'initial_backup_started' ) {
+		return pushStatesProgressInfo.creatingRemoteBackup;
+	}
+
+	if ( response.status === 'archive_import_started' ) {
+		return pushStatesProgressInfo.applyingChanges;
+	}
+
+	if ( response.status === 'archive_import_finished' ) {
+		return pushStatesProgressInfo.finishing;
+	}
+
+	return null;
+}
+
 export function useSyncPush( {
 	pushStates,
 	setPushStates,
@@ -93,7 +116,7 @@ export function useSyncPush( {
 
 			if ( isKeyFailed( statusKey ) || isKeyFinished( statusKey ) || isKeyCancelled( statusKey ) ) {
 				getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
-			} else {
+			} else if ( state.status ) {
 				getIpcApi().addSyncOperation(
 					generateStateId( selectedSiteId, remoteSiteId ),
 					state.status

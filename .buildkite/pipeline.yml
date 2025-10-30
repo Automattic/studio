@@ -32,7 +32,7 @@ steps:
       - windows
     notify:
       - github_commit_status:
-          context: All Unit Tests
+          context: Unit Tests
 
   # Notice that we use the queue name (matrix value) in the label.
   # We could have added values for queue and label, but that would have resulted in 'macOS + windows' and 'Windows + mac' combinations, which we don't want.
@@ -56,7 +56,7 @@ steps:
       - windows
     notify:
       - github_commit_status:
-          context: All E2E Tests
+          context: E2E Tests
 
   - group: 📦 Build for Mac
     key: dev-mac

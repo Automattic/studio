@@ -1,11 +1,11 @@
-import { createApi, TypedUseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi, TypedUseQuery, TypedUseMutation } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
 import { WPCOM } from 'wpcom/types';
 import { z } from 'zod';
 import { DAY_MS } from 'common/constants';
 import wpcomFactory from 'src/lib/wpcom-factory';
 import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
-import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
+import { withOfflineCheck, withOfflineCheckMutation } from 'src/stores/utils/with-offline-check';
 import type { BaseQueryFn, FetchBaseQueryError } from '@reduxjs/toolkit/query';
 
 const welcomeMessageSchema = z.object( {
@@ -151,6 +151,13 @@ export const wpcomApi = createApi( {
 			keepUnusedDataFor: 60 * 60,
 			providesTags: [ 'SnapshotUsage' ],
 		} ),
+		deleteAllSnapshots: builder.mutation< void, void >( {
+			query: () => ( {
+				path: '/jurassic-ninja/delete/all',
+				apiNamespace: 'wpcom/v2',
+				method: 'POST',
+			} ),
+		} ),
 	} ),
 } );
 
@@ -219,6 +226,21 @@ function withWpcomClientCheck< TResult, TArg >(
 	};
 }
 
+function withWpcomClientCheckMutation< TResult, TArg >(
+	useMutationHook: TypedUseMutation< TResult, TArg, typeof wpcomBaseQuery >
+): TypedUseMutation< TResult, TArg, typeof wpcomBaseQuery > {
+	return ( options = {} ) => {
+		const [ trigger, result ] = useMutationHook( options );
+		const wrappedTrigger = ( ( ...args: Parameters< typeof trigger > ) => {
+			if ( ! wpcomClient ) {
+				return Promise.reject( new Error( 'Not authenticated' ) ) as ReturnType< typeof trigger >;
+			}
+			return trigger( ...args );
+		} ) as typeof trigger;
+		return [ wrappedTrigger, result ] as const;
+	};
+}
+
 export const useGetWelcomeMessages = withWpcomClientCheck(
 	withOfflineCheck( wpcomApi.useGetWelcomeMessagesQuery )
 );
@@ -229,6 +251,10 @@ export const useGetAssistantQuota = withWpcomClientCheck(
 
 export const useGetSnapshotUsage = withWpcomClientCheck(
 	withOfflineCheck( wpcomApi.useGetSnapshotUsageQuery )
+);
+
+export const useDeleteAllSnapshots = withWpcomClientCheckMutation(
+	withOfflineCheckMutation( wpcomApi.useDeleteAllSnapshotsMutation )
 );
 
 // Blueprints use the public API and don't require authentication

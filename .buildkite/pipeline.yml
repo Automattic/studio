@@ -21,33 +21,18 @@ steps:
       - github_commit_status:
           context: Lint
 
-  - label: Unit Tests
-    agents:
-      queue: mac
+  - label: Unit Tests on {{matrix}}
     key: unit_tests
-    command: |
-      .buildkite/commands/install-node-dependencies.sh
-      echo '--- :npm: Run Unit Tests'
-      npm run test
+    command: bash .buildkite/commands/run-unit-tests.sh "{{matrix}}"
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
-    notify:
-      - github_commit_status:
-          context: Unit Tests
-
-  - label: Windows Unit Tests
-    command: |
-      # prepare_windows_host_for_app_distribution.ps1 comes from CI Toolkit Plugin
-      & "prepare_windows_host_for_app_distribution.ps1" -InstallNativeCompilationTools $true
-
-      bash .buildkite/commands/install-node-dependencies.sh
-      echo '--- :npm: Run Unit Tests'
-      npm run test
     agents:
-      queue: windows
-    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+      queue: "{{matrix}}"
+    matrix:
+      - mac
+      - windows
     notify:
       - github_commit_status:
-          context: Windows Unit Tests
+          context: All Unit Tests
 
   # Notice that we use the queue name (matrix value) in the label.
   # We could have added values for queue and label, but that would have resulted in 'macOS + windows' and 'Windows + mac' combinations, which we don't want.

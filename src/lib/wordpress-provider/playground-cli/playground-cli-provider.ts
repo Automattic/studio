@@ -260,4 +260,20 @@ export class PlaygroundCliProvider implements WordPressProvider {
 
 		return { wpContentPath: undefined };
 	}
+
+	async setupWordPressFilesOnly( path: string ): Promise< void > {
+		try {
+			const bundledWPPath = nodePath.join( getResourcesPath(), 'wp-files', 'latest', 'wordpress' );
+
+			if ( ! ( await pathExists( bundledWPPath ) ) ) {
+				throw new Error( 'Bundled WordPress files not found. Please reinstall WordPress Studio.' );
+			}
+
+			await recursiveCopyDirectory( bundledWPPath, path );
+			await keepSqliteIntegrationUpdated( path );
+		} catch ( error ) {
+			console.error( 'Failed to setup WordPress files:', error );
+			throw error;
+		}
+	}
 }

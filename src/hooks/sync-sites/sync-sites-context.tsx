@@ -121,57 +121,55 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 		hasInitialized.current = true;
 
 		const initializePushStates = async () => {
-			try {
-				const allSites = await getIpcApi().getSiteDetails();
-				const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
+			const allSites = await getIpcApi().getSiteDetails();
+			const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
 
-				const restoredStates: PushStates = {};
+			const restoredStates: PushStates = {};
 
-				for ( const connectedSite of allConnectedSites ) {
-					try {
-						const localSite = allSites.find( ( site ) => site.id === connectedSite.localSiteId );
+			for ( const connectedSite of allConnectedSites ) {
+				try {
+					const localSite = allSites.find( ( site ) => site.id === connectedSite.localSiteId );
 
-						if ( ! localSite ) {
-							continue;
-						}
-
-						const response = await client.req.get< ImportResponse >(
-							`/sites/${ connectedSite.id }/studio-app/sync/import`,
-							{
-								apiNamespace: 'wpcom/v2',
-							}
-						);
-
-						const status = mapImportResponseToPushState( response, pushStatesProgressInfo );
-
-						// Only restore the pushStates if the operation is still in progress
-						if ( status ) {
-							const stateId = generateStateId( connectedSite.localSiteId, connectedSite.id );
-							restoredStates[ stateId ] = {
-								remoteSiteId: connectedSite.id,
-								status,
-								selectedSite: localSite,
-								remoteSiteUrl: connectedSite.url,
-							};
-
-							getIpcApi().addSyncOperation( stateId, status );
-						}
-					} catch ( error ) {
-						// Continue checking other sites even if one fails
-						console.error( `Failed to check push progress for site ${ connectedSite.id }:`, error );
+					if ( ! localSite ) {
+						continue;
 					}
-				}
 
-				if ( Object.keys( restoredStates ).length > 0 ) {
-					setPushStates( ( prev ) => ( { ...prev, ...restoredStates } ) );
+					const response = await client.req.get< ImportResponse >(
+						`/sites/${ connectedSite.id }/studio-app/sync/import`,
+						{
+							apiNamespace: 'wpcom/v2',
+						}
+					);
+
+					const status = mapImportResponseToPushState( response, pushStatesProgressInfo );
+
+					// Only restore the pushStates if the operation is still in progress
+					if ( status ) {
+						const stateId = generateStateId( connectedSite.localSiteId, connectedSite.id );
+						restoredStates[ stateId ] = {
+							remoteSiteId: connectedSite.id,
+							status,
+							selectedSite: localSite,
+							remoteSiteUrl: connectedSite.url,
+						};
+
+						getIpcApi().addSyncOperation( stateId, status );
+					}
+				} catch ( error ) {
+					// Continue checking other sites even if one fails
+					console.error( `Failed to check push progress for site ${ connectedSite.id }:`, error );
 				}
-			} catch ( error ) {
-				// Initialization is not critical to app functionality, but log the error
-				console.error( 'Failed to initialize push states from server:', error );
+			}
+
+			if ( Object.keys( restoredStates ).length > 0 ) {
+				setPushStates( ( prev ) => ( { ...prev, ...restoredStates } ) );
 			}
 		};
 
-		void initializePushStates();
+		void initializePushStates().catch( ( error ) => {
+			// Initialization is not critical to app functionality, but log the error
+			console.error( 'Failed to initialize push states from server:', error );
+		} );
 	}, [ client, pushStatesProgressInfo ] );
 
 	return (

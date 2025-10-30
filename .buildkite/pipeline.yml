@@ -16,7 +16,7 @@ steps:
       echo '--- :npm: Run Unit Tests'
       npm run test
     agents:
-      queue: windows
+      queue: windows-staging
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     notify:
       - github_commit_status:
@@ -27,7 +27,7 @@ steps:
     steps:
       - label: 🔨 Windows Dev Build - {{matrix}}
         agents:
-          queue: windows
+          queue: windows-staging
         command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev -Architecture {{matrix}}
         artifact_paths:
           - out\**\studio-setup.exe

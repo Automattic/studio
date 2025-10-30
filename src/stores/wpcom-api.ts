@@ -1,13 +1,12 @@
 import { createApi, TypedUseQuery } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
+import { WPCOM } from 'wpcom/types';
 import { z } from 'zod';
 import { DAY_MS } from 'common/constants';
 import wpcomFactory from 'src/lib/wpcom-factory';
 import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
 import type { BaseQueryFn, FetchBaseQueryError } from '@reduxjs/toolkit/query';
-
-type WPCOM = ReturnType< typeof wpcomFactory >;
 
 const welcomeMessageSchema = z.object( {
 	messages: z.array( z.string() ),

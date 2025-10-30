@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { createContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
+import { WPCOM } from 'wpcom/types';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -9,8 +10,6 @@ import wpcomFactory from 'src/lib/wpcom-factory';
 import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { useI18nLocale } from 'src/stores';
 import { setWpcomClient } from 'src/stores/wpcom-api';
-
-type WPCOM = ReturnType< typeof wpcomFactory >;
 
 export interface AuthContextType {
 	client: WPCOM | undefined;
@@ -85,27 +84,24 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	} );
 
 	const logout = useCallback( async () => {
-		try {
-			if ( ! isOffline && client ) {
-				client.request(
-					{
-						apiNamespace: 'wpcom/v2',
-						method: 'DELETE',
-						path: '/studio-app/token',
-					},
-					( err: unknown, response: unknown ) => {
-						if ( err ) {
-							console.error( 'Failed to revoke token:', err );
-							Sentry.captureException( err );
-						} else {
-							console.log( 'Token revoked:', response );
-						}
-					}
-				);
-			} else if ( isOffline ) {
-				console.log( 'Offline: Skipping token revocation request' );
+		if ( ! isOffline && client ) {
+			try {
+				await client.req.del( {
+					apiNamespace: 'wpcom/v2',
+					path: '/studio-app/token',
+					// wpcom.req.del defaults to POST; explicitly send HTTP DELETE for v2
+					method: 'DELETE',
+				} );
+				console.log( 'Token revoked' );
+			} catch ( err ) {
+				console.error( 'Failed to revoke token:', err );
+				Sentry.captureException( err );
 			}
+		} else if ( isOffline ) {
+			console.log( 'Offline: Skipping token revocation request' );
+		}
 
+		try {
 			await getIpcApi().clearAuthenticationToken();
 			setIsAuthenticated( false );
 			setClient( undefined );
@@ -165,8 +161,6 @@ function createWpcomClient(
 	locale?: string,
 	onInvalidToken?: () => Promise< void >
 ): WPCOM {
-	const wpcom = wpcomFactory( token, wpcomXhrRequest );
-
 	let isAuthErrorDialogOpen = false;
 	const handleInvalidTokenError = async ( response: unknown ) => {
 		if ( isInvalidTokenError( response ) && onInvalidToken && ! isAuthErrorDialogOpen ) {
@@ -180,8 +174,6 @@ function createWpcomClient(
 			isAuthErrorDialogOpen = false;
 		}
 	};
-
-	const originalRequestHandler = wpcom.request.bind( wpcom );
 
 	const addLocaleToParams = ( params: WpcomParams ) => {
 		if ( locale && locale !== 'en' ) {
@@ -199,20 +191,25 @@ function createWpcomClient(
 		return params;
 	};
 
-	return Object.assign( wpcom, {
-		request: function ( params: WpcomParams, callback: unknown ) {
-			const wrappedCallback = ( err: unknown, response: unknown, headers: unknown ) => {
-				if ( err ) {
-					void handleInvalidTokenError( err );
-				}
-				if ( typeof callback === 'function' ) {
-					callback( err, response, headers );
-				}
-			};
+	// Wrap the request handler to add locale and error handling before passing to wpcomFactory
+	const wrappedRequestHandler = (
+		params: object,
+		callback: ( err: unknown, response?: unknown, headers?: unknown ) => void
+	) => {
+		const modifiedParams = addLocaleToParams( params as WpcomParams );
+		const wrappedCallback = ( err: unknown, response: unknown, headers: unknown ) => {
+			if ( err ) {
+				void handleInvalidTokenError( err );
+			}
+			if ( typeof callback === 'function' ) {
+				callback( err, response, headers );
+			}
+		};
 
-			return originalRequestHandler( addLocaleToParams( params ), wrappedCallback );
-		},
-	} );
+		return wpcomXhrRequest( modifiedParams, wrappedCallback );
+	};
+
+	return wpcomFactory( token, wrappedRequestHandler );
 }
 
 export default AuthProvider;

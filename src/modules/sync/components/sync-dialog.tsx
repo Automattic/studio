@@ -12,7 +12,6 @@ import { Tooltip } from 'src/components/tooltip';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
 import { SYNC_OPTIONS, SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
 import { useContentFolders } from 'src/hooks/use-content-folders';
-import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
@@ -256,7 +255,6 @@ export function SyncDialog( {
 							<>
 								<div className="absolute end-6 z-10 top-[6px]">
 									<SelectControl
-										style={ isWindows() ? { paddingInlineEnd: '42px' } : undefined }
 										value={ showAllFiles ? 'true' : 'false' }
 										variant="minimal"
 										options={ [

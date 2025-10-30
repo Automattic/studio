@@ -37,7 +37,7 @@ export function PreviewSiteRow( {
 	const { url, date } = snapshot;
 	const { countDown, dateString, expireDateString, isExpired } = useExpirationDate( date );
 	const dispatch = useAppDispatch();
-	const updateOperation = useRootSelector( ( state ) =>
+	const updateOperation = useRootSelector( ( state ) =>	
 		snapshotSelectors.selectUpdateOperationForSnapshot( state, snapshot.atomicSiteId )
 	);
 	const deleteOperation = useRootSelector( ( state ) =>
@@ -113,19 +113,20 @@ export function PreviewSiteRow( {
 	return (
 		<div className="self-stretch flex-col">
 			<div className="flex items-center px-8 py-6">
-				<div className="w-[51%] overflow-hidden pe-4">
+				<div className="overflow-hidden pe-4">
 					<Tooltip
+						placement="top-start"
 						text={ __(
-							'This preview site has been marked as deleted. You can no longer access it. You can clear it from you list by clicking the Clear button.'
+							'This preview site has been deleted on the server. Remove it from the list by clicking the Clear button.'
 						) }
-						disabled={ ! isDeleted }
+						disabled={ isExpired || ! isDeleted }
 					>
 						<div className="flex flex-col">
 							<div
 								className={ cx(
 									'text-[13px] leading-5 line-clamp-1 break-all',
 									isExpired && 'line-through text-a8c-gray-700',
-									isDeleted && 'line-through text-a8c-red-50'
+									( ! isExpired && isDeleted ) && 'line-through text-a8c-red-50'
 								) }
 							>
 								{ /* translators: %s: Site name (e.g. "My Site Preview") */ }

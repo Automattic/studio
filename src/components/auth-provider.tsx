@@ -84,24 +84,24 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 	} );
 
 	const logout = useCallback( async () => {
-		try {
-			if ( ! isOffline && client ) {
-				try {
-					await client.req.del( {
-						apiNamespace: 'wpcom/v2',
-						path: '/studio-app/token',
-						// wpcom.req.del defaults to POST; explicitly send HTTP DELETE for v2
-						method: 'DELETE',
-					} );
-					console.log( 'Token revoked' );
-				} catch ( err ) {
-					console.error( 'Failed to revoke token:', err );
-					Sentry.captureException( err );
-				}
-			} else if ( isOffline ) {
-				console.log( 'Offline: Skipping token revocation request' );
+		if ( ! isOffline && client ) {
+			try {
+				await client.req.del( {
+					apiNamespace: 'wpcom/v2',
+					path: '/studio-app/token',
+					// wpcom.req.del defaults to POST; explicitly send HTTP DELETE for v2
+					method: 'DELETE',
+				} );
+				console.log( 'Token revoked' );
+			} catch ( err ) {
+				console.error( 'Failed to revoke token:', err );
+				Sentry.captureException( err );
 			}
+		} else if ( isOffline ) {
+			console.log( 'Offline: Skipping token revocation request' );
+		}
 
+		try {
 			await getIpcApi().clearAuthenticationToken();
 			setIsAuthenticated( false );
 			setClient( undefined );

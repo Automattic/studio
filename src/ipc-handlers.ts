@@ -515,10 +515,36 @@ export async function startServer(
 			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
 		}
 
+		const contexts: Record< string, Record< string, unknown > > = {
+			server: {
+				running: server.details.running,
+				phpVersion: server.details.phpVersion,
+				port: server.details.port,
+				hasCustomDomain: !! server.details.customDomain,
+				httpsEnabled: !! server.details.enableHttps,
+			},
+		};
+
+		// Include sanitized CLI args if available from error
+		if ( error instanceof Error && 'cliArgs' in error ) {
+			const cliArgs = ( error as Error & { cliArgs: Record< string, unknown > } ).cliArgs;
+
+			// Create a copy without mount paths (they're internal and not useful for debugging)
+			const { mount, 'mount-before-install': mountBeforeInstall, blueprint, ...restArgs } =
+				cliArgs;
+
+			// Stringify blueprint as JSON to avoid Sentry's normalization/filtering
+			contexts.startup = {
+				...restArgs,
+				blueprintJson: blueprint ? JSON.stringify( blueprint ) : undefined,
+			};
+		}
+
 		Sentry.captureException( error, {
 			tags: {
 				provider: getWordPressProvider().PROVIDER_TYPE,
 			},
+			contexts,
 		} );
 		if (
 			error instanceof Error &&

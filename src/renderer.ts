@@ -140,9 +140,9 @@ void Promise.all( [ getIpcApi().getAppGlobals(), getIpcApi().getSentryUserId() ]
 			const showARM64MessageBox = async () => {
 				const platformMessages: Record< string, string > = {
 					darwin: __(
-						'Downloading the Mac with Apple Silicon Chip version of Studio will provide better performance.'
+						'Downloading the Apple Silicon Chip version of Studio will provide better performance.'
 					),
-					win32: __( 'Downloading the ARM64 version of Studio will provide better performance.' ),
+					win32: __( 'Downloading the ARM version of Studio will provide better performance.' ),
 				};
 
 				const detailMessage =

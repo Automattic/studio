@@ -41,22 +41,6 @@ const shouldExcludePathFromSync = ( path: string ): boolean => {
 	return false;
 };
 
-const getPathSyncOption = ( path: string ): SyncOption | null => {
-	const normalizedPath = normalizePath( path );
-
-	for ( const { pattern, option } of PATH_SYNC_MAP ) {
-		if ( pattern.test( normalizedPath ) ) {
-			return option;
-		}
-	}
-
-	if ( normalizedPath ) {
-		return SYNC_OPTIONS.contents;
-	}
-
-	return null;
-};
-
 const collectNodes = < T >( nodes: TreeNode[], extractor: ( node: TreeNode ) => T | null ): T[] => {
 	const collector: T[] = [];
 	nodes.forEach( ( node ) => {
@@ -77,27 +61,6 @@ const collectSelectedPaths = ( nodes: TreeNode[] ): string[] =>
 	collectNodes( nodes, ( node ) =>
 		node.path && ! shouldExcludePathFromSync( node.path ) ? node.path : null
 	);
-
-const groupPathsBySyncOption = ( paths: string[] ): Record< SyncOption, boolean > => {
-	const syncOptions: Record< SyncOption, boolean > = {
-		[ SYNC_OPTIONS.all ]: false,
-		[ SYNC_OPTIONS.sqls ]: false,
-		[ SYNC_OPTIONS.paths ]: false,
-		[ SYNC_OPTIONS.themes ]: false,
-		[ SYNC_OPTIONS.plugins ]: false,
-		[ SYNC_OPTIONS.uploads ]: false,
-		[ SYNC_OPTIONS.contents ]: false,
-	};
-
-	paths.forEach( ( path ) => {
-		const syncOption = getPathSyncOption( path );
-		if ( syncOption ) {
-			syncOptions[ syncOption ] = true;
-		}
-	} );
-
-	return syncOptions;
-};
 
 const extractSpecificSelections = (
 	paths: string[]
@@ -156,10 +119,13 @@ export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSel
 
 	if ( wpContent?.children?.length ) {
 		const selectedPaths = collectSelectedPaths( wpContent.children );
-		const syncOptionGroups = groupPathsBySyncOption( selectedPaths );
 
-		PATH_SYNC_MAP.forEach( ( { option } ) => {
-			if ( syncOptionGroups[ option ] ) {
+		PATH_SYNC_MAP.forEach( ( { option, pattern } ) => {
+			const patternExistsAmongPaths = selectedPaths.some( ( path ) => {
+				const normalizedPath = normalizePath( path );
+				return pattern.test( normalizedPath );
+			} );
+			if ( patternExistsAmongPaths ) {
 				optionsToSync.push( option );
 			}
 		} );

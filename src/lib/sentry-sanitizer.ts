@@ -115,7 +115,6 @@ export function sanitizeBlueprint( blueprint: Blueprint | undefined ): object | 
  */
 export function sanitizeRunCLIArgs( args: RunCLIArgs ): Record< string, unknown > {
 	return {
-		// Safe configuration fields
 		command: args.command,
 		php: args.php,
 		wp: args.wp,
@@ -129,19 +128,10 @@ export function sanitizeRunCLIArgs( args: RunCLIArgs ): Record< string, unknown 
 		xdebug: args.xdebug,
 		experimentalDevtools: args.experimentalDevtools,
 		experimentalMultiWorker: args.experimentalMultiWorker,
-
-		// Include site URL - helpful for debugging
 		'site-url': args[ 'site-url' ],
 		outfile: args.outfile,
-
-		// Stringify blueprint as JSON to avoid Sentry's normalization/filtering
-		// (Sentry has depth limits and filters fields containing "auth" like "author")
-		blueprintJson: args.blueprint ? JSON.stringify( sanitizeBlueprint( args.blueprint ) ) : undefined,
-
-		// Omit mount paths - they're internal Studio paths and not useful for debugging
-		// Omit only truly sensitive fields:
-		// - mount, mount-before-install (internal paths)
-		// - db-host, db-user, db-pass, db-name, db-path (database credentials)
-		// - login credentials (if object with username/password)
+		blueprintJson: args.blueprint
+			? JSON.stringify( sanitizeBlueprint( args.blueprint ) )
+			: undefined,
 	};
 }

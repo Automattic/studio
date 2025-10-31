@@ -1,6 +1,5 @@
 import { SYNC_OPTIONS } from 'src/constants';
 import { PullSiteOptions } from 'src/hooks/sync-sites/use-sync-pull';
-import { SYNC_EXCLUSIONS } from 'src/modules/sync/constants';
 import type { TreeNode } from 'src/components/tree-view';
 import type { SyncOption } from 'src/types';
 
@@ -29,18 +28,6 @@ const SPECIFIC_PATTERNS = {
 	uploads: /^uploads\/([^/]+)/,
 } as const;
 
-const shouldExcludePathFromSync = ( path: string ): boolean => {
-	const normalizedPath = normalizePath( path );
-
-	for ( const exclusion of SYNC_EXCLUSIONS ) {
-		if ( normalizedPath === exclusion || normalizedPath.startsWith( exclusion ) ) {
-			return true;
-		}
-	}
-
-	return false;
-};
-
 const collectNodes = < T >( nodes: TreeNode[], extractor: ( node: TreeNode ) => T | null ): T[] => {
 	const collector: T[] = [];
 	nodes.forEach( ( node ) => {
@@ -58,9 +45,7 @@ const collectPathIds = ( nodes: TreeNode[] ): string[] =>
 	collectNodes( nodes, ( node ) => node.pathId || null );
 
 const collectSelectedPaths = ( nodes: TreeNode[] ): string[] =>
-	collectNodes( nodes, ( node ) =>
-		node.path && ! shouldExcludePathFromSync( node.path ) ? node.path : null
-	);
+	collectNodes( nodes, ( node ) => ( node.path ? node.path : null ) );
 
 const extractSpecificSelections = (
 	paths: string[]

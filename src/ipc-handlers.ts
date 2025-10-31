@@ -97,7 +97,7 @@ import {
 import { Blueprint } from './stores/wpcom-api';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
-import type { RawFileNode } from 'src/modules/sync/types';
+import type { RawDirectoryEntry } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
 
 /**
@@ -1718,7 +1718,7 @@ export async function listLocalFileTree(
 	path: string,
 	maxDepth: number = 3,
 	currentDepth: number = 0
-): Promise< RawFileNode[] > {
+): Promise< RawDirectoryEntry[] > {
 	const server = SiteServer.get( siteId );
 	if ( ! server ) throw new Error( 'Site not found' );
 
@@ -1737,7 +1737,7 @@ export async function listLocalFileTree(
 			const itemPath = nodePath.join( path, entry.name );
 			const fullItemPath = isDirectory ? itemPath + nodePath.sep : itemPath;
 
-			const fileNode: RawFileNode = {
+			const fileNode: RawDirectoryEntry = {
 				name: entry.name,
 				isDirectory,
 				path: fullItemPath,

@@ -1,6 +1,6 @@
 import { TreeNode } from 'src/components/tree-view';
 import { SYNC_EXCLUSIONS } from '../constants';
-import type { RawFileNode } from '../types';
+import type { RawDirectoryEntry } from '../types';
 
 export const shouldExcludeFromSync = ( itemName: string ): boolean => {
 	if ( itemName.startsWith( '.' ) ) {
@@ -31,7 +31,7 @@ export const shouldLimitDepth = ( relativePath: string ): boolean => {
 };
 
 export const convertRawToTreeNodes = (
-	rawNodes: RawFileNode[],
+	rawNodes: RawDirectoryEntry[],
 	parentChecked: boolean = false
 ): TreeNode[] => {
 	const pluginRegex = /^plugins\/[^/]+$/;

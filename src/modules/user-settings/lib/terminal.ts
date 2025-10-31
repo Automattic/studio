@@ -33,7 +33,7 @@ export const terminalConfig: Record< SupportedTerminal, TerminalConfig > = {
 };
 
 export function isTerminalSupportedOnPlatform( terminal: SupportedTerminal ): boolean {
-	const platform = getAppGlobals().platform  as TerminalPlatform;
+	const platform = getAppGlobals().platform as TerminalPlatform;
 	return terminalConfig[ terminal ].platforms.includes( platform );
 }
 

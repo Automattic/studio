@@ -72,7 +72,8 @@ export const convertRawToTreeNodes = (
 		} )
 		.sort( ( a, b ) => {
 			if ( a.type !== b.type ) {
-				return a.type === 'folder' ? -1 : 1;
+				const typeOrder = { folder: 0, plugin: 1, theme: 2, file: 3 };
+				return typeOrder[ a.type ] - typeOrder[ b.type ];
 			}
 			return a.name.toLowerCase().localeCompare( b.name.toLowerCase() );
 		} );

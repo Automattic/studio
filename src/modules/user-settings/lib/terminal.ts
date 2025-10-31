@@ -1,17 +1,41 @@
 import { __ } from '@wordpress/i18n';
-import { isWindows } from 'src/lib/app-globals';
+import { getAppGlobals, isWindows } from 'src/lib/app-globals';
 
 export type SupportedTerminal = 'terminal' | 'iterm' | 'warp' | 'ghostty';
 
-export const supportedTerminalNames: Record< SupportedTerminal, string > = {
-	terminal: __( 'Terminal' ),
-	// translators: "iTerm" is the brand name for a terminal app and does not need to be translated
-	iterm: __( 'iTerm' ),
-	// translators: "Warp" is the brand name for a terminal app and does not need to be translated
-	warp: __( 'Warp' ),
-	// translators: "Ghostty" is the brand name for a terminal app and does not need to be translated
-	ghostty: __( 'Ghostty' ),
+type TerminalPlatform = 'darwin' | 'win32' | 'linux';
+
+export type TerminalConfig = {
+	name: string;
+	platforms: TerminalPlatform[];
 };
+
+export const terminalConfig: Record< SupportedTerminal, TerminalConfig > = {
+	terminal: {
+		name: __( 'Terminal' ),
+		platforms: [ 'darwin', 'linux', 'win32' ],
+	},
+	iterm: {
+		// translators: "iTerm" is the brand name for a terminal app and does not need to be translated
+		name: __( 'iTerm' ),
+		platforms: [ 'darwin' ],
+	},
+	warp: {
+		// translators: "Warp" is the brand name for a terminal app and does not need to be translated
+		name: __( 'Warp' ),
+		platforms: [ 'darwin', 'win32', 'linux' ],
+	},
+	ghostty: {
+		// translators: "Ghostty" is the brand name for a terminal app and does not need to be translated
+		name: __( 'Ghostty' ),
+		platforms: [ 'darwin', 'linux' ],
+	},
+};
+
+export function isTerminalSupportedOnPlatform( terminal: SupportedTerminal ): boolean {
+	const platform = getAppGlobals().platform  as TerminalPlatform;
+	return terminalConfig[ terminal ].platforms.includes( platform );
+}
 
 export function getTerminalName( terminal: SupportedTerminal | undefined ): string {
 	if ( ! terminal ) {
@@ -23,5 +47,5 @@ export function getTerminalName( terminal: SupportedTerminal | undefined ): stri
 		return __( 'Command Prompt' );
 	}
 
-	return supportedTerminalNames[ terminal ];
+	return terminalConfig[ terminal ].name;
 }

@@ -25,6 +25,7 @@ updates:
       - dependency-name: "ts-*"
       - dependency-name: "jest"
       - dependency-name: "jest-*"
+      - dependency-name: "patch-package"
       - dependency-name: "@playwright/*"
       - dependency-name: "electron-playwright-helpers"
       - dependency-name: "vite"

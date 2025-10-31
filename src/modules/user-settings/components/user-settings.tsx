@@ -11,19 +11,14 @@ import { AccountTab } from 'src/modules/user-settings/components/account-tab';
 import { NonAuthenticatedAccountTab } from 'src/modules/user-settings/components/non-authenticated-account-tab';
 import { PreferencesTab } from 'src/modules/user-settings/components/preferences-tab';
 import { UsageTab } from 'src/modules/user-settings/components/usage-tab';
-import { useRootSelector, useAppDispatch } from 'src/stores';
-import { snapshotSelectors, snapshotThunks } from 'src/stores/snapshot-slice';
-import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
-import { UserSettingsTab } from '../user-settings-types';
+import { UserSettingsTab } from 'src/modules/user-settings/user-settings-types';
+import { useRootSelector } from 'src/stores';
+import { snapshotSelectors } from 'src/stores/snapshot-slice';
+import { useDeleteAllSnapshots, useGetSnapshotUsage } from 'src/stores/wpcom-api';
 
 export default function UserSettings() {
 	const { __ } = useI18n();
-	const dispatch = useAppDispatch();
 	const { isAuthenticated, logout, user } = useAuth();
-
-	const activeBulkOperationForUser = useRootSelector( ( state ) =>
-		snapshotSelectors.selectActiveBulkOperationForUser( state, user?.id ?? 0 )
-	);
 	const snapshotsByUser = useRootSelector( ( state ) =>
 		snapshotSelectors.selectSnapshotsByUser( state, user?.id ?? 0 )
 	);
@@ -33,6 +28,8 @@ export default function UserSettings() {
 
 	const [ needsToOpenUserSettings, setNeedsToOpenUserSettings ] = useState( false );
 	const [ selectedTabName, setSelectedTabName ] = useState< string | undefined >();
+
+	const [ deleteAllSnapshots, { isLoading: isDeletingAllSnapshots } ] = useDeleteAllSnapshots();
 
 	const isOffline = useOffline();
 
@@ -61,9 +58,19 @@ export default function UserSettings() {
 		} );
 
 		if ( response === DELETE_BUTTON_INDEX ) {
-			await dispatch( snapshotThunks.deleteAllSnapshotsForUser( { userId: user?.id ?? 0 } ) );
+			try {
+				await deleteAllSnapshots().unwrap();
+				await getIpcApi().saveSnapshotsToStorage( [] );
+			} catch ( error ) {
+				await getIpcApi().showMessageBox( {
+					type: 'warning',
+					message: __( 'Failed to delete all preview sites' ),
+					detail: __( 'An error occurred while deleting all preview sites. Please try again.' ),
+					buttons: [ __( 'OK' ) ],
+				} );
+			}
 		}
-	}, [ __, dispatch, user?.id ] );
+	}, [ __, deleteAllSnapshots ] );
 
 	const tabs: UserSettingsTab[] = [
 		{
@@ -113,10 +120,9 @@ export default function UserSettings() {
 								{ name === 'preferences' && <PreferencesTab onClose={ resetLocalState } /> }
 								{ name === 'usage' && isAuthenticated && (
 									<UsageTab
-										loadingDeletingAllSnapshots={ !! activeBulkOperationForUser }
+										loadingDeletingAllSnapshots={ isDeletingAllSnapshots }
 										activeSnapshotCount={ definitiveSnapshotCount }
 										isLoadingSnapshotUsage={ isLoadingSnapshotUsage }
-										allSnapshots={ snapshotsByUser }
 										isOffline={ isOffline }
 										snapshotQuota={ snapshotQuota }
 										onRemoveSnapshots={ onRemoveSnapshots }

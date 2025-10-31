@@ -18,13 +18,6 @@ export function hasActiveSyncOperations(): boolean {
 	return ACTIVE_SYNC_OPERATIONS.size > 0;
 }
 
-export function getSyncOperations(): Map<
-	string,
-	PullStateProgressInfo | PushStateProgressInfo | undefined
-> {
-	return ACTIVE_SYNC_OPERATIONS;
-}
-
 /**
  * Check if a pull operation can be cancelled based on its current state.
  */

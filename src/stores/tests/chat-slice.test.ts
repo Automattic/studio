@@ -1,6 +1,6 @@
+import { WPCOM } from 'wpcom/types';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import wpcomFactory from 'src/lib/wpcom-factory';
 import { store } from 'src/stores';
 import { chatThunks, generateMessage, chatActions, chatSelectors } from 'src/stores/chat-slice';
 import {
@@ -10,8 +10,6 @@ import {
 	testReducer,
 } from 'src/stores/tests/utils/test-reducer';
 import { wpcomApi } from 'src/stores/wpcom-api';
-
-type WPCOM = ReturnType< typeof wpcomFactory >;
 
 jest.mock( 'src/lib/get-ipc-api' );
 ( getIpcApi as jest.Mock ).mockReturnValue( {

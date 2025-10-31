@@ -28,8 +28,8 @@ import {
 } from 'src/lib/active-sync-operations';
 import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
 import { getPlatformMetric } from 'src/lib/bump-stats/lib';
+import { handleDeeplink } from 'src/lib/deeplink';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
-import { onOpenUrlCallback } from 'src/lib/oauth';
 import { stopProxyServer } from 'src/lib/proxy-server';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-watcher';
@@ -208,7 +208,7 @@ async function appBoot() {
 	function setupCustomProtocolHandler() {
 		if ( process.platform === 'darwin' ) {
 			app.on( 'open-url', ( _event, url ) => {
-				void onOpenUrlCallback( url );
+				void handleDeeplink( url );
 			} );
 		} else {
 			// Handle custom protocol links on Windows and Linux
@@ -227,7 +227,7 @@ async function appBoot() {
 
 				const customProtocolParameter = argv?.find( ( arg ) => arg.startsWith( PROTOCOL_PREFIX ) );
 				if ( customProtocolParameter ) {
-					void onOpenUrlCallback( customProtocolParameter );
+					void handleDeeplink( customProtocolParameter );
 				}
 			} );
 		}

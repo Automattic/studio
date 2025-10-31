@@ -126,8 +126,9 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 			for ( const connectedSite of allConnectedSites ) {
 				try {
 					const localSite = allSites.find( ( site ) => site.id === connectedSite.localSiteId );
+					const hasConnectionErrors = connectedSite?.syncSupport !== 'already-connected';
 
-					if ( ! localSite ) {
+					if ( ! localSite || hasConnectionErrors ) {
 						continue;
 					}
 

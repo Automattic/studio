@@ -8,11 +8,9 @@ export const GRANULAR_SYNC_FOLDERS = [
 
 export const SYNC_EXCLUSIONS = [
 	'database',
-	'database/',
 	'db.php',
 	'debug.log',
 	'sqlite-database-integration',
-	'sqlite-database-integration/',
 	'.DS_Store',
 	'Thumbs.db',
 ];

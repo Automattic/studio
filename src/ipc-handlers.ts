@@ -1715,7 +1715,7 @@ export function comparePaths( event: IpcMainInvokeEvent, path1: string, path2: s
 export async function listLocalFileTree(
 	_event: Electron.IpcMainInvokeEvent,
 	siteId: string,
-	path: string = 'wp-content',
+	path: string,
 	maxDepth: number = 3,
 	currentDepth: number = 0
 ): Promise< RawFileNode[] > {

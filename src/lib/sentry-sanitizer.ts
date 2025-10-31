@@ -110,7 +110,8 @@ export function sanitizeBlueprint( blueprint: Blueprint | undefined ): object | 
 
 /**
  * Sanitizes RunCLIArgs to remove only truly sensitive data (passwords, tokens)
- * while preserving paths and configuration useful for debugging local development issues.
+ * while preserving configuration useful for debugging local development issues.
+ * Prepares data for Sentry by stringifying nested objects to avoid normalization limits.
  */
 export function sanitizeRunCLIArgs( args: RunCLIArgs ): Record< string, unknown > {
 	return {
@@ -129,16 +130,17 @@ export function sanitizeRunCLIArgs( args: RunCLIArgs ): Record< string, unknown 
 		experimentalDevtools: args.experimentalDevtools,
 		experimentalMultiWorker: args.experimentalMultiWorker,
 
-		// Include paths and URLs - helpful for debugging Windows path issues
+		// Include site URL - helpful for debugging
 		'site-url': args[ 'site-url' ],
-		mount: args.mount,
-		'mount-before-install': args[ 'mount-before-install' ],
 		outfile: args.outfile,
 
-		// Sanitized blueprint (removes passwords, tokens, code, but keeps structure)
-		blueprint: sanitizeBlueprint( args.blueprint ),
+		// Stringify blueprint as JSON to avoid Sentry's normalization/filtering
+		// (Sentry has depth limits and filters fields containing "auth" like "author")
+		blueprintJson: args.blueprint ? JSON.stringify( sanitizeBlueprint( args.blueprint ) ) : undefined,
 
+		// Omit mount paths - they're internal Studio paths and not useful for debugging
 		// Omit only truly sensitive fields:
+		// - mount, mount-before-install (internal paths)
 		// - db-host, db-user, db-pass, db-name, db-path (database credentials)
 		// - login credentials (if object with username/password)
 	};

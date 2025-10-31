@@ -527,17 +527,7 @@ export async function startServer(
 
 		// Include sanitized CLI args if available from error
 		if ( error instanceof Error && 'cliArgs' in error ) {
-			const cliArgs = ( error as Error & { cliArgs: Record< string, unknown > } ).cliArgs;
-
-			// Create a copy without mount paths (they're internal and not useful for debugging)
-			const { mount, 'mount-before-install': mountBeforeInstall, blueprint, ...restArgs } =
-				cliArgs;
-
-			// Stringify blueprint as JSON to avoid Sentry's normalization/filtering
-			contexts.startup = {
-				...restArgs,
-				blueprintJson: blueprint ? JSON.stringify( blueprint ) : undefined,
-			};
+			contexts.startup = ( error as Error & { cliArgs: Record< string, unknown > } ).cliArgs;
 		}
 
 		Sentry.captureException( error, {

@@ -205,15 +205,12 @@ export function SyncDialog( {
 		[ type, rewindId, remoteSite.id, fetchChildren ]
 	);
 
-	const treeViewProps = useMemo(
-		() => ( {
-			disabled: isErrorRewindId,
-			tree: treeState,
-			setTree: setTreeState,
-			onExpand: handleExpand,
-		} ),
-		[ isErrorRewindId, treeState, setTreeState, handleExpand ]
-	);
+	const treeViewProps = {
+		disabled: isErrorRewindId,
+		tree: treeState,
+		setTree: setTreeState,
+		onExpand: handleExpand,
+	};
 
 	const handleSubmit = () => {
 		if ( type === 'pull' ) {

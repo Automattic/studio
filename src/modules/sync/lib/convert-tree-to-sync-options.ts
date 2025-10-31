@@ -42,10 +42,6 @@ const shouldExcludePathFromSync = ( path: string ): boolean => {
 };
 
 const getPathSyncOption = ( path: string ): SyncOption | null => {
-	if ( shouldExcludePathFromSync( path ) ) {
-		return null;
-	}
-
 	const normalizedPath = normalizePath( path );
 
 	for ( const { pattern, option } of PATH_SYNC_MAP ) {

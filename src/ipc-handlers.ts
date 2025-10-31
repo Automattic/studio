@@ -1734,8 +1734,8 @@ export async function listLocalFileTree(
 			}
 
 			const isDirectory = entry.isDirectory();
-			const itemPath = nodePath.join( path, entry.name );
-			const fullItemPath = isDirectory ? itemPath + nodePath.sep : itemPath;
+			const itemPath = nodePath.join( path, entry.name ).replace( /\\/g, '/' );
+			const fullItemPath = isDirectory ? itemPath + '/' : itemPath;
 
 			const fileNode: RawDirectoryEntry = {
 				name: entry.name,

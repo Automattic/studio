@@ -64,6 +64,29 @@ export type UseSyncPush = {
 	cancelPush: CancelPush;
 };
 
+/**
+ * Maps an ImportResponse status to a PushStateProgressInfo object.
+ * Returns null if the operation is not in progress or unknown.
+ */
+export function mapImportResponseToPushState(
+	response: ImportResponse,
+	pushStatesProgressInfo: Record< PushStateProgressInfo[ 'key' ], PushStateProgressInfo >
+): PushStateProgressInfo | null {
+	if ( response.status === 'initial_backup_started' ) {
+		return pushStatesProgressInfo.creatingRemoteBackup;
+	}
+
+	if ( response.status === 'archive_import_started' ) {
+		return pushStatesProgressInfo.applyingChanges;
+	}
+
+	if ( response.status === 'archive_import_finished' ) {
+		return pushStatesProgressInfo.finishing;
+	}
+
+	return null;
+}
+
 export function useSyncPush( {
 	pushStates,
 	setPushStates,
@@ -93,7 +116,7 @@ export function useSyncPush( {
 
 			if ( isKeyFailed( statusKey ) || isKeyFinished( statusKey ) || isKeyCancelled( statusKey ) ) {
 				getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
-			} else {
+			} else if ( state.status ) {
 				getIpcApi().addSyncOperation(
 					generateStateId( selectedSiteId, remoteSiteId ),
 					state.status
@@ -122,9 +145,12 @@ export function useSyncPush( {
 				return;
 			}
 
-			const response = ( await client.req.get( `/sites/${ remoteSiteId }/studio-app/sync/import`, {
-				apiNamespace: 'wpcom/v2',
-			} ) ) as ImportResponse;
+			const response = await client.req.get< ImportResponse >(
+				`/sites/${ remoteSiteId }/studio-app/sync/import`,
+				{
+					apiNamespace: 'wpcom/v2',
+				}
+			);
 
 			let status: PushStateProgressInfo = pushStatesProgressInfo.creatingRemoteBackup;
 			if ( response.success && response.status === 'finished' ) {
@@ -140,16 +166,33 @@ export function useSyncPush( {
 				} );
 			} else if ( response.success && response.status === 'failed' ) {
 				status = pushStatesProgressInfo.failed;
+				console.error( 'Push import failed:', {
+					remoteSiteId: syncPushState.remoteSiteId,
+					error: response.error,
+					error_data: response.error_data,
+				} );
+				// If the impport fails due to a SQL import error, show a more specific message
+				const restoreMessage = response.error_data?.vp_restore_message || '';
+				const isSqlImportFailure = /importing sql dump/i.test( restoreMessage );
+				const isImportTimedOut = response.error === 'Import timed out';
+				let message: string;
+				if ( isSqlImportFailure ) {
+					message = __(
+						'Database import failed on the remote site. Please review your database and try again or contact support and provide details from the logs below.'
+					);
+				} else if ( isImportTimedOut ) {
+					message = __(
+						"A timeout error occurred while pushing the site, likely due to its large size. Please try reducing the site's content or files and try again. If this problem persists, please contact support."
+					);
+				} else {
+					message = __(
+						'An error occurred while pushing the site. If this problem persists, please contact support.'
+					);
+				}
+
 				getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pushing to %s' ), syncPushState.selectedSite.name ),
-					message:
-						response.error === 'Import timed out'
-							? __(
-									"A timeout error occurred while pushing the site, likely due to its large size. Please try reducing the site's content or files and try again. If this problem persists, please contact support."
-							  )
-							: __(
-									'An error occurred while pushing the site. If this problem persists, please contact support.'
-							  ),
+					message,
 					showOpenLogs: true,
 				} );
 			} else if ( response.success && response.status === 'archive_import_started' ) {

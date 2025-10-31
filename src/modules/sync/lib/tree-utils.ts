@@ -51,11 +51,14 @@ export const convertRawToTreeNodes = (
 				}
 			}
 
-			const children = rawNode.children
-				? convertRawToTreeNodes( rawNode.children, parentChecked )
-				: rawNode.isDirectory
-				? []
-				: undefined;
+			let children: TreeNode[] | undefined;
+			if ( rawNode.children ) {
+				children = convertRawToTreeNodes( rawNode.children, parentChecked );
+			} else if ( rawNode.isDirectory ) {
+				children = [];
+			} else {
+				children = undefined;
+			}
 
 			return {
 				id: `local-${ rawNode.path.replace( pathCleanRegex, '-' ) }`,

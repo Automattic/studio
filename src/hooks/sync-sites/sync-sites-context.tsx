@@ -131,6 +131,10 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 						continue;
 					}
 
+					if ( connectedSite?.syncSupport !== 'already-connected' ) {
+						continue;
+					}
+
 					const response = await client.req.get< ImportResponse >(
 						`/sites/${ connectedSite.id }/studio-app/sync/import`,
 						{

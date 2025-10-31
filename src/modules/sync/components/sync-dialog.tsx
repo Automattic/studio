@@ -15,9 +15,9 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { SiteNameBox } from 'src/modules/sync/components/site-name-box';
-import { useDefaultSyncTree } from 'src/modules/sync/hooks/use-default-sync-tree';
 import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
 import { useSyncDialogTexts } from 'src/modules/sync/hooks/use-sync-dialog-texts';
+import { useTopLevelSyncTree } from 'src/modules/sync/hooks/use-top-level-sync-tree';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
 import { useLatestRewindId, useRemoteFileTree, useLocalFileTree } from 'src/stores/sync';
@@ -135,7 +135,7 @@ export function SyncDialog( {
 	const { __ } = useI18n();
 	const siteEnv = getSiteEnvironment( remoteSite );
 	const syncTexts = useSyncDialogTexts( type, siteEnv );
-	const defaultTree = useDefaultSyncTree();
+	const defaultTree = useTopLevelSyncTree();
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );

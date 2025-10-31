@@ -42,9 +42,9 @@ export function useRemoteFileTree() {
 			rewindId: string,
 			path: string,
 			parentChecked: boolean = false
-		): Promise< TreeNode[] | null > => {
+		): Promise< TreeNode[] > => {
 			if ( ! client ) {
-				return null;
+				return [];
 			}
 
 			try {
@@ -61,7 +61,7 @@ export function useRemoteFileTree() {
 				return result.children;
 			} catch ( err ) {
 				console.error( 'Failed to fetch remote file tree:', err );
-				return null;
+				return [];
 			}
 		},
 		[ client, dispatch ]
@@ -83,7 +83,7 @@ export function useLocalFileTree() {
 			siteId: string,
 			path: string = 'wp-content',
 			parentChecked: boolean = false
-		): Promise< TreeNode[] | null > => {
+		): Promise< TreeNode[] > => {
 			setIsLoading( true );
 			setError( null );
 			try {
@@ -93,7 +93,7 @@ export function useLocalFileTree() {
 				const error = err instanceof Error ? err : new Error( String( err ) );
 				setError( error );
 				console.error( 'Failed to fetch local file tree:', error );
-				return null;
+				return [];
 			} finally {
 				setIsLoading( false );
 			}

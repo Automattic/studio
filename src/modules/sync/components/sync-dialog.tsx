@@ -70,7 +70,7 @@ const useDynamicTreeState = (
 						const remoteTree = await fetchChildren( remoteSiteId, rewindId, '/wp-content/', false );
 						if ( ! isCancelled ) {
 							setTreeState( ( treeState ) =>
-								updateNodeById( treeState, 'wp-content', { children: remoteTree || [] } )
+								updateNodeById( treeState, 'wp-content', { children: remoteTree } )
 							);
 						}
 					}
@@ -198,9 +198,7 @@ export function SyncDialog( {
 
 			if ( type === 'pull' && rewindId && node.path && node.children?.length === 0 ) {
 				const children = await fetchChildren( remoteSite.id, rewindId, node.path, node.checked );
-				if ( children ) {
-					setTreeState( ( prev ) => updateNodeById( prev, node.id, { children } ) );
-				}
+				setTreeState( ( prev ) => updateNodeById( prev, node.id, { children } ) );
 			}
 			// For push operations, children are already loaded - no async fetching needed
 		},

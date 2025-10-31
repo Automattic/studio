@@ -79,16 +79,12 @@ export function useLocalFileTree() {
 	const [ error, setError ] = useState< Error | null >( null );
 
 	const fetchChildren = useCallback(
-		async (
-			siteId: string,
-			path: string = 'wp-content',
-			parentChecked: boolean = false
-		): Promise< TreeNode[] > => {
+		async ( siteId: string, path: string = 'wp-content' ): Promise< TreeNode[] > => {
 			setIsLoading( true );
 			setError( null );
 			try {
 				const rawNodes = await getIpcApi().listLocalFileTree( siteId, path, 3 );
-				return convertRawToTreeNodes( rawNodes, parentChecked );
+				return convertRawToTreeNodes( rawNodes );
 			} catch ( err ) {
 				const error = err instanceof Error ? err : new Error( String( err ) );
 				setError( error );

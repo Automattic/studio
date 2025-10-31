@@ -30,10 +30,7 @@ export const shouldLimitDepth = ( relativePath: string ): boolean => {
 	return false;
 };
 
-export const convertRawToTreeNodes = (
-	rawNodes: RawDirectoryEntry[],
-	parentChecked: boolean = false
-): TreeNode[] => {
+export const convertRawToTreeNodes = ( rawNodes: RawDirectoryEntry[] ): TreeNode[] => {
 	const pluginRegex = /^plugins\/[^/]+$/;
 	const themeRegex = /^themes\/[^/]+$/;
 	const pathCleanRegex = /[^a-zA-Z0-9]/g;
@@ -53,7 +50,7 @@ export const convertRawToTreeNodes = (
 
 			let children: TreeNode[] | undefined;
 			if ( rawNode.children ) {
-				children = convertRawToTreeNodes( rawNode.children, parentChecked );
+				children = convertRawToTreeNodes( rawNode.children );
 			} else if ( rawNode.isDirectory ) {
 				children = [];
 			} else {
@@ -64,7 +61,7 @@ export const convertRawToTreeNodes = (
 				id: `local-${ rawNode.path.replace( pathCleanRegex, '-' ) }`,
 				name: rawNode.name,
 				label: rawNode.name,
-				checked: parentChecked,
+				checked: false,
 				type: nodeType,
 				path: rawNode.path,
 				pathId: rawNode.path,

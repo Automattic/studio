@@ -19,7 +19,6 @@ import {
 } from 'src/stores/provider-constants-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
-import BlueprintError from './components/blueprint-error';
 import { AddSiteBlueprintSelector } from './components/blueprints';
 import CreateSite from './components/create-site';
 import ImportBackup from './components/import-backup';
@@ -128,10 +127,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		( ! createSiteProps.useCustomDomain || ! createSiteProps.customDomainError );
 
 	const handleBack = useCallback( () => {
-		if ( location.path === '/blueprint-error' ) {
-			props.setBlueprintError( null );
-			goTo( '/blueprint' );
-		} else if ( location.path === '/blueprint/create' ) {
+		if ( location.path === '/blueprint/create' ) {
 			goTo( '/blueprint' );
 		} else if ( location.path === '/backup/create' ) {
 			goTo( '/backup' );
@@ -195,12 +191,6 @@ function NavigationContent( props: NavigationContentProps ) {
 		[ setSelectedBlueprint, applyBlueprintVersions ]
 	);
 
-	// Navigate to error screen when blueprint error is set
-	useEffect( () => {
-		if ( props.blueprintError ) {
-			goTo( '/blueprint-error' );
-		}
-	}, [ props.blueprintError, goTo ] );
 
 	return (
 		<>
@@ -215,6 +205,10 @@ function NavigationContent( props: NavigationContentProps ) {
 					selectedBlueprint={ createSiteProps.selectedBlueprint?.slug || null }
 					onBlueprintChange={ handleBlueprintChange }
 					onFileBlueprintSelect={ handleFileBlueprintSelect }
+					blueprintError={ props.blueprintError }
+					onErrorDismiss={ () => {
+						props.setBlueprintError( null );
+					} }
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/create">
@@ -234,12 +228,6 @@ function NavigationContent( props: NavigationContentProps ) {
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/backup/create">
 				<CreateSite { ...createSiteProps } />
-			</Navigator.Screen>
-			<Navigator.Screen className="flex-1" path="/blueprint-error">
-				<BlueprintError
-					errorMessage={ props.blueprintError || __( 'Unknown error occurred' ) }
-					onBack={ handleBack }
-				/>
 			</Navigator.Screen>
 			<Stepper
 				currentPath={ location.path }

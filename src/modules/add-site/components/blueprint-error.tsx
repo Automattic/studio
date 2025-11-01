@@ -44,4 +44,3 @@ export default function BlueprintError( { errorMessage, onBack }: BlueprintError
 		</VStack>
 	);
 }
-

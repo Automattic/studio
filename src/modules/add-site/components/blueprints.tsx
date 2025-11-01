@@ -17,6 +17,7 @@ import StudioButton from 'src/components/button';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetBlueprints } from 'src/stores/wpcom-api';
+import BlueprintError from './blueprint-error';
 
 import './blueprints.css';
 
@@ -119,6 +120,8 @@ interface AddSiteBlueprintProps {
 	selectedBlueprint: string | null;
 	onBlueprintChange: ( blueprintId: string ) => void;
 	onFileBlueprintSelect?: ( blueprint: Blueprint ) => void;
+	blueprintError?: string | null;
+	onErrorDismiss?: () => void;
 }
 
 export function AddSiteBlueprintSelector( {
@@ -128,6 +131,8 @@ export function AddSiteBlueprintSelector( {
 	selectedBlueprint,
 	onBlueprintChange,
 	onFileBlueprintSelect,
+	blueprintError,
+	onErrorDismiss,
 }: AddSiteBlueprintProps ) {
 	const { __ } = useI18n();
 	const { refetch: refetchBlueprints, isFetching: isFetchingBlueprints } = useGetBlueprints();
@@ -344,6 +349,12 @@ export function AddSiteBlueprintSelector( {
 			} ) ),
 		[ blueprints, selectedBlueprint ]
 	);
+
+	if ( blueprintError ) {
+		return (
+			<BlueprintError errorMessage={ blueprintError } onBack={ onErrorDismiss || ( () => {} ) } />
+		);
+	}
 
 	if ( isLoading ) {
 		return (

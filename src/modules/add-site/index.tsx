@@ -19,11 +19,13 @@ import {
 } from 'src/stores/provider-constants-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
+import BlueprintError from './components/blueprint-error';
 import { AddSiteBlueprintSelector } from './components/blueprints';
 import CreateSite from './components/create-site';
 import ImportBackup from './components/import-backup';
 import AddSiteOptions from './components/options';
 import Stepper from './components/stepper';
+import { useBlueprintDeeplink } from './hooks/use-blueprint-deeplink';
 
 interface AddSiteProps {
 	className?: string;
@@ -60,6 +62,8 @@ interface NavigationContentProps {
 	blueprintsErrorMessage?: string | undefined;
 	blueprintPreferredVersions?: { php?: string; wp?: string };
 	setBlueprintPreferredVersions: ( versions: { php?: string; wp?: string } | undefined ) => void;
+	blueprintError?: string | null;
+	setBlueprintError: ( error: string | null ) => void;
 }
 
 function NavigationContent( props: NavigationContentProps ) {
@@ -124,7 +128,10 @@ function NavigationContent( props: NavigationContentProps ) {
 		( ! createSiteProps.useCustomDomain || ! createSiteProps.customDomainError );
 
 	const handleBack = useCallback( () => {
-		if ( location.path === '/blueprint/create' ) {
+		if ( location.path === '/blueprint-error' ) {
+			props.setBlueprintError( null );
+			goTo( '/blueprint' );
+		} else if ( location.path === '/blueprint/create' ) {
 			goTo( '/blueprint' );
 		} else if ( location.path === '/backup/create' ) {
 			goTo( '/backup' );
@@ -144,7 +151,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		} else {
 			goTo( '/' );
 		}
-	}, [ location.path, goTo, createSiteProps, setBlueprintPreferredVersions ] );
+	}, [ location.path, goTo, createSiteProps, setBlueprintPreferredVersions, props ] );
 
 	const applyBlueprintVersions = useCallback(
 		( blueprint?: Blueprint ) => {
@@ -188,6 +195,13 @@ function NavigationContent( props: NavigationContentProps ) {
 		[ setSelectedBlueprint, applyBlueprintVersions ]
 	);
 
+	// Navigate to error screen when blueprint error is set
+	useEffect( () => {
+		if ( props.blueprintError ) {
+			goTo( '/blueprint-error' );
+		}
+	}, [ props.blueprintError, goTo ] );
+
 	return (
 		<>
 			<Navigator.Screen className="flex-1" path="/">
@@ -220,6 +234,12 @@ function NavigationContent( props: NavigationContentProps ) {
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/backup/create">
 				<CreateSite { ...createSiteProps } />
+			</Navigator.Screen>
+			<Navigator.Screen className="flex-1" path="/blueprint-error">
+				<BlueprintError
+					errorMessage={ props.blueprintError || __( 'Unknown error occurred' ) }
+					onBack={ handleBack }
+				/>
 			</Navigator.Screen>
 			<Stepper
 				currentPath={ location.path }
@@ -321,10 +341,22 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		setShowModal( true );
 	}, [ refetch, isUninitialized ] );
 
+	const { initialNavigatorPath, blueprintError, setBlueprintError, resetDeeplinkState } =
+		useBlueprintDeeplink( {
+			showModal,
+			isAnySiteProcessing,
+			openModal,
+			setSelectedBlueprint,
+			setPhpVersion,
+			setWpVersion,
+			setBlueprintPreferredVersions,
+		} );
+
 	const closeModal = useCallback( () => {
 		setShowModal( false );
 		resetForm();
-	}, [ resetForm ] );
+		resetDeeplinkState();
+	}, [ resetForm, resetDeeplinkState ] );
 
 	const siteAddedMessage = sprintf(
 		// translators: %s is the site name.
@@ -385,7 +417,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 	return (
 		<>
 			<FullscreenModal isOpen={ showModal } onClose={ closeModal }>
-				<Navigator className="w-full h-full" initialPath="/">
+				<Navigator className="w-full h-full" initialPath={ initialNavigatorPath }>
 					<NavigationContent
 						{ ...addSiteProps }
 						blueprintsData={ blueprintsData }
@@ -394,6 +426,8 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 						handleSubmit={ handleSubmit }
 						blueprintPreferredVersions={ blueprintPreferredVersions }
 						setBlueprintPreferredVersions={ setBlueprintPreferredVersions }
+						blueprintError={ blueprintError }
+						setBlueprintError={ setBlueprintError }
 					/>
 				</Navigator>
 			</FullscreenModal>

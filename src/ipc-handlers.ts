@@ -1772,6 +1772,14 @@ export async function validateBlueprint(
 	};
 }
 
+export async function readBlueprintFile(
+	_event: IpcMainInvokeEvent,
+	filePath: string
+): Promise< Blueprint[ 'blueprint' ] > {
+	const fileContents = await fsPromises.readFile( filePath, 'utf-8' );
+	return JSON.parse( fileContents );
+}
+
 export async function setWindowControlVisibility( event: IpcMainInvokeEvent, visible: boolean ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( parentWindow && process.platform === 'darwin' ) {

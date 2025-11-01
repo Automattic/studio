@@ -1,3 +1,4 @@
+import { handleAddSiteBlueprintWithUrl } from 'src/lib/deeplink/handlers/add-site-blueprint-with-url';
 import { handleAuthDeeplink } from 'src/lib/deeplink/handlers/auth';
 import { handleSyncConnectSiteDeeplink } from 'src/lib/deeplink/handlers/sync-connect-site';
 
@@ -6,6 +7,7 @@ import { handleSyncConnectSiteDeeplink } from 'src/lib/deeplink/handlers/sync-co
  * Supports the following deeplink schemes:
  * - wpcom-local-dev://auth - OAuth authentication callback
  * - wpcom-local-dev://sync-connect-site - Sync site connection from WordPress.com
+ * - wpcom-local-dev://add-site?blueprint_url=<encoded-url> - Add site with blueprint from URL
  */
 export async function handleDeeplink( url: string ): Promise< void > {
 	const urlObject = new URL( url );
@@ -17,6 +19,9 @@ export async function handleDeeplink( url: string ): Promise< void > {
 			break;
 		case 'sync-connect-site':
 			await handleSyncConnectSiteDeeplink( urlObject );
+			break;
+		case 'add-site':
+			await handleAddSiteBlueprintWithUrl( urlObject );
 			break;
 		default:
 			console.warn( `Unknown deeplink host: ${ host }` );

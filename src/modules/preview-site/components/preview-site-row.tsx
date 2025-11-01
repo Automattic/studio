@@ -117,7 +117,7 @@ export function PreviewSiteRow( {
 					<Tooltip
 						placement="top-start"
 						text={ __(
-							'This preview site has been deleted on the server. Remove it from the list by clicking the Clear button.'
+							'This preview site has been deleted from the server. You can remove it from the list by clicking Clear button.'
 						) }
 						disabled={ isExpired || ! isDeleted }
 					>

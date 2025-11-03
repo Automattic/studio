@@ -17,8 +17,18 @@ export const DynamicStylesheet = ( { id, href }: DynamicStylesheetProps ) => {
 			linkElement.id = id;
 			linkElement.rel = 'stylesheet';
 			linkElement.type = 'text/css';
-			document.head.appendChild( linkElement );
+			linkElement.href = href;
+			const firstStylesheet =
+				document.head.querySelector( 'link[rel="stylesheet"]' ) ||
+				document.head.querySelector( 'style' );
+			if ( firstStylesheet ) {
+				document.head.insertBefore( linkElement, firstStylesheet );
+			} else {
+				document.head.appendChild( linkElement );
+			}
 			wasCreatedByUsRef = true;
+		} else {
+			linkElement.href = href;
 		}
 		linkElementRef.current = linkElement;
 
@@ -27,13 +37,7 @@ export const DynamicStylesheet = ( { id, href }: DynamicStylesheetProps ) => {
 				linkElementRef.current.parentNode.removeChild( linkElementRef.current );
 			}
 		};
-	}, [ id ] );
-
-	useEffect( () => {
-		if ( linkElementRef.current ) {
-			linkElementRef.current.href = href;
-		}
-	}, [ href ] );
+	}, [ id, href ] );
 
 	return null;
 };

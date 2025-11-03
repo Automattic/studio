@@ -92,8 +92,8 @@ export default function DefaultErrorFallback() {
 	return (
 		<div dir={ 'ltr' }>
 			<DynamicStylesheet
-				id="wordpress-components-style"
-				href={ '../main_window/styles/wordpress-components-style.css' }
+				id="wordpress-components-style-error-fallback"
+				href={ './main_window/styles/wordpress-components-style.css' }
 			/>
 			<VStack
 				className={ cx(

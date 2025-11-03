@@ -45,14 +45,18 @@ export function useBlueprintDeeplink(
 		setBlueprintError( null );
 	}, [] );
 
-	useIpcListener( 'add-site-blueprint', async ( _event, { blueprintPath } ) => {
-		if ( isAnySiteProcessing ) {
-			return;
-		}
-		setPendingBlueprintPath( blueprintPath );
-		setInitialNavigatorPath( '/blueprint' );
-		openModal();
-	} );
+	const handleAddSiteBlueprint = useCallback(
+		async ( _event: unknown, { blueprintPath }: { blueprintPath: string } ) => {
+			if ( isAnySiteProcessing ) {
+				return;
+			}
+			setPendingBlueprintPath( blueprintPath );
+			setInitialNavigatorPath( '/blueprint' );
+			openModal();
+		},
+		[ isAnySiteProcessing, openModal ]
+	);
+	useIpcListener( 'add-site-blueprint', handleAddSiteBlueprint );
 
 	// Load and set blueprint when modal opens with a pending blueprint
 	useEffect( () => {

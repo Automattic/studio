@@ -731,7 +731,7 @@ export async function exportSiteToPush(
 		throw new Error( 'Site not found.' );
 	}
 	const extension = 'tar.gz';
-	const archivePath = `/Users/katerynakodonenko/Desktop/sitde_${ id }.${ extension }`;
+	const archivePath = `${ TEMP_DIR }site_${ id }.${ extension }`;
 
 	const abortController = new AbortController();
 	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
@@ -772,9 +772,9 @@ export async function exportSiteToPush(
 		await exportBackup( exportOptions, onEvent );
 
 		if ( abortController.signal.aborted ) {
-			// await fsPromises.unlink( archivePath ).catch( () => {
-			// 	// Ignore cleanup errors
-			// } );
+			await fsPromises.unlink( archivePath ).catch( () => {
+				// Ignore cleanup errors
+			} );
 			throw new Error( 'Export aborted' );
 		}
 
@@ -787,17 +787,17 @@ export async function exportSiteToPush(
 }
 
 export function removeTemporalFile( event: IpcMainInvokeEvent, path: string ) {
-	// if ( ! path.includes( TEMP_DIR ) ) {
-	// 	throw new Error( 'The given path is not a temporal file' );
-	// }
-	// try {
-	// 	fs.unlinkSync( path );
-	// } catch ( error ) {
-	// 	if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
-	// 		// Silently ignore if the temporal file doesn't exist
-	// 		Sentry.captureException( error );
-	// 	}
-	// }
+	if ( ! path.includes( TEMP_DIR ) ) {
+		throw new Error( 'The given path is not a temporal file' );
+	}
+	try {
+		fs.unlinkSync( path );
+	} catch ( error ) {
+		if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
+			// Silently ignore if the temporal file doesn't exist
+			Sentry.captureException( error );
+		}
+	}
 }
 
 export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteFiles = false ) {

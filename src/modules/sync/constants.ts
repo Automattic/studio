@@ -1,5 +1,3 @@
-export const GRANULAR_SYNC_FOLDERS = [ 'plugins', 'themes', 'uploads' ] as const;
-
 export const SYNC_EXCLUSIONS = [
 	'database',
 	'db.php',

@@ -11,4 +11,4 @@ NVM_PLUGIN_VERSION='0.6.0'
 export IMAGE_ID="$XCODE_VERSION"
 export CI_TOOLKIT_PLUGIN="automattic/a8c-ci-toolkit#$CI_TOOLKIT_VERSION"
 export NVM_PLUGIN="automattic/nvm#$NVM_PLUGIN_VERSION"
-export WINDOWS_QUEUE='windows'
+export WINDOWS_QUEUE='windows-staging'

@@ -7,7 +7,11 @@ import {
 	supportedEditorConfig,
 	SUPPORTED_EDITORS,
 } from 'src/modules/user-settings/lib/editor';
-import { SupportedTerminal, supportedTerminalNames } from 'src/modules/user-settings/lib/terminal';
+import {
+	SupportedTerminal,
+	terminalConfig,
+	getTerminalsSupportedOnPlatform,
+} from 'src/modules/user-settings/lib/terminal';
 
 const getFirstInstalledEditor = async (): Promise< SupportedEditor | null > => {
 	const installedApps = await getIpcApi().getInstalledAppsAndTerminals();
@@ -107,17 +111,25 @@ export const selectUninstalledEditors = createSelector(
 export const selectInstalledTerminals = createSelector(
 	[ ( data?: InstalledApps ) => data ],
 	( installedApps ) => {
-		const entries = Object.entries( supportedTerminalNames ) as [ SupportedTerminal, string ][];
-
-		return entries.filter( ( [ terminal ] ) => installedApps && installedApps[ terminal ] );
+		const supportedTerminals = getTerminalsSupportedOnPlatform();
+		return supportedTerminals
+			.filter( ( terminal ) => installedApps && installedApps[ terminal ] )
+			.map(
+				( terminal ) =>
+					[ terminal, terminalConfig[ terminal ].name ] as [ SupportedTerminal, string ]
+			);
 	}
 );
 
 export const selectUninstalledTerminals = createSelector(
 	[ ( data?: InstalledApps ) => data ],
 	( installedApps ) => {
-		const entries = Object.entries( supportedTerminalNames ) as [ SupportedTerminal, string ][];
-
-		return entries.filter( ( [ terminal ] ) => ! installedApps || ! installedApps[ terminal ] );
+		const supportedTerminals = getTerminalsSupportedOnPlatform();
+		return supportedTerminals
+			.filter( ( terminal ) => ! installedApps || ! installedApps[ terminal ] )
+			.map(
+				( terminal ) =>
+					[ terminal, terminalConfig[ terminal ].name ] as [ SupportedTerminal, string ]
+			);
 	}
 );

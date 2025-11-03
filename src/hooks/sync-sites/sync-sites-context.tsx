@@ -110,15 +110,12 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 
 	const { client } = useAuth();
 	const { pushStatesProgressInfo } = useSyncStatesProgressInfo();
-	const hasInitialized = useRef( false );
 
 	// Initialize push states from in-progress server operations on mount
 	useEffect( () => {
-		if ( hasInitialized.current || ! client ) {
+		if ( ! client ) {
 			return;
 		}
-
-		hasInitialized.current = true;
 
 		const initializePushStates = async () => {
 			const allSites = await getIpcApi().getSiteDetails();
@@ -129,8 +126,9 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 			for ( const connectedSite of allConnectedSites ) {
 				try {
 					const localSite = allSites.find( ( site ) => site.id === connectedSite.localSiteId );
+					const hasConnectionErrors = connectedSite?.syncSupport !== 'already-connected';
 
-					if ( ! localSite ) {
+					if ( ! localSite || hasConnectionErrors ) {
 						continue;
 					}
 
@@ -166,7 +164,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 			}
 		};
 
-		void initializePushStates().catch( ( error ) => {
+		initializePushStates().catch( ( error ) => {
 			// Initialization is not critical to app functionality, but log the error
 			console.error( 'Failed to initialize push states from server:', error );
 		} );

@@ -94,15 +94,15 @@ describe( 'App initialization', () => {
 			Object.defineProperty( process, 'platform', { value: 'darwin' } );
 
 			const { mockedEvents } = mockElectron();
-			const mockOnOpenUrlCallback = jest.fn();
-			jest.doMock( '../lib/oauth', () => ( { onOpenUrlCallback: mockOnOpenUrlCallback } ) );
+			const mockHandleDeeplink = jest.fn();
+			jest.doMock( '../lib/deeplink', () => ( { handleDeeplink: mockHandleDeeplink } ) );
 
 			require( '../index' );
 			const { 'open-url': openUrl } = mockedEvents;
 
 			const testUrl = 'wpcom-local-dev://auth#test-hash';
 			await openUrl( {}, testUrl );
-			expect( mockOnOpenUrlCallback ).toHaveBeenCalledWith( testUrl );
+			expect( mockHandleDeeplink ).toHaveBeenCalledWith( testUrl );
 
 			Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
 		} );

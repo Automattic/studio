@@ -191,7 +191,6 @@ function NavigationContent( props: NavigationContentProps ) {
 		[ setSelectedBlueprint, applyBlueprintVersions ]
 	);
 
-
 	return (
 		<>
 			<Navigator.Screen className="flex-1" path="/">

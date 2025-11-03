@@ -22,7 +22,8 @@ import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
 import { AddSiteBlueprintSelector } from './components/blueprints';
 import CreateSite from './components/create-site';
 import ImportBackup from './components/import-backup';
-import AddSiteOptions from './components/options';
+import AddSiteOptions, { type AddSiteOptionType } from './components/options';
+import { PullRemoteSite } from './components/pull-remote-site';
 import Stepper from './components/stepper';
 
 interface AddSiteProps {
@@ -77,13 +78,15 @@ function NavigationContent( props: NavigationContentProps ) {
 	const { setSelectedBlueprint, setPhpVersion, setWpVersion } = createSiteProps;
 
 	const handleOptionSelect = useCallback(
-		( option: 'create' | 'blueprint' | 'backup' ) => {
+		( option: AddSiteOptionType ) => {
 			if ( option === 'blueprint' ) {
 				goTo( '/blueprint' );
 			} else if ( option === 'create' ) {
 				goTo( '/create' );
 			} else if ( option === 'backup' ) {
 				goTo( '/backup' );
+			} else if ( option === 'pullRemote' ) {
+				goTo( '/pullRemote' );
 			}
 		},
 		[ goTo ]
@@ -131,7 +134,8 @@ function NavigationContent( props: NavigationContentProps ) {
 		} else if (
 			location.path === '/backup' ||
 			location.path === '/blueprint' ||
-			location.path === '/create'
+			location.path === '/create' ||
+			location.path === '/pullRemote'
 		) {
 			if ( location.path === '/backup' ) {
 				createSiteProps.setFileForImport( null );
@@ -220,6 +224,9 @@ function NavigationContent( props: NavigationContentProps ) {
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/backup/create">
 				<CreateSite { ...createSiteProps } />
+			</Navigator.Screen>
+			<Navigator.Screen className="flex-1" path="/pullRemote">
+				<PullRemoteSite />
 			</Navigator.Screen>
 			<Stepper
 				currentPath={ location.path }

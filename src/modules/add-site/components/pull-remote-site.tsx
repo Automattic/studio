@@ -1,0 +1,188 @@
+import { useNavigator, __experimentalHeading as Heading } from '@wordpress/components';
+import { check, Icon } from '@wordpress/icons';
+import { useI18n } from '@wordpress/react-i18n';
+import { PropsWithChildren, useEffect, useState } from 'react';
+import { ArrowIcon } from 'src/components/arrow-icon';
+import Button from 'src/components/button';
+import offlineIcon from 'src/components/offline-icon';
+import { Tooltip } from 'src/components/tooltip';
+import { useAuth } from 'src/hooks/use-auth';
+import { useOffline } from 'src/hooks/use-offline';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { generateSiteName } from 'src/lib/generate-site-name';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { ListSites } from 'src/modules/sync/components/sync-sites-modal-selector';
+import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
+import { useSyncSitesData, useConnectedSitesOperations } from 'src/stores/sync';
+import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+
+function SiteSyncDescription( { children }: PropsWithChildren ) {
+	const { __ } = useI18n();
+	return (
+		<div className="p-8 flex justify-between max-w-3xl gap-4">
+			<div className="flex flex-col">
+				<div className="flex items-center mb-1">
+					<div className="a8c-subtitle text-pretty">
+						{ __( 'Sync with WordPress.com or Pressable' ) }
+					</div>
+				</div>
+				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
+					{ __(
+						'Connect your existing WordPress.com or Pressable sites with Jetpack activated, or create a new one. Then share your work with the world.'
+					) }
+				</div>
+				<div className="mt-6">
+					{ [
+						__( 'Push and pull changes from your live site.' ),
+						__( 'Connect multiple environments.' ),
+						__( 'Sync database and file changes.' ),
+					].map( ( text ) => (
+						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
+							<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />
+							{ text }
+						</div>
+					) ) }
+				</div>
+				{ children }
+			</div>
+			<div className="flex flex-col shrink-0 items-end">
+				<SyncTabImage />
+			</div>
+		</div>
+	);
+}
+
+function NoAuthPullRemoteSiteView() {
+	const isOffline = useOffline();
+	const { __ } = useI18n();
+	const { authenticate } = useAuth();
+	const offlineMessage = __( "You're currently offline." );
+
+	return (
+		<SiteSyncDescription>
+			<div className="mt-8">
+				<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
+					<Button
+						aria-description={ isOffline ? offlineMessage : '' }
+						aria-disabled={ isOffline }
+						variant="primary"
+						onClick={ () => {
+							if ( isOffline ) {
+								return;
+							}
+							authenticate();
+						} }
+					>
+						{ __( 'Log in to WordPress.com' ) }
+						<ArrowIcon />
+					</Button>
+				</Tooltip>
+			</div>
+			<div className="mt-3 text-a8c-gray-70 a8c-body">
+				<Tooltip
+					disabled={ ! isOffline }
+					icon={ offlineIcon }
+					text={ offlineMessage }
+					placement="bottom-start"
+				>
+					<span>
+						{ __( 'New to WordPress.com?' ) }{ ' ' }
+						<Button
+							aria-description={ isOffline ? offlineMessage : '' }
+							aria-disabled={ isOffline }
+							className="!p-0 text-a8c-blue-50 hover:opacity-80 h-auto inline-flex items-center"
+							onClick={ () => {
+								if ( isOffline ) {
+									return;
+								}
+								getIpcApi().authenticate( true );
+							} }
+						>
+							{ __( 'Create a free account' ) }
+							<ArrowIcon />
+						</Button>
+					</span>
+				</Tooltip>
+			</div>
+		</SiteSyncDescription>
+	);
+}
+
+export function PullRemoteSite() {
+	const { __ } = useI18n();
+	const { isAuthenticated } = useAuth();
+	const { location } = useNavigator();
+	const { syncSites, refetchSites } = useSyncSitesData();
+	const { connectSite } = useConnectedSitesOperations();
+	const { createSite, data: sites } = useSiteDetails();
+
+	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
+
+	useEffect( () => {
+		if ( location.path === '/pullRemote' && isAuthenticated ) {
+			void refetchSites();
+		}
+	}, [ location.path, isAuthenticated, refetchSites ] );
+
+	if ( ! isAuthenticated ) {
+		return <NoAuthPullRemoteSiteView />;
+	}
+
+	const handleConnect = async ( remoteSite: SyncSite ) => {
+		try {
+			const generatedSiteName = await generateSiteName( sites );
+			const siteName = remoteSite.name || generatedSiteName;
+			const { path } = await getIpcApi().generateProposedSitePath( siteName );
+
+			const newLocalSite = await createSite(
+				path,
+				siteName,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				async ( createdSite ) => {
+					await connectSite( remoteSite, createdSite.id );
+				}
+			);
+
+			if ( ! newLocalSite ) {
+				getIpcApi().showErrorMessageBox( {
+					title: __( 'Failed to create site' ),
+					message: __( 'Please try again.' ),
+				} );
+			}
+		} catch ( error ) {
+			getIpcApi().showErrorMessageBox( {
+				title: __( 'Failed to import site' ),
+				message: __( 'Please try again.' ),
+			} );
+		}
+	};
+
+	const handleSiteSelect = async ( siteId: number ) => {
+		const selectedRemoteSite = syncSites.find( ( site ) => site.id === siteId );
+		if ( ! selectedRemoteSite ) {
+			getIpcApi().showErrorMessageBox( {
+				title: __( 'Failed to select site' ),
+				message: __( 'Please try again.' ),
+			} );
+			return;
+		}
+		setSelectedSiteId( siteId );
+		await handleConnect( selectedRemoteSite );
+	};
+
+	return (
+		<div className="flex flex-col h-full">
+			<Heading className="text-[32px] text-gray-900" weight={ 500 }>
+				{ __( 'Import an existing website' ) }
+			</Heading>
+			<ListSites
+				syncSites={ syncSites }
+				selectedSiteId={ selectedSiteId }
+				onSelectSite={ handleSiteSelect }
+			/>
+		</div>
+	);
+}

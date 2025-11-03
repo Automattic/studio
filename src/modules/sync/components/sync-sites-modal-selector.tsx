@@ -164,7 +164,7 @@ const getSortedSites = ( sites: SyncSite[] ) => {
 	return [ ...sites ].sort( ( a, b ) => order[ a.syncSupport ] - order[ b.syncSupport ] );
 };
 
-function ListSites( {
+export function ListSites( {
 	syncSites,
 	selectedSiteId,
 	onSelectSite,

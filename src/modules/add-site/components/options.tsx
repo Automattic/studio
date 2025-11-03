@@ -4,7 +4,7 @@ import {
 	__experimentalHeading as Heading,
 	__experimentalText as Text,
 } from '@wordpress/components';
-import { Icon, plus, backup, chevronRight, chevronLeft } from '@wordpress/icons';
+import { Icon, plus, backup, chevronRight, chevronLeft, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { Tooltip } from 'src/components/tooltip';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
@@ -12,8 +12,9 @@ import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { BlueprintIcon } from './blueprint-icon';
 
+export type AddSiteOptionType = 'create' | 'blueprint' | 'backup' | 'pullRemote';
 interface AddSiteOptionsProps {
-	onOptionSelect: ( option: 'create' | 'blueprint' | 'backup' ) => void;
+	onOptionSelect: ( option: AddSiteOptionType ) => void;
 }
 
 interface OptionButtonProps {
@@ -71,7 +72,7 @@ function OptionButton( {
 
 export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps ) {
 	const { __ } = useI18n();
-	const { enableBlueprints } = useFeatureFlags();
+	const { enableBlueprints, streamlineOnboarding } = useFeatureFlags();
 	const isOffline = useOffline();
 	const offlineMessage = __( "You're currently offline." );
 
@@ -97,6 +98,14 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 					onClick={ () => onOptionSelect( 'blueprint' ) }
 					disabled={ isOffline }
 					disabledTooltip={ offlineMessage }
+				/>
+			) }
+			{ streamlineOnboarding && (
+				<OptionButton
+					icon={ <Icon icon={ download } size={ 24 } fill="#3858E9" /> }
+					title={ __( 'Import an existing website' ) }
+					description={ __( 'Download directly from WordPress.com or Pressable' ) }
+					onClick={ () => onOptionSelect( 'pullRemote' ) }
 				/>
 			) }
 			<OptionButton

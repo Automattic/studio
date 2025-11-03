@@ -13,6 +13,14 @@ type PushOptionsWithSelections = {
 	};
 };
 
+const STANDARD_CATEGORIES = [
+	{ prefix: 'plugins/', key: 'plugins' as const, option: SYNC_OPTIONS.plugins },
+	{ prefix: 'themes/', key: 'themes' as const, option: SYNC_OPTIONS.themes },
+	{ prefix: 'uploads/', key: 'uploads' as const, option: SYNC_OPTIONS.uploads },
+] as const;
+
+const CONTENTS_ROOTS = [ 'mu-plugins', 'fonts', 'languages' ] as const;
+
 const normalizePath = ( path: string ): string =>
 	path.replace( /^\/?wp-content\//, '' ).replace( /^\/+|\/+$/g, '' );
 
@@ -54,25 +62,17 @@ const categorizeSelectedPathsInPlace = (
 
 		const p = normalizePath( node.path );
 
-		if ( p.startsWith( 'plugins/' ) ) {
-			const rel = p.slice( 'plugins/'.length );
-			if ( rel ) categories.plugins.add( rel );
-			return;
-		}
-		if ( p.startsWith( 'themes/' ) ) {
-			const rel = p.slice( 'themes/'.length );
-			if ( rel ) categories.themes.add( rel );
-			return;
-		}
-		if ( p.startsWith( 'uploads/' ) ) {
-			const rel = p.slice( 'uploads/'.length );
-			if ( rel ) categories.uploads.add( rel );
-			return;
+		// Check standard categories
+		for ( const { prefix, key } of STANDARD_CATEGORIES ) {
+			if ( p.startsWith( prefix ) ) {
+				const rel = p.slice( prefix.length );
+				if ( rel ) categories[ key ].add( rel );
+				return;
+			}
 		}
 
-		const contentsRoots = [ 'mu-plugins', 'fonts', 'languages' ];
 		const isContents =
-			contentsRoots.some( ( root ) => p === root || p.startsWith( `${ root }/` ) ) ||
+			CONTENTS_ROOTS.some( ( root ) => p === root || p.startsWith( `${ root }/` ) ) ||
 			! p.includes( '/' );
 
 		if ( isContents ) categories.contents.add( p );
@@ -118,17 +118,11 @@ export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSel
 
 		categorizeSelectedPathsInPlace( wpContent.children, categories );
 
-		if ( categories.plugins.size ) {
-			optionsToSync.push( SYNC_OPTIONS.plugins );
-			specificSelections.plugins = [ ...categories.plugins ];
-		}
-		if ( categories.themes.size ) {
-			optionsToSync.push( SYNC_OPTIONS.themes );
-			specificSelections.themes = [ ...categories.themes ];
-		}
-		if ( categories.uploads.size ) {
-			optionsToSync.push( SYNC_OPTIONS.uploads );
-			specificSelections.uploads = [ ...categories.uploads ];
+		for ( const { key, option } of STANDARD_CATEGORIES ) {
+			if ( categories[ key ].size ) {
+				optionsToSync.push( option );
+				specificSelections[ key ] = [ ...categories[ key ] ];
+			}
 		}
 		if ( categories.contents.size ) {
 			optionsToSync.push( SYNC_OPTIONS.contents );

@@ -32,9 +32,11 @@ export const terminalConfig: Record< SupportedTerminal, TerminalConfig > = {
 	},
 };
 
-export function isTerminalSupportedOnPlatform( terminal: SupportedTerminal ): boolean {
+export function getTerminalsSupportedOnPlatform(): SupportedTerminal[] {
 	const platform = getAppGlobals().platform as TerminalPlatform;
-	return terminalConfig[ terminal ].platforms.includes( platform );
+	return ( Object.keys( terminalConfig ) as SupportedTerminal[] ).filter( ( terminal ) =>
+		terminalConfig[ terminal ].platforms.includes( platform )
+	);
 }
 
 export function getTerminalName( terminal: SupportedTerminal | undefined ): string {

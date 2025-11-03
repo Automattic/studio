@@ -24,7 +24,7 @@ const CONTENTS_ROOTS = [ 'mu-plugins', 'fonts', 'languages' ] as const;
 const normalizePath = ( path: string ): string =>
 	path.replace( /^\/?wp-content\//, '' ).replace( /^\/+|\/+$/g, '' );
 
-const traverseSelected = (
+const iterateOverCheckedNodes = (
 	nodes: TreeNode[] | undefined,
 	visit: ( node: TreeNode ) => void
 ): void => {
@@ -33,14 +33,14 @@ const traverseSelected = (
 		if ( node.checked ) {
 			visit( node );
 		} else if ( node.indeterminate && node.children?.length ) {
-			traverseSelected( node.children, visit );
+			iterateOverCheckedNodes( node.children, visit );
 		}
 	}
 };
 
 const collectPathIds = ( nodes: TreeNode[] | undefined ): string[] => {
 	const out: string[] = [];
-	traverseSelected( nodes, ( node ) => {
+	iterateOverCheckedNodes( nodes, ( node ) => {
 		if ( node.pathId ) out.push( node.pathId );
 	} );
 	return out;
@@ -61,7 +61,7 @@ const convertTreeToSyncCategories = ( nodes: TreeNode[] | undefined ): Categorie
 		contents: new Set< string >(),
 	};
 
-	traverseSelected( nodes, ( node ) => {
+	iterateOverCheckedNodes( nodes, ( node ) => {
 		if ( ! node.path ) return;
 
 		const p = normalizePath( node.path );

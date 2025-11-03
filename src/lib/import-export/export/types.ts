@@ -8,10 +8,7 @@ export interface ExportOptions {
 	phpVersion: string;
 	splitDatabaseDumpByTable?: boolean;
 	specificSelections?: {
-		plugins?: string[];
-		themes?: string[];
-		uploads?: string[];
-		contents?: string[];
+		paths?: string[];
 	};
 }
 

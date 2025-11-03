@@ -6,10 +6,7 @@ import type { SyncOption } from 'src/types';
 type PushOptionsWithSelections = {
 	optionsToSync: SyncOption[];
 	specificSelections?: {
-		plugins?: string[];
-		themes?: string[];
-		uploads?: string[];
-		contents?: string[];
+		paths?: string[];
 	};
 };
 
@@ -35,41 +32,31 @@ const collectPathIds = ( nodes: TreeNode[] | undefined ): string[] => {
 	return out;
 };
 
-type Category = {
-	files: Set< string >;
-	option: SyncOption;
-};
-
-const convertTreeToSyncCategories = ( nodes: TreeNode[] | undefined ): Category[] => {
-	const categories = {
-		plugins: { files: new Set< string >(), option: SYNC_OPTIONS.plugins },
-		themes: { files: new Set< string >(), option: SYNC_OPTIONS.themes },
-		uploads: { files: new Set< string >(), option: SYNC_OPTIONS.uploads },
-		contents: { files: new Set< string >(), option: SYNC_OPTIONS.contents },
-	};
+const convertTreeToSyncCategories = (
+	nodes: TreeNode[] | undefined
+): { paths: string[]; options: SyncOption[] } => {
+	const paths = new Set< string >();
+	const options = new Set< SyncOption >();
 
 	iterateOverCheckedNodes( nodes, ( node ) => {
 		if ( ! node.path ) return;
 
 		const p = node.path.replace( /^\/?wp-content\//, '' );
+		paths.add( p );
 
+		// Determine which category this belongs to for optionsToSync
 		if ( p.startsWith( 'plugins/' ) ) {
-			categories.plugins.files.add( p );
+			options.add( SYNC_OPTIONS.plugins );
 		} else if ( p.startsWith( 'themes/' ) ) {
-			categories.themes.files.add( p );
+			options.add( SYNC_OPTIONS.themes );
 		} else if ( p.startsWith( 'uploads/' ) ) {
-			categories.uploads.files.add( p );
-		} else if (
-			p.startsWith( 'mu-plugins/' ) ||
-			p.startsWith( 'languages/' ) ||
-			p.startsWith( 'fonts/' ) ||
-			! p.includes( '/' )
-		) {
-			categories.contents.files.add( p );
+			options.add( SYNC_OPTIONS.uploads );
+		} else {
+			options.add( SYNC_OPTIONS.contents );
 		}
 	} );
 
-	return Object.values( categories );
+	return { paths: [ ...paths ], options: [ ...options ] };
 };
 
 const getCommonNodes = ( tree: TreeNode[] ) => {
@@ -102,15 +89,11 @@ export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSel
 	}
 
 	if ( wpContent?.children?.length ) {
-		const categories = convertTreeToSyncCategories( wpContent.children );
+		const { paths, options } = convertTreeToSyncCategories( wpContent.children );
 
-		for ( const { files, option } of categories ) {
-			if ( files.size ) {
-				optionsToSync.push( option );
-				specificSelections[ option as 'plugins' | 'themes' | 'uploads' | 'contents' ] = [
-					...files,
-				];
-			}
+		if ( paths.length ) {
+			optionsToSync.push( ...options );
+			specificSelections.paths = paths;
 		}
 	}
 

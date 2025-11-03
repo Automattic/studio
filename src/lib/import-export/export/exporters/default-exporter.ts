@@ -155,15 +155,8 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private addWpContent(): void {
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_START );
 
-		if ( this.options.specificSelections ) {
-			const allItems = [
-				...( this.options.specificSelections.plugins || [] ),
-				...( this.options.specificSelections.themes || [] ),
-				...( this.options.specificSelections.uploads || [] ),
-				...( this.options.specificSelections.contents || [] ),
-			];
-
-			for ( const itemPath of allItems ) {
+		if ( this.options.specificSelections?.paths ) {
+			for ( const itemPath of this.options.specificSelections.paths ) {
 				const fullPath = path.join( this.options.site.path, 'wp-content', itemPath );
 				const archivePath = path.join( 'wp-content', itemPath );
 

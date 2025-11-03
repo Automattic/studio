@@ -13,17 +13,6 @@ type PushOptionsWithSelections = {
 	};
 };
 
-const STANDARD_CATEGORIES = [
-	{ prefix: 'plugins/', key: 'plugins' as const, option: SYNC_OPTIONS.plugins },
-	{ prefix: 'themes/', key: 'themes' as const, option: SYNC_OPTIONS.themes },
-	{ prefix: 'uploads/', key: 'uploads' as const, option: SYNC_OPTIONS.uploads },
-] as const;
-
-const CONTENTS_ROOTS = [ 'mu-plugins', 'fonts', 'languages' ] as const;
-
-const normalizePath = ( path: string ): string =>
-	path.replace( /^\/?wp-content\//, '' ).replace( /^\/+|\/+$/g, '' );
-
 const iterateOverCheckedNodes = (
 	nodes: TreeNode[] | undefined,
 	visit: ( node: TreeNode ) => void
@@ -46,43 +35,41 @@ const collectPathIds = ( nodes: TreeNode[] | undefined ): string[] => {
 	return out;
 };
 
-type Categories = {
-	plugins: Set< string >;
-	themes: Set< string >;
-	uploads: Set< string >;
-	contents: Set< string >;
+type Category = {
+	files: Set< string >;
+	option: SyncOption;
 };
 
-const convertTreeToSyncCategories = ( nodes: TreeNode[] | undefined ): Categories => {
-	const categories: Categories = {
-		plugins: new Set< string >(),
-		themes: new Set< string >(),
-		uploads: new Set< string >(),
-		contents: new Set< string >(),
+const convertTreeToSyncCategories = ( nodes: TreeNode[] | undefined ): Category[] => {
+	const categories = {
+		plugins: { files: new Set< string >(), option: SYNC_OPTIONS.plugins },
+		themes: { files: new Set< string >(), option: SYNC_OPTIONS.themes },
+		uploads: { files: new Set< string >(), option: SYNC_OPTIONS.uploads },
+		contents: { files: new Set< string >(), option: SYNC_OPTIONS.contents },
 	};
 
 	iterateOverCheckedNodes( nodes, ( node ) => {
 		if ( ! node.path ) return;
 
-		const p = normalizePath( node.path );
+		const p = node.path.replace( /^\/?wp-content\//, '' );
 
-		// Check standard categories
-		for ( const { prefix, key } of STANDARD_CATEGORIES ) {
-			if ( p.startsWith( prefix ) ) {
-				const rel = p.slice( prefix.length );
-				if ( rel ) categories[ key ].add( rel );
-				return;
-			}
+		if ( p.startsWith( 'plugins/' ) ) {
+			categories.plugins.files.add( p );
+		} else if ( p.startsWith( 'themes/' ) ) {
+			categories.themes.files.add( p );
+		} else if ( p.startsWith( 'uploads/' ) ) {
+			categories.uploads.files.add( p );
+		} else if (
+			p.startsWith( 'mu-plugins/' ) ||
+			p.startsWith( 'languages/' ) ||
+			p.startsWith( 'fonts/' ) ||
+			! p.includes( '/' )
+		) {
+			categories.contents.files.add( p );
 		}
-
-		const isContents =
-			CONTENTS_ROOTS.some( ( root ) => p === root || p.startsWith( `${ root }/` ) ) ||
-			! p.includes( '/' );
-
-		if ( isContents ) categories.contents.add( p );
 	} );
 
-	return categories;
+	return Object.values( categories );
 };
 
 const getCommonNodes = ( tree: TreeNode[] ) => {
@@ -117,15 +104,13 @@ export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSel
 	if ( wpContent?.children?.length ) {
 		const categories = convertTreeToSyncCategories( wpContent.children );
 
-		for ( const { key, option } of STANDARD_CATEGORIES ) {
-			if ( categories[ key ].size ) {
+		for ( const { files, option } of categories ) {
+			if ( files.size ) {
 				optionsToSync.push( option );
-				specificSelections[ key ] = [ ...categories[ key ] ];
+				specificSelections[ option as 'plugins' | 'themes' | 'uploads' | 'contents' ] = [
+					...files,
+				];
 			}
-		}
-		if ( categories.contents.size ) {
-			optionsToSync.push( SYNC_OPTIONS.contents );
-			specificSelections.contents = [ ...categories.contents ];
 		}
 	}
 

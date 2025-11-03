@@ -166,21 +166,24 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 			if ( partialFolderItems ) {
 				for ( const itemName of partialFolderItems ) {
-					const itemPath = path.join( absolutePath, itemName );
-					const itemArchivePath = path.join( archivePath, itemName );
+					// itemName is now wp-content-relative (e.g., "plugins/akismet", "mu-plugins/file.php", "index.php")
+					const itemPath = path.join( this.options.site.path, 'wp-content', itemName );
+					const itemArchivePath = path.join( 'wp-content', itemName );
 
-					if ( fs.existsSync( itemPath ) ) {
-						const stat = fs.statSync( itemPath );
-						if ( stat.isDirectory() ) {
-							this.archiveBuilder.directory( itemPath, itemArchivePath, ( entry ) => {
-								if ( entry.name.includes( '.git' ) || entry.name.includes( 'node_modules' ) ) {
-									return false;
-								}
-								return entry;
-							} );
-						} else {
-							this.archiveBuilder.file( itemPath, { name: itemArchivePath } );
-						}
+					if ( ! fs.existsSync( itemPath ) ) {
+						continue;
+					}
+
+					const stat = fs.statSync( itemPath );
+					if ( stat.isDirectory() ) {
+						this.archiveBuilder.directory( itemPath, itemArchivePath, ( entry ) => {
+							if ( entry.name.includes( '.git' ) || entry.name.includes( 'node_modules' ) ) {
+								return false;
+							}
+							return entry;
+						} );
+					} else {
+						this.archiveBuilder.file( itemPath, { name: itemArchivePath } );
 					}
 				}
 			} else {
@@ -217,10 +220,6 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				return this.options.specificSelections?.themes || null;
 			case 'uploads':
 				return this.options.specificSelections?.uploads || null;
-			case 'muPlugins':
-			case 'fonts':
-				// Both muPlugins and fonts use the contents array
-				return this.options.specificSelections?.contents || null;
 			default:
 				return null;
 		}

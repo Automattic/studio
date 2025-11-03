@@ -6,6 +6,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import Button, { ButtonVariant } from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite } from 'src/hooks/use-add-site';
+import { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { generateSiteName } from 'src/lib/generate-site-name';
@@ -61,6 +62,8 @@ interface NavigationContentProps {
 	blueprintsErrorMessage?: string | undefined;
 	blueprintPreferredVersions?: { php?: string; wp?: string };
 	setBlueprintPreferredVersions: ( versions: { php?: string; wp?: string } | undefined ) => void;
+	selectedRemoteSite?: SyncSite;
+	setSelectedRemoteSite: ( site?: SyncSite ) => void;
 }
 
 function NavigationContent( props: NavigationContentProps ) {
@@ -72,6 +75,8 @@ function NavigationContent( props: NavigationContentProps ) {
 		blueprintsErrorMessage,
 		blueprintPreferredVersions,
 		setBlueprintPreferredVersions,
+		selectedRemoteSite,
+		setSelectedRemoteSite,
 		...createSiteProps
 	} = props;
 
@@ -119,7 +124,8 @@ function NavigationContent( props: NavigationContentProps ) {
 	const isOnCreatePath =
 		location.path === '/create' ||
 		location.path === '/blueprint/create' ||
-		location.path === '/backup/create';
+		location.path === '/backup/create' ||
+		location.path === '/pullRemote/create';
 	const canSubmit =
 		isOnCreatePath &&
 		createSiteProps.siteName?.trim() &&
@@ -144,11 +150,20 @@ function NavigationContent( props: NavigationContentProps ) {
 				createSiteProps.setSelectedBlueprint();
 				setBlueprintPreferredVersions( undefined );
 			}
+			if ( location.path === '/pullRemote' ) {
+				setSelectedRemoteSite( undefined );
+			}
 			goTo( '/' );
 		} else {
 			goTo( '/' );
 		}
-	}, [ location.path, goTo, createSiteProps, setBlueprintPreferredVersions ] );
+	}, [
+		location.path,
+		goTo,
+		createSiteProps,
+		setBlueprintPreferredVersions,
+		setSelectedRemoteSite,
+	] );
 
 	const applyBlueprintVersions = useCallback(
 		( blueprint?: Blueprint ) => {
@@ -226,7 +241,13 @@ function NavigationContent( props: NavigationContentProps ) {
 				<CreateSite { ...createSiteProps } />
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/pullRemote">
-				<PullRemoteSite />
+				<PullRemoteSite
+					selectedRemoteSite={ selectedRemoteSite }
+					setSelectedRemoteSite={ setSelectedRemoteSite }
+				/>
+			</Navigator.Screen>
+			<Navigator.Screen className="flex-1" path="/pullRemote/create">
+				<CreateSite { ...createSiteProps } siteName={ selectedRemoteSite?.name || null } />
 			</Navigator.Screen>
 			<Stepper
 				currentPath={ location.path }
@@ -281,6 +302,8 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		setFileForImport,
 		loadAllCustomDomains,
 		setSelectedBlueprint,
+		selectedRemoteSite,
+		setSelectedRemoteSite,
 	} = addSiteProps;
 
 	const isAnySiteProcessing = sites.some(
@@ -306,6 +329,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		setFileForImport( null );
 		setSelectedBlueprint( undefined );
 		setBlueprintPreferredVersions( undefined );
+		setSelectedRemoteSite( undefined );
 	}, [
 		setSitePath,
 		setDoesPathContainWordPress,
@@ -317,6 +341,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		setEnableHttps,
 		setFileForImport,
 		setSelectedBlueprint,
+		setSelectedRemoteSite,
 		defaultWordPressVersion,
 		defaultPhpVersion,
 	] );
@@ -401,6 +426,8 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 						handleSubmit={ handleSubmit }
 						blueprintPreferredVersions={ blueprintPreferredVersions }
 						setBlueprintPreferredVersions={ setBlueprintPreferredVersions }
+						selectedRemoteSite={ selectedRemoteSite }
+						setSelectedRemoteSite={ setSelectedRemoteSite }
 					/>
 				</Navigator>
 			</FullscreenModal>

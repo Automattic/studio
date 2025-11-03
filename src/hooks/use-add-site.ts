@@ -11,12 +11,15 @@ import {
 	selectDefaultPhpVersion,
 	selectDefaultWordPressVersion,
 } from 'src/stores/provider-constants-slice';
+import { useConnectedSitesOperations } from 'src/stores/sync';
+import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { Blueprint } from 'src/stores/wpcom-api';
 
 export function useAddSite() {
 	const { __ } = useI18n();
 	const { createSite, data: sites, loadingSites, startServer, updateSite } = useSiteDetails();
 	const { importFile, clearImportState } = useImportExport();
+	const { connectSite } = useConnectedSitesOperations();
 	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 	const [ error, setError ] = useState( '' );
@@ -35,6 +38,7 @@ export function useAddSite() {
 	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
 	const [ enableHttps, setEnableHttps ] = useState( false );
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< Blueprint | undefined >();
+	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | undefined >();
 
 	const loadAllCustomDomains = useCallback( () => {
 		getIpcApi()
@@ -142,6 +146,14 @@ export function useAddSite() {
 							title: newSite.name,
 							body: __( 'Your new site was imported' ),
 						} );
+					} else if ( selectedRemoteSite ) {
+						await connectSite( selectedRemoteSite, newSite.id );
+						await startServer( newSite.id );
+
+						getIpcApi().showNotification( {
+							title: newSite.name,
+							body: __( 'Your new site was created' ),
+						} );
 					} else {
 						await startServer( newSite.id );
 
@@ -172,6 +184,8 @@ export function useAddSite() {
 		useCustomDomain,
 		enableHttps,
 		selectedBlueprint,
+		selectedRemoteSite,
+		connectSite,
 	] );
 
 	const handleSiteNameChange = useCallback(
@@ -243,6 +257,8 @@ export function useAddSite() {
 			loadAllCustomDomains,
 			selectedBlueprint,
 			setSelectedBlueprint,
+			selectedRemoteSite,
+			setSelectedRemoteSite,
 		};
 	}, [
 		doesPathContainWordPress,
@@ -268,5 +284,8 @@ export function useAddSite() {
 		setEnableHttps,
 		loadAllCustomDomains,
 		selectedBlueprint,
+		setSelectedBlueprint,
+		selectedRemoteSite,
+		setSelectedRemoteSite,
 	] );
 }

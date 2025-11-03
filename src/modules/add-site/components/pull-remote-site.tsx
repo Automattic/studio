@@ -1,19 +1,21 @@
-import { useNavigator, __experimentalHeading as Heading } from '@wordpress/components';
+import {
+	useNavigator,
+	__experimentalHeading as Heading,
+	__experimentalVStack as VStack,
+} from '@wordpress/components';
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useEffect, useState } from 'react';
+import { PropsWithChildren, useEffect } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
-import { useSiteDetails } from 'src/hooks/use-site-details';
-import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ListSites } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
-import { useSyncSitesData, useConnectedSitesOperations } from 'src/stores/sync';
+import { useSyncSitesData } from 'src/stores/sync';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {
@@ -108,15 +110,17 @@ function NoAuthPullRemoteSiteView() {
 	);
 }
 
-export function PullRemoteSite() {
+export function PullRemoteSite( {
+	setSelectedRemoteSite,
+	selectedRemoteSite,
+}: {
+	selectedRemoteSite?: SyncSite;
+	setSelectedRemoteSite: ( site?: SyncSite ) => void;
+} ) {
 	const { __ } = useI18n();
 	const { isAuthenticated } = useAuth();
-	const { location } = useNavigator();
+	const { location, goTo } = useNavigator();
 	const { syncSites, refetchSites } = useSyncSitesData();
-	const { connectSite } = useConnectedSitesOperations();
-	const { createSite, data: sites } = useSiteDetails();
-
-	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
 
 	useEffect( () => {
 		if ( location.path === '/pullRemote' && isAuthenticated ) {
@@ -128,61 +132,21 @@ export function PullRemoteSite() {
 		return <NoAuthPullRemoteSiteView />;
 	}
 
-	const handleConnect = async ( remoteSite: SyncSite ) => {
-		try {
-			const generatedSiteName = await generateSiteName( sites );
-			const siteName = remoteSite.name || generatedSiteName;
-			const { path } = await getIpcApi().generateProposedSitePath( siteName );
-
-			const newLocalSite = await createSite(
-				path,
-				siteName,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				async ( createdSite ) => {
-					await connectSite( remoteSite, createdSite.id );
-				}
-			);
-
-			if ( ! newLocalSite ) {
-				getIpcApi().showErrorMessageBox( {
-					title: __( 'Failed to create site' ),
-					message: __( 'Please try again.' ),
-				} );
-			}
-		} catch ( error ) {
-			getIpcApi().showErrorMessageBox( {
-				title: __( 'Failed to import site' ),
-				message: __( 'Please try again.' ),
-			} );
-		}
-	};
-
-	const handleSiteSelect = async ( siteId: number ) => {
-		const selectedRemoteSite = syncSites.find( ( site ) => site.id === siteId );
-		if ( ! selectedRemoteSite ) {
-			getIpcApi().showErrorMessageBox( {
-				title: __( 'Failed to select site' ),
-				message: __( 'Please try again.' ),
-			} );
-			return;
-		}
-		setSelectedSiteId( siteId );
-		await handleConnect( selectedRemoteSite );
+	const handleSiteSelect = () => {
+		setSelectedRemoteSite( selectedRemoteSite );
+		goTo( '/pullRemote/create' );
 	};
 
 	return (
-		<div className="flex flex-col h-full">
+		<VStack className="text-center w-full" alignment="top" spacing="3">
 			<Heading className="text-[32px] text-gray-900" weight={ 500 }>
-				{ __( 'Import an existing website' ) }
+				{ __( 'Pull your remote site' ) }
 			</Heading>
 			<ListSites
 				syncSites={ syncSites }
-				selectedSiteId={ selectedSiteId }
+				selectedSiteId={ selectedRemoteSite?.id || null }
 				onSelectSite={ handleSiteSelect }
 			/>
-		</div>
+		</VStack>
 	);
 }

@@ -34,6 +34,7 @@ type PushSiteOptions = {
 		plugins?: string[];
 		themes?: string[];
 		uploads?: string[];
+		contents?: string[];
 	};
 };
 

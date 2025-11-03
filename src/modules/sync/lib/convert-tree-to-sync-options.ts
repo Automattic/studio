@@ -9,24 +9,12 @@ type PushOptionsWithSelections = {
 		plugins?: string[];
 		themes?: string[];
 		uploads?: string[];
+		contents?: string[];
 	};
 };
 
 const normalizePath = ( path: string ): string =>
 	path.replace( /^wp-content\//, '' ).replace( /^\/+|\/+$/g, '' );
-
-const PATH_SYNC_MAP = [
-	{ pattern: /^plugins\//, option: SYNC_OPTIONS.plugins },
-	{ pattern: /^themes\//, option: SYNC_OPTIONS.themes },
-	{ pattern: /^uploads\//, option: SYNC_OPTIONS.uploads },
-	{ pattern: /^(mu-plugins|fonts|languages)(\/|$)/, option: SYNC_OPTIONS.contents },
-] as const;
-
-const SPECIFIC_PATTERNS = {
-	plugins: /^plugins\/([^/]+)/,
-	themes: /^themes\/([^/]+)/,
-	uploads: /^uploads\/([^/]+)/,
-} as const;
 
 const collectNodes = < T >( nodes: TreeNode[], extractor: ( node: TreeNode ) => T | null ): T[] => {
 	const collector: T[] = [];
@@ -45,36 +33,40 @@ const collectPathIds = ( nodes: TreeNode[] ): string[] =>
 	collectNodes( nodes, ( node ) => node.pathId || null );
 
 const collectSelectedPaths = ( nodes: TreeNode[] ): string[] =>
-	collectNodes( nodes, ( node ) => ( node.path ? node.path : null ) );
+	collectNodes( nodes, ( node ) => node.path || null );
 
-const extractSpecificSelections = (
-	paths: string[]
-): PushOptionsWithSelections[ 'specificSelections' ] => {
-	const specificSelections: PushOptionsWithSelections[ 'specificSelections' ] = {};
-	const collections = {
+const categorizeSelectedPaths = ( paths: string[] ) => {
+	const categories = {
 		plugins: new Set< string >(),
 		themes: new Set< string >(),
 		uploads: new Set< string >(),
+		contents: new Set< string >(),
 	};
 
 	paths.forEach( ( path ) => {
 		const normalizedPath = normalizePath( path );
 
-		Object.entries( SPECIFIC_PATTERNS ).forEach( ( [ key, pattern ] ) => {
-			const match = normalizedPath.match( pattern );
-			if ( match ) {
-				collections[ key as keyof typeof collections ].add( match[ 1 ] );
+		const standardCategories = [ 'plugins', 'themes', 'uploads' ] as const;
+		for ( const category of standardCategories ) {
+			if ( normalizedPath.startsWith( `${ category }/` ) ) {
+				const relativePath = normalizedPath.substring( category.length + 1 );
+				if ( relativePath ) categories[ category ].add( relativePath );
+				return;
 			}
-		} );
-	} );
+		}
 
-	Object.entries( collections ).forEach( ( [ key, set ] ) => {
-		if ( set.size > 0 ) {
-			specificSelections[ key as keyof typeof collections ] = Array.from( set );
+		const contentsPatterns = [ 'mu-plugins', 'fonts', 'languages' ];
+		const isContentsPath =
+			contentsPatterns.some(
+				( p ) => normalizedPath.startsWith( `${ p }/` ) || normalizedPath === p
+			) || ! normalizedPath.includes( '/' );
+
+		if ( isContentsPath ) {
+			categories.contents.add( normalizedPath );
 		}
 	} );
 
-	return Object.keys( specificSelections ).length > 0 ? specificSelections : undefined;
+	return categories;
 };
 
 const getCommonNodes = ( tree: TreeNode[] ) => {
@@ -87,6 +79,7 @@ const getCommonNodes = ( tree: TreeNode[] ) => {
 
 export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSelections => {
 	const optionsToSync: SyncOption[] = [];
+	const specificSelections: PushOptionsWithSelections[ 'specificSelections' ] = {};
 
 	const isAll = tree.every( ( node ) => node.checked );
 	if ( isAll ) {
@@ -100,27 +93,29 @@ export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSel
 		optionsToSync.push( SYNC_OPTIONS.sqls );
 	}
 
-	let specificSelections: PushOptionsWithSelections[ 'specificSelections' ] = undefined;
-
 	if ( wpContent?.children?.length ) {
 		const selectedPaths = collectSelectedPaths( wpContent.children );
+		const categories = categorizeSelectedPaths( selectedPaths );
 
-		PATH_SYNC_MAP.forEach( ( { option, pattern } ) => {
-			const patternExistsAmongPaths = selectedPaths.some( ( path ) => {
-				const normalizedPath = normalizePath( path );
-				return pattern.test( normalizedPath );
-			} );
-			if ( patternExistsAmongPaths ) {
+		const categoryMap = [
+			{ category: 'plugins' as const, option: SYNC_OPTIONS.plugins },
+			{ category: 'themes' as const, option: SYNC_OPTIONS.themes },
+			{ category: 'uploads' as const, option: SYNC_OPTIONS.uploads },
+			{ category: 'contents' as const, option: SYNC_OPTIONS.contents },
+		];
+
+		categoryMap.forEach( ( { category, option } ) => {
+			if ( categories[ category ].size > 0 ) {
 				optionsToSync.push( option );
+				specificSelections[ category ] = Array.from( categories[ category ] );
 			}
 		} );
-
-		specificSelections = extractSpecificSelections( selectedPaths );
 	}
 
 	return {
 		optionsToSync,
-		specificSelections,
+		specificSelections:
+			Object.keys( specificSelections ).length > 0 ? specificSelections : undefined,
 	};
 };
 
@@ -142,15 +137,12 @@ export const convertTreeToPullOptions = ( tree: TreeNode[] ): PullSiteOptions =>
 	const pathIds = collectPathIds( wpContent?.children ?? [] );
 
 	const pullOptions: PullSiteOptions = {
-		optionsToSync: pathIds.length > 0 ? [ SYNC_OPTIONS.paths ] : [],
+		optionsToSync: isDatabaseSelected.checked ? [ SYNC_OPTIONS.sqls ] : [],
 	};
 
 	if ( pathIds.length > 0 ) {
+		pullOptions.optionsToSync.unshift( SYNC_OPTIONS.paths );
 		pullOptions.include_path_list = pathIds;
-	}
-
-	if ( isDatabaseSelected.checked ) {
-		pullOptions.optionsToSync.push( SYNC_OPTIONS.sqls );
 	}
 
 	return pullOptions;

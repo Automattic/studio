@@ -166,8 +166,30 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 			if ( partialFolderItems ) {
 				for ( const itemName of partialFolderItems ) {
-					const itemPath = path.join( absolutePath, itemName );
-					const itemArchivePath = path.join( archivePath, itemName );
+					// For muPlugins and fonts, paths in contents array may be relative to wp-content, not the category folder
+					// e.g., "index.php" (wp-content root), "mu-plugins/file.php", "fonts/custom.woff"
+					let itemPath: string;
+					let itemArchivePath: string;
+
+					if ( category === 'muPlugins' || category === 'fonts' ) {
+						const isRootFile = ! itemName.includes( '/' );
+						const belongsToCategory =
+							itemName.startsWith( `${ folderName }/` ) ||
+							itemName === folderName ||
+							( category === 'muPlugins' &&
+								( itemName.startsWith( 'languages/' ) || itemName === 'languages' ) ) ||
+							isRootFile;
+
+						if ( belongsToCategory ) {
+							itemPath = path.join( this.options.site.path, 'wp-content', itemName );
+							itemArchivePath = path.join( 'wp-content', itemName );
+						} else {
+							continue;
+						}
+					} else {
+						itemPath = path.join( absolutePath, itemName );
+						itemArchivePath = path.join( archivePath, itemName );
+					}
 
 					if ( fs.existsSync( itemPath ) ) {
 						const stat = fs.statSync( itemPath );
@@ -217,6 +239,10 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				return this.options.specificSelections?.themes || null;
 			case 'uploads':
 				return this.options.specificSelections?.uploads || null;
+			case 'muPlugins':
+			case 'fonts':
+				// Both muPlugins and fonts use the contents array
+				return this.options.specificSelections?.contents || null;
 			default:
 				return null;
 		}

@@ -11,6 +11,7 @@ export interface ExportOptions {
 		plugins?: string[];
 		themes?: string[];
 		uploads?: string[];
+		contents?: string[];
 	};
 }
 

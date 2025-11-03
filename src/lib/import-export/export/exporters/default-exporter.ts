@@ -17,7 +17,6 @@ import {
 	BackupContents,
 	Exporter,
 	BackupCreateProgressEventData,
-	BackupContentsCategory,
 	StudioJson,
 } from 'src/lib/import-export/export/types';
 import { getWordPressVersionFromInstallation } from 'src/lib/wp-versions';
@@ -154,75 +153,69 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	}
 
 	private addWpContent(): void {
-		const categories = (
-			[ 'uploads', 'plugins', 'themes', 'muPlugins', 'fonts' ] as BackupContentsCategory[]
-		 ).filter( ( category ) => this.options.includes[ category ] );
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_START );
-		for ( const category of categories ) {
-			const folderName = category === 'muPlugins' ? 'mu-plugins' : category;
-			const absolutePath = path.join( this.options.site.path, 'wp-content', folderName );
-			const archivePath = path.relative( this.options.site.path, absolutePath );
-			const partialFolderItems = this.getCategorySelections( category );
 
-			if ( partialFolderItems ) {
-				for ( const itemName of partialFolderItems ) {
-					// itemName is now wp-content-relative (e.g., "plugins/akismet", "mu-plugins/file.php", "index.php")
-					const itemPath = path.join( this.options.site.path, 'wp-content', itemName );
-					const itemArchivePath = path.join( 'wp-content', itemName );
+		if ( this.options.specificSelections ) {
+			const allItems = [
+				...( this.options.specificSelections.plugins || [] ),
+				...( this.options.specificSelections.themes || [] ),
+				...( this.options.specificSelections.uploads || [] ),
+				...( this.options.specificSelections.contents || [] ),
+			];
 
-					if ( ! fs.existsSync( itemPath ) ) {
-						continue;
-					}
+			for ( const itemPath of allItems ) {
+				const fullPath = path.join( this.options.site.path, 'wp-content', itemPath );
+				const archivePath = path.join( 'wp-content', itemPath );
 
-					const stat = fs.statSync( itemPath );
-					if ( stat.isDirectory() ) {
-						this.archiveBuilder.directory( itemPath, itemArchivePath, ( entry ) => {
-							if ( entry.name.includes( '.git' ) || entry.name.includes( 'node_modules' ) ) {
-								return false;
-							}
-							return entry;
-						} );
-					} else {
-						this.archiveBuilder.file( itemPath, { name: itemArchivePath } );
-					}
+				if ( ! fs.existsSync( fullPath ) ) {
+					continue;
 				}
-			} else {
-				this.archiveBuilder.directory( absolutePath, archivePath, ( entry ) => {
-					const fullArchivePath = path.join( archivePath, entry.name );
-					const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
-						fullArchivePath.startsWith( path.normalize( pathToExclude ) )
-					);
-					if (
-						isExcluded ||
-						entry.name.includes( '.git' ) ||
-						entry.name.includes( 'node_modules' )
-					) {
-						return false;
-					}
-					return entry;
-				} );
+
+				const stat = fs.statSync( fullPath );
+				if ( stat.isDirectory() ) {
+					this.archiveBuilder.directory( fullPath, archivePath, ( entry ) => {
+						if ( entry.name.includes( '.git' ) || entry.name.includes( 'node_modules' ) ) {
+							return false;
+						}
+						return entry;
+					} );
+				} else {
+					this.archiveBuilder.file( fullPath, { name: archivePath } );
+				}
 			}
+		} else {
+			const folders = [
+				{ name: 'plugins', include: this.options.includes.plugins },
+				{ name: 'themes', include: this.options.includes.themes },
+				{ name: 'uploads', include: this.options.includes.uploads },
+				{ name: 'mu-plugins', include: this.options.includes.muPlugins },
+				{ name: 'fonts', include: this.options.includes.fonts },
+			];
 
-			this.emit( ExportEvents.WP_CONTENT_EXPORT_PROGRESS, { directory: absolutePath } );
+			for ( const { name, include } of folders ) {
+				if ( include ) {
+					const absolutePath = path.join( this.options.site.path, 'wp-content', name );
+					const archivePath = path.join( 'wp-content', name );
+
+					this.archiveBuilder.directory( absolutePath, archivePath, ( entry ) => {
+						const fullArchivePath = path.join( archivePath, entry.name );
+						const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
+							fullArchivePath.startsWith( path.normalize( pathToExclude ) )
+						);
+						if (
+							isExcluded ||
+							entry.name.includes( '.git' ) ||
+							entry.name.includes( 'node_modules' )
+						) {
+							return false;
+						}
+						return entry;
+					} );
+				}
+			}
 		}
+
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_COMPLETE );
-	}
-
-	private getCategorySelections( category: BackupContentsCategory ): string[] | null {
-		if ( ! this.options.specificSelections ) {
-			return null;
-		}
-
-		switch ( category ) {
-			case 'plugins':
-				return this.options.specificSelections?.plugins || null;
-			case 'themes':
-				return this.options.specificSelections?.themes || null;
-			case 'uploads':
-				return this.options.specificSelections?.uploads || null;
-			default:
-				return null;
-		}
 	}
 
 	private async addDatabase(): Promise< void > {

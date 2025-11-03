@@ -15,14 +15,18 @@ export interface ExportOptions {
 	};
 }
 
-export type ExportOptionsIncludes = BackupContentsCategory | 'database';
+export type ExportOptionsIncludes =
+	| 'uploads'
+	| 'plugins'
+	| 'themes'
+	| 'muPlugins'
+	| 'fonts'
+	| 'database';
 
 export interface BackupContents {
 	backupFile: string;
 	sqlFiles: string[];
 }
-
-export type BackupContentsCategory = 'uploads' | 'plugins' | 'themes' | 'muPlugins' | 'fonts';
 
 export interface Exporter extends Partial< EventEmitter > {
 	canHandle(): Promise< boolean >;

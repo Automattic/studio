@@ -40,12 +40,12 @@ function OptionButton( {
 		<Tooltip
 			text={ disabledTooltip }
 			disabled={ ! disabled }
-			className={ cx( 'w-full max-w-[422px]' ) }
+			className={ cx( 'w-full max-w-[460px]' ) }
 		>
 			<HStack
 				as="button"
 				className={ cx(
-					'w-full p-[24px] border border-gray-200 rounded-xl text-left',
+					'w-full p-4 border border-gray-200 rounded-xl text-left',
 					'rtl:text-right',
 					'hover:border-gray-300 hover:bg-gray-50',
 					'disabled:opacity-50 disabled:cursor-not-allowed'
@@ -56,7 +56,7 @@ function OptionButton( {
 				spacing={ 5 }
 			>
 				<div className="mt-[-2px]">{ icon }</div>
-				<VStack className="flex-1 gap-[8px]">
+				<VStack className="flex-1 gap-1.5">
 					<Heading className="text-[15px]" weight="500">
 						{ title }
 					</Heading>
@@ -81,7 +81,7 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 			<Heading className="text-[32px] text-gray-900" weight={ 500 }>
 				{ __( 'Add a site' ) }
 			</Heading>
-			<Text className="text-[15px] font-light text-gray-700 w-72 mb-[28px]">
+			<Text className="text-[15px] font-light text-gray-700 w-72 mb-4">
 				{ __( 'Add a clean site, start from a Blueprint or import site from a backup' ) }
 			</Text>
 			<OptionButton

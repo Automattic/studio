@@ -1,6 +1,6 @@
 import { Spinner } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
-import { Icon, published, warning } from '@wordpress/icons';
+import { Icon, published, cautionFilled } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState, useRef } from 'react';
 import { Snapshot } from 'common/types/snapshot';
@@ -96,7 +96,7 @@ export function PreviewSiteRow( {
 		if ( updateOperation?.status === 'rejected' ) {
 			return (
 				<div className="flex items-center">
-					<Icon icon={ warning } className="!mt-0 mr-1 fill-a8c-red-50" />
+					<Icon icon={ cautionFilled } className="!mt-0 mr-1 fill-a8c-red-50" />
 					<span className="text-a8c-red-50">{ __( 'Failed' ) }</span>
 				</div>
 			);

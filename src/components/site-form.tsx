@@ -1,7 +1,14 @@
 import { Icon, SelectControl, Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
-import { tip, warning, trash, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
+import {
+	tip,
+	cautionFilled,
+	trash,
+	chevronRight,
+	chevronDown,
+	chevronLeft,
+} from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useRef, useState, useEffect } from 'react';
 import Button from 'src/components/button';
@@ -90,7 +97,7 @@ const SiteFormError = ( { error, tipMessage = '', className = '' }: SiteFormErro
 			>
 				<Icon
 					className={ cx( 'shrink-0 basis-4', error ? 'fill-red-500' : 'fill-a8c-gray-50' ) }
-					icon={ error ? warning : tip }
+					icon={ error ? cautionFilled : tip }
 					width={ 16 }
 					height={ 16 }
 				/>
@@ -369,7 +376,7 @@ export const SiteForm = ( {
 							</Button>
 							{ errorCount > 0 && (
 								<span className="text-red-500 text-[13px] leading-[16px] ml-2 flex items-center">
-									<Icon icon={ warning } size={ 16 } className="mr-1 fill-red-500" />
+									<Icon icon={ cautionFilled } size={ 16 } className="mr-1 fill-red-500" />
 									{ sprintf(
 										/* translators: %d: number of errors found */
 										_n( '%d error found', '%d errors found', errorCount ),

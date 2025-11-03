@@ -1,4 +1,4 @@
-import { app } from 'electron';
+import { app, dialog } from 'electron';
 import nodePath from 'path';
 import { __ } from '@wordpress/i18n';
 import fs from 'fs-extra';
@@ -53,6 +53,14 @@ export async function handleAddSiteBlueprintWithUrl( urlObject: URL ): Promise< 
 		console.error( 'Failed to download blueprint from deeplink:', error );
 		await fs.remove( blueprintPath ).catch( () => {
 			// Ignore cleanup errors
+		} );
+
+		const mainWindow = await getMainWindow();
+		await dialog.showMessageBox( mainWindow, {
+			type: 'error',
+			message: __( 'Failed to download blueprint' ),
+			detail: __( 'The blueprint could not be downloaded. Please check the URL and try again.' ),
+			buttons: [ __( 'OK' ) ],
 		} );
 	}
 }

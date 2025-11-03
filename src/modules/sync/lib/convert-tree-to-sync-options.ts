@@ -53,10 +53,14 @@ type Categories = {
 	contents: Set< string >;
 };
 
-const categorizeSelectedPathsInPlace = (
-	nodes: TreeNode[] | undefined,
-	categories: Categories
-): void => {
+const convertTreeToSyncCategories = ( nodes: TreeNode[] | undefined ): Categories => {
+	const categories: Categories = {
+		plugins: new Set< string >(),
+		themes: new Set< string >(),
+		uploads: new Set< string >(),
+		contents: new Set< string >(),
+	};
+
 	traverseSelected( nodes, ( node ) => {
 		if ( ! node.path ) return;
 
@@ -77,6 +81,8 @@ const categorizeSelectedPathsInPlace = (
 
 		if ( isContents ) categories.contents.add( p );
 	} );
+
+	return categories;
 };
 
 const getCommonNodes = ( tree: TreeNode[] ) => {
@@ -109,14 +115,7 @@ export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSel
 	}
 
 	if ( wpContent?.children?.length ) {
-		const categories: Categories = {
-			plugins: new Set< string >(),
-			themes: new Set< string >(),
-			uploads: new Set< string >(),
-			contents: new Set< string >(),
-		};
-
-		categorizeSelectedPathsInPlace( wpContent.children, categories );
+		const categories = convertTreeToSyncCategories( wpContent.children );
 
 		for ( const { key, option } of STANDARD_CATEGORIES ) {
 			if ( categories[ key ].size ) {

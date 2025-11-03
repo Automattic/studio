@@ -11,8 +11,8 @@ function sanitizeBlueprintStep( step: Blueprint[ 'steps' ][ number ] ): Record< 
 	// For steps that might contain secrets, only include safe fields
 	switch ( step.step ) {
 		case 'login':
-			// Omit password, keep username
-			return { ...baseStep, username: stepRecord.username };
+			// Omit login details, indicate it exists
+			return { ...baseStep, hasLogin: true };
 
 		case 'runPHP':
 		case 'runPHPWithOptions':

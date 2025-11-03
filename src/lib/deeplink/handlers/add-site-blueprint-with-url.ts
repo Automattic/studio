@@ -1,10 +1,10 @@
 import { app } from 'electron';
 import nodePath from 'path';
+import { __ } from '@wordpress/i18n';
 import fs from 'fs-extra';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { download } from 'src/lib/download';
 import { getMainWindow } from 'src/main-window';
-import { getIpcApi } from 'src/lib/get-ipc-api';
 
 /**
  * Handles the add-site deeplink callback.
@@ -51,10 +51,6 @@ export async function handleAddSiteBlueprintWithUrl( urlObject: URL ): Promise< 
 		await sendIpcEventToRenderer( 'add-site-blueprint', { blueprintPath } );
 	} catch ( error ) {
 		console.error( 'Failed to download blueprint from deeplink:', error );
-		getIpcApi().showErrorMessageBox( {
-			title: 'Failed to download blueprint',
-			message: 'Failed to download blueprint from deeplink. Please try again.',
-		} );
 		await fs.remove( blueprintPath ).catch( () => {
 			// Ignore cleanup errors
 		} );

@@ -74,6 +74,8 @@ function NavigationContent( props: NavigationContentProps ) {
 		blueprintsErrorMessage,
 		blueprintPreferredVersions,
 		setBlueprintPreferredVersions,
+		blueprintError,
+		setBlueprintError,
 		...createSiteProps
 	} = props;
 
@@ -204,9 +206,9 @@ function NavigationContent( props: NavigationContentProps ) {
 					selectedBlueprint={ createSiteProps.selectedBlueprint?.slug || null }
 					onBlueprintChange={ handleBlueprintChange }
 					onFileBlueprintSelect={ handleFileBlueprintSelect }
-					blueprintError={ props.blueprintError }
+					blueprintError={ blueprintError }
 					onErrorDismiss={ () => {
-						props.setBlueprintError( null );
+						setBlueprintError( null );
 					} }
 				/>
 			</Navigator.Screen>

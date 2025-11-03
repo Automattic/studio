@@ -173,36 +173,39 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 					if ( category === 'muPlugins' || category === 'fonts' ) {
 						const isRootFile = ! itemName.includes( '/' );
-						const belongsToCategory =
-							itemName.startsWith( `${ folderName }/` ) ||
-							itemName === folderName ||
-							( category === 'muPlugins' &&
-								( itemName.startsWith( 'languages/' ) || itemName === 'languages' ) ) ||
-							isRootFile;
+						const matchesFolderName =
+							itemName.startsWith( `${ folderName }/` ) || itemName === folderName;
+						const isLanguagesForMuPlugins =
+							category === 'muPlugins' &&
+							( itemName.startsWith( 'languages/' ) || itemName === 'languages' );
 
-						if ( belongsToCategory ) {
-							itemPath = path.join( this.options.site.path, 'wp-content', itemName );
-							itemArchivePath = path.join( 'wp-content', itemName );
-						} else {
+						const belongsToCategory = matchesFolderName || isLanguagesForMuPlugins || isRootFile;
+
+						if ( ! belongsToCategory ) {
 							continue;
 						}
+
+						itemPath = path.join( this.options.site.path, 'wp-content', itemName );
+						itemArchivePath = path.join( 'wp-content', itemName );
 					} else {
 						itemPath = path.join( absolutePath, itemName );
 						itemArchivePath = path.join( archivePath, itemName );
 					}
 
-					if ( fs.existsSync( itemPath ) ) {
-						const stat = fs.statSync( itemPath );
-						if ( stat.isDirectory() ) {
-							this.archiveBuilder.directory( itemPath, itemArchivePath, ( entry ) => {
-								if ( entry.name.includes( '.git' ) || entry.name.includes( 'node_modules' ) ) {
-									return false;
-								}
-								return entry;
-							} );
-						} else {
-							this.archiveBuilder.file( itemPath, { name: itemArchivePath } );
-						}
+					if ( ! fs.existsSync( itemPath ) ) {
+						continue;
+					}
+
+					const stat = fs.statSync( itemPath );
+					if ( stat.isDirectory() ) {
+						this.archiveBuilder.directory( itemPath, itemArchivePath, ( entry ) => {
+							if ( entry.name.includes( '.git' ) || entry.name.includes( 'node_modules' ) ) {
+								return false;
+							}
+							return entry;
+						} );
+					} else {
+						this.archiveBuilder.file( itemPath, { name: itemArchivePath } );
 					}
 				}
 			} else {

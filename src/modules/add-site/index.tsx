@@ -147,7 +147,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		} else {
 			goTo( '/' );
 		}
-	}, [ location.path, goTo, createSiteProps, setBlueprintPreferredVersions, props ] );
+	}, [ location.path, goTo, createSiteProps, setBlueprintPreferredVersions ] );
 
 	const applyBlueprintVersions = useCallback(
 		( blueprint?: Blueprint ) => {

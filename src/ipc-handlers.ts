@@ -1776,7 +1776,15 @@ export async function readBlueprintFile(
 	_event: IpcMainInvokeEvent,
 	filePath: string
 ): Promise< Blueprint[ 'blueprint' ] > {
-	const fileContents = await fsPromises.readFile( filePath, 'utf-8' );
+	const allowedDir = nodePath.join( app.getPath( 'temp' ), 'wp-studio-blueprints' );
+	const resolvedPath = nodePath.resolve( filePath );
+
+	const normalizedAllowedDir = nodePath.resolve( allowedDir );
+	if ( ! resolvedPath.startsWith( normalizedAllowedDir + nodePath.sep ) ) {
+		throw new Error( 'Blueprint file path must be within the allowed directory' );
+	}
+
+	const fileContents = await fsPromises.readFile( resolvedPath, 'utf-8' );
 	return JSON.parse( fileContents );
 }
 

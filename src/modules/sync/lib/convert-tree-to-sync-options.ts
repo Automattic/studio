@@ -14,75 +14,90 @@ type PushOptionsWithSelections = {
 };
 
 const normalizePath = ( path: string ): string =>
-	path.replace( /^wp-content\//, '' ).replace( /^\/+|\/+$/g, '' );
+	path.replace( /^\/?wp-content\//, '' ).replace( /^\/+|\/+$/g, '' );
 
-const collectNodes = < T >( nodes: TreeNode[], extractor: ( node: TreeNode ) => T | null ): T[] => {
-	const collector: T[] = [];
-	nodes.forEach( ( node ) => {
+const traverseSelected = (
+	nodes: TreeNode[] | undefined,
+	visit: ( node: TreeNode ) => void
+): void => {
+	if ( ! nodes?.length ) return;
+	for ( const node of nodes ) {
 		if ( node.checked ) {
-			const value = extractor( node );
-			if ( value ) collector.push( value );
-		} else if ( node.indeterminate && node.children ) {
-			collector.push( ...collectNodes( node.children, extractor ) );
+			visit( node );
+		} else if ( node.indeterminate && node.children?.length ) {
+			traverseSelected( node.children, visit );
 		}
-	} );
-	return collector;
+	}
 };
 
-const collectPathIds = ( nodes: TreeNode[] ): string[] =>
-	collectNodes( nodes, ( node ) => node.pathId || null );
-
-const collectSelectedPaths = ( nodes: TreeNode[] ): string[] =>
-	collectNodes( nodes, ( node ) => node.path || null );
-
-const categorizeSelectedPaths = ( paths: string[] ) => {
-	const categories = {
-		plugins: new Set< string >(),
-		themes: new Set< string >(),
-		uploads: new Set< string >(),
-		contents: new Set< string >(),
-	};
-
-	paths.forEach( ( path ) => {
-		const normalizedPath = normalizePath( path );
-
-		const standardCategories = [ 'plugins', 'themes', 'uploads' ] as const;
-		for ( const category of standardCategories ) {
-			if ( normalizedPath.startsWith( `${ category }/` ) ) {
-				const relativePath = normalizedPath.substring( category.length + 1 );
-				if ( relativePath ) categories[ category ].add( relativePath );
-				return;
-			}
-		}
-
-		const contentsPatterns = [ 'mu-plugins', 'fonts', 'languages' ];
-		const isContentsPath =
-			contentsPatterns.some(
-				( p ) => normalizedPath.startsWith( `${ p }/` ) || normalizedPath === p
-			) || ! normalizedPath.includes( '/' );
-
-		if ( isContentsPath ) {
-			categories.contents.add( normalizedPath );
-		}
+const collectPathIds = ( nodes: TreeNode[] | undefined ): string[] => {
+	const out: string[] = [];
+	traverseSelected( nodes, ( node ) => {
+		if ( node.pathId ) out.push( node.pathId );
 	} );
+	return out;
+};
 
-	return categories;
+type Categories = {
+	plugins: Set< string >;
+	themes: Set< string >;
+	uploads: Set< string >;
+	contents: Set< string >;
+};
+
+const categorizeSelectedPathsInPlace = (
+	nodes: TreeNode[] | undefined,
+	categories: Categories
+): void => {
+	traverseSelected( nodes, ( node ) => {
+		if ( ! node.path ) return;
+
+		const p = normalizePath( node.path );
+
+		if ( p.startsWith( 'plugins/' ) ) {
+			const rel = p.slice( 'plugins/'.length );
+			if ( rel ) categories.plugins.add( rel );
+			return;
+		}
+		if ( p.startsWith( 'themes/' ) ) {
+			const rel = p.slice( 'themes/'.length );
+			if ( rel ) categories.themes.add( rel );
+			return;
+		}
+		if ( p.startsWith( 'uploads/' ) ) {
+			const rel = p.slice( 'uploads/'.length );
+			if ( rel ) categories.uploads.add( rel );
+			return;
+		}
+
+		const contentsRoots = [ 'mu-plugins', 'fonts', 'languages' ];
+		const isContents =
+			contentsRoots.some( ( root ) => p === root || p.startsWith( `${ root }/` ) ) ||
+			! p.includes( '/' );
+
+		if ( isContents ) categories.contents.add( p );
+	} );
 };
 
 const getCommonNodes = ( tree: TreeNode[] ) => {
-	const isDatabaseSelected = tree.find( ( node ) => node.id === SYNC_OPTIONS.sqls );
-	const filesAndFolders = tree.find( ( node ) => node.id === 'filesAndFolders' );
-	const wpContent = filesAndFolders?.children?.find( ( node ) => node.id === 'wp-content' );
+	let isDatabaseSelected: TreeNode | undefined;
+	let filesAndFolders: TreeNode | undefined;
+
+	for ( const node of tree ) {
+		if ( node.id === SYNC_OPTIONS.sqls ) isDatabaseSelected = node;
+		else if ( node.id === 'filesAndFolders' ) filesAndFolders = node;
+	}
+
+	const wpContent = filesAndFolders?.children?.find( ( n ) => n.id === 'wp-content' );
 
 	return { isDatabaseSelected, filesAndFolders, wpContent };
 };
 
 export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSelections => {
 	const optionsToSync: SyncOption[] = [];
-	const specificSelections: PushOptionsWithSelections[ 'specificSelections' ] = {};
+	const specificSelections: NonNullable< PushOptionsWithSelections[ 'specificSelections' ] > = {};
 
-	const isAll = tree.every( ( node ) => node.checked );
-	if ( isAll ) {
+	if ( tree.length > 0 && tree.every( ( node ) => node.checked ) ) {
 		optionsToSync.push( SYNC_OPTIONS.all );
 		return { optionsToSync, specificSelections: undefined };
 	}
@@ -94,28 +109,36 @@ export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSel
 	}
 
 	if ( wpContent?.children?.length ) {
-		const selectedPaths = collectSelectedPaths( wpContent.children );
-		const categories = categorizeSelectedPaths( selectedPaths );
+		const categories: Categories = {
+			plugins: new Set< string >(),
+			themes: new Set< string >(),
+			uploads: new Set< string >(),
+			contents: new Set< string >(),
+		};
 
-		const categoryMap = [
-			{ category: 'plugins' as const, option: SYNC_OPTIONS.plugins },
-			{ category: 'themes' as const, option: SYNC_OPTIONS.themes },
-			{ category: 'uploads' as const, option: SYNC_OPTIONS.uploads },
-			{ category: 'contents' as const, option: SYNC_OPTIONS.contents },
-		];
+		categorizeSelectedPathsInPlace( wpContent.children, categories );
 
-		categoryMap.forEach( ( { category, option } ) => {
-			if ( categories[ category ].size > 0 ) {
-				optionsToSync.push( option );
-				specificSelections[ category ] = Array.from( categories[ category ] );
-			}
-		} );
+		if ( categories.plugins.size ) {
+			optionsToSync.push( SYNC_OPTIONS.plugins );
+			specificSelections.plugins = [ ...categories.plugins ];
+		}
+		if ( categories.themes.size ) {
+			optionsToSync.push( SYNC_OPTIONS.themes );
+			specificSelections.themes = [ ...categories.themes ];
+		}
+		if ( categories.uploads.size ) {
+			optionsToSync.push( SYNC_OPTIONS.uploads );
+			specificSelections.uploads = [ ...categories.uploads ];
+		}
+		if ( categories.contents.size ) {
+			optionsToSync.push( SYNC_OPTIONS.contents );
+			specificSelections.contents = [ ...categories.contents ];
+		}
 	}
 
 	return {
 		optionsToSync,
-		specificSelections:
-			Object.keys( specificSelections ).length > 0 ? specificSelections : undefined,
+		specificSelections: Object.keys( specificSelections ).length ? specificSelections : undefined,
 	};
 };
 

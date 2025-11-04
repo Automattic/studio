@@ -1780,26 +1780,25 @@ export async function listLocalFileTree(
 
 			const isDirectory = entry.isDirectory();
 			const itemPath = nodePath.join( path, entry.name ).replace( /\\/g, '/' );
-			const fullItemPath = isDirectory ? itemPath + '/' : itemPath;
 
 			const directoryEntry: RawDirectoryEntry = {
 				name: entry.name,
 				isDirectory,
-				path: fullItemPath,
+				path: itemPath,
 			};
 
-			const shouldLimit = shouldLimitDepth( fullItemPath );
+			const shouldLimit = shouldLimitDepth( itemPath );
 			if ( isDirectory && currentDepth < maxDepth && ! shouldLimit ) {
 				try {
 					directoryEntry.children = await listLocalFileTree(
 						_event,
 						siteId,
-						fullItemPath,
+						itemPath,
 						maxDepth,
 						currentDepth + 1
 					);
 				} catch ( childErr ) {
-					console.warn( `Failed to load children for ${ fullItemPath }:`, childErr );
+					console.warn( `Failed to load children for ${ itemPath }:`, childErr );
 					directoryEntry.children = [];
 				}
 			}

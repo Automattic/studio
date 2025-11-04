@@ -95,12 +95,12 @@ describe( 'getSyncSupport', () => {
 		expect( getSyncSupport( site, [] ) ).toBe( 'syncable' );
 	} );
 
-	it( 'returns "jetpack-disconnected" for Pressable site without Jetpack', () => {
+	it( 'returns "jetpack-disconnected" for Pressable site with broken Jetpack connection', () => {
 		const site = { ...baseSite, hosting_provider_guess: 'pressable', jetpack: false };
 		expect( getSyncSupport( site, [] ) ).toBe( 'jetpack-disconnected' );
 	} );
 
-	it( 'returns "jetpack-disconnected" for Atomic site without Jetpack', () => {
+	it( 'returns "jetpack-disconnected" for Atomic site with broken Jetpack connection', () => {
 		const site = { ...baseSite, is_wpcom_atomic: true, jetpack: false };
 		expect( getSyncSupport( site, [] ) ).toBe( 'jetpack-disconnected' );
 	} );

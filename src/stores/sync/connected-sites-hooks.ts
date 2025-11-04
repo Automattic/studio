@@ -33,7 +33,6 @@ export const useSyncSitesData = () => {
 export const useConnectedSitesOperations = () => {
 	const dispatch = useAppDispatch();
 	const { localSiteId, connectedSites } = useConnectedSitesData();
-	const { syncSites } = useSyncSitesData();
 
 	const connectSiteToLocal = useCallback(
 		async ( site: SyncSite, overrideLocalSiteId?: string ) => {
@@ -44,14 +43,9 @@ export const useConnectedSitesOperations = () => {
 			}
 
 			try {
-				const stagingSites = site.stagingSiteIds.flatMap(
-					( id ) => syncSites.find( ( s ) => s.id === id ) ?? []
-				);
-
 				await dispatch(
 					connectSite( {
 						site,
-						stagingSites,
 						localSiteId: targetLocalSiteId,
 					} )
 				).unwrap();
@@ -66,7 +60,7 @@ export const useConnectedSitesOperations = () => {
 				throw error;
 			}
 		},
-		[ dispatch, syncSites, localSiteId ]
+		[ dispatch, localSiteId ]
 	);
 
 	const disconnectSiteFromLocal = useCallback(
@@ -82,13 +76,7 @@ export const useConnectedSitesOperations = () => {
 					throw new Error( 'Site not found' );
 				}
 
-				await dispatch(
-					disconnectSite( {
-						siteId,
-						stagingSiteIds: siteToDisconnect.stagingSiteIds,
-						localSiteId,
-					} )
-				).unwrap();
+				await dispatch( disconnectSite( { siteId, localSiteId } ) ).unwrap();
 			} catch ( error ) {
 				console.error( 'Failed to disconnect site:', error );
 				throw error;

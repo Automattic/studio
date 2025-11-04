@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import * as Sentry from '@sentry/electron/renderer';
-import WPCOM from 'wpcom';
+import { WPCOM } from 'wpcom/types';
 import { z } from 'zod';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -159,7 +159,7 @@ const fetchAssistant = createTypedAsyncThunk(
 						context,
 					},
 				},
-				( error, data, headers ) => {
+				( error: Error | null, data: unknown, headers: unknown ) => {
 					if ( error ) {
 						Sentry.captureException( error );
 						return reject( error );

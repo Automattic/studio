@@ -52,6 +52,8 @@ type UseSyncPushProps = {
 	onPushSuccess?: OnPushSuccess;
 };
 
+type CancelPush = ( selectedSiteId: string, remoteSiteId: number ) => void;
+
 export type UseSyncPush = {
 	pushStates: PushStates;
 	getPushState: GetState< SyncPushState >;
@@ -59,7 +61,31 @@ export type UseSyncPush = {
 	isAnySitePushing: boolean;
 	isSiteIdPushing: IsSiteIdPushing;
 	clearPushState: ClearState;
+	cancelPush: CancelPush;
 };
+
+/**
+ * Maps an ImportResponse status to a PushStateProgressInfo object.
+ * Returns null if the operation is not in progress or unknown.
+ */
+export function mapImportResponseToPushState(
+	response: ImportResponse,
+	pushStatesProgressInfo: Record< PushStateProgressInfo[ 'key' ], PushStateProgressInfo >
+): PushStateProgressInfo | null {
+	if ( response.status === 'initial_backup_started' ) {
+		return pushStatesProgressInfo.creatingRemoteBackup;
+	}
+
+	if ( response.status === 'archive_import_started' ) {
+		return pushStatesProgressInfo.applyingChanges;
+	}
+
+	if ( response.status === 'archive_import_finished' ) {
+		return pushStatesProgressInfo.finishing;
+	}
+
+	return null;
+}
 
 export function useSyncPush( {
 	pushStates,
@@ -79,6 +105,7 @@ export function useSyncPush( {
 		isKeyImporting,
 		isKeyFinished,
 		isKeyFailed,
+		isKeyCancelled,
 		getPushStatusWithProgress,
 	} = useSyncStatesProgressInfo();
 
@@ -87,13 +114,16 @@ export function useSyncPush( {
 			updateState( selectedSiteId, remoteSiteId, state );
 			const statusKey = state.status?.key;
 
-			if ( isKeyFailed( statusKey ) || isKeyFinished( statusKey ) ) {
+			if ( isKeyFailed( statusKey ) || isKeyFinished( statusKey ) || isKeyCancelled( statusKey ) ) {
 				getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
-			} else {
-				getIpcApi().addSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+			} else if ( state.status ) {
+				getIpcApi().addSyncOperation(
+					generateStateId( selectedSiteId, remoteSiteId ),
+					state.status
+				);
 			}
 		},
-		[ isKeyFailed, isKeyFinished, updateState ]
+		[ isKeyFailed, isKeyFinished, isKeyCancelled, updateState ]
 	);
 
 	const clearPushState = useCallback< ClearState >(
@@ -107,6 +137,11 @@ export function useSyncPush( {
 	const getPushProgressInfo = useCallback(
 		async ( remoteSiteId: number, syncPushState: SyncPushState ) => {
 			if ( ! client ) {
+				return;
+			}
+			const currentState = getPushState( syncPushState.selectedSite.id, remoteSiteId );
+
+			if ( ! currentState || isKeyCancelled( currentState?.status.key ) ) {
 				return;
 			}
 
@@ -131,16 +166,33 @@ export function useSyncPush( {
 				} );
 			} else if ( response.success && response.status === 'failed' ) {
 				status = pushStatesProgressInfo.failed;
+				console.error( 'Push import failed:', {
+					remoteSiteId: syncPushState.remoteSiteId,
+					error: response.error,
+					error_data: response.error_data,
+				} );
+				// If the impport fails due to a SQL import error, show a more specific message
+				const restoreMessage = response.error_data?.vp_restore_message || '';
+				const isSqlImportFailure = /importing sql dump/i.test( restoreMessage );
+				const isImportTimedOut = response.error === 'Import timed out';
+				let message: string;
+				if ( isSqlImportFailure ) {
+					message = __(
+						'Database import failed on the remote site. Please review your database and try again or contact support and provide details from the logs below.'
+					);
+				} else if ( isImportTimedOut ) {
+					message = __(
+						"A timeout error occurred while pushing the site, likely due to its large size. Please try reducing the site's content or files and try again. If this problem persists, please contact support."
+					);
+				} else {
+					message = __(
+						'An error occurred while pushing the site. If this problem persists, please contact support.'
+					);
+				}
+
 				getIpcApi().showErrorMessageBox( {
 					title: sprintf( __( 'Error pushing to %s' ), syncPushState.selectedSite.name ),
-					message:
-						response.error === 'Import timed out'
-							? __(
-									"A timeout error occurred while pushing the site, likely due to its large size. Please try reducing the site's content or files and try again. If this problem persists, please contact support."
-							  )
-							: __(
-									'An error occurred while pushing the site. If this problem persists, please contact support.'
-							  ),
+					message,
 					showOpenLogs: true,
 				} );
 			} else if ( response.success && response.status === 'archive_import_started' ) {
@@ -157,6 +209,7 @@ export function useSyncPush( {
 		[
 			__,
 			client,
+			getPushState,
 			getPushStatusWithProgress,
 			onPushSuccess,
 			pushStatesProgressInfo.applyingChanges,
@@ -165,6 +218,7 @@ export function useSyncPush( {
 			pushStatesProgressInfo.failed,
 			pushStatesProgressInfo.finished,
 			updatePushState,
+			isKeyCancelled,
 		]
 	);
 
@@ -191,6 +245,9 @@ export function useSyncPush( {
 			}
 			const remoteSiteId = connectedSite.id;
 			const remoteSiteUrl = connectedSite.url;
+			const operationId = generateStateId( selectedSite.id, remoteSiteId );
+
+			clearPushState( selectedSite.id, remoteSiteId );
 			updatePushState( selectedSite.id, remoteSiteId, {
 				remoteSiteId,
 				status: pushStatesProgressInfo.creatingBackup,
@@ -198,15 +255,22 @@ export function useSyncPush( {
 				remoteSiteUrl,
 			} );
 
-			let archiveContent, archivePath, archiveSizeInBytes;
+			let archivePath: string, archiveSizeInBytes: number;
 
 			try {
-				const result = await getIpcApi().exportSiteToPush( selectedSite.id, {
+				const result = await getIpcApi().exportSiteForPush( selectedSite.id, operationId, {
 					optionsToSync: options?.optionsToSync,
 					specificSelections: options?.specificSelections,
 				} );
-				( { archiveContent, archivePath, archiveSizeInBytes } = result );
+				( { archivePath, archiveSizeInBytes } = result );
 			} catch ( error ) {
+				if ( error instanceof Error && error.message === 'Export aborted' ) {
+					updatePushState( selectedSite.id, remoteSiteId, {
+						status: pushStatesProgressInfo.cancelled,
+					} );
+					return;
+				}
+
 				Sentry.captureException( error );
 				updatePushState( selectedSite.id, remoteSiteId, {
 					status: pushStatesProgressInfo.failed,
@@ -232,6 +296,13 @@ export function useSyncPush( {
 						'The site is too large to push. Please reduce the size of the site and try again.'
 					),
 				} );
+				await getIpcApi().removeTemporaryFile( archivePath );
+				return;
+			}
+
+			const stateBeforeUpload = getPushState( selectedSite.id, remoteSiteId );
+
+			if ( ! stateBeforeUpload || isKeyCancelled( stateBeforeUpload?.status.key ) ) {
 				return;
 			}
 
@@ -239,33 +310,24 @@ export function useSyncPush( {
 				status: pushStatesProgressInfo.uploading,
 			} );
 
-			const file = new File( [ archiveContent ], 'loca-env-site-1.tar.gz', {
-				type: 'application/gzip',
-			} );
-
-			const formData = [];
-
-			formData.push( [ 'import', file ] );
-
-			if ( options?.optionsToSync ) {
-				formData.push( [ 'options', options.optionsToSync.join( ',' ) ] );
-			}
-
 			try {
-				const response = await client.req.post< {
-					success: boolean;
-				} >( {
-					path: `/sites/${ remoteSiteId }/studio-app/sync/import`,
-					apiNamespace: 'wpcom/v2',
-					formData,
-				} );
+				const response = await getIpcApi().pushArchive(
+					remoteSiteId,
+					archivePath,
+					options?.optionsToSync
+				);
+				const stateAfterUpload = getPushState( selectedSite.id, remoteSiteId );
+
+				if ( isKeyCancelled( stateAfterUpload?.status.key ) ) {
+					return;
+				}
+
 				if ( response.success ) {
 					updatePushState( selectedSite.id, remoteSiteId, {
 						status: pushStatesProgressInfo.creatingRemoteBackup,
 					} );
 				} else {
-					console.error( response );
-					throw new Error( 'Push request failed' );
+					throw response;
 				}
 			} catch ( error ) {
 				Sentry.captureException( error );
@@ -277,16 +339,29 @@ export function useSyncPush( {
 					message: getErrorFromResponse( error ),
 				} );
 			} finally {
-				await getIpcApi().removeTemporalFile( archivePath );
+				await getIpcApi().removeTemporaryFile( archivePath );
 			}
 		},
-		[ __, client, pushStatesProgressInfo, updatePushState, getErrorFromResponse ]
+		[
+			__,
+			clearPushState,
+			client,
+			getPushState,
+			pushStatesProgressInfo,
+			updatePushState,
+			getErrorFromResponse,
+			isKeyCancelled,
+		]
 	);
 
 	useEffect( () => {
 		const intervals: Record< string, NodeJS.Timeout > = {};
 
 		Object.entries( pushStates ).forEach( ( [ key, state ] ) => {
+			if ( isKeyCancelled( state.status.key ) ) {
+				return;
+			}
+
 			if ( isKeyImporting( state.status.key ) ) {
 				intervals[ key ] = setTimeout( () => {
 					void getPushProgressInfo( state.remoteSiteId, state );
@@ -303,6 +378,7 @@ export function useSyncPush( {
 		pushStatesProgressInfo.creatingBackup.key,
 		pushStatesProgressInfo.applyingChanges.key,
 		isKeyImporting,
+		isKeyCancelled,
 	] );
 
 	const isAnySitePushing = useMemo< boolean >( () => {
@@ -312,6 +388,9 @@ export function useSyncPush( {
 	const isSiteIdPushing = useCallback< IsSiteIdPushing >(
 		( selectedSiteId, remoteSiteId ) => {
 			return Object.values( pushStates ).some( ( state ) => {
+				if ( ! state.selectedSite ) {
+					return false;
+				}
 				if ( state.selectedSite.id !== selectedSiteId ) {
 					return false;
 				}
@@ -324,5 +403,30 @@ export function useSyncPush( {
 		[ pushStates, isKeyPushing ]
 	);
 
-	return { pushStates, getPushState, pushSite, isAnySitePushing, isSiteIdPushing, clearPushState };
+	const cancelPush = useCallback< CancelPush >(
+		async ( selectedSiteId, remoteSiteId ) => {
+			const operationId = generateStateId( selectedSiteId, remoteSiteId );
+			await getIpcApi().cancelSyncOperation( operationId );
+
+			updatePushState( selectedSiteId, remoteSiteId, {
+				status: pushStatesProgressInfo.cancelled,
+			} );
+
+			getIpcApi().showNotification( {
+				title: __( 'Push cancelled' ),
+				body: __( 'The push operation has been cancelled.' ),
+			} );
+		},
+		[ __, pushStatesProgressInfo.cancelled, updatePushState ]
+	);
+
+	return {
+		pushStates,
+		getPushState,
+		pushSite,
+		isAnySitePushing,
+		isSiteIdPushing,
+		clearPushState,
+		cancelPush,
+	};
 }

@@ -1,6 +1,18 @@
 Unreleased
 ==========
 
+1.6.2
+=====
+* Added ability to cancel push and pull operations #1864
+* Added Beta Features menu for experimental features #1860
+* Added support for Windows ARM64 binaries #1916
+* Improved "Add site" Stepper to allow clicks on previously completed steps #1891
+* Updated sync modal design #1910
+* Fixed window height for long error messages #1927
+* Fixed plugin download timeouts #1913
+* Fixed deletion of expired previews #1909
+* Updated multiple dependencies, including Electron, Electron Forge, Playground packages, SQLite plugin, and wpcom libraries to the latest versions
+
 1.6.1
 =====
 * Added a new site context menu with actions for managing a site #1796

@@ -41,12 +41,12 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 		} );
 
 		// mock move
-		( move as jest.Mock ).mockResolvedValue( null );
+		( move as unknown as jest.Mock ).mockResolvedValue( null );
 
 		jest.useFakeTimers();
 		jest.setSystemTime( new Date( '2024-08-01T12:00:00Z' ) );
 
-		( lstat as jest.Mock ).mockResolvedValue( {
+		( lstat as unknown as jest.Mock ).mockResolvedValue( {
 			isDirectory: jest.fn().mockReturnValue( false ),
 		} );
 	} );

@@ -12,6 +12,12 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: jest.fn(),
 } ) );
 
+jest.mock( 'src/lib/app-globals', () => ( {
+	getAppGlobals: jest.fn( () => ( {
+		platform: 'darwin',
+	} ) ),
+} ) );
+
 const mockIpcApi = {
 	getInstalledAppsAndTerminals: jest.fn(),
 	getUserEditor: jest.fn(),

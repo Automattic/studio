@@ -127,7 +127,6 @@ function NavigationContent( props: NavigationContentProps ) {
 		if ( location.path === '/blueprint/create' ) {
 			goTo( '/blueprint' );
 		} else if ( location.path === '/backup/create' ) {
-			createSiteProps.setFileForImport( null );
 			goTo( '/backup' );
 		} else if (
 			location.path === '/backup' ||
@@ -214,7 +213,10 @@ function NavigationContent( props: NavigationContentProps ) {
 				<CreateSite { ...createSiteProps } />
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/backup">
-				<ImportBackup onFileSelect={ handleBackupFileSelect } />
+				<ImportBackup
+					onFileSelect={ handleBackupFileSelect }
+					selectedFile={ createSiteProps.fileForImport }
+				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/backup/create">
 				<CreateSite { ...createSiteProps } />

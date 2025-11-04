@@ -20,6 +20,7 @@ import * as Sentry from '@sentry/electron/main';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { compileBlueprint } from '@wp-playground/blueprints';
 import archiver from 'archiver';
+import { z } from 'zod';
 import {
 	calculateDirectorySize,
 	isWordPressDirectory,
@@ -27,6 +28,7 @@ import {
 	isEmptyDir,
 	pathExists,
 } from 'common/lib/fs-utils';
+import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
@@ -45,6 +47,7 @@ import {
 	trustRootCA,
 } from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
+import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { sanitizeFolderName } from 'src/lib/generate-site-name';
 import { getImageData } from 'src/lib/get-image-data';
@@ -70,6 +73,8 @@ import {
 	getWordPressProvider,
 	getProviderConstants as getProviderConstantsFromProvider,
 } from 'src/lib/wordpress-provider';
+import wpcomFactory from 'src/lib/wpcom-factory';
+import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
@@ -87,11 +92,21 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
+import {
+	PullStateProgressInfo,
+	PushStateProgressInfo,
+} from './hooks/use-sync-states-progress-info';
 import { Blueprint } from './stores/wpcom-api';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 import type { GranularSyncFolders } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
+
+/**
+ * Registry to store AbortControllers for ongoing sync operations (push/pull).
+ * Key format: `${selectedSiteId}-${remoteSiteId}`
+ */
+const SYNC_ABORT_CONTROLLERS = new Map< string, AbortController >();
 
 const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
 if ( ! fs.existsSync( TEMP_DIR ) ) {
@@ -160,9 +175,7 @@ export async function importSite(
 	}
 	try {
 		if ( ! isWordPressDirectory( site.details.path ) ) {
-			// Workaround to have the necessary WordPress files to run the import - STU-744
-			await site.start();
-			await site.stop();
+			await getWordPressProvider().setupWordPressFilesOnly( site.details.path );
 		}
 
 		const onEvent = ( data: ImportExportEventData ) => {
@@ -176,6 +189,9 @@ export async function importSite(
 		if ( result?.meta?.phpVersion ) {
 			site.details.phpVersion = result.meta.phpVersion;
 		}
+
+		// Clear blueprint so it doesn't overwrite imported data on first start
+		site.meta.blueprint = undefined;
 
 		return site.details;
 	} catch ( e ) {
@@ -502,7 +518,11 @@ export async function startServer(
 			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
 		}
 
-		Sentry.captureException( error );
+		Sentry.captureException( error, {
+			tags: {
+				provider: getWordPressProvider().PROVIDER_TYPE,
+			},
+		} );
 		if (
 			error instanceof Error &&
 			error.message.includes( '"unreachable" WASM instruction executed' )
@@ -695,9 +715,10 @@ export async function archiveSite( event: IpcMainInvokeEvent, id: string, format
 	return { archivePath, archiveSizeInBytes: stats.size };
 }
 
-export async function exportSiteToPush(
+export async function exportSiteForPush(
 	event: IpcMainInvokeEvent,
 	id: string,
+	operationId: string,
 	configuration?: {
 		optionsToSync?: SyncOption[];
 		specificSelections?: {
@@ -714,47 +735,114 @@ export async function exportSiteToPush(
 	const extension = 'tar.gz';
 	const archivePath = `${ TEMP_DIR }site_${ id }.${ extension }`;
 
-	const shouldIncludeSyncOption = (
-		optionsToSync: SyncOption[] | undefined,
-		option: SyncOption
-	): boolean => {
-		return optionsToSync?.includes( option ) || optionsToSync?.includes( 'all' ) || ! optionsToSync;
-	};
+	const abortController = new AbortController();
+	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
 
-	const includes = {
-		database: shouldIncludeSyncOption( configuration?.optionsToSync, 'sqls' ),
-		uploads: shouldIncludeSyncOption( configuration?.optionsToSync, 'uploads' ),
-		plugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'plugins' ),
-		themes: shouldIncludeSyncOption( configuration?.optionsToSync, 'themes' ),
-		muPlugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
-		fonts: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
-	};
+	try {
+		if ( abortController.signal.aborted ) {
+			throw new Error( 'Export aborted' );
+		}
 
-	const exportOptions: ExportOptions = {
-		site: site.details,
-		backupFile: archivePath,
-		includes,
-		phpVersion: site.details.phpVersion,
-		splitDatabaseDumpByTable: true,
-		specificSelections: configuration?.specificSelections,
-	};
-	// eslint-disable-next-line @typescript-eslint/no-empty-function
-	const onEvent = () => {};
-	await exportBackup( exportOptions, onEvent );
-	const stats = fs.statSync( archivePath );
-	const archiveContent = fs.readFileSync( archivePath );
-	return { archivePath, archiveContent, archiveSizeInBytes: stats.size };
+		const shouldIncludeSyncOption = (
+			optionsToSync: SyncOption[] | undefined,
+			option: SyncOption
+		): boolean => {
+			return (
+				optionsToSync?.includes( option ) || optionsToSync?.includes( 'all' ) || ! optionsToSync
+			);
+		};
+
+		const includes = {
+			database: shouldIncludeSyncOption( configuration?.optionsToSync, 'sqls' ),
+			uploads: shouldIncludeSyncOption( configuration?.optionsToSync, 'uploads' ),
+			plugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'plugins' ),
+			themes: shouldIncludeSyncOption( configuration?.optionsToSync, 'themes' ),
+			muPlugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
+			fonts: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
+		};
+
+		const exportOptions: ExportOptions = {
+			site: site.details,
+			backupFile: archivePath,
+			includes,
+			phpVersion: site.details.phpVersion,
+			splitDatabaseDumpByTable: true,
+			specificSelections: configuration?.specificSelections,
+		};
+		// eslint-disable-next-line @typescript-eslint/no-empty-function
+		const onEvent = () => {};
+		await exportBackup( exportOptions, onEvent );
+
+		if ( abortController.signal.aborted ) {
+			await fsPromises.unlink( archivePath ).catch( () => {
+				// Ignore cleanup errors
+			} );
+			throw new Error( 'Export aborted' );
+		}
+
+		const stats = fs.statSync( archivePath );
+		return { archivePath, archiveSizeInBytes: stats.size };
+	} finally {
+		SYNC_ABORT_CONTROLLERS.delete( operationId );
+	}
 }
 
-export function removeTemporalFile( event: IpcMainInvokeEvent, path: string ) {
+export async function pushArchive(
+	event: IpcMainInvokeEvent,
+	remoteSiteId: number,
+	archivePath: string,
+	optionsToSync?: string[]
+): Promise< { success: boolean; error?: string } > {
+	const token = await getAuthenticationToken();
+
+	if ( ! token?.accessToken ) {
+		throw new Error( 'No token found' );
+	}
+
+	const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
+	const formData: [ string, unknown, Record< string, string >? ][] = [
+		[
+			'import',
+			fs.createReadStream( archivePath ),
+			{
+				filename: 'loca-env-site-1.tar.gz',
+				contentType: 'application/gzip',
+			},
+		],
+	];
+
+	if ( optionsToSync ) {
+		formData.push( [ 'options', optionsToSync.join( ',' ) ] );
+	}
+
+	try {
+		await wpcom.req.post( {
+			path: `/sites/${ remoteSiteId }/studio-app/sync/import`,
+			apiNamespace: 'wpcom/v2',
+			formData,
+		} );
+
+		return { success: true };
+	} catch ( error ) {
+		const parseResult = z.object( { error: z.string() } ).safeParse( error );
+
+		if ( parseResult.success ) {
+			return { success: false, error: parseResult.data.error };
+		}
+
+		return { success: false, error: 'Unknown error' };
+	}
+}
+
+export function removeTemporaryFile( event: IpcMainInvokeEvent, path: string ) {
 	if ( ! path.includes( TEMP_DIR ) ) {
-		throw new Error( 'The given path is not a temporal file' );
+		throw new Error( 'The given path is not a temporary file' );
 	}
 	try {
 		fs.unlinkSync( path );
 	} catch ( error ) {
 		if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
-			// Silently ignore if the temporal file doesn't exist
+			// Silently ignore if the temporary file doesn't exist
 			Sentry.captureException( error );
 		}
 	}
@@ -898,9 +986,11 @@ export async function openSiteURL(
 		return;
 	}
 
-	const url = new URL( relativeURL, site.server.url );
+	let url = new URL( relativeURL, site.server.url );
 	if ( autoLogin ) {
-		url.searchParams.append( 'playground-auto-login', 'true' );
+		const autoLoginUrl = new URL( '/studio-auto-login', site.server.url );
+		autoLoginUrl.searchParams.append( 'redirect_to', url.toString() );
+		url = autoLoginUrl;
 	}
 
 	void shellOpenExternalWrapper( url.toString() );
@@ -930,17 +1020,7 @@ export function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 		return '-';
 	}
 	const wordPressPath = server.details.path;
-	let versionFileContent = '';
-	try {
-		versionFileContent = fs.readFileSync(
-			nodePath.join( wordPressPath, 'wp-includes', 'version.php' ),
-			'utf8'
-		);
-	} catch ( err ) {
-		return '-';
-	}
-	const matches = versionFileContent.match( /\$wp_version\s*=\s*'([0-9a-zA-Z.-]+)'/ );
-	return matches?.[ 1 ] || '-';
+	return getWordPressVersion( wordPressPath );
 }
 
 export async function generateProposedSitePath(
@@ -1147,8 +1227,9 @@ export async function showErrorMessageBox(
 		showOpenLogs = false,
 	}: { title: string; message: string; error?: unknown; showOpenLogs?: boolean }
 ) {
+	const simplifiedError = simplifyErrorForDisplay( error );
 	// Remove prepended error message added by IPC handler
-	const filteredError = ( error as Error )?.message?.replace(
+	const filteredError = ( simplifiedError as Error )?.message?.replace(
 		/Error invoking remote method '\w+': Error:/g,
 		''
 	);
@@ -1263,14 +1344,30 @@ export async function openFileInIDE(
 export async function downloadSyncBackup(
 	event: Electron.IpcMainInvokeEvent,
 	remoteSiteId: number,
-	downloadUrl: string
+	downloadUrl: string,
+	operationId: string
 ) {
 	const tmpDir = nodePath.join( app.getPath( 'temp' ), 'wp-studio-backups' );
 	await fsPromises.mkdir( tmpDir, { recursive: true } );
 
 	const filePath = getSyncBackupTempPath( remoteSiteId );
-	await download( downloadUrl, filePath );
-	return filePath;
+
+	const abortController = new AbortController();
+	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
+
+	try {
+		await download( downloadUrl, filePath, false, '', abortController.signal );
+		return filePath;
+	} catch ( error ) {
+		if ( error instanceof Error && error.name === 'AbortError' ) {
+			// Download was cancelled, throw the error
+		} else {
+			console.error( `[Download] Download failed for operation: ${ operationId }`, error );
+		}
+		throw error;
+	} finally {
+		SYNC_ABORT_CONTROLLERS.delete( operationId );
+	}
 }
 
 export async function removeSyncBackup( event: IpcMainInvokeEvent, remoteSiteId: number ) {
@@ -1289,14 +1386,28 @@ export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteI
 /**
  * Store the ID of a push/pull operation in a deduped set.
  */
-export function addSyncOperation( event: IpcMainInvokeEvent, id: string ) {
-	ACTIVE_SYNC_OPERATIONS.add( id );
+export function addSyncOperation(
+	event: IpcMainInvokeEvent,
+	id: string,
+	state?: PullStateProgressInfo | PushStateProgressInfo
+) {
+	ACTIVE_SYNC_OPERATIONS.set( id, state );
 }
 
 /**
  * Clear the ID of a push/pull operation.
  */
 export function clearSyncOperation( event: IpcMainInvokeEvent, id: string ) {
+	ACTIVE_SYNC_OPERATIONS.delete( id );
+	SYNC_ABORT_CONTROLLERS.delete( id );
+}
+
+export function cancelSyncOperation( event: IpcMainInvokeEvent, id: string ) {
+	const abortController = SYNC_ABORT_CONTROLLERS.get( id );
+	if ( abortController ) {
+		abortController.abort();
+		SYNC_ABORT_CONTROLLERS.delete( id );
+	}
 	ACTIVE_SYNC_OPERATIONS.delete( id );
 }
 

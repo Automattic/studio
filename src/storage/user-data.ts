@@ -121,13 +121,15 @@ type UserDataSafeKeys =
 	| 'devToolsOpen'
 	| 'windowBounds'
 	| 'authToken'
+	| 'snapshots'
 	| 'onboardingCompleted'
 	| 'locale'
 	| 'promptWindowsSpeedUpResult'
 	| 'sentryUserId'
 	| 'lastSeenVersion'
 	| 'preferredTerminal'
-	| 'preferredEditor';
+	| 'preferredEditor'
+	| 'betaFeatures';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
 

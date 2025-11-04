@@ -8,7 +8,12 @@ import { useOffline } from 'src/hooks/use-offline';
 import { UserSettings } from 'src/modules/user-settings';
 import { store } from 'src/stores';
 
-jest.mock( 'src/lib/app-globals' );
+jest.mock( 'src/lib/app-globals', () => ( {
+	getAppGlobals: jest.fn( () => ( {
+		platform: 'darwin',
+	} ) ),
+	isWindows: jest.fn( () => false ),
+} ) );
 jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/hooks/use-ipc-listener' );

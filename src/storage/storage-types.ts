@@ -32,6 +32,7 @@ export interface UserData {
 	preferredTerminal?: SupportedTerminal;
 	preferredEditor?: SupportedEditor;
 	newSites?: NewSiteDetails[];
+	betaFeatures?: BetaFeatures;
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {
@@ -43,4 +44,8 @@ export interface PersistedUserData extends Omit< UserData, 'sites' > {
 	sites: Omit< StoppedSiteDetails, 'running' >[];
 }
 
-export type PromptWindowsSpeedUpResult = 'yes' | 'no';
+export interface PromptWindowsSpeedUpResult {
+	response: 'yes' | 'no';
+	appVersion: string;
+	dontAskAgain: boolean;
+}

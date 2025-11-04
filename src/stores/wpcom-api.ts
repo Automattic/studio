@@ -1,9 +1,11 @@
-import { createApi, TypedUseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi, TypedUseQuery, TypedUseMutation } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
-import WPCOM from 'wpcom';
+import { WPCOM } from 'wpcom/types';
 import { z } from 'zod';
 import { DAY_MS } from 'common/constants';
-import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
+import wpcomFactory from 'src/lib/wpcom-factory';
+import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
+import { withOfflineCheck, withOfflineCheckMutation } from 'src/stores/utils/with-offline-check';
 import type { BaseQueryFn, FetchBaseQueryError } from '@reduxjs/toolkit/query';
 
 const welcomeMessageSchema = z.object( {
@@ -43,6 +45,20 @@ const snapshotUsageSchema = z
 		siteCreationBlocked: data.site_creation_blocked,
 	} ) );
 
+const snapshotStatusSchema = z
+	.object( {
+		domain_name: z.string(),
+		atomic_site_id: z.number(),
+		status: z.string(),
+		is_deleted: z.string(),
+	} )
+	.transform( ( data ) => ( {
+		domainName: data.domain_name,
+		atomicSiteId: data.atomic_site_id,
+		status: data.status,
+		isDeleted: data.is_deleted === '1',
+	} ) );
+
 const blueprintSchema = z.object( {
 	slug: z.string(),
 	title: z.string(),
@@ -55,7 +71,7 @@ const blueprintSchema = z.object( {
 export type Blueprint = z.infer< typeof blueprintSchema >;
 
 let wpcomClient: WPCOM | undefined;
-const publicWpcomClient = new WPCOM();
+const publicWpcomClient = wpcomFactory( wpcomXhrRequest );
 
 export const setWpcomClient = ( client: WPCOM | undefined ) => {
 	wpcomClient = client;
@@ -149,6 +165,21 @@ export const wpcomApi = createApi( {
 			keepUnusedDataFor: 60 * 60,
 			providesTags: [ 'SnapshotUsage' ],
 		} ),
+		getSnapshotStatus: builder.query< z.infer< typeof snapshotStatusSchema >, number >( {
+			query: ( siteId ) => ( {
+				path: `/jurassic-ninja/status?site_id=${ siteId }`,
+				apiNamespace: 'wpcom/v2',
+			} ),
+			transformResponse: ( response: unknown ) => parseResponse( response, snapshotStatusSchema ),
+			keepUnusedDataFor: 60 * 60,
+		} ),
+		deleteAllSnapshots: builder.mutation< void, void >( {
+			query: () => ( {
+				path: '/jurassic-ninja/delete/all',
+				apiNamespace: 'wpcom/v2',
+				method: 'POST',
+			} ),
+		} ),
 	} ),
 } );
 
@@ -217,6 +248,21 @@ function withWpcomClientCheck< TResult, TArg >(
 	};
 }
 
+function withWpcomClientCheckMutation< TResult, TArg >(
+	useMutationHook: TypedUseMutation< TResult, TArg, typeof wpcomBaseQuery >
+): TypedUseMutation< TResult, TArg, typeof wpcomBaseQuery > {
+	return ( options = {} ) => {
+		const [ trigger, result ] = useMutationHook( options );
+		const wrappedTrigger = ( ( ...args: Parameters< typeof trigger > ) => {
+			if ( ! wpcomClient ) {
+				return Promise.reject( new Error( 'Not authenticated' ) ) as ReturnType< typeof trigger >;
+			}
+			return trigger( ...args );
+		} ) as typeof trigger;
+		return [ wrappedTrigger, result ] as const;
+	};
+}
+
 export const useGetWelcomeMessages = withWpcomClientCheck(
 	withOfflineCheck( wpcomApi.useGetWelcomeMessagesQuery )
 );
@@ -227,6 +273,14 @@ export const useGetAssistantQuota = withWpcomClientCheck(
 
 export const useGetSnapshotUsage = withWpcomClientCheck(
 	withOfflineCheck( wpcomApi.useGetSnapshotUsageQuery )
+);
+
+export const useGetSnapshotStatus = withWpcomClientCheck(
+	withOfflineCheck( wpcomApi.useGetSnapshotStatusQuery )
+);
+
+export const useDeleteAllSnapshots = withWpcomClientCheckMutation(
+	withOfflineCheckMutation( wpcomApi.useDeleteAllSnapshotsMutation )
 );
 
 // Blueprints use the public API and don't require authentication

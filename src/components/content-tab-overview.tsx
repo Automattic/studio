@@ -4,7 +4,7 @@ import {
 	archive,
 	code,
 	desktop,
-	edit,
+	pencil,
 	layout,
 	navigation,
 	page,
@@ -96,7 +96,7 @@ function CustomizeSection( {
 	const classicThemeButtons: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{
 			label: __( 'Customizer' ),
-			icon: edit,
+			icon: pencil,
 			onClick: handleCustomizeClick( '/wp-admin/customize.php' ),
 		},
 	];

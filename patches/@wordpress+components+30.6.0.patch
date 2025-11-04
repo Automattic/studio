@@ -1,0 +1,43 @@
+diff --git a/node_modules/@wordpress/components/build-module/modal/aria-helper.js b/node_modules/@wordpress/components/build-module/modal/aria-helper.js
+index 30809b8..fe453bd 100644
+--- a/node_modules/@wordpress/components/build-module/modal/aria-helper.js
++++ b/node_modules/@wordpress/components/build-module/modal/aria-helper.js
+@@ -9,14 +9,14 @@ function modalize(modalElement) {
+       continue;
+     }
+     if (elementShouldBeHidden(element)) {
+-      element.setAttribute("aria-hidden", "true");
++      element.setAttribute("aria-modal", "true");
+       hiddenElements.push(element);
+     }
+   }
+ }
+ function elementShouldBeHidden(element) {
+   const role = element.getAttribute("role");
+-  return !(element.tagName === "SCRIPT" || element.hasAttribute("hidden") || element.hasAttribute("aria-hidden") || element.hasAttribute("aria-live") || role && LIVE_REGION_ARIA_ROLES.has(role));
++  return !(element.tagName === "SCRIPT" || element.hasAttribute("hidden") || element.hasAttribute("aria-hidden") || element.hasAttribute("aria-modal") || element.hasAttribute("aria-live") || role && LIVE_REGION_ARIA_ROLES.has(role));
+ }
+ function unmodalize() {
+   const hiddenElements = hiddenElementsByDepth.pop();
+@@ -24,7 +24,7 @@ function unmodalize() {
+     return;
+   }
+   for (const element of hiddenElements) {
+-    element.removeAttribute("aria-hidden");
++    element.removeAttribute("aria-modal");
+   }
+ }
+ export {
+diff --git a/node_modules/@wordpress/components/build-module/modal/index.js b/node_modules/@wordpress/components/build-module/modal/index.js
+index 24af829..334bb6f 100644
+--- a/node_modules/@wordpress/components/build-module/modal/index.js
++++ b/node_modules/@wordpress/components/build-module/modal/index.js
+@@ -69,7 +69,7 @@ function UnforwardedModal(props, forwardedRef) {
+       setHasScrollableContent(false);
+     }
+   }, [contentRef]);
+-  useEffect(() => {
++	useLayoutEffect(() => {
+     ariaHelper.modalize(ref.current);
+     return () => ariaHelper.unmodalize();
+   }, []);

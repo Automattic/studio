@@ -40,7 +40,7 @@ async function createLoaderMuPlugin(): Promise< string > {
 		if ( ! defined( 'DB_HOST' ) ) define( 'DB_HOST', 'localhost' );
 		if ( ! defined( 'DB_CHARSET' ) ) define( 'DB_CHARSET', 'utf8' );
 		if ( ! defined( 'DB_COLLATE' ) ) define( 'DB_COLLATE', '' );
-		
+
 		// Set environment type to local if not already defined
 		if ( ! defined( 'WP_ENVIRONMENT_TYPE' ) ) define( 'WP_ENVIRONMENT_TYPE', 'local' );
 
@@ -259,14 +259,23 @@ function getStandardMuPlugins( options: Partial< WordPressServerOptions > ): MuP
 	muPlugins.push( {
 		filename: '0-http-request-timeout.php',
 		content: `<?php
-		// Increase default timeouts to 30 seconds to accommodate slower network conditions and larger requests
+		// Use low-speed timeout instead of hard timeout to handle both large downloads and stalled connections
+		// - Allows large plugin downloads (e.g., Jetpack 33MB) to complete with reasonable internet speeds
+		// - Fails fast if connection stalls (speed drops below 1KB/s for 30 seconds)
+		// - Provides quick feedback for genuinely broken/unresponsive servers
+		// Match WordPress core's timeout for plugin downloads (300s)
 		add_filter( 'http_request_timeout', function() {
-			return 30;
+			return 300; // 5 minutes - matches WordPress core, low-speed timeout catches stalls
 		} );
 
 		add_action('http_api_curl', function($curl, $url, $options) {
+			// Abort if connection can't be established within 30 seconds
 			curl_setopt( $curl, CURLOPT_CONNECTTIMEOUT, 30 );
-			curl_setopt($curl, CURLOPT_TIMEOUT, 30);
+
+			// Abort if speed drops below 1KB/s for 30 consecutive seconds
+			// This allows slow but steady downloads while catching truly stalled connections
+			curl_setopt( $curl, CURLOPT_LOW_SPEED_LIMIT, 1024 ); // 1KB/s minimum
+			curl_setopt( $curl, CURLOPT_LOW_SPEED_TIME, 30 );    // Must stay above limit for 30s
 			return $curl;
 		}, 1, 3);
 		`,
@@ -373,6 +382,46 @@ function getStandardMuPlugins( options: Partial< WordPressServerOptions > ): MuP
 			header( 'Content-Type: application/json' );
 			echo json_encode( $result );
 			exit;
+		}, 1 );
+		`,
+	} );
+
+	// Auto-login functionality via dedicated endpoint
+	muPlugins.push( {
+		filename: '0-auto-login.php',
+		content: `<?php
+		/**
+		 * Auto-Login Endpoint
+		 *
+		 * Provides /studio-auto-login endpoint for automatic authentication
+		 * Usage: /studio-auto-login?redirect_to=/wp-admin/
+		 */
+
+		// Intercept requests to /studio-auto-login
+		add_action( 'init', function() {
+			$request_uri = $_SERVER['REQUEST_URI'] ?? '';
+			if ( strpos( $request_uri, '/studio-auto-login' ) === false ) {
+				return;
+			}
+
+			if ( is_user_logged_in() ) {
+				$redirect_url = isset( $_GET['redirect_to'] ) ? $_GET['redirect_to'] : home_url();
+				wp_safe_redirect( $redirect_url );
+				exit;
+			}
+
+			$user = get_user_by( 'login', 'admin' );
+			if ( ! $user ) {
+				wp_die( 'Auto-login failed: admin user not found' );
+			}
+
+			wp_set_current_user( $user->ID, $user->user_login );
+			wp_set_auth_cookie( $user->ID, true, false );
+			do_action( 'wp_login', $user->user_login, $user );
+			$redirect_url = isset( $_GET['redirect_to'] ) ? $_GET['redirect_to'] : home_url();
+			wp_safe_redirect( $redirect_url );
+			exit;
+
 		}, 1 );
 		`,
 	} );

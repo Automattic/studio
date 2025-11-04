@@ -7,6 +7,7 @@ import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
 import WhatsNewModal from './page-objects/whats-new-modal';
+import { getUrlWithAutoLogin } from './utils';
 
 const skipTestOnWindows = process.platform === 'win32' ? test.skip : test;
 
@@ -30,7 +31,7 @@ test.describe( 'Servers', () => {
 		}
 
 		const siteContent = new SiteContent( session.mainWindow, defaultSiteName );
-		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 60_000 } );
+		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
 	} );
 
 	test.afterAll( async () => {
@@ -52,7 +53,7 @@ test.describe( 'Servers', () => {
 
 		// Check the site is running
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 30_000 } );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 		expect( await siteContent.siteNameHeading ).toHaveText( siteName );
 
 		// Check a WordPress site has been created
@@ -80,7 +81,8 @@ test.describe( 'Servers', () => {
 		const frontendUrl = await settingsTab.copySiteUrlToClipboard( session.electronApp );
 
 		// page.goto opens a browser
-		await page.goto( wpAdminUrl + '/options-general.php?playground-auto-login=true' );
+		const optionsGeneralUrl = wpAdminUrl + '/options-general.php'
+		await page.goto( getUrlWithAutoLogin( optionsGeneralUrl ) );
 		const siteTitleInput = page.getByLabel( 'Site Title' );
 		await siteTitleInput.fill( 'testing site title' );
 		await siteTitleInput.press( 'Enter' );

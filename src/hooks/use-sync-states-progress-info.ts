@@ -15,7 +15,8 @@ export type PushStateProgressInfo = {
 		| 'applyingChanges'
 		| 'finishing'
 		| 'finished'
-		| 'failed';
+		| 'failed'
+		| 'cancelled';
 	progress: number;
 	message: string;
 };
@@ -29,6 +30,12 @@ export type SyncBackupResponse = {
 	percent: number;
 };
 
+export type RestoreErrorData = {
+	vp_restore_status?: string;
+	vp_restore_message?: string;
+	vp_rewind_id?: string | null;
+};
+
 export type ImportResponse = {
 	status:
 		| 'finished'
@@ -40,6 +47,7 @@ export type ImportResponse = {
 	backup_progress: number;
 	import_progress: number;
 	error?: string;
+	error_data?: RestoreErrorData | null;
 };
 
 const IN_PROGRESS_INITIAL_VALUE = 30;
@@ -122,6 +130,11 @@ export function useSyncStatesProgressInfo() {
 				progress: 100,
 				message: __( 'Error pushing changes' ),
 			},
+			cancelled: {
+				key: 'cancelled',
+				progress: 0,
+				message: __( 'Cancelled' ),
+			},
 		} as const satisfies PushStateProgressInfoValues;
 	}, [ __ ] );
 
@@ -172,6 +185,13 @@ export function useSyncStatesProgressInfo() {
 	const isKeyFailed = useCallback(
 		( key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined ) => {
 			return key === 'failed';
+		},
+		[]
+	);
+
+	const isKeyCancelled = useCallback(
+		( key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined ) => {
+			return key === 'cancelled';
 		},
 		[]
 	);
@@ -272,6 +292,7 @@ export function useSyncStatesProgressInfo() {
 		isKeyImporting,
 		isKeyFinished,
 		isKeyFailed,
+		isKeyCancelled,
 		getBackupStatusWithProgress,
 		getPullStatusWithProgress,
 		getPushStatusWithProgress,

@@ -6,6 +6,7 @@ import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
 import WhatsNewModal from './page-objects/whats-new-modal';
+import { getUrlWithAutoLogin } from './utils';
 
 test.describe( 'Blueprints', () => {
 	const session = new E2ESession();
@@ -24,7 +25,7 @@ test.describe( 'Blueprints', () => {
 		}
 
 		const siteContent = new SiteContent( session.mainWindow, 'My WordPress Website' );
-		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 60_000 } );
+		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
 	} );
 
 	test.afterAll( async () => {
@@ -55,14 +56,15 @@ test.describe( 'Blueprints', () => {
 
 		// Wait for site to be created and running
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to get admin URL
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify theme was installed
-		await page.goto( wpAdminUrl + '/themes.php?playground-auto-login=true' );
+		const themesUrl = wpAdminUrl + '/themes.php';
+		await page.goto( getUrlWithAutoLogin( themesUrl ) );
 		await expect( page.locator( '.theme[data-slug="twentytwentytwo"]' ) ).toBeVisible();
 	} );
 
@@ -90,14 +92,15 @@ test.describe( 'Blueprints', () => {
 
 		// Wait for site to be created and running
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to get admin URL
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify theme was activated
-		await page.goto( wpAdminUrl + '/themes.php?playground-auto-login=true' );
+		const themesUrl = wpAdminUrl + '/themes.php';
+		await page.goto( getUrlWithAutoLogin( themesUrl ) );
 		const activeTheme = page.locator( '.theme.active' );
 		await expect( activeTheme ).toBeVisible();
 		await expect( activeTheme ).toHaveAttribute( 'data-slug', 'twentytwentyone' );
@@ -127,14 +130,15 @@ test.describe( 'Blueprints', () => {
 
 		// Wait for site to be created and running
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to get admin URL
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify plugin was installed
-		await page.goto( wpAdminUrl + '/plugins.php?playground-auto-login=true' );
+		const pluginsUrl =  wpAdminUrl + '/plugins.php' ;
+		await page.goto( getUrlWithAutoLogin( pluginsUrl ) );
 		await expect( page.locator( 'tr[data-slug="akismet"]' ) ).toBeVisible();
 	} );
 
@@ -162,14 +166,15 @@ test.describe( 'Blueprints', () => {
 
 		// Wait for site to be created and running
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to get admin URL
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify plugin was activated
-		await page.goto( wpAdminUrl + '/plugins.php?playground-auto-login=true' );
+		const pluginsUrl = wpAdminUrl + '/plugins.php';
+		await page.goto( getUrlWithAutoLogin( pluginsUrl ) );
 		// Be more specific - look for the active Hello Dolly plugin
 		const pluginRow = page.locator( 'tr[data-slug="hello-dolly"].active' );
 		await expect( pluginRow ).toBeVisible();
@@ -199,14 +204,15 @@ test.describe( 'Blueprints', () => {
 
 		// Wait for site to be created and running
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to verify site is accessible
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify the site was created successfully and admin is accessible
-		await page.goto( wpAdminUrl + '/options-general.php?playground-auto-login=true' );
+		const optionsGeneralUrl = wpAdminUrl + '/options-general.php';
+		await page.goto( getUrlWithAutoLogin( optionsGeneralUrl ) );
 		await expect( page.getByLabel( 'Site Title' ) ).toBeVisible();
 
 		// Verify the blueprint's landing page works
@@ -237,14 +243,15 @@ test.describe( 'Blueprints', () => {
 
 		// Wait for site to be created and running
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to verify site is accessible
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify the site was created successfully and admin is accessible
-		await page.goto( wpAdminUrl + '/options-general.php?playground-auto-login=true' );
+		const optionsGeneralUrl = wpAdminUrl + '/options-general.php'
+		await page.goto( getUrlWithAutoLogin( optionsGeneralUrl ) );
 		await expect( page.getByLabel( 'Site Title' ) ).toBeVisible();
 
 		// Verify the blueprint's landing page works

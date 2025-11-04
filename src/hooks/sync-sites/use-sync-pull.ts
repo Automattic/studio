@@ -414,7 +414,7 @@ export function useSyncPull( {
 		async ( selectedSiteId, remoteSiteId ) => {
 			const operationId = generateStateId( selectedSiteId, remoteSiteId );
 
-			await getIpcApi().cancelSyncOperation( operationId );
+			getIpcApi().cancelSyncOperation( operationId );
 
 			updatePullState( selectedSiteId, remoteSiteId, {
 				status: pullStatesProgressInfo.cancelled,

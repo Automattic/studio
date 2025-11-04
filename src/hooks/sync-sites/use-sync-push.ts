@@ -406,7 +406,7 @@ export function useSyncPush( {
 	const cancelPush = useCallback< CancelPush >(
 		async ( selectedSiteId, remoteSiteId ) => {
 			const operationId = generateStateId( selectedSiteId, remoteSiteId );
-			await getIpcApi().cancelSyncOperation( operationId );
+			getIpcApi().cancelSyncOperation( operationId );
 
 			updatePushState( selectedSiteId, remoteSiteId, {
 				status: pushStatesProgressInfo.cancelled,

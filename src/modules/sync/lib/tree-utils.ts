@@ -33,7 +33,7 @@ export const shouldLimitDepth = ( relativePath: string ): boolean => {
 export const convertRawToTreeNodes = ( rawNodes: RawDirectoryEntry[] ): TreeNode[] => {
 	const pluginRegex = /^plugins\/[^/]+$/;
 	const themeRegex = /^themes\/[^/]+$/;
-	const pathCleanRegex = /[^a-zA-Z0-9]/g;
+	const pathCleanRegex = /[^a-zA-Z0-9/]/g;
 	return rawNodes
 		.map( ( rawNode ) => {
 			let nodeType: 'file' | 'folder' | 'plugin' | 'theme' = rawNode.isDirectory

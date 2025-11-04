@@ -142,7 +142,6 @@ function FormPathInputComponent( {
 					tabIndex={ -1 }
 					className="[&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none w-full"
 					value={ value }
-					// eslint-disable-next-line @typescript-eslint/no-empty-function
 					onChange={ () => {} }
 				/>
 				<div aria-hidden="true" className="local-path-icon flex items-center py-[9px] px-2.5">
@@ -211,7 +210,6 @@ function FormImportComponent( {
 						placeholder={ placeholder }
 						className="flex-grow [&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none [&_.components-text-control\_\_input]:text-sm w-full [&_.components-text-control\_\_input]:truncate"
 						value={ fileName }
-						// eslint-disable-next-line @typescript-eslint/no-empty-function
 						onChange={ () => {} }
 					/>
 					{ ! fileName && (

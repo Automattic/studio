@@ -769,7 +769,7 @@ export async function exportSiteForPush(
 			splitDatabaseDumpByTable: true,
 			specificSelections: configuration?.specificSelections,
 		};
-		// eslint-disable-next-line @typescript-eslint/no-empty-function
+
 		const onEvent = () => {};
 		await exportBackup( exportOptions, onEvent );
 

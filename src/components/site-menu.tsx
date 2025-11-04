@@ -199,7 +199,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		const unsubscribe = window.ipcListener.subscribe(
 			'site-context-menu-action',
 			async ( _, actionData: { action: string; siteId: string } ) => {
-				const site = data.find( ( s ) => s.id === actionData.siteId );
+				const site = data.find( ( site ) => site.id === actionData.siteId );
 				if ( ! site ) {
 					return;
 				}

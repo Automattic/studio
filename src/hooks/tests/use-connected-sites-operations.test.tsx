@@ -27,6 +27,7 @@ const mockConnectedWpcomSites: SyncSite[] = [
 		syncSupport: 'syncable',
 		lastPullTimestamp: null,
 		lastPushTimestamp: null,
+		hasJetpack: true,
 	},
 	{
 		id: 7,
@@ -38,6 +39,7 @@ const mockConnectedWpcomSites: SyncSite[] = [
 		syncSupport: 'syncable',
 		lastPullTimestamp: null,
 		lastPushTimestamp: null,
+		hasJetpack: true,
 	},
 ];
 
@@ -52,6 +54,7 @@ const mockSyncSites: SyncSite[] = [
 		syncSupport: 'syncable',
 		lastPullTimestamp: null,
 		lastPushTimestamp: null,
+		hasJetpack: true,
 	},
 	{
 		id: 9,
@@ -63,6 +66,7 @@ const mockSyncSites: SyncSite[] = [
 		syncSupport: 'syncable',
 		lastPullTimestamp: null,
 		lastPushTimestamp: null,
+		hasJetpack: true,
 	},
 ];
 

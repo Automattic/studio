@@ -5,7 +5,8 @@ export type SyncSupport =
 	| 'already-connected'
 	| 'needs-upgrade'
 	| 'deleted'
-	| 'missing-permissions';
+	| 'missing-permissions'
+	| 'jetpack-disconnected';
 
 export type SyncSite = {
 	id: number;
@@ -18,4 +19,5 @@ export type SyncSite = {
 	syncSupport: SyncSupport;
 	lastPullTimestamp: string | null;
 	lastPushTimestamp: string | null;
+	hasJetpack: boolean;
 };

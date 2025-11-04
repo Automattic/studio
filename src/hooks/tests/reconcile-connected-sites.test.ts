@@ -14,6 +14,7 @@ describe( 'reconcileConnectedSites', () => {
 				syncSupport: 'already-connected',
 				lastPullTimestamp: null,
 				lastPushTimestamp: null,
+				hasJetpack: true,
 			},
 		];
 		const freshWpComSites: SyncSite[] = [
@@ -27,6 +28,7 @@ describe( 'reconcileConnectedSites', () => {
 				syncSupport: 'unsupported',
 				lastPullTimestamp: null,
 				lastPushTimestamp: null,
+				hasJetpack: true,
 			},
 		];
 		const result = reconcileConnectedSites( connectedSites, freshWpComSites );

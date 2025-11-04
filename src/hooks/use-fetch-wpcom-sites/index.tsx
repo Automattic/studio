@@ -92,6 +92,9 @@ export function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: numbe
 	if ( needsTransfer( site ) ) {
 		return 'needs-transfer';
 	}
+	if ( ! site.jetpack ) {
+		return 'jetpack-disconnected';
+	}
 	if ( connectedSiteIds.some( ( id ) => id === site.ID ) ) {
 		return 'already-connected';
 	}
@@ -114,6 +117,7 @@ function transformSingleSiteResponse(
 		syncSupport,
 		lastPullTimestamp: null,
 		lastPushTimestamp: null,
+		hasJetpack: !! site.jetpack,
 	};
 }
 

@@ -155,10 +155,11 @@ const getSortedSites = ( sites: SyncSite[] ) => {
 		syncable: 1,
 		'already-connected': 2,
 		deleted: 3,
-		'missing-permissions': 4,
-		'needs-transfer': 5,
-		'needs-upgrade': 6,
-		unsupported: 7,
+		'jetpack-disconnected': 4,
+		'missing-permissions': 5,
+		'needs-transfer': 6,
+		'needs-upgrade': 7,
+		unsupported: 8,
 	};
 
 	return [ ...sites ].sort( ( a, b ) => order[ a.syncSupport ] - order[ b.syncSupport ] );
@@ -199,15 +200,18 @@ function SiteItem( {
 	onClick: () => void;
 } ) {
 	const { __ } = useI18n();
+	const locale = useI18nLocale();
 	const isAlreadyConnected = site.syncSupport === 'already-connected';
 	const isSyncable = site.syncSupport === 'syncable';
 	const isNeedsTransfer = site.syncSupport === 'needs-transfer';
 	const isMissingPermissions = site.syncSupport === 'missing-permissions';
 	const needsUpgrade = site.syncSupport === 'needs-upgrade';
 	const isDeleted = site.syncSupport === 'deleted';
+	const isJetpackDisconnected = site.syncSupport === 'jetpack-disconnected';
 	const isUnsupported = site.syncSupport === 'unsupported';
 	const isPressable = site.isPressable;
-	const isDisabled = isDeleted || isUnsupported || needsUpgrade || isMissingPermissions;
+	const isDisabled =
+		isDeleted || isJetpackDisconnected || isUnsupported || needsUpgrade || isMissingPermissions;
 
 	return (
 		<div
@@ -321,6 +325,17 @@ function SiteItem( {
 			{ isDeleted && (
 				<div className="a8c-body-small text-a8c-gray-30 shrink-0 text-right">
 					{ __( 'Deleted' ) }
+				</div>
+			) }
+			{ isJetpackDisconnected && (
+				<div className="a8c-body-small text-a8c-gray-30 shrink-0 text-right">
+					<Button
+						variant="link"
+						onClick={ () => getIpcApi().openURL( getLocalizedLink( locale, 'docsSync' ) ) }
+					>
+						{ __( 'Check connection' ) }
+						<ArrowIcon />
+					</Button>
 				</div>
 			) }
 			{ isUnsupported && (

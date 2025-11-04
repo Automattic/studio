@@ -5,6 +5,7 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
+import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -25,7 +26,6 @@ import {
 	connectedSitesActions,
 	loadAllConnectedSites,
 } from 'src/stores/sync';
-import { useSyncSites } from 'src/hooks/sync-sites';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {
@@ -156,7 +156,9 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			// Get the updated connected sites from the store
 			const updatedConnectedSites = await getIpcApi().getConnectedWpcomSites( selectedSite.id );
 			// Find the site we just connected (it will have more metadata like localSiteId)
-			const connectedSite = updatedConnectedSites.find( ( site ) => site.id === newConnectedSite.id );
+			const connectedSite = updatedConnectedSites.find(
+				( site ) => site.id === newConnectedSite.id
+			);
 			// Return the connected site with full metadata, or fallback to the original site
 			return connectedSite || newConnectedSite;
 		} catch ( error ) {

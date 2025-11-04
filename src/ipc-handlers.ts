@@ -722,9 +722,7 @@ export async function exportSiteForPush(
 	operationId: string,
 	configuration?: {
 		optionsToSync?: SyncOption[];
-		specificSelections?: {
-			paths?: string[];
-		};
+		specificSelectionPaths?: string[];
 	}
 ) {
 	const site = SiteServer.get( id );
@@ -766,7 +764,7 @@ export async function exportSiteForPush(
 			includes,
 			phpVersion: site.details.phpVersion,
 			splitDatabaseDumpByTable: true,
-			specificSelections: configuration?.specificSelections,
+			specificSelectionPaths: configuration?.specificSelectionPaths,
 		};
 		// eslint-disable-next-line @typescript-eslint/no-empty-function
 		const onEvent = () => {};

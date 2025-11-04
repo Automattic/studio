@@ -5,9 +5,7 @@ import type { SyncOption } from 'src/types';
 
 type PushOptionsWithSelections = {
 	optionsToSync: SyncOption[];
-	specificSelections?: {
-		paths?: string[];
-	};
+	specificSelectionPaths?: string[];
 };
 
 const iterateOverCheckedNodes = (
@@ -75,11 +73,11 @@ const getCommonNodes = ( tree: TreeNode[] ) => {
 
 export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSelections => {
 	const optionsToSync: SyncOption[] = [];
-	const specificSelections: NonNullable< PushOptionsWithSelections[ 'specificSelections' ] > = {};
+	let specificSelectionPaths: string[] | undefined;
 
 	if ( tree.length > 0 && tree.every( ( node ) => node.checked ) ) {
 		optionsToSync.push( SYNC_OPTIONS.all );
-		return { optionsToSync, specificSelections: undefined };
+		return { optionsToSync };
 	}
 
 	const { isDatabaseSelected, wpContent } = getCommonNodes( tree );
@@ -93,13 +91,13 @@ export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSel
 
 		if ( paths.length ) {
 			optionsToSync.push( ...options );
-			specificSelections.paths = paths;
+			specificSelectionPaths = paths;
 		}
 	}
 
 	return {
 		optionsToSync,
-		specificSelections: Object.keys( specificSelections ).length ? specificSelections : undefined,
+		specificSelectionPaths,
 	};
 };
 

@@ -41,7 +41,7 @@ describe( 'convertTreeToPushOptions', () => {
 		tree[ 1 ].checked = true; // sqls
 
 		const optionsToSync = convertTreeToPushOptions( tree );
-		expect( optionsToSync ).toEqual( { optionsToSync: [ 'all' ], specificSelections: undefined } );
+		expect( optionsToSync ).toEqual( { optionsToSync: [ 'all' ] } );
 	} );
 
 	it( 'returns ["sqls"] when only database is selected', () => {
@@ -49,7 +49,7 @@ describe( 'convertTreeToPushOptions', () => {
 		tree[ 1 ].checked = true; // sqls only
 
 		const optionsToSync = convertTreeToPushOptions( tree );
-		expect( optionsToSync ).toEqual( { optionsToSync: [ 'sqls' ], specificSelections: undefined } );
+		expect( optionsToSync ).toEqual( { optionsToSync: [ 'sqls' ] } );
 	} );
 
 	it( 'returns ["plugins"] when only plugins are selected', () => {
@@ -70,7 +70,7 @@ describe( 'convertTreeToPushOptions', () => {
 		const optionsToSync = convertTreeToPushOptions( tree );
 		expect( optionsToSync ).toEqual( {
 			optionsToSync: [ 'plugins' ],
-			specificSelections: { paths: [ 'plugins/my-plugin' ] },
+			specificSelectionPaths: [ 'plugins/my-plugin' ],
 		} );
 	} );
 
@@ -92,7 +92,7 @@ describe( 'convertTreeToPushOptions', () => {
 		const optionsToSync = convertTreeToPushOptions( tree );
 		expect( optionsToSync ).toEqual( {
 			optionsToSync: [ 'uploads' ],
-			specificSelections: { paths: [ 'uploads/2024' ] },
+			specificSelectionPaths: [ 'uploads/2024' ],
 		} );
 	} );
 
@@ -115,7 +115,7 @@ describe( 'convertTreeToPushOptions', () => {
 		const optionsToSync = convertTreeToPushOptions( tree );
 		expect( optionsToSync ).toEqual( {
 			optionsToSync: [ 'sqls', 'plugins' ],
-			specificSelections: { paths: [ 'plugins/my-plugin' ] },
+			specificSelectionPaths: [ 'plugins/my-plugin' ],
 		} );
 	} );
 
@@ -147,9 +147,7 @@ describe( 'convertTreeToPushOptions', () => {
 			const optionsToSync = convertTreeToPushOptions( tree );
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'plugins' ],
-				specificSelections: {
-					paths: [ 'plugins/plugin1', 'plugins/plugin3' ],
-				},
+				specificSelectionPaths: [ 'plugins/plugin1', 'plugins/plugin3' ],
 			} );
 		} );
 
@@ -180,9 +178,7 @@ describe( 'convertTreeToPushOptions', () => {
 			const optionsToSync = convertTreeToPushOptions( tree );
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'themes' ],
-				specificSelections: {
-					paths: [ 'themes/theme1', 'themes/theme3' ],
-				},
+				specificSelectionPaths: [ 'themes/theme1', 'themes/theme3' ],
 			} );
 		} );
 
@@ -213,9 +209,7 @@ describe( 'convertTreeToPushOptions', () => {
 			const optionsToSync = convertTreeToPushOptions( tree );
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'uploads' ],
-				specificSelections: {
-					paths: [ 'uploads/upload1', 'uploads/upload2' ],
-				},
+				specificSelectionPaths: [ 'uploads/upload1', 'uploads/upload2' ],
 			} );
 		} );
 
@@ -255,9 +249,7 @@ describe( 'convertTreeToPushOptions', () => {
 			const optionsToSync = convertTreeToPushOptions( tree );
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'plugins', 'themes' ],
-				specificSelections: {
-					paths: [ 'plugins/plugin1', 'themes/theme1', 'themes/theme3' ],
-				},
+				specificSelectionPaths: [ 'plugins/plugin1', 'themes/theme1', 'themes/theme3' ],
 			} );
 		} );
 
@@ -288,7 +280,7 @@ describe( 'convertTreeToPushOptions', () => {
 			const optionsToSync = convertTreeToPushOptions( tree );
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'plugins' ],
-				specificSelections: { paths: [ 'plugins/plugin1', 'plugins/plugin2' ] },
+				specificSelectionPaths: [ 'plugins/plugin1', 'plugins/plugin2' ],
 			} );
 		} );
 
@@ -311,9 +303,7 @@ describe( 'convertTreeToPushOptions', () => {
 			const optionsToSync = convertTreeToPushOptions( tree );
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'sqls', 'plugins' ],
-				specificSelections: {
-					paths: [ 'plugins/plugin1' ],
-				},
+				specificSelectionPaths: [ 'plugins/plugin1' ],
 			} );
 		} );
 	} );
@@ -337,9 +327,7 @@ describe( 'convertTreeToPushOptions', () => {
 		const optionsToSync = convertTreeToPushOptions( tree );
 		expect( optionsToSync ).toEqual( {
 			optionsToSync: [ 'sqls', 'plugins' ],
-			specificSelections: {
-				paths: [ 'plugins/my-plugin' ],
-			},
+			specificSelectionPaths: [ 'plugins/my-plugin' ],
 		} );
 	} );
 } );

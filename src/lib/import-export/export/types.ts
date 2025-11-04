@@ -7,9 +7,7 @@ export interface ExportOptions {
 	includes: { [ index in ExportOptionsIncludes ]: boolean };
 	phpVersion: string;
 	splitDatabaseDumpByTable?: boolean;
-	specificSelections?: {
-		paths?: string[];
-	};
+	specificSelectionPaths?: string[];
 }
 
 export type ExportOptionsIncludes =

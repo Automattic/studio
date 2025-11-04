@@ -8,41 +8,38 @@ type PushOptionsWithSelections = {
 	specificSelectionPaths?: string[];
 };
 
-const iterateOverCheckedNodes = (
-	nodes: TreeNode[] | undefined,
-	visit: ( node: TreeNode ) => void
-): void => {
+const collectCheckedNodes = ( nodes: TreeNode[] | undefined ): TreeNode[] => {
 	if ( ! nodes?.length ) {
-		return;
+		return [];
 	}
+
+	const result: TreeNode[] = [];
 	for ( const node of nodes ) {
 		if ( node.checked ) {
-			visit( node );
+			result.push( node );
 		} else if ( node.indeterminate && node.children?.length ) {
-			iterateOverCheckedNodes( node.children, visit );
+			result.push( ...collectCheckedNodes( node.children ) );
 		}
 	}
+	return result;
 };
 
 const collectPathIds = ( nodes: TreeNode[] | undefined ): string[] => {
-	const out: string[] = [];
-	iterateOverCheckedNodes( nodes, ( node ) => {
-		if ( node.pathId ) {
-			out.push( node.pathId );
-		}
-	} );
-	return out;
+	return collectCheckedNodes( nodes )
+		.map( ( node ) => node.pathId )
+		.filter( ( pathId ): pathId is string => Boolean( pathId ) );
 };
 
 const convertTreeToSyncCategories = (
 	nodes: TreeNode[] | undefined
 ): { paths: string[]; options: SyncOption[] } => {
+	const checkedNodes = collectCheckedNodes( nodes );
 	const paths = new Set< string >();
 	const options = new Set< SyncOption >();
 
-	iterateOverCheckedNodes( nodes, ( node ) => {
+	for ( const node of checkedNodes ) {
 		if ( ! node.path ) {
-			return;
+			continue;
 		}
 
 		const nodePath = node.path.replace( /^\/?wp-content\//, '' );
@@ -58,7 +55,7 @@ const convertTreeToSyncCategories = (
 		} else {
 			options.add( SYNC_OPTIONS.contents );
 		}
-	} );
+	}
 
 	return { paths: [ ...paths ], options: [ ...options ] };
 };

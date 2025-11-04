@@ -12,7 +12,9 @@ const iterateOverCheckedNodes = (
 	nodes: TreeNode[] | undefined,
 	visit: ( node: TreeNode ) => void
 ): void => {
-	if ( ! nodes?.length ) return;
+	if ( ! nodes?.length ) {
+		return;
+	}
 	for ( const node of nodes ) {
 		if ( node.checked ) {
 			visit( node );
@@ -25,7 +27,9 @@ const iterateOverCheckedNodes = (
 const collectPathIds = ( nodes: TreeNode[] | undefined ): string[] => {
 	const out: string[] = [];
 	iterateOverCheckedNodes( nodes, ( node ) => {
-		if ( node.pathId ) out.push( node.pathId );
+		if ( node.pathId ) {
+			out.push( node.pathId );
+		}
 	} );
 	return out;
 };
@@ -37,7 +41,9 @@ const convertTreeToSyncCategories = (
 	const options = new Set< SyncOption >();
 
 	iterateOverCheckedNodes( nodes, ( node ) => {
-		if ( ! node.path ) return;
+		if ( ! node.path ) {
+			return;
+		}
 
 		const nodePath = node.path.replace( /^\/?wp-content\//, '' );
 		paths.add( nodePath );
@@ -62,8 +68,11 @@ const getCommonNodes = ( tree: TreeNode[] ) => {
 	let filesAndFolders: TreeNode | undefined;
 
 	for ( const node of tree ) {
-		if ( node.id === SYNC_OPTIONS.sqls ) isDatabaseSelected = node;
-		else if ( node.id === 'filesAndFolders' ) filesAndFolders = node;
+		if ( node.id === SYNC_OPTIONS.sqls ) {
+			isDatabaseSelected = node;
+		} else if ( node.id === 'filesAndFolders' ) {
+			filesAndFolders = node;
+		}
 	}
 
 	const wpContent = filesAndFolders?.children?.find( ( n ) => n.id === 'wp-content' );

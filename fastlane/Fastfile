@@ -96,8 +96,8 @@ lane :distribute_release_build do |_options|
   )
 end
 
-def get_windows_update_release_sha
-  releases_file_path = File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'x64', 'RELEASES')
+def get_windows_update_release_sha(arch: 'x64')
+  releases_file_path = File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', arch, 'RELEASES')
 
   begin
     releases_content = File.read(releases_file_path)
@@ -153,10 +153,17 @@ def distribute_builds(
     windows_update: {
       binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'x64', "studio-update.nupkg"),
       name: 'Windows Update',
-      platform: 'Windows',
+      platform: 'Windows - x64',
       install_type: 'Update',
-      sha: get_windows_update_release_sha
-    }
+      sha: get_windows_update_release_sha(arch: 'x64')
+    },
+	windows_arm64_update: {
+		binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'arm64', "studio-update.nupkg"),
+		name: 'Windows Update',
+		platform: 'Windows - ARM64',
+		install_type: 'Update',
+		sha: get_windows_update_release_sha(arch: 'arm64')
+	  }
   }
 
   full_install_builds = {
@@ -175,13 +182,25 @@ def distribute_builds(
     windows: {
       binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'x64', 'studio-setup.exe'),
       name: 'Windows',
-      platform: 'Windows',
+      platform: 'Windows - x64',
+      install_type: 'Full Install'
+    },
+	windows_arm64: {
+      binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'arm64', 'studio-setup.exe'),
+      name: 'Windows - ARM64',
+      platform: 'Windows - ARM64',
       install_type: 'Full Install'
     },
 	windows_appx_unsigned: {
-		binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-unsigned', "Studio #{appx_version} unsigned.appx"),
+		binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-x64-unsigned', "Studio #{appx_version} unsigned.appx"),
 		name: 'Windows (Unsigned Appx)',
-		platform: 'Microsoft Store',
+		platform: 'Microsoft Store - x64',
+		install_type: 'Full Install',
+	},
+	windows_arm64_appx_unsigned: {
+		binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-arm64-unsigned', "Studio #{appx_version} unsigned.appx"),
+		name: 'Windows (Unsigned Appx)',
+		platform: 'Microsoft Store - ARM64',
 		install_type: 'Full Install',
 	},
   }

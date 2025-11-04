@@ -70,7 +70,7 @@ describe( 'convertTreeToPushOptions', () => {
 		const optionsToSync = convertTreeToPushOptions( tree );
 		expect( optionsToSync ).toEqual( {
 			optionsToSync: [ 'plugins' ],
-			specificSelections: { plugins: [ 'my-plugin' ] },
+			specificSelections: { paths: [ 'plugins/my-plugin' ] },
 		} );
 	} );
 
@@ -92,7 +92,7 @@ describe( 'convertTreeToPushOptions', () => {
 		const optionsToSync = convertTreeToPushOptions( tree );
 		expect( optionsToSync ).toEqual( {
 			optionsToSync: [ 'uploads' ],
-			specificSelections: { uploads: [ '2024' ] },
+			specificSelections: { paths: [ 'uploads/2024' ] },
 		} );
 	} );
 
@@ -115,7 +115,7 @@ describe( 'convertTreeToPushOptions', () => {
 		const optionsToSync = convertTreeToPushOptions( tree );
 		expect( optionsToSync ).toEqual( {
 			optionsToSync: [ 'sqls', 'plugins' ],
-			specificSelections: { plugins: [ 'my-plugin' ] },
+			specificSelections: { paths: [ 'plugins/my-plugin' ] },
 		} );
 	} );
 
@@ -148,7 +148,7 @@ describe( 'convertTreeToPushOptions', () => {
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'plugins' ],
 				specificSelections: {
-					plugins: [ 'plugin1', 'plugin3' ],
+					paths: [ 'plugins/plugin1', 'plugins/plugin3' ],
 				},
 			} );
 		} );
@@ -181,7 +181,7 @@ describe( 'convertTreeToPushOptions', () => {
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'themes' ],
 				specificSelections: {
-					themes: [ 'theme1', 'theme3' ],
+					paths: [ 'themes/theme1', 'themes/theme3' ],
 				},
 			} );
 		} );
@@ -214,7 +214,7 @@ describe( 'convertTreeToPushOptions', () => {
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'uploads' ],
 				specificSelections: {
-					uploads: [ 'upload1', 'upload2' ],
+					paths: [ 'uploads/upload1', 'uploads/upload2' ],
 				},
 			} );
 		} );
@@ -256,8 +256,7 @@ describe( 'convertTreeToPushOptions', () => {
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'plugins', 'themes' ],
 				specificSelections: {
-					plugins: [ 'plugin1' ],
-					themes: [ 'theme1', 'theme3' ],
+					paths: [ 'plugins/plugin1', 'themes/theme1', 'themes/theme3' ],
 				},
 			} );
 		} );
@@ -289,7 +288,7 @@ describe( 'convertTreeToPushOptions', () => {
 			const optionsToSync = convertTreeToPushOptions( tree );
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'plugins' ],
-				specificSelections: { plugins: [ 'plugin1', 'plugin2' ] },
+				specificSelections: { paths: [ 'plugins/plugin1', 'plugins/plugin2' ] },
 			} );
 		} );
 
@@ -313,7 +312,7 @@ describe( 'convertTreeToPushOptions', () => {
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'sqls', 'plugins' ],
 				specificSelections: {
-					plugins: [ 'plugin1' ],
+					paths: [ 'plugins/plugin1' ],
 				},
 			} );
 		} );
@@ -339,7 +338,7 @@ describe( 'convertTreeToPushOptions', () => {
 		expect( optionsToSync ).toEqual( {
 			optionsToSync: [ 'sqls', 'plugins' ],
 			specificSelections: {
-				plugins: [ 'my-plugin' ],
+				paths: [ 'plugins/my-plugin' ],
 			},
 		} );
 	} );

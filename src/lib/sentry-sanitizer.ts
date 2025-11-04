@@ -56,17 +56,19 @@ function sanitizeBlueprintStep( step: Blueprint[ 'steps' ][ number ] ): Record< 
 			};
 
 		case 'setSiteOptions':
-		case 'updateUserMeta':
+		case 'updateUserMeta': {
 			// Keep option/meta keys but not values (values might be API keys)
+			let keys: string[] = [];
+			if ( stepRecord.options && typeof stepRecord.options === 'object' ) {
+				keys = Object.keys( stepRecord.options as object );
+			} else if ( stepRecord.meta && typeof stepRecord.meta === 'object' ) {
+				keys = Object.keys( stepRecord.meta as object );
+			}
 			return {
 				...baseStep,
-				keys:
-					stepRecord.options && typeof stepRecord.options === 'object'
-						? Object.keys( stepRecord.options as object )
-						: stepRecord.meta && typeof stepRecord.meta === 'object'
-						? Object.keys( stepRecord.meta as object )
-						: [],
+				keys,
 			};
+		}
 
 		case 'installPlugin':
 		case 'installTheme':

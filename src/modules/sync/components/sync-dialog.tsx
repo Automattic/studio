@@ -89,7 +89,7 @@ const useDynamicTreeState = (
 			const loadLocalTree = async () => {
 				try {
 					const localTree = await fetchLocalChildren( localSiteId, 'wp-content' );
-					if ( ! isCancelled && localTree ) {
+					if ( ! isCancelled ) {
 						setTreeState( ( treeState ) =>
 							updateNodeById( treeState, 'wp-content', { children: localTree } )
 						);

@@ -723,9 +723,7 @@ export async function exportSiteForPush(
 	configuration?: {
 		optionsToSync?: SyncOption[];
 		specificSelections?: {
-			plugins?: string[];
-			themes?: string[];
-			uploads?: string[];
+			paths?: string[];
 		};
 	}
 ) {

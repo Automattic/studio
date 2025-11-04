@@ -163,7 +163,7 @@ def distribute_builds(
 		platform: 'Windows - ARM64',
 		install_type: 'Update',
 		sha: get_windows_update_release_sha(arch: 'arm64')
-	  }
+	}
   }
 
   full_install_builds = {

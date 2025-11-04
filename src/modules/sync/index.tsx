@@ -9,6 +9,7 @@ import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { ConnectButton } from 'src/modules/sync/components/connect-button';
 import { SyncConnectedSites } from 'src/modules/sync/components/sync-connected-sites';
 import { SyncDialog } from 'src/modules/sync/components/sync-dialog';
 import { SyncSitesModalSelector } from 'src/modules/sync/components/sync-sites-modal-selector';
@@ -28,33 +29,48 @@ import {
 } from 'src/stores/sync';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
-function SiteSyncDescription( { children }: PropsWithChildren ) {
+interface SiteSyncDescriptionProps extends PropsWithChildren {
+	title?: string;
+	description?: string;
+	bulletPoints?: string[];
+}
+
+function SiteSyncDescription( {
+	children,
+	title,
+	description,
+	bulletPoints,
+}: SiteSyncDescriptionProps ) {
 	const { __ } = useI18n();
+	const defaultTitle = __( 'Launch or import your site' );
+	const defaultDescription = __(
+		'Create a new WordPress.com site or import an existing one to sync with Studio.'
+	);
+	const defaultBulletPoints = [
+		__( 'Launch a new WordPress.com site in minutes.' ),
+		__( 'Import a site you already run elsewhere.' ),
+		__( "Push and pull your content whenever you're ready." ),
+	];
+	const items = bulletPoints ?? defaultBulletPoints;
 	return (
 		<div className="p-8 flex justify-between max-w-3xl gap-4">
 			<div className="flex flex-col">
 				<div className="flex items-center mb-1">
-					<div className="a8c-subtitle text-pretty">
-						{ __( 'Sync with WordPress.com or Pressable' ) }
-					</div>
+					<div className="a8c-subtitle text-pretty">{ title ?? defaultTitle }</div>
 				</div>
 				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
-					{ __(
-						'Launch your site to push changes to a remote site, or import a remote site to pull changes locally.'
-					) }
+					{ description ?? defaultDescription }
 				</div>
-				<div className="mt-6">
-					{ [
-						__( 'Push and pull changes from your live site.' ),
-						__( 'Connect multiple environments.' ),
-						__( 'Sync database and file changes.' ),
-					].map( ( text ) => (
-						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
-							<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />
-							{ text }
-						</div>
-					) ) }
-				</div>
+				{ items.length > 0 && (
+					<div className="mt-6">
+						{ items.map( ( text ) => (
+							<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
+								<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />
+								{ text }
+							</div>
+						) ) }
+					</div>
+				) }
 				{ children }
 			</div>
 			<div className="flex flex-col shrink-0 items-end">
@@ -71,7 +87,17 @@ function NoAuthSyncTab() {
 	const offlineMessage = __( "You're currently offline." );
 
 	return (
-		<SiteSyncDescription>
+		<SiteSyncDescription
+			title={ __( 'Sync with WordPress.com or Pressable' ) }
+			description={ __(
+				'Connect your existing WordPress.com or Pressable sites with Jetpack activated, or create a new one. Then share your work with the world.'
+			) }
+			bulletPoints={ [
+				__( 'Push and pull changes from your live site.' ),
+				__( 'Connect multiple environments.' ),
+				__( 'Sync database and file changes.' ),
+			] }
+		>
 			<div className="mt-8">
 				<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
 					<Button
@@ -197,6 +223,9 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			return;
 		}
 
+		// Capture the modal mode before closing the modal
+		const currentModalMode = modalMode;
+
 		// Check if site is already connected
 		const isAlreadyConnected = connectedSites.some( ( site ) => site.id === siteId );
 
@@ -218,10 +247,10 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		setModalMode( null );
 
 		// Open the appropriate sync dialog
-		if ( modalMode === 'push' ) {
+		if ( currentModalMode === 'push' ) {
 			setSelectedRemoteSite( siteToUse );
 			setSyncDialogType( 'push' );
-		} else if ( modalMode === 'pull' ) {
+		} else if ( currentModalMode === 'pull' ) {
 			setSelectedRemoteSite( siteToUse );
 			setSyncDialogType( 'pull' );
 		}
@@ -256,44 +285,18 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 						disconnectSite={ disconnectSite }
 					/>
 					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
-						<div className="flex gap-4">
-							<Tooltip
-								disabled={ ! isOffline }
-								icon={ offlineIcon }
-								text={ __( 'Launching your site requires an internet connection.' ) }
-								placement="top-start"
-							>
-								<Button
-									variant="primary"
-									onClick={ handleLaunchSite }
-									disabled={ isOffline }
-									aria-disabled={ isOffline }
-								>
-									{ __( 'Launch your site' ) }
-								</Button>
-							</Tooltip>
-							<Tooltip
-								disabled={ ! isOffline }
-								icon={ offlineIcon }
-								text={ __( 'Importing a remote site requires an internet connection.' ) }
-								placement="top-start"
-							>
-								<Button
-									variant="secondary"
-									onClick={ handleImportSite }
-									disabled={ isOffline }
-									aria-disabled={ isOffline }
-									className="!text-a8c-blue-50 !shadow-a8c-blue-50"
-								>
-									{ __( 'Import your remote site' ) }
-								</Button>
-							</Tooltip>
-						</div>
+						<ConnectButton
+							variant="primary"
+							connectSite={ () => dispatch( connectedSitesActions.openModal() ) }
+							disableConnectButtonStyle={ true }
+						>
+							{ __( 'Connect another site' ) }
+						</ConnectButton>
 					</div>
 				</div>
 			) : (
 				<SiteSyncDescription>
-					<div className="mt-8 flex gap-4">
+					<div className="mt-8 flex flex-wrap gap-4">
 						<Tooltip
 							disabled={ ! isOffline }
 							icon={ offlineIcon }
@@ -307,24 +310,17 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 								aria-disabled={ isOffline }
 							>
 								{ __( 'Launch your site' ) }
+								<ArrowIcon />
 							</Button>
 						</Tooltip>
-						<Tooltip
-							disabled={ ! isOffline }
-							icon={ offlineIcon }
-							text={ __( 'Importing a remote site requires an internet connection.' ) }
-							placement="top-start"
+						<ConnectButton
+							variant="secondary"
+							connectSite={ handleImportSite }
+							disableConnectButtonStyle={ true }
+							tooltipText={ __( 'Importing a remote site requires an internet connection.' ) }
 						>
-							<Button
-								variant="secondary"
-								onClick={ handleImportSite }
-								disabled={ isOffline }
-								aria-disabled={ isOffline }
-								className="!text-a8c-blue-50 !shadow-a8c-blue-50"
-							>
-								{ __( 'Import your remote site' ) }
-							</Button>
-						</Tooltip>
+							{ __( 'Import your remote site' ) }
+						</ConnectButton>
 					</div>
 				</SiteSyncDescription>
 			) }

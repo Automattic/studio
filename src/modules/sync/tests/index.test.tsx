@@ -237,19 +237,21 @@ describe( 'ContentTabSync', () => {
 		expect( getIpcApi().authenticate ).toHaveBeenCalled();
 	} );
 
-	it( 'displays connect site button to authenticated user', () => {
+	it( 'displays launch and import actions to authenticated user', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
+		const launchButton = screen.getByRole( 'button', { name: /Launch your site/i } );
+		const importButton = screen.getByRole( 'button', { name: /Import your remote site/i } );
 
-		expect( connectSiteButton ).toBeInTheDocument();
+		expect( launchButton ).toBeInTheDocument();
+		expect( importButton ).toBeInTheDocument();
 	} );
 
-	it( 'opens the site selector modal to connect a site authenticated user', () => {
+	it( 'opens the site selector modal when clicking import button', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
-		fireEvent.click( connectSiteButton );
+		const importButton = screen.getByRole( 'button', { name: /Import your remote site/i } );
+		fireEvent.click( importButton );
 
 		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( true );
 
@@ -330,9 +332,9 @@ describe( 'ContentTabSync', () => {
 	it( 'opens the modal and displays the create new site button', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
-		expect( connectSiteButton ).toBeInTheDocument();
-		fireEvent.click( connectSiteButton );
+		const importButton = screen.getByRole( 'button', { name: /Import your remote site/i } );
+		expect( importButton ).toBeInTheDocument();
+		fireEvent.click( importButton );
 		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( true );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		const createNewSiteButton = screen.getByRole( 'button', {
@@ -341,12 +343,15 @@ describe( 'ContentTabSync', () => {
 		expect( createNewSiteButton ).toBeInTheDocument();
 	} );
 
-	it( 'displays ConnectButton when there are no connected sites', () => {
+	it( 'displays launch and import buttons when there are no connected sites', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const connectButton = screen.getByRole( 'button', { name: /Connect site/i } );
-		expect( connectButton ).toBeInTheDocument();
+		const launchButton = screen.getByRole( 'button', { name: /Launch your site/i } );
+		const importButton = screen.getByRole( 'button', { name: /Import your remote site/i } );
+
+		expect( launchButton ).toBeInTheDocument();
+		expect( importButton ).toBeInTheDocument();
 	} );
 
 	it( 'displays environment badges for Pressable sites with production, staging and development environments', () => {

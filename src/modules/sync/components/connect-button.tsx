@@ -11,6 +11,7 @@ interface ConnectButtonProps {
 	disableConnectButtonStyle?: boolean;
 	className?: string;
 	children?: React.ReactNode;
+	tooltipText?: string;
 }
 
 export const ConnectButton = ( {
@@ -19,12 +20,14 @@ export const ConnectButton = ( {
 	disableConnectButtonStyle,
 	className,
 	children,
+	tooltipText,
 }: ConnectButtonProps ) => {
 	const isOffline = useOffline();
+	const tooltipContent = tooltipText ?? __( 'Connecting a site requires an internet connection.' );
 	return (
 		<Tooltip
 			disabled={ ! isOffline }
-			text={ __( 'Connecting a site requires an internet connection.' ) }
+			text={ tooltipContent }
 			icon={ offlineIcon }
 			placement="top-start"
 		>

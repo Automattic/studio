@@ -19,5 +19,4 @@ export type SyncSite = {
 	syncSupport: SyncSupport;
 	lastPullTimestamp: string | null;
 	lastPushTimestamp: string | null;
-	hasJetpack: boolean;
 };

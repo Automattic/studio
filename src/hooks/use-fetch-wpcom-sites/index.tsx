@@ -117,7 +117,6 @@ function transformSingleSiteResponse(
 		syncSupport,
 		lastPullTimestamp: null,
 		lastPushTimestamp: null,
-		hasJetpack: !! site.jetpack,
 	};
 }
 

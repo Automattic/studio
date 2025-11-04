@@ -28,7 +28,6 @@ export const reconcileConnectedSites = (
 			isStaging: site.isStaging,
 			isPressable: site.isPressable,
 			environmentType: site.environmentType,
-			hasJetpack: site.hasJetpack,
 		};
 	}, [] );
 

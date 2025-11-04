@@ -81,17 +81,27 @@ describe( 'getSyncSupport', () => {
 	} );
 
 	it( 'returns "already-connected" if site ID is in connectedSiteIds', () => {
-		const site = { ...baseSite, ID: 42, is_wpcom_atomic: true };
+		const site = { ...baseSite, ID: 42, is_wpcom_atomic: true, jetpack: true };
 		expect( getSyncSupport( site, [ 42 ] ) ).toBe( 'already-connected' );
 	} );
 
 	it( 'returns "syncable" for Atomic site', () => {
-		const site = { ...baseSite, is_wpcom_atomic: true };
+		const site = { ...baseSite, is_wpcom_atomic: true, jetpack: true };
 		expect( getSyncSupport( site, [] ) ).toBe( 'syncable' );
 	} );
 
 	it( 'returns "syncable" for Pressable site', () => {
-		const site = { ...baseSite, hosting_provider_guess: 'pressable' };
+		const site = { ...baseSite, hosting_provider_guess: 'pressable', jetpack: true };
 		expect( getSyncSupport( site, [] ) ).toBe( 'syncable' );
+	} );
+
+	it( 'returns "jetpack-disconnected" for Pressable site without Jetpack', () => {
+		const site = { ...baseSite, hosting_provider_guess: 'pressable', jetpack: false };
+		expect( getSyncSupport( site, [] ) ).toBe( 'jetpack-disconnected' );
+	} );
+
+	it( 'returns "jetpack-disconnected" for Atomic site without Jetpack', () => {
+		const site = { ...baseSite, is_wpcom_atomic: true, jetpack: false };
+		expect( getSyncSupport( site, [] ) ).toBe( 'jetpack-disconnected' );
 	} );
 } );

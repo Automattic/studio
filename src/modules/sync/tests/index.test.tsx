@@ -89,7 +89,6 @@ const fakeSyncSite = {
 	name: 'My simple business site that needs a transfer',
 	url: 'https:/developer.wordpress.com/studio/',
 	syncSupport: 'already-connected',
-	hasJetpack: true,
 };
 
 describe( 'ContentTabSync', () => {
@@ -265,7 +264,6 @@ describe( 'ContentTabSync', () => {
 			url: 'https:/developer.wordpress.com/studio/',
 			isStaging: false,
 			syncSupport: 'already-connected',
-			hasJetpack: true,
 		};
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
@@ -300,7 +298,6 @@ describe( 'ContentTabSync', () => {
 			url: 'https:/developer.wordpress.com/studio/',
 			isStaging: false,
 			syncSupport: 'already-connected',
-			hasJetpack: true,
 		};
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
@@ -364,7 +361,6 @@ describe( 'ContentTabSync', () => {
 			localSiteId: 'site-id',
 			lastPullTimestamp: null,
 			lastPushTimestamp: null,
-			hasJetpack: true,
 		};
 		const fakePressableStagingSite: SyncSite = {
 			id: 7,
@@ -377,7 +373,6 @@ describe( 'ContentTabSync', () => {
 			localSiteId: 'site-id',
 			lastPullTimestamp: null,
 			lastPushTimestamp: null,
-			hasJetpack: true,
 		};
 		const fakePressableDevelopmentSite: SyncSite = {
 			id: 8,
@@ -390,7 +385,6 @@ describe( 'ContentTabSync', () => {
 			localSiteId: 'site-id',
 			lastPullTimestamp: null,
 			lastPushTimestamp: null,
-			hasJetpack: true,
 		};
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 
@@ -437,7 +431,6 @@ describe( 'ContentTabSync', () => {
 			isPressable: false,
 			lastPullTimestamp: null,
 			lastPushTimestamp: null,
-			hasJetpack: true,
 		};
 
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
@@ -470,7 +463,6 @@ describe( 'ContentTabSync', () => {
 			syncSupport: 'already-connected',
 			isPressable: true,
 			environmentType: 'development',
-			hasJetpack: true,
 		};
 		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
@@ -510,7 +502,6 @@ describe( 'ContentTabSync', () => {
 			syncSupport: 'already-connected',
 			isPressable: true,
 			environmentType: 'non-supported-environment-example-or-sandbox',
-			hasJetpack: true,
 		};
 		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
@@ -547,7 +538,6 @@ describe( 'ContentTabSync', () => {
 			name: 'My simple business site that needs a transfer',
 			url: 'https:/developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
-			hasJetpack: true,
 		};
 		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
@@ -593,7 +583,6 @@ describe( 'ContentTabSync', () => {
 			name: 'My simple business site that needs a transfer',
 			url: 'https:/developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
-			hasJetpack: true,
 		};
 		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],
@@ -702,7 +691,6 @@ describe( 'ContentTabSync', () => {
 			name: 'My simple business site that needs a transfer',
 			url: 'https:/developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
-			hasJetpack: true,
 		};
 		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
 			connectedSites: [ fakeSyncSite ],

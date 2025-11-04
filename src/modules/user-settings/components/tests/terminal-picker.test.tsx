@@ -7,7 +7,12 @@ import { installedAppsApi } from 'src/stores/installed-apps-api';
 import { testReducer } from 'src/stores/tests/utils/test-reducer';
 
 jest.mock( 'src/lib/get-ipc-api' );
-jest.mock( 'src/lib/app-globals' );
+jest.mock( 'src/lib/app-globals', () => ( {
+	getAppGlobals: jest.fn( () => ( {
+		platform: 'darwin',
+	} ) ),
+	isWindows: jest.fn( () => false ),
+} ) );
 
 const mockGetIpcApi = getIpcApi as jest.Mock;
 

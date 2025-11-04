@@ -22,8 +22,10 @@ function ipcRendererSend< T extends keyof IpcHandlers >(
 
 const api: IpcApi = {
 	archiveSite: ( id, format ) => ipcRendererInvoke( 'archiveSite', id, format ),
-	exportSiteToPush: ( id, operationId, configuration ) =>
-		ipcRendererInvoke( 'exportSiteToPush', id, operationId, configuration ),
+	exportSiteForPush: ( id, operationId, configuration ) =>
+		ipcRendererInvoke( 'exportSiteForPush', id, operationId, configuration ),
+	pushArchive: ( remoteSiteId, archivePath, optionsToSync ) =>
+		ipcRendererInvoke( 'pushArchive', remoteSiteId, archivePath, optionsToSync ),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
 	createSite: ( path, config ) => ipcRendererInvoke( 'createSite', path, config ),
 	updateSite: ( updatedSite ) => ipcRendererInvoke( 'updateSite', updatedSite ),
@@ -63,7 +65,7 @@ const api: IpcApi = {
 	stopServer: ( id ) => ipcRendererInvoke( 'stopServer', id ),
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
-	removeTemporalFile: ( path ) => ipcRendererInvoke( 'removeTemporalFile', path ),
+	removeTemporaryFile: ( path ) => ipcRendererInvoke( 'removeTemporaryFile', path ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
 	generateProposedSitePath: ( siteName ) =>
 		ipcRendererInvoke( 'generateProposedSitePath', siteName ),

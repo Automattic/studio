@@ -14,7 +14,7 @@ export class E2ESession {
 	homePath: string;
 
 	async launch( testEnv: NodeJS.ProcessEnv = {} ) {
-		// Create temporal folder to hold application data
+		// Create temporary folder to hold application data
 		this.sessionPath = path.join( tmpdir(), `studio-app-e2e-session-${ randomUUID() }` );
 		this.appDataPath = path.join( this.sessionPath, 'appData' );
 		this.homePath = path.join( this.sessionPath, 'home' );
@@ -51,7 +51,7 @@ export class E2ESession {
 
 	async cleanup() {
 		await this.electronApp?.close();
-		// Clean up temporal folder to hold application data
+		// Clean up temporary folder to hold application data
 		fs.rmSync( this.sessionPath, { recursive: true, force: true } );
 	}
 }

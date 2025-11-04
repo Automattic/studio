@@ -205,13 +205,6 @@ export function SyncDialog( {
 		[ type, rewindId, remoteSite.id, fetchChildren ]
 	);
 
-	const treeViewProps = {
-		disabled: isErrorRewindId,
-		tree: treeState,
-		setTree: setTreeState,
-		onExpand: handleExpand,
-	};
-
 	const handleSubmit = () => {
 		if ( type === 'pull' ) {
 			if ( ! rewindId ) {
@@ -296,7 +289,10 @@ export function SyncDialog( {
 									/>
 								</div>
 								<TreeView
-									{ ...treeViewProps }
+									disabled={ isErrorRewindId }
+									tree={ treeState }
+									setTree={ setTreeState }
+									onExpand={ handleExpand }
 									renderAfterChildren={ ( nodeId ) => {
 										if ( nodeId === 'filesAndFolders' && showAllFiles && rewindId ) {
 											const backupUrl = `https://wordpress.com/backup/${ remoteSite.url.replace(

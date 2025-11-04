@@ -1782,7 +1782,7 @@ export async function listLocalFileTree(
 			const itemPath = nodePath.join( path, entry.name ).replace( /\\/g, '/' );
 			const fullItemPath = isDirectory ? itemPath + '/' : itemPath;
 
-			const fileNode: RawDirectoryEntry = {
+			const directoryEntry: RawDirectoryEntry = {
 				name: entry.name,
 				isDirectory,
 				path: fullItemPath,
@@ -1791,7 +1791,7 @@ export async function listLocalFileTree(
 			const shouldLimit = shouldLimitDepth( fullItemPath );
 			if ( isDirectory && currentDepth < maxDepth && ! shouldLimit ) {
 				try {
-					fileNode.children = await listLocalFileTree(
+					directoryEntry.children = await listLocalFileTree(
 						_event,
 						siteId,
 						fullItemPath,
@@ -1800,11 +1800,11 @@ export async function listLocalFileTree(
 					);
 				} catch ( childErr ) {
 					console.warn( `Failed to load children for ${ fullItemPath }:`, childErr );
-					fileNode.children = [];
+					directoryEntry.children = [];
 				}
 			}
 
-			result.push( fileNode );
+			result.push( directoryEntry );
 		}
 
 		return result;

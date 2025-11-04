@@ -6,5 +6,3 @@ export const SYNC_EXCLUSIONS = [
 	'.DS_Store',
 	'Thumbs.db',
 ];
-
-export type SyncExclusion = ( typeof SYNC_EXCLUSIONS )[ number ];

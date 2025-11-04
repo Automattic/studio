@@ -1,4 +1,4 @@
-import { handleAddSiteBlueprintWithUrl } from 'src/lib/deeplink/handlers/add-site-blueprint-with-url';
+import { handleAddSiteWithBlueprint } from 'src/lib/deeplink/handlers/add-site-blueprint-with-url';
 import { handleAuthDeeplink } from 'src/lib/deeplink/handlers/auth';
 import { handleSyncConnectSiteDeeplink } from 'src/lib/deeplink/handlers/sync-connect-site';
 
@@ -21,7 +21,7 @@ export async function handleDeeplink( url: string ): Promise< void > {
 			await handleSyncConnectSiteDeeplink( urlObject );
 			break;
 		case 'add-site':
-			await handleAddSiteBlueprintWithUrl( urlObject );
+			await handleAddSiteWithBlueprint( urlObject );
 			break;
 		default:
 			console.warn( `Unknown deeplink host: ${ host }` );

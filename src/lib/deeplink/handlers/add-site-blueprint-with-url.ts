@@ -14,7 +14,7 @@ import { getMainWindow } from 'src/main-window';
  * It downloads the blueprint from the URL, saves it locally, and opens the Add Site modal
  * with the blueprint pre-filled.
  */
-export async function handleAddSiteBlueprintWithUrl( urlObject: URL ): Promise< void > {
+export async function handleAddSiteWithBlueprint( urlObject: URL ): Promise< void > {
 	const { searchParams } = urlObject;
 	const blueprintUrl = searchParams.get( 'blueprint_url' );
 

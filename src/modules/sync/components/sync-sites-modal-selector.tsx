@@ -32,6 +32,7 @@ export function SyncSitesModalSelector( {
 	syncSites,
 	onInitialRender,
 	selectedSite,
+	mode = 'connect',
 }: {
 	isLoading?: boolean;
 	onRequestClose: () => void;
@@ -39,6 +40,7 @@ export function SyncSitesModalSelector( {
 	onConnect: ( siteId: number ) => void;
 	onInitialRender?: () => void;
 	selectedSite: SiteDetails;
+	mode?: 'push' | 'pull' | 'connect';
 } ) {
 	const { __ } = useI18n();
 	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
@@ -53,6 +55,18 @@ export function SyncSitesModalSelector( {
 	} );
 	const isEmpty = filteredSites.length === 0;
 
+	const getModalTitle = () => {
+		switch ( mode ) {
+			case 'push':
+				return __( 'Select a site to launch' );
+			case 'pull':
+				return __( 'Select a site to import' );
+			case 'connect':
+			default:
+				return __( 'Connect your site' );
+		}
+	};
+
 	useEffect( () => {
 		if ( onInitialRender ) {
 			onInitialRender();
@@ -63,7 +77,7 @@ export function SyncSitesModalSelector( {
 		<Modal
 			className="w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
-			title={ __( 'Connect your site' ) }
+			title={ getModalTitle() }
 		>
 			<div className="relative" data-testid="sync-sites-modal-selector">
 				<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
@@ -100,11 +114,12 @@ export function SyncSitesModalSelector( {
 					} }
 					disabled={ ! selectedSiteId }
 					selectedSite={ selectedSite }
+					mode={ mode }
 				/>
 
 				{ isOffline && (
 					<div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center">
-						<SyncSitesOfflineView />
+						<SyncSitesOfflineView mode={ mode } />
 					</div>
 				) }
 			</div>
@@ -335,13 +350,27 @@ function Footer( {
 	onConnect,
 	disabled,
 	selectedSite,
+	mode = 'connect',
 }: {
 	onRequestClose: () => void;
 	onConnect: () => void;
 	disabled: boolean;
 	selectedSite: SiteDetails;
+	mode?: 'push' | 'pull' | 'connect';
 } ) {
 	const { __ } = useI18n();
+
+	const getButtonText = () => {
+		switch ( mode ) {
+			case 'push':
+				return __( 'Launch' );
+			case 'pull':
+				return __( 'Import' );
+			case 'connect':
+			default:
+				return __( 'Connect' );
+		}
+	};
 
 	useEffect( () => {
 		if ( ! disabled ) {
@@ -361,20 +390,31 @@ function Footer( {
 					{ __( 'Cancel' ) }
 				</Button>
 				<Button id="connect-button" variant="primary" disabled={ disabled } onClick={ onConnect }>
-					{ __( 'Connect' ) }
+					{ getButtonText() }
 				</Button>
 			</div>
 		</div>
 	);
 }
 
-const SyncSitesOfflineView = () => {
-	const offlineMessage = __( 'Connecting a site requires an internet connection.' );
+const SyncSitesOfflineView = ( { mode = 'connect' }: { mode?: 'push' | 'pull' | 'connect' } ) => {
+	const { __ } = useI18n();
+	const getOfflineMessage = () => {
+		switch ( mode ) {
+			case 'push':
+				return __( 'Launching your site requires an internet connection.' );
+			case 'pull':
+				return __( 'Importing a remote site requires an internet connection.' );
+			case 'connect':
+			default:
+				return __( 'Connecting a site requires an internet connection.' );
+		}
+	};
 
 	return (
 		<div className="flex items-center justify-center h-12 px-2 pt-4 text-a8c-gray-70 gap-1">
 			<Icon className="m-1 fill-a8c-gray-70" size={ 24 } icon={ offlineIcon } />
-			<span className="text-[13px] leading-[16px]">{ offlineMessage }</span>
+			<span className="text-[13px] leading-[16px]">{ getOfflineMessage() }</span>
 		</div>
 	);
 };

@@ -5,4 +5,7 @@ export const SYNC_EXCLUSIONS = [
 	'sqlite-database-integration',
 	'.DS_Store',
 	'Thumbs.db',
+	'.git',
+	'node_modules',
+	'cache',
 ];

@@ -166,12 +166,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 				const stat = fs.statSync( fullPath );
 				if ( stat.isDirectory() ) {
-					this.archiveBuilder.directory( fullPath, archivePath, ( entry ) => {
-						if ( entry.name.includes( '.git' ) || entry.name.includes( 'node_modules' ) ) {
-							return false;
-						}
-						return entry;
-					} );
+					this.archiveBuilder.directory( fullPath, archivePath );
 				} else {
 					this.archiveBuilder.file( fullPath, { name: archivePath } );
 				}
@@ -198,7 +193,8 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 						if (
 							isExcluded ||
 							entry.name.includes( '.git' ) ||
-							entry.name.includes( 'node_modules' )
+							entry.name.includes( 'node_modules' ) ||
+							entry.name.includes( 'cache' )
 						) {
 							return false;
 						}

@@ -39,15 +39,15 @@ const convertTreeToSyncCategories = (
 	iterateOverCheckedNodes( nodes, ( node ) => {
 		if ( ! node.path ) return;
 
-		const p = node.path.replace( /^\/?wp-content\//, '' );
-		paths.add( p );
+		const nodePath = node.path.replace( /^\/?wp-content\//, '' );
+		paths.add( nodePath );
 
 		// Determine which category this belongs to for optionsToSync
-		if ( p.startsWith( 'plugins/' ) ) {
+		if ( nodePath.startsWith( 'plugins/' ) ) {
 			options.add( SYNC_OPTIONS.plugins );
-		} else if ( p.startsWith( 'themes/' ) ) {
+		} else if ( nodePath.startsWith( 'themes/' ) ) {
 			options.add( SYNC_OPTIONS.themes );
-		} else if ( p.startsWith( 'uploads/' ) ) {
+		} else if ( nodePath.startsWith( 'uploads/' ) ) {
 			options.add( SYNC_OPTIONS.uploads );
 		} else {
 			options.add( SYNC_OPTIONS.contents );

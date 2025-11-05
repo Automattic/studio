@@ -29,7 +29,7 @@ steps:
       queue: "{{matrix}}"
     matrix:
       - mac
-      - $WINDOWS_QUEUE
+      - windows
     notify:
       - github_commit_status:
           context: Unit Tests
@@ -114,7 +114,7 @@ steps:
     steps:
       - label: 🔨 Windows Dev Build - {{matrix}}
         agents:
-          queue: $WINDOWS_QUEUE
+          queue: windows
         command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev -Architecture {{matrix}}
         artifact_paths:
           - out\**\studio-setup.exe
@@ -222,7 +222,7 @@ steps:
     steps:
       - label: 🔨 Windows Release Build - {{matrix}}
         agents:
-          queue: $WINDOWS_QUEUE
+          queue: windows
         command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType release -Architecture {{matrix}}
         artifact_paths:
           - out\**\studio-setup.exe

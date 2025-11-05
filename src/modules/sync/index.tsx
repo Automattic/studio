@@ -137,13 +137,11 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	type ModalState = {
 		mode: SyncModalMode | null;
 		selectedRemoteSite: SyncSite | null;
-		syncDialogType: Extract< SyncModalMode, 'push' | 'pull' > | null;
 	};
 
 	const [ modalState, setModalState ] = useState< ModalState >( {
 		mode: null,
 		selectedRemoteSite: null,
-		syncDialogType: null,
 	} );
 
 	const { isAuthenticated } = useAuth();
@@ -186,10 +184,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	};
 
 	// Unified handler for site selection with optional post-connection callback
-	const handleSiteSelection = async (
-		siteId: number,
-		onAfterConnect?: ( site: SyncSite ) => void
-	) => {
+	const handleSiteSelection = async ( siteId: number, mode: SyncModalMode | null ) => {
 		const disconnectSiteId =
 			typeof isModalOpen === 'object' ? isModalOpen.disconnectSiteId : undefined;
 
@@ -220,11 +215,12 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 
 		// Close the modal
 		dispatch( connectedSitesActions.closeModal() );
-		setModalState( ( prev ) => ( { ...prev, mode: null } ) );
 
 		// Execute post-connection callback if provided
-		if ( onAfterConnect ) {
-			onAfterConnect( siteToUse );
+		if ( mode == 'push' || mode == 'pull' ) {
+			setModalState( ( prev ) => ( { ...prev, mode: mode, selectedRemoteSite: siteToUse } ) );
+		} else {
+			setModalState( ( prev ) => ( { ...prev, mode: null } ) );
 		}
 	};
 
@@ -281,54 +277,38 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					syncSites={ syncSites }
 					onInitialRender={ refetchSites }
 					onConnect={ async ( siteId: number ) => {
-						const currentMode = modalState.mode;
-
-						// Use unified handler with appropriate callback based on mode
-						if ( currentMode === 'push' || currentMode === 'pull' ) {
-							await handleSiteSelection( siteId, ( site ) => {
-								setModalState( ( prev ) => ( {
-									...prev,
-									selectedRemoteSite: site,
-									syncDialogType: currentMode,
-								} ) );
-							} );
-						} else {
-							await handleSiteSelection( siteId );
-						}
+						await handleSiteSelection( siteId, modalState.mode );
 					} }
 					selectedSite={ selectedSite }
 				/>
 			) }
 
-			{ modalState.syncDialogType && modalState.selectedRemoteSite && (
+			{ modalState.mode && modalState.mode !== 'connect' && modalState.selectedRemoteSite && (
 				<SyncDialog
-					type={ modalState.syncDialogType }
+					type={ modalState.mode }
 					localSite={ selectedSite }
 					remoteSite={ modalState.selectedRemoteSite }
 					onPush={ ( tree ) => {
 						const pushOptions = convertTreeToPushOptions( tree );
 						void pushSite( modalState.selectedRemoteSite!, selectedSite, pushOptions );
-						setModalState( ( prev ) => ( {
-							...prev,
-							syncDialogType: null,
+						setModalState( {
+							mode: null,
 							selectedRemoteSite: null,
-						} ) );
+						} );
 					} }
 					onPull={ ( tree ) => {
 						const pullOptions = convertTreeToPullOptions( tree );
-						pullSite( modalState.selectedRemoteSite!, selectedSite, pullOptions );
-						setModalState( ( prev ) => ( {
-							...prev,
-							syncDialogType: null,
+						void pullSite( modalState.selectedRemoteSite!, selectedSite, pullOptions );
+						setModalState( {
+							mode: null,
 							selectedRemoteSite: null,
-						} ) );
+						} );
 					} }
 					onRequestClose={ () => {
-						setModalState( ( prev ) => ( {
-							...prev,
-							syncDialogType: null,
+						setModalState( {
+							mode: null,
 							selectedRemoteSite: null,
-						} ) );
+						} );
 					} }
 				/>
 			) }

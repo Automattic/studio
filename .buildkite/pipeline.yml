@@ -109,9 +109,6 @@ steps:
         matrix:
           - x64
           - arm64
-        notify:
-          - github_commit_status:
-              context: All Mac Dev Builds
     depends_on: block-dev-mac
     allow_dependency_failure: true
     if: build.tag !~ /^v[0-9]+/
@@ -137,9 +134,6 @@ steps:
         matrix:
           - x64
           - arm64
-        notify:
-          - github_commit_status:
-              context: All Windows Dev Builds
     depends_on: block-dev-windows
     allow_dependency_failure: true
     if: build.tag !~ /^v[0-9]+/

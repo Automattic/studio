@@ -120,7 +120,7 @@ export function PullRemoteSite( {
 } ) {
 	const { __ } = useI18n();
 	const { isAuthenticated } = useAuth();
-	const { location, goTo } = useNavigator();
+	const { location } = useNavigator();
 	const { syncSites, refetchSites } = useSyncSites();
 
 	useEffect( () => {
@@ -133,9 +133,9 @@ export function PullRemoteSite( {
 		return <NoAuthPullRemoteSiteView />;
 	}
 
-	const handleSiteSelect = () => {
-		setSelectedRemoteSite( selectedRemoteSite );
-		goTo( '/pullRemote/create' );
+	const handleSiteSelect = ( siteId: number ) => {
+		const site = syncSites.find( ( s ) => s.id === siteId );
+		setSelectedRemoteSite( site );
 	};
 
 	return (

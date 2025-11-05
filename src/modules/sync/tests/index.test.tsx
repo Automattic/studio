@@ -263,13 +263,13 @@ describe( 'ContentTabSync', () => {
 		expect( getIpcApi().authenticate ).toHaveBeenCalled();
 	} );
 
-	it( 'displays launch and import actions to authenticated user', () => {
+	it( 'displays publish and import actions to authenticated user', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const launchButton = screen.getByRole( 'button', { name: /Publish site/i } );
+		const publishButton = screen.getByRole( 'button', { name: /Publish site/i } );
 		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
 
-		expect( launchButton ).toBeInTheDocument();
+		expect( publishButton ).toBeInTheDocument();
 		expect( importButton ).toBeInTheDocument();
 	} );
 
@@ -369,14 +369,14 @@ describe( 'ContentTabSync', () => {
 		expect( createNewSiteButton ).toBeInTheDocument();
 	} );
 
-	it( 'displays launch and import buttons when there are no connected sites', () => {
+	it( 'displays publish and import buttons when there are no connected sites', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const launchButton = screen.getByRole( 'button', { name: /Publish site/i } );
+		const publishButton = screen.getByRole( 'button', { name: /Publish site/i } );
 		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
 
-		expect( launchButton ).toBeInTheDocument();
+		expect( publishButton ).toBeInTheDocument();
 		expect( importButton ).toBeInTheDocument();
 	} );
 

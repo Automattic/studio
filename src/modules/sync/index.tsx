@@ -133,13 +133,10 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const { connectSite, disconnectSite } = useConnectedSitesOperations();
 	const { pushSite, pullSite } = useSyncSites();
 
-	// Simplified state management - combine related modal state into single object
-	type ModalState = {
+	const [ modalState, setModalState ] = useState< {
 		mode: SyncModalMode | null;
 		selectedRemoteSite: SyncSite | null;
-	};
-
-	const [ modalState, setModalState ] = useState< ModalState >( {
+	} >( {
 		mode: null,
 		selectedRemoteSite: null,
 	} );
@@ -161,9 +158,8 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			await connectSite( newConnectedSite );
 
 			await dispatch( loadAllConnectedSites() );
-			// Use Redux store as source of truth - find the site we just connected
-			const connectedSite = connectedSites.find( ( site ) => site.id === newConnectedSite.id );
 			// Return the connected site with full metadata, or fallback to the original site
+			const connectedSite = connectedSites.find( ( site ) => site.id === newConnectedSite.id );
 			return connectedSite || newConnectedSite;
 		} catch ( error ) {
 			getIpcApi().showErrorMessageBox( {
@@ -183,7 +179,6 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		dispatch( connectedSitesActions.openModal() );
 	};
 
-	// Unified handler for site selection with optional post-connection callback
 	const handleSiteSelection = async ( siteId: number, mode: SyncModalMode | null ) => {
 		const disconnectSiteId =
 			typeof isModalOpen === 'object' ? isModalOpen.disconnectSiteId : undefined;
@@ -201,7 +196,6 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			return;
 		}
 
-		// Check if site is already connected, otherwise connect it
 		const isAlreadyConnected = connectedSites.some( ( site ) => site.id === siteId );
 		if ( ! isAlreadyConnected ) {
 			const connectedSite = await handleConnect( selectedSiteFromList );
@@ -209,14 +203,10 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				return;
 			}
 		}
-
-		// Use the connected site from store (has full metadata) or fallback to selected site
 		const siteToUse = connectedSites.find( ( site ) => site.id === siteId ) || selectedSiteFromList;
 
-		// Close the modal
 		dispatch( connectedSitesActions.closeModal() );
 
-		// Execute post-connection callback if provided
 		if ( mode == 'push' || mode == 'pull' ) {
 			setModalState( ( prev ) => ( { ...prev, mode: mode, selectedRemoteSite: siteToUse } ) );
 		} else {

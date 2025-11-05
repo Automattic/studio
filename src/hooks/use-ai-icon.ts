@@ -18,9 +18,9 @@ const useAiIcon = () => {
 		autoplay: false,
 	} );
 
-	const inactiveInput = useStateMachineInput( rive, stateMachineName, 'inactive' );
-	const thinkingInput = useStateMachineInput( rive, stateMachineName, 'thinking' );
-	const typingInput = useStateMachineInput( rive, stateMachineName, 'typing' );
+	const inactiveInput = useStateMachineInput( rive, stateMachineName, 'inactive', false );
+	const thinkingInput = useStateMachineInput( rive, stateMachineName, 'thinking', false );
+	const typingInput = useStateMachineInput( rive, stateMachineName, 'typing', false );
 
 	useEffect( () => {
 		rive?.play( stateMachineName );

@@ -119,6 +119,7 @@
 		"@automattic/interpolate-components": "^1.2.1",
 		"@formatjs/intl-locale": "^3.4.5",
 		"@formatjs/intl-localematcher": "^0.5.4",
+		"@inquirer/prompts": "^7.9.0",
 		"@php-wasm/node": "^3.0.18",
 		"@php-wasm/scopes": "^3.0.18",
 		"@php-wasm/universal": "^3.0.18",

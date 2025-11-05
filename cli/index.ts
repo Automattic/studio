@@ -1,6 +1,7 @@
 import 'cli/polyfills/browser-globals.js';
 import path from 'node:path';
 import { __ } from '@wordpress/i18n';
+import { registerCommand as registerAuthLoginCommand } from 'cli/commands/auth/login';
 import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import yargs from 'yargs';
@@ -44,6 +45,10 @@ async function main() {
 					'weekly'
 				);
 			}
+		} )
+		.command( 'auth', __( 'Manage authentication' ), ( authYargs ) => {
+			registerAuthLoginCommand( authYargs );
+			authYargs.demandCommand( 1, __( 'You must provide a valid auth command' ) );
 		} )
 		.command( 'preview', __( 'Manage preview sites' ), ( previewYargs ) => {
 			registerCreateCommand( previewYargs );

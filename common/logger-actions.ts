@@ -1,6 +1,11 @@
 // Store the actions in a separate file to avoid Webpack issues when importing them in the Studio
 // source code
 
+export enum AuthCommandLoggerAction {
+	LOGIN = 'login',
+	LOGOUT = 'logout',
+}
+
 export enum PreviewCommandLoggerAction {
 	VALIDATE = 'validate',
 	ARCHIVE = 'archive',

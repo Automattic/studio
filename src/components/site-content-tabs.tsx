@@ -17,7 +17,7 @@ import { cx } from 'src/lib/cx';
 import { ContentTabSync } from 'src/modules/sync';
 
 export function SiteContentTabs() {
-	const { selectedSite, data: localSites, siteCreationMessages } = useSiteDetails();
+	const { selectedSite, data: localSites, siteCreationMessages, loadingSites } = useSiteDetails();
 	const { importState } = useImportExport();
 	const { tabs, selectedTab, setSelectedTab } = useContentTabs();
 	const { __ } = useI18n();
@@ -40,7 +40,7 @@ export function SiteContentTabs() {
 		setKeyCounter( ( k ) => k + 1 );
 	}, [ selectedTab ] );
 
-	if ( ! localSites.length ) {
+	if ( ! loadingSites && ! localSites.length ) {
 		return <EmptyStudio />;
 	}
 

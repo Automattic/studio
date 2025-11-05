@@ -122,8 +122,8 @@ const api: IpcApi = {
 	saveUserEditor: ( editor ) => ipcRendererInvoke( 'saveUserEditor', editor ),
 	handleNewSite: ( newSite ) => ipcRendererInvoke( 'handleNewSite', newSite ),
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
-	listWpContentFolders: ( siteId, subdir ) =>
-		ipcRenderer.invoke( 'listWpContentFolders', siteId, subdir ),
+	listLocalFileTree: ( siteId, path, maxDepth ) =>
+		ipcRenderer.invoke( 'listLocalFileTree', siteId, path, maxDepth ),
 	getProviderConstants: () => ipcRendererInvoke( 'getProviderConstants' ),
 	validateBlueprint: ( blueprintJson ) => ipcRendererInvoke( 'validateBlueprint', blueprintJson ),
 	showSiteContextMenu: ( context ) => ipcRendererSend( 'showSiteContextMenu', context ),

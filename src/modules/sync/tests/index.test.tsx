@@ -131,6 +131,32 @@ describe( 'ContentTabSync', () => {
 			updateConnectedWpcomSites: jest.fn(),
 			getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
 			getDirectorySize: jest.fn().mockResolvedValue( 0 ),
+			listLocalFileTree: jest.fn().mockResolvedValue( [
+				{
+					name: 'plugins',
+					isDirectory: true,
+					path: 'wp-content/plugins/',
+					children: [
+						{
+							name: 'test-plugin',
+							isDirectory: true,
+							path: 'wp-content/plugins/test-plugin/',
+						},
+					],
+				},
+				{
+					name: 'themes',
+					isDirectory: true,
+					path: 'wp-content/themes/',
+					children: [
+						{
+							name: 'test-theme',
+							isDirectory: true,
+							path: 'wp-content/themes/test-theme/',
+						},
+					],
+				},
+			] ),
 		} );
 		( useSelectedItemsPushSize as jest.Mock ).mockReturnValue( {
 			isPushSelectionOverLimit: false,

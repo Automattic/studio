@@ -30,11 +30,7 @@ export type SyncPushState = {
 
 type PushSiteOptions = {
 	optionsToSync?: SyncOption[];
-	specificSelections?: {
-		plugins?: string[];
-		themes?: string[];
-		uploads?: string[];
-	};
+	specificSelectionPaths?: string[];
 };
 
 export type PushStates = Record< string, SyncPushState >;
@@ -260,7 +256,7 @@ export function useSyncPush( {
 			try {
 				const result = await getIpcApi().exportSiteForPush( selectedSite.id, operationId, {
 					optionsToSync: options?.optionsToSync,
-					specificSelections: options?.specificSelections,
+					specificSelectionPaths: options?.specificSelectionPaths,
 				} );
 				( { archivePath, archiveSizeInBytes } = result );
 			} catch ( error ) {

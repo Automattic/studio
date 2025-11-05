@@ -266,8 +266,8 @@ describe( 'ContentTabSync', () => {
 	it( 'displays launch and import actions to authenticated user', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const launchButton = screen.getByRole( 'button', { name: /Launch your site/i } );
-		const importButton = screen.getByRole( 'button', { name: /Import your remote site/i } );
+		const launchButton = screen.getByRole( 'button', { name: /Publish site/i } );
+		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
 
 		expect( launchButton ).toBeInTheDocument();
 		expect( importButton ).toBeInTheDocument();
@@ -276,7 +276,7 @@ describe( 'ContentTabSync', () => {
 	it( 'opens the site selector modal when clicking import button', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const importButton = screen.getByRole( 'button', { name: /Import your remote site/i } );
+		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
 		fireEvent.click( importButton );
 
 		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( true );
@@ -358,7 +358,7 @@ describe( 'ContentTabSync', () => {
 	it( 'opens the modal and displays the create new site button', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const importButton = screen.getByRole( 'button', { name: /Import your remote site/i } );
+		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
 		expect( importButton ).toBeInTheDocument();
 		fireEvent.click( importButton );
 		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( true );
@@ -373,8 +373,8 @@ describe( 'ContentTabSync', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const launchButton = screen.getByRole( 'button', { name: /Launch your site/i } );
-		const importButton = screen.getByRole( 'button', { name: /Import your remote site/i } );
+		const launchButton = screen.getByRole( 'button', { name: /Publish site/i } );
+		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
 
 		expect( launchButton ).toBeInTheDocument();
 		expect( importButton ).toBeInTheDocument();

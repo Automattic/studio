@@ -58,7 +58,10 @@ describe( 'TopBar', () => {
 			name: 'Offline indicator',
 		} );
 		expect( offlineIndicator ).toHaveAttribute( 'aria-description' );
-		expect( offlineIndicator.getAttribute( 'aria-description' ) ).toContain( 'offline' );
+		expect( offlineIndicator ).toHaveAttribute(
+			'aria-description',
+			expect.stringContaining( 'offline' )
+		);
 	} );
 
 	it( 'opens the support URL', async () => {
@@ -119,7 +122,7 @@ describe( 'TopBar', () => {
 			const loginButton = screen.getByRole( 'button', {
 				name: 'Log in to Studio with WordPress.com',
 			} );
-			expect( loginButton ).not.toBeDisabled();
+			expect( loginButton ).toBeEnabled();
 		} );
 
 		it( 'shows offline tooltip when offline and unauthenticated', async () => {

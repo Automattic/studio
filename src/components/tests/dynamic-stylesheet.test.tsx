@@ -43,10 +43,10 @@ describe( 'DynamicStylesheet', () => {
 		);
 		render( <DynamicStylesheet id="second-style" href="/second.css" /> );
 
-		// Get initial order
+		// Get initial order (new elements are inserted before existing ones)
 		const allLinks = document.head.querySelectorAll( 'link[id]' );
 		const initialOrder = Array.from( allLinks ).map( ( link ) => link.id );
-		expect( initialOrder ).toEqual( [ 'first-style', 'second-style' ] );
+		expect( initialOrder ).toEqual( [ 'second-style', 'first-style' ] );
 
 		// Update href of the first element
 		rerender1( <DynamicStylesheet id="first-style" href="/first-updated.css" /> );
@@ -54,7 +54,7 @@ describe( 'DynamicStylesheet', () => {
 		// Order should be preserved
 		const allLinksAfterUpdate = document.head.querySelectorAll( 'link[id]' );
 		const orderAfterUpdate = Array.from( allLinksAfterUpdate ).map( ( link ) => link.id );
-		expect( orderAfterUpdate ).toEqual( [ 'first-style', 'second-style' ] );
+		expect( orderAfterUpdate ).toEqual( [ 'second-style', 'first-style' ] );
 
 		// Verify the href was actually updated
 		const firstElement = document.getElementById( 'first-style' ) as HTMLLinkElement;
@@ -109,7 +109,7 @@ describe( 'DynamicStylesheet', () => {
 		const { container } = render( <DynamicStylesheet id="test-style" href="/test.css" /> );
 
 		// Component should render nothing in the React tree
-		expect( container.firstChild ).toBeNull();
+		expect( container ).toBeEmptyDOMElement();
 	} );
 
 	it( 'should handle href with query parameters and cache busting', () => {

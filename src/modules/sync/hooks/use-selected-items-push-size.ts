@@ -45,9 +45,13 @@ export function useSelectedItemsPushSize(
 			} else if ( wpContentNode?.children ) {
 				for ( const child of wpContentNode.children ) {
 					if ( child.checked ) {
-						sizePromises.push(
-							getIpcApi().getDirectorySize( siteId, [ 'wp-content', child.name ] )
-						);
+						if ( child.type === 'file' ) {
+							sizePromises.push( getIpcApi().getFileSize( siteId, [ 'wp-content', child.name ] ) );
+						} else {
+							sizePromises.push(
+								getIpcApi().getDirectorySize( siteId, [ 'wp-content', child.name ] )
+							);
+						}
 					} else if ( child.indeterminate && child.children ) {
 						for ( const subChild of child.children ) {
 							if ( subChild.checked || subChild.indeterminate ) {

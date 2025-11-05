@@ -1,6 +1,4 @@
-/* Import WordPress component styles - these are handled by Vite */
-@import '@wordpress/components/build-style/style.css';
-
+/* WordPress component styles are loaded dynamically via WordPressStyles component */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

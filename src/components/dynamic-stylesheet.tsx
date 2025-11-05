@@ -17,7 +17,14 @@ export const DynamicStylesheet = ( { id, href }: DynamicStylesheetProps ) => {
 			linkElement.id = id;
 			linkElement.rel = 'stylesheet';
 			linkElement.type = 'text/css';
-			document.head.appendChild( linkElement );
+			const firstStylesheet =
+				document.head.querySelector( 'link[rel="stylesheet"]' ) ||
+				document.head.querySelector( 'style' );
+			if ( firstStylesheet ) {
+				document.head.insertBefore( linkElement, firstStylesheet );
+			} else {
+				document.head.appendChild( linkElement );
+			}
 			wasCreatedByUsRef = true;
 		}
 		linkElementRef.current = linkElement;

@@ -29,13 +29,13 @@ const selectedSite: SiteDetails = {
 } );
 
 describe( 'createCodeComponent', () => {
-	function ContextWrapper( props: CodeBlockProps ) {
-		const CodeBlock = createCodeComponent( {
-			siteId: '1',
-			messageId: 1,
-			instanceId: '1',
-		} );
+	const CodeBlock = createCodeComponent( {
+		siteId: '1',
+		messageId: 1,
+		instanceId: '1',
+	} );
 
+	function ContextWrapper( props: CodeBlockProps ) {
 		return (
 			<Provider store={ store }>
 				<CodeBlock { ...props } />

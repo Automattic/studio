@@ -202,7 +202,9 @@ describe( 'ContentTabImportExport Export', () => {
 		await waitFor( () => {
 			expect( screen.getByText( 'Import / Export is not available for this site' ) ).toBeVisible();
 		} );
-		expect( screen.queryByRole( 'button', { name: /Export entire site/i } ) ).toBeNull();
-		expect( screen.queryByRole( 'button', { name: /Export database/i } ) ).toBeNull();
+		expect(
+			screen.queryByRole( 'button', { name: /Export entire site/i } )
+		).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: /Export database/i } ) ).not.toBeInTheDocument();
 	} );
 } );

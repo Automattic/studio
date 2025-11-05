@@ -317,20 +317,20 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 
 		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
 			1,
-			normalize( '/path/to/site/wp-content/uploads' ),
-			normalize( 'wp-content/uploads' ),
-			expect.any( Function )
-		);
-		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
-			2,
 			normalize( '/path/to/site/wp-content/plugins' ),
 			normalize( 'wp-content/plugins' ),
 			expect.any( Function )
 		);
 		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
-			3,
+			2,
 			normalize( '/path/to/site/wp-content/themes' ),
 			normalize( 'wp-content/themes' ),
+			expect.any( Function )
+		);
+		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
+			3,
+			normalize( '/path/to/site/wp-content/uploads' ),
+			normalize( 'wp-content/uploads' ),
 			expect.any( Function )
 		);
 		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(

@@ -84,6 +84,7 @@ export const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordP
 export const IPC_VOID_HANDLERS = < const >[
 	'addSyncOperation',
 	'clearSyncOperation',
+	'cancelSyncOperation',
 	'logRendererMessage',
 	'openCertificate',
 	'openFileInIDE',

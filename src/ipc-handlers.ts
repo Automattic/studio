@@ -519,10 +519,26 @@ export async function startServer(
 			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
 		}
 
+		const contexts: Record< string, Record< string, unknown > > = {
+			server: {
+				running: server.details.running,
+				phpVersion: server.details.phpVersion,
+				port: server.details.port,
+				hasCustomDomain: !! server.details.customDomain,
+				httpsEnabled: !! server.details.enableHttps,
+			},
+		};
+
+		// Include sanitized CLI args if available from error
+		if ( error instanceof Error && 'cliArgs' in error ) {
+			contexts.startup = ( error as Error & { cliArgs: Record< string, unknown > } ).cliArgs;
+		}
+
 		Sentry.captureException( error, {
 			tags: {
 				provider: getWordPressProvider().PROVIDER_TYPE,
 			},
+			contexts,
 		} );
 		if (
 			error instanceof Error &&

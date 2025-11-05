@@ -107,11 +107,6 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				isFile: () => true,
 			},
 			{
-				path: normalize( '/path/to/site/wp-content' ),
-				name: 'index.php',
-				isFile: () => true,
-			},
-			{
 				path: normalize( '/path/to/site' ),
 				name: 'wp-load.php',
 				isFile: () => true,

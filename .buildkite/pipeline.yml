@@ -58,6 +58,11 @@ steps:
       - github_commit_status:
           context: E2E Tests
 
+  - block: "🚦 Build for Mac?"
+    prompt: "Do you want to build Mac dev binaries for this PR?"
+    key: block-dev-mac
+    if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk'
+
   - group: 📦 Build for Mac
     key: dev-mac
     steps:
@@ -107,7 +112,14 @@ steps:
         notify:
           - github_commit_status:
               context: All Mac Dev Builds
+    depends_on: block-dev-mac
+    allow_dependency_failure: true
     if: build.tag !~ /^v[0-9]+/
+
+  - block: "🚦 Build for Windows?"
+    prompt: "Do you want to build Windows dev binaries for this PR?"
+    key: block-dev-windows
+    if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk'
 
   - group: 📦 Build for Windows
     key: dev-windows
@@ -128,6 +140,8 @@ steps:
         notify:
           - github_commit_status:
               context: All Windows Dev Builds
+    depends_on: block-dev-windows
+    allow_dependency_failure: true
     if: build.tag !~ /^v[0-9]+/
 
   - label: ":rocket: Distribute Dev Builds"

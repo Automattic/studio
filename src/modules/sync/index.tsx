@@ -214,6 +214,9 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		}
 	};
 
+	// Using a local variable to avoid non-null assertion operator in pushSite and pullSite
+	const selectedRemoteSite = modalState.selectedRemoteSite;
+
 	return (
 		<div className="flex flex-col h-full overflow-y-auto">
 			{ connectedSites.length > 0 ? (
@@ -273,14 +276,14 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				/>
 			) }
 
-			{ modalState.mode && modalState.mode !== 'connect' && modalState.selectedRemoteSite && (
+			{ modalState.mode && modalState.mode !== 'connect' && selectedRemoteSite && (
 				<SyncDialog
 					type={ modalState.mode }
 					localSite={ selectedSite }
-					remoteSite={ modalState.selectedRemoteSite }
+					remoteSite={ selectedRemoteSite }
 					onPush={ ( tree ) => {
 						const pushOptions = convertTreeToPushOptions( tree );
-						void pushSite( modalState.selectedRemoteSite!, selectedSite, pushOptions );
+						void pushSite( selectedRemoteSite, selectedSite, pushOptions );
 						setModalState( {
 							mode: null,
 							selectedRemoteSite: null,
@@ -288,7 +291,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					} }
 					onPull={ ( tree ) => {
 						const pullOptions = convertTreeToPullOptions( tree );
-						void pullSite( modalState.selectedRemoteSite!, selectedSite, pullOptions );
+						void pullSite( selectedRemoteSite, selectedSite, pullOptions );
 						setModalState( {
 							mode: null,
 							selectedRemoteSite: null,

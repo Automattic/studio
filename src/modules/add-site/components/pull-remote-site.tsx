@@ -17,6 +17,7 @@ import { ListSites } from 'src/modules/sync/components/sync-sites-modal-selector
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
 import { useSyncSitesData } from 'src/stores/sync';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import { useSyncSites } from 'src/hooks/sync-sites';
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();
@@ -120,7 +121,7 @@ export function PullRemoteSite( {
 	const { __ } = useI18n();
 	const { isAuthenticated } = useAuth();
 	const { location, goTo } = useNavigator();
-	const { syncSites, refetchSites } = useSyncSitesData();
+	const { syncSites, refetchSites } = useSyncSites();
 
 	useEffect( () => {
 		if ( location.path === '/pullRemote' && isAuthenticated ) {

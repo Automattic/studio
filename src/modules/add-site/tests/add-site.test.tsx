@@ -269,7 +269,7 @@ describe( 'AddSite', () => {
 		await waitFor( () => {
 			const dialog = screen.getByRole( 'dialog' );
 			const addSiteButton = within( dialog ).getByRole( 'button', { name: 'Add site' } );
-			expect( addSiteButton ).not.toBeDisabled();
+			expect( addSiteButton ).toBeEnabled();
 			expect( screen.getByRole( 'alert' ) ).toHaveTextContent(
 				'The existing WordPress site at this path will be added.'
 			);
@@ -492,7 +492,7 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
 		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
-		expect( wpVersionSelect ).not.toBeDisabled();
+		expect( wpVersionSelect ).toBeEnabled();
 	} );
 
 	it( 'should show tooltip with offline message when hovering over disabled WordPress version field', async () => {

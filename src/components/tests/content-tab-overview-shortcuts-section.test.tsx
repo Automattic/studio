@@ -170,7 +170,7 @@ describe( 'ShortcutsSection', () => {
 		await findByLabelText( 'Terminal' );
 		await findByLabelText( 'Cursor' );
 
-		expect( queryByLabelText( 'VS Code' ) ).toBeNull();
-		expect( queryByLabelText( 'PhpStorm' ) ).toBeNull();
+		expect( queryByLabelText( 'VS Code' ) ).not.toBeInTheDocument();
+		expect( queryByLabelText( 'PhpStorm' ) ).not.toBeInTheDocument();
 	} );
 } );

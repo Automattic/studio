@@ -92,7 +92,7 @@ describe( 'PreviewSiteRow', () => {
 		const siteName = screen.getByText( mockSnapshot.name );
 		const siteUrl = screen.getByText( mockSnapshot.url );
 
-		expect( siteName.className ).toContain( 'line-through' );
-		expect( siteUrl.className ).toContain( 'line-through' );
+		expect( siteName ).toHaveClass( 'line-through' );
+		expect( siteUrl ).toHaveClass( 'line-through' );
 	} );
 } );

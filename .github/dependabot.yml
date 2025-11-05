@@ -20,7 +20,8 @@ updates:
       - dependency-name: "@types/*"
       - dependency-name: "eslint"
       - dependency-name: "eslint-*"
-      - dependency-name: "@typescript-eslint/*"
+      - dependency-name: "@eslint/*"
+      - dependency-name: "typescript-eslint"
       - dependency-name: "typescript"
       - dependency-name: "ts-*"
       - dependency-name: "jest"
@@ -40,6 +41,8 @@ updates:
         patterns:
           - "@wp-playground/*"
           - "@php-wasm/*"
+    ignore:
+      - dependency-name: "eslint-plugin-studio"
 
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"

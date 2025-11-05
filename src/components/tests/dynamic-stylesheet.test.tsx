@@ -109,7 +109,7 @@ describe( 'DynamicStylesheet', () => {
 		const { container } = render( <DynamicStylesheet id="test-style" href="/test.css" /> );
 
 		// Component should render nothing in the React tree
-		expect( container.firstChild ).toBeNull();
+		expect( container ).toBeEmptyDOMElement();
 	} );
 
 	it( 'should handle href with query parameters and cache busting', () => {

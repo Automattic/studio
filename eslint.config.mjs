@@ -6,6 +6,7 @@ import globals from 'globals';
 import tsEslint from 'typescript-eslint';
 import js from '@eslint/js';
 import reactHooks from 'eslint-plugin-react-hooks';
+import eslintJestDom from 'eslint-plugin-jest-dom';
 
 export default defineConfig(
 	globalIgnores( [ '**/node_modules/', '**/dist/', '**/out/', '**/wp-files/', '**/vendor/' ] ),
@@ -16,6 +17,7 @@ export default defineConfig(
 	importPlugin.flatConfigs.typescript,
 	eslintPluginPrettierRecommended,
 	reactHooks.configs.flat.recommended,
+	eslintJestDom.configs[ 'flat/recommended' ],
 	{
 		plugins: {
 			studio: studio,

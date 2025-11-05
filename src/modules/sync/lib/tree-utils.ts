@@ -27,6 +27,10 @@ export const shouldLimitDepth = ( relativePath: string ): boolean => {
 		return true;
 	}
 
+	if ( normalizedPath.match( /^mu-plugins\/[^/]+\/?$/ ) ) {
+		return true;
+	}
+
 	return false;
 };
 

@@ -153,54 +153,44 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	}
 
 	private addWpContent(): void {
+		if ( ! this.options.includes.wpContent ) {
+			return;
+		}
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_START );
 
-		if ( this.options.specificSelectionPaths ) {
-			for ( const itemPath of this.options.specificSelectionPaths ) {
-				const fullPath = path.join( this.options.site.path, 'wp-content', itemPath );
-				const archivePath = path.join( 'wp-content', itemPath );
+		let pathsToArchive = this.options.specificSelectionPaths;
+		if ( ! pathsToArchive ) {
+			// Read the wp-content directory and get allthe paths to archive
+			pathsToArchive = fs.readdirSync( path.join( this.options.site.path, 'wp-content' ) );
+		}
 
-				if ( ! fs.existsSync( fullPath ) ) {
-					continue;
-				}
+		for ( const itemPath of pathsToArchive ) {
+			const fullPath = path.join( this.options.site.path, 'wp-content', itemPath );
+			const archivePath = path.join( 'wp-content', itemPath );
 
-				const stat = fs.statSync( fullPath );
-				if ( stat.isDirectory() ) {
-					this.archiveBuilder.directory( fullPath, archivePath );
-				} else {
-					this.archiveBuilder.file( fullPath, { name: archivePath } );
-				}
+			if ( ! fs.existsSync( fullPath ) ) {
+				continue;
 			}
-		} else {
-			const folders = [
-				{ name: 'plugins', include: this.options.includes.plugins },
-				{ name: 'themes', include: this.options.includes.themes },
-				{ name: 'uploads', include: this.options.includes.uploads },
-				{ name: 'mu-plugins', include: this.options.includes.muPlugins },
-				{ name: 'fonts', include: this.options.includes.fonts },
-			];
 
-			for ( const { name, include } of folders ) {
-				if ( include ) {
-					const absolutePath = path.join( this.options.site.path, 'wp-content', name );
-					const archivePath = path.join( 'wp-content', name );
-
-					this.archiveBuilder.directory( absolutePath, archivePath, ( entry ) => {
-						const fullArchivePath = path.join( archivePath, entry.name );
-						const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
-							fullArchivePath.startsWith( path.normalize( pathToExclude ) )
-						);
-						if (
-							isExcluded ||
-							entry.name.includes( '.git' ) ||
-							entry.name.includes( 'node_modules' ) ||
-							entry.name.includes( 'cache' )
-						) {
-							return false;
-						}
-						return entry;
-					} );
-				}
+			const stat = fs.statSync( fullPath );
+			if ( stat.isDirectory() ) {
+				this.archiveBuilder.directory( fullPath, archivePath, ( entry ) => {
+					const fullArchivePath = path.join( archivePath, entry.name );
+					const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
+						fullArchivePath.startsWith( path.normalize( pathToExclude ) )
+					);
+					if (
+						isExcluded ||
+						entry.name.includes( '.git' ) ||
+						entry.name.includes( 'node_modules' ) ||
+						entry.name.includes( 'cache' )
+					) {
+						return false;
+					}
+					return entry;
+				} );
+			} else {
+				this.archiveBuilder.file( fullPath, { name: archivePath } );
 			}
 		}
 

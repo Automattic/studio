@@ -10,13 +10,7 @@ export interface ExportOptions {
 	specificSelectionPaths?: string[];
 }
 
-export type ExportOptionsIncludes =
-	| 'uploads'
-	| 'plugins'
-	| 'themes'
-	| 'muPlugins'
-	| 'fonts'
-	| 'database';
+export type ExportOptionsIncludes = 'wpContent' | 'database';
 
 export interface BackupContents {
 	backupFile: string;

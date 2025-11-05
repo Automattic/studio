@@ -38,7 +38,7 @@ describe( 'SiteManagementActions', () => {
 		const { container } = renderWithProvider(
 			<SiteManagementActions { ...defaultProps } selectedSite={ undefined } />
 		);
-		expect( container.firstChild ).toBeNull();
+		expect( container ).toBeEmptyDOMElement();
 	} );
 	it( 'should render correctly with a running site', () => {
 		renderWithProvider(
@@ -52,7 +52,7 @@ describe( 'SiteManagementActions', () => {
 				}
 			/>
 		);
-		expect( screen.getByRole( 'button', { name: 'Running' } ) ).not.toBeNull();
+		expect( screen.getByRole( 'button', { name: 'Running' } ) ).toBeInTheDocument();
 	} );
 	it( 'should change text to Stop when hovered over a running site', async () => {
 		const user = userEvent.setup();

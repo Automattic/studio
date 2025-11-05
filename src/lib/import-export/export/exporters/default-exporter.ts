@@ -160,7 +160,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 		let pathsToArchive = this.options.specificSelectionPaths;
 		if ( ! pathsToArchive ) {
-			// Read the wp-content directory and get allthe paths to archive
+			// Read the wp-content directory and get all the paths to be archived
 			pathsToArchive = fs.readdirSync( path.join( this.options.site.path, 'wp-content' ) );
 		}
 

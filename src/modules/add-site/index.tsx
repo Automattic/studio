@@ -251,11 +251,16 @@ function NavigationContent( props: NavigationContentProps ) {
 			<Navigator.Screen className="flex-1" path="/pullRemote">
 				<PullRemoteSite
 					selectedRemoteSite={ selectedRemoteSite }
-					setSelectedRemoteSite={ setSelectedRemoteSite }
+					setSelectedRemoteSite={(remoteSite?: SyncSite) => {
+						setSelectedRemoteSite(remoteSite);
+						if (remoteSite?.name) {
+							createSiteProps.handleSiteNameChange(remoteSite.name);
+						}
+					} }
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/pullRemote/create">
-				<CreateSite { ...createSiteProps } siteName={ selectedRemoteSite?.name || null } />
+				<CreateSite { ...createSiteProps } />
 			</Navigator.Screen>
 			<Stepper
 				currentPath={ location.path }

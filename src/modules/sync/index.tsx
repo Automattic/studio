@@ -206,19 +206,17 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			return;
 		}
 
-		// Check if site is already connected
+		// Check if site is already connected, otherwise connect it
 		const isAlreadyConnected = connectedSites.some( ( site ) => site.id === siteId );
-
-		let siteToUse = selectedSiteFromList;
 		if ( ! isAlreadyConnected ) {
-			siteToUse = await handleConnect( selectedSiteFromList );
-			if ( ! siteToUse ) {
+			const connectedSite = await handleConnect( selectedSiteFromList );
+			if ( ! connectedSite ) {
 				return;
 			}
-		} else {
-			// Use the already connected site (it has more metadata)
-			siteToUse = connectedSites.find( ( site ) => site.id === siteId ) || selectedSiteFromList;
 		}
+
+		// Use the connected site from store (has full metadata) or fallback to selected site
+		const siteToUse = connectedSites.find( ( site ) => site.id === siteId ) || selectedSiteFromList;
 
 		// Close the modal
 		dispatch( connectedSitesActions.closeModal() );

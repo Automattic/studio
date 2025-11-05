@@ -29,48 +29,33 @@ import {
 } from 'src/stores/sync';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
-interface SiteSyncDescriptionProps extends PropsWithChildren {
-	title?: string;
-	description?: string;
-	bulletPoints?: string[];
-}
-
-function SiteSyncDescription( {
-	children,
-	title,
-	description,
-	bulletPoints,
-}: SiteSyncDescriptionProps ) {
+function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();
-	const defaultTitle = __( 'Launch or import your site' );
-	const defaultDescription = __(
-		'Create a new WordPress.com site or import an existing one to sync with Studio.'
-	);
-	const defaultBulletPoints = [
-		__( 'Launch a new WordPress.com site in minutes.' ),
-		__( 'Import a site you already run elsewhere.' ),
-		__( "Push and pull your content whenever you're ready." ),
-	];
-	const items = bulletPoints ?? defaultBulletPoints;
 	return (
 		<div className="p-8 flex justify-between max-w-3xl gap-4">
 			<div className="flex flex-col">
 				<div className="flex items-center mb-1">
-					<div className="a8c-subtitle text-pretty">{ title ?? defaultTitle }</div>
+					<div className="a8c-subtitle text-pretty">
+						{ __( 'Sync with WordPress.com or Pressable' ) }
+					</div>
 				</div>
 				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
-					{ description ?? defaultDescription }
+					{ __(
+						'Launch your existing WordPress.com or Jetpack-activated Pressable sites, or import an exisiting one. Then, share your work with the world.'
+					) }
 				</div>
-				{ items.length > 0 && (
-					<div className="mt-6">
-						{ items.map( ( text ) => (
-							<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
-								<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />
-								{ text }
-							</div>
-						) ) }
-					</div>
-				) }
+				<div className="mt-6">
+					{ [
+						__( 'Push and pull changes from your live site.' ),
+						__( 'Supports staging and production sites.' ),
+						__( 'Sync database and file changes.' ),
+					].map( ( text ) => (
+						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
+							<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />
+							{ text }
+						</div>
+					) ) }
+				</div>
 				{ children }
 			</div>
 			<div className="flex flex-col shrink-0 items-end">
@@ -87,17 +72,7 @@ function NoAuthSyncTab() {
 	const offlineMessage = __( "You're currently offline." );
 
 	return (
-		<SiteSyncDescription
-			title={ __( 'Sync with WordPress.com or Pressable' ) }
-			description={ __(
-				'Connect your existing WordPress.com or Pressable sites with Jetpack activated, or create a new one. Then share your work with the world.'
-			) }
-			bulletPoints={ [
-				__( 'Push and pull changes from your live site.' ),
-				__( 'Connect multiple environments.' ),
-				__( 'Sync database and file changes.' ),
-			] }
-		>
+		<SiteSyncDescription>
 			<div className="mt-8">
 				<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
 					<Button
@@ -156,7 +131,6 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const { syncSites, isFetching, refetchSites } = useSyncSitesData();
 	const { connectSite, disconnectSite } = useConnectedSitesOperations();
 	const { pushSite, pullSite } = useSyncSites();
-	const isOffline = useOffline();
 
 	// Simplified state management - combine related modal state into single object
 	type ModalState = {
@@ -280,21 +254,14 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			) : (
 				<SiteSyncDescription>
 					<div className="mt-8 flex flex-wrap gap-4">
-						<Tooltip
-							disabled={ ! isOffline }
-							icon={ offlineIcon }
-							text={ __( 'Launching your site requires an internet connection.' ) }
-							placement="top-start"
+						<ConnectButton
+							variant="primary"
+							connectSite={ handleLaunchSite }
+							disableConnectButtonStyle={ true }
+							tooltipText={ __( 'Publishing your site requires an internet connection.' ) }
 						>
-							<Button
-								variant="primary"
-								onClick={ handleLaunchSite }
-								disabled={ isOffline }
-								aria-disabled={ isOffline }
-							>
-								{ __( 'Publish site' ) }
-							</Button>
-						</Tooltip>
+							{ __( 'Publish site' ) }
+						</ConnectButton>
 						<ConnectButton
 							variant="secondary"
 							connectSite={ handleImportSite }

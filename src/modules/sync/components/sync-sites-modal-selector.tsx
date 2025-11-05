@@ -58,7 +58,7 @@ export function SyncSitesModalSelector( {
 	const getModalTitle = () => {
 		switch ( mode ) {
 			case 'push':
-				return __( 'Select a site to launch' );
+				return __( 'Publish your site' );
 			case 'pull':
 				return __( 'Select a site to import' );
 			case 'connect':
@@ -363,7 +363,7 @@ function Footer( {
 	const getButtonText = () => {
 		switch ( mode ) {
 			case 'push':
-				return __( 'Launch' );
+				return __( 'Publish' );
 			case 'pull':
 				return __( 'Import' );
 			case 'connect':

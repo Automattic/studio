@@ -6,7 +6,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, memo, useCallback, useMemo, forwardRef } from 'react';
 import ClearHistoryReminder from 'src/components/ai-clear-history-reminder';
 import { AIInput } from 'src/components/ai-input';
 import { ArrowIcon } from 'src/components/arrow-icon';
@@ -102,6 +102,75 @@ const OfflineModeView = () => {
 	);
 };
 
+const LastMessage = forwardRef<
+	HTMLDivElement,
+	React.PropsWithChildren< {
+		instanceId: string;
+		message: MessageType;
+		showThinking: boolean;
+		siteId: string;
+	} >
+>( ( { children, instanceId, message, showThinking, siteId }, ref ) => {
+	const [ isInitialRender, setIsInitialRender ] = useState( true );
+
+	useEffect( () => {
+		if ( isInitialRender ) {
+			setIsInitialRender( false );
+		}
+	}, [ isInitialRender ] );
+
+	const thinkingAnimation = {
+		initial: { opacity: 0, y: 20 },
+		animate: { opacity: 1, y: 0 },
+		exit: { opacity: 0, y: -20 },
+	};
+	const messageAnimation = {
+		initial: { opacity: 0, y: 20 },
+		animate: { opacity: 1, y: 0 },
+	};
+
+	return (
+		<ChatMessage
+			ref={ ref }
+			id={ `message-chat-${ message.id }` }
+			message={ message }
+			siteId={ siteId }
+			instanceId={ instanceId }
+		>
+			<AnimatePresence mode="wait">
+				{ showThinking ? (
+					<motion.div
+						key="thinking"
+						initial={ isInitialRender ? 'animate' : 'initial' }
+						animate="animate"
+						exit="exit"
+						variants={ thinkingAnimation }
+						transition={ { duration: 0.3 } }
+					>
+						<MessageThinking />
+					</motion.div>
+				) : (
+					<motion.div
+						key="content"
+						initial={ isInitialRender ? 'animate' : 'initial' }
+						variants={ messageAnimation }
+						transition={ { duration: 0.3 } }
+						animate="animate"
+					>
+						<MarkDownWithCode
+							message={ message }
+							siteId={ siteId }
+							instanceId={ instanceId }
+							content={ message.content }
+						/>
+						{ children }
+					</motion.div>
+				) }
+			</AnimatePresence>
+		</ChatMessage>
+	);
+} );
+
 interface AuthenticatedViewProps {
 	messages: MessageType[];
 	instanceId: string;
@@ -125,7 +194,7 @@ const AuthenticatedView = memo(
 		const lastMessage = useMemo(
 			() =>
 				showThinking
-					? ( { role: 'assistant', id: -1, createdAt: Date.now() } as MessageType )
+					? ( { role: 'assistant', id: -1, createdAt: 0 } as MessageType )
 					: messages[ messages.length - 1 ],
 			[ messages, showThinking ]
 		);
@@ -200,62 +269,6 @@ const AuthenticatedView = memo(
 			[ submitPrompt, siteId, instanceId ]
 		);
 
-		const RenderLastMessage = useCallback(
-			( { message, children }: { message: MessageType; children: React.ReactNode } ) => {
-				const thinkingAnimation = {
-					initial: { opacity: 0, y: 20 },
-					animate: { opacity: 1, y: 0 },
-					exit: { opacity: 0, y: -20 },
-				};
-				const messageAnimation = {
-					initial: { opacity: 0, y: 20 },
-					animate: { opacity: 1, y: 0 },
-				};
-
-				return (
-					<ChatMessage
-						ref={ lastMessageRef }
-						id={ `message-chat-${ message.id }` }
-						message={ message }
-						siteId={ siteId }
-						instanceId={ instanceId }
-					>
-						<AnimatePresence mode="wait">
-							{ showThinking ? (
-								<motion.div
-									key="thinking"
-									initial={ isInitialRenderRef.current ? 'animate' : 'initial' }
-									animate="animate"
-									exit="exit"
-									variants={ thinkingAnimation }
-									transition={ { duration: 0.3 } }
-								>
-									<MessageThinking />
-								</motion.div>
-							) : (
-								<motion.div
-									key="content"
-									variants={ messageAnimation }
-									transition={ { duration: 0.3 } }
-									initial={ isInitialRenderRef.current ? 'animate' : 'initial' }
-									animate="animate"
-								>
-									<MarkDownWithCode
-										message={ message }
-										siteId={ siteId }
-										instanceId={ instanceId }
-										content={ message.content }
-									/>
-									{ children }
-								</motion.div>
-							) }
-						</AnimatePresence>
-					</ChatMessage>
-				);
-			},
-			[ showThinking, siteId, instanceId ]
-		);
-
 		if ( messages.length === 0 ) {
 			return null;
 		}
@@ -265,7 +278,13 @@ const AuthenticatedView = memo(
 					<RenderMessage key={ message.id } message={ message } />
 				) ) }
 				{ showLastMessage && (
-					<RenderLastMessage message={ lastMessage }>
+					<LastMessage
+						instanceId={ instanceId }
+						message={ lastMessage }
+						ref={ lastMessageRef }
+						showThinking={ showThinking }
+						siteId={ siteId }
+					>
 						<div className="flex justify-end">
 							{ !! lastMessage.messageApiId && (
 								<ChatRating
@@ -275,7 +294,7 @@ const AuthenticatedView = memo(
 								/>
 							) }
 						</div>
-					</RenderLastMessage>
+					</LastMessage>
 				) }
 			</>
 		);

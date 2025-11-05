@@ -778,9 +778,7 @@ export async function exportSiteForPush(
 		const stats = fs.statSync( archivePath );
 		return { archivePath, archiveSizeInBytes: stats.size };
 	} finally {
-		fs.copyFileSync( archivePath, '/Users/macbookpro/Downloads/site_1.tar.gz' );
-		shell.showItemInFolder( '/Users/macbookpro/Downloads/site_1.tar.gz' );
-		// SYNC_ABORT_CONTROLLERS.delete( operationId );
+		SYNC_ABORT_CONTROLLERS.delete( operationId );
 	}
 }
 

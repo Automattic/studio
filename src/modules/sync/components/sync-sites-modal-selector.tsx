@@ -239,6 +239,7 @@ function SiteItem( {
 				<div
 					className={ cx(
 						'a8c-body truncate flex items-center',
+						isSyncable && 'text-black',
 						! isSyncable && 'text-a8c-gray-30'
 					) }
 				>

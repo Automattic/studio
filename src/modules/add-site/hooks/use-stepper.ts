@@ -16,9 +16,11 @@ interface StepperStep {
 interface StepperConfig {
 	onBlueprintContinue?: () => void;
 	onBackupContinue?: () => void;
+	onPullRemoteContinue?: () => void;
 	onCreateSubmit?: ( event: FormEvent ) => void;
 	canSubmitBlueprint?: boolean;
 	canSubmitBackup?: boolean;
+	canSubmitPullRemote?: boolean;
 	canSubmitCreate?: boolean;
 }
 
@@ -177,6 +179,7 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 				config?.onBackupContinue?.();
 				break;
 			case '/pullRemote':
+				config?.onPullRemoteContinue?.();
 				break;
 			case '/create':
 			case '/blueprint/create':
@@ -197,7 +200,7 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			case '/backup':
 				return config?.canSubmitBackup ?? false;
 			case '/pullRemote':
-				return false;
+				return config?.canSubmitPullRemote ?? false;
 			case '/create':
 			case '/blueprint/create':
 			case '/backup/create':

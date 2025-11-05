@@ -117,3 +117,5 @@ artifacts
 # Editor config files
 .cursorrules
 .cursor/
+.claude/
+CLAUDE.md

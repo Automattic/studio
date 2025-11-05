@@ -1,33 +1,32 @@
 import { defineConfig, globalIgnores } from 'eslint/config';
-import importPlugin from 'eslint-plugin-import';
-import studio from 'eslint-plugin-studio';
-import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
+import pluginImport from 'eslint-plugin-import';
+import pluginStudio from 'eslint-plugin-studio';
+import pluginPrettier from 'eslint-plugin-prettier/recommended';
 import globals from 'globals';
 import tsEslint from 'typescript-eslint';
 import js from '@eslint/js';
-import reactHooks from 'eslint-plugin-react-hooks';
-import eslintJestDom from 'eslint-plugin-jest-dom';
+import pluginReactHooks from 'eslint-plugin-react-hooks';
+import pluginJestDom from 'eslint-plugin-jest-dom';
 
 export default defineConfig(
 	globalIgnores( [ '**/node_modules/', '**/dist/', '**/out/', '**/wp-files/', '**/vendor/' ] ),
 	js.configs.recommended,
 	tsEslint.configs.recommended,
-	importPlugin.flatConfigs.recommended,
-	importPlugin.flatConfigs.electron,
-	importPlugin.flatConfigs.typescript,
-	eslintPluginPrettierRecommended,
-	reactHooks.configs.flat.recommended,
-	eslintJestDom.configs[ 'flat/recommended' ],
+	pluginImport.flatConfigs.recommended,
+	pluginImport.flatConfigs.electron,
+	pluginImport.flatConfigs.typescript,
+	pluginPrettier,
+	pluginReactHooks.configs.flat.recommended,
+	pluginJestDom.configs[ 'flat/recommended' ],
 	{
 		plugins: {
-			studio: studio,
+			studio: pluginStudio,
 		},
 		languageOptions: {
 			globals: {
 				...globals.browser,
 				...globals.node,
 			},
-			ecmaVersion: 5,
 			sourceType: 'commonjs',
 			parserOptions: {
 				projectService: true,

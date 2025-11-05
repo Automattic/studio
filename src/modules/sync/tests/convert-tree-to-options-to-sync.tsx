@@ -1,349 +1,333 @@
-import { renderHook } from '@testing-library/react';
-import { updateNodeById } from 'src/components/tree-view';
-import { useDefaultSyncTree } from 'src/modules/sync/hooks/use-default-sync-tree';
+import { TreeNode } from 'src/components/tree-view';
+import { SYNC_OPTIONS } from 'src/constants';
 import { convertTreeToPushOptions } from 'src/modules/sync/lib/convert-tree-to-sync-options';
+
+// Helper to create a basic tree structure for testing with new file tree format
+const createBaseTree = (): TreeNode[] => {
+	return [
+		{
+			id: 'filesAndFolders',
+			name: 'filesAndFolders',
+			label: 'Files and folders',
+			checked: false,
+			indeterminate: false,
+			expanded: false,
+			hideExpandButton: true,
+			children: [
+				{
+					id: 'wp-content',
+					name: 'wp-content',
+					label: 'wp-content',
+					checked: false,
+					indeterminate: false,
+					type: 'folder',
+					children: [],
+				},
+			],
+		},
+		{
+			id: SYNC_OPTIONS.sqls,
+			name: SYNC_OPTIONS.sqls,
+			label: 'Database',
+			checked: false,
+		},
+	];
+};
 
 describe( 'convertTreeToPushOptions', () => {
 	it( 'returns ["all"] when all options are selected', () => {
-		const { result } = renderHook( () => useDefaultSyncTree() );
-		let tree = result.current;
-		tree = updateNodeById( tree, 'filesAndFolders', { checked: true } );
-		tree = updateNodeById( tree, 'sqls', { checked: true } );
+		const tree = createBaseTree();
+		tree[ 0 ].checked = true; // filesAndFolders
+		tree[ 1 ].checked = true; // sqls
 
 		const optionsToSync = convertTreeToPushOptions( tree );
-		expect( optionsToSync ).toEqual( { optionsToSync: [ 'all' ], specificSelections: undefined } );
+		expect( optionsToSync ).toEqual( { optionsToSync: [ 'all' ] } );
 	} );
 
 	it( 'returns ["sqls"] when only database is selected', () => {
-		const { result } = renderHook( () => useDefaultSyncTree() );
-		let tree = result.current;
-
-		tree = updateNodeById( tree, 'sqls', { checked: true } );
+		const tree = createBaseTree();
+		tree[ 1 ].checked = true; // sqls only
 
 		const optionsToSync = convertTreeToPushOptions( tree );
-		expect( optionsToSync ).toEqual( { optionsToSync: [ 'sqls' ], specificSelections: undefined } );
+		expect( optionsToSync ).toEqual( { optionsToSync: [ 'sqls' ] } );
 	} );
 
 	it( 'returns ["plugins"] when only plugins are selected', () => {
-		const { result } = renderHook( () => useDefaultSyncTree() );
-		let tree = result.current;
-
-		tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
-		tree = updateNodeById( tree, 'sqls', { checked: false } );
-		tree = updateNodeById( tree, 'plugins', { checked: true } );
+		const tree = createBaseTree();
+		const wpContentNode = tree[ 0 ].children![ 0 ];
+		wpContentNode.children = [
+			{
+				id: 'my-plugin',
+				name: 'my-plugin',
+				label: 'My Plugin',
+				checked: true,
+				type: 'folder',
+				path: 'wp-content/plugins/my-plugin',
+				pathId: 'plugins/my-plugin',
+			},
+		];
 
 		const optionsToSync = convertTreeToPushOptions( tree );
 		expect( optionsToSync ).toEqual( {
 			optionsToSync: [ 'plugins' ],
-			specificSelections: undefined,
+			specificSelectionPaths: [ 'plugins/my-plugin' ],
 		} );
 	} );
 
 	it( 'returns ["uploads"] when only uploads are selected', () => {
-		const { result } = renderHook( () => useDefaultSyncTree() );
-		let tree = result.current;
-
-		tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
-		tree = updateNodeById( tree, 'sqls', { checked: false } );
-		tree = updateNodeById( tree, 'uploads', { checked: true } );
+		const tree = createBaseTree();
+		const wpContentNode = tree[ 0 ].children![ 0 ];
+		wpContentNode.children = [
+			{
+				id: '2024-folder',
+				name: '2024',
+				label: '2024',
+				checked: true,
+				type: 'folder',
+				path: 'wp-content/uploads/2024',
+				pathId: 'uploads/2024',
+			},
+		];
 
 		const optionsToSync = convertTreeToPushOptions( tree );
 		expect( optionsToSync ).toEqual( {
 			optionsToSync: [ 'uploads' ],
-			specificSelections: undefined,
+			specificSelectionPaths: [ 'uploads/2024' ],
 		} );
 	} );
 
 	it( 'returns ["sqls", "plugins"] when both are selected', () => {
-		const { result } = renderHook( () => useDefaultSyncTree() );
-		let tree = result.current;
-
-		tree = updateNodeById( tree, 'sqls', { checked: true } );
-		tree = updateNodeById( tree, 'plugins', { checked: true } );
+		const tree = createBaseTree();
+		tree[ 1 ].checked = true; // sqls
+		const wpContentNode = tree[ 0 ].children![ 0 ];
+		wpContentNode.children = [
+			{
+				id: 'my-plugin',
+				name: 'my-plugin',
+				label: 'My Plugin',
+				checked: true,
+				type: 'folder',
+				path: 'wp-content/plugins/my-plugin',
+				pathId: 'plugins/my-plugin',
+			},
+		];
 
 		const optionsToSync = convertTreeToPushOptions( tree );
 		expect( optionsToSync ).toEqual( {
 			optionsToSync: [ 'sqls', 'plugins' ],
-			specificSelections: undefined,
+			specificSelectionPaths: [ 'plugins/my-plugin' ],
 		} );
 	} );
 
 	describe( 'partial selections', () => {
 		it( 'returns partial plugins selection when only some plugins are selected', () => {
-			const { result } = renderHook( () => useDefaultSyncTree() );
-			let tree = result.current;
-
-			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
-			tree = updateNodeById( tree, 'sqls', { checked: false } );
-			tree = updateNodeById( tree, 'themes', { checked: false } );
-			tree = updateNodeById( tree, 'uploads', { checked: false } );
-			tree = updateNodeById( tree, 'contents', { checked: false } );
-
-			const wpContentNode = tree
-				.find( ( node ) => node.id === 'filesAndFolders' )
-				?.children?.find( ( node ) => node.id === 'wp-content' );
-			if ( wpContentNode?.children ) {
-				const pluginsNode = wpContentNode.children.find( ( node ) => node.id === 'plugins' );
-				if ( pluginsNode ) {
-					pluginsNode.checked = false;
-					pluginsNode.indeterminate = true;
-					pluginsNode.children = [
-						{ id: 'plugin1', name: 'plugin1', label: 'Plugin 1', checked: true, type: 'folder' },
-						{ id: 'plugin2', name: 'plugin2', label: 'Plugin 2', checked: false, type: 'folder' },
-						{ id: 'plugin3', name: 'plugin3', label: 'Plugin 3', checked: true, type: 'folder' },
-					];
-				}
-			}
+			const tree = createBaseTree();
+			const wpContentNode = tree[ 0 ].children![ 0 ];
+			wpContentNode.children = [
+				{
+					id: 'plugin1',
+					name: 'plugin1',
+					label: 'Plugin 1',
+					checked: true,
+					type: 'folder',
+					path: 'wp-content/plugins/plugin1',
+					pathId: 'plugins/plugin1',
+				},
+				{
+					id: 'plugin3',
+					name: 'plugin3',
+					label: 'Plugin 3',
+					checked: true,
+					type: 'folder',
+					path: 'wp-content/plugins/plugin3',
+					pathId: 'plugins/plugin3',
+				},
+			];
 
 			const optionsToSync = convertTreeToPushOptions( tree );
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'plugins' ],
-				specificSelections: {
-					plugins: [ 'plugin1', 'plugin3' ],
-				},
+				specificSelectionPaths: [ 'plugins/plugin1', 'plugins/plugin3' ],
 			} );
 		} );
 
 		it( 'returns partial themes selection when only some themes are selected', () => {
-			const { result } = renderHook( () => useDefaultSyncTree() );
-			let tree = result.current;
-
-			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
-			tree = updateNodeById( tree, 'sqls', { checked: false } );
-			tree = updateNodeById( tree, 'plugins', { checked: false } );
-			tree = updateNodeById( tree, 'uploads', { checked: false } );
-			tree = updateNodeById( tree, 'contents', { checked: false } );
-
-			const wpContentNode = tree
-				.find( ( node ) => node.id === 'filesAndFolders' )
-				?.children?.find( ( node ) => node.id === 'wp-content' );
-			if ( wpContentNode?.children ) {
-				const themesNode = wpContentNode.children.find( ( node ) => node.id === 'themes' );
-				if ( themesNode ) {
-					themesNode.checked = false;
-					themesNode.indeterminate = true;
-					themesNode.children = [
-						{ id: 'theme1', name: 'theme1', label: 'Theme 1', checked: true, type: 'folder' },
-						{ id: 'theme2', name: 'theme2', label: 'Theme 2', checked: false, type: 'folder' },
-						{ id: 'theme3', name: 'theme3', label: 'Theme 3', checked: true, type: 'folder' },
-						{ id: 'theme4', name: 'theme4', label: 'Theme 4', checked: false, type: 'folder' },
-					];
-				}
-			}
+			const tree = createBaseTree();
+			const wpContentNode = tree[ 0 ].children![ 0 ];
+			wpContentNode.children = [
+				{
+					id: 'theme1',
+					name: 'theme1',
+					label: 'Theme 1',
+					checked: true,
+					type: 'folder',
+					path: 'wp-content/themes/theme1',
+					pathId: 'themes/theme1',
+				},
+				{
+					id: 'theme3',
+					name: 'theme3',
+					label: 'Theme 3',
+					checked: true,
+					type: 'folder',
+					path: 'wp-content/themes/theme3',
+					pathId: 'themes/theme3',
+				},
+			];
 
 			const optionsToSync = convertTreeToPushOptions( tree );
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'themes' ],
-				specificSelections: {
-					themes: [ 'theme1', 'theme3' ],
-				},
+				specificSelectionPaths: [ 'themes/theme1', 'themes/theme3' ],
 			} );
 		} );
 
 		it( 'returns partial uploads selection when only some uploads are selected', () => {
-			const { result } = renderHook( () => useDefaultSyncTree() );
-			let tree = result.current;
-
-			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
-			tree = updateNodeById( tree, 'sqls', { checked: false } );
-			tree = updateNodeById( tree, 'plugins', { checked: false } );
-			tree = updateNodeById( tree, 'themes', { checked: false } );
-			tree = updateNodeById( tree, 'contents', { checked: false } );
-
-			const wpContentNode = tree
-				.find( ( node ) => node.id === 'filesAndFolders' )
-				?.children?.find( ( node ) => node.id === 'wp-content' );
-			if ( wpContentNode?.children ) {
-				const uploadsNode = wpContentNode.children.find( ( node ) => node.id === 'uploads' );
-				if ( uploadsNode ) {
-					uploadsNode.checked = false;
-					uploadsNode.indeterminate = true;
-					uploadsNode.children = [
-						{ id: 'upload1', name: 'upload1', label: 'Upload 1', checked: true, type: 'folder' },
-						{ id: 'upload2', name: 'upload2', label: 'Upload 2', checked: true, type: 'folder' },
-						{ id: 'upload3', name: 'upload3', label: 'Upload 3', checked: false, type: 'folder' },
-					];
-				}
-			}
+			const tree = createBaseTree();
+			const wpContentNode = tree[ 0 ].children![ 0 ];
+			wpContentNode.children = [
+				{
+					id: 'upload1',
+					name: 'upload1',
+					label: 'Upload 1',
+					checked: true,
+					type: 'folder',
+					path: 'wp-content/uploads/upload1',
+					pathId: 'uploads/upload1',
+				},
+				{
+					id: 'upload2',
+					name: 'upload2',
+					label: 'Upload 2',
+					checked: true,
+					type: 'folder',
+					path: 'wp-content/uploads/upload2',
+					pathId: 'uploads/upload2',
+				},
+			];
 
 			const optionsToSync = convertTreeToPushOptions( tree );
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'uploads' ],
-				specificSelections: {
-					uploads: [ 'upload1', 'upload2' ],
-				},
+				specificSelectionPaths: [ 'uploads/upload1', 'uploads/upload2' ],
 			} );
 		} );
 
 		it( 'returns mixed partial selections for plugins and themes', () => {
-			const { result } = renderHook( () => useDefaultSyncTree() );
-			let tree = result.current;
-
-			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
-			tree = updateNodeById( tree, 'sqls', { checked: false } );
-			tree = updateNodeById( tree, 'uploads', { checked: false } );
-			tree = updateNodeById( tree, 'contents', { checked: false } );
-
-			const wpContentNode = tree
-				.find( ( node ) => node.id === 'filesAndFolders' )
-				?.children?.find( ( node ) => node.id === 'wp-content' );
-			if ( wpContentNode?.children ) {
-				const pluginsNode = wpContentNode.children.find( ( node ) => node.id === 'plugins' );
-				if ( pluginsNode ) {
-					pluginsNode.checked = false;
-					pluginsNode.indeterminate = true;
-					pluginsNode.children = [
-						{ id: 'plugin1', name: 'plugin1', label: 'Plugin 1', checked: true, type: 'folder' },
-						{ id: 'plugin2', name: 'plugin2', label: 'Plugin 2', checked: false, type: 'folder' },
-					];
-				}
-
-				const themesNode = wpContentNode.children.find( ( node ) => node.id === 'themes' );
-				if ( themesNode ) {
-					themesNode.checked = false;
-					themesNode.indeterminate = true;
-					themesNode.children = [
-						{ id: 'theme1', name: 'theme1', label: 'Theme 1', checked: true, type: 'folder' },
-						{ id: 'theme2', name: 'theme2', label: 'Theme 2', checked: false, type: 'folder' },
-						{ id: 'theme3', name: 'theme3', label: 'Theme 3', checked: true, type: 'folder' },
-					];
-				}
-			}
+			const tree = createBaseTree();
+			const wpContentNode = tree[ 0 ].children![ 0 ];
+			wpContentNode.children = [
+				{
+					id: 'plugin1',
+					name: 'plugin1',
+					label: 'Plugin 1',
+					checked: true,
+					type: 'folder',
+					path: 'wp-content/plugins/plugin1',
+					pathId: 'plugins/plugin1',
+				},
+				{
+					id: 'theme1',
+					name: 'theme1',
+					label: 'Theme 1',
+					checked: true,
+					type: 'folder',
+					path: 'wp-content/themes/theme1',
+					pathId: 'themes/theme1',
+				},
+				{
+					id: 'theme3',
+					name: 'theme3',
+					label: 'Theme 3',
+					checked: true,
+					type: 'folder',
+					path: 'wp-content/themes/theme3',
+					pathId: 'themes/theme3',
+				},
+			];
 
 			const optionsToSync = convertTreeToPushOptions( tree );
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'plugins', 'themes' ],
-				specificSelections: {
-					plugins: [ 'plugin1' ],
-					themes: [ 'theme1', 'theme3' ],
-				},
+				specificSelectionPaths: [ 'plugins/plugin1', 'themes/theme1', 'themes/theme3' ],
 			} );
 		} );
 
 		it( 'returns no specificSelections when all children are selected in a category', () => {
-			const { result } = renderHook( () => useDefaultSyncTree() );
-			let tree = result.current;
-
-			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
-			tree = updateNodeById( tree, 'sqls', { checked: false } );
-			tree = updateNodeById( tree, 'themes', { checked: false } );
-			tree = updateNodeById( tree, 'uploads', { checked: false } );
-			tree = updateNodeById( tree, 'contents', { checked: false } );
-
-			const wpContentNode = tree
-				.find( ( node ) => node.id === 'filesAndFolders' )
-				?.children?.find( ( node ) => node.id === 'wp-content' );
-			if ( wpContentNode?.children ) {
-				const pluginsNode = wpContentNode.children.find( ( node ) => node.id === 'plugins' );
-				if ( pluginsNode ) {
-					pluginsNode.checked = true;
-					pluginsNode.children = [
-						{ id: 'plugin1', name: 'plugin1', label: 'Plugin 1', checked: true, type: 'folder' },
-						{ id: 'plugin2', name: 'plugin2', label: 'Plugin 2', checked: true, type: 'folder' },
-					];
-				}
-			}
+			const tree = createBaseTree();
+			const wpContentNode = tree[ 0 ].children![ 0 ];
+			wpContentNode.children = [
+				{
+					id: 'plugin1',
+					name: 'plugin1',
+					label: 'Plugin 1',
+					checked: true,
+					type: 'folder',
+					path: 'wp-content/plugins/plugin1',
+					pathId: 'plugins/plugin1',
+				},
+				{
+					id: 'plugin2',
+					name: 'plugin2',
+					label: 'Plugin 2',
+					checked: true,
+					type: 'folder',
+					path: 'wp-content/plugins/plugin2',
+					pathId: 'plugins/plugin2',
+				},
+			];
 
 			const optionsToSync = convertTreeToPushOptions( tree );
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'plugins' ],
-				specificSelections: undefined,
-			} );
-		} );
-
-		it( 'returns no specificSelections when no children are selected in a category', () => {
-			const { result } = renderHook( () => useDefaultSyncTree() );
-			let tree = result.current;
-
-			tree = updateNodeById( tree, 'filesAndFolders', { checked: false } );
-			tree = updateNodeById( tree, 'sqls', { checked: false } );
-			tree = updateNodeById( tree, 'themes', { checked: false } );
-			tree = updateNodeById( tree, 'uploads', { checked: false } );
-			tree = updateNodeById( tree, 'contents', { checked: false } );
-
-			const wpContentNode = tree
-				.find( ( node ) => node.id === 'filesAndFolders' )
-				?.children?.find( ( node ) => node.id === 'wp-content' );
-			if ( wpContentNode?.children ) {
-				const pluginsNode = wpContentNode.children.find( ( node ) => node.id === 'plugins' );
-				if ( pluginsNode ) {
-					pluginsNode.checked = false;
-					pluginsNode.children = [
-						{ id: 'plugin1', name: 'plugin1', label: 'Plugin 1', checked: false, type: 'folder' },
-						{ id: 'plugin2', name: 'plugin2', label: 'Plugin 2', checked: false, type: 'folder' },
-					];
-				}
-			}
-
-			const optionsToSync = convertTreeToPushOptions( tree );
-			expect( optionsToSync ).toEqual( {
-				optionsToSync: [],
-				specificSelections: undefined,
+				specificSelectionPaths: [ 'plugins/plugin1', 'plugins/plugin2' ],
 			} );
 		} );
 
 		it( 'handles mixed selection with database and partial plugins', () => {
-			const { result } = renderHook( () => useDefaultSyncTree() );
-			let tree = result.current;
-
-			tree = updateNodeById( tree, 'sqls', { checked: true } );
-
-			const wpContentNode = tree
-				.find( ( node ) => node.id === 'filesAndFolders' )
-				?.children?.find( ( node ) => node.id === 'wp-content' );
-			if ( wpContentNode?.children ) {
-				const pluginsNode = wpContentNode.children.find( ( node ) => node.id === 'plugins' );
-				if ( pluginsNode ) {
-					pluginsNode.checked = false;
-					pluginsNode.indeterminate = true;
-					pluginsNode.children = [
-						{ id: 'plugin1', name: 'plugin1', label: 'Plugin 1', checked: true, type: 'folder' },
-						{ id: 'plugin2', name: 'plugin2', label: 'Plugin 2', checked: false, type: 'folder' },
-					];
-				}
-			}
+			const tree = createBaseTree();
+			tree[ 1 ].checked = true; // sqls
+			const wpContentNode = tree[ 0 ].children![ 0 ];
+			wpContentNode.children = [
+				{
+					id: 'plugin1',
+					name: 'plugin1',
+					label: 'Plugin 1',
+					checked: true,
+					type: 'folder',
+					path: 'wp-content/plugins/plugin1',
+					pathId: 'plugins/plugin1',
+				},
+			];
 
 			const optionsToSync = convertTreeToPushOptions( tree );
 			expect( optionsToSync ).toEqual( {
 				optionsToSync: [ 'sqls', 'plugins' ],
-				specificSelections: {
-					plugins: [ 'plugin1' ],
-				},
+				specificSelectionPaths: [ 'plugins/plugin1' ],
 			} );
 		} );
 	} );
 
 	it( 'strips folder type prefix from specific selections', () => {
-		const { result } = renderHook( () => useDefaultSyncTree() );
-		let tree = result.current;
-
-		tree = updateNodeById( tree, 'sqls', { checked: true } );
-
-		tree = updateNodeById( tree, 'plugins', {
-			children: [
-				{
-					id: 'plugins-my-plugin',
-					name: 'my-plugin',
-					label: 'my-plugin',
-					checked: true,
-					type: 'folder',
-				},
-				{
-					id: 'plugins-another-plugin',
-					name: 'another-plugin',
-					label: 'another-plugin',
-					checked: false,
-					type: 'folder',
-				},
-			],
-		} );
+		const tree = createBaseTree();
+		tree[ 1 ].checked = true; // sqls
+		const wpContentNode = tree[ 0 ].children![ 0 ];
+		wpContentNode.children = [
+			{
+				id: 'my-plugin',
+				name: 'my-plugin',
+				label: 'My Plugin',
+				checked: true,
+				type: 'folder',
+				path: 'wp-content/plugins/my-plugin',
+				pathId: 'plugins/my-plugin',
+			},
+		];
 
 		const optionsToSync = convertTreeToPushOptions( tree );
 		expect( optionsToSync ).toEqual( {
 			optionsToSync: [ 'sqls', 'plugins' ],
-			specificSelections: {
-				plugins: [ 'my-plugin' ],
-			},
+			specificSelectionPaths: [ 'plugins/my-plugin' ],
 		} );
 	} );
 } );

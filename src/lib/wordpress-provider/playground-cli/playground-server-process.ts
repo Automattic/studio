@@ -59,6 +59,7 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 				errorStack?: string;
 				result?: unknown;
 				message?: string;
+				cliArgs?: Record< string, unknown >;
 			} ) => {
 				if ( message.type === 'ready' ) {
 					return;
@@ -90,9 +91,14 @@ export class PlaygroundServerProcess implements WordPressServerProcess {
 					this.responseHandlers.delete( message.id );
 
 					if ( message.error ) {
-						const error = new Error( message.error );
+						const error = new Error( message.error ) as Error & {
+							cliArgs?: Record< string, unknown >;
+						};
 						if ( message.errorStack ) {
 							error.stack = message.errorStack;
+						}
+						if ( message.cliArgs ) {
+							error.cliArgs = message.cliArgs;
 						}
 						handler.reject( error );
 					} else {

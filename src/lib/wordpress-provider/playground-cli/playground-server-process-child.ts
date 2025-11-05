@@ -1,5 +1,6 @@
 import { SupportedPHPVersion, PHPRunOptions } from '@php-wasm/universal';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
+import { sanitizeRunCLIArgs } from 'src/lib/sentry-sanitizer';
 import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
 import { WordPressServerOptions } from '../types';
 import { getMuPlugins } from './mu-plugins';
@@ -92,6 +93,7 @@ process.stderr.write = function ( ...args: Parameters< typeof originalStderrWrit
 } as typeof process.stderr.write;
 
 let server: RunCLIServer | null = null;
+let lastCliArgs: Record< string, unknown > | null = null;
 
 process.parentPort.on( 'message', async ( event ) => {
 	const message = event.data as Message;
@@ -122,6 +124,7 @@ process.parentPort.on( 'message', async ( event ) => {
 			id: message.id,
 			error: error instanceof Error ? error.message : String( error ),
 			errorStack: error instanceof Error ? error.stack : undefined,
+			cliArgs: lastCliArgs,
 		} );
 	}
 } );
@@ -199,6 +202,8 @@ async function startServer(
 		}
 
 		args.blueprint.constants = { ...args.blueprint.constants, ...defaultConstants };
+
+		lastCliArgs = sanitizeRunCLIArgs( args );
 
 		server = await runCLI( args );
 

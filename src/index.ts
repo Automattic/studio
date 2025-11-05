@@ -76,7 +76,7 @@ if ( ! process.env.IS_DEV_BUILD ) {
 suppressPunycodeWarning();
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+
 const isInInstaller = require( 'electron-squirrel-startup' );
 
 // Ensure we're the only instance of the app running

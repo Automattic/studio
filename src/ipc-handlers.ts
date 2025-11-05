@@ -79,6 +79,7 @@ import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { executePreviewCliCommand } from 'src/modules/cli/lib/execute-preview-command';
+import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tree-utils';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
@@ -99,7 +100,7 @@ import {
 import { Blueprint } from './stores/wpcom-api';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
-import type { GranularSyncFolders } from 'src/modules/sync/types';
+import type { RawDirectoryEntry } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
 
 /**
@@ -518,10 +519,26 @@ export async function startServer(
 			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
 		}
 
+		const contexts: Record< string, Record< string, unknown > > = {
+			server: {
+				running: server.details.running,
+				phpVersion: server.details.phpVersion,
+				port: server.details.port,
+				hasCustomDomain: !! server.details.customDomain,
+				httpsEnabled: !! server.details.enableHttps,
+			},
+		};
+
+		// Include sanitized CLI args if available from error
+		if ( error instanceof Error && 'cliArgs' in error ) {
+			contexts.startup = ( error as Error & { cliArgs: Record< string, unknown > } ).cliArgs;
+		}
+
 		Sentry.captureException( error, {
 			tags: {
 				provider: getWordPressProvider().PROVIDER_TYPE,
 			},
+			contexts,
 		} );
 		if (
 			error instanceof Error &&
@@ -721,11 +738,7 @@ export async function exportSiteForPush(
 	operationId: string,
 	configuration?: {
 		optionsToSync?: SyncOption[];
-		specificSelections?: {
-			plugins?: string[];
-			themes?: string[];
-			uploads?: string[];
-		};
+		specificSelectionPaths?: string[];
 	}
 ) {
 	const site = SiteServer.get( id );
@@ -767,9 +780,9 @@ export async function exportSiteForPush(
 			includes,
 			phpVersion: site.details.phpVersion,
 			splitDatabaseDumpByTable: true,
-			specificSelections: configuration?.specificSelections,
+			specificSelectionPaths: configuration?.specificSelectionPaths,
 		};
-		// eslint-disable-next-line @typescript-eslint/no-empty-function
+
 		const onEvent = () => {};
 		await exportBackup( exportOptions, onEvent );
 
@@ -1760,27 +1773,58 @@ export function comparePaths( event: IpcMainInvokeEvent, path1: string, path2: s
 	return arePathsEqual( path1, path2 );
 }
 
-export async function listWpContentFolders(
+export async function listLocalFileTree(
 	_event: Electron.IpcMainInvokeEvent,
 	siteId: string,
-	subdir: GranularSyncFolders
-): Promise< { name: string; type: 'file' | 'folder' }[] > {
+	path: string,
+	maxDepth: number = 3,
+	currentDepth: number = 0
+): Promise< RawDirectoryEntry[] > {
 	const server = SiteServer.get( siteId );
 	if ( ! server ) throw new Error( 'Site not found' );
-	const wpContentPath = nodePath.join( server.details.path, 'wp-content', subdir );
+
+	const fullPath = nodePath.join( server.details.path, path );
 
 	try {
-		const entries = await fs.promises.readdir( wpContentPath, { withFileTypes: true } );
-		return entries
-			.map( ( e ) => ( {
-				name: e.name.toString(),
-				type: e.isDirectory() ? ( 'folder' as const ) : ( 'file' as const ),
-				hidden: e.name.startsWith( '.' ),
-			} ) )
-			.filter( ( entry: { name: string; hidden: boolean } ) => {
-				return ! entry.hidden;
-			} );
+		const entries = await fs.promises.readdir( fullPath, { withFileTypes: true } );
+		const result = [];
+
+		for ( const entry of entries ) {
+			if ( shouldExcludeFromSync( entry.name ) ) {
+				continue;
+			}
+
+			const isDirectory = entry.isDirectory();
+			const itemPath = nodePath.join( path, entry.name ).replace( /\\/g, '/' );
+
+			const directoryEntry: RawDirectoryEntry = {
+				name: entry.name,
+				isDirectory,
+				path: itemPath,
+			};
+
+			const shouldLimit = shouldLimitDepth( itemPath );
+			if ( isDirectory && currentDepth < maxDepth && ! shouldLimit ) {
+				try {
+					directoryEntry.children = await listLocalFileTree(
+						_event,
+						siteId,
+						itemPath,
+						maxDepth,
+						currentDepth + 1
+					);
+				} catch ( childErr ) {
+					console.warn( `Failed to load children for ${ itemPath }:`, childErr );
+					directoryEntry.children = [];
+				}
+			}
+
+			result.push( directoryEntry );
+		}
+
+		return result;
 	} catch ( err ) {
+		console.error( `Failed to list raw file tree for path ${ path }:`, err );
 		return [];
 	}
 }

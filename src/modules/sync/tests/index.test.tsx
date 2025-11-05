@@ -131,6 +131,32 @@ describe( 'ContentTabSync', () => {
 			updateConnectedWpcomSites: jest.fn(),
 			getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
 			getDirectorySize: jest.fn().mockResolvedValue( 0 ),
+			listLocalFileTree: jest.fn().mockResolvedValue( [
+				{
+					name: 'plugins',
+					isDirectory: true,
+					path: 'wp-content/plugins/',
+					children: [
+						{
+							name: 'test-plugin',
+							isDirectory: true,
+							path: 'wp-content/plugins/test-plugin/',
+						},
+					],
+				},
+				{
+					name: 'themes',
+					isDirectory: true,
+					path: 'wp-content/themes/',
+					children: [
+						{
+							name: 'test-theme',
+							isDirectory: true,
+							path: 'wp-content/themes/test-theme/',
+						},
+					],
+				},
+			] ),
 		} );
 		( useSelectedItemsPushSize as jest.Mock ).mockReturnValue( {
 			isPushSelectionOverLimit: false,
@@ -792,7 +818,7 @@ describe( 'ContentTabSync', () => {
 		fireEvent.click( databaseCheckbox );
 
 		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } )[ 1 ];
-		expect( dialogPullButton ).not.toBeDisabled();
+		expect( dialogPullButton ).toBeEnabled();
 	} );
 
 	it( 'enables the pull button when at least one checkbox children is checked', async () => {
@@ -820,7 +846,7 @@ describe( 'ContentTabSync', () => {
 		expect( filesAndFoldersCheckbox ).not.toBeChecked();
 
 		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } )[ 1 ];
-		expect( dialogPullButton ).not.toBeDisabled();
+		expect( dialogPullButton ).toBeEnabled();
 	} );
 	it( 'disables the push button when all checkboxes are unchecked', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
@@ -854,7 +880,7 @@ describe( 'ContentTabSync', () => {
 		fireEvent.click( databaseCheckbox );
 
 		const dialogPushButton = screen.getAllByRole( 'button', { name: /Push/i } )[ 1 ];
-		expect( dialogPushButton ).not.toBeDisabled();
+		expect( dialogPushButton ).toBeEnabled();
 	} );
 
 	it( 'enables the push button when at least one checkbox children is checked', async () => {
@@ -883,7 +909,7 @@ describe( 'ContentTabSync', () => {
 		expect( filesAndFoldersCheckbox ).not.toBeChecked();
 
 		const dialogPushButton = screen.getAllByRole( 'button', { name: /Push/i } )[ 1 ];
-		expect( dialogPushButton ).not.toBeDisabled();
+		expect( dialogPushButton ).toBeEnabled();
 	} );
 
 	describe( 'Sync Dialog Push Selection Over Limit Notice', () => {

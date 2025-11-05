@@ -115,16 +115,7 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 	);
 }
 function SiteItem( { site }: { site: SiteDetails } ) {
-	const {
-		selectedSite,
-		setSelectedSiteId,
-		startServer,
-		stopServer,
-		loadingServer,
-		setIsEditModalOpen,
-	} = useSiteDetails();
-	const { setSelectedTab } = useContentTabs();
-	const { handleDeleteSite } = useDeleteSite();
+	const { selectedSite, setSelectedSiteId, loadingServer } = useSiteDetails();
 	const isSelected = site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
 	const { isSiteIdPulling } = useSyncSites();
@@ -167,82 +158,6 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 		} );
 	};
 
-	useEffect( () => {
-		const unsubscribe = window.ipcListener.subscribe(
-			'site-context-menu-action',
-			async ( _, data: { action: string; siteId: string } ) => {
-				if ( data.siteId === site.id ) {
-					const ipcApi = getIpcApi();
-					switch ( data.action ) {
-						case 'start':
-							void startServer( site.id );
-							break;
-						case 'stop':
-							void stopServer( site.id );
-							break;
-						case 'open-site':
-							if ( ! site.running ) {
-								await startServer( site.id );
-							}
-							ipcApi.openSiteURL( site.id, '', { autoLogin: false } );
-							break;
-						case 'open-admin':
-							if ( ! site.running ) {
-								await startServer( site.id );
-							}
-							ipcApi.openSiteURL( site.id, '/wp-admin/' );
-							break;
-						case 'open-finder':
-							ipcApi.openLocalPath( site.path );
-							break;
-						case 'open-editor':
-							if ( editor ) {
-								void ipcApi.openAppAtPath( editor, site.path );
-							}
-							break;
-						case 'open-terminal':
-							void ( async () => {
-								try {
-									await ipcApi.openTerminalAtPath( site.path );
-								} catch ( error ) {
-									Sentry.captureException( error );
-									alert( __( 'Could not open the terminal.' ) );
-								}
-							} )();
-							break;
-						case 'edit-site':
-							if ( site.id !== selectedSite?.id ) {
-								setSelectedSiteId( site.id );
-							}
-							setSelectedTab( 'settings' );
-							setIsEditModalOpen( true );
-							break;
-						case 'delete':
-							await handleDeleteSite( site.id, site.name );
-							break;
-					}
-				}
-			}
-		);
-
-		return () => {
-			unsubscribe?.();
-		};
-	}, [
-		site.id,
-		site.name,
-		site.path,
-		site.running,
-		startServer,
-		stopServer,
-		editor,
-		selectedSite?.id,
-		setSelectedTab,
-		setIsEditModalOpen,
-		setSelectedSiteId,
-		handleDeleteSite,
-	] );
-
 	return (
 		<li
 			className={ cx(
@@ -274,7 +189,88 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 }
 
 export default function SiteMenu( { className }: SiteMenuProps ) {
-	const { data } = useSiteDetails();
+	const { data, selectedSite, setSelectedSiteId, startServer, stopServer, setIsEditModalOpen } =
+		useSiteDetails();
+	const { setSelectedTab } = useContentTabs();
+	const { handleDeleteSite } = useDeleteSite();
+	const { data: editor } = useGetUserEditorQuery();
+
+	useEffect( () => {
+		const unsubscribe = window.ipcListener.subscribe(
+			'site-context-menu-action',
+			async ( _, actionData: { action: string; siteId: string } ) => {
+				const site = data.find( ( site ) => site.id === actionData.siteId );
+				if ( ! site ) {
+					return;
+				}
+
+				const ipcApi = getIpcApi();
+				switch ( actionData.action ) {
+					case 'start':
+						void startServer( site.id );
+						break;
+					case 'stop':
+						void stopServer( site.id );
+						break;
+					case 'open-site':
+						if ( ! site.running ) {
+							await startServer( site.id );
+						}
+						ipcApi.openSiteURL( site.id, '', { autoLogin: false } );
+						break;
+					case 'open-admin':
+						if ( ! site.running ) {
+							await startServer( site.id );
+						}
+						ipcApi.openSiteURL( site.id, '/wp-admin/' );
+						break;
+					case 'open-finder':
+						ipcApi.openLocalPath( site.path );
+						break;
+					case 'open-editor':
+						if ( editor ) {
+							void ipcApi.openAppAtPath( editor, site.path );
+						}
+						break;
+					case 'open-terminal':
+						void ( async () => {
+							try {
+								await ipcApi.openTerminalAtPath( site.path );
+							} catch ( error ) {
+								Sentry.captureException( error );
+								alert( __( 'Could not open the terminal.' ) );
+							}
+						} )();
+						break;
+					case 'edit-site':
+						if ( site.id !== selectedSite?.id ) {
+							setSelectedSiteId( site.id );
+						}
+						setSelectedTab( 'settings' );
+						setIsEditModalOpen( true );
+						break;
+					case 'delete':
+						await handleDeleteSite( site.id, site.name );
+						break;
+				}
+			}
+		);
+
+		return () => {
+			unsubscribe?.();
+		};
+	}, [
+		data,
+		editor,
+		selectedSite?.id,
+		setSelectedTab,
+		setIsEditModalOpen,
+		setSelectedSiteId,
+		startServer,
+		stopServer,
+		handleDeleteSite,
+	] );
+
 	return (
 		<nav
 			aria-label={ __( 'Sites' ) }

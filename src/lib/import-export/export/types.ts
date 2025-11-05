@@ -7,21 +7,21 @@ export interface ExportOptions {
 	includes: { [ index in ExportOptionsIncludes ]: boolean };
 	phpVersion: string;
 	splitDatabaseDumpByTable?: boolean;
-	specificSelections?: {
-		plugins?: string[];
-		themes?: string[];
-		uploads?: string[];
-	};
+	specificSelectionPaths?: string[];
 }
 
-export type ExportOptionsIncludes = BackupContentsCategory | 'database';
+export type ExportOptionsIncludes =
+	| 'uploads'
+	| 'plugins'
+	| 'themes'
+	| 'muPlugins'
+	| 'fonts'
+	| 'database';
 
 export interface BackupContents {
 	backupFile: string;
 	sqlFiles: string[];
 }
-
-export type BackupContentsCategory = 'uploads' | 'plugins' | 'themes' | 'muPlugins' | 'fonts';
 
 export interface Exporter extends Partial< EventEmitter > {
 	canHandle(): Promise< boolean >;

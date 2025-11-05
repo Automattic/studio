@@ -87,13 +87,13 @@ describe( 'SiteContentTabs', () => {
 			loadingServer: {},
 		} );
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
-		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).not.toBeNull();
-		expect( screen.getByRole( 'tab', { name: 'Sync' } ) ).not.toBeNull();
-		expect( screen.getByRole( 'tab', { name: 'Previews' } ) ).not.toBeNull();
-		expect( screen.getByRole( 'tab', { name: 'Import / Export' } ) ).not.toBeNull();
-		expect( screen.queryByRole( 'tab', { name: 'Launchpad' } ) ).toBeNull();
-		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).toBeNull();
-		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).toBeNull();
+		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'tab', { name: 'Sync' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'tab', { name: 'Previews' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'tab', { name: 'Import / Export' } ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Launchpad' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).not.toBeInTheDocument();
 	} );
 	it( 'selects the Overview tab by default', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
@@ -108,7 +108,9 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Previews', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Settings', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Assistant', selected: false } ) ).toBeVisible();
-		expect( screen.queryByRole( 'tab', { name: 'Backup', selected: false } ) ).toBeNull();
+		expect(
+			screen.queryByRole( 'tab', { name: 'Backup', selected: false } )
+		).not.toBeInTheDocument();
 	} );
 	it( 'should render a "No Site" screen if all sites are removed', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
@@ -118,12 +120,12 @@ describe( 'SiteContentTabs', () => {
 			loadingServer: {},
 		} );
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
-		expect( screen.queryByRole( 'tab', { name: 'Settings' } ) ).toBeNull();
-		expect( screen.queryByRole( 'tab', { name: 'Sync' } ) ).toBeNull();
-		expect( screen.queryByRole( 'tab', { name: 'Previews' } ) ).toBeNull();
-		expect( screen.queryByRole( 'tab', { name: 'Launchpad' } ) ).toBeNull();
-		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).toBeNull();
-		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).toBeNull();
+		expect( screen.queryByRole( 'tab', { name: 'Settings' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Sync' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Previews' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Launchpad' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).not.toBeInTheDocument();
 		expect(
 			screen.getByText( "You don't have any sites right now. Add a new site to get started." )
 		).toBeVisible();

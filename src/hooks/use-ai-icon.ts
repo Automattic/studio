@@ -23,33 +23,33 @@ const useAiIcon = () => {
 	const typingInput = useStateMachineInput( rive, stateMachineName, 'typing', false );
 
 	useEffect( () => {
+		rive?.play( stateMachineName );
+
 		return () => {
-			if ( rive ) {
-				rive.cleanup();
-			}
+			rive?.cleanup();
 		};
 	}, [ rive ] );
 
-	const startStateMachine = useCallback( () => {
-		if ( rive ) {
-			rive.play( stateMachineName );
-		}
-	}, [ rive, stateMachineName ] );
-
-	const pauseStateMachine = useCallback( () => {
-		if ( rive ) {
-			rive.pause( stateMachineName );
-		}
-	}, [ rive, stateMachineName ] );
+	const setInputState = useCallback(
+		( stateName: 'inactive' | 'thinking' | 'typing', value: boolean ) => {
+			if ( stateName === 'inactive' && inactiveInput ) {
+				// eslint-disable-next-line react-hooks/immutability
+				inactiveInput.value = value;
+			} else if ( stateName === 'thinking' && thinkingInput ) {
+				// eslint-disable-next-line react-hooks/immutability
+				thinkingInput.value = value;
+			} else if ( stateName === 'typing' && typingInput ) {
+				// eslint-disable-next-line react-hooks/immutability
+				typingInput.value = value;
+			}
+		},
+		[ inactiveInput, thinkingInput, typingInput ]
+	);
 
 	return {
 		rive,
 		RiveComponent,
-		inactiveInput,
-		typingInput,
-		thinkingInput,
-		startStateMachine,
-		pauseStateMachine,
+		setInputState,
 	};
 };
 

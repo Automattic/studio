@@ -207,7 +207,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 
 		dispatch( connectedSitesActions.closeModal() );
 
-		if ( mode == 'push' || mode == 'pull' ) {
+		if ( mode === 'push' || mode === 'pull' ) {
 			setModalState( ( prev ) => ( { ...prev, mode: mode, selectedRemoteSite: siteToUse } ) );
 		} else {
 			setModalState( ( prev ) => ( { ...prev, mode: null } ) );

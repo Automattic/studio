@@ -116,6 +116,12 @@ function NavigationContent( props: NavigationContentProps ) {
 		}
 	}, [ createSiteProps, goTo ] );
 
+	const handlePullRemoteContinue = useCallback( () => {
+		if ( selectedRemoteSite ) {
+			goTo( '/pullRemote/create' );
+		}
+	}, [ selectedRemoteSite, goTo ] );
+
 	const blueprints = useMemo(
 		() => blueprintsData?.blueprints.slice().reverse() || [],
 		[ blueprintsData ]
@@ -137,6 +143,8 @@ function NavigationContent( props: NavigationContentProps ) {
 			goTo( '/blueprint' );
 		} else if ( location.path === '/backup/create' ) {
 			goTo( '/backup' );
+		} else if ( location.path === '/pullRemote/create' ) {
+			goTo( '/pullRemote' );
 		} else if (
 			location.path === '/backup' ||
 			location.path === '/blueprint' ||
@@ -254,9 +262,11 @@ function NavigationContent( props: NavigationContentProps ) {
 				onBack={ handleBack }
 				onBlueprintContinue={ handleBlueprintContinue }
 				onBackupContinue={ handleBackupContinue }
+				onPullRemoteContinue={ handlePullRemoteContinue }
 				onCreateSubmit={ createSiteProps.handleSubmit }
 				canSubmitBlueprint={ !! createSiteProps.selectedBlueprint }
 				canSubmitBackup={ !! createSiteProps.fileForImport }
+				canSubmitPullRemote={ !! selectedRemoteSite }
 				canSubmitCreate={ !! canSubmit }
 			/>
 		</>

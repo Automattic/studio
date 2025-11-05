@@ -825,13 +825,10 @@ export async function pushArchive(
 		],
 	];
 
-	// When specific paths are provided, add 'paths' to options and send the path list
 	if ( specificSelectionPaths && specificSelectionPaths.length > 0 ) {
-		// Add 'paths' to the options if not already present
 		const options = optionsToSync ? [ ...optionsToSync, 'paths' ] : [ 'paths' ];
 		formData.push( [ 'options', options.join( ',' ) ] );
 
-		// Send the array of specific paths
 		formData.push( [ 'include_path_list', specificSelectionPaths ] );
 	} else if ( optionsToSync ) {
 		formData.push( [ 'options', optionsToSync.join( ',' ) ] );

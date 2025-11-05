@@ -164,33 +164,35 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			pathsToArchive = fs.readdirSync( path.join( this.options.site.path, 'wp-content' ) );
 		}
 
-		for ( const itemPath of pathsToArchive ) {
-			const fullPath = path.join( this.options.site.path, 'wp-content', itemPath );
-			const archivePath = path.join( 'wp-content', itemPath );
+		if ( Array.isArray( pathsToArchive ) ) {
+			for ( const itemPath of pathsToArchive ) {
+				const fullPath = path.join( this.options.site.path, 'wp-content', itemPath );
+				const archivePath = path.join( 'wp-content', itemPath );
 
-			if ( ! fs.existsSync( fullPath ) ) {
-				continue;
-			}
+				if ( ! fs.existsSync( fullPath ) ) {
+					continue;
+				}
 
-			const stat = fs.statSync( fullPath );
-			if ( stat.isDirectory() ) {
-				this.archiveBuilder.directory( fullPath, archivePath, ( entry ) => {
-					const fullArchivePath = path.join( archivePath, entry.name );
-					const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
-						fullArchivePath.startsWith( path.normalize( pathToExclude ) )
-					);
-					if (
-						isExcluded ||
-						entry.name.includes( '.git' ) ||
-						entry.name.includes( 'node_modules' ) ||
-						entry.name.includes( 'cache' )
-					) {
-						return false;
-					}
-					return entry;
-				} );
-			} else {
-				this.archiveBuilder.file( fullPath, { name: archivePath } );
+				const stat = fs.statSync( fullPath );
+				if ( stat.isDirectory() ) {
+					this.archiveBuilder.directory( fullPath, archivePath, ( entry ) => {
+						const fullArchivePath = path.join( archivePath, entry.name );
+						const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
+							fullArchivePath.startsWith( path.normalize( pathToExclude ) )
+						);
+						if (
+							isExcluded ||
+							entry.name.includes( '.git' ) ||
+							entry.name.includes( 'node_modules' ) ||
+							entry.name.includes( 'cache' )
+						) {
+							return false;
+						}
+						return entry;
+					} );
+				} else {
+					this.archiveBuilder.file( fullPath, { name: archivePath } );
+				}
 			}
 		}
 

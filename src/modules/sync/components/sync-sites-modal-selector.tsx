@@ -214,7 +214,7 @@ function SiteItem( {
 			className={ cx(
 				'flex py-3 px-8 items-center border-b justify-between gap-4',
 				isSelected && 'bg-a8c-blue-50 text-white border-a8c-blue-50',
-				! isSelected && 'border-a8c-gray-0',
+				! isSelected && 'text-black border-a8c-gray-0',
 				! isSelected && isSyncable && 'hover:bg-a8c-blue-5',
 				isSyncable &&
 					'focus:outline-none focus:ring-1 focus:ring-a8c-blue-50 focus:relative focus:z-10'
@@ -239,7 +239,6 @@ function SiteItem( {
 				<div
 					className={ cx(
 						'a8c-body truncate flex items-center',
-						isSyncable && 'text-black',
 						! isSyncable && 'text-a8c-gray-30'
 					) }
 				>

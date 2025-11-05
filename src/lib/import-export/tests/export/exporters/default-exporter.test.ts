@@ -145,30 +145,30 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 
 		( fsPromises.readdir as jest.Mock ).mockResolvedValue( mockFiles );
 
-		// Mock fsPromises.stat for canHandle method
+		function pathExistsMockImplementation( pathToCheck: string ): boolean {
+			const normalizedPath = normalize( pathToCheck );
+			return mockFiles.some( ( file ) => {
+				// We consider a full match to be an existing file, and a partial match to be a directory.
+				const fullFakePath = normalize( path.join( file.path, file.name ) );
+				return fullFakePath.startsWith( normalizedPath );
+			} );
+		}
+
 		( fsPromises.stat as jest.Mock ).mockImplementation( async ( filePath: string ) => {
 			const normalizedPath = normalize( filePath );
-			if ( mockFiles.some( ( file ) => normalizedPath === file.path ) ) {
-				return { isDirectory: () => true, isFile: () => false };
-			} else if (
+			if (
 				mockFiles.some(
 					( file ) => normalizedPath === normalize( path.join( file.path, file.name ) )
 				)
 			) {
 				return { isDirectory: () => false, isFile: () => true };
+			} else if ( pathExistsMockImplementation( normalizedPath ) ) {
+				return { isDirectory: () => true, isFile: () => false };
 			}
 			throw new Error( `File not found: ${ normalizedPath }` );
 		} );
 
-		// Mock fs.existsSync for addWpConfig method
-		( fs.existsSync as jest.Mock ).mockImplementation( ( filePath: string ) => {
-			const normalizedPath = normalize( filePath );
-			return mockFiles.some(
-				( file ) =>
-					normalizedPath === file.path ||
-					normalizedPath === normalize( path.join( file.path, file.name ) )
-			);
-		} );
+		( fs.existsSync as jest.Mock ).mockImplementation( pathExistsMockImplementation );
 
 		mockBackup = {
 			backupFile: normalize( '/path/to/backup.tar.gz' ),
@@ -301,7 +301,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				database: false,
 				wpContent: true,
 			},
-			specificSelectionPaths: [ 'uploads', 'plugins', 'themes', 'fonts' ],
+			specificSelectionPaths: [ 'plugins', 'themes', 'uploads', 'fonts' ],
 		};
 
 		const exporter = new DefaultExporter( options );

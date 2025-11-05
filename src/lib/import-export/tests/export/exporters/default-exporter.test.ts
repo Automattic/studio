@@ -143,16 +143,16 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		// Mock fsPromises.stat for canHandle method
 		( fsPromises.stat as jest.Mock ).mockImplementation( async ( filePath: string ) => {
 			const normalizedPath = normalize( filePath );
-			if ( normalizedPath.endsWith( 'wp-content' ) || normalizedPath.endsWith( 'wp-includes' ) ) {
+			if ( mockFiles.some( ( file ) => normalizedPath === file.path ) ) {
 				return { isDirectory: () => true, isFile: () => false };
-			}
-			if (
-				normalizedPath.endsWith( 'wp-load.php' ) ||
-				normalizedPath.endsWith( 'wp-config.php' )
+			} else if (
+				mockFiles.some(
+					( file ) => normalizedPath === normalize( path.join( file.path, file.name ) )
+				)
 			) {
 				return { isDirectory: () => false, isFile: () => true };
 			}
-			throw new Error( 'File not found' );
+			throw new Error( `File not found: ${ normalizedPath }` );
 		} );
 
 		// Mock fs.existsSync for addWpConfig method

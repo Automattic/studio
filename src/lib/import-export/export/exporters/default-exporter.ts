@@ -93,7 +93,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 		try {
 			this.addWpConfig();
-			this.addWpContent();
+			await this.addWpContent();
 			await this.addDatabase();
 			const studioJsonPath = await this.createStudioJsonFile();
 			this.archiveBuilder.file( studioJsonPath, { name: 'meta.json' } );
@@ -152,7 +152,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		}
 	}
 
-	private addWpContent(): void {
+	private async addWpContent(): Promise< void > {
 		if ( ! this.options.includes.wpContent ) {
 			return;
 		}
@@ -173,7 +173,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 					continue;
 				}
 
-				const stat = fs.statSync( fullPath );
+				const stat = await fsPromises.stat( fullPath );
 				if ( stat.isDirectory() ) {
 					this.archiveBuilder.directory( fullPath, archivePath, ( entry ) => {
 						const fullArchivePath = path.join( archivePath, entry.name );

@@ -171,12 +171,8 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			},
 			backupFile: normalize( '/path/to/backup.tar.gz' ),
 			includes: {
-				uploads: true,
-				plugins: true,
-				themes: true,
 				database: true,
-				muPlugins: true,
-				fonts: true,
+				wpContent: true,
 			},
 			phpVersion: '8.4',
 		};
@@ -248,12 +244,8 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		const options = {
 			...mockOptions,
 			includes: {
-				uploads: false,
-				plugins: false,
-				themes: false,
 				database: false,
-				muPlugins: false,
-				fonts: false,
+				wpContent: false,
 			},
 		};
 
@@ -291,13 +283,10 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		const options = {
 			...mockOptions,
 			includes: {
-				uploads: true,
-				plugins: true,
-				themes: true,
 				database: false,
-				muPlugins: false,
-				fonts: true,
+				wpContent: true,
 			},
+			specificSelectionPaths: [ 'uploads', 'plugins', 'themes', 'fonts' ],
 		};
 
 		const exporter = new DefaultExporter( options );
@@ -345,13 +334,10 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		const options = {
 			...mockOptions,
 			includes: {
-				uploads: false,
-				plugins: false,
-				themes: false,
 				database: false,
-				muPlugins: true,
-				fonts: false,
+				wpContent: true,
 			},
+			specificSelectionPaths: [ 'mu-plugins' ],
 		};
 
 		const exporter = new DefaultExporter( options );
@@ -379,12 +365,8 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		const options = {
 			...mockOptions,
 			includes: {
-				plugins: false,
-				uploads: false,
-				themes: false,
 				database: true,
-				muPlugins: false,
-				fonts: false,
+				wpContent: false,
 			},
 		};
 		( fsPromises.mkdtemp as jest.Mock ).mockResolvedValue( normalize( '/tmp/studio_export_123' ) );
@@ -413,12 +395,8 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		const options = {
 			...mockOptions,
 			includes: {
-				plugins: false,
-				uploads: false,
-				themes: false,
 				database: true,
-				muPlugins: false,
-				fonts: false,
+				wpContent: false,
 			},
 			splitDatabaseDumpByTable: true,
 		};
@@ -513,13 +491,10 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		const options = {
 			...mockOptions,
 			includes: {
-				uploads: false,
-				plugins: false,
-				themes: false,
 				database: false,
-				muPlugins: false,
-				fonts: true,
+				wpContent: true,
 			},
+			specificSelectionPaths: [ 'fonts' ],
 		};
 
 		const exporter = new DefaultExporter( options );
@@ -569,12 +544,8 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			},
 			backupFile: normalize( '/path/to/test-backup.tar.gz' ),
 			includes: {
-				uploads: true,
-				plugins: true,
-				themes: true,
 				database: true,
-				muPlugins: true,
-				fonts: true,
+				wpContent: true,
 			},
 			phpVersion: '8.4',
 		};

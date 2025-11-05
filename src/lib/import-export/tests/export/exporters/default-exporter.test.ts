@@ -1,6 +1,7 @@
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
+import path from 'path';
 import archiver from 'archiver';
 import { format } from 'date-fns';
 import { DefaultExporter } from 'src/lib/import-export/export/exporters';
@@ -130,6 +131,11 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				name: 'custom-font.woff2',
 				isFile: () => true,
 			},
+			{
+				path: normalize( '/path/to/site' ),
+				name: 'wp-config.php',
+				isFile: () => true,
+			},
 		];
 
 		( fsPromises.readdir as jest.Mock ).mockResolvedValue( mockFiles );
@@ -152,7 +158,11 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		// Mock fs.existsSync for addWpConfig method
 		( fs.existsSync as jest.Mock ).mockImplementation( ( filePath: string ) => {
 			const normalizedPath = normalize( filePath );
-			return normalizedPath.endsWith( 'wp-config.php' );
+			return mockFiles.some(
+				( file ) =>
+					normalizedPath === file.path ||
+					normalizedPath === normalize( path.join( file.path, file.name ) )
+			);
 		} );
 
 		mockBackup = {

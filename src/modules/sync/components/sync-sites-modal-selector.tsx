@@ -17,6 +17,7 @@ import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge'
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { SyncModalMode } from 'src/modules/sync/types';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
 
@@ -40,7 +41,7 @@ export function SyncSitesModalSelector( {
 	onConnect: ( siteId: number ) => void;
 	onInitialRender?: () => void;
 	selectedSite: SiteDetails;
-	mode?: 'push' | 'pull' | 'connect';
+	mode?: SyncModalMode;
 } ) {
 	const { __ } = useI18n();
 	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
@@ -356,7 +357,7 @@ function Footer( {
 	onConnect: () => void;
 	disabled: boolean;
 	selectedSite: SiteDetails;
-	mode?: 'push' | 'pull' | 'connect';
+	mode?: SyncModalMode;
 } ) {
 	const { __ } = useI18n();
 
@@ -397,12 +398,12 @@ function Footer( {
 	);
 }
 
-const SyncSitesOfflineView = ( { mode = 'connect' }: { mode?: 'push' | 'pull' | 'connect' } ) => {
+const SyncSitesOfflineView = ( { mode = 'connect' }: { mode?: SyncModalMode } ) => {
 	const { __ } = useI18n();
 	const getOfflineMessage = () => {
 		switch ( mode ) {
 			case 'push':
-				return __( 'Launching your site requires an internet connection.' );
+				return __( 'Publishing your site requires an internet connection.' );
 			case 'pull':
 				return __( 'Importing a remote site requires an internet connection.' );
 			case 'connect':

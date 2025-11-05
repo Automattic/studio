@@ -28,6 +28,7 @@ import {
 	loadAllConnectedSites,
 } from 'src/stores/sync';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { SyncModalMode } from 'src/modules/sync/types';
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();
@@ -134,9 +135,9 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 
 	// Simplified state management - combine related modal state into single object
 	type ModalState = {
-		mode: 'push' | 'pull' | 'connect' | null;
+		mode: SyncModalMode | null;
 		selectedRemoteSite: SyncSite | null;
-		syncDialogType: 'push' | 'pull' | null;
+		syncDialogType: Extract< SyncModalMode, 'push' | 'pull' > | null;
 	};
 
 	const [ modalState, setModalState ] = useState< ModalState >( {
@@ -157,10 +158,10 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		return <NoAuthSyncTab />;
 	}
 
-	const handleConnect = async ( newConnectedSite: SyncSite ): Promise< SyncSite > => {
+	const handleConnect = async ( newConnectedSite: SyncSite ): Promise< SyncSite | undefined > => {
 		try {
 			await connectSite( newConnectedSite );
-			// After connecting, reload connected sites to get the full site data from Redux store
+
 			await dispatch( loadAllConnectedSites() );
 			// Use Redux store as source of truth - find the site we just connected
 			const connectedSite = connectedSites.find( ( site ) => site.id === newConnectedSite.id );
@@ -171,7 +172,6 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				title: __( 'Failed to connect to site' ),
 				message: __( 'Please try again.' ),
 			} );
-			throw error;
 		}
 	};
 
@@ -211,11 +211,9 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 
 		let siteToUse = selectedSiteFromList;
 		if ( ! isAlreadyConnected ) {
-			// Connect the site first
-			try {
-				siteToUse = await handleConnect( selectedSiteFromList );
-			} catch ( error ) {
-				return; // Error already handled in handleConnect
+			siteToUse = await handleConnect( selectedSiteFromList );
+			if ( ! siteToUse ) {
+				return;
 			}
 		} else {
 			// Use the already connected site (it has more metadata)
@@ -284,30 +282,20 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					} }
 					syncSites={ syncSites }
 					onInitialRender={ refetchSites }
-					onConnect={ ( siteId: number ) => {
-						// Capture the current modal mode before it gets cleared
+					onConnect={ async ( siteId: number ) => {
 						const currentMode = modalState.mode;
 
 						// Use unified handler with appropriate callback based on mode
-						if ( currentMode === 'push' ) {
-							void handleSiteSelection( siteId, ( site ) => {
+						if ( currentMode === 'push' || currentMode === 'pull' ) {
+							await handleSiteSelection( siteId, ( site ) => {
 								setModalState( ( prev ) => ( {
 									...prev,
 									selectedRemoteSite: site,
-									syncDialogType: 'push',
-								} ) );
-							} );
-						} else if ( currentMode === 'pull' ) {
-							void handleSiteSelection( siteId, ( site ) => {
-								setModalState( ( prev ) => ( {
-									...prev,
-									selectedRemoteSite: site,
-									syncDialogType: 'pull',
+									syncDialogType: currentMode,
 								} ) );
 							} );
 						} else {
-							// Legacy connect mode - no post-connection action needed
-							void handleSiteSelection( siteId );
+							await handleSiteSelection( siteId );
 						}
 					} }
 					selectedSite={ selectedSite }

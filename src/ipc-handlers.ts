@@ -829,7 +829,8 @@ export async function pushArchive(
 		const options = optionsToSync ? [ ...optionsToSync, 'paths' ] : [ 'paths' ];
 		formData.push( [ 'options', options.join( ',' ) ] );
 
-		formData.push( [ 'include_path_list', specificSelectionPaths ] );
+		const joinedPaths = specificSelectionPaths.join( ',' );
+		formData.push( [ 'include_path_list', joinedPaths ] );
 	} else if ( optionsToSync ) {
 		formData.push( [ 'options', optionsToSync.join( ',' ) ] );
 	}

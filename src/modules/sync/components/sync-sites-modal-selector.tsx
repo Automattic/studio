@@ -364,9 +364,8 @@ function Footer( {
 	const getButtonText = () => {
 		switch ( mode ) {
 			case 'push':
-				return __( 'Publish' );
 			case 'pull':
-				return __( 'Import' );
+				return __( 'Next' );
 			case 'connect':
 			default:
 				return __( 'Connect' );

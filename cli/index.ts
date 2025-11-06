@@ -47,7 +47,7 @@ async function main() {
 			}
 		} )
 		.command( 'auth', __( 'Manage authentication' ), ( authYargs ) => {
-			registerAuthLoginCommand( authYargs );
+			registerAuthLoginCommand( authYargs, locale );
 			authYargs.demandCommand( 1, __( 'You must provide a valid auth command' ) );
 		} )
 		.command( 'preview', __( 'Manage preview sites' ), ( previewYargs ) => {

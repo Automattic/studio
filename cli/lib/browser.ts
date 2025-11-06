@@ -1,5 +1,5 @@
 import { spawn } from 'child_process';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
 
 /**
@@ -36,17 +36,13 @@ export async function openBrowser( url: string ): Promise< void > {
 	return new Promise( ( resolve, reject ) => {
 		const child = spawn( cmd, args );
 
-		child.on( 'error', ( error ) => {
-			reject(
-				new LoggerError( __( 'Failed to open browser. Please open the URL manually.' ), error )
-			);
-		} );
+		child.on( 'error', reject );
 
 		child.on( 'exit', ( code ) => {
 			if ( code === 0 ) {
 				resolve();
 			} else {
-				reject( new LoggerError( __( 'Failed to open browser. Please open the URL manually.' ) ) );
+				reject( new Error( 'Failed to open browser' ) );
 			}
 		} );
 	} );

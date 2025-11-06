@@ -175,6 +175,10 @@ describe( 'Appdata Module', () => {
 		it( 'should return auth token when it exists', async () => {
 			const mockAuthToken = {
 				accessToken: 'valid-token',
+				displayName: 'User Name',
+				email: 'user@example.com',
+				expirationTime: 0,
+				expiresIn: 3600,
 				id: 123,
 			};
 

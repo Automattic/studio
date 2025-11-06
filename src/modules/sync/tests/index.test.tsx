@@ -45,10 +45,14 @@ jest.mock( 'src/stores/sync', () => ( {
 	useConnectedSitesOperations: jest.fn(),
 	connectedSitesSelectors: {
 		selectIsModalOpen: jest.fn(),
+		selectModalMode: jest.fn(),
 	},
 	connectedSitesActions: {
 		openModal: jest.fn().mockImplementation( () => {
 			return { type: 'connectedSites/openModal' };
+		} ),
+		setModalMode: jest.fn().mockImplementation( () => {
+			return { type: 'connectedSites/setModalMode' };
 		} ),
 		closeModal: jest.fn().mockImplementation( () => {
 			return { type: 'connectedSites/closeModal' };
@@ -190,6 +194,7 @@ describe( 'ContentTabSync', () => {
 		useAppDispatch.mockReturnValue( jest.fn() );
 
 		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( false );
+		( connectedSitesSelectors.selectModalMode as jest.Mock ).mockReturnValue( null );
 		( useRemoteFileTree as jest.Mock ).mockReturnValue( {
 			fetchChildren: jest.fn().mockResolvedValue( [
 				{
@@ -280,6 +285,7 @@ describe( 'ContentTabSync', () => {
 		fireEvent.click( importButton );
 
 		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( true );
+		( connectedSitesSelectors.selectModalMode as jest.Mock ).mockReturnValue( null );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		expect( screen.getByTestId( 'sync-sites-modal-selector' ) ).toBeInTheDocument();
@@ -362,6 +368,7 @@ describe( 'ContentTabSync', () => {
 		expect( importButton ).toBeInTheDocument();
 		fireEvent.click( importButton );
 		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( true );
+		( connectedSitesSelectors.selectModalMode as jest.Mock ).mockReturnValue( null );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		const createNewSiteButton = screen.getByRole( 'button', {
 			name: /Create a new WordPress.com site ↗/i,

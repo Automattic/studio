@@ -2,6 +2,7 @@ import { createAsyncThunk, createSelector, createSlice, PayloadAction } from '@r
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { SyncModalMode } from 'src/modules/sync/types';
 
 type ConnectedSites = SyncSite[];
 type ModalState = false | true | { disconnectSiteId?: number };
@@ -9,6 +10,7 @@ type ModalState = false | true | { disconnectSiteId?: number };
 interface ConnectedSitesState {
 	sites: Record< string, ConnectedSites >; // Keyed by localSiteId for efficient lookups
 	isModalOpen: ModalState;
+	modalMode: SyncModalMode | null;
 }
 
 interface ConnectSiteParams {
@@ -24,6 +26,7 @@ interface DisconnectSiteParams {
 const initialState: ConnectedSitesState = {
 	sites: {},
 	isModalOpen: false,
+	modalMode: null,
 };
 
 export const loadAllConnectedSites = createAsyncThunk( 'connectedSites/loadAll', async () => {
@@ -96,12 +99,20 @@ const connectedSitesSlice = createSlice( {
 			delete state.sites[ action.payload ];
 		},
 
-		openModal: ( state ) => {
+		openModal: ( state, action: PayloadAction< SyncModalMode | undefined > ) => {
 			state.isModalOpen = true;
+			if ( action.payload ) {
+				state.modalMode = action.payload;
+			}
+		},
+
+		setModalMode: ( state, action: PayloadAction< SyncModalMode | null > ) => {
+			state.modalMode = action.payload;
 		},
 
 		closeModal: ( state ) => {
 			state.isModalOpen = false;
+			state.modalMode = null;
 		},
 	},
 	extraReducers: ( builder ) => {
@@ -125,6 +136,7 @@ export const connectedSitesReducer = connectedSitesSlice.reducer;
 
 export const connectedSitesSelectors = {
 	selectIsModalOpen: ( state: RootState ) => state.connectedSites.isModalOpen,
+	selectModalMode: ( state: RootState ) => state.connectedSites.modalMode,
 	selectSitesByLocalSiteId: createSelector(
 		[
 			( state: RootState ) => state.connectedSites,

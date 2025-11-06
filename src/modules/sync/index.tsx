@@ -127,18 +127,13 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
 	const isModalOpen = useRootSelector( connectedSitesSelectors.selectIsModalOpen );
+	const reduxModalMode = useRootSelector( connectedSitesSelectors.selectModalMode );
 	const { connectedSites } = useConnectedSitesData();
 	const { syncSites, isFetching, refetchSites } = useSyncSitesData();
 	const { connectSite, disconnectSite } = useConnectedSitesOperations();
 	const { pushSite, pullSite } = useSyncSites();
 
-	const [ modalState, setModalState ] = useState< {
-		mode: SyncModalMode | null;
-		selectedRemoteSite: SyncSite | null;
-	} >( {
-		mode: null,
-		selectedRemoteSite: null,
-	} );
+	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
 
 	const { isAuthenticated } = useAuth();
 
@@ -164,13 +159,11 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	};
 
 	const handleLaunchSite = () => {
-		setModalState( ( prev ) => ( { ...prev, mode: 'push' } ) );
-		dispatch( connectedSitesActions.openModal() );
+		dispatch( connectedSitesActions.openModal( 'push' ) );
 	};
 
 	const handleImportSite = () => {
-		setModalState( ( prev ) => ( { ...prev, mode: 'pull' } ) );
-		dispatch( connectedSitesActions.openModal() );
+		dispatch( connectedSitesActions.openModal( 'pull' ) );
 	};
 
 	const handleSiteSelection = async ( siteId: number, mode: SyncModalMode | null ) => {
@@ -193,18 +186,12 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		await handleConnect( selectedSiteFromList );
 
 		if ( mode === 'push' || mode === 'pull' ) {
-			setModalState( ( prev ) => ( {
-				...prev,
-				mode: mode,
-				selectedRemoteSite: selectedSiteFromList,
-			} ) );
+			dispatch( connectedSitesActions.setModalMode( mode ) );
+			setSelectedRemoteSite( selectedSiteFromList );
 		} else {
-			setModalState( ( prev ) => ( { ...prev, mode: null } ) );
+			dispatch( connectedSitesActions.setModalMode( null ) );
 		}
 	};
-
-	// Using a local variable to avoid non-null assertion operator in pushSite and pullSite
-	const selectedRemoteSite = modalState.selectedRemoteSite;
 
 	return (
 		<div className="flex flex-col h-full overflow-y-auto">
@@ -218,7 +205,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 						<ConnectButton
 							variant="primary"
-							connectSite={ () => dispatch( connectedSitesActions.openModal() ) }
+							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
 							disableConnectButtonStyle={ true }
 						>
 							{ __( 'Connect another site' ) }
@@ -250,47 +237,37 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 
 			{ isModalOpen && (
 				<SyncSitesModalSelector
-					mode={ modalState.mode || 'connect' }
+					mode={ reduxModalMode || 'connect' }
 					isLoading={ isFetching }
 					onRequestClose={ () => {
 						dispatch( connectedSitesActions.closeModal() );
-						setModalState( ( prev ) => ( { ...prev, mode: null } ) );
 					} }
 					syncSites={ syncSites }
 					onInitialRender={ refetchSites }
 					onConnect={ async ( siteId: number ) => {
-						await handleSiteSelection( siteId, modalState.mode );
+						await handleSiteSelection( siteId, reduxModalMode );
 					} }
 					selectedSite={ selectedSite }
 				/>
 			) }
 
-			{ modalState.mode && modalState.mode !== 'connect' && selectedRemoteSite && (
+			{ reduxModalMode && reduxModalMode !== 'connect' && selectedRemoteSite && (
 				<SyncDialog
-					type={ modalState.mode }
+					type={ reduxModalMode }
 					localSite={ selectedSite }
 					remoteSite={ selectedRemoteSite }
 					onPush={ ( tree ) => {
 						const pushOptions = convertTreeToPushOptions( tree );
 						void pushSite( selectedRemoteSite, selectedSite, pushOptions );
-						setModalState( {
-							mode: null,
-							selectedRemoteSite: null,
-						} );
+						setSelectedRemoteSite( null );
 					} }
 					onPull={ ( tree ) => {
 						const pullOptions = convertTreeToPullOptions( tree );
 						void pullSite( selectedRemoteSite, selectedSite, pullOptions );
-						setModalState( {
-							mode: null,
-							selectedRemoteSite: null,
-						} );
+						setSelectedRemoteSite( null );
 					} }
 					onRequestClose={ () => {
-						setModalState( {
-							mode: null,
-							selectedRemoteSite: null,
-						} );
+						setSelectedRemoteSite( null );
 					} }
 				/>
 			) }

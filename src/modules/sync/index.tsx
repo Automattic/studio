@@ -25,7 +25,6 @@ import {
 	useConnectedSitesOperations,
 	connectedSitesSelectors,
 	connectedSitesActions,
-	loadAllConnectedSites,
 } from 'src/stores/sync';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { SyncModalMode } from 'src/modules/sync/types';
@@ -42,7 +41,7 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 				</div>
 				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
 					{ __(
-						'Launch your existing WordPress.com or Jetpack-activated Pressable sites, or import an exisiting one. Then, share your work with the world.'
+						'Launch your existing WordPress.com or Jetpack-activated Pressable sites, or import an existing one. Then, share your work with the world.'
 					) }
 				</div>
 				<div className="mt-6">
@@ -153,14 +152,9 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		return <NoAuthSyncTab />;
 	}
 
-	const handleConnect = async ( newConnectedSite: SyncSite ): Promise< SyncSite | undefined > => {
+	const handleConnect = async ( newConnectedSite: SyncSite ) => {
 		try {
 			await connectSite( newConnectedSite );
-
-			await dispatch( loadAllConnectedSites() );
-			// Return the connected site with full metadata, or fallback to the original site
-			const connectedSite = connectedSites.find( ( site ) => site.id === newConnectedSite.id );
-			return connectedSite || newConnectedSite;
 		} catch ( error ) {
 			getIpcApi().showErrorMessageBox( {
 				title: __( 'Failed to connect to site' ),
@@ -196,19 +190,14 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			return;
 		}
 
-		const isAlreadyConnected = connectedSites.some( ( site ) => site.id === siteId );
-		if ( ! isAlreadyConnected ) {
-			const connectedSite = await handleConnect( selectedSiteFromList );
-			if ( ! connectedSite ) {
-				return;
-			}
-		}
-		const siteToUse = connectedSites.find( ( site ) => site.id === siteId ) || selectedSiteFromList;
-
-		dispatch( connectedSitesActions.closeModal() );
+		await handleConnect( selectedSiteFromList );
 
 		if ( mode === 'push' || mode === 'pull' ) {
-			setModalState( ( prev ) => ( { ...prev, mode: mode, selectedRemoteSite: siteToUse } ) );
+			setModalState( ( prev ) => ( {
+				...prev,
+				mode: mode,
+				selectedRemoteSite: selectedSiteFromList,
+			} ) );
 		} else {
 			setModalState( ( prev ) => ( { ...prev, mode: null } ) );
 		}

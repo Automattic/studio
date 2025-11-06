@@ -767,11 +767,9 @@ export async function exportSiteForPush(
 
 		const includes = {
 			database: shouldIncludeSyncOption( configuration?.optionsToSync, 'sqls' ),
-			uploads: shouldIncludeSyncOption( configuration?.optionsToSync, 'uploads' ),
-			plugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'plugins' ),
-			themes: shouldIncludeSyncOption( configuration?.optionsToSync, 'themes' ),
-			muPlugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
-			fonts: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
+			wpContent: ( [ 'uploads', 'plugins', 'themes', 'contents' ] as const ).some( ( option ) =>
+				shouldIncludeSyncOption( configuration?.optionsToSync, option )
+			),
 		};
 
 		const exportOptions: ExportOptions = {
@@ -929,12 +927,7 @@ export async function exportSite(
 		const result = await exportBackup( options, onEvent );
 
 		if ( result ) {
-			const isDatabaseOnly =
-				options.includes.database &&
-				! options.includes.uploads &&
-				! options.includes.plugins &&
-				! options.includes.themes &&
-				! options.includes.muPlugins;
+			const isDatabaseOnly = options.includes.database && ! options.includes.wpContent;
 			bumpStat(
 				StatsGroup.STUDIO_EXPORT,
 				isDatabaseOnly ? StatsMetric.DATABASE_ONLY : StatsMetric.FULL_SITE

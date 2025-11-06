@@ -183,13 +183,13 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			return;
 		}
 
-		await handleConnect( selectedSiteFromList );
-
 		if ( mode === 'push' || mode === 'pull' ) {
 			dispatch( connectedSitesActions.setModalMode( mode ) );
 			setSelectedRemoteSite( selectedSiteFromList );
 		} else {
+			await handleConnect( selectedSiteFromList );
 			dispatch( connectedSitesActions.setModalMode( null ) );
+			dispatch( connectedSitesActions.closeModal() );
 		}
 	};
 
@@ -256,18 +256,19 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					type={ reduxModalMode }
 					localSite={ selectedSite }
 					remoteSite={ selectedRemoteSite }
-					onPush={ ( tree ) => {
+					onPush={ async ( tree ) => {
 						const pushOptions = convertTreeToPushOptions( tree );
 						void pushSite( selectedRemoteSite, selectedSite, pushOptions );
-						setSelectedRemoteSite( null );
+						await handleConnect( selectedRemoteSite );
 					} }
-					onPull={ ( tree ) => {
+					onPull={ async ( tree ) => {
 						const pullOptions = convertTreeToPullOptions( tree );
 						void pullSite( selectedRemoteSite, selectedSite, pullOptions );
-						setSelectedRemoteSite( null );
+						await handleConnect( selectedRemoteSite );
 					} }
 					onRequestClose={ () => {
 						setSelectedRemoteSite( null );
+						dispatch( connectedSitesActions.setModalMode( null ) );
 					} }
 				/>
 			) }

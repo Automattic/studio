@@ -17,7 +17,6 @@ import StudioButton from 'src/components/button';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetBlueprints } from 'src/stores/wpcom-api';
-import BlueprintError from './blueprint-error';
 
 import './blueprints.css';
 
@@ -350,12 +349,6 @@ export function AddSiteBlueprintSelector( {
 		[ blueprints, selectedBlueprint ]
 	);
 
-	if ( blueprintError ) {
-		return (
-			<BlueprintError errorMessage={ blueprintError } onBack={ onErrorDismiss || ( () => {} ) } />
-		);
-	}
-
 	if ( isLoading ) {
 		return (
 			<VStack className="w-full max-w-6xl mx-auto">
@@ -379,6 +372,19 @@ export function AddSiteBlueprintSelector( {
 				isOpen={ showIssuesModal }
 				onClose={ () => setShowIssuesModal( false ) }
 			/>
+
+			{ blueprintError && (
+				<Notice
+					status="error"
+					isDismissible={ false }
+					onRemove={ onErrorDismiss || ( () => {} ) }
+					className="mx-0 mb-4"
+				>
+					<strong>{ __( 'Blueprint Error' ) }</strong>
+					<br />
+					{ blueprintError }
+				</Notice>
+			) }
 
 			{ validationError && (
 				<Notice

@@ -257,14 +257,14 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					localSite={ selectedSite }
 					remoteSite={ selectedRemoteSite }
 					onPush={ async ( tree ) => {
+						await handleConnect( selectedRemoteSite );
 						const pushOptions = convertTreeToPushOptions( tree );
 						void pushSite( selectedRemoteSite, selectedSite, pushOptions );
-						await handleConnect( selectedRemoteSite );
 					} }
 					onPull={ async ( tree ) => {
+						await handleConnect( selectedRemoteSite );
 						const pullOptions = convertTreeToPullOptions( tree );
 						void pullSite( selectedRemoteSite, selectedSite, pullOptions );
-						await handleConnect( selectedRemoteSite );
 					} }
 					onRequestClose={ () => {
 						setSelectedRemoteSite( null );

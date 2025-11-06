@@ -149,7 +149,7 @@ export async function getAuthToken(): Promise< ValidatedAuthToken > {
 	try {
 		const { authToken } = await readAppdata();
 
-		if ( ! authToken?.accessToken || ! authToken?.id ) {
+		if ( ! authToken?.accessToken || ! authToken?.id || Date.now() >= authToken?.expirationTime ) {
 			throw new Error( 'Authentication required' );
 		}
 

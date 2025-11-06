@@ -1,7 +1,13 @@
 import { password } from '@inquirer/prompts';
 import { getAuthenticationUrl } from 'common/lib/oauth';
-import { validateAccessToken, getUserInfo } from 'cli/lib/api';
-import { lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
+import { getUserInfo } from 'cli/lib/api';
+import {
+	getAuthToken,
+	lockAppdata,
+	readAppdata,
+	saveAppdata,
+	unlockAppdata,
+} from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { Logger, LoggerError } from 'cli/logger';
 
@@ -14,6 +20,7 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	readAppdata: jest.fn(),
 	saveAppdata: jest.fn(),
 	unlockAppdata: jest.fn(),
+	getAuthToken: jest.fn(),
 } ) );
 jest.mock( 'cli/lib/browser' );
 jest.mock( 'cli/logger' );
@@ -56,11 +63,11 @@ describe( 'Auth Login Command', () => {
 
 		( Logger as jest.Mock ).mockReturnValue( mockLogger );
 		( getAuthenticationUrl as jest.Mock ).mockReturnValue( mockAuthUrl );
-		( validateAccessToken as jest.Mock ).mockResolvedValue( undefined );
 		( getUserInfo as jest.Mock ).mockResolvedValue( mockUserData );
 		( openBrowser as jest.Mock ).mockResolvedValue( undefined );
 		( password as jest.Mock ).mockResolvedValue( mockAccessToken );
-		( readAppdata as jest.Mock ).mockResolvedValue( {} );
+		( readAppdata as jest.Mock ).mockResolvedValue( mockAppdata );
+		( getAuthToken as jest.Mock ).mockRejectedValue( new Error( 'Mock error' ) );
 		( lockAppdata as jest.Mock ).mockResolvedValue( undefined );
 		( unlockAppdata as jest.Mock ).mockResolvedValue( undefined );
 		( saveAppdata as jest.Mock ).mockResolvedValue( undefined );
@@ -71,12 +78,11 @@ describe( 'Auth Login Command', () => {
 	} );
 
 	it( 'should skip login if already authenticated', async () => {
-		( readAppdata as jest.Mock ).mockResolvedValue( mockAppdata );
+		( getAuthToken as jest.Mock ).mockResolvedValue( mockAppdata.authToken );
 
 		const { runCommand } = await import( '../login' );
 		await runCommand( 'en' );
 
-		expect( validateAccessToken ).toHaveBeenCalledWith( 'existing-token' );
 		expect( openBrowser ).not.toHaveBeenCalled();
 		expect( password ).not.toHaveBeenCalled();
 	} );
@@ -109,13 +115,9 @@ describe( 'Auth Login Command', () => {
 	} );
 
 	it( 'should proceed with login if existing token is invalid', async () => {
-		( readAppdata as jest.Mock ).mockResolvedValue( mockAppdata );
-		( validateAccessToken as jest.Mock ).mockRejectedValue( new Error( 'Invalid token' ) );
-
 		const { runCommand } = await import( '../login' );
 		await runCommand( 'en' );
 
-		expect( validateAccessToken ).toHaveBeenCalledWith( 'existing-token' );
 		expect( openBrowser ).toHaveBeenCalled();
 		expect( password ).toHaveBeenCalled();
 	} );

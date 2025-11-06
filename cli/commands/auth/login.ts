@@ -3,8 +3,14 @@ import { __, sprintf } from '@wordpress/i18n';
 import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { AuthCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { validateAccessToken, getUserInfo } from 'cli/lib/api';
-import { lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
+import { getUserInfo } from 'cli/lib/api';
+import {
+	getAuthToken,
+	lockAppdata,
+	readAppdata,
+	saveAppdata,
+	unlockAppdata,
+} from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -15,19 +21,14 @@ export async function runCommand( locale: SupportedLocale = 'en' ): Promise< voi
 	const logger = new Logger< LoggerAction >();
 
 	try {
-		const existingData = await readAppdata();
-		const now = new Date().getTime();
+		await getAuthToken();
+		logger.reportSuccess( __( 'Already authenticated with WordPress.com' ) );
+		return;
+	} catch ( error ) {
+		// Assume the token is invalid and proceed with authentication
+	}
 
-		if ( existingData.authToken?.accessToken && now < existingData.authToken?.expirationTime ) {
-			try {
-				await validateAccessToken( existingData.authToken.accessToken );
-				logger.reportSuccess( __( 'Already authenticated with WordPress.com' ) );
-				return;
-			} catch ( error ) {
-				// Assume the token is invalid and proceed with authentication
-			}
-		}
-
+	try {
 		logger.reportStart( LoggerAction.LOGIN, __( 'Opening browser for authentication…' ) );
 
 		const authUrl = getAuthenticationUrl( locale, CLI_REDIRECT_URI );

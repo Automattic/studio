@@ -177,7 +177,7 @@ describe( 'Appdata Module', () => {
 				accessToken: 'valid-token',
 				displayName: 'User Name',
 				email: 'user@example.com',
-				expirationTime: 0,
+				expirationTime: Date.now() + 3600000, // 1 hour in the future
 				expiresIn: 3600,
 				id: 123,
 			};

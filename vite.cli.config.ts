@@ -4,6 +4,7 @@ import { viteStaticCopy } from 'vite-plugin-static-copy';
 import { existsSync } from 'fs';
 
 const yargsLocalesPath = resolve( __dirname, 'node_modules/yargs/locales' );
+const cliNodeModulesPath = resolve( __dirname, 'cli/node_modules' );
 
 export default defineConfig( {
 	plugins: [
@@ -14,6 +15,18 @@ export default defineConfig( {
 							{
 								src: 'node_modules/yargs/locales/*',
 								dest: '../locales',
+							},
+						],
+					} ),
+			  ]
+			: [] ),
+		...( existsSync( cliNodeModulesPath )
+			? [
+					viteStaticCopy( {
+						targets: [
+							{
+								src: 'cli/node_modules',
+								dest: '.',
 							},
 						],
 					} ),
@@ -33,6 +46,7 @@ export default defineConfig( {
 			external: [
 				/^node:/,
 				/^(path|fs|os|child_process|crypto|http|https|http2|url|querystring|stream|util|events|buffer|assert|net|tty|readline|zlib|constants)$/,
+				'pm2',
 			],
 			output: {
 				format: 'cjs',

@@ -8,6 +8,10 @@ import { registerCommand as registerCreateCommand } from 'cli/commands/preview/c
 import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/delete';
 import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
 import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/update';
+import { registerCommand as registerPm2ListCommand } from 'cli/commands/pm2/list';
+import { registerCommand as registerPm2StartCommand } from 'cli/commands/pm2/start';
+import { registerCommand as registerPm2StatusCommand } from 'cli/commands/pm2/status';
+import { registerCommand as registerPm2StopCommand } from 'cli/commands/pm2/stop';
 import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
 import { readAppdata } from 'cli/lib/appdata';
 import { loadTranslations } from 'cli/lib/i18n';
@@ -51,6 +55,13 @@ async function main() {
 			registerDeleteCommand( previewYargs );
 			registerUpdateCommand( previewYargs );
 			previewYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
+		} )
+		.command( 'pm2', __( 'Manage PM2 daemon' ), ( pm2Yargs ) => {
+			registerPm2StartCommand( pm2Yargs );
+			registerPm2StopCommand( pm2Yargs );
+			registerPm2StatusCommand( pm2Yargs );
+			registerPm2ListCommand( pm2Yargs );
+			pm2Yargs.demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();

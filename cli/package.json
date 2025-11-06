@@ -6,5 +6,8 @@
 	"version": "1.0.0",
 	"description": "WordPress Studio CLI",
 	"license": "GPL-2.0-or-later",
-	"main": "index.js"
+	"main": "index.js",
+	"dependencies": {
+		"pm2": "^5.3.0"
+	}
 }

@@ -4,14 +4,15 @@ import { __ } from '@wordpress/i18n';
 import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import yargs from 'yargs';
-import { registerCommand as registerCreateCommand } from 'cli/commands/preview/create';
-import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/delete';
-import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
-import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/update';
 import { registerCommand as registerPm2ListCommand } from 'cli/commands/pm2/list';
 import { registerCommand as registerPm2StartCommand } from 'cli/commands/pm2/start';
 import { registerCommand as registerPm2StatusCommand } from 'cli/commands/pm2/status';
 import { registerCommand as registerPm2StopCommand } from 'cli/commands/pm2/stop';
+import { registerCommand as registerCreateCommand } from 'cli/commands/preview/create';
+import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/delete';
+import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
+import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/update';
+import { registerCommand as registerProxyBootCommand } from 'cli/commands/proxy/boot';
 import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
 import { readAppdata } from 'cli/lib/appdata';
 import { loadTranslations } from 'cli/lib/i18n';
@@ -56,12 +57,28 @@ async function main() {
 			registerUpdateCommand( previewYargs );
 			previewYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
-		.command( 'pm2', __( 'Manage PM2 daemon' ), ( pm2Yargs ) => {
-			registerPm2StartCommand( pm2Yargs );
-			registerPm2StopCommand( pm2Yargs );
-			registerPm2StatusCommand( pm2Yargs );
-			registerPm2ListCommand( pm2Yargs );
-			pm2Yargs.demandCommand( 1, __( 'You must provide a valid command' ) );
+		.command( {
+			command: 'pm2',
+			describe: __( 'Internal: PM2 daemon management (Studio use only)' ),
+			hidden: true,
+			builder: ( pm2Yargs ) => {
+				registerPm2StartCommand( pm2Yargs );
+				registerPm2StopCommand( pm2Yargs );
+				registerPm2StatusCommand( pm2Yargs );
+				registerPm2ListCommand( pm2Yargs );
+				pm2Yargs.demandCommand( 1, __( 'You must provide a valid command' ) );
+				return pm2Yargs;
+			},
+		} )
+		.command( {
+			command: 'proxy',
+			describe: __( 'Internal: Proxy server management (Studio use only)' ),
+			hidden: true,
+			builder: ( proxyYargs ) => {
+				registerProxyBootCommand( proxyYargs );
+				proxyYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
+				return proxyYargs;
+			},
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();

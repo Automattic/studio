@@ -1,8 +1,9 @@
-import path from 'path';
 import fs from 'fs';
 import os from 'os';
+import path from 'path';
+import { getAppdataPath } from 'cli/lib/appdata';
 
-function resolvePm2(): typeof import( 'pm2' ) {
+function resolvePm2(): typeof import('pm2') {
 	try {
 		return require( 'pm2' );
 	} catch ( error ) {
@@ -26,7 +27,9 @@ function resolvePm2(): typeof import( 'pm2' ) {
 		}
 
 		throw new Error(
-			`pm2 module not found. Please ensure pm2 is installed in the CLI dependencies. Tried paths: ${ possiblePaths.join( ', ' ) }`
+			`pm2 module not found. Please ensure pm2 is installed in the CLI dependencies. Tried paths: ${ possiblePaths.join(
+				', '
+			) }`
 		);
 	}
 }
@@ -133,7 +136,8 @@ export async function startDaemon(): Promise< void > {
 		return;
 	}
 	await connect();
-	disconnect();
+	// Keep connection open - subsequent operations will reuse it
+	// The isConnected flag prevents duplicate connections
 }
 
 export async function stopDaemon(): Promise< void > {
@@ -262,3 +266,116 @@ process.on( 'exit', cleanup );
 process.on( 'SIGINT', cleanup );
 process.on( 'SIGTERM', cleanup );
 
+/**
+ * Proxy Server Management Functions
+ *
+ * The proxy runs as a PM2-managed CLI process. When `studio proxy start` is called,
+ * PM2 starts the CLI with the proxy command and keeps it running persistently.
+ */
+
+const PROXY_PROCESS_NAME = 'studio-proxy';
+
+/**
+ * Start the proxy server via PM2
+ * This launches the CLI with `proxy start --managed` which runs the proxy servers
+ */
+export async function startProxyProcess( cliPath: string ): Promise< ProcessDescription > {
+	await ensureDaemonRunning();
+
+	return new Promise( ( resolve, reject ) => {
+		const processConfig: pm2.StartOptions = {
+			name: PROXY_PROCESS_NAME,
+			script: cliPath,
+			args: [ 'proxy', 'boot', '--managed' ],
+			instances: 1,
+			exec_mode: 'fork',
+			autorestart: true,
+			max_restarts: 10,
+			min_uptime: '10s',
+			restart_delay: 3000,
+			kill_timeout: 5000,
+			uid: 0, // Run as root to bind to ports 80 and 443
+			env: {
+				// Pass the real user's home directory so proxy can find appdata
+				// When running as root, os.homedir() returns /var/root instead of the user's home
+				STUDIO_USER_HOME: os.homedir(),
+				// Pass the actual appdata file path directly from CLI
+				STUDIO_APPDATA_PATH: getAppdataPath(),
+			},
+		};
+
+		pm2.start( processConfig, ( error, apps ) => {
+			disconnect();
+			if ( error ) {
+				reject( error );
+				return;
+			}
+
+			if ( ! apps || apps.length === 0 ) {
+				reject( new Error( 'Failed to start proxy process' ) );
+				return;
+			}
+
+			resolve( apps[ 0 ] as ProcessDescription );
+		} );
+	} );
+}
+
+/**
+ * Check if the proxy process is running
+ */
+export async function isProxyProcessRunning(): Promise< boolean > {
+	try {
+		if ( ! isDaemonRunning() ) {
+			return false;
+		}
+
+		const processes = await listProcesses( false );
+		return processes.some( ( p ) => p.name === PROXY_PROCESS_NAME && p.status === 'online' );
+	} catch ( error ) {
+		console.error( 'Error checking if proxy is running:', error );
+		return false;
+	}
+}
+
+/**
+ * Get the proxy process status
+ */
+export async function getProxyProcessStatus(): Promise< ProcessDescription | null > {
+	return describeProcess( PROXY_PROCESS_NAME );
+}
+
+/**
+ * Stop the proxy server
+ */
+export async function stopProxyProcess(): Promise< void > {
+	await stopProcess( PROXY_PROCESS_NAME );
+}
+
+/**
+ * Restart the proxy server
+ */
+export async function restartProxyProcess(): Promise< void > {
+	await restartProcess( PROXY_PROCESS_NAME );
+}
+
+/**
+ * Delete the proxy process from PM2
+ */
+export async function deleteProxyProcess(): Promise< void > {
+	await deleteProcess( PROXY_PROCESS_NAME );
+}
+
+/**
+ * Ensure the proxy is running, start it if not (idempotent)
+ */
+export async function ensureProxyRunning( cliPath: string ): Promise< void > {
+	const isRunning = await isProxyProcessRunning();
+	if ( isRunning ) {
+		console.log( 'Proxy is already running' );
+		return;
+	}
+
+	console.log( 'Starting proxy server...' );
+	await startProxyProcess( cliPath );
+}

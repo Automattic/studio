@@ -30,7 +30,8 @@ import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
 import { getPlatformMetric } from 'src/lib/bump-stats/lib';
 import { handleDeeplink } from 'src/lib/deeplink';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
-import { stopProxyServer } from 'src/lib/proxy-server';
+// Proxy server is now managed by PM2 and persists across app restarts
+// No need to import stopProxyServer anymore
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-watcher';
 import { getWordPressProvider } from 'src/lib/wordpress-provider';
@@ -393,7 +394,7 @@ async function appBoot() {
 
 	app.on( 'quit', () => {
 		void stopAllServersOnQuit();
-		stopProxyServer().catch( ( error ) => console.error( 'Error stopping proxy server:', error ) );
+		// Proxy server persists via PM2 - no need to stop it
 		stopUserDataWatcher();
 	} );
 

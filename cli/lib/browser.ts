@@ -1,6 +1,5 @@
 import { spawn } from 'child_process';
-import { __, sprintf } from '@wordpress/i18n';
-import { LoggerError } from 'cli/logger';
+import { __ } from '@wordpress/i18n';
 
 /**
  * Opens the default browser with the specified URL

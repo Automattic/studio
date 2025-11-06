@@ -46,8 +46,8 @@ const userDataSchema = z
 		authToken: z
 			.object( {
 				accessToken: z.string().min( 1, __( 'Access token cannot be empty' ) ),
-				expiresIn: z.number(),
-				expirationTime: z.number(),
+				expiresIn: z.number(), // Seconds
+				expirationTime: z.number(), // Milliseconds since the Unix epoch
 				id: z.number().optional(),
 				email: z.string(),
 				displayName: z.string().default( '' ),

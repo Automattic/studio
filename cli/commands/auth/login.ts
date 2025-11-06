@@ -69,7 +69,7 @@ export async function runCommand(): Promise< void > {
 				email: user.email,
 				displayName: user.display_name,
 				expiresIn: twoWeeksInSeconds,
-				expirationTime: now.getTime() + twoWeeksInSeconds,
+				expirationTime: now.getTime() + twoWeeksInSeconds * 1000,
 			};
 
 			await saveAppdata( userData );

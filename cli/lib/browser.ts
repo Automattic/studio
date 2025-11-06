@@ -30,6 +30,8 @@ export async function openBrowser( url: string ): Promise< void > {
 			cmd = 'xdg-open';
 			args = [ url ];
 			break;
+		default:
+			return Promise.reject( new Error( __( 'Unsupported platform' ) ) );
 	}
 
 	return new Promise( ( resolve, reject ) => {

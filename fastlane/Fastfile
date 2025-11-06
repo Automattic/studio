@@ -106,7 +106,7 @@ def get_windows_update_release_sha(arch: 'x64')
   begin
     releases_content = File.read(releases_file_path)
   rescue => error
-    UI.user_error!("Couldn't read RELEASES file of Windows build at #{releases_file_path}. Please ensure that the file exists to generate the release manifest.")
+    UI.user_error!("Couldn't read RELEASES file of Windows build at #{releases_file_path}. Please ensure that the file compute the release SHA1.")
   end
 
   match_data = releases_content.match(/([a-zA-Z\d]{40})\s(.*\.nupkg)\s(\d+)/)

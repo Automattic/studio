@@ -58,14 +58,14 @@ steps:
       - github_commit_status:
           context: E2E Tests
 
-  - block: "🚦 Build for Mac?"
+  - input: "🚦 Build for Mac?"
     prompt: "Do you want to build Mac dev binaries for this PR?"
-    key: block-dev-mac
+    key: input-dev-mac
     if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk'
 
   - group: 📦 Build for Mac
     key: dev-mac
-    depends_on: block-dev-mac
+    depends_on: input-dev-mac
     if: build.tag !~ /^v[0-9]+/
     steps:
       - label: 🔨 Mac Dev Build - {{matrix}}
@@ -112,14 +112,14 @@ steps:
           - x64
           - arm64
 
-  - block: "🚦 Build for Windows?"
+  - input: "🚦 Build for Windows?"
     prompt: "Do you want to build Windows dev binaries for this PR?"
-    key: block-dev-windows
+    key: input-dev-windows
     if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk'
 
   - group: 📦 Build for Windows
     key: dev-windows
-    depends_on: block-dev-windows
+    depends_on: input-dev-windows
     if: build.tag !~ /^v[0-9]+/
     steps:
       - label: 🔨 Windows Dev Build - {{matrix}}

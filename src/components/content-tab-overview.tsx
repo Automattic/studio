@@ -1,10 +1,12 @@
 import * as Sentry from '@sentry/electron/renderer';
+import { Icon } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import {
 	archive,
 	code,
 	desktop,
 	pencil,
+	info,
 	layout,
 	navigation,
 	page,
@@ -16,7 +18,9 @@ import {
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
+import Button from 'src/components/button';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
+import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { isWindows } from 'src/lib/app-globals';
@@ -24,7 +28,9 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
+import { useAppDispatch } from 'src/stores';
 import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
+import { connectedSitesActions, useConnectedSitesData } from 'src/stores/sync';
 
 interface ContentTabOverviewProps {
 	selectedSite: SiteDetails;
@@ -181,6 +187,36 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	return <ButtonsSection buttonsArray={ buttonsArray } title={ __( 'Open in…' ) } />;
 }
 
+function PublishBanner( {
+	selectedSite: _selectedSite,
+}: Pick< ContentTabOverviewProps, 'selectedSite' > ) {
+	const { __ } = useI18n();
+	const dispatch = useAppDispatch();
+	const { setSelectedTab } = useContentTabs();
+	const { connectedSites } = useConnectedSitesData();
+
+	const handlePublishClick = () => {
+		// Navigate to Sync tab and open modal with 'push' mode
+		setSelectedTab( 'sync' );
+		dispatch( connectedSitesActions.openModal( 'push' ) );
+	};
+
+	// Only show banner if site has no connected sites
+	if ( connectedSites.length > 0 ) {
+		return null;
+	}
+
+	return (
+		<div className="w-full flex items-center gap-3 px-4 py-3 rounded-sm bg-a8c-gray-0 border border-a8c-gray-5">
+			<Icon icon={ info } size={ 20 } className="text-a8c-blue-50 flex-shrink-0" />
+			<p className="flex-1 text-black">{ __( 'Your site is ready for publishing' ) }</p>
+			<Button variant="primary" onClick={ handlePublishClick } disabled={ false }>
+				{ __( 'Publish site' ) }
+			</Button>
+		</div>
+	);
+}
+
 export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) {
 	const [ isThumbnailError, setIsThumbnailError ] = useState( false );
 	const { __ } = useI18n();
@@ -260,6 +296,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 				</div>
 			</div>
 			<div className="flex flex-1 flex-col justify-start items-start gap-8">
+				<PublishBanner selectedSite={ selectedSite } />
 				<CustomizeSection
 					selectedSite={ selectedSite }
 					themeDetails={ themeDetails }

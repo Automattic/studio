@@ -164,3 +164,16 @@ export async function getUserInfo(
 		throw new LoggerError( __( 'Failed to fetch user info' ), error );
 	}
 }
+
+export async function revokeAuthToken( token: string ): Promise< void > {
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+	try {
+		await wpcom.req.del( {
+			apiNamespace: 'wpcom/v2',
+			path: '/studio-app/token',
+			method: 'DELETE',
+		} );
+	} catch ( error ) {
+		throw new LoggerError( __( 'Failed to revoke token' ), error );
+	}
+}

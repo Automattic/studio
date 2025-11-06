@@ -110,7 +110,6 @@ steps:
           - x64
           - arm64
     depends_on: block-dev-mac
-    allow_dependency_failure: true
     if: build.tag !~ /^v[0-9]+/
 
   - block: "🚦 Build for Windows?"
@@ -135,7 +134,6 @@ steps:
           - x64
           - arm64
     depends_on: block-dev-windows
-    allow_dependency_failure: true
     if: build.tag !~ /^v[0-9]+/
 
   - label: ":rocket: Distribute Dev Builds"

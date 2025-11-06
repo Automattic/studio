@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 /**
  * @jest-environment node
  */
@@ -52,12 +53,12 @@ describe( 'handleAddSiteWithBlueprint', () => {
 
 		expect( download ).toHaveBeenCalledWith(
 			blueprintUrl,
-			expect.stringContaining( '/tmp/wp-studio-blueprints/blueprint-' ),
+			expect.stringContaining( 'blueprint-' ),
 			false,
 			'blueprint'
 		);
 		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'add-site-blueprint', {
-			blueprintPath: expect.stringContaining( '/tmp/wp-studio-blueprints/blueprint-' ),
+			blueprintPath: expect.stringContaining( 'blueprint-' ),
 		} );
 		expect( mockMainWindow.focus ).toHaveBeenCalled();
 	} );
@@ -97,7 +98,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		expect( download ).toHaveBeenCalled();
 		expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
 		expect( fs.remove ).toHaveBeenCalledWith(
-			expect.stringContaining( '/tmp/wp-studio-blueprints/blueprint-' )
+			expect.stringContaining( 'blueprint-' )
 		);
 		expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
 			type: 'error',

@@ -1,6 +1,5 @@
 import { spawn } from 'child_process';
-import { __, sprintf } from '@wordpress/i18n';
-import { LoggerError } from 'cli/logger';
+import { __ } from '@wordpress/i18n';
 
 /**
  * Opens the default browser with the specified URL
@@ -31,6 +30,8 @@ export async function openBrowser( url: string ): Promise< void > {
 			cmd = 'xdg-open';
 			args = [ url ];
 			break;
+		default:
+			return Promise.reject( new Error( __( 'Unsupported platform' ) ) );
 	}
 
 	return new Promise( ( resolve, reject ) => {

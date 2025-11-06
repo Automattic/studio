@@ -28,26 +28,28 @@ export async function runCommand( locale: SupportedLocale = 'en' ): Promise< voi
 		// Assume the token is invalid and proceed with authentication
 	}
 
+	logger.reportStart( LoggerAction.LOGIN, __( 'Opening browser for authentication…' ) );
+
+	const authUrl = getAuthenticationUrl( locale, CLI_REDIRECT_URI );
+
 	try {
-		logger.reportStart( LoggerAction.LOGIN, __( 'Opening browser for authentication…' ) );
+		await openBrowser( authUrl );
+		logger.reportSuccess( __( 'Browser opened successfully' ) );
+	} catch ( error ) {
+		// If the browser fails to open, allow users to manually open the URL
+		const loggerError = new LoggerError(
+			sprintf( __( 'Failed to open browser. Please open the URL manually: %s' ), authUrl ),
+			error
+		);
+		logger.reportError( loggerError );
+	}
 
-		const authUrl = getAuthenticationUrl( locale, CLI_REDIRECT_URI );
+	console.log(
+		__( 'Please complete authentication in your browser and paste the generated token here.' )
+	);
+	console.log( '' );
 
-		try {
-			await openBrowser( authUrl );
-			logger.reportSuccess( __( 'Browser opened successfully' ) );
-		} catch ( error ) {
-			// If the browser fails to open, allow users to manually open the URL
-			const loggerError = new LoggerError(
-				sprintf( __( 'Failed to open browser. Please open the URL manually: %s' ), authUrl ),
-				error
-			);
-			logger.reportError( loggerError );
-		}
-
-		console.log( __( 'Please complete authentication in your browser.' ) );
-		console.log( '' );
-
+	try {
 		const accessToken = await password( { message: __( 'Authentication token:' ) } );
 		const user = await getUserInfo( accessToken );
 

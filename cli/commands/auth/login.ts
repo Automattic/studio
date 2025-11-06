@@ -16,8 +16,9 @@ export async function runCommand( locale: SupportedLocale = 'en' ): Promise< voi
 
 	try {
 		const existingData = await readAppdata();
+		const now = new Date().getTime();
 
-		if ( existingData.authToken?.accessToken ) {
+		if ( existingData.authToken?.accessToken && now < existingData.authToken?.expirationTime ) {
 			try {
 				await validateAccessToken( existingData.authToken.accessToken );
 				logger.reportSuccess( __( 'Already authenticated with WordPress.com' ) );

@@ -19,12 +19,12 @@ import { StudioArgv } from 'cli/types';
 suppressPunycodeWarning();
 
 async function main() {
-	const locale = await loadTranslations();
+	const yargsLocale = await loadTranslations();
 
 	const studioArgv: StudioArgv = yargs( process.argv.slice( 2 ) )
 		.scriptName( 'studio' )
 		.usage( __( 'WordPress Studio CLI' ) )
-		.locale( locale )
+		.locale( yargsLocale )
 		.version( version )
 		.option( 'avoid-telemetry', {
 			type: 'boolean',
@@ -47,7 +47,7 @@ async function main() {
 			}
 		} )
 		.command( 'auth', __( 'Manage authentication' ), ( authYargs ) => {
-			registerAuthLoginCommand( authYargs, locale );
+			registerAuthLoginCommand( authYargs );
 			authYargs.demandCommand( 1, __( 'You must provide a valid auth command' ) );
 		} )
 		.command( 'preview', __( 'Manage preview sites' ), ( previewYargs ) => {

@@ -9,6 +9,7 @@ import {
 	unlockAppdata,
 } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
+import { getAppLocale } from 'cli/lib/i18n';
 import { Logger, LoggerError } from 'cli/logger';
 
 jest.mock( '@inquirer/prompts' );
@@ -23,6 +24,7 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	getAuthToken: jest.fn(),
 } ) );
 jest.mock( 'cli/lib/browser' );
+jest.mock( 'cli/lib/i18n' );
 jest.mock( 'cli/logger' );
 
 describe( 'Auth Login Command', () => {
@@ -63,6 +65,7 @@ describe( 'Auth Login Command', () => {
 
 		( Logger as jest.Mock ).mockReturnValue( mockLogger );
 		( getAuthenticationUrl as jest.Mock ).mockReturnValue( mockAuthUrl );
+		( getAppLocale as jest.Mock ).mockResolvedValue( 'en' );
 		( getUserInfo as jest.Mock ).mockResolvedValue( mockUserData );
 		( openBrowser as jest.Mock ).mockResolvedValue( undefined );
 		( password as jest.Mock ).mockResolvedValue( mockAccessToken );
@@ -81,7 +84,7 @@ describe( 'Auth Login Command', () => {
 		( getAuthToken as jest.Mock ).mockResolvedValue( mockAppdata.authToken );
 
 		const { runCommand } = await import( '../login' );
-		await runCommand( 'en' );
+		await runCommand();
 
 		expect( openBrowser ).not.toHaveBeenCalled();
 		expect( password ).not.toHaveBeenCalled();
@@ -89,7 +92,7 @@ describe( 'Auth Login Command', () => {
 
 	it( 'should complete the login process successfully', async () => {
 		const { runCommand } = await import( '../login' );
-		await runCommand( 'en' );
+		await runCommand();
 
 		expect( getAuthenticationUrl ).toHaveBeenCalledWith(
 			'en',
@@ -116,7 +119,7 @@ describe( 'Auth Login Command', () => {
 
 	it( 'should proceed with login if existing token is invalid', async () => {
 		const { runCommand } = await import( '../login' );
-		await runCommand( 'en' );
+		await runCommand();
 
 		expect( openBrowser ).toHaveBeenCalled();
 		expect( password ).toHaveBeenCalled();
@@ -127,7 +130,7 @@ describe( 'Auth Login Command', () => {
 		( openBrowser as jest.Mock ).mockRejectedValue( browserError );
 
 		const { runCommand } = await import( '../login' );
-		await runCommand( 'en' );
+		await runCommand();
 
 		expect( password ).toHaveBeenCalled();
 	} );
@@ -137,7 +140,7 @@ describe( 'Auth Login Command', () => {
 		( getUserInfo as jest.Mock ).mockRejectedValue( apiError );
 
 		const { runCommand } = await import( '../login' );
-		await runCommand( 'en' );
+		await runCommand();
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -149,7 +152,7 @@ describe( 'Auth Login Command', () => {
 		( saveAppdata as jest.Mock ).mockRejectedValue( saveError );
 
 		const { runCommand } = await import( '../login' );
-		await runCommand( 'en' );
+		await runCommand();
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
@@ -162,15 +165,17 @@ describe( 'Auth Login Command', () => {
 		( lockAppdata as jest.Mock ).mockRejectedValue( lockError );
 
 		const { runCommand } = await import( '../login' );
-		await runCommand( 'en' );
+		await runCommand();
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 	} );
 
 	it( 'should use provided locale', async () => {
+		( getAppLocale as jest.Mock ).mockResolvedValue( 'fr' );
+
 		const { runCommand } = await import( '../login' );
-		await runCommand( 'fr' );
+		await runCommand();
 
 		expect( getAuthenticationUrl ).toHaveBeenCalledWith(
 			'fr',

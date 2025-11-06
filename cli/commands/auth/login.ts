@@ -1,6 +1,5 @@
 import { password } from '@inquirer/prompts';
 import { __, sprintf } from '@wordpress/i18n';
-import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { AuthCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { getUserInfo } from 'cli/lib/api';
@@ -12,12 +11,13 @@ import {
 	unlockAppdata,
 } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
+import { getAppLocale } from 'cli/lib/i18n';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
 const CLI_REDIRECT_URI = `https://developer.wordpress.com/copy-oauth-token`;
 
-export async function runCommand( locale: SupportedLocale = 'en' ): Promise< void > {
+export async function runCommand(): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
 	try {
@@ -30,7 +30,8 @@ export async function runCommand( locale: SupportedLocale = 'en' ): Promise< voi
 
 	logger.reportStart( LoggerAction.LOGIN, __( 'Opening browser for authentication…' ) );
 
-	const authUrl = getAuthenticationUrl( locale, CLI_REDIRECT_URI );
+	const appLocale = await getAppLocale();
+	const authUrl = getAuthenticationUrl( appLocale, CLI_REDIRECT_URI );
 
 	try {
 		await openBrowser( authUrl );
@@ -84,12 +85,12 @@ export async function runCommand( locale: SupportedLocale = 'en' ): Promise< voi
 	}
 }
 
-export const registerCommand = ( yargs: StudioArgv, locale: SupportedLocale ) => {
+export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'login',
 		describe: __( 'Log in to WordPress.com' ),
 		handler: async () => {
-			await runCommand( locale );
+			await runCommand();
 		},
 	} );
 };

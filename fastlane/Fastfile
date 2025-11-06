@@ -17,6 +17,10 @@ BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'out')
 # Enable dry run mode through environment variable
 DRY_RUN = ENV['DRY_RUN'] == 'true'
 
+# Make sure the WPCOM API token is set
+UI.user_error!("Environment variable WPCOM_API_TOKEN is not set") if ENV['WPCOM_API_TOKEN'].nil? && !DRY_RUN
+UI.message("Running in #{DRY_RUN ? 'DRY RUN' : 'NORMAL'} mode")
+
 # Read version from package.json
 PACKAGE_VERSION = JSON.parse(File.read(File.join(PROJECT_ROOT_FOLDER, 'package.json')))['version']
 
@@ -117,8 +121,6 @@ def distribute_builds(
   build_number: get_required_env('BUILDKITE_BUILD_NUMBER'),
   release_tag: nil
 )
-  UI.message("Running in #{DRY_RUN ? 'DRY RUN' : 'NORMAL'} mode")
-
 
   build_type = if release_tag.nil?
     'Nightly'
@@ -131,9 +133,6 @@ def distribute_builds(
   suffix = release_tag.nil? ? "v#{PACKAGE_VERSION}" : release_tag
   appx_version = "#{suffix[/\d+\.\d+\.\d+/]}.0"
   release_notes = release_tag.nil? ? "Development build #{suffix}-#{build_number}" : "Release #{release_tag}"
-
-  # Make sure the WPCOM API token is set
-  UI.user_error!("Environment variable WPCOM_API_TOKEN is not set") if ENV['WPCOM_API_TOKEN'].nil? && !DRY_RUN
 
   update_builds = {
     x64: {

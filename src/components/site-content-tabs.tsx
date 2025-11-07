@@ -27,17 +27,22 @@ export function SiteContentTabs() {
 	const [ keyCounter, setKeyCounter ] = useState( 0 );
 	const lastChangeWasUser = useRef( false );
 	const isFirstRender = useRef( true );
+	const prevSelectedTab = useRef( selectedTab );
 
 	useEffect( () => {
 		if ( isFirstRender.current ) {
 			isFirstRender.current = false;
+			prevSelectedTab.current = selectedTab;
 			return;
 		}
-		if ( lastChangeWasUser.current ) {
+		// If tab changed but it wasn't a user action, remount the TabPanel
+		if ( prevSelectedTab.current !== selectedTab ) {
+			if ( ! lastChangeWasUser.current ) {
+				setKeyCounter( ( k ) => k + 1 );
+			}
 			lastChangeWasUser.current = false;
-			return;
+			prevSelectedTab.current = selectedTab;
 		}
-		setKeyCounter( ( k ) => k + 1 );
 	}, [ selectedTab ] );
 
 	if ( ! loadingSites && ! localSites.length ) {

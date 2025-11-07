@@ -7,6 +7,7 @@ import tsEslint from 'typescript-eslint';
 import js from '@eslint/js';
 import pluginReactHooks from 'eslint-plugin-react-hooks';
 import pluginJestDom from 'eslint-plugin-jest-dom';
+import path from 'node:path';
 
 export default defineConfig(
 	globalIgnores( [ '**/node_modules/', '**/dist/', '**/out/', '**/wp-files/', '**/vendor/' ] ),
@@ -36,6 +37,7 @@ export default defineConfig(
 			'import/resolver': {
 				typescript: {
 					alwaysTryTypes: true,
+					project: path.join( import.meta.dirname, 'tsconfig.json' ),
 				},
 			},
 		},

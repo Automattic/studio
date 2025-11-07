@@ -28,12 +28,8 @@ platformTestSuite( 'SqlExporter', ( { normalize } ) => {
 			},
 			backupFile: normalize( '/path/to/backup.sql' ),
 			includes: {
-				uploads: false,
-				plugins: false,
-				themes: false,
 				database: true,
-				muPlugins: false,
-				fonts: false,
+				wpContent: false,
 			},
 			phpVersion: '8.3',
 		};

@@ -102,6 +102,11 @@ import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 import type { RawDirectoryEntry } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
+export {
+	isStudioCliInstalled,
+	installStudioCli,
+	uninstallStudioCli,
+} from 'src/modules/cli/lib/installation';
 
 /**
  * Registry to store AbortControllers for ongoing sync operations (push/pull).

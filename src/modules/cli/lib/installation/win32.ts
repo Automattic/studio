@@ -1,5 +1,6 @@
 import { app } from 'electron';
 import { mkdir, writeFile } from 'fs/promises';
+import { existsSync } from 'node:fs';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
@@ -14,7 +15,7 @@ const currentUserRegistry = new Registry( {
 	key: '\\Environment',
 } );
 
-const getPathFromRegistry = (): Promise< string > => {
+function getPathFromRegistry(): Promise< string > {
 	return new Promise( ( resolve, reject ) => {
 		currentUserRegistry.get( PATH_KEY, ( error, item ) => {
 			if ( error ) {
@@ -24,9 +25,9 @@ const getPathFromRegistry = (): Promise< string > => {
 			resolve( item?.value || '' );
 		} );
 	} );
-};
+}
 
-const setPathInRegistry = ( updatedPath: string ): Promise< void > => {
+function setPathInRegistry( updatedPath: string ): Promise< void > {
 	return new Promise( ( resolve, reject ) => {
 		currentUserRegistry.set( PATH_KEY, Registry.REG_EXPAND_SZ, updatedPath, ( error ) => {
 			if ( error ) {
@@ -36,16 +37,16 @@ const setPathInRegistry = ( updatedPath: string ): Promise< void > => {
 			resolve();
 		} );
 	} );
-};
+}
 
-const isStudioCliInPath = ( pathValue: string ): boolean => {
+function isStudioCliInPath( pathValue: string ): boolean {
 	return pathValue
 		.split( ';' )
 		.map( ( item ) => item.trim().toLowerCase() )
 		.includes( unversionedBinDirPath.toLowerCase() );
-};
+}
 
-const installPath = async () => {
+async function installPath() {
 	try {
 		const currentPath = await getPathFromRegistry();
 
@@ -65,7 +66,7 @@ const installPath = async () => {
 		Sentry.captureException( error );
 		console.error( 'Failed to install CLI: PATH to Registry', error );
 	}
-};
+}
 
 /**
  * Creates a proxy batch file in a stable location to handle CLI execution.
@@ -74,7 +75,7 @@ const installPath = async () => {
  * Instead of adding the versioned executable directly to PATH, we create a fixed proxy script
  * in the AppData directory that forwards execution to the current version's CLI entry point.
  */
-const installProxyBatFile = async () => {
+async function installProxyBatFile() {
 	try {
 		await mkdir( unversionedBinDirPath, { recursive: true } );
 
@@ -91,13 +92,42 @@ const installProxyBatFile = async () => {
 		Sentry.captureException( error );
 		console.error( 'Failed to install CLI: Proxy Bat file', error );
 	}
-};
+}
 
-export const installCLIOnWindows = async () => {
+export async function isCliInstalled() {
+	try {
+		const currentPath = await getPathFromRegistry();
+
+		if ( ! isStudioCliInPath( currentPath ) ) {
+			return false;
+		}
+
+		if ( ! existsSync( unversionedBinDirPath ) ) {
+			return false;
+		}
+
+		return true;
+	} catch ( error ) {
+		console.error( 'Failed to check installation status of CLI', error );
+		return false;
+	}
+}
+
+export async function uninstallCli() {
+	const currentPath = await getPathFromRegistry();
+	const newPath = currentPath
+		.split( ';' )
+		.filter( ( item ) => item.trim().toLowerCase() !== unversionedBinDirPath.toLowerCase() )
+		.join( ';' );
+
+	await setPathInRegistry( newPath );
+}
+
+export async function installCli() {
 	if ( process.platform !== 'win32' || process.env.NODE_ENV === 'development' ) {
 		return;
 	}
 
 	await installPath();
 	await installProxyBatFile();
-};
+}

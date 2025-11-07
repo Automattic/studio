@@ -7,22 +7,23 @@ import { isErrnoException } from 'common/lib/is-errno-exception';
 import { sudoExec } from 'src/lib/sudo-exec';
 import { getMainWindow } from 'src/main-window';
 import { getResourcesPath } from 'src/storage/paths';
-import packageJson from '../../../../package.json';
+import packageJson from '../../../../../package.json';
 
 const cliSymlinkPath = '/usr/local/bin/studio';
 
 const binPath = path.join( getResourcesPath(), 'bin' );
 const cliPackagedPath = path.join( binPath, 'studio-cli.sh' );
 const installScriptPath = path.join( binPath, 'install-studio-cli.sh' );
+const uninstallScriptPath = path.join( binPath, 'uninstall-studio-cli.sh' );
 
 const ERROR_WRONG_PLATFORM = 'Studio CLI is only available on macOS';
 const ERROR_FILE_ALREADY_EXISTS = 'Studio CLI symlink path already occupied by non-symlink';
 // Defined in @vscode/sudo-prompt
 const ERROR_PERMISSION = 'User did not grant permission.';
 
-export async function installCLIOnMacOSWithConfirmation() {
+export async function installCliWithConfirmation() {
 	try {
-		await installCLI();
+		await installCli();
 		const mainWindow = await getMainWindow();
 		await dialog.showMessageBox( mainWindow, {
 			type: 'info',
@@ -60,9 +61,34 @@ export async function installCLIOnMacOSWithConfirmation() {
 	}
 }
 
-// This function installs the Studio CLI on macOS. It creates a symlink at `cliSymlinkPath` pointing
-// to the packaged Studio CLI JS file at `cliPackagedPath`.
-async function installCLI(): Promise< void > {
+export async function uninstallCliWithConfirmation() {
+	try {
+		await uninstallCli();
+		const mainWindow = await getMainWindow();
+		await dialog.showMessageBox( mainWindow, {
+			type: 'info',
+			title: __( 'CLI Installed' ),
+			message: __( 'The CLI has been installed successfully.' ),
+		} );
+	} catch ( error ) {
+		let message: string = __(
+			'There was an unknown error. Please check the logs for more information.'
+		);
+
+		if ( error instanceof Error ) {
+			message = error.message;
+		}
+
+		const mainWindow = await getMainWindow();
+		await dialog.showMessageBox( mainWindow, {
+			type: 'error',
+			title: __( 'Failed to uninstall CLI' ),
+			message,
+		} );
+	}
+}
+
+export async function uninstallCli() {
 	if ( process.platform !== 'darwin' ) {
 		throw new Error( ERROR_WRONG_PLATFORM );
 	}
@@ -81,10 +107,47 @@ async function installCLI(): Promise< void > {
 		}
 	}
 
-	const currentSymlinkDestination = await getCurrentSymlinkDestination();
+	try {
+		await unlink( cliSymlinkPath );
+	} catch ( error ) {
+		// `/usr/local/bin` is not typically writable by non-root users, so in most cases, we run
+		// this uninstall script with admin privileges to remove the symlink.
+		await sudoExec( `/bin/sh "${ uninstallScriptPath }"`, {
+			name: packageJson.productName,
+			env: {
+				CLI_SYMLINK_PATH: cliSymlinkPath,
+			},
+		} );
+	}
+}
 
-	// The CLI is already installed.
-	if ( currentSymlinkDestination === cliPackagedPath ) {
+export async function isCliInstalled() {
+	const currentSymlinkDestination = await getCurrentSymlinkDestination();
+	return currentSymlinkDestination === cliPackagedPath;
+}
+
+// This function installs the Studio CLI on macOS. It creates a symlink at `cliSymlinkPath` pointing
+// to the packaged Studio CLI JS file at `cliPackagedPath`.
+async function installCli(): Promise< void > {
+	if ( process.platform !== 'darwin' ) {
+		throw new Error( ERROR_WRONG_PLATFORM );
+	}
+
+	try {
+		const stats = await lstat( cliSymlinkPath );
+
+		if ( ! stats.isSymbolicLink() ) {
+			throw new Error( ERROR_FILE_ALREADY_EXISTS );
+		}
+	} catch ( error ) {
+		if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
+			// File does not exist, which means we can proceed with the installation.
+		} else {
+			throw error;
+		}
+	}
+
+	if ( await isCliInstalled() ) {
 		return;
 	}
 

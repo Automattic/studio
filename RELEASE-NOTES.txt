@@ -2,7 +2,7 @@ Unreleased
 ==========
 
 1.6.3
-==========
+====
 * Improved selective push and export to include all folders within wp-content #1940, #2006
 * Improved the deletion of all preview sites #1950
 * Improved tracking and display of push progress after app restart #1943

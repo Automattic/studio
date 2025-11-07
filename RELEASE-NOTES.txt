@@ -1,5 +1,6 @@
 Unreleased
 ==========
+* Improved selective push and export to include all folders within wp-content #1940, #2006
 
 1.6.2
 =====

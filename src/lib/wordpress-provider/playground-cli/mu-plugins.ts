@@ -416,7 +416,7 @@ function getStandardMuPlugins( options: Partial< WordPressServerOptions > ): MuP
 			}
 
 			wp_set_current_user( $user->ID, $user->user_login );
-			wp_set_auth_cookie( $user->ID, true, false );
+			wp_set_auth_cookie( $user->ID, true, is_ssl() );
 			do_action( 'wp_login', $user->user_login, $user );
 			$redirect_url = isset( $_GET['redirect_to'] ) ? $_GET['redirect_to'] : home_url();
 			wp_safe_redirect( $redirect_url );

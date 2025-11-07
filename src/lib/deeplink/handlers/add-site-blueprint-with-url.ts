@@ -71,7 +71,6 @@ export async function handleAddSiteWithBlueprint( urlObject: URL ): Promise< voi
 			// Ignore cleanup errors
 		} );
 
-		const mainWindow = await getMainWindow();
 		await dialog.showMessageBox( mainWindow, {
 			type: 'error',
 			message: __( 'Failed to download blueprint' ),

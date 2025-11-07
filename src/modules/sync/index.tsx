@@ -193,9 +193,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 
 		{ isModalOpen && ! isFetching && (
 			<>
-				{ /* TODO: Temporarily forcing to show NoWpcomSitesModal for testing */ }
-				{ /* Wait for fetch to complete, then show the appropriate modal */ }
-				{ 0 === 0 ? (
+				{ syncSites.length === 0 ? (
 					<NoWpcomSitesModal
 						onRequestClose={ () => dispatch( connectedSitesActions.closeModal() ) }
 						selectedSite={ selectedSite }

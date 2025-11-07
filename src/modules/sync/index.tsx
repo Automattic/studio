@@ -200,10 +200,8 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					/>
 				) : (
 					<SyncSitesModalSelector
-						isLoading={ false }
 						onRequestClose={ () => dispatch( connectedSitesActions.closeModal() ) }
 						syncSites={ syncSites }
-						onInitialRender={ refetchSites }
 						onConnect={ async ( siteId ) => {
 							const disconnectSiteId =
 								typeof isModalOpen === 'object' ? isModalOpen.disconnectSiteId : undefined;

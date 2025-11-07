@@ -3,26 +3,24 @@ import { createInterpolateElement } from '@wordpress/element';
 import { sprintf, __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { format } from 'date-fns';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
 import { Tooltip } from 'src/components/tooltip';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
-import { SYNC_OPTIONS, SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
-import { useContentFolders } from 'src/hooks/use-content-folders';
+import { SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { SiteNameBox } from 'src/modules/sync/components/site-name-box';
-import { GRANULAR_SYNC_FOLDERS } from 'src/modules/sync/constants';
-import { useDefaultSyncTree } from 'src/modules/sync/hooks/use-default-sync-tree';
 import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
 import { useSyncDialogTexts } from 'src/modules/sync/hooks/use-sync-dialog-texts';
+import { useTopLevelSyncTree } from 'src/modules/sync/hooks/use-top-level-sync-tree';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
-import { useLatestRewindId, useRemoteFileTree } from 'src/stores/sync';
+import { useLatestRewindId, useRemoteFileTree, useLocalFileTree } from 'src/stores/sync';
 import { TreeViewLoadingSkeleton } from './tree-view-loading-skeleton';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
@@ -41,8 +39,6 @@ const useDynamicTreeState = (
 	remoteSiteId: number | undefined,
 	setTreeState: React.Dispatch< React.SetStateAction< TreeNode[] > >
 ) => {
-	const wpFolders = useMemo( () => [ ...GRANULAR_SYNC_FOLDERS ], [] );
-	const wpContent = useContentFolders( localSiteId, wpFolders );
 	const {
 		rewindId,
 		isLoading: isLoadingRewindId,
@@ -51,6 +47,8 @@ const useDynamicTreeState = (
 		skip: type === 'push',
 	} );
 	const { fetchChildren } = useRemoteFileTree();
+	const { fetchChildren: fetchLocalChildren, isLoading: isLoadingLocalFileTree } =
+		useLocalFileTree();
 
 	// If the site was just created and if there is no rewind_id yet,
 	// then all options are pre-checked to allow only a full sync
@@ -72,7 +70,7 @@ const useDynamicTreeState = (
 						const remoteTree = await fetchChildren( remoteSiteId, rewindId, '/wp-content/', false );
 						if ( ! isCancelled ) {
 							setTreeState( ( treeState ) =>
-								updateNodeById( treeState, 'wp-content', { children: remoteTree || [] } )
+								updateNodeById( treeState, 'wp-content', { children: remoteTree } )
 							);
 						}
 					}
@@ -87,33 +85,42 @@ const useDynamicTreeState = (
 		}
 
 		if ( type === 'push' ) {
-			setTreeState( ( prev ) => {
-				let newState = [ ...prev ];
-
-				wpFolders.forEach( ( wpType ) => {
-					const { items, isLoading, error } = wpContent[ wpType ];
-					const children: TreeNode[] | undefined = error
-						? undefined
-						: items.map( ( item ) => ( {
-								id: `${ wpType }-${ item.name }`,
-								name: item.name,
-								label: item.name,
-								checked: false,
-								type: item.type,
-						  } ) );
-
-					newState = updateNodeById( newState, SYNC_OPTIONS[ wpType ], {
-						loading: isLoading,
-						children,
-					} );
-				} );
-
-				return newState;
-			} );
+			let isCancelled = false;
+			const loadLocalTree = async () => {
+				try {
+					const localTree = await fetchLocalChildren( localSiteId, 'wp-content' );
+					if ( ! isCancelled ) {
+						setTreeState( ( treeState ) =>
+							updateNodeById( treeState, 'wp-content', { children: localTree } )
+						);
+					}
+				} catch ( error ) {
+					console.error( 'Failed to load local file tree:', error );
+				}
+			};
+			void loadLocalTree();
+			return () => {
+				isCancelled = true;
+			};
 		}
-	}, [ type, wpContent, setTreeState, wpFolders, remoteSiteId, rewindId, fetchChildren ] );
+	}, [
+		type,
+		setTreeState,
+		remoteSiteId,
+		rewindId,
+		fetchChildren,
+		fetchLocalChildren,
+		localSiteId,
+	] );
 
-	return { rewindId, fetchChildren, isLoadingRewindId, isErrorRewindId };
+	return {
+		rewindId,
+		fetchChildren,
+		fetchLocalChildren,
+		isLoadingRewindId,
+		isErrorRewindId,
+		isLoadingLocalFileTree,
+	};
 };
 
 export function SyncDialog( {
@@ -128,7 +135,7 @@ export function SyncDialog( {
 	const { __ } = useI18n();
 	const siteEnv = getSiteEnvironment( remoteSite );
 	const syncTexts = useSyncDialogTexts( type, siteEnv );
-	const defaultTree = useDefaultSyncTree();
+	const defaultTree = useTopLevelSyncTree();
 
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );
@@ -139,12 +146,8 @@ export function SyncDialog( {
 		type
 	);
 
-	const { fetchChildren, rewindId, isLoadingRewindId, isErrorRewindId } = useDynamicTreeState(
-		type,
-		localSite.id,
-		remoteSite.id,
-		setTreeState
-	);
+	const { fetchChildren, rewindId, isLoadingRewindId, isErrorRewindId, isLoadingLocalFileTree } =
+		useDynamicTreeState( type, localSite.id, remoteSite.id, setTreeState );
 
 	const localSiteName = <SiteNameBox siteName={ localSite.name } envType="studio" />;
 	const remoteSiteName = <SiteNameBox siteName={ remoteSite.name } envType={ siteEnv } />;
@@ -168,30 +171,39 @@ export function SyncDialog( {
 		);
 	}
 
-	const handleExpanderChange = ( value: boolean ) => {
-		setShowAllFiles( value );
+	const handleExpanderChange = useCallback(
+		( value: boolean ) => {
+			setShowAllFiles( value );
 
-		const previousFilesAndFolders = treeState.find( ( node ) => node.id === 'filesAndFolders' );
-		const toUpdate: { expanded: boolean; checked?: boolean } = {
-			...previousFilesAndFolders,
-			expanded: value,
-		};
+			const previousFilesAndFolders = treeState.find( ( node ) => node.id === 'filesAndFolders' );
+			const toUpdate: { expanded: boolean; checked?: boolean } = {
+				...previousFilesAndFolders,
+				expanded: value,
+			};
 
-		if ( ! value && previousFilesAndFolders ) {
-			toUpdate.checked = previousFilesAndFolders.checked || previousFilesAndFolders.indeterminate;
-		}
+			if ( ! value && previousFilesAndFolders ) {
+				toUpdate.checked = previousFilesAndFolders.checked || previousFilesAndFolders.indeterminate;
+			}
 
-		setTreeState( ( prev ) => updateNodeById( prev, 'filesAndFolders', toUpdate ) );
-	};
+			setTreeState( ( prev ) => updateNodeById( prev, 'filesAndFolders', toUpdate ) );
+		},
+		[ treeState ]
+	);
 
-	const handleExpand = async ( node: TreeNode ) => {
-		if ( type === 'pull' && rewindId && node.path && node.children?.length === 0 ) {
-			const children = await fetchChildren( remoteSite.id, rewindId, node.path, node.checked );
-			if ( children ) {
+	const handleExpand = useCallback(
+		async ( node: TreeNode ) => {
+			if ( node.hideExpandButton ) {
+				return;
+			}
+
+			if ( type === 'pull' && rewindId && node.path && node.children?.length === 0 ) {
+				const children = await fetchChildren( remoteSite.id, rewindId, node.path, node.checked );
 				setTreeState( ( prev ) => updateNodeById( prev, node.id, { children } ) );
 			}
-		}
-	};
+			// For push operations, children are already loaded - no async fetching needed
+		},
+		[ type, rewindId, remoteSite.id, fetchChildren ]
+	);
 
 	const handleSubmit = () => {
 		if ( type === 'pull' ) {
@@ -251,7 +263,8 @@ export function SyncDialog( {
 				>
 					<div className="px-8 pb-2 relative">
 						{ type === 'pull' && isLoadingRewindId && <TreeViewLoadingSkeleton /> }
-						{ ! isLoadingRewindId && (
+						{ type === 'push' && isLoadingLocalFileTree && <TreeViewLoadingSkeleton /> }
+						{ ! isLoadingRewindId && ! isLoadingLocalFileTree && (
 							<>
 								<div className="absolute end-6 z-10 top-[6px]">
 									<SelectControl

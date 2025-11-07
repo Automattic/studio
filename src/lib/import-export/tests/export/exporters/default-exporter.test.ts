@@ -1,6 +1,7 @@
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
+import path from 'path';
 import archiver from 'archiver';
 import { format } from 'date-fns';
 import { DefaultExporter } from 'src/lib/import-export/export/exporters';
@@ -130,30 +131,39 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				name: 'custom-font.woff2',
 				isFile: () => true,
 			},
+			{
+				path: normalize( '/path/to/site' ),
+				name: 'wp-config.php',
+				isFile: () => true,
+			},
 		];
 
 		( fsPromises.readdir as jest.Mock ).mockResolvedValue( mockFiles );
 
-		// Mock fsPromises.stat for canHandle method
+		function pathExistsMockImplementation( pathToCheck: string ): boolean {
+			const normalizedPath = normalize( pathToCheck );
+			return mockFiles.some( ( file ) => {
+				// We consider a full match to be an existing file, and a partial match to be a directory.
+				const fullFakePath = normalize( path.join( file.path, file.name ) );
+				return fullFakePath.startsWith( normalizedPath );
+			} );
+		}
+
 		( fsPromises.stat as jest.Mock ).mockImplementation( async ( filePath: string ) => {
 			const normalizedPath = normalize( filePath );
-			if ( normalizedPath.endsWith( 'wp-content' ) || normalizedPath.endsWith( 'wp-includes' ) ) {
-				return { isDirectory: () => true, isFile: () => false };
-			}
 			if (
-				normalizedPath.endsWith( 'wp-load.php' ) ||
-				normalizedPath.endsWith( 'wp-config.php' )
+				mockFiles.some(
+					( file ) => normalizedPath === normalize( path.join( file.path, file.name ) )
+				)
 			) {
 				return { isDirectory: () => false, isFile: () => true };
+			} else if ( pathExistsMockImplementation( normalizedPath ) ) {
+				return { isDirectory: () => true, isFile: () => false };
 			}
-			throw new Error( 'File not found' );
+			throw new Error( `File not found: ${ normalizedPath }` );
 		} );
 
-		// Mock fs.existsSync for addWpConfig method
-		( fs.existsSync as jest.Mock ).mockImplementation( ( filePath: string ) => {
-			const normalizedPath = normalize( filePath );
-			return normalizedPath.endsWith( 'wp-config.php' );
-		} );
+		( fs.existsSync as jest.Mock ).mockImplementation( pathExistsMockImplementation );
 
 		mockBackup = {
 			backupFile: normalize( '/path/to/backup.tar.gz' ),
@@ -171,12 +181,8 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			},
 			backupFile: normalize( '/path/to/backup.tar.gz' ),
 			includes: {
-				uploads: true,
-				plugins: true,
-				themes: true,
 				database: true,
-				muPlugins: true,
-				fonts: true,
+				wpContent: true,
 			},
 			phpVersion: '8.4',
 		};
@@ -248,12 +254,8 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		const options = {
 			...mockOptions,
 			includes: {
-				uploads: false,
-				plugins: false,
-				themes: false,
 				database: false,
-				muPlugins: false,
-				fonts: false,
+				wpContent: false,
 			},
 		};
 
@@ -291,13 +293,10 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		const options = {
 			...mockOptions,
 			includes: {
-				uploads: true,
-				plugins: true,
-				themes: true,
 				database: false,
-				muPlugins: false,
-				fonts: true,
+				wpContent: true,
 			},
+			specificSelectionPaths: [ 'plugins', 'themes', 'uploads', 'fonts' ],
 		};
 
 		const exporter = new DefaultExporter( options );
@@ -317,20 +316,20 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 
 		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
 			1,
-			normalize( '/path/to/site/wp-content/uploads' ),
-			normalize( 'wp-content/uploads' ),
-			expect.any( Function )
-		);
-		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
-			2,
 			normalize( '/path/to/site/wp-content/plugins' ),
 			normalize( 'wp-content/plugins' ),
 			expect.any( Function )
 		);
 		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
-			3,
+			2,
 			normalize( '/path/to/site/wp-content/themes' ),
 			normalize( 'wp-content/themes' ),
+			expect.any( Function )
+		);
+		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
+			3,
+			normalize( '/path/to/site/wp-content/uploads' ),
+			normalize( 'wp-content/uploads' ),
 			expect.any( Function )
 		);
 		expect( mockArchiver.directory ).toHaveBeenNthCalledWith(
@@ -345,13 +344,10 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		const options = {
 			...mockOptions,
 			includes: {
-				uploads: false,
-				plugins: false,
-				themes: false,
 				database: false,
-				muPlugins: true,
-				fonts: false,
+				wpContent: true,
 			},
+			specificSelectionPaths: [ 'mu-plugins' ],
 		};
 
 		const exporter = new DefaultExporter( options );
@@ -379,12 +375,8 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		const options = {
 			...mockOptions,
 			includes: {
-				plugins: false,
-				uploads: false,
-				themes: false,
 				database: true,
-				muPlugins: false,
-				fonts: false,
+				wpContent: false,
 			},
 		};
 		( fsPromises.mkdtemp as jest.Mock ).mockResolvedValue( normalize( '/tmp/studio_export_123' ) );
@@ -413,12 +405,8 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		const options = {
 			...mockOptions,
 			includes: {
-				plugins: false,
-				uploads: false,
-				themes: false,
 				database: true,
-				muPlugins: false,
-				fonts: false,
+				wpContent: false,
 			},
 			splitDatabaseDumpByTable: true,
 		};
@@ -513,13 +501,10 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		const options = {
 			...mockOptions,
 			includes: {
-				uploads: false,
-				plugins: false,
-				themes: false,
 				database: false,
-				muPlugins: false,
-				fonts: true,
+				wpContent: true,
 			},
+			specificSelectionPaths: [ 'fonts' ],
 		};
 
 		const exporter = new DefaultExporter( options );
@@ -569,12 +554,8 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			},
 			backupFile: normalize( '/path/to/test-backup.tar.gz' ),
 			includes: {
-				uploads: true,
-				plugins: true,
-				themes: true,
 				database: true,
-				muPlugins: true,
-				fonts: true,
+				wpContent: true,
 			},
 			phpVersion: '8.4',
 		};

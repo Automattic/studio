@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom';
-import nock from 'nock';
 import { TextEncoder, TextDecoder } from 'util';
+import nock from 'nock';
 
 // Polyfill TextEncoder and TextDecoder for tests
 if ( typeof globalThis.TextEncoder === 'undefined' ) {
@@ -23,13 +23,13 @@ if ( typeof globalThis.ReadableStream === 'undefined' ) {
 }
 
 // Mock CSS parsing to handle modern CSS selectors that JSDOM doesn't support
-if (typeof window !== 'undefined') {
+if ( typeof window !== 'undefined' ) {
 	// Mock the CSS parser to ignore problematic selectors
 	const originalGetComputedStyle = window.getComputedStyle;
-	window.getComputedStyle = function(element: Element, pseudoElement?: string | null) {
+	window.getComputedStyle = function ( element: Element, pseudoElement?: string | null ) {
 		try {
-			return originalGetComputedStyle.call(this, element, pseudoElement);
-		} catch (error) {
+			return originalGetComputedStyle.call( this, element, pseudoElement );
+		} catch ( error ) {
 			// Return a minimal computed style object to prevent crashes
 			return {
 				getPropertyValue: () => '',
@@ -37,18 +37,16 @@ if (typeof window !== 'undefined') {
 				removeProperty: () => {},
 				item: () => '',
 				length: 0,
-				[Symbol.iterator]: function* () {},
+				[ Symbol.iterator ]: function* () {},
 			} as any;
 		}
 	};
 }
 
-
-
 // Define global variables that were previously in jest.config.ts
-(global as any).COMMIT_HASH = 'mock-hash';
-(global as any).MAIN_WINDOW_WEBPACK_ENTRY = 'main-window-webpack-entry';
-(global as any).MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY = 'main-window-preload-webpack-entry';
+( global as any ).COMMIT_HASH = 'mock-hash';
+( global as any ).MAIN_WINDOW_WEBPACK_ENTRY = 'main-window-webpack-entry';
+( global as any ).MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY = 'main-window-preload-webpack-entry';
 
 // Silence console.log for all tests
 beforeEach( () => {
@@ -105,13 +103,9 @@ jest.mock( './src/hooks/use-offline', () => ( {
 jest.mock( './src/hooks/use-ai-icon', () => ( {
 	__esModule: true,
 	default: () => ( {
-		rive: jest.fn(),
-		RiveComponent: jest.fn(),
-		inactiveInput: jest.fn(),
-		typingInput: jest.fn(),
-		thinkingInput: jest.fn(),
-		startStateMachine: jest.fn(),
-		pauseStateMachine: jest.fn(),
+		rive: null,
+		RiveComponent: () => null,
+		setInputState: jest.fn(),
 	} ),
 } ) );
 

@@ -438,7 +438,7 @@ describe( 'EditSiteDetails', () => {
 		} );
 
 		const wpVersionSelect = screen.getByLabelText( 'WordPress version' );
-		expect( wpVersionSelect ).not.toBeDisabled();
+		expect( wpVersionSelect ).toBeEnabled();
 	} );
 
 	it( 'should show tooltip with offline message when hovering over disabled WordPress version field', async () => {

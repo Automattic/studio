@@ -8,6 +8,7 @@ import App from 'src/components/app';
 import AuthProvider from 'src/components/auth-provider';
 import CrashTester from 'src/components/crash-tester';
 import ErrorBoundary from 'src/components/error-boundary';
+import { WordPressStyles } from 'src/components/wordpress-styles';
 import { SyncSitesProvider } from 'src/hooks/sync-sites/sync-sites-context';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { FeatureFlagsProvider } from 'src/hooks/use-feature-flags';
@@ -34,6 +35,7 @@ const Root = () => {
 			<CacheProvider value={ emotionCache }>
 				<ReduxProvider store={ store }>
 					<I18nProvider i18n={ defaultI18n }>
+						<WordPressStyles />
 						<AuthProvider>
 							<ContentTabsProvider>
 								<SiteDetailsProvider>

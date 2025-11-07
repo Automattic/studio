@@ -423,11 +423,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				backupFile: path,
 				includes: {
 					database: true,
-					uploads: true,
-					plugins: true,
-					themes: true,
-					muPlugins: true,
-					fonts: true,
+					wpContent: true,
 				},
 				phpVersion: selectedSite.phpVersion,
 			};
@@ -457,11 +453,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				backupFile: path,
 				includes: {
 					database: true,
-					uploads: false,
-					plugins: false,
-					themes: false,
-					muPlugins: false,
-					fonts: false,
+					wpContent: false,
 				},
 				phpVersion: selectedSite.phpVersion,
 			};

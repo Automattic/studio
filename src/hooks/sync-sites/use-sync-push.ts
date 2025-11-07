@@ -30,11 +30,7 @@ export type SyncPushState = {
 
 type PushSiteOptions = {
 	optionsToSync?: SyncOption[];
-	specificSelections?: {
-		plugins?: string[];
-		themes?: string[];
-		uploads?: string[];
-	};
+	specificSelectionPaths?: string[];
 };
 
 export type PushStates = Record< string, SyncPushState >;
@@ -260,7 +256,7 @@ export function useSyncPush( {
 			try {
 				const result = await getIpcApi().exportSiteForPush( selectedSite.id, operationId, {
 					optionsToSync: options?.optionsToSync,
-					specificSelections: options?.specificSelections,
+					specificSelectionPaths: options?.specificSelectionPaths,
 				} );
 				( { archivePath, archiveSizeInBytes } = result );
 			} catch ( error ) {
@@ -406,7 +402,7 @@ export function useSyncPush( {
 	const cancelPush = useCallback< CancelPush >(
 		async ( selectedSiteId, remoteSiteId ) => {
 			const operationId = generateStateId( selectedSiteId, remoteSiteId );
-			await getIpcApi().cancelSyncOperation( operationId );
+			getIpcApi().cancelSyncOperation( operationId );
 
 			updatePushState( selectedSiteId, remoteSiteId, {
 				status: pushStatesProgressInfo.cancelled,

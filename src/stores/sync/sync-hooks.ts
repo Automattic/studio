@@ -1,6 +1,8 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { TreeNode } from 'src/components/tree-view';
 import { useAuth } from 'src/hooks/use-auth';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+import { convertRawToTreeNodes } from 'src/modules/sync/lib/tree-utils';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import { fetchRemoteFileTree, useGetLatestRewindIdQuery } from './sync-api';
 import { syncSelectors } from './sync-slice';
@@ -40,9 +42,9 @@ export function useRemoteFileTree() {
 			rewindId: string,
 			path: string,
 			parentChecked: boolean = false
-		): Promise< TreeNode[] | null > => {
+		): Promise< TreeNode[] > => {
 			if ( ! client ) {
-				return null;
+				return [];
 			}
 
 			try {
@@ -59,7 +61,7 @@ export function useRemoteFileTree() {
 				return result.children;
 			} catch ( err ) {
 				console.error( 'Failed to fetch remote file tree:', err );
-				return null;
+				return [];
 			}
 		},
 		[ client, dispatch ]
@@ -69,5 +71,35 @@ export function useRemoteFileTree() {
 		isLoading,
 		error: error ? new Error( error ) : null,
 		fetchChildren,
+	};
+}
+
+export function useLocalFileTree() {
+	const [ isLoading, setIsLoading ] = useState( false );
+	const [ error, setError ] = useState< Error | null >( null );
+
+	const fetchChildren = useCallback(
+		async ( siteId: string, path: string = 'wp-content' ): Promise< TreeNode[] > => {
+			setIsLoading( true );
+			setError( null );
+			try {
+				const rawNodes = await getIpcApi().listLocalFileTree( siteId, path, 3 );
+				return convertRawToTreeNodes( rawNodes );
+			} catch ( err ) {
+				const error = err instanceof Error ? err : new Error( String( err ) );
+				setError( error );
+				console.error( 'Failed to fetch local file tree:', error );
+				return [];
+			} finally {
+				setIsLoading( false );
+			}
+		},
+		[]
+	);
+
+	return {
+		fetchChildren,
+		isLoading,
+		error,
 	};
 }

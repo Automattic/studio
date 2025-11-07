@@ -89,12 +89,16 @@ const RightPanel = () => {
 };
 
 export default function DefaultErrorFallback() {
+	const { isRTL } = useI18n();
+	const isRtl = isRTL();
+
+	const href = isRtl
+		? './main_window/styles/wordpress-components-style-rtl.css'
+		: './main_window/styles/wordpress-components-style.css';
+
 	return (
-		<div dir={ 'ltr' }>
-			<DynamicStylesheet
-				id="wordpress-components-style"
-				href={ '../main_window/styles/wordpress-components-style.css' }
-			/>
+		<div dir={ isRtl ? 'rtl' : 'ltr' }>
+			<DynamicStylesheet id="wordpress-components-style-error-fallback" href={ href } />
 			<VStack
 				className={ cx(
 					'h-screen bg-chrome backdrop-blur-3xl pr-chrome app-drag-region',

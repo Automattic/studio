@@ -58,8 +58,15 @@ steps:
       - github_commit_status:
           context: E2E Tests
 
+  - input: "🚦 Build for Mac?"
+    prompt: "Do you want to build Mac dev binaries for this PR?"
+    key: input-dev-mac
+    if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk'
+
   - group: 📦 Build for Mac
     key: dev-mac
+    depends_on: input-dev-mac
+    if: build.tag !~ /^v[0-9]+/
     steps:
       - label: 🔨 Mac Dev Build - {{matrix}}
         agents:
@@ -104,13 +111,16 @@ steps:
         matrix:
           - x64
           - arm64
-        notify:
-          - github_commit_status:
-              context: All Mac Dev Builds
-    if: build.tag !~ /^v[0-9]+/
+
+  - input: "🚦 Build for Windows?"
+    prompt: "Do you want to build Windows dev binaries for this PR?"
+    key: input-dev-windows
+    if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk'
 
   - group: 📦 Build for Windows
     key: dev-windows
+    depends_on: input-dev-windows
+    if: build.tag !~ /^v[0-9]+/
     steps:
       - label: 🔨 Windows Dev Build - {{matrix}}
         agents:
@@ -125,10 +135,6 @@ steps:
         matrix:
           - x64
           - arm64
-        notify:
-          - github_commit_status:
-              context: All Windows Dev Builds
-    if: build.tag !~ /^v[0-9]+/
 
   - label: ":rocket: Distribute Dev Builds"
     command: |

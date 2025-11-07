@@ -5,82 +5,105 @@ import type { SyncOption } from 'src/types';
 
 type PushOptionsWithSelections = {
 	optionsToSync: SyncOption[];
-	specificSelections?: {
-		plugins?: string[];
-		themes?: string[];
-		uploads?: string[];
-	};
+	specificSelectionPaths?: string[];
 };
 
-const isSyncOption = ( value: string ): value is SyncOption => {
-	return Object.keys( SYNC_OPTIONS ).includes( value );
-};
+const collectCheckedNodes = ( nodes: TreeNode[] | undefined ): TreeNode[] => {
+	if ( ! nodes?.length ) {
+		return [];
+	}
 
-const collectPathIds = ( nodes: TreeNode[], pathIds: string[] = [] ): string[] => {
-	nodes.forEach( ( node ) => {
-		if ( node.checked && node.pathId ) {
-			pathIds.push( node.pathId );
-		} else if ( node.indeterminate && node.children ) {
-			collectPathIds( node.children, pathIds );
+	const result: TreeNode[] = [];
+	for ( const node of nodes ) {
+		if ( node.checked ) {
+			result.push( node );
+		} else if ( node.indeterminate && node.children?.length ) {
+			result.push( ...collectCheckedNodes( node.children ) );
 		}
-	} );
-	return pathIds;
+	}
+	return result;
+};
+
+const collectPathIds = ( nodes: TreeNode[] | undefined ): string[] => {
+	return collectCheckedNodes( nodes )
+		.map( ( node ) => node.pathId )
+		.filter( ( pathId ): pathId is string => Boolean( pathId ) );
+};
+
+const convertTreeToSyncCategories = (
+	nodes: TreeNode[] | undefined
+): { paths: string[]; options: SyncOption[] } => {
+	const checkedNodes = collectCheckedNodes( nodes );
+	const paths = new Set< string >();
+	const options = new Set< SyncOption >();
+
+	for ( const node of checkedNodes ) {
+		if ( ! node.path ) {
+			continue;
+		}
+
+		const nodePath = node.path.replace( /^\/?wp-content\//, '' );
+		paths.add( nodePath );
+
+		// Determine which category this belongs to for optionsToSync
+		if ( nodePath.startsWith( 'plugins/' ) ) {
+			options.add( SYNC_OPTIONS.plugins );
+		} else if ( nodePath.startsWith( 'themes/' ) ) {
+			options.add( SYNC_OPTIONS.themes );
+		} else if ( nodePath.startsWith( 'uploads/' ) ) {
+			options.add( SYNC_OPTIONS.uploads );
+		} else {
+			options.add( SYNC_OPTIONS.contents );
+		}
+	}
+
+	return { paths: [ ...paths ], options: [ ...options ] };
 };
 
 const getCommonNodes = ( tree: TreeNode[] ) => {
-	const isDatabaseSelected = tree.find( ( node ) => node.id === SYNC_OPTIONS.sqls );
-	const filesAndFolders = tree.find( ( node ) => node.id === 'filesAndFolders' );
-	const wpContent = filesAndFolders?.children?.find( ( node ) => node.id === 'wp-content' );
+	let isDatabaseSelected: TreeNode | undefined;
+	let filesAndFolders: TreeNode | undefined;
+
+	for ( const node of tree ) {
+		if ( node.id === SYNC_OPTIONS.sqls ) {
+			isDatabaseSelected = node;
+		} else if ( node.id === 'filesAndFolders' ) {
+			filesAndFolders = node;
+		}
+	}
+
+	const wpContent = filesAndFolders?.children?.find( ( n ) => n.id === 'wp-content' );
 
 	return { isDatabaseSelected, filesAndFolders, wpContent };
 };
 
 export const convertTreeToPushOptions = ( tree: TreeNode[] ): PushOptionsWithSelections => {
 	const optionsToSync: SyncOption[] = [];
-	let specificSelections: PushOptionsWithSelections[ 'specificSelections' ] = undefined;
+	let specificSelectionPaths: string[] | undefined;
 
-	const isAll = tree.every( ( node ) => node.checked );
-	if ( isAll ) {
+	if ( tree.length > 0 && tree.every( ( node ) => node.checked ) ) {
 		optionsToSync.push( SYNC_OPTIONS.all );
-	} else {
-		const { isDatabaseSelected, wpContent } = getCommonNodes( tree );
+		return { optionsToSync };
+	}
 
-		if ( isDatabaseSelected?.checked ) {
-			optionsToSync.push( SYNC_OPTIONS.sqls );
+	const { isDatabaseSelected, wpContent } = getCommonNodes( tree );
+
+	if ( isDatabaseSelected?.checked ) {
+		optionsToSync.push( SYNC_OPTIONS.sqls );
+	}
+
+	if ( wpContent?.children?.length ) {
+		const { paths, options } = convertTreeToSyncCategories( wpContent.children );
+
+		if ( paths.length ) {
+			optionsToSync.push( ...options );
+			specificSelectionPaths = paths;
 		}
-
-		const wpContentChildren = wpContent?.children || [];
-		wpContentChildren.forEach( ( item ) => {
-			if ( ! isSyncOption( item.id ) ) {
-				return;
-			}
-
-			if ( item.checked || item.indeterminate ) {
-				optionsToSync.push( item.id );
-			}
-
-			if (
-				item.children &&
-				[ SYNC_OPTIONS.plugins, SYNC_OPTIONS.themes, SYNC_OPTIONS.uploads ].includes(
-					item.id as 'plugins' | 'themes' | 'uploads'
-				)
-			) {
-				const selectedItems = item.children
-					.filter( ( child ) => child.checked )
-					.map( ( child ) => child.name );
-				if ( selectedItems.length > 0 && selectedItems.length < item.children.length ) {
-					specificSelections = {
-						...specificSelections,
-						[ item.id ]: selectedItems,
-					};
-				}
-			}
-		} );
 	}
 
 	return {
 		optionsToSync,
-		specificSelections,
+		specificSelectionPaths,
 	};
 };
 
@@ -102,15 +125,12 @@ export const convertTreeToPullOptions = ( tree: TreeNode[] ): PullSiteOptions =>
 	const pathIds = collectPathIds( wpContent?.children ?? [] );
 
 	const pullOptions: PullSiteOptions = {
-		optionsToSync: pathIds.length > 0 ? [ SYNC_OPTIONS.paths ] : [],
+		optionsToSync: isDatabaseSelected.checked ? [ SYNC_OPTIONS.sqls ] : [],
 	};
 
 	if ( pathIds.length > 0 ) {
+		pullOptions.optionsToSync.unshift( SYNC_OPTIONS.paths );
 		pullOptions.include_path_list = pathIds;
-	}
-
-	if ( isDatabaseSelected.checked ) {
-		pullOptions.optionsToSync.push( SYNC_OPTIONS.sqls );
 	}
 
 	return pullOptions;

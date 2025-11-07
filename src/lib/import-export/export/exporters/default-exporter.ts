@@ -17,7 +17,6 @@ import {
 	BackupContents,
 	Exporter,
 	BackupCreateProgressEventData,
-	BackupContentsCategory,
 	StudioJson,
 } from 'src/lib/import-export/export/types';
 import { getWordPressVersionFromInstallation } from 'src/lib/wp-versions';
@@ -94,7 +93,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 		try {
 			this.addWpConfig();
-			this.addWpContent();
+			await this.addWpContent();
 			await this.addDatabase();
 			const studioJsonPath = await this.createStudioJsonFile();
 			this.archiveBuilder.file( studioJsonPath, { name: 'meta.json' } );
@@ -153,73 +152,51 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		}
 	}
 
-	private addWpContent(): void {
-		const categories = (
-			[ 'uploads', 'plugins', 'themes', 'muPlugins', 'fonts' ] as BackupContentsCategory[]
-		 ).filter( ( category ) => this.options.includes[ category ] );
+	private async addWpContent(): Promise< void > {
+		if ( ! this.options.includes.wpContent ) {
+			return;
+		}
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_START );
-		for ( const category of categories ) {
-			const folderName = category === 'muPlugins' ? 'mu-plugins' : category;
-			const absolutePath = path.join( this.options.site.path, 'wp-content', folderName );
-			const archivePath = path.relative( this.options.site.path, absolutePath );
-			const partialFolderItems = this.getCategorySelections( category );
 
-			if ( partialFolderItems ) {
-				for ( const itemName of partialFolderItems ) {
-					const itemPath = path.join( absolutePath, itemName );
-					const itemArchivePath = path.join( archivePath, itemName );
+		let pathsToArchive = this.options.specificSelectionPaths;
+		if ( ! pathsToArchive ) {
+			// Read the wp-content directory and get all the paths to be archived
+			pathsToArchive = fs.readdirSync( path.join( this.options.site.path, 'wp-content' ) );
+		}
 
-					if ( fs.existsSync( itemPath ) ) {
-						const stat = fs.statSync( itemPath );
-						if ( stat.isDirectory() ) {
-							this.archiveBuilder.directory( itemPath, itemArchivePath, ( entry ) => {
-								if ( entry.name.includes( '.git' ) || entry.name.includes( 'node_modules' ) ) {
-									return false;
-								}
-								return entry;
-							} );
-						} else {
-							this.archiveBuilder.file( itemPath, { name: itemArchivePath } );
-						}
-					}
+		if ( Array.isArray( pathsToArchive ) ) {
+			for ( const itemPath of pathsToArchive ) {
+				const fullPath = path.join( this.options.site.path, 'wp-content', itemPath );
+				const archivePath = path.join( 'wp-content', itemPath );
+
+				if ( ! fs.existsSync( fullPath ) ) {
+					continue;
 				}
-			} else {
-				this.archiveBuilder.directory( absolutePath, archivePath, ( entry ) => {
-					const fullArchivePath = path.join( archivePath, entry.name );
-					const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
-						fullArchivePath.startsWith( path.normalize( pathToExclude ) )
-					);
-					if (
-						isExcluded ||
-						entry.name.includes( '.git' ) ||
-						entry.name.includes( 'node_modules' )
-					) {
-						return false;
-					}
-					return entry;
-				} );
+
+				const stat = await fsPromises.stat( fullPath );
+				if ( stat.isDirectory() ) {
+					this.archiveBuilder.directory( fullPath, archivePath, ( entry ) => {
+						const fullArchivePath = path.join( archivePath, entry.name );
+						const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
+							fullArchivePath.startsWith( path.normalize( pathToExclude ) )
+						);
+						if (
+							isExcluded ||
+							entry.name.includes( '.git' ) ||
+							entry.name.includes( 'node_modules' ) ||
+							entry.name.includes( 'cache' )
+						) {
+							return false;
+						}
+						return entry;
+					} );
+				} else {
+					this.archiveBuilder.file( fullPath, { name: archivePath } );
+				}
 			}
-
-			this.emit( ExportEvents.WP_CONTENT_EXPORT_PROGRESS, { directory: absolutePath } );
 		}
+
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_COMPLETE );
-	}
-
-	private getCategorySelections( category: BackupContentsCategory ): string[] | null {
-		if ( ! this.options.specificSelections ) {
-			return null;
-		}
-
-		switch ( category ) {
-			case 'plugins':
-				return this.options.specificSelections?.plugins || null;
-			case 'themes':
-				return this.options.specificSelections?.themes || null;
-			case 'uploads':
-				return this.options.specificSelections?.uploads || null;
-			default:
-				return null;
-		}
 	}
 
 	private async addDatabase(): Promise< void > {

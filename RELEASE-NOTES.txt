@@ -3,7 +3,7 @@
 * Improved selective push and export to include all folders within wp-content #1940, #2006
 * Fixed RTL styling for some UI elements #1998
 * Improved terminal apps selection across platforms #1983
-* Introduced a new developer survey in What's new modal #1973
+* Introduced a new developer survey in the What's New modal #1973
 * Fixed usage progress bar display #1953
 * Improved the deletion of all preview sites #1950
 * Improved tracking of the push process when the app starts #1943

@@ -2,6 +2,7 @@ import { Icon } from '@wordpress/icons';
 import { check } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import Modal from 'src/components/modal';
+import { WordPressShortLogo } from 'src/components/wordpress-short-logo';
 import { CreateButton } from 'src/modules/sync/components/create-button';
 
 interface NoWpcomSitesModalProps {
@@ -19,10 +20,9 @@ export function NoWpcomSitesModal( { onRequestClose, selectedSite }: NoWpcomSite
 			title={ __( 'Find a perfect plan' ) }
 		>
 			<div className="flex flex-col gap-4">
-				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
-					{ __(
-						'Unlock the power of WordPress with the managed WordPress.com hosting platform and share your work with the world.'
-					) }
+				<div className="text-a8c-gray-70 a8c-body">
+					{ __( 'Unlock the power of WordPress and share your work with the world with' ) }
+					<WordPressShortLogo className="inline-block h-4 align-middle" />
 				</div>
 				<div>
 					{ [

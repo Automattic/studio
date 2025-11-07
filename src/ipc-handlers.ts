@@ -767,11 +767,9 @@ export async function exportSiteForPush(
 
 		const includes = {
 			database: shouldIncludeSyncOption( configuration?.optionsToSync, 'sqls' ),
-			uploads: shouldIncludeSyncOption( configuration?.optionsToSync, 'uploads' ),
-			plugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'plugins' ),
-			themes: shouldIncludeSyncOption( configuration?.optionsToSync, 'themes' ),
-			muPlugins: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
-			fonts: shouldIncludeSyncOption( configuration?.optionsToSync, 'contents' ),
+			wpContent: ( [ 'uploads', 'plugins', 'themes', 'contents' ] as const ).some( ( option ) =>
+				shouldIncludeSyncOption( configuration?.optionsToSync, option )
+			),
 		};
 
 		const exportOptions: ExportOptions = {
@@ -929,12 +927,7 @@ export async function exportSite(
 		const result = await exportBackup( options, onEvent );
 
 		if ( result ) {
-			const isDatabaseOnly =
-				options.includes.database &&
-				! options.includes.uploads &&
-				! options.includes.plugins &&
-				! options.includes.themes &&
-				! options.includes.muPlugins;
+			const isDatabaseOnly = options.includes.database && ! options.includes.wpContent;
 			bumpStat(
 				StatsGroup.STUDIO_EXPORT,
 				isDatabaseOnly ? StatsMetric.DATABASE_ONLY : StatsMetric.FULL_SITE
@@ -1863,6 +1856,22 @@ export async function validateBlueprint(
 		valid: true,
 		warnings: warnings.length > 0 ? warnings : undefined,
 	};
+}
+
+export async function readBlueprintFile(
+	_event: IpcMainInvokeEvent,
+	filePath: string
+): Promise< Blueprint[ 'blueprint' ] > {
+	const allowedDir = nodePath.join( app.getPath( 'temp' ), 'wp-studio-blueprints' );
+	const resolvedPath = nodePath.resolve( filePath );
+
+	const normalizedAllowedDir = nodePath.resolve( allowedDir );
+	if ( ! resolvedPath.startsWith( normalizedAllowedDir + nodePath.sep ) ) {
+		throw new Error( 'Blueprint file path must be within the allowed directory' );
+	}
+
+	const fileContents = await fsPromises.readFile( resolvedPath, 'utf-8' );
+	return JSON.parse( fileContents );
 }
 
 export async function setWindowControlVisibility( event: IpcMainInvokeEvent, visible: boolean ) {

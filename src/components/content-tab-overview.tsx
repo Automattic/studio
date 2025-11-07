@@ -141,7 +141,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		{
 			label: isWindows()
 				? // translators: name of app used to navigate files and folders on Windows
-				  __( 'File explorer' )
+				  __( 'File Explorer' )
 				: // translators: name of app used to navigate files and folders on macOS
 				  __( 'Finder' ),
 			className: 'text-nowrap',

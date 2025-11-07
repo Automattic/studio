@@ -26,6 +26,7 @@ import ImportBackup from './components/import-backup';
 import AddSiteOptions, { type AddSiteOptionType } from './components/options';
 import { PullRemoteSite } from './components/pull-remote-site';
 import Stepper from './components/stepper';
+import { useBlueprintDeeplink } from './hooks/use-blueprint-deeplink';
 
 interface AddSiteProps {
 	className?: string;
@@ -64,6 +65,8 @@ interface NavigationContentProps {
 	setBlueprintPreferredVersions: ( versions: { php?: string; wp?: string } | undefined ) => void;
 	selectedRemoteSite?: SyncSite;
 	setSelectedRemoteSite: ( site?: SyncSite ) => void;
+	blueprintError?: string | null;
+	setBlueprintError: ( error: string | null ) => void;
 }
 
 function NavigationContent( props: NavigationContentProps ) {
@@ -77,6 +80,8 @@ function NavigationContent( props: NavigationContentProps ) {
 		setBlueprintPreferredVersions,
 		selectedRemoteSite,
 		setSelectedRemoteSite,
+		blueprintError,
+		setBlueprintError,
 		...createSiteProps
 	} = props;
 
@@ -228,6 +233,10 @@ function NavigationContent( props: NavigationContentProps ) {
 					selectedBlueprint={ createSiteProps.selectedBlueprint?.slug || null }
 					onBlueprintChange={ handleBlueprintChange }
 					onFileBlueprintSelect={ handleFileBlueprintSelect }
+					blueprintError={ blueprintError }
+					onErrorDismiss={ () => {
+						setBlueprintError( null );
+					} }
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/create">
@@ -368,10 +377,22 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		setShowModal( true );
 	}, [ refetch, isUninitialized ] );
 
+	const { initialNavigatorPath, blueprintError, setBlueprintError, resetDeeplinkState } =
+		useBlueprintDeeplink( {
+			showModal,
+			isAnySiteProcessing,
+			openModal,
+			setSelectedBlueprint,
+			setPhpVersion,
+			setWpVersion,
+			setBlueprintPreferredVersions,
+		} );
+
 	const closeModal = useCallback( () => {
 		setShowModal( false );
 		resetForm();
-	}, [ resetForm ] );
+		resetDeeplinkState();
+	}, [ resetForm, resetDeeplinkState ] );
 
 	const siteAddedMessage = sprintf(
 		// translators: %s is the site name.
@@ -432,7 +453,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 	return (
 		<>
 			<FullscreenModal isOpen={ showModal } onClose={ closeModal }>
-				<Navigator className="w-full h-full" initialPath="/">
+				<Navigator className="w-full h-full" initialPath={ initialNavigatorPath }>
 					<NavigationContent
 						{ ...addSiteProps }
 						blueprintsData={ blueprintsData }
@@ -443,6 +464,8 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 						setBlueprintPreferredVersions={ setBlueprintPreferredVersions }
 						selectedRemoteSite={ selectedRemoteSite }
 						setSelectedRemoteSite={ setSelectedRemoteSite }
+						blueprintError={ blueprintError }
+						setBlueprintError={ setBlueprintError }
 					/>
 				</Navigator>
 			</FullscreenModal>

@@ -3,7 +3,6 @@
 
 export enum AuthCommandLoggerAction {
 	LOGIN = 'login',
-	LOGOUT = 'logout',
 }
 
 export enum PreviewCommandLoggerAction {

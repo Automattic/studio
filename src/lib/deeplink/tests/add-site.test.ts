@@ -152,11 +152,17 @@ describe( 'handleAddSiteWithBlueprint', () => {
 			expect( download ).not.toHaveBeenCalled();
 		} );
 
-		it( 'should handle invalid base64-encoded blueprint gracefully', async () => {
+		it( 'should handle invalid base64-encoded blueprint and display error message', async () => {
 			const url = new URL( 'wpcom-local-dev://add-site?blueprint=invalid-base64!!!' );
 			await handleAddSiteWithBlueprint( url );
 
 			expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
+			expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
+				type: 'error',
+				message: expect.any( String ),
+				detail: expect.any( String ),
+				buttons: expect.any( Array ),
+			} );
 		} );
 	} );
 } );

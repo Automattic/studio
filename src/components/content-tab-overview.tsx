@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { Icon } from '@wordpress/components';
+import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import {
 	archive,
@@ -207,12 +208,15 @@ function PublishBanner( {
 	}
 
 	return (
-		<div className="w-full flex items-center gap-3 px-4 py-3 rounded-sm bg-a8c-gray-0 border border-a8c-gray-5">
+		<div className="w-full flex items-center gap-3 px-4 py-3 rounded-sm bg-a8c-blue/[4%] border border-black/10">
 			<Icon icon={ info } size={ 20 } className="text-a8c-blue-50 flex-shrink-0" />
-			<p className="flex-1 text-black">{ __( 'Your site is ready for publishing' ) }</p>
-			<Button variant="primary" onClick={ handlePublishClick } disabled={ false }>
-				{ __( 'Publish site' ) }
-			</Button>
+			{ createInterpolateElement(
+				__( '<span>Ready to go live?</span> <button>Publish site</button>' ),
+				{
+					span: <span className="flex-1 text-gray-900" />,
+					button: <Button variant="primary" onClick={ handlePublishClick } disabled={ false } />,
+				}
+			) }
 		</div>
 	);
 }

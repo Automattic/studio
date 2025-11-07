@@ -113,7 +113,7 @@ export function useBlueprintDeeplink(
 					blueprintData,
 					`deeplink-${ Date.now() }`,
 					__( 'Custom Blueprint' ),
-					__( 'Blueprint from deeplink' )
+					__( 'Blueprint from base64' )
 				);
 
 				setSelectedBlueprint( blueprint );

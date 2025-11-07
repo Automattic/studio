@@ -3,12 +3,11 @@ import Button, { ButtonVariant } from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
-import { cx } from 'src/lib/cx';
 
 interface ConnectButtonProps {
 	variant: ButtonVariant;
 	connectSite?: () => void;
-	disableConnectButtonStyle?: boolean;
+	disabled?: boolean;
 	className?: string;
 	children?: React.ReactNode;
 	tooltipText?: string;
@@ -17,29 +16,27 @@ interface ConnectButtonProps {
 export const ConnectButton = ( {
 	variant,
 	connectSite,
-	disableConnectButtonStyle,
+	disabled,
 	className,
 	children,
 	tooltipText,
 }: ConnectButtonProps ) => {
 	const isOffline = useOffline();
 	const tooltipContent = tooltipText ?? __( 'Connecting a site requires an internet connection.' );
+	const isDisabled = disabled || isOffline;
 	return (
 		<Tooltip
-			disabled={ ! isOffline }
+			disabled={ ! isDisabled }
 			text={ tooltipContent }
 			icon={ offlineIcon }
 			placement="top-start"
 		>
 			<Button
 				onClick={ connectSite }
-				disabled={ isOffline }
-				aria-disabled={ isOffline }
+				disabled={ isDisabled }
+				aria-disabled={ isDisabled }
 				variant={ variant }
-				className={ cx(
-					! disableConnectButtonStyle && ! isOffline && '!text-a8c-blue-50 !shadow-a8c-blue-50',
-					className
-				) }
+				className={ className }
 			>
 				{ children }
 			</Button>

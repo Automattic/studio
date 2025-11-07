@@ -131,7 +131,8 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const { connectedSites } = useConnectedSitesData();
 	const { syncSites, isFetching, refetchSites } = useSyncSitesData();
 	const { connectSite, disconnectSite } = useConnectedSitesOperations();
-	const { pushSite, pullSite } = useSyncSites();
+	const { pushSite, pullSite, isAnySitePulling, isAnySitePushing } = useSyncSites();
+	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
 
@@ -206,7 +207,6 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 						<ConnectButton
 							variant="primary"
 							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
-							disableConnectButtonStyle={ true }
 						>
 							{ __( 'Connect another site' ) }
 						</ConnectButton>
@@ -218,16 +218,22 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 						<ConnectButton
 							variant="primary"
 							connectSite={ handleLaunchSite }
-							disableConnectButtonStyle={ true }
-							tooltipText={ __( 'Publishing your site requires an internet connection.' ) }
+							disabled={ isAnySiteSyncing }
+							tooltipText={
+								isAnySiteSyncing
+									? __(
+											'Another site is syncing. Please wait for the sync to finish before you publish your site.'
+									  )
+									: __( 'Publishing your site requires an internet connection.' )
+							}
 						>
 							{ __( 'Publish site' ) }
 						</ConnectButton>
 						<ConnectButton
 							variant="secondary"
-							className="!text-a8c-blue-50 !shadow-a8c-blue-50"
 							connectSite={ handleImportSite }
-							disableConnectButtonStyle={ true }
+							className={ isAnySiteSyncing ? '' : '!text-a8c-blue-50 !shadow-a8c-blue-50' }
+							disabled={ isAnySiteSyncing }
 							tooltipText={ __( 'Importing a remote site requires an internet connection.' ) }
 						>
 							{ __( 'Pull site' ) }

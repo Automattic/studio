@@ -21,6 +21,12 @@ export async function handleAddSiteWithBlueprint( urlObject: URL ): Promise< voi
 	const blueprintUrl = searchParams.get( 'blueprint_url' );
 	const blueprintBase64 = searchParams.get( 'blueprint' );
 
+	const mainWindow = await getMainWindow();
+	if ( mainWindow.isMinimized() ) {
+		mainWindow.restore();
+	}
+	mainWindow.focus();
+
 	// Handle base64-encoded blueprint in the deeplink URL
 	if ( blueprintBase64 ) {
 		try {
@@ -58,13 +64,6 @@ export async function handleAddSiteWithBlueprint( urlObject: URL ): Promise< voi
 
 	try {
 		await download( decodedUrl, blueprintPath, false, 'blueprint' );
-
-		const mainWindow = await getMainWindow();
-		if ( mainWindow.isMinimized() ) {
-			mainWindow.restore();
-		}
-		mainWindow.focus();
-
 		await sendIpcEventToRenderer( 'add-site-blueprint-from-url', { blueprintPath } );
 	} catch ( error ) {
 		console.error( 'Failed to download blueprint from deeplink:', error );

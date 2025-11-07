@@ -191,40 +191,40 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				</SiteSyncDescription>
 			) }
 
-		{ isModalOpen && ! isFetching && (
-			<>
-				{ syncSites.length === 0 ? (
-					<NoWpcomSitesModal
-						onRequestClose={ () => dispatch( connectedSitesActions.closeModal() ) }
-						selectedSite={ selectedSite }
-					/>
-				) : (
-					<SyncSitesModalSelector
-						onRequestClose={ () => dispatch( connectedSitesActions.closeModal() ) }
-						syncSites={ syncSites }
-						onConnect={ async ( siteId ) => {
-							const disconnectSiteId =
-								typeof isModalOpen === 'object' ? isModalOpen.disconnectSiteId : undefined;
+			{ isModalOpen && ! isFetching && (
+				<>
+					{ syncSites.length === 0 ? (
+						<NoWpcomSitesModal
+							onRequestClose={ () => dispatch( connectedSitesActions.closeModal() ) }
+							selectedSite={ selectedSite }
+						/>
+					) : (
+						<SyncSitesModalSelector
+							onRequestClose={ () => dispatch( connectedSitesActions.closeModal() ) }
+							syncSites={ syncSites }
+							onConnect={ async ( siteId ) => {
+								const disconnectSiteId =
+									typeof isModalOpen === 'object' ? isModalOpen.disconnectSiteId : undefined;
 
-							if ( disconnectSiteId ) {
-								await disconnectSite( disconnectSiteId );
-							}
+								if ( disconnectSiteId ) {
+									await disconnectSite( disconnectSiteId );
+								}
 
-							const newConnectedSite = syncSites.find( ( site ) => site.id === siteId );
-							if ( ! newConnectedSite ) {
-								getIpcApi().showErrorMessageBox( {
-									title: __( 'Failed to connect to site' ),
-									message: __( 'Please try again.' ),
-								} );
-								return;
-							}
-							void handleConnect( newConnectedSite );
-						} }
-						selectedSite={ selectedSite }
-					/>
-				) }
-			</>
-		) }
+								const newConnectedSite = syncSites.find( ( site ) => site.id === siteId );
+								if ( ! newConnectedSite ) {
+									getIpcApi().showErrorMessageBox( {
+										title: __( 'Failed to connect to site' ),
+										message: __( 'Please try again.' ),
+									} );
+									return;
+								}
+								void handleConnect( newConnectedSite );
+							} }
+							selectedSite={ selectedSite }
+						/>
+					) }
+				</>
+			) }
 		</div>
 	);
 }

@@ -1,5 +1,4 @@
-import { Icon } from '@wordpress/icons';
-import { check } from '@wordpress/icons';
+import { Icon, check } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import Modal from 'src/components/modal';
 import { WordPressShortLogo } from 'src/components/wordpress-short-logo';
@@ -49,4 +48,3 @@ export function NoWpcomSitesModal( { onRequestClose, selectedSite }: NoWpcomSite
 		</Modal>
 	);
 }
-

@@ -74,11 +74,11 @@ export function SyncSitesModalSelector( {
 						</div>
 					) }
 
-				{ ! isLoading && isEmpty && searchQuery && (
-					<div className="flex justify-center items-center h-full">
-						{ sprintf( __( 'No sites found for "%s"' ), searchQuery ) }
-					</div>
-				) }
+					{ ! isLoading && isEmpty && searchQuery && (
+						<div className="flex justify-center items-center h-full">
+							{ sprintf( __( 'No sites found for "%s"' ), searchQuery ) }
+						</div>
+					) }
 
 					{ ! isLoading && ! isEmpty && (
 						<ListSites
@@ -349,12 +349,12 @@ function Footer( {
 
 	return (
 		<div className="flex px-8 py-4 border-t border-a8c-gray-5 justify-between items-center">
-		<CreateButton
-			variant="link"
-			selectedSite={ selectedSite }
-			text={ __( 'Create a new WordPress.com site' ) }
-			className="!text-a8c-blue-50 !shadow-a8c-blue-50"
-		/>
+			<CreateButton
+				variant="link"
+				selectedSite={ selectedSite }
+				text={ __( 'Create a new WordPress.com site' ) }
+				className="!text-a8c-blue-50 !shadow-a8c-blue-50"
+			/>
 			<div className="flex gap-4">
 				<Button variant="link" onClick={ onRequestClose }>
 					{ __( 'Cancel' ) }

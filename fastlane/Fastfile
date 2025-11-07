@@ -133,10 +133,9 @@ def distribute_builds(
   else
     'Production'
   end
-  version = release_tag.nil? ? "dev" : release_tag
-  suffix = release_tag.nil? ? "v#{PACKAGE_VERSION}" : release_tag
-  appx_version = "#{suffix[/\d+\.\d+\.\d+/]}.0"
-  release_notes = release_tag.nil? ? "Development build #{suffix}-#{build_number}" : "Release #{release_tag}"
+  version = release_tag.nil? ? "v#{PACKAGE_VERSION}" : release_tag
+  appx_version = "#{version[/\d+\.\d+\.\d+/]}.0"
+  release_notes = release_tag.nil? ? "Development build #{version}-#{build_number}" : "Release #{release_tag}"
 
   update_builds = {
     x64: {

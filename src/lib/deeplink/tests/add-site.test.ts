@@ -57,7 +57,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 			false,
 			'blueprint'
 		);
-		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'add-site-blueprint', {
+		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'add-site-blueprint-from-url', {
 			blueprintPath: expect.stringContaining( 'blueprint-' ),
 		} );
 		expect( mockMainWindow.focus ).toHaveBeenCalled();
@@ -97,9 +97,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 
 		expect( download ).toHaveBeenCalled();
 		expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
-		expect( fs.remove ).toHaveBeenCalledWith(
-			expect.stringContaining( 'blueprint-' )
-		);
+		expect( fs.remove ).toHaveBeenCalledWith( expect.stringContaining( 'blueprint-' ) );
 		expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
 			type: 'error',
 			message: expect.any( String ),
@@ -134,5 +132,31 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		await expect( handleAddSiteWithBlueprint( url ) ).resolves.not.toThrow();
 
 		expect( dialog.showMessageBox ).toHaveBeenCalled();
+	} );
+
+	describe( 'base64 blueprint handling', () => {
+		it( 'should handle add-site with valid base64-encoded blueprint', async () => {
+			const blueprintData = {
+				steps: [ { step: 'login', username: 'admin' } ],
+				meta: { title: 'Test Blueprint', description: 'A test blueprint' },
+			};
+			const blueprintJson = JSON.stringify( blueprintData );
+			const blueprintBase64 = Buffer.from( blueprintJson ).toString( 'base64' );
+			const url = new URL( `wpcom-local-dev://add-site?blueprint=${ blueprintBase64 }` );
+
+			await handleAddSiteWithBlueprint( url );
+
+			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'add-site-blueprint-from-base64', {
+				blueprintJson,
+			} );
+			expect( download ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should handle invalid base64-encoded blueprint gracefully', async () => {
+			const url = new URL( 'wpcom-local-dev://add-site?blueprint=invalid-base64!!!' );
+			await handleAddSiteWithBlueprint( url );
+
+			expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
+		} );
 	} );
 } );

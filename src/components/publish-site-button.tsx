@@ -1,4 +1,3 @@
-import { __ } from '@wordpress/i18n/build-types';
 import { useI18n } from '@wordpress/react-i18n';
 import Button from 'src/components/button';
 import { useSyncSites } from 'src/hooks/sync-sites';
@@ -29,7 +28,12 @@ export const PublishSiteButton = () => {
 			) }
 			placement="left"
 		>
-			<Button variant="primary" disabled={ isAnySiteSyncing } onClick={ handlePublishClick }>
+			<Button
+				variant="primary"
+				disabled={ isAnySiteSyncing }
+				aria-label={ __( 'Publish site' ) }
+				onClick={ handlePublishClick }
+			>
 				{ __( 'Publish site' ) }
 			</Button>
 		</Tooltip>

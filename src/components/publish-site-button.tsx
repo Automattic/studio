@@ -1,3 +1,4 @@
+import { globe, cloudUpload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import Button from 'src/components/button';
 import { useSyncSites } from 'src/hooks/sync-sites';
@@ -33,6 +34,7 @@ export const PublishSiteButton = () => {
 				disabled={ isAnySiteSyncing }
 				aria-label={ __( 'Publish site' ) }
 				onClick={ handlePublishClick }
+				icon={ cloudUpload }
 			>
 				{ __( 'Publish site' ) }
 			</Button>

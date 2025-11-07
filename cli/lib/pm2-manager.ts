@@ -277,16 +277,15 @@ const PROXY_PROCESS_NAME = 'studio-proxy';
 
 /**
  * Start the proxy server via PM2
- * This launches the CLI with `proxy start --managed` which runs the proxy servers
+ * This launches the proxy-daemon.js script which runs the proxy servers
  */
-export async function startProxyProcess( cliPath: string ): Promise< ProcessDescription > {
+export async function startProxyProcess( scriptPath: string ): Promise< ProcessDescription > {
 	await ensureDaemonRunning();
 
 	return new Promise( ( resolve, reject ) => {
 		const processConfig: pm2.StartOptions = {
 			name: PROXY_PROCESS_NAME,
-			script: cliPath,
-			args: [ 'proxy', 'boot', '--managed' ],
+			script: scriptPath,
 			instances: 1,
 			exec_mode: 'fork',
 			autorestart: true,
@@ -336,46 +335,4 @@ export async function isProxyProcessRunning(): Promise< boolean > {
 		console.error( 'Error checking if proxy is running:', error );
 		return false;
 	}
-}
-
-/**
- * Get the proxy process status
- */
-export async function getProxyProcessStatus(): Promise< ProcessDescription | null > {
-	return describeProcess( PROXY_PROCESS_NAME );
-}
-
-/**
- * Stop the proxy server
- */
-export async function stopProxyProcess(): Promise< void > {
-	await stopProcess( PROXY_PROCESS_NAME );
-}
-
-/**
- * Restart the proxy server
- */
-export async function restartProxyProcess(): Promise< void > {
-	await restartProcess( PROXY_PROCESS_NAME );
-}
-
-/**
- * Delete the proxy process from PM2
- */
-export async function deleteProxyProcess(): Promise< void > {
-	await deleteProcess( PROXY_PROCESS_NAME );
-}
-
-/**
- * Ensure the proxy is running, start it if not (idempotent)
- */
-export async function ensureProxyRunning( cliPath: string ): Promise< void > {
-	const isRunning = await isProxyProcessRunning();
-	if ( isRunning ) {
-		console.log( 'Proxy is already running' );
-		return;
-	}
-
-	console.log( 'Starting proxy server...' );
-	await startProxyProcess( cliPath );
 }

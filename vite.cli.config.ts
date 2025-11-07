@@ -35,9 +35,11 @@ export default defineConfig( {
 	],
 	build: {
 		lib: {
-			entry: resolve( __dirname, 'cli/index.ts' ),
+			entry: {
+				main: resolve( __dirname, 'cli/index.ts' ),
+				'proxy-daemon': resolve( __dirname, 'cli/proxy-daemon.ts' ),
+			},
 			name: 'StudioCLI',
-			fileName: 'main',
 			formats: [ 'cjs' ],
 		},
 		outDir: 'dist/cli',
@@ -50,7 +52,7 @@ export default defineConfig( {
 			],
 			output: {
 				format: 'cjs',
-				entryFileNames: 'main.js',
+				entryFileNames: '[name].js',
 			},
 		},
 		commonjsOptions: {

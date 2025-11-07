@@ -7,11 +7,11 @@ import { parse } from 'shell-quote';
 import { portFinder } from 'common/lib/port-finder';
 import { filterUnsupportedBlueprintFeatures } from 'src/lib/blueprint-features';
 import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
-import { bootProxyInfrastructure } from 'src/lib/cli-helper';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { addDomainToHosts, removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
 import { decodePassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
+import { startProxyServer } from 'src/lib/proxy-server';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import {
 	setupWordPressSite,
@@ -130,7 +130,7 @@ export class SiteServer {
 					tlsCert: cert,
 				};
 			}
-			await bootProxyInfrastructure();
+			await startProxyServer();
 		}
 
 		const filteredBlueprint = filterUnsupportedBlueprintFeatures( this.meta.blueprint );

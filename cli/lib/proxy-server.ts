@@ -16,6 +16,7 @@ import path from 'node:path';
 import { createSecureContext } from 'node:tls';
 import { domainToASCII } from 'node:url';
 import httpProxy from 'http-proxy';
+import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 
 interface SiteDetails {
 	id: string;
@@ -24,8 +25,6 @@ interface SiteDetails {
 	running: boolean;
 	customDomain?: string;
 	enableHttps?: boolean;
-	tlsKey?: string;
-	tlsCert?: string;
 }
 
 let httpProxyServer: http.Server | null = null;
@@ -243,7 +242,7 @@ async function startHttpsProxy(): Promise< void > {
 
 	return new Promise< void >( ( resolve, reject ) => {
 		const defaultOptions: https.ServerOptions = {
-			SNICallback: ( servername, cb ) => {
+			SNICallback: async ( servername, cb ) => {
 				try {
 					const site = getSiteByHost( servername );
 					if ( ! site || ! site.customDomain ) {
@@ -252,17 +251,12 @@ async function startHttpsProxy(): Promise< void > {
 						return;
 					}
 
-					if ( ! site.tlsKey || ! site.tlsCert ) {
-						console.error(
-							`[Proxy] Site ${ site.id } (${ site.customDomain }) does not have certificates`
-						);
-						cb( new Error( `No certificates available for ${ servername }` ) );
-						return;
-					}
+					// Generate or load certificate from disk
+					const { cert, key } = await generateSiteCertificate( site.customDomain );
 
 					const ctx = createSecureContext( {
-						key: site.tlsKey,
-						cert: site.tlsCert,
+						key,
+						cert,
 						minVersion: 'TLSv1.2',
 					} );
 

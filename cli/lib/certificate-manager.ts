@@ -1,14 +1,12 @@
-import { shell } from 'electron';
 import { execFile } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { domainToASCII } from 'node:url';
 import { promisify } from 'node:util';
-import * as Sentry from '@sentry/electron/main';
 import sudo from '@vscode/sudo-prompt';
 import forge from 'node-forge';
-import { getUserDataCertificatesPath } from 'src/storage/paths';
+import { getAppdataDirectory } from 'cli/lib/appdata';
 
 const execFilePromise = promisify( execFile );
 
@@ -68,7 +66,7 @@ function createNameConstraintsExtension( domains: string[] ) {
 const CA_NAME = 'WordPress Studio CA';
 const CA_CERT_VALIDITY_DAYS = 3650; // 10 years
 const SITE_CERT_VALIDITY_DAYS = 825; // a little over 2 years
-const CERT_DIRECTORY = getUserDataCertificatesPath();
+const CERT_DIRECTORY = path.join( getAppdataDirectory(), 'certificates' );
 const CA_CERT_PATH = path.join( CERT_DIRECTORY, 'studio-ca.crt' );
 const CA_KEY_PATH = path.join( CERT_DIRECTORY, 'studio-ca.key' );
 
@@ -149,10 +147,6 @@ export async function ensureRootCA(): Promise< { cert: string; key: string } > {
 	return { cert: certPem, key: keyPem };
 }
 
-export async function openCertificate() {
-	shell.showItemInFolder( CA_CERT_PATH );
-}
-
 /**
  * Checks if the root CA certificate is already trusted by the system
  * @returns A promise that resolves to true if the certificate is trusted, false otherwise
@@ -223,7 +217,6 @@ export async function trustRootCA(): Promise< void > {
 			console.error( 'Unsupported platform for automatic certificate trust:', platform );
 		}
 	} catch ( error ) {
-		Sentry.captureException( error );
 		console.error( 'Failed to trust root CA:', error );
 		throw error;
 	}
@@ -307,7 +300,6 @@ export async function generateSiteCertificate(
 
 		return { cert: certPem, key: keyPem };
 	} catch ( error ) {
-		Sentry.captureException( error );
 		console.error( `Failed to generate certificate for ${ domain }:`, error );
 		throw error;
 	}
@@ -332,7 +324,6 @@ export function deleteSiteCertificate( domain: string ): boolean {
 
 		return deletedFiles;
 	} catch ( error ) {
-		Sentry.captureException( error );
 		console.error( `Failed to delete certificate for ${ domain }:`, error );
 		return false;
 	}

@@ -23,7 +23,7 @@ import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
 import { AddSiteBlueprintSelector } from './components/blueprints';
 import CreateSite from './components/create-site';
 import ImportBackup from './components/import-backup';
-import AddSiteOptions, { type AddSiteOptionType } from './components/options';
+import AddSiteOptions, { type AddSiteFlowType } from './components/options';
 import { PullRemoteSite } from './components/pull-remote-site';
 import Stepper from './components/stepper';
 import { useBlueprintDeeplink } from './hooks/use-blueprint-deeplink';
@@ -88,7 +88,7 @@ function NavigationContent( props: NavigationContentProps ) {
 	const { setSelectedBlueprint, setPhpVersion, setWpVersion } = createSiteProps;
 
 	const handleOptionSelect = useCallback(
-		( option: AddSiteOptionType ) => {
+		( option: AddSiteFlowType ) => {
 			if ( option === 'blueprint' ) {
 				goTo( '/blueprint' );
 			} else if ( option === 'create' ) {

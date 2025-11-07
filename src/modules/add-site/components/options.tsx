@@ -12,9 +12,9 @@ import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { BlueprintIcon } from './blueprint-icon';
 
-export type AddSiteOptionType = 'create' | 'blueprint' | 'backup' | 'pullRemote';
+export type AddSiteFlowType = 'create' | 'blueprint' | 'backup' | 'pullRemote';
 interface AddSiteOptionsProps {
-	onOptionSelect: ( option: AddSiteOptionType ) => void;
+	onOptionSelect: ( option: AddSiteFlowType ) => void;
 }
 
 interface OptionButtonProps {

@@ -1,6 +1,7 @@
 import { useNavigator } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useMemo } from 'react';
+import { type AddSiteFlowType } from '../components/options';
 
 interface StepperStep {
 	id: string;
@@ -25,7 +26,7 @@ interface StepperConfig {
 }
 
 interface StepperContext {
-	flow: 'blueprint' | 'backup' | 'create' | 'pullRemote';
+	flow: AddSiteFlowType;
 	steps: StepperStep[];
 }
 

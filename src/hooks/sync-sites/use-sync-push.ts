@@ -8,7 +8,6 @@ import {
 	generateStateId,
 	GetState,
 	UpdateState,
-	usePullPushStates,
 } from 'src/hooks/sync-sites/use-pull-push-states';
 import { useAuth } from 'src/hooks/use-auth';
 import {
@@ -17,6 +16,8 @@ import {
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import { syncOperationsActions, syncOperationsSelectors } from 'src/stores/sync';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { ImportResponse } from 'src/hooks/use-sync-states-progress-info';
 import type { SyncOption } from 'src/types';
@@ -43,8 +44,6 @@ type PushSite = (
 type IsSiteIdPushing = ( selectedSiteId: string, remoteSiteId?: number ) => boolean;
 
 type UseSyncPushProps = {
-	pushStates: PushStates;
-	setPushStates: React.Dispatch< React.SetStateAction< PushStates > >;
 	onPushSuccess?: OnPushSuccess;
 };
 
@@ -83,18 +82,45 @@ export function mapImportResponseToPushState(
 	return null;
 }
 
-export function useSyncPush( {
-	pushStates,
-	setPushStates,
-	onPushSuccess,
-}: UseSyncPushProps ): UseSyncPush {
+export function useSyncPush( { onPushSuccess }: UseSyncPushProps = {} ): UseSyncPush {
 	const { __ } = useI18n();
 	const { client } = useAuth();
-	const {
-		updateState,
-		getState: getPushState,
-		clearState,
-	} = usePullPushStates< SyncPushState >( pushStates, setPushStates );
+
+	const dispatch = useAppDispatch();
+	const pushStates = useRootSelector( syncOperationsSelectors.selectPushStates );
+
+	const updateState = useCallback< UpdateState< SyncPushState > >(
+		( selectedSiteId, remoteSiteId, state ) => {
+			dispatch(
+				syncOperationsActions.updatePushState( {
+					selectedSiteId,
+					remoteSiteId,
+					state,
+				} )
+			);
+		},
+		[ dispatch ]
+	);
+
+	const getPushState = useCallback< GetState< SyncPushState > >(
+		( selectedSiteId, remoteSiteId ) => {
+			const stateId = generateStateId( selectedSiteId, remoteSiteId );
+			return pushStates[ stateId ];
+		},
+		[ pushStates ]
+	);
+
+	const clearState = useCallback< ClearState >(
+		( selectedSiteId, remoteSiteId ) => {
+			dispatch(
+				syncOperationsActions.clearPushState( {
+					selectedSiteId,
+					remoteSiteId,
+				} )
+			);
+		},
+		[ dispatch ]
+	);
 	const {
 		pushStatesProgressInfo,
 		isKeyPushing,

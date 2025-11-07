@@ -207,11 +207,14 @@ export function useSyncStatesProgressInfo() {
 				: response.status;
 			let newProgressInfo: PullStateProgressInfo | null = null;
 			if ( response.status === 'in-progress' ) {
-				newProgressInfo = pullStatesProgressInfo[ frontendStatus ];
-				// Update progress from the initial value to the new step proportionally to the response.progress
-				// on every update of the response.progress
-				newProgressInfo.progress =
-					IN_PROGRESS_INITIAL_VALUE + IN_PROGRESS_TO_DOWNLOADING_STEP * ( response.percent / 100 );
+				newProgressInfo = {
+					...pullStatesProgressInfo[ frontendStatus ],
+					// Update progress from the initial value to the new step proportionally to the response.progress
+					// on every update of the response.progress
+					progress:
+						IN_PROGRESS_INITIAL_VALUE +
+						IN_PROGRESS_TO_DOWNLOADING_STEP * ( response.percent / 100 ),
+				};
 			}
 			const statusWithProgress = newProgressInfo || pullStatesProgressInfo[ frontendStatus ];
 

@@ -8,7 +8,6 @@ import {
 	generateStateId,
 	GetState,
 	UpdateState,
-	usePullPushStates,
 } from 'src/hooks/sync-sites/use-pull-push-states';
 import { useAuth } from 'src/hooks/use-auth';
 import { useImportExport } from 'src/hooks/use-import-export';
@@ -20,6 +19,8 @@ import {
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import { syncOperationsActions, syncOperationsSelectors } from 'src/stores/sync';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { SyncOption } from 'src/types';
 
@@ -47,8 +48,6 @@ type PullSite = (
 type IsSiteIdPulling = ( selectedSiteId: string, remoteSiteId?: number ) => boolean;
 
 type UseSyncPullProps = {
-	pullStates: PullStates;
-	setPullStates: React.Dispatch< React.SetStateAction< PullStates > >;
 	onPullSuccess?: OnPullSuccess;
 };
 
@@ -65,10 +64,8 @@ export type UseSyncPull = {
 };
 
 export function useSyncPull( {
-	pullStates,
-	setPullStates,
 	onPullSuccess,
-}: UseSyncPullProps ): UseSyncPull {
+}: UseSyncPullProps = {} ): UseSyncPull {
 	const { __ } = useI18n();
 	const { client } = useAuth();
 	const { importFile, clearImportState } = useImportExport();
@@ -80,11 +77,38 @@ export function useSyncPull( {
 		isKeyCancelled,
 		getBackupStatusWithProgress,
 	} = useSyncStatesProgressInfo();
-	const {
-		updateState,
-		getState: getPullState,
-		clearState,
-	} = usePullPushStates< SyncBackupState >( pullStates, setPullStates );
+	
+	const dispatch = useAppDispatch();
+	const pullStates = useRootSelector( syncOperationsSelectors.selectPullStates );
+	
+	const updateState = useCallback< UpdateState< SyncBackupState > >(
+		( selectedSiteId, remoteSiteId, state ) => {
+			dispatch( syncOperationsActions.updatePullState( {
+				selectedSiteId,
+				remoteSiteId,
+				state,
+			} ) );
+		},
+		[ dispatch ]
+	);
+	
+	const getPullState = useCallback< GetState< SyncBackupState > >(
+		( selectedSiteId, remoteSiteId ) => {
+			const stateId = generateStateId( selectedSiteId, remoteSiteId );
+			return pullStates[ stateId ];
+		},
+		[ pullStates ]
+	);
+	
+	const clearState = useCallback< ClearState >(
+		( selectedSiteId, remoteSiteId ) => {
+			dispatch( syncOperationsActions.clearPullState( {
+				selectedSiteId,
+				remoteSiteId,
+			} ) );
+		},
+		[ dispatch ]
+	);
 
 	const updatePullState = useCallback< UpdateState< SyncBackupState > >(
 		( selectedSiteId, remoteSiteId, state ) => {

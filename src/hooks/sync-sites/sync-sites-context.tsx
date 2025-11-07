@@ -1,10 +1,9 @@
 import { __, sprintf } from '@wordpress/i18n';
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect } from 'react';
 import { useListenDeepLinkConnection } from 'src/hooks/sync-sites/use-listen-deep-link-connection';
 import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
-import { PullStates, UseSyncPull, useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
+import { UseSyncPull, useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
 import {
-	PushStates,
 	UseSyncPush,
 	useSyncPush,
 	mapImportResponseToPushState,
@@ -14,7 +13,7 @@ import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-tim
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch } from 'src/stores';
-import { useConnectedSitesData, useSyncSitesData, connectedSitesActions } from 'src/stores/sync';
+import { useConnectedSitesData, useSyncSitesData, connectedSitesActions, syncOperationsActions } from 'src/stores/sync';
 import type { ImportResponse } from 'src/hooks/use-sync-states-progress-info';
 
 type GetLastSyncTimeText = ( timestamp: string | null, type: 'pull' | 'push' ) => string;
@@ -34,7 +33,6 @@ const SyncSitesContext = createContext< SyncSitesContextType | undefined >( unde
 
 export function SyncSitesProvider( { children }: { children: React.ReactNode } ) {
 	const { formatRelativeTime } = useFormatLocalizedTimestamps();
-	const [ pullStates, setPullStates ] = useState< PullStates >( {} );
 
 	const getLastSyncTimeText = useCallback< GetLastSyncTimeText >(
 		( timestamp, type ) => {
@@ -90,17 +88,12 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 
 	const { pullSite, isAnySitePulling, isSiteIdPulling, clearPullState, getPullState, cancelPull } =
 		useSyncPull( {
-			pullStates,
-			setPullStates,
 			onPullSuccess: ( remoteSiteId, localSiteId ) =>
 				updateSiteTimestamp( remoteSiteId, localSiteId, 'pull' ),
 		} );
 
-	const [ pushStates, setPushStates ] = useState< PushStates >( {} );
 	const { pushSite, isAnySitePushing, isSiteIdPushing, clearPushState, getPushState, cancelPush } =
 		useSyncPush( {
-			pushStates,
-			setPushStates,
 			onPushSuccess: ( remoteSiteId, localSiteId ) =>
 				updateSiteTimestamp( remoteSiteId, localSiteId, 'push' ),
 		} );
@@ -121,8 +114,6 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 			const allSites = await getIpcApi().getSiteDetails();
 			const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
 
-			const restoredStates: PushStates = {};
-
 			for ( const connectedSite of allConnectedSites ) {
 				try {
 					const localSite = allSites.find( ( site ) => site.id === connectedSite.localSiteId );
@@ -132,25 +123,29 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 						continue;
 					}
 
-					const response = await client.req.get< ImportResponse >(
+					const response = await client.req.get(
 						`/sites/${ connectedSite.id }/studio-app/sync/import`,
 						{
 							apiNamespace: 'wpcom/v2',
 						}
-					);
+					) as ImportResponse;
 
 					const status = mapImportResponseToPushState( response, pushStatesProgressInfo );
 
 					// Only restore the pushStates if the operation is still in progress
 					if ( status ) {
-						const stateId = generateStateId( connectedSite.localSiteId, connectedSite.id );
-						restoredStates[ stateId ] = {
+						dispatch( syncOperationsActions.updatePushState( {
+							selectedSiteId: connectedSite.localSiteId,
 							remoteSiteId: connectedSite.id,
-							status,
-							selectedSite: localSite,
-							remoteSiteUrl: connectedSite.url,
-						};
+							state: {
+								remoteSiteId: connectedSite.id,
+								status,
+								selectedSite: localSite,
+								remoteSiteUrl: connectedSite.url,
+							},
+						} ) );
 
+						const stateId = generateStateId( connectedSite.localSiteId, connectedSite.id );
 						getIpcApi().addSyncOperation( stateId, status );
 					}
 				} catch ( error ) {
@@ -158,17 +153,13 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 					console.error( `Failed to check push progress for site ${ connectedSite.id }:`, error );
 				}
 			}
-
-			if ( Object.keys( restoredStates ).length > 0 ) {
-				setPushStates( ( prev ) => ( { ...prev, ...restoredStates } ) );
-			}
 		};
 
 		initializePushStates().catch( ( error ) => {
 			// Initialization is not critical to app functionality, but log the error
 			console.error( 'Failed to initialize push states from server:', error );
 		} );
-	}, [ client, pushStatesProgressInfo ] );
+	}, [ client, pushStatesProgressInfo, dispatch ] );
 
 	return (
 		<SyncSitesContext.Provider

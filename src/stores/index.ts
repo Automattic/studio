@@ -28,6 +28,7 @@ import {
 	connectedSitesReducer,
 	loadAllConnectedSites,
 } from 'src/stores/sync/connected-sites-slice';
+import { syncOperationsReducer } from 'src/stores/sync/sync-operations-slice';
 import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from 'common/lib/locale';
@@ -42,6 +43,7 @@ export type RootState = {
 	snapshot: ReturnType< typeof snapshotReducer >;
 	sync: ReturnType< typeof syncReducer >;
 	connectedSites: ReturnType< typeof connectedSitesReducer >;
+	syncOperations: ReturnType< typeof syncOperationsReducer >;
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
 	wpcomPublicApi: ReturnType< typeof wpcomPublicApi.reducer >;
@@ -98,6 +100,7 @@ export const rootReducer = combineReducers( {
 	snapshot: snapshotReducer,
 	sync: syncReducer,
 	connectedSites: connectedSitesReducer,
+	syncOperations: syncOperationsReducer,
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,
 	wpcomPublicApi: wpcomPublicApi.reducer,

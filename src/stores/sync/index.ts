@@ -14,4 +14,9 @@ export {
 	useSyncSitesData,
 	useConnectedSitesOperations,
 } from './connected-sites-hooks';
+export {
+	syncOperationsReducer,
+	syncOperationsActions,
+	syncOperationsSelectors,
+} from './sync-operations-slice';
 export * from './sync-types';

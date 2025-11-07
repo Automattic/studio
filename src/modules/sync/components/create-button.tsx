@@ -12,6 +12,7 @@ interface CreateButtonProps {
 	selectedSite: SiteDetails;
 	text?: string;
 	className?: string;
+	onClick?: () => void;
 }
 
 export const CreateButton = ( {
@@ -19,6 +20,7 @@ export const CreateButton = ( {
 	selectedSite,
 	text = __( 'Create new site' ),
 	className,
+	onClick,
 }: CreateButtonProps ) => {
 	const isOffline = useOffline();
 	return (
@@ -27,15 +29,17 @@ export const CreateButton = ( {
 			text={ __( 'Creating a site requires an internet connection.' ) }
 			icon={ offlineIcon }
 			placement="top-start"
+			className={ className }
 		>
 			<Button
 				onClick={ () => {
+					onClick?.();
 					getIpcApi().openURL(
 						`https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&showDomainStep&studioSiteId=${ selectedSite.id }`
 					);
 				} }
 				variant={ variant }
-				className={ cx( ! isOffline && '!text-a8c-blue-50 !shadow-a8c-blue-50', className ) }
+				className={ cx( ! isOffline && className ) }
 				disabled={ isOffline }
 				aria-disabled={ isOffline }
 			>

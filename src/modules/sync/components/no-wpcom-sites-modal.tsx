@@ -1,14 +1,15 @@
 import { Icon } from '@wordpress/icons';
 import { check } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import Button from 'src/components/button';
 import Modal from 'src/components/modal';
+import { CreateButton } from 'src/modules/sync/components/create-button';
 
 interface NoWpcomSitesModalProps {
 	onRequestClose: () => void;
+	selectedSite: SiteDetails;
 }
 
-export function NoWpcomSitesModal( { onRequestClose }: NoWpcomSitesModalProps ) {
+export function NoWpcomSitesModal( { onRequestClose, selectedSite }: NoWpcomSitesModalProps ) {
 	const { __ } = useI18n();
 
 	return (
@@ -36,9 +37,13 @@ export function NoWpcomSitesModal( { onRequestClose }: NoWpcomSitesModalProps ) 
 					) ) }
 				</div>
 				<div className="flex justify-center gap-4">
-					<Button variant="primary" onClick={ onRequestClose } className="w-full">
-						{ __( 'Choose a plan to publish your site' ) }
-					</Button>
+					<CreateButton
+						variant="primary"
+						selectedSite={ selectedSite }
+						text={ __( 'Choose a plan to publish your site' ) }
+						onClick={ onRequestClose }
+						className="w-full !text-white !shadow-a8c-blue-50"
+					/>
 				</div>
 			</div>
 		</Modal>

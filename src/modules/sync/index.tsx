@@ -198,6 +198,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				{ 0 === 0 ? (
 					<NoWpcomSitesModal
 						onRequestClose={ () => dispatch( connectedSitesActions.closeModal() ) }
+						selectedSite={ selectedSite }
 					/>
 				) : (
 					<SyncSitesModalSelector

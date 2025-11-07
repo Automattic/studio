@@ -16,7 +16,7 @@ export function NoWpcomSitesModal( { onRequestClose, selectedSite }: NoWpcomSite
 		<Modal
 			className="w-[390px]"
 			onRequestClose={ onRequestClose }
-			title={ __( 'Find a perfect plan with WordPress.com' ) }
+			title={ __( 'Find a perfect plan' ) }
 		>
 			<div className="flex flex-col gap-4">
 				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">

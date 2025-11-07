@@ -36,6 +36,13 @@ export async function handleAddSiteWithBlueprint( urlObject: URL ): Promise< voi
 		} catch ( error ) {
 			Sentry.captureException( error );
 			console.error( 'Failed to parse blueprint from deeplink:', error );
+
+			await dialog.showMessageBox( mainWindow, {
+				type: 'error',
+				message: __( 'Failed to load blueprint' ),
+				detail: __( 'The blueprint data is invalid. Please check the link and try again.' ),
+				buttons: [ __( 'OK' ) ],
+			} );
 		}
 		return;
 	}

@@ -81,10 +81,14 @@ end
 
 desc 'Ship release build'
 lane :distribute_release_build do |_options|
-  next if DRY_RUN
-
   release_tag = get_required_env('BUILDKITE_TAG')
   builds = distribute_builds(release_tag:)
+
+  if DRY_RUN
+    UI.message("[DRY RUN] Would notify Slack about #{release_tag}")
+    UI.message("[DRY RUN] Release assets prepared for #{builds.each_value.map { |build| build[:name] }.join(', ')}")
+    next
+  end
 
   slack(
     username: 'CI Bot',
@@ -278,9 +282,16 @@ end
 def upload_file_to_apps_cdn(site_id:, product:, file_path:, platform:, arch:, build_type:, install_type: 'Full Install', visibility:, version:, build_number:, release_notes:, sha: nil, error_on_duplicate:, dry_run: DRY_RUN)
   versioned_file_path = create_versioned_file(original_file_path: file_path, version:, arch:)
 
+	if !File.exist?(versioned_file_path)
+		UI.user_error!("File #{versioned_file_path} does not exist")
+	end
+
   if dry_run
     media_url = "https://appscdn.wordpress.com/downloads/wordpress-com-studio/#{platform}/#{version}/#{build_number}"
-    UI.message("[DRY RUN] Would upload file: #{versioned_file_path}")
+	# Check if the file exists
+    UI.message("[DRY RUN] Upload step skipped due to dry run mode.")
+    UI.message("           File exists at: #{versioned_file_path}")
+    UI.message("           file size: #{File.size(versioned_file_path)/1024/1024} MB")
     UI.message("           for platform: #{platform}")
     UI.message("           media url: #{media_url}")
     UI.message("           build type: #{build_type}")

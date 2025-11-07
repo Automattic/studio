@@ -1,4 +1,4 @@
-import { password } from '@inquirer/prompts';
+import { input } from '@inquirer/prompts';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { getUserInfo } from 'cli/lib/api';
 import {
@@ -15,14 +15,7 @@ import { Logger, LoggerError } from 'cli/logger';
 jest.mock( '@inquirer/prompts' );
 jest.mock( 'common/lib/oauth' );
 jest.mock( 'cli/lib/api' );
-jest.mock( 'cli/lib/appdata', () => ( {
-	...jest.requireActual( 'cli/lib/appdata' ),
-	lockAppdata: jest.fn(),
-	readAppdata: jest.fn(),
-	saveAppdata: jest.fn(),
-	unlockAppdata: jest.fn(),
-	getAuthToken: jest.fn(),
-} ) );
+jest.mock( 'cli/lib/appdata' );
 jest.mock( 'cli/lib/browser' );
 jest.mock( 'cli/lib/i18n' );
 jest.mock( 'cli/logger' );
@@ -68,7 +61,7 @@ describe( 'Auth Login Command', () => {
 		( getAppLocale as jest.Mock ).mockResolvedValue( 'en' );
 		( getUserInfo as jest.Mock ).mockResolvedValue( mockUserData );
 		( openBrowser as jest.Mock ).mockResolvedValue( undefined );
-		( password as jest.Mock ).mockResolvedValue( mockAccessToken );
+		( input as jest.Mock ).mockResolvedValue( mockAccessToken );
 		( readAppdata as jest.Mock ).mockResolvedValue( mockAppdata );
 		( getAuthToken as jest.Mock ).mockRejectedValue( new Error( 'Mock error' ) );
 		( lockAppdata as jest.Mock ).mockResolvedValue( undefined );
@@ -87,7 +80,7 @@ describe( 'Auth Login Command', () => {
 		await runCommand();
 
 		expect( openBrowser ).not.toHaveBeenCalled();
-		expect( password ).not.toHaveBeenCalled();
+		expect( input ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should complete the login process successfully', async () => {
@@ -99,7 +92,7 @@ describe( 'Auth Login Command', () => {
 			'https://developer.wordpress.com/copy-oauth-token'
 		);
 		expect( openBrowser ).toHaveBeenCalledWith( mockAuthUrl );
-		expect( password ).toHaveBeenCalledWith( {
+		expect( input ).toHaveBeenCalledWith( {
 			message: 'Authentication token:',
 		} );
 		expect( getUserInfo ).toHaveBeenCalledWith( mockAccessToken );
@@ -122,7 +115,7 @@ describe( 'Auth Login Command', () => {
 		await runCommand();
 
 		expect( openBrowser ).toHaveBeenCalled();
-		expect( password ).toHaveBeenCalled();
+		expect( input ).toHaveBeenCalled();
 	} );
 
 	it( 'should handle browser open failure', async () => {
@@ -132,7 +125,7 @@ describe( 'Auth Login Command', () => {
 		const { runCommand } = await import( '../login' );
 		await runCommand();
 
-		expect( password ).toHaveBeenCalled();
+		expect( input ).toHaveBeenCalled();
 	} );
 
 	it( 'should handle API error when fetching user info', async () => {

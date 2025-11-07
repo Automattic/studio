@@ -1,5 +1,6 @@
-import { password } from '@inquirer/prompts';
+import { input } from '@inquirer/prompts';
 import { __, sprintf } from '@wordpress/i18n';
+import { DEFAULT_TOKEN_LIFETIME_MS } from 'common/constants';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { AuthCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { getUserInfo } from 'cli/lib/api';
@@ -50,38 +51,40 @@ export async function runCommand(): Promise< void > {
 	);
 	console.log( '' );
 
+	let accessToken: Awaited< ReturnType< typeof input > >;
+	let user: Awaited< ReturnType< typeof getUserInfo > >;
+
 	try {
-		const accessToken = await password( { message: __( 'Authentication token:' ) } );
-		const user = await getUserInfo( accessToken );
-
+		accessToken = await input( { message: __( 'Authentication token:' ) } );
+		user = await getUserInfo( accessToken );
 		logger.reportSuccess( __( 'Authentication completed successfully!' ) );
+	} catch ( error ) {
+		logger.reportError( new LoggerError( __( 'Authentication failed. Please try again.' ) ) );
+		return;
+	}
 
-		try {
-			await lockAppdata();
-			const userData = await readAppdata();
+	try {
+		await lockAppdata();
+		const userData = await readAppdata();
 
-			const now = new Date();
-			const twoWeeksInSeconds = 2 * 7 * 24 * 60 * 60;
+		userData.authToken = {
+			accessToken,
+			id: user.ID,
+			email: user.email,
+			displayName: user.display_name,
+			expiresIn: DEFAULT_TOKEN_LIFETIME_MS / 1000,
+			expirationTime: Date.now() + DEFAULT_TOKEN_LIFETIME_MS,
+		};
 
-			userData.authToken = {
-				accessToken,
-				id: user.ID,
-				email: user.email,
-				displayName: user.display_name,
-				expiresIn: twoWeeksInSeconds,
-				expirationTime: now.getTime() + twoWeeksInSeconds * 1000,
-			};
-
-			await saveAppdata( userData );
-		} finally {
-			await unlockAppdata();
-		}
+		await saveAppdata( userData );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );
 		} else {
 			logger.reportError( new LoggerError( __( 'Authentication failed' ), error ) );
 		}
+	} finally {
+		await unlockAppdata();
 	}
 }
 

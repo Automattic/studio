@@ -6,7 +6,7 @@
 * Introduced a new developer survey in the What's New modal #1973
 * Fixed usage progress bar display #1953
 * Improved the deletion of all preview sites #1950
-* Improved tracking of the push process when the app starts #1943
+* Improved tracking and display of push progress after app restart #1943
 * Separated staging and production sites in the Sync modal #1929
 * Misc UI improvements #2020, #2019, #1966, #1959, #1942
 * Updated multiple dependencies, including Electron, Electron Forge, Playground packages, SQLite plugin, and wpcom libraries to the latest versions

@@ -47,6 +47,9 @@ const mockShowOpenFolderDialog =
 const mockGenerateProposedSitePath =
 	jest.fn< ( siteName: string ) => Promise< FolderDialogResponse > >();
 const mockGetAllCustomDomains = jest.fn< () => Promise< string[] > >().mockResolvedValue( [] );
+const mockPullSite = jest.fn();
+const mockUseSyncSites = jest.fn();
+const mockSetSelectedTab = jest.fn();
 
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
@@ -57,6 +60,18 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		generateProposedSitePath: mockGenerateProposedSitePath,
 		getAllCustomDomains: mockGetAllCustomDomains,
 		setWindowControlVisibility: jest.fn(),
+	} ),
+} ) );
+
+jest.mock( 'src/hooks/sync-sites', () => ( {
+	useSyncSites: () => mockUseSyncSites(),
+} ) );
+
+jest.mock( 'src/hooks/use-content-tabs', () => ( {
+	useContentTabs: () => ( {
+		selectedTab: 'overview',
+		setSelectedTab: mockSetSelectedTab,
+		tabs: [],
 	} ),
 } ) );
 
@@ -104,6 +119,26 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 
 beforeEach( () => {
 	jest.clearAllMocks();
+
+	mockPullSite.mockReset();
+	mockUseSyncSites.mockReturnValue( {
+		pullSite: mockPullSite,
+		syncSites: [],
+		refetchSites: jest.fn(),
+		isFetching: false,
+		isAnySitePulling: false,
+		isSiteIdPulling: jest.fn(),
+		clearPullState: jest.fn(),
+		cancelPull: jest.fn(),
+		getPullState: jest.fn(),
+		pushSite: jest.fn(),
+		isAnySitePushing: false,
+		isSiteIdPushing: jest.fn(),
+		clearPushState: jest.fn(),
+		getPushState: jest.fn(),
+		getLastSyncTimeText: jest.fn(),
+	} );
+	mockSetSelectedTab.mockReset();
 
 	mockShowOpenFolderDialog.mockResolvedValue( {
 		path: 'test',

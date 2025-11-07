@@ -11,6 +11,7 @@ interface ConnectButtonProps {
 	disableConnectButtonStyle?: boolean;
 	className?: string;
 	children?: React.ReactNode;
+	isBusy?: boolean;
 }
 
 export const ConnectButton = ( {
@@ -19,8 +20,10 @@ export const ConnectButton = ( {
 	disableConnectButtonStyle,
 	className,
 	children,
+	isBusy = false,
 }: ConnectButtonProps ) => {
 	const isOffline = useOffline();
+	const isDisabled = isOffline || isBusy;
 	return (
 		<Tooltip
 			disabled={ ! isOffline }
@@ -30,9 +33,10 @@ export const ConnectButton = ( {
 		>
 			<Button
 				onClick={ connectSite }
-				disabled={ isOffline }
-				aria-disabled={ isOffline }
+				disabled={ isDisabled }
+				aria-disabled={ isDisabled }
 				variant={ variant }
+				isBusy={ isBusy }
 				className={ cx(
 					! disableConnectButtonStyle && ! isOffline && '!text-a8c-blue-50 !shadow-a8c-blue-50',
 					className

@@ -74,13 +74,11 @@ export function SyncSitesModalSelector( {
 						</div>
 					) }
 
-					{ ! isLoading && isEmpty && (
-						<div className="flex justify-center items-center h-full">
-							{ searchQuery
-								? sprintf( __( 'No sites found for "%s"' ), searchQuery )
-								: __( 'No sites found' ) }
-						</div>
-					) }
+				{ ! isLoading && isEmpty && searchQuery && (
+					<div className="flex justify-center items-center h-full">
+						{ sprintf( __( 'No sites found for "%s"' ), searchQuery ) }
+					</div>
+				) }
 
 					{ ! isLoading && ! isEmpty && (
 						<ListSites

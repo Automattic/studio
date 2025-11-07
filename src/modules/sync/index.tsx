@@ -9,6 +9,7 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
+import { NoWpcomSitesModal } from 'src/modules/sync/components/no-wpcom-sites-modal';
 import { SyncConnectedSites } from 'src/modules/sync/components/sync-connected-sites';
 import { SyncSitesModalSelector } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
@@ -159,8 +160,13 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 						<ConnectButton
 							variant="primary"
-							connectSite={ () => dispatch( connectedSitesActions.openModal() ) }
+							connectSite={ () => {
+								if ( ! isFetching ) {
+									dispatch( connectedSitesActions.openModal() );
+								}
+							} }
 							disableConnectButtonStyle={ true }
+							isBusy={ isFetching }
 						>
 							{ __( 'Connect another site' ) }
 						</ConnectButton>
@@ -171,8 +177,13 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					<div className="mt-8">
 						<ConnectButton
 							variant="primary"
-							connectSite={ () => dispatch( connectedSitesActions.openModal() ) }
+							connectSite={ () => {
+								if ( ! isFetching ) {
+									dispatch( connectedSitesActions.openModal() );
+								}
+							} }
 							disableConnectButtonStyle={ true }
+							isBusy={ isFetching }
 						>
 							{ __( 'Connect site' ) }
 						</ConnectButton>
@@ -180,33 +191,43 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				</SiteSyncDescription>
 			) }
 
-			{ isModalOpen && (
-				<SyncSitesModalSelector
-					isLoading={ isFetching }
-					onRequestClose={ () => dispatch( connectedSitesActions.closeModal() ) }
-					syncSites={ syncSites }
-					onInitialRender={ refetchSites }
-					onConnect={ async ( siteId ) => {
-						const disconnectSiteId =
-							typeof isModalOpen === 'object' ? isModalOpen.disconnectSiteId : undefined;
+		{ isModalOpen && ! isFetching && (
+			<>
+				{ /* TODO: Temporarily forcing to show NoWpcomSitesModal for testing */ }
+				{ /* Wait for fetch to complete, then show the appropriate modal */ }
+				{ 0 === 0 ? (
+					<NoWpcomSitesModal
+						onRequestClose={ () => dispatch( connectedSitesActions.closeModal() ) }
+					/>
+				) : (
+					<SyncSitesModalSelector
+						isLoading={ false }
+						onRequestClose={ () => dispatch( connectedSitesActions.closeModal() ) }
+						syncSites={ syncSites }
+						onInitialRender={ refetchSites }
+						onConnect={ async ( siteId ) => {
+							const disconnectSiteId =
+								typeof isModalOpen === 'object' ? isModalOpen.disconnectSiteId : undefined;
 
-						if ( disconnectSiteId ) {
-							await disconnectSite( disconnectSiteId );
-						}
+							if ( disconnectSiteId ) {
+								await disconnectSite( disconnectSiteId );
+							}
 
-						const newConnectedSite = syncSites.find( ( site ) => site.id === siteId );
-						if ( ! newConnectedSite ) {
-							getIpcApi().showErrorMessageBox( {
-								title: __( 'Failed to connect to site' ),
-								message: __( 'Please try again.' ),
-							} );
-							return;
-						}
-						void handleConnect( newConnectedSite );
-					} }
-					selectedSite={ selectedSite }
-				/>
-			) }
+							const newConnectedSite = syncSites.find( ( site ) => site.id === siteId );
+							if ( ! newConnectedSite ) {
+								getIpcApi().showErrorMessageBox( {
+									title: __( 'Failed to connect to site' ),
+									message: __( 'Please try again.' ),
+								} );
+								return;
+							}
+							void handleConnect( newConnectedSite );
+						} }
+						selectedSite={ selectedSite }
+					/>
+				) }
+			</>
+		) }
 		</div>
 	);
 }

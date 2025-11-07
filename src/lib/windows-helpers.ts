@@ -50,7 +50,7 @@ export async function promptWindowsSpeedUpSites( {
 		message: __(
 			"Microsoft Defender's Real-time protection may slow site creation.\n\nTo create sites quickly, we recommend disabling Real-time protection for the Studio app."
 		),
-		...( skipIfAlreadyPrompted && { checkboxLabel: __( "Don't ask me again" ) } ),
+		...( skipIfAlreadyPrompted && { checkboxLabel: __( "Don't ask again" ) } ),
 		cancelId: buttons.indexOf( NOT_INTERESTED ),
 	} );
 

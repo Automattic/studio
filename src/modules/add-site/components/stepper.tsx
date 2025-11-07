@@ -59,7 +59,7 @@ export default function Stepper( {
 						>
 							<div
 								className={ cx(
-									`w-6 h-6 rounded-full flex items-center justify-center text-xs font-normal border-2  bg-transparent `,
+									`w-6 h-6 rounded-full flex items-center justify-center text-xs font-regular border-[1.5px] bg-transparent `,
 									step.isCurrent ? 'text-gray-900 border-gray-900' : 'border-gray-500 text-gray-500'
 								) }
 							>
@@ -67,7 +67,7 @@ export default function Stepper( {
 							</div>
 							<Text
 								className={ cx(
-									`text-sm font-medium`,
+									`text-sm font-regular`,
 									step.isCurrent ? 'text-gray-900' : 'text-gray-500'
 								) }
 							>

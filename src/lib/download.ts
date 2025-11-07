@@ -1,4 +1,4 @@
-import { https } from 'follow-redirects';
+import { https, http } from 'follow-redirects';
 import fs from 'fs-extra';
 
 export async function download(
@@ -9,9 +9,11 @@ export async function download(
 	signal?: AbortSignal
 ) {
 	const file = fs.createWriteStream( filePath );
+	const urlProtocol = new URL( url ).protocol;
+	const httpModule = urlProtocol === 'https:' ? https : http;
 
 	await new Promise< void >( ( resolve, reject ) => {
-		const request = https.get( url, ( response ) => {
+		const request = httpModule.get( url, ( response ) => {
 			if ( response.statusCode !== 200 ) {
 				reject( new Error( `Request failed with status code: ${ response.statusCode }` ) );
 				return;

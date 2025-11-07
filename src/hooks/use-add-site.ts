@@ -1,6 +1,8 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
+import { useSyncSites } from 'src/hooks/sync-sites';
+import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'src/lib/domains';
@@ -14,12 +16,15 @@ import {
 import { useConnectedSitesOperations } from 'src/stores/sync';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { Blueprint } from 'src/stores/wpcom-api';
+import type { SyncOption } from 'src/types';
 
 export function useAddSite() {
 	const { __ } = useI18n();
 	const { createSite, data: sites, loadingSites, startServer, updateSite } = useSiteDetails();
 	const { importFile, clearImportState } = useImportExport();
 	const { connectSite } = useConnectedSitesOperations();
+	const { pullSite } = useSyncSites();
+	const { setSelectedTab } = useContentTabs();
 	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 	const [ error, setError ] = useState( '' );
@@ -146,21 +151,22 @@ export function useAddSite() {
 							title: newSite.name,
 							body: __( 'Your new site was imported' ),
 						} );
-					} else if ( selectedRemoteSite ) {
-						await connectSite( selectedRemoteSite, newSite.id );
-						await startServer( newSite.id );
-
-						getIpcApi().showNotification( {
-							title: newSite.name,
-							body: __( 'Your new site was created' ),
-						} );
 					} else {
-						await startServer( newSite.id );
+						if ( selectedRemoteSite ) {
+							await connectSite( selectedRemoteSite, newSite.id );
+							const pullOptions: SyncOption[] = [ 'all' ];
+							pullSite( selectedRemoteSite, newSite, {
+								optionsToSync: pullOptions,
+							} );
+							setSelectedTab( 'sync' );
+						} else {
+							await startServer( newSite.id );
 
-						getIpcApi().showNotification( {
-							title: newSite.name,
-							body: __( 'Your new site was created' ),
-						} );
+							getIpcApi().showNotification( {
+								title: newSite.name,
+								body: __( 'Your new site was created' ),
+							} );
+						}
 					}
 				}
 			);
@@ -185,7 +191,9 @@ export function useAddSite() {
 		enableHttps,
 		selectedBlueprint,
 		selectedRemoteSite,
+		pullSite,
 		connectSite,
+		setSelectedTab,
 	] );
 
 	const handleSiteNameChange = useCallback(

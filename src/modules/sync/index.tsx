@@ -225,6 +225,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 						</ConnectButton>
 						<ConnectButton
 							variant="secondary"
+							className="!text-a8c-blue-50 !shadow-a8c-blue-50"
 							connectSite={ handleImportSite }
 							disableConnectButtonStyle={ true }
 							tooltipText={ __( 'Importing a remote site requires an internet connection.' ) }

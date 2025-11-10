@@ -29,6 +29,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           track_progress: true
+          allowed_bots: 'dependabot[bot]'
           prompt: |
             The IPC API or type definitions have changed in this PR. Please:
 

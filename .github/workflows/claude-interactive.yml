@@ -39,6 +39,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          allowed_bots: 'dependabot[bot]'
           # No prompt = interactive mode - Claude responds to the comment/issue
           claude_args: |
             --allowedTools "Read,Write,Edit,Grep,Glob,Bash(npm:*),Bash(node:*),Bash(git:*),Bash(gh:*)"

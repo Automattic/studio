@@ -124,7 +124,7 @@ export async function uninstallCli() {
 }
 
 export async function installCli() {
-	if ( process.platform !== 'win32' || process.env.NODE_ENV === 'development' ) {
+	if ( process.platform !== 'win32' ) {
 		return;
 	}
 

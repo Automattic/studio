@@ -67,8 +67,8 @@ export async function uninstallCliWithConfirmation() {
 		const mainWindow = await getMainWindow();
 		await dialog.showMessageBox( mainWindow, {
 			type: 'info',
-			title: __( 'CLI Installed' ),
-			message: __( 'The CLI has been installed successfully.' ),
+			title: __( 'CLI Uninstalled' ),
+			message: __( 'The CLI has been uninstalled successfully.' ),
 		} );
 	} catch ( error ) {
 		let message: string = __(
@@ -88,7 +88,7 @@ export async function uninstallCliWithConfirmation() {
 	}
 }
 
-export async function uninstallCli() {
+async function uninstallCli() {
 	if ( process.platform !== 'darwin' ) {
 		throw new Error( ERROR_WRONG_PLATFORM );
 	}

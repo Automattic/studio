@@ -27,7 +27,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           track_progress: true
-          trusted_bots: 'dependabot[bot]'
+          allowed_bots: 'dependabot[bot]'
           prompt: |
             CLI commands or implementation have changed in this PR. Please:
 

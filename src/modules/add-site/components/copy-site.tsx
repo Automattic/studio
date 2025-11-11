@@ -92,7 +92,7 @@ export default function CopySite( {
 				enableHttps={ enableHttps }
 				setEnableHttps={ setEnableHttps }
 				beforeAdvancedSettings={
-					<VStack spacing={ 3 } className="mb-4">
+					<VStack spacing={ 1 } className="mb-4">
 						<CheckboxControl
 							label={ __( 'Database (content, settings, users)' ) }
 							checked={ copyDatabase }

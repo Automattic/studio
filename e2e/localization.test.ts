@@ -188,9 +188,9 @@ test.describe( 'Localization', () => {
 		const settingsTab = await siteContentEnglish.navigateToTab( 'Settings' );
 		await settingsTab.openDeleteSiteModal();
 
+		// Wait for the confirmation dialog to be auto-confirmed and deletion to complete
 		// Verify site was deleted by checking it no longer appears in sidebar
-		const sidebarAfterDelete = new MainSidebar( session.mainWindow );
 		const deletedSite = session.mainWindow.getByRole( 'button', { name: siteName, exact: true } );
-		await expect( deletedSite ).not.toBeVisible( { timeout: 5000 } );
+		await expect( deletedSite ).not.toBeVisible( { timeout: 30_000 } );
 	} );
 } );

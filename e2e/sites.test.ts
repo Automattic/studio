@@ -2,6 +2,7 @@ import http from 'http';
 import path from 'path';
 import { test, expect } from '@playwright/test';
 import { pathExists } from '../common/lib/fs-utils';
+import { DEFAULT_PHP_VERSION, ALLOWED_PHP_VERSIONS } from '../vendor/wp-now/src/constants';
 import { E2ESession } from './e2e-helpers';
 import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
@@ -73,6 +74,31 @@ test.describe( 'Servers', () => {
 		expect( response.headers[ 'content-type' ] ).toMatch( /text\/html/ );
 	} );
 
+	test( 'change PHP version', async () => {
+		const newPhpVersion = ALLOWED_PHP_VERSIONS.find(v => v !== DEFAULT_PHP_VERSION) || '8.2';
+
+		const siteContent = new SiteContent( session.mainWindow, siteName );
+		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+
+		await settingsTab.editSiteButton.click();
+		await expect( settingsTab.editSiteDialog ).toBeVisible();
+
+		const initialPhpVersion = await settingsTab.phpVersionSelect.inputValue();
+		expect( initialPhpVersion ).toBe( DEFAULT_PHP_VERSION );
+
+		await settingsTab.phpVersionSelect.selectOption( newPhpVersion );
+		await settingsTab.saveButton.click();
+		await expect( settingsTab.editSiteDialog ).not.toBeVisible();
+
+		await settingsTab.editSiteButton.click();
+		await expect( settingsTab.editSiteDialog ).toBeVisible();
+
+		const updatedPhpVersion = await settingsTab.phpVersionSelect.inputValue();
+		expect( updatedPhpVersion ).toBe( newPhpVersion );
+
+		await settingsTab.editSiteDialog.getByRole( 'button', { name: 'Cancel' } ).click();
+	} );
+
 	test( "edit site's settings in wp-admin", async ( { page } ) => {
 		const siteContent = new SiteContent( session.mainWindow, siteName );
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
@@ -81,7 +107,7 @@ test.describe( 'Servers', () => {
 		const frontendUrl = await settingsTab.copySiteUrlToClipboard( session.electronApp );
 
 		// page.goto opens a browser
-		const optionsGeneralUrl = wpAdminUrl + '/options-general.php'
+		const optionsGeneralUrl = wpAdminUrl + '/options-general.php';
 		await page.goto( getUrlWithAutoLogin( optionsGeneralUrl ) );
 		const siteTitleInput = page.getByLabel( 'Site Title' );
 		await siteTitleInput.fill( 'testing site title' );

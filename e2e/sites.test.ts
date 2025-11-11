@@ -98,8 +98,25 @@ test.describe( 'Servers', () => {
 		await settingsTab.editSiteDialog.getByRole( 'button', { name: 'Cancel' } ).click();
 	} );
 
-	test( "edit site's settings in wp-admin", async ( { page } ) => {
+	test( 'rename site', async () => {
+		const newSiteName = 'E2E-Test-Site-Renamed';
 		const siteContent = new SiteContent( session.mainWindow, siteName );
+		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+
+		await settingsTab.editSiteButton.click();
+		await expect( settingsTab.editSiteDialog ).toBeVisible();
+
+		await settingsTab.siteNameInput.fill( newSiteName );
+		await settingsTab.saveButton.click();
+		await expect( settingsTab.editSiteDialog ).not.toBeVisible();
+
+		const renamedSiteContent = new SiteContent( session.mainWindow, newSiteName );
+		await expect( renamedSiteContent.siteNameHeading ).toHaveText( newSiteName );
+	} );
+
+	test( "edit site's settings in wp-admin", async ( { page } ) => {
+		const renamedSiteName = 'E2E-Test-Site-Renamed';
+		const siteContent = new SiteContent( session.mainWindow, renamedSiteName );
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
@@ -117,7 +134,8 @@ test.describe( 'Servers', () => {
 	} );
 
 	skipTestOnWindows( 'delete site', async () => {
-		const siteContent = new SiteContent( session.mainWindow, siteName );
+		const renamedSiteName = 'E2E-Test-Site-Renamed';
+		const siteContent = new SiteContent( session.mainWindow, renamedSiteName );
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 
 		// Playwright lacks support for interacting with native dialogs, so we mock
@@ -134,8 +152,9 @@ test.describe( 'Servers', () => {
 		await session.mainWindow.waitForTimeout( 200 ); // Short pause for site to delete.
 
 		const sidebar = new MainSidebar( session.mainWindow );
-		await expect( sidebar.getSiteNavButton( siteName ) ).not.toBeAttached();
+		await expect( sidebar.getSiteNavButton( renamedSiteName ) ).not.toBeAttached();
 
+		// Note: The folder path uses the original site name, not the renamed one
 		expect( await pathExists( path.join( session.homePath, 'Studio', siteName ) ) ).toBe( false );
 	} );
 } );

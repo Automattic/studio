@@ -17,7 +17,7 @@ export default class SiteContent {
 	}
 
 	get runningButton() {
-		return this.locator.getByRole( 'button', { name: 'Running' } );
+		return this.locator.getByTestId( 'site-status-running' );
 	}
 
 	get frontendButton() {

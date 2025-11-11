@@ -8,7 +8,7 @@ export default class SiteForm {
 	}
 
 	get siteNameInput() {
-		return this.page.getByLabel( 'Site name' );
+		return this.page.getByTestId( 'site-name-input' );
 	}
 
 	get localPathInput() {

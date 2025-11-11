@@ -92,7 +92,7 @@ test.describe( 'Import / Export', () => {
 		} );
 
 		// Get the path to the invalid SQL file
-		const invalidSqlPath = path.join( __dirname, 'fixtures', 'invalid-database.sql' );
+		const invalidSqlPath = path.join( __dirname, 'fixtures', 'sql', 'invalid-database.sql' );
 
 		// Upload the invalid SQL file
 		await importExportTab.uploadFile( invalidSqlPath );

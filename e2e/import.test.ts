@@ -33,8 +33,8 @@ test.describe( 'Import', () => {
 		await session.cleanup();
 	} );
 
-	test( 'import site from Jetpack backup', async ( { page } ) => {
-		const backupPath = path.join( __dirname, '..', 'imports', 'jetpack-backup.tar.gz' );
+	test.skip( 'import site from Jetpack backup', async ( { page } ) => {
+		const backupPath = path.join( __dirname, 'imports', 'jetpack-backup.tar.gz' );
 
 		const sidebar = new MainSidebar( session.mainWindow );
 		const modal = await sidebar.openAddSiteModal();

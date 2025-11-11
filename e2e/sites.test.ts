@@ -91,8 +91,66 @@ test.describe( 'Servers', () => {
 		expect( await page.title() ).toBe( 'testing site title' );
 	} );
 
-	skipTestOnWindows( 'delete site', async () => {
-		const siteContent = new SiteContent( session.mainWindow, siteName );
+	skipTestOnWindows( 'delete site but keep directory on disk', async () => {
+		const keepDirSiteName = 'E2E-Test-Site-Keep-Dir';
+
+		const sidebar = new MainSidebar( session.mainWindow );
+		const modal = await sidebar.openAddSiteModal();
+
+		await expect( modal.createSiteButton ).toBeVisible();
+		await modal.createSiteButton.click();
+
+		await modal.siteNameInput.fill( keepDirSiteName );
+		await modal.addSiteButton.click();
+
+		const siteTitle = sidebar.getSiteNavButton( keepDirSiteName );
+		await expect( siteTitle ).toHaveText( keepDirSiteName );
+
+		const siteContent = new SiteContent( session.mainWindow, keepDirSiteName );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
+
+		expect(
+			await pathExists( path.join( session.homePath, 'Studio', keepDirSiteName, 'wp-config.php' ) )
+		).toBe( true );
+
+		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+
+		// Playwright lacks support for interacting with native dialogs, so we mock
+		// the dialog module to simulate the user clicking the "Delete site"
+		// confirmation button without "Delete site files from my computer" checked.
+		// See: https://github.com/microsoft/playwright/issues/21432
+		await session.electronApp.evaluate( ( { dialog } ) => {
+			dialog.showMessageBox = async () => {
+				return { response: 0, checkboxChecked: false };
+			};
+		} );
+		await settingsTab.openDeleteSiteModal();
+
+		await session.mainWindow.waitForTimeout( 200 );
+
+		await expect( sidebar.getSiteNavButton( keepDirSiteName ) ).not.toBeAttached();
+
+		expect( await pathExists( path.join( session.homePath, 'Studio', keepDirSiteName ) ) ).toBe( true );
+	} );
+
+	skipTestOnWindows( 'delete site and remove directory from disk', async () => {
+		const secondSiteName = 'E2E-Test-Site-2';
+
+		const sidebar = new MainSidebar( session.mainWindow );
+		const modal = await sidebar.openAddSiteModal();
+
+		await expect( modal.createSiteButton ).toBeVisible();
+		await modal.createSiteButton.click();
+
+		await modal.siteNameInput.fill( secondSiteName );
+		await modal.addSiteButton.click();
+
+		const siteTitle = sidebar.getSiteNavButton( secondSiteName );
+		await expect( siteTitle ).toHaveText( secondSiteName );
+
+		const siteContent = new SiteContent( session.mainWindow, secondSiteName );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
+
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 
 		// Playwright lacks support for interacting with native dialogs, so we mock
@@ -106,11 +164,10 @@ test.describe( 'Servers', () => {
 		} );
 		await settingsTab.openDeleteSiteModal();
 
-		await session.mainWindow.waitForTimeout( 200 ); // Short pause for site to delete.
+		await session.mainWindow.waitForTimeout( 200 );
 
-		const sidebar = new MainSidebar( session.mainWindow );
-		await expect( sidebar.getSiteNavButton( siteName ) ).not.toBeAttached();
+		await expect( sidebar.getSiteNavButton( secondSiteName ) ).not.toBeAttached();
 
-		expect( await pathExists( path.join( session.homePath, 'Studio', siteName ) ) ).toBe( false );
+		expect( await pathExists( path.join( session.homePath, 'Studio', secondSiteName ) ) ).toBe( false );
 	} );
 } );

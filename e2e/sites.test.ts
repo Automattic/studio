@@ -2,7 +2,7 @@ import http from 'http';
 import path from 'path';
 import { test, expect } from '@playwright/test';
 import { pathExists } from '../common/lib/fs-utils';
-import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
+import { DEFAULT_PHP_VERSION, ALLOWED_PHP_VERSIONS } from '../vendor/wp-now/src/constants';
 import { E2ESession } from './e2e-helpers';
 import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
@@ -75,7 +75,8 @@ test.describe( 'Servers', () => {
 	} );
 
 	test( 'change PHP version', async () => {
-		const newPhpVersion = '8.2';
+		const newPhpVersion = ALLOWED_PHP_VERSIONS.find(v => v !== DEFAULT_PHP_VERSION) || '8.2';
+
 		const siteContent = new SiteContent( session.mainWindow, siteName );
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 

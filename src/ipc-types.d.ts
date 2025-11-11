@@ -41,6 +41,29 @@ type SiteDetails = StartedSiteDetails | StoppedSiteDetails;
 
 type NewSiteDetails = Pick< SiteDetails, 'id' | 'path' | 'name' >;
 
+interface CopySiteConfig {
+	siteId: string;
+	newName: string;
+	newPath: string;
+	copyOptions: {
+		database: boolean;
+		plugins: boolean;
+		themes: boolean;
+		uploads: boolean;
+	};
+	phpVersion?: string;
+	wpVersion?: string;
+	customDomain?: string;
+	enableHttps?: boolean;
+}
+
+interface CopyProgress {
+	siteId: string;
+	step: 'preparing' | 'copying-core' | 'copying-plugins' | 'copying-themes' | 'copying-uploads' | 'copying-database' | 'updating-urls' | 'finalizing';
+	message: string;
+	percentage: number;
+}
+
 type InstalledApps = {
 	vscode: boolean;
 	phpstorm: boolean;

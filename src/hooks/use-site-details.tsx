@@ -34,6 +34,10 @@ interface SiteDetailsContext {
 		blueprint?: Blueprint,
 		callback?: ( site: SiteDetails ) => Promise< void >
 	) => Promise< SiteDetails | void >;
+	copySite: (
+		sourceId: string,
+		config: Omit< CopySiteConfig, 'siteId' >
+	) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
 	stopAllRunningSites: () => Promise< void >;
@@ -55,6 +59,7 @@ const defaultContext: SiteDetailsContext = {
 	siteCreationMessages: {},
 	setSelectedSiteId: () => undefined,
 	createSite: async () => undefined,
+	copySite: async () => undefined,
 	startServer: async () => undefined,
 	stopServer: async () => undefined,
 	stopAllRunningSites: async () => undefined,
@@ -178,6 +183,15 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const { setSelectedTab, selectedTab } = useContentTabs();
 
 	useIpcListener( 'on-site-create-progress', ( _, { siteId, message } ) => {
+		if ( siteId && message ) {
+			setSiteCreationMessages( ( prev ) => ( {
+				...prev,
+				[ siteId ]: message,
+			} ) );
+		}
+	} );
+
+	useIpcListener( 'copySiteProgress', ( _, { siteId, message } ) => {
 		if ( siteId && message ) {
 			setSiteCreationMessages( ( prev ) => ( {
 				...prev,
@@ -332,6 +346,97 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			}
 		},
 		[ selectedTab, setSelectedSiteId, setSelectedTab ]
+	);
+
+	const copySite = useCallback(
+		async (
+			sourceId: string,
+			config: Omit< CopySiteConfig, 'siteId' >
+		): Promise< SiteDetails | void > => {
+			const tempSiteId = crypto.randomUUID();
+			setAddingSiteIds( ( prev ) => [ ...prev, tempSiteId ] );
+			setData( ( prevData ) =>
+				sortSites( [
+					...prevData,
+					{
+						id: tempSiteId,
+						name: config.newName,
+						path: config.newPath,
+						port: -1,
+						running: false,
+						isAddingSite: true,
+						phpVersion: '',
+					},
+				] )
+			);
+			setSelectedSiteId( tempSiteId );
+
+			let newSite: SiteDetails;
+			try {
+				newSite = await getIpcApi().copySite( sourceId, {
+					...config,
+					siteId: tempSiteId,
+				} );
+				if ( ! newSite ) {
+					// Error handling
+					setTimeout( () => {
+						setAddingSiteIds( ( prev ) => prev.filter( ( id ) => id !== tempSiteId ) );
+						setData( ( prevData ) =>
+							sortSites( prevData.filter( ( site ) => site.id !== tempSiteId ) )
+						);
+					}, 2000 );
+					return;
+				}
+
+				setAddingSiteIds( ( prev ) => {
+					prev.push( newSite.id );
+					return prev;
+				} );
+
+				setSelectedSiteId( ( prevSelectedSiteId ) => {
+					if ( prevSelectedSiteId === tempSiteId ) {
+						if ( selectedTab !== 'overview' ) {
+							setSelectedTab( 'overview' );
+						}
+						return newSite.id;
+					}
+					return prevSelectedSiteId;
+				} );
+
+				setData( ( prevData ) =>
+					prevData.map( ( site ) => ( site.id === tempSiteId ? newSite : site ) )
+				);
+
+				setSiteCreationMessages( ( prev ) => {
+					const { [ newSite.id ]: _, ...rest } = prev;
+					return rest;
+				} );
+
+				return newSite;
+			} catch ( error ) {
+				console.error( 'Error during site copy:', error );
+				getIpcApi().showErrorMessageBox( {
+					title: __( 'Failed to copy site' ),
+					message: __(
+						'An error occurred while copying the site. Please try again. If this problem persists, please contact support.'
+					),
+					error: simplifyErrorForDisplay( error ),
+					showOpenLogs: true,
+				} );
+
+				setTimeout( () => {
+					setAddingSiteIds( ( prev ) => prev.filter( ( id ) => id !== tempSiteId ) );
+					setData( ( prevData ) =>
+						sortSites( prevData.filter( ( site ) => site.id !== tempSiteId ) )
+					);
+				}, 2000 );
+			} finally {
+				setAddingSiteIds( ( prev ) =>
+					prev.filter( ( id ) => id !== tempSiteId && id !== newSite?.id )
+				);
+			}
+		},
+		[ selectedTab, setSelectedSiteId, setSelectedTab, __ ]
 	);
 
 	const updateSite = useCallback( async ( site: SiteDetails ) => {
@@ -511,6 +616,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			data,
 			setSelectedSiteId,
 			createSite,
+			copySite,
 			updateSite,
 			startServer,
 			stopServer,
@@ -530,6 +636,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			data,
 			setSelectedSiteId,
 			createSite,
+			copySite,
 			updateSite,
 			startServer,
 			stopServer,

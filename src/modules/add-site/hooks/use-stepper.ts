@@ -66,6 +66,10 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			{ id: 'site-details', label: __( 'Site name & details' ), path: '/pullRemote/create' },
 		];
 
+		const copySteps: StepperStep[] = [
+			{ id: 'copy-site', label: __( 'Copy site' ), path: '/copy' },
+		];
+
 		if ( location.path?.startsWith( '/blueprint' ) ) {
 			return {
 				flow: 'blueprint',
@@ -91,6 +95,13 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			return {
 				flow: 'create',
 				steps: createSteps,
+			};
+		}
+
+		if ( location.path === '/copy' ) {
+			return {
+				flow: 'copy',
+				steps: copySteps,
 			};
 		}
 
@@ -163,6 +174,11 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 					label: __( 'Add site' ),
 					isVisible: true,
 				};
+			case '/copy':
+				return {
+					label: __( 'Copy site' ),
+					isVisible: true,
+				};
 			default:
 				return undefined;
 		}
@@ -186,6 +202,7 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			case '/blueprint/create':
 			case '/backup/create':
 			case '/pullRemote/create':
+			case '/copy':
 				config?.onCreateSubmit?.( { preventDefault: () => {} } as FormEvent );
 				break;
 		}
@@ -206,6 +223,7 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			case '/blueprint/create':
 			case '/backup/create':
 			case '/pullRemote/create':
+			case '/copy':
 				return config?.canSubmitCreate ?? false;
 			default:
 				return false;

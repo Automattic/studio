@@ -20,7 +20,9 @@ type SnapshotKeyValueEventData = {
 export interface IpcEvents {
 	'add-site': [ void ];
 	'add-site-blueprint': [ { blueprintPath: string } ];
+	'add-site-copy': [ { siteId: string } ];
 	'auth-updated': [ { token: StoredToken } | { error: unknown } ];
+	'copySiteProgress': [ CopyProgress ];
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];
 	'on-site-create-progress': [ { siteId: string; message: string } ];

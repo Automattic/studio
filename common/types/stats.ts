@@ -33,6 +33,7 @@ export enum StatsMetric {
 	REMOTE_BLUEPRINT = 'remote-blueprint',
 	FILE_BLUEPRINT = 'file-blueprint',
 	NO_BLUEPRINT = 'no-blueprint',
+	SITE_COPIED = 'site-copied',
 }
 
 export type AggregateInterval = 'daily' | 'weekly' | 'monthly';

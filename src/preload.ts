@@ -28,6 +28,7 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'pushArchive', remoteSiteId, archivePath, optionsToSync ),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
 	createSite: ( path, config ) => ipcRendererInvoke( 'createSite', path, config ),
+	copySite: ( sourceId, config ) => ipcRendererInvoke( 'copySite', sourceId, config ),
 	updateSite: ( updatedSite ) => ipcRendererInvoke( 'updateSite', updatedSite ),
 	connectWpcomSites: ( ...args ) => ipcRendererInvoke( 'connectWpcomSites', ...args ),
 	disconnectWpcomSites: ( ...args ) => ipcRendererInvoke( 'disconnectWpcomSites', ...args ),
@@ -130,6 +131,7 @@ const api: IpcApi = {
 	showSiteContextMenu: ( context ) => ipcRendererSend( 'showSiteContextMenu', context ),
 	setWindowControlVisibility: ( visible ) =>
 		ipcRendererInvoke( 'setWindowControlVisibility', visible ),
+	triggerAddSiteCopy: ( siteId ) => ipcRendererSend( 'triggerAddSiteCopy', siteId ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

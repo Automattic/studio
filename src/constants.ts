@@ -98,6 +98,7 @@ export const IPC_VOID_HANDLERS = < const >[
 	'showItemInFolder',
 	'showNotification',
 	'authenticate',
+	'triggerAddSiteCopy',
 ];
 
 // What's New

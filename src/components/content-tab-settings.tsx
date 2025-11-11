@@ -2,6 +2,7 @@ import { DropdownMenu, MenuGroup, Button } from '@wordpress/components';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
+import CopySite from 'src/components/copy-site';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import DeleteSite from 'src/components/delete-site';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
@@ -64,7 +65,8 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						className="flex items-center"
 					>
 						{ ( { onClose }: { onClose: () => void } ) => (
-							<MenuGroup>
+							<MenuGroup className="max-w-[160px]">
+								<CopySite onClose={ onClose } />
 								<DeleteSite onClose={ onClose } />
 							</MenuGroup>
 						) }

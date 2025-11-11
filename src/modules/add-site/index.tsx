@@ -1,7 +1,9 @@
+import * as Sentry from '@sentry/electron/renderer';
 import { speak } from '@wordpress/a11y';
 import { Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
+import crypto from 'crypto';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import Button, { ButtonVariant } from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
@@ -9,8 +11,11 @@ import { useAddSite } from 'src/hooks/use-add-site';
 import { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
+import { useSiteDetails } from 'src/hooks/use-site-details';
+import { generateCustomDomainFromSiteName } from 'src/lib/domains';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { sortSites } from 'src/lib/sort-sites';
 import { useRootSelector } from 'src/stores';
 import { formatRtkError } from 'src/stores/format-rtk-error';
 import {
@@ -21,6 +26,7 @@ import {
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
 import { AddSiteBlueprintSelector } from './components/blueprints';
+import CopySite from './components/copy-site';
 import CreateSite from './components/create-site';
 import ImportBackup from './components/import-backup';
 import AddSiteOptions, { type AddSiteFlowType } from './components/options';
@@ -67,6 +73,15 @@ interface NavigationContentProps {
 	setSelectedRemoteSite: ( site?: SyncSite ) => void;
 	blueprintError?: string | null;
 	setBlueprintError: ( error: string | null ) => void;
+	sourceSiteId?: string;
+	copyDatabase: boolean;
+	setCopyDatabase: ( copy: boolean ) => void;
+	copyPlugins: boolean;
+	setCopyPlugins: ( copy: boolean ) => void;
+	copyThemes: boolean;
+	setCopyThemes: ( copy: boolean ) => void;
+	copyUploads: boolean;
+	setCopyUploads: ( copy: boolean ) => void;
 }
 
 function NavigationContent( props: NavigationContentProps ) {
@@ -82,6 +97,15 @@ function NavigationContent( props: NavigationContentProps ) {
 		setSelectedRemoteSite,
 		blueprintError,
 		setBlueprintError,
+		sourceSiteId,
+		copyDatabase,
+		setCopyDatabase,
+		copyPlugins,
+		setCopyPlugins,
+		copyThemes,
+		setCopyThemes,
+		copyUploads,
+		setCopyUploads,
 		...createSiteProps
 	} = props;
 
@@ -136,7 +160,8 @@ function NavigationContent( props: NavigationContentProps ) {
 		location.path === '/create' ||
 		location.path === '/blueprint/create' ||
 		location.path === '/backup/create' ||
-		location.path === '/pullRemote/create';
+		location.path === '/pullRemote/create' ||
+		location.path === '/copy';
 	const canSubmit =
 		isOnCreatePath &&
 		createSiteProps.siteName?.trim() &&
@@ -150,6 +175,10 @@ function NavigationContent( props: NavigationContentProps ) {
 			goTo( '/backup' );
 		} else if ( location.path === '/pullRemote/create' ) {
 			goTo( '/pullRemote' );
+		} else if ( location.path === '/copy' ) {
+			// Copy flow should close the modal, not go back to options
+			// The modal will close via the stepper's back button
+			goTo( '/' );
 		} else if (
 			location.path === '/backup' ||
 			location.path === '/blueprint' ||
@@ -271,6 +300,19 @@ function NavigationContent( props: NavigationContentProps ) {
 			<Navigator.Screen className="flex-1" path="/pullRemote/create">
 				<CreateSite { ...createSiteProps } />
 			</Navigator.Screen>
+			<Navigator.Screen className="flex-1" path="/copy">
+				<CopySite
+					{ ...createSiteProps }
+					copyDatabase={ copyDatabase }
+					setCopyDatabase={ setCopyDatabase }
+					copyPlugins={ copyPlugins }
+					setCopyPlugins={ setCopyPlugins }
+					copyThemes={ copyThemes }
+					setCopyThemes={ setCopyThemes }
+					copyUploads={ copyUploads }
+					setCopyUploads={ setCopyUploads }
+				/>
+			</Navigator.Screen>
 			<Stepper
 				currentPath={ location.path }
 				onBack={ handleBack }
@@ -289,6 +331,7 @@ function NavigationContent( props: NavigationContentProps ) {
 
 export default function AddSite( { className, variant = 'outlined' }: AddSiteProps ) {
 	const { __ } = useI18n();
+	const { copySite: copySiteFromContext } = useSiteDetails();
 	const [ showModal, setShowModal ] = useState( false );
 	const [ nameSuggested, setNameSuggested ] = useState( false );
 	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
@@ -296,6 +339,11 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
 		{ php?: string; wp?: string } | undefined
 	>();
+	const [ sourceSiteId, setSourceSiteId ] = useState< string | undefined >();
+	const [ copyDatabase, setCopyDatabase ] = useState( true );
+	const [ copyPlugins, setCopyPlugins ] = useState( true );
+	const [ copyThemes, setCopyThemes ] = useState( true );
+	const [ copyUploads, setCopyUploads ] = useState( true );
 
 	const {
 		data: blueprintsData,
@@ -311,7 +359,9 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		handleAddSiteClick,
 		siteName,
 		setSiteName,
+		phpVersion,
 		setPhpVersion,
+		wpVersion,
 		setWpVersion,
 		setProposedSitePath,
 		setSitePath,
@@ -322,6 +372,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		setUseCustomDomain,
 		setCustomDomain,
 		setCustomDomainError,
+		enableHttps,
 		setEnableHttps,
 		setFileForImport,
 		loadAllCustomDomains,
@@ -354,6 +405,11 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		setSelectedBlueprint( undefined );
 		setBlueprintPreferredVersions( undefined );
 		setSelectedRemoteSite( undefined );
+		setSourceSiteId( undefined );
+		setCopyDatabase( true );
+		setCopyPlugins( true );
+		setCopyThemes( true );
+		setCopyUploads( true );
 	}, [
 		setSitePath,
 		setDoesPathContainWordPress,
@@ -436,11 +492,63 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		async ( event: FormEvent ) => {
 			event.preventDefault();
 			closeModal();
-			await handleAddSiteClick();
-			speak( siteAddedMessage );
+
+			// Check if we're in copy mode
+			if ( sourceSiteId ) {
+				const path = addSiteProps.sitePath || addSiteProps.proposedSitePath;
+				let usedCustomDomain =
+					addSiteProps.useCustomDomain && addSiteProps.customDomain
+						? addSiteProps.customDomain
+						: undefined;
+				if ( addSiteProps.useCustomDomain && ! addSiteProps.customDomain ) {
+					usedCustomDomain = generateCustomDomainFromSiteName( siteName ?? '' );
+				}
+
+				await copySiteFromContext( sourceSiteId, {
+					newName: siteName ?? '',
+					newPath: path,
+					copyOptions: {
+						database: copyDatabase,
+						plugins: copyPlugins,
+						themes: copyThemes,
+						uploads: copyUploads,
+					},
+					phpVersion,
+					wpVersion,
+					customDomain: usedCustomDomain,
+					enableHttps: addSiteProps.useCustomDomain ? enableHttps : false,
+				} );
+
+				const copiedMessage = sprintf(
+					// translators: %s is the site name.
+					__( '%s site copied.' ),
+					siteName || ''
+				);
+				speak( copiedMessage );
+			} else {
+				await handleAddSiteClick();
+				speak( siteAddedMessage );
+			}
+
 			setNameSuggested( false );
 		},
-		[ handleAddSiteClick, siteAddedMessage, closeModal ]
+		[
+			handleAddSiteClick,
+			siteAddedMessage,
+			closeModal,
+			sourceSiteId,
+			siteName,
+			addSiteProps,
+			copyDatabase,
+			copyPlugins,
+			copyThemes,
+			copyUploads,
+			phpVersion,
+			wpVersion,
+			enableHttps,
+			copySiteFromContext,
+			__,
+		]
 	);
 
 	useIpcListener( 'add-site', () => {
@@ -450,10 +558,34 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		openModal();
 	} );
 
+	useIpcListener( 'add-site-copy', ( _, { siteId }: { siteId: string } ) => {
+		if ( isAnySiteProcessing ) {
+			return;
+		}
+		// Get the source site details
+		const sourceSite = sites.find( ( site ) => site.id === siteId );
+		if ( ! sourceSite ) {
+			return;
+		}
+		// Pre-fill the form with source site info
+		setSiteName( `${ sourceSite.name } Copy` );
+		setSourceSiteId( siteId );
+		setPhpVersion( sourceSite.phpVersion );
+		// Open modal with copy flow
+		setShowModal( true );
+	} );
+
+	const getInitialPath = useCallback( () => {
+		if ( sourceSiteId ) {
+			return '/copy';
+		}
+		return initialNavigatorPath;
+	}, [ sourceSiteId, initialNavigatorPath ] );
+
 	return (
 		<>
 			<FullscreenModal isOpen={ showModal } onClose={ closeModal }>
-				<Navigator className="w-full h-full" initialPath={ initialNavigatorPath }>
+				<Navigator className="w-full h-full" initialPath={ getInitialPath() }>
 					<NavigationContent
 						{ ...addSiteProps }
 						blueprintsData={ blueprintsData }
@@ -466,6 +598,15 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 						setSelectedRemoteSite={ setSelectedRemoteSite }
 						blueprintError={ blueprintError }
 						setBlueprintError={ setBlueprintError }
+						sourceSiteId={ sourceSiteId }
+						copyDatabase={ copyDatabase }
+						setCopyDatabase={ setCopyDatabase }
+						copyPlugins={ copyPlugins }
+						setCopyPlugins={ setCopyPlugins }
+						copyThemes={ copyThemes }
+						setCopyThemes={ setCopyThemes }
+						copyUploads={ copyUploads }
+						setCopyUploads={ setCopyUploads }
 					/>
 				</Navigator>
 			</FullscreenModal>

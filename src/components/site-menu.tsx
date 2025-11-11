@@ -249,6 +249,9 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 						setSelectedTab( 'settings' );
 						setIsEditModalOpen( true );
 						break;
+					case 'copy-site':
+						ipcApi.triggerAddSiteCopy( site.id );
+						break;
 					case 'delete':
 						await handleDeleteSite( site.id, site.name );
 						break;

@@ -85,7 +85,7 @@ export default function Stepper( {
 			</HStack>
 
 			<div className="flex gap-4">
-				{ currentPath && currentPath !== '/' && onBack && (
+				{ currentPath && currentPath !== '/' && currentPath !== '/copy' && onBack && (
 					<Button variant="tertiary" onClick={ onBack }>
 						{ __( 'Back' ) }
 					</Button>

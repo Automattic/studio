@@ -54,6 +54,7 @@ interface SiteFormErrorProps {
 interface SiteFormProps {
 	className?: string;
 	children?: React.ReactNode;
+	beforeAdvancedSettings?: React.ReactNode;
 	siteName: string;
 	setSiteName: ( name: string ) => void;
 	sitePath?: string;
@@ -245,6 +246,7 @@ function FormImportComponent( {
 export const SiteForm = ( {
 	className,
 	children,
+	beforeAdvancedSettings,
 	siteName,
 	setSiteName,
 	phpVersion,
@@ -362,6 +364,8 @@ export const SiteForm = ( {
 						</div>
 					</>
 				) }
+
+				{ beforeAdvancedSettings }
 
 				{ onSelectPath && (
 					<>

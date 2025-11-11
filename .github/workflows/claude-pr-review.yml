@@ -2,10 +2,11 @@ name: Claude PR Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize, ready_for_review, reopened]
+    types: [labeled]
 
 jobs:
   code-review:
+    if: github.event.label.name == 'claude-review'
     runs-on: ubuntu-latest
     permissions:
       contents: read

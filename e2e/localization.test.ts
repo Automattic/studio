@@ -25,9 +25,6 @@ test.describe( 'Localization', () => {
 		const settingsModal = page.getByRole( 'dialog' );
 		await expect( settingsModal ).toBeVisible( { timeout: 10_000 } );
 
-		// The Preferences tab should already be selected, but wait a bit
-		await page.waitForTimeout( 500 );
-
 		// Select language using data-testid
 		const languageSelect = page.getByTestId( 'language-select' );
 		await expect( languageSelect ).toBeVisible( { timeout: 10_000 } );
@@ -96,13 +93,23 @@ test.describe( 'Localization', () => {
 		await session.mainWindow.waitForLoadState( 'domcontentloaded' );
 
 		const onboarding = new Onboarding( session.mainWindow );
-		if ( await onboarding.heading.isVisible( { timeout: 2000 } ).catch( () => false ) ) {
-			await onboarding.continueButton.click();
+		try {
+			const visible = await onboarding.heading.isVisible( { timeout: 2000 } );
+			if ( visible ) {
+				await onboarding.continueButton.click();
+			}
+		} catch ( error ) {
+			// Onboarding not visible, continue with test
 		}
 
 		const whatsNewModal = new WhatsNewModal( session.mainWindow );
-		if ( await whatsNewModal.locator.isVisible( { timeout: 2000 } ).catch( () => false ) ) {
-			await whatsNewModal.closeButton.click();
+		try {
+			const visible = await whatsNewModal.locator.isVisible( { timeout: 2000 } );
+			if ( visible ) {
+				await whatsNewModal.closeButton.click();
+			}
+		} catch ( error ) {
+			// What's New modal not visible, continue with test
 		}
 
 		const siteContent = new SiteContent( session.mainWindow, 'My WordPress Website' );
@@ -139,10 +146,7 @@ test.describe( 'Localization', () => {
 		await expect( addSiteModal.siteNameInput ).toBeVisible( { timeout: 5000 } );
 		await addSiteModal.siteNameInput.fill( siteName );
 
-		// Wait a moment for the form to be ready
-		await session.mainWindow.waitForTimeout( 500 );
-
-		// Click "Add site" button using data-testid
+		// Click "Add site" button using data-testid (wait for it to be enabled)
 		await expect( addSiteModal.addSiteButton ).toBeVisible();
 		await expect( addSiteModal.addSiteButton ).toContainText( 'サイトを追加' );
 		await expect( addSiteModal.addSiteButton ).toBeEnabled();
@@ -163,6 +167,8 @@ test.describe( 'Localization', () => {
 		const wpAdminUrl = await session.electronApp.evaluate( ( app ) => app.clipboard.readText() );
 
 		// Check WordPress site language
+		// Use getUrlWithAutoLogin to automatically authenticate with WordPress admin
+		// This works cross-platform by appending authentication parameters to the URL
 		const optionsGeneralUrl = wpAdminUrl + '/options-general.php';
 		await page.goto( getUrlWithAutoLogin( optionsGeneralUrl ) );
 
@@ -181,6 +187,10 @@ test.describe( 'Localization', () => {
 		const siteContentEnglish = new SiteContent( session.mainWindow, siteName );
 		const settingsTab = await siteContentEnglish.navigateToTab( 'Settings' );
 		await settingsTab.openDeleteSiteModal();
-		await session.mainWindow.waitForTimeout( 500 );
+
+		// Verify site was deleted by checking it no longer appears in sidebar
+		const sidebarAfterDelete = new MainSidebar( session.mainWindow );
+		const deletedSite = session.mainWindow.getByRole( 'button', { name: siteName, exact: true } );
+		await expect( deletedSite ).not.toBeVisible( { timeout: 5000 } );
 	} );
 } );

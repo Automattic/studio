@@ -2,6 +2,7 @@ import http from 'http';
 import path from 'path';
 import { test, expect } from '@playwright/test';
 import { pathExists } from '../common/lib/fs-utils';
+import { DEFAULT_PHP_VERSION } from '../vendor/wp-now/src/constants';
 import { E2ESession } from './e2e-helpers';
 import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
@@ -71,6 +72,30 @@ test.describe( 'Servers', () => {
 		} );
 		expect( [ 200, 302 ] ).toContain( response.statusCode );
 		expect( response.headers[ 'content-type' ] ).toMatch( /text\/html/ );
+	} );
+
+	test( 'change PHP version', async () => {
+		const newPhpVersion = '8.2';
+		const siteContent = new SiteContent( session.mainWindow, siteName );
+		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+
+		await settingsTab.editSiteButton.click();
+		await expect( settingsTab.editSiteDialog ).toBeVisible();
+
+		const initialPhpVersion = await settingsTab.phpVersionSelect.inputValue();
+		expect( initialPhpVersion ).toBe( DEFAULT_PHP_VERSION );
+
+		await settingsTab.phpVersionSelect.selectOption( newPhpVersion );
+		await settingsTab.saveButton.click();
+		await expect( settingsTab.editSiteDialog ).not.toBeVisible();
+
+		await settingsTab.editSiteButton.click();
+		await expect( settingsTab.editSiteDialog ).toBeVisible();
+
+		const updatedPhpVersion = await settingsTab.phpVersionSelect.inputValue();
+		expect( updatedPhpVersion ).toBe( newPhpVersion );
+
+		await settingsTab.editSiteDialog.getByRole( 'button', { name: 'Cancel' } ).click();
 	} );
 
 	test( "edit site's settings in wp-admin", async ( { page } ) => {

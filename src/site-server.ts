@@ -8,11 +8,12 @@ import { portFinder } from 'common/lib/port-finder';
 import { filterUnsupportedBlueprintFeatures } from 'src/lib/blueprint-features';
 import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
 import { getSiteUrl } from 'src/lib/get-site-url';
-import { addDomainToHosts, removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
+import { removeDomainFromHosts } from 'src/lib/hosts-file';
 import { decodePassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { startProxyServer } from 'src/lib/proxy-server';
 import { updateSiteUrl } from 'src/lib/update-site-url';
+import { executeCliCommandSync } from 'src/modules/cli/lib/execute-command';
 import {
 	setupWordPressSite,
 	startServer,
@@ -113,9 +114,17 @@ export class SiteServer {
 			return;
 		}
 
+		// Call Studio CLI to handle proxy startup and hosts file management
+		try {
+			await executeCliCommandSync( [ 'site', 'start', '--path', this.details.path ] );
+		} catch ( error ) {
+			console.error( 'Failed to execute CLI site start command:', error );
+			// Continue anyway - the WordPress site can still start even if CLI command fails
+		}
+
 		// Handle custom domain if necessary
 		if ( this.details.customDomain ) {
-			await addDomainToHosts( this.details.customDomain, this.details.port );
+			// Note: Host file management has been moved to CLI
 			// Generate certificates for HTTPS sites *before* the server starts
 			// This ensures the certs are ready when the proxy server needs them
 			if ( this.details.enableHttps ) {
@@ -201,9 +210,7 @@ export class SiteServer {
 		}
 
 		// Handle domain changes and url changes (updates hosts and database)
-		if ( oldDomain !== newDomain ) {
-			void updateDomainInHosts( oldDomain, newDomain, this.details.port );
-		}
+		// Note: Host file management has been moved to CLI
 		if ( ( oldDomain && ! newDomain ) || oldEnableHttps !== newEnableHttps ) {
 			await updateSiteUrl( this, getSiteUrl( this.details ) );
 		}

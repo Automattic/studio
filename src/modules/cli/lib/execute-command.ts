@@ -56,3 +56,25 @@ export function executeCliCommand( args: string[] ): CliCommandEventEmitter {
 
 	return eventEmitter;
 }
+
+/**
+ * Execute a CLI command and wait for it to complete
+ * Returns a promise that resolves when the command succeeds or rejects on failure
+ */
+export function executeCliCommandSync( args: string[] ): Promise< void > {
+	return new Promise( ( resolve, reject ) => {
+		const eventEmitter = executeCliCommand( args );
+
+		eventEmitter.on( 'success', () => {
+			resolve();
+		} );
+
+		eventEmitter.on( 'failure', () => {
+			reject( new Error( `CLI command failed: ${ args.join( ' ' ) }` ) );
+		} );
+
+		eventEmitter.on( 'error', ( { error } ) => {
+			reject( error );
+		} );
+	} );
+}

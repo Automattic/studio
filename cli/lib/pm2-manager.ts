@@ -3,6 +3,11 @@ import os from 'os';
 import path from 'path';
 import { getAppdataPath } from 'cli/lib/appdata';
 
+// Set consistent PM2 home directory for Studio CLI
+// This ensures all Studio CLI commands use the same PM2 daemon
+const STUDIO_PM2_HOME = path.join( os.homedir(), '.studio', 'pm2' );
+process.env.PM2_HOME = STUDIO_PM2_HOME;
+
 function resolvePm2(): typeof import('pm2') {
 	try {
 		return require( 'pm2' );
@@ -293,12 +298,9 @@ export async function startProxyProcess( scriptPath: string ): Promise< ProcessD
 			min_uptime: '10s',
 			restart_delay: 3000,
 			kill_timeout: 5000,
-			uid: 0, // Run as root to bind to ports 80 and 443
+			// Note: Removed uid: 0 as macOS allows binding to ports 80/443 without root
 			env: {
-				// Pass the real user's home directory so proxy can find appdata
-				// When running as root, os.homedir() returns /var/root instead of the user's home
 				STUDIO_USER_HOME: os.homedir(),
-				// Pass the actual appdata file path directly from CLI
 				STUDIO_APPDATA_PATH: getAppdataPath(),
 			},
 		};
@@ -330,7 +332,9 @@ export async function isProxyProcessRunning(): Promise< boolean > {
 		}
 
 		const processes = await listProcesses( false );
-		return processes.some( ( p ) => p.name === PROXY_PROCESS_NAME && p.status === 'online' );
+		return processes.some(
+			( p ) => p.name === PROXY_PROCESS_NAME && p.pm2_env?.status === 'online'
+		);
 	} catch ( error ) {
 		console.error( 'Error checking if proxy is running:', error );
 		return false;

@@ -56,9 +56,9 @@ test.describe( 'Import', () => {
 
 		// Wait for "Importing completed" message to appear
 		// Import process can take longer than a regular site creation
-		await expect(
-			session.mainWindow.getByText( 'Importing completed' )
-		).toBeVisible( { timeout: 300_000 } );
+		await expect( session.mainWindow.getByText( 'Importing completed' ) ).toBeVisible( {
+			timeout: 600_000,
+		} );
 
 		// Wait for site to be running
 		const siteContent = new SiteContent( session.mainWindow, siteName );

@@ -69,7 +69,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 
 		// Get beta features to check if multi-worker support is enabled
 		const betaFeatures = await getBetaFeatures();
-		
+
 		if ( betaFeatures.multiWorkerSupport ) {
 			console.log( '[PlaygroundCliProvider] Multi-worker support is enabled via beta features' );
 		}

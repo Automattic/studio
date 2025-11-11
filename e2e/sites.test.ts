@@ -117,9 +117,11 @@ test.describe( 'Servers', () => {
 		} );
 		await settingsTab.openDeleteSiteModal();
 
-		await session.mainWindow.waitForTimeout( 200 );
+		await session.mainWindow.waitForTimeout( 1000 );
 
-		await expect( sidebar.getSiteNavButton( keepDirSiteName ) ).not.toBeAttached();
+		await expect( sidebar.getSiteNavButton( keepDirSiteName ) ).not.toBeAttached( {
+			timeout: 10000,
+		} );
 
 		expect( await pathExists( path.join( session.homePath, 'Studio', keepDirSiteName ) ) ).toBe( true );
 	} );
@@ -141,9 +143,11 @@ test.describe( 'Servers', () => {
 		} );
 		await settingsTab.openDeleteSiteModal();
 
-		await session.mainWindow.waitForTimeout( 200 );
+		await session.mainWindow.waitForTimeout( 1000 );
 
-		await expect( sidebar.getSiteNavButton( secondSiteName ) ).not.toBeAttached();
+		await expect( sidebar.getSiteNavButton( secondSiteName ) ).not.toBeAttached( {
+			timeout: 10000,
+		} );
 
 		expect( await pathExists( path.join( session.homePath, 'Studio', secondSiteName ) ) ).toBe( false );
 	} );

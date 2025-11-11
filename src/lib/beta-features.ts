@@ -18,7 +18,7 @@ const BETA_FEATURES_DEFINITION: Record< keyof BetaFeatures, BetaFeatureDefinitio
 		label: 'Multi-Worker Support',
 		key: 'multiWorkerSupport',
 		default: false,
-		description: 'Enable experimental multi-worker PHP processing for faster performance',
+		description: 'Enable multi-worker PHP processing for faster performance',
 	},
 } as const;
 

@@ -107,7 +107,7 @@ test.describe( 'Servers', () => {
 		const frontendUrl = await settingsTab.copySiteUrlToClipboard( session.electronApp );
 
 		// page.goto opens a browser
-		const optionsGeneralUrl = wpAdminUrl + '/options-general.php'
+		const optionsGeneralUrl = wpAdminUrl + '/options-general.php';
 		await page.goto( getUrlWithAutoLogin( optionsGeneralUrl ) );
 		const siteTitleInput = page.getByLabel( 'Site Title' );
 		await siteTitleInput.fill( 'testing site title' );

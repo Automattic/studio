@@ -75,6 +75,6 @@ test.describe( 'Import', () => {
 
 		// Open the site in a browser and verify content
 		await page.goto( frontendUrl );
-		await expect( page.getByText( 'Deploy Studio sites to WordPress.com' ) ).toBeVisible();
+		await expect( page.getByText( 'Ut quia libero qui' ) ).toBeVisible();
 	} );
 } );

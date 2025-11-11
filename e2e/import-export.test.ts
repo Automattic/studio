@@ -1,0 +1,123 @@
+import path from 'path';
+import { test, expect } from '@playwright/test';
+import { pathExists } from '../common/lib/fs-utils';
+import { E2ESession } from './e2e-helpers';
+import MainSidebar from './page-objects/main-sidebar';
+import Onboarding from './page-objects/onboarding';
+import SiteContent from './page-objects/site-content';
+import WhatsNewModal from './page-objects/whats-new-modal';
+
+test.describe( 'Import / Export', () => {
+	const session = new E2ESession();
+
+	const siteName = 'E2E-Import-Export-Test';
+	const defaultSiteName = 'My WordPress Website';
+
+	test.beforeAll( async () => {
+		await session.launch();
+
+		// Complete onboarding before tests
+		const onboarding = new Onboarding( session.mainWindow );
+		await expect( onboarding.heading ).toBeVisible();
+		await onboarding.continueButton.click();
+
+		const whatsNewModal = new WhatsNewModal( session.mainWindow );
+		if ( await whatsNewModal.locator.isVisible( { timeout: 5000 } ) ) {
+			await whatsNewModal.closeButton.click();
+		}
+
+		const siteContent = new SiteContent( session.mainWindow, defaultSiteName );
+		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
+	} );
+
+	test.afterAll( async () => {
+		await session.cleanup();
+	} );
+
+	test( 'should show error dialog when importing invalid SQL file', async () => {
+		// Create a new site (following the same pattern as sites.test.ts)
+		const sidebar = new MainSidebar( session.mainWindow );
+		const modal = await sidebar.openAddSiteModal();
+
+		await expect( modal.createSiteButton ).toBeVisible();
+		await modal.createSiteButton.click();
+
+		await modal.siteNameInput.fill( siteName );
+		await modal.addSiteButton.click();
+
+		const siteTitle = sidebar.getSiteNavButton( siteName );
+		await expect( siteTitle ).toHaveText( siteName );
+
+		// Check the site is running
+		const siteContent = new SiteContent( session.mainWindow, siteName );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
+		expect( await siteContent.siteNameHeading ).toHaveText( siteName );
+
+		// Check a WordPress site has been created
+		expect(
+			await pathExists( path.join( session.homePath, 'Studio', siteName, 'wp-config.php' ) )
+		).toBe( true );
+
+		// Navigate to the Import / Export tab
+		const tab = await siteContent.navigateToTab( 'Import / Export' );
+
+		// TypeScript doesn't narrow the union type, so we need to assert it
+		// We know it's ImportExportTab because we passed 'Import / Export'
+		if ( ! ( 'importDropZone' in tab ) ) {
+			throw new Error( 'Expected ImportExportTab but got a different tab type' );
+		}
+		const importExportTab = tab;
+
+		// Wait for the import/export interface to be ready
+		await expect( importExportTab.locator ).toBeVisible();
+		await expect( importExportTab.importDropZone ).toBeVisible();
+
+		// Playwright lacks support for interacting with native dialogs, so we mock
+		// the dialog module to track calls and auto-confirm dialogs.
+		// Similar to the "delete site" test pattern, but also tracks what was shown.
+		// See: https://github.com/microsoft/playwright/issues/21432
+		await session.electronApp.evaluate( ( { dialog } ) => {
+			// Create storage for dialog calls
+			( global as any ).testDialogCalls = [];
+
+			// Mock the function to track calls
+			dialog.showMessageBox = async ( ...args: any[] ) => {
+				// Store the call details
+				const options = args.length === 2 ? args[ 1 ] : args[ 0 ];
+				( global as any ).testDialogCalls.push( options );
+
+				// Auto-confirm by clicking the first button
+				return { response: 0, checkboxChecked: false };
+			};
+		} );
+
+		// Get the path to the invalid SQL file
+		const invalidSqlPath = path.join( __dirname, 'fixtures', 'invalid-database.sql' );
+
+		// Upload the invalid SQL file
+		await importExportTab.uploadFile( invalidSqlPath );
+
+		// Wait for the import process to complete and error dialog to be shown
+		await session.mainWindow.waitForTimeout( 10000 );
+
+		// Retrieve the dialog calls from the Electron app
+		const dialogCalls = await session.electronApp.evaluate( () => {
+			return ( global as any ).testDialogCalls || [];
+		} );
+
+		// Verify that an error dialog was shown
+		expect( dialogCalls.length ).toBeGreaterThan( 0 );
+
+		// Find the error dialog (should have type 'error' and contain "Failed importing site")
+		const errorDialog = dialogCalls.find(
+			( call: any ) =>
+				call.type === 'error' &&
+				( call.title?.includes( 'Failed importing site' ) ||
+					call.message?.includes( 'Failed importing site' ) )
+		);
+
+		expect( errorDialog ).toBeDefined();
+		expect( errorDialog.type ).toBe( 'error' );
+		expect( errorDialog.title || errorDialog.message ).toContain( 'Failed importing site' );
+	} );
+} );

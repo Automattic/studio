@@ -70,8 +70,4 @@ export default class SettingsTab {
 		await this.saveButton.click();
 		await this.editSiteDialog.waitFor( { state: 'hidden' } );
 	}
-
-	async getCurrentPhpVersion() {
-		return await this.phpVersionSelect.inputValue();
-	}
 }

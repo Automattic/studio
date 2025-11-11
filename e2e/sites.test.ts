@@ -17,6 +17,25 @@ test.describe( 'Servers', () => {
 	const siteName = 'E2E-Test-Site';
 	const defaultSiteName = 'My WordPress Website';
 
+	const createSite = async ( name: string ) => {
+		const sidebar = new MainSidebar( session.mainWindow );
+		const modal = await sidebar.openAddSiteModal();
+
+		await expect( modal.createSiteButton ).toBeVisible();
+		await modal.createSiteButton.click();
+
+		await modal.siteNameInput.fill( name );
+		await modal.addSiteButton.click();
+
+		const siteTitle = sidebar.getSiteNavButton( name );
+		await expect( siteTitle ).toHaveText( name );
+
+		const siteContent = new SiteContent( session.mainWindow, name );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
+
+		return { sidebar, siteContent };
+	};
+
 	test.beforeAll( async () => {
 		await session.launch();
 
@@ -39,24 +58,10 @@ test.describe( 'Servers', () => {
 	} );
 
 	test( 'create a new site', async () => {
-		const sidebar = new MainSidebar( session.mainWindow );
-		const modal = await sidebar.openAddSiteModal();
+		const { siteContent } = await createSite( siteName );
 
-		await expect( modal.createSiteButton ).toBeVisible();
-		await modal.createSiteButton.click();
-
-		await modal.siteNameInput.fill( siteName );
-		await modal.addSiteButton.click();
-
-		const siteTitle = sidebar.getSiteNavButton( siteName );
-		await expect( siteTitle ).toHaveText( siteName );
-
-		// Check the site is running
-		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 		expect( await siteContent.siteNameHeading ).toHaveText( siteName );
 
-		// Check a WordPress site has been created
 		expect(
 			await pathExists( path.join( session.homePath, 'Studio', siteName, 'wp-config.php' ) )
 		).toBe( true );
@@ -93,21 +98,7 @@ test.describe( 'Servers', () => {
 
 	skipTestOnWindows( 'delete site but keep directory on disk', async () => {
 		const keepDirSiteName = 'E2E-Test-Site-Keep-Dir';
-
-		const sidebar = new MainSidebar( session.mainWindow );
-		const modal = await sidebar.openAddSiteModal();
-
-		await expect( modal.createSiteButton ).toBeVisible();
-		await modal.createSiteButton.click();
-
-		await modal.siteNameInput.fill( keepDirSiteName );
-		await modal.addSiteButton.click();
-
-		const siteTitle = sidebar.getSiteNavButton( keepDirSiteName );
-		await expect( siteTitle ).toHaveText( keepDirSiteName );
-
-		const siteContent = new SiteContent( session.mainWindow, keepDirSiteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
+		const { sidebar, siteContent } = await createSite( keepDirSiteName );
 
 		expect(
 			await pathExists( path.join( session.homePath, 'Studio', keepDirSiteName, 'wp-config.php' ) )
@@ -135,21 +126,7 @@ test.describe( 'Servers', () => {
 
 	skipTestOnWindows( 'delete site and remove directory from disk', async () => {
 		const secondSiteName = 'E2E-Test-Site-2';
-
-		const sidebar = new MainSidebar( session.mainWindow );
-		const modal = await sidebar.openAddSiteModal();
-
-		await expect( modal.createSiteButton ).toBeVisible();
-		await modal.createSiteButton.click();
-
-		await modal.siteNameInput.fill( secondSiteName );
-		await modal.addSiteButton.click();
-
-		const siteTitle = sidebar.getSiteNavButton( secondSiteName );
-		await expect( siteTitle ).toHaveText( secondSiteName );
-
-		const siteContent = new SiteContent( session.mainWindow, secondSiteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
+		const { sidebar, siteContent } = await createSite( secondSiteName );
 
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 

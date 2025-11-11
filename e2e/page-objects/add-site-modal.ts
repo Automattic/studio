@@ -16,12 +16,20 @@ export default class AddSiteModal {
 		return this.page.locator( 'button:has-text("Start from a Blueprint")' ).first();
 	}
 
+	get backupButton() {
+		return this.page.locator( 'button:has-text("Import from a backup")' ).first();
+	}
+
 	get continueButton() {
 		return this.locator.getByRole( 'button', { name: 'Continue' } );
 	}
 
 	get fileInput() {
 		return this.page.locator( 'input[type="file"][accept=".json,application/json"]' );
+	}
+
+	get backupFileInput() {
+		return this.page.locator( 'input[type="file"][accept=".zip,.gz,.gzip,.tar,.tar.gz,.wpress"]' );
 	}
 
 	private get siteForm() {
@@ -46,5 +54,9 @@ export default class AddSiteModal {
 
 	async selectBlueprintFile( filePath: string ) {
 		await this.fileInput.setInputFiles( filePath );
+	}
+
+	async selectBackupFile( filePath: string ) {
+		await this.backupFileInput.setInputFiles( filePath );
 	}
 }

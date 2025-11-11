@@ -5,6 +5,7 @@ import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
 import { WordPressServerOptions } from '../types';
 import { getMuPlugins } from './mu-plugins';
 import { PlaygroundCliOptions } from './playground-cli-provider';
+import { cpus } from 'os';
 
 interface BaseMessage {
 	id: number;
@@ -161,6 +162,7 @@ async function startServer(
 		const defaultConstants = {
 			WP_SQLITE_AST_DRIVER: true,
 		};
+		
 		const mounts = [
 			{
 				hostPath: options.documentRoot,
@@ -189,6 +191,13 @@ async function startServer(
 			skipWordPressSetup: options.skipWordpressSetup,
 		};
 
+		// Enable multi-worker support if beta feature is enabled
+		if ( options.enableMultiWorker ) {
+			const workerCount = Math.max( 1, cpus().length - 1 );
+			console.log( `[playground-cli] Enabling experimental multi-worker support with ${ workerCount } workers (CPU cores - 1)` );
+			args.experimentalMultiWorker = workerCount;
+		}
+
 		if ( options.phpVersion ) {
 			args.php = options.phpVersion as SupportedPHPVersion;
 		}
@@ -206,6 +215,11 @@ async function startServer(
 		lastCliArgs = sanitizeRunCLIArgs( args );
 
 		server = await runCLI( args );
+
+		// Log actual worker count for verification
+		if ( options.enableMultiWorker ) {
+			console.log( `[playground-cli] Server started with ${ server.workerThreadCount } worker thread(s)` );
+		}
 
 		if ( serverOptions.adminPassword ) {
 			await setAdminPassword( server, serverOptions.adminPassword );

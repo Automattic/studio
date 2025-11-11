@@ -558,7 +558,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		openModal();
 	} );
 
-	useIpcListener( 'add-site-copy', ( _, { siteId }: { siteId: string } ) => {
+	useIpcListener( 'add-site-copy', async ( _, { siteId }: { siteId: string } ) => {
 		if ( isAnySiteProcessing ) {
 			return;
 		}
@@ -568,9 +568,18 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 			return;
 		}
 		// Pre-fill the form with source site info
-		setSiteName( `${ sourceSite.name } Copy` );
+		const copySiteName = `${ sourceSite.name } Copy`;
+		setSiteName( copySiteName );
+		setNameSuggested( true ); // Prevent initializeForm from overwriting the name
 		setSourceSiteId( siteId );
 		setPhpVersion( sourceSite.phpVersion );
+
+		// Generate a proposed path for the copy
+		const { path } = await getIpcApi().generateProposedSitePath( copySiteName );
+		setProposedSitePath( path );
+		setSitePath( '' );
+		setError( '' );
+
 		// Open modal with copy flow
 		setShowModal( true );
 	} );

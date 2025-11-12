@@ -73,24 +73,28 @@ test.describe( 'Import / Export', () => {
 		// Upload the invalid SQL file
 		await importExportTab.uploadFile( invalidSqlPath );
 
-		// Wait for the import process to complete and error dialog to be shown
-		await session.mainWindow.waitForTimeout( 10000 );
-
-		// Retrieve the dialog calls from the Electron app
-		const dialogCalls = await session.electronApp.evaluate( () => {
-			return ( global as any ).testDialogCalls || [];
-		} );
-
-		// Verify that an error dialog was shown
-		expect( dialogCalls.length ).toBeGreaterThan( 0 );
-
-		// Find the error dialog (should have type 'error' and contain "Failed importing site")
-		const errorDialog = dialogCalls.find(
-			( call: any ) =>
-				call.type === 'error' &&
-				( call.title?.includes( 'Failed importing site' ) ||
-					call.message?.includes( 'Failed importing site' ) )
-		);
+		// Wait for the error dialog to be shown (after the confirmation dialog)
+		let dialogCalls: any[] = [];
+		let errorDialog: any;
+		await expect.poll(
+			async () => {
+				dialogCalls = await session.electronApp.evaluate( () => {
+					return ( global as any ).testDialogCalls || [];
+				} );
+				// Look for the error dialog specifically
+				errorDialog = dialogCalls.find(
+					( call: any ) =>
+						call.type === 'error' &&
+						( call.title?.includes( 'Failed importing site' ) ||
+							call.message?.includes( 'Failed importing site' ) )
+				);
+				return errorDialog;
+			},
+			{
+				timeout: 15000,
+				message: 'Expected error dialog to be shown',
+			}
+		).toBeDefined();
 
 		expect( errorDialog ).toBeDefined();
 		expect( errorDialog.type ).toBe( 'error' );

@@ -70,7 +70,7 @@
 		"@types/winreg": "^1.2.36",
 		"@types/yauzl": "^2.10.3",
 		"@vitejs/plugin-react": "^5.1.0",
-		"@wordpress/components": "^30.6.0",
+		"@wordpress/components": "^30.7.0",
 		"@wordpress/element": "^6.26.0",
 		"@wordpress/react-i18n": "^4.34.0",
 		"autoprefixer": "^10.4.16",

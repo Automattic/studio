@@ -1,16 +1,12 @@
 import path from 'path';
 import { test, expect } from '@playwright/test';
-import { pathExists } from '../common/lib/fs-utils';
 import { E2ESession } from './e2e-helpers';
-import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
 import WhatsNewModal from './page-objects/whats-new-modal';
 
 test.describe( 'Import / Export', () => {
 	const session = new E2ESession();
-
-	const siteName = 'E2E-Import-Export-Test';
 	const defaultSiteName = 'My WordPress Website';
 
 	test.beforeAll( async () => {
@@ -35,28 +31,8 @@ test.describe( 'Import / Export', () => {
 	} );
 
 	test( 'should show error dialog when importing invalid SQL file', async () => {
-		// Create a new site (following the same pattern as sites.test.ts)
-		const sidebar = new MainSidebar( session.mainWindow );
-		const modal = await sidebar.openAddSiteModal();
-
-		await expect( modal.createSiteButton ).toBeVisible();
-		await modal.createSiteButton.click();
-
-		await modal.siteNameInput.fill( siteName );
-		await modal.addSiteButton.click();
-
-		const siteTitle = sidebar.getSiteNavButton( siteName );
-		await expect( siteTitle ).toHaveText( siteName );
-
-		// Check the site is running
-		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
-		expect( await siteContent.siteNameHeading ).toHaveText( siteName );
-
-		// Check a WordPress site has been created
-		expect(
-			await pathExists( path.join( session.homePath, 'Studio', siteName, 'wp-config.php' ) )
-		).toBe( true );
+		// Use the default site created during onboarding
+		const siteContent = new SiteContent( session.mainWindow, defaultSiteName );
 
 		// Navigate to the Import / Export tab
 		const tab = await siteContent.navigateToTab( 'Import / Export' );

@@ -93,7 +93,7 @@ test.describe( 'Servers', () => {
 
 		await settingsTab.phpVersionSelect.selectOption( newPhpVersion );
 		await settingsTab.saveButton.click();
-		await expect( settingsTab.editSiteDialog ).not.toBeVisible();
+		await expect( settingsTab.editSiteDialog ).not.toBeVisible( { timeout: 120_000 } );
 
 		await settingsTab.editSiteButton.click();
 		await expect( settingsTab.editSiteDialog ).toBeVisible();

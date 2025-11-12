@@ -12,16 +12,22 @@ export default class SiteForm {
 	}
 
 	get localPathInput() {
-		return this.page.getByLabel( 'Local path' );
+		return this.page.getByTestId( 'local-path-input' );
 	}
 
 	private get localPathButton() {
 		return this.page.getByTestId( 'select-path-button' );
 	}
 
+	private get advancedSettingsToggle() {
+		return this.page.getByTestId( 'advanced-settings-button' );
+	}
+
 	// This usually opens an OS folder dialog, except we can't interact with it in Playwright.
 	// In tests the dialog returns the value of the E2E_OPEN_FOLDER_DIALOG environment variable.
 	async clickLocalPathButtonAndSelectFromEnv() {
+		await this.advancedSettingsToggle.click();
 		await this.localPathButton.click();
+		await this.page.waitForTimeout( 1000 );
 	}
 }

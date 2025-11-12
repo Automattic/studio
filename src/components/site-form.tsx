@@ -399,7 +399,7 @@ export const SiteForm = ( {
 							) }
 						>
 							<div className={ cx( 'flex flex-col gap-1.5 leading-4 py-4' ) }>
-								<label onClick={ onSelectPath } className="font-semibold" htmlFor="local-path">
+								<label className="font-semibold" htmlFor="local-path">
 									{ __( 'Local path' ) }
 								</label>
 								<span className="text-a8c-gray-50 text-xs">

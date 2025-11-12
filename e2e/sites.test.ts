@@ -34,12 +34,11 @@ test.describe( 'Servers', () => {
 		if ( customSiteName ) {
 			await onboarding.siteNameInput.fill( customSiteName );
 		}
-		await session.mainWindow.waitForTimeout( 1000 );
 		await expect( onboarding.siteNameInput ).toHaveValue( /\S+/, { timeout: 5000 } );
 		const siteName = await onboarding.siteNameInput.inputValue();
 
 		if ( customFolderName ) {
-			await onboarding.selectLocalPathForTesting();
+			await onboarding.selectLocalPathForTesting( customFolderName );
 		}
 		const localPath = await onboarding.localPathInput.inputValue();
 

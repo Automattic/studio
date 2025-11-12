@@ -16,18 +16,44 @@ const DEFAULT_SITE_NAME = 'My WordPress Website';
 test.describe( 'Servers', () => {
 	const session = new E2ESession();
 
-	async function completeOnboardingWithDefaults() {
-		await session.launch();
+	async function completeOnboardingWithParams(
+		customSiteName?: string,
+		customFolderName?: string
+	) {
+		const env: NodeJS.ProcessEnv = {};
 
-		// Complete onboarding before tests
+		if ( customFolderName ) {
+			const fullLocalPath = path.join( session.homePath, 'Studio', customFolderName );
+			await fs.mkdir( fullLocalPath, { recursive: true } );
+			env.E2E_OPEN_FOLDER_DIALOG = fullLocalPath;
+		}
+		await session.launch( env );
+
 		const onboarding = new Onboarding( session.mainWindow );
+
+		if ( customSiteName ) {
+			await onboarding.siteNameInput.fill( customSiteName );
+		}
+		await session.mainWindow.waitForTimeout( 1000 );
+		const siteName = await onboarding.siteNameInput.inputValue();
+
+		if ( customFolderName ) {
+			await onboarding.selectLocalPathForTesting();
+		}
+		const localPath = await onboarding.localPathInput.inputValue();
+
 		await expect( onboarding.heading ).toBeVisible();
 		await onboarding.continueButton.click();
 
 		await closeWhatsNew();
 
-		const siteContent = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
+		const siteContent = new SiteContent( session.mainWindow, siteName );
 		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
+
+		return {
+			siteName,
+			localPath,
+		};
 	}
 
 	async function closeWhatsNew() {
@@ -45,34 +71,12 @@ test.describe( 'Servers', () => {
 		[ undefined, undefined ],
 		[ 'E2E-Test-Site', undefined ],
 		[ 'E2E-Test-Site 2', 'hello' ],
-	].forEach( ( [ siteName, shortLocalPath ] ) => {
-		test( `create site with name ${ siteName } and path ${ shortLocalPath }`, async () => {
-			const env: NodeJS.ProcessEnv = {};
-
-			if ( shortLocalPath ) {
-				const fullLocalPath = path.join( session.homePath, 'Studio', shortLocalPath );
-				await fs.mkdir( fullLocalPath, { recursive: true } );
-				env.E2E_OPEN_FOLDER_DIALOG = fullLocalPath;
-			}
-			await session.launch( env );
-
-			const onboarding = new Onboarding( session.mainWindow );
-
-			if ( siteName ) {
-				await onboarding.siteNameInput.fill( siteName );
-			} else {
-				siteName = await onboarding.siteNameInput.inputValue();
-			}
-
-			if ( shortLocalPath ) {
-				await onboarding.selectLocalPathForTesting();
-			}
-			const localPath = await onboarding.localPathInput.inputValue();
-
-			await expect( onboarding.heading ).toBeVisible();
-			await onboarding.continueButton.click();
-
-			await closeWhatsNew();
+	].forEach( ( [ customSiteName, customFolderName ] ) => {
+		test( `create site with name ${ customSiteName } and path ${ customFolderName }`, async () => {
+			const { siteName, localPath } = await completeOnboardingWithParams(
+				customSiteName,
+				customFolderName
+			);
 
 			// Check the site is running
 			const siteContent = new SiteContent( session.mainWindow, siteName );
@@ -98,7 +102,7 @@ test.describe( 'Servers', () => {
 	} );
 
 	test( 'change PHP version', async () => {
-		await completeOnboardingWithDefaults();
+		await completeOnboardingWithParams();
 
 		const newPhpVersion = ALLOWED_PHP_VERSIONS.find( ( v ) => v !== DEFAULT_PHP_VERSION ) || '8.2';
 
@@ -125,9 +129,9 @@ test.describe( 'Servers', () => {
 	} );
 
 	test( "edit site's settings in wp-admin", async ( { page } ) => {
-		await completeOnboardingWithDefaults();
+		const { siteName } = await completeOnboardingWithParams();
 
-		const siteContent = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
+		const siteContent = new SiteContent( session.mainWindow, siteName );
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
@@ -145,17 +149,11 @@ test.describe( 'Servers', () => {
 	} );
 
 	skipTestOnWindows( 'delete site but keep directory on disk', async () => {
-		await completeOnboardingWithDefaults();
+		const { siteName, localPath } = await completeOnboardingWithParams();
 
-		const sitePath = path.join(
-			session.homePath,
-			'Studio',
-			DEFAULT_SITE_NAME.replace( /\s/g, '-' )
-		);
+		expect( await pathExists( path.join( localPath, 'wp-config.php' ) ) ).toBe( true );
 
-		expect( await pathExists( path.join( sitePath, 'wp-config.php' ) ) ).toBe( true );
-
-		const siteContent = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
+		const siteContent = new SiteContent( session.mainWindow, siteName );
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 
 		// Playwright lacks support for interacting with native dialogs, so we mock
@@ -175,13 +173,13 @@ test.describe( 'Servers', () => {
 			timeout: 10000,
 		} );
 
-		expect( await pathExists( sitePath ) ).toBe( true );
+		expect( await pathExists( localPath ) ).toBe( true );
 	} );
 
 	skipTestOnWindows( 'delete site and remove directory from disk', async () => {
-		await completeOnboardingWithDefaults();
+		const { siteName, localPath } = await completeOnboardingWithParams();
 
-		const siteContent = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
+		const siteContent = new SiteContent( session.mainWindow, siteName );
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 
 		// Playwright lacks support for interacting with native dialogs, so we mock
@@ -197,12 +195,10 @@ test.describe( 'Servers', () => {
 		await session.mainWindow.waitForTimeout( 1000 );
 
 		const sidebar = new MainSidebar( session.mainWindow );
-		await expect( sidebar.getSiteNavButton( DEFAULT_SITE_NAME ) ).not.toBeAttached( {
+		await expect( sidebar.getSiteNavButton( siteName ) ).not.toBeAttached( {
 			timeout: 10000,
 		} );
 
-		expect( await pathExists( path.join( session.homePath, 'Studio', DEFAULT_SITE_NAME ) ) ).toBe(
-			false
-		);
+		expect( await pathExists( localPath ) ).toBe( false );
 	} );
 } );

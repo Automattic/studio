@@ -28,6 +28,7 @@ export default class SiteForm {
 	async clickLocalPathButtonAndSelectFromEnv() {
 		await this.advancedSettingsToggle.click();
 		await this.localPathButton.click();
+		// Wait an arbitrary amount of time for the IPC handler to resolve
 		await this.page.waitForTimeout( 1000 );
 	}
 }

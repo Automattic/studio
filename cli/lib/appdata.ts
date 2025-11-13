@@ -20,6 +20,11 @@ const siteSchema = z
 		path: z.string(),
 		name: z.string(),
 		phpVersion: z.string(),
+		customDomain: z.string().optional(),
+		port: z.number(),
+		enableHttps: z.boolean().optional(),
+		tlsKey: z.string().optional(),
+		tlsCert: z.string().optional(),
 	} )
 	.passthrough();
 

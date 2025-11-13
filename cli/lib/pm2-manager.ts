@@ -1,7 +1,10 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { StartOptions } from 'pm2';
 import { getAppdataPath } from 'cli/lib/appdata';
+
+const PM2_STATUS_ONLINE = 'online';
 
 // Set consistent PM2 home directory for Studio CLI
 // This ensures all Studio CLI commands use the same PM2 daemon
@@ -56,28 +59,8 @@ const pm2 = resolvePm2();
 
 interface ProcessDescription {
 	name: string;
-	pid: number;
-	pm_id: number;
+	pmId: number;
 	status: string;
-	pm2_env: {
-		status: string;
-		restart_time: number;
-		uptime: number;
-		pm_uptime: number;
-		created_at: number;
-	};
-}
-
-interface StartOptions {
-	name: string;
-	script: string;
-	args?: string[];
-	cwd?: string;
-	env?: Record< string, string >;
-	instances?: number;
-	exec_mode?: 'fork' | 'cluster';
-	autorestart?: boolean;
-	max_memory_restart?: string;
 }
 
 let isConnected = false;
@@ -162,7 +145,7 @@ export async function startProcess( options: StartOptions ): Promise< ProcessDes
 	await ensureDaemonRunning();
 
 	return new Promise( ( resolve, reject ) => {
-		const processConfig: pm2.StartOptions = {
+		const processConfig: StartOptions = {
 			name: options.name,
 			script: options.script,
 			args: options.args || [],
@@ -181,12 +164,17 @@ export async function startProcess( options: StartOptions ): Promise< ProcessDes
 				return;
 			}
 
-			if ( ! apps || apps.length === 0 ) {
-				reject( new Error( 'Failed to start process' ) );
+			if ( ! apps.name || ! apps.status || ! apps.pm_id ) {
+				const appsParamsError = new Error( "error starting proxy. params aren't valid" );
+				reject( appsParamsError );
 				return;
 			}
 
-			resolve( apps[ 0 ] as ProcessDescription );
+			resolve( {
+				name: apps.name,
+				pmId: apps.pm_id,
+				status: apps.status,
+			} );
 		} );
 	} );
 }
@@ -283,40 +271,43 @@ const PROXY_PROCESS_NAME = 'studio-proxy';
  * Start the proxy server via PM2
  * This launches the proxy-daemon.js script which runs the proxy servers
  */
-export async function startProxyProcess( scriptPath: string ): Promise< ProcessDescription > {
-	await ensureDaemonRunning();
-
+export async function startProxyProcess(): Promise< ProcessDescription > {
+	const proxyDaemonPath = path.resolve( __dirname, 'proxy-daemon.js' );
+	console.log( 'path', proxyDaemonPath );
 	return new Promise( ( resolve, reject ) => {
-		const processConfig: pm2.StartOptions = {
+		const processConfig: StartOptions = {
 			name: PROXY_PROCESS_NAME,
-			script: scriptPath,
-			instances: 1,
+			script: proxyDaemonPath,
 			exec_mode: 'fork',
 			autorestart: true,
-			max_restarts: 10,
-			min_uptime: '10s',
-			restart_delay: 3000,
-			kill_timeout: 5000,
-			// Note: Removed uid: 0 as macOS allows binding to ports 80/443 without root
+			max_restarts: 5,
 			env: {
 				STUDIO_USER_HOME: os.homedir(),
 				STUDIO_APPDATA_PATH: getAppdataPath(),
 			},
 		};
 
+		console.log( 'config', processConfig );
+
 		pm2.start( processConfig, ( error, apps ) => {
+			console.log( 'Started pm2 proxy', error, apps );
 			disconnect();
 			if ( error ) {
 				reject( error );
 				return;
 			}
 
-			if ( ! apps || apps.length === 0 ) {
-				reject( new Error( 'Failed to start proxy process' ) );
+			if ( ! apps.name || ! apps.status || ! apps.pm_id ) {
+				const appsParamsError = new Error( "error starting proxy. params aren't valid" );
+				reject( appsParamsError );
 				return;
 			}
 
-			resolve( apps[ 0 ] as ProcessDescription );
+			resolve( {
+				name: apps.name,
+				pmId: apps.pm_id,
+				status: apps.status,
+			} );
 		} );
 	} );
 }
@@ -332,7 +323,7 @@ export async function isProxyProcessRunning(): Promise< boolean > {
 
 		const processes = await listProcesses( false );
 		return processes.some(
-			( p ) => p.name === PROXY_PROCESS_NAME && p.pm2_env?.status === 'online'
+			( p ) => p.name === PROXY_PROCESS_NAME && p.status === PM2_STATUS_ONLINE
 		);
 	} catch ( error ) {
 		console.error( 'Error checking if proxy is running:', error );

@@ -62,7 +62,7 @@ test.describe( 'Shortcut customize links', () => {
 		} );
 		return page.url();
 	};
-	describe( 'Block theme customize shortcuts', () => {
+	test.describe( 'Block theme customize shortcuts', () => {
 		test.beforeAll( async () => {
 			await session.launch();
 

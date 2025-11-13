@@ -9,7 +9,7 @@ const global = globalThis as unknown as {
 	__originalOpenExternal?: ( url: string ) => Promise< void >;
 	__openExternalCall?: string | null;
 };
-test.describe( 'Shortcut Customize links', () => {
+test.describe( 'Shortcut customize links', () => {
 	const session = new E2ESession();
 
 	const siteName = 'E2E-Shortcuts-Site';

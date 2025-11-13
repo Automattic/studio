@@ -1,4 +1,5 @@
 import path from 'path';
+import fs from 'fs';
 import { test, expect } from '@playwright/test';
 import { E2ESession } from './e2e-helpers';
 import MainSidebar from './page-objects/main-sidebar';
@@ -11,6 +12,10 @@ test.describe( 'Import', () => {
 
 	const siteName = 'E2E-Import-Test-Site';
 	const defaultSiteName = 'My WordPress Website';
+
+	const backupPath = path.join( __dirname, 'imports', 'jetpack-backup.tar.gz' );
+	const backupExists = fs.existsSync( backupPath );
+	test.skip( ! backupExists, 'Jetpack backup file does not exist' );
 
 	test.beforeAll( async () => {
 		await session.launch();
@@ -33,7 +38,7 @@ test.describe( 'Import', () => {
 		await session.cleanup();
 	} );
 
-	test.skip( 'import site from Jetpack backup', async ( { page } ) => {
+	test( 'import site from Jetpack backup', async ( { page } ) => {
 		const backupPath = path.join( __dirname, 'imports', 'jetpack-backup.tar.gz' );
 
 		const sidebar = new MainSidebar( session.mainWindow );

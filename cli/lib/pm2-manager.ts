@@ -107,8 +107,7 @@ function disconnect(): void {
 }
 
 export function isDaemonRunning(): boolean {
-	const homeDir = os.homedir();
-	const pm2Dir = path.join( homeDir, '.pm2' );
+	const pm2Dir = STUDIO_PM2_HOME;
 	const rpcSocket = path.join( pm2Dir, 'rpc.sock' );
 	const pidFile = path.join( pm2Dir, 'pm2.pid' );
 

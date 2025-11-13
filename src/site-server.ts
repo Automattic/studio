@@ -6,14 +6,12 @@ import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { portFinder } from 'common/lib/port-finder';
 import { filterUnsupportedBlueprintFeatures } from 'src/lib/blueprint-features';
-import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
+import { deleteSiteCertificate } from 'src/lib/certificate-manager';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { removeDomainFromHosts } from 'src/lib/hosts-file';
 import { decodePassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
-import { startProxyServer } from 'src/lib/proxy-server';
 import { updateSiteUrl } from 'src/lib/update-site-url';
-import { executeCliCommandSync } from 'src/modules/cli/lib/execute-command';
 import {
 	setupWordPressSite,
 	startServer,
@@ -21,6 +19,7 @@ import {
 	getWordPressProvider,
 } from 'src/lib/wordpress-provider';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
+import { executeCliCommandSync } from 'src/modules/cli/lib/execute-command';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import type { WordPressServerProcess } from 'src/lib/wordpress-provider/types';
@@ -114,32 +113,26 @@ export class SiteServer {
 			return;
 		}
 
-		// Call Studio CLI to handle proxy startup and hosts file management
 		try {
 			await executeCliCommandSync( [ 'site', 'start', '--path', this.details.path ] );
+
+			// Reload site details after CLI updates (e.g., certificates)
+			// This ensures Studio has the latest tlsKey and tlsCert
+			if ( this.details.customDomain && this.details.enableHttps ) {
+				const { loadUserData } = await import( 'src/storage/user-data' );
+				const userData = await loadUserData();
+				const updatedSite = userData.sites.find( ( s ) => s.id === this.details.id );
+				if ( updatedSite?.tlsKey && updatedSite?.tlsCert ) {
+					this.details = {
+						...this.details,
+						tlsKey: updatedSite.tlsKey,
+						tlsCert: updatedSite.tlsCert,
+					};
+				}
+			}
 		} catch ( error ) {
 			console.error( 'Failed to execute CLI site start command:', error );
 			// Continue anyway - the WordPress site can still start even if CLI command fails
-		}
-
-		// Handle custom domain if necessary
-		if ( this.details.customDomain ) {
-			// Note: Host file management has been moved to CLI
-			// Generate certificates for HTTPS sites *before* the server starts
-			// This ensures the certs are ready when the proxy server needs them
-			if ( this.details.enableHttps ) {
-				console.log(
-					`Generating certificates for ${ this.details.customDomain } during server start`
-				);
-
-				const { cert, key } = await generateSiteCertificate( this.details.customDomain );
-				this.details = {
-					...this.details,
-					tlsKey: key,
-					tlsCert: cert,
-				};
-			}
-			await startProxyServer();
 		}
 
 		const filteredBlueprint = filterUnsupportedBlueprintFeatures( this.meta.blueprint );

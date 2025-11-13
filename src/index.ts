@@ -30,7 +30,6 @@ import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
 import { getPlatformMetric } from 'src/lib/bump-stats/lib';
 import { handleDeeplink } from 'src/lib/deeplink';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
-import { stopProxyServer } from 'src/lib/proxy-server';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-watcher';
 import { getWordPressProvider } from 'src/lib/wordpress-provider';
@@ -393,7 +392,8 @@ async function appBoot() {
 
 	app.on( 'quit', () => {
 		void stopAllServersOnQuit();
-		stopProxyServer().catch( ( error ) => console.error( 'Error stopping proxy server:', error ) );
+		// Note: PM2-managed proxy server persists after Studio quits
+		// Use `studio proxy stop` CLI command to stop it if needed
 		stopUserDataWatcher();
 	} );
 

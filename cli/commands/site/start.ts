@@ -1,7 +1,8 @@
 import path from 'path';
 import { __ } from '@wordpress/i18n';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { readAppdata } from 'cli/lib/appdata';
+import { lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
+import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import { addDomainToHosts } from 'cli/lib/hosts-file';
 import {
 	isDaemonRunning,
@@ -9,8 +10,6 @@ import {
 	isProxyProcessRunning,
 	startProxyProcess,
 } from 'cli/lib/pm2-manager';
-import { isRunningAsRoot, getElevatedPrivilegesMessage } from 'cli/lib/sudo-exec';
-import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -18,9 +17,11 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
 	try {
-		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
-		validateSiteFolder( siteFolder );
-		logger.reportSuccess( __( 'Validation successful' ), true );
+		// Read site details from appdata
+		const appdata = await readAppdata();
+		const site = [ ...appdata.sites, ...( appdata.newSites ?? [] ) ].find(
+			( s ) => s.path === siteFolder
+		);
 
 		// Check if proxy is already running
 		const isProxyRunning = await isProxyProcessRunning();
@@ -43,14 +44,38 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 			logger.reportSuccess( __( 'HTTP proxy already running' ) );
 		}
 
-		// Read site details from appdata to get custom domain and port
-		const appdata = await readAppdata();
-		const site = [ ...appdata.sites, ...appdata.newSites ].find(
-			( s: any ) => s.path === siteFolder
-		);
-
-		// If site has a custom domain, add it to /etc/hosts
+		// If site has a custom domain, handle certificate generation and hosts file
 		if ( site?.customDomain && site?.port ) {
+			// Generate SSL certificates if HTTPS is enabled and certs don't exist
+			if ( site.enableHttps && ( ! site.tlsKey || ! site.tlsCert ) ) {
+				logger.reportStart( LoggerAction.LOAD, __( 'Generating SSL certificates...' ) );
+				try {
+					const { cert, key } = await generateSiteCertificate( site.customDomain );
+
+					// Update site in appdata with the generated certificates
+					await lockAppdata();
+					try {
+						const currentAppdata = await readAppdata();
+						const siteIndex = currentAppdata.sites.findIndex( ( s ) => s.id === site.id );
+						if ( siteIndex >= 0 ) {
+							currentAppdata.sites[ siteIndex ] = {
+								...currentAppdata.sites[ siteIndex ],
+								tlsKey: key,
+								tlsCert: cert,
+							};
+							await saveAppdata( currentAppdata );
+							logger.reportSuccess( __( 'SSL certificates generated' ) );
+						}
+					} finally {
+						await unlockAppdata();
+					}
+				} catch ( error ) {
+					console.error( 'Failed to generate SSL certificates:', error );
+					// Continue anyway - site can still work without HTTPS
+				}
+			}
+
+			// Add domain to /etc/hosts
 			logger.reportStart( LoggerAction.LOAD, __( 'Adding domain to hosts file...' ) );
 			try {
 				await addDomainToHosts( site.customDomain, site.port );

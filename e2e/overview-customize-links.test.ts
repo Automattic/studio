@@ -9,7 +9,7 @@ const global = globalThis as unknown as {
 	__originalOpenExternal?: ( url: string ) => Promise< void >;
 	__openExternalCall?: string | null;
 };
-test.describe( 'Shortcut customize links', () => {
+test.describe( 'Overview customize links', () => {
 	const session = new E2ESession();
 
 	const siteName = 'E2E-Shortcuts-Site';
@@ -62,7 +62,7 @@ test.describe( 'Shortcut customize links', () => {
 		} );
 		return page.url();
 	};
-	test.describe( 'Block theme customize shortcuts', () => {
+	test.describe( 'Block theme customize shortcut links', () => {
 		test.beforeAll( async () => {
 			await session.launch();
 

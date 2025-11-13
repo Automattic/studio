@@ -7,6 +7,12 @@ import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
 import WhatsNewModal from './page-objects/whats-new-modal';
 
+/**
+ * Import Tests
+ *
+ * These tests verify the import functionality for WordPress sites.
+ * For instructions on obtaining required test files, see e2e/imports/readme.md
+ */
 test.describe( 'Import', () => {
 	const session = new E2ESession();
 

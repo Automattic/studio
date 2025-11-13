@@ -60,7 +60,7 @@ test.describe( 'Overview customize links', () => {
 		await page.goto( getUrlWithAutoLogin( openedUrl ), {
 			waitUntil: 'domcontentloaded',
 		} );
-		return page.url();
+		return page.url().replace( /%2F/g, '/' );
 	};
 	test.describe( 'Block theme customize shortcut links', () => {
 		test.beforeAll( async () => {
@@ -121,7 +121,7 @@ test.describe( 'Overview customize links', () => {
 
 		test( 'opens Styles shortcut', async ( { page } ) => {
 			const redirectUrl = await openShortcut( page, 'Styles' );
-			expect( redirectUrl ).toContain( '/wp-admin/site-editor.php?p=%2Fstyles' );
+			expect( redirectUrl ).toContain( '/wp-admin/site-editor.php?p=/styles' );
 
 			const headingLocator = page.getByRole( 'heading', {
 				name: 'Design',
@@ -131,7 +131,7 @@ test.describe( 'Overview customize links', () => {
 
 		test( 'opens Patterns shortcut', async ( { page } ) => {
 			const redirectUrl = await openShortcut( page, 'Patterns' );
-			expect( redirectUrl ).toContain( '/wp-admin/site-editor.php?p=%2Fpattern' );
+			expect( redirectUrl ).toContain( '/wp-admin/site-editor.php?p=/pattern' );
 
 			const headingLocator = page.getByRole( 'heading', {
 				name: 'All patterns',
@@ -141,7 +141,7 @@ test.describe( 'Overview customize links', () => {
 
 		test( 'opens Navigation shortcut', async ( { page } ) => {
 			const redirectUrl = await openShortcut( page, 'Navigation' );
-			expect( redirectUrl ).toContain( '/wp-admin/site-editor.php?p=%2Fnavigation' );
+			expect( redirectUrl ).toContain( '/wp-admin/site-editor.php?p=/navigation' );
 
 			const headingLocator = page.getByRole( 'heading', {
 				name: 'Navigation',
@@ -151,7 +151,7 @@ test.describe( 'Overview customize links', () => {
 
 		test( 'opens Templates shortcut', async ( { page } ) => {
 			const redirectUrl = await openShortcut( page, 'Templates' );
-			expect( redirectUrl ).toContain( '/wp-admin/site-editor.php?p=%2Ftemplate' );
+			expect( redirectUrl ).toContain( '/wp-admin/site-editor.php?p=/template' );
 
 			const headingLocator = page.locator( 'h1', { hasText: 'Templates' } );
 			await expect( headingLocator ).toBeVisible( { timeout: 120_000 } );
@@ -159,7 +159,7 @@ test.describe( 'Overview customize links', () => {
 
 		test( 'opens Pages shortcut', async ( { page } ) => {
 			const redirectUrl = await openShortcut( page, 'Pages' );
-			expect( redirectUrl ).toContain( '/wp-admin/site-editor.php?p=%2Fpage' );
+			expect( redirectUrl ).toContain( '/wp-admin/site-editor.php?p=/page' );
 
 			const headingLocator = page.locator( 'h1', { hasText: 'Pages' } );
 			await expect( headingLocator ).toBeVisible( { timeout: 120_000 } );

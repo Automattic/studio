@@ -9,9 +9,9 @@ import SiteContent from './page-objects/site-content';
 import WhatsNewModal from './page-objects/whats-new-modal';
 import fs from 'fs-extra';
 import { getUrlWithAutoLogin } from './utils';
+import { DEFAULT_SITE_NAME } from './constants';
 
 const skipTestOnWindows = process.platform === 'win32' ? test.skip : test;
-const DEFAULT_SITE_NAME = 'My WordPress Website';
 
 test.describe( 'Servers', () => {
 	const session = new E2ESession();

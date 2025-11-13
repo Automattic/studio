@@ -1,4 +1,3 @@
-import http from 'http';
 import path from 'path';
 import { test, expect } from '@playwright/test';
 import { pathExists } from '../common/lib/fs-utils';
@@ -8,81 +7,106 @@ import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
 import WhatsNewModal from './page-objects/whats-new-modal';
+import fs from 'fs-extra';
 import { getUrlWithAutoLogin } from './utils';
+import { DEFAULT_SITE_NAME } from './constants';
 
 const skipTestOnWindows = process.platform === 'win32' ? test.skip : test;
 
 test.describe( 'Servers', () => {
 	const session = new E2ESession();
 
-	const siteName = 'E2E-Test-Site';
-	const defaultSiteName = 'My WordPress Website';
+	async function completeOnboardingWithParams(
+		customSiteName?: string,
+		customFolderName?: string
+	) {
+		const env: NodeJS.ProcessEnv = {};
 
-	const createSite = async ( name: string ) => {
-		const sidebar = new MainSidebar( session.mainWindow );
-		const modal = await sidebar.openAddSiteModal();
+		if ( customFolderName ) {
+			const fullLocalPath = path.join( session.homePath, 'Studio', customFolderName );
+			await fs.mkdir( fullLocalPath, { recursive: true } );
+			env.E2E_OPEN_FOLDER_DIALOG = fullLocalPath;
+		}
+		await session.launch( env );
 
-		await expect( modal.createSiteButton ).toBeVisible();
-		await modal.createSiteButton.click();
-
-		await modal.siteNameInput.fill( name );
-		await modal.addSiteButton.click();
-
-		const siteTitle = sidebar.getSiteNavButton( name );
-		await expect( siteTitle ).toHaveText( name );
-
-		const siteContent = new SiteContent( session.mainWindow, name );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
-
-		return { sidebar, siteContent };
-	};
-
-	test.beforeAll( async () => {
-		await session.launch();
-
-		// Complete onboarding before tests
 		const onboarding = new Onboarding( session.mainWindow );
+
+		if ( customSiteName ) {
+			await onboarding.siteNameInput.fill( customSiteName );
+		}
+		await expect( onboarding.siteNameInput ).toHaveValue( /\S+/, { timeout: 5000 } );
+		const siteName = await onboarding.siteNameInput.inputValue();
+
+		if ( customFolderName ) {
+			await onboarding.selectLocalPathForTesting( customFolderName );
+		}
+		const localPath = await onboarding.localPathInput.inputValue();
+
 		await expect( onboarding.heading ).toBeVisible();
 		await onboarding.continueButton.click();
 
+		await closeWhatsNew();
+
+		const siteContent = new SiteContent( session.mainWindow, siteName );
+		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
+
+		return {
+			siteName,
+			localPath,
+		};
+	}
+
+	async function closeWhatsNew() {
 		const whatsNewModal = new WhatsNewModal( session.mainWindow );
 		if ( await whatsNewModal.locator.isVisible( { timeout: 5000 } ) ) {
 			await whatsNewModal.closeButton.click();
 		}
+	}
 
-		const siteContent = new SiteContent( session.mainWindow, defaultSiteName );
-		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
-	} );
-
-	test.afterAll( async () => {
+	test.afterEach( async () => {
 		await session.cleanup();
 	} );
 
-	test( 'create a new site', async () => {
-		const { siteContent } = await createSite( siteName );
+	[
+		[ undefined, undefined ],
+		[ 'E2E-Test-Site', undefined ],
+		[ 'E2E-Test-Site 2', 'hello' ],
+	].forEach( ( [ customSiteName, customFolderName ] ) => {
+		test( `create site with name ${ customSiteName } and path ${ customFolderName }`, async () => {
+			const { siteName, localPath } = await completeOnboardingWithParams(
+				customSiteName,
+				customFolderName
+			);
 
-		expect( await siteContent.siteNameHeading ).toHaveText( siteName );
+			// Check the site is running
+			const siteContent = new SiteContent( session.mainWindow, siteName );
+			await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
+			await expect( siteContent.siteNameHeading ).toHaveText( siteName );
 
-		expect(
-			await pathExists( path.join( session.homePath, 'Studio', siteName, 'wp-config.php' ) )
-		).toBe( true );
+			const sidebar = new MainSidebar( session.mainWindow );
+			const siteTitle = sidebar.getSiteNavButton( siteName );
+			await expect( siteTitle ).toHaveText( siteName );
 
-		await siteContent.navigateToTab( 'Settings' );
+			// Check a WordPress site has been created
+			expect( await pathExists( path.join( localPath, 'wp-config.php' ) ) ).toBe( true );
 
-		expect( await siteContent.frontendButton ).toBeVisible();
-		const frontendUrl = await siteContent.frontendButton.textContent();
-		expect( frontendUrl ).not.toBeNull();
-		const response = await new Promise< http.IncomingMessage >( ( resolve, reject ) => {
-			http.get( `http://${ frontendUrl }`, resolve ).on( 'error', reject );
+			await siteContent.navigateToTab( 'Settings' );
+
+			await expect( siteContent.frontendButton ).toBeVisible();
+			const frontendUrl = await siteContent.frontendButton.textContent();
+			expect( frontendUrl ).not.toBeNull();
+			const response = await fetch( `http://${ frontendUrl }` );
+			expect( [ 200, 302 ] ).toContain( response.status );
+			expect( response.headers.get( 'content-type' ) ).toMatch( /text\/html/ );
 		} );
-		expect( [ 200, 302 ] ).toContain( response.statusCode );
-		expect( response.headers[ 'content-type' ] ).toMatch( /text\/html/ );
 	} );
 
 	test( 'change PHP version', async () => {
-		const newPhpVersion = ALLOWED_PHP_VERSIONS.find(v => v !== DEFAULT_PHP_VERSION) || '8.2';
+		await completeOnboardingWithParams();
 
-		const siteContent = new SiteContent( session.mainWindow, siteName );
+		const newPhpVersion = ALLOWED_PHP_VERSIONS.find( ( v ) => v !== DEFAULT_PHP_VERSION ) || '8.2';
+
+		const siteContent = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 
 		await settingsTab.editSiteButton.click();
@@ -105,6 +129,8 @@ test.describe( 'Servers', () => {
 	} );
 
 	test( "edit site's settings in wp-admin", async ( { page } ) => {
+		const { siteName } = await completeOnboardingWithParams();
+
 		const siteContent = new SiteContent( session.mainWindow, siteName );
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 
@@ -123,13 +149,11 @@ test.describe( 'Servers', () => {
 	} );
 
 	skipTestOnWindows( 'delete site but keep directory on disk', async () => {
-		const keepDirSiteName = 'E2E-Test-Site-Keep-Dir';
-		const { sidebar, siteContent } = await createSite( keepDirSiteName );
+		const { siteName, localPath } = await completeOnboardingWithParams();
 
-		expect(
-			await pathExists( path.join( session.homePath, 'Studio', keepDirSiteName, 'wp-config.php' ) )
-		).toBe( true );
+		expect( await pathExists( path.join( localPath, 'wp-config.php' ) ) ).toBe( true );
 
+		const siteContent = new SiteContent( session.mainWindow, siteName );
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 
 		// Playwright lacks support for interacting with native dialogs, so we mock
@@ -142,20 +166,20 @@ test.describe( 'Servers', () => {
 			};
 		} );
 		await settingsTab.openDeleteSiteModal();
-
 		await session.mainWindow.waitForTimeout( 1000 );
 
-		await expect( sidebar.getSiteNavButton( keepDirSiteName ) ).not.toBeAttached( {
+		const sidebar = new MainSidebar( session.mainWindow );
+		await expect( sidebar.getSiteNavButton( DEFAULT_SITE_NAME ) ).not.toBeAttached( {
 			timeout: 10000,
 		} );
 
-		expect( await pathExists( path.join( session.homePath, 'Studio', keepDirSiteName ) ) ).toBe( true );
+		expect( await pathExists( localPath ) ).toBe( true );
 	} );
 
 	skipTestOnWindows( 'delete site and remove directory from disk', async () => {
-		const secondSiteName = 'E2E-Test-Site-2';
-		const { sidebar, siteContent } = await createSite( secondSiteName );
+		const { siteName, localPath } = await completeOnboardingWithParams();
 
+		const siteContent = new SiteContent( session.mainWindow, siteName );
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 
 		// Playwright lacks support for interacting with native dialogs, so we mock
@@ -168,13 +192,13 @@ test.describe( 'Servers', () => {
 			};
 		} );
 		await settingsTab.openDeleteSiteModal();
-
 		await session.mainWindow.waitForTimeout( 1000 );
 
-		await expect( sidebar.getSiteNavButton( secondSiteName ) ).not.toBeAttached( {
+		const sidebar = new MainSidebar( session.mainWindow );
+		await expect( sidebar.getSiteNavButton( siteName ) ).not.toBeAttached( {
 			timeout: 10000,
 		} );
 
-		expect( await pathExists( path.join( session.homePath, 'Studio', secondSiteName ) ) ).toBe( false );
+		expect( await pathExists( localPath ) ).toBe( false );
 	} );
 } );

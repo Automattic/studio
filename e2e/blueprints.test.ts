@@ -1,12 +1,12 @@
 import path from 'path';
 import { test, expect } from '@playwright/test';
+import { DEFAULT_SITE_NAME } from './constants';
 import { E2ESession } from './e2e-helpers';
 import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
 import WhatsNewModal from './page-objects/whats-new-modal';
 import { getUrlWithAutoLogin } from './utils';
-import { DEFAULT_SITE_NAME } from './constants';
 
 test.describe( 'Blueprints', () => {
 	const session = new E2ESession();

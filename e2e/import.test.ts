@@ -51,8 +51,8 @@ test.describe( 'Import', () => {
 		// Upload backup file
 		await modal.selectBackupFile( backupPath );
 
-		// Wait for file to be processed and continue button to be enabled
-		await session.mainWindow.waitForTimeout( 2000 );
+		// Wait for continue button to be enabled after file processing
+		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
 		await modal.continueButton.click();
 
 		// Fill in site name
@@ -74,7 +74,7 @@ test.describe( 'Import', () => {
 
 		// Navigate to Settings tab to get frontend URL
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
-		expect( await siteContent.frontendButton ).toBeVisible();
+		await expect( siteContent.siteNameHeading ).toHaveText( siteName );
 		const frontendUrl = await settingsTab.copySiteUrlToClipboard( session.electronApp );
 		expect( frontendUrl ).not.toBeNull();
 

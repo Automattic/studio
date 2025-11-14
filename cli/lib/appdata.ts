@@ -23,8 +23,6 @@ const siteSchema = z
 		customDomain: z.string().optional(),
 		port: z.number(),
 		enableHttps: z.boolean().optional(),
-		tlsKey: z.string().optional(),
-		tlsCert: z.string().optional(),
 	} )
 	.passthrough();
 

@@ -244,8 +244,9 @@ describe( 'Appdata Module', () => {
 				path: folderPath,
 				name: 'existing-site',
 				phpVersion: '8.0',
+				port: 8881,
 			};
-			( readFile as jest.Mock ).mockReturnValueOnce(
+			( readFile as jest.Mock ).mockResolvedValueOnce(
 				JSON.stringify( { sites: [ existingSite ], newSites: [], snapshots: [] } )
 			);
 			const site = await getOrCreateSiteByFolder( folderPath );

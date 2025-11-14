@@ -1,15 +1,22 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { StartOptions } from 'pm2';
+import { Proc, StartOptions } from 'pm2';
 import { getAppdataPath } from 'cli/lib/appdata';
 
 const PM2_STATUS_ONLINE = 'online';
-
+const PROXY_PROCESS_NAME = 'studio-proxy';
 // Set consistent PM2 home directory for Studio CLI
 // This ensures all Studio CLI commands use the same PM2 daemon
 const STUDIO_PM2_HOME = path.join( os.homedir(), '.studio', 'pm2' );
+
 process.env.PM2_HOME = STUDIO_PM2_HOME;
+
+interface ProcessDescription {
+	name: string;
+	pmId: number;
+	status: string;
+}
 
 function resolvePm2(): typeof import('pm2') {
 	try {
@@ -44,45 +51,9 @@ function resolvePm2(): typeof import('pm2') {
 
 const pm2 = resolvePm2();
 
-/**
- * PM2 Manager
- *
- * PM2 daemon is a singleton - only one daemon can run system-wide at a time.
- * When pm2.connect() is called, it will:
- * - Connect to an existing daemon if one is already running
- * - Start a new daemon if none exists
- *
- * The daemon persists across CLI invocations and is shared by all Studio CLI processes.
- * The isConnected flag only tracks whether THIS process has connected to the daemon,
- * not whether the daemon itself is running (which is handled by PM2 internally).
- */
-
-interface ProcessDescription {
-	name: string;
-	pmId: number;
-	status: string;
-}
-
 let isConnected = false;
 
-async function connect(): Promise< void > {
-	if ( isConnected ) {
-		return;
-	}
-
-	return new Promise( ( resolve, reject ) => {
-		pm2.connect( ( error ) => {
-			if ( error ) {
-				reject( error );
-				return;
-			}
-			isConnected = true;
-			resolve();
-		} );
-	} );
-}
-
-function disconnect(): void {
+export function disconnect(): void {
 	if ( isConnected ) {
 		pm2.disconnect();
 		isConnected = false;
@@ -114,8 +85,21 @@ export function isDaemonRunning(): boolean {
 	return false;
 }
 
-export async function ensureDaemonRunning(): Promise< void > {
-	await connect();
+export async function connect(): Promise< void > {
+	if ( isConnected ) {
+		return;
+	}
+
+	return new Promise( ( resolve, reject ) => {
+		pm2.connect( ( error ) => {
+			if ( error ) {
+				reject( error );
+				return;
+			}
+			isConnected = true;
+			resolve();
+		} );
+	} );
 }
 
 export async function startDaemon(): Promise< void > {
@@ -127,106 +111,9 @@ export async function startDaemon(): Promise< void > {
 	// The isConnected flag prevents duplicate connections
 }
 
-export async function stopDaemon(): Promise< void > {
-	await connect();
-	return new Promise( ( resolve, reject ) => {
-		pm2.killDaemon( ( error ) => {
-			disconnect();
-			if ( error ) {
-				reject( error );
-				return;
-			}
-			resolve();
-		} );
-	} );
-}
-
-export async function startProcess( options: StartOptions ): Promise< ProcessDescription > {
-	await ensureDaemonRunning();
-
-	return new Promise( ( resolve, reject ) => {
-		const processConfig: StartOptions = {
-			name: options.name,
-			script: options.script,
-			args: options.args || [],
-			cwd: options.cwd,
-			env: options.env,
-			instances: options.instances || 1,
-			exec_mode: options.exec_mode || 'fork',
-			autorestart: options.autorestart !== false,
-			max_memory_restart: options.max_memory_restart,
-		};
-
-		pm2.start( processConfig, ( error, apps ) => {
-			disconnect();
-			if ( error ) {
-				reject( error );
-				return;
-			}
-
-			if ( ! apps.name || ! apps.status || ! apps.pm_id ) {
-				const appsParamsError = new Error( "error starting proxy. params aren't valid" );
-				reject( appsParamsError );
-				return;
-			}
-
-			resolve( {
-				name: apps.name,
-				pmId: apps.pm_id,
-				status: apps.status,
-			} );
-		} );
-	} );
-}
-
-export async function stopProcess( name: string ): Promise< void > {
-	await ensureDaemonRunning();
-
-	return new Promise( ( resolve, reject ) => {
-		pm2.stop( name, ( error ) => {
-			disconnect();
-			if ( error ) {
-				reject( error );
-				return;
-			}
-			resolve();
-		} );
-	} );
-}
-
-export async function deleteProcess( name: string ): Promise< void > {
-	await ensureDaemonRunning();
-
-	return new Promise( ( resolve, reject ) => {
-		pm2.delete( name, ( error ) => {
-			disconnect();
-			if ( error ) {
-				reject( error );
-				return;
-			}
-			resolve();
-		} );
-	} );
-}
-
-export async function restartProcess( name: string ): Promise< void > {
-	await ensureDaemonRunning();
-
-	return new Promise( ( resolve, reject ) => {
-		pm2.restart( name, ( error ) => {
-			disconnect();
-			if ( error ) {
-				reject( error );
-				return;
-			}
-			resolve();
-		} );
-	} );
-}
-
-export async function listProcesses( autoStart = true ): Promise< ProcessDescription[] > {
+async function listProcesses( autoStart = true ): Promise< ProcessDescription[] > {
 	if ( autoStart ) {
-		await ensureDaemonRunning();
+		await connect();
 	} else if ( ! isDaemonRunning() ) {
 		return [];
 	} else {
@@ -235,7 +122,6 @@ export async function listProcesses( autoStart = true ): Promise< ProcessDescrip
 
 	return new Promise( ( resolve, reject ) => {
 		pm2.list( ( error, processes ) => {
-			disconnect();
 			if ( error ) {
 				reject( error );
 				return;
@@ -245,12 +131,7 @@ export async function listProcesses( autoStart = true ): Promise< ProcessDescrip
 	} );
 }
 
-export async function describeProcess( name: string ): Promise< ProcessDescription | null > {
-	const processes = await listProcesses();
-	return processes.find( ( p ) => p.name === name ) || null;
-}
-
-export function cleanup(): void {
+function cleanup(): void {
 	disconnect();
 }
 
@@ -259,21 +140,11 @@ process.on( 'SIGINT', cleanup );
 process.on( 'SIGTERM', cleanup );
 
 /**
- * Proxy Server Management Functions
- *
- * The proxy runs as a PM2-managed CLI process. When `studio proxy start` is called,
- * PM2 starts the CLI with the proxy command and keeps it running persistently.
- */
-
-const PROXY_PROCESS_NAME = 'studio-proxy';
-
-/**
  * Start the proxy server via PM2
  * This launches the proxy-daemon.js script which runs the proxy servers
  */
 export async function startProxyProcess(): Promise< ProcessDescription > {
 	const proxyDaemonPath = path.resolve( __dirname, 'proxy-daemon.js' );
-	console.log( 'path', proxyDaemonPath );
 	return new Promise( ( resolve, reject ) => {
 		const processConfig: StartOptions = {
 			name: PROXY_PROCESS_NAME,
@@ -287,26 +158,21 @@ export async function startProxyProcess(): Promise< ProcessDescription > {
 			},
 		};
 
-		console.log( 'config', processConfig );
-
 		pm2.start( processConfig, ( error, apps ) => {
-			console.log( 'Started pm2 proxy', error, apps );
-			disconnect();
 			if ( error ) {
 				reject( error );
 				return;
 			}
 
-			if ( ! apps.name || ! apps.status || ! apps.pm_id ) {
-				const appsParamsError = new Error( "error starting proxy. params aren't valid" );
-				reject( appsParamsError );
+			if ( ! apps || ( apps as Proc[] ).length === 0 || ! Array.isArray( apps ) ) {
+				reject( new Error( 'Failed to start proxy process' ) );
 				return;
 			}
 
 			resolve( {
-				name: apps.name,
-				pmId: apps.pm_id,
-				status: apps.status,
+				name: apps[ 0 ].name,
+				pmId: apps[ 0 ].pm_id,
+				status: apps[ 0 ].status,
 			} );
 		} );
 	} );

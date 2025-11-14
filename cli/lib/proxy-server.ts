@@ -10,32 +10,16 @@
 
 import http from 'http';
 import https from 'https';
-import { watch, readFileSync } from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import { createSecureContext } from 'node:tls';
 import { domainToASCII } from 'node:url';
 import httpProxy from 'http-proxy';
+import { readAppdata } from 'cli/lib/appdata';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
-
-interface SiteDetails {
-	id: string;
-	name: string;
-	port: number;
-	running: boolean;
-	customDomain?: string;
-	enableHttps?: boolean;
-}
 
 let httpProxyServer: http.Server | null = null;
 let httpsProxyServer: https.Server | null = null;
 let isHttpProxyRunning = false;
 let isHttpsProxyRunning = false;
-
-// Cache for site lookups
-let sitesCache: SiteDetails[] = [];
-let lastLoadTime = 0;
-const CACHE_TTL = 5000; // 5 seconds
 
 const proxy = httpProxy.createProxyServer();
 
@@ -49,84 +33,12 @@ proxy.on( 'error', ( err, req, res ) => {
 } );
 
 /**
- * Get the user data file path
- */
-function getUserDataFilePath(): string {
-	// Use the appdata path passed from the CLI
-	// This is necessary because when running as root, we can't reliably calculate the user's appdata path
-	if ( process.env.STUDIO_APPDATA_PATH ) {
-		return process.env.STUDIO_APPDATA_PATH;
-	}
-
-	// Fallback: try to calculate it ourselves (for backwards compatibility)
-	const homeDir = process.env.STUDIO_USER_HOME || os.homedir();
-	const platform = process.platform;
-
-	let appDataPath: string;
-	if ( platform === 'darwin' ) {
-		appDataPath = path.join( homeDir, 'Library/Application Support/Studio' );
-	} else if ( platform === 'win32' ) {
-		appDataPath = path.join( homeDir, 'AppData/Roaming/Studio' );
-	} else {
-		appDataPath = path.join( homeDir, '.config/Studio' );
-	}
-
-	return path.join( appDataPath, 'appdata-v1.json' );
-}
-
-/**
- * Load sites from user data file
- */
-function loadUserDataSync(): SiteDetails[] {
-	const filePath = getUserDataFilePath();
-
-	try {
-		const asString = readFileSync( filePath, 'utf-8' );
-		const parsed = JSON.parse( asString );
-		return parsed.sites || [];
-	} catch ( err ) {
-		if ( ( err as NodeJS.ErrnoException ).code === 'ENOENT' ) {
-			return [];
-		}
-		console.error( '[Proxy] Failed to load user data:', err );
-		return [];
-	}
-}
-
-/**
- * Load sites from user data with caching
- */
-function loadSites(): SiteDetails[] {
-	const now = Date.now();
-	if ( sitesCache.length > 0 && now - lastLoadTime < CACHE_TTL ) {
-		return sitesCache;
-	}
-
-	try {
-		sitesCache = loadUserDataSync();
-		lastLoadTime = now;
-		return sitesCache;
-	} catch ( error ) {
-		console.error( '[Proxy] Error loading user data:', error );
-		return sitesCache; // Return stale cache on error
-	}
-}
-
-/**
- * Force reload of sites cache (called when file watcher detects changes)
- */
-function invalidateCache() {
-	sitesCache = [];
-	lastLoadTime = 0;
-}
-
-/**
  * Gets the site details for a given domain
  */
-function getSiteByHost( domain: string ): SiteDetails | null {
+async function getSiteByHost( domain: string ) {
 	try {
-		const sites = loadSites();
-		const site = sites.find(
+		const appdata = await readAppdata();
+		const site = appdata.sites.find(
 			( site ) => domainToASCII( site.customDomain ?? '' ) === domainToASCII( domain )
 		);
 		return site ?? null;
@@ -154,7 +66,7 @@ function handleHealthCheck( res: http.ServerResponse ) {
 /**
  * Common handler for both HTTP and HTTPS requests
  */
-function handleProxyRequest(
+async function handleProxyRequest(
 	req: http.IncomingMessage,
 	res: http.ServerResponse,
 	isHttps: boolean
@@ -173,7 +85,7 @@ function handleProxyRequest(
 		return;
 	}
 
-	const site = getSiteByHost( host );
+	const site = await getSiteByHost( host );
 	if ( ! site ) {
 		console.log( `[Proxy] Domain not found: ${ host }` );
 		res.writeHead( 404, { 'Content-Type': 'text/plain' } );
@@ -244,7 +156,7 @@ async function startHttpsProxy(): Promise< void > {
 		const defaultOptions: https.ServerOptions = {
 			SNICallback: async ( servername, cb ) => {
 				try {
-					const site = getSiteByHost( servername );
+					const site = await getSiteByHost( servername );
 					if ( ! site || ! site.customDomain ) {
 						console.error( `[Proxy] SNI: Invalid hostname: ${ servername }` );
 						cb( new Error( `Invalid hostname: ${ servername }` ) );
@@ -324,34 +236,6 @@ export async function stopProxyServers(): Promise< void > {
 }
 
 /**
- * Setup file watcher for user data changes
- */
-function setupFileWatcher() {
-	try {
-		const userDataPath = getUserDataFilePath();
-		console.log( `[Proxy] Watching user data file: ${ userDataPath }` );
-
-		// Check if file exists before trying to watch it
-		const fs = require( 'fs' );
-		if ( ! fs.existsSync( userDataPath ) ) {
-			console.warn( `[Proxy] User data file does not exist yet: ${ userDataPath }` );
-			console.warn( '[Proxy] File watcher not set up - will use cached data only' );
-			return;
-		}
-
-		watch( userDataPath, ( eventType ) => {
-			if ( eventType === 'change' ) {
-				console.log( '[Proxy] User data file changed, invalidating cache' );
-				invalidateCache();
-			}
-		} );
-	} catch ( error ) {
-		console.error( '[Proxy] Error setting up file watcher:', error );
-		// Non-fatal error, continue without watching
-	}
-}
-
-/**
  * Start the proxy servers
  * This is called by the `studio proxy start` command
  */
@@ -367,9 +251,6 @@ export async function startProxyServers(): Promise< void > {
 
 	process.on( 'SIGTERM', () => shutdown( 'SIGTERM' ) );
 	process.on( 'SIGINT', () => shutdown( 'SIGINT' ) );
-
-	// Setup file watcher
-	setupFileWatcher();
 
 	try {
 		// Start both HTTP and HTTPS proxies

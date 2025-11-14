@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
+import { readAppdata } from 'cli/lib/appdata';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import { addDomainToHosts } from 'cli/lib/hosts-file';
 import {
@@ -8,6 +8,7 @@ import {
 	startDaemon,
 	isProxyProcessRunning,
 	startProxyProcess,
+	disconnect,
 } from 'cli/lib/pm2-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -20,23 +21,6 @@ async function startProxyIfNeeded( logger: Logger< LoggerAction > ) {
 		logger.reportSuccess( __( 'HTTP proxy server started' ) );
 	} else {
 		logger.reportSuccess( __( 'HTTP proxy already running' ) );
-	}
-}
-
-async function saveSiteCertificate( siteFolder: string, tlsCert: string, tlsKey: string ) {
-	try {
-		await lockAppdata();
-		const appdata = await readAppdata();
-		const site = appdata.sites.find( ( s ) => s.path === siteFolder );
-		if ( ! site ) {
-			// TODO: Rewrite error message
-			throw new LoggerError( __( 'Could not find Studio site.' ) );
-		}
-		site.tlsKey = tlsKey;
-		site.tlsCert = tlsCert;
-		await saveAppdata( appdata );
-	} finally {
-		await unlockAppdata();
 	}
 }
 
@@ -63,8 +47,7 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 
 			if ( site.enableHttps && ( ! site.tlsKey || ! site.tlsCert ) ) {
 				logger.reportStart( LoggerAction.GENERATE_CERT, __( 'Generating SSL certificates...' ) );
-				const { cert, key } = await generateSiteCertificate( site.customDomain );
-				await saveSiteCertificate( siteFolder, cert, key );
+				await generateSiteCertificate( site.customDomain );
 				logger.reportSuccess( __( 'SSL certificates generated' ) );
 			}
 
@@ -90,6 +73,8 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 			logger.reportError( loggerError );
 		}
 		process.exit( 1 );
+	} finally {
+		disconnect();
 	}
 }
 

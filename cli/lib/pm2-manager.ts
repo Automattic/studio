@@ -60,32 +60,7 @@ export function disconnect(): void {
 	}
 }
 
-export function isDaemonRunning(): boolean {
-	const pm2Dir = STUDIO_PM2_HOME;
-	const rpcSocket = path.join( pm2Dir, 'rpc.sock' );
-	const pidFile = path.join( pm2Dir, 'pm2.pid' );
-
-	if ( fs.existsSync( rpcSocket ) || fs.existsSync( pidFile ) ) {
-		try {
-			if ( fs.existsSync( pidFile ) ) {
-				const pid = parseInt( fs.readFileSync( pidFile, 'utf-8' ).trim(), 10 );
-				try {
-					process.kill( pid, 0 );
-					return true;
-				} catch {
-					return false;
-				}
-			}
-			return fs.existsSync( rpcSocket );
-		} catch {
-			return false;
-		}
-	}
-
-	return false;
-}
-
-export async function connect(): Promise< void > {
+async function connect(): Promise< void > {
 	if ( isConnected ) {
 		return;
 	}
@@ -103,23 +78,12 @@ export async function connect(): Promise< void > {
 }
 
 export async function startDaemon(): Promise< void > {
-	if ( isDaemonRunning() ) {
-		return;
-	}
 	await connect();
 	// Keep connection open - subsequent operations will reuse it
 	// The isConnected flag prevents duplicate connections
 }
 
-async function listProcesses( autoStart = true ): Promise< ProcessDescription[] > {
-	if ( autoStart ) {
-		await connect();
-	} else if ( ! isDaemonRunning() ) {
-		return [];
-	} else {
-		await connect();
-	}
-
+async function listProcesses(): Promise< ProcessDescription[] > {
 	return new Promise( ( resolve, reject ) => {
 		pm2.list( ( error, processes ) => {
 			if ( error ) {
@@ -164,7 +128,7 @@ export async function startProxyProcess(): Promise< ProcessDescription > {
 				return;
 			}
 
-			if ( ! apps || ( apps as Proc[] ).length === 0 || ! Array.isArray( apps ) ) {
+			if ( ! apps.length ) {
 				reject( new Error( 'Failed to start proxy process' ) );
 				return;
 			}
@@ -183,11 +147,11 @@ export async function startProxyProcess(): Promise< ProcessDescription > {
  */
 export async function isProxyProcessRunning(): Promise< boolean > {
 	try {
-		if ( ! isDaemonRunning() ) {
+		if ( ! isConnected ) {
 			return false;
 		}
 
-		const processes = await listProcesses( false );
+		const processes = await listProcesses();
 		return processes.some(
 			( p ) => p.name === PROXY_PROCESS_NAME && p.status === PM2_STATUS_ONLINE
 		);

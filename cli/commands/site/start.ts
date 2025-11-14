@@ -4,7 +4,6 @@ import { readAppdata } from 'cli/lib/appdata';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import { addDomainToHosts } from 'cli/lib/hosts-file';
 import {
-	isDaemonRunning,
 	startDaemon,
 	isProxyProcessRunning,
 	startProxyProcess,
@@ -36,11 +35,9 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 			throw new LoggerError( __( 'Could not find Studio site.' ) );
 		}
 
-		if ( ! isDaemonRunning() ) {
-			logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting PM2 daemon...' ) );
-			await startDaemon();
-			logger.reportSuccess( __( 'PM2 daemon started' ) );
-		}
+		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting PM2 daemon...' ) );
+		await startDaemon();
+		logger.reportSuccess( __( 'PM2 daemon started' ) );
 
 		if ( site.customDomain ) {
 			await startProxyIfNeeded( logger );

@@ -39,6 +39,56 @@ npm test -- path/to/test.test.ts
 npm test -- --testNamePattern="test name pattern"
 ```
 
+## CLI Commands
+
+The Studio CLI provides commands for managing authentication, preview sites, and local sites (beta). All CLI commands follow this pattern:
+
+```bash
+npm run cli:build && node dist/cli/main.js <command>
+```
+
+### Authentication Commands
+
+#### `studio auth login`
+Log in to WordPress.com using OAuth2 authentication.
+
+**Usage:**
+```bash
+node dist/cli/main.js auth login
+```
+
+**Description:**
+This command initiates the WordPress.com OAuth2 authentication flow:
+1. Opens your default browser to the WordPress.com authorization page
+2. After authorization, you'll be redirected to a page with your access token
+3. Copy the token and paste it back into the terminal
+4. The token is stored in your app data and shared with the Studio desktop app
+
+**Options:**
+- None required
+
+**Example:**
+```bash
+npm run cli:build
+node dist/cli/main.js auth login
+# Browser opens for authentication
+# Copy token from browser and paste when prompted
+```
+
+**Notes:**
+- The access token is valid for 2 weeks
+- If already authenticated, the command will notify you
+- Authentication is shared between the CLI and the Studio desktop app
+- If the browser fails to open, the URL will be displayed for manual opening
+
+### Preview Site Commands
+
+See the existing preview site commands (create, list, delete, update) in `cli/commands/preview/`.
+
+### Local Site Commands (Beta)
+
+Local site management commands are available when the `studioSitesCli` beta feature is enabled in app data.
+
 ## WordPress Studio - Architecture Overview
 
 WordPress Studio is a desktop application for creating, managing, and testing WordPress sites locally. It's built as an Electron desktop application with a React renderer, powered by WordPress Playground and PHP WASM.
@@ -109,11 +159,13 @@ WordPress Studio is a desktop application for creating, managing, and testing Wo
 ### `/cli` - Command-Line Interface
 - **`index.ts`** - CLI entry point using yargs
 - **`commands/`** - Command implementations
+  - `auth/` - Authentication commands (login to WordPress.com)
   - `preview/` - Preview site management commands
   - `site/` - Local site management commands (beta)
 - **`lib/`** - CLI-specific utilities and helpers
   - `appdata.ts` - Reading app configuration
   - `i18n.ts` - Locale loading for CLI
+  - `browser.ts` - Cross-platform browser opening utility
 
 ### `/common` - Shared Code (Both Main and Renderer)
 - **`lib/`** - Shared utility libraries

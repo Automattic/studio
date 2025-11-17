@@ -115,7 +115,6 @@ test.describe( 'Site Navigation', () => {
 		// Click into the content area and type
 		await editorFrame.locator( titleSelector ).press( 'Enter' );
 		const contentBlock = editorFrame.locator( 'p[role="document"]' ).first();
-		await contentBlock.click();
 		await contentBlock.fill( 'This is a test post created by automated E2E tests.' );
 
 		// Publish the post (publish buttons are on main page)

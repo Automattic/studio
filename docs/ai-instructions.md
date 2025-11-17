@@ -82,7 +82,7 @@ node dist/cli/main.js auth login
 - If the browser fails to open, the URL will be displayed for manual opening
 
 #### `studio auth logout`
-Log out and clear WordPress.com authentication.
+Log out from WordPress.com and revoke the access token.
 
 **Usage:**
 ```bash
@@ -90,10 +90,10 @@ node dist/cli/main.js auth logout
 ```
 
 **Description:**
-This command logs you out of WordPress.com by:
-1. Revoking the auth token with WordPress.com
-2. Removing the token from your app data
-3. Clearing authentication shared with the Studio desktop app
+This command logs you out from WordPress.com by:
+1. Revoking the access token on the WordPress.com server
+2. Removing the token from your local app data
+3. Syncing the logout state with the Studio desktop app
 
 **Options:**
 - None required
@@ -102,40 +102,13 @@ This command logs you out of WordPress.com by:
 ```bash
 npm run cli:build
 node dist/cli/main.js auth logout
+# Output: ✓ Successfully logged out
 ```
 
 **Notes:**
-- If already logged out, the command will notify you
-- This affects both the CLI and the Studio desktop app
-
-#### `studio auth status`
-Check authentication status with WordPress.com.
-
-**Usage:**
-```bash
-node dist/cli/main.js auth status
-```
-
-**Description:**
-This command checks your authentication status by:
-1. Reading the auth token from app data
-2. Making an API request to verify the token is valid
-3. Displaying your WordPress.com username if authenticated
-
-**Options:**
-- None required
-
-**Example:**
-```bash
-npm run cli:build
-node dist/cli/main.js auth status
-# Output: Successfully authenticated with WordPress.com as `username`
-# OR: Authentication token is invalid or expired
-```
-
-**Notes:**
-- Useful for verifying authentication before running other commands
-- Displays your WordPress.com username when authenticated
+- If already logged out, the command will notify you without error
+- Logout is shared between the CLI and the Studio desktop app
+- The token is revoked on WordPress.com, invalidating all sessions using that token
 
 ### Preview Site Commands
 

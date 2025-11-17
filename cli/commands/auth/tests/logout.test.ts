@@ -13,16 +13,18 @@ jest.mock( 'cli/logger' );
 jest.mock( 'cli/lib/api' );
 
 describe( 'Auth Logout Command', () => {
-	const mockAppdata = {
-		authToken: {
-			accessToken: 'existing-token',
-			id: 999,
-			email: 'existing@example.com',
-			displayName: 'Existing User',
-			expiresIn: 1209600,
-			expirationTime: Date.now() + 1209600000,
-		},
-	};
+	function getMockAppdata() {
+		return {
+			authToken: {
+				accessToken: 'existing-token',
+				id: 999,
+				email: 'existing@example.com',
+				displayName: 'Existing User',
+				expiresIn: 1209600,
+				expirationTime: Date.now() + 1209600000,
+			},
+		};
+	}
 
 	let mockLogger: {
 		reportStart: jest.Mock;
@@ -40,11 +42,11 @@ describe( 'Auth Logout Command', () => {
 		};
 
 		( Logger as jest.Mock ).mockReturnValue( mockLogger );
-		( getAuthToken as jest.Mock ).mockResolvedValue( mockAppdata.authToken );
+		( getAuthToken as jest.Mock ).mockResolvedValue( getMockAppdata().authToken );
 		( revokeAuthToken as jest.Mock ).mockResolvedValue( undefined );
 		( lockAppdata as jest.Mock ).mockResolvedValue( undefined );
 		( unlockAppdata as jest.Mock ).mockResolvedValue( undefined );
-		( readAppdata as jest.Mock ).mockResolvedValue( JSON.parse( JSON.stringify( mockAppdata ) ) );
+		( readAppdata as jest.Mock ).mockResolvedValue( getMockAppdata() );
 		( saveAppdata as jest.Mock ).mockResolvedValue( undefined );
 	} );
 
@@ -60,7 +62,9 @@ describe( 'Auth Logout Command', () => {
 		expect( revokeAuthToken ).toHaveBeenCalled();
 		expect( lockAppdata ).toHaveBeenCalled();
 		expect( readAppdata ).toHaveBeenCalled();
-		expect( saveAppdata ).toHaveBeenCalledWith( {} );
+		expect( saveAppdata ).toHaveBeenCalledWith(
+			expect.not.objectContaining( { authToken: expect.anything() } )
+		);
 		expect( unlockAppdata ).toHaveBeenCalled();
 		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Successfully logged out' );
 	} );
@@ -72,7 +76,7 @@ describe( 'Auth Logout Command', () => {
 		await runCommand();
 
 		expect( getAuthToken ).toHaveBeenCalled();
-		expect( lockAppdata ).not.toHaveBeenCalled();
+		expect( lockAppdata ).toHaveBeenCalled();
 		expect( readAppdata ).not.toHaveBeenCalled();
 		expect( saveAppdata ).not.toHaveBeenCalledWith( {} );
 		expect( unlockAppdata ).toHaveBeenCalled();

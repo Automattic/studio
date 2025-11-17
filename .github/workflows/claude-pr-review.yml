@@ -1,11 +1,13 @@
 name: Claude PR Code Review
 
 on:
-  pull_request:
-    types: [opened, synchronize, ready_for_review, reopened]
+  pull_request_review_comment:
+    types: [created]
 
 jobs:
   code-review:
+    if: contains(github.event.comment.body, '@claude')
+
     runs-on: ubuntu-latest
     permissions:
       contents: read

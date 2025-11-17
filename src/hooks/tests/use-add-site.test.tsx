@@ -3,18 +3,28 @@ import { configureStore } from '@reduxjs/toolkit';
 import { renderHook, act } from '@testing-library/react';
 import nock from 'nock';
 import { Provider } from 'react-redux';
+import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAddSite } from 'src/hooks/use-add-site';
+import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getWordPressProvider } from 'src/lib/wordpress-provider';
 import providerConstantsReducer from 'src/stores/provider-constants-slice';
+import { useConnectedSitesOperations } from 'src/stores/sync';
+import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 jest.mock( 'src/hooks/use-site-details' );
 jest.mock( 'src/hooks/use-feature-flags' );
+jest.mock( 'src/hooks/sync-sites' );
+jest.mock( 'src/hooks/use-content-tabs' );
 jest.mock( 'src/hooks/use-import-export', () => ( {
 	useImportExport: () => ( {
 		importFile: jest.fn(),
 		clearImportState: jest.fn(),
 	} ),
+} ) );
+
+jest.mock( 'src/stores/sync', () => ( {
+	useConnectedSitesOperations: jest.fn(),
 } ) );
 
 jest.mock( 'src/lib/get-ipc-api', () => ( {
@@ -62,6 +72,9 @@ describe( 'useAddSite', () => {
 	const mockCreateSite = jest.fn();
 	const mockUpdateSite = jest.fn();
 	const mockStartServer = jest.fn();
+	const mockConnectSite = jest.fn();
+	const mockPullSite = jest.fn();
+	const mockSetSelectedTab = jest.fn();
 
 	beforeEach( () => {
 		jest.clearAllMocks();
@@ -72,6 +85,38 @@ describe( 'useAddSite', () => {
 			data: [],
 			loadingSites: false,
 			startServer: mockStartServer,
+		} );
+
+		mockConnectSite.mockResolvedValue( undefined );
+
+		( useConnectedSitesOperations as jest.Mock ).mockReturnValue( {
+			connectSite: mockConnectSite,
+		} );
+
+		mockPullSite.mockReset();
+		( useSyncSites as jest.Mock ).mockReturnValue( {
+			pullSite: mockPullSite,
+			syncSites: [],
+			refetchSites: jest.fn(),
+			isFetching: false,
+			isAnySitePulling: false,
+			isSiteIdPulling: jest.fn(),
+			clearPullState: jest.fn(),
+			cancelPull: jest.fn(),
+			getPullState: jest.fn(),
+			pushSite: jest.fn(),
+			isAnySitePushing: false,
+			isSiteIdPushing: jest.fn(),
+			clearPushState: jest.fn(),
+			getPushState: jest.fn(),
+			getLastSyncTimeText: jest.fn(),
+		} );
+
+		mockSetSelectedTab.mockReset();
+		( useContentTabs as jest.Mock ).mockReturnValue( {
+			selectedTab: 'overview',
+			setSelectedTab: mockSetSelectedTab,
+			tabs: [],
 		} );
 
 		nock( 'https://api.wordpress.org' )
@@ -209,5 +254,52 @@ describe( 'useAddSite', () => {
 			...newSite,
 			wpVersion,
 		} );
+	} );
+
+	it( 'should connect and start pulling when a remote site is selected', async () => {
+		const remoteSite: SyncSite = {
+			id: 123,
+			localSiteId: 'remote-site-id',
+			name: 'Remote Site',
+			url: 'https://example.com',
+			isStaging: false,
+			isPressable: false,
+			environmentType: null,
+			syncSupport: 'syncable',
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
+		};
+
+		const createdSite = {
+			id: 'local-id',
+			name: 'New Site',
+			path: '/test/path',
+			wpVersion: 'latest',
+			phpVersion: '8.3',
+		};
+
+		mockCreateSite.mockImplementation(
+			( path, name, version, customDomain, enableHttps, blueprint, callback ) => {
+				callback( createdSite );
+				return Promise.resolve();
+			}
+		);
+
+		const { result } = renderHookWithProvider( () => useAddSite() );
+
+		act( () => {
+			result.current.setSelectedRemoteSite( remoteSite );
+			result.current.setSitePath( createdSite.path );
+		} );
+
+		await act( async () => {
+			await result.current.handleAddSiteClick();
+		} );
+
+		expect( mockConnectSite ).toHaveBeenCalledWith( remoteSite, createdSite.id );
+		expect( mockPullSite ).toHaveBeenCalledWith( remoteSite, createdSite, {
+			optionsToSync: [ 'all' ],
+		} );
+		expect( mockSetSelectedTab ).toHaveBeenCalledWith( 'sync' );
 	} );
 } );

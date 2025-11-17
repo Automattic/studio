@@ -1,12 +1,12 @@
 import path from 'path';
 import { test, expect } from '@playwright/test';
-import fs from 'fs-extra';
 import { E2ESession } from './e2e-helpers';
 import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
 import WhatsNewModal from './page-objects/whats-new-modal';
 import { getUrlWithAutoLogin } from './utils';
+import { DEFAULT_SITE_NAME } from './constants';
 
 test.describe( 'Blueprints', () => {
 	const session = new E2ESession();
@@ -24,7 +24,7 @@ test.describe( 'Blueprints', () => {
 			await whatsNewModal.closeButton.click();
 		}
 
-		const siteContent = new SiteContent( session.mainWindow, 'My WordPress Website' );
+		const siteContent = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
 		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
 	} );
 
@@ -137,7 +137,7 @@ test.describe( 'Blueprints', () => {
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify plugin was installed
-		const pluginsUrl =  wpAdminUrl + '/plugins.php' ;
+		const pluginsUrl = wpAdminUrl + '/plugins.php';
 		await page.goto( getUrlWithAutoLogin( pluginsUrl ) );
 		await expect( page.locator( 'tr[data-slug="akismet"]' ) ).toBeVisible();
 	} );
@@ -250,7 +250,7 @@ test.describe( 'Blueprints', () => {
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify the site was created successfully and admin is accessible
-		const optionsGeneralUrl = wpAdminUrl + '/options-general.php'
+		const optionsGeneralUrl = wpAdminUrl + '/options-general.php';
 		await page.goto( getUrlWithAutoLogin( optionsGeneralUrl ) );
 		await expect( page.getByLabel( 'Site Title' ) ).toBeVisible();
 

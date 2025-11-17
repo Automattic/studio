@@ -1,6 +1,17 @@
 Unreleased
 ==========
+
+1.6.3
+====
 * Improved selective push and export to include all folders within wp-content #1940, #2006
+* Improved the deletion of all preview sites #1950
+* Improved tracking and display of push progress after app restart #1943
+* Separated staging and production sites in the Sync modal #1929
+* Introduced a new developer survey in the What's New modal #1973
+* Improved terminal apps selection across platforms #1983
+* Fixed RTL styling for some UI elements #1998
+* Misc UI improvements #2020, #2019, #1966, #1959, #1953, #1942
+* Updated multiple dependencies, including Electron, Electron Forge, Playground packages, SQLite plugin, and wpcom libraries to the latest versions
 
 1.6.2
 =====

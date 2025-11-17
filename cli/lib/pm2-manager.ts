@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { Proc, StartOptions } from 'pm2';
+import { StartOptions } from 'pm2';
 import { getAppdataPath } from 'cli/lib/appdata';
 
 const PM2_STATUS_ONLINE = 'online';
@@ -103,6 +103,19 @@ process.on( 'exit', cleanup );
 process.on( 'SIGINT', cleanup );
 process.on( 'SIGTERM', cleanup );
 
+function getProxyProcessEnv() {
+	const env: Record< string, string > = {
+		STUDIO_USER_HOME: os.homedir(),
+		STUDIO_APPDATA_PATH: getAppdataPath(),
+	};
+
+	if ( process.env.ELECTRON_RUN_AS_NODE ) {
+		env.ELECTRON_RUN_AS_NODE = '1';
+	}
+
+	return env;
+}
+
 /**
  * Start the proxy server via PM2
  * This launches the proxy-daemon.js script which runs the proxy servers
@@ -112,14 +125,12 @@ export async function startProxyProcess(): Promise< ProcessDescription > {
 	return new Promise( ( resolve, reject ) => {
 		const processConfig: StartOptions = {
 			name: PROXY_PROCESS_NAME,
+			interpreter: process.execPath,
 			script: proxyDaemonPath,
 			exec_mode: 'fork',
 			autorestart: true,
 			max_restarts: 5,
-			env: {
-				STUDIO_USER_HOME: os.homedir(),
-				STUDIO_APPDATA_PATH: getAppdataPath(),
-			},
+			env: getProxyProcessEnv(),
 		};
 
 		pm2.start( processConfig, ( error, apps ) => {

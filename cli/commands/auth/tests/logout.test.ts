@@ -76,7 +76,7 @@ describe( 'Auth Logout Command', () => {
 		await runCommand();
 
 		expect( getAuthToken ).toHaveBeenCalled();
-		expect( lockAppdata ).not.toHaveBeenCalled();
+		expect( lockAppdata ).toHaveBeenCalled();
 		expect( readAppdata ).not.toHaveBeenCalled();
 		expect( saveAppdata ).not.toHaveBeenCalledWith( {} );
 		expect( unlockAppdata ).toHaveBeenCalled();

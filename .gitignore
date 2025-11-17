@@ -107,7 +107,6 @@ vendor/*
 
 # CLI npm artifacts
 cli/vendor/
-cli/package-lock.json
 
 # Build output
 dist

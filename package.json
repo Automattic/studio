@@ -16,7 +16,7 @@
 		"prestart": "npm run cli:build",
 		"start": "electron-vite dev --outDir=dist --watch",
 		"start-wayland": "npm run prestart && electron-forge start -- --enable-features=UseOzonePlatform --ozone-platform=wayland .",
-		"postinstall": "patch-package && node ./scripts/download-wp-server-files.mjs && node ./scripts/download-available-site-translations.mjs && npm install --prefix cli",
+		"postinstall": "patch-package && node ./scripts/download-wp-server-files.mjs && node ./scripts/download-available-site-translations.mjs",
 		"package": "electron-vite build --outDir=dist && electron-forge package",
 		"make": "electron-vite build --outDir=dist && electron-forge make",
 		"make:windows-x64": "electron-vite build --outDir=dist && electron-forge make --arch=x64 --platform=win32",

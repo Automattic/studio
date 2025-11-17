@@ -25,9 +25,8 @@ export async function runCommand(): Promise< void > {
 	}
 
 	try {
-		await revokeAuthToken( token.accessToken );
-
 		await lockAppdata();
+		await revokeAuthToken( token.accessToken );
 		const userData = await readAppdata();
 		delete userData.authToken;
 		await saveAppdata( userData );

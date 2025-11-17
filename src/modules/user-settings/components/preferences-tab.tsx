@@ -58,11 +58,12 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const terminalSelection = dirtyTerminal ?? terminal ?? 'terminal';
 	const isCliInstalledSelection = dirtyIsCliInstalled ?? isCliInstalled ?? false;
 
-	const hasChanges =
-		( dirtyLocale && dirtyLocale !== savedLocale ) ||
-		( dirtyEditor && dirtyEditor !== editor ) ||
-		( dirtyTerminal && dirtyTerminal !== terminal ) ||
-		( dirtyIsCliInstalled !== undefined && dirtyIsCliInstalled !== isCliInstalled );
+	const hasChanges = [
+		[ dirtyLocale, savedLocale ],
+		[ dirtyEditor, editor ],
+		[ dirtyTerminal, terminal ],
+		[ dirtyIsCliInstalled, isCliInstalled ],
+	].some( ( [ a, b ] ) => a !== undefined && a !== b );
 
 	return (
 		<>

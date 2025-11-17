@@ -1,5 +1,4 @@
 import { spawn } from 'child_process';
-import { __ } from '@wordpress/i18n';
 
 /**
  * Opens the default browser with the specified URL
@@ -31,7 +30,7 @@ export async function openBrowser( url: string ): Promise< void > {
 			args = [ url ];
 			break;
 		default:
-			return Promise.reject( new Error( __( 'Unsupported platform' ) ) );
+			return Promise.reject( new Error( 'Unsupported platform' ) );
 	}
 
 	return new Promise( ( resolve, reject ) => {

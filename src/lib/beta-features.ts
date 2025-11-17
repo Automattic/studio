@@ -14,6 +14,12 @@ const BETA_FEATURES_DEFINITION: Record< keyof BetaFeatures, BetaFeatureDefinitio
 		default: false,
 		description: '"studio site" command to manage local sites from terminal',
 	},
+	createSiteFromRemote: {
+		label: 'Create Site from Remote',
+		key: 'createSiteFromRemote',
+		default: false,
+		description: 'Enable creating a site from a remote site',
+	},
 } as const;
 
 export const BETA_FEATURES: Record< keyof BetaFeatures, BetaFeatureDefinition > =

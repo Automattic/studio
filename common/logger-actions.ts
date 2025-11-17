@@ -15,3 +15,11 @@ export enum PreviewCommandLoggerAction {
 	READY = 'ready',
 	APPDATA = 'appdata',
 }
+
+export enum SiteCommandLoggerAction {
+	START_DAEMON = 'startDaemon',
+	START_PROXY = 'startProxy',
+	GENERATE_CERT = 'generateCert',
+	ADD_DOMAIN_TO_HOSTS = 'addDomainToHosts',
+	START_SITE = 'startSite',
+}

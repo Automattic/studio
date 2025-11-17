@@ -61,66 +61,6 @@ export async function installCliWithConfirmation() {
 	}
 }
 
-export async function uninstallCliWithConfirmation() {
-	try {
-		await uninstallCli();
-		const mainWindow = await getMainWindow();
-		await dialog.showMessageBox( mainWindow, {
-			type: 'info',
-			title: __( 'CLI Uninstalled' ),
-			message: __( 'The CLI has been uninstalled successfully.' ),
-		} );
-	} catch ( error ) {
-		let message: string = __(
-			'There was an unknown error. Please check the logs for more information.'
-		);
-
-		if ( error instanceof Error ) {
-			message = error.message;
-		}
-
-		const mainWindow = await getMainWindow();
-		await dialog.showMessageBox( mainWindow, {
-			type: 'error',
-			title: __( 'Failed to uninstall CLI' ),
-			message,
-		} );
-	}
-}
-
-async function uninstallCli() {
-	if ( process.platform !== 'darwin' ) {
-		throw new Error( ERROR_WRONG_PLATFORM );
-	}
-
-	try {
-		const stats = await lstat( cliSymlinkPath );
-
-		if ( ! stats.isSymbolicLink() ) {
-			throw new Error( ERROR_FILE_ALREADY_EXISTS );
-		}
-	} catch ( error ) {
-		if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
-			// File does not exist, which means we can proceed with the installation.
-		} else {
-			throw error;
-		}
-	}
-
-	try {
-		await unlink( cliSymlinkPath );
-	} catch ( error ) {
-		// `/usr/local/bin` is not typically writable by non-root users, so in most cases, we run
-		// this uninstall script with admin privileges to remove the symlink.
-		await sudoExec( `/bin/sh "${ uninstallScriptPath }"`, {
-			name: packageJson.productName,
-			env: {
-				CLI_SYMLINK_PATH: cliSymlinkPath,
-			},
-		} );
-	}
-}
-
 export async function isCliInstalled() {
 	const currentSymlinkDestination = await getCurrentSymlinkDestination();
 	return currentSymlinkDestination === cliPackagedPath;
@@ -165,6 +105,69 @@ async function installCli(): Promise< void > {
 			env: {
 				CLI_SYMLINK_PATH: cliSymlinkPath,
 				CLI_PACKAGED_PATH: cliPackagedPath,
+			},
+		} );
+	}
+}
+
+export async function uninstallCliWithConfirmation() {
+	try {
+		await uninstallCli();
+		const mainWindow = await getMainWindow();
+		await dialog.showMessageBox( mainWindow, {
+			type: 'info',
+			title: __( 'CLI Uninstalled' ),
+			message: __( 'The CLI has been uninstalled successfully.' ),
+		} );
+	} catch ( error ) {
+		Sentry.captureException( error );
+		console.error( 'Failed to uninstall CLI', error );
+
+		let message: string = __(
+			'There was an unknown error. Please check the logs for more information.'
+		);
+
+		if ( error instanceof Error ) {
+			message = error.message;
+		}
+
+		const mainWindow = await getMainWindow();
+		await dialog.showMessageBox( mainWindow, {
+			type: 'error',
+			title: __( 'Failed to uninstall CLI' ),
+			message,
+		} );
+	}
+}
+
+async function uninstallCli() {
+	if ( process.platform !== 'darwin' ) {
+		throw new Error( ERROR_WRONG_PLATFORM );
+	}
+
+	try {
+		const stats = await lstat( cliSymlinkPath );
+
+		if ( ! stats.isSymbolicLink() ) {
+			throw new Error( ERROR_FILE_ALREADY_EXISTS );
+		}
+	} catch ( error ) {
+		if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
+			// File does not exist, which means we can proceed
+		} else {
+			throw error;
+		}
+	}
+
+	try {
+		await unlink( cliSymlinkPath );
+	} catch ( error ) {
+		// `/usr/local/bin` is not typically writable by non-root users, so in most cases, we run
+		// this uninstall script with admin privileges to remove the symlink.
+		await sudoExec( `/bin/sh "${ uninstallScriptPath }"`, {
+			name: packageJson.productName,
+			env: {
+				CLI_SYMLINK_PATH: cliSymlinkPath,
 			},
 		} );
 	}

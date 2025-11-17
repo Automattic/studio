@@ -64,7 +64,7 @@ async function installPath() {
 		await setPathInRegistry( updatedPath );
 	} catch ( error ) {
 		Sentry.captureException( error );
-		console.error( 'Failed to install CLI: PATH to Registry', error );
+		console.error( 'Failed to install CLI', error );
 	}
 }
 
@@ -114,13 +114,18 @@ export async function isCliInstalled() {
 }
 
 export async function uninstallCli() {
-	const currentPath = await getPathFromRegistry();
-	const newPath = currentPath
-		.split( ';' )
-		.filter( ( item ) => item.trim().toLowerCase() !== unversionedBinDirPath.toLowerCase() )
-		.join( ';' );
+	try {
+		const currentPath = await getPathFromRegistry();
+		const newPath = currentPath
+			.split( ';' )
+			.filter( ( item ) => item.trim().toLowerCase() !== unversionedBinDirPath.toLowerCase() )
+			.join( ';' );
 
-	await setPathInRegistry( newPath );
+		await setPathInRegistry( newPath );
+	} catch ( error ) {
+		Sentry.captureException( error );
+		console.error( 'Failed to uninstall CLI', error );
+	}
 }
 
 export async function installCli() {

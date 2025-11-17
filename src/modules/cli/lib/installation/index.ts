@@ -2,12 +2,12 @@ import {
 	installCliWithConfirmation as installCliMacOS,
 	isCliInstalled as isCliInstalledMacOS,
 	uninstallCliWithConfirmation as uninstallCliOnMacOS,
-} from 'src/modules/cli/lib/installation/darwin';
+} from 'src/modules/cli/lib/installation/macos';
 import {
 	installCli as installCliOnWindows,
 	isCliInstalled as isCliInstalledWindows,
 	uninstallCli as uninstallCliOnWindows,
-} from 'src/modules/cli/lib/installation/win32';
+} from 'src/modules/cli/lib/installation/windows';
 
 export async function isStudioCliInstalled(): Promise< boolean > {
 	switch ( process.platform ) {

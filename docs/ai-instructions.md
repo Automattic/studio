@@ -81,6 +81,35 @@ node dist/cli/main.js auth login
 - Authentication is shared between the CLI and the Studio desktop app
 - If the browser fails to open, the URL will be displayed for manual opening
 
+#### `studio auth logout`
+Log out from WordPress.com and revoke the access token.
+
+**Usage:**
+```bash
+node dist/cli/main.js auth logout
+```
+
+**Description:**
+This command logs you out from WordPress.com by:
+1. Revoking the access token on the WordPress.com server
+2. Removing the token from your local app data
+3. Syncing the logout state with the Studio desktop app
+
+**Options:**
+- None required
+
+**Example:**
+```bash
+npm run cli:build
+node dist/cli/main.js auth logout
+# Output: ✓ Successfully logged out
+```
+
+**Notes:**
+- If already logged out, the command will notify you without error
+- Logout is shared between the CLI and the Studio desktop app
+- The token is revoked on WordPress.com, invalidating all sessions using that token
+
 ### Preview Site Commands
 
 See the existing preview site commands (create, list, delete, update) in `cli/commands/preview/`.

@@ -51,8 +51,8 @@ test.describe( 'Import', () => {
 		const modal = await sidebar.openAddSiteModal();
 
 		// Select backup import option
-		await expect( modal.backupButton ).toBeVisible();
-		await modal.backupButton.click();
+		await expect( modal.importButton ).toBeVisible();
+		await modal.importButton.click();
 
 		// Upload backup file
 		await modal.selectBackupFile( backupPath );

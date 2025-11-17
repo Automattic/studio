@@ -16,7 +16,7 @@ export default class AddSiteModal {
 		return this.page.locator( 'button:has-text("Start from a Blueprint")' ).first();
 	}
 
-	get backupButton() {
+	get importButton() {
 		return this.page.locator( 'button:has-text("Import from a backup")' ).first();
 	}
 

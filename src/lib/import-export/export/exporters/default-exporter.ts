@@ -32,6 +32,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			'wp-content/mu-plugins/sqlite-database-integration',
 			'wp-content/database',
 			'wp-content/db.php',
+			'wp-content/debug.log',
 			'wp-content/mu-plugins/0-allowed-redirect-hosts.php',
 			'wp-content/mu-plugins/0-check-theme-availability.php',
 			'wp-content/mu-plugins/0-deactivate-jetpack-modules.php',

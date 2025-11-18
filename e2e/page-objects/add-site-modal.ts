@@ -1,4 +1,5 @@
 import { type Page } from '@playwright/test';
+import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import SiteForm from './site-form';
 
 export default class AddSiteModal {
@@ -29,7 +30,8 @@ export default class AddSiteModal {
 	}
 
 	get backupFileInput() {
-		return this.page.locator( 'input[type="file"][accept=".zip,.gz,.gzip,.tar,.tar.gz,.wpress"]' );
+		const fileTypes = ACCEPTED_IMPORT_FILE_TYPES.join( ',' );
+		return this.page.locator( `input[type="file"][accept="${ fileTypes }"]` );
 	}
 
 	private get siteForm() {

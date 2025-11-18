@@ -220,12 +220,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 						<ConnectButton
 							variant="primary"
-							connectSite={ async () => {
-								setHasFetchedSites( false );
-								await refetchSites();
-								setHasFetchedSites( true );
-								dispatch( connectedSitesActions.openModal( 'connect' ) );
-							} }
+							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
 						>
 							{ __( 'Connect another site' ) }
 						</ConnectButton>
@@ -273,9 +268,11 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				</SiteSyncDescription>
 			) }
 
-			{ isModalOpen && hasFetchedSites && (
+			{ isModalOpen && (
 				<>
-					{ syncSites.length === 0 ? (
+					{ ( reduxModalMode === 'push' || reduxModalMode === 'pull' ) &&
+					hasFetchedSites &&
+					syncSites.length === 0 ? (
 						<NoWpcomSitesModal
 							onRequestClose={ () => {
 								dispatch( connectedSitesActions.closeModal() );
@@ -283,7 +280,8 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							} }
 							selectedSite={ selectedSite }
 						/>
-					) : (
+					) : reduxModalMode === 'connect' ||
+					  ( ( reduxModalMode === 'push' || reduxModalMode === 'pull' ) && hasFetchedSites ) ? (
 						<SyncSitesModalSelector
 							mode={ reduxModalMode || 'connect' }
 							isLoading={ isFetching }
@@ -298,7 +296,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							} }
 							selectedSite={ selectedSite }
 						/>
-					) }
+					) : null }
 				</>
 			) }
 

@@ -130,7 +130,9 @@ test.describe( 'Overview customize links', () => {
 		test( 'opens Styles shortcut', async ( { page } ) => {
 			const redirectUrl = await openShortcut( page, 'Styles' );
 			// WordPress may use either path= or p= parameter depending on platform
-			expect( redirectUrl ).toMatch( /\/wp-admin\/site-editor\.php\?(path=\/wp_global_styles|p=\/styles)/ );
+			expect( redirectUrl ).toMatch(
+				/\/wp-admin\/site-editor\.php\?(path=\/wp_global_styles|p=\/styles)/
+			);
 
 			const headingLocator = page.getByRole( 'heading', {
 				name: 'Design',
@@ -141,7 +143,9 @@ test.describe( 'Overview customize links', () => {
 		test( 'opens Patterns shortcut', async ( { page } ) => {
 			const redirectUrl = await openShortcut( page, 'Patterns' );
 			// WordPress may use either path= or p= parameter depending on platform
-			expect( redirectUrl ).toMatch( /\/wp-admin\/site-editor\.php\?(path=\/patterns|p=\/pattern)/ );
+			expect( redirectUrl ).toMatch(
+				/\/wp-admin\/site-editor\.php\?(path=\/patterns|p=\/pattern)/
+			);
 
 			const headingLocator = page.getByRole( 'heading', {
 				name: 'All patterns',
@@ -152,7 +156,9 @@ test.describe( 'Overview customize links', () => {
 		test( 'opens Navigation shortcut', async ( { page } ) => {
 			const redirectUrl = await openShortcut( page, 'Navigation' );
 			// WordPress may use either path= or p= parameter depending on platform
-			expect( redirectUrl ).toMatch( /\/wp-admin\/site-editor\.php\?(path=\/navigation|p=\/navigation)/ );
+			expect( redirectUrl ).toMatch(
+				/\/wp-admin\/site-editor\.php\?(path=\/navigation|p=\/navigation)/
+			);
 
 			const headingLocator = page.getByRole( 'heading', {
 				name: 'Navigation',
@@ -163,7 +169,9 @@ test.describe( 'Overview customize links', () => {
 		test( 'opens Templates shortcut', async ( { page } ) => {
 			const redirectUrl = await openShortcut( page, 'Templates' );
 			// WordPress may use either path= or p= parameter depending on platform
-			expect( redirectUrl ).toMatch( /\/wp-admin\/site-editor\.php\?(path=\/wp_template|p=\/template)/ );
+			expect( redirectUrl ).toMatch(
+				/\/wp-admin\/site-editor\.php\?(path=\/wp_template|p=\/template)/
+			);
 
 			const headingLocator = page.locator( 'h1', { hasText: 'Templates' } );
 			await expect( headingLocator ).toBeVisible( { timeout: 120_000 } );

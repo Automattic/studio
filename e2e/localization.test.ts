@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { E2ESession } from './e2e-helpers';
+import AddSiteModal from './page-objects/add-site-modal';
+import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
 import WhatsNewModal from './page-objects/whats-new-modal';
-import MainSidebar from './page-objects/main-sidebar';
-import AddSiteModal from './page-objects/add-site-modal';
 import { getUrlWithAutoLogin } from './utils';
 
 test.describe( 'Localization', () => {

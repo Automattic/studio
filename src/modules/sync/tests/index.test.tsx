@@ -91,7 +91,7 @@ const inProgressPushState: SyncPushState = {
 const fakeSyncSite = {
 	id: 6,
 	name: 'My simple business site that needs a transfer',
-	url: 'https:/developer.wordpress.com/studio/',
+	url: 'https://developer.wordpress.com/studio/',
 	syncSupport: 'already-connected',
 };
 
@@ -295,7 +295,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			isStaging: false,
 			syncSupport: 'already-connected',
 		};
@@ -329,7 +329,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			isStaging: false,
 			syncSupport: 'already-connected',
 		};
@@ -352,8 +352,9 @@ describe( 'ContentTabSync', () => {
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
+		const readableUrl = fakeSyncSite.url.replace( 'https://', '' );
 		const urlButton = screen.getByRole( 'button', {
-			name: new RegExp( escapeRegex( fakeSyncSite.url ), 'i' ),
+			name: new RegExp( readableUrl, 'i' ),
 		} );
 		expect( urlButton ).toBeInTheDocument();
 
@@ -462,7 +463,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite: SyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 			isStaging: false,
 			localSiteId: 'site-id',
@@ -497,7 +498,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 			isPressable: true,
 			environmentType: 'development',
@@ -536,7 +537,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 			isPressable: true,
 			environmentType: 'non-supported-environment-example-or-sandbox',
@@ -574,7 +575,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 		};
 		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
@@ -619,7 +620,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 		};
 		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
@@ -727,7 +728,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 		};
 		( useConnectedSitesData as jest.Mock ).mockReturnValue( {

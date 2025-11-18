@@ -134,7 +134,7 @@
 		"@wordpress/icons": "^11.1.0",
 		"@wp-playground/blueprints": "^3.0.21",
 		"@wp-playground/cli": "^3.0.21",
-		"@wp-playground/wordpress": "^3.0.14",
+		"@wp-playground/wordpress": "^3.0.21",
 		"archiver": "^6.0.1",
 		"atomically": "^2.0.3",
 		"cli-table3": "^0.6.5",

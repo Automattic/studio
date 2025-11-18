@@ -1,12 +1,6 @@
 import { type Page, expect } from '@playwright/test';
-import SettingsTab from './settings-tab';
 import ImportExportTab from './import-export-tab';
-
-type TabMap = {
-	'Preview': SettingsTab;
-	'Settings': SettingsTab;
-	'Import / Export': ImportExportTab;
-};
+import SettingsTab from './settings-tab';
 
 export default class SiteContent {
 	constructor(
@@ -48,7 +42,9 @@ export default class SiteContent {
 
 	async navigateToTab( tabName: 'Settings' ): Promise< SettingsTab >;
 	async navigateToTab( tabName: 'Import / Export' ): Promise< ImportExportTab >;
-	async navigateToTab( tabName: 'Preview' | 'Settings' | 'Import / Export' ): Promise< SettingsTab | ImportExportTab > {
+	async navigateToTab(
+		tabName: 'Preview' | 'Settings' | 'Import / Export'
+	): Promise< SettingsTab | ImportExportTab > {
 		const tabButton = this.getTabButton( tabName );
 		await tabButton.click();
 

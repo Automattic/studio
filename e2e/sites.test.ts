@@ -166,7 +166,6 @@ test.describe( 'Servers', () => {
 		expect( await page.title() ).toBe( 'testing site title' );
 	} );
 
-
 	skipTestOnWindows( 'delete site but keep directory on disk', async () => {
 		const { siteName, localPath } = await completeOnboardingWithParams();
 

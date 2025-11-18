@@ -110,6 +110,37 @@ node dist/cli/main.js auth logout
 - Logout is shared between the CLI and the Studio desktop app
 - The token is revoked on WordPress.com, invalidating all sessions using that token
 
+#### `studio auth status`
+Check authentication status and display the current WordPress.com username.
+
+**Usage:**
+```bash
+node dist/cli/main.js auth status
+```
+
+**Description:**
+This command checks if you are currently authenticated with WordPress.com by:
+1. Reading the authentication token from your local app data
+2. Verifying the token's validity by making an API request to WordPress.com
+3. Displaying your WordPress.com username if authenticated
+
+**Options:**
+- None required
+
+**Example:**
+```bash
+npm run cli:build
+node dist/cli/main.js auth status
+# Output when authenticated: ✓ Successfully authenticated with WordPress.com as `username`
+# Output when not authenticated: ✗ Authentication token is invalid or expired
+```
+
+**Notes:**
+- The command will check both token existence and validity
+- If the token has expired (older than 2 weeks), you'll need to log in again
+- Authentication state is shared between the CLI and the Studio desktop app
+- No authentication token will be created; use `auth login` if not authenticated
+
 ### Preview Site Commands
 
 See the existing preview site commands (create, list, delete, update) in `cli/commands/preview/`.

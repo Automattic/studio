@@ -149,6 +149,7 @@ const userResponseSchema = z.object( {
 	ID: z.number(),
 	email: z.string().email(),
 	display_name: z.string(),
+	username: z.string(),
 } );
 
 export async function getUserInfo(
@@ -157,7 +158,7 @@ export async function getUserInfo(
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 	try {
 		const rawResponse = await wpcom.req.get( '/me', {
-			fields: 'ID,login,email,display_name',
+			fields: 'ID,username,email,display_name',
 		} );
 		return userResponseSchema.parse( rawResponse );
 	} catch ( error ) {

@@ -4,13 +4,7 @@ import { E2ESession } from './e2e-helpers';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
 import WhatsNewModal from './page-objects/whats-new-modal';
-
-type DialogCall = {
-	type?: string;
-	title?: string;
-	message?: string;
-	[ key: string ]: unknown;
-};
+import type { MessageBoxOptions } from 'electron';
 
 test.describe( 'Import / Export', () => {
 	const session = new E2ESession();
@@ -61,13 +55,15 @@ test.describe( 'Import / Export', () => {
 		// See: https://github.com/microsoft/playwright/issues/21432
 		await session.electronApp.evaluate( ( { dialog } ) => {
 			// Create storage for dialog calls
-			( global as unknown as { testDialogCalls: DialogCall[] } ).testDialogCalls = [];
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			( global as any ).testDialogCalls = [];
 
 			// Mock the function to track calls
-			dialog.showMessageBox = async ( ...args: unknown[] ) => {
+			dialog.showMessageBox = async ( ...args: any[] ) => {
 				// Store the call details
-				const options = ( args.length === 2 ? args[ 1 ] : args[ 0 ] ) as DialogCall;
-				( global as unknown as { testDialogCalls: DialogCall[] } ).testDialogCalls.push( options );
+				const options = args.length === 2 ? args[ 1 ] : args[ 0 ];
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				( global as any ).testDialogCalls.push( options );
 
 				// Auto-confirm by clicking the first button
 				return { response: 0, checkboxChecked: false };
@@ -81,19 +77,18 @@ test.describe( 'Import / Export', () => {
 		await importExportTab.uploadFile( invalidSqlPath );
 
 		// Wait for the error dialog to be shown (after the confirmation dialog)
-		let dialogCalls: DialogCall[] = [];
-		let errorDialog: DialogCall | undefined;
+		let dialogCalls: MessageBoxOptions[] = [];
+		let errorDialog: MessageBoxOptions | undefined;
 		await expect
 			.poll(
 				async () => {
 					dialogCalls = await session.electronApp.evaluate( () => {
-						return (
-							( global as unknown as { testDialogCalls?: DialogCall[] } ).testDialogCalls || []
-						);
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						return ( global as any ).testDialogCalls || [];
 					} );
 					// Look for the error dialog specifically
 					errorDialog = dialogCalls.find(
-						( call: DialogCall ) =>
+						( call ) =>
 							call.type === 'error' &&
 							( call.title?.includes( 'Failed importing site' ) ||
 								call.message?.includes( 'Failed importing site' ) )
@@ -107,11 +102,8 @@ test.describe( 'Import / Export', () => {
 			)
 			.toBeDefined();
 
-		const ensuredErrorDialog = errorDialog as DialogCall;
-		expect( ensuredErrorDialog ).toBeDefined();
-		expect( ensuredErrorDialog.type ).toBe( 'error' );
-		expect( ensuredErrorDialog.title || ensuredErrorDialog.message ).toContain(
-			'Failed importing site'
-		);
+		expect( errorDialog ).toBeDefined();
+		expect( errorDialog?.type ).toBe( 'error' );
+		expect( errorDialog?.title || errorDialog?.message ).toContain( 'Failed importing site' );
 	} );
 } );

@@ -1,15 +1,15 @@
 import path from 'path';
 import { test, expect } from '@playwright/test';
+import fs from 'fs-extra';
 import { pathExists } from '../common/lib/fs-utils';
 import { DEFAULT_PHP_VERSION, ALLOWED_PHP_VERSIONS } from '../vendor/wp-now/src/constants';
+import { DEFAULT_SITE_NAME } from './constants';
 import { E2ESession } from './e2e-helpers';
 import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
 import WhatsNewModal from './page-objects/whats-new-modal';
-import fs from 'fs-extra';
 import { getUrlWithAutoLogin } from './utils';
-import { DEFAULT_SITE_NAME } from './constants';
 
 const skipTestOnWindows = process.platform === 'win32' ? test.skip : test;
 

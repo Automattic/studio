@@ -28,7 +28,7 @@
 		"publish": "electron-forge publish",
 		"cli:build": "vite build --config vite.cli.config.ts",
 		"cli:watch": "vite build --config vite.cli.config.ts --watch",
-		"lint": "eslint {cli,common,src}",
+		"lint": "eslint {cli,common,src,e2e}",
 		"format": "prettier . --write",
 		"test": "cross-env NODE_OPTIONS='--no-deprecation --max-old-space-size=16384' jest",
 		"test:watch": "cross-env NODE_OPTIONS='--no-deprecation' jest --watch",

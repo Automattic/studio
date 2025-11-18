@@ -1,5 +1,5 @@
-import path from 'path';
 import fs from 'fs';
+import path from 'path';
 import { test, expect } from '@playwright/test';
 import { E2ESession } from './e2e-helpers';
 import MainSidebar from './page-objects/main-sidebar';
@@ -21,7 +21,10 @@ test.describe( 'Import', () => {
 
 	const backupPath = path.join( __dirname, 'imports', 'jetpack-backup.tar.gz' );
 	const backupExists = fs.existsSync( backupPath );
-	test.skip( ! backupExists, 'Jetpack backup file does not exist' );
+	test.skip(
+		! backupExists,
+		`Skipping Import tests: Jetpack backup file not found at ${ backupPath }.`
+	);
 
 	test.beforeAll( async () => {
 		await session.launch();
@@ -50,18 +53,14 @@ test.describe( 'Import', () => {
 		const sidebar = new MainSidebar( session.mainWindow );
 		const modal = await sidebar.openAddSiteModal();
 
-		// Select backup import option
 		await expect( modal.importButton ).toBeVisible();
 		await modal.importButton.click();
 
-		// Upload backup file
 		await modal.selectBackupFile( backupPath );
 
-		// Wait for continue button to be enabled after file processing
 		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
 		await modal.continueButton.click();
 
-		// Fill in site name
 		await modal.siteNameInput.fill( siteName );
 		await modal.addSiteButton.click();
 
@@ -71,14 +70,11 @@ test.describe( 'Import', () => {
 			timeout: 600_000,
 		} );
 
-		// Wait for site to be running
 		const siteContent = new SiteContent( session.mainWindow, siteName );
 		await expect( siteContent.runningButton ).toBeAttached( { timeout: 30_000 } );
 
-		// Verify site name is displayed
-		expect( await siteContent.siteNameHeading ).toHaveText( siteName );
+		await expect( siteContent.siteNameHeading ).toHaveText( siteName );
 
-		// Navigate to Settings tab to get frontend URL
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 		await expect( siteContent.siteNameHeading ).toHaveText( siteName );
 		const frontendUrl = await settingsTab.copySiteUrlToClipboard( session.electronApp );

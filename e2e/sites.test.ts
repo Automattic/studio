@@ -128,7 +128,7 @@ test.describe( 'Servers', () => {
 		await settingsTab.editSiteDialog.getByRole( 'button', { name: 'Cancel' } ).click();
 	} );
 
-	test( 'rename site', async () => {
+	test( 'renames a site', async () => {
 		const { siteName } = await completeOnboardingWithParams();
 		
 		const newSiteName = 'E2E-Test-Site-Renamed';

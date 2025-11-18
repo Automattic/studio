@@ -14,6 +14,9 @@ permissions: {}
 jobs:
   metrics:
     name: Run metrics tests
+    # Skip performance metrics on draft PRs to save CI resources
+    # Tests will run automatically when PR is marked ready for review
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
     runs-on: macos-15
     permissions:
       contents: read

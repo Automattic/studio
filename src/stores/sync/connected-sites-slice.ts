@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { RootState } from 'src/stores';
+import { RootState, store } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { SyncModalMode } from 'src/modules/sync/types';
 
@@ -145,3 +145,11 @@ export const connectedSitesSelectors = {
 			localSiteId ? connectedSitesState.sites[ localSiteId ] || [] : []
 	),
 };
+
+window.ipcListener.subscribe( 'user-data-updated', async ( _, userData ) => {
+	const currentUserId = userData.authToken?.id;
+
+	if ( currentUserId ) {
+		void store.dispatch( loadAllConnectedSites() );
+	}
+} );

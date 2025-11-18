@@ -46,4 +46,32 @@ export default class SettingsTab {
 		await this.optionsMenu.click();
 		await this.deleteButton.click();
 	}
+
+	get editSiteButton() {
+		return this.locator.getByRole( 'button', { name: 'Edit site' } );
+	}
+
+	get editSiteDialog() {
+		return this.page.getByRole( 'dialog' );
+	}
+
+	get siteNameInput() {
+		return this.editSiteDialog.getByLabel( 'Site name' );
+	}
+
+	get phpVersionSelect() {
+		return this.editSiteDialog.getByLabel( 'PHP version' );
+	}
+
+	get saveButton() {
+		return this.editSiteDialog.getByRole( 'button', { name: 'Save' } );
+	}
+
+	async changePhpVersion( version: string ) {
+		await this.editSiteButton.click();
+		await this.editSiteDialog.waitFor( { state: 'visible' } );
+		await this.phpVersionSelect.selectOption( version );
+		await this.saveButton.click();
+		await this.editSiteDialog.waitFor( { state: 'hidden' } );
+	}
 }

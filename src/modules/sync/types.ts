@@ -4,3 +4,5 @@ export type RawDirectoryEntry = {
 	path: string;
 	children?: RawDirectoryEntry[];
 };
+
+export type SyncModalMode = 'push' | 'pull' | 'connect';

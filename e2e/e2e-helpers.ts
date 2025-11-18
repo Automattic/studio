@@ -13,12 +13,14 @@ export class E2ESession {
 	appDataPath: string;
 	homePath: string;
 
-	async launch( testEnv: NodeJS.ProcessEnv = {} ) {
+	public constructor() {
 		// Create temporary folder to hold application data
 		this.sessionPath = path.join( tmpdir(), `studio-app-e2e-session-${ randomUUID() }` );
 		this.appDataPath = path.join( this.sessionPath, 'appData' );
 		this.homePath = path.join( this.sessionPath, 'home' );
+	}
 
+	async launch( testEnv: NodeJS.ProcessEnv = {} ) {
 		await fs.mkdir( this.appDataPath, { recursive: true } );
 		await fs.mkdir( this.homePath, { recursive: true } );
 

@@ -17,6 +17,7 @@ import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge'
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { SyncModalMode } from 'src/modules/sync/types';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
 
@@ -32,6 +33,7 @@ export function SyncSitesModalSelector( {
 	syncSites,
 	onInitialRender,
 	selectedSite,
+	mode = 'connect',
 }: {
 	isLoading?: boolean;
 	onRequestClose: () => void;
@@ -39,6 +41,7 @@ export function SyncSitesModalSelector( {
 	onConnect: ( siteId: number ) => void;
 	onInitialRender?: () => void;
 	selectedSite: SiteDetails;
+	mode?: SyncModalMode;
 } ) {
 	const { __ } = useI18n();
 	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
@@ -53,6 +56,18 @@ export function SyncSitesModalSelector( {
 	} );
 	const isEmpty = filteredSites.length === 0;
 
+	const getModalTitle = () => {
+		switch ( mode ) {
+			case 'push':
+				return __( 'Publish your site' );
+			case 'pull':
+				return __( 'Select a site to import' );
+			case 'connect':
+			default:
+				return __( 'Connect your site' );
+		}
+	};
+
 	useEffect( () => {
 		if ( onInitialRender ) {
 			onInitialRender();
@@ -63,7 +78,7 @@ export function SyncSitesModalSelector( {
 		<Modal
 			className="w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
-			title={ __( 'Connect your site' ) }
+			title={ getModalTitle() }
 		>
 			<div className="relative" data-testid="sync-sites-modal-selector">
 				<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
@@ -98,11 +113,12 @@ export function SyncSitesModalSelector( {
 					} }
 					disabled={ ! selectedSiteId }
 					selectedSite={ selectedSite }
+					mode={ mode }
 				/>
 
 				{ isOffline && (
 					<div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center">
-						<SyncSitesOfflineView />
+						<SyncSitesOfflineView mode={ mode } />
 					</div>
 				) }
 			</div>
@@ -162,7 +178,7 @@ const getSortedSites = ( sites: SyncSite[] ) => {
 	return [ ...sites ].sort( ( a, b ) => order[ a.syncSupport ] - order[ b.syncSupport ] );
 };
 
-function ListSites( {
+export function ListSites( {
 	syncSites,
 	selectedSiteId,
 	onSelectSite,
@@ -212,7 +228,7 @@ function SiteItem( {
 			className={ cx(
 				'flex py-3 px-8 items-center border-b justify-between gap-4',
 				isSelected && 'bg-a8c-blue-50 text-white border-a8c-blue-50',
-				! isSelected && 'border-a8c-gray-0',
+				! isSelected && 'text-black border-a8c-gray-0',
 				! isSelected && isSyncable && 'hover:bg-a8c-blue-5',
 				isSyncable &&
 					'focus:outline-none focus:ring-1 focus:ring-a8c-blue-50 focus:relative focus:z-10'
@@ -333,13 +349,26 @@ function Footer( {
 	onConnect,
 	disabled,
 	selectedSite,
+	mode = 'connect',
 }: {
 	onRequestClose: () => void;
 	onConnect: () => void;
 	disabled: boolean;
 	selectedSite: SiteDetails;
+	mode?: SyncModalMode;
 } ) {
 	const { __ } = useI18n();
+
+	const getButtonText = () => {
+		switch ( mode ) {
+			case 'push':
+			case 'pull':
+				return __( 'Next' );
+			case 'connect':
+			default:
+				return __( 'Connect' );
+		}
+	};
 
 	useEffect( () => {
 		if ( ! disabled ) {
@@ -360,20 +389,31 @@ function Footer( {
 					{ __( 'Cancel' ) }
 				</Button>
 				<Button id="connect-button" variant="primary" disabled={ disabled } onClick={ onConnect }>
-					{ __( 'Connect' ) }
+					{ getButtonText() }
 				</Button>
 			</div>
 		</div>
 	);
 }
 
-const SyncSitesOfflineView = () => {
-	const offlineMessage = __( 'Connecting a site requires an internet connection.' );
+const SyncSitesOfflineView = ( { mode = 'connect' }: { mode?: SyncModalMode } ) => {
+	const { __ } = useI18n();
+	const getOfflineMessage = () => {
+		switch ( mode ) {
+			case 'push':
+				return __( 'Publishing your site requires an internet connection.' );
+			case 'pull':
+				return __( 'Importing a remote site requires an internet connection.' );
+			case 'connect':
+			default:
+				return __( 'Connecting a site requires an internet connection.' );
+		}
+	};
 
 	return (
 		<div className="flex items-center justify-center h-12 px-2 pt-4 text-a8c-gray-70 gap-1">
 			<Icon className="m-1 fill-a8c-gray-70" size={ 24 } icon={ offlineIcon } />
-			<span className="text-[13px] leading-[16px]">{ offlineMessage }</span>
+			<span className="text-[13px] leading-[16px]">{ getOfflineMessage() }</span>
 		</div>
 	);
 };

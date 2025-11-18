@@ -18,7 +18,7 @@ const BETA_FEATURES_DEFINITION: Record< keyof BetaFeatures, BetaFeatureDefinitio
 		label: 'Create a site from existing remote site',
 		key: 'createSiteFromRemote',
 		default: false,
-		description: 'Enable creating a site from a remote site',
+		description: 'Enable creating a site from an existing WordPress.com or Pressable site',
 	},
 } as const;
 

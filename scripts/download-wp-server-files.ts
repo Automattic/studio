@@ -47,9 +47,10 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 ];
 
 async function downloadFile( file: FileToDownload ): Promise< void > {
-	console.log( `[${ file.name }] Downloading ${ file.description } ...` );
-	const zipPath = path.join( os.tmpdir(), `${ file.name }.zip` );
-	const extractedPath = file.destinationPath ?? WP_SERVER_FILES_PATH;
+	const { name, description, destinationPath } = file;
+	console.log( `[${ name }] Downloading ${ description } ...` );
+	const zipPath = path.join( os.tmpdir(), `${ name }.zip` );
+	const extractedPath = destinationPath ?? WP_SERVER_FILES_PATH;
 
 	try {
 		fs.ensureDirSync( extractedPath );
@@ -66,16 +67,16 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 	const buffer = Buffer.from( await response.arrayBuffer() );
 	await fs.writeFile( zipPath, buffer );
 
-	if ( file.name === 'wp-cli' ) {
-		console.log( `[${ file.name }] Moving WP-CLI to destination ...` );
+	if ( name === 'wp-cli' ) {
+		console.log( `[${ name }] Moving WP-CLI to destination ...` );
 		fs.moveSync( zipPath, path.join( extractedPath, 'wp-cli.phar' ), { overwrite: true } );
-	} else if ( file.name === 'sqlite' ) {
+	} else if ( name === 'sqlite' ) {
 		/**
 		 * The SQLite database integration plugin is extracted
 		 * into a folder with the version number like sqlite-database-integration-1.0.0
 		 * We need to move the contents of that folder to the sqlite-database-integration folder
 		 */
-		console.log( `[${ file.name }] Extracting files from zip ...` );
+		console.log( `[${ name }] Extracting files from zip ...` );
 		await fs
 			.createReadStream( zipPath )
 			.pipe( unzipper.Extract( { path: extractedPath } ) )
@@ -95,17 +96,17 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 			fs.renameSync( sourcePath, targetPath );
 		}
 	} else {
-		console.log( `[${ file.name }] Extracting files from zip ...` );
+		console.log( `[${ name }] Extracting files from zip ...` );
 		await fs
 			.createReadStream( zipPath )
 			.pipe( unzipper.Extract( { path: extractedPath } ) )
 			.promise();
 	}
 
-	console.log( `[${ file.name }] Files extracted` );
+	console.log( `[${ name }] Files extracted` );
 }
 
-async function main() {
+async function downloadFiles() {
 	for ( const file of FILES_TO_DOWNLOAD ) {
 		try {
 			await downloadFile( file );
@@ -116,4 +117,4 @@ async function main() {
 	}
 }
 
-main();
+downloadFiles();

@@ -55,6 +55,10 @@ export default class SettingsTab {
 		return this.page.getByRole( 'dialog' );
 	}
 
+	get siteNameInput() {
+		return this.editSiteDialog.getByLabel( 'Site name' );
+	}
+
 	get phpVersionSelect() {
 		return this.editSiteDialog.getByLabel( 'PHP version' );
 	}

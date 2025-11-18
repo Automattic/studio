@@ -144,3 +144,37 @@ export async function validateAccessToken( token: string ): Promise< void > {
 		throw new LoggerError( __( 'Invalid authentication token' ), error );
 	}
 }
+
+const userResponseSchema = z.object( {
+	ID: z.number(),
+	email: z.string().email(),
+	display_name: z.string(),
+	username: z.string(),
+} );
+
+export async function getUserInfo(
+	token: string
+): Promise< z.infer< typeof userResponseSchema > > {
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+	try {
+		const rawResponse = await wpcom.req.get( '/me', {
+			fields: 'ID,username,email,display_name',
+		} );
+		return userResponseSchema.parse( rawResponse );
+	} catch ( error ) {
+		throw new LoggerError( __( 'Failed to fetch user info' ), error );
+	}
+}
+
+export async function revokeAuthToken( token: string ): Promise< void > {
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+	try {
+		await wpcom.req.del( {
+			apiNamespace: 'wpcom/v2',
+			path: '/studio-app/token',
+			method: 'DELETE',
+		} );
+	} catch ( error ) {
+		throw new LoggerError( __( 'Failed to revoke token' ), error );
+	}
+}

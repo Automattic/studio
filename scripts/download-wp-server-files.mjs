@@ -1,6 +1,6 @@
 import os from 'os';
 import path from 'path';
-import extract from 'extract-zip';
+import unzipper from 'unzipper';
 import fs from 'fs-extra';
 
 // Constants
@@ -94,7 +94,11 @@ async function downloadFile( file ) {
 		 * into a folder with the version number like sqlite-database-integration-1.0.0
 		 * We need to move the contents of that folder to the sqlite-database-integration folder
 		 */
-		await extract( zipPath, { dir: extractedPath } );
+		console.log( `[${ file.name }] Extracting files from zip ...` );
+		await fs
+			.createReadStream( zipPath )
+			.pipe( unzipper.Extract( { path: extractedPath } ) )
+			.promise();
 
 		const files = fs.readdirSync( extractedPath );
 		const sqliteFolder = files.find( ( file ) =>
@@ -111,7 +115,10 @@ async function downloadFile( file ) {
 		}
 	} else {
 		console.log( `[${ file.name }] Extracting files from zip ...` );
-		await extract( zipPath, { dir: extractedPath } );
+		await fs
+			.createReadStream( zipPath )
+			.pipe( unzipper.Extract( { path: extractedPath } ) )
+			.promise();
 	}
 
 	console.log( `[${ file.name }] Files extracted` );

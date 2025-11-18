@@ -1,7 +1,7 @@
 // To run tests, execute `npm run test -- src/modules/sync/tests/index.test.tsx` from the root directory
 import { render, screen, fireEvent } from '@testing-library/react';
-import escapeRegExp from 'lodash/escapeRegExp';
 import { Provider } from 'react-redux';
+import { escapeRegex } from 'common/lib/escape-regex';
 import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
 import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
@@ -353,7 +353,7 @@ describe( 'ContentTabSync', () => {
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
 		const urlButton = screen.getByRole( 'button', {
-			name: new RegExp( escapeRegExp( fakeSyncSite.url ), 'i' ),
+			name: new RegExp( escapeRegex( fakeSyncSite.url ), 'i' ),
 		} );
 		expect( urlButton ).toBeInTheDocument();
 

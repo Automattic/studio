@@ -240,7 +240,9 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							disabled={ isAnySiteSyncing || isLoadingPublish || isLoadingPull }
 							isBusy={ isLoadingPublish }
 							tooltipText={
-								isAnySiteSyncing
+								isLoadingPull
+									? __( 'Please wait for the current operation to finish.' )
+									: isAnySiteSyncing
 									? __(
 											'Another site is syncing. Please wait for the sync to finish before you publish your site.'
 									  )
@@ -255,7 +257,15 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							className={ isAnySiteSyncing ? '' : '!text-a8c-blue-50 !shadow-a8c-blue-50' }
 							disabled={ isAnySiteSyncing || isLoadingPublish || isLoadingPull }
 							isBusy={ isLoadingPull }
-							tooltipText={ __( 'Importing a remote site requires an internet connection.' ) }
+							tooltipText={
+								isLoadingPublish
+									? __( 'Please wait for the current operation to finish.' )
+									: isAnySiteSyncing
+									? __(
+											'Another site is syncing. Please wait for the sync to finish before you pull a site.'
+									  )
+									: __( 'Importing a remote site requires an internet connection.' )
+							}
 						>
 							{ __( 'Pull site' ) }
 						</ConnectButton>

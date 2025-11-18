@@ -26,9 +26,10 @@ export const ConnectButton = ( {
 	const isOffline = useOffline();
 	const tooltipContent = tooltipText ?? __( 'Connecting a site requires an internet connection.' );
 	const isDisabled = disabled || isOffline;
+	const shouldShowTooltip = isDisabled && ! isBusy;
 	return (
 		<Tooltip
-			disabled={ ! isDisabled }
+			disabled={ ! shouldShowTooltip }
 			text={ tooltipContent }
 			icon={ offlineIcon }
 			placement="top-start"

@@ -35,7 +35,6 @@ if [ "$PLATFORM" = "Linux" ]; then
 fi
 
 npm ci \
-  --omit=optional \
   --unsafe-perm \
   --prefer-offline \
   --no-audit \
@@ -44,7 +43,6 @@ npm ci \
   "$@"
 
 cd cli; npm ci \
-  --omit=optional \
   --prefer-offline \
   --no-audit \
   --no-progress \
@@ -52,7 +50,6 @@ cd cli; npm ci \
   cd -
 
 cd scripts/compare-perf; npm ci \
-  --omit=optional \
   --prefer-offline \
   --no-audit \
   --no-progress \

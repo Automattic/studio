@@ -61,7 +61,14 @@ test.describe( 'Overview customize links', () => {
 			waitUntil: 'domcontentloaded',
 		} );
 		// Decode URL-encoded characters to normalize the URL across platforms
-		return decodeURIComponent( page.url() );
+		// Need to decode multiple times due to nested redirect_to parameters
+		let url = page.url();
+		let decoded = decodeURIComponent( url );
+		while ( decoded !== url ) {
+			url = decoded;
+			decoded = decodeURIComponent( url );
+		}
+		return decoded;
 	};
 	test.describe( 'Block theme customize shortcut links', () => {
 		test.beforeAll( async () => {

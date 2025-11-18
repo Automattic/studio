@@ -1,26 +1,26 @@
-const { RuleTester } = require('eslint');
-const rule = require('../src/rules/require-lock-before-save');
+const { RuleTester } = require( 'eslint' );
+const rule = require( '../src/rules/require-lock-before-save' );
 
-const ruleTester = new RuleTester({
-  parserOptions: {
-    ecmaVersion: 2018,
-    sourceType: 'module',
-  },
-});
+const ruleTester = new RuleTester( {
+	parserOptions: {
+		ecmaVersion: 2018,
+		sourceType: 'module',
+	},
+} );
 
-ruleTester.run('require-lock-before-save', rule, {
-  valid: [
-    // Functions not calling save functions (allowed)
-    {
-      code: `
+ruleTester.run( 'require-lock-before-save', rule, {
+	valid: [
+		// Functions not calling save functions (allowed)
+		{
+			code: `
         async function updateUserData() {
           await updateAppdata({ locale: 'en' });
         }
       `,
-    },
-    // saveUserData with lock (allowed)
-    {
-      code: `
+		},
+		// saveUserData with lock (allowed)
+		{
+			code: `
         async function updateUserData() {
           await lockAppdata();
           try {
@@ -32,10 +32,10 @@ ruleTester.run('require-lock-before-save', rule, {
           }
         }
       `,
-    },
-    // saveAppdata with lock (allowed)
-    {
-      code: `
+		},
+		// saveAppdata with lock (allowed)
+		{
+			code: `
         const updateUserData = async () => {
           await lockAppdata();
           try {
@@ -47,34 +47,34 @@ ruleTester.run('require-lock-before-save', rule, {
           }
         };
       `,
-    },
-  ],
-  invalid: [
-    // saveUserData without lock (not allowed)
-    {
-      code: `
+		},
+	],
+	invalid: [
+		// saveUserData without lock (not allowed)
+		{
+			code: `
         const updateUserData = async () => {
           const data = await loadUserData();
           data.snapshots.splice(0, 1);
           await saveUserData(data);
         };
       `,
-      errors: [{ messageId: 'missingLock' }],
-    },
-    // saveAppdata without lock (not allowed)
-    {
-      code: `
+			errors: [ { messageId: 'missingLock' } ],
+		},
+		// saveAppdata without lock (not allowed)
+		{
+			code: `
         async function updateUserData() {
           const data = await loadUserData();
           data.sites[0].name = 'New Name';
           await saveAppdata(data);
         }
       `,
-      errors: [{ messageId: 'missingLock' }],
-    },
-    // Lock without try/finally block (not allowed)
-    {
-      code: `
+			errors: [ { messageId: 'missingLock' } ],
+		},
+		// Lock without try/finally block (not allowed)
+		{
+			code: `
         async function updateUserData() {
           await lockAppdata();
           const data = await loadUserData();
@@ -83,11 +83,11 @@ ruleTester.run('require-lock-before-save', rule, {
           await unlockAppdata();
         }
       `,
-      errors: [{ messageId: 'missingUnlock' }],
-    },
-    // Lock without unlock (not allowed)
-    {
-      code: `
+			errors: [ { messageId: 'missingUnlock' } ],
+		},
+		// Lock without unlock (not allowed)
+		{
+			code: `
         async function updateUserData() {
           await lockAppdata();
           try {
@@ -99,7 +99,7 @@ ruleTester.run('require-lock-before-save', rule, {
           }
         }
       `,
-      errors: [{ messageId: 'missingUnlock' }],
-    },
-  ],
-}); 
+			errors: [ { messageId: 'missingUnlock' } ],
+		},
+	],
+} );

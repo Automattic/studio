@@ -19,7 +19,7 @@ describe( 'CopyTextButton', () => {
 	test( 'the button is present, and not the confirmation', () => {
 		render( <CopyTextButton text="Sample Text" copyConfirmation="Copied!" /> );
 		expect( screen.getByRole( 'button', { name: 'Copy to clipboard' } ) ).toBeVisible();
-		expect( screen.queryByRole( 'alert' ) ).toBe( null );
+		expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
 	} );
 
 	test( 'the confirmation is present after click', async () => {

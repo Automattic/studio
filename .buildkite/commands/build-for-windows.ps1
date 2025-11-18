@@ -28,8 +28,8 @@ if ($Architecture -notin $VALID_ARCHITECTURES) {
     Exit 1
 }
 
-# prepare_windows_host_for_app_distribution.ps1 comes from CI Toolkit Plugin
-& "prepare_windows_host_for_app_distribution.ps1" -InstallNativeCompilationTools $true
+# setup_windows_code_signing.ps1 comes from CI Toolkit Plugin
+& "setup_windows_code_signing.ps1"
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 Write-Host "--- :npm: Installing Node dependencies"

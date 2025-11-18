@@ -6,6 +6,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import Button, { ButtonVariant } from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite } from 'src/hooks/use-add-site';
+import { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { generateSiteName } from 'src/lib/generate-site-name';
@@ -22,8 +23,10 @@ import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
 import { AddSiteBlueprintSelector } from './components/blueprints';
 import CreateSite from './components/create-site';
 import ImportBackup from './components/import-backup';
-import AddSiteOptions from './components/options';
+import AddSiteOptions, { type AddSiteFlowType } from './components/options';
+import { PullRemoteSite } from './components/pull-remote-site';
 import Stepper from './components/stepper';
+import { useBlueprintDeeplink } from './hooks/use-blueprint-deeplink';
 
 interface AddSiteProps {
 	className?: string;
@@ -60,6 +63,10 @@ interface NavigationContentProps {
 	blueprintsErrorMessage?: string | undefined;
 	blueprintPreferredVersions?: { php?: string; wp?: string };
 	setBlueprintPreferredVersions: ( versions: { php?: string; wp?: string } | undefined ) => void;
+	selectedRemoteSite?: SyncSite;
+	setSelectedRemoteSite: ( site?: SyncSite ) => void;
+	blueprintError?: string | null;
+	setBlueprintError: ( error: string | null ) => void;
 }
 
 function NavigationContent( props: NavigationContentProps ) {
@@ -71,19 +78,25 @@ function NavigationContent( props: NavigationContentProps ) {
 		blueprintsErrorMessage,
 		blueprintPreferredVersions,
 		setBlueprintPreferredVersions,
+		selectedRemoteSite,
+		setSelectedRemoteSite,
+		blueprintError,
+		setBlueprintError,
 		...createSiteProps
 	} = props;
 
 	const { setSelectedBlueprint, setPhpVersion, setWpVersion } = createSiteProps;
 
 	const handleOptionSelect = useCallback(
-		( option: 'create' | 'blueprint' | 'backup' ) => {
+		( option: AddSiteFlowType ) => {
 			if ( option === 'blueprint' ) {
 				goTo( '/blueprint' );
 			} else if ( option === 'create' ) {
 				goTo( '/create' );
 			} else if ( option === 'backup' ) {
 				goTo( '/backup' );
+			} else if ( option === 'pullRemote' ) {
+				goTo( '/pullRemote' );
 			}
 		},
 		[ goTo ]
@@ -108,6 +121,12 @@ function NavigationContent( props: NavigationContentProps ) {
 		}
 	}, [ createSiteProps, goTo ] );
 
+	const handlePullRemoteContinue = useCallback( () => {
+		if ( selectedRemoteSite ) {
+			goTo( '/pullRemote/create' );
+		}
+	}, [ selectedRemoteSite, goTo ] );
+
 	const blueprints = useMemo(
 		() => blueprintsData?.blueprints.slice().reverse() || [],
 		[ blueprintsData ]
@@ -116,7 +135,8 @@ function NavigationContent( props: NavigationContentProps ) {
 	const isOnCreatePath =
 		location.path === '/create' ||
 		location.path === '/blueprint/create' ||
-		location.path === '/backup/create';
+		location.path === '/backup/create' ||
+		location.path === '/pullRemote/create';
 	const canSubmit =
 		isOnCreatePath &&
 		createSiteProps.siteName?.trim() &&
@@ -128,10 +148,13 @@ function NavigationContent( props: NavigationContentProps ) {
 			goTo( '/blueprint' );
 		} else if ( location.path === '/backup/create' ) {
 			goTo( '/backup' );
+		} else if ( location.path === '/pullRemote/create' ) {
+			goTo( '/pullRemote' );
 		} else if (
 			location.path === '/backup' ||
 			location.path === '/blueprint' ||
-			location.path === '/create'
+			location.path === '/create' ||
+			location.path === '/pullRemote'
 		) {
 			if ( location.path === '/backup' ) {
 				createSiteProps.setFileForImport( null );
@@ -140,11 +163,20 @@ function NavigationContent( props: NavigationContentProps ) {
 				createSiteProps.setSelectedBlueprint();
 				setBlueprintPreferredVersions( undefined );
 			}
+			if ( location.path === '/pullRemote' ) {
+				setSelectedRemoteSite( undefined );
+			}
 			goTo( '/' );
 		} else {
 			goTo( '/' );
 		}
-	}, [ location.path, goTo, createSiteProps, setBlueprintPreferredVersions ] );
+	}, [
+		location.path,
+		goTo,
+		createSiteProps,
+		setBlueprintPreferredVersions,
+		setSelectedRemoteSite,
+	] );
 
 	const applyBlueprintVersions = useCallback(
 		( blueprint?: Blueprint ) => {
@@ -201,6 +233,10 @@ function NavigationContent( props: NavigationContentProps ) {
 					selectedBlueprint={ createSiteProps.selectedBlueprint?.slug || null }
 					onBlueprintChange={ handleBlueprintChange }
 					onFileBlueprintSelect={ handleFileBlueprintSelect }
+					blueprintError={ blueprintError }
+					onErrorDismiss={ () => {
+						setBlueprintError( null );
+					} }
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/create">
@@ -221,14 +257,30 @@ function NavigationContent( props: NavigationContentProps ) {
 			<Navigator.Screen className="flex-1" path="/backup/create">
 				<CreateSite { ...createSiteProps } />
 			</Navigator.Screen>
+			<Navigator.Screen className="flex-1" path="/pullRemote">
+				<PullRemoteSite
+					selectedRemoteSite={ selectedRemoteSite }
+					setSelectedRemoteSite={ ( remoteSite?: SyncSite ) => {
+						setSelectedRemoteSite( remoteSite );
+						if ( remoteSite?.name ) {
+							void createSiteProps.handleSiteNameChange( remoteSite.name );
+						}
+					} }
+				/>
+			</Navigator.Screen>
+			<Navigator.Screen className="flex-1" path="/pullRemote/create">
+				<CreateSite { ...createSiteProps } />
+			</Navigator.Screen>
 			<Stepper
 				currentPath={ location.path }
 				onBack={ handleBack }
 				onBlueprintContinue={ handleBlueprintContinue }
 				onBackupContinue={ handleBackupContinue }
+				onPullRemoteContinue={ handlePullRemoteContinue }
 				onCreateSubmit={ createSiteProps.handleSubmit }
 				canSubmitBlueprint={ !! createSiteProps.selectedBlueprint }
 				canSubmitBackup={ !! createSiteProps.fileForImport }
+				canSubmitPullRemote={ !! selectedRemoteSite }
 				canSubmitCreate={ !! canSubmit }
 			/>
 		</>
@@ -274,6 +326,8 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		setFileForImport,
 		loadAllCustomDomains,
 		setSelectedBlueprint,
+		selectedRemoteSite,
+		setSelectedRemoteSite,
 	} = addSiteProps;
 
 	const isAnySiteProcessing = sites.some(
@@ -299,6 +353,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		setFileForImport( null );
 		setSelectedBlueprint( undefined );
 		setBlueprintPreferredVersions( undefined );
+		setSelectedRemoteSite( undefined );
 	}, [
 		setSitePath,
 		setDoesPathContainWordPress,
@@ -310,6 +365,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		setEnableHttps,
 		setFileForImport,
 		setSelectedBlueprint,
+		setSelectedRemoteSite,
 		defaultWordPressVersion,
 		defaultPhpVersion,
 	] );
@@ -321,10 +377,22 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		setShowModal( true );
 	}, [ refetch, isUninitialized ] );
 
+	const { initialNavigatorPath, blueprintError, setBlueprintError, resetDeeplinkState } =
+		useBlueprintDeeplink( {
+			showModal,
+			isAnySiteProcessing,
+			openModal,
+			setSelectedBlueprint,
+			setPhpVersion,
+			setWpVersion,
+			setBlueprintPreferredVersions,
+		} );
+
 	const closeModal = useCallback( () => {
 		setShowModal( false );
 		resetForm();
-	}, [ resetForm ] );
+		resetDeeplinkState();
+	}, [ resetForm, resetDeeplinkState ] );
 
 	const siteAddedMessage = sprintf(
 		// translators: %s is the site name.
@@ -385,7 +453,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 	return (
 		<>
 			<FullscreenModal isOpen={ showModal } onClose={ closeModal }>
-				<Navigator className="w-full h-full" initialPath="/">
+				<Navigator className="w-full h-full" initialPath={ initialNavigatorPath }>
 					<NavigationContent
 						{ ...addSiteProps }
 						blueprintsData={ blueprintsData }
@@ -394,6 +462,10 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 						handleSubmit={ handleSubmit }
 						blueprintPreferredVersions={ blueprintPreferredVersions }
 						setBlueprintPreferredVersions={ setBlueprintPreferredVersions }
+						selectedRemoteSite={ selectedRemoteSite }
+						setSelectedRemoteSite={ setSelectedRemoteSite }
+						blueprintError={ blueprintError }
+						setBlueprintError={ setBlueprintError }
 					/>
 				</Navigator>
 			</FullscreenModal>

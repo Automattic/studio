@@ -25,7 +25,6 @@ export const app = {
 	getSystemLocale: jest.fn(),
 };
 
-// eslint-disable-next-line @typescript-eslint/no-empty-function
 export function BrowserWindow() {}
 BrowserWindow.prototype.loadURL = jest.fn();
 BrowserWindow.prototype.loadFile = jest.fn();

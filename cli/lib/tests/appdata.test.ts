@@ -175,6 +175,10 @@ describe( 'Appdata Module', () => {
 		it( 'should return auth token when it exists', async () => {
 			const mockAuthToken = {
 				accessToken: 'valid-token',
+				displayName: 'User Name',
+				email: 'user@example.com',
+				expirationTime: Date.now() + 3600000, // 1 hour in the future
+				expiresIn: 3600,
 				id: 123,
 			};
 
@@ -244,8 +248,9 @@ describe( 'Appdata Module', () => {
 				path: folderPath,
 				name: 'existing-site',
 				phpVersion: '8.0',
+				port: 8881,
 			};
-			( readFile as jest.Mock ).mockReturnValueOnce(
+			( readFile as jest.Mock ).mockResolvedValueOnce(
 				JSON.stringify( { sites: [ existingSite ], newSites: [], snapshots: [] } )
 			);
 			const site = await getOrCreateSiteByFolder( folderPath );

@@ -1,5 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useListenDeepLinkConnection } from 'src/hooks/sync-sites/use-listen-deep-link-connection';
 import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
 import { PullStates, UseSyncPull, useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';

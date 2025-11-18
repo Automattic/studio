@@ -1,5 +1,4 @@
 import { __, sprintf } from '@wordpress/i18n';
-// eslint-disable-next-line import/no-named-as-default
 import Table from 'cli-table3';
 import { HOUR_MS, DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
 import { Snapshot } from 'common/types/snapshot';

@@ -45,10 +45,14 @@ jest.mock( 'src/stores/sync', () => ( {
 	useConnectedSitesOperations: jest.fn(),
 	connectedSitesSelectors: {
 		selectIsModalOpen: jest.fn(),
+		selectModalMode: jest.fn(),
 	},
 	connectedSitesActions: {
 		openModal: jest.fn().mockImplementation( () => {
 			return { type: 'connectedSites/openModal' };
+		} ),
+		setModalMode: jest.fn().mockImplementation( () => {
+			return { type: 'connectedSites/setModalMode' };
 		} ),
 		closeModal: jest.fn().mockImplementation( () => {
 			return { type: 'connectedSites/closeModal' };
@@ -190,6 +194,7 @@ describe( 'ContentTabSync', () => {
 		useAppDispatch.mockReturnValue( jest.fn() );
 
 		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( false );
+		( connectedSitesSelectors.selectModalMode as jest.Mock ).mockReturnValue( null );
 		( useRemoteFileTree as jest.Mock ).mockReturnValue( {
 			fetchChildren: jest.fn().mockResolvedValue( [
 				{
@@ -263,21 +268,24 @@ describe( 'ContentTabSync', () => {
 		expect( getIpcApi().authenticate ).toHaveBeenCalled();
 	} );
 
-	it( 'displays connect site button to authenticated user', () => {
+	it( 'displays publish and import actions to authenticated user', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
+		const publishButton = screen.getByRole( 'button', { name: /Publish site/i } );
+		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
 
-		expect( connectSiteButton ).toBeInTheDocument();
+		expect( publishButton ).toBeInTheDocument();
+		expect( importButton ).toBeInTheDocument();
 	} );
 
-	it( 'opens the site selector modal to connect a site authenticated user', () => {
+	it( 'opens the site selector modal when clicking import button', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
-		fireEvent.click( connectSiteButton );
+		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
+		fireEvent.click( importButton );
 
 		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( true );
+		( connectedSitesSelectors.selectModalMode as jest.Mock ).mockReturnValue( null );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		expect( screen.getByTestId( 'sync-sites-modal-selector' ) ).toBeInTheDocument();
@@ -356,10 +364,11 @@ describe( 'ContentTabSync', () => {
 	it( 'opens the modal and displays the create new site button', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
-		expect( connectSiteButton ).toBeInTheDocument();
-		fireEvent.click( connectSiteButton );
+		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
+		expect( importButton ).toBeInTheDocument();
+		fireEvent.click( importButton );
 		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( true );
+		( connectedSitesSelectors.selectModalMode as jest.Mock ).mockReturnValue( null );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		const createNewSiteButton = screen.getByRole( 'button', {
 			name: /Create a new WordPress.com site ↗/i,
@@ -367,12 +376,15 @@ describe( 'ContentTabSync', () => {
 		expect( createNewSiteButton ).toBeInTheDocument();
 	} );
 
-	it( 'displays ConnectButton when there are no connected sites', () => {
+	it( 'displays publish and import buttons when there are no connected sites', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const connectButton = screen.getByRole( 'button', { name: /Connect site/i } );
-		expect( connectButton ).toBeInTheDocument();
+		const publishButton = screen.getByRole( 'button', { name: /Publish site/i } );
+		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
+
+		expect( publishButton ).toBeInTheDocument();
+		expect( importButton ).toBeInTheDocument();
 	} );
 
 	it( 'displays environment badges for Pressable sites with production, staging and development environments', () => {
@@ -813,7 +825,7 @@ describe( 'ContentTabSync', () => {
 		fireEvent.click( databaseCheckbox );
 
 		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } )[ 1 ];
-		expect( dialogPullButton ).not.toBeDisabled();
+		expect( dialogPullButton ).toBeEnabled();
 	} );
 
 	it( 'enables the pull button when at least one checkbox children is checked', async () => {
@@ -841,7 +853,7 @@ describe( 'ContentTabSync', () => {
 		expect( filesAndFoldersCheckbox ).not.toBeChecked();
 
 		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } )[ 1 ];
-		expect( dialogPullButton ).not.toBeDisabled();
+		expect( dialogPullButton ).toBeEnabled();
 	} );
 	it( 'disables the push button when all checkboxes are unchecked', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
@@ -875,7 +887,7 @@ describe( 'ContentTabSync', () => {
 		fireEvent.click( databaseCheckbox );
 
 		const dialogPushButton = screen.getAllByRole( 'button', { name: /Push/i } )[ 1 ];
-		expect( dialogPushButton ).not.toBeDisabled();
+		expect( dialogPushButton ).toBeEnabled();
 	} );
 
 	it( 'enables the push button when at least one checkbox children is checked', async () => {
@@ -904,7 +916,7 @@ describe( 'ContentTabSync', () => {
 		expect( filesAndFoldersCheckbox ).not.toBeChecked();
 
 		const dialogPushButton = screen.getAllByRole( 'button', { name: /Push/i } )[ 1 ];
-		expect( dialogPushButton ).not.toBeDisabled();
+		expect( dialogPushButton ).toBeEnabled();
 	} );
 
 	describe( 'Sync Dialog Push Selection Over Limit Notice', () => {

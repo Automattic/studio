@@ -1,17 +1,23 @@
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useEffect } from 'react';
+import { PropsWithChildren, useEffect, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
+import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
 import { SyncConnectedSites } from 'src/modules/sync/components/sync-connected-sites';
+import { SyncDialog } from 'src/modules/sync/components/sync-dialog';
 import { SyncSitesModalSelector } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
+import {
+	convertTreeToPullOptions,
+	convertTreeToPushOptions,
+} from 'src/modules/sync/lib/convert-tree-to-sync-options';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import {
 	useConnectedSitesData,
@@ -21,6 +27,7 @@ import {
 	connectedSitesActions,
 } from 'src/stores/sync';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { SyncModalMode } from 'src/modules/sync/types';
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();
@@ -34,13 +41,13 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 				</div>
 				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
 					{ __(
-						'Connect your existing WordPress.com or Pressable sites with Jetpack activated, or create a new one. Then share your work with the world.'
+						'Launch your existing WordPress.com or Jetpack-activated Pressable sites, or import an existing one. Then, share your work with the world.'
 					) }
 				</div>
 				<div className="mt-6">
 					{ [
 						__( 'Push and pull changes from your live site.' ),
-						__( 'Connect multiple environments.' ),
+						__( 'Supports staging and production sites.' ),
 						__( 'Sync database and file changes.' ),
 					].map( ( text ) => (
 						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
@@ -120,9 +127,14 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
 	const isModalOpen = useRootSelector( connectedSitesSelectors.selectIsModalOpen );
+	const reduxModalMode = useRootSelector( connectedSitesSelectors.selectModalMode );
 	const { connectedSites } = useConnectedSitesData();
 	const { syncSites, isFetching, refetchSites } = useSyncSitesData();
 	const { connectSite, disconnectSite } = useConnectedSitesOperations();
+	const { pushSite, pullSite, isAnySitePulling, isAnySitePushing } = useSyncSites();
+	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
+
+	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
 
 	const { isAuthenticated } = useAuth();
 
@@ -147,6 +159,41 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		}
 	};
 
+	const handleLaunchSite = () => {
+		dispatch( connectedSitesActions.openModal( 'push' ) );
+	};
+
+	const handleImportSite = () => {
+		dispatch( connectedSitesActions.openModal( 'pull' ) );
+	};
+
+	const handleSiteSelection = async ( siteId: number, mode: SyncModalMode | null ) => {
+		const disconnectSiteId =
+			typeof isModalOpen === 'object' ? isModalOpen.disconnectSiteId : undefined;
+
+		if ( disconnectSiteId ) {
+			await disconnectSite( disconnectSiteId );
+		}
+
+		const selectedSiteFromList = syncSites.find( ( site ) => site.id === siteId );
+		if ( ! selectedSiteFromList ) {
+			getIpcApi().showErrorMessageBox( {
+				title: __( 'Failed to select site' ),
+				message: __( 'Please try again.' ),
+			} );
+			return;
+		}
+
+		if ( mode === 'push' || mode === 'pull' ) {
+			dispatch( connectedSitesActions.setModalMode( mode ) );
+			setSelectedRemoteSite( selectedSiteFromList );
+		} else {
+			await handleConnect( selectedSiteFromList );
+			dispatch( connectedSitesActions.setModalMode( null ) );
+			dispatch( connectedSitesActions.closeModal() );
+		}
+	};
+
 	return (
 		<div className="flex flex-col h-full overflow-y-auto">
 			{ connectedSites.length > 0 ? (
@@ -159,8 +206,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 						<ConnectButton
 							variant="primary"
-							connectSite={ () => dispatch( connectedSitesActions.openModal() ) }
-							disableConnectButtonStyle={ true }
+							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
 						>
 							{ __( 'Connect another site' ) }
 						</ConnectButton>
@@ -168,13 +214,29 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				</div>
 			) : (
 				<SiteSyncDescription>
-					<div className="mt-8">
+					<div className="mt-8 flex flex-wrap gap-4">
 						<ConnectButton
 							variant="primary"
-							connectSite={ () => dispatch( connectedSitesActions.openModal() ) }
-							disableConnectButtonStyle={ true }
+							connectSite={ handleLaunchSite }
+							disabled={ isAnySiteSyncing }
+							tooltipText={
+								isAnySiteSyncing
+									? __(
+											'Another site is syncing. Please wait for the sync to finish before you publish your site.'
+									  )
+									: __( 'Publishing your site requires an internet connection.' )
+							}
 						>
-							{ __( 'Connect site' ) }
+							{ __( 'Publish site' ) }
+						</ConnectButton>
+						<ConnectButton
+							variant="secondary"
+							connectSite={ handleImportSite }
+							className={ isAnySiteSyncing ? '' : '!text-a8c-blue-50 !shadow-a8c-blue-50' }
+							disabled={ isAnySiteSyncing }
+							tooltipText={ __( 'Importing a remote site requires an internet connection.' ) }
+						>
+							{ __( 'Pull site' ) }
 						</ConnectButton>
 					</div>
 				</SiteSyncDescription>
@@ -182,29 +244,39 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 
 			{ isModalOpen && (
 				<SyncSitesModalSelector
+					mode={ reduxModalMode || 'connect' }
 					isLoading={ isFetching }
-					onRequestClose={ () => dispatch( connectedSitesActions.closeModal() ) }
+					onRequestClose={ () => {
+						dispatch( connectedSitesActions.closeModal() );
+					} }
 					syncSites={ syncSites }
 					onInitialRender={ refetchSites }
-					onConnect={ async ( siteId ) => {
-						const disconnectSiteId =
-							typeof isModalOpen === 'object' ? isModalOpen.disconnectSiteId : undefined;
-
-						if ( disconnectSiteId ) {
-							await disconnectSite( disconnectSiteId );
-						}
-
-						const newConnectedSite = syncSites.find( ( site ) => site.id === siteId );
-						if ( ! newConnectedSite ) {
-							getIpcApi().showErrorMessageBox( {
-								title: __( 'Failed to connect to site' ),
-								message: __( 'Please try again.' ),
-							} );
-							return;
-						}
-						void handleConnect( newConnectedSite );
+					onConnect={ async ( siteId: number ) => {
+						await handleSiteSelection( siteId, reduxModalMode );
 					} }
 					selectedSite={ selectedSite }
+				/>
+			) }
+
+			{ reduxModalMode && reduxModalMode !== 'connect' && selectedRemoteSite && (
+				<SyncDialog
+					type={ reduxModalMode }
+					localSite={ selectedSite }
+					remoteSite={ selectedRemoteSite }
+					onPush={ async ( tree ) => {
+						await handleConnect( selectedRemoteSite );
+						const pushOptions = convertTreeToPushOptions( tree );
+						void pushSite( selectedRemoteSite, selectedSite, pushOptions );
+					} }
+					onPull={ async ( tree ) => {
+						await handleConnect( selectedRemoteSite );
+						const pullOptions = convertTreeToPullOptions( tree );
+						void pullSite( selectedRemoteSite, selectedSite, pullOptions );
+					} }
+					onRequestClose={ () => {
+						setSelectedRemoteSite( null );
+						dispatch( connectedSitesActions.setModalMode( null ) );
+					} }
 				/>
 			) }
 		</div>

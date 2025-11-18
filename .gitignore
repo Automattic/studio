@@ -105,6 +105,10 @@ vendor/*
 # Include the vendored copy of wp-now in our repo
 !vendor/wp-now
 
+# CLI npm artifacts
+cli/vendor/
+cli/package-lock.json
+
 # Build output
 dist
 
@@ -117,3 +121,5 @@ artifacts
 # Editor config files
 .cursorrules
 .cursor/
+.claude/
+CLAUDE.md

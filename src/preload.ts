@@ -132,6 +132,7 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'listLocalFileTree', siteId, path, maxDepth ),
 	getProviderConstants: () => ipcRendererInvoke( 'getProviderConstants' ),
 	validateBlueprint: ( blueprintJson ) => ipcRendererInvoke( 'validateBlueprint', blueprintJson ),
+	readBlueprintFile: ( filePath ) => ipcRendererInvoke( 'readBlueprintFile', filePath ),
 	showSiteContextMenu: ( context ) => ipcRendererSend( 'showSiteContextMenu', context ),
 	setWindowControlVisibility: ( visible ) =>
 		ipcRendererInvoke( 'setWindowControlVisibility', visible ),

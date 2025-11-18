@@ -35,6 +35,15 @@ jest.mock( 'cli/lib/api', () => ( {
 	validateAccessToken: jest.fn().mockResolvedValue( undefined ),
 } ) );
 
+const mockAuthToken = Object.freeze( {
+	accessToken: 'mock-token',
+	displayName: 'User Name',
+	email: 'user@example.com',
+	expirationTime: Date.now() + 3600000, // 1 hour in the future
+	expiresIn: 3600,
+	id: 123,
+} );
+
 describe( 'Snapshots Module', () => {
 	const mockHomeDir = '/mock/home';
 	const mockSiteFolderName = 'folder';
@@ -66,12 +75,13 @@ describe( 'Snapshots Module', () => {
 						path: mockSiteFolder,
 						name: 'Test Site',
 						phpVersion: '8.0',
+						port: 8881,
 					},
 				],
 				snapshots: [],
 				authToken: {
+					...mockAuthToken,
 					id: mockUserId,
-					accessToken: 'mock-token',
 				},
 			};
 
@@ -114,12 +124,13 @@ describe( 'Snapshots Module', () => {
 						path: mockSiteFolder,
 						name: 'Test Site',
 						phpVersion: '8.0',
+						port: 8881,
 					},
 				],
 				snapshots: [ existingSnapshot ],
 				authToken: {
+					...mockAuthToken,
 					id: mockUserId,
-					accessToken: 'mock-token',
 				},
 			};
 
@@ -152,12 +163,13 @@ describe( 'Snapshots Module', () => {
 						path: '/different/path',
 						name: 'Different Site',
 						phpVersion: '8.0',
+						port: 8881,
 					},
 				],
 				snapshots: [],
 				authToken: {
+					...mockAuthToken,
 					id: mockUserId,
-					accessToken: 'mock-token',
 				},
 			};
 
@@ -222,8 +234,8 @@ describe( 'Snapshots Module', () => {
 				newSites: [ existingNewSite ],
 				snapshots: [],
 				authToken: {
+					...mockAuthToken,
 					id: mockUserId,
-					accessToken: 'mock-token',
 				},
 			};
 
@@ -291,8 +303,8 @@ describe( 'Snapshots Module', () => {
 				sites: [],
 				snapshots: [],
 				authToken: {
+					...mockAuthToken,
 					id: mockUserId,
-					accessToken: 'mock-token',
 				},
 			};
 
@@ -336,6 +348,7 @@ describe( 'Snapshots Module', () => {
 						path: mockSiteFolder,
 						name: 'Test Site',
 						phpVersion: '8.0',
+						port: 8881,
 					},
 				],
 			};
@@ -423,7 +436,9 @@ describe( 'Snapshots Module', () => {
 						sequence: 1,
 					},
 				],
-				sites: [ { id: 'site1', path: mockSiteFolder, name: 'Test Site', phpVersion: '8.0' } ],
+				sites: [
+					{ id: 'site1', path: mockSiteFolder, name: 'Test Site', phpVersion: '8.0', port: 8881 },
+				],
 			};
 
 			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );

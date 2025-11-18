@@ -474,6 +474,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 				className={ className }
 				onClick={ openModal }
 				disabled={ isAnySiteProcessing }
+				data-testid="add-site-button"
 			>
 				{ __( 'Add site' ) }
 			</Button>

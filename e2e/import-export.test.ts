@@ -4,6 +4,11 @@ import { E2ESession } from './e2e-helpers';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
 import WhatsNewModal from './page-objects/whats-new-modal';
+import type { MessageBoxOptions } from 'electron';
+
+const global = globalThis as unknown as {
+	testDialogCalls?: MessageBoxOptions[];
+};
 
 test.describe( 'Import / Export', () => {
 	const session = new E2ESession();
@@ -54,13 +59,13 @@ test.describe( 'Import / Export', () => {
 		// See: https://github.com/microsoft/playwright/issues/21432
 		await session.electronApp.evaluate( ( { dialog } ) => {
 			// Create storage for dialog calls
-			( global as any ).testDialogCalls = [];
+			global.testDialogCalls = [];
 
 			// Mock the function to track calls
-			dialog.showMessageBox = async ( ...args: any[] ) => {
+			dialog.showMessageBox = async ( ...args: unknown[] ) => {
 				// Store the call details
-				const options = args.length === 2 ? args[ 1 ] : args[ 0 ];
-				( global as any ).testDialogCalls.push( options );
+				const options = ( args.length === 2 ? args[ 1 ] : args[ 0 ] ) as MessageBoxOptions;
+				global.testDialogCalls?.push( options );
 
 				// Auto-confirm by clicking the first button
 				return { response: 0, checkboxChecked: false };
@@ -74,30 +79,31 @@ test.describe( 'Import / Export', () => {
 		await importExportTab.uploadFile( invalidSqlPath );
 
 		// Wait for the error dialog to be shown (after the confirmation dialog)
-		let dialogCalls: any[] = [];
-		let errorDialog: any;
-		await expect.poll(
-			async () => {
-				dialogCalls = await session.electronApp.evaluate( () => {
-					return ( global as any ).testDialogCalls || [];
-				} );
-				// Look for the error dialog specifically
-				errorDialog = dialogCalls.find(
-					( call: any ) =>
-						call.type === 'error' &&
-						( call.title?.includes( 'Failed importing site' ) ||
-							call.message?.includes( 'Failed importing site' ) )
-				);
-				return errorDialog;
-			},
-			{
-				timeout: 15000,
-				message: 'Expected error dialog to be shown',
-			}
-		).toBeDefined();
+		let errorDialog: MessageBoxOptions | undefined;
+		await expect
+			.poll(
+				async () => {
+					const dialogCalls: MessageBoxOptions[] = await session.electronApp.evaluate(
+						() => global.testDialogCalls || []
+					);
+					// Look for the error dialog specifically
+					errorDialog = dialogCalls.find(
+						( call ) =>
+							call.type === 'error' &&
+							( call.title?.includes( 'Failed importing site' ) ||
+								call.message?.includes( 'Failed importing site' ) )
+					);
+					return errorDialog;
+				},
+				{
+					timeout: 15000,
+					message: 'Expected error dialog to be shown',
+				}
+			)
+			.toBeDefined();
 
 		expect( errorDialog ).toBeDefined();
-		expect( errorDialog.type ).toBe( 'error' );
-		expect( errorDialog.title || errorDialog.message ).toContain( 'Failed importing site' );
+		expect( errorDialog?.type ).toBe( 'error' );
+		expect( errorDialog?.title || errorDialog?.message ).toContain( 'Failed importing site' );
 	} );
 } );

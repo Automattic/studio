@@ -3,10 +3,8 @@ import path from 'path';
 import unzipper from 'unzipper';
 import fs from 'fs-extra';
 import { getLatestSQLiteCommandRelease } from '../src/lib/sqlite-command-release';
+import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../src/constants';
 
-// Constants
-const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.2.14';
-const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordPress/sqlite-database-integration/archive/refs/tags/${ SQLITE_DATABASE_INTEGRATION_VERSION }.zip`;
 const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
 
 type MaybePromise< T > = T | Promise< T >;

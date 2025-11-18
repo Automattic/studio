@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 /**
  * @jest-environment node
  */

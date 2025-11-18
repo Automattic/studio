@@ -2,42 +2,22 @@ import os from 'os';
 import path from 'path';
 import unzipper from 'unzipper';
 import fs from 'fs-extra';
+import { getLatestSQLiteCommandRelease } from '../src/lib/sqlite-command-release';
 
 // Constants
 const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.2.14';
 const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordPress/sqlite-database-integration/archive/refs/tags/${ SQLITE_DATABASE_INTEGRATION_VERSION }.zip`;
-const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
+const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
 
-/**
- * Get the latest SQLite command release from GitHub
- */
-async function getLatestSQLiteCommandRelease() {
-	const url = 'https://api.github.com/repos/automattic/wp-cli-sqlite-command/releases/latest';
+type MaybePromise< T > = T | Promise< T >;
+type FileToDownload = {
+	name: string;
+	description: string;
+	getUrl: () => MaybePromise< string >;
+	destinationPath?: string;
+};
 
-	const headers = {
-		Accept: 'application/vnd.github.v3+json',
-		'User-Agent': 'wp-now-cli',
-	};
-
-	// GitHub API has rate limits:
-	// - 60 requests/hour for unauthenticated requests
-	// - 5,000 requests/hour with token authentication
-	// In CI environments, the IP-based rate limit is shared across runners,
-	// so we authenticate with GITHUB_TOKEN when available.
-	if ( process.env.GITHUB_TOKEN ) {
-		headers.Authorization = `token ${ process.env.GITHUB_TOKEN }`;
-	}
-
-	const response = await fetch( url, { headers } );
-
-	if ( ! response.ok ) {
-		throw new Error( `GitHub API request failed: ${ response.status } ${ response.statusText }` );
-	}
-
-	return await response.json();
-}
-
-const FILES_TO_DOWNLOAD = [
+const FILES_TO_DOWNLOAD: FileToDownload[] = [
 	{
 		name: 'wordpress',
 		description: 'latest WordPress version',
@@ -66,15 +46,16 @@ const FILES_TO_DOWNLOAD = [
 	},
 ];
 
-async function downloadFile( file ) {
+async function downloadFile( file: FileToDownload ): Promise< void > {
 	console.log( `[${ file.name }] Downloading ${ file.description } ...` );
 	const zipPath = path.join( os.tmpdir(), `${ file.name }.zip` );
 	const extractedPath = file.destinationPath ?? WP_SERVER_FILES_PATH;
 
 	try {
 		fs.ensureDirSync( extractedPath );
-	} catch ( err ) {
-		if ( err.code !== 'EEXIST' ) throw err;
+	} catch ( error ) {
+		const fsError = error as { code: string };
+		if ( fsError.code !== 'EEXIST' ) throw error;
 	}
 
 	const url = await file.getUrl();
@@ -124,11 +105,15 @@ async function downloadFile( file ) {
 	console.log( `[${ file.name }] Files extracted` );
 }
 
-for ( const file of FILES_TO_DOWNLOAD ) {
-	try {
-		await downloadFile( file );
-	} catch ( err ) {
-		console.error( err );
-		process.exit( 1 );
+async function main() {
+	for ( const file of FILES_TO_DOWNLOAD ) {
+		try {
+			await downloadFile( file );
+		} catch ( err ) {
+			console.error( err );
+			process.exit( 1 );
+		}
 	}
 }
+
+main();

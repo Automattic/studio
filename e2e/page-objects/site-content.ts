@@ -24,7 +24,10 @@ export default class SiteContent {
 	}
 
 	get runningButton() {
-		return this.locator.getByRole( 'button', { name: 'Running' } );
+		// Try new data-testid first, fall back to role-based selector for trunk compatibility
+		return this.locator
+			.getByTestId( 'site-status-running' )
+			.or( this.locator.getByRole( 'button', { name: 'Running' } ) );
 	}
 
 	get frontendButton() {

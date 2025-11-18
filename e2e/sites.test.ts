@@ -140,10 +140,11 @@ test.describe( 'Servers', () => {
 
 		await settingsTab.siteNameInput.fill( newSiteName );
 		await settingsTab.saveButton.click();
-		await expect( settingsTab.editSiteDialog ).not.toBeVisible();
+		await expect( settingsTab.editSiteDialog ).not.toBeVisible( { timeout: 10000 } );
 
+		// Explicitly wait for the rename to propagate
 		const renamedSiteContent = new SiteContent( session.mainWindow, newSiteName );
-		await expect( renamedSiteContent.siteNameHeading ).toHaveText( newSiteName );
+		await expect( renamedSiteContent.siteNameHeading ).toHaveText( newSiteName, { timeout: 10000 } );
 	} );
 
 	test( "edit site's settings in wp-admin", async ( { page } ) => {

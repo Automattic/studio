@@ -1,5 +1,12 @@
 import { type Page, expect } from '@playwright/test';
 import SettingsTab from './settings-tab';
+import ImportExportTab from './import-export-tab';
+
+type TabMap = {
+	'Preview': SettingsTab;
+	'Settings': SettingsTab;
+	'Import / Export': ImportExportTab;
+};
 
 export default class SiteContent {
 	constructor(
@@ -32,11 +39,13 @@ export default class SiteContent {
 		return this.locator.getByLabel( 'Copy site url', { exact: false } );
 	}
 
-	getTabButton( tabName: 'Preview' | 'Settings' ) {
+	getTabButton( tabName: 'Preview' | 'Settings' | 'Import / Export' ) {
 		return this.locator.getByRole( 'tab', { name: tabName } );
 	}
 
-	async navigateToTab( tabName: 'Preview' | 'Settings' ) {
+	async navigateToTab( tabName: 'Settings' ): Promise< SettingsTab >;
+	async navigateToTab( tabName: 'Import / Export' ): Promise< ImportExportTab >;
+	async navigateToTab( tabName: 'Preview' | 'Settings' | 'Import / Export' ): Promise< SettingsTab | ImportExportTab > {
 		const tabButton = this.getTabButton( tabName );
 		await tabButton.click();
 
@@ -45,6 +54,11 @@ export default class SiteContent {
 				throw new Error( 'Not implemented' );
 			case 'Settings': {
 				const tab = new SettingsTab( this.page, this.siteName );
+				await expect( tab.locator ).toBeVisible();
+				return tab;
+			}
+			case 'Import / Export': {
+				const tab = new ImportExportTab( this.page );
 				await expect( tab.locator ).toBeVisible();
 				return tab;
 			}

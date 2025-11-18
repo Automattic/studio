@@ -824,12 +824,11 @@ export async function pushArchive(
 	];
 
 	if ( specificSelectionPaths && specificSelectionPaths.length > 0 ) {
-		const options = optionsToSync ? [ ...optionsToSync, 'paths' ] : [ 'paths' ];
-		formData.push( [ 'options', options.join( ',' ) ] );
-
 		const joinedPaths = specificSelectionPaths.join( ',' );
 		formData.push( [ 'list_sync_items', joinedPaths ] );
-	} else if ( optionsToSync ) {
+	}
+
+	if ( optionsToSync ) {
 		formData.push( [ 'options', optionsToSync.join( ',' ) ] );
 	}
 

@@ -1,4 +1,5 @@
 import { createAsyncThunk, createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit';
+import fastDeepEqual from 'fast-deep-equal';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
@@ -147,9 +148,17 @@ export const connectedSitesSelectors = {
 };
 
 window.ipcListener.subscribe( 'user-data-updated', async ( _, userData ) => {
+	const state = store.getState();
 	const currentUserId = userData.authToken?.id;
 
-	if ( currentUserId ) {
+	if ( ! currentUserId ) {
+		return;
+	}
+
+	const connectedSitesFromUserData = userData.connectedWpcomSites?.[ currentUserId ] || [];
+	const connectedSitesFromState = Object.values( state.connectedSites.sites ).flat();
+
+	if ( ! fastDeepEqual( connectedSitesFromUserData, connectedSitesFromState ) ) {
 		void store.dispatch( loadAllConnectedSites() );
 	}
 } );

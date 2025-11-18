@@ -6,6 +6,10 @@ import SiteContent from './page-objects/site-content';
 import WhatsNewModal from './page-objects/whats-new-modal';
 import type { MessageBoxOptions } from 'electron';
 
+const global = globalThis as unknown as {
+	testDialogCalls?: MessageBoxOptions[];
+};
+
 test.describe( 'Import / Export', () => {
 	const session = new E2ESession();
 	const defaultSiteName = 'My WordPress Website';
@@ -55,15 +59,13 @@ test.describe( 'Import / Export', () => {
 		// See: https://github.com/microsoft/playwright/issues/21432
 		await session.electronApp.evaluate( ( { dialog } ) => {
 			// Create storage for dialog calls
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			( global as any ).testDialogCalls = [];
+			global.testDialogCalls = [];
 
 			// Mock the function to track calls
-			dialog.showMessageBox = async ( ...args: any[] ) => {
+			dialog.showMessageBox = async ( ...args: unknown[] ) => {
 				// Store the call details
-				const options = args.length === 2 ? args[ 1 ] : args[ 0 ];
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				( global as any ).testDialogCalls.push( options );
+				const options = ( args.length === 2 ? args[ 1 ] : args[ 0 ] ) as MessageBoxOptions;
+				global.testDialogCalls?.push( options );
 
 				// Auto-confirm by clicking the first button
 				return { response: 0, checkboxChecked: false };
@@ -77,15 +79,13 @@ test.describe( 'Import / Export', () => {
 		await importExportTab.uploadFile( invalidSqlPath );
 
 		// Wait for the error dialog to be shown (after the confirmation dialog)
-		let dialogCalls: MessageBoxOptions[] = [];
 		let errorDialog: MessageBoxOptions | undefined;
 		await expect
 			.poll(
 				async () => {
-					dialogCalls = await session.electronApp.evaluate( () => {
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						return ( global as any ).testDialogCalls || [];
-					} );
+					const dialogCalls: MessageBoxOptions[] = await session.electronApp.evaluate(
+						() => global.testDialogCalls || []
+					);
 					// Look for the error dialog specifically
 					errorDialog = dialogCalls.find(
 						( call ) =>

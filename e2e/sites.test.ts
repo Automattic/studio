@@ -130,7 +130,7 @@ test.describe( 'Servers', () => {
 
 	test( 'renames a site', async () => {
 		const { siteName } = await completeOnboardingWithParams();
-		
+
 		const newSiteName = 'E2E-Test-Site-Renamed';
 		const siteContent = new SiteContent( session.mainWindow, siteName );
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
@@ -144,12 +144,14 @@ test.describe( 'Servers', () => {
 
 		// Explicitly wait for the rename to propagate
 		const renamedSiteContent = new SiteContent( session.mainWindow, newSiteName );
-		await expect( renamedSiteContent.siteNameHeading ).toHaveText( newSiteName, { timeout: 10000 } );
+		await expect( renamedSiteContent.siteNameHeading ).toHaveText( newSiteName, {
+			timeout: 10000,
+		} );
 	} );
 
 	test( "edit site's settings in wp-admin", async ( { page } ) => {
 		const { siteName } = await completeOnboardingWithParams();
-		
+
 		const siteContent = new SiteContent( session.mainWindow, siteName );
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 

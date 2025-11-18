@@ -28,7 +28,7 @@ export default class Onboarding {
 		return this.locator.getByRole( 'button', { name: /Continue|Add site/ } );
 	}
 
-	async selectLocalPathForTesting() {
-		await this.siteForm.clickLocalPathButtonAndSelectFromEnv();
+	async selectLocalPathForTesting( partialExpectedPath: string ) {
+		await this.siteForm.clickLocalPathButtonAndSelectFromEnv( partialExpectedPath );
 	}
 }

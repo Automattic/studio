@@ -328,6 +328,7 @@ export const SiteForm = ( {
 								onSubmit( event as FormEvent );
 							}
 						} }
+						data-testid="site-name-input"
 					></TextControlComponent>
 				</label>
 

@@ -51,6 +51,30 @@ export class E2ESession {
 		this.mainWindow = await this.electronApp.firstWindow( { timeout: 60_000 } );
 	}
 
+	// Close the app but keep the data for persistence testing
+	async restart() {
+		await this.electronApp?.close();
+		const latestBuild = findLatestBuild();
+		const appInfo = parseElectronApp( latestBuild );
+		let executablePath = appInfo.executable;
+		if ( appInfo.platform === 'win32' ) {
+			executablePath = executablePath.replace( 'Squirrel.exe', 'Studio.exe' );
+		}
+
+		this.electronApp = await electron.launch( {
+			args: [ appInfo.main ],
+			executablePath,
+			env: {
+				...process.env,
+				E2E: 'true',
+				E2E_APP_DATA_PATH: this.appDataPath,
+				E2E_HOME_PATH: this.homePath,
+			},
+			timeout: 60_000,
+		} );
+		this.mainWindow = await this.electronApp.firstWindow( { timeout: 60_000 } );
+	}
+
 	async cleanup() {
 		await this.electronApp?.close();
 		// Clean up temporary folder to hold application data

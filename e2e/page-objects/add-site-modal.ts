@@ -10,7 +10,7 @@ export default class AddSiteModal {
 	}
 
 	get createSiteButton() {
-		return this.page.locator( 'button:has-text("Create a site")' ).first();
+		return this.page.getByTestId( 'create-site-option-button' );
 	}
 
 	get blueprintButton() {
@@ -22,7 +22,7 @@ export default class AddSiteModal {
 	}
 
 	get continueButton() {
-		return this.locator.getByRole( 'button', { name: 'Continue' } );
+		return this.page.getByTestId( 'stepper-action-button' );
 	}
 
 	get fileInput() {
@@ -47,7 +47,7 @@ export default class AddSiteModal {
 	}
 
 	get addSiteButton() {
-		return this.locator.getByRole( 'button', { name: 'Add site' } );
+		return this.page.getByTestId( 'stepper-action-button' );
 	}
 
 	async selectLocalPathForTesting() {

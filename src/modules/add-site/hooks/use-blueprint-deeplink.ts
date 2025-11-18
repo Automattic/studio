@@ -4,6 +4,11 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Blueprint } from 'src/stores/wpcom-api';
 
+type BlueprintMetadata = {
+	title?: string;
+	description?: string;
+};
+
 interface UseBlueprintDeeplinkOptions {
 	showModal: boolean;
 	isAnySiteProcessing: boolean;
@@ -45,7 +50,46 @@ export function useBlueprintDeeplink(
 		setBlueprintError( null );
 	}, [] );
 
-	const handleAddSiteBlueprint = useCallback(
+	const createBlueprintFromData = useCallback(
+		(
+			blueprintData: { meta?: BlueprintMetadata; [ key: string ]: unknown },
+			slug: string,
+			defaultTitle: string,
+			defaultExcerpt: string
+		): Blueprint => {
+			const blueprintMeta = blueprintData.meta as BlueprintMetadata | undefined;
+			return {
+				slug,
+				title: blueprintMeta?.title || defaultTitle,
+				excerpt: blueprintMeta?.description || defaultExcerpt,
+				image: '',
+				playground_url: '',
+				blueprint: blueprintData,
+			};
+		},
+		[]
+	);
+
+	const applyPreferredVersions = useCallback(
+		( blueprintData: { preferredVersions?: { php?: string; wp?: string } } ) => {
+			if ( blueprintData.preferredVersions ) {
+				const preferredVersions = blueprintData.preferredVersions as {
+					php?: string;
+					wp?: string;
+				};
+				setBlueprintPreferredVersions( preferredVersions );
+				if ( preferredVersions.php && preferredVersions.php !== 'latest' ) {
+					setPhpVersion( preferredVersions.php );
+				}
+				if ( preferredVersions.wp && preferredVersions.wp !== 'latest' ) {
+					setWpVersion( preferredVersions.wp );
+				}
+			}
+		},
+		[ setBlueprintPreferredVersions, setPhpVersion, setWpVersion ]
+	);
+
+	const handleBlueprintFromUrl = useCallback(
 		async ( _event: unknown, { blueprintPath }: { blueprintPath: string } ) => {
 			if ( isAnySiteProcessing ) {
 				return;
@@ -56,7 +100,40 @@ export function useBlueprintDeeplink(
 		},
 		[ isAnySiteProcessing, openModal ]
 	);
-	useIpcListener( 'add-site-blueprint', handleAddSiteBlueprint );
+	useIpcListener( 'add-site-blueprint-from-url', handleBlueprintFromUrl );
+
+	const handleBlueprintFromBase64 = useCallback(
+		( _event: unknown, { blueprintJson }: { blueprintJson: string } ) => {
+			if ( isAnySiteProcessing ) {
+				return;
+			}
+			try {
+				const blueprintData = JSON.parse( blueprintJson );
+				const blueprint = createBlueprintFromData(
+					blueprintData,
+					`deeplink-${ Date.now() }`,
+					__( 'Custom Blueprint' ),
+					__( 'Blueprint from base64' )
+				);
+
+				setSelectedBlueprint( blueprint );
+				applyPreferredVersions( blueprintData );
+				setInitialNavigatorPath( '/blueprint/create' );
+				openModal();
+			} catch ( error ) {
+				console.error( 'Failed to parse blueprint from IPC event:', error );
+			}
+		},
+		[
+			isAnySiteProcessing,
+			__,
+			createBlueprintFromData,
+			setSelectedBlueprint,
+			applyPreferredVersions,
+			openModal,
+		]
+	);
+	useIpcListener( 'add-site-blueprint-from-base64', handleBlueprintFromBase64 );
 
 	// Load and set blueprint when modal opens with a pending blueprint
 	useEffect( () => {
@@ -72,37 +149,16 @@ export function useBlueprintDeeplink(
 						throw new Error( errorMessage );
 					}
 
-					// Create a file blueprint object similar to handleFileSelect
 					const fileName = pendingBlueprintPath.split( /[/\\]/ ).pop() || 'blueprint.json';
-					const blueprintMeta = blueprintJson.meta as
-						| { title?: string; description?: string }
-						| undefined;
-					const fileBlueprint: Blueprint = {
-						slug: `file:${ fileName }`,
-						title: blueprintMeta?.title || fileName.replace( '.json', '' ),
-						excerpt: blueprintMeta?.description || __( 'Blueprint loaded from URL' ),
-						image: '',
-						playground_url: '',
-						blueprint: blueprintJson,
-					};
+					const fileBlueprint = createBlueprintFromData(
+						blueprintJson,
+						`file:${ fileName }`,
+						fileName.replace( '.json', '' ),
+						__( 'Blueprint loaded from URL' )
+					);
 
 					setSelectedBlueprint( fileBlueprint );
-
-					// Apply preferred versions if any
-					if ( blueprintJson.preferredVersions ) {
-						const preferredVersions = blueprintJson.preferredVersions as {
-							php?: string;
-							wp?: string;
-						};
-						setBlueprintPreferredVersions( preferredVersions );
-						if ( preferredVersions.php && preferredVersions.php !== 'latest' ) {
-							setPhpVersion( preferredVersions.php );
-						}
-						if ( preferredVersions.wp && preferredVersions.wp !== 'latest' ) {
-							setWpVersion( preferredVersions.wp );
-						}
-					}
-
+					applyPreferredVersions( blueprintJson );
 					setPendingBlueprintPath( null );
 				} catch ( error ) {
 					const errorMessage =
@@ -119,10 +175,9 @@ export function useBlueprintDeeplink(
 	}, [
 		showModal,
 		pendingBlueprintPath,
+		createBlueprintFromData,
 		setSelectedBlueprint,
-		setPhpVersion,
-		setWpVersion,
-		setBlueprintPreferredVersions,
+		applyPreferredVersions,
 		setBlueprintError,
 		__,
 	] );

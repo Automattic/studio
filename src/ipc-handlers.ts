@@ -802,7 +802,8 @@ export async function pushArchive(
 	event: IpcMainInvokeEvent,
 	remoteSiteId: number,
 	archivePath: string,
-	optionsToSync?: string[]
+	optionsToSync?: string[],
+	specificSelectionPaths?: string[]
 ): Promise< { success: boolean; error?: string } > {
 	const token = await getAuthenticationToken();
 
@@ -821,6 +822,11 @@ export async function pushArchive(
 			},
 		],
 	];
+
+	if ( specificSelectionPaths && specificSelectionPaths.length > 0 ) {
+		const joinedPaths = specificSelectionPaths.join( ',' );
+		formData.push( [ 'list_sync_items', joinedPaths ] );
+	}
 
 	if ( optionsToSync ) {
 		formData.push( [ 'options', optionsToSync.join( ',' ) ] );

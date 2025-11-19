@@ -1,6 +1,5 @@
 // To run tests, execute `npm run test -- src/modules/sync/tests/index.test.tsx` from the root directory
 import { render, screen, fireEvent } from '@testing-library/react';
-import escapeRegExp from 'lodash/escapeRegExp';
 import { Provider } from 'react-redux';
 import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
 import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
@@ -91,7 +90,7 @@ const inProgressPushState: SyncPushState = {
 const fakeSyncSite = {
 	id: 6,
 	name: 'My simple business site that needs a transfer',
-	url: 'https:/developer.wordpress.com/studio/',
+	url: 'https://developer.wordpress.com/studio/',
 	syncSupport: 'already-connected',
 };
 
@@ -304,7 +303,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			isStaging: false,
 			syncSupport: 'already-connected',
 		};
@@ -338,7 +337,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			isStaging: false,
 			syncSupport: 'already-connected',
 		};
@@ -361,8 +360,9 @@ describe( 'ContentTabSync', () => {
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
+		const readableUrl = fakeSyncSite.url.replace( 'https://', '' );
 		const urlButton = screen.getByRole( 'button', {
-			name: new RegExp( escapeRegExp( fakeSyncSite.url ), 'i' ),
+			name: ( content ) => content.includes( readableUrl ),
 		} );
 		expect( urlButton ).toBeInTheDocument();
 
@@ -481,7 +481,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite: SyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 			isStaging: false,
 			localSiteId: 'site-id',
@@ -516,7 +516,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 			isPressable: true,
 			environmentType: 'development',
@@ -555,7 +555,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 			isPressable: true,
 			environmentType: 'non-supported-environment-example-or-sandbox',
@@ -593,7 +593,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 		};
 		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
@@ -638,7 +638,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 		};
 		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
@@ -746,7 +746,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 		};
 		( useConnectedSitesData as jest.Mock ).mockReturnValue( {

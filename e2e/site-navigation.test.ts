@@ -171,4 +171,29 @@ test.describe( 'Site Navigation', () => {
 		await expect( mediaItems.first() ).toBeVisible();
 	} );
 
+	test( 'activates themes', async ( { page } ) => {
+		// Navigate to themes page
+		const themesUrl = `${ wpAdminUrl }/themes.php`;
+		await page.goto( getUrlWithAutoLogin( themesUrl ) );
+
+		// Find a non-active theme
+		const inactiveTheme = page.locator( '.theme:not(.active)' ).first();
+		await expect( inactiveTheme ).toBeVisible();
+
+		// Get the theme slug before activating
+		const themeSlug = await inactiveTheme.getAttribute( 'data-slug' );
+		expect( themeSlug ).toBeTruthy();
+
+		// Hover and click activate
+		await inactiveTheme.click();
+		const activateButton = page.locator( '.inactive-theme > .button.activate' ).first();
+		await activateButton.click();
+
+		// Wait for page reload
+		await page.waitForLoadState( 'networkidle' );
+
+		// Verify the theme is now active
+		const activeTheme = page.locator( `.theme.active[data-slug="${ themeSlug }"]` );
+		await expect( activeTheme ).toBeVisible();
+	} );
 } );

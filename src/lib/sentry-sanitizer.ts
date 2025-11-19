@@ -123,7 +123,7 @@ export function sanitizeRunCLIArgs( args: RunCLIArgs ): Record< string, unknown 
 		port: args.port,
 		debug: args.debug,
 		verbosity: args.verbosity,
-		skipWordPressSetup: args.skipWordPressSetup,
+		wordpressInstallMode: args.wordpressInstallMode,
 		skipSqliteSetup: args.skipSqliteSetup,
 		followSymlinks: args.followSymlinks,
 		internalCookieStore: args.internalCookieStore,

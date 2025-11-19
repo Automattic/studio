@@ -26,19 +26,28 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private archiveBuilder!: archiver.Archiver;
 	private backup: BackupContents;
 	private readonly options: ExportOptions;
-	private readonly pathsToExclude = [
-		'wp-content/mu-plugins/sqlite-database-integration',
-		'wp-content/mu-plugins/0-allowed-redirect-hosts.php',
-		'wp-content/mu-plugins/0-check-theme-availability.php',
-		'wp-content/mu-plugins/0-deactivate-jetpack-modules.php',
-		'wp-content/mu-plugins/0-dns-functions.php',
-		'wp-content/mu-plugins/0-permalinks.php',
-		'wp-content/mu-plugins/0-wp-config-constants-polyfill.php',
-		'wp-content/mu-plugins/0-sqlite.php',
-		'wp-content/mu-plugins/0-thumbnails.php',
-		'wp-content/mu-plugins/0-https-for-reverse-proxy.php',
-		'wp-content/mu-plugins/0-sqlite-command.php',
-	];
+
+	private isExcludedPath( pathToCheck: string ) {
+		const pathsToExclude = [
+			'wp-content/mu-plugins/sqlite-database-integration',
+			'wp-content/database',
+			'wp-content/db.php',
+			'wp-content/debug.log',
+			'wp-content/mu-plugins/0-allowed-redirect-hosts.php',
+			'wp-content/mu-plugins/0-check-theme-availability.php',
+			'wp-content/mu-plugins/0-deactivate-jetpack-modules.php',
+			'wp-content/mu-plugins/0-dns-functions.php',
+			'wp-content/mu-plugins/0-permalinks.php',
+			'wp-content/mu-plugins/0-wp-config-constants-polyfill.php',
+			'wp-content/mu-plugins/0-sqlite.php',
+			'wp-content/mu-plugins/0-thumbnails.php',
+			'wp-content/mu-plugins/0-https-for-reverse-proxy.php',
+			'wp-content/mu-plugins/0-sqlite-command.php',
+		];
+		return pathsToExclude.some( ( pathToExclude ) =>
+			pathToCheck.startsWith( path.normalize( pathToExclude ) )
+		);
+	}
 
 	constructor( options: ExportOptions ) {
 		super();
@@ -177,11 +186,8 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				if ( stat.isDirectory() ) {
 					this.archiveBuilder.directory( fullPath, archivePath, ( entry ) => {
 						const fullArchivePath = path.join( archivePath, entry.name );
-						const isExcluded = this.pathsToExclude.some( ( pathToExclude ) =>
-							fullArchivePath.startsWith( path.normalize( pathToExclude ) )
-						);
 						if (
-							isExcluded ||
+							this.isExcludedPath( fullArchivePath ) ||
 							entry.name.includes( '.git' ) ||
 							entry.name.includes( 'node_modules' ) ||
 							entry.name.includes( 'cache' )
@@ -191,6 +197,9 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 						return entry;
 					} );
 				} else {
+					if ( this.isExcludedPath( archivePath ) ) {
+						continue;
+					}
 					this.archiveBuilder.file( fullPath, { name: archivePath } );
 				}
 			}

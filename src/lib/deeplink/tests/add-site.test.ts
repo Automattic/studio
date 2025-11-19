@@ -13,6 +13,9 @@ jest.mock( 'fs-extra' );
 jest.mock( 'src/ipc-utils' );
 jest.mock( 'src/lib/download' );
 jest.mock( 'src/main-window' );
+jest.mock( 'src/lib/blueprint-features', () => ( {
+	validateBlueprintData: jest.fn(),
+} ) );
 
 // Silence console.error output
 beforeAll( () => {
@@ -46,7 +49,10 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		const encodedUrl = encodeURIComponent( blueprintUrl );
 		const url = new URL( `wpcom-local-dev://add-site?blueprint_url=${ encodedUrl }` );
 
+		const { validateBlueprintData } = await import( 'src/lib/blueprint-features' );
 		jest.mocked( download ).mockResolvedValue( undefined );
+		( fs.readJson as unknown as jest.Mock ).mockResolvedValue( { steps: [] } );
+		jest.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
 
 		await handleAddSiteWithBlueprint( url );
 
@@ -110,8 +116,11 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		const encodedUrl = encodeURIComponent( blueprintUrl );
 		const url = new URL( `wpcom-local-dev://add-site?blueprint_url=${ encodedUrl }` );
 
+		const { validateBlueprintData } = await import( 'src/lib/blueprint-features' );
 		( mockMainWindow.isMinimized as jest.Mock ).mockReturnValue( true );
 		jest.mocked( download ).mockResolvedValue( undefined );
+		( fs.readJson as unknown as jest.Mock ).mockResolvedValue( { steps: [] } );
+		jest.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
 
 		await handleAddSiteWithBlueprint( url );
 
@@ -131,6 +140,33 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		await expect( handleAddSiteWithBlueprint( url ) ).resolves.not.toThrow();
 
 		expect( dialog.showMessageBox ).toHaveBeenCalled();
+	} );
+
+	it( 'should handle invalid blueprint and show error dialog', async () => {
+		const blueprintUrl = 'https://example.com/blueprint.json';
+		const encodedUrl = encodeURIComponent( blueprintUrl );
+		const url = new URL( `wpcom-local-dev://add-site?blueprint_url=${ encodedUrl }` );
+
+		const { validateBlueprintData } = await import( 'src/lib/blueprint-features' );
+		jest.mocked( download ).mockResolvedValue( undefined );
+		( fs.readJson as unknown as jest.Mock ).mockResolvedValue( { invalid: 'data' } );
+		jest.mocked( validateBlueprintData ).mockResolvedValue( {
+			valid: false,
+			error: 'Invalid blueprint format',
+		} );
+		( fs.remove as unknown as jest.Mock ).mockResolvedValue( undefined );
+
+		await handleAddSiteWithBlueprint( url );
+
+		expect( download ).toHaveBeenCalled();
+		expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
+		expect( fs.remove ).toHaveBeenCalledWith( expect.stringContaining( 'blueprint-' ) );
+		expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
+			type: 'error',
+			message: expect.any( String ),
+			detail: 'Invalid blueprint format',
+			buttons: expect.any( Array ),
+		} );
 	} );
 
 	describe( 'base64 blueprint handling', () => {

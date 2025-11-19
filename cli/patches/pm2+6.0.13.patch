@@ -1,5 +1,5 @@
 diff --git a/node_modules/pm2/types/index.d.ts b/node_modules/pm2/types/index.d.ts
-index ab61446..266e6a8 100644
+index 77280f5..a9ef7e7 100644
 --- a/node_modules/pm2/types/index.d.ts
 +++ b/node_modules/pm2/types/index.d.ts
 @@ -26,21 +26,21 @@ export function connect(noDaemonMode:boolean, errback: ErrCallback): void;
@@ -45,7 +45,7 @@ index ab61446..266e6a8 100644
  
  /**
   * Disconnects from the pm2 daemon.
-@@ -462,8 +462,9 @@ type ProcessStatus = 'online' | 'stopping' | 'stopped' | 'launching' | 'errored'
+@@ -715,8 +715,9 @@ type ProcessStatus = 'online' | 'stopping' | 'stopped' | 'launching' | 'errored'
  type Platform = 'ubuntu' | 'centos' | 'redhat' | 'gentoo' | 'systemd' | 'darwin' | 'amazon';
  
  type ErrCallback = (err: Error) => void;
@@ -55,7 +55,7 @@ index ab61446..266e6a8 100644
 -type ErrResultCallback = (err: Error, result: any) => void;
 -type ErrBusCallback = (err: Error, bus: any) => void;
 +type ErrProcCallback = (err: Error | null, proc: Proc) => void;
-+type ErrProcsCallback = (err: Error | null | null, procs: Proc[]) => void;
++type ErrProcsCallback = (err: Error | null, procs: Proc[]) => void;
 +type ErrProcDescCallback = (err: Error | null, processDescription: ProcessDescription) => void;
 +type ErrProcDescsCallback = (err: Error | null, processDescriptionList: ProcessDescription[]) => void;
 +type ErrResultCallback = (err: Error | null, result: any) => void;

@@ -1,6 +1,13 @@
 import { __ } from '@wordpress/i18n';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { readAppdata } from 'cli/lib/appdata';
+import {
+	readAppdata,
+	lockAppdata,
+	unlockAppdata,
+	updateSiteRunningState,
+	getSiteUrl,
+} from 'cli/lib/appdata';
+import { openBrowser } from 'cli/lib/browser';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import { addDomainToHosts } from 'cli/lib/hosts-file';
 import {
@@ -9,6 +16,7 @@ import {
 	startProxyProcess,
 	disconnect,
 } from 'cli/lib/pm2-manager';
+import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -39,6 +47,25 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 		await startDaemon();
 		logger.reportSuccess( __( 'PM2 daemon started' ) );
 
+		const alreadyRunning = await isServerRunning( site.id );
+		if ( alreadyRunning ) {
+			const siteUrl = getSiteUrl( site );
+
+			logger.reportSuccess( __( 'WordPress site is already running' ) );
+
+			try {
+				const wpAdminUrl = `${ siteUrl }/wp-admin/`;
+				const adminUrl = `${ siteUrl }/studio-auto-login?redirect_to=${ encodeURIComponent(
+					wpAdminUrl
+				) }`;
+				await openBrowser( adminUrl );
+			} catch ( error ) {
+				// Silently fail if browser can't be opened
+			}
+
+			return;
+		}
+
 		if ( site.customDomain ) {
 			await startProxyIfNeeded( logger );
 
@@ -61,7 +88,34 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 		}
 
 		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress site...' ) );
-		logger.reportSuccess( __( 'WordPress site started (TODO: actual implementation)' ) );
+
+		try {
+			await startWordPressServer( site );
+
+			const siteUrl = getSiteUrl( site );
+
+			try {
+				await lockAppdata();
+				await updateSiteRunningState( site.id, true, siteUrl );
+			} finally {
+				await unlockAppdata();
+			}
+
+			logger.reportSuccess( __( 'WordPress site started' ) );
+
+			// Open wp-admin with auto-login
+			try {
+				const wpAdminUrl = `${ siteUrl }/wp-admin/`;
+				const adminUrl = `${ siteUrl }/studio-auto-login?redirect_to=${ encodeURIComponent(
+					wpAdminUrl
+				) }`;
+				await openBrowser( adminUrl );
+			} catch ( error ) {
+				// Silently fail if browser can't be opened
+			}
+		} catch ( error ) {
+			throw new LoggerError( __( 'Failed to start WordPress server' ), error );
+		}
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );

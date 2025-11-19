@@ -23,6 +23,10 @@ const siteSchema = z
 		customDomain: z.string().optional(),
 		port: z.number(),
 		enableHttps: z.boolean().optional(),
+		adminPassword: z.string().optional(),
+		isWpAutoUpdating: z.boolean().optional(),
+		running: z.boolean().optional(),
+		url: z.string().optional(),
 	} )
 	.passthrough();
 
@@ -196,6 +200,35 @@ export function getNewSitePartial( siteFolder: string ): NewSiteData {
 	return newSite;
 }
 
+/**
+ * Update the running state of a site in appdata
+ * This should be called with proper locking (lockAppdata/unlockAppdata)
+ */
+export async function updateSiteRunningState(
+	siteId: string,
+	running: boolean,
+	url?: string
+): Promise< void > {
+	const userData = await readAppdata();
+
+	const siteIndex = userData.sites.findIndex( ( s ) => s.id === siteId );
+
+	if ( siteIndex === -1 ) {
+		throw new LoggerError( __( 'Site not found in Studio config' ) );
+	}
+
+	const site = userData.sites[ siteIndex ];
+
+	// Update the site with running state
+	userData.sites[ siteIndex ] = {
+		...site,
+		running,
+		...( running && url ? { url } : {} ),
+	} as SiteData;
+
+	await saveAppdata( userData );
+}
+
 const createNewSite = async ( siteFolder: string ): Promise< NewSiteData > => {
 	try {
 		await lockAppdata();
@@ -219,3 +252,22 @@ export const getOrCreateSiteByFolder = async ( siteFolder: string ): Promise< Ne
 		return createNewSite( siteFolder );
 	}
 };
+
+/**
+ * Get the site URL from site data
+ * Falls back to computing it if not stored in appdata
+ */
+export function getSiteUrl( site: SiteData ): string {
+	// If URL is already stored in appdata, use it
+	if ( site.url ) {
+		return site.url;
+	}
+
+	// Otherwise compute it
+	if ( site.customDomain ) {
+		const protocol = site.enableHttps ? 'https' : 'http';
+		return `${ protocol }://${ site.customDomain }`;
+	}
+
+	return `http://localhost:${ site.port }`;
+}

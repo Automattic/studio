@@ -53,6 +53,11 @@ const pm2 = resolvePm2();
 
 let isConnected = false;
 
+// Export pm2 instance for message passing
+export function getPm2Instance() {
+	return pm2;
+}
+
 export function disconnect(): void {
 	if ( isConnected ) {
 		pm2.disconnect();
@@ -66,7 +71,16 @@ async function connect(): Promise< void > {
 	}
 
 	return new Promise( ( resolve, reject ) => {
+		const timeout = setTimeout( () => {
+			reject(
+				new Error(
+					'PM2 connection timeout after 10 seconds. Try running: PM2_HOME=~/.studio/pm2 pm2 update'
+				)
+			);
+		}, 10000 );
+
 		pm2.connect( ( error ) => {
+			clearTimeout( timeout );
 			if ( error ) {
 				reject( error );
 				return;
@@ -90,7 +104,15 @@ async function listProcesses(): Promise< ProcessDescription[] > {
 				reject( error );
 				return;
 			}
-			resolve( ( processes || [] ) as ProcessDescription[] );
+
+			// Map PM2's process structure to our ProcessDescription interface
+			const processDescriptions = ( processes || [] ).map( ( p ) => ( {
+				name: p.name || '',
+				pmId: p.pm_id || -1,
+				status: p.pm2_env?.status || 'unknown',
+			} ) );
+
+			resolve( processDescriptions );
 		} );
 	} );
 }
@@ -103,7 +125,12 @@ process.on( 'exit', cleanup );
 process.on( 'SIGINT', cleanup );
 process.on( 'SIGTERM', cleanup );
 
-function getProxyProcessEnv() {
+/**
+ * Start the proxy server via PM2
+ * This launches the proxy-daemon.js script which runs the proxy servers
+ */
+export async function startProxyProcess(): Promise< ProcessDescription > {
+	const proxyDaemonPath = path.resolve( __dirname, 'proxy-daemon.js' );
 	const env: Record< string, string > = {
 		STUDIO_USER_HOME: os.homedir(),
 		STUDIO_APPDATA_PATH: getAppdataPath(),
@@ -113,61 +140,134 @@ function getProxyProcessEnv() {
 		env.ELECTRON_RUN_AS_NODE = '1';
 	}
 
-	return env;
-}
-
-/**
- * Start the proxy server via PM2
- * This launches the proxy-daemon.js script which runs the proxy servers
- */
-export async function startProxyProcess(): Promise< ProcessDescription > {
-	const proxyDaemonPath = path.resolve( __dirname, 'proxy-daemon.js' );
-	return new Promise( ( resolve, reject ) => {
-		const processConfig: StartOptions = {
-			name: PROXY_PROCESS_NAME,
-			interpreter: process.execPath,
-			script: proxyDaemonPath,
-			exec_mode: 'fork',
-			autorestart: true,
-			max_restarts: 5,
-			env: getProxyProcessEnv(),
-		};
-
-		pm2.start( processConfig, ( error, apps ) => {
-			if ( error ) {
-				reject( error );
-				return;
-			}
-
-			if ( ! apps.length ) {
-				reject( new Error( 'Failed to start proxy process' ) );
-				return;
-			}
-
-			resolve( {
-				name: apps[ 0 ].name,
-				pmId: apps[ 0 ].pm_id,
-				status: apps[ 0 ].status,
-			} );
-		} );
-	} );
+	return startProcess( PROXY_PROCESS_NAME, proxyDaemonPath, env );
 }
 
 /**
  * Check if the proxy process is running
  */
 export async function isProxyProcessRunning(): Promise< boolean > {
+	return isProcessRunning( PROXY_PROCESS_NAME );
+}
+
+/**
+ * Check if a process is running by name
+ */
+export async function isProcessRunning( processName: string ): Promise< boolean > {
 	try {
 		if ( ! isConnected ) {
 			return false;
 		}
 
 		const processes = await listProcesses();
-		return processes.some(
-			( p ) => p.name === PROXY_PROCESS_NAME && p.status === PM2_STATUS_ONLINE
-		);
+		return processes.some( ( p ) => p.name === processName && p.status === PM2_STATUS_ONLINE );
 	} catch ( error ) {
-		console.error( 'Error checking if proxy is running:', error );
+		console.error( `Error checking if process ${ processName } is running:`, error );
 		return false;
 	}
+}
+
+/**
+ * Start a process via PM2
+ */
+export async function startProcess(
+	processName: string,
+	scriptPath: string,
+	env?: Record< string, string >
+): Promise< ProcessDescription > {
+	return new Promise( ( resolve, reject ) => {
+		const processConfig: StartOptions = {
+			name: processName,
+			interpreter: process.execPath,
+			script: scriptPath,
+			exec_mode: 'fork',
+			autorestart: true,
+			max_restarts: 5,
+			env: env || {},
+		};
+
+		pm2.start( processConfig, async ( error, apps ) => {
+			if ( error ) {
+				reject( error );
+				return;
+			}
+
+			if ( apps && apps.length > 0 ) {
+				const app = apps[ 0 ] as typeof apps[ 0 ] & { pm2_env?: { pm_id?: number; status?: string } };
+				const pm2Env = app.pm2_env;
+
+				// PM2 6.x: data in pm2_env, use processName for name
+				if ( pm2Env && pm2Env.pm_id !== undefined && pm2Env.status ) {
+					resolve( {
+						name: processName, // Use the process name we started with
+						pmId: pm2Env.pm_id,
+						status: pm2Env.status,
+					} );
+					return;
+				}
+
+				// PM2 5.x: data at top level
+				if ( app.name && app.pm_id !== undefined && app.status ) {
+					resolve( {
+						name: app.name,
+						pmId: app.pm_id,
+						status: app.status,
+					} );
+					return;
+				}
+			}
+
+			reject(
+				new Error( `Failed to start process ${ processName }: PM2 returned incomplete response` )
+			);
+		} );
+	} );
+}
+
+/**
+ * Stop a process by name
+ */
+export async function stopProcess( processName: string ): Promise< void > {
+	return new Promise( ( resolve, reject ) => {
+		pm2.delete( processName, ( error ) => {
+			if ( error ) {
+				if ( error.message.includes( 'process name not found' ) ) {
+					resolve();
+					return;
+				}
+				reject( error );
+				return;
+			}
+			resolve();
+		} );
+	} );
+}
+
+/**
+ * Get status of a process by name
+ */
+export async function getProcessStatus(
+	processName: string
+): Promise< ProcessDescription | null > {
+	return new Promise( ( resolve, reject ) => {
+		pm2.list( ( error, processes ) => {
+			if ( error ) {
+				reject( error );
+				return;
+			}
+
+			const process = ( processes || [] ).find( ( p ) => p.name === processName );
+
+			if ( ! process || ! process.name || ! process.pm_id || ! process.pm2_env?.status ) {
+				resolve( null );
+				return;
+			}
+
+			resolve( {
+				name: process.name,
+				pmId: process.pm_id,
+				status: process.pm2_env.status,
+			} );
+		} );
+	} );
 }

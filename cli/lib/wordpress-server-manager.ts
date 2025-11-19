@@ -1,0 +1,234 @@
+/**
+ * WordPress Server Manager for Studio CLI
+ *
+ * Manages WordPress server processes via PM2. Each site runs as its own
+ * PM2 daemon process using the Playground CLI provider.
+ *
+ * Pattern follows Studio's PlaygroundServerProcess class but uses PM2 instead of Electron's utilityProcess
+ */
+import path from 'path';
+import { Blueprint } from '@wp-playground/blueprints';
+import { SiteData } from 'cli/lib/appdata';
+import {
+	isProcessRunning,
+	startProcess,
+	stopProcess,
+	getProcessStatus,
+	getPm2Instance,
+} from 'cli/lib/pm2-manager';
+
+const pm2 = getPm2Instance();
+
+// PM2 bus for inter-process communication
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let pm2Bus: any = null;
+
+async function getPm2Bus() {
+	if ( pm2Bus ) {
+		return pm2Bus;
+	}
+
+	return new Promise( ( resolve, reject ) => {
+		pm2.launchBus( ( error, bus ) => {
+			if ( error ) {
+				reject( error );
+				return;
+			}
+			pm2Bus = bus;
+			resolve( bus );
+		} );
+	} );
+}
+
+interface ProcessDescription {
+	name: string;
+	pmId: number;
+	status: string;
+}
+
+interface ServerConfig {
+	siteId: string;
+	sitePath: string;
+	port: number;
+	phpVersion?: string;
+	wpVersion?: string;
+	absoluteUrl?: string;
+	adminPassword?: string;
+	siteTitle?: string;
+	siteLanguage?: string;
+	isWpAutoUpdating?: boolean;
+	blueprint?: Blueprint;
+}
+
+interface Message {
+	id?: number;
+	type: string;
+	data?: unknown;
+	result?: unknown;
+	error?: string;
+	errorStack?: string;
+}
+
+/**
+ * Generate PM2 process name for a site
+ */
+function getProcessName( siteId: string ): string {
+	return `studio-site-${ siteId }`;
+}
+
+/**
+ * Check if a WordPress server is running for a site
+ */
+export async function isServerRunning( siteId: string ): Promise< boolean > {
+	const processName = getProcessName( siteId );
+	return isProcessRunning( processName );
+}
+
+/**
+ * Start a WordPress server for a site via PM2
+ * Follows Studio's PlaygroundServerProcess.start() pattern:
+ * 1. Start the PM2 process
+ * 2. Wait for 'ready' message
+ * 3. Send 'start-server' message with config
+ * 4. Wait for response before resolving
+ */
+export async function startWordPressServer( site: SiteData ): Promise< ProcessDescription > {
+	const wordPressDaemonPath = path.resolve( __dirname, 'wordpress-daemon.js' );
+	const processName = getProcessName( site.id );
+
+	const serverConfig: ServerConfig = {
+		siteId: site.id,
+		sitePath: site.path,
+		port: site.port,
+		phpVersion: site.phpVersion,
+		siteTitle: site.name,
+	};
+
+	if ( site.customDomain ) {
+		const protocol = site.enableHttps ? 'https' : 'http';
+		serverConfig.absoluteUrl = `${ protocol }://${ site.customDomain }`;
+	}
+
+	if ( site.adminPassword ) {
+		serverConfig.adminPassword = site.adminPassword;
+	}
+
+	if ( site.isWpAutoUpdating !== undefined ) {
+		serverConfig.isWpAutoUpdating = site.isWpAutoUpdating;
+	}
+
+	const env = {
+		STUDIO_WORDPRESS_SERVER_CONFIG: JSON.stringify( serverConfig ),
+	};
+
+	// Start PM2 process
+	const processDesc = await startProcess( processName, wordPressDaemonPath, env );
+
+	// Wait for 'ready' message from daemon (similar to Studio's pattern at line 133-141)
+	await waitForReadyMessage( processName, processDesc.pmId );
+
+	// Send 'start-server' message and wait for response (similar to Studio's line 143-146)
+	await sendMessage( processName, processDesc.pmId, 'start-server', { config: serverConfig } );
+
+	return processDesc;
+}
+
+/**
+ * Wait for 'ready' message from PM2 process
+ * Similar to Studio's waitForReady pattern (lines 133-141 in playground-server-process.ts)
+ */
+async function waitForReadyMessage( processName: string, pmId: number ): Promise< void > {
+	const bus = await getPm2Bus();
+
+	return new Promise( ( resolve, reject ) => {
+		const timeout = setTimeout( () => {
+			bus.off( 'process:msg', readyHandler );
+			reject( new Error( 'Timeout waiting for ready message from WordPress daemon' ) );
+		}, 10000 );
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const readyHandler = ( packet: any ) => {
+			if ( packet?.process?.pm_id === pmId && packet?.raw?.type === 'ready' ) {
+				clearTimeout( timeout );
+				bus.off( 'process:msg', readyHandler );
+				resolve();
+			}
+		};
+
+		bus.on( 'process:msg', readyHandler );
+	} );
+}
+
+/**
+ * Send message to PM2 process and wait for response
+ * Similar to Studio's sendMessage pattern (lines 184-227 in playground-server-process.ts)
+ */
+let nextMessageId = 0;
+
+async function sendMessage(
+	processName: string,
+	pmId: number,
+	type: string,
+	data: unknown
+): Promise< unknown > {
+	const bus = await getPm2Bus();
+
+	return new Promise( ( resolve, reject ) => {
+		const id = nextMessageId++;
+		const message: Message = { id, type, data };
+
+		const timeout = setTimeout( () => {
+			bus.off( 'process:msg', responseHandler );
+			reject( new Error( `Timeout waiting for response to message ${ id }` ) );
+		}, 30000 );
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const responseHandler = ( packet: any ) => {
+			if ( packet?.process?.pm_id === pmId && packet?.raw?.id === id ) {
+				clearTimeout( timeout );
+				bus.off( 'process:msg', responseHandler );
+
+				if ( packet.raw.error ) {
+					reject( new Error( packet.raw.error ) );
+				} else {
+					resolve( packet.raw.result );
+				}
+			}
+		};
+
+		bus.on( 'process:msg', responseHandler );
+
+		// Send message via PM2 bus using process ID
+		pm2.sendDataToProcessId(
+			pmId,
+			{
+				type: 'process:msg',
+				data: message,
+				topic: true,
+			},
+			( error ) => {
+				if ( error ) {
+					clearTimeout( timeout );
+					bus.off( 'process:msg', responseHandler );
+					reject( error );
+				}
+			}
+		);
+	} );
+}
+
+/**
+ * Stop a WordPress server for a site
+ */
+export async function stopWordPressServer( siteId: string ): Promise< void > {
+	const processName = getProcessName( siteId );
+	return stopProcess( processName );
+}
+
+/**
+ * Get status of a WordPress server
+ */
+export async function getServerStatus( siteId: string ): Promise< ProcessDescription | null > {
+	const processName = getProcessName( siteId );
+	return getProcessStatus( processName );
+}

@@ -60,7 +60,15 @@ test.describe( 'Overview customize links', () => {
 		await page.goto( getUrlWithAutoLogin( openedUrl ), {
 			waitUntil: 'domcontentloaded',
 		} );
-		return page.url().replace( /%2F/g, '/' );
+		// Decode URL-encoded characters to normalize the URL across platforms
+		// Need to decode multiple times due to nested redirect_to parameters
+		let url = page.url();
+		let decoded = decodeURIComponent( url );
+		while ( decoded !== url ) {
+			url = decoded;
+			decoded = decodeURIComponent( url );
+		}
+		return decoded;
 	};
 	test.describe( 'Block theme customize shortcut links', () => {
 		test.beforeAll( async () => {
@@ -121,7 +129,10 @@ test.describe( 'Overview customize links', () => {
 
 		test( 'opens Styles shortcut', async ( { page } ) => {
 			const redirectUrl = await openShortcut( page, 'Styles' );
-			expect( redirectUrl ).toContain( '/wp-admin/site-editor.php?p=/styles' );
+			// WordPress may use either path= or p= parameter depending on platform
+			expect( redirectUrl ).toMatch(
+				/\/wp-admin\/site-editor\.php\?(path=\/wp_global_styles|p=\/styles)/
+			);
 
 			const headingLocator = page.getByRole( 'heading', {
 				name: 'Design',
@@ -131,7 +142,10 @@ test.describe( 'Overview customize links', () => {
 
 		test( 'opens Patterns shortcut', async ( { page } ) => {
 			const redirectUrl = await openShortcut( page, 'Patterns' );
-			expect( redirectUrl ).toContain( '/wp-admin/site-editor.php?p=/pattern' );
+			// WordPress may use either path= or p= parameter depending on platform
+			expect( redirectUrl ).toMatch(
+				/\/wp-admin\/site-editor\.php\?(path=\/patterns|p=\/pattern)/
+			);
 
 			const headingLocator = page.getByRole( 'heading', {
 				name: 'All patterns',
@@ -141,7 +155,10 @@ test.describe( 'Overview customize links', () => {
 
 		test( 'opens Navigation shortcut', async ( { page } ) => {
 			const redirectUrl = await openShortcut( page, 'Navigation' );
-			expect( redirectUrl ).toContain( '/wp-admin/site-editor.php?p=/navigation' );
+			// WordPress may use either path= or p= parameter depending on platform
+			expect( redirectUrl ).toMatch(
+				/\/wp-admin\/site-editor\.php\?(path=\/navigation|p=\/navigation)/
+			);
 
 			const headingLocator = page.getByRole( 'heading', {
 				name: 'Navigation',
@@ -151,7 +168,10 @@ test.describe( 'Overview customize links', () => {
 
 		test( 'opens Templates shortcut', async ( { page } ) => {
 			const redirectUrl = await openShortcut( page, 'Templates' );
-			expect( redirectUrl ).toContain( '/wp-admin/site-editor.php?p=/template' );
+			// WordPress may use either path= or p= parameter depending on platform
+			expect( redirectUrl ).toMatch(
+				/\/wp-admin\/site-editor\.php\?(path=\/wp_template|p=\/template)/
+			);
 
 			const headingLocator = page.locator( 'h1', { hasText: 'Templates' } );
 			await expect( headingLocator ).toBeVisible( { timeout: 120_000 } );
@@ -159,7 +179,8 @@ test.describe( 'Overview customize links', () => {
 
 		test( 'opens Pages shortcut', async ( { page } ) => {
 			const redirectUrl = await openShortcut( page, 'Pages' );
-			expect( redirectUrl ).toContain( '/wp-admin/site-editor.php?p=/page' );
+			// WordPress may use either path= or p= parameter depending on platform
+			expect( redirectUrl ).toMatch( /\/wp-admin\/site-editor\.php\?(path=\/page|p=\/page)/ );
 
 			const headingLocator = page.locator( 'h1', { hasText: 'Pages' } );
 			await expect( headingLocator ).toBeVisible( { timeout: 120_000 } );

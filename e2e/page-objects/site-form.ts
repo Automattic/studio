@@ -8,7 +8,10 @@ export default class SiteForm {
 	}
 
 	get siteNameInput() {
-		return this.page.getByLabel( 'Site name' );
+		// Try new data-testid first, fall back to label-based selector for trunk compatibility
+		return this.page
+			.getByTestId( 'site-name-input' )
+			.or( this.page.locator( 'label:has-text("Site name") input' ) );
 	}
 
 	get localPathInput() {

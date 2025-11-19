@@ -1,15 +1,15 @@
 import path from 'path';
 import { test, expect } from '@playwright/test';
+import fs from 'fs-extra';
 import { pathExists } from '../common/lib/fs-utils';
 import { DEFAULT_PHP_VERSION, ALLOWED_PHP_VERSIONS } from '../vendor/wp-now/src/constants';
+import { DEFAULT_SITE_NAME } from './constants';
 import { E2ESession } from './e2e-helpers';
 import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
 import WhatsNewModal from './page-objects/whats-new-modal';
-import fs from 'fs-extra';
 import { getUrlWithAutoLogin } from './utils';
-import { DEFAULT_SITE_NAME } from './constants';
 
 const skipTestOnWindows = process.platform === 'win32' ? test.skip : test;
 
@@ -126,6 +126,27 @@ test.describe( 'Servers', () => {
 		expect( updatedPhpVersion ).toBe( newPhpVersion );
 
 		await settingsTab.editSiteDialog.getByRole( 'button', { name: 'Cancel' } ).click();
+	} );
+
+	test( 'renames a site', async () => {
+		const { siteName } = await completeOnboardingWithParams();
+
+		const newSiteName = 'E2E-Test-Site-Renamed';
+		const siteContent = new SiteContent( session.mainWindow, siteName );
+		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+
+		await settingsTab.editSiteButton.click();
+		await expect( settingsTab.editSiteDialog ).toBeVisible();
+
+		await settingsTab.siteNameInput.fill( newSiteName );
+		await settingsTab.saveButton.click();
+		await expect( settingsTab.editSiteDialog ).not.toBeVisible( { timeout: 10000 } );
+
+		// Explicitly wait for the rename to propagate
+		const renamedSiteContent = new SiteContent( session.mainWindow, newSiteName );
+		await expect( renamedSiteContent.siteNameHeading ).toHaveText( newSiteName, {
+			timeout: 10000,
+		} );
 	} );
 
 	test( "edit site's settings in wp-admin", async ( { page } ) => {

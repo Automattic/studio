@@ -137,7 +137,7 @@ a8cToTailwindColors[ `${ PREFIX }-gray-100` ] = '#f0f0f0'; // Gray 100
 a8cToTailwindColors[ `${ PREFIX }-gray-5` ] = '#DCDCDE'; // Gray 5
 
 module.exports = {
-	content: [ './src/**/*.{html,ejs,js,jsx,ts,tsx}' ],
+	content: [ './src/**/*.{html,js,jsx,ts,tsx}' ],
 	theme: {
 		extend: {
 			colors: {

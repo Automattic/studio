@@ -6,6 +6,7 @@ import { StatsGroup, StatsMetric } from 'common/types/stats';
 import yargs from 'yargs';
 import { registerCommand as registerAuthLoginCommand } from 'cli/commands/auth/login';
 import { registerCommand as registerAuthLogoutCommand } from 'cli/commands/auth/logout';
+import { registerCommand as registerAuthStatusCommand } from 'cli/commands/auth/status';
 import { registerCommand as registerCreateCommand } from 'cli/commands/preview/create';
 import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/delete';
 import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
@@ -50,6 +51,7 @@ async function main() {
 		.command( 'auth', __( 'Manage authentication' ), ( authYargs ) => {
 			registerAuthLoginCommand( authYargs );
 			registerAuthLogoutCommand( authYargs );
+			registerAuthStatusCommand( authYargs );
 			authYargs.demandCommand( 1, __( 'You must provide a valid auth command' ) );
 		} )
 		.command( 'preview', __( 'Manage preview sites' ), ( previewYargs ) => {

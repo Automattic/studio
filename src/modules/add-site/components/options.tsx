@@ -24,6 +24,7 @@ interface OptionButtonProps {
 	onClick: () => void;
 	disabled?: boolean;
 	disabledTooltip?: string;
+	testId?: string;
 }
 
 function OptionButton( {
@@ -33,6 +34,7 @@ function OptionButton( {
 	onClick,
 	disabled = false,
 	disabledTooltip,
+	testId,
 }: OptionButtonProps ) {
 	const { isRTL } = useI18n();
 	const chevron = isRTL() ? chevronLeft : chevronRight;
@@ -54,6 +56,7 @@ function OptionButton( {
 				onClick={ onClick }
 				disabled={ disabled }
 				spacing={ 5 }
+				data-testid={ testId }
 			>
 				<div className="mt-[-2px]">{ icon }</div>
 				<VStack className="flex-1 gap-1.5">
@@ -89,6 +92,7 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 				title={ __( 'Create a site' ) }
 				description={ __( 'Start with an empty site' ) }
 				onClick={ () => onOptionSelect( 'create' ) }
+				testId="create-site-option-button"
 			/>
 			{ enableBlueprints && (
 				<OptionButton

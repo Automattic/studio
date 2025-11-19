@@ -310,7 +310,8 @@ export function useSyncPush( {
 				const response = await getIpcApi().pushArchive(
 					remoteSiteId,
 					archivePath,
-					options?.optionsToSync
+					options?.optionsToSync,
+					options?.specificSelectionPaths
 				);
 				const stateAfterUpload = getPushState( selectedSite.id, remoteSiteId );
 

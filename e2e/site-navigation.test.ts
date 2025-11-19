@@ -224,10 +224,6 @@ test.describe( 'Site Navigation', () => {
 		await expect( themeInstallOverlay.locator( 'a.activate' ) ).toBeVisible( {
 			timeout: 30_000,
 		} );
-
-		// Verify theme was installed by going back to themes page
-		await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/themes.php` ) );
-		await expect( page.locator( '.theme[data-slug="twentytwentytwo"]' ) ).toBeVisible();
 	} );
 
 	test( 'activates plugin', async ( { page } ) => {

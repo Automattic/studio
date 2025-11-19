@@ -4,6 +4,7 @@
 import { app, dialog, BrowserWindow } from 'electron';
 import fs from 'fs-extra';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { validateBlueprintData } from 'src/lib/blueprint-features';
 import { handleAddSiteWithBlueprint } from 'src/lib/deeplink/handlers/add-site-blueprint-with-url';
 import { download } from 'src/lib/download';
 import { getMainWindow } from 'src/main-window';
@@ -33,8 +34,14 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		focus: jest.fn(),
 	} as unknown as BrowserWindow;
 
+	const createBlueprintUrl = ( blueprintUrl: string ) => {
+		const encodedUrl = encodeURIComponent( blueprintUrl );
+		return new URL( `wpcom-local-dev://add-site?blueprint_url=${ encodedUrl }` );
+	};
+
 	beforeEach( () => {
 		jest.clearAllMocks();
+		( mockMainWindow.isMinimized as jest.Mock ).mockReturnValue( false );
 		jest.mocked( app.getPath ).mockReturnValue( '/tmp' );
 		( fs.mkdir as unknown as jest.Mock ).mockResolvedValue( undefined );
 		jest.mocked( getMainWindow ).mockResolvedValue( mockMainWindow );
@@ -46,12 +53,10 @@ describe( 'handleAddSiteWithBlueprint', () => {
 
 	it( 'should handle add-site with valid blueprint_url', async () => {
 		const blueprintUrl = 'https://example.com/blueprint.json';
-		const encodedUrl = encodeURIComponent( blueprintUrl );
-		const url = new URL( `wpcom-local-dev://add-site?blueprint_url=${ encodedUrl }` );
+		const url = createBlueprintUrl( blueprintUrl );
 
-		const { validateBlueprintData } = await import( 'src/lib/blueprint-features' );
 		jest.mocked( download ).mockResolvedValue( undefined );
-		( fs.readJson as unknown as jest.Mock ).mockResolvedValue( { steps: [] } );
+		jest.mocked( fs.readJson ).mockResolvedValue( { steps: [] } );
 		jest.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
 
 		await handleAddSiteWithBlueprint( url );
@@ -90,9 +95,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 	} );
 
 	it( 'should handle download failure gracefully', async () => {
-		const blueprintUrl = 'https://example.com/blueprint.json';
-		const encodedUrl = encodeURIComponent( blueprintUrl );
-		const url = new URL( `wpcom-local-dev://add-site?blueprint_url=${ encodedUrl }` );
+		const url = createBlueprintUrl( 'https://example.com/blueprint.json' );
 
 		const downloadError = new Error( 'Download failed' );
 		jest.mocked( download ).mockRejectedValue( downloadError );
@@ -112,11 +115,8 @@ describe( 'handleAddSiteWithBlueprint', () => {
 	} );
 
 	it( 'should restore and focus window when minimized', async () => {
-		const blueprintUrl = 'https://example.com/blueprint.json';
-		const encodedUrl = encodeURIComponent( blueprintUrl );
-		const url = new URL( `wpcom-local-dev://add-site?blueprint_url=${ encodedUrl }` );
+		const url = createBlueprintUrl( 'https://example.com/blueprint.json' );
 
-		const { validateBlueprintData } = await import( 'src/lib/blueprint-features' );
 		( mockMainWindow.isMinimized as jest.Mock ).mockReturnValue( true );
 		jest.mocked( download ).mockResolvedValue( undefined );
 		( fs.readJson as unknown as jest.Mock ).mockResolvedValue( { steps: [] } );
@@ -129,9 +129,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 	} );
 
 	it( 'should handle cleanup errors gracefully on download failure', async () => {
-		const blueprintUrl = 'https://example.com/blueprint.json';
-		const encodedUrl = encodeURIComponent( blueprintUrl );
-		const url = new URL( `wpcom-local-dev://add-site?blueprint_url=${ encodedUrl }` );
+		const url = createBlueprintUrl( 'https://example.com/blueprint.json' );
 
 		const downloadError = new Error( 'Download failed' );
 		jest.mocked( download ).mockRejectedValue( downloadError );
@@ -143,11 +141,8 @@ describe( 'handleAddSiteWithBlueprint', () => {
 	} );
 
 	it( 'should handle invalid blueprint and show error dialog', async () => {
-		const blueprintUrl = 'https://example.com/blueprint.json';
-		const encodedUrl = encodeURIComponent( blueprintUrl );
-		const url = new URL( `wpcom-local-dev://add-site?blueprint_url=${ encodedUrl }` );
+		const url = createBlueprintUrl( 'https://example.com/blueprint.json' );
 
-		const { validateBlueprintData } = await import( 'src/lib/blueprint-features' );
 		jest.mocked( download ).mockResolvedValue( undefined );
 		( fs.readJson as unknown as jest.Mock ).mockResolvedValue( { invalid: 'data' } );
 		jest.mocked( validateBlueprintData ).mockResolvedValue( {

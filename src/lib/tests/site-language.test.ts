@@ -18,19 +18,16 @@ function mockAppLocale( language: string ) {
 	( app.getLocale as jest.Mock ).mockReturnValue( language );
 }
 
-function mockFetchTranslations( wpVersion: string, translations: string[] ) {
+function mockFetchTranslations( wpVersion: string, locales: string[] ) {
 	const data = {
-		translations: translations.map( ( item ) => ( { language: item } ) ),
+		translations: locales.map( ( locale ) => ( { language: locale } ) ),
 	};
 
-	if ( wpVersion === 'latest' ) {
-		nock( 'https://api.wordpress.org' ).get( '/translations/core/1.0/' ).reply( 200, data );
-	} else {
-		nock( 'https://api.wordpress.org' )
-			.get( '/translations/core/1.0/' )
-			.query( { version: wpVersion } )
-			.reply( 200, data );
-	}
+	nock( 'https://api.wordpress.org' ).get( '/translations/core/1.0/' ).reply( 200, data );
+	nock( 'https://api.wordpress.org' )
+		.get( '/translations/core/1.0/' )
+		.query( { version: wpVersion } )
+		.reply( 200, data );
 }
 
 afterEach( () => {
@@ -74,6 +71,10 @@ describe( 'getPreferredSiteLanguage', () => {
 		it.each( LATEST_WP_VERSION_LOCALES )(
 			"returns '$expected' for language '$locale'",
 			async ( { locale, expected } ) => {
+				const AVAILABLE_LOCALES = LATEST_WP_VERSION_LOCALES.map( ( l ) =>
+					l.expected.replace( '_', '-' )
+				);
+				mockFetchTranslations( 'latest', AVAILABLE_LOCALES );
 				mockAppLocale( locale );
 
 				expect( await getPreferredSiteLanguage() ).toBe( expected );

@@ -14,6 +14,7 @@ import ProgressBar from 'src/components/progress-bar';
 import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
+import { useAuth } from 'src/hooks/use-auth';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
@@ -28,8 +29,8 @@ import {
 	convertTreeToPushOptions,
 } from 'src/modules/sync/lib/convert-tree-to-sync-options';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
-import { useAppDispatch, useI18nLocale } from 'src/stores';
-import { connectedSitesActions, useConnectedSitesData } from 'src/stores/sync';
+import { useI18nLocale } from 'src/stores';
+import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites-api';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 const SyncConnectedSiteControls = ( {
@@ -51,7 +52,11 @@ const SyncConnectedSiteControls = ( {
 		isSiteIdPushing,
 		getLastSyncTimeText,
 	} = useSyncSites();
-	const { connectedSites } = useConnectedSitesData();
+	const { user } = useAuth();
+	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
+		localSiteId: selectedSite.id,
+		userId: user?.id,
+	} );
 	const isAnyConnectedSiteSyncing = connectedSites.some(
 		( site ) =>
 			isSiteIdPulling( selectedSite.id, site.id ) || isSiteIdPushing( selectedSite.id, site.id )
@@ -348,16 +353,17 @@ const SyncConnectedSitesSectionItem = ( {
 type SyncConnectedSiteSectionProps = {
 	connectedSite: SyncSite;
 	disconnectSite: ( id: number ) => void;
+	openModal: () => void;
 	selectedSite: SiteDetails;
 };
 
 const SyncConnectedSiteSection = ( {
 	connectedSite,
 	disconnectSite,
+	openModal,
 	selectedSite,
 }: SyncConnectedSiteSectionProps ) => {
 	const { __ } = useI18n();
-	const dispatch = useAppDispatch();
 	const locale = useI18nLocale();
 	const { clearPullState, isSiteIdPulling, isSiteIdPushing } = useSyncSites();
 	const isOffline = useOffline();
@@ -466,7 +472,7 @@ const SyncConnectedSiteSection = ( {
 					<Button
 						onClick={ () => {
 							disconnectSite( connectedSite.id );
-							dispatch( connectedSitesActions.openModal() );
+							openModal();
 						} }
 						variant="primary"
 						className="ms-auto"
@@ -489,10 +495,12 @@ const SyncConnectedSiteSection = ( {
 export function SyncConnectedSites( {
 	connectedSites,
 	disconnectSite,
+	openModal,
 	selectedSite,
 }: {
 	connectedSites: SyncSite[];
 	disconnectSite: ( id: number ) => void;
+	openModal: () => void;
 	selectedSite: SiteDetails;
 } ) {
 	return (
@@ -503,6 +511,7 @@ export function SyncConnectedSites( {
 					connectedSite={ connectedSite }
 					selectedSite={ selectedSite }
 					disconnectSite={ disconnectSite }
+					openModal={ openModal }
 				/>
 			) ) }
 		</div>

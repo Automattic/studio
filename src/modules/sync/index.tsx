@@ -1,12 +1,14 @@
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useEffect, useState } from 'react';
+import { PropsWithChildren, useState } from 'react';
+import { set } from 'zod';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
+import { useFetchWpComSites } from 'src/hooks/use-fetch-wpcom-sites';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
@@ -18,14 +20,11 @@ import {
 	convertTreeToPullOptions,
 	convertTreeToPushOptions,
 } from 'src/modules/sync/lib/convert-tree-to-sync-options';
-import { useAppDispatch, useRootSelector } from 'src/stores';
 import {
-	useConnectedSitesData,
-	useSyncSitesData,
-	useConnectedSitesOperations,
-	connectedSitesSelectors,
-	connectedSitesActions,
-} from 'src/stores/sync';
+	useConnectSiteMutation,
+	useDisconnectSiteMutation,
+	useGetConnectedSitesForLocalSiteQuery,
+} from 'src/stores/sync/connected-sites-api';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { SyncModalMode } from 'src/modules/sync/types';
 
@@ -125,24 +124,22 @@ export type OpenSitesSyncSelector = ( options?: { disconnectSiteId?: number } ) 
 
 export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { __ } = useI18n();
-	const dispatch = useAppDispatch();
-	const isModalOpen = useRootSelector( connectedSitesSelectors.selectIsModalOpen );
-	const reduxModalMode = useRootSelector( connectedSitesSelectors.selectModalMode );
-	const { connectedSites } = useConnectedSitesData();
-	const { syncSites, isFetching, refetchSites } = useSyncSitesData();
-	const { connectSite, disconnectSite } = useConnectedSitesOperations();
+	const [ isModalOpen, setIsModalOpen ] = useState( false );
+	const [ modalMode, setModalMode ] = useState< SyncModalMode | null >( null );
+	const { isAuthenticated, user } = useAuth();
+	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
+		localSiteId: selectedSite.id,
+		userId: user?.id,
+	} );
+	const { syncSites, isFetching, refetchSites } = useFetchWpComSites(
+		connectedSites.map( ( { id } ) => id )
+	);
+	const [ connectSite ] = useConnectSiteMutation();
+	const [ disconnectSite ] = useDisconnectSiteMutation();
 	const { pushSite, pullSite, isAnySitePulling, isAnySitePushing } = useSyncSites();
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
-
-	const { isAuthenticated } = useAuth();
-
-	useEffect( () => {
-		if ( isAuthenticated ) {
-			void refetchSites();
-		}
-	}, [ isAuthenticated, refetchSites ] );
 
 	if ( ! isAuthenticated ) {
 		return <NoAuthSyncTab />;
@@ -150,7 +147,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 
 	const handleConnect = async ( newConnectedSite: SyncSite ) => {
 		try {
-			await connectSite( newConnectedSite );
+			await connectSite( { site: newConnectedSite, localSiteId: selectedSite.id } );
 		} catch ( error ) {
 			getIpcApi().showErrorMessageBox( {
 				title: __( 'Failed to connect to site' ),
@@ -160,21 +157,16 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	};
 
 	const handleLaunchSite = () => {
-		dispatch( connectedSitesActions.openModal( 'push' ) );
+		setIsModalOpen( true );
+		setModalMode( 'push' );
 	};
 
 	const handleImportSite = () => {
-		dispatch( connectedSitesActions.openModal( 'pull' ) );
+		setIsModalOpen( true );
+		setModalMode( 'pull' );
 	};
 
 	const handleSiteSelection = async ( siteId: number, mode: SyncModalMode | null ) => {
-		const disconnectSiteId =
-			typeof isModalOpen === 'object' ? isModalOpen.disconnectSiteId : undefined;
-
-		if ( disconnectSiteId ) {
-			await disconnectSite( disconnectSiteId );
-		}
-
 		const selectedSiteFromList = syncSites.find( ( site ) => site.id === siteId );
 		if ( ! selectedSiteFromList ) {
 			getIpcApi().showErrorMessageBox( {
@@ -185,12 +177,12 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		}
 
 		if ( mode === 'push' || mode === 'pull' ) {
-			dispatch( connectedSitesActions.setModalMode( mode ) );
+			setModalMode( mode );
 			setSelectedRemoteSite( selectedSiteFromList );
 		} else {
 			await handleConnect( selectedSiteFromList );
-			dispatch( connectedSitesActions.setModalMode( null ) );
-			dispatch( connectedSitesActions.closeModal() );
+			setModalMode( null );
+			setIsModalOpen( false );
 		}
 	};
 
@@ -201,12 +193,18 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					<SyncConnectedSites
 						connectedSites={ connectedSites }
 						selectedSite={ selectedSite }
-						disconnectSite={ disconnectSite }
+						disconnectSite={ ( id ) =>
+							disconnectSite( { siteId: id, localSiteId: selectedSite.id } )
+						}
+						openModal={ () => setIsModalOpen( true ) }
 					/>
 					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
 						<ConnectButton
 							variant="primary"
-							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
+							connectSite={ () => {
+								setIsModalOpen( true );
+								setModalMode( 'connect' );
+							} }
 						>
 							{ __( 'Connect another site' ) }
 						</ConnectButton>
@@ -244,23 +242,23 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 
 			{ isModalOpen && (
 				<SyncSitesModalSelector
-					mode={ reduxModalMode || 'connect' }
+					mode={ modalMode || 'connect' }
 					isLoading={ isFetching }
 					onRequestClose={ () => {
-						dispatch( connectedSitesActions.closeModal() );
+						setIsModalOpen( false );
 					} }
 					syncSites={ syncSites }
 					onInitialRender={ refetchSites }
 					onConnect={ async ( siteId: number ) => {
-						await handleSiteSelection( siteId, reduxModalMode );
+						await handleSiteSelection( siteId, modalMode );
 					} }
 					selectedSite={ selectedSite }
 				/>
 			) }
 
-			{ reduxModalMode && reduxModalMode !== 'connect' && selectedRemoteSite && (
+			{ modalMode && modalMode !== 'connect' && selectedRemoteSite && (
 				<SyncDialog
-					type={ reduxModalMode }
+					type={ modalMode }
 					localSite={ selectedSite }
 					remoteSite={ selectedRemoteSite }
 					onPush={ async ( tree ) => {
@@ -275,7 +273,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					} }
 					onRequestClose={ () => {
 						setSelectedRemoteSite( null );
-						dispatch( connectedSitesActions.setModalMode( null ) );
+						setModalMode( null );
 					} }
 				/>
 			) }

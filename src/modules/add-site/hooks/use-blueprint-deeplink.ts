@@ -95,7 +95,7 @@ export function useBlueprintDeeplink(
 				return;
 			}
 			setPendingBlueprintPath( blueprintPath );
-			setInitialNavigatorPath( '/blueprint' );
+			setInitialNavigatorPath( '/blueprint/create' );
 			openModal();
 		},
 		[ isAnySiteProcessing, openModal ]

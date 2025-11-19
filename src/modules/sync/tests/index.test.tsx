@@ -278,13 +278,22 @@ describe( 'ContentTabSync', () => {
 	} );
 
 	it( 'opens the site selector modal when clicking import button', () => {
-		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
-		fireEvent.click( importButton );
+		const mockSyncSite: SyncSite = {
+			id: 123,
+			name: 'Test Site',
+			url: 'https://example.wordpress.com',
+			isStaging: false,
+			syncSupport: 'already-connected',
+			localSiteId: 'site-id',
+			isPressable: false,
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
+		};
 
+		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+		setupConnectedSitesMocks( [], [ mockSyncSite ] );
 		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( true );
-		( connectedSitesSelectors.selectModalMode as jest.Mock ).mockReturnValue( null );
+		( connectedSitesSelectors.selectModalMode as jest.Mock ).mockReturnValue( 'pull' );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		expect( screen.getByTestId( 'sync-sites-modal-selector' ) ).toBeInTheDocument();
@@ -362,13 +371,23 @@ describe( 'ContentTabSync', () => {
 	} );
 
 	it( 'opens the modal and displays the create new site button', () => {
+		const mockSyncSite: SyncSite = {
+			id: 123,
+			name: 'Test Site',
+			url: 'https://example.wordpress.com',
+			isStaging: false,
+			syncSupport: 'already-connected',
+			localSiteId: 'site-id',
+			isPressable: false,
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
+		};
+
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
-		expect( importButton ).toBeInTheDocument();
-		fireEvent.click( importButton );
+		setupConnectedSitesMocks( [], [ mockSyncSite ] );
 		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( true );
-		( connectedSitesSelectors.selectModalMode as jest.Mock ).mockReturnValue( null );
+		( connectedSitesSelectors.selectModalMode as jest.Mock ).mockReturnValue( 'connect' );
+
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		const createNewSiteButton = screen.getByRole( 'button', {
 			name: /Create a new WordPress.com site ↗/i,

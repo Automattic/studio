@@ -10,6 +10,7 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
+import { NoWpcomSitesModal } from 'src/modules/sync/components/no-wpcom-sites-modal';
 import { SyncConnectedSites } from 'src/modules/sync/components/sync-connected-sites';
 import { SyncDialog } from 'src/modules/sync/components/sync-dialog';
 import { SyncSitesModalSelector } from 'src/modules/sync/components/sync-sites-modal-selector';
@@ -135,6 +136,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
+	const [ pendingModalMode, setPendingModalMode ] = useState< 'push' | 'pull' | null >( null );
 
 	const { isAuthenticated } = useAuth();
 
@@ -143,6 +145,14 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			void refetchSites();
 		}
 	}, [ isAuthenticated, refetchSites ] );
+
+	// Open modal after fetch completes and state updates
+	useEffect( () => {
+		if ( pendingModalMode && ! isFetching ) {
+			dispatch( connectedSitesActions.openModal( pendingModalMode ) );
+			setPendingModalMode( null );
+		}
+	}, [ pendingModalMode, isFetching, syncSites.length, dispatch ] );
 
 	if ( ! isAuthenticated ) {
 		return <NoAuthSyncTab />;
@@ -160,11 +170,13 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	};
 
 	const handleLaunchSite = () => {
-		dispatch( connectedSitesActions.openModal( 'push' ) );
+		setPendingModalMode( 'push' );
+		void refetchSites();
 	};
 
 	const handleImportSite = () => {
-		dispatch( connectedSitesActions.openModal( 'pull' ) );
+		setPendingModalMode( 'pull' );
+		void refetchSites();
 	};
 
 	const handleSiteSelection = async ( siteId: number, mode: SyncModalMode | null ) => {
@@ -218,9 +230,12 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 						<ConnectButton
 							variant="primary"
 							connectSite={ handleLaunchSite }
-							disabled={ isAnySiteSyncing }
+							disabled={ isAnySiteSyncing || pendingModalMode !== null }
+							isBusy={ pendingModalMode === 'push' }
 							tooltipText={
-								isAnySiteSyncing
+								pendingModalMode === 'pull'
+									? __( 'Please wait for the current operation to finish.' )
+									: isAnySiteSyncing
 									? __(
 											'Another site is syncing. Please wait for the sync to finish before you publish your site.'
 									  )
@@ -233,8 +248,17 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							variant="secondary"
 							connectSite={ handleImportSite }
 							className={ isAnySiteSyncing ? '' : '!text-a8c-blue-50 !shadow-a8c-blue-50' }
-							disabled={ isAnySiteSyncing }
-							tooltipText={ __( 'Importing a remote site requires an internet connection.' ) }
+							disabled={ isAnySiteSyncing || pendingModalMode !== null }
+							isBusy={ pendingModalMode === 'pull' }
+							tooltipText={
+								pendingModalMode === 'push'
+									? __( 'Please wait for the current operation to finish.' )
+									: isAnySiteSyncing
+									? __(
+											'Another site is syncing. Please wait for the sync to finish before you pull a site.'
+									  )
+									: __( 'Importing a remote site requires an internet connection.' )
+							}
 						>
 							{ __( 'Pull site' ) }
 						</ConnectButton>
@@ -243,19 +267,44 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			) }
 
 			{ isModalOpen && (
-				<SyncSitesModalSelector
-					mode={ reduxModalMode || 'connect' }
-					isLoading={ isFetching }
-					onRequestClose={ () => {
-						dispatch( connectedSitesActions.closeModal() );
-					} }
-					syncSites={ syncSites }
-					onInitialRender={ refetchSites }
-					onConnect={ async ( siteId: number ) => {
-						await handleSiteSelection( siteId, reduxModalMode );
-					} }
-					selectedSite={ selectedSite }
-				/>
+				<>
+					{ reduxModalMode === 'connect' ? (
+						<SyncSitesModalSelector
+							mode="connect"
+							isLoading={ isFetching }
+							onRequestClose={ () => {
+								dispatch( connectedSitesActions.closeModal() );
+							} }
+							syncSites={ syncSites }
+							onInitialRender={ refetchSites }
+							onConnect={ async ( siteId: number ) => {
+								await handleSiteSelection( siteId, reduxModalMode );
+							} }
+							selectedSite={ selectedSite }
+						/>
+					) : syncSites.length === 0 ? (
+						<NoWpcomSitesModal
+							onRequestClose={ () => {
+								dispatch( connectedSitesActions.closeModal() );
+							} }
+							selectedSite={ selectedSite }
+						/>
+					) : (
+						<SyncSitesModalSelector
+							mode={ reduxModalMode || 'connect' }
+							isLoading={ isFetching }
+							onRequestClose={ () => {
+								dispatch( connectedSitesActions.closeModal() );
+							} }
+							syncSites={ syncSites }
+							onInitialRender={ refetchSites }
+							onConnect={ async ( siteId: number ) => {
+								await handleSiteSelection( siteId, reduxModalMode );
+							} }
+							selectedSite={ selectedSite }
+						/>
+					) }
+				</>
 			) }
 
 			{ reduxModalMode && reduxModalMode !== 'connect' && selectedRemoteSite && (

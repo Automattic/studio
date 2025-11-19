@@ -251,4 +251,34 @@ test.describe( 'Site Navigation', () => {
 		const activePlugin = page.locator( `tr.active[data-slug="${ pluginSlug }"]` );
 		await expect( activePlugin ).toBeVisible();
 	} );
+
+	test( 'adds new plugin', async ( { page } ) => {
+		// Navigate to plugins page
+		const pluginInstallUrl = `${ wpAdminUrl }/plugin-install.php`;
+		await page.goto( getUrlWithAutoLogin( pluginInstallUrl ) );
+
+		// Search for a plugin
+		const searchInput = page.locator( '#search-plugins' );
+		await searchInput.fill( 'Contact Form 7' );
+		await searchInput.press( 'Enter' );
+
+		// Wait for search results
+		await page.waitForLoadState( 'networkidle' );
+
+		// Find Contact Form 7 plugin
+		const pluginResult = page.locator( '.plugin-card-contact-form-7' ).first();
+		await expect( pluginResult ).toBeVisible();
+
+		// Install the plugin
+		const installButton = pluginResult.locator( 'a.install-now' );
+		await installButton.click();
+
+		// Wait for installation to complete
+		await page.waitForLoadState( 'networkidle' );
+
+		// Verify plugin was installed
+		await expect( pluginResult.locator( 'a.activate-now' ) ).toBeVisible( {
+			timeout: 30_000,
+		} );
+	} );
 } );

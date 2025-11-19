@@ -196,4 +196,37 @@ test.describe( 'Site Navigation', () => {
 		const activeTheme = page.locator( `.theme.active[data-slug="${ themeSlug }"]` );
 		await expect( activeTheme ).toBeVisible();
 	} );
+
+	test( 'adds new themes', async ( { page } ) => {
+		// Navigate to themes page
+		const themeInstallUrl = `${ wpAdminUrl }/theme-install.php`;
+		await page.goto( getUrlWithAutoLogin( themeInstallUrl ) );
+
+		// Search for a theme
+		const searchInput = page.locator( '#wp-filter-search-input' );
+		await searchInput.fill( 'Twenty Twenty-Two' );
+		await searchInput.press( 'Enter' );
+
+		// Wait for search results
+		await page.waitForLoadState( 'networkidle' );
+
+		// Find Twenty Twenty-Two theme
+		const themeResult = page.locator( '.theme[data-slug="twentytwentytwo"]' ).first();
+
+		// Install the theme
+		await themeResult.click();
+		const themeInstallOverlay = page.locator( '.theme-install-overlay' );
+		await expect( themeInstallOverlay ).toBeVisible( { timeout: 5_000 } );
+		const installButton = themeInstallOverlay.locator( 'a.theme-install' );
+		await installButton.click();
+
+		// Wait for installation to complete
+		await expect( themeInstallOverlay.locator( 'a.activate' ) ).toBeVisible( {
+			timeout: 30_000,
+		} );
+
+		// Verify theme was installed by going back to themes page
+		await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/themes.php` ) );
+		await expect( page.locator( '.theme[data-slug="twentytwentytwo"]' ) ).toBeVisible();
+	} );
 } );

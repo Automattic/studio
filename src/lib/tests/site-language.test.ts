@@ -1,9 +1,8 @@
-/**
- * @jest-environment node
- */
 import { app } from 'electron';
+import nock from 'nock';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import * as storagePaths from 'src/storage/paths';
+
 jest.spyOn( storagePaths, 'getResourcesPath' ).mockReturnValue( process.cwd() );
 
 jest.unmock( 'fs-extra' );
@@ -15,8 +14,6 @@ jest.mock( 'src/storage/user-data', () => ( {
 	loadUserData: jest.fn().mockResolvedValue( { locale: undefined } ),
 } ) );
 
-const originalFetch = global.fetch;
-
 function mockAppLocale( language: string ) {
 	( app.getLocale as jest.Mock ).mockReturnValue( language );
 }
@@ -25,23 +22,19 @@ function mockFetchTranslations( wpVersion: string, translations: string[] ) {
 	const data = {
 		translations: translations.map( ( item ) => ( { language: item } ) ),
 	};
-	global.fetch = jest.fn( ( url ): Promise< Response > => {
-		const expectedURL =
-			wpVersion === 'latest'
-				? 'https://api.wordpress.org/translations/core/1.0/'
-				: `https://api.wordpress.org/translations/core/1.0/?version=${ wpVersion }`;
-		if ( url === expectedURL ) {
-			return Promise.resolve( {
-				json: () => Promise.resolve( data ),
-			} as Response );
-		} else {
-			return Promise.reject();
-		}
-	} );
+
+	if ( wpVersion === 'latest' ) {
+		nock( 'https://api.wordpress.org' ).get( '/translations/core/1.0/' ).reply( 200, data );
+	} else {
+		nock( 'https://api.wordpress.org' )
+			.get( '/translations/core/1.0/' )
+			.query( { version: wpVersion } )
+			.reply( 200, data );
+	}
 }
 
-afterAll( () => {
-	global.fetch = originalFetch;
+afterEach( () => {
+	nock.cleanAll();
 } );
 
 describe( 'getPreferredSiteLanguage', () => {
@@ -135,13 +128,16 @@ describe( 'getPreferredSiteLanguage', () => {
 			} );
 
 			mockAppLocale( WP_5_0_LOCALES[ 0 ].locale );
-			mockFetchTranslations( 'unknown', [] );
+			nock( 'https://api.wordpress.org' )
+				.get( '/translations/core/1.0/' )
+				.query( { version: 'unknown' } )
+				.replyWithError( 'Not found' );
 
 			expect( await getPreferredSiteLanguage( WP_VERSION ) ).toBe( 'en' );
 
 			expect( error ).toHaveBeenCalledWith(
 				"An error ocurred when fetching available site translations for version '1.0':",
-				undefined
+				expect.any( Error )
 			);
 
 			error.mockReset();

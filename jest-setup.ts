@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom';
 import { TextEncoder, TextDecoder } from 'util';
+import 'isomorphic-fetch';
 import nock from 'nock';
 
 // Polyfill TextEncoder and TextDecoder for tests
@@ -82,14 +83,6 @@ if ( typeof window !== 'undefined' ) {
 	Object.defineProperty( global.crypto, 'subtle', {
 		value: { generateKey: jest.fn() },
 	} );
-
-	/**
-	 * Mock `fetch` as it's not implemented in JSDOM
-	 * https://github.com/jsdom/jsdom/issues/1724
-	 *
-	 * `fetch` is required by `@wp-playground/blueprints`
-	 */
-	global.fetch = jest.fn();
 }
 
 nock.disableNetConnect();

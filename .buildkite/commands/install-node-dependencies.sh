@@ -11,24 +11,25 @@ else
   PATCHES_HASH=nopatch
 fi
 
-CACHEKEY="$BUILDKITE_PIPELINE_SLUG-npm-$PLATFORM-$ARCHITECTURE-node-$NODE_VERSION-$PACKAGE_HASH-$PATCHES_HASH"
+CACHEKEY="$BUILDKITE_PIPELINE_SLUG-pnpm-$PLATFORM-$ARCHITECTURE-node-$NODE_VERSION-$PACKAGE_HASH-$PATCHES_HASH"
 
-LOCAL_NPM_CACHE=./vendor/npm
+LOCAL_NPM_CACHE=./vendor/pnpm
 mkdir -p $LOCAL_NPM_CACHE
-echo "--- :npm: Set npm to use $LOCAL_NPM_CACHE for cache"
-npm set cache $LOCAL_NPM_CACHE
-echo "npm cache set to $(npm get cache)"
 
-echo "--- :npm: Restore npm cache if present"
+echo "--- :npm: Restore pnpm cache if present"
 restore_cache "$CACHEKEY"
 
 echo "--- :npm: Install Node dependencies"
 
 corepack enable pnpm
 
-pnpm install --frozen-lockfile
+pnpm install \
+	--store-dir $LOCAL_NPM_CACHE \
+	--frozen-lockfile
 
-cd cli; pnpm install --frozen-lockfile
+cd cli; pnpm install \
+	--store-dir $LOCAL_NPM_CACHE \
+	--frozen-lockfile
 
 echo "--- :npm: Save cache if necessary"
 # Notice that we don't cache the local node_modules.

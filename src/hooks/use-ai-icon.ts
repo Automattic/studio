@@ -1,5 +1,4 @@
-import { RuntimeLoader } from '@rive-app/canvas';
-import { useRive, useStateMachineInput } from '@rive-app/react-canvas';
+import { useRive, useStateMachineInput, RuntimeLoader } from '@rive-app/react-canvas';
 import { useCallback, useEffect } from '@wordpress/element';
 // eslint-disable-next-line import/no-unresolved
 import aiImage from '/assets/ai-icon.riv';

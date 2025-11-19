@@ -1,6 +1,6 @@
 import fs from 'fs';
 import nodePath from 'path';
-import escapeRegExp from 'lodash/escapeRegExp';
+import { escapeRegex } from 'common/lib/escape-regex';
 import { SupportedEditor, supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 
 /**
@@ -25,7 +25,7 @@ export async function winFindEditorPath( editorKey: SupportedEditor ): Promise< 
 			try {
 				const files = fs.readdirSync( basePath );
 				const matchingFiles = files.filter( ( file ) => {
-					const safePattern = escapeRegExp( pattern );
+					const safePattern = escapeRegex( pattern );
 					return file.match( new RegExp( safePattern + '.*' ) );
 				} );
 

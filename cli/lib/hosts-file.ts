@@ -3,7 +3,7 @@ import { domainToASCII } from 'node:url';
 import { platform, tmpdir } from 'os';
 import path from 'path';
 import { promisify } from 'util';
-import escapeRegExp from 'lodash/escapeRegExp';
+import { escapeRegex } from 'common/lib/escape-regex';
 import { sudoExec } from 'cli/lib/sudo-exec';
 
 const readFile = promisify( fs.readFile );
@@ -72,7 +72,7 @@ export const writeHostsFile = async ( content: string ): Promise< void > => {
  */
 export function createHostsEntryPattern( domain: string ): RegExp {
 	const sanitizedDomain = domain.replace( /\\/g, '' );
-	const escapedDomain = escapeRegExp( sanitizedDomain );
+	const escapedDomain = escapeRegex( sanitizedDomain );
 	return new RegExp( `127\\.0\\.0\\.1\\s+${ escapedDomain }(\\s|$)`, 'i' );
 }
 

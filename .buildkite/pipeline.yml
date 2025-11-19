@@ -13,7 +13,6 @@ steps:
     key: lint
     command: |
       .buildkite/commands/install-node-dependencies.sh
-      cd scripts/compare-perf && npm install && cd -
       echo '--- :eslint: Lint'
       npm run lint
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]

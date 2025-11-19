@@ -277,4 +277,71 @@ test.describe( 'Site Navigation', () => {
 			timeout: 30_000,
 		} );
 	} );
+
+	test( '"Post name" permalink structure works', async ( { page } ) => {
+		// Navigate to permalink settings
+		const permalinkUrl = `${ wpAdminUrl }/options-permalink.php`;
+		await page.goto( getUrlWithAutoLogin( permalinkUrl ) );
+
+		// Select "Post name" permalink structure
+		const postNameRadio = page.locator( 'input#permalink-input-post-name' );
+		await postNameRadio.check();
+
+		// Save changes
+		const saveButton = page.locator( '#submit' );
+		await saveButton.click();
+
+		// Wait for success message
+		await expect( page.locator( '#setting-error-settings_updated' ) ).toBeVisible();
+
+		// Verify the setting was saved
+		await expect( postNameRadio ).toBeChecked();
+
+		// Create a test post to verify the permalink structure works
+		const newPostUrl = `${ wpAdminUrl }/post-new.php`;
+		await page.goto( getUrlWithAutoLogin( newPostUrl ) );
+
+		const editorFrame = page.frameLocator( 'iframe[name="editor-canvas"]' );
+
+		// Close welcome guide if it appears (always on main page, not in iframe)
+		await closeWelcomeGuide( page );
+
+		// Wait for title to be available in iframe
+		const titleSelector = 'h1.editor-post-title';
+		await editorFrame.locator( titleSelector ).waitFor( { timeout: 30_000 } );
+		await editorFrame.locator( titleSelector ).fill( 'Permalink Test Post' );
+
+		// Click into the content area and type
+		await editorFrame.locator( titleSelector ).press( 'Enter' );
+		const contentBlock = editorFrame.locator( 'p[role="document"]' ).first();
+		await contentBlock.fill( 'Testing permalink structure.' );
+
+		// Publish the post (publish buttons are on main page)
+		const publishButton = page.locator( 'button.editor-post-publish-button__button' ).first();
+		await publishButton.waitFor( { state: 'visible', timeout: 10_000 } );
+		await publishButton.click();
+
+		// Wait for and click the confirm publish button in the panel
+		const confirmPublishButton = page.locator( 'button.editor-post-publish-button__button' ).last();
+		await confirmPublishButton.waitFor( { state: 'visible', timeout: 10_000 } );
+		await confirmPublishButton.click();
+
+		// Wait for publish
+		await expect( page.locator( '.components-snackbar' ) ).toBeVisible( { timeout: 10_000 } );
+
+		// Get the post URL from the editor
+		const viewPostLink = page.locator( 'a:has-text("View Post")' ).first();
+		const postUrl = await viewPostLink.getAttribute( 'href' );
+
+		// Verify the URL follows the post name structure (contains the post slug)
+		expect( postUrl ).toMatch( /\/permalink-test-post\/?$/ );
+
+		// Visit the post and verify it loads
+		await page.goto( postUrl! );
+		await page.waitForLoadState( 'networkidle' );
+		await expect( page.locator( 'h1' ) ).toHaveText( 'Permalink Test Post' );
+		await expect( page.locator( 'div.entry-content' ) ).toHaveText(
+			'Testing permalink structure.'
+		);
+	} );
 } );

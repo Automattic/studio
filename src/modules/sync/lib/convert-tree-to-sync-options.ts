@@ -46,11 +46,11 @@ const convertTreeToSyncCategories = (
 		paths.add( nodePath );
 
 		// Determine which category this belongs to for optionsToSync
-		if ( nodePath.startsWith( 'plugins/' ) ) {
+		if ( nodePath.startsWith( 'plugins/' ) || nodePath === 'plugins' ) {
 			options.add( SYNC_OPTIONS.plugins );
-		} else if ( nodePath.startsWith( 'themes/' ) ) {
+		} else if ( nodePath.startsWith( 'themes/' ) || nodePath === 'themes' ) {
 			options.add( SYNC_OPTIONS.themes );
-		} else if ( nodePath.startsWith( 'uploads/' ) ) {
+		} else if ( nodePath.startsWith( 'uploads/' ) || nodePath === 'uploads' ) {
 			options.add( SYNC_OPTIONS.uploads );
 		} else {
 			options.add( SYNC_OPTIONS.contents );

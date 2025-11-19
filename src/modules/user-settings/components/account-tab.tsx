@@ -14,7 +14,7 @@ export const UserInfo = ( {
 } ) => {
 	const { __ } = useI18n();
 	return (
-		<div className="flex w-full gap-5">
+		<div className="flex w-full gap-5 py-1">
 			<div className="flex w-full items-center gap-3">
 				<Tooltip text={ __( 'Edit profile' ) } placement="bottom">
 					<Button

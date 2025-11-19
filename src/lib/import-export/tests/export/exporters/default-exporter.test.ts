@@ -146,6 +146,11 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				name: '.ht.sqlite',
 				isFile: () => true,
 			},
+			{
+				path: normalize( '/path/to/site/wp-content/mu-plugins/sqlite-database-integration' ),
+				name: 'example-load.php',
+				isFile: () => true,
+			},
 		];
 
 		( fsPromises.readdir as jest.Mock ).mockResolvedValue( mockFiles );
@@ -587,7 +592,12 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				database: true,
 				wpContent: true,
 			},
-			specificSelectionPaths: [ 'database/.ht.sqlite', 'db.php', 'debug.log' ],
+			specificSelectionPaths: [
+				'database/.ht.sqlite',
+				'db.php',
+				'debug.log',
+				'mu-plugins/sqlite-database-integration/example-load.php',
+			],
 		};
 
 		const exporter = new DefaultExporter( options );
@@ -604,6 +614,13 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
 			normalize( '/path/to/site/wp-content/database/.ht.sqlite' ),
 			{ name: 'wp-content/database/.ht.sqlite' }
+		);
+
+		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
+			normalize(
+				'/path/to/site/wp-content/mu-plugins/sqlite-database-integration/example-load.php'
+			),
+			{ name: 'wp-content/mu-plugins/sqlite-database-integration/example-load.php' }
 		);
 	} );
 } );

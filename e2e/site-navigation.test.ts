@@ -229,4 +229,26 @@ test.describe( 'Site Navigation', () => {
 		await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/themes.php` ) );
 		await expect( page.locator( '.theme[data-slug="twentytwentytwo"]' ) ).toBeVisible();
 	} );
+
+	test( 'activates plugin', async ( { page } ) => {
+		// Navigate to plugins page
+		const pluginsUrl = `${ wpAdminUrl }/plugins.php`;
+		await page.goto( getUrlWithAutoLogin( pluginsUrl ) );
+
+		// Find an inactive plugin (Hello Dolly is usually installed by default)
+		const inactivePlugin = page.locator( 'tr.inactive[data-slug="hello-dolly"]' ).first();
+		await expect( inactivePlugin ).toBeVisible();
+		const pluginSlug = await inactivePlugin.getAttribute( 'data-slug' );
+
+		// Activate the plugin
+		const activateLink = inactivePlugin.locator( 'span.activate a' );
+		await activateLink.click();
+
+		// Wait for plugin to be activated
+		await page.waitForLoadState( 'networkidle' );
+
+		// Verify plugin is now active
+		const activePlugin = page.locator( `tr.active[data-slug="${ pluginSlug }"]` );
+		await expect( activePlugin ).toBeVisible();
+	} );
 } );

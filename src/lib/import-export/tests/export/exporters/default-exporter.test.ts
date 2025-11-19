@@ -603,19 +603,35 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		const exporter = new DefaultExporter( options );
 		await exporter.export();
 
+		expect( fsPromises.stat ).toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-content/debug.log' )
+		);
 		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
 			normalize( '/path/to/site/wp-content/debug.log' ),
 			{ name: 'wp-content/debug.log' }
 		);
+
+		expect( fsPromises.stat ).toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-content/db.php' )
+		);
 		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
 			normalize( '/path/to/site/wp-content/db.php' ),
 			{ name: 'wp-content/db.php' }
+		);
+
+		expect( fsPromises.stat ).toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-content/database/.ht.sqlite' )
 		);
 		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
 			normalize( '/path/to/site/wp-content/database/.ht.sqlite' ),
 			{ name: 'wp-content/database/.ht.sqlite' }
 		);
 
+		expect( fsPromises.stat ).toHaveBeenCalledWith(
+			normalize(
+				'/path/to/site/wp-content/mu-plugins/sqlite-database-integration/example-load.php'
+			)
+		);
 		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
 			normalize(
 				'/path/to/site/wp-content/mu-plugins/sqlite-database-integration/example-load.php'

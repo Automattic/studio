@@ -1,4 +1,4 @@
-import { check, Icon } from '@wordpress/icons';
+import { check, cloudUpload, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useEffect, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
@@ -232,6 +232,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 						<div className="mt-8 flex flex-wrap gap-4">
 							<ConnectButton
 								variant="primary"
+								icon={ cloudUpload }
 								connectSite={ handleLaunchSite }
 								disabled={ isAnySiteSyncing || pendingModalMode !== null }
 								isBusy={ pendingModalMode === 'push' }

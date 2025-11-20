@@ -12,9 +12,7 @@ describe( 'handleSyncConnectSiteDeeplink', () => {
 	} );
 
 	it( 'should handle sync connect site callback', async () => {
-		const url = new URL(
-			'wpcom-local-dev://sync-connect-site?remoteSiteId=123&studioSiteId=local-site'
-		);
+		const url = new URL( 'wp-studio://sync-connect-site?remoteSiteId=123&studioSiteId=local-site' );
 		await handleSyncConnectSiteDeeplink( url );
 
 		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'sync-connect-site', {
@@ -24,7 +22,7 @@ describe( 'handleSyncConnectSiteDeeplink', () => {
 	} );
 
 	it( 'should not send sync connect site event if parameters are missing', async () => {
-		const url = new URL( 'wpcom-local-dev://sync-connect-site?remoteSiteId=123' );
+		const url = new URL( 'wp-studio://sync-connect-site?remoteSiteId=123' );
 		await handleSyncConnectSiteDeeplink( url );
 
 		expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();

@@ -56,7 +56,7 @@ async function handleAuthCallback( hash: string ): Promise< StoredToken > {
 /**
  * Handles the OAuth authentication deeplink callback.
  * This function is called when the user completes authentication on WordPress.com
- * and is redirected back to the app via wpcom-local-dev://auth
+ * and is redirected back to the app via wp-studio://auth
  */
 export async function handleAuthDeeplink( urlObject: URL ): Promise< void > {
 	const { hash } = urlObject;

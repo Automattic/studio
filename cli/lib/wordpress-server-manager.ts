@@ -13,12 +13,7 @@ import {
 import { SiteData } from 'cli/lib/appdata';
 import { isProcessRunning, startProcess, stopProcess, getPm2Instance } from 'cli/lib/pm2-manager';
 import { ProcessDescription } from 'cli/lib/types/pm2';
-import { ServerConfig, Message } from 'cli/lib/types/wordpress-server';
-
-type Packet = {
-	process: { pm_id: number };
-	raw: { type: string; id?: number; error?: string; errorStack?: string; result?: unknown };
-};
+import { ServerConfig, Message, PacketSchema } from 'cli/lib/types/wordpress-server';
 
 const pm2 = getPm2Instance();
 
@@ -115,8 +110,14 @@ async function waitForReadyMessage( processName: string, pmId: number ): Promise
 			reject( new Error( 'Timeout waiting for ready message from WordPress server child' ) );
 		}, PLAYGROUND_CLI_INACTIVITY_TIMEOUT );
 
-		const readyHandler = ( packet: Packet ) => {
-			if ( packet?.process?.pm_id === pmId && packet?.raw?.type === 'ready' ) {
+		const readyHandler = ( packet: unknown ) => {
+			const validationResult = PacketSchema.safeParse( packet );
+			if ( ! validationResult.success ) {
+				return;
+			}
+
+			const validPacket = validationResult.data;
+			if ( validPacket.process.pm_id === pmId && validPacket.raw.type === 'ready' ) {
 				clearTimeout( timeout );
 				bus.off( 'process:msg', readyHandler );
 				resolve();
@@ -184,9 +185,19 @@ async function sendMessage(
 			activityCheckInterval,
 		} );
 
-		const responseHandler = ( packet: Packet ) => {
-			if ( packet?.process?.pm_id === pmId ) {
-				if ( packet?.raw?.type === 'activity' || packet?.raw?.id !== undefined ) {
+		const responseHandler = ( packet: unknown ) => {
+			const validationResult = PacketSchema.safeParse( packet );
+			if ( ! validationResult.success ) {
+				return;
+			}
+
+			const validPacket = validationResult.data;
+
+			if ( validPacket.process.pm_id === pmId ) {
+				if (
+					validPacket.raw.type === 'activity' ||
+					( 'id' in validPacket.raw && validPacket.raw.id !== undefined )
+				) {
 					lastActivityTimestamp = Date.now();
 					const tracker = activityTrackers.get( id );
 					if ( tracker ) {
@@ -195,19 +206,23 @@ async function sendMessage(
 				}
 			}
 
-			if ( packet?.process?.pm_id === pmId && packet?.raw?.id === id ) {
+			if (
+				validPacket.process.pm_id === pmId &&
+				'id' in validPacket.raw &&
+				validPacket.raw.id === id
+			) {
 				cleanup();
 
-				if ( packet.raw.error ) {
-					const error = new Error( packet.raw.error ) as Error & {
+				if ( 'error' in validPacket.raw && validPacket.raw.error ) {
+					const error = new Error( validPacket.raw.error ) as Error & {
 						errorStack?: string;
 					};
-					if ( packet.raw.errorStack ) {
-						error.stack = packet.raw.errorStack;
+					if ( 'errorStack' in validPacket.raw && validPacket.raw.errorStack ) {
+						error.stack = validPacket.raw.errorStack;
 					}
 					reject( error );
 				} else {
-					resolve( packet.raw.result );
+					resolve( 'result' in validPacket.raw ? validPacket.raw.result : undefined );
 				}
 			}
 		};

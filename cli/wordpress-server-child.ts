@@ -15,7 +15,7 @@ import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import { isWordPressDirectory } from 'common/lib/fs-utils';
 import { getMuPlugins } from 'common/lib/mu-plugins';
 import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
-import { ServerConfig, Message } from './lib/types/wordpress-server';
+import { ServerConfig, Message, MessageSchema } from './lib/types/wordpress-server';
 
 let server: RunCLIServer | null = null;
 
@@ -135,31 +135,50 @@ if ( process.send ) {
 		try {
 			const message: Message = packet.type === 'process:msg' && packet.data ? packet.data : packet;
 
+			const validationResult = MessageSchema.safeParse( message );
+			if ( ! validationResult.success ) {
+				throw new Error(
+					`Invalid message format: ${ validationResult.error.errors
+						.map( ( e ) => e.message )
+						.join( ', ' ) }`
+				);
+			}
+
+			const validMessage = validationResult.data;
 			let result: unknown;
 
-			switch ( message.type ) {
+			switch ( validMessage.type ) {
 				case 'start-server':
-					if ( message.data?.config ) {
-						result = await startServer( message.data.config );
+					if ( validMessage.data?.config ) {
+						result = await startServer( validMessage.data.config );
 					}
 					break;
 				default:
-					throw new Error( `Unknown message type: ${ message.type }` );
+					throw new Error( `Unknown message type: ${ validMessage.type }` );
 			}
 
-			if ( process.send && message.id !== undefined ) {
-				process.send( { id: message.id, result } );
+			if ( process.send && validMessage.id !== undefined ) {
+				const response = { id: validMessage.id, type: validMessage.type, result };
+				const responseValidation = MessageSchema.safeParse( response );
+				if ( responseValidation.success ) {
+					process.send( response );
+				}
 			}
 		} catch ( error ) {
 			const messageId =
 				packet.type === 'process:msg' && packet.data?.id !== undefined ? packet.data.id : packet.id;
 
 			if ( process.send && messageId !== undefined ) {
-				process.send( {
+				const errorResponse = {
 					id: messageId,
+					type: 'error',
 					error: error instanceof Error ? error.message : String( error ),
 					errorStack: error instanceof Error ? error.stack : undefined,
-				} );
+				};
+				const errorValidation = MessageSchema.safeParse( errorResponse );
+				if ( errorValidation.success ) {
+					process.send( errorResponse );
+				}
 			}
 		}
 	} );

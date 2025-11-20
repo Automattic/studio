@@ -2,6 +2,7 @@
 import { fireEvent, render, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
+import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { isMac } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -26,12 +27,23 @@ const selectedSite: StartedSiteDetails = {
 const mockGetIpcApi = getIpcApi as jest.Mock;
 jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/hooks/use-theme-details' );
+jest.mock( 'src/stores/sync', () => ( {
+	...jest.requireActual( 'src/stores/sync' ),
+	useConnectedSitesData: jest.fn().mockReturnValue( {
+		connectedSites: [],
+		localSiteId: 'site-id',
+	} ),
+} ) );
 
 // Replace the store's reducer with our test reducer
 store.replaceReducer( testReducer );
 
 function renderWithProvider( component: React.ReactElement ) {
-	return render( <Provider store={ store }>{ component }</Provider> );
+	return render(
+		<Provider store={ store }>
+			<ContentTabsProvider>{ component }</ContentTabsProvider>
+		</Provider>
+	);
 }
 
 describe( 'ShortcutsSection', () => {

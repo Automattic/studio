@@ -8,6 +8,7 @@ import { ProcessDescription } from 'cli/lib/types/pm2';
 const PM2_STATUS_ONLINE = 'online';
 const PROXY_PROCESS_NAME = 'studio-proxy';
 const DAEMON_TIMEOUT = 10000;
+
 // Set consistent PM2 home directory for Studio CLI
 // This ensures all Studio CLI commands use the same PM2 daemon
 const STUDIO_PM2_HOME = path.join( os.homedir(), '.studio', 'pm2' );
@@ -117,10 +118,6 @@ process.on( 'exit', cleanup );
 process.on( 'SIGINT', cleanup );
 process.on( 'SIGTERM', cleanup );
 
-/**
- * Start the proxy server via PM2
- * This launches the proxy-daemon.js script which runs the proxy servers
- */
 export async function startProxyProcess(): Promise< ProcessDescription > {
 	const proxyDaemonPath = path.resolve( __dirname, 'proxy-daemon.js' );
 	const env: Record< string, string > = {
@@ -135,16 +132,10 @@ export async function startProxyProcess(): Promise< ProcessDescription > {
 	return startProcess( PROXY_PROCESS_NAME, proxyDaemonPath, env );
 }
 
-/**
- * Check if the proxy process is running
- */
 export async function isProxyProcessRunning(): Promise< boolean > {
 	return isProcessRunning( PROXY_PROCESS_NAME );
 }
 
-/**
- * Check if a process is running by name
- */
 export async function isProcessRunning( processName: string ): Promise< boolean > {
 	try {
 		if ( ! isConnected ) {
@@ -159,9 +150,6 @@ export async function isProcessRunning( processName: string ): Promise< boolean 
 	}
 }
 
-/**
- * Start a process via PM2
- */
 export async function startProcess(
 	processName: string,
 	scriptPath: string,
@@ -207,9 +195,6 @@ export async function startProcess(
 	} );
 }
 
-/**
- * Stop a process by name
- */
 export async function stopProcess( processName: string ): Promise< void > {
 	return new Promise( ( resolve, reject ) => {
 		pm2.delete( processName, ( error ) => {

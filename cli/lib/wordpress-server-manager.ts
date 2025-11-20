@@ -3,18 +3,17 @@
  *
  * Manages WordPress server processes via PM2. Each site runs as its own
  * PM2 daemon process using the Playground CLI provider.
- *
  */
 import path from 'path';
-import { SiteData } from 'cli/lib/appdata';
-import { isProcessRunning, startProcess, stopProcess, getPm2Instance } from 'cli/lib/pm2-manager';
-import { ProcessDescription } from 'cli/lib/types/pm2';
-import { ServerConfig, Message } from 'cli/lib/types/wordpress-server';
 import {
 	PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL,
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
-} from '../../common/constants';
+} from 'common/constants';
+import { SiteData } from 'cli/lib/appdata';
+import { isProcessRunning, startProcess, stopProcess, getPm2Instance } from 'cli/lib/pm2-manager';
+import { ProcessDescription } from 'cli/lib/types/pm2';
+import { ServerConfig, Message } from 'cli/lib/types/wordpress-server';
 
 type Packet = {
 	process: { pm_id: number };
@@ -102,14 +101,11 @@ export async function startWordPressServer( site: SiteData ): Promise< ProcessDe
 
 	const processDesc = await startProcess( processName, wordPressServerChildPath, env );
 	await waitForReadyMessage( processName, processDesc.pmId );
-	await sendMessage( processName, processDesc.pmId, 'start-server', { config: serverConfig } );
+	await sendMessage( processDesc.pmId, 'start-server', { config: serverConfig } );
 
 	return processDesc;
 }
 
-/**
- * Wait for 'ready' message from PM2 process
- */
 async function waitForReadyMessage( processName: string, pmId: number ): Promise< void > {
 	const bus = await getPm2Bus();
 
@@ -141,7 +137,6 @@ async function waitForReadyMessage( processName: string, pmId: number ): Promise
 let nextMessageId = 0;
 
 async function sendMessage(
-	processName: string,
 	pmId: number,
 	type: string,
 	data: Message[ 'data' ]
@@ -219,7 +214,6 @@ async function sendMessage(
 
 		bus.on( 'process:msg', responseHandler );
 
-		// Send message via PM2 bus using process ID
 		pm2.sendDataToProcessId(
 			pmId,
 			{

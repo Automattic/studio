@@ -4,14 +4,15 @@ import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
 import fs from 'fs-extra';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { validateBlueprintData } from 'src/lib/blueprint-features';
 import { download } from 'src/lib/download';
 import { getMainWindow } from 'src/main-window';
 
 /**
  * Handles the add-site deeplink callback.
  * This function is called when a user clicks a deeplink like:
- * - wpcom-local-dev://add-site?blueprint_url=<encoded-url>
- * - wpcom-local-dev://add-site?blueprint=<base64-encoded-json>
+ * - wp-studio://add-site?blueprint_url=<encoded-url>
+ * - wp-studio://add-site?blueprint=<base64-encoded-json>
  *
  * It either downloads the blueprint from the URL or decodes the base64 blueprint,
  * and opens the Add Site modal with the blueprint pre-filled.
@@ -71,6 +72,24 @@ export async function handleAddSiteWithBlueprint( urlObject: URL ): Promise< voi
 
 	try {
 		await download( decodedUrl, blueprintPath, false, 'blueprint' );
+
+		const blueprintJson = await fs.readJson( blueprintPath );
+		const validation = await validateBlueprintData( blueprintJson );
+
+		if ( ! validation.valid ) {
+			await fs.remove( blueprintPath ).catch( () => {
+				// Ignore cleanup errors
+			} );
+
+			await dialog.showMessageBox( mainWindow, {
+				type: 'error',
+				message: __( 'Blueprint validation failed' ),
+				detail: validation.error || __( 'Invalid Blueprint format' ),
+				buttons: [ __( 'OK' ) ],
+			} );
+			return;
+		}
+
 		await sendIpcEventToRenderer( 'add-site-blueprint-from-url', { blueprintPath } );
 	} catch ( error ) {
 		console.error( 'Failed to download blueprint from deeplink:', error );

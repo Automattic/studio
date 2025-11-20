@@ -1,5 +1,5 @@
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Blueprint } from 'src/stores/wpcom-api';
@@ -10,7 +10,6 @@ type BlueprintMetadata = {
 };
 
 interface UseBlueprintDeeplinkOptions {
-	showModal: boolean;
 	isAnySiteProcessing: boolean;
 	openModal: () => void;
 	setSelectedBlueprint: ( blueprint?: Blueprint ) => void;
@@ -31,7 +30,6 @@ export function useBlueprintDeeplink(
 ): UseBlueprintDeeplinkReturn {
 	const { __ } = useI18n();
 	const {
-		showModal,
 		isAnySiteProcessing,
 		openModal,
 		setSelectedBlueprint,
@@ -40,13 +38,11 @@ export function useBlueprintDeeplink(
 		setBlueprintPreferredVersions,
 	} = options;
 
-	const [ pendingBlueprintPath, setPendingBlueprintPath ] = useState< string | null >( null );
 	const [ initialNavigatorPath, setInitialNavigatorPath ] = useState< string >( '/' );
 	const [ blueprintError, setBlueprintError ] = useState< string | null >( null );
 
 	const resetDeeplinkState = useCallback( () => {
 		setInitialNavigatorPath( '/' );
-		setPendingBlueprintPath( null );
 		setBlueprintError( null );
 	}, [] );
 
@@ -94,11 +90,33 @@ export function useBlueprintDeeplink(
 			if ( isAnySiteProcessing ) {
 				return;
 			}
-			setPendingBlueprintPath( blueprintPath );
-			setInitialNavigatorPath( '/blueprint' );
-			openModal();
+			try {
+				const blueprintJson = await getIpcApi().readBlueprintFile( blueprintPath );
+
+				const fileName = blueprintPath.split( /[/\\]/ ).pop() || 'blueprint.json';
+				const fileBlueprint = createBlueprintFromData(
+					blueprintJson,
+					`file:${ fileName }`,
+					fileName.replace( '.json', '' ),
+					__( 'Blueprint loaded from URL' )
+				);
+
+				setSelectedBlueprint( fileBlueprint );
+				applyPreferredVersions( blueprintJson );
+				setInitialNavigatorPath( '/blueprint/create' );
+				openModal();
+			} catch ( error ) {
+				console.error( 'Failed to load blueprint from URL:', error );
+			}
 		},
-		[ isAnySiteProcessing, openModal ]
+		[
+			isAnySiteProcessing,
+			__,
+			createBlueprintFromData,
+			setSelectedBlueprint,
+			applyPreferredVersions,
+			openModal,
+		]
 	);
 	useIpcListener( 'add-site-blueprint-from-url', handleBlueprintFromUrl );
 
@@ -134,53 +152,6 @@ export function useBlueprintDeeplink(
 		]
 	);
 	useIpcListener( 'add-site-blueprint-from-base64', handleBlueprintFromBase64 );
-
-	// Load and set blueprint when modal opens with a pending blueprint
-	useEffect( () => {
-		if ( showModal && pendingBlueprintPath ) {
-			const loadBlueprintFromPath = async () => {
-				try {
-					const blueprintJson = await getIpcApi().readBlueprintFile( pendingBlueprintPath );
-
-					const validation = await getIpcApi().validateBlueprint( blueprintJson );
-
-					if ( ! validation.valid ) {
-						const errorMessage = validation.error || __( 'Invalid Blueprint format' );
-						throw new Error( errorMessage );
-					}
-
-					const fileName = pendingBlueprintPath.split( /[/\\]/ ).pop() || 'blueprint.json';
-					const fileBlueprint = createBlueprintFromData(
-						blueprintJson,
-						`file:${ fileName }`,
-						fileName.replace( '.json', '' ),
-						__( 'Blueprint loaded from URL' )
-					);
-
-					setSelectedBlueprint( fileBlueprint );
-					applyPreferredVersions( blueprintJson );
-					setPendingBlueprintPath( null );
-				} catch ( error ) {
-					const errorMessage =
-						error instanceof Error
-							? error.message
-							: __( 'Failed to load blueprint. Please check the blueprint file and try again.' );
-					setBlueprintError( errorMessage );
-					setPendingBlueprintPath( null );
-				}
-			};
-
-			void loadBlueprintFromPath();
-		}
-	}, [
-		showModal,
-		pendingBlueprintPath,
-		createBlueprintFromData,
-		setSelectedBlueprint,
-		applyPreferredVersions,
-		setBlueprintError,
-		__,
-	] );
 
 	return {
 		initialNavigatorPath,

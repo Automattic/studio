@@ -94,6 +94,34 @@ platformTestSuite( 'keepSqliteIntegrationUpdated', ( { normalize } ) => {
 				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }` )
 			);
 		} );
+		it( 'should not update SQLite integration if db.php is missing and wp-config.php exists (even if outdated)', async () => {
+			// Mock wp-config.php (so hasNoWpConfig is false)
+			( fs as MockedFsExtra ).__setFileContents(
+				normalize( `${ MOCK_SITE_PATH }/wp-config.php` ),
+				'config'
+			);
+			// db.php is missing
+
+			// Mock SQLite integration version of server files (Latest)
+			( fs as MockedFsExtra ).__setFileContents(
+				normalize( `server-files/${ SQLITE_FILENAME }/load.php` ),
+				' * Version: 2.1.13'
+			);
+
+			// Mock SQLite integration version of mocked site (Outdated)
+			( fs as MockedFsExtra ).__setFileContents(
+				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }` ),
+				[ 'load.php' ]
+			);
+			( fs as MockedFsExtra ).__setFileContents(
+				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }/load.php` ),
+				' * Version: 2.1.11'
+			);
+
+			await keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
+
+			expect( fs.copy ).not.toHaveBeenCalled();
+		} );
 	} );
 
 	describe( 'when SQLite integration is not installed in a site', () => {

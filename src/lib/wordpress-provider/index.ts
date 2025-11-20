@@ -84,5 +84,3 @@ export const isValidWordPressVersion = (
 export const createServerProcess = (
 	...args: Parameters< WordPressProvider[ 'createServerProcess' ] >
 ) => getWordPressProvider().createServerProcess( ...args );
-export const getConfig = ( ...args: Parameters< WordPressProvider[ 'getConfig' ] > ) =>
-	getWordPressProvider().getConfig( ...args );

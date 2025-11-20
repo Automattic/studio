@@ -33,6 +33,10 @@ platformTestSuite( 'keepSqliteIntegrationUpdated', ( { normalize } ) => {
 				normalize( `${ MOCK_SITE_PATH }/wp-config.php` ),
 				''
 			);
+			( fs as MockedFsExtra ).__setFileContents(
+				normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
+				''
+			);
 
 			// Mock SQLite integration version of server files
 			( fs as MockedFsExtra ).__setFileContents(
@@ -58,6 +62,15 @@ platformTestSuite( 'keepSqliteIntegrationUpdated', ( { normalize } ) => {
 			);
 		} );
 		it( 'should not update SQLite integration when is up-to-date', async () => {
+			( fs as MockedFsExtra ).__setFileContents(
+				normalize( `${ MOCK_SITE_PATH }/wp-config.php` ),
+				''
+			);
+			( fs as MockedFsExtra ).__setFileContents(
+				normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
+				''
+			);
+
 			// Mock SQLite integration version of server files
 			( fs as MockedFsExtra ).__setFileContents(
 				normalize( `server-files/${ SQLITE_FILENAME }/load.php` ),
@@ -116,6 +129,25 @@ platformTestSuite( 'keepSqliteIntegrationUpdated', ( { normalize } ) => {
 				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }` )
 			);
 		} );
+	} );
+	it( 'should install it if db.php is defined (even if wp-config.php is also defined)', async () => {
+		// Mock site db.php
+		( fs as MockedFsExtra ).__setFileContents(
+			normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
+			' * Version: 2.1.13'
+		);
+		// Mock wp-config.php to ensure db.php takes precedence
+		( fs as MockedFsExtra ).__setFileContents(
+			normalize( `${ MOCK_SITE_PATH }/wp-config.php` ),
+			'config-sample'
+		);
+
+		await keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
+
+		expect( fs.copy ).toHaveBeenCalledWith(
+			normalize( `server-files/${ SQLITE_FILENAME }` ),
+			normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }` )
+		);
 	} );
 } );
 

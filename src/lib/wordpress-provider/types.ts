@@ -83,7 +83,4 @@ export interface WordPressProvider {
 
 	// Version utilities
 	isValidWordPressVersion( version: string ): boolean;
-
-	// Configuration
-	getConfig( options: { path: string } ): Promise< { wpContentPath?: string } >;
 }

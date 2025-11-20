@@ -6,7 +6,7 @@ import { SQLITE_DATABASE_INTEGRATION_VERSION } from 'src/constants';
 import { getSqlitePath, getWordPressProvider } from 'src/lib/wordpress-provider';
 import { getServerFilesPath } from 'src/storage/paths';
 
-export async function isSqlLiteInstalled( installPath: string ) {
+async function isSqlLiteInstalled( installPath: string ) {
 	// Check both standard and legacy (-main) paths
 	const provider = getWordPressProvider();
 	const paths = [
@@ -35,15 +35,15 @@ export async function updateLatestSqliteVersion() {
  * Checks if the SQLite integration version installed in a site is outdated compared to the version
  * installed locally in the server files.
  *
- * @param sitePath Path of the site.
+ * @param sqliteMuPluginPath Path of the site.
  *
  * @returns True if the SQLite integration is outdated.
  */
-export async function isSqliteInstallationOutdated( sitePath: string ): Promise< boolean > {
+async function isSqliteInstallationOutdated( sqliteMuPluginPath: string ): Promise< boolean > {
 	const serverFilesVersion = semver.coerce( SQLITE_DATABASE_INTEGRATION_VERSION, {
 		includePrerelease: true,
 	} );
-	const siteVersion = semver.coerce( await getSqliteVersionFromInstallation( sitePath ), {
+	const siteVersion = semver.coerce( await getSqliteVersionFromInstallation( sqliteMuPluginPath ), {
 		includePrerelease: true,
 	} );
 
@@ -59,11 +59,11 @@ export async function isSqliteInstallationOutdated( sitePath: string ): Promise<
 }
 
 export async function getSqliteVersionFromInstallation(
-	installationPath: string
+	sqliteMuPluginPath: string
 ): Promise< string > {
 	let versionFileContent = '';
 	try {
-		versionFileContent = await fs.readFile( path.join( installationPath, 'load.php' ), 'utf8' );
+		versionFileContent = await fs.readFile( path.join( sqliteMuPluginPath, 'load.php' ), 'utf8' );
 	} catch ( err ) {
 		return '';
 	}
@@ -81,7 +81,7 @@ export async function getSqliteVersionFromInstallation(
  *
  * @todo Remove this function after a few releases.
  */
-export async function removeLegacySqliteIntegrationPlugin( installPath: string ) {
+async function removeLegacySqliteIntegrationPlugin( installPath: string ) {
 	try {
 		const legacySqlitePluginPath = `${ installPath }-main`;
 		if ( await fs.pathExists( legacySqlitePluginPath ) ) {
@@ -94,27 +94,31 @@ export async function removeLegacySqliteIntegrationPlugin( installPath: string )
 }
 
 /**
- * Updates the SQLite integration in a site if it's outdated compared to the version
- * located in the server files.
- *
- * If the SQLite integration is not installed, it will be installed if the site
- * doesn't provide the configuration file `wp-config.php`.
+ * If the site has a `/wp-content/db.php` file, or doesn't have a `/wp-config.php` file, we install
+ * or update the SQLite integration plugin as needed.
  *
  * @param sitePath Path of the site.
  */
 export async function keepSqliteIntegrationUpdated( sitePath: string ) {
-	const sqlitePath = path.join(
+	const sqliteMuPluginPath = path.join(
 		sitePath,
 		'wp-content',
 		'mu-plugins',
 		getWordPressProvider().SQLITE_FILENAME
 	);
-	const hasWpConfig = await fs.pathExists( path.join( sitePath, 'wp-config.php' ) );
-	const sqliteInstalled = await isSqlLiteInstalled( sqlitePath );
-	const sqliteOutdated = sqliteInstalled && ( await isSqliteInstallationOutdated( sqlitePath ) );
 
-	if ( ( ! sqliteInstalled && ! hasWpConfig ) || sqliteOutdated ) {
-		await installSqliteIntegration( sitePath );
+	// Having a `/wp-content/db.php` file indicates that the user wants to use SQLite.
+	const hasDbPhp = await fs.pathExists( path.join( sitePath, 'wp-content', 'db.php' ) );
+	// Not having a `/wp-config.php` file indicates that the user wants to reset the config for their site.
+	const hasWpConfig = await fs.pathExists( path.join( sitePath, 'wp-config.php' ) );
+
+	if ( hasDbPhp || ! hasWpConfig ) {
+		const isInstalled = await isSqlLiteInstalled( sqliteMuPluginPath );
+		const isOutdated = isInstalled && ( await isSqliteInstallationOutdated( sqliteMuPluginPath ) );
+
+		if ( ! isInstalled || isOutdated ) {
+			await installSqliteIntegration( sitePath );
+		}
 	}
 }
 

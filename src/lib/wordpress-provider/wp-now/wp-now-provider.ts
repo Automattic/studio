@@ -226,13 +226,6 @@ export class WpNowProvider implements WordPressProvider {
 		return new SiteServerProcess( serverInstance._internal as WPNowOptions );
 	}
 
-	async getConfig( options: { path: string } ): Promise< { wpContentPath?: string } > {
-		const config = await getWpNowConfig( options );
-		return {
-			wpContentPath: config.wpContentPath,
-		};
-	}
-
 	/**
 	 * Deletes the wp-config.php file at the specified path.
 	 *

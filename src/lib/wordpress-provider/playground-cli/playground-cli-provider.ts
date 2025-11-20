@@ -254,16 +254,6 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		return isValidWordPressVersion( version );
 	}
 
-	async getConfig( options: { path: string } ): Promise< { wpContentPath?: string } > {
-		const wpContentPath = nodePath.join( options.path, 'wp-content' );
-
-		if ( await pathExists( wpContentPath ) ) {
-			return { wpContentPath };
-		}
-
-		return { wpContentPath: undefined };
-	}
-
 	async setupWordPressFilesOnly( path: string ): Promise< void > {
 		try {
 			const bundledWPPath = nodePath.join( getResourcesPath(), 'wp-files', 'latest', 'wordpress' );

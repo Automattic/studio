@@ -38,6 +38,7 @@ import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { ARCHIVER_OPTIONS, DEFAULT_TERMINAL, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
+import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import { scanBlueprintForUnsupportedFeatures } from 'src/lib/blueprint-features';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
@@ -1115,6 +1116,10 @@ export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< 
 
 export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompleted: boolean ) {
 	await updateAppdata( { onboardingCompleted } );
+}
+
+export async function getBetaFeatures( _event: IpcMainInvokeEvent ): Promise< BetaFeatures > {
+	return await getBetaFeaturesFromLib();
 }
 
 export async function executeWPCLiInline(

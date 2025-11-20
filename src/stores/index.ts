@@ -9,6 +9,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { appVersionApi } from 'src/stores/app-version-api';
+import { betaFeaturesReducer, loadBetaFeatures } from 'src/stores/beta-features-slice';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
 import i18nReducer from 'src/stores/i18n-slice';
@@ -34,6 +35,7 @@ import type { SupportedLocale } from 'common/lib/locale';
 
 export type RootState = {
 	appVersionApi: ReturnType< typeof appVersionApi.reducer >;
+	betaFeatures: ReturnType< typeof betaFeaturesReducer >;
 	chat: ReturnType< typeof chatReducer >;
 	newSites: ReturnType< typeof newSitesReducer >;
 	installedAppsApi: ReturnType< typeof installedAppsApi.reducer >;
@@ -90,6 +92,7 @@ listenerMiddleware.startListening( {
 
 export const rootReducer = combineReducers( {
 	appVersionApi: appVersionApi.reducer,
+	betaFeatures: betaFeaturesReducer,
 	chat: chatReducer,
 	newSites: newSitesReducer,
 	installedAppsApi: installedAppsApi.reducer,
@@ -142,6 +145,8 @@ if ( typeof jest === 'undefined' && process.env.NODE_ENV !== 'test' ) {
 	void initializeProviderConstants();
 	// Initialize connected sites on store initialization only in non-test environment
 	void store.dispatch( loadAllConnectedSites() );
+	// Initialize beta features on store initialization only in non-test environment
+	void store.dispatch( loadBetaFeatures() );
 }
 
 export type AppDispatch = typeof store.dispatch;

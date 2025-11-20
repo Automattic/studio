@@ -1,4 +1,4 @@
-import { check, Icon, cloudUpload } from '@wordpress/icons';
+import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useEffect, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
@@ -219,7 +219,6 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							variant="primary"
 							connectSite={ handleLaunchSite }
 							disabled={ isAnySiteSyncing }
-							icon={ cloudUpload }
 							tooltipText={
 								isAnySiteSyncing
 									? __(

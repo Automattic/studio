@@ -6,7 +6,6 @@ import { useOffline } from 'src/hooks/use-offline';
 
 interface ConnectButtonProps {
 	variant: ButtonVariant;
-	icon?: JSX.Element;
 	connectSite?: () => void;
 	disabled?: boolean;
 	className?: string;
@@ -16,7 +15,6 @@ interface ConnectButtonProps {
 
 export const ConnectButton = ( {
 	variant,
-	icon,
 	connectSite,
 	disabled,
 	className,
@@ -39,7 +37,6 @@ export const ConnectButton = ( {
 				aria-disabled={ isDisabled }
 				variant={ variant }
 				className={ className }
-				icon={ icon }
 			>
 				{ children }
 			</Button>

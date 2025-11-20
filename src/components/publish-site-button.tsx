@@ -3,6 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import Button from 'src/components/button';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useAppDispatch } from 'src/stores';
 import { connectedSitesActions, useConnectedSitesData } from 'src/stores/sync';
 import { Tooltip } from './tooltip';
@@ -13,13 +14,14 @@ export const PublishSiteButton = () => {
 	const { setSelectedTab } = useContentTabs();
 	const { connectedSites } = useConnectedSitesData();
 	const { isAnySitePulling, isAnySitePushing } = useSyncSites();
+	const { streamlineOnboarding } = useFeatureFlags();
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 	const handlePublishClick = () => {
 		setSelectedTab( 'sync' );
 		dispatch( connectedSitesActions.openModal( 'push' ) );
 	};
 
-	if ( connectedSites.length !== 0 ) return null;
+	if ( ! streamlineOnboarding || connectedSites.length !== 0 ) return null;
 
 	return (
 		<Tooltip

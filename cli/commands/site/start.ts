@@ -28,11 +28,10 @@ async function startProxyIfNeeded( logger: Logger< LoggerAction > ) {
 async function openSiteInBrowser( site: SiteData ) {
 	const siteUrl = getSiteUrl( site );
 	try {
-		const wpAdminUrl = `${ siteUrl }/wp-admin/`;
-		const adminUrl = `${ siteUrl }/studio-auto-login?redirect_to=${ encodeURIComponent(
-			wpAdminUrl
+		const autoLoginUrl = `${ siteUrl }/studio-auto-login?redirect_to=${ encodeURIComponent(
+			`${ siteUrl }/wp-admin/`
 		) }`;
-		await openBrowser( adminUrl );
+		await openBrowser( autoLoginUrl );
 	} catch ( error ) {
 		// Silently fail if browser can't be opened
 	}

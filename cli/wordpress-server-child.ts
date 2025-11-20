@@ -1,10 +1,10 @@
 /**
- * WordPress Studio Server Daemon
+ * WordPress Studio Server Child Process
  *
- * This daemon is managed by PM2 and runs a single WordPress site server
+ * This child process is managed by PM2 and runs a single WordPress site server
  * using the Playground CLI provider. Each site runs in its own PM2 process.
  *
- * Similar to Studio's playground-server-process-child.ts, this daemon:
+ * Similar to Studio's playground-server-process-child.ts, this process:
  * - Listens for messages from the parent process (PM2)
  * - Starts WordPress server when requested
  * - Sends response back when ready
@@ -35,7 +35,7 @@ async function setAdminPassword( server: RunCLIServer, adminPassword: string ): 
 
 async function startServer( config: ServerConfig ): Promise< void > {
 	if ( server ) {
-		console.log( `[WordPress Daemon] Server already running for site ${ config.siteId }` );
+		console.log( `[WordPress Server Child] Server already running for site ${ config.siteId }` );
 		return;
 	}
 
@@ -106,7 +106,7 @@ async function startServer( config: ServerConfig ): Promise< void > {
 		}
 	} catch ( error ) {
 		server = null;
-		console.error( `[WordPress Daemon] Failed to start server:`, error );
+		console.error( `[WordPress Server Child] Failed to start server:`, error );
 		throw error;
 	}
 }

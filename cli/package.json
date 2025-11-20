@@ -9,13 +9,7 @@
 	"main": "index.js",
 	"dependencies": {
 		"pm2": "^6.0.13",
-		"http-proxy": "^1.18.1",
-		"@php-wasm/node": "^3.0.22",
-		"@php-wasm/scopes": "^3.0.22",
-		"@php-wasm/universal": "^3.0.22",
-		"@wp-playground/cli": "^3.0.22",
-		"@wp-playground/blueprints": "^3.0.22",
-		"@wp-playground/wordpress": "^3.0.22"
+		"http-proxy": "^1.18.1"
 	},
 	"scripts": {
 		"postinstall": "patch-package"

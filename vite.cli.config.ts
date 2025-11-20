@@ -38,7 +38,7 @@ export default defineConfig( {
 			entry: {
 				main: resolve( __dirname, 'cli/index.ts' ),
 				'proxy-daemon': resolve( __dirname, 'cli/proxy-daemon.ts' ),
-				'wordpress-daemon': resolve( __dirname, 'cli/wordpress-daemon.ts' ),
+				'wordpress-server-child': resolve( __dirname, 'cli/wordpress-server-child.ts' ),
 			},
 			name: 'StudioCLI',
 			formats: [ 'cjs' ],

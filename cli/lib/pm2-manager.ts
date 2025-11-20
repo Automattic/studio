@@ -225,32 +225,3 @@ export async function stopProcess( processName: string ): Promise< void > {
 		} );
 	} );
 }
-
-/**
- * Get status of a process by name
- */
-export async function getProcessStatus(
-	processName: string
-): Promise< ProcessDescription | null > {
-	return new Promise( ( resolve, reject ) => {
-		pm2.list( ( error, processes ) => {
-			if ( error ) {
-				reject( error );
-				return;
-			}
-
-			const process = ( processes || [] ).find( ( p ) => p.name === processName );
-
-			if ( ! process || ! process.name || ! process.pm_id || ! process.pm2_env?.status ) {
-				resolve( null );
-				return;
-			}
-
-			resolve( {
-				name: process.name,
-				pmId: process.pm_id,
-				status: process.pm2_env.status,
-			} );
-		} );
-	} );
-}

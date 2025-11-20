@@ -8,13 +8,7 @@
  */
 import path from 'path';
 import { SiteData } from 'cli/lib/appdata';
-import {
-	isProcessRunning,
-	startProcess,
-	stopProcess,
-	getProcessStatus,
-	getPm2Instance,
-} from 'cli/lib/pm2-manager';
+import { isProcessRunning, startProcess, stopProcess, getPm2Instance } from 'cli/lib/pm2-manager';
 import { ProcessDescription } from 'cli/lib/types/pm2';
 import { ServerConfig, Message } from 'cli/lib/types/wordpress-server';
 import {
@@ -81,7 +75,7 @@ export async function startWordPressServer(
 	site: SiteData,
 	consoleMessageCallback?: ( message: string ) => void
 ): Promise< ProcessDescription > {
-	const wordPressDaemonPath = path.resolve( __dirname, 'wordpress-daemon.js' );
+	const wordPressServerChildPath = path.resolve( __dirname, 'wordpress-server-child.js' );
 	const processName = getProcessName( site.id );
 
 	const serverConfig: ServerConfig = {
@@ -109,10 +103,10 @@ export async function startWordPressServer(
 		STUDIO_WORDPRESS_SERVER_CONFIG: JSON.stringify( serverConfig ),
 	};
 
-	const processDesc = await startProcess( processName, wordPressDaemonPath, env );
+	const processDesc = await startProcess( processName, wordPressServerChildPath, env );
 
 	if ( consoleMessageCallback ) {
-		setupConsoleMessageHandler( processDesc.pmId, consoleMessageCallback );
+		await setupConsoleMessageHandler( processDesc.pmId, consoleMessageCallback );
 	}
 
 	await waitForReadyMessage( processName, processDesc.pmId );
@@ -125,25 +119,30 @@ export async function startWordPressServer(
 /**
  * Set up handler for console messages from PM2 process
  */
-function setupConsoleMessageHandler( pmId: number, callback: ( message: string ) => void ): void {
-	getPm2Bus()
-		.then( ( bus ) => {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const consoleHandler = ( packet: any ) => {
-				if (
-					packet?.process?.pm_id === pmId &&
-					packet?.raw?.type === 'console-message' &&
-					packet?.raw?.message
-				) {
-					callback( packet.raw.message );
-				}
-			};
+async function setupConsoleMessageHandler(
+	pmId: number,
+	callback: ( message: string ) => void
+): Promise< void > {
+	try {
+		const bus = await getPm2Bus();
 
-			bus.on( 'process:msg', consoleHandler );
-		} )
-		.catch( ( error ) => {
-			console.error( 'Failed to set up console message handler:', error );
-		} );
+		const consoleHandler = ( packet: {
+			process: { pm_id: number };
+			raw: { type: string; message: string };
+		} ) => {
+			if (
+				packet?.process?.pm_id === pmId &&
+				packet?.raw?.type === 'console-message' &&
+				packet?.raw?.message
+			) {
+				callback( packet.raw.message );
+			}
+		};
+
+		bus.on( 'process:msg', consoleHandler );
+	} catch ( error ) {
+		console.error( 'Failed to set up console message handler:', error );
+	}
 }
 
 /**
@@ -155,7 +154,7 @@ async function waitForReadyMessage( processName: string, pmId: number ): Promise
 	return new Promise( ( resolve, reject ) => {
 		const timeout = setTimeout( () => {
 			bus.off( 'process:msg', readyHandler );
-			reject( new Error( 'Timeout waiting for ready message from WordPress daemon' ) );
+			reject( new Error( 'Timeout waiting for ready message from WordPress server child' ) );
 		}, PLAYGROUND_CLI_INACTIVITY_TIMEOUT );
 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -286,12 +285,4 @@ async function sendMessage(
 export async function stopWordPressServer( siteId: string ): Promise< void > {
 	const processName = getProcessName( siteId );
 	return stopProcess( processName );
-}
-
-/**
- * Get status of a WordPress server
- */
-export async function getServerStatus( siteId: string ): Promise< ProcessDescription | null > {
-	const processName = getProcessName( siteId );
-	return getProcessStatus( processName );
 }

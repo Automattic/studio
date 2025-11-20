@@ -1,8 +1,8 @@
 diff --git a/node_modules/@wordpress/components/build-module/modal/aria-helper.js b/node_modules/@wordpress/components/build-module/modal/aria-helper.js
-index 30809b8..fe453bd 100644
+index a444320..cbdacb9 100644
 --- a/node_modules/@wordpress/components/build-module/modal/aria-helper.js
 +++ b/node_modules/@wordpress/components/build-module/modal/aria-helper.js
-@@ -9,14 +9,14 @@ function modalize(modalElement) {
+@@ -10,14 +10,14 @@ function modalize(modalElement) {
        continue;
      }
      if (elementShouldBeHidden(element)) {
@@ -19,7 +19,7 @@ index 30809b8..fe453bd 100644
  }
  function unmodalize() {
    const hiddenElements = hiddenElementsByDepth.pop();
-@@ -24,7 +24,7 @@ function unmodalize() {
+@@ -25,7 +25,7 @@ function unmodalize() {
      return;
    }
    for (const element of hiddenElements) {
@@ -29,10 +29,10 @@ index 30809b8..fe453bd 100644
  }
  export {
 diff --git a/node_modules/@wordpress/components/build-module/modal/index.js b/node_modules/@wordpress/components/build-module/modal/index.js
-index 24af829..334bb6f 100644
+index ff11bba..d91e1cb 100644
 --- a/node_modules/@wordpress/components/build-module/modal/index.js
 +++ b/node_modules/@wordpress/components/build-module/modal/index.js
-@@ -69,7 +69,7 @@ function UnforwardedModal(props, forwardedRef) {
+@@ -70,7 +70,7 @@ function UnforwardedModal(props, forwardedRef) {
        setHasScrollableContent(false);
      }
    }, [contentRef]);
@@ -42,10 +42,10 @@ index 24af829..334bb6f 100644
      return () => ariaHelper.unmodalize();
    }, []);
 diff --git a/node_modules/@wordpress/components/build-module/select-control/styles/select-control-styles.js b/node_modules/@wordpress/components/build-module/select-control/styles/select-control-styles.js
-index fe29336..b49b11a 100644
+index 09d3159..0f83421 100644
 --- a/node_modules/@wordpress/components/build-module/select-control/styles/select-control-styles.js
 +++ b/node_modules/@wordpress/components/build-module/select-control/styles/select-control-styles.js
-@@ -111,12 +111,14 @@ const overflowStyles = ({
+@@ -112,12 +112,14 @@ var overflowStyles = ({
      overflow: multiple ? "auto" : "hidden"
    };
  };
@@ -63,10 +63,10 @@ index fe29336..b49b11a 100644
    toString: _EMOTION_STRINGIFIED_CSS_ERROR__
  };
 diff --git a/node_modules/@wordpress/components/build/select-control/styles/select-control-styles.js b/node_modules/@wordpress/components/build/select-control/styles/select-control-styles.js
-index adfd558..32f9b07 100644
+index 9bacd9d..3310738 100644
 --- a/node_modules/@wordpress/components/build/select-control/styles/select-control-styles.js
 +++ b/node_modules/@wordpress/components/build/select-control/styles/select-control-styles.js
-@@ -148,12 +148,14 @@ const overflowStyles = ({
+@@ -150,12 +150,14 @@ var overflowStyles = ({
      overflow: multiple ? "auto" : "hidden"
    };
  };

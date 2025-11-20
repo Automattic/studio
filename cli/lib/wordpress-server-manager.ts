@@ -16,6 +16,11 @@ import {
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from '../../common/constants';
 
+type Packet = {
+	process: { pm_id: number };
+	raw: { type: string; id?: number; error?: string; errorStack?: string; result?: unknown };
+};
+
 const pm2 = getPm2Instance();
 
 // PM2 bus for inter-process communication
@@ -54,9 +59,6 @@ function getProcessName( siteId: string ): string {
 	return `studio-site-${ siteId }`;
 }
 
-/**
- * Check if a WordPress server is running for a site
- */
 export async function isServerRunning( siteId: string ): Promise< boolean > {
 	const processName = getProcessName( siteId );
 	return isProcessRunning( processName );
@@ -64,16 +66,12 @@ export async function isServerRunning( siteId: string ): Promise< boolean > {
 
 /**
  * Start a WordPress server for a site via PM2
- * Follows Studio's PlaygroundServerProcess.start() pattern:
  * 1. Start the PM2 process
  * 2. Wait for 'ready' message
  * 3. Send 'start-server' message with config
  * 4. Wait for response before resolving
  */
-export async function startWordPressServer(
-	site: SiteData,
-	consoleMessageCallback?: ( message: string ) => void
-): Promise< ProcessDescription > {
+export async function startWordPressServer( site: SiteData ): Promise< ProcessDescription > {
 	const wordPressServerChildPath = path.resolve( __dirname, 'wordpress-server-child.js' );
 	const processName = getProcessName( site.id );
 
@@ -103,45 +101,10 @@ export async function startWordPressServer(
 	};
 
 	const processDesc = await startProcess( processName, wordPressServerChildPath, env );
-
-	if ( consoleMessageCallback ) {
-		await setupConsoleMessageHandler( processDesc.pmId, consoleMessageCallback );
-	}
-
 	await waitForReadyMessage( processName, processDesc.pmId );
-
 	await sendMessage( processName, processDesc.pmId, 'start-server', { config: serverConfig } );
 
 	return processDesc;
-}
-
-/**
- * Set up handler for console messages from PM2 process
- */
-async function setupConsoleMessageHandler(
-	pmId: number,
-	callback: ( message: string ) => void
-): Promise< void > {
-	try {
-		const bus = await getPm2Bus();
-
-		const consoleHandler = ( packet: {
-			process: { pm_id: number };
-			raw: { type: string; message: string };
-		} ) => {
-			if (
-				packet?.process?.pm_id === pmId &&
-				packet?.raw?.type === 'console-message' &&
-				packet?.raw?.message
-			) {
-				callback( packet.raw.message );
-			}
-		};
-
-		bus.on( 'process:msg', consoleHandler );
-	} catch ( error ) {
-		console.error( 'Failed to set up console message handler:', error );
-	}
 }
 
 /**
@@ -156,8 +119,7 @@ async function waitForReadyMessage( processName: string, pmId: number ): Promise
 			reject( new Error( 'Timeout waiting for ready message from WordPress server child' ) );
 		}, PLAYGROUND_CLI_INACTIVITY_TIMEOUT );
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const readyHandler = ( packet: any ) => {
+		const readyHandler = ( packet: Packet ) => {
 			if ( packet?.process?.pm_id === pmId && packet?.raw?.type === 'ready' ) {
 				clearTimeout( timeout );
 				bus.off( 'process:msg', readyHandler );
@@ -171,8 +133,6 @@ async function waitForReadyMessage( processName: string, pmId: number ): Promise
 
 /**
  * Send message to PM2 process and wait for response with activity-based timeout
- * Similar to Studio's sendMessage pattern (lines 184-227 in playground-server-process.ts)
- *
  * Implements activity-based timeout system:
  * - Tracks last activity timestamp
  * - Checks periodically for inactivity
@@ -229,8 +189,7 @@ async function sendMessage(
 			activityCheckInterval,
 		} );
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const responseHandler = ( packet: any ) => {
+		const responseHandler = ( packet: Packet ) => {
 			if ( packet?.process?.pm_id === pmId ) {
 				if ( packet?.raw?.type === 'activity' || packet?.raw?.id !== undefined ) {
 					lastActivityTimestamp = Date.now();
@@ -278,9 +237,6 @@ async function sendMessage(
 	} );
 }
 
-/**
- * Stop a WordPress server for a site
- */
 export async function stopWordPressServer( siteId: string ): Promise< void > {
 	const processName = getProcessName( siteId );
 	return stopProcess( processName );

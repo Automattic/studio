@@ -10,31 +10,14 @@
  * - Sends response back when ready
  * - Sends activity heartbeats to prevent timeout during long operations
  */
-// Store original console methods before interception
-const originalConsoleLog = console.log;
-const originalConsoleError = console.error;
-const originalConsoleWarn = console.warn;
+import { SupportedPHPVersion } from '@php-wasm/universal';
+import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
+import { isWordPressDirectory } from 'common/lib/fs-utils';
+import { getMuPlugins } from 'common/lib/mu-plugins';
+import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
+import { ServerConfig, Message } from './lib/types/wordpress-server';
 
-console.log = ( ...args: any[] ) => {
-	originalConsoleLog( ...args );
-	if ( process.send ) {
-		process.send( { type: 'activity' } );
-	}
-};
-
-console.error = ( ...args: any[] ) => {
-	originalConsoleError( ...args );
-	if ( process.send ) {
-		process.send( { type: 'activity' } );
-	}
-};
-
-console.warn = ( ...args: any[] ) => {
-	originalConsoleWarn( ...args );
-	if ( process.send ) {
-		process.send( { type: 'activity' } );
-	}
-};
+let server: RunCLIServer | null = null;
 
 const originalStdoutWrite = process.stdout.write.bind( process.stdout );
 const originalStderrWrite = process.stderr.write.bind( process.stderr );
@@ -52,15 +35,6 @@ process.stderr.write = function ( ...args: Parameters< typeof originalStderrWrit
 	}
 	return originalStderrWrite( ...args );
 } as typeof process.stderr.write;
-
-import { SupportedPHPVersion } from '@php-wasm/universal';
-import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
-import { isWordPressDirectory } from 'common/lib/fs-utils';
-import { getMuPlugins } from 'common/lib/mu-plugins';
-import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
-import { ServerConfig, Message } from './lib/types/wordpress-server';
-
-let server: RunCLIServer | null = null;
 
 function escapePhpString( str: string ): string {
 	return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
@@ -155,7 +129,6 @@ async function startServer( config: ServerConfig ): Promise< void > {
 	}
 }
 
-// Listen for messages from parent process
 if ( process.send ) {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	process.on( 'message', async ( packet: any ) => {

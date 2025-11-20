@@ -3,6 +3,7 @@ import os from 'os';
 import path from 'path';
 import { StartOptions } from 'pm2';
 import { getAppdataPath } from 'cli/lib/appdata';
+import { ProcessDescription } from 'cli/lib/types/pm2';
 
 const PM2_STATUS_ONLINE = 'online';
 const PROXY_PROCESS_NAME = 'studio-proxy';
@@ -11,12 +12,6 @@ const PROXY_PROCESS_NAME = 'studio-proxy';
 const STUDIO_PM2_HOME = path.join( os.homedir(), '.studio', 'pm2' );
 
 process.env.PM2_HOME = STUDIO_PM2_HOME;
-
-interface ProcessDescription {
-	name: string;
-	pmId: number;
-	status: string;
-}
 
 function resolvePm2(): typeof import('pm2') {
 	try {

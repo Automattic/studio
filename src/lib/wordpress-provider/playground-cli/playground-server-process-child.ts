@@ -1,9 +1,9 @@
 import { SupportedPHPVersion, PHPRunOptions } from '@php-wasm/universal';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
+import { getMuPlugins } from 'common/lib/mu-plugins';
 import { sanitizeRunCLIArgs } from 'src/lib/sentry-sanitizer';
 import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
 import { WordPressServerOptions } from '../types';
-import { getMuPlugins } from './mu-plugins';
 import { PlaygroundCliOptions } from './playground-cli-provider';
 
 interface BaseMessage {
@@ -92,7 +92,7 @@ process.stderr.write = function ( ...args: Parameters< typeof originalStderrWrit
 	return originalStderrWrite( ...args );
 } as typeof process.stderr.write;
 
-let server: RunCLIServer | null = null;
+let server: RunCLIServer | null | void = null;
 let lastCliArgs: Record< string, unknown > | null = null;
 
 process.parentPort.on( 'message', async ( event ) => {
@@ -206,6 +206,10 @@ async function startServer(
 		lastCliArgs = sanitizeRunCLIArgs( args );
 
 		server = await runCLI( args );
+
+		if ( ! server ) {
+			throw new Error( 'Could not start server' );
+		}
 
 		if ( serverOptions.adminPassword ) {
 			await setAdminPassword( server, serverOptions.adminPassword );

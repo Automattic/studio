@@ -7,7 +7,6 @@
  * Pattern follows Studio's PlaygroundServerProcess class but uses PM2 instead of Electron's utilityProcess
  */
 import path from 'path';
-import { Blueprint } from '@wp-playground/blueprints';
 import { SiteData } from 'cli/lib/appdata';
 import {
 	isProcessRunning,
@@ -16,6 +15,8 @@ import {
 	getProcessStatus,
 	getPm2Instance,
 } from 'cli/lib/pm2-manager';
+import { ProcessDescription } from 'cli/lib/types/pm2';
+import { ServerConfig, Message } from 'cli/lib/types/wordpress-server';
 import {
 	PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL,
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
@@ -43,35 +44,6 @@ async function getPm2Bus() {
 			resolve( bus );
 		} );
 	} );
-}
-
-interface ProcessDescription {
-	name: string;
-	pmId: number;
-	status: string;
-}
-
-interface ServerConfig {
-	siteId: string;
-	sitePath: string;
-	port: number;
-	phpVersion?: string;
-	wpVersion?: string;
-	absoluteUrl?: string;
-	adminPassword?: string;
-	siteTitle?: string;
-	siteLanguage?: string;
-	isWpAutoUpdating?: boolean;
-	blueprint?: Blueprint;
-}
-
-interface Message {
-	id?: number;
-	type: string;
-	data?: unknown;
-	result?: unknown;
-	error?: string;
-	errorStack?: string;
 }
 
 const activityTrackers = new Map<
@@ -214,7 +186,7 @@ async function sendMessage(
 	processName: string,
 	pmId: number,
 	type: string,
-	data: unknown
+	data: Message[ 'data' ]
 ): Promise< unknown > {
 	const bus = await getPm2Bus();
 

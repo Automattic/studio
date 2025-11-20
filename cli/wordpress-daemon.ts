@@ -10,33 +10,11 @@
  * - Sends response back when ready
  */
 import { SupportedPHPVersion } from '@php-wasm/universal';
-import { Blueprint } from '@wp-playground/blueprints';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import { isWordPressDirectory } from 'common/lib/fs-utils';
-import { getMuPlugins } from 'src/lib/wordpress-provider/playground-cli/mu-plugins';
+import { getMuPlugins } from 'common/lib/mu-plugins';
 import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
-
-interface ServerConfig {
-	siteId: string;
-	sitePath: string;
-	port: number;
-	phpVersion?: string;
-	wpVersion?: string;
-	absoluteUrl?: string;
-	adminPassword?: string;
-	siteTitle?: string;
-	siteLanguage?: string;
-	isWpAutoUpdating?: boolean;
-	blueprint?: Blueprint;
-}
-
-type Message = {
-	id?: number;
-	type: string;
-	data?: {
-		config?: ServerConfig;
-	};
-};
+import { ServerConfig, Message } from './lib/types/wordpress-server';
 
 let server: RunCLIServer | null = null;
 
@@ -65,8 +43,7 @@ async function startServer( config: ServerConfig ): Promise< void > {
 		const hasWordPress = isWordPressDirectory( config.sitePath );
 
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
-			projectPath: config.sitePath,
-			isSetupMode: false,
+			isWpAutoUpdating: config.isWpAutoUpdating,
 		} );
 
 		const defaultConstants = {

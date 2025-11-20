@@ -58,6 +58,7 @@ export default defineConfig( {
 				'@php-wasm/scopes',
 				'@wp-playground/cli',
 				'@wp-playground/blueprints',
+				'@wp-playground/wordpress',
 			],
 			output: {
 				format: 'cjs',

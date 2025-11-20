@@ -314,18 +314,15 @@ export async function copySite(
 
 	bumpStat( StatsGroup.STUDIO_SITE_CREATE, StatsMetric.SITE_COPIED );
 
-	// Validate source site exists
 	const sourceSite = SiteServer.get( sourceId );
 	if ( ! sourceSite ) {
 		throw new Error( 'Source site not found' );
 	}
 
-	// Get source WordPress version to determine if we need to install a different version
 	const sourceWpVersion = await getWordPressVersion( sourceSite.details.path );
 	const targetWpVersion = wpVersion || sourceWpVersion;
 	const needsDifferentWpVersion = wpVersion && wpVersion !== sourceWpVersion;
 
-	// Validate destination path
 	if ( ! ( await pathExists( newPath ) ) && newPath.startsWith( DEFAULT_SITE_PATH ) ) {
 		fs.mkdirSync( newPath, { recursive: true } );
 	}
@@ -340,7 +337,6 @@ export async function copySite(
 		throw new Error( 'The destination directory is already in use.' );
 	}
 
-	// Helper to send progress updates
 	const sendProgress = ( step: CopyProgress[ 'step' ], message: string, percentage: number ) => {
 		const parentWindow = BrowserWindow.fromWebContents( event.sender );
 		sendIpcEventToRendererWithWindow( parentWindow, 'copySiteProgress', {
@@ -353,7 +349,6 @@ export async function copySite(
 
 	sendProgress( 'preparing', __( 'Preparing to copy site...' ), 0 );
 
-	// Stop source site if running to prevent database corruption
 	const wasSourceRunning = sourceSite.details.running;
 	if ( wasSourceRunning ) {
 		await stopServer( event, sourceId );
@@ -375,23 +370,19 @@ export async function copySite(
 			enableHttps,
 		} as const;
 
-		// Create the destination directory structure
 		await fsPromises.mkdir( nodePath.join( newPath, 'wp-content' ), { recursive: true } );
 
 		const sourcePath = sourceSite.details.path;
 
-		// If a different WordPress version is requested, install it fresh
 		if ( needsDifferentWpVersion ) {
 			sendProgress( 'copying-core', __( 'Installing WordPress...' ), 10 );
 			const tempServer = SiteServer.create( details, { wpVersion: targetWpVersion } );
 			await createSiteWorkingDirectory( tempServer, targetWpVersion );
 		} else {
-			// Copy WordPress core files (wp-admin, wp-includes, root files)
 			sendProgress( 'copying-core', __( 'Copying WordPress core files...' ), 10 );
 
 			const entries = await fsPromises.readdir( sourcePath, { withFileTypes: true } );
 
-			// Copy all files and directories except wp-content
 			for ( const entry of entries ) {
 				if ( entry.name === 'wp-content' ) {
 					continue;
@@ -407,11 +398,9 @@ export async function copySite(
 			}
 		}
 
-		// Copy wp-content subdirectories based on copy options
 		const wpContentSource = nodePath.join( sourcePath, 'wp-content' );
 		const wpContentDest = nodePath.join( newPath, 'wp-content' );
 
-		// Always copy mu-plugins (contains SQLite integration)
 		const muPluginsSource = nodePath.join( wpContentSource, 'mu-plugins' );
 		const muPluginsDest = nodePath.join( wpContentDest, 'mu-plugins' );
 		if ( await pathExists( muPluginsSource ) ) {
@@ -419,7 +408,6 @@ export async function copySite(
 			await recursiveCopyDirectory( muPluginsSource, muPluginsDest );
 		}
 
-		// Copy plugins if selected
 		if ( copyOptions.plugins ) {
 			const pluginsSource = nodePath.join( wpContentSource, 'plugins' );
 			const pluginsDest = nodePath.join( wpContentDest, 'plugins' );
@@ -428,11 +416,9 @@ export async function copySite(
 				await recursiveCopyDirectory( pluginsSource, pluginsDest );
 			}
 		} else {
-			// Create empty plugins directory
 			await fsPromises.mkdir( nodePath.join( wpContentDest, 'plugins' ), { recursive: true } );
 		}
 
-		// Copy themes if selected
 		if ( copyOptions.themes ) {
 			const themesSource = nodePath.join( wpContentSource, 'themes' );
 			const themesDest = nodePath.join( wpContentDest, 'themes' );
@@ -441,11 +427,9 @@ export async function copySite(
 				await recursiveCopyDirectory( themesSource, themesDest );
 			}
 		} else {
-			// Create empty themes directory
 			await fsPromises.mkdir( nodePath.join( wpContentDest, 'themes' ), { recursive: true } );
 		}
 
-		// Copy uploads if selected
 		if ( copyOptions.uploads ) {
 			const uploadsSource = nodePath.join( wpContentSource, 'uploads' );
 			const uploadsDest = nodePath.join( wpContentDest, 'uploads' );
@@ -454,53 +438,43 @@ export async function copySite(
 				await recursiveCopyDirectory( uploadsSource, uploadsDest );
 			}
 		} else {
-			// Create empty uploads directory
 			await fsPromises.mkdir( nodePath.join( wpContentDest, 'uploads' ), { recursive: true } );
 		}
 
-		// Copy database if selected
 		if ( copyOptions.database ) {
 			sendProgress( 'copying-database', __( 'Copying database...' ), 70 );
 
-			// Copy the database directory
 			const dbSource = nodePath.join( wpContentSource, 'database' );
 			const dbDest = nodePath.join( wpContentDest, 'database' );
 			if ( await pathExists( dbSource ) ) {
 				await recursiveCopyDirectory( dbSource, dbDest );
 			}
 
-			// Copy db.php if it exists
 			const dbPhpSource = nodePath.join( wpContentSource, 'db.php' );
 			const dbPhpDest = nodePath.join( wpContentDest, 'db.php' );
 			if ( await pathExists( dbPhpSource ) ) {
 				await fsPromises.copyFile( dbPhpSource, dbPhpDest );
 			}
 		} else {
-			// If not copying database, ensure SQLite integration is installed
 			await installSqliteIntegration( newPath );
 		}
 
-		// Create the new site server instance
 		const newServer = SiteServer.create( details, {
 			wpVersion: targetWpVersion,
 		} );
 
-		// If database was copied, update URLs
 		if ( copyOptions.database ) {
 			sendProgress( 'updating-urls', __( 'Updating site URLs...' ), 80 );
 
-			// Start the server temporarily to run WP-CLI commands
 			await newServer.start();
 
 			try {
 				const newUrl = getSiteUrl( details );
 				await updateSiteUrl( newServer, newUrl );
 			} finally {
-				// Stop the server after URL updates
 				await newServer.stop();
 			}
 		} else {
-			// Initialize fresh WordPress installation if no database was copied
 			await getWordPressProvider().installWordPressWhenNoWpConfig(
 				newServer,
 				newName,
@@ -508,7 +482,6 @@ export async function copySite(
 			);
 		}
 
-		// Register the new site
 		sendProgress( 'finalizing', __( 'Finalizing copy...' ), 90 );
 
 		const parentWindow = BrowserWindow.fromWebContents( event.sender );
@@ -526,11 +499,9 @@ export async function copySite(
 			await unlockAppdata();
 		}
 
-		// Start the copied site
 		sendProgress( 'finalizing', __( 'Starting copied site...' ), 95 );
 		await newServer.start();
 
-		// Send theme details and generate thumbnail (same as startServer does)
 		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-changed', {
 			id: details.id,
 			details: newServer.details.themeDetails,
@@ -541,8 +512,7 @@ export async function copySite(
 				try {
 					await newServer.updateCachedThumbnail();
 					await sendThumbnailChangedEvent( event, details.id );
-				} catch ( error ) {
-					console.error( `Failed to update thumbnail for copied site ${ details.id }:`, error );
+				} catch {
 				}
 			} )();
 		}
@@ -551,13 +521,11 @@ export async function copySite(
 
 		return newServer.details;
 	} catch ( error ) {
-		// Cleanup on failure
 		if ( await pathExists( newPath ) ) {
 			await shell.trashItem( newPath );
 		}
 		throw error;
 	} finally {
-		// Restart source site if it was running
 		if ( wasSourceRunning ) {
 			await startServer( event, sourceId );
 		}

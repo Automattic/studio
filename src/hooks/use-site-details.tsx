@@ -378,7 +378,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					siteId: tempSiteId,
 				} );
 				if ( ! newSite ) {
-					// Error handling
 					setTimeout( () => {
 						setAddingSiteIds( ( prev ) => prev.filter( ( id ) => id !== tempSiteId ) );
 						setData( ( prevData ) =>
@@ -414,7 +413,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 				return newSite;
 			} catch ( error ) {
-				console.error( 'Error during site copy:', error );
 				getIpcApi().showErrorMessageBox( {
 					title: __( 'Failed to copy site' ),
 					message: __(

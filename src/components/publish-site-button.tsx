@@ -1,4 +1,4 @@
-import { globe, cloudUpload } from '@wordpress/icons';
+import { cloudUpload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import Button from 'src/components/button';
 import { useSyncSites } from 'src/hooks/sync-sites';

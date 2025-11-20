@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import { compileBlueprint } from '@wp-playground/blueprints';
 import { Blueprint } from 'src/stores/wpcom-api';
 
 interface UnsupportedFeature {
@@ -112,4 +113,39 @@ export function filterUnsupportedBlueprintFeatures(
 	}
 
 	return filtered;
+}
+
+export interface BlueprintValidationResult {
+	valid: boolean;
+	error?: string;
+	warnings?: Array< { feature: string; reason: string; alternative?: string } >;
+}
+
+/**
+ * Validates a blueprint by compiling it and scanning for unsupported features.
+ */
+export async function validateBlueprintData(
+	blueprintJson: Blueprint[ 'blueprint' ]
+): Promise< BlueprintValidationResult > {
+	try {
+		await compileBlueprint( blueprintJson );
+	} catch ( error ) {
+		const errorMessage = error instanceof Error ? error.message : __( 'Invalid Blueprint format' );
+		return {
+			valid: false,
+			error: errorMessage,
+		};
+	}
+
+	const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson );
+
+	const warnings = unsupportedFeatures.map( ( feature ) => ( {
+		feature: feature.name,
+		reason: feature.reason,
+	} ) );
+
+	return {
+		valid: true,
+		warnings: warnings.length > 0 ? warnings : undefined,
+	};
 }

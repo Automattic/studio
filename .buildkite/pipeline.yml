@@ -13,7 +13,6 @@ steps:
     key: lint
     command: |
       .buildkite/commands/install-node-dependencies.sh
-      cd scripts/compare-perf && npm install && cd -
       echo '--- :eslint: Lint'
       npm run lint
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
@@ -54,6 +53,9 @@ steps:
     matrix:
       - mac
       - windows
+    # Skip E2E tests on draft PRs to save CI resources
+    # Tests will run automatically when PR is marked ready for review
+    if: build.branch == 'trunk' || build.tag =~ /^v[0-9]+/ || !build.pull_request.draft
     notify:
       - github_commit_status:
           context: E2E Tests

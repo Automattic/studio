@@ -2,6 +2,7 @@
 import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
+import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { store } from 'src/stores';
@@ -77,7 +78,9 @@ describe( 'ContentTabOverview', () => {
 		} );
 		render(
 			<Provider store={ store }>
-				<ContentTabOverview selectedSite={ selectedSite } />
+				<ContentTabsProvider>
+					<ContentTabOverview selectedSite={ selectedSite } />
+				</ContentTabsProvider>
 			</Provider>
 		);
 	};

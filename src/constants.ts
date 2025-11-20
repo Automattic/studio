@@ -102,4 +102,4 @@ export const IPC_VOID_HANDLERS = < const >[
 ];
 
 // What's New
-export const FORCE_WHATS_NEW_WHEN_PATCH_CHANGED = false;
+export const FORCE_WHATS_NEW_WHEN_PATCH_CHANGED = true;

@@ -57,4 +57,3 @@ window.ipcListener.subscribe( 'beta-features-updated', () => {
 } );
 
 export const betaFeaturesReducer = betaFeaturesSlice.reducer;
-

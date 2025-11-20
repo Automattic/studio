@@ -25,7 +25,6 @@ async function startProxyIfNeeded( logger: Logger< LoggerAction > ) {
 	}
 }
 
-// TODO: Add flag to bypass opening browser
 async function openSiteInBrowser( site: SiteData ) {
 	const siteUrl = getSiteUrl( site );
 	try {
@@ -39,7 +38,7 @@ async function openSiteInBrowser( site: SiteData ) {
 	}
 }
 
-export async function runCommand( siteFolder: string ): Promise< void > {
+export async function runCommand( siteFolder: string, skipBrowser = false ): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
 	try {
@@ -51,14 +50,16 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 			throw new LoggerError( __( 'Could not find Studio site.' ) );
 		}
 
-		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting PM2 daemon...' ) );
+		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
 		await startDaemon();
-		logger.reportSuccess( __( 'PM2 daemon started' ) );
+		logger.reportSuccess( __( 'Process daemon started' ) );
 
 		const alreadyRunning = await isServerRunning( site.id );
 		if ( alreadyRunning ) {
 			logger.reportSuccess( __( 'WordPress site is already running' ) );
-			await openSiteInBrowser( site );
+			if ( ! skipBrowser ) {
+				await openSiteInBrowser( site );
+			}
 			return;
 		}
 
@@ -89,7 +90,9 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 
 			logger.reportSuccess( __( 'WordPress site started' ) );
 
-			await openSiteInBrowser( site );
+			if ( ! skipBrowser ) {
+				await openSiteInBrowser( site );
+			}
 		} catch ( error ) {
 			throw new LoggerError( __( 'Failed to start WordPress server' ), error );
 		}
@@ -110,8 +113,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'start',
 		describe: __( 'Start local site' ),
+		builder: ( yargs ) => {
+			return yargs.option( 'skip-browser', {
+				type: 'boolean',
+				describe: __( 'Skip opening the site in browser after starting' ),
+				default: false,
+			} );
+		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path );
+			await runCommand( argv.path, argv.skipBrowser );
 		},
 	} );
 };

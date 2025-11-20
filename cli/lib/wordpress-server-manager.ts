@@ -16,6 +16,11 @@ import {
 	getProcessStatus,
 	getPm2Instance,
 } from 'cli/lib/pm2-manager';
+import {
+	PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL,
+	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
+	PLAYGROUND_CLI_MAX_TIMEOUT,
+} from '../../common/constants';
 
 const pm2 = getPm2Instance();
 
@@ -69,6 +74,14 @@ interface Message {
 	errorStack?: string;
 }
 
+const activityTrackers = new Map<
+	number,
+	{
+		lastActivityTimestamp: number;
+		activityCheckInterval: NodeJS.Timeout;
+	}
+>();
+
 /**
  * Generate PM2 process name for a site
  */
@@ -92,7 +105,10 @@ export async function isServerRunning( siteId: string ): Promise< boolean > {
  * 3. Send 'start-server' message with config
  * 4. Wait for response before resolving
  */
-export async function startWordPressServer( site: SiteData ): Promise< ProcessDescription > {
+export async function startWordPressServer(
+	site: SiteData,
+	consoleMessageCallback?: ( message: string ) => void
+): Promise< ProcessDescription > {
 	const wordPressDaemonPath = path.resolve( __dirname, 'wordpress-daemon.js' );
 	const processName = getProcessName( site.id );
 
@@ -121,21 +137,45 @@ export async function startWordPressServer( site: SiteData ): Promise< ProcessDe
 		STUDIO_WORDPRESS_SERVER_CONFIG: JSON.stringify( serverConfig ),
 	};
 
-	// Start PM2 process
 	const processDesc = await startProcess( processName, wordPressDaemonPath, env );
 
-	// Wait for 'ready' message from daemon (similar to Studio's pattern at line 133-141)
+	if ( consoleMessageCallback ) {
+		setupConsoleMessageHandler( processDesc.pmId, consoleMessageCallback );
+	}
+
 	await waitForReadyMessage( processName, processDesc.pmId );
 
-	// Send 'start-server' message and wait for response (similar to Studio's line 143-146)
 	await sendMessage( processName, processDesc.pmId, 'start-server', { config: serverConfig } );
 
 	return processDesc;
 }
 
 /**
+ * Set up handler for console messages from PM2 process
+ */
+function setupConsoleMessageHandler( pmId: number, callback: ( message: string ) => void ): void {
+	getPm2Bus()
+		.then( ( bus ) => {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const consoleHandler = ( packet: any ) => {
+				if (
+					packet?.process?.pm_id === pmId &&
+					packet?.raw?.type === 'console-message' &&
+					packet?.raw?.message
+				) {
+					callback( packet.raw.message );
+				}
+			};
+
+			bus.on( 'process:msg', consoleHandler );
+		} )
+		.catch( ( error ) => {
+			console.error( 'Failed to set up console message handler:', error );
+		} );
+}
+
+/**
  * Wait for 'ready' message from PM2 process
- * Similar to Studio's waitForReady pattern (lines 133-141 in playground-server-process.ts)
  */
 async function waitForReadyMessage( processName: string, pmId: number ): Promise< void > {
 	const bus = await getPm2Bus();
@@ -144,7 +184,7 @@ async function waitForReadyMessage( processName: string, pmId: number ): Promise
 		const timeout = setTimeout( () => {
 			bus.off( 'process:msg', readyHandler );
 			reject( new Error( 'Timeout waiting for ready message from WordPress daemon' ) );
-		}, 10000 );
+		}, PLAYGROUND_CLI_INACTIVITY_TIMEOUT );
 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const readyHandler = ( packet: any ) => {
@@ -160,8 +200,13 @@ async function waitForReadyMessage( processName: string, pmId: number ): Promise
 }
 
 /**
- * Send message to PM2 process and wait for response
+ * Send message to PM2 process and wait for response with activity-based timeout
  * Similar to Studio's sendMessage pattern (lines 184-227 in playground-server-process.ts)
+ *
+ * Implements activity-based timeout system:
+ * - Tracks last activity timestamp
+ * - Checks periodically for inactivity
+ * - Has both inactivity timeout and max total timeout
  */
 let nextMessageId = 0;
 
@@ -177,19 +222,66 @@ async function sendMessage(
 		const id = nextMessageId++;
 		const message: Message = { id, type, data };
 
-		const timeout = setTimeout( () => {
+		const startTime = Date.now();
+		let lastActivityTimestamp = Date.now();
+
+		const cleanup = () => {
 			bus.off( 'process:msg', responseHandler );
-			reject( new Error( `Timeout waiting for response to message ${ id }` ) );
-		}, 30000 );
+			const tracker = activityTrackers.get( id );
+			if ( tracker ) {
+				clearInterval( tracker.activityCheckInterval );
+				activityTrackers.delete( id );
+			}
+		};
+
+		const activityCheckInterval = setInterval( () => {
+			const now = Date.now();
+			const timeSinceLastActivity = now - lastActivityTimestamp;
+			const totalElapsedTime = now - startTime;
+
+			if (
+				timeSinceLastActivity > PLAYGROUND_CLI_INACTIVITY_TIMEOUT ||
+				totalElapsedTime > PLAYGROUND_CLI_MAX_TIMEOUT
+			) {
+				cleanup();
+				const timeoutReason =
+					totalElapsedTime > PLAYGROUND_CLI_MAX_TIMEOUT
+						? `Maximum timeout of ${ PLAYGROUND_CLI_MAX_TIMEOUT / 1000 }s exceeded`
+						: `No activity for ${ PLAYGROUND_CLI_INACTIVITY_TIMEOUT / 1000 }s`;
+				reject(
+					new Error( `Timeout waiting for response to message ${ id }: ${ timeoutReason }` )
+				);
+			}
+		}, PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL );
+
+		activityTrackers.set( id, {
+			lastActivityTimestamp,
+			activityCheckInterval,
+		} );
 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const responseHandler = ( packet: any ) => {
+			if ( packet?.process?.pm_id === pmId ) {
+				if ( packet?.raw?.type === 'activity' || packet?.raw?.id !== undefined ) {
+					lastActivityTimestamp = Date.now();
+					const tracker = activityTrackers.get( id );
+					if ( tracker ) {
+						tracker.lastActivityTimestamp = lastActivityTimestamp;
+					}
+				}
+			}
+
 			if ( packet?.process?.pm_id === pmId && packet?.raw?.id === id ) {
-				clearTimeout( timeout );
-				bus.off( 'process:msg', responseHandler );
+				cleanup();
 
 				if ( packet.raw.error ) {
-					reject( new Error( packet.raw.error ) );
+					const error = new Error( packet.raw.error ) as Error & {
+						errorStack?: string;
+					};
+					if ( packet.raw.errorStack ) {
+						error.stack = packet.raw.errorStack;
+					}
+					reject( error );
 				} else {
 					resolve( packet.raw.result );
 				}
@@ -208,8 +300,7 @@ async function sendMessage(
 			},
 			( error ) => {
 				if ( error ) {
-					clearTimeout( timeout );
-					bus.off( 'process:msg', responseHandler );
+					cleanup();
 					reject( error );
 				}
 			}

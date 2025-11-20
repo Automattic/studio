@@ -39,7 +39,6 @@ type Message = {
 };
 
 let server: RunCLIServer | null = null;
-let messageId = 0;
 
 function escapePhpString( str: string ): string {
 	return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
@@ -63,11 +62,6 @@ async function startServer( config: ServerConfig ): Promise< void > {
 	}
 
 	try {
-		console.log( `[WordPress Daemon] Starting WordPress server for site ${ config.siteId }...` );
-		console.log( `[WordPress Daemon] Path: ${ config.sitePath }` );
-		console.log( `[WordPress Daemon] Port: ${ config.port }` );
-		console.log( `[WordPress Daemon] PHP: ${ config.phpVersion || '8.3' }` );
-
 		const hasWordPress = isWordPressDirectory( config.sitePath );
 
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
@@ -104,8 +98,12 @@ async function startServer( config: ServerConfig ): Promise< void > {
 			'mount-before-install': mounts,
 			'site-url': config.absoluteUrl || `http://localhost:${ config.port }`,
 			blueprint: config.blueprint || {},
-			skipWordPressSetup: hasWordPress,
+			wordpressInstallMode: 'download-and-install',
 		};
+
+		if ( hasWordPress ) {
+			args.wordpressInstallMode = 'install-from-existing-files-if-needed';
+		}
 
 		if ( config.phpVersion ) {
 			args.php = config.phpVersion as SupportedPHPVersion;
@@ -120,17 +118,15 @@ async function startServer( config: ServerConfig ): Promise< void > {
 		}
 
 		args.blueprint.constants = { ...args.blueprint.constants, ...defaultConstants };
+		const server = await runCLI( args );
 
-		console.log( `[WordPress Daemon] Initializing Playground CLI...` );
-		server = await runCLI( args );
-
-		if ( config.adminPassword ) {
-			console.log( `[WordPress Daemon] Setting admin password...` );
-			await setAdminPassword( server, config.adminPassword );
+		if ( ! server ) {
+			throw new Error( 'Failed to start server: runCLI returned void' );
 		}
 
-		console.log( `[WordPress Daemon] WordPress server started successfully` );
-		console.log( `[WordPress Daemon] URL: http://localhost:${ config.port }` );
+		if ( config.adminPassword ) {
+			await setAdminPassword( server, config.adminPassword );
+		}
 	} catch ( error ) {
 		server = null;
 		console.error( `[WordPress Daemon] Failed to start server:`, error );
@@ -138,39 +134,11 @@ async function startServer( config: ServerConfig ): Promise< void > {
 	}
 }
 
-async function stopServerFunc(): Promise< void > {
-	if ( ! server ) {
-		return;
-	}
-
-	console.log( '[WordPress Daemon] Stopping WordPress server...' );
-
-	const serverToDispose = server;
-	server = null;
-
-	try {
-		const disposalTimeout = new Promise( ( _, reject ) =>
-			setTimeout( () => reject( new Error( 'Disposal timeout' ) ), 5000 )
-		);
-
-		await Promise.race( [ serverToDispose[ Symbol.asyncDispose ](), disposalTimeout ] );
-		console.log( '[WordPress Daemon] Server stopped successfully' );
-	} catch ( error ) {
-		const errorMessage = error instanceof Error ? error.message : String( error );
-		if ( ! errorMessage.includes( 'Cannot read properties of undefined' ) ) {
-			console.warn( '[WordPress Daemon] Error during server disposal:', error );
-		}
-	} finally {
-		server = null;
-	}
-}
-
-// Listen for messages from parent process (similar to Studio's pattern)
+// Listen for messages from parent process
 if ( process.send ) {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	process.on( 'message', async ( packet: any ) => {
 		try {
-			// PM2 wraps messages in {type: 'process:msg', data: actualMessage}
-			// Unwrap it if needed
 			const message: Message = packet.type === 'process:msg' && packet.data ? packet.data : packet;
 
 			let result: unknown;
@@ -181,24 +149,16 @@ if ( process.send ) {
 						result = await startServer( message.data.config );
 					}
 					break;
-				case 'stop-server':
-					result = await stopServerFunc();
-					break;
 				default:
 					throw new Error( `Unknown message type: ${ message.type }` );
 			}
 
-			// Send response back to parent
 			if ( process.send && message.id !== undefined ) {
 				process.send( { id: message.id, result } );
 			}
 		} catch ( error ) {
-			// Send error back to parent
-			// Try to get message ID from either wrapped or unwrapped format
 			const messageId =
-				packet.type === 'process:msg' && packet.data?.id !== undefined
-					? packet.data.id
-					: packet.id;
+				packet.type === 'process:msg' && packet.data?.id !== undefined ? packet.data.id : packet.id;
 
 			if ( process.send && messageId !== undefined ) {
 				process.send( {
@@ -210,41 +170,5 @@ if ( process.send ) {
 		}
 	} );
 
-	// Signal that daemon is ready to receive messages
 	process.send( { type: 'ready' } );
-} else {
-	// Fallback for direct execution (not via PM2 with IPC)
-	async function main() {
-		try {
-			const configJson = process.env.STUDIO_WORDPRESS_SERVER_CONFIG;
-
-			if ( ! configJson ) {
-				throw new Error(
-					'STUDIO_WORDPRESS_SERVER_CONFIG environment variable not set. This daemon must be started via PM2 with configuration.'
-				);
-			}
-
-			const config: ServerConfig = JSON.parse( configJson );
-
-			await startServer( config );
-
-			// Keep the process alive
-			process.on( 'SIGTERM', async () => {
-				console.log( `[WordPress Daemon] Received SIGTERM, stopping server...` );
-				await stopServerFunc();
-				process.exit( 0 );
-			} );
-
-			process.on( 'SIGINT', async () => {
-				console.log( `[WordPress Daemon] Received SIGINT, stopping server...` );
-				await stopServerFunc();
-				process.exit( 0 );
-			} );
-		} catch ( error ) {
-			console.error( '[WordPress Daemon] Failed to start:', error );
-			process.exit( 1 );
-		}
-	}
-
-	void main();
 }

@@ -1,12 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import {
-	readAppdata,
-	lockAppdata,
-	unlockAppdata,
-	updateSiteRunningState,
-	getSiteUrl,
-} from 'cli/lib/appdata';
+import { readAppdata, getSiteUrl, SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import { addDomainToHosts } from 'cli/lib/hosts-file';
@@ -31,6 +25,20 @@ async function startProxyIfNeeded( logger: Logger< LoggerAction > ) {
 	}
 }
 
+// TODO: Add flag to bypass opening browser
+async function openSiteInBrowser( site: SiteData ) {
+	const siteUrl = getSiteUrl( site );
+	try {
+		const wpAdminUrl = `${ siteUrl }/wp-admin/`;
+		const adminUrl = `${ siteUrl }/studio-auto-login?redirect_to=${ encodeURIComponent(
+			wpAdminUrl
+		) }`;
+		await openBrowser( adminUrl );
+	} catch ( error ) {
+		// Silently fail if browser can't be opened
+	}
+}
+
 export async function runCommand( siteFolder: string ): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
@@ -49,20 +57,8 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 
 		const alreadyRunning = await isServerRunning( site.id );
 		if ( alreadyRunning ) {
-			const siteUrl = getSiteUrl( site );
-
 			logger.reportSuccess( __( 'WordPress site is already running' ) );
-
-			try {
-				const wpAdminUrl = `${ siteUrl }/wp-admin/`;
-				const adminUrl = `${ siteUrl }/studio-auto-login?redirect_to=${ encodeURIComponent(
-					wpAdminUrl
-				) }`;
-				await openBrowser( adminUrl );
-			} catch ( error ) {
-				// Silently fail if browser can't be opened
-			}
-
+			await openSiteInBrowser( site );
 			return;
 		}
 
@@ -88,31 +84,12 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 		}
 
 		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress site...' ) );
-
 		try {
 			await startWordPressServer( site );
 
-			const siteUrl = getSiteUrl( site );
-
-			try {
-				await lockAppdata();
-				await updateSiteRunningState( site.id, true, siteUrl );
-			} finally {
-				await unlockAppdata();
-			}
-
 			logger.reportSuccess( __( 'WordPress site started' ) );
 
-			// Open wp-admin with auto-login
-			try {
-				const wpAdminUrl = `${ siteUrl }/wp-admin/`;
-				const adminUrl = `${ siteUrl }/studio-auto-login?redirect_to=${ encodeURIComponent(
-					wpAdminUrl
-				) }`;
-				await openBrowser( adminUrl );
-			} catch ( error ) {
-				// Silently fail if browser can't be opened
-			}
+			await openSiteInBrowser( site );
 		} catch ( error ) {
 			throw new LoggerError( __( 'Failed to start WordPress server' ), error );
 		}

@@ -119,8 +119,6 @@ interface AddSiteBlueprintProps {
 	selectedBlueprint: string | null;
 	onBlueprintChange: ( blueprintId: string ) => void;
 	onFileBlueprintSelect?: ( blueprint: Blueprint ) => void;
-	blueprintError?: string | null;
-	onErrorDismiss?: () => void;
 }
 
 export function AddSiteBlueprintSelector( {
@@ -130,8 +128,6 @@ export function AddSiteBlueprintSelector( {
 	selectedBlueprint,
 	onBlueprintChange,
 	onFileBlueprintSelect,
-	blueprintError,
-	onErrorDismiss,
 }: AddSiteBlueprintProps ) {
 	const { __ } = useI18n();
 	const { refetch: refetchBlueprints, isFetching: isFetchingBlueprints } = useGetBlueprints();
@@ -372,19 +368,6 @@ export function AddSiteBlueprintSelector( {
 				isOpen={ showIssuesModal }
 				onClose={ () => setShowIssuesModal( false ) }
 			/>
-
-			{ blueprintError && (
-				<Notice
-					status="error"
-					isDismissible={ false }
-					onRemove={ onErrorDismiss || ( () => {} ) }
-					className="mx-0 mb-4"
-				>
-					<strong>{ __( 'Blueprint Error' ) }</strong>
-					<br />
-					{ blueprintError }
-				</Notice>
-			) }
 
 			{ validationError && (
 				<Notice

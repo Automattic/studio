@@ -20,7 +20,6 @@ type SnapshotKeyValueEventData = {
 export interface IpcEvents {
 	'add-site': [ void ];
 	'add-site-blueprint-from-url': [ { blueprintPath: string } ];
-	'add-site-blueprint-from-base64': [ { blueprintJson: string } ];
 	'auth-updated': [ { token: StoredToken } | { error: unknown } ];
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];

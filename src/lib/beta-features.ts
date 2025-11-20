@@ -15,7 +15,7 @@ const BETA_FEATURES_DEFINITION: Record< keyof BetaFeatures, BetaFeatureDefinitio
 		description: '"studio site" command to manage local sites from terminal',
 	},
 	createSiteFromRemote: {
-		label: 'Create a site from existing remote site',
+		label: 'Site creation from existing remote site',
 		key: 'createSiteFromRemote',
 		default: false,
 		description: 'Enable creating a site from an existing WordPress.com or Pressable site',

@@ -7,6 +7,7 @@ import { ProcessDescription } from 'cli/lib/types/pm2';
 
 const PM2_STATUS_ONLINE = 'online';
 const PROXY_PROCESS_NAME = 'studio-proxy';
+const DAEMON_TIMEOUT = 10000;
 // Set consistent PM2 home directory for Studio CLI
 // This ensures all Studio CLI commands use the same PM2 daemon
 const STUDIO_PM2_HOME = path.join( os.homedir(), '.studio', 'pm2' );
@@ -48,7 +49,6 @@ const pm2 = resolvePm2();
 
 let isConnected = false;
 
-// Export pm2 instance for message passing
 export function getPm2Instance() {
 	return pm2;
 }
@@ -72,7 +72,7 @@ async function connect(): Promise< void > {
 					'PM2 connection timeout after 10 seconds. Try running: PM2_HOME=~/.studio/pm2 pm2 update'
 				)
 			);
-		}, 10000 );
+		}, DAEMON_TIMEOUT );
 
 		pm2.connect( ( error ) => {
 			clearTimeout( timeout );
@@ -88,8 +88,6 @@ async function connect(): Promise< void > {
 
 export async function startDaemon(): Promise< void > {
 	await connect();
-	// Keep connection open - subsequent operations will reuse it
-	// The isConnected flag prevents duplicate connections
 }
 
 async function listProcesses(): Promise< ProcessDescription[] > {
@@ -100,7 +98,6 @@ async function listProcesses(): Promise< ProcessDescription[] > {
 				return;
 			}
 
-			// Map PM2's process structure to our ProcessDescription interface
 			const processDescriptions = ( processes || [] ).map( ( p ) => ( {
 				name: p.name || '',
 				pmId: p.pm_id || -1,
@@ -188,25 +185,16 @@ export async function startProcess(
 			}
 
 			if ( apps && apps.length > 0 ) {
-				const app = apps[ 0 ] as typeof apps[ 0 ] & { pm2_env?: { pm_id?: number; status?: string } };
+				const app = apps[ 0 ] as ( typeof apps )[ 0 ] & {
+					pm2_env?: { pm_id?: number; status?: string };
+				};
 				const pm2Env = app.pm2_env;
 
-				// PM2 6.x: data in pm2_env, use processName for name
 				if ( pm2Env && pm2Env.pm_id !== undefined && pm2Env.status ) {
 					resolve( {
-						name: processName, // Use the process name we started with
+						name: processName,
 						pmId: pm2Env.pm_id,
 						status: pm2Env.status,
-					} );
-					return;
-				}
-
-				// PM2 5.x: data at top level
-				if ( app.name && app.pm_id !== undefined && app.status ) {
-					resolve( {
-						name: app.name,
-						pmId: app.pm_id,
-						status: app.status,
 					} );
 					return;
 				}

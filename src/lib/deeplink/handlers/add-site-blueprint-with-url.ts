@@ -11,8 +11,8 @@ import { getMainWindow } from 'src/main-window';
 /**
  * Handles the add-site deeplink callback.
  * This function is called when a user clicks a deeplink like:
- * - wpcom-local-dev://add-site?blueprint_url=<encoded-url>
- * - wpcom-local-dev://add-site?blueprint=<base64-encoded-json>
+ * - wp-studio://add-site?blueprint_url=<encoded-url>
+ * - wp-studio://add-site?blueprint=<base64-encoded-json>
  *
  * It either downloads the blueprint from the URL or decodes the base64 blueprint,
  * and opens the Add Site modal with the blueprint pre-filled.

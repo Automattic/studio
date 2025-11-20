@@ -36,7 +36,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 
 	const createBlueprintUrl = ( blueprintUrl: string ) => {
 		const encodedUrl = encodeURIComponent( blueprintUrl );
-		return new URL( `wpcom-local-dev://add-site?blueprint_url=${ encodedUrl }` );
+		return new URL( `wp-studio://add-site?blueprint_url=${ encodedUrl }` );
 	};
 
 	beforeEach( () => {
@@ -74,7 +74,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 	} );
 
 	it( 'should not send event if blueprint_url parameter is missing', async () => {
-		const url = new URL( 'wpcom-local-dev://add-site' );
+		const url = new URL( 'wp-studio://add-site' );
 
 		await handleAddSiteWithBlueprint( url );
 
@@ -85,7 +85,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 	it( 'should handle invalid blueprint_url gracefully', async () => {
 		const invalidUrl = 'not-a-valid-url';
 		const encodedUrl = encodeURIComponent( invalidUrl );
-		const url = new URL( `wpcom-local-dev://add-site?blueprint_url=${ encodedUrl }` );
+		const url = new URL( `wp-studio://add-site?blueprint_url=${ encodedUrl }` );
 
 		await handleAddSiteWithBlueprint( url );
 
@@ -172,7 +172,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 			};
 			const blueprintJson = JSON.stringify( blueprintData );
 			const blueprintBase64 = Buffer.from( blueprintJson ).toString( 'base64' );
-			const url = new URL( `wpcom-local-dev://add-site?blueprint=${ blueprintBase64 }` );
+			const url = new URL( `wp-studio://add-site?blueprint=${ blueprintBase64 }` );
 
 			await handleAddSiteWithBlueprint( url );
 
@@ -183,7 +183,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		} );
 
 		it( 'should handle invalid base64-encoded blueprint and display error message', async () => {
-			const url = new URL( 'wpcom-local-dev://add-site?blueprint=invalid-base64!!!' );
+			const url = new URL( 'wp-studio://add-site?blueprint=invalid-base64!!!' );
 			await handleAddSiteWithBlueprint( url );
 
 			expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();

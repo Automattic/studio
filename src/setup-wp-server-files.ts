@@ -7,10 +7,7 @@ import {
 	updateLatestSQLiteCommandVersion,
 	getSQLiteCommandVersion,
 } from 'src/lib/sqlite-command-versions';
-import {
-	getSqliteVersionFromInstallation,
-	updateLatestSqliteVersion,
-} from 'src/lib/sqlite-versions';
+import { getSqliteVersionFromInstallation } from 'src/lib/sqlite-versions';
 import { getSqlitePath, getWordPressProvider } from 'src/lib/wordpress-provider';
 import { WpNowProvider } from 'src/lib/wordpress-provider/wp-now';
 import {
@@ -117,7 +114,6 @@ export async function setupWPServerFiles() {
 
 export async function updateWPServerFiles() {
 	await updateLatestWordPressVersion();
-	await updateLatestSqliteVersion();
 	const provider = new WpNowProvider();
 	await provider.updateLatestWPCliVersion();
 

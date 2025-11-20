@@ -19,11 +19,6 @@ export const PLAYGROUND_INTERNAL_PRELOAD_PATH = '/internal/shared/preload';
 export const SQLITE_FILENAME = 'sqlite-database-integration';
 
 /**
- * The file name for the legacy SQLite plugin name.
- */
-export const SQLITE_FILENAME_LEGACY = 'sqlite-database-integration-main';
-
-/**
  * The folder for the SQLite plugin.
  */
 export const SQLITE_PLUGIN_FOLDER = '/internal/shared/mu-plugins/sqlite-database-integration';

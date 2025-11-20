@@ -62,7 +62,6 @@ export interface WordPressProvider {
 	readonly ALLOWED_PHP_VERSIONS: string[];
 	readonly MINIMUM_WORDPRESS_VERSION: string;
 	readonly SQLITE_FILENAME: string;
-	readonly SQLITE_FILENAME_LEGACY: string;
 
 	// Path utilities
 	getSqlitePath(): string;

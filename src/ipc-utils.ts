@@ -24,7 +24,7 @@ export interface IpcEvents {
 	'add-site-blueprint-from-url': [ { blueprintPath: string } ];
 	'add-site-blueprint-from-base64': [ { blueprintJson: string } ];
 	'auth-updated': [ { token: StoredToken } | { error: unknown } ];
-	'copySiteProgress': [ CopyProgress ];
+	copySiteProgress: [ CopyProgress ];
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];
 	'on-site-create-progress': [ { siteId: string; message: string } ];

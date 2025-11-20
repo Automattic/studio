@@ -59,7 +59,15 @@ interface CopySiteConfig {
 
 interface CopyProgress {
 	siteId: string;
-	step: 'preparing' | 'copying-core' | 'copying-plugins' | 'copying-themes' | 'copying-uploads' | 'copying-database' | 'updating-urls' | 'finalizing';
+	step:
+		| 'preparing'
+		| 'copying-core'
+		| 'copying-plugins'
+		| 'copying-themes'
+		| 'copying-uploads'
+		| 'copying-database'
+		| 'updating-urls'
+		| 'finalizing';
 	message: string;
 	percentage: number;
 }

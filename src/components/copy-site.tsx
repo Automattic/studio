@@ -1,8 +1,8 @@
 import { MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 type CopySiteProps = {
 	onClose: () => void;

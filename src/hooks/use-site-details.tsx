@@ -434,7 +434,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				);
 			}
 		},
-		[ selectedTab, setSelectedSiteId, setSelectedTab, __ ]
+		[ selectedTab, setSelectedSiteId, setSelectedTab ]
 	);
 
 	const updateSite = useCallback( async ( site: SiteDetails ) => {

@@ -310,7 +310,16 @@ export async function copySite(
 	sourceId: string,
 	config: CopySiteConfig
 ): Promise< SiteDetails > {
-	const { siteId: newSiteId, newName, newPath, copyOptions, phpVersion, wpVersion, customDomain, enableHttps } = config;
+	const {
+		siteId: newSiteId,
+		newName,
+		newPath,
+		copyOptions,
+		phpVersion,
+		wpVersion,
+		customDomain,
+		enableHttps,
+	} = config;
 
 	bumpStat( StatsGroup.STUDIO_SITE_CREATE, StatsMetric.SITE_COPIED );
 
@@ -512,7 +521,8 @@ export async function copySite(
 				try {
 					await newServer.updateCachedThumbnail();
 					await sendThumbnailChangedEvent( event, details.id );
-				} catch {
+				} catch ( error ) {
+					// Ignore thumbnail update errors as they are non-critical
 				}
 			} )();
 		}
@@ -1913,9 +1923,13 @@ export function showSiteContextMenu(
 }
 
 export function triggerAddSiteCopy( event: IpcMainInvokeEvent, siteId: string ): void {
-	sendIpcEventToRendererWithWindow( BrowserWindow.fromWebContents( event.sender ), 'add-site-copy', {
-		siteId,
-	} );
+	sendIpcEventToRendererWithWindow(
+		BrowserWindow.fromWebContents( event.sender ),
+		'add-site-copy',
+		{
+			siteId,
+		}
+	);
 }
 
 export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {

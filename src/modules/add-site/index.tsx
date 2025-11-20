@@ -1,9 +1,7 @@
-import * as Sentry from '@sentry/electron/renderer';
 import { speak } from '@wordpress/a11y';
 import { Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import crypto from 'crypto';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import Button, { ButtonVariant } from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
@@ -15,7 +13,6 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { generateCustomDomainFromSiteName } from 'src/lib/domains';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { sortSites } from 'src/lib/sort-sites';
 import { useRootSelector } from 'src/stores';
 import { formatRtkError } from 'src/stores/format-rtk-error';
 import {

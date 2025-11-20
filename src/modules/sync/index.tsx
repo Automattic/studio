@@ -7,6 +7,7 @@ import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
@@ -134,6 +135,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const { connectSite, disconnectSite } = useConnectedSitesOperations();
 	const { pushSite, pullSite, isAnySitePulling, isAnySitePushing } = useSyncSites();
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
+	const { streamlineOnboarding } = useFeatureFlags();
 
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
 	const [ pendingModalMode, setPendingModalMode ] = useState< 'push' | 'pull' | null >( null );
@@ -226,43 +228,54 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				</div>
 			) : (
 				<SiteSyncDescription>
-					<div className="mt-8 flex flex-wrap gap-4">
-						<ConnectButton
-							variant="primary"
-							connectSite={ handleLaunchSite }
-							disabled={ isAnySiteSyncing || pendingModalMode !== null }
-							isBusy={ pendingModalMode === 'push' }
-							tooltipText={
-								pendingModalMode === 'pull'
-									? __( 'Please wait for the current operation to finish.' )
-									: isAnySiteSyncing
-									? __(
-											'Another site is syncing. Please wait for the sync to finish before you publish your site.'
-									  )
-									: __( 'Publishing your site requires an internet connection.' )
-							}
-						>
-							{ __( 'Publish site' ) }
-						</ConnectButton>
-						<ConnectButton
-							variant="secondary"
-							connectSite={ handleImportSite }
-							className={ isAnySiteSyncing ? '' : '!text-a8c-blue-50 !shadow-a8c-blue-50' }
-							disabled={ isAnySiteSyncing || pendingModalMode !== null }
-							isBusy={ pendingModalMode === 'pull' }
-							tooltipText={
-								pendingModalMode === 'push'
-									? __( 'Please wait for the current operation to finish.' )
-									: isAnySiteSyncing
-									? __(
-											'Another site is syncing. Please wait for the sync to finish before you pull a site.'
-									  )
-									: __( 'Importing a remote site requires an internet connection.' )
-							}
-						>
-							{ __( 'Pull site' ) }
-						</ConnectButton>
-					</div>
+					{ streamlineOnboarding ? (
+						<div className="mt-8 flex flex-wrap gap-4">
+							<ConnectButton
+								variant="primary"
+								connectSite={ handleLaunchSite }
+								disabled={ isAnySiteSyncing || pendingModalMode !== null }
+								isBusy={ pendingModalMode === 'push' }
+								tooltipText={
+									pendingModalMode === 'pull'
+										? __( 'Please wait for the current operation to finish.' )
+										: isAnySiteSyncing
+										? __(
+												'Another site is syncing. Please wait for the sync to finish before you publish your site.'
+										  )
+										: __( 'Publishing your site requires an internet connection.' )
+								}
+							>
+								{ __( 'Publish site' ) }
+							</ConnectButton>
+							<ConnectButton
+								variant="secondary"
+								connectSite={ handleImportSite }
+								className={ isAnySiteSyncing ? '' : '!text-a8c-blue-50 !shadow-a8c-blue-50' }
+								disabled={ isAnySiteSyncing || pendingModalMode !== null }
+								isBusy={ pendingModalMode === 'pull' }
+								tooltipText={
+									pendingModalMode === 'push'
+										? __( 'Please wait for the current operation to finish.' )
+										: isAnySiteSyncing
+										? __(
+												'Another site is syncing. Please wait for the sync to finish before you pull a site.'
+										  )
+										: __( 'Importing a remote site requires an internet connection.' )
+								}
+							>
+								{ __( 'Pull site' ) }
+							</ConnectButton>
+						</div>
+					) : (
+						<div className="mt-8">
+							<ConnectButton
+								variant="primary"
+								connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
+							>
+								{ __( 'Connect site' ) }
+							</ConnectButton>
+						</div>
+					) }
 				</SiteSyncDescription>
 			) }
 

@@ -5,6 +5,7 @@ import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
 import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ContentTabSync } from 'src/modules/sync';
@@ -21,6 +22,7 @@ import {
 
 jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/lib/get-ipc-api' );
+jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/sync-sites/sync-sites-context', () => ( {
 	...jest.requireActual( '../../../hooks/sync-sites/sync-sites-context' ),
 	useSyncSites: jest.fn(),
@@ -126,6 +128,10 @@ describe( 'ContentTabSync', () => {
 	beforeEach( () => {
 		jest.resetAllMocks();
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( false ) );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			enableBlueprints: true,
+			streamlineOnboarding: false,
+		} );
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			authenticate: jest.fn(),
 			generateProposedSitePath: jest.fn(),
@@ -269,6 +275,10 @@ describe( 'ContentTabSync', () => {
 
 	it( 'displays publish and import actions to authenticated user', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			enableBlueprints: true,
+			streamlineOnboarding: true,
+		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		const publishButton = screen.getByRole( 'button', { name: /Publish site/i } );
 		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
@@ -291,6 +301,10 @@ describe( 'ContentTabSync', () => {
 		};
 
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			enableBlueprints: true,
+			streamlineOnboarding: true,
+		} );
 		setupConnectedSitesMocks( [], [ mockSyncSite ] );
 		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( true );
 		( connectedSitesSelectors.selectModalMode as jest.Mock ).mockReturnValue( 'pull' );
@@ -397,6 +411,10 @@ describe( 'ContentTabSync', () => {
 
 	it( 'displays publish and import buttons when there are no connected sites', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			enableBlueprints: true,
+			streamlineOnboarding: true,
+		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
 		const publishButton = screen.getByRole( 'button', { name: /Publish site/i } );

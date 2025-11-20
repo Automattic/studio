@@ -8,7 +8,51 @@
  * - Listens for messages from the parent process (PM2)
  * - Starts WordPress server when requested
  * - Sends response back when ready
+ * - Sends activity heartbeats to prevent timeout during long operations
  */
+// Store original console methods before interception
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+
+console.log = ( ...args: any[] ) => {
+	originalConsoleLog( ...args );
+	if ( process.send ) {
+		process.send( { type: 'activity' } );
+	}
+};
+
+console.error = ( ...args: any[] ) => {
+	originalConsoleError( ...args );
+	if ( process.send ) {
+		process.send( { type: 'activity' } );
+	}
+};
+
+console.warn = ( ...args: any[] ) => {
+	originalConsoleWarn( ...args );
+	if ( process.send ) {
+		process.send( { type: 'activity' } );
+	}
+};
+
+const originalStdoutWrite = process.stdout.write.bind( process.stdout );
+const originalStderrWrite = process.stderr.write.bind( process.stderr );
+
+process.stdout.write = function ( ...args: Parameters< typeof originalStdoutWrite > ) {
+	if ( process.send ) {
+		process.send( { type: 'activity' } );
+	}
+	return originalStdoutWrite( ...args );
+} as typeof process.stdout.write;
+
+process.stderr.write = function ( ...args: Parameters< typeof originalStderrWrite > ) {
+	if ( process.send ) {
+		process.send( { type: 'activity' } );
+	}
+	return originalStderrWrite( ...args );
+} as typeof process.stderr.write;
+
 import { SupportedPHPVersion } from '@php-wasm/universal';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import { isWordPressDirectory } from 'common/lib/fs-utils';

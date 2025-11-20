@@ -4,7 +4,6 @@
  * Manages WordPress server processes via PM2. Each site runs as its own
  * PM2 daemon process using the Playground CLI provider.
  *
- * Pattern follows Studio's PlaygroundServerProcess class but uses PM2 instead of Electron's utilityProcess
  */
 import path from 'path';
 import { SiteData } from 'cli/lib/appdata';

@@ -15,7 +15,12 @@ import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import { isWordPressDirectory } from 'common/lib/fs-utils';
 import { getMuPlugins } from 'common/lib/mu-plugins';
 import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
-import { ServerConfig, Message, MessageSchema } from './lib/types/wordpress-server';
+import { z } from 'zod';
+import {
+	ServerConfig,
+	managerMessageSchema,
+	ChildMessageRaw,
+} from 'cli/lib/types/wordpress-server';
 
 let server: RunCLIServer | null = null;
 
@@ -24,14 +29,14 @@ const originalStderrWrite = process.stderr.write.bind( process.stderr );
 
 process.stdout.write = function ( ...args: Parameters< typeof originalStdoutWrite > ) {
 	if ( process.send ) {
-		process.send( { type: 'activity' } );
+		process.send( { topic: 'activity' } );
 	}
 	return originalStdoutWrite( ...args );
 } as typeof process.stdout.write;
 
 process.stderr.write = function ( ...args: Parameters< typeof originalStderrWrite > ) {
 	if ( process.send ) {
-		process.send( { type: 'activity' } );
+		process.send( { topic: 'activity' } );
 	}
 	return originalStderrWrite( ...args );
 } as typeof process.stderr.write;
@@ -130,58 +135,44 @@ async function startServer( config: ServerConfig ): Promise< void > {
 }
 
 if ( process.send ) {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	process.on( 'message', async ( packet: any ) => {
+	process.on( 'message', async ( packet: unknown ) => {
 		try {
-			const message: Message = packet.type === 'process:msg' && packet.data ? packet.data : packet;
-
-			const validationResult = MessageSchema.safeParse( message );
-			if ( ! validationResult.success ) {
-				throw new Error(
-					`Invalid message format: ${ validationResult.error.errors
-						.map( ( e ) => e.message )
-						.join( ', ' ) }`
-				);
-			}
-
-			const validMessage = validationResult.data;
+			const validMessage = managerMessageSchema.parse( packet );
 			let result: unknown;
 
-			switch ( validMessage.type ) {
+			switch ( validMessage.topic ) {
 				case 'start-server':
-					if ( validMessage.data?.config ) {
+					if ( validMessage.data.config ) {
 						result = await startServer( validMessage.data.config );
 					}
 					break;
 				default:
-					throw new Error( `Unknown message type: ${ validMessage.type }` );
+					throw new Error( `Unknown message topic: ${ validMessage.topic }` );
 			}
 
-			if ( process.send && validMessage.id !== undefined ) {
-				const response = { id: validMessage.id, type: validMessage.type, result };
-				const responseValidation = MessageSchema.safeParse( response );
-				if ( responseValidation.success ) {
-					process.send( response );
-				}
-			}
+			const response: ChildMessageRaw = {
+				id: validMessage.id,
+				topic: 'result',
+				result,
+			};
+			process.send!( response );
 		} catch ( error ) {
-			const messageId =
-				packet.type === 'process:msg' && packet.data?.id !== undefined ? packet.data.id : packet.id;
+			console.log( '[WordPress Server Child] Error:', error );
 
-			if ( process.send && messageId !== undefined ) {
-				const errorResponse = {
-					id: messageId,
-					type: 'error',
+			const minimalMessageSchema = z.object( { id: z.number() } );
+			const minimalMessage = minimalMessageSchema.safeParse( packet );
+
+			if ( minimalMessage.success ) {
+				const errorResponse: ChildMessageRaw = {
+					id: minimalMessage.data.id,
+					topic: 'error',
 					error: error instanceof Error ? error.message : String( error ),
 					errorStack: error instanceof Error ? error.stack : undefined,
 				};
-				const errorValidation = MessageSchema.safeParse( errorResponse );
-				if ( errorValidation.success ) {
-					process.send( errorResponse );
-				}
+				process.send!( errorResponse );
 			}
 		}
 	} );
 
-	process.send( { type: 'ready' } );
+	process.send( { topic: 'ready' } );
 }

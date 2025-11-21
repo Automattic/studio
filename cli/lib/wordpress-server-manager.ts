@@ -13,7 +13,11 @@ import {
 import { SiteData } from 'cli/lib/appdata';
 import { isProcessRunning, startProcess, stopProcess, getPm2Instance } from 'cli/lib/pm2-manager';
 import { ProcessDescription } from 'cli/lib/types/pm2';
-import { ServerConfig, Message, PacketSchema } from 'cli/lib/types/wordpress-server';
+import {
+	ServerConfig,
+	childMessagePm2Schema,
+	ManagerMessage,
+} from 'cli/lib/types/wordpress-server';
 
 const pm2 = getPm2Instance();
 
@@ -95,13 +99,13 @@ export async function startWordPressServer( site: SiteData ): Promise< ProcessDe
 	};
 
 	const processDesc = await startProcess( processName, wordPressServerChildPath, env );
-	await waitForReadyMessage( processName, processDesc.pmId );
-	await sendMessage( processDesc.pmId, 'start-server', { config: serverConfig } );
+	await waitForReadyMessage( processDesc.pmId );
+	await sendMessage( processDesc.pmId, { topic: 'start-server', data: { config: serverConfig } } );
 
 	return processDesc;
 }
 
-async function waitForReadyMessage( processName: string, pmId: number ): Promise< void > {
+async function waitForReadyMessage( pmId: number ): Promise< void > {
 	const bus = await getPm2Bus();
 
 	return new Promise( ( resolve, reject ) => {
@@ -111,13 +115,12 @@ async function waitForReadyMessage( processName: string, pmId: number ): Promise
 		}, PLAYGROUND_CLI_INACTIVITY_TIMEOUT );
 
 		const readyHandler = ( packet: unknown ) => {
-			const validationResult = PacketSchema.safeParse( packet );
-			if ( ! validationResult.success ) {
+			const result = childMessagePm2Schema.safeParse( packet );
+			if ( ! result.success ) {
 				return;
 			}
 
-			const validPacket = validationResult.data;
-			if ( validPacket.process.pm_id === pmId && validPacket.raw.type === 'ready' ) {
+			if ( result.data.process.pm_id === pmId && result.data.raw.topic === 'ready' ) {
 				clearTimeout( timeout );
 				bus.off( 'process:msg', readyHandler );
 				resolve();
@@ -139,15 +142,12 @@ let nextMessageId = 0;
 
 async function sendMessage(
 	pmId: number,
-	type: string,
-	data: Message[ 'data' ]
+	message: Omit< ManagerMessage, 'id' >
 ): Promise< unknown > {
 	const bus = await getPm2Bus();
 
 	return new Promise( ( resolve, reject ) => {
 		const id = nextMessageId++;
-		const message: Message = { id, type, data };
-
 		const startTime = Date.now();
 		let lastActivityTimestamp = Date.now();
 
@@ -186,63 +186,45 @@ async function sendMessage(
 		} );
 
 		const responseHandler = ( packet: unknown ) => {
-			const validationResult = PacketSchema.safeParse( packet );
+			const validationResult = childMessagePm2Schema.safeParse( packet );
 			if ( ! validationResult.success ) {
+				cleanup();
+				reject( validationResult.error );
 				return;
 			}
 
 			const validPacket = validationResult.data;
 
-			if ( validPacket.process.pm_id === pmId ) {
-				if (
-					validPacket.raw.type === 'activity' ||
-					( 'id' in validPacket.raw && validPacket.raw.id !== undefined )
-				) {
-					lastActivityTimestamp = Date.now();
-					const tracker = activityTrackers.get( id );
-					if ( tracker ) {
-						tracker.lastActivityTimestamp = lastActivityTimestamp;
-					}
+			if ( validPacket.raw.topic === 'activity' ) {
+				lastActivityTimestamp = Date.now();
+				const tracker = activityTrackers.get( id );
+				if ( tracker ) {
+					tracker.lastActivityTimestamp = lastActivityTimestamp;
 				}
+				return;
 			}
 
-			if (
-				validPacket.process.pm_id === pmId &&
-				'id' in validPacket.raw &&
-				validPacket.raw.id === id
-			) {
-				cleanup();
-
-				if ( 'error' in validPacket.raw && validPacket.raw.error ) {
-					const error = new Error( validPacket.raw.error ) as Error & {
-						errorStack?: string;
-					};
-					if ( 'errorStack' in validPacket.raw && validPacket.raw.errorStack ) {
-						error.stack = validPacket.raw.errorStack;
-					}
-					reject( error );
-				} else {
-					resolve( 'result' in validPacket.raw ? validPacket.raw.result : undefined );
+			if ( validPacket.raw.topic === 'error' ) {
+				const error = new Error( validPacket.raw.error );
+				if ( validPacket.raw.errorStack ) {
+					error.stack = validPacket.raw.errorStack;
 				}
+				cleanup();
+				reject( error );
+			} else if ( validPacket.raw.topic === 'result' && validPacket.raw.id === id ) {
+				cleanup();
+				resolve( validPacket.raw.result );
 			}
 		};
 
 		bus.on( 'process:msg', responseHandler );
 
-		pm2.sendDataToProcessId(
-			pmId,
-			{
-				type: 'process:msg',
-				data: message,
-				topic: true,
-			},
-			( error ) => {
-				if ( error ) {
-					cleanup();
-					reject( error );
-				}
+		pm2.sendDataToProcessId( pmId, { ...message, id }, ( error ) => {
+			if ( error ) {
+				cleanup();
+				reject( error );
 			}
-		);
+		} );
 	} );
 }
 

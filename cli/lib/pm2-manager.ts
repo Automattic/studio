@@ -99,6 +99,7 @@ async function listProcesses(): Promise< ProcessDescription[] > {
 				name: p.name || '',
 				pmId: p.pm_id || -1,
 				status: p.pm2_env?.status || 'unknown',
+				pid: p.pid,
 			} ) );
 
 			resolve( processDescriptions );
@@ -124,21 +125,23 @@ export async function startProxyProcess(): Promise< ProcessDescription > {
 	return startProcess( PROXY_PROCESS_NAME, proxyDaemonPath, env );
 }
 
-export async function isProxyProcessRunning(): Promise< boolean > {
+export async function isProxyProcessRunning(): Promise< ProcessDescription | undefined > {
 	return isProcessRunning( PROXY_PROCESS_NAME );
 }
 
-export async function isProcessRunning( processName: string ): Promise< boolean > {
+export async function isProcessRunning(
+	processName: string
+): Promise< ProcessDescription | undefined > {
 	try {
 		if ( ! isConnected ) {
-			return false;
+			return undefined;
 		}
 
 		const processes = await listProcesses();
-		return processes.some( ( p ) => p.name === processName && p.status === PM2_STATUS_ONLINE );
+		return processes.find( ( p ) => p.name === processName && p.status === PM2_STATUS_ONLINE );
 	} catch ( error ) {
 		console.error( `Error checking if process ${ processName } is running:`, error );
-		return false;
+		return undefined;
 	}
 }
 
@@ -166,6 +169,7 @@ export async function startProcess(
 			if ( apps && apps.length > 0 ) {
 				const app = apps[ 0 ] as ( typeof apps )[ 0 ] & {
 					pm2_env?: { pm_id?: number; status?: string };
+					pid?: number;
 				};
 				const pm2Env = app.pm2_env;
 
@@ -174,6 +178,7 @@ export async function startProcess(
 						name: processName,
 						pmId: pm2Env.pm_id,
 						status: pm2Env.status,
+						pid: app.pid,
 					} );
 					return;
 				}

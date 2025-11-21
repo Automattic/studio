@@ -49,7 +49,7 @@ function getProcessName( siteId: string ): string {
 	return `studio-site-${ siteId }`;
 }
 
-export async function isServerRunning( siteId: string ): Promise< boolean > {
+export async function isServerRunning( siteId: string ): Promise< ProcessDescription | undefined > {
 	const processName = getProcessName( siteId );
 	return isProcessRunning( processName );
 }

@@ -27,6 +27,7 @@ const siteSchema = z
 		isWpAutoUpdating: z.boolean().optional(),
 		running: z.boolean().optional(),
 		url: z.string().optional(),
+		latestCliPid: z.number().optional(),
 	} )
 	.passthrough();
 
@@ -235,4 +236,21 @@ export function getSiteUrl( site: SiteData ): string {
 	}
 
 	return `http://localhost:${ site.port }`;
+}
+
+export async function updateSiteLatestCliPid( siteId: string, pid: number ): Promise< void > {
+	try {
+		await lockAppdata();
+		const userData = await readAppdata();
+		const site = userData.sites.find( ( s ) => s.id === siteId );
+
+		if ( ! site ) {
+			throw new LoggerError( __( 'Site not found' ) );
+		}
+
+		site.latestCliPid = pid;
+		await saveAppdata( userData );
+	} finally {
+		await unlockAppdata();
+	}
 }

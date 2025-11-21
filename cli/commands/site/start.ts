@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { readAppdata, getSiteUrl, SiteData } from 'cli/lib/appdata';
+import { readAppdata, getSiteUrl, SiteData, updateSiteLatestCliPid } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import { addDomainToHosts } from 'cli/lib/hosts-file';
@@ -10,8 +10,8 @@ import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
 async function startProxyIfNeeded( logger: Logger< LoggerAction > ) {
-	const isProxyRunning = await isProxyProcessRunning();
-	if ( ! isProxyRunning ) {
+	const proxyProcess = await isProxyProcessRunning();
+	if ( ! proxyProcess ) {
 		logger.reportStart( LoggerAction.START_PROXY, __( 'Starting HTTP proxy server...' ) );
 		await startProxyProcess();
 		logger.reportSuccess( __( 'HTTP proxy server started' ) );
@@ -55,9 +55,12 @@ export async function runCommand( siteFolder: string, skipBrowser = false ): Pro
 		await connect();
 		logger.reportSuccess( __( 'Process daemon started' ) );
 
-		const alreadyRunning = await isServerRunning( site.id );
-		if ( alreadyRunning ) {
+		const runningProcess = await isServerRunning( site.id );
+		if ( runningProcess ) {
 			logger.reportSuccess( __( 'WordPress site is already running' ) );
+			if ( runningProcess.pid ) {
+				await updateSiteLatestCliPid( site.id, runningProcess.pid );
+			}
 			if ( ! skipBrowser ) {
 				await openSiteInBrowser( site );
 			}
@@ -88,9 +91,12 @@ export async function runCommand( siteFolder: string, skipBrowser = false ): Pro
 
 		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress site...' ) );
 		try {
-			await startWordPressServer( site );
+			const processDesc = await startWordPressServer( site );
 
 			logger.reportSuccess( __( 'WordPress site started' ) );
+			if ( processDesc.pid ) {
+				await updateSiteLatestCliPid( site.id, processDesc.pid );
+			}
 			logSiteDetails( site );
 
 			if ( ! skipBrowser ) {

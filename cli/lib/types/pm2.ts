@@ -11,4 +11,5 @@ export interface ProcessDescription {
 	name: string;
 	pmId: number;
 	status: string;
+	pid?: number;
 }

@@ -13,6 +13,9 @@ import { ContentTabSync } from 'src/modules/sync';
 import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
 import { store } from 'src/stores';
 import { useLatestRewindId, useRemoteFileTree } from 'src/stores/sync';
+import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
+
+store.replaceReducer( testReducer );
 
 jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/hooks/use-auth' );
@@ -21,11 +24,6 @@ jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/sync-sites/sync-sites-context', () => ( {
 	...jest.requireActual( '../../../hooks/sync-sites/sync-sites-context' ),
 	useSyncSites: jest.fn(),
-} ) );
-
-jest.mock( 'src/stores', () => ( {
-	...jest.requireActual( 'src/stores' ),
-	useAppDispatch: jest.fn(),
 } ) );
 
 jest.mock( 'src/stores/sync', () => ( {
@@ -123,9 +121,10 @@ describe( 'ContentTabSync', () => {
 			refetchSites: jest.fn(),
 		} );
 	};
+
 	beforeEach( () => {
 		jest.resetAllMocks();
-		// Clear RTK Query cache
+		store.dispatch( testActions.resetState() );
 		store.dispatch( { type: 'connectedSitesApi/resetApiState' } );
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( false ) );
 		( useFeatureFlags as jest.Mock ).mockReturnValue( {
@@ -184,9 +183,6 @@ describe( 'ContentTabSync', () => {
 			isFetching: false,
 			refetchSites: jest.fn(),
 		} );
-
-		const { useAppDispatch } = jest.requireMock( 'src/stores' );
-		useAppDispatch.mockReturnValue( jest.fn() );
 
 		( useRemoteFileTree as jest.Mock ).mockReturnValue( {
 			fetchChildren: jest.fn().mockResolvedValue( [
@@ -287,7 +283,7 @@ describe( 'ContentTabSync', () => {
 		const pullSiteButton = await screen.findByRole( 'button', { name: 'Pull site' } );
 		fireEvent.click( pullSiteButton );
 
-		expect( screen.getByTestId( 'sync-sites-modal-selector' ) ).toBeInTheDocument();
+		expect( await screen.findByTestId( 'sync-sites-modal-selector' ) ).toBeInTheDocument();
 	} );
 
 	it( 'displays the list of connected sites', async () => {

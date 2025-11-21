@@ -171,14 +171,6 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		}
 	};
 
-	const handleLaunchSite = () => {
-		setPendingModalMode( 'push' );
-	};
-
-	const handleImportSite = () => {
-		setPendingModalMode( 'pull' );
-	};
-
 	const handleSiteSelection = async ( siteId: number, mode: SyncModalMode | null ) => {
 		const selectedSiteFromList = syncSites.find( ( site ) => site.id === siteId );
 		if ( ! selectedSiteFromList ) {
@@ -190,7 +182,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		}
 
 		if ( mode === 'push' || mode === 'pull' ) {
-			dispatch( connectedSitesActions.setModalMode( mode ) );
+			dispatch( connectedSitesActions.openModal( mode ) );
 			setSelectedRemoteSite( selectedSiteFromList );
 		} else {
 			await handleConnect( selectedSiteFromList );
@@ -225,7 +217,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							<ConnectButton
 								variant="primary"
 								icon={ cloudUpload }
-								connectSite={ handleLaunchSite }
+								connectSite={ () => setPendingModalMode( 'push' ) }
 								disabled={ isAnySiteSyncing || pendingModalMode !== null }
 								isBusy={ pendingModalMode === 'push' }
 								tooltipText={
@@ -242,7 +234,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							</ConnectButton>
 							<ConnectButton
 								variant="secondary"
-								connectSite={ handleImportSite }
+								connectSite={ () => setPendingModalMode( 'pull' ) }
 								className={ isAnySiteSyncing ? '' : '!text-a8c-blue-50 !shadow-a8c-blue-50' }
 								disabled={ isAnySiteSyncing || pendingModalMode !== null }
 								isBusy={ pendingModalMode === 'pull' }

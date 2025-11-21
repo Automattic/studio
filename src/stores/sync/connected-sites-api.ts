@@ -29,10 +29,6 @@ const connectedSitesSlice = createSlice( {
 			}
 		},
 
-		setModalMode: ( state, action: PayloadAction< SyncModalMode | null > ) => {
-			state.modalMode = action.payload;
-		},
-
 		closeModal: ( state ) => {
 			state.isModalOpen = false;
 			state.modalMode = null;
@@ -42,7 +38,6 @@ const connectedSitesSlice = createSlice( {
 
 export const connectedSitesActions = connectedSitesSlice.actions;
 export const connectedSitesReducer = connectedSitesSlice.reducer;
-
 export const connectedSitesSelectors = {
 	selectIsModalOpen: ( state: RootState ) => state.connectedSites.isModalOpen,
 	selectModalMode: ( state: RootState ) => state.connectedSites.modalMode,

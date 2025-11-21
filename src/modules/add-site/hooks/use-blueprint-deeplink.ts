@@ -100,5 +100,5 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 			openModal,
 		]
 	);
-	useIpcListener( 'add-site-blueprint-from-url', handleBlueprintFromUrl );
+	useIpcListener( 'add-site-with-blueprint', handleBlueprintFromUrl );
 }

@@ -5,7 +5,7 @@ import { app, dialog, BrowserWindow } from 'electron';
 import fs from 'fs-extra';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { validateBlueprintData } from 'src/lib/blueprint-features';
-import { handleAddSiteWithBlueprint } from 'src/lib/deeplink/handlers/add-site-blueprint-with-url';
+import { handleAddSiteWithBlueprint } from 'src/lib/deeplink/handlers/add-site-with-blueprint';
 import { download } from 'src/lib/download';
 import { getMainWindow } from 'src/main-window';
 
@@ -67,7 +67,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 			false,
 			'blueprint'
 		);
-		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'add-site-blueprint-from-url', {
+		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'add-site-with-blueprint', {
 			blueprintPath: expect.stringContaining( 'blueprint-' ),
 		} );
 		expect( mockMainWindow.focus ).toHaveBeenCalled();
@@ -190,7 +190,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 				expect.stringContaining( 'blueprint-' ),
 				blueprintData
 			);
-			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'add-site-blueprint-from-url', {
+			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'add-site-with-blueprint', {
 				blueprintPath: expect.stringContaining( 'blueprint-' ),
 			} );
 			expect( download ).not.toHaveBeenCalled();

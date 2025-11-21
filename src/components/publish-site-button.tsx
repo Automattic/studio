@@ -1,15 +1,17 @@
 import { cloudUpload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import Button from 'src/components/button';
+import { Tooltip } from 'src/components/tooltip';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useAppDispatch } from 'src/stores';
-import { connectedSitesActions } from 'src/stores/sync';
-import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites-api';
-import { Tooltip } from './tooltip';
+import {
+	connectedSitesActions,
+	useGetConnectedSitesForLocalSiteQuery,
+} from 'src/stores/sync/connected-sites-api';
 
 export const PublishSiteButton = () => {
 	const { __ } = useI18n();

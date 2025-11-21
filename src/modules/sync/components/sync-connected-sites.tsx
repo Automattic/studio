@@ -29,8 +29,11 @@ import {
 	convertTreeToPushOptions,
 } from 'src/modules/sync/lib/convert-tree-to-sync-options';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
-import { useI18nLocale } from 'src/stores';
-import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites-api';
+import { useAppDispatch, useI18nLocale } from 'src/stores';
+import {
+	connectedSitesActions,
+	useGetConnectedSitesForLocalSiteQuery,
+} from 'src/stores/sync/connected-sites-api';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 const SyncConnectedSiteControls = ( {
@@ -353,17 +356,16 @@ const SyncConnectedSitesSectionItem = ( {
 type SyncConnectedSiteSectionProps = {
 	connectedSite: SyncSite;
 	disconnectSite: ( id: number ) => void;
-	openModal: () => void;
 	selectedSite: SiteDetails;
 };
 
 const SyncConnectedSiteSection = ( {
 	connectedSite,
 	disconnectSite,
-	openModal,
 	selectedSite,
 }: SyncConnectedSiteSectionProps ) => {
 	const { __ } = useI18n();
+	const dispatch = useAppDispatch();
 	const locale = useI18nLocale();
 	const { clearPullState, isSiteIdPulling, isSiteIdPushing } = useSyncSites();
 	const isOffline = useOffline();
@@ -472,7 +474,7 @@ const SyncConnectedSiteSection = ( {
 					<Button
 						onClick={ () => {
 							disconnectSite( connectedSite.id );
-							openModal();
+							dispatch( connectedSitesActions.openModal() );
 						} }
 						variant="primary"
 						className="ms-auto"
@@ -495,12 +497,10 @@ const SyncConnectedSiteSection = ( {
 export function SyncConnectedSites( {
 	connectedSites,
 	disconnectSite,
-	openModal,
 	selectedSite,
 }: {
 	connectedSites: SyncSite[];
 	disconnectSite: ( id: number ) => void;
-	openModal: () => void;
 	selectedSite: SiteDetails;
 } ) {
 	return (
@@ -511,7 +511,6 @@ export function SyncConnectedSites( {
 					connectedSite={ connectedSite }
 					selectedSite={ selectedSite }
 					disconnectSite={ disconnectSite }
-					openModal={ openModal }
 				/>
 			) ) }
 		</div>

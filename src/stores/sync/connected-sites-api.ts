@@ -1,6 +1,52 @@
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { RootState } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { SyncModalMode } from 'src/modules/sync/types';
+
+type ModalState = false | true | { disconnectSiteId?: number };
+type ConnectedSitesState = {
+	isModalOpen: ModalState;
+	modalMode: SyncModalMode | null;
+};
+
+function getInitialState(): ConnectedSitesState {
+	return {
+		isModalOpen: false,
+		modalMode: null,
+	};
+}
+
+const connectedSitesSlice = createSlice( {
+	name: 'connectedSites',
+	initialState: getInitialState(),
+	reducers: {
+		openModal: ( state, action: PayloadAction< SyncModalMode | undefined > ) => {
+			state.isModalOpen = true;
+			if ( action.payload ) {
+				state.modalMode = action.payload;
+			}
+		},
+
+		setModalMode: ( state, action: PayloadAction< SyncModalMode | null > ) => {
+			state.modalMode = action.payload;
+		},
+
+		closeModal: ( state ) => {
+			state.isModalOpen = false;
+			state.modalMode = null;
+		},
+	},
+} );
+
+export const connectedSitesActions = connectedSitesSlice.actions;
+export const connectedSitesReducer = connectedSitesSlice.reducer;
+
+export const connectedSitesSelectors = {
+	selectIsModalOpen: ( state: RootState ) => state.connectedSites.isModalOpen,
+	selectModalMode: ( state: RootState ) => state.connectedSites.modalMode,
+};
 
 export const connectedSitesApi = createApi( {
 	reducerPath: 'connectedSitesApi',

@@ -1,5 +1,4 @@
 import fs from 'fs-extra';
-import { SQLITE_DATABASE_INTEGRATION_VERSION } from 'src/constants';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 
@@ -9,7 +8,6 @@ jest.mock( 'fs-extra' );
 jest.mock( 'src/lib/wordpress-provider', () => ( {
 	getWordPressProvider: jest.fn().mockReturnValue( {
 		SQLITE_FILENAME: 'sqlite-database-integration',
-		SQLITE_FILENAME_LEGACY: 'sqlite-database-integration-main',
 	} ),
 } ) );
 jest.mock( 'vendor/wp-now/src/get-sqlite-path', () => {
@@ -27,27 +25,15 @@ afterEach( () => {
 } );
 
 platformTestSuite( 'keepSqliteIntegrationUpdated', ( { normalize } ) => {
-	describe( 'when SQLite integration is installed in a site', () => {
-		it( 'should update SQLite integration when outdated', async () => {
+	describe( 'when db.php exists', () => {
+		it( 'should install SQLite integration', async () => {
 			( fs as MockedFsExtra ).__setFileContents(
 				normalize( `${ MOCK_SITE_PATH }/wp-config.php` ),
 				''
 			);
-
-			// Mock SQLite integration version of server files
 			( fs as MockedFsExtra ).__setFileContents(
-				normalize( `server-files/${ SQLITE_FILENAME }/load.php` ),
-				' * Version: 2.1.13'
-			);
-
-			// Mock SQLite integration version of mocked site
-			( fs as MockedFsExtra ).__setFileContents(
-				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }` ),
-				[ 'load.php' ]
-			);
-			( fs as MockedFsExtra ).__setFileContents(
-				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }/load.php` ),
-				' * Version: 2.1.11'
+				normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
+				''
 			);
 
 			await keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
@@ -57,21 +43,25 @@ platformTestSuite( 'keepSqliteIntegrationUpdated', ( { normalize } ) => {
 				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }` )
 			);
 		} );
-		it( 'should not update SQLite integration when is up-to-date', async () => {
-			// Mock SQLite integration version of server files
-			( fs as MockedFsExtra ).__setFileContents(
-				normalize( `server-files/${ SQLITE_FILENAME }/load.php` ),
-				` * Version: ${ SQLITE_DATABASE_INTEGRATION_VERSION }`
-			);
+	} );
 
-			// Mock SQLite integration version of mocked site
-			( fs as MockedFsExtra ).__setFileContents(
-				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }` ),
-				[ 'load.php' ]
+	describe( 'when wp-config.php does not exist', () => {
+		it( 'should install SQLite integration', async () => {
+			await keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
+
+			expect( fs.copy ).toHaveBeenCalledWith(
+				normalize( `server-files/${ SQLITE_FILENAME }` ),
+				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }` )
 			);
+		} );
+	} );
+
+	describe( 'when wp-config.php exists and db.php does not exist', () => {
+		it( 'should not install SQLite integration', async () => {
+			// Mock site wp-config.php
 			( fs as MockedFsExtra ).__setFileContents(
-				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }/load.php` ),
-				` * Version: ${ SQLITE_DATABASE_INTEGRATION_VERSION }`
+				normalize( `${ MOCK_SITE_PATH }/wp-config.php` ),
+				'config-sample'
 			);
 
 			await keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
@@ -83,35 +73,22 @@ platformTestSuite( 'keepSqliteIntegrationUpdated', ( { normalize } ) => {
 		} );
 	} );
 
-	describe( 'when SQLite integration is not installed in a site', () => {
-		it( 'should install it if wp-config.php is not defined', async () => {
-			// Mock SQLite integration version of server files
+	describe( 'when db.php exists and wp-config.php also exists', () => {
+		it( 'should install SQLite integration', async () => {
+			// Mock site db.php
 			( fs as MockedFsExtra ).__setFileContents(
-				normalize( `server-files/${ SQLITE_FILENAME }/load.php` ),
-				' * Version: 2.1.13'
+				normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
+				'content'
+			);
+			// Mock wp-config.php to ensure db.php takes precedence
+			( fs as MockedFsExtra ).__setFileContents(
+				normalize( `${ MOCK_SITE_PATH }/wp-config.php` ),
+				'config-sample'
 			);
 
 			await keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
 
 			expect( fs.copy ).toHaveBeenCalledWith(
-				normalize( `server-files/${ SQLITE_FILENAME }` ),
-				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }` )
-			);
-		} );
-		it( 'should not install it if wp-config.php is defined', async () => {
-			// Mock site wp-config-php
-			( fs as MockedFsExtra ).__setFileContents(
-				normalize( `${ MOCK_SITE_PATH }/wp-config.php` ),
-				'config-sample'
-			);
-			// Mock SQLite integration version of server files
-			( fs as MockedFsExtra ).__setFileContents(
-				normalize( `server-files/${ SQLITE_FILENAME }/load.php` ),
-				' * Version: 2.1.13'
-			);
-			await keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
-
-			expect( fs.copy ).not.toHaveBeenCalledWith(
 				normalize( `server-files/${ SQLITE_FILENAME }` ),
 				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }` )
 			);
@@ -145,5 +122,32 @@ platformTestSuite( 'installSqliteIntegration', ( { normalize } ) => {
 			normalize( `server-files/${ SQLITE_FILENAME }` ),
 			normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }` )
 		);
+	} );
+
+	it( 'should execute concurrent calls sequentially', async () => {
+		let concurrentCalls = 0;
+		let maxConcurrentCalls = 0;
+
+		( fs.copy as jest.Mock ).mockImplementation( async () => {
+			concurrentCalls++;
+			maxConcurrentCalls = Math.max( maxConcurrentCalls, concurrentCalls );
+
+			await new Promise( ( resolve ) => setTimeout( resolve, 5 ) );
+
+			concurrentCalls--;
+		} );
+
+		( fs as MockedFsExtra ).__setFileContents(
+			normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
+			"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'"
+		);
+
+		await Promise.all( [
+			installSqliteIntegration( MOCK_SITE_PATH ),
+			installSqliteIntegration( MOCK_SITE_PATH ),
+			installSqliteIntegration( MOCK_SITE_PATH ),
+		] );
+
+		expect( maxConcurrentCalls ).toBe( 1 );
 	} );
 } );

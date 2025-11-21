@@ -20,7 +20,6 @@ import {
 	DEFAULT_WORDPRESS_VERSION,
 	ALLOWED_PHP_VERSIONS,
 	SQLITE_FILENAME,
-	SQLITE_FILENAME_LEGACY,
 } from '../constants';
 import {
 	getWordPressVersionPath,
@@ -47,7 +46,6 @@ export class WpNowProvider implements WordPressProvider {
 	static readonly ALLOWED_PHP_VERSIONS = ALLOWED_PHP_VERSIONS;
 	static readonly MINIMUM_WORDPRESS_VERSION = '6.2.6';
 	static readonly SQLITE_FILENAME = SQLITE_FILENAME;
-	static readonly SQLITE_FILENAME_LEGACY = SQLITE_FILENAME_LEGACY;
 
 	// Instance constants for interface compatibility
 	readonly DEFAULT_PHP_VERSION = WpNowProvider.DEFAULT_PHP_VERSION;
@@ -55,7 +53,6 @@ export class WpNowProvider implements WordPressProvider {
 	readonly ALLOWED_PHP_VERSIONS = WpNowProvider.ALLOWED_PHP_VERSIONS;
 	readonly MINIMUM_WORDPRESS_VERSION = WpNowProvider.MINIMUM_WORDPRESS_VERSION;
 	readonly SQLITE_FILENAME = WpNowProvider.SQLITE_FILENAME;
-	readonly SQLITE_FILENAME_LEGACY = WpNowProvider.SQLITE_FILENAME_LEGACY;
 
 	// Path utilities (static methods for setup use)
 	static getWordPressVersionPath( version: string ): string {
@@ -224,13 +221,6 @@ export class WpNowProvider implements WordPressProvider {
 
 	createServerProcess( serverInstance: WordPressServerInstance ): WordPressServerProcess {
 		return new SiteServerProcess( serverInstance._internal as WPNowOptions );
-	}
-
-	async getConfig( options: { path: string } ): Promise< { wpContentPath?: string } > {
-		const config = await getWpNowConfig( options );
-		return {
-			wpContentPath: config.wpContentPath,
-		};
 	}
 
 	/**

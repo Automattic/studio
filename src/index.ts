@@ -40,7 +40,6 @@ import {
 	needsToMigrateFromWpNowFolder,
 	migrateFromWpNowFolder,
 } from 'src/migrations/migrate-from-wp-now-folder';
-import { migrateAllDatabasesInSitu } from 'src/migrations/move-databases-in-situ';
 import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
 import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-stat';
 import { installCLIOnWindows } from 'src/modules/cli/lib/install-windows';
@@ -306,8 +305,6 @@ async function appBoot() {
 		await setupSentryUserId();
 
 		await removeSitesWithEmptyDirectories();
-
-		await migrateAllDatabasesInSitu();
 
 		await renameLaunchUniquesStat();
 

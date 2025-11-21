@@ -84,7 +84,7 @@ const inProgressPushState: SyncPushState = {
 
 const fakeSyncSite: SyncSite = {
 	id: 6,
-	name: 'My simple business site that needs a transfer',
+	name: 'My simple business site',
 	url: 'https://developer.wordpress.com/studio/',
 	syncSupport: 'already-connected',
 	isStaging: false,
@@ -291,17 +291,6 @@ describe( 'ContentTabSync', () => {
 	} );
 
 	it( 'displays the list of connected sites', async () => {
-		const fakeSyncSite: SyncSite = {
-			id: 6,
-			name: 'My simple business site that needs a transfer',
-			url: 'https://developer.wordpress.com/studio/',
-			isPressable: false,
-			isStaging: false,
-			lastPullTimestamp: null,
-			lastPushTimestamp: null,
-			localSiteId: 'site-id',
-			syncSupport: 'already-connected',
-		};
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
@@ -427,18 +416,6 @@ describe( 'ContentTabSync', () => {
 	} );
 	it( 'displays the progress bar when the site is being pushed', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		const fakeSyncSite: SyncSite = {
-			id: 6,
-			name: 'My simple business site that needs a transfer',
-			url: 'https://developer.wordpress.com/studio/',
-			syncSupport: 'already-connected',
-			isStaging: false,
-			localSiteId: 'site-id',
-			isPressable: false,
-			lastPullTimestamp: null,
-			lastPushTimestamp: null,
-		};
-
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
 			...mockSyncSites,
@@ -453,22 +430,15 @@ describe( 'ContentTabSync', () => {
 	it( 'opens sync pullSite dialog with development environment label', async () => {
 		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		const fakeSyncSite: SyncSite = {
-			id: 6,
-			name: 'My simple business site that needs a transfer',
-			url: 'https://developer.wordpress.com/studio/',
-			syncSupport: 'already-connected',
-			isStaging: false,
+		const fakeDevelopmentSyncSite: SyncSite = {
+			...fakeSyncSite,
 			isPressable: true,
 			environmentType: 'development',
-			localSiteId: 'site-id',
-			lastPullTimestamp: null,
-			lastPushTimestamp: null,
 		};
-		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
+		setupConnectedSitesMocks( [ fakeDevelopmentSyncSite ], [ fakeDevelopmentSyncSite ] );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
 			...mockSyncSites,
-			syncSites: [ fakeSyncSite ],
+			syncSites: [ fakeDevelopmentSyncSite ],
 			pullSite: mockPullSite,
 		} );
 
@@ -487,19 +457,12 @@ describe( 'ContentTabSync', () => {
 	it( 'opens sync pullSite dialog and displays production when the environment is not supported', async () => {
 		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		const fakeSyncSite: SyncSite = {
-			id: 6,
-			name: 'My simple business site that needs a transfer',
-			url: 'https://developer.wordpress.com/studio/',
-			syncSupport: 'already-connected',
-			isStaging: false,
+		const fakeDevelopmentSyncSite: SyncSite = {
+			...fakeSyncSite,
 			isPressable: true,
 			environmentType: 'non-supported-environment-example-or-sandbox',
-			localSiteId: 'site-id',
-			lastPullTimestamp: null,
-			lastPushTimestamp: null,
 		};
-		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
+		setupConnectedSitesMocks( [ fakeDevelopmentSyncSite ], [ fakeDevelopmentSyncSite ] );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
 			...mockSyncSites,
 			pullSite: mockPullSite,
@@ -520,17 +483,6 @@ describe( 'ContentTabSync', () => {
 	it( 'calls pullSite with correct optionsToSync when all options are selected', async () => {
 		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		const fakeSyncSite: SyncSite = {
-			id: 6,
-			name: 'My simple business site that needs a transfer',
-			url: 'https://developer.wordpress.com/studio/',
-			syncSupport: 'already-connected',
-			localSiteId: 'site-id',
-			isStaging: false,
-			isPressable: false,
-			lastPullTimestamp: null,
-			lastPushTimestamp: null,
-		};
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
 			...mockSyncSites,
@@ -561,17 +513,6 @@ describe( 'ContentTabSync', () => {
 	it( 'calls pullSite with correct optionsToSync when only database is selected', async () => {
 		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		const fakeSyncSite: SyncSite = {
-			id: 6,
-			name: 'My simple business site that needs a transfer',
-			url: 'https://developer.wordpress.com/studio/',
-			syncSupport: 'already-connected',
-			localSiteId: 'site-id',
-			isStaging: false,
-			isPressable: false,
-			lastPullTimestamp: null,
-			lastPushTimestamp: null,
-		};
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
 			...mockSyncSites,
@@ -665,17 +606,7 @@ describe( 'ContentTabSync', () => {
 			error: null,
 			isLoading: false,
 		} );
-		const fakeSyncSite: SyncSite = {
-			id: 6,
-			name: 'My simple business site that needs a transfer',
-			url: 'https://developer.wordpress.com/studio/',
-			syncSupport: 'already-connected',
-			isStaging: false,
-			localSiteId: 'site-id',
-			isPressable: false,
-			lastPullTimestamp: null,
-			lastPushTimestamp: null,
-		};
+
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
 			...mockSyncSites,

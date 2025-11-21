@@ -100,7 +100,7 @@ describe( 'App initialization', () => {
 			require( '../index' );
 			const { 'open-url': openUrl } = mockedEvents;
 
-			const testUrl = 'wpcom-local-dev://auth#test-hash';
+			const testUrl = 'wp-studio://auth#test-hash';
 			await openUrl( {}, testUrl );
 			expect( mockHandleDeeplink ).toHaveBeenCalledWith( testUrl );
 

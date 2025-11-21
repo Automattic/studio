@@ -50,6 +50,7 @@ export interface IpcEvents {
 	'user-data-updated': [ UserData ];
 	'user-data-error': [ string ];
 	'refresh-app-globals': [ void ];
+	'beta-features-updated': [ void ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

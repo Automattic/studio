@@ -379,7 +379,6 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 
 	const { initialNavigatorPath, blueprintError, setBlueprintError, resetDeeplinkState } =
 		useBlueprintDeeplink( {
-			showModal,
 			isAnySiteProcessing,
 			openModal,
 			setSelectedBlueprint,

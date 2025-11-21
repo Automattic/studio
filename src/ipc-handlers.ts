@@ -18,7 +18,6 @@ import https from 'node:https';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
-import { compileBlueprint } from '@wp-playground/blueprints';
 import archiver from 'archiver';
 import { z } from 'zod';
 import {
@@ -38,7 +37,8 @@ import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { ARCHIVER_OPTIONS, DEFAULT_TERMINAL, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
-import { scanBlueprintForUnsupportedFeatures } from 'src/lib/blueprint-features';
+import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
+import { validateBlueprintData } from 'src/lib/blueprint-features';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
 import {
@@ -1117,6 +1117,10 @@ export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompl
 	await updateAppdata( { onboardingCompleted } );
 }
 
+export async function getBetaFeatures( _event: IpcMainInvokeEvent ): Promise< BetaFeatures > {
+	return await getBetaFeaturesFromLib();
+}
+
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,
 	{
@@ -1841,27 +1845,7 @@ export async function validateBlueprint(
 	error?: string;
 	warnings?: Array< { feature: string; reason: string; alternative?: string } >;
 } > {
-	try {
-		await compileBlueprint( blueprintJson );
-	} catch ( error ) {
-		const errorMessage = error instanceof Error ? error.message : __( 'Invalid Blueprint format' );
-		return {
-			valid: false,
-			error: errorMessage,
-		};
-	}
-
-	const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson );
-
-	const warnings = unsupportedFeatures.map( ( feature ) => ( {
-		feature: feature.name,
-		reason: feature.reason,
-	} ) );
-
-	return {
-		valid: true,
-		warnings: warnings.length > 0 ? warnings : undefined,
-	};
+	return validateBlueprintData( blueprintJson );
 }
 
 export async function readBlueprintFile(

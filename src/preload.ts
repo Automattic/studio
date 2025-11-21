@@ -85,6 +85,7 @@ const api: IpcApi = {
 	getOnboardingData: () => ipcRendererInvoke( 'getOnboardingData' ),
 	saveOnboarding: ( onboardingCompleted ) =>
 		ipcRendererInvoke( 'saveOnboarding', onboardingCompleted ),
+	getBetaFeatures: () => ipcRendererInvoke( 'getBetaFeatures' ),
 	openAppAtPath: ( editorKey, filePath ) =>
 		ipcRendererInvoke( 'openAppAtPath', editorKey, filePath ),
 	openTerminalAtPath: ( targetPath ) => ipcRendererInvoke( 'openTerminalAtPath', targetPath ),

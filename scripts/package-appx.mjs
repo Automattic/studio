@@ -67,7 +67,7 @@ async function addProtocolHandlerToManifest( manifestPath ) {
 	const manifestContent = await fs.readFile( manifestPath, 'utf-8' );
 
 	// Check if protocol handler already exists
-	if ( manifestContent.includes( 'wpcom-local-dev' ) ) {
+	if ( manifestContent.includes( 'wp-studio' ) ) {
 		console.log( '~~~ Protocol handler already exists, skipping...' );
 		return;
 	}
@@ -75,7 +75,7 @@ async function addProtocolHandlerToManifest( manifestPath ) {
 	// Insert the protocol handler extension before </Application>
 	const protocolExtension = `      <Extensions>
         <uap:Extension Category="windows.protocol">
-          <uap:Protocol Name="wpcom-local-dev">
+          <uap:Protocol Name="wp-studio">
             <uap:DisplayName>WordPress.com Local Dev Protocol</uap:DisplayName>
           </uap:Protocol>
         </uap:Extension>

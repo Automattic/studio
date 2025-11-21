@@ -5,6 +5,7 @@ import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
 import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useFetchWpComSites } from 'src/hooks/use-fetch-wpcom-sites';
 import { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -16,6 +17,7 @@ import { useLatestRewindId, useRemoteFileTree } from 'src/stores/sync';
 jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/hooks/use-fetch-wpcom-sites' );
+jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/sync-sites/sync-sites-context', () => ( {
 	...jest.requireActual( '../../../hooks/sync-sites/sync-sites-context' ),
 	useSyncSites: jest.fn(),
@@ -126,6 +128,10 @@ describe( 'ContentTabSync', () => {
 		// Clear RTK Query cache
 		store.dispatch( { type: 'connectedSitesApi/resetApiState' } );
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( false ) );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			enableBlueprints: true,
+			streamlineOnboarding: false,
+		} );
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			authenticate: jest.fn(),
 			generateProposedSitePath: jest.fn(),
@@ -257,6 +263,10 @@ describe( 'ContentTabSync', () => {
 
 	it( 'displays publish and import actions to authenticated user', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			enableBlueprints: true,
+			streamlineOnboarding: true,
+		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		const publishButton = screen.getByRole( 'button', { name: /Publish site/i } );
 		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
@@ -265,11 +275,17 @@ describe( 'ContentTabSync', () => {
 		expect( importButton ).toBeInTheDocument();
 	} );
 
-	it( 'opens the site selector modal when clicking import button', () => {
+	it( 'opens the site selector modal when clicking "Pull site" button', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			enableBlueprints: true,
+			streamlineOnboarding: true,
+		} );
+		setupConnectedSitesMocks( [], [ fakeSyncSite ] );
+
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
-		fireEvent.click( importButton );
+		const pullSiteButton = await screen.findByRole( 'button', { name: 'Pull site' } );
+		fireEvent.click( pullSiteButton );
 
 		expect( screen.getByTestId( 'sync-sites-modal-selector' ) ).toBeInTheDocument();
 	} );
@@ -323,13 +339,17 @@ describe( 'ContentTabSync', () => {
 		expect( getIpcApi().openURL ).toHaveBeenCalledWith( fakeSyncSite.url );
 	} );
 
-	it( 'opens the modal and displays the create new site button', () => {
+	it( 'opens the modal and displays the create new site button', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+		setupConnectedSitesMocks( [], [ fakeSyncSite ] );
+
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
-		expect( importButton ).toBeInTheDocument();
-		fireEvent.click( importButton );
-		const createNewSiteButton = screen.getByRole( 'button', {
+
+		const connectSiteButton = await screen.findByRole( 'button', { name: 'Connect site' } );
+		expect( connectSiteButton ).toBeInTheDocument();
+		fireEvent.click( connectSiteButton );
+
+		const createNewSiteButton = await screen.findByRole( 'button', {
 			name: /Create a new WordPress.com site ↗/i,
 		} );
 		expect( createNewSiteButton ).toBeInTheDocument();
@@ -337,6 +357,10 @@ describe( 'ContentTabSync', () => {
 
 	it( 'displays publish and import buttons when there are no connected sites', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			enableBlueprints: true,
+			streamlineOnboarding: true,
+		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
 		const publishButton = screen.getByRole( 'button', { name: /Publish site/i } );

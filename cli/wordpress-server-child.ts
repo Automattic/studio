@@ -130,9 +130,9 @@ async function startServer( config: ServerConfig ): Promise< void > {
 	}
 }
 
-function sendErrorMessage( messageId: number, error: unknown ) {
+function sendErrorMessage( siteId: string, error: unknown ) {
 	const errorResponse: ChildMessageRaw = {
-		id: messageId,
+		siteId,
 		topic: 'error',
 		errorMessage: error instanceof Error ? error.message : String( error ),
 		errorStack: error instanceof Error ? error.stack : undefined,
@@ -146,33 +146,38 @@ async function ipcMessageHandler( packet: unknown ) {
 	if ( ! messageResult.success ) {
 		console.error( 'Invalid message received:', messageResult.error );
 
-		const minimalMessageSchema = z.object( { id: z.number() } );
+		const minimalMessageSchema = z.object( { siteId: z.string() } );
 		const minimalMessage = minimalMessageSchema.safeParse( packet );
 		if ( minimalMessage.success ) {
-			sendErrorMessage( minimalMessage.data.id, messageResult.error );
+			sendErrorMessage( minimalMessage.data.siteId, messageResult.error );
 		}
 		return;
 	}
 
-	let result: unknown;
 	const validMessage = messageResult.data;
 
-	switch ( validMessage.topic ) {
-		case 'start-server':
-			if ( validMessage.data.config ) {
-				result = await startServer( validMessage.data.config );
-			}
-			break;
-		default:
-			throw new Error( `Unknown message topic: ${ validMessage.topic }` );
-	}
+	try {
+		let result: unknown;
 
-	const response: ChildMessageRaw = {
-		id: validMessage.id,
-		topic: 'result',
-		result,
-	};
-	process.send!( response );
+		switch ( validMessage.topic ) {
+			case 'start-server':
+				if ( validMessage.data.config ) {
+					result = await startServer( validMessage.data.config );
+				}
+				break;
+			default:
+				throw new Error( `Unknown message topic: ${ validMessage.topic }` );
+		}
+
+		const response: ChildMessageRaw = {
+			siteId: validMessage.siteId,
+			topic: 'result',
+			result,
+		};
+		process.send!( response );
+	} catch ( error ) {
+		sendErrorMessage( validMessage.siteId, error );
+	}
 }
 
 if ( process.send ) {

@@ -92,7 +92,11 @@ export async function startWordPressServer( site: SiteData ): Promise< ProcessDe
 
 	const processDesc = await startProcess( processName, wordPressServerChildPath, env );
 	await waitForReadyMessage( processDesc.pmId );
-	await sendMessage( processDesc.pmId, { topic: 'start-server', data: { config: serverConfig } } );
+	await sendMessage( processDesc.pmId, {
+		siteId: site.id,
+		topic: 'start-server',
+		data: { config: serverConfig },
+	} );
 
 	return processDesc;
 }
@@ -130,32 +134,28 @@ async function waitForReadyMessage( pmId: number ): Promise< void > {
  * - Checks periodically for inactivity
  * - Has both inactivity timeout and max total timeout
  */
-let nextMessageId = 0;
 const messageActivityTrackers = new Map<
-	number,
+	string,
 	{
 		lastActivityTimestamp: number;
 		activityCheckIntervalId: NodeJS.Timeout;
 	}
 >();
 
-async function sendMessage(
-	pmId: number,
-	message: Omit< ManagerMessage, 'id' >
-): Promise< unknown > {
+async function sendMessage( pmId: number, message: ManagerMessage ): Promise< unknown > {
 	const bus = await getPm2Bus();
 
 	return new Promise( ( resolve, reject ) => {
-		const messageId = nextMessageId++;
+		const siteId = message.siteId;
 		const startTime = Date.now();
 		let lastActivityTimestamp = Date.now();
 
 		const cleanup = () => {
 			bus.off( 'process:msg', responseHandler );
-			const tracker = messageActivityTrackers.get( messageId );
+			const tracker = messageActivityTrackers.get( siteId );
 			if ( tracker ) {
 				clearInterval( tracker.activityCheckIntervalId );
-				messageActivityTrackers.delete( messageId );
+				messageActivityTrackers.delete( siteId );
 			}
 		};
 
@@ -174,12 +174,12 @@ async function sendMessage(
 						? `Maximum timeout of ${ PLAYGROUND_CLI_MAX_TIMEOUT / 1000 }s exceeded`
 						: `No activity for ${ PLAYGROUND_CLI_INACTIVITY_TIMEOUT / 1000 }s`;
 				reject(
-					new Error( `Timeout waiting for response to message ${ messageId }: ${ timeoutReason }` )
+					new Error( `Timeout waiting for response for site ${ siteId }: ${ timeoutReason }` )
 				);
 			}
 		}, PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL );
 
-		messageActivityTrackers.set( messageId, {
+		messageActivityTrackers.set( siteId, {
 			lastActivityTimestamp,
 			activityCheckIntervalId,
 		} );
@@ -187,27 +187,29 @@ async function sendMessage(
 		const responseHandler = ( packet: unknown ) => {
 			const validationResult = childMessagePm2Schema.safeParse( packet );
 			if ( ! validationResult.success ) {
-				cleanup();
-				reject( validationResult.error );
 				return;
 			}
 
 			const validPacket = validationResult.data;
 
+			if ( validPacket.process.pm_id !== pmId ) {
+				return;
+			}
+
 			if ( validPacket.raw.topic === 'activity' ) {
 				lastActivityTimestamp = Date.now();
-				const tracker = messageActivityTrackers.get( messageId );
+				const tracker = messageActivityTrackers.get( siteId );
 				if ( tracker ) {
 					tracker.lastActivityTimestamp = lastActivityTimestamp;
 				}
-			} else if ( validPacket.raw.topic === 'error' ) {
+			} else if ( validPacket.raw.topic === 'error' && validPacket.raw.siteId === siteId ) {
 				const error = new Error( validPacket.raw.errorMessage );
 				if ( validPacket.raw.errorStack ) {
 					error.stack = validPacket.raw.errorStack;
 				}
 				cleanup();
 				reject( error );
-			} else if ( validPacket.raw.topic === 'result' && validPacket.raw.id === messageId ) {
+			} else if ( validPacket.raw.topic === 'result' && validPacket.raw.siteId === siteId ) {
 				cleanup();
 				resolve( validPacket.raw.result );
 			}
@@ -215,7 +217,7 @@ async function sendMessage(
 
 		bus.on( 'process:msg', responseHandler );
 
-		pm2.sendDataToProcessId( pmId, { ...message, id: messageId }, ( error ) => {
+		pm2.sendDataToProcessId( pmId, message, ( error ) => {
 			if ( error ) {
 				cleanup();
 				reject( error );

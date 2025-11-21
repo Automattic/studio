@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // Zod schemas for validating IPC messages from wordpress-server-manager
 const managerMessageBase = z.object( {
-	id: z.number(),
+	siteId: z.string(),
 } );
 
 const serverConfig = z.object( {
@@ -38,16 +38,17 @@ const childMessageReady = z.object( {
 
 const childMessageActivity = z.object( {
 	topic: z.literal( 'activity' ),
+	siteId: z.string().optional(),
 } );
 
 const childMessageResult = z.object( {
-	id: z.number(),
+	siteId: z.string(),
 	topic: z.literal( 'result' ),
 	result: z.unknown(),
 } );
 
 const childMessageError = z.object( {
-	id: z.number(),
+	siteId: z.string(),
 	topic: z.literal( 'error' ),
 	errorMessage: z.string(),
 	errorStack: z.string().optional(),

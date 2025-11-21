@@ -1,5 +1,3 @@
-import { SiteData } from 'cli/lib/appdata';
-
 // Mock PM2 instance - must be defined before mocking pm2-manager
 const mockPm2 = {
 	launchBus: jest.fn(),
@@ -14,9 +12,8 @@ jest.mock( 'cli/lib/pm2-manager', () => ( {
 	stopProcess: jest.fn(),
 } ) );
 
+import { SiteData } from 'cli/lib/appdata';
 import * as pm2Manager from 'cli/lib/pm2-manager';
-
-// Import after mocks are set up
 import {
 	isServerRunning,
 	startWordPressServer,

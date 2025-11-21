@@ -11,7 +11,7 @@ import { useAppDispatch } from 'src/stores';
 import {
 	connectedSitesActions,
 	useGetConnectedSitesForLocalSiteQuery,
-} from 'src/stores/sync/connected-sites-api';
+} from 'src/stores/sync/connected-sites';
 
 export const PublishSiteButton = () => {
 	const { __ } = useI18n();

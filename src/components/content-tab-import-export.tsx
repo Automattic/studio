@@ -20,7 +20,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
-import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites-api';
+import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
 
 interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;

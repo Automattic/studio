@@ -28,7 +28,7 @@ import {
 	useConnectSiteMutation,
 	useDisconnectSiteMutation,
 	useGetConnectedSitesForLocalSiteQuery,
-} from 'src/stores/sync/connected-sites-api';
+} from 'src/stores/sync/connected-sites';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { SyncModalMode } from 'src/modules/sync/types';
 
@@ -136,9 +136,11 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		localSiteId: selectedSite.id,
 		userId: user?.id,
 	} );
-	const { syncSites, isFetching, refetchSites } = useFetchWpComSites(
-		connectedSites.map( ( { id } ) => id )
-	);
+	const {
+		syncSites,
+		isFetching: isFetchingSyncSites,
+		refetchSites,
+	} = useFetchWpComSites( connectedSites.map( ( { id } ) => id ) );
 	const [ connectSite ] = useConnectSiteMutation();
 	const [ disconnectSite ] = useDisconnectSiteMutation();
 	const { pushSite, pullSite, isAnySitePulling, isAnySitePushing } = useSyncSites();
@@ -150,11 +152,11 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 
 	// Open modal after fetch completes and state updates
 	useEffect( () => {
-		if ( pendingModalMode && ! isFetching ) {
+		if ( pendingModalMode && ! isFetchingSyncSites ) {
 			dispatch( connectedSitesActions.openModal( pendingModalMode ) );
 			setPendingModalMode( null );
 		}
-	}, [ pendingModalMode, isFetching, syncSites.length, dispatch ] );
+	}, [ pendingModalMode, isFetchingSyncSites, syncSites.length, dispatch ] );
 
 	if ( ! isAuthenticated ) {
 		return <NoAuthSyncTab />;
@@ -269,7 +271,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					{ reduxModalMode === 'connect' ? (
 						<SyncSitesModalSelector
 							mode="connect"
-							isLoading={ isFetching }
+							isLoading={ isFetchingSyncSites }
 							onRequestClose={ () => {
 								dispatch( connectedSitesActions.closeModal() );
 							} }
@@ -280,7 +282,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							} }
 							selectedSite={ selectedSite }
 						/>
-					) : syncSites.length === 0 ? (
+					) : syncSites.length === 0 && ! isFetchingSyncSites ? (
 						<NoWpcomSitesModal
 							onRequestClose={ () => {
 								dispatch( connectedSitesActions.closeModal() );
@@ -290,7 +292,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					) : (
 						<SyncSitesModalSelector
 							mode={ reduxModalMode || 'connect' }
-							isLoading={ isFetching }
+							isLoading={ isFetchingSyncSites }
 							onRequestClose={ () => {
 								dispatch( connectedSitesActions.closeModal() );
 							} }

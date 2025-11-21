@@ -18,7 +18,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
 	useGetConnectedSitesForLocalSiteQuery,
 	useUpdateSiteTimestampMutation,
-} from 'src/stores/sync/connected-sites-api';
+} from 'src/stores/sync/connected-sites';
 import type { ImportResponse } from 'src/hooks/use-sync-states-progress-info';
 
 type GetLastSyncTimeText = ( timestamp: string | null, type: 'pull' | 'push' ) => string;

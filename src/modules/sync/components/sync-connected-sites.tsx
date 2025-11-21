@@ -33,7 +33,7 @@ import { useAppDispatch, useI18nLocale } from 'src/stores';
 import {
 	connectedSitesActions,
 	useGetConnectedSitesForLocalSiteQuery,
-} from 'src/stores/sync/connected-sites-api';
+} from 'src/stores/sync/connected-sites';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 const SyncConnectedSiteControls = ( {

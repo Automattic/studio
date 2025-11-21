@@ -25,7 +25,7 @@ import {
 	snapshotActions,
 } from 'src/stores/snapshot-slice';
 import { syncReducer } from 'src/stores/sync';
-import { connectedSitesApi, connectedSitesReducer } from 'src/stores/sync/connected-sites-api';
+import { connectedSitesApi, connectedSitesReducer } from 'src/stores/sync/connected-sites';
 import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from 'common/lib/locale';

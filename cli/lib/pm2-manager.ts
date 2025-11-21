@@ -153,8 +153,7 @@ export async function startProcess(
 			interpreter: process.execPath,
 			script: scriptPath,
 			exec_mode: 'fork',
-			autorestart: true,
-			max_restarts: 5,
+			autorestart: false,
 			env: env || {},
 		};
 

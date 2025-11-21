@@ -17,7 +17,7 @@ import {
 	ServerConfig,
 	childMessagePm2Schema,
 	ManagerMessage,
-} from 'cli/lib/types/wordpress-server';
+} from 'cli/lib/types/wordpress-server-ipc';
 
 const pm2 = getPm2Instance();
 

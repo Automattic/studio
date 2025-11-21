@@ -20,7 +20,7 @@ import {
 	ServerConfig,
 	managerMessageSchema,
 	ChildMessageRaw,
-} from 'cli/lib/types/wordpress-server';
+} from 'cli/lib/types/wordpress-server-ipc';
 
 let server: RunCLIServer | null = null;
 

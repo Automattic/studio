@@ -4,12 +4,7 @@ import { readAppdata, getSiteUrl, SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import { addDomainToHosts } from 'cli/lib/hosts-file';
-import {
-	startDaemon,
-	isProxyProcessRunning,
-	startProxyProcess,
-	disconnect,
-} from 'cli/lib/pm2-manager';
+import { connect, isProxyProcessRunning, startProxyProcess, disconnect } from 'cli/lib/pm2-manager';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -50,7 +45,7 @@ export async function runCommand( siteFolder: string, skipBrowser = false ): Pro
 		}
 
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
-		await startDaemon();
+		await connect();
 		logger.reportSuccess( __( 'Process daemon started' ) );
 
 		const alreadyRunning = await isServerRunning( site.id );

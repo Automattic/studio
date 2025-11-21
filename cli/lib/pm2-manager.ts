@@ -61,7 +61,7 @@ export function disconnect(): void {
 	}
 }
 
-async function connect(): Promise< void > {
+export async function connect(): Promise< void > {
 	if ( isConnected ) {
 		return;
 	}
@@ -87,10 +87,6 @@ async function connect(): Promise< void > {
 	} );
 }
 
-export async function startDaemon(): Promise< void > {
-	await connect();
-}
-
 async function listProcesses(): Promise< ProcessDescription[] > {
 	return new Promise( ( resolve, reject ) => {
 		pm2.list( ( error, processes ) => {
@@ -110,13 +106,9 @@ async function listProcesses(): Promise< ProcessDescription[] > {
 	} );
 }
 
-function cleanup(): void {
-	disconnect();
-}
-
-process.on( 'exit', cleanup );
-process.on( 'SIGINT', cleanup );
-process.on( 'SIGTERM', cleanup );
+process.on( 'exit', disconnect );
+process.on( 'SIGINT', disconnect );
+process.on( 'SIGTERM', disconnect );
 
 export async function startProxyProcess(): Promise< ProcessDescription > {
 	const proxyDaemonPath = path.resolve( __dirname, 'proxy-daemon.js' );

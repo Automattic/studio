@@ -31,7 +31,6 @@ const connectedSitesSlice = createSlice( {
 
 		closeModal: ( state ) => {
 			state.isModalOpen = false;
-			state.modalMode = null;
 		},
 	},
 } );

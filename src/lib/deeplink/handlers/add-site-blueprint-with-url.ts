@@ -47,13 +47,15 @@ export async function handleAddSiteWithBlueprint( urlObject: URL ): Promise< voi
 			const blueprintJsonString = Buffer.from( blueprintBase64, 'base64' ).toString( 'utf-8' );
 			blueprintJson = JSON.parse( blueprintJsonString );
 			await fs.writeJson( blueprintPath, blueprintJson );
-		} else {
+		} else if ( blueprintUrl ) {
 			// Handle blueprint linked in the deeplink URL
-			const decodedUrl = decodeURIComponent( blueprintUrl! );
+			const decodedUrl = decodeURIComponent( blueprintUrl );
 			new URL( decodedUrl );
 
 			await download( decodedUrl, blueprintPath, false, 'blueprint' );
 			blueprintJson = await fs.readJson( blueprintPath );
+		} else {
+			return;
 		}
 
 		const validation = await validateBlueprintData( blueprintJson );

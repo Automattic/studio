@@ -134,45 +134,52 @@ async function startServer( config: ServerConfig ): Promise< void > {
 	}
 }
 
-if ( process.send ) {
-	process.on( 'message', async ( packet: unknown ) => {
-		try {
-			const validMessage = managerMessageSchema.parse( packet );
-			let result: unknown;
+function sendErrorMessage( messageId: number, error: unknown ) {
+	const errorResponse: ChildMessageRaw = {
+		id: messageId,
+		topic: 'error',
+		error: error instanceof Error ? error.message : String( error ),
+		errorStack: error instanceof Error ? error.stack : undefined,
+	};
+	process.send!( errorResponse );
+}
 
-			switch ( validMessage.topic ) {
-				case 'start-server':
-					if ( validMessage.data.config ) {
-						result = await startServer( validMessage.data.config );
-					}
-					break;
-				default:
-					throw new Error( `Unknown message topic: ${ validMessage.topic }` );
-			}
+async function ipcMessageHandler( packet: unknown ) {
+	const messageResult = managerMessageSchema.safeParse( packet );
 
-			const response: ChildMessageRaw = {
-				id: validMessage.id,
-				topic: 'result',
-				result,
-			};
-			process.send!( response );
-		} catch ( error ) {
-			console.log( '[WordPress Server Child] Error:', error );
+	if ( ! messageResult.success ) {
+		console.error( 'Invalid message received:', messageResult.error );
 
-			const minimalMessageSchema = z.object( { id: z.number() } );
-			const minimalMessage = minimalMessageSchema.safeParse( packet );
-
-			if ( minimalMessage.success ) {
-				const errorResponse: ChildMessageRaw = {
-					id: minimalMessage.data.id,
-					topic: 'error',
-					error: error instanceof Error ? error.message : String( error ),
-					errorStack: error instanceof Error ? error.stack : undefined,
-				};
-				process.send!( errorResponse );
-			}
+		const minimalMessageSchema = z.object( { id: z.number() } );
+		const minimalMessage = minimalMessageSchema.safeParse( packet );
+		if ( minimalMessage.success ) {
+			sendErrorMessage( minimalMessage.data.id, messageResult.error );
 		}
-	} );
+		return;
+	}
 
+	let result: unknown;
+	const validMessage = messageResult.data;
+
+	switch ( validMessage.topic ) {
+		case 'start-server':
+			if ( validMessage.data.config ) {
+				result = await startServer( validMessage.data.config );
+			}
+			break;
+		default:
+			throw new Error( `Unknown message topic: ${ validMessage.topic }` );
+	}
+
+	const response: ChildMessageRaw = {
+		id: validMessage.id,
+		topic: 'result',
+		result,
+	};
+	process.send!( response );
+}
+
+if ( process.send ) {
+	process.on( 'message', ipcMessageHandler );
 	process.send( { topic: 'ready' } );
 }

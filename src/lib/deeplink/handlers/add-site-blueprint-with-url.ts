@@ -13,7 +13,7 @@ import { getMainWindow } from 'src/main-window';
  * - wp-studio://add-site?blueprint_url=<encoded-url>
  * - wp-studio://add-site?blueprint=<base64-encoded-json>
  *
- * Both types of blueprints are saved to a temporary file, validated,
+ * Both URL and Base64 encode json types of blueprints are saved to a temporary file, validated,
  * and then the Add Site modal is opened with the blueprint pre-filled.
  */
 export async function handleAddSiteWithBlueprint( urlObject: URL ): Promise< void > {

@@ -32,6 +32,7 @@ beforeEach( () => {
 		loadingServer: {},
 	} );
 	( getIpcApi as jest.Mock ).mockReturnValue( {
+		getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
 		showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ), // Mock showMessageBox
 		isImportExportSupported: jest.fn().mockResolvedValue( true ),
 	} );

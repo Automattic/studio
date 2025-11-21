@@ -757,6 +757,8 @@ export async function exportSiteForPush(
 			throw new Error( 'Export aborted' );
 		}
 
+		await keepSqliteIntegrationUpdated( site.details.path );
+
 		const shouldIncludeSyncOption = (
 			optionsToSync: SyncOption[] | undefined,
 			option: SyncOption

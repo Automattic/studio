@@ -74,18 +74,15 @@ describe( 'useImportExport hook', () => {
 				exportType: 'full',
 			},
 		} );
-		expect( getIpcApi().exportSite ).toHaveBeenCalledWith(
-			{
-				site: selectedSite,
-				backupFile: '/path/to/exported-site.tar.gz',
-				includes: {
-					database: true,
-					wpContent: true,
-				},
-				phpVersion: '8.3',
+		expect( getIpcApi().exportSite ).toHaveBeenCalledWith( {
+			site: selectedSite,
+			backupFile: '/path/to/exported-site.tar.gz',
+			includes: {
+				database: true,
+				wpContent: true,
 			},
-			SITE_ID
-		);
+			phpVersion: '8.3',
+		} );
 		expect( getIpcApi().showNotification ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				body: 'Export completed',
@@ -126,18 +123,15 @@ describe( 'useImportExport hook', () => {
 				exportType: 'full',
 			},
 		} );
-		expect( getIpcApi().exportSite ).toHaveBeenCalledWith(
-			{
-				site: selectedSite,
-				backupFile: '/path/to/exported-site.tar.gz',
-				includes: {
-					database: true,
-					wpContent: true,
-				},
-				phpVersion: '8.3',
+		expect( getIpcApi().exportSite ).toHaveBeenCalledWith( {
+			site: selectedSite,
+			backupFile: '/path/to/exported-site.tar.gz',
+			includes: {
+				database: true,
+				wpContent: true,
 			},
-			SITE_ID
-		);
+			phpVersion: '8.3',
+		} );
 		expect( getIpcApi().showErrorMessageBox ).toHaveBeenCalledWith( {
 			title: 'Failed exporting site',
 			message:
@@ -178,18 +172,15 @@ describe( 'useImportExport hook', () => {
 				exportType: 'database',
 			},
 		} );
-		expect( getIpcApi().exportSite ).toHaveBeenCalledWith(
-			{
-				site: selectedSite,
-				backupFile: '/path/to/exported-database.sql',
-				includes: {
-					database: true,
-					wpContent: false,
-				},
-				phpVersion: '8.3',
+		expect( getIpcApi().exportSite ).toHaveBeenCalledWith( {
+			site: selectedSite,
+			backupFile: '/path/to/exported-database.sql',
+			includes: {
+				database: true,
+				wpContent: false,
 			},
-			SITE_ID
-		);
+			phpVersion: '8.3',
+		} );
 		expect( getIpcApi().showNotification ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				body: 'Export completed',

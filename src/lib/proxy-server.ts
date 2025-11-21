@@ -5,6 +5,7 @@ import { domainToASCII } from 'node:url';
 import * as Sentry from '@sentry/electron/main';
 import httpProxy from 'http-proxy';
 import { portFinder } from 'common/lib/port-finder';
+import { sequential } from 'common/lib/sequential';
 import { SiteServer } from 'src/site-server';
 import { loadUserData } from 'src/storage/user-data';
 
@@ -12,35 +13,6 @@ let httpProxyServer: http.Server | null = null;
 let httpsProxyServer: https.Server | null = null;
 let isHttpProxyRunning = false;
 let isHttpsProxyRunning = false;
-
-const sequentialLocks = new Map< () => Promise< unknown >, Set< Promise< unknown > > >();
-
-// Ensures that calls to the provided function are executed sequentially
-function sequential< Args extends unknown[], Return >(
-	fn: ( ...args: Args ) => Promise< Return >
-) {
-	return async ( ...args: Args ) => {
-		const locks = sequentialLocks.get( fn ) ?? new Set();
-		if ( ! sequentialLocks.has( fn ) ) {
-			sequentialLocks.set( fn, locks );
-		}
-
-		const settledPromise = Promise.allSettled( [ ...locks ] );
-		// Push the settled promise to the queue to ensure that subsequent calls wait their turn
-		locks.add( settledPromise );
-		await settledPromise;
-
-		const fnPromise = fn( ...args );
-
-		try {
-			locks.add( fnPromise );
-			return await fnPromise;
-		} finally {
-			locks.delete( settledPromise );
-			locks.delete( fnPromise );
-		}
-	};
-}
 
 const proxy = httpProxy.createProxyServer();
 

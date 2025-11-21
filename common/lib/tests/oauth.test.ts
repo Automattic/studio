@@ -5,7 +5,7 @@ describe( 'getAuthenticationUrl', () => {
 		const result = getAuthenticationUrl( 'en' );
 
 		expect( result ).toBe(
-			'https://public-api.wordpress.com/oauth2/authorize?response_type=token&client_id=95109&redirect_uri=wpcom-local-dev%3A%2F%2Fauth&scope=global&locale=en'
+			'https://public-api.wordpress.com/oauth2/authorize?response_type=token&client_id=95109&redirect_uri=wp-studio%3A%2F%2Fauth&scope=global&locale=en'
 		);
 	} );
 
@@ -13,7 +13,7 @@ describe( 'getAuthenticationUrl', () => {
 		const result = getAuthenticationUrl( 'es' );
 
 		expect( result ).toBe(
-			'https://public-api.wordpress.com/oauth2/authorize?response_type=token&client_id=95109&redirect_uri=wpcom-local-dev%3A%2F%2Fauth&scope=global&locale=es'
+			'https://public-api.wordpress.com/oauth2/authorize?response_type=token&client_id=95109&redirect_uri=wp-studio%3A%2F%2Fauth&scope=global&locale=es'
 		);
 	} );
 } );

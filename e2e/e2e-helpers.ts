@@ -13,12 +13,14 @@ export class E2ESession {
 	appDataPath: string;
 	homePath: string;
 
-	async launch( testEnv: NodeJS.ProcessEnv = {} ) {
+	public constructor() {
 		// Create temporary folder to hold application data
 		this.sessionPath = path.join( tmpdir(), `studio-app-e2e-session-${ randomUUID() }` );
 		this.appDataPath = path.join( this.sessionPath, 'appData' );
 		this.homePath = path.join( this.sessionPath, 'home' );
+	}
 
+	async launch( testEnv: NodeJS.ProcessEnv = {} ) {
 		await fs.mkdir( this.appDataPath, { recursive: true } );
 		await fs.mkdir( this.homePath, { recursive: true } );
 
@@ -41,6 +43,30 @@ export class E2ESession {
 				...process.env,
 				...testEnv,
 				E2E: 'true', // allow app to determine whether it's running as an end-to-end test
+				E2E_APP_DATA_PATH: this.appDataPath,
+				E2E_HOME_PATH: this.homePath,
+			},
+			timeout: 60_000,
+		} );
+		this.mainWindow = await this.electronApp.firstWindow( { timeout: 60_000 } );
+	}
+
+	// Close the app but keep the data for persistence testing
+	async restart() {
+		await this.electronApp?.close();
+		const latestBuild = findLatestBuild();
+		const appInfo = parseElectronApp( latestBuild );
+		let executablePath = appInfo.executable;
+		if ( appInfo.platform === 'win32' ) {
+			executablePath = executablePath.replace( 'Squirrel.exe', 'Studio.exe' );
+		}
+
+		this.electronApp = await electron.launch( {
+			args: [ appInfo.main ],
+			executablePath,
+			env: {
+				...process.env,
+				E2E: 'true',
 				E2E_APP_DATA_PATH: this.appDataPath,
 				E2E_HOME_PATH: this.homePath,
 			},

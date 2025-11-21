@@ -119,6 +119,124 @@ describe( 'convertTreeToPushOptions', () => {
 		} );
 	} );
 
+	it( 'returns ["plugins", "themes", "uploads", "contents"] when "All files and folders" is selected', () => {
+		const tree = createBaseTree();
+		tree[ 0 ].checked = true; // filesAndFolders
+		tree[ 1 ].checked = false; // sqls
+		const wpContentNode = tree[ 0 ].children![ 0 ];
+		wpContentNode.checked = true;
+		wpContentNode.children = [
+			{
+				id: 'local-wp-content/fonts',
+				name: 'fonts',
+				label: 'fonts',
+				checked: true,
+				type: 'folder',
+				path: 'wp-content/fonts',
+				pathId: 'wp-content/fonts',
+				children: [],
+			},
+			{
+				id: 'local-wp-content/mu-plugins',
+				name: 'mu-plugins',
+				label: 'mu-plugins',
+				checked: true,
+				type: 'folder',
+				path: 'wp-content/mu-plugins',
+				pathId: 'wp-content/mu-plugins',
+				children: [],
+			},
+			{
+				id: 'local-wp-content/plugins',
+				name: 'plugins',
+				label: 'plugins',
+				checked: true,
+				type: 'folder',
+				path: 'wp-content/plugins',
+				pathId: 'wp-content/plugins',
+				children: [
+					{
+						id: 'local-wp-content/plugins/akismet',
+						name: 'akismet',
+						label: 'akismet',
+						checked: true,
+						type: 'plugin',
+						path: 'wp-content/plugins/akismet',
+						pathId: 'wp-content/plugins/akismet',
+						children: [],
+					},
+				],
+				indeterminate: false,
+			},
+			{
+				id: 'local-wp-content/themes',
+				name: 'themes',
+				label: 'themes',
+				checked: true,
+				type: 'folder',
+				path: 'wp-content/themes',
+				pathId: 'wp-content/themes',
+				children: [
+					{
+						id: 'local-wp-content/themes/twentytwentyfive',
+						name: 'twentytwentyfive',
+						label: 'twentytwentyfive',
+						checked: true,
+						type: 'theme',
+						path: 'wp-content/themes/twentytwentyfive',
+						pathId: 'wp-content/themes/twentytwentyfive',
+						children: [],
+					},
+				],
+				indeterminate: false,
+			},
+			{
+				id: 'local-wp-content/uploads',
+				name: 'uploads',
+				label: 'uploads',
+				checked: true,
+				type: 'folder',
+				path: 'wp-content/uploads',
+				pathId: 'wp-content/uploads',
+				children: [
+					{
+						id: 'local-wp-content/uploads/2025',
+						name: '2025',
+						label: '2025',
+						checked: true,
+						type: 'folder',
+						path: 'wp-content/uploads/2025',
+						pathId: 'wp-content/uploads/2025',
+						children: [],
+						indeterminate: false,
+					},
+				],
+				indeterminate: false,
+			},
+			{
+				id: 'local-wp-content/index-php',
+				name: 'index.php',
+				label: 'index.php',
+				checked: true,
+				type: 'file',
+				path: 'wp-content/index.php',
+				pathId: 'wp-content/index.php',
+			},
+		];
+		const optionsToSync = convertTreeToPushOptions( tree );
+		expect( optionsToSync ).toEqual( {
+			optionsToSync: [ 'contents', 'plugins', 'themes', 'uploads' ],
+			specificSelectionPaths: [
+				'fonts',
+				'mu-plugins',
+				'plugins',
+				'themes',
+				'uploads',
+				'index.php',
+			],
+		} );
+	} );
+
 	describe( 'partial selections', () => {
 		it( 'returns partial plugins selection when only some plugins are selected', () => {
 			const tree = createBaseTree();

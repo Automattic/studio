@@ -75,11 +75,20 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 			/>
 			<TerminalPicker value={ terminalSelection } onChange={ setDirtyTerminal } />
 			<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />
-			<div className="pt-2 flex justify-end gap-3">
-				<Button variant="tertiary" onClick={ () => onClose() }>
+			<div className="mt-auto pt-2 flex justify-end gap-3">
+				<Button
+					variant="tertiary"
+					onClick={ () => onClose() }
+					data-testid="preferences-cancel-button"
+				>
 					{ __( 'Cancel' ) }
 				</Button>
-				<Button variant="primary" onClick={ savePreferences } disabled={ ! hasChanges }>
+				<Button
+					variant="primary"
+					onClick={ savePreferences }
+					disabled={ ! hasChanges }
+					data-testid="preferences-save-button"
+				>
 					{ __( 'Save' ) }
 				</Button>
 			</div>

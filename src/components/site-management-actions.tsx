@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { ActionButton } from 'src/components/action-button';
+import { PublishSiteButton } from 'src/components/publish-site-button';
 import { Tooltip } from 'src/components/tooltip';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useImportExport } from 'src/hooks/use-import-export';
@@ -21,6 +22,7 @@ export const SiteManagementActions = ( {
 	const { __ } = useI18n();
 	const { isSiteImporting } = useImportExport();
 	const { isSiteIdPulling } = useSyncSites();
+
 	if ( ! selectedSite ) {
 		return null;
 	}
@@ -35,24 +37,27 @@ export const SiteManagementActions = ( {
 	}
 
 	return (
-		<Tooltip
-			disabled={ ! disabled }
-			text={ __( "A site can't be stopped or started during import." ) }
-			placement="left"
-		>
-			<ActionButton
-				isRunning={ selectedSite.running }
-				isLoading={ loading }
-				onClick={ () => {
-					if ( selectedSite.running ) {
-						void onStop( selectedSite.id );
-					} else {
-						void onStart( selectedSite.id );
-					}
-				} }
-				disabled={ disabled }
-				buttonLabelOnDisabled={ buttonLabelOnDisabled }
-			/>
-		</Tooltip>
+		<div className="flex gap-2">
+			<PublishSiteButton />
+			<Tooltip
+				disabled={ ! disabled }
+				text={ __( "A site can't be stopped or started during import." ) }
+				placement="left"
+			>
+				<ActionButton
+					isRunning={ selectedSite.running }
+					isLoading={ loading }
+					onClick={ () => {
+						if ( selectedSite.running ) {
+							void onStop( selectedSite.id );
+						} else {
+							void onStart( selectedSite.id );
+						}
+					} }
+					disabled={ disabled }
+					buttonLabelOnDisabled={ buttonLabelOnDisabled }
+				/>
+			</Tooltip>
+		</div>
 	);
 };

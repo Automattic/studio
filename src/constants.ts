@@ -76,7 +76,7 @@ export const PLAYGROUND_CLI_MAX_TIMEOUT = 10 * 60 * 1000; // 10 minutes absolute
 export const PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL = 5 * 1000; // Check for inactivity every 5 seconds
 
 // SQLite
-export const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.2.13';
+export const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.2.14';
 
 export const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordPress/sqlite-database-integration/archive/refs/tags/${ SQLITE_DATABASE_INTEGRATION_VERSION }.zip`;
 

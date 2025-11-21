@@ -2,6 +2,7 @@ import nodePath from 'path';
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
 import { RecommendedPHPVersion } from '@wp-playground/common';
+import { WordPressInstallMode } from '@wp-playground/wordpress';
 import { recursiveCopyDirectory, pathExists, isWordPressDirectory } from 'common/lib/fs-utils';
 import { DEFAULT_LOCALE } from 'common/lib/locale';
 import { isOnline } from 'common/lib/network-utils';
@@ -23,7 +24,7 @@ export interface PlaygroundCliOptions {
 	phpVersion: string;
 	documentRoot: string;
 	autoMount: boolean;
-	skipWordpressSetup: boolean;
+	wordpressInstallMode: WordPressInstallMode;
 	blueprint?: Blueprint;
 }
 
@@ -70,7 +71,9 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			phpVersion,
 			documentRoot: options.path,
 			autoMount: true,
-			skipWordpressSetup: hasWordPress,
+			wordpressInstallMode: hasWordPress
+				? 'install-from-existing-files-if-needed'
+				: 'download-and-install',
 			blueprint: options.blueprint,
 		};
 

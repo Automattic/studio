@@ -19,7 +19,8 @@ type SnapshotKeyValueEventData = {
 
 export interface IpcEvents {
 	'add-site': [ void ];
-	'add-site-blueprint': [ { blueprintPath: string } ];
+	'add-site-blueprint-from-url': [ { blueprintPath: string } ];
+	'add-site-blueprint-from-base64': [ { blueprintJson: string } ];
 	'auth-updated': [ { token: StoredToken } | { error: unknown } ];
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];
@@ -49,6 +50,7 @@ export interface IpcEvents {
 	'user-data-updated': [ UserData ];
 	'user-data-error': [ string ];
 	'refresh-app-globals': [ void ];
+	'beta-features-updated': [ void ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

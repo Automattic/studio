@@ -34,6 +34,7 @@ interface FormPathInputComponentProps {
 	error?: string;
 	doesPathContainWordPress: boolean;
 	isDisabled: boolean;
+	id?: string;
 }
 
 interface FormImportComponentProps {
@@ -112,6 +113,7 @@ function FormPathInputComponent( {
 	error,
 	doesPathContainWordPress,
 	isDisabled = false,
+	id,
 }: FormPathInputComponentProps ) {
 	const { __ } = useI18n();
 	return (
@@ -136,14 +138,16 @@ function FormPathInputComponent( {
 				data-testid="select-path-button"
 				disabled={ isDisabled }
 				onClick={ onClick }
+				id={ id }
 			>
-				<TextControlComponent
+				<div
 					aria-hidden="true"
 					tabIndex={ -1 }
-					className="[&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none w-full"
-					value={ value }
+					className="w-full text-left pl-3 pt-3 h-10"
 					onChange={ () => {} }
-				/>
+				>
+					{ value }
+				</div>
 				<div aria-hidden="true" className="local-path-icon flex items-center py-[9px] px-2.5">
 					<FolderIcon className="text-[#3C434A]" />
 				</div>
@@ -156,6 +160,7 @@ function FormPathInputComponent( {
 						: ''
 				}
 			/>
+			<input type="hidden" data-testid="local-path-input" value={ value } />
 		</div>
 	);
 }
@@ -323,6 +328,7 @@ export const SiteForm = ( {
 								onSubmit( event as FormEvent );
 							}
 						} }
+						data-testid="site-name-input"
 					></TextControlComponent>
 				</label>
 
@@ -366,7 +372,11 @@ export const SiteForm = ( {
 				{ onSelectPath && (
 					<>
 						<div className="flex flex-row items-center mb-1">
-							<Button className="pl-0" onClick={ handleAdvancedSettingsClick }>
+							<Button
+								className="pl-0"
+								onClick={ handleAdvancedSettingsClick }
+								data-testid="advanced-settings-button"
+							>
 								<Icon size={ 24 } icon={ chevronIcon } className={ error && 'text-red-500' } />
 								<div className={ cx( 'text-[13px] leading-[16px] ml-2', error && 'text-red-500' ) }>
 									{ __( 'Advanced settings' ) }
@@ -390,7 +400,7 @@ export const SiteForm = ( {
 							) }
 						>
 							<div className={ cx( 'flex flex-col gap-1.5 leading-4 py-4' ) }>
-								<label onClick={ onSelectPath } className="font-semibold">
+								<label className="font-semibold" htmlFor="local-path">
 									{ __( 'Local path' ) }
 								</label>
 								<span className="text-a8c-gray-50 text-xs">
@@ -417,6 +427,7 @@ export const SiteForm = ( {
 									error={ error }
 									value={ sitePath }
 									onClick={ onSelectPath }
+									id="local-path"
 								/>
 								<div className="grid grid-cols-2 gap-4 mt-4">
 									<div className="flex flex-col gap-1.5 leading-4">

@@ -10,9 +10,11 @@ interface StepperProps {
 	onBack?: () => void;
 	onBlueprintContinue?: () => void;
 	onBackupContinue?: () => void;
+	onPullRemoteContinue?: () => void;
 	onCreateSubmit?: ( event: FormEvent ) => void;
 	canSubmitBlueprint?: boolean;
 	canSubmitBackup?: boolean;
+	canSubmitPullRemote?: boolean;
 	canSubmitCreate?: boolean;
 }
 
@@ -21,18 +23,22 @@ export default function Stepper( {
 	onBack,
 	onBlueprintContinue,
 	onBackupContinue,
+	onPullRemoteContinue,
 	onCreateSubmit,
 	canSubmitBlueprint,
 	canSubmitBackup,
+	canSubmitPullRemote,
 	canSubmitCreate,
 }: StepperProps ) {
 	const { __ } = useI18n();
 	const { steps, isVisible, actionButton, onSubmit, canSubmit } = useStepper( {
 		onBlueprintContinue,
 		onBackupContinue,
+		onPullRemoteContinue,
 		onCreateSubmit,
 		canSubmitBlueprint,
 		canSubmitBackup,
+		canSubmitPullRemote,
 		canSubmitCreate,
 	} );
 
@@ -85,7 +91,12 @@ export default function Stepper( {
 					</Button>
 				) }
 				{ actionButton?.isVisible && onSubmit && (
-					<Button variant="primary" onClick={ onSubmit } disabled={ ! canSubmit }>
+					<Button
+						variant="primary"
+						onClick={ onSubmit }
+						disabled={ ! canSubmit }
+						data-testid="stepper-action-button"
+					>
 						{ actionButton.label }
 					</Button>
 				) }

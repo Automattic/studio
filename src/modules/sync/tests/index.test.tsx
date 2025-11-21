@@ -1,11 +1,11 @@
 // To run tests, execute `npm run test -- src/modules/sync/tests/index.test.tsx` from the root directory
 import { render, screen, fireEvent } from '@testing-library/react';
-import escapeRegExp from 'lodash/escapeRegExp';
 import { Provider } from 'react-redux';
 import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
 import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ContentTabSync } from 'src/modules/sync';
@@ -22,6 +22,7 @@ import {
 
 jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/lib/get-ipc-api' );
+jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/sync-sites/sync-sites-context', () => ( {
 	...jest.requireActual( '../../../hooks/sync-sites/sync-sites-context' ),
 	useSyncSites: jest.fn(),
@@ -45,10 +46,14 @@ jest.mock( 'src/stores/sync', () => ( {
 	useConnectedSitesOperations: jest.fn(),
 	connectedSitesSelectors: {
 		selectIsModalOpen: jest.fn(),
+		selectModalMode: jest.fn(),
 	},
 	connectedSitesActions: {
 		openModal: jest.fn().mockImplementation( () => {
 			return { type: 'connectedSites/openModal' };
+		} ),
+		setModalMode: jest.fn().mockImplementation( () => {
+			return { type: 'connectedSites/setModalMode' };
 		} ),
 		closeModal: jest.fn().mockImplementation( () => {
 			return { type: 'connectedSites/closeModal' };
@@ -87,7 +92,7 @@ const inProgressPushState: SyncPushState = {
 const fakeSyncSite = {
 	id: 6,
 	name: 'My simple business site that needs a transfer',
-	url: 'https:/developer.wordpress.com/studio/',
+	url: 'https://developer.wordpress.com/studio/',
 	syncSupport: 'already-connected',
 };
 
@@ -123,6 +128,10 @@ describe( 'ContentTabSync', () => {
 	beforeEach( () => {
 		jest.resetAllMocks();
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( false ) );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			enableBlueprints: true,
+			streamlineOnboarding: false,
+		} );
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			authenticate: jest.fn(),
 			generateProposedSitePath: jest.fn(),
@@ -190,6 +199,7 @@ describe( 'ContentTabSync', () => {
 		useAppDispatch.mockReturnValue( jest.fn() );
 
 		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( false );
+		( connectedSitesSelectors.selectModalMode as jest.Mock ).mockReturnValue( null );
 		( useRemoteFileTree as jest.Mock ).mockReturnValue( {
 			fetchChildren: jest.fn().mockResolvedValue( [
 				{
@@ -263,21 +273,41 @@ describe( 'ContentTabSync', () => {
 		expect( getIpcApi().authenticate ).toHaveBeenCalled();
 	} );
 
-	it( 'displays connect site button to authenticated user', () => {
+	it( 'displays publish and import actions to authenticated user', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			enableBlueprints: true,
+			streamlineOnboarding: true,
+		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
+		const publishButton = screen.getByRole( 'button', { name: /Publish site/i } );
+		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
 
-		expect( connectSiteButton ).toBeInTheDocument();
+		expect( publishButton ).toBeInTheDocument();
+		expect( importButton ).toBeInTheDocument();
 	} );
 
-	it( 'opens the site selector modal to connect a site authenticated user', () => {
-		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
-		fireEvent.click( connectSiteButton );
+	it( 'opens the site selector modal when clicking import button', () => {
+		const mockSyncSite: SyncSite = {
+			id: 123,
+			name: 'Test Site',
+			url: 'https://example.wordpress.com',
+			isStaging: false,
+			syncSupport: 'already-connected',
+			localSiteId: 'site-id',
+			isPressable: false,
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
+		};
 
+		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			enableBlueprints: true,
+			streamlineOnboarding: true,
+		} );
+		setupConnectedSitesMocks( [], [ mockSyncSite ] );
 		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( true );
+		( connectedSitesSelectors.selectModalMode as jest.Mock ).mockReturnValue( 'pull' );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		expect( screen.getByTestId( 'sync-sites-modal-selector' ) ).toBeInTheDocument();
@@ -287,7 +317,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			isStaging: false,
 			syncSupport: 'already-connected',
 		};
@@ -321,7 +351,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			isStaging: false,
 			syncSupport: 'already-connected',
 		};
@@ -344,8 +374,9 @@ describe( 'ContentTabSync', () => {
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
+		const readableUrl = fakeSyncSite.url.replace( 'https://', '' );
 		const urlButton = screen.getByRole( 'button', {
-			name: new RegExp( escapeRegExp( fakeSyncSite.url ), 'i' ),
+			name: ( content ) => content.includes( readableUrl ),
 		} );
 		expect( urlButton ).toBeInTheDocument();
 
@@ -354,12 +385,23 @@ describe( 'ContentTabSync', () => {
 	} );
 
 	it( 'opens the modal and displays the create new site button', () => {
+		const mockSyncSite: SyncSite = {
+			id: 123,
+			name: 'Test Site',
+			url: 'https://example.wordpress.com',
+			isStaging: false,
+			syncSupport: 'already-connected',
+			localSiteId: 'site-id',
+			isPressable: false,
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
+		};
+
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
-		expect( connectSiteButton ).toBeInTheDocument();
-		fireEvent.click( connectSiteButton );
+		setupConnectedSitesMocks( [], [ mockSyncSite ] );
 		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( true );
+		( connectedSitesSelectors.selectModalMode as jest.Mock ).mockReturnValue( 'connect' );
+
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 		const createNewSiteButton = screen.getByRole( 'button', {
 			name: /Create a new WordPress.com site ↗/i,
@@ -367,12 +409,19 @@ describe( 'ContentTabSync', () => {
 		expect( createNewSiteButton ).toBeInTheDocument();
 	} );
 
-	it( 'displays ConnectButton when there are no connected sites', () => {
+	it( 'displays publish and import buttons when there are no connected sites', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			enableBlueprints: true,
+			streamlineOnboarding: true,
+		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const connectButton = screen.getByRole( 'button', { name: /Connect site/i } );
-		expect( connectButton ).toBeInTheDocument();
+		const publishButton = screen.getByRole( 'button', { name: /Publish site/i } );
+		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
+
+		expect( publishButton ).toBeInTheDocument();
+		expect( importButton ).toBeInTheDocument();
 	} );
 
 	it( 'displays environment badges for Pressable sites with production, staging and development environments', () => {
@@ -450,7 +499,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite: SyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 			isStaging: false,
 			localSiteId: 'site-id',
@@ -485,7 +534,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 			isPressable: true,
 			environmentType: 'development',
@@ -524,7 +573,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 			isPressable: true,
 			environmentType: 'non-supported-environment-example-or-sandbox',
@@ -562,7 +611,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 		};
 		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
@@ -607,7 +656,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 		};
 		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
@@ -715,7 +764,7 @@ describe( 'ContentTabSync', () => {
 		const fakeSyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			syncSupport: 'already-connected',
 		};
 		( useConnectedSitesData as jest.Mock ).mockReturnValue( {

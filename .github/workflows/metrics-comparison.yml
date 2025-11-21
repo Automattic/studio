@@ -2,6 +2,7 @@ name: Performance Metrics Comparison
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [trunk]
 
@@ -14,6 +15,9 @@ permissions: {}
 jobs:
   metrics:
     name: Run metrics tests
+    # Skip performance metrics on draft PRs to save CI resources
+    # Tests will run automatically when PR is marked ready for review
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
     runs-on: macos-15
     permissions:
       contents: read
@@ -48,18 +52,18 @@ jobs:
       - name: Compare performance with base branch
         if: github.event_name == 'push'
         # The base hash used here need to be a commit that is compatible with the current performance tests.
-        # The current one is d1f49275f3e08fb675d5685855c2243b6cd183de
+        # The current one is 519217873dc4ef624fd20de425944fa0cc64a3dd
         # it needs to be updated every time it becomes unsupported by the current performance tests.
         # It is used as a base comparison point to avoid fluctuation in the performance metrics.
         run: |
-          cd scripts/compare-perf && npm ci && npm run compare -- perf $GITHUB_SHA d1f49275f3e08fb675d5685855c2243b6cd183de --tests-branch $GITHUB_SHA --rounds 3
+          cd scripts/compare-perf && npm ci && npm run compare -- perf $GITHUB_SHA 519217873dc4ef624fd20de425944fa0cc64a3dd --tests-branch $GITHUB_SHA --rounds 3
 
       # Log performance metrics to CodeVitals when running on trunk
       - name: Log performance metrics to CodeVitals
         if: github.event_name == 'push' && github.ref == 'refs/heads/trunk' && !cancelled()
         run: |
           COMMITTED_AT=$(git show -s $GITHUB_SHA --format="%cI")
-          npm ci && cd scripts/compare-perf && npm run log-to-codevitals -- $CODEVITALS_AUTH_TOKEN trunk $GITHUB_SHA d1f49275f3e08fb675d5685855c2243b6cd183de $COMMITTED_AT
+          npm ci && cd scripts/compare-perf && npm run log-to-codevitals -- $CODEVITALS_AUTH_TOKEN trunk $GITHUB_SHA 519217873dc4ef624fd20de425944fa0cc64a3dd $COMMITTED_AT
 
       - name: Archive performance results
         if: ${{ !cancelled() }}

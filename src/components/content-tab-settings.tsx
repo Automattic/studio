@@ -161,6 +161,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							text={ `${ protocol }://${ domain }/wp-admin` }
 							label={ `${ domain }/wp-admin, ${ __( 'Copy wp-admin url to clipboard' ) }` }
 							copyConfirmation={ __( 'Copied!' ) }
+							data-testid="copy-wp-admin-url"
 						>
 							{ `${ domain }/wp-admin` }
 						</CopyTextButton>

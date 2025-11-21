@@ -1,6 +1,5 @@
 import * as Sentry from '@sentry/electron/main';
 import { isSameDay, isSameMonth, isSameWeek } from 'date-fns';
-import fetch from 'node-fetch';
 import { AggregateInterval, StatsGroup, StatsMetric } from 'common/types/stats';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 

@@ -4,16 +4,18 @@ import {
 	__experimentalHeading as Heading,
 	__experimentalText as Text,
 } from '@wordpress/components';
-import { Icon, plus, backup, chevronRight, chevronLeft } from '@wordpress/icons';
+import { Icon, plus, backup, chevronRight, chevronLeft, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { Tooltip } from 'src/components/tooltip';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
+import { useRootSelector } from 'src/stores';
 import { BlueprintIcon } from './blueprint-icon';
 
+export type AddSiteFlowType = 'create' | 'blueprint' | 'backup' | 'pullRemote';
 interface AddSiteOptionsProps {
-	onOptionSelect: ( option: 'create' | 'blueprint' | 'backup' ) => void;
+	onOptionSelect: ( option: AddSiteFlowType ) => void;
 }
 
 interface OptionButtonProps {
@@ -23,6 +25,7 @@ interface OptionButtonProps {
 	onClick: () => void;
 	disabled?: boolean;
 	disabledTooltip?: string;
+	testId?: string;
 }
 
 function OptionButton( {
@@ -32,6 +35,7 @@ function OptionButton( {
 	onClick,
 	disabled = false,
 	disabledTooltip,
+	testId,
 }: OptionButtonProps ) {
 	const { isRTL } = useI18n();
 	const chevron = isRTL() ? chevronLeft : chevronRight;
@@ -39,12 +43,12 @@ function OptionButton( {
 		<Tooltip
 			text={ disabledTooltip }
 			disabled={ ! disabled }
-			className={ cx( 'w-full max-w-[422px]' ) }
+			className={ cx( 'w-full max-w-[460px]' ) }
 		>
 			<HStack
 				as="button"
 				className={ cx(
-					'w-full p-[24px] border border-gray-200 rounded-xl text-left',
+					'w-full p-4 border border-gray-200 rounded-xl text-left',
 					'rtl:text-right',
 					'hover:border-gray-300 hover:bg-gray-50',
 					'disabled:opacity-50 disabled:cursor-not-allowed'
@@ -53,9 +57,10 @@ function OptionButton( {
 				onClick={ onClick }
 				disabled={ disabled }
 				spacing={ 5 }
+				data-testid={ testId }
 			>
 				<div className="mt-[-2px]">{ icon }</div>
-				<VStack className="flex-1 gap-[8px]">
+				<VStack className="flex-1 gap-1.5">
 					<Heading className="text-[15px]" weight="500">
 						{ title }
 					</Heading>
@@ -72,6 +77,7 @@ function OptionButton( {
 export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps ) {
 	const { __ } = useI18n();
 	const { enableBlueprints } = useFeatureFlags();
+	const { createSiteFromRemote } = useRootSelector( ( state ) => state.betaFeatures.features );
 	const isOffline = useOffline();
 	const offlineMessage = __( "You're currently offline." );
 
@@ -80,7 +86,7 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 			<Heading className="text-[32px] text-gray-900" weight={ 500 }>
 				{ __( 'Add a site' ) }
 			</Heading>
-			<Text className="text-[15px] font-light text-gray-700 w-72 mb-[28px]">
+			<Text className="text-[15px] font-light text-gray-700 w-72 mb-4">
 				{ __( 'Add a clean site, start from a Blueprint or import site from a backup' ) }
 			</Text>
 			<OptionButton
@@ -88,6 +94,7 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 				title={ __( 'Create a site' ) }
 				description={ __( 'Start with an empty site' ) }
 				onClick={ () => onOptionSelect( 'create' ) }
+				testId="create-site-option-button"
 			/>
 			{ enableBlueprints && (
 				<OptionButton
@@ -97,6 +104,14 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 					onClick={ () => onOptionSelect( 'blueprint' ) }
 					disabled={ isOffline }
 					disabledTooltip={ offlineMessage }
+				/>
+			) }
+			{ createSiteFromRemote && (
+				<OptionButton
+					icon={ <Icon icon={ download } size={ 24 } fill="#3858E9" /> }
+					title={ __( 'Import an existing website' ) }
+					description={ __( 'Download directly from WordPress.com or Pressable' ) }
+					onClick={ () => onOptionSelect( 'pullRemote' ) }
 				/>
 			) }
 			<OptionButton

@@ -47,6 +47,9 @@ const mockShowOpenFolderDialog =
 const mockGenerateProposedSitePath =
 	jest.fn< ( siteName: string ) => Promise< FolderDialogResponse > >();
 const mockGetAllCustomDomains = jest.fn< () => Promise< string[] > >().mockResolvedValue( [] );
+const mockPullSite = jest.fn();
+const mockUseSyncSites = jest.fn();
+const mockSetSelectedTab = jest.fn();
 
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
@@ -57,6 +60,18 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		generateProposedSitePath: mockGenerateProposedSitePath,
 		getAllCustomDomains: mockGetAllCustomDomains,
 		setWindowControlVisibility: jest.fn(),
+	} ),
+} ) );
+
+jest.mock( 'src/hooks/sync-sites', () => ( {
+	useSyncSites: () => mockUseSyncSites(),
+} ) );
+
+jest.mock( 'src/hooks/use-content-tabs', () => ( {
+	useContentTabs: () => ( {
+		selectedTab: 'overview',
+		setSelectedTab: mockSetSelectedTab,
+		tabs: [],
 	} ),
 } ) );
 
@@ -104,6 +119,26 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 
 beforeEach( () => {
 	jest.clearAllMocks();
+
+	mockPullSite.mockReset();
+	mockUseSyncSites.mockReturnValue( {
+		pullSite: mockPullSite,
+		syncSites: [],
+		refetchSites: jest.fn(),
+		isFetching: false,
+		isAnySitePulling: false,
+		isSiteIdPulling: jest.fn(),
+		clearPullState: jest.fn(),
+		cancelPull: jest.fn(),
+		getPullState: jest.fn(),
+		pushSite: jest.fn(),
+		isAnySitePushing: false,
+		isSiteIdPushing: jest.fn(),
+		clearPushState: jest.fn(),
+		getPushState: jest.fn(),
+		getLastSyncTimeText: jest.fn(),
+	} );
+	mockSetSelectedTab.mockReset();
 
 	mockShowOpenFolderDialog.mockResolvedValue( {
 		path: 'test',
@@ -302,9 +337,7 @@ describe( 'AddSite', () => {
 
 		expect( screen.getByDisplayValue( 'My WordPress Website changed' ) ).toBeVisible();
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
-		expect(
-			screen.getByDisplayValue( '/default_path/my-wordpress-website-changed' )
-		).toBeVisible();
+		expect( screen.getByText( '/default_path/my-wordpress-website-changed' ) ).toBeVisible();
 
 		await user.keyboard( '{Escape}' );
 		await waitFor( () => {
@@ -319,7 +352,7 @@ describe( 'AddSite', () => {
 
 		expect( screen.getByDisplayValue( 'My WordPress Website' ) ).toBeVisible();
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
-		expect( screen.getByDisplayValue( '/default_path/my-wordpress-website' ) ).toBeVisible();
+		expect( screen.getByText( '/default_path/my-wordpress-website' ) ).toBeVisible();
 	} );
 
 	it( 'should reset to the proposed path when the path is set to default app directory', async () => {
@@ -360,9 +393,7 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByDisplayValue( 'My WordPress Website' ) );
 		await user.type( screen.getByDisplayValue( 'My WordPress Website' ), ' mutated' );
 
-		expect(
-			screen.getByDisplayValue( '/default_path/my-wordpress-website-mutated' )
-		).toBeVisible();
+		expect( screen.getByText( '/default_path/my-wordpress-website-mutated' ) ).toBeVisible();
 	} );
 
 	it( 'should display WordPress version dropdown', async () => {

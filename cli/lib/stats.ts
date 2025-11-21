@@ -1,6 +1,5 @@
 import { AggregateInterval, StatsGroup, StatsMetric } from 'common/types/stats';
 import { isSameDay, isSameMonth, isSameWeek } from 'date-fns';
-import fetch from 'node-fetch';
 import { lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
 
 // Bumps a stat if it hasn't been bumped within the current aggregate interval.

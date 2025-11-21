@@ -33,7 +33,7 @@ describe( 'handleAuthDeeplink', () => {
 			req: { get: mockWpcomGet },
 		} as unknown as WPCOM );
 
-		const url = new URL( 'wpcom-local-dev://auth#access_token=mock-token&expires_in=3600' );
+		const url = new URL( 'wp-studio://auth#access_token=mock-token&expires_in=3600' );
 		await handleAuthDeeplink( url );
 
 		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
@@ -49,7 +49,7 @@ describe( 'handleAuthDeeplink', () => {
 	} );
 
 	it( 'should handle authentication error from WordPress.com', async () => {
-		const url = new URL( 'wpcom-local-dev://auth#error=access_denied' );
+		const url = new URL( 'wp-studio://auth#error=access_denied' );
 		await handleAuthDeeplink( url );
 
 		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
@@ -59,7 +59,7 @@ describe( 'handleAuthDeeplink', () => {
 	} );
 
 	it( 'should handle invalid token response', async () => {
-		const url = new URL( 'wpcom-local-dev://auth#access_token=mock-token&expires_in=invalid' );
+		const url = new URL( 'wp-studio://auth#access_token=mock-token&expires_in=invalid' );
 		await handleAuthDeeplink( url );
 
 		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {
@@ -74,7 +74,7 @@ describe( 'handleAuthDeeplink', () => {
 			req: { get: mockWpcomGet },
 		} as unknown as WPCOM );
 
-		const url = new URL( 'wpcom-local-dev://auth#access_token=mock-token&expires_in=3600' );
+		const url = new URL( 'wp-studio://auth#access_token=mock-token&expires_in=3600' );
 		await handleAuthDeeplink( url );
 
 		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'auth-updated', {

@@ -32,7 +32,9 @@ export async function handleAddSiteWithBlueprint( urlObject: URL ): Promise< voi
 	if ( blueprintBase64 ) {
 		try {
 			const blueprintJson = Buffer.from( blueprintBase64, 'base64' ).toString( 'utf-8' );
-			JSON.parse( blueprintJson );
+			const parsedBlueprint = JSON.parse( blueprintJson );
+			await validateBlueprintData( parsedBlueprint );
+
 			await sendIpcEventToRenderer( 'add-site-blueprint-from-base64', { blueprintJson } );
 		} catch ( error ) {
 			Sentry.captureException( error );

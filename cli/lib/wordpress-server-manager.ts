@@ -42,14 +42,6 @@ async function getPm2Bus() {
 	} );
 }
 
-const activityTrackers = new Map<
-	number,
-	{
-		lastActivityTimestamp: number;
-		activityCheckIntervalId: NodeJS.Timeout;
-	}
->();
-
 /**
  * Generate PM2 process name for a site
  */
@@ -139,6 +131,13 @@ async function waitForReadyMessage( pmId: number ): Promise< void > {
  * - Has both inactivity timeout and max total timeout
  */
 let nextMessageId = 0;
+const messageActivityTrackers = new Map<
+	number,
+	{
+		lastActivityTimestamp: number;
+		activityCheckIntervalId: NodeJS.Timeout;
+	}
+>();
 
 async function sendMessage(
 	pmId: number,
@@ -147,16 +146,16 @@ async function sendMessage(
 	const bus = await getPm2Bus();
 
 	return new Promise( ( resolve, reject ) => {
-		const id = nextMessageId++;
+		const messageId = nextMessageId++;
 		const startTime = Date.now();
 		let lastActivityTimestamp = Date.now();
 
 		const cleanup = () => {
 			bus.off( 'process:msg', responseHandler );
-			const tracker = activityTrackers.get( id );
+			const tracker = messageActivityTrackers.get( messageId );
 			if ( tracker ) {
 				clearInterval( tracker.activityCheckIntervalId );
-				activityTrackers.delete( id );
+				messageActivityTrackers.delete( messageId );
 			}
 		};
 
@@ -175,12 +174,12 @@ async function sendMessage(
 						? `Maximum timeout of ${ PLAYGROUND_CLI_MAX_TIMEOUT / 1000 }s exceeded`
 						: `No activity for ${ PLAYGROUND_CLI_INACTIVITY_TIMEOUT / 1000 }s`;
 				reject(
-					new Error( `Timeout waiting for response to message ${ id }: ${ timeoutReason }` )
+					new Error( `Timeout waiting for response to message ${ messageId }: ${ timeoutReason }` )
 				);
 			}
 		}, PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL );
 
-		activityTrackers.set( id, {
+		messageActivityTrackers.set( messageId, {
 			lastActivityTimestamp,
 			activityCheckIntervalId,
 		} );
@@ -197,7 +196,7 @@ async function sendMessage(
 
 			if ( validPacket.raw.topic === 'activity' ) {
 				lastActivityTimestamp = Date.now();
-				const tracker = activityTrackers.get( id );
+				const tracker = messageActivityTrackers.get( messageId );
 				if ( tracker ) {
 					tracker.lastActivityTimestamp = lastActivityTimestamp;
 				}
@@ -208,7 +207,7 @@ async function sendMessage(
 				}
 				cleanup();
 				reject( error );
-			} else if ( validPacket.raw.topic === 'result' && validPacket.raw.id === id ) {
+			} else if ( validPacket.raw.topic === 'result' && validPacket.raw.id === messageId ) {
 				cleanup();
 				resolve( validPacket.raw.result );
 			}
@@ -216,7 +215,7 @@ async function sendMessage(
 
 		bus.on( 'process:msg', responseHandler );
 
-		pm2.sendDataToProcessId( pmId, { ...message, id }, ( error ) => {
+		pm2.sendDataToProcessId( pmId, { ...message, id: messageId }, ( error ) => {
 			if ( error ) {
 				cleanup();
 				reject( error );

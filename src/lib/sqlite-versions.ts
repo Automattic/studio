@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs-extra';
+import { sequential } from 'common/lib/sequential';
 import { getWordPressProvider } from 'src/lib/wordpress-provider';
 import { getServerFilesPath } from 'src/storage/paths';
 
@@ -35,7 +36,7 @@ export async function keepSqliteIntegrationUpdated( sitePath: string ) {
  * Installs the SQLite integration in a site. This includes the must-used plugin
  * and the database file.
  */
-export async function installSqliteIntegration( sitePath: string ) {
+export const installSqliteIntegration = sequential( async ( sitePath: string ): Promise< void > => {
 	const wpContentPath = path.join( sitePath, 'wp-content' );
 	const databasePath = path.join( wpContentPath, 'database' );
 
@@ -57,4 +58,4 @@ export async function installSqliteIntegration( sitePath: string ) {
 	);
 	const sqlitePluginPath = path.join( wpContentPath, 'mu-plugins', provider.SQLITE_FILENAME );
 	await fs.copy( path.join( getServerFilesPath(), provider.SQLITE_FILENAME ), sqlitePluginPath );
-}
+} );

@@ -1,5 +1,4 @@
 import fs from 'fs-extra';
-import { SQLITE_DATABASE_INTEGRATION_VERSION } from 'src/constants';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 
@@ -123,5 +122,32 @@ platformTestSuite( 'installSqliteIntegration', ( { normalize } ) => {
 			normalize( `server-files/${ SQLITE_FILENAME }` ),
 			normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }` )
 		);
+	} );
+
+	it( 'should execute concurrent calls sequentially', async () => {
+		let concurrentCalls = 0;
+		let maxConcurrentCalls = 0;
+
+		( fs.copy as jest.Mock ).mockImplementation( async () => {
+			concurrentCalls++;
+			maxConcurrentCalls = Math.max( maxConcurrentCalls, concurrentCalls );
+
+			await new Promise( ( resolve ) => setTimeout( resolve, 5 ) );
+
+			concurrentCalls--;
+		} );
+
+		( fs as MockedFsExtra ).__setFileContents(
+			normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
+			"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'"
+		);
+
+		await Promise.all( [
+			installSqliteIntegration( MOCK_SITE_PATH ),
+			installSqliteIntegration( MOCK_SITE_PATH ),
+			installSqliteIntegration( MOCK_SITE_PATH ),
+		] );
+
+		expect( maxConcurrentCalls ).toBe( 1 );
 	} );
 } );

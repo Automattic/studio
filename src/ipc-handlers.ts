@@ -922,13 +922,14 @@ export async function clearAuthenticationToken() {
 
 export async function exportSite(
 	event: IpcMainInvokeEvent,
-	options: ExportOptions,
-	siteId: string
+	options: ExportOptions
 ): Promise< boolean > {
 	try {
+		await keepSqliteIntegrationUpdated( options.site.path );
+
 		const onEvent = ( data: ImportExportEventData ) => {
 			const parentWindow = BrowserWindow.fromWebContents( event.sender );
-			sendIpcEventToRendererWithWindow( parentWindow, 'on-export', data, siteId );
+			sendIpcEventToRendererWithWindow( parentWindow, 'on-export', data, options.site.id );
 		};
 
 		const result = await exportBackup( options, onEvent );

@@ -42,7 +42,7 @@ const api: IpcApi = {
 	updateSingleConnectedWpcomSite: ( updatedSite ) =>
 		ipcRendererInvoke( 'updateSingleConnectedWpcomSite', updatedSite ),
 	authenticate: ( isSignup ) => ipcRendererSend( 'authenticate', isSignup ),
-	exportSite: ( options, siteId ) => ipcRendererInvoke( 'exportSite', options, siteId ),
+	exportSite: ( options ) => ipcRendererInvoke( 'exportSite', options ),
 	isAuthenticated: () => ipcRendererInvoke( 'isAuthenticated' ),
 	getAuthenticationToken: () => ipcRendererInvoke( 'getAuthenticationToken' ),
 	clearAuthenticationToken: () => ipcRendererInvoke( 'clearAuthenticationToken' ),

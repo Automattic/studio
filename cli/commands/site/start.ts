@@ -32,6 +32,13 @@ async function openSiteInBrowser( site: SiteData ) {
 	}
 }
 
+function logSiteDetails( site: SiteData ) {
+	const siteUrl = getSiteUrl( site );
+	console.log( __( 'Site URL: ' ), siteUrl );
+	console.log( __( 'Username: ' ), 'admin' );
+	console.log( __( 'Password: ' ), site.adminPassword );
+}
+
 export async function runCommand( siteFolder: string, skipBrowser = false ): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
@@ -54,6 +61,7 @@ export async function runCommand( siteFolder: string, skipBrowser = false ): Pro
 			if ( ! skipBrowser ) {
 				await openSiteInBrowser( site );
 			}
+			logSiteDetails( site );
 			return;
 		}
 
@@ -83,6 +91,7 @@ export async function runCommand( siteFolder: string, skipBrowser = false ): Pro
 			await startWordPressServer( site );
 
 			logger.reportSuccess( __( 'WordPress site started' ) );
+			logSiteDetails( site );
 
 			if ( ! skipBrowser ) {
 				await openSiteInBrowser( site );

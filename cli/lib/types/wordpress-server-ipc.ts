@@ -49,7 +49,7 @@ const childMessageResult = z.object( {
 const childMessageError = z.object( {
 	id: z.number(),
 	topic: z.literal( 'error' ),
-	error: z.string(),
+	errorMessage: z.string(),
 	errorStack: z.string().optional(),
 } );
 

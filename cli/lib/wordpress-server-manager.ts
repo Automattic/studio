@@ -46,7 +46,7 @@ const activityTrackers = new Map<
 	number,
 	{
 		lastActivityTimestamp: number;
-		activityCheckInterval: NodeJS.Timeout;
+		activityCheckIntervalId: NodeJS.Timeout;
 	}
 >();
 
@@ -155,12 +155,12 @@ async function sendMessage(
 			bus.off( 'process:msg', responseHandler );
 			const tracker = activityTrackers.get( id );
 			if ( tracker ) {
-				clearInterval( tracker.activityCheckInterval );
+				clearInterval( tracker.activityCheckIntervalId );
 				activityTrackers.delete( id );
 			}
 		};
 
-		const activityCheckInterval = setInterval( () => {
+		const activityCheckIntervalId = setInterval( () => {
 			const now = Date.now();
 			const timeSinceLastActivity = now - lastActivityTimestamp;
 			const totalElapsedTime = now - startTime;
@@ -182,7 +182,7 @@ async function sendMessage(
 
 		activityTrackers.set( id, {
 			lastActivityTimestamp,
-			activityCheckInterval,
+			activityCheckIntervalId,
 		} );
 
 		const responseHandler = ( packet: unknown ) => {
@@ -201,11 +201,8 @@ async function sendMessage(
 				if ( tracker ) {
 					tracker.lastActivityTimestamp = lastActivityTimestamp;
 				}
-				return;
-			}
-
-			if ( validPacket.raw.topic === 'error' ) {
-				const error = new Error( validPacket.raw.error );
+			} else if ( validPacket.raw.topic === 'error' ) {
+				const error = new Error( validPacket.raw.errorMessage );
 				if ( validPacket.raw.errorStack ) {
 					error.stack = validPacket.raw.errorStack;
 				}

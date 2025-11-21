@@ -28,16 +28,12 @@ const originalStdoutWrite = process.stdout.write.bind( process.stdout );
 const originalStderrWrite = process.stderr.write.bind( process.stderr );
 
 process.stdout.write = function ( ...args: Parameters< typeof originalStdoutWrite > ) {
-	if ( process.send ) {
-		process.send( { topic: 'activity' } );
-	}
+	process.send!( { topic: 'activity' } );
 	return originalStdoutWrite( ...args );
 } as typeof process.stdout.write;
 
 process.stderr.write = function ( ...args: Parameters< typeof originalStderrWrite > ) {
-	if ( process.send ) {
-		process.send( { topic: 'activity' } );
-	}
+	process.send!( { topic: 'activity' } );
 	return originalStderrWrite( ...args );
 } as typeof process.stderr.write;
 
@@ -138,7 +134,7 @@ function sendErrorMessage( messageId: number, error: unknown ) {
 	const errorResponse: ChildMessageRaw = {
 		id: messageId,
 		topic: 'error',
-		error: error instanceof Error ? error.message : String( error ),
+		errorMessage: error instanceof Error ? error.message : String( error ),
 		errorStack: error instanceof Error ? error.stack : undefined,
 	};
 	process.send!( errorResponse );
@@ -182,4 +178,6 @@ async function ipcMessageHandler( packet: unknown ) {
 if ( process.send ) {
 	process.on( 'message', ipcMessageHandler );
 	process.send( { topic: 'ready' } );
+} else {
+	throw new Error( 'process.send is not available' );
 }

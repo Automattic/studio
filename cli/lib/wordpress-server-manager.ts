@@ -208,9 +208,7 @@ async function sendMessage(
 
 		bus.on( 'process:msg', responseHandler );
 
-		sendMessageToProcess( pmId, { ...message, messageId: messageId } )
-			.then( resolve )
-			.catch( reject );
+		sendMessageToProcess( pmId, { ...message, messageId: messageId } ).catch( reject );
 	} );
 }
 

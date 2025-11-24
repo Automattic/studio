@@ -61,17 +61,7 @@ export async function handleAddSiteWithBlueprint( urlObject: URL ): Promise< voi
 		const validation = await validateBlueprintData( blueprintJson );
 
 		if ( ! validation.valid ) {
-			await fs.remove( blueprintPath ).catch( () => {
-				// Ignore cleanup errors
-			} );
-
-			await dialog.showMessageBox( mainWindow, {
-				type: 'error',
-				message: __( 'Blueprint validation failed' ),
-				detail: validation.error || __( 'Invalid Blueprint format' ),
-				buttons: [ __( 'OK' ) ],
-			} );
-			return;
+			throw new Error( validation.error || __( 'Invalid Blueprint format' ) );
 		}
 
 		await sendIpcEventToRenderer( 'add-site-with-blueprint', { blueprintPath } );
@@ -84,10 +74,15 @@ export async function handleAddSiteWithBlueprint( urlObject: URL ): Promise< voi
 			} );
 		}
 
+		const errorDetail =
+			error instanceof Error
+				? error.message
+				: __( 'The blueprint could not be loaded. Please check the link and try again.' );
+
 		await dialog.showMessageBox( mainWindow, {
 			type: 'error',
 			message: __( 'Failed to load blueprint' ),
-			detail: __( 'The blueprint could not be loaded. Please check the link and try again.' ),
+			detail: errorDetail,
 			buttons: [ __( 'OK' ) ],
 		} );
 	}

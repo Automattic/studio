@@ -159,7 +159,12 @@ export const startProxyServer = sequential( async (): Promise< boolean > => {
 					} )
 					.on( 'error', ( err ) => {
 						console.error( `Error starting HTTP proxy server on port 80:`, err );
-						reject( err );
+						// Check for permission denied error
+						if ( ( err as NodeJS.ErrnoException ).code === 'EACCES' ) {
+							reject( new Error( 'PROXY_ERROR_PERMISSION_DENIED' ) );
+						} else {
+							reject( err );
+						}
 					} );
 			} );
 		}
@@ -212,7 +217,12 @@ export const startProxyServer = sequential( async (): Promise< boolean > => {
 					} )
 					.on( 'error', ( err ) => {
 						console.error( `Error starting HTTPS proxy server on port 443:`, err );
-						reject( err );
+						// Check for permission denied error
+						if ( ( err as NodeJS.ErrnoException ).code === 'EACCES' ) {
+							reject( new Error( 'PROXY_ERROR_PERMISSION_DENIED' ) );
+						} else {
+							reject( err );
+						}
 					} );
 			} );
 		}
@@ -220,6 +230,10 @@ export const startProxyServer = sequential( async (): Promise< boolean > => {
 		return true;
 	} catch ( error ) {
 		if ( error instanceof Error && error.message === 'PROXY_ERROR_PORT_IN_USE' ) {
+			throw error;
+		}
+
+		if ( error instanceof Error && error.message === 'PROXY_ERROR_PERMISSION_DENIED' ) {
 			throw error;
 		}
 

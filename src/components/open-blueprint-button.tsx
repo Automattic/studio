@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { external } from '@wordpress/icons';
+import { plus } from '@wordpress/icons';
 import { PROTOCOL_PREFIX } from 'common/constants';
 import Button, { ButtonProps } from 'src/components/button';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -11,7 +11,7 @@ type OpenBlueprintButtonProps = ButtonProps & {
 export function OpenBlueprintButton( {
 	content,
 	children,
-	icon = external,
+	icon = plus,
 	onClick,
 	...props
 }: OpenBlueprintButtonProps ) {
@@ -27,7 +27,7 @@ export function OpenBlueprintButton( {
 				getIpcApi().openURL( url );
 			} }
 		>
-			{ children || __( 'Open in Studio' ) }
+			{ children || __( 'Add new site' ) }
 		</Button>
 	);
 }

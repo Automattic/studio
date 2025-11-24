@@ -106,4 +106,35 @@ describe( 'useSiteDetails', () => {
 			expect( getIpcApi().startServer ).not.toHaveBeenCalled();
 		} );
 	} );
+
+	describe( 'it can handle permission related errors', () => {
+		it( 'should show permission denied error message when PROXY_ERROR_PERMISSION_DENIED occurs', async () => {
+			const mockShowErrorMessageBox = jest.fn();
+			const mockStopServer = jest.fn();
+
+			( getIpcApi as jest.Mock ).mockReturnValue( {
+				getSiteDetails: jest.fn().mockResolvedValue( mockSites ),
+				startServer: jest.fn().mockRejectedValue( new Error( 'PROXY_ERROR_PERMISSION_DENIED' ) ),
+				showErrorMessageBox: mockShowErrorMessageBox,
+				stopServer: mockStopServer,
+			} );
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			// Wait for error handling to complete
+			await waitFor( () => {
+				expect( mockShowErrorMessageBox ).toHaveBeenCalledWith( {
+					title: 'Studio failed to initialize custom domains',
+					message:
+						'We could not create a custom domain for your site due to a lack of permissions. On Windows, Studio requires administrator privileges to bind to ports 80 and 443, which are necessary for custom domains to work properly.',
+					showOpenLogs: false,
+				} );
+				expect( mockStopServer ).toHaveBeenCalled();
+			} );
+		} );
+	} );
 } );

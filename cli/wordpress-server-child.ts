@@ -37,6 +37,14 @@ process.stderr.write = function ( ...args: Parameters< typeof originalStderrWrit
 	return originalStderrWrite( ...args );
 } as typeof process.stderr.write;
 
+function logToConsole( ...args: Parameters< typeof console.log > ) {
+	console.log( new Date().toISOString(), `[WordPress Server Child]`, ...args );
+}
+
+function errorToConsole( ...args: Parameters< typeof console.error > ) {
+	console.error( new Date().toISOString(), `[WordPress Server Child]`, ...args );
+}
+
 function escapePhpString( str: string ): string {
 	return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
 }
@@ -54,7 +62,7 @@ async function setAdminPassword( server: RunCLIServer, adminPassword: string ): 
 
 async function startServer( config: ServerConfig ): Promise< void > {
 	if ( server ) {
-		console.log( `[WordPress Server Child] Server already running for site ${ config.siteId }` );
+		logToConsole( `Server already running for site ${ config.siteId }` );
 		return;
 	}
 
@@ -125,14 +133,14 @@ async function startServer( config: ServerConfig ): Promise< void > {
 		}
 	} catch ( error ) {
 		server = null;
-		console.error( `[WordPress Server Child] Failed to start server:`, error );
+		errorToConsole( `Failed to start server:`, error );
 		throw error;
 	}
 }
 
-function sendErrorMessage( siteId: string, error: unknown ) {
+function sendErrorMessage( messageId: number, error: unknown ) {
 	const errorResponse: ChildMessageRaw = {
-		siteId,
+		originalMessageId: messageId,
 		topic: 'error',
 		errorMessage: error instanceof Error ? error.message : String( error ),
 		errorStack: error instanceof Error ? error.stack : undefined,
@@ -144,40 +152,35 @@ async function ipcMessageHandler( packet: unknown ) {
 	const messageResult = managerMessageSchema.safeParse( packet );
 
 	if ( ! messageResult.success ) {
-		console.error( 'Invalid message received:', messageResult.error );
+		errorToConsole( 'Invalid message received:', messageResult.error );
 
-		const minimalMessageSchema = z.object( { siteId: z.string() } );
+		const minimalMessageSchema = z.object( { id: z.number() } );
 		const minimalMessage = minimalMessageSchema.safeParse( packet );
 		if ( minimalMessage.success ) {
-			sendErrorMessage( minimalMessage.data.siteId, messageResult.error );
+			sendErrorMessage( minimalMessage.data.id, messageResult.error );
 		}
 		return;
 	}
 
+	let result: unknown;
 	const validMessage = messageResult.data;
 
-	try {
-		let result: unknown;
-
-		switch ( validMessage.topic ) {
-			case 'start-server':
-				if ( validMessage.data.config ) {
-					result = await startServer( validMessage.data.config );
-				}
-				break;
-			default:
-				throw new Error( `Unknown message topic: ${ validMessage.topic }` );
-		}
-
-		const response: ChildMessageRaw = {
-			siteId: validMessage.siteId,
-			topic: 'result',
-			result,
-		};
-		process.send!( response );
-	} catch ( error ) {
-		sendErrorMessage( validMessage.siteId, error );
+	switch ( validMessage.topic ) {
+		case 'start-server':
+			if ( validMessage.data.config ) {
+				result = await startServer( validMessage.data.config );
+			}
+			break;
+		default:
+			throw new Error( `Unknown message topic: ${ validMessage.topic }` );
 	}
+
+	const response: ChildMessageRaw = {
+		originalMessageId: validMessage.messageId,
+		topic: 'result',
+		result,
+	};
+	process.send!( response );
 }
 
 if ( process.send ) {

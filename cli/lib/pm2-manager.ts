@@ -54,6 +54,27 @@ export function getPm2Instance() {
 	return pm2;
 }
 
+// PM2 bus for inter-process communication
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let pm2Bus: any = null;
+
+export async function getPm2Bus() {
+	if ( pm2Bus ) {
+		return pm2Bus;
+	}
+
+	return new Promise( ( resolve, reject ) => {
+		pm2.launchBus( ( error, bus ) => {
+			if ( error ) {
+				reject( error );
+				return;
+			}
+			pm2Bus = bus;
+			resolve( bus );
+		} );
+	} );
+}
+
 export function disconnect(): void {
 	if ( isConnected ) {
 		pm2.disconnect();

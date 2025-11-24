@@ -11,7 +11,13 @@ import {
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from 'common/constants';
 import { SiteData } from 'cli/lib/appdata';
-import { isProcessRunning, startProcess, stopProcess, getPm2Instance } from 'cli/lib/pm2-manager';
+import {
+	isProcessRunning,
+	startProcess,
+	stopProcess,
+	getPm2Instance,
+	getPm2Bus,
+} from 'cli/lib/pm2-manager';
 import { ProcessDescription } from 'cli/lib/types/pm2';
 import {
 	ServerConfig,
@@ -20,27 +26,6 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 
 const pm2 = getPm2Instance();
-
-// PM2 bus for inter-process communication
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let pm2Bus: any = null;
-
-async function getPm2Bus() {
-	if ( pm2Bus ) {
-		return pm2Bus;
-	}
-
-	return new Promise( ( resolve, reject ) => {
-		pm2.launchBus( ( error, bus ) => {
-			if ( error ) {
-				reject( error );
-				return;
-			}
-			pm2Bus = bus;
-			resolve( bus );
-		} );
-	} );
-}
 
 /**
  * Generate PM2 process name for a site
@@ -93,7 +78,6 @@ export async function startWordPressServer( site: SiteData ): Promise< ProcessDe
 	const processDesc = await startProcess( processName, wordPressServerChildPath, env );
 	await waitForReadyMessage( processDesc.pmId );
 	await sendMessage( processDesc.pmId, {
-		siteId: site.id,
 		topic: 'start-server',
 		data: { config: serverConfig },
 	} );
@@ -134,28 +118,32 @@ async function waitForReadyMessage( pmId: number ): Promise< void > {
  * - Checks periodically for inactivity
  * - Has both inactivity timeout and max total timeout
  */
+let nextMessageId = 0;
 const messageActivityTrackers = new Map<
-	string,
+	number,
 	{
 		lastActivityTimestamp: number;
 		activityCheckIntervalId: NodeJS.Timeout;
 	}
 >();
 
-async function sendMessage( pmId: number, message: ManagerMessage ): Promise< unknown > {
+async function sendMessage(
+	pmId: number,
+	message: Omit< ManagerMessage, 'messageId' >
+): Promise< unknown > {
 	const bus = await getPm2Bus();
 
 	return new Promise( ( resolve, reject ) => {
-		const siteId = message.siteId;
+		const messageId = nextMessageId++;
 		const startTime = Date.now();
 		let lastActivityTimestamp = Date.now();
 
 		const cleanup = () => {
 			bus.off( 'process:msg', responseHandler );
-			const tracker = messageActivityTrackers.get( siteId );
+			const tracker = messageActivityTrackers.get( messageId );
 			if ( tracker ) {
 				clearInterval( tracker.activityCheckIntervalId );
-				messageActivityTrackers.delete( siteId );
+				messageActivityTrackers.delete( messageId );
 			}
 		};
 
@@ -174,12 +162,12 @@ async function sendMessage( pmId: number, message: ManagerMessage ): Promise< un
 						? `Maximum timeout of ${ PLAYGROUND_CLI_MAX_TIMEOUT / 1000 }s exceeded`
 						: `No activity for ${ PLAYGROUND_CLI_INACTIVITY_TIMEOUT / 1000 }s`;
 				reject(
-					new Error( `Timeout waiting for response for site ${ siteId }: ${ timeoutReason }` )
+					new Error( `Timeout waiting for response to message ${ messageId }: ${ timeoutReason }` )
 				);
 			}
 		}, PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL );
 
-		messageActivityTrackers.set( siteId, {
+		messageActivityTrackers.set( messageId, {
 			lastActivityTimestamp,
 			activityCheckIntervalId,
 		} );
@@ -187,6 +175,8 @@ async function sendMessage( pmId: number, message: ManagerMessage ): Promise< un
 		const responseHandler = ( packet: unknown ) => {
 			const validationResult = childMessagePm2Schema.safeParse( packet );
 			if ( ! validationResult.success ) {
+				cleanup();
+				reject( validationResult.error );
 				return;
 			}
 
@@ -198,18 +188,21 @@ async function sendMessage( pmId: number, message: ManagerMessage ): Promise< un
 
 			if ( validPacket.raw.topic === 'activity' ) {
 				lastActivityTimestamp = Date.now();
-				const tracker = messageActivityTrackers.get( siteId );
+				const tracker = messageActivityTrackers.get( messageId );
 				if ( tracker ) {
 					tracker.lastActivityTimestamp = lastActivityTimestamp;
 				}
-			} else if ( validPacket.raw.topic === 'error' && validPacket.raw.siteId === siteId ) {
+			} else if ( validPacket.raw.topic === 'error' ) {
 				const error = new Error( validPacket.raw.errorMessage );
 				if ( validPacket.raw.errorStack ) {
 					error.stack = validPacket.raw.errorStack;
 				}
 				cleanup();
 				reject( error );
-			} else if ( validPacket.raw.topic === 'result' && validPacket.raw.siteId === siteId ) {
+			} else if (
+				validPacket.raw.topic === 'result' &&
+				validPacket.raw.originalMessageId === messageId
+			) {
 				cleanup();
 				resolve( validPacket.raw.result );
 			}
@@ -217,7 +210,8 @@ async function sendMessage( pmId: number, message: ManagerMessage ): Promise< un
 
 		bus.on( 'process:msg', responseHandler );
 
-		pm2.sendDataToProcessId( pmId, message, ( error ) => {
+		const pm2Message: ManagerMessage = { ...message, messageId: messageId };
+		pm2.sendDataToProcessId( pmId, pm2Message, ( error ) => {
 			if ( error ) {
 				cleanup();
 				reject( error );

@@ -7,18 +7,20 @@ const mockPm2 = {
 // Mock the pm2-manager module BEFORE importing wordpress-server-manager
 jest.mock( 'cli/lib/pm2-manager', () => ( {
 	getPm2Instance: jest.fn( () => mockPm2 ),
+	getPm2Bus: jest.fn(),
 	isProcessRunning: jest.fn(),
 	startProcess: jest.fn(),
 	stopProcess: jest.fn(),
 } ) );
 
+import { EventEmitter } from 'events';
 import { SiteData } from 'cli/lib/appdata';
 import * as pm2Manager from 'cli/lib/pm2-manager';
 import {
 	isServerRunning,
 	startWordPressServer,
 	stopWordPressServer,
-} from '../wordpress-server-manager';
+} from 'cli/lib/wordpress-server-manager';
 
 describe( 'WordPress Server Manager', () => {
 	const mockSiteData: SiteData = {
@@ -32,16 +34,6 @@ describe( 'WordPress Server Manager', () => {
 		running: false,
 	};
 
-	const mockSiteDataWithCustomDomain: SiteData = {
-		...mockSiteData,
-		customDomain: 'testsite.local',
-	};
-
-	const mockSiteDataWithHttps: SiteData = {
-		...mockSiteDataWithCustomDomain,
-		enableHttps: true,
-	};
-
 	const mockProcessDescription = {
 		name: 'studio-site-test-site-id',
 		pmId: 5,
@@ -49,39 +41,48 @@ describe( 'WordPress Server Manager', () => {
 		pid: 12345,
 	};
 
-	let mockBus: {
-		on: jest.Mock;
-		off: jest.Mock;
-	};
+	let mockBus: EventEmitter;
 
 	beforeEach( () => {
 		jest.clearAllMocks();
 
-		// Setup mock bus
-		mockBus = {
-			on: jest.fn(),
-			off: jest.fn(),
-		};
+		mockBus = new EventEmitter();
 
-		// Setup pm2-manager mocks (functions already mocked at module level)
 		( pm2Manager.isProcessRunning as jest.Mock ).mockResolvedValue( undefined );
 		( pm2Manager.startProcess as jest.Mock ).mockResolvedValue( mockProcessDescription );
 		( pm2Manager.stopProcess as jest.Mock ).mockResolvedValue( undefined );
-
-		// Setup pm2.launchBus mock
-		mockPm2.launchBus.mockImplementation( ( callback ) => {
-			callback( null, mockBus );
-		} );
-
-		// Setup pm2.sendDataToProcessId mock
-		mockPm2.sendDataToProcessId.mockImplementation( ( pmId, message, callback ) => {
-			callback( null );
-		} );
+		( pm2Manager.getPm2Bus as jest.Mock ).mockResolvedValue( mockBus as unknown as EventEmitter );
 	} );
 
 	afterEach( () => {
 		jest.restoreAllMocks();
 	} );
+
+	function setupIpcMocks( resultValue: unknown = {} ): void {
+		// Send ready message after a tick (simulating async bus initialization)
+		process.nextTick( () => {
+			mockBus.emit( 'process:msg', {
+				process: { pm_id: mockProcessDescription.pmId },
+				raw: { topic: 'ready' },
+			} );
+		} );
+
+		mockPm2.sendDataToProcessId.mockImplementation( ( pmId, message, callback ) => {
+			callback( null );
+
+			// Send result message only after sendDataToProcessId is called
+			process.nextTick( () => {
+				mockBus.emit( 'process:msg', {
+					process: { pm_id: mockProcessDescription.pmId },
+					raw: {
+						topic: 'result',
+						originalMessageId: message.messageId,
+						result: resultValue,
+					},
+				} );
+			} );
+		} );
+	}
 
 	describe( 'isServerRunning', () => {
 		it( 'should check if process is running with correct process name', async () => {
@@ -96,7 +97,9 @@ describe( 'WordPress Server Manager', () => {
 
 			const result = await isServerRunning( 'test-site-id' );
 
-			expect( pm2Manager.isProcessRunning ).toHaveBeenCalledWith( 'studio-site-test-site-id' );
+			expect( pm2Manager.isProcessRunning as jest.Mock ).toHaveBeenCalledWith(
+				'studio-site-test-site-id'
+			);
 			expect( result ).toEqual( mockProcess );
 		} );
 
@@ -111,26 +114,11 @@ describe( 'WordPress Server Manager', () => {
 
 	describe( 'startWordPressServer', () => {
 		it( 'should start WordPress server with basic configuration', async () => {
-			mockBus.on.mockImplementation( ( event, handler ) => {
-				if ( event === 'process:msg' ) {
-					process.nextTick( () => {
-						handler( {
-							process: { pm_id: mockProcessDescription.pmId },
-							raw: { topic: 'ready' },
-						} );
-						process.nextTick( () => {
-							handler( {
-								process: { pm_id: mockProcessDescription.pmId },
-								raw: { topic: 'result', siteId: mockSiteData.id, result: { success: true } },
-							} );
-						} );
-					} );
-				}
-			} );
+			setupIpcMocks( { success: true } );
 
 			const result = await startWordPressServer( mockSiteData );
 
-			expect( pm2Manager.startProcess ).toHaveBeenCalledWith(
+			expect( pm2Manager.startProcess as jest.Mock ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
 				expect.stringContaining( 'wordpress-server-child.js' ),
 				expect.objectContaining( {
@@ -155,24 +143,12 @@ describe( 'WordPress Server Manager', () => {
 		} );
 
 		it( 'should start WordPress server with custom domain (HTTP)', async () => {
-			mockBus.on.mockImplementation( ( event, handler ) => {
-				if ( event === 'process:msg' ) {
-					process.nextTick( () => {
-						handler( {
-							process: { pm_id: mockProcessDescription.pmId },
-							raw: { topic: 'ready' },
-						} );
-						process.nextTick( () => {
-							handler( {
-								process: { pm_id: mockProcessDescription.pmId },
-								raw: { topic: 'result', siteId: mockSiteDataWithCustomDomain.id, result: {} },
-							} );
-						} );
-					} );
-				}
-			} );
+			setupIpcMocks();
 
-			await startWordPressServer( mockSiteDataWithCustomDomain );
+			await startWordPressServer( {
+				...mockSiteData,
+				customDomain: 'testsite.local',
+			} );
 
 			const callArgs = ( pm2Manager.startProcess as jest.Mock ).mock.calls[ 0 ];
 			const configJson = JSON.parse( callArgs[ 2 ].STUDIO_WORDPRESS_SERVER_CONFIG );
@@ -180,24 +156,13 @@ describe( 'WordPress Server Manager', () => {
 		} );
 
 		it( 'should start WordPress server with custom domain (HTTPS)', async () => {
-			mockBus.on.mockImplementation( ( event, handler ) => {
-				if ( event === 'process:msg' ) {
-					process.nextTick( () => {
-						handler( {
-							process: { pm_id: mockProcessDescription.pmId },
-							raw: { topic: 'ready' },
-						} );
-						process.nextTick( () => {
-							handler( {
-								process: { pm_id: mockProcessDescription.pmId },
-								raw: { topic: 'result', siteId: mockSiteDataWithHttps.id, result: {} },
-							} );
-						} );
-					} );
-				}
-			} );
+			setupIpcMocks();
 
-			await startWordPressServer( mockSiteDataWithHttps );
+			await startWordPressServer( {
+				...mockSiteData,
+				customDomain: 'testsite.local',
+				enableHttps: true,
+			} );
 
 			const callArgs = ( pm2Manager.startProcess as jest.Mock ).mock.calls[ 0 ];
 			const configJson = JSON.parse( callArgs[ 2 ].STUDIO_WORDPRESS_SERVER_CONFIG );
@@ -215,22 +180,7 @@ describe( 'WordPress Server Manager', () => {
 		} );
 
 		it( 'should send correct config via environment variable', async () => {
-			mockBus.on.mockImplementation( ( event, handler ) => {
-				if ( event === 'process:msg' ) {
-					process.nextTick( () => {
-						handler( {
-							process: { pm_id: mockProcessDescription.pmId },
-							raw: { topic: 'ready' },
-						} );
-						process.nextTick( () => {
-							handler( {
-								process: { pm_id: mockProcessDescription.pmId },
-								raw: { topic: 'result', siteId: mockSiteData.id, result: {} },
-							} );
-						} );
-					} );
-				}
-			} );
+			setupIpcMocks();
 
 			const siteWithOptions: SiteData = {
 				...mockSiteData,
@@ -249,7 +199,9 @@ describe( 'WordPress Server Manager', () => {
 		it( 'should stop WordPress server with correct process name', async () => {
 			await stopWordPressServer( 'test-site-id' );
 
-			expect( pm2Manager.stopProcess ).toHaveBeenCalledWith( 'studio-site-test-site-id' );
+			expect( pm2Manager.stopProcess as jest.Mock ).toHaveBeenCalledWith(
+				'studio-site-test-site-id'
+			);
 		} );
 
 		it( 'should propagate stopProcess errors', async () => {

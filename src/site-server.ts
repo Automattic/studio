@@ -9,7 +9,7 @@ import { filterUnsupportedBlueprintFeatures } from 'src/lib/blueprint-features';
 import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { addDomainToHosts, removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
-import { decodePassword } from 'src/lib/passwords';
+import { decodePassword } from 'common/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { startProxyServer } from 'src/lib/proxy-server';
 import { updateSiteUrl } from 'src/lib/update-site-url';

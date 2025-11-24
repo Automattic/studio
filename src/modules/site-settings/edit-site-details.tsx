@@ -12,7 +12,7 @@ import { cx } from 'src/lib/cx';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'src/lib/domains';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
-import { getWordPressVersionUrl } from 'src/lib/wordpress-version-utils';
+import { getWordPressVersionUrl } from 'common/lib/wordpress-version-utils';
 import { useRootSelector } from 'src/stores';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import {

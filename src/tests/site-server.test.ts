@@ -4,7 +4,7 @@
 import { SiteServer } from 'src/site-server';
 
 // Electron's Node.js environment provides `bota`/`atob`, but Jests' does not
-jest.mock( 'src/lib/passwords' );
+jest.mock( 'common/lib/passwords' );
 
 // `SiteServer::start` uses `getPreferredSiteLanguage` to set the site language
 jest.mock( 'src/lib/site-language', () => ( {

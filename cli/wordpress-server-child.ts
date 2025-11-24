@@ -14,7 +14,7 @@ import { SupportedPHPVersion } from '@php-wasm/universal';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import { isWordPressDirectory } from 'common/lib/fs-utils';
 import { getMuPlugins } from 'common/lib/mu-plugins';
-import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
+import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
 import { z } from 'zod';
 import {
 	ServerConfig,

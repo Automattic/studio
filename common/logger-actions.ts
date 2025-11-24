@@ -23,4 +23,10 @@ export enum SiteCommandLoggerAction {
 	GENERATE_CERT = 'generateCert',
 	ADD_DOMAIN_TO_HOSTS = 'addDomainToHosts',
 	START_SITE = 'startSite',
+	VALIDATE = 'validate',
+	CREATE_DIRECTORY = 'createDirectory',
+	ASSIGN_PORT = 'assignPort',
+	SETUP_WORDPRESS = 'setupWordPress',
+	SAVE_SITE = 'saveSite',
+	APPLY_BLUEPRINT = 'applyBlueprint',
 }

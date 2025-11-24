@@ -44,7 +44,13 @@ export async function isServerRunning( siteId: string ): Promise< ProcessDescrip
  * 3. Send 'start-server' message with config
  * 4. Wait for response before resolving
  */
-export async function startWordPressServer( site: SiteData ): Promise< ProcessDescription > {
+export async function startWordPressServer(
+	site: SiteData,
+	options?: {
+		wpVersion?: string;
+		blueprint?: unknown;
+	}
+): Promise< ProcessDescription > {
 	const wordPressServerChildPath = path.resolve( __dirname, 'wordpress-server-child.js' );
 	const processName = getProcessName( site.id );
 
@@ -67,6 +73,14 @@ export async function startWordPressServer( site: SiteData ): Promise< ProcessDe
 
 	if ( site.isWpAutoUpdating !== undefined ) {
 		serverConfig.isWpAutoUpdating = site.isWpAutoUpdating;
+	}
+
+	if ( options?.wpVersion ) {
+		serverConfig.wpVersion = options.wpVersion;
+	}
+
+	if ( options?.blueprint ) {
+		serverConfig.blueprint = options.blueprint;
 	}
 
 	const env = {

@@ -40,3 +40,36 @@ export function getWordPressVersionUrl( version: string ) {
 	}
 	return `https://wordpress.org/wordpress-${ version }.zip`;
 }
+
+export function isWordPressVersionAtLeast( version: string, minimumVersion: string ): boolean {
+	if ( version === 'latest' ) {
+		return true;
+	}
+
+	// For dev/beta versions with hyphens, extract the base version
+	// e.g., "6.4-beta1" -> "6.4", "6.8-RC1-59979" -> "6.8"
+	let versionToCompare = version;
+	if ( version.includes( '-' ) ) {
+		versionToCompare = version.split( '-' )[ 0 ];
+	}
+
+	// Compare semantic versions
+	const parseVersion = ( v: string ) => v.split( '.' ).map( Number );
+	const provided = parseVersion( versionToCompare );
+	const minimum = parseVersion( minimumVersion );
+
+	for ( let i = 0; i < Math.max( provided.length, minimum.length ); i++ ) {
+		const p = provided[ i ] || 0;
+		const m = minimum[ i ] || 0;
+
+		if ( p < m ) {
+			return false;
+		}
+		if ( p > m ) {
+			return true;
+		}
+	}
+
+	// Versions are equal
+	return true;
+}

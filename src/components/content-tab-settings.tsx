@@ -6,7 +6,7 @@ import { CopyTextButton } from 'src/components/copy-text-button';
 import DeleteSite from 'src/components/delete-site';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { decodePassword } from 'src/lib/passwords';
+import { decodePassword } from 'common/lib/passwords';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
 import { useAppDispatch } from 'src/stores';
 import {

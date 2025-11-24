@@ -15,7 +15,7 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { sortSites } from 'src/lib/sort-sites';
+import { sortSites } from 'common/lib/sort-sites';
 import { useAppDispatch } from 'src/stores';
 import { snapshotThunks } from 'src/stores/snapshot-slice';
 import type { Blueprint } from 'src/stores/wpcom-api';

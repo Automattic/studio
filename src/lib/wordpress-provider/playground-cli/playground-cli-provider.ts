@@ -9,7 +9,7 @@ import { isOnline } from 'common/lib/network-utils';
 import { getBetaFeatures } from 'src/lib/beta-features';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
-import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
+import { isValidWordPressVersion } from 'common/lib/wordpress-version-utils';
 import { SiteServer } from 'src/site-server';
 import { getResourcesPath, getServerFilesPath } from 'src/storage/paths';
 import {

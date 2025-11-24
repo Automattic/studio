@@ -1,13 +1,7 @@
-// Mock PM2 instance - must be defined before mocking pm2-manager
-const mockPm2 = {
-	launchBus: jest.fn(),
-	sendDataToProcessId: jest.fn(),
-};
-
 // Mock the pm2-manager module BEFORE importing wordpress-server-manager
 jest.mock( 'cli/lib/pm2-manager', () => ( {
-	getPm2Instance: jest.fn( () => mockPm2 ),
 	getPm2Bus: jest.fn(),
+	sendMessageToProcess: jest.fn(),
 	isProcessRunning: jest.fn(),
 	startProcess: jest.fn(),
 	stopProcess: jest.fn(),
@@ -67,10 +61,8 @@ describe( 'WordPress Server Manager', () => {
 			} );
 		} );
 
-		mockPm2.sendDataToProcessId.mockImplementation( ( pmId, message, callback ) => {
-			callback( null );
-
-			// Send result message only after sendDataToProcessId is called
+		( pm2Manager.sendMessageToProcess as jest.Mock ).mockImplementation( ( pmId, message ) => {
+			// Send result message only after sendMessageToProcess is called
 			process.nextTick( () => {
 				mockBus.emit( 'process:msg', {
 					process: { pm_id: mockProcessDescription.pmId },
@@ -81,6 +73,7 @@ describe( 'WordPress Server Manager', () => {
 					},
 				} );
 			} );
+			return Promise.resolve();
 		} );
 	}
 

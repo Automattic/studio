@@ -4,6 +4,7 @@ import path from 'path';
 import { StartOptions } from 'pm2';
 import { getAppdataPath } from 'cli/lib/appdata';
 import { ProcessDescription } from 'cli/lib/types/pm2';
+import { ManagerMessage } from './types/wordpress-server-ipc';
 
 const PM2_STATUS_ONLINE = 'online';
 const PROXY_PROCESS_NAME = 'studio-proxy';
@@ -50,38 +51,6 @@ const pm2 = resolvePm2();
 
 let isConnected = false;
 
-export function getPm2Instance() {
-	return pm2;
-}
-
-// PM2 bus for inter-process communication
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let pm2Bus: any = null;
-
-export async function getPm2Bus() {
-	if ( pm2Bus ) {
-		return pm2Bus;
-	}
-
-	return new Promise( ( resolve, reject ) => {
-		pm2.launchBus( ( error, bus ) => {
-			if ( error ) {
-				reject( error );
-				return;
-			}
-			pm2Bus = bus;
-			resolve( bus );
-		} );
-	} );
-}
-
-export function disconnect(): void {
-	if ( isConnected ) {
-		pm2.disconnect();
-		isConnected = false;
-	}
-}
-
 export async function connect(): Promise< void > {
 	if ( isConnected ) {
 		return;
@@ -108,6 +77,17 @@ export async function connect(): Promise< void > {
 	} );
 }
 
+export function disconnect(): void {
+	if ( isConnected ) {
+		pm2.disconnect();
+		isConnected = false;
+	}
+}
+
+process.on( 'exit', disconnect );
+process.on( 'SIGINT', disconnect );
+process.on( 'SIGTERM', disconnect );
+
 async function listProcesses(): Promise< ProcessDescription[] > {
 	return new Promise( ( resolve, reject ) => {
 		pm2.list( ( error, processes ) => {
@@ -128,9 +108,41 @@ async function listProcesses(): Promise< ProcessDescription[] > {
 	} );
 }
 
-process.on( 'exit', disconnect );
-process.on( 'SIGINT', disconnect );
-process.on( 'SIGTERM', disconnect );
+// PM2 bus for inter-process communication
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let pm2Bus: any = null;
+
+export async function getPm2Bus() {
+	if ( pm2Bus ) {
+		return pm2Bus;
+	}
+
+	return new Promise( ( resolve, reject ) => {
+		pm2.launchBus( ( error, bus ) => {
+			if ( error ) {
+				reject( error );
+				return;
+			}
+			pm2Bus = bus;
+			resolve( bus );
+		} );
+	} );
+}
+
+export function sendMessageToProcess(
+	processId: number,
+	pm2Message: ManagerMessage
+): Promise< void > {
+	return new Promise( ( resolve, reject ) => {
+		pm2.sendDataToProcessId( processId, pm2Message, ( error ) => {
+			if ( error ) {
+				reject( error );
+			} else {
+				resolve();
+			}
+		} );
+	} );
+}
 
 export async function startProxyProcess(): Promise< ProcessDescription > {
 	const proxyDaemonPath = path.resolve( __dirname, 'proxy-daemon.js' );

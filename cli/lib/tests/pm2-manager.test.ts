@@ -36,7 +36,6 @@ import {
 	isProcessRunning,
 	startProxyProcess,
 	isProxyProcessRunning,
-	getPm2Instance,
 } from '../pm2-manager';
 
 describe( 'PM2 Manager', () => {
@@ -54,13 +53,6 @@ describe( 'PM2 Manager', () => {
 
 	afterEach( () => {
 		jest.restoreAllMocks();
-	} );
-
-	describe( 'getPm2Instance', () => {
-		it( 'should return the pm2 instance', () => {
-			const instance = getPm2Instance();
-			expect( instance ).toBe( mockPm2 );
-		} );
 	} );
 
 	describe( 'connect', () => {

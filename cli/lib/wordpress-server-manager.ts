@@ -15,8 +15,8 @@ import {
 	isProcessRunning,
 	startProcess,
 	stopProcess,
-	getPm2Instance,
 	getPm2Bus,
+	sendMessageToProcess,
 } from 'cli/lib/pm2-manager';
 import { ProcessDescription } from 'cli/lib/types/pm2';
 import {
@@ -24,8 +24,6 @@ import {
 	childMessagePm2Schema,
 	ManagerMessage,
 } from 'cli/lib/types/wordpress-server-ipc';
-
-const pm2 = getPm2Instance();
 
 /**
  * Generate PM2 process name for a site
@@ -210,13 +208,9 @@ async function sendMessage(
 
 		bus.on( 'process:msg', responseHandler );
 
-		const pm2Message: ManagerMessage = { ...message, messageId: messageId };
-		pm2.sendDataToProcessId( pmId, pm2Message, ( error ) => {
-			if ( error ) {
-				cleanup();
-				reject( error );
-			}
-		} );
+		sendMessageToProcess( pmId, { ...message, messageId: messageId } )
+			.then( resolve )
+			.catch( reject );
 	} );
 }
 

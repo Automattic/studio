@@ -5,9 +5,8 @@ import { RootState } from 'src/stores';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { SyncModalMode } from 'src/modules/sync/types';
 
-type ModalState = false | true | { disconnectSiteId?: number };
 type ConnectedSitesState = {
-	isModalOpen: ModalState;
+	isModalOpen: boolean;
 	modalMode: SyncModalMode | null;
 };
 
@@ -105,21 +104,22 @@ export const connectedSitesApi = createApi( {
 			{ siteId: number; localSiteId: string; type: 'pull' | 'push' }
 		>( {
 			queryFn: async ( { siteId, localSiteId, type } ) => {
-				const sites = await getIpcApi().getConnectedWpcomSites( localSiteId );
-				const site = sites.find(
+				const connectedSites = await getIpcApi().getConnectedWpcomSites( localSiteId );
+				const connectedSite = connectedSites.find(
 					( { id, localSiteId: siteLocalId } ) => siteId === id && localSiteId === siteLocalId
 				);
 
-				if ( ! site ) {
+				if ( ! connectedSite ) {
 					return { error: { status: 'CUSTOM_ERROR', error: 'Site not found' } };
 				}
 
-				const updatedSite = {
-					...site,
-					[ type === 'pull' ? 'lastPullTimestamp' : 'lastPushTimestamp' ]: new Date().toISOString(),
+				const timestampKey = type === 'pull' ? 'lastPullTimestamp' : 'lastPushTimestamp';
+				const updatedConnectedSite = {
+					...connectedSite,
+					[ timestampKey ]: new Date().toISOString(),
 				};
 
-				await getIpcApi().updateSingleConnectedWpcomSite( updatedSite );
+				await getIpcApi().updateSingleConnectedWpcomSite( updatedConnectedSite );
 
 				return { data: undefined };
 			},

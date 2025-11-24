@@ -1,15 +1,16 @@
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { Icon, archive, pencil, preformatted, external } from '@wordpress/icons';
-import { useCallback, useEffect, useState, useMemo } from 'react';
+import { Icon, archive, pencil, preformatted } from '@wordpress/icons';
+import { useCallback, useEffect, useState } from 'react';
 import { ExtraProps } from 'react-markdown';
 import stripAnsi from 'strip-ansi';
-import { PROTOCOL_PREFIX } from 'common/constants';
 import Button from 'src/components/button';
 import { ChatMessageProps } from 'src/components/chat-message';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import { ExecuteIcon } from 'src/components/icons/execute';
+import { OpenBlueprintButton } from 'src/components/open-blueprint-button';
 import { useExecuteWPCLI } from 'src/hooks/use-execute-cli';
+import { useIsValidBlueprint } from 'src/hooks/use-is-valid-blueprint';
 import { useIsValidWpCliInline } from 'src/hooks/use-is-valid-wp-cli-inline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
@@ -48,24 +49,7 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 	const cliTime = block?.cliTime ?? null;
 
 	const { selectedSite } = useSiteDetails();
-
-	const isBlueprint = useMemo( () => {
-		if ( ! className?.includes( 'language-json' ) ) {
-			return false;
-		}
-		try {
-			const json = JSON.parse( content );
-			if ( ! json ) {
-				return false;
-			}
-			const isSchemaMatch = json.$schema?.startsWith(
-				'https://playground.wordpress.net/blueprint-schema.json'
-			);
-			return isSchemaMatch || json.landingPage || json.steps || json.preferredVersions;
-		} catch {
-			return false;
-		}
-	}, [ className, content ] );
+	const isValidBlueprint = useIsValidBlueprint( className, content );
 
 	return (
 		<>
@@ -89,26 +73,13 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 						} );
 					} }
 				></CopyTextButton>
-				{ isBlueprint && (
-					<Button
-						icon={ external }
+				{ isValidBlueprint && (
+					<OpenBlueprintButton
+						content={ content }
 						variant="outlined"
 						className="h-auto mr-2 !px-2.5 py-0.5 font-sans select-none"
 						iconSize={ 16 }
-						onClick={ () => {
-							const bytes = new TextEncoder().encode( content );
-							const binString = Array.from( bytes, ( byte ) => String.fromCodePoint( byte ) ).join(
-								''
-							);
-							const base64 = btoa( binString );
-							const url = `${ PROTOCOL_PREFIX }://add-site?blueprint=${ encodeURIComponent(
-								base64
-							) }`;
-							getIpcApi().openURL( url );
-						} }
-					>
-						{ __( 'Open in Studio' ) }
-					</Button>
+					/>
 				) }
 				{ [ 'language-sh', 'language-bash' ].includes( props.className || '' ) && selectedSite && (
 					<Button

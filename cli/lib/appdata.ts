@@ -23,6 +23,11 @@ const siteSchema = z
 		customDomain: z.string().optional(),
 		port: z.number(),
 		enableHttps: z.boolean().optional(),
+		adminPassword: z.string().optional(),
+		isWpAutoUpdating: z.boolean().optional(),
+		running: z.boolean().optional(),
+		url: z.string().optional(),
+		latestCliPid: z.number().optional(),
 	} )
 	.passthrough();
 
@@ -219,3 +224,33 @@ export const getOrCreateSiteByFolder = async ( siteFolder: string ): Promise< Ne
 		return createNewSite( siteFolder );
 	}
 };
+
+export function getSiteUrl( site: SiteData ): string {
+	if ( site.url ) {
+		return site.url;
+	}
+
+	if ( site.customDomain ) {
+		const protocol = site.enableHttps ? 'https' : 'http';
+		return `${ protocol }://${ site.customDomain }`;
+	}
+
+	return `http://localhost:${ site.port }`;
+}
+
+export async function updateSiteLatestCliPid( siteId: string, pid: number ): Promise< void > {
+	try {
+		await lockAppdata();
+		const userData = await readAppdata();
+		const site = userData.sites.find( ( s ) => s.id === siteId );
+
+		if ( ! site ) {
+			throw new LoggerError( __( 'Site not found' ) );
+		}
+
+		site.latestCliPid = pid;
+		await saveAppdata( userData );
+	} finally {
+		await unlockAppdata();
+	}
+}

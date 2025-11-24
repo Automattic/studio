@@ -1,18 +1,21 @@
 /**
- * MU-Plugins for Playground CLI Provider
+ * MU-Plugins for WordPress
  *
  * This module provides the standard set of mu-plugins that need to be
- * available to WordPress instances using the playground-cli provider.
+ * available to WordPress instances. Shared between desktop app and CLI.
  */
 
 import { mkdtemp, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { WordPressServerOptions } from '../types';
 
 export interface MuPlugin {
 	filename: string;
 	content: string;
+}
+
+export interface MuPluginOptions {
+	isWpAutoUpdating?: boolean;
 }
 
 /**
@@ -72,7 +75,7 @@ async function createLoaderMuPlugin(): Promise< string > {
  * @param options Configuration options for mu-plugins
  * @returns Array of mu-plugin definitions
  */
-function getStandardMuPlugins( options: Partial< WordPressServerOptions > ): MuPlugin[] {
+function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	const muPlugins: MuPlugin[] = [];
 
 	// HTTPS detection for reverse proxy
@@ -429,16 +432,14 @@ function getStandardMuPlugins( options: Partial< WordPressServerOptions > ): MuP
 	return muPlugins;
 }
 
-async function createMuPluginsDirectory(
-	serverOptions: WordPressServerOptions
-): Promise< string > {
+async function createMuPluginsDirectory( options: MuPluginOptions ): Promise< string > {
 	try {
 		// Create a temporary directory for mu-plugins
 		const tempDir = await mkdtemp( join( tmpdir(), 'studio-mu-plugins-' ) );
 
 		// Get the standard mu-plugins
 		const muPlugins = getStandardMuPlugins( {
-			isWpAutoUpdating: serverOptions.isWpAutoUpdating,
+			isWpAutoUpdating: options.isWpAutoUpdating,
 		} );
 
 		// Write each mu-plugin file to the temporary directory
@@ -452,8 +453,13 @@ async function createMuPluginsDirectory(
 	}
 }
 
-export async function getMuPlugins( serverOptions: Partial< WordPressServerOptions > ) {
-	const studioMuPluginsHostPath = await createMuPluginsDirectory( serverOptions );
+/**
+ * Get mu-plugins for a WordPress instance
+ * @param options Configuration options for mu-plugins
+ * @returns Array of paths: [studioMuPluginsHostPath, loaderMuPluginHostPath]
+ */
+export async function getMuPlugins( options: MuPluginOptions ) {
+	const studioMuPluginsHostPath = await createMuPluginsDirectory( options );
 	const loaderMuPluginHostPath = await createLoaderMuPlugin();
 
 	return [ studioMuPluginsHostPath, loaderMuPluginHostPath ];

@@ -49,11 +49,6 @@ if ( typeof window !== 'undefined' ) {
 ( global as any ).MAIN_WINDOW_WEBPACK_ENTRY = 'main-window-webpack-entry';
 ( global as any ).MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY = 'main-window-preload-webpack-entry';
 
-// Silence console.log for all tests
-beforeEach( () => {
-	console.log = jest.fn();
-} );
-
 if ( typeof window !== 'undefined' ) {
 	// The ipcListener global is usually defined in preload.ts
 	window.ipcListener = { subscribe: jest.fn() };

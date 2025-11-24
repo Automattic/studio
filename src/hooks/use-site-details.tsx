@@ -348,7 +348,18 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			try {
 				updatedSite = await getIpcApi().startServer( id );
 			} catch ( error ) {
-				if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PORT_IN_USE' ) ) {
+				if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PERMISSION_DENIED' ) ) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Studio failed to initialize custom domains' ),
+						message: __(
+							'We could not create a custom domain for your site due to a lack of permissions. On Windows, Studio requires administrator privileges to bind to ports 80 and 443, which are necessary for custom domains to work properly.'
+						),
+						showOpenLogs: false,
+					} );
+				} else if (
+					error instanceof Error &&
+					error.message.includes( 'PROXY_ERROR_PORT_IN_USE' )
+				) {
 					getIpcApi().showErrorMessageBox( {
 						title: __( 'Studio failed to initialize custom domains' ),
 						message: __(

@@ -178,7 +178,7 @@ async function startServer(
 			},
 		];
 
-		const args: RunCLIArgs = {
+		const args: RunCLIArgs & { command: 'server' } = {
 			command: 'server',
 			internalCookieStore: false,
 			login: false,

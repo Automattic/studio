@@ -10,6 +10,7 @@ import { Tooltip } from 'src/components/tooltip';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
+import { useRootSelector } from 'src/stores';
 import { BlueprintIcon } from './blueprint-icon';
 
 export type AddSiteFlowType = 'create' | 'blueprint' | 'backup' | 'pullRemote';
@@ -24,6 +25,7 @@ interface OptionButtonProps {
 	onClick: () => void;
 	disabled?: boolean;
 	disabledTooltip?: string;
+	testId?: string;
 }
 
 function OptionButton( {
@@ -33,6 +35,7 @@ function OptionButton( {
 	onClick,
 	disabled = false,
 	disabledTooltip,
+	testId,
 }: OptionButtonProps ) {
 	const { isRTL } = useI18n();
 	const chevron = isRTL() ? chevronLeft : chevronRight;
@@ -54,6 +57,7 @@ function OptionButton( {
 				onClick={ onClick }
 				disabled={ disabled }
 				spacing={ 5 }
+				data-testid={ testId }
 			>
 				<div className="mt-[-2px]">{ icon }</div>
 				<VStack className="flex-1 gap-1.5">
@@ -72,7 +76,8 @@ function OptionButton( {
 
 export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps ) {
 	const { __ } = useI18n();
-	const { enableBlueprints, streamlineOnboarding } = useFeatureFlags();
+	const { enableBlueprints } = useFeatureFlags();
+	const { createSiteFromRemote } = useRootSelector( ( state ) => state.betaFeatures.features );
 	const isOffline = useOffline();
 	const offlineMessage = __( "You're currently offline." );
 
@@ -89,6 +94,7 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 				title={ __( 'Create a site' ) }
 				description={ __( 'Start with an empty site' ) }
 				onClick={ () => onOptionSelect( 'create' ) }
+				testId="create-site-option-button"
 			/>
 			{ enableBlueprints && (
 				<OptionButton
@@ -100,7 +106,7 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 					disabledTooltip={ offlineMessage }
 				/>
 			) }
-			{ streamlineOnboarding && (
+			{ createSiteFromRemote && (
 				<OptionButton
 					icon={ <Icon icon={ download } size={ 24 } fill="#3858E9" /> }
 					title={ __( 'Import an existing website' ) }

@@ -20,6 +20,9 @@ const siteSchema = z
 		path: z.string(),
 		name: z.string(),
 		phpVersion: z.string(),
+		customDomain: z.string().optional(),
+		port: z.number(),
+		enableHttps: z.boolean().optional(),
 	} )
 	.passthrough();
 
@@ -34,6 +37,7 @@ const newSiteSchema = z
 const betaFeaturesSchema = z
 	.object( {
 		studioSitesCli: z.boolean().optional(),
+		createSiteFromRemote: z.boolean().optional(),
 	} )
 	.passthrough();
 
@@ -46,7 +50,11 @@ const userDataSchema = z
 		authToken: z
 			.object( {
 				accessToken: z.string().min( 1, __( 'Access token cannot be empty' ) ),
+				expiresIn: z.number(), // Seconds
+				expirationTime: z.number(), // Milliseconds since the Unix epoch
 				id: z.number().optional(),
+				email: z.string(),
+				displayName: z.string().default( '' ),
 			} )
 			.passthrough()
 			.optional(),
@@ -145,7 +153,7 @@ export async function getAuthToken(): Promise< ValidatedAuthToken > {
 	try {
 		const { authToken } = await readAppdata();
 
-		if ( ! authToken?.accessToken || ! authToken?.id ) {
+		if ( ! authToken?.accessToken || ! authToken?.id || Date.now() >= authToken?.expirationTime ) {
 			throw new Error( 'Authentication required' );
 		}
 

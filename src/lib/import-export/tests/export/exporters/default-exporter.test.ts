@@ -132,8 +132,23 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				isFile: () => true,
 			},
 			{
-				path: normalize( '/path/to/site' ),
-				name: 'wp-config.php',
+				path: normalize( '/path/to/site/wp-content' ),
+				name: 'debug.log',
+				isFile: () => true,
+			},
+			{
+				path: normalize( '/path/to/site/wp-content' ),
+				name: 'db.php',
+				isFile: () => true,
+			},
+			{
+				path: normalize( '/path/to/site/wp-content/database' ),
+				name: '.ht.sqlite',
+				isFile: () => true,
+			},
+			{
+				path: normalize( '/path/to/site/wp-content/mu-plugins/sqlite-database-integration' ),
+				name: 'example-load.php',
 				isFile: () => true,
 			},
 		];
@@ -568,5 +583,60 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			backupFile: normalize( '/path/to/test-backup.tar.gz' ),
 			sqlFiles: [],
 		} );
+	} );
+
+	it( "shouldn't include files like database, db.php and debug.log to the archive, even if specified", async () => {
+		const options = {
+			...mockOptions,
+			includes: {
+				database: true,
+				wpContent: true,
+			},
+			specificSelectionPaths: [
+				'database/.ht.sqlite',
+				'db.php',
+				'debug.log',
+				'mu-plugins/sqlite-database-integration/example-load.php',
+			],
+		};
+
+		const exporter = new DefaultExporter( options );
+		await exporter.export();
+
+		expect( fsPromises.stat ).toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-content/debug.log' )
+		);
+		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-content/debug.log' ),
+			{ name: 'wp-content/debug.log' }
+		);
+
+		expect( fsPromises.stat ).toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-content/db.php' )
+		);
+		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-content/db.php' ),
+			{ name: 'wp-content/db.php' }
+		);
+
+		expect( fsPromises.stat ).toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-content/database/.ht.sqlite' )
+		);
+		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-content/database/.ht.sqlite' ),
+			{ name: 'wp-content/database/.ht.sqlite' }
+		);
+
+		expect( fsPromises.stat ).toHaveBeenCalledWith(
+			normalize(
+				'/path/to/site/wp-content/mu-plugins/sqlite-database-integration/example-load.php'
+			)
+		);
+		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
+			normalize(
+				'/path/to/site/wp-content/mu-plugins/sqlite-database-integration/example-load.php'
+			),
+			{ name: 'wp-content/mu-plugins/sqlite-database-integration/example-load.php' }
+		);
 	} );
 } );

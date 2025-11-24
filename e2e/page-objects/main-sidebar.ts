@@ -10,7 +10,7 @@ export default class MainSidebar {
 	}
 
 	get addSiteButton() {
-		return this.locator.getByRole( 'button', { name: 'Add site' } );
+		return this.page.getByTestId( 'add-site-button' );
 	}
 
 	getSiteNavButton( siteName: string ) {

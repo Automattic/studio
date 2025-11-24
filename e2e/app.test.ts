@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import packageJson from '../package.json';
 import { E2ESession } from './e2e-helpers';
 import Onboarding from './page-objects/onboarding';
 

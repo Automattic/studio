@@ -24,8 +24,14 @@ const api: IpcApi = {
 	archiveSite: ( id, format ) => ipcRendererInvoke( 'archiveSite', id, format ),
 	exportSiteForPush: ( id, operationId, configuration ) =>
 		ipcRendererInvoke( 'exportSiteForPush', id, operationId, configuration ),
-	pushArchive: ( remoteSiteId, archivePath, optionsToSync ) =>
-		ipcRendererInvoke( 'pushArchive', remoteSiteId, archivePath, optionsToSync ),
+	pushArchive: ( remoteSiteId, archivePath, optionsToSync, specificSelectionPaths ) =>
+		ipcRendererInvoke(
+			'pushArchive',
+			remoteSiteId,
+			archivePath,
+			optionsToSync,
+			specificSelectionPaths
+		),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
 	createSite: ( path, config ) => ipcRendererInvoke( 'createSite', path, config ),
 	updateSite: ( updatedSite ) => ipcRendererInvoke( 'updateSite', updatedSite ),
@@ -36,7 +42,7 @@ const api: IpcApi = {
 	updateSingleConnectedWpcomSite: ( updatedSite ) =>
 		ipcRendererInvoke( 'updateSingleConnectedWpcomSite', updatedSite ),
 	authenticate: ( isSignup ) => ipcRendererSend( 'authenticate', isSignup ),
-	exportSite: ( options, siteId ) => ipcRendererInvoke( 'exportSite', options, siteId ),
+	exportSite: ( options ) => ipcRendererInvoke( 'exportSite', options ),
 	isAuthenticated: () => ipcRendererInvoke( 'isAuthenticated' ),
 	getAuthenticationToken: () => ipcRendererInvoke( 'getAuthenticationToken' ),
 	clearAuthenticationToken: () => ipcRendererInvoke( 'clearAuthenticationToken' ),
@@ -79,6 +85,7 @@ const api: IpcApi = {
 	getOnboardingData: () => ipcRendererInvoke( 'getOnboardingData' ),
 	saveOnboarding: ( onboardingCompleted ) =>
 		ipcRendererInvoke( 'saveOnboarding', onboardingCompleted ),
+	getBetaFeatures: () => ipcRendererInvoke( 'getBetaFeatures' ),
 	openAppAtPath: ( editorKey, filePath ) =>
 		ipcRendererInvoke( 'openAppAtPath', editorKey, filePath ),
 	openTerminalAtPath: ( targetPath ) => ipcRendererInvoke( 'openTerminalAtPath', targetPath ),

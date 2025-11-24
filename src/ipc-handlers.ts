@@ -18,7 +18,6 @@ import https from 'node:https';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
-import { compileBlueprint } from '@wp-playground/blueprints';
 import archiver from 'archiver';
 import { z } from 'zod';
 import {
@@ -38,7 +37,8 @@ import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { ARCHIVER_OPTIONS, DEFAULT_TERMINAL, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
-import { scanBlueprintForUnsupportedFeatures } from 'src/lib/blueprint-features';
+import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
+import { validateBlueprintData } from 'src/lib/blueprint-features';
 import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
 import {
@@ -756,6 +756,8 @@ export async function exportSiteForPush(
 			throw new Error( 'Export aborted' );
 		}
 
+		await keepSqliteIntegrationUpdated( site.details.path );
+
 		const shouldIncludeSyncOption = (
 			optionsToSync: SyncOption[] | undefined,
 			option: SyncOption
@@ -802,7 +804,8 @@ export async function pushArchive(
 	event: IpcMainInvokeEvent,
 	remoteSiteId: number,
 	archivePath: string,
-	optionsToSync?: string[]
+	optionsToSync?: string[],
+	specificSelectionPaths?: string[]
 ): Promise< { success: boolean; error?: string } > {
 	const token = await getAuthenticationToken();
 
@@ -821,6 +824,11 @@ export async function pushArchive(
 			},
 		],
 	];
+
+	if ( specificSelectionPaths && specificSelectionPaths.length > 0 ) {
+		const joinedPaths = specificSelectionPaths.join( ',' );
+		formData.push( [ 'list_sync_items', joinedPaths ] );
+	}
 
 	if ( optionsToSync ) {
 		formData.push( [ 'options', optionsToSync.join( ',' ) ] );
@@ -915,13 +923,14 @@ export async function clearAuthenticationToken() {
 
 export async function exportSite(
 	event: IpcMainInvokeEvent,
-	options: ExportOptions,
-	siteId: string
+	options: ExportOptions
 ): Promise< boolean > {
 	try {
+		await keepSqliteIntegrationUpdated( options.site.path );
+
 		const onEvent = ( data: ImportExportEventData ) => {
 			const parentWindow = BrowserWindow.fromWebContents( event.sender );
-			sendIpcEventToRendererWithWindow( parentWindow, 'on-export', data, siteId );
+			sendIpcEventToRendererWithWindow( parentWindow, 'on-export', data, options.site.id );
 		};
 
 		const result = await exportBackup( options, onEvent );
@@ -1109,6 +1118,10 @@ export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< 
 
 export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompleted: boolean ) {
 	await updateAppdata( { onboardingCompleted } );
+}
+
+export async function getBetaFeatures( _event: IpcMainInvokeEvent ): Promise< BetaFeatures > {
+	return await getBetaFeaturesFromLib();
 }
 
 export async function executeWPCLiInline(
@@ -1835,27 +1848,7 @@ export async function validateBlueprint(
 	error?: string;
 	warnings?: Array< { feature: string; reason: string; alternative?: string } >;
 } > {
-	try {
-		await compileBlueprint( blueprintJson );
-	} catch ( error ) {
-		const errorMessage = error instanceof Error ? error.message : __( 'Invalid Blueprint format' );
-		return {
-			valid: false,
-			error: errorMessage,
-		};
-	}
-
-	const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson );
-
-	const warnings = unsupportedFeatures.map( ( feature ) => ( {
-		feature: feature.name,
-		reason: feature.reason,
-	} ) );
-
-	return {
-		valid: true,
-		warnings: warnings.length > 0 ? warnings : undefined,
-	};
+	return validateBlueprintData( blueprintJson );
 }
 
 export async function readBlueprintFile(

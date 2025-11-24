@@ -188,7 +188,7 @@ async function startServer(
 			'mount-before-install': mounts,
 			'site-url': serverOptions.absoluteUrl,
 			blueprint: options.blueprint || {},
-			skipWordPressSetup: options.skipWordpressSetup,
+			wordpressInstallMode: options.wordpressInstallMode,
 		};
 
 		// Enable multi-worker support if beta feature is enabled

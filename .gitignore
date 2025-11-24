@@ -105,11 +105,19 @@ vendor/*
 # Include the vendored copy of wp-now in our repo
 !vendor/wp-now
 
+# CLI npm artifacts
+cli/vendor/
+
 # Build output
 dist
 
 # Playwright traces
 test-results
+
+# E2E test import files (not versioned)
+e2e/imports/*.tar.gz
+e2e/imports/*.zip
+e2e/imports/*.wpress
 
 # Metrics traces
 artifacts

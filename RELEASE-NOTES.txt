@@ -1,8 +1,23 @@
 Unreleased
 ==========
 
+1.6.4
+=====
+* New flow to create a new site from remote site (Beta Feature) #1997
+* New CLI commands #2017, #2027, #2028
+* Added support for base64-encoded blueprints in deeplinks #2042
+* Excluded the database folder and db.php file when pushing a site #2089
+* Fixed connected sites when logging in #2083
+* Added more details in push success email by listing individual sync elements #2007
+* Fixed sync options sent to the backend when pushing a site #2092
+* Updated Studio deeplink URL scheme from `wpcom-local-dev` to `wp-studio` #2029
+* Updated Studio scheme protocol handler to AppxManifest for Windows #2040
+* Upgraded Playground and PHP-WASM packages to 3.0.22 #2090
+* Upgraded SQLite driver to 2.2.14 #2032
+* Misc UI improvements #2016, #2088, #2038, #2093
+
 1.6.3
-====
+=====
 * Improved selective push and export to include all folders within wp-content #1940, #2006
 * Improved the deletion of all preview sites #1950
 * Improved tracking and display of push progress after app restart #1943

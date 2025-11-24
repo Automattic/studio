@@ -57,10 +57,19 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 			/>
 			<TerminalPicker value={ currentTerminal } onChange={ setCurrentTerminal } />
 			<div className="mt-auto pt-2 flex justify-end gap-3">
-				<Button variant="tertiary" onClick={ cancelChanges }>
+				<Button
+					variant="tertiary"
+					onClick={ cancelChanges }
+					data-testid="preferences-cancel-button"
+				>
 					{ __( 'Cancel' ) }
 				</Button>
-				<Button variant="primary" onClick={ savePreferences } disabled={ ! hasChanges }>
+				<Button
+					variant="primary"
+					onClick={ savePreferences }
+					disabled={ ! hasChanges }
+					data-testid="preferences-save-button"
+				>
 					{ __( 'Save' ) }
 				</Button>
 			</div>

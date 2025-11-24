@@ -52,7 +52,7 @@ describe( 'WordPress Server Manager', () => {
 		jest.restoreAllMocks();
 	} );
 
-	function setupIpcMocks( resultValue: unknown = {} ): void {
+	function setupIpcMocks(): void {
 		// Send ready message after a tick (simulating async bus initialization)
 		process.nextTick( () => {
 			mockBus.emit( 'process:msg', {
@@ -69,7 +69,6 @@ describe( 'WordPress Server Manager', () => {
 					raw: {
 						topic: 'result',
 						originalMessageId: message.messageId,
-						result: resultValue,
 					},
 				} );
 			} );
@@ -107,7 +106,7 @@ describe( 'WordPress Server Manager', () => {
 
 	describe( 'startWordPressServer', () => {
 		it( 'should start WordPress server with basic configuration', async () => {
-			setupIpcMocks( { success: true } );
+			setupIpcMocks();
 
 			const result = await startWordPressServer( mockSiteData );
 

@@ -1,0 +1,22 @@
+import { StatsGroup, StatsMetric } from 'common/types/stats';
+
+// Returns true if we attempted to bump the stat
+export function bumpStat( group: StatsGroup, stat: StatsMetric, bumpInDev = false ) {
+	if ( process.env.E2E || ( process.env.NODE_ENV === 'development' && ! bumpInDev ) ) {
+		console.info( `Would have bumped stat: ${ group }=${ stat }` );
+		return false;
+	}
+
+	// Fire and forget POST request
+	fetch( 'https://public-api.wordpress.com/wpcom/v2/studio-app/bump-stat', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify( { group, stat } ),
+	} ).catch( () => {
+		// A failed request typically indicates a network issue, which we don't need to report
+	} );
+
+	return true;
+}

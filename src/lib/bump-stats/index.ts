@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/electron/main';
 import { isSameDay, isSameMonth, isSameWeek } from 'date-fns';
+import { bumpStat } from 'common/lib/bump-stat';
 import { AggregateInterval, StatsGroup, StatsMetric } from 'common/types/stats';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 
@@ -46,26 +47,7 @@ export function bumpAggregatedUniqueStat(
 		.catch( ( err ) => Sentry.captureException( err ) );
 }
 
-// Returns true if we attempted to bump the stat
-export function bumpStat( group: StatsGroup, stat: StatsMetric, bumpInDev = false ) {
-	if ( process.env.E2E || ( process.env.NODE_ENV === 'development' && ! bumpInDev ) ) {
-		console.info( `Would have bumped stat: ${ group }=${ stat }` );
-		return false;
-	}
-
-	// Fire and forget POST request
-	fetch( 'https://public-api.wordpress.com/wpcom/v2/studio-app/bump-stat', {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify( { group, stat } ),
-	} ).catch( () => {
-		// A failed request typically indicates a network issue, which we don't need to report
-	} );
-
-	return true;
-}
+export { bumpStat } from 'common/lib/bump-stat';
 
 // Returns UTC timestamp of the last time the stat was bumped, or null if it has never been bumped.
 async function getLastBump( group: string, stat: string ): Promise< number | null > {

@@ -8,6 +8,13 @@ type OpenBlueprintButtonProps = ButtonProps & {
 	content: string;
 };
 
+function createBlueprintDeeplinkUrl( blueprintContent: string ): string {
+	const bytes = new TextEncoder().encode( blueprintContent );
+	const binString = Array.from( bytes, ( byte ) => String.fromCodePoint( byte ) ).join( '' );
+	const base64 = btoa( binString );
+	return `${ PROTOCOL_PREFIX }://add-site?blueprint=${ encodeURIComponent( base64 ) }`;
+}
+
 export function OpenBlueprintButton( {
 	content,
 	children,
@@ -20,10 +27,7 @@ export function OpenBlueprintButton( {
 			{ ...props }
 			icon={ icon }
 			onClick={ () => {
-				const bytes = new TextEncoder().encode( content );
-				const binString = Array.from( bytes, ( byte ) => String.fromCodePoint( byte ) ).join( '' );
-				const base64 = btoa( binString );
-				const url = `${ PROTOCOL_PREFIX }://add-site?blueprint=${ encodeURIComponent( base64 ) }`;
+				const url = createBlueprintDeeplinkUrl( content );
 				getIpcApi().openURL( url );
 			} }
 		>

@@ -260,6 +260,9 @@ def create_versioned_file(original_file_path:, version:, arch:)
   if original_filename.match(/\.app\.zip$/i)
 	original_filename = original_filename.gsub(/\.app\.zip$/i, '')
     extension = '.zip'
+  elsif original_filename.match(/\.nupkg$/i)
+    original_filename = original_filename.gsub(/\.nupkg$/i, '')
+    extension = '-full.nupkg'
   else
     extension = File.extname(original_filename)
   end

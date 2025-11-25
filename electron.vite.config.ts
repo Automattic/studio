@@ -1,5 +1,4 @@
 import { resolve } from 'path';
-import { pathToFileURL } from 'url';
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 import topLevelAwait from 'vite-plugin-top-level-await';

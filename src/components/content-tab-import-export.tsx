@@ -11,6 +11,7 @@ import ProgressBar from 'src/components/progress-bar';
 import { Tooltip } from 'src/components/tooltip';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useSyncSites } from 'src/hooks/sync-sites/sync-sites-context';
+import { useAuth } from 'src/hooks/use-auth';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
 import { useImportExport } from 'src/hooks/use-import-export';
@@ -19,7 +20,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
-import { useConnectedSitesData } from 'src/stores/sync';
+import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
 
 interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
@@ -320,7 +321,11 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 	const { __ } = useI18n();
 	const [ isSupported, setIsSupported ] = useState< boolean | null >( null );
 	const { isSiteIdPulling, isSiteIdPushing } = useSyncSites();
-	const { connectedSites } = useConnectedSitesData();
+	const { user } = useAuth();
+	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
+		localSiteId: selectedSite.id,
+		userId: user?.id,
+	} );
 	const isPulling = connectedSites.some( ( site ) => isSiteIdPulling( selectedSite.id, site.id ) );
 	const isPushing = connectedSites.some( ( site ) => isSiteIdPushing( selectedSite.id, site.id ) );
 	const isThisSiteSyncing = isPulling || isPushing;

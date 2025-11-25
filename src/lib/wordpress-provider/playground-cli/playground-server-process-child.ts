@@ -1,10 +1,11 @@
 import { cpus } from 'os';
 import { SupportedPHPVersion, PHPRunOptions } from '@php-wasm/universal';
+import { __ } from '@wordpress/i18n';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
+import { getMuPlugins } from 'common/lib/mu-plugins';
 import { sanitizeRunCLIArgs } from 'src/lib/sentry-sanitizer';
 import { isWordPressDevVersion } from 'src/lib/wordpress-version-utils';
 import { WordPressServerOptions } from '../types';
-import { getMuPlugins } from './mu-plugins';
 import { PlaygroundCliOptions } from './playground-cli-provider';
 
 interface BaseMessage {
@@ -50,12 +51,36 @@ const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
 const originalConsoleWarn = console.warn;
 
+/**
+ * Messages come from the playground-cli, they can be found on the calls to `logger.log`
+ * in the playground-cli source code, for example:
+ * https://github.com/WordPress/wordpress-playground/blob/5ce5752af3cde8b65c745c527c54f3b4bc164a00/packages/playground/cli/src/run-cli.ts#L927
+ *
+ */
 function formatMessageForUI( message: string ): string {
-	if ( message.includes( 'WordPress is running on' ) ) {
-		return 'WordPress is running';
+	if ( message.includes( 'WordPress is running' ) ) {
+		return __( 'WordPress is running' );
 	}
 	if ( message.includes( 'Resolved WordPress release URL' ) ) {
-		return 'Downloading WordPress…';
+		return __( 'Downloading WordPress…' );
+	}
+	if ( message.includes( 'Downloading WordPress' ) ) {
+		return __( 'Downloading WordPress…' );
+	}
+	if ( message.includes( 'Starting up workers' ) ) {
+		return __( 'Starting up workers…' );
+	}
+	if ( message.includes( 'Booting WordPress' ) ) {
+		return __( 'Booting WordPress…' );
+	}
+	if ( message.includes( 'Running the Blueprint' ) ) {
+		return __( 'Running the Blueprint…' );
+	}
+	if ( message.includes( 'Finished running the blueprint' ) ) {
+		return __( 'Finished running the Blueprint…' );
+	}
+	if ( message.includes( 'Preparing workers' ) ) {
+		return __( 'Preparing workers…' );
 	}
 	return message;
 }
@@ -93,7 +118,7 @@ process.stderr.write = function ( ...args: Parameters< typeof originalStderrWrit
 	return originalStderrWrite( ...args );
 } as typeof process.stderr.write;
 
-let server: RunCLIServer | null = null;
+let server: RunCLIServer | null | void = null;
 let lastCliArgs: Record< string, unknown > | null = null;
 
 process.parentPort.on( 'message', async ( event ) => {

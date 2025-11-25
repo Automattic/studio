@@ -2,14 +2,14 @@ import { SyncSitesContextType } from 'src/hooks/sync-sites/sync-sites-context';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { useConnectedSitesOperations } from 'src/stores/sync';
+import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
 
 export function useListenDeepLinkConnection( {
 	refetchSites,
 }: {
 	refetchSites: SyncSitesContextType[ 'refetchSites' ];
 } ) {
-	const { connectSite } = useConnectedSitesOperations();
+	const [ connectSite ] = useConnectSiteMutation();
 	const { selectedSite, setSelectedSiteId } = useSiteDetails();
 	const { setSelectedTab, selectedTab } = useContentTabs();
 
@@ -22,7 +22,7 @@ export function useListenDeepLinkConnection( {
 				// Select studio site that started the sync
 				setSelectedSiteId( studioSiteId );
 			}
-			await connectSite( newConnectedSite, studioSiteId );
+			await connectSite( { site: newConnectedSite, localSiteId: studioSiteId } );
 			if ( selectedTab !== 'sync' ) {
 				// Switch to sync tab
 				setSelectedTab( 'sync' );

@@ -5,7 +5,7 @@ import { app, dialog, BrowserWindow } from 'electron';
 import fs from 'fs-extra';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { validateBlueprintData } from 'src/lib/blueprint-features';
-import { handleAddSiteWithBlueprint } from 'src/lib/deeplink/handlers/add-site-blueprint-with-url';
+import { handleAddSiteWithBlueprint } from 'src/lib/deeplink/handlers/add-site-with-blueprint';
 import { download } from 'src/lib/download';
 import { getMainWindow } from 'src/main-window';
 
@@ -43,7 +43,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		jest.clearAllMocks();
 		( mockMainWindow.isMinimized as jest.Mock ).mockReturnValue( false );
 		jest.mocked( app.getPath ).mockReturnValue( '/tmp' );
-		( fs.mkdir as unknown as jest.Mock ).mockResolvedValue( undefined );
+		jest.mocked( fs.mkdir ).mockImplementation( async () => {} );
 		jest.mocked( getMainWindow ).mockResolvedValue( mockMainWindow );
 		jest.mocked( dialog.showMessageBox ).mockResolvedValue( {
 			response: 0,
@@ -67,7 +67,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 			false,
 			'blueprint'
 		);
-		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'add-site-blueprint-from-url', {
+		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'add-site-with-blueprint', {
 			blueprintPath: expect.stringContaining( 'blueprint-' ),
 		} );
 		expect( mockMainWindow.focus ).toHaveBeenCalled();
@@ -87,11 +87,18 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		const encodedUrl = encodeURIComponent( invalidUrl );
 		const url = new URL( `wp-studio://add-site?blueprint_url=${ encodedUrl }` );
 
+		jest.mocked( fs.remove ).mockImplementation( async () => {} );
+
 		await handleAddSiteWithBlueprint( url );
 
 		expect( download ).not.toHaveBeenCalled();
 		expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
-		expect( dialog.showMessageBox ).not.toHaveBeenCalled();
+		expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
+			type: 'error',
+			message: expect.any( String ),
+			detail: expect.any( String ),
+			buttons: expect.any( Array ),
+		} );
 	} );
 
 	it( 'should handle download failure gracefully', async () => {
@@ -99,7 +106,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 
 		const downloadError = new Error( 'Download failed' );
 		jest.mocked( download ).mockRejectedValue( downloadError );
-		( fs.remove as unknown as jest.Mock ).mockResolvedValue( undefined );
+		jest.mocked( fs.remove ).mockImplementation( async () => {} );
 
 		await handleAddSiteWithBlueprint( url );
 
@@ -119,7 +126,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 
 		( mockMainWindow.isMinimized as jest.Mock ).mockReturnValue( true );
 		jest.mocked( download ).mockResolvedValue( undefined );
-		( fs.readJson as unknown as jest.Mock ).mockResolvedValue( { steps: [] } );
+		jest.mocked( fs.readJson ).mockResolvedValue( { steps: [] } );
 		jest.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
 
 		await handleAddSiteWithBlueprint( url );
@@ -144,12 +151,12 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		const url = createBlueprintUrl( 'https://example.com/blueprint.json' );
 
 		jest.mocked( download ).mockResolvedValue( undefined );
-		( fs.readJson as unknown as jest.Mock ).mockResolvedValue( { invalid: 'data' } );
+		jest.mocked( fs.readJson ).mockResolvedValue( { invalid: 'data' } );
 		jest.mocked( validateBlueprintData ).mockResolvedValue( {
 			valid: false,
 			error: 'Invalid blueprint format',
 		} );
-		( fs.remove as unknown as jest.Mock ).mockResolvedValue( undefined );
+		jest.mocked( fs.remove ).mockImplementation( async () => {} );
 
 		await handleAddSiteWithBlueprint( url );
 
@@ -174,10 +181,17 @@ describe( 'handleAddSiteWithBlueprint', () => {
 			const blueprintBase64 = Buffer.from( blueprintJson ).toString( 'base64' );
 			const url = new URL( `wp-studio://add-site?blueprint=${ blueprintBase64 }` );
 
+			jest.mocked( fs.writeJson ).mockImplementation( async () => {} );
+			jest.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
+
 			await handleAddSiteWithBlueprint( url );
 
-			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'add-site-blueprint-from-base64', {
-				blueprintJson,
+			expect( fs.writeJson ).toHaveBeenCalledWith(
+				expect.stringContaining( 'blueprint-' ),
+				blueprintData
+			);
+			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'add-site-with-blueprint', {
+				blueprintPath: expect.stringContaining( 'blueprint-' ),
 			} );
 			expect( download ).not.toHaveBeenCalled();
 		} );

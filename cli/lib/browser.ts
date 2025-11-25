@@ -34,9 +34,7 @@ export async function openBrowser( url: string ): Promise< void > {
 	}
 
 	return new Promise( ( resolve, reject ) => {
-		const child = spawn( cmd, args, {
-			env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
-		} );
+		const child = spawn( cmd, args );
 
 		child.on( 'error', reject );
 

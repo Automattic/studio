@@ -108,7 +108,7 @@ test.describe( 'Site Navigation', () => {
 
 		// Wait for title to be available in iframe
 		const titleSelector = 'h1.editor-post-title';
-		await editorFrame.locator( titleSelector ).waitFor( { timeout: 30_000 } );
+		await editorFrame.locator( titleSelector ).waitFor( { timeout: 10_000 } );
 		await editorFrame.locator( titleSelector ).fill( 'E2E Test Post' );
 
 		// Click into the content area and type

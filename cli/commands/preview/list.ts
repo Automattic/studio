@@ -1,17 +1,22 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
+import Table from 'cli-table3';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
+import { format } from 'date-fns';
 import { getAuthToken } from 'cli/lib/appdata';
 import {
-	getSnapshotCliJson,
-	getSnapshotCliTable,
+	formatDurationUntilExpiry,
 	getSnapshotsFromAppdata,
 	isSnapshotExpired,
 } from 'cli/lib/snapshots';
+import { getColumnWidths } from 'cli/lib/utils';
 import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-export async function runCommand( siteFolder: string, format: 'table' | 'json' ): Promise< void > {
+export async function runCommand(
+	siteFolder: string,
+	outputFormat: 'table' | 'json'
+): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
 	try {
@@ -46,11 +51,41 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			logger.reportSuccess( snapshotsMessage );
 		}
 
-		if ( format === 'table' ) {
-			const table = getSnapshotCliTable( snapshots );
+		if ( outputFormat === 'table' ) {
+			const colWidths = getColumnWidths( [ 0.4, 0.25, 0.175, 0.175 ] );
+			const table = new Table( {
+				head: [ __( 'URL' ), __( 'Site Name' ), __( 'Updated' ), __( 'Expires in' ) ],
+				wordWrap: true,
+				wrapOnWordBoundary: false,
+				colWidths,
+				style: {
+					head: [],
+					border: [],
+				},
+			} );
+
+			for ( const snapshot of snapshots ) {
+				const durationUntilExpiry = formatDurationUntilExpiry( snapshot.date );
+				const url = `https://${ snapshot.url }`;
+
+				table.push( [
+					{ href: url, content: url },
+					snapshot.name,
+					format( snapshot.date, 'yyyy-MM-dd HH:mm' ),
+					durationUntilExpiry,
+				] );
+			}
+
 			console.log( table.toString() );
 		} else {
-			console.log( JSON.stringify( getSnapshotCliJson( snapshots ), null, 2 ) );
+			const output = snapshots.map( ( snapshot ) => ( {
+				url: `https://${ snapshot.url }`,
+				name: snapshot.name,
+				date: format( snapshot.date, 'yyyy-MM-dd HH:mm' ),
+				expiresIn: formatDurationUntilExpiry( snapshot.date ),
+			} ) );
+
+			console.log( JSON.stringify( output, null, 2 ) );
 		}
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {

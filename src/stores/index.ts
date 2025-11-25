@@ -25,10 +25,7 @@ import {
 	snapshotActions,
 } from 'src/stores/snapshot-slice';
 import { syncReducer } from 'src/stores/sync';
-import {
-	connectedSitesReducer,
-	loadAllConnectedSites,
-} from 'src/stores/sync/connected-sites-slice';
+import { connectedSitesApi, connectedSitesReducer } from 'src/stores/sync/connected-sites';
 import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from 'common/lib/locale';
@@ -43,6 +40,7 @@ export type RootState = {
 	providerConstants: ReturnType< typeof providerConstantsReducer >;
 	snapshot: ReturnType< typeof snapshotReducer >;
 	sync: ReturnType< typeof syncReducer >;
+	connectedSitesApi: ReturnType< typeof connectedSitesApi.reducer >;
 	connectedSites: ReturnType< typeof connectedSitesReducer >;
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
@@ -96,11 +94,12 @@ export const rootReducer = combineReducers( {
 	chat: chatReducer,
 	newSites: newSitesReducer,
 	installedAppsApi: installedAppsApi.reducer,
+	connectedSitesApi: connectedSitesApi.reducer,
+	connectedSites: connectedSitesReducer,
 	onboarding: onboardingReducer,
 	providerConstants: providerConstantsReducer,
 	snapshot: snapshotReducer,
 	sync: syncReducer,
-	connectedSites: connectedSitesReducer,
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,
 	wpcomPublicApi: wpcomPublicApi.reducer,
@@ -115,6 +114,7 @@ export const store = configureStore( {
 			.prepend( listenerMiddleware.middleware )
 			.concat( appVersionApi.middleware )
 			.concat( installedAppsApi.middleware )
+			.concat( connectedSitesApi.middleware )
 			.concat( wordpressVersionsApi.middleware )
 			.concat( wpcomApi.middleware )
 			.concat( wpcomPublicApi.middleware )
@@ -143,8 +143,6 @@ async function initializeProviderConstants() {
 // Initialize provider constants immediately, but skip in test environment
 if ( typeof jest === 'undefined' && process.env.NODE_ENV !== 'test' ) {
 	void initializeProviderConstants();
-	// Initialize connected sites on store initialization only in non-test environment
-	void store.dispatch( loadAllConnectedSites() );
 	// Initialize beta features on store initialization only in non-test environment
 	void store.dispatch( loadBetaFeatures() );
 }

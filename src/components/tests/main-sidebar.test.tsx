@@ -46,6 +46,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
 	default: jest.fn(),
 	getIpcApi: () => ( {
+		getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
 		showOpenFolderDialog: jest.fn(),
 		generateProposedSitePath: jest.fn(),
 		openURL: jest.fn(),

@@ -13,7 +13,7 @@ import {
 	selectDefaultPhpVersion,
 	selectDefaultWordPressVersion,
 } from 'src/stores/provider-constants-slice';
-import { useConnectedSitesOperations } from 'src/stores/sync';
+import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { Blueprint } from 'src/stores/wpcom-api';
 import type { SyncOption } from 'src/types';
@@ -22,7 +22,7 @@ export function useAddSite() {
 	const { __ } = useI18n();
 	const { createSite, data: sites, loadingSites, startServer, updateSite } = useSiteDetails();
 	const { importFile, clearImportState } = useImportExport();
-	const { connectSite } = useConnectedSitesOperations();
+	const [ connectSite ] = useConnectSiteMutation();
 	const { pullSite } = useSyncSites();
 	const { setSelectedTab } = useContentTabs();
 	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
@@ -153,7 +153,7 @@ export function useAddSite() {
 						} );
 					} else {
 						if ( selectedRemoteSite ) {
-							await connectSite( selectedRemoteSite, newSite.id );
+							await connectSite( { site: selectedRemoteSite, localSiteId: newSite.id } );
 							const pullOptions: SyncOption[] = [ 'all' ];
 							pullSite( selectedRemoteSite, newSite, {
 								optionsToSync: pullOptions,

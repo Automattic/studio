@@ -107,7 +107,7 @@ test.describe( 'Site Navigation', () => {
 		await closeWelcomeGuide( page );
 
 		// Wait for title to be available in iframe
-		const titleSelector = 'h1.editor-post-title';
+		const titleSelector = 'h1.editor-post-title__input';
 		await editorFrame.locator( titleSelector ).waitFor( { timeout: 10_000 } );
 		await editorFrame.locator( titleSelector ).fill( 'E2E Test Post' );
 
@@ -117,12 +117,17 @@ test.describe( 'Site Navigation', () => {
 		await contentBlock.fill( 'This is a test post created by automated E2E tests.' );
 
 		// Publish the post (publish buttons are on main page)
-		const publishButton = page.locator( 'button.editor-post-publish-button__button' ).first();
+		const publishButton = page.locator(
+			'button.editor-post-publish-button__button.editor-post-publish-panel__toggle'
+		);
+
 		await publishButton.waitFor( { state: 'visible', timeout: 10_000 } );
 		await publishButton.click();
 
 		// Wait for and click the confirm publish button in the panel
-		const confirmPublishButton = page.locator( 'button.editor-post-publish-button__button' ).last();
+		const confirmPublishButton = page.locator(
+			'.editor-post-publish-panel__header-publish-button button.editor-post-publish-button__button'
+		);
 		await confirmPublishButton.waitFor( { state: 'visible', timeout: 10_000 } );
 		await confirmPublishButton.click();
 
@@ -306,7 +311,7 @@ test.describe( 'Site Navigation', () => {
 		await closeWelcomeGuide( page );
 
 		// Wait for title to be available in iframe
-		const titleSelector = 'h1.editor-post-title';
+		const titleSelector = 'h1.editor-post-title__input';
 		await editorFrame.locator( titleSelector ).waitFor( { timeout: 30_000 } );
 		await editorFrame.locator( titleSelector ).fill( 'Permalink Test Post' );
 
@@ -316,12 +321,18 @@ test.describe( 'Site Navigation', () => {
 		await contentBlock.fill( 'Testing permalink structure.' );
 
 		// Publish the post (publish buttons are on main page)
-		const publishButton = page.locator( 'button.editor-post-publish-button__button' ).first();
+		const publishButton = page.locator(
+			'button.editor-post-publish-button__button.editor-post-publish-panel__toggle'
+		);
+
 		await publishButton.waitFor( { state: 'visible', timeout: 10_000 } );
 		await publishButton.click();
 
 		// Wait for and click the confirm publish button in the panel
-		const confirmPublishButton = page.locator( 'button.editor-post-publish-button__button' ).last();
+		const confirmPublishButton = page.locator(
+			'.editor-post-publish-panel__header-publish-button button.editor-post-publish-button__button'
+		);
+
 		await confirmPublishButton.waitFor( { state: 'visible', timeout: 10_000 } );
 		await confirmPublishButton.click();
 

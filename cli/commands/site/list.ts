@@ -101,7 +101,6 @@ export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 			const loggerError = new LoggerError( __( 'Failed to load sites' ), error );
 			logger.reportError( loggerError );
 		}
-		process.exit( 1 );
 	} finally {
 		disconnect();
 	}

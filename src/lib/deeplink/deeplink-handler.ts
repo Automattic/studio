@@ -1,13 +1,13 @@
-import { handleAddSiteWithBlueprint } from 'src/lib/deeplink/handlers/add-site-blueprint-with-url';
+import { handleAddSiteWithBlueprint } from 'src/lib/deeplink/handlers/add-site-with-blueprint';
 import { handleAuthDeeplink } from 'src/lib/deeplink/handlers/auth';
 import { handleSyncConnectSiteDeeplink } from 'src/lib/deeplink/handlers/sync-connect-site';
 
 /**
  * Main deeplink handler that routes incoming deeplinks to the appropriate handler.
  * Supports the following deeplink schemes:
- * - wpcom-local-dev://auth - OAuth authentication callback
- * - wpcom-local-dev://sync-connect-site - Sync site connection from WordPress.com
- * - wpcom-local-dev://add-site?blueprint_url=<encoded-url> - Add site with blueprint from URL
+ * - wp-studio://auth - OAuth authentication callback
+ * - wp-studio://sync-connect-site - Sync site connection from WordPress.com
+ * - wp-studio://add-site?blueprint_url=<encoded-url> - Add site with blueprint from URL
  */
 export async function handleDeeplink( url: string ): Promise< void > {
 	const urlObject = new URL( url );

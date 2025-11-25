@@ -22,9 +22,10 @@ export default defineConfig( {
 	],
 	build: {
 		lib: {
-			entry: resolve( __dirname, 'cli/index.ts' ),
+			entry: {
+				main: resolve( __dirname, 'cli/index.ts' ),
+			},
 			name: 'StudioCLI',
-			fileName: 'main',
 			formats: [ 'cjs' ],
 		},
 		outDir: 'dist/cli',
@@ -32,11 +33,13 @@ export default defineConfig( {
 		rollupOptions: {
 			external: [
 				/^node:/,
-				/^(path|fs|os|child_process|crypto|http|https|http2|url|querystring|stream|util|events|buffer|assert|net|tty|readline|zlib|constants)$/,
+				/^(path|fs|os|child_process|crypto|http|https|http2|url|querystring|stream|util|events|buffer|assert|net|tty|readline|zlib|constants|tls|domain)$/,
+				'fs/promises',
+				'pm2',
 			],
 			output: {
 				format: 'cjs',
-				entryFileNames: 'main.js',
+				entryFileNames: '[name].js',
 			},
 		},
 		commonjsOptions: {

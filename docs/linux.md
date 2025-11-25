@@ -73,7 +73,7 @@ For easier access, you can create a desktop entry file that will add Studio to y
    Exec=<absolute-path-to-repo>/out/Studio-linux-x64/studio %U
    Type=Application
    Terminal=false
-   MimeType=x-scheme-handler/wpcom-local-dev;
+   MimeType=x-scheme-handler/wp-studio;
    Categories=Development;
    ```
 
@@ -93,7 +93,7 @@ For easier access, you can create a desktop entry file that will add Studio to y
    update-desktop-database ~/.local/share/applications
    ```
 
-Studio should now appear in your application launcher and can handle `wpcom-local-dev://` protocol URLs.
+Studio should now appear in your application launcher and can handle `wp-studio://` protocol URLs.
 
 ## Running with Wayland
 

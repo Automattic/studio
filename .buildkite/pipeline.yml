@@ -13,7 +13,6 @@ steps:
     key: lint
     command: |
       .buildkite/commands/install-node-dependencies.sh
-      cd scripts/compare-perf && npm install && cd -
       echo '--- :eslint: Lint'
       npm run lint
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
@@ -54,6 +53,9 @@ steps:
     matrix:
       - mac
       - windows
+    # Skip E2E tests on draft PRs to save CI resources
+    # Tests will run automatically when PR is marked ready for review
+    if: build.branch == 'trunk' || build.tag =~ /^v[0-9]+/ || !build.pull_request.draft
     notify:
       - github_commit_status:
           context: E2E Tests
@@ -158,11 +160,6 @@ steps:
       bundle exec fastlane distribute_dev_build
     agents:
       queue: mac
-    # Using concurrency_group to ensure the CI builds from `trunk` & the git tag, which are likely to run at roughly the
-    # same time, don't run into a race condition when downloading+updating+uploading the `releases.json` file from/to S3
-    concurrency_group: studio/release-manifest-update
-    concurrency: 1
-    concurrency_method: eager
     depends_on:
       - step: dev-mac
       - step: dev-windows
@@ -258,11 +255,6 @@ steps:
       bundle exec fastlane distribute_release_build
     agents:
       queue: mac
-    # Using concurrency_group to ensure the CI builds from `trunk` & the git tag, which are likely to run at roughly the
-    # same time, don't run into a race condition when downloading+updating+uploading the `releases.json` file from/to S3
-    concurrency_group: studio/release-manifest-update
-    concurrency: 1
-    concurrency_method: eager
     depends_on:
       - step: release-mac
       - step: release-windows

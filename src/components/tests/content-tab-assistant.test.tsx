@@ -15,8 +15,10 @@ import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
 import { generateMessage, chatActions } from 'src/stores/chat-slice';
-import { testActions } from 'src/stores/tests/utils/test-reducer';
+import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 import { useGetAssistantQuota, useGetWelcomeMessages } from 'src/stores/wpcom-api';
+
+store.replaceReducer( testReducer );
 
 jest.mock( 'src/hooks/use-auth' );
 jest.mock( 'src/hooks/use-offline' );

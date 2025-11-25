@@ -337,9 +337,7 @@ describe( 'AddSite', () => {
 
 		expect( screen.getByDisplayValue( 'My WordPress Website changed' ) ).toBeVisible();
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
-		expect(
-			screen.getByDisplayValue( '/default_path/my-wordpress-website-changed' )
-		).toBeVisible();
+		expect( screen.getByText( '/default_path/my-wordpress-website-changed' ) ).toBeVisible();
 
 		await user.keyboard( '{Escape}' );
 		await waitFor( () => {
@@ -354,7 +352,7 @@ describe( 'AddSite', () => {
 
 		expect( screen.getByDisplayValue( 'My WordPress Website' ) ).toBeVisible();
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
-		expect( screen.getByDisplayValue( '/default_path/my-wordpress-website' ) ).toBeVisible();
+		expect( screen.getByText( '/default_path/my-wordpress-website' ) ).toBeVisible();
 	} );
 
 	it( 'should reset to the proposed path when the path is set to default app directory', async () => {
@@ -395,9 +393,7 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByDisplayValue( 'My WordPress Website' ) );
 		await user.type( screen.getByDisplayValue( 'My WordPress Website' ), ' mutated' );
 
-		expect(
-			screen.getByDisplayValue( '/default_path/my-wordpress-website-mutated' )
-		).toBeVisible();
+		expect( screen.getByText( '/default_path/my-wordpress-website-mutated' ) ).toBeVisible();
 	} );
 
 	it( 'should display WordPress version dropdown', async () => {

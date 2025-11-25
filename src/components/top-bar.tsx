@@ -114,6 +114,7 @@ function SettingsButton() {
 			onClick={ () => getIpcApi().showUserSettings( 'preferences' ) }
 			aria-label={ __( 'Open settings' ) }
 			variant="icon"
+			data-testid="settings-button"
 		>
 			<Icon className="text-white" size={ 24 } icon={ cog } />
 		</Button>

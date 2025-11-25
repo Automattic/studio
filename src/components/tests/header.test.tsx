@@ -32,6 +32,7 @@ const mockedSites = [
 
 function mockGetIpcApi( mocks: Record< string, jest.Mock > ) {
 	mockedGetIpcApi.mockReturnValue( {
+		getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
 		getSiteDetails: jest.fn( () => Promise.resolve( mockedSites ) ),
 		getSnapshots: jest.fn( () => Promise.resolve( [] ) ),
 		saveSnapshotsToStorage: jest.fn( () => Promise.resolve() ),

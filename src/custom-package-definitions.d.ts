@@ -38,14 +38,4 @@ declare module '*.wasm' {
 	export default dataUri;
 }
 
-declare module '@timfish/forge-externals-plugin' {
-	import type { PluginBase } from '@electron-forge/plugin-base';
-
-	class ForgeExternalsPlugin extends PluginBase< { externals: string[] } > {
-		name: string;
-	}
-
-	export = ForgeExternalsPlugin;
-}
-
 declare module 'wpcom-xhr-request';

@@ -64,7 +64,7 @@ graph TB
     RunCLI --> SetupMode{Setup Mode?}
 
     SetupMode --> |Yes| RunBlueprint["Command run-blueprint<br/>Installs WP if needed<br/>Runs blueprint steps<br/>Process exits on completion"]
-    SetupMode --> |No| StartServer["Command server<br/>skipWordPressSetup true<br/>Keeps process running"]
+    SetupMode --> |No| StartServer["Command server<br/>wordpressInstallMode: install-from-existing-files-if-needed<br/>Keeps process running"]
 
     RunBlueprint --> MountDirs["Mount Directories<br/>wordpress to site path<br/>internal studio mu-plugins<br/>internal shared mu-plugins"]
 
@@ -102,7 +102,7 @@ graph TB
 
     StartProcess --> ForkChild["Fork utility process<br/>playground-server-process-child ts"]
 
-    ForkChild --> RunServer["runCLI with server command<br/>skipWordPressSetup true<br/>port assigned port<br/>mount paths"]
+    ForkChild --> RunServer["runCLI with server command<br/>wordpressInstallMode: install-from-existing-files-if-needed<br/>port assigned port<br/>mount paths"]
 
     RunServer --> WaitReady[Wait for ready message]
 

@@ -20,6 +20,14 @@ const siteSchema = z
 		path: z.string(),
 		name: z.string(),
 		phpVersion: z.string(),
+		customDomain: z.string().optional(),
+		port: z.number(),
+		enableHttps: z.boolean().optional(),
+		adminPassword: z.string().optional(),
+		isWpAutoUpdating: z.boolean().optional(),
+		running: z.boolean().optional(),
+		url: z.string().optional(),
+		latestCliPid: z.number().optional(),
 	} )
 	.passthrough();
 
@@ -34,6 +42,7 @@ const newSiteSchema = z
 const betaFeaturesSchema = z
 	.object( {
 		studioSitesCli: z.boolean().optional(),
+		createSiteFromRemote: z.boolean().optional(),
 	} )
 	.passthrough();
 
@@ -46,7 +55,11 @@ const userDataSchema = z
 		authToken: z
 			.object( {
 				accessToken: z.string().min( 1, __( 'Access token cannot be empty' ) ),
+				expiresIn: z.number(), // Seconds
+				expirationTime: z.number(), // Milliseconds since the Unix epoch
 				id: z.number().optional(),
+				email: z.string(),
+				displayName: z.string().default( '' ),
 			} )
 			.passthrough()
 			.optional(),
@@ -145,7 +158,7 @@ export async function getAuthToken(): Promise< ValidatedAuthToken > {
 	try {
 		const { authToken } = await readAppdata();
 
-		if ( ! authToken?.accessToken || ! authToken?.id ) {
+		if ( ! authToken?.accessToken || ! authToken?.id || Date.now() >= authToken?.expirationTime ) {
 			throw new Error( 'Authentication required' );
 		}
 
@@ -211,3 +224,33 @@ export const getOrCreateSiteByFolder = async ( siteFolder: string ): Promise< Ne
 		return createNewSite( siteFolder );
 	}
 };
+
+export function getSiteUrl( site: SiteData ): string {
+	if ( site.url ) {
+		return site.url;
+	}
+
+	if ( site.customDomain ) {
+		const protocol = site.enableHttps ? 'https' : 'http';
+		return `${ protocol }://${ site.customDomain }`;
+	}
+
+	return `http://localhost:${ site.port }`;
+}
+
+export async function updateSiteLatestCliPid( siteId: string, pid: number ): Promise< void > {
+	try {
+		await lockAppdata();
+		const userData = await readAppdata();
+		const site = userData.sites.find( ( s ) => s.id === siteId );
+
+		if ( ! site ) {
+			throw new LoggerError( __( 'Site not found' ) );
+		}
+
+		site.latestCliPid = pid;
+		await saveAppdata( userData );
+	} finally {
+		await unlockAppdata();
+	}
+}

@@ -76,6 +76,7 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 			sublabel: process.platform === 'darwin' ? definition.description : undefined,
 			click: async ( menuItem: MenuItem ) => {
 				await updateBetaFeature( key as keyof BetaFeatures, menuItem.checked );
+				void sendIpcEventToRenderer( 'beta-features-updated' );
 			},
 		};
 	} );

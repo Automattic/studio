@@ -14,6 +14,12 @@ const BETA_FEATURES_DEFINITION: Record< keyof BetaFeatures, BetaFeatureDefinitio
 		default: false,
 		description: '"studio site" command to manage local sites from terminal',
 	},
+	multiWorkerSupport: {
+		label: 'Multi-Worker Support',
+		key: 'multiWorkerSupport',
+		default: false,
+		description: 'Enable multi-worker PHP processing for faster performance',
+	},
 	createSiteFromRemote: {
 		label: 'Site creation from existing remote site',
 		key: 'createSiteFromRemote',

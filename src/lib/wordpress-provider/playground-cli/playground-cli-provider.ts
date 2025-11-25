@@ -6,6 +6,7 @@ import { WordPressInstallMode } from '@wp-playground/wordpress';
 import { recursiveCopyDirectory, pathExists, isWordPressDirectory } from 'common/lib/fs-utils';
 import { DEFAULT_LOCALE } from 'common/lib/locale';
 import { isOnline } from 'common/lib/network-utils';
+import { getBetaFeatures } from 'src/lib/beta-features';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { isValidWordPressVersion } from 'src/lib/wordpress-version-utils';
@@ -26,6 +27,7 @@ export interface PlaygroundCliOptions {
 	autoMount: boolean;
 	wordpressInstallMode: WordPressInstallMode;
 	blueprint?: Blueprint;
+	enableMultiWorker?: boolean;
 }
 
 export const PLAYGROUND_CLI_PROVIDER_NAME = 'playground-cli';
@@ -64,6 +66,13 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		const phpVersion = options.phpVersion || '8.3';
 		const hasWordPress = isWordPressDirectory( options.path );
 
+		// Get beta features to check if multi-worker support is enabled
+		const betaFeatures = await getBetaFeatures();
+
+		if ( betaFeatures.multiWorkerSupport ) {
+			console.log( '[PlaygroundCliProvider] Multi-worker support is enabled via beta features' );
+		}
+
 		const playgroundOptions: PlaygroundCliOptions = {
 			port,
 			phpVersion,
@@ -73,6 +82,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				? 'install-from-existing-files-if-needed'
 				: 'download-and-install',
 			blueprint: options.blueprint,
+			enableMultiWorker: betaFeatures.multiWorkerSupport,
 		};
 
 		const serverOptions: WordPressServerOptions = {

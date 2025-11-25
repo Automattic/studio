@@ -156,7 +156,7 @@ def distribute_builds(
     },
     windows_update: {
       binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'x64', "studio-update.nupkg"),
-      name: 'Windows Update',
+      name: 'Windows - x64 Update',
       platform: 'Windows - x64',
 	  arch: 'x64',
       install_type: 'Update',
@@ -164,7 +164,7 @@ def distribute_builds(
     },
 	windows_arm64_update: {
 		binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'arm64', "studio-update.nupkg"),
-		name: 'Windows Update',
+		name: 'Windows - ARM64 Update',
 		platform: 'Windows - ARM64',
 		arch: 'arm64',
 		install_type: 'Update',
@@ -189,7 +189,7 @@ def distribute_builds(
     },
     windows: {
       binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'x64', 'studio-setup.exe'),
-      name: 'Windows',
+      name: 'Windows - x64',
       platform: 'Windows - x64',
 	  arch: 'x64',
       install_type: 'Full Install'
@@ -203,14 +203,14 @@ def distribute_builds(
     },
 	windows_appx_unsigned: {
 		binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-x64-unsigned', "Studio #{appx_version} unsigned.appx"),
-		name: 'Windows (Unsigned Appx)',
+		name: 'Windows - x64 (Unsigned Appx)',
 		platform: 'Microsoft Store - x64',
 		arch: 'x64',
 		install_type: 'Full Install',
 	},
 	windows_arm64_appx_unsigned: {
 		binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-arm64-unsigned', "Studio #{appx_version} unsigned.appx"),
-		name: 'Windows (Unsigned Appx)',
+		name: 'Windows - ARM64 (Unsigned Appx)',
 		platform: 'Microsoft Store - ARM64',
 		arch: 'arm64',
 		install_type: 'Full Install',

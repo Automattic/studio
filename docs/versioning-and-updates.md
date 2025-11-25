@@ -31,7 +31,8 @@ duplicating the version number in the tag is still useful for comparing
 changesets in GitHub.
 
 To generate dev builds CI modifies `package.json`, using the first part of the
-version (before the hyphen) and appending `-dev.abc123`.
+version (before the hyphen) and appending `-devN` where N is the number of commits
+since the last release tag. For example: `1.0.0-dev123`.
 See `scripts/prepare-dev-build-version.mjs`.
 
 ## Updating Logic
@@ -40,6 +41,13 @@ Studio checks for updates on launch and every hour after that, for both release
 and dev builds. In case of dev build, if there is prod build bigger than the
 latest dev build, then will be updated to the prod build. Otherwise, to the latest dev build.
 
-## Releases Manifest and CDN
+## Update System
 
-The `releases.json` file serves as an authoritative source of update information for the App to update. It is generated entirely by the Apps CDN endpoint https://appscdn.wordpress.com/builds/wordpress-com-studio/releases.json proxied from https://public-api.wordpress.com/wpcom/v2/studio-app/updates?platform=darwin&arch=arm64&version=1.5.3-dev2
+Studio uses Electron's built-in auto-updater to check for updates. The update feed URL
+is constructed dynamically based on the current platform, architecture, and version,
+and queries the WordPress.com API endpoint:
+
+`https://public-api.wordpress.com/wpcom/v2/studio-app/updates?platform={platform}&arch={arch}&version={version}`
+
+The API returns information about available updates, and the app downloads and installs
+them automatically. See `src/updates.ts` for the implementation.

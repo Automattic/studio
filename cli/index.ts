@@ -1,8 +1,7 @@
 import 'cli/polyfills/browser-globals.js';
 import path from 'node:path';
 import { __ } from '@wordpress/i18n';
-import { suppressElectronEnvWarning } from 'common/lib/suppress-electron-env-warning';
-import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
+import { suppressCliWarnings } from 'common/lib/suppress-cli-warnings';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import yargs from 'yargs';
 import { registerCommand as registerAuthLoginCommand } from 'cli/commands/auth/login';
@@ -19,8 +18,7 @@ import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
 import { version } from 'cli/package.json';
 import { StudioArgv } from 'cli/types';
 
-suppressElectronEnvWarning();
-suppressPunycodeWarning();
+suppressCliWarnings();
 
 async function main() {
 	const yargsLocale = await loadTranslations();

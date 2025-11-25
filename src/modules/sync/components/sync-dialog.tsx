@@ -339,7 +339,7 @@ export function SyncDialog( {
 					{ type === 'push' && (
 						<div className="mb-4">
 							<div className="flex justify-between items-center text-xs mb-2">
-								<div className="text-a8c-gray-700 font-medium">{ formattedSize }</div>
+								<div className="text-a8c-gray-90 font-medium uppercase">{ formattedSize }</div>
 								<div className="text-a8c-gray-700">
 									{ isPushSelectionOverLimit && (
 										<span className="text-[#D63638] font-medium">

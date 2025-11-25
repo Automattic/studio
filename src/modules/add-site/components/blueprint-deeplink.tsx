@@ -33,11 +33,7 @@ export default function BlueprintDeeplink( { selectedBlueprint }: BlueprintDeepl
 							{ __( 'Blueprint selected' ) }
 						</Text>
 					</HStack>
-					<Text
-						className="text-base font-medium text-gray-900 max-w-md px-4"
-						weight={ 400 }
-						title={ blueprintTitle }
-					>
+					<Text className="text-base font-medium text-gray-900 max-w-md px-4" weight={ 400 }>
 						{ blueprintTitle }
 					</Text>
 					{ blueprintDescription && (

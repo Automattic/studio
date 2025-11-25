@@ -3,8 +3,8 @@
  */
 import { app, dialog, BrowserWindow } from 'electron';
 import fs from 'fs-extra';
+import { validateBlueprintData } from 'common/lib/blueprint-validation';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { validateBlueprintData } from 'src/lib/blueprint-features';
 import { handleAddSiteWithBlueprint } from 'src/lib/deeplink/handlers/add-site-with-blueprint';
 import { download } from 'src/lib/download';
 import { getMainWindow } from 'src/main-window';

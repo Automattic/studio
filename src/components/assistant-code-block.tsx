@@ -8,7 +8,7 @@ import Button from 'src/components/button';
 import { ChatMessageProps } from 'src/components/chat-message';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import { ExecuteIcon } from 'src/components/icons/execute';
-import { OpenBlueprintButton } from 'src/components/open-blueprint-button';
+import { AddSiteWithBlueprintButton } from 'src/components/add-site-with-blueprint-button';
 import { useExecuteWPCLI } from 'src/hooks/use-execute-cli';
 import { useIsValidBlueprint } from 'src/hooks/use-is-valid-blueprint';
 import { useIsValidWpCliInline } from 'src/hooks/use-is-valid-wp-cli-inline';
@@ -74,7 +74,7 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 					} }
 				></CopyTextButton>
 				{ isValidBlueprint && (
-					<OpenBlueprintButton
+					<AddSiteWithBlueprintButton
 						content={ content }
 						variant="outlined"
 						className="h-auto mr-2 !px-2.5 py-0.5 font-sans select-none"

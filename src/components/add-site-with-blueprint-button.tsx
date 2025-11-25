@@ -4,7 +4,7 @@ import { PROTOCOL_PREFIX } from 'common/constants';
 import Button, { ButtonProps } from 'src/components/button';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
-type OpenBlueprintButtonProps = ButtonProps & {
+type AddSiteWithBlueprintButtonProps = ButtonProps & {
 	content: string;
 };
 
@@ -15,13 +15,13 @@ function createBlueprintDeeplinkUrl( blueprintContent: string ): string {
 	return `${ PROTOCOL_PREFIX }://add-site?blueprint=${ encodeURIComponent( base64 ) }`;
 }
 
-export function OpenBlueprintButton( {
+export function AddSiteWithBlueprintButton( {
 	content,
 	children,
 	icon = plus,
 	onClick,
 	...props
-}: OpenBlueprintButtonProps ) {
+}: AddSiteWithBlueprintButtonProps ) {
 	return (
 		<Button
 			{ ...props }

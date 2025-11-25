@@ -8,10 +8,9 @@ import { getUrlWithAutoLogin } from './utils';
 
 /**
  * Closes the WordPress Block Editor welcome guide if it appears.
- * Attempts to close up to 3 times as the modal can appear multiple times.
+ * Attempts to close up to 2 times as the modal can appear multiple times.
  */
 async function closeWelcomeGuide( page: Page ) {
-	// Try to close the modal up to 3 times
 	for ( let i = 0; i < 2; i++ ) {
 		try {
 			// Wait for the modal frame to appear

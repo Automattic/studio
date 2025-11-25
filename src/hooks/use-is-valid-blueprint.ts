@@ -22,7 +22,6 @@ export function useIsValidBlueprint( className?: string, content?: string ) {
 
 	useEffect( () => {
 		const validate = async () => {
-			setIsBlueprintValid( false );
 			if ( ! blueprintJson ) {
 				return;
 			}
@@ -31,7 +30,7 @@ export function useIsValidBlueprint( className?: string, content?: string ) {
 				const validation = await getIpcApi().validateBlueprint( blueprintJson );
 				setIsBlueprintValid( Boolean( validation.valid ) );
 			} catch {
-				setIsBlueprintValid( false );
+				console.error( 'Failed to validate blueprint' );
 			}
 		};
 

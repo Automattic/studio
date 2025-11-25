@@ -222,13 +222,23 @@ export function SyncDialog( {
 		onRequestClose();
 	};
 
+	const getBottomPadding = () => {
+		if ( type === 'pull' ) {
+			return 'pb-[70px]'; // Original padding for pull
+		}
+		if ( isPushSelectionOverLimit ) {
+			return 'pb-[200px]'; // Progress bar + warning notice
+		}
+		return 'pb-[110px]'; // Just progress bar
+	};
+
 	return (
 		<Modal
 			className="w-3/5 min-w-[550px] max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
 			title={ syncTexts.title }
 		>
-			<div className={ isPushSelectionOverLimit ? 'pb-[140px]' : 'pb-[70px]' }>
+			<div className={ getBottomPadding() }>
 				<div className="px-8 pb-6 pt-1">{ syncTexts.description }</div>
 				<div className="px-8">
 					<span className="sr-only">

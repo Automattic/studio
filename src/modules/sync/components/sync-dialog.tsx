@@ -8,6 +8,7 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
+import ProgressBar from 'src/components/progress-bar';
 import { Tooltip } from 'src/components/tooltip';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
 import { SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
@@ -140,11 +141,14 @@ export function SyncDialog( {
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );
 	const isSubmitDisabled = treeState.every( ( node ) => ! node.checked && ! node.indeterminate );
-	const { isPushSelectionOverLimit, isLoading: isSizeCheckLoading } = useSelectedItemsPushSize(
-		localSite.id,
-		treeState,
-		type
-	);
+	const {
+		isPushSelectionOverLimit,
+		isLoading: isSizeCheckLoading,
+		totalSize,
+		limitBytes,
+		formattedSize,
+		formattedOverAmount,
+	} = useSelectedItemsPushSize( localSite.id, treeState, type );
 
 	const { fetchChildren, rewindId, isLoadingRewindId, isErrorRewindId, isLoadingLocalFileTree } =
 		useDynamicTreeState( type, localSite.id, remoteSite.id, setTreeState );
@@ -321,7 +325,22 @@ export function SyncDialog( {
 					</div>
 				</Tooltip>
 
-				<div className="px-8 py-4 absolute left-0 right-0 bottom-0 bg-white z-10">
+				<div className="px-8 py-4 absolute left-0 right-0 bottom-0 bg-white z-10 border-t border-a8c-gray-5">
+					{ type === 'push' && (
+						<div className="mb-4">
+							<div className="flex justify-between items-center text-xs mb-2">
+								<div className="text-a8c-gray-700">
+									{ isPushSelectionOverLimit && (
+										<span className="text-[#D63638] font-medium">
+											{ sprintf( __( '%s over' ), formattedOverAmount ) }
+										</span>
+									) }
+								</div>
+								<div className="text-a8c-gray-700 font-medium">{ formattedSize }</div>
+							</div>
+							<ProgressBar value={ totalSize } maxValue={ limitBytes } />
+						</div>
+					) }
 					{ type === 'push' && isPushSelectionOverLimit && (
 						<Notice status="warning" isDismissible={ false } className="mb-4">
 							<p data-testid="push-selection-over-limit-notice">

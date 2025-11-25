@@ -1,7 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { TreeNode } from 'src/components/tree-view';
-import { SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
+import { SYNC_PUSH_SIZE_LIMIT_BYTES, SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+
+const formatFileSize = ( bytes: number ) => {
+	if ( bytes === 0 ) return '0 Bytes';
+	const k = 1024;
+	const sizes = [ 'Bytes', 'KB', 'MB', 'GB' ];
+	const i = Math.floor( Math.log( bytes ) / Math.log( k ) );
+	return Math.round( ( bytes / Math.pow( k, i ) ) * 100 ) / 100 + ' ' + sizes[ i ];
+};
 
 export function useSelectedItemsPushSize(
 	siteId: string,
@@ -10,10 +18,12 @@ export function useSelectedItemsPushSize(
 ) {
 	const [ isPushSelectionOverLimit, setIsPushSelectionOverLimit ] = useState( false );
 	const [ isLoading, setIsLoading ] = useState( false );
+	const [ totalSize, setTotalSize ] = useState( 0 );
 
 	const checkSelectedItemsSize = useCallback( async () => {
 		if ( ! siteId || ! treeState.length || type !== 'push' ) {
 			setIsPushSelectionOverLimit( false );
+			setTotalSize( 0 );
 			return;
 		}
 
@@ -24,6 +34,7 @@ export function useSelectedItemsPushSize(
 
 			if ( isEverythingSelected ) {
 				const size = await getIpcApi().getDirectorySize( siteId, [ 'wp-content' ] );
+				setTotalSize( size );
 				setIsPushSelectionOverLimit( size > SYNC_PUSH_SIZE_LIMIT_BYTES );
 				return;
 			}
@@ -78,14 +89,17 @@ export function useSelectedItemsPushSize(
 
 			if ( sizePromises.length > 0 ) {
 				const sizes = await Promise.all( sizePromises );
-				const totalSize = sizes.reduce( ( sum, size ) => sum + size, 0 );
-				setIsPushSelectionOverLimit( totalSize > SYNC_PUSH_SIZE_LIMIT_BYTES );
+				const calculatedSize = sizes.reduce( ( sum, size ) => sum + size, 0 );
+				setTotalSize( calculatedSize );
+				setIsPushSelectionOverLimit( calculatedSize > SYNC_PUSH_SIZE_LIMIT_BYTES );
 			} else {
+				setTotalSize( 0 );
 				setIsPushSelectionOverLimit( false );
 			}
 		} catch ( error ) {
 			console.error( 'Error checking selected items size:', error );
 			setIsPushSelectionOverLimit( false );
+			setTotalSize( 0 );
 		} finally {
 			setIsLoading( false );
 		}
@@ -96,5 +110,15 @@ export function useSelectedItemsPushSize(
 		void checkSelectedItemsSize();
 	}, [ checkSelectedItemsSize ] );
 
-	return { isPushSelectionOverLimit, isLoading };
+	const limitBytes = SYNC_PUSH_SIZE_LIMIT_GB * 1024 * 1024 * 1024;
+	const overAmount = totalSize > limitBytes ? totalSize - limitBytes : 0;
+
+	return {
+		isPushSelectionOverLimit,
+		isLoading,
+		totalSize,
+		limitBytes,
+		formattedSize: formatFileSize( totalSize ),
+		formattedOverAmount: formatFileSize( overAmount ),
+	};
 }

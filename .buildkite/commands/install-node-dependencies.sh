@@ -1,4 +1,6 @@
-#!/bin/bash -eu
+#!/bin/bash
+
+set -eu
 
 PLATFORM=$(uname -s)
 ARCHITECTURE=$(uname -m)

@@ -67,6 +67,9 @@ type TwoColorProgressBarProps = {
 	normalColor?: string;
 	overLimitColor?: string;
 	trackColor?: string;
+	showLabels?: boolean;
+	valueLabel?: string;
+	overLimitLabel?: string;
 };
 
 export function TwoColorProgressBar( {
@@ -75,42 +78,57 @@ export function TwoColorProgressBar( {
 	normalColor = '#3858E9',
 	overLimitColor = '#CC1818',
 	trackColor = '#E5E7EB',
+	showLabels = false,
+	valueLabel,
+	overLimitLabel,
 }: TwoColorProgressBarProps ) {
 	const isOverLimit = value > maxValue;
 	const percentage = Math.min( ( value / maxValue ) * 100, 100 );
 
 	return (
-		<div
-			className="relative w-full h-[1.5px] rounded-full overflow-hidden"
-			style={ { backgroundColor: trackColor } }
-		>
-			{ isOverLimit ? (
-				<>
+		<div>
+			{ showLabels && ( valueLabel || overLimitLabel ) && (
+				<div className="flex justify-between items-center text-xs mb-2">
+					<div className="text-a8c-gray-90 font-medium uppercase">{ valueLabel }</div>
+					<div>
+						{ isOverLimit && overLimitLabel && (
+							<span className="text-a8c-gray-700 text-xs">{ overLimitLabel }</span>
+						) }
+					</div>
+				</div>
+			) }
+			<div
+				className="relative w-full h-[1.5px] rounded-full overflow-hidden"
+				style={ { backgroundColor: trackColor } }
+			>
+				{ isOverLimit ? (
+					<>
+						<div
+							className="absolute left-0 top-0 h-full transition-all duration-300"
+							style={ {
+								width: `${ ( maxValue / value ) * 100 }%`,
+								backgroundColor: normalColor,
+							} }
+						/>
+						<div
+							className="absolute top-0 h-full transition-all duration-300"
+							style={ {
+								left: `${ ( maxValue / value ) * 100 }%`,
+								width: `${ ( ( value - maxValue ) / value ) * 100 }%`,
+								backgroundColor: overLimitColor,
+							} }
+						/>
+					</>
+				) : (
 					<div
-						className="absolute left-0 top-0 h-full transition-all duration-300"
+						className="absolute left-0 top-0 h-full rounded-full transition-all duration-300"
 						style={ {
-							width: `${ ( maxValue / value ) * 100 }%`,
+							width: `${ percentage }%`,
 							backgroundColor: normalColor,
 						} }
 					/>
-					<div
-						className="absolute top-0 h-full transition-all duration-300"
-						style={ {
-							left: `${ ( maxValue / value ) * 100 }%`,
-							width: `${ ( ( value - maxValue ) / value ) * 100 }%`,
-							backgroundColor: overLimitColor,
-						} }
-					/>
-				</>
-			) : (
-				<div
-					className="absolute left-0 top-0 h-full rounded-full transition-all duration-300"
-					style={ {
-						width: `${ percentage }%`,
-						backgroundColor: normalColor,
-					} }
-				/>
-			) }
+				) }
+			</div>
 		</div>
 	);
 }

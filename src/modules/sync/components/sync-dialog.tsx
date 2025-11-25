@@ -338,17 +338,13 @@ export function SyncDialog( {
 				<div className="px-8 py-4 absolute left-0 right-0 bottom-0 bg-white z-10 border-t border-a8c-gray-5">
 					{ type === 'push' && (
 						<div className="mb-4">
-							<div className="flex justify-between items-center text-xs mb-2">
-								<div className="text-a8c-gray-90 font-medium uppercase">{ formattedSize }</div>
-								<div>
-									{ isPushSelectionOverLimit && (
-										<span className="text-a8c-gray-700 text-xs">
-											{ sprintf( __( '%s over' ), formattedOverAmount ) }
-										</span>
-									) }
-								</div>
-							</div>
-							<TwoColorProgressBar value={ totalSize } maxValue={ limitBytes } />
+							<TwoColorProgressBar
+								value={ totalSize }
+								maxValue={ limitBytes }
+								showLabels
+								valueLabel={ formattedSize }
+								overLimitLabel={ sprintf( __( '%s over' ), formattedOverAmount ) }
+							/>
 						</div>
 					) }
 					{ type === 'push' && isPushSelectionOverLimit && (

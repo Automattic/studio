@@ -14,7 +14,7 @@ jest.mock( 'fs-extra' );
 jest.mock( 'src/ipc-utils' );
 jest.mock( 'src/lib/download' );
 jest.mock( 'src/main-window' );
-jest.mock( 'src/lib/blueprint-features', () => ( {
+jest.mock( 'common/lib/blueprint-validation', () => ( {
 	validateBlueprintData: jest.fn(),
 } ) );
 

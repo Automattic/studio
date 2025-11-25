@@ -7,8 +7,8 @@ import { readFile, writeFile } from 'atomically';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/constants';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
-import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for-logging';
 import { sortSites } from 'common/lib/sort-sites';
+import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for-logging';
 import { getUserDataFilePath, getUserDataLockFilePath } from 'src/storage/paths';
 import type { PersistedUserData, UserData, WindowBounds } from 'src/storage/storage-types';
 

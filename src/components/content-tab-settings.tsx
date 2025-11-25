@@ -2,11 +2,11 @@ import { DropdownMenu, MenuGroup, Button } from '@wordpress/components';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
+import { decodePassword } from 'common/lib/passwords';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import DeleteSite from 'src/components/delete-site';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { decodePassword } from 'common/lib/passwords';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
 import { useAppDispatch } from 'src/stores';
 import {

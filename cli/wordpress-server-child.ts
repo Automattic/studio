@@ -60,6 +60,66 @@ async function setAdminPassword( server: RunCLIServer, adminPassword: string ): 
 	} );
 }
 
+async function getBaseRunCLIArgs( config: ServerConfig ): Promise< RunCLIArgs > {
+	const hasWordPress = isWordPressDirectory( config.sitePath );
+
+	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
+		isWpAutoUpdating: config.isWpAutoUpdating,
+	} );
+
+	const mounts = [
+		{
+			hostPath: config.sitePath,
+			vfsPath: '/wordpress',
+		},
+		{
+			hostPath: studioMuPluginsHostPath,
+			vfsPath: '/internal/studio/mu-plugins',
+		},
+		{
+			hostPath: loaderMuPluginHostPath,
+			vfsPath: '/internal/shared/mu-plugins/99-studio-loader.php',
+		},
+	];
+
+	const defaultConstants = {
+		WP_SQLITE_AST_DRIVER: true,
+	};
+
+	const args: RunCLIArgs = {
+		command: 'server',
+		internalCookieStore: false,
+		login: false,
+		followSymlinks: true,
+		skipSqliteSetup: true,
+		port: config.port,
+		'mount-before-install': mounts,
+		'site-url': config.absoluteUrl || `http://localhost:${ config.port }`,
+		blueprint: config.blueprint || {},
+		wordpressInstallMode: 'download-and-install',
+	};
+
+	if ( hasWordPress ) {
+		args.wordpressInstallMode = 'install-from-existing-files-if-needed';
+	}
+
+	if ( config.phpVersion ) {
+		args.php = config.phpVersion as SupportedPHPVersion;
+	}
+
+	if ( config.wpVersion ) {
+		if ( isWordPressDevVersion( config.wpVersion ) ) {
+			args.wp = 'nightly';
+		} else {
+			args.wp = config.wpVersion;
+		}
+	}
+
+	args.blueprint.constants = { ...args.blueprint.constants, ...defaultConstants };
+
+	return args;
+}
+
 async function startServer( config: ServerConfig ): Promise< void > {
 	if ( server ) {
 		logToConsole( `Server already running for site ${ config.siteId }` );
@@ -67,66 +127,14 @@ async function startServer( config: ServerConfig ): Promise< void > {
 	}
 
 	try {
-		const hasWordPress = isWordPressDirectory( config.sitePath );
+		const args = await getBaseRunCLIArgs( config );
+		const result = await runCLI( args );
 
-		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
-			isWpAutoUpdating: config.isWpAutoUpdating,
-		} );
-
-		const defaultConstants = {
-			WP_SQLITE_AST_DRIVER: true,
-		};
-
-		const mounts = [
-			{
-				hostPath: config.sitePath,
-				vfsPath: '/wordpress',
-			},
-			{
-				hostPath: studioMuPluginsHostPath,
-				vfsPath: '/internal/studio/mu-plugins',
-			},
-			{
-				hostPath: loaderMuPluginHostPath,
-				vfsPath: '/internal/shared/mu-plugins/99-studio-loader.php',
-			},
-		];
-
-		const args: RunCLIArgs = {
-			command: 'server',
-			internalCookieStore: false,
-			login: false,
-			followSymlinks: true,
-			skipSqliteSetup: true,
-			port: config.port,
-			'mount-before-install': mounts,
-			'site-url': config.absoluteUrl || `http://localhost:${ config.port }`,
-			blueprint: config.blueprint || {},
-			wordpressInstallMode: 'download-and-install',
-		};
-
-		if ( hasWordPress ) {
-			args.wordpressInstallMode = 'install-from-existing-files-if-needed';
-		}
-
-		if ( config.phpVersion ) {
-			args.php = config.phpVersion as SupportedPHPVersion;
-		}
-
-		if ( config.wpVersion ) {
-			if ( isWordPressDevVersion( config.wpVersion ) ) {
-				args.wp = 'nightly';
-			} else {
-				args.wp = config.wpVersion;
-			}
-		}
-
-		args.blueprint.constants = { ...args.blueprint.constants, ...defaultConstants };
-		const server = await runCLI( args );
-
-		if ( ! server ) {
+		if ( ! result ) {
 			throw new Error( 'Failed to start server: runCLI returned void' );
 		}
+
+		server = result;
 
 		if ( config.adminPassword ) {
 			await setAdminPassword( server, config.adminPassword );
@@ -134,6 +142,20 @@ async function startServer( config: ServerConfig ): Promise< void > {
 	} catch ( error ) {
 		server = null;
 		errorToConsole( `Failed to start server:`, error );
+		throw error;
+	}
+}
+
+async function runBlueprint( config: ServerConfig ): Promise< void > {
+	try {
+		const args = await getBaseRunCLIArgs( config );
+		args.command = 'run-blueprint';
+
+		await runCLI( args );
+
+		logToConsole( `Blueprint applied successfully for site ${ config.siteId }` );
+	} catch ( error ) {
+		errorToConsole( `Failed to run blueprint:`, error );
 		throw error;
 	}
 }
@@ -171,8 +193,13 @@ async function ipcMessageHandler( packet: unknown ) {
 				result = await startServer( validMessage.data.config );
 			}
 			break;
+		case 'run-blueprint':
+			if ( validMessage.data.config ) {
+				result = await runBlueprint( validMessage.data.config );
+			}
+			break;
 		default:
-			throw new Error( `Unknown message topic: ${ validMessage.topic }` );
+			throw new Error( `Unknown message.` );
 	}
 
 	const response: ChildMessageRaw = {

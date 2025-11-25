@@ -6,10 +6,10 @@ import { WordPressInstallMode } from '@wp-playground/wordpress';
 import { recursiveCopyDirectory, pathExists, isWordPressDirectory } from 'common/lib/fs-utils';
 import { DEFAULT_LOCALE } from 'common/lib/locale';
 import { isOnline } from 'common/lib/network-utils';
+import { isValidWordPressVersion } from 'common/lib/wordpress-version-utils';
 import { getBetaFeatures } from 'src/lib/beta-features';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
-import { isValidWordPressVersion } from 'common/lib/wordpress-version-utils';
 import { SiteServer } from 'src/site-server';
 import { getResourcesPath, getServerFilesPath } from 'src/storage/paths';
 import {

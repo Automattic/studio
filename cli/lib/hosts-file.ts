@@ -97,7 +97,6 @@ export const addDomainToHosts = async ( domain: string, port: number ): Promise<
 
 		if ( newContent !== hostsContent ) {
 			await writeHostsFile( newContent );
-			console.log( `Domain ${ domain } added to hosts file for port ${ port }` );
 		}
 	} catch ( error ) {
 		console.error( `Error adding domain ${ domain } to hosts file:`, error );

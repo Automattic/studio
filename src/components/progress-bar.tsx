@@ -64,9 +64,9 @@ export function ProgressBarWithAutoIncrement( {
 type TwoColorProgressBarProps = {
 	value: number;
 	maxValue: number;
-	normalColor?: string;
-	overLimitColor?: string;
-	trackColor?: string;
+	normalColorClass?: string;
+	overLimitColorClass?: string;
+	trackColorClass?: string;
 	showLabels?: boolean;
 	valueLabel?: string;
 	overLimitLabel?: string;
@@ -75,9 +75,9 @@ type TwoColorProgressBarProps = {
 export function TwoColorProgressBar( {
 	value,
 	maxValue,
-	normalColor = '#3858E9',
-	overLimitColor = '#CC1818',
-	trackColor = '#E5E7EB',
+	normalColorClass = 'bg-a8c-blue-50',
+	overLimitColorClass = 'bg-a8c-red-50',
+	trackColorClass = 'bg-a8c-gray-5',
 	showLabels = false,
 	valueLabel,
 	overLimitLabel,
@@ -98,34 +98,38 @@ export function TwoColorProgressBar( {
 				</div>
 			) }
 			<div
-				className="relative w-full h-[1.5px] rounded-full overflow-hidden"
-				style={ { backgroundColor: trackColor } }
+				className={ cx(
+					'relative w-full h-[1.5px] rounded-full overflow-hidden',
+					trackColorClass
+				) }
 			>
 				{ isOverLimit ? (
 					<>
 						<div
-							className="absolute left-0 top-0 h-full transition-all duration-300"
-							style={ {
-								width: `${ ( maxValue / value ) * 100 }%`,
-								backgroundColor: normalColor,
-							} }
+							className={ cx(
+								'absolute left-0 top-0 h-full transition-all duration-300',
+								normalColorClass
+							) }
+							style={ { width: `${ ( maxValue / value ) * 100 }%` } }
 						/>
 						<div
-							className="absolute top-0 h-full transition-all duration-300"
+							className={ cx(
+								'absolute top-0 h-full transition-all duration-300',
+								overLimitColorClass
+							) }
 							style={ {
 								left: `${ ( maxValue / value ) * 100 }%`,
 								width: `${ ( ( value - maxValue ) / value ) * 100 }%`,
-								backgroundColor: overLimitColor,
 							} }
 						/>
 					</>
 				) : (
 					<div
-						className="absolute left-0 top-0 h-full rounded-full transition-all duration-300"
-						style={ {
-							width: `${ percentage }%`,
-							backgroundColor: normalColor,
-						} }
+						className={ cx(
+							'absolute left-0 top-0 h-full rounded-full transition-all duration-300',
+							normalColorClass
+						) }
+						style={ { width: `${ percentage }%` } }
 					/>
 				) }
 			</div>

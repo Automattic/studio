@@ -340,9 +340,9 @@ export function SyncDialog( {
 						<div className="mb-4">
 							<div className="flex justify-between items-center text-xs mb-2">
 								<div className="text-a8c-gray-90 font-medium uppercase">{ formattedSize }</div>
-								<div className="text-a8c-gray-700">
+								<div>
 									{ isPushSelectionOverLimit && (
-										<span className="text-[#D63638] font-medium">
+										<span className="text-a8c-gray-700 text-xs">
 											{ sprintf( __( '%s over' ), formattedOverAmount ) }
 										</span>
 									) }

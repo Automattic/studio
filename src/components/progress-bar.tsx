@@ -73,7 +73,7 @@ export function TwoColorProgressBar( {
 	value,
 	maxValue,
 	normalColor = '#3858E9',
-	overLimitColor = '#D63638',
+	overLimitColor = '#CC1818',
 	trackColor = '#E5E7EB',
 }: TwoColorProgressBarProps ) {
 	const isOverLimit = value > maxValue;

@@ -8,7 +8,7 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
-import ProgressBar from 'src/components/progress-bar';
+import { TwoColorProgressBar } from 'src/components/progress-bar';
 import { Tooltip } from 'src/components/tooltip';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
 import { SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
@@ -339,6 +339,7 @@ export function SyncDialog( {
 					{ type === 'push' && (
 						<div className="mb-4">
 							<div className="flex justify-between items-center text-xs mb-2">
+								<div className="text-a8c-gray-700 font-medium">{ formattedSize }</div>
 								<div className="text-a8c-gray-700">
 									{ isPushSelectionOverLimit && (
 										<span className="text-[#D63638] font-medium">
@@ -346,9 +347,8 @@ export function SyncDialog( {
 										</span>
 									) }
 								</div>
-								<div className="text-a8c-gray-700 font-medium">{ formattedSize }</div>
 							</div>
-							<ProgressBar value={ totalSize } maxValue={ limitBytes } />
+							<TwoColorProgressBar value={ totalSize } maxValue={ limitBytes } />
 						</div>
 					) }
 					{ type === 'push' && isPushSelectionOverLimit && (

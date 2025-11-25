@@ -1,4 +1,6 @@
-#!/bin/bash -eu
+#!/bin/bash
+
+set -eu
 
 PLATFORM=$(uname -s)
 ARCHITECTURE=$(uname -m)
@@ -42,12 +44,13 @@ npm ci \
   --maxsockets "$MAX_SOCKETS" \
   "$@"
 
-cd cli; npm ci \
+cd cli
+npm ci \
   --prefer-offline \
   --no-audit \
   --no-progress \
-  --maxsockets "$MAX_SOCKETS"; \
-  cd -
+  --maxsockets "$MAX_SOCKETS"
+cd -
 
 echo "--- :npm: Save cache if necessary"
 # Notice that we don't cache the local node_modules.

@@ -1,6 +1,6 @@
 export default class MockTable {
-	constructor( options: any ) {}
-	push( ...rows: any[] ) {
+	constructor() {}
+	push() {
 		return this;
 	}
 	toString() {

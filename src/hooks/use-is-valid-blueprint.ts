@@ -4,10 +4,7 @@ import type { Blueprint } from 'src/stores/wpcom-api';
 
 export function useIsValidBlueprint( className?: string, content?: string ) {
 	const blueprintJson = useMemo< Blueprint[ 'blueprint' ] | null >( () => {
-		if ( ! className?.includes( 'language-json' ) ) {
-			return null;
-		}
-		if ( ! content ) {
+		if ( ! className?.includes( 'language-json' ) || ! content ) {
 			return null;
 		}
 		try {

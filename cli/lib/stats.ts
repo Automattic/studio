@@ -41,8 +41,6 @@ export async function bumpAggregatedUniqueStat(
 	}
 }
 
-export { bumpStat } from 'common/lib/bump-stat';
-
 // Returns UTC timestamp of the last time the stat was bumped, or null if it has never been bumped.
 async function getLastBump( group: StatsGroup, stat: StatsMetric ): Promise< number | null > {
 	const { lastBumpStats } = await readAppdata();

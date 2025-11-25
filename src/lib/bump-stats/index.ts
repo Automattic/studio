@@ -47,8 +47,6 @@ export function bumpAggregatedUniqueStat(
 		.catch( ( err ) => Sentry.captureException( err ) );
 }
 
-export { bumpStat } from 'common/lib/bump-stat';
-
 // Returns UTC timestamp of the last time the stat was bumped, or null if it has never been bumped.
 async function getLastBump( group: string, stat: string ): Promise< number | null > {
 	const { lastBumpStats } = await loadUserData();

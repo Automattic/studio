@@ -1,8 +1,9 @@
 import { waitFor } from '@testing-library/react';
 import { readFile, writeFile } from 'atomically';
 import nock from 'nock';
+import { bumpStat } from 'common/lib/bump-stat';
 import { AggregateInterval, StatsGroup, StatsMetric } from 'common/types/stats';
-import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
+import { bumpAggregatedUniqueStat } from 'src/lib/bump-stats';
 
 jest.mock( 'atomically', () => ( {
 	readFile: jest.fn(),

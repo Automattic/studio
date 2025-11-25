@@ -33,7 +33,7 @@ if ($Architecture -notin $VALID_ARCHITECTURES) {
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 Write-Host "--- :npm: Installing Node dependencies"
-bash .buildkite/commands/install-node-dependencies.sh
+bash -eu .buildkite/commands/install-node-dependencies.sh
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 Write-Host "--- :node: Building App for Windows ($BuildType - $Architecture)"

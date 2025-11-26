@@ -217,7 +217,10 @@ export async function runCommand(
 
 			await setupCustomDomain( siteDetails, logger );
 
-			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress site...' ) );
+			const startMessage = options.blueprint
+				? __( 'Starting WordPress site and applying blueprint...' )
+				: __( 'Starting WordPress site...' );
+			logger.reportStart( LoggerAction.START_SITE, startMessage );
 			try {
 				await startWordPressServer( siteDetails, { wpVersion: options.wpVersion, blueprint } );
 				logger.reportSuccess( __( 'WordPress site started' ) );

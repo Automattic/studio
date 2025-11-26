@@ -126,7 +126,7 @@ export function SyncSitesModalSelector( {
 	);
 }
 
-function SearchSites( {
+export function SearchSites( {
 	searchQuery,
 	setSearchQuery,
 }: {

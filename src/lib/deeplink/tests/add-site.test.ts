@@ -57,7 +57,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 
 		jest.mocked( download ).mockResolvedValue( undefined );
 		jest.mocked( fs.readJson ).mockResolvedValue( { steps: [] } );
-		jest.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
+		jest.mocked( validateBlueprintData ).mockResolvedValue( { valid: true, warnings: [] } );
 
 		await handleAddSiteWithBlueprint( url );
 
@@ -127,7 +127,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		( mockMainWindow.isMinimized as jest.Mock ).mockReturnValue( true );
 		jest.mocked( download ).mockResolvedValue( undefined );
 		jest.mocked( fs.readJson ).mockResolvedValue( { steps: [] } );
-		jest.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
+		jest.mocked( validateBlueprintData ).mockResolvedValue( { valid: true, warnings: [] } );
 
 		await handleAddSiteWithBlueprint( url );
 
@@ -182,7 +182,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 			const url = new URL( `wp-studio://add-site?blueprint=${ blueprintBase64 }` );
 
 			jest.mocked( fs.writeJson ).mockImplementation( async () => {} );
-			jest.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
+			jest.mocked( validateBlueprintData ).mockResolvedValue( { valid: true, warnings: [] } );
 
 			await handleAddSiteWithBlueprint( url );
 

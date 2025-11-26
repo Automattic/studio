@@ -25,6 +25,7 @@ export enum SiteCommandLoggerAction {
 	START_SITE = 'startSite',
 	VALIDATE = 'validate',
 	CREATE_DIRECTORY = 'createDirectory',
+	INSTALL_SQLITE = 'installSqlite',
 	ASSIGN_PORT = 'assignPort',
 	SETUP_WORDPRESS = 'setupWordPress',
 	SAVE_SITE = 'saveSite',

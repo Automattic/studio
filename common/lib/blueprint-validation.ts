@@ -117,11 +117,15 @@ export function filterUnsupportedBlueprintFeatures(
 	return filtered;
 }
 
-export interface BlueprintValidationResult {
-	valid: boolean;
-	error?: string;
-	warnings?: Array< { feature: string; reason: string; alternative?: string } >;
-}
+type BlueprintValidationError = {
+	valid: false;
+	error: string;
+};
+type BlueprintValidationSuccess = {
+	valid: true;
+	warnings: { feature: string; reason: string }[];
+};
+export type BlueprintValidationResult = BlueprintValidationError | BlueprintValidationSuccess;
 
 /**
  * Validates a blueprint by compiling it and scanning for unsupported features.
@@ -155,6 +159,6 @@ export async function validateBlueprintData(
 
 	return {
 		valid: true,
-		warnings: warnings.length > 0 ? warnings : undefined,
+		warnings,
 	};
 }

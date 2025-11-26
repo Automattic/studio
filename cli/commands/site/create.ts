@@ -97,7 +97,7 @@ export async function runCommand(
 			}
 			const validation = await validateBlueprintData( blueprintJson );
 			if ( ! validation.valid ) {
-				throw new LoggerError( validation.error || __( 'Invalid Blueprint format' ) );
+				throw new LoggerError( validation.error );
 			}
 
 			const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson );
@@ -156,7 +156,7 @@ export async function runCommand(
 				)
 			);
 		}
-		logger.reportStart( LoggerAction.VALIDATE, __( 'Setting up SQLite integration...' ) );
+		logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration...' ) );
 		await keepSqliteIntegrationUpdated( sitePath );
 		logger.reportSuccess( __( 'SQLite integration configured' ) );
 
@@ -280,7 +280,6 @@ export async function runCommand(
 			const loggerError = new LoggerError( __( 'Failed to create site' ), error );
 			logger.reportError( loggerError );
 		}
-		process.exit( 1 );
 	} finally {
 		disconnect();
 	}

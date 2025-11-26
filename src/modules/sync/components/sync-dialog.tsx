@@ -15,6 +15,7 @@ import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
+import { getLatestStableWpVersion } from 'src/lib/version-utils';
 import { hasVersionMismatch } from 'src/modules/preview-site/lib/version-comparison';
 import { SiteNameBox } from 'src/modules/sync/components/site-name-box';
 import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
@@ -158,10 +159,7 @@ export function SyncDialog( {
 	const { data: wpVersions = [] } = useGetWordPressVersions( {
 		minimumVersion: minimumWordPressVersion,
 	} );
-	// Find the first stable version (not 'latest', not beta, not development) to use for comparison
-	const latestWpVersion = wpVersions.find(
-		( version ) => version.value !== 'latest' && ! version.isBeta && ! version.isDevelopment
-	)?.value;
+	const latestWpVersion = getLatestStableWpVersion( wpVersions );
 	const shouldShowVersionMismatch =
 		type === 'push' &&
 		hasVersionMismatch( {

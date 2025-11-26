@@ -8,6 +8,7 @@ import { Tooltip } from 'src/components/tooltip';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteSize } from 'src/hooks/use-site-size';
+import { getLatestStableWpVersion } from 'src/lib/version-utils';
 import { hasVersionMismatch } from 'src/modules/preview-site/lib/version-comparison';
 import { useRootSelector } from 'src/stores';
 import { selectMinimumWordPressVersion } from 'src/stores/provider-constants-slice';
@@ -51,9 +52,7 @@ export function CreatePreviewButton( { onClick, selectedSite, user }: CreatePrev
 	const isCurrentSiteArchiving = !! activeOperationsForCurrentSite;
 	const isOtherSiteArchiving = isAnySiteArchiving && ! isCurrentSiteArchiving;
 
-	const latestWpVersion = wpVersions.find(
-		( version ) => version.value !== 'latest' && ! version.isBeta && ! version.isDevelopment
-	)?.value;
+	const latestWpVersion = getLatestStableWpVersion( wpVersions );
 	const shouldShowMismatchTooltip = hasVersionMismatch( {
 		wpVersion,
 		latestWpVersion,

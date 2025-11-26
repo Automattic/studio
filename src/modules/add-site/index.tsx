@@ -66,6 +66,8 @@ interface NavigationContentProps {
 	setBlueprintPreferredVersions: ( versions: { php?: string; wp?: string } | undefined ) => void;
 	selectedRemoteSite?: SyncSite;
 	setSelectedRemoteSite: ( site?: SyncSite ) => void;
+	isDeeplinkFlow: boolean;
+	setIsDeeplinkFlow: ( isDeeplink: boolean ) => void;
 }
 
 function NavigationContent( props: NavigationContentProps ) {
@@ -79,10 +81,19 @@ function NavigationContent( props: NavigationContentProps ) {
 		setBlueprintPreferredVersions,
 		selectedRemoteSite,
 		setSelectedRemoteSite,
+		isDeeplinkFlow,
+		setIsDeeplinkFlow,
 		...createSiteProps
 	} = props;
 
 	const { setSelectedBlueprint, setPhpVersion, setWpVersion } = createSiteProps;
+
+	useEffect( () => {
+		if ( isDeeplinkFlow ) {
+			goTo( '/blueprintDeeplink' );
+			setIsDeeplinkFlow( false );
+		}
+	}, [ isDeeplinkFlow, goTo, setIsDeeplinkFlow ] );
 
 	const handleOptionSelect = useCallback(
 		( option: AddSiteFlowType ) => {
@@ -308,6 +319,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
 		{ php?: string; wp?: string } | undefined
 	>();
+	const [ isDeeplinkFlow, setIsDeeplinkFlow ] = useState( false );
 
 	const {
 		data: blueprintsData,
@@ -397,6 +409,9 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		setPhpVersion,
 		setWpVersion,
 		setBlueprintPreferredVersions,
+		navigateToBlueprintDeeplink: () => {
+			setIsDeeplinkFlow( true );
+		},
 	} );
 
 	const initialNavigatorPath = selectedBlueprint ? '/blueprintDeeplink' : '/';
@@ -476,6 +491,8 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 						setBlueprintPreferredVersions={ setBlueprintPreferredVersions }
 						selectedRemoteSite={ selectedRemoteSite }
 						setSelectedRemoteSite={ setSelectedRemoteSite }
+						isDeeplinkFlow={ isDeeplinkFlow }
+						setIsDeeplinkFlow={ setIsDeeplinkFlow }
 					/>
 				</Navigator>
 			</FullscreenModal>

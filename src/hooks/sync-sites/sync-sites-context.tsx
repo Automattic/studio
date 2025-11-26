@@ -10,23 +10,22 @@ import {
 	mapImportResponseToPushState,
 } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
+import { useFetchWpComSites } from 'src/hooks/use-fetch-wpcom-sites';
 import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
+import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useAppDispatch } from 'src/stores';
-import { useConnectedSitesData, useSyncSitesData, connectedSitesActions } from 'src/stores/sync';
+import {
+	useGetConnectedSitesForLocalSiteQuery,
+	useUpdateSiteTimestampMutation,
+} from 'src/stores/sync/connected-sites';
 import type { ImportResponse } from 'src/hooks/use-sync-states-progress-info';
 
 type GetLastSyncTimeText = ( timestamp: string | null, type: 'pull' | 'push' ) => string;
-type UpdateSiteTimestamp = (
-	siteId: number | undefined,
-	localSiteId: string,
-	type: 'pull' | 'push'
-) => Promise< void >;
 
 export type SyncSitesContextType = Omit< UseSyncPull, 'pullStates' > &
 	Omit< UseSyncPush, 'pushStates' > &
-	ReturnType< typeof useSyncSitesData > & {
+	ReturnType< typeof useFetchWpComSites > & {
 		getLastSyncTimeText: GetLastSyncTimeText;
 	};
 
@@ -54,46 +53,21 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 		[ formatRelativeTime ]
 	);
 
-	const { connectedSites } = useConnectedSitesData();
-	const dispatch = useAppDispatch();
+	const { selectedSite } = useSiteDetails();
+	const { user } = useAuth();
+	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
+		localSiteId: selectedSite?.id,
+		userId: user?.id,
+	} );
 
-	const updateSiteTimestamp = useCallback< UpdateSiteTimestamp >(
-		async ( siteId, localSiteIdParam, type ) => {
-			const site = connectedSites.find(
-				( { id, localSiteId: siteLocalId } ) => siteId === id && localSiteIdParam === siteLocalId
-			);
-
-			if ( ! site ) {
-				return;
-			}
-
-			try {
-				const updatedSite = {
-					...site,
-					[ type === 'pull' ? 'lastPullTimestamp' : 'lastPushTimestamp' ]: new Date().toISOString(),
-				};
-
-				await getIpcApi().updateSingleConnectedWpcomSite( updatedSite );
-
-				dispatch(
-					connectedSitesActions.updateSite( {
-						localSiteId: localSiteIdParam,
-						site: updatedSite,
-					} )
-				);
-			} catch ( error ) {
-				console.error( 'Failed to update timestamp:', error );
-			}
-		},
-		[ connectedSites, dispatch ]
-	);
+	const [ updateSiteTimestamp ] = useUpdateSiteTimestampMutation();
 
 	const { pullSite, isAnySitePulling, isSiteIdPulling, clearPullState, getPullState, cancelPull } =
 		useSyncPull( {
 			pullStates,
 			setPullStates,
 			onPullSuccess: ( remoteSiteId, localSiteId ) =>
-				updateSiteTimestamp( remoteSiteId, localSiteId, 'pull' ),
+				updateSiteTimestamp( { siteId: remoteSiteId, localSiteId, type: 'pull' } ),
 		} );
 
 	const [ pushStates, setPushStates ] = useState< PushStates >( {} );
@@ -102,10 +76,12 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 			pushStates,
 			setPushStates,
 			onPushSuccess: ( remoteSiteId, localSiteId ) =>
-				updateSiteTimestamp( remoteSiteId, localSiteId, 'push' ),
+				updateSiteTimestamp( { siteId: remoteSiteId, localSiteId, type: 'push' } ),
 		} );
 
-	const { syncSites, isFetching, refetchSites } = useSyncSitesData();
+	const { syncSites, isFetching, refetchSites } = useFetchWpComSites(
+		connectedSites.map( ( { id } ) => id )
+	);
 	useListenDeepLinkConnection( { refetchSites } );
 
 	const { client } = useAuth();

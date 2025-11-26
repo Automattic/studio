@@ -20,6 +20,7 @@ import * as Sentry from '@sentry/electron/main';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { z } from 'zod';
+import { bumpStat } from 'common/lib/bump-stat';
 import {
 	calculateDirectorySize,
 	isWordPressDirectory,
@@ -39,7 +40,6 @@ import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ip
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import { validateBlueprintData } from 'src/lib/blueprint-features';
-import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
 import {
 	openCertificate as openCertificateDialog,
@@ -202,7 +202,14 @@ export async function importSite(
 		return site.details;
 	} catch ( e ) {
 		bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
-		Sentry.captureException( e );
+		// Don't report validation errors to Sentry - these are expected user errors
+		if (
+			! ( e instanceof Error ) ||
+			( ! e.message.includes( 'No suitable importer found for the provided backup contents' ) &&
+				! e.message.includes( 'No suitable backup handler found for the provided backup file' ) )
+		) {
+			Sentry.captureException( e );
+		}
 		throw e;
 	}
 }
@@ -761,6 +768,8 @@ export async function exportSiteForPush(
 			throw new Error( 'Export aborted' );
 		}
 
+		await keepSqliteIntegrationUpdated( site.details.path );
+
 		const shouldIncludeSyncOption = (
 			optionsToSync: SyncOption[] | undefined,
 			option: SyncOption
@@ -926,13 +935,14 @@ export async function clearAuthenticationToken() {
 
 export async function exportSite(
 	event: IpcMainInvokeEvent,
-	options: ExportOptions,
-	siteId: string
+	options: ExportOptions
 ): Promise< boolean > {
 	try {
+		await keepSqliteIntegrationUpdated( options.site.path );
+
 		const onEvent = ( data: ImportExportEventData ) => {
 			const parentWindow = BrowserWindow.fromWebContents( event.sender );
-			sendIpcEventToRendererWithWindow( parentWindow, 'on-export', data, siteId );
+			sendIpcEventToRendererWithWindow( parentWindow, 'on-export', data, options.site.id );
 		};
 
 		const result = await exportBackup( options, onEvent );

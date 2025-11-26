@@ -14,6 +14,7 @@ import ProgressBar from 'src/components/progress-bar';
 import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useSyncSites } from 'src/hooks/sync-sites';
+import { useAuth } from 'src/hooks/use-auth';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
@@ -29,7 +30,10 @@ import {
 } from 'src/modules/sync/lib/convert-tree-to-sync-options';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useAppDispatch, useI18nLocale } from 'src/stores';
-import { connectedSitesActions, useConnectedSitesData } from 'src/stores/sync';
+import {
+	connectedSitesActions,
+	useGetConnectedSitesForLocalSiteQuery,
+} from 'src/stores/sync/connected-sites';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 const SyncConnectedSiteControls = ( {
@@ -51,7 +55,11 @@ const SyncConnectedSiteControls = ( {
 		isSiteIdPushing,
 		getLastSyncTimeText,
 	} = useSyncSites();
-	const { connectedSites } = useConnectedSitesData();
+	const { user } = useAuth();
+	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
+		localSiteId: selectedSite.id,
+		userId: user?.id,
+	} );
 	const isAnyConnectedSiteSyncing = connectedSites.some(
 		( site ) =>
 			isSiteIdPulling( selectedSite.id, site.id ) || isSiteIdPushing( selectedSite.id, site.id )
@@ -206,7 +214,7 @@ const SyncConnectedSitesSectionItem = ( {
 	return (
 		<div className="grid grid-cols-[max-content_1fr_max-content]">
 			<div
-				className={ `col-span-3 grid min-h-14 px-8 gap-4 justify-items-start items-center border-b border-a8c-gray-0 ${
+				className={ `col-span-3 grid px-8 gap-2 justify-items-start items-center ${
 					connectedSite.isPressable && ! connectedSite.environmentType
 						? 'grid-cols-[1fr_auto]'
 						: 'grid-cols-subgrid'
@@ -406,8 +414,8 @@ const SyncConnectedSiteSection = ( {
 	}
 
 	return (
-		<div key={ connectedSite.id } className="flex flex-col gap-2 mb-6">
-			<div className="flex items-center gap-2 border-b border-a8c-gray-0 px-8 pb-2.5">
+		<div key={ connectedSite.id } className="flex flex-col gap-2 border-b border-a8c-gray-0 py-5">
+			<div className="flex items-center gap-2 px-8">
 				{ logo }
 				<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
 					{ connectedSite.name }
@@ -435,7 +443,7 @@ const SyncConnectedSiteSection = ( {
 			</div>
 
 			{ hasConnectionErrors && (
-				<div className="flex items-center min-h-14 border-b border-a8c-gray-0 px-8">
+				<div className="flex items-center px-8">
 					<div className="text-[#3C434A]">
 						{ createInterpolateElement(
 							__(

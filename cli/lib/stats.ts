@@ -1,3 +1,4 @@
+import { bumpStat } from 'common/lib/bump-stat';
 import { AggregateInterval, StatsGroup, StatsMetric } from 'common/types/stats';
 import { isSameDay, isSameMonth, isSameWeek } from 'date-fns';
 import { lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
@@ -38,27 +39,6 @@ export async function bumpAggregatedUniqueStat(
 	if ( didBump ) {
 		await updateLastBump( group, stat );
 	}
-}
-
-// Returns true if we attempted to bump the stat
-export function bumpStat( group: StatsGroup, stat: StatsMetric, bumpInDev = false ) {
-	if ( process.env.NODE_ENV === 'development' && ! bumpInDev ) {
-		console.info( `Would have bumped stat: ${ group }=${ stat }` );
-		return false;
-	}
-
-	// Fire and forget POST request
-	fetch( 'https://public-api.wordpress.com/wpcom/v2/studio-app/bump-stat', {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify( { group, stat } ),
-	} ).catch( () => {
-		// A failed request typically indicates a network issue, which we don't need to report
-	} );
-
-	return true;
 }
 
 // Returns UTC timestamp of the last time the stat was bumped, or null if it has never been bumped.

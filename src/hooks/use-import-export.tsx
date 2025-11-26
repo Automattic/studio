@@ -347,17 +347,16 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 
 	const exportSite = useCallback(
 		async (
-			selectedSite: SiteDetails,
 			options: ExportOptions,
 			exportType: 'full' | 'database'
 		): Promise< string | undefined > => {
-			if ( exportState[ selectedSite.id ] ) {
+			if ( exportState[ options.site.id ] ) {
 				return;
 			}
 
 			setExportState( ( prevState ) => ( {
 				...prevState,
-				[ selectedSite.id ]: {
+				[ options.site.id ]: {
 					statusMessage: __( 'Starting export…' ),
 					progress: 5,
 					exportType,
@@ -375,7 +374,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				} );
 
 			try {
-				const exportResult = await getIpcApi().exportSite( options, selectedSite.id );
+				const exportResult = await getIpcApi().exportSite( options );
 
 				if ( ! exportResult ) {
 					await handleExportError();
@@ -383,7 +382,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				}
 
 				getIpcApi().showNotification( {
-					title: selectedSite.name,
+					title: options.site.name,
 					body: __( 'Export completed' ),
 				} );
 				// Delay function resolution to ensure complete export message is displayed
@@ -427,7 +426,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				},
 				phpVersion: selectedSite.phpVersion,
 			};
-			return exportSite( selectedSite, options, 'full' );
+			return exportSite( options, 'full' );
 		},
 		[ exportSite ]
 	);
@@ -457,7 +456,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				},
 				phpVersion: selectedSite.phpVersion,
 			};
-			return exportSite( selectedSite, options, 'database' );
+			return exportSite( options, 'database' );
 		},
 		[ exportSite ]
 	);

@@ -38,6 +38,7 @@ export default defineConfig( {
 			entry: {
 				main: resolve( __dirname, 'cli/index.ts' ),
 				'proxy-daemon': resolve( __dirname, 'cli/proxy-daemon.ts' ),
+				'wordpress-server-child': resolve( __dirname, 'cli/wordpress-server-child.ts' ),
 			},
 			name: 'StudioCLI',
 			formats: [ 'cjs' ],
@@ -47,8 +48,17 @@ export default defineConfig( {
 		rollupOptions: {
 			external: [
 				/^node:/,
-				/^(path|fs|os|child_process|crypto|http|https|http2|url|querystring|stream|util|events|buffer|assert|net|tty|readline|zlib|constants)$/,
+				/^(path|fs|os|child_process|crypto|http|https|http2|url|querystring|stream|util|events|buffer|assert|net|tty|readline|zlib|constants|tls|domain)$/,
+				'fs/promises',
 				'pm2',
+				'@php-wasm/node',
+				'@php-wasm/web',
+				'@php-wasm/logger',
+				'@php-wasm/universal',
+				'@php-wasm/scopes',
+				'@wp-playground/cli',
+				'@wp-playground/blueprints',
+				'@wp-playground/wordpress',
 			],
 			output: {
 				format: 'cjs',

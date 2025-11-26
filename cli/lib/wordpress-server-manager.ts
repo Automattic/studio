@@ -213,13 +213,82 @@ async function sendMessage(
 
 		bus.on( 'process:msg', responseHandler );
 
-		sendMessageToProcess( pmId, { ...message, messageId: messageId } ).catch( reject );
+		sendMessageToProcess( pmId, { ...message, messageId } as ManagerMessage ).catch( reject );
 	} );
 }
 
+const GRACEFUL_STOP_TIMEOUT = 5000;
+
 export async function stopWordPressServer( siteId: string ): Promise< void > {
 	const processName = getProcessName( siteId );
+	const runningProcess = await isProcessRunning( processName );
+
+	if ( runningProcess ) {
+		try {
+			await sendStopMessage( runningProcess.pmId );
+		} catch {
+			// Graceful shutdown failed, PM2 delete will handle it
+		}
+	}
+
 	return stopProcess( processName );
+}
+
+/**
+ * Send stop message to the child process with a timeout
+ */
+async function sendStopMessage( pmId: number ): Promise< void > {
+	const bus = await getPm2Bus();
+
+	return new Promise( ( resolve, reject ) => {
+		const messageId = nextMessageId++;
+
+		const timeout = setTimeout( () => {
+			cleanup();
+			reject( new Error( 'Graceful stop timeout' ) );
+		}, GRACEFUL_STOP_TIMEOUT );
+
+		const cleanup = () => {
+			clearTimeout( timeout );
+			bus.off( 'process:msg', responseHandler );
+		};
+
+		const responseHandler = ( packet: unknown ) => {
+			const validationResult = childMessagePm2Schema.safeParse( packet );
+			if ( ! validationResult.success ) {
+				return;
+			}
+
+			const validPacket = validationResult.data;
+
+			if ( validPacket.process.pm_id !== pmId ) {
+				return;
+			}
+
+			if ( validPacket.raw.topic === 'error' && validPacket.raw.originalMessageId === messageId ) {
+				cleanup();
+				reject( new Error( validPacket.raw.errorMessage ) );
+			} else if (
+				validPacket.raw.topic === 'result' &&
+				validPacket.raw.originalMessageId === messageId
+			) {
+				cleanup();
+				resolve();
+			}
+		};
+
+		bus.on( 'process:msg', responseHandler );
+
+		const stopMessage = {
+			topic: 'stop-server' as const,
+			data: {},
+			messageId,
+		};
+		sendMessageToProcess( pmId, stopMessage ).catch( ( error ) => {
+			cleanup();
+			reject( error );
+		} );
+	} );
 }
 
 /**

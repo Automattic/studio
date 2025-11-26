@@ -24,6 +24,7 @@ export enum SiteCommandLoggerAction {
 	GENERATE_CERT = 'generateCert',
 	ADD_DOMAIN_TO_HOSTS = 'addDomainToHosts',
 	START_SITE = 'startSite',
+	STOP_SITE = 'stopSite',
 	VALIDATE = 'validate',
 	CREATE_DIRECTORY = 'createDirectory',
 	INSTALL_SQLITE = 'installSqlite',

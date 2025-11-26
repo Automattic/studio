@@ -139,7 +139,7 @@ async function startServer( config: ServerConfig ): Promise< void > {
 
 	try {
 		const args = await getBaseRunCLIArgs( 'server', config );
-		const server = await runCLI( args );
+		server = await runCLI( args );
 
 		if ( config.adminPassword ) {
 			await setAdminPassword( server, config.adminPassword );
@@ -148,6 +148,29 @@ async function startServer( config: ServerConfig ): Promise< void > {
 		server = null;
 		errorToConsole( `Failed to start server:`, error );
 		throw error;
+	}
+}
+
+const STOP_SERVER_TIMEOUT = 5000;
+
+async function stopServer(): Promise< void > {
+	if ( ! server ) {
+		logToConsole( 'No server running, nothing to stop' );
+		return;
+	}
+
+	const serverToDispose = server;
+	server = null;
+
+	try {
+		const disposalTimeout = new Promise< void >( ( _, reject ) =>
+			setTimeout( () => reject( new Error( 'Server disposal timeout' ) ), STOP_SERVER_TIMEOUT )
+		);
+
+		await Promise.race( [ serverToDispose[ Symbol.asyncDispose ](), disposalTimeout ] );
+		logToConsole( 'Server stopped gracefully' );
+	} catch ( error ) {
+		errorToConsole( 'Error during server disposal:', error );
 	}
 }
 
@@ -196,6 +219,9 @@ async function ipcMessageHandler( packet: unknown ) {
 			break;
 		case 'run-blueprint':
 			result = await runBlueprint( validMessage.data.config );
+			break;
+		case 'stop-server':
+			result = await stopServer();
 			break;
 		default:
 			throw new Error( `Unknown message.` );

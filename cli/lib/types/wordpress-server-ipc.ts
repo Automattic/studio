@@ -35,9 +35,15 @@ const managerMessageRunBlueprint = managerMessageBase.extend( {
 	} ),
 } );
 
+const managerMessageStopServer = managerMessageBase.extend( {
+	topic: z.literal( 'stop-server' ),
+	data: z.object( {} ),
+} );
+
 export const managerMessageSchema = z.discriminatedUnion( 'topic', [
 	managerMessageStartServer,
 	managerMessageRunBlueprint,
+	managerMessageStopServer,
 ] );
 export type ManagerMessage = z.infer< typeof managerMessageSchema >;
 

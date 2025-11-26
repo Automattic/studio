@@ -24,7 +24,7 @@ export default function BlueprintDeeplink( { selectedBlueprint }: BlueprintDeepl
 				{ __( 'Start from a Blueprint' ) }
 			</Heading>
 
-			<div className="w-full max-w-[400px] h-[200px] mx-auto p-12 border-2 rounded-xl border-gray-300 bg-gray-50">
+			<div className="w-full max-w-[400px] h-[250px] mx-auto p-12 border-2 rounded-xl border-gray-300 bg-gray-50">
 				<VStack className="items-center justify-center h-full" spacing={ 2 }>
 					<Icon icon={ check } size={ 24 } className="text-green-600" />
 					<Text className="text-xl font-medium text-gray-900">{ __( 'Blueprint selected' ) }</Text>

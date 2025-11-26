@@ -15,7 +15,12 @@ export function StudioCliToggle( { value, onChange }: StudioCLIToggleProps ) {
 
 	return (
 		<SettingsFormField label={ __( 'Studio CLI' ) }>
-			<div className="flex justify-between items-center">
+			<div className="flex justify-between items-center gap-3">
+				<FormToggle
+					id="studio-cli-toggle"
+					checked={ value }
+					onChange={ ( event ) => onChange( event.target.checked ) }
+				/>
 				<div className="flex flex-col">
 					<label htmlFor="studio-cli-toggle">
 						{ interpolateComponents( {
@@ -37,11 +42,6 @@ export function StudioCliToggle( { value, onChange }: StudioCLIToggleProps ) {
 						</div>
 					) }
 				</div>
-				<FormToggle
-					id="studio-cli-toggle"
-					checked={ value }
-					onChange={ ( event ) => onChange( event.target.checked ) }
-				/>
 			</div>
 		</SettingsFormField>
 	);

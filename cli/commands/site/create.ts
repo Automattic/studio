@@ -274,22 +274,22 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					describe: __( 'Site name' ),
 				} )
-				.option( 'wp-version', {
+				.option( 'wp', {
 					type: 'string',
 					describe: __( 'WordPress version (e.g., "latest", "6.4", "6.4.1")' ),
 					default: DEFAULT_VERSIONS.wp,
 				} )
-				.option( 'php-version', {
+				.option( 'php', {
 					type: 'string',
 					describe: __( 'PHP version' ),
 					choices: ALLOWED_PHP_VERSIONS,
 					default: DEFAULT_VERSIONS.php,
 				} )
-				.option( 'custom-domain', {
+				.option( 'domain', {
 					type: 'string',
 					describe: __( 'Custom domain (e.g., "mysite.local")' ),
 				} )
-				.option( 'enable-https', {
+				.option( 'https', {
 					type: 'boolean',
 					describe: __( 'Enable HTTPS for custom domain' ),
 					default: false,
@@ -307,10 +307,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		handler: async ( argv ) => {
 			await runCommand( argv.path, {
 				name: argv.name,
-				wpVersion: argv.wpVersion,
-				phpVersion: argv.phpVersion,
-				customDomain: argv.customDomain,
-				enableHttps: argv.enableHttps,
+				wpVersion: argv.wp,
+				phpVersion: argv.php,
+				customDomain: argv.domain,
+				enableHttps: argv.https,
 				blueprint: argv.blueprint,
 				noStart: ! argv.start,
 			} );

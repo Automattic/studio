@@ -133,8 +133,10 @@ test.describe( 'Site Navigation', () => {
 		await confirmPublishButton.waitFor( { state: 'visible', timeout: 10_000 } );
 		await confirmPublishButton.click();
 
-		// Wait for success message
-		await expect( page.locator( '.components-snackbar' ) ).toBeVisible( { timeout: 10_000 } );
+		// Wait for the "View Post" link to appear
+		await page
+			.locator( '.post-publish-panel__postpublish-buttons a:has-text("View Post")' )
+			.waitFor( { state: 'visible', timeout: 10_000 } );
 
 		// Verify post was created by visiting posts list
 		await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/edit.php` ) );
@@ -338,8 +340,10 @@ test.describe( 'Site Navigation', () => {
 		await confirmPublishButton.waitFor( { state: 'visible', timeout: 10_000 } );
 		await confirmPublishButton.click();
 
-		// Wait for publish
-		await expect( page.locator( '.components-snackbar' ) ).toBeVisible( { timeout: 10_000 } );
+		// Wait for the "View Post" link to appear
+		await page
+			.locator( '.post-publish-panel__postpublish-buttons a:has-text("View Post")' )
+			.waitFor( { state: 'visible', timeout: 10_000 } );
 
 		// Get the post URL from the editor
 		const viewPostLink = page.locator( 'a:has-text("View Post")' ).first();

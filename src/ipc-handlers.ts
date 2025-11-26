@@ -197,7 +197,14 @@ export async function importSite(
 		return site.details;
 	} catch ( e ) {
 		bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
-		Sentry.captureException( e );
+		// Don't report validation errors to Sentry - these are expected user errors
+		if (
+			! ( e instanceof Error ) ||
+			( ! e.message.includes( 'No suitable importer found for the provided backup contents' ) &&
+				! e.message.includes( 'No suitable backup handler found for the provided backup file' ) )
+		) {
+			Sentry.captureException( e );
+		}
 		throw e;
 	}
 }

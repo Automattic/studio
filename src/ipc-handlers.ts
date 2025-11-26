@@ -20,6 +20,7 @@ import * as Sentry from '@sentry/electron/main';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import archiver from 'archiver';
 import { z } from 'zod';
+import { bumpStat } from 'common/lib/bump-stat';
 import {
 	calculateDirectorySize,
 	isWordPressDirectory,
@@ -39,7 +40,6 @@ import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ip
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import { validateBlueprintData } from 'src/lib/blueprint-features';
-import { bumpStat } from 'src/lib/bump-stats';
 import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
 import {
 	openCertificate as openCertificateDialog,

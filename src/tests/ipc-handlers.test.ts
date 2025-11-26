@@ -6,10 +6,10 @@ import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { readFile } from 'atomically';
+import { bumpStat } from 'common/lib/bump-stat';
 import { isEmptyDir, pathExists } from 'common/lib/fs-utils';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { createSite, startServer, isFullscreen, importSite } from 'src/ipc-handlers';
-import { bumpStat } from 'src/lib/bump-stats';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
@@ -35,7 +35,7 @@ jest.mock( 'src/lib/wordpress-provider', () => ( {
 jest.mock( 'src/main-window' );
 jest.mock( '@sentry/electron/main' );
 jest.mock( 'src/lib/import-export/import/import-manager' );
-jest.mock( 'src/lib/bump-stats' );
+jest.mock( 'common/lib/bump-stat' );
 jest.mock( 'atomically' );
 
 jest.mock( 'common/lib/port-finder', () => ( {

@@ -105,7 +105,8 @@ export async function runCommand(
 				for ( const feature of unsupportedFeatures ) {
 					logger.reportWarning(
 						sprintf(
-							__( `Blueprint feature "%s" is not supported: %s` ),
+							/* translators: %1$s: feature name, %2$s: reason */
+							__( `Blueprint feature "%1$s" is not supported: %2$s` ),
 							feature.name,
 							feature.reason
 						)

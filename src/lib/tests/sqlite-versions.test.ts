@@ -21,17 +21,17 @@ const MOCK_SITE_PATH = 'mock-site-path';
 
 afterEach( () => {
 	jest.clearAllMocks();
-	( fs as MockedFsExtra ).__mockFiles = {};
+	require( 'fs-extra' ).__mockFiles = {};
 } );
 
 platformTestSuite( 'keepSqliteIntegrationUpdated', ( { normalize } ) => {
 	describe( 'when db.php exists', () => {
 		it( 'should install SQLite integration', async () => {
-			( fs as MockedFsExtra ).__setFileContents(
+			require( 'fs-extra' ).__setFileContents(
 				normalize( `${ MOCK_SITE_PATH }/wp-config.php` ),
 				''
 			);
-			( fs as MockedFsExtra ).__setFileContents(
+			require( 'fs-extra' ).__setFileContents(
 				normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
 				''
 			);
@@ -59,7 +59,7 @@ platformTestSuite( 'keepSqliteIntegrationUpdated', ( { normalize } ) => {
 	describe( 'when wp-config.php exists and db.php does not exist', () => {
 		it( 'should not install SQLite integration', async () => {
 			// Mock site wp-config.php
-			( fs as MockedFsExtra ).__setFileContents(
+			require( 'fs-extra' ).__setFileContents(
 				normalize( `${ MOCK_SITE_PATH }/wp-config.php` ),
 				'config-sample'
 			);
@@ -76,12 +76,12 @@ platformTestSuite( 'keepSqliteIntegrationUpdated', ( { normalize } ) => {
 	describe( 'when db.php exists and wp-config.php also exists', () => {
 		it( 'should install SQLite integration', async () => {
 			// Mock site db.php
-			( fs as MockedFsExtra ).__setFileContents(
+			require( 'fs-extra' ).__setFileContents(
 				normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
 				'content'
 			);
 			// Mock wp-config.php to ensure db.php takes precedence
-			( fs as MockedFsExtra ).__setFileContents(
+			require( 'fs-extra' ).__setFileContents(
 				normalize( `${ MOCK_SITE_PATH }/wp-config.php` ),
 				'config-sample'
 			);
@@ -99,7 +99,7 @@ platformTestSuite( 'keepSqliteIntegrationUpdated', ( { normalize } ) => {
 platformTestSuite( 'installSqliteIntegration', ( { normalize } ) => {
 	it( 'should install SQLite integration', async () => {
 		// Mock site default db.php
-		( fs as MockedFsExtra ).__setFileContents(
+		require( 'fs-extra' ).__setFileContents(
 			normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
 			"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'"
 		);
@@ -137,7 +137,7 @@ platformTestSuite( 'installSqliteIntegration', ( { normalize } ) => {
 			concurrentCalls--;
 		} );
 
-		( fs as MockedFsExtra ).__setFileContents(
+		require( 'fs-extra' ).__setFileContents(
 			normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
 			"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'"
 		);

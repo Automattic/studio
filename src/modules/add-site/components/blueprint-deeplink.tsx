@@ -1,6 +1,5 @@
 import {
 	__experimentalVStack as VStack,
-	__experimentalHStack as HStack,
 	__experimentalHeading as Heading,
 	__experimentalText as Text,
 	Icon,
@@ -27,12 +26,8 @@ export default function BlueprintDeeplink( { selectedBlueprint }: BlueprintDeepl
 
 			<div className="w-full max-w-[400px] h-[200px] mx-auto p-12 border-2 rounded-xl border-gray-300 bg-gray-50">
 				<VStack className="items-center justify-center h-full" spacing={ 2 }>
-					<HStack spacing={ 2 } alignment="center" className="text-green-600">
-						<Icon icon={ check } size={ 24 } />
-						<Text className="text-base font-medium text-gray-900">
-							{ __( 'Blueprint selected' ) }
-						</Text>
-					</HStack>
+					<Icon icon={ check } size={ 24 } className="text-green-600" />
+					<Text className="text-xl font-medium text-gray-900">{ __( 'Blueprint selected' ) }</Text>
 					<Text className="text-base font-medium text-gray-900 max-w-md px-4" weight={ 400 }>
 						{ blueprintTitle }
 					</Text>

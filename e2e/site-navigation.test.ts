@@ -170,13 +170,13 @@ test.describe( 'Site Navigation', () => {
 		// Wait for upload to complete
 		await expect( page.locator( '.media-item .filename' ) ).toBeVisible( { timeout: 30_000 } );
 
-		// Clean up test file
-		await fs.unlink( testImagePath );
-
 		// Verify media was uploaded by checking the library
 		await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/upload.php` ) );
 		const mediaItems = page.locator( '.attachment' );
 		await expect( mediaItems.first() ).toBeVisible();
+
+		// Clean up test file — don't fail the test if unlink errors
+		await fs.unlink( testImagePath ).catch( () => {} );
 	} );
 
 	test( 'activates themes', async ( { page } ) => {

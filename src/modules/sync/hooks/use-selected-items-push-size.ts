@@ -119,6 +119,7 @@ export function useSelectedItemsPushSize(
 		totalSize,
 		limitBytes,
 		formattedSize: formatFileSize( totalSize ),
+		formattedLimit: formatFileSize( limitBytes ),
 		formattedOverAmount: formatFileSize( overAmount ),
 	};
 }

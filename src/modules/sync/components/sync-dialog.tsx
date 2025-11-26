@@ -147,6 +147,7 @@ export function SyncDialog( {
 		totalSize,
 		limitBytes,
 		formattedSize,
+		formattedLimit,
 		formattedOverAmount,
 	} = useSelectedItemsPushSize( localSite.id, treeState, type );
 
@@ -343,6 +344,7 @@ export function SyncDialog( {
 								maxValue={ limitBytes }
 								showLabels
 								valueLabel={ formattedSize }
+								limitLabel={ formattedLimit }
 								overLimitLabel={ sprintf( __( '%s over' ), formattedOverAmount ) }
 							/>
 						</div>

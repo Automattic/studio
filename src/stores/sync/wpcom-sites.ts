@@ -151,8 +151,8 @@ export const wpcomSitesApi = createApi( {
 	baseQuery: fetchBaseQuery(),
 	tagTypes: [ 'WpComSites' ],
 	endpoints: ( builder ) => ( {
-		getWpComSites: builder.query< SyncSite[], number[] >( {
-			queryFn: async ( connectedSiteIds ) => {
+		getWpComSites: builder.query< SyncSite[], { connectedSiteIds: number[]; userId?: number } >( {
+			queryFn: async ( { connectedSiteIds } ) => {
 				const wpcomClient = getWpcomClient();
 				if ( ! wpcomClient ) {
 					return { error: { status: 401, data: 'Not authenticated' } };
@@ -222,7 +222,7 @@ export const wpcomSitesApi = createApi( {
 					};
 				}
 			},
-			providesTags: [ 'WpComSites' ],
+			providesTags: ( result, error, arg ) => [ { type: 'WpComSites', userId: arg.userId } ],
 			keepUnusedDataFor: 60,
 		} ),
 	} ),

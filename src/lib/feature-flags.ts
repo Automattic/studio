@@ -16,7 +16,7 @@ export const FEATURE_FLAGS_DEFINITION: Record< keyof FeatureFlags, FeatureFlagDe
 		label: 'Streamline Onboarding',
 		env: 'STREAMLINE_ONBOARDING',
 		flag: 'streamlineOnboarding',
-		default: false,
+		default: true,
 	},
 } as const;
 

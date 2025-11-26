@@ -1,21 +1,32 @@
-import { SyncSitesContextType } from 'src/hooks/sync-sites/sync-sites-context';
+import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
+import {
+	useConnectSiteMutation,
+	useGetConnectedSitesForLocalSiteQuery,
+} from 'src/stores/sync/connected-sites';
+import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 
-export function useListenDeepLinkConnection( {
-	refetchSites,
-}: {
-	refetchSites: SyncSitesContextType[ 'refetchSites' ];
-} ) {
+export function useListenDeepLinkConnection() {
 	const [ connectSite ] = useConnectSiteMutation();
 	const { selectedSite, setSelectedSiteId } = useSiteDetails();
 	const { setSelectedTab, selectedTab } = useContentTabs();
+	const { user } = useAuth();
+	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
+		localSiteId: selectedSite?.id,
+		userId: user?.id,
+	} );
+	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
+	const { refetch: refetchWpComSites } = useGetWpComSitesQuery( {
+		connectedSiteIds,
+		userId: user?.id,
+	} );
 
 	useIpcListener( 'sync-connect-site', async ( _event, { remoteSiteId, studioSiteId } ) => {
 		// Fetch latest sites from network before checking
-		const latestSites = await refetchSites();
+		const result = await refetchWpComSites();
+		const latestSites = result.data ?? [];
 		const newConnectedSite = latestSites.find( ( site ) => site.id === remoteSiteId );
 		if ( newConnectedSite ) {
 			if ( selectedSite?.id && selectedSite.id !== studioSiteId ) {

@@ -10,12 +10,14 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
-import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
+import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ListSites } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
+import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
+import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {
@@ -118,9 +120,18 @@ export function PullRemoteSite( {
 	setSelectedRemoteSite: ( site?: SyncSite ) => void;
 } ) {
 	const { __ } = useI18n();
-	const { isAuthenticated } = useAuth();
+	const { isAuthenticated, user } = useAuth();
 	const { location } = useNavigator();
-	const { syncSites, refetchSites } = useSyncSites();
+	const { selectedSite } = useSiteDetails();
+	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
+		localSiteId: selectedSite?.id,
+		userId: user?.id,
+	} );
+	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
+	const { data: syncSites = [], refetch: refetchSites } = useGetWpComSitesQuery( {
+		connectedSiteIds,
+		userId: user?.id,
+	} );
 
 	useEffect( () => {
 		if ( location.path === '/pullRemote' && isAuthenticated ) {

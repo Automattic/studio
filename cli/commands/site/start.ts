@@ -34,9 +34,9 @@ async function openSiteInBrowser( site: SiteData ) {
 
 function logSiteDetails( site: SiteData ) {
 	const siteUrl = getSiteUrl( site );
-	console.log( __( 'Site URL: ' ), siteUrl );
-	console.log( __( 'Username: ' ), 'admin' );
-	console.log( __( 'Password: ' ), site.adminPassword );
+	console.log( __( 'Site URL:' ), siteUrl );
+	console.log( __( 'Admin Username:' ), 'admin' );
+	console.log( __( 'Admin Password:' ), site.adminPassword );
 }
 
 export async function runCommand( siteFolder: string, skipBrowser = false ): Promise< void > {

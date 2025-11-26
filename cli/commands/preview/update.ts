@@ -78,7 +78,7 @@ export async function runCommand(
 		logger.reportSuccess( __( 'Archive created' ) );
 
 		logger.reportStart( LoggerAction.UPLOAD, __( 'Uploading archive…' ) );
-		const wordpressVersion = await getWordPressVersion( siteFolder );
+		const wordpressVersion = getWordPressVersion( siteFolder );
 		const uploadResponse = await uploadArchive(
 			archivePath,
 			token.accessToken,

@@ -12,6 +12,7 @@ import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/d
 import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
 import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/update';
 import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
+import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
 import { readAppdata } from 'cli/lib/appdata';
 import { loadTranslations } from 'cli/lib/i18n';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
@@ -79,6 +80,7 @@ async function main() {
 			sitesYargs.option( 'path', {
 				hidden: true,
 			} );
+			registerSiteStatusCommand( sitesYargs );
 			registerSiteListCommand( sitesYargs );
 			sitesYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
 		} );

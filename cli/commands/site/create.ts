@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { SupportedPHPVersions } from '@php-wasm/universal';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { Blueprint } from '@wp-playground/blueprints';
 import { RecommendedPHPVersion } from '@wp-playground/common';
 import {
@@ -33,21 +33,23 @@ import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-man
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-const DEFAULT_PHP_VERSION = RecommendedPHPVersion;
-const DEFAULT_WORDPRESS_VERSION = 'latest';
-const MINIMUM_WORDPRESS_VERSION = '6.2.1'; // https://wordpress.github.io/wordpress-playground/blueprints/examples/#load-an-older-wordpress-version
+const DEFAULT_VERSIONS = {
+	php: RecommendedPHPVersion,
+	wp: 'latest',
+} as const;
+const MINIMUM_WORDPRESS_VERSION = '6.2.1' as const; // https://wordpress.github.io/wordpress-playground/blueprints/examples/#load-an-older-wordpress-version
 const ALLOWED_PHP_VERSIONS = [ ...SupportedPHPVersions ];
 
 export async function runCommand(
 	sitePath: string,
 	options: {
 		name?: string;
-		wpVersion?: string;
-		phpVersion?: string;
+		wpVersion: string;
+		phpVersion: ( typeof ALLOWED_PHP_VERSIONS )[ number ];
 		customDomain?: string;
-		enableHttps?: boolean;
+		enableHttps: boolean;
 		blueprint?: string;
-		noStart?: boolean;
+		noStart: boolean;
 	}
 ): Promise< void > {
 	const logger = new Logger< LoggerAction >();
@@ -65,34 +67,33 @@ export async function runCommand(
 			);
 		}
 
-		const wpVersion = options.wpVersion || DEFAULT_WORDPRESS_VERSION;
-		if ( ! isValidWordPressVersion( wpVersion ) ) {
+		if ( ! isValidWordPressVersion( options.wpVersion ) ) {
 			throw new LoggerError(
 				__(
 					'Invalid WordPress version. Must be "latest", "nightly", or a valid version number (e.g., "6.4", "6.4.1", "6.4-beta1").'
 				)
 			);
 		}
-		if ( ! isWordPressVersionAtLeast( wpVersion, MINIMUM_WORDPRESS_VERSION ) ) {
+		if ( ! isWordPressVersionAtLeast( options.wpVersion, MINIMUM_WORDPRESS_VERSION ) ) {
 			throw new LoggerError(
 				__( `WordPress version must be at least ${ MINIMUM_WORDPRESS_VERSION }.` )
 			);
 		}
 
-		const phpVersion = ( options.phpVersion ||
-			DEFAULT_PHP_VERSION ) as ( typeof ALLOWED_PHP_VERSIONS )[ number ];
-
 		let blueprint: Blueprint | undefined;
 		if ( options.blueprint ) {
 			if ( ! fs.existsSync( options.blueprint ) ) {
-				throw new LoggerError( __( 'Blueprint file not found: ' ) + options.blueprint );
+				throw new LoggerError( sprintf( __( 'Blueprint file not found: %s' ), options.blueprint ) );
 			}
 			let blueprintJson: Blueprint;
 			try {
 				const blueprintContent = fs.readFileSync( options.blueprint, 'utf-8' );
 				blueprintJson = JSON.parse( blueprintContent );
 			} catch ( error ) {
-				throw new LoggerError( __( 'Invalid blueprint JSON file' ), error );
+				throw new LoggerError(
+					sprintf( __( 'Invalid blueprint JSON file: %s' ), options.blueprint ),
+					error
+				);
 			}
 			const validation = await validateBlueprintData( blueprintJson );
 			if ( ! validation.valid ) {
@@ -103,7 +104,11 @@ export async function runCommand(
 			if ( unsupportedFeatures.length > 0 ) {
 				for ( const feature of unsupportedFeatures ) {
 					logger.reportWarning(
-						__( `Blueprint feature "${ feature.name }" is not supported: ${ feature.reason }` )
+						sprintf(
+							__( `Blueprint feature "%s" is not supported: %s` ),
+							feature.name,
+							feature.reason
+						)
 					);
 				}
 			}
@@ -184,9 +189,9 @@ export async function runCommand(
 			path: sitePath,
 			adminPassword,
 			port,
-			phpVersion,
+			phpVersion: options.phpVersion,
 			running: false,
-			isWpAutoUpdating: wpVersion === DEFAULT_WORDPRESS_VERSION,
+			isWpAutoUpdating: options.wpVersion === DEFAULT_VERSIONS.wp,
 			customDomain: options.customDomain,
 			enableHttps: options.enableHttps,
 		};
@@ -234,7 +239,7 @@ export async function runCommand(
 
 			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress site...' ) );
 			try {
-				await startWordPressServer( siteDetails, { wpVersion, blueprint } );
+				await startWordPressServer( siteDetails, { wpVersion: options.wpVersion, blueprint } );
 				logger.reportSuccess( __( 'WordPress site started' ) );
 
 				logSiteDetails( siteDetails );
@@ -249,19 +254,23 @@ export async function runCommand(
 
 			logger.reportStart( LoggerAction.START_SITE, __( 'Applying blueprint...' ) );
 			try {
-				await runBlueprint( siteDetails, { wpVersion, blueprint } );
+				await runBlueprint( siteDetails, { wpVersion: options.wpVersion, blueprint } );
 				logger.reportSuccess( __( 'Blueprint applied successfully' ) );
 			} catch ( error ) {
 				throw new LoggerError( __( 'Failed to apply blueprint' ), error );
 			}
 
-			console.log( __( '\nSite created successfully!\n' ) );
+			console.log( '' );
+			console.log( __( 'Site created successfully!' ) );
+			console.log( '' );
 			logSiteDetails( siteDetails );
-			console.log( __( '\nRun "studio site start" to start the site.' ) );
+			console.log( __( 'Run "studio site start" to start the site.' ) );
 		} else {
-			console.log( __( '\nSite created successfully!\n' ) );
+			console.log( '' );
+			console.log( __( 'Site created successfully!' ) );
+			console.log( '' );
 			logSiteDetails( siteDetails );
-			console.log( __( '\nRun "studio site start" to start the site.' ) );
+			console.log( __( 'Run "studio site start" to start the site.' ) );
 		}
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
@@ -289,13 +298,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'wp-version', {
 					type: 'string',
 					describe: __( 'WordPress version (e.g., "latest", "6.4", "6.4.1")' ),
-					default: DEFAULT_WORDPRESS_VERSION,
+					default: DEFAULT_VERSIONS.wp,
 				} )
 				.option( 'php-version', {
 					type: 'string',
 					describe: __( 'PHP version' ),
 					choices: ALLOWED_PHP_VERSIONS,
-					default: DEFAULT_PHP_VERSION,
+					default: DEFAULT_VERSIONS.php,
 				} )
 				.option( 'custom-domain', {
 					type: 'string',

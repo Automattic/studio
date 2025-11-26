@@ -60,7 +60,18 @@ async function setAdminPassword( server: RunCLIServer, adminPassword: string ): 
 	} );
 }
 
-async function getBaseRunCLIArgs( config: ServerConfig ): Promise< RunCLIArgs > {
+function getBaseRunCLIArgs(
+	command: 'server',
+	config: ServerConfig
+): Promise< RunCLIArgs & { command: 'server' } >;
+function getBaseRunCLIArgs(
+	command: 'run-blueprint',
+	config: ServerConfig
+): Promise< RunCLIArgs & { command: 'run-blueprint' } >;
+async function getBaseRunCLIArgs(
+	command: RunCLIArgs[ 'command' ],
+	config: ServerConfig
+): Promise< RunCLIArgs > {
 	const hasWordPress = isWordPressDirectory( config.sitePath );
 
 	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
@@ -87,7 +98,7 @@ async function getBaseRunCLIArgs( config: ServerConfig ): Promise< RunCLIArgs > 
 	};
 
 	const args: RunCLIArgs = {
-		command: 'server',
+		command,
 		internalCookieStore: false,
 		login: false,
 		followSymlinks: true,
@@ -127,14 +138,8 @@ async function startServer( config: ServerConfig ): Promise< void > {
 	}
 
 	try {
-		const args = await getBaseRunCLIArgs( config );
-		const result = await runCLI( args );
-
-		if ( ! result ) {
-			throw new Error( 'Failed to start server: runCLI returned void' );
-		}
-
-		server = result;
+		const args = await getBaseRunCLIArgs( 'server', config );
+		const server = await runCLI( args );
 
 		if ( config.adminPassword ) {
 			await setAdminPassword( server, config.adminPassword );
@@ -148,9 +153,7 @@ async function startServer( config: ServerConfig ): Promise< void > {
 
 async function runBlueprint( config: ServerConfig ): Promise< void > {
 	try {
-		const args = await getBaseRunCLIArgs( config );
-		args.command = 'run-blueprint';
-
+		const args = await getBaseRunCLIArgs( 'run-blueprint', config );
 		await runCLI( args );
 
 		logToConsole( `Blueprint applied successfully for site ${ config.siteId }` );
@@ -189,14 +192,10 @@ async function ipcMessageHandler( packet: unknown ) {
 
 	switch ( validMessage.topic ) {
 		case 'start-server':
-			if ( validMessage.data.config ) {
-				result = await startServer( validMessage.data.config );
-			}
+			result = await startServer( validMessage.data.config );
 			break;
 		case 'run-blueprint':
-			if ( validMessage.data.config ) {
-				result = await runBlueprint( validMessage.data.config );
-			}
+			result = await runBlueprint( validMessage.data.config );
 			break;
 		default:
 			throw new Error( `Unknown message.` );

@@ -21,10 +21,8 @@ import {
 } from 'common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { lockAppdata, readAppdata, saveAppdata, SiteData, unlockAppdata } from 'cli/lib/appdata';
-import { generateSiteCertificate } from 'cli/lib/certificate-manager';
-import { addDomainToHosts } from 'cli/lib/hosts-file';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
-import { logSiteDetails, openSiteInBrowser, startProxyIfNeeded } from 'cli/lib/site-utils';
+import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import {
 	isSqliteIntegrationAvailable,
 	keepSqliteIntegrationUpdated,
@@ -217,26 +215,7 @@ export async function runCommand(
 			await connect();
 			logger.reportSuccess( __( 'Process daemon started' ) );
 
-			if ( siteDetails.customDomain ) {
-				await startProxyIfNeeded( logger );
-
-				if ( siteDetails.enableHttps ) {
-					logger.reportStart( LoggerAction.GENERATE_CERT, __( 'Generating SSL certificates...' ) );
-					await generateSiteCertificate( siteDetails.customDomain );
-					logger.reportSuccess( __( 'SSL certificates generated' ) );
-				}
-
-				logger.reportStart(
-					LoggerAction.ADD_DOMAIN_TO_HOSTS,
-					__( 'Adding domain to hosts file...' )
-				);
-				try {
-					await addDomainToHosts( siteDetails.customDomain, siteDetails.port );
-					logger.reportSuccess( __( 'Domain added to hosts file' ) );
-				} catch ( error ) {
-					throw new LoggerError( __( 'Failed to add domain to hosts file' ), error );
-				}
-			}
+			await setupCustomDomain( siteDetails, logger );
 
 			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress site...' ) );
 			try {

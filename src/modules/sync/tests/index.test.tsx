@@ -19,7 +19,10 @@ store.replaceReducer( testReducer );
 
 jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/hooks/use-auth' );
-jest.mock( 'src/stores/sync/wpcom-sites' );
+jest.mock( 'src/stores/sync/wpcom-sites', () => ( {
+	...jest.requireActual( 'src/stores/sync/wpcom-sites' ),
+	useGetWpComSitesQuery: jest.fn(),
+} ) );
 jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/sync-sites/sync-sites-context', () => ( {
 	...jest.requireActual( '../../../hooks/sync-sites/sync-sites-context' ),
@@ -119,7 +122,7 @@ describe( 'ContentTabSync', () => {
 			data: syncSites,
 			isLoading: false,
 			isFetching: false,
-			refetch: jest.fn(),
+			refetch: jest.fn().mockResolvedValue( { data: syncSites } ),
 		} );
 	};
 
@@ -183,7 +186,7 @@ describe( 'ContentTabSync', () => {
 			data: [],
 			isLoading: false,
 			isFetching: false,
-			refetch: jest.fn(),
+			refetch: jest.fn().mockResolvedValue( { data: [] } ),
 		} );
 
 		( useRemoteFileTree as jest.Mock ).mockReturnValue( {

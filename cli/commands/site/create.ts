@@ -11,7 +11,7 @@ import {
 	validateBlueprintData,
 } from 'common/lib/blueprint-validation';
 import { getDomainNameValidationError } from 'common/lib/domains';
-import { isEmptyDir, isWordPressDirectory, pathExists } from 'common/lib/fs-utils';
+import { arePathsEqual, isEmptyDir, isWordPressDirectory, pathExists } from 'common/lib/fs-utils';
 import { createPassword } from 'common/lib/passwords';
 import { portFinder } from 'common/lib/port-finder';
 import { sortSites } from 'common/lib/sort-sites';
@@ -116,8 +116,7 @@ export async function runCommand(
 		}
 
 		const appdata = await readAppdata();
-		const allPaths = appdata.sites.map( ( site ) => site.path );
-		if ( allPaths.includes( sitePath ) ) {
+		if ( appdata.sites.some( ( site ) => arePathsEqual( site.path, sitePath ) ) ) {
 			throw new LoggerError( __( 'The selected directory is already in use.' ) );
 		}
 

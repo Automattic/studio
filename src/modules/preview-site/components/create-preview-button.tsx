@@ -51,7 +51,7 @@ export function CreatePreviewButton( { onClick, selectedSite, user }: CreatePrev
 	const isCurrentSiteArchiving = !! activeOperationsForCurrentSite;
 	const isOtherSiteArchiving = isAnySiteArchiving && ! isCurrentSiteArchiving;
 
-	const latestWpVersion = wpVersions.find( ( version ) => version.value === 'latest' )?.value;
+	const latestWpVersion = wpVersions.find( ( version ) => version.value === 'latest' )?.actualVersion;
 	const shouldShowMismatchTooltip = hasVersionMismatch( {
 		wpVersion,
 		latestWpVersion,

@@ -101,6 +101,7 @@ interface WordPressVersion {
 	isDevelopment: boolean;
 	label: string;
 	value: string;
+	actualVersion?: string;
 }
 
 export const wordpressVersionsApi = createApi( {
@@ -139,29 +140,31 @@ export const wordpressVersionsApi = createApi( {
 				const allOffers = developmentOffer ? [ developmentOffer, ...stableOffers ] : stableOffers;
 				const latestStable = findLatestStable( allOffers );
 
-				const versionsList = allOffers.map( ( { version, shortName } ) => ( {
-					isBeta: isWordPressBetaVersion( version ),
-					isDevelopment: isWordPressDevVersion( version ),
-					label: generateVersionLabel(
-						version,
-						shortName,
-						shortNameOccurrences.get( shortName ) || 0
-					),
-					value: version,
-				} ) );
+			const versionsList = allOffers.map( ( { version, shortName } ) => ( {
+				isBeta: isWordPressBetaVersion( version ),
+				isDevelopment: isWordPressDevVersion( version ),
+				label: generateVersionLabel(
+					version,
+					shortName,
+					shortNameOccurrences.get( shortName ) || 0
+				),
+				value: version,
+				actualVersion: version,
+			} ) );
 
-				if ( latestStable ) {
-					versionsList.unshift( {
-						isBeta: false,
-						isDevelopment: false,
-						label: generateVersionLabel(
-							latestStable.version,
-							latestStable.shortName,
-							shortNameOccurrences.get( latestStable.shortName ) || 0
-						),
-						value: 'latest',
-					} );
-				}
+			if ( latestStable ) {
+				versionsList.unshift( {
+					isBeta: false,
+					isDevelopment: false,
+					label: generateVersionLabel(
+						latestStable.version,
+						latestStable.shortName,
+						shortNameOccurrences.get( latestStable.shortName ) || 0
+					),
+					value: 'latest',
+					actualVersion: latestStable.version,
+				} );
+			}
 
 				return {
 					data: versionsList,

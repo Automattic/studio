@@ -11,16 +11,20 @@ import Modal from 'src/components/modal';
 import { Tooltip } from 'src/components/tooltip';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
 import { SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
+import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
+import { hasVersionMismatch } from 'src/modules/preview-site/lib/version-comparison';
 import { SiteNameBox } from 'src/modules/sync/components/site-name-box';
 import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
 import { useSyncDialogTexts } from 'src/modules/sync/hooks/use-sync-dialog-texts';
 import { useTopLevelSyncTree } from 'src/modules/sync/hooks/use-top-level-sync-tree';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
-import { useI18nLocale } from 'src/stores';
+import { useI18nLocale, useRootSelector } from 'src/stores';
+import { selectMinimumWordPressVersion } from 'src/stores/provider-constants-slice';
 import { useLatestRewindId, useRemoteFileTree, useLocalFileTree } from 'src/stores/sync';
+import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { TreeViewLoadingSkeleton } from './tree-view-loading-skeleton';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
@@ -149,6 +153,21 @@ export function SyncDialog( {
 	const { fetchChildren, rewindId, isLoadingRewindId, isErrorRewindId, isLoadingLocalFileTree } =
 		useDynamicTreeState( type, localSite.id, remoteSite.id, setTreeState );
 
+	// Check for WordPress/PHP version mismatch for push operations
+	const [ wpVersion ] = useGetWpVersion( localSite );
+	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
+	const { data: wpVersions = [] } = useGetWordPressVersions( {
+		minimumVersion: minimumWordPressVersion,
+	} );
+	const latestWpVersion = wpVersions.find( ( version ) => version.value === 'latest' )?.actualVersion;
+	const shouldShowVersionMismatch =
+		type === 'push' &&
+		hasVersionMismatch( {
+			wpVersion,
+			latestWpVersion,
+			phpVersion: localSite.phpVersion,
+		} );
+
 	const localSiteName = <SiteNameBox siteName={ localSite.name } envType="studio" />;
 	const remoteSiteName = <SiteNameBox siteName={ remoteSite.name } envType={ siteEnv } />;
 
@@ -218,13 +237,18 @@ export function SyncDialog( {
 		onRequestClose();
 	};
 
+	// Calculate dynamic padding based on number of notices
+	const noticeCount = [ isPushSelectionOverLimit, shouldShowVersionMismatch ].filter( Boolean ).length;
+	const footerPadding =
+		noticeCount === 0 ? 'pb-[70px]' : noticeCount === 1 ? 'pb-[140px]' : 'pb-[210px]';
+
 	return (
 		<Modal
 			className="w-3/5 min-w-[550px] max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
 			title={ syncTexts.title }
 		>
-			<div className={ isPushSelectionOverLimit ? 'pb-[140px]' : 'pb-[70px]' }>
+			<div className={ footerPadding }>
 				<div className="px-8 pb-6 pt-1">{ syncTexts.description }</div>
 				<div className="px-8">
 					<span className="sr-only">
@@ -330,6 +354,15 @@ export function SyncDialog( {
 										'The current selection exceeds the %d GB push limit. To continue, please change your selection to reduce the total size.'
 									),
 									SYNC_PUSH_SIZE_LIMIT_GB
+								) }
+							</p>
+						</Notice>
+					) }
+					{ shouldShowVersionMismatch && (
+						<Notice status="warning" isDismissible={ false } className="mb-4">
+							<p data-testid="push-version-mismatch-notice">
+								{ __(
+									'Your Studio site is using a different WordPress or PHP version than your WordPress.com site. The remote site will keep on using the newest supported versions.'
 								) }
 							</p>
 						</Notice>

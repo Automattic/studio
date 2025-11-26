@@ -30,13 +30,13 @@ export async function installCLIOnMacOSWithConfirmation() {
 			message: __( 'The CLI has been installed successfully.' ),
 		} );
 	} catch ( error ) {
-		Sentry.captureException( error );
 		console.error( 'Failed to install CLI', error );
 
 		let message: string = __(
 			'There was an unknown error. Please check the logs for more information.'
 		);
 
+		// Don't report expected user errors to Sentry
 		if ( error instanceof Error ) {
 			if ( error.message === ERROR_FILE_ALREADY_EXISTS ) {
 				message = sprintf(
@@ -48,7 +48,12 @@ export async function installCLIOnMacOSWithConfirmation() {
 				);
 			} else if ( error.message === ERROR_PERMISSION ) {
 				message = __( 'Please ensure you grant Studio admin permissions when prompted.' );
+			} else if ( error.message !== ERROR_WRONG_PLATFORM ) {
+				// Only report unexpected errors to Sentry
+				Sentry.captureException( error );
 			}
+		} else {
+			Sentry.captureException( error );
 		}
 
 		const mainWindow = await getMainWindow();

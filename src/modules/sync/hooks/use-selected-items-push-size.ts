@@ -4,9 +4,9 @@ import { SYNC_PUSH_SIZE_LIMIT_BYTES, SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constan
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 const formatFileSize = ( bytes: number ) => {
-	if ( bytes === 0 ) return '0 Bytes';
+	if ( bytes === 0 ) return '0 B';
 	const k = 1024;
-	const sizes = [ 'Bytes', 'KB', 'MB', 'GB' ];
+	const sizes = [ 'B', 'KB', 'MB', 'GB' ];
 	const i = Math.floor( Math.log( bytes ) / Math.log( k ) );
 	return Math.round( ( bytes / Math.pow( k, i ) ) * 100 ) / 100 + ' ' + sizes[ i ];
 };

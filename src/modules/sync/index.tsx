@@ -147,7 +147,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		isFetching: isFetchingSyncSites,
 		isSuccess: isSuccessSyncSites,
 		isUninitialized: isUninitializedSyncSites,
-		refetch: refetchQuery,
+		refetch: refetchWpComSites,
 	} = useGetWpComSitesQuery(
 		{ connectedSiteIds, userId: user?.id },
 		{ refetchOnMountOrArgChange: true }
@@ -158,25 +158,25 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			return [];
 		}
 		try {
-			const result = await refetchQuery();
+			const result = await refetchWpComSites();
 			return result.data ?? [];
 		} catch ( error ) {
 			// Query might not be ready to refetch yet (e.g., was skipped due to offline)
 			console.warn( 'Failed to refetch sites:', error );
 			return [];
 		}
-	}, [ refetchQuery, isUninitializedSyncSites ] );
+	}, [ refetchWpComSites, isUninitializedSyncSites ] );
 
 	// Refetch sites when modal opens to check for newly created sites
 	useEffect( () => {
 		if ( isModalOpen && isAuthenticated && ! isUninitializedSyncSites ) {
-			refetchQuery().catch( ( error ) => {
+			refetchWpComSites().catch( ( error ) => {
 				// Query might not be ready to refetch yet (e.g., was skipped due to offline)
 				// Silently ignore the error as the query will start automatically when conditions are met
 				console.warn( 'Failed to refetch sites on modal open:', error );
 			} );
 		}
-	}, [ isModalOpen, isAuthenticated, isUninitializedSyncSites, refetchQuery ] );
+	}, [ isModalOpen, isAuthenticated, isUninitializedSyncSites, refetchWpComSites ] );
 
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 	const { streamlineOnboarding } = useFeatureFlags();

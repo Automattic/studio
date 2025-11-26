@@ -153,14 +153,15 @@ export function SyncDialog( {
 	const { fetchChildren, rewindId, isLoadingRewindId, isErrorRewindId, isLoadingLocalFileTree } =
 		useDynamicTreeState( type, localSite.id, remoteSite.id, setTreeState );
 
-	// Check for WordPress/PHP version mismatch for push operations
 	const [ wpVersion ] = useGetWpVersion( localSite );
 	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
 	const { data: wpVersions = [] } = useGetWordPressVersions( {
 		minimumVersion: minimumWordPressVersion,
 	} );
-	const latestWpVersion = wpVersions.find( ( version ) => version.value === 'latest' )
-		?.actualVersion;
+	// Find the first stable version (not 'latest', not beta, not development) to use for comparison
+	const latestWpVersion = wpVersions.find(
+		( version ) => version.value !== 'latest' && ! version.isBeta && ! version.isDevelopment
+	)?.value;
 	const shouldShowVersionMismatch =
 		type === 'push' &&
 		hasVersionMismatch( {

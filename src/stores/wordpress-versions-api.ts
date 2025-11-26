@@ -101,7 +101,6 @@ interface WordPressVersion {
 	isDevelopment: boolean;
 	label: string;
 	value: string;
-	actualVersion?: string;
 }
 
 export const wordpressVersionsApi = createApi( {
@@ -149,7 +148,6 @@ export const wordpressVersionsApi = createApi( {
 						shortNameOccurrences.get( shortName ) || 0
 					),
 					value: version,
-					actualVersion: version,
 				} ) );
 
 				if ( latestStable ) {
@@ -162,7 +160,6 @@ export const wordpressVersionsApi = createApi( {
 							shortNameOccurrences.get( latestStable.shortName ) || 0
 						),
 						value: 'latest',
-						actualVersion: latestStable.version,
 					} );
 				}
 

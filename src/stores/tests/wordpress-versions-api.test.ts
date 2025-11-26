@@ -509,18 +509,8 @@ describe( 'WordPress Versions API', () => {
 					isDevelopment: false,
 					label: '6.4',
 				},
-				{
-					value: '6.3.0',
-					isBeta: false,
-					isDevelopment: false,
-					label: '6.3',
-				},
-				{
-					value: '6.2.0',
-					isBeta: false,
-					isDevelopment: false,
-					label: '6.2',
-				},
+				{ value: '6.3.0', isBeta: false, isDevelopment: false, label: '6.3' },
+				{ value: '6.2.0', isBeta: false, isDevelopment: false, label: '6.2' },
 				{
 					value: '6.1.0',
 					isBeta: false,
@@ -574,24 +564,9 @@ describe( 'WordPress Versions API', () => {
 					isDevelopment: false,
 					label: '6.4',
 				},
-				{
-					value: '6.3.0',
-					isBeta: false,
-					isDevelopment: false,
-					label: '6.3',
-				},
-				{
-					value: '6.2.0',
-					isBeta: false,
-					isDevelopment: false,
-					label: '6.2',
-				},
-				{
-					value: '6.1.0',
-					isBeta: false,
-					isDevelopment: false,
-					label: '6.1',
-				},
+				{ value: '6.3.0', isBeta: false, isDevelopment: false, label: '6.3' },
+				{ value: '6.2.0', isBeta: false, isDevelopment: false, label: '6.2' },
+				{ value: '6.1.0', isBeta: false, isDevelopment: false, label: '6.1' },
 			] );
 		} );
 	} );

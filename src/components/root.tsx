@@ -13,9 +13,9 @@ import { SyncSitesProvider } from 'src/hooks/sync-sites/sync-sites-context';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { FeatureFlagsProvider } from 'src/hooks/use-feature-flags';
 import { ImportExportProvider } from 'src/hooks/use-import-export';
-import { OnboardingProvider } from 'src/hooks/use-onboarding';
 import { SiteDetailsProvider } from 'src/hooks/use-site-details';
 import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
+import { OnboardingProvider } from 'src/modules/onboarding/hooks/use-onboarding';
 import { store } from 'src/stores';
 import { initializeUserLocale } from 'src/stores/i18n-slice';
 

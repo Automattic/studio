@@ -199,6 +199,7 @@ export function useAddSite() {
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {
 			setSiteName( name );
+
 			if ( sitePath ) {
 				return;
 			}

@@ -1,13 +1,16 @@
 import { speak } from '@wordpress/a11y';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useCallback, useEffect } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import Button from 'src/components/button';
 import { SiteForm } from 'src/components/site-form';
 import { StudioLogo } from 'src/components/studio-logo';
 import { useAddSite } from 'src/hooks/use-add-site';
+import { useAuth } from 'src/hooks/use-auth';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { OnboardingAddSite } from 'src/modules/onboarding/components/add-site';
+import { OnboardingConnectToWpcom } from 'src/modules/onboarding/components/connect-to-wpcom';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import { useSaveLastSeenVersionMutation } from 'src/stores/app-version-api';
 import { saveOnboardingStatus } from 'src/stores/onboarding-slice';
@@ -35,9 +38,11 @@ const GradientBox = () => {
 	);
 };
 
-export default function Onboarding() {
+export function Onboarding() {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
+	const [ isWpAccSkipped, setIsWpAccSkipped ] = useState( false );
+	const { isAuthenticated } = useAuth();
 	const [ saveLastSeenVersion ] = useSaveLastSeenVersionMutation();
 	const {
 		setSiteName,
@@ -131,9 +136,14 @@ export default function Onboarding() {
 				<GradientBox />
 			</div>
 
-			<div className="w-1/2 bg-white p-[50px] flex flex-col relative overflow-y-auto app-no-drag-region">
+			<div className="w-1/2 bg-white py-[50px] px-[20px] flex flex-col relative overflow-y-auto app-no-drag-region">
 				<div className="flex flex-col justify-center items-center flex-[1_0_0%] gap-8">
-					<div className="flex flex-col items-center self-stretch gap-6">
+					{ ! isWpAccSkipped && ! isAuthenticated ? (
+						<OnboardingConnectToWpcom onSkip={ () => setIsWpAccSkipped( true ) } />
+					) : (
+						<OnboardingAddSite onBack={ () => setIsWpAccSkipped( false ) } />
+					) }
+					{/* <div className="flex flex-col items-center self-stretch gap-6">
 						<div className="flex flex-col items-center gap-4">
 							<h1 className="font-normal text-3xl leading-5">{ __( 'Add your first site' ) }</h1>
 							<p className="text-a8c-gray-50 text-sm px-10 text-center">
@@ -167,7 +177,7 @@ export default function Onboarding() {
 								</Button>
 							</div>
 						</SiteForm>
-					</div>
+					</div> */}
 				</div>
 			</div>
 		</div>

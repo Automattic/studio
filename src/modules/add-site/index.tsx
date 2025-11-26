@@ -27,10 +27,12 @@ import AddSiteOptions, { type AddSiteFlowType } from './components/options';
 import { PullRemoteSite } from './components/pull-remote-site';
 import Stepper from './components/stepper';
 import { useBlueprintDeeplink } from './hooks/use-blueprint-deeplink';
+import { createNodeFsMountHandler } from '@php-wasm/node';
 
 interface AddSiteProps {
 	className?: string;
 	variant?: ButtonVariant;
+	withCtaButton?: boolean;
 }
 
 type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
@@ -279,7 +281,11 @@ function NavigationContent( props: NavigationContentProps ) {
 	);
 }
 
-export default function AddSite( { className, variant = 'outlined' }: AddSiteProps ) {
+export default function AddSite( {
+	className,
+	variant = 'outlined',
+	withCtaButton = true,
+}: AddSiteProps ) {
 	const { __ } = useI18n();
 	const [ showModal, setShowModal ] = useState( false );
 	const [ nameSuggested, setNameSuggested ] = useState( false );
@@ -419,10 +425,10 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 	] );
 
 	useEffect( () => {
-		if ( showModal && ! nameSuggested && ! loadingSites ) {
+		if ( ( showModal || ! withCtaButton ) && ! nameSuggested && ! loadingSites ) {
 			void initializeForm();
 		}
-	}, [ showModal, nameSuggested, loadingSites, initializeForm ] );
+	}, [ showModal, withCtaButton, nameSuggested, loadingSites, initializeForm ] );
 
 	const handleSubmit = useCallback(
 		async ( event: FormEvent ) => {
@@ -442,22 +448,30 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		openModal();
 	} );
 
+	const WrapperContent = (
+		<Navigator className="w-full h-full" initialPath={ initialNavigatorPath }>
+			<NavigationContent
+				{ ...addSiteProps }
+				blueprintsData={ blueprintsData }
+				blueprintsErrorMessage={ formatRtkError( blueprintsError ) }
+				isLoadingBlueprints={ isLoadingBlueprints }
+				handleSubmit={ handleSubmit }
+				blueprintPreferredVersions={ blueprintPreferredVersions }
+				setBlueprintPreferredVersions={ setBlueprintPreferredVersions }
+				selectedRemoteSite={ selectedRemoteSite }
+				setSelectedRemoteSite={ setSelectedRemoteSite }
+			/>
+		</Navigator>
+	);
+
+	if ( ! withCtaButton ) {
+		return WrapperContent;
+	}
+
 	return (
 		<>
 			<FullscreenModal isOpen={ showModal } onClose={ closeModal }>
-				<Navigator className="w-full h-full" initialPath={ initialNavigatorPath }>
-					<NavigationContent
-						{ ...addSiteProps }
-						blueprintsData={ blueprintsData }
-						blueprintsErrorMessage={ formatRtkError( blueprintsError ) }
-						isLoadingBlueprints={ isLoadingBlueprints }
-						handleSubmit={ handleSubmit }
-						blueprintPreferredVersions={ blueprintPreferredVersions }
-						setBlueprintPreferredVersions={ setBlueprintPreferredVersions }
-						selectedRemoteSite={ selectedRemoteSite }
-						setSelectedRemoteSite={ setSelectedRemoteSite }
-					/>
-				</Navigator>
+				{ WrapperContent }
 			</FullscreenModal>
 			<Button
 				variant={ variant }

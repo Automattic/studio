@@ -69,7 +69,7 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 		];
 
 		const blueprintDeeplinkSteps: StepperStep[] = [
-			{ id: 'blueprint-selected', label: __( 'Blueprint selected' ), path: '/blueprintDeeplink' },
+			{ id: 'blueprint-selected', label: __( 'Blueprint details' ), path: '/blueprintDeeplink' },
 			{ id: 'site-details', label: __( 'Site name & details' ), path: '/blueprintDeeplink/create' },
 		];
 

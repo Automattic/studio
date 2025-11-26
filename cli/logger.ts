@@ -62,6 +62,14 @@ export class Logger< T extends string > {
 		this.currentAction = null;
 	}
 
+	public reportWarning( message: string ) {
+		if ( process.send ) {
+			process.send( { action: this.currentAction, status: 'warning', message } );
+		} else {
+			this.spinner.warn( message );
+		}
+	}
+
 	public reportError( error: LoggerError, isFatal = true ) {
 		if ( isFatal ) {
 			process.exitCode = 1;

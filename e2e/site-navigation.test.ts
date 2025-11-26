@@ -1,3 +1,5 @@
+import * as os from 'os';
+import * as path from 'path';
 import { test, expect, Page } from '@playwright/test';
 import fs from 'fs-extra';
 import { E2ESession } from './e2e-helpers';
@@ -153,7 +155,7 @@ test.describe( 'Site Navigation', () => {
 			0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
 		] );
 
-		const testImagePath = '/tmp/e2e-test-image.png';
+		const testImagePath = path.join( os.tmpdir(), 'e2e-test-image.png' );
 		await fs.writeFile( testImagePath, pngBuffer );
 
 		// Upload the file using the HTML5 plupload file input

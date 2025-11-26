@@ -4,11 +4,13 @@ import { Icon, archive, pencil, preformatted } from '@wordpress/icons';
 import { useCallback, useEffect, useState } from 'react';
 import { ExtraProps } from 'react-markdown';
 import stripAnsi from 'strip-ansi';
+import { AddSiteWithBlueprintButton } from 'src/components/add-site-with-blueprint-button';
 import Button from 'src/components/button';
 import { ChatMessageProps } from 'src/components/chat-message';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import { ExecuteIcon } from 'src/components/icons/execute';
 import { useExecuteWPCLI } from 'src/hooks/use-execute-cli';
+import { useIsValidBlueprint } from 'src/hooks/use-is-valid-blueprint';
 import { useIsValidWpCliInline } from 'src/hooks/use-is-valid-wp-cli-inline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
@@ -47,6 +49,7 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 	const cliTime = block?.cliTime ?? null;
 
 	const { selectedSite } = useSiteDetails();
+	const isValidBlueprint = useIsValidBlueprint( className, content );
 
 	return (
 		<>
@@ -70,6 +73,14 @@ const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
 						} );
 					} }
 				></CopyTextButton>
+				{ isValidBlueprint && (
+					<AddSiteWithBlueprintButton
+						content={ content }
+						variant="outlined"
+						className="h-auto mr-2 !px-2.5 py-0.5 font-sans select-none"
+						iconSize={ 16 }
+					/>
+				) }
 				{ [ 'language-sh', 'language-bash' ].includes( props.className || '' ) && selectedSite && (
 					<Button
 						icon={ preformatted }

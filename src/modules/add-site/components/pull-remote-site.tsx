@@ -18,7 +18,7 @@ import { ListSites } from 'src/modules/sync/components/sync-sites-modal-selector
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
 import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { SyncSite } from 'src/modules/sync/types';
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();

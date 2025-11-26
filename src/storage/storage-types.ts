@@ -1,7 +1,7 @@
 import { Snapshot } from 'common/types/snapshot';
 import { StoredToken } from 'src/lib/oauth';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { SyncSite } from 'src/modules/sync/types';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 
 export interface WindowBounds {

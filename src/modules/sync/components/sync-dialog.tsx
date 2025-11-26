@@ -22,7 +22,7 @@ import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
 import { useLatestRewindId, useRemoteFileTree, useLocalFileTree } from 'src/stores/sync';
 import { TreeViewLoadingSkeleton } from './tree-view-loading-skeleton';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { SyncSite } from 'src/modules/sync/types';
 
 type SyncDialogProps = {
 	type: 'push' | 'pull';

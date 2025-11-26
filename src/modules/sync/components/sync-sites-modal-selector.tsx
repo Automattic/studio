@@ -16,8 +16,7 @@ import { CreateButton } from 'src/modules/sync/components/create-button';
 import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
-import type { SyncModalMode } from 'src/modules/sync/types';
+import type { SyncSite, SyncModalMode } from 'src/modules/sync/types';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
 

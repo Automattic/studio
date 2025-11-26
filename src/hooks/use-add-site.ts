@@ -14,7 +14,7 @@ import {
 	selectDefaultWordPressVersion,
 } from 'src/stores/provider-constants-slice';
 import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { SyncSite } from 'src/modules/sync/types';
 import type { Blueprint } from 'src/stores/wpcom-api';
 import type { SyncOption } from 'src/types';
 

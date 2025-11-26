@@ -1,4 +1,4 @@
-import { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import { SyncSite } from 'src/modules/sync/types';
 
 /**
  * Generate updated site data to be stored in `appdata-v1.json`:

@@ -6,20 +6,20 @@ import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
-import { useFetchWpComSites } from 'src/hooks/use-fetch-wpcom-sites';
-import { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ContentTabSync } from 'src/modules/sync';
 import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
+import { SyncSite } from 'src/modules/sync/types';
 import { store } from 'src/stores';
 import { useLatestRewindId, useRemoteFileTree } from 'src/stores/sync';
+import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
 store.replaceReducer( testReducer );
 
 jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/hooks/use-auth' );
-jest.mock( 'src/hooks/use-fetch-wpcom-sites' );
+jest.mock( 'src/stores/sync/wpcom-sites' );
 jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/sync-sites/sync-sites-context', () => ( {
 	...jest.requireActual( '../../../hooks/sync-sites/sync-sites-context' ),
@@ -115,10 +115,11 @@ describe( 'ContentTabSync', () => {
 		const currentMock = ( getIpcApi as jest.Mock )();
 		currentMock.getConnectedWpcomSites.mockResolvedValue( connectedSites );
 
-		( useFetchWpComSites as jest.Mock ).mockReturnValue( {
-			syncSites,
+		( useGetWpComSitesQuery as jest.Mock ).mockReturnValue( {
+			data: syncSites,
+			isLoading: false,
 			isFetching: false,
-			refetchSites: jest.fn(),
+			refetch: jest.fn(),
 		} );
 	};
 
@@ -178,10 +179,11 @@ describe( 'ContentTabSync', () => {
 			error: null,
 		} );
 
-		( useFetchWpComSites as jest.Mock ).mockReturnValue( {
-			syncSites: [],
+		( useGetWpComSitesQuery as jest.Mock ).mockReturnValue( {
+			data: [],
+			isLoading: false,
 			isFetching: false,
-			refetchSites: jest.fn(),
+			refetch: jest.fn(),
 		} );
 
 		( useRemoteFileTree as jest.Mock ).mockReturnValue( {

@@ -34,7 +34,7 @@ import {
 	connectedSitesActions,
 	useGetConnectedSitesForLocalSiteQuery,
 } from 'src/stores/sync/connected-sites';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { SyncSite } from 'src/modules/sync/types';
 
 const SyncConnectedSiteControls = ( {
 	connectedSite,

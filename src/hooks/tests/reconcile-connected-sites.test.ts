@@ -1,5 +1,5 @@
-import { reconcileConnectedSites } from 'src/hooks/use-fetch-wpcom-sites/reconcile-connected-sites';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import { reconcileConnectedSites } from 'src/modules/sync/lib/reconcile-connected-sites';
+import type { SyncSite } from 'src/modules/sync/types';
 
 describe( 'reconcileConnectedSites', () => {
 	test( 'should update relevant properties', () => {

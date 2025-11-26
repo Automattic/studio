@@ -1,11 +1,16 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
 import { z } from 'zod';
-import { reconcileConnectedSites } from 'src/hooks/use-fetch-wpcom-sites/reconcile-connected-sites';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { reconcileConnectedSites } from 'src/modules/sync/lib/reconcile-connected-sites';
+import {
+	getSyncSupport,
+	isPressableSite,
+	type SitesEndpointSite,
+} from 'src/modules/sync/lib/sync-support';
 import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
 import { getWpcomClient } from 'src/stores/wpcom-api';
-import type { SyncSite, SyncSupport } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { SyncSite, SyncSupport } from 'src/modules/sync/types';
 
 // Schema for WordPress.com sites endpoint
 const sitesEndpointSiteSchema = z.object( {
@@ -48,56 +53,10 @@ const sitesEndpointSiteSchema = z.object( {
 		.optional(),
 } );
 
-type SitesEndpointSite = z.infer< typeof sitesEndpointSiteSchema >;
-
 // We use a permissive schema for the API response to fail gracefully if a single site is malformed
 const sitesEndpointResponseSchema = z.object( {
 	sites: z.array( z.unknown() ),
 } );
-
-const STUDIO_SYNC_FEATURE_NAME = 'studio-sync';
-
-function isPressableSite( site: SitesEndpointSite ): boolean {
-	return site.hosting_provider_guess === 'pressable';
-}
-
-function isAtomicSite( site: SitesEndpointSite ): boolean {
-	return site.is_wpcom_atomic;
-}
-
-function hasSupportedPlan( site: SitesEndpointSite ): boolean {
-	return site.plan?.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ?? false;
-}
-
-function isJetpackSite( site: SitesEndpointSite ): boolean {
-	return !! site.jetpack && ! isAtomicSite( site ) && ! isPressableSite( site );
-}
-
-function needsTransfer( site: SitesEndpointSite ): boolean {
-	return ! isJetpackSite( site ) && ! isPressableSite( site ) && ! isAtomicSite( site );
-}
-
-function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
-	if ( site.is_deleted ) {
-		return 'deleted';
-	}
-	if ( ! site.capabilities?.manage_options ) {
-		return 'missing-permissions';
-	}
-	if ( isJetpackSite( site ) ) {
-		return 'unsupported';
-	}
-	if ( ! hasSupportedPlan( site ) && ! isPressableSite( site ) ) {
-		return 'needs-upgrade';
-	}
-	if ( needsTransfer( site ) ) {
-		return 'needs-transfer';
-	}
-	if ( connectedSiteIds.some( ( id ) => id === site.ID ) ) {
-		return 'already-connected';
-	}
-	return 'syncable';
-}
 
 function transformSingleSiteResponse(
 	site: SitesEndpointSite,

@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
-import { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import { SyncSite } from 'src/modules/sync/types';
 
 const EnvironmentSchema = z.enum( [ 'production', 'staging', 'development' ] );
 export type EnvironmentType = z.infer< typeof EnvironmentSchema >;

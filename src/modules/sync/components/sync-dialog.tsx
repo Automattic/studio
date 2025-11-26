@@ -159,7 +159,8 @@ export function SyncDialog( {
 	const { data: wpVersions = [] } = useGetWordPressVersions( {
 		minimumVersion: minimumWordPressVersion,
 	} );
-	const latestWpVersion = wpVersions.find( ( version ) => version.value === 'latest' )?.actualVersion;
+	const latestWpVersion = wpVersions.find( ( version ) => version.value === 'latest' )
+		?.actualVersion;
 	const shouldShowVersionMismatch =
 		type === 'push' &&
 		hasVersionMismatch( {
@@ -238,7 +239,9 @@ export function SyncDialog( {
 	};
 
 	// Calculate dynamic padding based on number of notices
-	const noticeCount = [ isPushSelectionOverLimit, shouldShowVersionMismatch ].filter( Boolean ).length;
+	const noticeCount = [ isPushSelectionOverLimit, shouldShowVersionMismatch ].filter(
+		Boolean
+	).length;
 	const footerPadding =
 		noticeCount === 0 ? 'pb-[70px]' : noticeCount === 1 ? 'pb-[140px]' : 'pb-[210px]';
 

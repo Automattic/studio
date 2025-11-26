@@ -49,37 +49,37 @@ describe( 'WordPress Versions API', () => {
 			// Verify both API calls were made
 			expect( nock.isDone() ).toBe( true );
 
-		// Verify the result includes both stable and development versions
-		expect( result.data ).toEqual( [
-			{
-				value: 'latest',
-				isBeta: false,
-				isDevelopment: false,
-				label: '6.4',
-				actualVersion: '6.4.0',
-			},
-			{
-				value: '6.8-beta2-59979',
-				isBeta: true,
-				isDevelopment: true,
-				label: 'nightly',
-				actualVersion: '6.8-beta2-59979',
-			},
-			{
-				value: '6.4.0',
-				isBeta: false,
-				isDevelopment: false,
-				label: '6.4',
-				actualVersion: '6.4.0',
-			},
-			{
-				value: '6.5.0-beta1',
-				isBeta: true,
-				isDevelopment: false,
-				label: '6.5.0-beta1',
-				actualVersion: '6.5.0-beta1',
-			},
-		] );
+			// Verify the result includes both stable and development versions
+			expect( result.data ).toEqual( [
+				{
+					value: 'latest',
+					isBeta: false,
+					isDevelopment: false,
+					label: '6.4',
+					actualVersion: '6.4.0',
+				},
+				{
+					value: '6.8-beta2-59979',
+					isBeta: true,
+					isDevelopment: true,
+					label: 'nightly',
+					actualVersion: '6.8-beta2-59979',
+				},
+				{
+					value: '6.4.0',
+					isBeta: false,
+					isDevelopment: false,
+					label: '6.4',
+					actualVersion: '6.4.0',
+				},
+				{
+					value: '6.5.0-beta1',
+					isBeta: true,
+					isDevelopment: false,
+					label: '6.5.0-beta1',
+					actualVersion: '6.5.0-beta1',
+				},
+			] );
 		} );
 	} );
 
@@ -107,16 +107,16 @@ describe( 'WordPress Versions API', () => {
 			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( { minimumVersion: '5.9.9' } )
 		);
 
-	// Should only take the first development version
-	expect( result.data ).toEqual( [
-		{
-			value: '6.8-alpha1-59979',
-			isBeta: false,
-			isDevelopment: true,
-			label: 'nightly',
-			actualVersion: '6.8-alpha1-59979',
-		},
-	] );
+		// Should only take the first development version
+		expect( result.data ).toEqual( [
+			{
+				value: '6.8-alpha1-59979',
+				isBeta: false,
+				isDevelopment: true,
+				label: 'nightly',
+				actualVersion: '6.8-alpha1-59979',
+			},
+		] );
 	} );
 
 	it( 'should handle schema validation error for both channels', async () => {
@@ -184,31 +184,31 @@ describe( 'WordPress Versions API', () => {
 			wordpressVersionsApi.endpoints.getWordPressVersions.initiate( { minimumVersion: '5.9.9' } )
 		);
 
-	expect( result.isSuccess ).toBe( true );
-	expect( result.isError ).toBe( false );
-	expect( result.data ).toEqual( [
-		{
-			value: 'latest',
-			isBeta: false,
-			isDevelopment: false,
-			label: '6.4',
-			actualVersion: '6.4.0',
-		},
-		{
-			value: '6.4.0',
-			isBeta: false,
-			isDevelopment: false,
-			label: '6.4',
-			actualVersion: '6.4.0',
-		},
-		{
-			value: '6.5.0-beta1',
-			isBeta: true,
-			isDevelopment: false,
-			label: '6.5.0-beta1',
-			actualVersion: '6.5.0-beta1',
-		},
-	] );
+		expect( result.isSuccess ).toBe( true );
+		expect( result.isError ).toBe( false );
+		expect( result.data ).toEqual( [
+			{
+				value: 'latest',
+				isBeta: false,
+				isDevelopment: false,
+				label: '6.4',
+				actualVersion: '6.4.0',
+			},
+			{
+				value: '6.4.0',
+				isBeta: false,
+				isDevelopment: false,
+				label: '6.4',
+				actualVersion: '6.4.0',
+			},
+			{
+				value: '6.5.0-beta1',
+				isBeta: true,
+				isDevelopment: false,
+				label: '6.5.0-beta1',
+				actualVersion: '6.5.0-beta1',
+			},
+		] );
 	} );
 
 	it( 'should handle API response with no autoupdate offers', async () => {
@@ -288,31 +288,31 @@ describe( 'WordPress Versions API', () => {
 		);
 		const versions = result.data || [];
 
-	expect( result.isSuccess ).toBe( true );
-	expect( result.isError ).toBe( false );
+		expect( result.isSuccess ).toBe( true );
+		expect( result.isError ).toBe( false );
 
-	expect( versions ).toHaveLength( 3 );
-	expect( versions[ 0 ] ).toEqual( {
-		value: 'latest',
-		isBeta: false,
-		isDevelopment: false,
-		label: '6.4',
-		actualVersion: '6.4.0',
-	} );
-	expect( versions[ 1 ] ).toEqual( {
-		value: '6.4.0',
-		isBeta: false,
-		isDevelopment: false,
-		label: '6.4',
-		actualVersion: '6.4.0',
-	} );
-	expect( versions[ 2 ] ).toEqual( {
-		value: '6.5.0-beta1',
-		isBeta: true,
-		isDevelopment: false,
-		label: '6.5.0-beta1',
-		actualVersion: '6.5.0-beta1',
-	} );
+		expect( versions ).toHaveLength( 3 );
+		expect( versions[ 0 ] ).toEqual( {
+			value: 'latest',
+			isBeta: false,
+			isDevelopment: false,
+			label: '6.4',
+			actualVersion: '6.4.0',
+		} );
+		expect( versions[ 1 ] ).toEqual( {
+			value: '6.4.0',
+			isBeta: false,
+			isDevelopment: false,
+			label: '6.4',
+			actualVersion: '6.4.0',
+		} );
+		expect( versions[ 2 ] ).toEqual( {
+			value: '6.5.0-beta1',
+			isBeta: true,
+			isDevelopment: false,
+			label: '6.5.0-beta1',
+			actualVersion: '6.5.0-beta1',
+		} );
 	} );
 
 	it( 'should correctly identify beta and RC versions and use full version for name', async () => {
@@ -339,37 +339,37 @@ describe( 'WordPress Versions API', () => {
 
 		const versions = result.data || [];
 
-	expect( versions ).toHaveLength( 4 );
-	expect( versions ).toEqual( [
-		{
-			value: 'latest',
-			isBeta: false,
-			isDevelopment: false,
-			label: '6.4',
-			actualVersion: '6.4.0',
-		},
-		{
-			value: '6.4.0',
-			isBeta: false,
-			isDevelopment: false,
-			label: '6.4',
-			actualVersion: '6.4.0',
-		},
-		{
-			value: '6.5.0-beta1',
-			isBeta: true,
-			isDevelopment: false,
-			label: '6.5.0-beta1',
-			actualVersion: '6.5.0-beta1',
-		},
-		{
-			value: '6.5.0-RC1',
-			isBeta: true,
-			isDevelopment: false,
-			label: '6.5.0-RC1',
-			actualVersion: '6.5.0-RC1',
-		},
-	] );
+		expect( versions ).toHaveLength( 4 );
+		expect( versions ).toEqual( [
+			{
+				value: 'latest',
+				isBeta: false,
+				isDevelopment: false,
+				label: '6.4',
+				actualVersion: '6.4.0',
+			},
+			{
+				value: '6.4.0',
+				isBeta: false,
+				isDevelopment: false,
+				label: '6.4',
+				actualVersion: '6.4.0',
+			},
+			{
+				value: '6.5.0-beta1',
+				isBeta: true,
+				isDevelopment: false,
+				label: '6.5.0-beta1',
+				actualVersion: '6.5.0-beta1',
+			},
+			{
+				value: '6.5.0-RC1',
+				isBeta: true,
+				isDevelopment: false,
+				label: '6.5.0-RC1',
+				actualVersion: '6.5.0-RC1',
+			},
+		] );
 	} );
 
 	it( 'should handle unusual version formats', async () => {
@@ -394,30 +394,30 @@ describe( 'WordPress Versions API', () => {
 		);
 		const versions = result.data || [];
 
-	expect( versions ).toHaveLength( 3 );
-	expect( versions ).toEqual( [
-		{
-			value: 'latest',
-			isBeta: false,
-			isDevelopment: false,
-			label: '10.11',
-			actualVersion: '10.11.12',
-		},
-		{
-			value: '10.11.12',
-			isBeta: false,
-			isDevelopment: false,
-			label: '10.11',
-			actualVersion: '10.11.12',
-		},
-		{
-			value: '6.5-dev',
-			isBeta: false,
-			isDevelopment: false,
-			label: '6.5',
-			actualVersion: '6.5-dev',
-		},
-	] );
+		expect( versions ).toHaveLength( 3 );
+		expect( versions ).toEqual( [
+			{
+				value: 'latest',
+				isBeta: false,
+				isDevelopment: false,
+				label: '10.11',
+				actualVersion: '10.11.12',
+			},
+			{
+				value: '10.11.12',
+				isBeta: false,
+				isDevelopment: false,
+				label: '10.11',
+				actualVersion: '10.11.12',
+			},
+			{
+				value: '6.5-dev',
+				isBeta: false,
+				isDevelopment: false,
+				label: '6.5',
+				actualVersion: '6.5-dev',
+			},
+		] );
 	} );
 
 	it( 'should handle multiple patch versions of the same minor', async () => {
@@ -462,26 +462,32 @@ describe( 'WordPress Versions API', () => {
 
 		const versions = result.data || [];
 
-	expect( versions ).toHaveLength( 5 );
-	expect( versions ).toEqual( [
-		{
-			value: 'latest',
-			isBeta: false,
-			isDevelopment: false,
-			label: '6.7.2',
-			actualVersion: '6.7.2',
-		},
-		{
-			value: '6.7.2',
-			isBeta: false,
-			isDevelopment: false,
-			label: '6.7.2',
-			actualVersion: '6.7.2',
-		},
-		{ value: '6.7.1', isBeta: false, isDevelopment: false, label: '6.7.1', actualVersion: '6.7.1' },
-		{ value: '6.6.2', isBeta: false, isDevelopment: false, label: '6.6', actualVersion: '6.6.2' },
-		{ value: '6.5.5', isBeta: false, isDevelopment: false, label: '6.5', actualVersion: '6.5.5' },
-	] );
+		expect( versions ).toHaveLength( 5 );
+		expect( versions ).toEqual( [
+			{
+				value: 'latest',
+				isBeta: false,
+				isDevelopment: false,
+				label: '6.7.2',
+				actualVersion: '6.7.2',
+			},
+			{
+				value: '6.7.2',
+				isBeta: false,
+				isDevelopment: false,
+				label: '6.7.2',
+				actualVersion: '6.7.2',
+			},
+			{
+				value: '6.7.1',
+				isBeta: false,
+				isDevelopment: false,
+				label: '6.7.1',
+				actualVersion: '6.7.1',
+			},
+			{ value: '6.6.2', isBeta: false, isDevelopment: false, label: '6.6', actualVersion: '6.6.2' },
+			{ value: '6.5.5', isBeta: false, isDevelopment: false, label: '6.5', actualVersion: '6.5.5' },
+		] );
 	} );
 
 	describe( 'selectors', () => {
@@ -509,39 +515,51 @@ describe( 'WordPress Versions API', () => {
 			);
 			const versions = result.data || [];
 
-		expect( versions ).toHaveLength( 6 );
-		expect( versions ).toEqual( [
-			{
-				value: 'latest',
-				isBeta: false,
-				isDevelopment: false,
-				label: '6.4',
-				actualVersion: '6.4.0',
-			},
-			{
-				value: '6.5.0-beta1',
-				isBeta: true,
-				isDevelopment: false,
-				label: '6.5.0-beta1',
-				actualVersion: '6.5.0-beta1',
-			},
-			{
-				value: '6.4.0',
-				isBeta: false,
-				isDevelopment: false,
-				label: '6.4',
-				actualVersion: '6.4.0',
-			},
-			{ value: '6.3.0', isBeta: false, isDevelopment: false, label: '6.3', actualVersion: '6.3.0' },
-			{ value: '6.2.0', isBeta: false, isDevelopment: false, label: '6.2', actualVersion: '6.2.0' },
-			{
-				value: '6.1.0',
-				isBeta: false,
-				isDevelopment: false,
-				label: '6.1',
-				actualVersion: '6.1.0',
-			},
-		] );
+			expect( versions ).toHaveLength( 6 );
+			expect( versions ).toEqual( [
+				{
+					value: 'latest',
+					isBeta: false,
+					isDevelopment: false,
+					label: '6.4',
+					actualVersion: '6.4.0',
+				},
+				{
+					value: '6.5.0-beta1',
+					isBeta: true,
+					isDevelopment: false,
+					label: '6.5.0-beta1',
+					actualVersion: '6.5.0-beta1',
+				},
+				{
+					value: '6.4.0',
+					isBeta: false,
+					isDevelopment: false,
+					label: '6.4',
+					actualVersion: '6.4.0',
+				},
+				{
+					value: '6.3.0',
+					isBeta: false,
+					isDevelopment: false,
+					label: '6.3',
+					actualVersion: '6.3.0',
+				},
+				{
+					value: '6.2.0',
+					isBeta: false,
+					isDevelopment: false,
+					label: '6.2',
+					actualVersion: '6.2.0',
+				},
+				{
+					value: '6.1.0',
+					isBeta: false,
+					isDevelopment: false,
+					label: '6.1',
+					actualVersion: '6.1.0',
+				},
+			] );
 		} );
 
 		it( 'should select WordPress versions with latest', async () => {
@@ -569,32 +587,50 @@ describe( 'WordPress Versions API', () => {
 			);
 			const versions = result.data || [];
 
-		expect( versions ).toEqual( [
-			{
-				value: 'latest',
-				isBeta: false,
-				isDevelopment: false,
-				label: '6.4',
-				actualVersion: '6.4.0',
-			},
-			{
-				value: '6.5.0-beta1',
-				isBeta: true,
-				isDevelopment: false,
-				label: '6.5.0-beta1',
-				actualVersion: '6.5.0-beta1',
-			},
-			{
-				value: '6.4.0',
-				isBeta: false,
-				isDevelopment: false,
-				label: '6.4',
-				actualVersion: '6.4.0',
-			},
-			{ value: '6.3.0', isBeta: false, isDevelopment: false, label: '6.3', actualVersion: '6.3.0' },
-			{ value: '6.2.0', isBeta: false, isDevelopment: false, label: '6.2', actualVersion: '6.2.0' },
-			{ value: '6.1.0', isBeta: false, isDevelopment: false, label: '6.1', actualVersion: '6.1.0' },
-		] );
+			expect( versions ).toEqual( [
+				{
+					value: 'latest',
+					isBeta: false,
+					isDevelopment: false,
+					label: '6.4',
+					actualVersion: '6.4.0',
+				},
+				{
+					value: '6.5.0-beta1',
+					isBeta: true,
+					isDevelopment: false,
+					label: '6.5.0-beta1',
+					actualVersion: '6.5.0-beta1',
+				},
+				{
+					value: '6.4.0',
+					isBeta: false,
+					isDevelopment: false,
+					label: '6.4',
+					actualVersion: '6.4.0',
+				},
+				{
+					value: '6.3.0',
+					isBeta: false,
+					isDevelopment: false,
+					label: '6.3',
+					actualVersion: '6.3.0',
+				},
+				{
+					value: '6.2.0',
+					isBeta: false,
+					isDevelopment: false,
+					label: '6.2',
+					actualVersion: '6.2.0',
+				},
+				{
+					value: '6.1.0',
+					isBeta: false,
+					isDevelopment: false,
+					label: '6.1',
+					actualVersion: '6.1.0',
+				},
+			] );
 		} );
 	} );
 } );

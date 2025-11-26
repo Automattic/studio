@@ -28,16 +28,17 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 		autoLoginUrl.pathname = `/studio-auto-login`;
 		autoLoginUrl.searchParams.set( 'redirect_to', `/wp-admin/` );
 
-		const siteData: { key: string; value: string | undefined; type?: 'url'; hidden?: boolean }[] = [
-			{ key: 'Site URL:', value: new URL( siteUrl ).toString(), type: 'url' },
-			{ key: 'Auto Login URL:', value: autoLoginUrl.toString(), type: 'url', hidden: isOnline },
-			{ key: 'Site Path:', value: sitePath },
-			{ key: 'Status:', value: status },
-			{ key: 'PHP Version:', value: site.phpVersion },
-			{ key: 'WP Version:', value: wpVersion },
-			{ key: 'Admin Username:', value: 'admin' },
-			{ key: 'Admin Password:', value: site.adminPassword },
-		];
+		const siteData: { key: string; value: string | undefined; type?: string; hidden?: boolean }[] =
+			[
+				{ key: 'Site URL', value: new URL( siteUrl ).toString(), type: 'url' },
+				{ key: 'Auto Login URL', value: autoLoginUrl.toString(), type: 'url', hidden: ! isOnline },
+				{ key: 'Site Path', value: sitePath },
+				{ key: 'Status', value: status },
+				{ key: 'PHP Version', value: site.phpVersion },
+				{ key: 'WP Version', value: wpVersion },
+				{ key: 'Admin Username', value: 'admin' },
+				{ key: 'Admin Password', value: site.adminPassword },
+			].filter( ( { value, hidden } ) => value && ! hidden );
 
 		if ( format === 'table' ) {
 			const table = new CliTable3( {
@@ -49,10 +50,7 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 				},
 			} );
 
-			for ( const { key, value, type, hidden } of siteData ) {
-				if ( ! value || hidden ) {
-					continue;
-				}
+			for ( const { key, value, type } of siteData ) {
 				table.push( [ key, type === 'url' ? { href: value, content: value } : value ] );
 			}
 

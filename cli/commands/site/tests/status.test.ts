@@ -60,8 +60,8 @@ describe( 'Site Status Command', () => {
 		await runCommand( '/path/to/site', 'table' );
 
 		expect( getSiteByFolder ).toHaveBeenCalledWith( '/path/to/site', false );
-		expect( mockLogger.reportStart ).toHaveBeenCalledWith( expect.any( String ), 'Validating…' );
-		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Validation successful' );
+		expect( mockLogger.reportStart ).toHaveBeenCalledWith( expect.any( String ), 'Loading site…' );
+		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Site loaded' );
 		expect( disconnect ).toHaveBeenCalled();
 	} );
 
@@ -71,17 +71,17 @@ describe( 'Site Status Command', () => {
 		await runCommand( '/path/to/site', 'json' );
 
 		expect( getSiteByFolder ).toHaveBeenCalledWith( '/path/to/site', false );
-		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Validation successful' );
+		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Site loaded' );
 		expect( consoleSpy ).toHaveBeenCalledWith(
 			JSON.stringify(
 				{
-					'Site URL:': 'http://localhost:8080',
-					'Site Path:': 'path/to/site',
-					'Status:': '🔴 Offline',
-					'PHP Version:': '8.0',
-					'WP Version:': '6.4',
-					'Username:': 'admin',
-					'Password:': 'password123',
+					'Site URL': 'http://localhost:8080/',
+					'Site Path': 'path/to/site',
+					Status: '🔴 Offline',
+					'PHP Version': '8.0',
+					'WP Version': '6.4',
+					'Admin Username': 'admin',
+					'Admin Password': 'password123',
 				},
 				null,
 				2
@@ -100,13 +100,14 @@ describe( 'Site Status Command', () => {
 		expect( consoleSpy ).toHaveBeenCalledWith(
 			JSON.stringify(
 				{
-					'Site URL:': 'http://localhost:8080',
-					'Site Path:': 'path/to/site',
-					'Status:': '🟢 Online',
-					'PHP Version:': '8.0',
-					'WP Version:': '6.4',
-					'Username:': 'admin',
-					'Password:': 'password123',
+					'Site URL': 'http://localhost:8080/',
+					'Auto Login URL': 'http://localhost:8080/studio-auto-login?redirect_to=%2Fwp-admin%2F',
+					'Site Path': 'path/to/site',
+					Status: '🟢 Online',
+					'PHP Version': '8.0',
+					'WP Version': '6.4',
+					'Admin Username': 'admin',
+					'Admin Password': 'password123',
 				},
 				null,
 				2
@@ -155,13 +156,13 @@ describe( 'Site Status Command', () => {
 		expect( consoleSpy ).toHaveBeenCalledWith(
 			JSON.stringify(
 				{
-					'Site URL:': 'http://localhost:8080',
-					'Site Path:': 'path/to/site',
-					'Status:': '🔴 Offline',
-					'PHP Version:': undefined,
-					'WP Version:': '6.4',
-					'Username:': 'admin',
-					'Password:': undefined,
+					'Site URL': 'http://localhost:8080/',
+					'Site Path': 'path/to/site',
+					Status: '🔴 Offline',
+					'PHP Version': undefined,
+					'WP Version': '6.4',
+					'Admin Username': 'admin',
+					'Admin Password': undefined,
 				},
 				null,
 				2

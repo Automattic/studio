@@ -134,7 +134,6 @@ let nextMessageId = 0;
 const messageActivityTrackers = new Map<
 	number,
 	{
-		lastActivityTimestamp: number;
 		activityCheckIntervalId: NodeJS.Timeout;
 	}
 >();
@@ -180,7 +179,6 @@ async function sendMessage(
 		}, PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL );
 
 		messageActivityTrackers.set( messageId, {
-			lastActivityTimestamp,
 			activityCheckIntervalId,
 		} );
 
@@ -200,10 +198,6 @@ async function sendMessage(
 
 			if ( validPacket.raw.topic === 'activity' ) {
 				lastActivityTimestamp = Date.now();
-				const tracker = messageActivityTrackers.get( messageId );
-				if ( tracker ) {
-					tracker.lastActivityTimestamp = lastActivityTimestamp;
-				}
 			} else if ( validPacket.raw.topic === 'error' ) {
 				const error = new Error( validPacket.raw.errorMessage );
 				if ( validPacket.raw.errorStack ) {

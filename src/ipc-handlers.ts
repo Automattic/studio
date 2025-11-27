@@ -87,6 +87,12 @@ import type { WpCliResult } from 'src/lib/wp-cli-process';
 import type { RawDirectoryEntry } from 'src/modules/sync/types';
 
 export {
+	isStudioCliInstalled,
+	installStudioCli,
+	uninstallStudioCli,
+} from 'src/modules/cli/lib/ipc-handlers';
+
+export {
 	addSyncOperation,
 	cancelSyncOperation,
 	clearSyncOperation,

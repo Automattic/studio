@@ -3,13 +3,13 @@ import { jest } from '@jest/globals';
 import { render, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import Onboarding from 'src/components/onboarding';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { useOffline } from 'src/hooks/use-offline';
-import { useOnboarding } from 'src/hooks/use-onboarding';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 import { createTestStore } from 'src/lib/test-utils';
 import { getWordPressProvider } from 'src/lib/wordpress-provider';
+import { Onboarding } from 'src/modules/onboarding';
+import { useOnboarding } from 'src/modules/onboarding/hooks/use-onboarding';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 
 jest.mock( 'src/hooks/use-onboarding', () => ( {

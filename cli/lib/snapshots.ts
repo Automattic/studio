@@ -1,15 +1,7 @@
 import { __, sprintf } from '@wordpress/i18n';
-import Table from 'cli-table3';
 import { HOUR_MS, DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
 import { Snapshot } from 'common/types/snapshot';
-import {
-	addDays,
-	addHours,
-	DurationUnit,
-	format,
-	formatDuration,
-	intervalToDuration,
-} from 'date-fns';
+import { addDays, addHours, DurationUnit, formatDuration, intervalToDuration } from 'date-fns';
 import {
 	getAuthToken,
 	getSiteByFolder,
@@ -130,7 +122,7 @@ export function isSnapshotExpired( snapshot: Snapshot ) {
 	return endDate < now;
 }
 
-function formatDurationUntilExpiry( lastUpdatedAt: number ) {
+export function formatDurationUntilExpiry( lastUpdatedAt: number ) {
 	const now = new Date();
 	const endDate = addDays( lastUpdatedAt, DEMO_SITE_EXPIRATION_DAYS );
 	const difference = endDate.getTime() - now.getTime();
@@ -156,47 +148,4 @@ function formatDurationUntilExpiry( lastUpdatedAt: number ) {
 			delimiter: ', ',
 		}
 	);
-}
-
-function getColumnWidths( widthFactors: number[] ) {
-	const padding = widthFactors.length * 2;
-	const columns = Math.min( process.stdout.columns || 80, 140 ) - padding;
-	return widthFactors.map( ( widthFactor ) => Math.round( widthFactor * columns ) );
-}
-
-export function getSnapshotCliTable( snapshots: Snapshot[] ) {
-	const colWidths = getColumnWidths( [ 0.4, 0.25, 0.175, 0.175 ] );
-	const table = new Table( {
-		head: [ __( 'URL' ), __( 'Site Name' ), __( 'Updated' ), __( 'Expires in' ) ],
-		wordWrap: true,
-		wrapOnWordBoundary: false,
-		colWidths,
-		style: {
-			head: [],
-			border: [],
-		},
-	} );
-
-	snapshots.forEach( ( snapshot ) => {
-		const durationUntilExpiry = formatDurationUntilExpiry( snapshot.date );
-		const url = `https://${ snapshot.url }`;
-
-		table.push( [
-			{ href: url, content: url },
-			snapshot.name,
-			format( snapshot.date, 'yyyy-MM-dd HH:mm' ),
-			durationUntilExpiry,
-		] );
-	} );
-
-	return table;
-}
-
-export function getSnapshotCliJson( snapshots: Snapshot[] ) {
-	return snapshots.map( ( snapshot ) => ( {
-		url: `https://${ snapshot.url }`,
-		name: snapshot.name,
-		date: format( snapshot.date, 'yyyy-MM-dd HH:mm' ),
-		expiresIn: formatDurationUntilExpiry( snapshot.date ),
-	} ) );
 }

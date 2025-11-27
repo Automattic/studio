@@ -61,7 +61,6 @@ export async function runCommand( siteFolder: string, skipBrowser = false ): Pro
 			const loggerError = new LoggerError( __( 'Failed to start site infrastructure' ), error );
 			logger.reportError( loggerError );
 		}
-		process.exit( 1 );
 	} finally {
 		disconnect();
 	}

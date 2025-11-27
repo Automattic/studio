@@ -19,6 +19,7 @@ export enum PreviewCommandLoggerAction {
 
 export enum SiteCommandLoggerAction {
 	START_DAEMON = 'startDaemon',
+	LOAD_SITES = 'loadSites',
 	START_PROXY = 'startProxy',
 	GENERATE_CERT = 'generateCert',
 	ADD_DOMAIN_TO_HOSTS = 'addDomainToHosts',

@@ -58,7 +58,11 @@ describe( 'Preview Create Command', () => {
 
 		( getAuthToken as jest.Mock ).mockResolvedValue( mockAuthToken );
 		( validateSiteFolder as jest.Mock ).mockReturnValue( true );
-		( getSiteByFolder as jest.Mock ).mockResolvedValue( { id: 'site-123', path: mockFolder, name: 'Test Site' } );
+		( getSiteByFolder as jest.Mock ).mockResolvedValue( {
+			id: 'site-123',
+			path: mockFolder,
+			name: 'Test Site',
+		} );
 		( archiveSiteContent as jest.Mock ).mockResolvedValue( mockArchiver );
 		( cleanup as jest.Mock ).mockImplementation( () => {} );
 		( uploadArchive as jest.Mock ).mockResolvedValue( {

@@ -3,7 +3,7 @@ import path from 'path';
 import { DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
-import { getAuthToken, getOrCreateSiteByFolder, getSiteByFolder } from 'cli/lib/appdata';
+import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { updateSnapshotInAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { validateSiteFolder } from 'cli/lib/validation';
@@ -15,7 +15,6 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
 	getAuthToken: jest.fn(),
 	getSiteByFolder: jest.fn(),
-	getOrCreateSiteByFolder: jest.fn(),
 } ) );
 jest.mock( 'cli/lib/validation' );
 jest.mock( 'cli/lib/archive' );
@@ -261,7 +260,7 @@ describe( 'Preview Update Command', () => {
 
 	it( 'should allow update if overwrite flag is set even if folder does not match', async () => {
 		const { runCommand } = await import( '../update' );
-		( getOrCreateSiteByFolder as jest.Mock ).mockResolvedValueOnce( {
+		( getSiteByFolder as jest.Mock ).mockResolvedValueOnce( {
 			id: 'different-id',
 			path: '/other/path',
 			name: 'Other Site',

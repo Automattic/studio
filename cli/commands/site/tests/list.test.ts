@@ -71,7 +71,6 @@ describe( 'Sites List Command', () => {
 		const { runCommand } = await import( '../list' );
 		( readAppdata as jest.Mock ).mockResolvedValue( {
 			sites: [],
-			newSites: [],
 			snapshots: [],
 		} );
 

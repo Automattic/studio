@@ -6,7 +6,6 @@ import {
 	getAuthToken,
 	getSiteByFolder,
 	readAppdata,
-	getOrCreateSiteByFolder,
 	lockAppdata,
 	unlockAppdata,
 	saveAppdata,
@@ -34,7 +33,7 @@ export async function updateSnapshotInAppdata(
 	siteFolder: string
 ): Promise< Snapshot > {
 	try {
-		const site = await getOrCreateSiteByFolder( siteFolder );
+		const site = await getSiteByFolder( siteFolder );
 		await lockAppdata();
 		const userData = await readAppdata();
 		const snapshot = userData.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
@@ -72,7 +71,7 @@ export async function saveSnapshotToAppdata(
 	previewUrl: string
 ): Promise< Snapshot > {
 	try {
-		const site = await getOrCreateSiteByFolder( siteFolder );
+		const site = await getSiteByFolder( siteFolder );
 		await lockAppdata();
 		const userData = await readAppdata();
 		const authToken = await getAuthToken();

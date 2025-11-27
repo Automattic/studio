@@ -7,7 +7,7 @@ import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-action
 import { Snapshot } from 'common/types/snapshot';
 import { addDays } from 'date-fns';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
-import { getAuthToken, getOrCreateSiteByFolder, getSiteByFolder } from 'cli/lib/appdata';
+import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { cleanup, archiveSiteContent } from 'cli/lib/archive';
 import { getSnapshotsFromAppdata, updateSnapshotInAppdata } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
@@ -21,15 +21,8 @@ async function getSnapshotToUpdate(
 	siteFolder: string,
 	overwrite: boolean
 ) {
-	let currentSiteId: string;
-
-	if ( overwrite ) {
-		const site = await getOrCreateSiteByFolder( siteFolder );
-		currentSiteId = site.id;
-	} else {
-		const site = await getSiteByFolder( siteFolder, true );
-		currentSiteId = site.id;
-	}
+	const site = await getSiteByFolder( siteFolder );
+	const currentSiteId = site.id;
 
 	const snapshotToUpdate = snapshots.find( ( s ) => s.url === host );
 	if ( ! snapshotToUpdate ) {

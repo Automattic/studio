@@ -1284,18 +1284,6 @@ export async function getAllCustomDomains(): Promise< string[] > {
 		.filter( ( domain ): domain is string => domain !== undefined );
 }
 
-export async function handleNewSite( event: IpcMainInvokeEvent, newSite: NewSiteDetails ) {
-	try {
-		await createSite( event, newSite.path, { siteId: newSite.id } );
-		await lockAppdata();
-		const userData = await loadUserData();
-		const newSites = userData.newSites?.filter( ( s ) => s.id !== newSite.id );
-		await saveUserData( { ...userData, newSites } );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
 export function comparePaths( event: IpcMainInvokeEvent, path1: string, path2: string ) {
 	return arePathsEqual( path1, path2 );
 }

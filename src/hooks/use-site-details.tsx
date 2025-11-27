@@ -1,5 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import fastDeepEqual from 'fast-deep-equal';
 import {
 	ReactNode,
 	createContext,
@@ -427,7 +426,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	useEffect( () => {
 		const unsubscribe = window.ipcListener.subscribe( 'user-data-updated', async ( _, payload ) => {
-			if ( ! fastDeepEqual( payload.newSites, payload.sites ) ) {
+			if ( payload.sites ) {
 				const updatedSites = await getIpcApi().getSiteDetails();
 				setData( ( prevData ) => {
 					const tempSite = prevData.find( ( site ) => addingSiteIds.includes( site.id ) );

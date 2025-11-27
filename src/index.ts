@@ -18,6 +18,7 @@ import {
 	REDUX_DEVTOOLS,
 } from 'electron-devtools-installer';
 import { PROTOCOL_PREFIX } from 'common/constants';
+import { bumpStat } from 'common/lib/bump-stat';
 import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
 import { StatsGroup } from 'common/types/stats';
 import { IPC_VOID_HANDLERS } from 'src/constants';
@@ -26,7 +27,7 @@ import {
 	hasActiveSyncOperations,
 	hasCancelableSyncOperations,
 } from 'src/lib/active-sync-operations';
-import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
+import { bumpAggregatedUniqueStat } from 'src/lib/bump-stats';
 import { getPlatformMetric } from 'src/lib/bump-stats/lib';
 import { handleDeeplink } from 'src/lib/deeplink';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';

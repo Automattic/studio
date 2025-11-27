@@ -1,8 +1,8 @@
 /**
  * @jest-environment node
  */
-// To run tests, execute `npm run test -- src/lib/sort-sites.test.ts` from the root directory
-import { sortSites } from 'src/lib/sort-sites';
+// To run tests, execute `npm run test -- common/lib/tests/sort-sites.test.ts` from the root directory
+import { sortSites } from 'common/lib/sort-sites';
 
 describe( 'sortSites', () => {
 	it( 'should sort sites by name in ascending order', () => {

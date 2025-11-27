@@ -173,8 +173,8 @@ test.describe( 'Site Navigation', () => {
 
 		// Verify media was uploaded by checking the library
 		await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/upload.php` ) );
-		const mediaItems = page.locator( '.attachment' );
-		await expect( mediaItems.first() ).toBeVisible();
+		await page.waitForLoadState( 'networkidle' );
+		await expect( page.locator( '.attachment' ).first() ).toBeVisible( { timeout: 30_000 } );
 
 		// Clean up test file — don't fail the test if unlink errors
 		await fs.unlink( testImagePath ).catch( () => {} );

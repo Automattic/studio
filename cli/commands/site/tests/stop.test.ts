@@ -1,5 +1,6 @@
 import { SiteData, clearSiteLatestCliPid, readAppdata } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 
@@ -15,6 +16,7 @@ jest.mock( 'common/lib/fs-utils', () => ( {
 	arePathsEqual: jest.fn( ( a: string, b: string ) => a === b ),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
+jest.mock( 'cli/lib/site-utils' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
 jest.mock( 'cli/logger' );
 
@@ -60,6 +62,7 @@ describe( 'Site Stop Command', () => {
 		( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
 		( stopWordPressServer as jest.Mock ).mockResolvedValue( undefined );
 		( clearSiteLatestCliPid as jest.Mock ).mockResolvedValue( undefined );
+		( stopProxyIfNoSitesNeedIt as jest.Mock ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -151,6 +154,32 @@ describe( 'Site Stop Command', () => {
 			expect( clearSiteLatestCliPid ).toHaveBeenCalledWith( mockSiteData.id );
 			expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'WordPress site stopped' );
 			expect( disconnect ).toHaveBeenCalled();
+		} );
+
+		it( 'should call stopProxyIfNoSitesNeedIt after stopping a site', async () => {
+			( readAppdata as jest.Mock ).mockResolvedValue( {
+				sites: [ mockSiteData ],
+				snapshots: [],
+			} );
+			( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
+
+			const { runCommand } = await import( '../stop' );
+			await runCommand( mockSiteFolder );
+
+			expect( stopProxyIfNoSitesNeedIt ).toHaveBeenCalledWith( mockSiteData.id, mockLogger );
+		} );
+
+		it( 'should not call stopProxyIfNoSitesNeedIt if site is not running', async () => {
+			( readAppdata as jest.Mock ).mockResolvedValue( {
+				sites: [ mockSiteData ],
+				snapshots: [],
+			} );
+			( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
+
+			const { runCommand } = await import( '../stop' );
+			await runCommand( mockSiteFolder );
+
+			expect( stopProxyIfNoSitesNeedIt ).not.toHaveBeenCalled();
 		} );
 	} );
 

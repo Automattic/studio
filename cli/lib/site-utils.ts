@@ -1,10 +1,11 @@
 import { __ } from '@wordpress/i18n';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { getSiteUrl, SiteData } from 'cli/lib/appdata';
+import { getSiteUrl, readAppdata, SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import { addDomainToHosts } from 'cli/lib/hosts-file';
-import { isProxyProcessRunning, startProxyProcess } from 'cli/lib/pm2-manager';
+import { isProxyProcessRunning, startProxyProcess, stopProxyProcess } from 'cli/lib/pm2-manager';
+import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 
 /**
@@ -73,4 +74,32 @@ export async function setupCustomDomain(
 	} catch ( error ) {
 		throw new LoggerError( __( 'Failed to add domain to hosts file' ), error );
 	}
+}
+
+/**
+ * Stops the HTTP proxy server if no remaining running sites need it.
+ * A site needs the proxy if it has a custom domain configured.
+ *
+ * @param stoppedSiteId - The ID of the site that was just stopped (to exclude from the check)
+ */
+export async function stopProxyIfNoSitesNeedIt(
+	stoppedSiteId: string,
+	logger: Logger< LoggerAction >
+): Promise< void > {
+	const proxyProcess = await isProxyProcessRunning();
+	if ( ! proxyProcess ) {
+		return;
+	}
+
+	const appdata = await readAppdata();
+
+	for ( const site of appdata.sites ) {
+		if ( site.id !== stoppedSiteId && site.customDomain && ( await isServerRunning( site.id ) ) ) {
+			return;
+		}
+	}
+
+	logger.reportStart( LoggerAction.STOP_PROXY, __( 'Stopping HTTP proxy server...' ) );
+	await stopProxyProcess();
+	logger.reportSuccess( __( 'HTTP proxy server stopped' ) );
 }

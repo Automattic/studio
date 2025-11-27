@@ -3,6 +3,7 @@ import { arePathsEqual } from 'common/lib/fs-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { clearSiteLatestCliPid, readAppdata } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -31,6 +32,7 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 			await stopWordPressServer( site.id );
 			await clearSiteLatestCliPid( site.id );
 			logger.reportSuccess( __( 'WordPress site stopped' ) );
+			await stopProxyIfNoSitesNeedIt( site.id, logger );
 		} catch ( error ) {
 			throw new LoggerError( __( 'Failed to stop WordPress server' ), error );
 		}

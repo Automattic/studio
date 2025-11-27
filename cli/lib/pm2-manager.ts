@@ -165,6 +165,10 @@ export async function isProxyProcessRunning(): Promise< ProcessDescription | und
 	return isProcessRunning( PROXY_PROCESS_NAME );
 }
 
+export async function stopProxyProcess(): Promise< void > {
+	return stopProcess( PROXY_PROCESS_NAME );
+}
+
 export async function isProcessRunning(
 	processName: string
 ): Promise< ProcessDescription | undefined > {

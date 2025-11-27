@@ -21,6 +21,7 @@ export enum SiteCommandLoggerAction {
 	START_DAEMON = 'startDaemon',
 	LOAD_SITES = 'loadSites',
 	START_PROXY = 'startProxy',
+	STOP_PROXY = 'stopProxy',
 	GENERATE_CERT = 'generateCert',
 	ADD_DOMAIN_TO_HOSTS = 'addDomainToHosts',
 	START_SITE = 'startSite',

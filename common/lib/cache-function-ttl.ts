@@ -1,16 +1,29 @@
-const cache = new Map< () => Promise< unknown >, { result: unknown; timestamp: number } >();
+import fastDeepEqual from 'fast-deep-equal';
+
+const cache = new Map<
+	() => Promise< unknown >,
+	Set< { args: unknown[]; result: unknown; timestamp: number } >
+>();
 
 export function cacheFunctionTTL< Args extends unknown[], Return >(
 	fn: ( ...args: Args ) => Promise< Return >,
 	ttl = 1 * 1000
 ) {
 	return async ( ...args: Args ) => {
-		const cachedValue = cache.get( fn );
-		if ( cachedValue && Date.now() - cachedValue.timestamp < ttl ) {
-			return cachedValue.result as Return;
+		const cachedResults = cache.get( fn ) ?? new Set();
+
+		if ( ! cache.has( fn ) ) {
+			cache.set( fn, cachedResults );
 		}
+
+		for ( const cachedResult of cachedResults ) {
+			if ( fastDeepEqual( args, cachedResult.args ) && Date.now() - cachedResult.timestamp < ttl ) {
+				return cachedResult.result as Return;
+			}
+		}
+
 		const value = await fn( ...args );
-		cache.set( fn, { result: value, timestamp: Date.now() } );
+		cachedResults.add( { args, result: value, timestamp: Date.now() } );
 		return value;
 	};
 }

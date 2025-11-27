@@ -18,6 +18,7 @@ import https from 'node:https';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
+import { validateBlueprintData } from 'common/lib/blueprint-validation';
 import { bumpStat } from 'common/lib/bump-stat';
 import {
 	calculateDirectorySize,
@@ -29,13 +30,14 @@ import {
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import { getAuthenticationUrl } from 'common/lib/oauth';
+import { createPassword } from 'common/lib/passwords';
 import { portFinder } from 'common/lib/port-finder';
+import { sortSites } from 'common/lib/sort-sites';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
-import { validateBlueprintData } from 'src/lib/blueprint-features';
 import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
 import {
 	openCertificate as openCertificateDialog,
@@ -55,10 +57,8 @@ import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { isInstalled } from 'src/lib/is-installed';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import * as oauthClient from 'src/lib/oauth';
-import { createPassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
-import { sortSites } from 'src/lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';

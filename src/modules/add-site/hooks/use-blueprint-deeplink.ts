@@ -16,6 +16,7 @@ interface UseBlueprintDeeplinkOptions {
 	setPhpVersion: ( version: string ) => void;
 	setWpVersion: ( version: string ) => void;
 	setBlueprintPreferredVersions: ( versions: { php?: string; wp?: string } | undefined ) => void;
+	navigateToBlueprintDeeplink: () => void;
 }
 
 export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): void {
@@ -27,6 +28,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 		setPhpVersion,
 		setWpVersion,
 		setBlueprintPreferredVersions,
+		navigateToBlueprintDeeplink,
 	} = options;
 
 	const createBlueprintFromData = useCallback(
@@ -87,6 +89,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 				setSelectedBlueprint( fileBlueprint );
 				applyPreferredVersions( blueprintJson );
 				openModal();
+				navigateToBlueprintDeeplink();
 			} catch ( error ) {
 				console.error( 'Failed to load blueprint from URL:', error );
 			}
@@ -98,6 +101,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 			setSelectedBlueprint,
 			applyPreferredVersions,
 			openModal,
+			navigateToBlueprintDeeplink,
 		]
 	);
 	useIpcListener( 'add-site-with-blueprint', handleBlueprintFromUrl );

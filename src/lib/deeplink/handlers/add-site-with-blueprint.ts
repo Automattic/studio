@@ -2,8 +2,8 @@ import { app, dialog } from 'electron';
 import nodePath from 'path';
 import { __ } from '@wordpress/i18n';
 import fs from 'fs-extra';
+import { validateBlueprintData } from 'common/lib/blueprint-validation';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { validateBlueprintData } from 'src/lib/blueprint-features';
 import { download } from 'src/lib/download';
 import { getMainWindow } from 'src/main-window';
 

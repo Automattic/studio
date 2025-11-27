@@ -28,7 +28,17 @@ const managerMessageStartServer = managerMessageBase.extend( {
 	} ),
 } );
 
-export const managerMessageSchema = z.discriminatedUnion( 'topic', [ managerMessageStartServer ] );
+const managerMessageRunBlueprint = managerMessageBase.extend( {
+	topic: z.literal( 'run-blueprint' ),
+	data: z.object( {
+		config: serverConfig,
+	} ),
+} );
+
+export const managerMessageSchema = z.discriminatedUnion( 'topic', [
+	managerMessageStartServer,
+	managerMessageRunBlueprint,
+] );
 export type ManagerMessage = z.infer< typeof managerMessageSchema >;
 
 // Zod schemas for validating IPC messages from wordpress-server-child

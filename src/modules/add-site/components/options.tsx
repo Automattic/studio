@@ -13,7 +13,12 @@ import { cx } from 'src/lib/cx';
 import { useRootSelector } from 'src/stores';
 import { BlueprintIcon } from './blueprint-icon';
 
-export type AddSiteFlowType = 'create' | 'blueprint' | 'backup' | 'pullRemote';
+export type AddSiteFlowType =
+	| 'create'
+	| 'blueprint'
+	| 'blueprintDeeplink'
+	| 'backup'
+	| 'pullRemote';
 interface AddSiteOptionsProps {
 	onOptionSelect: ( option: AddSiteFlowType ) => void;
 }

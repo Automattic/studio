@@ -14,7 +14,6 @@ interface SiteListEntry {
 	name: string;
 	path: string;
 	url: string;
-	phpVersion: string;
 }
 
 async function getSiteListData( sites: SiteData[] ) {
@@ -30,7 +29,6 @@ async function getSiteListData( sites: SiteData[] ) {
 			name: site.name,
 			path: getPrettyPath( site.path ),
 			url,
-			phpVersion: site.phpVersion,
 		} );
 	}
 
@@ -63,10 +61,10 @@ export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 		const sitesData = await getSiteListData( appdata.sites );
 
 		if ( format === 'table' ) {
-			const colWidths = getColumnWidths( [ 0.1, 0.2, 0.25, 0.4, 0.05 ] );
+			const colWidths = getColumnWidths( [ 0.1, 0.2, 0.3, 0.4 ] );
 
 			const table = new Table( {
-				head: [ __( 'Status' ), __( 'Name' ), __( 'Path' ), __( 'URL' ), __( 'PHP' ) ],
+				head: [ __( 'Status' ), __( 'Name' ), __( 'Path' ), __( 'URL' ) ],
 				wordWrap: true,
 				wrapOnWordBoundary: false,
 				colWidths,
@@ -82,7 +80,6 @@ export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 					site.name,
 					site.path,
 					{ href: new URL( site.url ).toString(), content: site.url },
-					site.phpVersion,
 				] )
 			);
 

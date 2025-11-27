@@ -4,7 +4,7 @@ import {
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent } from 'react';
-import { CreateSiteForm } from 'src/components/create-site-form';
+import { CreateSiteForm } from 'src/modules/add-site/components/create-site-form';
 
 interface CreateSiteProps {
 	siteName: string | null;

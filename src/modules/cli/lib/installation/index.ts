@@ -1,26 +1,39 @@
 import { dialog } from 'electron';
 import { __ } from '@wordpress/i18n';
 import { getMainWindow } from 'src/main-window';
-import {
-	installCliWithConfirmation as installCliMacOS,
-	isCliInstalled as isCliInstalledMacOS,
-	uninstallCliWithConfirmation as uninstallCliOnMacOS,
-} from 'src/modules/cli/lib/installation/macos';
-import {
-	installCli as installCliOnWindows,
-	isCliInstalled as isCliInstalledWindows,
-	uninstallCli as uninstallCliOnWindows,
-} from 'src/modules/cli/lib/installation/windows';
+import { MacOSCliInstallationManager } from 'src/modules/cli/lib/installation/macos';
+import { WindowsCliInstallationManager } from 'src/modules/cli/lib/installation/windows';
 
-export async function isStudioCliInstalled(): Promise< boolean > {
+/**
+ * Interface for platform-specific CLI installation management
+ */
+export interface StudioCliInstallationManager {
+	isCliInstalled(): Promise< boolean >;
+	installCliWithConfirmation(): Promise< void >;
+	uninstallCliWithConfirmation(): Promise< void >;
+}
+
+function getCliInstallationManager(): StudioCliInstallationManager {
 	switch ( process.platform ) {
 		case 'darwin':
-			return await isCliInstalledMacOS();
+			return new MacOSCliInstallationManager();
 		case 'win32':
-			return await isCliInstalledWindows();
+			return new WindowsCliInstallationManager();
 		default:
-			return false;
+			throw new Error( 'Studio CLI is not available on this platform.' );
 	}
+}
+
+function isPlatformSupported(): boolean {
+	return process.platform === 'darwin' || process.platform === 'win32';
+}
+
+export async function isStudioCliInstalled(): Promise< boolean > {
+	if ( isPlatformSupported() ) {
+		const manager = getCliInstallationManager();
+		return await manager.isCliInstalled();
+	}
+	return false;
 }
 
 export async function installStudioCli(): Promise< void > {
@@ -39,10 +52,9 @@ export async function installStudioCli(): Promise< void > {
 		}
 	}
 
-	if ( process.platform === 'darwin' ) {
-		await installCliMacOS();
-	} else if ( process.platform === 'win32' ) {
-		await installCliOnWindows();
+	if ( isPlatformSupported() ) {
+		const manager = getCliInstallationManager();
+		await manager.installCliWithConfirmation();
 	}
 }
 
@@ -62,9 +74,8 @@ export async function uninstallStudioCli(): Promise< void > {
 		}
 	}
 
-	if ( process.platform === 'darwin' ) {
-		await uninstallCliOnMacOS();
-	} else if ( process.platform === 'win32' ) {
-		await uninstallCliOnWindows();
+	if ( isPlatformSupported() ) {
+		const manager = getCliInstallationManager();
+		await manager.uninstallCliWithConfirmation();
 	}
 }

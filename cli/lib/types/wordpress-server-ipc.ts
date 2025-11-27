@@ -1,10 +1,6 @@
 import { z } from 'zod';
 
 // Zod schemas for validating IPC messages from wordpress-server-manager
-const managerMessageBase = z.object( {
-	messageId: z.number(),
-} );
-
 const serverConfig = z.object( {
 	siteId: z.string(),
 	sitePath: z.string(),
@@ -21,29 +17,36 @@ const serverConfig = z.object( {
 
 export type ServerConfig = z.infer< typeof serverConfig >;
 
-const managerMessageStartServer = managerMessageBase.extend( {
+const managerMessageStartServer = z.object( {
 	topic: z.literal( 'start-server' ),
 	data: z.object( {
 		config: serverConfig,
 	} ),
 } );
 
-const managerMessageRunBlueprint = managerMessageBase.extend( {
+const managerMessageRunBlueprint = z.object( {
 	topic: z.literal( 'run-blueprint' ),
 	data: z.object( {
 		config: serverConfig,
 	} ),
 } );
 
-const managerMessageStopServer = managerMessageBase.extend( {
+const managerMessageStopServer = z.object( {
 	topic: z.literal( 'stop-server' ),
-	data: z.object( {} ),
 } );
 
-export const managerMessageSchema = z.discriminatedUnion( 'topic', [
+const _managerMessagePayloadSchema = z.discriminatedUnion( 'topic', [
 	managerMessageStartServer,
 	managerMessageRunBlueprint,
 	managerMessageStopServer,
+] );
+export type ManagerMessagePayload = z.infer< typeof _managerMessagePayloadSchema >;
+
+const managerMessageBase = z.object( { messageId: z.number() } );
+export const managerMessageSchema = z.discriminatedUnion( 'topic', [
+	managerMessageBase.merge( managerMessageStartServer ),
+	managerMessageBase.merge( managerMessageRunBlueprint ),
+	managerMessageBase.merge( managerMessageStopServer ),
 ] );
 export type ManagerMessage = z.infer< typeof managerMessageSchema >;
 

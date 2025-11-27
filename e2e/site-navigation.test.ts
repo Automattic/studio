@@ -10,10 +10,10 @@ import { getUrlWithAutoLogin } from './utils';
 
 /**
  * Closes the WordPress Block Editor welcome guide if it appears.
- * Attempts to close up to 2 times as the modal can appear multiple times.
+ * Attempts to close up to 3 times as the modal reappears while the page loads.
  */
 async function closeWelcomeGuide( page: Page ) {
-	for ( let i = 0; i < 2; i++ ) {
+	for ( let i = 0; i < 3; i++ ) {
 		try {
 			// Wait for the modal frame to appear
 			const modalFrame = page.locator( '.components-modal__frame' );
@@ -23,9 +23,9 @@ async function closeWelcomeGuide( page: Page ) {
 			const closeButton = page.locator( '.components-modal__header > button[aria-label="Close"]' );
 			await closeButton.waitFor( { state: 'visible', timeout: 2000 } );
 			await closeButton.click();
-		} catch ( e ) {
-			// Modal not found or already closed, exit the loop
-			break;
+		} catch {
+			// Modal not found or already closed, try again in next loop iteration
+			continue;
 		}
 	}
 }
@@ -330,6 +330,8 @@ test.describe( 'Site Navigation', () => {
 			'button.editor-post-publish-button__button.editor-post-publish-panel__toggle'
 		);
 
+		// Ensure no welcome/whats-new modal is obscuring the publish button
+		await closeWelcomeGuide( page );
 		await publishButton.waitFor( { state: 'visible', timeout: 10_000 } );
 		await publishButton.click();
 

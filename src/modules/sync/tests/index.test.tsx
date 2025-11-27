@@ -140,6 +140,7 @@ describe( 'ContentTabSync', () => {
 			getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
 			getDirectorySize: jest.fn().mockResolvedValue( 0 ),
 			connectWpcomSites: jest.fn(),
+			getWpVersion: jest.fn().mockResolvedValue( '6.4.3' ),
 			listLocalFileTree: jest.fn().mockResolvedValue( [
 				{
 					name: 'plugins',

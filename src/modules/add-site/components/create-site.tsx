@@ -4,7 +4,7 @@ import {
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent } from 'react';
-import { SiteForm } from 'src/components/site-form';
+import { CreateSiteForm } from 'src/components/create-site-form';
 
 interface CreateSiteProps {
 	siteName: string | null;
@@ -57,7 +57,7 @@ export default function CreateSite( {
 				{ __( 'Add a site' ) }
 			</Heading>
 
-			<SiteForm
+			<CreateSiteForm
 				siteName={ siteName || '' }
 				setSiteName={ ( name ) => void handleSiteNameChange( name ) }
 				phpVersion={ phpVersion }

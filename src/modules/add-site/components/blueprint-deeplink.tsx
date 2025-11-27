@@ -7,12 +7,17 @@ import {
 import { check } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { Blueprint } from 'src/stores/wpcom-api';
+import { BlueprintWarningNotice } from './blueprints';
 
 interface BlueprintDeeplinkProps {
 	selectedBlueprint?: Blueprint;
+	warnings?: Array< { feature: string; reason: string } >;
 }
 
-export default function BlueprintDeeplink( { selectedBlueprint }: BlueprintDeeplinkProps ) {
+export default function BlueprintDeeplink( {
+	selectedBlueprint,
+	warnings,
+}: BlueprintDeeplinkProps ) {
 	const { __ } = useI18n();
 
 	const blueprintTitle = selectedBlueprint?.title || __( 'Blueprint' );
@@ -23,6 +28,12 @@ export default function BlueprintDeeplink( { selectedBlueprint }: BlueprintDeepl
 			<Heading className="text-center text-[32px] text-gray-900 mb-[59px]" weight={ 500 }>
 				{ __( 'Start from a Blueprint' ) }
 			</Heading>
+
+			<BlueprintWarningNotice
+				warnings={ warnings }
+				fileName={ blueprintTitle }
+				className="w-full max-w-4xl mx-auto mb-4"
+			/>
 
 			<div className="w-full max-w-[400px] h-[250px] mx-auto p-12 border-2 rounded-xl border-gray-300 bg-gray-50">
 				<VStack className="items-center justify-center h-full" spacing={ 2 }>

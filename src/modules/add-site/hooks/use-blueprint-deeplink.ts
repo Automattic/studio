@@ -9,6 +9,8 @@ type BlueprintMetadata = {
 	description?: string;
 };
 
+type BlueprintWarning = { feature: string; reason: string };
+
 interface UseBlueprintDeeplinkOptions {
 	isAnySiteProcessing: boolean;
 	openModal: () => void;
@@ -16,6 +18,7 @@ interface UseBlueprintDeeplinkOptions {
 	setPhpVersion: ( version: string ) => void;
 	setWpVersion: ( version: string ) => void;
 	setBlueprintPreferredVersions: ( versions: { php?: string; wp?: string } | undefined ) => void;
+	setBlueprintDeeplinkWarnings: ( warnings: BlueprintWarning[] | undefined ) => void;
 	navigateToBlueprintDeeplink: () => void;
 }
 
@@ -28,6 +31,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 		setPhpVersion,
 		setWpVersion,
 		setBlueprintPreferredVersions,
+		setBlueprintDeeplinkWarnings,
 		navigateToBlueprintDeeplink,
 	} = options;
 
@@ -71,7 +75,10 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 	);
 
 	const handleBlueprintFromUrl = useCallback(
-		async ( _event: unknown, { blueprintPath }: { blueprintPath: string } ) => {
+		async (
+			_event: unknown,
+			{ blueprintPath, warnings }: { blueprintPath: string; warnings?: BlueprintWarning[] }
+		) => {
 			if ( isAnySiteProcessing ) {
 				return;
 			}
@@ -88,6 +95,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 
 				setSelectedBlueprint( fileBlueprint );
 				applyPreferredVersions( blueprintJson );
+				setBlueprintDeeplinkWarnings( warnings );
 				openModal();
 				navigateToBlueprintDeeplink();
 			} catch ( error ) {
@@ -100,6 +108,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 			createBlueprintFromData,
 			setSelectedBlueprint,
 			applyPreferredVersions,
+			setBlueprintDeeplinkWarnings,
 			openModal,
 			navigateToBlueprintDeeplink,
 		]

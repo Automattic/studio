@@ -112,6 +112,52 @@ function BlueprintIssuesModal( {
 	);
 }
 
+interface BlueprintWarningNoticeProps {
+	warnings: Array< { feature: string; reason: string } > | undefined;
+	fileName: string;
+	className?: string;
+}
+
+export function BlueprintWarningNotice( {
+	warnings,
+	fileName,
+	className,
+}: BlueprintWarningNoticeProps ) {
+	const { __ } = useI18n();
+	const [ showIssuesModal, setShowIssuesModal ] = useState( false );
+
+	if ( ! warnings || warnings.length === 0 ) {
+		return null;
+	}
+
+	return (
+		<>
+			<BlueprintIssuesModal
+				warnings={ warnings }
+				fileName={ fileName }
+				isOpen={ showIssuesModal }
+				onClose={ () => setShowIssuesModal( false ) }
+			/>
+			<Notice status="warning" isDismissible={ false } className={ className }>
+				<div className="flex justify-between items-center w-full">
+					<span>
+						{ __(
+							'This Blueprint uses unsupported features in Studio and might not work as expected.'
+						) }
+					</span>
+					<Button
+						variant="link"
+						onClick={ () => setShowIssuesModal( true ) }
+						className="!text-inherit !p-0 !underline"
+					>
+						{ __( 'View details' ) }
+					</Button>
+				</div>
+			</Notice>
+		</>
+	);
+}
+
 interface AddSiteBlueprintProps {
 	blueprints: Blueprint[];
 	errorMessage?: string;
@@ -142,7 +188,6 @@ export function AddSiteBlueprintSelector( {
 		| undefined
 	>( undefined );
 	const [ uploadedFileName, setUploadedFileName ] = useState< string | null >( null );
-	const [ showIssuesModal, setShowIssuesModal ] = useState( false );
 
 	// Check if current selection is a file-based blueprint
 	const isFileBasedSelection = selectedBlueprint && selectedBlueprint.startsWith( 'file:' );
@@ -362,13 +407,6 @@ export function AddSiteBlueprintSelector( {
 				{ __( 'Start from a Blueprint' ) }
 			</Heading>
 
-			<BlueprintIssuesModal
-				warnings={ blueprintWarnings }
-				fileName={ selectedFileName || '' }
-				isOpen={ showIssuesModal }
-				onClose={ () => setShowIssuesModal( false ) }
-			/>
-
 			{ validationError && (
 				<Notice
 					status="error"
@@ -382,23 +420,12 @@ export function AddSiteBlueprintSelector( {
 				</Notice>
 			) }
 
-			{ ! validationError && blueprintWarnings && blueprintWarnings.length > 0 && (
-				<Notice status="warning" isDismissible={ false } className="mx-0 mb-4">
-					<div className="flex justify-between items-center w-full">
-						<span>
-							{ __(
-								'This Blueprint uses unsupported features in Studio and might not work as expected.'
-							) }
-						</span>
-						<Button
-							variant="link"
-							onClick={ () => setShowIssuesModal( true ) }
-							className="!text-inherit !p-0 !underline"
-						>
-							{ __( 'View details' ) }
-						</Button>
-					</div>
-				</Notice>
+			{ ! validationError && (
+				<BlueprintWarningNotice
+					warnings={ blueprintWarnings }
+					fileName={ selectedFileName || '' }
+					className="mx-0 mb-4"
+				/>
 			) }
 
 			<HStack alignment="edge" className="w-full mb-5 ">

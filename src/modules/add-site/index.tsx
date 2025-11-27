@@ -64,6 +64,7 @@ interface NavigationContentProps {
 	blueprintsErrorMessage?: string | undefined;
 	blueprintPreferredVersions?: { php?: string; wp?: string };
 	setBlueprintPreferredVersions: ( versions: { php?: string; wp?: string } | undefined ) => void;
+	blueprintDeeplinkWarnings?: Array< { feature: string; reason: string } >;
 	selectedRemoteSite?: SyncSite;
 	setSelectedRemoteSite: ( site?: SyncSite ) => void;
 	isDeeplinkFlow: boolean;
@@ -79,6 +80,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		blueprintsErrorMessage,
 		blueprintPreferredVersions,
 		setBlueprintPreferredVersions,
+		blueprintDeeplinkWarnings,
 		selectedRemoteSite,
 		setSelectedRemoteSite,
 		isDeeplinkFlow,
@@ -261,7 +263,10 @@ function NavigationContent( props: NavigationContentProps ) {
 				<CreateSite { ...createSiteProps } />
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/deeplink">
-				<BlueprintDeeplink selectedBlueprint={ createSiteProps.selectedBlueprint } />
+				<BlueprintDeeplink
+					selectedBlueprint={ createSiteProps.selectedBlueprint }
+					warnings={ blueprintDeeplinkWarnings }
+				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/deeplink/create">
 				<CreateSite
@@ -318,6 +323,9 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
 		{ php?: string; wp?: string } | undefined
+	>();
+	const [ blueprintDeeplinkWarnings, setBlueprintDeeplinkWarnings ] = useState<
+		Array< { feature: string; reason: string } > | undefined
 	>();
 	const [ isDeeplinkFlow, setIsDeeplinkFlow ] = useState( false );
 
@@ -378,6 +386,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		setFileForImport( null );
 		setSelectedBlueprint( undefined );
 		setBlueprintPreferredVersions( undefined );
+		setBlueprintDeeplinkWarnings( undefined );
 		setSelectedRemoteSite( undefined );
 	}, [
 		setSitePath,
@@ -409,6 +418,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		setPhpVersion,
 		setWpVersion,
 		setBlueprintPreferredVersions,
+		setBlueprintDeeplinkWarnings,
 		navigateToBlueprintDeeplink: () => {
 			setIsDeeplinkFlow( true );
 		},
@@ -489,6 +499,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 						handleSubmit={ handleSubmit }
 						blueprintPreferredVersions={ blueprintPreferredVersions }
 						setBlueprintPreferredVersions={ setBlueprintPreferredVersions }
+						blueprintDeeplinkWarnings={ blueprintDeeplinkWarnings }
 						selectedRemoteSite={ selectedRemoteSite }
 						setSelectedRemoteSite={ setSelectedRemoteSite }
 						isDeeplinkFlow={ isDeeplinkFlow }

@@ -2,7 +2,7 @@ import fastDeepEqual from 'fast-deep-equal';
 
 const cache = new Map<
 	() => Promise< unknown >,
-	Set< { args: unknown[]; result: unknown; timestamp: number } >
+	Set< { args: unknown[]; result: unknown; timestamp: number; ttl: number } >
 >();
 
 export function cacheFunctionTTL< Args extends unknown[], Return >(
@@ -10,6 +10,8 @@ export function cacheFunctionTTL< Args extends unknown[], Return >(
 	ttl = 1 * 1000
 ) {
 	return async ( ...args: Args ) => {
+		pruneCache();
+
 		const cachedResults = cache.get( fn ) ?? new Set();
 
 		if ( ! cache.has( fn ) ) {
@@ -17,20 +19,27 @@ export function cacheFunctionTTL< Args extends unknown[], Return >(
 		}
 
 		for ( const cachedResult of cachedResults ) {
-			if ( fastDeepEqual( args, cachedResult.args ) && Date.now() - cachedResult.timestamp < ttl ) {
+			if ( fastDeepEqual( args, cachedResult.args ) ) {
 				return cachedResult.result as Return;
 			}
 		}
 
 		const value = await fn( ...args );
-		cachedResults.add( { args, result: value, timestamp: Date.now() } );
+		cachedResults.add( { args, result: value, timestamp: Date.now(), ttl } );
 		return value;
 	};
 }
 
-/**
- * Clear all cached entries. Useful for testing.
- */
+function pruneCache(): void {
+	for ( const [ fn, cachedResults ] of cache ) {
+		for ( const cachedResult of cachedResults ) {
+			if ( Date.now() - cachedResult.timestamp >= cachedResult.ttl ) {
+				cachedResults.delete( cachedResult );
+			}
+		}
+	}
+}
+
 export function clearCache(): void {
 	cache.clear();
 }

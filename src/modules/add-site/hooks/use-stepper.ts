@@ -50,8 +50,8 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 
 	const stepperContext = useMemo( (): StepperContext | null => {
 		const blueprintSteps: StepperStep[] = [
-			{ id: 'choose-blueprint', label: __( 'Choose Blueprint' ), path: '/blueprint' },
-			{ id: 'site-details', label: __( 'Site name & details' ), path: '/blueprint/create' },
+			{ id: 'choose-blueprint', label: __( 'Choose Blueprint' ), path: '/blueprint/select' },
+			{ id: 'site-details', label: __( 'Site name & details' ), path: '/blueprint/select/create' },
 		];
 
 		const backupSteps: StepperStep[] = [
@@ -69,18 +69,22 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 		];
 
 		const blueprintDeeplinkSteps: StepperStep[] = [
-			{ id: 'blueprint-selected', label: __( 'Blueprint details' ), path: '/blueprintDeeplink' },
-			{ id: 'site-details', label: __( 'Site name & details' ), path: '/blueprintDeeplink/create' },
+			{ id: 'blueprint-selected', label: __( 'Blueprint details' ), path: '/blueprint/deeplink' },
+			{
+				id: 'site-details',
+				label: __( 'Site name & details' ),
+				path: '/blueprint/deeplink/create',
+			},
 		];
 
-		if ( location.path?.startsWith( '/blueprintDeeplink' ) ) {
+		if ( location.path?.startsWith( '/blueprint/deeplink' ) ) {
 			return {
 				flow: 'blueprintDeeplink',
 				steps: blueprintDeeplinkSteps,
 			};
 		}
 
-		if ( location.path?.startsWith( '/blueprint' ) ) {
+		if ( location.path?.startsWith( '/blueprint/select' ) ) {
 			return {
 				flow: 'blueprint',
 				steps: blueprintSteps,
@@ -162,8 +166,8 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 		}
 
 		switch ( location.path ) {
-			case '/blueprint':
-			case '/blueprintDeeplink':
+			case '/blueprint/select':
+			case '/blueprint/deeplink':
 			case '/backup':
 			case '/pullRemote':
 				return {
@@ -171,8 +175,8 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 					isVisible: true,
 				};
 			case '/create':
-			case '/blueprint/create':
-			case '/blueprintDeeplink/create':
+			case '/blueprint/select/create':
+			case '/blueprint/deeplink/create':
 			case '/backup/create':
 			case '/pullRemote/create':
 				return {
@@ -189,10 +193,10 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 		if ( ! location.path ) return;
 
 		switch ( location.path ) {
-			case '/blueprint':
+			case '/blueprint/select':
 				config?.onBlueprintContinue?.();
 				break;
-			case '/blueprintDeeplink':
+			case '/blueprint/deeplink':
 				config?.onBlueprintDeeplinkContinue?.();
 				break;
 			case '/backup':
@@ -202,8 +206,8 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 				config?.onPullRemoteContinue?.();
 				break;
 			case '/create':
-			case '/blueprint/create':
-			case '/blueprintDeeplink/create':
+			case '/blueprint/select/create':
+			case '/blueprint/deeplink/create':
 			case '/backup/create':
 			case '/pullRemote/create':
 				config?.onCreateSubmit?.( { preventDefault: () => {} } as FormEvent );
@@ -216,17 +220,17 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 		if ( ! location.path ) return false;
 
 		switch ( location.path ) {
-			case '/blueprint':
+			case '/blueprint/select':
 				return config?.canSubmitBlueprint ?? false;
-			case '/blueprintDeeplink':
+			case '/blueprint/deeplink':
 				return config?.canSubmitBlueprintDeeplink ?? false;
 			case '/backup':
 				return config?.canSubmitBackup ?? false;
 			case '/pullRemote':
 				return config?.canSubmitPullRemote ?? false;
 			case '/create':
-			case '/blueprint/create':
-			case '/blueprintDeeplink/create':
+			case '/blueprint/select/create':
+			case '/blueprint/deeplink/create':
 			case '/backup/create':
 			case '/pullRemote/create':
 				return config?.canSubmitCreate ?? false;

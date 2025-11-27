@@ -90,7 +90,7 @@ function NavigationContent( props: NavigationContentProps ) {
 
 	useEffect( () => {
 		if ( isDeeplinkFlow ) {
-			goTo( '/blueprintDeeplink' );
+			goTo( '/blueprint/deeplink' );
 			setIsDeeplinkFlow( false );
 		}
 	}, [ isDeeplinkFlow, goTo, setIsDeeplinkFlow ] );
@@ -98,7 +98,7 @@ function NavigationContent( props: NavigationContentProps ) {
 	const handleOptionSelect = useCallback(
 		( option: AddSiteFlowType ) => {
 			if ( option === 'blueprint' ) {
-				goTo( '/blueprint' );
+				goTo( '/blueprint/select' );
 			} else if ( option === 'create' ) {
 				goTo( '/create' );
 			} else if ( option === 'backup' ) {
@@ -112,7 +112,7 @@ function NavigationContent( props: NavigationContentProps ) {
 
 	const handleBlueprintContinue = useCallback( () => {
 		if ( createSiteProps.selectedBlueprint ) {
-			goTo( '/blueprint/create' );
+			goTo( '/blueprint/select/create' );
 		}
 	}, [ createSiteProps.selectedBlueprint, goTo ] );
 
@@ -142,8 +142,8 @@ function NavigationContent( props: NavigationContentProps ) {
 
 	const isOnCreatePath =
 		location.path === '/create' ||
-		location.path === '/blueprint/create' ||
-		location.path === '/blueprintDeeplink/create' ||
+		location.path === '/blueprint/select/create' ||
+		location.path === '/blueprint/deeplink/create' ||
 		location.path === '/backup/create' ||
 		location.path === '/pullRemote/create';
 	const canSubmit =
@@ -153,29 +153,29 @@ function NavigationContent( props: NavigationContentProps ) {
 		( ! createSiteProps.useCustomDomain || ! createSiteProps.customDomainError );
 
 	const handleBlueprintDeeplinkContinue = useCallback( () => {
-		goTo( '/blueprintDeeplink/create' );
+		goTo( '/blueprint/deeplink/create' );
 	}, [ goTo ] );
 
 	const handleBack = useCallback( () => {
-		if ( location.path === '/blueprint/create' ) {
-			goTo( '/blueprint' );
-		} else if ( location.path === '/blueprintDeeplink/create' ) {
-			goTo( '/blueprintDeeplink' );
+		if ( location.path === '/blueprint/select/create' ) {
+			goTo( '/blueprint/select' );
+		} else if ( location.path === '/blueprint/deeplink/create' ) {
+			goTo( '/blueprint/deeplink' );
 		} else if ( location.path === '/backup/create' ) {
 			goTo( '/backup' );
 		} else if ( location.path === '/pullRemote/create' ) {
 			goTo( '/pullRemote' );
 		} else if (
 			location.path === '/backup' ||
-			location.path === '/blueprint' ||
-			location.path === '/blueprintDeeplink' ||
+			location.path === '/blueprint/select' ||
+			location.path === '/blueprint/deeplink' ||
 			location.path === '/create' ||
 			location.path === '/pullRemote'
 		) {
 			if ( location.path === '/backup' ) {
 				createSiteProps.setFileForImport( null );
 			}
-			if ( location.path === '/blueprint' || location.path === '/blueprintDeeplink' ) {
+			if ( location.path === '/blueprint/select' || location.path === '/blueprint/deeplink' ) {
 				createSiteProps.setSelectedBlueprint();
 				setBlueprintPreferredVersions( undefined );
 			}
@@ -241,7 +241,7 @@ function NavigationContent( props: NavigationContentProps ) {
 			<Navigator.Screen className="flex-1" path="/">
 				<AddSiteOptions onOptionSelect={ handleOptionSelect } />
 			</Navigator.Screen>
-			<Navigator.Screen className="flex-1" path="/blueprint">
+			<Navigator.Screen className="flex-1" path="/blueprint/select">
 				<AddSiteBlueprintSelector
 					blueprints={ blueprints }
 					errorMessage={ blueprintsErrorMessage }
@@ -251,7 +251,7 @@ function NavigationContent( props: NavigationContentProps ) {
 					onFileBlueprintSelect={ handleFileBlueprintSelect }
 				/>
 			</Navigator.Screen>
-			<Navigator.Screen className="flex-1" path="/blueprint/create">
+			<Navigator.Screen className="flex-1" path="/blueprint/select/create">
 				<CreateSite
 					{ ...createSiteProps }
 					blueprintPreferredVersions={ blueprintPreferredVersions }
@@ -260,10 +260,10 @@ function NavigationContent( props: NavigationContentProps ) {
 			<Navigator.Screen className="flex-1" path="/create">
 				<CreateSite { ...createSiteProps } />
 			</Navigator.Screen>
-			<Navigator.Screen className="flex-1" path="/blueprintDeeplink">
+			<Navigator.Screen className="flex-1" path="/blueprint/deeplink">
 				<BlueprintDeeplink selectedBlueprint={ createSiteProps.selectedBlueprint } />
 			</Navigator.Screen>
-			<Navigator.Screen className="flex-1" path="/blueprintDeeplink/create">
+			<Navigator.Screen className="flex-1" path="/blueprint/deeplink/create">
 				<CreateSite
 					{ ...createSiteProps }
 					blueprintPreferredVersions={ blueprintPreferredVersions }
@@ -414,7 +414,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		},
 	} );
 
-	const initialNavigatorPath = selectedBlueprint ? '/blueprintDeeplink' : '/';
+	const initialNavigatorPath = selectedBlueprint ? '/blueprint/deeplink' : '/';
 
 	const closeModal = useCallback( () => {
 		setShowModal( false );

@@ -1,8 +1,10 @@
+import { arePathsEqual } from 'common/lib/fs-utils';
 import { readAppdata, updateSiteLatestCliPid, SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import { addDomainToHosts } from 'cli/lib/hosts-file';
 import { connect, disconnect, isProxyProcessRunning, startProxyProcess } from 'cli/lib/pm2-manager';
+import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 
@@ -19,6 +21,8 @@ jest.mock( 'cli/lib/hosts-file' );
 jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
 jest.mock( 'cli/logger' );
+jest.mock( 'cli/lib/sqlite-integration' );
+jest.mock( 'common/lib/fs-utils' );
 
 describe( 'Site Start Command', () => {
 	const mockSiteFolder = '/test/site/path';
@@ -102,6 +106,8 @@ describe( 'Site Start Command', () => {
 		( openBrowser as jest.Mock ).mockResolvedValue( undefined );
 		( generateSiteCertificate as jest.Mock ).mockResolvedValue( undefined );
 		( addDomainToHosts as jest.Mock ).mockResolvedValue( undefined );
+		( keepSqliteIntegrationUpdated as jest.Mock ).mockResolvedValue( undefined );
+		( arePathsEqual as jest.Mock ).mockImplementation( ( path1, path2 ) => path1 === path2 );
 	} );
 
 	afterEach( () => {

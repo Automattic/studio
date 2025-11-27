@@ -1,4 +1,4 @@
-import { cacheFunctionTTL } from '../cache-function-ttl';
+import { cacheFunctionTTL, clearCache } from 'common/lib/cache-function-ttl';
 
 describe( 'cacheFunctionTTL', () => {
 	beforeEach( () => {
@@ -374,5 +374,55 @@ describe( 'cacheFunctionTTL', () => {
 
 		expect( result1 ).toEqual( result2 );
 		expect( fetchData ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'should clear all cache entries when clearCache is called', async () => {
+		const fetchData = jest.fn( async () => ( { value: 'test' } ) );
+		const cachedFetch = cacheFunctionTTL( fetchData, 1000 );
+
+		const result1 = await cachedFetch();
+		expect( fetchData ).toHaveBeenCalledTimes( 1 );
+
+		const result2 = await cachedFetch();
+		expect( fetchData ).toHaveBeenCalledTimes( 1 );
+		expect( result1 ).toEqual( result2 );
+
+		clearCache();
+
+		const result3 = await cachedFetch();
+		expect( fetchData ).toHaveBeenCalledTimes( 2 );
+		expect( result1 ).toEqual( result3 );
+	} );
+
+	it( 'should allow cache to repopulate after clearing', async () => {
+		const fetchData = jest.fn( async ( id: number ) => ( { id, value: `data-${ id }` } ) );
+		const cachedFetch = cacheFunctionTTL( fetchData, 1000 );
+
+		await cachedFetch( 1 );
+		await cachedFetch( 1 );
+		expect( fetchData ).toHaveBeenCalledTimes( 1 );
+
+		clearCache();
+
+		await cachedFetch( 1 );
+		await cachedFetch( 1 );
+		expect( fetchData ).toHaveBeenCalledTimes( 2 );
+	} );
+
+	it( 'should clear cache for multiple cached arguments', async () => {
+		const fetchData = jest.fn( async ( id: number ) => ( { id } ) );
+		const cachedFetch = cacheFunctionTTL( fetchData, 1000 );
+
+		await cachedFetch( 1 );
+		await cachedFetch( 2 );
+		await cachedFetch( 3 );
+		expect( fetchData ).toHaveBeenCalledTimes( 3 );
+
+		clearCache();
+
+		await cachedFetch( 1 );
+		await cachedFetch( 2 );
+		await cachedFetch( 3 );
+		expect( fetchData ).toHaveBeenCalledTimes( 6 );
 	} );
 } );

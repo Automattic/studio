@@ -27,3 +27,10 @@ export function cacheFunctionTTL< Args extends unknown[], Return >(
 		return value;
 	};
 }
+
+/**
+ * Clear all cached entries. Useful for testing.
+ */
+export function clearCache(): void {
+	cache.clear();
+}

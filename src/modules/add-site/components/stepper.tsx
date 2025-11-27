@@ -47,8 +47,8 @@ export default function Stepper( {
 	}
 
 	return (
-		<div className="flex justify-around items-center p-6 gap-4 flex-wrap">
-			<HStack spacing={ 6 } alignment="left" className="w-auto">
+		<div className="flex justify-between items-center p-6">
+			<HStack spacing={ 6 } alignment="left">
 				{ steps.map( ( step, index ) => {
 					const stepNumber = index + 1;
 
@@ -65,7 +65,7 @@ export default function Stepper( {
 						>
 							<div
 								className={ cx(
-									`w-6 h-6 rounded-full flex items-center justify-center text-xs font-regular border-[1.5px] bg-transparent flex-shrink-0`,
+									`w-6 h-6 rounded-full flex items-center justify-center text-xs font-regular border-[1.5px] bg-transparent `,
 									step.isCurrent ? 'text-gray-900 border-gray-900' : 'border-gray-500 text-gray-500'
 								) }
 							>

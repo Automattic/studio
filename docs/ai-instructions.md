@@ -19,6 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Code Quality
 - `npm run lint` - Lint TypeScript/JavaScript files
 - `npm run format` - Format code with Prettier
+- **IMPORTANT**: When formatting code, ONLY format the files you've modified. Use `npx prettier --write <file1> <file2>` instead of `npm run format` to avoid formatting the entire codebase
 
 ### Building Installers
 - `npm run package` - Package the app (no installer)

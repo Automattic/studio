@@ -11,7 +11,9 @@ export async function runCommand( siteFolder: string, skipBrowser = false ): Pro
 	const logger = new Logger< LoggerAction >();
 
 	try {
+		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 		const site = await getSiteByFolder( siteFolder, false );
+		logger.reportSuccess( __( 'Site loaded' ) );
 
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
 		await connect();

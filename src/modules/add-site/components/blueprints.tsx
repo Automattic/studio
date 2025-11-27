@@ -403,7 +403,7 @@ export function AddSiteBlueprintSelector( {
 
 			<HStack alignment="edge" className="w-full mb-5 ">
 				<HStack alignment="left" className="flex-1">
-					<Text className="text-[15px]" weight={ 500 }>
+					<Text className="text-[16px]" weight={ 500 }>
 						{ __( 'Featured Blueprints' ) }
 					</Text>
 				</HStack>
@@ -442,7 +442,7 @@ export function AddSiteBlueprintSelector( {
 				) }
 			</HStack>
 
-			<div className="blueprints-container pb-1">
+			<div className="blueprints-container w-full pb-1">
 				{ isFetchingBlueprints && (
 					<Text className="text-[14px] block text-center py-[100px]">
 						{ __( 'Loading Blueprints...' ) }

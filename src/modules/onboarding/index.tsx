@@ -9,7 +9,6 @@ import { useAddSite } from 'src/hooks/use-add-site';
 import { useAuth } from 'src/hooks/use-auth';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { OnboardingAddSite } from 'src/modules/onboarding/components/add-site';
 import { OnboardingConnectToWpcom } from 'src/modules/onboarding/components/connect-to-wpcom';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import { useSaveLastSeenVersionMutation } from 'src/stores/app-version-api';
@@ -41,7 +40,6 @@ const GradientBox = () => {
 export function Onboarding() {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
-	const [ isWpAccSkipped, setIsWpAccSkipped ] = useState( false );
 	const { isAuthenticated } = useAuth();
 	const [ saveLastSeenVersion ] = useSaveLastSeenVersionMutation();
 	const {
@@ -127,6 +125,13 @@ export function Onboarding() {
 		[ handleAddSiteClick, siteAddedMessage, dispatch, saveLastSeenVersion ]
 	);
 
+	const handleSkip = useCallback( async () => {
+		// Save current app version to prevent What's New from showing for new users
+		await saveLastSeenVersion( window.appGlobals.appVersion );
+
+		await dispatch( saveOnboardingStatus( true ) );
+	}, [ dispatch, saveLastSeenVersion ] );
+
 	return (
 		<div className="flex flex-row flex-grow" data-testid="onboarding">
 			<div className="w-1/2 bg-a8c-blue-50 pb-[50px] pt-[46px] px-[50px] flex flex-col justify-between">
@@ -138,11 +143,7 @@ export function Onboarding() {
 
 			<div className="w-1/2 bg-white py-[50px] px-[20px] flex flex-col relative overflow-y-auto app-no-drag-region">
 				<div className="flex flex-col justify-center items-center flex-[1_0_0%] gap-8">
-					{ ! isWpAccSkipped && ! isAuthenticated ? (
-						<OnboardingConnectToWpcom onSkip={ () => setIsWpAccSkipped( true ) } />
-					) : (
-						<OnboardingAddSite onBack={ () => setIsWpAccSkipped( false ) } />
-					) }
+					<OnboardingConnectToWpcom onSkip={ handleSkip } />
 					{/* <div className="flex flex-col items-center self-stretch gap-6">
 						<div className="flex flex-col items-center gap-4">
 							<h1 className="font-normal text-3xl leading-5">{ __( 'Add your first site' ) }</h1>

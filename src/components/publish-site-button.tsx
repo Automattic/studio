@@ -1,5 +1,6 @@
 import { cloudUpload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import { useCallback } from 'react';
 import Button from 'src/components/button';
 import { Tooltip } from 'src/components/tooltip';
 import { useSyncSites } from 'src/hooks/sync-sites';
@@ -12,12 +13,13 @@ import {
 	connectedSitesActions,
 	useGetConnectedSitesForLocalSiteQuery,
 } from 'src/stores/sync/connected-sites';
+import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 
 export const PublishSiteButton = () => {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
 	const { setSelectedTab } = useContentTabs();
-	const { user } = useAuth();
+	const { user, isAuthenticated } = useAuth();
 	const { selectedSite } = useSiteDetails();
 	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
 		localSiteId: selectedSite?.id,
@@ -25,11 +27,27 @@ export const PublishSiteButton = () => {
 	} );
 	const { isAnySitePulling, isAnySitePushing } = useSyncSites();
 	const { streamlineOnboarding } = useFeatureFlags();
+
+	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
+	const { isUninitialized: isUninitializedSyncSites, refetch: refetchWpComSites } =
+		useGetWpComSitesQuery(
+			{ connectedSiteIds, userId: user?.id },
+			{ refetchOnMountOrArgChange: true }
+		);
+
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
-	const handlePublishClick = () => {
+
+	const handlePublishClick = useCallback( () => {
 		setSelectedTab( 'sync' );
+		if ( isAuthenticated && ! isUninitializedSyncSites ) {
+			refetchWpComSites().catch( ( error ) => {
+				// Query might not be ready to refetch yet (e.g., was skipped due to offline)
+				// Silently ignore the error as the query will start automatically when conditions are met
+				console.warn( 'Failed to refetch sites on modal open:', error );
+			} );
+		}
 		dispatch( connectedSitesActions.openModal( 'push' ) );
-	};
+	}, [ setSelectedTab, dispatch, isAuthenticated, isUninitializedSyncSites, refetchWpComSites ] );
 
 	if ( ! streamlineOnboarding || connectedSites.length !== 0 ) return null;
 

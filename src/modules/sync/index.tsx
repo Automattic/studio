@@ -1,6 +1,6 @@
 import { check, cloudUpload, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useCallback, useEffect, useState } from 'react';
+import { PropsWithChildren, useCallback, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
@@ -166,16 +166,20 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		}
 	}, [ refetchWpComSites, isUninitializedSyncSites ] );
 
-	// Refetch sites when modal opens to check for newly created sites
-	useEffect( () => {
-		if ( isModalOpen && isAuthenticated && ! isUninitializedSyncSites ) {
-			refetchWpComSites().catch( ( error ) => {
-				// Query might not be ready to refetch yet (e.g., was skipped due to offline)
-				// Silently ignore the error as the query will start automatically when conditions are met
-				console.warn( 'Failed to refetch sites on modal open:', error );
-			} );
-		}
-	}, [ isModalOpen, isAuthenticated, isUninitializedSyncSites, refetchWpComSites ] );
+	// Helper function to open modal and refetch sites to check for newly created sites
+	const handleOpenModal = useCallback(
+		( mode: SyncModalMode ) => {
+			if ( isAuthenticated && ! isUninitializedSyncSites ) {
+				refetchWpComSites().catch( ( error ) => {
+					// Query might not be ready to refetch yet (e.g., was skipped due to offline)
+					// Silently ignore the error as the query will start automatically when conditions are met
+					console.warn( 'Failed to refetch sites on modal open:', error );
+				} );
+			}
+			dispatch( connectedSitesActions.openModal( mode ) );
+		},
+		[ dispatch, isAuthenticated, isUninitializedSyncSites, refetchWpComSites ]
+	);
 
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 	const { streamlineOnboarding } = useFeatureFlags();
@@ -208,7 +212,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		}
 
 		if ( mode === 'push' || mode === 'pull' ) {
-			dispatch( connectedSitesActions.openModal( mode ) );
+			handleOpenModal( mode );
 			setSelectedRemoteSite( selectedSiteFromList );
 		} else {
 			await handleConnect( selectedSiteFromList );
@@ -228,10 +232,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 						}
 					/>
 					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
-						<ConnectButton
-							variant="primary"
-							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
-						>
+						<ConnectButton variant="primary" connectSite={ () => handleOpenModal( 'connect' ) }>
 							{ __( 'Connect another site' ) }
 						</ConnectButton>
 					</div>
@@ -243,7 +244,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							<ConnectButton
 								variant="primary"
 								icon={ cloudUpload }
-								connectSite={ () => dispatch( connectedSitesActions.openModal( 'push' ) ) }
+								connectSite={ () => handleOpenModal( 'push' ) }
 								disabled={ isAnySiteSyncing }
 								isBusy={ isFetchingSyncSites }
 								tooltipText={
@@ -258,7 +259,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							</ConnectButton>
 							<ConnectButton
 								variant="secondary"
-								connectSite={ () => dispatch( connectedSitesActions.openModal( 'pull' ) ) }
+								connectSite={ () => handleOpenModal( 'pull' ) }
 								className={ isAnySiteSyncing ? '' : '!text-a8c-blue-50 !shadow-a8c-blue-50' }
 								disabled={ isAnySiteSyncing }
 								tooltipText={
@@ -274,10 +275,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 						</div>
 					) : (
 						<div className="mt-8">
-							<ConnectButton
-								variant="primary"
-								connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
-							>
+							<ConnectButton variant="primary" connectSite={ () => handleOpenModal( 'connect' ) }>
 								{ __( 'Connect site' ) }
 							</ConnectButton>
 						</div>

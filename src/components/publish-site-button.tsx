@@ -30,10 +30,7 @@ export const PublishSiteButton = () => {
 
 	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
 	const { isUninitialized: isUninitializedSyncSites, refetch: refetchWpComSites } =
-		useGetWpComSitesQuery(
-			{ connectedSiteIds, userId: user?.id },
-			{ refetchOnMountOrArgChange: true }
-		);
+		useGetWpComSitesQuery( { connectedSiteIds, userId: user?.id } );
 
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 

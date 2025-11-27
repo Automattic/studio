@@ -147,10 +147,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		isSuccess: isSuccessSyncSites,
 		isUninitialized: isUninitializedSyncSites,
 		refetch: refetchWpComSites,
-	} = useGetWpComSitesQuery(
-		{ connectedSiteIds, userId: user?.id },
-		{ refetchOnMountOrArgChange: true }
-	);
+	} = useGetWpComSitesQuery( { connectedSiteIds, userId: user?.id } );
 
 	const refetchSites = useCallback( async (): Promise< SyncSite[] > => {
 		if ( isUninitializedSyncSites ) {

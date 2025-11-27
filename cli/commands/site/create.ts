@@ -23,10 +23,7 @@ import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { lockAppdata, readAppdata, saveAppdata, SiteData, unlockAppdata } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import {
-	isSqliteIntegrationAvailable,
-	keepSqliteIntegrationUpdated,
-} from 'cli/lib/sqlite-integration';
+import { installSqliteIntegration, isSqliteIntegrationAvailable } from 'cli/lib/sqlite-integration';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -154,7 +151,7 @@ export async function runCommand(
 			);
 		}
 		logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration...' ) );
-		await keepSqliteIntegrationUpdated( sitePath );
+		await installSqliteIntegration( sitePath );
 		logger.reportSuccess( __( 'SQLite integration configured' ) );
 
 		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port...' ) );

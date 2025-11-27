@@ -1,5 +1,9 @@
 import fs from 'fs-extra';
-import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
+import {
+	installSqliteIntegration,
+	keepSqliteIntegrationUpdated,
+	provider,
+} from 'src/lib/sqlite-versions';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 
 const SQLITE_FILENAME = 'sqlite-database-integration';
@@ -19,12 +23,16 @@ jest.mock( 'src/storage/paths', () => ( {
 
 const MOCK_SITE_PATH = 'mock-site-path';
 
-afterEach( () => {
-	jest.clearAllMocks();
-	require( 'fs-extra' ).__mockFiles = {};
-} );
-
 platformTestSuite( 'keepSqliteIntegrationUpdated', ( { normalize } ) => {
+	beforeEach( () => {
+		provider.isSqliteIntegrationAvailable = jest.fn().mockResolvedValue( true );
+	} );
+
+	afterEach( () => {
+		jest.clearAllMocks();
+		require( 'fs-extra' ).__mockFiles = {};
+	} );
+
 	describe( 'when db.php exists', () => {
 		it( 'should install SQLite integration', async () => {
 			require( 'fs-extra' ).__setFileContents(
@@ -100,7 +108,7 @@ platformTestSuite( 'installSqliteIntegration', ( { normalize } ) => {
 	it( 'should install SQLite integration', async () => {
 		// Mock site default db.php
 		require( 'fs-extra' ).__setFileContents(
-			normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
+			normalize( `server-files/sqlite-database-integration/db.copy` ),
 			"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'"
 		);
 
@@ -109,10 +117,6 @@ platformTestSuite( 'installSqliteIntegration', ( { normalize } ) => {
 		expect( fs.mkdir ).toHaveBeenCalledWith(
 			normalize( `${ MOCK_SITE_PATH }/wp-content/database` ),
 			{ recursive: true }
-		);
-		expect( fs.copyFile ).toHaveBeenCalledWith(
-			normalize( `server-files/${ SQLITE_FILENAME }/db.copy` ),
-			normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` )
 		);
 		expect( fs.writeFile ).toHaveBeenCalledWith(
 			normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),

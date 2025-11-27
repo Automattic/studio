@@ -69,6 +69,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		);
 		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'add-site-with-blueprint', {
 			blueprintPath: expect.stringContaining( 'blueprint-' ),
+			warnings: [],
 		} );
 		expect( mockMainWindow.focus ).toHaveBeenCalled();
 	} );
@@ -192,6 +193,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 			);
 			expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'add-site-with-blueprint', {
 				blueprintPath: expect.stringContaining( 'blueprint-' ),
+				warnings: [],
 			} );
 			expect( download ).not.toHaveBeenCalled();
 		} );

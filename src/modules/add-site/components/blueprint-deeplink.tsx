@@ -7,7 +7,7 @@ import {
 import { check } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { Blueprint } from 'src/stores/wpcom-api';
-import { BlueprintWarningNotice } from './blueprints';
+import { BlueprintWarningNotice } from './blueprint-warning-notice';
 
 interface BlueprintDeeplinkProps {
 	selectedBlueprint?: Blueprint;

@@ -6,9 +6,9 @@ import { __, sprintf } from '@wordpress/i18n';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import { sudoExec } from 'src/lib/sudo-exec';
 import { getMainWindow } from 'src/main-window';
-import { StudioCliInstallationManager } from 'src/modules/cli/lib/installation/index';
+import { StudioCliInstallationManager } from 'src/modules/cli/lib/ipc-handlers';
 import { getResourcesPath } from 'src/storage/paths';
-import packageJson from '../../../../../package.json';
+import packageJson from '../../../../package.json';
 
 const cliSymlinkPath = '/usr/local/bin/studio';
 

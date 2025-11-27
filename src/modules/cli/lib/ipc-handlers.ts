@@ -1,8 +1,8 @@
 import { dialog } from 'electron';
 import { __ } from '@wordpress/i18n';
 import { getMainWindow } from 'src/main-window';
-import { MacOSCliInstallationManager } from 'src/modules/cli/lib/installation/macos';
-import { WindowsCliInstallationManager } from 'src/modules/cli/lib/installation/windows';
+import { MacOSCliInstallationManager } from 'src/modules/cli/lib/macos-installation-manager';
+import { WindowsCliInstallationManager } from 'src/modules/cli/lib/windows-installation-manager';
 
 /**
  * Interface for platform-specific CLI installation management

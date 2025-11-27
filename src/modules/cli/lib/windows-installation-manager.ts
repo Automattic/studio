@@ -6,7 +6,7 @@ import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
 import Registry from 'winreg'; // don't update winreg to 1.2.5 - https://github.com/fresc81/node-winreg/issues/65
 import { getMainWindow } from 'src/main-window';
-import type { StudioCliInstallationManager } from './index';
+import { StudioCliInstallationManager } from 'src/modules/cli/lib/ipc-handlers';
 
 // `unversionedBinDirPath` resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin
 const unversionedBinDirPath = path.resolve( path.dirname( app.getPath( 'exe' ) ), '../bin' );

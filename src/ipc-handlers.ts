@@ -90,7 +90,7 @@ export {
 	isStudioCliInstalled,
 	installStudioCli,
 	uninstallStudioCli,
-} from 'src/modules/cli/lib/installation';
+} from 'src/modules/cli/lib/ipc-handlers';
 
 export {
 	addSyncOperation,

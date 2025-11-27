@@ -55,7 +55,7 @@ jest.mock( 'common/lib/port-finder', () => ( {
 const mockUserData = {
 	sites: [],
 };
-( fs as MockedFs ).__setFileContents(
+require( 'fs' ).__setFileContents(
 	normalize( '/path/to/app/appData/App Name/appdata-v1.json' ),
 	JSON.stringify( mockUserData )
 );

@@ -1,7 +1,6 @@
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import * as Sentry from '@sentry/electron/renderer';
 import { ImportExportEventData, handleEvents } from 'src/lib/import-export/handle-events';
 import {
 	BackupExtractEvents,
@@ -58,17 +57,7 @@ export async function importBackup(
 ): Promise< ImporterResult > {
 	const backupHandler = BackupHandlerFactory.create( backupFile );
 	if ( ! backupHandler ) {
-		const backupFileExtension = path.extname( backupFile.path );
-		const backupFileSize = await fsPromises.stat( backupFile.path ).then( ( stat ) => stat.size );
-		const error = new Error( 'No suitable backup handler found for the provided backup file' );
-		Sentry.captureException( error, {
-			extra: {
-				backupFileSize,
-				backupFileExtension,
-			},
-		} );
-
-		throw error;
+		throw new Error( 'No suitable backup handler found for the provided backup file' );
 	}
 
 	const extractionDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_backup' ) );

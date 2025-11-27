@@ -3,8 +3,8 @@
  */
 import { app, dialog, BrowserWindow } from 'electron';
 import fs from 'fs-extra';
+import { validateBlueprintData } from 'common/lib/blueprint-validation';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { validateBlueprintData } from 'src/lib/blueprint-features';
 import { handleAddSiteWithBlueprint } from 'src/lib/deeplink/handlers/add-site-with-blueprint';
 import { download } from 'src/lib/download';
 import { getMainWindow } from 'src/main-window';
@@ -14,7 +14,7 @@ jest.mock( 'fs-extra' );
 jest.mock( 'src/ipc-utils' );
 jest.mock( 'src/lib/download' );
 jest.mock( 'src/main-window' );
-jest.mock( 'src/lib/blueprint-features', () => ( {
+jest.mock( 'common/lib/blueprint-validation', () => ( {
 	validateBlueprintData: jest.fn(),
 } ) );
 
@@ -57,7 +57,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 
 		jest.mocked( download ).mockResolvedValue( undefined );
 		jest.mocked( fs.readJson ).mockResolvedValue( { steps: [] } );
-		jest.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
+		jest.mocked( validateBlueprintData ).mockResolvedValue( { valid: true, warnings: [] } );
 
 		await handleAddSiteWithBlueprint( url );
 
@@ -127,7 +127,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		( mockMainWindow.isMinimized as jest.Mock ).mockReturnValue( true );
 		jest.mocked( download ).mockResolvedValue( undefined );
 		jest.mocked( fs.readJson ).mockResolvedValue( { steps: [] } );
-		jest.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
+		jest.mocked( validateBlueprintData ).mockResolvedValue( { valid: true, warnings: [] } );
 
 		await handleAddSiteWithBlueprint( url );
 
@@ -182,7 +182,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 			const url = new URL( `wp-studio://add-site?blueprint=${ blueprintBase64 }` );
 
 			jest.mocked( fs.writeJson ).mockImplementation( async () => {} );
-			jest.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
+			jest.mocked( validateBlueprintData ).mockResolvedValue( { valid: true, warnings: [] } );
 
 			await handleAddSiteWithBlueprint( url );
 

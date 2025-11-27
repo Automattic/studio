@@ -116,10 +116,7 @@ describe( 'Site Start Command', () => {
 			} );
 
 			const { runCommand } = await import( '../start' );
-
-			await expect( async () => {
-				await runCommand( mockSiteFolder );
-			} ).rejects.toThrow( 'process.exit called' );
+			await runCommand( mockSiteFolder );
 
 			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
@@ -133,10 +130,7 @@ describe( 'Site Start Command', () => {
 			( connect as jest.Mock ).mockRejectedValue( new Error( 'PM2 connection failed' ) );
 
 			const { runCommand } = await import( '../start' );
-
-			await expect( async () => {
-				await runCommand( mockSiteFolder );
-			} ).rejects.toThrow( 'process.exit called' );
+			await runCommand( mockSiteFolder );
 
 			expect( mockLogger.reportStart ).toHaveBeenCalledWith(
 				'startDaemon',
@@ -154,10 +148,7 @@ describe( 'Site Start Command', () => {
 			( startWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server start failed' ) );
 
 			const { runCommand } = await import( '../start' );
-
-			await expect( async () => {
-				await runCommand( mockSiteFolder );
-			} ).rejects.toThrow( 'process.exit called' );
+			await runCommand( mockSiteFolder );
 
 			expect( mockLogger.reportStart ).toHaveBeenCalledWith(
 				'startSite',
@@ -175,10 +166,7 @@ describe( 'Site Start Command', () => {
 			( addDomainToHosts as jest.Mock ).mockRejectedValue( new Error( 'Hosts file error' ) );
 
 			const { runCommand } = await import( '../start' );
-
-			await expect( async () => {
-				await runCommand( mockSiteFolder );
-			} ).rejects.toThrow( 'process.exit called' );
+			await runCommand( mockSiteFolder );
 
 			expect( mockLogger.reportStart ).toHaveBeenCalledWith(
 				'addDomainToHosts',
@@ -198,10 +186,7 @@ describe( 'Site Start Command', () => {
 			);
 
 			const { runCommand } = await import( '../start' );
-
-			await expect( async () => {
-				await runCommand( mockSiteFolder );
-			} ).rejects.toThrow( 'process.exit called' );
+			await runCommand( mockSiteFolder );
 
 			expect( mockLogger.reportStart ).toHaveBeenCalledWith(
 				'generateCert',
@@ -408,10 +393,7 @@ describe( 'Site Start Command', () => {
 			( readAppdata as jest.Mock ).mockRejectedValue( new Error( 'Appdata error' ) );
 
 			const { runCommand } = await import( '../start' );
-
-			await expect( async () => {
-				await runCommand( mockSiteFolder );
-			} ).rejects.toThrow( 'process.exit called' );
+			await runCommand( mockSiteFolder );
 
 			expect( disconnect ).toHaveBeenCalled();
 		} );

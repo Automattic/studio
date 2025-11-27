@@ -4,6 +4,7 @@
  * The Regex is based on the releases on https://wordpress.org/download/releases/#betas
  * The version string can be one of the following formats:
  * - "latest"
+ * - "nightly"
  * - "x.y" (x and y are integers) e.g. "6.2"
  * - "x.y.z" (x, y and z are integers) e.g. "6.2.1"
  * - "x.y.z-betaN" (N is an integer) e.g. "6.2.1-beta1"
@@ -14,7 +15,7 @@
  */
 export function isValidWordPressVersion( version: string ): boolean {
 	const versionPattern =
-		/^latest$|^(?:(\d+)\.(\d+)(?:\.(\d+))?)((?:-beta(?:\d+)?)|(?:-RC(?:\d+)?))?$/;
+		/^latest$|^nightly$|^(?:(\d+)\.(\d+)(?:\.(\d+))?)((?:-beta(?:\d+)?)|(?:-RC(?:\d+)?))?$/;
 	return versionPattern.test( version );
 }
 
@@ -39,4 +40,37 @@ export function getWordPressVersionUrl( version: string ) {
 		);
 	}
 	return `https://wordpress.org/wordpress-${ version }.zip`;
+}
+
+export function isWordPressVersionAtLeast( version: string, minimumVersion: string ): boolean {
+	if ( version === 'latest' || version === 'nightly' ) {
+		return true;
+	}
+
+	// For dev/beta versions with hyphens, extract the base version
+	// e.g., "6.4-beta1" -> "6.4", "6.8-RC1-59979" -> "6.8"
+	let versionToCompare = version;
+	if ( version.includes( '-' ) ) {
+		versionToCompare = version.split( '-' )[ 0 ];
+	}
+
+	// Compare semantic versions
+	const parseVersion = ( v: string ) => v.split( '.' ).map( Number );
+	const provided = parseVersion( versionToCompare );
+	const minimum = parseVersion( minimumVersion );
+
+	for ( let i = 0; i < Math.max( provided.length, minimum.length ); i++ ) {
+		const p = provided[ i ] || 0;
+		const m = minimum[ i ] || 0;
+
+		if ( p < m ) {
+			return false;
+		}
+		if ( p > m ) {
+			return true;
+		}
+	}
+
+	// Versions are equal
+	return true;
 }

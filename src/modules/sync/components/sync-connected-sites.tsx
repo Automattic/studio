@@ -214,7 +214,7 @@ const SyncConnectedSitesSectionItem = ( {
 	return (
 		<div className="grid grid-cols-[max-content_1fr_max-content]">
 			<div
-				className={ `col-span-3 grid min-h-14 px-8 gap-4 justify-items-start items-center border-b border-a8c-gray-0 ${
+				className={ `col-span-3 grid px-8 gap-2 justify-items-start items-center ${
 					connectedSite.isPressable && ! connectedSite.environmentType
 						? 'grid-cols-[1fr_auto]'
 						: 'grid-cols-subgrid'
@@ -414,8 +414,8 @@ const SyncConnectedSiteSection = ( {
 	}
 
 	return (
-		<div key={ connectedSite.id } className="flex flex-col gap-2 mb-6">
-			<div className="flex items-center gap-2 border-b border-a8c-gray-0 px-8 pb-2.5">
+		<div key={ connectedSite.id } className="flex flex-col gap-2 border-b border-a8c-gray-0 py-5">
+			<div className="flex items-center gap-2 px-8">
 				{ logo }
 				<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
 					{ connectedSite.name }
@@ -443,7 +443,7 @@ const SyncConnectedSiteSection = ( {
 			</div>
 
 			{ hasConnectionErrors && (
-				<div className="flex items-center min-h-14 border-b border-a8c-gray-0 px-8">
+				<div className="flex items-center px-8">
 					<div className="text-[#3C434A]">
 						{ createInterpolateElement(
 							__(

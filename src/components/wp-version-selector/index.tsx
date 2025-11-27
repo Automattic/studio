@@ -2,12 +2,12 @@ import { SelectControl, Icon } from '@wordpress/components';
 import { info } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect } from 'react';
+import { isWordPressBetaVersion } from 'common/lib/wordpress-version-utils';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { isWordPressDevVersion } from 'src/lib/version-utils';
-import { isWordPressBetaVersion } from 'src/lib/wordpress-version-utils';
 import { useRootSelector } from 'src/stores';
 import {
 	selectDefaultWordPressVersion,

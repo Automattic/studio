@@ -1,43 +1,11 @@
 import { __ } from '@wordpress/i18n';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { readAppdata, getSiteUrl, SiteData, updateSiteLatestCliPid } from 'cli/lib/appdata';
-import { openBrowser } from 'cli/lib/browser';
-import { generateSiteCertificate } from 'cli/lib/certificate-manager';
-import { addDomainToHosts } from 'cli/lib/hosts-file';
-import { connect, isProxyProcessRunning, startProxyProcess, disconnect } from 'cli/lib/pm2-manager';
+import { readAppdata, updateSiteLatestCliPid } from 'cli/lib/appdata';
+import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-
-async function startProxyIfNeeded( logger: Logger< LoggerAction > ) {
-	const proxyProcess = await isProxyProcessRunning();
-	if ( ! proxyProcess ) {
-		logger.reportStart( LoggerAction.START_PROXY, __( 'Starting HTTP proxy server...' ) );
-		await startProxyProcess();
-		logger.reportSuccess( __( 'HTTP proxy server started' ) );
-	} else {
-		logger.reportSuccess( __( 'HTTP proxy already running' ) );
-	}
-}
-
-async function openSiteInBrowser( site: SiteData ) {
-	const siteUrl = getSiteUrl( site );
-	try {
-		const autoLoginUrl = `${ siteUrl }/studio-auto-login?redirect_to=${ encodeURIComponent(
-			`${ siteUrl }/wp-admin/`
-		) }`;
-		await openBrowser( autoLoginUrl );
-	} catch ( error ) {
-		// Silently fail if browser can't be opened
-	}
-}
-
-function logSiteDetails( site: SiteData ) {
-	const siteUrl = getSiteUrl( site );
-	console.log( __( 'Site URL: ' ), siteUrl );
-	console.log( __( 'Username: ' ), 'admin' );
-	console.log( __( 'Password: ' ), site.adminPassword );
-}
 
 export async function runCommand( siteFolder: string, skipBrowser = false ): Promise< void > {
 	const logger = new Logger< LoggerAction >();
@@ -68,26 +36,7 @@ export async function runCommand( siteFolder: string, skipBrowser = false ): Pro
 			return;
 		}
 
-		if ( site.customDomain ) {
-			await startProxyIfNeeded( logger );
-
-			if ( site.enableHttps && ( ! site.tlsKey || ! site.tlsCert ) ) {
-				logger.reportStart( LoggerAction.GENERATE_CERT, __( 'Generating SSL certificates...' ) );
-				await generateSiteCertificate( site.customDomain );
-				logger.reportSuccess( __( 'SSL certificates generated' ) );
-			}
-
-			logger.reportStart(
-				LoggerAction.ADD_DOMAIN_TO_HOSTS,
-				__( 'Adding domain to hosts file...' )
-			);
-			try {
-				await addDomainToHosts( site.customDomain, site.port );
-				logger.reportSuccess( __( 'Domain added to hosts file' ) );
-			} catch ( error ) {
-				throw new LoggerError( __( 'Failed to add domain to hosts file:' ), error );
-			}
-		}
+		await setupCustomDomain( site, logger );
 
 		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress site...' ) );
 		try {
@@ -112,7 +61,6 @@ export async function runCommand( siteFolder: string, skipBrowser = false ): Pro
 			const loggerError = new LoggerError( __( 'Failed to start site infrastructure' ), error );
 			logger.reportError( loggerError );
 		}
-		process.exit( 1 );
 	} finally {
 		disconnect();
 	}

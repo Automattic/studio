@@ -21,7 +21,7 @@ async function getSiteListData( sites: SiteData[] ) {
 
 	for await ( const site of sites ) {
 		const isOnline = await isServerRunning( site.id );
-		const status = isOnline ? '🟢 Online' : '🔴 Offline';
+		const status = isOnline ? `🟢 ${ __( 'Online' ) }` : `🔴 ${ __( 'Offline' ) }`;
 		const url = getSiteUrl( site );
 
 		result.push( {

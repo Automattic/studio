@@ -20,7 +20,7 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 		await connect();
 
 		const isOnline = Boolean( await isServerRunning( site.id ) );
-		const status = isOnline ? '🟢 Online' : '🔴 Offline';
+		const status = isOnline ? `🟢 ${ __( 'Online' ) }` : `🔴 ${ __( 'Offline' ) }`;
 		const siteUrl = getSiteUrl( site );
 		const sitePath = getPrettyPath( site.path );
 		const wpVersion = getWordPressVersion( site.path );

@@ -13,11 +13,6 @@ export async function runCommand( siteFolder: string, skipBrowser = false ): Pro
 	try {
 		const site = await getSiteByFolder( siteFolder, false );
 
-		if ( ! site ) {
-			// TODO: Rewrite error message
-			throw new LoggerError( __( 'Could not find Studio site.' ) );
-		}
-
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
 		await connect();
 		logger.reportSuccess( __( 'Process daemon started' ) );

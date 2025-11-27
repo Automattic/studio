@@ -5,7 +5,6 @@ import path from 'node:path';
 import * as Sentry from '@sentry/electron/main';
 import { z } from 'zod';
 import { isErrnoException } from 'common/lib/is-errno-exception';
-import { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import {
 	PullStateProgressInfo,
 	PushStateProgressInfo,
@@ -19,6 +18,7 @@ import { getAuthenticationToken } from 'src/lib/oauth';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import wpcomFactory from 'src/lib/wpcom-factory';
 import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
+import { SyncSite } from 'src/modules/sync/types';
 import { SiteServer } from 'src/site-server';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { SyncOption } from 'src/types';

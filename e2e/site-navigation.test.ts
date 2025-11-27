@@ -10,22 +10,31 @@ import { getUrlWithAutoLogin } from './utils';
 
 /**
  * Closes the WordPress Block Editor welcome guide if it appears.
- * Attempts to close up to 3 times as the modal reappears while the page loads.
+ * Attempts to close up to 3 times as the modal may reappear while the page loads.
+ * If no modal is visible, returns immediately without waiting.
  */
 async function closeWelcomeGuide( page: Page ) {
 	for ( let i = 0; i < 3; i++ ) {
-		try {
-			// Wait for the modal frame to appear
-			const modalFrame = page.locator( '.components-modal__frame' );
-			await modalFrame.waitFor( { state: 'visible', timeout: 2000 } );
+		// Check if modal is currently visible without waiting
+		const modalFrame = page.locator( '.components-modal__frame' );
+		const isVisible = await modalFrame.isVisible();
 
+		if ( ! isVisible ) {
+			// No modal present, exit early
+			break;
+		}
+
+		try {
 			// Find and click the close button using specific selector
 			const closeButton = page.locator( '.components-modal__header > button[aria-label="Close"]' );
 			await closeButton.waitFor( { state: 'visible', timeout: 2000 } );
 			await closeButton.click();
+
+			// Wait a bit for the modal to close before checking again
+			await page.waitForTimeout( 500 );
 		} catch {
-			// Modal not found or already closed, try again in next loop iteration
-			continue;
+			// Close button not found or click failed, exit loop
+			break;
 		}
 	}
 }

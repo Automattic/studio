@@ -27,7 +27,7 @@ async function getSnapshotToUpdate(
 		const site = await getOrCreateSiteByFolder( siteFolder );
 		currentSiteId = site.id;
 	} else {
-		const site = await getSiteByFolder( siteFolder );
+		const site = await getSiteByFolder( siteFolder, true );
 		currentSiteId = site.id;
 	}
 

@@ -1,8 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { readAppdata, updateSiteLatestCliPid } from 'cli/lib/appdata';
+import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
-import { logSiteDetails, openSiteInBrowser, setupCus++tomDomain } from 'cli/lib/site-utils';
+import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -11,8 +11,7 @@ export async function runCommand( siteFolder: string, skipBrowser = false ): Pro
 	const logger = new Logger< LoggerAction >();
 
 	try {
-		const appdata = await readAppdata();
-		const site = appdata.sites.find( ( s ) => s.path === siteFolder );
+		const site = await getSiteByFolder( siteFolder, false );
 
 		if ( ! site ) {
 			// TODO: Rewrite error message

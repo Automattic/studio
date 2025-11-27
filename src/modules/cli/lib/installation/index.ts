@@ -54,7 +54,7 @@ export async function uninstallStudioCli(): Promise< void > {
 			buttons: [ __( 'Proceed' ), __( 'Cancel' ) ],
 			title: 'You are running a development version of Studio',
 			message:
-				'By uninstalling the CLI, you may be removing a version that uses the Electron runtime to execute commands. If you install the CLI again using this version of the app, a different node runtime will be used to execute commands.',
+				'By uninstalling the CLI, you may be removing a version that uses the Electron runtime to execute commands. If you install the CLI again using a development version of Studio, a different node runtime will be used to execute commands.',
 		} );
 
 		if ( response === 1 ) {

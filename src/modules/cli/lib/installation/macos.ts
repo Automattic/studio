@@ -68,6 +68,23 @@ export async function installCliWithConfirmation() {
 
 export async function isCliInstalled() {
 	const currentSymlinkDestination = await getCurrentSymlinkDestination();
+
+	// Return true if we are running the development version of the app and the production CLI is installed
+	if ( process.env.NODE_ENV !== 'production' ) {
+		const prodCliPackagedPath = path.join(
+			path.sep,
+			'Applications',
+			'Studio.app',
+			'Contents',
+			'Resources',
+			'bin',
+			'studio-cli.sh'
+		);
+		if ( currentSymlinkDestination === prodCliPackagedPath ) {
+			return true;
+		}
+	}
+
 	return currentSymlinkDestination === cliPackagedPath;
 }
 

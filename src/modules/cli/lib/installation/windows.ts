@@ -39,11 +39,11 @@ function setPathInRegistry( updatedPath: string ): Promise< void > {
 	} );
 }
 
-function isStudioCliInPath( pathValue: string ): boolean {
+function isStudioCliInPath( pathValue: string, studioCliDir = unversionedBinDirPath ): boolean {
 	return pathValue
 		.split( ';' )
 		.map( ( item ) => item.trim().toLowerCase() )
-		.includes( unversionedBinDirPath.toLowerCase() );
+		.includes( studioCliDir.toLowerCase() );
 }
 
 async function installPath() {
@@ -97,6 +97,14 @@ async function installProxyBatFile() {
 export async function isCliInstalled() {
 	try {
 		const currentPath = await getPathFromRegistry();
+
+		// Return true if we are running the development version of the app and the production CLI is installed
+		if ( process.env.NODE_ENV !== 'production' && process.env.LOCALAPPDATA ) {
+			const prodStudioCliDir = path.join( process.env.LOCALAPPDATA, 'studio', 'bin' );
+			if ( isStudioCliInPath( currentPath, prodStudioCliDir ) ) {
+				return true;
+			}
+		}
 
 		if ( ! isStudioCliInPath( currentPath ) ) {
 			return false;

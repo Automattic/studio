@@ -147,13 +147,13 @@ export function PullRemoteSite( {
 	};
 
 	return (
-		<VStack className="" alignment="top" spacing="3">
+		<VStack className="w-full" alignment="top" spacing="3">
 			<Heading className="text-center text-[32px] text-gray-900" weight={ 500 }>
 				{ __( 'Pull your remote site' ) }
 			</Heading>
-			<VStack className="flex flex-col w-full max-w-[650px] h-full">
+			<VStack className="flex flex-col w-full max-w-[650px] flex-1">
 				<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
-				<div className="flex-1 min-h-0 h-full overflow-y-auto">
+				<div className="h-full">
 					<ListSites
 						syncSites={ filteredSites }
 						selectedSiteId={ selectedRemoteSite?.id || null }

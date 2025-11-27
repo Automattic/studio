@@ -136,9 +136,9 @@ export function SearchSites( {
 	const { __ } = useI18n();
 	const locale = useI18nLocale();
 	return (
-		<div className="flex flex-col px-8 pb-6 border-b border-a8c-gray-5">
+		<div className="flex flex-col px-8 pb-6 border-b border-a8c-gray-5 shrink-0">
 			<SearchControl
-				className="w-full mt-0.5 mb-2"
+				className="w-full mt-0.5 mb-2 text-black"
 				placeholder={ __( 'Search sites' ) }
 				onChange={ ( value ) => {
 					setSearchQuery( value );

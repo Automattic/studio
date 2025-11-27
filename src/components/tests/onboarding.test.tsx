@@ -12,7 +12,7 @@ import { Onboarding } from 'src/modules/onboarding';
 import { useOnboarding } from 'src/modules/onboarding/hooks/use-onboarding';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 
-jest.mock( 'src/hooks/use-onboarding', () => ( {
+jest.mock( 'src/modules/onboarding/hooks/use-onboarding', () => ( {
 	useOnboarding: jest.fn(),
 } ) );
 

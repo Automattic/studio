@@ -1,7 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import { arePathsEqual } from 'common/lib/fs-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { clearSiteLatestCliPid, readAppdata } from 'cli/lib/appdata';
+import { clearSiteLatestCliPid, getSiteByFolder } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -12,12 +11,7 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
 	try {
-		const appdata = await readAppdata();
-		const site = appdata.sites.find( ( s ) => arePathsEqual( s.path, siteFolder ) );
-
-		if ( ! site ) {
-			throw new LoggerError( __( 'Could not find Studio site.' ) );
-		}
+		const site = await getSiteByFolder( siteFolder );
 
 		await connect();
 

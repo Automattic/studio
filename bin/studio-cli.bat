@@ -11,6 +11,9 @@ chcp 65001 >nul
 set ELECTRON_EXECUTABLE=%~dp0..\..\Studio.exe
 set CLI_SCRIPT=%~dp0..\cli\main.js
 
+rem Prevent node from printing warnings about NODE_OPTIONS being ignored
+set NODE_OPTIONS=
+
 if exist "%ELECTRON_EXECUTABLE%" (
     set ELECTRON_RUN_AS_NODE=1
     call "%ELECTRON_EXECUTABLE%" "%CLI_SCRIPT%" %*

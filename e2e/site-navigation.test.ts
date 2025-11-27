@@ -17,7 +17,7 @@ async function closeWelcomeGuide( page: Page ) {
 	for ( let i = 0; i < 3; i++ ) {
 		// Check if modal is currently visible without waiting
 		const modalFrame = page.locator( '.components-modal__frame' );
-		const isVisible = await modalFrame.isVisible();
+		const isVisible = await modalFrame.isVisible( { timeout: 5000 } );
 
 		if ( ! isVisible ) {
 			// No modal present, exit early
@@ -143,10 +143,12 @@ test.describe( 'Site Navigation', () => {
 		await confirmPublishButton.click();
 
 		// Wait for the "View Post" link to appear
-		await page.getByRole( 'link', { name: 'View Post' } ).waitFor( {
-			state: 'visible',
-			timeout: 60_000,
-		} );
+		await page
+			.locator( '.post-publish-panel__postpublish-buttons a:has-text("View Post")' )
+			.waitFor( {
+				state: 'visible',
+				timeout: 60_000,
+			} );
 
 		// Verify post was created by visiting posts list
 		await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/edit.php` ) );
@@ -339,8 +341,6 @@ test.describe( 'Site Navigation', () => {
 			'button.editor-post-publish-button__button.editor-post-publish-panel__toggle'
 		);
 
-		// Ensure no welcome/whats-new modal is obscuring the publish button
-		await closeWelcomeGuide( page );
 		await publishButton.waitFor( { state: 'visible', timeout: 10_000 } );
 		await publishButton.click();
 
@@ -353,10 +353,12 @@ test.describe( 'Site Navigation', () => {
 		await confirmPublishButton.click();
 
 		// Wait for the "View Post" link to appear
-		await page.getByRole( 'link', { name: 'View Post' } ).waitFor( {
-			state: 'visible',
-			timeout: 60_000,
-		} );
+		await page
+			.locator( '.post-publish-panel__postpublish-buttons a:has-text("View Post")' )
+			.waitFor( {
+				state: 'visible',
+				timeout: 60_000,
+			} );
 
 		// Get the post URL from the editor
 		const viewPostLink = page.locator( 'a:has-text("View Post")' ).first();

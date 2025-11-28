@@ -25,7 +25,7 @@ export async function runCommand( sitePath: string, domainName: string ): Promis
 
 	try {
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
-		let site = await getSiteByFolder( sitePath, false );
+		const site = await getSiteByFolder( sitePath, false );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
 		try {
@@ -41,12 +41,10 @@ export async function runCommand( sitePath: string, domainName: string ): Promis
 				throw new LoggerError( domainError );
 			}
 
-			const foundSite = appdata.sites.find( ( site ) => arePathsEqual( site.path, sitePath ) );
-			if ( ! foundSite ) {
+			const site = appdata.sites.find( ( site ) => arePathsEqual( site.path, sitePath ) );
+			if ( ! site ) {
 				throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );
 			}
-
-			site = foundSite;
 			const oldDomainName = site.customDomain;
 			site.customDomain = domainName;
 			await saveAppdata( appdata );

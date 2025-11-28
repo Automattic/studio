@@ -82,7 +82,6 @@ function OptionButton( {
 export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps ) {
 	const { __ } = useI18n();
 	const { enableBlueprints } = useFeatureFlags();
-	const { createSiteFromRemote } = useRootSelector( ( state ) => state.betaFeatures.features );
 	const isOffline = useOffline();
 	const offlineMessage = __( "You're currently offline." );
 
@@ -111,14 +110,12 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 					disabledTooltip={ offlineMessage }
 				/>
 			) }
-			{ createSiteFromRemote && (
-				<OptionButton
-					icon={ <Icon icon={ download } size={ 24 } fill="#3858E9" /> }
-					title={ __( 'Import an existing website' ) }
-					description={ __( 'Download directly from WordPress.com or Pressable' ) }
-					onClick={ () => onOptionSelect( 'pullRemote' ) }
-				/>
-			) }
+			<OptionButton
+				icon={ <Icon icon={ download } size={ 24 } fill="#3858E9" /> }
+				title={ __( 'Import an existing website' ) }
+				description={ __( 'Download directly from WordPress.com or Pressable' ) }
+				onClick={ () => onOptionSelect( 'pullRemote' ) }
+			/>
 			<OptionButton
 				icon={ <Icon icon={ backup } size={ 24 } fill="#3858E9" /> }
 				title={ __( 'Import from a backup' ) }

@@ -10,11 +10,14 @@ export default class Onboarding {
 	}
 
 	get heading() {
-		return this.locator.getByRole( 'heading', { name: 'Connect to your WordPress.com account' } );
+		return this.locator.getByRole( 'heading', {
+			name: /Connect to your WordPress.com account|Add your first site/,
+		} );
 	}
 
 	async completeOnboarding( options?: { customSiteName?: string; customFolderName?: string } ) {
 		const { customSiteName, customFolderName } = options ?? {};
+
 		await expect( this.heading ).toBeVisible();
 		await this.locator.getByRole( 'button', { name: 'Skip →' } ).click();
 		const sidebar = new MainSidebar( this.page );

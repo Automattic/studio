@@ -72,7 +72,7 @@ describe( 'Preview Create Command', () => {
 	} );
 
 	it( 'should complete the preview creation process successfully', async () => {
-		( getWordPressVersion as jest.Mock ).mockResolvedValue( '6.8.1' );
+		( getWordPressVersion as jest.Mock ).mockReturnValue( '6.8.1' );
 		const { runCommand } = await import( '../create' );
 		await runCommand( mockFolder );
 

@@ -1,6 +1,5 @@
 import { __ } from '@wordpress/i18n';
 import { compileBlueprint } from '@wp-playground/blueprints';
-import { Blueprint } from 'src/stores/wpcom-api';
 
 interface UnsupportedFeature {
 	type: 'step' | 'property';
@@ -61,8 +60,11 @@ function getUnsupportedFeatureInfo( name: string ): UnsupportedFeature | undefin
 	);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type BlueprintData = Record< string, any >;
+
 export function scanBlueprintForUnsupportedFeatures(
-	blueprint: Blueprint[ 'blueprint' ]
+	blueprint: BlueprintData
 ): UnsupportedFeature[] {
 	const foundUnsupported: UnsupportedFeature[] = [];
 
@@ -93,8 +95,8 @@ export function scanBlueprintForUnsupportedFeatures(
 }
 
 export function filterUnsupportedBlueprintFeatures(
-	blueprint: Blueprint[ 'blueprint' ] | undefined
-): Blueprint[ 'blueprint' ] | undefined {
+	blueprint: BlueprintData | undefined
+): BlueprintData | undefined {
 	if ( ! blueprint ) {
 		return undefined;
 	}
@@ -115,18 +117,32 @@ export function filterUnsupportedBlueprintFeatures(
 	return filtered;
 }
 
-export interface BlueprintValidationResult {
-	valid: boolean;
-	error?: string;
-	warnings?: Array< { feature: string; reason: string; alternative?: string } >;
-}
+export type BlueprintValidationWarning = {
+	feature: string;
+	reason: string;
+};
+
+type BlueprintValidationError = {
+	valid: false;
+	error: string;
+};
+type BlueprintValidationSuccess = {
+	valid: true;
+	warnings: BlueprintValidationWarning[];
+};
+export type BlueprintValidationResult = BlueprintValidationError | BlueprintValidationSuccess;
 
 /**
  * Validates a blueprint by compiling it and scanning for unsupported features.
  */
 export async function validateBlueprintData(
-	blueprintJson: Blueprint[ 'blueprint' ]
+	blueprintJson: BlueprintData
 ): Promise< BlueprintValidationResult > {
+	// Temporarily suppress console.warn during blueprint compilation
+	// to avoid noisy deprecation warnings from @wp-playground/blueprints
+	const originalWarn = console.warn;
+	console.warn = () => {};
+
 	try {
 		await compileBlueprint( blueprintJson );
 	} catch ( error ) {
@@ -135,6 +151,8 @@ export async function validateBlueprintData(
 			valid: false,
 			error: errorMessage,
 		};
+	} finally {
+		console.warn = originalWarn;
 	}
 
 	const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson );
@@ -146,6 +164,6 @@ export async function validateBlueprintData(
 
 	return {
 		valid: true,
-		warnings: warnings.length > 0 ? warnings : undefined,
+		warnings,
 	};
 }

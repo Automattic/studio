@@ -5,7 +5,7 @@ import {
 } from '@wordpress/components';
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useEffect } from 'react';
+import { PropsWithChildren, useEffect, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
@@ -14,7 +14,7 @@ import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { ListSites } from 'src/modules/sync/components/sync-sites-modal-selector';
+import { ListSites, SearchSites } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
 import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 
@@ -121,6 +121,15 @@ export function PullRemoteSite( {
 	const { isAuthenticated } = useAuth();
 	const { location } = useNavigator();
 	const { syncSites, refetchSites } = useSyncSites();
+	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
+
+	const filteredSites = syncSites.filter( ( site ) => {
+		const searchQueryLower = searchQuery.toLowerCase();
+		return (
+			site.name?.toLowerCase().includes( searchQueryLower ) ||
+			site.url?.toLowerCase().includes( searchQueryLower )
+		);
+	} );
 
 	useEffect( () => {
 		if ( location.path === '/pullRemote' && isAuthenticated ) {
@@ -138,15 +147,20 @@ export function PullRemoteSite( {
 	};
 
 	return (
-		<VStack className="text-center w-full" alignment="top" spacing="3">
-			<Heading className="text-[32px] text-gray-900" weight={ 500 }>
+		<VStack className="w-full" alignment="top" spacing="3">
+			<Heading className="text-center text-[32px] text-gray-900" weight={ 500 }>
 				{ __( 'Pull your remote site' ) }
 			</Heading>
-			<ListSites
-				syncSites={ syncSites }
-				selectedSiteId={ selectedRemoteSite?.id || null }
-				onSelectSite={ handleSiteSelect }
-			/>
+			<VStack className="flex flex-col w-full max-w-[650px] flex-1">
+				<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
+				<div className="h-full">
+					<ListSites
+						syncSites={ filteredSites }
+						selectedSiteId={ selectedRemoteSite?.id || null }
+						onSelectSite={ handleSiteSelect }
+					/>
+				</div>
+			</VStack>
 		</VStack>
 	);
 }

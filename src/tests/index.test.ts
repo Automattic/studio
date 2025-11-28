@@ -24,7 +24,7 @@ jest.mock( 'atomically', () => ( {
 jest.mock( 'src/lib/wordpress-provider' );
 
 ( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( { sites: [] } ) );
-( fs as MockedFs ).__setFileContents( normalize( '/path/to/app/temp/com.wordpress.studio/' ), '' );
+require( 'fs' ).__setFileContents( normalize( '/path/to/app/temp/com.wordpress.studio/' ), '' );
 
 const mockWatcher = {
 	close: jest.fn(),

@@ -1,6 +1,13 @@
 Unreleased
 ==========
 
+1.6.5
+=====
+* Fixed WP CLI broken in 1.6.4 build #2120
+* Fixed issues with updates on Windows #2119
+* Added Playground CLI multi-worker support (Beta Feature) #2058
+* Added translations for Playground CLI progress messages #2110
+
 1.6.4
 =====
 * New flow to create a new site from remote site (Beta Feature) #1997

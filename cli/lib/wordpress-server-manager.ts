@@ -22,12 +22,9 @@ import { ProcessDescription } from 'cli/lib/types/pm2';
 import {
 	ServerConfig,
 	childMessagePm2Schema,
-	ManagerMessage,
+	ManagerMessagePayload,
 } from 'cli/lib/types/wordpress-server-ipc';
 
-/**
- * Generate PM2 process name for a site
- */
 function getProcessName( siteId: string ): string {
 	return `studio-site-${ siteId }`;
 }
@@ -44,7 +41,13 @@ export async function isServerRunning( siteId: string ): Promise< ProcessDescrip
  * 3. Send 'start-server' message with config
  * 4. Wait for response before resolving
  */
-export async function startWordPressServer( site: SiteData ): Promise< ProcessDescription > {
+export async function startWordPressServer(
+	site: SiteData,
+	options?: {
+		wpVersion?: string;
+		blueprint?: unknown;
+	}
+): Promise< ProcessDescription > {
 	const wordPressServerChildPath = path.resolve( __dirname, 'wordpress-server-child.js' );
 	const processName = getProcessName( site.id );
 
@@ -67,6 +70,14 @@ export async function startWordPressServer( site: SiteData ): Promise< ProcessDe
 
 	if ( site.isWpAutoUpdating !== undefined ) {
 		serverConfig.isWpAutoUpdating = site.isWpAutoUpdating;
+	}
+
+	if ( options?.wpVersion ) {
+		serverConfig.wpVersion = options.wpVersion;
+	}
+
+	if ( options?.blueprint ) {
+		serverConfig.blueprint = options.blueprint;
 	}
 
 	const env = {
@@ -120,14 +131,14 @@ let nextMessageId = 0;
 const messageActivityTrackers = new Map<
 	number,
 	{
-		lastActivityTimestamp: number;
 		activityCheckIntervalId: NodeJS.Timeout;
 	}
 >();
 
 async function sendMessage(
 	pmId: number,
-	message: Omit< ManagerMessage, 'messageId' >
+	message: ManagerMessagePayload,
+	maxTotalElapsedTime = PLAYGROUND_CLI_MAX_TIMEOUT
 ): Promise< unknown > {
 	const bus = await getPm2Bus();
 
@@ -152,12 +163,12 @@ async function sendMessage(
 
 			if (
 				timeSinceLastActivity > PLAYGROUND_CLI_INACTIVITY_TIMEOUT ||
-				totalElapsedTime > PLAYGROUND_CLI_MAX_TIMEOUT
+				totalElapsedTime > maxTotalElapsedTime
 			) {
 				cleanup();
 				const timeoutReason =
-					totalElapsedTime > PLAYGROUND_CLI_MAX_TIMEOUT
-						? `Maximum timeout of ${ PLAYGROUND_CLI_MAX_TIMEOUT / 1000 }s exceeded`
+					totalElapsedTime > maxTotalElapsedTime
+						? `Maximum timeout of ${ maxTotalElapsedTime / 1000 }s exceeded`
 						: `No activity for ${ PLAYGROUND_CLI_INACTIVITY_TIMEOUT / 1000 }s`;
 				reject(
 					new Error( `Timeout waiting for response to message ${ messageId }: ${ timeoutReason }` )
@@ -166,7 +177,6 @@ async function sendMessage(
 		}, PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL );
 
 		messageActivityTrackers.set( messageId, {
-			lastActivityTimestamp,
 			activityCheckIntervalId,
 		} );
 
@@ -186,10 +196,6 @@ async function sendMessage(
 
 			if ( validPacket.raw.topic === 'activity' ) {
 				lastActivityTimestamp = Date.now();
-				const tracker = messageActivityTrackers.get( messageId );
-				if ( tracker ) {
-					tracker.lastActivityTimestamp = lastActivityTimestamp;
-				}
 			} else if ( validPacket.raw.topic === 'error' ) {
 				const error = new Error( validPacket.raw.errorMessage );
 				if ( validPacket.raw.errorStack ) {
@@ -208,11 +214,87 @@ async function sendMessage(
 
 		bus.on( 'process:msg', responseHandler );
 
-		sendMessageToProcess( pmId, { ...message, messageId: messageId } ).catch( reject );
+		sendMessageToProcess( pmId, { ...message, messageId } ).catch( reject );
 	} );
 }
 
+const GRACEFUL_STOP_TIMEOUT = 5000;
+
 export async function stopWordPressServer( siteId: string ): Promise< void > {
 	const processName = getProcessName( siteId );
+	const runningProcess = await isProcessRunning( processName );
+
+	if ( runningProcess ) {
+		try {
+			await sendMessage( runningProcess.pmId, { topic: 'stop-server' }, GRACEFUL_STOP_TIMEOUT );
+		} catch {
+			// Graceful shutdown failed, PM2 delete will handle it
+		}
+	}
+
 	return stopProcess( processName );
+}
+
+/**
+ * Run a blueprint on a site without starting a server
+ * 1. Start the PM2 process
+ * 2. Wait for 'ready' message
+ * 3. Send 'run-blueprint' message with config
+ * 4. Wait for completion
+ * 5. Stop the process
+ */
+export async function runBlueprint(
+	site: SiteData,
+	options?: {
+		wpVersion?: string;
+		blueprint?: unknown;
+	}
+): Promise< void > {
+	const wordPressServerChildPath = path.resolve( __dirname, 'wordpress-server-child.js' );
+	const processName = getProcessName( site.id );
+
+	const serverConfig: ServerConfig = {
+		siteId: site.id,
+		sitePath: site.path,
+		port: site.port,
+		phpVersion: site.phpVersion,
+		siteTitle: site.name,
+	};
+
+	if ( site.customDomain ) {
+		const protocol = site.enableHttps ? 'https' : 'http';
+		serverConfig.absoluteUrl = `${ protocol }://${ site.customDomain }`;
+	}
+
+	if ( site.adminPassword ) {
+		serverConfig.adminPassword = site.adminPassword;
+	}
+
+	if ( site.isWpAutoUpdating !== undefined ) {
+		serverConfig.isWpAutoUpdating = site.isWpAutoUpdating;
+	}
+
+	if ( options?.wpVersion ) {
+		serverConfig.wpVersion = options.wpVersion;
+	}
+
+	if ( options?.blueprint ) {
+		serverConfig.blueprint = options.blueprint;
+	}
+
+	const env = {
+		STUDIO_WORDPRESS_SERVER_CONFIG: JSON.stringify( serverConfig ),
+	};
+
+	const processDesc = await startProcess( processName, wordPressServerChildPath, env );
+	try {
+		await waitForReadyMessage( processDesc.pmId );
+		await sendMessage( processDesc.pmId, {
+			topic: 'run-blueprint',
+			data: { config: serverConfig },
+		} );
+	} finally {
+		// Always stop the process after blueprint is applied
+		await stopProcess( processName );
+	}
 }

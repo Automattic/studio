@@ -4,19 +4,19 @@ import {
 	__experimentalHeading as Heading,
 	__experimentalText as Text,
 	Button,
-	Modal,
 	Notice,
 } from '@wordpress/components';
 import { DataViews, View } from '@wordpress/dataviews';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
-import { Icon, external, upload, caution } from '@wordpress/icons';
+import { Icon, external, upload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useRef, useState, useMemo } from 'react';
 import StudioButton from 'src/components/button';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetBlueprints } from 'src/stores/wpcom-api';
+import { BlueprintWarningNotice } from './blueprint-warning-notice';
 
 import './blueprints.css';
 
@@ -38,78 +38,6 @@ interface Blueprint {
 interface DataViewBlueprint extends Blueprint {
 	isSelected: boolean;
 	categories: string[];
-}
-
-interface BlueprintIssuesModalProps {
-	warnings: Array< { feature: string; reason: string } > | undefined;
-	fileName: string;
-	isOpen: boolean;
-	onClose: () => void;
-}
-
-function BlueprintIssuesModal( {
-	warnings,
-	fileName,
-	isOpen,
-	onClose,
-}: BlueprintIssuesModalProps ) {
-	const { __ } = useI18n();
-
-	if ( ! isOpen ) {
-		return null;
-	}
-
-	return (
-		<Modal
-			className="blueprints-issues-modal"
-			title={ __( 'Blueprint Details' ) }
-			onRequestClose={ onClose }
-			size="medium"
-		>
-			<div className="h-full flex flex-col gap-1">
-				<Text className="font-medium text-gray-900">{ fileName }</Text>
-				<Text>
-					{ warnings?.length &&
-						__(
-							'The following features are not supported in Studio and will be automatically removed:'
-						) }
-				</Text>
-				<div className="flex-1 overflow-y-auto">
-					<VStack spacing={ 3 } className="divide-y divide-gray-200">
-						{ warnings?.map( ( warningItem, index ) => (
-							<div key={ index } className={ index > 0 ? 'pt-3' : '' }>
-								<HStack alignment="topLeft" spacing={ 2 }>
-									<Icon
-										icon={ caution }
-										className="text-orange-500 mt-1 flex-shrink-0"
-										size={ 20 }
-									/>
-									<VStack spacing={ 1 }>
-										<Text weight={ 600 } className="text-base">
-											{ warningItem.feature }
-										</Text>
-										<Text className="text-sm text-gray-700">{ warningItem.reason }</Text>
-									</VStack>
-								</HStack>
-							</div>
-						) ) }
-					</VStack>
-				</div>
-				<div className="pt-4 border-t border-gray-200">
-					<Text className="text-sm text-gray-600">
-						{ __(
-							'Your Blueprint will still work, but these features will be skipped during site creation.'
-						) }
-					</Text>
-				</div>
-				<HStack alignment="right">
-					<Button variant="primary" onClick={ onClose }>
-						{ __( 'Got it' ) }
-					</Button>
-				</HStack>
-			</div>
-		</Modal>
-	);
 }
 
 interface AddSiteBlueprintProps {
@@ -142,7 +70,6 @@ export function AddSiteBlueprintSelector( {
 		| undefined
 	>( undefined );
 	const [ uploadedFileName, setUploadedFileName ] = useState< string | null >( null );
-	const [ showIssuesModal, setShowIssuesModal ] = useState( false );
 
 	// Check if current selection is a file-based blueprint
 	const isFileBasedSelection = selectedBlueprint && selectedBlueprint.startsWith( 'file:' );
@@ -362,13 +289,6 @@ export function AddSiteBlueprintSelector( {
 				{ __( 'Start from a Blueprint' ) }
 			</Heading>
 
-			<BlueprintIssuesModal
-				warnings={ blueprintWarnings }
-				fileName={ selectedFileName || '' }
-				isOpen={ showIssuesModal }
-				onClose={ () => setShowIssuesModal( false ) }
-			/>
-
 			{ validationError && (
 				<Notice
 					status="error"
@@ -382,23 +302,12 @@ export function AddSiteBlueprintSelector( {
 				</Notice>
 			) }
 
-			{ ! validationError && blueprintWarnings && blueprintWarnings.length > 0 && (
-				<Notice status="warning" isDismissible={ false } className="mx-0 mb-4">
-					<div className="flex justify-between items-center w-full">
-						<span>
-							{ __(
-								'This Blueprint uses unsupported features in Studio and might not work as expected.'
-							) }
-						</span>
-						<Button
-							variant="link"
-							onClick={ () => setShowIssuesModal( true ) }
-							className="!text-inherit !p-0 !underline"
-						>
-							{ __( 'View details' ) }
-						</Button>
-					</div>
-				</Notice>
+			{ ! validationError && (
+				<BlueprintWarningNotice
+					warnings={ blueprintWarnings }
+					fileName={ selectedFileName || '' }
+					className="mx-0 mb-4"
+				/>
 			) }
 
 			<HStack alignment="edge" className="w-full mb-5 ">

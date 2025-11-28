@@ -1,8 +1,9 @@
 import { waitFor } from '@testing-library/react';
 import { readFile, writeFile } from 'atomically';
 import nock from 'nock';
+import { bumpStat } from 'common/lib/bump-stat';
 import { AggregateInterval, StatsGroup, StatsMetric } from 'common/types/stats';
-import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
+import { bumpAggregatedUniqueStat } from 'src/lib/bump-stats';
 
 jest.mock( 'atomically', () => ( {
 	readFile: jest.fn(),
@@ -77,6 +78,32 @@ describe( 'bumpStat', () => {
 
 		expect( logger ).not.toHaveBeenCalled();
 		await waitFor( () => expect( nock.isDone() ).toBe( true ) );
+	} );
+
+	test( 'should not bump stat when group exceeds 26 characters', () => {
+		const errorLogger = jest.spyOn( console, 'error' ).mockImplementation( () => {} );
+		const longGroup = 'this-is-a-very-long-group-name-over-26-chars' as StatsGroup;
+
+		const result = bumpStat( longGroup, StatsMetric.SUCCESS );
+
+		expect( result ).toBe( false );
+		expect( errorLogger ).toHaveBeenCalledWith(
+			expect.stringContaining( 'exceeds maximum length of 26 characters' )
+		);
+		errorLogger.mockRestore();
+	} );
+
+	test( 'should not bump stat when stat exceeds 32 characters', () => {
+		const errorLogger = jest.spyOn( console, 'error' ).mockImplementation( () => {} );
+		const longStat = 'this-is-a-very-long-stat-name-over-32-characters' as StatsMetric;
+
+		const result = bumpStat( StatsGroup.STUDIO_APP_LAUNCH, longStat );
+
+		expect( result ).toBe( false );
+		expect( errorLogger ).toHaveBeenCalledWith(
+			expect.stringContaining( 'exceeds maximum length of 32 characters' )
+		);
+		errorLogger.mockRestore();
 	} );
 } );
 

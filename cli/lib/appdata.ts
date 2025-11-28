@@ -42,7 +42,6 @@ const newSiteSchema = z
 const betaFeaturesSchema = z
 	.object( {
 		studioSitesCli: z.boolean().optional(),
-		createSiteFromRemote: z.boolean().optional(),
 	} )
 	.passthrough();
 

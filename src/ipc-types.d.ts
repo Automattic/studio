@@ -87,7 +87,6 @@ interface FeatureFlags {
 interface BetaFeatures {
 	studioSitesCli: boolean;
 	multiWorkerSupport: boolean;
-	createSiteFromRemote: boolean;
 }
 
 interface AppGlobals extends FeatureFlags {

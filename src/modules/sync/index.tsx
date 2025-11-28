@@ -1,9 +1,10 @@
-import { check, cloudUpload, Icon } from '@wordpress/icons';
+import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useCallback, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
+import { PublishSiteButton } from 'src/components/publish-site-button';
 import { Tooltip } from 'src/components/tooltip';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
@@ -143,7 +144,6 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const {
 		data: syncSites = [],
 		isLoading: isLoadingSyncSites,
-		isFetching: isFetchingSyncSites,
 		isSuccess: isSuccessSyncSites,
 		isUninitialized: isUninitializedSyncSites,
 		refetch: refetchWpComSites,
@@ -221,22 +221,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				<SiteSyncDescription>
 					{ streamlineOnboarding ? (
 						<div className="mt-8 flex flex-wrap gap-4">
-							<ConnectButton
-								variant="primary"
-								icon={ cloudUpload }
-								connectSite={ () => handleOpenModal( 'push' ) }
-								disabled={ isAnySiteSyncing }
-								isBusy={ isFetchingSyncSites }
-								tooltipText={
-									isAnySiteSyncing
-										? __(
-												'Another site is syncing. Please wait for the sync to finish before you publish your site.'
-										  )
-										: __( 'Publishing your site requires an internet connection.' )
-								}
-							>
-								{ __( 'Publish site' ) }
-							</ConnectButton>
+							<PublishSiteButton redirectToSync={ false } />
 							<ConnectButton
 								variant="secondary"
 								connectSite={ () => handleOpenModal( 'pull' ) }

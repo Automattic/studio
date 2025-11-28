@@ -5,10 +5,10 @@ export function EmptyStudio() {
 	const { __ } = useI18n();
 
 	return (
-		<div className="w-full h-full flex items-center justify-center">
-			<div className="w-full h-full max-w-[786px] pt-12 pb-4">
+		<main className="bg-white h-full flex items-center justify-center overflow-hidden z-10">
+			<div className="w-full max-w-[786px]">
 				<AddSiteModalContent />
 			</div>
-		</div>
+		</main>
 	);
 }

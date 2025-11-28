@@ -241,8 +241,6 @@ export function SyncDialog( {
 	const noticeCount = [ isPushSelectionOverLimit, shouldShowVersionMismatch ].filter(
 		Boolean
 	).length;
-	const footerPadding =
-		noticeCount === 0 ? 'pb-[70px]' : noticeCount === 1 ? 'pb-[140px]' : 'pb-[210px]';
 
 	return (
 		<Modal
@@ -250,7 +248,13 @@ export function SyncDialog( {
 			onRequestClose={ onRequestClose }
 			title={ syncTexts.title }
 		>
-			<div className={ footerPadding }>
+			<div
+				className={ cx(
+					noticeCount === 0 && 'pb-[80px]',
+					noticeCount === 1 && 'pb-[145px]',
+					noticeCount >= 2 && 'pb-[225px]'
+				) }
+			>
 				<div className="px-8 pb-6 pt-1">{ syncTexts.description }</div>
 				<div className="px-8">
 					<span className="sr-only">

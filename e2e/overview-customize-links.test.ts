@@ -1,6 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
 import { E2ESession } from './e2e-helpers';
-import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
 import WhatsNewModal from './page-objects/whats-new-modal';
@@ -76,13 +75,7 @@ test.describe( 'Overview customize links', () => {
 			await session.launch();
 
 			const onboarding = new Onboarding( session.mainWindow );
-			await expect( onboarding.heading ).toBeVisible();
-			await onboarding.skipButton.click();
-			const sidebar = new MainSidebar( session.mainWindow );
-			const modal = await sidebar.openAddSiteModal();
-			await modal.createSiteButton.click();
-			await modal.siteNameInput.fill( siteName );
-			await modal.continueButton.click();
+			await onboarding.completeOnboarding( { customSiteName: siteName } );
 
 			const whatsNewModal = new WhatsNewModal( session.mainWindow );
 			if ( await whatsNewModal.locator.isVisible( { timeout: 5000 } ) ) {

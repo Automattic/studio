@@ -30,25 +30,10 @@ test.describe( 'Servers', () => {
 		await session.launch( env );
 
 		const onboarding = new Onboarding( session.mainWindow );
-
-		await onboarding.skipButton.click();
-
-		const sidebar = new MainSidebar( session.mainWindow );
-		const modal = await sidebar.openAddSiteModal();
-		await modal.createSiteButton.click();
-
-		if ( customSiteName ) {
-			await modal.siteNameInput.fill( customSiteName );
-		}
-		await expect( modal.siteNameInput ).toHaveValue( /\S+/, { timeout: 5000 } );
-		const siteName = await modal.siteNameInput.inputValue();
-
-		if ( customFolderName ) {
-			await modal.selectLocalPathForTesting( customFolderName );
-		}
-		const localPath = await modal.localPathInput.inputValue();
-
-		await modal.continueButton.click();
+		const { siteName, localPath } = await onboarding.completeOnboarding( {
+			customSiteName,
+			customFolderName,
+		} );
 
 		await closeWhatsNew();
 
@@ -56,7 +41,7 @@ test.describe( 'Servers', () => {
 		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
 
 		return {
-			siteName,
+			siteName: customSiteName,
 			localPath,
 		};
 	}

@@ -13,16 +13,31 @@ export default class Onboarding {
 		return this.locator.getByRole( 'heading', { name: 'Connect to your WordPress.com account' } );
 	}
 
-	get skipButton() {
-		return this.locator.getByRole( 'button', { name: 'Skip →' } );
-	}
+	async completeOnboarding( options?: { customSiteName?: string; customFolderName?: string } ) {
+		const { customSiteName, customFolderName } = options ?? {};
 
-	async completeOnboarding() {
 		await expect( this.heading ).toBeVisible();
-		await this.skipButton.click();
+		await this.locator.getByRole( 'button', { name: 'Skip →' } ).click();
 		const sidebar = new MainSidebar( this.page );
 		const modal = await sidebar.openAddSiteModal();
 		await modal.createSiteButton.click();
+
+		if ( customSiteName ) {
+			await modal.siteNameInput.fill( customSiteName );
+		}
+		await expect( modal.siteNameInput ).toHaveValue( /\S+/, { timeout: 5000 } );
+		const siteName = await modal.siteNameInput.inputValue();
+
+		if ( customFolderName ) {
+			await modal.selectLocalPathForTesting( customFolderName );
+		}
+		const localPath = await modal.localPathInput.inputValue();
+
 		await modal.continueButton.click();
+
+		return {
+			siteName,
+			localPath,
+		};
 	}
 }

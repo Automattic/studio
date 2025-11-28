@@ -36,8 +36,7 @@ test.describe( 'Site Editor Load Metrics', () => {
 		await expect( onboarding.heading ).toBeVisible();
 		// Wait for store initialization to complete (provider constants loading)
 		await new Promise( ( resolve ) => setTimeout( resolve, 500 ) );
-		await onboarding.siteNameInput.fill( siteName );
-		await onboarding.continueButton.click();
+		await onboarding.completeOnboarding( { customSiteName: siteName } );
 
 		// Handle the What's New modal if it appears
 		const whatsNewModal = new WhatsNewModal( session.mainWindow );

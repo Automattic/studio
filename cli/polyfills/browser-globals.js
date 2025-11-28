@@ -14,6 +14,7 @@ if ( typeof document === 'undefined' ) {
 	global.document = {
 		createElement: () => ( {} ),
 		addEventListener: () => {},
+		baseURI: 'file:///',
 	};
 }
 

@@ -139,6 +139,7 @@ async function startServer( config: ServerConfig ): Promise< void > {
 
 	try {
 		const args = await getBaseRunCLIArgs( 'server', config );
+		logToConsole( `Starting server. Calling runCli with args`, args );
 		server = await runCLI( args );
 
 		if ( config.adminPassword ) {
@@ -232,7 +233,9 @@ async function ipcMessageHandler( packet: unknown ) {
 		topic: 'result',
 		result,
 	};
+	console.log( 'Sending response', response );
 	process.send!( response );
+	console.log( 'Sent response' );
 }
 
 if ( process.send ) {

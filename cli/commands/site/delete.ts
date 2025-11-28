@@ -1,16 +1,19 @@
 import fs from 'fs/promises';
-import { __ } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { arePathsEqual } from 'common/lib/fs-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
+import { deleteSnapshot } from 'cli/lib/api';
 import {
 	getSiteByFolder,
 	lockAppdata,
 	readAppdata,
 	saveAppdata,
 	unlockAppdata,
+	getAuthToken,
 } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
+import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snapshots';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -36,6 +39,31 @@ export async function runCommand(
 			await stopWordPressServer( site.id );
 			logger.reportSuccess( __( 'WordPress site stopped' ) );
 			await stopProxyIfNoSitesNeedIt( site.id, logger );
+		}
+
+		const authToken = await getAuthToken();
+		const snapshots = await getSnapshotsFromAppdata( authToken.id, siteFolder );
+
+		if ( snapshots.length > 0 ) {
+			logger.reportStart(
+				LoggerAction.DELETE_PREVIEW_SITES,
+				// translators: %d is the number of associated preview sites
+				sprintf(
+					_n(
+						'Deleting %d associated preview site…',
+						'Deleting %d associated preview sites…',
+						snapshots.length
+					),
+					snapshots.length
+				)
+			);
+
+			for ( const snapshot of snapshots ) {
+				await deleteSnapshot( snapshot.atomicSiteId, authToken.accessToken );
+				await deleteSnapshotFromAppdata( snapshot.url );
+			}
+
+			logger.reportSuccess( __( 'Associated preview sites deleted' ) );
 		}
 
 		try {

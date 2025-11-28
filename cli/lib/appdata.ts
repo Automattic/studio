@@ -42,7 +42,6 @@ const newSiteSchema = z
 const betaFeaturesSchema = z
 	.object( {
 		studioSitesCli: z.boolean().optional(),
-		createSiteFromRemote: z.boolean().optional(),
 	} )
 	.passthrough();
 
@@ -178,11 +177,18 @@ export async function getAuthToken(): Promise< ValidatedAuthToken > {
 	}
 }
 
-export async function getSiteByFolder( siteFolder: string ): Promise< NewSiteData > {
+export function getSiteByFolder(
+	siteFolder: string,
+	includeNewSites: true
+): Promise< NewSiteData >;
+export function getSiteByFolder( siteFolder: string, includeNewSites: false ): Promise< SiteData >;
+export async function getSiteByFolder(
+	siteFolder: string,
+	includeNewSites: boolean
+): Promise< NewSiteData | SiteData > {
 	const userData = await readAppdata();
-	const site = [ ...userData.sites, ...userData.newSites ].find( ( site ) =>
-		arePathsEqual( site.path, siteFolder )
-	);
+	const sites = includeNewSites ? [ ...userData.sites, ...userData.newSites ] : userData.sites;
+	const site = sites.find( ( site ) => arePathsEqual( site.path, siteFolder ) );
 
 	if ( ! site ) {
 		throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );
@@ -201,7 +207,7 @@ export function getNewSitePartial( siteFolder: string ): NewSiteData {
 	return newSite;
 }
 
-const createNewSite = async ( siteFolder: string ): Promise< NewSiteData > => {
+async function createNewSite( siteFolder: string ): Promise< NewSiteData > {
 	try {
 		await lockAppdata();
 		const userData = await readAppdata();
@@ -212,11 +218,11 @@ const createNewSite = async ( siteFolder: string ): Promise< NewSiteData > => {
 	} finally {
 		await unlockAppdata();
 	}
-};
+}
 
 export const getOrCreateSiteByFolder = async ( siteFolder: string ): Promise< NewSiteData > => {
 	try {
-		return await getSiteByFolder( siteFolder );
+		return await getSiteByFolder( siteFolder, true );
 	} catch ( error ) {
 		if ( ! ( error instanceof LoggerError ) ) {
 			throw error;
@@ -249,6 +255,23 @@ export async function updateSiteLatestCliPid( siteId: string, pid: number ): Pro
 		}
 
 		site.latestCliPid = pid;
+		await saveAppdata( userData );
+	} finally {
+		await unlockAppdata();
+	}
+}
+
+export async function clearSiteLatestCliPid( siteId: string ): Promise< void > {
+	try {
+		await lockAppdata();
+		const userData = await readAppdata();
+		const site = userData.sites.find( ( s ) => s.id === siteId );
+
+		if ( ! site ) {
+			throw new LoggerError( __( 'Site not found' ) );
+		}
+
+		delete site.latestCliPid;
 		await saveAppdata( userData );
 	} finally {
 		await unlockAppdata();

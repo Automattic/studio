@@ -45,8 +45,7 @@ test.describe( 'Localization', () => {
 
 		// Complete onboarding before tests
 		const onboarding = new Onboarding( session.mainWindow );
-		await expect( onboarding.heading ).toBeVisible();
-		await onboarding.continueButton.click();
+		await onboarding.completeOnboarding();
 
 		const whatsNewModal = new WhatsNewModal( session.mainWindow );
 		if ( await whatsNewModal.locator.isVisible( { timeout: 5000 } ) ) {
@@ -96,7 +95,7 @@ test.describe( 'Localization', () => {
 		try {
 			const visible = await onboarding.heading.isVisible( { timeout: 2000 } );
 			if ( visible ) {
-				await onboarding.continueButton.click();
+				await onboarding.completeOnboarding();
 			}
 		} catch ( error ) {
 			// Onboarding not visible, continue with test

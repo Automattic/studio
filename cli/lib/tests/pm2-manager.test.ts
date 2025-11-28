@@ -26,6 +26,7 @@ jest.mock(
 
 import fs from 'fs';
 import os from 'os';
+import { clearCache } from 'common/lib/cache-function-ttl';
 import { getAppdataPath } from 'cli/lib/appdata';
 // Import the module after mocks are set up
 import {
@@ -41,6 +42,9 @@ import {
 describe( 'PM2 Manager', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
+
+		// Clear cache to prevent test pollution
+		clearCache();
 
 		// Reset connection state by calling disconnect
 		disconnect();

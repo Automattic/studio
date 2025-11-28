@@ -9,10 +9,12 @@ interface StepperProps {
 	currentPath?: string;
 	onBack?: () => void;
 	onBlueprintContinue?: () => void;
+	onBlueprintDeeplinkContinue?: () => void;
 	onBackupContinue?: () => void;
 	onPullRemoteContinue?: () => void;
 	onCreateSubmit?: ( event: FormEvent ) => void;
 	canSubmitBlueprint?: boolean;
+	canSubmitBlueprintDeeplink?: boolean;
 	canSubmitBackup?: boolean;
 	canSubmitPullRemote?: boolean;
 	canSubmitCreate?: boolean;
@@ -22,10 +24,12 @@ export default function Stepper( {
 	currentPath,
 	onBack,
 	onBlueprintContinue,
+	onBlueprintDeeplinkContinue,
 	onBackupContinue,
 	onPullRemoteContinue,
 	onCreateSubmit,
 	canSubmitBlueprint,
+	canSubmitBlueprintDeeplink,
 	canSubmitBackup,
 	canSubmitPullRemote,
 	canSubmitCreate,
@@ -33,10 +37,12 @@ export default function Stepper( {
 	const { __ } = useI18n();
 	const { steps, isVisible, actionButton, onSubmit, canSubmit } = useStepper( {
 		onBlueprintContinue,
+		onBlueprintDeeplinkContinue,
 		onBackupContinue,
 		onPullRemoteContinue,
 		onCreateSubmit,
 		canSubmitBlueprint,
+		canSubmitBlueprintDeeplink,
 		canSubmitBackup,
 		canSubmitPullRemote,
 		canSubmitCreate,

@@ -119,7 +119,7 @@ test.describe( 'Site Navigation', () => {
 
 		// Wait for title to be available in iframe
 		const titleSelector = 'h1.editor-post-title__input';
-		await editorFrame.locator( titleSelector ).waitFor( { timeout: 10_000 } );
+		await expect(editorFrame.locator( titleSelector )).toBeVisible( { timeout: 10_000 } );
 		await editorFrame.locator( titleSelector ).fill( 'E2E Test Post' );
 
 		// Click into the content area and type
@@ -132,23 +132,20 @@ test.describe( 'Site Navigation', () => {
 			'button.editor-post-publish-button__button.editor-post-publish-panel__toggle'
 		);
 
-		await publishButton.waitFor( { state: 'visible', timeout: 10_000 } );
+		await expect(publishButton).toBeVisible( { timeout: 10_000 } );
 		await publishButton.click();
 
 		// Wait for and click the confirm publish button in the panel
 		const confirmPublishButton = page.locator(
 			'.editor-post-publish-panel__header-publish-button button.editor-post-publish-button__button'
 		);
-		await confirmPublishButton.waitFor( { state: 'visible', timeout: 10_000 } );
+		await expect(confirmPublishButton).toBeVisible( { timeout: 10_000 } );
 		await confirmPublishButton.click();
 
 		// Wait for the "View Post" link to appear
-		await page
-			.locator( '.post-publish-panel__postpublish-buttons a:has-text("View Post")' )
-			.waitFor( {
-				state: 'visible',
-				timeout: 60_000,
-			} );
+		await expect(page
+			.locator( '.post-publish-panel__postpublish-buttons a:has-text("View Post")' ))
+			.toBeVisible( { timeout: 60_000 } );
 
 		// Verify post was created by visiting posts list
 		await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/edit.php` ) );

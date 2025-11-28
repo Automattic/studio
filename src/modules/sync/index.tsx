@@ -149,29 +149,12 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		refetch: refetchWpComSites,
 	} = useGetWpComSitesQuery( { connectedSiteIds, userId: user?.id } );
 
-	const refetchSites = useCallback( async (): Promise< SyncSite[] > => {
-		if ( isUninitializedSyncSites ) {
-			return [];
-		}
-		try {
-			const result = await refetchWpComSites();
-			return result.data ?? [];
-		} catch ( error ) {
-			// Query might not be ready to refetch yet (e.g., was skipped due to offline)
-			console.warn( 'Failed to refetch sites:', error );
-			return [];
-		}
-	}, [ refetchWpComSites, isUninitializedSyncSites ] );
-
 	// Helper function to open modal and refetch sites to check for newly created sites
 	const handleOpenModal = useCallback(
 		( mode: SyncModalMode ) => {
 			if ( isAuthenticated && ! isUninitializedSyncSites ) {
-				refetchWpComSites().catch( ( error ) => {
-					// Query might not be ready to refetch yet (e.g., was skipped due to offline)
-					// Silently ignore the error as the query will start automatically when conditions are met
-					console.warn( 'Failed to refetch sites on modal open:', error );
-				} );
+				// Refetch sites on the background but ignore errors
+				void refetchWpComSites();
 			}
 			dispatch( connectedSitesActions.openModal( mode ) );
 		},
@@ -300,7 +283,6 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 								dispatch( connectedSitesActions.closeModal() );
 							} }
 							syncSites={ syncSites }
-							onInitialRender={ refetchSites }
 							onConnect={ async ( siteId: number ) => {
 								await handleSiteSelection( siteId, reduxModalMode );
 							} }

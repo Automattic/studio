@@ -37,11 +37,8 @@ export const PublishSiteButton = () => {
 	const handlePublishClick = useCallback( () => {
 		setSelectedTab( 'sync' );
 		if ( isAuthenticated && ! isUninitializedSyncSites ) {
-			refetchWpComSites().catch( ( error ) => {
-				// Query might not be ready to refetch yet (e.g., was skipped due to offline)
-				// Silently ignore the error as the query will start automatically when conditions are met
-				console.warn( 'Failed to refetch sites on modal open:', error );
-			} );
+			// Refetch sites on the background but ignore errors
+			void refetchWpComSites();
 		}
 		dispatch( connectedSitesActions.openModal( 'push' ) );
 	}, [ setSelectedTab, dispatch, isAuthenticated, isUninitializedSyncSites, refetchWpComSites ] );

@@ -30,7 +30,6 @@ export function SyncSitesModalSelector( {
 	onRequestClose,
 	onConnect,
 	syncSites,
-	onInitialRender,
 	selectedSite,
 	mode = 'connect',
 }: {
@@ -38,7 +37,6 @@ export function SyncSitesModalSelector( {
 	onRequestClose: () => void;
 	syncSites: SyncSite[];
 	onConnect: ( siteId: number ) => void;
-	onInitialRender?: () => void;
 	selectedSite: SiteDetails;
 	mode?: SyncModalMode;
 } ) {
@@ -66,12 +64,6 @@ export function SyncSitesModalSelector( {
 				return __( 'Connect your site' );
 		}
 	};
-
-	useEffect( () => {
-		if ( onInitialRender ) {
-			onInitialRender();
-		}
-	}, [ onInitialRender ] );
 
 	return (
 		<Modal

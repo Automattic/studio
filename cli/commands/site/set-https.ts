@@ -29,6 +29,14 @@ export async function runCommand( sitePath: string, enableHttps: boolean ): Prom
 			throw new LoggerError( __( 'Site does not have a custom domain.' ) );
 		}
 
+		if ( site.enableHttps === enableHttps ) {
+			if ( enableHttps ) {
+				throw new LoggerError( __( 'HTTPS is already enabled for this site.' ) );
+			} else {
+				throw new LoggerError( __( 'HTTPS is already disabled for this site.' ) );
+			}
+		}
+
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
 		await connect();
 		logger.reportSuccess( __( 'Process daemon started' ) );

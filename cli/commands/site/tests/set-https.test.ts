@@ -74,7 +74,7 @@ describe( 'Site Set-HTTPS Command', () => {
 		( disconnect as jest.Mock ).mockReturnValue( undefined );
 		( lockAppdata as jest.Mock ).mockResolvedValue( undefined );
 		( readAppdata as jest.Mock ).mockResolvedValue( {
-			sites: [ mockSiteData ],
+			sites: [ { ...mockSiteData } ],
 			snapshots: [],
 		} );
 		( saveAppdata as jest.Mock ).mockResolvedValue( undefined );
@@ -96,6 +96,16 @@ describe( 'Site Set-HTTPS Command', () => {
 
 			const { runCommand } = await import( '../set-https' );
 			await runCommand( mockSiteFolder, true );
+
+			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+			expect( disconnect ).toHaveBeenCalled();
+		} );
+
+		it( 'should finish early if passing the same config value that the site already has', async () => {
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
+
+			const { runCommand } = await import( '../set-https' );
+			await runCommand( mockSiteFolder, false );
 
 			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
@@ -158,10 +168,6 @@ describe( 'Site Set-HTTPS Command', () => {
 
 	describe( 'Success Cases', () => {
 		it( 'should enable HTTPS on a stopped site', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteData ],
-				snapshots: [],
-			} );
 			( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
 
 			const { runCommand } = await import( '../set-https' );
@@ -186,6 +192,7 @@ describe( 'Site Set-HTTPS Command', () => {
 				sites: [ siteWithHttps ],
 				snapshots: [],
 			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( siteWithHttps );
 			( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
 
 			const { runCommand } = await import( '../set-https' );
@@ -200,10 +207,6 @@ describe( 'Site Set-HTTPS Command', () => {
 		} );
 
 		it( 'should enable HTTPS and restart a running site', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteData ],
-				snapshots: [],
-			} );
 			( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
 
 			const { runCommand } = await import( '../set-https' );
@@ -225,6 +228,7 @@ describe( 'Site Set-HTTPS Command', () => {
 				sites: [ siteWithHttps ],
 				snapshots: [],
 			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( siteWithHttps );
 			( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
 
 			const { runCommand } = await import( '../set-https' );

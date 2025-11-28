@@ -1,5 +1,6 @@
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback } from 'react';
+import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Blueprint } from 'src/stores/wpcom-api';
@@ -16,6 +17,7 @@ interface UseBlueprintDeeplinkOptions {
 	setPhpVersion: ( version: string ) => void;
 	setWpVersion: ( version: string ) => void;
 	setBlueprintPreferredVersions: ( versions: { php?: string; wp?: string } | undefined ) => void;
+	setBlueprintDeeplinkWarnings: ( warnings: BlueprintValidationWarning[] | undefined ) => void;
 	navigateToBlueprintDeeplink: () => void;
 }
 
@@ -28,6 +30,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 		setPhpVersion,
 		setWpVersion,
 		setBlueprintPreferredVersions,
+		setBlueprintDeeplinkWarnings,
 		navigateToBlueprintDeeplink,
 	} = options;
 
@@ -71,7 +74,13 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 	);
 
 	const handleBlueprintFromUrl = useCallback(
-		async ( _event: unknown, { blueprintPath }: { blueprintPath: string } ) => {
+		async (
+			_event: unknown,
+			{
+				blueprintPath,
+				warnings,
+			}: { blueprintPath: string; warnings?: BlueprintValidationWarning[] }
+		) => {
 			if ( isAnySiteProcessing ) {
 				return;
 			}
@@ -88,6 +97,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 
 				setSelectedBlueprint( fileBlueprint );
 				applyPreferredVersions( blueprintJson );
+				setBlueprintDeeplinkWarnings( warnings );
 				openModal();
 				navigateToBlueprintDeeplink();
 			} catch ( error ) {
@@ -100,6 +110,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 			createBlueprintFromData,
 			setSelectedBlueprint,
 			applyPreferredVersions,
+			setBlueprintDeeplinkWarnings,
 			openModal,
 			navigateToBlueprintDeeplink,
 		]

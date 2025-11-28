@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { readAppdata, updateSiteLatestCliPid } from 'cli/lib/appdata';
+import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -11,13 +11,9 @@ export async function runCommand( siteFolder: string, skipBrowser = false ): Pro
 	const logger = new Logger< LoggerAction >();
 
 	try {
-		const appdata = await readAppdata();
-		const site = appdata.sites.find( ( s ) => s.path === siteFolder );
-
-		if ( ! site ) {
-			// TODO: Rewrite error message
-			throw new LoggerError( __( 'Could not find Studio site.' ) );
-		}
+		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
+		const site = await getSiteByFolder( siteFolder, false );
+		logger.reportSuccess( __( 'Site loaded' ) );
 
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
 		await connect();

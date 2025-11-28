@@ -3,6 +3,7 @@ import { Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
 import Button from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite } from 'src/hooks/use-add-site';
@@ -59,6 +60,7 @@ interface NavigationContentProps {
 	blueprintsErrorMessage?: string | undefined;
 	blueprintPreferredVersions?: { php?: string; wp?: string };
 	setBlueprintPreferredVersions: ( versions: { php?: string; wp?: string } | undefined ) => void;
+	blueprintDeeplinkWarnings?: BlueprintValidationWarning[];
 	selectedRemoteSite?: SyncSite;
 	setSelectedRemoteSite: ( site?: SyncSite ) => void;
 	isDeeplinkFlow: boolean;
@@ -74,6 +76,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		blueprintsErrorMessage,
 		blueprintPreferredVersions,
 		setBlueprintPreferredVersions,
+		blueprintDeeplinkWarnings,
 		selectedRemoteSite,
 		setSelectedRemoteSite,
 		isDeeplinkFlow,
@@ -256,7 +259,10 @@ function NavigationContent( props: NavigationContentProps ) {
 				<CreateSite { ...createSiteProps } />
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/deeplink">
-				<BlueprintDeeplink selectedBlueprint={ createSiteProps.selectedBlueprint } />
+				<BlueprintDeeplink
+					selectedBlueprint={ createSiteProps.selectedBlueprint }
+					warnings={ blueprintDeeplinkWarnings }
+				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/deeplink/create">
 				<CreateSite
@@ -273,7 +279,7 @@ function NavigationContent( props: NavigationContentProps ) {
 			<Navigator.Screen className="flex-1" path="/backup/create">
 				<CreateSite { ...createSiteProps } />
 			</Navigator.Screen>
-			<Navigator.Screen className="flex-1" path="/pullRemote">
+			<Navigator.Screen className="flex-1 flex justify-center" path="/pullRemote">
 				<PullRemoteSite
 					selectedRemoteSite={ selectedRemoteSite }
 					setSelectedRemoteSite={ ( remoteSite?: SyncSite ) => {
@@ -324,6 +330,9 @@ export function AddSiteModalContent( {
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
 		{ php?: string; wp?: string } | undefined
+	>();
+	const [ blueprintDeeplinkWarnings, setBlueprintDeeplinkWarnings ] = useState<
+		BlueprintValidationWarning[] | undefined
 	>();
 	const [ isDeeplinkFlow, setIsDeeplinkFlow ] = useState( false );
 
@@ -384,6 +393,7 @@ export function AddSiteModalContent( {
 		setFileForImport( null );
 		setSelectedBlueprint( undefined );
 		setBlueprintPreferredVersions( undefined );
+		setBlueprintDeeplinkWarnings( undefined );
 		setSelectedRemoteSite( undefined );
 	}, [
 		setSitePath,
@@ -415,6 +425,7 @@ export function AddSiteModalContent( {
 		setPhpVersion,
 		setWpVersion,
 		setBlueprintPreferredVersions,
+		setBlueprintDeeplinkWarnings,
 		navigateToBlueprintDeeplink: () => {
 			setIsDeeplinkFlow( true );
 		},
@@ -491,6 +502,7 @@ export function AddSiteModalContent( {
 				handleSubmit={ handleSubmit }
 				blueprintPreferredVersions={ blueprintPreferredVersions }
 				setBlueprintPreferredVersions={ setBlueprintPreferredVersions }
+				blueprintDeeplinkWarnings={ blueprintDeeplinkWarnings }
 				selectedRemoteSite={ selectedRemoteSite }
 				setSelectedRemoteSite={ setSelectedRemoteSite }
 				isDeeplinkFlow={ isDeeplinkFlow }

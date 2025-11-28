@@ -7,6 +7,7 @@ import {
 	saveAppdata,
 	unlockAppdata,
 } from 'cli/lib/appdata';
+import { addDomainToHosts, removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import {
 	isServerRunning,
@@ -27,6 +28,7 @@ jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
 jest.mock( 'cli/logger' );
 jest.mock( 'common/lib/fs-utils' );
+jest.mock( 'cli/lib/hosts-file' );
 
 describe( 'Site Set-Domain Command', () => {
 	const mockSiteFolder = '/test/site/path';
@@ -81,6 +83,8 @@ describe( 'Site Set-Domain Command', () => {
 		( startWordPressServer as jest.Mock ).mockResolvedValue( mockProcessDescription );
 		( stopWordPressServer as jest.Mock ).mockResolvedValue( undefined );
 		( arePathsEqual as jest.Mock ).mockImplementation( ( a: string, b: string ) => a === b );
+		( addDomainToHosts as jest.Mock ).mockResolvedValue( undefined );
+		( removeDomainFromHosts as jest.Mock ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {

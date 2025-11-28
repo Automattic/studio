@@ -109,7 +109,7 @@ async function waitForReadyMessage( pmId: number ): Promise< void > {
 				return;
 			}
 
-			if ( result.data.raw.topic === 'ready' && result.data.process.pm_id === pmId ) {
+			if ( result.data.process.pm_id === pmId && result.data.raw.topic === 'ready' ) {
 				clearTimeout( timeout );
 				bus.off( 'process:msg', readyHandler );
 				resolve();

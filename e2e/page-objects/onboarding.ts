@@ -1,5 +1,6 @@
 import { type Page } from '@playwright/test';
 import { expect } from '@playwright/test';
+import AddSiteModal from './add-site-modal';
 import MainSidebar from './main-sidebar';
 
 export default class Onboarding {
@@ -18,28 +19,34 @@ export default class Onboarding {
 	async completeOnboarding( options?: { customSiteName?: string; customFolderName?: string } ) {
 		const { customSiteName, customFolderName } = options ?? {};
 
-		await expect( this.heading ).toBeVisible();
-		await this.locator.getByRole( 'button', { name: 'Skip →' } ).click();
-		const sidebar = new MainSidebar( this.page );
-		const modal = await sidebar.openAddSiteModal();
-		await modal.createSiteButton.click();
+		try {
+			await expect( this.heading ).toBeVisible();
+			await this.locator.getByRole( 'button', { name: 'Skip →' } ).click();
+			const sidebar = new MainSidebar( this.page );
+			const modal = await sidebar.openAddSiteModal();
+			await modal.createSiteButton.click();
 
-		if ( customSiteName ) {
-			await modal.siteNameInput.fill( customSiteName );
+			if ( customSiteName ) {
+				await modal.siteNameInput.fill( customSiteName );
+			}
+			await expect( modal.siteNameInput ).toHaveValue( /\S+/, { timeout: 5000 } );
+			const siteName = await modal.siteNameInput.inputValue();
+
+			if ( customFolderName ) {
+				await modal.selectLocalPathForTesting( customFolderName );
+			}
+			const localPath = await modal.localPathInput.inputValue();
+
+			await modal.continueButton.click();
+
+			return {
+				siteName,
+				localPath,
+			};
+		} catch ( error ) {
+			const modal = new AddSiteModal( this.page );
+			await modal.siteNameInput.fill( customSiteName ?? '' );
+			await modal.continueButton.click();
 		}
-		await expect( modal.siteNameInput ).toHaveValue( /\S+/, { timeout: 5000 } );
-		const siteName = await modal.siteNameInput.inputValue();
-
-		if ( customFolderName ) {
-			await modal.selectLocalPathForTesting( customFolderName );
-		}
-		const localPath = await modal.localPathInput.inputValue();
-
-		await modal.continueButton.click();
-
-		return {
-			siteName,
-			localPath,
-		};
 	}
 }

@@ -51,40 +51,26 @@ export function useSelectedItemsPushSize(
 				( node ) => node.id === 'wp-content'
 			);
 
-			if ( wpContentNode?.checked ) {
-				sizePromises.push( getIpcApi().getDirectorySize( siteId, [ 'wp-content' ] ) );
-			} else if ( wpContentNode?.children ) {
-				for ( const child of wpContentNode.children ) {
-					if ( child.checked ) {
-						if ( child.type === 'file' ) {
-							sizePromises.push( getIpcApi().getFileSize( siteId, [ 'wp-content', child.name ] ) );
-						} else {
-							sizePromises.push(
-								getIpcApi().getDirectorySize( siteId, [ 'wp-content', child.name ] )
-							);
-						}
-					} else if ( child.indeterminate && child.children ) {
-						for ( const subChild of child.children ) {
-							if ( subChild.checked || subChild.indeterminate ) {
-								let sizePromise: Promise< number >;
-								if ( subChild.type === 'file' ) {
-									sizePromise = getIpcApi().getFileSize( siteId, [
-										'wp-content',
-										child.name,
-										subChild.name,
-									] );
-								} else {
-									sizePromise = getIpcApi().getDirectorySize( siteId, [
-										'wp-content',
-										child.name,
-										subChild.name,
-									] );
-								}
-								sizePromises.push( sizePromise );
-							}
-						}
+			const processNodeRecursively = ( node: TreeNode, pathPrefix: string[] ): void => {
+				if ( node.checked ) {
+					// If the node is fully checked, get its entire size
+					if ( node.type === 'file' ) {
+						sizePromises.push( getIpcApi().getFileSize( siteId, [ ...pathPrefix, node.name ] ) );
+					} else {
+						sizePromises.push(
+							getIpcApi().getDirectorySize( siteId, [ ...pathPrefix, node.name ] )
+						);
+					}
+				} else if ( node.indeterminate && node.children ) {
+					// If the node is indeterminate, process its children recursively
+					for ( const child of node.children ) {
+						processNodeRecursively( child, [ ...pathPrefix, node.name ] );
 					}
 				}
+			};
+
+			if ( wpContentNode ) {
+				processNodeRecursively( wpContentNode, [] );
 			}
 
 			if ( sizePromises.length > 0 ) {

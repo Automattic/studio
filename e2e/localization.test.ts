@@ -95,7 +95,7 @@ test.describe( 'Localization', () => {
 		try {
 			const visible = await onboarding.heading.isVisible( { timeout: 2000 } );
 			if ( visible ) {
-				await onboarding.skipButton.click();
+				await onboarding.completeOnboarding();
 			}
 		} catch ( error ) {
 			// Onboarding not visible, continue with test

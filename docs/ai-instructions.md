@@ -19,6 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Code Quality
 - `npm run lint` - Lint TypeScript/JavaScript files
 - `npm run format` - Format code with Prettier
+- **IMPORTANT**: When formatting code, ONLY format the files you've modified. Use `npx prettier --write <file1> <file2>` instead of `npm run format` to avoid formatting the entire codebase
 
 ### Building Installers
 - `npm run package` - Package the app (no installer)
@@ -258,6 +259,11 @@ window.ipcApi.openSiteURL(id)     // Send (one-way)
 // Main (src/ipc-handlers.ts) handles:
 ipcMain.handle('startServer', async (event, siteId) => { ... })
 ipcMain.on('openSiteURL', (event, id) => { ... })
+
+// CLI Installation API (delegated to src/modules/cli/lib/installation):
+window.ipcApi.isStudioCliInstalled() // Check CLI installation status
+window.ipcApi.installStudioCli()     // Install the CLI
+window.ipcApi.uninstallStudioCli()   // Uninstall the CLI
 ```
 
 ### 3. WordPress Provider Pattern (Strategy Pattern)
@@ -281,8 +287,17 @@ Both implement the `WordPressProvider` interface with methods:
 - provider constants: WordPress/PHP versions
 - RTK Query APIs for data fetching:
   - wpcomApi: WordPress.com API calls
-  - installedAppsApi: System apps detection
+  - installedAppsApi: System apps detection, CLI installation status
   - wordpressVersionsApi: Available WP versions
+
+// installedAppsApi endpoints (src/stores/installed-apps-api.ts):
+- getStudioCliIsInstalled: Query CLI installation status
+- getInstalledApps: Query installed editors and terminals
+- getUserEditor: Get user's preferred editor
+- getUserTerminal: Get user's preferred terminal
+- saveStudioCliIsInstalled: Mutation to install/uninstall CLI
+- saveUserEditor: Mutation to save preferred editor
+- saveUserTerminal: Mutation to save preferred terminal
 ```
 
 ### 5. Site Management
@@ -465,6 +480,6 @@ Local component state used for temporary UI interactions.
 
 ---
 
-Last Updated: 2025-11-05
+Last Updated: 2025-11-10
 Repository: https://github.com/Automattic/studio
 License: GPLv2 or later

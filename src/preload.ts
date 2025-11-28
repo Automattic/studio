@@ -21,7 +21,6 @@ function ipcRendererSend< T extends keyof IpcHandlers >(
 }
 
 const api: IpcApi = {
-	archiveSite: ( id, format ) => ipcRendererInvoke( 'archiveSite', id, format ),
 	exportSiteForPush: ( id, operationId, configuration ) =>
 		ipcRendererInvoke( 'exportSiteForPush', id, operationId, configuration ),
 	pushArchive: ( remoteSiteId, archivePath, optionsToSync, specificSelectionPaths ) =>
@@ -71,7 +70,7 @@ const api: IpcApi = {
 	stopServer: ( id ) => ipcRendererInvoke( 'stopServer', id ),
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
-	removeTemporaryFile: ( path ) => ipcRendererInvoke( 'removeTemporaryFile', path ),
+	removeExportedSiteTmpFile: ( path ) => ipcRendererInvoke( 'removeExportedSiteTmpFile', path ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
 	generateProposedSitePath: ( siteName ) =>
 		ipcRendererInvoke( 'generateProposedSitePath', siteName ),
@@ -119,7 +118,6 @@ const api: IpcApi = {
 	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
 	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),
-	getFileContent: ( filePath ) => ipcRendererInvoke( 'getFileContent', filePath ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),
 	getAllCustomDomains: () => ipcRendererInvoke( 'getAllCustomDomains' ),
 	saveUserTerminal: ( preferredTerminal ) =>
@@ -137,6 +135,9 @@ const api: IpcApi = {
 	showSiteContextMenu: ( context ) => ipcRendererSend( 'showSiteContextMenu', context ),
 	setWindowControlVisibility: ( visible ) =>
 		ipcRendererInvoke( 'setWindowControlVisibility', visible ),
+	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),
+	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),
+	uninstallStudioCli: () => ipcRendererInvoke( 'uninstallStudioCli' ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

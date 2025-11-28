@@ -1,69 +1,91 @@
+import os from 'node:os';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import Table from 'cli-table3';
-import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { readAppdata, type SiteData } from 'cli/lib/appdata';
+import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
+import { getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
+import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { getColumnWidths, getPrettyPath } from 'cli/lib/utils';
+import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-interface SiteTable {
-	id: string;
+interface SiteListEntry {
+	status: string;
 	name: string;
 	path: string;
-	phpVersion: string;
+	url: string;
 }
 
-function getSitesCliTable( sites: SiteData[] ) {
-	const table = new Table( {
-		head: [ __( 'Name' ), __( 'Path' ), __( 'ID' ), __( 'PHP' ) ],
-		style: {
-			head: [ 'cyan' ],
-			border: [ 'grey' ],
-		},
-		wordWrap: true,
-		wrapOnWordBoundary: false,
-	} );
+async function getSiteListData( sites: SiteData[] ) {
+	const result: SiteListEntry[] = [];
 
-	sites.forEach( ( site ) => {
-		table.push( [ site.name, site.path, site.id, site.phpVersion ] );
-	} );
+	for await ( const site of sites ) {
+		const isOnline = await isServerRunning( site.id );
+		const status = isOnline ? `🟢 ${ __( 'Online' ) }` : `🔴 ${ __( 'Offline' ) }`;
+		const url = getSiteUrl( site );
 
-	return table;
-}
+		result.push( {
+			status,
+			name: site.name,
+			path: getPrettyPath( site.path ),
+			url,
+		} );
+	}
 
-function getSitesCliJson( sites: SiteData[] ): SiteTable[] {
-	return sites.map( ( site ) => ( {
-		id: site.id,
-		name: site.name,
-		path: site.path,
-		phpVersion: site.phpVersion,
-	} ) );
+	return result;
 }
 
 export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
 	try {
-		logger.reportStart( LoggerAction.LOAD, __( 'Loading sites…' ) );
+		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading sites…' ) );
 		const appdata = await readAppdata();
-		const allSites = appdata.sites;
 
-		if ( allSites.length === 0 ) {
+		if ( appdata.sites.length === 0 ) {
 			logger.reportSuccess( __( 'No sites found' ) );
 			return;
 		}
 
 		const sitesMessage = sprintf(
-			_n( 'Found %d site', 'Found %d sites', allSites.length ),
-			allSites.length
+			_n( 'Found %d site', 'Found %d sites', appdata.sites.length ),
+			appdata.sites.length
 		);
 
 		logger.reportSuccess( sitesMessage );
 
+		logger.reportStart( LoggerAction.START_DAEMON, __( 'Connecting to process daemon...' ) );
+		await connect();
+		logger.reportSuccess( __( 'Connected to process daemon' ) );
+
+		const sitesData = await getSiteListData( appdata.sites );
+
 		if ( format === 'table' ) {
-			const table = getSitesCliTable( allSites );
+			const colWidths = getColumnWidths( [ 0.1, 0.2, 0.3, 0.4 ] );
+
+			const table = new Table( {
+				head: [ __( 'Status' ), __( 'Name' ), __( 'Path' ), __( 'URL' ) ],
+				wordWrap: true,
+				wrapOnWordBoundary: false,
+				colWidths,
+				style: {
+					head: [],
+					border: [],
+				},
+			} );
+
+			table.push(
+				...sitesData.map( ( site ) => [
+					site.status,
+					site.name,
+					site.path,
+					{ href: new URL( site.url ).toString(), content: site.url },
+				] )
+			);
+
 			console.log( table.toString() );
 		} else {
-			console.log( JSON.stringify( getSitesCliJson( allSites ), null, 2 ) );
+			console.log( JSON.stringify( sitesData, null, 2 ) );
 		}
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
@@ -72,6 +94,8 @@ export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 			const loggerError = new LoggerError( __( 'Failed to load sites' ), error );
 			logger.reportError( loggerError );
 		}
+	} finally {
+		disconnect();
 	}
 }
 

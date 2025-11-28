@@ -30,7 +30,7 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 		logger.reportSuccess( __( 'Archive created' ) );
 
 		logger.reportStart( LoggerAction.UPLOAD, __( 'Uploading archive…' ) );
-		const wordpressVersion = await getWordPressVersion( siteFolder );
+		const wordpressVersion = getWordPressVersion( siteFolder );
 		const uploadResponse = await uploadArchive( archivePath, token.accessToken, wordpressVersion );
 		logger.reportSuccess( __( 'Archive uploaded' ) );
 

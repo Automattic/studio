@@ -3,16 +3,17 @@ import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
+import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-export async function runCommand( siteFolder: string, skipBrowser = false ): Promise< void > {
+export async function runCommand( sitePath: string, skipBrowser = false ): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
 	try {
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
-		const site = await getSiteByFolder( siteFolder, false );
+		const site = await getSiteByFolder( sitePath, false );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
@@ -33,6 +34,13 @@ export async function runCommand( siteFolder: string, skipBrowser = false ): Pro
 		}
 
 		await setupCustomDomain( site, logger );
+
+		logger.reportStart(
+			LoggerAction.INSTALL_SQLITE,
+			__( 'Setting up SQLite integration, if needed...' )
+		);
+		await keepSqliteIntegrationUpdated( sitePath );
+		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
 		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress site...' ) );
 		try {

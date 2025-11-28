@@ -10,30 +10,18 @@ import { getUrlWithAutoLogin } from './utils';
 
 /**
  * Closes the WordPress Block Editor welcome guide if it appears.
- * Attempts to close up to 3 times as the modal may reappear while the page loads.
- * If no modal is visible, returns immediately without waiting.
  */
 async function closeWelcomeGuide( page: Page ) {
+	const modalOverlay = page.locator( '.components-modal__screen-overlay' );
+	const closeButton = page.locator( '.components-modal__header > button[aria-label="Close"]' );
+
 	for ( let i = 0; i < 3; i++ ) {
-		// Check if modal is currently visible without waiting
-		const modalFrame = page.locator( '.components-modal__frame' );
-		const isVisible = await modalFrame.isVisible( { timeout: 5000 } );
-
-		if ( ! isVisible ) {
-			// No modal present, exit early
-			break;
-		}
-
 		try {
-			// Find and click the close button using specific selector
-			const closeButton = page.locator( '.components-modal__header > button[aria-label="Close"]' );
+			await modalOverlay.waitFor( { state: 'visible', timeout: 2000 } );
 			await closeButton.waitFor( { state: 'visible', timeout: 2000 } );
 			await closeButton.click();
-
-			// Wait a bit for the modal to close before checking again
-			await page.waitForTimeout( 500 );
+			await modalOverlay.waitFor( { state: 'hidden', timeout: 2000 } );
 		} catch {
-			// Close button not found or click failed, exit loop
 			break;
 		}
 	}
@@ -119,7 +107,7 @@ test.describe( 'Site Navigation', () => {
 
 		// Wait for title to be available in iframe
 		const titleSelector = 'h1.editor-post-title__input';
-		await expect(editorFrame.locator( titleSelector )).toBeVisible( { timeout: 10_000 } );
+		await expect( editorFrame.locator( titleSelector ) ).toBeVisible( { timeout: 10_000 } );
 		await editorFrame.locator( titleSelector ).fill( 'E2E Test Post' );
 
 		// Click into the content area and type
@@ -132,20 +120,21 @@ test.describe( 'Site Navigation', () => {
 			'button.editor-post-publish-button__button.editor-post-publish-panel__toggle'
 		);
 
-		await expect(publishButton).toBeVisible( { timeout: 10_000 } );
+		await expect( publishButton ).toBeVisible( { timeout: 10_000 } );
 		await publishButton.click();
 
 		// Wait for and click the confirm publish button in the panel
 		const confirmPublishButton = page.locator(
 			'.editor-post-publish-panel__header-publish-button button.editor-post-publish-button__button'
 		);
-		await expect(confirmPublishButton).toBeVisible( { timeout: 10_000 } );
+		await expect( confirmPublishButton ).toBeVisible( { timeout: 10_000 } );
+		await closeWelcomeGuide( page );
 		await confirmPublishButton.click();
 
 		// Wait for the "View Post" link to appear
-		await expect(page
-			.locator( '.post-publish-panel__postpublish-buttons a:has-text("View Post")' ))
-			.toBeVisible( { timeout: 60_000 } );
+		await expect(
+			page.locator( '.post-publish-panel__postpublish-buttons a:has-text("View Post")' )
+		).toBeVisible( { timeout: 60_000 } );
 
 		// Verify post was created by visiting posts list
 		await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/edit.php` ) );
@@ -325,7 +314,7 @@ test.describe( 'Site Navigation', () => {
 
 		// Wait for title to be available in iframe
 		const titleSelector = 'h1.editor-post-title__input';
-		await editorFrame.locator( titleSelector ).waitFor( { timeout: 30_000 } );
+		await expect( editorFrame.locator( titleSelector ) ).toBeVisible( { timeout: 30_000 } );
 		await editorFrame.locator( titleSelector ).fill( 'Permalink Test Post' );
 
 		// Click into the content area and type
@@ -338,24 +327,21 @@ test.describe( 'Site Navigation', () => {
 			'button.editor-post-publish-button__button.editor-post-publish-panel__toggle'
 		);
 
-		await publishButton.waitFor( { state: 'visible', timeout: 10_000 } );
+		await expect( publishButton ).toBeVisible( { timeout: 10_000 } );
 		await publishButton.click();
 
 		// Wait for and click the confirm publish button in the panel
 		const confirmPublishButton = page.locator(
 			'.editor-post-publish-panel__header-publish-button button.editor-post-publish-button__button'
 		);
-
-		await confirmPublishButton.waitFor( { state: 'visible', timeout: 10_000 } );
+		await expect( confirmPublishButton ).toBeVisible( { timeout: 10_000 } );
+		await closeWelcomeGuide( page );
 		await confirmPublishButton.click();
 
 		// Wait for the "View Post" link to appear
-		await page
-			.locator( '.post-publish-panel__postpublish-buttons a:has-text("View Post")' )
-			.waitFor( {
-				state: 'visible',
-				timeout: 60_000,
-			} );
+		await expect(
+			page.locator( '.post-publish-panel__postpublish-buttons a:has-text("View Post")' )
+		).toBeVisible( { timeout: 60_000 } );
 
 		// Get the post URL from the editor
 		const viewPostLink = page.locator( 'a:has-text("View Post")' ).first();

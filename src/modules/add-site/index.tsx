@@ -278,7 +278,7 @@ function NavigationContent( props: NavigationContentProps ) {
 			<Navigator.Screen className="flex-1" path="/backup/create">
 				<CreateSite { ...createSiteProps } />
 			</Navigator.Screen>
-			<Navigator.Screen className="flex-1" path="/pullRemote">
+			<Navigator.Screen className="flex-1 flex justify-center" path="/pullRemote">
 				<PullRemoteSite
 					selectedRemoteSite={ selectedRemoteSite }
 					setSelectedRemoteSite={ ( remoteSite?: SyncSite ) => {

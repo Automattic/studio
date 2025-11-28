@@ -349,7 +349,7 @@ export function SyncDialog( {
 					</div>
 				</Tooltip>
 
-				<div className="px-8 py-4 absolute left-0 right-0 bottom-0 bg-white z-10">
+				<div className="px-8 py-4 absolute left-0 right-0 bottom-0 bg-white/[0.8] backdrop-blur-sm z-10">
 					{ type === 'push' && isPushSelectionOverLimit && (
 						<Notice status="warning" isDismissible={ false } className="mb-4">
 							<p data-testid="push-selection-over-limit-notice">

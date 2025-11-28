@@ -41,7 +41,7 @@ test.describe( 'Servers', () => {
 		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
 
 		return {
-			siteName: customSiteName,
+			siteName,
 			localPath,
 		};
 	}

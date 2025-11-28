@@ -22,8 +22,7 @@ import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-it
 import { useSyncDialogTexts } from 'src/modules/sync/hooks/use-sync-dialog-texts';
 import { useTopLevelSyncTree } from 'src/modules/sync/hooks/use-top-level-sync-tree';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
-import { useI18nLocale, useRootSelector } from 'src/stores';
-import { selectMinimumWordPressVersion } from 'src/stores/provider-constants-slice';
+import { useI18nLocale } from 'src/stores';
 import { useLatestRewindId, useRemoteFileTree, useLocalFileTree } from 'src/stores/sync';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { TreeViewLoadingSkeleton } from './tree-view-loading-skeleton';
@@ -155,9 +154,8 @@ export function SyncDialog( {
 		useDynamicTreeState( type, localSite.id, remoteSite.id, setTreeState );
 
 	const [ wpVersion ] = useGetWpVersion( localSite );
-	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
 	const { data: wpVersions = [] } = useGetWordPressVersions( {
-		minimumVersion: minimumWordPressVersion,
+		minimumVersion: '',
 	} );
 	const latestWpVersion = getLatestStableWpVersion( wpVersions );
 	const shouldShowVersionMismatch =

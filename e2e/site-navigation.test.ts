@@ -168,8 +168,8 @@ test.describe( 'Site Navigation', () => {
 		// Wait for upload to complete
 		await expect( page.locator( '.media-item .filename' ) ).toBeVisible( { timeout: 30_000 } );
 
-		// Verify media was uploaded by checking the library
-		await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/upload.php` ) );
+		// Verify media was uploaded by checking the library (force grid mode for consistent selector)
+		await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/upload.php?mode=grid` ) );
 		await page.waitForLoadState( 'networkidle' );
 		await expect( page.locator( '.attachment' ).first() ).toBeVisible( { timeout: 30_000 } );
 

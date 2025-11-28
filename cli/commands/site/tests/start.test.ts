@@ -1,15 +1,16 @@
-import { readAppdata, updateSiteLatestCliPid, SiteData } from 'cli/lib/appdata';
+import { getSiteByFolder, updateSiteLatestCliPid, SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import { addDomainToHosts } from 'cli/lib/hosts-file';
 import { connect, disconnect, isProxyProcessRunning, startProxyProcess } from 'cli/lib/pm2-manager';
+import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
 	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
-	readAppdata: jest.fn(),
+	getSiteByFolder: jest.fn(),
 	updateSiteLatestCliPid: jest.fn(),
 	getSiteUrl: jest.fn( ( site ) => `http://localhost:${ site.port }` ),
 } ) );
@@ -19,6 +20,8 @@ jest.mock( 'cli/lib/hosts-file' );
 jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
 jest.mock( 'cli/logger' );
+jest.mock( 'cli/lib/sqlite-integration' );
+jest.mock( 'common/lib/fs-utils' );
 
 describe( 'Site Start Command', () => {
 	const mockSiteFolder = '/test/site/path';
@@ -102,6 +105,7 @@ describe( 'Site Start Command', () => {
 		( openBrowser as jest.Mock ).mockResolvedValue( undefined );
 		( generateSiteCertificate as jest.Mock ).mockResolvedValue( undefined );
 		( addDomainToHosts as jest.Mock ).mockResolvedValue( undefined );
+		( keepSqliteIntegrationUpdated as jest.Mock ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -110,10 +114,7 @@ describe( 'Site Start Command', () => {
 
 	describe( 'Error Handling', () => {
 		it( 'should handle site not found error', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( null );
 
 			const { runCommand } = await import( '../start' );
 			await runCommand( mockSiteFolder );
@@ -123,10 +124,7 @@ describe( 'Site Start Command', () => {
 		} );
 
 		it( 'should handle PM2 connection failure', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteData ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
 			( connect as jest.Mock ).mockRejectedValue( new Error( 'PM2 connection failed' ) );
 
 			const { runCommand } = await import( '../start' );
@@ -141,10 +139,7 @@ describe( 'Site Start Command', () => {
 		} );
 
 		it( 'should handle WordPress server start failure', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteData ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
 			( startWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server start failed' ) );
 
 			const { runCommand } = await import( '../start' );
@@ -159,10 +154,7 @@ describe( 'Site Start Command', () => {
 		} );
 
 		it( 'should handle hosts file update failure', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteDataWithCustomDomain ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteDataWithCustomDomain );
 			( addDomainToHosts as jest.Mock ).mockRejectedValue( new Error( 'Hosts file error' ) );
 
 			const { runCommand } = await import( '../start' );
@@ -177,10 +169,7 @@ describe( 'Site Start Command', () => {
 		} );
 
 		it( 'should handle certificate generation failure', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteDataWithHttps ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteDataWithHttps );
 			( generateSiteCertificate as jest.Mock ).mockRejectedValue(
 				new Error( 'Certificate generation failed' )
 			);
@@ -199,10 +188,7 @@ describe( 'Site Start Command', () => {
 
 	describe( 'Success Cases', () => {
 		it( 'should skip startup if server is already running', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteData ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
 			( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
 
 			const { runCommand } = await import( '../start' );
@@ -224,10 +210,7 @@ describe( 'Site Start Command', () => {
 		} );
 
 		it( 'should start basic site without custom domain', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteData ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
 
 			const { runCommand } = await import( '../start' );
 			await runCommand( mockSiteFolder );
@@ -258,10 +241,7 @@ describe( 'Site Start Command', () => {
 		} );
 
 		it( 'should start site with custom domain (HTTP)', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteDataWithCustomDomain ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteDataWithCustomDomain );
 
 			const { runCommand } = await import( '../start' );
 			await runCommand( mockSiteFolder );
@@ -288,10 +268,7 @@ describe( 'Site Start Command', () => {
 		} );
 
 		it( 'should start site with custom domain (HTTPS) and generate certificate', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteDataWithHttps ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteDataWithHttps );
 
 			const { runCommand } = await import( '../start' );
 			await runCommand( mockSiteFolder );
@@ -308,10 +285,7 @@ describe( 'Site Start Command', () => {
 		} );
 
 		it( 'should not generate certificate if it already exists', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteDataWithExistingCerts ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteDataWithExistingCerts );
 
 			const { runCommand } = await import( '../start' );
 			await runCommand( mockSiteFolder );
@@ -323,10 +297,7 @@ describe( 'Site Start Command', () => {
 		} );
 
 		it( 'should skip proxy start if proxy is already running', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteDataWithCustomDomain ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteDataWithCustomDomain );
 			( isProxyProcessRunning as jest.Mock ).mockResolvedValue( mockProxyProcess );
 
 			const { runCommand } = await import( '../start' );
@@ -339,10 +310,7 @@ describe( 'Site Start Command', () => {
 		} );
 
 		it( 'should skip browser when skipBrowser flag is true', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteData ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
 
 			const { runCommand } = await import( '../start' );
 			await runCommand( mockSiteFolder, true );
@@ -354,10 +322,7 @@ describe( 'Site Start Command', () => {
 		} );
 
 		it( 'should skip browser when server is already running and skipBrowser is true', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteData ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
 			( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
 
 			const { runCommand } = await import( '../start' );
@@ -371,10 +336,7 @@ describe( 'Site Start Command', () => {
 		} );
 
 		it( 'should not fail if browser fails to open', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteData ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
 			( openBrowser as jest.Mock ).mockRejectedValue( new Error( 'Browser error' ) );
 
 			const { runCommand } = await import( '../start' );
@@ -390,7 +352,7 @@ describe( 'Site Start Command', () => {
 
 	describe( 'Cleanup', () => {
 		it( 'should disconnect from PM2 even on error', async () => {
-			( readAppdata as jest.Mock ).mockRejectedValue( new Error( 'Appdata error' ) );
+			( getSiteByFolder as jest.Mock ).mockRejectedValue( new Error( 'Appdata error' ) );
 
 			const { runCommand } = await import( '../start' );
 			await runCommand( mockSiteFolder );
@@ -399,10 +361,7 @@ describe( 'Site Start Command', () => {
 		} );
 
 		it( 'should disconnect from PM2 on success', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteData ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
 
 			const { runCommand } = await import( '../start' );
 			await runCommand( mockSiteFolder );
@@ -411,10 +370,7 @@ describe( 'Site Start Command', () => {
 		} );
 
 		it( 'should disconnect from PM2 even if server was already running', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteData ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
 			( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
 
 			const { runCommand } = await import( '../start' );

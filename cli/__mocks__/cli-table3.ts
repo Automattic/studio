@@ -1,4 +1,4 @@
-export default class MockTable {
+module.exports = class MockTable {
 	constructor() {}
 	push() {
 		return this;
@@ -6,4 +6,4 @@ export default class MockTable {
 	toString() {
 		return 'table output';
 	}
-}
+};

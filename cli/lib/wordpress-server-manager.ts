@@ -22,7 +22,7 @@ import { ProcessDescription } from 'cli/lib/types/pm2';
 import {
 	ServerConfig,
 	childMessagePm2Schema,
-	ManagerMessage,
+	ManagerMessagePayload,
 } from 'cli/lib/types/wordpress-server-ipc';
 
 function getProcessName( siteId: string ): string {
@@ -137,7 +137,8 @@ const messageActivityTrackers = new Map<
 
 async function sendMessage(
 	pmId: number,
-	message: Omit< ManagerMessage, 'messageId' >
+	message: ManagerMessagePayload,
+	maxTotalElapsedTime = PLAYGROUND_CLI_MAX_TIMEOUT
 ): Promise< unknown > {
 	const bus = await getPm2Bus();
 
@@ -162,12 +163,12 @@ async function sendMessage(
 
 			if (
 				timeSinceLastActivity > PLAYGROUND_CLI_INACTIVITY_TIMEOUT ||
-				totalElapsedTime > PLAYGROUND_CLI_MAX_TIMEOUT
+				totalElapsedTime > maxTotalElapsedTime
 			) {
 				cleanup();
 				const timeoutReason =
-					totalElapsedTime > PLAYGROUND_CLI_MAX_TIMEOUT
-						? `Maximum timeout of ${ PLAYGROUND_CLI_MAX_TIMEOUT / 1000 }s exceeded`
+					totalElapsedTime > maxTotalElapsedTime
+						? `Maximum timeout of ${ maxTotalElapsedTime / 1000 }s exceeded`
 						: `No activity for ${ PLAYGROUND_CLI_INACTIVITY_TIMEOUT / 1000 }s`;
 				reject(
 					new Error( `Timeout waiting for response to message ${ messageId }: ${ timeoutReason }` )
@@ -213,12 +214,24 @@ async function sendMessage(
 
 		bus.on( 'process:msg', responseHandler );
 
-		sendMessageToProcess( pmId, { ...message, messageId: messageId } ).catch( reject );
+		sendMessageToProcess( pmId, { ...message, messageId } ).catch( reject );
 	} );
 }
 
+const GRACEFUL_STOP_TIMEOUT = 5000;
+
 export async function stopWordPressServer( siteId: string ): Promise< void > {
 	const processName = getProcessName( siteId );
+	const runningProcess = await isProcessRunning( processName );
+
+	if ( runningProcess ) {
+		try {
+			await sendMessage( runningProcess.pmId, { topic: 'stop-server' }, GRACEFUL_STOP_TIMEOUT );
+		} catch {
+			// Graceful shutdown failed, PM2 delete will handle it
+		}
+	}
+
 	return stopProcess( processName );
 }
 

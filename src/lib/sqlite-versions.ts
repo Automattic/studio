@@ -24,5 +24,3 @@ export const installSqliteIntegration = sequential( ( sitePath: string ) =>
 
 export const keepSqliteIntegrationUpdated = ( sitePath: string ) =>
 	provider.keepSqliteIntegrationUpdated( sitePath );
-
-export { provider };

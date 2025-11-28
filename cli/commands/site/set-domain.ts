@@ -94,11 +94,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			return yargs.positional( 'domain', {
 				type: 'string',
 				description: __( 'Domain name' ),
-				required: true,
+				demandOption: true,
 			} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path, argv.domain ?? '' );
+			await runCommand( argv.path, argv.domain );
 		},
 	} );
 };

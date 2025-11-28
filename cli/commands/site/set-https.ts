@@ -82,11 +82,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			return yargs.positional( 'enable', {
 				type: 'boolean',
 				description: __( 'Enable HTTPS' ),
-				required: true,
+				demandOption: true,
 			} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path, !! argv.enable );
+			await runCommand( argv.path, argv.enable );
 		},
 	} );
 };

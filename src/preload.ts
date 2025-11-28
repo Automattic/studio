@@ -135,6 +135,9 @@ const api: IpcApi = {
 	showSiteContextMenu: ( context ) => ipcRendererSend( 'showSiteContextMenu', context ),
 	setWindowControlVisibility: ( visible ) =>
 		ipcRendererInvoke( 'setWindowControlVisibility', visible ),
+	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),
+	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),
+	uninstallStudioCli: () => ipcRendererInvoke( 'uninstallStudioCli' ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

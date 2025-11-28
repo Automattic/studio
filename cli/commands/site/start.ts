@@ -1,7 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import { arePathsEqual } from 'common/lib/fs-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { readAppdata, updateSiteLatestCliPid } from 'cli/lib/appdata';
+import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
@@ -13,13 +12,9 @@ export async function runCommand( sitePath: string, skipBrowser = false ): Promi
 	const logger = new Logger< LoggerAction >();
 
 	try {
-		const appdata = await readAppdata();
-		const site = appdata.sites.find( ( site ) => arePathsEqual( site.path, sitePath ) );
-
-		if ( ! site ) {
-			// TODO: Rewrite error message
-			throw new LoggerError( __( 'Could not find Studio site.' ) );
-		}
+		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
+		const site = await getSiteByFolder( sitePath, false );
+		logger.reportSuccess( __( 'Site loaded' ) );
 
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
 		await connect();
@@ -70,7 +65,6 @@ export async function runCommand( sitePath: string, skipBrowser = false ): Promi
 			const loggerError = new LoggerError( __( 'Failed to start site infrastructure' ), error );
 			logger.reportError( loggerError );
 		}
-		process.exit( 1 );
 	} finally {
 		disconnect();
 	}

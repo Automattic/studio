@@ -27,7 +27,6 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getMainWindow } from 'src/main-window';
-import { installCLIOnMacOSWithConfirmation } from 'src/modules/cli/lib/install-macos';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
 export async function setupMenu( config: { needsOnboarding: boolean } ) {
@@ -147,14 +146,6 @@ async function getAppMenu(
 						void sendIpcEventToRenderer( 'user-settings', { tabName: 'preferences' } );
 					},
 				},
-				...( process.platform === 'darwin'
-					? [
-							{
-								label: __( 'Install CLI…' ),
-								click: installCLIOnMacOSWithConfirmation,
-							},
-					  ]
-					: [] ),
 				{
 					label: __( 'Beta Features' ),
 					submenu: betaFeaturesMenu,

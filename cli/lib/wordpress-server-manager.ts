@@ -25,9 +25,6 @@ import {
 	ManagerMessage,
 } from 'cli/lib/types/wordpress-server-ipc';
 
-/**
- * Generate PM2 process name for a site
- */
 function getProcessName( siteId: string ): string {
 	return `studio-site-${ siteId }`;
 }

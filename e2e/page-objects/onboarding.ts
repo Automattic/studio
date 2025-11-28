@@ -19,7 +19,7 @@ export default class Onboarding {
 	async completeOnboarding( options?: { customSiteName?: string; customFolderName?: string } ) {
 		const { customSiteName, customFolderName } = options ?? {};
 
-		try {
+		if ( await this.locator.getByRole( 'heading', { name: 'Connect to your WordPress.com account' } ).isVisible( { timeout: 100 } ) ) {
 			await expect( this.heading ).toBeVisible();
 			await this.locator.getByRole( 'button', { name: 'Skip →' } ).click();
 			const sidebar = new MainSidebar( this.page );
@@ -43,12 +43,12 @@ export default class Onboarding {
 				siteName,
 				localPath,
 			};
-		} catch ( error ) {
+		} else {
 			const modal = new AddSiteModal( this.page );
 			if ( customSiteName ) {
 				await modal.siteNameInput.fill( customSiteName );
 			}
-			this.page.getByTestId( 'onboarding' ).getByRole( 'button', { name: /Continue|Add site/ } );
+			await this.page.getByRole( 'button', { name: 'Continue' } ).click();
 		}
 	}
 }

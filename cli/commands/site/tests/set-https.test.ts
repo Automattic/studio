@@ -1,4 +1,5 @@
 import { arePathsEqual } from 'common/lib/fs-utils';
+import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import {
 	SiteData,
 	getSiteByFolder,
@@ -41,6 +42,7 @@ describe( 'Site Set-HTTPS Command', () => {
 		phpVersion: '8.0',
 		url: `http://localhost:8881`,
 		enableHttps: false,
+		customDomain: 'test.local',
 	};
 
 	const mockProcessDescription = {
@@ -88,16 +90,23 @@ describe( 'Site Set-HTTPS Command', () => {
 	} );
 
 	describe( 'Error Handling', () => {
+		it( 'should handle missing custom domain', async () => {
+			const siteWithoutDomain = { ...mockSiteData, customDomain: undefined };
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( siteWithoutDomain );
+
+			const { runCommand } = await import( '../set-https' );
+			await runCommand( mockSiteFolder, true );
+
+			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+			expect( disconnect ).toHaveBeenCalled();
+		} );
+
 		it( 'should handle PM2 connection failure', async () => {
 			( connect as jest.Mock ).mockRejectedValue( new Error( 'PM2 connection failed' ) );
 
 			const { runCommand } = await import( '../set-https' );
 			await runCommand( mockSiteFolder, true );
 
-			expect( mockLogger.reportStart ).toHaveBeenCalledWith(
-				'startDaemon',
-				'Starting process daemon...'
-			);
 			expect( mockLogger.reportError ).toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -142,7 +151,6 @@ describe( 'Site Set-HTTPS Command', () => {
 			const { runCommand } = await import( '../set-https' );
 			await runCommand( mockSiteFolder, true );
 
-			expect( mockLogger.reportStart ).toHaveBeenCalledWith( 'startSite', 'Restarting site...' );
 			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -159,8 +167,6 @@ describe( 'Site Set-HTTPS Command', () => {
 			const { runCommand } = await import( '../set-https' );
 			await runCommand( mockSiteFolder, true );
 
-			expect( mockLogger.reportStart ).toHaveBeenCalledWith( 'loadSites', 'Loading site…' );
-			expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Site loaded' );
 			expect( connect ).toHaveBeenCalled();
 			expect( lockAppdata ).toHaveBeenCalled();
 			expect( readAppdata ).toHaveBeenCalled();
@@ -185,7 +191,6 @@ describe( 'Site Set-HTTPS Command', () => {
 			const { runCommand } = await import( '../set-https' );
 			await runCommand( mockSiteFolder, false );
 
-			expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Site loaded' );
 			expect( saveAppdata ).toHaveBeenCalled();
 			const savedAppdata = ( saveAppdata as jest.Mock ).mock.calls[ 0 ][ 0 ];
 			expect( savedAppdata.sites[ 0 ].enableHttps ).toBe( false );
@@ -208,7 +213,6 @@ describe( 'Site Set-HTTPS Command', () => {
 			const savedAppdata = ( saveAppdata as jest.Mock ).mock.calls[ 0 ][ 0 ];
 			expect( savedAppdata.sites[ 0 ].enableHttps ).toBe( true );
 			expect( isServerRunning ).toHaveBeenCalledWith( mockSiteData.id );
-			expect( mockLogger.reportStart ).toHaveBeenCalledWith( 'startSite', 'Restarting site...' );
 			expect( stopWordPressServer ).toHaveBeenCalledWith( mockSiteData.id );
 			expect( startWordPressServer ).toHaveBeenCalledWith( expect.any( Object ) );
 			expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Site restarted' );

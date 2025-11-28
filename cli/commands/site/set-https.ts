@@ -25,6 +25,10 @@ export async function runCommand( sitePath: string, enableHttps: boolean ): Prom
 		const site = await getSiteByFolder( sitePath, false );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
+		if ( ! site.customDomain ) {
+			throw new LoggerError( __( 'Site does not have a custom domain.' ) );
+		}
+
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
 		await connect();
 		logger.reportSuccess( __( 'Process daemon started' ) );

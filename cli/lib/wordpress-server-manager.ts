@@ -141,20 +141,12 @@ async function sendMessage(
 	maxTotalElapsedTime = PLAYGROUND_CLI_MAX_TIMEOUT
 ): Promise< unknown > {
 	const bus = await getPm2Bus();
+	const messageId = nextMessageId++;
+	let responseHandler: ( packet: unknown ) => void;
 
 	return new Promise( ( resolve, reject ) => {
-		const messageId = nextMessageId++;
 		const startTime = Date.now();
 		let lastActivityTimestamp = Date.now();
-
-		const cleanup = () => {
-			bus.off( 'process:msg', responseHandler );
-			const tracker = messageActivityTrackers.get( messageId );
-			if ( tracker ) {
-				clearInterval( tracker.activityCheckIntervalId );
-				messageActivityTrackers.delete( messageId );
-			}
-		};
 
 		const activityCheckIntervalId = setInterval( () => {
 			const now = Date.now();
@@ -165,7 +157,6 @@ async function sendMessage(
 				timeSinceLastActivity > PLAYGROUND_CLI_INACTIVITY_TIMEOUT ||
 				totalElapsedTime > maxTotalElapsedTime
 			) {
-				cleanup();
 				const timeoutReason =
 					totalElapsedTime > maxTotalElapsedTime
 						? `Maximum timeout of ${ maxTotalElapsedTime / 1000 }s exceeded`
@@ -180,10 +171,9 @@ async function sendMessage(
 			activityCheckIntervalId,
 		} );
 
-		const responseHandler = ( packet: unknown ) => {
+		responseHandler = ( packet: unknown ) => {
 			const validationResult = childMessagePm2Schema.safeParse( packet );
 			if ( ! validationResult.success ) {
-				cleanup();
 				reject( validationResult.error );
 				return;
 			}
@@ -201,23 +191,26 @@ async function sendMessage(
 				if ( validPacket.raw.errorStack ) {
 					error.stack = validPacket.raw.errorStack;
 				}
-				cleanup();
 				reject( error );
 			} else if (
 				validPacket.raw.topic === 'result' &&
 				validPacket.raw.originalMessageId === messageId
 			) {
-				cleanup();
 				resolve( validPacket.raw.result );
 			}
 		};
 
 		bus.on( 'process:msg', responseHandler );
 
-		sendMessageToProcess( pmId, { ...message, messageId } ).catch( ( error ) => {
-			cleanup();
-			reject( error );
-		} );
+		sendMessageToProcess( pmId, { ...message, messageId } ).catch( reject );
+	} ).finally( () => {
+		bus.off( 'process:msg', responseHandler );
+
+		const tracker = messageActivityTrackers.get( messageId );
+		if ( tracker ) {
+			clearInterval( tracker.activityCheckIntervalId );
+			messageActivityTrackers.delete( messageId );
+		}
 	} );
 }
 

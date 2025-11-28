@@ -7,7 +7,7 @@ import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { saveSnapshotToAppdata } from 'cli/lib/snapshots';
-import { validateSiteFolder, validateSiteSize } from 'cli/lib/validation';
+import { validateSiteSize } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -20,7 +20,6 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
-		validateSiteFolder( siteFolder );
 		await getSiteByFolder( siteFolder );
 		await validateSiteSize( siteFolder );
 		const token = await getAuthToken();

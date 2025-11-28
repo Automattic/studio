@@ -21,7 +21,7 @@ export async function getSnapshotsFromAppdata(
 	snapshots = snapshots.filter( ( snapshot ) => snapshot.userId === userId );
 
 	if ( siteFolder ) {
-		const site = await getSiteByFolder( siteFolder, true );
+		const site = await getSiteByFolder( siteFolder );
 		snapshots = snapshots.filter( ( snapshot ) => snapshot.localSiteId === site.id );
 	}
 

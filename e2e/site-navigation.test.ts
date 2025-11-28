@@ -121,6 +121,7 @@ test.describe( 'Site Navigation', () => {
 		);
 
 		await expect( publishButton ).toBeVisible( { timeout: 10_000 } );
+		await closeWelcomeGuide( page );
 		await publishButton.click();
 
 		// Wait for and click the confirm publish button in the panel
@@ -328,6 +329,7 @@ test.describe( 'Site Navigation', () => {
 		);
 
 		await expect( publishButton ).toBeVisible( { timeout: 10_000 } );
+		await closeWelcomeGuide( page );
 		await publishButton.click();
 
 		// Wait for and click the confirm publish button in the panel

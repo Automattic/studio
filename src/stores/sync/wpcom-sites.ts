@@ -3,11 +3,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { z } from 'zod';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { reconcileConnectedSites } from 'src/modules/sync/lib/reconcile-connected-sites';
-import {
-	getSyncSupport,
-	isPressableSite,
-	type SitesEndpointSite,
-} from 'src/modules/sync/lib/sync-support';
+import { getSyncSupport, isPressableSite } from 'src/modules/sync/lib/sync-support';
 import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
 import { getWpcomClient } from 'src/stores/wpcom-api';
 import type { SyncSite, SyncSupport } from 'src/modules/sync/types';
@@ -52,6 +48,8 @@ const sitesEndpointSiteSchema = z.object( {
 		} )
 		.optional(),
 } );
+
+export type SitesEndpointSite = z.infer< typeof sitesEndpointSiteSchema >;
 
 // We use a permissive schema for the API response to fail gracefully if a single site is malformed
 const sitesEndpointResponseSchema = z.object( {
@@ -181,7 +179,7 @@ export const wpcomSitesApi = createApi( {
 					};
 				}
 			},
-			providesTags: ( result, error, arg ) => [ { type: 'WpComSites', userId: arg.userId } ],
+			providesTags: ( _result, _error, arg ) => [ { type: 'WpComSites', userId: arg.userId } ],
 			keepUnusedDataFor: 60,
 		} ),
 	} ),

@@ -1,36 +1,5 @@
 import type { SyncSupport } from 'src/modules/sync/types';
-
-// Schema type for WordPress.com sites endpoint
-export type SitesEndpointSite = {
-	ID: number;
-	is_wpcom_atomic: boolean;
-	name: string;
-	URL: string;
-	jetpack?: boolean;
-	is_deleted: boolean;
-	hosting_provider_guess?: string;
-	environment_type?: 'production' | 'staging' | 'development' | 'sandbox' | 'local' | null;
-	is_a8c?: boolean;
-	options?: {
-		created_at: string;
-		wpcom_staging_blog_ids: number[];
-	};
-	capabilities?: {
-		manage_options: boolean;
-	};
-	plan?: {
-		expired?: boolean;
-		features: {
-			active: string[];
-			available?: Record< string, string[] >;
-		};
-		is_free?: boolean;
-		product_id: number;
-		product_name_short: string;
-		product_slug: string;
-		user_is_owner?: boolean;
-	};
-};
+import type { SitesEndpointSite } from 'src/stores/sync/wpcom-sites';
 
 const STUDIO_SYNC_FEATURE_NAME = 'studio-sync';
 

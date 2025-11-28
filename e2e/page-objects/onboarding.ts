@@ -45,7 +45,9 @@ export default class Onboarding {
 			};
 		} catch ( error ) {
 			const modal = new AddSiteModal( this.page );
-			await modal.siteNameInput.fill( customSiteName ?? '' );
+			if ( customSiteName ) {
+				await modal.siteNameInput.fill( customSiteName );
+			}
 			this.page.getByTestId( 'onboarding' ).getByRole( 'button', { name: /Continue|Add site/ } );
 		}
 	}

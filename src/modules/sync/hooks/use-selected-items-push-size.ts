@@ -57,6 +57,10 @@ export function useSelectedItemsPushSize(
 					if ( node.type === 'file' ) {
 						sizePromises.push( getIpcApi().getFileSize( siteId, [ ...pathPrefix, node.name ] ) );
 					} else {
+						if ( node.name === 'mu-plugins' && ! node.children?.length ) {
+							// Skip the calculation if whole mu-plugins folder is selected and it doesn't have any children
+							return;
+						}
 						sizePromises.push(
 							getIpcApi().getDirectorySize( siteId, [ ...pathPrefix, node.name ] )
 						);

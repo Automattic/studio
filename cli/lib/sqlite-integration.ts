@@ -6,7 +6,17 @@ const SQLITE_FILENAME = 'sqlite-database-integration';
 
 class CliSqliteProvider extends SqliteIntegrationProvider {
 	getServerFilesPath(): string {
-		return path.join( os.homedir(), 'Library', 'Application Support', 'Studio', 'server-files' );
+		if ( process.platform === 'darwin' ) {
+			return path.join( os.homedir(), 'Library', 'Application Support', 'Studio', 'server-files' );
+		}
+		if ( process.platform === 'win32' ) {
+			if ( process.env.APPDATA ) {
+				return path.join( process.env.APPDATA, 'Studio', 'server-files' );
+			} else {
+				throw new Error( 'APPDATA environment variable is not set' );
+			}
+		}
+		throw new Error( 'Unsupported platform' );
 	}
 
 	getSqliteFilename(): string {

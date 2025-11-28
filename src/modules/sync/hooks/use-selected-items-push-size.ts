@@ -57,13 +57,15 @@ export function useSelectedItemsPushSize(
 					if ( node.type === 'file' ) {
 						sizePromises.push( getIpcApi().getFileSize( siteId, [ ...pathPrefix, node.name ] ) );
 					} else {
-						if ( node.name === 'mu-plugins' && ! node.children?.length ) {
-							// Skip the calculation if whole mu-plugins folder is selected and it doesn't have any children
-							return;
+						if ( node.name === 'mu-plugins' && node.children ) {
+							for ( const child of node.children ) {
+								processNodeRecursively( child, [ ...pathPrefix, node.name ] );
+							}
+						} else {
+							sizePromises.push(
+								getIpcApi().getDirectorySize( siteId, [ ...pathPrefix, node.name ] )
+							);
 						}
-						sizePromises.push(
-							getIpcApi().getDirectorySize( siteId, [ ...pathPrefix, node.name ] )
-						);
 					}
 				} else if ( node.indeterminate && node.children ) {
 					// If the node is indeterminate, process its children recursively

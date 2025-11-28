@@ -32,7 +32,7 @@ test.describe( 'Site Editor Load Metrics', () => {
 		await session.launch();
 		
 		const onboarding = new Onboarding( session.mainWindow );
-		await session.mainWindow.getByTestId( 'onboarding' ).getByRole( 'heading', { name: 'Add your first site' } );
+		await expect( session.mainWindow.getByTestId( 'onboarding' ).getByRole( 'heading', { name: 'Add your first site' } ) ).toBeVisible();
 
 		// Wait for store initialization to complete (provider constants loading)
 		await new Promise( ( resolve ) => setTimeout( resolve, 500 ) );

@@ -1,4 +1,4 @@
-import { SiteData, clearSiteLatestCliPid, readAppdata } from 'cli/lib/appdata';
+import { SiteData, clearSiteLatestCliPid, getSiteByFolder } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -7,13 +7,9 @@ import { Logger, LoggerError } from 'cli/logger';
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
 	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
-	readAppdata: jest.fn(),
+	getSiteByFolder: jest.fn(),
 	clearSiteLatestCliPid: jest.fn(),
 	getSiteUrl: jest.fn( ( site ) => `http://localhost:${ site.port }` ),
-} ) );
-jest.mock( 'common/lib/fs-utils', () => ( {
-	...jest.requireActual( 'common/lib/fs-utils' ),
-	arePathsEqual: jest.fn( ( a: string, b: string ) => a === b ),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/site-utils' );
@@ -71,10 +67,7 @@ describe( 'Site Stop Command', () => {
 
 	describe( 'Error Handling', () => {
 		it( 'should handle site not found error', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockRejectedValue( new Error( 'Site not found' ) );
 
 			const { runCommand } = await import( '../stop' );
 			await runCommand( mockSiteFolder );
@@ -84,10 +77,7 @@ describe( 'Site Stop Command', () => {
 		} );
 
 		it( 'should handle PM2 connection failure', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteData ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
 			( connect as jest.Mock ).mockRejectedValue( new Error( 'PM2 connection failed' ) );
 
 			const { runCommand } = await import( '../stop' );
@@ -98,10 +88,7 @@ describe( 'Site Stop Command', () => {
 		} );
 
 		it( 'should handle WordPress server stop failure', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteData ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
 			( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
 			( stopWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server stop failed' ) );
 
@@ -119,10 +106,7 @@ describe( 'Site Stop Command', () => {
 
 	describe( 'Success Cases', () => {
 		it( 'should report that site is not running if server is not running', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteData ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
 			( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
 
 			const { runCommand } = await import( '../stop' );
@@ -135,10 +119,7 @@ describe( 'Site Stop Command', () => {
 		} );
 
 		it( 'should stop a running site', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteData ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
 			( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
 
 			const { runCommand } = await import( '../stop' );
@@ -157,10 +138,7 @@ describe( 'Site Stop Command', () => {
 		} );
 
 		it( 'should call stopProxyIfNoSitesNeedIt after stopping a site', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteData ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
 			( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
 
 			const { runCommand } = await import( '../stop' );
@@ -170,10 +148,7 @@ describe( 'Site Stop Command', () => {
 		} );
 
 		it( 'should not call stopProxyIfNoSitesNeedIt if site is not running', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteData ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
 			( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
 
 			const { runCommand } = await import( '../stop' );
@@ -185,7 +160,7 @@ describe( 'Site Stop Command', () => {
 
 	describe( 'Cleanup', () => {
 		it( 'should disconnect from PM2 even on error', async () => {
-			( readAppdata as jest.Mock ).mockRejectedValue( new Error( 'Appdata error' ) );
+			( getSiteByFolder as jest.Mock ).mockRejectedValue( new Error( 'Site error' ) );
 
 			const { runCommand } = await import( '../stop' );
 			await runCommand( mockSiteFolder );
@@ -194,10 +169,7 @@ describe( 'Site Stop Command', () => {
 		} );
 
 		it( 'should disconnect from PM2 on success', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteData ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
 			( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
 
 			const { runCommand } = await import( '../stop' );
@@ -207,10 +179,7 @@ describe( 'Site Stop Command', () => {
 		} );
 
 		it( 'should disconnect from PM2 even if server was not running', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ mockSiteData ],
-				snapshots: [],
-			} );
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
 			( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
 
 			const { runCommand } = await import( '../stop' );

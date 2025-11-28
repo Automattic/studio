@@ -11,7 +11,7 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
 	try {
-		const site = await getSiteByFolder( siteFolder );
+		const site = await getSiteByFolder( siteFolder, false );
 
 		await connect();
 

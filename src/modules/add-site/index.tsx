@@ -479,7 +479,10 @@ export function AddSiteModalContent( {
 	);
 
 	return (
-		<Navigator className={ className ?? 'w-full h-full' } initialPath={ initialNavigatorPath }>
+		<Navigator
+			className={ className ?? 'w-full h-full app-no-drag-region' }
+			initialPath={ initialNavigatorPath }
+		>
 			<NavigationContent
 				{ ...addSiteProps }
 				blueprintsData={ blueprintsData }

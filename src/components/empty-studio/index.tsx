@@ -6,7 +6,7 @@ export function EmptyStudio() {
 
 	return (
 		<main className="bg-white h-full flex items-center justify-center overflow-hidden z-10">
-			<div className="w-full max-w-[786px]">
+			<div className="h-full w-full pt-12 pb-4 max-w-[786px]">
 				<AddSiteModalContent />
 			</div>
 		</main>

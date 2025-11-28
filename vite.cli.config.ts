@@ -25,8 +25,8 @@ export default defineConfig( {
 					viteStaticCopy( {
 						targets: [
 							{
-								src: 'cli/node_modules',
-								dest: '.',
+								src: 'cli/node_modules/*',
+								dest: 'node_modules',
 							},
 						],
 					} ),

@@ -139,7 +139,10 @@ test.describe( 'Site Navigation', () => {
 
 		// Verify post was created by visiting posts list
 		await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/edit.php` ) );
-		await expect( page.locator( 'a.row-title:has-text("E2E Test Post")' ) ).toBeVisible();
+		await page.waitForLoadState( 'networkidle' );
+		await expect( page.locator( 'a.row-title:has-text("E2E Test Post")' ) ).toBeVisible( {
+			timeout: 30_000,
+		} );
 	} );
 
 	test( 'uploads media', async ( { page } ) => {
@@ -268,9 +271,12 @@ test.describe( 'Site Navigation', () => {
 		// Wait for search results
 		await page.waitForLoadState( 'networkidle' );
 
+		// Wait for the search spinner to disappear (indicates API response received)
+		await expect( page.locator( '.spinner' ) ).toBeHidden( { timeout: 30_000 } );
+
 		// Find Contact Form 7 plugin
 		const pluginResult = page.locator( '.plugin-card-contact-form-7' ).first();
-		await expect( pluginResult ).toBeVisible();
+		await expect( pluginResult ).toBeVisible( { timeout: 30_000 } );
 
 		// Install the plugin
 		const installButton = pluginResult.locator( 'a.install-now' );

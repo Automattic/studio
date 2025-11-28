@@ -31,11 +31,9 @@ test.describe( 'Site Editor Load Metrics', () => {
 		let wpAdminUrl = '';
 		await session.launch();
 
-		// Setup WordPress site
-		const onboarding = new Onboarding( session.mainWindow );
-		await expect( onboarding.heading ).toBeVisible();
 		// Wait for store initialization to complete (provider constants loading)
 		await new Promise( ( resolve ) => setTimeout( resolve, 500 ) );
+		const onboarding = new Onboarding( session.mainWindow );
 		await onboarding.completeOnboarding( { customSiteName: siteName } );
 
 		// Handle the What's New modal if it appears

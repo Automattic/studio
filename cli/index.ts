@@ -14,6 +14,7 @@ import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/u
 import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create';
 import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
 import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
+import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
 import { readAppdata } from 'cli/lib/appdata';
 import { loadTranslations } from 'cli/lib/i18n';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
@@ -81,6 +82,7 @@ async function main() {
 			sitesYargs.option( 'path', {
 				hidden: true,
 			} );
+			registerSiteStatusCommand( sitesYargs );
 			registerSiteCreateCommand( sitesYargs );
 			registerSiteListCommand( sitesYargs );
 			registerSiteStartCommand( sitesYargs );

@@ -1,3 +1,5 @@
+import os from 'node:os';
+
 export function normalizeHostname( hostname: string ): string {
 	return hostname
 		.trim()
@@ -10,4 +12,8 @@ export function getColumnWidths( widthFactors: number[] ) {
 	const padding = widthFactors.length * 2;
 	const columns = Math.min( process.stdout.columns || 80, 140 ) - padding;
 	return widthFactors.map( ( widthFactor ) => Math.round( widthFactor * columns ) );
+}
+
+export function getPrettyPath( path: string ): string {
+	return path.replace( process.cwd(), '.' ).replace( os.homedir(), '~' );
 }

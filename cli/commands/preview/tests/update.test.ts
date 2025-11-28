@@ -82,7 +82,7 @@ describe( 'Preview Update Command', () => {
 	} );
 
 	it( 'should complete the preview update process successfully', async () => {
-		( getWordPressVersion as jest.Mock ).mockResolvedValue( '6.8.1' );
+		( getWordPressVersion as jest.Mock ).mockReturnValue( '6.8.1' );
 		const { runCommand } = await import( '../update' );
 		await runCommand( mockFolder, mockSiteUrl, false );
 		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );

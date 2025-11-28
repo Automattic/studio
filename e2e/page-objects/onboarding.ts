@@ -17,7 +17,6 @@ export default class Onboarding {
 		const { customSiteName, customFolderName } = options ?? {};
 
 		await expect( this.heading ).toBeVisible();
-
 		await this.locator.getByRole( 'button', { name: 'Skip →' } ).click();
 		const sidebar = new MainSidebar( this.page );
 		const modal = await sidebar.openAddSiteModal();

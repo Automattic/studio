@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { TreeNode } from 'src/components/tree-view';
-import { SYNC_PUSH_SIZE_LIMIT_BYTES, SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
+import { SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 const formatFileSize = ( bytes: number ) => {
@@ -102,7 +102,7 @@ export function useSelectedItemsPushSize(
 		void checkSelectedItemsSize();
 	}, [ checkSelectedItemsSize ] );
 
-	const limitBytes = SYNC_PUSH_SIZE_LIMIT_GB * 1024 * 1024 * 1024;
+	const limitBytes = SYNC_PUSH_SIZE_LIMIT_BYTES;
 	const overAmount = totalSize > limitBytes ? totalSize - limitBytes : 0;
 
 	return {

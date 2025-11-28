@@ -3,6 +3,7 @@ import { Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
 import Button, { ButtonVariant } from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite } from 'src/hooks/use-add-site';
@@ -64,7 +65,7 @@ interface NavigationContentProps {
 	blueprintsErrorMessage?: string | undefined;
 	blueprintPreferredVersions?: { php?: string; wp?: string };
 	setBlueprintPreferredVersions: ( versions: { php?: string; wp?: string } | undefined ) => void;
-	blueprintDeeplinkWarnings?: Array< { feature: string; reason: string } >;
+	blueprintDeeplinkWarnings?: BlueprintValidationWarning[];
 	selectedRemoteSite?: SyncSite;
 	setSelectedRemoteSite: ( site?: SyncSite ) => void;
 	isDeeplinkFlow: boolean;
@@ -325,7 +326,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		{ php?: string; wp?: string } | undefined
 	>();
 	const [ blueprintDeeplinkWarnings, setBlueprintDeeplinkWarnings ] = useState<
-		Array< { feature: string; reason: string } > | undefined
+		BlueprintValidationWarning[] | undefined
 	>();
 	const [ isDeeplinkFlow, setIsDeeplinkFlow ] = useState( false );
 

@@ -1,5 +1,6 @@
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback } from 'react';
+import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Blueprint } from 'src/stores/wpcom-api';
@@ -9,8 +10,6 @@ type BlueprintMetadata = {
 	description?: string;
 };
 
-type BlueprintWarning = { feature: string; reason: string };
-
 interface UseBlueprintDeeplinkOptions {
 	isAnySiteProcessing: boolean;
 	openModal: () => void;
@@ -18,7 +17,7 @@ interface UseBlueprintDeeplinkOptions {
 	setPhpVersion: ( version: string ) => void;
 	setWpVersion: ( version: string ) => void;
 	setBlueprintPreferredVersions: ( versions: { php?: string; wp?: string } | undefined ) => void;
-	setBlueprintDeeplinkWarnings: ( warnings: BlueprintWarning[] | undefined ) => void;
+	setBlueprintDeeplinkWarnings: ( warnings: BlueprintValidationWarning[] | undefined ) => void;
 	navigateToBlueprintDeeplink: () => void;
 }
 
@@ -77,7 +76,10 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 	const handleBlueprintFromUrl = useCallback(
 		async (
 			_event: unknown,
-			{ blueprintPath, warnings }: { blueprintPath: string; warnings?: BlueprintWarning[] }
+			{
+				blueprintPath,
+				warnings,
+			}: { blueprintPath: string; warnings?: BlueprintValidationWarning[] }
 		) => {
 			if ( isAnySiteProcessing ) {
 				return;

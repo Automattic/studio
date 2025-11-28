@@ -9,9 +9,10 @@ import {
 import { Icon, caution } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
+import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
 
 interface BlueprintIssuesModalProps {
-	warnings: Array< { feature: string; reason: string } > | undefined;
+	warnings: BlueprintValidationWarning[] | undefined;
 	fileName: string;
 	isOpen: boolean;
 	onClose: () => void;
@@ -83,7 +84,7 @@ function BlueprintIssuesModal( {
 }
 
 interface BlueprintWarningNoticeProps {
-	warnings: Array< { feature: string; reason: string } > | undefined;
+	warnings: BlueprintValidationWarning[] | undefined;
 	fileName: string;
 	className?: string;
 }

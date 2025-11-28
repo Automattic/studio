@@ -6,12 +6,13 @@ import {
 } from '@wordpress/components';
 import { check } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
 import { Blueprint } from 'src/stores/wpcom-api';
 import { BlueprintWarningNotice } from './blueprint-warning-notice';
 
 interface BlueprintDeeplinkProps {
 	selectedBlueprint?: Blueprint;
-	warnings?: Array< { feature: string; reason: string } >;
+	warnings?: BlueprintValidationWarning[];
 }
 
 export default function BlueprintDeeplink( {

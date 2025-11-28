@@ -22,7 +22,6 @@ import { ProcessDescription } from 'cli/lib/types/pm2';
 import {
 	ServerConfig,
 	childMessagePm2Schema,
-	ManagerMessage,
 	ManagerMessagePayload,
 } from 'cli/lib/types/wordpress-server-ipc';
 
@@ -139,7 +138,7 @@ const messageActivityTrackers = new Map<
 async function sendMessage(
 	pmId: number,
 	message: ManagerMessagePayload,
-	maxTotalElapsedTime = PLAYGROUND_CLI_INACTIVITY_TIMEOUT
+	maxTotalElapsedTime = PLAYGROUND_CLI_MAX_TIMEOUT
 ): Promise< unknown > {
 	const bus = await getPm2Bus();
 

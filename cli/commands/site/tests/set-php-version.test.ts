@@ -28,7 +28,7 @@ jest.mock( 'cli/lib/wordpress-server-manager' );
 jest.mock( 'cli/logger' );
 jest.mock( 'common/lib/fs-utils' );
 
-describe( 'Site Set-HTTPS Command', () => {
+describe( 'Site Set-PHP-Version Command', () => {
 	const mockSiteFolder = '/test/site/path';
 	const mockSiteData: SiteData = {
 		id: 'test-site-id',
@@ -89,22 +89,11 @@ describe( 'Site Set-HTTPS Command', () => {
 	} );
 
 	describe( 'Error Handling', () => {
-		it( 'should handle missing custom domain', async () => {
-			const siteWithoutDomain = { ...mockSiteData, customDomain: undefined };
-			( getSiteByFolder as jest.Mock ).mockResolvedValue( siteWithoutDomain );
-
-			const { runCommand } = await import( '../set-https' );
-			await runCommand( mockSiteFolder, true );
-
-			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-			expect( disconnect ).toHaveBeenCalled();
-		} );
-
-		it( 'should finish early if passing the same config value that the site already has', async () => {
+		it( 'should finish early if passing the same PHP version that the site already has', async () => {
 			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
 
-			const { runCommand } = await import( '../set-https' );
-			await runCommand( mockSiteFolder, false );
+			const { runCommand } = await import( '../set-php-version' );
+			await runCommand( mockSiteFolder, '8.0' );
 
 			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
@@ -113,8 +102,8 @@ describe( 'Site Set-HTTPS Command', () => {
 		it( 'should handle PM2 connection failure', async () => {
 			( connect as jest.Mock ).mockRejectedValue( new Error( 'PM2 connection failed' ) );
 
-			const { runCommand } = await import( '../set-https' );
-			await runCommand( mockSiteFolder, true );
+			const { runCommand } = await import( '../set-php-version' );
+			await runCommand( mockSiteFolder, '7.4' );
 
 			expect( mockLogger.reportError ).toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
@@ -123,8 +112,8 @@ describe( 'Site Set-HTTPS Command', () => {
 		it( 'should handle appdata lock failure', async () => {
 			( lockAppdata as jest.Mock ).mockRejectedValue( new Error( 'Lock failed' ) );
 
-			const { runCommand } = await import( '../set-https' );
-			await runCommand( mockSiteFolder, true );
+			const { runCommand } = await import( '../set-php-version' );
+			await runCommand( mockSiteFolder, '7.4' );
 
 			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
@@ -133,8 +122,8 @@ describe( 'Site Set-HTTPS Command', () => {
 		it( 'should handle appdata read failure', async () => {
 			( readAppdata as jest.Mock ).mockRejectedValue( new Error( 'Read failed' ) );
 
-			const { runCommand } = await import( '../set-https' );
-			await runCommand( mockSiteFolder, true );
+			const { runCommand } = await import( '../set-php-version' );
+			await runCommand( mockSiteFolder, '7.4' );
 
 			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
@@ -146,8 +135,8 @@ describe( 'Site Set-HTTPS Command', () => {
 				snapshots: [],
 			} );
 
-			const { runCommand } = await import( '../set-https' );
-			await runCommand( mockSiteFolder, true );
+			const { runCommand } = await import( '../set-php-version' );
+			await runCommand( mockSiteFolder, '7.4' );
 
 			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
@@ -157,8 +146,8 @@ describe( 'Site Set-HTTPS Command', () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
 			( stopWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server stop failed' ) );
 
-			const { runCommand } = await import( '../set-https' );
-			await runCommand( mockSiteFolder, true );
+			const { runCommand } = await import( '../set-php-version' );
+			await runCommand( mockSiteFolder, '7.4' );
 
 			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
@@ -166,18 +155,18 @@ describe( 'Site Set-HTTPS Command', () => {
 	} );
 
 	describe( 'Success Cases', () => {
-		it( 'should enable HTTPS on a stopped site', async () => {
+		it( 'should update PHP version on a stopped site', async () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
 
-			const { runCommand } = await import( '../set-https' );
-			await runCommand( mockSiteFolder, true );
+			const { runCommand } = await import( '../set-php-version' );
+			await runCommand( mockSiteFolder, '7.4' );
 
 			expect( connect ).toHaveBeenCalled();
 			expect( lockAppdata ).toHaveBeenCalled();
 			expect( readAppdata ).toHaveBeenCalled();
 			expect( saveAppdata ).toHaveBeenCalled();
 			const savedAppdata = ( saveAppdata as jest.Mock ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].enableHttps ).toBe( true );
+			expect( savedAppdata.sites[ 0 ].phpVersion ).toBe( '7.4' );
 			expect( unlockAppdata ).toHaveBeenCalled();
 			expect( isServerRunning ).toHaveBeenCalledWith( mockSiteData.id );
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
@@ -185,60 +174,18 @@ describe( 'Site Set-HTTPS Command', () => {
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
-		it( 'should disable HTTPS on a stopped site', async () => {
-			const siteWithHttps = { ...mockSiteData, enableHttps: true };
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ siteWithHttps ],
-				snapshots: [],
-			} );
-			( getSiteByFolder as jest.Mock ).mockResolvedValue( siteWithHttps );
-			( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
-
-			const { runCommand } = await import( '../set-https' );
-			await runCommand( mockSiteFolder, false );
-
-			expect( saveAppdata ).toHaveBeenCalled();
-			const savedAppdata = ( saveAppdata as jest.Mock ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].enableHttps ).toBe( false );
-			expect( stopWordPressServer ).not.toHaveBeenCalled();
-			expect( startWordPressServer ).not.toHaveBeenCalled();
-			expect( disconnect ).toHaveBeenCalled();
-		} );
-
-		it( 'should enable HTTPS and restart a running site', async () => {
+		it( 'should update PHP version and restart a running site', async () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
 
-			const { runCommand } = await import( '../set-https' );
-			await runCommand( mockSiteFolder, true );
+			const { runCommand } = await import( '../set-php-version' );
+			await runCommand( mockSiteFolder, '7.4' );
 
 			expect( saveAppdata ).toHaveBeenCalled();
 			const savedAppdata = ( saveAppdata as jest.Mock ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].enableHttps ).toBe( true );
+			expect( savedAppdata.sites[ 0 ].phpVersion ).toBe( '7.4' );
 			expect( isServerRunning ).toHaveBeenCalledWith( mockSiteData.id );
 			expect( stopWordPressServer ).toHaveBeenCalledWith( mockSiteData.id );
 			expect( startWordPressServer ).toHaveBeenCalledWith( expect.any( Object ) );
-			expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Site restarted' );
-			expect( disconnect ).toHaveBeenCalled();
-		} );
-
-		it( 'should disable HTTPS and restart a running site', async () => {
-			const siteWithHttps = { ...mockSiteData, enableHttps: true };
-			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ siteWithHttps ],
-				snapshots: [],
-			} );
-			( getSiteByFolder as jest.Mock ).mockResolvedValue( siteWithHttps );
-			( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
-
-			const { runCommand } = await import( '../set-https' );
-			await runCommand( mockSiteFolder, false );
-
-			expect( saveAppdata ).toHaveBeenCalled();
-			const savedAppdata = ( saveAppdata as jest.Mock ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].enableHttps ).toBe( false );
-			expect( isServerRunning ).toHaveBeenCalledWith( mockSiteData.id );
-			expect( stopWordPressServer ).toHaveBeenCalledWith( mockSiteData.id );
-			expect( startWordPressServer ).toHaveBeenCalled();
 			expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Site restarted' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );

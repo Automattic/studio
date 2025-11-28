@@ -10,7 +10,15 @@ import pluginJestDom from 'eslint-plugin-jest-dom';
 import path from 'node:path';
 
 export default defineConfig(
-	globalIgnores( [ '**/node_modules/', '**/dist/', '**/out/', '**/wp-files/', '**/vendor/' ] ),
+	globalIgnores( [
+		'**/node_modules/',
+		'dist/',
+		'out/',
+		'wp-files/',
+		'vendor/',
+		'cli/__mocks__',
+		'src/__mocks__',
+	] ),
 	js.configs.recommended,
 	tsEslint.configs.recommended,
 	pluginImport.flatConfigs.recommended,

@@ -2,7 +2,6 @@
  * @jest-environment node
  */
 import { BrowserWindow } from 'electron';
-import fs from 'fs';
 import { normalize } from 'path';
 import { readFile } from 'atomically';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
@@ -15,7 +14,7 @@ jest.mock( 'atomically' );
 const mockUserData = {
 	sites: [],
 };
-( fs as MockedFs ).__setFileContents(
+require( 'fs' ).__setFileContents(
 	normalize( '/path/to/app/appData/App Name/appdata-v1.json' ),
 	JSON.stringify( mockUserData )
 );

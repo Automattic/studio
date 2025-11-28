@@ -292,7 +292,7 @@ export function useSyncPush( {
 						'The site is too large to push. Please reduce the size of the site and try again.'
 					),
 				} );
-				await getIpcApi().removeTemporaryFile( archivePath );
+				await getIpcApi().removeExportedSiteTmpFile( archivePath );
 				return;
 			}
 
@@ -336,7 +336,7 @@ export function useSyncPush( {
 					message: getErrorFromResponse( error ),
 				} );
 			} finally {
-				await getIpcApi().removeTemporaryFile( archivePath );
+				await getIpcApi().removeExportedSiteTmpFile( archivePath );
 			}
 		},
 		[

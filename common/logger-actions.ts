@@ -19,8 +19,18 @@ export enum PreviewCommandLoggerAction {
 
 export enum SiteCommandLoggerAction {
 	START_DAEMON = 'startDaemon',
+	LOAD_SITES = 'loadSites',
 	START_PROXY = 'startProxy',
+	STOP_PROXY = 'stopProxy',
 	GENERATE_CERT = 'generateCert',
 	ADD_DOMAIN_TO_HOSTS = 'addDomainToHosts',
 	START_SITE = 'startSite',
+	STOP_SITE = 'stopSite',
+	VALIDATE = 'validate',
+	CREATE_DIRECTORY = 'createDirectory',
+	INSTALL_SQLITE = 'installSqlite',
+	ASSIGN_PORT = 'assignPort',
+	SETUP_WORDPRESS = 'setupWordPress',
+	SAVE_SITE = 'saveSite',
+	APPLY_BLUEPRINT = 'applyBlueprint',
 }

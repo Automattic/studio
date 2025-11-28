@@ -1,6 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { cacheFunctionTTL } from 'common/lib/cache-function-ttl';
 import { StartOptions } from 'pm2';
 import { getAppdataPath } from 'cli/lib/appdata';
 import { ProcessDescription } from 'cli/lib/types/pm2';
@@ -88,8 +89,10 @@ process.on( 'exit', disconnect );
 process.on( 'SIGINT', disconnect );
 process.on( 'SIGTERM', disconnect );
 
-async function listProcesses(): Promise< ProcessDescription[] > {
-	return new Promise( ( resolve, reject ) => {
+// Cache the return value of `pm2.list` for a very short time to make multiple calls in quick
+// succession more efficient
+const listProcesses = cacheFunctionTTL( () => {
+	return new Promise< ProcessDescription[] >( ( resolve, reject ) => {
 		pm2.list( ( error, processes ) => {
 			if ( error ) {
 				reject( error );
@@ -106,7 +109,7 @@ async function listProcesses(): Promise< ProcessDescription[] > {
 			resolve( processDescriptions );
 		} );
 	} );
-}
+} );
 
 // PM2 bus for inter-process communication
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -160,6 +163,10 @@ export async function startProxyProcess(): Promise< ProcessDescription > {
 
 export async function isProxyProcessRunning(): Promise< ProcessDescription | undefined > {
 	return isProcessRunning( PROXY_PROCESS_NAME );
+}
+
+export async function stopProxyProcess(): Promise< void > {
+	return stopProcess( PROXY_PROCESS_NAME );
 }
 
 export async function isProcessRunning(

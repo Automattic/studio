@@ -12,6 +12,7 @@ jest.mock( 'src/lib/app-globals', () => ( {
 	getAppGlobals: jest.fn( () => ( {
 		platform: 'darwin',
 	} ) ),
+	isMac: jest.fn( () => true ),
 	isWindows: jest.fn( () => false ),
 } ) );
 jest.mock( 'src/hooks/use-feature-flags' );
@@ -26,6 +27,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 			terminals: [ 'terminal' ],
 			editors: [ 'vscode' ],
 		} ),
+		isStudioCliInstalled: jest.fn().mockResolvedValue( true ),
 	} ),
 } ) );
 
@@ -102,6 +104,7 @@ describe( 'UserSettings', () => {
 				expect( screen.getByText( 'Preferences' ) ).toHaveAttribute( 'aria-selected', 'true' );
 				expect( screen.getByText( 'Language' ) ).toBeInTheDocument();
 				expect( screen.getByText( 'Terminal application' ) ).toBeInTheDocument();
+				expect( screen.getByText( 'Studio CLI' ) ).toBeInTheDocument();
 			} );
 
 			await user.click( screen.getByText( 'Usage' ) );

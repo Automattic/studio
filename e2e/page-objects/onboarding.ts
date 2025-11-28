@@ -1,5 +1,6 @@
 import { type Page } from '@playwright/test';
-import SiteForm from './site-form';
+import { expect } from '@playwright/test';
+import MainSidebar from './main-sidebar';
 
 export default class Onboarding {
 	constructor( private page: Page ) {}
@@ -8,27 +9,20 @@ export default class Onboarding {
 		return this.page.getByTestId( 'onboarding' );
 	}
 
-	private get siteForm() {
-		return new SiteForm( this.page );
-	}
-
 	get heading() {
-		return this.locator.getByRole( 'heading', { name: 'Add your first site' } );
+		return this.locator.getByRole( 'heading', { name: 'Connect to your WordPress.com account' } );
 	}
 
-	get siteNameInput() {
-		return this.siteForm.siteNameInput;
+	get skipButton() {
+		return this.locator.getByRole( 'button', { name: 'Skip →' } );
 	}
 
-	get localPathInput() {
-		return this.siteForm.localPathInput;
-	}
-
-	get continueButton() {
-		return this.locator.getByRole( 'button', { name: /Continue|Add site/ } );
-	}
-
-	async selectLocalPathForTesting( partialExpectedPath: string ) {
-		await this.siteForm.clickLocalPathButtonAndSelectFromEnv( partialExpectedPath );
+	async completeOnboarding() {
+		await expect( this.heading ).toBeVisible();
+		await this.skipButton.click();
+		const sidebar = new MainSidebar( this.page );
+		const modal = await sidebar.openAddSiteModal();
+		await modal.createSiteButton.click();
+		await modal.continueButton.click();
 	}
 }

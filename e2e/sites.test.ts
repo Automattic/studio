@@ -31,19 +31,24 @@ test.describe( 'Servers', () => {
 
 		const onboarding = new Onboarding( session.mainWindow );
 
+		await onboarding.skipButton.click();
+
+		const sidebar = new MainSidebar( session.mainWindow );
+		const modal = await sidebar.openAddSiteModal();
+		await modal.createSiteButton.click();
+
 		if ( customSiteName ) {
-			await onboarding.siteNameInput.fill( customSiteName );
+			await modal.siteNameInput.fill( customSiteName );
 		}
-		await expect( onboarding.siteNameInput ).toHaveValue( /\S+/, { timeout: 5000 } );
-		const siteName = await onboarding.siteNameInput.inputValue();
+		await expect( modal.siteNameInput ).toHaveValue( /\S+/, { timeout: 5000 } );
+		const siteName = await modal.siteNameInput.inputValue();
 
 		if ( customFolderName ) {
-			await onboarding.selectLocalPathForTesting( customFolderName );
+			await modal.selectLocalPathForTesting( customFolderName );
 		}
-		const localPath = await onboarding.localPathInput.inputValue();
+		const localPath = await modal.localPathInput.inputValue();
 
-		await expect( onboarding.heading ).toBeVisible();
-		await onboarding.continueButton.click();
+		await modal.continueButton.click();
 
 		await closeWhatsNew();
 

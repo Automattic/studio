@@ -5,7 +5,6 @@ import { Tooltip } from 'src/components/tooltip';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useAppDispatch } from 'src/stores';
 import {
@@ -24,14 +23,13 @@ export const PublishSiteButton = () => {
 		userId: user?.id,
 	} );
 	const { isAnySitePulling, isAnySitePushing } = useSyncSites();
-	const { streamlineOnboarding } = useFeatureFlags();
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 	const handlePublishClick = () => {
 		setSelectedTab( 'sync' );
 		dispatch( connectedSitesActions.openModal( 'push' ) );
 	};
 
-	if ( ! streamlineOnboarding || connectedSites.length !== 0 ) return null;
+	if ( connectedSites.length !== 0 ) return null;
 
 	return (
 		<Tooltip

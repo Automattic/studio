@@ -1,4 +1,3 @@
-import os from 'node:os';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import Table from 'cli-table3';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';

@@ -42,7 +42,6 @@ const newSiteSchema = z
 const betaFeaturesSchema = z
 	.object( {
 		studioSitesCli: z.boolean().optional(),
-		createSiteFromRemote: z.boolean().optional(),
 	} )
 	.passthrough();
 
@@ -256,6 +255,23 @@ export async function updateSiteLatestCliPid( siteId: string, pid: number ): Pro
 		}
 
 		site.latestCliPid = pid;
+		await saveAppdata( userData );
+	} finally {
+		await unlockAppdata();
+	}
+}
+
+export async function clearSiteLatestCliPid( siteId: string ): Promise< void > {
+	try {
+		await lockAppdata();
+		const userData = await readAppdata();
+		const site = userData.sites.find( ( s ) => s.id === siteId );
+
+		if ( ! site ) {
+			throw new LoggerError( __( 'Site not found' ) );
+		}
+
+		delete site.latestCliPid;
 		await saveAppdata( userData );
 	} finally {
 		await unlockAppdata();

@@ -31,7 +31,7 @@ export function cacheFunctionTTL< Args extends unknown[], Return >(
 }
 
 function pruneCache(): void {
-	for ( const [ fn, cachedResults ] of cache ) {
+	for ( const [ _, cachedResults ] of cache ) {
 		for ( const cachedResult of cachedResults ) {
 			if ( Date.now() - cachedResult.timestamp >= cachedResult.ttl ) {
 				cachedResults.delete( cachedResult );

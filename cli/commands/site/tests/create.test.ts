@@ -9,10 +9,7 @@ import { portFinder } from 'common/lib/port-finder';
 import { lockAppdata, readAppdata, saveAppdata, unlockAppdata, SiteData } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import {
-	isSqliteIntegrationAvailable,
-	keepSqliteIntegrationUpdated,
-} from 'cli/lib/sqlite-integration';
+import { isSqliteIntegrationAvailable, installSqliteIntegration } from 'cli/lib/sqlite-integration';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 
@@ -110,7 +107,7 @@ describe( 'Site Create Command', () => {
 		( lockAppdata as jest.Mock ).mockResolvedValue( undefined );
 		( unlockAppdata as jest.Mock ).mockResolvedValue( undefined );
 		( isSqliteIntegrationAvailable as jest.Mock ).mockResolvedValue( true );
-		( keepSqliteIntegrationUpdated as jest.Mock ).mockResolvedValue( undefined );
+		( installSqliteIntegration as jest.Mock ).mockResolvedValue( undefined );
 		( connect as jest.Mock ).mockResolvedValue( undefined );
 		( disconnect as jest.Mock ).mockReturnValue( undefined );
 		( setupCustomDomain as jest.Mock ).mockResolvedValue( undefined );
@@ -323,7 +320,7 @@ describe( 'Site Create Command', () => {
 			expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Site configuration validated' );
 			expect( fsMkdirSyncSpy ).toHaveBeenCalledWith( mockSitePath, { recursive: true } );
 			expect( isSqliteIntegrationAvailable ).toHaveBeenCalled();
-			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( mockSitePath );
+			expect( installSqliteIntegration ).toHaveBeenCalledWith( mockSitePath );
 			expect( portFinder.getOpenPort ).toHaveBeenCalled();
 			expect( lockAppdata ).toHaveBeenCalled();
 			expect( saveAppdata ).toHaveBeenCalled();
@@ -694,7 +691,7 @@ describe( 'Site Create Command', () => {
 		} );
 
 		it( 'should handle SQLite setup failure', async () => {
-			( keepSqliteIntegrationUpdated as jest.Mock ).mockRejectedValue(
+			( installSqliteIntegration as jest.Mock ).mockRejectedValue(
 				new Error( 'SQLite setup failed' )
 			);
 

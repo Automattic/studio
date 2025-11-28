@@ -46,7 +46,7 @@ export default class Onboarding {
 		} catch ( error ) {
 			const modal = new AddSiteModal( this.page );
 			await modal.siteNameInput.fill( customSiteName ?? '' );
-			await modal.continueButton.click();
+			this.page.getByTestId( 'onboarding' ).getByRole( 'button', { name: /Continue|Add site/ } );
 		}
 	}
 }

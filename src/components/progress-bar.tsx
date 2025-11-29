@@ -60,3 +60,83 @@ export function ProgressBarWithAutoIncrement( {
 
 	return <ProgressBar value={ animatedValue } maxValue={ maxValue } />;
 }
+
+type TwoColorProgressBarProps = {
+	value: number;
+	maxValue: number;
+	normalColorClass?: string;
+	overLimitColorClass?: string;
+	trackColorClass?: string;
+	showLabels?: boolean;
+	valueLabel?: string;
+	limitLabel?: string;
+	overLimitLabel?: string;
+};
+
+export function TwoColorProgressBar( {
+	value,
+	maxValue,
+	normalColorClass = 'bg-a8c-blue-50',
+	overLimitColorClass = 'bg-a8c-red-50',
+	trackColorClass = 'bg-a8c-gray-5',
+	showLabels = false,
+	valueLabel,
+	limitLabel,
+	overLimitLabel,
+}: TwoColorProgressBarProps ) {
+	const isOverLimit = value > maxValue;
+	const percentage = Math.min( ( value / maxValue ) * 100, 100 );
+
+	return (
+		<div>
+			{ showLabels && ( valueLabel || limitLabel || overLimitLabel ) && (
+				<div className="flex justify-between items-center text-xs mb-2">
+					<div className="text-a8c-gray-90 font-medium uppercase">{ valueLabel }</div>
+					<div>
+						{ isOverLimit && overLimitLabel ? (
+							<span className="text-a8c-gray-700 text-xs">{ overLimitLabel }</span>
+						) : (
+							limitLabel && <span className="text-a8c-gray-700 text-xs">{ limitLabel }</span>
+						) }
+					</div>
+				</div>
+			) }
+			<div
+				className={ cx(
+					'relative w-full h-[1.5px] rounded-full overflow-hidden',
+					trackColorClass
+				) }
+			>
+				{ isOverLimit ? (
+					<>
+						<div
+							className={ cx(
+								'absolute left-0 top-0 h-full transition-all duration-300',
+								normalColorClass
+							) }
+							style={ { width: `${ ( maxValue / value ) * 100 }%` } }
+						/>
+						<div
+							className={ cx(
+								'absolute top-0 h-full transition-all duration-300',
+								overLimitColorClass
+							) }
+							style={ {
+								left: `${ ( maxValue / value ) * 100 }%`,
+								width: `${ ( ( value - maxValue ) / value ) * 100 }%`,
+							} }
+						/>
+					</>
+				) : (
+					<div
+						className={ cx(
+							'absolute left-0 top-0 h-full rounded-full transition-all duration-300',
+							normalColorClass
+						) }
+						style={ { width: `${ percentage }%` } }
+					/>
+				) }
+			</div>
+		</div>
+	);
+}

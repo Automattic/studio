@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
-import { useOnboarding } from 'src/hooks/use-onboarding';
+import { useOnboarding } from 'src/modules/onboarding/hooks/use-onboarding';
 import { useLastSeenVersion } from 'src/modules/whats-new/hooks/use-last-seen-version';
 
 interface UseWhatsNew {

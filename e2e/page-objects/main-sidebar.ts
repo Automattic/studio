@@ -18,7 +18,8 @@ export default class MainSidebar {
 	}
 
 	async openAddSiteModal() {
-		await this.addSiteButton.click();
+		// If Studio has no sites, then the 'Add Site' button is not present, and the empty screen displays the content of the modal.
+		await this.addSiteButton?.click();
 		const dialog = new AddSiteModal( this.page );
 		await expect( dialog.locator ).toBeVisible();
 		return dialog;

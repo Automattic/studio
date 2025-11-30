@@ -1,4 +1,5 @@
-import { __experimentalHeading as Heading } from '@wordpress/components';
+import { __experimentalHeading as Heading, Icon } from '@wordpress/components';
+import { check } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
@@ -16,10 +17,29 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 
 	return (
 		<div className="h-full flex flex-col">
-			<div className="flex flex-col items-center gap-6 my-auto">
-				<Heading className="text-[32px] text-gray-900 text-center px-10" weight={ 500 }>
-					{ __( 'Connect to your WordPress.com account' ) }
+			<div className="flex flex-col gap-4 my-auto text-pretty">
+				<Heading className="a8c-subtitle text-xl">
+					{ __( 'Connect your WordPress.com account' ) }
 				</Heading>
+
+				<div className="text-a8c-gray-70 a8c-body">
+					{ __(
+						'Log in with WordPress.com to unlock the full power of WordPress Studio. By signing in, you get access to features that help you build faster, test safely, and work seamlessly across environments:'
+					) }
+				</div>
+
+				<div>
+					{ [
+						__( 'Share preview sites with team members and clients.' ),
+						__( 'Seamless sync with WordPress.com and Pressable sites.' ),
+						__( 'Get help from Studio Assistant.' ),
+					].map( ( text ) => (
+						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
+							<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />
+							{ text }
+						</div>
+					) ) }
+				</div>
 
 				<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
 					<Button
@@ -33,7 +53,7 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 							authenticate();
 						} }
 					>
-						{ __( 'Log in' ) }
+						{ __( 'Log in to WordPress.com' ) }
 						<ArrowIcon />
 					</Button>
 				</Tooltip>
@@ -45,7 +65,7 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 					placement="bottom-start"
 				>
 					<span>
-						{ __( 'New to WordPress.com?' ) }{ ' ' }
+						{ __( "Don't have a WordPress.com account?" ) }{ ' ' }
 						<Button
 							aria-description={ isOffline ? offlineMessage : '' }
 							aria-disabled={ isOffline }

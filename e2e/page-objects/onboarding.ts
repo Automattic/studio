@@ -12,7 +12,7 @@ export default class Onboarding {
 
 	get heading() {
 		return this.locator.getByRole( 'heading', {
-			name: /Connect to your WordPress.com account|Add your first site/,
+			name: /Connect your WordPress.com account|Add your first site/,
 		} );
 	}
 
@@ -23,7 +23,7 @@ export default class Onboarding {
 
 		if (
 			await this.locator
-				.getByRole( 'heading', { name: 'Connect to your WordPress.com account' } )
+				.getByRole( 'heading', { name: 'Connect your WordPress.com account' } )
 				.isVisible()
 		) {
 			await this.locator.getByRole( 'button', { name: 'Skip →' } ).click();

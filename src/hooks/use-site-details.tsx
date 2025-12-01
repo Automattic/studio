@@ -425,33 +425,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	);
 
 	useEffect( () => {
-		const unsubscribe = window.ipcListener.subscribe( 'user-data-updated', async ( _, payload ) => {
-			if ( payload.sites ) {
-				const updatedSites = await getIpcApi().getSiteDetails();
-				setData( ( prevData ) => {
-					const tempSite = prevData.find( ( site ) => addingSiteIds.includes( site.id ) );
-
-					if ( ! tempSite ) {
-						return updatedSites;
-					}
-
-					const tempSiteExists = updatedSites.some( ( site ) => site.id === tempSite.id );
-
-					if ( ! tempSiteExists ) {
-						return sortSites( [ ...updatedSites, tempSite ] );
-					}
-
-					return updatedSites;
-				} );
-			}
-		} );
-
-		return () => {
-			unsubscribe();
-		};
-	}, [ addingSiteIds ] );
-
-	useEffect( () => {
 		let cancel = false;
 		setLoadingSites( true );
 		getIpcApi()

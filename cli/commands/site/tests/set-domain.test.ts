@@ -140,6 +140,20 @@ describe( 'Site Set-Domain Command', () => {
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
+		it( 'should throw error when new domain is identical to current domain', async () => {
+			( readAppdata as jest.Mock ).mockResolvedValue( {
+				sites: [ { ...mockSiteData, customDomain: mockDomainName } ],
+				snapshots: [],
+			} );
+
+			const { runCommand } = await import( '../set-domain' );
+			await runCommand( mockSiteFolder, mockDomainName );
+
+			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+			expect( saveAppdata ).not.toHaveBeenCalled();
+			expect( disconnect ).toHaveBeenCalled();
+		} );
+
 		it( 'should handle site not found in appdata', async () => {
 			( readAppdata as jest.Mock ).mockResolvedValue( {
 				sites: [],

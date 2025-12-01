@@ -41,6 +41,11 @@ export async function runCommand( sitePath: string, domainName: string ): Promis
 			}
 
 			oldDomainName = site.customDomain;
+
+			if ( oldDomainName === domainName ) {
+				throw new LoggerError( __( 'The specified domain is already set for this site.' ) );
+			}
+
 			site.customDomain = domainName;
 			await saveAppdata( appdata );
 		} finally {

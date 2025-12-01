@@ -64,7 +64,7 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 					text={ offlineMessage }
 					placement="bottom-start"
 				>
-					<span>
+					<div className="text-a8c-gray-70 a8c-body">
 						{ __( 'New to WordPress.com?' ) }{ ' ' }
 						<Button
 							aria-description={ isOffline ? offlineMessage : '' }
@@ -80,7 +80,7 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 							{ __( 'Create a free account' ) }
 							<ArrowIcon />
 						</Button>
-					</span>
+					</div>
 				</Tooltip>
 			</div>
 

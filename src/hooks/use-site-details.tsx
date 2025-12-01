@@ -1,5 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import fastDeepEqual from 'fast-deep-equal';
 import {
 	ReactNode,
 	createContext,
@@ -424,33 +423,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		},
 		[ startServer ]
 	);
-
-	useEffect( () => {
-		const unsubscribe = window.ipcListener.subscribe( 'user-data-updated', async ( _, payload ) => {
-			if ( ! fastDeepEqual( payload.newSites, payload.sites ) ) {
-				const updatedSites = await getIpcApi().getSiteDetails();
-				setData( ( prevData ) => {
-					const tempSite = prevData.find( ( site ) => addingSiteIds.includes( site.id ) );
-
-					if ( ! tempSite ) {
-						return updatedSites;
-					}
-
-					const tempSiteExists = updatedSites.some( ( site ) => site.id === tempSite.id );
-
-					if ( ! tempSiteExists ) {
-						return sortSites( [ ...updatedSites, tempSite ] );
-					}
-
-					return updatedSites;
-				} );
-			}
-		} );
-
-		return () => {
-			unsubscribe();
-		};
-	}, [ addingSiteIds ] );
 
 	useEffect( () => {
 		let cancel = false;

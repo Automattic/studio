@@ -1,20 +1,24 @@
-import { getAuthToken } from 'cli/lib/appdata';
+import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
-import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger } from 'cli/logger';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
 	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
 	getAuthToken: jest.fn(),
+	getSiteByFolder: jest.fn(),
 } ) );
 jest.mock( 'cli/lib/snapshots' );
-jest.mock( 'cli/lib/validation' );
 jest.mock( 'cli/logger' );
 
 describe( 'Preview List Command', () => {
 	const mockFolder = '/test/folder';
 	const mockAuthToken = { accessToken: 'mock-auth-token', id: 123 };
+	const mockSite = {
+		id: 'site-1',
+		path: mockFolder,
+		title: 'Test Site',
+	};
 	const mockSnapshots = [
 		{
 			url: 'test1.example.com',
@@ -51,7 +55,7 @@ describe( 'Preview List Command', () => {
 		};
 
 		( Logger as jest.Mock ).mockReturnValue( mockLogger );
-		( validateSiteFolder as jest.Mock ).mockReturnValue( true );
+		( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSite );
 		( getAuthToken as jest.Mock ).mockResolvedValue( mockAuthToken );
 		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( mockSnapshots );
 	} );
@@ -64,7 +68,7 @@ describe( 'Preview List Command', () => {
 		const { runCommand } = await import( '../list' );
 		await runCommand( mockFolder, 'table' );
 
-		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
+		expect( getSiteByFolder ).toHaveBeenCalledWith( mockFolder );
 		expect( getSnapshotsFromAppdata ).toHaveBeenCalledWith( mockAuthToken.id, mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
@@ -77,7 +81,7 @@ describe( 'Preview List Command', () => {
 
 	it( 'should handle validation errors', async () => {
 		const { runCommand } = await import( '../list' );
-		( validateSiteFolder as jest.Mock ).mockImplementation( () => {
+		( getSiteByFolder as jest.Mock ).mockImplementation( () => {
 			throw new Error( 'Invalid site folder' );
 		} );
 

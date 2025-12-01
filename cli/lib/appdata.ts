@@ -4,7 +4,7 @@ import path from 'path';
 import { __, sprintf } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
 import { LOCKFILE_NAME, LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/constants';
-import { arePathsEqual } from 'common/lib/fs-utils';
+import { arePathsEqual, isWordPressDirectory } from 'common/lib/fs-utils';
 import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { snapshotSchema } from 'common/types/snapshot';
@@ -171,11 +171,13 @@ export async function getSiteByFolder( siteFolder: string ): Promise< SiteData >
 	const site = userData.sites.find( ( site ) => arePathsEqual( site.path, siteFolder ) );
 
 	if ( ! site ) {
-		throw new LoggerError(
-			__(
-				'The specified folder is not added to Studio. Please use `studio site create` to add it first.'
-			)
-		);
+		if ( isWordPressDirectory( siteFolder ) ) {
+			throw new LoggerError(
+				__( 'The specified folder is not added to Studio. Use `studio site create` to add it.' )
+			);
+		}
+
+		throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );
 	}
 
 	return site;

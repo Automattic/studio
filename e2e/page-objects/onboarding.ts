@@ -10,7 +10,9 @@ export default class Onboarding {
 	}
 
 	get heading() {
-		return this.locator.getByRole( 'heading', { name: 'Connect to your WordPress.com account' } );
+		return this.locator.getByRole( 'heading', {
+			name: /Connect to your WordPress.com account|Connect your WordPress.com account/,
+		} );
 	}
 
 	async completeOnboarding( options?: { customSiteName?: string; customFolderName?: string } ) {

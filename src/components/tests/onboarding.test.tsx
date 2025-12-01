@@ -60,7 +60,7 @@ describe( 'Onboarding Component', () => {
 
 	it( 'renders onboarding screen correctly', () => {
 		const { getByText } = renderWithProvider( <Onboarding /> );
-		expect( getByText( 'Connect to your WordPress.com account' ) ).toBeVisible();
+		expect( getByText( 'Connect your WordPress.com account' ) ).toBeVisible();
 		expect( getByText( 'Skip →' ) ).toBeVisible();
 	} );
 
@@ -80,7 +80,7 @@ describe( 'Onboarding Component', () => {
 		renderWithProvider( <Onboarding /> );
 		const user = userEvent.setup();
 
-		const logIn = screen.getByRole( 'button', { name: 'Log in ↗' } );
+		const logIn = screen.getByRole( 'button', { name: 'Log in to WordPress.com ↗' } );
 		await user.hover( logIn );
 
 		expect( screen.getByText( "You're currently offline." ) ).toBeInTheDocument();
@@ -92,7 +92,7 @@ describe( 'Onboarding Component', () => {
 		renderWithProvider( <Onboarding /> );
 		const user = userEvent.setup();
 
-		const logIn = screen.getByRole( 'button', { name: 'Log in ↗' } );
+		const logIn = screen.getByRole( 'button', { name: 'Log in to WordPress.com ↗' } );
 		await user.hover( logIn );
 
 		expect( screen.queryByText( "You're currently offline." ) ).not.toBeInTheDocument();

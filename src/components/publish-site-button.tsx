@@ -29,11 +29,8 @@ export const PublishSiteButton = ( {
 	} );
 	const { isAnySitePulling, isAnySitePushing } = useSyncSites();
 	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
-	const {
-		isUninitialized: isUninitializedSyncSites,
-		isFetching: isFetchingSyncSites,
-		refetch: refetchWpComSites,
-	} = useGetWpComSitesQuery( { connectedSiteIds, userId: user?.id } );
+	const { isUninitialized: isUninitializedSyncSites, refetch: refetchWpComSites } =
+		useGetWpComSitesQuery( { connectedSiteIds, userId: user?.id } );
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 
 	const handlePublishClick = useCallback( () => {
@@ -64,7 +61,6 @@ export const PublishSiteButton = ( {
 			icon={ cloudUpload }
 			connectSite={ handlePublishClick }
 			disabled={ isAnySiteSyncing }
-			isBusy={ isFetchingSyncSites }
 			tooltipText={
 				isAnySiteSyncing
 					? __(

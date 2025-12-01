@@ -10,7 +10,6 @@ import { Tooltip } from 'src/components/tooltip';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
-import { useRootSelector } from 'src/stores';
 import { BlueprintIcon } from './blueprint-icon';
 
 export type AddSiteFlowType =

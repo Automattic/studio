@@ -22,9 +22,6 @@ jest.mock( 'atomically', () => ( {
 	readFile: jest.fn(),
 	writeFile: jest.fn(),
 } ) );
-jest.mock( 'crypto', () => ( {
-	randomUUID: jest.fn().mockReturnValue( 'mock-uuid-1234' ),
-} ) );
 jest.mock( 'lockfile', () => ( {
 	lock: jest.fn().mockImplementation( ( path, options, callback ) => callback( null ) ),
 	unlock: jest.fn().mockImplementation( ( path, callback ) => callback( null ) ),
@@ -154,7 +151,7 @@ describe( 'Snapshots Module', () => {
 			} );
 		} );
 
-		it( 'should create a new site if no matching site is found', async () => {
+		it( 'should throw error if site is not found', async () => {
 			const mockUserData = {
 				version: 1,
 				sites: [
@@ -173,120 +170,13 @@ describe( 'Snapshots Module', () => {
 				},
 			};
 
-			let hasWrittenNewSite = false;
-			( readFile as jest.Mock ).mockImplementation( async () => {
-				if ( hasWrittenNewSite ) {
-					return JSON.stringify( {
-						...mockUserData,
-						newSites: [
-							{
-								id: 'mock-uuid-1234',
-								path: mockSiteFolder,
-								name: mockSiteFolderName,
-							},
-						],
-					} );
-				}
-				return JSON.stringify( mockUserData );
-			} );
+			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
 
-			( writeFile as jest.Mock ).mockImplementation( async () => {
-				hasWrittenNewSite = true;
-			} );
-			( path.basename as jest.Mock ).mockReturnValueOnce( mockSiteFolderName );
+			await expect(
+				saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl )
+			).rejects.toThrow( LoggerError );
 
-			await saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl );
-
-			expect( writeFile ).toHaveBeenCalledTimes( 2 );
-			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 1 ][ 1 ] );
-
-			// Check that a new site was created
-			expect( savedData.newSites ).toHaveLength( 1 );
-			expect( savedData.newSites[ 0 ] ).toEqual( {
-				id: 'mock-uuid-1234',
-				path: mockSiteFolder,
-				name: mockSiteFolderName,
-			} );
-
-			// Check that a snapshot was created for the new site
-			expect( savedData.snapshots ).toHaveLength( 1 );
-			expect( savedData.snapshots[ 0 ] ).toEqual( {
-				url: mockSiteUrl,
-				atomicSiteId: mockAtomicSiteId,
-				localSiteId: 'mock-uuid-1234',
-				date: 1234567890,
-				name: `${ mockSiteFolderName } Preview 1`,
-				userId: mockUserId,
-				sequence: 1,
-			} );
-		} );
-
-		it( 'should append to newSites array if it already exists', async () => {
-			const existingNewSite = {
-				id: 'existing-new-site',
-				path: '/existing/path',
-				name: 'Existing New Site',
-			};
-
-			const mockUserData = {
-				version: 1,
-				sites: [],
-				newSites: [ existingNewSite ],
-				snapshots: [],
-				authToken: {
-					...mockAuthToken,
-					id: mockUserId,
-				},
-			};
-
-			let hasWrittenNewSite = false;
-			( readFile as jest.Mock ).mockImplementation( async () => {
-				if ( hasWrittenNewSite ) {
-					return JSON.stringify( {
-						...mockUserData,
-						newSites: [
-							existingNewSite,
-							{
-								id: 'mock-uuid-1234',
-								path: mockSiteFolder,
-								name: mockSiteFolderName,
-							},
-						],
-					} );
-				}
-				return JSON.stringify( mockUserData );
-			} );
-
-			( writeFile as jest.Mock ).mockImplementation( async () => {
-				hasWrittenNewSite = true;
-			} );
-			( path.basename as jest.Mock ).mockReturnValueOnce( mockSiteFolderName );
-
-			await saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl );
-
-			expect( writeFile ).toHaveBeenCalledTimes( 2 );
-			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 1 ][ 1 ] );
-
-			// Check that the new site was added to existing newSites array
-			expect( savedData.newSites ).toHaveLength( 2 );
-			expect( savedData.newSites[ 0 ] ).toEqual( existingNewSite );
-			expect( savedData.newSites[ 1 ] ).toEqual( {
-				id: 'mock-uuid-1234',
-				path: mockSiteFolder,
-				name: mockSiteFolderName,
-			} );
-
-			// Check that a snapshot was created for the new site
-			expect( savedData.snapshots ).toHaveLength( 1 );
-			expect( savedData.snapshots[ 0 ] ).toEqual( {
-				url: mockSiteUrl,
-				atomicSiteId: mockAtomicSiteId,
-				localSiteId: 'mock-uuid-1234',
-				date: 1234567890,
-				name: `${ mockSiteFolderName } Preview 1`,
-				userId: mockUserId,
-				sequence: 1,
-			} );
+			expect( writeFile ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should handle errors correctly', async () => {
@@ -295,34 +185,6 @@ describe( 'Snapshots Module', () => {
 			await expect(
 				saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl )
 			).rejects.toThrow( LoggerError );
-		} );
-
-		it( 'should only create a new site when getSiteByFolder throws a LoggerError', async () => {
-			const mockUserData = {
-				version: 1,
-				sites: [],
-				snapshots: [],
-				authToken: {
-					...mockAuthToken,
-					id: mockUserId,
-				},
-			};
-
-			( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
-
-			// Mock fs.existsSync to throw a different error first, then a LoggerError
-			const fsExistsSyncMock = fs.existsSync as jest.Mock;
-			fsExistsSyncMock
-				.mockImplementationOnce( () => {
-					throw new Error( 'Some other error' );
-				} )
-				.mockReturnValueOnce( true );
-
-			await expect(
-				saveSnapshotToAppdata( mockSiteFolder, mockAtomicSiteId, mockSiteUrl )
-			).rejects.toThrow( 'Some other error' );
-
-			expect( writeFile ).not.toHaveBeenCalled();
 		} );
 	} );
 

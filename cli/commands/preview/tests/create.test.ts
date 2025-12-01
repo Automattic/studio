@@ -2,10 +2,9 @@ import os from 'os';
 import path from 'path';
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
-import { getAuthToken } from 'cli/lib/appdata';
+import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { saveSnapshotToAppdata } from 'cli/lib/snapshots';
-import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 
 jest.mock( 'common/lib/get-wordpress-version' );
@@ -13,8 +12,11 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
 	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
 	getAuthToken: jest.fn(),
+	getSiteByFolder: jest.fn(),
 } ) );
-jest.mock( 'cli/lib/validation' );
+jest.mock( 'cli/lib/validation', () => ( {
+	validateSiteSize: jest.fn(),
+} ) );
 jest.mock( 'cli/lib/archive' );
 jest.mock( 'cli/lib/api' );
 jest.mock( 'cli/lib/snapshots' );
@@ -56,7 +58,11 @@ describe( 'Preview Create Command', () => {
 		( Logger as jest.Mock ).mockReturnValue( mockLogger );
 
 		( getAuthToken as jest.Mock ).mockResolvedValue( mockAuthToken );
-		( validateSiteFolder as jest.Mock ).mockReturnValue( true );
+		( getSiteByFolder as jest.Mock ).mockResolvedValue( {
+			id: 'site-123',
+			path: mockFolder,
+			name: 'Test Site',
+		} );
 		( archiveSiteContent as jest.Mock ).mockResolvedValue( mockArchiver );
 		( cleanup as jest.Mock ).mockImplementation( () => {} );
 		( uploadArchive as jest.Mock ).mockResolvedValue( {
@@ -76,7 +82,7 @@ describe( 'Preview Create Command', () => {
 		const { runCommand } = await import( '../create' );
 		await runCommand( mockFolder );
 
-		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
+		expect( getSiteByFolder ).toHaveBeenCalledWith( mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 
@@ -121,12 +127,13 @@ describe( 'Preview Create Command', () => {
 		const { runCommand } = await import( '../create' );
 		await runCommand( process.cwd() );
 
-		expect( validateSiteFolder ).toHaveBeenCalledWith( process.cwd() );
+		expect( getSiteByFolder ).toHaveBeenCalledWith( process.cwd() );
 	} );
 
-	it( 'should handle validation errors', async () => {
-		const errorMessage = 'Validation failed';
-		( validateSiteFolder as jest.Mock ).mockImplementation( () => {
+	it( 'should handle errors when folder is not a Studio site', async () => {
+		const errorMessage =
+			'The specified folder is not added to Studio. Please use `studio site create` to add it first.';
+		( getSiteByFolder as jest.Mock ).mockImplementation( () => {
 			throw new LoggerError( errorMessage );
 		} );
 

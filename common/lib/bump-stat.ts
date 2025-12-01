@@ -1,8 +1,8 @@
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 
-// Database columns are varchar(32). Group limit is 26 to account for the '-a11n' suffix
-// added by the backend for Automattic requests (26 + 6 = 32).
-const MAX_GROUP_LENGTH = 26;
+// Database columns are varchar(32). Group limit is 27 to account for the '-a11n' suffix
+// added by the backend for Automattic requests (27 + 5 = 32).
+const MAX_GROUP_LENGTH = 27;
 const MAX_STAT_LENGTH = 32;
 
 // Returns true if we attempted to bump the stat

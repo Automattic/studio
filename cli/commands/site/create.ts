@@ -35,6 +35,8 @@ const DEFAULT_VERSIONS = {
 const MINIMUM_WORDPRESS_VERSION = '6.2.1' as const; // https://wordpress.github.io/wordpress-playground/blueprints/examples/#load-an-older-wordpress-version
 const ALLOWED_PHP_VERSIONS = [ ...SupportedPHPVersions ];
 
+const logger = new Logger< LoggerAction >();
+
 export async function runCommand(
 	sitePath: string,
 	options: {
@@ -47,8 +49,6 @@ export async function runCommand(
 		noStart: boolean;
 	}
 ): Promise< void > {
-	const logger = new Logger< LoggerAction >();
-
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating site configuration...' ) );
 
@@ -251,13 +251,6 @@ export async function runCommand(
 			logSiteDetails( siteDetails );
 			console.log( __( 'Run "studio site start" to start the site.' ) );
 		}
-	} catch ( error ) {
-		if ( error instanceof LoggerError ) {
-			logger.reportError( error );
-		} else {
-			const loggerError = new LoggerError( __( 'Failed to create site' ), error );
-			logger.reportError( loggerError );
-		}
 	} finally {
 		disconnect();
 	}
@@ -304,15 +297,24 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path, {
-				name: argv.name,
-				wpVersion: argv.wp,
-				phpVersion: argv.php,
-				customDomain: argv.domain,
-				enableHttps: argv.https,
-				blueprint: argv.blueprint,
-				noStart: ! argv.start,
-			} );
+			try {
+				await runCommand( argv.path, {
+					name: argv.name,
+					wpVersion: argv.wp,
+					phpVersion: argv.php,
+					customDomain: argv.domain,
+					enableHttps: argv.https,
+					blueprint: argv.blueprint,
+					noStart: ! argv.start,
+				} );
+			} catch ( error ) {
+				if ( error instanceof LoggerError ) {
+					logger.reportError( error );
+				} else {
+					const loggerError = new LoggerError( __( 'Failed to load site' ), error );
+					logger.reportError( loggerError );
+				}
+			}
 		},
 	} );
 };

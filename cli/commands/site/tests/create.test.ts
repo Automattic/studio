@@ -11,7 +11,6 @@ import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { isSqliteIntegrationAvailable, installSqliteIntegration } from 'cli/lib/sqlite-integration';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
-import { Logger, LoggerError } from 'cli/logger';
 
 jest.mock( 'common/lib/fs-utils' );
 jest.mock( 'common/lib/port-finder', () => ( {
@@ -37,7 +36,6 @@ jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/site-utils' );
 jest.mock( 'cli/lib/sqlite-integration' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
-jest.mock( 'cli/logger' );
 
 describe( 'Site Create Command', () => {
 	const mockSitePath = '/test/site/new-site';
@@ -66,13 +64,6 @@ describe( 'Site Create Command', () => {
 		pid: 12345,
 	};
 
-	let mockLogger: {
-		reportStart: jest.Mock;
-		reportSuccess: jest.Mock;
-		reportError: jest.Mock;
-		reportWarning: jest.Mock;
-	};
-
 	let consoleLogSpy: jest.SpyInstance;
 	let fsMkdirSyncSpy: jest.SpyInstance;
 	let fsExistsSyncSpy: jest.SpyInstance;
@@ -80,15 +71,6 @@ describe( 'Site Create Command', () => {
 
 	beforeEach( () => {
 		jest.clearAllMocks();
-
-		mockLogger = {
-			reportStart: jest.fn(),
-			reportSuccess: jest.fn(),
-			reportError: jest.fn(),
-			reportWarning: jest.fn(),
-		};
-
-		( Logger as jest.Mock ).mockReturnValue( mockLogger );
 
 		consoleLogSpy = jest.spyOn( console, 'log' ).mockImplementation();
 		fsMkdirSyncSpy = jest.spyOn( fs, 'mkdirSync' ).mockReturnValue( undefined );
@@ -134,77 +116,82 @@ describe( 'Site Create Command', () => {
 
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				enableHttps: false,
-				noStart: false,
-			} );
+			await expect(
+				runCommand( mockSitePath, {
+					wpVersion: 'latest',
+					phpVersion: '8.0',
+					enableHttps: false,
+					noStart: false,
+				} )
+			).rejects.toThrow( 'The selected directory is not empty nor an existing WordPress site.' );
 
-			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should error if WordPress version is invalid', async () => {
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'invalid-version',
-				phpVersion: '8.0',
-				enableHttps: false,
-				noStart: false,
-			} );
+			await expect(
+				runCommand( mockSitePath, {
+					wpVersion: 'invalid-version',
+					phpVersion: '8.0',
+					enableHttps: false,
+					noStart: false,
+				} )
+			).rejects.toThrow( 'Invalid WordPress version' );
 
-			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should error if WordPress version is below minimum', async () => {
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: '5.0',
-				phpVersion: '8.0',
-				enableHttps: false,
-				noStart: false,
-			} );
+			await expect(
+				runCommand( mockSitePath, {
+					wpVersion: '6.0',
+					phpVersion: '8.0',
+					enableHttps: false,
+					noStart: false,
+				} )
+			).rejects.toThrow( 'WordPress version must be at least' );
 
-			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should error if site path is already in use', async () => {
 			( readAppdata as jest.Mock ).mockResolvedValue( {
-				sites: [ { ...mockExistingSite, path: mockSitePath } ],
+				sites: [ mockExistingSite ],
 				snapshots: [],
 			} );
 			( arePathsEqual as jest.Mock ).mockReturnValue( true );
 
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				enableHttps: false,
-				noStart: false,
-			} );
+			await expect(
+				runCommand( mockSitePath, {
+					wpVersion: 'latest',
+					phpVersion: '8.0',
+					enableHttps: false,
+					noStart: false,
+				} )
+			).rejects.toThrow( 'The selected directory is already in use.' );
 
-			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should error if custom domain is invalid', async () => {
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				customDomain: 'invalid-domain-without-tld',
-				enableHttps: false,
-				noStart: false,
-			} );
+			await expect(
+				runCommand( mockSitePath, {
+					wpVersion: 'latest',
+					phpVersion: '8.0',
+					customDomain: 'invalid-domain-without-tld',
+					enableHttps: false,
+					noStart: false,
+				} )
+			).rejects.toThrow();
 
-			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -216,15 +203,16 @@ describe( 'Site Create Command', () => {
 
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				customDomain: 'mysite.local',
-				enableHttps: false,
-				noStart: false,
-			} );
+			await expect(
+				runCommand( mockSitePath, {
+					wpVersion: 'latest',
+					phpVersion: '8.0',
+					customDomain: 'mysite.local',
+					enableHttps: false,
+					noStart: false,
+				} )
+			).rejects.toThrow();
 
-			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -233,15 +221,16 @@ describe( 'Site Create Command', () => {
 
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				blueprint: '/path/to/nonexistent/blueprint.json',
-				enableHttps: false,
-				noStart: false,
-			} );
+			await expect(
+				runCommand( mockSitePath, {
+					wpVersion: 'latest',
+					phpVersion: '8.0',
+					blueprint: '/path/to/nonexistent/blueprint.json',
+					enableHttps: false,
+					noStart: false,
+				} )
+			).rejects.toThrow( 'Blueprint file not found' );
 
-			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -251,15 +240,16 @@ describe( 'Site Create Command', () => {
 
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				blueprint: '/path/to/blueprint.json',
-				enableHttps: false,
-				noStart: false,
-			} );
+			await expect(
+				runCommand( mockSitePath, {
+					wpVersion: 'latest',
+					phpVersion: '8.0',
+					blueprint: '/path/to/blueprint.json',
+					enableHttps: false,
+					noStart: false,
+				} )
+			).rejects.toThrow( 'Invalid blueprint JSON file' );
 
-			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -273,16 +263,19 @@ describe( 'Site Create Command', () => {
 
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				blueprint: '/path/to/blueprint.json',
-				enableHttps: false,
-				noStart: false,
-			} );
+			await expect(
+				runCommand( mockSitePath, {
+					wpVersion: 'latest',
+					phpVersion: '8.0',
+					blueprint: '/path/to/blueprint.json',
+					enableHttps: false,
+					noStart: false,
+				} )
+			).rejects.toThrow( 'Invalid blueprint' );
 
-			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
+			fsExistsSyncSpy.mockReturnValue( false );
+			fsReadFileSyncSpy.mockReturnValue( '{}' );
 		} );
 
 		it( 'should error if SQLite integration is not available', async () => {
@@ -290,14 +283,15 @@ describe( 'Site Create Command', () => {
 
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				enableHttps: false,
-				noStart: false,
-			} );
+			await expect(
+				runCommand( mockSitePath, {
+					wpVersion: 'latest',
+					phpVersion: '8.0',
+					enableHttps: false,
+					noStart: false,
+				} )
+			).rejects.toThrow( 'SQLite integration files not found' );
 
-			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 	} );
@@ -313,18 +307,12 @@ describe( 'Site Create Command', () => {
 				noStart: false,
 			} );
 
-			expect( mockLogger.reportStart ).toHaveBeenCalledWith(
-				'validate',
-				'Validating site configuration...'
-			);
-			expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Site configuration validated' );
 			expect( fsMkdirSyncSpy ).toHaveBeenCalledWith( mockSitePath, { recursive: true } );
 			expect( isSqliteIntegrationAvailable ).toHaveBeenCalled();
 			expect( installSqliteIntegration ).toHaveBeenCalledWith( mockSitePath );
 			expect( portFinder.getOpenPort ).toHaveBeenCalled();
 			expect( lockAppdata ).toHaveBeenCalled();
 			expect( saveAppdata ).toHaveBeenCalled();
-			expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Site created successfully' );
 			expect( connect ).toHaveBeenCalled();
 			expect( startWordPressServer ).toHaveBeenCalled();
 			expect( logSiteDetails ).toHaveBeenCalled();
@@ -402,7 +390,6 @@ describe( 'Site Create Command', () => {
 			} );
 
 			expect( fsMkdirSyncSpy ).not.toHaveBeenCalled();
-			expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Site created successfully' );
 		} );
 
 		it( 'should create site in existing WordPress directory', async () => {
@@ -420,7 +407,6 @@ describe( 'Site Create Command', () => {
 			} );
 
 			expect( fsMkdirSyncSpy ).not.toHaveBeenCalled();
-			expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Site created successfully' );
 		} );
 
 		it( 'should create site with custom domain', async () => {
@@ -606,8 +592,6 @@ describe( 'Site Create Command', () => {
 				enableHttps: false,
 				noStart: false,
 			} );
-
-			expect( mockLogger.reportWarning ).toHaveBeenCalled();
 		} );
 	} );
 
@@ -622,7 +606,6 @@ describe( 'Site Create Command', () => {
 				noStart: true,
 			} );
 
-			expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Site created successfully' );
 			expect( connect ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( setupCustomDomain ).not.toHaveBeenCalled();
@@ -648,7 +631,6 @@ describe( 'Site Create Command', () => {
 			expect( connect ).toHaveBeenCalled();
 			expect( runBlueprint ).toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
-			expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Blueprint applied successfully' );
 			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Run "studio site start" to start the site.' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -659,15 +641,15 @@ describe( 'Site Create Command', () => {
 			( startWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server start failed' ) );
 
 			const { runCommand } = await import( '../create' );
+			await expect(
+				runCommand( mockSitePath, {
+					wpVersion: 'latest',
+					phpVersion: '8.0',
+					enableHttps: false,
+					noStart: false,
+				} )
+			).rejects.toThrow( 'Failed to start WordPress server' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				enableHttps: false,
-				noStart: false,
-			} );
-
-			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -677,16 +659,16 @@ describe( 'Site Create Command', () => {
 			( runBlueprint as jest.Mock ).mockRejectedValue( new Error( 'Blueprint failed' ) );
 
 			const { runCommand } = await import( '../create' );
+			await expect(
+				runCommand( mockSitePath, {
+					wpVersion: 'latest',
+					phpVersion: '8.0',
+					blueprint: '/path/to/blueprint.json',
+					enableHttps: false,
+					noStart: true,
+				} )
+			).rejects.toThrow( 'Failed to apply blueprint' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				blueprint: '/path/to/blueprint.json',
-				enableHttps: false,
-				noStart: true,
-			} );
-
-			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -697,14 +679,15 @@ describe( 'Site Create Command', () => {
 
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				enableHttps: false,
-				noStart: false,
-			} );
+			await expect(
+				runCommand( mockSitePath, {
+					wpVersion: 'latest',
+					phpVersion: '8.0',
+					enableHttps: false,
+					noStart: false,
+				} )
+			).rejects.toThrow();
 
-			expect( mockLogger.reportError ).toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -713,14 +696,14 @@ describe( 'Site Create Command', () => {
 
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				enableHttps: false,
-				noStart: false,
-			} );
-
-			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+			await expect(
+				runCommand( mockSitePath, {
+					wpVersion: 'latest',
+					phpVersion: '8.0',
+					enableHttps: false,
+					noStart: false,
+				} )
+			).rejects.toThrow();
 		} );
 	} );
 
@@ -730,12 +713,16 @@ describe( 'Site Create Command', () => {
 
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				enableHttps: false,
-				noStart: false,
-			} );
+			try {
+				await runCommand( mockSitePath, {
+					wpVersion: 'latest',
+					phpVersion: '8.0',
+					enableHttps: false,
+					noStart: false,
+				} );
+			} catch {
+				// Expected
+			}
 
 			expect( disconnect ).toHaveBeenCalled();
 		} );

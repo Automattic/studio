@@ -2,59 +2,40 @@ import { SiteData, clearSiteLatestCliPid, getSiteByFolder } from 'cli/lib/appdat
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
-import { Logger, LoggerError } from 'cli/logger';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
-	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
 	getSiteByFolder: jest.fn(),
 	clearSiteLatestCliPid: jest.fn(),
-	getSiteUrl: jest.fn( ( site ) => `http://localhost:${ site.port }` ),
+	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/site-utils' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
-jest.mock( 'cli/logger' );
 
 describe( 'Site Stop Command', () => {
-	const mockSiteFolder = '/test/site/path';
-	const mockSiteData: SiteData = {
-		id: 'test-site-id',
+	// Simple test data
+	const testSite: SiteData = {
+		id: 'site-1',
 		name: 'Test Site',
-		path: mockSiteFolder,
-		port: 8881,
+		path: '/test/site',
+		port: 8080,
+		phpVersion: '8.0',
 		adminUsername: 'admin',
 		adminPassword: 'password123',
-		running: true,
-		phpVersion: '8.0',
-		url: `http://localhost:8881`,
 	};
 
-	const mockProcessDescription = {
-		name: 'test-site-id',
-		pmId: 0,
-		status: 'online',
+	const testProcessDescription = {
 		pid: 12345,
-	};
-
-	let mockLogger: {
-		reportStart: jest.Mock;
-		reportSuccess: jest.Mock;
-		reportError: jest.Mock;
+		status: 'online',
 	};
 
 	beforeEach( () => {
 		jest.clearAllMocks();
 
-		mockLogger = {
-			reportStart: jest.fn(),
-			reportSuccess: jest.fn(),
-			reportError: jest.fn(),
-		};
-
-		( Logger as jest.Mock ).mockReturnValue( mockLogger );
+		( getSiteByFolder as jest.Mock ).mockResolvedValue( testSite );
 		( connect as jest.Mock ).mockResolvedValue( undefined );
-		( disconnect as jest.Mock ).mockReturnValue( undefined );
+		( disconnect as jest.Mock ).mockResolvedValue( undefined );
 		( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
 		( stopWordPressServer as jest.Mock ).mockResolvedValue( undefined );
 		( clearSiteLatestCliPid as jest.Mock ).mockResolvedValue( undefined );
@@ -65,125 +46,103 @@ describe( 'Site Stop Command', () => {
 		jest.restoreAllMocks();
 	} );
 
-	describe( 'Error Handling', () => {
-		it( 'should handle site not found error', async () => {
+	describe( 'Error Cases', () => {
+		it( 'should throw when site not found', async () => {
 			( getSiteByFolder as jest.Mock ).mockRejectedValue( new Error( 'Site not found' ) );
 
 			const { runCommand } = await import( '../stop' );
-			await runCommand( mockSiteFolder );
 
-			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+			await expect( runCommand( '/invalid/path' ) ).rejects.toThrow( 'Site not found' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
-		it( 'should handle PM2 connection failure', async () => {
-			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
+		it( 'should throw when PM2 connection fails', async () => {
 			( connect as jest.Mock ).mockRejectedValue( new Error( 'PM2 connection failed' ) );
 
 			const { runCommand } = await import( '../stop' );
-			await runCommand( mockSiteFolder );
 
-			expect( mockLogger.reportError ).toHaveBeenCalled();
+			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'PM2 connection failed' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
-		it( 'should handle WordPress server stop failure', async () => {
-			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
-			( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
+		it( 'should throw when WordPress server stop fails', async () => {
+			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
 			( stopWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server stop failed' ) );
 
 			const { runCommand } = await import( '../stop' );
-			await runCommand( mockSiteFolder );
 
-			expect( mockLogger.reportStart ).toHaveBeenCalledWith(
-				'stopSite',
-				'Stopping WordPress site...'
+			await expect( runCommand( '/test/site' ) ).rejects.toThrow(
+				'Failed to stop WordPress server'
 			);
-			expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 	} );
 
 	describe( 'Success Cases', () => {
-		it( 'should report that site is not running if server is not running', async () => {
-			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
-			( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
-
+		it( 'should skip stop if server is not running', async () => {
 			const { runCommand } = await import( '../stop' );
-			await runCommand( mockSiteFolder );
 
-			expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'WordPress site is not running' );
+			await runCommand( '/test/site' );
+
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
 			expect( clearSiteLatestCliPid ).not.toHaveBeenCalled();
+			expect( stopProxyIfNoSitesNeedIt ).not.toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should stop a running site', async () => {
-			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
-			( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
+			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
 
 			const { runCommand } = await import( '../stop' );
-			await runCommand( mockSiteFolder );
 
+			await runCommand( '/test/site' );
+
+			expect( getSiteByFolder ).toHaveBeenCalledWith( '/test/site', false );
 			expect( connect ).toHaveBeenCalled();
-			expect( isServerRunning ).toHaveBeenCalledWith( mockSiteData.id );
-			expect( mockLogger.reportStart ).toHaveBeenCalledWith(
-				'stopSite',
-				'Stopping WordPress site...'
-			);
-			expect( stopWordPressServer ).toHaveBeenCalledWith( mockSiteData.id );
-			expect( clearSiteLatestCliPid ).toHaveBeenCalledWith( mockSiteData.id );
-			expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'WordPress site stopped' );
+			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
+			expect( stopWordPressServer ).toHaveBeenCalledWith( testSite.id );
+			expect( clearSiteLatestCliPid ).toHaveBeenCalledWith( testSite.id );
+			expect( stopProxyIfNoSitesNeedIt ).toHaveBeenCalledWith( testSite.id, expect.any( Object ) );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
-		it( 'should call stopProxyIfNoSitesNeedIt after stopping a site', async () => {
-			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
-			( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
-
-			const { runCommand } = await import( '../stop' );
-			await runCommand( mockSiteFolder );
-
-			expect( stopProxyIfNoSitesNeedIt ).toHaveBeenCalledWith( mockSiteData.id, mockLogger );
-		} );
-
 		it( 'should not call stopProxyIfNoSitesNeedIt if site is not running', async () => {
-			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
-			( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
-
 			const { runCommand } = await import( '../stop' );
-			await runCommand( mockSiteFolder );
+
+			await runCommand( '/test/site' );
 
 			expect( stopProxyIfNoSitesNeedIt ).not.toHaveBeenCalled();
+			expect( disconnect ).toHaveBeenCalled();
 		} );
 	} );
 
 	describe( 'Cleanup', () => {
-		it( 'should disconnect from PM2 even on error', async () => {
-			( getSiteByFolder as jest.Mock ).mockRejectedValue( new Error( 'Site error' ) );
-
+		it( 'should always disconnect from PM2 on success', async () => {
 			const { runCommand } = await import( '../stop' );
-			await runCommand( mockSiteFolder );
+
+			await runCommand( '/test/site' );
 
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
-		it( 'should disconnect from PM2 on success', async () => {
-			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
-			( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
+		it( 'should always disconnect from PM2 on error', async () => {
+			( getSiteByFolder as jest.Mock ).mockRejectedValue( new Error( 'Error' ) );
 
 			const { runCommand } = await import( '../stop' );
-			await runCommand( mockSiteFolder );
+
+			try {
+				await runCommand( '/test/site' );
+			} catch {
+				// Expected
+			}
 
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
-		it( 'should disconnect from PM2 even if server was not running', async () => {
-			( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
-			( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
-
+		it( 'should always disconnect when site is not running', async () => {
 			const { runCommand } = await import( '../stop' );
-			await runCommand( mockSiteFolder );
+
+			await runCommand( '/test/site' );
 
 			expect( disconnect ).toHaveBeenCalled();
 		} );

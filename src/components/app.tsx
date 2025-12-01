@@ -5,6 +5,7 @@ import {
 import { useEffect } from 'react';
 import MacTitlebar from 'src/components/mac-titlebar';
 import MainSidebar from 'src/components/main-sidebar';
+import { NoStudioSites } from 'src/components/no-studio-sites';
 import { SiteContentTabs } from 'src/components/site-content-tabs';
 import TopBar from 'src/components/top-bar';
 import WindowsTitlebar from 'src/components/windows-titlebar';
@@ -19,7 +20,6 @@ import { useOnboarding } from 'src/modules/onboarding/hooks/use-onboarding';
 import { UserSettings } from 'src/modules/user-settings';
 import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
 import 'src/index.css';
-import { EmptyStudio } from './empty-studio';
 
 export default function App() {
 	useLocalizationSupport();
@@ -41,7 +41,7 @@ export default function App() {
 					spacing="0"
 				>
 					{ isWindows() && <WindowsTitlebar className="h-titlebar-win flex-shrink-0" /> }
-					{ needsOnboarding ? <Onboarding /> : <EmptyStudio /> }
+					{ needsOnboarding ? <Onboarding /> : <NoStudioSites /> }
 				</VStack>
 			) : (
 				<VStack

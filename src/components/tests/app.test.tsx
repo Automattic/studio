@@ -109,7 +109,7 @@ describe( 'App', () => {
 		);
 	};
 
-	it( 'should display EmptyStudio when there are no sites and onboarding is complete', async () => {
+	it( 'should display NoStudioSites when there are no sites and onboarding is complete', async () => {
 		( useOnboarding as jest.Mock ).mockReturnValue( {
 			needsOnboarding: false,
 		} );

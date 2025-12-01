@@ -1,6 +1,5 @@
 import { type Page } from '@playwright/test';
 import { expect } from '@playwright/test';
-import AddSiteModal from './add-site-modal';
 import MainSidebar from './main-sidebar';
 
 export default class Onboarding {
@@ -11,62 +10,34 @@ export default class Onboarding {
 	}
 
 	get heading() {
-		return this.locator.getByRole( 'heading', {
-			name: /Connect your WordPress.com account|Add your first site/,
-		} );
+		return this.locator.getByRole( 'heading', { name: 'Connect your WordPress.com account' } );
 	}
 
 	async completeOnboarding( options?: { customSiteName?: string; customFolderName?: string } ) {
 		const { customSiteName, customFolderName } = options ?? {};
 
 		await expect( this.heading ).toBeVisible();
+		await this.locator.getByRole( 'button', { name: 'Skip →' } ).click();
+		const sidebar = new MainSidebar( this.page );
+		const modal = await sidebar.openAddSiteModal();
+		await modal.createSiteButton.click();
 
-		if (
-			await this.locator
-				.getByRole( 'heading', { name: 'Connect your WordPress.com account' } )
-				.isVisible()
-		) {
-			await this.locator.getByRole( 'button', { name: 'Skip →' } ).click();
-			const sidebar = new MainSidebar( this.page );
-			const modal = await sidebar.openAddSiteModal();
-			await modal.createSiteButton.click();
-
-			if ( customSiteName ) {
-				await modal.siteNameInput.fill( customSiteName );
-			}
-			await expect( modal.siteNameInput ).toHaveValue( /\S+/, { timeout: 5000 } );
-			const siteName = await modal.siteNameInput.inputValue();
-
-			if ( customFolderName ) {
-				await modal.selectLocalPathForTesting( customFolderName );
-			}
-			const localPath = await modal.localPathInput.inputValue();
-
-			await modal.continueButton.click();
-
-			return {
-				siteName,
-				localPath,
-			};
-		} else {
-			const modal = new AddSiteModal( this.page );
-			if ( customSiteName ) {
-				await modal.siteNameInput.fill( customSiteName );
-			}
-			await expect( modal.siteNameInput ).toHaveValue( /\S+/, { timeout: 5000 } );
-			const siteName = await modal.siteNameInput.inputValue();
-
-			if ( customFolderName ) {
-				await modal.selectLocalPathForTesting( customFolderName );
-			}
-			const localPath = await modal.localPathInput.inputValue();
-
-			await this.page.getByRole( 'button', { name: 'Continue' } ).click();
-
-			return {
-				siteName,
-				localPath,
-			};
+		if ( customSiteName ) {
+			await modal.siteNameInput.fill( customSiteName );
 		}
+		await expect( modal.siteNameInput ).toHaveValue( /\S+/, { timeout: 5000 } );
+		const siteName = await modal.siteNameInput.inputValue();
+
+		if ( customFolderName ) {
+			await modal.selectLocalPathForTesting( customFolderName );
+		}
+		const localPath = await modal.localPathInput.inputValue();
+
+		await modal.continueButton.click();
+
+		return {
+			siteName,
+			localPath,
+		};
 	}
 }

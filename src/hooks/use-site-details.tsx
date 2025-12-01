@@ -446,6 +446,17 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		};
 	}, [ autoStartSites ] );
 
+	useEffect( () => {
+		const unsubscribe = window.ipcListener.subscribe( 'user-data-updated', async () => {
+			const updatedSites = await getIpcApi().getSiteDetails();
+			setData( updatedSites );
+		} );
+
+		return () => {
+			unsubscribe();
+		};
+	}, [] );
+
 	const stopServer = useCallback(
 		async ( id: string ) => {
 			toggleLoadingServerForSite( id );

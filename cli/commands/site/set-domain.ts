@@ -2,13 +2,7 @@ import { __, _n } from '@wordpress/i18n';
 import { getDomainNameValidationError } from 'common/lib/domains';
 import { arePathsEqual } from 'common/lib/fs-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import {
-	getSiteByFolder,
-	lockAppdata,
-	readAppdata,
-	saveAppdata,
-	unlockAppdata,
-} from 'cli/lib/appdata';
+import { lockAppdata, readAppdata, saveAppdata, SiteData, unlockAppdata } from 'cli/lib/appdata';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { setupCustomDomain } from 'cli/lib/site-utils';
@@ -24,41 +18,42 @@ export async function runCommand( sitePath: string, domainName: string ): Promis
 	const logger = new Logger< LoggerAction >();
 
 	try {
-		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
-		const site = await getSiteByFolder( sitePath, false );
-		logger.reportSuccess( __( 'Site loaded' ) );
+		let site: SiteData;
+		let oldDomainName: string | undefined;
 
 		try {
 			await lockAppdata();
 			const appdata = await readAppdata();
 
-			const existingDomains = appdata.sites
+			const foundSite = appdata.sites.find( ( site ) => arePathsEqual( site.path, sitePath ) );
+			if ( ! foundSite ) {
+				throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );
+			}
+
+			site = foundSite;
+			const existingDomainNames = appdata.sites
 				.map( ( site ) => site.customDomain )
 				.filter( ( domain ): domain is string => Boolean( domain ) );
-			const domainError = getDomainNameValidationError( true, domainName, existingDomains );
+			const domainError = getDomainNameValidationError( true, domainName, existingDomainNames );
 
 			if ( domainError ) {
 				throw new LoggerError( domainError );
 			}
 
-			const site = appdata.sites.find( ( site ) => arePathsEqual( site.path, sitePath ) );
-			if ( ! site ) {
-				throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );
-			}
-			const oldDomainName = site.customDomain;
+			oldDomainName = site.customDomain;
 			site.customDomain = domainName;
 			await saveAppdata( appdata );
-
-			if ( oldDomainName ) {
-				logger.reportStart(
-					LoggerAction.REMOVE_DOMAIN_FROM_HOSTS,
-					__( 'Removing domain from hosts file...' )
-				);
-				await removeDomainFromHosts( oldDomainName );
-				logger.reportSuccess( __( 'Domain removed from hosts file' ) );
-			}
 		} finally {
 			await unlockAppdata();
+		}
+
+		if ( oldDomainName ) {
+			logger.reportStart(
+				LoggerAction.REMOVE_DOMAIN_FROM_HOSTS,
+				__( 'Removing domain from hosts file...' )
+			);
+			await removeDomainFromHosts( oldDomainName );
+			logger.reportSuccess( __( 'Domain removed from hosts file' ) );
 		}
 
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );

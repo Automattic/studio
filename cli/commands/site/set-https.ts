@@ -6,6 +6,7 @@ import {
 	lockAppdata,
 	readAppdata,
 	saveAppdata,
+	SiteData,
 	unlockAppdata,
 } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
@@ -21,38 +22,40 @@ export async function runCommand( sitePath: string, enableHttps: boolean ): Prom
 	const logger = new Logger< LoggerAction >();
 
 	try {
-		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
-		const site = await getSiteByFolder( sitePath, false );
-		logger.reportSuccess( __( 'Site loaded' ) );
-
-		if ( ! site.customDomain ) {
-			throw new LoggerError( __( 'Site does not have a custom domain.' ) );
-		}
-
-		if ( site.enableHttps === enableHttps ) {
-			if ( enableHttps ) {
-				throw new LoggerError( __( 'HTTPS is already enabled for this site.' ) );
-			} else {
-				throw new LoggerError( __( 'HTTPS is already disabled for this site.' ) );
-			}
-		}
-
-		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
-		await connect();
-		logger.reportSuccess( __( 'Process daemon started' ) );
+		let site: SiteData;
 
 		try {
 			await lockAppdata();
 			const appdata = await readAppdata();
-			const site = appdata.sites.find( ( site ) => arePathsEqual( site.path, sitePath ) );
-			if ( ! site ) {
+
+			const foundSite = appdata.sites.find( ( site ) => arePathsEqual( site.path, sitePath ) );
+			if ( ! foundSite ) {
 				throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );
 			}
+
+			site = foundSite;
+
+			if ( ! site.customDomain ) {
+				throw new LoggerError( __( 'Site does not have a custom domain.' ) );
+			}
+
+			if ( site.enableHttps === enableHttps ) {
+				if ( enableHttps ) {
+					throw new LoggerError( __( 'HTTPS is already enabled for this site.' ) );
+				} else {
+					throw new LoggerError( __( 'HTTPS is already disabled for this site.' ) );
+				}
+			}
+
 			site.enableHttps = enableHttps;
 			await saveAppdata( appdata );
 		} finally {
 			await unlockAppdata();
 		}
+
+		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
+		await connect();
+		logger.reportSuccess( __( 'Process daemon started' ) );
 
 		const runningProcess = await isServerRunning( site.id );
 

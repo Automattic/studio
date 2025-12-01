@@ -1,12 +1,5 @@
 import { arePathsEqual } from 'common/lib/fs-utils';
-import {
-	SiteData,
-	getSiteByFolder,
-	lockAppdata,
-	readAppdata,
-	saveAppdata,
-	unlockAppdata,
-} from 'cli/lib/appdata';
+import { SiteData, lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
 import { addDomainToHosts, removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import {
@@ -18,7 +11,6 @@ import { Logger, LoggerError } from 'cli/logger';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
-	getSiteByFolder: jest.fn(),
 	lockAppdata: jest.fn(),
 	readAppdata: jest.fn(),
 	saveAppdata: jest.fn(),
@@ -69,7 +61,6 @@ describe( 'Site Set-Domain Command', () => {
 
 		( Logger as jest.Mock ).mockReturnValue( mockLogger );
 
-		( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSiteData );
 		( connect as jest.Mock ).mockResolvedValue( undefined );
 		( disconnect as jest.Mock ).mockReturnValue( undefined );
 		( lockAppdata as jest.Mock ).mockResolvedValue( undefined );

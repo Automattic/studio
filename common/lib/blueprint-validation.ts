@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { compileBlueprint } from '@wp-playground/blueprints';
+import { z } from 'zod';
 
 interface UnsupportedFeature {
 	type: 'step' | 'property';
@@ -136,15 +137,29 @@ export type BlueprintValidationResult = BlueprintValidationError | BlueprintVali
  * Validates a blueprint by compiling it and scanning for unsupported features.
  */
 export async function validateBlueprintData(
-	blueprintJson: BlueprintData
+	blueprintJson: unknown
 ): Promise< BlueprintValidationResult > {
 	// Temporarily suppress console.warn during blueprint compilation
 	// to avoid noisy deprecation warnings from @wp-playground/blueprints
 	const originalWarn = console.warn;
 	console.warn = () => {};
 
+	const schema = z.record( z.string(), z.any() );
+
 	try {
-		await compileBlueprint( blueprintJson );
+		const result = schema.parse( blueprintJson );
+		await compileBlueprint( result );
+
+		const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( result );
+		const warnings = unsupportedFeatures.map( ( feature ) => ( {
+			feature: feature.name,
+			reason: feature.reason,
+		} ) );
+
+		return {
+			valid: true,
+			warnings,
+		};
 	} catch ( error ) {
 		const errorMessage = error instanceof Error ? error.message : __( 'Invalid Blueprint format' );
 		return {
@@ -154,16 +169,4 @@ export async function validateBlueprintData(
 	} finally {
 		console.warn = originalWarn;
 	}
-
-	const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson );
-
-	const warnings = unsupportedFeatures.map( ( feature ) => ( {
-		feature: feature.name,
-		reason: feature.reason,
-	} ) );
-
-	return {
-		valid: true,
-		warnings,
-	};
 }

@@ -1,7 +1,6 @@
-import fs from 'fs';
+import { Blueprint } from '@wp-playground/blueprints';
 import {
 	filterUnsupportedBlueprintFeatures,
-	scanBlueprintForUnsupportedFeatures,
 	validateBlueprintData,
 } from 'common/lib/blueprint-validation';
 import { isEmptyDir, isWordPressDirectory, pathExists, arePathsEqual } from 'common/lib/fs-utils';
@@ -66,16 +65,12 @@ describe( 'Site Create Command', () => {
 
 	let consoleLogSpy: jest.SpyInstance;
 	let fsMkdirSyncSpy: jest.SpyInstance;
-	let fsExistsSyncSpy: jest.SpyInstance;
-	let fsReadFileSyncSpy: jest.SpyInstance;
 
 	beforeEach( () => {
 		jest.clearAllMocks();
 
 		consoleLogSpy = jest.spyOn( console, 'log' ).mockImplementation();
-		fsMkdirSyncSpy = jest.spyOn( fs, 'mkdirSync' ).mockReturnValue( undefined );
-		fsExistsSyncSpy = jest.spyOn( fs, 'existsSync' ).mockReturnValue( false );
-		fsReadFileSyncSpy = jest.spyOn( fs, 'readFileSync' ).mockReturnValue( '{}' );
+		fsMkdirSyncSpy = jest.spyOn( require( 'fs' ), 'mkdirSync' ).mockReturnValue( undefined );
 		( pathExists as jest.Mock ).mockResolvedValue( false );
 		( isEmptyDir as jest.Mock ).mockResolvedValue( true );
 		( isWordPressDirectory as jest.Mock ).mockReturnValue( false );
@@ -98,7 +93,6 @@ describe( 'Site Create Command', () => {
 		( logSiteDetails as jest.Mock ).mockImplementation( () => {} );
 		( openSiteInBrowser as jest.Mock ).mockResolvedValue( undefined );
 		( validateBlueprintData as jest.Mock ).mockResolvedValue( { valid: true, warnings: [] } );
-		( scanBlueprintForUnsupportedFeatures as jest.Mock ).mockReturnValue( [] );
 		( filterUnsupportedBlueprintFeatures as jest.Mock ).mockImplementation(
 			( blueprint ) => blueprint
 		);
@@ -216,46 +210,7 @@ describe( 'Site Create Command', () => {
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
-		it( 'should error if blueprint file does not exist', async () => {
-			fsExistsSyncSpy.mockReturnValue( false );
-
-			const { runCommand } = await import( '../create' );
-
-			await expect(
-				runCommand( mockSitePath, {
-					wpVersion: 'latest',
-					phpVersion: '8.0',
-					blueprint: '/path/to/nonexistent/blueprint.json',
-					enableHttps: false,
-					noStart: false,
-				} )
-			).rejects.toThrow( 'Blueprint file not found' );
-
-			expect( disconnect ).toHaveBeenCalled();
-		} );
-
-		it( 'should error if blueprint file contains invalid JSON', async () => {
-			fsExistsSyncSpy.mockReturnValue( true );
-			fsReadFileSyncSpy.mockReturnValue( 'invalid json' );
-
-			const { runCommand } = await import( '../create' );
-
-			await expect(
-				runCommand( mockSitePath, {
-					wpVersion: 'latest',
-					phpVersion: '8.0',
-					blueprint: '/path/to/blueprint.json',
-					enableHttps: false,
-					noStart: false,
-				} )
-			).rejects.toThrow( 'Invalid blueprint JSON file' );
-
-			expect( disconnect ).toHaveBeenCalled();
-		} );
-
 		it( 'should error if blueprint validation fails', async () => {
-			fsExistsSyncSpy.mockReturnValue( true );
-			fsReadFileSyncSpy.mockReturnValue( '{}' );
 			( validateBlueprintData as jest.Mock ).mockResolvedValue( {
 				valid: false,
 				error: 'Invalid blueprint',
@@ -267,15 +222,13 @@ describe( 'Site Create Command', () => {
 				runCommand( mockSitePath, {
 					wpVersion: 'latest',
 					phpVersion: '8.0',
-					blueprint: '/path/to/blueprint.json',
+					blueprintJson: {},
 					enableHttps: false,
 					noStart: false,
 				} )
 			).rejects.toThrow( 'Invalid blueprint' );
 
 			expect( disconnect ).toHaveBeenCalled();
-			fsExistsSyncSpy.mockReturnValue( false );
-			fsReadFileSyncSpy.mockReturnValue( '{}' );
 		} );
 
 		it( 'should error if SQLite integration is not available', async () => {
@@ -516,14 +469,9 @@ describe( 'Site Create Command', () => {
 	} );
 
 	describe( 'Blueprint Handling', () => {
-		beforeEach( () => {
-			fsExistsSyncSpy.mockReturnValue( true );
-			fsReadFileSyncSpy.mockReturnValue(
-				JSON.stringify( {
-					steps: [ { step: 'installPlugin', pluginData: { slug: 'akismet' } } ],
-				} )
-			);
-		} );
+		const testBlueprint: Blueprint = {
+			steps: [ { step: 'installPlugin', pluginData: { slug: 'akismet' } } ],
+		};
 
 		it( 'should apply blueprint when provided', async () => {
 			const { runCommand } = await import( '../create' );
@@ -531,13 +479,11 @@ describe( 'Site Create Command', () => {
 			await runCommand( mockSitePath, {
 				wpVersion: 'latest',
 				phpVersion: '8.0',
-				blueprint: '/path/to/blueprint.json',
+				blueprintJson: testBlueprint,
 				enableHttps: false,
 				noStart: false,
 			} );
 
-			expect( fsExistsSyncSpy ).toHaveBeenCalledWith( '/path/to/blueprint.json' );
-			expect( fsReadFileSyncSpy ).toHaveBeenCalledWith( '/path/to/blueprint.json', 'utf-8' );
 			expect( validateBlueprintData ).toHaveBeenCalled();
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
@@ -554,7 +500,7 @@ describe( 'Site Create Command', () => {
 				name: 'My Site',
 				wpVersion: 'latest',
 				phpVersion: '8.0',
-				blueprint: '/path/to/blueprint.json',
+				blueprintJson: testBlueprint,
 				enableHttps: false,
 				noStart: false,
 			} );
@@ -575,20 +521,23 @@ describe( 'Site Create Command', () => {
 		} );
 
 		it( 'should warn about unsupported blueprint features', async () => {
-			( scanBlueprintForUnsupportedFeatures as jest.Mock ).mockReturnValue( [
-				{
-					type: 'step',
-					name: 'login',
-					reason: 'Studio automatically creates and logs in the admin user',
-				},
-			] );
+			( validateBlueprintData as jest.Mock ).mockReturnValue( {
+				valid: true,
+				warnings: [
+					{
+						type: 'step',
+						name: 'login',
+						reason: 'Studio automatically creates and logs in the admin user',
+					},
+				],
+			} );
 
 			const { runCommand } = await import( '../create' );
 
 			await runCommand( mockSitePath, {
 				wpVersion: 'latest',
 				phpVersion: '8.0',
-				blueprint: '/path/to/blueprint.json',
+				blueprintJson: testBlueprint,
 				enableHttps: false,
 				noStart: false,
 			} );
@@ -615,15 +564,14 @@ describe( 'Site Create Command', () => {
 		} );
 
 		it( 'should apply blueprint without starting server when noStart is true', async () => {
-			fsExistsSyncSpy.mockReturnValue( true );
-			fsReadFileSyncSpy.mockReturnValue( JSON.stringify( { steps: [] } ) );
+			const testBlueprint: Blueprint = { steps: [] };
 
 			const { runCommand } = await import( '../create' );
 
 			await runCommand( mockSitePath, {
 				wpVersion: 'latest',
 				phpVersion: '8.0',
-				blueprint: '/path/to/blueprint.json',
+				blueprintJson: testBlueprint,
 				enableHttps: false,
 				noStart: true,
 			} );
@@ -654,8 +602,7 @@ describe( 'Site Create Command', () => {
 		} );
 
 		it( 'should handle blueprint application failure', async () => {
-			fsExistsSyncSpy.mockReturnValue( true );
-			fsReadFileSyncSpy.mockReturnValue( JSON.stringify( { steps: [] } ) );
+			const testBlueprint: Blueprint = { steps: [] };
 			( runBlueprint as jest.Mock ).mockRejectedValue( new Error( 'Blueprint failed' ) );
 
 			const { runCommand } = await import( '../create' );
@@ -663,7 +610,7 @@ describe( 'Site Create Command', () => {
 				runCommand( mockSitePath, {
 					wpVersion: 'latest',
 					phpVersion: '8.0',
-					blueprint: '/path/to/blueprint.json',
+					blueprintJson: testBlueprint,
 					enableHttps: false,
 					noStart: true,
 				} )

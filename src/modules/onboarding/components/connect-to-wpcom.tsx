@@ -30,8 +30,8 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 
 				<div>
 					{ [
-						__( 'Share preview sites with team members and clients.' ),
-						__( 'Seamless sync with WordPress.com and Pressable sites.' ),
+						__( 'Share preview sites with clients and team members.' ),
+						__( 'Seamlessly sync with WordPress.com and Pressable sites.' ),
 						__( 'Get help from Studio Assistant.' ),
 					].map( ( text ) => (
 						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
@@ -65,7 +65,7 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 					placement="bottom-start"
 				>
 					<span>
-						{ __( "Don't have a WordPress.com account?" ) }{ ' ' }
+						{ __( 'New to WordPress.com?' ) }{ ' ' }
 						<Button
 							aria-description={ isOffline ? offlineMessage : '' }
 							aria-disabled={ isOffline }

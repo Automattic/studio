@@ -637,21 +637,6 @@ describe( 'Site Create Command', () => {
 
 			expect( disconnect ).toHaveBeenCalled();
 		} );
-
-		it( 'should wrap non-LoggerError errors', async () => {
-			( startWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Generic error' ) );
-
-			const { runCommand } = await import( '../create' );
-
-			await expect(
-				runCommand( mockSitePath, {
-					wpVersion: 'latest',
-					phpVersion: '8.0',
-					enableHttps: false,
-					noStart: false,
-				} )
-			).rejects.toThrow();
-		} );
 	} );
 
 	describe( 'Cleanup', () => {

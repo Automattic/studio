@@ -41,7 +41,7 @@ export const PublishSiteButton = ( {
 			setSelectedTab( 'sync' );
 		}
 		if ( isAuthenticated && ! isUninitializedSyncSites ) {
-			// Refetch sites on the background but ignore errors
+			// Refetch sites in the background but ignore errors
 			void refetchWpComSites();
 		}
 		dispatch( connectedSitesActions.openModal( 'push' ) );

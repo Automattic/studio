@@ -1,6 +1,7 @@
 import { type Page } from '@playwright/test';
 import { expect } from '@playwright/test';
-import MainSidebar from './main-sidebar';
+import AddSiteModal from './add-site-modal';
+import WhatsNewModal from './whats-new-modal';
 
 export default class Onboarding {
 	constructor( private page: Page ) {}
@@ -20,8 +21,8 @@ export default class Onboarding {
 
 		await expect( this.heading ).toBeVisible();
 		await this.locator.getByRole( 'button', { name: 'Skip →' } ).click();
-		const sidebar = new MainSidebar( this.page );
-		const modal = await sidebar.openAddSiteModal();
+		const modal = new AddSiteModal( this.page );
+		await modal.open();
 		await modal.createSiteButton.click();
 
 		if ( customSiteName ) {
@@ -41,5 +42,12 @@ export default class Onboarding {
 			siteName,
 			localPath,
 		};
+	}
+
+	async closeWhatsNew() {
+		const whatsNewModal = new WhatsNewModal( this.page );
+		if ( await whatsNewModal.locator.isVisible( { timeout: 5000 } ) ) {
+			await whatsNewModal.closeButton.click();
+		}
 	}
 }

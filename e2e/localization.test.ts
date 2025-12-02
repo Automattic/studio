@@ -43,14 +43,9 @@ test.describe( 'Localization', () => {
 	test.beforeAll( async () => {
 		await session.launch();
 
-		// Complete onboarding before tests
 		const onboarding = new Onboarding( session.mainWindow );
 		await onboarding.completeOnboarding();
-
-		const whatsNewModal = new WhatsNewModal( session.mainWindow );
-		if ( await whatsNewModal.locator.isVisible( { timeout: 5000 } ) ) {
-			await whatsNewModal.closeButton.click();
-		}
+		await onboarding.closeWhatsNew();
 
 		const siteContent = new SiteContent( session.mainWindow, 'My WordPress Website' );
 		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
@@ -101,15 +96,7 @@ test.describe( 'Localization', () => {
 			// Onboarding not visible, continue with test
 		}
 
-		const whatsNewModal = new WhatsNewModal( session.mainWindow );
-		try {
-			const visible = await whatsNewModal.locator.isVisible( { timeout: 2000 } );
-			if ( visible ) {
-				await whatsNewModal.closeButton.click();
-			}
-		} catch ( error ) {
-			// What's New modal not visible, continue with test
-		}
+		await onboarding.closeWhatsNew();
 
 		const siteContent = new SiteContent( session.mainWindow, 'My WordPress Website' );
 		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );

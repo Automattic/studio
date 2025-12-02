@@ -75,6 +75,14 @@ function transformSingleSiteResponse(
 	};
 }
 
+/**
+ * Transforms the WordPress.com sites API response into SyncSite objects.
+ *
+ * @param sites - Raw site data from the WordPress.com API
+ * @param connectedSiteIds - IDs of sites already connected to the current local site.
+ *                           Used to: 1) keep deleted sites in the list if they're connected, and
+ *                           2) determine sync support status (already-connected vs syncable)
+ */
 function transformSitesResponse( sites: unknown[], connectedSiteIds: number[] ): SyncSite[] {
 	const validatedSites = sites.reduce< SitesEndpointSite[] >( ( acc, rawSite ) => {
 		try {
@@ -148,20 +156,17 @@ export const wpcomSitesApi = createApi( {
 
 					const parsedResponse = sitesEndpointResponseSchema.parse( response );
 
-					// First transformation using all connected sites (for reconciliation)
 					const syncSitesForReconciliation = transformSitesResponse(
 						parsedResponse.sites,
 						allConnectedSites.map( ( { id } ) => id )
 					);
 
-					// whenever array of syncSites changes, we need to update connectedSites to keep them updated with wordpress.com
 					const { updatedConnectedSites } = reconcileConnectedSites(
 						allConnectedSites,
 						syncSitesForReconciliation
 					);
 					await getIpcApi().updateConnectedWpcomSites( updatedConnectedSites );
 
-					// Second transformation using connectedSiteIds parameter (for syncSupport calculation for selected site)
 					const syncSitesForSelectedSite = transformSitesResponse(
 						parsedResponse.sites,
 						connectedSiteIds

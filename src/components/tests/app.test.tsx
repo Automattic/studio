@@ -54,7 +54,7 @@ jest.mock( 'src/stores/wordpress-versions-api', () => {
 	return {
 		...actual,
 		useGetWordPressVersions: jest.fn( () => ( {
-			data: [
+			sites: [
 				{ label: 'Latest', value: 'latest', isBeta: false, isDevelopment: false },
 				{ label: '6.4', value: '6.4', isBeta: false, isDevelopment: false },
 			],
@@ -68,7 +68,7 @@ jest.mock( 'src/stores/wpcom-api', () => {
 	return {
 		...actual,
 		useGetBlueprints: jest.fn( () => ( {
-			data: { blueprints: [], total: 0 },
+			sites: { blueprints: [], total: 0 },
 			isLoading: false,
 		} ) ),
 	};
@@ -114,7 +114,7 @@ describe( 'App', () => {
 			needsOnboarding: false,
 		} );
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			data: [],
+			sites: [],
 			loadingSites: false,
 			selectedSite: null,
 			snapshots: [],

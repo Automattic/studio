@@ -20,7 +20,7 @@ interface OnboardingProviderProps {
 }
 
 export const OnboardingProvider: React.FC< OnboardingProviderProps > = ( { children } ) => {
-	const { data, loadingSites } = useSiteDetails();
+	const { sites, loadingSites } = useSiteDetails();
 	const onboardingCompleted = useRootSelector( selectOnboardingCompleted );
 	const onboardingLoading = useRootSelector( selectOnboardingLoading );
 	const dispatch = useAppDispatch();
@@ -37,8 +37,8 @@ export const OnboardingProvider: React.FC< OnboardingProviderProps > = ( { child
 		}
 
 		// Show onboarding only if the user hasn't completed it and has no sites
-		return ! ( loadingSites || data.length > 0 || onboardingCompleted );
-	}, [ loadingSites, onboardingCompleted, onboardingLoading, data ] );
+		return ! ( loadingSites || sites.length > 0 || onboardingCompleted );
+	}, [ loadingSites, onboardingCompleted, onboardingLoading, sites ] );
 
 	const contextValue = useMemo(
 		() => ( {

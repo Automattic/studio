@@ -189,7 +189,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 }
 
 export default function SiteMenu( { className }: SiteMenuProps ) {
-	const { data, selectedSite, setSelectedSiteId, startServer, stopServer, setIsEditModalOpen } =
+	const { sites, selectedSite, setSelectedSiteId, startServer, stopServer, setIsEditModalOpen } =
 		useSiteDetails();
 	const { setSelectedTab } = useContentTabs();
 	const { handleDeleteSite } = useDeleteSite();
@@ -199,7 +199,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		const unsubscribe = window.ipcListener.subscribe(
 			'site-context-menu-action',
 			async ( _, actionData: { action: string; siteId: string } ) => {
-				const site = data.find( ( site ) => site.id === actionData.siteId );
+				const site = sites.find( ( site ) => site.id === actionData.siteId );
 				if ( ! site ) {
 					return;
 				}
@@ -260,7 +260,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 			unsubscribe?.();
 		};
 	}, [
-		data,
+		sites,
 		editor,
 		selectedSite?.id,
 		setSelectedTab,
@@ -283,7 +283,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 			) }
 		>
 			<ul className="pt-px">
-				{ data.map( ( site ) => (
+				{ sites.map( ( site ) => (
 					<SiteItem key={ site.id } site={ site } />
 				) ) }
 			</ul>

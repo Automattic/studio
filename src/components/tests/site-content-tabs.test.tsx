@@ -42,7 +42,7 @@ jest.mock( 'src/stores/wordpress-versions-api', () => {
 	return {
 		...actual,
 		useGetWordPressVersions: jest.fn( () => ( {
-			data: [
+			sites: [
 				{ label: 'Latest', value: 'latest', isBeta: false, isDevelopment: false },
 				{ label: '6.4', value: '6.4', isBeta: false, isDevelopment: false },
 				{ label: '6.3', value: '6.3', isBeta: false, isDevelopment: false },
@@ -57,7 +57,7 @@ jest.mock( 'src/stores/wpcom-api', () => {
 	return {
 		...actual,
 		useGetBlueprints: jest.fn( () => ( {
-			data: { blueprints: [], total: 0 },
+			sites: { blueprints: [], total: 0 },
 			isLoading: false,
 		} ) ),
 	};
@@ -83,7 +83,7 @@ describe( 'SiteContentTabs', () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite,
 			snapshots: [],
-			data: [ selectedSite ],
+			sites: [ selectedSite ],
 			loadingServer: {},
 		} );
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
@@ -99,7 +99,7 @@ describe( 'SiteContentTabs', () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite,
 			snapshots: [],
-			data: [ selectedSite ],
+			sites: [ selectedSite ],
 			loadingServer: {},
 		} );
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );

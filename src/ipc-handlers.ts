@@ -214,10 +214,19 @@ export async function createSite(
 		customDomain?: string;
 		enableHttps?: boolean;
 		siteId?: string;
+		phpVersion?: string;
 		blueprint?: Blueprint;
 	} = {}
 ): Promise< SiteDetails > {
-	const { siteName, wpVersion, customDomain, enableHttps, siteId, blueprint } = config;
+	const {
+		siteName,
+		wpVersion,
+		customDomain,
+		enableHttps,
+		siteId,
+		blueprint,
+		phpVersion = getWordPressProvider().DEFAULT_PHP_VERSION,
+	} = config;
 
 	const forceSetupSqlite = false;
 
@@ -250,7 +259,7 @@ export async function createSite(
 		adminPassword: createPassword(),
 		port,
 		running: false,
-		phpVersion: getWordPressProvider().DEFAULT_PHP_VERSION,
+		phpVersion,
 		isWpAutoUpdating: wpVersion === getWordPressProvider().DEFAULT_WORDPRESS_VERSION,
 		customDomain,
 		enableHttps,

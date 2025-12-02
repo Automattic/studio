@@ -1,5 +1,6 @@
 import { type Page } from '@playwright/test';
-import SiteForm from './site-form';
+import { expect } from '@playwright/test';
+import MainSidebar from './main-sidebar';
 
 export default class Onboarding {
 	constructor( private page: Page ) {}
@@ -8,27 +9,37 @@ export default class Onboarding {
 		return this.page.getByTestId( 'onboarding' );
 	}
 
-	private get siteForm() {
-		return new SiteForm( this.page );
-	}
-
 	get heading() {
-		return this.locator.getByRole( 'heading', { name: 'Add your first site' } );
+		return this.locator.getByRole( 'heading', {
+			name: /Connect to your WordPress.com account|Connect your WordPress.com account/,
+		} );
 	}
 
-	get siteNameInput() {
-		return this.siteForm.siteNameInput;
-	}
+	async completeOnboarding( options?: { customSiteName?: string; customFolderName?: string } ) {
+		const { customSiteName, customFolderName } = options ?? {};
 
-	get localPathInput() {
-		return this.siteForm.localPathInput;
-	}
+		await expect( this.heading ).toBeVisible();
+		await this.locator.getByRole( 'button', { name: 'Skip →' } ).click();
+		const sidebar = new MainSidebar( this.page );
+		const modal = await sidebar.openAddSiteModal();
+		await modal.createSiteButton.click();
 
-	get continueButton() {
-		return this.locator.getByRole( 'button', { name: /Continue|Add site/ } );
-	}
+		if ( customSiteName ) {
+			await modal.siteNameInput.fill( customSiteName );
+		}
+		await expect( modal.siteNameInput ).toHaveValue( /\S+/, { timeout: 5000 } );
+		const siteName = await modal.siteNameInput.inputValue();
 
-	async selectLocalPathForTesting( partialExpectedPath: string ) {
-		await this.siteForm.clickLocalPathButtonAndSelectFromEnv( partialExpectedPath );
+		if ( customFolderName ) {
+			await modal.selectLocalPathForTesting( customFolderName );
+		}
+		const localPath = await modal.localPathInput.inputValue();
+
+		await modal.continueButton.click();
+
+		return {
+			siteName,
+			localPath,
+		};
 	}
 }

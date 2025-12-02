@@ -40,7 +40,7 @@ test.describe( 'Startup Metrics', () => {
 			const onboarding = new Onboarding( session.mainWindow );
 			await expect( onboarding.heading ).toBeVisible();
 			const startTime = Date.now();
-			await onboarding.continueButton.click();
+			await onboarding.completeOnboarding();
 
 			// Handle the What's New modal if it appears
 			const whatsNewModal = new WhatsNewModal( session.mainWindow );

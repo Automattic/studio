@@ -1,5 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import fastDeepEqual from 'fast-deep-equal';
 import {
 	ReactNode,
 	createContext,
@@ -23,7 +22,7 @@ import type { Blueprint } from 'src/stores/wpcom-api';
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
 	updateSite: ( site: SiteDetails ) => Promise< void >;
-	data: SiteDetails[];
+	sites: SiteDetails[];
 	setSelectedSiteId: ( selectedSiteId: string ) => void;
 	createSite: (
 		path: string,
@@ -32,6 +31,7 @@ interface SiteDetailsContext {
 		customDomain?: string,
 		enableHttps?: boolean,
 		blueprint?: Blueprint,
+		phpVersion?: string,
 		callback?: ( site: SiteDetails ) => Promise< void >
 	) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
@@ -51,7 +51,7 @@ interface SiteDetailsContext {
 const defaultContext: SiteDetailsContext = {
 	selectedSite: null,
 	updateSite: async () => undefined,
-	data: [],
+	sites: [],
 	siteCreationMessages: {},
 	setSelectedSiteId: () => undefined,
 	createSite: async () => undefined,
@@ -158,13 +158,12 @@ function useDeleteSite() {
 export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const { Provider } = siteDetailsContext;
 
-	const [ data, setData ] = useState< SiteDetails[] >( [] );
+	const [ sites, setSites ] = useState< SiteDetails[] >( [] );
 	const [ loadingSites, setLoadingSites ] = useState< boolean >( true );
-	const [ addingSiteIds, setAddingSiteIds ] = useState< string[] >( [] );
 	const [ siteCreationMessages, setSiteCreationMessages ] = useState< {
 		[ siteId: string ]: string;
 	} >( {} );
-	const firstSite = data[ 0 ] || null;
+	const firstSite = sites[ 0 ] || null;
 	const [ loadingServer, setLoadingServer ] = useState< Record< string, boolean > >(
 		firstSite?.id
 			? {
@@ -197,7 +196,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		async ( id: string, removeLocal: boolean ) => {
 			await deleteSite( id, removeLocal );
 			const newSites = await getIpcApi().getSiteDetails();
-			setData( newSites );
+			setSites( newSites );
 			const selectedSite = newSites.length ? newSites[ 0 ].id : '';
 			setSelectedSiteId( selectedSite );
 			if ( selectedTab !== 'overview' ) {
@@ -215,6 +214,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			customDomain?: string,
 			enableHttps?: boolean,
 			blueprint?: Blueprint,
+			phpVersion?: string,
 			callback?: ( site: SiteDetails ) => Promise< void >
 		) => {
 			// Function to handle error messages and cleanup
@@ -256,16 +256,14 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 				// Remove the temporary site immediately, but with a minor delay to ensure state updates properly
 				setTimeout( () => {
-					setAddingSiteIds( ( prev ) => prev.filter( ( id ) => id !== tempSiteId ) );
-					setData( ( prevData ) =>
+					setSites( ( prevData ) =>
 						sortSites( prevData.filter( ( site ) => site.id !== tempSiteId ) )
 					);
 				}, 2000 );
 			};
 
 			const tempSiteId = crypto.randomUUID();
-			setAddingSiteIds( ( prev ) => [ ...prev, tempSiteId ] );
-			setData( ( prevData ) =>
+			setSites( ( prevData ) =>
 				sortSites( [
 					...prevData,
 					{
@@ -289,16 +287,13 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					customDomain,
 					enableHttps,
 					siteId: tempSiteId,
+					phpVersion,
 					blueprint,
 				} );
 				if ( ! newSite ) {
 					showError( undefined, !! blueprint );
 					return;
 				}
-				setAddingSiteIds( ( prev ) => {
-					prev.push( newSite.id );
-					return prev;
-				} );
 				// Update the selected site to the new site's ID if the user didn't change it
 				setSelectedSiteId( ( prevSelectedSiteId ) => {
 					if ( prevSelectedSiteId === tempSiteId ) {
@@ -309,8 +304,13 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					}
 					return prevSelectedSiteId;
 				} );
-				setData( ( prevData ) =>
-					prevData.map( ( site ) => ( site.id === tempSiteId ? newSite : site ) )
+				setSites( ( prevData ) =>
+					prevData.map( ( site ) => {
+						if ( site.id === newSite.id ) {
+							return { ...newSite, isAddingSite: true };
+						}
+						return site;
+					} )
 				);
 
 				setSiteCreationMessages( ( prev ) => {
@@ -322,13 +322,18 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					await callback( newSite );
 				}
 
+				setSites( ( prevData ) =>
+					prevData.map( ( site ) => {
+						if ( site.id === newSite.id ) {
+							return { ...site, isAddingSite: false };
+						}
+						return site;
+					} )
+				);
+
 				return newSite;
 			} catch ( error ) {
 				showError( error, !! blueprint );
-			} finally {
-				setAddingSiteIds( ( prev ) =>
-					prev.filter( ( id ) => id !== tempSiteId && id !== newSite?.id )
-				);
 			}
 		},
 		[ selectedTab, setSelectedSiteId, setSelectedTab ]
@@ -337,7 +342,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const updateSite = useCallback( async ( site: SiteDetails ) => {
 		await getIpcApi().updateSite( site );
 		const updatedSites = await getIpcApi().getSiteDetails();
-		setData( updatedSites );
+		setSites( updatedSites );
 	}, [] );
 
 	const startServer = useCallback(
@@ -402,7 +407,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			}
 
 			if ( updatedSite ) {
-				setData( ( prevData ) =>
+				setSites( ( prevData ) =>
 					prevData.map( ( site ) =>
 						site.id === id && updatedSite ? { ...site, ...updatedSite } : site
 					)
@@ -426,40 +431,13 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	);
 
 	useEffect( () => {
-		const unsubscribe = window.ipcListener.subscribe( 'user-data-updated', async ( _, payload ) => {
-			if ( ! fastDeepEqual( payload.newSites, payload.sites ) ) {
-				const updatedSites = await getIpcApi().getSiteDetails();
-				setData( ( prevData ) => {
-					const tempSite = prevData.find( ( site ) => addingSiteIds.includes( site.id ) );
-
-					if ( ! tempSite ) {
-						return updatedSites;
-					}
-
-					const tempSiteExists = updatedSites.some( ( site ) => site.id === tempSite.id );
-
-					if ( ! tempSiteExists ) {
-						return sortSites( [ ...updatedSites, tempSite ] );
-					}
-
-					return updatedSites;
-				} );
-			}
-		} );
-
-		return () => {
-			unsubscribe();
-		};
-	}, [ addingSiteIds ] );
-
-	useEffect( () => {
 		let cancel = false;
 		setLoadingSites( true );
 		getIpcApi()
 			.getSiteDetails()
 			.then( async ( data ) => {
 				if ( ! cancel ) {
-					setData( data );
+					setSites( data );
 					setLoadingSites( false );
 					autoStartSites( data );
 				}
@@ -479,7 +457,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			toggleLoadingServerForSite( id );
 			const updatedSite = await getIpcApi().stopServer( id );
 			if ( updatedSite ) {
-				setData( ( prevData ) =>
+				setSites( ( prevData ) =>
 					prevData.map( ( site ) => ( site.id === id ? { ...site, ...updatedSite } : site ) )
 				);
 			}
@@ -489,26 +467,20 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	);
 
 	const stopAllRunningSites = useCallback( async () => {
-		const runningSites = data.filter( ( site ) => site.running );
+		const runningSites = sites.filter( ( site ) => site.running );
 		for ( const site of runningSites ) {
 			await getIpcApi().stopServer( site.id );
 		}
-		setData( data.map( ( site ) => ( site.running ? { ...site, running: false } : site ) ) );
-	}, [ data ] );
+		setSites( sites.map( ( site ) => ( site.running ? { ...site, running: false } : site ) ) );
+	}, [ sites ] );
 
 	const [ isEditModalOpen, setIsEditModalOpen ] = useState( false );
-	const selectedSite = useMemo( () => {
-		const site = data.find( ( site ) => site.id === selectedSiteId ) || firstSite;
-		if ( addingSiteIds.includes( site?.id ) ) {
-			site.isAddingSite = true;
-		}
-		return site;
-	}, [ addingSiteIds, data, firstSite, selectedSiteId ] );
+	const selectedSite = sites.find( ( site ) => site.id === selectedSiteId ) || firstSite;
 
 	const context = useMemo(
 		() => ( {
 			selectedSite,
-			data,
+			sites,
 			setSelectedSiteId,
 			createSite,
 			updateSite,
@@ -527,7 +499,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		} ),
 		[
 			selectedSite,
-			data,
+			sites,
 			setSelectedSiteId,
 			createSite,
 			updateSite,

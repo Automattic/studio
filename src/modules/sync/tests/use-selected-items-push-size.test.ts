@@ -22,6 +22,11 @@ const createMockTreeState = (
 		allSelected = false,
 	} = options;
 
+	const wpContentIndeterminate =
+		! filesAndFoldersSelected &&
+		! allSelected &&
+		( options.pluginsSelected || options.themesSelected || options.uploadsSelected );
+
 	return [
 		{
 			id: 'filesAndFolders',
@@ -37,7 +42,7 @@ const createMockTreeState = (
 					name: 'wp-content',
 					label: 'wp-content',
 					checked: allSelected || filesAndFoldersSelected,
-					indeterminate: false,
+					indeterminate: wpContentIndeterminate,
 					type: 'folder',
 					children: [
 						{
@@ -151,7 +156,10 @@ describe( 'useSelectedItemsPushSize Hook Tests', () => {
 				getDirectorySize: mockGetDirectorySize,
 			} );
 
-			const treeState = createMockTreeState( { pluginsSelected: true, themesSelected: true } );
+			const treeState = createMockTreeState( {
+				pluginsSelected: true,
+				themesSelected: true,
+			} );
 
 			const { result } = renderHook( () =>
 				useSelectedItemsPushSize( mockSiteId, treeState, 'push' )

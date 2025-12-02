@@ -20,15 +20,15 @@ import { StudioArgv } from 'cli/types';
 
 const ALLOWED_PHP_VERSIONS = [ ...SupportedPHPVersions ];
 
+const logger = new Logger< LoggerAction >();
+
 export async function runCommand(
 	sitePath: string,
 	phpVersion: ( typeof ALLOWED_PHP_VERSIONS )[ number ]
 ): Promise< void > {
-	const logger = new Logger< LoggerAction >();
-
 	try {
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
-		const site = await getSiteByFolder( sitePath, false );
+		const site = await getSiteByFolder( sitePath );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
 		if ( site.phpVersion === phpVersion ) {
@@ -60,13 +60,6 @@ export async function runCommand(
 			await startWordPressServer( site );
 			logger.reportSuccess( __( 'Site restarted' ) );
 		}
-	} catch ( error ) {
-		if ( error instanceof LoggerError ) {
-			logger.reportError( error );
-		} else {
-			const loggerError = new LoggerError( __( 'Failed to start site infrastructure' ), error );
-			logger.reportError( loggerError );
-		}
 	} finally {
 		disconnect();
 	}
@@ -85,7 +78,16 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path, argv.phpVersion );
+			try {
+				await runCommand( argv.path, argv.phpVersion );
+			} catch ( error ) {
+				if ( error instanceof LoggerError ) {
+					logger.reportError( error );
+				} else {
+					const loggerError = new LoggerError( __( 'Failed to start site infrastructure' ), error );
+					logger.reportError( loggerError );
+				}
+			}
 		},
 	} );
 };

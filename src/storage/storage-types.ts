@@ -31,7 +31,6 @@ export interface UserData {
 	lastSeenVersion?: string;
 	preferredTerminal?: SupportedTerminal;
 	preferredEditor?: SupportedEditor;
-	newSites?: NewSiteDetails[];
 	betaFeatures?: BetaFeatures;
 }
 

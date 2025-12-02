@@ -39,8 +39,6 @@ interface StartedSiteDetails extends StoppedSiteDetails {
 
 type SiteDetails = StartedSiteDetails | StoppedSiteDetails;
 
-type NewSiteDetails = Pick< SiteDetails, 'id' | 'path' | 'name' >;
-
 type InstalledApps = {
 	vscode: boolean;
 	phpstorm: boolean;
@@ -87,7 +85,6 @@ interface FeatureFlags {
 interface BetaFeatures {
 	studioSitesCli: boolean;
 	multiWorkerSupport: boolean;
-	createSiteFromRemote: boolean;
 }
 
 interface AppGlobals extends FeatureFlags {

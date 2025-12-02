@@ -143,7 +143,7 @@ export function PullRemoteSite( {
 	};
 
 	return (
-		<VStack className="w-full" alignment="top" spacing="3">
+		<VStack className="w-full" alignment="top" spacing={ isAuthenticated ? 3 : 1 }>
 			<Heading className="text-center text-[32px] text-gray-900" weight={ 500 }>
 				{ __( 'Pull your remote site' ) }
 			</Heading>

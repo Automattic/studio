@@ -11,7 +11,6 @@ import {
 	connectedSitesActions,
 	useGetConnectedSitesForLocalSiteQuery,
 } from 'src/stores/sync/connected-sites';
-import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 
 export const PublishSiteButton = ( {
 	redirectToSync = true,
@@ -21,35 +20,21 @@ export const PublishSiteButton = ( {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
 	const { setSelectedTab } = useContentTabs();
-	const { user, isAuthenticated } = useAuth();
+	const { user } = useAuth();
 	const { selectedSite } = useSiteDetails();
 	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
 		localSiteId: selectedSite?.id,
 		userId: user?.id,
 	} );
 	const { isAnySitePulling, isAnySitePushing } = useSyncSites();
-	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
-	const { isUninitialized: isUninitializedSyncSites, refetch: refetchWpComSites } =
-		useGetWpComSitesQuery( { connectedSiteIds, userId: user?.id } );
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 
 	const handlePublishClick = useCallback( () => {
 		if ( redirectToSync ) {
 			setSelectedTab( 'sync' );
 		}
-		if ( isAuthenticated && ! isUninitializedSyncSites ) {
-			// Refetch sites in the background but ignore errors
-			void refetchWpComSites();
-		}
 		dispatch( connectedSitesActions.openModal( 'push' ) );
-	}, [
-		redirectToSync,
-		setSelectedTab,
-		dispatch,
-		isAuthenticated,
-		isUninitializedSyncSites,
-		refetchWpComSites,
-	] );
+	}, [ redirectToSync, setSelectedTab, dispatch ] );
 
 	// Don't show the button if there are already connected sites
 	// (only when redirectToSync is true, meaning it's used outside the sync tab)

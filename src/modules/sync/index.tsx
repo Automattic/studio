@@ -1,6 +1,6 @@
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useCallback, useState } from 'react';
+import { PropsWithChildren, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
@@ -12,7 +12,6 @@ import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
-import { NoWpcomSitesModal } from 'src/modules/sync/components/no-wpcom-sites-modal';
 import { SyncConnectedSites } from 'src/modules/sync/components/sync-connected-sites';
 import { SyncDialog } from 'src/modules/sync/components/sync-dialog';
 import { SyncSitesModalSelector } from 'src/modules/sync/components/sync-sites-modal-selector';
@@ -30,7 +29,7 @@ import {
 	useGetConnectedSitesForLocalSiteQuery,
 } from 'src/stores/sync/connected-sites';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
-import type { SyncSite, SyncModalMode } from 'src/modules/sync/types';
+import type { SyncSite } from 'src/modules/sync/types';
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();
@@ -141,25 +140,10 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const { pushSite, pullSite, isAnySitePulling, isAnySitePushing } = useSyncSites();
 
 	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
-	const {
-		data: syncSites = [],
-		isLoading: isLoadingSyncSites,
-		isSuccess: isSuccessSyncSites,
-		isUninitialized: isUninitializedSyncSites,
-		refetch: refetchWpComSites,
-	} = useGetWpComSitesQuery( { connectedSiteIds, userId: user?.id } );
-
-	// Helper function to open modal and refetch sites to check for newly created sites
-	const handleOpenModal = useCallback(
-		( mode: SyncModalMode ) => {
-			if ( isAuthenticated && ! isUninitializedSyncSites ) {
-				// Refetch sites on the background but ignore errors
-				void refetchWpComSites();
-			}
-			dispatch( connectedSitesActions.openModal( mode ) );
-		},
-		[ dispatch, isAuthenticated, isUninitializedSyncSites, refetchWpComSites ]
-	);
+	const { data: syncSites = [] } = useGetWpComSitesQuery( {
+		connectedSiteIds,
+		userId: user?.id,
+	} );
 
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 	const { streamlineOnboarding } = useFeatureFlags();
@@ -181,7 +165,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		}
 	};
 
-	const handleSiteSelection = async ( siteId: number, mode: SyncModalMode | null ) => {
+	const handleSiteSelection = async ( siteId: number ) => {
 		const selectedSiteFromList = syncSites.find( ( site ) => site.id === siteId );
 		if ( ! selectedSiteFromList ) {
 			getIpcApi().showErrorMessageBox( {
@@ -191,8 +175,8 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			return;
 		}
 
-		if ( mode === 'push' || mode === 'pull' ) {
-			handleOpenModal( mode );
+		if ( reduxModalMode === 'push' || reduxModalMode === 'pull' ) {
+			dispatch( connectedSitesActions.openModal( reduxModalMode ) );
 			setSelectedRemoteSite( selectedSiteFromList );
 		} else {
 			await handleConnect( selectedSiteFromList );
@@ -212,7 +196,10 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 						}
 					/>
 					<div className="sticky bottom-0 bg-white/[0.8] backdrop-blur-sm w-full px-8 py-6 mt-auto">
-						<ConnectButton variant="primary" connectSite={ () => handleOpenModal( 'connect' ) }>
+						<ConnectButton
+							variant="primary"
+							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
+						>
 							{ __( 'Connect another site' ) }
 						</ConnectButton>
 					</div>
@@ -224,7 +211,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							<PublishSiteButton redirectToSync={ false } />
 							<ConnectButton
 								variant="secondary"
-								connectSite={ () => handleOpenModal( 'pull' ) }
+								connectSite={ () => dispatch( connectedSitesActions.openModal( 'pull' ) ) }
 								className={ isAnySiteSyncing ? '' : '!text-a8c-blue-50 !shadow-a8c-blue-50' }
 								disabled={ isAnySiteSyncing }
 								tooltipText={
@@ -240,7 +227,10 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 						</div>
 					) : (
 						<div className="mt-8">
-							<ConnectButton variant="primary" connectSite={ () => handleOpenModal( 'connect' ) }>
+							<ConnectButton
+								variant="primary"
+								connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
+							>
 								{ __( 'Connect site' ) }
 							</ConnectButton>
 						</div>
@@ -249,32 +239,16 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			) }
 
 			{ isModalOpen && (
-				<>
-					{ syncSites.length === 0 &&
-					isSuccessSyncSites &&
-					! isLoadingSyncSites &&
-					! isUninitializedSyncSites ? (
-						<NoWpcomSitesModal
-							onRequestClose={ () => {
-								dispatch( connectedSitesActions.closeModal() );
-							} }
-							selectedSite={ selectedSite }
-						/>
-					) : (
-						<SyncSitesModalSelector
-							mode={ reduxModalMode || 'connect' }
-							isLoading={ isLoadingSyncSites }
-							onRequestClose={ () => {
-								dispatch( connectedSitesActions.closeModal() );
-							} }
-							syncSites={ syncSites }
-							onConnect={ async ( siteId: number ) => {
-								await handleSiteSelection( siteId, reduxModalMode );
-							} }
-							selectedSite={ selectedSite }
-						/>
-					) }
-				</>
+				<SyncSitesModalSelector
+					mode={ reduxModalMode || 'connect' }
+					onRequestClose={ () => {
+						dispatch( connectedSitesActions.closeModal() );
+					} }
+					onConnect={ async ( siteId: number ) => {
+						await handleSiteSelection( siteId );
+					} }
+					selectedSite={ selectedSite }
+				/>
 			) }
 
 			{ reduxModalMode && reduxModalMode !== 'connect' && selectedRemoteSite && (

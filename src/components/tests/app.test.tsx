@@ -12,6 +12,7 @@ import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
 import { setProviderConstants } from 'src/stores/provider-constants-slice';
 import { connectedSitesApi } from 'src/stores/sync/connected-sites';
+import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import { wordpressVersionsApi } from 'src/stores/wordpress-versions-api';
 import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 
@@ -90,7 +91,8 @@ describe( 'App', () => {
 					.concat( wpcomApi.middleware )
 					.concat( wpcomPublicApi.middleware )
 					.concat( certificateTrustApi.middleware )
-					.concat( connectedSitesApi.middleware ),
+					.concat( connectedSitesApi.middleware )
+					.concat( wpcomSitesApi.middleware ),
 		} );
 		store.dispatch(
 			setProviderConstants( {

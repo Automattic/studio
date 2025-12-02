@@ -7,11 +7,10 @@ import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-action
 import { Snapshot } from 'common/types/snapshot';
 import { addDays } from 'date-fns';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
-import { getAuthToken, getOrCreateSiteByFolder, getSiteByFolder } from 'cli/lib/appdata';
+import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { cleanup, archiveSiteContent } from 'cli/lib/archive';
 import { getSnapshotsFromAppdata, updateSnapshotInAppdata } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
-import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -21,15 +20,8 @@ async function getSnapshotToUpdate(
 	siteFolder: string,
 	overwrite: boolean
 ) {
-	let currentSiteId: string;
-
-	if ( overwrite ) {
-		const site = await getOrCreateSiteByFolder( siteFolder );
-		currentSiteId = site.id;
-	} else {
-		const site = await getSiteByFolder( siteFolder, true );
-		currentSiteId = site.id;
-	}
+	const site = await getSiteByFolder( siteFolder );
+	const currentSiteId = site.id;
 
 	const snapshotToUpdate = snapshots.find( ( s ) => s.url === host );
 	if ( ! snapshotToUpdate ) {
@@ -60,7 +52,6 @@ export async function runCommand(
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
-		validateSiteFolder( siteFolder );
 		const token = await getAuthToken();
 		const snapshots = await getSnapshotsFromAppdata( token.id );
 		const snapshotToUpdate = await getSnapshotToUpdate( snapshots, host, siteFolder, overwrite );

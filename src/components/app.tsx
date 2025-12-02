@@ -5,16 +5,18 @@ import {
 import { useEffect } from 'react';
 import MacTitlebar from 'src/components/mac-titlebar';
 import MainSidebar from 'src/components/main-sidebar';
-import Onboarding from 'src/components/onboarding';
+import { NoStudioSites } from 'src/components/no-studio-sites';
 import { SiteContentTabs } from 'src/components/site-content-tabs';
 import TopBar from 'src/components/top-bar';
 import WindowsTitlebar from 'src/components/windows-titlebar';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
-import { useOnboarding } from 'src/hooks/use-onboarding';
 import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
+import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { Onboarding } from 'src/modules/onboarding';
+import { useOnboarding } from 'src/modules/onboarding/hooks/use-onboarding';
 import { UserSettings } from 'src/modules/user-settings';
 import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
 import 'src/index.css';
@@ -24,6 +26,8 @@ export default function App() {
 	const { needsOnboarding } = useOnboarding();
 	const { isSidebarVisible, toggleSidebar } = useSidebarVisibility();
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
+	const { data: localSites, loadingSites } = useSiteDetails();
+	const isEmpty = ! loadingSites && ! localSites.length;
 
 	useEffect( () => {
 		void getIpcApi().setupAppMenu( { needsOnboarding } );
@@ -31,13 +35,13 @@ export default function App() {
 
 	return (
 		<>
-			{ needsOnboarding ? (
+			{ needsOnboarding || isEmpty ? (
 				<VStack
 					className={ cx( 'h-screen backdrop-blur-3xl app-drag-region select-none' ) }
 					spacing="0"
 				>
 					{ isWindows() && <WindowsTitlebar className="h-titlebar-win flex-shrink-0" /> }
-					<Onboarding />
+					{ needsOnboarding ? <Onboarding /> : <NoStudioSites /> }
 				</VStack>
 			) : (
 				<VStack

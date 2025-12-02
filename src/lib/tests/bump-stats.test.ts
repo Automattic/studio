@@ -80,15 +80,15 @@ describe( 'bumpStat', () => {
 		await waitFor( () => expect( nock.isDone() ).toBe( true ) );
 	} );
 
-	test( 'should not bump stat when group exceeds 26 characters', () => {
+	test( 'should not bump stat when group exceeds 27 characters', () => {
 		const errorLogger = jest.spyOn( console, 'error' ).mockImplementation( () => {} );
-		const longGroup = 'this-is-a-very-long-group-name-over-26-chars' as StatsGroup;
+		const longGroup = 'this-is-a-very-long-group-name-over-27-chars' as StatsGroup;
 
 		const result = bumpStat( longGroup, StatsMetric.SUCCESS );
 
 		expect( result ).toBe( false );
 		expect( errorLogger ).toHaveBeenCalledWith(
-			expect.stringContaining( 'exceeds maximum length of 26 characters' )
+			expect.stringContaining( 'exceeds maximum length of 27 characters' )
 		);
 		errorLogger.mockRestore();
 	} );

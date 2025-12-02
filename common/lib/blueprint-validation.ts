@@ -117,13 +117,18 @@ export function filterUnsupportedBlueprintFeatures(
 	return filtered;
 }
 
+export type BlueprintValidationWarning = {
+	feature: string;
+	reason: string;
+};
+
 type BlueprintValidationError = {
 	valid: false;
 	error: string;
 };
 type BlueprintValidationSuccess = {
 	valid: true;
-	warnings: { feature: string; reason: string }[];
+	warnings: BlueprintValidationWarning[];
 };
 export type BlueprintValidationResult = BlueprintValidationError | BlueprintValidationSuccess;
 

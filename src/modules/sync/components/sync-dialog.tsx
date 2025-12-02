@@ -8,6 +8,7 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
+import { TwoColorProgressBar } from 'src/components/progress-bar';
 import { Tooltip } from 'src/components/tooltip';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
 import { SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
@@ -144,11 +145,15 @@ export function SyncDialog( {
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );
 	const isSubmitDisabled = treeState.every( ( node ) => ! node.checked && ! node.indeterminate );
-	const { isPushSelectionOverLimit, isLoading: isSizeCheckLoading } = useSelectedItemsPushSize(
-		localSite.id,
-		treeState,
-		type
-	);
+	const {
+		isPushSelectionOverLimit,
+		isLoading: isSizeCheckLoading,
+		totalSize,
+		limitBytes,
+		formattedSize,
+		formattedLimit,
+		formattedOverAmount,
+	} = useSelectedItemsPushSize( localSite.id, treeState, type );
 
 	const { fetchChildren, rewindId, isLoadingRewindId, isErrorRewindId, isLoadingLocalFileTree } =
 		useDynamicTreeState( type, localSite.id, remoteSite.id, setTreeState );
@@ -235,10 +240,23 @@ export function SyncDialog( {
 		onRequestClose();
 	};
 
-	// Calculate dynamic padding based on number of notices
-	const noticeCount = [ isPushSelectionOverLimit, shouldShowVersionMismatch ].filter(
-		Boolean
-	).length;
+	const getBottomPadding = () => {
+		if ( type === 'pull' ) {
+			return 'pb-[70px]'; // Original padding for pull
+		}
+		// Calculate dynamic padding based on number of notices shown
+		const noticeCount = [ isPushSelectionOverLimit, shouldShowVersionMismatch ].filter(
+			Boolean
+		).length;
+
+		if ( noticeCount === 0 ) {
+			return 'pb-[140px]'; // Just progress bar
+		}
+		if ( noticeCount === 1 ) {
+			return 'pb-[220px]'; // Progress bar + one notice
+		}
+		return 'pb-[300px]'; // Progress bar + two notices
+	};
 
 	return (
 		<Modal
@@ -246,13 +264,7 @@ export function SyncDialog( {
 			onRequestClose={ onRequestClose }
 			title={ syncTexts.title }
 		>
-			<div
-				className={ cx(
-					noticeCount === 0 && 'pb-[80px]',
-					noticeCount === 1 && 'pb-[145px]',
-					noticeCount >= 2 && 'pb-[225px]'
-				) }
-			>
+			<div className={ getBottomPadding() }>
 				<div className="px-8 pb-6 pt-1">{ syncTexts.description }</div>
 				<div className="px-8">
 					<span className="sr-only">
@@ -349,7 +361,19 @@ export function SyncDialog( {
 					</div>
 				</Tooltip>
 
-				<div className="px-8 py-4 absolute left-0 right-0 bottom-0 bg-white/[0.8] backdrop-blur-sm z-10">
+				<div className="px-8 py-4 absolute left-0 right-0 bottom-0 bg-white/[0.8] backdrop-blur-sm z-10 border-t border-a8c-gray-5">
+					{ type === 'push' && (
+						<div className="mb-4">
+							<TwoColorProgressBar
+								value={ totalSize }
+								maxValue={ limitBytes }
+								showLabels
+								valueLabel={ formattedSize }
+								limitLabel={ formattedLimit }
+								overLimitLabel={ sprintf( __( '%s over' ), formattedOverAmount ) }
+							/>
+						</div>
+					) }
 					{ type === 'push' && isPushSelectionOverLimit && (
 						<Notice status="warning" isDismissible={ false } className="mb-4">
 							<p data-testid="push-selection-over-limit-notice">

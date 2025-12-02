@@ -3,7 +3,8 @@ import { Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import Button, { ButtonVariant } from 'src/components/button';
+import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
+import Button from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
@@ -28,11 +29,6 @@ import AddSiteOptions, { type AddSiteFlowType } from './components/options';
 import { PullRemoteSite } from './components/pull-remote-site';
 import Stepper from './components/stepper';
 import { useBlueprintDeeplink } from './hooks/use-blueprint-deeplink';
-
-interface AddSiteProps {
-	className?: string;
-	variant?: ButtonVariant;
-}
 
 type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
 
@@ -64,6 +60,7 @@ interface NavigationContentProps {
 	blueprintsErrorMessage?: string | undefined;
 	blueprintPreferredVersions?: { php?: string; wp?: string };
 	setBlueprintPreferredVersions: ( versions: { php?: string; wp?: string } | undefined ) => void;
+	blueprintDeeplinkWarnings?: BlueprintValidationWarning[];
 	selectedRemoteSite?: SyncSite;
 	setSelectedRemoteSite: ( site?: SyncSite ) => void;
 	isDeeplinkFlow: boolean;
@@ -79,6 +76,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		blueprintsErrorMessage,
 		blueprintPreferredVersions,
 		setBlueprintPreferredVersions,
+		blueprintDeeplinkWarnings,
 		selectedRemoteSite,
 		setSelectedRemoteSite,
 		isDeeplinkFlow,
@@ -261,7 +259,10 @@ function NavigationContent( props: NavigationContentProps ) {
 				<CreateSite { ...createSiteProps } />
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/deeplink">
-				<BlueprintDeeplink selectedBlueprint={ createSiteProps.selectedBlueprint } />
+				<BlueprintDeeplink
+					selectedBlueprint={ createSiteProps.selectedBlueprint }
+					warnings={ blueprintDeeplinkWarnings }
+				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/deeplink/create">
 				<CreateSite
@@ -310,14 +311,28 @@ function NavigationContent( props: NavigationContentProps ) {
 	);
 }
 
-export default function AddSite( { className, variant = 'outlined' }: AddSiteProps ) {
+export interface AddSiteModalContentProps {
+	isOpen?: boolean;
+	onSubmit?: () => void;
+	onRequestOpen?: () => void;
+	className?: string;
+}
+
+export function AddSiteModalContent( {
+	isOpen = true,
+	onSubmit,
+	onRequestOpen,
+	className,
+}: AddSiteModalContentProps ) {
 	const { __ } = useI18n();
-	const [ showModal, setShowModal ] = useState( false );
 	const [ nameSuggested, setNameSuggested ] = useState( false );
 	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
 		{ php?: string; wp?: string } | undefined
+	>();
+	const [ blueprintDeeplinkWarnings, setBlueprintDeeplinkWarnings ] = useState<
+		BlueprintValidationWarning[] | undefined
 	>();
 	const [ isDeeplinkFlow, setIsDeeplinkFlow ] = useState( false );
 
@@ -378,6 +393,7 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		setFileForImport( null );
 		setSelectedBlueprint( undefined );
 		setBlueprintPreferredVersions( undefined );
+		setBlueprintDeeplinkWarnings( undefined );
 		setSelectedRemoteSite( undefined );
 	}, [
 		setSitePath,
@@ -395,31 +411,27 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 		defaultPhpVersion,
 	] );
 
-	const openModal = useCallback( () => {
+	const handleOpen = useCallback( () => {
 		if ( ! isUninitialized ) {
 			void refetch();
 		}
-		setShowModal( true );
-	}, [ refetch, isUninitialized ] );
+		onRequestOpen?.();
+	}, [ refetch, isUninitialized, onRequestOpen ] );
 
 	useBlueprintDeeplink( {
 		isAnySiteProcessing,
-		openModal,
+		openModal: handleOpen,
 		setSelectedBlueprint,
 		setPhpVersion,
 		setWpVersion,
 		setBlueprintPreferredVersions,
+		setBlueprintDeeplinkWarnings,
 		navigateToBlueprintDeeplink: () => {
 			setIsDeeplinkFlow( true );
 		},
 	} );
 
 	const initialNavigatorPath = selectedBlueprint ? '/blueprint/deeplink' : '/';
-
-	const closeModal = useCallback( () => {
-		setShowModal( false );
-		resetForm();
-	}, [ resetForm ] );
 
 	const siteAddedMessage = sprintf(
 		// translators: %s is the site name.
@@ -454,21 +466,77 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 	] );
 
 	useEffect( () => {
-		if ( showModal && ! nameSuggested && ! loadingSites ) {
+		if ( isOpen && ! nameSuggested && ! loadingSites ) {
 			void initializeForm();
 		}
-	}, [ showModal, nameSuggested, loadingSites, initializeForm ] );
+	}, [ isOpen, nameSuggested, loadingSites, initializeForm ] );
+
+	// Reset form when closed
+	useEffect( () => {
+		if ( ! isOpen ) {
+			resetForm();
+		}
+	}, [ isOpen, resetForm ] );
 
 	const handleSubmit = useCallback(
 		async ( event: FormEvent ) => {
 			event.preventDefault();
-			closeModal();
+			onSubmit?.();
 			await handleAddSiteClick();
 			speak( siteAddedMessage );
 			setNameSuggested( false );
 		},
-		[ handleAddSiteClick, siteAddedMessage, closeModal ]
+		[ handleAddSiteClick, siteAddedMessage, onSubmit ]
 	);
+
+	return (
+		<Navigator
+			className={ className ?? 'w-full h-full app-no-drag-region' }
+			initialPath={ initialNavigatorPath }
+		>
+			<NavigationContent
+				{ ...addSiteProps }
+				blueprintsData={ blueprintsData }
+				blueprintsErrorMessage={ formatRtkError( blueprintsError ) }
+				isLoadingBlueprints={ isLoadingBlueprints }
+				handleSubmit={ handleSubmit }
+				blueprintPreferredVersions={ blueprintPreferredVersions }
+				setBlueprintPreferredVersions={ setBlueprintPreferredVersions }
+				blueprintDeeplinkWarnings={ blueprintDeeplinkWarnings }
+				selectedRemoteSite={ selectedRemoteSite }
+				setSelectedRemoteSite={ setSelectedRemoteSite }
+				isDeeplinkFlow={ isDeeplinkFlow }
+				setIsDeeplinkFlow={ setIsDeeplinkFlow }
+			/>
+		</Navigator>
+	);
+}
+
+interface AddSiteModalProps {
+	className?: string;
+}
+
+export default function AddSiteModal( { className }: AddSiteModalProps ) {
+	const { __ } = useI18n();
+	const [ showModal, setShowModal ] = useState( false );
+	const { importState } = useImportExport();
+	const { sites } = useAddSite();
+
+	const isAnySiteProcessing = sites.some(
+		( site ) => site.isAddingSite || importState[ site.id ]?.isNewSite
+	);
+
+	const openModal = useCallback( () => {
+		setShowModal( true );
+	}, [] );
+
+	const closeModal = useCallback( () => {
+		setShowModal( false );
+	}, [] );
+
+	const handleSiteAdded = useCallback( () => {
+		closeModal();
+	}, [ closeModal ] );
 
 	useIpcListener( 'add-site', () => {
 		if ( isAnySiteProcessing ) {
@@ -480,24 +548,14 @@ export default function AddSite( { className, variant = 'outlined' }: AddSitePro
 	return (
 		<>
 			<FullscreenModal isOpen={ showModal } onClose={ closeModal }>
-				<Navigator className="w-full h-full" initialPath={ initialNavigatorPath }>
-					<NavigationContent
-						{ ...addSiteProps }
-						blueprintsData={ blueprintsData }
-						blueprintsErrorMessage={ formatRtkError( blueprintsError ) }
-						isLoadingBlueprints={ isLoadingBlueprints }
-						handleSubmit={ handleSubmit }
-						blueprintPreferredVersions={ blueprintPreferredVersions }
-						setBlueprintPreferredVersions={ setBlueprintPreferredVersions }
-						selectedRemoteSite={ selectedRemoteSite }
-						setSelectedRemoteSite={ setSelectedRemoteSite }
-						isDeeplinkFlow={ isDeeplinkFlow }
-						setIsDeeplinkFlow={ setIsDeeplinkFlow }
-					/>
-				</Navigator>
+				<AddSiteModalContent
+					isOpen={ showModal }
+					onSubmit={ handleSiteAdded }
+					onRequestOpen={ openModal }
+				/>
 			</FullscreenModal>
 			<Button
-				variant={ variant }
+				variant="outlined"
 				className={ className }
 				onClick={ openModal }
 				disabled={ isAnySiteProcessing }

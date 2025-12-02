@@ -481,10 +481,10 @@ export function AddSiteModalContent( {
 	const handleSubmit = useCallback(
 		async ( event: FormEvent ) => {
 			event.preventDefault();
+			onSubmit?.();
 			await handleAddSiteClick();
 			speak( siteAddedMessage );
 			setNameSuggested( false );
-			onSubmit?.();
 		},
 		[ handleAddSiteClick, siteAddedMessage, onSubmit ]
 	);

@@ -6,7 +6,6 @@ import { ContentTabImportExport } from 'src/components/content-tab-import-export
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { ContentTabPreviews } from 'src/components/content-tab-previews';
 import { ContentTabSettings } from 'src/components/content-tab-settings';
-import { EmptyStudio } from 'src/components/empty-studio';
 import Header from 'src/components/header';
 import { SiteIsBeingCreated } from 'src/components/site-is-being-created';
 import { MIN_WIDTH_CLASS_TO_MEASURE } from 'src/constants';
@@ -17,7 +16,7 @@ import { cx } from 'src/lib/cx';
 import { ContentTabSync } from 'src/modules/sync';
 
 export function SiteContentTabs() {
-	const { selectedSite, data: localSites, siteCreationMessages, loadingSites } = useSiteDetails();
+	const { selectedSite, siteCreationMessages } = useSiteDetails();
 	const { importState } = useImportExport();
 	const { tabs, selectedTab, setSelectedTab } = useContentTabs();
 	const { __ } = useI18n();
@@ -54,10 +53,6 @@ export function SiteContentTabs() {
 		setProgrammaticTab( selectedTab );
 		prevSelectedTab.current = selectedTab;
 	}, [ selectedTab ] );
-
-	if ( ! loadingSites && ! localSites.length ) {
-		return <EmptyStudio />;
-	}
 
 	if ( ! selectedSite ) {
 		return (

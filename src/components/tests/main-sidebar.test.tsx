@@ -66,7 +66,7 @@ const site2 = {
 };
 const siteDetailsMocked = {
 	selectedSite: site2,
-	data: [
+	sites: [
 		{
 			name: 'test-1',
 			path: '/fake/test-1',

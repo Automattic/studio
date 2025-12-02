@@ -14,7 +14,6 @@ import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
 import i18nReducer from 'src/stores/i18n-slice';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
-import { reducer as newSitesReducer } from 'src/stores/new-sites-slice';
 import onboardingReducer from 'src/stores/onboarding-slice';
 import providerConstantsReducer, {
 	setProviderConstants,
@@ -34,7 +33,6 @@ export type RootState = {
 	appVersionApi: ReturnType< typeof appVersionApi.reducer >;
 	betaFeatures: ReturnType< typeof betaFeaturesReducer >;
 	chat: ReturnType< typeof chatReducer >;
-	newSites: ReturnType< typeof newSitesReducer >;
 	installedAppsApi: ReturnType< typeof installedAppsApi.reducer >;
 	onboarding: ReturnType< typeof onboardingReducer >;
 	providerConstants: ReturnType< typeof providerConstantsReducer >;
@@ -92,7 +90,6 @@ export const rootReducer = combineReducers( {
 	appVersionApi: appVersionApi.reducer,
 	betaFeatures: betaFeaturesReducer,
 	chat: chatReducer,
-	newSites: newSitesReducer,
 	installedAppsApi: installedAppsApi.reducer,
 	connectedSitesApi: connectedSitesApi.reducer,
 	connectedSites: connectedSitesReducer,

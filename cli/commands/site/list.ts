@@ -34,9 +34,9 @@ async function getSiteListData( sites: SiteData[] ) {
 	return result;
 }
 
-export async function runCommand( format: 'table' | 'json' ): Promise< void > {
-	const logger = new Logger< LoggerAction >();
+const logger = new Logger< LoggerAction >();
 
+export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading sites…' ) );
 		const appdata = await readAppdata();
@@ -86,13 +86,6 @@ export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 		} else {
 			console.log( JSON.stringify( sitesData, null, 2 ) );
 		}
-	} catch ( error ) {
-		if ( error instanceof LoggerError ) {
-			logger.reportError( error );
-		} else {
-			const loggerError = new LoggerError( __( 'Failed to load sites' ), error );
-			logger.reportError( loggerError );
-		}
 	} finally {
 		disconnect();
 	}
@@ -111,7 +104,16 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.format as 'table' | 'json' );
+			try {
+				await runCommand( argv.format as 'table' | 'json' );
+			} catch ( error ) {
+				if ( error instanceof LoggerError ) {
+					logger.reportError( error );
+				} else {
+					const loggerError = new LoggerError( __( 'Failed to load site' ), error );
+					logger.reportError( loggerError );
+				}
+			}
 		},
 	} );
 };

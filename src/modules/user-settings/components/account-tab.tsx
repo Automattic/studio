@@ -5,7 +5,7 @@ import { Tooltip } from 'src/components/tooltip';
 import { WPCOM_PROFILE_URL } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
-export const UserInfo = ( {
+const UserInfo = ( {
 	user,
 	onLogout,
 }: {

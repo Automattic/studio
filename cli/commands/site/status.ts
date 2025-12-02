@@ -14,7 +14,7 @@ const logger = new Logger< LoggerAction >();
 export async function runCommand( siteFolder: string, format: 'table' | 'json' ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
-		const site = await getSiteByFolder( siteFolder, false );
+		const site = await getSiteByFolder( siteFolder );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
 		await connect();

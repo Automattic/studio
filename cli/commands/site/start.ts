@@ -13,7 +13,7 @@ const logger = new Logger< LoggerAction >();
 export async function runCommand( sitePath: string, skipBrowser = false ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
-		const site = await getSiteByFolder( sitePath, false );
+		const site = await getSiteByFolder( sitePath );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );

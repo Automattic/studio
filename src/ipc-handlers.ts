@@ -101,7 +101,7 @@ export {
 	downloadSyncBackup,
 	exportSiteForPush,
 	getConnectedWpcomSites,
-	pushArchive,
+	readFileAsArrayBuffer,
 	removeExportedSiteTmpFile,
 	removeSyncBackup,
 	updateConnectedWpcomSites,

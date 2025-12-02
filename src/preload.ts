@@ -23,14 +23,7 @@ function ipcRendererSend< T extends keyof IpcHandlers >(
 const api: IpcApi = {
 	exportSiteForPush: ( id, operationId, configuration ) =>
 		ipcRendererInvoke( 'exportSiteForPush', id, operationId, configuration ),
-	pushArchive: ( remoteSiteId, archivePath, optionsToSync, specificSelectionPaths ) =>
-		ipcRendererInvoke(
-			'pushArchive',
-			remoteSiteId,
-			archivePath,
-			optionsToSync,
-			specificSelectionPaths
-		),
+	readFileAsArrayBuffer: ( filePath ) => ipcRendererInvoke( 'readFileAsArrayBuffer', filePath ),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
 	createSite: ( path, config ) => ipcRendererInvoke( 'createSite', path, config ),
 	updateSite: ( updatedSite ) => ipcRendererInvoke( 'updateSite', updatedSite ),

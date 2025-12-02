@@ -256,7 +256,7 @@ export function useSyncPush( {
 	}, [] );
 
 	/**
-	 * Uploads a file using Uppy with TUS (resumable uploads) to WordPress.com
+	 * Uploads a file using Uppy with TUS and Uppy (resumable uploads)
 	 */
 	const uploadArchive = useCallback(
 		async (
@@ -428,7 +428,9 @@ export function useSyncPush( {
 
 			try {
 				// Upload file using TUS (resumable uploads)
-				const attachmentId = await uploadArchive( archivePath, remoteSiteId );
+				const attachmentId = await uploadArchive( archivePath, remoteSiteId, ( percentage ) => {
+					console.log( 'Upload progress:', percentage );
+				} );
 
 				const stateAfterUpload = getPushState( selectedSite.id, remoteSiteId );
 

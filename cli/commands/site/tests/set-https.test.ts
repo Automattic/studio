@@ -18,7 +18,7 @@ jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
 jest.mock( 'common/lib/fs-utils' );
 
-describe( 'Site Set-HTTPS Command', () => {
+describe( 'CLI: studio site set-https', () => {
 	const mockSiteFolder = '/test/site/path';
 
 	const createMockSiteData = (): SiteData => ( {

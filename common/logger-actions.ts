@@ -34,4 +34,6 @@ export enum SiteCommandLoggerAction {
 	SETUP_WORDPRESS = 'setupWordPress',
 	SAVE_SITE = 'saveSite',
 	APPLY_BLUEPRINT = 'applyBlueprint',
+	DELETE_PREVIEW_SITES = 'deletePreviewSites',
+	DELETE_FILES = 'deleteFiles',
 }

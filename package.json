@@ -117,6 +117,8 @@
 		"@sentry/electron": "^6.5.0",
 		"@types/unzipper": "^0.10.11",
 		"@types/yargs": "^17.0.33",
+		"@uppy/core": "^5.1.1",
+		"@uppy/tus": "^5.0.2",
 		"@vscode/sudo-prompt": "^9.3.1",
 		"@wordpress/compose": "^7.26.0",
 		"@wordpress/dataviews": "^10.2.0",

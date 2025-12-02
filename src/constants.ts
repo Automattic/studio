@@ -109,3 +109,9 @@ export const IPC_VOID_HANDLERS = < const >[
 
 // What's New
 export const FORCE_WHATS_NEW_WHEN_PATCH_CHANGED = true;
+
+// TUS upload constants
+export const TUS_UPLOAD_ENDPOINT_BASE =
+	'https://public-api.wordpress.com/rest/v1.1/studio-file-uploads';
+export const TUS_UPLOAD_CHUNK_SIZE = 500000;
+export const TUS_UPLOAD_RETRY_DELAYS = [ 0, 1000, 3000, 5000, 10000 ];

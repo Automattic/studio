@@ -1,8 +1,17 @@
 import * as Sentry from '@sentry/electron/renderer';
+// @ts-expect-error - Uppy types require newer moduleResolution, but types exist at runtime
+import Uppy from '@uppy/core';
+// @ts-expect-error - Uppy types require newer moduleResolution, but types exist at runtime
+import Tus from '@uppy/tus';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo } from 'react';
-import { SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
+import {
+	SYNC_PUSH_SIZE_LIMIT_BYTES,
+	TUS_UPLOAD_CHUNK_SIZE,
+	TUS_UPLOAD_ENDPOINT_BASE,
+	TUS_UPLOAD_RETRY_DELAYS,
+} from 'src/constants';
 import {
 	ClearState,
 	generateStateId,
@@ -234,6 +243,117 @@ export function useSyncPush( {
 		[ __ ]
 	);
 
+	/**
+	 * Converts a file path to a File object for use with TUS
+	 * Reads the file via IPC and creates a File object
+	 */
+	const getFileFromPath = useCallback( async ( filePath: string ): Promise< File > => {
+		// Read file content via IPC
+		const arrayBuffer = await getIpcApi().readFileAsArrayBuffer( filePath );
+		const fileName = filePath.split( /[/\\]/ ).pop() || 'archive.tar.gz';
+		const blob = new Blob( [ arrayBuffer ], { type: 'application/gzip' } );
+		return new File( [ blob ], fileName, { type: 'application/gzip' } );
+	}, [] );
+
+	/**
+	 * Uploads a file using Uppy with TUS (resumable uploads) to WordPress.com
+	 */
+	const uploadArchive = useCallback(
+		async (
+			archivePath: string,
+			remoteSiteId: number,
+			onUploadProgress?: ( percentage: number ) => void
+		): Promise< number > => {
+			// Get authentication token
+			const token = await getIpcApi().getAuthenticationToken();
+			if ( ! token?.accessToken ) {
+				throw new Error( 'No authentication token found' );
+			}
+
+			// Read file content via IPC and create File object
+			const file = await getFileFromPath( archivePath );
+
+			return new Promise< number >( ( resolve, reject ) => {
+				// Create Uppy instance
+				const uppy = new Uppy( {
+					debug: true,
+					autoProceed: true,
+					allowMultiple: false,
+					restrictions: {
+						maxNumberOfFiles: 1,
+						maxFileSize: SYNC_PUSH_SIZE_LIMIT_BYTES,
+					},
+				} );
+
+				// Configure TUS plugin
+				uppy.use( Tus, {
+					endpoint: `${ TUS_UPLOAD_ENDPOINT_BASE }/${ remoteSiteId }`,
+					chunkSize: TUS_UPLOAD_CHUNK_SIZE,
+					retryDelays: TUS_UPLOAD_RETRY_DELAYS,
+					removeFingerprintOnSuccess: true,
+					headers: {
+						Authorization: `Bearer ${ token.accessToken }`,
+					},
+					onBeforeRequest: ( req: Tus.HttpRequest ) => {
+						// make ALL requests be either POST or GET to honor the public-api.wordpress.com "contract".
+						const method = req._method;
+						if ( [ 'HEAD', 'OPTIONS' ].indexOf( method ) >= 0 ) {
+							req._method = 'GET';
+							req.setHeader( 'X-HTTP-Method-Override', method );
+						}
+
+						if ( [ 'DELETE', 'PUT', 'PATCH' ].indexOf( method ) >= 0 ) {
+							req._method = 'POST';
+							req.setHeader( 'X-HTTP-Method-Override', method );
+						}
+
+						req._xhr.open( req._method, req._url, true );
+
+						Object.keys( req._headers ).map( ( headerName ) => {
+							req.setHeader( headerName, req._headers[ headerName ] );
+						} );
+
+						return req;
+					},
+				} );
+
+				uppy.on( 'upload-error', ( file: Uppy.UppyFile, error: Error ) => {
+					reject( error );
+				} );
+
+				uppy.on( 'upload-progress', ( file: Uppy.UppyFile, progress: Uppy.ProgressEvent ) => {
+					const percentage = ( progress.bytesUploaded / progress.bytesTotal ) * 100;
+					if ( onUploadProgress ) {
+						onUploadProgress( percentage );
+					}
+				} );
+
+				uppy.on( 'upload-success', ( file: Uppy.UppyFile, response: Uppy.UploadResponse ) => {
+					const xhr = response.body.xhr as XMLHttpRequest;
+					const attachmentId = xhr.getResponseHeader( 'x-videopress-upload-media-id' );
+					if ( attachmentId ) {
+						resolve( parseInt( attachmentId ) );
+					} else {
+						reject( new Error( 'The upload failed.' ) );
+					}
+				} );
+
+				uppy.on( 'complete', ( result: Uppy.UppyFile ) => {
+					console.log( 'Upload complete:', result );
+				} );
+
+				// Add file to Uppy and start upload
+				uppy.addFile( {
+					source: 'Local',
+					name: file.name,
+					type: file.type,
+					data: file,
+				} );
+			} );
+		},
+		[ getFileFromPath ]
+	);
+
 	const pushSite = useCallback< PushSite >(
 		async ( connectedSite, selectedSite, options ) => {
 			if ( ! client ) {
@@ -307,15 +427,40 @@ export function useSyncPush( {
 			} );
 
 			try {
-				const response = await getIpcApi().pushArchive(
-					remoteSiteId,
-					archivePath,
-					options?.optionsToSync,
-					options?.specificSelectionPaths
-				);
+				// Upload file using TUS (resumable uploads)
+				const attachmentId = await uploadArchive( archivePath, remoteSiteId );
+
 				const stateAfterUpload = getPushState( selectedSite.id, remoteSiteId );
 
 				if ( isKeyCancelled( stateAfterUpload?.status.key ) ) {
+					return;
+				}
+
+				const formData: [ string, unknown, Record< string, string >? ][] = [
+					[ 'import_attachment_id', attachmentId ],
+				];
+
+				if ( options?.specificSelectionPaths && options?.specificSelectionPaths.length > 0 ) {
+					const joinedPaths = options?.specificSelectionPaths.join( ',' );
+					formData.push( [ 'list_sync_items', joinedPaths ] );
+				}
+
+				if ( options?.optionsToSync ) {
+					formData.push( [ 'options', options?.optionsToSync.join( ',' ) ] );
+				}
+
+				// Uses the import/initiate endpoint to initiate the import.
+				const response = await client.req.post< {
+					success: boolean;
+				} >( {
+					path: `/sites/${ remoteSiteId }/studio-app/sync/import/initiate`,
+					apiNamespace: 'wpcom/v2',
+					formData,
+				} );
+
+				const stateAfterImport = getPushState( selectedSite.id, remoteSiteId );
+
+				if ( isKeyCancelled( stateAfterImport?.status.key ) ) {
 					return;
 				}
 
@@ -348,6 +493,7 @@ export function useSyncPush( {
 			updatePushState,
 			getErrorFromResponse,
 			isKeyCancelled,
+			uploadArchive,
 		]
 	);
 

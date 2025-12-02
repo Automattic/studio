@@ -26,7 +26,7 @@ jest.mock( 'src/stores/wordpress-versions-api', () => {
 	return {
 		...actual,
 		useGetWordPressVersions: () => ( {
-			sites: [
+			data: [
 				{
 					value: '6.5.0-beta1',
 					isBeta: true,
@@ -229,6 +229,7 @@ describe( 'AddSite', () => {
 				undefined,
 				false,
 				undefined, // blueprint parameter
+				'8.3',
 				expect.any( Function )
 			);
 		} );
@@ -444,6 +445,7 @@ describe( 'AddSite', () => {
 				undefined,
 				false,
 				undefined, // blueprint parameter
+				'8.3',
 				expect.any( Function )
 			);
 		} );

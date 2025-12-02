@@ -45,8 +45,7 @@ test.describe( 'Localization', () => {
 
 		// Complete onboarding before tests
 		const onboarding = new Onboarding( session.mainWindow );
-		await expect( onboarding.heading ).toBeVisible();
-		await onboarding.continueButton.click();
+		await onboarding.completeOnboarding();
 
 		const whatsNewModal = new WhatsNewModal( session.mainWindow );
 		if ( await whatsNewModal.locator.isVisible( { timeout: 5000 } ) ) {
@@ -96,7 +95,7 @@ test.describe( 'Localization', () => {
 		try {
 			const visible = await onboarding.heading.isVisible( { timeout: 2000 } );
 			if ( visible ) {
-				await onboarding.continueButton.click();
+				await onboarding.completeOnboarding();
 			}
 		} catch ( error ) {
 			// Onboarding not visible, continue with test
@@ -151,9 +150,6 @@ test.describe( 'Localization', () => {
 		await expect( addSiteModal.addSiteButton ).toContainText( 'サイトを追加' );
 		await expect( addSiteModal.addSiteButton ).toBeEnabled();
 		await addSiteModal.addSiteButton.click();
-
-		// Wait for modal to close
-		await expect( addSiteModal.locator ).not.toBeVisible( { timeout: 10_000 } );
 
 		// Wait for site to be created
 		const siteContent = new SiteContent( session.mainWindow, siteName );

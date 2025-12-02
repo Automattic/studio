@@ -20,7 +20,7 @@ import type { SyncOption } from 'src/types';
 
 export function useAddSite() {
 	const { __ } = useI18n();
-	const { createSite, data: sites, loadingSites, startServer, updateSite } = useSiteDetails();
+	const { createSite, sites, loadingSites, startServer } = useSiteDetails();
 	const { importFile, clearImportState } = useImportExport();
 	const [ connectSite ] = useConnectSiteMutation();
 	const { pullSite } = useSyncSites();
@@ -126,20 +126,8 @@ export function useAddSite() {
 				usedCustomDomain,
 				useCustomDomain ? enableHttps : false,
 				selectedBlueprint,
+				phpVersion,
 				async ( newSite ) => {
-					let updatedSite = { ...newSite };
-
-					if ( newSite.phpVersion !== phpVersion ) {
-						updatedSite = {
-							...updatedSite,
-							phpVersion,
-						};
-					}
-
-					if ( updatedSite !== newSite ) {
-						await updateSite( updatedSite );
-					}
-
 					if ( fileForImport ) {
 						await importFile( fileForImport, newSite, {
 							showImportNotification: false,
@@ -183,7 +171,6 @@ export function useAddSite() {
 		siteName,
 		sitePath,
 		startServer,
-		updateSite,
 		wpVersion,
 		phpVersion,
 		customDomain,

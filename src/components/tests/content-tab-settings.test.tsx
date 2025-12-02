@@ -80,7 +80,7 @@ jest.mock( 'src/stores/wordpress-versions-api', () => {
 	return {
 		...actual,
 		useGetWordPressVersions: jest.fn( () => ( {
-			data: [
+			sites: [
 				{ label: 'Latest', value: 'latest', isBeta: false, isDevelopment: false },
 				{ label: '6.4', value: '6.4', isBeta: false, isDevelopment: false },
 				{ label: '6.3', value: '6.3', isBeta: false, isDevelopment: false },

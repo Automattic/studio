@@ -1,13 +1,7 @@
 import { __, _n } from '@wordpress/i18n';
 import { arePathsEqual } from 'common/lib/fs-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import {
-	getSiteByFolder,
-	lockAppdata,
-	readAppdata,
-	saveAppdata,
-	unlockAppdata,
-} from 'cli/lib/appdata';
+import { lockAppdata, readAppdata, saveAppdata, SiteData, unlockAppdata } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import {
 	isServerRunning,
@@ -17,42 +11,44 @@ import {
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
+const logger = new Logger< LoggerAction >();
+
 export async function runCommand( sitePath: string, enableHttps: boolean ): Promise< void > {
-	const logger = new Logger< LoggerAction >();
-
 	try {
-		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
-		const site = await getSiteByFolder( sitePath, false );
-		logger.reportSuccess( __( 'Site loaded' ) );
-
-		if ( ! site.customDomain ) {
-			throw new LoggerError( __( 'Site does not have a custom domain.' ) );
-		}
-
-		if ( site.enableHttps === enableHttps ) {
-			if ( enableHttps ) {
-				throw new LoggerError( __( 'HTTPS is already enabled for this site.' ) );
-			} else {
-				throw new LoggerError( __( 'HTTPS is already disabled for this site.' ) );
-			}
-		}
-
-		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
-		await connect();
-		logger.reportSuccess( __( 'Process daemon started' ) );
+		let site: SiteData;
 
 		try {
 			await lockAppdata();
 			const appdata = await readAppdata();
-			const site = appdata.sites.find( ( site ) => arePathsEqual( site.path, sitePath ) );
-			if ( ! site ) {
+
+			const foundSite = appdata.sites.find( ( site ) => arePathsEqual( site.path, sitePath ) );
+			if ( ! foundSite ) {
 				throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );
 			}
+
+			site = foundSite;
+
+			if ( ! site.customDomain ) {
+				throw new LoggerError( __( 'Site does not have a custom domain.' ) );
+			}
+
+			if ( site.enableHttps === enableHttps ) {
+				if ( enableHttps ) {
+					throw new LoggerError( __( 'HTTPS is already enabled for this site.' ) );
+				} else {
+					throw new LoggerError( __( 'HTTPS is already disabled for this site.' ) );
+				}
+			}
+
 			site.enableHttps = enableHttps;
 			await saveAppdata( appdata );
 		} finally {
 			await unlockAppdata();
 		}
+
+		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
+		await connect();
+		logger.reportSuccess( __( 'Process daemon started' ) );
 
 		const runningProcess = await isServerRunning( site.id );
 
@@ -61,13 +57,6 @@ export async function runCommand( sitePath: string, enableHttps: boolean ): Prom
 			await stopWordPressServer( site.id );
 			await startWordPressServer( site );
 			logger.reportSuccess( __( 'Site restarted' ) );
-		}
-	} catch ( error ) {
-		if ( error instanceof LoggerError ) {
-			logger.reportError( error );
-		} else {
-			const loggerError = new LoggerError( __( 'Failed to start site infrastructure' ), error );
-			logger.reportError( loggerError );
 		}
 	} finally {
 		disconnect();
@@ -86,7 +75,16 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path, argv.enable );
+			try {
+				await runCommand( argv.path, argv.enable );
+			} catch ( error ) {
+				if ( error instanceof LoggerError ) {
+					logger.reportError( error );
+				} else {
+					const loggerError = new LoggerError( __( 'Failed to start site infrastructure' ), error );
+					logger.reportError( loggerError );
+				}
+			}
 		},
 	} );
 };

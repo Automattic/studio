@@ -17,9 +17,6 @@ const currentUserRegistry = new Registry( {
 	key: '\\Environment',
 } );
 
-/**
- * Windows implementation of CLI installation manager
- */
 export class WindowsCliInstallationManager implements StudioCliInstallationManager {
 	constructor() {
 		if ( process.platform !== 'win32' ) {
@@ -51,6 +48,12 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		} catch ( error ) {
 			console.error( 'Failed to check installation status of CLI', error );
 			return false;
+		}
+	}
+
+	async updateWindowsCliVersionedPathIfNeeded(): Promise< void > {
+		if ( await this.isCliInstalled() ) {
+			await this.installProxyBatFile();
 		}
 	}
 
@@ -209,5 +212,13 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 			.join( ';' );
 
 		await this.setPathInRegistry( newPath );
+	}
+}
+
+// See the `WindowsCliInstallationManager::installProxyBatFile` comment for more details
+export async function updateWindowsCliVersionedPathIfNeeded() {
+	if ( process.platform === 'win32' ) {
+		const manager = new WindowsCliInstallationManager();
+		await manager.updateWindowsCliVersionedPathIfNeeded();
 	}
 }

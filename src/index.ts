@@ -43,6 +43,7 @@ import {
 } from 'src/migrations/migrate-from-wp-now-folder';
 import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
 import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-stat';
+import { updateWindowsCliVersionedPathIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
 import { stopAllServersOnQuit } from 'src/site-server';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
@@ -332,6 +333,7 @@ async function appBoot() {
 			'monthly'
 		);
 
+		await updateWindowsCliVersionedPathIfNeeded();
 		getWordPressProvider();
 
 		finishedInitialization = true;

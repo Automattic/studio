@@ -3,16 +3,17 @@ import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
+import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-export async function runCommand( siteFolder: string, skipBrowser = false ): Promise< void > {
-	const logger = new Logger< LoggerAction >();
+const logger = new Logger< LoggerAction >();
 
+export async function runCommand( sitePath: string, skipBrowser = false ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
-		const site = await getSiteByFolder( siteFolder, false );
+		const site = await getSiteByFolder( sitePath );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
@@ -34,6 +35,13 @@ export async function runCommand( siteFolder: string, skipBrowser = false ): Pro
 
 		await setupCustomDomain( site, logger );
 
+		logger.reportStart(
+			LoggerAction.INSTALL_SQLITE,
+			__( 'Setting up SQLite integration, if needed...' )
+		);
+		await keepSqliteIntegrationUpdated( sitePath );
+		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
+
 		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress site...' ) );
 		try {
 			const processDesc = await startWordPressServer( site );
@@ -49,13 +57,6 @@ export async function runCommand( siteFolder: string, skipBrowser = false ): Pro
 			}
 		} catch ( error ) {
 			throw new LoggerError( __( 'Failed to start WordPress server' ), error );
-		}
-	} catch ( error ) {
-		if ( error instanceof LoggerError ) {
-			logger.reportError( error );
-		} else {
-			const loggerError = new LoggerError( __( 'Failed to start site infrastructure' ), error );
-			logger.reportError( loggerError );
 		}
 	} finally {
 		disconnect();
@@ -74,7 +75,16 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path, argv.skipBrowser );
+			try {
+				await runCommand( argv.path, argv.skipBrowser );
+			} catch ( error ) {
+				if ( error instanceof LoggerError ) {
+					logger.reportError( error );
+				} else {
+					const loggerError = new LoggerError( __( 'Failed to load site' ), error );
+					logger.reportError( loggerError );
+				}
+			}
 		},
 	} );
 };

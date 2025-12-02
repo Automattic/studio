@@ -62,7 +62,7 @@ describe( 'Site Status Command', () => {
 
 			await runCommand( '/path/to/site', 'table' );
 
-			expect( getSiteByFolder ).toHaveBeenCalledWith( '/path/to/site', false );
+			expect( getSiteByFolder ).toHaveBeenCalledWith( '/path/to/site' );
 			expect( connect ).toHaveBeenCalled();
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( disconnect ).toHaveBeenCalled();

@@ -97,7 +97,7 @@ describe( 'Site Stop Command', () => {
 
 			await runCommand( '/test/site' );
 
-			expect( getSiteByFolder ).toHaveBeenCalledWith( '/test/site', false );
+			expect( getSiteByFolder ).toHaveBeenCalledWith( '/test/site' );
 			expect( connect ).toHaveBeenCalled();
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( stopWordPressServer ).toHaveBeenCalledWith( testSite.id );

@@ -26,7 +26,7 @@ export default function App() {
 	const { needsOnboarding } = useOnboarding();
 	const { isSidebarVisible, toggleSidebar } = useSidebarVisibility();
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
-	const { data: localSites, loadingSites } = useSiteDetails();
+	const { sites: localSites, loadingSites } = useSiteDetails();
 	const isEmpty = ! loadingSites && ! localSites.length;
 
 	useEffect( () => {

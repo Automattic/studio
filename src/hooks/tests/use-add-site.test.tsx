@@ -67,7 +67,7 @@ describe( 'useAddSite', () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			createSite: mockCreateSite,
 			updateSite: mockUpdateSite,
-			data: [],
+			sites: [],
 			loadingSites: false,
 			startServer: mockStartServer,
 		} );

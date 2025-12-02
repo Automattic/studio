@@ -26,7 +26,7 @@ jest.mock( 'src/stores/wordpress-versions-api', () => {
 	return {
 		...actual,
 		useGetWordPressVersions: () => ( {
-			data: [
+			sites: [
 				{
 					value: '6.5.0-beta1',
 					isBeta: true,
@@ -79,7 +79,7 @@ const mockCreateSite = jest.fn< ( path: string, name?: string, wpVersion?: strin
 jest.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( {
 		createSite: mockCreateSite,
-		data: [],
+		sites: [],
 	} ),
 } ) );
 

@@ -9,9 +9,9 @@ import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-export async function runCommand( siteFolder: string, format: 'table' | 'json' ): Promise< void > {
-	const logger = new Logger< LoggerAction >();
+const logger = new Logger< LoggerAction >();
 
+export async function runCommand( siteFolder: string, format: 'table' | 'json' ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 		const site = await getSiteByFolder( siteFolder );
@@ -69,13 +69,6 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 
 			console.log( JSON.stringify( logData, null, 2 ) );
 		}
-	} catch ( error ) {
-		if ( error instanceof LoggerError ) {
-			logger.reportError( error );
-		} else {
-			const loggerError = new LoggerError( __( 'Failed to load site' ), error );
-			logger.reportError( loggerError );
-		}
 	} finally {
 		disconnect();
 	}
@@ -88,13 +81,22 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		builder: ( yargs ) => {
 			return yargs.option( 'format', {
 				type: 'string',
-				choices: [ 'table', 'json' ],
-				default: 'table',
+				choices: [ 'table', 'json' ] as const,
+				default: 'table' as const,
 				description: __( 'Output format' ),
 			} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path, argv.format as 'table' | 'json' );
+			try {
+				await runCommand( argv.path, argv.format );
+			} catch ( error ) {
+				if ( error instanceof LoggerError ) {
+					logger.reportError( error );
+				} else {
+					const loggerError = new LoggerError( __( 'Failed to load site' ), error );
+					logger.reportError( loggerError );
+				}
+			}
 		},
 	} );
 };

@@ -2,23 +2,20 @@ import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
-import { Logger } from 'cli/logger';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
 	getSiteByFolder: jest.fn(),
 	getSiteUrl: jest.fn(),
+	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
 jest.mock( 'common/lib/get-wordpress-version' );
-jest.mock( 'cli/lib/utils', () => ( {
-	getPrettyPath: ( path: string ) => path.replace( /^\//, '' ),
-} ) );
-jest.mock( 'cli/logger' );
 
 describe( 'Site Status Command', () => {
-	const mockSite = {
+	// Simple test data
+	const testSite = {
 		id: 'site-1',
 		name: 'Test Site',
 		path: '/path/to/site',
@@ -27,23 +24,16 @@ describe( 'Site Status Command', () => {
 		adminPassword: 'password123',
 	};
 
-	let mockLogger: {
-		reportStart: jest.Mock;
-		reportSuccess: jest.Mock;
-		reportError: jest.Mock;
+	const testSiteWithoutOptional = {
+		id: 'site-1',
+		path: '/path/to/site',
+		adminPassword: undefined,
 	};
 
 	beforeEach( () => {
 		jest.clearAllMocks();
 
-		mockLogger = {
-			reportStart: jest.fn(),
-			reportSuccess: jest.fn(),
-			reportError: jest.fn(),
-		};
-
-		( Logger as jest.Mock ).mockReturnValue( mockLogger );
-		( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSite );
+		( getSiteByFolder as jest.Mock ).mockResolvedValue( testSite );
 		( getSiteUrl as jest.Mock ).mockReturnValue( 'http://localhost:8080' );
 		( connect as jest.Mock ).mockResolvedValue( undefined );
 		( disconnect as jest.Mock ).mockResolvedValue( undefined );
@@ -55,120 +45,150 @@ describe( 'Site Status Command', () => {
 		jest.restoreAllMocks();
 	} );
 
-	it( 'should show site status successfully with table format', async () => {
-		const { runCommand } = await import( '../status' );
-		await runCommand( '/path/to/site', 'table' );
+	describe( 'Error Cases', () => {
+		it( 'should throw when site not found', async () => {
+			( getSiteByFolder as jest.Mock ).mockRejectedValue( new Error( 'Site not found' ) );
 
-		expect( getSiteByFolder ).toHaveBeenCalledWith( '/path/to/site' );
-		expect( mockLogger.reportStart ).toHaveBeenCalledWith( expect.any( String ), 'Loading site…' );
-		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Site loaded' );
-		expect( disconnect ).toHaveBeenCalled();
+			const { runCommand } = await import( '../status' );
+
+			await expect( runCommand( '/invalid/path', 'table' ) ).rejects.toThrow( 'Site not found' );
+			expect( disconnect ).toHaveBeenCalled();
+		} );
 	} );
 
-	it( 'should show site status with json format', async () => {
-		const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
-		const { runCommand } = await import( '../status' );
-		await runCommand( '/path/to/site', 'json' );
+	describe( 'Success Cases', () => {
+		it( 'should display site status with table format', async () => {
+			const { runCommand } = await import( '../status' );
 
-		expect( getSiteByFolder ).toHaveBeenCalledWith( '/path/to/site' );
-		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Site loaded' );
-		expect( consoleSpy ).toHaveBeenCalledWith(
-			JSON.stringify(
-				{
-					'Site URL': 'http://localhost:8080/',
-					'Site Path': 'path/to/site',
-					Status: '🔴 Offline',
-					'PHP Version': '8.0',
-					'WP Version': '6.4',
-					'Admin Username': 'admin',
-					'Admin Password': 'password123',
-				},
-				null,
-				2
-			)
-		);
+			await runCommand( '/path/to/site', 'table' );
 
-		consoleSpy.mockRestore();
+			expect( getSiteByFolder ).toHaveBeenCalledWith( '/path/to/site' );
+			expect( connect ).toHaveBeenCalled();
+			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
+			expect( disconnect ).toHaveBeenCalled();
+		} );
+
+		it( 'should output JSON format correctly', async () => {
+			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
+
+			const { runCommand } = await import( '../status' );
+
+			await runCommand( '/path/to/site', 'json' );
+
+			expect( consoleSpy ).toHaveBeenCalledWith(
+				JSON.stringify(
+					{
+						'Site URL': 'http://localhost:8080/',
+						'Site Path': '/path/to/site',
+						Status: '🔴 Offline',
+						'PHP Version': '8.0',
+						'WP Version': '6.4',
+						'Admin Username': 'admin',
+						'Admin Password': 'password123',
+					},
+					null,
+					2
+				)
+			);
+
+			consoleSpy.mockRestore();
+		} );
+
+		it( 'should show online status when server is running', async () => {
+			( isServerRunning as jest.Mock ).mockResolvedValue( { pid: 12345 } );
+
+			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
+
+			const { runCommand } = await import( '../status' );
+
+			await runCommand( '/path/to/site', 'json' );
+
+			expect( consoleSpy ).toHaveBeenCalledWith(
+				JSON.stringify(
+					{
+						'Site URL': 'http://localhost:8080/',
+						'Auto Login URL': 'http://localhost:8080/studio-auto-login?redirect_to=%2Fwp-admin%2F',
+						'Site Path': '/path/to/site',
+						Status: '🟢 Online',
+						'PHP Version': '8.0',
+						'WP Version': '6.4',
+						'Admin Username': 'admin',
+						'Admin Password': 'password123',
+					},
+					null,
+					2
+				)
+			);
+
+			consoleSpy.mockRestore();
+		} );
+
+		it( 'should handle custom domain in site URL', async () => {
+			( getSiteUrl as jest.Mock ).mockReturnValue( 'http://my-site.wp.local' );
+
+			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
+
+			const { runCommand } = await import( '../status' );
+
+			await runCommand( '/path/to/site', 'json' );
+
+			expect( consoleSpy ).toHaveBeenCalledWith(
+				expect.stringContaining( 'http://my-site.wp.local' )
+			);
+
+			consoleSpy.mockRestore();
+		} );
+
+		it( 'should handle missing optional site properties', async () => {
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( testSiteWithoutOptional );
+
+			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
+
+			const { runCommand } = await import( '../status' );
+
+			await runCommand( '/path/to/site', 'json' );
+
+			expect( consoleSpy ).toHaveBeenCalledWith(
+				JSON.stringify(
+					{
+						'Site URL': 'http://localhost:8080/',
+						'Site Path': '/path/to/site',
+						Status: '🔴 Offline',
+						'PHP Version': undefined,
+						'WP Version': '6.4',
+						'Admin Username': 'admin',
+						'Admin Password': undefined,
+					},
+					null,
+					2
+				)
+			);
+
+			consoleSpy.mockRestore();
+		} );
 	} );
 
-	it( 'should show online status when server is running', async () => {
-		( isServerRunning as jest.Mock ).mockResolvedValue( true );
-		const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
-		const { runCommand } = await import( '../status' );
-		await runCommand( '/path/to/site', 'json' );
+	describe( 'Cleanup', () => {
+		it( 'should always disconnect from PM2 on success', async () => {
+			const { runCommand } = await import( '../status' );
 
-		expect( consoleSpy ).toHaveBeenCalledWith(
-			JSON.stringify(
-				{
-					'Site URL': 'http://localhost:8080/',
-					'Auto Login URL': 'http://localhost:8080/studio-auto-login?redirect_to=%2Fwp-admin%2F',
-					'Site Path': 'path/to/site',
-					Status: '🟢 Online',
-					'PHP Version': '8.0',
-					'WP Version': '6.4',
-					'Admin Username': 'admin',
-					'Admin Password': 'password123',
-				},
-				null,
-				2
-			)
-		);
+			await runCommand( '/path/to/site', 'table' );
 
-		consoleSpy.mockRestore();
-	} );
+			expect( disconnect ).toHaveBeenCalled();
+		} );
 
-	it( 'should handle custom domain in site URL', async () => {
-		( getSiteUrl as jest.Mock ).mockReturnValue( 'http://my-site.wp.local' );
+		it( 'should always disconnect from PM2 on error', async () => {
+			( getSiteByFolder as jest.Mock ).mockRejectedValue( new Error( 'Error' ) );
 
-		const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
-		const { runCommand } = await import( '../status' );
-		await runCommand( '/path/to/site', 'json' );
+			const { runCommand } = await import( '../status' );
 
-		expect( consoleSpy ).toHaveBeenCalledWith(
-			expect.stringContaining( 'http://my-site.wp.local' )
-		);
+			try {
+				await runCommand( '/path/to/site', 'table' );
+			} catch {
+				// Expected
+			}
 
-		consoleSpy.mockRestore();
-	} );
-
-	it( 'should handle site not found error', async () => {
-		const { runCommand } = await import( '../status' );
-		( getSiteByFolder as jest.Mock ).mockRejectedValue( new Error( 'Site not found' ) );
-
-		await runCommand( '/invalid/path', 'table' );
-
-		expect( mockLogger.reportError ).toHaveBeenCalled();
-		expect( disconnect ).toHaveBeenCalled();
-	} );
-
-	it( 'should handle missing optional site properties', async () => {
-		const minimalSite = {
-			id: 'site-1',
-			path: '/path/to/site',
-			adminPassword: undefined,
-		};
-		( getSiteByFolder as jest.Mock ).mockResolvedValue( minimalSite );
-
-		const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
-		const { runCommand } = await import( '../status' );
-		await runCommand( '/path/to/site', 'json' );
-
-		expect( consoleSpy ).toHaveBeenCalledWith(
-			JSON.stringify(
-				{
-					'Site URL': 'http://localhost:8080/',
-					'Site Path': 'path/to/site',
-					Status: '🔴 Offline',
-					'PHP Version': undefined,
-					'WP Version': '6.4',
-					'Admin Username': 'admin',
-					'Admin Password': undefined,
-				},
-				null,
-				2
-			)
-		);
-
-		consoleSpy.mockRestore();
+			expect( disconnect ).toHaveBeenCalled();
+		} );
 	} );
 } );

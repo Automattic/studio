@@ -7,7 +7,6 @@ import { Blueprint } from '@wp-playground/blueprints';
 import { RecommendedPHPVersion } from '@wp-playground/common';
 import {
 	filterUnsupportedBlueprintFeatures,
-	scanBlueprintForUnsupportedFeatures,
 	validateBlueprintData,
 } from 'common/lib/blueprint-validation';
 import { getDomainNameValidationError } from 'common/lib/domains';
@@ -35,6 +34,8 @@ const DEFAULT_VERSIONS = {
 const MINIMUM_WORDPRESS_VERSION = '6.2.1' as const; // https://wordpress.github.io/wordpress-playground/blueprints/examples/#load-an-older-wordpress-version
 const ALLOWED_PHP_VERSIONS = [ ...SupportedPHPVersions ];
 
+const logger = new Logger< LoggerAction >();
+
 export async function runCommand(
 	sitePath: string,
 	options: {
@@ -43,12 +44,10 @@ export async function runCommand(
 		phpVersion: ( typeof ALLOWED_PHP_VERSIONS )[ number ];
 		customDomain?: string;
 		enableHttps: boolean;
-		blueprint?: string;
+		blueprintJson?: unknown;
 		noStart: boolean;
 	}
 ): Promise< void > {
-	const logger = new Logger< LoggerAction >();
-
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating site configuration...' ) );
 
@@ -76,40 +75,24 @@ export async function runCommand(
 		}
 
 		let blueprint: Blueprint | undefined;
-		if ( options.blueprint ) {
-			if ( ! fs.existsSync( options.blueprint ) ) {
-				throw new LoggerError( sprintf( __( 'Blueprint file not found: %s' ), options.blueprint ) );
-			}
-			let blueprintJson: Blueprint;
-			try {
-				const blueprintContent = fs.readFileSync( options.blueprint, 'utf-8' );
-				blueprintJson = JSON.parse( blueprintContent );
-			} catch ( error ) {
-				throw new LoggerError(
-					sprintf( __( 'Invalid blueprint JSON file: %s' ), options.blueprint ),
-					error
-				);
-			}
-			const validation = await validateBlueprintData( blueprintJson );
+		if ( options.blueprintJson ) {
+			const validation = await validateBlueprintData( options.blueprintJson );
 			if ( ! validation.valid ) {
 				throw new LoggerError( validation.error );
 			}
 
-			const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson );
-			if ( unsupportedFeatures.length > 0 ) {
-				for ( const feature of unsupportedFeatures ) {
-					logger.reportWarning(
-						sprintf(
-							/* translators: %1$s: feature name, %2$s: reason */
-							__( `Blueprint feature "%1$s" is not supported: %2$s` ),
-							feature.name,
-							feature.reason
-						)
-					);
-				}
+			for ( const warning of validation.warnings ) {
+				logger.reportWarning(
+					sprintf(
+						/* translators: %1$s: feature name, %2$s: reason */
+						__( `Blueprint feature "%1$s" is not supported: %2$s` ),
+						warning.feature,
+						warning.reason
+					)
+				);
 			}
 
-			blueprint = filterUnsupportedBlueprintFeatures( blueprintJson ) as Blueprint;
+			blueprint = filterUnsupportedBlueprintFeatures( options.blueprintJson ) as Blueprint;
 		}
 
 		const appdata = await readAppdata();
@@ -213,7 +196,7 @@ export async function runCommand(
 
 			await setupCustomDomain( siteDetails, logger );
 
-			const startMessage = options.blueprint
+			const startMessage = blueprint
 				? __( 'Starting WordPress site and applying blueprint...' )
 				: __( 'Starting WordPress site...' );
 			logger.reportStart( LoggerAction.START_SITE, startMessage );
@@ -250,13 +233,6 @@ export async function runCommand(
 			console.log( '' );
 			logSiteDetails( siteDetails );
 			console.log( __( 'Run "studio site start" to start the site.' ) );
-		}
-	} catch ( error ) {
-		if ( error instanceof LoggerError ) {
-			logger.reportError( error );
-		} else {
-			const loggerError = new LoggerError( __( 'Failed to create site' ), error );
-			logger.reportError( loggerError );
 		}
 	} finally {
 		disconnect();
@@ -304,15 +280,44 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path, {
-				name: argv.name,
-				wpVersion: argv.wp,
-				phpVersion: argv.php,
-				customDomain: argv.domain,
-				enableHttps: argv.https,
-				blueprint: argv.blueprint,
-				noStart: ! argv.start,
-			} );
+			try {
+				let blueprintJson: unknown;
+
+				if ( argv.blueprint ) {
+					if ( ! fs.existsSync( argv.blueprint ) ) {
+						throw new LoggerError(
+							sprintf( __( 'Blueprint file not found: %s' ), argv.blueprint )
+						);
+					}
+
+					try {
+						const blueprintContent = fs.readFileSync( argv.blueprint, 'utf-8' );
+						blueprintJson = JSON.parse( blueprintContent );
+					} catch ( error ) {
+						throw new LoggerError(
+							sprintf( __( 'Invalid blueprint JSON file: %s' ), argv.blueprint ),
+							error
+						);
+					}
+				}
+
+				await runCommand( argv.path, {
+					name: argv.name,
+					wpVersion: argv.wp,
+					phpVersion: argv.php,
+					customDomain: argv.domain,
+					enableHttps: argv.https,
+					blueprintJson: blueprintJson,
+					noStart: ! argv.start,
+				} );
+			} catch ( error ) {
+				if ( error instanceof LoggerError ) {
+					logger.reportError( error );
+				} else {
+					const loggerError = new LoggerError( __( 'Failed to load site' ), error );
+					logger.reportError( loggerError );
+				}
+			}
 		},
 	} );
 };

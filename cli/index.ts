@@ -13,6 +13,9 @@ import { registerCommand as registerListCommand } from 'cli/commands/preview/lis
 import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/update';
 import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create';
 import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
+import { registerCommand as registerSiteSetDomainCommand } from 'cli/commands/site/set-domain';
+import { registerCommand as registerSiteSetHttpsCommand } from 'cli/commands/site/set-https';
+import { registerCommand as registerSiteSetPhpVersionCommand } from 'cli/commands/site/set-php-version';
 import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
 import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
@@ -80,14 +83,14 @@ async function main() {
 
 	if ( isSitesCliEnabled ) {
 		studioArgv.command( 'site', __( 'Manage local sites (Beta)' ), ( sitesYargs ) => {
-			sitesYargs.option( 'path', {
-				hidden: true,
-			} );
 			registerSiteStatusCommand( sitesYargs );
 			registerSiteCreateCommand( sitesYargs );
 			registerSiteListCommand( sitesYargs );
 			registerSiteStartCommand( sitesYargs );
 			registerSiteStopCommand( sitesYargs );
+			registerSiteSetHttpsCommand( sitesYargs );
+			registerSiteSetDomainCommand( sitesYargs );
+			registerSiteSetPhpVersionCommand( sitesYargs );
 			sitesYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
 		} );
 	}

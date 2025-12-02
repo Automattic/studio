@@ -67,7 +67,7 @@ describe( 'useAddSite', () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			createSite: mockCreateSite,
 			updateSite: mockUpdateSite,
-			data: [],
+			sites: [],
 			loadingSites: false,
 			startServer: mockStartServer,
 		} );
@@ -160,13 +160,13 @@ describe( 'useAddSite', () => {
 
 	it( 'should pass WordPress version to createSite when handleAddSiteClick is called', async () => {
 		mockCreateSite.mockImplementation(
-			( path, name, wpVersion, customDomain, enableHttps, blueprint, callback ) => {
+			( path, name, wpVersion, customDomain, enableHttps, blueprint, phpVersion, callback ) => {
 				callback( {
 					id: 'test-id',
 					name: name || 'Test Site',
-					path: path,
-					wpVersion: wpVersion,
-					phpVersion: '8.2',
+					path,
+					wpVersion,
+					phpVersion,
 				} );
 				return Promise.resolve();
 			}
@@ -190,49 +190,9 @@ describe( 'useAddSite', () => {
 			undefined,
 			false,
 			undefined, // blueprint parameter
+			'8.3',
 			expect.any( Function )
 		);
-	} );
-
-	it( 'should still call updateSite even if wpVersion matches due to object comparison', async () => {
-		const wpVersion = '6.1.7';
-		const newSite = {
-			id: 'test-id',
-			name: 'Test Site',
-			path: '/test/path',
-			wpVersion: wpVersion,
-			phpVersion: '8.3',
-		};
-
-		mockCreateSite.mockImplementation(
-			( path, name, version, customDomain, enableHttps, blueprint, callback ) => {
-				callback( {
-					...newSite,
-					wpVersion: version,
-				} );
-				return Promise.resolve();
-			}
-		);
-
-		const { result } = renderHookWithProvider( () => useAddSite() );
-
-		act( () => {
-			result.current.setWpVersion( wpVersion );
-			result.current.setSitePath( '/test/path' );
-		} );
-
-		mockUpdateSite.mockClear();
-
-		await act( async () => {
-			await result.current.handleAddSiteClick();
-		} );
-
-		expect( mockUpdateSite ).toHaveBeenCalled();
-
-		expect( mockUpdateSite ).toHaveBeenCalledWith( {
-			...newSite,
-			wpVersion,
-		} );
 	} );
 
 	it( 'should connect and start pulling when a remote site is selected', async () => {
@@ -258,7 +218,7 @@ describe( 'useAddSite', () => {
 		};
 
 		mockCreateSite.mockImplementation(
-			( path, name, version, customDomain, enableHttps, blueprint, callback ) => {
+			( path, name, version, customDomain, enableHttps, blueprint, phpVersion, callback ) => {
 				callback( createdSite );
 				return Promise.resolve();
 			}

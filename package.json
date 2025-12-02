@@ -3,7 +3,7 @@
 	"author": "Automattic Inc.",
 	"private": true,
 	"productName": "Studio",
-	"version": "1.6.6-beta1",
+	"version": "1.6.6-beta3",
 	"description": "Local WordPress development environment using Playgrounds",
 	"license": "GPL-2.0-or-later",
 	"main": "dist/main/index.js",
@@ -156,7 +156,7 @@
 		"winreg": "1.2.4",
 		"wpcom": "^7.1.0",
 		"wpcom-xhr-request": "^1.3.0",
-		"yargs": "17.7.2",
+		"yargs": "^18.0.0",
 		"yauzl": "^3.2.0",
 		"zod": "^3.24.3"
 	},

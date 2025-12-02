@@ -79,7 +79,7 @@ const mockCreateSite = jest.fn< ( path: string, name?: string, wpVersion?: strin
 jest.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( {
 		createSite: mockCreateSite,
-		data: [],
+		sites: [],
 	} ),
 } ) );
 
@@ -229,6 +229,7 @@ describe( 'AddSite', () => {
 				undefined,
 				false,
 				undefined, // blueprint parameter
+				'8.3',
 				expect.any( Function )
 			);
 		} );
@@ -444,6 +445,7 @@ describe( 'AddSite', () => {
 				undefined,
 				false,
 				undefined, // blueprint parameter
+				'8.3',
 				expect.any( Function )
 			);
 		} );

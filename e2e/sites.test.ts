@@ -30,20 +30,10 @@ test.describe( 'Servers', () => {
 		await session.launch( env );
 
 		const onboarding = new Onboarding( session.mainWindow );
-
-		if ( customSiteName ) {
-			await onboarding.siteNameInput.fill( customSiteName );
-		}
-		await expect( onboarding.siteNameInput ).toHaveValue( /\S+/, { timeout: 5000 } );
-		const siteName = await onboarding.siteNameInput.inputValue();
-
-		if ( customFolderName ) {
-			await onboarding.selectLocalPathForTesting( customFolderName );
-		}
-		const localPath = await onboarding.localPathInput.inputValue();
-
-		await expect( onboarding.heading ).toBeVisible();
-		await onboarding.continueButton.click();
+		const { siteName, localPath } = await onboarding.completeOnboarding( {
+			customSiteName,
+			customFolderName,
+		} );
 
 		await closeWhatsNew();
 

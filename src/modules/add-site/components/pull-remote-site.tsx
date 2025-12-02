@@ -63,52 +63,57 @@ function NoAuthPullRemoteSiteView() {
 	const offlineMessage = __( "You're currently offline." );
 
 	return (
-		<SiteSyncDescription>
-			<div className="mt-8">
-				<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
-					<Button
-						aria-description={ isOffline ? offlineMessage : '' }
-						aria-disabled={ isOffline }
-						variant="primary"
-						onClick={ () => {
-							if ( isOffline ) {
-								return;
-							}
-							authenticate();
-						} }
-					>
-						{ __( 'Log in to WordPress.com' ) }
-						<ArrowIcon />
-					</Button>
-				</Tooltip>
-			</div>
-			<div className="mt-3 text-a8c-gray-70 a8c-body">
-				<Tooltip
-					disabled={ ! isOffline }
-					icon={ offlineIcon }
-					text={ offlineMessage }
-					placement="bottom-start"
-				>
-					<span>
-						{ __( 'New to WordPress.com?' ) }{ ' ' }
+		<VStack className="w-full" alignment="top" spacing="1">
+			<Heading className="text-center text-[32px] text-gray-900" weight={ 500 }>
+				{ __( 'Pull your remote site' ) }
+			</Heading>
+			<SiteSyncDescription>
+				<div className="mt-8">
+					<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
 						<Button
 							aria-description={ isOffline ? offlineMessage : '' }
 							aria-disabled={ isOffline }
-							className="!p-0 text-a8c-blue-50 hover:opacity-80 h-auto inline-flex items-center"
+							variant="primary"
 							onClick={ () => {
 								if ( isOffline ) {
 									return;
 								}
-								getIpcApi().authenticate( true );
+								authenticate();
 							} }
 						>
-							{ __( 'Create a free account' ) }
+							{ __( 'Log in to WordPress.com' ) }
 							<ArrowIcon />
 						</Button>
-					</span>
-				</Tooltip>
-			</div>
-		</SiteSyncDescription>
+					</Tooltip>
+				</div>
+				<div className="mt-3 text-a8c-gray-70 a8c-body">
+					<Tooltip
+						disabled={ ! isOffline }
+						icon={ offlineIcon }
+						text={ offlineMessage }
+						placement="bottom-start"
+					>
+						<span>
+							{ __( 'New to WordPress.com?' ) }{ ' ' }
+							<Button
+								aria-description={ isOffline ? offlineMessage : '' }
+								aria-disabled={ isOffline }
+								className="!p-0 text-a8c-blue-50 hover:opacity-80 h-auto inline-flex items-center"
+								onClick={ () => {
+									if ( isOffline ) {
+										return;
+									}
+									getIpcApi().authenticate( true );
+								} }
+							>
+								{ __( 'Create a free account' ) }
+								<ArrowIcon />
+							</Button>
+						</span>
+					</Tooltip>
+				</div>
+			</SiteSyncDescription>
+		</VStack>
 	);
 }
 

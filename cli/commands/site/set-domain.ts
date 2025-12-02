@@ -14,9 +14,9 @@ import {
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-export async function runCommand( sitePath: string, domainName: string ): Promise< void > {
-	const logger = new Logger< LoggerAction >();
+const logger = new Logger< LoggerAction >();
 
+export async function runCommand( sitePath: string, domainName: string ): Promise< void > {
 	try {
 		let site: SiteData;
 		let oldDomainName: string | undefined;
@@ -74,13 +74,6 @@ export async function runCommand( sitePath: string, domainName: string ): Promis
 			await startWordPressServer( site );
 			logger.reportSuccess( __( 'Site restarted' ) );
 		}
-	} catch ( error ) {
-		if ( error instanceof LoggerError ) {
-			logger.reportError( error );
-		} else {
-			const loggerError = new LoggerError( __( 'Failed to start site infrastructure' ), error );
-			logger.reportError( loggerError );
-		}
 	} finally {
 		disconnect();
 	}
@@ -98,7 +91,16 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path, argv.domain );
+			try {
+				await runCommand( argv.path, argv.domain );
+			} catch ( error ) {
+				if ( error instanceof LoggerError ) {
+					logger.reportError( error );
+				} else {
+					const loggerError = new LoggerError( __( 'Failed to start site infrastructure' ), error );
+					logger.reportError( loggerError );
+				}
+			}
 		},
 	} );
 };

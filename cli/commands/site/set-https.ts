@@ -1,14 +1,7 @@
 import { __, _n } from '@wordpress/i18n';
 import { arePathsEqual } from 'common/lib/fs-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import {
-	getSiteByFolder,
-	lockAppdata,
-	readAppdata,
-	saveAppdata,
-	SiteData,
-	unlockAppdata,
-} from 'cli/lib/appdata';
+import { lockAppdata, readAppdata, saveAppdata, SiteData, unlockAppdata } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import {
 	isServerRunning,
@@ -18,9 +11,9 @@ import {
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-export async function runCommand( sitePath: string, enableHttps: boolean ): Promise< void > {
-	const logger = new Logger< LoggerAction >();
+const logger = new Logger< LoggerAction >();
 
+export async function runCommand( sitePath: string, enableHttps: boolean ): Promise< void > {
 	try {
 		let site: SiteData;
 
@@ -65,13 +58,6 @@ export async function runCommand( sitePath: string, enableHttps: boolean ): Prom
 			await startWordPressServer( site );
 			logger.reportSuccess( __( 'Site restarted' ) );
 		}
-	} catch ( error ) {
-		if ( error instanceof LoggerError ) {
-			logger.reportError( error );
-		} else {
-			const loggerError = new LoggerError( __( 'Failed to start site infrastructure' ), error );
-			logger.reportError( loggerError );
-		}
 	} finally {
 		disconnect();
 	}
@@ -89,7 +75,16 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path, argv.enable );
+			try {
+				await runCommand( argv.path, argv.enable );
+			} catch ( error ) {
+				if ( error instanceof LoggerError ) {
+					logger.reportError( error );
+				} else {
+					const loggerError = new LoggerError( __( 'Failed to start site infrastructure' ), error );
+					logger.reportError( loggerError );
+				}
+			}
 		},
 	} );
 };

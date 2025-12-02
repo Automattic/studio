@@ -13,7 +13,7 @@ jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/site-utils' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
 
-describe( 'Site Stop Command', () => {
+describe( 'CLI: studio site stop', () => {
 	// Simple test data
 	const testSite: SiteData = {
 		id: 'site-1',

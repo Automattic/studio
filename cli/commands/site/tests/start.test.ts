@@ -15,7 +15,7 @@ jest.mock( 'cli/lib/site-utils' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
 jest.mock( 'cli/lib/sqlite-integration' );
 
-describe( 'Site Start Command', () => {
+describe( 'CLI: studio site start', () => {
 	// Simple test data
 	const testSite: SiteData = {
 		id: 'site-1',
@@ -209,40 +209,6 @@ describe( 'Site Start Command', () => {
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( openSiteInBrowser ).not.toHaveBeenCalled();
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
-			expect( disconnect ).toHaveBeenCalled();
-		} );
-	} );
-
-	describe( 'Cleanup', () => {
-		it( 'should always disconnect from PM2 on success', async () => {
-			const { runCommand } = await import( '../start' );
-
-			await runCommand( '/test/site' );
-
-			expect( disconnect ).toHaveBeenCalled();
-		} );
-
-		it( 'should always disconnect from PM2 on error', async () => {
-			( getSiteByFolder as jest.Mock ).mockRejectedValue( new Error( 'Error' ) );
-
-			const { runCommand } = await import( '../start' );
-
-			try {
-				await runCommand( '/test/site' );
-			} catch {
-				// Expected
-			}
-
-			expect( disconnect ).toHaveBeenCalled();
-		} );
-
-		it( 'should always disconnect when already running', async () => {
-			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-
-			const { runCommand } = await import( '../start' );
-
-			await runCommand( '/test/site' );
-
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 	} );

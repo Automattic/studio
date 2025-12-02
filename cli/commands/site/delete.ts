@@ -18,15 +18,15 @@ import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-m
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
+const logger = new Logger< LoggerAction >();
+
 export async function runCommand(
 	siteFolder: string,
 	deleteFiles: boolean = false
 ): Promise< void > {
-	const logger = new Logger< LoggerAction >();
-
 	try {
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
-		const site = await getSiteByFolder( siteFolder, false );
+		const site = await getSiteByFolder( siteFolder );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
@@ -84,13 +84,6 @@ export async function runCommand(
 			await fs.rm( siteFolder, { recursive: true, force: true } );
 			logger.reportSuccess( __( 'Site files deleted' ) );
 		}
-	} catch ( error ) {
-		if ( error instanceof LoggerError ) {
-			logger.reportError( error );
-		} else {
-			const loggerError = new LoggerError( __( 'Failed to delete site' ), error );
-			logger.reportError( loggerError );
-		}
 	} finally {
 		disconnect();
 	}
@@ -108,7 +101,16 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path, argv.files );
+			try {
+				await runCommand( argv.path, argv.files );
+			} catch ( error ) {
+				if ( error instanceof LoggerError ) {
+					logger.reportError( error );
+				} else {
+					const loggerError = new LoggerError( __( 'Failed to delete site' ), error );
+					logger.reportError( loggerError );
+				}
+			}
 		},
 	} );
 };

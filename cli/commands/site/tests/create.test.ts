@@ -36,7 +36,7 @@ jest.mock( 'cli/lib/site-utils' );
 jest.mock( 'cli/lib/sqlite-integration' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
 
-describe( 'Site Create Command', () => {
+describe( 'CLI: studio site create', () => {
 	const mockSitePath = '/test/site/new-site';
 	const mockPort = 8881;
 

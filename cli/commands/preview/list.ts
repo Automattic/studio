@@ -2,14 +2,13 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import Table from 'cli-table3';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { format } from 'date-fns';
-import { getAuthToken } from 'cli/lib/appdata';
+import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import {
 	formatDurationUntilExpiry,
 	getSnapshotsFromAppdata,
 	isSnapshotExpired,
 } from 'cli/lib/snapshots';
 import { getColumnWidths } from 'cli/lib/utils';
-import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -21,7 +20,7 @@ export async function runCommand(
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
-		validateSiteFolder( siteFolder );
+		await getSiteByFolder( siteFolder );
 		const token = await getAuthToken();
 		logger.reportSuccess( __( 'Validation successful' ), true );
 

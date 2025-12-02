@@ -18,9 +18,17 @@ export default class MainSidebar {
 	}
 
 	async openAddSiteModal() {
-		await this.addSiteButton.click();
-		const dialog = new AddSiteModal( this.page );
-		await expect( dialog.locator ).toBeVisible();
-		return dialog;
+		const isButtonVisible = await this.addSiteButton.isVisible().catch( () => false );
+
+		if ( isButtonVisible ) {
+			// Sites exist - need to open the modal
+			await this.addSiteButton.click();
+			const dialog = new AddSiteModal( this.page );
+			await expect( dialog.locator ).toBeVisible();
+			return dialog;
+		}
+
+		// No Add Site button visible means we're on empty screen - content is directly on page (no dialog wrapper)
+		return new AddSiteModal( this.page );
 	}
 }

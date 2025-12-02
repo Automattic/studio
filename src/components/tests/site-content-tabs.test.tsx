@@ -112,22 +112,4 @@ describe( 'SiteContentTabs', () => {
 			screen.queryByRole( 'tab', { name: 'Backup', selected: false } )
 		).not.toBeInTheDocument();
 	} );
-	it( 'should render a "No Site" screen if all sites are removed', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			undefined,
-			snapshots: [],
-			data: [],
-			loadingServer: {},
-		} );
-		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
-		expect( screen.queryByRole( 'tab', { name: 'Settings' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'tab', { name: 'Sync' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'tab', { name: 'Previews' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'tab', { name: 'Launchpad' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).not.toBeInTheDocument();
-		expect(
-			screen.getByText( "You don't have any sites right now. Add a new site to get started." )
-		).toBeVisible();
-	} );
 } );

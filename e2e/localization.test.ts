@@ -151,9 +151,6 @@ test.describe( 'Localization', () => {
 		await expect( addSiteModal.addSiteButton ).toBeEnabled();
 		await addSiteModal.addSiteButton.click();
 
-		// Wait for modal to close
-		await expect( addSiteModal.locator ).not.toBeVisible( { timeout: 10_000 } );
-
 		// Wait for site to be created
 		const siteContent = new SiteContent( session.mainWindow, siteName );
 		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );

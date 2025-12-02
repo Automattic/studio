@@ -125,7 +125,6 @@ const api: IpcApi = {
 	getUserTerminal: () => ipcRendererInvoke( 'getUserTerminal' ),
 	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),
 	saveUserEditor: ( editor ) => ipcRendererInvoke( 'saveUserEditor', editor ),
-	handleNewSite: ( newSite ) => ipcRendererInvoke( 'handleNewSite', newSite ),
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
 	listLocalFileTree: ( siteId, path, maxDepth ) =>
 		ipcRenderer.invoke( 'listLocalFileTree', siteId, path, maxDepth ),

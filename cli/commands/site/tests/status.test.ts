@@ -59,7 +59,7 @@ describe( 'Site Status Command', () => {
 		const { runCommand } = await import( '../status' );
 		await runCommand( '/path/to/site', 'table' );
 
-		expect( getSiteByFolder ).toHaveBeenCalledWith( '/path/to/site', false );
+		expect( getSiteByFolder ).toHaveBeenCalledWith( '/path/to/site' );
 		expect( mockLogger.reportStart ).toHaveBeenCalledWith( expect.any( String ), 'Loading site…' );
 		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Site loaded' );
 		expect( disconnect ).toHaveBeenCalled();
@@ -70,7 +70,7 @@ describe( 'Site Status Command', () => {
 		const { runCommand } = await import( '../status' );
 		await runCommand( '/path/to/site', 'json' );
 
-		expect( getSiteByFolder ).toHaveBeenCalledWith( '/path/to/site', false );
+		expect( getSiteByFolder ).toHaveBeenCalledWith( '/path/to/site' );
 		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Site loaded' );
 		expect( consoleSpy ).toHaveBeenCalledWith(
 			JSON.stringify(

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { calculateDirectorySize, isWordPressDirectory } from 'common/lib/fs-utils';
-import { validateSiteFolder, validateSiteSize } from 'cli/lib/validation';
+import { validateSiteSize } from 'cli/lib/validation';
 import { LoggerError } from 'cli/logger';
 
 jest.mock( 'fs' );
@@ -20,37 +20,6 @@ describe( 'Validation Module', () => {
 		( fs.existsSync as jest.Mock ).mockReturnValue( true );
 		( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
 		( calculateDirectorySize as jest.Mock ).mockResolvedValue( 1024 * 1024 * 1024 ); // 1GB
-	} );
-
-	describe( 'validateSiteFolder', () => {
-		it( 'should throw LoggerError if site folder does not exist', () => {
-			( fs.existsSync as jest.Mock ).mockReturnValue( false );
-
-			expect( () => validateSiteFolder( mockSiteFolder ) ).toThrow( LoggerError );
-			expect( () => validateSiteFolder( mockSiteFolder ) ).toThrow(
-				`Folder not found: ${ mockSiteFolder }`
-			);
-		} );
-
-		it( 'should return true for a valid WordPress directory', () => {
-			( fs.existsSync as jest.Mock ).mockReturnValue( true );
-			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
-
-			const result = validateSiteFolder( mockSiteFolder );
-			expect( result ).toBe( true );
-			expect( isWordPressDirectory ).toHaveBeenCalledWith( mockSiteFolder );
-		} );
-
-		it( 'should throw LoggerError for an invalid WordPress directory', () => {
-			( fs.existsSync as jest.Mock ).mockReturnValue( true );
-			( isWordPressDirectory as jest.Mock ).mockReturnValue( false );
-
-			expect( () => validateSiteFolder( mockSiteFolder ) ).toThrow( LoggerError );
-			expect( () => validateSiteFolder( mockSiteFolder ) ).toThrow(
-				/Please ensure it contains a wp-content directory/
-			);
-			expect( isWordPressDirectory ).toHaveBeenCalledWith( mockSiteFolder );
-		} );
 	} );
 
 	describe( 'validateSiteSize', () => {

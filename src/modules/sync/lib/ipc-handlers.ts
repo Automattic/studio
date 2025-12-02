@@ -14,10 +14,7 @@ import { download } from 'src/lib/download';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
-import { getAuthenticationToken } from 'src/lib/oauth';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
-import wpcomFactory from 'src/lib/wpcom-factory';
-import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { SyncSite } from 'src/modules/sync/types';
 import { SiteServer } from 'src/site-server';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
@@ -145,57 +142,12 @@ export function removeExportedSiteTmpFile( event: IpcMainInvokeEvent, path: stri
 	}
 }
 
-export async function pushArchive(
+export async function readFileAsArrayBuffer(
 	event: IpcMainInvokeEvent,
-	remoteSiteId: number,
-	archivePath: string,
-	optionsToSync?: string[],
-	specificSelectionPaths?: string[]
-): Promise< { success: boolean; error?: string } > {
-	const token = await getAuthenticationToken();
-
-	if ( ! token?.accessToken ) {
-		throw new Error( 'No token found' );
-	}
-
-	const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
-	const formData: [ string, unknown, Record< string, string >? ][] = [
-		[
-			'import',
-			fs.createReadStream( archivePath ),
-			{
-				filename: 'loca-env-site-1.tar.gz',
-				contentType: 'application/gzip',
-			},
-		],
-	];
-
-	if ( specificSelectionPaths && specificSelectionPaths.length > 0 ) {
-		const joinedPaths = specificSelectionPaths.join( ',' );
-		formData.push( [ 'list_sync_items', joinedPaths ] );
-	}
-
-	if ( optionsToSync ) {
-		formData.push( [ 'options', optionsToSync.join( ',' ) ] );
-	}
-
-	try {
-		await wpcom.req.post( {
-			path: `/sites/${ remoteSiteId }/studio-app/sync/import`,
-			apiNamespace: 'wpcom/v2',
-			formData,
-		} );
-
-		return { success: true };
-	} catch ( error ) {
-		const parseResult = z.object( { error: z.string() } ).safeParse( error );
-
-		if ( parseResult.success ) {
-			return { success: false, error: parseResult.data.error };
-		}
-
-		return { success: false, error: 'Unknown error' };
-	}
+	filePath: string
+): Promise< ArrayBuffer > {
+	const buffer = await fsPromises.readFile( filePath );
+	return buffer.buffer.slice( buffer.byteOffset, buffer.byteOffset + buffer.byteLength );
 }
 
 export async function downloadSyncBackup(

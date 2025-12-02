@@ -58,10 +58,12 @@ export async function runCommand(
 				)
 			);
 
-			for ( const snapshot of snapshots ) {
-				await deleteSnapshot( snapshot.atomicSiteId, authToken.accessToken );
-				await deleteSnapshotFromAppdata( snapshot.url );
-			}
+			await Promise.all(
+				snapshots.map( async ( snapshot ) => {
+					await deleteSnapshot( snapshot.atomicSiteId, authToken.accessToken );
+					await deleteSnapshotFromAppdata( snapshot.url );
+				} )
+			);
 
 			logger.reportSuccess( __( 'Associated preview sites deleted' ) );
 		}

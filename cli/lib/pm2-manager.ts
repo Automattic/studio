@@ -14,6 +14,15 @@ const DAEMON_TIMEOUT = 10000;
 // This ensures all Studio CLI commands use the same PM2 daemon
 const STUDIO_PM2_HOME = path.join( os.homedir(), '.studio', 'pm2' );
 
+export interface ProcessEventData {
+	processName: string;
+	event: string;
+}
+
+export interface SubscribeProcessEventsOptions {
+	debounceMs?: number;
+}
+
 const pm2 = new PM2( { pm2_home: STUDIO_PM2_HOME } );
 
 let isConnected = false;
@@ -211,4 +220,52 @@ export async function stopProcess( processName: string ): Promise< void > {
 			resolve();
 		} );
 	} );
+}
+
+/**
+ * Subscribe to PM2 process events (online, exit, stop, restart)
+ * @param handler - Callback invoked when a process event occurs
+ * @param options - Configuration options
+ * @returns Unsubscribe function to stop listening
+ */
+export async function subscribeProcessEvents(
+	handler: ( data: ProcessEventData ) => void,
+	options: SubscribeProcessEventsOptions = {}
+): Promise< () => void > {
+	const { debounceMs = 0 } = options;
+	const bus = await getPm2Bus();
+
+	let debounceTimeout: NodeJS.Timeout | null = null;
+	let pendingEvent: ProcessEventData | null = null;
+
+	const eventHandler = ( data: { process: { name: string }; event: string } ) => {
+		const eventData: ProcessEventData = {
+			processName: data.process.name,
+			event: data.event,
+		};
+
+		if ( debounceMs > 0 ) {
+			pendingEvent = eventData;
+			if ( debounceTimeout ) {
+				clearTimeout( debounceTimeout );
+			}
+			debounceTimeout = setTimeout( () => {
+				if ( pendingEvent ) {
+					handler( pendingEvent );
+					pendingEvent = null;
+				}
+			}, debounceMs );
+		} else {
+			handler( eventData );
+		}
+	};
+
+	bus.on( 'process:event', eventHandler );
+
+	return () => {
+		bus.off( 'process:event', eventHandler );
+		if ( debounceTimeout ) {
+			clearTimeout( debounceTimeout );
+		}
+	};
 }

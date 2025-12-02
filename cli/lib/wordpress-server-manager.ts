@@ -17,6 +17,8 @@ import {
 	stopProcess,
 	getPm2Bus,
 	sendMessageToProcess,
+	subscribeProcessEvents,
+	type SubscribeProcessEventsOptions,
 } from 'cli/lib/pm2-manager';
 import { ProcessDescription } from 'cli/lib/types/pm2';
 import {
@@ -25,8 +27,10 @@ import {
 	ManagerMessagePayload,
 } from 'cli/lib/types/wordpress-server-ipc';
 
+const SITE_PROCESS_PREFIX = 'studio-site-';
+
 function getProcessName( siteId: string ): string {
-	return `studio-site-${ siteId }`;
+	return `${ SITE_PROCESS_PREFIX }-${ siteId }`;
 }
 
 export async function isServerRunning( siteId: string ): Promise< ProcessDescription | undefined > {
@@ -293,4 +297,24 @@ export async function runBlueprint(
 		// Always stop the process after blueprint is applied
 		await stopProcess( processName );
 	}
+}
+
+/**
+ * Subscribe to site server events (online, exit, stop, restart)
+ * @param handler - Callback invoked when a site event occurs
+ * @param options - Configuration options (e.g., debounceMs)
+ * @returns Unsubscribe function to stop listening
+ */
+export async function subscribeSiteEvents(
+	handler: ( data: { siteId: string; event: string } ) => void,
+	options: SubscribeProcessEventsOptions = {}
+): Promise< () => void > {
+	return subscribeProcessEvents( ( { processName, event } ) => {
+		if ( ! processName.startsWith( SITE_PROCESS_PREFIX ) ) {
+			return;
+		}
+
+		const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
+		handler( { siteId, event } );
+	}, options );
 }

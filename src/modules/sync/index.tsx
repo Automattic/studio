@@ -145,7 +145,6 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const [ disconnectSite ] = useDisconnectSiteMutation();
 	const { pushSite, pullSite, isAnySitePulling, isAnySitePushing } = useSyncSites();
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
-	const { streamlineOnboarding } = useFeatureFlags();
 
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
 	const [ pendingModalMode, setPendingModalMode ] = useState< 'push' | 'pull' | null >( null );
@@ -214,55 +213,14 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				</div>
 			) : (
 				<SiteSyncDescription>
-					{ streamlineOnboarding ? (
-						<div className="mt-8 flex flex-wrap gap-4">
-							<ConnectButton
-								variant="primary"
-								icon={ cloudUpload }
-								connectSite={ () => setPendingModalMode( 'push' ) }
-								disabled={ isAnySiteSyncing || pendingModalMode !== null }
-								isBusy={ pendingModalMode === 'push' }
-								tooltipText={
-									pendingModalMode === 'pull'
-										? __( 'Please wait for the current operation to finish.' )
-										: isAnySiteSyncing
-										? __(
-												'Another site is syncing. Please wait for the sync to finish before you publish your site.'
-										  )
-										: __( 'Publishing your site requires an internet connection.' )
-								}
-							>
-								{ __( 'Publish site' ) }
-							</ConnectButton>
-							<ConnectButton
-								variant="secondary"
-								connectSite={ () => setPendingModalMode( 'pull' ) }
-								className={ isAnySiteSyncing ? '' : '!text-a8c-blue-50 !shadow-a8c-blue-50' }
-								disabled={ isAnySiteSyncing || pendingModalMode !== null }
-								isBusy={ pendingModalMode === 'pull' }
-								tooltipText={
-									pendingModalMode === 'push'
-										? __( 'Please wait for the current operation to finish.' )
-										: isAnySiteSyncing
-										? __(
-												'Another site is syncing. Please wait for the sync to finish before you pull a site.'
-										  )
-										: __( 'Importing a remote site requires an internet connection.' )
-								}
-							>
-								{ __( 'Pull site' ) }
-							</ConnectButton>
-						</div>
-					) : (
-						<div className="mt-8">
-							<ConnectButton
-								variant="primary"
-								connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
-							>
-								{ __( 'Connect site' ) }
-							</ConnectButton>
-						</div>
-					) }
+					<div className="mt-8">
+						<ConnectButton
+							variant="primary"
+							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
+						>
+							{ __( 'Connect site' ) }
+						</ConnectButton>
+					</div>
 				</SiteSyncDescription>
 			) }
 

@@ -5,11 +5,6 @@ import SiteForm from './site-form';
 export default class AddSiteModal {
 	constructor( private page: Page ) {}
 
-	async open() {
-		await this.page.getByTestId( 'add-site-button' ).click();
-		await expect( this.locator ).toBeVisible();
-	}
-
 	get locator() {
 		return this.page.getByRole( 'dialog' );
 	}

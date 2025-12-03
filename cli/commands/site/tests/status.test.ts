@@ -13,7 +13,7 @@ jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
 jest.mock( 'common/lib/get-wordpress-version' );
 
-describe( 'Site Status Command', () => {
+describe( 'CLI: studio site status', () => {
 	// Simple test data
 	const testSite = {
 		id: 'site-1',

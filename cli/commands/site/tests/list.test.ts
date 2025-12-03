@@ -10,7 +10,7 @@ jest.mock( 'cli/lib/appdata', () => ( {
 jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
 
-describe( 'Sites List Command', () => {
+describe( 'CLI: studio site list', () => {
 	// Simple test data
 	const testAppdata = {
 		sites: [
@@ -126,30 +126,6 @@ describe( 'Sites List Command', () => {
 			expect( disconnect ).toHaveBeenCalled();
 
 			consoleSpy.mockRestore();
-		} );
-	} );
-
-	describe( 'Cleanup', () => {
-		it( 'should always disconnect from PM2 on success', async () => {
-			const { runCommand } = await import( '../list' );
-
-			await runCommand( 'table' );
-
-			expect( disconnect ).toHaveBeenCalled();
-		} );
-
-		it( 'should always disconnect from PM2 on error', async () => {
-			( readAppdata as jest.Mock ).mockRejectedValue( new Error( 'Error' ) );
-
-			const { runCommand } = await import( '../list' );
-
-			try {
-				await runCommand( 'table' );
-			} catch {
-				// Expected
-			}
-
-			expect( disconnect ).toHaveBeenCalled();
 		} );
 	} );
 } );

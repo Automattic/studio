@@ -26,7 +26,7 @@ jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
 jest.mock( 'common/lib/fs-utils' );
 
-describe( 'Site Set-PHP-Version Command', () => {
+describe( 'CLI: studio site set-php-version', () => {
 	const testSitePath = '/test/site/path';
 
 	const createTestSite = (): SiteData => ( {

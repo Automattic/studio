@@ -24,7 +24,7 @@ jest.mock( 'cli/lib/hosts-file' );
 jest.mock( 'cli/lib/site-utils' );
 jest.mock( 'common/lib/domains' );
 
-describe( 'Site Set-Domain Command', () => {
+describe( 'CLI: studio site set-domain', () => {
 	// Simple test data
 	const testSitePath = '/test/site/path';
 	const testDomainName = 'example.local';

@@ -12,6 +12,7 @@ import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/d
 import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
 import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/update';
 import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create';
+import { registerCommand as registerSiteDeleteCommand } from 'cli/commands/site/delete';
 import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
 import { registerCommand as registerSiteSetDomainCommand } from 'cli/commands/site/set-domain';
 import { registerCommand as registerSiteSetHttpsCommand } from 'cli/commands/site/set-https';
@@ -88,6 +89,7 @@ async function main() {
 			registerSiteListCommand( sitesYargs );
 			registerSiteStartCommand( sitesYargs );
 			registerSiteStopCommand( sitesYargs );
+			registerSiteDeleteCommand( sitesYargs );
 			registerSiteSetHttpsCommand( sitesYargs );
 			registerSiteSetDomainCommand( sitesYargs );
 			registerSiteSetPhpVersionCommand( sitesYargs );

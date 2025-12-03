@@ -18,21 +18,19 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 	return (
 		<div className="h-full flex flex-col">
 			<div className="flex flex-col gap-4 my-auto text-pretty">
-				<Heading className="a8c-subtitle text-xl">
-					{ __( 'Connect your WordPress.com account' ) }
-				</Heading>
+				<Heading className="a8c-subtitle text-xl">{ __( 'Welcome to WordPress Studio' ) }</Heading>
 
 				<div className="text-a8c-gray-70 a8c-body">
 					{ __(
-						'Log in with WordPress.com to unlock the full power of WordPress Studio. By signing in, you get access to features that help you build faster, test safely, and work seamlessly across environments:'
+						'Start by connecting your WordPress.com account to unlock the full power of WordPress Studio.'
 					) }
 				</div>
 
 				<div>
 					{ [
-						__( 'Share preview sites with clients and team members.' ),
-						__( 'Seamlessly sync with WordPress.com and Pressable sites.' ),
-						__( 'Get help from Studio Assistant.' ),
+						__( 'Share preview sites with clients and colleagues.' ),
+						__( 'Seamlessly sync with WordPress.com and Pressable.' ),
+						__( 'Get help from the Studio Assistant.' ),
 					].map( ( text ) => (
 						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
 							<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />

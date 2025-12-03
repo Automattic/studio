@@ -12,11 +12,7 @@ import {
 	useGetConnectedSitesForLocalSiteQuery,
 } from 'src/stores/sync/connected-sites';
 
-export const PublishSiteButton = ( {
-	redirectToSync = true,
-}: {
-	redirectToSync?: boolean;
-} = {} ) => {
+export const PublishSiteButton = () => {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
 	const { setSelectedTab } = useContentTabs();
@@ -30,15 +26,11 @@ export const PublishSiteButton = ( {
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 
 	const handlePublishClick = useCallback( () => {
-		if ( redirectToSync ) {
-			setSelectedTab( 'sync' );
-		}
+		setSelectedTab( 'sync' );
 		dispatch( connectedSitesActions.openModal( 'push' ) );
-	}, [ redirectToSync, setSelectedTab, dispatch ] );
+	}, [ setSelectedTab, dispatch ] );
 
-	// Don't show the button if there are already connected sites
-	// (only when redirectToSync is true, meaning it's used outside the sync tab)
-	if ( redirectToSync && connectedSites.length !== 0 ) return null;
+	if ( connectedSites.length !== 0 ) return null;
 
 	return (
 		<ConnectButton

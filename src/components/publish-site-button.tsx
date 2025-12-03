@@ -1,11 +1,11 @@
 import { cloudUpload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import Button from 'src/components/button';
-import { Tooltip } from 'src/components/tooltip';
+import { useCallback } from 'react';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { ConnectButton } from 'src/modules/sync/components/connect-button';
 import { useAppDispatch } from 'src/stores';
 import {
 	connectedSitesActions,
@@ -24,30 +24,29 @@ export const PublishSiteButton = () => {
 	} );
 	const { isAnySitePulling, isAnySitePushing } = useSyncSites();
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
-	const handlePublishClick = () => {
+
+	const handlePublishClick = useCallback( () => {
 		setSelectedTab( 'sync' );
 		dispatch( connectedSitesActions.openModal( 'push' ) );
-	};
+	}, [ setSelectedTab, dispatch ] );
 
 	if ( connectedSites.length !== 0 ) return null;
 
 	return (
-		<Tooltip
-			disabled={ ! isAnySiteSyncing }
-			text={ __(
-				'Another site is syncing. Please wait for the sync to finish before you publish your site.'
-			) }
-			placement="left"
+		<ConnectButton
+			variant="primary"
+			icon={ cloudUpload }
+			connectSite={ handlePublishClick }
+			disabled={ isAnySiteSyncing }
+			tooltipText={
+				isAnySiteSyncing
+					? __(
+							'Another site is syncing. Please wait for the sync to finish before you publish your site.'
+					  )
+					: __( 'Publishing your site requires an internet connection.' )
+			}
 		>
-			<Button
-				variant="primary"
-				disabled={ isAnySiteSyncing }
-				aria-label={ __( 'Publish site' ) }
-				onClick={ handlePublishClick }
-				icon={ cloudUpload }
-			>
-				{ __( 'Publish site' ) }
-			</Button>
-		</Tooltip>
+			{ __( 'Publish site' ) }
+		</ConnectButton>
 	);
 };

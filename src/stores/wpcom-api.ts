@@ -77,6 +77,10 @@ export const setWpcomClient = ( client: WPCOM | undefined ) => {
 	wpcomClient = client;
 };
 
+export const getWpcomClient = (): WPCOM | undefined => {
+	return wpcomClient;
+};
+
 const wpcomBaseQuery: BaseQueryFn<
 	{ path: string; apiNamespace?: string },
 	unknown,

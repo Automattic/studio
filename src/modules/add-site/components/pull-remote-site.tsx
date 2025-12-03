@@ -1,22 +1,23 @@
 import {
-	useNavigator,
 	__experimentalHeading as Heading,
 	__experimentalVStack as VStack,
 } from '@wordpress/components';
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useEffect, useState } from 'react';
+import { PropsWithChildren, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
-import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
+import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ListSites, SearchSites } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
+import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
+import type { SyncSite } from 'src/modules/sync/types';
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();
@@ -118,9 +119,22 @@ export function PullRemoteSite( {
 	setSelectedRemoteSite: ( site?: SyncSite ) => void;
 } ) {
 	const { __ } = useI18n();
-	const { isAuthenticated } = useAuth();
-	const { location } = useNavigator();
-	const { syncSites, refetchSites } = useSyncSites();
+	const { isAuthenticated, user } = useAuth();
+
+	const { selectedSite } = useSiteDetails();
+	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
+		localSiteId: selectedSite?.id,
+		userId: user?.id,
+	} );
+	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
+	const { data: syncSites = [] } = useGetWpComSitesQuery(
+		{
+			connectedSiteIds,
+			userId: user?.id,
+		},
+		{ refetchOnMountOrArgChange: true }
+	);
+
 	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
 
 	const filteredSites = syncSites.filter( ( site ) => {
@@ -130,12 +144,6 @@ export function PullRemoteSite( {
 			site.url?.toLowerCase().includes( searchQueryLower )
 		);
 	} );
-
-	useEffect( () => {
-		if ( location.path === '/pullRemote' && isAuthenticated ) {
-			void refetchSites();
-		}
-	}, [ location.path, isAuthenticated, refetchSites ] );
 
 	const handleSiteSelect = ( siteId: number ) => {
 		const site = syncSites.find( ( s ) => s.id === siteId );

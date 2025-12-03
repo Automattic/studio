@@ -7,11 +7,11 @@ import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
 import Button from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite } from 'src/hooks/use-add-site';
-import { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { SyncSite } from 'src/modules/sync/types';
 import { useRootSelector } from 'src/stores';
 import { formatRtkError } from 'src/stores/format-rtk-error';
 import {

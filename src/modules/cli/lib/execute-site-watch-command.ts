@@ -91,5 +91,6 @@ export function startSiteWatcher(): void {
 }
 
 export function stopSiteWatcher(): void {
+	watcherEventEmitter?.kill();
 	watcherEventEmitter = null;
 }

@@ -11,6 +11,8 @@ type CliCommandEventMap = {
 };
 
 class CliCommandEventEmitter extends EventEmitter {
+	private killFn?: () => void;
+
 	on< K extends keyof CliCommandEventMap >(
 		event: K,
 		listener: ( payload: CliCommandEventMap[ K ] ) => void
@@ -23,6 +25,14 @@ class CliCommandEventEmitter extends EventEmitter {
 		payload?: CliCommandEventMap[ K ]
 	): boolean {
 		return super.emit( event, payload );
+	}
+
+	setKillFn( fn: () => void ): void {
+		this.killFn = fn;
+	}
+
+	kill(): void {
+		this.killFn?.();
 	}
 }
 
@@ -40,6 +50,12 @@ export function executeCliCommand(
 		stdio: options.silent ? [ 'ignore', 'ignore', 'ignore', 'ipc' ] : undefined,
 	} );
 	const eventEmitter = new CliCommandEventEmitter();
+	eventEmitter.setKillFn( () => {
+		if ( child.connected ) {
+			child.disconnect();
+		}
+		child.kill();
+	} );
 
 	child.on( 'message', ( message: unknown ) => {
 		eventEmitter.emit( 'data', { data: message } );

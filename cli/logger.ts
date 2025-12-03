@@ -1,5 +1,15 @@
 import ora, { Ora } from 'ora';
 
+const isIpcMode = Boolean( process.send );
+
+function safeSend( message: unknown ): boolean {
+	if ( process.send && process.connected ) {
+		process.send( message );
+		return true;
+	}
+	return isIpcMode;
+}
+
 export class LoggerError extends Error {
 	previousError?: Error;
 	private errorMessage: string;
@@ -34,16 +44,14 @@ export class Logger< T extends string > {
 	public reportStart( action: T, message: string ) {
 		this.currentAction = action;
 
-		if ( process.send ) {
-			process.send( { action, status: 'inprogress', message } );
+		if ( safeSend( { action, status: 'inprogress', message } ) ) {
 			return;
 		}
 		this.spinner.start( message );
 	}
 
 	public reportProgress( message: string ) {
-		if ( process.send ) {
-			process.send( { action: this.currentAction, status: 'inprogress', message } );
+		if ( safeSend( { action: this.currentAction, status: 'inprogress', message } ) ) {
 			return;
 		}
 
@@ -51,8 +59,8 @@ export class Logger< T extends string > {
 	}
 
 	public reportSuccess( message: string, shouldClearSpinner = false ) {
-		if ( process.send ) {
-			process.send( { action: this.currentAction, status: 'success', message } );
+		if ( safeSend( { action: this.currentAction, status: 'success', message } ) ) {
+			// Message sent via IPC
 		} else if ( shouldClearSpinner ) {
 			this.spinner.clear();
 		} else {
@@ -63,9 +71,7 @@ export class Logger< T extends string > {
 	}
 
 	public reportWarning( message: string ) {
-		if ( process.send ) {
-			process.send( { action: this.currentAction, status: 'warning', message } );
-		} else {
+		if ( ! safeSend( { action: this.currentAction, status: 'warning', message } ) ) {
 			this.spinner.warn( message );
 		}
 	}
@@ -75,9 +81,7 @@ export class Logger< T extends string > {
 			process.exitCode = 1;
 		}
 
-		if ( process.send ) {
-			process.send( { action: this.currentAction, status: 'fail', message: error.message } );
-		} else {
+		if ( ! safeSend( { action: this.currentAction, status: 'fail', message: error.message } ) ) {
 			this.spinner.fail( error.message );
 		}
 
@@ -85,8 +89,6 @@ export class Logger< T extends string > {
 	}
 
 	public reportKeyValuePair( key: string, value: string ) {
-		if ( process.send ) {
-			process.send( { action: 'keyValuePair', key, value } );
-		}
+		safeSend( { action: 'keyValuePair', key, value } );
 	}
 }

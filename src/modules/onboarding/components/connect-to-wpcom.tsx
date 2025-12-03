@@ -18,7 +18,9 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 	return (
 		<div className="h-full flex flex-col">
 			<div className="flex flex-col gap-4 my-auto text-pretty">
-				<Heading className="a8c-subtitle text-xl">{ __( 'Welcome to WordPress Studio' ) }</Heading>
+				<Heading data-testid="onboarding-welcome-title" className="a8c-subtitle text-xl">
+					{ __( 'Welcome to WordPress Studio' ) }
+				</Heading>
 
 				<div className="text-a8c-gray-70 a8c-body">
 					{ __(

@@ -59,8 +59,8 @@ describe( 'Onboarding Component', () => {
 	} );
 
 	it( 'renders onboarding screen correctly', () => {
-		const { getByText } = renderWithProvider( <Onboarding /> );
-		expect( getByText( 'Connect your WordPress.com account' ) ).toBeVisible();
+		const { getByText, getByTestId } = renderWithProvider( <Onboarding /> );
+		expect( getByTestId( 'onboarding-welcome-title' ) ).toBeVisible();
 		expect( getByText( 'Skip →' ) ).toBeVisible();
 	} );
 

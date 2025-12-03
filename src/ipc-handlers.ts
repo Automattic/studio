@@ -918,7 +918,7 @@ export function showNotification(
 
 export async function setupAppMenu(
 	_event: IpcMainInvokeEvent,
-	config: { needsOnboarding: boolean }
+	config: { needsOnboarding: boolean; isAddSiteVisible?: boolean }
 ) {
 	await setupMenu( config );
 }

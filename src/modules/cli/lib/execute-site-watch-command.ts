@@ -22,39 +22,48 @@ const siteStatusEventSchema = z.object( {
 
 let watcherEventEmitter: ReturnType< typeof executeCliCommand > | null = null;
 
+const pendingUpdates = new Map< string, Promise< void > >();
+
 async function updateSiteServerStatus(
 	siteId: string,
 	isRunning: boolean,
 	url: string
 ): Promise< void > {
-	let server = SiteServer.get( siteId );
+	const previous = pendingUpdates.get( siteId ) ?? Promise.resolve();
+	const current = previous
+		.catch( () => {} )
+		.then( async () => {
+			let server = SiteServer.get( siteId );
 
-	if ( ! server ) {
-		const userData = await loadUserData();
-		const siteData = userData.sites.find( ( s ) => s.id === siteId );
-		if ( siteData ) {
-			server = SiteServer.create( { ...siteData, running: false } );
-		}
-	}
+			if ( ! server ) {
+				const userData = await loadUserData();
+				const siteData = userData.sites.find( ( s ) => s.id === siteId );
+				if ( siteData ) {
+					server = SiteServer.create( { ...siteData, running: false } );
+				}
+			}
 
-	// We ignore Studio managed operations
-	if ( server?.isUpdating ) {
-		return;
-	}
+			// We ignore Studio managed operations
+			if ( server?.isUpdating ) {
+				return;
+			}
 
-	if ( server ) {
-		server.details = {
-			...server.details,
-			running: isRunning,
-			url: isRunning ? url : '',
-		};
+			if ( server ) {
+				server.details = {
+					...server.details,
+					running: isRunning,
+					url: isRunning ? url : '',
+				};
 
-		if ( isRunning && url && ! server.server ) {
-			server.server = createCliServerProcess( siteId, server.details.path, url );
-		} else if ( ! isRunning ) {
-			server.server = undefined;
-		}
-	}
+				if ( isRunning && url && ! server.server ) {
+					server.server = createCliServerProcess( siteId, server.details.path, url );
+				} else if ( ! isRunning ) {
+					server.server = undefined;
+				}
+			}
+		} );
+	pendingUpdates.set( siteId, current );
+	await current;
 }
 
 export function startSiteWatcher(): void {

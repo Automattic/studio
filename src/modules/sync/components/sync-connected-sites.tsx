@@ -18,7 +18,11 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
-import { canCancelPull, canCancelPush } from 'src/lib/active-sync-operations';
+import {
+	pushBackupIsUploading,
+	canCancelPull,
+	canCancelPush,
+} from 'src/lib/active-sync-operations';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
@@ -291,9 +295,13 @@ const SyncConnectedSitesSectionItem = ( {
 					{ pushState?.status && isPushing && (
 						<div className="flex items-center gap-2 max-w-full">
 							<Tooltip
-								text={ __(
-									'Push is in progress. We will send you an email when it is completed.'
-								) }
+								text={
+									pushBackupIsUploading( pushState?.status.key )
+										? __( 'Push is in progress. We will send you an email when it is completed.' )
+										: __(
+												"The push is in progress and will continue in the backend. We will send you an email once it's completed."
+										  )
+								}
 								placement="top-start"
 							>
 								<div className="flex flex-col gap-2 min-w-44 flex-shrink">

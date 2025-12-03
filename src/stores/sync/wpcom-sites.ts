@@ -185,7 +185,6 @@ export const wpcomSitesApi = createApi( {
 				}
 			},
 			providesTags: ( _result, _error, arg ) => [ { type: 'WpComSites', userId: arg.userId } ],
-			keepUnusedDataFor: 60,
 		} ),
 	} ),
 } );

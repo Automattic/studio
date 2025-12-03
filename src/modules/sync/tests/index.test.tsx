@@ -120,9 +120,6 @@ describe( 'ContentTabSync', () => {
 
 		( useGetWpComSitesQuery as jest.Mock ).mockReturnValue( {
 			data: syncSites,
-			isLoading: false,
-			isFetching: false,
-			refetch: jest.fn().mockResolvedValue( { data: syncSites } ),
 		} );
 	};
 
@@ -185,9 +182,6 @@ describe( 'ContentTabSync', () => {
 
 		( useGetWpComSitesQuery as jest.Mock ).mockReturnValue( {
 			data: [],
-			isLoading: false,
-			isFetching: false,
-			refetch: jest.fn().mockResolvedValue( { data: [] } ),
 		} );
 
 		( useRemoteFileTree as jest.Mock ).mockReturnValue( {

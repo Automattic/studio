@@ -139,7 +139,6 @@ describe( 'createSite', () => {
 	} );
 } );
 
-
 describe( 'isFullscreen', () => {
 	it( 'should return false when window is not in fullscreen', async () => {
 		( getMainWindow as jest.Mock ).mockResolvedValue( {

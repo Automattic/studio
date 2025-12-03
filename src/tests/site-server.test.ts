@@ -1,8 +1,8 @@
 /**
  * @jest-environment node
  */
-import { SiteServer } from 'src/site-server';
 import { createCliServerProcess } from 'src/modules/cli/lib/cli-server-process';
+import { SiteServer } from 'src/site-server';
 
 // Electron's Node.js environment provides `bota`/`atob`, but Jests' does not
 jest.mock( 'common/lib/passwords' );

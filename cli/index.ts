@@ -20,6 +20,7 @@ import { registerCommand as registerSiteSetPhpVersionCommand } from 'cli/command
 import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
 import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
+import { commandHandler as wpCliCommandHandler } from 'cli/commands/wp';
 import { readAppdata } from 'cli/lib/appdata';
 import { loadTranslations } from 'cli/lib/i18n';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
@@ -68,6 +69,14 @@ async function main() {
 			registerDeleteCommand( previewYargs );
 			registerUpdateCommand( previewYargs );
 			previewYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
+		} )
+		.command( {
+			command: 'wp',
+			describe: __( 'WP-CLI' ),
+			builder: ( wpYargs ) => {
+				return wpYargs.strict( false );
+			},
+			handler: wpCliCommandHandler,
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();

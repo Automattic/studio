@@ -12,7 +12,7 @@ class TestSqliteProvider extends SqliteIntegrationProvider {
 		return 'server-files';
 	}
 
-	getSqliteFilename(): string {
+	getSqliteDirname(): string {
 		return SQLITE_FILENAME;
 	}
 }

@@ -167,8 +167,11 @@ export async function runCommand( siteFolder: string, args: string[] ): Promise<
 
 export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > ) {
 	try {
-		// Remove the 'wp' command itself from the args
-		const wpcliArgs = argv._.slice( 1 ).map( String );
+		const wpcliArgs = process.argv.slice( 3 );
+		const pathIndex = wpcliArgs.findIndex( ( arg ) => arg === '--path' );
+		if ( pathIndex !== -1 ) {
+			wpcliArgs.splice( pathIndex, 2 );
+		}
 		await runCommand( argv.path, wpcliArgs );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {

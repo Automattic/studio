@@ -76,11 +76,7 @@ test.describe( 'Overview customize links', () => {
 
 			const onboarding = new Onboarding( session.mainWindow );
 			await onboarding.completeOnboarding( { customSiteName: siteName } );
-
-			const whatsNewModal = new WhatsNewModal( session.mainWindow );
-			if ( await whatsNewModal.locator.isVisible( { timeout: 5000 } ) ) {
-				await whatsNewModal.close();
-			}
+			await onboarding.closeWhatsNew();
 
 			const siteContent = new SiteContent( session.mainWindow, siteName );
 			await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );

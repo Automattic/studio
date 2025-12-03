@@ -41,12 +41,7 @@ test.describe( 'Startup Metrics', () => {
 			await expect( onboarding.heading ).toBeVisible();
 			const startTime = Date.now();
 			await onboarding.completeOnboarding();
-
-			// Handle the What's New modal if it appears
-			const whatsNewModal = new WhatsNewModal( session.mainWindow );
-			if ( await whatsNewModal.locator.isVisible( { timeout: 5000 } ) ) {
-				await whatsNewModal.closeButton.click();
-			}
+			await onboarding.closeWhatsNew();
 
 			siteContent = new SiteContent( session.mainWindow, siteName );
 			await expect( siteContent.runningButton ).toBeAttached();

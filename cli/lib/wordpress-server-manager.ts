@@ -19,7 +19,6 @@ import {
 	sendMessageToProcess,
 	subscribeProcessEvents,
 	subscribeProcessMessages,
-	type SubscribeProcessEventsOptions,
 } from 'cli/lib/pm2-manager';
 import { ProcessDescription } from 'cli/lib/types/pm2';
 import {
@@ -314,7 +313,7 @@ export async function runBlueprint(
  */
 export async function subscribeSiteEvents(
 	handler: ( data: { siteId: string; event: string } ) => void,
-	options: SubscribeProcessEventsOptions = {}
+	options: { debounceMs?: number } = {}
 ): Promise< () => void > {
 	const { debounceMs = 0 } = options;
 

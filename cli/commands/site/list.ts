@@ -20,8 +20,10 @@ async function getSiteListData( sites: SiteData[] ): Promise< SiteListEntry[] > 
 	const result: SiteListEntry[] = [];
 
 	for await ( const site of sites ) {
-		const isOnline = await isServerRunning( site.id );
-		const status = isOnline ? `🟢 ${ __( 'Online' ) }` : `🔴 ${ __( 'Offline' ) }`;
+		const processInfo = await isServerRunning( site.id );
+		const isReady =
+			processInfo && site.latestCliPid !== undefined && processInfo.pid === site.latestCliPid;
+		const status = isReady ? `🟢 ${ __( 'Online' ) }` : `🔴 ${ __( 'Offline' ) }`;
 		const url = getSiteUrl( site );
 
 		result.push( {
@@ -94,12 +96,33 @@ export async function runCommand( format: 'table' | 'json', watch: boolean ): Pr
 		displaySiteList( sitesData, format );
 
 		if ( watch ) {
+			for ( const site of sitesData ) {
+				const isOnline = site.status.includes( 'Online' );
+				const payload = {
+					siteId: site.id,
+					status: isOnline ? 'running' : 'stopped',
+					url: site.url,
+				};
+				logger.reportKeyValuePair( 'site-status', JSON.stringify( payload ) );
+			}
+
 			await subscribeSiteEvents(
-				async () => {
+				async ( { siteId } ) => {
 					console.clear();
 					const freshAppdata = await readAppdata();
 					const freshSitesData = await getSiteListData( freshAppdata.sites );
 					displaySiteList( freshSitesData, format );
+
+					const site = freshSitesData.find( ( s ) => s.id === siteId );
+					if ( site ) {
+						const isOnline = site.status.includes( 'Online' );
+						const payload = {
+							siteId,
+							status: isOnline ? 'running' : 'stopped',
+							url: site.url,
+						};
+						logger.reportKeyValuePair( 'site-status', JSON.stringify( payload ) );
+					}
 				},
 				{ debounceMs: 500 }
 			);

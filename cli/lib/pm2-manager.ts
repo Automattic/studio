@@ -269,3 +269,39 @@ export async function subscribeProcessEvents(
 		}
 	};
 }
+
+export interface ProcessMessageData {
+	processName: string;
+	pmId: number;
+	topic: string;
+	data?: unknown;
+}
+
+/**
+ * Subscribe to PM2 process messages (IPC messages from child processes)
+ * @param handler - Callback invoked when a process message is received
+ * @returns Unsubscribe function to stop listening
+ */
+export async function subscribeProcessMessages(
+	handler: ( data: ProcessMessageData ) => void
+): Promise< () => void > {
+	const bus = await getPm2Bus();
+
+	const messageHandler = ( packet: {
+		process: { name: string; pm_id: number };
+		raw: { topic: string; [ key: string ]: unknown };
+	} ) => {
+		handler( {
+			processName: packet.process.name,
+			pmId: packet.process.pm_id,
+			topic: packet.raw.topic,
+			data: packet.raw,
+		} );
+	};
+
+	bus.on( 'process:msg', messageHandler );
+
+	return () => {
+		bus.off( 'process:msg', messageHandler );
+	};
+}

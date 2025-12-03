@@ -18,6 +18,7 @@ import {
 	getPm2Bus,
 	sendMessageToProcess,
 	subscribeProcessEvents,
+	subscribeProcessMessages,
 	type SubscribeProcessEventsOptions,
 } from 'cli/lib/pm2-manager';
 import { ProcessDescription } from 'cli/lib/types/pm2';
@@ -30,7 +31,7 @@ import {
 const SITE_PROCESS_PREFIX = 'studio-site-';
 
 function getProcessName( siteId: string ): string {
-	return `${ SITE_PROCESS_PREFIX }-${ siteId }`;
+	return `${ SITE_PROCESS_PREFIX }${ siteId }`;
 }
 
 export async function isServerRunning( siteId: string ): Promise< ProcessDescription | undefined > {
@@ -301,6 +302,12 @@ export async function runBlueprint(
 
 /**
  * Subscribe to site server events (online, exit, stop, restart)
+ *
+ * For 'online' events, we listen for the 'result' message from the WordPress server child
+ * process, which indicates WordPress is fully ready (not just when PM2 process starts).
+ *
+ * For 'exit', 'stop', 'restart' events, we use PM2 process events.
+ *
  * @param handler - Callback invoked when a site event occurs
  * @param options - Configuration options (e.g., debounceMs)
  * @returns Unsubscribe function to stop listening
@@ -309,12 +316,55 @@ export async function subscribeSiteEvents(
 	handler: ( data: { siteId: string; event: string } ) => void,
 	options: SubscribeProcessEventsOptions = {}
 ): Promise< () => void > {
-	return subscribeProcessEvents( ( { processName, event } ) => {
+	const { debounceMs = 0 } = options;
+
+	let debounceTimeout: NodeJS.Timeout | null = null;
+	let pendingEvent: { siteId: string; event: string } | null = null;
+
+	const invokeHandler = ( siteId: string, event: string ) => {
+		if ( debounceMs > 0 ) {
+			pendingEvent = { siteId, event };
+			if ( debounceTimeout ) {
+				clearTimeout( debounceTimeout );
+			}
+			debounceTimeout = setTimeout( () => {
+				if ( pendingEvent ) {
+					handler( pendingEvent );
+					pendingEvent = null;
+				}
+			}, debounceMs );
+		} else {
+			handler( { siteId, event } );
+		}
+	};
+
+	const unsubscribeMessages = await subscribeProcessMessages( ( { processName, topic } ) => {
 		if ( ! processName.startsWith( SITE_PROCESS_PREFIX ) ) {
 			return;
 		}
 
-		const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
-		handler( { siteId, event } );
-	}, options );
+		if ( topic === 'result' ) {
+			const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
+			invokeHandler( siteId, 'online' );
+		}
+	} );
+
+	const unsubscribeEvents = await subscribeProcessEvents( ( { processName, event } ) => {
+		if ( ! processName.startsWith( SITE_PROCESS_PREFIX ) ) {
+			return;
+		}
+
+		if ( event !== 'online' ) {
+			const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
+			invokeHandler( siteId, event );
+		}
+	} );
+
+	return () => {
+		unsubscribeMessages();
+		unsubscribeEvents();
+		if ( debounceTimeout ) {
+			clearTimeout( debounceTimeout );
+		}
+	};
 }

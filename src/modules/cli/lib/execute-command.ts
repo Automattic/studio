@@ -26,10 +26,19 @@ class CliCommandEventEmitter extends EventEmitter {
 	}
 }
 
-export function executeCliCommand( args: string[] ): CliCommandEventEmitter {
+export interface ExecuteCliCommandOptions {
+	silent?: boolean;
+}
+
+export function executeCliCommand(
+	args: string[],
+	options: ExecuteCliCommandOptions = {}
+): CliCommandEventEmitter {
 	const cliPath = getCliPath();
 	// Using Electron's utilityProcess.fork API gave us issues with the child process never exiting
-	const child = fork( cliPath, [ ...args, '--avoid-telemetry' ] );
+	const child = fork( cliPath, [ ...args, '--avoid-telemetry' ], {
+		stdio: options.silent ? [ 'ignore', 'ignore', 'ignore', 'ipc' ] : undefined,
+	} );
 	const eventEmitter = new CliCommandEventEmitter();
 
 	child.on( 'message', ( message: unknown ) => {

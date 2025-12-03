@@ -35,6 +35,7 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { stopProxyServer } from 'src/lib/proxy-server';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-watcher';
+import { startSiteWatcher } from 'src/modules/cli/lib/execute-site-watch-command';
 import { getWordPressProvider } from 'src/lib/wordpress-provider';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';
@@ -312,6 +313,7 @@ async function appBoot() {
 
 		await createMainWindow();
 		await startUserDataWatcher();
+		startSiteWatcher();
 
 		const userData = await loadUserData();
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available

@@ -725,6 +725,13 @@ export async function getThemeDetails(
 	if ( ! server.details.running || ! server.server ) {
 		return undefined;
 	}
+
+	// CLI-managed sites don't have PHP instance, return cached theme details for Now
+	// ToDo: Implement logic to fetch theme details using mu-plugin?
+	if ( ! server.server.php ) {
+		return server.details.themeDetails;
+	}
+
 	const themeDetails = await phpGetThemeDetails( server.server );
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );

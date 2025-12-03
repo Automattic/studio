@@ -1,22 +1,14 @@
 import { Icon, SelectControl, Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
-import {
-	tip,
-	cautionFilled,
-	trash,
-	chevronRight,
-	chevronDown,
-	chevronLeft,
-} from '@wordpress/icons';
+import { tip, cautionFilled, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useRef, useState, useEffect } from 'react';
+import { FormEvent, useState, useEffect } from 'react';
 import { generateCustomDomainFromSiteName } from 'common/lib/domains';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
-import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
@@ -33,17 +25,7 @@ interface FormPathInputComponentProps {
 	onClick: () => void;
 	error?: string;
 	doesPathContainWordPress: boolean;
-	isDisabled: boolean;
 	id?: string;
-}
-
-interface FormImportComponentProps {
-	value?: File | null;
-	onFileSelected?: ( file: File ) => void;
-	onClear?: () => void;
-	onChange: ( file: File | null ) => void;
-	error?: string;
-	placeholder?: string;
 }
 
 interface SiteFormErrorProps {
@@ -53,20 +35,13 @@ interface SiteFormErrorProps {
 }
 
 interface SiteFormProps {
-	className?: string;
-	children?: React.ReactNode;
 	siteName: string;
 	setSiteName: ( name: string ) => void;
 	sitePath?: string;
 	onSelectPath?: () => void;
 	error: string;
 	doesPathContainWordPress?: boolean;
-	isPathInputDisabled?: boolean;
 	onSubmit: ( event: FormEvent ) => void;
-	fileForImport?: File | null;
-	setFileForImport?: ( file: File | null ) => void;
-	onFileSelected?: ( file: File ) => void;
-	fileError?: string;
 	useCustomDomain?: boolean;
 	setUseCustomDomain?: ( use: boolean ) => void;
 	customDomain?: string | null;
@@ -112,7 +87,6 @@ function FormPathInputComponent( {
 	onClick,
 	error,
 	doesPathContainWordPress,
-	isDisabled = false,
 	id,
 }: FormPathInputComponentProps ) {
 	const { __ } = useI18n();
@@ -136,7 +110,6 @@ function FormPathInputComponent( {
 					error && 'border-red-500 [&_.local-path-icon]:border-l-red-500'
 				) }
 				data-testid="select-path-button"
-				disabled={ isDisabled }
 				onClick={ onClick }
 				id={ id }
 			>
@@ -165,91 +138,7 @@ function FormPathInputComponent( {
 	);
 }
 
-function FormImportComponent( {
-	value,
-	onFileSelected,
-	onClear,
-	error,
-	placeholder,
-}: FormImportComponentProps ) {
-	const fileName = value ? value.name : '';
-
-	const inputFileRef = useRef< HTMLInputElement >( null );
-
-	const handleIconClick = ( event: FormEvent ) => {
-		event.stopPropagation();
-		if ( onClear ) {
-			onClear();
-			if ( inputFileRef.current ) {
-				inputFileRef.current.value = '';
-			}
-		}
-	};
-
-	const handleFileChange = ( event: React.ChangeEvent< HTMLInputElement > ) => {
-		if ( ! onFileSelected ) {
-			return;
-		}
-		if ( event.target.files && event.target.files[ 0 ] ) {
-			onFileSelected( event.target.files[ 0 ] );
-		}
-	};
-
-	return (
-		<>
-			<div className="flex items-center">
-				<button
-					aria-invalid={ !! error }
-					type="button"
-					aria-label={ `${ value }, ${ __( 'Select different file' ) }` }
-					className={ cx(
-						'flex items-center flex-grow rounded-sm border border-[#949494] focus:border-a8c-blue-50 focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blue-50 outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-a8c-blue-50 [&:disabled]:cursor-not-allowed',
-						error && 'border-red-500 [&_.local-path-icon]:border-l-red-500',
-						fileName && 'border-r-0 rounded-r-none focus:border'
-					) }
-					onClick={ () => inputFileRef.current?.click() }
-				>
-					<TextControlComponent
-						aria-hidden="true"
-						tabIndex={ -1 }
-						placeholder={ placeholder }
-						className="flex-grow [&_.components-text-control\_\_input]:bg-transparent [&_.components-text-control\_\_input]:border-none [&_input]:pointer-events-none [&_.components-text-control\_\_input]:text-sm w-full [&_.components-text-control\_\_input]:truncate"
-						value={ fileName }
-						onChange={ () => {} }
-					/>
-					{ ! fileName && (
-						<div aria-hidden="true" className="local-path-icon flex items-center py-[12px] px-2.5">
-							<FolderIcon className="text-[#3C434A]" />
-						</div>
-					) }
-				</button>
-				{ fileName && (
-					<Button variant="icon" onClick={ handleIconClick } isDestructive={ true }>
-						<div
-							aria-hidden="true"
-							className="flex items-center py-[10px] px-2.5 rounded-tr-sm rounded-br-sm border border-[#949494] border-l-0"
-						>
-							<Icon size={ 20 } icon={ trash } />
-						</div>
-					</Button>
-				) }
-				<input
-					id="backup-file"
-					ref={ inputFileRef }
-					className="hidden"
-					type="file"
-					data-testid="backup-file"
-					accept={ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) }
-					onChange={ handleFileChange }
-				/>
-			</div>
-			<SiteFormError error={ error } className="pt-0" />
-		</>
-	);
-}
-export const SiteForm = ( {
-	className,
-	children,
+export const CreateSiteForm = ( {
 	siteName,
 	setSiteName,
 	phpVersion,
@@ -259,13 +148,8 @@ export const SiteForm = ( {
 	sitePath = '',
 	onSelectPath,
 	error,
-	doesPathContainWordPress = false,
-	isPathInputDisabled = false,
 	onSubmit,
-	fileForImport,
-	setFileForImport,
-	onFileSelected,
-	fileError,
+	doesPathContainWordPress = false,
 	useCustomDomain,
 	setUseCustomDomain,
 	customDomain = null,
@@ -315,7 +199,7 @@ export const SiteForm = ( {
 			( blueprintPreferredVersions.wp && blueprintPreferredVersions.wp !== wpVersion ) );
 
 	return (
-		<form className={ className } onSubmit={ onSubmit }>
+		<form onSubmit={ onSubmit }>
 			<div className="flex flex-col">
 				<label className="flex flex-col gap-1.5 leading-4 mb-6">
 					<span className="font-semibold">{ __( 'Site name' ) }</span>
@@ -331,44 +215,6 @@ export const SiteForm = ( {
 						data-testid="site-name-input"
 					></TextControlComponent>
 				</label>
-
-				{ setFileForImport && (
-					<>
-						<div className="flex flex-col gap-1.5 leading-4 mb-4">
-							<label className="font-semibold">
-								{ __( 'Import a backup' ) }
-								<span className="font-normal">{ __( ' (optional)' ) }</span>
-							</label>
-							<span className="text-a8c-gray-50 text-xs">
-								{ createInterpolateElement(
-									__(
-										'Import a Jetpack backup or a full-site backup in another format. <button>Learn more</button>'
-									),
-									{
-										button: (
-											<Button
-												variant="link"
-												className="text-xs"
-												onClick={ () =>
-													getIpcApi().openURL( getLocalizedLink( locale, 'docsImportExport' ) )
-												}
-											/>
-										),
-									}
-								) }
-							</span>
-							<FormImportComponent
-								placeholder={ __( 'Select or drop a file' ) }
-								value={ fileForImport }
-								onChange={ setFileForImport }
-								onClear={ () => setFileForImport( null ) }
-								onFileSelected={ onFileSelected }
-								error={ fileError }
-							/>
-						</div>
-					</>
-				) }
-
 				{ onSelectPath && (
 					<>
 						<div className="flex flex-row items-center mb-1">
@@ -422,7 +268,6 @@ export const SiteForm = ( {
 									) }
 								</span>
 								<FormPathInputComponent
-									isDisabled={ isPathInputDisabled }
 									doesPathContainWordPress={ doesPathContainWordPress }
 									error={ error }
 									value={ sitePath }
@@ -559,7 +404,6 @@ export const SiteForm = ( {
 					</>
 				) }
 			</div>
-			{ children }
 		</form>
 	);
 };

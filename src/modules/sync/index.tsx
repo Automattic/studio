@@ -1,4 +1,4 @@
-import { check, cloudUpload, Icon } from '@wordpress/icons';
+import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useEffect, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
@@ -7,7 +7,6 @@ import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useFetchWpComSites } from 'src/hooks/use-fetch-wpcom-sites';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -143,9 +142,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	} = useFetchWpComSites( connectedSites.map( ( { id } ) => id ) );
 	const [ connectSite ] = useConnectSiteMutation();
 	const [ disconnectSite ] = useDisconnectSiteMutation();
-	const { pushSite, pullSite, isAnySitePulling, isAnySitePushing } = useSyncSites();
-	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
-	const { streamlineOnboarding } = useFeatureFlags();
+	const { pushSite, pullSite } = useSyncSites();
 
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
 	const [ pendingModalMode, setPendingModalMode ] = useState< 'push' | 'pull' | null >( null );
@@ -214,55 +211,14 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				</div>
 			) : (
 				<SiteSyncDescription>
-					{ streamlineOnboarding ? (
-						<div className="mt-8 flex flex-wrap gap-4">
-							<ConnectButton
-								variant="primary"
-								icon={ cloudUpload }
-								connectSite={ () => setPendingModalMode( 'push' ) }
-								disabled={ isAnySiteSyncing || pendingModalMode !== null }
-								isBusy={ pendingModalMode === 'push' }
-								tooltipText={
-									pendingModalMode === 'pull'
-										? __( 'Please wait for the current operation to finish.' )
-										: isAnySiteSyncing
-										? __(
-												'Another site is syncing. Please wait for the sync to finish before you publish your site.'
-										  )
-										: __( 'Publishing your site requires an internet connection.' )
-								}
-							>
-								{ __( 'Publish site' ) }
-							</ConnectButton>
-							<ConnectButton
-								variant="secondary"
-								connectSite={ () => setPendingModalMode( 'pull' ) }
-								className={ isAnySiteSyncing ? '' : '!text-a8c-blue-50 !shadow-a8c-blue-50' }
-								disabled={ isAnySiteSyncing || pendingModalMode !== null }
-								isBusy={ pendingModalMode === 'pull' }
-								tooltipText={
-									pendingModalMode === 'push'
-										? __( 'Please wait for the current operation to finish.' )
-										: isAnySiteSyncing
-										? __(
-												'Another site is syncing. Please wait for the sync to finish before you pull a site.'
-										  )
-										: __( 'Importing a remote site requires an internet connection.' )
-								}
-							>
-								{ __( 'Pull site' ) }
-							</ConnectButton>
-						</div>
-					) : (
-						<div className="mt-8">
-							<ConnectButton
-								variant="primary"
-								connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
-							>
-								{ __( 'Connect site' ) }
-							</ConnectButton>
-						</div>
-					) }
+					<div className="mt-8">
+						<ConnectButton
+							variant="primary"
+							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
+						>
+							{ __( 'Connect site' ) }
+						</ConnectButton>
+					</div>
 				</SiteSyncDescription>
 			) }
 

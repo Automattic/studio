@@ -11,7 +11,7 @@ interface MainSidebarProps {
 }
 
 export default function MainSidebar( { className }: MainSidebarProps ) {
-	const { data: localSites } = useSiteDetails();
+	const { sites: localSites } = useSiteDetails();
 
 	return (
 		<div

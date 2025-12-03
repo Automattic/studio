@@ -24,6 +24,7 @@ export enum SiteCommandLoggerAction {
 	STOP_PROXY = 'stopProxy',
 	GENERATE_CERT = 'generateCert',
 	ADD_DOMAIN_TO_HOSTS = 'addDomainToHosts',
+	REMOVE_DOMAIN_FROM_HOSTS = 'removeDomainFromHosts',
 	START_SITE = 'startSite',
 	STOP_SITE = 'stopSite',
 	VALIDATE = 'validate',
@@ -33,4 +34,6 @@ export enum SiteCommandLoggerAction {
 	SETUP_WORDPRESS = 'setupWordPress',
 	SAVE_SITE = 'saveSite',
 	APPLY_BLUEPRINT = 'applyBlueprint',
+	DELETE_PREVIEW_SITES = 'deletePreviewSites',
+	DELETE_FILES = 'deleteFiles',
 }

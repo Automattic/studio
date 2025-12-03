@@ -1,19 +1,18 @@
 import { readAppdata } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
-import { Logger } from 'cli/logger';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
-	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
 	readAppdata: jest.fn(),
+	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
-jest.mock( 'cli/logger' );
 
-describe( 'Sites List Command', () => {
-	const mockAppdata = {
+describe( 'CLI: studio site list', () => {
+	// Simple test data
+	const testAppdata = {
 		sites: [
 			{
 				id: 'site-1',
@@ -32,23 +31,15 @@ describe( 'Sites List Command', () => {
 		snapshots: [],
 	};
 
-	let mockLogger: {
-		reportStart: jest.Mock;
-		reportSuccess: jest.Mock;
-		reportError: jest.Mock;
+	const emptyAppdata = {
+		sites: [],
+		snapshots: [],
 	};
 
 	beforeEach( () => {
 		jest.clearAllMocks();
 
-		mockLogger = {
-			reportStart: jest.fn(),
-			reportSuccess: jest.fn(),
-			reportError: jest.fn(),
-		};
-
-		( Logger as jest.Mock ).mockReturnValue( mockLogger );
-		( readAppdata as jest.Mock ).mockResolvedValue( mockAppdata );
+		( readAppdata as jest.Mock ).mockResolvedValue( testAppdata );
 		( connect as jest.Mock ).mockResolvedValue( undefined );
 		( disconnect as jest.Mock ).mockResolvedValue( undefined );
 		( isServerRunning as jest.Mock ).mockResolvedValue( false );
@@ -58,64 +49,83 @@ describe( 'Sites List Command', () => {
 		jest.restoreAllMocks();
 	} );
 
-	it( 'should list sites successfully', async () => {
-		const { runCommand } = await import( '../list' );
-		await runCommand( 'table' );
+	describe( 'Error Cases', () => {
+		it( 'should throw when appdata read fails', async () => {
+			( readAppdata as jest.Mock ).mockRejectedValue( new Error( 'Failed to read appdata' ) );
 
-		expect( readAppdata ).toHaveBeenCalled();
-		expect( mockLogger.reportStart ).toHaveBeenCalledWith( 'loadSites', 'Loading sites…' );
-		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Found 2 sites' );
+			const { runCommand } = await import( '../list' );
+
+			await expect( runCommand( 'table' ) ).rejects.toThrow( 'Failed to read appdata' );
+			expect( disconnect ).toHaveBeenCalled();
+		} );
 	} );
 
-	it( 'should handle no sites found', async () => {
-		const { runCommand } = await import( '../list' );
-		( readAppdata as jest.Mock ).mockResolvedValue( {
-			sites: [],
-			snapshots: [],
+	describe( 'Success Cases', () => {
+		it( 'should list sites with table format', async () => {
+			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
+			const { runCommand } = await import( '../list' );
+
+			await runCommand( 'table' );
+
+			expect( readAppdata ).toHaveBeenCalled();
+			expect( consoleSpy ).toHaveBeenCalled();
+			expect( disconnect ).toHaveBeenCalled();
+
+			consoleSpy.mockRestore();
 		} );
 
-		await runCommand( 'table' );
+		it( 'should list sites with json format', async () => {
+			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
+			const { runCommand } = await import( '../list' );
 
-		expect( mockLogger.reportStart ).toHaveBeenCalledWith( 'loadSites', 'Loading sites…' );
-		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'No sites found' );
-	} );
+			await runCommand( 'json' );
 
-	it( 'should handle appdata read errors', async () => {
-		const { runCommand } = await import( '../list' );
-		( readAppdata as jest.Mock ).mockRejectedValue( new Error( 'Failed to read appdata' ) );
+			expect( consoleSpy ).toHaveBeenCalledWith(
+				JSON.stringify(
+					[
+						{
+							status: '🔴 Offline',
+							name: 'Test Site 1',
+							path: '/path/to/site1',
+							url: 'http://localhost:8080',
+						},
+						{
+							status: '🔴 Offline',
+							name: 'Test Site 2',
+							path: '/path/to/site2',
+							url: 'http://my-site.wp.local',
+						},
+					],
+					null,
+					2
+				)
+			);
+			expect( disconnect ).toHaveBeenCalled();
 
-		await runCommand( 'table' );
+			consoleSpy.mockRestore();
+		} );
 
-		expect( mockLogger.reportError ).toHaveBeenCalled();
-	} );
+		it( 'should handle no sites found', async () => {
+			( readAppdata as jest.Mock ).mockResolvedValue( emptyAppdata );
 
-	it( 'should work with json format', async () => {
-		const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
-		const { runCommand } = await import( '../list' );
-		await runCommand( 'json' );
+			const { runCommand } = await import( '../list' );
 
-		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Found 2 sites' );
-		expect( consoleSpy ).toHaveBeenCalledWith(
-			JSON.stringify(
-				[
-					{
-						status: '🔴 Offline',
-						name: 'Test Site 1',
-						path: '/path/to/site1',
-						url: 'http://localhost:8080',
-					},
-					{
-						status: '🔴 Offline',
-						name: 'Test Site 2',
-						path: '/path/to/site2',
-						url: 'http://my-site.wp.local',
-					},
-				],
-				null,
-				2
-			)
-		);
+			await runCommand( 'table' );
 
-		consoleSpy.mockRestore();
+			expect( readAppdata ).toHaveBeenCalled();
+			expect( disconnect ).toHaveBeenCalled();
+		} );
+
+		it( 'should handle custom domain in site URL', async () => {
+			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
+			const { runCommand } = await import( '../list' );
+
+			await runCommand( 'json' );
+
+			expect( consoleSpy ).toHaveBeenCalledWith( expect.stringContaining( 'my-site.wp.local' ) );
+			expect( disconnect ).toHaveBeenCalled();
+
+			consoleSpy.mockRestore();
+		} );
 	} );
 } );

@@ -6,9 +6,9 @@ import { cx } from 'src/lib/cx';
 
 export function RunningSites() {
 	const { __, _n } = useI18n();
-	const { data, stopAllRunningSites } = useSiteDetails();
+	const { sites, stopAllRunningSites } = useSiteDetails();
 
-	const runningSites = data.filter( ( site ) => site.running );
+	const runningSites = sites.filter( ( site ) => site.running );
 
 	return (
 		<>

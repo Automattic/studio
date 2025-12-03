@@ -130,7 +130,6 @@ describe( 'ContentTabSync', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( false ) );
 		( useFeatureFlags as jest.Mock ).mockReturnValue( {
 			enableBlueprints: true,
-			streamlineOnboarding: false,
 		} );
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			authenticate: jest.fn(),
@@ -257,35 +256,6 @@ describe( 'ContentTabSync', () => {
 		expect( getIpcApi().authenticate ).toHaveBeenCalled();
 	} );
 
-	it( 'displays publish and import actions to authenticated user', () => {
-		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			enableBlueprints: true,
-			streamlineOnboarding: true,
-		} );
-		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const publishButton = screen.getByRole( 'button', { name: /Publish site/i } );
-		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
-
-		expect( publishButton ).toBeInTheDocument();
-		expect( importButton ).toBeInTheDocument();
-	} );
-
-	it( 'opens the site selector modal when clicking "Pull site" button', async () => {
-		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			enableBlueprints: true,
-			streamlineOnboarding: true,
-		} );
-		setupConnectedSitesMocks( [], [ fakeSyncSite ] );
-
-		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const pullSiteButton = await screen.findByRole( 'button', { name: 'Pull site' } );
-		fireEvent.click( pullSiteButton );
-
-		expect( await screen.findByTestId( 'sync-sites-modal-selector' ) ).toBeInTheDocument();
-	} );
-
 	it( 'displays the list of connected sites', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
@@ -338,21 +308,6 @@ describe( 'ContentTabSync', () => {
 			name: /Create a new WordPress.com site ↗/i,
 		} );
 		expect( createNewSiteButton ).toBeInTheDocument();
-	} );
-
-	it( 'displays publish and import buttons when there are no connected sites', () => {
-		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			enableBlueprints: true,
-			streamlineOnboarding: true,
-		} );
-		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-
-		const publishButton = screen.getByRole( 'button', { name: /Publish site/i } );
-		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
-
-		expect( publishButton ).toBeInTheDocument();
-		expect( importButton ).toBeInTheDocument();
 	} );
 
 	it( 'displays environment badges for Pressable sites with production, staging and development environments', async () => {

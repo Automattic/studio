@@ -4,11 +4,9 @@ import { PropsWithChildren, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
-import { PublishSiteButton } from 'src/components/publish-site-button';
 import { Tooltip } from 'src/components/tooltip';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
@@ -146,7 +144,6 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	} );
 
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
-	const { streamlineOnboarding } = useFeatureFlags();
 
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
 
@@ -206,35 +203,15 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				</div>
 			) : (
 				<SiteSyncDescription>
-					{ streamlineOnboarding ? (
-						<div className="mt-8 flex flex-wrap gap-4">
-							<PublishSiteButton redirectToSync={ false } />
-							<ConnectButton
-								variant="secondary"
-								connectSite={ () => dispatch( connectedSitesActions.openModal( 'pull' ) ) }
-								className={ isAnySiteSyncing ? '' : '!text-a8c-blue-50 !shadow-a8c-blue-50' }
-								disabled={ isAnySiteSyncing }
-								tooltipText={
-									isAnySiteSyncing
-										? __(
-												'Another site is syncing. Please wait for the sync to finish before you pull a site.'
-										  )
-										: __( 'Importing a remote site requires an internet connection.' )
-								}
-							>
-								{ __( 'Pull site' ) }
-							</ConnectButton>
-						</div>
-					) : (
-						<div className="mt-8">
-							<ConnectButton
-								variant="primary"
-								connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
-							>
-								{ __( 'Connect site' ) }
-							</ConnectButton>
-						</div>
-					) }
+					<div className="mt-8">
+						<ConnectButton
+							variant="primary"
+							disabled={ isAnySiteSyncing }
+							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
+						>
+							{ __( 'Connect site' ) }
+						</ConnectButton>
+					</div>
 				</SiteSyncDescription>
 			) }
 

@@ -10,7 +10,7 @@ export default class MainSidebar {
 	}
 
 	get addSiteButton() {
-		return this.page.getByTestId( 'add-site-button' );
+		return this.locator.getByTestId( 'add-site-button' );
 	}
 
 	getSiteNavButton( siteName: string ) {
@@ -20,15 +20,13 @@ export default class MainSidebar {
 	async openAddSiteModal() {
 		const isButtonVisible = await this.addSiteButton.isVisible().catch( () => false );
 
-		if ( isButtonVisible ) {
-			// Sites exist - need to open the modal
-			await this.addSiteButton.click();
-			const dialog = new AddSiteModal( this.page );
-			await expect( dialog.locator ).toBeVisible();
-			return dialog;
+		if ( ! isButtonVisible ) {
+			throw new Error( 'Add Site button not found on the main sidebar' );
 		}
 
-		// No Add Site button visible means we're on empty screen - content is directly on page (no dialog wrapper)
-		return new AddSiteModal( this.page );
+		await this.addSiteButton.click();
+		const dialog = new AddSiteModal( this.page );
+		await expect( dialog.locator ).toBeVisible();
+		return dialog;
 	}
 }

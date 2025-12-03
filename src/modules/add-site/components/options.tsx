@@ -111,7 +111,7 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 			) }
 			<OptionButton
 				icon={ <Icon icon={ download } size={ 24 } fill="#3858E9" /> }
-				title={ __( 'Import an existing website' ) }
+				title={ __( 'Pull an existing site' ) }
 				description={ __( 'Download directly from WordPress.com or Pressable' ) }
 				onClick={ () => onOptionSelect( 'pullRemote' ) }
 			/>

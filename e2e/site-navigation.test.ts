@@ -15,7 +15,7 @@ async function closeWelcomeGuide( page: Page ) {
 	const modalOverlay = page.locator( '.components-modal__screen-overlay' );
 	const closeButton = page.locator( '.components-modal__header > button[aria-label="Close"]' );
 
-	for ( let i = 0; i < 3; i++ ) {
+	for ( let i = 0; i < 10; i++ ) {
 		try {
 			await modalOverlay.waitFor( { state: 'visible', timeout: 2000 } );
 			await closeButton.waitFor( { state: 'visible', timeout: 2000 } );

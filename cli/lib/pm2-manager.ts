@@ -1,8 +1,7 @@
-import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { cacheFunctionTTL } from 'common/lib/cache-function-ttl';
-import { StartOptions } from 'pm2';
+import { custom as PM2, StartOptions } from 'pm2';
 import { getAppdataPath } from 'cli/lib/appdata';
 import { ProcessDescription } from 'cli/lib/types/pm2';
 import { ManagerMessage } from './types/wordpress-server-ipc';
@@ -15,40 +14,7 @@ const DAEMON_TIMEOUT = 10000;
 // This ensures all Studio CLI commands use the same PM2 daemon
 const STUDIO_PM2_HOME = path.join( os.homedir(), '.studio', 'pm2' );
 
-process.env.PM2_HOME = STUDIO_PM2_HOME;
-
-function resolvePm2(): typeof import('pm2') {
-	try {
-		return require( 'pm2' );
-	} catch ( error ) {
-		const possiblePaths: string[] = [
-			path.join( __dirname, 'node_modules', 'pm2' ),
-			path.join( path.dirname( __dirname ), 'node_modules', 'pm2' ),
-			path.join( __dirname, '..', 'node_modules', 'pm2' ),
-			path.join( __dirname, '..', '..', 'node_modules', 'pm2' ),
-			path.join( __dirname, '..', '..', '..', 'node_modules', 'pm2' ),
-			path.resolve( process.cwd(), 'node_modules', 'pm2' ),
-		];
-
-		for ( const pm2Path of possiblePaths ) {
-			if ( fs.existsSync( pm2Path ) ) {
-				try {
-					return require( pm2Path );
-				} catch {
-					continue;
-				}
-			}
-		}
-
-		throw new Error(
-			`pm2 module not found. Please ensure pm2 is installed in the CLI dependencies. Tried paths: ${ possiblePaths.join(
-				', '
-			) }`
-		);
-	}
-}
-
-const pm2 = resolvePm2();
+const pm2 = new PM2( { pm2_home: STUDIO_PM2_HOME } );
 
 let isConnected = false;
 

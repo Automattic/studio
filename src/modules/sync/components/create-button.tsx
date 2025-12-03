@@ -34,7 +34,9 @@ export const CreateButton = ( {
 				onClick={ () => {
 					onClick?.();
 					getIpcApi().openURL(
-						`https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&showDomainStep&studioSiteId=${ selectedSite.id }`
+						`https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&showDomainStep&studioSiteId=${
+							selectedSite.id
+						}&new=${ encodeURIComponent( selectedSite.name ) }`
 					);
 				} }
 				variant={ variant }

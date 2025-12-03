@@ -1,6 +1,6 @@
 import { cpus } from 'os';
 import { SupportedPHPVersion, PHPRunOptions } from '@php-wasm/universal';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import { getMuPlugins } from 'common/lib/mu-plugins';
 import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
@@ -220,7 +220,10 @@ async function startServer(
 		if ( options.enableMultiWorker ) {
 			const workerCount = Math.max( 1, cpus().length - 1 );
 			console.log(
-				`[playground-cli] Enabling experimental multi-worker support with ${ workerCount } workers (CPU cores - 1)`
+				sprintf(
+					__( 'Enabling experimental multi-worker support with %d workers (CPU cores - 1)' ),
+					workerCount
+				)
 			);
 			args.experimentalMultiWorker = workerCount;
 		}
@@ -246,7 +249,7 @@ async function startServer(
 		// Log actual worker count for verification
 		if ( options.enableMultiWorker ) {
 			console.log(
-				`[playground-cli] Server started with ${ server.workerThreadCount } worker thread(s)`
+				sprintf( __( 'Server started with %d worker thread(s)' ), server.workerThreadCount )
 			);
 		}
 

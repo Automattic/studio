@@ -3,7 +3,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'common/lib/domains';
 import { useSyncSites } from 'src/hooks/sync-sites';
-import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -21,7 +20,6 @@ import type { SyncOption } from 'src/types';
 
 export function useAddSite() {
 	const { __ } = useI18n();
-	const { user } = useAuth();
 	const { createSite, sites, loadingSites, startServer } = useSiteDetails();
 	const { importFile, clearImportState } = useImportExport();
 	const [ connectSite ] = useConnectSiteMutation();
@@ -143,11 +141,7 @@ export function useAddSite() {
 						} );
 					} else {
 						if ( selectedRemoteSite ) {
-							await connectSite( {
-								remoteSiteId: selectedRemoteSite.id,
-								localSiteId: newSite.id,
-								userId: user?.id,
-							} );
+							await connectSite( { site: selectedRemoteSite, localSiteId: newSite.id } );
 							const pullOptions: SyncOption[] = [ 'all' ];
 							pullSite( selectedRemoteSite, newSite, {
 								optionsToSync: pullOptions,
@@ -187,7 +181,6 @@ export function useAddSite() {
 		pullSite,
 		connectSite,
 		setSelectedTab,
-		user?.id,
 	] );
 
 	const handleSiteNameChange = useCallback(

@@ -154,9 +154,9 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		return <NoAuthSyncTab />;
 	}
 
-	const handleConnect = async ( remoteSiteId: number ) => {
+	const handleConnect = async ( newConnectedSite: SyncSite ) => {
 		try {
-			await connectSite( { remoteSiteId, localSiteId: selectedSite.id, userId: user?.id } );
+			await connectSite( { site: newConnectedSite, localSiteId: selectedSite.id } );
 		} catch ( error ) {
 			getIpcApi().showErrorMessageBox( {
 				title: __( 'Failed to connect to site' ),
@@ -179,7 +179,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			dispatch( connectedSitesActions.openModal( reduxModalMode ) );
 			setSelectedRemoteSite( selectedSiteFromList );
 		} else {
-			await handleConnect( siteId );
+			await handleConnect( selectedSiteFromList );
 			dispatch( connectedSitesActions.closeModal() );
 		}
 	};
@@ -257,12 +257,12 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					localSite={ selectedSite }
 					remoteSite={ selectedRemoteSite }
 					onPush={ async ( tree ) => {
-						await handleConnect( selectedRemoteSite.id );
+						await handleConnect( selectedRemoteSite );
 						const pushOptions = convertTreeToPushOptions( tree );
 						void pushSite( selectedRemoteSite, selectedSite, pushOptions );
 					} }
 					onPull={ async ( tree ) => {
-						await handleConnect( selectedRemoteSite.id );
+						await handleConnect( selectedRemoteSite );
 						const pullOptions = convertTreeToPullOptions( tree );
 						void pullSite( selectedRemoteSite, selectedSite, pullOptions );
 					} }

@@ -2,6 +2,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState } from 'src/stores';
+import { wpcomSitesApi } from './wpcom-sites';
 import type { SyncSite, SyncModalMode } from 'src/modules/sync/types';
 
 type ConnectedSitesState = {
@@ -62,11 +63,29 @@ export const connectedSitesApi = createApi( {
 			],
 		} ),
 
-		connectSite: builder.mutation< SyncSite[], { site: SyncSite; localSiteId: string } >( {
-			queryFn: async ( { site, localSiteId } ) => {
+		connectSite: builder.mutation<
+			SyncSite[],
+			{ remoteSiteId: number; localSiteId: string; userId?: number }
+		>( {
+			queryFn: async ( { remoteSiteId, localSiteId, userId }, api ) => {
+				const connectedSites = await getIpcApi().getConnectedWpcomSites( localSiteId );
+				const { data: remoteSites = [] } = await api.dispatch(
+					wpcomSitesApi.endpoints.getWpComSites.initiate( {
+						connectedSiteIds: connectedSites.map( ( site ) => site.id ),
+						userId,
+					} )
+				);
+				const siteToConnect = remoteSites.find( ( site ) => site.id === remoteSiteId );
+
+				if ( ! siteToConnect ) {
+					return {
+						error: { status: 'CUSTOM_ERROR', error: 'Site not found in WordPress.com sites' },
+					};
+				}
+
 				await getIpcApi().connectWpcomSites( [
 					{
-						sites: [ site ],
+						sites: [ siteToConnect ],
 						localSiteId,
 					},
 				] );

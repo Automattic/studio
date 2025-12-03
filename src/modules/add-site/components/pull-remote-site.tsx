@@ -1,11 +1,10 @@
 import {
-	useNavigator,
 	__experimentalHeading as Heading,
 	__experimentalVStack as VStack,
 } from '@wordpress/components';
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useEffect, useState } from 'react';
+import { PropsWithChildren, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
@@ -126,7 +125,6 @@ export function PullRemoteSite( {
 } ) {
 	const { __ } = useI18n();
 	const { isAuthenticated, user } = useAuth();
-	const { location } = useNavigator();
 
 	const { selectedSite } = useSiteDetails();
 	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
@@ -134,10 +132,13 @@ export function PullRemoteSite( {
 		userId: user?.id,
 	} );
 	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
-	const { data: syncSites = [], refetch: refetchSites } = useGetWpComSitesQuery( {
-		connectedSiteIds,
-		userId: user?.id,
-	} );
+	const { data: syncSites = [] } = useGetWpComSitesQuery(
+		{
+			connectedSiteIds,
+			userId: user?.id,
+		},
+		{ refetchOnMountOrArgChange: true }
+	);
 
 	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
 
@@ -148,12 +149,6 @@ export function PullRemoteSite( {
 			site.url?.toLowerCase().includes( searchQueryLower )
 		);
 	} );
-
-	useEffect( () => {
-		if ( location.path === '/pullRemote' && isAuthenticated ) {
-			void refetchSites();
-		}
-	}, [ location.path, isAuthenticated, refetchSites ] );
 
 	if ( ! isAuthenticated ) {
 		return <NoAuthPullRemoteSiteView />;

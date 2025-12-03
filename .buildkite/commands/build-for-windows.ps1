@@ -28,6 +28,8 @@ if ($Architecture -notin $VALID_ARCHITECTURES) {
     Exit 1
 }
 
+Write-Output "AMI_VERSION: $([Environment]::GetEnvironmentVariable('AMI_VERSION'))"
+
 # setup_windows_code_signing.ps1 comes from CI Toolkit Plugin
 & "setup_windows_code_signing.ps1"
 If ($LastExitCode -ne 0) { Exit $LastExitCode }

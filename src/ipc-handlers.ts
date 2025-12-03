@@ -324,7 +324,7 @@ export async function updateSite(
 		await lockAppdata();
 		const userData = await loadUserData();
 		const updatedSites = userData.sites.map( ( site ) =>
-			site.id === updatedSite.id ? updatedSite : site
+			site.id === updatedSite.id ? { ...site, ...updatedSite } : site
 		);
 		userData.sites = updatedSites;
 
@@ -346,8 +346,6 @@ export async function startServer(
 	if ( ! server ) {
 		return null;
 	}
-
-	await keepSqliteIntegrationUpdated( server.details.path );
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	try {

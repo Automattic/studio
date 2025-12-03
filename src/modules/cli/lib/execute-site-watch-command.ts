@@ -37,6 +37,11 @@ async function updateSiteServerStatus(
 		}
 	}
 
+	// We ignore Studio managed operations
+	if ( server?.isUpdating ) {
+		return;
+	}
+
 	if ( server ) {
 		server.details = {
 			...server.details,

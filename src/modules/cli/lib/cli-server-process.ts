@@ -15,7 +15,13 @@ export function createCliServerProcess(
 
 		async start(): Promise< void > {
 			return new Promise( ( resolve, reject ) => {
-				const emitter = executeCliCommand( [ 'site', 'start', '--path', sitePath ] );
+				const emitter = executeCliCommand( [
+					'site',
+					'start',
+					'--path',
+					sitePath,
+					'--skip-browser',
+				] );
 
 				emitter.on( 'success', () => {
 					resolve();

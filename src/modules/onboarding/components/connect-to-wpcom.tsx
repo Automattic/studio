@@ -30,9 +30,9 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 
 				<div>
 					{ [
-						__( 'Share preview sites with clients and colleagues.' ),
-						__( 'Seamlessly sync with WordPress.com and Pressable.' ),
-						__( 'Get help from the Studio Assistant.' ),
+						__( 'Share preview sites with clients and colleagues' ),
+						__( 'Seamlessly sync with WordPress.com and Pressable' ),
+						__( 'Get smart suggestions from the Studio Assistant' ),
 					].map( ( text ) => (
 						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
 							<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />

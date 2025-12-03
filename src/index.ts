@@ -371,7 +371,7 @@ async function appBoot() {
 						type: 'warning',
 				  }
 				: {
-						message: __( 'Sync is in progress' ),
+						message: __( 'Sync will continue' ),
 						detail: __(
 							'The sync process will continue on the server side even after you quit Studio. We will send you an email when it is complete.'
 						),

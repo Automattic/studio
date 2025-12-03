@@ -135,15 +135,13 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	} );
 	const [ connectSite ] = useConnectSiteMutation();
 	const [ disconnectSite ] = useDisconnectSiteMutation();
-	const { pushSite, pullSite, isAnySitePulling, isAnySitePushing } = useSyncSites();
+	const { pushSite, pullSite } = useSyncSites();
 
 	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
 	const { data: syncSites = [] } = useGetWpComSitesQuery( {
 		connectedSiteIds,
 		userId: user?.id,
 	} );
-
-	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
 
@@ -206,7 +204,6 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					<div className="mt-8">
 						<ConnectButton
 							variant="primary"
-							disabled={ isAnySiteSyncing }
 							connectSite={ () => dispatch( connectedSitesActions.openModal( 'connect' ) ) }
 						>
 							{ __( 'Connect site' ) }

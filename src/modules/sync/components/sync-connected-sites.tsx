@@ -299,7 +299,7 @@ const SyncConnectedSitesSectionItem = ( {
 									pushBackupIsUploading( pushState?.status.key )
 										? __( 'Push is in progress. We will send you an email when it is completed.' )
 										: __(
-												"The push is in progress and will continue in the backend. We will send you an email once it's completed."
+												"The push is in progress and will continue running remotely. We will send you an email once it's completed."
 										  )
 								}
 								placement="top-start"

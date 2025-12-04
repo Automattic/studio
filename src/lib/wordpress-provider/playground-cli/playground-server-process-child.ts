@@ -77,7 +77,7 @@ function formatMessageForUI( message: string ): string {
 		return __( 'Running the Blueprint…' );
 	}
 	if ( message.includes( 'Finished running the blueprint' ) ) {
-		return __( 'Finished running the Blueprint…' );
+		return __( 'Wrapping up the Blueprint installation…' );
 	}
 	if ( message.includes( 'Preparing workers' ) ) {
 		return __( 'Preparing workers…' );

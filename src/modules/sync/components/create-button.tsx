@@ -6,6 +6,7 @@ import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { DEFAULT_CUSTOM_DOMAIN_SUFFIX } from '../../../../common/constants';
 
 interface CreateButtonProps {
 	variant: ButtonVariant;
@@ -34,7 +35,7 @@ export const CreateButton = ( {
 				onClick={ () => {
 					onClick?.();
 					const suggestedName = selectedSite.customDomain
-						? selectedSite.customDomain.replace( /\.wp\.local$/, '' )
+						? selectedSite.customDomain.replace( DEFAULT_CUSTOM_DOMAIN_SUFFIX, '' )
 						: selectedSite.name;
 					getIpcApi().openURL(
 						`https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&showDomainStep&studioSiteId=${

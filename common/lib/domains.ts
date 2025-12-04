@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import { DEFAULT_CUSTOM_DOMAIN_SUFFIX } from '../constants';
 import { sanitizeFolderName } from './sanitize-folder-name';
 
 const DOMAIN_PATTERN =
@@ -10,7 +11,7 @@ const DOMAIN_PATTERN =
 export const generateCustomDomainFromSiteName = ( siteName: string ): string => {
 	const domainBase = sanitizeFolderName( siteName );
 
-	return `${ domainBase }.wp.local`;
+	return `${ domainBase }${ DEFAULT_CUSTOM_DOMAIN_SUFFIX }`;
 };
 
 export const getDomainNameValidationError = (

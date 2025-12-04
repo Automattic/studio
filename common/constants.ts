@@ -17,3 +17,6 @@ export const LOCKFILE_WAIT_TIME = 5000;
 export const PLAYGROUND_CLI_INACTIVITY_TIMEOUT = 2 * 60 * 1000; // 2 minutes of no output = timeout
 export const PLAYGROUND_CLI_MAX_TIMEOUT = 10 * 60 * 1000; // 10 minutes absolute maximum
 export const PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL = 5 * 1000; // Check for inactivity every 5 seconds
+
+// Custom domains
+export const DEFAULT_CUSTOM_DOMAIN_SUFFIX = '.wp.local';

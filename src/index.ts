@@ -7,6 +7,7 @@ import {
 	globalShortcut,
 	Menu,
 	dialog,
+	MessageBoxSyncOptions,
 } from 'electron';
 import path from 'path';
 import { pathToFileURL } from 'url';
@@ -25,7 +26,7 @@ import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
 import {
 	hasActiveSyncOperations,
-	hasCancelableSyncOperations,
+	hasUploadingPushOperations,
 } from 'src/lib/active-sync-operations';
 import { bumpAggregatedUniqueStat } from 'src/lib/bump-stats';
 import { getPlatformMetric } from 'src/lib/bump-stats/lib';
@@ -352,19 +353,6 @@ async function appBoot() {
 		globalShortcut.unregisterAll();
 	} );
 
-	function getQuitConfirmationMessage(): string {
-		if ( hasCancelableSyncOperations() ) {
-			return __(
-				"There's a sync operation in progress. Quitting the app will abort that operation. Are you sure you want to quit?"
-			);
-		}
-
-		// Default message for creatingBackup, uploading, or pull operations
-		return __(
-			"There's a sync operation in progress. The process will continue on WordPress.com servers even after quitting Studio. We will send you an email when it completes. Are you sure you want to quit?"
-		);
-	}
-
 	app.on( 'before-quit', ( event ) => {
 		if ( ! hasActiveSyncOperations() ) {
 			return;
@@ -373,15 +361,30 @@ async function appBoot() {
 		const QUIT_APP_BUTTON_INDEX = 0;
 		const CANCEL_BUTTON_INDEX = 1;
 
-		const detailMessage = getQuitConfirmationMessage();
+		const messageInformation: Pick< MessageBoxSyncOptions, 'message' | 'detail' | 'type' > =
+			hasUploadingPushOperations()
+				? {
+						message: __( 'Sync is in progress' ),
+						detail: __(
+							"There's a sync operation in progress. Quitting the app will abort that operation. Are you sure you want to quit?"
+						),
+						type: 'warning',
+				  }
+				: {
+						message: __( 'Sync will continue' ),
+						detail: __(
+							'The sync process will continue running remotely after you quit Studio. We will send you an email once it is complete.'
+						),
+						type: 'info',
+				  };
 
 		const clickedButtonIndex = dialog.showMessageBoxSync( {
-			message: __( 'Sync in progress' ),
-			detail: detailMessage,
+			message: messageInformation.message,
+			detail: messageInformation.detail,
+			type: messageInformation.type,
 			buttons: [ __( 'Yes, quit the app' ), __( 'No, take me back' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,
 			defaultId: QUIT_APP_BUTTON_INDEX,
-			type: 'warning',
 		} );
 
 		if ( clickedButtonIndex === CANCEL_BUTTON_INDEX ) {

@@ -60,6 +60,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		generateProposedSitePath: mockGenerateProposedSitePath,
 		getAllCustomDomains: mockGetAllCustomDomains,
 		setWindowControlVisibility: jest.fn(),
+		setupAppMenu: jest.fn(),
 	} ),
 } ) );
 

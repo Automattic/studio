@@ -25,6 +25,7 @@ import {
 } from 'src/stores/snapshot-slice';
 import { syncReducer } from 'src/stores/sync';
 import { connectedSitesApi, connectedSitesReducer } from 'src/stores/sync/connected-sites';
+import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from 'common/lib/locale';
@@ -40,6 +41,7 @@ export type RootState = {
 	sync: ReturnType< typeof syncReducer >;
 	connectedSitesApi: ReturnType< typeof connectedSitesApi.reducer >;
 	connectedSites: ReturnType< typeof connectedSitesReducer >;
+	wpcomSitesApi: ReturnType< typeof wpcomSitesApi.reducer >;
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
 	wpcomPublicApi: ReturnType< typeof wpcomPublicApi.reducer >;
@@ -93,6 +95,7 @@ export const rootReducer = combineReducers( {
 	installedAppsApi: installedAppsApi.reducer,
 	connectedSitesApi: connectedSitesApi.reducer,
 	connectedSites: connectedSitesReducer,
+	wpcomSitesApi: wpcomSitesApi.reducer,
 	onboarding: onboardingReducer,
 	providerConstants: providerConstantsReducer,
 	snapshot: snapshotReducer,
@@ -112,6 +115,7 @@ export const store = configureStore( {
 			.concat( appVersionApi.middleware )
 			.concat( installedAppsApi.middleware )
 			.concat( connectedSitesApi.middleware )
+			.concat( wpcomSitesApi.middleware )
 			.concat( wordpressVersionsApi.middleware )
 			.concat( wpcomApi.middleware )
 			.concat( wpcomPublicApi.middleware )

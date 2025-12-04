@@ -8,16 +8,19 @@ import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
+import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { CreateButton } from 'src/modules/sync/components/create-button';
 import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
+import { NoWpcomSitesModal } from 'src/modules/sync/components/no-wpcom-sites-modal';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
-import type { SyncModalMode } from 'src/modules/sync/types';
+import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
+import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
+import type { SyncSite, SyncModalMode } from 'src/modules/sync/types';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
 
@@ -27,26 +30,37 @@ const focusConnectButton = () => {
 };
 
 export function SyncSitesModalSelector( {
-	isLoading,
 	onRequestClose,
 	onConnect,
-	syncSites,
-	onInitialRender,
 	selectedSite,
 	mode = 'connect',
 }: {
-	isLoading?: boolean;
 	onRequestClose: () => void;
-	syncSites: SyncSite[];
 	onConnect: ( siteId: number ) => void;
-	onInitialRender?: () => void;
 	selectedSite: SiteDetails;
 	mode?: SyncModalMode;
 } ) {
 	const { __ } = useI18n();
+	const { user } = useAuth();
 	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
 	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
 	const isOffline = useOffline();
+
+	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
+		localSiteId: selectedSite.id,
+		userId: user?.id,
+	} );
+	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
+
+	const {
+		data: syncSites = [],
+		isLoading,
+		isSuccess,
+	} = useGetWpComSitesQuery(
+		{ connectedSiteIds, userId: user?.id },
+		{ refetchOnMountOrArgChange: true }
+	);
+
 	const filteredSites = syncSites.filter( ( site ) => {
 		const searchQueryLower = searchQuery.toLowerCase();
 		return (
@@ -55,6 +69,10 @@ export function SyncSitesModalSelector( {
 		);
 	} );
 	const isEmpty = filteredSites.length === 0;
+
+	if ( syncSites.length === 0 && isSuccess && ! isLoading ) {
+		return <NoWpcomSitesModal onRequestClose={ onRequestClose } selectedSite={ selectedSite } />;
+	}
 
 	const getModalTitle = () => {
 		switch ( mode ) {
@@ -67,12 +85,6 @@ export function SyncSitesModalSelector( {
 				return __( 'Connect your site' );
 		}
 	};
-
-	useEffect( () => {
-		if ( onInitialRender ) {
-			onInitialRender();
-		}
-	}, [ onInitialRender ] );
 
 	return (
 		<Modal

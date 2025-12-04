@@ -12,12 +12,6 @@ export const FEATURE_FLAGS_DEFINITION: Record< keyof FeatureFlags, FeatureFlagDe
 		flag: 'enableBlueprints',
 		default: true,
 	},
-	streamlineOnboarding: {
-		label: 'Streamline Onboarding',
-		env: 'STREAMLINE_ONBOARDING',
-		flag: 'streamlineOnboarding',
-		default: false,
-	},
 } as const;
 
 export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > =

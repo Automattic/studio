@@ -4,7 +4,6 @@ import AddSiteModal from './page-objects/add-site-modal';
 import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
-import WhatsNewModal from './page-objects/whats-new-modal';
 import { getUrlWithAutoLogin } from './utils';
 
 test.describe( 'Localization', () => {

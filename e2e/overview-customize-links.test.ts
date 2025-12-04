@@ -2,7 +2,6 @@ import { test, expect, type Page } from '@playwright/test';
 import { E2ESession } from './e2e-helpers';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
-import WhatsNewModal from './page-objects/whats-new-modal';
 import { getUrlWithAutoLogin } from './utils';
 
 const global = globalThis as unknown as {

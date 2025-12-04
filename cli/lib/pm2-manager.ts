@@ -154,7 +154,7 @@ export async function isProcessRunning(
 export async function startProcess(
 	processName: string,
 	scriptPath: string,
-	env?: Record< string, string >
+	env: Record< string, string > = {}
 ): Promise< ProcessDescription > {
 	return new Promise( ( resolve, reject ) => {
 		const processConfig: StartOptions = {
@@ -163,7 +163,7 @@ export async function startProcess(
 			script: scriptPath,
 			exec_mode: 'fork',
 			autorestart: false,
-			env: env || {},
+			env: env,
 		};
 
 		pm2.start( processConfig, async ( error, apps ) => {
@@ -172,7 +172,7 @@ export async function startProcess(
 				return;
 			}
 
-			if ( apps && apps.length > 0 ) {
+			if ( apps.length > 0 ) {
 				const app = apps[ 0 ] as ( typeof apps )[ 0 ] & {
 					pm2_env?: { pm_id?: number; status?: string };
 					pid?: number;

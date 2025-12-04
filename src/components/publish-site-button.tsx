@@ -26,12 +26,11 @@ export const PublishSiteButton = () => {
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 
 	const handlePublishClick = useCallback( () => {
-		setSelectedTab( 'sync' );
 		if ( ! user ) {
 			authenticate();
-		} else {
-			dispatch( connectedSitesActions.openModal( 'push' ) );
 		}
+		dispatch( connectedSitesActions.openModal( 'push' ) );
+		setSelectedTab( 'sync' );
 	}, [ user, setSelectedTab, dispatch, authenticate ] );
 
 	if ( connectedSites.length !== 0 ) return null;

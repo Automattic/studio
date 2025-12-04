@@ -84,10 +84,9 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 				</Tooltip>
 			</div>
 
-			<div className="text-center">
-				<Button onClick={ onSkip }>
-					{ __( 'Skip' ) }
-					{ ' →' }
+			<div className="text-right">
+				<Button className="pl-0" onClick={ onSkip }>
+					{ __( 'Skip  →' ) }
 				</Button>
 			</div>
 		</div>

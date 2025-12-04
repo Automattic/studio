@@ -56,6 +56,21 @@ jest.mock( 'src/stores/sync', () => ( {
 
 jest.mock( 'src/modules/sync/hooks/use-selected-items-push-size' );
 
+jest.mock( 'src/stores/wordpress-versions-api', () => {
+	const actual = jest.requireActual( 'src/stores/wordpress-versions-api' ) || {};
+	return {
+		...actual,
+		useGetWordPressVersions: () => ( {
+			data: [
+				{ value: 'latest', isBeta: false, isDevelopment: false, label: 'Latest' },
+				{ value: '6.4.0', isBeta: false, isDevelopment: false, label: '6.4' },
+				{ value: '6.3.3', isBeta: false, isDevelopment: false, label: '6.3.3' },
+			],
+			isLoading: false,
+		} ),
+	};
+} );
+
 const createAuthMock = ( isAuthenticated: boolean = false ) => ( {
 	isAuthenticated,
 	authenticate: jest.fn(),

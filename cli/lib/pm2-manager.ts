@@ -67,7 +67,7 @@ const listProcesses = cacheFunctionTTL( () => {
 
 			const processDescriptions = ( processes || [] ).map( ( p ) => ( {
 				name: p.name || '',
-				pmId: p.pm_id || -1,
+				pmId: p.pm_id ?? -1,
 				status: p.pm2_env?.status || 'unknown',
 				pid: p.pid,
 			} ) );

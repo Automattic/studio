@@ -10,7 +10,6 @@ import { rootReducer } from 'src/stores';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
-import { selectOnboardingLoading } from 'src/stores/onboarding-slice';
 import { setProviderConstants } from 'src/stores/provider-constants-slice';
 import { connectedSitesApi } from 'src/stores/sync/connected-sites';
 import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';

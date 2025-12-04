@@ -121,13 +121,10 @@ export function sendMessageToProcess(
 export async function startProxyProcess(): Promise< ProcessDescription > {
 	const proxyDaemonPath = path.resolve( __dirname, 'proxy-daemon.js' );
 	const env: Record< string, string > = {
+		ELECTRON_RUN_AS_NODE: '1',
 		STUDIO_USER_HOME: os.homedir(),
 		STUDIO_APPDATA_PATH: getAppdataPath(),
 	};
-
-	if ( process.env.ELECTRON_RUN_AS_NODE ) {
-		env.ELECTRON_RUN_AS_NODE = '1';
-	}
 
 	return startProcess( PROXY_PROCESS_NAME, proxyDaemonPath, env );
 }
@@ -168,7 +165,9 @@ export async function startProcess(
 			script: scriptPath,
 			exec_mode: 'fork',
 			autorestart: false,
-			env: env,
+			// Merge process.env with custom env to ensure child processes inherit
+			// necessary environment variables (PATH, HOME, E2E vars, etc.)
+			env: { ...process.env, ...env } as Record< string, string >,
 		};
 
 		pm2.start( processConfig, async ( error, apps ) => {

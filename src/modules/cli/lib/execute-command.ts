@@ -38,6 +38,10 @@ export function executeCliCommand(
 	// Using Electron's utilityProcess.fork API gave us issues with the child process never exiting
 	const child = fork( cliPath, [ ...args, '--avoid-telemetry' ], {
 		stdio: options.silent ? [ 'ignore', 'ignore', 'ignore', 'ipc' ] : undefined,
+		env: {
+			...process.env,
+			ELECTRON_RUN_AS_NODE: '1',
+		},
 	} );
 	const eventEmitter = new CliCommandEventEmitter();
 

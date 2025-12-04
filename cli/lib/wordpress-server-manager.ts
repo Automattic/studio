@@ -85,6 +85,7 @@ export async function startWordPressServer(
 	}
 
 	const env = {
+		ELECTRON_RUN_AS_NODE: '1',
 		STUDIO_WORDPRESS_SERVER_CONFIG: JSON.stringify( serverConfig ),
 	};
 
@@ -283,6 +284,7 @@ export async function runBlueprint(
 	}
 
 	const env = {
+		ELECTRON_RUN_AS_NODE: '1',
 		STUDIO_WORDPRESS_SERVER_CONFIG: JSON.stringify( serverConfig ),
 	};
 

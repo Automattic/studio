@@ -3,8 +3,11 @@ import nodePath from 'path';
 import { rootCertificates } from 'tls';
 import { createNodeFsMountHandler, loadNodeRuntime } from '@php-wasm/node';
 import { PHP, SupportedPHPVersion, setPhpIniEntries } from '@php-wasm/universal';
+import { phpVar } from '@php-wasm/util';
 import { __ } from '@wordpress/i18n';
+import { runCLI } from '@wp-playground/cli';
 import { pathExists } from 'common/lib/fs-utils';
+import { getMuPlugins } from 'common/lib/mu-plugins';
 import { WPCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { ArgumentsCamelCase } from 'yargs';
 import { getSiteByFolder } from 'cli/lib/appdata';
@@ -16,7 +19,6 @@ const PLAYGROUND_PATHS = {
 	documentRoot: '/wordpress',
 	internalSharedFolder: '/internal/shared',
 	runCliScript: '/tmp/run-cli.php',
-	stderr: '/tmp/stderr',
 	sqliteCommand: '/tmp/sqlite-command',
 	wpCliPhar: '/tmp/wp-cli.phar',
 } as const;
@@ -33,16 +35,18 @@ putenv( 'SHELL_PIPE=0' );
 $GLOBALS['argv'] = array_merge([
 	"${ PLAYGROUND_PATHS.wpCliPhar }",
 	"--path=${ PLAYGROUND_PATHS.documentRoot }",
-], ${ JSON.stringify( args ) });
+], ${ phpVar( args ) });
 
 // Provide CLI streams
 define('STDIN', fopen('php://stdin', 'rb'));
 define('STDOUT', fopen('php://stdout', 'wb'));
-define('STDERR', fopen('${ PLAYGROUND_PATHS.stderr }', 'wb'));
+define('STDERR', fopen('php://stderr', 'wb'));
 
 // Set server argv for WP-CLI
 $_SERVER['argv'] = $GLOBALS['argv'];
 $_SERVER['argc'] = count($_SERVER['argv']);
+
+var_dump(file_get_contents('/internal/shared/mu-plugins/99-studio-loader.php'));
 
 // Include WP-CLI phar
 if (file_exists("${ PLAYGROUND_PATHS.wpCliPhar }")) {
@@ -57,71 +61,105 @@ if (file_exists("${ PLAYGROUND_PATHS.wpCliPhar }")) {
 export async function runCommand( siteFolder: string, args: string[] ): Promise< void > {
 	const site = await getSiteByFolder( siteFolder );
 	console.log( 'PHP version:', site.phpVersion, siteFolder );
-	const id = await loadNodeRuntime( site.phpVersion as SupportedPHPVersion, {
-		followSymlinks: true,
-	} );
+	// const id = await loadNodeRuntime( site.phpVersion as SupportedPHPVersion, {
+	// 	followSymlinks: true,
+	// } );
 
-	const php = new PHP( id );
+	// const php = new PHP( id );
 
 	try {
-		await php.setSapiName( 'cli' );
+		// await php.setSapiName( 'cli' );
 
-		// Mount project files to /wordpress (WordPress root)
-		php.mkdir( PLAYGROUND_PATHS.documentRoot );
-		await php.mount( PLAYGROUND_PATHS.documentRoot, createNodeFsMountHandler( siteFolder ) );
+		// // Mount project files to /wordpress (WordPress root)
+		// php.mkdir( PLAYGROUND_PATHS.documentRoot );
+		// await php.mount( PLAYGROUND_PATHS.documentRoot, createNodeFsMountHandler( siteFolder ) );
 
-		// Mount SQLite command
-		const sqliteCommandPath = getSqliteCommandPath();
-		if ( await pathExists( sqliteCommandPath ) ) {
-			php.mkdir( PLAYGROUND_PATHS.sqliteCommand );
-			await php.mount(
-				PLAYGROUND_PATHS.sqliteCommand,
-				createNodeFsMountHandler( sqliteCommandPath )
-			);
-		}
+		// // Mount SQLite command
+		// const sqliteCommandPath = getSqliteCommandPath();
+		// if ( await pathExists( sqliteCommandPath ) ) {
+		// 	php.mkdir( PLAYGROUND_PATHS.sqliteCommand );
+		// 	await php.mount(
+		// 		PLAYGROUND_PATHS.sqliteCommand,
+		// 		createNodeFsMountHandler( sqliteCommandPath )
+		// 	);
+		// }
 
-		// Mount WP-CLI phar
-		const wpCliPharPath = getWpCliPharPath();
-		if ( await pathExists( wpCliPharPath ) ) {
-			php.mkdir( nodePath.posix.dirname( PLAYGROUND_PATHS.wpCliPhar ) );
-			php.writeFile( PLAYGROUND_PATHS.wpCliPhar, readFileSync( wpCliPharPath ) );
-		}
+		// // Mount WP-CLI phar
+		// const wpCliPharPath = getWpCliPharPath();
+		// if ( await pathExists( wpCliPharPath ) ) {
+		// 	php.mkdir( nodePath.posix.dirname( PLAYGROUND_PATHS.wpCliPhar ) );
+		// 	php.writeFile( PLAYGROUND_PATHS.wpCliPhar, readFileSync( wpCliPharPath ) );
+		// }
 
-		// Create CA bundle certificate file for SSL verification (following wp-now approach)
-		php.mkdir( PLAYGROUND_PATHS.internalSharedFolder );
-		const caBundlePath = nodePath.posix.join(
-			PLAYGROUND_PATHS.internalSharedFolder,
-			'ca-bundle.crt'
-		);
-		php.writeFile( caBundlePath, rootCertificates.join( '\n' ) );
+		// // Create CA bundle certificate file for SSL verification (following wp-now approach)
+		// php.mkdir( PLAYGROUND_PATHS.internalSharedFolder );
+		// const caBundlePath = nodePath.posix.join(
+		// 	PLAYGROUND_PATHS.internalSharedFolder,
+		// 	'ca-bundle.crt'
+		// );
+		// php.writeFile( caBundlePath, rootCertificates.join( '\n' ) );
 
-		await setPhpIniEntries( php, {
-			'openssl.cafile': caBundlePath,
+		// await setPhpIniEntries( php, {
+		// 	'openssl.cafile': caBundlePath,
+		// } );
+
+		// // Mount mu-plugins
+		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
+			isWpAutoUpdating: false,
+		} );
+		// php.mkdir( '/internal/studio/mu-plugins' );
+		// await php.mount(
+		// 	'/internal/studio/mu-plugins',
+		// 	createNodeFsMountHandler( studioMuPluginsHostPath )
+		// );
+		// await php.mount(
+		// 	'/internal/shared/mu-plugins/99-studio-loader.php',
+		// 	createNodeFsMountHandler( loaderMuPluginHostPath )
+		// );
+
+		// console.log( 'Executing WP-CLI command:', args );
+
+		// const phpScript = getPhpScriptContents( args );
+		// php.writeFile( PLAYGROUND_PATHS.runCliScript, phpScript );
+
+		const mounts = [
+			{
+				hostPath: siteFolder,
+				vfsPath: '/wordpress',
+			},
+			{
+				hostPath: studioMuPluginsHostPath,
+				vfsPath: '/internal/studio/mu-plugins',
+			},
+			{
+				hostPath: loaderMuPluginHostPath,
+				vfsPath: '/internal/shared/mu-plugins/99-studio-loader.php',
+			},
+		];
+
+		const result = await runCLI( {
+			command: 'run-blueprint',
+			followSymlinks: true,
+			'mount-before-install': mounts,
+			'site-url': `http://localhost:${ site.port }`,
+			port: site.port,
+			wordpressInstallMode: 'install-from-existing-files-if-needed',
+			php: '8.3',
+			blueprint: {
+				constants: {
+					WP_SQLITE_AST_DRIVER: true,
+				},
+				step: 'wp-cli',
+				command: args,
+				// wpCliPath: PLAYGROUND_PATHS.wpCliPhar,
+			},
 		} );
 
-		console.log( 'Executing WP-CLI command:', args );
+		// const result = await php.run( {
+		// 	scriptPath: PLAYGROUND_PATHS.runCliScript,
+		// } );
 
-		const phpScript = getPhpScriptContents( args );
-		php.writeFile( PLAYGROUND_PATHS.runCliScript, phpScript );
-		php.writeFile( PLAYGROUND_PATHS.stderr, '' );
-
-		const result = await php.run( {
-			scriptPath: PLAYGROUND_PATHS.runCliScript,
-		} );
-
-		const stderr = php.readFileAsText( PLAYGROUND_PATHS.stderr ).trim();
-
-		const cleanStdout = result.text
-			.split( '\n' )
-			.filter( ( line ) => ! line.startsWith( '#!/' ) )
-			.join( '\n' )
-			.trim();
-
-		console.log( {
-			stdout: cleanStdout,
-			stderr: stderr,
-			exitCode: result.exitCode,
-		} );
+		console.log( result );
 
 		/*
 		const streamedResponse = await php.runStream( {
@@ -161,7 +199,7 @@ export async function runCommand( siteFolder: string, args: string[] ): Promise<
 		*/
 	} finally {
 		// Clean up PHP instance
-		php.exit();
+		// php.exit();
 	}
 }
 

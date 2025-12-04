@@ -85,7 +85,7 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 			</div>
 
 			<div className="text-right">
-				<Button className="pl-0" onClick={ onSkip }>
+				<Button className="pr-0" onClick={ onSkip }>
 					{ __( 'Skip  →' ) }
 				</Button>
 			</div>

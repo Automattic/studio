@@ -62,7 +62,7 @@ export function useSyncStatesProgressInfo() {
 			'in-progress': {
 				key: 'in-progress',
 				progress: IN_PROGRESS_INITIAL_VALUE,
-				message: __( 'Initializing backup…' ),
+				message: __( 'Initializing remote backup…' ),
 			},
 			downloading: {
 				// On backend this key is called backup 'finished'

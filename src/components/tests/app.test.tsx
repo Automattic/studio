@@ -17,6 +17,9 @@ import { wordpressVersionsApi } from 'src/stores/wordpress-versions-api';
 import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 
 jest.mock( 'src/index.css', () => ( {} ) );
+jest.mock( 'src/stores/onboarding-slice', () => ( {
+	selectOnboardingLoading: jest.fn().mockReturnValue( false ),
+} ) );
 jest.mock( 'src/modules/onboarding/hooks/use-onboarding' );
 jest.mock( 'src/hooks/use-site-details' );
 jest.mock( 'src/modules/whats-new/hooks/use-whats-new', () => ( {

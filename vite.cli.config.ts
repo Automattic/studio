@@ -41,7 +41,7 @@ export default defineConfig( {
 				'wordpress-server-child': resolve( __dirname, 'cli/wordpress-server-child.ts' ),
 			},
 			name: 'StudioCLI',
-			formats: [ 'cjs' ],
+			formats: [ 'es' ],
 		},
 		outDir: 'dist/cli',
 		target: 'node22',
@@ -61,7 +61,7 @@ export default defineConfig( {
 				'@wp-playground/wordpress',
 			],
 			output: {
-				format: 'cjs',
+				format: 'es',
 				entryFileNames: '[name].js',
 			},
 		},

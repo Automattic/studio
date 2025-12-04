@@ -61,146 +61,53 @@ if (file_exists("${ PLAYGROUND_PATHS.wpCliPhar }")) {
 export async function runCommand( siteFolder: string, args: string[] ): Promise< void > {
 	const site = await getSiteByFolder( siteFolder );
 	console.log( 'PHP version:', site.phpVersion, siteFolder );
-	// const id = await loadNodeRuntime( site.phpVersion as SupportedPHPVersion, {
-	// 	followSymlinks: true,
-	// } );
 
-	// const php = new PHP( id );
+	// Mount mu-plugins
+	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
+		isWpAutoUpdating: false,
+	} );
 
-	try {
-		// await php.setSapiName( 'cli' );
+	const mounts = [
+		{
+			hostPath: siteFolder,
+			vfsPath: '/wordpress',
+		},
+		{
+			hostPath: studioMuPluginsHostPath,
+			vfsPath: '/internal/studio/mu-plugins',
+		},
+		{
+			hostPath: loaderMuPluginHostPath,
+			vfsPath: '/internal/shared/mu-plugins/99-studio-loader.php',
+		},
+	];
 
-		// // Mount project files to /wordpress (WordPress root)
-		// php.mkdir( PLAYGROUND_PATHS.documentRoot );
-		// await php.mount( PLAYGROUND_PATHS.documentRoot, createNodeFsMountHandler( siteFolder ) );
-
-		// // Mount SQLite command
-		// const sqliteCommandPath = getSqliteCommandPath();
-		// if ( await pathExists( sqliteCommandPath ) ) {
-		// 	php.mkdir( PLAYGROUND_PATHS.sqliteCommand );
-		// 	await php.mount(
-		// 		PLAYGROUND_PATHS.sqliteCommand,
-		// 		createNodeFsMountHandler( sqliteCommandPath )
-		// 	);
-		// }
-
-		// // Mount WP-CLI phar
-		// const wpCliPharPath = getWpCliPharPath();
-		// if ( await pathExists( wpCliPharPath ) ) {
-		// 	php.mkdir( nodePath.posix.dirname( PLAYGROUND_PATHS.wpCliPhar ) );
-		// 	php.writeFile( PLAYGROUND_PATHS.wpCliPhar, readFileSync( wpCliPharPath ) );
-		// }
-
-		// // Create CA bundle certificate file for SSL verification (following wp-now approach)
-		// php.mkdir( PLAYGROUND_PATHS.internalSharedFolder );
-		// const caBundlePath = nodePath.posix.join(
-		// 	PLAYGROUND_PATHS.internalSharedFolder,
-		// 	'ca-bundle.crt'
-		// );
-		// php.writeFile( caBundlePath, rootCertificates.join( '\n' ) );
-
-		// await setPhpIniEntries( php, {
-		// 	'openssl.cafile': caBundlePath,
-		// } );
-
-		// // Mount mu-plugins
-		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
-			isWpAutoUpdating: false,
-		} );
-		// php.mkdir( '/internal/studio/mu-plugins' );
-		// await php.mount(
-		// 	'/internal/studio/mu-plugins',
-		// 	createNodeFsMountHandler( studioMuPluginsHostPath )
-		// );
-		// await php.mount(
-		// 	'/internal/shared/mu-plugins/99-studio-loader.php',
-		// 	createNodeFsMountHandler( loaderMuPluginHostPath )
-		// );
-
-		// console.log( 'Executing WP-CLI command:', args );
-
-		// const phpScript = getPhpScriptContents( args );
-		// php.writeFile( PLAYGROUND_PATHS.runCliScript, phpScript );
-
-		const mounts = [
-			{
-				hostPath: siteFolder,
-				vfsPath: '/wordpress',
+	const result = await runCLI( {
+		command: 'server',
+		followSymlinks: true,
+		'mount-before-install': mounts,
+		'site-url': `http://localhost:${ site.port }`,
+		verbosity: 'quiet',
+		port: site.port,
+		wordpressInstallMode: 'install-from-existing-files-if-needed',
+		php: '8.3',
+		blueprint: {
+			constants: {
+				WP_SQLITE_AST_DRIVER: true,
 			},
-			{
-				hostPath: studioMuPluginsHostPath,
-				vfsPath: '/internal/studio/mu-plugins',
-			},
-			{
-				hostPath: loaderMuPluginHostPath,
-				vfsPath: '/internal/shared/mu-plugins/99-studio-loader.php',
-			},
-		];
+			extraLibraries: [ 'wp-cli' ],
+		},
+	} );
 
-		const result = await runCLI( {
-			command: 'run-blueprint',
-			followSymlinks: true,
-			'mount-before-install': mounts,
-			'site-url': `http://localhost:${ site.port }`,
-			port: site.port,
-			wordpressInstallMode: 'install-from-existing-files-if-needed',
-			php: '8.3',
-			blueprint: {
-				constants: {
-					WP_SQLITE_AST_DRIVER: true,
-				},
-				step: 'wp-cli',
-				command: args,
-				// wpCliPath: PLAYGROUND_PATHS.wpCliPhar,
-			},
-		} );
+	const response = await result.playground.cli( [
+		'php',
+		'/tmp/wp-cli.phar',
+		`--path=${ await result.playground.documentRoot }`,
+		...args,
+	] );
 
-		// const result = await php.run( {
-		// 	scriptPath: PLAYGROUND_PATHS.runCliScript,
-		// } );
-
-		console.log( result );
-
-		/*
-		const streamedResponse = await php.runStream( {
-			scriptPath: runCliPath,
-		} );
-
-		const stdoutReader = streamedResponse.stdout.getReader();
-		const stderrReader = streamedResponse.stderr.getReader();
-		const decoder = new TextDecoder();
-
-		try {
-			while ( true ) {
-				const { done: stdoutDone, value: stdoutValue } = await stdoutReader.read();
-				if ( ! stdoutDone ) {
-					const stdoutChunk = decoder.decode( stdoutValue, { stream: true } );
-					process.stdout.write( stdoutChunk );
-				}
-
-				const { done: stderrDone, value: stderrValue } = await stderrReader.read();
-				if ( ! stderrDone ) {
-					const stderrChunk = decoder.decode( stderrValue, { stream: true } );
-					console.error( stderrValue );
-					process.stderr.write( stderrChunk );
-				}
-
-				if ( stdoutDone && stderrDone ) {
-					break;
-				}
-			}
-		} finally {
-			stdoutReader.releaseLock();
-			stderrReader.releaseLock();
-		}
-
-		const exitCode = await streamedResponse.exitCode;
-		process.exitCode = exitCode;
-		*/
-	} finally {
-		// Clean up PHP instance
-		// php.exit();
-	}
+	console.log( await response.stdoutText );
+	await result.server.close();
 }
 
 export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > ) {

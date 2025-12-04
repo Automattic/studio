@@ -54,6 +54,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		getUserEditor: jest.fn().mockResolvedValue( 'cursor' ),
 		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
 		setWindowControlVisibility: jest.fn(),
+		setupAppMenu: jest.fn(),
 	} ),
 } ) );
 

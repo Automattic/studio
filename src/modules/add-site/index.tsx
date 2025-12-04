@@ -526,6 +526,10 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 		( site ) => site.isAddingSite || importState[ site.id ]?.isNewSite
 	);
 
+	useEffect( () => {
+		void getIpcApi().setupAppMenu( { needsOnboarding: false, isAddSiteVisible: showModal } );
+	}, [ showModal ] );
+
 	const openModal = useCallback( () => {
 		setShowModal( true );
 	}, [] );

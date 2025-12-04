@@ -10,22 +10,16 @@ import {
 	mapImportResponseToPushState,
 } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
-import { useFetchWpComSites } from 'src/hooks/use-fetch-wpcom-sites';
 import { useFormatLocalizedTimestamps } from 'src/hooks/use-format-localized-timestamps';
-import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import {
-	useGetConnectedSitesForLocalSiteQuery,
-	useUpdateSiteTimestampMutation,
-} from 'src/stores/sync/connected-sites';
+import { useUpdateSiteTimestampMutation } from 'src/stores/sync/connected-sites';
 import type { ImportResponse } from 'src/hooks/use-sync-states-progress-info';
 
 type GetLastSyncTimeText = ( timestamp: string | null, type: 'pull' | 'push' ) => string;
 
 export type SyncSitesContextType = Omit< UseSyncPull, 'pullStates' > &
-	Omit< UseSyncPush, 'pushStates' > &
-	ReturnType< typeof useFetchWpComSites > & {
+	Omit< UseSyncPush, 'pushStates' > & {
 		getLastSyncTimeText: GetLastSyncTimeText;
 	};
 
@@ -53,13 +47,6 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 		[ formatRelativeTime ]
 	);
 
-	const { selectedSite } = useSiteDetails();
-	const { user } = useAuth();
-	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
-		localSiteId: selectedSite?.id,
-		userId: user?.id,
-	} );
-
 	const [ updateSiteTimestamp ] = useUpdateSiteTimestampMutation();
 
 	const { pullSite, isAnySitePulling, isSiteIdPulling, clearPullState, getPullState, cancelPull } =
@@ -79,10 +66,7 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				updateSiteTimestamp( { siteId: remoteSiteId, localSiteId, type: 'push' } ),
 		} );
 
-	const { syncSites, isFetching, refetchSites } = useFetchWpComSites(
-		connectedSites.map( ( { id } ) => id )
-	);
-	useListenDeepLinkConnection( { refetchSites } );
+	useListenDeepLinkConnection();
 
 	const { client } = useAuth();
 	const { pushStatesProgressInfo } = useSyncStatesProgressInfo();
@@ -154,9 +138,6 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				isSiteIdPulling,
 				clearPullState,
 				cancelPull,
-				syncSites,
-				refetchSites,
-				isFetching,
 				getPullState,
 				getPushState,
 				pushSite,

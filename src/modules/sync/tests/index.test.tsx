@@ -6,20 +6,23 @@ import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
-import { useFetchWpComSites } from 'src/hooks/use-fetch-wpcom-sites';
-import { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ContentTabSync } from 'src/modules/sync';
 import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
+import { SyncSite } from 'src/modules/sync/types';
 import { store } from 'src/stores';
 import { useLatestRewindId, useRemoteFileTree } from 'src/stores/sync';
+import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
 store.replaceReducer( testReducer );
 
 jest.mock( 'src/lib/get-ipc-api' );
 jest.mock( 'src/hooks/use-auth' );
-jest.mock( 'src/hooks/use-fetch-wpcom-sites' );
+jest.mock( 'src/stores/sync/wpcom-sites', () => ( {
+	...jest.requireActual( 'src/stores/sync/wpcom-sites' ),
+	useGetWpComSitesQuery: jest.fn(),
+} ) );
 jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/sync-sites/sync-sites-context', () => ( {
 	...jest.requireActual( '../../../hooks/sync-sites/sync-sites-context' ),
@@ -115,10 +118,8 @@ describe( 'ContentTabSync', () => {
 		const currentMock = ( getIpcApi as jest.Mock )();
 		currentMock.getConnectedWpcomSites.mockResolvedValue( connectedSites );
 
-		( useFetchWpComSites as jest.Mock ).mockReturnValue( {
-			syncSites,
-			isFetching: false,
-			refetchSites: jest.fn(),
+		( useGetWpComSitesQuery as jest.Mock ).mockReturnValue( {
+			data: syncSites,
 		} );
 	};
 
@@ -129,7 +130,6 @@ describe( 'ContentTabSync', () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( false ) );
 		( useFeatureFlags as jest.Mock ).mockReturnValue( {
 			enableBlueprints: true,
-			streamlineOnboarding: false,
 		} );
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			authenticate: jest.fn(),
@@ -179,10 +179,8 @@ describe( 'ContentTabSync', () => {
 			error: null,
 		} );
 
-		( useFetchWpComSites as jest.Mock ).mockReturnValue( {
-			syncSites: [],
-			isFetching: false,
-			refetchSites: jest.fn(),
+		( useGetWpComSitesQuery as jest.Mock ).mockReturnValue( {
+			data: [],
 		} );
 
 		( useRemoteFileTree as jest.Mock ).mockReturnValue( {
@@ -258,35 +256,6 @@ describe( 'ContentTabSync', () => {
 		expect( getIpcApi().authenticate ).toHaveBeenCalled();
 	} );
 
-	it( 'displays publish and import actions to authenticated user', () => {
-		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			enableBlueprints: true,
-			streamlineOnboarding: true,
-		} );
-		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const publishButton = screen.getByRole( 'button', { name: /Publish site/i } );
-		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
-
-		expect( publishButton ).toBeInTheDocument();
-		expect( importButton ).toBeInTheDocument();
-	} );
-
-	it( 'opens the site selector modal when clicking "Pull site" button', async () => {
-		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			enableBlueprints: true,
-			streamlineOnboarding: true,
-		} );
-		setupConnectedSitesMocks( [], [ fakeSyncSite ] );
-
-		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const pullSiteButton = await screen.findByRole( 'button', { name: 'Pull site' } );
-		fireEvent.click( pullSiteButton );
-
-		expect( await screen.findByTestId( 'sync-sites-modal-selector' ) ).toBeInTheDocument();
-	} );
-
 	it( 'displays the list of connected sites', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
@@ -339,21 +308,6 @@ describe( 'ContentTabSync', () => {
 			name: /Create a new WordPress.com site ↗/i,
 		} );
 		expect( createNewSiteButton ).toBeInTheDocument();
-	} );
-
-	it( 'displays publish and import buttons when there are no connected sites', () => {
-		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useFeatureFlags as jest.Mock ).mockReturnValue( {
-			enableBlueprints: true,
-			streamlineOnboarding: true,
-		} );
-		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-
-		const publishButton = screen.getByRole( 'button', { name: /Publish site/i } );
-		const importButton = screen.getByRole( 'button', { name: /Pull site/i } );
-
-		expect( publishButton ).toBeInTheDocument();
-		expect( importButton ).toBeInTheDocument();
 	} );
 
 	it( 'displays environment badges for Pressable sites with production, staging and development environments', async () => {

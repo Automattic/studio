@@ -9,7 +9,7 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getWordPressProvider } from 'src/lib/wordpress-provider';
 import { store } from 'src/stores';
 import { setProviderConstants } from 'src/stores/provider-constants-slice';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { SyncSite } from 'src/modules/sync/types';
 
 jest.mock( 'src/hooks/use-site-details' );
 jest.mock( 'src/hooks/use-feature-flags' );

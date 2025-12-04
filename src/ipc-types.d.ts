@@ -79,7 +79,6 @@ type IpcApi = {
 
 interface FeatureFlags {
 	enableBlueprints: boolean;
-	streamlineOnboarding: boolean;
 }
 
 interface BetaFeatures {

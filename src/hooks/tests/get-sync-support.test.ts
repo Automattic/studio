@@ -1,4 +1,4 @@
-import { getSyncSupport } from 'src/hooks/use-fetch-wpcom-sites';
+import { getSyncSupport } from 'src/modules/sync/lib/sync-support';
 
 // Mocks for site shapes
 const baseSite = {

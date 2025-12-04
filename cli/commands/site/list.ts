@@ -150,8 +150,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			return yargs
 				.option( 'format', {
 					type: 'string',
-					choices: [ 'table', 'json' ],
-					default: 'table',
+					choices: [ 'table', 'json' ] as const,
+					default: 'table' as const,
 					description: __( 'Output format' ),
 				} )
 				.option( 'watch', {
@@ -162,7 +162,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		},
 		handler: async ( argv ) => {
 			try {
-				await runCommand( argv.format as 'table' | 'json', argv.watch as boolean );
+				await runCommand( argv.format, argv.watch );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

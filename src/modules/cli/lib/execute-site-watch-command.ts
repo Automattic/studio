@@ -20,7 +20,7 @@ const siteStatusEventSchema = z.object( {
 		),
 } );
 
-let watcherEventEmitter: ReturnType< typeof executeCliCommand > | null = null;
+let watcher: ReturnType< typeof executeCliCommand > | null = null;
 
 const pendingUpdates = new Map< string, Promise< void > >();
 
@@ -67,15 +67,16 @@ async function updateSiteServerStatus(
 }
 
 export function startSiteWatcher(): void {
-	if ( watcherEventEmitter ) {
+	if ( watcher ) {
 		return;
 	}
 
-	watcherEventEmitter = executeCliCommand( [ 'site', 'list', '--watch', '--format', 'json' ], {
+	watcher = executeCliCommand( [ 'site', 'list', '--watch', '--format', 'json' ], {
 		silent: true,
 	} );
+	const [ eventEmitter ] = watcher;
 
-	watcherEventEmitter.on( 'data', ( { data } ) => {
+	eventEmitter.on( 'data', ( { data } ) => {
 		const parsed = siteStatusEventSchema.safeParse( data );
 		if ( ! parsed.success ) {
 			return;
@@ -88,18 +89,24 @@ export function startSiteWatcher(): void {
 		void sendIpcEventToRenderer( 'site-status-changed', parsed.data.value );
 	} );
 
-	watcherEventEmitter.on( 'error', ( { error } ) => {
+	eventEmitter.on( 'error', ( { error } ) => {
 		console.error( 'Site watcher error:', error );
-		watcherEventEmitter = null;
+		watcher = null;
 	} );
 
-	watcherEventEmitter.on( 'failure', () => {
+	eventEmitter.on( 'failure', () => {
 		console.warn( 'Site watcher exited unexpectedly' );
-		watcherEventEmitter = null;
+		watcher = null;
 	} );
 }
 
 export function stopSiteWatcher(): void {
-	watcherEventEmitter?.kill();
-	watcherEventEmitter = null;
+	if ( watcher ) {
+		const [ , childProcess ] = watcher;
+		if ( childProcess.connected ) {
+			childProcess.disconnect();
+		}
+		childProcess.kill();
+		watcher = null;
+	}
 }

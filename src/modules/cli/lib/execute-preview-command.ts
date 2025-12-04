@@ -22,7 +22,7 @@ export async function executePreviewCliCommand(
 	parentWindow: Electron.BrowserWindow | null
 ): Promise< { operationId: crypto.UUID } > {
 	const operationId = crypto.randomUUID();
-	const cliEventEmitter = executeCliCommand( args );
+	const [ cliEventEmitter ] = executeCliCommand( args );
 
 	cliEventEmitter.on( 'data', ( { data } ) => {
 		const parsed = snapshotEventSchema.safeParse( data );

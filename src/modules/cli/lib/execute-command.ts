@@ -1,4 +1,4 @@
-import { fork } from 'node:child_process';
+import { fork, ChildProcess } from 'node:child_process';
 import EventEmitter from 'node:events';
 import * as Sentry from '@sentry/electron/main';
 import { getCliPath } from 'src/storage/paths';
@@ -10,9 +10,7 @@ type CliCommandEventMap = {
 	failure: void;
 };
 
-class CliCommandEventEmitter extends EventEmitter {
-	private killFn?: () => void;
-
+export class CliCommandEventEmitter extends EventEmitter {
 	on< K extends keyof CliCommandEventMap >(
 		event: K,
 		listener: ( payload: CliCommandEventMap[ K ] ) => void
@@ -26,14 +24,6 @@ class CliCommandEventEmitter extends EventEmitter {
 	): boolean {
 		return super.emit( event, payload );
 	}
-
-	setKillFn( fn: () => void ): void {
-		this.killFn = fn;
-	}
-
-	kill(): void {
-		this.killFn?.();
-	}
 }
 
 export interface ExecuteCliCommandOptions {
@@ -43,19 +33,13 @@ export interface ExecuteCliCommandOptions {
 export function executeCliCommand(
 	args: string[],
 	options: ExecuteCliCommandOptions = {}
-): CliCommandEventEmitter {
+): [ CliCommandEventEmitter, ChildProcess ] {
 	const cliPath = getCliPath();
 	// Using Electron's utilityProcess.fork API gave us issues with the child process never exiting
 	const child = fork( cliPath, [ ...args, '--avoid-telemetry' ], {
 		stdio: options.silent ? [ 'ignore', 'ignore', 'ignore', 'ipc' ] : undefined,
 	} );
 	const eventEmitter = new CliCommandEventEmitter();
-	eventEmitter.setKillFn( () => {
-		if ( child.connected ) {
-			child.disconnect();
-		}
-		child.kill();
-	} );
 
 	child.on( 'message', ( message: unknown ) => {
 		eventEmitter.emit( 'data', { data: message } );
@@ -79,5 +63,5 @@ export function executeCliCommand(
 		child.kill();
 	} );
 
-	return eventEmitter;
+	return [ eventEmitter, child ];
 }

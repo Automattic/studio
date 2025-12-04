@@ -33,10 +33,13 @@ export const CreateButton = ( {
 			<Button
 				onClick={ () => {
 					onClick?.();
+					const suggestedName = selectedSite.customDomain
+						? selectedSite.customDomain.replace( /\.wp\.local$/, '' )
+						: selectedSite.name;
 					getIpcApi().openURL(
 						`https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&showDomainStep&studioSiteId=${
 							selectedSite.id
-						}&new=${ encodeURIComponent( selectedSite.name ) }`
+						}&new=${ encodeURIComponent( suggestedName ) }`
 					);
 				} }
 				variant={ variant }

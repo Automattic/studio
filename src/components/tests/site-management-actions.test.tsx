@@ -8,6 +8,7 @@ import {
 import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { store } from 'src/stores';
+import { setBetaFeatures } from 'src/stores/beta-features-slice';
 import { connectedSitesApi } from 'src/stores/sync/connected-sites';
 
 const mockGetConnectedWpcomSites = jest.fn();
@@ -108,6 +109,17 @@ describe( 'SiteManagementActions', () => {
 	} );
 
 	describe( 'PublishSiteButton', () => {
+		beforeEach( () => {
+			// Enable the publishSite beta feature for these tests
+			store.dispatch(
+				setBetaFeatures( {
+					studioSitesCli: false,
+					multiWorkerSupport: false,
+					publishSite: true,
+				} )
+			);
+		} );
+
 		it( 'should render "Publish site" button when no sites are connected', async () => {
 			renderWithProvider(
 				<SiteManagementActions

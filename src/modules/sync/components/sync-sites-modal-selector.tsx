@@ -187,7 +187,9 @@ export function SitesListContent( {
 					</div>
 				) }
 
-				{ ! isLoading && ! isEmpty && (
+				{ ! isLoading && isEmpty ? (
+					<div className="flex justify-center items-center h-full">{ __( 'No sites found' ) }</div>
+				) : (
 					<ListSites
 						syncSites={ filteredSites }
 						selectedSiteId={ selectedSiteId }

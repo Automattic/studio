@@ -11,7 +11,7 @@ import { removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import { setupWordPressSite, getWordPressProvider } from 'src/lib/wordpress-provider';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
-import { createCliServerProcess } from 'src/modules/cli/lib/cli-server-process';
+import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData } from 'src/storage/user-data';
@@ -118,7 +118,7 @@ export class SiteServer {
 		try {
 			console.log( `Starting server for '${ this.details.name }'` );
 			const url = getAbsoluteUrl( this.details );
-			this.server = createCliServerProcess( this.details.id, this.details.path, url );
+			this.server = new CliServerProcess( this.details.id, this.details.path, url );
 			await this.server.start();
 
 			const userData = await loadUserData();

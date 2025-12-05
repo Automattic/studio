@@ -165,7 +165,10 @@ describe( 'CLI: studio site set-php-version', () => {
 
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( stopWordPressServer ).toHaveBeenCalledWith( testSite.id );
-			expect( startWordPressServer ).toHaveBeenCalledWith( expect.any( Object ), expect.any( Logger ) );
+			expect( startWordPressServer ).toHaveBeenCalledWith(
+				expect.any( Object ),
+				expect.any( Logger )
+			);
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 	} );

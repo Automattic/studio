@@ -195,7 +195,10 @@ describe( 'CLI: studio site set-https', () => {
 
 			expect( isServerRunning ).toHaveBeenCalledWith( mockSiteData.id );
 			expect( stopWordPressServer ).toHaveBeenCalledWith( mockSiteData.id );
-			expect( startWordPressServer ).toHaveBeenCalledWith( expect.any( Object ), expect.any( Logger ) );
+			expect( startWordPressServer ).toHaveBeenCalledWith(
+				expect.any( Object ),
+				expect.any( Logger )
+			);
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 

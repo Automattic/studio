@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { createCliServerProcess } from 'src/modules/cli/lib/cli-server-process';
+import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
 import { SiteServer } from 'src/site-server';
 
 // Electron's Node.js environment provides `bota`/`atob`, but Jests' does not
@@ -45,7 +45,7 @@ describe( 'SiteServer', () => {
 	describe( 'start', () => {
 		it( 'should throw if the CLI server fails to start', async () => {
 			const mockStart = jest.fn().mockRejectedValue( new Error( 'Failed to start site' ) );
-			( createCliServerProcess as jest.Mock ).mockReturnValue( {
+			( CliServerProcess as jest.Mock ).mockReturnValue( {
 				url: 'http://localhost:1234',
 				start: mockStart,
 				stop: jest.fn(),
@@ -67,7 +67,7 @@ describe( 'SiteServer', () => {
 
 		it( 'should start the server successfully', async () => {
 			const mockStart = jest.fn().mockResolvedValue( undefined );
-			( createCliServerProcess as jest.Mock ).mockReturnValue( {
+			( CliServerProcess as jest.Mock ).mockReturnValue( {
 				url: 'http://localhost:1234',
 				start: mockStart,
 				stop: jest.fn(),

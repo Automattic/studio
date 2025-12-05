@@ -30,15 +30,6 @@ export function useSelectedItemsPushSize(
 		setIsLoading( true );
 
 		try {
-			const isEverythingSelected = treeState.every( ( node ) => node.checked );
-
-			if ( isEverythingSelected ) {
-				const size = await getIpcApi().getDirectorySize( siteId, [ 'wp-content' ] );
-				setTotalSize( size );
-				setIsPushSelectionOverLimit( size > SYNC_PUSH_SIZE_LIMIT_BYTES );
-				return;
-			}
-
 			const sizePromises: Promise< number >[] = [];
 
 			const databaseNode = treeState.find( ( node ) => node.id === 'sqls' );
@@ -52,20 +43,25 @@ export function useSelectedItemsPushSize(
 			);
 
 			const processNodeRecursively = ( node: TreeNode, pathPrefix: string[] ): void => {
+				// Always skip the database folder - it's handled separately via the sqls node
+				if ( node.name === 'database' ) {
+					return;
+				}
+
 				if ( node.checked ) {
-					// If the node is fully checked, get its entire size
 					if ( node.type === 'file' ) {
 						sizePromises.push( getIpcApi().getFileSize( siteId, [ ...pathPrefix, node.name ] ) );
-					} else {
-						if ( node.name === 'mu-plugins' && node.children ) {
+					} else if ( node.name === 'wp-content' || node.name === 'mu-plugins' ) {
+						// For wp-content and mu-plugins, always process children to properly skip database
+						if ( node.children ) {
 							for ( const child of node.children ) {
 								processNodeRecursively( child, [ ...pathPrefix, node.name ] );
 							}
-						} else {
-							sizePromises.push(
-								getIpcApi().getDirectorySize( siteId, [ ...pathPrefix, node.name ] )
-							);
 						}
+					} else {
+						sizePromises.push(
+							getIpcApi().getDirectorySize( siteId, [ ...pathPrefix, node.name ] )
+						);
 					}
 				} else if ( node.indeterminate && node.children ) {
 					// If the node is indeterminate, process its children recursively

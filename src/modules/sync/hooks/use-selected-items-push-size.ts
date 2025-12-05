@@ -30,6 +30,14 @@ export function useSelectedItemsPushSize(
 		setIsLoading( true );
 
 		try {
+			const isEverythingSelected = treeState.every( ( node ) => node.checked );
+			if ( isEverythingSelected ) {
+				const size = await getIpcApi().getDirectorySize( siteId, [ 'wp-content' ] );
+				setTotalSize( size );
+				setIsPushSelectionOverLimit( size > SYNC_PUSH_SIZE_LIMIT_BYTES );
+				return;
+			}
+
 			const sizePromises: Promise< number >[] = [];
 
 			const databaseNode = treeState.find( ( node ) => node.id === 'sqls' );

@@ -4,7 +4,6 @@ import { viteStaticCopy } from 'vite-plugin-static-copy';
 import { existsSync } from 'fs';
 
 const yargsLocalesPath = resolve( __dirname, 'node_modules/yargs/locales' );
-const cliNodeModulesPath = resolve( __dirname, 'cli/node_modules' );
 
 export default defineConfig( {
 	plugins: [
@@ -20,25 +19,11 @@ export default defineConfig( {
 					} ),
 			  ]
 			: [] ),
-		...( existsSync( cliNodeModulesPath )
-			? [
-					viteStaticCopy( {
-						targets: [
-							{
-								src: 'cli/node_modules',
-								dest: '.',
-							},
-						],
-					} ),
-			  ]
-			: [] ),
 	],
 	build: {
 		lib: {
 			entry: {
 				main: resolve( __dirname, 'cli/index.ts' ),
-				'proxy-daemon': resolve( __dirname, 'cli/proxy-daemon.ts' ),
-				'wordpress-server-child': resolve( __dirname, 'cli/wordpress-server-child.ts' ),
 			},
 			name: 'StudioCLI',
 			formats: [ 'cjs' ],

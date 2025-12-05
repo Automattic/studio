@@ -6,7 +6,7 @@ import { CreateButton } from 'src/modules/sync/components/create-button';
 
 interface NoWpcomSitesModalProps {
 	onRequestClose: () => void;
-	selectedSite: SiteDetails;
+	selectedSite?: SiteDetails;
 }
 
 export function NoWpcomSitesModal( { onRequestClose, selectedSite }: NoWpcomSitesModalProps ) {

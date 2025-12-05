@@ -4,7 +4,11 @@ import { cacheFunctionTTL } from 'common/lib/cache-function-ttl';
 import { custom as PM2, StartOptions } from 'pm2';
 import { getAppdataPath } from 'cli/lib/appdata';
 import { ProcessDescription } from 'cli/lib/types/pm2';
-import { ManagerMessage } from './types/wordpress-server-ipc';
+import {
+	ManagerMessage,
+	pm2ProcessEventSchema,
+	pm2ProcessMessageSchema,
+} from './types/wordpress-server-ipc';
 
 const PM2_STATUS_ONLINE = 'online';
 const PROXY_PROCESS_NAME = 'studio-proxy';
@@ -227,10 +231,15 @@ export async function subscribeProcessEvents(
 ): Promise< () => void > {
 	const bus = await getPm2Bus();
 
-	const eventHandler = ( data: { process: { name: string }; event: string } ) => {
+	const eventHandler = ( data: unknown ) => {
+		const result = pm2ProcessEventSchema.safeParse( data );
+		if ( ! result.success ) {
+			return;
+		}
+
 		handler( {
-			processName: data.process.name,
-			event: data.event,
+			processName: result.data.process.name,
+			event: result.data.event,
 		} );
 	};
 
@@ -258,15 +267,17 @@ export async function subscribeProcessMessages(
 ): Promise< () => void > {
 	const bus = await getPm2Bus();
 
-	const messageHandler = ( packet: {
-		process: { name: string; pm_id: number };
-		raw: { topic: string; [ key: string ]: unknown };
-	} ) => {
+	const messageHandler = ( packet: unknown ) => {
+		const result = pm2ProcessMessageSchema.safeParse( packet );
+		if ( ! result.success ) {
+			return;
+		}
+
 		handler( {
-			processName: packet.process.name,
-			pmId: packet.process.pm_id,
-			topic: packet.raw.topic,
-			data: packet.raw,
+			processName: result.data.process.name,
+			pmId: result.data.process.pm_id,
+			topic: result.data.raw.topic,
+			data: result.data.raw,
 		} );
 	};
 

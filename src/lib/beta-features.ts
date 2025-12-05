@@ -20,12 +20,6 @@ const BETA_FEATURES_DEFINITION: Record< keyof BetaFeatures, BetaFeatureDefinitio
 		default: false,
 		description: 'Enable multi-worker PHP processing for faster performance',
 	},
-	publishSite: {
-		label: 'Publish Site',
-		key: 'publishSite',
-		default: false,
-		description: 'Show the "Publish site" button to push local sites to WordPress.com',
-	},
 } as const;
 
 export const BETA_FEATURES: Record< keyof BetaFeatures, BetaFeatureDefinition > =

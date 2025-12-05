@@ -11,7 +11,6 @@ const initialState: BetaFeaturesState = {
 	features: {
 		studioSitesCli: false,
 		multiWorkerSupport: false,
-		publishSite: false,
 	},
 	loading: false,
 };

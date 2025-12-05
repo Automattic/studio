@@ -6,8 +6,7 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
-import { useAppDispatch, useRootSelector } from 'src/stores';
-import { betaFeaturesSelectors } from 'src/stores/beta-features-slice';
+import { useAppDispatch } from 'src/stores';
 import {
 	connectedSitesActions,
 	useGetConnectedSitesForLocalSiteQuery,
@@ -25,9 +24,6 @@ export const PublishSiteButton = () => {
 	} );
 	const { isAnySitePulling, isAnySitePushing } = useSyncSites();
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
-	const isPublishSiteEnabled = useRootSelector( ( state ) =>
-		betaFeaturesSelectors.selectBetaFeature( state, 'publishSite' )
-	);
 
 	const handlePublishClick = useCallback( () => {
 		if ( ! user ) {
@@ -37,7 +33,6 @@ export const PublishSiteButton = () => {
 		setSelectedTab( 'sync' );
 	}, [ user, setSelectedTab, dispatch, authenticate ] );
 
-	if ( ! isPublishSiteEnabled ) return null;
 	if ( connectedSites.length !== 0 ) return null;
 
 	return (

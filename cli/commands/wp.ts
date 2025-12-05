@@ -1,62 +1,13 @@
-import { readFileSync } from 'fs';
-import nodePath from 'path';
-import { rootCertificates } from 'tls';
-import { createNodeFsMountHandler, loadNodeRuntime } from '@php-wasm/node';
-import { PHP, SupportedPHPVersion, setPhpIniEntries } from '@php-wasm/universal';
-import { phpVar } from '@php-wasm/util';
 import { __ } from '@wordpress/i18n';
 import { runCLI } from '@wp-playground/cli';
-import { pathExists } from 'common/lib/fs-utils';
 import { getMuPlugins } from 'common/lib/mu-plugins';
 import { WPCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { ArgumentsCamelCase } from 'yargs';
 import { getSiteByFolder } from 'cli/lib/appdata';
-import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/sqlite-integration';
 import { Logger, LoggerError } from 'cli/logger';
 import { GlobalOptions } from 'cli/types';
 
-const PLAYGROUND_PATHS = {
-	documentRoot: '/wordpress',
-	internalSharedFolder: '/internal/shared',
-	runCliScript: '/tmp/run-cli.php',
-	sqliteCommand: '/tmp/sqlite-command',
-	wpCliPhar: '/tmp/wp-cli.phar',
-} as const;
-
 const logger = new Logger< LoggerAction >();
-
-// Create PHP script to execute WP-CLI (similar to wp-now approach)
-function getPhpScriptContents( args: string[] ) {
-	return `<?php
-// Set up CLI environment
-putenv( 'SHELL_PIPE=0' );
-
-// Set the argv global for WP-CLI
-$GLOBALS['argv'] = array_merge([
-	"${ PLAYGROUND_PATHS.wpCliPhar }",
-	"--path=${ PLAYGROUND_PATHS.documentRoot }",
-], ${ phpVar( args ) });
-
-// Provide CLI streams
-define('STDIN', fopen('php://stdin', 'rb'));
-define('STDOUT', fopen('php://stdout', 'wb'));
-define('STDERR', fopen('php://stderr', 'wb'));
-
-// Set server argv for WP-CLI
-$_SERVER['argv'] = $GLOBALS['argv'];
-$_SERVER['argc'] = count($_SERVER['argv']);
-
-var_dump(file_get_contents('/internal/shared/mu-plugins/99-studio-loader.php'));
-
-// Include WP-CLI phar
-if (file_exists("${ PLAYGROUND_PATHS.wpCliPhar }")) {
-	require "${ PLAYGROUND_PATHS.wpCliPhar }";
-} else {
-	echo "WP-CLI phar not found";
-	exit(1);
-}
-`;
-}
 
 export async function runCommand( siteFolder: string, args: string[] ): Promise< void > {
 	const site = await getSiteByFolder( siteFolder );
@@ -107,7 +58,7 @@ export async function runCommand( siteFolder: string, args: string[] ): Promise<
 	] );
 
 	console.log( await response.stdoutText );
-	await result.server.close();
+	process.exit( await response.exitCode );
 }
 
 export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > ) {

@@ -44,7 +44,7 @@ async function updateSiteServerStatus(
 			}
 
 			// We ignore Studio managed operations
-			if ( server?.isUpdating ) {
+			if ( server?.hasOngoingOperation ) {
 				return;
 			}
 

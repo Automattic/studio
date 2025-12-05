@@ -51,7 +51,12 @@ type SiteServerMeta = {
 export class SiteServer {
 	server?: WordPressServerProcess;
 	wpCliExecutor?: WpCliProcess;
-	isUpdating = false;
+	/**
+	 * Indicates whether a Studio-managed operation (start/stop) is in progress.
+	 * When true, file watchers should ignore site events to prevent interference
+	 * with the ongoing operation.
+	 */
+	hasOngoingOperation = false;
 
 	private constructor(
 		public details: SiteDetails,
@@ -103,7 +108,7 @@ export class SiteServer {
 	}
 
 	async start() {
-		if ( this.details.running || this.server || this.isUpdating ) {
+		if ( this.details.running || this.server || this.hasOngoingOperation ) {
 			return;
 		}
 
@@ -114,7 +119,7 @@ export class SiteServer {
 			);
 		}
 
-		this.isUpdating = true;
+		this.hasOngoingOperation = true;
 		try {
 			console.log( `Starting server for '${ this.details.name }'` );
 			const url = getAbsoluteUrl( this.details );
@@ -132,7 +137,7 @@ export class SiteServer {
 				latestCliPid: freshSiteData?.latestCliPid,
 			};
 		} finally {
-			this.isUpdating = false;
+			this.hasOngoingOperation = false;
 		}
 	}
 
@@ -189,7 +194,7 @@ export class SiteServer {
 	async stop() {
 		console.log( 'Stopping server with ID', this.details.id );
 		try {
-			this.isUpdating = true;
+			this.hasOngoingOperation = true;
 			await this.server?.stop();
 			this.server = undefined;
 
@@ -203,7 +208,7 @@ export class SiteServer {
 		} catch ( error ) {
 			console.error( error );
 		} finally {
-			this.isUpdating = false;
+			this.hasOngoingOperation = false;
 		}
 	}
 

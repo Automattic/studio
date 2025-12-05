@@ -321,9 +321,7 @@ export interface AddSiteModalContentProps {
 	setBlueprintDeeplinkWarnings?: ( warnings: BlueprintValidationWarning[] | undefined ) => void;
 	isDeeplinkFlow?: boolean;
 	setIsDeeplinkFlow?: ( isDeeplink: boolean ) => void;
-	// Blueprint state passed from AddSiteModal (useAddSite creates separate state per component)
-	selectedBlueprint?: Blueprint;
-	setSelectedBlueprint?: ( blueprint?: Blueprint ) => void;
+	addSiteProps?: ReturnType< typeof useAddSite >;
 }
 
 export function AddSiteModalContent( {
@@ -336,8 +334,7 @@ export function AddSiteModalContent( {
 	setBlueprintDeeplinkWarnings,
 	isDeeplinkFlow = false,
 	setIsDeeplinkFlow = () => {},
-	selectedBlueprint: propSelectedBlueprint,
-	setSelectedBlueprint: propSetSelectedBlueprint,
+	addSiteProps: externalAddSiteProps,
 }: AddSiteModalContentProps ) {
 	const { __ } = useI18n();
 	const [ nameSuggested, setNameSuggested ] = useState( false );
@@ -350,7 +347,9 @@ export function AddSiteModalContent( {
 		error: blueprintsError,
 	} = useGetBlueprints();
 
-	const addSiteProps = useAddSite();
+	const localAddSiteProps = useAddSite();
+	const addSiteProps = externalAddSiteProps ?? localAddSiteProps;
+
 	const {
 		handleAddSiteClick,
 		siteName,
@@ -369,15 +368,11 @@ export function AddSiteModalContent( {
 		setEnableHttps,
 		setFileForImport,
 		loadAllCustomDomains,
-		selectedBlueprint: localSelectedBlueprint,
-		setSelectedBlueprint: localSetSelectedBlueprint,
+		selectedBlueprint,
+		setSelectedBlueprint,
 		selectedRemoteSite,
 		setSelectedRemoteSite,
 	} = addSiteProps;
-
-	// Use props if provided (from AddSiteModal), otherwise use local state (for NoStudioSites)
-	const selectedBlueprint = propSelectedBlueprint ?? localSelectedBlueprint;
-	const setSelectedBlueprint = propSetSelectedBlueprint ?? localSetSelectedBlueprint;
 
 	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
 	const { data: versions = [] } = useGetWordPressVersions( {
@@ -509,8 +504,11 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 	const { __ } = useI18n();
 	const [ showModal, setShowModal ] = useState( false );
 	const { importState } = useImportExport();
-	const { sites, selectedBlueprint, setSelectedBlueprint, setPhpVersion, setWpVersion } =
-		useAddSite();
+
+	const addSiteProps = useAddSite();
+	const { sites, setSelectedBlueprint, setPhpVersion, setWpVersion } =
+		addSiteProps;
+
 	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
 		{ php?: string; wp?: string } | undefined
 	>();
@@ -576,8 +574,7 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 					setBlueprintDeeplinkWarnings={ setBlueprintDeeplinkWarnings }
 					isDeeplinkFlow={ isDeeplinkFlow }
 					setIsDeeplinkFlow={ setIsDeeplinkFlow }
-					selectedBlueprint={ selectedBlueprint }
-					setSelectedBlueprint={ setSelectedBlueprint }
+					addSiteProps={ addSiteProps }
 				/>
 			</FullscreenModal>
 			<Button

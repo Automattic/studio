@@ -215,7 +215,6 @@ const ImportSite = ( {
 		},
 	} );
 
-	// Clear error when user starts dragging again
 	useEffect( () => {
 		if ( isDraggingOver && fileError ) {
 			setFileError( null );

@@ -15,6 +15,7 @@ import { SupportedPHPVersion } from '@php-wasm/universal';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import { isWordPressDirectory } from 'common/lib/fs-utils';
 import { getMuPlugins } from 'common/lib/mu-plugins';
+import { formatPlaygroundCliMessage } from 'common/lib/playground-cli-messages';
 import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
 import { z } from 'zod';
 import {
@@ -25,39 +26,6 @@ import {
 
 let server: RunCLIServer | null = null;
 
-/**
- * Messages come from the playground-cli, they can be found on the calls to `logger.log`
- * in the playground-cli source code, for example:
- * https://github.com/WordPress/wordpress-playground/blob/5ce5752af3cde8b65c745c527c54f3b4bc164a00/packages/playground/cli/src/run-cli.ts#L927
- */
-function formatMessageForUI( message: string ): string | null {
-	if ( message.includes( 'WordPress is running' ) ) {
-		return 'WordPress server ready';
-	}
-	if ( message.includes( 'Resolved WordPress release URL' ) ) {
-		return 'Downloading WordPress…';
-	}
-	if ( message.includes( 'Downloading WordPress' ) ) {
-		return 'Downloading WordPress…';
-	}
-	if ( message.includes( 'Starting up workers' ) ) {
-		return 'Starting up workers…';
-	}
-	if ( message.includes( 'Booting WordPress' ) ) {
-		return 'Booting WordPress…';
-	}
-	if ( message.includes( 'Running the Blueprint' ) ) {
-		return 'Running the Blueprint…';
-	}
-	if ( message.includes( 'Finished running the blueprint' ) ) {
-		return 'Finished running the Blueprint…';
-	}
-	if ( message.includes( 'Preparing workers' ) ) {
-		return 'Preparing workers…';
-	}
-	return null;
-}
-
 // Intercept and prefix all console output from playground-cli
 const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
@@ -67,8 +35,8 @@ console.log = ( ...args: unknown[] ) => {
 	originalConsoleLog( '[playground-cli]', ...args );
 	const message = args.join( ' ' );
 	process.send!( { topic: 'activity' } );
-	const formattedMessage = formatMessageForUI( message );
-	if ( formattedMessage ) {
+	const formattedMessage = formatPlaygroundCliMessage( message );
+	if ( formattedMessage !== message ) {
 		process.send!( { topic: 'console-message', message: formattedMessage } );
 	}
 };

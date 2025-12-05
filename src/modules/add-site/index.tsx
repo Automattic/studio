@@ -84,14 +84,14 @@ function NavigationContent( props: NavigationContentProps ) {
 		...createSiteProps
 	} = props;
 
-	const { setSelectedBlueprint, setPhpVersion, setWpVersion } = createSiteProps;
+	const { selectedBlueprint, setSelectedBlueprint, setPhpVersion, setWpVersion } = createSiteProps;
 
 	useEffect( () => {
-		if ( isDeeplinkFlow ) {
+		if ( isDeeplinkFlow && selectedBlueprint ) {
 			goTo( '/blueprint/deeplink' );
 			setIsDeeplinkFlow( false );
 		}
-	}, [ isDeeplinkFlow, goTo, setIsDeeplinkFlow ] );
+	}, [ isDeeplinkFlow, goTo, setIsDeeplinkFlow, selectedBlueprint ] );
 
 	const handleOptionSelect = useCallback(
 		( option: AddSiteFlowType ) => {
@@ -109,10 +109,10 @@ function NavigationContent( props: NavigationContentProps ) {
 	);
 
 	const handleBlueprintContinue = useCallback( () => {
-		if ( createSiteProps.selectedBlueprint ) {
+		if ( selectedBlueprint ) {
 			goTo( '/blueprint/select/create' );
 		}
-	}, [ createSiteProps.selectedBlueprint, goTo ] );
+	}, [ selectedBlueprint, goTo ] );
 
 	const handleBackupFileSelect = useCallback(
 		( file?: File ) => {
@@ -244,7 +244,7 @@ function NavigationContent( props: NavigationContentProps ) {
 					blueprints={ blueprints }
 					errorMessage={ blueprintsErrorMessage }
 					isLoading={ isLoadingBlueprints }
-					selectedBlueprint={ createSiteProps.selectedBlueprint?.slug || null }
+					selectedBlueprint={ selectedBlueprint?.slug || null }
 					onBlueprintChange={ handleBlueprintChange }
 					onFileBlueprintSelect={ handleFileBlueprintSelect }
 				/>
@@ -260,7 +260,7 @@ function NavigationContent( props: NavigationContentProps ) {
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/deeplink">
 				<BlueprintDeeplink
-					selectedBlueprint={ createSiteProps.selectedBlueprint }
+					selectedBlueprint={ selectedBlueprint }
 					warnings={ blueprintDeeplinkWarnings }
 				/>
 			</Navigator.Screen>
@@ -301,8 +301,8 @@ function NavigationContent( props: NavigationContentProps ) {
 				onBackupContinue={ handleBackupContinue }
 				onPullRemoteContinue={ handlePullRemoteContinue }
 				onCreateSubmit={ createSiteProps.handleSubmit }
-				canSubmitBlueprint={ !! createSiteProps.selectedBlueprint }
-				canSubmitBlueprintDeeplink={ !! createSiteProps.selectedBlueprint }
+				canSubmitBlueprint={ !! selectedBlueprint }
+				canSubmitBlueprintDeeplink={ !! selectedBlueprint }
 				canSubmitBackup={ !! createSiteProps.fileForImport }
 				canSubmitPullRemote={ !! selectedRemoteSite }
 				canSubmitCreate={ !! canSubmit }
@@ -321,6 +321,9 @@ export interface AddSiteModalContentProps {
 	setBlueprintDeeplinkWarnings?: ( warnings: BlueprintValidationWarning[] | undefined ) => void;
 	isDeeplinkFlow?: boolean;
 	setIsDeeplinkFlow?: ( isDeeplink: boolean ) => void;
+	// Blueprint state passed from AddSiteModal (useAddSite creates separate state per component)
+	selectedBlueprint?: Blueprint;
+	setSelectedBlueprint?: ( blueprint?: Blueprint ) => void;
 }
 
 export function AddSiteModalContent( {
@@ -333,6 +336,8 @@ export function AddSiteModalContent( {
 	setBlueprintDeeplinkWarnings,
 	isDeeplinkFlow = false,
 	setIsDeeplinkFlow = () => {},
+	selectedBlueprint: propSelectedBlueprint,
+	setSelectedBlueprint: propSetSelectedBlueprint,
 }: AddSiteModalContentProps ) {
 	const { __ } = useI18n();
 	const [ nameSuggested, setNameSuggested ] = useState( false );
@@ -364,11 +369,15 @@ export function AddSiteModalContent( {
 		setEnableHttps,
 		setFileForImport,
 		loadAllCustomDomains,
-		selectedBlueprint,
-		setSelectedBlueprint,
+		selectedBlueprint: localSelectedBlueprint,
+		setSelectedBlueprint: localSetSelectedBlueprint,
 		selectedRemoteSite,
 		setSelectedRemoteSite,
 	} = addSiteProps;
+
+	// Use props if provided (from AddSiteModal), otherwise use local state (for NoStudioSites)
+	const selectedBlueprint = propSelectedBlueprint ?? localSelectedBlueprint;
+	const setSelectedBlueprint = propSetSelectedBlueprint ?? localSetSelectedBlueprint;
 
 	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
 	const { data: versions = [] } = useGetWordPressVersions( {
@@ -474,6 +483,8 @@ export function AddSiteModalContent( {
 		>
 			<NavigationContent
 				{ ...addSiteProps }
+				selectedBlueprint={ selectedBlueprint }
+				setSelectedBlueprint={ setSelectedBlueprint }
 				blueprintsData={ blueprintsData }
 				blueprintsErrorMessage={ formatRtkError( blueprintsError ) }
 				isLoadingBlueprints={ isLoadingBlueprints }
@@ -498,7 +509,8 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 	const { __ } = useI18n();
 	const [ showModal, setShowModal ] = useState( false );
 	const { importState } = useImportExport();
-	const { sites, setSelectedBlueprint, setPhpVersion, setWpVersion } = useAddSite();
+	const { sites, selectedBlueprint, setSelectedBlueprint, setPhpVersion, setWpVersion } =
+		useAddSite();
 	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
 		{ php?: string; wp?: string } | undefined
 	>();
@@ -560,6 +572,8 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 					setBlueprintDeeplinkWarnings={ setBlueprintDeeplinkWarnings }
 					isDeeplinkFlow={ isDeeplinkFlow }
 					setIsDeeplinkFlow={ setIsDeeplinkFlow }
+					selectedBlueprint={ selectedBlueprint }
+					setSelectedBlueprint={ setSelectedBlueprint }
 				/>
 			</FullscreenModal>
 			<Button

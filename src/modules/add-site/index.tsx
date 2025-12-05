@@ -533,7 +533,11 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 
 	const closeModal = useCallback( () => {
 		setShowModal( false );
-	}, [] );
+		setIsDeeplinkFlow( false );
+		setSelectedBlueprint( undefined );
+		setBlueprintPreferredVersions( undefined );
+		setBlueprintDeeplinkWarnings( undefined );
+	}, [ setSelectedBlueprint ] );
 
 	const handleSiteAdded = useCallback( () => {
 		closeModal();

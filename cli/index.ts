@@ -84,15 +84,7 @@ async function main() {
 
 	if ( isSitesCliEnabled ) {
 		studioArgv.command( 'site', __( 'Manage local sites (Beta)' ), ( sitesYargs ) => {
-			registerSiteStatusCommand( sitesYargs );
-			registerSiteCreateCommand( sitesYargs );
 			registerSiteListCommand( sitesYargs );
-			registerSiteStartCommand( sitesYargs );
-			registerSiteStopCommand( sitesYargs );
-			registerSiteDeleteCommand( sitesYargs );
-			registerSiteSetHttpsCommand( sitesYargs );
-			registerSiteSetDomainCommand( sitesYargs );
-			registerSiteSetPhpVersionCommand( sitesYargs );
 			sitesYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
 		} );
 	}

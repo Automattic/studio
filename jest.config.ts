@@ -18,7 +18,7 @@ module.exports = {
 		'^.+\\.m?js$': [ 'babel-jest', { presets: [ '@babel/preset-env' ] } ],
 		"^.+\\.svg$": 'jest-transform-stub',
 	},
-	transformIgnorePatterns: [ 'node_modules/(?!(@php-wasm|@wp-playground)/)' ],
+	transformIgnorePatterns: [ 'node_modules/(?!(@php-wasm|@wp-playground|@uppy)/)' ],
 	moduleNameMapper: {
 		'^(\\.{1,2}/.*)\\.js$': '$1',
 		'^cli/(.*)$': '<rootDir>/cli/$1',

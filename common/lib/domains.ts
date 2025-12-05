@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { DEFAULT_CUSTOM_DOMAIN_SUFFIX } from '../constants';
+import { DEFAULT_CUSTOM_DOMAIN_SUFFIX } from 'common/constants';
 import { sanitizeFolderName } from './sanitize-folder-name';
 
 const DOMAIN_PATTERN =

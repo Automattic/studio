@@ -10,6 +10,7 @@
  * - Sends response back when ready
  * - Sends activity heartbeats to prevent timeout during long operations
  */
+import { cpus } from 'os';
 import { SupportedPHPVersion } from '@php-wasm/universal';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import { isWordPressDirectory } from 'common/lib/fs-utils';
@@ -23,6 +24,64 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 
 let server: RunCLIServer | null = null;
+
+/**
+ * Messages come from the playground-cli, they can be found on the calls to `logger.log`
+ * in the playground-cli source code, for example:
+ * https://github.com/WordPress/wordpress-playground/blob/5ce5752af3cde8b65c745c527c54f3b4bc164a00/packages/playground/cli/src/run-cli.ts#L927
+ */
+function formatMessageForUI( message: string ): string | null {
+	if ( message.includes( 'WordPress is running' ) ) {
+		return 'WordPress server ready';
+	}
+	if ( message.includes( 'Resolved WordPress release URL' ) ) {
+		return 'Downloading WordPress…';
+	}
+	if ( message.includes( 'Downloading WordPress' ) ) {
+		return 'Downloading WordPress…';
+	}
+	if ( message.includes( 'Starting up workers' ) ) {
+		return 'Starting up workers…';
+	}
+	if ( message.includes( 'Booting WordPress' ) ) {
+		return 'Booting WordPress…';
+	}
+	if ( message.includes( 'Running the Blueprint' ) ) {
+		return 'Running the Blueprint…';
+	}
+	if ( message.includes( 'Finished running the blueprint' ) ) {
+		return 'Finished running the Blueprint…';
+	}
+	if ( message.includes( 'Preparing workers' ) ) {
+		return 'Preparing workers…';
+	}
+	return null;
+}
+
+// Intercept and prefix all console output from playground-cli
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+
+console.log = ( ...args: unknown[] ) => {
+	originalConsoleLog( '[playground-cli]', ...args );
+	const message = args.join( ' ' );
+	process.send!( { topic: 'activity' } );
+	const formattedMessage = formatMessageForUI( message );
+	if ( formattedMessage ) {
+		process.send!( { topic: 'console-message', message: formattedMessage } );
+	}
+};
+
+console.error = ( ...args: unknown[] ) => {
+	originalConsoleError( '[playground-cli]', ...args );
+	process.send!( { topic: 'activity' } );
+};
+
+console.warn = ( ...args: unknown[] ) => {
+	originalConsoleWarn( '[playground-cli]', ...args );
+	process.send!( { topic: 'activity' } );
+};
 
 const originalStdoutWrite = process.stdout.write.bind( process.stdout );
 const originalStderrWrite = process.stderr.write.bind( process.stderr );
@@ -38,11 +97,11 @@ process.stderr.write = function ( ...args: Parameters< typeof originalStderrWrit
 } as typeof process.stderr.write;
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
-	console.log( new Date().toISOString(), `[WordPress Server Child]`, ...args );
+	originalConsoleLog( new Date().toISOString(), `[WordPress Server Child]`, ...args );
 }
 
 function errorToConsole( ...args: Parameters< typeof console.error > ) {
-	console.error( new Date().toISOString(), `[WordPress Server Child]`, ...args );
+	originalConsoleError( new Date().toISOString(), `[WordPress Server Child]`, ...args );
 }
 
 function escapePhpString( str: string ): string {
@@ -128,6 +187,14 @@ async function getBaseRunCLIArgs(
 
 	args.blueprint.constants = { ...args.blueprint.constants, ...defaultConstants };
 
+	if ( config.enableMultiWorker ) {
+		const workerCount = Math.max( 1, cpus().length - 1 );
+		logToConsole(
+			`Enabling experimental multi-worker support with ${ workerCount } workers (CPU cores - 1)`
+		);
+		args.experimentalMultiWorker = workerCount;
+	}
+
 	return args;
 }
 
@@ -140,6 +207,10 @@ async function startServer( config: ServerConfig ): Promise< void > {
 	try {
 		const args = await getBaseRunCLIArgs( 'server', config );
 		server = await runCLI( args );
+
+		if ( config.enableMultiWorker && server ) {
+			logToConsole( `Server started with ${ server.workerThreadCount } worker thread(s)` );
+		}
 
 		if ( config.adminPassword ) {
 			await setAdminPassword( server, config.adminPassword );

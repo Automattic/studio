@@ -13,6 +13,7 @@ import {
 	startWordPressServer,
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
+import { Logger } from 'cli/logger';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
@@ -164,7 +165,7 @@ describe( 'CLI: studio site set-php-version', () => {
 
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( stopWordPressServer ).toHaveBeenCalledWith( testSite.id );
-			expect( startWordPressServer ).toHaveBeenCalledWith( expect.any( Object ) );
+			expect( startWordPressServer ).toHaveBeenCalledWith( expect.any( Object ), expect.any( Logger ) );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 	} );

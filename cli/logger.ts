@@ -30,11 +30,19 @@ export class LoggerError extends Error {
 }
 
 export class Logger< T extends string > {
-	private spinner: Ora;
+	private _spinner: Ora;
 	private currentAction: T | 'keyValuePair' | null = null;
 
 	constructor() {
-		this.spinner = ora();
+		this._spinner = ora();
+	}
+
+	/**
+	 * Get the underlying ora spinner instance.
+	 * Useful for sharing with other modules that need to update progress.
+	 */
+	public get spinner(): Ora {
+		return this._spinner;
 	}
 
 	public reportStart( action: T, message: string ) {
@@ -44,7 +52,7 @@ export class Logger< T extends string > {
 			process.send!( { action, status: 'inprogress', message } );
 			return;
 		}
-		this.spinner.start( message );
+		this._spinner.start( message );
 	}
 
 	public reportProgress( message: string ) {
@@ -53,16 +61,22 @@ export class Logger< T extends string > {
 			return;
 		}
 
-		this.spinner.text = message;
+		// Update the spinner text and force render
+		this._spinner.text = message;
+		if ( ! this._spinner.isSpinning ) {
+			this._spinner.start( message );
+		} else {
+			this._spinner.render();
+		}
 	}
 
 	public reportSuccess( message: string, shouldClearSpinner = false ) {
 		if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'success', message } );
 		} else if ( shouldClearSpinner ) {
-			this.spinner.clear();
+			this._spinner.clear();
 		} else {
-			this.spinner.succeed( message );
+			this._spinner.succeed( message );
 		}
 
 		this.currentAction = null;
@@ -73,7 +87,7 @@ export class Logger< T extends string > {
 			process.send!( { action: this.currentAction, status: 'warning', message } );
 			return;
 		}
-		this.spinner.warn( message );
+		this._spinner.warn( message );
 	}
 
 	public reportError( error: LoggerError, isFatal = true ) {
@@ -84,7 +98,7 @@ export class Logger< T extends string > {
 		if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'fail', message: error.message } );
 		} else {
-			this.spinner.fail( error.message );
+			this._spinner.fail( error.message );
 		}
 
 		this.currentAction = null;

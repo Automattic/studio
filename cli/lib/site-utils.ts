@@ -83,9 +83,11 @@ export async function setupCustomDomain(
  * @param stoppedSiteId - The ID of the site that was just stopped (to exclude from the check)
  */
 export async function stopProxyIfNoSitesNeedIt(
-	stoppedSiteId: string,
+	stoppedSiteIds: string | string[],
 	logger: Logger< LoggerAction >
 ): Promise< void > {
+	const stoppedSiteIdsArray = Array.isArray( stoppedSiteIds ) ? stoppedSiteIds : [ stoppedSiteIds ];
+
 	const proxyProcess = await isProxyProcessRunning();
 	if ( ! proxyProcess ) {
 		return;
@@ -93,10 +95,19 @@ export async function stopProxyIfNoSitesNeedIt(
 
 	const appdata = await readAppdata();
 
-	for ( const site of appdata.sites ) {
-		if ( site.id !== stoppedSiteId && site.customDomain && ( await isServerRunning( site.id ) ) ) {
-			return;
-		}
+	const remainingSites = appdata.sites.filter(
+		( site ) => ! stoppedSiteIdsArray.includes( site.id )
+	);
+
+	// Filter to sites with custom domains that might need the proxy
+	const sitesWithCustomDomains = remainingSites.filter( ( site ) => site.customDomain );
+
+	const sitesStillRunning = await Promise.all(
+		sitesWithCustomDomains.map( ( site ) => isServerRunning( site.id ) )
+	);
+
+	if ( sitesStillRunning.some( ( isRunning ) => isRunning ) ) {
+		return;
 	}
 
 	logger.reportStart( LoggerAction.STOP_PROXY, __( 'Stopping HTTP proxy server...' ) );

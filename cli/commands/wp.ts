@@ -40,7 +40,6 @@ export async function runCommand( siteFolder: string, args: string[] ): Promise<
 		'mount-before-install': mounts,
 		'site-url': `http://localhost:${ site.port }`,
 		verbosity: 'quiet',
-		port: site.port,
 		wordpressInstallMode: 'do-not-attempt-installing',
 		php: '8.3',
 		blueprint: {

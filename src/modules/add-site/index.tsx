@@ -331,18 +331,13 @@ export function AddSiteModalContent( {
 	setBlueprintPreferredVersions,
 	blueprintDeeplinkWarnings,
 	setBlueprintDeeplinkWarnings,
-	isDeeplinkFlow: propIsDeeplinkFlow,
-	setIsDeeplinkFlow: propSetIsDeeplinkFlow,
+	isDeeplinkFlow = false,
+	setIsDeeplinkFlow = () => {},
 }: AddSiteModalContentProps ) {
 	const { __ } = useI18n();
 	const [ nameSuggested, setNameSuggested ] = useState( false );
 	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
-
-	// Use props if provided (from AddSiteModal), otherwise use local state (for NoStudioSites)
-	const [ localIsDeeplinkFlow, setLocalIsDeeplinkFlow ] = useState( false );
-	const isDeeplinkFlow = propIsDeeplinkFlow ?? localIsDeeplinkFlow;
-	const setIsDeeplinkFlow = propSetIsDeeplinkFlow ?? setLocalIsDeeplinkFlow;
 
 	const {
 		data: blueprintsData,

@@ -7,7 +7,6 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import blueprintsIllustration from 'src/modules/whats-new/assets/blueprints-illustration.svg';
 import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
-import preferredAppsIllustration from 'src/modules/whats-new/assets/preferred-apps-illustration.svg';
 import pressableSyncIllustration from 'src/modules/whats-new/assets/pressable-sync-illustration.svg';
 import selectiveSyncIllustration from 'src/modules/whats-new/assets/selective-sync-illustration.svg';
 import { useI18nLocale } from 'src/stores';
@@ -81,14 +80,6 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 				'Pull and push your Studio sites to WordPress.com or Pressable with a single click. No more manual uploads or FTP transfers!'
 			),
 			learnMoreUrl: getLocalizedLink( locale, 'docsSync' ),
-		},
-		{
-			image: preferredAppsIllustration,
-			title: __( 'Choose your preferred apps' ),
-			description: __(
-				'Select your preferred code editor and terminal app in the redesigned Settings modal.'
-			),
-			learnMoreUrl: getLocalizedLink( locale, 'blogPreferredApps' ),
 		},
 		{
 			image: cliIllustration,

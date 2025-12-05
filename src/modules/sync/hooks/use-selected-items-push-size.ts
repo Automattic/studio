@@ -31,6 +31,7 @@ export function useSelectedItemsPushSize(
 
 		try {
 			const isEverythingSelected = treeState.every( ( node ) => node.checked );
+
 			if ( isEverythingSelected ) {
 				const size = await getIpcApi().getDirectorySize( siteId, [ 'wp-content' ] );
 				setTotalSize( size );
@@ -49,6 +50,7 @@ export function useSelectedItemsPushSize(
 			const wpContentNode = filesAndFoldersNode?.children?.find(
 				( node ) => node.id === 'wp-content'
 			);
+
 			const processNodeRecursively = ( node: TreeNode, pathPrefix: string[] ): void => {
 				// Always skip the database folder - it's handled separately via the sqls node
 				if ( node.name === 'database' ) {

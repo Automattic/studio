@@ -267,7 +267,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'https', {
 					type: 'boolean',
 					describe: __( 'Enable HTTPS for custom domain' ),
-					default: false,
+					implies: 'domain',
 				} )
 				.option( 'blueprint', {
 					type: 'string',
@@ -306,7 +306,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					wpVersion: argv.wp,
 					phpVersion: argv.php,
 					customDomain: argv.domain,
-					enableHttps: argv.https,
+					enableHttps: !! argv.https,
 					blueprintJson: blueprintJson,
 					noStart: ! argv.start,
 				} );

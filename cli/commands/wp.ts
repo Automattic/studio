@@ -1,15 +1,20 @@
+import { __ } from '@wordpress/i18n';
 import { runCLI } from '@wp-playground/cli';
 import { getMuPlugins } from 'common/lib/mu-plugins';
 import { WPCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { ArgumentsCamelCase } from 'yargs';
+import yargsParser from 'yargs-parser';
 import { getSiteByFolder } from 'cli/lib/appdata';
 import { getWpCliPharPath } from 'cli/lib/sqlite-integration';
 import { Logger, LoggerError } from 'cli/logger';
 import { GlobalOptions } from 'cli/types';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type CliArgs = Record< string, any >;
+
 const logger = new Logger< LoggerAction >();
 
-export async function runCommand( siteFolder: string, args: string[] ): Promise< void > {
+export async function runCommand( siteFolder: string, args: CliArgs ): Promise< void > {
 	const site = await getSiteByFolder( siteFolder );
 
 	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
@@ -53,7 +58,7 @@ export async function runCommand( siteFolder: string, args: string[] ): Promise<
 		'php',
 		'/tmp/wp-cli.phar',
 		`--path=${ await result.playground.documentRoot }`,
-		...args,
+		...Object.entries( args ).flat(),
 	] );
 
 	const stdoutReader = response.stdout.getReader();
@@ -86,11 +91,10 @@ export async function runCommand( siteFolder: string, args: string[] ): Promise<
 
 export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > ) {
 	try {
-		const wpcliArgs = process.argv.slice( 3 );
-		const pathIndex = wpcliArgs.findIndex( ( arg ) => arg === '--path' );
-		if ( pathIndex !== -1 ) {
-			wpcliArgs.splice( pathIndex, 2 );
-		}
+		const wpcliArgs: CliArgs = yargsParser( process.argv.slice( 3 ) );
+		delete wpcliArgs._;
+		delete wpcliArgs.path;
+
 		await runCommand( argv.path, wpcliArgs );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {

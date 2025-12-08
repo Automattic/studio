@@ -95,15 +95,12 @@ export async function stopProxyIfNoSitesNeedIt(
 
 	const appdata = await readAppdata();
 
-	const remainingSites = appdata.sites.filter(
-		( site ) => ! stoppedSiteIdsArray.includes( site.id )
+	const remainingSitesWithCustomDomains = appdata.sites.filter(
+		( site ) => ! stoppedSiteIdsArray.includes( site.id ) && site.customDomain
 	);
 
-	// Filter to sites with custom domains that might need the proxy
-	const sitesWithCustomDomains = remainingSites.filter( ( site ) => site.customDomain );
-
 	const sitesStillRunning = await Promise.all(
-		sitesWithCustomDomains.map( ( site ) => isServerRunning( site.id ) )
+		remainingSitesWithCustomDomains.map( ( site ) => isServerRunning( site.id ) )
 	);
 
 	if ( sitesStillRunning.some( ( isRunning ) => isRunning ) ) {

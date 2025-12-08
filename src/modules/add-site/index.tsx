@@ -496,6 +496,58 @@ export function AddSiteModalContent( {
 	);
 }
 
+interface AddSiteContentWithDeeplinkSupportProps {
+	isOpen?: boolean;
+	onSubmit?: () => void;
+	openModal?: () => void;
+	isAnySiteProcessing?: boolean;
+}
+
+export function AddSiteContentWithDeeplinkSupport( {
+	isOpen = true,
+	onSubmit,
+	openModal = () => {},
+	isAnySiteProcessing = false,
+}: AddSiteContentWithDeeplinkSupportProps ) {
+	const addSiteProps = useAddSite();
+	const { setSelectedBlueprint, setPhpVersion, setWpVersion, sites } = addSiteProps;
+
+	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
+		{ php?: string; wp?: string } | undefined
+	>();
+	const [ blueprintDeeplinkWarnings, setBlueprintDeeplinkWarnings ] = useState<
+		BlueprintValidationWarning[] | undefined
+	>();
+	const [ isDeeplinkFlow, setIsDeeplinkFlow ] = useState( false );
+
+	useBlueprintDeeplink( {
+		isAnySiteProcessing: isAnySiteProcessing || sites.some( ( site ) => site.isAddingSite ),
+		openModal,
+		setSelectedBlueprint,
+		setPhpVersion,
+		setWpVersion,
+		setBlueprintPreferredVersions,
+		setBlueprintDeeplinkWarnings,
+		navigateToBlueprintDeeplink: () => {
+			setIsDeeplinkFlow( true );
+		},
+	} );
+
+	return (
+		<AddSiteModalContent
+			isOpen={ isOpen }
+			onSubmit={ onSubmit }
+			blueprintPreferredVersions={ blueprintPreferredVersions }
+			setBlueprintPreferredVersions={ setBlueprintPreferredVersions }
+			blueprintDeeplinkWarnings={ blueprintDeeplinkWarnings }
+			setBlueprintDeeplinkWarnings={ setBlueprintDeeplinkWarnings }
+			isDeeplinkFlow={ isDeeplinkFlow }
+			setIsDeeplinkFlow={ setIsDeeplinkFlow }
+			addSiteProps={ addSiteProps }
+		/>
+	);
+}
+
 interface AddSiteModalProps {
 	className?: string;
 }
@@ -506,8 +558,7 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 	const { importState } = useImportExport();
 
 	const addSiteProps = useAddSite();
-	const { sites, setSelectedBlueprint, setPhpVersion, setWpVersion } =
-		addSiteProps;
+	const { sites, setSelectedBlueprint, setPhpVersion, setWpVersion } = addSiteProps;
 
 	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
 		{ php?: string; wp?: string } | undefined
@@ -548,7 +599,9 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 		openModal();
 	} );
 
-	// This hook must be always mounted to listen for blueprint deeplinks
+	// This hook must also be here because FullscreenModal doesn't render children when closed.
+	// AddSiteModal and NoStudioSites (which uses AddSiteContentWithDeeplinkSupport)
+	// are mutually exclusive, only one is mounted based on whether sites exist.
 	useBlueprintDeeplink( {
 		isAnySiteProcessing,
 		openModal,

@@ -108,4 +108,10 @@ export const IPC_VOID_HANDLERS = < const >[
 ];
 
 // What's New
-export const FORCE_WHATS_NEW_WHEN_PATCH_CHANGED = false;
+export const FORCE_WHATS_NEW_WHEN_PATCH_CHANGED = true;
+
+// Studio File Upload constants
+export const STUDIO_FILE_UPLOADS_ENDPOINT_BASE =
+	'https://public-api.wordpress.com/rest/v1.1/studio-file-uploads';
+export const STUDIO_FILE_UPLOADS_CHUNK_SIZE = 500000;
+export const STUDIO_FILE_UPLOADS_RETRY_DELAYS = [ 0, 1000, 3000, 5000, 10000, 25000 ];

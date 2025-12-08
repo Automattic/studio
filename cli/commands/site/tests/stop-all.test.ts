@@ -91,9 +91,7 @@ describe( 'CLI: studio site stop-all', () => {
 
 			const { runCommand } = await import( '../stop-all' );
 
-			await expect( runCommand() ).rejects.toThrow(
-				'Failed to stop all (3) sites: Test Site 1, Test Site 2, Test Site 3'
-			);
+			await expect( runCommand() ).rejects.toThrow( 'Failed to stop all (3) sites' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -108,9 +106,7 @@ describe( 'CLI: studio site stop-all', () => {
 
 			const { runCommand } = await import( '../stop-all' );
 
-			await expect( runCommand() ).rejects.toThrow(
-				'Stopped 2 site(s), but 1 failed: Test Site 2'
-			);
+			await expect( runCommand() ).rejects.toThrow( 'Stopped 2 sites out of 3' );
 			expect( disconnect ).toHaveBeenCalled();
 			expect( stopWordPressServer ).toHaveBeenCalledTimes( 3 );
 		} );
@@ -238,7 +234,7 @@ describe( 'CLI: studio site stop-all', () => {
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
-		it( 'should handle proxy stop failure gracefully', async () => {
+		it( 'should throw when proxy stop fails', async () => {
 			( readAppdata as jest.Mock ).mockResolvedValue( { sites: [ testSites[ 0 ] ] } );
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
 			( stopProxyIfNoSitesNeedIt as jest.Mock ).mockRejectedValue(
@@ -247,8 +243,8 @@ describe( 'CLI: studio site stop-all', () => {
 
 			const { runCommand } = await import( '../stop-all' );
 
-			// Should not throw even if proxy stop fails
-			await runCommand();
+			// Should throw when proxy stop fails
+			await expect( runCommand() ).rejects.toThrow( 'Failed to stop proxy server' );
 
 			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
 			expect( disconnect ).toHaveBeenCalled();

@@ -3,12 +3,19 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'node:path';
 import * as Sentry from '@sentry/electron/main';
+import { HttpRequest, HttpResponse, Upload } from 'tus-js-client';
 import { z } from 'zod';
 import { isErrnoException } from 'common/lib/is-errno-exception';
+import {
+	STUDIO_FILE_UPLOADS_ENDPOINT_BASE,
+	STUDIO_FILE_UPLOADS_CHUNK_SIZE,
+	STUDIO_FILE_UPLOADS_RETRY_DELAYS,
+} from 'src/constants';
 import {
 	PullStateProgressInfo,
 	PushStateProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
+import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { download } from 'src/lib/download';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
@@ -147,6 +154,7 @@ export function removeExportedSiteTmpFile( event: IpcMainInvokeEvent, path: stri
 
 export async function pushArchive(
 	event: IpcMainInvokeEvent,
+	selectedSiteId: string,
 	remoteSiteId: number,
 	archivePath: string,
 	optionsToSync?: string[],
@@ -158,16 +166,88 @@ export async function pushArchive(
 		throw new Error( 'No token found' );
 	}
 
+	let isUploadingPaused = false;
+	const file = fs.createReadStream( archivePath );
+	const fileSize = fs.statSync( archivePath ).size;
+	const filename = path.basename( archivePath );
+
+	const attachmentId = await new Promise< string >( ( resolve, reject ) => {
+		const upload = new Upload( file, {
+			endpoint: `${ STUDIO_FILE_UPLOADS_ENDPOINT_BASE }/${ remoteSiteId }`,
+			chunkSize: STUDIO_FILE_UPLOADS_CHUNK_SIZE,
+			retryDelays: STUDIO_FILE_UPLOADS_RETRY_DELAYS,
+			overridePatchMethod: true,
+			removeFingerprintOnSuccess: true,
+			storeFingerprintForResuming: true,
+			headers: {
+				Authorization: `Bearer ${ token.accessToken }`,
+			},
+			metadata: {
+				filename,
+				filetype: 'application/gzip',
+			},
+			uploadSize: fileSize,
+			onBeforeRequest: ( req: HttpRequest ) => {
+				if ( req.getMethod() === 'HEAD' ) {
+					// @ts-expect-error We need to override the method to get the response headers.
+					req._method = 'GET';
+					req.setHeader( 'X-HTTP-Method-Override', 'HEAD' );
+				}
+			},
+			onError: ( error ) => {
+				console.error( '[TUS] Upload error', error );
+				reject( error );
+			},
+			onProgress: ( bytesSent, bytesTotal ) => {
+				if ( isUploadingPaused ) {
+					isUploadingPaused = false;
+					void sendIpcEventToRenderer( 'studio-file-upload-resumed', {
+						selectedSiteId: selectedSiteId,
+						remoteSiteId: remoteSiteId,
+					} );
+					console.log( '[TUS] Upload resumed' );
+				}
+
+				if ( bytesTotal > 0 ) {
+					const progress = ( bytesSent / bytesTotal ) * 100;
+					console.log( '[TUS] Upload progress: %s%%', progress.toFixed( 2 ) );
+				}
+			},
+			onSuccess: ( payload: { lastResponse: HttpResponse } ) => {
+				if ( ! payload.lastResponse ) {
+					console.error( 'Upload completed but no response received' );
+					reject( new Error( 'Upload completed but no response received' ) );
+					return;
+				}
+
+				file.destroy();
+				file.close();
+				const attachmentId = payload.lastResponse.getHeader( 'x-videopress-upload-media-id' );
+				if ( attachmentId ) {
+					resolve( attachmentId );
+				} else {
+					console.error( 'Upload completed but required header not found' );
+					reject( new Error( 'Upload completed but required header not found' ) );
+				}
+			},
+			onShouldRetry: ( error: Error ) => {
+				isUploadingPaused = true;
+				void sendIpcEventToRenderer( 'studio-file-upload-paused', {
+					selectedSiteId: selectedSiteId,
+					remoteSiteId: remoteSiteId,
+					error: error.message,
+				} );
+				console.error( 'Upload request error', error.message );
+				return true;
+			},
+		} );
+
+		upload.start();
+	} );
+
 	const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
 	const formData: [ string, unknown, Record< string, string >? ][] = [
-		[
-			'import',
-			fs.createReadStream( archivePath ),
-			{
-				filename: 'loca-env-site-1.tar.gz',
-				contentType: 'application/gzip',
-			},
-		],
+		[ 'import_attachment_id', attachmentId ],
 	];
 
 	if ( specificSelectionPaths && specificSelectionPaths.length > 0 ) {

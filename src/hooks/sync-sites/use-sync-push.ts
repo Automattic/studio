@@ -11,6 +11,7 @@ import {
 	usePullPushStates,
 } from 'src/hooks/sync-sites/use-pull-push-states';
 import { useAuth } from 'src/hooks/use-auth';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import {
 	useSyncStatesProgressInfo,
 	PushStateProgressInfo,
@@ -378,6 +379,24 @@ export function useSyncPush( {
 		isKeyImporting,
 		isKeyCancelled,
 	] );
+
+	useIpcListener(
+		'studio-file-upload-paused',
+		( _event, payload: { selectedSiteId: string; remoteSiteId: number; error: string } ) => {
+			updatePushState( payload.selectedSiteId, payload.remoteSiteId, {
+				status: pushStatesProgressInfo.uploadingPaused,
+			} );
+		}
+	);
+
+	useIpcListener(
+		'studio-file-upload-resumed',
+		( _event, payload: { selectedSiteId: string; remoteSiteId: number } ) => {
+			updatePushState( payload.selectedSiteId, payload.remoteSiteId, {
+				status: pushStatesProgressInfo.uploading,
+			} );
+		}
+	);
 
 	const isAnySitePushing = useMemo< boolean >( () => {
 		return Object.values( pushStates ).some( ( state ) => isKeyPushing( state.status.key ) );

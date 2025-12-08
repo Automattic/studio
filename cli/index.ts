@@ -1,4 +1,5 @@
 import 'cli/polyfills/browser-globals.js';
+import os from 'node:os';
 import path from 'node:path';
 import { __ } from '@wordpress/i18n';
 import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
@@ -42,10 +43,16 @@ async function main() {
 		} )
 		.option( 'path', {
 			type: 'string',
+			normalize: true,
 			default: process.cwd(),
 			defaultDescription: __( 'Current directory' ),
 			description: __( 'Path to the WordPress files' ),
-			coerce: ( value ) => path.resolve( process.cwd(), value ),
+			coerce: ( value ) => {
+				if ( process.platform !== 'win32' ) {
+					value = value.replace( /^~/, os.homedir() );
+				}
+				return path.resolve( value );
+			},
 		} )
 		.middleware( async ( argv ) => {
 			if ( ! argv.avoidTelemetry ) {

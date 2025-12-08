@@ -171,6 +171,11 @@ export async function pushArchive(
 	const fileSize = fs.statSync( archivePath ).size;
 	const filename = path.basename( archivePath );
 
+	const cleanup = () => {
+		file.destroy();
+		file.close();
+	};
+
 	const attachmentId = await new Promise< string >( ( resolve, reject ) => {
 		const upload = new Upload( file, {
 			endpoint: `${ STUDIO_FILE_UPLOADS_ENDPOINT_BASE }/${ remoteSiteId }`,
@@ -195,6 +200,7 @@ export async function pushArchive(
 				}
 			},
 			onError: ( error ) => {
+				cleanup();
 				console.error( '[TUS] Upload error', error );
 				reject( error );
 			},
@@ -214,14 +220,14 @@ export async function pushArchive(
 				}
 			},
 			onSuccess: ( payload: { lastResponse: HttpResponse } ) => {
+				cleanup();
+
 				if ( ! payload.lastResponse ) {
 					console.error( 'Upload completed but no response received' );
 					reject( new Error( 'Upload completed but no response received' ) );
 					return;
 				}
 
-				file.destroy();
-				file.close();
 				const attachmentId = payload.lastResponse.getHeader( 'x-videopress-upload-media-id' );
 				if ( attachmentId ) {
 					resolve( attachmentId );

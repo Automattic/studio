@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import { __, sprintf } from '@wordpress/i18n';
@@ -23,6 +24,7 @@ import { lockAppdata, readAppdata, saveAppdata, SiteData, unlockAppdata } from '
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { installSqliteIntegration, isSqliteIntegrationAvailable } from 'cli/lib/sqlite-integration';
+import { untildify } from 'cli/lib/utils';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -284,18 +286,18 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				let blueprintJson: unknown;
 
 				if ( argv.blueprint ) {
-					if ( ! fs.existsSync( argv.blueprint ) ) {
-						throw new LoggerError(
-							sprintf( __( 'Blueprint file not found: %s' ), argv.blueprint )
-						);
+					const blueprintPath = path.resolve( untildify( argv.blueprint ) );
+
+					if ( ! fs.existsSync( blueprintPath ) ) {
+						throw new LoggerError( sprintf( __( 'Blueprint file not found: %s' ), blueprintPath ) );
 					}
 
 					try {
-						const blueprintContent = fs.readFileSync( argv.blueprint, 'utf-8' );
+						const blueprintContent = fs.readFileSync( blueprintPath, 'utf-8' );
 						blueprintJson = JSON.parse( blueprintContent );
 					} catch ( error ) {
 						throw new LoggerError(
-							sprintf( __( 'Invalid blueprint JSON file: %s' ), argv.blueprint ),
+							sprintf( __( 'Invalid blueprint JSON file: %s' ), blueprintPath ),
 							error
 						);
 					}

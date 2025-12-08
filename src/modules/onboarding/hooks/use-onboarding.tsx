@@ -30,17 +30,15 @@ export const OnboardingProvider: React.FC< OnboardingProviderProps > = ( { child
 		void dispatch( loadOnboardingStatus() );
 	}, [ dispatch ] );
 
-	// const needsOnboarding = useMemo( () => {
-	// 	// Don't show onboarding while loading
-	// 	if ( onboardingLoading ) {
-	// 		return false;
-	// 	}
+	const needsOnboarding = useMemo( () => {
+		// Don't show onboarding while loading
+		if ( onboardingLoading ) {
+			return false;
+		}
 
-	// 	// Show onboarding only if the user hasn't completed it and has no sites
-	// 	return ! ( loadingSites || sites.length > 0 || onboardingCompleted );
-	// }, [ loadingSites, onboardingCompleted, onboardingLoading, sites ] );
-
-	const needsOnboarding = true;
+		// Show onboarding only if the user hasn't completed it and has no sites
+		return ! ( loadingSites || sites.length > 0 || onboardingCompleted );
+	}, [ loadingSites, onboardingCompleted, onboardingLoading, sites ] );
 
 	const contextValue = useMemo(
 		() => ( {

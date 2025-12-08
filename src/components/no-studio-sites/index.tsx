@@ -9,6 +9,7 @@ export function NoStudioSites() {
 		setBlueprintDeeplinkWarnings,
 		isDeeplinkFlow,
 		setIsDeeplinkFlow,
+		clearDeeplinkState,
 		addSiteProps,
 	} = useAddSiteContext();
 
@@ -22,6 +23,7 @@ export function NoStudioSites() {
 					setBlueprintDeeplinkWarnings={ setBlueprintDeeplinkWarnings }
 					isDeeplinkFlow={ isDeeplinkFlow }
 					setIsDeeplinkFlow={ setIsDeeplinkFlow }
+					onSubmit={ clearDeeplinkState }
 					addSiteProps={ addSiteProps }
 				/>
 			</div>

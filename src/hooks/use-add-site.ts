@@ -9,6 +9,7 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
+import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
 import { useRootSelector } from 'src/stores';
 import {
 	selectDefaultPhpVersion,
@@ -19,10 +20,15 @@ import type { SyncSite } from 'src/modules/sync/types';
 import type { Blueprint } from 'src/stores/wpcom-api';
 import type { SyncOption } from 'src/types';
 
-export function useAddSite() {
+interface UseAddSiteOptions {
+	onDeeplinkReceived?: () => void;
+}
+
+export function useAddSite( options: UseAddSiteOptions = {} ) {
+	const { onDeeplinkReceived = () => {} } = options;
 	const { __ } = useI18n();
 	const { createSite, sites, loadingSites, startServer } = useSiteDetails();
-	const { importFile, clearImportState } = useImportExport();
+	const { importFile, clearImportState, importState } = useImportExport();
 	const [ connectSite ] = useConnectSiteMutation();
 	const { pullSite } = useSyncSites();
 	const { setSelectedTab } = useContentTabs();
@@ -52,6 +58,28 @@ export function useAddSite() {
 		BlueprintValidationWarning[] | undefined
 	>();
 	const [ isDeeplinkFlow, setIsDeeplinkFlow ] = useState( false );
+
+	const isAnySiteProcessing = sites.some(
+		( site ) => site.isAddingSite || importState[ site.id ]?.isNewSite
+	);
+
+	const clearDeeplinkState = useCallback( () => {
+		setIsDeeplinkFlow( false );
+		setSelectedBlueprint( undefined );
+		setBlueprintPreferredVersions( undefined );
+		setBlueprintDeeplinkWarnings( undefined );
+	}, [] );
+
+	useBlueprintDeeplink( {
+		isAnySiteProcessing,
+		openModal: onDeeplinkReceived,
+		setSelectedBlueprint,
+		setPhpVersion,
+		setWpVersion,
+		setBlueprintPreferredVersions,
+		setBlueprintDeeplinkWarnings,
+		navigateToBlueprintDeeplink: () => setIsDeeplinkFlow( true ),
+	} );
 
 	const loadAllCustomDomains = useCallback( () => {
 		getIpcApi()
@@ -268,6 +296,8 @@ export function useAddSite() {
 			setBlueprintDeeplinkWarnings,
 			isDeeplinkFlow,
 			setIsDeeplinkFlow,
+			isAnySiteProcessing,
+			clearDeeplinkState,
 		};
 	}, [
 		doesPathContainWordPress,
@@ -299,5 +329,7 @@ export function useAddSite() {
 		blueprintPreferredVersions,
 		blueprintDeeplinkWarnings,
 		isDeeplinkFlow,
+		isAnySiteProcessing,
+		clearDeeplinkState,
 	] );
 }

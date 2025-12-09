@@ -7,9 +7,7 @@ import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
 import Button from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite } from 'src/hooks/use-add-site';
-import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
-import { useSiteDetails } from 'src/hooks/use-site-details';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { SyncSite } from 'src/modules/sync/types';
@@ -29,7 +27,6 @@ import ImportBackup from './components/import-backup';
 import AddSiteOptions, { type AddSiteFlowType } from './components/options';
 import { PullRemoteSite } from './components/pull-remote-site';
 import Stepper from './components/stepper';
-import { useBlueprintDeeplink } from './hooks/use-blueprint-deeplink';
 
 type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
 
@@ -498,50 +495,13 @@ interface AddSiteModalProps {
 export default function AddSiteModal( { className }: AddSiteModalProps ) {
 	const { __ } = useI18n();
 	const [ showModal, setShowModal ] = useState( false );
-	const addSiteProps = useAddSite();
-	const { sites } = useSiteDetails();
-	const { importState } = useImportExport();
-
-	const {
-		setFileForImport,
-		setSelectedBlueprint,
-		setPhpVersion,
-		setWpVersion,
-		setBlueprintPreferredVersions,
-		setBlueprintDeeplinkWarnings,
-		setIsDeeplinkFlow,
-	} = addSiteProps;
-
-	const isAnySiteProcessing = sites.some(
-		( site ) => site.isAddingSite || importState[ site.id ]?.isNewSite
-	);
-
-	const clearDeeplinkState = useCallback( () => {
-		setIsDeeplinkFlow( false );
-		setSelectedBlueprint( undefined );
-		setBlueprintPreferredVersions( undefined );
-		setBlueprintDeeplinkWarnings( undefined );
-	}, [
-		setIsDeeplinkFlow,
-		setSelectedBlueprint,
-		setBlueprintPreferredVersions,
-		setBlueprintDeeplinkWarnings,
-	] );
 
 	const openModal = useCallback( () => {
 		setShowModal( true );
 	}, [] );
 
-	useBlueprintDeeplink( {
-		isAnySiteProcessing,
-		openModal,
-		setSelectedBlueprint,
-		setPhpVersion,
-		setWpVersion,
-		setBlueprintPreferredVersions,
-		setBlueprintDeeplinkWarnings,
-		navigateToBlueprintDeeplink: () => setIsDeeplinkFlow( true ),
-	} );
+	const addSiteProps = useAddSite( { onDeeplinkReceived: openModal } );
+	const { setFileForImport, clearDeeplinkState, isAnySiteProcessing } = addSiteProps;
 
 	useEffect( () => {
 		void getIpcApi().setupAppMenu( { needsOnboarding: false, isAddSiteVisible: showModal } );

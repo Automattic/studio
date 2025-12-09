@@ -30,19 +30,11 @@ export class LoggerError extends Error {
 }
 
 export class Logger< T extends string > {
-	private _spinner: Ora;
+	public spinner: Ora;
 	private currentAction: T | 'keyValuePair' | null = null;
 
 	constructor() {
-		this._spinner = ora();
-	}
-
-	/**
-	 * Get the underlying ora spinner instance.
-	 * Useful for sharing with other modules that need to update progress.
-	 */
-	public get spinner(): Ora {
-		return this._spinner;
+		this.spinner = ora();
 	}
 
 	public reportStart( action: T, message: string ) {
@@ -52,7 +44,7 @@ export class Logger< T extends string > {
 			process.send!( { action, status: 'inprogress', message } );
 			return;
 		}
-		this._spinner.start( message );
+		this.spinner.start( message );
 	}
 
 	public reportProgress( message: string ) {
@@ -62,11 +54,11 @@ export class Logger< T extends string > {
 		}
 
 		// Update the spinner text and force render
-		this._spinner.text = message;
-		if ( ! this._spinner.isSpinning ) {
-			this._spinner.start( message );
+		this.spinner.text = message;
+		if ( ! this.spinner.isSpinning ) {
+			this.spinner.start( message );
 		} else {
-			this._spinner.render();
+			this.spinner.render();
 		}
 	}
 
@@ -74,9 +66,9 @@ export class Logger< T extends string > {
 		if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'success', message } );
 		} else if ( shouldClearSpinner ) {
-			this._spinner.clear();
+			this.spinner.clear();
 		} else {
-			this._spinner.succeed( message );
+			this.spinner.succeed( message );
 		}
 
 		this.currentAction = null;
@@ -87,7 +79,7 @@ export class Logger< T extends string > {
 			process.send!( { action: this.currentAction, status: 'warning', message } );
 			return;
 		}
-		this._spinner.warn( message );
+		this.spinner.warn( message );
 	}
 
 	public reportError( error: LoggerError, isFatal = true ) {
@@ -98,7 +90,7 @@ export class Logger< T extends string > {
 		if ( canSend() ) {
 			process.send!( { action: this.currentAction, status: 'fail', message: error.message } );
 		} else {
-			this._spinner.fail( error.message );
+			this.spinner.fail( error.message );
 		}
 
 		this.currentAction = null;

@@ -61,7 +61,7 @@ describe( 'WordPress Server Manager', () => {
 		// Send ready message after a tick (simulating async bus initialization)
 		process.nextTick( () => {
 			mockBus.emit( 'process:msg', {
-				process: { pm_id: mockProcessDescription.pmId },
+				process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
 				raw: { topic: 'ready' },
 			} );
 		} );
@@ -70,7 +70,7 @@ describe( 'WordPress Server Manager', () => {
 			// Send result message only after sendMessageToProcess is called
 			process.nextTick( () => {
 				mockBus.emit( 'process:msg', {
-					process: { pm_id: mockProcessDescription.pmId },
+					process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
 					raw: {
 						topic: 'result',
 						originalMessageId: message.messageId,

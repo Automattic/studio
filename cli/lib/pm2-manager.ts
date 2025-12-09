@@ -7,7 +7,7 @@ import { ProcessDescription } from 'cli/lib/types/pm2';
 import {
 	ManagerMessage,
 	pm2ProcessEventSchema,
-	pm2ProcessMessageSchema,
+	childMessagePm2Schema,
 } from './types/wordpress-server-ipc';
 
 const PM2_STATUS_ONLINE = 'online';
@@ -268,7 +268,7 @@ export async function subscribeProcessMessages(
 	const bus = await getPm2Bus();
 
 	const messageHandler = ( packet: unknown ) => {
-		const result = pm2ProcessMessageSchema.safeParse( packet );
+		const result = childMessagePm2Schema.safeParse( packet );
 		if ( ! result.success ) {
 			return;
 		}

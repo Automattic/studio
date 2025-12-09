@@ -10,7 +10,7 @@ type CliCommandEventMap = {
 	failure: void;
 };
 
-export class CliCommandEventEmitter extends EventEmitter {
+class CliCommandEventEmitter extends EventEmitter {
 	on< K extends keyof CliCommandEventMap >(
 		event: K,
 		listener: ( payload: CliCommandEventMap[ K ] ) => void

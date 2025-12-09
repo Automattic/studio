@@ -89,6 +89,7 @@ const childMessageRaw = z.discriminatedUnion( 'topic', [
 export type ChildMessageRaw = z.infer< typeof childMessageRaw >;
 export const childMessagePm2Schema = z.object( {
 	process: z.object( {
+		name: z.string(),
 		pm_id: z.number(),
 	} ),
 	raw: childMessageRaw,
@@ -101,18 +102,3 @@ export const pm2ProcessEventSchema = z.object( {
 	} ),
 	event: z.string(),
 } );
-export type Pm2ProcessEvent = z.infer< typeof pm2ProcessEventSchema >;
-
-// Zod schema for PM2 process messages (IPC messages from child processes)
-export const pm2ProcessMessageSchema = z.object( {
-	process: z.object( {
-		name: z.string(),
-		pm_id: z.number(),
-	} ),
-	raw: z
-		.object( {
-			topic: z.string(),
-		} )
-		.passthrough(),
-} );
-export type Pm2ProcessMessage = z.infer< typeof pm2ProcessMessageSchema >;

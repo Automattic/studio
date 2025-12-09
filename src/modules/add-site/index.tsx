@@ -516,6 +516,8 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 		isAnySiteProcessing,
 	} = useAddSiteContext();
 
+	const { setFileForImport } = addSiteProps;
+
 	useEffect( () => {
 		if ( pendingDeeplinkModal && ! isAnySiteProcessing ) {
 			setShowModal( true );
@@ -533,7 +535,8 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 	const closeModal = useCallback( () => {
 		setShowModal( false );
 		clearDeeplinkState();
-	}, [ clearDeeplinkState ] );
+		setFileForImport( null );
+	}, [ clearDeeplinkState, setFileForImport ] );
 
 	const handleSiteAdded = useCallback( () => {
 		closeModal();

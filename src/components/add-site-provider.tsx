@@ -27,14 +27,8 @@ interface AddSiteProviderProps {
 
 export function AddSiteProvider( { children }: AddSiteProviderProps ) {
 	const addSiteProps = useAddSite();
-	const {
-		setSelectedBlueprint,
-		setPhpVersion,
-		setWpVersion,
-		setFileForImport,
-		sites,
-		selectedBlueprint,
-	} = addSiteProps;
+	const { setSelectedBlueprint, setPhpVersion, setWpVersion, sites, selectedBlueprint } =
+		addSiteProps;
 	const { importState } = useImportExport();
 
 	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
@@ -56,8 +50,7 @@ export function AddSiteProvider( { children }: AddSiteProviderProps ) {
 		setBlueprintPreferredVersions( undefined );
 		setBlueprintDeeplinkWarnings( undefined );
 		setPendingDeeplinkModal( false );
-		setFileForImport( null );
-	}, [ setSelectedBlueprint, setFileForImport ] );
+	}, [ setSelectedBlueprint ] );
 
 	useBlueprintDeeplink( {
 		isAnySiteProcessing,

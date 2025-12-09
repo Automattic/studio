@@ -55,7 +55,7 @@ describe( 'CLI: studio site list', () => {
 
 			const { runCommand } = await import( '../list' );
 
-			await expect( runCommand( 'table' ) ).rejects.toThrow( 'Failed to read appdata' );
+			await expect( runCommand( 'table', false ) ).rejects.toThrow( 'Failed to read appdata' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 	} );
@@ -65,7 +65,7 @@ describe( 'CLI: studio site list', () => {
 			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
 			const { runCommand } = await import( '../list' );
 
-			await runCommand( 'table' );
+			await runCommand( 'table', false );
 
 			expect( readAppdata ).toHaveBeenCalled();
 			expect( consoleSpy ).toHaveBeenCalled();
@@ -78,18 +78,20 @@ describe( 'CLI: studio site list', () => {
 			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
 			const { runCommand } = await import( '../list' );
 
-			await runCommand( 'json' );
+			await runCommand( 'json', false );
 
 			expect( consoleSpy ).toHaveBeenCalledWith(
 				JSON.stringify(
 					[
 						{
+							id: 'site-1',
 							status: '🔴 Offline',
 							name: 'Test Site 1',
 							path: '/path/to/site1',
 							url: 'http://localhost:8080',
 						},
 						{
+							id: 'site-2',
 							status: '🔴 Offline',
 							name: 'Test Site 2',
 							path: '/path/to/site2',
@@ -110,7 +112,7 @@ describe( 'CLI: studio site list', () => {
 
 			const { runCommand } = await import( '../list' );
 
-			await runCommand( 'table' );
+			await runCommand( 'table', false );
 
 			expect( readAppdata ).toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
@@ -120,7 +122,7 @@ describe( 'CLI: studio site list', () => {
 			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
 			const { runCommand } = await import( '../list' );
 
-			await runCommand( 'json' );
+			await runCommand( 'json', false );
 
 			expect( consoleSpy ).toHaveBeenCalledWith( expect.stringContaining( 'my-site.wp.local' ) );
 			expect( disconnect ).toHaveBeenCalled();

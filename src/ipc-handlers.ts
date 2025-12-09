@@ -324,7 +324,7 @@ export async function updateSite(
 		await lockAppdata();
 		const userData = await loadUserData();
 		const updatedSites = userData.sites.map( ( site ) =>
-			site.id === updatedSite.id ? updatedSite : site
+			site.id === updatedSite.id ? { ...site, ...updatedSite } : site
 		);
 		userData.sites = updatedSites;
 
@@ -346,8 +346,6 @@ export async function startServer(
 	if ( ! server ) {
 		return null;
 	}
-
-	await keepSqliteIntegrationUpdated( server.details.path );
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	try {
@@ -725,6 +723,13 @@ export async function getThemeDetails(
 	if ( ! server.details.running || ! server.server ) {
 		return undefined;
 	}
+
+	// CLI-managed sites don't have PHP instance, return cached theme details for Now
+	// ToDo: Implement logic to fetch theme details using mu-plugin?
+	if ( ! server.server.php ) {
+		return server.details.themeDetails;
+	}
+
 	const themeDetails = await phpGetThemeDetails( server.server );
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );

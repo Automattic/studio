@@ -61,30 +61,21 @@ export async function runCommand( siteFolder: string, args: string[] ): Promise<
 		...args,
 	] );
 
-	const stdoutReader = response.stdout.getReader();
-	const stderrReader = response.stderr.getReader();
-	const decoder = new TextDecoder();
+	await response.stderr.pipeTo(
+		new WritableStream( {
+			write( chunk ) {
+				process.stderr.write( chunk );
+			},
+		} )
+	);
 
-	try {
-		while ( true ) {
-			const { done: stdoutDone, value: stdoutValue } = await stdoutReader.read();
-			if ( ! stdoutDone ) {
-				const stdoutChunk = decoder.decode( stdoutValue, { stream: true } );
-				process.stdout.write( stdoutChunk );
-			}
-			const { done: stderrDone, value: stderrValue } = await stderrReader.read();
-			if ( ! stderrDone ) {
-				const stderrChunk = decoder.decode( stderrValue, { stream: true } );
-				process.stderr.write( stderrChunk );
-			}
-			if ( stdoutDone && stderrDone ) {
-				break;
-			}
-		}
-	} finally {
-		stdoutReader.releaseLock();
-		stderrReader.releaseLock();
-	}
+	await response.stdout.pipeTo(
+		new WritableStream( {
+			write( chunk ) {
+				process.stdout.write( chunk );
+			},
+		} )
+	);
 
 	process.exit( await response.exitCode );
 }

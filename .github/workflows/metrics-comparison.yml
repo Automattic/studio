@@ -41,7 +41,7 @@ jobs:
 
       - name: Compare performance with trunk
         if: github.event_name == 'pull_request'
-        run: cd scripts/compare-perf && npm ci && npm run compare -- perf $GITHUB_SHA trunk --tests-branch $GITHUB_SHA --rounds 3
+        run: cd scripts/compare-perf && npm ci && npm run compare -- perf $GITHUB_SHA 519217873dc4ef624fd20de425944fa0cc64a3dd --tests-branch $GITHUB_SHA --rounds 3
 
       - name: Post performance results to PR
         if: github.event_name == 'pull_request' && !cancelled()

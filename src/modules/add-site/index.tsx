@@ -498,16 +498,16 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 	const { __ } = useI18n();
 	const [ showModal, setShowModal ] = useState( false );
 
+	useEffect( () => {
+		void getIpcApi().setupAppMenu( { needsOnboarding: false, isAddSiteVisible: showModal } );
+	}, [ showModal ] );
+
 	const openModal = useCallback( () => {
 		setShowModal( true );
 	}, [] );
 
 	const addSiteProps = useAddSite( { openModal } );
 	const { setFileForImport, clearDeeplinkState, isAnySiteProcessing } = addSiteProps;
-
-	useEffect( () => {
-		void getIpcApi().setupAppMenu( { needsOnboarding: false, isAddSiteVisible: showModal } );
-	}, [ showModal ] );
 
 	const closeModal = useCallback( () => {
 		setShowModal( false );

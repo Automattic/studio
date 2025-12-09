@@ -4,7 +4,7 @@ import {
 } from '@wordpress/components';
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
@@ -13,6 +13,7 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { NoWpcomSitesModal } from 'src/modules/sync/components/no-wpcom-sites-modal';
 import { SitesListContent } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
 import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
@@ -120,6 +121,7 @@ export function PullRemoteSite( {
 } ) {
 	const { __ } = useI18n();
 	const { isAuthenticated, user } = useAuth();
+	const [ isNoWpcomSitesModalClosed, setIsNoWpcomSitesModalClosed ] = useState( false );
 
 	const { selectedSite } = useSiteDetails();
 	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
@@ -127,7 +129,11 @@ export function PullRemoteSite( {
 		userId: user?.id,
 	} );
 	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
-	const { data: syncSites = [], isLoading } = useGetWpComSitesQuery(
+	const {
+		data: syncSites = [],
+		isLoading,
+		isSuccess,
+	} = useGetWpComSitesQuery(
 		{
 			connectedSiteIds,
 			userId: user?.id,
@@ -153,6 +159,13 @@ export function PullRemoteSite( {
 						selectedSiteId={ selectedRemoteSite?.id || null }
 						onSelectSite={ handleSiteSelect }
 					/>
+
+					{ syncSites.length === 0 && isSuccess && ! isLoading && ! isNoWpcomSitesModalClosed && (
+						<NoWpcomSitesModal
+							onRequestClose={ () => setIsNoWpcomSitesModalClosed( true ) }
+							selectedSite={ undefined }
+						/>
+					) }
 				</VStack>
 			) : (
 				<NoAuthPullRemoteSiteView />

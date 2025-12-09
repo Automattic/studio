@@ -1,4 +1,3 @@
-import 'cli/polyfills/browser-globals.js';
 import path from 'node:path';
 import { __ } from '@wordpress/i18n';
 import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
@@ -11,15 +10,7 @@ import { registerCommand as registerCreateCommand } from 'cli/commands/preview/c
 import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/delete';
 import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
 import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/update';
-import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create';
-import { registerCommand as registerSiteDeleteCommand } from 'cli/commands/site/delete';
 import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
-import { registerCommand as registerSiteSetDomainCommand } from 'cli/commands/site/set-domain';
-import { registerCommand as registerSiteSetHttpsCommand } from 'cli/commands/site/set-https';
-import { registerCommand as registerSiteSetPhpVersionCommand } from 'cli/commands/site/set-php-version';
-import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
-import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
-import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
 import { readAppdata } from 'cli/lib/appdata';
 import { loadTranslations } from 'cli/lib/i18n';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
@@ -84,15 +75,7 @@ async function main() {
 
 	if ( isSitesCliEnabled ) {
 		studioArgv.command( 'site', __( 'Manage local sites (Beta)' ), ( sitesYargs ) => {
-			registerSiteStatusCommand( sitesYargs );
-			registerSiteCreateCommand( sitesYargs );
 			registerSiteListCommand( sitesYargs );
-			registerSiteStartCommand( sitesYargs );
-			registerSiteStopCommand( sitesYargs );
-			registerSiteDeleteCommand( sitesYargs );
-			registerSiteSetHttpsCommand( sitesYargs );
-			registerSiteSetDomainCommand( sitesYargs );
-			registerSiteSetPhpVersionCommand( sitesYargs );
 			sitesYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
 		} );
 	}

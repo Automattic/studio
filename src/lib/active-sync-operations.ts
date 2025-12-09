@@ -47,7 +47,6 @@ export function pushBackupIsUploading( key: PushStateProgressInfo[ 'key' ] | und
 	const uploadingStateKeys: PushStateProgressInfo[ 'key' ][] = [
 		'creatingBackup',
 		'uploading',
-		'uploadingPaused',
 		'uploadingResumed',
 	];
 	if ( ! key ) {

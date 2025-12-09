@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { type SupportedPHPVersion } from '@php-wasm/universal';
+import { type SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
 import { __, sprintf } from '@wordpress/i18n';
 import { Blueprint } from '@wp-playground/blueprints';
 import { RecommendedPHPVersion } from '@wp-playground/common';
@@ -15,9 +15,8 @@ import { createPassword } from 'common/lib/passwords';
 import { portFinder } from 'common/lib/port-finder';
 import { sortSites } from 'common/lib/sort-sites';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { blueprintValidator } from 'cli/commands/site/create/validators/blueprint';
-import { phpVersionValidator } from 'cli/commands/site/create/validators/php-version';
-import { wpVersionValidator } from 'cli/commands/site/create/validators/wp-version';
+import { blueprintCoercer } from 'cli/commands/site/create/coercer/blueprint';
+import { wpVersionCoercer } from 'cli/commands/site/create/coercer/wp-version';
 import { lockAppdata, readAppdata, saveAppdata, SiteData, unlockAppdata } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
@@ -185,7 +184,10 @@ export async function runCommand(
 				: __( 'Starting WordPress site...' );
 			logger.reportStart( LoggerAction.START_SITE, startMessage );
 			try {
-				await startWordPressServer( siteDetails, { wpVersion: options.wpVersion, blueprint } );
+				await startWordPressServer( siteDetails, logger, {
+					wpVersion: options.wpVersion,
+					blueprint,
+				} );
 				logger.reportSuccess( __( 'WordPress site started' ) );
 
 				logSiteDetails( siteDetails );
@@ -200,7 +202,7 @@ export async function runCommand(
 
 			logger.reportStart( LoggerAction.START_SITE, __( 'Applying blueprint...' ) );
 			try {
-				await runBlueprint( siteDetails, { wpVersion: options.wpVersion, blueprint } );
+				await runBlueprint( siteDetails, logger, { wpVersion: options.wpVersion, blueprint } );
 				logger.reportSuccess( __( 'Blueprint applied successfully' ) );
 			} catch ( error ) {
 				throw new LoggerError( __( 'Failed to apply blueprint' ), error );
@@ -237,13 +239,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					describe: __( 'WordPress version (e.g., "latest", "6.4", "6.4.1")' ),
 					default: DEFAULT_VERSIONS.wp,
-					coerce: wpVersionValidator,
+					coerce: wpVersionCoercer,
 				} )
 				.option( 'php', {
 					type: 'string',
 					describe: __( 'PHP version' ),
+					choices: SupportedPHPVersions,
 					default: DEFAULT_VERSIONS.php,
-					coerce: phpVersionValidator,
 				} )
 				.option( 'domain', {
 					type: 'string',
@@ -252,12 +254,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'https', {
 					type: 'boolean',
 					describe: __( 'Enable HTTPS for custom domain' ),
-					default: false,
+					implies: 'domain',
 				} )
 				.option( 'blueprint', {
 					type: 'string',
-					describe: __( 'Path to blueprint JSON file' ),
-					coerce: blueprintValidator,
+					describe: __( 'Path or URL to blueprint JSON file' ),
+					coerce: blueprintCoercer,
 				} )
 				.option( 'start', {
 					type: 'boolean',
@@ -272,7 +274,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					wpVersion: argv.wp,
 					phpVersion: argv.php,
 					customDomain: argv.domain,
-					enableHttps: argv.https,
+					enableHttps: !! argv.https,
 					blueprintJson: argv.blueprint,
 					noStart: ! argv.start,
 				} );

@@ -8,7 +8,7 @@ import { LoggerError } from 'cli/logger';
 
 const MINIMUM_WORDPRESS_VERSION = '6.2.1' as const; // https://wordpress.github.io/wordpress-playground/blueprints/examples/#load-an-older-wordpress-version
 
-export function wpVersionValidator( value: string ): string {
+export function wpVersionCoercer( value: string ): string {
 	if ( ! isValidWordPressVersion( value ) ) {
 		throw new LoggerError(
 			generateYargsErrorMessage(

@@ -3,7 +3,7 @@ import path from 'path';
 import { __, sprintf } from '@wordpress/i18n';
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { PreviewCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { siteSizeValidator } from 'cli/commands/preview/create/validator/site-size';
+import { siteSizeCoercer } from 'cli/commands/preview/create/coercers/site-size';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
@@ -21,7 +21,7 @@ export async function runCommand( siteFolder: string ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
 		await getSiteByFolder( siteFolder );
-		await siteSizeValidator( siteFolder );
+		await siteSizeCoercer( siteFolder );
 		const token = await getAuthToken();
 		logger.reportSuccess( __( 'Validation successful' ), true );
 

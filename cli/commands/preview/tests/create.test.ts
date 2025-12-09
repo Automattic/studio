@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { calculateDirectorySize, isWordPressDirectory } from 'common/lib/fs-utils';
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
-import { siteSizeValidator } from 'cli/commands/preview/create/validator/site-size';
+import { siteSizeCoercer } from 'cli/commands/preview/create/coercers/site-size';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
@@ -24,7 +24,7 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	getSiteByFolder: jest.fn(),
 } ) );
 jest.mock( 'cli/commands/preview/create/validator/site-size', () => ( {
-	siteSizeValidator: jest.fn(),
+	siteSizeCoercer: jest.fn(),
 } ) );
 jest.mock( 'cli/lib/archive' );
 jest.mock( 'cli/lib/api' );
@@ -248,12 +248,12 @@ describe( 'Preview', () => {
 			( calculateDirectorySize as jest.Mock ).mockResolvedValue( 1024 * 1024 * 1024 ); // 1GB
 		} );
 
-		describe( 'siteSizeValidator', () => {
+		describe( 'siteSizeCoercer', () => {
 			it( 'should throw an error if the site exceeds size limit', async () => {
 				( calculateDirectorySize as jest.Mock ).mockResolvedValue( 3 * 1024 * 1024 * 1024 ); // 3GB
 
-				await expect( siteSizeValidator( mockSiteFolder ) ).rejects.toThrow( LoggerError );
-				await expect( siteSizeValidator( mockSiteFolder ) ).rejects.toThrow(
+				await expect( siteSizeCoercer( mockSiteFolder ) ).rejects.toThrow( LoggerError );
+				await expect( siteSizeCoercer( mockSiteFolder ) ).rejects.toThrow(
 					'Your site exceeds the 2 GB size limit. Please, consider removing unnecessary media files, plugins, or themes from wp-content.'
 				);
 				expect( calculateDirectorySize ).toHaveBeenCalledWith( mockSiteFolder + '/wp-content' );
@@ -262,7 +262,7 @@ describe( 'Preview', () => {
 			it( 'should return true for a valid WordPress site within size limit', async () => {
 				( calculateDirectorySize as jest.Mock ).mockResolvedValue( 1024 * 1024 * 1024 ); // 1GB
 
-				expect( await siteSizeValidator( mockSiteFolder ) ).toBe( true );
+				expect( await siteSizeCoercer( mockSiteFolder ) ).toBe( true );
 				expect( calculateDirectorySize ).toHaveBeenCalledWith( mockSiteFolder + '/wp-content' );
 			} );
 		} );

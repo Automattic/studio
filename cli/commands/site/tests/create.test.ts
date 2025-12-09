@@ -10,6 +10,7 @@ import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { isSqliteIntegrationAvailable, installSqliteIntegration } from 'cli/lib/sqlite-integration';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { Logger } from 'cli/logger';
 
 jest.mock( 'common/lib/fs-utils' );
 jest.mock( 'common/lib/port-finder', () => ( {
@@ -295,6 +296,7 @@ describe( 'CLI: studio site create', () => {
 			);
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
+				expect.any( Logger ),
 				expect.objectContaining( {
 					blueprint: expect.objectContaining( {
 						steps: expect.arrayContaining( [
@@ -487,6 +489,7 @@ describe( 'CLI: studio site create', () => {
 			expect( validateBlueprintData ).toHaveBeenCalled();
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
+				expect.any( Logger ),
 				expect.objectContaining( {
 					blueprint: expect.any( Object ),
 				} )
@@ -507,6 +510,7 @@ describe( 'CLI: studio site create', () => {
 
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
+				expect.any( Logger ),
 				expect.objectContaining( {
 					blueprint: expect.objectContaining( {
 						steps: expect.arrayContaining( [

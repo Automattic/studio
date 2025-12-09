@@ -15,5 +15,14 @@ export function getColumnWidths( widthFactors: number[] ) {
 }
 
 export function getPrettyPath( path: string ): string {
-	return path.replace( process.cwd(), '.' ).replace( os.homedir(), '~' );
+	return process.platform === 'win32'
+		? path
+		: path.replace( process.cwd(), '.' ).replace( os.homedir(), '~' );
+}
+
+// `~` is a shell construct on Posix platforms. The shell expands it to the user's home directory
+// if it's at the beginning of a word, like this: `--path ~/test`. If users specify an option like
+// this: `--path=~/test`, then it's not expanded, and we need to do it in code.
+export function untildify( path: string ): string {
+	return process.platform === 'win32' ? path : path.replace( /^~/, os.homedir() );
 }

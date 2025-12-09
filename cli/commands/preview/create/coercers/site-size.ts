@@ -4,7 +4,7 @@ import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from 'common/cons
 import { calculateDirectorySize } from 'common/lib/fs-utils';
 import { LoggerError } from 'cli/logger';
 
-export async function siteSizeValidator( siteFolder: string ): Promise< true > {
+export async function siteSizeCoercer( siteFolder: string ): Promise< true > {
 	const wpContentPath = path.join( siteFolder, 'wp-content' );
 	const wpContentSize = await calculateDirectorySize( wpContentPath );
 

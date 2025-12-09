@@ -37,7 +37,3 @@ export enum SiteCommandLoggerAction {
 	DELETE_PREVIEW_SITES = 'deletePreviewSites',
 	DELETE_FILES = 'deleteFiles',
 }
-
-export enum WPCommandLoggerAction {
-	RUN_COMMAND = 'runCommand',
-}

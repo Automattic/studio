@@ -2,7 +2,7 @@ import fs from 'fs-extra';
 import { SqliteIntegrationProvider } from 'common/lib/sqlite-integration';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 
-const SQLITE_FILENAME = 'sqlite-database-integration';
+const SQLITE_DIRNAME = 'sqlite-database-integration';
 const MOCK_SITE_PATH = 'mock-site-path';
 
 jest.mock( 'fs-extra' );
@@ -13,7 +13,7 @@ class TestSqliteProvider extends SqliteIntegrationProvider {
 	}
 
 	getSqliteDirname(): string {
-		return SQLITE_FILENAME;
+		return SQLITE_DIRNAME;
 	}
 }
 
@@ -97,7 +97,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 
 			expect( fs.writeFile ).toHaveBeenCalledWith(
 				normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
-				`SQLIntegration path: realpath( __DIR__ . '/mu-plugins/${ SQLITE_FILENAME }' )`
+				`SQLIntegration path: realpath( __DIR__ . '/mu-plugins/${ SQLITE_DIRNAME }' )`
 			);
 		} );
 
@@ -105,8 +105,8 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 			await provider.installSqliteIntegration( MOCK_SITE_PATH );
 
 			expect( fs.copy ).toHaveBeenCalledWith(
-				normalize( `server-files/${ SQLITE_FILENAME }` ),
-				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }` )
+				normalize( `server-files/${ SQLITE_DIRNAME }` ),
+				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_DIRNAME }` )
 			);
 		} );
 
@@ -140,8 +140,8 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 			await provider.keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
 
 			expect( fs.copy ).toHaveBeenCalledWith(
-				normalize( `server-files/${ SQLITE_FILENAME }` ),
-				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }` )
+				normalize( `server-files/${ SQLITE_DIRNAME }` ),
+				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_DIRNAME }` )
 			);
 		} );
 
@@ -149,8 +149,8 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 			await provider.keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
 
 			expect( fs.copy ).toHaveBeenCalledWith(
-				normalize( `server-files/${ SQLITE_FILENAME }` ),
-				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_FILENAME }` )
+				normalize( `server-files/${ SQLITE_DIRNAME }` ),
+				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_DIRNAME }` )
 			);
 		} );
 

@@ -36,7 +36,7 @@ async function main() {
 		.scriptName( 'studio' )
 		.usage( __( 'WordPress Studio CLI' ) )
 		.locale( yargsLocale )
-		.version( false )
+		.version( version )
 		.option( 'avoid-telemetry', {
 			type: 'boolean',
 			hidden: true,
@@ -74,7 +74,7 @@ async function main() {
 			command: 'wp',
 			describe: __( 'WP-CLI' ),
 			builder: ( wpYargs ) => {
-				return wpYargs.strict( false );
+				return wpYargs.strict( false ).version( false );
 			},
 			handler: wpCliCommandHandler,
 		} )

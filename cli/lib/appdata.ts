@@ -30,11 +30,7 @@ const siteSchema = z
 	} )
 	.passthrough();
 
-const betaFeaturesSchema = z
-	.object( {
-		studioSitesCli: z.boolean().optional(),
-	} )
-	.passthrough();
+const betaFeaturesSchema = z.object( {} ).passthrough();
 
 const userDataSchema = z
 	.object( {

@@ -82,7 +82,6 @@ interface FeatureFlags {
 }
 
 interface BetaFeatures {
-	studioSitesCli: boolean;
 	multiWorkerSupport: boolean;
 }
 

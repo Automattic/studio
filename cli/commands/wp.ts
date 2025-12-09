@@ -2,7 +2,6 @@ import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
 import { __, sprintf } from '@wordpress/i18n';
 import { runCLI } from '@wp-playground/cli';
 import { getMuPlugins } from 'common/lib/mu-plugins';
-import { WPCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
 import { z } from 'zod';
@@ -13,10 +12,7 @@ import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-mana
 import { Logger, LoggerError } from 'cli/logger';
 import { GlobalOptions } from 'cli/types';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type CliArgs = Record< string, any >;
-
-const logger = new Logger< LoggerAction >();
+const logger = new Logger< '' >();
 
 export async function runCommand( siteFolder: string, args: string[] ): Promise< void > {
 	const site = await getSiteByFolder( siteFolder );
@@ -42,7 +38,7 @@ export async function runCommand( siteFolder: string, args: string[] ): Promise<
 	try {
 		phpVersion = phpVersionSchema.parse( site.phpVersion );
 	} catch ( error ) {
-		throw new LoggerError( sprintf( __( 'Invalid PHP version: %s' ), site.phpVersion ) );
+		throw new LoggerError( sprintf( __( 'Unsupported PHP version: %s' ), site.phpVersion ) );
 	}
 
 	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
@@ -110,7 +106,7 @@ export async function runCommand( siteFolder: string, args: string[] ): Promise<
 
 export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > ) {
 	try {
-		const wpcliArgs: CliArgs = yargsParser( process.argv.slice( 3 ), {
+		const wpcliArgs = yargsParser( process.argv.slice( 3 ), {
 			config: {
 				'boolean-negation': false,
 				'camel-case-expansion': false,
@@ -122,7 +118,15 @@ export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > 
 			},
 		} );
 
-		const argsArray = Object.entries( wpcliArgs ).flatMap( ( [ key, value ] ) => {
+		if ( wpcliArgs._[ 0 ] === 'shell' ) {
+			throw new LoggerError(
+				__(
+					'Studio CLI does not support the WP-CLI `shell` command. Consider adding your code to a file and using the `eval` command.'
+				)
+			);
+		}
+
+		const argsArray: string[] = Object.entries( wpcliArgs ).flatMap( ( [ key, value ] ) => {
 			// The `path` option is handled by Studio CLI
 			if ( key === 'path' ) {
 				return [];

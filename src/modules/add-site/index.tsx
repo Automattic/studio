@@ -500,7 +500,7 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 		setShowModal( true );
 	}, [] );
 
-	const addSiteProps = useAddSite( { onDeeplinkReceived: openModal } );
+	const addSiteProps = useAddSite( { openModal } );
 	const { setFileForImport, clearDeeplinkState, isAnySiteProcessing } = addSiteProps;
 
 	useEffect( () => {

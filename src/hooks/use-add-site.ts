@@ -21,11 +21,11 @@ import type { Blueprint } from 'src/stores/wpcom-api';
 import type { SyncOption } from 'src/types';
 
 interface UseAddSiteOptions {
-	onDeeplinkReceived?: () => void;
+	openModal?: () => void;
 }
 
 export function useAddSite( options: UseAddSiteOptions = {} ) {
-	const { onDeeplinkReceived = () => {} } = options;
+	const { openModal = () => {} } = options;
 	const { __ } = useI18n();
 	const { createSite, sites, loadingSites, startServer } = useSiteDetails();
 	const { importFile, clearImportState, importState } = useImportExport();
@@ -72,7 +72,7 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 
 	useBlueprintDeeplink( {
 		isAnySiteProcessing,
-		openModal: onDeeplinkReceived,
+		openModal,
 		setSelectedBlueprint,
 		setPhpVersion,
 		setWpVersion,

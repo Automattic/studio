@@ -35,10 +35,18 @@ const managerMessageStopServer = z.object( {
 	topic: z.literal( 'stop-server' ),
 } );
 
+const managerMessageWpCliCommand = z.object( {
+	topic: z.literal( 'wp-cli-command' ),
+	data: z.object( {
+		args: z.array( z.string() ),
+	} ),
+} );
+
 const _managerMessagePayloadSchema = z.discriminatedUnion( 'topic', [
 	managerMessageStartServer,
 	managerMessageRunBlueprint,
 	managerMessageStopServer,
+	managerMessageWpCliCommand,
 ] );
 export type ManagerMessagePayload = z.infer< typeof _managerMessagePayloadSchema >;
 
@@ -47,6 +55,7 @@ export const managerMessageSchema = z.discriminatedUnion( 'topic', [
 	managerMessageBase.merge( managerMessageStartServer ),
 	managerMessageBase.merge( managerMessageRunBlueprint ),
 	managerMessageBase.merge( managerMessageStopServer ),
+	managerMessageBase.merge( managerMessageWpCliCommand ),
 ] );
 export type ManagerMessage = z.infer< typeof managerMessageSchema >;
 

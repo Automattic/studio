@@ -10,6 +10,7 @@ import {
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from 'common/constants';
+import { z } from 'zod';
 import { SiteData } from 'cli/lib/appdata';
 import {
 	isProcessRunning,
@@ -293,4 +294,29 @@ export async function runBlueprint(
 		// Always stop the process after blueprint is applied
 		await stopProcess( processName );
 	}
+}
+
+const wpCliResultSchema = z.object( {
+	stdout: z.string(),
+	stderr: z.string(),
+	exitCode: z.number(),
+} );
+
+export async function sendWpCliCommand(
+	siteId: string,
+	args: string[]
+): Promise< z.infer< typeof wpCliResultSchema > > {
+	const processName = getProcessName( siteId );
+	const runningProcess = await isProcessRunning( processName );
+
+	if ( ! runningProcess ) {
+		throw new Error( `WordPress server is not running` );
+	}
+
+	const result = await sendMessage( runningProcess.pmId, {
+		topic: 'wp-cli-command',
+		data: { args },
+	} );
+
+	return wpCliResultSchema.parse( result );
 }

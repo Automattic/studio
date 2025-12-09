@@ -7,7 +7,9 @@ import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
 import { z } from 'zod';
 import { getSiteByFolder } from 'cli/lib/appdata';
+import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { getWpCliPharPath } from 'cli/lib/sqlite-integration';
+import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { GlobalOptions } from 'cli/types';
 
@@ -18,6 +20,20 @@ const logger = new Logger< LoggerAction >();
 
 export async function runCommand( siteFolder: string, args: string[] ): Promise< void > {
 	const site = await getSiteByFolder( siteFolder );
+
+	try {
+		await connect();
+
+		if ( await isServerRunning( site.id ) ) {
+			const result = await sendWpCliCommand( site.id, args );
+			process.stdout.write( result.stdout );
+			process.stderr.write( result.stderr );
+			process.exit( result.exitCode );
+		}
+	} finally {
+		disconnect();
+	}
+
 	const phpVersionSchema = z.enum( SupportedPHPVersions );
 	let phpVersion: SupportedPHPVersion;
 
@@ -92,11 +108,34 @@ export async function runCommand( siteFolder: string, args: string[] ): Promise<
 
 export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > ) {
 	try {
-		const wpcliArgs: CliArgs = yargsParser( process.argv.slice( 3 ) );
-		delete wpcliArgs.path;
-		const argsArray = [ ...wpcliArgs._ ];
-		delete wpcliArgs._;
-		argsArray.push( ...Object.entries( wpcliArgs ).flat() );
+		const wpcliArgs: CliArgs = yargsParser( process.argv.slice( 3 ), {
+			config: {
+				'boolean-negation': false,
+				'camel-case-expansion': false,
+				'dot-notaton': false,
+				'duplicate-arguments-array': false,
+				'parse-numbers': false,
+				'parse-positional-numbers': false,
+				'short-option-groups': false,
+			},
+		} );
+
+		const argsArray = Object.entries( wpcliArgs ).flatMap( ( [ key, value ] ) => {
+			// The `path` option is handled by Studio CLI
+			if ( key === 'path' ) {
+				return [];
+			}
+			if ( key === '_' ) {
+				return value;
+			}
+			if ( typeof value === 'boolean' ) {
+				return [ `--${ key }` ];
+			}
+			if ( Array.isArray( value ) ) {
+				return [ `--${ key }`, value.join( ' ' ) ];
+			}
+			return [ `--${ key }`, value ];
+		} );
 
 		await runCommand( argv.path, argsArray );
 	} catch ( error ) {

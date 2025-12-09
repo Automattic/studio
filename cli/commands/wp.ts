@@ -1,9 +1,11 @@
-import { __ } from '@wordpress/i18n';
+import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
+import { __, sprintf } from '@wordpress/i18n';
 import { runCLI } from '@wp-playground/cli';
 import { getMuPlugins } from 'common/lib/mu-plugins';
 import { WPCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
+import { z } from 'zod';
 import { getSiteByFolder } from 'cli/lib/appdata';
 import { getWpCliPharPath } from 'cli/lib/sqlite-integration';
 import { Logger, LoggerError } from 'cli/logger';
@@ -16,6 +18,14 @@ const logger = new Logger< LoggerAction >();
 
 export async function runCommand( siteFolder: string, args: string[] ): Promise< void > {
 	const site = await getSiteByFolder( siteFolder );
+	const phpVersionSchema = z.enum( SupportedPHPVersions );
+	let phpVersion: SupportedPHPVersion;
+
+	try {
+		phpVersion = phpVersionSchema.parse( site.phpVersion );
+	} catch ( error ) {
+		throw new LoggerError( sprintf( __( 'Invalid PHP version: %s' ), site.phpVersion ) );
+	}
 
 	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
 		isWpAutoUpdating: false,
@@ -46,7 +56,7 @@ export async function runCommand( siteFolder: string, args: string[] ): Promise<
 		'site-url': `http://localhost:${ site.port }`,
 		verbosity: 'quiet',
 		wordpressInstallMode: 'do-not-attempt-installing',
-		php: '8.3',
+		php: phpVersion,
 		blueprint: {
 			constants: {
 				WP_SQLITE_AST_DRIVER: true,

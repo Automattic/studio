@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { SupportedPHPVersions } from '@php-wasm/universal';
+import { type SupportedPHPVersion } from '@php-wasm/universal';
 import { __, sprintf } from '@wordpress/i18n';
 import { Blueprint } from '@wp-playground/blueprints';
 import { RecommendedPHPVersion } from '@wp-playground/common';
@@ -14,13 +14,11 @@ import { arePathsEqual, isEmptyDir, isWordPressDirectory, pathExists } from 'com
 import { createPassword } from 'common/lib/passwords';
 import { portFinder } from 'common/lib/port-finder';
 import { sortSites } from 'common/lib/sort-sites';
-import {
-	isValidWordPressVersion,
-	isWordPressVersionAtLeast,
-} from 'common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
+import { blueprintValidator } from 'cli/commands/site/create/validators/blueprint';
+import { phpVersionValidator } from 'cli/commands/site/create/validators/php-version';
+import { wpVersionValidator } from 'cli/commands/site/create/validators/wp-version';
 import { lockAppdata, readAppdata, saveAppdata, SiteData, unlockAppdata } from 'cli/lib/appdata';
-import { generateYargsErrorMessage } from 'cli/lib/generate-yargs-error-message';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { installSqliteIntegration, isSqliteIntegrationAvailable } from 'cli/lib/sqlite-integration';
@@ -32,8 +30,6 @@ const DEFAULT_VERSIONS = {
 	php: RecommendedPHPVersion,
 	wp: 'latest',
 } as const;
-const MINIMUM_WORDPRESS_VERSION = '6.2.1' as const; // https://wordpress.github.io/wordpress-playground/blueprints/examples/#load-an-older-wordpress-version
-const ALLOWED_PHP_VERSIONS = [ ...SupportedPHPVersions ];
 
 const logger = new Logger< LoggerAction >();
 
@@ -42,7 +38,7 @@ export async function runCommand(
 	options: {
 		name?: string;
 		wpVersion: string;
-		phpVersion: ( typeof ALLOWED_PHP_VERSIONS )[ number ];
+		phpVersion: SupportedPHPVersion;
 		customDomain?: string;
 		enableHttps: boolean;
 		blueprintJson?: unknown;
@@ -241,45 +237,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					describe: __( 'WordPress version (e.g., "latest", "6.4", "6.4.1")' ),
 					default: DEFAULT_VERSIONS.wp,
-					coerce: ( value: string ) => {
-						if ( ! isValidWordPressVersion( value ) ) {
-							throw new LoggerError(
-								generateYargsErrorMessage(
-									'wp',
-									value,
-									__(
-										'"latest", "nightly", or a valid version number (e.g., "6.4", "6.4.1", "6.4-beta1")'
-									)
-								)
-							);
-						}
-
-						if ( ! isWordPressVersionAtLeast( value, MINIMUM_WORDPRESS_VERSION ) ) {
-							throw new LoggerError(
-								generateYargsErrorMessage(
-									'wp',
-									value,
-									sprintf( __( 'at least %s' ), MINIMUM_WORDPRESS_VERSION )
-								)
-							);
-						}
-
-						return value;
-					},
+					coerce: wpVersionValidator,
 				} )
 				.option( 'php', {
 					type: 'string',
 					describe: __( 'PHP version' ),
 					default: DEFAULT_VERSIONS.php,
-					coerce: ( value ) => {
-						if ( ! ALLOWED_PHP_VERSIONS.includes( value ) ) {
-							throw new LoggerError(
-								generateYargsErrorMessage( 'php', value, ALLOWED_PHP_VERSIONS.join( ', ' ) )
-							);
-						}
-
-						return value;
-					},
+					coerce: phpVersionValidator,
 				} )
 				.option( 'domain', {
 					type: 'string',
@@ -293,25 +257,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'blueprint', {
 					type: 'string',
 					describe: __( 'Path to blueprint JSON file' ),
-					coerce: ( value: string ) => {
-						let blueprintJson: unknown;
-
-						if ( ! fs.existsSync( value ) ) {
-							throw new LoggerError( sprintf( __( 'Blueprint file not found: %s' ), value ) );
-						}
-
-						try {
-							const blueprintContent = fs.readFileSync( value, 'utf-8' );
-							blueprintJson = JSON.parse( blueprintContent );
-						} catch ( error ) {
-							throw new LoggerError(
-								sprintf( __( 'Invalid blueprint JSON file: %s' ), value ),
-								error
-							);
-						}
-
-						return blueprintJson;
-					},
+					coerce: blueprintValidator,
 				} )
 				.option( 'start', {
 					type: 'boolean',

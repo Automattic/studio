@@ -306,16 +306,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'php', {
 					type: 'string',
 					describe: __( 'PHP version' ),
+					choices: ALLOWED_PHP_VERSIONS,
 					default: DEFAULT_VERSIONS.php,
-					coerce: ( value ) => {
-						if ( ! ALLOWED_PHP_VERSIONS.includes( value ) ) {
-							throw new LoggerError(
-								generateYargsErrorMessage( 'php', value, ALLOWED_PHP_VERSIONS.join( ', ' ) )
-							);
-						}
-
-						return value;
-					},
 				} )
 				.option( 'domain', {
 					type: 'string',

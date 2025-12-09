@@ -44,10 +44,6 @@ export async function keepSqliteIntegrationUpdated( sitePath: string ) {
 	return provider.keepSqliteIntegrationUpdated( sitePath );
 }
 
-export function getSqliteCommandPath(): string {
-	return path.join( provider.getServerFilesPath(), SQLITE_COMMAND_DIRNAME );
-}
-
 export function getWpCliPharPath(): string {
 	return path.join( provider.getServerFilesPath(), WP_CLI_PHAR_FILENAME );
 }

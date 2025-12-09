@@ -71,7 +71,8 @@ async function main() {
 			previewYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
-		.strict();
+		.strict()
+		.showHelpOnFail( false );
 
 	// Check if Studio Sites CLI beta feature is enabled
 	let isSitesCliEnabled = false;

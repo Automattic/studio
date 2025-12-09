@@ -20,6 +20,7 @@ import {
 } from 'common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { lockAppdata, readAppdata, saveAppdata, SiteData, unlockAppdata } from 'cli/lib/appdata';
+import { generateYargsErrorMessage } from 'cli/lib/generate-yargs-error-message';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { installSqliteIntegration, isSqliteIntegrationAvailable } from 'cli/lib/sqlite-integration';
@@ -58,19 +59,6 @@ export async function runCommand(
 		if ( pathExistsResult && ! isEmptyDirResult && ! isWordPressDirResult ) {
 			throw new LoggerError(
 				__( 'The selected directory is not empty nor an existing WordPress site.' )
-			);
-		}
-
-		if ( ! isValidWordPressVersion( options.wpVersion ) ) {
-			throw new LoggerError(
-				__(
-					'Invalid WordPress version. Must be "latest", "nightly", or a valid version number (e.g., "6.4", "6.4.1", "6.4-beta1").'
-				)
-			);
-		}
-		if ( ! isWordPressVersionAtLeast( options.wpVersion, MINIMUM_WORDPRESS_VERSION ) ) {
-			throw new LoggerError(
-				__( `WordPress version must be at least ${ MINIMUM_WORDPRESS_VERSION }.` )
 			);
 		}
 
@@ -253,12 +241,45 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					describe: __( 'WordPress version (e.g., "latest", "6.4", "6.4.1")' ),
 					default: DEFAULT_VERSIONS.wp,
+					coerce: ( value: string ) => {
+						if ( ! isValidWordPressVersion( value ) ) {
+							throw new LoggerError(
+								generateYargsErrorMessage(
+									'wp',
+									value,
+									__(
+										'"latest", "nightly", or a valid version number (e.g., "6.4", "6.4.1", "6.4-beta1")'
+									)
+								)
+							);
+						}
+
+						if ( ! isWordPressVersionAtLeast( value, MINIMUM_WORDPRESS_VERSION ) ) {
+							throw new LoggerError(
+								generateYargsErrorMessage(
+									'wp',
+									value,
+									sprintf( __( 'at least %s' ), MINIMUM_WORDPRESS_VERSION )
+								)
+							);
+						}
+
+						return value;
+					},
 				} )
 				.option( 'php', {
 					type: 'string',
 					describe: __( 'PHP version' ),
-					choices: ALLOWED_PHP_VERSIONS,
 					default: DEFAULT_VERSIONS.php,
+					coerce: ( value ) => {
+						if ( ! ALLOWED_PHP_VERSIONS.includes( value ) ) {
+							throw new LoggerError(
+								generateYargsErrorMessage( 'php', value, ALLOWED_PHP_VERSIONS.join( ', ' ) )
+							);
+						}
+
+						return value;
+					},
 				} )
 				.option( 'domain', {
 					type: 'string',
@@ -272,6 +293,25 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'blueprint', {
 					type: 'string',
 					describe: __( 'Path to blueprint JSON file' ),
+					coerce: ( value: string ) => {
+						let blueprintJson: unknown;
+
+						if ( ! fs.existsSync( value ) ) {
+							throw new LoggerError( sprintf( __( 'Blueprint file not found: %s' ), value ) );
+						}
+
+						try {
+							const blueprintContent = fs.readFileSync( value, 'utf-8' );
+							blueprintJson = JSON.parse( blueprintContent );
+						} catch ( error ) {
+							throw new LoggerError(
+								sprintf( __( 'Invalid blueprint JSON file: %s' ), value ),
+								error
+							);
+						}
+
+						return blueprintJson;
+					},
 				} )
 				.option( 'start', {
 					type: 'boolean',
@@ -281,33 +321,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		},
 		handler: async ( argv ) => {
 			try {
-				let blueprintJson: unknown;
-
-				if ( argv.blueprint ) {
-					if ( ! fs.existsSync( argv.blueprint ) ) {
-						throw new LoggerError(
-							sprintf( __( 'Blueprint file not found: %s' ), argv.blueprint )
-						);
-					}
-
-					try {
-						const blueprintContent = fs.readFileSync( argv.blueprint, 'utf-8' );
-						blueprintJson = JSON.parse( blueprintContent );
-					} catch ( error ) {
-						throw new LoggerError(
-							sprintf( __( 'Invalid blueprint JSON file: %s' ), argv.blueprint ),
-							error
-						);
-					}
-				}
-
 				await runCommand( argv.path, {
 					name: argv.name,
 					wpVersion: argv.wp,
 					phpVersion: argv.php,
 					customDomain: argv.domain,
 					enableHttps: argv.https,
-					blueprintJson: blueprintJson,
+					blueprintJson: argv.blueprint,
 					noStart: ! argv.start,
 				} );
 			} catch ( error ) {

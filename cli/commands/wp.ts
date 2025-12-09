@@ -21,6 +21,7 @@ const logger = new Logger< LoggerAction >();
 export async function runCommand( siteFolder: string, args: string[] ): Promise< void > {
 	const site = await getSiteByFolder( siteFolder );
 
+	// If there's already a running Playground instance for this site, pass the command to it…
 	try {
 		await connect();
 
@@ -34,6 +35,7 @@ export async function runCommand( siteFolder: string, args: string[] ): Promise<
 		disconnect();
 	}
 
+	// …If not, instantiate a new Playground instance in the main process
 	const phpVersionSchema = z.enum( SupportedPHPVersions );
 	let phpVersion: SupportedPHPVersion;
 
@@ -125,6 +127,7 @@ export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > 
 			if ( key === 'path' ) {
 				return [];
 			}
+			// The `_` key contains the command arguments
 			if ( key === '_' ) {
 				return value;
 			}

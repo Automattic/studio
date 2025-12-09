@@ -14,7 +14,7 @@ type CliArgs = Record< string, any >;
 
 const logger = new Logger< LoggerAction >();
 
-export async function runCommand( siteFolder: string, args: CliArgs ): Promise< void > {
+export async function runCommand( siteFolder: string, args: string[] ): Promise< void > {
 	const site = await getSiteByFolder( siteFolder );
 
 	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
@@ -58,7 +58,7 @@ export async function runCommand( siteFolder: string, args: CliArgs ): Promise< 
 		'php',
 		'/tmp/wp-cli.phar',
 		`--path=${ await result.playground.documentRoot }`,
-		...Object.entries( args ).flat(),
+		...args,
 	] );
 
 	const stdoutReader = response.stdout.getReader();
@@ -92,10 +92,12 @@ export async function runCommand( siteFolder: string, args: CliArgs ): Promise< 
 export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > ) {
 	try {
 		const wpcliArgs: CliArgs = yargsParser( process.argv.slice( 3 ) );
-		delete wpcliArgs._;
 		delete wpcliArgs.path;
+		const argsArray = [ ...wpcliArgs._ ];
+		delete wpcliArgs._;
+		argsArray.push( ...Object.entries( wpcliArgs ).flat() );
 
-		await runCommand( argv.path, wpcliArgs );
+		await runCommand( argv.path, argsArray );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );

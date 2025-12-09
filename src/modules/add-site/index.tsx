@@ -586,7 +586,8 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 		setSelectedBlueprint( undefined );
 		setBlueprintPreferredVersions( undefined );
 		setBlueprintDeeplinkWarnings( undefined );
-	}, [ setSelectedBlueprint ] );
+		addSiteProps.setFileForImport( null );
+	}, [ setSelectedBlueprint, addSiteProps ] );
 
 	const handleSiteAdded = useCallback( () => {
 		closeModal();

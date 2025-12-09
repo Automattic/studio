@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
+import { AddSiteProvider } from 'src/components/add-site-provider';
 import App from 'src/components/app';
 import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
@@ -108,7 +109,9 @@ describe( 'App', () => {
 		return render(
 			<Provider store={ store }>
 				<ContentTabsProvider>
-					<SyncSitesProvider>{ component }</SyncSitesProvider>
+					<SyncSitesProvider>
+						<AddSiteProvider>{ component }</AddSiteProvider>
+					</SyncSitesProvider>
 				</ContentTabsProvider>
 			</Provider>
 		);

@@ -3,6 +3,7 @@ import { jest } from '@jest/globals';
 import { render, waitFor, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
+import { AddSiteProvider } from 'src/components/add-site-provider';
 import { useOffline } from 'src/hooks/use-offline';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 import { createTestStore } from 'src/lib/test-utils';
@@ -115,7 +116,11 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 			minimumWordPressVersion: '6.2.6',
 		},
 	} );
-	return render( <Provider store={ store }>{ children }</Provider> );
+	return render(
+		<Provider store={ store }>
+			<AddSiteProvider>{ children }</AddSiteProvider>
+		</Provider>
+	);
 };
 
 beforeEach( () => {

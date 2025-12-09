@@ -1,6 +1,7 @@
 import { render, act, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
+import { AddSiteProvider } from 'src/components/add-site-provider';
 import MainSidebar from 'src/components/main-sidebar';
 import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
@@ -101,7 +102,9 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 	return render(
 		<Provider store={ store }>
 			<ContentTabsProvider>
-				<SyncSitesProvider>{ children }</SyncSitesProvider>
+				<SyncSitesProvider>
+					<AddSiteProvider>{ children }</AddSiteProvider>
+				</SyncSitesProvider>
 			</ContentTabsProvider>
 		</Provider>
 	);

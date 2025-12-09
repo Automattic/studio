@@ -23,6 +23,7 @@ import { lockAppdata, readAppdata, saveAppdata, SiteData, unlockAppdata } from '
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { installSqliteIntegration, isSqliteIntegrationAvailable } from 'cli/lib/sqlite-integration';
+import { untildify } from 'cli/lib/utils';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -239,6 +240,38 @@ export async function runCommand(
 	}
 }
 
+async function fetchBlueprint( url: string ) {
+	const res = await fetch( url );
+
+	if ( ! res.ok ) {
+		throw new LoggerError( __( 'Failed to fetch blueprint' ) );
+	}
+
+	try {
+		return await res.json();
+	} catch ( error ) {
+		throw new LoggerError( __( 'Failed to parse blueprint JSON' ), error );
+	}
+}
+
+function readBlueprint( blueprintPath: string ) {
+	blueprintPath = path.resolve( untildify( blueprintPath ) );
+
+	if ( ! fs.existsSync( blueprintPath ) ) {
+		throw new LoggerError( sprintf( __( 'Blueprint file not found: %s' ), blueprintPath ) );
+	}
+
+	try {
+		const blueprintContent = fs.readFileSync( blueprintPath, 'utf-8' );
+		return JSON.parse( blueprintContent );
+	} catch ( error ) {
+		throw new LoggerError(
+			sprintf( __( 'Failed to parse blueprint JSON file: %s' ), blueprintPath ),
+			error
+		);
+	}
+}
+
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'create',
@@ -271,7 +304,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'blueprint', {
 					type: 'string',
-					describe: __( 'Path to blueprint JSON file' ),
+					describe: __( 'Path or URL to blueprint JSON file' ),
 				} )
 				.option( 'start', {
 					type: 'boolean',
@@ -284,20 +317,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				let blueprintJson: unknown;
 
 				if ( argv.blueprint ) {
-					if ( ! fs.existsSync( argv.blueprint ) ) {
-						throw new LoggerError(
-							sprintf( __( 'Blueprint file not found: %s' ), argv.blueprint )
-						);
-					}
-
-					try {
-						const blueprintContent = fs.readFileSync( argv.blueprint, 'utf-8' );
-						blueprintJson = JSON.parse( blueprintContent );
-					} catch ( error ) {
-						throw new LoggerError(
-							sprintf( __( 'Invalid blueprint JSON file: %s' ), argv.blueprint ),
-							error
-						);
+					if ( /^https?:\/\//.test( argv.blueprint ) ) {
+						blueprintJson = await fetchBlueprint( argv.blueprint );
+					} else {
+						blueprintJson = readBlueprint( argv.blueprint );
 					}
 				}
 

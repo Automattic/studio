@@ -24,6 +24,7 @@ import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/st
 import { readAppdata } from 'cli/lib/appdata';
 import { loadTranslations } from 'cli/lib/i18n';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
+import { untildify } from 'cli/lib/utils';
 import { version } from 'cli/package.json';
 import { StudioArgv } from 'cli/types';
 
@@ -48,10 +49,7 @@ async function main() {
 			defaultDescription: __( 'Current directory' ),
 			description: __( 'Path to the WordPress files' ),
 			coerce: ( value ) => {
-				if ( process.platform !== 'win32' ) {
-					value = value.replace( /^~/, os.homedir() );
-				}
-				return path.resolve( value );
+				return path.resolve( untildify( value ) );
 			},
 		} )
 		.middleware( async ( argv ) => {

@@ -364,6 +364,7 @@ export function AddSiteModalContent( {
 		setBlueprintDeeplinkWarnings,
 		isDeeplinkFlow,
 		setIsDeeplinkFlow,
+		clearDeeplinkState,
 	} = addSiteProps;
 
 	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
@@ -457,10 +458,11 @@ export function AddSiteModalContent( {
 			event.preventDefault();
 			onSubmit?.();
 			await handleAddSiteClick();
+			clearDeeplinkState();
 			speak( siteAddedMessage );
 			setNameSuggested( false );
 		},
-		[ handleAddSiteClick, siteAddedMessage, onSubmit ]
+		[ handleAddSiteClick, siteAddedMessage, onSubmit, clearDeeplinkState ]
 	);
 
 	return (

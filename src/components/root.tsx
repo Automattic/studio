@@ -4,7 +4,6 @@ import { defaultI18n } from '@wordpress/i18n';
 import { I18nProvider } from '@wordpress/react-i18n';
 import { useEffect } from 'react';
 import { Provider as ReduxProvider } from 'react-redux';
-import { AddSiteProvider } from 'src/components/add-site-provider';
 import App from 'src/components/app';
 import AuthProvider from 'src/components/auth-provider';
 import CrashTester from 'src/components/crash-tester';
@@ -45,9 +44,7 @@ const Root = () => {
 											<OnboardingProvider>
 												<ImportExportProvider>
 													<SyncSitesProvider>
-														<AddSiteProvider>
-															<App />
-														</AddSiteProvider>
+														<App />
 													</SyncSitesProvider>
 												</ImportExportProvider>
 											</OnboardingProvider>

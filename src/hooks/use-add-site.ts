@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
+import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'common/lib/domains';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
@@ -44,6 +45,13 @@ export function useAddSite() {
 	const [ enableHttps, setEnableHttps ] = useState( false );
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< Blueprint | undefined >();
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | undefined >();
+	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
+		{ php?: string; wp?: string } | undefined
+	>();
+	const [ blueprintDeeplinkWarnings, setBlueprintDeeplinkWarnings ] = useState<
+		BlueprintValidationWarning[] | undefined
+	>();
+	const [ isDeeplinkFlow, setIsDeeplinkFlow ] = useState( false );
 
 	const loadAllCustomDomains = useCallback( () => {
 		getIpcApi()
@@ -254,6 +262,12 @@ export function useAddSite() {
 			setSelectedBlueprint,
 			selectedRemoteSite,
 			setSelectedRemoteSite,
+			blueprintPreferredVersions,
+			setBlueprintPreferredVersions,
+			blueprintDeeplinkWarnings,
+			setBlueprintDeeplinkWarnings,
+			isDeeplinkFlow,
+			setIsDeeplinkFlow,
 		};
 	}, [
 		doesPathContainWordPress,
@@ -282,5 +296,8 @@ export function useAddSite() {
 		setSelectedBlueprint,
 		selectedRemoteSite,
 		setSelectedRemoteSite,
+		blueprintPreferredVersions,
+		blueprintDeeplinkWarnings,
+		isDeeplinkFlow,
 	] );
 }

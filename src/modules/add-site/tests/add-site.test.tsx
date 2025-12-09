@@ -3,7 +3,7 @@ import { jest } from '@jest/globals';
 import { render, waitFor, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { AddSiteProvider } from 'src/components/add-site-provider';
+import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { useOffline } from 'src/hooks/use-offline';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 import { createTestStore } from 'src/lib/test-utils';
@@ -67,6 +67,15 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 
 jest.mock( 'src/hooks/sync-sites', () => ( {
 	useSyncSites: () => mockUseSyncSites(),
+	SyncSitesProvider: ( { children }: { children: React.ReactNode } ) => children,
+} ) );
+
+jest.mock( 'src/hooks/use-import-export', () => ( {
+	useImportExport: () => ( {
+		importState: {},
+		importFile: jest.fn(),
+		clearImportState: jest.fn(),
+	} ),
 } ) );
 
 jest.mock( 'src/hooks/use-content-tabs', () => ( {
@@ -118,7 +127,7 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 	} );
 	return render(
 		<Provider store={ store }>
-			<AddSiteProvider>{ children }</AddSiteProvider>
+			<SyncSitesProvider>{ children }</SyncSitesProvider>
 		</Provider>
 	);
 };

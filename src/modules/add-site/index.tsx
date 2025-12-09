@@ -4,11 +4,12 @@ import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
-import { useAddSiteContext } from 'src/components/add-site-provider';
 import Button from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite } from 'src/hooks/use-add-site';
+import { useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
+import { useSiteDetails } from 'src/hooks/use-site-details';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { SyncSite } from 'src/modules/sync/types';
@@ -28,6 +29,7 @@ import ImportBackup from './components/import-backup';
 import AddSiteOptions, { type AddSiteFlowType } from './components/options';
 import { PullRemoteSite } from './components/pull-remote-site';
 import Stepper from './components/stepper';
+import { useBlueprintDeeplink } from './hooks/use-blueprint-deeplink';
 
 type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
 
@@ -314,12 +316,6 @@ export interface AddSiteModalContentProps {
 	isOpen?: boolean;
 	onSubmit?: () => void;
 	className?: string;
-	blueprintPreferredVersions?: { php?: string; wp?: string };
-	setBlueprintPreferredVersions?: ( versions: { php?: string; wp?: string } | undefined ) => void;
-	blueprintDeeplinkWarnings?: BlueprintValidationWarning[];
-	setBlueprintDeeplinkWarnings?: ( warnings: BlueprintValidationWarning[] | undefined ) => void;
-	isDeeplinkFlow?: boolean;
-	setIsDeeplinkFlow?: ( isDeeplink: boolean ) => void;
 	addSiteProps?: ReturnType< typeof useAddSite >;
 }
 
@@ -327,12 +323,6 @@ export function AddSiteModalContent( {
 	isOpen = true,
 	onSubmit,
 	className,
-	blueprintPreferredVersions,
-	setBlueprintPreferredVersions,
-	blueprintDeeplinkWarnings,
-	setBlueprintDeeplinkWarnings,
-	isDeeplinkFlow = false,
-	setIsDeeplinkFlow = () => {},
 	addSiteProps: externalAddSiteProps,
 }: AddSiteModalContentProps ) {
 	const { __ } = useI18n();
@@ -371,6 +361,12 @@ export function AddSiteModalContent( {
 		setSelectedBlueprint,
 		selectedRemoteSite,
 		setSelectedRemoteSite,
+		blueprintPreferredVersions,
+		setBlueprintPreferredVersions,
+		blueprintDeeplinkWarnings,
+		setBlueprintDeeplinkWarnings,
+		isDeeplinkFlow,
+		setIsDeeplinkFlow,
 	} = addSiteProps;
 
 	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
@@ -391,8 +387,8 @@ export function AddSiteModalContent( {
 		setEnableHttps( false );
 		setFileForImport( null );
 		setSelectedBlueprint( undefined );
-		setBlueprintPreferredVersions?.( undefined );
-		setBlueprintDeeplinkWarnings?.( undefined );
+		setBlueprintPreferredVersions( undefined );
+		setBlueprintDeeplinkWarnings( undefined );
 		setSelectedRemoteSite( undefined );
 	}, [
 		setSitePath,
@@ -502,35 +498,54 @@ interface AddSiteModalProps {
 export default function AddSiteModal( { className }: AddSiteModalProps ) {
 	const { __ } = useI18n();
 	const [ showModal, setShowModal ] = useState( false );
+	const addSiteProps = useAddSite();
+	const { sites } = useSiteDetails();
+	const { importState } = useImportExport();
 
 	const {
-		blueprintPreferredVersions,
+		setFileForImport,
+		setSelectedBlueprint,
+		setPhpVersion,
+		setWpVersion,
 		setBlueprintPreferredVersions,
-		blueprintDeeplinkWarnings,
 		setBlueprintDeeplinkWarnings,
-		isDeeplinkFlow,
 		setIsDeeplinkFlow,
-		pendingDeeplinkModal,
-		clearDeeplinkState,
-		addSiteProps,
-		isAnySiteProcessing,
-	} = useAddSiteContext();
+	} = addSiteProps;
 
-	const { setFileForImport } = addSiteProps;
+	const isAnySiteProcessing = sites.some(
+		( site ) => site.isAddingSite || importState[ site.id ]?.isNewSite
+	);
 
-	useEffect( () => {
-		if ( pendingDeeplinkModal && ! isAnySiteProcessing ) {
-			setShowModal( true );
-		}
-	}, [ pendingDeeplinkModal, isAnySiteProcessing ] );
-
-	useEffect( () => {
-		void getIpcApi().setupAppMenu( { needsOnboarding: false, isAddSiteVisible: showModal } );
-	}, [ showModal ] );
+	const clearDeeplinkState = useCallback( () => {
+		setIsDeeplinkFlow( false );
+		setSelectedBlueprint( undefined );
+		setBlueprintPreferredVersions( undefined );
+		setBlueprintDeeplinkWarnings( undefined );
+	}, [
+		setIsDeeplinkFlow,
+		setSelectedBlueprint,
+		setBlueprintPreferredVersions,
+		setBlueprintDeeplinkWarnings,
+	] );
 
 	const openModal = useCallback( () => {
 		setShowModal( true );
 	}, [] );
+
+	useBlueprintDeeplink( {
+		isAnySiteProcessing,
+		openModal,
+		setSelectedBlueprint,
+		setPhpVersion,
+		setWpVersion,
+		setBlueprintPreferredVersions,
+		setBlueprintDeeplinkWarnings,
+		navigateToBlueprintDeeplink: () => setIsDeeplinkFlow( true ),
+	} );
+
+	useEffect( () => {
+		void getIpcApi().setupAppMenu( { needsOnboarding: false, isAddSiteVisible: showModal } );
+	}, [ showModal ] );
 
 	const closeModal = useCallback( () => {
 		setShowModal( false );
@@ -555,12 +570,6 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 				<AddSiteModalContent
 					isOpen={ showModal }
 					onSubmit={ handleSiteAdded }
-					blueprintPreferredVersions={ blueprintPreferredVersions }
-					setBlueprintPreferredVersions={ setBlueprintPreferredVersions }
-					blueprintDeeplinkWarnings={ blueprintDeeplinkWarnings }
-					setBlueprintDeeplinkWarnings={ setBlueprintDeeplinkWarnings }
-					isDeeplinkFlow={ isDeeplinkFlow }
-					setIsDeeplinkFlow={ setIsDeeplinkFlow }
 					addSiteProps={ addSiteProps }
 				/>
 			</FullscreenModal>

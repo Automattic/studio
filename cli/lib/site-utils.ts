@@ -80,7 +80,7 @@ export async function setupCustomDomain(
  * Stops the HTTP proxy server if no remaining running sites need it.
  * A site needs the proxy if it has a custom domain configured.
  *
- * @param stoppedSiteId - The ID of the site that was just stopped (to exclude from the check)
+ * @param stoppedSiteIds - The ID of the site that was just stopped (to exclude from the check)
  */
 export async function stopProxyIfNoSitesNeedIt(
 	stoppedSiteIds: string | string[],

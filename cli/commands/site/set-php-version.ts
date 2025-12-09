@@ -57,7 +57,7 @@ export async function runCommand(
 		if ( runningProcess ) {
 			logger.reportStart( LoggerAction.START_SITE, __( 'Restarting site...' ) );
 			await stopWordPressServer( site.id );
-			await startWordPressServer( site );
+			await startWordPressServer( site, logger );
 			logger.reportSuccess( __( 'Site restarted' ) );
 		}
 	} finally {

@@ -19,11 +19,14 @@ import { Onboarding } from 'src/modules/onboarding';
 import { useOnboarding } from 'src/modules/onboarding/hooks/use-onboarding';
 import { UserSettings } from 'src/modules/user-settings';
 import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
+import { useRootSelector } from 'src/stores';
+import { selectOnboardingLoading } from 'src/stores/onboarding-slice';
 import 'src/index.css';
 
 export default function App() {
 	useLocalizationSupport();
 	const { needsOnboarding } = useOnboarding();
+	const isOnboardingLoading = useRootSelector( selectOnboardingLoading );
 	const { isSidebarVisible, toggleSidebar } = useSidebarVisibility();
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
 	const { sites: localSites, loadingSites } = useSiteDetails();
@@ -32,6 +35,10 @@ export default function App() {
 	useEffect( () => {
 		void getIpcApi().setupAppMenu( { needsOnboarding } );
 	}, [ needsOnboarding ] );
+
+	if ( isOnboardingLoading ) {
+		return null;
+	}
 
 	return (
 		<>

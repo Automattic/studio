@@ -71,7 +71,7 @@ export async function runCommand( sitePath: string, domainName: string ): Promis
 			await stopWordPressServer( site.id );
 			await setupCustomDomain( site, logger );
 			logger.reportStart( LoggerAction.START_SITE, __( 'Restarting site...' ) );
-			await startWordPressServer( site );
+			await startWordPressServer( site, logger );
 			logger.reportSuccess( __( 'Site restarted' ) );
 		}
 	} finally {

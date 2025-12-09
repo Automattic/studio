@@ -9,10 +9,9 @@ import { readFile } from 'atomically';
 import { bumpStat } from 'common/lib/bump-stat';
 import { isEmptyDir, pathExists } from 'common/lib/fs-utils';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
-import { createSite, startServer, isFullscreen, importSite } from 'src/ipc-handlers';
+import { createSite, isFullscreen, importSite } from 'src/ipc-handlers';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
-import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { getMainWindow } from 'src/main-window';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 
@@ -20,7 +19,6 @@ jest.mock( 'fs' );
 jest.mock( 'fs-extra' );
 jest.mock( 'common/lib/fs-utils' );
 jest.mock( 'src/site-server' );
-jest.mock( 'src/lib/sqlite-versions' );
 jest.mock( 'src/lib/wordpress-provider', () => ( {
 	downloadWordPress: jest.fn(),
 	downloadWpCli: jest.fn(),
@@ -138,23 +136,6 @@ describe( 'createSite', () => {
 					expect( shell.trashItem ).toHaveBeenCalledWith( '/test' );
 				} );
 		} );
-	} );
-} );
-
-describe( 'startServer', () => {
-	it( 'should keep SQLite integration up-to-date', async () => {
-		const mockSitePath = 'mock-site-path';
-		( keepSqliteIntegrationUpdated as jest.Mock ).mockResolvedValue( undefined );
-		( SiteServer.get as jest.Mock ).mockReturnValue( {
-			details: { path: mockSitePath },
-			start: jest.fn(),
-			updateSiteDetails: jest.fn(),
-			updateCachedThumbnail: jest.fn( () => Promise.resolve() ),
-		} );
-
-		await startServer( mockIpcMainInvokeEvent, 'mock-site-id' );
-
-		expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( mockSitePath );
 	} );
 } );
 

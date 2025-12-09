@@ -132,7 +132,7 @@ This command checks if you are currently authenticated with WordPress.com by:
 ```bash
 npm run cli:build
 node dist/cli/main.js auth status
-# Output when authenticated: ✓ Successfully authenticated with WordPress.com as `username`
+# Output when authenticated: ✓ Authenticated with WordPress.com as `username`
 # Output when not authenticated: ✗ Authentication token is invalid or expired
 ```
 

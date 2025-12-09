@@ -43,7 +43,6 @@ export function SyncSitesModalSelector( {
 	const { __ } = useI18n();
 	const { user } = useAuth();
 	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
-	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
 	const isOffline = useOffline();
 
 	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
@@ -60,15 +59,6 @@ export function SyncSitesModalSelector( {
 		{ connectedSiteIds, userId: user?.id },
 		{ refetchOnMountOrArgChange: true }
 	);
-
-	const filteredSites = syncSites.filter( ( site ) => {
-		const searchQueryLower = searchQuery.toLowerCase();
-		return (
-			site.name?.toLowerCase().includes( searchQueryLower ) ||
-			site.url?.toLowerCase().includes( searchQueryLower )
-		);
-	} );
-	const isEmpty = filteredSites.length === 0;
 
 	if ( syncSites.length === 0 && isSuccess && ! isLoading ) {
 		return <NoWpcomSitesModal onRequestClose={ onRequestClose } selectedSite={ selectedSite } />;
@@ -93,28 +83,12 @@ export function SyncSitesModalSelector( {
 			title={ getModalTitle() }
 		>
 			<div className="relative" data-testid="sync-sites-modal-selector">
-				<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
-				<div className="h-[calc(84vh-232px)]">
-					{ isLoading && (
-						<div className="flex justify-center items-center h-full">
-							{ __( 'Loading sites…' ) }
-						</div>
-					) }
-
-					{ ! isLoading && isEmpty && searchQuery && (
-						<div className="flex justify-center items-center h-full">
-							{ sprintf( __( 'No sites found for "%s"' ), searchQuery ) }
-						</div>
-					) }
-
-					{ ! isLoading && ! isEmpty && (
-						<ListSites
-							syncSites={ filteredSites }
-							selectedSiteId={ selectedSiteId }
-							onSelectSite={ setSelectedSiteId }
-						/>
-					) }
-				</div>
+				<SitesListContent
+					isLoading={ isLoading }
+					syncSites={ syncSites }
+					selectedSiteId={ selectedSiteId }
+					onSelectSite={ setSelectedSiteId }
+				/>
 				<Footer
 					onRequestClose={ onRequestClose }
 					onConnect={ () => {
@@ -173,6 +147,57 @@ export function SearchSites( {
 				</Button>
 			</p>
 		</div>
+	);
+}
+
+export function SitesListContent( {
+	isLoading,
+	syncSites,
+	selectedSiteId,
+	onSelectSite,
+}: {
+	isLoading: boolean;
+	syncSites: SyncSite[];
+	selectedSiteId: number | null;
+	onSelectSite: ( id: number ) => void;
+} ) {
+	const { __ } = useI18n();
+	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
+
+	const filteredSites = syncSites.filter( ( site ) => {
+		const searchQueryLower = searchQuery.toLowerCase();
+		return (
+			site.name?.toLowerCase().includes( searchQueryLower ) ||
+			site.url?.toLowerCase().includes( searchQueryLower )
+		);
+	} );
+	const isEmpty = filteredSites.length === 0;
+
+	return (
+		<>
+			<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
+			<div className="h-[calc(84vh-232px)]">
+				{ isLoading && (
+					<div className="flex justify-center items-center h-full">{ __( 'Loading sites…' ) }</div>
+				) }
+
+				{ ! isLoading && isEmpty && searchQuery && (
+					<div className="flex justify-center items-center h-full">
+						{ sprintf( __( 'No sites found for "%s"' ), searchQuery ) }
+					</div>
+				) }
+
+				{ ! isLoading && isEmpty ? (
+					<div className="flex justify-center items-center h-full">{ __( 'No sites found' ) }</div>
+				) : (
+					<ListSites
+						syncSites={ filteredSites }
+						selectedSiteId={ selectedSiteId }
+						onSelectSite={ onSelectSite }
+					/>
+				) }
+			</div>
+		</>
 	);
 }
 

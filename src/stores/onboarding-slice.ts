@@ -9,7 +9,7 @@ interface OnboardingState {
 
 const initialState: OnboardingState = {
 	completed: false,
-	loading: false,
+	loading: true,
 };
 
 // Async thunk to load onboarding status

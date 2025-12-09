@@ -229,8 +229,8 @@ const ImportSite = ( {
 	const startLoadingCursorClassName =
 		loadingServer[ selectedSite.id ] && 'animate-pulse duration-100 cursor-wait';
 
-	const isImporting = currentProgress?.progress < 100;
-	const isImported = currentProgress?.progress === 100 && ! isDraggingOver;
+	const isImporting = currentProgress?.progress < 100 && ! isThisSiteSyncing;
+	const isImported = currentProgress?.progress === 100 && ! isDraggingOver && ! isThisSiteSyncing;
 	const isInitial = ! isImporting && ! isImported;
 	return (
 		<div className={ cx( 'flex flex-col w-full', startLoadingCursorClassName ) }>

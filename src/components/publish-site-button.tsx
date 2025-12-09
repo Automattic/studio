@@ -16,7 +16,7 @@ export const PublishSiteButton = () => {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
 	const { setSelectedTab } = useContentTabs();
-	const { user } = useAuth();
+	const { user, authenticate } = useAuth();
 	const { selectedSite } = useSiteDetails();
 	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
 		localSiteId: selectedSite?.id,
@@ -26,9 +26,12 @@ export const PublishSiteButton = () => {
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 
 	const handlePublishClick = useCallback( () => {
-		setSelectedTab( 'sync' );
+		if ( ! user ) {
+			authenticate();
+		}
 		dispatch( connectedSitesActions.openModal( 'push' ) );
-	}, [ setSelectedTab, dispatch ] );
+		setSelectedTab( 'sync' );
+	}, [ user, setSelectedTab, dispatch, authenticate ] );
 
 	if ( connectedSites.length !== 0 ) return null;
 

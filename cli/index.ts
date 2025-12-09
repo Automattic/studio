@@ -1,4 +1,5 @@
 import 'cli/polyfills/browser-globals.js';
+import os from 'node:os';
 import path from 'node:path';
 import { __ } from '@wordpress/i18n';
 import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
@@ -24,6 +25,7 @@ import { registerCommand as registerSiteStopAllCommand } from 'cli/commands/site
 import { readAppdata } from 'cli/lib/appdata';
 import { loadTranslations } from 'cli/lib/i18n';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
+import { untildify } from 'cli/lib/utils';
 import { version } from 'cli/package.json';
 import { StudioArgv } from 'cli/types';
 
@@ -43,10 +45,13 @@ async function main() {
 		} )
 		.option( 'path', {
 			type: 'string',
+			normalize: true,
 			default: process.cwd(),
 			defaultDescription: __( 'Current directory' ),
 			description: __( 'Path to the WordPress files' ),
-			coerce: ( value ) => path.resolve( process.cwd(), value ),
+			coerce: ( value ) => {
+				return path.resolve( untildify( value ) );
+			},
 		} )
 		.middleware( async ( argv ) => {
 			if ( ! argv.avoidTelemetry ) {

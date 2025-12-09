@@ -24,6 +24,7 @@ import { generateYargsErrorMessage } from 'cli/lib/generate-yargs-error-message'
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { installSqliteIntegration, isSqliteIntegrationAvailable } from 'cli/lib/sqlite-integration';
+import { untildify } from 'cli/lib/utils';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -189,7 +190,10 @@ export async function runCommand(
 				: __( 'Starting WordPress site...' );
 			logger.reportStart( LoggerAction.START_SITE, startMessage );
 			try {
-				await startWordPressServer( siteDetails, { wpVersion: options.wpVersion, blueprint } );
+				await startWordPressServer( siteDetails, logger, {
+					wpVersion: options.wpVersion,
+					blueprint,
+				} );
 				logger.reportSuccess( __( 'WordPress site started' ) );
 
 				logSiteDetails( siteDetails );
@@ -204,7 +208,7 @@ export async function runCommand(
 
 			logger.reportStart( LoggerAction.START_SITE, __( 'Applying blueprint...' ) );
 			try {
-				await runBlueprint( siteDetails, { wpVersion: options.wpVersion, blueprint } );
+				await runBlueprint( siteDetails, logger, { wpVersion: options.wpVersion, blueprint } );
 				logger.reportSuccess( __( 'Blueprint applied successfully' ) );
 			} catch ( error ) {
 				throw new LoggerError( __( 'Failed to apply blueprint' ), error );
@@ -224,6 +228,38 @@ export async function runCommand(
 		}
 	} finally {
 		disconnect();
+	}
+}
+
+async function fetchBlueprint( url: string ) {
+	const res = await fetch( url );
+
+	if ( ! res.ok ) {
+		throw new LoggerError( __( 'Failed to fetch blueprint' ) );
+	}
+
+	try {
+		return await res.json();
+	} catch ( error ) {
+		throw new LoggerError( __( 'Failed to parse blueprint JSON' ), error );
+	}
+}
+
+function readBlueprint( blueprintPath: string ) {
+	blueprintPath = path.resolve( untildify( blueprintPath ) );
+
+	if ( ! fs.existsSync( blueprintPath ) ) {
+		throw new LoggerError( sprintf( __( 'Blueprint file not found: %s' ), blueprintPath ) );
+	}
+
+	try {
+		const blueprintContent = fs.readFileSync( blueprintPath, 'utf-8' );
+		return JSON.parse( blueprintContent );
+	} catch ( error ) {
+		throw new LoggerError(
+			sprintf( __( 'Failed to parse blueprint JSON file: %s' ), blueprintPath ),
+			error
+		);
 	}
 }
 
@@ -288,26 +324,20 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'https', {
 					type: 'boolean',
 					describe: __( 'Enable HTTPS for custom domain' ),
-					default: false,
+					implies: 'domain',
 				} )
 				.option( 'blueprint', {
 					type: 'string',
-					describe: __( 'Path to blueprint JSON file' ),
-					coerce: ( value: string ) => {
+					describe: __( 'Path or URL to blueprint JSON file' ),
+					coerce: async ( value: string ) => {
 						let blueprintJson: unknown;
 
-						if ( ! fs.existsSync( value ) ) {
-							throw new LoggerError( sprintf( __( 'Blueprint file not found: %s' ), value ) );
-						}
-
-						try {
-							const blueprintContent = fs.readFileSync( value, 'utf-8' );
-							blueprintJson = JSON.parse( blueprintContent );
-						} catch ( error ) {
-							throw new LoggerError(
-								sprintf( __( 'Invalid blueprint JSON file: %s' ), value ),
-								error
-							);
+						if ( value ) {
+							if ( /^https?:\/\//.test( value ) ) {
+								blueprintJson = await fetchBlueprint( value );
+							} else {
+								blueprintJson = readBlueprint( value );
+							}
 						}
 
 						return blueprintJson;
@@ -326,7 +356,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					wpVersion: argv.wp,
 					phpVersion: argv.php,
 					customDomain: argv.domain,
-					enableHttps: argv.https,
+					enableHttps: !! argv.https,
 					blueprintJson: argv.blueprint,
 					noStart: ! argv.start,
 				} );

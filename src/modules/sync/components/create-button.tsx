@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import { DEFAULT_CUSTOM_DOMAIN_SUFFIX } from 'common/constants';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button, { ButtonVariant } from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
@@ -33,10 +34,13 @@ export const CreateButton = ( {
 			<Button
 				onClick={ () => {
 					onClick?.();
+					const suggestedName = selectedSite.customDomain
+						? selectedSite.customDomain.replace( DEFAULT_CUSTOM_DOMAIN_SUFFIX, '' )
+						: selectedSite.name;
 					getIpcApi().openURL(
 						`https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&showDomainStep&studioSiteId=${
 							selectedSite.id
-						}&new=${ encodeURIComponent( selectedSite.name ) }`
+						}&new=${ encodeURIComponent( suggestedName ) }`
 					);
 				} }
 				variant={ variant }

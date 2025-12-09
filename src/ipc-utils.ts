@@ -38,6 +38,7 @@ export interface IpcEvents {
 		},
 	];
 	'site-context-menu-action': [ { action: string; siteId: string } ];
+	'site-status-changed': [ { siteId: string; status: 'running' | 'stopped'; url: string } ];
 	'snapshot-error': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
 	'snapshot-fatal-error': [ { operationId: crypto.UUID; data: { message: string } } ];
 	'snapshot-output': [ { operationId: crypto.UUID; data: SnapshotEventData } ];

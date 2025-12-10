@@ -3,7 +3,6 @@ import { jest } from '@jest/globals';
 import { render, waitFor, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { useOffline } from 'src/hooks/use-offline';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 import { createTestStore } from 'src/lib/test-utils';
@@ -67,7 +66,6 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 
 jest.mock( 'src/hooks/sync-sites', () => ( {
 	useSyncSites: () => mockUseSyncSites(),
-	SyncSitesProvider: ( { children }: { children: React.ReactNode } ) => children,
 } ) );
 
 jest.mock( 'src/hooks/use-import-export', () => ( {
@@ -125,11 +123,7 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 			minimumWordPressVersion: '6.2.6',
 		},
 	} );
-	return render(
-		<Provider store={ store }>
-			<SyncSitesProvider>{ children }</SyncSitesProvider>
-		</Provider>
-	);
+	return render( <Provider store={ store }>{ children }</Provider> );
 };
 
 beforeEach( () => {

@@ -3,7 +3,7 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'node:path';
 import * as Sentry from '@sentry/electron/main';
-import { HttpRequest, HttpResponse, Upload } from 'tus-js-client';
+import { Upload } from 'tus-js-client';
 import { z } from 'zod';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import {

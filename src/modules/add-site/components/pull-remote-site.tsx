@@ -142,7 +142,6 @@ export function PullRemoteSite( {
 		isSuccess,
 	} = useGetWpComSitesQuery(
 		{
-			connectedSiteIds: [], // Empty array here because we want to fetch all sites
 			userId: user?.id,
 		},
 		{ refetchOnMountOrArgChange: true }

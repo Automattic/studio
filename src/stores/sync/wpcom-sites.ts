@@ -79,11 +79,12 @@ function transformSingleSiteResponse(
  * Transforms the WordPress.com sites API response into SyncSite objects.
  *
  * @param sites - Raw site data from the WordPress.com API
- * @param connectedSiteIds - IDs of sites already connected to the current local site.
- *                           Used to: 1) keep deleted sites in the list if they're connected, and
- *                           2) determine sync support status (already-connected vs syncable)
+ * @param connectedSiteIds - Optional IDs of sites already connected to the current local site.
+ *                           When provided, used to: 1) keep deleted sites in the list if they're connected, and
+ *                           2) determine sync support status (already-connected vs syncable).
+ *                           When not provided, no filtering based on connected sites is applied.
  */
-function transformSitesResponse( sites: unknown[], connectedSiteIds: number[] ): SyncSite[] {
+function transformSitesResponse( sites: unknown[], connectedSiteIds?: number[] ): SyncSite[] {
 	const validatedSites = sites.reduce< SitesEndpointSite[] >( ( acc, rawSite ) => {
 		try {
 			const site = sitesEndpointSiteSchema.parse( rawSite );
@@ -100,12 +101,14 @@ function transformSitesResponse( sites: unknown[], connectedSiteIds: number[] ):
 
 	return validatedSites
 		.filter( ( site ) => ! site.is_a8c )
-		.filter( ( site ) => ! site.is_deleted || connectedSiteIds.some( ( id ) => id === site.ID ) )
+		.filter(
+			( site ) => ! site.is_deleted || connectedSiteIds?.some( ( id ) => id === site.ID ) || false
+		)
 		.map( ( site ) => {
 			// The API returns the wrong value for the `is_wpcom_staging_site` prop while staging sites
 			// are being created. Hence the check in other sites' `wpcom_staging_blog_ids` arrays.
 			const isStaging = allStagingSiteIds.includes( site.ID );
-			const syncSupport = getSyncSupport( site, connectedSiteIds );
+			const syncSupport = getSyncSupport( site, connectedSiteIds ?? [] );
 
 			return transformSingleSiteResponse( site, syncSupport, isStaging );
 		} );
@@ -116,7 +119,7 @@ export const wpcomSitesApi = createApi( {
 	baseQuery: fetchBaseQuery(),
 	tagTypes: [ 'WpComSites' ],
 	endpoints: ( builder ) => ( {
-		getWpComSites: builder.query< SyncSite[], { connectedSiteIds: number[]; userId?: number } >( {
+		getWpComSites: builder.query< SyncSite[], { connectedSiteIds?: number[]; userId?: number } >( {
 			queryFn: async ( { connectedSiteIds } ) => {
 				const wpcomClient = getWpcomClient();
 				if ( ! wpcomClient ) {

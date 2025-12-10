@@ -10,10 +10,12 @@
  * - Sends response back when ready
  * - Sends activity heartbeats to prevent timeout during long operations
  */
+import { cpus } from 'os';
 import { SupportedPHPVersion } from '@php-wasm/universal';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import { isWordPressDirectory } from 'common/lib/fs-utils';
 import { getMuPlugins } from 'common/lib/mu-plugins';
+import { formatPlaygroundCliMessage } from 'common/lib/playground-cli-messages';
 import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
 import { z } from 'zod';
 import {
@@ -23,6 +25,31 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 
 let server: RunCLIServer | null = null;
+
+// Intercept and prefix all console output from playground-cli
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+
+console.log = ( ...args: unknown[] ) => {
+	originalConsoleLog( '[playground-cli]', ...args );
+	const message = args.join( ' ' );
+	process.send!( { topic: 'activity' } );
+	const formattedMessage = formatPlaygroundCliMessage( message );
+	if ( formattedMessage !== message ) {
+		process.send!( { topic: 'console-message', message: formattedMessage } );
+	}
+};
+
+console.error = ( ...args: unknown[] ) => {
+	originalConsoleError( '[playground-cli]', ...args );
+	process.send!( { topic: 'activity' } );
+};
+
+console.warn = ( ...args: unknown[] ) => {
+	originalConsoleWarn( '[playground-cli]', ...args );
+	process.send!( { topic: 'activity' } );
+};
 
 const originalStdoutWrite = process.stdout.write.bind( process.stdout );
 const originalStderrWrite = process.stderr.write.bind( process.stderr );
@@ -38,11 +65,11 @@ process.stderr.write = function ( ...args: Parameters< typeof originalStderrWrit
 } as typeof process.stderr.write;
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
-	console.log( new Date().toISOString(), `[WordPress Server Child]`, ...args );
+	originalConsoleLog( new Date().toISOString(), `[WordPress Server Child]`, ...args );
 }
 
 function errorToConsole( ...args: Parameters< typeof console.error > ) {
-	console.error( new Date().toISOString(), `[WordPress Server Child]`, ...args );
+	originalConsoleError( new Date().toISOString(), `[WordPress Server Child]`, ...args );
 }
 
 function escapePhpString( str: string ): string {
@@ -128,6 +155,14 @@ async function getBaseRunCLIArgs(
 
 	args.blueprint.constants = { ...args.blueprint.constants, ...defaultConstants };
 
+	if ( config.enableMultiWorker ) {
+		const workerCount = Math.max( 1, cpus().length - 1 );
+		logToConsole(
+			`Enabling experimental multi-worker support with ${ workerCount } workers (CPU cores - 1)`
+		);
+		args.experimentalMultiWorker = workerCount;
+	}
+
 	return args;
 }
 
@@ -140,6 +175,10 @@ async function startServer( config: ServerConfig ): Promise< void > {
 	try {
 		const args = await getBaseRunCLIArgs( 'server', config );
 		server = await runCLI( args );
+
+		if ( config.enableMultiWorker && server ) {
+			logToConsole( `Server started with ${ server.workerThreadCount } worker thread(s)` );
+		}
 
 		if ( config.adminPassword ) {
 			await setAdminPassword( server, config.adminPassword );

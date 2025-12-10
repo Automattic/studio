@@ -13,6 +13,7 @@ const serverConfig = z.object( {
 	siteLanguage: z.string().optional(),
 	isWpAutoUpdating: z.boolean().optional(),
 	blueprint: z.any().optional(), // Blueprint type is complex, allow any for now
+	enableMultiWorker: z.boolean().optional(),
 } );
 
 export type ServerConfig = z.infer< typeof serverConfig >;
@@ -70,6 +71,12 @@ const childMessageError = z.object( {
 	topic: z.literal( 'error' ),
 	errorMessage: z.string(),
 	errorStack: z.string().optional(),
+	cliArgs: z.record( z.unknown() ).optional(),
+} );
+
+const childMessageConsole = z.object( {
+	topic: z.literal( 'console-message' ),
+	message: z.string(),
 } );
 
 const childMessageRaw = z.discriminatedUnion( 'topic', [
@@ -77,11 +84,21 @@ const childMessageRaw = z.discriminatedUnion( 'topic', [
 	childMessageActivity,
 	childMessageResult,
 	childMessageError,
+	childMessageConsole,
 ] );
 export type ChildMessageRaw = z.infer< typeof childMessageRaw >;
 export const childMessagePm2Schema = z.object( {
 	process: z.object( {
+		name: z.string(),
 		pm_id: z.number(),
 	} ),
 	raw: childMessageRaw,
+} );
+
+// Zod schemas for PM2 process events (online, exit, stop, restart)
+export const pm2ProcessEventSchema = z.object( {
+	process: z.object( {
+		name: z.string(),
+	} ),
+	event: z.string(),
 } );

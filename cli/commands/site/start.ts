@@ -44,7 +44,7 @@ export async function runCommand( sitePath: string, skipBrowser = false ): Promi
 
 		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress site...' ) );
 		try {
-			const processDesc = await startWordPressServer( site );
+			const processDesc = await startWordPressServer( site, logger );
 
 			logger.reportSuccess( __( 'WordPress site started' ) );
 			if ( processDesc.pid ) {

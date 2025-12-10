@@ -8,8 +8,12 @@
 	"license": "GPL-2.0-or-later",
 	"main": "index.js",
 	"dependencies": {
-		"pm2": "^6.0.13",
-		"http-proxy": "^1.18.1"
+		"@php-wasm/universal": "^3.0.22",
+		"@wp-playground/blueprints": "^3.0.22",
+		"@wp-playground/cli": "^3.0.22",
+		"@wp-playground/common": "^3.0.22",
+		"http-proxy": "^1.18.1",
+		"pm2": "^6.0.13"
 	},
 	"scripts": {
 		"postinstall": "patch-package"

@@ -20,6 +20,7 @@ import { registerCommand as registerSiteSetPhpVersionCommand } from 'cli/command
 import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
 import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
+import { registerCommand as registerSiteStopAllCommand } from 'cli/commands/site/stop-all';
 import { loadTranslations } from 'cli/lib/i18n';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
 import { untildify } from 'cli/lib/utils';
@@ -81,6 +82,7 @@ async function main() {
 			registerSiteListCommand( sitesYargs );
 			registerSiteStartCommand( sitesYargs );
 			registerSiteStopCommand( sitesYargs );
+			registerSiteStopAllCommand( sitesYargs );
 			registerSiteDeleteCommand( sitesYargs );
 			registerSiteSetHttpsCommand( sitesYargs );
 			registerSiteSetDomainCommand( sitesYargs );

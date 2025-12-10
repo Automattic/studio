@@ -30,7 +30,11 @@ const siteSchema = z
 	} )
 	.passthrough();
 
-const betaFeaturesSchema = z.object( {} ).passthrough();
+const betaFeaturesSchema = z
+	.object( {
+		multiWorkerSupport: z.boolean().optional(),
+	} )
+	.passthrough();
 
 const userDataSchema = z
 	.object( {
@@ -72,6 +76,12 @@ export function getAppdataDirectory(): string {
 }
 
 export function getAppdataPath(): string {
+	// Support E2E testing with custom appdata path
+	// Must include 'Studio' subfolder to match Electron app's path structure
+	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
+		return path.join( process.env.E2E_APP_DATA_PATH, 'Studio', 'appdata-v1.json' );
+	}
+
 	const appdataDir = getAppdataDirectory();
 	return path.join( appdataDir, 'appdata-v1.json' );
 }

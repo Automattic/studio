@@ -185,6 +185,14 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		}
 	} );
 
+	useIpcListener( 'site-status-changed', ( _, { siteId, status, url } ) => {
+		setSites( ( prevSites ) =>
+			prevSites.map( ( site ) =>
+				site.id === siteId ? { ...site, running: status === 'running', url: url } : site
+			)
+		);
+	} );
+
 	const toggleLoadingServerForSite = useCallback( ( siteId: string ) => {
 		setLoadingServer( ( currentLoading ) => ( {
 			...currentLoading,

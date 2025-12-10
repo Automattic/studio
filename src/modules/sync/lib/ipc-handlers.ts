@@ -267,7 +267,7 @@ export async function pushArchive(
 
 	try {
 		await wpcom.req.post( {
-			path: `/sites/${ remoteSiteId }/studio-app/sync/import`,
+			path: `/sites/${ remoteSiteId }/studio-app/sync/import/initiate`,
 			apiNamespace: 'wpcom/v2',
 			formData,
 		} );

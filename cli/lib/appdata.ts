@@ -32,7 +32,6 @@ const siteSchema = z
 
 const betaFeaturesSchema = z
 	.object( {
-		studioSitesCli: z.boolean().optional(),
 		multiWorkerSupport: z.boolean().optional(),
 	} )
 	.passthrough();

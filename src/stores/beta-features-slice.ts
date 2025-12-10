@@ -9,7 +9,6 @@ interface BetaFeaturesState {
 
 const initialState: BetaFeaturesState = {
 	features: {
-		studioSitesCli: false,
 		multiWorkerSupport: false,
 	},
 	loading: false,

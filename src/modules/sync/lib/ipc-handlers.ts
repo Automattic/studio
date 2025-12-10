@@ -171,12 +171,7 @@ export async function pushArchive(
 	const fileSize = fs.statSync( archivePath ).size;
 	const filename = path.basename( archivePath );
 
-	const cleanup = () => {
-		file.destroy();
-		file.close();
-	};
-
-	const attachmentId = await new Promise< string >( ( resolve, reject ) => {
+	const attachmentPromise = new Promise< string >( ( resolve, reject ) => {
 		const upload = new Upload( file, {
 			endpoint: `${ STUDIO_FILE_UPLOADS_ENDPOINT_BASE }/${ remoteSiteId }`,
 			chunkSize: STUDIO_FILE_UPLOADS_CHUNK_SIZE,
@@ -200,7 +195,6 @@ export async function pushArchive(
 				}
 			},
 			onError: ( error ) => {
-				cleanup();
 				console.error( '[TUS] Upload error', error );
 				reject( error );
 			},
@@ -220,8 +214,6 @@ export async function pushArchive(
 				}
 			},
 			onSuccess: ( payload: { lastResponse: HttpResponse } ) => {
-				cleanup();
-
 				if ( ! payload.lastResponse ) {
 					console.error( 'Upload completed but no response received' );
 					reject( new Error( 'Upload completed but no response received' ) );
@@ -249,8 +241,12 @@ export async function pushArchive(
 		} );
 
 		upload.start();
+	} ).finally( () => {
+		file.destroy();
+		file.close();
 	} );
 
+	const attachmentId = await attachmentPromise;
 	const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
 	const formData: [ string, unknown, Record< string, string >? ][] = [
 		[ 'import_attachment_id', attachmentId ],

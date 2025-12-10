@@ -97,7 +97,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );
 				} else {
-					const loggerError = new LoggerError( __( 'Failed to start site infrastructure' ), error );
+					const loggerError = new LoggerError( __( 'Failed to configure site domain' ), error );
 					logger.reportError( loggerError );
 				}
 			}

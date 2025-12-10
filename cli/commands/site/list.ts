@@ -167,7 +167,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );
 				} else {
-					const loggerError = new LoggerError( __( 'Failed to load site' ), error );
+					const loggerError = new LoggerError( __( 'Failed to list sites' ), error );
 					logger.reportError( loggerError );
 				}
 			}

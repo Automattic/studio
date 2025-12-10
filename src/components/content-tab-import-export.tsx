@@ -7,6 +7,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import { ClearAction } from 'src/components/clear-action';
+import { ErrorIcon } from 'src/components/error-icon';
 import ProgressBar from 'src/components/progress-bar';
 import { Tooltip } from 'src/components/tooltip';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
@@ -164,6 +165,14 @@ const InitialImportButton = ( {
 	);
 };
 
+const isValidImportFile = ( file: File ): boolean => {
+	const fileName = file.name.toLowerCase();
+	return (
+		ACCEPTED_IMPORT_FILE_TYPES.some( ( ext ) => fileName.endsWith( ext ) ) ||
+		fileName.endsWith( '.sql' )
+	);
+};
+
 const ImportSite = ( {
 	selectedSite,
 	isThisSiteSyncing,
@@ -178,6 +187,7 @@ const ImportSite = ( {
 	const { [ selectedSite.id ]: currentProgress } = importState;
 	const isSiteExporting =
 		exportState[ selectedSite?.id ] && exportState[ selectedSite?.id ].progress < 100;
+	const [ fileError, setFileError ] = useState< string | null >( null );
 
 	const importConfirmation = useConfirmationDialog( {
 		message: sprintf( __( 'Overwrite %s?' ), selectedSite.name ),
@@ -192,9 +202,25 @@ const ImportSite = ( {
 			if ( isImporting ) {
 				return;
 			}
+			if ( ! isValidImportFile( file ) ) {
+				setFileError(
+					__(
+						'This file type is not supported. Please use a .zip, .gz, .tar, .tar.gz, .wpress, or .sql file.'
+					)
+				);
+				return;
+			}
+			setFileError( null );
 			void importConfirmation( () => importFile( file, selectedSite ) );
 		},
 	} );
+
+	useEffect( () => {
+		if ( isDraggingOver && fileError ) {
+			setFileError( null );
+		}
+	}, [ isDraggingOver, fileError ] );
+
 	const inputFileRef = useRef< HTMLInputElement >( null );
 	const openFileSelector = async () => {
 		inputFileRef.current?.click();
@@ -304,6 +330,12 @@ const ImportSite = ( {
 						) }
 					</div>
 				</InitialImportButton>
+				{ fileError && (
+					<div className="flex items-start gap-1 text-xs text-red-500 mt-2">
+						<ErrorIcon className="shrink-0 mt-px fill-current" />
+						<span className="text-left">{ fileError }</span>
+					</div>
+				) }
 			</div>
 			<input
 				ref={ inputFileRef }

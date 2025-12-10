@@ -138,19 +138,13 @@ export function PullRemoteSite( {
 	const { __ } = useI18n();
 	const { isAuthenticated, user } = useAuth();
 
-	const { selectedSite } = useSiteDetails();
-	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
-		localSiteId: selectedSite?.id,
-		userId: user?.id,
-	} );
-	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
 	const {
 		data: syncSites = [],
 		isLoading,
 		isSuccess,
 	} = useGetWpComSitesQuery(
 		{
-			connectedSiteIds,
+			connectedSiteIds: [], // Empty array here because we want to fetch all sites
 			userId: user?.id,
 		},
 		{ refetchOnMountOrArgChange: true }

@@ -507,13 +507,15 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 	}, [] );
 
 	const addSiteProps = useAddSite( { openModal } );
-	const { setFileForImport, clearDeeplinkState, isAnySiteProcessing } = addSiteProps;
+	const { setFileForImport, clearDeeplinkState, isAnySiteProcessing, setSelectedRemoteSite } =
+		addSiteProps;
 
 	const closeModal = useCallback( () => {
 		setShowModal( false );
 		clearDeeplinkState();
 		setFileForImport( null );
-	}, [ clearDeeplinkState, setFileForImport ] );
+		setSelectedRemoteSite( undefined );
+	}, [ clearDeeplinkState, setFileForImport, setSelectedRemoteSite ] );
 
 	const handleSiteAdded = useCallback( () => {
 		closeModal();

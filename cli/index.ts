@@ -1,4 +1,3 @@
-import 'cli/polyfills/browser-globals.js';
 import path from 'node:path';
 import { __ } from '@wordpress/i18n';
 import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
@@ -21,6 +20,7 @@ import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/s
 import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
 import { registerCommand as registerSiteStopAllCommand } from 'cli/commands/site/stop-all';
+import { commandHandler as wpCliCommandHandler } from 'cli/commands/wp';
 import { loadTranslations } from 'cli/lib/i18n';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
 import { untildify } from 'cli/lib/utils';
@@ -88,6 +88,14 @@ async function main() {
 			registerSiteSetDomainCommand( sitesYargs );
 			registerSiteSetPhpVersionCommand( sitesYargs );
 			sitesYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
+		} )
+		.command( {
+			command: 'wp',
+			describe: __( 'WP-CLI' ),
+			builder: ( wpYargs ) => {
+				return wpYargs.strict( false ).version( false );
+			},
+			handler: wpCliCommandHandler,
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();

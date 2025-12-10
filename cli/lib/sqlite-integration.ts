@@ -3,7 +3,6 @@ import path from 'path';
 import { SqliteIntegrationProvider } from 'common/lib/sqlite-integration';
 
 const SQLITE_FILENAME = 'sqlite-database-integration';
-const SQLITE_COMMAND_DIRNAME = 'sqlite-command';
 const WP_CLI_PHAR_FILENAME = 'wp-cli.phar';
 
 class CliSqliteProvider extends SqliteIntegrationProvider {

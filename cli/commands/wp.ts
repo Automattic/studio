@@ -107,10 +107,10 @@ export async function runCommand( siteFolder: string, args: string[] ): Promise<
 export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > ) {
 	try {
 		const wpcliArgs = yargsParser( process.argv.slice( 3 ), {
-			config: {
+			configuration: {
 				'boolean-negation': false,
 				'camel-case-expansion': false,
-				'dot-notaton': false,
+				'dot-notation': false,
 				'duplicate-arguments-array': false,
 				'parse-numbers': false,
 				'parse-positional-numbers': false,
@@ -141,7 +141,7 @@ export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > 
 			if ( Array.isArray( value ) ) {
 				return [ `--${ key }`, value.join( ' ' ) ];
 			}
-			return [ `--${ key }`, value ];
+			return [ `--${ key }`, String( value ) ];
 		} );
 
 		await runCommand( argv.path, argsArray );

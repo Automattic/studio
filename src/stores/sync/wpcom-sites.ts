@@ -102,7 +102,10 @@ function transformSitesResponse( sites: unknown[], connectedSiteIds?: number[] )
 	return validatedSites
 		.filter( ( site ) => ! site.is_a8c )
 		.filter(
-			( site ) => ! site.is_deleted || connectedSiteIds?.some( ( id ) => id === site.ID ) || false
+			// Filter out deleted sites, except if they're in the connectedSiteIds list
+			( site ) =>
+				! site.is_deleted ||
+				( connectedSiteIds && connectedSiteIds.some( ( id ) => id === site.ID ) )
 		)
 		.map( ( site ) => {
 			// The API returns the wrong value for the `is_wpcom_staging_site` prop while staging sites

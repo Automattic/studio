@@ -104,21 +104,28 @@ export async function runCommand( siteFolder: string, args: string[] ): Promise<
 	process.exit( await response.exitCode );
 }
 
+function removePathArgumentFromArgv( argv: string[] ) {
+	argv = argv.slice( 0 );
+
+	while ( argv.indexOf( '--path' ) !== -1 ) {
+		const pathIndex = argv.indexOf( '--path' );
+		argv.splice( pathIndex, 2 );
+	}
+
+	while ( argv.find( ( arg ) => /^--path=/.test( arg ) ) ) {
+		const pathIndex = argv.findIndex( ( arg ) => /^--path=/.test( arg ) );
+		argv.splice( pathIndex, 1 );
+	}
+
+	return argv;
+}
+
 export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > ) {
 	try {
-		const wpcliArgs = yargsParser( process.argv.slice( 3 ), {
-			configuration: {
-				'boolean-negation': false,
-				'camel-case-expansion': false,
-				'dot-notation': false,
-				'duplicate-arguments-array': false,
-				'parse-numbers': false,
-				'parse-positional-numbers': false,
-				'short-option-groups': false,
-			},
-		} );
+		const wpCliArgv = removePathArgumentFromArgv( process.argv.slice( 3 ) );
+		const parsedWpCliArgs = yargsParser( wpCliArgv );
 
-		if ( wpcliArgs._[ 0 ] === 'shell' ) {
+		if ( parsedWpCliArgs._[ 0 ] === 'shell' ) {
 			throw new LoggerError(
 				__(
 					'Studio CLI does not support the WP-CLI `shell` command. Consider adding your code to a file and using the `eval` command.'
@@ -126,25 +133,7 @@ export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > 
 			);
 		}
 
-		const argsArray: string[] = Object.entries( wpcliArgs ).flatMap( ( [ key, value ] ) => {
-			// The `path` option is handled by Studio CLI
-			if ( key === 'path' ) {
-				return [];
-			}
-			// The `_` key contains the command arguments
-			if ( key === '_' ) {
-				return value;
-			}
-			if ( typeof value === 'boolean' ) {
-				return [ `--${ key }` ];
-			}
-			if ( Array.isArray( value ) ) {
-				return [ `--${ key }`, value.join( ' ' ) ];
-			}
-			return [ `--${ key }`, String( value ) ];
-		} );
-
-		await runCommand( argv.path, argsArray );
+		await runCommand( argv.path, wpCliArgv );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );

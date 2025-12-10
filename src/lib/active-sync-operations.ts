@@ -44,11 +44,7 @@ export function canCancelPush( key: PushStateProgressInfo[ 'key' ] | undefined )
  * Check if a push operation has finished uploading the backup file.
  */
 export function pushBackupIsUploading( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean {
-	const uploadingStateKeys: PushStateProgressInfo[ 'key' ][] = [
-		'creatingBackup',
-		'uploading',
-		'uploadingResumed',
-	];
+	const uploadingStateKeys: PushStateProgressInfo[ 'key' ][] = [ 'creatingBackup', 'uploading' ];
 	if ( ! key ) {
 		return false;
 	}

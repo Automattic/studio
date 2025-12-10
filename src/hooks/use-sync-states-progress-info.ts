@@ -17,8 +17,7 @@ export type PushStateProgressInfo = {
 		| 'finished'
 		| 'failed'
 		| 'cancelled'
-		| 'uploadingPaused'
-		| 'uploadingResumed';
+		| 'uploadingPaused';
 	progress: number;
 	message: string;
 };
@@ -110,12 +109,7 @@ export function useSyncStatesProgressInfo() {
 			uploadingPaused: {
 				key: 'uploadingPaused',
 				progress: 45,
-				message: __( 'Uploading paused, retrying…' ),
-			},
-			uploadingResumed: {
-				key: 'uploadingResumed',
-				progress: 45,
-				message: __( 'Uploading resumed…' ),
+				message: __( 'Uploading paused' ),
 			},
 			creatingRemoteBackup: {
 				key: 'creatingRemoteBackup',
@@ -166,7 +160,6 @@ export function useSyncStatesProgressInfo() {
 		const pushingStateKeys: PushStateProgressInfo[ 'key' ][] = [
 			'creatingBackup',
 			'uploading',
-			'uploadingResumed',
 			'creatingRemoteBackup',
 			'applyingChanges',
 			'finishing',

@@ -20,7 +20,7 @@ import {
 } from 'common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { lockAppdata, readAppdata, saveAppdata, SiteData, unlockAppdata } from 'cli/lib/appdata';
-import { generateYargsErrorMessage } from 'cli/lib/generate-yargs-error-message';
+import { ValidationError } from 'cli/lib/validation-error';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { installSqliteIntegration, isSqliteIntegrationAvailable } from 'cli/lib/sqlite-integration';
@@ -279,24 +279,20 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					default: DEFAULT_VERSIONS.wp,
 					coerce: ( value: string ) => {
 						if ( ! isValidWordPressVersion( value ) ) {
-							throw new LoggerError(
-								generateYargsErrorMessage(
-									'wp',
-									value,
-									__(
-										'"latest", "nightly", or a valid version number (e.g., "6.4", "6.4.1", "6.4-beta1")'
-									)
+							throw new ValidationError(
+								'wp',
+								value,
+								__(
+									'Must be: "latest", "nightly", or a valid version number (e.g., "6.4", "6.4.1", "6.4-beta1")'
 								)
 							);
 						}
 
 						if ( ! isWordPressVersionAtLeast( value, MINIMUM_WORDPRESS_VERSION ) ) {
-							throw new LoggerError(
-								generateYargsErrorMessage(
-									'wp',
-									value,
-									sprintf( __( 'at least %s' ), MINIMUM_WORDPRESS_VERSION )
-								)
+							throw new ValidationError(
+								'wp',
+								value,
+								sprintf( __( 'Must be: at least %s' ), MINIMUM_WORDPRESS_VERSION )
 							);
 						}
 

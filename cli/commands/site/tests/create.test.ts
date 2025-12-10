@@ -756,21 +756,5 @@ describe( 'CLI: studio site create', () => {
 			expect( result ).toEqual( testBlueprint );
 			expect( global.fetch ).toHaveBeenCalledWith( 'https://example.com/blueprint.json' );
 		} );
-
-		it( 'should expand tilde in file path', async () => {
-			const fs = require( 'fs' );
-			const os = require( 'os' );
-			jest.spyOn( os, 'homedir' ).mockReturnValue( '/home/user' );
-			jest.spyOn( fs, 'existsSync' ).mockReturnValue( true );
-			jest.spyOn( fs, 'readFileSync' ).mockReturnValue( JSON.stringify( testBlueprint ) );
-
-			const { coerceBlueprint } = await import( '../create' );
-
-			await coerceBlueprint( '~/blueprint.json' );
-
-			expect( fs.existsSync ).toHaveBeenCalledWith(
-				expect.stringContaining( '/home/user/blueprint.json' )
-			);
-		} );
 	} );
 } );

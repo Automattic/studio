@@ -128,6 +128,12 @@ async function getBaseRunCLIArgs(
 
 	args.blueprint.constants = { ...args.blueprint.constants, ...defaultConstants };
 
+	// Enable intl PHP extension
+	// This doesn't work yet, as Playground CLI doesn't load intl extension
+	args.blueprint.features = {
+		intl: true,
+	};
+
 	return args;
 }
 

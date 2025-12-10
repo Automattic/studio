@@ -68,6 +68,14 @@ jest.mock( 'src/hooks/sync-sites', () => ( {
 	useSyncSites: () => mockUseSyncSites(),
 } ) );
 
+jest.mock( 'src/hooks/use-import-export', () => ( {
+	useImportExport: () => ( {
+		importState: {},
+		importFile: jest.fn(),
+		clearImportState: jest.fn(),
+	} ),
+} ) );
+
 jest.mock( 'src/hooks/use-content-tabs', () => ( {
 	useContentTabs: () => ( {
 		selectedTab: 'overview',

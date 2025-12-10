@@ -5,6 +5,7 @@ import { SupportedPHPVersions } from '@php-wasm/universal';
 import { __, sprintf } from '@wordpress/i18n';
 import { Blueprint } from '@wp-playground/blueprints';
 import { RecommendedPHPVersion } from '@wp-playground/common';
+import { MINIMUM_WORDPRESS_VERSION } from 'common/constants';
 import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
@@ -32,7 +33,6 @@ const DEFAULT_VERSIONS = {
 	php: RecommendedPHPVersion,
 	wp: 'latest',
 } as const;
-const MINIMUM_WORDPRESS_VERSION = '6.2.1' as const; // https://wordpress.github.io/wordpress-playground/blueprints/examples/#load-an-older-wordpress-version
 const ALLOWED_PHP_VERSIONS = [ ...SupportedPHPVersions ];
 
 const logger = new Logger< LoggerAction >();

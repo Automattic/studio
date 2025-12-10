@@ -1,4 +1,6 @@
 import os from 'node:os';
+import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
+import { z } from 'zod';
 
 export function normalizeHostname( hostname: string ): string {
 	return hostname
@@ -6,6 +8,11 @@ export function normalizeHostname( hostname: string ): string {
 		.toLowerCase()
 		.replace( /^https?:\/\//, '' )
 		.replace( /\/$/, '' );
+}
+
+export function validatePhpVersion( rawPhpVersion: string ): SupportedPHPVersion {
+	const phpVersionSchema = z.enum( SupportedPHPVersions );
+	return phpVersionSchema.parse( rawPhpVersion );
 }
 
 export function getColumnWidths( widthFactors: number[] ) {

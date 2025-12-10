@@ -7,11 +7,6 @@ import { HttpRequest, HttpResponse, Upload } from 'tus-js-client';
 import { z } from 'zod';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import {
-	STUDIO_FILE_UPLOADS_ENDPOINT_BASE,
-	STUDIO_FILE_UPLOADS_CHUNK_SIZE,
-	STUDIO_FILE_UPLOADS_RETRY_DELAYS,
-} from 'src/constants';
-import {
 	PullStateProgressInfo,
 	PushStateProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
@@ -173,9 +168,9 @@ export async function pushArchive(
 
 	const attachmentPromise = new Promise< string >( ( resolve, reject ) => {
 		const upload = new Upload( file, {
-			endpoint: `${ STUDIO_FILE_UPLOADS_ENDPOINT_BASE }/${ remoteSiteId }`,
-			chunkSize: STUDIO_FILE_UPLOADS_CHUNK_SIZE,
-			retryDelays: STUDIO_FILE_UPLOADS_RETRY_DELAYS,
+			endpoint: `https://public-api.wordpress.com/rest/v1.1/studio-file-uploads/${ remoteSiteId }`,
+			chunkSize: 500000,
+			retryDelays: [ 0, 1000, 3000, 5000, 10000, 25000 ],
 			overridePatchMethod: true,
 			removeFingerprintOnSuccess: true,
 			storeFingerprintForResuming: true,

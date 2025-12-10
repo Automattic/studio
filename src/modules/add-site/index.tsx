@@ -8,16 +8,13 @@ import Button from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
+import { useSiteDetails } from 'src/hooks/use-site-details';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { SyncSite } from 'src/modules/sync/types';
 import { useRootSelector } from 'src/stores';
 import { formatRtkError } from 'src/stores/format-rtk-error';
-import {
-	selectDefaultPhpVersion,
-	selectDefaultWordPressVersion,
-	selectMinimumWordPressVersion,
-} from 'src/stores/provider-constants-slice';
+import { selectMinimumWordPressVersion } from 'src/stores/provider-constants-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
 import BlueprintDeeplink from './components/blueprint-deeplink';
@@ -313,19 +310,17 @@ export interface AddSiteModalContentProps {
 	isOpen?: boolean;
 	onSubmit?: () => void;
 	className?: string;
-	addSiteProps?: ReturnType< typeof useAddSite >;
+	addSiteProps: ReturnType< typeof useAddSite >;
 }
 
 export function AddSiteModalContent( {
 	isOpen = true,
 	onSubmit,
 	className,
-	addSiteProps: externalAddSiteProps,
+	addSiteProps,
 }: AddSiteModalContentProps ) {
 	const { __ } = useI18n();
 	const [ nameSuggested, setNameSuggested ] = useState( false );
-	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
-	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 
 	const {
 		data: blueprintsData,
@@ -333,26 +328,15 @@ export function AddSiteModalContent( {
 		error: blueprintsError,
 	} = useGetBlueprints();
 
-	const localAddSiteProps = useAddSite();
-	const addSiteProps = externalAddSiteProps ?? localAddSiteProps;
+	const { sites, loadingSites } = useSiteDetails();
 
 	const {
 		handleAddSiteClick,
 		siteName,
 		setSiteName,
-		setPhpVersion,
 		setWpVersion,
 		setProposedSitePath,
-		setSitePath,
-		setError,
 		setDoesPathContainWordPress,
-		loadingSites,
-		sites,
-		setUseCustomDomain,
-		setCustomDomain,
-		setCustomDomainError,
-		setEnableHttps,
-		setFileForImport,
 		loadAllCustomDomains,
 		selectedBlueprint,
 		setSelectedBlueprint,
@@ -361,10 +345,8 @@ export function AddSiteModalContent( {
 		blueprintPreferredVersions,
 		setBlueprintPreferredVersions,
 		blueprintDeeplinkWarnings,
-		setBlueprintDeeplinkWarnings,
 		isDeeplinkFlow,
 		setIsDeeplinkFlow,
-		clearDeeplinkState,
 	} = addSiteProps;
 
 	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
@@ -372,39 +354,6 @@ export function AddSiteModalContent( {
 		minimumVersion: minimumWordPressVersion,
 	} );
 	const latestStableVersion = versions.find( ( version ) => version.value === 'latest' );
-
-	const resetForm = useCallback( () => {
-		setNameSuggested( false );
-		setSitePath( '' );
-		setDoesPathContainWordPress( false );
-		setWpVersion( defaultWordPressVersion );
-		setPhpVersion( defaultPhpVersion );
-		setUseCustomDomain( false );
-		setCustomDomain( null );
-		setCustomDomainError( '' );
-		setEnableHttps( false );
-		setFileForImport( null );
-		setSelectedBlueprint( undefined );
-		setBlueprintPreferredVersions( undefined );
-		setBlueprintDeeplinkWarnings( undefined );
-		setSelectedRemoteSite( undefined );
-	}, [
-		setSitePath,
-		setDoesPathContainWordPress,
-		setPhpVersion,
-		setWpVersion,
-		setUseCustomDomain,
-		setCustomDomain,
-		setCustomDomainError,
-		setEnableHttps,
-		setFileForImport,
-		setSelectedBlueprint,
-		setSelectedRemoteSite,
-		setBlueprintPreferredVersions,
-		setBlueprintDeeplinkWarnings,
-		defaultWordPressVersion,
-		defaultPhpVersion,
-	] );
 
 	const initialNavigatorPath = selectedBlueprint ? '/blueprint/deeplink' : '/';
 
@@ -424,16 +373,12 @@ export function AddSiteModalContent( {
 		setNameSuggested( true );
 		setSiteName( name );
 		setProposedSitePath( path );
-		setSitePath( '' );
-		setError( '' );
 		setDoesPathContainWordPress( isWordPress );
 		loadAllCustomDomains();
 	}, [
 		sites,
 		setSiteName,
 		setProposedSitePath,
-		setSitePath,
-		setError,
 		setDoesPathContainWordPress,
 		setWpVersion,
 		latestStableVersion,
@@ -446,23 +391,15 @@ export function AddSiteModalContent( {
 		}
 	}, [ isOpen, nameSuggested, loadingSites, initializeForm ] );
 
-	// Reset form when closed
-	useEffect( () => {
-		if ( ! isOpen ) {
-			resetForm();
-		}
-	}, [ isOpen, resetForm ] );
-
 	const handleSubmit = useCallback(
 		async ( event: FormEvent ) => {
 			event.preventDefault();
 			onSubmit?.();
 			await handleAddSiteClick();
-			clearDeeplinkState();
 			speak( siteAddedMessage );
 			setNameSuggested( false );
 		},
-		[ handleAddSiteClick, siteAddedMessage, onSubmit, clearDeeplinkState ]
+		[ handleAddSiteClick, siteAddedMessage, onSubmit ]
 	);
 
 	return (
@@ -507,19 +444,12 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 	}, [] );
 
 	const addSiteProps = useAddSite( { openModal } );
-	const { setFileForImport, clearDeeplinkState, isAnySiteProcessing, setSelectedRemoteSite } =
-		addSiteProps;
+	const { resetForm, isAnySiteProcessing } = addSiteProps;
 
 	const closeModal = useCallback( () => {
+		resetForm();
 		setShowModal( false );
-		clearDeeplinkState();
-		setFileForImport( null );
-		setSelectedRemoteSite( undefined );
-	}, [ clearDeeplinkState, setFileForImport, setSelectedRemoteSite ] );
-
-	const handleSiteAdded = useCallback( () => {
-		closeModal();
-	}, [ closeModal ] );
+	}, [ resetForm ] );
 
 	useIpcListener( 'add-site', () => {
 		if ( isAnySiteProcessing ) {
@@ -533,7 +463,7 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 			<FullscreenModal isOpen={ showModal } onClose={ closeModal }>
 				<AddSiteModalContent
 					isOpen={ showModal }
-					onSubmit={ handleSiteAdded }
+					onSubmit={ closeModal }
 					addSiteProps={ addSiteProps }
 				/>
 			</FullscreenModal>

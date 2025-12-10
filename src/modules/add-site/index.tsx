@@ -313,14 +313,14 @@ export interface AddSiteModalContentProps {
 	isOpen?: boolean;
 	onSubmit?: () => void;
 	className?: string;
-	addSiteProps?: ReturnType< typeof useAddSite >;
+	addSiteProps: ReturnType< typeof useAddSite >;
 }
 
 export function AddSiteModalContent( {
 	isOpen = true,
 	onSubmit,
 	className,
-	addSiteProps: externalAddSiteProps,
+	addSiteProps,
 }: AddSiteModalContentProps ) {
 	const { __ } = useI18n();
 	const [ nameSuggested, setNameSuggested ] = useState( false );
@@ -332,9 +332,6 @@ export function AddSiteModalContent( {
 		isLoading: isLoadingBlueprints,
 		error: blueprintsError,
 	} = useGetBlueprints();
-
-	const localAddSiteProps = useAddSite();
-	const addSiteProps = externalAddSiteProps ?? localAddSiteProps;
 
 	const {
 		handleAddSiteClick,

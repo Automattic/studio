@@ -3,7 +3,7 @@
 	"author": "Automattic Inc.",
 	"private": true,
 	"productName": "Studio",
-	"version": "1.6.6-beta4",
+	"version": "1.6.6",
 	"description": "Local WordPress development environment using Playgrounds",
 	"license": "GPL-2.0-or-later",
 	"main": "dist/main/index.js",
@@ -16,7 +16,7 @@
 		"prestart": "npm run cli:build",
 		"start": "electron-vite dev --outDir=dist --watch",
 		"start-wayland": "npm run prestart && electron-forge start -- --enable-features=UseOzonePlatform --ozone-platform=wayland .",
-		"postinstall": "patch-package && ts-node ./scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs",
+		"postinstall": "patch-package && ts-node ./scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs && npx @electron/rebuild -o fs-ext",
 		"package": "electron-vite build --outDir=dist && electron-forge package",
 		"make": "electron-vite build --outDir=dist && electron-forge make",
 		"make:windows-x64": "electron-vite build --outDir=dist && electron-forge make --arch=x64 --platform=win32",
@@ -162,5 +162,10 @@
 	},
 	"optionalDependencies": {
 		"appdmg": "^0.6.6"
+	},
+	"overrides": {
+		"fs-ext": {
+			"nan": "2.24.0"
+		}
 	}
 }

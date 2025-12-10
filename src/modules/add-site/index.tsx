@@ -558,8 +558,14 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 	const { importState } = useImportExport();
 
 	const addSiteProps = useAddSite();
-	const { sites, setSelectedBlueprint, setPhpVersion, setWpVersion, setFileForImport } =
-		addSiteProps;
+	const {
+		sites,
+		setSelectedBlueprint,
+		setPhpVersion,
+		setWpVersion,
+		setFileForImport,
+		setSelectedRemoteSite,
+	} = addSiteProps;
 
 	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
 		{ php?: string; wp?: string } | undefined
@@ -588,7 +594,8 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 		setBlueprintPreferredVersions( undefined );
 		setBlueprintDeeplinkWarnings( undefined );
 		setFileForImport( null );
-	}, [ setSelectedBlueprint, setFileForImport ] );
+		setSelectedRemoteSite( undefined );
+	}, [ setSelectedBlueprint, setFileForImport, setSelectedRemoteSite ] );
 
 	const handleSiteAdded = useCallback( () => {
 		closeModal();

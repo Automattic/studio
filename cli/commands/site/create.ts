@@ -263,21 +263,15 @@ function readBlueprint( blueprintPath: string ) {
 	}
 }
 
-export async function coerceBlueprint( value: string ) {
-	let blueprintJson: unknown;
-
-	if ( value ) {
-		if ( /^https?:\/\//.test( value ) ) {
-			blueprintJson = await fetchBlueprint( value );
-		} else {
-			blueprintJson = readBlueprint( value );
-		}
+async function coerceBlueprint( value: string ) {
+	if ( /^https?:\/\//.test( value ) ) {
+		return await fetchBlueprint( value );
+	} else {
+		return readBlueprint( value );
 	}
-
-	return blueprintJson;
 }
 
-export function coerceWpVersion( value: string ) {
+function coerceWpVersion( value: string ) {
 	if ( ! isValidWordPressVersion( value ) ) {
 		throw new ValidationError(
 			'wp',

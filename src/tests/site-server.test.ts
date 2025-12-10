@@ -51,7 +51,7 @@ describe( 'SiteServer', () => {
 				stop: jest.fn(),
 			} );
 
-			const server = SiteServer.create( {
+			const server = SiteServer.register( {
 				id: 'test-id',
 				name: 'test-name',
 				path: 'test-path',
@@ -73,7 +73,7 @@ describe( 'SiteServer', () => {
 				stop: jest.fn(),
 			} );
 
-			const server = SiteServer.create( {
+			const server = SiteServer.register( {
 				id: 'test-id',
 				name: 'test-name',
 				path: 'test-path',

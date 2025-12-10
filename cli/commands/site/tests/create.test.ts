@@ -5,7 +5,14 @@ import {
 } from 'common/lib/blueprint-validation';
 import { isEmptyDir, isWordPressDirectory, pathExists, arePathsEqual } from 'common/lib/fs-utils';
 import { portFinder } from 'common/lib/port-finder';
-import { lockAppdata, readAppdata, saveAppdata, unlockAppdata, SiteData } from 'cli/lib/appdata';
+import {
+	lockAppdata,
+	readAppdata,
+	saveAppdata,
+	unlockAppdata,
+	updateSiteLatestCliPid,
+	SiteData,
+} from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { isSqliteIntegrationAvailable, installSqliteIntegration } from 'cli/lib/sqlite-integration';
@@ -30,6 +37,7 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	saveAppdata: jest.fn(),
 	lockAppdata: jest.fn(),
 	unlockAppdata: jest.fn(),
+	updateSiteLatestCliPid: jest.fn(),
 	getSiteUrl: jest.fn( ( site ) => `http://localhost:${ site.port }` ),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
@@ -40,6 +48,14 @@ jest.mock( 'cli/lib/wordpress-server-manager' );
 describe( 'CLI: studio site create', () => {
 	const mockSitePath = '/test/site/new-site';
 	const mockPort = 8881;
+
+	const defaultTestOptions = {
+		wpVersion: 'latest',
+		phpVersion: '8.0' as const,
+		enableHttps: false,
+		noStart: false,
+		skipBrowser: false,
+	};
 
 	const mockAppdata = {
 		sites: [] as SiteData[],
@@ -111,14 +127,9 @@ describe( 'CLI: studio site create', () => {
 
 			const { runCommand } = await import( '../create' );
 
-			await expect(
-				runCommand( mockSitePath, {
-					wpVersion: 'latest',
-					phpVersion: '8.0',
-					enableHttps: false,
-					noStart: false,
-				} )
-			).rejects.toThrow( 'The selected directory is not empty nor an existing WordPress site.' );
+			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow(
+				'The selected directory is not empty nor an existing WordPress site.'
+			);
 
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -132,14 +143,9 @@ describe( 'CLI: studio site create', () => {
 
 			const { runCommand } = await import( '../create' );
 
-			await expect(
-				runCommand( mockSitePath, {
-					wpVersion: 'latest',
-					phpVersion: '8.0',
-					enableHttps: false,
-					noStart: false,
-				} )
-			).rejects.toThrow( 'The selected directory is already in use.' );
+			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow(
+				'The selected directory is already in use.'
+			);
 
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -149,11 +155,8 @@ describe( 'CLI: studio site create', () => {
 
 			await expect(
 				runCommand( mockSitePath, {
-					wpVersion: 'latest',
-					phpVersion: '8.0',
+					...defaultTestOptions,
 					customDomain: 'invalid-domain-without-tld',
-					enableHttps: false,
-					noStart: false,
 				} )
 			).rejects.toThrow();
 
@@ -170,11 +173,8 @@ describe( 'CLI: studio site create', () => {
 
 			await expect(
 				runCommand( mockSitePath, {
-					wpVersion: 'latest',
-					phpVersion: '8.0',
+					...defaultTestOptions,
 					customDomain: 'mysite.local',
-					enableHttps: false,
-					noStart: false,
 				} )
 			).rejects.toThrow();
 
@@ -191,11 +191,8 @@ describe( 'CLI: studio site create', () => {
 
 			await expect(
 				runCommand( mockSitePath, {
-					wpVersion: 'latest',
-					phpVersion: '8.0',
+					...defaultTestOptions,
 					blueprintJson: {},
-					enableHttps: false,
-					noStart: false,
 				} )
 			).rejects.toThrow( 'Invalid blueprint' );
 
@@ -207,14 +204,9 @@ describe( 'CLI: studio site create', () => {
 
 			const { runCommand } = await import( '../create' );
 
-			await expect(
-				runCommand( mockSitePath, {
-					wpVersion: 'latest',
-					phpVersion: '8.0',
-					enableHttps: false,
-					noStart: false,
-				} )
-			).rejects.toThrow( 'SQLite integration files not found' );
+			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow(
+				'SQLite integration files not found'
+			);
 
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -224,12 +216,7 @@ describe( 'CLI: studio site create', () => {
 		it( 'should create a basic site successfully', async () => {
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				enableHttps: false,
-				noStart: false,
-			} );
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( fsMkdirSyncSpy ).toHaveBeenCalledWith( mockSitePath, { recursive: true } );
 			expect( isSqliteIntegrationAvailable ).toHaveBeenCalled();
@@ -248,11 +235,8 @@ describe( 'CLI: studio site create', () => {
 			const { runCommand } = await import( '../create' );
 
 			await runCommand( mockSitePath, {
+				...defaultTestOptions,
 				name: 'My Custom Site',
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				enableHttps: false,
-				noStart: false,
 			} );
 
 			expect( saveAppdata ).toHaveBeenCalledWith(
@@ -283,12 +267,7 @@ describe( 'CLI: studio site create', () => {
 		it( 'should use folder name as site name if no name provided', async () => {
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				enableHttps: false,
-				noStart: false,
-			} );
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( saveAppdata ).toHaveBeenCalledWith(
 				expect.objectContaining( {
@@ -307,12 +286,7 @@ describe( 'CLI: studio site create', () => {
 
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				enableHttps: false,
-				noStart: false,
-			} );
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( fsMkdirSyncSpy ).not.toHaveBeenCalled();
 		} );
@@ -324,12 +298,7 @@ describe( 'CLI: studio site create', () => {
 
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				enableHttps: false,
-				noStart: false,
-			} );
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( fsMkdirSyncSpy ).not.toHaveBeenCalled();
 		} );
@@ -338,11 +307,8 @@ describe( 'CLI: studio site create', () => {
 			const { runCommand } = await import( '../create' );
 
 			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
+				...defaultTestOptions,
 				customDomain: 'mysite.local',
-				enableHttps: false,
-				noStart: false,
 			} );
 
 			expect( saveAppdata ).toHaveBeenCalledWith(
@@ -361,11 +327,9 @@ describe( 'CLI: studio site create', () => {
 			const { runCommand } = await import( '../create' );
 
 			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
+				...defaultTestOptions,
 				customDomain: 'mysite.local',
 				enableHttps: true,
-				noStart: false,
 			} );
 
 			expect( saveAppdata ).toHaveBeenCalledWith(
@@ -387,12 +351,7 @@ describe( 'CLI: studio site create', () => {
 
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				enableHttps: false,
-				noStart: false,
-			} );
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( portFinder.addUnavailablePort ).toHaveBeenCalledWith( mockExistingSite.port );
 		} );
@@ -400,12 +359,7 @@ describe( 'CLI: studio site create', () => {
 		it( 'should set isWpAutoUpdating true for latest WordPress version', async () => {
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				enableHttps: false,
-				noStart: false,
-			} );
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( saveAppdata ).toHaveBeenCalledWith(
 				expect.objectContaining( {
@@ -422,10 +376,8 @@ describe( 'CLI: studio site create', () => {
 			const { runCommand } = await import( '../create' );
 
 			await runCommand( mockSitePath, {
+				...defaultTestOptions,
 				wpVersion: '6.4',
-				phpVersion: '8.0',
-				enableHttps: false,
-				noStart: false,
 			} );
 
 			expect( saveAppdata ).toHaveBeenCalledWith(
@@ -449,11 +401,8 @@ describe( 'CLI: studio site create', () => {
 			const { runCommand } = await import( '../create' );
 
 			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
+				...defaultTestOptions,
 				blueprintJson: testBlueprint,
-				enableHttps: false,
-				noStart: false,
 			} );
 
 			expect( validateBlueprintData ).toHaveBeenCalled();
@@ -470,12 +419,9 @@ describe( 'CLI: studio site create', () => {
 			const { runCommand } = await import( '../create' );
 
 			await runCommand( mockSitePath, {
+				...defaultTestOptions,
 				name: 'My Site',
-				wpVersion: 'latest',
-				phpVersion: '8.0',
 				blueprintJson: testBlueprint,
-				enableHttps: false,
-				noStart: false,
 			} );
 
 			expect( startWordPressServer ).toHaveBeenCalledWith(
@@ -509,11 +455,8 @@ describe( 'CLI: studio site create', () => {
 			const { runCommand } = await import( '../create' );
 
 			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
+				...defaultTestOptions,
 				blueprintJson: testBlueprint,
-				enableHttps: false,
-				noStart: false,
 			} );
 		} );
 	} );
@@ -523,9 +466,7 @@ describe( 'CLI: studio site create', () => {
 			const { runCommand } = await import( '../create' );
 
 			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				enableHttps: false,
+				...defaultTestOptions,
 				noStart: true,
 			} );
 
@@ -543,10 +484,8 @@ describe( 'CLI: studio site create', () => {
 			const { runCommand } = await import( '../create' );
 
 			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
+				...defaultTestOptions,
 				blueprintJson: testBlueprint,
-				enableHttps: false,
 				noStart: true,
 			} );
 
@@ -563,14 +502,9 @@ describe( 'CLI: studio site create', () => {
 			( startWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server start failed' ) );
 
 			const { runCommand } = await import( '../create' );
-			await expect(
-				runCommand( mockSitePath, {
-					wpVersion: 'latest',
-					phpVersion: '8.0',
-					enableHttps: false,
-					noStart: false,
-				} )
-			).rejects.toThrow( 'Failed to start WordPress server' );
+			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow(
+				'Failed to start WordPress server'
+			);
 
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -582,10 +516,8 @@ describe( 'CLI: studio site create', () => {
 			const { runCommand } = await import( '../create' );
 			await expect(
 				runCommand( mockSitePath, {
-					wpVersion: 'latest',
-					phpVersion: '8.0',
+					...defaultTestOptions,
 					blueprintJson: testBlueprint,
-					enableHttps: false,
 					noStart: true,
 				} )
 			).rejects.toThrow( 'Failed to apply blueprint' );
@@ -600,14 +532,7 @@ describe( 'CLI: studio site create', () => {
 
 			const { runCommand } = await import( '../create' );
 
-			await expect(
-				runCommand( mockSitePath, {
-					wpVersion: 'latest',
-					phpVersion: '8.0',
-					enableHttps: false,
-					noStart: false,
-				} )
-			).rejects.toThrow();
+			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
 
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -620,12 +545,7 @@ describe( 'CLI: studio site create', () => {
 			const { runCommand } = await import( '../create' );
 
 			try {
-				await runCommand( mockSitePath, {
-					wpVersion: 'latest',
-					phpVersion: '8.0',
-					enableHttps: false,
-					noStart: false,
-				} );
+				await runCommand( mockSitePath, { ...defaultTestOptions } );
 			} catch {
 				// Expected
 			}
@@ -636,12 +556,7 @@ describe( 'CLI: studio site create', () => {
 		it( 'should disconnect from PM2 on success', async () => {
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				enableHttps: false,
-				noStart: false,
-			} );
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -649,12 +564,7 @@ describe( 'CLI: studio site create', () => {
 		it( 'should unlock appdata after saving', async () => {
 			const { runCommand } = await import( '../create' );
 
-			await runCommand( mockSitePath, {
-				wpVersion: 'latest',
-				phpVersion: '8.0',
-				enableHttps: false,
-				noStart: false,
-			} );
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( unlockAppdata ).toHaveBeenCalled();
 		} );

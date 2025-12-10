@@ -12,6 +12,7 @@ import { updateSiteUrl } from 'src/lib/update-site-url';
 import { setupWordPressSite, getWordPressProvider } from 'src/lib/wordpress-provider';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
+import { createSiteViaCli, type CreateSiteOptions } from 'src/modules/cli/lib/cli-site-creator';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData } from 'src/storage/user-data';
@@ -67,14 +68,91 @@ export class SiteServer {
 		return servers.get( id );
 	}
 
+	static getByPath( path: string ): SiteServer | undefined {
+		for ( const server of servers.values() ) {
+			if ( server.details.path === path ) {
+				return server;
+			}
+		}
+		return undefined;
+	}
+
 	static isDeleted( id: string ) {
 		return deletedServers.includes( id );
 	}
 
-	static create( details: StoppedSiteDetails, meta: SiteServerMeta = {} ): SiteServer {
+	static register( details: StoppedSiteDetails, meta: SiteServerMeta = {} ): SiteServer {
 		const server = new SiteServer( details, meta );
 		servers.set( details.id, server );
 		return server;
+	}
+
+	static async create(
+		options: CreateSiteOptions,
+		meta: SiteServerMeta = {}
+	): Promise< { server: SiteServer; details: SiteDetails } > {
+		// Pre-register a placeholder server to prevent watcher from creating a duplicate
+		const placeholderDetails: StoppedSiteDetails = {
+			id: crypto.randomUUID(),
+			name: options.name || options.path,
+			path: options.path,
+			port: 0,
+			phpVersion: options.phpVersion || '',
+			running: false,
+		};
+		const server = SiteServer.register( placeholderDetails, meta );
+		server.hasOngoingOperation = true;
+
+		try {
+			const result = await createSiteViaCli( options );
+
+			// Build the final site details from CLI result
+			const baseSiteDetails = {
+				id: result.site.id,
+				name: result.site.name,
+				path: result.site.path,
+				port: result.site.port,
+				phpVersion: result.site.phpVersion,
+				adminPassword: result.site.adminPassword,
+				isWpAutoUpdating: result.site.isWpAutoUpdating,
+				customDomain: result.site.customDomain,
+				enableHttps: result.site.enableHttps,
+			};
+
+			// Create the appropriate site details based on running state
+			let siteDetails: SiteDetails;
+			if ( result.site.running && result.site.url ) {
+				siteDetails = {
+					...baseSiteDetails,
+					running: true,
+					url: result.site.url,
+				};
+			} else {
+				siteDetails = {
+					...baseSiteDetails,
+					running: false,
+				};
+			}
+
+			// Update the server with the real details from CLI
+			// First, re-register with the correct ID (CLI generates the real ID)
+			servers.delete( placeholderDetails.id );
+			servers.set( siteDetails.id, server );
+			server.details = siteDetails;
+
+			// If the site is running, create a CliServerProcess to track it
+			if ( siteDetails.running ) {
+				server.server = new CliServerProcess(
+					siteDetails.id,
+					siteDetails.path,
+					( siteDetails as StartedSiteDetails ).url
+				);
+			}
+
+			return { server, details: siteDetails };
+		} finally {
+			server.hasOngoingOperation = false;
+		}
 	}
 
 	async delete() {

@@ -1,5 +1,4 @@
 import { exec, ExecOptions } from 'child_process';
-import crypto from 'crypto';
 import {
 	BrowserWindow,
 	Menu,
@@ -30,9 +29,6 @@ import {
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import { getAuthenticationUrl } from 'common/lib/oauth';
-import { createPassword } from 'common/lib/passwords';
-import { portFinder } from 'common/lib/port-finder';
-import { sortSites } from 'common/lib/sort-sites';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
@@ -48,7 +44,6 @@ import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { sanitizeFolderName } from 'src/lib/generate-site-name';
 import { getImageData } from 'src/lib/get-image-data';
-import { getSiteUrl } from 'src/lib/get-site-url';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
@@ -59,8 +54,7 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import * as oauthClient from 'src/lib/oauth';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
-import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
-import { updateSiteUrl } from 'src/lib/update-site-url';
+import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import {
 	getWordPressProvider,
@@ -73,7 +67,7 @@ import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tr
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
-import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
+import { SiteServer } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
 import {
 	loadUserData,
@@ -155,7 +149,7 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	// Ensure we have an instance of a server for each site we know about
 	for ( const site of sites ) {
 		if ( ! SiteServer.get( site.id ) && ! site.running ) {
-			SiteServer.create( site );
+			SiteServer.register( site );
 		}
 	}
 
@@ -213,9 +207,9 @@ export async function createSite(
 		wpVersion?: string;
 		customDomain?: string;
 		enableHttps?: boolean;
-		siteId?: string;
 		phpVersion?: string;
 		blueprint?: Blueprint;
+		noStart?: boolean;
 	} = {}
 ): Promise< SiteDetails > {
 	const {
@@ -223,97 +217,49 @@ export async function createSite(
 		wpVersion,
 		customDomain,
 		enableHttps,
-		siteId,
 		blueprint,
-		phpVersion = getWordPressProvider().DEFAULT_PHP_VERSION,
+		phpVersion,
+		noStart = false,
 	} = config;
-
-	const forceSetupSqlite = false;
 
 	const metric = getBlueprintMetric( blueprint?.slug );
 	bumpStat( StatsGroup.STUDIO_SITE_CREATE, metric );
 
-	// We only recursively create the directory if the user has not selected a
-	// path from the dialog (and thus they use the "default" or suggested path).
-	if ( ! ( await pathExists( path ) ) && path.startsWith( DEFAULT_SITE_PATH ) ) {
-		fs.mkdirSync( path, { recursive: true } );
-	}
-
-	if ( ! ( await isEmptyDir( path ) ) && ! isWordPressDirectory( path ) ) {
-		// Form validation should've prevented a non-empty directory from being selected
-		throw new Error( 'The selected directory is not empty nor an existing WordPress site.' );
-	}
-	let userData = await loadUserData();
-
-	const allPaths = userData?.sites?.map( ( site ) => site.path ) || [];
-	if ( allPaths.includes( path ) ) {
-		throw new Error( 'The selected directory is already in use.' );
-	}
-
-	const port = await portFinder.getOpenPort();
-
-	const details = {
-		id: siteId || crypto.randomUUID(),
-		name: siteName || nodePath.basename( path ),
-		path,
-		adminPassword: createPassword(),
-		port,
-		running: false,
-		phpVersion,
-		isWpAutoUpdating: wpVersion === getWordPressProvider().DEFAULT_WORDPRESS_VERSION,
-		customDomain,
-		enableHttps,
-	} as const;
-
-	const server = SiteServer.create( details, { wpVersion, blueprint: blueprint?.blueprint } );
-
-	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
-		try {
-			await createSiteWorkingDirectory( server, wpVersion );
-		} catch ( error ) {
-			// If site creation failed, remove the generated files and re-throw the
-			// error so it can be handled by the caller.
-			await shell.trashItem( path );
-			throw error;
-		}
-	}
-
-	if ( isWordPressDirectory( path ) ) {
-		// If the directory contains a WordPress installation, and user wants to force SQLite
-		// integration, let's rename the wp-config.php file to allow WP Now to create a new one
-		// and initialize things properly.
-		if ( forceSetupSqlite && ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
-			fs.renameSync(
-				nodePath.join( path, 'wp-config.php' ),
-				nodePath.join( path, 'wp-config-studio.php' )
-			);
-		}
-		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
-			await installSqliteIntegration( path );
-			await getWordPressProvider().installWordPressWhenNoWpConfig(
-				server,
-				siteName || nodePath.basename( path ),
-				details.adminPassword
-			);
-		} else {
-			await updateSiteUrl( server, getSiteUrl( details ) );
-		}
-	}
+	const { details: siteDetails } = await SiteServer.create(
+		{
+			path,
+			name: siteName,
+			wpVersion,
+			phpVersion,
+			customDomain,
+			enableHttps,
+			blueprint: blueprint?.blueprint,
+			noStart,
+		},
+		{ wpVersion, blueprint: blueprint?.blueprint }
+	);
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id: details.id } );
-	try {
-		await lockAppdata();
-		userData = await loadUserData();
+	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', {
+		id: siteDetails.id,
+	} );
 
-		userData.sites.push( server.details );
-		sortSites( userData.sites );
-
-		await saveUserData( userData );
-		return server.details;
-	} finally {
-		await unlockAppdata();
+	// If site is running, update thumbnail in background
+	if ( siteDetails.running ) {
+		const server = SiteServer.get( siteDetails.id );
+		if ( server ) {
+			void ( async () => {
+				try {
+					await server.updateCachedThumbnail();
+					await sendThumbnailChangedEvent( event, siteDetails.id );
+				} catch ( error ) {
+					console.error( `Failed to update thumbnail for server ${ siteDetails.id }:`, error );
+				}
+			} )();
+		}
 	}
+
+	return siteDetails;
 }
 
 export async function updateSite(

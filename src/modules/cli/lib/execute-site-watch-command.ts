@@ -39,7 +39,13 @@ async function updateSiteServerStatus(
 				const userData = await loadUserData();
 				const siteData = userData.sites.find( ( s ) => s.id === siteId );
 				if ( siteData ) {
-					server = SiteServer.create( { ...siteData, running: false } );
+					// Check if a server already exists for this path (e.g., during site creation)
+					const existingServer = SiteServer.getByPath( siteData.path );
+					if ( existingServer ) {
+						server = existingServer;
+					} else {
+						server = SiteServer.register( { ...siteData, running: false } );
+					}
 				}
 			}
 

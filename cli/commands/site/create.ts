@@ -19,7 +19,14 @@ import {
 	isWordPressVersionAtLeast,
 } from 'common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { lockAppdata, readAppdata, saveAppdata, SiteData, unlockAppdata } from 'cli/lib/appdata';
+import {
+	lockAppdata,
+	readAppdata,
+	saveAppdata,
+	SiteData,
+	unlockAppdata,
+	updateSiteLatestCliPid,
+} from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { installSqliteIntegration, isSqliteIntegrationAvailable } from 'cli/lib/sqlite-integration';
@@ -48,6 +55,7 @@ export async function runCommand(
 		enableHttps: boolean;
 		blueprintJson?: unknown;
 		noStart: boolean;
+		skipBrowser: boolean;
 	}
 ): Promise< void > {
 	try {
@@ -190,14 +198,27 @@ export async function runCommand(
 				: __( 'Starting WordPress site...' );
 			logger.reportStart( LoggerAction.START_SITE, startMessage );
 			try {
-				await startWordPressServer( siteDetails, logger, {
+				const processDesc = await startWordPressServer( siteDetails, logger, {
 					wpVersion: options.wpVersion,
 					blueprint,
 				} );
 				logger.reportSuccess( __( 'WordPress site started' ) );
 
+				// Update latestCliPid so the watcher knows this site is running
+				if ( processDesc.pid ) {
+					await updateSiteLatestCliPid( siteDetails.id, processDesc.pid );
+				}
+
+				// Update site details to reflect running state
+				siteDetails.running = true;
+				siteDetails.url = siteDetails.customDomain
+					? `${ siteDetails.enableHttps ? 'https' : 'http' }://${ siteDetails.customDomain }`
+					: `http://localhost:${ siteDetails.port }`;
+
 				logSiteDetails( siteDetails );
-				await openSiteInBrowser( siteDetails );
+				if ( ! options.skipBrowser ) {
+					await openSiteInBrowser( siteDetails );
+				}
 			} catch ( error ) {
 				throw new LoggerError( __( 'Failed to start WordPress server' ), error );
 			}
@@ -225,6 +246,10 @@ export async function runCommand(
 			console.log( '' );
 			logSiteDetails( siteDetails );
 			console.log( __( 'Run "studio site start" to start the site.' ) );
+		}
+
+		if ( process.send ) {
+			process.send( { action: 'result', site: siteDetails } );
 		}
 	} finally {
 		disconnect();
@@ -333,6 +358,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'boolean',
 					describe: __( 'Start the site after creation' ),
 					default: true,
+				} )
+				.option( 'skip-browser', {
+					type: 'boolean',
+					describe: __( 'Do not open browser after starting' ),
+					default: false,
 				} );
 		},
 		handler: async ( argv ) => {
@@ -345,6 +375,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					enableHttps: !! argv.https,
 					blueprintJson: argv.blueprint,
 					noStart: ! argv.start,
+					skipBrowser: !! argv.skipBrowser,
 				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

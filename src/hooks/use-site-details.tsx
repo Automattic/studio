@@ -32,7 +32,8 @@ interface SiteDetailsContext {
 		enableHttps?: boolean,
 		blueprint?: Blueprint,
 		phpVersion?: string,
-		callback?: ( site: SiteDetails ) => Promise< void >
+		callback?: ( site: SiteDetails ) => Promise< void >,
+		noStart?: boolean
 	) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
@@ -223,7 +224,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			enableHttps?: boolean,
 			blueprint?: Blueprint,
 			phpVersion?: string,
-			callback?: ( site: SiteDetails ) => Promise< void >
+			callback?: ( site: SiteDetails ) => Promise< void >,
+			noStart?: boolean
 		) => {
 			// Function to handle error messages and cleanup
 			const showError = ( error?: unknown, hasBlueprint?: boolean ) => {
@@ -294,9 +296,9 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					wpVersion,
 					customDomain,
 					enableHttps,
-					siteId: tempSiteId,
 					phpVersion,
 					blueprint,
+					noStart,
 				} );
 				if ( ! newSite ) {
 					showError( undefined, !! blueprint );
@@ -312,13 +314,12 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					}
 					return prevSelectedSiteId;
 				} );
+				// Replace the temp site with the new site
 				setSites( ( prevData ) =>
-					prevData.map( ( site ) => {
-						if ( site.id === newSite.id ) {
-							return { ...newSite, isAddingSite: true };
-						}
-						return site;
-					} )
+					sortSites( [
+						...prevData.filter( ( site ) => site.id !== tempSiteId ),
+						{ ...newSite, isAddingSite: true },
+					] )
 				);
 
 				setSiteCreationMessages( ( prev ) => {

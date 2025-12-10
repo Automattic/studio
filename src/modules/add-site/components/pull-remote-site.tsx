@@ -5,6 +5,7 @@ import {
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
+import { NoWpcomSitesContent } from 'src/modules/sync/components/no-wpcom-sites-content';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
@@ -13,7 +14,6 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { NoWpcomSitesContent } from 'src/modules/sync/components/no-wpcom-sites-content';
 import { SitesListContent } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
 import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
@@ -60,7 +60,7 @@ function NoWpcomSitesView() {
 	const { __ } = useI18n();
 
 	return (
-		<div className="p-8 pt-16 flex">
+		<div className="p-8 flex">
 			<div className="flex flex-col gap-6">
 				<div className="a8c-subtitle text-pretty">{ __( 'Find a perfect plan' ) }</div>
 				<NoWpcomSitesContent buttonClassName="!text-white !shadow-a8c-blue-50 mt-2" />

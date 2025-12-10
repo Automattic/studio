@@ -1,5 +1,3 @@
-import 'cli/polyfills/browser-globals.js';
-import os from 'node:os';
 import path from 'node:path';
 import { __ } from '@wordpress/i18n';
 import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
@@ -22,7 +20,7 @@ import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/s
 import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
 import { registerCommand as registerSiteStopAllCommand } from 'cli/commands/site/stop-all';
-import { readAppdata } from 'cli/lib/appdata';
+import { commandHandler as wpCliCommandHandler } from 'cli/commands/wp';
 import { loadTranslations } from 'cli/lib/i18n';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
 import { untildify } from 'cli/lib/utils';
@@ -63,34 +61,22 @@ async function main() {
 			}
 		} )
 		.command( 'auth', __( 'Manage authentication' ), ( authYargs ) => {
+			authYargs.version( false );
 			registerAuthLoginCommand( authYargs );
 			registerAuthLogoutCommand( authYargs );
 			registerAuthStatusCommand( authYargs );
 			authYargs.demandCommand( 1, __( 'You must provide a valid auth command' ) );
 		} )
 		.command( 'preview', __( 'Manage preview sites' ), ( previewYargs ) => {
+			previewYargs.version( false );
 			registerCreateCommand( previewYargs );
 			registerListCommand( previewYargs );
 			registerDeleteCommand( previewYargs );
 			registerUpdateCommand( previewYargs );
 			previewYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
-		.demandCommand( 1, __( 'You must provide a valid command' ) )
-		.strict()
-		.showHelpOnFail( false );
-
-	// Check if Studio Sites CLI beta feature is enabled
-	let isSitesCliEnabled = false;
-	try {
-		const appdata = await readAppdata();
-		isSitesCliEnabled = appdata.betaFeatures?.studioSitesCli ?? false;
-	} catch ( error ) {
-		// If we can't read appdata, the feature is not enabled
-		isSitesCliEnabled = false;
-	}
-
-	if ( isSitesCliEnabled ) {
-		studioArgv.command( 'site', __( 'Manage local sites (Beta)' ), ( sitesYargs ) => {
+		.command( 'site', __( 'Manage local sites' ), ( sitesYargs ) => {
+			sitesYargs.version( false );
 			registerSiteStatusCommand( sitesYargs );
 			registerSiteCreateCommand( sitesYargs );
 			registerSiteListCommand( sitesYargs );
@@ -102,8 +88,18 @@ async function main() {
 			registerSiteSetDomainCommand( sitesYargs );
 			registerSiteSetPhpVersionCommand( sitesYargs );
 			sitesYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
-		} );
-	}
+		} )
+		.command( {
+			command: 'wp',
+			describe: __( 'WP-CLI' ),
+			builder: ( wpYargs ) => {
+				return wpYargs.strict( false ).version( false );
+			},
+			handler: wpCliCommandHandler,
+		} )
+		.demandCommand( 1, __( 'You must provide a valid command' ) )
+		.strict()
+		.showHelpOnFail( false );
 
 	await studioArgv.argv;
 }

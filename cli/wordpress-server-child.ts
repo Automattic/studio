@@ -18,6 +18,7 @@ import { getMuPlugins } from 'common/lib/mu-plugins';
 import { formatPlaygroundCliMessage } from 'common/lib/playground-cli-messages';
 import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
 import { z } from 'zod';
+import { getWpCliPharPath } from 'cli/lib/sqlite-integration';
 import {
 	ServerConfig,
 	managerMessageSchema,
@@ -117,6 +118,10 @@ async function getBaseRunCLIArgs(
 		{
 			hostPath: loaderMuPluginHostPath,
 			vfsPath: '/internal/shared/mu-plugins/99-studio-loader.php',
+		},
+		{
+			hostPath: getWpCliPharPath(),
+			vfsPath: '/tmp/wp-cli.phar',
 		},
 	];
 
@@ -225,6 +230,27 @@ async function runBlueprint( config: ServerConfig ): Promise< void > {
 	}
 }
 
+async function runWpCliCommand(
+	args: string[]
+): Promise< { stdout: string; stderr: string; exitCode: number } > {
+	if ( ! server ) {
+		throw new Error( `Failed to run WP CLI command because server is not running` );
+	}
+
+	const response = await server.playground.cli( [
+		'php',
+		'/tmp/wp-cli.phar',
+		`--path=${ await server.playground.documentRoot }`,
+		...args,
+	] );
+
+	return {
+		stdout: await response.stdoutText,
+		stderr: await response.stderrText,
+		exitCode: await response.exitCode,
+	};
+}
+
 function sendErrorMessage( messageId: number, error: unknown ) {
 	const errorResponse: ChildMessageRaw = {
 		originalMessageId: messageId,
@@ -261,6 +287,9 @@ async function ipcMessageHandler( packet: unknown ) {
 			break;
 		case 'stop-server':
 			result = await stopServer();
+			break;
+		case 'wp-cli-command':
+			result = await runWpCliCommand( validMessage.data.args );
 			break;
 		default:
 			throw new Error( `Unknown message.` );

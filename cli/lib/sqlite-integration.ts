@@ -3,6 +3,7 @@ import path from 'path';
 import { SqliteIntegrationProvider } from 'common/lib/sqlite-integration';
 
 const SQLITE_FILENAME = 'sqlite-database-integration';
+const WP_CLI_PHAR_FILENAME = 'wp-cli.phar';
 
 class CliSqliteProvider extends SqliteIntegrationProvider {
 	getServerFilesPath(): string {
@@ -19,7 +20,7 @@ class CliSqliteProvider extends SqliteIntegrationProvider {
 		throw new Error( 'Unsupported platform' );
 	}
 
-	getSqliteFilename(): string {
+	getSqliteDirname(): string {
 		return SQLITE_FILENAME;
 	}
 }
@@ -40,4 +41,8 @@ export async function installSqliteIntegration( sitePath: string ) {
 
 export async function keepSqliteIntegrationUpdated( sitePath: string ) {
 	return provider.keepSqliteIntegrationUpdated( sitePath );
+}
+
+export function getWpCliPharPath(): string {
+	return path.join( provider.getServerFilesPath(), WP_CLI_PHAR_FILENAME );
 }

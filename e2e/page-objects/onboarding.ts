@@ -11,11 +11,7 @@ export default class Onboarding {
 	}
 
 	get heading() {
-		return this.locator.getByTestId( 'onboarding-welcome-title' ).or(
-			this.locator.getByRole( 'heading', {
-				name: /Connect to your WordPress\.com account|Connect your WordPress\.com account/,
-			} )
-		);
+		return this.locator.getByTestId( 'onboarding-welcome-title' );
 	}
 
 	async completeOnboarding( options?: { customSiteName?: string; customFolderName?: string } ) {

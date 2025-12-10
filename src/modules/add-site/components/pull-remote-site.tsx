@@ -13,6 +13,7 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { NoWpcomSitesContent } from 'src/modules/sync/components/no-wpcom-sites-content';
 import { SitesListContent } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
 import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
@@ -47,6 +48,22 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 					) ) }
 				</div>
 				{ children }
+			</div>
+			<div className="flex flex-col shrink-0 items-end">
+				<SyncTabImage />
+			</div>
+		</div>
+	);
+}
+
+function NoWpcomSitesView() {
+	const { __ } = useI18n();
+
+	return (
+		<div className="p-8 flex">
+			<div className="flex flex-col gap-6">
+				<div className="a8c-subtitle text-pretty">{ __( 'Find a perfect plan' ) }</div>
+				<NoWpcomSitesContent buttonClassName="!text-white !shadow-a8c-blue-50 mt-2" />
 			</div>
 			<div className="flex flex-col shrink-0 items-end">
 				<SyncTabImage />
@@ -127,13 +144,20 @@ export function PullRemoteSite( {
 		userId: user?.id,
 	} );
 	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
-	const { data: syncSites = [], isLoading } = useGetWpComSitesQuery(
+	const {
+		data: syncSites = [],
+		isLoading,
+		isSuccess,
+	} = useGetWpComSitesQuery(
 		{
 			connectedSiteIds,
 			userId: user?.id,
 		},
 		{ refetchOnMountOrArgChange: true }
 	);
+
+	const hasSites = syncSites.length > 0;
+	const showNoSitesView = ! hasSites && isSuccess && ! isLoading;
 
 	const handleSiteSelect = ( siteId: number ) => {
 		const site = syncSites.find( ( s ) => s.id === siteId );
@@ -147,12 +171,16 @@ export function PullRemoteSite( {
 			</Heading>
 			{ isAuthenticated ? (
 				<VStack className="flex flex-col w-full max-w-[650px] flex-1 text-a8c-gray-900">
-					<SitesListContent
-						isLoading={ isLoading }
-						syncSites={ syncSites }
-						selectedSiteId={ selectedRemoteSite?.id || null }
-						onSelectSite={ handleSiteSelect }
-					/>
+					{ hasSites && (
+						<SitesListContent
+							isLoading={ isLoading }
+							syncSites={ syncSites }
+							selectedSiteId={ selectedRemoteSite?.id || null }
+							onSelectSite={ handleSiteSelect }
+						/>
+					) }
+
+					{ showNoSitesView && <NoWpcomSitesView /> }
 				</VStack>
 			) : (
 				<NoAuthPullRemoteSiteView />

@@ -196,7 +196,7 @@ export async function pushArchive(
 			onProgress: ( bytesSent, bytesTotal ) => {
 				if ( isUploadingPaused ) {
 					isUploadingPaused = false;
-					void sendIpcEventToRenderer( 'studio-file-upload-resumed', {
+					void sendIpcEventToRenderer( 'sync-upload-resumed', {
 						selectedSiteId: selectedSiteId,
 						remoteSiteId: remoteSiteId,
 					} );
@@ -225,7 +225,7 @@ export async function pushArchive(
 			},
 			onShouldRetry: ( error ) => {
 				isUploadingPaused = true;
-				void sendIpcEventToRenderer( 'studio-file-upload-paused', {
+				void sendIpcEventToRenderer( 'sync-upload-paused', {
 					selectedSiteId: selectedSiteId,
 					remoteSiteId: remoteSiteId,
 					error: error.message,

@@ -381,7 +381,7 @@ export function useSyncPush( {
 	] );
 
 	useIpcListener(
-		'studio-file-upload-paused',
+		'sync-upload-paused',
 		( _event, payload: { selectedSiteId: string; remoteSiteId: number; error: string } ) => {
 			updatePushState( payload.selectedSiteId, payload.remoteSiteId, {
 				status: pushStatesProgressInfo.uploadingPaused,
@@ -390,7 +390,7 @@ export function useSyncPush( {
 	);
 
 	useIpcListener(
-		'studio-file-upload-resumed',
+		'sync-upload-resumed',
 		( _event, payload: { selectedSiteId: string; remoteSiteId: number } ) => {
 			updatePushState( payload.selectedSiteId, payload.remoteSiteId, {
 				status: pushStatesProgressInfo.uploading,

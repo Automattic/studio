@@ -8,6 +8,7 @@ import Button from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
+import { useSiteDetails } from 'src/hooks/use-site-details';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { SyncSite } from 'src/modules/sync/types';
@@ -327,6 +328,8 @@ export function AddSiteModalContent( {
 		error: blueprintsError,
 	} = useGetBlueprints();
 
+	const { sites, loadingSites } = useSiteDetails();
+
 	const {
 		handleAddSiteClick,
 		siteName,
@@ -334,8 +337,6 @@ export function AddSiteModalContent( {
 		setWpVersion,
 		setProposedSitePath,
 		setDoesPathContainWordPress,
-		loadingSites,
-		sites,
 		loadAllCustomDomains,
 		selectedBlueprint,
 		setSelectedBlueprint,

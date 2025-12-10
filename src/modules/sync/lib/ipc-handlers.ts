@@ -161,6 +161,7 @@ export async function pushArchive(
 		throw new Error( 'No token found' );
 	}
 
+	let hasUploadStarted = false;
 	let isUploadingPaused = false;
 	const file = fs.createReadStream( archivePath );
 	const fileSize = fs.statSync( archivePath ).size;
@@ -203,6 +204,10 @@ export async function pushArchive(
 					console.log( '[TUS] Upload resumed' );
 				}
 
+				if ( ! hasUploadStarted ) {
+					hasUploadStarted = true;
+				}
+
 				if ( bytesTotal > 0 ) {
 					const progress = ( bytesSent / bytesTotal ) * 100;
 					console.log( '[TUS] Upload progress: %s%%', progress.toFixed( 2 ) );
@@ -224,12 +229,16 @@ export async function pushArchive(
 				}
 			},
 			onShouldRetry: ( error ) => {
-				isUploadingPaused = true;
-				void sendIpcEventToRenderer( 'sync-upload-paused', {
-					selectedSiteId: selectedSiteId,
-					remoteSiteId: remoteSiteId,
-					error: error.message,
-				} );
+				// Update the UI only if the upload has started and is paused for any reason.
+				if ( hasUploadStarted ) {
+					isUploadingPaused = true;
+					void sendIpcEventToRenderer( 'sync-upload-paused', {
+						selectedSiteId: selectedSiteId,
+						remoteSiteId: remoteSiteId,
+						error: error.message,
+					} );
+				}
+
 				console.error( 'Upload request error', error.message );
 				return true;
 			},

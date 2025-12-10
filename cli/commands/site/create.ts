@@ -263,6 +263,42 @@ function readBlueprint( blueprintPath: string ) {
 	}
 }
 
+export async function coerceBlueprint( value: string ) {
+	let blueprintJson: unknown;
+
+	if ( value ) {
+		if ( /^https?:\/\//.test( value ) ) {
+			blueprintJson = await fetchBlueprint( value );
+		} else {
+			blueprintJson = readBlueprint( value );
+		}
+	}
+
+	return blueprintJson;
+}
+
+export function coerceWpVersion( value: string ) {
+	if ( ! isValidWordPressVersion( value ) ) {
+		throw new ValidationError(
+			'wp',
+			value,
+			__(
+				'Must be: "latest", "nightly", or a valid version number (e.g., "6.4", "6.4.1", "6.4-beta1")'
+			)
+		);
+	}
+
+	if ( ! isWordPressVersionAtLeast( value, MINIMUM_WORDPRESS_VERSION ) ) {
+		throw new ValidationError(
+			'wp',
+			value,
+			sprintf( __( 'Must be: at least %s' ), MINIMUM_WORDPRESS_VERSION )
+		);
+	}
+
+	return value;
+}
+
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'create',
@@ -277,27 +313,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					describe: __( 'WordPress version (e.g., "latest", "6.4", "6.4.1")' ),
 					default: DEFAULT_VERSIONS.wp,
-					coerce: ( value: string ) => {
-						if ( ! isValidWordPressVersion( value ) ) {
-							throw new ValidationError(
-								'wp',
-								value,
-								__(
-									'Must be: "latest", "nightly", or a valid version number (e.g., "6.4", "6.4.1", "6.4-beta1")'
-								)
-							);
-						}
-
-						if ( ! isWordPressVersionAtLeast( value, MINIMUM_WORDPRESS_VERSION ) ) {
-							throw new ValidationError(
-								'wp',
-								value,
-								sprintf( __( 'Must be: at least %s' ), MINIMUM_WORDPRESS_VERSION )
-							);
-						}
-
-						return value;
-					},
+					coerce: coerceWpVersion,
 				} )
 				.option( 'php', {
 					type: 'string',
@@ -317,19 +333,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'blueprint', {
 					type: 'string',
 					describe: __( 'Path or URL to blueprint JSON file' ),
-					coerce: async ( value: string ) => {
-						let blueprintJson: unknown;
-
-						if ( value ) {
-							if ( /^https?:\/\//.test( value ) ) {
-								blueprintJson = await fetchBlueprint( value );
-							} else {
-								blueprintJson = readBlueprint( value );
-							}
-						}
-
-						return blueprintJson;
-					},
+					coerce: coerceBlueprint,
 				} )
 				.option( 'start', {
 					type: 'boolean',

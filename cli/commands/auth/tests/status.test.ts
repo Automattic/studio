@@ -51,7 +51,7 @@ describe( 'Auth Status Command', () => {
 		expect( getAuthToken ).toHaveBeenCalled();
 		expect( getUserInfo ).toHaveBeenCalledWith( mockToken.accessToken );
 		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith(
-			expect.stringContaining( 'Successfully authenticated with WordPress.com as `testuser`' )
+			expect.stringContaining( 'Authenticated with WordPress.com as `testuser`' )
 		);
 	} );
 

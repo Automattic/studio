@@ -4,7 +4,7 @@ import {
 } from '@wordpress/components';
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useState } from 'react';
+import { PropsWithChildren } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
@@ -13,7 +13,7 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { ListSites, SearchSites } from 'src/modules/sync/components/sync-sites-modal-selector';
+import { SitesListContent } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
 import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
@@ -127,23 +127,13 @@ export function PullRemoteSite( {
 		userId: user?.id,
 	} );
 	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
-	const { data: syncSites = [] } = useGetWpComSitesQuery(
+	const { data: syncSites = [], isLoading } = useGetWpComSitesQuery(
 		{
 			connectedSiteIds,
 			userId: user?.id,
 		},
 		{ refetchOnMountOrArgChange: true }
 	);
-
-	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
-
-	const filteredSites = syncSites.filter( ( site ) => {
-		const searchQueryLower = searchQuery.toLowerCase();
-		return (
-			site.name?.toLowerCase().includes( searchQueryLower ) ||
-			site.url?.toLowerCase().includes( searchQueryLower )
-		);
-	} );
 
 	const handleSiteSelect = ( siteId: number ) => {
 		const site = syncSites.find( ( s ) => s.id === siteId );
@@ -156,15 +146,13 @@ export function PullRemoteSite( {
 				{ __( 'Pull an existing site' ) }
 			</Heading>
 			{ isAuthenticated ? (
-				<VStack className="flex flex-col w-full max-w-[650px] flex-1">
-					<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
-					<div className="h-full">
-						<ListSites
-							syncSites={ filteredSites }
-							selectedSiteId={ selectedRemoteSite?.id || null }
-							onSelectSite={ handleSiteSelect }
-						/>
-					</div>
+				<VStack className="flex flex-col w-full max-w-[650px] flex-1 text-a8c-gray-900">
+					<SitesListContent
+						isLoading={ isLoading }
+						syncSites={ syncSites }
+						selectedSiteId={ selectedRemoteSite?.id || null }
+						onSelectSite={ handleSiteSelect }
+					/>
 				</VStack>
 			) : (
 				<NoAuthPullRemoteSiteView />

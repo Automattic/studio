@@ -40,12 +40,24 @@ export function canCancelPush( key: PushStateProgressInfo[ 'key' ] | undefined )
 	return cancellableStateKeys.includes( key );
 }
 
-export function hasCancelableSyncOperations(): boolean {
+/**
+ * Check if a push operation has finished uploading the backup file.
+ */
+export function pushBackupIsUploading( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean {
+	const uploadingStateKeys: PushStateProgressInfo[ 'key' ][] = [ 'creatingBackup', 'uploading' ];
+	if ( ! key ) {
+		return false;
+	}
+	return uploadingStateKeys.includes( key );
+}
+
+export function hasUploadingPushOperations(): boolean {
 	//  Iterate over all the sites and check if any operation is cancelable
+	let result = false;
 	for ( const [ , state ] of ACTIVE_SYNC_OPERATIONS ) {
 		if ( state && 'key' in state ) {
-			return canCancelPush( state.key as PushStateProgressInfo[ 'key' ] );
+			result = result || pushBackupIsUploading( state.key as PushStateProgressInfo[ 'key' ] );
 		}
 	}
-	return true;
+	return result;
 }

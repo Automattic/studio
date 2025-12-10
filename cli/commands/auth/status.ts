@@ -21,7 +21,7 @@ export async function runCommand(): Promise< void > {
 	try {
 		const userData = await getUserInfo( token.accessToken );
 		logger.reportSuccess(
-			sprintf( __( 'Successfully authenticated with WordPress.com as `%s`' ), userData.username )
+			sprintf( __( 'Authenticated with WordPress.com as `%s`' ), userData.username )
 		);
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {

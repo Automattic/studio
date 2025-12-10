@@ -4,24 +4,17 @@ import * as Sentry from '@sentry/electron/main';
 import { BlueprintV1Declaration } from '@wp-playground/blueprints';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
-import { filterUnsupportedBlueprintFeatures } from 'common/lib/blueprint-validation';
-import { decodePassword } from 'common/lib/passwords';
 import { portFinder } from 'common/lib/port-finder';
 import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
 import { getSiteUrl } from 'src/lib/get-site-url';
-import { addDomainToHosts, removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
-import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
-import { startProxyServer } from 'src/lib/proxy-server';
+import { removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
 import { updateSiteUrl } from 'src/lib/update-site-url';
-import {
-	setupWordPressSite,
-	startServer,
-	createServerProcess,
-	getWordPressProvider,
-} from 'src/lib/wordpress-provider';
+import { setupWordPressSite, getWordPressProvider } from 'src/lib/wordpress-provider';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
+import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
+import { loadUserData } from 'src/storage/user-data';
 import type { WordPressServerProcess } from 'src/lib/wordpress-provider/types';
 
 const servers = new Map< string, SiteServer >();
@@ -58,6 +51,12 @@ type SiteServerMeta = {
 export class SiteServer {
 	server?: WordPressServerProcess;
 	wpCliExecutor?: WpCliProcess;
+	/**
+	 * Indicates whether a Studio-managed operation (start/stop) is in progress.
+	 * When true, file watchers should ignore site events to prevent interference
+	 * with the ongoing operation.
+	 */
+	hasOngoingOperation = false;
 
 	private constructor(
 		public details: SiteDetails,
@@ -109,42 +108,9 @@ export class SiteServer {
 	}
 
 	async start() {
-		if ( this.details.running || this.server ) {
+		if ( this.details.running || this.server || this.hasOngoingOperation ) {
 			return;
 		}
-
-		// Handle custom domain if necessary
-		if ( this.details.customDomain ) {
-			await addDomainToHosts( this.details.customDomain, this.details.port );
-			// Generate certificates for HTTPS sites *before* the server starts
-			// This ensures the certs are ready when the proxy server needs them
-			if ( this.details.enableHttps ) {
-				console.log(
-					`Generating certificates for ${ this.details.customDomain } during server start`
-				);
-
-				const { cert, key } = await generateSiteCertificate( this.details.customDomain );
-				this.details = {
-					...this.details,
-					tlsKey: key,
-					tlsCert: cert,
-				};
-			}
-			await startProxyServer();
-		}
-
-		const filteredBlueprint = filterUnsupportedBlueprintFeatures( this.meta.blueprint );
-		const serverInstance = await startServer( {
-			path: this.details.path,
-			port: this.details.port,
-			adminPassword: decodePassword( this.details.adminPassword ?? '' ),
-			siteTitle: this.details.name,
-			phpVersion: this.details.phpVersion,
-			wpVersion: this.meta.wpVersion,
-			isWpAutoUpdating: this.details.isWpAutoUpdating,
-			absoluteUrl: getAbsoluteUrl( this.details ),
-			blueprint: filteredBlueprint,
-		} );
 
 		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
 		if ( ! isPortAvailable ) {
@@ -153,29 +119,25 @@ export class SiteServer {
 			);
 		}
 
-		console.log( `Starting server for '${ this.details.name }'` );
-		this.server = createServerProcess( serverInstance );
-		await this.server.start( this.details.id );
+		this.hasOngoingOperation = true;
+		try {
+			console.log( `Starting server for '${ this.details.name }'` );
+			const url = getAbsoluteUrl( this.details );
+			this.server = new CliServerProcess( this.details.id, this.details.path, url );
+			await this.server.start();
 
-		if ( serverInstance.options.port === undefined ) {
-			throw new Error( 'Server started with no port' );
-		}
+			const userData = await loadUserData();
+			const freshSiteData = userData.sites.find( ( s ) => s.id === this.details.id );
 
-		const themeDetails = await phpGetThemeDetails( this.server );
-
-		this.details = {
-			...this.details,
-			url: this.server.url,
-			port: serverInstance.options.port,
-			phpVersion: serverInstance.options.phpVersion ?? getWordPressProvider().DEFAULT_PHP_VERSION,
-			isWpAutoUpdating: this.details.isWpAutoUpdating,
-			running: true,
-			autoStart: true,
-			themeDetails,
-		};
-
-		if ( this.meta.blueprint ) {
-			this.meta.blueprint = undefined;
+			this.details = {
+				...this.details,
+				url,
+				running: true,
+				autoStart: true,
+				latestCliPid: freshSiteData?.latestCliPid,
+			};
+		} finally {
+			this.hasOngoingOperation = false;
 		}
 	}
 
@@ -232,18 +194,22 @@ export class SiteServer {
 	async stop() {
 		console.log( 'Stopping server with ID', this.details.id );
 		try {
+			this.hasOngoingOperation = true;
 			await this.server?.stop();
+			this.server = undefined;
+
+			if ( ! this.details.running ) {
+				console.log( 'Server is not running' );
+				return;
+			}
+
+			const { running, autoStart, url, ...rest } = this.details;
+			this.details = { running: false, autoStart: false, ...rest };
 		} catch ( error ) {
 			console.error( error );
+		} finally {
+			this.hasOngoingOperation = false;
 		}
-		this.server = undefined;
-
-		if ( ! this.details.running ) {
-			return;
-		}
-
-		const { running, autoStart, url, ...rest } = this.details;
-		this.details = { running: false, autoStart: false, ...rest };
 	}
 
 	async updateCachedThumbnail() {

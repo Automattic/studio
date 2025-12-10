@@ -19,10 +19,12 @@ import { registerCommand as registerSiteSetPhpVersionCommand } from 'cli/command
 import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
 import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
+import { registerCommand as registerSiteStopAllCommand } from 'cli/commands/site/stop-all';
 import { commandHandler as wpCliCommandHandler } from 'cli/commands/wp';
 import { readAppdata } from 'cli/lib/appdata';
 import { loadTranslations } from 'cli/lib/i18n';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
+import { untildify } from 'cli/lib/utils';
 import { version } from 'cli/package.json';
 import { StudioArgv } from 'cli/types';
 
@@ -42,10 +44,13 @@ async function main() {
 		} )
 		.option( 'path', {
 			type: 'string',
+			normalize: true,
 			default: process.cwd(),
 			defaultDescription: __( 'Current directory' ),
 			description: __( 'Path to the WordPress files' ),
-			coerce: ( value ) => path.resolve( process.cwd(), value ),
+			coerce: ( value ) => {
+				return path.resolve( untildify( value ) );
+			},
 		} )
 		.middleware( async ( argv ) => {
 			if ( ! argv.avoidTelemetry ) {
@@ -97,6 +102,7 @@ async function main() {
 			registerSiteListCommand( sitesYargs );
 			registerSiteStartCommand( sitesYargs );
 			registerSiteStopCommand( sitesYargs );
+			registerSiteStopAllCommand( sitesYargs );
 			registerSiteDeleteCommand( sitesYargs );
 			registerSiteSetHttpsCommand( sitesYargs );
 			registerSiteSetDomainCommand( sitesYargs );

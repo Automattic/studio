@@ -37,7 +37,7 @@ describe( 'onboarding-slice', () => {
 		it( 'should have correct initial state', () => {
 			const state = store.getState();
 			expect( selectOnboardingCompleted( state ) ).toBe( false );
-			expect( selectOnboardingLoading( state ) ).toBe( false );
+			expect( selectOnboardingLoading( state ) ).toBe( true );
 		} );
 	} );
 
@@ -174,9 +174,9 @@ describe( 'onboarding-slice', () => {
 		} );
 
 		it( 'should select onboarding loading state correctly', () => {
-			// Initial state should be false
+			// Initial state should be true
 			let state = store.getState();
-			expect( selectOnboardingLoading( state ) ).toBe( false );
+			expect( selectOnboardingLoading( state ) ).toBe( true );
 
 			// Mock the API to trigger loading state
 			mockIpcApi.getOnboardingData.mockResolvedValue( true );

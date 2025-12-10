@@ -29,7 +29,10 @@ import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getMainWindow } from 'src/main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
-export async function setupMenu( config: { needsOnboarding: boolean } ) {
+export async function setupMenu( config: {
+	needsOnboarding: boolean;
+	isAddSiteVisible?: boolean;
+} ) {
 	const mainWindow = await getMainWindow();
 	if ( ! mainWindow && process.platform !== 'darwin' ) {
 		Menu.setApplicationMenu( null );
@@ -83,7 +86,10 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 
 async function getAppMenu(
 	mainWindow: BrowserWindow | null,
-	{ needsOnboarding = false }: { needsOnboarding?: boolean } = {}
+	{
+		needsOnboarding = false,
+		isAddSiteVisible = false,
+	}: { needsOnboarding?: boolean; isAddSiteVisible?: boolean } = {}
 ) {
 	const crashTestMenuItems: MenuItemConstructorOptions[] = [
 		{
@@ -182,7 +188,7 @@ async function getAppMenu(
 					click: async () => {
 						void sendIpcEventToRenderer( 'add-site' );
 					},
-					enabled: ! needsOnboarding,
+					enabled: ! needsOnboarding && ! isAddSiteVisible,
 				},
 				...( process.platform === 'win32'
 					? []

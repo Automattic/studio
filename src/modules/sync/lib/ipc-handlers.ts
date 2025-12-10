@@ -182,7 +182,7 @@ export async function pushArchive(
 				filetype: 'application/gzip',
 			},
 			uploadSize: fileSize,
-			onBeforeRequest: ( req: HttpRequest ) => {
+			onBeforeRequest: ( req ) => {
 				if ( req.getMethod() === 'HEAD' ) {
 					// @ts-expect-error We need to override the method to get the response headers.
 					req._method = 'GET';
@@ -208,7 +208,7 @@ export async function pushArchive(
 					console.log( '[TUS] Upload progress: %s%%', progress.toFixed( 2 ) );
 				}
 			},
-			onSuccess: ( payload: { lastResponse: HttpResponse } ) => {
+			onSuccess: ( payload ) => {
 				if ( ! payload.lastResponse ) {
 					console.error( 'Upload completed but no response received' );
 					reject( new Error( 'Upload completed but no response received' ) );
@@ -223,7 +223,7 @@ export async function pushArchive(
 					reject( new Error( 'Upload completed but required header not found' ) );
 				}
 			},
-			onShouldRetry: ( error: Error ) => {
+			onShouldRetry: ( error ) => {
 				isUploadingPaused = true;
 				void sendIpcEventToRenderer( 'studio-file-upload-paused', {
 					selectedSiteId: selectedSiteId,

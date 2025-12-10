@@ -81,6 +81,24 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 		navigateToBlueprintDeeplink: () => setIsDeeplinkFlow( true ),
 	} );
 
+	const resetForm = useCallback( () => {
+		setSitePath( '' );
+		setError( '' );
+		setDoesPathContainWordPress( false );
+		setWpVersion( defaultWordPressVersion );
+		setPhpVersion( defaultPhpVersion );
+		setUseCustomDomain( false );
+		setCustomDomain( null );
+		setCustomDomainError( '' );
+		setEnableHttps( false );
+		setFileForImport( null );
+		setSelectedBlueprint( undefined );
+		setBlueprintPreferredVersions( undefined );
+		setBlueprintDeeplinkWarnings( undefined );
+		setSelectedRemoteSite( undefined );
+		clearDeeplinkState();
+	}, [ clearDeeplinkState, defaultPhpVersion, defaultWordPressVersion ] );
+
 	const loadAllCustomDomains = useCallback( () => {
 		getIpcApi()
 			.getAllCustomDomains()
@@ -256,6 +274,7 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 
 	return useMemo( () => {
 		return {
+			resetForm,
 			handleAddSiteClick,
 			handlePathSelectorClick,
 			handleSiteNameChange,
@@ -300,6 +319,7 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 			clearDeeplinkState,
 		};
 	}, [
+		resetForm,
 		doesPathContainWordPress,
 		error,
 		handleAddSiteClick,

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { z } from 'zod';
+import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { executeCliCommand } from './execute-command';
 import type { Blueprint } from '@wp-playground/blueprints';
 
@@ -9,6 +10,11 @@ const keyValuePairSchema = z.object( {
 	action: z.literal( 'keyValuePair' ),
 	key: z.enum( [ 'id', 'running' ] ),
 	value: z.string(),
+} );
+
+const progressMessageSchema = z.object( {
+	status: z.literal( 'inprogress' ),
+	message: z.string(),
 } );
 
 const errorMessageSchema = z.object( {
@@ -35,6 +41,7 @@ export interface CreateSiteOptions {
 
 export async function createSiteViaCli( options: CreateSiteOptions ): Promise< CreateSiteResult > {
 	const args = buildCliArgs( options );
+	const siteId = options.siteId;
 
 	let blueprintTempPath: string | undefined;
 	if ( options.blueprint ) {
@@ -58,6 +65,15 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 				} else if ( key === 'running' ) {
 					result.running = value === 'true';
 				}
+				return;
+			}
+
+			const progressParsed = progressMessageSchema.safeParse( data );
+			if ( progressParsed.success && siteId ) {
+				void sendIpcEventToRenderer( 'on-site-create-progress', {
+					siteId,
+					message: progressParsed.data.message,
+				} );
 				return;
 			}
 

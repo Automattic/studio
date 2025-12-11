@@ -3,14 +3,22 @@ import fs from 'fs';
 import path from 'path';
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import { __, sprintf } from '@wordpress/i18n';
-import { Blueprint } from '@wp-playground/blueprints';
+import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
 import { RecommendedPHPVersion } from '@wp-playground/common';
 import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
 } from 'common/lib/blueprint-validation';
 import { getDomainNameValidationError } from 'common/lib/domains';
-import { arePathsEqual, isEmptyDir, isWordPressDirectory, pathExists } from 'common/lib/fs-utils';
+import {
+	arePathsEqual,
+	isEmptyDir,
+	isWordPressDirectory,
+	pathExists,
+	recursiveCopyDirectory,
+} from 'common/lib/fs-utils';
+import { DEFAULT_LOCALE } from 'common/lib/locale';
+import { isOnline } from 'common/lib/network-utils';
 import { createPassword } from 'common/lib/passwords';
 import { portFinder } from 'common/lib/port-finder';
 import { sortSites } from 'common/lib/sort-sites';
@@ -29,6 +37,8 @@ import {
 	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { getServerFilesPath } from 'cli/lib/server-files';
+import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { installSqliteIntegration, isSqliteIntegrationAvailable } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
@@ -124,6 +134,32 @@ export async function runCommand(
 			logger.reportSuccess( __( 'Site directory created' ) );
 		}
 
+		const isOnlineStatus = await isOnline();
+
+		if ( ! isOnlineStatus ) {
+			if ( options.wpVersion !== 'latest' ) {
+				throw new LoggerError(
+					__(
+						'Cannot set up WordPress while offline. Specific WordPress versions require an internet connection. Try using "latest" version or ensure internet connectivity.'
+					)
+				);
+			}
+
+			const bundledWPPath = path.join( getServerFilesPath(), 'wordpress-versions', 'latest' );
+
+			if ( ! ( await pathExists( bundledWPPath ) ) ) {
+				throw new LoggerError(
+					__(
+						'Cannot set up WordPress while offline. Bundled WordPress files not found. Please connect to the internet or reinstall Studio.'
+					)
+				);
+			}
+
+			logger.reportStart( LoggerAction.SETUP_WORDPRESS, __( 'Copying bundled WordPress...' ) );
+			await recursiveCopyDirectory( bundledWPPath, sitePath );
+			logger.reportSuccess( __( 'WordPress files copied' ) );
+		}
+
 		if ( ! ( await isSqliteIntegrationAvailable() ) ) {
 			throw new LoggerError(
 				__(
@@ -143,20 +179,43 @@ export async function runCommand(
 		const siteId = crypto.randomUUID();
 		const adminPassword = createPassword();
 
+		const setupSteps: StepDefinition[] = [];
+		const hasUserBlueprint = !! options.blueprintJson;
+
+		if ( isOnlineStatus ) {
+			const siteLanguage = await getPreferredSiteLanguage( options.wpVersion );
+
+			if ( siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
+				setupSteps.push(
+					{
+						step: 'setSiteLanguage',
+						language: siteLanguage,
+					},
+					{
+						step: 'setSiteOptions',
+						options: {
+							WPLANG: siteLanguage,
+						},
+					}
+				);
+			}
+		}
+
 		if ( options.name ) {
+			setupSteps.push( {
+				step: 'setSiteOptions',
+				options: {
+					blogname: options.name,
+				},
+			} );
+		}
+
+		if ( setupSteps.length > 0 ) {
 			if ( ! blueprint ) {
 				blueprint = {};
 			}
 			const existingSteps = blueprint.steps || [];
-			blueprint.steps = [
-				{
-					step: 'setSiteOptions',
-					options: {
-						blogname: options.name,
-					},
-				},
-				...existingSteps,
-			];
+			blueprint.steps = [ ...setupSteps, ...existingSteps ];
 		}
 
 		const siteDetails: SiteData = {
@@ -226,7 +285,7 @@ export async function runCommand(
 				throw new LoggerError( __( 'Failed to start WordPress server' ), error );
 			}
 		} else {
-			if ( blueprint ) {
+			if ( hasUserBlueprint ) {
 				logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
 				await connect();
 				logger.reportSuccess( __( 'Process daemon started' ) );

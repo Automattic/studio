@@ -19,7 +19,7 @@ import { getMuPlugins } from 'common/lib/mu-plugins';
 import { formatPlaygroundCliMessage } from 'common/lib/playground-cli-messages';
 import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
 import { z } from 'zod';
-import { getWpCliPharPath } from 'cli/lib/sqlite-integration';
+import { getWpCliPharPath } from 'cli/lib/server-files';
 import {
 	ServerConfig,
 	managerMessageSchema,

@@ -4,6 +4,7 @@ import {
 	validateBlueprintData,
 } from 'common/lib/blueprint-validation';
 import { isEmptyDir, isWordPressDirectory, pathExists, arePathsEqual } from 'common/lib/fs-utils';
+import { isOnline } from 'common/lib/network-utils';
 import { portFinder } from 'common/lib/port-finder';
 import {
 	lockAppdata,
@@ -11,16 +12,17 @@ import {
 	removeSiteFromAppdata,
 	saveAppdata,
 	unlockAppdata,
-	updateSiteLatestCliPid,
 	SiteData,
 } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { isSqliteIntegrationAvailable, installSqliteIntegration } from 'cli/lib/sqlite-integration';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 
 jest.mock( 'common/lib/fs-utils' );
+jest.mock( 'common/lib/network-utils' );
 jest.mock( 'common/lib/port-finder', () => ( {
 	portFinder: {
 		addUnavailablePort: jest.fn(),
@@ -43,6 +45,10 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	getSiteUrl: jest.fn( ( site ) => `http://localhost:${ site.port }` ),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
+jest.mock( 'cli/lib/server-files', () => ( {
+	getServerFilesPath: jest.fn().mockReturnValue( '/test/server-files' ),
+} ) );
+jest.mock( 'cli/lib/site-language' );
 jest.mock( 'cli/lib/site-utils' );
 jest.mock( 'cli/lib/sqlite-integration' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
@@ -115,6 +121,8 @@ describe( 'CLI: studio site create', () => {
 		( filterUnsupportedBlueprintFeatures as jest.Mock ).mockImplementation(
 			( blueprint ) => blueprint
 		);
+		( isOnline as jest.Mock ).mockResolvedValue( true );
+		( getPreferredSiteLanguage as jest.Mock ).mockResolvedValue( 'en' );
 	} );
 
 	afterEach( () => {
@@ -497,6 +505,23 @@ describe( 'CLI: studio site create', () => {
 			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Run "studio site start" to start the site.' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
+
+		it( 'should not run blueprint when noStart is true with preferred language but no user blueprint', async () => {
+			( getPreferredSiteLanguage as jest.Mock ).mockResolvedValue( 'es_ES' );
+
+			const { runCommand } = await import( '../create' );
+
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				noStart: true,
+			} );
+
+			expect( connect ).not.toHaveBeenCalled();
+			expect( runBlueprint ).not.toHaveBeenCalled();
+			expect( startWordPressServer ).not.toHaveBeenCalled();
+			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Site created successfully!' );
+			expect( disconnect ).toHaveBeenCalled();
+		} );
 	} );
 
 	describe( 'Error Handling', () => {
@@ -603,9 +628,7 @@ describe( 'CLI: studio site create', () => {
 			( isWordPressDirectory as jest.Mock ).mockReturnValue( false );
 			( startWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server start failed' ) );
 
-			const fsRmSpy = jest
-				.spyOn( require( 'fs' ).promises, 'rm' )
-				.mockResolvedValue( undefined );
+			const fsRmSpy = jest.spyOn( require( 'fs' ).promises, 'rm' ).mockResolvedValue( undefined );
 
 			const { runCommand } = await import( '../create' );
 
@@ -620,9 +643,7 @@ describe( 'CLI: studio site create', () => {
 			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
 			( startWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server start failed' ) );
 
-			const fsRmSpy = jest
-				.spyOn( require( 'fs' ).promises, 'rm' )
-				.mockResolvedValue( undefined );
+			const fsRmSpy = jest.spyOn( require( 'fs' ).promises, 'rm' ).mockResolvedValue( undefined );
 
 			const { runCommand } = await import( '../create' );
 
@@ -637,9 +658,7 @@ describe( 'CLI: studio site create', () => {
 			const testBlueprint = { steps: [] };
 			( runBlueprint as jest.Mock ).mockRejectedValue( new Error( 'Blueprint failed' ) );
 
-			const fsRmSpy = jest
-				.spyOn( require( 'fs' ).promises, 'rm' )
-				.mockResolvedValue( undefined );
+			const fsRmSpy = jest.spyOn( require( 'fs' ).promises, 'rm' ).mockResolvedValue( undefined );
 
 			const { runCommand } = await import( '../create' );
 
@@ -661,9 +680,7 @@ describe( 'CLI: studio site create', () => {
 			const testBlueprint = { steps: [] };
 			( runBlueprint as jest.Mock ).mockRejectedValue( new Error( 'Blueprint failed' ) );
 
-			const fsRmSpy = jest
-				.spyOn( require( 'fs' ).promises, 'rm' )
-				.mockResolvedValue( undefined );
+			const fsRmSpy = jest.spyOn( require( 'fs' ).promises, 'rm' ).mockResolvedValue( undefined );
 
 			const { runCommand } = await import( '../create' );
 

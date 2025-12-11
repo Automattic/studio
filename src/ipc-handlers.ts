@@ -18,8 +18,8 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { validateBlueprintData } from 'common/lib/blueprint-validation';
-import { parseCliError, errorMessageContains } from 'common/lib/cli-error';
 import { bumpStat } from 'common/lib/bump-stat';
+import { parseCliError, errorMessageContains } from 'common/lib/cli-error';
 import {
 	calculateDirectorySize,
 	isWordPressDirectory,

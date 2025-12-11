@@ -230,6 +230,7 @@ export async function pushArchive(
 						remoteSiteId: remoteSiteId,
 						error: error.message,
 					} );
+					console.error( '[TUS] Upload paused: ', error.message );
 				}
 				return true;
 			},

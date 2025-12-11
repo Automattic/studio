@@ -123,36 +123,6 @@ describe( 'CLI: studio site create', () => {
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
-		it( 'should error if WordPress version is invalid', async () => {
-			const { runCommand } = await import( '../create' );
-
-			await expect(
-				runCommand( mockSitePath, {
-					wpVersion: 'invalid-version',
-					phpVersion: '8.0',
-					enableHttps: false,
-					noStart: false,
-				} )
-			).rejects.toThrow( 'Invalid WordPress version' );
-
-			expect( disconnect ).toHaveBeenCalled();
-		} );
-
-		it( 'should error if WordPress version is below minimum', async () => {
-			const { runCommand } = await import( '../create' );
-
-			await expect(
-				runCommand( mockSitePath, {
-					wpVersion: '6.0',
-					phpVersion: '8.0',
-					enableHttps: false,
-					noStart: false,
-				} )
-			).rejects.toThrow( 'WordPress version must be at least' );
-
-			expect( disconnect ).toHaveBeenCalled();
-		} );
-
 		it( 'should error if site path is already in use', async () => {
 			( readAppdata as jest.Mock ).mockResolvedValue( {
 				sites: [ mockExistingSite ],

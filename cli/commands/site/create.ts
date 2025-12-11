@@ -24,6 +24,7 @@ import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { installSqliteIntegration, isSqliteIntegrationAvailable } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
+import { ValidationError } from 'cli/lib/validation-error';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -59,19 +60,6 @@ export async function runCommand(
 		if ( pathExistsResult && ! isEmptyDirResult && ! isWordPressDirResult ) {
 			throw new LoggerError(
 				__( 'The selected directory is not empty nor an existing WordPress site.' )
-			);
-		}
-
-		if ( ! isValidWordPressVersion( options.wpVersion ) ) {
-			throw new LoggerError(
-				__(
-					'Invalid WordPress version. Must be "latest", "nightly", or a valid version number (e.g., "6.4", "6.4.1", "6.4-beta1").'
-				)
-			);
-		}
-		if ( ! isWordPressVersionAtLeast( options.wpVersion, MINIMUM_WORDPRESS_VERSION ) ) {
-			throw new LoggerError(
-				__( `WordPress version must be at least ${ MINIMUM_WORDPRESS_VERSION }.` )
 			);
 		}
 
@@ -275,6 +263,36 @@ function readBlueprint( blueprintPath: string ) {
 	}
 }
 
+async function coerceBlueprint( value: string ) {
+	if ( /^https?:\/\//.test( value ) ) {
+		return await fetchBlueprint( value );
+	} else {
+		return readBlueprint( value );
+	}
+}
+
+function coerceWpVersion( value: string ) {
+	if ( ! isValidWordPressVersion( value ) ) {
+		throw new ValidationError(
+			'wp',
+			value,
+			__(
+				'Must be: "latest", "nightly", or a valid version number (e.g., "6.4", "6.4.1", "6.4-beta1")'
+			)
+		);
+	}
+
+	if ( ! isWordPressVersionAtLeast( value, MINIMUM_WORDPRESS_VERSION ) ) {
+		throw new ValidationError(
+			'wp',
+			value,
+			sprintf( __( 'Must be: at least %s' ), MINIMUM_WORDPRESS_VERSION )
+		);
+	}
+
+	return value;
+}
+
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'create',
@@ -289,6 +307,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					describe: __( 'WordPress version (e.g., "latest", "6.4", "6.4.1")' ),
 					default: DEFAULT_VERSIONS.wp,
+					coerce: coerceWpVersion,
 				} )
 				.option( 'php', {
 					type: 'string',
@@ -308,6 +327,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'blueprint', {
 					type: 'string',
 					describe: __( 'Path or URL to blueprint JSON file' ),
+					coerce: coerceBlueprint,
 				} )
 				.option( 'start', {
 					type: 'boolean',
@@ -317,23 +337,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		},
 		handler: async ( argv ) => {
 			try {
-				let blueprintJson: unknown;
-
-				if ( argv.blueprint ) {
-					if ( /^https?:\/\//.test( argv.blueprint ) ) {
-						blueprintJson = await fetchBlueprint( argv.blueprint );
-					} else {
-						blueprintJson = readBlueprint( argv.blueprint );
-					}
-				}
-
 				await runCommand( argv.path, {
 					name: argv.name,
 					wpVersion: argv.wp,
 					phpVersion: argv.php,
 					customDomain: argv.domain,
 					enableHttps: !! argv.https,
-					blueprintJson: blueprintJson,
+					blueprintJson: argv.blueprint,
 					noStart: ! argv.start,
 				} );
 			} catch ( error ) {

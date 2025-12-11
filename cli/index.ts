@@ -98,7 +98,8 @@ async function main() {
 			handler: wpCliCommandHandler,
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
-		.strict();
+		.strict()
+		.showHelpOnFail( false );
 
 	await studioArgv.argv;
 }

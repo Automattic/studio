@@ -31,29 +31,20 @@ npm run build
 
 ### 2. Update Studio's package.json
 
-Replace the existing Playground dependencies with local file references. Find and update these entries in `package.json`:
+Replace the existing Playground dependencies with local file references. These packages are grouped together at the end of `dependencies` in `package.json` for easier replacement:
 
 ```json
 {
   "dependencies": {
-    "@php-wasm/fs-journal": "file:../wordpress-playground/dist/packages/php-wasm/fs-journal",
-    "@php-wasm/logger": "file:../wordpress-playground/dist/packages/php-wasm/logger",
     "@php-wasm/node": "file:../wordpress-playground/dist/packages/php-wasm/node",
-    "@php-wasm/node-polyfills": "file:../wordpress-playground/dist/packages/php-wasm/node-polyfills",
-    "@php-wasm/progress": "file:../wordpress-playground/dist/packages/php-wasm/progress",
     "@php-wasm/scopes": "file:../wordpress-playground/dist/packages/php-wasm/scopes",
-    "@php-wasm/stream-compression": "file:../wordpress-playground/dist/packages/php-wasm/stream-compression",
     "@php-wasm/universal": "file:../wordpress-playground/dist/packages/php-wasm/universal",
-    "@php-wasm/util": "file:../wordpress-playground/dist/packages/php-wasm/util",
     "@wp-playground/blueprints": "file:../wordpress-playground/dist/packages/playground/blueprints",
     "@wp-playground/cli": "file:../wordpress-playground/dist/packages/playground/cli",
-    "@wp-playground/common": "file:../wordpress-playground/dist/packages/playground/common",
     "@wp-playground/wordpress": "file:../wordpress-playground/dist/packages/playground/wordpress"
   }
 }
 ```
-
-Note: Some of these packages may not exist in Studio's current `package.json` - add them as new entries.
 
 ### 3. Update Playground's node_modules symlinks
 
@@ -100,11 +91,19 @@ After making changes to Playground:
    npx nx build playground-cli  # or other package name
    ```
 
-2. Restart Studio (type `rs` in the terminal or restart `npm start`)
+2. Restart Studio (restart `npm start`)
 
 ## Reverting to npm Packages
 
 To go back to using the published npm packages:
 
-1. Restore the original version numbers in `package.json` (use `git checkout package.json`)
+1. Restore both `package.json` and `package-lock.json`:
+   ```bash
+   git checkout package.json package-lock.json
+   ```
 2. Run `npm install`
+3. In the Playground repo, restore the original `node_modules` symlinks:
+   ```bash
+   cd /path/to/wordpress-playground
+   npm install
+   ```

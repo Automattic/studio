@@ -109,9 +109,6 @@
 		"@formatjs/intl-locale": "^3.4.5",
 		"@formatjs/intl-localematcher": "^0.5.4",
 		"@inquirer/prompts": "^7.10.1",
-		"@php-wasm/node": "^3.0.22",
-		"@php-wasm/scopes": "^3.0.22",
-		"@php-wasm/universal": "^3.0.22",
 		"@reduxjs/toolkit": "^2.7.0",
 		"@rive-app/react-canvas": "^4.12.0",
 		"@sentry/electron": "^6.5.0",
@@ -122,9 +119,6 @@
 		"@wordpress/dataviews": "^10.2.0",
 		"@wordpress/i18n": "^6.1.0",
 		"@wordpress/icons": "^11.1.0",
-		"@wp-playground/blueprints": "^3.0.22",
-		"@wp-playground/cli": "^3.0.22",
-		"@wp-playground/wordpress": "^3.0.22",
 		"archiver": "^6.0.1",
 		"atomically": "^2.0.3",
 		"cli-table3": "^0.6.5",
@@ -158,7 +152,14 @@
 		"wpcom-xhr-request": "^1.3.0",
 		"yargs": "^18.0.0",
 		"yauzl": "^3.2.0",
-		"zod": "^3.24.3"
+		"zod": "^3.24.3",
+
+		"@php-wasm/node": "^3.0.22",
+		"@php-wasm/scopes": "^3.0.22",
+		"@php-wasm/universal": "^3.0.22",
+		"@wp-playground/blueprints": "^3.0.22",
+		"@wp-playground/cli": "^3.0.22",
+		"@wp-playground/wordpress": "^3.0.22"
 	},
 	"optionalDependencies": {
 		"appdmg": "^0.6.6"

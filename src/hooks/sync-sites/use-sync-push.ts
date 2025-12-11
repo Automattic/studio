@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
 import {
 	ClearState,
@@ -16,7 +16,7 @@ import {
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
-import { useAppDispatch, useRootSelector } from 'src/stores';
+import { useAppDispatch, useRootSelector, type RootState } from 'src/stores';
 import { syncOperationsActions, syncOperationsSelectors } from 'src/stores/sync';
 import type { ImportResponse } from 'src/hooks/use-sync-states-progress-info';
 import type { SyncSite } from 'src/modules/sync/types';
@@ -87,10 +87,27 @@ export function useSyncPush( { onPushSuccess }: UseSyncPushProps = {} ): UseSync
 	const { client } = useAuth();
 
 	const dispatch = useAppDispatch();
-	const pushStates = useRootSelector( syncOperationsSelectors.selectPushStates );
+	const pushStates = useRootSelector(
+		syncOperationsSelectors.selectPushStates as ( state: RootState ) => PushStates
+	);
+	const pushStatesRef = useRef( pushStates );
+
+	// Keep ref in sync with Redux state
+	useEffect( () => {
+		pushStatesRef.current = pushStates;
+	}, [ pushStates ] );
 
 	const updateState = useCallback< UpdateState< SyncPushState > >(
 		( selectedSiteId, remoteSiteId, state ) => {
+			const stateId = generateStateId( selectedSiteId, remoteSiteId );
+			// Immediately update the ref so getPushState returns the latest value
+			pushStatesRef.current = {
+				...pushStatesRef.current,
+				[ stateId ]: {
+					...pushStatesRef.current[ stateId ],
+					...state,
+				} as SyncPushState,
+			};
 			dispatch(
 				syncOperationsActions.updatePushState( {
 					selectedSiteId,
@@ -105,13 +122,18 @@ export function useSyncPush( { onPushSuccess }: UseSyncPushProps = {} ): UseSync
 	const getPushState = useCallback< GetState< SyncPushState > >(
 		( selectedSiteId, remoteSiteId ) => {
 			const stateId = generateStateId( selectedSiteId, remoteSiteId );
-			return pushStates[ stateId ];
+			return pushStatesRef.current[ stateId ];
 		},
-		[ pushStates ]
+		[]
 	);
 
 	const clearState = useCallback< ClearState >(
 		( selectedSiteId, remoteSiteId ) => {
+			const stateId = generateStateId( selectedSiteId, remoteSiteId );
+			// Immediately update the ref so getPushState returns undefined right away
+			const newStates = { ...pushStatesRef.current };
+			delete newStates[ stateId ];
+			pushStatesRef.current = newStates;
 			dispatch(
 				syncOperationsActions.clearPushState( {
 					selectedSiteId,
@@ -348,7 +370,14 @@ export function useSyncPush( { onPushSuccess }: UseSyncPushProps = {} ): UseSync
 				if ( response.success ) {
 					updatePushState( selectedSite.id, remoteSiteId, {
 						status: pushStatesProgressInfo.creatingRemoteBackup,
+						selectedSite,
+						remoteSiteUrl,
 					} );
+					// Immediately start polling for push progress after upload completes
+					const stateAfterStatusUpdate = getPushState( selectedSite.id, remoteSiteId );
+					if ( stateAfterStatusUpdate ) {
+						void getPushProgressInfo( remoteSiteId, stateAfterStatusUpdate );
+					}
 				} else {
 					throw response;
 				}
@@ -374,6 +403,7 @@ export function useSyncPush( { onPushSuccess }: UseSyncPushProps = {} ): UseSync
 			updatePushState,
 			getErrorFromResponse,
 			isKeyCancelled,
+			getPushProgressInfo,
 		]
 	);
 

@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { SYNC_PUSH_SIZE_LIMIT_GB, SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
 import {
 	ClearState,
@@ -19,7 +19,7 @@ import {
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
-import { useAppDispatch, useRootSelector } from 'src/stores';
+import { useAppDispatch, useRootSelector, type RootState } from 'src/stores';
 import { syncOperationsActions, syncOperationsSelectors } from 'src/stores/sync';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
@@ -77,10 +77,27 @@ export function useSyncPull( { onPullSuccess }: UseSyncPullProps = {} ): UseSync
 	} = useSyncStatesProgressInfo();
 
 	const dispatch = useAppDispatch();
-	const pullStates = useRootSelector( syncOperationsSelectors.selectPullStates );
+	const pullStates = useRootSelector(
+		syncOperationsSelectors.selectPullStates as ( state: RootState ) => PullStates
+	);
+	const pullStatesRef = useRef( pullStates );
+
+	// Keep ref in sync with Redux state
+	useEffect( () => {
+		pullStatesRef.current = pullStates;
+	}, [ pullStates ] );
 
 	const updateState = useCallback< UpdateState< SyncBackupState > >(
 		( selectedSiteId, remoteSiteId, state ) => {
+			const stateId = generateStateId( selectedSiteId, remoteSiteId );
+			// Immediately update the ref so getPullState returns the latest value
+			pullStatesRef.current = {
+				...pullStatesRef.current,
+				[ stateId ]: {
+					...pullStatesRef.current[ stateId ],
+					...state,
+				} as SyncBackupState,
+			};
 			dispatch(
 				syncOperationsActions.updatePullState( {
 					selectedSiteId,
@@ -95,13 +112,18 @@ export function useSyncPull( { onPullSuccess }: UseSyncPullProps = {} ): UseSync
 	const getPullState = useCallback< GetState< SyncBackupState > >(
 		( selectedSiteId, remoteSiteId ) => {
 			const stateId = generateStateId( selectedSiteId, remoteSiteId );
-			return pullStates[ stateId ];
+			return pullStatesRef.current[ stateId ];
 		},
-		[ pullStates ]
+		[]
 	);
 
 	const clearState = useCallback< ClearState >(
 		( selectedSiteId, remoteSiteId ) => {
+			const stateId = generateStateId( selectedSiteId, remoteSiteId );
+			// Immediately update the ref so getPullState returns undefined right away
+			const newStates = { ...pullStatesRef.current };
+			delete newStates[ stateId ];
+			pullStatesRef.current = newStates;
 			dispatch(
 				syncOperationsActions.clearPullState( {
 					selectedSiteId,

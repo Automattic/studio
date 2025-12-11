@@ -194,7 +194,7 @@ export async function pushArchive(
 				console.error( '[TUS] Upload error', error );
 				reject( error );
 			},
-			onProgress: ( bytesSent, bytesTotal ) => {
+			onProgress: () => {
 				if ( isUploadingPaused ) {
 					isUploadingPaused = false;
 					void sendIpcEventToRenderer( 'sync-upload-resumed', {
@@ -207,15 +207,9 @@ export async function pushArchive(
 				if ( ! hasUploadStarted ) {
 					hasUploadStarted = true;
 				}
-
-				if ( bytesTotal > 0 ) {
-					const progress = ( bytesSent / bytesTotal ) * 100;
-					console.log( '[TUS] Upload progress: %s%%', progress.toFixed( 2 ) );
-				}
 			},
 			onSuccess: ( payload ) => {
 				if ( ! payload.lastResponse ) {
-					console.error( 'Upload completed but no response received' );
 					reject( new Error( 'Upload completed but no response received' ) );
 					return;
 				}
@@ -224,7 +218,6 @@ export async function pushArchive(
 				if ( attachmentId ) {
 					resolve( attachmentId );
 				} else {
-					console.error( 'Upload completed but required header not found' );
 					reject( new Error( 'Upload completed but required header not found' ) );
 				}
 			},
@@ -238,8 +231,6 @@ export async function pushArchive(
 						error: error.message,
 					} );
 				}
-
-				console.error( 'Upload request error', error.message );
 				return true;
 			},
 		} );

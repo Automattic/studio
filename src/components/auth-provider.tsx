@@ -63,10 +63,18 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 
 	useIpcListener( 'auth-updated', ( _event, payload ) => {
 		if ( 'error' in payload ) {
-			getIpcApi().showErrorMessageBox( {
-				title: __( 'Authentication error' ),
-				message: __( 'Please try again.' ),
-			} );
+			let title: string = __( 'Authentication error' );
+			let message: string = __( 'Please try again.' );
+
+			// User has denied access to the authorization dialog.
+			if ( payload.error instanceof Error && payload.error.message.includes( 'access_denied' ) ) {
+				title = __( 'Authorization denied' );
+				message = __(
+					'You have denied access to the authorization process. Please click the "Approve" option to authorize.'
+				);
+			}
+
+			void getIpcApi().showErrorMessageBox( { title, message } );
 			return;
 		}
 

@@ -22,6 +22,7 @@ import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import {
 	lockAppdata,
 	readAppdata,
+	removeSiteFromAppdata,
 	saveAppdata,
 	SiteData,
 	unlockAppdata,
@@ -218,6 +219,10 @@ export async function runCommand(
 					await openSiteInBrowser( siteDetails );
 				}
 			} catch ( error ) {
+				await removeSiteFromAppdata( siteDetails.id );
+				if ( ! isWordPressDirResult ) {
+					await fs.promises.rm( sitePath, { recursive: true, force: true } );
+				}
 				throw new LoggerError( __( 'Failed to start WordPress server' ), error );
 			}
 		} else {
@@ -231,6 +236,10 @@ export async function runCommand(
 					await runBlueprint( siteDetails, logger, { wpVersion: options.wpVersion, blueprint } );
 					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
 				} catch ( error ) {
+					await removeSiteFromAppdata( siteDetails.id );
+					if ( ! isWordPressDirResult ) {
+						await fs.promises.rm( sitePath, { recursive: true, force: true } );
+					}
 					throw new LoggerError( __( 'Failed to apply blueprint' ), error );
 				}
 			}

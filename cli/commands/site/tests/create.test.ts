@@ -8,6 +8,7 @@ import { portFinder } from 'common/lib/port-finder';
 import {
 	lockAppdata,
 	readAppdata,
+	removeSiteFromAppdata,
 	saveAppdata,
 	unlockAppdata,
 	updateSiteLatestCliPid,
@@ -38,6 +39,7 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	lockAppdata: jest.fn(),
 	unlockAppdata: jest.fn(),
 	updateSiteLatestCliPid: jest.fn(),
+	removeSiteFromAppdata: jest.fn(),
 	getSiteUrl: jest.fn( ( site ) => `http://localhost:${ site.port }` ),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
@@ -567,6 +569,113 @@ describe( 'CLI: studio site create', () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( unlockAppdata ).toHaveBeenCalled();
+		} );
+
+		it( 'should remove site from appdata when server start fails', async () => {
+			( startWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server start failed' ) );
+
+			const { runCommand } = await import( '../create' );
+
+			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
+
+			expect( removeSiteFromAppdata ).toHaveBeenCalled();
+		} );
+
+		it( 'should remove site from appdata when blueprint application fails', async () => {
+			const testBlueprint = { steps: [] };
+			( runBlueprint as jest.Mock ).mockRejectedValue( new Error( 'Blueprint failed' ) );
+
+			const { runCommand } = await import( '../create' );
+
+			await expect(
+				runCommand( mockSitePath, {
+					...defaultTestOptions,
+					blueprintJson: testBlueprint,
+					noStart: true,
+				} )
+			).rejects.toThrow();
+
+			expect( removeSiteFromAppdata ).toHaveBeenCalled();
+		} );
+
+		it( 'should delete site directory when server start fails for new directory', async () => {
+			( pathExists as jest.Mock ).mockResolvedValue( false );
+			( isWordPressDirectory as jest.Mock ).mockReturnValue( false );
+			( startWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server start failed' ) );
+
+			const fsRmSpy = jest
+				.spyOn( require( 'fs' ).promises, 'rm' )
+				.mockResolvedValue( undefined );
+
+			const { runCommand } = await import( '../create' );
+
+			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
+
+			expect( fsRmSpy ).toHaveBeenCalledWith( mockSitePath, { recursive: true, force: true } );
+		} );
+
+		it( 'should NOT delete site directory when server start fails for existing WordPress directory', async () => {
+			( pathExists as jest.Mock ).mockResolvedValue( true );
+			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
+			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
+			( startWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server start failed' ) );
+
+			const fsRmSpy = jest
+				.spyOn( require( 'fs' ).promises, 'rm' )
+				.mockResolvedValue( undefined );
+
+			const { runCommand } = await import( '../create' );
+
+			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
+
+			expect( fsRmSpy ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should delete site directory when blueprint application fails for new directory', async () => {
+			( pathExists as jest.Mock ).mockResolvedValue( false );
+			( isWordPressDirectory as jest.Mock ).mockReturnValue( false );
+			const testBlueprint = { steps: [] };
+			( runBlueprint as jest.Mock ).mockRejectedValue( new Error( 'Blueprint failed' ) );
+
+			const fsRmSpy = jest
+				.spyOn( require( 'fs' ).promises, 'rm' )
+				.mockResolvedValue( undefined );
+
+			const { runCommand } = await import( '../create' );
+
+			await expect(
+				runCommand( mockSitePath, {
+					...defaultTestOptions,
+					blueprintJson: testBlueprint,
+					noStart: true,
+				} )
+			).rejects.toThrow();
+
+			expect( fsRmSpy ).toHaveBeenCalledWith( mockSitePath, { recursive: true, force: true } );
+		} );
+
+		it( 'should NOT delete site directory when blueprint application fails for existing WordPress directory', async () => {
+			( pathExists as jest.Mock ).mockResolvedValue( true );
+			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
+			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
+			const testBlueprint = { steps: [] };
+			( runBlueprint as jest.Mock ).mockRejectedValue( new Error( 'Blueprint failed' ) );
+
+			const fsRmSpy = jest
+				.spyOn( require( 'fs' ).promises, 'rm' )
+				.mockResolvedValue( undefined );
+
+			const { runCommand } = await import( '../create' );
+
+			await expect(
+				runCommand( mockSitePath, {
+					...defaultTestOptions,
+					blueprintJson: testBlueprint,
+					noStart: true,
+				} )
+			).rejects.toThrow();
+
+			expect( fsRmSpy ).not.toHaveBeenCalled();
 		} );
 	} );
 } );

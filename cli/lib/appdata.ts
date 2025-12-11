@@ -235,3 +235,14 @@ export async function clearSiteLatestCliPid( siteId: string ): Promise< void > {
 		await unlockAppdata();
 	}
 }
+
+export async function removeSiteFromAppdata( siteId: string ): Promise< void > {
+	try {
+		await lockAppdata();
+		const userData = await readAppdata();
+		userData.sites = userData.sites.filter( ( s ) => s.id !== siteId );
+		await saveAppdata( userData );
+	} finally {
+		await unlockAppdata();
+	}
+}

@@ -18,6 +18,7 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { validateBlueprintData } from 'common/lib/blueprint-validation';
+import { parseCliError, errorMessageContains } from 'common/lib/cli-error';
 import { bumpStat } from 'common/lib/bump-stat';
 import {
 	calculateDirectorySize,
@@ -227,27 +228,58 @@ export async function createSite(
 	const metric = getBlueprintMetric( blueprint?.slug );
 	bumpStat( StatsGroup.STUDIO_SITE_CREATE, metric );
 
-	const { details: siteDetails } = await SiteServer.create(
-		{
-			path,
-			name: siteName,
-			wpVersion,
-			phpVersion,
-			customDomain,
-			enableHttps,
-			siteId,
-			blueprint: blueprint?.blueprint,
-			noStart,
-		},
-		{ wpVersion, blueprint: blueprint?.blueprint }
-	);
+	try {
+		const { details: siteDetails } = await SiteServer.create(
+			{
+				path,
+				name: siteName,
+				wpVersion,
+				phpVersion,
+				customDomain,
+				enableHttps,
+				siteId,
+				blueprint: blueprint?.blueprint,
+				noStart,
+			},
+			{ wpVersion, blueprint: blueprint?.blueprint }
+		);
 
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', {
-		id: siteDetails.id,
-	} );
+		const parentWindow = BrowserWindow.fromWebContents( event.sender );
+		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', {
+			id: siteDetails.id,
+		} );
 
-	return siteDetails;
+		return siteDetails;
+	} catch ( error ) {
+		// Skip WASM memory errors - they're user system issues, not bugs
+		if ( errorMessageContains( error, 'Cannot allocate Wasm memory for new instance' ) ) {
+			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
+		}
+
+		const contexts: Record< string, Record< string, unknown > > = {
+			site: {
+				hasBlueprint: !! blueprint,
+				wpVersion,
+				phpVersion,
+				hasCustomDomain: !! customDomain,
+				httpsEnabled: !! enableHttps,
+			},
+		};
+
+		const cliError = parseCliError( error );
+		if ( cliError?.cliArgs ) {
+			contexts.startup = cliError.cliArgs;
+		}
+
+		Sentry.captureException( error, {
+			tags: {
+				provider: 'cli',
+			},
+			contexts,
+		} );
+
+		throw error;
+	}
 }
 
 export async function updateSite(
@@ -285,18 +317,8 @@ export async function startServer(
 	try {
 		await server.start();
 	} catch ( error ) {
-		/**
-		 * We don't want to track WASM memory errors in Sentry
-		 * because they are caused by the user's system not having enough memory
-		 * and aren't a bug in Studio.
-		 *
-		 * When the error is thrown, we show a user-friendly message
-		 * to the user, with instructions on how to provide more memory to Studio.
-		 */
-		if (
-			error instanceof Error &&
-			error.message.includes( 'Cannot allocate Wasm memory for new instance' )
-		) {
+		// Skip WASM memory errors - they're user system issues, not bugs
+		if ( errorMessageContains( error, 'Cannot allocate Wasm memory for new instance' ) ) {
 			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
 		}
 
@@ -310,9 +332,9 @@ export async function startServer(
 			},
 		};
 
-		// Include sanitized CLI args if available from error
-		if ( error instanceof Error && 'cliArgs' in error ) {
-			contexts.startup = ( error as Error & { cliArgs: Record< string, unknown > } ).cliArgs;
+		const cliError = parseCliError( error );
+		if ( cliError?.cliArgs ) {
+			contexts.startup = cliError.cliArgs;
 		}
 
 		Sentry.captureException( error, {
@@ -321,10 +343,8 @@ export async function startServer(
 			},
 			contexts,
 		} );
-		if (
-			error instanceof Error &&
-			error.message.includes( '"unreachable" WASM instruction executed' )
-		) {
+
+		if ( errorMessageContains( error, '"unreachable" WASM instruction executed' ) ) {
 			throw new Error( 'Please try disabling plugins and themes that might be causing the issue.' );
 		}
 		throw error;

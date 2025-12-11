@@ -39,7 +39,6 @@ async function updateSiteServerStatus(
 				const userData = await loadUserData();
 				const siteData = userData.sites.find( ( s ) => s.id === siteId );
 				if ( siteData ) {
-					// Check if a server already exists for this path (e.g., during site creation)
 					const existingServer = SiteServer.getByPath( siteData.path );
 					if ( existingServer ) {
 						server = existingServer;

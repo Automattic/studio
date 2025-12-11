@@ -91,9 +91,9 @@ export class SiteServer {
 		options: CreateSiteOptions,
 		meta: SiteServerMeta = {}
 	): Promise< { server: SiteServer; details: SiteDetails } > {
-		// Pre-register a placeholder server to prevent watcher from creating a duplicate
+		// Use the siteId from frontend if provided, for placeholder consistency
 		const placeholderDetails: StoppedSiteDetails = {
-			id: crypto.randomUUID(),
+			id: options.siteId || crypto.randomUUID(),
 			name: options.name || options.path,
 			path: options.path,
 			port: 0,
@@ -105,42 +105,34 @@ export class SiteServer {
 
 		try {
 			const result = await createSiteViaCli( options );
+			const userData = await loadUserData();
+			const siteData = userData.sites.find( ( s ) => s.id === result.id );
+			if ( ! siteData ) {
+				throw new Error( `Site with ID ${ result.id } not found in appdata after CLI creation` );
+			}
 
-			// Build the final site details from CLI result
-			const baseSiteDetails = {
-				id: result.site.id,
-				name: result.site.name,
-				path: result.site.path,
-				port: result.site.port,
-				phpVersion: result.site.phpVersion,
-				adminPassword: result.site.adminPassword,
-				isWpAutoUpdating: result.site.isWpAutoUpdating,
-				customDomain: result.site.customDomain,
-				enableHttps: result.site.enableHttps,
-			};
-
-			// Create the appropriate site details based on running state
 			let siteDetails: SiteDetails;
-			if ( result.site.running && result.site.url ) {
+			if ( result.running ) {
+				const url = siteData.customDomain
+					? `${ siteData.enableHttps ? 'https' : 'http' }://${ siteData.customDomain }`
+					: `http://localhost:${ siteData.port }`;
 				siteDetails = {
-					...baseSiteDetails,
+					...siteData,
 					running: true,
-					url: result.site.url,
+					url,
 				};
 			} else {
 				siteDetails = {
-					...baseSiteDetails,
+					...siteData,
 					running: false,
 				};
 			}
 
 			// Update the server with the real details from CLI
-			// First, re-register with the correct ID (CLI generates the real ID)
 			servers.delete( placeholderDetails.id );
 			servers.set( siteDetails.id, server );
 			server.details = siteDetails;
 
-			// If the site is running, create a CliServerProcess to track it
 			if ( siteDetails.running ) {
 				server.server = new CliServerProcess(
 					siteDetails.id,

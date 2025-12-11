@@ -207,6 +207,7 @@ export async function createSite(
 		wpVersion?: string;
 		customDomain?: string;
 		enableHttps?: boolean;
+		siteId?: string;
 		phpVersion?: string;
 		blueprint?: Blueprint;
 		noStart?: boolean;
@@ -217,6 +218,7 @@ export async function createSite(
 		wpVersion,
 		customDomain,
 		enableHttps,
+		siteId,
 		blueprint,
 		phpVersion,
 		noStart = false,
@@ -233,6 +235,7 @@ export async function createSite(
 			phpVersion,
 			customDomain,
 			enableHttps,
+			siteId,
 			blueprint: blueprint?.blueprint,
 			noStart,
 		},
@@ -243,21 +246,6 @@ export async function createSite(
 	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', {
 		id: siteDetails.id,
 	} );
-
-	// If site is running, update thumbnail in background
-	if ( siteDetails.running ) {
-		const server = SiteServer.get( siteDetails.id );
-		if ( server ) {
-			void ( async () => {
-				try {
-					await server.updateCachedThumbnail();
-					await sendThumbnailChangedEvent( event, siteDetails.id );
-				} catch ( error ) {
-					console.error( `Failed to update thumbnail for server ${ siteDetails.id }:`, error );
-				}
-			} )();
-		}
-	}
 
 	return siteDetails;
 }

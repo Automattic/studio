@@ -296,6 +296,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					wpVersion,
 					customDomain,
 					enableHttps,
+					siteId: tempSiteId,
 					phpVersion,
 					blueprint,
 					noStart,
@@ -314,7 +315,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					}
 					return prevSelectedSiteId;
 				} );
-				// Replace the temp site with the new site
 				setSites( ( prevData ) =>
 					sortSites( [
 						...prevData.filter( ( site ) => site.id !== tempSiteId ),

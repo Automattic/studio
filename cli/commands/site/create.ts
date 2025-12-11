@@ -204,12 +204,10 @@ export async function runCommand(
 				} );
 				logger.reportSuccess( __( 'WordPress site started' ) );
 
-				// Update latestCliPid so the watcher knows this site is running
 				if ( processDesc.pid ) {
 					await updateSiteLatestCliPid( siteDetails.id, processDesc.pid );
 				}
 
-				// Update site details to reflect running state
 				siteDetails.running = true;
 				siteDetails.url = siteDetails.customDomain
 					? `${ siteDetails.enableHttps ? 'https' : 'http' }://${ siteDetails.customDomain }`
@@ -222,25 +220,20 @@ export async function runCommand(
 			} catch ( error ) {
 				throw new LoggerError( __( 'Failed to start WordPress server' ), error );
 			}
-		} else if ( blueprint ) {
-			logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
-			await connect();
-			logger.reportSuccess( __( 'Process daemon started' ) );
-
-			logger.reportStart( LoggerAction.START_SITE, __( 'Applying blueprint...' ) );
-			try {
-				await runBlueprint( siteDetails, logger, { wpVersion: options.wpVersion, blueprint } );
-				logger.reportSuccess( __( 'Blueprint applied successfully' ) );
-			} catch ( error ) {
-				throw new LoggerError( __( 'Failed to apply blueprint' ), error );
-			}
-
-			console.log( '' );
-			console.log( __( 'Site created successfully!' ) );
-			console.log( '' );
-			logSiteDetails( siteDetails );
-			console.log( __( 'Run "studio site start" to start the site.' ) );
 		} else {
+			if ( blueprint ) {
+				logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
+				await connect();
+				logger.reportSuccess( __( 'Process daemon started' ) );
+
+				logger.reportStart( LoggerAction.START_SITE, __( 'Applying blueprint...' ) );
+				try {
+					await runBlueprint( siteDetails, logger, { wpVersion: options.wpVersion, blueprint } );
+					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
+				} catch ( error ) {
+					throw new LoggerError( __( 'Failed to apply blueprint' ), error );
+				}
+			}
 			console.log( '' );
 			console.log( __( 'Site created successfully!' ) );
 			console.log( '' );
@@ -248,9 +241,8 @@ export async function runCommand(
 			console.log( __( 'Run "studio site start" to start the site.' ) );
 		}
 
-		if ( process.send ) {
-			process.send( { action: 'result', site: siteDetails } );
-		}
+		logger.reportKeyValuePair( 'id', siteDetails.id );
+		logger.reportKeyValuePair( 'running', String( siteDetails.running ) );
 	} finally {
 		disconnect();
 	}

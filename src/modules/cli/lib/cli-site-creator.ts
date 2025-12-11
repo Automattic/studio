@@ -1,23 +1,24 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { z } from 'zod';
 import { executeCliCommand } from './execute-command';
 import type { Blueprint } from '@wp-playground/blueprints';
 
+const keyValuePairSchema = z.object( {
+	action: z.literal( 'keyValuePair' ),
+	key: z.enum( [ 'id', 'running' ] ),
+	value: z.string(),
+} );
+
+const errorMessageSchema = z.object( {
+	status: z.literal( 'fail' ),
+	message: z.string(),
+} );
+
 export interface CreateSiteResult {
-	site: {
-		id: string;
-		name: string;
-		path: string;
-		adminPassword?: string;
-		port: number;
-		phpVersion: string;
-		running: boolean;
-		url?: string;
-		isWpAutoUpdating?: boolean;
-		customDomain?: string;
-		enableHttps?: boolean;
-	};
+	id: string;
+	running: boolean;
 }
 
 export interface CreateSiteOptions {
@@ -27,6 +28,7 @@ export interface CreateSiteOptions {
 	phpVersion?: string;
 	customDomain?: string;
 	enableHttps?: boolean;
+	siteId?: string;
 	blueprint?: Blueprint;
 	noStart?: boolean;
 }
@@ -42,30 +44,35 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 	}
 
 	return new Promise( ( resolve, reject ) => {
-		let siteResult: CreateSiteResult | null = null;
+		const result: Partial< CreateSiteResult > = {};
 		let lastErrorMessage: string | null = null;
 
 		const [ emitter ] = executeCliCommand( args );
 
 		emitter.on( 'data', ( { data } ) => {
-			if ( data && typeof data === 'object' ) {
-				// Capture result message
-				if ( 'action' in data && data.action === 'result' && 'site' in data ) {
-					siteResult = { site: data.site as CreateSiteResult[ 'site' ] };
+			const keyValueParsed = keyValuePairSchema.safeParse( data );
+			if ( keyValueParsed.success ) {
+				const { key, value } = keyValueParsed.data;
+				if ( key === 'id' ) {
+					result.id = value;
+				} else if ( key === 'running' ) {
+					result.running = value === 'true';
 				}
-				// Capture error messages from CLI Logger
-				if ( 'status' in data && data.status === 'fail' && 'message' in data ) {
-					lastErrorMessage = String( data.message );
-				}
+				return;
+			}
+
+			const errorParsed = errorMessageSchema.safeParse( data );
+			if ( errorParsed.success ) {
+				lastErrorMessage = errorParsed.data.message;
 			}
 		} );
 
 		emitter.on( 'success', () => {
 			cleanupTempFile( blueprintTempPath );
-			if ( siteResult ) {
-				resolve( siteResult );
+			if ( result.id ) {
+				resolve( { id: result.id, running: result.running ?? false } );
 			} else {
-				reject( new Error( 'CLI create site succeeded but no result received' ) );
+				reject( new Error( 'CLI create site succeeded but no site ID received' ) );
 			}
 		} );
 

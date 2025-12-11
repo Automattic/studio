@@ -46,6 +46,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
 	default: jest.fn(),
 	getIpcApi: () => ( {
+		getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
 		showOpenFolderDialog: jest.fn(),
 		generateProposedSitePath: jest.fn(),
 		openURL: jest.fn(),
@@ -53,6 +54,7 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		getUserEditor: jest.fn().mockResolvedValue( 'cursor' ),
 		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
 		setWindowControlVisibility: jest.fn(),
+		setupAppMenu: jest.fn(),
 	} ),
 } ) );
 
@@ -65,7 +67,7 @@ const site2 = {
 };
 const siteDetailsMocked = {
 	selectedSite: site2,
-	data: [
+	sites: [
 		{
 			name: 'test-1',
 			path: '/fake/test-1',

@@ -1,8 +1,3 @@
-// When ts-node runs this file it doesn't seem to use our tsconfig.json project
-// settings, so we need to reference custom package definitions manually.
-// eslint-disable-next-line @typescript-eslint/triple-slash-reference
-/// <reference path="./src/custom-package-definitions.d.ts" />
-
 import fs from 'fs';
 import path from 'path';
 import { MakerDeb } from '@electron-forge/maker-deb';
@@ -61,9 +56,7 @@ const config: ForgeConfig = {
 			/^\/dist\/playground-cli/,
 		],
 	},
-	rebuildConfig: {
-		ignoreModules: [ 'fs-ext' ],
-	},
+	rebuildConfig: {},
 	makers: [
 		new MakerZIP( {}, [ 'darwin' ] ),
 		new MakerDeb( {
@@ -119,9 +112,7 @@ const config: ForgeConfig = {
 					),
 			  ] ),
 	],
-	plugins: [
-		new AutoUnpackNativesPlugin( {} ),
-	],
+	plugins: [ new AutoUnpackNativesPlugin( {} ) ],
 	hooks: {
 		prePackage: async () => {
 			console.log( "Ensuring latest WordPress zip isn't included in production build ..." );

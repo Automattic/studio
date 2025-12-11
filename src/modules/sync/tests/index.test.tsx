@@ -1,35 +1,32 @@
 // To run tests, execute `npm run test -- src/modules/sync/tests/index.test.tsx` from the root directory
 import { render, screen, fireEvent } from '@testing-library/react';
-import escapeRegExp from 'lodash/escapeRegExp';
 import { Provider } from 'react-redux';
 import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
 import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
-import { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ContentTabSync } from 'src/modules/sync';
 import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
+import { SyncSite } from 'src/modules/sync/types';
 import { store } from 'src/stores';
-import {
-	useLatestRewindId,
-	useRemoteFileTree,
-	useConnectedSitesData,
-	useSyncSitesData,
-	useConnectedSitesOperations,
-	connectedSitesSelectors,
-} from 'src/stores/sync';
+import { useLatestRewindId, useRemoteFileTree } from 'src/stores/sync';
+import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
+import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
-jest.mock( 'src/hooks/use-auth' );
+store.replaceReducer( testReducer );
+
 jest.mock( 'src/lib/get-ipc-api' );
+jest.mock( 'src/hooks/use-auth' );
+jest.mock( 'src/stores/sync/wpcom-sites', () => ( {
+	...jest.requireActual( 'src/stores/sync/wpcom-sites' ),
+	useGetWpComSitesQuery: jest.fn(),
+} ) );
+jest.mock( 'src/hooks/use-feature-flags' );
 jest.mock( 'src/hooks/sync-sites/sync-sites-context', () => ( {
 	...jest.requireActual( '../../../hooks/sync-sites/sync-sites-context' ),
 	useSyncSites: jest.fn(),
-} ) );
-
-jest.mock( 'src/stores', () => ( {
-	...jest.requireActual( 'src/stores' ),
-	useAppDispatch: jest.fn(),
 } ) );
 
 jest.mock( 'src/stores/sync', () => ( {
@@ -40,15 +37,16 @@ jest.mock( 'src/stores/sync', () => ( {
 		error: null,
 		isLoading: false,
 	} ),
-	useConnectedSitesData: jest.fn(),
-	useSyncSitesData: jest.fn(),
-	useConnectedSitesOperations: jest.fn(),
 	connectedSitesSelectors: {
 		selectIsModalOpen: jest.fn(),
+		selectModalMode: jest.fn(),
 	},
 	connectedSitesActions: {
 		openModal: jest.fn().mockImplementation( () => {
 			return { type: 'connectedSites/openModal' };
+		} ),
+		setModalMode: jest.fn().mockImplementation( () => {
+			return { type: 'connectedSites/setModalMode' };
 		} ),
 		closeModal: jest.fn().mockImplementation( () => {
 			return { type: 'connectedSites/closeModal' };
@@ -58,9 +56,25 @@ jest.mock( 'src/stores/sync', () => ( {
 
 jest.mock( 'src/modules/sync/hooks/use-selected-items-push-size' );
 
+jest.mock( 'src/stores/wordpress-versions-api', () => {
+	const actual = jest.requireActual( 'src/stores/wordpress-versions-api' ) || {};
+	return {
+		...actual,
+		useGetWordPressVersions: () => ( {
+			data: [
+				{ value: 'latest', isBeta: false, isDevelopment: false, label: 'Latest' },
+				{ value: '6.4.0', isBeta: false, isDevelopment: false, label: '6.4' },
+				{ value: '6.3.3', isBeta: false, isDevelopment: false, label: '6.3.3' },
+			],
+			isLoading: false,
+		} ),
+	};
+} );
+
 const createAuthMock = ( isAuthenticated: boolean = false ) => ( {
 	isAuthenticated,
 	authenticate: jest.fn(),
+	user: isAuthenticated ? { id: 123, email: 'user@example.com' } : null,
 } );
 
 const selectedSite: SiteDetails = {
@@ -84,24 +98,30 @@ const inProgressPushState: SyncPushState = {
 	remoteSiteUrl: 'https://example.com',
 };
 
-const fakeSyncSite = {
+const fakeSyncSite: SyncSite = {
 	id: 6,
-	name: 'My simple business site that needs a transfer',
-	url: 'https:/developer.wordpress.com/studio/',
+	name: 'My simple business site',
+	url: 'https://developer.wordpress.com/studio/',
 	syncSupport: 'already-connected',
+	isStaging: false,
+	isPressable: false,
+	localSiteId: 'site-id',
+	lastPullTimestamp: null,
+	lastPushTimestamp: null,
 };
 
 describe( 'ContentTabSync', () => {
 	const mockSyncSites = {
 		pullSite: jest.fn(),
+		pushSite: jest.fn(),
 		isAnySitePulling: false,
 		isAnySitePushing: false,
 		getPullState: jest.fn(),
-		getPushState: jest.fn().mockReturnValue( inProgressPushState ),
+		getPushState: jest.fn(),
 		updateTimestamp: jest.fn(),
-		getLastSyncTimeWithType: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
-		isSiteIdPulling: jest.fn(),
-		isSiteIdPushing: jest.fn(),
+		getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
+		isSiteIdPulling: jest.fn().mockReturnValue( false ),
+		isSiteIdPushing: jest.fn().mockReturnValue( false ),
 		clearTimeout: jest.fn(),
 	};
 
@@ -109,20 +129,23 @@ describe( 'ContentTabSync', () => {
 		connectedSites: SyncSite[] = [],
 		syncSites: SyncSite[] = []
 	) => {
-		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-			connectedSites,
-			loading: false,
-			localSiteId: 'site-id',
-		} );
-		( useSyncSitesData as jest.Mock ).mockReturnValue( {
-			syncSites,
-			isFetching: false,
-			refetchSites: jest.fn(),
+		// Update the IPC API mock to return the connected sites
+		const currentMock = ( getIpcApi as jest.Mock )();
+		currentMock.getConnectedWpcomSites.mockResolvedValue( connectedSites );
+
+		( useGetWpComSitesQuery as jest.Mock ).mockReturnValue( {
+			data: syncSites,
 		} );
 	};
+
 	beforeEach( () => {
 		jest.resetAllMocks();
+		store.dispatch( testActions.resetState() );
+		store.dispatch( { type: 'connectedSitesApi/resetApiState' } );
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( false ) );
+		( useFeatureFlags as jest.Mock ).mockReturnValue( {
+			enableBlueprints: true,
+		} );
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			authenticate: jest.fn(),
 			generateProposedSitePath: jest.fn(),
@@ -131,6 +154,8 @@ describe( 'ContentTabSync', () => {
 			updateConnectedWpcomSites: jest.fn(),
 			getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
 			getDirectorySize: jest.fn().mockResolvedValue( 0 ),
+			connectWpcomSites: jest.fn(),
+			getWpVersion: jest.fn().mockResolvedValue( '6.4.3' ),
 			listLocalFileTree: jest.fn().mockResolvedValue( [
 				{
 					name: 'plugins',
@@ -169,27 +194,10 @@ describe( 'ContentTabSync', () => {
 			error: null,
 		} );
 
-		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-			connectedSites: [],
-			loading: false,
-			localSiteId: 'site-id',
+		( useGetWpComSitesQuery as jest.Mock ).mockReturnValue( {
+			data: [],
 		} );
 
-		( useSyncSitesData as jest.Mock ).mockReturnValue( {
-			syncSites: [],
-			isFetching: false,
-			refetchSites: jest.fn(),
-		} );
-
-		( useConnectedSitesOperations as jest.Mock ).mockReturnValue( {
-			connectSite: jest.fn(),
-			disconnectSite: jest.fn(),
-		} );
-
-		const { useAppDispatch } = jest.requireMock( 'src/stores' );
-		useAppDispatch.mockReturnValue( jest.fn() );
-
-		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( false );
 		( useRemoteFileTree as jest.Mock ).mockReturnValue( {
 			fetchChildren: jest.fn().mockResolvedValue( [
 				{
@@ -263,89 +271,37 @@ describe( 'ContentTabSync', () => {
 		expect( getIpcApi().authenticate ).toHaveBeenCalled();
 	} );
 
-	it( 'displays connect site button to authenticated user', () => {
-		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
-
-		expect( connectSiteButton ).toBeInTheDocument();
-	} );
-
-	it( 'opens the site selector modal to connect a site authenticated user', () => {
-		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
-		fireEvent.click( connectSiteButton );
-
-		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( true );
-
-		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		expect( screen.getByTestId( 'sync-sites-modal-selector' ) ).toBeInTheDocument();
-	} );
-
 	it( 'displays the list of connected sites', async () => {
-		const fakeSyncSite = {
-			id: 6,
-			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
-			isStaging: false,
-			syncSupport: 'already-connected',
-		};
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-			connectedSites: [ fakeSyncSite ],
-			loading: false,
-			localSiteId: 'site-id',
-		} );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			pullSite: jest.fn(),
-			isAnySitePulling: false,
-			isAnySitePushing: false,
-			getPullState: jest.fn(),
-			getPushState: jest.fn().mockReturnValue( undefined ),
-			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
-			isSiteIdPulling: jest.fn(),
-			isSiteIdPushing: jest.fn(),
-			clearTimeout: jest.fn(),
-		} );
+		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		expect( screen.getByText( fakeSyncSite.name ) ).toBeInTheDocument();
+		await screen.findByText( fakeSyncSite.name );
 		expect( screen.getByRole( 'button', { name: /Disconnect/i } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: /Pull/i } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: /Push/i } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Pull' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Push' } ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Production' ) ).toBeInTheDocument();
 	} );
 
 	it( 'opens URL for connected sites', async () => {
-		const fakeSyncSite = {
+		const fakeSyncSite: SyncSite = {
 			id: 6,
 			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
+			url: 'https://developer.wordpress.com/studio/',
 			isStaging: false,
 			syncSupport: 'already-connected',
+			localSiteId: 'site-id',
+			isPressable: false,
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
 		};
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-			connectedSites: [ fakeSyncSite ],
-			loading: false,
-			localSiteId: 'site-id',
-		} );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			pullSite: jest.fn(),
-			isAnySitePulling: false,
-			isAnySitePushing: false,
-			getPullState: jest.fn(),
-			getPushState: jest.fn().mockReturnValue( inProgressPushState ),
-			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
-			isSiteIdPulling: jest.fn(),
-			isSiteIdPushing: jest.fn(),
-			clearTimeout: jest.fn(),
-		} );
+		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const urlButton = screen.getByRole( 'button', {
-			name: new RegExp( escapeRegExp( fakeSyncSite.url ), 'i' ),
+		const readableUrl = fakeSyncSite.url.replace( /^https?:\/\//, '' );
+		const urlButton = await screen.findByRole( 'button', {
+			name: ( content ) => content.includes( readableUrl ),
 		} );
 		expect( urlButton ).toBeInTheDocument();
 
@@ -353,29 +309,23 @@ describe( 'ContentTabSync', () => {
 		expect( getIpcApi().openURL ).toHaveBeenCalledWith( fakeSyncSite.url );
 	} );
 
-	it( 'opens the modal and displays the create new site button', () => {
+	it( 'opens the modal and displays the create new site button', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+		setupConnectedSitesMocks( [], [ fakeSyncSite ] );
+
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const connectSiteButton = screen.getByRole( 'button', { name: /Connect site/i } );
+
+		const connectSiteButton = await screen.findByRole( 'button', { name: 'Connect site' } );
 		expect( connectSiteButton ).toBeInTheDocument();
 		fireEvent.click( connectSiteButton );
-		( connectedSitesSelectors.selectIsModalOpen as jest.Mock ).mockReturnValue( true );
-		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-		const createNewSiteButton = screen.getByRole( 'button', {
+
+		const createNewSiteButton = await screen.findByRole( 'button', {
 			name: /Create a new WordPress.com site ↗/i,
 		} );
 		expect( createNewSiteButton ).toBeInTheDocument();
 	} );
 
-	it( 'displays ConnectButton when there are no connected sites', () => {
-		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
-
-		const connectButton = screen.getByRole( 'button', { name: /Connect site/i } );
-		expect( connectButton ).toBeInTheDocument();
-	} );
-
-	it( 'displays environment badges for Pressable sites with production, staging and development environments', () => {
+	it( 'displays environment badges for Pressable sites with production, staging and development environments', async () => {
 		const fakePressableProductionSite: SyncSite = {
 			id: 6,
 			name: 'My Pressable Production site',
@@ -420,24 +370,9 @@ describe( 'ContentTabSync', () => {
 			fakePressableDevelopmentSite,
 		];
 		setupConnectedSitesMocks( allSites, [ fakePressableProductionSite ] );
-
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			connectedSites: allSites,
-			syncSites: [ fakePressableProductionSite ],
-			pullSite: jest.fn(),
-			isAnySitePulling: false,
-			isAnySitePushing: false,
-			getPullState: jest.fn(),
-			getPushState: jest.fn().mockReturnValue( undefined ),
-			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
-			isSiteIdPulling: jest.fn(),
-			isSiteIdPushing: jest.fn(),
-			clearTimeout: jest.fn(),
-		} );
-
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		expect( screen.getByText( fakePressableProductionSite.name ) ).toBeInTheDocument();
+		await screen.findByText( fakePressableProductionSite.name );
 		expect( screen.getByText( fakePressableStagingSite.name ) ).toBeInTheDocument();
 		expect( screen.getByText( fakePressableDevelopmentSite.name ) ).toBeInTheDocument();
 
@@ -445,70 +380,37 @@ describe( 'ContentTabSync', () => {
 		expect( screen.getByText( 'Staging' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Development' ) ).toBeInTheDocument();
 	} );
-	it( 'displays the progress bar when the site is being pushed', () => {
+	it( 'displays the progress bar when the site is being pushed', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		const fakeSyncSite: SyncSite = {
-			id: 6,
-			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
-			syncSupport: 'already-connected',
-			isStaging: false,
-			localSiteId: 'site-id',
-			isPressable: false,
-			lastPullTimestamp: null,
-			lastPushTimestamp: null,
-		};
-
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
-		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-			connectedSites: [ fakeSyncSite ],
-		} );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
-			pullSite: jest.fn(),
-			isAnySitePulling: false,
-			isAnySitePushing: false,
-			getPullState: jest.fn(),
+			...mockSyncSites,
 			getPushState: jest.fn().mockReturnValue( inProgressPushState ),
-			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
-			isSiteIdPulling: jest.fn(),
 			isSiteIdPushing: jest.fn().mockReturnValue( true ),
-			clearTimeout: jest.fn(),
 		} );
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		expect( screen.getByRole( 'progressbar' ) ).toBeInTheDocument();
+		await screen.findByRole( 'progressbar' );
 	} );
 
 	it( 'opens sync pullSite dialog with development environment label', async () => {
 		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		const fakeSyncSite = {
-			id: 6,
-			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
-			syncSupport: 'already-connected',
+		const fakeDevelopmentSyncSite: SyncSite = {
+			...fakeSyncSite,
 			isPressable: true,
 			environmentType: 'development',
 		};
-		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-			connectedSites: [ fakeSyncSite ],
-		} );
+		setupConnectedSitesMocks( [ fakeDevelopmentSyncSite ], [ fakeDevelopmentSyncSite ] );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
-			syncSites: [ fakeSyncSite ],
+			...mockSyncSites,
+			syncSites: [ fakeDevelopmentSyncSite ],
 			pullSite: mockPullSite,
-			isAnySitePulling: false,
-			isAnySitePushing: false,
-			getPullState: jest.fn(),
-			getPushState: jest.fn(),
-			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
-			isSiteIdPulling: jest.fn(),
-			isSiteIdPushing: jest.fn(),
-			clearTimeout: jest.fn(),
 		} );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const pullButton = screen.getByRole( 'button', { name: /Pull/i } );
+		const pullButton = await screen.findByRole( 'button', { name: 'Pull' } );
 		expect( pullButton ).toBeInTheDocument();
 		fireEvent.click( pullButton );
 
@@ -520,33 +422,21 @@ describe( 'ContentTabSync', () => {
 
 	it( 'opens sync pullSite dialog and displays production when the environment is not supported', async () => {
 		const mockPullSite = jest.fn();
-		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true, authenticate: jest.fn() } );
-		const fakeSyncSite = {
-			id: 6,
-			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
-			syncSupport: 'already-connected',
+		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
+		const fakeDevelopmentSyncSite: SyncSite = {
+			...fakeSyncSite,
 			isPressable: true,
 			environmentType: 'non-supported-environment-example-or-sandbox',
 		};
-		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-			connectedSites: [ fakeSyncSite ],
-		} );
+		setupConnectedSitesMocks( [ fakeDevelopmentSyncSite ], [ fakeDevelopmentSyncSite ] );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
+			...mockSyncSites,
 			pullSite: mockPullSite,
-			isAnySitePulling: false,
-			isAnySitePushing: false,
-			getPullState: jest.fn(),
-			getPushState: jest.fn(),
-			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
-			isSiteIdPulling: jest.fn(),
-			isSiteIdPushing: jest.fn(),
-			clearTimeout: jest.fn(),
 		} );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const pullButton = screen.getByRole( 'button', { name: /Pull/i } );
+		const pullButton = await screen.findByRole( 'button', { name: 'Pull' } );
 		expect( pullButton ).toBeInTheDocument();
 		fireEvent.click( pullButton );
 
@@ -559,30 +449,15 @@ describe( 'ContentTabSync', () => {
 	it( 'calls pullSite with correct optionsToSync when all options are selected', async () => {
 		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		const fakeSyncSite = {
-			id: 6,
-			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
-			syncSupport: 'already-connected',
-		};
-		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-			connectedSites: [ fakeSyncSite ],
-		} );
+		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
+			...mockSyncSites,
 			pullSite: mockPullSite,
-			isAnySitePulling: false,
-			isAnySitePushing: false,
-			getPullState: jest.fn(),
-			getPushState: jest.fn(),
-			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
-			isSiteIdPulling: jest.fn(),
-			isSiteIdPushing: jest.fn(),
-			clearTimeout: jest.fn(),
 		} );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const pullButton = screen.getByRole( 'button', { name: /Pull/i } );
+		const pullButton = await screen.findByRole( 'button', { name: 'Pull' } );
 		expect( pullButton ).toBeInTheDocument();
 		fireEvent.click( pullButton );
 
@@ -593,8 +468,8 @@ describe( 'ContentTabSync', () => {
 		const databaseCheckbox = screen.getByRole( 'checkbox', { name: 'Database' } );
 		fireEvent.click( databaseCheckbox );
 
-		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } );
-		fireEvent.click( dialogPullButton[ 1 ] );
+		const dialogPullButton = await screen.findByRole( 'button', { name: 'Pull' } );
+		fireEvent.click( dialogPullButton );
 
 		expect( mockPullSite ).toHaveBeenCalledWith( fakeSyncSite, selectedSite, {
 			optionsToSync: [ 'all' ],
@@ -604,30 +479,15 @@ describe( 'ContentTabSync', () => {
 	it( 'calls pullSite with correct optionsToSync when only database is selected', async () => {
 		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		const fakeSyncSite = {
-			id: 6,
-			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
-			syncSupport: 'already-connected',
-		};
-		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-			connectedSites: [ fakeSyncSite ],
-		} );
+		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
+			...mockSyncSites,
 			pullSite: mockPullSite,
-			isAnySitePulling: false,
-			isAnySitePushing: false,
-			getPullState: jest.fn(),
-			getPushState: jest.fn(),
-			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
-			isSiteIdPulling: jest.fn(),
-			isSiteIdPushing: jest.fn(),
-			clearTimeout: jest.fn(),
 		} );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const pullButton = screen.getByRole( 'button', { name: /Pull/i } );
+		const pullButton = await screen.findByRole( 'button', { name: 'Pull' } );
 		expect( pullButton ).toBeInTheDocument();
 		fireEvent.click( pullButton );
 
@@ -636,8 +496,8 @@ describe( 'ContentTabSync', () => {
 		const databaseCheckbox = screen.getByRole( 'checkbox', { name: 'Database' } );
 		fireEvent.click( databaseCheckbox );
 
-		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } );
-		fireEvent.click( dialogPullButton[ 1 ] );
+		const dialogPullButton = await screen.findByRole( 'button', { name: 'Pull' } );
+		fireEvent.click( dialogPullButton );
 
 		expect( mockPullSite ).toHaveBeenCalledWith( fakeSyncSite, selectedSite, {
 			optionsToSync: [ 'sqls' ],
@@ -712,30 +572,16 @@ describe( 'ContentTabSync', () => {
 			error: null,
 			isLoading: false,
 		} );
-		const fakeSyncSite = {
-			id: 6,
-			name: 'My simple business site that needs a transfer',
-			url: 'https:/developer.wordpress.com/studio/',
-			syncSupport: 'already-connected',
-		};
-		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-			connectedSites: [ fakeSyncSite ],
-		} );
+
+		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
+			...mockSyncSites,
 			pullSite: mockPullSite,
-			isAnySitePulling: false,
-			isAnySitePushing: false,
-			getPullState: jest.fn(),
-			getPushState: jest.fn(),
-			getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
-			isSiteIdPulling: jest.fn(),
-			isSiteIdPushing: jest.fn(),
-			clearTimeout: jest.fn(),
 		} );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const pullButton = screen.getByRole( 'button', { name: /Pull/i } );
+		const pullButton = await screen.findByRole( 'button', { name: 'Pull' } );
 		expect( pullButton ).toBeInTheDocument();
 		fireEvent.click( pullButton );
 
@@ -754,8 +600,8 @@ describe( 'ContentTabSync', () => {
 		const uploadsCheckbox = screen.getByRole( 'checkbox', { name: 'uploads' } );
 		fireEvent.click( uploadsCheckbox );
 
-		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } );
-		fireEvent.click( dialogPullButton[ 1 ] );
+		const dialogPullButton = await screen.findByRole( 'button', { name: 'Pull' } );
+		fireEvent.click( dialogPullButton );
 
 		expect( mockPullSite ).toHaveBeenCalledWith( fakeSyncSite, selectedSite, {
 			optionsToSync: [ 'paths', 'sqls' ],
@@ -765,45 +611,39 @@ describe( 'ContentTabSync', () => {
 
 	it( 'disables the pull button when all checkboxes are unchecked, which is the initial state', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-			connectedSites: [ fakeSyncSite ],
-		} );
+		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const pullButton = screen.getByRole( 'button', { name: /Pull/i } );
+		const pullButton = await screen.findByRole( 'button', { name: 'Pull' } );
 		fireEvent.click( pullButton );
 
 		await screen.findByText( 'Pull from Production' );
-		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } )[ 1 ];
+		const dialogPullButton = await screen.findByRole( 'button', { name: 'Pull' } );
 		expect( dialogPullButton ).toBeDisabled();
 	} );
 
 	it( 'disables the push button when all checkboxes are unchecked, which is the initial state', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-			connectedSites: [ fakeSyncSite ],
-		} );
+		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const pushButton = screen.getByRole( 'button', { name: /Push/i } );
+		const pushButton = await screen.findByRole( 'button', { name: 'Push' } );
 		fireEvent.click( pushButton );
 
 		await screen.findByText( 'Push to Production' );
-		const dialogPushButton = screen.getAllByRole( 'button', { name: /Push/i } )[ 1 ];
+		const dialogPushButton = await screen.findByRole( 'button', { name: 'Push' } );
 		expect( dialogPushButton ).toBeDisabled();
 	} );
 
 	it( 'enables the pull button when at least one checkbox is checked', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-			connectedSites: [ fakeSyncSite ],
-		} );
+		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const pullButton = screen.getByRole( 'button', { name: /Pull/i } );
+		const pullButton = await screen.findByRole( 'button', { name: 'Pull' } );
 		fireEvent.click( pullButton );
 
 		await screen.findByText( 'Pull from Production' );
@@ -812,19 +652,17 @@ describe( 'ContentTabSync', () => {
 		const databaseCheckbox = screen.getByRole( 'checkbox', { name: 'Database' } );
 		fireEvent.click( databaseCheckbox );
 
-		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } )[ 1 ];
+		const dialogPullButton = await screen.findByRole( 'button', { name: 'Pull' } );
 		expect( dialogPullButton ).toBeEnabled();
 	} );
 
 	it( 'enables the pull button when at least one checkbox children is checked', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-			connectedSites: [ fakeSyncSite ],
-		} );
+		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const pullButton = screen.getByRole( 'button', { name: /Pull/i } );
+		const pullButton = await screen.findByRole( 'button', { name: 'Pull' } );
 		fireEvent.click( pullButton );
 
 		await screen.findByText( 'Pull from Production' );
@@ -840,53 +678,48 @@ describe( 'ContentTabSync', () => {
 		expect( databaseCheckbox ).not.toBeChecked();
 		expect( filesAndFoldersCheckbox ).not.toBeChecked();
 
-		const dialogPullButton = screen.getAllByRole( 'button', { name: /Pull/i } )[ 1 ];
+		const dialogPullButton = await screen.findByRole( 'button', { name: 'Pull' } );
 		expect( dialogPullButton ).toBeEnabled();
 	} );
+
 	it( 'disables the push button when all checkboxes are unchecked', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-			connectedSites: [ fakeSyncSite ],
-		} );
+		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const pushButton = screen.getByRole( 'button', { name: /Push/i } );
+		const pushButton = await screen.findByRole( 'button', { name: 'Push' } );
 		fireEvent.click( pushButton );
 
 		await screen.findByText( 'Push to Production' );
-		const dialogPushButton = screen.getAllByRole( 'button', { name: /Push/i } )[ 1 ];
+		const dialogPushButton = await screen.findByRole( 'button', { name: 'Push' } );
 		expect( dialogPushButton ).toBeDisabled();
 	} );
 
 	it( 'enables the push button when at least one checkbox is checked', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-			connectedSites: [ fakeSyncSite ],
-		} );
+		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const pushButton = screen.getByRole( 'button', { name: /Push/i } );
+		const pushButton = await screen.findByRole( 'button', { name: 'Push' } );
 		fireEvent.click( pushButton );
 
 		await screen.findByText( 'Push to Production' );
 		const databaseCheckbox = screen.getByRole( 'checkbox', { name: 'Database' } );
 		fireEvent.click( databaseCheckbox );
 
-		const dialogPushButton = screen.getAllByRole( 'button', { name: /Push/i } )[ 1 ];
+		const dialogPushButton = await screen.findByRole( 'button', { name: 'Push' } );
 		expect( dialogPushButton ).toBeEnabled();
 	} );
 
 	it( 'enables the push button when at least one checkbox children is checked', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-		( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-			connectedSites: [ fakeSyncSite ],
-		} );
+		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 
 		renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-		const pushButton = screen.getByRole( 'button', { name: /Push/i } );
+		const pushButton = await screen.findByRole( 'button', { name: 'Push' } );
 		fireEvent.click( pushButton );
 
 		await screen.findByText( 'Push to Production' );
@@ -903,18 +736,14 @@ describe( 'ContentTabSync', () => {
 		expect( databaseCheckbox ).not.toBeChecked();
 		expect( filesAndFoldersCheckbox ).not.toBeChecked();
 
-		const dialogPushButton = screen.getAllByRole( 'button', { name: /Push/i } )[ 1 ];
+		const dialogPushButton = await screen.findByRole( 'button', { name: 'Push' } );
 		expect( dialogPushButton ).toBeEnabled();
 	} );
 
 	describe( 'Sync Dialog Push Selection Over Limit Notice', () => {
 		it( 'shows warning notice when push selection exceeds limit', async () => {
 			( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-			( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-				connectedSites: [ fakeSyncSite ],
-				loading: false,
-				localSiteId: 'site-id',
-			} );
+			setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 			( useSelectedItemsPushSize as jest.Mock ).mockReturnValue( {
 				isPushSelectionOverLimit: true,
 				isLoading: false,
@@ -922,7 +751,7 @@ describe( 'ContentTabSync', () => {
 
 			renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-			const pushButton = screen.getByRole( 'button', { name: /Push/i } );
+			const pushButton = await screen.findByRole( 'button', { name: 'Push' } );
 			fireEvent.click( pushButton );
 
 			await screen.findByText( 'Push to Production' );
@@ -930,17 +759,13 @@ describe( 'ContentTabSync', () => {
 			const warningNotice = screen.getByTestId( 'push-selection-over-limit-notice' );
 			expect( warningNotice ).toBeInTheDocument();
 
-			const dialogPushButton = screen.getAllByRole( 'button', { name: /Push/i } )[ 1 ];
+			const dialogPushButton = await screen.findByRole( 'button', { name: 'Push' } );
 			expect( dialogPushButton ).toBeDisabled();
 		} );
 
 		it( 'does not show warning notice when push selection is within limit', async () => {
 			( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-			( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-				connectedSites: [ fakeSyncSite ],
-				loading: false,
-				localSiteId: 'site-id',
-			} );
+			setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 			( useSelectedItemsPushSize as jest.Mock ).mockReturnValue( {
 				isPushSelectionOverLimit: false,
 				isLoading: false,
@@ -948,7 +773,7 @@ describe( 'ContentTabSync', () => {
 
 			renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-			const pushButton = screen.getByRole( 'button', { name: /Push/i } );
+			const pushButton = await screen.findByRole( 'button', { name: 'Push' } );
 			fireEvent.click( pushButton );
 
 			await screen.findByText( 'Push to Production' );
@@ -959,11 +784,7 @@ describe( 'ContentTabSync', () => {
 
 		it( 'does not show warning notice for pull operations even when limit exceeded', async () => {
 			( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
-			( useConnectedSitesData as jest.Mock ).mockReturnValue( {
-				connectedSites: [ fakeSyncSite ],
-				loading: false,
-				localSiteId: 'site-id',
-			} );
+			setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
 			( useSelectedItemsPushSize as jest.Mock ).mockReturnValue( {
 				isPushSelectionOverLimit: true,
 				isLoading: false,
@@ -971,7 +792,7 @@ describe( 'ContentTabSync', () => {
 
 			renderWithProvider( <ContentTabSync selectedSite={ selectedSite } /> );
 
-			const pullButton = screen.getByRole( 'button', { name: /Pull/i } );
+			const pullButton = await screen.findByRole( 'button', { name: 'Pull' } );
 			fireEvent.click( pullButton );
 
 			await screen.findByText( 'Pull from Production' );

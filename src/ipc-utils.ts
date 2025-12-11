@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { BrowserWindow } from 'electron';
+import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
 import { PreviewCommandLoggerAction } from 'common/logger-actions';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { StoredToken } from 'src/lib/oauth';
@@ -19,7 +20,12 @@ type SnapshotKeyValueEventData = {
 
 export interface IpcEvents {
 	'add-site': [ void ];
-	'add-site-blueprint': [ { blueprintPath: string } ];
+	'add-site-with-blueprint': [
+		{
+			blueprintPath: string;
+			warnings?: BlueprintValidationWarning[];
+		},
+	];
 	'auth-updated': [ { token: StoredToken } | { error: unknown } ];
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];
@@ -49,6 +55,7 @@ export interface IpcEvents {
 	'user-data-updated': [ UserData ];
 	'user-data-error': [ string ];
 	'refresh-app-globals': [ void ];
+	'beta-features-updated': [ void ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

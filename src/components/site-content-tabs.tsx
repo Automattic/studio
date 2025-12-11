@@ -6,7 +6,6 @@ import { ContentTabImportExport } from 'src/components/content-tab-import-export
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { ContentTabPreviews } from 'src/components/content-tab-previews';
 import { ContentTabSettings } from 'src/components/content-tab-settings';
-import { EmptyStudio } from 'src/components/empty-studio';
 import Header from 'src/components/header';
 import { SiteIsBeingCreated } from 'src/components/site-is-being-created';
 import { MIN_WIDTH_CLASS_TO_MEASURE } from 'src/constants';
@@ -17,7 +16,7 @@ import { cx } from 'src/lib/cx';
 import { ContentTabSync } from 'src/modules/sync';
 
 export function SiteContentTabs() {
-	const { selectedSite, data: localSites, siteCreationMessages, loadingSites } = useSiteDetails();
+	const { selectedSite, siteCreationMessages } = useSiteDetails();
 	const { importState } = useImportExport();
 	const { tabs, selectedTab, setSelectedTab } = useContentTabs();
 	const { __ } = useI18n();
@@ -25,24 +24,35 @@ export function SiteContentTabs() {
 	// Remount: Avoid focus loss on user tab changes (no remount),
 	// but remount on programmatic changes and site switches so initial tab/content state resets.
 	const [ keyCounter, setKeyCounter ] = useState( 0 );
+	const [ programmaticTab, setProgrammaticTab ] = useState( selectedTab );
 	const lastChangeWasUser = useRef( false );
 	const isFirstRender = useRef( true );
+	const prevSelectedTab = useRef( selectedTab );
 
 	useEffect( () => {
 		if ( isFirstRender.current ) {
 			isFirstRender.current = false;
+			prevSelectedTab.current = selectedTab;
 			return;
 		}
+
+		// If tab didn't actually change, skip
+		if ( prevSelectedTab.current === selectedTab ) {
+			return;
+		}
+
+		// Check if this was a user action by seeing if the flag was set BEFORE selectedTab changed
 		if ( lastChangeWasUser.current ) {
 			lastChangeWasUser.current = false;
+			prevSelectedTab.current = selectedTab;
 			return;
 		}
-		setKeyCounter( ( k ) => k + 1 );
-	}, [ selectedTab ] );
 
-	if ( ! loadingSites && ! localSites.length ) {
-		return <EmptyStudio />;
-	}
+		// Programmatic change - update both counter and tab to force remount
+		setKeyCounter( ( k ) => k + 1 );
+		setProgrammaticTab( selectedTab );
+		prevSelectedTab.current = selectedTab;
+	}, [ selectedTab ] );
 
 	if ( ! selectedSite ) {
 		return (
@@ -71,12 +81,15 @@ export function SiteContentTabs() {
 				tabs={ tabs }
 				orientation="horizontal"
 				onSelect={ ( tabName ) => {
-					// Mark this as a user-initiated change so we don't remount
-					lastChangeWasUser.current = true;
+					// Mark this as a user-initiated change BEFORE calling setSelectedTab
+					// so the useEffect can detect it was user-initiated
+					if ( tabName !== selectedTab ) {
+						lastChangeWasUser.current = true;
+					}
 					setSelectedTab( tabName as TabName );
 				} }
 				initialTabName={ selectedTab }
-				key={ `${ selectedSite.id }-${ keyCounter }` }
+				key={ `${ selectedSite.id }-${ keyCounter }-${ programmaticTab }` }
 			>
 				{ ( { name } ) => (
 					<div

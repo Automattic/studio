@@ -37,7 +37,7 @@ interface ThemeDetailsProviderProps {
 
 export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { children } ) => {
 	const [ initialLoad, setInitialLoad ] = useState( false );
-	const { loadingSites, data: sites, selectedSite } = useSiteDetails();
+	const { loadingSites, sites, selectedSite } = useSiteDetails();
 	const [ thumbnails, setThumbnails ] = useState< Record< string, ThumbnailType > >( {} );
 	const [ themeDetails, setThemeDetails ] = useState< Record< string, ThemeDetailsType > >( {} );
 	const [ loadingThemeDetails, setLoadingThemeDetails ] = useState< Record< string, boolean > >(

@@ -10,7 +10,7 @@ export default class MainSidebar {
 	}
 
 	get addSiteButton() {
-		return this.locator.getByRole( 'button', { name: 'Add site' } );
+		return this.locator.getByTestId( 'add-site-button' );
 	}
 
 	getSiteNavButton( siteName: string ) {
@@ -18,6 +18,12 @@ export default class MainSidebar {
 	}
 
 	async openAddSiteModal() {
+		const isButtonVisible = await this.addSiteButton.isVisible().catch( () => false );
+
+		if ( ! isButtonVisible ) {
+			throw new Error( 'Add Site button not found on the main sidebar' );
+		}
+
 		await this.addSiteButton.click();
 		const dialog = new AddSiteModal( this.page );
 		await expect( dialog.locator ).toBeVisible();

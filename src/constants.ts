@@ -1,5 +1,10 @@
 // This needs to be a relative import due to the postinstall scripts.
-import { HOUR_MS } from '../common/constants';
+import {
+	HOUR_MS,
+	PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL,
+	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
+	PLAYGROUND_CLI_MAX_TIMEOUT,
+} from '../common/constants';
 
 export const DEFAULT_WIDTH = 900;
 export const MAIN_MIN_HEIGHT = 600;
@@ -70,13 +75,15 @@ export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS = 6;
 export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT =
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS * 60 * 60 * 1000; // 6hr
 
-// Playground CLI
-export const PLAYGROUND_CLI_INACTIVITY_TIMEOUT = 2 * 60 * 1000; // 2 minutes of no output = timeout
-export const PLAYGROUND_CLI_MAX_TIMEOUT = 10 * 60 * 1000; // 10 minutes absolute maximum
-export const PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL = 5 * 1000; // Check for inactivity every 5 seconds
+// Playground CLI constants are re-exported from common/constants.ts
+export {
+	PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL,
+	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
+	PLAYGROUND_CLI_MAX_TIMEOUT,
+};
 
 // SQLite
-export const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.2.13';
+export const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.2.14';
 
 export const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordPress/sqlite-database-integration/archive/refs/tags/${ SQLITE_DATABASE_INTEGRATION_VERSION }.zip`;
 
@@ -101,4 +108,4 @@ export const IPC_VOID_HANDLERS = < const >[
 ];
 
 // What's New
-export const FORCE_WHATS_NEW_WHEN_PATCH_CHANGED = true;
+export const FORCE_WHATS_NEW_WHEN_PATCH_CHANGED = false;

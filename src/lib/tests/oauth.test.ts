@@ -90,7 +90,7 @@ describe( 'getSignUpUrl', () => {
 	it( 'should include encoded authentication URL as oauth2_redirect parameter', () => {
 		const locale: SupportedLocale = 'es';
 		const mockAuthUrl =
-			'https://public-api.wordpress.com/oauth2/authorize?response_type=token&client_id=95109&redirect_uri=wpcom-local-dev%3A%2F%2Fauth&scope=global&locale=es';
+			'https://public-api.wordpress.com/oauth2/authorize?response_type=token&client_id=95109&redirect_uri=wp-studio%3A%2F%2Fauth&scope=global&locale=es';
 		const result = getSignUpUrl( locale );
 
 		const url = new URL( result );

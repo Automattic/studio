@@ -37,10 +37,14 @@ function mapToYargsLocale( locale: SupportedLocale ): string {
 	}
 }
 
-export async function loadTranslations() {
+export async function getAppLocale(): Promise< SupportedLocale > {
 	const appdataLocale = await getLocaleFromAppdata();
 	const envLocale = getLocaleFromEnvironment();
-	const locale = appdataLocale || envLocale || DEFAULT_LOCALE;
+	return appdataLocale || envLocale || DEFAULT_LOCALE;
+}
+
+export async function loadTranslations() {
+	const locale = await getAppLocale();
 	const translations = getLocaleData( locale )?.messages;
 
 	if ( translations ) {

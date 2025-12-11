@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom';
 import { TextEncoder, TextDecoder } from 'util';
+import 'isomorphic-fetch';
 import nock from 'nock';
 
 // Polyfill TextEncoder and TextDecoder for tests
@@ -45,8 +46,6 @@ if ( typeof window !== 'undefined' ) {
 
 // Define global variables that were previously in jest.config.ts
 ( global as any ).COMMIT_HASH = 'mock-hash';
-( global as any ).MAIN_WINDOW_WEBPACK_ENTRY = 'main-window-webpack-entry';
-( global as any ).MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY = 'main-window-preload-webpack-entry';
 
 // Silence console.log for all tests
 beforeEach( () => {
@@ -82,14 +81,6 @@ if ( typeof window !== 'undefined' ) {
 	Object.defineProperty( global.crypto, 'subtle', {
 		value: { generateKey: jest.fn() },
 	} );
-
-	/**
-	 * Mock `fetch` as it's not implemented in JSDOM
-	 * https://github.com/jsdom/jsdom/issues/1724
-	 *
-	 * `fetch` is required by `@wp-playground/blueprints`
-	 */
-	global.fetch = jest.fn();
 }
 
 nock.disableNetConnect();

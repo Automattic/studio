@@ -27,10 +27,12 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getMainWindow } from 'src/main-window';
-import { installCLIOnMacOSWithConfirmation } from 'src/modules/cli/lib/install-macos';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
-export async function setupMenu( config: { needsOnboarding: boolean } ) {
+export async function setupMenu( config: {
+	needsOnboarding: boolean;
+	isAddSiteVisible?: boolean;
+} ) {
 	const mainWindow = await getMainWindow();
 	if ( ! mainWindow && process.platform !== 'darwin' ) {
 		Menu.setApplicationMenu( null );
@@ -76,6 +78,7 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 			sublabel: process.platform === 'darwin' ? definition.description : undefined,
 			click: async ( menuItem: MenuItem ) => {
 				await updateBetaFeature( key as keyof BetaFeatures, menuItem.checked );
+				void sendIpcEventToRenderer( 'beta-features-updated' );
 			},
 		};
 	} );
@@ -83,7 +86,10 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 
 async function getAppMenu(
 	mainWindow: BrowserWindow | null,
-	{ needsOnboarding = false }: { needsOnboarding?: boolean } = {}
+	{
+		needsOnboarding = false,
+		isAddSiteVisible = false,
+	}: { needsOnboarding?: boolean; isAddSiteVisible?: boolean } = {}
 ) {
 	const crashTestMenuItems: MenuItemConstructorOptions[] = [
 		{
@@ -146,14 +152,6 @@ async function getAppMenu(
 						void sendIpcEventToRenderer( 'user-settings', { tabName: 'preferences' } );
 					},
 				},
-				...( process.platform === 'darwin'
-					? [
-							{
-								label: __( 'Install CLI…' ),
-								click: installCLIOnMacOSWithConfirmation,
-							},
-					  ]
-					: [] ),
 				{
 					label: __( 'Beta Features' ),
 					submenu: betaFeaturesMenu,
@@ -190,7 +188,7 @@ async function getAppMenu(
 					click: async () => {
 						void sendIpcEventToRenderer( 'add-site' );
 					},
-					enabled: ! needsOnboarding,
+					enabled: ! needsOnboarding && ! isAddSiteVisible,
 				},
 				...( process.platform === 'win32'
 					? []

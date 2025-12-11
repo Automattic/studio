@@ -1,11 +1,10 @@
 import path from 'path';
 import { test, expect } from '@playwright/test';
-import fs from 'fs-extra';
+import { DEFAULT_SITE_NAME } from './constants';
 import { E2ESession } from './e2e-helpers';
 import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
-import WhatsNewModal from './page-objects/whats-new-modal';
 import { getUrlWithAutoLogin } from './utils';
 
 test.describe( 'Blueprints', () => {
@@ -14,17 +13,11 @@ test.describe( 'Blueprints', () => {
 	test.beforeAll( async () => {
 		await session.launch();
 
-		// Complete onboarding before tests
 		const onboarding = new Onboarding( session.mainWindow );
-		await expect( onboarding.heading ).toBeVisible();
-		await onboarding.continueButton.click();
+		await onboarding.completeOnboarding();
+		await onboarding.closeWhatsNew();
 
-		const whatsNewModal = new WhatsNewModal( session.mainWindow );
-		if ( await whatsNewModal.locator.isVisible( { timeout: 5000 } ) ) {
-			await whatsNewModal.closeButton.click();
-		}
-
-		const siteContent = new SiteContent( session.mainWindow, 'My WordPress Website' );
+		const siteContent = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
 		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
 	} );
 
@@ -34,7 +27,7 @@ test.describe( 'Blueprints', () => {
 
 	test( 'create site with blueprint that installs a theme', async ( { page } ) => {
 		const siteName = 'Blueprint-Theme-Install';
-		const blueprintPath = path.join( __dirname, 'test-blueprints', 'install-theme.json' );
+		const blueprintPath = path.join( __dirname, 'fixtures', 'blueprints', 'install-theme.json' );
 
 		const sidebar = new MainSidebar( session.mainWindow );
 		const modal = await sidebar.openAddSiteModal();
@@ -70,7 +63,7 @@ test.describe( 'Blueprints', () => {
 
 	test( 'create site with blueprint that activates a theme', async ( { page } ) => {
 		const siteName = 'Blueprint-Theme-Activate';
-		const blueprintPath = path.join( __dirname, 'test-blueprints', 'activate-theme.json' );
+		const blueprintPath = path.join( __dirname, 'fixtures', 'blueprints', 'activate-theme.json' );
 
 		const sidebar = new MainSidebar( session.mainWindow );
 		const modal = await sidebar.openAddSiteModal();
@@ -108,7 +101,7 @@ test.describe( 'Blueprints', () => {
 
 	test( 'create site with blueprint that installs a plugin', async ( { page } ) => {
 		const siteName = 'Blueprint-Plugin-Install';
-		const blueprintPath = path.join( __dirname, 'test-blueprints', 'install-plugin.json' );
+		const blueprintPath = path.join( __dirname, 'fixtures', 'blueprints', 'install-plugin.json' );
 
 		const sidebar = new MainSidebar( session.mainWindow );
 		const modal = await sidebar.openAddSiteModal();
@@ -137,14 +130,14 @@ test.describe( 'Blueprints', () => {
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify plugin was installed
-		const pluginsUrl =  wpAdminUrl + '/plugins.php' ;
+		const pluginsUrl = wpAdminUrl + '/plugins.php';
 		await page.goto( getUrlWithAutoLogin( pluginsUrl ) );
 		await expect( page.locator( 'tr[data-slug="akismet"]' ) ).toBeVisible();
 	} );
 
 	test( 'create site with blueprint that activates a plugin', async ( { page } ) => {
 		const siteName = 'Blueprint-Plugin-Activate';
-		const blueprintPath = path.join( __dirname, 'test-blueprints', 'activate-plugin.json' );
+		const blueprintPath = path.join( __dirname, 'fixtures', 'blueprints', 'activate-plugin.json' );
 
 		const sidebar = new MainSidebar( session.mainWindow );
 		const modal = await sidebar.openAddSiteModal();
@@ -182,7 +175,7 @@ test.describe( 'Blueprints', () => {
 
 	test( 'create site with blueprint that runs PHP code', async ( { page } ) => {
 		const siteName = 'Blueprint-PHP-Code';
-		const blueprintPath = path.join( __dirname, 'test-blueprints', 'run-php-code.json' );
+		const blueprintPath = path.join( __dirname, 'fixtures', 'blueprints', 'run-php-code.json' );
 
 		const sidebar = new MainSidebar( session.mainWindow );
 		const modal = await sidebar.openAddSiteModal();
@@ -221,7 +214,7 @@ test.describe( 'Blueprints', () => {
 
 	test( 'create site with blueprint that runs WP-CLI commands', async ( { page } ) => {
 		const siteName = 'Blueprint-WP-CLI';
-		const blueprintPath = path.join( __dirname, 'test-blueprints', 'wp-cli-command.json' );
+		const blueprintPath = path.join( __dirname, 'fixtures', 'blueprints', 'wp-cli-command.json' );
 
 		const sidebar = new MainSidebar( session.mainWindow );
 		const modal = await sidebar.openAddSiteModal();
@@ -250,7 +243,7 @@ test.describe( 'Blueprints', () => {
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify the site was created successfully and admin is accessible
-		const optionsGeneralUrl = wpAdminUrl + '/options-general.php'
+		const optionsGeneralUrl = wpAdminUrl + '/options-general.php';
 		await page.goto( getUrlWithAutoLogin( optionsGeneralUrl ) );
 		await expect( page.getByLabel( 'Site Title' ) ).toBeVisible();
 

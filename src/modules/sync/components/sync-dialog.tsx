@@ -8,12 +8,16 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import Modal from 'src/components/modal';
+import { TwoColorProgressBar } from 'src/components/progress-bar';
 import { Tooltip } from 'src/components/tooltip';
 import { TreeView, TreeNode, updateNodeById } from 'src/components/tree-view';
 import { SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
+import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
+import { getLatestStableWpVersion } from 'src/lib/version-utils';
+import { hasVersionMismatch } from 'src/modules/preview-site/lib/version-comparison';
 import { SiteNameBox } from 'src/modules/sync/components/site-name-box';
 import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
 import { useSyncDialogTexts } from 'src/modules/sync/hooks/use-sync-dialog-texts';
@@ -21,8 +25,9 @@ import { useTopLevelSyncTree } from 'src/modules/sync/hooks/use-top-level-sync-t
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
 import { useLatestRewindId, useRemoteFileTree, useLocalFileTree } from 'src/stores/sync';
+import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { TreeViewLoadingSkeleton } from './tree-view-loading-skeleton';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { SyncSite } from 'src/modules/sync/types';
 
 type SyncDialogProps = {
 	type: 'push' | 'pull';
@@ -140,14 +145,31 @@ export function SyncDialog( {
 	const [ showAllFiles, setShowAllFiles ] = useState( false );
 	const [ treeState, setTreeState ] = useState< TreeNode[] >( defaultTree );
 	const isSubmitDisabled = treeState.every( ( node ) => ! node.checked && ! node.indeterminate );
-	const { isPushSelectionOverLimit, isLoading: isSizeCheckLoading } = useSelectedItemsPushSize(
-		localSite.id,
-		treeState,
-		type
-	);
+	const {
+		isPushSelectionOverLimit,
+		isLoading: isSizeCheckLoading,
+		totalSize,
+		limitBytes,
+		formattedSize,
+		formattedLimit,
+		formattedOverAmount,
+	} = useSelectedItemsPushSize( localSite.id, treeState, type );
 
 	const { fetchChildren, rewindId, isLoadingRewindId, isErrorRewindId, isLoadingLocalFileTree } =
 		useDynamicTreeState( type, localSite.id, remoteSite.id, setTreeState );
+
+	const [ wpVersion ] = useGetWpVersion( localSite );
+	const { data: wpVersions = [] } = useGetWordPressVersions( {
+		minimumVersion: '',
+	} );
+	const latestWpVersion = getLatestStableWpVersion( wpVersions );
+	const shouldShowVersionMismatch =
+		type === 'push' &&
+		hasVersionMismatch( {
+			wpVersion,
+			latestWpVersion,
+			phpVersion: localSite.phpVersion,
+		} );
 
 	const localSiteName = <SiteNameBox siteName={ localSite.name } envType="studio" />;
 	const remoteSiteName = <SiteNameBox siteName={ remoteSite.name } envType={ siteEnv } />;
@@ -218,13 +240,31 @@ export function SyncDialog( {
 		onRequestClose();
 	};
 
+	const getBottomPadding = () => {
+		if ( type === 'pull' ) {
+			return 'pb-[70px]'; // Original padding for pull
+		}
+		// Calculate dynamic padding based on number of notices shown
+		const noticeCount = [ isPushSelectionOverLimit, shouldShowVersionMismatch ].filter(
+			Boolean
+		).length;
+
+		if ( noticeCount === 0 ) {
+			return 'pb-[140px]'; // Just progress bar
+		}
+		if ( noticeCount === 1 ) {
+			return 'pb-[220px]'; // Progress bar + one notice
+		}
+		return 'pb-[300px]'; // Progress bar + two notices
+	};
+
 	return (
 		<Modal
 			className="w-3/5 min-w-[550px] max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
 			title={ syncTexts.title }
 		>
-			<div className={ isPushSelectionOverLimit ? 'pb-[140px]' : 'pb-[70px]' }>
+			<div className={ getBottomPadding() }>
 				<div className="px-8 pb-6 pt-1">{ syncTexts.description }</div>
 				<div className="px-8">
 					<span className="sr-only">
@@ -321,7 +361,19 @@ export function SyncDialog( {
 					</div>
 				</Tooltip>
 
-				<div className="px-8 py-4 absolute left-0 right-0 bottom-0 bg-white z-10">
+				<div className="px-8 py-4 absolute left-0 right-0 bottom-0 bg-white/[0.8] backdrop-blur-sm z-10 border-t border-a8c-gray-5">
+					{ type === 'push' && (
+						<div className="mb-4">
+							<TwoColorProgressBar
+								value={ totalSize }
+								maxValue={ limitBytes }
+								showLabels
+								valueLabel={ formattedSize }
+								limitLabel={ formattedLimit }
+								overLimitLabel={ sprintf( __( '%s over' ), formattedOverAmount ) }
+							/>
+						</div>
+					) }
 					{ type === 'push' && isPushSelectionOverLimit && (
 						<Notice status="warning" isDismissible={ false } className="mb-4">
 							<p data-testid="push-selection-over-limit-notice">
@@ -330,6 +382,15 @@ export function SyncDialog( {
 										'The current selection exceeds the %d GB push limit. To continue, please change your selection to reduce the total size.'
 									),
 									SYNC_PUSH_SIZE_LIMIT_GB
+								) }
+							</p>
+						</Notice>
+					) }
+					{ shouldShowVersionMismatch && (
+						<Notice status="warning" isDismissible={ false } className="mb-4">
+							<p data-testid="push-version-mismatch-notice">
+								{ __(
+									'Your Studio site is using a different WordPress or PHP version than your WordPress.com site. The remote site will keep on using the newest supported versions.'
 								) }
 							</p>
 						</Notice>

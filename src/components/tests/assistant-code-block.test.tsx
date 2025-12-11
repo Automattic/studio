@@ -23,7 +23,7 @@ const selectedSite: SiteDetails = {
 };
 
 ( useSiteDetails as jest.Mock ).mockReturnValue( {
-	data: [ selectedSite ],
+	sites: [ selectedSite ],
 	loadingSites: false,
 	selectedSite: selectedSite,
 } );

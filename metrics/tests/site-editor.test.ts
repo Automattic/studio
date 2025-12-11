@@ -30,20 +30,14 @@ test.describe( 'Site Editor Load Metrics', () => {
 	test( 'measure site editor load time', async () => {
 		let wpAdminUrl = '';
 		await session.launch();
-
-		// Setup WordPress site
+		
 		const onboarding = new Onboarding( session.mainWindow );
-		await expect( onboarding.heading ).toBeVisible();
+		expect( onboarding.heading ).toBeVisible();
+
 		// Wait for store initialization to complete (provider constants loading)
 		await new Promise( ( resolve ) => setTimeout( resolve, 500 ) );
-		await onboarding.siteNameInput.fill( siteName );
-		await onboarding.continueButton.click();
-
-		// Handle the What's New modal if it appears
-		const whatsNewModal = new WhatsNewModal( session.mainWindow );
-		if ( await whatsNewModal.locator.isVisible( { timeout: 5000 } ) ) {
-			await whatsNewModal.closeButton.click();
-		}
+		await onboarding.completeOnboarding( { customSiteName: siteName } );
+		await onboarding.closeWhatsNew();
 
 		const siteContent = new SiteContent( session.mainWindow, siteName );
 

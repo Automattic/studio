@@ -17,6 +17,10 @@ BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'out')
 # Enable dry run mode through environment variable
 DRY_RUN = ENV['DRY_RUN'] == 'true'
 
+# Make sure the WPCOM API token is set
+UI.user_error!("Environment variable WPCOM_API_TOKEN is not set") if ENV['WPCOM_API_TOKEN'].nil? && !DRY_RUN
+UI.message("Running in #{DRY_RUN ? 'DRY RUN' : 'NORMAL'} mode")
+
 # Read version from package.json
 PACKAGE_VERSION = JSON.parse(File.read(File.join(PROJECT_ROOT_FOLDER, 'package.json')))['version']
 
@@ -24,8 +28,8 @@ APPLE_TEAM_ID = 'PZYM8XX95Q'
 APPLE_BUNDLE_IDENTIFIER = 'com.automattic.studio'
 APPLE_API_KEY_PATH = File.join(SECRETS_FOLDER, 'app_store_connect_fastlane_api_key.json')
 
-CDN_URL = 'https://cdn.a8c-ci.services'
-CLOUDFRONT_DISTRIBUTION_ID = 'EF4A01YASGPY5'
+# Site ID for WordPress.com Studio in the Apps CDN
+WPCOM_STUDIO_SITE_ID = '239164481'
 
 # Use this instead of getting values from ENV directly
 # It will throw an error if the requested value is missing
@@ -77,10 +81,14 @@ end
 
 desc 'Ship release build'
 lane :distribute_release_build do |_options|
-  next if DRY_RUN
-  
   release_tag = get_required_env('BUILDKITE_TAG')
   builds = distribute_builds(release_tag:)
+
+  if DRY_RUN
+    UI.message("[DRY RUN] Would notify Slack about #{release_tag}")
+    UI.message("[DRY RUN] Release assets prepared for #{builds.each_value.map { |build| build[:name] }.join(', ')}")
+    next
+  end
 
   slack(
     username: 'CI Bot',
@@ -96,22 +104,20 @@ lane :distribute_release_build do |_options|
   )
 end
 
-def aws_upload_to_s3(bucket:, key:, file:, if_exists:, auto_prefix: false, dry_run: DRY_RUN)
-  if dry_run
-    UI.message("[DRY RUN] Would upload file: #{file}")
-    UI.message("           to S3 bucket: #{bucket}")
-    UI.message("           with key: #{key}")
-    UI.message("           if_exists: #{if_exists}")
-    return true
+def get_windows_update_release_sha(arch: 'x64')
+  releases_file_path = File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', arch, 'RELEASES')
+
+  begin
+    releases_content = File.read(releases_file_path)
+  rescue => error
+    UI.user_error!("Couldn't read RELEASES file of Windows build at #{releases_file_path}. Please ensure that the file compute the release SHA1.")
   end
 
-  upload_to_s3(
-    bucket:,
-    key:,
-    file:,
-    if_exists:,
-    auto_prefix:
-  )
+  match_data = releases_content.match(/([a-zA-Z\d]{40})\s(.*\.nupkg)\s(\d+)/)
+  UI.user_error!("Could not parse Windows RELEASES file format") unless match_data
+
+  sha1, filename, size = match_data.captures
+  sha1
 end
 
 def distribute_builds(
@@ -119,183 +125,210 @@ def distribute_builds(
   build_number: get_required_env('BUILDKITE_BUILD_NUMBER'),
   release_tag: nil
 )
-  UI.message("Running in #{DRY_RUN ? 'DRY RUN' : 'NORMAL'} mode")
-  # If we are distributing a build without a tag, i.e. a development build, we also want to update the latest build reference for distribution.
-  update_latest = release_tag.nil?
-  suffix = release_tag.nil? ? "v#{PACKAGE_VERSION}" : release_tag
-  appx_version = "#{suffix[/\d+\.\d+\.\d+/]}.0"
-  filename_root = 'studio'
-  bucket_folder = 'studio'
 
-  builds = {
+  build_type = if release_tag.nil?
+    'Nightly'
+  elsif release_tag.downcase.include?('beta')
+    'Beta'
+  else
+    'Production'
+  end
+  version = release_tag.nil? ? "v#{PACKAGE_VERSION}" : release_tag
+  appx_version = "#{version[/\d+\.\d+\.\d+/]}.0"
+  release_notes = release_tag.nil? ? "Development build #{version}-#{build_number}" : "Release #{release_tag}"
+
+  update_builds = {
     x64: {
       binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-x64', 'Studio.app.zip'),
-      filename_core: 'darwin-x64',
-      extension: 'app.zip',
-      name: 'Mac Intel'
-    },
-    x64_dmg: {
-      binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-x64.dmg'),
-      filename_core: 'darwin-x64',
-      extension: 'dmg',
-      name: 'Mac Intel (DMG)'
+      name: 'Mac Intel',
+      platform: 'Mac - Intel',
+	  arch: 'x64',
+      install_type: 'Update',
+      sha: commit_hash
     },
     arm64: {
       binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-arm64', 'Studio.app.zip'),
-      filename_core: 'darwin-arm64',
-      extension: 'app.zip',
-      name: 'Mac Apple Silicon'
+      name: 'Mac Apple Silicon',
+      platform: 'Mac - Silicon',
+	  arch: 'arm64',
+      install_type: 'Update',
+      sha: commit_hash
+    },
+    windows_update: {
+      binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'x64', "studio-update.nupkg"),
+      name: 'Windows - x64 Update',
+      platform: 'Windows - x64',
+	  arch: 'x64',
+      install_type: 'Update',
+      sha: get_windows_update_release_sha(arch: 'x64')
+    },
+	windows_arm64_update: {
+		binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'arm64', "studio-update.nupkg"),
+		name: 'Windows - ARM64 Update',
+		platform: 'Windows - ARM64',
+		arch: 'arm64',
+		install_type: 'Update',
+		sha: get_windows_update_release_sha(arch: 'arm64')
+	}
+  }
+
+  full_install_builds = {
+    x64_dmg: {
+      binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-x64.dmg'),
+      name: 'Mac Intel (DMG)',
+      platform: 'Mac - Intel',
+	  arch: 'x64',
+      install_type: 'Full Install'
     },
     arm64_dmg: {
       binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-arm64.dmg'),
-      filename_core: 'darwin-arm64',
-      extension: 'dmg',
-      name: 'Mac Apple Silicon (DMG)'
+      name: 'Mac Apple Silicon (DMG)',
+      platform: 'Mac - Silicon',
+	  arch: 'arm64',
+      install_type: 'Full Install',
     },
-    windows_x64: {
+    windows: {
       binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'x64', 'studio-setup.exe'),
-      filename_core: 'win32-x64',
-      extension: 'exe',
-      name: 'Windows x64'
+      name: 'Windows - x64',
+      platform: 'Windows - x64',
+	  arch: 'x64',
+      install_type: 'Full Install'
     },
-    windows_x64_update: {
-      binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'x64', "studio-update.nupkg"),
-      filename_core: 'win32-x64',
-      suffix: 'full',
-      extension: 'nupkg',
-      name: 'Windows x64 Update'
-    },
-    windows_x64_appx: {
-      binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-x64-signed', "Studio #{appx_version}.appx"),
-      filename_core: 'win32-x64',
-      extension: 'appx',
-      name: 'Windows x64 (Appx)'
-    },
-    windows_x64_appx_unsigned: {
-      binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-x64-unsigned', "Studio #{appx_version} unsigned.appx"),
-      filename_core: 'win32-x64',
-      suffix: 'unsigned',
-      extension: 'appx',
-      name: 'Windows x64 (Unsigned Appx)'
-    },
-    windows_arm64: {
+	windows_arm64: {
       binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'arm64', 'studio-setup.exe'),
-      filename_core: 'win32-arm64',
-      extension: 'exe',
-      name: 'Windows ARM64'
+      name: 'Windows - ARM64',
+      platform: 'Windows - ARM64',
+	  arch: 'arm64',
+      install_type: 'Full Install'
     },
-    windows_arm64_update: {
-      binary_path: File.join(BUILDS_FOLDER, 'make', 'squirrel.windows', 'arm64', "studio-update.nupkg"),
-      filename_core: 'win32-arm64',
-      suffix: 'full',
-      extension: 'nupkg',
-      name: 'Windows ARM64 Update'
-    },
-    windows_arm64_appx: {
-      binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-arm64-signed', "Studio #{appx_version}.appx"),
-      filename_core: 'win32-arm64',
-      extension: 'appx',
-      name: 'Windows ARM64 (Appx)'
-    },
-    windows_arm64_appx_unsigned: {
-      binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-arm64-unsigned', "Studio #{appx_version} unsigned.appx"),
-      filename_core: 'win32-arm64',
-      suffix: 'unsigned',
-      extension: 'appx',
-      name: 'Windows ARM64 (Unsigned Appx)'
-    },
+	windows_appx_unsigned: {
+		binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-x64-unsigned', "Studio #{appx_version} unsigned.appx"),
+		name: 'Windows - x64 (Unsigned Appx)',
+		platform: 'Microsoft Store - x64',
+		arch: 'x64',
+		install_type: 'Full Install',
+	},
+	windows_arm64_appx_unsigned: {
+		binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-arm64-unsigned', "Studio #{appx_version} unsigned.appx"),
+		name: 'Windows - ARM64 (Unsigned Appx)',
+		platform: 'Microsoft Store - ARM64',
+		arch: 'arm64',
+		install_type: 'Full Install',
+	},
   }
 
-  # Add computed fields
-  assemble_filename = lambda do |build, filename_suffix|
-    build_suffix = build[:suffix].to_s.empty? ? '' : "-#{build[:suffix]}"
-    "#{filename_root}-#{build[:filename_core]}-#{filename_suffix}#{build_suffix}.#{build[:extension]}"
-  end
-  builds.each_value do |build|
-    build[:filename] = assemble_filename.call(build, suffix)
-    build[:cdn_url] = "#{CDN_URL}/#{bucket_folder}/#{build[:filename]}"
-  end
+  builds_to_upload = release_tag.nil? ? update_builds : { **update_builds, **full_install_builds }
 
+  UI.message("Uploading #{builds_to_upload.count} builds (#{release_tag.nil? ? 'dev: updates only' : 'release: all builds'})")
 
-  bucket_name = 'a8c-apps-public-artifacts'
-
-  builds.each_value do |build|
-    aws_upload_to_s3(
-      bucket: bucket_name,
-      key: "#{bucket_folder}/#{build[:filename]}",
-      file: build[:binary_path],
-      if_exists: :fail,
-      auto_prefix: false
+  # Upload to Apps CDN
+  builds_to_upload.each_value do |build|
+    result = upload_file_to_apps_cdn(
+      site_id: WPCOM_STUDIO_SITE_ID,
+      product: 'WordPress.com Studio',
+      file_path: build[:binary_path],
+      platform: build[:platform],
+      arch: build[:arch],
+      build_type: build_type,
+      install_type: build[:install_type],
+      visibility: 'external',
+      version: version,
+      build_number: build_number,
+      release_notes: release_notes,
+      sha: build[:sha],
+      error_on_duplicate: false
     )
+    # Store the download URL for later use
+    build[:cdn_url] = result[:media_url]
   end
-
-  manifest_name = 'releases.json'
-  aws_upload_to_s3(
-    bucket: bucket_name,
-    key: "#{bucket_folder}/#{manifest_name}",
-    file: File.join(BUILDS_FOLDER, manifest_name),
-    if_exists: :replace,
-    auto_prefix: false
-  )
-
-  cache_paths_to_clear = [
-    "/#{bucket_folder}/releases.json"
-  ]
-
-  if update_latest
-    builds.each_value do |build|
-      filename = assemble_filename.call(build, 'latest')
-      key = "#{bucket_folder}/#{filename}"
-
-      aws_upload_to_s3(
-        bucket: bucket_name,
-        key:,
-        file: build[:binary_path],
-        if_exists: :replace,
-        auto_prefix: false
-      )
-
-      cache_paths_to_clear.append("/#{key}")
-    end
-  end
-
-  # Because we distribute via Cloudfront, we need to invalidate the manifest
-  # and the latest build (if building for release) after each upload, otherwise
-  # it'll be stale.
-  clear_cloudfront_cache(
-    paths: cache_paths_to_clear,
-    commit_hash: "#{commit_hash}-#{build_number}"
-  )
 
   unless DRY_RUN
     buildkite_annotate(
       context: 'cdn-link',
       style: 'info',
-      message: "🔗 Build available for #{builds.each_value.map { |build| "[#{build[:name]}](#{build[:cdn_url]})" }.join(', ')}"
+      message: "🔗 Build available for #{builds_to_upload.each_value.map { |build| "[#{build[:name]}](#{build[:cdn_url]})" }.join(', ')}"
     )
   end
 
   # Return the builds data so callers can use them for further processing or messaging.
-  builds
+  builds_to_upload
 end
 
-def clear_cloudfront_cache(paths:, commit_hash:, dry_run: DRY_RUN)
-  if dry_run
-    UI.message("[DRY RUN] Would invalidate CloudFront cache:")
-    UI.message("           Distribution: #{CLOUDFRONT_DISTRIBUTION_ID}")
-    UI.message("           Paths: #{paths.join(', ')}")
-    UI.message("           Commit hash: #{commit_hash}")
-    return true
+# Create unique filenames using the current version and the architecture.
+def create_versioned_file(original_file_path:, version:, arch:)
+  original_filename = File.basename(original_file_path)
+  if original_filename.match(/\.app\.zip$/i)
+	original_filename = original_filename.gsub(/\.app\.zip$/i, '')
+    extension = '.zip'
+  elsif original_filename.match(/\.nupkg$/i)
+    original_filename = original_filename.gsub(/\.nupkg$/i, '')
+    extension = '-full.nupkg'
+  else
+    extension = File.extname(original_filename)
+  end
+  base_name = File.basename(original_filename, extension)
+
+  if base_name.match(/-#{arch}/i)
+    versioned_filename = "#{base_name}-#{version}#{extension}"
+  else
+    versioned_filename = "#{base_name}-#{arch}-#{version}#{extension}"
   end
 
-  Aws::CloudFront::Client.new.create_invalidation(
-    distribution_id: CLOUDFRONT_DISTRIBUTION_ID,
-    invalidation_batch: {
-      paths: {
-        quantity: paths.length,
-        items: paths
-      },
-      caller_reference: commit_hash
+  versioned_file_path = File.join(File.dirname(original_file_path), versioned_filename)
+  UI.message("Copying #{original_file_path} to #{versioned_file_path}")
+  FileUtils.cp(original_file_path, versioned_file_path)
+  versioned_file_path
+end
+
+# Helper method to upload a file to Apps CDN with dry run support
+def upload_file_to_apps_cdn(site_id:, product:, file_path:, platform:, arch:, build_type:, install_type: 'Full Install', visibility:, version:, build_number:, release_notes:, sha: nil, error_on_duplicate:, dry_run: DRY_RUN)
+  versioned_file_path = create_versioned_file(original_file_path: file_path, version:, arch:)
+
+	if !File.exist?(versioned_file_path)
+		UI.user_error!("File #{versioned_file_path} does not exist")
+	end
+
+  if dry_run
+    media_url = "https://appscdn.wordpress.com/downloads/wordpress-com-studio/#{platform}/#{version}/#{build_number}"
+	# Check if the file exists
+    UI.message("[DRY RUN] Upload step skipped due to dry run mode.")
+    UI.message("           File exists at: #{versioned_file_path}")
+    UI.message("           file size: #{File.size(versioned_file_path)/1024/1024} MB")
+    UI.message("           for platform: #{platform}")
+    UI.message("           media url: #{media_url}")
+    UI.message("           build type: #{build_type}")
+    UI.message("           install type: #{install_type}")
+    UI.message("           visibility: #{visibility}")
+    UI.message("           version: #{version}")
+    UI.message("           build number: #{build_number}")
+    UI.message("           release notes: #{release_notes}")
+    UI.message("           sha: #{sha}")
+    UI.message("           error on duplicate: #{error_on_duplicate}")
+
+    return {
+      media_url: media_url
     }
+  end
+
+  UI.message("Uploading file: #{versioned_file_path}")
+
+  result = upload_build_to_apps_cdn(
+    site_id:,
+    product:,
+    platform:,
+    build_type:,
+    install_type:,
+    visibility:,
+    version:,
+    build_number:,
+    release_notes:,
+    sha:,
+    file_path: versioned_file_path,
+    error_on_duplicate:
   )
+
+  UI.message("--------------------------------")
+  UI.message("✅ Uploaded file: #{versioned_file_path} to #{result[:media_url]}")
+
+  result
 end

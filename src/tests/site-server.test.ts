@@ -4,7 +4,7 @@
 import { SiteServer } from 'src/site-server';
 
 // Electron's Node.js environment provides `bota`/`atob`, but Jests' does not
-jest.mock( 'src/lib/passwords' );
+jest.mock( 'common/lib/passwords' );
 
 // `SiteServer::start` uses `getPreferredSiteLanguage` to set the site language
 jest.mock( 'src/lib/site-language', () => ( {
@@ -18,7 +18,6 @@ jest.mock( 'src/lib/wordpress-provider', () => {
 		DEFAULT_WORDPRESS_VERSION: 'latest',
 		ALLOWED_PHP_VERSIONS: [ '8.0', '8.1', '8.2', '8.3' ],
 		SQLITE_FILENAME: 'sqlite-database-integration',
-		SQLITE_FILENAME_LEGACY: 'sqlite-database-integration-legacy',
 		getWordPressVersionPath: jest.fn( ( version ) => `/mock/path/to/wp-${ version }` ),
 		getSqlitePath: jest.fn( () => '/mock/path/to/sqlite' ),
 		getWpCliPath: jest.fn( () => '/mock/path/to/wp-cli' ),

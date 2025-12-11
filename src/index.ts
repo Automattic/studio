@@ -7,6 +7,7 @@ import {
 	globalShortcut,
 	Menu,
 	dialog,
+	MessageBoxSyncOptions,
 } from 'electron';
 import path from 'path';
 import { pathToFileURL } from 'url';
@@ -18,15 +19,16 @@ import {
 	REDUX_DEVTOOLS,
 } from 'electron-devtools-installer';
 import { PROTOCOL_PREFIX } from 'common/constants';
+import { bumpStat } from 'common/lib/bump-stat';
 import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
 import { StatsGroup } from 'common/types/stats';
 import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
 import {
 	hasActiveSyncOperations,
-	hasCancelableSyncOperations,
+	hasUploadingPushOperations,
 } from 'src/lib/active-sync-operations';
-import { bumpAggregatedUniqueStat, bumpStat } from 'src/lib/bump-stats';
+import { bumpAggregatedUniqueStat } from 'src/lib/bump-stats';
 import { getPlatformMetric } from 'src/lib/bump-stats/lib';
 import { handleDeeplink } from 'src/lib/deeplink';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
@@ -40,10 +42,9 @@ import {
 	needsToMigrateFromWpNowFolder,
 	migrateFromWpNowFolder,
 } from 'src/migrations/migrate-from-wp-now-folder';
-import { migrateAllDatabasesInSitu } from 'src/migrations/move-databases-in-situ';
 import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
 import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-stat';
-import { installCLIOnWindows } from 'src/modules/cli/lib/install-windows';
+import { updateWindowsCliVersionedPathIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
 import { stopAllServersOnQuit } from 'src/site-server';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
@@ -242,6 +243,7 @@ async function appBoot() {
 		}
 
 		console.log( `App version: ${ app.getVersion() }` );
+		console.log( `Environment: ${ process.env.NODE_ENV ?? 'undefined' }` );
 		console.log( `Built from commit: ${ COMMIT_HASH ?? 'undefined' }` );
 		console.log( `Local timezone: ${ Intl.DateTimeFormat().resolvedOptions().timeZone }` );
 		console.log( `App locale: ${ app.getLocale() }` );
@@ -307,8 +309,6 @@ async function appBoot() {
 
 		await removeSitesWithEmptyDirectories();
 
-		await migrateAllDatabasesInSitu();
-
 		await renameLaunchUniquesStat();
 
 		await createMainWindow();
@@ -335,7 +335,7 @@ async function appBoot() {
 			'monthly'
 		);
 
-		await installCLIOnWindows();
+		await updateWindowsCliVersionedPathIfNeeded();
 		getWordPressProvider();
 
 		finishedInitialization = true;
@@ -354,19 +354,6 @@ async function appBoot() {
 		globalShortcut.unregisterAll();
 	} );
 
-	function getQuitConfirmationMessage(): string {
-		if ( hasCancelableSyncOperations() ) {
-			return __(
-				"There's a sync operation in progress. Quitting the app will abort that operation. Are you sure you want to quit?"
-			);
-		}
-
-		// Default message for creatingBackup, uploading, or pull operations
-		return __(
-			"There's a sync operation in progress. The process will continue on WordPress.com servers even after quitting Studio. We will send you an email when it completes. Are you sure you want to quit?"
-		);
-	}
-
 	app.on( 'before-quit', ( event ) => {
 		if ( ! hasActiveSyncOperations() ) {
 			return;
@@ -375,15 +362,30 @@ async function appBoot() {
 		const QUIT_APP_BUTTON_INDEX = 0;
 		const CANCEL_BUTTON_INDEX = 1;
 
-		const detailMessage = getQuitConfirmationMessage();
+		const messageInformation: Pick< MessageBoxSyncOptions, 'message' | 'detail' | 'type' > =
+			hasUploadingPushOperations()
+				? {
+						message: __( 'Sync is in progress' ),
+						detail: __(
+							"There's a sync operation in progress. Quitting the app will abort that operation. Are you sure you want to quit?"
+						),
+						type: 'warning',
+				  }
+				: {
+						message: __( 'Sync will continue' ),
+						detail: __(
+							'The sync process will continue running remotely after you quit Studio. We will send you an email once it is complete.'
+						),
+						type: 'info',
+				  };
 
 		const clickedButtonIndex = dialog.showMessageBoxSync( {
-			message: __( 'Sync in progress' ),
-			detail: detailMessage,
+			message: messageInformation.message,
+			detail: messageInformation.detail,
+			type: messageInformation.type,
 			buttons: [ __( 'Yes, quit the app' ), __( 'No, take me back' ) ],
 			cancelId: CANCEL_BUTTON_INDEX,
 			defaultId: QUIT_APP_BUTTON_INDEX,
-			type: 'warning',
 		} );
 
 		if ( clickedButtonIndex === CANCEL_BUTTON_INDEX ) {

@@ -113,6 +113,7 @@ export const ActionButton = ( {
 			buttonProps = {
 				icon: playIcon,
 				className: defaultButtonClassName,
+				'data-testid': 'site-status-stopped',
 			};
 			break;
 		case 'loading':
@@ -123,6 +124,7 @@ export const ActionButton = ( {
 				'aria-disabled': isLoading,
 				icon: undefined,
 				className: defaultButtonClassName,
+				'data-testid': 'site-status-loading',
 			};
 			break;
 		case 'stop':
@@ -134,6 +136,7 @@ export const ActionButton = ( {
 					defaultButtonClassName,
 					'!text-a8c-red-50 !shadow-[inset_0_0_0_1px_shadow-a8c-red-50] !shadow-a8c-red-50'
 				),
+				'data-testid': 'site-status-running',
 			};
 			break;
 		case 'running':
@@ -141,6 +144,7 @@ export const ActionButton = ( {
 			buttonProps = {
 				icon: <CircleIcon height={ iconSize } width={ iconSize } />,
 				className: cx( defaultButtonClassName, '!text-a8c-green-50' ),
+				'data-testid': 'site-status-running',
 			};
 			break;
 		case 'disabled':

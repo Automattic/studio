@@ -5,7 +5,7 @@ import { Tooltip } from 'src/components/tooltip';
 import { WPCOM_PROFILE_URL } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
-export const UserInfo = ( {
+const UserInfo = ( {
 	user,
 	onLogout,
 }: {
@@ -14,7 +14,7 @@ export const UserInfo = ( {
 } ) => {
 	const { __ } = useI18n();
 	return (
-		<div className="flex w-full gap-5">
+		<div className="flex w-full gap-5 py-1">
 			<div className="flex w-full items-center gap-3">
 				<Tooltip text={ __( 'Edit profile' ) } placement="bottom">
 					<Button

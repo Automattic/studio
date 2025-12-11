@@ -8,8 +8,6 @@ import {
 	readAppdata,
 	saveAppdata,
 	getAuthToken,
-	getNewSitePartial,
-	getOrCreateSiteByFolder,
 	lockAppdata,
 	unlockAppdata,
 } from 'cli/lib/appdata';
@@ -20,9 +18,6 @@ jest.mock( 'path' );
 jest.mock( 'atomically', () => ( {
 	readFile: jest.fn(),
 	writeFile: jest.fn(),
-} ) );
-jest.mock( 'crypto', () => ( {
-	randomUUID: jest.fn().mockReturnValue( 'mock-uuid-1234' ),
 } ) );
 
 jest.mock( 'common/lib/fs-utils' );
@@ -57,7 +52,6 @@ describe( 'Appdata Module', () => {
 		it( 'should return parsed appdata if it exists and is valid', async () => {
 			const mockUserData = {
 				version: 1,
-				newSites: [],
 				sites: [],
 				snapshots: [
 					{
@@ -79,7 +73,6 @@ describe( 'Appdata Module', () => {
 		it( 'should correctly validate lastBumpStats with local-environment-launch-uniques key', async () => {
 			const mockUserData = {
 				version: 1,
-				newSites: [],
 				sites: [],
 				snapshots: [],
 				lastBumpStats: {
@@ -112,7 +105,6 @@ describe( 'Appdata Module', () => {
 		it( 'should save the userData to the appdata file', async () => {
 			const mockUserData = {
 				version: 1,
-				newSites: [],
 				sites: [],
 				snapshots: [],
 			};
@@ -134,7 +126,6 @@ describe( 'Appdata Module', () => {
 		it( 'should throw LoggerError if there is an error saving the file', async () => {
 			const mockUserData = {
 				version: 1,
-				newSites: [],
 				sites: [],
 				snapshots: [],
 			};
@@ -153,7 +144,6 @@ describe( 'Appdata Module', () => {
 
 		it( 'should add version 1 if version is not provided', async () => {
 			const mockUserData = {
-				newSites: [],
 				sites: [],
 				snapshots: [],
 			};
@@ -175,6 +165,10 @@ describe( 'Appdata Module', () => {
 		it( 'should return auth token when it exists', async () => {
 			const mockAuthToken = {
 				accessToken: 'valid-token',
+				displayName: 'User Name',
+				email: 'user@example.com',
+				expirationTime: Date.now() + 3600000, // 1 hour in the future
+				expiresIn: 3600,
 				id: 123,
 			};
 
@@ -216,70 +210,6 @@ describe( 'Appdata Module', () => {
 			);
 
 			await expect( getAuthToken() ).rejects.toThrow( 'Authentication required' );
-		} );
-	} );
-
-	describe( 'getNewSitePartial', () => {
-		it( 'should create a new site object with random UUID', () => {
-			const folderPath = '/test/site/path';
-			const baseName = 'sitename';
-
-			( path.basename as jest.Mock ).mockReturnValueOnce( baseName );
-
-			const result = getNewSitePartial( folderPath );
-
-			expect( result ).toEqual( {
-				id: 'mock-uuid-1234',
-				path: folderPath,
-				name: baseName,
-			} );
-		} );
-	} );
-
-	describe( 'getOrCreateSiteByFolder', () => {
-		it( 'should return an existing site if present on sites', async () => {
-			const folderPath = '/existing/site/path';
-			const existingSite = {
-				id: 'existing-id',
-				path: folderPath,
-				name: 'existing-site',
-				phpVersion: '8.0',
-			};
-			( readFile as jest.Mock ).mockReturnValueOnce(
-				JSON.stringify( { sites: [ existingSite ], newSites: [], snapshots: [] } )
-			);
-			const site = await getOrCreateSiteByFolder( folderPath );
-			expect( site ).toEqual( existingSite );
-			expect( writeFile ).not.toHaveBeenCalled();
-		} );
-
-		it( 'should return an existing site if present on newSites', async () => {
-			const folderPath = '/existing/site/path';
-			const existingSite = {
-				id: 'existing-id',
-				path: folderPath,
-				name: 'existing-site',
-			};
-			( readFile as jest.Mock ).mockReturnValueOnce(
-				JSON.stringify( { sites: [], newSites: [ existingSite ], snapshots: [] } )
-			);
-			const site = await getOrCreateSiteByFolder( folderPath );
-			expect( site ).toEqual( existingSite );
-			expect( writeFile ).not.toHaveBeenCalled();
-		} );
-
-		it( 'should create and return a new site if not present', async () => {
-			const folderPath = '/new/site/path';
-			( readFile as jest.Mock ).mockReturnValueOnce(
-				JSON.stringify( { sites: [], newSites: [], snapshots: [] } )
-			);
-			const site = await getOrCreateSiteByFolder( folderPath );
-			expect( site ).toEqual( {
-				id: 'mock-uuid-1234',
-				path: folderPath,
-				name: mockSiteFolderName,
-			} );
-			expect( writeFile ).toHaveBeenCalled();
 		} );
 	} );
 } );

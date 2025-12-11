@@ -1,15 +1,20 @@
 // Run tests: yarn test -- src/hooks/tests/use-add-site.test.tsx
-import { configureStore } from '@reduxjs/toolkit';
 import { renderHook, act } from '@testing-library/react';
 import nock from 'nock';
 import { Provider } from 'react-redux';
+import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAddSite } from 'src/hooks/use-add-site';
+import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getWordPressProvider } from 'src/lib/wordpress-provider';
-import providerConstantsReducer from 'src/stores/provider-constants-slice';
+import { store } from 'src/stores';
+import { setProviderConstants } from 'src/stores/provider-constants-slice';
+import type { SyncSite } from 'src/modules/sync/types';
 
 jest.mock( 'src/hooks/use-site-details' );
 jest.mock( 'src/hooks/use-feature-flags' );
+jest.mock( 'src/hooks/sync-sites' );
+jest.mock( 'src/hooks/use-content-tabs' );
 jest.mock( 'src/hooks/use-import-export', () => ( {
 	useImportExport: () => ( {
 		importFile: jest.fn(),
@@ -17,6 +22,7 @@ jest.mock( 'src/hooks/use-import-export', () => ( {
 	} ),
 } ) );
 
+const mockConnectWpcomSites = jest.fn().mockResolvedValue( undefined );
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		generateProposedSitePath: jest.fn().mockResolvedValue( {
@@ -27,32 +33,12 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		} ),
 		showNotification: jest.fn(),
 		getAllCustomDomains: jest.fn().mockResolvedValue( [] ),
+		connectWpcomSites: mockConnectWpcomSites,
+		getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
 	} ),
 } ) );
 
-// Helper to create a store with preloaded provider constants
-function makeStoreWithProviderConstants( overrides = {} ) {
-	return configureStore( {
-		reducer: {
-			providerConstants: providerConstantsReducer,
-			// ...add other reducers as needed
-		},
-		preloadedState: {
-			providerConstants: {
-				defaultPhpVersion: '8.3',
-				defaultWordPressVersion: 'latest',
-				allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
-				minimumWordPressVersion: '5.9.9',
-				...overrides,
-			},
-		},
-	} );
-}
-
-const renderHookWithProvider = (
-	hook: () => ReturnType< typeof useAddSite >,
-	store = makeStoreWithProviderConstants()
-) => {
+const renderHookWithProvider = ( hook: () => ReturnType< typeof useAddSite > ) => {
 	return renderHook< ReturnType< typeof useAddSite >, void >( hook, {
 		wrapper: ( { children } ) => <Provider store={ store }>{ children }</Provider>,
 	} );
@@ -62,16 +48,54 @@ describe( 'useAddSite', () => {
 	const mockCreateSite = jest.fn();
 	const mockUpdateSite = jest.fn();
 	const mockStartServer = jest.fn();
+	const mockPullSite = jest.fn();
+	const mockSetSelectedTab = jest.fn();
 
 	beforeEach( () => {
 		jest.clearAllMocks();
 
+		// Prepopulate store with provider constants
+		store.dispatch(
+			setProviderConstants( {
+				defaultPhpVersion: '8.3',
+				defaultWordPressVersion: 'latest',
+				allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+				minimumWordPressVersion: '5.9.9',
+			} )
+		);
+
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			createSite: mockCreateSite,
 			updateSite: mockUpdateSite,
-			data: [],
+			sites: [],
 			loadingSites: false,
 			startServer: mockStartServer,
+		} );
+
+		mockPullSite.mockReset();
+		( useSyncSites as jest.Mock ).mockReturnValue( {
+			pullSite: mockPullSite,
+			syncSites: [],
+			refetchSites: jest.fn(),
+			isFetching: false,
+			isAnySitePulling: false,
+			isSiteIdPulling: jest.fn(),
+			clearPullState: jest.fn(),
+			cancelPull: jest.fn(),
+			getPullState: jest.fn(),
+			pushSite: jest.fn(),
+			isAnySitePushing: false,
+			isSiteIdPushing: jest.fn(),
+			clearPushState: jest.fn(),
+			getPushState: jest.fn(),
+			getLastSyncTimeText: jest.fn(),
+		} );
+
+		mockSetSelectedTab.mockReset();
+		( useContentTabs as jest.Mock ).mockReturnValue( {
+			selectedTab: 'overview',
+			setSelectedTab: mockSetSelectedTab,
+			tabs: [],
 		} );
 
 		nock( 'https://api.wordpress.org' )
@@ -136,13 +160,13 @@ describe( 'useAddSite', () => {
 
 	it( 'should pass WordPress version to createSite when handleAddSiteClick is called', async () => {
 		mockCreateSite.mockImplementation(
-			( path, name, wpVersion, customDomain, enableHttps, blueprint, callback ) => {
+			( path, name, wpVersion, customDomain, enableHttps, blueprint, phpVersion, callback ) => {
 				callback( {
 					id: 'test-id',
 					name: name || 'Test Site',
-					path: path,
-					wpVersion: wpVersion,
-					phpVersion: '8.2',
+					path,
+					wpVersion,
+					phpVersion,
 				} );
 				return Promise.resolve();
 			}
@@ -166,26 +190,36 @@ describe( 'useAddSite', () => {
 			undefined,
 			false,
 			undefined, // blueprint parameter
+			'8.3',
 			expect.any( Function )
 		);
 	} );
 
-	it( 'should still call updateSite even if wpVersion matches due to object comparison', async () => {
-		const wpVersion = '6.1.7';
-		const newSite = {
-			id: 'test-id',
-			name: 'Test Site',
+	it( 'should connect and start pulling when a remote site is selected', async () => {
+		const remoteSite: SyncSite = {
+			id: 123,
+			localSiteId: 'remote-site-id',
+			name: 'Remote Site',
+			url: 'https://example.com',
+			isStaging: false,
+			isPressable: false,
+			environmentType: null,
+			syncSupport: 'syncable',
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
+		};
+
+		const createdSite = {
+			id: 'local-id',
+			name: 'New Site',
 			path: '/test/path',
-			wpVersion: wpVersion,
+			wpVersion: 'latest',
 			phpVersion: '8.3',
 		};
 
 		mockCreateSite.mockImplementation(
-			( path, name, version, customDomain, enableHttps, blueprint, callback ) => {
-				callback( {
-					...newSite,
-					wpVersion: version,
-				} );
+			( path, name, version, customDomain, enableHttps, blueprint, phpVersion, callback ) => {
+				callback( createdSite );
 				return Promise.resolve();
 			}
 		);
@@ -193,21 +227,23 @@ describe( 'useAddSite', () => {
 		const { result } = renderHookWithProvider( () => useAddSite() );
 
 		act( () => {
-			result.current.setWpVersion( wpVersion );
-			result.current.setSitePath( '/test/path' );
+			result.current.setSelectedRemoteSite( remoteSite );
+			result.current.setSitePath( createdSite.path );
 		} );
-
-		mockUpdateSite.mockClear();
 
 		await act( async () => {
 			await result.current.handleAddSiteClick();
 		} );
 
-		expect( mockUpdateSite ).toHaveBeenCalled();
-
-		expect( mockUpdateSite ).toHaveBeenCalledWith( {
-			...newSite,
-			wpVersion,
+		expect( mockConnectWpcomSites ).toHaveBeenCalledWith( [
+			{
+				sites: [ remoteSite ],
+				localSiteId: createdSite.id,
+			},
+		] );
+		expect( mockPullSite ).toHaveBeenCalledWith( remoteSite, createdSite, {
+			optionsToSync: [ 'all' ],
 		} );
+		expect( mockSetSelectedTab ).toHaveBeenCalledWith( 'sync' );
 	} );
 } );

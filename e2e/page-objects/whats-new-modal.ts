@@ -10,8 +10,4 @@ export default class WhatsNewModal {
 	get closeButton() {
 		return this.locator.getByRole( 'button', { name: 'Close' } );
 	}
-
-	async close() {
-		await this.closeButton.click();
-	}
 }

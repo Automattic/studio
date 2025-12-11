@@ -24,7 +24,7 @@ jest.mock( 'atomically', () => ( {
 jest.mock( 'src/lib/wordpress-provider' );
 
 ( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( { sites: [] } ) );
-( fs as MockedFs ).__setFileContents( normalize( '/path/to/app/temp/com.wordpress.studio/' ), '' );
+require( 'fs' ).__setFileContents( normalize( '/path/to/app/temp/com.wordpress.studio/' ), '' );
 
 const mockWatcher = {
 	close: jest.fn(),
@@ -100,7 +100,7 @@ describe( 'App initialization', () => {
 			require( '../index' );
 			const { 'open-url': openUrl } = mockedEvents;
 
-			const testUrl = 'wpcom-local-dev://auth#test-hash';
+			const testUrl = 'wp-studio://auth#test-hash';
 			await openUrl( {}, testUrl );
 			expect( mockHandleDeeplink ).toHaveBeenCalledWith( testUrl );
 

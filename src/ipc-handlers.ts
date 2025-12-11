@@ -18,9 +18,8 @@ import https from 'node:https';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
-import { compileBlueprint } from '@wp-playground/blueprints';
-import archiver from 'archiver';
-import { z } from 'zod';
+import { validateBlueprintData } from 'common/lib/blueprint-validation';
+import { bumpStat } from 'common/lib/bump-stat';
 import {
 	calculateDirectorySize,
 	isWordPressDirectory,
@@ -30,29 +29,26 @@ import {
 } from 'common/lib/fs-utils';
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { isErrnoException } from 'common/lib/is-errno-exception';
-import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationUrl } from 'common/lib/oauth';
+import { createPassword } from 'common/lib/passwords';
 import { portFinder } from 'common/lib/port-finder';
+import { sortSites } from 'common/lib/sort-sites';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
-import { ARCHIVER_OPTIONS, DEFAULT_TERMINAL, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
-import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
-import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
-import { scanBlueprintForUnsupportedFeatures } from 'src/lib/blueprint-features';
-import { bumpStat } from 'src/lib/bump-stats';
+import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
+import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import { getImporterMetric, getBlueprintMetric } from 'src/lib/bump-stats/lib';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
 	trustRootCA,
 } from 'src/lib/certificate-manager';
-import { download } from 'src/lib/download';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { sanitizeFolderName } from 'src/lib/generate-site-name';
 import { getImageData } from 'src/lib/get-image-data';
 import { getSiteUrl } from 'src/lib/get-site-url';
-import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
@@ -61,11 +57,8 @@ import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { isInstalled } from 'src/lib/is-installed';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import * as oauthClient from 'src/lib/oauth';
-import { getSignUpUrl } from 'src/lib/oauth';
-import { createPassword } from 'src/lib/passwords';
 import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
-import { sortSites } from 'src/lib/sort-sites';
 import { installSqliteIntegration, keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
@@ -73,17 +66,13 @@ import {
 	getWordPressProvider,
 	getProviderConstants as getProviderConstantsFromProvider,
 } from 'src/lib/wordpress-provider';
-import wpcomFactory from 'src/lib/wpcom-factory';
-import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
-import { executePreviewCliCommand } from 'src/modules/cli/lib/execute-preview-command';
 import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tree-utils';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
-import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
+import { getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
-import { UserSettingsTabName } from 'src/modules/user-settings/user-settings-types';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
 import {
@@ -93,26 +82,48 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
-import {
-	PullStateProgressInfo,
-	PushStateProgressInfo,
-} from './hooks/use-sync-states-progress-info';
-import { Blueprint } from './stores/wpcom-api';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import { Blueprint } from 'src/stores/wpcom-api';
 import type { WpCliResult } from 'src/lib/wp-cli-process';
 import type { RawDirectoryEntry } from 'src/modules/sync/types';
-import type { SyncOption } from 'src/types';
 
-/**
- * Registry to store AbortControllers for ongoing sync operations (push/pull).
- * Key format: `${selectedSiteId}-${remoteSiteId}`
- */
-const SYNC_ABORT_CONTROLLERS = new Map< string, AbortController >();
+export {
+	isStudioCliInstalled,
+	installStudioCli,
+	uninstallStudioCli,
+} from 'src/modules/cli/lib/ipc-handlers';
 
-const TEMP_DIR = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio' ) + nodePath.sep;
-if ( ! fs.existsSync( TEMP_DIR ) ) {
-	fs.mkdirSync( TEMP_DIR );
-}
+export {
+	addSyncOperation,
+	cancelSyncOperation,
+	clearSyncOperation,
+	connectWpcomSites,
+	disconnectWpcomSites,
+	downloadSyncBackup,
+	exportSiteForPush,
+	getConnectedWpcomSites,
+	pushArchive,
+	removeExportedSiteTmpFile,
+	removeSyncBackup,
+	updateConnectedWpcomSites,
+	updateSingleConnectedWpcomSite,
+} from 'src/modules/sync/lib/ipc-handlers';
+
+export {
+	createSnapshot,
+	deleteSnapshot,
+	updateSnapshot,
+} from 'src/modules/preview-site/lib/ipc-handlers';
+
+export {
+	getInstalledAppsAndTerminals,
+	getUserEditor,
+	getUserLocale,
+	getUserTerminal,
+	saveUserEditor,
+	saveUserLocale,
+	saveUserTerminal,
+	showUserSettings,
+} from 'src/modules/user-settings/lib/ipc-handlers';
 
 async function sendThumbnailChangedEvent( event: IpcMainInvokeEvent, id: string ) {
 	if ( event.sender.isDestroyed() ) {
@@ -151,21 +162,6 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	return mergeSiteDetailsWithRunningDetails( sites );
 }
 
-export function getInstalledAppsAndTerminals(): InstalledApps {
-	return {
-		vscode: isInstalled( 'vscode' ),
-		phpstorm: isInstalled( 'phpstorm' ),
-		webstorm: isInstalled( 'webstorm' ),
-		windsurf: isInstalled( 'windsurf' ),
-		cursor: isInstalled( 'cursor' ),
-		sublime: isInstalled( 'sublime' ),
-		terminal: true, // Terminal.app is always available on macOS
-		iterm: isInstalled( 'iterm' ),
-		warp: isInstalled( 'warp' ),
-		ghostty: isInstalled( 'ghostty' ),
-	};
-}
-
 export async function importSite(
 	event: IpcMainInvokeEvent,
 	{ id, backupFile }: { id: string; backupFile: BackupArchiveInfo }
@@ -197,7 +193,14 @@ export async function importSite(
 		return site.details;
 	} catch ( e ) {
 		bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
-		Sentry.captureException( e );
+		// Don't report validation errors to Sentry - these are expected user errors
+		if (
+			! ( e instanceof Error ) ||
+			( ! e.message.includes( 'No suitable importer found for the provided backup contents' ) &&
+				! e.message.includes( 'No suitable backup handler found for the provided backup file' ) )
+		) {
+			Sentry.captureException( e );
+		}
 		throw e;
 	}
 }
@@ -211,10 +214,19 @@ export async function createSite(
 		customDomain?: string;
 		enableHttps?: boolean;
 		siteId?: string;
+		phpVersion?: string;
 		blueprint?: Blueprint;
 	} = {}
 ): Promise< SiteDetails > {
-	const { siteName, wpVersion, customDomain, enableHttps, siteId, blueprint } = config;
+	const {
+		siteName,
+		wpVersion,
+		customDomain,
+		enableHttps,
+		siteId,
+		blueprint,
+		phpVersion = getWordPressProvider().DEFAULT_PHP_VERSION,
+	} = config;
 
 	const forceSetupSqlite = false;
 
@@ -247,7 +259,7 @@ export async function createSite(
 		adminPassword: createPassword(),
 		port,
 		running: false,
-		phpVersion: getWordPressProvider().DEFAULT_PHP_VERSION,
+		phpVersion,
 		isWpAutoUpdating: wpVersion === getWordPressProvider().DEFAULT_WORDPRESS_VERSION,
 		customDomain,
 		enableHttps,
@@ -323,169 +335,6 @@ export async function updateSite(
 		await saveUserData( userData );
 	} finally {
 		await unlockAppdata();
-	}
-}
-
-type WpcomSitesToConnect = { sites: SyncSite[]; localSiteId: string }[];
-
-export async function connectWpcomSites( event: IpcMainInvokeEvent, list: WpcomSitesToConnect ) {
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		const currentUserId = userData.authToken?.id;
-
-		if ( ! currentUserId ) {
-			throw new Error( 'User not authenticated' );
-		}
-
-		userData.connectedWpcomSites = userData.connectedWpcomSites || {};
-		userData.connectedWpcomSites[ currentUserId ] =
-			userData.connectedWpcomSites[ currentUserId ] || [];
-
-		const connections = userData.connectedWpcomSites[ currentUserId ];
-
-		list.forEach( ( { sites, localSiteId } ) => {
-			sites.forEach( ( siteToAdd ) => {
-				const isAlreadyConnected = connections.some(
-					( conn ) => conn.id === siteToAdd.id && conn.localSiteId === localSiteId
-				);
-
-				// Add the site if it's not already connected
-				if ( ! isAlreadyConnected ) {
-					connections.push( {
-						...siteToAdd,
-						localSiteId,
-						syncSupport: 'already-connected',
-					} );
-				}
-			} );
-		} );
-
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
-type WpcomSitesToDisconnect = { siteIds: number[]; localSiteId: string }[];
-
-export async function disconnectWpcomSites(
-	event: IpcMainInvokeEvent,
-	list: WpcomSitesToDisconnect
-) {
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		const currentUserId = userData.authToken?.id;
-
-		if ( ! currentUserId ) {
-			throw new Error( 'User not authenticated' );
-		}
-
-		const connectedWpcomSites = userData.connectedWpcomSites;
-
-		// Totally unreal case, added it to help TS parse the code below. And if this error happens, we definitely have something wrong.
-		if ( ! Array.isArray( connectedWpcomSites?.[ currentUserId ] ) ) {
-			throw new Error(
-				'Something went wrong, since you are trying to disconnect something, but there are no stored connections yet'
-			);
-		}
-
-		list.forEach( ( { siteIds, localSiteId } ) => {
-			const updatedConnections = connectedWpcomSites[ currentUserId ].filter(
-				( conn ) => ! ( siteIds.includes( conn.id ) && conn.localSiteId === localSiteId )
-			);
-
-			connectedWpcomSites[ currentUserId ] = updatedConnections;
-		} );
-
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
-export async function updateConnectedWpcomSites(
-	event: IpcMainInvokeEvent,
-	updatedSites: SyncSite[]
-) {
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		const currentUserId = userData.authToken?.id;
-
-		if ( ! currentUserId ) {
-			throw new Error( 'User not authenticated' );
-		}
-
-		const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
-
-		if ( ! connections.length ) {
-			return;
-		}
-
-		updatedSites.forEach( ( updatedSite ) => {
-			const index = connections.findIndex(
-				( conn ) => conn.id === updatedSite.id && conn.localSiteId === updatedSite.localSiteId
-			);
-
-			if ( index !== -1 ) {
-				connections[ index ] = updatedSite;
-			}
-		} );
-
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
-export async function updateSingleConnectedWpcomSite(
-	event: IpcMainInvokeEvent,
-	updatedSite: SyncSite
-) {
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		const currentUserId = userData.authToken?.id;
-
-		if ( ! currentUserId ) {
-			throw new Error( 'User not authenticated' );
-		}
-
-		const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
-		const index = connections.findIndex(
-			( conn ) => conn.id === updatedSite.id && conn.localSiteId === updatedSite.localSiteId
-		);
-
-		if ( index !== -1 ) {
-			connections[ index ] = updatedSite;
-		}
-
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
-export async function getConnectedWpcomSites(
-	event: IpcMainInvokeEvent,
-	localSiteId?: string
-): Promise< SyncSite[] > {
-	const userData = await loadUserData();
-
-	const currentUserId = userData.authToken?.id;
-
-	if ( ! currentUserId ) {
-		return [];
-	}
-
-	const allConnected = userData.connectedWpcomSites?.[ currentUserId ] || [];
-
-	if ( localSiteId ) {
-		return allConnected.filter( ( site ) => site.localSiteId === localSiteId );
-	} else {
-		return allConnected;
 	}
 }
 
@@ -654,209 +503,9 @@ export async function showOpenFolderDialog(
 	};
 }
 
-export async function saveUserLocale( event: IpcMainInvokeEvent, locale: string ) {
-	await updateAppdata( { locale } );
-}
-
-export async function saveUserEditor( event: IpcMainInvokeEvent, editor: SupportedEditor ) {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	sendIpcEventToRendererWithWindow( parentWindow, 'user-preference-changed' );
-
-	await updateAppdata( { preferredEditor: editor } );
-}
-
-export async function getSentryUserId( _event: IpcMainInvokeEvent ): Promise< string | undefined > {
+export async function getSentryUserId( _event: IpcMainInvokeEvent ) {
 	const userData = await loadUserData();
 	return userData.sentryUserId;
-}
-
-export async function getUserLocale( _event: IpcMainInvokeEvent ): Promise< SupportedLocale > {
-	return getUserLocaleWithFallback();
-}
-
-export async function getUserEditor(
-	_event: IpcMainInvokeEvent
-): Promise< SupportedEditor | null > {
-	const userData = await loadUserData();
-	return userData.preferredEditor ?? null;
-}
-
-export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings', { tabName } );
-}
-
-function archiveWordPressDirectory( {
-	source,
-	archivePath,
-	format,
-}: {
-	source: string;
-	archivePath: string;
-	format: 'zip' | 'tar';
-} ) {
-	return new Promise( ( resolve, reject ) => {
-		const output = fs.createWriteStream( archivePath );
-		const archive = archiver( format, ARCHIVER_OPTIONS[ format ] );
-
-		output.on( 'close', function () {
-			resolve( archive );
-		} );
-
-		archive.on( 'error', function ( err: Error ) {
-			reject( err );
-		} );
-
-		archive.pipe( output );
-		// Archive site wp-content
-		archive.directory( `${ source }/wp-content`, 'wp-content' );
-		archive.file( `${ source }/wp-config.php`, { name: 'wp-config.php' } );
-
-		archive.finalize().catch( reject );
-	} );
-}
-
-export async function archiveSite( event: IpcMainInvokeEvent, id: string, format: 'zip' | 'tar' ) {
-	const site = SiteServer.get( id );
-	if ( ! site ) {
-		throw new Error( 'Site not found.' );
-	}
-	const sitePath = site.details.path;
-	const archivePath = `${ TEMP_DIR }site_${ id }.${ format }`;
-	await archiveWordPressDirectory( {
-		source: sitePath,
-		archivePath,
-		format,
-	} );
-	const stats = fs.statSync( archivePath );
-	return { archivePath, archiveSizeInBytes: stats.size };
-}
-
-export async function exportSiteForPush(
-	event: IpcMainInvokeEvent,
-	id: string,
-	operationId: string,
-	configuration?: {
-		optionsToSync?: SyncOption[];
-		specificSelectionPaths?: string[];
-	}
-) {
-	const site = SiteServer.get( id );
-	if ( ! site ) {
-		throw new Error( 'Site not found.' );
-	}
-	const extension = 'tar.gz';
-	const archivePath = `${ TEMP_DIR }site_${ id }.${ extension }`;
-
-	const abortController = new AbortController();
-	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
-
-	try {
-		if ( abortController.signal.aborted ) {
-			throw new Error( 'Export aborted' );
-		}
-
-		const shouldIncludeSyncOption = (
-			optionsToSync: SyncOption[] | undefined,
-			option: SyncOption
-		): boolean => {
-			return (
-				optionsToSync?.includes( option ) || optionsToSync?.includes( 'all' ) || ! optionsToSync
-			);
-		};
-
-		const includes = {
-			database: shouldIncludeSyncOption( configuration?.optionsToSync, 'sqls' ),
-			wpContent: ( [ 'uploads', 'plugins', 'themes', 'contents' ] as const ).some( ( option ) =>
-				shouldIncludeSyncOption( configuration?.optionsToSync, option )
-			),
-		};
-
-		const exportOptions: ExportOptions = {
-			site: site.details,
-			backupFile: archivePath,
-			includes,
-			phpVersion: site.details.phpVersion,
-			splitDatabaseDumpByTable: true,
-			specificSelectionPaths: configuration?.specificSelectionPaths,
-		};
-
-		const onEvent = () => {};
-		await exportBackup( exportOptions, onEvent );
-
-		if ( abortController.signal.aborted ) {
-			await fsPromises.unlink( archivePath ).catch( () => {
-				// Ignore cleanup errors
-			} );
-			throw new Error( 'Export aborted' );
-		}
-
-		const stats = fs.statSync( archivePath );
-		return { archivePath, archiveSizeInBytes: stats.size };
-	} finally {
-		SYNC_ABORT_CONTROLLERS.delete( operationId );
-	}
-}
-
-export async function pushArchive(
-	event: IpcMainInvokeEvent,
-	remoteSiteId: number,
-	archivePath: string,
-	optionsToSync?: string[]
-): Promise< { success: boolean; error?: string } > {
-	const token = await getAuthenticationToken();
-
-	if ( ! token?.accessToken ) {
-		throw new Error( 'No token found' );
-	}
-
-	const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
-	const formData: [ string, unknown, Record< string, string >? ][] = [
-		[
-			'import',
-			fs.createReadStream( archivePath ),
-			{
-				filename: 'loca-env-site-1.tar.gz',
-				contentType: 'application/gzip',
-			},
-		],
-	];
-
-	if ( optionsToSync ) {
-		formData.push( [ 'options', optionsToSync.join( ',' ) ] );
-	}
-
-	try {
-		await wpcom.req.post( {
-			path: `/sites/${ remoteSiteId }/studio-app/sync/import`,
-			apiNamespace: 'wpcom/v2',
-			formData,
-		} );
-
-		return { success: true };
-	} catch ( error ) {
-		const parseResult = z.object( { error: z.string() } ).safeParse( error );
-
-		if ( parseResult.success ) {
-			return { success: false, error: parseResult.data.error };
-		}
-
-		return { success: false, error: 'Unknown error' };
-	}
-}
-
-export function removeTemporaryFile( event: IpcMainInvokeEvent, path: string ) {
-	if ( ! path.includes( TEMP_DIR ) ) {
-		throw new Error( 'The given path is not a temporary file' );
-	}
-	try {
-		fs.unlinkSync( path );
-	} catch ( error ) {
-		if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
-			// Silently ignore if the temporary file doesn't exist
-			Sentry.captureException( error );
-		}
-	}
 }
 
 export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteFiles = false ) {
@@ -897,7 +546,7 @@ export function logRendererMessage(
 
 export async function authenticate( event: IpcMainInvokeEvent, isSignup = false ) {
 	const locale = await getUserLocaleWithFallback();
-	const authUrl = isSignup ? getSignUpUrl( locale ) : getAuthenticationUrl( locale );
+	const authUrl = isSignup ? oauthClient.getSignUpUrl( locale ) : getAuthenticationUrl( locale );
 	void shellOpenExternalWrapper( authUrl );
 }
 
@@ -915,13 +564,14 @@ export async function clearAuthenticationToken() {
 
 export async function exportSite(
 	event: IpcMainInvokeEvent,
-	options: ExportOptions,
-	siteId: string
+	options: ExportOptions
 ): Promise< boolean > {
 	try {
+		await keepSqliteIntegrationUpdated( options.site.path );
+
 		const onEvent = ( data: ImportExportEventData ) => {
 			const parentWindow = BrowserWindow.fromWebContents( event.sender );
-			sendIpcEventToRendererWithWindow( parentWindow, 'on-export', data, siteId );
+			sendIpcEventToRendererWithWindow( parentWindow, 'on-export', data, options.site.id );
 		};
 
 		const result = await exportBackup( options, onEvent );
@@ -1111,6 +761,10 @@ export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompl
 	await updateAppdata( { onboardingCompleted } );
 }
 
+export async function getBetaFeatures( _event: IpcMainInvokeEvent ): Promise< BetaFeatures > {
+	return await getBetaFeaturesFromLib();
+}
+
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,
 	{
@@ -1264,7 +918,7 @@ export function showNotification(
 
 export async function setupAppMenu(
 	_event: IpcMainInvokeEvent,
-	config: { needsOnboarding: boolean }
+	config: { needsOnboarding: boolean; isAddSiteVisible?: boolean }
 ) {
 	await setupMenu( config );
 }
@@ -1347,74 +1001,12 @@ export async function openFileInIDE(
 	}
 }
 
-export async function downloadSyncBackup(
-	event: Electron.IpcMainInvokeEvent,
-	remoteSiteId: number,
-	downloadUrl: string,
-	operationId: string
-) {
-	const tmpDir = nodePath.join( app.getPath( 'temp' ), 'wp-studio-backups' );
-	await fsPromises.mkdir( tmpDir, { recursive: true } );
-
-	const filePath = getSyncBackupTempPath( remoteSiteId );
-
-	const abortController = new AbortController();
-	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
-
-	try {
-		await download( downloadUrl, filePath, false, '', abortController.signal );
-		return filePath;
-	} catch ( error ) {
-		if ( error instanceof Error && error.name === 'AbortError' ) {
-			// Download was cancelled, throw the error
-		} else {
-			console.error( `[Download] Download failed for operation: ${ operationId }`, error );
-		}
-		throw error;
-	} finally {
-		SYNC_ABORT_CONTROLLERS.delete( operationId );
-	}
-}
-
-export async function removeSyncBackup( event: IpcMainInvokeEvent, remoteSiteId: number ) {
-	const filePath = getSyncBackupTempPath( remoteSiteId );
-	await fsPromises.unlink( filePath );
-}
-
 export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteId: string ) {
 	const site = SiteServer.get( siteId );
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
 	return site.hasSQLitePlugin();
-}
-
-/**
- * Store the ID of a push/pull operation in a deduped set.
- */
-export function addSyncOperation(
-	event: IpcMainInvokeEvent,
-	id: string,
-	state?: PullStateProgressInfo | PushStateProgressInfo
-) {
-	ACTIVE_SYNC_OPERATIONS.set( id, state );
-}
-
-/**
- * Clear the ID of a push/pull operation.
- */
-export function clearSyncOperation( event: IpcMainInvokeEvent, id: string ) {
-	ACTIVE_SYNC_OPERATIONS.delete( id );
-	SYNC_ABORT_CONTROLLERS.delete( id );
-}
-
-export function cancelSyncOperation( event: IpcMainInvokeEvent, id: string ) {
-	const abortController = SYNC_ABORT_CONTROLLERS.get( id );
-	if ( abortController ) {
-		abortController.abort();
-		SYNC_ABORT_CONTROLLERS.delete( id );
-	}
-	ACTIVE_SYNC_OPERATIONS.delete( id );
 }
 
 export function getDirectorySize( _event: IpcMainInvokeEvent, siteId: string, subdir: string[] ) {
@@ -1657,14 +1249,6 @@ export function showSiteContextMenu(
 	}
 }
 
-export async function getFileContent( event: IpcMainInvokeEvent, filePath: string ) {
-	if ( ! fs.existsSync( filePath ) ) {
-		throw new Error( `File not found: ${ filePath }` );
-	}
-
-	return fs.readFileSync( filePath );
-}
-
 /**
  * Checks the size of a sync backup file before downloading.
  * Returns the size in bytes.
@@ -1696,19 +1280,6 @@ export async function checkSyncBackupSize(
 	} );
 }
 
-export async function saveUserTerminal(
-	event: IpcMainInvokeEvent,
-	preferredTerminal: SupportedTerminal
-) {
-	await sendIpcEventToRenderer( 'user-preference-changed' );
-	await updateAppdata( { preferredTerminal } );
-}
-
-export async function getUserTerminal(): Promise< SupportedTerminal > {
-	const userData = await loadUserData();
-	return userData.preferredTerminal || DEFAULT_TERMINAL;
-}
-
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
 	const window = await getMainWindow();
 	return window.isFullScreen();
@@ -1720,46 +1291,6 @@ export async function getAllCustomDomains(): Promise< string[] > {
 	return userData.sites
 		.map( ( site ) => site.customDomain )
 		.filter( ( domain ): domain is string => domain !== undefined );
-}
-
-export async function createSnapshot(
-	event: IpcMainInvokeEvent,
-	siteFolder: string
-): Promise< { operationId: crypto.UUID } > {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	return executePreviewCliCommand( [ 'preview', 'create', '--path', siteFolder ], parentWindow );
-}
-
-export async function updateSnapshot(
-	event: IpcMainInvokeEvent,
-	siteFolder: string,
-	hostname: string
-): Promise< { operationId: crypto.UUID } > {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	return executePreviewCliCommand(
-		[ 'preview', 'update', '--path', siteFolder, hostname ],
-		parentWindow
-	);
-}
-
-export async function deleteSnapshot(
-	event: IpcMainInvokeEvent,
-	hostname: string
-): Promise< { operationId: crypto.UUID } > {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	return executePreviewCliCommand( [ 'preview', 'delete', hostname ], parentWindow );
-}
-
-export async function handleNewSite( event: IpcMainInvokeEvent, newSite: NewSiteDetails ) {
-	try {
-		await createSite( event, newSite.path, { siteId: newSite.id } );
-		await lockAppdata();
-		const userData = await loadUserData();
-		const newSites = userData.newSites?.filter( ( s ) => s.id !== newSite.id );
-		await saveUserData( { ...userData, newSites } );
-	} finally {
-		await unlockAppdata();
-	}
 }
 
 export function comparePaths( event: IpcMainInvokeEvent, path1: string, path2: string ) {
@@ -1830,32 +1361,8 @@ export async function getProviderConstants( _event: IpcMainInvokeEvent ) {
 export async function validateBlueprint(
 	_event: IpcMainInvokeEvent,
 	blueprintJson: Blueprint[ 'blueprint' ]
-): Promise< {
-	valid: boolean;
-	error?: string;
-	warnings?: Array< { feature: string; reason: string; alternative?: string } >;
-} > {
-	try {
-		await compileBlueprint( blueprintJson );
-	} catch ( error ) {
-		const errorMessage = error instanceof Error ? error.message : __( 'Invalid Blueprint format' );
-		return {
-			valid: false,
-			error: errorMessage,
-		};
-	}
-
-	const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson );
-
-	const warnings = unsupportedFeatures.map( ( feature ) => ( {
-		feature: feature.name,
-		reason: feature.reason,
-	} ) );
-
-	return {
-		valid: true,
-		warnings: warnings.length > 0 ? warnings : undefined,
-	};
+) {
+	return validateBlueprintData( blueprintJson );
 }
 
 export async function readBlueprintFile(

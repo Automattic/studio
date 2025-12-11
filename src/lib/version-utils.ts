@@ -17,3 +17,17 @@ export function isDevRelease( version: string ): boolean {
 export function isWordPressDevVersion( version: string ): boolean {
 	return /^\d+\.\d+-[a-zA-Z0-9]+-\d+$/.test( version );
 }
+
+/**
+ * Gets the latest stable WordPress version from a list of WordPress versions
+ * Filters out 'latest', beta, and development versions to find the first stable release
+ * @param versions Array of WordPress version objects
+ * @returns The version string of the latest stable release, or undefined if none found
+ */
+export function getLatestStableWpVersion(
+	versions: Array< { value: string; isBeta: boolean; isDevelopment: boolean } >
+): string | undefined {
+	return versions.find(
+		( version ) => version.value !== 'latest' && ! version.isBeta && ! version.isDevelopment
+	)?.value;
+}

@@ -21,7 +21,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import { syncOperationsActions, syncOperationsSelectors } from 'src/stores/sync';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import type { SyncSite } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
 
 export type SyncBackupState = {
@@ -63,9 +63,7 @@ export type UseSyncPull = {
 	cancelPull: CancelPull;
 };
 
-export function useSyncPull( {
-	onPullSuccess,
-}: UseSyncPullProps = {} ): UseSyncPull {
+export function useSyncPull( { onPullSuccess }: UseSyncPullProps = {} ): UseSyncPull {
 	const { __ } = useI18n();
 	const { client } = useAuth();
 	const { importFile, clearImportState } = useImportExport();
@@ -77,21 +75,23 @@ export function useSyncPull( {
 		isKeyCancelled,
 		getBackupStatusWithProgress,
 	} = useSyncStatesProgressInfo();
-	
+
 	const dispatch = useAppDispatch();
 	const pullStates = useRootSelector( syncOperationsSelectors.selectPullStates );
-	
+
 	const updateState = useCallback< UpdateState< SyncBackupState > >(
 		( selectedSiteId, remoteSiteId, state ) => {
-			dispatch( syncOperationsActions.updatePullState( {
-				selectedSiteId,
-				remoteSiteId,
-				state,
-			} ) );
+			dispatch(
+				syncOperationsActions.updatePullState( {
+					selectedSiteId,
+					remoteSiteId,
+					state,
+				} )
+			);
 		},
 		[ dispatch ]
 	);
-	
+
 	const getPullState = useCallback< GetState< SyncBackupState > >(
 		( selectedSiteId, remoteSiteId ) => {
 			const stateId = generateStateId( selectedSiteId, remoteSiteId );
@@ -99,13 +99,15 @@ export function useSyncPull( {
 		},
 		[ pullStates ]
 	);
-	
+
 	const clearState = useCallback< ClearState >(
 		( selectedSiteId, remoteSiteId ) => {
-			dispatch( syncOperationsActions.clearPullState( {
-				selectedSiteId,
-				remoteSiteId,
-			} ) );
+			dispatch(
+				syncOperationsActions.clearPullState( {
+					selectedSiteId,
+					remoteSiteId,
+				} )
+			);
 		},
 		[ dispatch ]
 	);

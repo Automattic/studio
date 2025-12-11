@@ -1,6 +1,7 @@
 import { useNavigator } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useMemo } from 'react';
+import { type AddSiteFlowType } from '../components/options';
 
 interface StepperStep {
 	id: string;
@@ -15,15 +16,19 @@ interface StepperStep {
 
 interface StepperConfig {
 	onBlueprintContinue?: () => void;
+	onBlueprintDeeplinkContinue?: () => void;
 	onBackupContinue?: () => void;
+	onPullRemoteContinue?: () => void;
 	onCreateSubmit?: ( event: FormEvent ) => void;
 	canSubmitBlueprint?: boolean;
+	canSubmitBlueprintDeeplink?: boolean;
 	canSubmitBackup?: boolean;
+	canSubmitPullRemote?: boolean;
 	canSubmitCreate?: boolean;
 }
 
 interface StepperContext {
-	flow: 'blueprint' | 'backup' | 'create';
+	flow: AddSiteFlowType;
 	steps: StepperStep[];
 }
 
@@ -45,8 +50,8 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 
 	const stepperContext = useMemo( (): StepperContext | null => {
 		const blueprintSteps: StepperStep[] = [
-			{ id: 'choose-blueprint', label: __( 'Choose Blueprint' ), path: '/blueprint' },
-			{ id: 'site-details', label: __( 'Site name & details' ), path: '/blueprint/create' },
+			{ id: 'choose-blueprint', label: __( 'Choose Blueprint' ), path: '/blueprint/select' },
+			{ id: 'site-details', label: __( 'Site name & details' ), path: '/blueprint/select/create' },
 		];
 
 		const backupSteps: StepperStep[] = [
@@ -58,7 +63,28 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			{ id: 'create-site', label: __( 'Site name & details' ), path: '/create' },
 		];
 
-		if ( location.path?.startsWith( '/blueprint' ) ) {
+		const pullRemoteSteps: StepperStep[] = [
+			{ id: 'select-remote-site', label: __( 'Select a remote site' ), path: '/pullRemote' },
+			{ id: 'site-details', label: __( 'Site name & details' ), path: '/pullRemote/create' },
+		];
+
+		const blueprintDeeplinkSteps: StepperStep[] = [
+			{ id: 'blueprint-selected', label: __( 'Blueprint details' ), path: '/blueprint/deeplink' },
+			{
+				id: 'site-details',
+				label: __( 'Site name & details' ),
+				path: '/blueprint/deeplink/create',
+			},
+		];
+
+		if ( location.path?.startsWith( '/blueprint/deeplink' ) ) {
+			return {
+				flow: 'blueprintDeeplink',
+				steps: blueprintDeeplinkSteps,
+			};
+		}
+
+		if ( location.path?.startsWith( '/blueprint/select' ) ) {
 			return {
 				flow: 'blueprint',
 				steps: blueprintSteps,
@@ -69,6 +95,13 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			return {
 				flow: 'backup',
 				steps: backupSteps,
+			};
+		}
+
+		if ( location.path?.startsWith( '/pullRemote' ) ) {
+			return {
+				flow: 'pullRemote',
+				steps: pullRemoteSteps,
 			};
 		}
 
@@ -133,15 +166,19 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 		}
 
 		switch ( location.path ) {
-			case '/blueprint':
+			case '/blueprint/select':
+			case '/blueprint/deeplink':
 			case '/backup':
+			case '/pullRemote':
 				return {
 					label: __( 'Continue' ),
 					isVisible: true,
 				};
 			case '/create':
-			case '/blueprint/create':
+			case '/blueprint/select/create':
+			case '/blueprint/deeplink/create':
 			case '/backup/create':
+			case '/pullRemote/create':
 				return {
 					label: __( 'Add site' ),
 					isVisible: true,
@@ -156,15 +193,23 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 		if ( ! location.path ) return;
 
 		switch ( location.path ) {
-			case '/blueprint':
+			case '/blueprint/select':
 				config?.onBlueprintContinue?.();
+				break;
+			case '/blueprint/deeplink':
+				config?.onBlueprintDeeplinkContinue?.();
 				break;
 			case '/backup':
 				config?.onBackupContinue?.();
 				break;
+			case '/pullRemote':
+				config?.onPullRemoteContinue?.();
+				break;
 			case '/create':
-			case '/blueprint/create':
+			case '/blueprint/select/create':
+			case '/blueprint/deeplink/create':
 			case '/backup/create':
+			case '/pullRemote/create':
 				config?.onCreateSubmit?.( { preventDefault: () => {} } as FormEvent );
 				break;
 		}
@@ -175,13 +220,19 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 		if ( ! location.path ) return false;
 
 		switch ( location.path ) {
-			case '/blueprint':
+			case '/blueprint/select':
 				return config?.canSubmitBlueprint ?? false;
+			case '/blueprint/deeplink':
+				return config?.canSubmitBlueprintDeeplink ?? false;
 			case '/backup':
 				return config?.canSubmitBackup ?? false;
+			case '/pullRemote':
+				return config?.canSubmitPullRemote ?? false;
 			case '/create':
-			case '/blueprint/create':
+			case '/blueprint/select/create':
+			case '/blueprint/deeplink/create':
 			case '/backup/create':
+			case '/pullRemote/create':
 				return config?.canSubmitCreate ?? false;
 			default:
 				return false;

@@ -21,6 +21,7 @@ export const LanguagePicker = ( { value, onChange }: LanguagePickerProps ) => {
 				} ) ) }
 				__nextHasNoMarginBottom
 				__next40pxDefaultSize
+				data-testid="language-select"
 			/>
 		</SettingsFormField>
 	);

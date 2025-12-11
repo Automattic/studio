@@ -19,6 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Code Quality
 - `npm run lint` - Lint TypeScript/JavaScript files
 - `npm run format` - Format code with Prettier
+- **IMPORTANT**: When formatting code, ONLY format the files you've modified. Use `npx prettier --write <file1> <file2>` instead of `npm run format` to avoid formatting the entire codebase
 
 ### Building Installers
 - `npm run package` - Package the app (no installer)
@@ -38,6 +39,116 @@ When editing code, hot reload behavior differs by process:
 npm test -- path/to/test.test.ts
 npm test -- --testNamePattern="test name pattern"
 ```
+
+## CLI Commands
+
+The Studio CLI provides commands for managing authentication, preview sites, and local sites (beta). All CLI commands follow this pattern:
+
+```bash
+npm run cli:build && node dist/cli/main.js <command>
+```
+
+### Authentication Commands
+
+#### `studio auth login`
+Log in to WordPress.com using OAuth2 authentication.
+
+**Usage:**
+```bash
+node dist/cli/main.js auth login
+```
+
+**Description:**
+This command initiates the WordPress.com OAuth2 authentication flow:
+1. Opens your default browser to the WordPress.com authorization page
+2. After authorization, you'll be redirected to a page with your access token
+3. Copy the token and paste it back into the terminal
+4. The token is stored in your app data and shared with the Studio desktop app
+
+**Options:**
+- None required
+
+**Example:**
+```bash
+npm run cli:build
+node dist/cli/main.js auth login
+# Browser opens for authentication
+# Copy token from browser and paste when prompted
+```
+
+**Notes:**
+- The access token is valid for 2 weeks
+- If already authenticated, the command will notify you
+- Authentication is shared between the CLI and the Studio desktop app
+- If the browser fails to open, the URL will be displayed for manual opening
+
+#### `studio auth logout`
+Log out from WordPress.com and revoke the access token.
+
+**Usage:**
+```bash
+node dist/cli/main.js auth logout
+```
+
+**Description:**
+This command logs you out from WordPress.com by:
+1. Revoking the access token on the WordPress.com server
+2. Removing the token from your local app data
+3. Syncing the logout state with the Studio desktop app
+
+**Options:**
+- None required
+
+**Example:**
+```bash
+npm run cli:build
+node dist/cli/main.js auth logout
+# Output: ✓ Successfully logged out
+```
+
+**Notes:**
+- If already logged out, the command will notify you without error
+- Logout is shared between the CLI and the Studio desktop app
+- The token is revoked on WordPress.com, invalidating all sessions using that token
+
+#### `studio auth status`
+Check authentication status and display the current WordPress.com username.
+
+**Usage:**
+```bash
+node dist/cli/main.js auth status
+```
+
+**Description:**
+This command checks if you are currently authenticated with WordPress.com by:
+1. Reading the authentication token from your local app data
+2. Verifying the token's validity by making an API request to WordPress.com
+3. Displaying your WordPress.com username if authenticated
+
+**Options:**
+- None required
+
+**Example:**
+```bash
+npm run cli:build
+node dist/cli/main.js auth status
+# Output when authenticated: ✓ Authenticated with WordPress.com as `username`
+# Output when not authenticated: ✗ Authentication token is invalid or expired
+```
+
+**Notes:**
+- The command will check both token existence and validity
+- If the token has expired (older than 2 weeks), you'll need to log in again
+- Authentication state is shared between the CLI and the Studio desktop app
+- No authentication token will be created; use `auth login` if not authenticated
+
+### Preview Site Commands
+
+See the existing preview site commands (create, list, delete, update) in `cli/commands/preview/`.
+
+### Local Site Commands (Beta)
+
+Local site management commands are available when the `studioSitesCli` beta feature is enabled in app data.
 
 ## WordPress Studio - Architecture Overview
 
@@ -109,11 +220,13 @@ WordPress Studio is a desktop application for creating, managing, and testing Wo
 ### `/cli` - Command-Line Interface
 - **`index.ts`** - CLI entry point using yargs
 - **`commands/`** - Command implementations
+  - `auth/` - Authentication commands (login to WordPress.com)
   - `preview/` - Preview site management commands
   - `site/` - Local site management commands (beta)
 - **`lib/`** - CLI-specific utilities and helpers
   - `appdata.ts` - Reading app configuration
   - `i18n.ts` - Locale loading for CLI
+  - `browser.ts` - Cross-platform browser opening utility
 
 ### `/common` - Shared Code (Both Main and Renderer)
 - **`lib/`** - Shared utility libraries
@@ -146,6 +259,11 @@ window.ipcApi.openSiteURL(id)     // Send (one-way)
 // Main (src/ipc-handlers.ts) handles:
 ipcMain.handle('startServer', async (event, siteId) => { ... })
 ipcMain.on('openSiteURL', (event, id) => { ... })
+
+// CLI Installation API (delegated to src/modules/cli/lib/installation):
+window.ipcApi.isStudioCliInstalled() // Check CLI installation status
+window.ipcApi.installStudioCli()     // Install the CLI
+window.ipcApi.uninstallStudioCli()   // Uninstall the CLI
 ```
 
 ### 3. WordPress Provider Pattern (Strategy Pattern)
@@ -169,8 +287,17 @@ Both implement the `WordPressProvider` interface with methods:
 - provider constants: WordPress/PHP versions
 - RTK Query APIs for data fetching:
   - wpcomApi: WordPress.com API calls
-  - installedAppsApi: System apps detection
+  - installedAppsApi: System apps detection, CLI installation status
   - wordpressVersionsApi: Available WP versions
+
+// installedAppsApi endpoints (src/stores/installed-apps-api.ts):
+- getStudioCliIsInstalled: Query CLI installation status
+- getInstalledApps: Query installed editors and terminals
+- getUserEditor: Get user's preferred editor
+- getUserTerminal: Get user's preferred terminal
+- saveStudioCliIsInstalled: Mutation to install/uninstall CLI
+- saveUserEditor: Mutation to save preferred editor
+- saveUserTerminal: Mutation to save preferred terminal
 ```
 
 ### 5. Site Management
@@ -353,6 +480,6 @@ Local component state used for temporary UI interactions.
 
 ---
 
-Last Updated: 2025-11-05
+Last Updated: 2025-11-10
 Repository: https://github.com/Automattic/studio
 License: GPLv2 or later

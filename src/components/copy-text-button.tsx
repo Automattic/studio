@@ -17,6 +17,7 @@ interface CopyTextButtonProps {
 	iconSize?: number;
 	onCopied?: () => void;
 	icon?: React.JSX.Element;
+	'data-testid'?: string;
 }
 
 export function CopyTextButton( {
@@ -31,6 +32,7 @@ export function CopyTextButton( {
 	iconSize = 13,
 	onCopied,
 	icon = copy,
+	'data-testid': dataTestId,
 }: CopyTextButtonProps ) {
 	const { __ } = useI18n();
 	const [ showCopied, setShowCopied ] = useState( false );
@@ -57,6 +59,7 @@ export function CopyTextButton( {
 			tooltipText={ __( 'Copy to clipboard' ) }
 			onClick={ onClick }
 			variant={ variant }
+			data-testid={ dataTestId }
 		>
 			{ children }
 			<Icon className="ml-1 mr-1" fill="currentColor" size={ iconSize } icon={ icon } />{ ' ' }

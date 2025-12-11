@@ -27,8 +27,15 @@ const getFirstInstalledEditor = async (): Promise< SupportedEditor | null > => {
 export const installedAppsApi = createApi( {
 	reducerPath: 'installedAppsApi',
 	baseQuery: fetchBaseQuery(),
-	tagTypes: [ 'InstalledApps', 'UserPreferences' ],
+	tagTypes: [ 'StudioCliIsInstalled', 'InstalledApps', 'UserEditor', 'UserTerminal' ],
 	endpoints: ( builder ) => ( {
+		getStudioCliIsInstalled: builder.query< boolean, void >( {
+			queryFn: async () => {
+				const isInstalled = await getIpcApi().isStudioCliInstalled();
+				return { data: isInstalled };
+			},
+			providesTags: [ 'StudioCliIsInstalled' ],
+		} ),
 		getInstalledApps: builder.query< InstalledApps, void >( {
 			queryFn: async () => {
 				const installedApps = await getIpcApi().getInstalledAppsAndTerminals();
@@ -50,28 +57,39 @@ export const installedAppsApi = createApi( {
 
 				return { data: defaultEditor };
 			},
-			providesTags: [ 'UserPreferences' ],
+			providesTags: [ 'UserEditor' ],
 		} ),
 		getUserTerminal: builder.query< SupportedTerminal, void >( {
 			queryFn: async () => {
 				const terminal = await getIpcApi().getUserTerminal();
 				return { data: terminal };
 			},
-			providesTags: [ 'UserPreferences' ],
+			providesTags: [ 'UserTerminal' ],
+		} ),
+		saveStudioCliIsInstalled: builder.mutation< boolean, boolean >( {
+			queryFn: async ( isInstalled ) => {
+				if ( isInstalled ) {
+					await getIpcApi().installStudioCli();
+				} else {
+					await getIpcApi().uninstallStudioCli();
+				}
+				return { data: isInstalled };
+			},
+			invalidatesTags: [ 'StudioCliIsInstalled' ],
 		} ),
 		saveUserEditor: builder.mutation< SupportedEditor, SupportedEditor >( {
 			queryFn: async ( editor ) => {
 				await getIpcApi().saveUserEditor( editor );
 				return { data: editor };
 			},
-			invalidatesTags: [ 'UserPreferences' ],
+			invalidatesTags: [ 'UserEditor' ],
 		} ),
 		saveUserTerminal: builder.mutation< SupportedTerminal, SupportedTerminal >( {
 			queryFn: async ( terminal ) => {
 				await getIpcApi().saveUserTerminal( terminal );
 				return { data: terminal };
 			},
-			invalidatesTags: [ 'UserPreferences' ],
+			invalidatesTags: [ 'UserTerminal' ],
 		} ),
 	} ),
 } );
@@ -82,6 +100,8 @@ export const {
 	useGetUserTerminalQuery,
 	useSaveUserEditorMutation,
 	useSaveUserTerminalMutation,
+	useGetStudioCliIsInstalledQuery,
+	useSaveStudioCliIsInstalledMutation,
 } = installedAppsApi;
 
 export const selectInstalledEditors = createSelector(

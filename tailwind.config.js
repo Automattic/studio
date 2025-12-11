@@ -129,6 +129,7 @@ for ( const [ key, value ] of Object.entries( palette.colors ) ) {
 
 // These colors are not in the color studio but are used in the design system.
 // Reference: https://github.com/WordPress/gutenberg/blob/trunk/packages/base-styles/_colors.scss
+a8cToTailwindColors[ `${ PREFIX }-gray-900` ] = '#1e1e1e'; // Gray 900
 a8cToTailwindColors[ `${ PREFIX }-gray-800` ] = '#2F2F2F'; // Gray 800
 a8cToTailwindColors[ `${ PREFIX }-gray-700` ] = '#757575'; // Gray 700
 a8cToTailwindColors[ `${ PREFIX }-gray-400` ] = '#CCC'; // Gray 400
@@ -137,7 +138,7 @@ a8cToTailwindColors[ `${ PREFIX }-gray-100` ] = '#f0f0f0'; // Gray 100
 a8cToTailwindColors[ `${ PREFIX }-gray-5` ] = '#DCDCDE'; // Gray 5
 
 module.exports = {
-	content: [ './src/**/*.{html,ejs,js,jsx,ts,tsx}' ],
+	content: [ './src/**/*.{html,js,jsx,ts,tsx}' ],
 	theme: {
 		extend: {
 			colors: {

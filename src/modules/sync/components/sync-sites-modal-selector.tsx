@@ -8,15 +8,19 @@ import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
+import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { CreateButton } from 'src/modules/sync/components/create-button';
 import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
+import { NoWpcomSitesModal } from 'src/modules/sync/components/no-wpcom-sites-modal';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
+import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
+import type { SyncSite, SyncModalMode } from 'src/modules/sync/types';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
 
@@ -26,70 +30,65 @@ const focusConnectButton = () => {
 };
 
 export function SyncSitesModalSelector( {
-	isLoading,
 	onRequestClose,
 	onConnect,
-	syncSites,
-	onInitialRender,
 	selectedSite,
+	mode = 'connect',
 }: {
-	isLoading?: boolean;
 	onRequestClose: () => void;
-	syncSites: SyncSite[];
 	onConnect: ( siteId: number ) => void;
-	onInitialRender?: () => void;
 	selectedSite: SiteDetails;
+	mode?: SyncModalMode;
 } ) {
 	const { __ } = useI18n();
+	const { user } = useAuth();
 	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
-	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
 	const isOffline = useOffline();
-	const filteredSites = syncSites.filter( ( site ) => {
-		const searchQueryLower = searchQuery.toLowerCase();
-		return (
-			site.name?.toLowerCase().includes( searchQueryLower ) ||
-			site.url?.toLowerCase().includes( searchQueryLower )
-		);
-	} );
-	const isEmpty = filteredSites.length === 0;
 
-	useEffect( () => {
-		if ( onInitialRender ) {
-			onInitialRender();
+	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
+		localSiteId: selectedSite.id,
+		userId: user?.id,
+	} );
+	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
+
+	const {
+		data: syncSites = [],
+		isLoading,
+		isSuccess,
+	} = useGetWpComSitesQuery(
+		{ connectedSiteIds, userId: user?.id },
+		{ refetchOnMountOrArgChange: true }
+	);
+
+	if ( syncSites.length === 0 && isSuccess && ! isLoading ) {
+		return <NoWpcomSitesModal onRequestClose={ onRequestClose } selectedSite={ selectedSite } />;
+	}
+
+	const getModalTitle = () => {
+		switch ( mode ) {
+			case 'push':
+				return __( 'Publish your site' );
+			case 'pull':
+				return __( 'Select a site to import' );
+			case 'connect':
+			default:
+				return __( 'Connect your site' );
 		}
-	}, [ onInitialRender ] );
+	};
 
 	return (
 		<Modal
 			className="w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
 			onRequestClose={ onRequestClose }
-			title={ __( 'Connect your site' ) }
+			title={ getModalTitle() }
 		>
 			<div className="relative" data-testid="sync-sites-modal-selector">
-				<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
-				<div className="h-[calc(84vh-232px)]">
-					{ isLoading && (
-						<div className="flex justify-center items-center h-full">
-							{ __( 'Loading sites…' ) }
-						</div>
-					) }
-
-					{ ! isLoading && isEmpty && (
-						<div className="flex justify-center items-center h-full">
-							{ searchQuery
-								? sprintf( __( 'No sites found for "%s"' ), searchQuery )
-								: __( 'No sites found' ) }
-						</div>
-					) }
-
-					{ ! isLoading && ! isEmpty && (
-						<ListSites
-							syncSites={ filteredSites }
-							selectedSiteId={ selectedSiteId }
-							onSelectSite={ setSelectedSiteId }
-						/>
-					) }
-				</div>
+				<SitesListContent
+					isLoading={ isLoading }
+					syncSites={ syncSites }
+					selectedSiteId={ selectedSiteId }
+					onSelectSite={ setSelectedSiteId }
+				/>
 				<Footer
 					onRequestClose={ onRequestClose }
 					onConnect={ () => {
@@ -100,11 +99,12 @@ export function SyncSitesModalSelector( {
 					} }
 					disabled={ ! selectedSiteId }
 					selectedSite={ selectedSite }
+					mode={ mode }
 				/>
 
 				{ isOffline && (
 					<div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center">
-						<SyncSitesOfflineView />
+						<SyncSitesOfflineView mode={ mode } />
 					</div>
 				) }
 			</div>
@@ -112,7 +112,7 @@ export function SyncSitesModalSelector( {
 	);
 }
 
-function SearchSites( {
+export function SearchSites( {
 	searchQuery,
 	setSearchQuery,
 }: {
@@ -122,9 +122,9 @@ function SearchSites( {
 	const { __ } = useI18n();
 	const locale = useI18nLocale();
 	return (
-		<div className="flex flex-col px-8 pb-6 border-b border-a8c-gray-5">
+		<div className="flex flex-col px-8 pb-6 border-b border-a8c-gray-5 shrink-0">
 			<SearchControl
-				className="w-full mt-0.5 mb-2"
+				className="w-full mt-0.5 mb-2 text-black"
 				placeholder={ __( 'Search sites' ) }
 				onChange={ ( value ) => {
 					setSearchQuery( value );
@@ -150,6 +150,57 @@ function SearchSites( {
 	);
 }
 
+export function SitesListContent( {
+	isLoading,
+	syncSites,
+	selectedSiteId,
+	onSelectSite,
+}: {
+	isLoading: boolean;
+	syncSites: SyncSite[];
+	selectedSiteId: number | null;
+	onSelectSite: ( id: number ) => void;
+} ) {
+	const { __ } = useI18n();
+	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
+
+	const filteredSites = syncSites.filter( ( site ) => {
+		const searchQueryLower = searchQuery.toLowerCase();
+		return (
+			site.name?.toLowerCase().includes( searchQueryLower ) ||
+			site.url?.toLowerCase().includes( searchQueryLower )
+		);
+	} );
+	const isEmpty = filteredSites.length === 0;
+
+	return (
+		<>
+			<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
+			<div className="h-[calc(84vh-232px)]">
+				{ isLoading && (
+					<div className="flex justify-center items-center h-full">{ __( 'Loading sites…' ) }</div>
+				) }
+
+				{ ! isLoading && isEmpty && searchQuery && (
+					<div className="flex justify-center items-center h-full">
+						{ sprintf( __( 'No sites found for "%s"' ), searchQuery ) }
+					</div>
+				) }
+
+				{ ! isLoading && isEmpty ? (
+					<div className="flex justify-center items-center h-full">{ __( 'No sites found' ) }</div>
+				) : (
+					<ListSites
+						syncSites={ filteredSites }
+						selectedSiteId={ selectedSiteId }
+						onSelectSite={ onSelectSite }
+					/>
+				) }
+			</div>
+		</>
+	);
+}
+
 const getSortedSites = ( sites: SyncSite[] ) => {
 	const order: Record< SyncSite[ 'syncSupport' ], number > = {
 		syncable: 1,
@@ -164,7 +215,7 @@ const getSortedSites = ( sites: SyncSite[] ) => {
 	return [ ...sites ].sort( ( a, b ) => order[ a.syncSupport ] - order[ b.syncSupport ] );
 };
 
-function ListSites( {
+export function ListSites( {
 	syncSites,
 	selectedSiteId,
 	onSelectSite,
@@ -214,7 +265,7 @@ function SiteItem( {
 			className={ cx(
 				'flex py-3 px-8 items-center border-b justify-between gap-4',
 				isSelected && 'bg-a8c-blue-50 text-white border-a8c-blue-50',
-				! isSelected && 'border-a8c-gray-0',
+				! isSelected && 'text-black border-a8c-gray-0',
 				! isSelected && isSyncable && 'hover:bg-a8c-blue-5',
 				isSyncable &&
 					'focus:outline-none focus:ring-1 focus:ring-a8c-blue-50 focus:relative focus:z-10'
@@ -335,13 +386,26 @@ function Footer( {
 	onConnect,
 	disabled,
 	selectedSite,
+	mode = 'connect',
 }: {
 	onRequestClose: () => void;
 	onConnect: () => void;
 	disabled: boolean;
 	selectedSite: SiteDetails;
+	mode?: SyncModalMode;
 } ) {
 	const { __ } = useI18n();
+
+	const getButtonText = () => {
+		switch ( mode ) {
+			case 'push':
+			case 'pull':
+				return __( 'Next' );
+			case 'connect':
+			default:
+				return __( 'Connect' );
+		}
+	};
 
 	useEffect( () => {
 		if ( ! disabled ) {
@@ -355,26 +419,38 @@ function Footer( {
 				variant="link"
 				selectedSite={ selectedSite }
 				text={ __( 'Create a new WordPress.com site' ) }
+				className="!text-a8c-blue-50 !shadow-a8c-blue-50"
 			/>
 			<div className="flex gap-4">
 				<Button variant="link" onClick={ onRequestClose }>
 					{ __( 'Cancel' ) }
 				</Button>
 				<Button id="connect-button" variant="primary" disabled={ disabled } onClick={ onConnect }>
-					{ __( 'Connect' ) }
+					{ getButtonText() }
 				</Button>
 			</div>
 		</div>
 	);
 }
 
-const SyncSitesOfflineView = () => {
-	const offlineMessage = __( 'Connecting a site requires an internet connection.' );
+const SyncSitesOfflineView = ( { mode = 'connect' }: { mode?: SyncModalMode } ) => {
+	const { __ } = useI18n();
+	const getOfflineMessage = () => {
+		switch ( mode ) {
+			case 'push':
+				return __( 'Publishing your site requires an internet connection.' );
+			case 'pull':
+				return __( 'Importing a remote site requires an internet connection.' );
+			case 'connect':
+			default:
+				return __( 'Connecting a site requires an internet connection.' );
+		}
+	};
 
 	return (
 		<div className="flex items-center justify-center h-12 px-2 pt-4 text-a8c-gray-70 gap-1">
 			<Icon className="m-1 fill-a8c-gray-70" size={ 24 } icon={ offlineIcon } />
-			<span className="text-[13px] leading-[16px]">{ offlineMessage }</span>
+			<span className="text-[13px] leading-[16px]">{ getOfflineMessage() }</span>
 		</div>
 	);
 };

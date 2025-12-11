@@ -127,7 +127,7 @@ function NavigationContent( props: NavigationContentProps ) {
 	const handlePullRemoteContinue = useCallback( async () => {
 		if ( selectedRemoteSite ) {
 			const availableName = await findAvailableSiteName( selectedRemoteSite.name );
-			void createSiteProps.handleSiteNameChange( availableName );
+			await createSiteProps.handleSiteNameChange( availableName );
 			goTo( '/pullRemote/create' );
 		}
 	}, [ createSiteProps, findAvailableSiteName, goTo, selectedRemoteSite ] );

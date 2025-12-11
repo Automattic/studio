@@ -123,12 +123,14 @@ function NavigationContent( props: NavigationContentProps ) {
 		}
 	}, [ createSiteProps, goTo ] );
 
+	const findAvailableSiteName = useFindAvailableSiteName();
 	const handlePullRemoteContinue = useCallback( async () => {
 		if ( selectedRemoteSite ) {
-			void createSiteProps.handleSiteNameChange( selectedRemoteSite.name );
+			const availableName = await findAvailableSiteName( selectedRemoteSite.name );
+			void createSiteProps.handleSiteNameChange( availableName );
 			goTo( '/pullRemote/create' );
 		}
-	}, [ createSiteProps, goTo, selectedRemoteSite ] );
+	}, [ createSiteProps, findAvailableSiteName, goTo, selectedRemoteSite ] );
 
 	const blueprints = useMemo(
 		() => blueprintsData?.blueprints.slice().reverse() || [],

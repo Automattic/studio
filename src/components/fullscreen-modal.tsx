@@ -63,10 +63,13 @@ export const FullscreenModal: React.FC< FullscreenModalProps > = ( {
 			role="dialog"
 			aria-modal="true"
 		>
-			<HStack
-				className={ cx( 'flex justify-end p-4 app-no-drag-region', isWindows() && 'ltr:pt-8' ) }
-			>
-				<Button icon={ close } onClick={ onClose } label={ __( 'Close' ) } />
+			<HStack className={ cx( 'flex justify-end p-4 app-drag-region', isWindows() && 'ltr:pt-8' ) }>
+				<Button
+					icon={ close }
+					onClick={ onClose }
+					label={ __( 'Close' ) }
+					className="app-no-drag-region"
+				/>
 			</HStack>
 			<VStack alignment="top" className="w-full flex-1 overflow-y-auto px-6 pb-6">
 				{ children }

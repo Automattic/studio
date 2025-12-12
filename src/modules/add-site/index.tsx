@@ -24,6 +24,7 @@ import ImportBackup from './components/import-backup';
 import AddSiteOptions, { type AddSiteFlowType } from './components/options';
 import { PullRemoteSite } from './components/pull-remote-site';
 import Stepper from './components/stepper';
+import { useFindAvailableSiteName } from './hooks/use-find-available-site-name';
 
 type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
 
@@ -122,11 +123,14 @@ function NavigationContent( props: NavigationContentProps ) {
 		}
 	}, [ createSiteProps, goTo ] );
 
-	const handlePullRemoteContinue = useCallback( () => {
+	const findAvailableSiteName = useFindAvailableSiteName();
+	const handlePullRemoteContinue = useCallback( async () => {
 		if ( selectedRemoteSite ) {
+			const availableName = await findAvailableSiteName( selectedRemoteSite.name );
+			await createSiteProps.handleSiteNameChange( availableName );
 			goTo( '/pullRemote/create' );
 		}
-	}, [ selectedRemoteSite, goTo ] );
+	}, [ createSiteProps, findAvailableSiteName, goTo, selectedRemoteSite ] );
 
 	const blueprints = useMemo(
 		() => blueprintsData?.blueprints.slice().reverse() || [],
@@ -277,11 +281,8 @@ function NavigationContent( props: NavigationContentProps ) {
 			<Navigator.Screen className="flex-1 flex justify-center" path="/pullRemote">
 				<PullRemoteSite
 					selectedRemoteSite={ selectedRemoteSite }
-					setSelectedRemoteSite={ ( remoteSite?: SyncSite ) => {
+					setSelectedRemoteSite={ async ( remoteSite?: SyncSite ) => {
 						setSelectedRemoteSite( remoteSite );
-						if ( remoteSite?.name ) {
-							void createSiteProps.handleSiteNameChange( remoteSite.name );
-						}
 					} }
 				/>
 			</Navigator.Screen>

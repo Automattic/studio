@@ -4,51 +4,15 @@ import {
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent } from 'react';
+import { useAddSite } from 'src/hooks/use-add-site';
 import { CreateSiteForm } from 'src/modules/add-site/components/create-site-form';
 
 interface CreateSiteProps {
-	siteName: string | null;
-	handleSiteNameChange: ( name: string ) => Promise< void >;
-	phpVersion: string;
-	setPhpVersion: ( version: string ) => void;
-	wpVersion: string;
-	setWpVersion: ( version: string ) => void;
-	sitePath: string;
-	handlePathSelectorClick: () => void;
-	error: string;
+	addSiteProps: ReturnType< typeof useAddSite >;
 	handleSubmit: ( event: FormEvent ) => void;
-	doesPathContainWordPress: boolean;
-	useCustomDomain: boolean;
-	setUseCustomDomain: ( use: boolean ) => void;
-	customDomain: string | null;
-	setCustomDomain: ( domain: string | null ) => void;
-	customDomainError: string;
-	enableHttps: boolean;
-	setEnableHttps: ( enable: boolean ) => void;
-	blueprintPreferredVersions?: { php?: string; wp?: string };
 }
 
-export default function CreateSite( {
-	siteName,
-	handleSiteNameChange,
-	phpVersion,
-	setPhpVersion,
-	wpVersion,
-	setWpVersion,
-	sitePath,
-	handlePathSelectorClick,
-	error,
-	handleSubmit,
-	doesPathContainWordPress,
-	useCustomDomain,
-	setUseCustomDomain,
-	customDomain,
-	setCustomDomain,
-	customDomainError,
-	enableHttps,
-	setEnableHttps,
-	blueprintPreferredVersions,
-}: CreateSiteProps ) {
+export default function CreateSite( { addSiteProps, handleSubmit }: CreateSiteProps ) {
 	const { __ } = useI18n();
 
 	return (
@@ -58,25 +22,25 @@ export default function CreateSite( {
 			</Heading>
 
 			<CreateSiteForm
-				siteName={ siteName || '' }
-				setSiteName={ ( name ) => void handleSiteNameChange( name ) }
-				phpVersion={ phpVersion }
-				setPhpVersion={ setPhpVersion }
-				wpVersion={ wpVersion }
-				setWpVersion={ setWpVersion }
-				sitePath={ sitePath }
-				onSelectPath={ handlePathSelectorClick }
-				error={ error }
+				siteName={ addSiteProps.siteName || '' }
+				setSiteName={ addSiteProps.setSiteName }
+				phpVersion={ addSiteProps.phpVersion }
+				setPhpVersion={ addSiteProps.setPhpVersion }
+				wpVersion={ addSiteProps.wpVersion }
+				setWpVersion={ addSiteProps.setWpVersion }
+				sitePath={ addSiteProps.sitePath }
+				onSelectPath={ addSiteProps.handlePathSelectorClick }
+				error={ addSiteProps.error }
+				doesPathContainWordPress={ addSiteProps.doesPathContainWordPress }
+				useCustomDomain={ addSiteProps.useCustomDomain }
+				setUseCustomDomain={ addSiteProps.setUseCustomDomain }
+				customDomain={ addSiteProps.customDomain }
+				setCustomDomain={ addSiteProps.setCustomDomain }
+				customDomainError={ addSiteProps.customDomainError }
+				enableHttps={ addSiteProps.enableHttps }
+				setEnableHttps={ addSiteProps.setEnableHttps }
+				blueprintPreferredVersions={ addSiteProps.blueprintPreferredVersions }
 				onSubmit={ handleSubmit }
-				doesPathContainWordPress={ doesPathContainWordPress }
-				useCustomDomain={ useCustomDomain }
-				setUseCustomDomain={ setUseCustomDomain }
-				customDomain={ customDomain }
-				setCustomDomain={ setCustomDomain }
-				customDomainError={ customDomainError }
-				enableHttps={ enableHttps }
-				setEnableHttps={ setEnableHttps }
-				blueprintPreferredVersions={ blueprintPreferredVersions }
 			/>
 		</VStack>
 	);

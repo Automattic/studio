@@ -1,6 +1,7 @@
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useRef } from 'react';
+import { useSyncPolling } from 'src/hooks/sync-sites/use-sync-polling';
 import {
 	ClearState,
 	generateStateId,
@@ -322,32 +323,22 @@ export function useSyncPush( { onPushSuccess }: UseSyncPushProps = {} ): UseSync
 		[ client, dispatch, pushStatesProgressInfo, getPushProgressInfo ]
 	);
 
-	useEffect( () => {
-		const intervals: Record< string, NodeJS.Timeout > = {};
+	// Poll for push progress when states are in importing status
+	const shouldPollPush = useCallback(
+		( state: SyncPushState ) => {
+			return ! isKeyCancelled( state.status.key ) && isKeyImporting( state.status.key );
+		},
+		[ isKeyCancelled, isKeyImporting ]
+	);
 
-		Object.entries( pushStates ).forEach( ( [ key, state ] ) => {
-			if ( isKeyCancelled( state.status.key ) ) {
-				return;
-			}
+	const pollPushProgress = useCallback(
+		( _key: string, state: SyncPushState ) => {
+			void getPushProgressInfo( state.remoteSiteId, state );
+		},
+		[ getPushProgressInfo ]
+	);
 
-			if ( isKeyImporting( state.status.key ) ) {
-				intervals[ key ] = setTimeout( () => {
-					void getPushProgressInfo( state.remoteSiteId, state );
-				}, 2000 );
-			}
-		} );
-
-		return () => {
-			Object.values( intervals ).forEach( clearTimeout );
-		};
-	}, [
-		pushStates,
-		getPushProgressInfo,
-		pushStatesProgressInfo.creatingBackup.key,
-		pushStatesProgressInfo.applyingChanges.key,
-		isKeyImporting,
-		isKeyCancelled,
-	] );
+	useSyncPolling( pushStates, shouldPollPush, pollPushProgress, 2000 );
 
 	const isAnySitePushing = useRootSelector( syncOperationsSelectors.selectIsAnySitePushing );
 

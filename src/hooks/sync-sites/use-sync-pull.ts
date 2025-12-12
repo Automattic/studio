@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useRef } from 'react';
+import { useSyncPolling } from 'src/hooks/sync-sites/use-sync-polling';
 import { SYNC_PUSH_SIZE_LIMIT_GB, SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
 import {
 	ClearState,
@@ -383,25 +384,26 @@ export function useSyncPull( { onPullSuccess }: UseSyncPullProps = {} ): UseSync
 		]
 	);
 
-	useEffect( () => {
-		const intervals: Record< string, NodeJS.Timeout > = {};
+	// Poll for backup status when states have backupId and are in-progress
+	const shouldPollPull = useCallback(
+		( state: SyncBackupState ) => {
+			return (
+				! isKeyCancelled( state.status.key ) &&
+				!! state.backupId &&
+				state.status.key === 'in-progress'
+			);
+		},
+		[ isKeyCancelled ]
+	);
 
-		Object.entries( pullStates ).forEach( ( [ key, state ] ) => {
-			if ( isKeyCancelled( state.status.key ) ) {
-				return;
-			}
+	const pollBackupStatus = useCallback(
+		( _key: string, state: SyncBackupState ) => {
+			void fetchAndUpdateBackup( state.remoteSiteId, state.selectedSite.id );
+		},
+		[ fetchAndUpdateBackup ]
+	);
 
-			if ( state.backupId && state.status.key === 'in-progress' ) {
-				intervals[ key ] = setTimeout( () => {
-					void fetchAndUpdateBackup( state.remoteSiteId, state.selectedSite.id );
-				}, 2000 );
-			}
-		} );
-
-		return () => {
-			Object.values( intervals ).forEach( clearTimeout );
-		};
-	}, [ pullStates, fetchAndUpdateBackup, isKeyCancelled ] );
+	useSyncPolling( pullStates, shouldPollPull, pollBackupStatus, 2000 );
 
 	const isAnySitePulling = useRootSelector( syncOperationsSelectors.selectIsAnySitePulling );
 

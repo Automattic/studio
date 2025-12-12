@@ -171,7 +171,6 @@ describe( 'CLI: studio site start', () => {
 				testSite.id,
 				testProcessDescription.pid
 			);
-			expect( updateSiteAutoStart ).toHaveBeenCalledWith( testSite.id, true );
 			expect( openSiteInBrowser ).toHaveBeenCalledWith( testSite );
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
 			expect( disconnect ).toHaveBeenCalled();

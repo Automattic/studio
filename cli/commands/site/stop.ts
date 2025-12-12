@@ -45,6 +45,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				type: 'boolean',
 				describe: __( 'Set auto-start flag for the site' ),
 				default: false,
+				hidden: true,
 			} );
 		},
 		handler: async ( argv ) => {

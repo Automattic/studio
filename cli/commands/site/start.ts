@@ -26,7 +26,6 @@ export async function runCommand( sitePath: string, skipBrowser = false ): Promi
 			if ( runningProcess.pid ) {
 				await updateSiteLatestCliPid( site.id, runningProcess.pid );
 			}
-			await updateSiteAutoStart( site.id, true );
 			if ( ! skipBrowser ) {
 				await openSiteInBrowser( site );
 			}

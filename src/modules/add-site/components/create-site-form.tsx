@@ -9,10 +9,10 @@ import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
+import { useAddSite } from 'src/hooks/use-add-site';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
 import { useRootSelector, useI18nLocale } from 'src/stores';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import {
@@ -35,27 +35,8 @@ interface SiteFormErrorProps {
 }
 
 interface SiteFormProps {
-	siteName: string;
-	setSiteName: ( name: string ) => void;
-	sitePath?: string;
-	onSelectPath?: () => void;
-	error: string;
-	doesPathContainWordPress?: boolean;
+	addSiteProps: ReturnType< typeof useAddSite >;
 	onSubmit: ( event: FormEvent ) => void;
-	useCustomDomain?: boolean;
-	setUseCustomDomain?: ( use: boolean ) => void;
-	customDomain?: string | null;
-	setCustomDomain?: ( domain: string ) => void;
-	customDomainError?: string;
-	phpVersion: AllowedPHPVersion;
-	setPhpVersion: ( version: AllowedPHPVersion ) => void;
-	useHttps?: boolean;
-	setUseHttps?: ( use: boolean ) => void;
-	enableHttps?: boolean;
-	setEnableHttps?: ( use: boolean ) => void;
-	wpVersion: string;
-	setWpVersion: ( version: string ) => void;
-	blueprintPreferredVersions?: { php?: string; wp?: string };
 }
 
 const SiteFormError = ( { error, tipMessage = '', className = '' }: SiteFormErrorProps ) => {
@@ -138,29 +119,29 @@ function FormPathInputComponent( {
 	);
 }
 
-export const CreateSiteForm = ( {
-	siteName,
-	setSiteName,
-	phpVersion,
-	setPhpVersion,
-	wpVersion,
-	setWpVersion,
-	sitePath = '',
-	onSelectPath,
-	error,
-	onSubmit,
-	doesPathContainWordPress = false,
-	useCustomDomain,
-	setUseCustomDomain,
-	customDomain = null,
-	setCustomDomain,
-	customDomainError,
-	enableHttps,
-	setEnableHttps,
-	blueprintPreferredVersions,
-}: SiteFormProps ) => {
+export const CreateSiteForm = ( { addSiteProps, onSubmit }: SiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const locale = useI18nLocale();
+	const {
+		useCustomDomain,
+		setUseCustomDomain,
+		customDomain,
+		setCustomDomain,
+		customDomainError,
+		enableHttps,
+		setEnableHttps,
+		blueprintPreferredVersions,
+		phpVersion,
+		wpVersion,
+		siteName,
+		sitePath,
+		doesPathContainWordPress,
+		error,
+		setSiteName,
+		handlePathSelectorClick: onSelectPath,
+		setPhpVersion,
+		setWpVersion,
+	} = addSiteProps;
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 	const allowedPhpVersions = useRootSelector( selectAllowedPhpVersions );
@@ -337,51 +318,43 @@ export const CreateSiteForm = ( {
 									</Notice>
 								) }
 
-								{ setUseCustomDomain && setCustomDomain && (
-									<div className="flex items-center gap-2 mt-4">
-										<input
-											type="checkbox"
-											id="use-custom-domain"
-											checked={ useCustomDomain }
-											onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
-										/>
-										<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
-									</div>
-								) }
+								<div className="flex items-center gap-2 mt-4">
+									<input
+										type="checkbox"
+										id="use-custom-domain"
+										checked={ useCustomDomain }
+										onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
+									/>
+									<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
+								</div>
 
-								{ setUseCustomDomain && setCustomDomain && (
-									<div className="text-a8c-gray-50 text-xs mt-2">
-										{ __( 'Your system password will be required to set up the domain.' ) }
-									</div>
-								) }
+								<div className="text-a8c-gray-50 text-xs mt-2">
+									{ __( 'Your system password will be required to set up the domain.' ) }
+								</div>
 
-								{ useCustomDomain && setCustomDomain && (
-									<div className="flex flex-col gap-2 mt-4">
-										<label htmlFor="custom-domain" className="font-semibold">
-											{ __( 'Domain name' ) }
-										</label>
-										<TextControlComponent
-											id="custom-domain"
-											value={ customDomain !== null ? customDomain : generatedDomainName }
-											onChange={ setCustomDomain }
-										/>
-										{ customDomainError && <SiteFormError error={ customDomainError } /> }
-									</div>
-								) }
+								<div className="flex flex-col gap-2 mt-4">
+									<label htmlFor="custom-domain" className="font-semibold">
+										{ __( 'Domain name' ) }
+									</label>
+									<TextControlComponent
+										id="custom-domain"
+										value={ customDomain !== null ? customDomain : generatedDomainName }
+										onChange={ setCustomDomain }
+									/>
+									{ customDomainError && <SiteFormError error={ customDomainError } /> }
+								</div>
 
-								{ useCustomDomain && setEnableHttps && (
-									<div className="flex items-center gap-2 mt-4">
-										<input
-											type="checkbox"
-											id="enable-https"
-											checked={ enableHttps }
-											onChange={ ( e ) => setEnableHttps( e.target.checked ) }
-										/>
-										<label htmlFor="enable-https">{ __( 'Enable HTTPS' ) }</label>
-									</div>
-								) }
+								<div className="flex items-center gap-2 mt-4">
+									<input
+										type="checkbox"
+										id="enable-https"
+										checked={ enableHttps }
+										onChange={ ( e ) => setEnableHttps( e.target.checked ) }
+									/>
+									<label htmlFor="enable-https">{ __( 'Enable HTTPS' ) }</label>
+								</div>
 
-								{ ! isCertificateTrusted && useCustomDomain && setEnableHttps && (
+								{ ! isCertificateTrusted && (
 									<div className="text-a8c-gray-50 text-xs mt-2">
 										{ __(
 											'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'

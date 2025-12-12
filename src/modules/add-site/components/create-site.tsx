@@ -21,27 +21,7 @@ export default function CreateSite( { addSiteProps, handleSubmit }: CreateSitePr
 				{ __( 'Add a site' ) }
 			</Heading>
 
-			<CreateSiteForm
-				siteName={ addSiteProps.siteName || '' }
-				setSiteName={ addSiteProps.setSiteName }
-				phpVersion={ addSiteProps.phpVersion }
-				setPhpVersion={ addSiteProps.setPhpVersion }
-				wpVersion={ addSiteProps.wpVersion }
-				setWpVersion={ addSiteProps.setWpVersion }
-				sitePath={ addSiteProps.sitePath }
-				onSelectPath={ addSiteProps.handlePathSelectorClick }
-				error={ addSiteProps.error }
-				doesPathContainWordPress={ addSiteProps.doesPathContainWordPress }
-				useCustomDomain={ addSiteProps.useCustomDomain }
-				setUseCustomDomain={ addSiteProps.setUseCustomDomain }
-				customDomain={ addSiteProps.customDomain }
-				setCustomDomain={ addSiteProps.setCustomDomain }
-				customDomainError={ addSiteProps.customDomainError }
-				enableHttps={ addSiteProps.enableHttps }
-				setEnableHttps={ addSiteProps.setEnableHttps }
-				blueprintPreferredVersions={ addSiteProps.blueprintPreferredVersions }
-				onSubmit={ handleSubmit }
-			/>
+			<CreateSiteForm addSiteProps={ addSiteProps } onSubmit={ handleSubmit } />
 		</VStack>
 	);
 }

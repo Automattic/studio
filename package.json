@@ -153,7 +153,6 @@
 		"yargs": "^18.0.0",
 		"yauzl": "^3.2.0",
 		"zod": "^3.24.3",
-
 		"@php-wasm/node": "^3.0.22",
 		"@php-wasm/scopes": "^3.0.22",
 		"@php-wasm/universal": "^3.0.22",

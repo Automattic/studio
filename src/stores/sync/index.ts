@@ -5,5 +5,6 @@ export {
 	syncOperationsReducer,
 	syncOperationsActions,
 	syncOperationsSelectors,
+	syncOperationsThunks,
 } from './sync-operations-slice';
 export * from './sync-types';

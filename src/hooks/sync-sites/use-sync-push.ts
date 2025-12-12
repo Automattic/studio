@@ -17,7 +17,11 @@ import {
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
 import { useAppDispatch, useRootSelector, type RootState } from 'src/stores';
-import { syncOperationsActions, syncOperationsSelectors } from 'src/stores/sync';
+import {
+	syncOperationsActions,
+	syncOperationsSelectors,
+	syncOperationsThunks,
+} from 'src/stores/sync';
 import type { ImportResponse } from 'src/hooks/use-sync-states-progress-info';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
@@ -172,10 +176,16 @@ export function useSyncPush( { onPushSuccess }: UseSyncPushProps = {} ): UseSync
 
 	const clearPushState = useCallback< ClearState >(
 		( selectedSiteId, remoteSiteId ) => {
-			clearState( selectedSiteId, remoteSiteId );
-			getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+			const stateId = generateStateId( selectedSiteId, remoteSiteId );
+			// Immediately update the ref so getPushState returns undefined right away
+			const newStates = { ...pushStatesRef.current };
+			delete newStates[ stateId ];
+			pushStatesRef.current = newStates;
+			// Dispatch both the action and the thunk
+			dispatch( syncOperationsActions.clearPushState( { selectedSiteId, remoteSiteId } ) );
+			void dispatch( syncOperationsThunks.clearPushState( { selectedSiteId, remoteSiteId } ) );
 		},
-		[ clearState ]
+		[ dispatch ]
 	);
 
 	const getPushProgressInfo = useCallback(
@@ -460,19 +470,15 @@ export function useSyncPush( { onPushSuccess }: UseSyncPushProps = {} ): UseSync
 
 	const cancelPush = useCallback< CancelPush >(
 		async ( selectedSiteId, remoteSiteId ) => {
-			const operationId = generateStateId( selectedSiteId, remoteSiteId );
-			getIpcApi().cancelSyncOperation( operationId );
-
-			updatePushState( selectedSiteId, remoteSiteId, {
-				status: pushStatesProgressInfo.cancelled,
-			} );
-
-			getIpcApi().showNotification( {
-				title: __( 'Push cancelled' ),
-				body: __( 'The push operation has been cancelled.' ),
-			} );
+			void dispatch(
+				syncOperationsThunks.cancelPush( {
+					selectedSiteId,
+					remoteSiteId,
+					cancelledStatus: pushStatesProgressInfo.cancelled,
+				} )
+			);
 		},
-		[ __, pushStatesProgressInfo.cancelled, updatePushState ]
+		[ dispatch, pushStatesProgressInfo.cancelled ]
 	);
 
 	return {

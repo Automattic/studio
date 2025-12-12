@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { SYNC_PUSH_SIZE_LIMIT_GB, SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
 import {
 	ClearState,
@@ -20,7 +20,11 @@ import {
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
 import { useAppDispatch, useRootSelector, type RootState } from 'src/stores';
-import { syncOperationsActions, syncOperationsSelectors } from 'src/stores/sync';
+import {
+	syncOperationsActions,
+	syncOperationsSelectors,
+	syncOperationsThunks,
+} from 'src/stores/sync';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
 
@@ -117,23 +121,6 @@ export function useSyncPull( { onPullSuccess }: UseSyncPullProps = {} ): UseSync
 		[]
 	);
 
-	const clearState = useCallback< ClearState >(
-		( selectedSiteId, remoteSiteId ) => {
-			const stateId = generateStateId( selectedSiteId, remoteSiteId );
-			// Immediately update the ref so getPullState returns undefined right away
-			const newStates = { ...pullStatesRef.current };
-			delete newStates[ stateId ];
-			pullStatesRef.current = newStates;
-			dispatch(
-				syncOperationsActions.clearPullState( {
-					selectedSiteId,
-					remoteSiteId,
-				} )
-			);
-		},
-		[ dispatch ]
-	);
-
 	const updatePullState = useCallback< UpdateState< SyncBackupState > >(
 		( selectedSiteId, remoteSiteId, state ) => {
 			updateState( selectedSiteId, remoteSiteId, state );
@@ -150,10 +137,16 @@ export function useSyncPull( { onPullSuccess }: UseSyncPullProps = {} ): UseSync
 
 	const clearPullState = useCallback< ClearState >(
 		( selectedSiteId, remoteSiteId ) => {
-			clearState( selectedSiteId, remoteSiteId );
-			getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
+			const stateId = generateStateId( selectedSiteId, remoteSiteId );
+			// Immediately update the ref so getPullState returns undefined right away
+			const newStates = { ...pullStatesRef.current };
+			delete newStates[ stateId ];
+			pullStatesRef.current = newStates;
+			// Dispatch both the action and the thunk
+			dispatch( syncOperationsActions.clearPullState( { selectedSiteId, remoteSiteId } ) );
+			void dispatch( syncOperationsThunks.clearPullState( { selectedSiteId, remoteSiteId } ) );
 		},
-		[ clearState ]
+		[ dispatch ]
 	);
 
 	const { startServer } = useSiteDetails();
@@ -458,26 +451,15 @@ export function useSyncPull( { onPullSuccess }: UseSyncPullProps = {} ): UseSync
 
 	const cancelPull = useCallback< CancelPull >(
 		async ( selectedSiteId, remoteSiteId ) => {
-			const operationId = generateStateId( selectedSiteId, remoteSiteId );
-
-			getIpcApi().cancelSyncOperation( operationId );
-
-			updatePullState( selectedSiteId, remoteSiteId, {
-				status: pullStatesProgressInfo.cancelled,
-			} );
-
-			getIpcApi()
-				.removeSyncBackup( remoteSiteId )
-				.catch( () => {
-					// Ignore errors if file doesn't exist
-				} );
-
-			getIpcApi().showNotification( {
-				title: __( 'Pull cancelled' ),
-				body: __( 'The pull operation has been cancelled.' ),
-			} );
+			void dispatch(
+				syncOperationsThunks.cancelPull( {
+					selectedSiteId,
+					remoteSiteId,
+					cancelledStatus: pullStatesProgressInfo.cancelled,
+				} )
+			);
 		},
-		[ __, pullStatesProgressInfo.cancelled, updatePullState ]
+		[ dispatch, pullStatesProgressInfo.cancelled ]
 	);
 
 	return {

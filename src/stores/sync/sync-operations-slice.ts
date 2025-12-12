@@ -1,7 +1,14 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { __ } from '@wordpress/i18n';
 import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { SyncBackupState, PullStates } from 'src/hooks/sync-sites/use-sync-pull';
 import type { SyncPushState, PushStates } from 'src/hooks/sync-sites/use-sync-push';
+import type {
+	PullStateProgressInfo,
+	PushStateProgressInfo,
+} from 'src/hooks/use-sync-states-progress-info';
+import type { AppDispatch, RootState } from 'src/stores';
 
 interface SyncOperationsState {
 	pullStates: PullStates;
@@ -83,6 +90,100 @@ const syncOperationsSlice = createSlice( {
 
 export const syncOperationsActions = syncOperationsSlice.actions;
 export const syncOperationsReducer = syncOperationsSlice.reducer;
+
+// Create typed async thunk helper
+const createTypedAsyncThunk = createAsyncThunk.withTypes< {
+	state: RootState;
+	dispatch: AppDispatch;
+} >();
+
+// Thunks for clear operations
+export const clearPushStateThunk = createTypedAsyncThunk(
+	'syncOperations/clearPushState',
+	async ( { selectedSiteId, remoteSiteId }: ClearStatePayload ) => {
+		const stateId = generateStateId( selectedSiteId, remoteSiteId );
+		getIpcApi().clearSyncOperation( stateId );
+		return { selectedSiteId, remoteSiteId };
+	}
+);
+
+export const clearPullStateThunk = createTypedAsyncThunk(
+	'syncOperations/clearPullState',
+	async ( { selectedSiteId, remoteSiteId }: ClearStatePayload ) => {
+		const stateId = generateStateId( selectedSiteId, remoteSiteId );
+		getIpcApi().clearSyncOperation( stateId );
+		return { selectedSiteId, remoteSiteId };
+	}
+);
+
+// Thunks for cancel operations
+type CancelPushPayload = {
+	selectedSiteId: string;
+	remoteSiteId: number;
+	cancelledStatus: PushStateProgressInfo;
+};
+
+type CancelPullPayload = {
+	selectedSiteId: string;
+	remoteSiteId: number;
+	cancelledStatus: PullStateProgressInfo;
+};
+
+export const cancelPushThunk = createTypedAsyncThunk(
+	'syncOperations/cancelPush',
+	async ( { selectedSiteId, remoteSiteId, cancelledStatus }: CancelPushPayload, { dispatch } ) => {
+		const operationId = generateStateId( selectedSiteId, remoteSiteId );
+		getIpcApi().cancelSyncOperation( operationId );
+
+		dispatch(
+			syncOperationsActions.updatePushState( {
+				selectedSiteId,
+				remoteSiteId,
+				state: { status: cancelledStatus },
+			} )
+		);
+
+		getIpcApi().showNotification( {
+			title: __( 'Push cancelled' ),
+			body: __( 'The push operation has been cancelled.' ),
+		} );
+	}
+);
+
+export const cancelPullThunk = createTypedAsyncThunk(
+	'syncOperations/cancelPull',
+	async ( { selectedSiteId, remoteSiteId, cancelledStatus }: CancelPullPayload, { dispatch } ) => {
+		const operationId = generateStateId( selectedSiteId, remoteSiteId );
+		getIpcApi().cancelSyncOperation( operationId );
+
+		dispatch(
+			syncOperationsActions.updatePullState( {
+				selectedSiteId,
+				remoteSiteId,
+				state: { status: cancelledStatus },
+			} )
+		);
+
+		getIpcApi()
+			.removeSyncBackup( remoteSiteId )
+			.catch( () => {
+				// Ignore errors if file doesn't exist
+			} );
+
+		getIpcApi().showNotification( {
+			title: __( 'Pull cancelled' ),
+			body: __( 'The pull operation has been cancelled.' ),
+		} );
+	}
+);
+
+// Export thunks object for convenience
+export const syncOperationsThunks = {
+	clearPushState: clearPushStateThunk,
+	clearPullState: clearPullStateThunk,
+	cancelPush: cancelPushThunk,
+	cancelPull: cancelPullThunk,
+};
 
 // Helper functions for checking state keys (matching useSyncStatesProgressInfo logic)
 const isKeyPulling = ( key: string | undefined ): boolean => {

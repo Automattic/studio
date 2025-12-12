@@ -193,6 +193,7 @@ export class SiteServer {
 			isWpAutoUpdating: site.isWpAutoUpdating,
 			customDomain: site.customDomain,
 			enableHttps: site.enableHttps,
+			enableXdebug: site.enableXdebug,
 		};
 
 		if ( this.server && this.details.running ) {

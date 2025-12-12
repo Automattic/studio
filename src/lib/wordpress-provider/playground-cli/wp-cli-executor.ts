@@ -9,7 +9,9 @@ import {
 	writeFiles,
 	setPhpIniEntries,
 } from '@php-wasm/universal';
+import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
 import { pathExists } from 'common/lib/fs-utils';
+import { getMuPlugins } from 'common/lib/mu-plugins';
 
 const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';
 
@@ -77,6 +79,22 @@ export async function executeWPCli(
 		await setPhpIniEntries( php, {
 			'openssl.cafile': caBundlePath,
 		} );
+
+		// Mount mu-plugins
+		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
+			isWpAutoUpdating: false,
+		} );
+		await php.mount(
+			'/internal/studio/mu-plugins',
+			createNodeFsMountHandler( studioMuPluginsHostPath ) as unknown as MountHandler
+		);
+		await php.mount(
+			PLAYGROUND_INTERNAL_SHARED_FOLDER + '/mu-plugins/99-studio-loader.php',
+			createNodeFsMountHandler( loaderMuPluginHostPath ) as unknown as MountHandler
+		);
+
+		// Set up platform-level mu-plugins to load the studio loader from /internal/shared/mu-plugins
+		await setupPlatformLevelMuPlugins( php );
 
 		// Execute WP-CLI command
 		return await executeWPCliInPHP( php, args, '/wordpress' );

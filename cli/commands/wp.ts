@@ -7,7 +7,7 @@ import yargsParser from 'yargs-parser';
 import { z } from 'zod';
 import { getSiteByFolder } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
-import { getWpCliPharPath } from 'cli/lib/sqlite-integration';
+import { getWpCliPharPath } from 'cli/lib/server-files';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { GlobalOptions } from 'cli/types';

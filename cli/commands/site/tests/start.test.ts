@@ -1,4 +1,9 @@
-import { getSiteByFolder, updateSiteLatestCliPid, SiteData } from 'cli/lib/appdata';
+import {
+	getSiteByFolder,
+	updateSiteLatestCliPid,
+	updateSiteAutoStart,
+	SiteData,
+} from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
@@ -9,6 +14,7 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
 	getSiteByFolder: jest.fn(),
 	updateSiteLatestCliPid: jest.fn(),
+	updateSiteAutoStart: jest.fn().mockResolvedValue( undefined ),
 	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
@@ -146,6 +152,7 @@ describe( 'CLI: studio site start', () => {
 				testSite.id,
 				testProcessDescription.pid
 			);
+			expect( updateSiteAutoStart ).toHaveBeenCalledWith( testSite.id, true );
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
 			expect( openSiteInBrowser ).toHaveBeenCalledWith( testSite );
 			expect( disconnect ).toHaveBeenCalled();

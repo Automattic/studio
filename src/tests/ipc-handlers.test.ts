@@ -1,19 +1,18 @@
 /**
  * @jest-environment node
  */
-import { shell, IpcMainInvokeEvent } from 'electron';
+import { IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { readFile } from 'atomically';
 import { bumpStat } from 'common/lib/bump-stat';
-import { isEmptyDir, pathExists } from 'common/lib/fs-utils';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { createSite, isFullscreen, importSite } from 'src/ipc-handlers';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getMainWindow } from 'src/main-window';
-import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
+import { SiteServer } from 'src/site-server';
 
 jest.mock( 'fs' );
 jest.mock( 'fs-extra' );
@@ -42,13 +41,35 @@ jest.mock( 'common/lib/port-finder', () => ( {
 	},
 } ) );
 
-( SiteServer.create as jest.Mock ).mockImplementation( ( details ) => ( {
+const mockSiteDetails: StoppedSiteDetails = {
+	id: 'mock-cli-site-id',
+	name: 'Test',
+	path: '/test',
+	port: 9999,
+	phpVersion: '8.3',
+	running: false,
+	adminPassword: 'mock-password',
+	isWpAutoUpdating: false,
+	customDomain: undefined,
+	enableHttps: undefined,
+};
+
+( SiteServer.create as jest.Mock ).mockResolvedValue( {
+	server: {
+		start: jest.fn(),
+		details: mockSiteDetails,
+		updateSiteDetails: jest.fn(),
+		updateCachedThumbnail: jest.fn( () => Promise.resolve() ),
+	},
+	details: mockSiteDetails,
+} );
+
+( SiteServer.register as jest.Mock ).mockImplementation( ( details ) => ( {
 	start: jest.fn(),
 	details,
 	updateSiteDetails: jest.fn(),
 	updateCachedThumbnail: jest.fn( () => Promise.resolve() ),
 } ) );
-( createSiteWorkingDirectory as jest.Mock ).mockResolvedValue( true );
 
 const mockUserData = {
 	sites: [],
@@ -73,18 +94,15 @@ afterEach( () => {
 } );
 
 describe( 'createSite', () => {
-	it( 'should create a site with generated ID when siteId is not provided', async () => {
-		( isEmptyDir as jest.Mock ).mockResolvedValueOnce( true );
-		( pathExists as jest.Mock ).mockResolvedValueOnce( true );
-
+	it( 'should delegate to CLI and return site details', async () => {
 		const userData = await createSite( mockIpcMainInvokeEvent, '/test', {
 			siteName: 'Test',
 			wpVersion: '6.4',
 		} );
 
 		expect( userData ).toEqual( {
-			adminPassword: expect.any( String ),
-			id: expect.any( String ),
+			adminPassword: 'mock-password',
+			id: 'mock-cli-site-id',
 			name: 'Test',
 			path: '/test',
 			phpVersion: '8.3',
@@ -94,48 +112,15 @@ describe( 'createSite', () => {
 			enableHttps: undefined,
 			isWpAutoUpdating: false,
 		} );
-	} );
 
-	it( 'should create a site with provided siteId', async () => {
-		( isEmptyDir as jest.Mock ).mockResolvedValueOnce( true );
-		( pathExists as jest.Mock ).mockResolvedValueOnce( true );
-
-		const customSiteId = 'custom-site-id-123';
-		const userData = await createSite( mockIpcMainInvokeEvent, '/test', {
-			siteName: 'Test',
-			wpVersion: '6.4',
-			siteId: customSiteId,
-		} );
-
-		expect( userData ).toEqual( {
-			adminPassword: expect.any( String ),
-			id: customSiteId,
-			name: 'Test',
-			path: '/test',
-			phpVersion: '8.3',
-			port: 9999,
-			running: false,
-			customDomain: undefined,
-			enableHttps: undefined,
-			isWpAutoUpdating: false,
-		} );
-	} );
-
-	describe( 'when the site path started as an empty directory', () => {
-		it( 'should reset the directory when site creation fails', () => {
-			( isEmptyDir as jest.Mock ).mockResolvedValueOnce( true );
-			( pathExists as jest.Mock ).mockResolvedValueOnce( true );
-			( createSiteWorkingDirectory as jest.Mock ).mockImplementation( () => {
-				throw new Error( 'Intentional test error' );
-			} );
-
-			createSite( mockIpcMainInvokeEvent, '/test', { siteName: 'Test', wpVersion: '6.4' } )
-				.catch( () => '6.4' )
-				.catch( () => {
-					expect( shell.trashItem ).toHaveBeenCalledTimes( 1 );
-					expect( shell.trashItem ).toHaveBeenCalledWith( '/test' );
-				} );
-		} );
+		expect( SiteServer.create ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				path: '/test',
+				name: 'Test',
+				wpVersion: '6.4',
+			} ),
+			expect.any( Object )
+		);
 	} );
 } );
 

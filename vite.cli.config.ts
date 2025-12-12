@@ -48,8 +48,9 @@ export default defineConfig( {
 		rollupOptions: {
 			external: [
 				/^node:/,
-				/^(path|fs|os|child_process|crypto|http|https|http2|url|querystring|stream|util|events|buffer|assert|net|tty|readline|zlib|constants|tls|domain)$/,
+				/^(path|fs|os|child_process|crypto|http|https|http2|url|querystring|stream|util|events|buffer|assert|net|tty|readline|zlib|constants|tls|domain|dns)$/,
 				'fs/promises',
+				'dns/promises',
 				'pm2',
 				'@php-wasm/node',
 				'@php-wasm/web',

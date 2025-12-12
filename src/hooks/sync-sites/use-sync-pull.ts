@@ -19,7 +19,7 @@ import {
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
-import { useAppDispatch, useRootSelector, type RootState } from 'src/stores';
+import { store, useAppDispatch, useRootSelector, type RootState } from 'src/stores';
 import {
 	syncOperationsActions,
 	syncOperationsSelectors,
@@ -157,58 +157,32 @@ export function useSyncPull( { onPullSuccess }: UseSyncPullProps = {} ): UseSync
 				return;
 			}
 
-			const remoteSiteId = connectedSite.id;
-			const remoteSiteUrl = connectedSite.url;
-
-			clearPullState( selectedSite.id, remoteSiteId );
-			updatePullState( selectedSite.id, remoteSiteId, {
-				backupId: null,
-				status: pullStatesProgressInfo[ 'in-progress' ],
-				downloadUrl: null,
-				remoteSiteId,
-				remoteSiteUrl,
-				selectedSite,
-			} );
-
 			try {
-				// Initializing backup on remote
-				const requestBody: {
-					options: SyncOption[];
-					include_path_list: PullSiteOptions[ 'include_path_list' ];
-				} = {
-					options: options.optionsToSync,
-					include_path_list: options.include_path_list,
-				};
+				await dispatch(
+					syncOperationsThunks.pullSite( {
+						client,
+						connectedSite,
+						selectedSite,
+						options,
+						pullStatesProgressInfo,
+					} )
+				).unwrap();
 
-				const response = await client.req.post< { success: boolean; backup_id: string } >( {
-					path: `/sites/${ remoteSiteId }/studio-app/sync/backup`,
-					apiNamespace: 'wpcom/v2',
-					body: requestBody,
-				} );
-
-				if ( response.success ) {
-					updatePullState( selectedSite.id, remoteSiteId, {
-						backupId: response.backup_id,
-					} );
-				} else {
-					console.error( response );
-					throw new Error( 'Pull request failed' );
-				}
+				// Sync ref with latest Redux state immediately after thunk completes
+				// This ensures getPullState returns the latest value without waiting for re-render
+				const currentState = store.getState();
+				const latestPullStates = syncOperationsSelectors.selectPullStates( currentState );
+				pullStatesRef.current = latestPullStates;
 			} catch ( error ) {
-				console.error( 'Pull request failed:', error );
+				// Sync ref even on error to ensure state is up to date
+				const currentState = store.getState();
+				const latestPullStates = syncOperationsSelectors.selectPullStates( currentState );
+				pullStatesRef.current = latestPullStates;
 
-				Sentry.captureException( error );
-				updatePullState( selectedSite.id, remoteSiteId, {
-					status: pullStatesProgressInfo.failed,
-				} );
-
-				getIpcApi().showErrorMessageBox( {
-					title: sprintf( __( 'Error pulling from %s' ), connectedSite.name ),
-					message: __( 'Studio was unable to connect to WordPress.com. Please try again.' ),
-				} );
+				// Errors are already handled in the thunk (state updates, error messages)
 			}
 		},
-		[ __, clearPullState, client, pullStatesProgressInfo, updatePullState ]
+		[ client, dispatch, pullStatesProgressInfo ]
 	);
 
 	const checkBackupFileSize = async ( downloadUrl: string ): Promise< number > => {

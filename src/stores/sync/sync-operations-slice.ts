@@ -1,10 +1,15 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import * as Sentry from '@sentry/electron/renderer';
 import { __, sprintf } from '@wordpress/i18n';
+import { WPCOM } from 'wpcom/types';
 import { SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
 import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import type { SyncBackupState, PullStates } from 'src/hooks/sync-sites/use-sync-pull';
+import type {
+	PullSiteOptions,
+	SyncBackupState,
+	PullStates,
+} from 'src/hooks/sync-sites/use-sync-pull';
 import type { SyncPushState, PushStates } from 'src/hooks/sync-sites/use-sync-push';
 import type {
 	PullStateProgressInfo,
@@ -431,6 +436,119 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 	}
 );
 
+// Thunk for pull operation
+type PullSitePayload = {
+	client: WPCOM;
+	connectedSite: SyncSite;
+	selectedSite: SiteDetails;
+	options: {
+		optionsToSync: SyncOption[];
+		include_path_list?: string[];
+	};
+	pullStatesProgressInfo: Record< PullStateProgressInfo[ 'key' ], PullStateProgressInfo >;
+};
+
+type PullSiteResult = {
+	backupId: string;
+	remoteSiteId: number;
+};
+
+export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayload >(
+	'syncOperations/pullSite',
+	async (
+		{ client, connectedSite, selectedSite, options, pullStatesProgressInfo },
+		{ dispatch }
+	) => {
+		const remoteSiteId = connectedSite.id;
+		const remoteSiteUrl = connectedSite.url;
+
+		// Clear existing state
+		dispatch(
+			syncOperationsActions.clearPullState( { selectedSiteId: selectedSite.id, remoteSiteId } )
+		);
+		void dispatch(
+			syncOperationsThunks.clearPullState( { selectedSiteId: selectedSite.id, remoteSiteId } )
+		);
+
+		// Initialize pull state
+		dispatch(
+			syncOperationsActions.updatePullState( {
+				selectedSiteId: selectedSite.id,
+				remoteSiteId,
+				state: {
+					backupId: null,
+					status: pullStatesProgressInfo[ 'in-progress' ],
+					downloadUrl: null,
+					remoteSiteId,
+					remoteSiteUrl,
+					selectedSite,
+				},
+			} )
+		);
+
+		// Add sync operation for tracking
+		const stateId = generateStateId( selectedSite.id, remoteSiteId );
+		getIpcApi().addSyncOperation( stateId );
+
+		try {
+			// Initializing backup on remote
+			const requestBody: {
+				options: SyncOption[];
+				include_path_list?: string[];
+			} = {
+				options: options.optionsToSync,
+				include_path_list: options.include_path_list,
+			};
+
+			const response = await client.req.post< { success: boolean; backup_id: string } >( {
+				path: `/sites/${ remoteSiteId }/studio-app/sync/backup`,
+				apiNamespace: 'wpcom/v2',
+				body: requestBody,
+			} );
+
+			if ( response.success ) {
+				dispatch(
+					syncOperationsActions.updatePullState( {
+						selectedSiteId: selectedSite.id,
+						remoteSiteId,
+						state: {
+							backupId: response.backup_id,
+						},
+					} )
+				);
+
+				return {
+					backupId: response.backup_id,
+					remoteSiteId,
+				};
+			} else {
+				console.error( response );
+				throw new Error( 'Pull request failed' );
+			}
+		} catch ( error ) {
+			console.error( 'Pull request failed:', error );
+
+			Sentry.captureException( error );
+			dispatch(
+				syncOperationsActions.updatePullState( {
+					selectedSiteId: selectedSite.id,
+					remoteSiteId,
+					state: {
+						status: pullStatesProgressInfo.failed,
+					},
+				} )
+			);
+
+			getIpcApi().showErrorMessageBox( {
+				title: sprintf( __( 'Error pulling from %s' ), connectedSite.name ),
+				message: __( 'Studio was unable to connect to WordPress.com. Please try again.' ),
+			} );
+
+			throw error;
+		}
+	}
+);
+
 // Export thunks object for convenience
 export const syncOperationsThunks = {
 	clearPushState: clearPushStateThunk,
@@ -438,6 +556,7 @@ export const syncOperationsThunks = {
 	cancelPush: cancelPushThunk,
 	cancelPull: cancelPullThunk,
 	pushSite: pushSiteThunk,
+	pullSite: pullSiteThunk,
 };
 
 // Helper functions for checking state keys (matching useSyncStatesProgressInfo logic)

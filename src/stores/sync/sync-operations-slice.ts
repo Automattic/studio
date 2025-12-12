@@ -84,6 +84,29 @@ const syncOperationsSlice = createSlice( {
 export const syncOperationsActions = syncOperationsSlice.actions;
 export const syncOperationsReducer = syncOperationsSlice.reducer;
 
+// Helper functions for checking state keys (matching useSyncStatesProgressInfo logic)
+const isKeyPulling = ( key: string | undefined ): boolean => {
+	if ( ! key ) {
+		return false;
+	}
+	const pullingStateKeys = [ 'in-progress', 'downloading', 'importing' ];
+	return pullingStateKeys.includes( key );
+};
+
+const isKeyPushing = ( key: string | undefined ): boolean => {
+	if ( ! key ) {
+		return false;
+	}
+	const pushingStateKeys = [
+		'creatingBackup',
+		'uploading',
+		'creatingRemoteBackup',
+		'applyingChanges',
+		'finishing',
+	];
+	return pushingStateKeys.includes( key );
+};
+
 export const syncOperationsSelectors = {
 	selectPullStates: ( state: { syncOperations: SyncOperationsState } ) =>
 		state.syncOperations.pullStates,
@@ -100,5 +123,47 @@ export const syncOperationsSelectors = {
 		( state: { syncOperations: SyncOperationsState } ) => {
 			const stateId = generateStateId( selectedSiteId, remoteSiteId );
 			return state.syncOperations.pushStates[ stateId ];
+		},
+	selectIsAnySitePulling: ( state: { syncOperations: SyncOperationsState } ): boolean => {
+		return Object.values( state.syncOperations.pullStates ).some( ( pullState ) =>
+			isKeyPulling( pullState.status.key )
+		);
+	},
+	selectIsSiteIdPulling:
+		( selectedSiteId: string, remoteSiteId?: number ) =>
+		( state: { syncOperations: SyncOperationsState } ): boolean => {
+			return Object.values( state.syncOperations.pullStates ).some( ( pullState ) => {
+				if ( ! pullState.selectedSite ) {
+					return false;
+				}
+				if ( pullState.selectedSite.id !== selectedSiteId ) {
+					return false;
+				}
+				if ( remoteSiteId !== undefined ) {
+					return isKeyPulling( pullState.status.key ) && pullState.remoteSiteId === remoteSiteId;
+				}
+				return isKeyPulling( pullState.status.key );
+			} );
+		},
+	selectIsAnySitePushing: ( state: { syncOperations: SyncOperationsState } ): boolean => {
+		return Object.values( state.syncOperations.pushStates ).some( ( pushState ) =>
+			isKeyPushing( pushState.status.key )
+		);
+	},
+	selectIsSiteIdPushing:
+		( selectedSiteId: string, remoteSiteId?: number ) =>
+		( state: { syncOperations: SyncOperationsState } ): boolean => {
+			return Object.values( state.syncOperations.pushStates ).some( ( pushState ) => {
+				if ( ! pushState.selectedSite ) {
+					return false;
+				}
+				if ( pushState.selectedSite.id !== selectedSiteId ) {
+					return false;
+				}
+				if ( remoteSiteId !== undefined ) {
+					return isKeyPushing( pushState.status.key ) && pushState.remoteSiteId === remoteSiteId;
+				}
+				return isKeyPushing( pushState.status.key );
+			} );
 		},
 };

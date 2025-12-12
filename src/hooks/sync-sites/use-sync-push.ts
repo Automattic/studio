@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
 import {
 	ClearState,
@@ -374,10 +374,14 @@ export function useSyncPush( { onPushSuccess }: UseSyncPushProps = {} ): UseSync
 						remoteSiteUrl,
 					} );
 					// Immediately start polling for push progress after upload completes
-					const stateAfterStatusUpdate = getPushState( selectedSite.id, remoteSiteId );
-					if ( stateAfterStatusUpdate ) {
-						void getPushProgressInfo( remoteSiteId, stateAfterStatusUpdate );
-					}
+					// Construct state directly instead of reading from Redux to avoid stale reads
+					const stateForPolling: SyncPushState = {
+						remoteSiteId,
+						status: pushStatesProgressInfo.creatingRemoteBackup,
+						selectedSite,
+						remoteSiteUrl,
+					};
+					void getPushProgressInfo( remoteSiteId, stateForPolling );
 				} else {
 					throw response;
 				}
@@ -434,9 +438,7 @@ export function useSyncPush( { onPushSuccess }: UseSyncPushProps = {} ): UseSync
 		isKeyCancelled,
 	] );
 
-	const isAnySitePushing = useMemo< boolean >( () => {
-		return Object.values( pushStates ).some( ( state ) => isKeyPushing( state.status.key ) );
-	}, [ pushStates, isKeyPushing ] );
+	const isAnySitePushing = useRootSelector( syncOperationsSelectors.selectIsAnySitePushing );
 
 	const isSiteIdPushing = useCallback< IsSiteIdPushing >(
 		( selectedSiteId, remoteSiteId ) => {

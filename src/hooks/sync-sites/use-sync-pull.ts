@@ -436,9 +436,7 @@ export function useSyncPull( { onPullSuccess }: UseSyncPullProps = {} ): UseSync
 		};
 	}, [ pullStates, fetchAndUpdateBackup, isKeyCancelled ] );
 
-	const isAnySitePulling = useMemo< boolean >( () => {
-		return Object.values( pullStates ).some( ( state ) => isKeyPulling( state.status.key ) );
-	}, [ pullStates, isKeyPulling ] );
+	const isAnySitePulling = useRootSelector( syncOperationsSelectors.selectIsAnySitePulling );
 
 	const isSiteIdPulling = useCallback< IsSiteIdPulling >(
 		( selectedSiteId, remoteSiteId ) => {

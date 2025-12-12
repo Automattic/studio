@@ -46,7 +46,7 @@ export async function runCommand(
 		phpVersion: ( typeof ALLOWED_PHP_VERSIONS )[ number ];
 		customDomain?: string;
 		enableHttps: boolean;
-		blueprintJson?: unknown;
+		blueprintUri?: string;
 		noStart: boolean;
 	}
 ): Promise< void > {
@@ -64,8 +64,23 @@ export async function runCommand(
 		}
 
 		let blueprint: Blueprint | undefined;
-		if ( options.blueprintJson ) {
-			const validation = await validateBlueprintData( options.blueprintJson );
+		let blueprintUri: string | undefined;
+
+		if ( options.blueprintUri ) {
+			if (
+				options.blueprintUri.startsWith( 'http://' ) ||
+				options.blueprintUri.startsWith( 'https://' )
+			) {
+				blueprintUri = options.blueprintUri;
+				blueprint = await fetchBlueprint( options.blueprintUri );
+			} else {
+				blueprintUri = path.resolve( untildify( options.blueprintUri ) );
+				blueprint = readBlueprint( blueprintUri );
+			}
+		}
+
+		if ( blueprint ) {
+			const validation = await validateBlueprintData( blueprint );
 			if ( ! validation.valid ) {
 				throw new LoggerError( validation.error );
 			}
@@ -81,7 +96,7 @@ export async function runCommand(
 				);
 			}
 
-			blueprint = filterUnsupportedBlueprintFeatures( options.blueprintJson ) as Blueprint;
+			blueprint = filterUnsupportedBlueprintFeatures( blueprint );
 		}
 
 		const appdata = await readAppdata();
@@ -193,6 +208,7 @@ export async function runCommand(
 				await startWordPressServer( siteDetails, logger, {
 					wpVersion: options.wpVersion,
 					blueprint,
+					blueprintUri,
 				} );
 				logger.reportSuccess( __( 'WordPress site started' ) );
 
@@ -246,8 +262,6 @@ async function fetchBlueprint( url: string ) {
 }
 
 function readBlueprint( blueprintPath: string ) {
-	blueprintPath = path.resolve( untildify( blueprintPath ) );
-
 	if ( ! fs.existsSync( blueprintPath ) ) {
 		throw new LoggerError( sprintf( __( 'Blueprint file not found: %s' ), blueprintPath ) );
 	}
@@ -260,14 +274,6 @@ function readBlueprint( blueprintPath: string ) {
 			sprintf( __( 'Failed to parse blueprint JSON file: %s' ), blueprintPath ),
 			error
 		);
-	}
-}
-
-async function coerceBlueprint( value: string ) {
-	if ( /^https?:\/\//.test( value ) ) {
-		return await fetchBlueprint( value );
-	} else {
-		return readBlueprint( value );
 	}
 }
 
@@ -327,7 +333,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'blueprint', {
 					type: 'string',
 					describe: __( 'Path or URL to blueprint JSON file' ),
-					coerce: coerceBlueprint,
 				} )
 				.option( 'start', {
 					type: 'boolean',
@@ -343,7 +348,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					phpVersion: argv.php,
 					customDomain: argv.domain,
 					enableHttps: !! argv.https,
-					blueprintJson: argv.blueprint,
+					blueprintUri: argv.blueprint,
 					noStart: ! argv.start,
 				} );
 			} catch ( error ) {

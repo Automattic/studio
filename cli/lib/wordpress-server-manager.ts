@@ -59,6 +59,7 @@ export async function isServerRunning( siteId: string ): Promise< ProcessDescrip
 export interface StartServerOptions {
 	wpVersion?: string;
 	blueprint?: unknown;
+	blueprintUri?: string;
 }
 
 export async function startWordPressServer(
@@ -69,14 +70,29 @@ export async function startWordPressServer(
 	const wordPressServerChildPath = path.resolve( __dirname, 'wordpress-server-child.js' );
 	const processName = getProcessName( site.id );
 
-	const serverConfig: ServerConfig = {
-		siteId: site.id,
-		sitePath: site.path,
-		port: site.port,
-		phpVersion: site.phpVersion,
-		siteTitle: site.name,
-		enableMultiWorker: await isMultiWorkerEnabled(),
-	};
+	let serverConfig: ServerConfig;
+
+	if ( options?.blueprint ) {
+		serverConfig = {
+			siteId: site.id,
+			sitePath: site.path,
+			port: site.port,
+			phpVersion: site.phpVersion,
+			siteTitle: site.name,
+			enableMultiWorker: await isMultiWorkerEnabled(),
+			blueprint: options.blueprint,
+			blueprintUri: options.blueprintUri,
+		};
+	} else {
+		serverConfig = {
+			siteId: site.id,
+			sitePath: site.path,
+			port: site.port,
+			phpVersion: site.phpVersion,
+			siteTitle: site.name,
+			enableMultiWorker: await isMultiWorkerEnabled(),
+		};
+	}
 
 	if ( site.customDomain ) {
 		const protocol = site.enableHttps ? 'https' : 'http';
@@ -93,10 +109,6 @@ export async function startWordPressServer(
 
 	if ( options?.wpVersion ) {
 		serverConfig.wpVersion = options.wpVersion;
-	}
-
-	if ( options?.blueprint ) {
-		serverConfig.blueprint = options.blueprint;
 	}
 
 	const env = {

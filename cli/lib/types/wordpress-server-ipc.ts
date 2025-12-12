@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 // Zod schemas for validating IPC messages from wordpress-server-manager
-const serverConfig = z.object( {
+const serverConfigWithoutBlueprint = z.object( {
 	siteId: z.string(),
 	sitePath: z.string(),
 	port: z.number(),
@@ -12,10 +12,17 @@ const serverConfig = z.object( {
 	siteTitle: z.string().optional(),
 	siteLanguage: z.string().optional(),
 	isWpAutoUpdating: z.boolean().optional(),
-	blueprint: z.any().optional(), // Blueprint type is complex, allow any for now
 	enableMultiWorker: z.boolean().optional(),
 } );
 
+const serverConfigWithBlueprint = serverConfigWithoutBlueprint.merge(
+	z.object( {
+		blueprint: z.any(), // Blueprint type is complex, allow any for now
+		blueprintUri: z.string(),
+	} )
+);
+
+const serverConfig = z.union( [ serverConfigWithoutBlueprint, serverConfigWithBlueprint ] );
 export type ServerConfig = z.infer< typeof serverConfig >;
 
 const managerMessageStartServer = z.object( {

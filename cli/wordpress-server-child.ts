@@ -11,8 +11,16 @@
  * - Sends activity heartbeats to prevent timeout during long operations
  */
 import { cpus } from 'os';
+import { dirname } from 'path';
 import { SupportedPHPVersion } from '@php-wasm/universal';
+import { BlueprintBundle } from '@wp-playground/blueprints';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
+import {
+	FetchFilesystem,
+	NodeJsFilesystem,
+	OverlayFilesystem,
+	InMemoryFilesystem,
+} from '@wp-playground/storage';
 import { isWordPressDirectory } from 'common/lib/fs-utils';
 import { getMuPlugins } from 'common/lib/mu-plugins';
 import { formatPlaygroundCliMessage } from 'common/lib/playground-cli-messages';
@@ -129,6 +137,37 @@ async function getBaseRunCLIArgs(
 		WP_SQLITE_AST_DRIVER: true,
 	};
 
+	let blueprintBundle: BlueprintBundle | undefined;
+
+	if ( 'blueprintUri' in config ) {
+		config.blueprint.constants = {
+			...config.blueprint.constants,
+			...defaultConstants,
+		};
+		const blueprintFs = new InMemoryFilesystem( {
+			'blueprint.json': JSON.stringify( config.blueprint ),
+		} );
+
+		if (
+			config.blueprintUri.startsWith( 'http://' ) ||
+			config.blueprintUri.startsWith( 'https://' )
+		) {
+			blueprintBundle = new OverlayFilesystem( [
+				blueprintFs,
+				new FetchFilesystem( { baseUrl: config.blueprintUri } ),
+			] );
+		} else {
+			blueprintBundle = new OverlayFilesystem( [
+				blueprintFs,
+				new NodeJsFilesystem( dirname( config.blueprintUri ) ),
+			] );
+		}
+	} else {
+		blueprintBundle = new InMemoryFilesystem( {
+			'blueprint.json': JSON.stringify( { constants: defaultConstants } ),
+		} );
+	}
+
 	const args: RunCLIArgs = {
 		command,
 		internalCookieStore: false,
@@ -138,7 +177,7 @@ async function getBaseRunCLIArgs(
 		port: config.port,
 		'mount-before-install': mounts,
 		'site-url': config.absoluteUrl || `http://localhost:${ config.port }`,
-		blueprint: config.blueprint || {},
+		blueprint: blueprintBundle,
 		wordpressInstallMode: 'download-and-install',
 	};
 
@@ -157,8 +196,6 @@ async function getBaseRunCLIArgs(
 			args.wp = config.wpVersion;
 		}
 	}
-
-	args.blueprint.constants = { ...args.blueprint.constants, ...defaultConstants };
 
 	if ( config.enableMultiWorker ) {
 		const workerCount = Math.max( 1, cpus().length - 1 );

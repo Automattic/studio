@@ -232,7 +232,6 @@ async function startServer(
 		if ( options.enableXdebug ) {
 			console.log( __( 'Enabling Xdebug support' ) );
 			args.xdebug = true;
-			//args.experimentalUnsafeIdeIntegration = 'phpstorm';
 		}
 
 		if ( options.phpVersion ) {

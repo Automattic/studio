@@ -12,6 +12,7 @@ import {
 	removeSiteFromAppdata,
 	saveAppdata,
 	unlockAppdata,
+	updateSiteAutoStart,
 	SiteData,
 } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
@@ -41,6 +42,7 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	lockAppdata: jest.fn(),
 	unlockAppdata: jest.fn(),
 	updateSiteLatestCliPid: jest.fn(),
+	updateSiteAutoStart: jest.fn().mockResolvedValue( undefined ),
 	removeSiteFromAppdata: jest.fn(),
 	getSiteUrl: jest.fn( ( site ) => `http://localhost:${ site.port }` ),
 } ) );
@@ -236,6 +238,7 @@ describe( 'CLI: studio site create', () => {
 			expect( saveAppdata ).toHaveBeenCalled();
 			expect( connect ).toHaveBeenCalled();
 			expect( startWordPressServer ).toHaveBeenCalled();
+			expect( updateSiteAutoStart ).toHaveBeenCalledWith( expect.any( String ), true );
 			expect( logSiteDetails ).toHaveBeenCalled();
 			expect( openSiteInBrowser ).toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();

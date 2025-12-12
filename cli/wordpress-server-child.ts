@@ -311,6 +311,7 @@ async function ipcMessageHandler( packet: unknown ) {
 	} catch ( error ) {
 		errorToConsole( `Error handling message ${ validMessage.topic }:`, error );
 		sendErrorMessage( validMessage.messageId, error );
+		process.exit( 1 );
 	}
 }
 

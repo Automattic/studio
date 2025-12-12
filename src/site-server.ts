@@ -13,6 +13,7 @@ import { setupWordPressSite, getWordPressProvider } from 'src/lib/wordpress-prov
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
 import { createSiteViaCli, type CreateSiteOptions } from 'src/modules/cli/lib/cli-site-creator';
+import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData } from 'src/storage/user-data';
@@ -31,7 +32,16 @@ export async function createSiteWorkingDirectory(
 export async function stopAllServersOnQuit() {
 	// We're quitting so this doesn't have to be tidy, just stop the
 	// servers as directly as possible.
-	await Promise.all( [ ...servers.values() ].map( ( server ) => server.server?.stop() ) );
+	// Preserve autoStart so sites will restart on next app launch.
+	// Use silent mode to avoid terminal errors during quit.
+	return new Promise< void >( ( resolve ) => {
+		const [ emitter ] = executeCliCommand( [ 'site', 'stop-all', '--auto-start' ], {
+			silent: true,
+		} );
+		emitter.on( 'success', resolve );
+		emitter.on( 'failure', resolve );
+		emitter.on( 'error', () => resolve() );
+	} );
 }
 
 function getAbsoluteUrl( details: SiteDetails ): string {

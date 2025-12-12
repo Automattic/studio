@@ -34,6 +34,7 @@ import {
 	saveAppdata,
 	SiteData,
 	unlockAppdata,
+	updateSiteAutoStart,
 	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
@@ -267,6 +268,7 @@ export async function runCommand(
 				if ( processDesc.pid ) {
 					await updateSiteLatestCliPid( siteDetails.id, processDesc.pid );
 				}
+				await updateSiteAutoStart( siteDetails.id, true );
 
 				siteDetails.running = true;
 				siteDetails.url = siteDetails.customDomain

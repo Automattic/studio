@@ -2,25 +2,23 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { z } from 'zod';
+import { SiteCommandLoggerAction } from 'common/logger-actions';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { executeCliCommand } from './execute-command';
 import type { Blueprint } from '@wp-playground/blueprints';
 
-const keyValuePairSchema = z.object( {
-	action: z.literal( 'keyValuePair' ),
-	key: z.enum( [ 'id', 'running' ] ),
-	value: z.string(),
-} );
-
-const progressMessageSchema = z.object( {
-	status: z.literal( 'inprogress' ),
-	message: z.string(),
-} );
-
-const errorMessageSchema = z.object( {
-	status: z.literal( 'fail' ),
-	message: z.string(),
-} );
+const cliEventSchema = z.discriminatedUnion( 'action', [
+	z.object( {
+		action: z.nativeEnum( SiteCommandLoggerAction ),
+		status: z.enum( [ 'inprogress', 'fail', 'success', 'warning' ] ),
+		message: z.string(),
+	} ),
+	z.object( {
+		action: z.literal( 'keyValuePair' ),
+		key: z.enum( [ 'id', 'running' ] ),
+		value: z.string(),
+	} ),
+] );
 
 export interface CreateSiteResult {
 	id: string;
@@ -57,29 +55,25 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 		const [ emitter ] = executeCliCommand( args );
 
 		emitter.on( 'data', ( { data } ) => {
-			const keyValueParsed = keyValuePairSchema.safeParse( data );
-			if ( keyValueParsed.success ) {
-				const { key, value } = keyValueParsed.data;
+			const parsed = cliEventSchema.safeParse( data );
+			if ( ! parsed.success ) {
+				return;
+			}
+
+			if ( parsed.data.action === 'keyValuePair' ) {
+				const { key, value } = parsed.data;
 				if ( key === 'id' ) {
 					result.id = value;
 				} else if ( key === 'running' ) {
 					result.running = value === 'true';
 				}
-				return;
-			}
-
-			const progressParsed = progressMessageSchema.safeParse( data );
-			if ( progressParsed.success && siteId ) {
+			} else if ( parsed.data.status === 'inprogress' && siteId ) {
 				void sendIpcEventToRenderer( 'on-site-create-progress', {
 					siteId,
-					message: progressParsed.data.message,
+					message: parsed.data.message,
 				} );
-				return;
-			}
-
-			const errorParsed = errorMessageSchema.safeParse( data );
-			if ( errorParsed.success ) {
-				lastErrorMessage = errorParsed.data.message;
+			} else if ( parsed.data.status === 'fail' ) {
+				lastErrorMessage = parsed.data.message;
 			}
 		} );
 

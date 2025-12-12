@@ -7,6 +7,7 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
 	readAppdata: jest.fn(),
 	clearSiteLatestCliPid: jest.fn(),
+	updateSiteAutoStart: jest.fn().mockResolvedValue( undefined ),
 	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
@@ -70,7 +71,7 @@ describe( 'CLI: studio site stop-all', () => {
 
 			const { runCommand } = await import( '../stop-all' );
 
-			await expect( runCommand() ).rejects.toThrow( 'Failed to read appdata' );
+			await expect( runCommand( false ) ).rejects.toThrow( 'Failed to read appdata' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -80,7 +81,7 @@ describe( 'CLI: studio site stop-all', () => {
 
 			const { runCommand } = await import( '../stop-all' );
 
-			await expect( runCommand() ).rejects.toThrow( 'PM2 connection failed' );
+			await expect( runCommand( false ) ).rejects.toThrow( 'PM2 connection failed' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -91,7 +92,7 @@ describe( 'CLI: studio site stop-all', () => {
 
 			const { runCommand } = await import( '../stop-all' );
 
-			await expect( runCommand() ).rejects.toThrow( 'Failed to stop all (3) sites' );
+			await expect( runCommand( false ) ).rejects.toThrow( 'Failed to stop all (3) sites' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -106,7 +107,7 @@ describe( 'CLI: studio site stop-all', () => {
 
 			const { runCommand } = await import( '../stop-all' );
 
-			await expect( runCommand() ).rejects.toThrow( 'Stopped 2 sites out of 3' );
+			await expect( runCommand( false ) ).rejects.toThrow( 'Stopped 2 sites out of 3' );
 			expect( disconnect ).toHaveBeenCalled();
 			expect( stopWordPressServer ).toHaveBeenCalledTimes( 3 );
 		} );
@@ -118,7 +119,7 @@ describe( 'CLI: studio site stop-all', () => {
 
 			const { runCommand } = await import( '../stop-all' );
 
-			await runCommand();
+			await runCommand( false );
 
 			expect( connect ).not.toHaveBeenCalled();
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
@@ -131,7 +132,7 @@ describe( 'CLI: studio site stop-all', () => {
 
 			const { runCommand } = await import( '../stop-all' );
 
-			await runCommand();
+			await runCommand( false );
 
 			expect( connect ).toHaveBeenCalled();
 			expect( isServerRunning ).toHaveBeenCalledTimes( 3 );
@@ -147,7 +148,7 @@ describe( 'CLI: studio site stop-all', () => {
 
 			const { runCommand } = await import( '../stop-all' );
 
-			await runCommand();
+			await runCommand( false );
 
 			expect( stopWordPressServer ).toHaveBeenCalledTimes( 1 );
 			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
@@ -160,7 +161,7 @@ describe( 'CLI: studio site stop-all', () => {
 
 			const { runCommand } = await import( '../stop-all' );
 
-			await runCommand();
+			await runCommand( false );
 
 			expect( readAppdata ).toHaveBeenCalled();
 			expect( connect ).toHaveBeenCalled();
@@ -196,7 +197,7 @@ describe( 'CLI: studio site stop-all', () => {
 
 			const { runCommand } = await import( '../stop-all' );
 
-			await runCommand();
+			await runCommand( false );
 
 			expect( isServerRunning ).toHaveBeenCalledTimes( 3 );
 
@@ -221,7 +222,7 @@ describe( 'CLI: studio site stop-all', () => {
 			const { runCommand } = await import( '../stop-all' );
 
 			try {
-				await runCommand();
+				await runCommand( false );
 			} catch {
 				// Expected to throw due to partial failure
 			}
@@ -244,7 +245,7 @@ describe( 'CLI: studio site stop-all', () => {
 			const { runCommand } = await import( '../stop-all' );
 
 			// Should throw when proxy stop fails
-			await expect( runCommand() ).rejects.toThrow( 'Failed to stop proxy server' );
+			await expect( runCommand( false ) ).rejects.toThrow( 'Failed to stop proxy server' );
 
 			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
 			expect( disconnect ).toHaveBeenCalled();
@@ -258,7 +259,7 @@ describe( 'CLI: studio site stop-all', () => {
 
 			const { runCommand } = await import( '../stop-all' );
 
-			await runCommand();
+			await runCommand( false );
 
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -269,7 +270,7 @@ describe( 'CLI: studio site stop-all', () => {
 			const { runCommand } = await import( '../stop-all' );
 
 			try {
-				await runCommand();
+				await runCommand( false );
 			} catch {
 				// Expected
 			}
@@ -282,7 +283,7 @@ describe( 'CLI: studio site stop-all', () => {
 
 			const { runCommand } = await import( '../stop-all' );
 
-			await runCommand();
+			await runCommand( false );
 
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -293,7 +294,7 @@ describe( 'CLI: studio site stop-all', () => {
 
 			const { runCommand } = await import( '../stop-all' );
 
-			await runCommand();
+			await runCommand( false );
 
 			expect( disconnect ).toHaveBeenCalled();
 		} );

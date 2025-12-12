@@ -25,6 +25,7 @@ const siteSchema = z
 		adminPassword: z.string().optional(),
 		isWpAutoUpdating: z.boolean().optional(),
 		running: z.boolean().optional(),
+		autoStart: z.boolean().optional(),
 		url: z.string().optional(),
 		latestCliPid: z.number().optional(),
 	} )
@@ -230,6 +231,23 @@ export async function clearSiteLatestCliPid( siteId: string ): Promise< void > {
 		}
 
 		delete site.latestCliPid;
+		await saveAppdata( userData );
+	} finally {
+		await unlockAppdata();
+	}
+}
+
+export async function updateSiteAutoStart( siteId: string, autoStart: boolean ): Promise< void > {
+	try {
+		await lockAppdata();
+		const userData = await readAppdata();
+		const site = userData.sites.find( ( s ) => s.id === siteId );
+
+		if ( ! site ) {
+			throw new LoggerError( __( 'Site not found' ) );
+		}
+
+		site.autoStart = autoStart;
 		await saveAppdata( userData );
 	} finally {
 		await unlockAppdata();

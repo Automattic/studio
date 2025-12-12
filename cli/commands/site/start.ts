@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/appdata';
+import { getSiteByFolder, updateSiteAutoStart, updateSiteLatestCliPid } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
@@ -26,6 +26,7 @@ export async function runCommand( sitePath: string, skipBrowser = false ): Promi
 			if ( runningProcess.pid ) {
 				await updateSiteLatestCliPid( site.id, runningProcess.pid );
 			}
+			await updateSiteAutoStart( site.id, true );
 			if ( ! skipBrowser ) {
 				await openSiteInBrowser( site );
 			}
@@ -50,6 +51,7 @@ export async function runCommand( sitePath: string, skipBrowser = false ): Promi
 			if ( processDesc.pid ) {
 				await updateSiteLatestCliPid( site.id, processDesc.pid );
 			}
+			await updateSiteAutoStart( site.id, true );
 			logSiteDetails( site );
 
 			if ( ! skipBrowser ) {

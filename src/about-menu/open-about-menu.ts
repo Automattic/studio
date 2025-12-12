@@ -11,6 +11,19 @@ export function escapeSingleQuotes( str: string ) {
 	return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
 }
 
+function getPlatformLabel(): string {
+	const platform = process.platform;
+	const arch = process.arch;
+
+	if ( platform === 'darwin' ) {
+		return arch === 'arm64' ? 'macOS Apple Silicon' : 'macOS Intel';
+	}
+	if ( platform === 'win32' ) {
+		return arch === 'arm64' ? 'Windows ARM64' : 'Windows x64';
+	}
+	return `${ platform } ${ arch }`;
+}
+
 export function openAboutWindow() {
 	const aboutPath = path.join( __dirname, 'about-menu.html' );
 
@@ -51,11 +64,13 @@ export function openAboutWindow() {
 			const releasesText = escapeSingleQuotes( __( 'Release Notes' ) );
 			const demoSitesText = escapeSingleQuotes( __( 'Preview sites powered by' ) );
 			const localSitesText = escapeSingleQuotes( __( 'Local sites powered by' ) );
+			const systemInfoTooltip = escapeSingleQuotes( getPlatformLabel() );
 
 			const script = `
 				document.title = '${ aboutStudioText }';
 				document.getElementById('studio-by-wpcom').innerText = '${ studioByWpcomText }';
 				document.getElementById('version-text').innerText = '${ versionText }';
+				document.getElementById('version-text').title = '${ systemInfoTooltip }';
 				document.getElementById('share-feedback').innerText = '${ shareFeedbackText }';
 				document.getElementById('release-notes').innerText = '${ releasesText }';
 				document.getElementById('demo-sites').innerText = '${ demoSitesText }';

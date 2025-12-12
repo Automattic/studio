@@ -1,5 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { __ } from '@wordpress/i18n';
+import * as Sentry from '@sentry/electron/renderer';
+import { __, sprintf } from '@wordpress/i18n';
+import { SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
 import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { SyncBackupState, PullStates } from 'src/hooks/sync-sites/use-sync-pull';
@@ -8,7 +10,9 @@ import type {
 	PullStateProgressInfo,
 	PushStateProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
+import type { SyncSite } from 'src/modules/sync/types';
 import type { AppDispatch, RootState } from 'src/stores';
+import type { SyncOption } from 'src/types';
 
 interface SyncOperationsState {
 	pullStates: PullStates;
@@ -90,6 +94,58 @@ const syncOperationsSlice = createSlice( {
 
 export const syncOperationsActions = syncOperationsSlice.actions;
 export const syncOperationsReducer = syncOperationsSlice.reducer;
+
+// Helper functions for push operations
+const isKeyCancelled = ( key: string | undefined ): boolean => {
+	return key === 'cancelled';
+};
+
+const isKeyFailed = ( key: string | undefined ): boolean => {
+	return key === 'failed';
+};
+
+const isKeyFinished = ( key: string | undefined ): boolean => {
+	return key === 'finished';
+};
+
+const getErrorFromResponse = ( error: unknown ): string => {
+	if (
+		typeof error === 'object' &&
+		error !== null &&
+		'error' in error &&
+		typeof ( error as { error: unknown } ).error === 'string'
+	) {
+		return ( error as { error: string } ).error;
+	}
+	return __( 'Studio was unable to connect to WordPress.com. Please try again.' );
+};
+
+// Helper to update push state and sync with IPC (matching updatePushState logic)
+const updatePushStateWithIpc = (
+	dispatch: AppDispatch,
+	selectedSiteId: string,
+	remoteSiteId: number,
+	state: Partial< SyncPushState >,
+	isKeyFailedFn: ( key: string | undefined ) => boolean,
+	isKeyFinishedFn: ( key: string | undefined ) => boolean
+) => {
+	const stateId = generateStateId( selectedSiteId, remoteSiteId );
+	const statusKey = state.status?.key;
+
+	dispatch(
+		syncOperationsActions.updatePushState( {
+			selectedSiteId,
+			remoteSiteId,
+			state,
+		} )
+	);
+
+	if ( isKeyFailedFn( statusKey ) || isKeyFinishedFn( statusKey ) || isKeyCancelled( statusKey ) ) {
+		getIpcApi().clearSyncOperation( stateId );
+	} else if ( state.status ) {
+		getIpcApi().addSyncOperation( stateId, state.status );
+	}
+};
 
 // Create typed async thunk helper
 const createTypedAsyncThunk = createAsyncThunk.withTypes< {
@@ -177,12 +233,211 @@ export const cancelPullThunk = createTypedAsyncThunk(
 	}
 );
 
+// Thunk for push operation
+type PushSitePayload = {
+	connectedSite: SyncSite;
+	selectedSite: SiteDetails;
+	options?: {
+		optionsToSync?: SyncOption[];
+		specificSelectionPaths?: string[];
+	};
+	pushStatesProgressInfo: Record< PushStateProgressInfo[ 'key' ], PushStateProgressInfo >;
+};
+
+type PushSiteResult = {
+	shouldStartPolling: boolean;
+	remoteSiteId: number;
+	selectedSite: SiteDetails;
+	remoteSiteUrl: string;
+};
+
+export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayload >(
+	'syncOperations/pushSite',
+	async (
+		{ connectedSite, selectedSite, options, pushStatesProgressInfo },
+		{ dispatch, getState }
+	) => {
+		const remoteSiteId = connectedSite.id;
+		const remoteSiteUrl = connectedSite.url;
+		const operationId = generateStateId( selectedSite.id, remoteSiteId );
+
+		// Clear existing state
+		dispatch(
+			syncOperationsActions.clearPushState( { selectedSiteId: selectedSite.id, remoteSiteId } )
+		);
+		void dispatch(
+			syncOperationsThunks.clearPushState( { selectedSiteId: selectedSite.id, remoteSiteId } )
+		);
+
+		// Initialize push state
+		updatePushStateWithIpc(
+			dispatch,
+			selectedSite.id,
+			remoteSiteId,
+			{
+				remoteSiteId,
+				status: pushStatesProgressInfo.creatingBackup,
+				selectedSite,
+				remoteSiteUrl,
+			},
+			isKeyFailed,
+			isKeyFinished
+		);
+
+		let archivePath: string, archiveSizeInBytes: number;
+
+		try {
+			const result = await getIpcApi().exportSiteForPush( selectedSite.id, operationId, {
+				optionsToSync: options?.optionsToSync,
+				specificSelectionPaths: options?.specificSelectionPaths,
+			} );
+			( { archivePath, archiveSizeInBytes } = result );
+		} catch ( error ) {
+			if ( error instanceof Error && error.message === 'Export aborted' ) {
+				updatePushStateWithIpc(
+					dispatch,
+					selectedSite.id,
+					remoteSiteId,
+					{ status: pushStatesProgressInfo.cancelled },
+					isKeyFailed,
+					isKeyFinished
+				);
+				throw error; // Signal cancellation
+			}
+
+			Sentry.captureException( error );
+			updatePushStateWithIpc(
+				dispatch,
+				selectedSite.id,
+				remoteSiteId,
+				{ status: pushStatesProgressInfo.failed },
+				isKeyFailed,
+				isKeyFinished
+			);
+			getIpcApi().showErrorMessageBox( {
+				title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
+				message: __(
+					'An error occurred while pushing the site. If this problem persists, please contact support.'
+				),
+				error,
+				showOpenLogs: true,
+			} );
+			throw error;
+		}
+
+		// Check file size
+		if ( archiveSizeInBytes > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+			updatePushStateWithIpc(
+				dispatch,
+				selectedSite.id,
+				remoteSiteId,
+				{ status: pushStatesProgressInfo.failed },
+				isKeyFailed,
+				isKeyFinished
+			);
+			getIpcApi().showErrorMessageBox( {
+				title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
+				message: __(
+					'The site is too large to push. Please reduce the size of the site and try again.'
+				),
+			} );
+			await getIpcApi().removeExportedSiteTmpFile( archivePath );
+			throw new Error( 'Site too large' );
+		}
+
+		// Check if cancelled before upload
+		const state = getState();
+		const currentPushState = syncOperationsSelectors.selectPushState(
+			selectedSite.id,
+			remoteSiteId
+		)( state );
+		if ( ! currentPushState || isKeyCancelled( currentPushState.status.key ) ) {
+			await getIpcApi().removeExportedSiteTmpFile( archivePath );
+			throw new Error( 'Push cancelled' );
+		}
+
+		// Update to uploading
+		updatePushStateWithIpc(
+			dispatch,
+			selectedSite.id,
+			remoteSiteId,
+			{ status: pushStatesProgressInfo.uploading },
+			isKeyFailed,
+			isKeyFinished
+		);
+
+		try {
+			const response = await getIpcApi().pushArchive(
+				remoteSiteId,
+				archivePath,
+				options?.optionsToSync,
+				options?.specificSelectionPaths
+			);
+
+			// Check if cancelled after upload
+			const stateAfterUpload = getState();
+			const pushStateAfterUpload = syncOperationsSelectors.selectPushState(
+				selectedSite.id,
+				remoteSiteId
+			)( stateAfterUpload );
+
+			if ( isKeyCancelled( pushStateAfterUpload?.status.key ) ) {
+				await getIpcApi().removeExportedSiteTmpFile( archivePath );
+				throw new Error( 'Push cancelled' );
+			}
+
+			if ( response.success ) {
+				updatePushStateWithIpc(
+					dispatch,
+					selectedSite.id,
+					remoteSiteId,
+					{
+						status: pushStatesProgressInfo.creatingRemoteBackup,
+						selectedSite,
+						remoteSiteUrl,
+					},
+					isKeyFailed,
+					isKeyFinished
+				);
+
+				// Return info needed for polling
+				return {
+					shouldStartPolling: true,
+					remoteSiteId,
+					selectedSite,
+					remoteSiteUrl,
+				};
+			} else {
+				throw response;
+			}
+		} catch ( error ) {
+			Sentry.captureException( error );
+			updatePushStateWithIpc(
+				dispatch,
+				selectedSite.id,
+				remoteSiteId,
+				{ status: pushStatesProgressInfo.failed },
+				isKeyFailed,
+				isKeyFinished
+			);
+			getIpcApi().showErrorMessageBox( {
+				title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
+				message: getErrorFromResponse( error ),
+			} );
+			throw error;
+		} finally {
+			await getIpcApi().removeExportedSiteTmpFile( archivePath );
+		}
+	}
+);
+
 // Export thunks object for convenience
 export const syncOperationsThunks = {
 	clearPushState: clearPushStateThunk,
 	clearPullState: clearPullStateThunk,
 	cancelPush: cancelPushThunk,
 	cancelPull: cancelPullThunk,
+	pushSite: pushSiteThunk,
 };
 
 // Helper functions for checking state keys (matching useSyncStatesProgressInfo logic)

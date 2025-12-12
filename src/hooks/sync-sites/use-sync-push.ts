@@ -1,8 +1,6 @@
-import * as Sentry from '@sentry/electron/renderer';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useRef } from 'react';
-import { SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
 import {
 	ClearState,
 	generateStateId,
@@ -16,7 +14,7 @@ import {
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
-import { useAppDispatch, useRootSelector, type RootState } from 'src/stores';
+import { store, useAppDispatch, useRootSelector, type RootState } from 'src/stores';
 import {
 	syncOperationsActions,
 	syncOperationsSelectors,
@@ -276,149 +274,52 @@ export function useSyncPush( { onPushSuccess }: UseSyncPushProps = {} ): UseSync
 		]
 	);
 
-	const getErrorFromResponse = useCallback(
-		( error: unknown ): string => {
-			if (
-				typeof error === 'object' &&
-				error !== null &&
-				'error' in error &&
-				typeof ( error as { error: unknown } ).error === 'string'
-			) {
-				return ( error as { error: string } ).error;
-			}
-
-			return __( 'Studio was unable to connect to WordPress.com. Please try again.' );
-		},
-		[ __ ]
-	);
-
 	const pushSite = useCallback< PushSite >(
 		async ( connectedSite, selectedSite, options ) => {
 			if ( ! client ) {
 				return;
 			}
-			const remoteSiteId = connectedSite.id;
-			const remoteSiteUrl = connectedSite.url;
-			const operationId = generateStateId( selectedSite.id, remoteSiteId );
-
-			clearPushState( selectedSite.id, remoteSiteId );
-			updatePushState( selectedSite.id, remoteSiteId, {
-				remoteSiteId,
-				status: pushStatesProgressInfo.creatingBackup,
-				selectedSite,
-				remoteSiteUrl,
-			} );
-
-			let archivePath: string, archiveSizeInBytes: number;
 
 			try {
-				const result = await getIpcApi().exportSiteForPush( selectedSite.id, operationId, {
-					optionsToSync: options?.optionsToSync,
-					specificSelectionPaths: options?.specificSelectionPaths,
-				} );
-				( { archivePath, archiveSizeInBytes } = result );
-			} catch ( error ) {
-				if ( error instanceof Error && error.message === 'Export aborted' ) {
-					updatePushState( selectedSite.id, remoteSiteId, {
-						status: pushStatesProgressInfo.cancelled,
-					} );
-					return;
-				}
-
-				Sentry.captureException( error );
-				updatePushState( selectedSite.id, remoteSiteId, {
-					status: pushStatesProgressInfo.failed,
-				} );
-				getIpcApi().showErrorMessageBox( {
-					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
-					message: __(
-						'An error occurred while pushing the site. If this problem persists, please contact support.'
-					),
-					error,
-					showOpenLogs: true,
-				} );
-				return;
-			}
-
-			if ( archiveSizeInBytes > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
-				updatePushState( selectedSite.id, remoteSiteId, {
-					status: pushStatesProgressInfo.failed,
-				} );
-				getIpcApi().showErrorMessageBox( {
-					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
-					message: __(
-						'The site is too large to push. Please reduce the size of the site and try again.'
-					),
-				} );
-				await getIpcApi().removeExportedSiteTmpFile( archivePath );
-				return;
-			}
-
-			const stateBeforeUpload = getPushState( selectedSite.id, remoteSiteId );
-
-			if ( ! stateBeforeUpload || isKeyCancelled( stateBeforeUpload?.status.key ) ) {
-				return;
-			}
-
-			updatePushState( selectedSite.id, remoteSiteId, {
-				status: pushStatesProgressInfo.uploading,
-			} );
-
-			try {
-				const response = await getIpcApi().pushArchive(
-					remoteSiteId,
-					archivePath,
-					options?.optionsToSync,
-					options?.specificSelectionPaths
-				);
-				const stateAfterUpload = getPushState( selectedSite.id, remoteSiteId );
-
-				if ( isKeyCancelled( stateAfterUpload?.status.key ) ) {
-					return;
-				}
-
-				if ( response.success ) {
-					updatePushState( selectedSite.id, remoteSiteId, {
-						status: pushStatesProgressInfo.creatingRemoteBackup,
+				const result = await dispatch(
+					syncOperationsThunks.pushSite( {
+						connectedSite,
 						selectedSite,
-						remoteSiteUrl,
-					} );
-					// Immediately start polling for push progress after upload completes
-					// Construct state directly instead of reading from Redux to avoid stale reads
+						options,
+						pushStatesProgressInfo,
+					} )
+				).unwrap();
+
+				// Sync ref with latest Redux state immediately after thunk completes
+				// This ensures getPushState returns the latest value without waiting for re-render
+				const currentState = store.getState();
+				const latestPushStates = syncOperationsSelectors.selectPushStates( currentState );
+				pushStatesRef.current = latestPushStates;
+
+				// If thunk completed successfully and returned polling info, start polling
+				if ( result.shouldStartPolling ) {
 					const stateForPolling: SyncPushState = {
-						remoteSiteId,
+						remoteSiteId: result.remoteSiteId,
 						status: pushStatesProgressInfo.creatingRemoteBackup,
-						selectedSite,
-						remoteSiteUrl,
+						selectedSite: result.selectedSite,
+						remoteSiteUrl: result.remoteSiteUrl,
 					};
-					void getPushProgressInfo( remoteSiteId, stateForPolling );
-				} else {
-					throw response;
+					void getPushProgressInfo( result.remoteSiteId, stateForPolling );
 				}
 			} catch ( error ) {
-				Sentry.captureException( error );
-				updatePushState( selectedSite.id, remoteSiteId, {
-					status: pushStatesProgressInfo.failed,
-				} );
-				getIpcApi().showErrorMessageBox( {
-					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
-					message: getErrorFromResponse( error ),
-				} );
-			} finally {
-				await getIpcApi().removeExportedSiteTmpFile( archivePath );
+				// Sync ref even on error to ensure state is up to date
+				const currentState = store.getState();
+				const latestPushStates = syncOperationsSelectors.selectPushStates( currentState );
+				pushStatesRef.current = latestPushStates;
+
+				// Errors are already handled in the thunk (state updates, error messages)
+				// Just log if it's an unexpected error
+				if ( ! ( error instanceof Error && error.message === 'Export aborted' ) ) {
+					// Other errors are already handled in thunk
+				}
 			}
 		},
-		[
-			__,
-			clearPushState,
-			client,
-			getPushState,
-			pushStatesProgressInfo,
-			updatePushState,
-			getErrorFromResponse,
-			isKeyCancelled,
-			getPushProgressInfo,
-		]
+		[ client, dispatch, pushStatesProgressInfo, getPushProgressInfo ]
 	);
 
 	useEffect( () => {

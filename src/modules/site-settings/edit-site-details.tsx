@@ -136,7 +136,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 
 		const hasWpVersionChanged = selectedWpVersion !== getEffectiveWpVersion();
 		const hasPhpVersionChanged = selectedPhpVersion !== selectedSite.phpVersion;
-		const hasXdebugChanged = enableXdebug !== selectedSite.enableXdebug;
+		const hasXdebugChanged = enableXdebug !== ( selectedSite.enableXdebug ?? false );
 		const needsRestart =
 			selectedSite.running && ( hasWpVersionChanged || hasPhpVersionChanged || hasXdebugChanged );
 		setNeedsRestart( needsRestart );

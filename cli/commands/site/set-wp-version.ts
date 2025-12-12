@@ -17,6 +17,7 @@ import {
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { validatePhpVersion } from 'cli/lib/utils';
+import { ValidationError } from 'cli/lib/validation-error';
 import {
 	isServerRunning,
 	startWordPressServer,
@@ -98,15 +99,19 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				demandOption: true,
 				coerce: ( value: string ) => {
 					if ( ! isValidWordPressVersion( value ) ) {
-						throw new LoggerError(
+						throw new ValidationError(
+							'wp',
+							value,
 							__(
-								'Invalid WordPress version. Must be "latest", "nightly", or a valid version number (e.g., "6.4", "6.4.1", "6.4-beta1").'
+								'Must be: "latest", "nightly", or a valid version number (e.g., "6.4", "6.4.1", "6.4-beta1")'
 							)
 						);
 					}
 					if ( ! isWordPressVersionAtLeast( value, MINIMUM_WORDPRESS_VERSION ) ) {
-						throw new LoggerError(
-							__( `WordPress version must be at least ${ MINIMUM_WORDPRESS_VERSION }.` )
+						throw new ValidationError(
+							'wp',
+							value,
+							sprintf( __( 'Must be: at least %s' ), MINIMUM_WORDPRESS_VERSION )
 						);
 					}
 					return value;

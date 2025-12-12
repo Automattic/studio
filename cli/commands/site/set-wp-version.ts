@@ -81,6 +81,7 @@ export async function runCommand( siteFolder: string, wpVersion: string ): Promi
 		}
 
 		await closeWpCliServer();
+		process.exit( await response.exitCode );
 	} finally {
 		disconnect();
 	}

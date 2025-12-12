@@ -58,6 +58,7 @@ describe( 'CLI: studio site set-wp-version', () => {
 
 	beforeEach( () => {
 		jest.clearAllMocks();
+		jest.spyOn( process, 'exit' ).mockImplementation( () => undefined as never );
 
 		testSite = createTestSite();
 

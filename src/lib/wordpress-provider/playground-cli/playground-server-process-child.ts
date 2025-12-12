@@ -228,6 +228,13 @@ async function startServer(
 			args.experimentalMultiWorker = workerCount;
 		}
 
+		// Enable Xdebug support if requested
+		if ( options.enableXdebug ) {
+			console.log( __( 'Enabling Xdebug support' ) );
+			args.xdebug = true;
+			//args.experimentalUnsafeIdeIntegration = 'phpstorm';
+		}
+
 		if ( options.phpVersion ) {
 			args.php = options.phpVersion as SupportedPHPVersion;
 		}

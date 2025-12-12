@@ -28,6 +28,7 @@ export interface PlaygroundCliOptions {
 	wordpressInstallMode: WordPressInstallMode;
 	blueprint?: Blueprint;
 	enableMultiWorker?: boolean;
+	enableXdebug?: boolean;
 }
 
 export const PLAYGROUND_CLI_PROVIDER_NAME = 'playground-cli';

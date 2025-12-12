@@ -70,7 +70,7 @@ const AuthProvider: React.FC< AuthProviderProps > = ( { children } ) => {
 			if ( payload.error instanceof Error && payload.error.message.includes( 'access_denied' ) ) {
 				title = __( 'Authorization denied' );
 				message = __(
-					'You have denied access to the authorization process. Please click the "Approve" option to authorize.'
+					'It looks like you denied the authorization request. To proceed, please click "Approve"'
 				);
 			}
 

@@ -5,12 +5,15 @@ import { BlueprintV1Declaration } from '@wp-playground/blueprints';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { portFinder } from 'common/lib/port-finder';
+import {
+	WP_CLI_DEFAULT_RESPONSE_TIMEOUT,
+	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT,
+} from 'src/constants';
 import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import { setupWordPressSite, getWordPressProvider } from 'src/lib/wordpress-provider';
-import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
 import { createSiteViaCli, type CreateSiteOptions } from 'src/modules/cli/lib/cli-site-creator';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
@@ -18,6 +21,8 @@ import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData } from 'src/storage/user-data';
 import type { WordPressServerProcess } from 'src/lib/wordpress-provider/types';
+
+export type WpCliResult = { stdout: string; stderr: string; exitCode: number };
 
 const servers = new Map< string, SiteServer >();
 const deletedServers: string[] = [];
@@ -61,7 +66,6 @@ type SiteServerMeta = {
 
 export class SiteServer {
 	server?: WordPressServerProcess;
-	wpCliExecutor?: WpCliProcess;
 	/**
 	 * Indicates whether a Studio-managed operation (start/stop) is in progress.
 	 * When true, file watchers should ignore site events to prevent interference
@@ -181,7 +185,6 @@ export class SiteServer {
 		}
 
 		await this.stop();
-		await this.wpCliExecutor?.stop();
 		deletedServers.push( this.details.id );
 		servers.delete( this.details.id );
 		portFinder.releasePort( this.details.port );
@@ -335,46 +338,89 @@ export class SiteServer {
 		} = {}
 	): Promise< WpCliResult > {
 		const projectPath = this.details.path;
-		const phpVersion = targetPhpVersion ?? this.details.phpVersion;
-
-		if ( ! this.wpCliExecutor ) {
-			this.wpCliExecutor = new WpCliProcess( projectPath );
-			await this.wpCliExecutor.init();
-		}
 
 		const wpCliArgs = parse( args );
-
-		if ( skipPluginsAndThemes ) {
-			wpCliArgs.push( '--skip-plugins' );
-			wpCliArgs.push( '--skip-themes' );
-		}
 
 		// The parsing of arguments can include shell operators like `>` or `||` that the app don't support.
 		const isValidCommand = wpCliArgs.every(
 			( arg: unknown ) => typeof arg === 'string' || arg instanceof String
 		);
 		if ( ! isValidCommand ) {
-			throw Error( `Cannot execute wp-cli command with arguments: ${ args }` );
-		}
-
-		try {
-			return await this.wpCliExecutor.execute( wpCliArgs as string[], { phpVersion } );
-		} catch ( error ) {
-			if ( ( error as MessageCanceled )?.canceled ) {
-				return {
-					stdout: '',
-					stderr: 'WP-CLI command was canceled (timed out)',
-					exitCode: 1,
-				};
-			}
-
-			Sentry.captureException( error );
-			return {
+			return Promise.resolve( {
 				stdout: '',
-				stderr: `Error executing WP-CLI command: ${ ( error as MessageCanceled ).error.message }`,
+				stderr: `Cannot execute wp-cli command with arguments: ${ args }`,
 				exitCode: 1,
-			};
+			} );
 		}
+
+		// Build CLI arguments
+		const cliArgs: string[] = [ 'wp', '--path', projectPath ];
+
+		// Add PHP version override if specified
+		if ( targetPhpVersion ) {
+			cliArgs.push( '--php-version', targetPhpVersion );
+		}
+
+		// Add WP-CLI arguments
+		cliArgs.push( ...( wpCliArgs as string[] ) );
+
+		// Add skip flags if requested
+		if ( skipPluginsAndThemes ) {
+			cliArgs.push( '--skip-plugins', '--skip-themes' );
+		}
+
+		// Determine timeout based on command type (import/export operations need longer timeout)
+		const isImportExport =
+			wpCliArgs[ 0 ] === 'sqlite' && [ 'import', 'export' ].includes( wpCliArgs[ 1 ] as string );
+		const timeout = isImportExport
+			? WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT
+			: WP_CLI_DEFAULT_RESPONSE_TIMEOUT;
+
+		return new Promise( ( resolve ) => {
+			const result: WpCliResult = { stdout: '', stderr: '', exitCode: 1 };
+			const [ emitter ] = executeCliCommand( cliArgs, { silent: true } );
+
+			const timeoutId = setTimeout( () => {
+				resolve( {
+					stdout: '',
+					stderr: `WP-CLI command timed out after ${ timeout }ms`,
+					exitCode: 1,
+				} );
+			}, timeout );
+
+			emitter.on( 'data', ( { data } ) => {
+				const parsed = data as { action?: string; key?: string; value?: string };
+				if ( parsed.action === 'keyValuePair' ) {
+					if ( parsed.key === 'stdout' ) {
+						result.stdout = parsed.value ?? '';
+					} else if ( parsed.key === 'stderr' ) {
+						result.stderr = parsed.value ?? '';
+					} else if ( parsed.key === 'exitCode' ) {
+						result.exitCode = parseInt( parsed.value ?? '1', 10 );
+					}
+				}
+			} );
+
+			emitter.on( 'success', () => {
+				clearTimeout( timeoutId );
+				resolve( result );
+			} );
+
+			emitter.on( 'failure', () => {
+				clearTimeout( timeoutId );
+				resolve( result );
+			} );
+
+			emitter.on( 'error', ( { error } ) => {
+				clearTimeout( timeoutId );
+				Sentry.captureException( error );
+				resolve( {
+					stdout: '',
+					stderr: `Error executing WP-CLI command: ${ error.message }`,
+					exitCode: 1,
+				} );
+			} );
+		} );
 	}
 
 	async hasSQLitePlugin(): Promise< boolean > {

@@ -78,7 +78,7 @@ import {
 	updateAppdata,
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
-import type { WpCliResult } from 'src/lib/wp-cli-process';
+import type { WpCliResult } from 'src/site-server';
 import type { RawDirectoryEntry } from 'src/modules/sync/types';
 
 export {

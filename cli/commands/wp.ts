@@ -1,35 +1,62 @@
-import { __ } from '@wordpress/i18n';
+import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
+import { __, sprintf } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
+import { z } from 'zod';
 import { getSiteByFolder } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import { validatePhpVersion } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { GlobalOptions } from 'cli/types';
 
 const logger = new Logger< '' >();
 
-export async function runCommand( siteFolder: string, args: string[] ): Promise< void > {
+export interface RunCommandOptions {
+	phpVersion?: string;
+}
+
+export async function runCommand(
+	siteFolder: string,
+	args: string[],
+	options: RunCommandOptions = {}
+): Promise< void > {
 	const site = await getSiteByFolder( siteFolder );
 
-	// If there's already a running Playground instance for this site, pass the command to it…
-	try {
-		await connect();
+	// Determine the PHP version to use
+	const phpVersionSchema = z.enum( SupportedPHPVersions );
+	let phpVersion: SupportedPHPVersion;
+	const requestedPhpVersion = options.phpVersion ?? site.phpVersion;
 
-		if ( await isServerRunning( site.id ) ) {
-			const result = await sendWpCliCommand( site.id, args );
-			process.stdout.write( result.stdout );
-			process.stderr.write( result.stderr );
-			process.exit( result.exitCode );
-		}
-	} finally {
-		disconnect();
+	try {
+		phpVersion = phpVersionSchema.parse( requestedPhpVersion );
+	} catch ( error ) {
+		throw new LoggerError( sprintf( __( 'Unsupported PHP version: %s' ), requestedPhpVersion ) );
 	}
 
-	// …If not, instantiate a new Playground instance in the main process
-	const phpVersion = validatePhpVersion( site.phpVersion );
+	// If there's already a running Playground instance for this site AND we're not requesting
+	// a different PHP version, pass the command to it…
+	const useCustomPhpVersion = options.phpVersion && options.phpVersion !== site.phpVersion;
+
+	if ( ! useCustomPhpVersion ) {
+		try {
+			await connect();
+
+			if ( await isServerRunning( site.id ) ) {
+				const result = await sendWpCliCommand( site.id, args );
+				process.stdout.write( result.stdout );
+				process.stderr.write( result.stderr );
+				logger.reportKeyValuePair( 'stdout', result.stdout );
+				logger.reportKeyValuePair( 'stderr', result.stderr );
+				logger.reportKeyValuePair( 'exitCode', String( result.exitCode ) );
+				process.exit( result.exitCode );
+			}
+		} finally {
+			disconnect();
+		}
+	}
+
+	// …If not, instantiate a new Playground instance
 	const [ response, closeWpCliServer ] = await runWpCliCommand(
 		siteFolder,
 		phpVersion,
@@ -37,45 +64,52 @@ export async function runCommand( siteFolder: string, args: string[] ): Promise<
 		args
 	);
 
-	await response.stderr.pipeTo(
-		new WritableStream( {
-			write( chunk ) {
-				process.stderr.write( chunk );
-			},
-		} )
-	);
+	const stdout = await response.stdoutText;
+	const stderr = await response.stderrText;
+	const exitCode = await response.exitCode;
 
-	await response.stdout.pipeTo(
-		new WritableStream( {
-			write( chunk ) {
-				process.stdout.write( chunk );
-			},
-		} )
-	);
+	process.stdout.write( stdout );
+	process.stderr.write( stderr );
+	logger.reportKeyValuePair( 'stdout', stdout );
+	logger.reportKeyValuePair( 'stderr', stderr );
+	logger.reportKeyValuePair( 'exitCode', String( exitCode ) );
 
 	await closeWpCliServer();
-	process.exit( await response.exitCode );
+	process.exit( exitCode );
 }
 
-function removePathArgumentFromArgv( argv: string[] ) {
+function removeArgumentFromArgv( argv: string[], argName: string ): string[] {
 	argv = argv.slice( 0 );
+	const argPattern = new RegExp( `^--${ argName }=` );
 
-	while ( argv.indexOf( '--path' ) !== -1 ) {
-		const pathIndex = argv.indexOf( '--path' );
-		argv.splice( pathIndex, 2 );
+	while ( argv.indexOf( `--${ argName }` ) !== -1 ) {
+		const argIndex = argv.indexOf( `--${ argName }` );
+		argv.splice( argIndex, 2 );
 	}
 
-	while ( argv.find( ( arg ) => /^--path=/.test( arg ) ) ) {
-		const pathIndex = argv.findIndex( ( arg ) => /^--path=/.test( arg ) );
-		argv.splice( pathIndex, 1 );
+	while ( argv.find( ( arg ) => argPattern.test( arg ) ) ) {
+		const argIndex = argv.findIndex( ( arg ) => argPattern.test( arg ) );
+		argv.splice( argIndex, 1 );
 	}
 
 	return argv;
 }
 
+function removePathArgumentFromArgv( argv: string[] ) {
+	return removeArgumentFromArgv( argv, 'path' );
+}
+
+function removePhpVersionArgumentFromArgv( argv: string[] ) {
+	return removeArgumentFromArgv( argv, 'php-version' );
+}
+
+function removeAvoidTelemetryArgumentFromArgv( argv: string[] ) {
+	return removeArgumentFromArgv( argv, 'avoid-telemetry' );
+}
+
 export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > ) {
 	try {
-		const wpCliArgv = removePathArgumentFromArgv( process.argv.slice( 3 ) );
+		let wpCliArgv = removePathArgumentFromArgv( process.argv.slice( 3 ) );
 		const parsedWpCliArgs = yargsParser( wpCliArgv );
 
 		if ( parsedWpCliArgs._[ 0 ] === 'shell' ) {
@@ -86,7 +120,14 @@ export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > 
 			);
 		}
 
-		await runCommand( argv.path, wpCliArgv );
+		// Extract --php-version option before passing to WP-CLI
+		const phpVersion = parsedWpCliArgs[ 'php-version' ] as string | undefined;
+		wpCliArgv = removePhpVersionArgumentFromArgv( wpCliArgv );
+
+		// Remove --avoid-telemetry as it's a Studio CLI flag, not a WP-CLI flag
+		wpCliArgv = removeAvoidTelemetryArgumentFromArgv( wpCliArgv );
+
+		await runCommand( argv.path, wpCliArgv, { phpVersion } );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );

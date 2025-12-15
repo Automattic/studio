@@ -1,13 +1,10 @@
-import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
-import { __, sprintf } from '@wordpress/i18n';
-import { runCLI } from '@wp-playground/cli';
-import { getMuPlugins } from 'common/lib/mu-plugins';
+import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
-import { z } from 'zod';
 import { getSiteByFolder } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
-import { getWpCliPharPath } from 'cli/lib/server-files';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { validatePhpVersion } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { GlobalOptions } from 'cli/types';
@@ -32,58 +29,13 @@ export async function runCommand( siteFolder: string, args: string[] ): Promise<
 	}
 
 	// …If not, instantiate a new Playground instance in the main process
-	const phpVersionSchema = z.enum( SupportedPHPVersions );
-	let phpVersion: SupportedPHPVersion;
-
-	try {
-		phpVersion = phpVersionSchema.parse( site.phpVersion );
-	} catch ( error ) {
-		throw new LoggerError( sprintf( __( 'Unsupported PHP version: %s' ), site.phpVersion ) );
-	}
-
-	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
-		isWpAutoUpdating: false,
-	} );
-	const mounts = [
-		{
-			hostPath: siteFolder,
-			vfsPath: '/wordpress',
-		},
-		{
-			hostPath: studioMuPluginsHostPath,
-			vfsPath: '/internal/studio/mu-plugins',
-		},
-		{
-			hostPath: loaderMuPluginHostPath,
-			vfsPath: '/internal/shared/mu-plugins/99-studio-loader.php',
-		},
-		{
-			hostPath: getWpCliPharPath(),
-			vfsPath: '/tmp/wp-cli.phar',
-		},
-	];
-
-	const result = await runCLI( {
-		command: 'server',
-		followSymlinks: true,
-		'mount-before-install': mounts,
-		'site-url': `http://localhost:${ site.port }`,
-		verbosity: 'quiet',
-		wordpressInstallMode: 'do-not-attempt-installing',
-		php: phpVersion,
-		blueprint: {
-			constants: {
-				WP_SQLITE_AST_DRIVER: true,
-			},
-		},
-	} );
-
-	const response = await result.playground.cli( [
-		'php',
-		'/tmp/wp-cli.phar',
-		`--path=${ await result.playground.documentRoot }`,
-		...args,
-	] );
+	const phpVersion = validatePhpVersion( site.phpVersion );
+	const [ response, closeWpCliServer ] = await runWpCliCommand(
+		siteFolder,
+		phpVersion,
+		site.port,
+		args
+	);
 
 	await response.stderr.pipeTo(
 		new WritableStream( {
@@ -101,6 +53,7 @@ export async function runCommand( siteFolder: string, args: string[] ): Promise<
 		} )
 	);
 
+	await closeWpCliServer();
 	process.exit( await response.exitCode );
 }
 

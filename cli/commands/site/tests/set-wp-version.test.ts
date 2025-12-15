@@ -178,7 +178,7 @@ describe( 'CLI: studio site set-wp-version', () => {
 			expect( saveAppdata ).toHaveBeenCalled();
 
 			const savedAppdata = ( saveAppdata as jest.Mock ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].wpVersion ).toBe( '6.5' );
+			expect( savedAppdata.sites[ 0 ].isWpAutoUpdating ).toBe( false );
 
 			expect( unlockAppdata ).toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
@@ -206,7 +206,7 @@ describe( 'CLI: studio site set-wp-version', () => {
 
 			expect( saveAppdata ).toHaveBeenCalled();
 			const savedAppdata = ( saveAppdata as jest.Mock ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].wpVersion ).toBe( '6.5' );
+			expect( savedAppdata.sites[ 0 ].isWpAutoUpdating ).toBe( false );
 
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.any( Object ),

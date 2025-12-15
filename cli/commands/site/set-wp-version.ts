@@ -1,5 +1,5 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { MINIMUM_WORDPRESS_VERSION } from 'common/constants';
+import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from 'common/constants';
 import { arePathsEqual } from 'common/lib/fs-utils';
 import {
 	getWordPressVersionUrl,
@@ -69,7 +69,7 @@ export async function runCommand( siteFolder: string, wpVersion: string ): Promi
 				throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );
 			}
 			site = foundSite;
-			site.wpVersion = wpVersion;
+			site.isWpAutoUpdating = wpVersion === DEFAULT_WORDPRESS_VERSION;
 			await saveAppdata( appdata );
 		} finally {
 			await unlockAppdata();

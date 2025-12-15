@@ -4,8 +4,11 @@ import path from 'path';
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import { __, sprintf } from '@wordpress/i18n';
 import { Blueprint } from '@wp-playground/blueprints';
-import { RecommendedPHPVersion } from '@wp-playground/common';
-import { MINIMUM_WORDPRESS_VERSION } from 'common/constants';
+import {
+	DEFAULT_PHP_VERSION,
+	DEFAULT_WORDPRESS_VERSION,
+	MINIMUM_WORDPRESS_VERSION,
+} from 'common/constants';
 import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
@@ -30,10 +33,6 @@ import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-man
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-const DEFAULT_VERSIONS = {
-	php: RecommendedPHPVersion,
-	wp: 'latest',
-} as const;
 const ALLOWED_PHP_VERSIONS = [ ...SupportedPHPVersions ];
 
 const logger = new Logger< LoggerAction >();
@@ -158,7 +157,7 @@ export async function runCommand(
 			port,
 			phpVersion: options.phpVersion,
 			running: false,
-			isWpAutoUpdating: options.wpVersion === DEFAULT_VERSIONS.wp,
+			isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
 			customDomain: options.customDomain,
 			enableHttps: options.enableHttps,
 		};
@@ -306,14 +305,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'wp', {
 					type: 'string',
 					describe: __( 'WordPress version (e.g., "latest", "6.4", "6.4.1")' ),
-					default: DEFAULT_VERSIONS.wp,
+					default: DEFAULT_WORDPRESS_VERSION,
 					coerce: coerceWpVersion,
 				} )
 				.option( 'php', {
 					type: 'string',
 					describe: __( 'PHP version' ),
 					choices: ALLOWED_PHP_VERSIONS,
-					default: DEFAULT_VERSIONS.php,
+					default: DEFAULT_PHP_VERSION,
 				} )
 				.option( 'domain', {
 					type: 'string',

@@ -1,23 +1,11 @@
-import os from 'os';
-import path from 'path';
 import { SqliteIntegrationProvider } from 'common/lib/sqlite-integration';
+import { getServerFilesPath } from 'cli/lib/server-files';
 
 const SQLITE_FILENAME = 'sqlite-database-integration';
-const WP_CLI_PHAR_FILENAME = 'wp-cli.phar';
 
 class CliSqliteProvider extends SqliteIntegrationProvider {
 	getServerFilesPath(): string {
-		if ( process.platform === 'darwin' ) {
-			return path.join( os.homedir(), 'Library', 'Application Support', 'Studio', 'server-files' );
-		}
-		if ( process.platform === 'win32' ) {
-			if ( process.env.APPDATA ) {
-				return path.join( process.env.APPDATA, 'Studio', 'server-files' );
-			} else {
-				throw new Error( 'APPDATA environment variable is not set' );
-			}
-		}
-		throw new Error( 'Unsupported platform' );
+		return getServerFilesPath();
 	}
 
 	getSqliteDirname(): string {
@@ -41,8 +29,4 @@ export async function installSqliteIntegration( sitePath: string ) {
 
 export async function keepSqliteIntegrationUpdated( sitePath: string ) {
 	return provider.keepSqliteIntegrationUpdated( sitePath );
-}
-
-export function getWpCliPharPath(): string {
-	return path.join( provider.getServerFilesPath(), WP_CLI_PHAR_FILENAME );
 }

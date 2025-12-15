@@ -220,9 +220,14 @@ async function sendMessage(
 				lastActivityTimestamp = Date.now();
 				logger?.reportProgress( validPacket.raw.message );
 			} else if ( validPacket.raw.topic === 'error' ) {
-				const error = new Error( validPacket.raw.errorMessage );
+				const error = new Error( validPacket.raw.errorMessage ) as Error & {
+					cliArgs?: Record< string, unknown >;
+				};
 				if ( validPacket.raw.errorStack ) {
 					error.stack = validPacket.raw.errorStack;
+				}
+				if ( validPacket.raw.cliArgs ) {
+					error.cliArgs = validPacket.raw.cliArgs;
 				}
 				reject( error );
 			} else if (

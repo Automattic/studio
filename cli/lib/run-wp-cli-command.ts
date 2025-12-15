@@ -2,7 +2,7 @@ import { StreamedPHPResponse, SupportedPHPVersion } from '@php-wasm/universal';
 import { __ } from '@wordpress/i18n';
 import { runCLI } from '@wp-playground/cli';
 import { getMuPlugins } from 'common/lib/mu-plugins';
-import { getWpCliPharPath } from 'cli/lib/sqlite-integration';
+import { getWpCliPharPath } from 'cli/lib/server-files';
 
 // Run a WP-CLI command in a Playground instance using a random port. This function can be used
 // even if the targeted Studio site is already running, but it is typically faster to use the

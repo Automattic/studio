@@ -1,6 +1,11 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { clearSiteLatestCliPid, readAppdata, type SiteData } from 'cli/lib/appdata';
+import {
+	clearSiteLatestCliPid,
+	readAppdata,
+	updateSiteAutoStart,
+	type SiteData,
+} from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -23,7 +28,7 @@ const filterRunningSites = async ( sites: SiteData[] ): Promise< SiteData[] > =>
 	return runningSites;
 };
 
-export async function runCommand(): Promise< void > {
+export async function runCommand( autoStart: boolean ): Promise< void > {
 	try {
 		const appdata = await readAppdata();
 		const allSites = appdata.sites;
@@ -65,6 +70,7 @@ export async function runCommand(): Promise< void > {
 				);
 				await stopWordPressServer( site.id );
 				await clearSiteLatestCliPid( site.id );
+				await updateSiteAutoStart( site.id, autoStart );
 
 				stoppedSiteIds.push( site.id );
 			} catch ( error ) {
@@ -109,9 +115,17 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'stop-all',
 		describe: __( 'Stop all local sites' ),
-		handler: async () => {
+		builder: ( yargs ) => {
+			return yargs.option( 'auto-start', {
+				type: 'boolean',
+				describe: __( 'Set auto-start flag for all sites' ),
+				default: false,
+				hidden: true,
+			} );
+		},
+		handler: async ( argv ) => {
 			try {
-				await runCommand();
+				await runCommand( argv.autoStart );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

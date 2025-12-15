@@ -12,6 +12,8 @@ import { updateSiteUrl } from 'src/lib/update-site-url';
 import { setupWordPressSite, getWordPressProvider } from 'src/lib/wordpress-provider';
 import WpCliProcess, { MessageCanceled, WpCliResult } from 'src/lib/wp-cli-process';
 import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
+import { createSiteViaCli, type CreateSiteOptions } from 'src/modules/cli/lib/cli-site-creator';
+import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData } from 'src/storage/user-data';
@@ -30,7 +32,16 @@ export async function createSiteWorkingDirectory(
 export async function stopAllServersOnQuit() {
 	// We're quitting so this doesn't have to be tidy, just stop the
 	// servers as directly as possible.
-	await Promise.all( [ ...servers.values() ].map( ( server ) => server.server?.stop() ) );
+	// Preserve autoStart so sites will restart on next app launch.
+	// Use silent mode to avoid terminal errors during quit.
+	return new Promise< void >( ( resolve ) => {
+		const [ emitter ] = executeCliCommand( [ 'site', 'stop-all', '--auto-start' ], {
+			silent: true,
+		} );
+		emitter.on( 'success', resolve );
+		emitter.on( 'failure', resolve );
+		emitter.on( 'error', () => resolve() );
+	} );
 }
 
 function getAbsoluteUrl( details: SiteDetails ): string {
@@ -67,14 +78,83 @@ export class SiteServer {
 		return servers.get( id );
 	}
 
+	static getByPath( path: string ): SiteServer | undefined {
+		for ( const server of servers.values() ) {
+			if ( server.details.path === path ) {
+				return server;
+			}
+		}
+		return undefined;
+	}
+
 	static isDeleted( id: string ) {
 		return deletedServers.includes( id );
 	}
 
-	static create( details: StoppedSiteDetails, meta: SiteServerMeta = {} ): SiteServer {
+	static register( details: StoppedSiteDetails, meta: SiteServerMeta = {} ): SiteServer {
 		const server = new SiteServer( details, meta );
 		servers.set( details.id, server );
 		return server;
+	}
+
+	static async create(
+		options: CreateSiteOptions,
+		meta: SiteServerMeta = {}
+	): Promise< { server: SiteServer; details: SiteDetails } > {
+		// Use the siteId from frontend if provided, for placeholder consistency
+		const placeholderDetails: StoppedSiteDetails = {
+			id: options.siteId || crypto.randomUUID(),
+			name: options.name || options.path,
+			path: options.path,
+			port: 0,
+			phpVersion: options.phpVersion || '',
+			running: false,
+		};
+		const server = SiteServer.register( placeholderDetails, meta );
+		server.hasOngoingOperation = true;
+
+		try {
+			const result = await createSiteViaCli( options );
+			const userData = await loadUserData();
+			const siteData = userData.sites.find( ( s ) => s.id === result.id );
+			if ( ! siteData ) {
+				throw new Error( `Site with ID ${ result.id } not found in appdata after CLI creation` );
+			}
+
+			let siteDetails: SiteDetails;
+			if ( result.running ) {
+				const url = siteData.customDomain
+					? `${ siteData.enableHttps ? 'https' : 'http' }://${ siteData.customDomain }`
+					: `http://localhost:${ siteData.port }`;
+				siteDetails = {
+					...siteData,
+					running: true,
+					url,
+				};
+			} else {
+				siteDetails = {
+					...siteData,
+					running: false,
+				};
+			}
+
+			// Update the server with the real details from CLI
+			servers.delete( placeholderDetails.id );
+			servers.set( siteDetails.id, server );
+			server.details = siteDetails;
+
+			if ( siteDetails.running ) {
+				server.server = new CliServerProcess(
+					siteDetails.id,
+					siteDetails.path,
+					( siteDetails as StartedSiteDetails ).url
+				);
+			}
+
+			return { server, details: siteDetails };
+		} finally {
+			server.hasOngoingOperation = false;
+		}
 	}
 
 	async delete() {

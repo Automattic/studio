@@ -2,10 +2,10 @@ import { cpus } from 'os';
 import { SupportedPHPVersion, PHPRunOptions } from '@php-wasm/universal';
 import { __, sprintf } from '@wordpress/i18n';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
+import { sanitizeRunCLIArgs } from 'common/lib/cli-args-sanitizer';
 import { getMuPlugins } from 'common/lib/mu-plugins';
 import { formatPlaygroundCliMessage } from 'common/lib/playground-cli-messages';
 import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
-import { sanitizeRunCLIArgs } from 'src/lib/sentry-sanitizer';
 import { WordPressServerOptions } from '../types';
 import { PlaygroundCliOptions } from './playground-cli-provider';
 

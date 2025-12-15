@@ -21,12 +21,13 @@ import {
 	OverlayFilesystem,
 	InMemoryFilesystem,
 } from '@wp-playground/storage';
+import { sanitizeRunCLIArgs } from 'common/lib/cli-args-sanitizer';
 import { isWordPressDirectory } from 'common/lib/fs-utils';
 import { getMuPlugins } from 'common/lib/mu-plugins';
 import { formatPlaygroundCliMessage } from 'common/lib/playground-cli-messages';
 import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
 import { z } from 'zod';
-import { getWpCliPharPath } from 'cli/lib/sqlite-integration';
+import { getWpCliPharPath } from 'cli/lib/server-files';
 import {
 	ServerConfig,
 	managerMessageSchema,
@@ -34,6 +35,7 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 
 let server: RunCLIServer | null = null;
+let lastCliArgs: Record< string, unknown > | null = null;
 
 // Intercept and prefix all console output from playground-cli
 const originalConsoleLog = console.log;
@@ -216,6 +218,7 @@ async function startServer( config: ServerConfig ): Promise< void > {
 
 	try {
 		const args = await getBaseRunCLIArgs( 'server', config );
+		lastCliArgs = sanitizeRunCLIArgs( args );
 		server = await runCLI( args );
 
 		if ( config.enableMultiWorker && server ) {
@@ -258,6 +261,7 @@ async function stopServer(): Promise< void > {
 async function runBlueprint( config: ServerConfig ): Promise< void > {
 	try {
 		const args = await getBaseRunCLIArgs( 'run-blueprint', config );
+		lastCliArgs = sanitizeRunCLIArgs( args );
 		await runCLI( args );
 
 		logToConsole( `Blueprint applied successfully for site ${ config.siteId }` );
@@ -294,6 +298,7 @@ function sendErrorMessage( messageId: number, error: unknown ) {
 		topic: 'error',
 		errorMessage: error instanceof Error ? error.message : String( error ),
 		errorStack: error instanceof Error ? error.stack : undefined,
+		cliArgs: lastCliArgs ?? undefined,
 	};
 	process.send!( errorResponse );
 }
@@ -312,32 +317,39 @@ async function ipcMessageHandler( packet: unknown ) {
 		return;
 	}
 
-	let result: unknown;
 	const validMessage = messageResult.data;
 
-	switch ( validMessage.topic ) {
-		case 'start-server':
-			result = await startServer( validMessage.data.config );
-			break;
-		case 'run-blueprint':
-			result = await runBlueprint( validMessage.data.config );
-			break;
-		case 'stop-server':
-			result = await stopServer();
-			break;
-		case 'wp-cli-command':
-			result = await runWpCliCommand( validMessage.data.args );
-			break;
-		default:
-			throw new Error( `Unknown message.` );
-	}
+	try {
+		let result: unknown;
 
-	const response: ChildMessageRaw = {
-		originalMessageId: validMessage.messageId,
-		topic: 'result',
-		result,
-	};
-	process.send!( response );
+		switch ( validMessage.topic ) {
+			case 'start-server':
+				result = await startServer( validMessage.data.config );
+				break;
+			case 'run-blueprint':
+				result = await runBlueprint( validMessage.data.config );
+				break;
+			case 'stop-server':
+				result = await stopServer();
+				break;
+			case 'wp-cli-command':
+				result = await runWpCliCommand( validMessage.data.args );
+				break;
+			default:
+				throw new Error( `Unknown message.` );
+		}
+
+		const response: ChildMessageRaw = {
+			originalMessageId: validMessage.messageId,
+			topic: 'result',
+			result,
+		};
+		process.send!( response );
+	} catch ( error ) {
+		errorToConsole( `Error handling message ${ validMessage.topic }:`, error );
+		sendErrorMessage( validMessage.messageId, error );
+		process.exit( 1 );
+	}
 }
 
 if ( process.send ) {

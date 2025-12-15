@@ -1,5 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import { compileBlueprint } from '@wp-playground/blueprints';
 import { z } from 'zod';
 
 interface UnsupportedFeature {
@@ -148,8 +147,6 @@ export async function validateBlueprintData(
 
 	try {
 		const result = schema.parse( blueprintJson );
-		await compileBlueprint( result );
-
 		const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( result );
 		const warnings = unsupportedFeatures.map( ( feature ) => ( {
 			feature: feature.name,

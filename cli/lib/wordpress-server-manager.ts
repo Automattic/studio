@@ -59,6 +59,7 @@ export async function isServerRunning( siteId: string ): Promise< ProcessDescrip
 export interface StartServerOptions {
 	wpVersion?: string;
 	blueprint?: unknown;
+	blueprintUri?: string;
 }
 
 export async function startWordPressServer(
@@ -95,8 +96,11 @@ export async function startWordPressServer(
 		serverConfig.wpVersion = options.wpVersion;
 	}
 
-	if ( options?.blueprint ) {
-		serverConfig.blueprint = options.blueprint;
+	if ( options?.blueprint && options.blueprintUri ) {
+		serverConfig.blueprint = {
+			contents: options.blueprint,
+			uri: options.blueprintUri,
+		};
 	}
 
 	const env = {
@@ -277,7 +281,8 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 
 export interface RunBlueprintOptions {
 	wpVersion?: string;
-	blueprint?: unknown;
+	blueprint: unknown;
+	blueprintUri: string;
 }
 
 /**
@@ -290,8 +295,8 @@ export interface RunBlueprintOptions {
  */
 export async function runBlueprint(
 	site: SiteData,
-	logger?: Logger< string >,
-	options?: RunBlueprintOptions
+	logger: Logger< string >,
+	options: RunBlueprintOptions
 ): Promise< void > {
 	const wordPressServerChildPath = path.resolve( __dirname, 'wordpress-server-child.js' );
 	const processName = getProcessName( site.id );
@@ -303,6 +308,10 @@ export async function runBlueprint(
 		phpVersion: site.phpVersion,
 		siteTitle: site.name,
 		enableMultiWorker: await isMultiWorkerEnabled(),
+		blueprint: {
+			contents: options.blueprint,
+			uri: options.blueprintUri,
+		},
 	};
 
 	if ( site.customDomain ) {
@@ -318,12 +327,8 @@ export async function runBlueprint(
 		serverConfig.isWpAutoUpdating = site.isWpAutoUpdating;
 	}
 
-	if ( options?.wpVersion ) {
+	if ( options.wpVersion ) {
 		serverConfig.wpVersion = options.wpVersion;
-	}
-
-	if ( options?.blueprint ) {
-		serverConfig.blueprint = options.blueprint;
 	}
 
 	const env = {

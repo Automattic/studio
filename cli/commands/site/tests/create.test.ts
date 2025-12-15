@@ -204,7 +204,10 @@ describe( 'CLI: studio site create', () => {
 			await expect(
 				runCommand( mockSitePath, {
 					...defaultTestOptions,
-					blueprintJson: {},
+					blueprint: {
+						uri: '/home/test/blueprint.json',
+						contents: {},
+					},
 				} )
 			).rejects.toThrow( 'Invalid blueprint' );
 
@@ -415,7 +418,10 @@ describe( 'CLI: studio site create', () => {
 
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
-				blueprintJson: testBlueprint,
+				blueprint: {
+					uri: '/home/test/blueprint.json',
+					contents: testBlueprint,
+				},
 			} );
 
 			expect( validateBlueprintData ).toHaveBeenCalled();
@@ -434,7 +440,10 @@ describe( 'CLI: studio site create', () => {
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
 				name: 'My Site',
-				blueprintJson: testBlueprint,
+				blueprint: {
+					uri: '/home/test/blueprint.json',
+					contents: testBlueprint,
+				},
 			} );
 
 			expect( startWordPressServer ).toHaveBeenCalledWith(
@@ -469,7 +478,10 @@ describe( 'CLI: studio site create', () => {
 
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
-				blueprintJson: testBlueprint,
+				blueprint: {
+					uri: '/home/test/blueprint.json',
+					contents: testBlueprint,
+				},
 			} );
 		} );
 	} );
@@ -498,7 +510,10 @@ describe( 'CLI: studio site create', () => {
 
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
-				blueprintJson: testBlueprint,
+				blueprint: {
+					uri: '/home/test/blueprint.json',
+					contents: testBlueprint,
+				},
 				noStart: true,
 			} );
 
@@ -547,7 +562,10 @@ describe( 'CLI: studio site create', () => {
 			await expect(
 				runCommand( mockSitePath, {
 					...defaultTestOptions,
-					blueprintJson: testBlueprint,
+					blueprint: {
+						uri: '/home/test/blueprint.json',
+						contents: testBlueprint,
+					},
 					noStart: true,
 				} )
 			).rejects.toThrow( 'Failed to apply blueprint' );
@@ -618,7 +636,10 @@ describe( 'CLI: studio site create', () => {
 			await expect(
 				runCommand( mockSitePath, {
 					...defaultTestOptions,
-					blueprintJson: testBlueprint,
+					blueprint: {
+						uri: '/home/test/blueprint.json',
+						contents: testBlueprint,
+					},
 					noStart: true,
 				} )
 			).rejects.toThrow();
@@ -668,7 +689,10 @@ describe( 'CLI: studio site create', () => {
 			await expect(
 				runCommand( mockSitePath, {
 					...defaultTestOptions,
-					blueprintJson: testBlueprint,
+					blueprint: {
+						uri: '/home/test/blueprint.json',
+						contents: testBlueprint,
+					},
 					noStart: true,
 				} )
 			).rejects.toThrow();
@@ -690,7 +714,10 @@ describe( 'CLI: studio site create', () => {
 			await expect(
 				runCommand( mockSitePath, {
 					...defaultTestOptions,
-					blueprintJson: testBlueprint,
+					blueprint: {
+						uri: '/home/test/blueprint.json',
+						contents: testBlueprint,
+					},
 					noStart: true,
 				} )
 			).rejects.toThrow();

@@ -12,8 +12,13 @@ const serverConfig = z.object( {
 	siteTitle: z.string().optional(),
 	siteLanguage: z.string().optional(),
 	isWpAutoUpdating: z.boolean().optional(),
-	blueprint: z.any().optional(), // Blueprint type is complex, allow any for now
 	enableMultiWorker: z.boolean().optional(),
+	blueprint: z
+		.object( {
+			contents: z.any(), // Blueprint type is complex, allow any for now
+			uri: z.string(),
+		} )
+		.optional(),
 } );
 
 export type ServerConfig = z.infer< typeof serverConfig >;

@@ -56,18 +56,23 @@ const ALLOWED_PHP_VERSIONS = [ ...SupportedPHPVersions ];
 
 const logger = new Logger< LoggerAction >();
 
+type CreateCommandOptions = {
+	name?: string;
+	wpVersion: string;
+	phpVersion: ( typeof ALLOWED_PHP_VERSIONS )[ number ];
+	customDomain?: string;
+	enableHttps: boolean;
+	blueprint?: {
+		contents: unknown;
+		uri: string;
+	};
+	noStart: boolean;
+	skipBrowser: boolean;
+};
+
 export async function runCommand(
 	sitePath: string,
-	options: {
-		name?: string;
-		wpVersion: string;
-		phpVersion: ( typeof ALLOWED_PHP_VERSIONS )[ number ];
-		customDomain?: string;
-		enableHttps: boolean;
-		blueprintJson?: unknown;
-		noStart: boolean;
-		skipBrowser: boolean;
-	}
+	options: CreateCommandOptions
 ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating site configuration...' ) );
@@ -82,9 +87,11 @@ export async function runCommand(
 			);
 		}
 
+		let blueprintUri: string | undefined;
 		let blueprint: Blueprint | undefined;
-		if ( options.blueprintJson ) {
-			const validation = await validateBlueprintData( options.blueprintJson );
+
+		if ( options.blueprint ) {
+			const validation = await validateBlueprintData( options.blueprint.contents );
 			if ( ! validation.valid ) {
 				throw new LoggerError( validation.error );
 			}
@@ -100,7 +107,10 @@ export async function runCommand(
 				);
 			}
 
-			blueprint = filterUnsupportedBlueprintFeatures( options.blueprintJson ) as Blueprint;
+			blueprintUri = options.blueprint.uri;
+			blueprint = filterUnsupportedBlueprintFeatures(
+				options.blueprint.contents as Record< string, unknown >
+			);
 		}
 
 		const appdata = await readAppdata();
@@ -180,7 +190,6 @@ export async function runCommand(
 		const adminPassword = createPassword();
 
 		const setupSteps: StepDefinition[] = [];
-		const hasUserBlueprint = !! options.blueprintJson;
 
 		if ( isOnlineStatus ) {
 			const siteLanguage = await getPreferredSiteLanguage( options.wpVersion );
@@ -261,6 +270,7 @@ export async function runCommand(
 				const processDesc = await startWordPressServer( siteDetails, logger, {
 					wpVersion: options.wpVersion,
 					blueprint,
+					blueprintUri,
 				} );
 				logger.reportSuccess( __( 'WordPress site started' ) );
 
@@ -286,14 +296,18 @@ export async function runCommand(
 				throw new LoggerError( __( 'Failed to start WordPress server' ), error );
 			}
 		} else {
-			if ( hasUserBlueprint ) {
+			if ( options.blueprint ) {
 				logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
 				await connect();
 				logger.reportSuccess( __( 'Process daemon started' ) );
 
 				logger.reportStart( LoggerAction.START_SITE, __( 'Applying blueprint...' ) );
 				try {
-					await runBlueprint( siteDetails, logger, { wpVersion: options.wpVersion, blueprint } );
+					await runBlueprint( siteDetails, logger, {
+						wpVersion: options.wpVersion,
+						blueprint: options.blueprint.contents,
+						blueprintUri: options.blueprint.uri,
+					} );
 					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
 				} catch ( error ) {
 					await removeSiteFromAppdata( siteDetails.id );
@@ -332,8 +346,6 @@ async function fetchBlueprint( url: string ) {
 }
 
 function readBlueprint( blueprintPath: string ) {
-	blueprintPath = path.resolve( untildify( blueprintPath ) );
-
 	if ( ! fs.existsSync( blueprintPath ) ) {
 		throw new LoggerError( sprintf( __( 'Blueprint file not found: %s' ), blueprintPath ) );
 	}
@@ -346,14 +358,6 @@ function readBlueprint( blueprintPath: string ) {
 			sprintf( __( 'Failed to parse blueprint JSON file: %s' ), blueprintPath ),
 			error
 		);
-	}
-}
-
-async function coerceBlueprint( value: string ) {
-	if ( /^https?:\/\//.test( value ) ) {
-		return await fetchBlueprint( value );
-	} else {
-		return readBlueprint( value );
 	}
 }
 
@@ -413,7 +417,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'blueprint', {
 					type: 'string',
 					describe: __( 'Path or URL to blueprint JSON file' ),
-					coerce: coerceBlueprint,
 				} )
 				.option( 'start', {
 					type: 'boolean',
@@ -427,17 +430,34 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
+			const config: CreateCommandOptions = {
+				name: argv.name,
+				wpVersion: argv.wp,
+				phpVersion: argv.php,
+				customDomain: argv.domain,
+				enableHttps: !! argv.https,
+				noStart: ! argv.start,
+				skipBrowser: !! argv.skipBrowser,
+			};
+
+			if ( argv.blueprint ) {
+				if ( argv.blueprint.startsWith( 'http://' ) || argv.blueprint.startsWith( 'https://' ) ) {
+					config.blueprint = {
+						uri: argv.blueprint,
+						contents: await fetchBlueprint( argv.blueprint ),
+					};
+				} else {
+					const uri = path.resolve( untildify( argv.blueprint ) );
+
+					config.blueprint = {
+						uri,
+						contents: readBlueprint( uri ),
+					};
+				}
+			}
+
 			try {
-				await runCommand( argv.path, {
-					name: argv.name,
-					wpVersion: argv.wp,
-					phpVersion: argv.php,
-					customDomain: argv.domain,
-					enableHttps: !! argv.https,
-					blueprintJson: argv.blueprint,
-					noStart: ! argv.start,
-					skipBrowser: !! argv.skipBrowser,
-				} );
+				await runCommand( argv.path, config );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/electron/main';
 import { BlueprintV1Declaration } from '@wp-playground/blueprints';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
+import { z } from 'zod';
 import { portFinder } from 'common/lib/port-finder';
 import {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT,
@@ -328,7 +329,7 @@ export class SiteServer {
 	}
 
 	async executeWpCliCommand(
-		args: string,
+		args: string | string[],
 		{
 			targetPhpVersion,
 			skipPluginsAndThemes = false,
@@ -339,18 +340,25 @@ export class SiteServer {
 	): Promise< WpCliResult > {
 		const projectPath = this.details.path;
 
-		const wpCliArgs = parse( args );
+		// If args is a string, parse it with shell-quote. If it's an array, use directly.
+		let wpCliArgs: string[];
+		if ( typeof args === 'string' ) {
+			const parsedArgs = parse( args );
 
-		// The parsing of arguments can include shell operators like `>` or `||` that the app don't support.
-		const isValidCommand = wpCliArgs.every(
-			( arg: unknown ) => typeof arg === 'string' || arg instanceof String
-		);
-		if ( ! isValidCommand ) {
-			return Promise.resolve( {
-				stdout: '',
-				stderr: `Cannot execute wp-cli command with arguments: ${ args }`,
-				exitCode: 1,
-			} );
+			// The parsing of arguments can include shell operators like `>` or `||` that the app don't support.
+			const isValidCommand = parsedArgs.every(
+				( arg: unknown ) => typeof arg === 'string' || arg instanceof String
+			);
+			if ( ! isValidCommand ) {
+				return Promise.resolve( {
+					stdout: '',
+					stderr: `Cannot execute wp-cli command with arguments: ${ args }`,
+					exitCode: 1,
+				} );
+			}
+			wpCliArgs = parsedArgs as string[];
+		} else {
+			wpCliArgs = args;
 		}
 
 		const cliArgs: string[] = [ 'wp', '--path', projectPath ];
@@ -359,7 +367,7 @@ export class SiteServer {
 			cliArgs.push( '--php-version', targetPhpVersion );
 		}
 
-		cliArgs.push( ...( wpCliArgs as string[] ) );
+		cliArgs.push( ...wpCliArgs );
 
 		if ( skipPluginsAndThemes ) {
 			cliArgs.push( '--skip-plugins', '--skip-themes' );
@@ -416,6 +424,39 @@ export class SiteServer {
 				} );
 			} );
 		} );
+	}
+
+	private static themeDetailsSchema = z.object( {
+		name: z.string().catch( '' ),
+		path: z.string(),
+		slug: z.string(),
+		isBlockTheme: z.boolean(),
+		supportsWidgets: z.boolean(),
+		supportsMenus: z.boolean(),
+	} );
+
+	async getThemeDetails(): Promise< SiteDetails[ 'themeDetails' ] > {
+		if ( ! this.details.running ) {
+			return undefined;
+		}
+
+		try {
+			const { stdout, stderr, exitCode } = await this.executeWpCliCommand( [
+				'studio',
+				'get-theme-details',
+			] );
+
+			if ( exitCode !== 0 || ! stdout ) {
+				console.error( 'Failed to get theme details via WP-CLI', { exitCode, stdout, stderr } );
+				return this.details.themeDetails;
+			}
+
+			const themeDetailsParsed = JSON.parse( stdout );
+			return SiteServer.themeDetailsSchema.parse( themeDetailsParsed );
+		} catch ( error ) {
+			console.error( 'Failed to get theme details:', error );
+			return this.details.themeDetails;
+		}
 	}
 
 	async hasSQLitePlugin(): Promise< boolean > {

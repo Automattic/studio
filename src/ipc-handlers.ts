@@ -53,7 +53,6 @@ import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { isInstalled } from 'src/lib/is-installed';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import * as oauthClient from 'src/lib/oauth';
-import { phpGetThemeDetails } from 'src/lib/php-get-theme-details';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import * as windowsHelpers from 'src/lib/windows-helpers';
@@ -130,6 +129,44 @@ async function sendThumbnailChangedEvent( event: IpcMainInvokeEvent, id: string 
 		id,
 		imageData: thumbnailData,
 	} );
+}
+
+/**
+ * Refreshes site metadata (theme details and thumbnail) and notifies the renderer.
+ * This is typically called after a site is started or created.
+ */
+async function refreshSiteMetadataAndNotify(
+	event: IpcMainInvokeEvent,
+	server: SiteServer,
+	parentWindow: BrowserWindow | null
+): Promise< void > {
+	const id = server.details.id;
+
+	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id } );
+
+	try {
+		const themeDetails = await server.getThemeDetails();
+		if ( themeDetails ) {
+			server.details.themeDetails = themeDetails;
+		}
+	} catch ( error ) {
+		console.error( `Failed to get theme details for server ${ id }:`, error );
+	}
+
+	// Always send theme-details-changed to reset loading state, even if fetching failed
+	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-changed', {
+		id,
+		details: server.details.themeDetails,
+	} );
+
+	await updateSite( event, server.details );
+
+	try {
+		await server.updateCachedThumbnail();
+		await sendThumbnailChangedEvent( event, id );
+	} catch ( error ) {
+		console.error( `Failed to update thumbnail for server ${ id }:`, error );
+	}
 }
 
 function mergeSiteDetailsWithRunningDetails( sites: SiteDetails[] ): SiteDetails[] {
@@ -229,7 +266,7 @@ export async function createSite(
 	bumpStat( StatsGroup.STUDIO_SITE_CREATE, metric );
 
 	try {
-		const { details: siteDetails } = await SiteServer.create(
+		const { server } = await SiteServer.create(
 			{
 				path,
 				name: siteName,
@@ -245,11 +282,13 @@ export async function createSite(
 		);
 
 		const parentWindow = BrowserWindow.fromWebContents( event.sender );
-		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', {
-			id: siteDetails.id,
-		} );
 
-		return siteDetails;
+		// If the site is running after creation, fetch theme details and update thumbnail
+		if ( server.details.running ) {
+			void refreshSiteMetadataAndNotify( event, server, parentWindow );
+		}
+
+		return server.details;
 	} catch ( error ) {
 		// Skip WASM memory errors - they're user system issues, not bugs
 		if ( errorMessageContains( error, 'Cannot allocate Wasm memory for new instance' ) ) {
@@ -350,20 +389,8 @@ export async function startServer(
 		throw error;
 	}
 
-	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-changed', {
-		id,
-		details: server.details.themeDetails,
-	} );
-
 	if ( server.details.running ) {
-		void ( async () => {
-			try {
-				await server.updateCachedThumbnail();
-				await sendThumbnailChangedEvent( event, id );
-			} catch ( error ) {
-				console.error( `Failed to update thumbnail for server ${ id }:`, error );
-			}
-		} )();
+		void refreshSiteMetadataAndNotify( event, server, parentWindow );
 	}
 
 	console.log( `Server started for '${ server.details.name }'` );
@@ -674,39 +701,31 @@ export async function getThemeDetails(
 		throw new Error( 'Site not found.' );
 	}
 
-	if ( ! server.details.running || ! server.server ) {
-		return undefined;
-	}
+	const themeDetails = await server.getThemeDetails();
+	const themeChanged =
+		themeDetails?.path && themeDetails.path !== server.details.themeDetails?.path;
 
-	// CLI-managed sites don't have PHP instance, return cached theme details for Now
-	// ToDo: Implement logic to fetch theme details using mu-plugin?
-	if ( ! server.server.php ) {
-		return server.details.themeDetails;
-	}
-
-	const themeDetails = await phpGetThemeDetails( server.server );
-
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( themeDetails?.path && themeDetails.path !== server.details.themeDetails?.path ) {
+	if ( themeChanged ) {
+		const parentWindow = BrowserWindow.fromWebContents( event.sender );
 		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id } );
-		const updatedSite = {
-			...server.details,
-			themeDetails,
-		};
 		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-changed', {
 			id,
 			details: themeDetails,
 		} );
 
-		void server
-			.updateCachedThumbnail()
-			.then( () => sendThumbnailChangedEvent( event, id ) )
-			.catch( ( error ) => {
-				console.error( `Failed to update thumbnail for server ${ id }:`, error );
-			} );
 		server.details.themeDetails = themeDetails;
-		await updateSite( event, updatedSite );
+		await updateSite( event, server.details );
+
+		void ( async () => {
+			try {
+				await server.updateCachedThumbnail();
+				await sendThumbnailChangedEvent( event, id );
+			} catch ( error ) {
+				console.error( `Failed to update thumbnail for server ${ id }:`, error );
+			}
+		} )();
 	}
+
 	return themeDetails;
 }
 

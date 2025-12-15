@@ -3,6 +3,7 @@
  */
 // eslint-disable-next-line import/order
 import EventEmitter from 'node:events';
+import type { CliCommandResult } from 'src/modules/cli/lib/execute-command';
 
 // Mock executeCliCommand before importing SiteServer
 const mockEventEmitter = new EventEmitter();
@@ -37,21 +38,9 @@ function simulateCliResponse( {
 	emitSuccess?: boolean;
 } ) {
 	setImmediate( () => {
-		if ( stdout ) {
-			mockEventEmitter.emit( 'data', {
-				data: { action: 'keyValuePair', key: 'stdout', value: stdout },
-			} );
-		}
-		if ( stderr ) {
-			mockEventEmitter.emit( 'data', {
-				data: { action: 'keyValuePair', key: 'stderr', value: stderr },
-			} );
-		}
-		mockEventEmitter.emit( 'data', {
-			data: { action: 'keyValuePair', key: 'exitCode', value: String( exitCode ) },
-		} );
+		const result: CliCommandResult = { stdout, stderr, exitCode };
 		if ( emitSuccess ) {
-			mockEventEmitter.emit( exitCode === 0 ? 'success' : 'failure' );
+			mockEventEmitter.emit( exitCode === 0 ? 'success' : 'failure', { result } );
 		}
 	} );
 }
@@ -103,8 +92,7 @@ describe( 'SiteServer.executeWpCliCommand', () => {
 			const timeout = isImportExport ? 200 : 100;
 
 			return new Promise( ( resolve ) => {
-				const result = { stdout: '', stderr: '', exitCode: 1 };
-				const [ emitter ] = executeCliCommand( cliArgs, { silent: true } );
+				const [ emitter ] = executeCliCommand( cliArgs, { output: 'capture' } );
 
 				const timeoutId = setTimeout( () => {
 					resolve( {
@@ -114,27 +102,14 @@ describe( 'SiteServer.executeWpCliCommand', () => {
 					} );
 				}, timeout );
 
-				emitter.on( 'data', ( { data }: { data: unknown } ) => {
-					const parsed = data as { action?: string; key?: string; value?: string };
-					if ( parsed.action === 'keyValuePair' ) {
-						if ( parsed.key === 'stdout' ) {
-							result.stdout = parsed.value ?? '';
-						} else if ( parsed.key === 'stderr' ) {
-							result.stderr = parsed.value ?? '';
-						} else if ( parsed.key === 'exitCode' ) {
-							result.exitCode = parseInt( parsed.value ?? '1', 10 );
-						}
-					}
+				emitter.on( 'success', ( { result }: { result?: CliCommandResult } ) => {
+					clearTimeout( timeoutId );
+					resolve( result ?? { stdout: '', stderr: '', exitCode: 0 } );
 				} );
 
-				emitter.on( 'success', () => {
+				emitter.on( 'failure', ( { result }: { result?: CliCommandResult } ) => {
 					clearTimeout( timeoutId );
-					resolve( result );
-				} );
-
-				emitter.on( 'failure', () => {
-					clearTimeout( timeoutId );
-					resolve( result );
+					resolve( result ?? { stdout: '', stderr: '', exitCode: 1 } );
 				} );
 
 				emitter.on( 'error', ( { error }: { error: Error } ) => {
@@ -157,7 +132,7 @@ describe( 'SiteServer.executeWpCliCommand', () => {
 
 			expect( mockExecuteCliCommand ).toHaveBeenCalledWith(
 				[ 'wp', '--path', '/test/site/path', 'plugin', 'list' ],
-				{ silent: true }
+				{ output: 'capture' }
 			);
 		} );
 
@@ -168,7 +143,7 @@ describe( 'SiteServer.executeWpCliCommand', () => {
 
 			expect( mockExecuteCliCommand ).toHaveBeenCalledWith(
 				[ 'wp', '--path', '/test/site/path', '--php-version', '8.1', 'plugin', 'list' ],
-				{ silent: true }
+				{ output: 'capture' }
 			);
 		} );
 
@@ -179,13 +154,13 @@ describe( 'SiteServer.executeWpCliCommand', () => {
 
 			expect( mockExecuteCliCommand ).toHaveBeenCalledWith(
 				[ 'wp', '--path', '/test/site/path', 'core', 'version', '--skip-plugins', '--skip-themes' ],
-				{ silent: true }
+				{ output: 'capture' }
 			);
 		} );
 	} );
 
-	describe( 'IPC response parsing', () => {
-		it( 'should parse stdout from keyValuePair messages', async () => {
+	describe( 'captured output parsing', () => {
+		it( 'should capture stdout from CLI process', async () => {
 			const resultPromise = executeWpCliCommand( 'plugin list' );
 			simulateCliResponse( { stdout: 'plugin1\nplugin2', exitCode: 0 } );
 			const result = await resultPromise;
@@ -193,7 +168,7 @@ describe( 'SiteServer.executeWpCliCommand', () => {
 			expect( result.stdout ).toBe( 'plugin1\nplugin2' );
 		} );
 
-		it( 'should parse stderr from keyValuePair messages', async () => {
+		it( 'should capture stderr from CLI process', async () => {
 			const resultPromise = executeWpCliCommand( 'invalid-command' );
 			simulateCliResponse( { stderr: 'Error: command not found', exitCode: 1 } );
 			const result = await resultPromise;
@@ -201,7 +176,7 @@ describe( 'SiteServer.executeWpCliCommand', () => {
 			expect( result.stderr ).toBe( 'Error: command not found' );
 		} );
 
-		it( 'should parse exitCode from keyValuePair messages', async () => {
+		it( 'should capture exitCode from CLI process', async () => {
 			const resultPromise = executeWpCliCommand( 'plugin list' );
 			simulateCliResponse( { exitCode: 42 } );
 			const result = await resultPromise;
@@ -209,7 +184,7 @@ describe( 'SiteServer.executeWpCliCommand', () => {
 			expect( result.exitCode ).toBe( 42 );
 		} );
 
-		it( 'should handle all three values together', async () => {
+		it( 'should capture all output values together', async () => {
 			const resultPromise = executeWpCliCommand( 'plugin list' );
 			simulateCliResponse( {
 				stdout: 'some output',

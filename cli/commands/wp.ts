@@ -44,9 +44,6 @@ export async function runCommand(
 				const result = await sendWpCliCommand( site.id, args );
 				process.stdout.write( result.stdout );
 				process.stderr.write( result.stderr );
-				logger.reportKeyValuePair( 'stdout', result.stdout );
-				logger.reportKeyValuePair( 'stderr', result.stderr );
-				logger.reportKeyValuePair( 'exitCode', String( result.exitCode ) );
 				process.exit( result.exitCode );
 			}
 		} finally {
@@ -68,9 +65,6 @@ export async function runCommand(
 
 	process.stdout.write( stdout );
 	process.stderr.write( stderr );
-	logger.reportKeyValuePair( 'stdout', stdout );
-	logger.reportKeyValuePair( 'stderr', stderr );
-	logger.reportKeyValuePair( 'exitCode', String( exitCode ) );
 
 	await closeWpCliServer();
 	process.exit( exitCode );

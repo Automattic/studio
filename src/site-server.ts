@@ -42,7 +42,7 @@ export async function stopAllServersOnQuit() {
 	// Use silent mode to avoid terminal errors during quit.
 	return new Promise< void >( ( resolve ) => {
 		const [ emitter ] = executeCliCommand( [ 'site', 'stop-all', '--auto-start' ], {
-			silent: true,
+			output: 'ignore',
 		} );
 		emitter.on( 'success', resolve );
 		emitter.on( 'failure', resolve );
@@ -380,8 +380,7 @@ export class SiteServer {
 			: WP_CLI_DEFAULT_RESPONSE_TIMEOUT;
 
 		return new Promise( ( resolve ) => {
-			const result: WpCliResult = { stdout: '', stderr: '', exitCode: 1 };
-			const [ emitter ] = executeCliCommand( cliArgs, { silent: true } );
+			const [ emitter ] = executeCliCommand( cliArgs, { output: 'capture' } );
 
 			const timeoutId = setTimeout( () => {
 				resolve( {
@@ -391,27 +390,14 @@ export class SiteServer {
 				} );
 			}, timeout );
 
-			emitter.on( 'data', ( { data } ) => {
-				const parsed = data as { action?: string; key?: string; value?: string };
-				if ( parsed.action === 'keyValuePair' ) {
-					if ( parsed.key === 'stdout' ) {
-						result.stdout = parsed.value ?? '';
-					} else if ( parsed.key === 'stderr' ) {
-						result.stderr = parsed.value ?? '';
-					} else if ( parsed.key === 'exitCode' ) {
-						result.exitCode = parseInt( parsed.value ?? '1', 10 );
-					}
-				}
+			emitter.on( 'success', ( { result } ) => {
+				clearTimeout( timeoutId );
+				resolve( result ?? { stdout: '', stderr: '', exitCode: 0 } );
 			} );
 
-			emitter.on( 'success', () => {
+			emitter.on( 'failure', ( { result } ) => {
 				clearTimeout( timeoutId );
-				resolve( result );
-			} );
-
-			emitter.on( 'failure', () => {
-				clearTimeout( timeoutId );
-				resolve( result );
+				resolve( result ?? { stdout: '', stderr: '', exitCode: 1 } );
 			} );
 
 			emitter.on( 'error', ( { error } ) => {

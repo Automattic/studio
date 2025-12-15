@@ -77,7 +77,7 @@ export function startSiteWatcher(): void {
 	}
 
 	watcher = executeCliCommand( [ 'site', 'list', '--watch', '--format', 'json' ], {
-		silent: true,
+		output: 'ignore',
 	} );
 	const [ eventEmitter ] = watcher;
 

@@ -125,65 +125,65 @@ export {
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
-async function sendThumbnailChangedEvent( event: IpcMainInvokeEvent, id: string ) {
-	if ( event.sender.isDestroyed() ) {
+async function sendThumbnailChangedEvent(event: IpcMainInvokeEvent, id: string) {
+	if (event.sender.isDestroyed()) {
 		return;
 	}
-	const thumbnailData = await getThumbnailData( event, id );
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-changed', {
+	const thumbnailData = await getThumbnailData(event, id);
+	const parentWindow = BrowserWindow.fromWebContents(event.sender);
+	sendIpcEventToRendererWithWindow(parentWindow, 'thumbnail-changed', {
 		id,
 		imageData: thumbnailData,
-	} );
+	});
 }
 
-function mergeSiteDetailsWithRunningDetails( sites: SiteDetails[] ): SiteDetails[] {
-	return sites.map( ( site ) => {
-		const server = SiteServer.get( site.id );
-		if ( server ) {
+function mergeSiteDetailsWithRunningDetails(sites: SiteDetails[]): SiteDetails[] {
+	return sites.map((site) => {
+		const server = SiteServer.get(site.id);
+		if (server) {
 			return server.details;
 		}
 		return site;
-	} );
+	});
 }
 
-export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
+export async function getSiteDetails(_event: IpcMainInvokeEvent): Promise<SiteDetails[]> {
 	const userData = await loadUserData();
 
 	const { sites } = userData;
 
 	// Ensure we have an instance of a server for each site we know about
-	for ( const site of sites ) {
-		if ( ! SiteServer.get( site.id ) && ! site.running ) {
-			SiteServer.create( site );
+	for (const site of sites) {
+		if (!SiteServer.get(site.id) && !site.running) {
+			SiteServer.create(site);
 		}
 	}
 
-	return mergeSiteDetailsWithRunningDetails( sites );
+	return mergeSiteDetailsWithRunningDetails(sites);
 }
 
 export async function importSite(
 	event: IpcMainInvokeEvent,
 	{ id, backupFile }: { id: string; backupFile: BackupArchiveInfo }
-): Promise< SiteDetails > {
-	const site = SiteServer.get( id );
-	if ( ! site ) {
-		throw new Error( 'Site not found.' );
+): Promise<SiteDetails> {
+	const site = SiteServer.get(id);
+	if (!site) {
+		throw new Error('Site not found.');
 	}
 	try {
-		if ( ! isWordPressDirectory( site.details.path ) ) {
-			await getWordPressProvider().setupWordPressFilesOnly( site.details.path );
+		if (!isWordPressDirectory(site.details.path)) {
+			await getWordPressProvider().setupWordPressFilesOnly(site.details.path);
 		}
 
-		const onEvent = ( data: ImportExportEventData ) => {
-			const parentWindow = BrowserWindow.fromWebContents( event.sender );
-			sendIpcEventToRendererWithWindow( parentWindow, 'on-import', data, id );
+		const onEvent = (data: ImportExportEventData) => {
+			const parentWindow = BrowserWindow.fromWebContents(event.sender);
+			sendIpcEventToRendererWithWindow(parentWindow, 'on-import', data, id);
 		};
-		const result = await importBackup( backupFile, site.details, onEvent, defaultImporterOptions );
+		const result = await importBackup(backupFile, site.details, onEvent, defaultImporterOptions);
 
-		bumpStat( StatsGroup.STUDIO_IMPORT, getImporterMetric( result.importerType ) );
+		bumpStat(StatsGroup.STUDIO_IMPORT, getImporterMetric(result.importerType));
 
-		if ( result?.meta?.phpVersion ) {
+		if (result?.meta?.phpVersion) {
 			site.details.phpVersion = result.meta.phpVersion;
 		}
 
@@ -191,15 +191,15 @@ export async function importSite(
 		site.meta.blueprint = undefined;
 
 		return site.details;
-	} catch ( e ) {
-		bumpStat( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
+	} catch (e) {
+		bumpStat(StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE);
 		// Don't report validation errors to Sentry - these are expected user errors
 		if (
-			! ( e instanceof Error ) ||
-			( ! e.message.includes( 'No suitable importer found for the provided backup contents' ) &&
-				! e.message.includes( 'No suitable backup handler found for the provided backup file' ) )
+			!(e instanceof Error) ||
+			(!e.message.includes('No suitable importer found for the provided backup contents') &&
+				!e.message.includes('No suitable backup handler found for the provided backup file'))
 		) {
-			Sentry.captureException( e );
+			Sentry.captureException(e);
 		}
 		throw e;
 	}
@@ -217,7 +217,7 @@ export async function createSite(
 		phpVersion?: string;
 		blueprint?: Blueprint;
 	} = {}
-): Promise< SiteDetails > {
+): Promise<SiteDetails> {
 	const {
 		siteName,
 		wpVersion,
@@ -230,31 +230,31 @@ export async function createSite(
 
 	const forceSetupSqlite = false;
 
-	const metric = getBlueprintMetric( blueprint?.slug );
-	bumpStat( StatsGroup.STUDIO_SITE_CREATE, metric );
+	const metric = getBlueprintMetric(blueprint?.slug);
+	bumpStat(StatsGroup.STUDIO_SITE_CREATE, metric);
 
 	// We only recursively create the directory if the user has not selected a
 	// path from the dialog (and thus they use the "default" or suggested path).
-	if ( ! ( await pathExists( path ) ) && path.startsWith( DEFAULT_SITE_PATH ) ) {
-		fs.mkdirSync( path, { recursive: true } );
+	if (!(await pathExists(path)) && path.startsWith(DEFAULT_SITE_PATH)) {
+		fs.mkdirSync(path, { recursive: true });
 	}
 
-	if ( ! ( await isEmptyDir( path ) ) && ! isWordPressDirectory( path ) ) {
+	if (!(await isEmptyDir(path)) && !isWordPressDirectory(path)) {
 		// Form validation should've prevented a non-empty directory from being selected
-		throw new Error( 'The selected directory is not empty nor an existing WordPress site.' );
+		throw new Error('The selected directory is not empty nor an existing WordPress site.');
 	}
 	let userData = await loadUserData();
 
-	const allPaths = userData?.sites?.map( ( site ) => site.path ) || [];
-	if ( allPaths.includes( path ) ) {
-		throw new Error( 'The selected directory is already in use.' );
+	const allPaths = userData?.sites?.map((site) => site.path) || [];
+	if (allPaths.includes(path)) {
+		throw new Error('The selected directory is already in use.');
 	}
 
 	const port = await portFinder.getOpenPort();
 
 	const details = {
 		id: siteId || crypto.randomUUID(),
-		name: siteName || nodePath.basename( path ),
+		name: siteName || nodePath.basename(path),
 		path,
 		adminPassword: createPassword(),
 		port,
@@ -265,51 +265,51 @@ export async function createSite(
 		enableHttps,
 	} as const;
 
-	const server = SiteServer.create( details, { wpVersion, blueprint: blueprint?.blueprint } );
+	const server = SiteServer.create(details, { wpVersion, blueprint: blueprint?.blueprint });
 
-	if ( ( await pathExists( path ) ) && ( await isEmptyDir( path ) ) ) {
+	if ((await pathExists(path)) && (await isEmptyDir(path))) {
 		try {
-			await createSiteWorkingDirectory( server, wpVersion );
-		} catch ( error ) {
+			await createSiteWorkingDirectory(server, wpVersion);
+		} catch (error) {
 			// If site creation failed, remove the generated files and re-throw the
 			// error so it can be handled by the caller.
-			await shell.trashItem( path );
+			await shell.trashItem(path);
 			throw error;
 		}
 	}
 
-	if ( isWordPressDirectory( path ) ) {
+	if (isWordPressDirectory(path)) {
 		// If the directory contains a WordPress installation, and user wants to force SQLite
 		// integration, let's rename the wp-config.php file to allow WP Now to create a new one
 		// and initialize things properly.
-		if ( forceSetupSqlite && ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
+		if (forceSetupSqlite && (await pathExists(nodePath.join(path, 'wp-config.php')))) {
 			fs.renameSync(
-				nodePath.join( path, 'wp-config.php' ),
-				nodePath.join( path, 'wp-config-studio.php' )
+				nodePath.join(path, 'wp-config.php'),
+				nodePath.join(path, 'wp-config-studio.php')
 			);
 		}
-		if ( ! ( await pathExists( nodePath.join( path, 'wp-config.php' ) ) ) ) {
-			await installSqliteIntegration( path );
+		if (!(await pathExists(nodePath.join(path, 'wp-config.php')))) {
+			await installSqliteIntegration(path);
 			await getWordPressProvider().installWordPressWhenNoWpConfig(
 				server,
-				siteName || nodePath.basename( path ),
+				siteName || nodePath.basename(path),
 				details.adminPassword
 			);
 		} else {
-			await updateSiteUrl( server, getSiteUrl( details ) );
+			await updateSiteUrl(server, getSiteUrl(details));
 		}
 	}
 
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id: details.id } );
+	const parentWindow = BrowserWindow.fromWebContents(event.sender);
+	sendIpcEventToRendererWithWindow(parentWindow, 'theme-details-updating', { id: details.id });
 	try {
 		await lockAppdata();
 		userData = await loadUserData();
 
-		userData.sites.push( server.details );
-		sortSites( userData.sites );
+		userData.sites.push(server.details);
+		sortSites(userData.sites);
 
-		await saveUserData( userData );
+		await saveUserData(userData);
 		return server.details;
 	} finally {
 		await unlockAppdata();
@@ -319,20 +319,20 @@ export async function createSite(
 export async function updateSite(
 	event: IpcMainInvokeEvent,
 	updatedSite: SiteDetails
-): Promise< void > {
+): Promise<void> {
 	try {
 		await lockAppdata();
 		const userData = await loadUserData();
-		const updatedSites = userData.sites.map( ( site ) =>
+		const updatedSites = userData.sites.map((site) =>
 			site.id === updatedSite.id ? updatedSite : site
 		);
 		userData.sites = updatedSites;
 
-		const server = SiteServer.get( updatedSite.id );
-		if ( server ) {
-			await server.updateSiteDetails( updatedSite );
+		const server = SiteServer.get(updatedSite.id);
+		if (server) {
+			await server.updateSiteDetails(updatedSite);
 		}
-		await saveUserData( userData );
+		await saveUserData(userData);
 	} finally {
 		await unlockAppdata();
 	}
@@ -341,18 +341,18 @@ export async function updateSite(
 export async function startServer(
 	event: IpcMainInvokeEvent,
 	id: string
-): Promise< SiteDetails | null > {
-	const server = SiteServer.get( id );
-	if ( ! server ) {
+): Promise<SiteDetails | null> {
+	const server = SiteServer.get(id);
+	if (!server) {
 		return null;
 	}
 
-	await keepSqliteIntegrationUpdated( server.details.path );
+	await keepSqliteIntegrationUpdated(server.details.path);
 
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	const parentWindow = BrowserWindow.fromWebContents(event.sender);
 	try {
 		await server.start();
-	} catch ( error ) {
+	} catch (error) {
 		/**
 		 * We don't want to track WASM memory errors in Sentry
 		 * because they are caused by the user's system not having enough memory
@@ -363,73 +363,73 @@ export async function startServer(
 		 */
 		if (
 			error instanceof Error &&
-			error.message.includes( 'Cannot allocate Wasm memory for new instance' )
+			error.message.includes('Cannot allocate Wasm memory for new instance')
 		) {
-			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
+			throw new Error('WASM_ERROR_NOT_ENOUGH_MEMORY');
 		}
 
-		const contexts: Record< string, Record< string, unknown > > = {
+		const contexts: Record<string, Record<string, unknown>> = {
 			server: {
 				running: server.details.running,
 				phpVersion: server.details.phpVersion,
 				port: server.details.port,
-				hasCustomDomain: !! server.details.customDomain,
-				httpsEnabled: !! server.details.enableHttps,
+				hasCustomDomain: !!server.details.customDomain,
+				httpsEnabled: !!server.details.enableHttps,
 			},
 		};
 
 		// Include sanitized CLI args if available from error
-		if ( error instanceof Error && 'cliArgs' in error ) {
-			contexts.startup = ( error as Error & { cliArgs: Record< string, unknown > } ).cliArgs;
+		if (error instanceof Error && 'cliArgs' in error) {
+			contexts.startup = (error as Error & { cliArgs: Record<string, unknown> }).cliArgs;
 		}
 
-		Sentry.captureException( error, {
+		Sentry.captureException(error, {
 			tags: {
 				provider: getWordPressProvider().PROVIDER_TYPE,
 			},
 			contexts,
-		} );
+		});
 		if (
 			error instanceof Error &&
-			error.message.includes( '"unreachable" WASM instruction executed' )
+			error.message.includes('"unreachable" WASM instruction executed')
 		) {
-			throw new Error( 'Please try disabling plugins and themes that might be causing the issue.' );
+			throw new Error('Please try disabling plugins and themes that might be causing the issue.');
 		}
 		throw error;
 	}
 
-	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-changed', {
+	sendIpcEventToRendererWithWindow(parentWindow, 'theme-details-changed', {
 		id,
 		details: server.details.themeDetails,
-	} );
+	});
 
-	if ( server.details.running ) {
-		void ( async () => {
+	if (server.details.running) {
+		void (async () => {
 			try {
 				await server.updateCachedThumbnail();
-				await sendThumbnailChangedEvent( event, id );
-			} catch ( error ) {
-				console.error( `Failed to update thumbnail for server ${ id }:`, error );
+				await sendThumbnailChangedEvent(event, id);
+			} catch (error) {
+				console.error(`Failed to update thumbnail for server ${id}:`, error);
 			}
-		} )();
+		})();
 	}
 
-	console.log( `Server started for '${ server.details.name }'` );
-	await updateSite( event, server.details );
+	console.log(`Server started for '${server.details.name}'`);
+	await updateSite(event, server.details);
 	return server.details;
 }
 
 export async function stopServer(
 	event: IpcMainInvokeEvent,
 	id: string
-): Promise< SiteDetails | null > {
-	const server = SiteServer.get( id );
-	if ( ! server ) {
+): Promise<SiteDetails | null> {
+	const server = SiteServer.get(id);
+	if (!server) {
 		return null;
 	}
 
 	await server.stop();
-	await updateSite( event, server.details );
+	await updateSite(event, server.details);
 	return server.details;
 }
 
@@ -440,21 +440,21 @@ export interface FolderDialogResponse {
 	isWordPress: boolean;
 }
 
-export async function showSaveAsDialog( event: IpcMainInvokeEvent, options: SaveDialogOptions ) {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( ! parentWindow ) {
-		throw new Error( `No window found for sender of showSaveAsDialog message: ${ event.frameId }` );
+export async function showSaveAsDialog(event: IpcMainInvokeEvent, options: SaveDialogOptions) {
+	const parentWindow = BrowserWindow.fromWebContents(event.sender);
+	if (!parentWindow) {
+		throw new Error(`No window found for sender of showSaveAsDialog message: ${event.frameId}`);
 	}
 
 	const defaultPath =
-		options.defaultPath === nodePath.basename( options.defaultPath ?? '' )
-			? nodePath.join( DEFAULT_SITE_PATH, options.defaultPath )
+		options.defaultPath === nodePath.basename(options.defaultPath ?? '')
+			? nodePath.join(DEFAULT_SITE_PATH, options.defaultPath)
 			: options.defaultPath;
-	const { canceled, filePath } = await dialog.showSaveDialog( parentWindow, {
+	const { canceled, filePath } = await dialog.showSaveDialog(parentWindow, {
 		defaultPath,
 		...options,
-	} );
-	if ( canceled ) {
+	});
+	if (canceled) {
 		return '';
 	}
 	return filePath;
@@ -464,71 +464,69 @@ export async function showOpenFolderDialog(
 	event: IpcMainInvokeEvent,
 	title: string,
 	defaultDialogPath: string
-): Promise< FolderDialogResponse | null > {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( ! parentWindow ) {
-		throw new Error(
-			`No window found for sender of showOpenFolderDialog message: ${ event.frameId }`
-		);
+): Promise<FolderDialogResponse | null> {
+	const parentWindow = BrowserWindow.fromWebContents(event.sender);
+	if (!parentWindow) {
+		throw new Error(`No window found for sender of showOpenFolderDialog message: ${event.frameId}`);
 	}
 
-	if ( process.env.E2E && process.env.E2E_OPEN_FOLDER_DIALOG ) {
+	if (process.env.E2E && process.env.E2E_OPEN_FOLDER_DIALOG) {
 		// Playwright's filechooser event isn't working in our e2e tests.
 		// Use an environment variable to manually set which folder gets selected.
 		return {
 			path: process.env.E2E_OPEN_FOLDER_DIALOG,
-			name: nodePath.basename( process.env.E2E_OPEN_FOLDER_DIALOG ),
-			isEmpty: await isEmptyDir( process.env.E2E_OPEN_FOLDER_DIALOG ),
-			isWordPress: isWordPressDirectory( process.env.E2E_OPEN_FOLDER_DIALOG ),
+			name: nodePath.basename(process.env.E2E_OPEN_FOLDER_DIALOG),
+			isEmpty: await isEmptyDir(process.env.E2E_OPEN_FOLDER_DIALOG),
+			isWordPress: isWordPressDirectory(process.env.E2E_OPEN_FOLDER_DIALOG),
 		};
 	}
 
-	const { canceled, filePaths } = await dialog.showOpenDialog( parentWindow, {
+	const { canceled, filePaths } = await dialog.showOpenDialog(parentWindow, {
 		title,
 		defaultPath: defaultDialogPath !== '' ? defaultDialogPath : DEFAULT_SITE_PATH,
 		properties: [
 			'openDirectory',
 			'createDirectory', // allow user to create new directories; macOS only
 		],
-	} );
-	if ( canceled ) {
+	});
+	if (canceled) {
 		return null;
 	}
 
 	return {
-		path: filePaths[ 0 ],
-		name: nodePath.basename( filePaths[ 0 ] ),
-		isEmpty: await isEmptyDir( filePaths[ 0 ] ),
-		isWordPress: isWordPressDirectory( filePaths[ 0 ] ),
+		path: filePaths[0],
+		name: nodePath.basename(filePaths[0]),
+		isEmpty: await isEmptyDir(filePaths[0]),
+		isWordPress: isWordPressDirectory(filePaths[0]),
 	};
 }
 
-export async function getSentryUserId( _event: IpcMainInvokeEvent ) {
+export async function getSentryUserId(_event: IpcMainInvokeEvent) {
 	const userData = await loadUserData();
 	return userData.sentryUserId;
 }
 
-export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteFiles = false ) {
+export async function deleteSite(event: IpcMainInvokeEvent, id: string, deleteFiles = false) {
 	try {
 		await lockAppdata();
 		const userData = await loadUserData();
-		const server = SiteServer.get( id );
-		console.log( 'Deleting site', id );
-		if ( ! server ) {
-			throw new Error( 'Site not found.' );
+		const server = SiteServer.get(id);
+		console.log('Deleting site', id);
+		if (!server) {
+			throw new Error('Site not found.');
 		}
 		await server.delete();
 		try {
 			// Move files to trash
-			if ( deleteFiles ) {
-				await shell.trashItem( server.details.path );
+			if (deleteFiles) {
+				await shell.trashItem(server.details.path);
 			}
-		} catch ( error ) {
+		} catch (error) {
 			/* We want to exit gracefully if the there is an error deleting the site files */
-			Sentry.captureException( error );
+			Sentry.captureException(error);
 		}
-		const newSites = userData.sites.filter( ( site ) => site.id !== id );
-		await saveUserData( { ...userData, sites: newSites } );
+		const newSites = userData.sites.filter((site) => site.id !== id);
+		await saveUserData({ ...userData, sites: newSites });
 	} finally {
 		await unlockAppdata();
 	}
@@ -540,14 +538,14 @@ export function logRendererMessage(
 	...args: unknown[]
 ): void {
 	// 4 characters long so it aligns with the main process logs
-	const processId = `ren${ event.sender.id }`;
-	writeLogToFile( level, processId, ...args );
+	const processId = `ren${event.sender.id}`;
+	writeLogToFile(level, processId, ...args);
 }
 
-export async function authenticate( event: IpcMainInvokeEvent, isSignup = false ) {
+export async function authenticate(event: IpcMainInvokeEvent, isSignup = false) {
 	const locale = await getUserLocaleWithFallback();
-	const authUrl = isSignup ? oauthClient.getSignUpUrl( locale ) : getAuthenticationUrl( locale );
-	void shellOpenExternalWrapper( authUrl );
+	const authUrl = isSignup ? oauthClient.getSignUpUrl(locale) : getAuthenticationUrl(locale);
+	void shellOpenExternalWrapper(authUrl);
 }
 
 export async function getAuthenticationToken() {
@@ -559,67 +557,65 @@ export async function isAuthenticated() {
 }
 
 export async function clearAuthenticationToken() {
-	return await updateAppdata( { authToken: undefined } );
+	return await updateAppdata({ authToken: undefined });
 }
 
 export async function exportSite(
 	event: IpcMainInvokeEvent,
 	options: ExportOptions
-): Promise< boolean > {
+): Promise<boolean> {
 	try {
-		await keepSqliteIntegrationUpdated( options.site.path );
+		await keepSqliteIntegrationUpdated(options.site.path);
 
-		const onEvent = ( data: ImportExportEventData ) => {
-			const parentWindow = BrowserWindow.fromWebContents( event.sender );
-			sendIpcEventToRendererWithWindow( parentWindow, 'on-export', data, options.site.id );
+		const onEvent = (data: ImportExportEventData) => {
+			const parentWindow = BrowserWindow.fromWebContents(event.sender);
+			sendIpcEventToRendererWithWindow(parentWindow, 'on-export', data, options.site.id);
 		};
 
-		const result = await exportBackup( options, onEvent );
+		const result = await exportBackup(options, onEvent);
 
-		if ( result ) {
-			const isDatabaseOnly = options.includes.database && ! options.includes.wpContent;
+		if (result) {
+			const isDatabaseOnly = options.includes.database && !options.includes.wpContent;
 			bumpStat(
 				StatsGroup.STUDIO_EXPORT,
 				isDatabaseOnly ? StatsMetric.DATABASE_ONLY : StatsMetric.FULL_SITE
 			);
 		} else {
-			bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
+			bumpStat(StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE);
 		}
 
 		return result;
-	} catch ( e ) {
-		bumpStat( StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE );
-		Sentry.captureException( e );
+	} catch (e) {
+		bumpStat(StatsGroup.STUDIO_EXPORT, StatsMetric.FAILURE);
+		Sentry.captureException(e);
 		throw e;
 	}
 }
 
-export async function saveSnapshotsToStorage( event: IpcMainInvokeEvent, snapshots: Snapshot[] ) {
+export async function saveSnapshotsToStorage(event: IpcMainInvokeEvent, snapshots: Snapshot[]) {
 	try {
 		await lockAppdata();
 		const userData = await loadUserData();
 		userData.snapshots = snapshots;
-		await saveUserData( userData );
+		await saveUserData(userData);
 	} finally {
 		await unlockAppdata();
 	}
 }
 
-export async function saveLastSeenVersion( event: IpcMainInvokeEvent, version: string ) {
-	await updateAppdata( { lastSeenVersion: version } );
+export async function saveLastSeenVersion(event: IpcMainInvokeEvent, version: string) {
+	await updateAppdata({ lastSeenVersion: version });
 }
 
-export async function getSnapshots( _event: IpcMainInvokeEvent ): Promise< Snapshot[] > {
+export async function getSnapshots(_event: IpcMainInvokeEvent): Promise<Snapshot[]> {
 	const userData = await loadUserData();
 	const { snapshots = [] } = userData;
 	return snapshots;
 }
 
-export async function getLastSeenVersion(
-	_event: IpcMainInvokeEvent
-): Promise< string | undefined > {
+export async function getLastSeenVersion(_event: IpcMainInvokeEvent): Promise<string | undefined> {
 	// If we're running in E2E mode, return the app version
-	if ( process.env.E2E ) {
+	if (process.env.E2E) {
 		return app.getVersion();
 	}
 	const userData = await loadUserData();
@@ -632,32 +628,38 @@ export async function openSiteURL(
 	relativeURL = '',
 	{ autoLogin = true }: { autoLogin?: boolean } = {}
 ) {
-	const site = SiteServer.get( id );
-	if ( ! site?.server?.url ) {
-		await showMessageBox( event, {
+	const site = SiteServer.get(id);
+	if (!site?.server?.url) {
+		await showMessageBox(event, {
 			type: 'error',
-			message: __( 'Failed to open link' ),
-			detail: __( 'Please ensure your site files have not been moved or deleted.' ),
-		} );
+			message: __('Failed to open link'),
+			detail: __('Please ensure your site files have not been moved or deleted.'),
+		});
 		return;
 	}
 
-	let url = new URL( relativeURL, site.server.url );
-	if ( autoLogin ) {
-		const autoLoginUrl = new URL( '/studio-auto-login', site.server.url );
-		autoLoginUrl.searchParams.append( 'redirect_to', url.toString() );
+	let url = new URL(relativeURL, site.server.url);
+	if (autoLogin) {
+		// Use auto-login endpoint to ensure user is logged in
+		const autoLoginUrl = new URL('/studio-auto-login', site.server.url);
+		autoLoginUrl.searchParams.append('redirect_to', url.toString());
 		url = autoLoginUrl;
+	} else {
+		// Use auto-logout endpoint to ensure user is logged out
+		const autoLogoutUrl = new URL('/studio-auto-logout', site.server.url);
+		autoLogoutUrl.searchParams.append('redirect_to', url.toString());
+		url = autoLogoutUrl;
 	}
 
-	void shellOpenExternalWrapper( url.toString() );
+	void shellOpenExternalWrapper(url.toString());
 }
 
-export function openURL( event: IpcMainInvokeEvent, url: string ) {
-	void shellOpenExternalWrapper( url );
+export function openURL(event: IpcMainInvokeEvent, url: string) {
+	void shellOpenExternalWrapper(url);
 }
 
-export function copyText( event: IpcMainInvokeEvent, text: string ) {
-	return clipboard.writeText( text );
+export function copyText(event: IpcMainInvokeEvent, text: string) {
+	return clipboard.writeText(text);
 }
 
 export function getAppGlobals(): AppGlobals {
@@ -670,30 +672,30 @@ export function getAppGlobals(): AppGlobals {
 	};
 }
 
-export function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
-	const server = SiteServer.get( id );
-	if ( ! server ) {
+export function getWpVersion(_event: IpcMainInvokeEvent, id: string) {
+	const server = SiteServer.get(id);
+	if (!server) {
 		return '-';
 	}
 	const wordPressPath = server.details.path;
-	return getWordPressVersion( wordPressPath );
+	return getWordPressVersion(wordPressPath);
 }
 
 export async function generateProposedSitePath(
 	_event: IpcMainInvokeEvent,
 	siteName: string
-): Promise< FolderDialogResponse > {
-	const path = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( siteName ) );
+): Promise<FolderDialogResponse> {
+	const path = nodePath.join(DEFAULT_SITE_PATH, sanitizeFolderName(siteName));
 
 	try {
 		return {
 			path,
 			name: siteName,
-			isEmpty: await isEmptyDir( path ),
-			isWordPress: isWordPressDirectory( path ),
+			isEmpty: await isEmptyDir(path),
+			isWordPress: isWordPressDirectory(path),
 		};
-	} catch ( err ) {
-		if ( isErrnoException( err ) && err.code === 'ENOENT' ) {
+	} catch (err) {
+		if (isErrnoException(err) && err.code === 'ENOENT') {
 			return {
 				path,
 				name: siteName,
@@ -705,63 +707,63 @@ export async function generateProposedSitePath(
 	}
 }
 
-export async function openLocalPath( _event: IpcMainInvokeEvent, path: string ) {
-	await shell.openPath( path );
+export async function openLocalPath(_event: IpcMainInvokeEvent, path: string) {
+	await shell.openPath(path);
 }
 
-export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
-	shell.showItemInFolder( path );
+export function showItemInFolder(_event: IpcMainInvokeEvent, path: string) {
+	shell.showItemInFolder(path);
 }
 
 export async function getThemeDetails(
 	event: IpcMainInvokeEvent,
 	id: string
-): Promise< StartedSiteDetails[ 'themeDetails' ] > {
-	const server = SiteServer.get( id );
-	if ( ! server ) {
-		throw new Error( 'Site not found.' );
+): Promise<StartedSiteDetails['themeDetails']> {
+	const server = SiteServer.get(id);
+	if (!server) {
+		throw new Error('Site not found.');
 	}
 
-	if ( ! server.details.running || ! server.server ) {
+	if (!server.details.running || !server.server) {
 		return undefined;
 	}
-	const themeDetails = await phpGetThemeDetails( server.server );
+	const themeDetails = await phpGetThemeDetails(server.server);
 
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( themeDetails?.path && themeDetails.path !== server.details.themeDetails?.path ) {
-		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id } );
+	const parentWindow = BrowserWindow.fromWebContents(event.sender);
+	if (themeDetails?.path && themeDetails.path !== server.details.themeDetails?.path) {
+		sendIpcEventToRendererWithWindow(parentWindow, 'theme-details-updating', { id });
 		const updatedSite = {
 			...server.details,
 			themeDetails,
 		};
-		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-changed', {
+		sendIpcEventToRendererWithWindow(parentWindow, 'theme-details-changed', {
 			id,
 			details: themeDetails,
-		} );
+		});
 
 		void server
 			.updateCachedThumbnail()
-			.then( () => sendThumbnailChangedEvent( event, id ) )
-			.catch( ( error ) => {
-				console.error( `Failed to update thumbnail for server ${ id }:`, error );
-			} );
+			.then(() => sendThumbnailChangedEvent(event, id))
+			.catch((error) => {
+				console.error(`Failed to update thumbnail for server ${id}:`, error);
+			});
 		server.details.themeDetails = themeDetails;
-		await updateSite( event, updatedSite );
+		await updateSite(event, updatedSite);
 	}
 	return themeDetails;
 }
 
-export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< boolean > {
+export async function getOnboardingData(_event: IpcMainInvokeEvent): Promise<boolean> {
 	const userData = await loadUserData();
 	const { onboardingCompleted = false } = userData;
 	return onboardingCompleted;
 }
 
-export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompleted: boolean ) {
-	await updateAppdata( { onboardingCompleted } );
+export async function saveOnboarding(event: IpcMainInvokeEvent, onboardingCompleted: boolean) {
+	await updateAppdata({ onboardingCompleted });
 }
 
-export async function getBetaFeatures( _event: IpcMainInvokeEvent ): Promise< BetaFeatures > {
+export async function getBetaFeatures(_event: IpcMainInvokeEvent): Promise<BetaFeatures> {
 	return await getBetaFeaturesFromLib();
 }
 
@@ -776,71 +778,71 @@ export async function executeWPCLiInline(
 		args: string;
 		skipPluginsAndThemes?: boolean;
 	}
-): Promise< WpCliResult > {
-	if ( SiteServer.isDeleted( siteId ) ) {
+): Promise<WpCliResult> {
+	if (SiteServer.isDeleted(siteId)) {
 		return {
 			stdout: '',
-			stderr: `Cannot execute command on deleted site ${ siteId }`,
+			stderr: `Cannot execute command on deleted site ${siteId}`,
 			exitCode: 1,
 		};
 	}
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( 'Site not found.' );
+	const server = SiteServer.get(siteId);
+	if (!server) {
+		throw new Error('Site not found.');
 	}
-	return server.executeWpCliCommand( args, {
+	return server.executeWpCliCommand(args, {
 		skipPluginsAndThemes,
-	} );
+	});
 }
 
-export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
-	const path = getSiteThumbnailPath( id );
-	return getImageData( path );
+export function getThumbnailData(_event: IpcMainInvokeEvent, id: string) {
+	const path = getSiteThumbnailPath(id);
+	return getImageData(path);
 }
 
-function promiseExec( command: string, options: ExecOptions = {} ): Promise< void > {
-	return new Promise( ( resolve, reject ) => {
-		exec( command, options, ( error ) => {
-			if ( error ) {
-				reject( error );
+function promiseExec(command: string, options: ExecOptions = {}): Promise<void> {
+	return new Promise((resolve, reject) => {
+		exec(command, options, (error) => {
+			if (error) {
+				reject(error);
 				return;
 			}
 			resolve();
-		} );
-	} );
+		});
+	});
 }
 
-export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: string ) {
+export async function openTerminalAtPath(_event: IpcMainInvokeEvent, targetPath: string) {
 	const platform = process.platform;
 
 	const preferredTerminal = await getUserTerminal();
 
-	if ( platform === 'darwin' ) {
-		const escapedPath = targetPath.replace( /\\/g, '\\\\' ).replace( /"/g, '\\"' );
+	if (platform === 'darwin') {
+		const escapedPath = targetPath.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 		const bundleIds = {
 			warp: 'dev.warp.Warp-Stable',
 			ghostty: 'com.mitchellh.ghostty',
 			iterm: 'com.googlecode.iterm2',
 			terminal: 'com.apple.Terminal',
 		};
-		return promiseExec( `open -b ${ bundleIds[ preferredTerminal ] } "${ escapedPath }"` );
-	} else if ( platform === 'win32' ) {
+		return promiseExec(`open -b ${bundleIds[preferredTerminal]} "${escapedPath}"`);
+	} else if (platform === 'win32') {
 		const userData = await loadUserData();
 		const preferredTerminal = userData.preferredTerminal;
 		const defaultShell = process.env.ComSpec || 'cmd.exe';
 
-		if ( preferredTerminal === 'warp' ) {
-			const encodedPath = encodeURIComponent( targetPath );
-			return promiseExec( `start "" "warp://action/new_tab?path=${ encodedPath }"` );
+		if (preferredTerminal === 'warp') {
+			const encodedPath = encodeURIComponent(targetPath);
+			return promiseExec(`start "" "warp://action/new_tab?path=${encodedPath}"`);
 		}
 
-		return promiseExec( `start "Command Prompt" ${ defaultShell }`, {
+		return promiseExec(`start "Command Prompt" ${defaultShell}`, {
 			cwd: targetPath,
-		} );
-	} else if ( platform === 'linux' ) {
-		return promiseExec( `gnome-terminal --working-directory=${ targetPath }` );
+		});
+	} else if (platform === 'linux') {
+		return promiseExec(`gnome-terminal --working-directory=${targetPath}`);
 	} else {
-		console.error( 'Unsupported platform:', platform );
+		console.error('Unsupported platform:', platform);
 		return;
 	}
 }
@@ -849,33 +851,33 @@ export async function openAppAtPath(
 	event: IpcMainInvokeEvent,
 	editorKey: SupportedEditor,
 	filePath: string
-): Promise< void > {
+): Promise<void> {
 	const platform = process.platform;
-	const editor = supportedEditorConfig[ editorKey ];
+	const editor = supportedEditorConfig[editorKey];
 
-	if ( platform === 'darwin' ) {
-		return promiseExec( `open -b ${ editor.macOSBundleId } "${ filePath }"` );
+	if (platform === 'darwin') {
+		return promiseExec(`open -b ${editor.macOSBundleId} "${filePath}"`);
 	}
 
-	if ( platform === 'win32' ) {
-		const editorPath = await winFindEditorPath( editorKey );
-		if ( ! editorPath ) {
+	if (platform === 'win32') {
+		const editorPath = await winFindEditorPath(editorKey);
+		if (!editorPath) {
 			// Fall back to using openURL if no editor path is found
-			return openURL( event, editor.url( filePath ) );
+			return openURL(event, editor.url(filePath));
 		}
 
-		return promiseExec( `"${ editorPath }" "${ filePath }"` );
+		return promiseExec(`"${editorPath}" "${filePath}"`);
 	}
 
-	throw new Error( `Platform ${ platform } is not supported` );
+	throw new Error(`Platform ${platform} is not supported`);
 }
 
-export function showMessageBox( event: IpcMainInvokeEvent, options: Electron.MessageBoxOptions ) {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( parentWindow && ! parentWindow.isDestroyed() && ! event.sender.isDestroyed() ) {
-		return dialog.showMessageBox( parentWindow, options );
+export function showMessageBox(event: IpcMainInvokeEvent, options: Electron.MessageBoxOptions) {
+	const parentWindow = BrowserWindow.fromWebContents(event.sender);
+	if (parentWindow && !parentWindow.isDestroyed() && !event.sender.isDestroyed()) {
+		return dialog.showMessageBox(parentWindow, options);
 	}
-	return dialog.showMessageBox( options );
+	return dialog.showMessageBox(options);
 }
 
 export async function showErrorMessageBox(
@@ -887,24 +889,24 @@ export async function showErrorMessageBox(
 		showOpenLogs = false,
 	}: { title: string; message: string; error?: unknown; showOpenLogs?: boolean }
 ) {
-	const simplifiedError = simplifyErrorForDisplay( error );
+	const simplifiedError = simplifyErrorForDisplay(error);
 	// Remove prepended error message added by IPC handler
-	const filteredError = ( simplifiedError as Error )?.message?.replace(
+	const filteredError = (simplifiedError as Error)?.message?.replace(
 		/Error invoking remote method '\w+': Error:/g,
 		''
 	);
-	const response = await showMessageBox( event, {
+	const response = await showMessageBox(event, {
 		type: 'error',
 		message: title,
-		detail: error ? `${ message }\n\n${ filteredError }` : message,
-		buttons: [ ...( showOpenLogs ? [ __( 'Open Studio Logs' ) ] : [] ), __( 'OK' ) ],
-	} );
+		detail: error ? `${message}\n\n${filteredError}` : message,
+		buttons: [...(showOpenLogs ? [__('Open Studio Logs')] : []), __('OK')],
+	});
 
-	if ( showOpenLogs && response.response === 0 ) {
+	if (showOpenLogs && response.response === 0) {
 		const logFilePath = getLogsFilePath();
-		const err = await shell.openPath( logFilePath );
-		if ( err ) {
-			console.error( `Error opening logs file: ${ logFilePath } ${ err }` );
+		const err = await shell.openPath(logFilePath);
+		if (err) {
+			console.error(`Error opening logs file: ${logFilePath} ${err}`);
 		}
 	}
 }
@@ -913,17 +915,17 @@ export function showNotification(
 	_event: IpcMainInvokeEvent,
 	options: Electron.NotificationConstructorOptions
 ) {
-	new Notification( options ).show();
+	new Notification(options).show();
 }
 
 export async function setupAppMenu(
 	_event: IpcMainInvokeEvent,
 	config: { needsOnboarding: boolean; isAddSiteVisible?: boolean }
 ) {
-	await setupMenu( config );
+	await setupMenu(config);
 }
 
-export async function popupAppMenu( _event: IpcMainInvokeEvent ) {
+export async function popupAppMenu(_event: IpcMainInvokeEvent) {
 	await popupMenu();
 }
 
@@ -931,28 +933,28 @@ export async function promptWindowsSpeedUpSites(
 	_event: IpcMainInvokeEvent,
 	{ skipIfAlreadyPrompted }: { skipIfAlreadyPrompted: boolean }
 ) {
-	await windowsHelpers.promptWindowsSpeedUpSites( { skipIfAlreadyPrompted } );
+	await windowsHelpers.promptWindowsSpeedUpSites({ skipIfAlreadyPrompted });
 }
 
-export function setDefaultLocaleData( _event: IpcMainInvokeEvent, locale?: LocaleData ) {
-	defaultI18n.setLocaleData( locale );
+export function setDefaultLocaleData(_event: IpcMainInvokeEvent, locale?: LocaleData) {
+	defaultI18n.setLocaleData(locale);
 }
 
-export function resetDefaultLocaleData( _event: IpcMainInvokeEvent ) {
+export function resetDefaultLocaleData(_event: IpcMainInvokeEvent) {
 	defaultI18n.resetLocaleData();
 }
 
-export function toggleMinWindowWidth( event: IpcMainInvokeEvent, isSidebarVisible: boolean ) {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( ! parentWindow || parentWindow.isDestroyed() || event.sender.isDestroyed() ) {
+export function toggleMinWindowWidth(event: IpcMainInvokeEvent, isSidebarVisible: boolean) {
+	const parentWindow = BrowserWindow.fromWebContents(event.sender);
+	if (!parentWindow || parentWindow.isDestroyed() || event.sender.isDestroyed()) {
 		return;
 	}
-	const [ currentWidth, currentHeight ] = parentWindow.getSize();
+	const [currentWidth, currentHeight] = parentWindow.getSize();
 	const newWidth = Math.max(
 		MAIN_MIN_WIDTH,
 		isSidebarVisible ? currentWidth - SIDEBAR_WIDTH : currentWidth + SIDEBAR_WIDTH
 	);
-	parentWindow.setSize( newWidth, currentHeight, true );
+	parentWindow.setSize(newWidth, currentHeight, true);
 }
 
 /**
@@ -963,14 +965,14 @@ export async function getAbsolutePathFromSite(
 	_event: IpcMainInvokeEvent,
 	siteId: string,
 	relativePath: string
-): Promise< string | null > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( 'Site not found.' );
+): Promise<string | null> {
+	const server = SiteServer.get(siteId);
+	if (!server) {
+		throw new Error('Site not found.');
 	}
 
-	const path = nodePath.join( server.details.path, relativePath );
-	return ( await pathExists( path ) ) ? path : null;
+	const path = nodePath.join(server.details.path, relativePath);
+	return (await pathExists(path)) ? path : null;
 }
 
 /**
@@ -981,71 +983,71 @@ export async function openFileInIDE(
 	relativePath: string,
 	siteId: string
 ) {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) {
-		throw new Error( 'Site not found.' );
+	const server = SiteServer.get(siteId);
+	if (!server) {
+		throw new Error('Site not found.');
 	}
 
-	const path = await getAbsolutePathFromSite( _event, siteId, relativePath );
-	if ( ! path ) {
+	const path = await getAbsolutePathFromSite(_event, siteId, relativePath);
+	if (!path) {
 		return;
 	}
 
-	if ( isInstalled( 'vscode' ) ) {
+	if (isInstalled('vscode')) {
 		// Open site first to ensure the file is opened within the site context
-		await shellOpenExternalWrapper( `vscode://file/${ server.details.path }?windowId=_blank` );
-		await shellOpenExternalWrapper( `vscode://file/${ path }` );
-	} else if ( isInstalled( 'phpstorm' ) ) {
+		await shellOpenExternalWrapper(`vscode://file/${server.details.path}?windowId=_blank`);
+		await shellOpenExternalWrapper(`vscode://file/${path}`);
+	} else if (isInstalled('phpstorm')) {
 		// Open site first to ensure the file is opened within the site context
-		await shellOpenExternalWrapper( `phpstorm://open?file=${ path }` );
+		await shellOpenExternalWrapper(`phpstorm://open?file=${path}`);
 	}
 }
 
-export async function isImportExportSupported( _event: IpcMainInvokeEvent, siteId: string ) {
-	const site = SiteServer.get( siteId );
-	if ( ! site ) {
-		throw new Error( 'Site not found.' );
+export async function isImportExportSupported(_event: IpcMainInvokeEvent, siteId: string) {
+	const site = SiteServer.get(siteId);
+	if (!site) {
+		throw new Error('Site not found.');
 	}
 	return site.hasSQLitePlugin();
 }
 
-export function getDirectorySize( _event: IpcMainInvokeEvent, siteId: string, subdir: string[] ) {
-	const site = SiteServer.get( siteId );
-	if ( ! site ) {
-		throw new Error( 'Site not found.' );
+export function getDirectorySize(_event: IpcMainInvokeEvent, siteId: string, subdir: string[]) {
+	const site = SiteServer.get(siteId);
+	if (!site) {
+		throw new Error('Site not found.');
 	}
-	return calculateDirectorySize( nodePath.join( site.details.path, ...subdir ) );
+	return calculateDirectorySize(nodePath.join(site.details.path, ...subdir));
 }
 
-export function getFileSize( _event: IpcMainInvokeEvent, siteId: string, filePath: string[] ) {
-	const site = SiteServer.get( siteId );
-	if ( ! site ) {
-		throw new Error( 'Site not found.' );
+export function getFileSize(_event: IpcMainInvokeEvent, siteId: string, filePath: string[]) {
+	const site = SiteServer.get(siteId);
+	if (!site) {
+		throw new Error('Site not found.');
 	}
-	return fs.statSync( nodePath.join( site.details.path, ...filePath ) ).size;
+	return fs.statSync(nodePath.join(site.details.path, ...filePath)).size;
 }
 
-export function openCertificate( _event: IpcMainInvokeEvent ) {
+export function openCertificate(_event: IpcMainInvokeEvent) {
 	return openCertificateDialog();
 }
 
-export async function isCATrusted(): Promise< boolean > {
+export async function isCATrusted(): Promise<boolean> {
 	return isRootCATrusted();
 }
 
-export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< void > {
+export async function trustCertificate(event: IpcMainInvokeEvent): Promise<void> {
 	const platform = process.platform;
-	if ( platform === 'win32' ) {
+	if (platform === 'win32') {
 		try {
 			await trustRootCA();
-		} catch ( error ) {
-			await showErrorMessageBox( event, {
-				title: __( 'Certificate Trust Failed' ),
+		} catch (error) {
+			await showErrorMessageBox(event, {
+				title: __('Certificate Trust Failed'),
 				message: __(
 					'Studio was unable to trust the certificate automatically. You may need to trust it manually using certificate manager.'
 				),
 				showOpenLogs: true,
-			} );
+			});
 		}
 	} else {
 		await openCertificateDialog();
@@ -1068,14 +1070,14 @@ export function showSiteContextMenu(
 		context;
 	const menu = new Menu();
 
-	if ( isRunning ) {
+	if (isRunning) {
 		menu.append(
-			new MenuItem( {
-				label: __( 'Stop' ),
-				enabled: ! isAddingSite,
+			new MenuItem({
+				label: __('Stop'),
+				enabled: !isAddingSite,
 				click: () => {
 					sendIpcEventToRendererWithWindow(
-						BrowserWindow.fromWebContents( event.sender ),
+						BrowserWindow.fromWebContents(event.sender),
 						'site-context-menu-action',
 						{
 							action: 'stop',
@@ -1083,16 +1085,16 @@ export function showSiteContextMenu(
 						}
 					);
 				},
-			} )
+			})
 		);
 	} else {
 		menu.append(
-			new MenuItem( {
-				label: __( 'Start' ),
-				enabled: ! isLoading && ! isAddingSite,
+			new MenuItem({
+				label: __('Start'),
+				enabled: !isLoading && !isAddingSite,
 				click: () => {
 					sendIpcEventToRendererWithWindow(
-						BrowserWindow.fromWebContents( event.sender ),
+						BrowserWindow.fromWebContents(event.sender),
 						'site-context-menu-action',
 						{
 							action: 'start',
@@ -1100,19 +1102,19 @@ export function showSiteContextMenu(
 						}
 					);
 				},
-			} )
+			})
 		);
 	}
 
-	menu.append( new MenuItem( { type: 'separator' } ) );
+	menu.append(new MenuItem({ type: 'separator' }));
 
 	menu.append(
-		new MenuItem( {
-			label: __( 'Open site' ),
-			enabled: ! isLoading && ! isAddingSite,
+		new MenuItem({
+			label: __('Open site'),
+			enabled: !isLoading && !isAddingSite,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
-					BrowserWindow.fromWebContents( event.sender ),
+					BrowserWindow.fromWebContents(event.sender),
 					'site-context-menu-action',
 					{
 						action: 'open-site',
@@ -1120,16 +1122,16 @@ export function showSiteContextMenu(
 					}
 				);
 			},
-		} )
+		})
 	);
 
 	menu.append(
-		new MenuItem( {
-			label: __( 'WP admin' ),
-			enabled: ! isLoading && ! isAddingSite,
+		new MenuItem({
+			label: __('WP admin'),
+			enabled: !isLoading && !isAddingSite,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
-					BrowserWindow.fromWebContents( event.sender ),
+					BrowserWindow.fromWebContents(event.sender),
 					'site-context-menu-action',
 					{
 						action: 'open-admin',
@@ -1137,22 +1139,22 @@ export function showSiteContextMenu(
 					}
 				);
 			},
-		} )
+		})
 	);
 
-	menu.append( new MenuItem( { type: 'separator' } ) );
+	menu.append(new MenuItem({ type: 'separator' }));
 
 	menu.append(
-		new MenuItem( {
+		new MenuItem({
 			label: sprintf(
 				/* translators: %s is the name of the file explorer. E.g. "Open in Finder" */
-				__( 'Open in %s' ),
+				__('Open in %s'),
 				finderLabel
 			),
-			enabled: ! isAddingSite,
+			enabled: !isAddingSite,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
-					BrowserWindow.fromWebContents( event.sender ),
+					BrowserWindow.fromWebContents(event.sender),
 					'site-context-menu-action',
 					{
 						action: 'open-finder',
@@ -1160,21 +1162,21 @@ export function showSiteContextMenu(
 					}
 				);
 			},
-		} )
+		})
 	);
 
-	if ( editorLabel ) {
+	if (editorLabel) {
 		menu.append(
-			new MenuItem( {
+			new MenuItem({
 				label: sprintf(
 					/* translators: %s is the name of the editor. E.g. "Open in Cursor" */
-					__( 'Open in %s' ),
+					__('Open in %s'),
 					editorLabel
 				),
-				enabled: ! isAddingSite,
+				enabled: !isAddingSite,
 				click: () => {
 					sendIpcEventToRendererWithWindow(
-						BrowserWindow.fromWebContents( event.sender ),
+						BrowserWindow.fromWebContents(event.sender),
 						'site-context-menu-action',
 						{
 							action: 'open-editor',
@@ -1182,21 +1184,21 @@ export function showSiteContextMenu(
 						}
 					);
 				},
-			} )
+			})
 		);
 	}
 
 	menu.append(
-		new MenuItem( {
+		new MenuItem({
 			label: sprintf(
 				/* translators: %s is the name of the terminal. E.g. "Open in Terminal" */
-				__( 'Open in %s' ),
+				__('Open in %s'),
 				terminalLabel
 			),
-			enabled: ! isAddingSite,
+			enabled: !isAddingSite,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
-					BrowserWindow.fromWebContents( event.sender ),
+					BrowserWindow.fromWebContents(event.sender),
 					'site-context-menu-action',
 					{
 						action: 'open-terminal',
@@ -1204,18 +1206,18 @@ export function showSiteContextMenu(
 					}
 				);
 			},
-		} )
+		})
 	);
 
-	menu.append( new MenuItem( { type: 'separator' } ) );
+	menu.append(new MenuItem({ type: 'separator' }));
 
 	menu.append(
-		new MenuItem( {
-			label: __( 'Edit site…' ),
-			enabled: ! isAddingSite,
+		new MenuItem({
+			label: __('Edit site…'),
+			enabled: !isAddingSite,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
-					BrowserWindow.fromWebContents( event.sender ),
+					BrowserWindow.fromWebContents(event.sender),
 					'site-context-menu-action',
 					{
 						action: 'edit-site',
@@ -1223,16 +1225,16 @@ export function showSiteContextMenu(
 					}
 				);
 			},
-		} )
+		})
 	);
 
 	menu.append(
-		new MenuItem( {
-			label: __( 'Delete site…' ),
-			enabled: ! isLoading && ! isAddingSite,
+		new MenuItem({
+			label: __('Delete site…'),
+			enabled: !isLoading && !isAddingSite,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
-					BrowserWindow.fromWebContents( event.sender ),
+					BrowserWindow.fromWebContents(event.sender),
 					'site-context-menu-action',
 					{
 						action: 'delete',
@@ -1240,12 +1242,12 @@ export function showSiteContextMenu(
 					}
 				);
 			},
-		} )
+		})
 	);
 
-	const window = BrowserWindow.fromWebContents( event.sender );
-	if ( window ) {
-		menu.popup( { window } );
+	const window = BrowserWindow.fromWebContents(event.sender);
+	if (window) {
+		menu.popup({ window });
 	}
 }
 
@@ -1256,45 +1258,45 @@ export function showSiteContextMenu(
 export async function checkSyncBackupSize(
 	event: IpcMainInvokeEvent,
 	downloadUrl: string
-): Promise< number > {
-	return new Promise( ( resolve, reject ) => {
+): Promise<number> {
+	return new Promise((resolve, reject) => {
 		https
-			.get( downloadUrl, { method: 'HEAD' }, ( res ) => {
-				if ( res.statusCode !== 200 ) {
-					reject( new Error( `Failed to fetch file size: ${ res.statusMessage }` ) );
+			.get(downloadUrl, { method: 'HEAD' }, (res) => {
+				if (res.statusCode !== 200) {
+					reject(new Error(`Failed to fetch file size: ${res.statusMessage}`));
 					return;
 				}
 
-				const contentLength = res.headers[ 'content-length' ];
-				if ( ! contentLength ) {
-					reject( new Error( 'Content-Length header not found' ) );
+				const contentLength = res.headers['content-length'];
+				if (!contentLength) {
+					reject(new Error('Content-Length header not found'));
 					return;
 				}
 
-				resolve( parseInt( contentLength, 10 ) );
-			} )
-			.on( 'error', ( error: Error ) => {
-				Sentry.captureException( error );
-				reject( new Error( `Failed to check backup file size: ${ error.message }` ) );
-			} );
-	} );
+				resolve(parseInt(contentLength, 10));
+			})
+			.on('error', (error: Error) => {
+				Sentry.captureException(error);
+				reject(new Error(`Failed to check backup file size: ${error.message}`));
+			});
+	});
 }
 
-export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
+export async function isFullscreen(_event: IpcMainInvokeEvent): Promise<boolean> {
 	const window = await getMainWindow();
 	return window.isFullScreen();
 }
 
-export async function getAllCustomDomains(): Promise< string[] > {
+export async function getAllCustomDomains(): Promise<string[]> {
 	const userData = await loadUserData();
 
 	return userData.sites
-		.map( ( site ) => site.customDomain )
-		.filter( ( domain ): domain is string => domain !== undefined );
+		.map((site) => site.customDomain)
+		.filter((domain): domain is string => domain !== undefined);
 }
 
-export function comparePaths( event: IpcMainInvokeEvent, path1: string, path2: string ) {
-	return arePathsEqual( path1, path2 );
+export function comparePaths(event: IpcMainInvokeEvent, path1: string, path2: string) {
+	return arePathsEqual(path1, path2);
 }
 
 export async function listLocalFileTree(
@@ -1303,23 +1305,23 @@ export async function listLocalFileTree(
 	path: string,
 	maxDepth: number = 3,
 	currentDepth: number = 0
-): Promise< RawDirectoryEntry[] > {
-	const server = SiteServer.get( siteId );
-	if ( ! server ) throw new Error( 'Site not found' );
+): Promise<RawDirectoryEntry[]> {
+	const server = SiteServer.get(siteId);
+	if (!server) throw new Error('Site not found');
 
-	const fullPath = nodePath.join( server.details.path, path );
+	const fullPath = nodePath.join(server.details.path, path);
 
 	try {
-		const entries = await fs.promises.readdir( fullPath, { withFileTypes: true } );
+		const entries = await fs.promises.readdir(fullPath, { withFileTypes: true });
 		const result = [];
 
-		for ( const entry of entries ) {
-			if ( shouldExcludeFromSync( entry.name ) ) {
+		for (const entry of entries) {
+			if (shouldExcludeFromSync(entry.name)) {
 				continue;
 			}
 
 			const isDirectory = entry.isDirectory();
-			const itemPath = nodePath.join( path, entry.name ).replace( /\\/g, '/' );
+			const itemPath = nodePath.join(path, entry.name).replace(/\\/g, '/');
 
 			const directoryEntry: RawDirectoryEntry = {
 				name: entry.name,
@@ -1327,8 +1329,8 @@ export async function listLocalFileTree(
 				path: itemPath,
 			};
 
-			const shouldLimit = shouldLimitDepth( itemPath );
-			if ( isDirectory && currentDepth < maxDepth && ! shouldLimit ) {
+			const shouldLimit = shouldLimitDepth(itemPath);
+			if (isDirectory && currentDepth < maxDepth && !shouldLimit) {
 				try {
 					directoryEntry.children = await listLocalFileTree(
 						_event,
@@ -1337,53 +1339,53 @@ export async function listLocalFileTree(
 						maxDepth,
 						currentDepth + 1
 					);
-				} catch ( childErr ) {
-					console.warn( `Failed to load children for ${ itemPath }:`, childErr );
+				} catch (childErr) {
+					console.warn(`Failed to load children for ${itemPath}:`, childErr);
 					directoryEntry.children = [];
 				}
 			}
 
-			result.push( directoryEntry );
+			result.push(directoryEntry);
 		}
 
 		return result;
-	} catch ( err ) {
-		console.error( `Failed to list raw file tree for path ${ path }:`, err );
+	} catch (err) {
+		console.error(`Failed to list raw file tree for path ${path}:`, err);
 		return [];
 	}
 }
 
-export async function getProviderConstants( _event: IpcMainInvokeEvent ) {
+export async function getProviderConstants(_event: IpcMainInvokeEvent) {
 	const provider = getWordPressProvider();
-	return getProviderConstantsFromProvider( provider );
+	return getProviderConstantsFromProvider(provider);
 }
 
 export async function validateBlueprint(
 	_event: IpcMainInvokeEvent,
-	blueprintJson: Blueprint[ 'blueprint' ]
+	blueprintJson: Blueprint['blueprint']
 ) {
-	return validateBlueprintData( blueprintJson );
+	return validateBlueprintData(blueprintJson);
 }
 
 export async function readBlueprintFile(
 	_event: IpcMainInvokeEvent,
 	filePath: string
-): Promise< Blueprint[ 'blueprint' ] > {
-	const allowedDir = nodePath.join( app.getPath( 'temp' ), 'wp-studio-blueprints' );
-	const resolvedPath = nodePath.resolve( filePath );
+): Promise<Blueprint['blueprint']> {
+	const allowedDir = nodePath.join(app.getPath('temp'), 'wp-studio-blueprints');
+	const resolvedPath = nodePath.resolve(filePath);
 
-	const normalizedAllowedDir = nodePath.resolve( allowedDir );
-	if ( ! resolvedPath.startsWith( normalizedAllowedDir + nodePath.sep ) ) {
-		throw new Error( 'Blueprint file path must be within the allowed directory' );
+	const normalizedAllowedDir = nodePath.resolve(allowedDir);
+	if (!resolvedPath.startsWith(normalizedAllowedDir + nodePath.sep)) {
+		throw new Error('Blueprint file path must be within the allowed directory');
 	}
 
-	const fileContents = await fsPromises.readFile( resolvedPath, 'utf-8' );
-	return JSON.parse( fileContents );
+	const fileContents = await fsPromises.readFile(resolvedPath, 'utf-8');
+	return JSON.parse(fileContents);
 }
 
-export async function setWindowControlVisibility( event: IpcMainInvokeEvent, visible: boolean ) {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( parentWindow && process.platform === 'darwin' ) {
-		parentWindow.setWindowButtonVisibility( visible );
+export async function setWindowControlVisibility(event: IpcMainInvokeEvent, visible: boolean) {
+	const parentWindow = BrowserWindow.fromWebContents(event.sender);
+	if (parentWindow && process.platform === 'darwin') {
+		parentWindow.setWindowButtonVisibility(visible);
 	}
 }

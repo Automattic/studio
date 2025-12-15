@@ -22,11 +22,11 @@ export interface MuPluginOptions {
  * Create a loader mu-plugin that loads the Studio mu-plugins
  * @returns The path to the loader mu-plugin
  */
-async function createLoaderMuPlugin(): Promise< string > {
+async function createLoaderMuPlugin(): Promise<string> {
 	try {
 		// Create a temporary file for the loader mu-plugin
-		const tempDir = await mkdtemp( join( tmpdir(), 'studio-loader-' ) );
-		const loaderPath = join( tempDir, '99-studio-loader.php' );
+		const tempDir = await mkdtemp(join(tmpdir(), 'studio-loader-'));
+		const loaderPath = join(tempDir, '99-studio-loader.php');
 
 		const loaderContent = `<?php
 		/**
@@ -63,10 +63,10 @@ async function createLoaderMuPlugin(): Promise< string > {
 		}
 		`;
 
-		await writeFile( loaderPath, loaderContent );
+		await writeFile(loaderPath, loaderContent);
 		return loaderPath;
-	} catch ( error ) {
-		throw new Error( `Failed to create loader mu-plugin: ${ error }` );
+	} catch (error) {
+		throw new Error(`Failed to create loader mu-plugin: ${error}`);
 	}
 }
 
@@ -75,11 +75,11 @@ async function createLoaderMuPlugin(): Promise< string > {
  * @param options Configuration options for mu-plugins
  * @returns Array of mu-plugin definitions
  */
-function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
+function getStandardMuPlugins(options: MuPluginOptions): MuPlugin[] {
 	const muPlugins: MuPlugin[] = [];
 
 	// HTTPS detection for reverse proxy
-	muPlugins.push( {
+	muPlugins.push({
 		filename: '0-https-for-reverse-proxy.php',
 		content: `<?php
 		// See https://developer.wordpress.org/advanced-administration/security/https/#using-a-reverse-proxy
@@ -87,10 +87,10 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 			$_SERVER['HTTPS'] = 'on';
 		}
 		`,
-	} );
+	});
 
 	// Redirect to SITEURL constant
-	muPlugins.push( {
+	muPlugins.push({
 		filename: '0-redirect-to-siteurl-constant.php',
 		content: `<?php
 		// See https://core.trac.wordpress.org/ticket/33821#comment:10
@@ -119,10 +119,10 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 			}
 		});
 		`,
-	} );
+	});
 
 	// Allowed redirect hosts
-	muPlugins.push( {
+	muPlugins.push({
 		filename: '0-allowed-redirect-hosts.php',
 		content: `<?php
 	// Needed because gethostbyname( <host> ) returns
@@ -139,10 +139,10 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	} );
 	add_filter('http_request_host_is_external', '__return_true', 20, 3 );
 	`,
-	} );
+	});
 
 	// Studio-specific: Hide admin bar for screenshots and health check
-	muPlugins.push( {
+	muPlugins.push({
 		filename: '0-thumbnails.php',
 		content: `<?php
 		// Facilitates the taking of screenshots to be used as thumbnails.
@@ -150,10 +150,10 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 			add_filter( 'show_admin_bar', '__return_false' );
 		}
 		`,
-	} );
+	});
 
 	// Check theme availability
-	muPlugins.push( {
+	muPlugins.push({
 		filename: '0-check-theme-availability.php',
 		content: `<?php
 	function check_current_theme_availability() {
@@ -179,19 +179,19 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	}
 	add_action('after_setup_theme', 'check_current_theme_availability');
 	`,
-	} );
+	});
 
 	// Enable permalinks
-	muPlugins.push( {
+	muPlugins.push({
 		filename: '0-permalinks.php',
 		content: `<?php
 			// Support permalinks without "index.php"
 			add_filter( 'got_url_rewrite', '__return_true' );
 	`,
-	} );
+	});
 
 	// Trailing slash handling for wp-admin
-	muPlugins.push( {
+	muPlugins.push({
 		filename: '0-wp-admin-trailing-slash.php',
 		content: `<?php
 		/**
@@ -215,10 +215,10 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 			}
 		}, 1 );
 		`,
-	} );
+	});
 
 	// Deactivate Jetpack modules
-	muPlugins.push( {
+	muPlugins.push({
 		filename: '0-deactivate-jetpack-modules.php',
 		content: `<?php
 			// Disable Jetpack Protect 2FA for local auto-login purpose
@@ -230,10 +230,10 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 				return $active;
 			}
 	`,
-	} );
+	});
 
 	// Suppress DNS warnings
-	muPlugins.push( {
+	muPlugins.push({
 		filename: '0-suppress-dns-get-record-warnings.php',
 		content: `<?php
 		set_error_handler(function($severity, $message, $file, $line) {
@@ -243,11 +243,11 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 			return false;
 		});
 		`,
-	} );
+	});
 
 	// Disable auto-updates if configured
-	if ( ! options.isWpAutoUpdating ) {
-		muPlugins.push( {
+	if (!options.isWpAutoUpdating) {
+		muPlugins.push({
 			filename: '0-disable-auto-updates.php',
 			content: `<?php
 			// Disable auto-updates
@@ -255,11 +255,11 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 			add_filter( 'allow_minor_auto_core_updates', '__return_false' );
 			add_filter( 'allow_major_auto_core_updates', '__return_false' );
 			`,
-		} );
+		});
 	}
 
 	// HTTP request timeout
-	muPlugins.push( {
+	muPlugins.push({
 		filename: '0-http-request-timeout.php',
 		content: `<?php
 		// Use low-speed timeout instead of hard timeout to handle both large downloads and stalled connections
@@ -282,10 +282,10 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 			return $curl;
 		}, 1, 3);
 		`,
-	} );
+	});
 
 	// Studio-specific: Fix plugin spinner display
-	muPlugins.push( {
+	muPlugins.push({
 		filename: '0-tmp-fix-hide-plugins-spinner.php',
 		content: `<?php
 			// This is a temporary fix for a page-optimize bug that causes spinner icons to show all the time in the plugins list auto-update column
@@ -301,10 +301,10 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 				}
 			}
 	`,
-	} );
+	});
 
 	// WP-CLI specific: SQLite command support
-	muPlugins.push( {
+	muPlugins.push({
 		filename: '0-sqlite-command.php',
 		content: `<?php
 		// Ensure SQLite command can find the plugin
@@ -313,10 +313,10 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 			return $directories;
 		} );
 		`,
-	} );
+	});
 
 	// Studio Admin API: Persistent endpoint for admin operations
-	muPlugins.push( {
+	muPlugins.push({
 		filename: '0-studio-admin-api.php',
 		content: `<?php
 		/**
@@ -387,10 +387,44 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 			exit;
 		}, 1 );
 		`,
-	} );
+	});
+
+	// Auto-logout functionality via dedicated endpoint
+	muPlugins.push({
+		filename: '0-auto-logout.php',
+		content: `<?php
+		/**
+		 * Auto-Logout Endpoint
+		 *
+		 * Provides /studio-auto-logout endpoint for clearing authentication
+		 * Usage: /studio-auto-logout?redirect_to=/
+		 */
+
+		// Intercept requests to /studio-auto-logout
+		add_action( 'init', function() {
+			$request_uri = $_SERVER['REQUEST_URI'] ?? '';
+			if ( strpos( $request_uri, '/studio-auto-logout' ) === false ) {
+				return;
+			}
+
+			// Clear all authentication cookies and session
+			if ( is_user_logged_in() ) {
+				wp_logout();
+			}
+
+			// Clear any remaining WordPress cookies to ensure clean logout
+			wp_clear_auth_cookie();
+
+			$redirect_url = isset( $_GET['redirect_to'] ) ? $_GET['redirect_to'] : home_url();
+			wp_safe_redirect( $redirect_url );
+			exit;
+
+		}, 1 );
+		`,
+	});
 
 	// Auto-login functionality via dedicated endpoint
-	muPlugins.push( {
+	muPlugins.push({
 		filename: '0-auto-login.php',
 		content: `<?php
 		/**
@@ -407,10 +441,10 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 				return;
 			}
 
+			// Always clear existing session first to ensure fresh login
+			// This fixes issues after manual logout
 			if ( is_user_logged_in() ) {
-				$redirect_url = isset( $_GET['redirect_to'] ) ? $_GET['redirect_to'] : home_url();
-				wp_safe_redirect( $redirect_url );
-				exit;
+				wp_clear_auth_cookie();
 			}
 
 			$user = get_user_by( 'login', 'admin' );
@@ -427,29 +461,29 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 
 		}, 1 );
 		`,
-	} );
+	});
 
 	return muPlugins;
 }
 
-async function createMuPluginsDirectory( options: MuPluginOptions ): Promise< string > {
+async function createMuPluginsDirectory(options: MuPluginOptions): Promise<string> {
 	try {
 		// Create a temporary directory for mu-plugins
-		const tempDir = await mkdtemp( join( tmpdir(), 'studio-mu-plugins-' ) );
+		const tempDir = await mkdtemp(join(tmpdir(), 'studio-mu-plugins-'));
 
 		// Get the standard mu-plugins
-		const muPlugins = getStandardMuPlugins( {
+		const muPlugins = getStandardMuPlugins({
 			isWpAutoUpdating: options.isWpAutoUpdating,
-		} );
+		});
 
 		// Write each mu-plugin file to the temporary directory
-		for ( const plugin of muPlugins ) {
-			const pluginPath = join( tempDir, plugin.filename );
-			await writeFile( pluginPath, plugin.content );
+		for (const plugin of muPlugins) {
+			const pluginPath = join(tempDir, plugin.filename);
+			await writeFile(pluginPath, plugin.content);
 		}
 		return tempDir;
-	} catch ( error ) {
-		throw new Error( `Failed to create mu-plugins directory: ${ error }` );
+	} catch (error) {
+		throw new Error(`Failed to create mu-plugins directory: ${error}`);
 	}
 }
 
@@ -458,9 +492,9 @@ async function createMuPluginsDirectory( options: MuPluginOptions ): Promise< st
  * @param options Configuration options for mu-plugins
  * @returns Array of paths: [studioMuPluginsHostPath, loaderMuPluginHostPath]
  */
-export async function getMuPlugins( options: MuPluginOptions ) {
-	const studioMuPluginsHostPath = await createMuPluginsDirectory( options );
+export async function getMuPlugins(options: MuPluginOptions) {
+	const studioMuPluginsHostPath = await createMuPluginsDirectory(options);
 	const loaderMuPluginHostPath = await createLoaderMuPlugin();
 
-	return [ studioMuPluginsHostPath, loaderMuPluginHostPath ];
+	return [studioMuPluginsHostPath, loaderMuPluginHostPath];
 }

@@ -62,22 +62,25 @@ async function main() {
 			}
 		} )
 		.command( 'auth', __( 'Manage authentication' ), ( authYargs ) => {
-			authYargs.version( false );
 			registerAuthLoginCommand( authYargs );
 			registerAuthLogoutCommand( authYargs );
 			registerAuthStatusCommand( authYargs );
-			authYargs.demandCommand( 1, __( 'You must provide a valid auth command' ) );
+			authYargs
+				.version( false )
+				.showHelpOnFail( false )
+				.demandCommand( 1, __( 'You must provide a valid auth command' ) );
 		} )
 		.command( 'preview', __( 'Manage preview sites' ), ( previewYargs ) => {
-			previewYargs.version( false );
 			registerCreateCommand( previewYargs );
 			registerListCommand( previewYargs );
 			registerDeleteCommand( previewYargs );
 			registerUpdateCommand( previewYargs );
-			previewYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
+			previewYargs
+				.version( false )
+				.showHelpOnFail( false )
+				.demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.command( 'site', __( 'Manage local sites' ), ( sitesYargs ) => {
-			sitesYargs.version( false );
 			registerSiteStatusCommand( sitesYargs );
 			registerSiteCreateCommand( sitesYargs );
 			registerSiteListCommand( sitesYargs );
@@ -89,19 +92,21 @@ async function main() {
 			registerSiteSetDomainCommand( sitesYargs );
 			registerSiteSetPhpVersionCommand( sitesYargs );
 			registerSiteSetWpVersionCommand( sitesYargs );
-			sitesYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
+			sitesYargs
+				.version( false )
+				.showHelpOnFail( false )
+				.demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.command( {
 			command: 'wp',
 			describe: __( 'WP-CLI' ),
 			builder: ( wpYargs ) => {
-				return wpYargs.strict( false ).version( false );
+				return wpYargs.strict( false ).version( false ).showHelpOnFail( false );
 			},
 			handler: wpCliCommandHandler,
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
-		.strict()
-		.showHelpOnFail( false );
+		.strict();
 
 	await studioArgv.argv;
 }

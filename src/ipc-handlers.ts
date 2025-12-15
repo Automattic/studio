@@ -1059,13 +1059,22 @@ export function showSiteContextMenu(
 		isRunning: boolean;
 		isLoading: boolean;
 		isAddingSite: boolean;
+		isSyncing: boolean;
 		finderLabel: string;
 		editorLabel: string | null;
 		terminalLabel: string;
 	}
 ) {
-	const { siteId, isRunning, isLoading, isAddingSite, finderLabel, editorLabel, terminalLabel } =
-		context;
+	const {
+		siteId,
+		isRunning,
+		isLoading,
+		isAddingSite,
+		isSyncing,
+		finderLabel,
+		editorLabel,
+		terminalLabel,
+	} = context;
 	const menu = new Menu();
 
 	if ( isRunning ) {
@@ -1229,7 +1238,7 @@ export function showSiteContextMenu(
 	menu.append(
 		new MenuItem( {
 			label: __( 'Delete site…' ),
-			enabled: ! isLoading && ! isAddingSite,
+			enabled: ! isLoading && ! isAddingSite && ! isSyncing,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
 					BrowserWindow.fromWebContents( event.sender ),

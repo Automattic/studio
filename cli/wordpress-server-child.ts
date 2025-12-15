@@ -139,27 +139,27 @@ async function getBaseRunCLIArgs(
 
 	let blueprintBundle: BlueprintBundle | undefined;
 
-	if ( 'blueprintUri' in config ) {
-		config.blueprint.constants = {
-			...config.blueprint.constants,
+	if ( config.blueprint ) {
+		config.blueprint.contents.constants = {
+			...config.blueprint.contents.constants,
 			...defaultConstants,
 		};
 		const blueprintFs = new InMemoryFilesystem( {
-			'blueprint.json': JSON.stringify( config.blueprint ),
+			'blueprint.json': JSON.stringify( config.blueprint.contents ),
 		} );
 
 		if (
-			config.blueprintUri.startsWith( 'http://' ) ||
-			config.blueprintUri.startsWith( 'https://' )
+			config.blueprint.uri.startsWith( 'http://' ) ||
+			config.blueprint.uri.startsWith( 'https://' )
 		) {
 			blueprintBundle = new OverlayFilesystem( [
 				blueprintFs,
-				new FetchFilesystem( { baseUrl: config.blueprintUri } ),
+				new FetchFilesystem( { baseUrl: config.blueprint.uri } ),
 			] );
 		} else {
 			blueprintBundle = new OverlayFilesystem( [
 				blueprintFs,
-				new NodeJsFilesystem( dirname( config.blueprintUri ) ),
+				new NodeJsFilesystem( dirname( config.blueprint.uri ) ),
 			] );
 		}
 	} else {

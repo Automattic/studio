@@ -193,7 +193,10 @@ describe( 'CLI: studio site create', () => {
 				runCommand( mockSitePath, {
 					wpVersion: 'latest',
 					phpVersion: '8.0',
-					blueprintJson: {},
+					blueprint: {
+						uri: '/home/test/blueprint.json',
+						contents: {},
+					},
 					enableHttps: false,
 					noStart: false,
 				} )
@@ -451,7 +454,10 @@ describe( 'CLI: studio site create', () => {
 			await runCommand( mockSitePath, {
 				wpVersion: 'latest',
 				phpVersion: '8.0',
-				blueprintJson: testBlueprint,
+				blueprint: {
+					uri: '/home/test/blueprint.json',
+					contents: testBlueprint,
+				},
 				enableHttps: false,
 				noStart: false,
 			} );
@@ -473,7 +479,10 @@ describe( 'CLI: studio site create', () => {
 				name: 'My Site',
 				wpVersion: 'latest',
 				phpVersion: '8.0',
-				blueprintJson: testBlueprint,
+				blueprint: {
+					uri: '/home/test/blueprint.json',
+					contents: testBlueprint,
+				},
 				enableHttps: false,
 				noStart: false,
 			} );
@@ -511,7 +520,10 @@ describe( 'CLI: studio site create', () => {
 			await runCommand( mockSitePath, {
 				wpVersion: 'latest',
 				phpVersion: '8.0',
-				blueprintJson: testBlueprint,
+				blueprint: {
+					uri: '/home/test/blueprint.json',
+					contents: testBlueprint,
+				},
 				enableHttps: false,
 				noStart: false,
 			} );
@@ -545,7 +557,10 @@ describe( 'CLI: studio site create', () => {
 			await runCommand( mockSitePath, {
 				wpVersion: 'latest',
 				phpVersion: '8.0',
-				blueprintJson: testBlueprint,
+				blueprint: {
+					uri: '/home/test/blueprint.json',
+					contents: testBlueprint,
+				},
 				enableHttps: false,
 				noStart: true,
 			} );
@@ -584,7 +599,10 @@ describe( 'CLI: studio site create', () => {
 				runCommand( mockSitePath, {
 					wpVersion: 'latest',
 					phpVersion: '8.0',
-					blueprintJson: testBlueprint,
+					blueprint: {
+						uri: '/home/test/blueprint.json',
+						contents: testBlueprint,
+					},
 					enableHttps: false,
 					noStart: true,
 				} )

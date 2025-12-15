@@ -1,5 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import { compileBlueprint } from '@wp-playground/blueprints';
 import { z } from 'zod';
 
 interface UnsupportedFeature {

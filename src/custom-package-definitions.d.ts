@@ -39,3 +39,5 @@ declare module '*.wasm' {
 }
 
 declare module 'wpcom-xhr-request';
+
+declare module '@wp-playground/storage';

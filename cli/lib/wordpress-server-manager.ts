@@ -70,29 +70,14 @@ export async function startWordPressServer(
 	const wordPressServerChildPath = path.resolve( __dirname, 'wordpress-server-child.js' );
 	const processName = getProcessName( site.id );
 
-	let serverConfig: ServerConfig;
-
-	if ( options?.blueprint ) {
-		serverConfig = {
-			siteId: site.id,
-			sitePath: site.path,
-			port: site.port,
-			phpVersion: site.phpVersion,
-			siteTitle: site.name,
-			enableMultiWorker: await isMultiWorkerEnabled(),
-			blueprint: options.blueprint,
-			blueprintUri: options.blueprintUri,
-		};
-	} else {
-		serverConfig = {
-			siteId: site.id,
-			sitePath: site.path,
-			port: site.port,
-			phpVersion: site.phpVersion,
-			siteTitle: site.name,
-			enableMultiWorker: await isMultiWorkerEnabled(),
-		};
-	}
+	const serverConfig: ServerConfig = {
+		siteId: site.id,
+		sitePath: site.path,
+		port: site.port,
+		phpVersion: site.phpVersion,
+		siteTitle: site.name,
+		enableMultiWorker: await isMultiWorkerEnabled(),
+	};
 
 	if ( site.customDomain ) {
 		const protocol = site.enableHttps ? 'https' : 'http';
@@ -109,6 +94,13 @@ export async function startWordPressServer(
 
 	if ( options?.wpVersion ) {
 		serverConfig.wpVersion = options.wpVersion;
+	}
+
+	if ( options?.blueprint && options.blueprintUri ) {
+		serverConfig.blueprint = {
+			contents: options.blueprint,
+			uri: options.blueprintUri,
+		};
 	}
 
 	const env = {
@@ -284,7 +276,8 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 
 export interface RunBlueprintOptions {
 	wpVersion?: string;
-	blueprint?: unknown;
+	blueprint: unknown;
+	blueprintUri: string;
 }
 
 /**
@@ -297,8 +290,8 @@ export interface RunBlueprintOptions {
  */
 export async function runBlueprint(
 	site: SiteData,
-	logger?: Logger< string >,
-	options?: RunBlueprintOptions
+	logger: Logger< string >,
+	options: RunBlueprintOptions
 ): Promise< void > {
 	const wordPressServerChildPath = path.resolve( __dirname, 'wordpress-server-child.js' );
 	const processName = getProcessName( site.id );
@@ -310,6 +303,10 @@ export async function runBlueprint(
 		phpVersion: site.phpVersion,
 		siteTitle: site.name,
 		enableMultiWorker: await isMultiWorkerEnabled(),
+		blueprint: {
+			contents: options.blueprint,
+			uri: options.blueprintUri,
+		},
 	};
 
 	if ( site.customDomain ) {
@@ -325,12 +322,8 @@ export async function runBlueprint(
 		serverConfig.isWpAutoUpdating = site.isWpAutoUpdating;
 	}
 
-	if ( options?.wpVersion ) {
+	if ( options.wpVersion ) {
 		serverConfig.wpVersion = options.wpVersion;
-	}
-
-	if ( options?.blueprint ) {
-		serverConfig.blueprint = options.blueprint;
 	}
 
 	const env = {

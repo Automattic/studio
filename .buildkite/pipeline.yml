@@ -63,12 +63,12 @@ steps:
   - input: "🚦 Build for Mac?"
     prompt: "Do you want to build Mac dev binaries for this PR?"
     key: input-dev-mac
-    if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk' && build.branch != 'dev/studio-cli-i2'
+    if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk'
 
   - group: 📦 Build for Mac
     key: dev-mac
     depends_on: input-dev-mac
-    if: build.tag !~ /^v[0-9]+/ || build.branch == 'dev/studio-cli-i2'
+    if: build.tag !~ /^v[0-9]+/
     steps:
       - label: 🔨 Mac Dev Build - {{matrix}}
         agents:
@@ -117,12 +117,12 @@ steps:
   - input: "🚦 Build for Windows?"
     prompt: "Do you want to build Windows dev binaries for this PR?"
     key: input-dev-windows
-    if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk' && build.branch != 'dev/studio-cli-i2'
+    if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk'
 
   - group: 📦 Build for Windows
     key: dev-windows
     depends_on: input-dev-windows
-    if: build.tag !~ /^v[0-9]+/ || build.branch == 'dev/studio-cli-i2'
+    if: build.tag !~ /^v[0-9]+/
     steps:
       - label: 🔨 Windows Dev Build - {{matrix}}
         agents:
@@ -164,7 +164,7 @@ steps:
       - step: dev-mac
       - step: dev-windows
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
-    if: ( build.branch == 'trunk' && build.tag !~ /^v[0-9]+/ ) || build.branch == 'dev/studio-cli-i2'
+    if: build.branch == 'trunk' && build.tag !~ /^v[0-9]+/
     notify:
       - github_commit_status:
           context: Distribute Dev Builds

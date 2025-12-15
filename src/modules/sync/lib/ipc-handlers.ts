@@ -214,7 +214,7 @@ export async function pushArchive(
 					return;
 				}
 
-				const attachmentId = payload.lastResponse.getHeader( 'x-videopress-upload-media-id' );
+				const attachmentId = payload.lastResponse.getHeader( 'x-studio-file-upload-media-id' );
 				if ( attachmentId ) {
 					resolve( attachmentId );
 				} else {

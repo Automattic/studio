@@ -2,7 +2,6 @@ import { test, expect, type Page } from '@playwright/test';
 import { E2ESession } from './e2e-helpers';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
-import WhatsNewModal from './page-objects/whats-new-modal';
 import { getUrlWithAutoLogin } from './utils';
 
 const global = globalThis as unknown as {
@@ -75,14 +74,8 @@ test.describe( 'Overview customize links', () => {
 			await session.launch();
 
 			const onboarding = new Onboarding( session.mainWindow );
-			await expect( onboarding.heading ).toBeVisible();
-			await onboarding.siteNameInput.fill( siteName );
-			await onboarding.continueButton.click();
-
-			const whatsNewModal = new WhatsNewModal( session.mainWindow );
-			if ( await whatsNewModal.locator.isVisible( { timeout: 5000 } ) ) {
-				await whatsNewModal.close();
-			}
+			await onboarding.completeOnboarding( { customSiteName: siteName } );
+			await onboarding.closeWhatsNew();
 
 			const siteContent = new SiteContent( session.mainWindow, siteName );
 			await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );

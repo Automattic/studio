@@ -8,16 +8,19 @@ import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
+import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { CreateButton } from 'src/modules/sync/components/create-button';
 import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
+import { NoWpcomSitesModal } from 'src/modules/sync/components/no-wpcom-sites-modal';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
-import type { SyncModalMode } from 'src/modules/sync/types';
+import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
+import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
+import type { SyncSite, SyncModalMode } from 'src/modules/sync/types';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
 
@@ -27,34 +30,39 @@ const focusConnectButton = () => {
 };
 
 export function SyncSitesModalSelector( {
-	isLoading,
 	onRequestClose,
 	onConnect,
-	syncSites,
-	onInitialRender,
 	selectedSite,
 	mode = 'connect',
 }: {
-	isLoading?: boolean;
 	onRequestClose: () => void;
-	syncSites: SyncSite[];
 	onConnect: ( siteId: number ) => void;
-	onInitialRender?: () => void;
 	selectedSite: SiteDetails;
 	mode?: SyncModalMode;
 } ) {
 	const { __ } = useI18n();
+	const { user } = useAuth();
 	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
-	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
 	const isOffline = useOffline();
-	const filteredSites = syncSites.filter( ( site ) => {
-		const searchQueryLower = searchQuery.toLowerCase();
-		return (
-			site.name?.toLowerCase().includes( searchQueryLower ) ||
-			site.url?.toLowerCase().includes( searchQueryLower )
-		);
+
+	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
+		localSiteId: selectedSite.id,
+		userId: user?.id,
 	} );
-	const isEmpty = filteredSites.length === 0;
+	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
+
+	const {
+		data: syncSites = [],
+		isLoading,
+		isSuccess,
+	} = useGetWpComSitesQuery(
+		{ connectedSiteIds, userId: user?.id },
+		{ refetchOnMountOrArgChange: true }
+	);
+
+	if ( syncSites.length === 0 && isSuccess && ! isLoading ) {
+		return <NoWpcomSitesModal onRequestClose={ onRequestClose } selectedSite={ selectedSite } />;
+	}
 
 	const getModalTitle = () => {
 		switch ( mode ) {
@@ -68,12 +76,6 @@ export function SyncSitesModalSelector( {
 		}
 	};
 
-	useEffect( () => {
-		if ( onInitialRender ) {
-			onInitialRender();
-		}
-	}, [ onInitialRender ] );
-
 	return (
 		<Modal
 			className="w-3/5 min-w-[550px] h-full max-h-[84vh] [&>div]:!p-0"
@@ -81,28 +83,12 @@ export function SyncSitesModalSelector( {
 			title={ getModalTitle() }
 		>
 			<div className="relative" data-testid="sync-sites-modal-selector">
-				<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
-				<div className="h-[calc(84vh-232px)]">
-					{ isLoading && (
-						<div className="flex justify-center items-center h-full">
-							{ __( 'Loading sites…' ) }
-						</div>
-					) }
-
-					{ ! isLoading && isEmpty && searchQuery && (
-						<div className="flex justify-center items-center h-full">
-							{ sprintf( __( 'No sites found for "%s"' ), searchQuery ) }
-						</div>
-					) }
-
-					{ ! isLoading && ! isEmpty && (
-						<ListSites
-							syncSites={ filteredSites }
-							selectedSiteId={ selectedSiteId }
-							onSelectSite={ setSelectedSiteId }
-						/>
-					) }
-				</div>
+				<SitesListContent
+					isLoading={ isLoading }
+					syncSites={ syncSites }
+					selectedSiteId={ selectedSiteId }
+					onSelectSite={ setSelectedSiteId }
+				/>
 				<Footer
 					onRequestClose={ onRequestClose }
 					onConnect={ () => {
@@ -126,7 +112,7 @@ export function SyncSitesModalSelector( {
 	);
 }
 
-function SearchSites( {
+export function SearchSites( {
 	searchQuery,
 	setSearchQuery,
 }: {
@@ -136,9 +122,9 @@ function SearchSites( {
 	const { __ } = useI18n();
 	const locale = useI18nLocale();
 	return (
-		<div className="flex flex-col px-8 pb-6 border-b border-a8c-gray-5">
+		<div className="flex flex-col px-8 pb-6 border-b border-a8c-gray-5 shrink-0">
 			<SearchControl
-				className="w-full mt-0.5 mb-2"
+				className="w-full mt-0.5 mb-2 text-black"
 				placeholder={ __( 'Search sites' ) }
 				onChange={ ( value ) => {
 					setSearchQuery( value );
@@ -161,6 +147,54 @@ function SearchSites( {
 				</Button>
 			</p>
 		</div>
+	);
+}
+
+export function SitesListContent( {
+	isLoading,
+	syncSites,
+	selectedSiteId,
+	onSelectSite,
+}: {
+	isLoading: boolean;
+	syncSites: SyncSite[];
+	selectedSiteId: number | null;
+	onSelectSite: ( id: number ) => void;
+} ) {
+	const { __ } = useI18n();
+	const [ searchQuery, setSearchQuery ] = useState< string >( '' );
+
+	const filteredSites = syncSites.filter( ( site ) => {
+		const searchQueryLower = searchQuery.toLowerCase();
+		return (
+			site.name?.toLowerCase().includes( searchQueryLower ) ||
+			site.url?.toLowerCase().includes( searchQueryLower )
+		);
+	} );
+	const isEmpty = filteredSites.length === 0;
+	const emptyMessage = searchQuery
+		? sprintf( __( 'No sites found for "%s"' ), searchQuery )
+		: __( 'No sites found' );
+
+	return (
+		<>
+			<SearchSites searchQuery={ searchQuery } setSearchQuery={ setSearchQuery } />
+			<div className="h-[calc(84vh-232px)]">
+				{ isLoading && (
+					<div className="flex justify-center items-center h-full">{ __( 'Loading sites…' ) }</div>
+				) }
+				{ ! isLoading && isEmpty && (
+					<div className="flex justify-center items-center h-full">{ emptyMessage }</div>
+				) }
+				{ ! isLoading && ! isEmpty && (
+					<ListSites
+						syncSites={ filteredSites }
+						selectedSiteId={ selectedSiteId }
+						onSelectSite={ onSelectSite }
+					/>
+				) }
+			</div>
+		</>
 	);
 }
 

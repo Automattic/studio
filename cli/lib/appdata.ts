@@ -1,11 +1,10 @@
-import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { __, sprintf } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
 import { LOCKFILE_NAME, LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/constants';
-import { arePathsEqual } from 'common/lib/fs-utils';
+import { arePathsEqual, isWordPressDirectory } from 'common/lib/fs-utils';
 import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { snapshotSchema } from 'common/types/snapshot';
@@ -23,27 +22,22 @@ const siteSchema = z
 		customDomain: z.string().optional(),
 		port: z.number(),
 		enableHttps: z.boolean().optional(),
-	} )
-	.passthrough();
-
-const newSiteSchema = z
-	.object( {
-		id: z.string(),
-		path: z.string(),
-		name: z.string(),
+		adminPassword: z.string().optional(),
+		isWpAutoUpdating: z.boolean().optional(),
+		running: z.boolean().optional(),
+		url: z.string().optional(),
+		latestCliPid: z.number().optional(),
 	} )
 	.passthrough();
 
 const betaFeaturesSchema = z
 	.object( {
 		studioSitesCli: z.boolean().optional(),
-		createSiteFromRemote: z.boolean().optional(),
 	} )
 	.passthrough();
 
 const userDataSchema = z
 	.object( {
-		newSites: z.array( newSiteSchema ).default( () => [] ),
 		sites: z.array( siteSchema ).default( () => [] ),
 		snapshots: z.array( snapshotSchema ).default( () => [] ),
 		locale: z.string().optional(),
@@ -66,7 +60,6 @@ const userDataSchema = z
 	.passthrough();
 
 type UserData = z.infer< typeof userDataSchema >;
-type NewSiteData = z.infer< typeof newSiteSchema >;
 export type SiteData = z.infer< typeof siteSchema >;
 type ValidatedAuthToken = Required< NonNullable< UserData[ 'authToken' ] > >;
 
@@ -173,49 +166,66 @@ export async function getAuthToken(): Promise< ValidatedAuthToken > {
 	}
 }
 
-export async function getSiteByFolder( siteFolder: string ): Promise< NewSiteData > {
+export async function getSiteByFolder( siteFolder: string ): Promise< SiteData > {
 	const userData = await readAppdata();
-	const site = [ ...userData.sites, ...userData.newSites ].find( ( site ) =>
-		arePathsEqual( site.path, siteFolder )
-	);
+	const site = userData.sites.find( ( site ) => arePathsEqual( site.path, siteFolder ) );
 
 	if ( ! site ) {
+		if ( isWordPressDirectory( siteFolder ) ) {
+			throw new LoggerError(
+				__( 'The specified folder is not added to Studio. Use `studio site create` to add it.' )
+			);
+		}
+
 		throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );
 	}
 
 	return site;
 }
 
-export function getNewSitePartial( siteFolder: string ): NewSiteData {
-	const newSite = {
-		id: crypto.randomUUID(),
-		path: siteFolder,
-		name: path.basename( siteFolder ),
-	};
+export function getSiteUrl( site: SiteData ): string {
+	if ( site.url ) {
+		return site.url;
+	}
 
-	return newSite;
+	if ( site.customDomain ) {
+		const protocol = site.enableHttps ? 'https' : 'http';
+		return `${ protocol }://${ site.customDomain }`;
+	}
+
+	return `http://localhost:${ site.port }`;
 }
 
-const createNewSite = async ( siteFolder: string ): Promise< NewSiteData > => {
+export async function updateSiteLatestCliPid( siteId: string, pid: number ): Promise< void > {
 	try {
 		await lockAppdata();
 		const userData = await readAppdata();
-		const site = getNewSitePartial( siteFolder );
-		userData.newSites.push( site );
+		const site = userData.sites.find( ( s ) => s.id === siteId );
+
+		if ( ! site ) {
+			throw new LoggerError( __( 'Site not found' ) );
+		}
+
+		site.latestCliPid = pid;
 		await saveAppdata( userData );
-		return site;
 	} finally {
 		await unlockAppdata();
 	}
-};
+}
 
-export const getOrCreateSiteByFolder = async ( siteFolder: string ): Promise< NewSiteData > => {
+export async function clearSiteLatestCliPid( siteId: string ): Promise< void > {
 	try {
-		return await getSiteByFolder( siteFolder );
-	} catch ( error ) {
-		if ( ! ( error instanceof LoggerError ) ) {
-			throw error;
+		await lockAppdata();
+		const userData = await readAppdata();
+		const site = userData.sites.find( ( s ) => s.id === siteId );
+
+		if ( ! site ) {
+			throw new LoggerError( __( 'Site not found' ) );
 		}
-		return createNewSite( siteFolder );
+
+		delete site.latestCliPid;
+		await saveAppdata( userData );
+	} finally {
+		await unlockAppdata();
 	}
-};
+}

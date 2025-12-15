@@ -7,10 +7,12 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import { ClearAction } from 'src/components/clear-action';
+import { ErrorIcon } from 'src/components/error-icon';
 import ProgressBar from 'src/components/progress-bar';
 import { Tooltip } from 'src/components/tooltip';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { useSyncSites } from 'src/hooks/sync-sites/sync-sites-context';
+import { useAuth } from 'src/hooks/use-auth';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
 import { useImportExport } from 'src/hooks/use-import-export';
@@ -19,7 +21,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
-import { useConnectedSitesData } from 'src/stores/sync';
+import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
 
 interface ContentTabImportExportProps {
 	selectedSite: SiteDetails;
@@ -163,6 +165,14 @@ const InitialImportButton = ( {
 	);
 };
 
+const isValidImportFile = ( file: File ): boolean => {
+	const fileName = file.name.toLowerCase();
+	return (
+		ACCEPTED_IMPORT_FILE_TYPES.some( ( ext ) => fileName.endsWith( ext ) ) ||
+		fileName.endsWith( '.sql' )
+	);
+};
+
 const ImportSite = ( {
 	selectedSite,
 	isThisSiteSyncing,
@@ -177,6 +187,7 @@ const ImportSite = ( {
 	const { [ selectedSite.id ]: currentProgress } = importState;
 	const isSiteExporting =
 		exportState[ selectedSite?.id ] && exportState[ selectedSite?.id ].progress < 100;
+	const [ fileError, setFileError ] = useState< string | null >( null );
 
 	const importConfirmation = useConfirmationDialog( {
 		message: sprintf( __( 'Overwrite %s?' ), selectedSite.name ),
@@ -191,9 +202,25 @@ const ImportSite = ( {
 			if ( isImporting ) {
 				return;
 			}
+			if ( ! isValidImportFile( file ) ) {
+				setFileError(
+					__(
+						'This file type is not supported. Please use a .zip, .gz, .tar, .tar.gz, .wpress, or .sql file.'
+					)
+				);
+				return;
+			}
+			setFileError( null );
 			void importConfirmation( () => importFile( file, selectedSite ) );
 		},
 	} );
+
+	useEffect( () => {
+		if ( isDraggingOver && fileError ) {
+			setFileError( null );
+		}
+	}, [ isDraggingOver, fileError ] );
+
 	const inputFileRef = useRef< HTMLInputElement >( null );
 	const openFileSelector = async () => {
 		inputFileRef.current?.click();
@@ -228,8 +255,8 @@ const ImportSite = ( {
 	const startLoadingCursorClassName =
 		loadingServer[ selectedSite.id ] && 'animate-pulse duration-100 cursor-wait';
 
-	const isImporting = currentProgress?.progress < 100;
-	const isImported = currentProgress?.progress === 100 && ! isDraggingOver;
+	const isImporting = currentProgress?.progress < 100 && ! isThisSiteSyncing;
+	const isImported = currentProgress?.progress === 100 && ! isDraggingOver && ! isThisSiteSyncing;
 	const isInitial = ! isImporting && ! isImported;
 	return (
 		<div className={ cx( 'flex flex-col w-full', startLoadingCursorClassName ) }>
@@ -303,6 +330,12 @@ const ImportSite = ( {
 						) }
 					</div>
 				</InitialImportButton>
+				{ fileError && (
+					<div className="flex items-start gap-1 text-xs text-red-500 mt-2">
+						<ErrorIcon className="shrink-0 mt-px fill-current" />
+						<span className="text-left">{ fileError }</span>
+					</div>
+				) }
 			</div>
 			<input
 				ref={ inputFileRef }
@@ -320,7 +353,11 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 	const { __ } = useI18n();
 	const [ isSupported, setIsSupported ] = useState< boolean | null >( null );
 	const { isSiteIdPulling, isSiteIdPushing } = useSyncSites();
-	const { connectedSites } = useConnectedSitesData();
+	const { user } = useAuth();
+	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
+		localSiteId: selectedSite.id,
+		userId: user?.id,
+	} );
 	const isPulling = connectedSites.some( ( site ) => isSiteIdPulling( selectedSite.id, site.id ) );
 	const isPushing = connectedSites.some( ( site ) => isSiteIdPushing( selectedSite.id, site.id ) );
 	const isThisSiteSyncing = isPulling || isPushing;

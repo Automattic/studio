@@ -21,5 +21,6 @@
 			"common/*": [ "common/*" ]
 		}
 	},
-	"include": [ "src/**/*", "cli/**/*", "common/**/*", "e2e/**/*", "./jest-setup.ts" ]
+	"include": [ "src/**/*", "cli/**/*", "common/**/*", "e2e/**/*", "./jest-setup.ts" ],
+	"exclude": [ "**/__mocks__/**/*", "**/node_modules/**/*", "**/dist/**/*", "**/out/**/*" ]
 }

@@ -14,7 +14,6 @@ import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
 import i18nReducer from 'src/stores/i18n-slice';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
-import { reducer as newSitesReducer } from 'src/stores/new-sites-slice';
 import onboardingReducer from 'src/stores/onboarding-slice';
 import providerConstantsReducer, {
 	setProviderConstants,
@@ -25,10 +24,8 @@ import {
 	snapshotActions,
 } from 'src/stores/snapshot-slice';
 import { syncReducer } from 'src/stores/sync';
-import {
-	connectedSitesReducer,
-	loadAllConnectedSites,
-} from 'src/stores/sync/connected-sites-slice';
+import { connectedSitesApi, connectedSitesReducer } from 'src/stores/sync/connected-sites';
+import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from 'common/lib/locale';
@@ -37,13 +34,14 @@ export type RootState = {
 	appVersionApi: ReturnType< typeof appVersionApi.reducer >;
 	betaFeatures: ReturnType< typeof betaFeaturesReducer >;
 	chat: ReturnType< typeof chatReducer >;
-	newSites: ReturnType< typeof newSitesReducer >;
 	installedAppsApi: ReturnType< typeof installedAppsApi.reducer >;
 	onboarding: ReturnType< typeof onboardingReducer >;
 	providerConstants: ReturnType< typeof providerConstantsReducer >;
 	snapshot: ReturnType< typeof snapshotReducer >;
 	sync: ReturnType< typeof syncReducer >;
+	connectedSitesApi: ReturnType< typeof connectedSitesApi.reducer >;
 	connectedSites: ReturnType< typeof connectedSitesReducer >;
+	wpcomSitesApi: ReturnType< typeof wpcomSitesApi.reducer >;
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
 	wpcomPublicApi: ReturnType< typeof wpcomPublicApi.reducer >;
@@ -94,13 +92,14 @@ export const rootReducer = combineReducers( {
 	appVersionApi: appVersionApi.reducer,
 	betaFeatures: betaFeaturesReducer,
 	chat: chatReducer,
-	newSites: newSitesReducer,
 	installedAppsApi: installedAppsApi.reducer,
+	connectedSitesApi: connectedSitesApi.reducer,
+	connectedSites: connectedSitesReducer,
+	wpcomSitesApi: wpcomSitesApi.reducer,
 	onboarding: onboardingReducer,
 	providerConstants: providerConstantsReducer,
 	snapshot: snapshotReducer,
 	sync: syncReducer,
-	connectedSites: connectedSitesReducer,
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,
 	wpcomPublicApi: wpcomPublicApi.reducer,
@@ -115,6 +114,8 @@ export const store = configureStore( {
 			.prepend( listenerMiddleware.middleware )
 			.concat( appVersionApi.middleware )
 			.concat( installedAppsApi.middleware )
+			.concat( connectedSitesApi.middleware )
+			.concat( wpcomSitesApi.middleware )
 			.concat( wordpressVersionsApi.middleware )
 			.concat( wpcomApi.middleware )
 			.concat( wpcomPublicApi.middleware )
@@ -143,8 +144,6 @@ async function initializeProviderConstants() {
 // Initialize provider constants immediately, but skip in test environment
 if ( typeof jest === 'undefined' && process.env.NODE_ENV !== 'test' ) {
 	void initializeProviderConstants();
-	// Initialize connected sites on store initialization only in non-test environment
-	void store.dispatch( loadAllConnectedSites() );
 	// Initialize beta features on store initialization only in non-test environment
 	void store.dispatch( loadBetaFeatures() );
 }

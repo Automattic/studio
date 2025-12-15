@@ -1,43 +1,43 @@
 import {
-	useNavigator,
 	__experimentalHeading as Heading,
 	__experimentalVStack as VStack,
 } from '@wordpress/components';
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useEffect } from 'react';
+import { PropsWithChildren } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
-import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { ListSites } from 'src/modules/sync/components/sync-sites-modal-selector';
+import { NoWpcomSitesContent } from 'src/modules/sync/components/no-wpcom-sites-content';
+import { SitesListContent } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
+import type { SyncSite } from 'src/modules/sync/types';
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {
 	const { __ } = useI18n();
 	return (
-		<div className="p-8 flex justify-between max-w-3xl gap-4">
+		<div className="p-8 flex">
 			<div className="flex flex-col">
 				<div className="flex items-center mb-1">
 					<div className="a8c-subtitle text-pretty">
-						{ __( 'Sync with WordPress.com or Pressable' ) }
+						{ __( 'Create a new site from WordPress.com or Pressable' ) }
 					</div>
 				</div>
 				<div className="max-w-[40ch] text-a8c-gray-70 a8c-body">
 					{ __(
-						'Connect your existing WordPress.com or Pressable sites with Jetpack activated, or create a new one. Then share your work with the world.'
+						'Create a new local site and pull your WordPress.com or Pressable site with Jetpack activated.'
 					) }
 				</div>
 				<div className="mt-6">
 					{ [
-						__( 'Push and pull changes from your live site.' ),
-						__( 'Connect multiple environments.' ),
-						__( 'Sync database and file changes.' ),
+						__( 'Create a new local WordPress site.' ),
+						__( 'Pull content from your remote site.' ),
+						__( 'Start working locally with your site data.' ),
 					].map( ( text ) => (
 						<div key={ text } className="text-a8c-gray-70 a8c-body flex items-center">
 							<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />
@@ -46,6 +46,22 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 					) ) }
 				</div>
 				{ children }
+			</div>
+			<div className="flex flex-col shrink-0 items-end">
+				<SyncTabImage />
+			</div>
+		</div>
+	);
+}
+
+function NoWpcomSitesView() {
+	const { __ } = useI18n();
+
+	return (
+		<div className="p-8 flex">
+			<div className="flex flex-col gap-6">
+				<div className="a8c-subtitle text-pretty">{ __( 'Find a perfect plan' ) }</div>
+				<NoWpcomSitesContent buttonClassName="!text-white !shadow-a8c-blue-50 mt-2" />
 			</div>
 			<div className="flex flex-col shrink-0 items-end">
 				<SyncTabImage />
@@ -118,19 +134,21 @@ export function PullRemoteSite( {
 	setSelectedRemoteSite: ( site?: SyncSite ) => void;
 } ) {
 	const { __ } = useI18n();
-	const { isAuthenticated } = useAuth();
-	const { location } = useNavigator();
-	const { syncSites, refetchSites } = useSyncSites();
+	const { isAuthenticated, user } = useAuth();
 
-	useEffect( () => {
-		if ( location.path === '/pullRemote' && isAuthenticated ) {
-			void refetchSites();
-		}
-	}, [ location.path, isAuthenticated, refetchSites ] );
+	const {
+		data: syncSites = [],
+		isLoading,
+		isSuccess,
+	} = useGetWpComSitesQuery(
+		{
+			userId: user?.id,
+		},
+		{ refetchOnMountOrArgChange: true }
+	);
 
-	if ( ! isAuthenticated ) {
-		return <NoAuthPullRemoteSiteView />;
-	}
+	const hasSites = syncSites.length > 0;
+	const showNoSitesView = ! hasSites && isSuccess && ! isLoading;
 
 	const handleSiteSelect = ( siteId: number ) => {
 		const site = syncSites.find( ( s ) => s.id === siteId );
@@ -138,15 +156,26 @@ export function PullRemoteSite( {
 	};
 
 	return (
-		<VStack className="text-center w-full" alignment="top" spacing="3">
-			<Heading className="text-[32px] text-gray-900" weight={ 500 }>
-				{ __( 'Pull your remote site' ) }
+		<VStack className="w-full" alignment="top" spacing={ isAuthenticated ? 3 : 1 }>
+			<Heading className="text-center text-[32px] text-gray-900" weight={ 500 }>
+				{ __( 'Pull an existing site' ) }
 			</Heading>
-			<ListSites
-				syncSites={ syncSites }
-				selectedSiteId={ selectedRemoteSite?.id || null }
-				onSelectSite={ handleSiteSelect }
-			/>
+			{ isAuthenticated ? (
+				<VStack className="flex flex-col w-full max-w-[650px] flex-1 text-a8c-gray-900">
+					{ showNoSitesView ? (
+						<NoWpcomSitesView />
+					) : (
+						<SitesListContent
+							isLoading={ isLoading }
+							syncSites={ syncSites }
+							selectedSiteId={ selectedRemoteSite?.id || null }
+							onSelectSite={ handleSiteSelect }
+						/>
+					) }
+				</VStack>
+			) : (
+				<NoAuthPullRemoteSiteView />
+			) }
 		</VStack>
 	);
 }

@@ -56,9 +56,7 @@ const config: ForgeConfig = {
 			/^\/dist\/playground-cli/,
 		],
 	},
-	rebuildConfig: {
-		ignoreModules: [ 'fs-ext' ],
-	},
+	rebuildConfig: {},
 	makers: [
 		new MakerZIP( {}, [ 'darwin' ] ),
 		new MakerDeb( {

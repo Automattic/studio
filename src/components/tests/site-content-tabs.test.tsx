@@ -42,7 +42,7 @@ jest.mock( 'src/stores/wordpress-versions-api', () => {
 	return {
 		...actual,
 		useGetWordPressVersions: jest.fn( () => ( {
-			data: [
+			sites: [
 				{ label: 'Latest', value: 'latest', isBeta: false, isDevelopment: false },
 				{ label: '6.4', value: '6.4', isBeta: false, isDevelopment: false },
 				{ label: '6.3', value: '6.3', isBeta: false, isDevelopment: false },
@@ -57,7 +57,7 @@ jest.mock( 'src/stores/wpcom-api', () => {
 	return {
 		...actual,
 		useGetBlueprints: jest.fn( () => ( {
-			data: { blueprints: [], total: 0 },
+			sites: { blueprints: [], total: 0 },
 			isLoading: false,
 		} ) ),
 	};
@@ -83,7 +83,7 @@ describe( 'SiteContentTabs', () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite,
 			snapshots: [],
-			data: [ selectedSite ],
+			sites: [ selectedSite ],
 			loadingServer: {},
 		} );
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
@@ -99,7 +99,7 @@ describe( 'SiteContentTabs', () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite,
 			snapshots: [],
-			data: [ selectedSite ],
+			sites: [ selectedSite ],
 			loadingServer: {},
 		} );
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
@@ -111,23 +111,5 @@ describe( 'SiteContentTabs', () => {
 		expect(
 			screen.queryByRole( 'tab', { name: 'Backup', selected: false } )
 		).not.toBeInTheDocument();
-	} );
-	it( 'should render a "No Site" screen if all sites are removed', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			undefined,
-			snapshots: [],
-			data: [],
-			loadingServer: {},
-		} );
-		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
-		expect( screen.queryByRole( 'tab', { name: 'Settings' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'tab', { name: 'Sync' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'tab', { name: 'Previews' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'tab', { name: 'Launchpad' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).not.toBeInTheDocument();
-		expect(
-			screen.getByText( "You don't have any sites right now. Add a new site to get started." )
-		).toBeVisible();
 	} );
 } );

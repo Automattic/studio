@@ -46,8 +46,6 @@ if ( typeof window !== 'undefined' ) {
 
 // Define global variables that were previously in jest.config.ts
 ( global as any ).COMMIT_HASH = 'mock-hash';
-( global as any ).MAIN_WINDOW_WEBPACK_ENTRY = 'main-window-webpack-entry';
-( global as any ).MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY = 'main-window-preload-webpack-entry';
 
 // Silence console.log for all tests
 beforeEach( () => {

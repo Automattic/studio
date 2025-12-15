@@ -157,7 +157,7 @@ async function startHttpsProxy(): Promise< void > {
 			SNICallback: async ( servername, cb ) => {
 				try {
 					const site = await getSiteByHost( servername );
-					if ( ! site || ! site.customDomain ) {
+					if ( ! site || ! site.customDomain || ! site.enableHttps ) {
 						console.error( `[Proxy] SNI: Invalid hostname: ${ servername }` );
 						cb( new Error( `Invalid hostname: ${ servername }` ) );
 						return;

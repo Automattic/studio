@@ -1,4 +1,3 @@
-import 'cli/polyfills/browser-globals.js';
 import path from 'node:path';
 import { __ } from '@wordpress/i18n';
 import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
@@ -76,9 +75,6 @@ async function main() {
 
 	if ( isSitesCliEnabled ) {
 		studioArgv.command( 'site', __( 'Manage local sites (Beta)' ), ( sitesYargs ) => {
-			sitesYargs.option( 'path', {
-				hidden: true,
-			} );
 			registerSiteListCommand( sitesYargs );
 			sitesYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
 		} );

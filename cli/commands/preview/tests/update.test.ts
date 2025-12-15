@@ -3,10 +3,9 @@ import path from 'path';
 import { DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
-import { getAuthToken, getOrCreateSiteByFolder, getSiteByFolder } from 'cli/lib/appdata';
+import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { updateSnapshotInAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
-import { validateSiteFolder } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 
 jest.mock( 'common/lib/get-wordpress-version' );
@@ -15,9 +14,7 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
 	getAuthToken: jest.fn(),
 	getSiteByFolder: jest.fn(),
-	getOrCreateSiteByFolder: jest.fn(),
 } ) );
-jest.mock( 'cli/lib/validation' );
 jest.mock( 'cli/lib/archive' );
 jest.mock( 'cli/lib/api' );
 jest.mock( 'cli/lib/snapshots' );
@@ -61,7 +58,6 @@ describe( 'Preview Update Command', () => {
 		( Logger as jest.Mock ).mockReturnValue( mockLogger );
 
 		( getAuthToken as jest.Mock ).mockResolvedValue( mockAuthToken );
-		( validateSiteFolder as jest.Mock ).mockReturnValue( true );
 		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [ mockSnapshot ] );
 		( archiveSiteContent as jest.Mock ).mockResolvedValue( undefined );
 		( uploadArchive as jest.Mock ).mockResolvedValue( {
@@ -82,10 +78,10 @@ describe( 'Preview Update Command', () => {
 	} );
 
 	it( 'should complete the preview update process successfully', async () => {
-		( getWordPressVersion as jest.Mock ).mockResolvedValue( '6.8.1' );
+		( getWordPressVersion as jest.Mock ).mockReturnValue( '6.8.1' );
 		const { runCommand } = await import( '../update' );
 		await runCommand( mockFolder, mockSiteUrl, false );
-		expect( validateSiteFolder ).toHaveBeenCalledWith( mockFolder );
+		expect( getSiteByFolder ).toHaveBeenCalledWith( mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
 		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
 
@@ -125,21 +121,7 @@ describe( 'Preview Update Command', () => {
 		const { runCommand } = await import( '../update' );
 		await runCommand( process.cwd(), mockSiteUrl, false );
 
-		expect( validateSiteFolder ).toHaveBeenCalledWith( process.cwd() );
-	} );
-
-	it( 'should handle validation errors', async () => {
-		const errorMessage = 'Validation failed';
-		( validateSiteFolder as jest.Mock ).mockImplementation( () => {
-			throw new LoggerError( errorMessage );
-		} );
-
-		const { runCommand } = await import( '../update' );
-		await runCommand( mockFolder, mockSiteUrl, false );
-
-		expect( mockLogger.reportError ).toHaveBeenCalled();
-		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( archiveSiteContent ).not.toHaveBeenCalled();
+		expect( getSiteByFolder ).toHaveBeenCalledWith( process.cwd() );
 	} );
 
 	it( 'should handle authentication errors', async () => {
@@ -261,7 +243,7 @@ describe( 'Preview Update Command', () => {
 
 	it( 'should allow update if overwrite flag is set even if folder does not match', async () => {
 		const { runCommand } = await import( '../update' );
-		( getOrCreateSiteByFolder as jest.Mock ).mockResolvedValueOnce( {
+		( getSiteByFolder as jest.Mock ).mockResolvedValueOnce( {
 			id: 'different-id',
 			path: '/other/path',
 			name: 'Other Site',

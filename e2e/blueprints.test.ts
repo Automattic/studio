@@ -5,7 +5,6 @@ import { E2ESession } from './e2e-helpers';
 import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
-import WhatsNewModal from './page-objects/whats-new-modal';
 import { getUrlWithAutoLogin } from './utils';
 
 test.describe( 'Blueprints', () => {
@@ -14,15 +13,9 @@ test.describe( 'Blueprints', () => {
 	test.beforeAll( async () => {
 		await session.launch();
 
-		// Complete onboarding before tests
 		const onboarding = new Onboarding( session.mainWindow );
-		await expect( onboarding.heading ).toBeVisible();
-		await onboarding.continueButton.click();
-
-		const whatsNewModal = new WhatsNewModal( session.mainWindow );
-		if ( await whatsNewModal.locator.isVisible( { timeout: 5000 } ) ) {
-			await whatsNewModal.closeButton.click();
-		}
+		await onboarding.completeOnboarding();
+		await onboarding.closeWhatsNew();
 
 		const siteContent = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
 		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );

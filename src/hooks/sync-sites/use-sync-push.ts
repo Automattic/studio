@@ -17,8 +17,8 @@ import {
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
 import type { ImportResponse } from 'src/hooks/use-sync-states-progress-info';
+import type { SyncSite } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
 
 export type SyncPushState = {
@@ -292,7 +292,7 @@ export function useSyncPush( {
 						'The site is too large to push. Please reduce the size of the site and try again.'
 					),
 				} );
-				await getIpcApi().removeTemporaryFile( archivePath );
+				await getIpcApi().removeExportedSiteTmpFile( archivePath );
 				return;
 			}
 
@@ -336,7 +336,7 @@ export function useSyncPush( {
 					message: getErrorFromResponse( error ),
 				} );
 			} finally {
-				await getIpcApi().removeTemporaryFile( archivePath );
+				await getIpcApi().removeExportedSiteTmpFile( archivePath );
 			}
 		},
 		[

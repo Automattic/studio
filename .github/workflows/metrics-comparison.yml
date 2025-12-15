@@ -30,7 +30,7 @@ jobs:
       SKIP_WORKER_THREAD_BUILD: 'true'
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -52,22 +52,22 @@ jobs:
       - name: Compare performance with base branch
         if: github.event_name == 'push'
         # The base hash used here need to be a commit that is compatible with the current performance tests.
-        # The current one is 519217873dc4ef624fd20de425944fa0cc64a3dd
+        # The current one is 58c52bfee7e585614ced202f43f217a01f94f029
         # it needs to be updated every time it becomes unsupported by the current performance tests.
         # It is used as a base comparison point to avoid fluctuation in the performance metrics.
         run: |
-          cd scripts/compare-perf && npm ci && npm run compare -- perf $GITHUB_SHA 519217873dc4ef624fd20de425944fa0cc64a3dd --tests-branch $GITHUB_SHA --rounds 3
+          cd scripts/compare-perf && npm ci && npm run compare -- perf $GITHUB_SHA 58c52bfee7e585614ced202f43f217a01f94f029 --tests-branch $GITHUB_SHA --rounds 3
 
       # Log performance metrics to CodeVitals when running on trunk
       - name: Log performance metrics to CodeVitals
         if: github.event_name == 'push' && github.ref == 'refs/heads/trunk' && !cancelled()
         run: |
           COMMITTED_AT=$(git show -s $GITHUB_SHA --format="%cI")
-          npm ci && cd scripts/compare-perf && npm run log-to-codevitals -- $CODEVITALS_AUTH_TOKEN trunk $GITHUB_SHA 519217873dc4ef624fd20de425944fa0cc64a3dd $COMMITTED_AT
+          npm ci && cd scripts/compare-perf && npm run log-to-codevitals -- $CODEVITALS_AUTH_TOKEN trunk $GITHUB_SHA 58c52bfee7e585614ced202f43f217a01f94f029 $COMMITTED_AT
 
       - name: Archive performance results
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: performance-results
           path: ${{ env.ARTIFACTS_PATH }}

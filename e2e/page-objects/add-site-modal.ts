@@ -50,8 +50,8 @@ export default class AddSiteModal {
 		return this.page.getByTestId( 'stepper-action-button' );
 	}
 
-	async selectLocalPathForTesting() {
-		await this.siteForm.clickLocalPathButtonAndSelectFromEnv();
+	async selectLocalPathForTesting( partialExpectedPath: string ) {
+		await this.siteForm.clickLocalPathButtonAndSelectFromEnv( partialExpectedPath );
 	}
 
 	async selectBlueprintFile( filePath: string ) {

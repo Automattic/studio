@@ -1,5 +1,4 @@
 import { resolve } from 'path';
-import { pathToFileURL } from 'url';
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 import topLevelAwait from 'vite-plugin-top-level-await';
@@ -39,6 +38,7 @@ export default defineConfig( {
 			},
 		},
 		define: {
+			'process.env.NODE_ENV': JSON.stringify( process.env.NODE_ENV ),
 			COMMIT_HASH: JSON.stringify(
 				process.env.GITHUB_SHA ?? process.env.BUILDKITE_COMMIT ?? 'dev'
 			),

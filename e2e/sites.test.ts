@@ -8,7 +8,6 @@ import { E2ESession } from './e2e-helpers';
 import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
-import WhatsNewModal from './page-objects/whats-new-modal';
 import { getUrlWithAutoLogin } from './utils';
 
 const skipTestOnWindows = process.platform === 'win32' ? test.skip : test;
@@ -30,22 +29,12 @@ test.describe( 'Servers', () => {
 		await session.launch( env );
 
 		const onboarding = new Onboarding( session.mainWindow );
+		const { siteName, localPath } = await onboarding.completeOnboarding( {
+			customSiteName,
+			customFolderName,
+		} );
 
-		if ( customSiteName ) {
-			await onboarding.siteNameInput.fill( customSiteName );
-		}
-		await expect( onboarding.siteNameInput ).toHaveValue( /\S+/, { timeout: 5000 } );
-		const siteName = await onboarding.siteNameInput.inputValue();
-
-		if ( customFolderName ) {
-			await onboarding.selectLocalPathForTesting( customFolderName );
-		}
-		const localPath = await onboarding.localPathInput.inputValue();
-
-		await expect( onboarding.heading ).toBeVisible();
-		await onboarding.continueButton.click();
-
-		await closeWhatsNew();
+		await onboarding.closeWhatsNew();
 
 		const siteContent = new SiteContent( session.mainWindow, siteName );
 		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
@@ -54,13 +43,6 @@ test.describe( 'Servers', () => {
 			siteName,
 			localPath,
 		};
-	}
-
-	async function closeWhatsNew() {
-		const whatsNewModal = new WhatsNewModal( session.mainWindow );
-		if ( await whatsNewModal.locator.isVisible( { timeout: 5000 } ) ) {
-			await whatsNewModal.closeButton.click();
-		}
 	}
 
 	test.afterEach( async () => {

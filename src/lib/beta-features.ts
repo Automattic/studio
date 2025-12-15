@@ -14,11 +14,11 @@ const BETA_FEATURES_DEFINITION: Record< keyof BetaFeatures, BetaFeatureDefinitio
 		default: false,
 		description: '"studio site" command to manage local sites from terminal',
 	},
-	createSiteFromRemote: {
-		label: 'Site creation from existing remote site',
-		key: 'createSiteFromRemote',
+	multiWorkerSupport: {
+		label: 'Multi-Worker Support',
+		key: 'multiWorkerSupport',
 		default: false,
-		description: 'Enable creating a site from an existing WordPress.com or Pressable site',
+		description: 'Enable multi-worker PHP processing for faster performance',
 	},
 } as const;
 

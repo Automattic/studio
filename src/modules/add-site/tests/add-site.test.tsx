@@ -60,11 +60,20 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		generateProposedSitePath: mockGenerateProposedSitePath,
 		getAllCustomDomains: mockGetAllCustomDomains,
 		setWindowControlVisibility: jest.fn(),
+		setupAppMenu: jest.fn(),
 	} ),
 } ) );
 
 jest.mock( 'src/hooks/sync-sites', () => ( {
 	useSyncSites: () => mockUseSyncSites(),
+} ) );
+
+jest.mock( 'src/hooks/use-import-export', () => ( {
+	useImportExport: () => ( {
+		importState: {},
+		importFile: jest.fn(),
+		clearImportState: jest.fn(),
+	} ),
 } ) );
 
 jest.mock( 'src/hooks/use-content-tabs', () => ( {
@@ -79,7 +88,7 @@ const mockCreateSite = jest.fn< ( path: string, name?: string, wpVersion?: strin
 jest.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( {
 		createSite: mockCreateSite,
-		data: [],
+		sites: [],
 	} ),
 } ) );
 
@@ -229,6 +238,7 @@ describe( 'AddSite', () => {
 				undefined,
 				false,
 				undefined, // blueprint parameter
+				'8.3',
 				expect.any( Function )
 			);
 		} );
@@ -444,6 +454,7 @@ describe( 'AddSite', () => {
 				undefined,
 				false,
 				undefined, // blueprint parameter
+				'8.3',
 				expect.any( Function )
 			);
 		} );

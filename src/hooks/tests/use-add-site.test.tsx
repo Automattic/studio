@@ -1,5 +1,4 @@
 // Run tests: yarn test -- src/hooks/tests/use-add-site.test.tsx
-import { configureStore } from '@reduxjs/toolkit';
 import { renderHook, act } from '@testing-library/react';
 import nock from 'nock';
 import { Provider } from 'react-redux';
@@ -8,9 +7,9 @@ import { useAddSite } from 'src/hooks/use-add-site';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getWordPressProvider } from 'src/lib/wordpress-provider';
-import providerConstantsReducer from 'src/stores/provider-constants-slice';
-import { useConnectedSitesOperations } from 'src/stores/sync';
-import type { SyncSite } from 'src/hooks/use-fetch-wpcom-sites/types';
+import { store } from 'src/stores';
+import { setProviderConstants } from 'src/stores/provider-constants-slice';
+import type { SyncSite } from 'src/modules/sync/types';
 
 jest.mock( 'src/hooks/use-site-details' );
 jest.mock( 'src/hooks/use-feature-flags' );
@@ -23,10 +22,7 @@ jest.mock( 'src/hooks/use-import-export', () => ( {
 	} ),
 } ) );
 
-jest.mock( 'src/stores/sync', () => ( {
-	useConnectedSitesOperations: jest.fn(),
-} ) );
-
+const mockConnectWpcomSites = jest.fn().mockResolvedValue( undefined );
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		generateProposedSitePath: jest.fn().mockResolvedValue( {
@@ -37,32 +33,12 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 		} ),
 		showNotification: jest.fn(),
 		getAllCustomDomains: jest.fn().mockResolvedValue( [] ),
+		connectWpcomSites: mockConnectWpcomSites,
+		getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
 	} ),
 } ) );
 
-// Helper to create a store with preloaded provider constants
-function makeStoreWithProviderConstants( overrides = {} ) {
-	return configureStore( {
-		reducer: {
-			providerConstants: providerConstantsReducer,
-			// ...add other reducers as needed
-		},
-		preloadedState: {
-			providerConstants: {
-				defaultPhpVersion: '8.3',
-				defaultWordPressVersion: 'latest',
-				allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
-				minimumWordPressVersion: '5.9.9',
-				...overrides,
-			},
-		},
-	} );
-}
-
-const renderHookWithProvider = (
-	hook: () => ReturnType< typeof useAddSite >,
-	store = makeStoreWithProviderConstants()
-) => {
+const renderHookWithProvider = ( hook: () => ReturnType< typeof useAddSite > ) => {
 	return renderHook< ReturnType< typeof useAddSite >, void >( hook, {
 		wrapper: ( { children } ) => <Provider store={ store }>{ children }</Provider>,
 	} );
@@ -72,25 +48,28 @@ describe( 'useAddSite', () => {
 	const mockCreateSite = jest.fn();
 	const mockUpdateSite = jest.fn();
 	const mockStartServer = jest.fn();
-	const mockConnectSite = jest.fn();
 	const mockPullSite = jest.fn();
 	const mockSetSelectedTab = jest.fn();
 
 	beforeEach( () => {
 		jest.clearAllMocks();
 
+		// Prepopulate store with provider constants
+		store.dispatch(
+			setProviderConstants( {
+				defaultPhpVersion: '8.3',
+				defaultWordPressVersion: 'latest',
+				allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+				minimumWordPressVersion: '5.9.9',
+			} )
+		);
+
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			createSite: mockCreateSite,
 			updateSite: mockUpdateSite,
-			data: [],
+			sites: [],
 			loadingSites: false,
 			startServer: mockStartServer,
-		} );
-
-		mockConnectSite.mockResolvedValue( undefined );
-
-		( useConnectedSitesOperations as jest.Mock ).mockReturnValue( {
-			connectSite: mockConnectSite,
 		} );
 
 		mockPullSite.mockReset();
@@ -181,13 +160,13 @@ describe( 'useAddSite', () => {
 
 	it( 'should pass WordPress version to createSite when handleAddSiteClick is called', async () => {
 		mockCreateSite.mockImplementation(
-			( path, name, wpVersion, customDomain, enableHttps, blueprint, callback ) => {
+			( path, name, wpVersion, customDomain, enableHttps, blueprint, phpVersion, callback ) => {
 				callback( {
 					id: 'test-id',
 					name: name || 'Test Site',
-					path: path,
-					wpVersion: wpVersion,
-					phpVersion: '8.2',
+					path,
+					wpVersion,
+					phpVersion,
 				} );
 				return Promise.resolve();
 			}
@@ -211,49 +190,9 @@ describe( 'useAddSite', () => {
 			undefined,
 			false,
 			undefined, // blueprint parameter
+			'8.3',
 			expect.any( Function )
 		);
-	} );
-
-	it( 'should still call updateSite even if wpVersion matches due to object comparison', async () => {
-		const wpVersion = '6.1.7';
-		const newSite = {
-			id: 'test-id',
-			name: 'Test Site',
-			path: '/test/path',
-			wpVersion: wpVersion,
-			phpVersion: '8.3',
-		};
-
-		mockCreateSite.mockImplementation(
-			( path, name, version, customDomain, enableHttps, blueprint, callback ) => {
-				callback( {
-					...newSite,
-					wpVersion: version,
-				} );
-				return Promise.resolve();
-			}
-		);
-
-		const { result } = renderHookWithProvider( () => useAddSite() );
-
-		act( () => {
-			result.current.setWpVersion( wpVersion );
-			result.current.setSitePath( '/test/path' );
-		} );
-
-		mockUpdateSite.mockClear();
-
-		await act( async () => {
-			await result.current.handleAddSiteClick();
-		} );
-
-		expect( mockUpdateSite ).toHaveBeenCalled();
-
-		expect( mockUpdateSite ).toHaveBeenCalledWith( {
-			...newSite,
-			wpVersion,
-		} );
 	} );
 
 	it( 'should connect and start pulling when a remote site is selected', async () => {
@@ -279,7 +218,7 @@ describe( 'useAddSite', () => {
 		};
 
 		mockCreateSite.mockImplementation(
-			( path, name, version, customDomain, enableHttps, blueprint, callback ) => {
+			( path, name, version, customDomain, enableHttps, blueprint, phpVersion, callback ) => {
 				callback( createdSite );
 				return Promise.resolve();
 			}
@@ -296,7 +235,12 @@ describe( 'useAddSite', () => {
 			await result.current.handleAddSiteClick();
 		} );
 
-		expect( mockConnectSite ).toHaveBeenCalledWith( remoteSite, createdSite.id );
+		expect( mockConnectWpcomSites ).toHaveBeenCalledWith( [
+			{
+				sites: [ remoteSite ],
+				localSiteId: createdSite.id,
+			},
+		] );
 		expect( mockPullSite ).toHaveBeenCalledWith( remoteSite, createdSite, {
 			optionsToSync: [ 'all' ],
 		} );

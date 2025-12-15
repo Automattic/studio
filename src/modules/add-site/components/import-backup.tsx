@@ -10,6 +10,7 @@ import { download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useRef, useState } from 'react';
 import Button from 'src/components/button';
+import { ErrorIcon } from 'src/components/error-icon';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -46,6 +47,10 @@ interface ImportBackupProps {
 	selectedFile?: File | null;
 }
 
+const isValidBackupFile = ( file: File ): boolean => {
+	return ACCEPTED_IMPORT_FILE_TYPES.some( ( ext ) => file.name.toLowerCase().endsWith( ext ) );
+};
+
 export default function ImportBackup( {
 	onFileSelect,
 	selectedFile: initialFile,
@@ -54,11 +59,13 @@ export default function ImportBackup( {
 	const locale = useI18nLocale();
 	const [ isDragging, setIsDragging ] = useState( false );
 	const [ selectedFile, setSelectedFile ] = useState< File | null >( initialFile || null );
+	const [ fileError, setFileError ] = useState< string | null >( null );
 	const fileInputRef = useRef< HTMLInputElement >( null );
 
 	const handleFileSelection = useCallback(
 		( file: File ) => {
 			setSelectedFile( file );
+			setFileError( null );
 			onFileSelect( file );
 		},
 		[ onFileSelect ]
@@ -68,6 +75,7 @@ export default function ImportBackup( {
 		e.preventDefault();
 		e.stopPropagation();
 		setIsDragging( true );
+		setFileError( null );
 	}, [] );
 
 	const handleDragLeave = useCallback( ( e: React.DragEvent ) => {
@@ -83,17 +91,22 @@ export default function ImportBackup( {
 			setIsDragging( false );
 
 			const files = Array.from( e.dataTransfer.files );
-			const backupFile = files.find( ( file ) => {
-				return ACCEPTED_IMPORT_FILE_TYPES.some( ( ext ) =>
-					file.name.toLowerCase().endsWith( ext )
-				);
-			} );
+			if ( files.length === 0 ) {
+				return;
+			}
 
-			if ( backupFile ) {
-				handleFileSelection( backupFile );
+			const file = files[ 0 ];
+			if ( isValidBackupFile( file ) ) {
+				handleFileSelection( file );
+			} else {
+				setFileError(
+					__(
+						'This file type is not supported. Please use a .zip, .gz, .tar, .tar.gz, or .wpress file.'
+					)
+				);
 			}
 		},
-		[ handleFileSelection ]
+		[ handleFileSelection, __ ]
 	);
 
 	const handleFileInputChange = useCallback(
@@ -114,6 +127,7 @@ export default function ImportBackup( {
 		( e: React.MouseEvent ) => {
 			e.stopPropagation();
 			setSelectedFile( null );
+			setFileError( null );
 			onFileSelect();
 			if ( fileInputRef.current ) {
 				fileInputRef.current.value = '';
@@ -210,6 +224,13 @@ export default function ImportBackup( {
 				className="hidden"
 				aria-label={ __( 'Select backup file' ) }
 			/>
+
+			{ fileError && (
+				<div className="flex items-start justify-center gap-1 text-xs text-red-500 mt-2 max-w-[400px] mx-auto">
+					<ErrorIcon className="shrink-0 mt-px fill-current" />
+					<span className="text-left">{ fileError }</span>
+				</div>
+			) }
 		</VStack>
 	);
 }

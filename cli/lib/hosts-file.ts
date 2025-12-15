@@ -97,7 +97,6 @@ export const addDomainToHosts = async ( domain: string, port: number ): Promise<
 
 		if ( newContent !== hostsContent ) {
 			await writeHostsFile( newContent );
-			console.log( `Domain ${ domain } added to hosts file for port ${ port }` );
 		}
 	} catch ( error ) {
 		console.error( `Error adding domain ${ domain } to hosts file:`, error );
@@ -124,47 +123,6 @@ export const removeDomainFromHosts = async ( domain: string ): Promise< void > =
 		}
 	} catch ( error ) {
 		console.error( `Error removing domain ${ domain } from hosts file:`, error );
-		throw error;
-	}
-};
-
-export const updateDomainInHosts = async (
-	oldDomain: string | undefined,
-	newDomain: string | undefined,
-	port: number
-): Promise< void > => {
-	if ( oldDomain === newDomain ) {
-		return;
-	}
-
-	if ( ! oldDomain && newDomain ) {
-		await addDomainToHosts( newDomain, port );
-		return;
-	}
-
-	if ( oldDomain && ! newDomain ) {
-		await removeDomainFromHosts( oldDomain );
-		return;
-	}
-
-	try {
-		const hostsContent = await readHostsFile();
-		const encodedOldDomain = domainToASCII( oldDomain as string );
-		const encodedNewDomain = domainToASCII( newDomain as string );
-		const oldPattern = createHostsEntryPattern( encodedOldDomain );
-		const newContent = updateStudioBlock( hostsContent, ( entries ) => {
-			const filtered = entries.filter( ( entry ) => ! entry.match( oldPattern ) );
-			return [ ...filtered, `127.0.0.1 ${ encodedNewDomain } # Port ${ port }` ];
-		} );
-
-		if ( newContent !== hostsContent ) {
-			await writeHostsFile( newContent );
-		}
-	} catch ( error ) {
-		console.error(
-			`Error replacing domain ${ oldDomain } with ${ newDomain } in hosts file:`,
-			error
-		);
 		throw error;
 	}
 };

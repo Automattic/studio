@@ -1,7 +1,7 @@
 import { BrowserWindow, app } from 'electron';
 import path from 'path';
 import * as Sentry from '@sentry/electron/renderer';
-import { sprintf, __ } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { ABOUT_WINDOW_HEIGHT, ABOUT_WINDOW_WIDTH } from 'src/constants';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 
@@ -9,6 +9,19 @@ let aboutWindow: BrowserWindow | null = null;
 
 export function escapeSingleQuotes( str: string ) {
 	return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
+}
+
+function getPlatformLabel(): string {
+	const platform = process.platform;
+	const arch = process.arch;
+
+	if ( platform === 'darwin' ) {
+		return arch === 'arm64' ? __( 'Mac with Apple Silicon Chip' ) : __( 'Mac with Intel Chip' );
+	}
+	if ( platform === 'win32' ) {
+		return arch === 'arm64' ? __( 'Windows on ARM' ) : __( 'Windows on Intel/AMD' );
+	}
+	return `${ platform } ${ arch }`;
 }
 
 export function openAboutWindow() {
@@ -44,7 +57,7 @@ export function openAboutWindow() {
 	aboutWindow.webContents.on( 'dom-ready', () => {
 		if ( aboutWindow ) {
 			//When updating these strings, make sure to update the corresponding strings in the about-menu.html file
-			const versionText = sprintf( __( 'Version %s' ), packageJson );
+			const versionText = escapeSingleQuotes( `${ packageJson } (${ getPlatformLabel() })` );
 			const studioByWpcomText = escapeSingleQuotes( __( 'WordPress Studio' ) );
 			const aboutStudioText = escapeSingleQuotes( __( 'About WordPress Studio' ) );
 			const shareFeedbackText = escapeSingleQuotes( __( 'Share Feedback' ) );

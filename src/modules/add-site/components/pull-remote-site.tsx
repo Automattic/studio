@@ -11,12 +11,10 @@ import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
-import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { NoWpcomSitesContent } from 'src/modules/sync/components/no-wpcom-sites-content';
 import { SitesListContent } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
-import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 import type { SyncSite } from 'src/modules/sync/types';
 
@@ -138,19 +136,12 @@ export function PullRemoteSite( {
 	const { __ } = useI18n();
 	const { isAuthenticated, user } = useAuth();
 
-	const { selectedSite } = useSiteDetails();
-	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
-		localSiteId: selectedSite?.id,
-		userId: user?.id,
-	} );
-	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
 	const {
 		data: syncSites = [],
 		isLoading,
 		isSuccess,
 	} = useGetWpComSitesQuery(
 		{
-			connectedSiteIds,
 			userId: user?.id,
 		},
 		{ refetchOnMountOrArgChange: true }
@@ -171,7 +162,9 @@ export function PullRemoteSite( {
 			</Heading>
 			{ isAuthenticated ? (
 				<VStack className="flex flex-col w-full max-w-[650px] flex-1 text-a8c-gray-900">
-					{ hasSites && (
+					{ showNoSitesView ? (
+						<NoWpcomSitesView />
+					) : (
 						<SitesListContent
 							isLoading={ isLoading }
 							syncSites={ syncSites }
@@ -179,8 +172,6 @@ export function PullRemoteSite( {
 							onSelectSite={ handleSiteSelect }
 						/>
 					) }
-
-					{ showNoSitesView && <NoWpcomSitesView /> }
 				</VStack>
 			) : (
 				<NoAuthPullRemoteSiteView />

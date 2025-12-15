@@ -27,7 +27,7 @@ interface UseAddSiteOptions {
 export function useAddSite( options: UseAddSiteOptions = {} ) {
 	const { openModal = () => {} } = options;
 	const { __ } = useI18n();
-	const { createSite, sites, loadingSites } = useSiteDetails();
+	const { createSite, sites } = useSiteDetails();
 	const { importFile, clearImportState, importState } = useImportExport();
 	const [ connectSite ] = useConnectSiteMutation();
 	const { pullSite } = useSyncSites();
@@ -80,6 +80,24 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 		setBlueprintDeeplinkWarnings,
 		navigateToBlueprintDeeplink: () => setIsDeeplinkFlow( true ),
 	} );
+
+	const resetForm = useCallback( () => {
+		setSitePath( '' );
+		setError( '' );
+		setDoesPathContainWordPress( false );
+		setWpVersion( defaultWordPressVersion );
+		setPhpVersion( defaultPhpVersion );
+		setUseCustomDomain( false );
+		setCustomDomain( null );
+		setCustomDomainError( '' );
+		setEnableHttps( false );
+		setFileForImport( null );
+		setSelectedBlueprint( undefined );
+		setBlueprintPreferredVersions( undefined );
+		setBlueprintDeeplinkWarnings( undefined );
+		setSelectedRemoteSite( undefined );
+		clearDeeplinkState();
+	}, [ clearDeeplinkState, defaultPhpVersion, defaultWordPressVersion ] );
 
 	const loadAllCustomDomains = useCallback( () => {
 		getIpcApi()
@@ -255,6 +273,7 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 
 	return useMemo( () => {
 		return {
+			resetForm,
 			handleAddSiteClick,
 			handlePathSelectorClick,
 			handleSiteNameChange,
@@ -268,8 +287,6 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 			setSitePath,
 			setError,
 			setDoesPathContainWordPress,
-			sites,
-			loadingSites,
 			fileForImport,
 			setFileForImport,
 			phpVersion,
@@ -299,6 +316,7 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 			clearDeeplinkState,
 		};
 	}, [
+		resetForm,
 		doesPathContainWordPress,
 		error,
 		handleAddSiteClick,
@@ -307,8 +325,6 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 		siteName,
 		sitePath,
 		proposedSitePath,
-		sites,
-		loadingSites,
 		fileForImport,
 		phpVersion,
 		wpVersion,

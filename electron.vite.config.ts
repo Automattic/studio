@@ -38,6 +38,7 @@ export default defineConfig( {
 			},
 		},
 		define: {
+			'process.env.NODE_ENV': JSON.stringify( process.env.NODE_ENV ),
 			COMMIT_HASH: JSON.stringify(
 				process.env.GITHUB_SHA ?? process.env.BUILDKITE_COMMIT ?? 'dev'
 			),

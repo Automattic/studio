@@ -243,6 +243,7 @@ async function appBoot() {
 		}
 
 		console.log( `App version: ${ app.getVersion() }` );
+		console.log( `Environment: ${ process.env.NODE_ENV ?? 'undefined' }` );
 		console.log( `Built from commit: ${ COMMIT_HASH ?? 'undefined' }` );
 		console.log( `Local timezone: ${ Intl.DateTimeFormat().resolvedOptions().timeZone }` );
 		console.log( `App locale: ${ app.getLocale() }` );

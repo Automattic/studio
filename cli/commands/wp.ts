@@ -1,11 +1,10 @@
-import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
-import { z } from 'zod';
 import { getSiteByFolder } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { validatePhpVersion } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { GlobalOptions } from 'cli/types';
@@ -20,17 +19,7 @@ export async function runCommand(
 	} = {}
 ): Promise< void > {
 	const site = await getSiteByFolder( siteFolder );
-
-	// Determine the PHP version to use
-	const phpVersionSchema = z.enum( SupportedPHPVersions );
-	let phpVersion: SupportedPHPVersion;
-	const requestedPhpVersion = options.phpVersion ?? site.phpVersion;
-
-	try {
-		phpVersion = phpVersionSchema.parse( requestedPhpVersion );
-	} catch ( error ) {
-		throw new LoggerError( sprintf( __( 'Unsupported PHP version: %s' ), requestedPhpVersion ) );
-	}
+	const phpVersion = validatePhpVersion( options.phpVersion ?? site.phpVersion );
 
 	// If there's already a running Playground instance for this site AND we're not requesting
 	// a different PHP version, pass the command to it…
@@ -70,38 +59,25 @@ export async function runCommand(
 	process.exit( exitCode );
 }
 
-export function removeArgumentFromArgv( argv: string[], argName: string ): string[] {
+function removeArgumentFromArgv( argv: string[], argName: string ): string[] {
 	argv = argv.slice( 0 );
-	const argPattern = new RegExp( `^--${ argName }=` );
 
 	while ( argv.indexOf( `--${ argName }` ) !== -1 ) {
 		const argIndex = argv.indexOf( `--${ argName }` );
 		argv.splice( argIndex, 2 );
 	}
 
-	while ( argv.find( ( arg ) => argPattern.test( arg ) ) ) {
-		const argIndex = argv.findIndex( ( arg ) => argPattern.test( arg ) );
+	while ( argv.find( ( arg ) => arg.startsWith( `--${ argName }=` ) ) ) {
+		const argIndex = argv.findIndex( ( arg ) => arg.startsWith( `--${ argName }=` ) );
 		argv.splice( argIndex, 1 );
 	}
 
 	return argv;
 }
 
-function removePathArgumentFromArgv( argv: string[] ) {
-	return removeArgumentFromArgv( argv, 'path' );
-}
-
-function removePhpVersionArgumentFromArgv( argv: string[] ) {
-	return removeArgumentFromArgv( argv, 'php-version' );
-}
-
-function removeAvoidTelemetryArgumentFromArgv( argv: string[] ) {
-	return removeArgumentFromArgv( argv, 'avoid-telemetry' );
-}
-
 export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > ) {
 	try {
-		let wpCliArgv = removePathArgumentFromArgv( process.argv.slice( 3 ) );
+		let wpCliArgv = removeArgumentFromArgv( process.argv.slice( 3 ), 'path' );
 		const parsedWpCliArgs = yargsParser( wpCliArgv );
 
 		if ( parsedWpCliArgs._[ 0 ] === 'shell' ) {
@@ -113,8 +89,8 @@ export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > 
 		}
 
 		const phpVersion = parsedWpCliArgs[ 'php-version' ] as string | undefined;
-		wpCliArgv = removePhpVersionArgumentFromArgv( wpCliArgv );
-		wpCliArgv = removeAvoidTelemetryArgumentFromArgv( wpCliArgv );
+		wpCliArgv = removeArgumentFromArgv( wpCliArgv, 'php-version' );
+		wpCliArgv = removeArgumentFromArgv( wpCliArgv, 'avoid-telemetry' );
 
 		await runCommand( argv.path, wpCliArgv, { phpVersion } );
 	} catch ( error ) {

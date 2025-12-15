@@ -44,8 +44,8 @@ export async function stopAllServersOnQuit() {
 		const [ emitter ] = executeCliCommand( [ 'site', 'stop-all', '--auto-start' ], {
 			output: 'ignore',
 		} );
-		emitter.on( 'success', resolve );
-		emitter.on( 'failure', resolve );
+		emitter.on( 'success', () => resolve() );
+		emitter.on( 'failure', () => resolve() );
 		emitter.on( 'error', () => resolve() );
 	} );
 }
@@ -338,8 +338,6 @@ export class SiteServer {
 			skipPluginsAndThemes?: boolean;
 		} = {}
 	): Promise< WpCliResult > {
-		const projectPath = this.details.path;
-
 		// If args is a string, parse it with shell-quote. If it's an array, use directly.
 		let wpCliArgs: string[];
 		if ( typeof args === 'string' ) {
@@ -361,7 +359,7 @@ export class SiteServer {
 			wpCliArgs = args;
 		}
 
-		const cliArgs: string[] = [ 'wp', '--path', projectPath ];
+		const cliArgs: string[] = [ 'wp', '--path', this.details.path ];
 
 		if ( targetPhpVersion ) {
 			cliArgs.push( '--php-version', targetPhpVersion );
@@ -374,15 +372,18 @@ export class SiteServer {
 		}
 
 		const isImportExport =
-			wpCliArgs[ 0 ] === 'sqlite' && [ 'import', 'export' ].includes( wpCliArgs[ 1 ] as string );
+			wpCliArgs[ 0 ] === 'sqlite' && [ 'import', 'export' ].includes( wpCliArgs[ 1 ] );
 		const timeout = isImportExport
 			? WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT
 			: WP_CLI_DEFAULT_RESPONSE_TIMEOUT;
 
-		return new Promise( ( resolve ) => {
-			const [ emitter ] = executeCliCommand( cliArgs, { output: 'capture' } );
+		let timeoutId: NodeJS.Timeout;
 
-			const timeoutId = setTimeout( () => {
+		return new Promise< WpCliResult >( ( resolve ) => {
+			const [ emitter, childProcess ] = executeCliCommand( cliArgs, { output: 'capture' } );
+
+			timeoutId = setTimeout( () => {
+				childProcess.kill( 'SIGKILL' );
 				resolve( {
 					stdout: '',
 					stderr: `WP-CLI command timed out after ${ timeout }ms`,
@@ -391,17 +392,14 @@ export class SiteServer {
 			}, timeout );
 
 			emitter.on( 'success', ( { result } ) => {
-				clearTimeout( timeoutId );
 				resolve( result ?? { stdout: '', stderr: '', exitCode: 0 } );
 			} );
 
 			emitter.on( 'failure', ( { result } ) => {
-				clearTimeout( timeoutId );
 				resolve( result ?? { stdout: '', stderr: '', exitCode: 1 } );
 			} );
 
 			emitter.on( 'error', ( { error } ) => {
-				clearTimeout( timeoutId );
 				Sentry.captureException( error );
 				resolve( {
 					stdout: '',
@@ -409,6 +407,8 @@ export class SiteServer {
 					exitCode: 1,
 				} );
 			} );
+		} ).finally( () => {
+			clearTimeout( timeoutId );
 		} );
 	}
 

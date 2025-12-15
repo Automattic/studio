@@ -716,14 +716,12 @@ export async function getThemeDetails(
 		server.details.themeDetails = themeDetails;
 		await updateSite( event, server.details );
 
-		void ( async () => {
-			try {
-				await server.updateCachedThumbnail();
-				await sendThumbnailChangedEvent( event, id );
-			} catch ( error ) {
-				console.error( `Failed to update thumbnail for server ${ id }:`, error );
-			}
-		} )();
+		void server
+			.updateCachedThumbnail()
+			.then( () => sendThumbnailChangedEvent( event, id ) )
+			.catch( ( error ) =>
+				console.error( `Failed to update thumbnail for server ${ id }:`, error )
+			);
 	}
 
 	return themeDetails;

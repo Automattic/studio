@@ -3,7 +3,6 @@
  */
 // eslint-disable-next-line import/order
 import EventEmitter from 'node:events';
-import type { CliCommandResult } from 'src/modules/cli/lib/execute-command';
 
 // Mock executeCliCommand before importing SiteServer
 const mockEventEmitter = new EventEmitter();
@@ -23,6 +22,7 @@ jest.mock( '@sentry/electron/main', () => ( {
 } ) );
 
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
+import type { CliCommandResult } from 'src/modules/cli/lib/execute-command';
 
 const mockExecuteCliCommand = executeCliCommand as jest.Mock;
 

@@ -40,4 +40,6 @@ declare module '*.wasm' {
 
 declare module 'wpcom-xhr-request';
 
+// TODO: Remove this once https://github.com/WordPress/wordpress-playground/pull/3035 has landed
+// and a new `@wp-playground/storage` has been published to npm
 declare module '@wp-playground/storage';

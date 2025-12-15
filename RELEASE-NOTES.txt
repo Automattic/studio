@@ -1,6 +1,16 @@
 Unreleased
 ==========
 
+1.6.7
+=====
+* Fixed issues with app auto-updates #2234
+* Fixed issues when creating new sites after pulling an existing site #2230
+* Fixed issues with Studio Assistant plugin and theme installation #2200, #2243
+* Improved pulling existing sites, including better loading states, and avoiding path conflicts #2235, #2237, #2239
+* Improved error handling when importing invalid file formats #2202
+* Refined the Add Site experience with smoother drag behavior, and more reliable blueprint links #2216, #2231, #2232
+* Improved feedback when access is denied during authentication #2238
+
 1.6.6
 =====
 * Introduced "Pull an existing site" flow to create local sites from WordPress.com #2141, #2197, #2192

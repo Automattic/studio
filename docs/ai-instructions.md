@@ -5,27 +5,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Common Development Commands
 
 ### Building and Running
-
 - `npm start` - Start Electron app in dev mode (opens automatically with DevTools)
 - `npm run cli:build` - Build CLI once (outputs to `dist/cli/main.js`)
 - `npm run cli:watch` - Build CLI in watch mode
 - `node dist/cli/main.js` - Run the built CLI
 
 ### Testing
-
 - `npm test` - Run unit tests (Jest)
 - `npm run test:watch` - Run tests in watch mode
 - `npm run e2e` - Run end-to-end tests (Playwright)
 - `npm run test:metrics` - Run performance metrics tests
 
 ### Code Quality
-
 - `npm run lint` - Lint TypeScript/JavaScript files
 - `npm run format` - Format code with Prettier
 - **IMPORTANT**: When formatting code, ONLY format the files you've modified. Use `npx prettier --write <file1> <file2>` instead of `npm run format` to avoid formatting the entire codebase
 
 ### Building Installers
-
 - `npm run package` - Package the app (no installer)
 - `npm run make` - Build installers for current platform
 - `npm run make:macos-x64` - Build macOS Intel installer
@@ -34,45 +30,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run make:windows-arm64` - Build Windows ARM64 installer
 
 ### Process Considerations
-
 When editing code, hot reload behavior differs by process:
-
 - **Renderer Process** (React/UI): Reloads automatically
 - **Main Process** (Node.js/backend): Requires restart - either restart the app or type `rs` in the terminal
 
 ### Running a Single Test
-
 ```bash
 npm test -- path/to/test.test.ts
 npm test -- --testNamePattern="test name pattern"
 ```
-
-### Testing with Local Playground Packages
-
-When developing features that require changes to WordPress Playground packages, you can test Studio with locally built Playground packages. See the full guide in [docs/testing-with-local-playground.md](./docs/testing-with-local-playground.md).
-
-Quick setup:
-
-1. Clone wordpress-playground repo alongside studio
-2. Build Playground packages: `npm run build`
-3. Update Studio's package.json to use `file:../wordpress-playground/dist/packages/...` paths
-4. Update Playground's node_modules symlinks (see docs)
-5. Run `npm install` in Studio
-
-### Debugging
-
-**Renderer Process:**
-
-- Press `Cmd+Option+I` (Mac) or `Ctrl+Shift+I` (Windows) to open DevTools
-- React Developer Tools and Redux DevTools are available
-
-**Main Process:**
-
-```bash
-npm start -- --inspect-brk-electron
-```
-
-Then open `chrome://inspect` in a Chromium browser and click "inspect"
 
 ## CLI Commands
 
@@ -85,29 +51,24 @@ npm run cli:build && node dist/cli/main.js <command>
 ### Authentication Commands
 
 #### `studio auth login`
-
 Log in to WordPress.com using OAuth2 authentication.
 
 **Usage:**
-
 ```bash
 node dist/cli/main.js auth login
 ```
 
 **Description:**
 This command initiates the WordPress.com OAuth2 authentication flow:
-
 1. Opens your default browser to the WordPress.com authorization page
 2. After authorization, you'll be redirected to a page with your access token
 3. Copy the token and paste it back into the terminal
 4. The token is stored in your app data and shared with the Studio desktop app
 
 **Options:**
-
 - None required
 
 **Example:**
-
 ```bash
 npm run cli:build
 node dist/cli/main.js auth login
@@ -116,35 +77,29 @@ node dist/cli/main.js auth login
 ```
 
 **Notes:**
-
 - The access token is valid for 2 weeks
 - If already authenticated, the command will notify you
 - Authentication is shared between the CLI and the Studio desktop app
 - If the browser fails to open, the URL will be displayed for manual opening
 
 #### `studio auth logout`
-
 Log out from WordPress.com and revoke the access token.
 
 **Usage:**
-
 ```bash
 node dist/cli/main.js auth logout
 ```
 
 **Description:**
 This command logs you out from WordPress.com by:
-
 1. Revoking the access token on the WordPress.com server
 2. Removing the token from your local app data
 3. Syncing the logout state with the Studio desktop app
 
 **Options:**
-
 - None required
 
 **Example:**
-
 ```bash
 npm run cli:build
 node dist/cli/main.js auth logout
@@ -152,34 +107,28 @@ node dist/cli/main.js auth logout
 ```
 
 **Notes:**
-
 - If already logged out, the command will notify you without error
 - Logout is shared between the CLI and the Studio desktop app
 - The token is revoked on WordPress.com, invalidating all sessions using that token
 
 #### `studio auth status`
-
 Check authentication status and display the current WordPress.com username.
 
 **Usage:**
-
 ```bash
 node dist/cli/main.js auth status
 ```
 
 **Description:**
 This command checks if you are currently authenticated with WordPress.com by:
-
 1. Reading the authentication token from your local app data
 2. Verifying the token's validity by making an API request to WordPress.com
 3. Displaying your WordPress.com username if authenticated
 
 **Options:**
-
 - None required
 
 **Example:**
-
 ```bash
 npm run cli:build
 node dist/cli/main.js auth status
@@ -188,7 +137,6 @@ node dist/cli/main.js auth status
 ```
 
 **Notes:**
-
 - The command will check both token existence and validity
 - If the token has expired (older than 2 weeks), you'll need to log in again
 - Authentication state is shared between the CLI and the Studio desktop app
@@ -239,7 +187,6 @@ WordPress Studio is a desktop application for creating, managing, and testing Wo
 ## Directory Structure
 
 ### `/src` - Main Electron Application (Renderer + Main Process)
-
 - **`index.ts`** - Electron main process entry point, app lifecycle management
 - **`renderer.ts`** - React renderer initialization
 - **`preload.ts`** - Preload script defining IPC API bridge (contextBridge)
@@ -264,16 +211,13 @@ WordPress Studio is a desktop application for creating, managing, and testing Wo
   - `site-content-tabs.tsx` - Tabbed interface (Overview, Settings, etc.)
 - **`hooks/`** - Custom React hooks for data fetching and state management
 - **`modules/`** - Feature-specific modules with their own UI and logic
-  - `ai-assistant/` - AI Assistant feature (WP-CLI integration)
-  - `cli/` - CLI command handling and installation
-  - `preview-site/` - Preview sites functionality
-  - `sidebar/` - Sites sidebar feature
   - `sync/` - WordPress.com sync UI and logic
+  - `cli/` - CLI command handling
   - `user-settings/` - Settings UI
+  - `preview-site/` - Preview sites functionality
 - **`migrations/`** - Database/storage migrations for app updates
 
 ### `/cli` - Command-Line Interface
-
 - **`index.ts`** - CLI entry point using yargs
 - **`commands/`** - Command implementations
   - `auth/` - Authentication commands (login to WordPress.com)
@@ -285,7 +229,6 @@ WordPress Studio is a desktop application for creating, managing, and testing Wo
   - `browser.ts` - Cross-platform browser opening utility
 
 ### `/common` - Shared Code (Both Main and Renderer)
-
 - **`lib/`** - Shared utility libraries
   - `fs-utils.ts` - File system operations
   - `port-finder.ts` - Port management and availability checking
@@ -298,19 +241,16 @@ WordPress Studio is a desktop application for creating, managing, and testing Wo
 - **`translations/`** - i18n translation strings in multiple languages
 
 ### `/packages` - Monorepo Packages
-
 - **`eslint-plugin-studio`** - Custom ESLint rules for the project
 
 ## Key Architecture Patterns
 
 ### 1. Electron Process Architecture
-
 - **Main Process** (`src/index.ts`): Handles app lifecycle, creates windows, file operations, server management
 - **Renderer Process** (React app): UI layer, communicates with main via IPC
 - **Preload Script** (`src/preload.ts`): Sandboxed bridge between renderer and main process via `contextBridge`
 
 ### 2. IPC Communication Pattern
-
 ```typescript
 // Preload (src/preload.ts) exposes:
 window.ipcApi.startServer(siteId) // Invoke (request-response)
@@ -327,20 +267,16 @@ window.ipcApi.uninstallStudioCli()   // Uninstall the CLI
 ```
 
 ### 3. WordPress Provider Pattern (Strategy Pattern)
-
 Two implementations for running WordPress:
-
 - **PlaygroundCliProvider**: Uses `@wp-playground/cli` with Blueprint support (feature-gated)
 - **WpNowProvider**: Fallback provider with core functionality
 
 Both implement the `WordPressProvider` interface with methods:
-
 - `startServer()` - Start a WordPress site
 - `setupWordPressSite()` - Initialize WordPress installation
 - `createServerProcess()` - Create server child process
 
 ### 4. Redux Store Architecture (RTK)
-
 ```typescript
 // src/stores/index.ts
 - chat: Chat/AI Assistant messages
@@ -365,9 +301,7 @@ Both implement the `WordPressProvider` interface with methods:
 ```
 
 ### 5. Site Management
-
 **SiteServer Class** (`src/site-server.ts`):
-
 - Manages individual WordPress site instances
 - Handles server start/stop
 - Manages SSL certificates for custom domains
@@ -375,9 +309,8 @@ Both implement the `WordPressProvider` interface with methods:
 - Metadata: WordPress version, blueprint configuration
 
 ### 6. Data Flow
-
 ```
-User Action (React)
+User Action (React) 
   ↓
 IPC Call to Main Process (via contextBridge)
   ↓
@@ -395,7 +328,6 @@ Redux State Update / Re-render
 ## Core Technologies & Dependencies
 
 ### Frontend (Renderer)
-
 - **React 18** - UI library
 - **Redux Toolkit** - State management
 - **RTK Query** - Data fetching and caching
@@ -405,7 +337,6 @@ Redux State Update / Re-render
 - **Vite** - Build tool and dev server
 
 ### Main Process
-
 - **Electron 38** - Desktop framework
 - **@php-wasm/node** - PHP runtime in Node.js
 - **@php-wasm/universal** - Universal PHP WASM
@@ -414,7 +345,6 @@ Redux State Update / Re-render
 - **express** - Lightweight HTTP server for sites
 
 ### Development
-
 - **electron-vite** - Electron build orchestration
 - **electron-forge** - Electron packaging and distribution
 - **jest** - Unit testing
@@ -422,7 +352,6 @@ Redux State Update / Re-render
 - **ESLint / Prettier** - Code quality
 
 ### Other Key Libraries
-
 - **Sentry** - Error tracking and monitoring
 - **wpcom** - WordPress.com API client
 - **zod** - Schema validation
@@ -431,19 +360,16 @@ Redux State Update / Re-render
 ## Build & Distribution
 
 ### Build Process
-
 1. **CLI Build** (`vite build --config vite.cli.config.ts`) - Build standalone CLI
 2. **Electron Build** (`electron-vite build`) - Compiles main, preload, and renderer
 3. **Package** (`electron-forge make`) - Creates platform-specific installers
 
 ### Supported Platforms
-
 - **macOS** (Intel x64, Apple Silicon ARM64) - DMG installers
 - **Windows** (x64, ARM64) - MSIX/Squirrel.Windows
 - **Linux** - DEB packages
 
 ### Bundling
-
 - Main process: Rollup bundles to single file with multiple entry points
 - Renderer: Vite with React plugin, CSS code splitting, chunk optimization
 - Resources: wp-files, assets, bin scripts, CLI executable included in ASAR archive
@@ -451,14 +377,12 @@ Redux State Update / Re-render
 ## Important Conventions
 
 ### File Naming
-
 - React components: PascalCase (e.g., `MainSidebar.tsx`)
 - Utilities/helpers: camelCase (e.g., `get-site-url.ts`)
 - Types/interfaces: Define in separate files or within usage files
 - Tests: `.test.ts` or `.test.tsx` suffix
 
 ### IPC Handler Pattern
-
 ```typescript
 // In src/ipc-handlers.ts - always follows this pattern:
 export async function handlerName(
@@ -473,9 +397,7 @@ export const IPC_VOID_HANDLERS = ['openSiteURL', ...] // Fire-and-forget
 ```
 
 ### Storage Pattern
-
 User data stored at:
-
 - **macOS**: `~/Library/Application Support/WordPress Studio/appdata-v1.json`
 - **Windows**: `%APPDATA%/WordPress Studio/appdata-v1.json`
 - **Linux**: `~/.config/WordPress Studio/appdata-v1.json`
@@ -483,7 +405,6 @@ User data stored at:
 Storage is protected by file locking (`lockAppdata()` / `unlockAppdata()`).
 
 ### Localization
-
 - Strings use `@wordpress/i18n` (`__()` function)
 - Locales loaded from `common/translations/`
 - Renderer uses `<I18nProvider>` context
@@ -492,14 +413,12 @@ Storage is protected by file locking (`lockAppdata()` / `unlockAppdata()`).
 ## WordPress Playground Integration
 
 ### Blueprints
-
 - Complex site configurations declaratively defined
 - Compiled to runtime executable by `@wp-playground/blueprints`
 - Feature detection/filtering: `filterUnsupportedBlueprintFeatures()` in `src/lib/blueprint-features.ts`
 - Passed to server startup for automatic setup
 
 ### PHP WASM Runtime
-
 - `@php-wasm/node` provides PHP runtime in Node.js
 - Runs in child processes via `WorkerThreads`
 - WP-CLI integration: `WpCliProcess` class wraps CLI commands
@@ -508,20 +427,17 @@ Storage is protected by file locking (`lockAppdata()` / `unlockAppdata()`).
 ## Sync & WordPress.com Integration
 
 ### Authentication
-
 - OAuth flow via `common/lib/oauth.ts`
 - Token stored securely in app storage
 - Integrated with `wpcom` library for API calls
 
 ### Sync Operations
-
 - Modeled as async operations with progress tracking
 - Stored in Redux state (`sync` slice)
 - Can be canceled by user
 - Persist state across app restarts
 
 ### Supported Sync Features
-
 - Pull: Download WordPress.com site to local
 - Push: Upload local site to WordPress.com
 - Selective sync: Choose what content to transfer (plugins, themes, database, etc.)
@@ -537,7 +453,6 @@ Storage is protected by file locking (`lockAppdata()` / `unlockAppdata()`).
 ## State Management Strategy
 
 Redux is used for UI state that needs to be preserved:
-
 - Chat message history (localStorage persisted)
 - Sync operations in progress
 - Connected WordPress.com sites
@@ -563,18 +478,8 @@ Local component state used for temporary UI interactions.
 - **Port Finder**: Efficient port availability checking with caching
 - **Snapshot System**: Browser-like snapshots for fast site restoration
 
-## Additional Resources
-
-- [Contributing Guidelines](./CONTRIBUTING.md) - How to contribute to the project
-- [Code Contributions Guide](./docs/code-contributions.md) - Detailed development setup and workflow
-- [Testing with Local Playground](./docs/testing-with-local-playground.md) - Using local Playground packages
-- [Localization](./docs/localization.md) - Translation and i18n guidelines
-- [Versioning and Updates](./docs/versioning-and-updates.md) - Release process
-- [Custom Domains and SSL](./docs/design-docs/custom-domains-and-ssl.md) - Design documentation
-- [Linux Guide](./docs/linux.md) - Linux-specific build and run instructions
-
 ---
 
-Last Updated: 2025-12-15
+Last Updated: 2025-11-10
 Repository: https://github.com/Automattic/studio
 License: GPLv2 or later

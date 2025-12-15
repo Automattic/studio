@@ -63,12 +63,12 @@ steps:
   - input: "🚦 Build for Mac?"
     prompt: "Do you want to build Mac dev binaries for this PR?"
     key: input-dev-mac
-    if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk'
+    if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk' && build.branch != 'dev/studio-cli-i2'
 
   - group: 📦 Build for Mac
     key: dev-mac
     depends_on: input-dev-mac
-    if: build.tag !~ /^v[0-9]+/
+    if: build.tag !~ /^v[0-9]+/ || build.branch == 'dev/studio-cli-i2'
     steps:
       - label: 🔨 Mac Dev Build - {{matrix}}
         agents:
@@ -117,12 +117,12 @@ steps:
   - input: "🚦 Build for Windows?"
     prompt: "Do you want to build Windows dev binaries for this PR?"
     key: input-dev-windows
-    if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk'
+    if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk' && build.branch != 'dev/studio-cli-i2'
 
   - group: 📦 Build for Windows
     key: dev-windows
     depends_on: input-dev-windows
-    if: build.tag !~ /^v[0-9]+/
+    if: build.tag !~ /^v[0-9]+/ || build.branch == 'dev/studio-cli-i2'
     steps:
       - label: 🔨 Windows Dev Build - {{matrix}}
         agents:

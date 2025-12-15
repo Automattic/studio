@@ -366,9 +366,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 	useEffect( () => {
 		void dispatch( chatThunks.updateFromSite( { site: selectedSite } ) );
-		// Only re-fetch when the site ID changes, not when other site properties change
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [ dispatch, selectedSite.id ] );
+	}, [ dispatch, selectedSite ] );
 
 	useEffect( () => {
 		if ( themeDetails ) {

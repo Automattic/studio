@@ -12,14 +12,12 @@ import { GlobalOptions } from 'cli/types';
 
 const logger = new Logger< '' >();
 
-export interface RunCommandOptions {
-	phpVersion?: string;
-}
-
 export async function runCommand(
 	siteFolder: string,
 	args: string[],
-	options: RunCommandOptions = {}
+	options: {
+		phpVersion?: string;
+	} = {}
 ): Promise< void > {
 	const site = await getSiteByFolder( siteFolder );
 
@@ -78,7 +76,7 @@ export async function runCommand(
 	process.exit( exitCode );
 }
 
-function removeArgumentFromArgv( argv: string[], argName: string ): string[] {
+export function removeArgumentFromArgv( argv: string[], argName: string ): string[] {
 	argv = argv.slice( 0 );
 	const argPattern = new RegExp( `^--${ argName }=` );
 
@@ -120,11 +118,8 @@ export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > 
 			);
 		}
 
-		// Extract --php-version option before passing to WP-CLI
 		const phpVersion = parsedWpCliArgs[ 'php-version' ] as string | undefined;
 		wpCliArgv = removePhpVersionArgumentFromArgv( wpCliArgv );
-
-		// Remove --avoid-telemetry as it's a Studio CLI flag, not a WP-CLI flag
 		wpCliArgv = removeAvoidTelemetryArgumentFromArgv( wpCliArgv );
 
 		await runCommand( argv.path, wpCliArgv, { phpVersion } );

@@ -27,7 +27,7 @@ import { getMuPlugins } from 'common/lib/mu-plugins';
 import { formatPlaygroundCliMessage } from 'common/lib/playground-cli-messages';
 import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
 import { z } from 'zod';
-import { getWpCliPharPath } from 'cli/lib/server-files';
+import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 import {
 	ServerConfig,
 	managerMessageSchema,
@@ -132,6 +132,10 @@ async function getBaseRunCLIArgs(
 		{
 			hostPath: getWpCliPharPath(),
 			vfsPath: '/tmp/wp-cli.phar',
+		},
+		{
+			hostPath: getSqliteCommandPath(),
+			vfsPath: '/tmp/sqlite-command',
 		},
 	];
 

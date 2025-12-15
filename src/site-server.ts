@@ -353,23 +353,18 @@ export class SiteServer {
 			} );
 		}
 
-		// Build CLI arguments
 		const cliArgs: string[] = [ 'wp', '--path', projectPath ];
 
-		// Add PHP version override if specified
 		if ( targetPhpVersion ) {
 			cliArgs.push( '--php-version', targetPhpVersion );
 		}
 
-		// Add WP-CLI arguments
 		cliArgs.push( ...( wpCliArgs as string[] ) );
 
-		// Add skip flags if requested
 		if ( skipPluginsAndThemes ) {
 			cliArgs.push( '--skip-plugins', '--skip-themes' );
 		}
 
-		// Determine timeout based on command type (import/export operations need longer timeout)
 		const isImportExport =
 			wpCliArgs[ 0 ] === 'sqlite' && [ 'import', 'export' ].includes( wpCliArgs[ 1 ] as string );
 		const timeout = isImportExport

@@ -35,6 +35,7 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 
 let server: RunCLIServer | null = null;
+let startingPromise: Promise< void > | null = null;
 let lastCliArgs: Record< string, unknown > | null = null;
 
 // Intercept and prefix all console output from playground-cli
@@ -214,7 +215,16 @@ async function getBaseRunCLIArgs(
 	return args;
 }
 
-async function startServer( config: ServerConfig ): Promise< void > {
+function wrapWithPromise< Args extends unknown[], Return extends void >(
+	callback: ( ...args: Args ) => Promise< Return >
+) {
+	return async ( ...args: Args ) => {
+		startingPromise = callback( ...args );
+		return startingPromise;
+	};
+}
+
+const startServer = wrapWithPromise( async ( config: ServerConfig ): Promise< void > => {
 	if ( server ) {
 		logToConsole( `Server already running for site ${ config.siteId }` );
 		return;
@@ -237,7 +247,7 @@ async function startServer( config: ServerConfig ): Promise< void > {
 		errorToConsole( `Failed to start server:`, error );
 		throw error;
 	}
-}
+} );
 
 const STOP_SERVER_TIMEOUT = 5000;
 
@@ -278,6 +288,8 @@ async function runBlueprint( config: ServerConfig ): Promise< void > {
 async function runWpCliCommand(
 	args: string[]
 ): Promise< { stdout: string; stderr: string; exitCode: number } > {
+	await Promise.allSettled( [ startingPromise ] );
+
 	if ( ! server ) {
 		throw new Error( `Failed to run WP CLI command because server is not running` );
 	}

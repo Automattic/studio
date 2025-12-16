@@ -524,7 +524,7 @@ describe( 'CLI: studio site create', () => {
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
-		it( 'should not run blueprint when noStart is true with preferred language but no user blueprint', async () => {
+		it( 'should run blueprint when preferred language is configured but no blueprint was given', async () => {
 			( getPreferredSiteLanguage as jest.Mock ).mockResolvedValue( 'es_ES' );
 
 			const { runCommand } = await import( '../create' );
@@ -534,8 +534,15 @@ describe( 'CLI: studio site create', () => {
 				noStart: true,
 			} );
 
-			expect( connect ).not.toHaveBeenCalled();
-			expect( runBlueprint ).not.toHaveBeenCalled();
+			expect( connect ).toHaveBeenCalled();
+			expect( runBlueprint ).toHaveBeenCalledWith(
+				expect.any( Object ),
+				expect.any( Object ),
+				expect.objectContaining( {
+					blueprint: expect.any( Object ),
+					blueprintUri: expect.any( String ),
+				} )
+			);
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Site created successfully!' );
 			expect( disconnect ).toHaveBeenCalled();

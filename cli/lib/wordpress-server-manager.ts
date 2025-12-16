@@ -155,7 +155,13 @@ async function waitForReadyMessage( pmId: number ): Promise< void > {
  * - Checks periodically for inactivity
  * - Has both inactivity timeout and max total timeout
  */
-let nextMessageId = 0;
+/**
+ * Generate a unique message ID that won't collide across concurrent CLI processes.
+ */
+function generateMessageId(): number {
+	return Date.now() * 1000 + Math.floor( Math.random() * 1000 );
+}
+
 const messageActivityTrackers = new Map<
 	number,
 	{
@@ -175,7 +181,7 @@ async function sendMessage(
 ): Promise< unknown > {
 	const { maxTotalElapsedTime = PLAYGROUND_CLI_MAX_TIMEOUT, logger } = options;
 	const bus = await getPm2Bus();
-	const messageId = nextMessageId++;
+	const messageId = generateMessageId();
 	let responseHandler: ( packet: unknown ) => void;
 
 	return new Promise( ( resolve, reject ) => {

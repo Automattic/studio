@@ -38,6 +38,64 @@ let server: RunCLIServer | null = null;
 let startingPromise: Promise< void > | null = null;
 let lastCliArgs: Record< string, unknown > | null = null;
 
+/**
+ * Result type for WP-CLI command execution
+ */
+type WpCliResult = { stdout: string; stderr: string; exitCode: number };
+
+/**
+ * Queue for limiting concurrent WP-CLI command execution.
+ *
+ * Playground limits concurrent PHP instances (5 by default). Running too many
+ * WP-CLI commands simultaneously can exceed this limit and cause MaxPhpInstancesError.
+ * This queue limits concurrency to prevent crashes while still allowing parallelism.
+ */
+const MAX_CONCURRENT_WP_CLI_COMMANDS = 3;
+const MAX_WP_CLI_QUEUE_SIZE = 10;
+
+class WpCliCommandQueue {
+	private queue: Array< {
+		args: string[];
+		resolve: ( result: WpCliResult ) => void;
+		reject: ( error: Error ) => void;
+	} > = [];
+	private activeCount = 0;
+
+	async enqueue( args: string[] ): Promise< WpCliResult > {
+		if ( this.queue.length >= MAX_WP_CLI_QUEUE_SIZE ) {
+			throw new Error(
+				`WP-CLI command queue is full (${ MAX_WP_CLI_QUEUE_SIZE } pending commands). Please try again later.`
+			);
+		}
+
+		return new Promise( ( resolve, reject ) => {
+			this.queue.push( { args, resolve, reject } );
+			this.processNext();
+		} );
+	}
+
+	private async processNext(): Promise< void > {
+		if ( this.activeCount >= MAX_CONCURRENT_WP_CLI_COMMANDS || this.queue.length === 0 ) {
+			return;
+		}
+
+		this.activeCount++;
+		const item = this.queue.shift()!;
+
+		try {
+			const result = await executeWpCliCommandInternal( item.args );
+			item.resolve( result );
+		} catch ( error ) {
+			item.reject( error instanceof Error ? error : new Error( String( error ) ) );
+		} finally {
+			this.activeCount--;
+			this.processNext();
+		}
+	}
+}
+
+const wpCliQueue = new WpCliCommandQueue();
+
 // Intercept and prefix all console output from playground-cli
 const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
@@ -285,19 +343,15 @@ async function runBlueprint( config: ServerConfig ): Promise< void > {
 	}
 }
 
-async function runWpCliCommand(
-	args: string[]
-): Promise< { stdout: string; stderr: string; exitCode: number } > {
-	await Promise.allSettled( [ startingPromise ] );
-
-	if ( ! server ) {
-		throw new Error( `Failed to run WP CLI command because server is not running` );
-	}
-
-	const response = await server.playground.cli( [
+/**
+ * Internal function that executes a single WP-CLI command.
+ * This should only be called from the queue to ensure serialization.
+ */
+async function executeWpCliCommandInternal( args: string[] ): Promise< WpCliResult > {
+	const response = await server!.playground.cli( [
 		'php',
 		'/tmp/wp-cli.phar',
-		`--path=${ await server.playground.documentRoot }`,
+		`--path=${ await server!.playground.documentRoot }`,
 		...args,
 	] );
 
@@ -306,6 +360,20 @@ async function runWpCliCommand(
 		stderr: await response.stderrText,
 		exitCode: await response.exitCode,
 	};
+}
+
+/**
+ * Runs a WP-CLI command via the queue to ensure commands are serialized.
+ * Waits for server startup to complete before processing.
+ */
+async function runWpCliCommand( args: string[] ): Promise< WpCliResult > {
+	await Promise.allSettled( [ startingPromise ] );
+
+	if ( ! server ) {
+		throw new Error( `Failed to run WP CLI command because server is not running` );
+	}
+
+	return wpCliQueue.enqueue( args );
 }
 
 function sendErrorMessage( messageId: number, error: unknown ) {

@@ -1,6 +1,8 @@
 import os from 'node:os';
 import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
+import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
+import { LoggerError } from 'cli/logger';
 
 export function normalizeHostname( hostname: string ): string {
 	return hostname
@@ -12,7 +14,11 @@ export function normalizeHostname( hostname: string ): string {
 
 export function validatePhpVersion( rawPhpVersion: string ): SupportedPHPVersion {
 	const phpVersionSchema = z.enum( SupportedPHPVersions );
-	return phpVersionSchema.parse( rawPhpVersion );
+	const result = phpVersionSchema.safeParse( rawPhpVersion );
+	if ( ! result.success ) {
+		throw new LoggerError( sprintf( __( 'Unsupported PHP version: %s' ), rawPhpVersion ) );
+	}
+	return result.data;
 }
 
 export function getColumnWidths( widthFactors: number[] ) {

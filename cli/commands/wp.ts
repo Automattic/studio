@@ -9,27 +9,43 @@ import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-mana
 import { Logger, LoggerError } from 'cli/logger';
 import { GlobalOptions } from 'cli/types';
 
+// Sending WP-CLI messages to the child process is controlled by this feature flag. We've disabled
+// it until we can figure out the problems with race conditions and `MaxPhpInstancesError`s from
+// Playground
+const IS_WP_CLI_CHILD_PROCESS_EXECUTION_ENABLED = false;
+
 const logger = new Logger< '' >();
 
-export async function runCommand( siteFolder: string, args: string[] ): Promise< void > {
+export async function runCommand(
+	siteFolder: string,
+	args: string[],
+	options: {
+		phpVersion?: string;
+	} = {}
+): Promise< void > {
 	const site = await getSiteByFolder( siteFolder );
+	const phpVersion = validatePhpVersion( options.phpVersion ?? site.phpVersion );
 
-	// If there's already a running Playground instance for this site, pass the command to it…
-	try {
-		await connect();
+	// If there's already a running Playground instance for this site AND we're not requesting
+	// a different PHP version, pass the command to it…
+	const useCustomPhpVersion = options.phpVersion && options.phpVersion !== site.phpVersion;
 
-		if ( await isServerRunning( site.id ) ) {
-			const result = await sendWpCliCommand( site.id, args );
-			process.stdout.write( result.stdout );
-			process.stderr.write( result.stderr );
-			process.exit( result.exitCode );
+	if ( IS_WP_CLI_CHILD_PROCESS_EXECUTION_ENABLED && ! useCustomPhpVersion ) {
+		try {
+			await connect();
+
+			if ( await isServerRunning( site.id ) ) {
+				const result = await sendWpCliCommand( site.id, args );
+				process.stdout.write( result.stdout );
+				process.stderr.write( result.stderr );
+				process.exit( result.exitCode );
+			}
+		} finally {
+			disconnect();
 		}
-	} finally {
-		disconnect();
 	}
 
-	// …If not, instantiate a new Playground instance in the main process
-	const phpVersion = validatePhpVersion( site.phpVersion );
+	// …If not, instantiate a new Playground instance
 	const [ response, closeWpCliServer ] = await runWpCliCommand(
 		siteFolder,
 		phpVersion,
@@ -57,17 +73,17 @@ export async function runCommand( siteFolder: string, args: string[] ): Promise<
 	process.exit( await response.exitCode );
 }
 
-function removePathArgumentFromArgv( argv: string[] ) {
+function removeArgumentFromArgv( argv: string[], argName: string ): string[] {
 	argv = argv.slice( 0 );
 
-	while ( argv.indexOf( '--path' ) !== -1 ) {
-		const pathIndex = argv.indexOf( '--path' );
-		argv.splice( pathIndex, 2 );
+	while ( argv.indexOf( `--${ argName }` ) !== -1 ) {
+		const argIndex = argv.indexOf( `--${ argName }` );
+		argv.splice( argIndex, 2 );
 	}
 
-	while ( argv.find( ( arg ) => /^--path=/.test( arg ) ) ) {
-		const pathIndex = argv.findIndex( ( arg ) => /^--path=/.test( arg ) );
-		argv.splice( pathIndex, 1 );
+	while ( argv.find( ( arg ) => arg.startsWith( `--${ argName }=` ) ) ) {
+		const argIndex = argv.findIndex( ( arg ) => arg.startsWith( `--${ argName }=` ) );
+		argv.splice( argIndex, 1 );
 	}
 
 	return argv;
@@ -75,7 +91,7 @@ function removePathArgumentFromArgv( argv: string[] ) {
 
 export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > ) {
 	try {
-		const wpCliArgv = removePathArgumentFromArgv( process.argv.slice( 3 ) );
+		let wpCliArgv = removeArgumentFromArgv( process.argv.slice( 3 ), 'path' );
 		const parsedWpCliArgs = yargsParser( wpCliArgv );
 
 		if ( parsedWpCliArgs._[ 0 ] === 'shell' ) {
@@ -86,7 +102,11 @@ export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > 
 			);
 		}
 
-		await runCommand( argv.path, wpCliArgv );
+		const phpVersion = parsedWpCliArgs[ 'php-version' ] as string | undefined;
+		wpCliArgv = removeArgumentFromArgv( wpCliArgv, 'php-version' );
+		wpCliArgv = removeArgumentFromArgv( wpCliArgv, 'avoid-telemetry' );
+
+		await runCommand( argv.path, wpCliArgv, { phpVersion } );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );

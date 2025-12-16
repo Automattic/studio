@@ -1,23 +1,39 @@
-const sequentialLocks = new Map< () => Promise< unknown >, Set< Promise< unknown > > >();
+type SequentialOptions = {
+	concurrent?: number;
+	max?: number;
+};
 
-// Ensures that calls to the provided function are executed sequentially
 export function sequential< Args extends unknown[], Return >(
-	fn: ( ...args: Args ) => Promise< Return >
+	fn: ( ...args: Args ) => Promise< Return >,
+	options?: SequentialOptions
 ) {
-	return async ( ...args: Args ) => {
-		const locks = sequentialLocks.get( fn ) ?? new Set();
-		if ( ! sequentialLocks.has( fn ) ) {
-			sequentialLocks.set( fn, locks );
-		}
+	const concurrentCount = options?.concurrent ?? 1;
+	const maxQueueSize = options?.max;
+	const locks = new Set< Promise< unknown > >();
+	let queueCount = 0;
 
-		while ( locks.size ) {
-			await Promise.allSettled( [ ...locks ] );
+	return async ( ...args: Args ) => {
+		if ( locks.size >= concurrentCount ) {
+			if ( maxQueueSize !== undefined && queueCount >= maxQueueSize ) {
+				throw new Error(
+					`Queue is full (${ maxQueueSize } pending commands). Please try again later.`
+				);
+			}
+
+			queueCount++;
+			try {
+				while ( locks.size >= concurrentCount ) {
+					await Promise.allSettled( [ ...locks ] );
+				}
+			} finally {
+				queueCount--;
+			}
 		}
 
 		const fnPromise = fn( ...args );
+		locks.add( fnPromise );
 
 		try {
-			locks.add( fnPromise );
 			return await fnPromise;
 		} finally {
 			locks.delete( fnPromise );

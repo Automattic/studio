@@ -229,7 +229,10 @@ async function sendMessage(
 			} else if ( validPacket.raw.topic === 'console-message' ) {
 				lastActivityTimestamp = Date.now();
 				logger?.reportProgress( validPacket.raw.message );
-			} else if ( validPacket.raw.topic === 'error' ) {
+			} else if (
+				validPacket.raw.topic === 'error' &&
+				validPacket.raw.originalMessageId === messageId
+			) {
 				const error = new Error( validPacket.raw.errorMessage ) as Error & {
 					cliArgs?: Record< string, unknown >;
 				};

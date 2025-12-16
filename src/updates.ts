@@ -158,7 +158,7 @@ async function showUpdateAvailableNotice() {
 		type: 'info',
 		buttons: [ __( 'OK' ) ],
 		title: __( 'New Version Available' ),
-		message: __( 'Update downloading in background' ),
+		message: __( 'Downloading update in the background' ),
 		detail: __(
 			'Studio will notify you when the update is ready to install. You can continue working normally.'
 		),
@@ -187,7 +187,7 @@ async function showUpdateReadyToInstallNotice() {
 		title: __( 'Application Update' ),
 		message: __( 'Update ready to install' ),
 		detail: __(
-			"Restart Studio now to install the update, or choose 'Later' to continue working and restart when convenient."
+			'Restart Studio now to install the update, or choose Later to continue working and restart when convenient.'
 		),
 		defaultId: 0,
 		cancelId: 1,

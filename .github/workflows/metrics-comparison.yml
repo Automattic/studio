@@ -67,7 +67,7 @@ jobs:
 
       - name: Archive performance results
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: performance-results
           path: ${{ env.ARTIFACTS_PATH }}

@@ -1,0 +1,75 @@
+#!/usr/bin/env node
+
+/**
+ * Format stale PR data into a Slack message payload
+ *
+ * This script reads PR data from /tmp/stale-prs.json and generates
+ * a formatted Slack message at /tmp/slack-message.json
+ */
+
+const fs = require( 'fs' );
+
+// Read stale PRs data
+const stalePRs = JSON.parse( fs.readFileSync( '/tmp/stale-prs.json', 'utf8' ) );
+
+if ( stalePRs.length === 0 ) {
+	console.log( 'No stale PRs to format' );
+	process.exit( 0 );
+}
+
+// Calculate how long ago each PR was updated
+function getTimeAgo( updatedAt ) {
+	const now = Date.now();
+	const updated = new Date( updatedAt ).getTime();
+	const diffMs = now - updated;
+	const diffHours = Math.floor( diffMs / ( 1000 * 60 * 60 ) );
+	const diffDays = Math.floor( diffHours / 24 );
+
+	if ( diffDays > 0 ) {
+		return `${ diffDays } day${ diffDays > 1 ? 's' : '' } ago`;
+	} else {
+		return `${ diffHours } hour${ diffHours > 1 ? 's' : '' } ago`;
+	}
+}
+
+// Format PR status
+function getStatusEmoji( pr ) {
+	if ( pr.reviewDecision === 'REVIEW_REQUIRED' ) {
+		return '▶️';
+	} else if ( pr.reviewDecision === 'CHANGES_REQUESTED' ) {
+		return '⏩️️';
+	} else {
+		return '⏸️';
+	}
+}
+
+// Build Slack message attachments
+const attachments = stalePRs.map( ( pr ) => {
+	const timeAgo = getTimeAgo( pr.updatedAt );
+	const status = getStatusEmoji( pr );
+	const author = pr.author.login;
+
+	return {
+		color: pr.reviewDecision === 'CHANGES_REQUESTED' ? 'warning' : 'good',
+		fallback: `${ pr.title } by @${ author }`,
+		title: `${ status } #${ pr.number }: ${ pr.title }`,
+		title_link: pr.url,
+		text: `@${ author } • ${ timeAgo }`,
+		mrkdwn_in: [ 'text' ],
+	};
+} );
+
+// Build complete Slack payload
+const slackPayload = {
+	username: 'PR Review Bot',
+	icon_emoji: ':github:',
+	text: `:sad-panda: *Stale Pull Requests Needing Review*\n\nHey <!subteam^S04HJ6B0JRF|@yolo-team>! I found ${ stalePRs.length } PR${
+		stalePRs.length > 1 ? 's' : ''
+	} that haven't been updated in the last 24 hours and still need review:`,
+	attachments: attachments,
+};
+
+// Write to file for the workflow to use
+fs.writeFileSync( '/tmp/slack-message.json', JSON.stringify( slackPayload, null, 2 ) );
+
+console.log( `✅ Formatted message for ${ stalePRs.length } stale PR(s)` );

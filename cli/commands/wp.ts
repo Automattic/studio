@@ -48,15 +48,24 @@ export async function runCommand(
 		args
 	);
 
-	const stdout = await response.stdoutText;
-	const stderr = await response.stderrText;
-	const exitCode = await response.exitCode;
+	await response.stderr.pipeTo(
+		new WritableStream( {
+			write( chunk ) {
+				process.stderr.write( chunk );
+			},
+		} )
+	);
 
-	process.stdout.write( stdout );
-	process.stderr.write( stderr );
+	await response.stdout.pipeTo(
+		new WritableStream( {
+			write( chunk ) {
+				process.stdout.write( chunk );
+			},
+		} )
+	);
 
 	await closeWpCliServer();
-	process.exit( exitCode );
+	process.exit( await response.exitCode );
 }
 
 function removeArgumentFromArgv( argv: string[], argName: string ): string[] {

@@ -215,7 +215,7 @@ async function getBaseRunCLIArgs(
 	return args;
 }
 
-function wrapWithPromise< Args extends unknown[], Return extends void >(
+function wrapWithStartingPromise< Args extends unknown[], Return extends void >(
 	callback: ( ...args: Args ) => Promise< Return >
 ) {
 	return async ( ...args: Args ) => {
@@ -224,7 +224,7 @@ function wrapWithPromise< Args extends unknown[], Return extends void >(
 	};
 }
 
-const startServer = wrapWithPromise( async ( config: ServerConfig ): Promise< void > => {
+const startServer = wrapWithStartingPromise( async ( config: ServerConfig ): Promise< void > => {
 	if ( server ) {
 		logToConsole( `Server already running for site ${ config.siteId }` );
 		return;

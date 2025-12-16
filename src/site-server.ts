@@ -383,7 +383,7 @@ export class SiteServer {
 			const [ emitter, childProcess ] = executeCliCommand( cliArgs, { output: 'capture' } );
 
 			timeoutId = setTimeout( () => {
-				childProcess.kill( 'SIGKILL' );
+				childProcess.kill();
 				resolve( {
 					stdout: '',
 					stderr: `WP-CLI command timed out after ${ timeout }ms`,

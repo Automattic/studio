@@ -39,12 +39,12 @@ export interface ExecuteCliCommandOptions {
 	 * - 'ignore': ignore stdout/stderr completely
 	 * - 'capture': capture stdout/stderr, available in success/failure events
 	 */
-	output?: 'ignore' | 'capture';
+	output: 'ignore' | 'capture';
 }
 
 export function executeCliCommand(
 	args: string[],
-	options: ExecuteCliCommandOptions = {}
+	options: ExecuteCliCommandOptions = { output: 'ignore' }
 ): [ CliCommandEventEmitter, ChildProcess ] {
 	const cliPath = getCliPath();
 
@@ -87,11 +87,20 @@ export function executeCliCommand(
 		eventEmitter.emit( 'error', { error } );
 	} );
 
-	child.on( 'exit', ( code: number | null ) => {
-		const result: CliCommandResult | undefined =
-			options.output === 'capture' ? { stdout, stderr, exitCode: code ?? 1 } : undefined;
+	let capturedExitCode: number | null = null;
 
-		if ( code === 0 ) {
+	child.on( 'exit', ( code ) => {
+		capturedExitCode = code;
+	} );
+
+	child.on( 'close', ( code ) => {
+		child.removeAllListeners();
+
+		const exitCode = capturedExitCode ?? code ?? 1;
+		const result: CliCommandResult | undefined =
+			options.output === 'capture' ? { stdout, stderr, exitCode } : undefined;
+
+		if ( exitCode === 0 ) {
 			eventEmitter.emit( 'success', { result } );
 		} else {
 			eventEmitter.emit( 'failure', { result } );

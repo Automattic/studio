@@ -70,7 +70,7 @@ class WpCliCommandQueue {
 
 		return new Promise( ( resolve, reject ) => {
 			this.queue.push( { args, resolve, reject } );
-			this.processNext();
+			void this.processNext();
 		} );
 	}
 
@@ -89,7 +89,7 @@ class WpCliCommandQueue {
 			item.reject( error instanceof Error ? error : new Error( String( error ) ) );
 		} finally {
 			this.activeCount--;
-			this.processNext();
+			void this.processNext();
 		}
 	}
 }

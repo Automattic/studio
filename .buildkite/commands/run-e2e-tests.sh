@@ -15,4 +15,4 @@ echo '--- :playwright: Run End To End Tests'
 echo 'Installing Playwright browsers...'
 npx playwright install
 echo 'Running Playwright tests...'
-npx playwright test e2e/import-export.test.ts
+npx playwright test

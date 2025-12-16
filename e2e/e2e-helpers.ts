@@ -91,7 +91,35 @@ export class E2ESession {
 	}
 
 	async cleanup() {
-		await this.electronApp?.close();
+		if ( this.electronApp ) {
+			try {
+				const windows = this.electronApp.windows();
+				for ( const window of windows ) {
+					await window.close().catch( () => {} );
+				}
+			} catch {
+				// Ignore errors when closing windows
+			}
+
+			await new Promise( ( resolve ) => setTimeout( resolve, 500 ) );
+
+			const closePromise = this.electronApp.close().catch( () => {} );
+			const timeoutPromise = new Promise< void >( ( resolve ) => {
+				setTimeout( () => {
+					try {
+						const process = this.electronApp?.process();
+						if ( process && ! process.killed ) {
+							process.kill( 'SIGKILL' );
+						}
+					} catch {
+						// Ignore errors during force kill
+					}
+					resolve();
+				}, 5_000 ); // 5 second timeout for graceful close
+			} );
+			await Promise.race( [ closePromise, timeoutPromise ] );
+			await new Promise( ( resolve ) => setTimeout( resolve, 500 ) );
+		}
 		// Clean up temporary folder to hold application data
 		fs.rmSync( this.sessionPath, { recursive: true, force: true } );
 	}

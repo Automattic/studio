@@ -74,8 +74,9 @@ test.describe( 'Import / Export', () => {
 				const options = ( args.length === 2 ? args[ 1 ] : args[ 0 ] ) as MessageBoxOptions;
 				global.testDialogCalls?.push( options );
 
-				// Auto-confirm by clicking the first button
-				return { response: 0, checkboxChecked: false };
+				const okIndex = options.buttons?.indexOf( 'OK' ) ?? -1;
+				const response = okIndex >= 0 ? okIndex : 0;
+				return { response, checkboxChecked: false };
 			};
 		} );
 

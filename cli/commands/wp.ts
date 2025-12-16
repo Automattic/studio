@@ -9,6 +9,11 @@ import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-mana
 import { Logger, LoggerError } from 'cli/logger';
 import { GlobalOptions } from 'cli/types';
 
+// Sending WP-CLI messages to the child process is controlled by this feature flag. We've disabled
+// it until we can figure out the problems with race conditions and `MaxPhpInstancesError`s from
+// Playground
+const IS_WP_CLI_CHILD_PROCESS_EXECUTION_ENABLED = false;
+
 const logger = new Logger< '' >();
 
 export async function runCommand(
@@ -25,7 +30,7 @@ export async function runCommand(
 	// a different PHP version, pass the command to it…
 	const useCustomPhpVersion = options.phpVersion && options.phpVersion !== site.phpVersion;
 
-	if ( ! useCustomPhpVersion ) {
+	if ( IS_WP_CLI_CHILD_PROCESS_EXECUTION_ENABLED && ! useCustomPhpVersion ) {
 		try {
 			await connect();
 

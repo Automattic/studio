@@ -1,37 +1,27 @@
 import { cloudUpload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback } from 'react';
-import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
-import { useContentTabs } from 'src/hooks/use-content-tabs';
+import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { generateCheckoutUrl } from 'src/lib/generate-checkout-url';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
-import { useAppDispatch } from 'src/stores';
-import {
-	connectedSitesActions,
-	useGetConnectedSitesForLocalSiteQuery,
-} from 'src/stores/sync/connected-sites';
+import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
 
 export const PublishSiteButton = () => {
 	const { __ } = useI18n();
-	const dispatch = useAppDispatch();
-	const { setSelectedTab } = useContentTabs();
-	const { user, authenticate } = useAuth();
+	const isOffline = useOffline();
+	const { user } = useAuth();
 	const { selectedSite } = useSiteDetails();
 	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
 		localSiteId: selectedSite?.id,
 		userId: user?.id,
 	} );
-	const { isAnySitePulling, isAnySitePushing } = useSyncSites();
-	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 
 	const handlePublishClick = useCallback( () => {
-		if ( ! user ) {
-			authenticate();
-		}
-		dispatch( connectedSitesActions.openModal( 'push' ) );
-		setSelectedTab( 'sync' );
-	}, [ user, setSelectedTab, dispatch, authenticate ] );
+		getIpcApi().openURL( generateCheckoutUrl( selectedSite ?? undefined ) );
+	}, [ selectedSite ] );
 
 	if ( connectedSites.length !== 0 ) return null;
 
@@ -40,14 +30,8 @@ export const PublishSiteButton = () => {
 			variant="primary"
 			icon={ cloudUpload }
 			connectSite={ handlePublishClick }
-			disabled={ isAnySiteSyncing }
-			tooltipText={
-				isAnySiteSyncing
-					? __(
-							'Another site is syncing. Please wait for the sync to finish before you publish your site.'
-					  )
-					: __( 'Publishing your site requires an internet connection.' )
-			}
+			disabled={ isOffline }
+			tooltipText={ __( 'Publishing your site requires an internet connection.' ) }
 		>
 			{ __( 'Publish site' ) }
 		</ConnectButton>

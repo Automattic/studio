@@ -30,7 +30,9 @@ test.describe( 'Import / Export', () => {
 			console.error( html );
 
 			// Also take a screenshot for visual debugging
-			await session.mainWindow.screenshot( { path: 'failure-screenshot.png' } );
+			await session.mainWindow.screenshot( {
+				path: path.join( 'test-results', 'failure-screenshot.png' ),
+			} );
 
 			throw error;
 		}

@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import { __, sprintf } from '@wordpress/i18n';
@@ -222,6 +223,10 @@ export async function runCommand(
 		if ( setupSteps.length > 0 ) {
 			if ( ! blueprint ) {
 				blueprint = {};
+				// Since we know the user didn't supply a blueprint, we create an empty directory to use as a
+				// fake location for the `blueprintUri`
+				const blueprintDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-empty-blueprint-' ) );
+				blueprintUri = path.join( blueprintDir, 'blueprint.json' );
 			}
 			const existingSteps = blueprint.steps || [];
 			blueprint.steps = [ ...setupSteps, ...existingSteps ];
@@ -296,7 +301,7 @@ export async function runCommand(
 				throw new LoggerError( __( 'Failed to start WordPress server' ), error );
 			}
 		} else {
-			if ( options.blueprint ) {
+			if ( blueprint ) {
 				logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
 				await connect();
 				logger.reportSuccess( __( 'Process daemon started' ) );
@@ -305,8 +310,8 @@ export async function runCommand(
 				try {
 					await runBlueprint( siteDetails, logger, {
 						wpVersion: options.wpVersion,
-						blueprint: options.blueprint.contents,
-						blueprintUri: options.blueprint.uri,
+						blueprint,
+						blueprintUri: blueprintUri as string,
 					} );
 					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
 				} catch ( error ) {

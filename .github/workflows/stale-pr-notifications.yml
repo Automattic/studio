@@ -2,8 +2,8 @@ name: Stale PR Notifications
 
 on:
   schedule:
-    # Run daily at 9:00 AM UTC (adjust timezone as needed)
-    - cron: '0 9 * * *'
+    # Run Monday-Friday at 9:00 AM UTC (skip weekends)
+    - cron: '0 9 * * 1-5'
   workflow_dispatch: # Allow manual triggering for testing
     inputs:
       channel_id:
@@ -35,15 +35,29 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Fetch open PRs not updated in the last 24 hours
+          # Determine stale threshold based on day of week
+          # Monday (1): 72 hours (to account for weekend)
+          # Tuesday-Friday (2-5): 24 hours
+          DAY_OF_WEEK=$(date +%u)
+          if [ "$DAY_OF_WEEK" = "1" ]; then
+            STALE_SECONDS=259200  # 72 hours
+            STALE_DESCRIPTION="72 hours (weekend inclusive)"
+          else
+            STALE_SECONDS=86400   # 24 hours
+            STALE_DESCRIPTION="24 hours"
+          fi
+
+          echo "Checking for PRs not updated in the last $STALE_DESCRIPTION"
+
+          # Fetch open PRs not updated in the threshold period
           # Exclude draft PRs and PRs that are already approved
           STALE_PRS=$(gh pr list \
             --repo ${{ github.repository }} \
             --state open \
             --limit 100 \
             --json number,title,url,updatedAt,author,isDraft,reviewDecision,labels \
-            --jq '[.[] | select(
-              (.updatedAt | fromdateiso8601) < (now - 86400) and
+            --jq --arg seconds "$STALE_SECONDS" '[.[] | select(
+              (.updatedAt | fromdateiso8601) < (now - ($seconds | tonumber)) and
               .isDraft == false and
               (.reviewDecision != "APPROVED")
             )]')

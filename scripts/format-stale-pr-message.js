@@ -59,13 +59,19 @@ const attachments = stalePRs.map( ( pr ) => {
 	};
 } );
 
+// Determine the time period based on day of week
+const dayOfWeek = new Date().getDay();
+const stalePeriod = dayOfWeek === 1 ? '72 hours' : '24 hours';
+
 // Build complete Slack payload
 const slackPayload = {
 	username: 'PR Review Bot',
 	icon_emoji: ':github:',
-	text: `:sad-panda: *Stale Pull Requests Needing Review*\n\nHey <!subteam^S04HJ6B0JRF|@yolo-team>! I found ${ stalePRs.length } PR${
+	text: `:sad-panda: *Stale Pull Requests Needing Review*\n\nHey <!subteam^S04HJ6B0JRF|@yolo-team>! I found ${
+		stalePRs.length
+	} PR${
 		stalePRs.length > 1 ? 's' : ''
-	} that haven't been updated in the last 24 hours and still need review:`,
+	} that haven't been updated in the last ${ stalePeriod } and still need review:`,
 	attachments: attachments,
 };
 

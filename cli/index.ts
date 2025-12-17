@@ -25,8 +25,8 @@ import { commandHandler as wpCliCommandHandler } from 'cli/commands/wp';
 import { loadTranslations } from 'cli/lib/i18n';
 import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
 import { untildify } from 'cli/lib/utils';
-import { version } from 'cli/package.json';
 import { StudioArgv } from 'cli/types';
+import { version } from '../package.json';
 
 suppressPunycodeWarning();
 

@@ -59,12 +59,6 @@ async function updateSiteServerStatus(
 					running: isRunning,
 					url: isRunning ? url : '',
 				};
-
-				if ( isRunning && url && ! server.server ) {
-					server.server = new CliServerProcess( siteId, server.details.path, url );
-				} else if ( ! isRunning ) {
-					server.server = undefined;
-				}
 			}
 		} );
 	pendingUpdates.set( siteId, current );

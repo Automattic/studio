@@ -18,6 +18,7 @@ import { registerCommand as registerSiteSetDomainCommand } from 'cli/commands/si
 import { registerCommand as registerSiteSetHttpsCommand } from 'cli/commands/site/set-https';
 import { registerCommand as registerSiteSetPhpVersionCommand } from 'cli/commands/site/set-php-version';
 import { registerCommand as registerSiteSetWpVersionCommand } from 'cli/commands/site/set-wp-version';
+import { registerCommand as registerSiteSetXdebugCommand } from 'cli/commands/site/set-xdebug';
 import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
 import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
@@ -104,6 +105,7 @@ async function main() {
 			registerSiteSetDomainCommand( sitesYargs );
 			registerSiteSetPhpVersionCommand( sitesYargs );
 			registerSiteSetWpVersionCommand( sitesYargs );
+			registerSiteSetXdebugCommand( sitesYargs );
 			sitesYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.command( {

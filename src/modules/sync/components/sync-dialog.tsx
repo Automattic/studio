@@ -123,19 +123,12 @@ const useDynamicTreeState = (
 		localSiteId,
 	] );
 
-	// Handle local file tree errors by clearing children to show custom error message
+	// Handle file tree errors by clearing children to show custom error message
 	useEffect( () => {
-		if ( type === 'push' && localFileTreeError ) {
+		if ( ( type === 'push' && localFileTreeError ) || ( type === 'pull' && remoteFileTreeError ) ) {
 			setTreeState( ( treeState ) => updateNodeById( treeState, 'wp-content', { children: [] } ) );
 		}
-	}, [ type, localFileTreeError, setTreeState ] );
-
-	// Handle remote file tree errors by clearing children to show custom error message
-	useEffect( () => {
-		if ( type === 'pull' && remoteFileTreeError ) {
-			setTreeState( ( treeState ) => updateNodeById( treeState, 'wp-content', { children: [] } ) );
-		}
-	}, [ type, remoteFileTreeError, setTreeState ] );
+	}, [ type, localFileTreeError, remoteFileTreeError, setTreeState ] );
 
 	return {
 		rewindId,

@@ -343,14 +343,14 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 
 							{ isXdebugFeatureEnabled && (
 								<div
-								className={ cx(
-									'flex flex-col gap-2 mt-4 p-4 border border-a8c-gray-200 rounded',
-									isEditingSite ||
-										( xdebugEnabledSite && xdebugEnabledSite.id !== selectedSite?.id )
-										? 'opacity-50 cursor-not-allowed'
-										: ''
-								) }
-							>
+									className={ cx(
+										'flex flex-col gap-2 mt-4',
+										isEditingSite ||
+											( xdebugEnabledSite && xdebugEnabledSite.id !== selectedSite?.id )
+											? 'opacity-50 cursor-not-allowed'
+											: ''
+									) }
+								>
 									<Tooltip
 										disabled={ ! xdebugEnabledSite || xdebugEnabledSite.id === selectedSite?.id }
 										text={ sprintf(
@@ -361,28 +361,49 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 										) }
 										placement="top-start"
 									>
-										<div className="flex items-center gap-2">
-											<input
-												type="checkbox"
-												id="enable-xdebug"
-												checked={ enableXdebug }
-												onChange={ ( e ) => setEnableXdebug( e.target.checked ) }
-												disabled={
-													isEditingSite ||
-													!! ( xdebugEnabledSite && xdebugEnabledSite.id !== selectedSite?.id )
-												}
-											/>
-											<label htmlFor="enable-xdebug" className="font-semibold">
-												{ __( 'Enable Xdebug' ) }
-											</label>
+										<div>
+											<div className="flex items-center gap-2">
+												<input
+													type="checkbox"
+													id="enable-xdebug"
+													checked={ enableXdebug }
+													onChange={ ( e ) => setEnableXdebug( e.target.checked ) }
+													disabled={
+														isEditingSite ||
+														!! ( xdebugEnabledSite && xdebugEnabledSite.id !== selectedSite?.id )
+													}
+												/>
+												<label
+													htmlFor="enable-xdebug"
+													className={ cx(
+														'font-semibold',
+														isEditingSite ||
+															( xdebugEnabledSite && xdebugEnabledSite.id !== selectedSite?.id )
+															? 'cursor-not-allowed'
+															: ''
+													) }
+												>
+													{ __( 'Enable Xdebug' ) }
+												</label>
+											</div>
+											<div className="text-a8c-gray-50 text-xs mt-2">
+												{ __(
+													'Enable PHP debugging with Xdebug. Only one site can have Xdebug enabled at a time. Note that Xdebug may slow down site performance.'
+												) }{ ' ' }
+												<Button
+													variant="link"
+													onClick={ () => {
+														getIpcApi().openURL(
+															'https://developer.wordpress.com/docs/developer-tools/studio/xdebug/'
+														);
+													} }
+												>
+													{ __( 'Learn more' ) }
+													<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
+												</Button>
+											</div>
 										</div>
 									</Tooltip>
-									<div className="text-a8c-gray-50 text-xs">
-										{ __(
-											'Enable PHP debugging with Xdebug. Only one site can have Xdebug enabled at a time.'
-										) }{ ' ' }
-										{ __( 'Note: Xdebug may slow down site performance.' ) }
-									</div>
 								</div>
 							) }
 						</div>

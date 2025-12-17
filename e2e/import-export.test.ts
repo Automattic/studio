@@ -21,21 +21,7 @@ test.describe( 'Import / Export', () => {
 		await onboarding.closeWhatsNew();
 
 		const siteContent = new SiteContent( session.mainWindow, defaultSiteName );
-		try {
-			await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
-		} catch ( error ) {
-			// Print DOM structure on failure
-			const html = await session.mainWindow.content();
-			console.error( 'DOM Structure when assertion failed:' );
-			console.error( html );
-
-			// Also take a screenshot for visual debugging
-			await session.mainWindow.screenshot( {
-				path: path.join( 'test-results', 'failure-screenshot.png' ),
-			} );
-
-			throw error;
-		}
+		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
 	} );
 
 	test.afterAll( async () => {

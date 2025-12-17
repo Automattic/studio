@@ -6,7 +6,7 @@ import {
 	Modal,
 	Notice,
 } from '@wordpress/components';
-import { Icon, caution } from '@wordpress/icons';
+import { Icon, caution, check } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
@@ -38,7 +38,10 @@ function BlueprintIssuesModal( {
 			size="medium"
 		>
 			<div className="h-full flex flex-col gap-1">
-				<Text className="font-medium text-gray-900">{ fileName }</Text>
+				<div className="flex items-center">
+					<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />
+					<Text className="font-medium text-gray-900">{ fileName }</Text>
+				</div>
 				<Text>
 					{ warnings?.length &&
 						__(

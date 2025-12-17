@@ -164,7 +164,9 @@ describe( 'ContentTabSettings', () => {
 			screen.getByRole( 'button', { name: 'localhost:8881, Copy site url to clipboard' } )
 		).toHaveTextContent( 'localhost:8881' );
 		expect( screen.getByText( 'HTTPS' ) ).toBeVisible();
-		expect( screen.getByText( 'Disabled' ) ).toBeVisible();
+		expect( screen.getByText( 'Xdebug' ) ).toBeVisible();
+		// Both HTTPS and Xdebug show "Disabled"
+		expect( screen.getAllByText( 'Disabled' ) ).toHaveLength( 2 );
 		expect( screen.getByRole( 'button', { name: 'Copy local path to clipboard' } ) ).toBeVisible();
 		expect( screen.getByText( '7.7.7' ) ).toBeVisible();
 		expect(

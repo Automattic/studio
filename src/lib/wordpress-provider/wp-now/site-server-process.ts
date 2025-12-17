@@ -94,7 +94,7 @@ export default class SiteServerProcess implements WordPressServerProcess {
 
 	async waitForResponse< T = undefined >(
 		originalMessage: MessageName,
-		originalMessageId: string,
+		originalMessageId: number,
 		timeout = DEFAULT_RESPONSE_TIMEOUT
 	): Promise< T > {
 		const process = this.process;

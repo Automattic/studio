@@ -1,6 +1,12 @@
-import { SelectControl, Notice, __experimentalHeading as Heading } from '@wordpress/components';
+import {
+	SelectControl,
+	Notice,
+	__experimentalHeading as Heading,
+	Icon,
+} from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf, __ } from '@wordpress/i18n';
+import { cautionFilled } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { format } from 'date-fns';
 import { useState, useEffect, useCallback } from 'react';
@@ -52,8 +58,11 @@ const useDynamicTreeState = (
 		skip: type === 'push',
 	} );
 	const { fetchChildren } = useRemoteFileTree();
-	const { fetchChildren: fetchLocalChildren, isLoading: isLoadingLocalFileTree } =
-		useLocalFileTree();
+	const {
+		fetchChildren: fetchLocalChildren,
+		isLoading: isLoadingLocalFileTree,
+		error: localFileTreeError,
+	} = useLocalFileTree();
 
 	// If the site was just created and if there is no rewind_id yet,
 	// then all options are pre-checked to allow only a full sync
@@ -92,15 +101,11 @@ const useDynamicTreeState = (
 		if ( type === 'push' ) {
 			let isCancelled = false;
 			const loadLocalTree = async () => {
-				try {
-					const localTree = await fetchLocalChildren( localSiteId, 'wp-content' );
-					if ( ! isCancelled ) {
-						setTreeState( ( treeState ) =>
-							updateNodeById( treeState, 'wp-content', { children: localTree } )
-						);
-					}
-				} catch ( error ) {
-					console.error( 'Failed to load local file tree:', error );
+				const localTree = await fetchLocalChildren( localSiteId, 'wp-content' );
+				if ( ! isCancelled ) {
+					setTreeState( ( treeState ) =>
+						updateNodeById( treeState, 'wp-content', { children: localTree } )
+					);
 				}
 			};
 			void loadLocalTree();
@@ -118,6 +123,13 @@ const useDynamicTreeState = (
 		localSiteId,
 	] );
 
+	// Handle local file tree errors by clearing children to show custom error message
+	useEffect( () => {
+		if ( type === 'push' && localFileTreeError ) {
+			setTreeState( ( treeState ) => updateNodeById( treeState, 'wp-content', { children: [] } ) );
+		}
+	}, [ type, localFileTreeError, setTreeState ] );
+
 	return {
 		rewindId,
 		fetchChildren,
@@ -125,6 +137,7 @@ const useDynamicTreeState = (
 		isLoadingRewindId,
 		isErrorRewindId,
 		isLoadingLocalFileTree,
+		localFileTreeError,
 	};
 };
 
@@ -155,8 +168,14 @@ export function SyncDialog( {
 		formattedOverAmount,
 	} = useSelectedItemsPushSize( localSite.id, treeState, type );
 
-	const { fetchChildren, rewindId, isLoadingRewindId, isErrorRewindId, isLoadingLocalFileTree } =
-		useDynamicTreeState( type, localSite.id, remoteSite.id, setTreeState );
+	const {
+		fetchChildren,
+		rewindId,
+		isLoadingRewindId,
+		isErrorRewindId,
+		isLoadingLocalFileTree,
+		localFileTreeError,
+	} = useDynamicTreeState( type, localSite.id, remoteSite.id, setTreeState );
 
 	const [ wpVersion ] = useGetWpVersion( localSite );
 	const { data: wpVersions = [] } = useGetWordPressVersions( {
@@ -350,6 +369,19 @@ export function SyncDialog( {
 													>
 														{ __( 'Create new backup ↗' ) }
 													</Button>
+												</div>
+											);
+										}
+										return null;
+									} }
+									renderEmptyContent={ ( nodeId ) => {
+										if ( nodeId === 'wp-content' && type === 'push' && localFileTreeError ) {
+											return (
+												<div className="text-red-600 italic flex items-center gap-1.5">
+													<Icon icon={ cautionFilled } size={ 20 } className="fill-red-600" />
+													{ __(
+														'Error retrieving files and directories. Please close and reopen this dialog to try again.'
+													) }
 												</div>
 											);
 										}

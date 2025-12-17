@@ -39,11 +39,6 @@ let server: RunCLIServer | null = null;
 let startingPromise: Promise< void > | null = null;
 let lastCliArgs: Record< string, unknown > | null = null;
 
-/**
- * Result type for WP-CLI command execution
- */
-type WpCliResult = { stdout: string; stderr: string; exitCode: number };
-
 // Intercept and prefix all console output from playground-cli
 const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
@@ -292,7 +287,7 @@ async function runBlueprint( config: ServerConfig ): Promise< void > {
 }
 
 const runWpCliCommand = sequential(
-	async ( args: string[] ): Promise< WpCliResult > => {
+	async ( args: string[] ): Promise< { stdout: string; stderr: string; exitCode: number } > => {
 		await Promise.allSettled( [ startingPromise ] );
 
 		if ( ! server ) {
@@ -315,7 +310,7 @@ const runWpCliCommand = sequential(
 	{ concurrent: 3, max: 10 }
 );
 
-function sendErrorMessage( messageId: number, error: unknown ) {
+function sendErrorMessage( messageId: string, error: unknown ) {
 	const errorResponse: ChildMessageRaw = {
 		originalMessageId: messageId,
 		topic: 'error',
@@ -332,7 +327,7 @@ async function ipcMessageHandler( packet: unknown ) {
 	if ( ! messageResult.success ) {
 		errorToConsole( 'Invalid message received:', messageResult.error );
 
-		const minimalMessageSchema = z.object( { id: z.number() } );
+		const minimalMessageSchema = z.object( { id: z.string() } );
 		const minimalMessage = minimalMessageSchema.safeParse( packet );
 		if ( minimalMessage.success ) {
 			sendErrorMessage( minimalMessage.data.id, messageResult.error );

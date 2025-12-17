@@ -9,31 +9,26 @@ export function sequential< Args extends unknown[], Return >(
 ) {
 	const concurrentCount = options?.concurrent ?? 1;
 	const maxQueueSize = options?.max;
-	const locks = new Set< Promise< unknown > >();
+	const locks = new Set< Promise< Return > >();
 	let queueCount = 0;
 
 	return async ( ...args: Args ) => {
-		if ( locks.size >= concurrentCount ) {
-			if ( maxQueueSize !== undefined && queueCount >= maxQueueSize ) {
-				throw new Error(
-					`Queue is full (${ maxQueueSize } pending commands). Please try again later.`
-				);
-			}
+		if ( maxQueueSize !== undefined && queueCount >= maxQueueSize ) {
+			throw new Error(
+				`Queue is full (${ maxQueueSize } pending commands). Please try again later.`
+			);
+		}
 
+		while ( locks.size >= concurrentCount ) {
 			queueCount++;
-			try {
-				while ( locks.size >= concurrentCount ) {
-					await Promise.allSettled( [ ...locks ] );
-				}
-			} finally {
-				queueCount--;
-			}
+			await Promise.allSettled( [ ...locks ] );
+			queueCount--;
 		}
 
 		const fnPromise = fn( ...args );
-		locks.add( fnPromise );
 
 		try {
+			locks.add( fnPromise );
 			return await fnPromise;
 		} finally {
 			locks.delete( fnPromise );

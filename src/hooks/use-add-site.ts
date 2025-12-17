@@ -27,7 +27,7 @@ interface UseAddSiteOptions {
 export function useAddSite( options: UseAddSiteOptions = {} ) {
 	const { openModal = () => {} } = options;
 	const { __ } = useI18n();
-	const { createSite, sites, startServer } = useSiteDetails();
+	const { createSite, sites } = useSiteDetails();
 	const { importFile, clearImportState, importState } = useImportExport();
 	const [ connectSite ] = useConnectSiteMutation();
 	const { pullSite } = useSyncSites();
@@ -173,6 +173,9 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 			if ( useCustomDomain && ! customDomain ) {
 				usedCustomDomain = generateCustomDomainFromSiteName( siteName ?? '' );
 			}
+			// For import/sync workflows, the respective handlers will start the server
+			const shouldSkipStart = !! fileForImport || !! selectedRemoteSite;
+
 			await createSite(
 				path,
 				siteName ?? '',
@@ -193,24 +196,21 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 							title: newSite.name,
 							body: __( 'Your new site was imported' ),
 						} );
+					} else if ( selectedRemoteSite ) {
+						await connectSite( { site: selectedRemoteSite, localSiteId: newSite.id } );
+						const pullOptions: SyncOption[] = [ 'all' ];
+						pullSite( selectedRemoteSite, newSite, {
+							optionsToSync: pullOptions,
+						} );
+						setSelectedTab( 'sync' );
 					} else {
-						if ( selectedRemoteSite ) {
-							await connectSite( { site: selectedRemoteSite, localSiteId: newSite.id } );
-							const pullOptions: SyncOption[] = [ 'all' ];
-							pullSite( selectedRemoteSite, newSite, {
-								optionsToSync: pullOptions,
-							} );
-							setSelectedTab( 'sync' );
-						} else {
-							await startServer( newSite.id );
-
-							getIpcApi().showNotification( {
-								title: newSite.name,
-								body: __( 'Your new site was created' ),
-							} );
-						}
+						getIpcApi().showNotification( {
+							title: newSite.name,
+							body: __( 'Your new site was created' ),
+						} );
 					}
-				}
+				},
+				shouldSkipStart
 			);
 		} catch ( e ) {
 			Sentry.captureException( e );
@@ -224,7 +224,6 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 		proposedSitePath,
 		siteName,
 		sitePath,
-		startServer,
 		wpVersion,
 		phpVersion,
 		customDomain,

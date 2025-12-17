@@ -105,11 +105,30 @@ async function copyBundledSQLiteCommand() {
 	}
 }
 
+async function copyBundledTranslations() {
+	const bundledTranslationsPath = path.join(
+		getResourcesPath(),
+		'wp-files',
+		'latest',
+		'available-site-translations.json'
+	);
+	if ( ! ( await fs.pathExists( bundledTranslationsPath ) ) ) {
+		return;
+	}
+	const installedTranslationsPath = path.join(
+		WpNowProvider.getWordPressVersionPath( 'latest' ),
+		'available-site-translations.json'
+	);
+	// Always copy the bundled translations file to ensure CLI has access to it
+	await fs.copyFile( bundledTranslationsPath, installedTranslationsPath );
+}
+
 export async function setupWPServerFiles() {
 	await copyBundledLatestWPVersion();
 	await copyBundledSqlite();
 	await copyBundledWPCLI();
 	await copyBundledSQLiteCommand();
+	await copyBundledTranslations();
 }
 
 export async function updateWPServerFiles() {

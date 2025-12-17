@@ -8,6 +8,7 @@ import {
 	unlockAppdata,
 } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import {
 	isServerRunning,
 	startWordPressServer,
@@ -24,10 +25,11 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	unlockAppdata: jest.fn(),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
+jest.mock( 'cli/lib/run-wp-cli-command' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
 jest.mock( 'common/lib/fs-utils' );
 
-describe( 'CLI: studio site set-php-version', () => {
+describe( 'CLI: studio site set-wp-version', () => {
 	const testSitePath = '/test/site/path';
 
 	const createTestSite = (): SiteData => ( {
@@ -39,6 +41,7 @@ describe( 'CLI: studio site set-php-version', () => {
 		adminPassword: 'password123',
 		running: false,
 		phpVersion: '8.0',
+		wpVersion: '6.4',
 		url: `http://localhost:8881`,
 		enableHttps: false,
 		customDomain: 'test.local',
@@ -55,6 +58,7 @@ describe( 'CLI: studio site set-php-version', () => {
 
 	beforeEach( () => {
 		jest.clearAllMocks();
+		jest.spyOn( process, 'exit' ).mockImplementation( () => undefined as never );
 
 		testSite = createTestSite();
 
@@ -72,6 +76,10 @@ describe( 'CLI: studio site set-php-version', () => {
 		( startWordPressServer as jest.Mock ).mockResolvedValue( testProcessDescription );
 		( stopWordPressServer as jest.Mock ).mockResolvedValue( undefined );
 		( arePathsEqual as jest.Mock ).mockImplementation( ( a: string, b: string ) => a === b );
+		( runWpCliCommand as jest.Mock ).mockResolvedValue( [
+			{ exitCode: 0 },
+			jest.fn().mockResolvedValue( undefined ),
+		] );
 	} );
 
 	afterEach( () => {
@@ -79,11 +87,16 @@ describe( 'CLI: studio site set-php-version', () => {
 	} );
 
 	describe( 'Error Cases', () => {
-		it( 'should throw when PHP version is identical to current version', async () => {
-			const { runCommand } = await import( '../set-php-version' );
+		it( 'should throw when WordPress version update command fails', async () => {
+			( runWpCliCommand as jest.Mock ).mockResolvedValue( [
+				{ exitCode: 1 },
+				jest.fn().mockResolvedValue( undefined ),
+			] );
 
-			await expect( runCommand( testSitePath, '8.0' ) ).rejects.toThrow(
-				'Site is already using the specified PHP version.'
+			const { runCommand } = await import( '../set-wp-version' );
+
+			await expect( runCommand( testSitePath, '6.5' ) ).rejects.toThrow(
+				'Failed to update WordPress version to 6.5'
 			);
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -94,9 +107,9 @@ describe( 'CLI: studio site set-php-version', () => {
 				snapshots: [],
 			} );
 
-			const { runCommand } = await import( '../set-php-version' );
+			const { runCommand } = await import( '../set-wp-version' );
 
-			await expect( runCommand( testSitePath, '7.4' ) ).rejects.toThrow(
+			await expect( runCommand( testSitePath, '6.5' ) ).rejects.toThrow(
 				'The specified folder is not added to Studio.'
 			);
 			expect( disconnect ).toHaveBeenCalled();
@@ -105,18 +118,18 @@ describe( 'CLI: studio site set-php-version', () => {
 		it( 'should throw when appdata save fails', async () => {
 			( saveAppdata as jest.Mock ).mockRejectedValue( new Error( 'Save failed' ) );
 
-			const { runCommand } = await import( '../set-php-version' );
+			const { runCommand } = await import( '../set-wp-version' );
 
-			await expect( runCommand( testSitePath, '7.4' ) ).rejects.toThrow();
+			await expect( runCommand( testSitePath, '6.5' ) ).rejects.toThrow();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should throw when PM2 connection fails', async () => {
 			( connect as jest.Mock ).mockRejectedValue( new Error( 'PM2 connection failed' ) );
 
-			const { runCommand } = await import( '../set-php-version' );
+			const { runCommand } = await import( '../set-wp-version' );
 
-			await expect( runCommand( testSitePath, '7.4' ) ).rejects.toThrow();
+			await expect( runCommand( testSitePath, '6.5' ) ).rejects.toThrow();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -124,47 +137,77 @@ describe( 'CLI: studio site set-php-version', () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
 			( stopWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server stop failed' ) );
 
-			const { runCommand } = await import( '../set-php-version' );
+			const { runCommand } = await import( '../set-wp-version' );
 
-			await expect( runCommand( testSitePath, '7.4' ) ).rejects.toThrow();
+			await expect( runCommand( testSitePath, '6.5' ) ).rejects.toThrow();
+			expect( disconnect ).toHaveBeenCalled();
+		} );
+
+		it( 'should throw when WP-CLI command execution fails', async () => {
+			( runWpCliCommand as jest.Mock ).mockRejectedValue( new Error( 'WP-CLI failed' ) );
+
+			const { runCommand } = await import( '../set-wp-version' );
+
+			await expect( runCommand( testSitePath, '6.5' ) ).rejects.toThrow();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 	} );
 
 	describe( 'Success Cases', () => {
-		it( 'should update PHP version on a stopped site', async () => {
-			const { runCommand } = await import( '../set-php-version' );
+		it( 'should update WordPress version on a stopped site', async () => {
+			const { runCommand } = await import( '../set-wp-version' );
 
-			await runCommand( testSitePath, '7.4' );
+			await runCommand( testSitePath, '6.5' );
 
 			expect( getSiteByFolder ).toHaveBeenCalledWith( testSitePath );
+			expect( connect ).toHaveBeenCalled();
+			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
+			expect( stopWordPressServer ).not.toHaveBeenCalled();
+
+			expect( runWpCliCommand ).toHaveBeenCalledWith( testSitePath, '8.0', 8881, [
+				'core',
+				'update',
+				expect.stringContaining( '6.5' ),
+				'--force',
+				'--skip-plugins',
+				'--skip-themes',
+			] );
+
 			expect( lockAppdata ).toHaveBeenCalled();
 			expect( readAppdata ).toHaveBeenCalled();
 			expect( saveAppdata ).toHaveBeenCalled();
 
 			const savedAppdata = ( saveAppdata as jest.Mock ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].phpVersion ).toBe( '7.4' );
+			expect( savedAppdata.sites[ 0 ].isWpAutoUpdating ).toBe( false );
 
 			expect( unlockAppdata ).toHaveBeenCalled();
-			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
-			expect( stopWordPressServer ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
-		it( 'should update PHP version and restart a running site', async () => {
+		it( 'should update WordPress version and restart a running site', async () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
 
-			const { runCommand } = await import( '../set-php-version' );
+			const { runCommand } = await import( '../set-wp-version' );
 
-			await runCommand( testSitePath, '7.4' );
-
-			expect( saveAppdata ).toHaveBeenCalled();
-			const savedAppdata = ( saveAppdata as jest.Mock ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].phpVersion ).toBe( '7.4' );
+			await runCommand( testSitePath, '6.5' );
 
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( stopWordPressServer ).toHaveBeenCalledWith( testSite.id );
+
+			expect( runWpCliCommand ).toHaveBeenCalledWith( testSitePath, '8.0', 8881, [
+				'core',
+				'update',
+				expect.stringContaining( '6.5' ),
+				'--force',
+				'--skip-plugins',
+				'--skip-themes',
+			] );
+
+			expect( saveAppdata ).toHaveBeenCalled();
+			const savedAppdata = ( saveAppdata as jest.Mock ).mock.calls[ 0 ][ 0 ];
+			expect( savedAppdata.sites[ 0 ].isWpAutoUpdating ).toBe( false );
+
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.any( Object ),
 				expect.any( Logger )

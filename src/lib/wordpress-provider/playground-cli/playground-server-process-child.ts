@@ -2,9 +2,10 @@ import { cpus } from 'os';
 import { SupportedPHPVersion, PHPRunOptions } from '@php-wasm/universal';
 import { __, sprintf } from '@wordpress/i18n';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
+import { sanitizeRunCLIArgs } from 'common/lib/cli-args-sanitizer';
 import { getMuPlugins } from 'common/lib/mu-plugins';
+import { formatPlaygroundCliMessage } from 'common/lib/playground-cli-messages';
 import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
-import { sanitizeRunCLIArgs } from 'src/lib/sentry-sanitizer';
 import { WordPressServerOptions } from '../types';
 import { PlaygroundCliOptions } from './playground-cli-provider';
 
@@ -51,45 +52,11 @@ const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
 const originalConsoleWarn = console.warn;
 
-/**
- * Messages come from the playground-cli, they can be found on the calls to `logger.log`
- * in the playground-cli source code, for example:
- * https://github.com/WordPress/wordpress-playground/blob/5ce5752af3cde8b65c745c527c54f3b4bc164a00/packages/playground/cli/src/run-cli.ts#L927
- *
- */
-function formatMessageForUI( message: string ): string {
-	if ( message.includes( 'WordPress is running' ) ) {
-		return __( 'WordPress is running' );
-	}
-	if ( message.includes( 'Resolved WordPress release URL' ) ) {
-		return __( 'Downloading WordPress…' );
-	}
-	if ( message.includes( 'Downloading WordPress' ) ) {
-		return __( 'Downloading WordPress…' );
-	}
-	if ( message.includes( 'Starting up workers' ) ) {
-		return __( 'Starting up workers…' );
-	}
-	if ( message.includes( 'Booting WordPress' ) ) {
-		return __( 'Booting WordPress…' );
-	}
-	if ( message.includes( 'Running the Blueprint' ) ) {
-		return __( 'Running the Blueprint…' );
-	}
-	if ( message.includes( 'Finished running the blueprint' ) ) {
-		return __( 'Wrapping up the Blueprint installation…' );
-	}
-	if ( message.includes( 'Preparing workers' ) ) {
-		return __( 'Preparing workers…' );
-	}
-	return message;
-}
-
 console.log = ( ...args: any[] ) => {
 	originalConsoleLog( '[playground-cli]', ...args );
 	const message = args.join( ' ' );
 	process.parentPort.postMessage( { type: 'activity' } );
-	const formattedMessage = formatMessageForUI( message );
+	const formattedMessage = formatPlaygroundCliMessage( message );
 	if ( formattedMessage ) {
 		process.parentPort.postMessage( { type: 'console-message', message: formattedMessage } );
 	}

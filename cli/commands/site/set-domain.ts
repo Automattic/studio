@@ -71,7 +71,7 @@ export async function runCommand( sitePath: string, domainName: string ): Promis
 			await stopWordPressServer( site.id );
 			await setupCustomDomain( site, logger );
 			logger.reportStart( LoggerAction.START_SITE, __( 'Restarting site...' ) );
-			await startWordPressServer( site );
+			await startWordPressServer( site, logger );
 			logger.reportSuccess( __( 'Site restarted' ) );
 		}
 	} finally {
@@ -97,7 +97,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );
 				} else {
-					const loggerError = new LoggerError( __( 'Failed to start site infrastructure' ), error );
+					const loggerError = new LoggerError( __( 'Failed to configure site domain' ), error );
 					logger.reportError( loggerError );
 				}
 			}

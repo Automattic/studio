@@ -47,7 +47,7 @@ Studio uses Electron's built-in auto-updater to check for updates. The update fe
 is constructed dynamically based on the current platform, architecture, and version,
 and queries the WordPress.com API endpoint:
 
-`https://public-api.wordpress.com/wpcom/v2/studio-app/updates?platform={platform}&arch={arch}&version={version}`
+`https://public-api.wordpress.com/wpcom/v2/studio-app/updates?platform={platform}&localStudioArch={localStudioArch}&version={version}`
 
 The API returns information about available updates, and the app downloads and installs
 them automatically. See `src/updates.ts` for the implementation.

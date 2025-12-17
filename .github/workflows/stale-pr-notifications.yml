@@ -55,8 +55,8 @@ jobs:
             --repo ${{ github.repository }} \
             --state open \
             --limit 100 \
-            --json number,title,url,updatedAt,author,isDraft,reviewDecision,labels \
-            --jq --arg seconds "$STALE_SECONDS" '[.[] | select(
+            --json number,title,url,updatedAt,author,isDraft,reviewDecision,labels | \
+            jq --arg seconds "$STALE_SECONDS" '[.[] | select(
               (.updatedAt | fromdateiso8601) < (now - ($seconds | tonumber)) and
               .isDraft == false and
               (.reviewDecision != "APPROVED")

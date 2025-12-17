@@ -57,7 +57,7 @@ const useDynamicTreeState = (
 	} = useLatestRewindId( remoteSiteId, {
 		skip: type === 'push',
 	} );
-	const { fetchChildren } = useRemoteFileTree();
+	const { fetchChildren, error: remoteFileTreeError } = useRemoteFileTree();
 	const {
 		fetchChildren: fetchLocalChildren,
 		isLoading: isLoadingLocalFileTree,
@@ -130,6 +130,13 @@ const useDynamicTreeState = (
 		}
 	}, [ type, localFileTreeError, setTreeState ] );
 
+	// Handle remote file tree errors by clearing children to show custom error message
+	useEffect( () => {
+		if ( type === 'pull' && remoteFileTreeError ) {
+			setTreeState( ( treeState ) => updateNodeById( treeState, 'wp-content', { children: [] } ) );
+		}
+	}, [ type, remoteFileTreeError, setTreeState ] );
+
 	return {
 		rewindId,
 		fetchChildren,
@@ -138,6 +145,7 @@ const useDynamicTreeState = (
 		isErrorRewindId,
 		isLoadingLocalFileTree,
 		localFileTreeError,
+		remoteFileTreeError,
 	};
 };
 
@@ -175,6 +183,7 @@ export function SyncDialog( {
 		isErrorRewindId,
 		isLoadingLocalFileTree,
 		localFileTreeError,
+		remoteFileTreeError,
 	} = useDynamicTreeState( type, localSite.id, remoteSite.id, setTreeState );
 
 	const [ wpVersion ] = useGetWpVersion( localSite );
@@ -381,6 +390,16 @@ export function SyncDialog( {
 													<Icon icon={ cautionFilled } size={ 20 } className="fill-red-600" />
 													{ __(
 														'Error retrieving files and directories. Please close and reopen this dialog to try again.'
+													) }
+												</div>
+											);
+										}
+										if ( nodeId === 'wp-content' && type === 'pull' && remoteFileTreeError ) {
+											return (
+												<div className="text-red-600 italic flex items-center gap-1.5">
+													<Icon icon={ cautionFilled } size={ 20 } className="fill-red-600" />
+													{ __(
+														'Error retrieving remote files and directories. Please close and reopen this dialog to try again.'
 													) }
 												</div>
 											);

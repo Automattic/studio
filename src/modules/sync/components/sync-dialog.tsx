@@ -1,12 +1,6 @@
-import {
-	SelectControl,
-	Notice,
-	__experimentalHeading as Heading,
-	Icon,
-} from '@wordpress/components';
+import { SelectControl, Notice, __experimentalHeading as Heading } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf, __ } from '@wordpress/i18n';
-import { cautionFilled } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { format } from 'date-fns';
 import { useState, useEffect, useCallback } from 'react';
@@ -377,10 +371,9 @@ export function SyncDialog( {
 									renderEmptyContent={ ( nodeId ) => {
 										if ( nodeId === 'wp-content' && type === 'push' && localFileTreeError ) {
 											return (
-												<div className="text-red-600 italic flex items-center gap-1.5">
-													<Icon icon={ cautionFilled } size={ 20 } className="fill-red-600" />
+												<div className="text-gray-500 italic">
 													{ __(
-														'Error retrieving files and directories. Please close and reopen this dialog to try again.'
+														'Could not load files. Please close and reopen this dialog to try again.'
 													) }
 												</div>
 											);

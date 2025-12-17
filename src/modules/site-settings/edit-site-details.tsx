@@ -342,7 +342,15 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 							</div>
 
 							{ isXdebugFeatureEnabled && (
-								<div className="flex flex-col gap-2 mt-4 p-4 border border-a8c-gray-200 rounded">
+								<div
+								className={ cx(
+									'flex flex-col gap-2 mt-4 p-4 border border-a8c-gray-200 rounded',
+									isEditingSite ||
+										( xdebugEnabledSite && xdebugEnabledSite.id !== selectedSite?.id )
+										? 'opacity-50 cursor-not-allowed'
+										: ''
+								) }
+							>
 									<Tooltip
 										disabled={ ! xdebugEnabledSite || xdebugEnabledSite.id === selectedSite?.id }
 										text={ sprintf(

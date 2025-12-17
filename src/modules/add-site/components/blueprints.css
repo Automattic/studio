@@ -23,7 +23,7 @@
 	@apply absolute top-1.5 left-1.5 text-sm text-white rounded-sm px-1.5 py-0.5;
 }
 
-.blueprints-container .dataviews-view-grid {
+.blueprints-container .dataviews-view-grid__row {
 	@apply !grid !grid-cols-3 !gap-5 !items-start;
 }
 

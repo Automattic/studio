@@ -65,6 +65,12 @@ export type SiteData = z.infer< typeof siteSchema >;
 type ValidatedAuthToken = Required< NonNullable< UserData[ 'authToken' ] > >;
 
 export function getAppdataDirectory(): string {
+	// Support E2E testing with custom appdata path
+	// Must include 'Studio' subfolder to match Electron app's path structure
+	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
+		return path.join( process.env.E2E_APP_DATA_PATH, 'Studio' );
+	}
+
 	if ( process.platform === 'win32' ) {
 		if ( ! process.env.APPDATA ) {
 			throw new LoggerError( __( 'Studio config file path not found.' ) );
@@ -77,14 +83,7 @@ export function getAppdataDirectory(): string {
 }
 
 export function getAppdataPath(): string {
-	// Support E2E testing with custom appdata path
-	// Must include 'Studio' subfolder to match Electron app's path structure
-	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
-		return path.join( process.env.E2E_APP_DATA_PATH, 'Studio', 'appdata-v1.json' );
-	}
-
-	const appdataDir = getAppdataDirectory();
-	return path.join( appdataDir, 'appdata-v1.json' );
+	return path.join( getAppdataDirectory(), 'appdata-v1.json' );
 }
 
 export async function readAppdata(): Promise< UserData > {

@@ -1,21 +1,11 @@
-import os from 'os';
 import path from 'path';
+import { getAppdataDirectory } from 'cli/lib/appdata';
 
 const WP_CLI_PHAR_FILENAME = 'wp-cli.phar';
 const SQLITE_COMMAND_FOLDER = 'sqlite-command';
 
 export function getServerFilesPath(): string {
-	if ( process.platform === 'darwin' ) {
-		return path.join( os.homedir(), 'Library', 'Application Support', 'Studio', 'server-files' );
-	}
-	if ( process.platform === 'win32' ) {
-		if ( process.env.APPDATA ) {
-			return path.join( process.env.APPDATA, 'Studio', 'server-files' );
-		} else {
-			throw new Error( 'APPDATA environment variable is not set' );
-		}
-	}
-	throw new Error( 'Unsupported platform' );
+	return path.join( getAppdataDirectory(), 'server-files' );
 }
 
 export function getWpCliPharPath(): string {

@@ -3,9 +3,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { z } from 'zod';
 import { SiteCommandLoggerAction } from 'common/logger-actions';
+import type { Blueprint } from 'common/types/blueprint';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { executeCliCommand } from './execute-command';
-import type { Blueprint } from '@wp-playground/blueprints';
 
 const cliEventSchema = z.discriminatedUnion( 'action', [
 	z.object( {

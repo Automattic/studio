@@ -1,10 +1,10 @@
 import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { BlueprintV1Declaration } from '@wp-playground/blueprints';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { z } from 'zod';
+import { SQLITE_FILENAME } from 'common/constants';
 import { portFinder } from 'common/lib/port-finder';
 import {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT,
@@ -14,26 +14,19 @@ import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certific
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
 import { updateSiteUrl } from 'src/lib/update-site-url';
-import { setupWordPressSite, getWordPressProvider } from 'src/lib/wordpress-provider';
 import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
 import { createSiteViaCli, type CreateSiteOptions } from 'src/modules/cli/lib/cli-site-creator';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData } from 'src/storage/user-data';
-import type { WordPressServerProcess } from 'src/lib/wordpress-provider/types';
+import type { BlueprintV1Declaration } from 'common/types/blueprint';
+import type { WordPressServerProcess } from 'src/lib/wordpress-server-types';
 
 export type WpCliResult = { stdout: string; stderr: string; exitCode: number };
 
 const servers = new Map< string, SiteServer >();
 const deletedServers: string[] = [];
-
-export async function createSiteWorkingDirectory(
-	server: SiteServer,
-	wpVersion = 'latest'
-): Promise< boolean > {
-	return setupWordPressSite( server, wpVersion );
-}
 
 export async function stopAllServersOnQuit() {
 	// We're quitting so this doesn't have to be tidy, just stop the
@@ -447,12 +440,11 @@ export class SiteServer {
 
 	async hasSQLitePlugin(): Promise< boolean > {
 		const wpContentPath = nodePath.join( this.details.path, 'wp-content' );
-		const sqliteFilename = getWordPressProvider().SQLITE_FILENAME;
 
 		const sqliteIntegrationPaths = {
-			muPlugin: nodePath.join( wpContentPath, 'mu-plugins', sqliteFilename ),
-			muPluginLegacy: nodePath.join( wpContentPath, 'mu-plugins', `${ sqliteFilename }-main` ),
-			regularPlugin: nodePath.join( wpContentPath, 'plugins', sqliteFilename ),
+			muPlugin: nodePath.join( wpContentPath, 'mu-plugins', SQLITE_FILENAME ),
+			muPluginLegacy: nodePath.join( wpContentPath, 'mu-plugins', `${ SQLITE_FILENAME }-main` ),
+			regularPlugin: nodePath.join( wpContentPath, 'plugins', SQLITE_FILENAME ),
 		};
 
 		const requiredConfigPaths = {

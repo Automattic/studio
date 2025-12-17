@@ -1,5 +1,7 @@
-import { Blueprint } from '@wp-playground/blueprints';
-import { RunCLIArgs } from '@wp-playground/cli';
+import type { Blueprint } from 'common/types/blueprint';
+// RunCLIArgs is only used in child processes (CLI and desktop child process)
+// Keep this import for now - it will be used by CLI which retains PHP-WASM dependencies
+import type { RunCLIArgs } from '@wp-playground/cli';
 
 /**
  * Sanitizes a Blueprint step to remove sensitive data while keeping useful debugging info.

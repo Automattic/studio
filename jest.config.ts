@@ -6,9 +6,6 @@ module.exports = {
 		'^.+\\.(ts|tsx)$': [
 			'ts-jest',
 			{
-				diagnostics: {
-					exclude: [ '**/vendor/wp-now/**/*' ],
-				},
 				useESM: true,
 				tsconfig: {
 					module: 'esnext',

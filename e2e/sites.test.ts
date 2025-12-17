@@ -2,7 +2,10 @@ import path from 'path';
 import { test, expect } from '@playwright/test';
 import fs from 'fs-extra';
 import { pathExists } from '../common/lib/fs-utils';
-import { DEFAULT_PHP_VERSION, ALLOWED_PHP_VERSIONS } from '../vendor/wp-now/src/constants';
+import {
+	RecommendedPHPVersion as DEFAULT_PHP_VERSION,
+	SupportedPHPVersions as ALLOWED_PHP_VERSIONS,
+} from '../common/types/php-versions';
 import { DEFAULT_SITE_NAME } from './constants';
 import { E2ESession } from './e2e-helpers';
 import MainSidebar from './page-objects/main-sidebar';

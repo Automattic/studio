@@ -1,3 +1,10 @@
+/**
+ * Download utilities for WordPress, WP-CLI, and SQLite command
+ *
+ * These replace the functions from vendor/wp-now to remove that dependency.
+ * See STU-960: Remove PHP-WASM dependencies from Studio
+ */
+
 import { IncomingMessage } from 'http';
 import os from 'os';
 import path from 'path';
@@ -5,10 +12,22 @@ import followRedirects, { FollowResponse } from 'follow-redirects';
 import fs from 'fs-extra';
 import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
 import unzipper from 'unzipper';
-import { DEFAULT_WORDPRESS_VERSION, WP_CLI_URL } from './constants';
-import getWordpressVersionsPath from './get-wordpress-versions-path';
-import getWpCliPath from './get-wp-cli-path';
-import { output } from './output';
+import { getWordPressVersionPath, getWpCliPath } from './server-files-paths';
+
+const { https } = followRedirects;
+
+// Constants
+const DEFAULT_WORDPRESS_VERSION = 'latest';
+const WP_CLI_URL = 'https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar';
+
+interface DownloadResult {
+	downloaded: boolean;
+	statusCode: number;
+}
+
+/**
+ * Make an HTTPS GET request with proxy support
+ */
 function httpsGet( url: string, callback: ( res: IncomingMessage & FollowResponse ) => void ) {
 	const proxy =
 		process.env.https_proxy ||
@@ -27,26 +46,25 @@ function httpsGet( url: string, callback: ( res: IncomingMessage & FollowRespons
 	https.get( url, { agent }, callback );
 }
 
-interface DownloadFileAndUnzipResult {
-	downloaded: boolean;
-	statusCode: number;
-}
-
-const { https } = followRedirects;
-
-// Local copy of WordPress version utilities to avoid Studio dependencies
+/**
+ * Check if a WordPress version is a dev/nightly build
+ */
 function isWordPressDevVersion( version: string ): boolean {
-	// Match nightly build patterns that end with a build number
-	// Examples: 6.8-alpha1-12345, 6.8-beta2-59979, 6.8-dev-12345, 6.8-59979
 	return /^\d+\.\d+(?:\.\d+)?(?:-[a-zA-Z0-9]+)*-\d+$/.test( version );
 }
 
+/**
+ * Check if a WordPress version string is valid
+ */
 function isValidWordPressVersion( version: string ): boolean {
 	const versionPattern =
 		/^latest$|^(?:(\d+)\.(\d+)(?:\.(\d+))?)((?:-beta(?:\d+)?)|(?:-RC(?:\d+)?))?$/;
 	return versionPattern.test( version );
 }
 
+/**
+ * Get the download URL for a WordPress version
+ */
 function getWordPressVersionUrl( version = DEFAULT_WORDPRESS_VERSION ): string {
 	if ( isWordPressDevVersion( version ) ) {
 		return 'https://wordpress.org/nightly-builds/wordpress-latest.zip';
@@ -60,12 +78,20 @@ function getWordPressVersionUrl( version = DEFAULT_WORDPRESS_VERSION ): string {
 	return `https://wordpress.org/wordpress-${ version }.zip`;
 }
 
+/**
+ * Download a file to a destination path
+ */
 async function downloadFile( {
 	url,
 	destinationFilePath,
 	itemName,
 	overwrite = false,
-} ): Promise< DownloadFileAndUnzipResult > {
+}: {
+	url: string;
+	destinationFilePath: string;
+	itemName: string;
+	overwrite?: boolean;
+} ): Promise< DownloadResult > {
 	let statusCode = 0;
 	try {
 		if ( fs.existsSync( destinationFilePath ) && ! overwrite ) {
@@ -75,7 +101,7 @@ async function downloadFile( {
 		const response = await new Promise< IncomingMessage >( ( resolve ) =>
 			httpsGet( url, ( response ) => resolve( response ) )
 		);
-		statusCode = response.statusCode;
+		statusCode = response.statusCode ?? 0;
 		if ( response.statusCode !== 200 ) {
 			throw new Error( `Failed to download file (Status code ${ response.statusCode }).` );
 		}
@@ -92,32 +118,32 @@ async function downloadFile( {
 				reject( error );
 			} );
 		} );
-		output?.log( `Downloaded ${ itemName } to ${ destinationFilePath }` );
+		console.log( `Downloaded ${ itemName } to ${ destinationFilePath }` );
 		return { downloaded: true, statusCode };
 	} catch ( error ) {
-		output?.error( `Error downloading file ${ itemName }`, error );
+		console.error( `Error downloading file ${ itemName }`, error );
 		return { downloaded: false, statusCode };
 	}
 }
 
-export async function downloadWpCli( overwrite = false ) {
-	return downloadFile( {
-		url: WP_CLI_URL,
-		destinationFilePath: getWpCliPath(),
-		itemName: 'wp-cli',
-		overwrite,
-	} );
-}
-
+/**
+ * Download and unzip a file
+ */
 async function downloadFileAndUnzip( {
 	url,
 	destinationFolder,
 	checkFinalPath,
 	itemName,
 	overwrite = false,
-} ): Promise< DownloadFileAndUnzipResult > {
+}: {
+	url: string;
+	destinationFolder: string;
+	checkFinalPath: string;
+	itemName: string;
+	overwrite?: boolean;
+} ): Promise< DownloadResult > {
 	if ( ! overwrite && fs.existsSync( checkFinalPath ) ) {
-		output?.log( `${ itemName } folder already exists. Skipping download.` );
+		console.log( `${ itemName } folder already exists. Skipping download.` );
 		return { downloaded: false, statusCode: 0 };
 	}
 
@@ -126,11 +152,11 @@ async function downloadFileAndUnzip( {
 	try {
 		await fs.ensureDir( path.dirname( destinationFolder ) );
 
-		output?.log( `Downloading ${ itemName }...` );
+		console.log( `Downloading ${ itemName }...` );
 		const response = await new Promise< IncomingMessage >( ( resolve ) =>
 			httpsGet( url, ( response ) => resolve( response ) )
 		);
-		statusCode = response.statusCode;
+		statusCode = response.statusCode ?? 0;
 
 		if ( response.statusCode !== 200 ) {
 			throw new Error( `Failed to download file (Status code ${ response.statusCode }).` );
@@ -138,10 +164,6 @@ async function downloadFileAndUnzip( {
 
 		const entryPromises: Promise< unknown >[] = [];
 
-		/**
-		 * Using Parse because Extract is broken:
-		 * https://github.com/WordPress/wordpress-playground/issues/248
-		 */
 		await response
 			.pipe( unzipper.Parse() )
 			.on( 'entry', ( entry ) => {
@@ -149,15 +171,11 @@ async function downloadFileAndUnzip( {
 				const filePath = path.join( destinationFolder, normalizedPath );
 
 				if ( ! filePath.startsWith( destinationFolder ) ) {
-					output?.log( `Skipping invalid path: ${ entry.path }` );
+					console.log( `Skipping invalid path: ${ entry.path }` );
 					entryPromises.push( entry.autodrain().promise() );
 					return;
 				}
 
-				/*
-				 * Use the sync version to ensure entry is piped to
-				 * a write stream before moving on to the next entry.
-				 */
 				fs.ensureDirSync( path.dirname( filePath ) );
 
 				if ( entry.type === 'Directory' ) {
@@ -174,20 +192,34 @@ async function downloadFileAndUnzip( {
 			} )
 			.promise();
 
-		// Wait until all entries have been extracted before continuing
 		await Promise.all( entryPromises );
 
 		return { downloaded: true, statusCode };
 	} catch ( err ) {
-		output?.error( `Error downloading or unzipping ${ itemName }:`, err );
+		console.error( `Error downloading or unzipping ${ itemName }:`, err );
 	}
 	return { downloaded: false, statusCode };
 }
 
+/**
+ * Download WP-CLI
+ */
+export async function downloadWpCli( overwrite = false ): Promise< DownloadResult > {
+	return downloadFile( {
+		url: WP_CLI_URL,
+		destinationFilePath: getWpCliPath(),
+		itemName: 'wp-cli',
+		overwrite,
+	} );
+}
+
+/**
+ * Download a specific WordPress version
+ */
 export async function downloadWordPress(
 	wordPressVersion = DEFAULT_WORDPRESS_VERSION,
 	{ overwrite }: { overwrite: boolean } = { overwrite: false }
-) {
+): Promise< void > {
 	const finalFolder = getWordPressVersionPath( wordPressVersion );
 	const tempDir = await fs.mkdtemp( path.join( os.tmpdir(), 'wordpress-download-' ) );
 
@@ -207,7 +239,7 @@ export async function downloadWordPress(
 				overwrite: true,
 			} );
 		} else if ( 404 === statusCode ) {
-			output?.log(
+			console.log(
 				`WordPress ${ wordPressVersion } not found. Check https://wordpress.org/download/releases/ for available versions.`
 			);
 		}
@@ -216,13 +248,81 @@ export async function downloadWordPress(
 			try {
 				await fs.remove( tempDir );
 			} catch ( cleanupErr ) {
-				output?.error( 'Error cleaning up temporary directory:', cleanupErr );
+				console.error( 'Error cleaning up temporary directory:', cleanupErr );
 			}
 		}
 	}
 }
 
-export async function downloadSQLiteCommand( downloadUrl: string, targetPath: string ) {
+/**
+ * Get the latest WP-CLI version from GitHub
+ */
+let latestWPCliVersionCache: string | null = null;
+
+async function getLatestWPCliVersion(): Promise< string > {
+	if ( latestWPCliVersionCache ) {
+		return latestWPCliVersionCache;
+	}
+
+	try {
+		const response = await fetch(
+			'https://api.github.com/repos/wp-cli/wp-cli/releases?per_page=1'
+		);
+		const data: Record< string, string >[] = await response.json();
+		latestWPCliVersionCache = data?.[ 0 ]?.tag_name || '';
+	} catch ( _error ) {
+		// Discard the failed fetch, return the cache
+	}
+
+	return latestWPCliVersionCache || '';
+}
+
+/**
+ * Check if WP-CLI installation is outdated
+ */
+async function isWPCliInstallationOutdated(
+	getVersionFromInstallation: () => Promise< string >
+): Promise< boolean > {
+	const installedVersion = await getVersionFromInstallation();
+	const latestVersion = await getLatestWPCliVersion();
+
+	if ( ! installedVersion ) {
+		return true;
+	}
+
+	if ( ! latestVersion ) {
+		return false;
+	}
+
+	try {
+		const { default: semver } = await import( 'semver' );
+		return semver.lt( installedVersion, latestVersion );
+	} catch ( _error ) {
+		return false;
+	}
+}
+
+/**
+ * Update WP-CLI to the latest version if needed
+ */
+export async function updateLatestWPCliVersion(
+	getVersionFromInstallation: () => Promise< string >
+): Promise< void > {
+	let shouldOverwrite = false;
+	const pathExist = await fs.pathExists( getWpCliPath() );
+	if ( pathExist ) {
+		shouldOverwrite = await isWPCliInstallationOutdated( getVersionFromInstallation );
+	}
+	await downloadWpCli( shouldOverwrite );
+}
+
+/**
+ * Download SQLite command
+ */
+export async function downloadSQLiteCommand(
+	downloadUrl: string,
+	targetPath: string
+): Promise< void > {
 	const tempFolder = path.join( os.tmpdir(), 'wp-cli-sqlite-command' );
 	const { downloaded, statusCode } = await downloadFileAndUnzip( {
 		url: downloadUrl,
@@ -238,33 +338,7 @@ export async function downloadSQLiteCommand( downloadUrl: string, targetPath: st
 
 	await fs.ensureDir( path.dirname( targetPath ) );
 
-	await fs.move( path.join( tempFolder ), targetPath, {
+	await fs.move( tempFolder, targetPath, {
 		overwrite: true,
 	} );
-}
-export function getWordPressVersionPath( wpVersion: string ) {
-	return path.join( getWordpressVersionsPath(), wpVersion );
-}
-
-/**
- * This function removes the internal mu-plugins that WP-now used to store.
- *
- * WP-now used to store some internal mu-plugins in the site's mu-plugins directory.
- * This prevented users from using the mu-plugins directory for their own plugins,
- * so Studio now mounts the mu-plugins directory to the shared mu-plugins directory.
- *
- * @param projectPath The path to the project directory.
- */
-export async function removeDownloadedMuPlugins( projectPath: string ) {
-	const wpContentPath = path.join( projectPath, 'wp-content' );
-	const muPluginsPath = path.join( wpContentPath, 'mu-plugins' );
-	fs.removeSync( path.join( muPluginsPath, '0-32bit-integer-warnings.php' ) );
-	fs.removeSync( path.join( muPluginsPath, '0-allowed-redirect-hosts.php' ) );
-	fs.removeSync( path.join( muPluginsPath, '0-check-theme-availability.php' ) );
-	fs.removeSync( path.join( muPluginsPath, '0-deactivate-jetpack-modules.php' ) );
-	fs.removeSync( path.join( muPluginsPath, '0-dns-functions.php' ) );
-	fs.removeSync( path.join( muPluginsPath, '0-permalinks.php' ) );
-	fs.removeSync( path.join( muPluginsPath, '0-wp-config-constants-polyfill.php' ) );
-	fs.removeSync( path.join( muPluginsPath, '0-sqlite.php' ) );
-	fs.removeSync( path.join( muPluginsPath, '0-thumbnails.php' ) );
 }

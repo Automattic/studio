@@ -1,8 +1,8 @@
 import { app } from 'electron';
 import fs from 'fs';
 import nodePath from 'node:path';
-import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/main';
+import { SupportedPHPVersion, SupportedPHPVersions } from 'common/types/php-versions';
 import { readFile, writeFile } from 'atomically';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/constants';
 import { isErrnoException } from 'common/lib/is-errno-exception';

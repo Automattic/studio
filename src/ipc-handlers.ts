@@ -56,10 +56,7 @@ import * as oauthClient from 'src/lib/oauth';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import * as windowsHelpers from 'src/lib/windows-helpers';
-import {
-	getWordPressProvider,
-	getProviderConstants as getProviderConstantsFromProvider,
-} from 'src/lib/wordpress-provider';
+import { setupWordPressFilesOnly } from 'src/lib/wordpress-setup';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
@@ -204,7 +201,7 @@ export async function importSite(
 	}
 	try {
 		if ( ! isWordPressDirectory( site.details.path ) ) {
-			await getWordPressProvider().setupWordPressFilesOnly( site.details.path );
+			await setupWordPressFilesOnly( site.details.path );
 		}
 
 		const onEvent = ( data: ImportExportEventData ) => {
@@ -378,7 +375,7 @@ export async function startServer(
 
 		Sentry.captureException( error, {
 			tags: {
-				provider: getWordPressProvider().PROVIDER_TYPE,
+				provider: 'cli',
 			},
 			contexts,
 		} );
@@ -1330,8 +1327,20 @@ export async function listLocalFileTree(
 }
 
 export async function getProviderConstants( _event: IpcMainInvokeEvent ) {
-	const provider = getWordPressProvider();
-	return getProviderConstantsFromProvider( provider );
+	// Import directly to avoid circular dependencies at module load time
+	const {
+		DEFAULT_PHP_VERSION,
+		DEFAULT_WORDPRESS_VERSION,
+		MINIMUM_WORDPRESS_VERSION,
+	} = await import( 'common/constants' );
+	const { SupportedPHPVersions } = await import( 'common/types/php-versions' );
+
+	return {
+		defaultPhpVersion: DEFAULT_PHP_VERSION,
+		defaultWordPressVersion: DEFAULT_WORDPRESS_VERSION,
+		allowedPhpVersions: [ ...SupportedPHPVersions ],
+		minimumWordPressVersion: MINIMUM_WORDPRESS_VERSION,
+	};
 }
 
 export async function validateBlueprint(

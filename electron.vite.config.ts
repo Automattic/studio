@@ -47,25 +47,13 @@ export default defineConfig( {
 			rollupOptions: {
 				input: {
 					index: resolve( __dirname, 'src/index.ts' ),
-					siteServerProcess: resolve(
-						__dirname,
-						'src/lib/wordpress-provider/wp-now/site-server-process-child.ts'
-					),
-					playgroundServerProcess: resolve(
-						__dirname,
-						'src/lib/wordpress-provider/playground-cli/playground-server-process-child.ts'
-					),
+					// Child process entry points removed - desktop now uses CLI for site operations
+					// See STU-960: Remove PHP-WASM dependencies from Studio
 				},
 				output: {
 					entryFileNames: '[name].js',
 				},
-				external: [
-					'@php-wasm/node',
-					'@php-wasm/web',
-					'@php-wasm/logger',
-					'@php-wasm/universal',
-					'@php-wasm/scopes',
-				],
+				// PHP-WASM externals removed - no longer needed in desktop build
 			},
 		},
 	},

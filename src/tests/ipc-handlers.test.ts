@@ -18,16 +18,8 @@ jest.mock( 'fs' );
 jest.mock( 'fs-extra' );
 jest.mock( 'common/lib/fs-utils' );
 jest.mock( 'src/site-server' );
-jest.mock( 'src/lib/wordpress-provider', () => ( {
-	downloadWordPress: jest.fn(),
-	downloadWpCli: jest.fn(),
-	downloadSQLiteCommand: jest.fn(),
-	getWordPressProvider: jest.fn().mockReturnValue( {
-		DEFAULT_PHP_VERSION: '8.3',
-		DEFAULT_WORDPRESS_VERSION: 'latest',
-		SQLITE_FILENAME: 'sqlite.php',
-		setupWordPressFilesOnly: jest.fn().mockResolvedValue( undefined ),
-	} ),
+jest.mock( 'src/lib/wordpress-setup', () => ( {
+	setupWordPressFilesOnly: jest.fn().mockResolvedValue( undefined ),
 } ) );
 jest.mock( 'src/main-window' );
 jest.mock( '@sentry/electron/main' );

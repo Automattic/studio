@@ -1,5 +1,5 @@
 import { executeCliCommand } from './execute-command';
-import type { WordPressServerProcess } from 'src/lib/wordpress-provider/types';
+import type { WordPressServerProcess } from 'src/lib/wordpress-server-types';
 
 /**
  * A WordPressServerProcess implementation that delegates to CLI commands.

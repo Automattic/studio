@@ -5,8 +5,8 @@ import { Provider } from 'react-redux';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
+import { DEFAULT_WORDPRESS_VERSION } from 'common/constants';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { getWordPressProvider } from 'src/lib/wordpress-provider';
 import { store } from 'src/stores';
 import { setProviderConstants } from 'src/stores/provider-constants-slice';
 import type { SyncSite } from 'src/modules/sync/types';
@@ -129,7 +129,7 @@ describe( 'useAddSite', () => {
 	it( 'should initialize with default WordPress version', () => {
 		const { result } = renderHookWithProvider( () => useAddSite() );
 
-		expect( result.current.wpVersion ).toBe( getWordPressProvider().DEFAULT_WORDPRESS_VERSION );
+		expect( result.current.wpVersion ).toBe( DEFAULT_WORDPRESS_VERSION );
 	} );
 
 	it( 'should initialize with default PHP version', () => {

@@ -54,6 +54,10 @@ const config: ForgeConfig = {
 			/^\/wp-files/,
 			/^\/dist\/cli/,
 			/^\/dist\/playground-cli/,
+			// PHP-WASM packages - these are only needed in CLI, not in desktop app
+			// See STU-960: Remove PHP-WASM dependencies from Studio
+			/^\/node_modules\/@php-wasm/,
+			/^\/node_modules\/@wp-playground/,
 		],
 	},
 	rebuildConfig: {},

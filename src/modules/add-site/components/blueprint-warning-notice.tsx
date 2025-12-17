@@ -33,7 +33,7 @@ function BlueprintIssuesModal( {
 	return (
 		<Modal
 			className="blueprints-issues-modal"
-			title={ __( 'Blueprint Details' ) }
+			title={ __( 'Blueprint details' ) }
 			onRequestClose={ onClose }
 			size="medium"
 		>

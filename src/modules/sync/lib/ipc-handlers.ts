@@ -232,6 +232,13 @@ export async function pushArchive(
 					} );
 					console.error( '[TUS] Upload paused: ', error.message );
 				}
+
+				const status = error.originalResponse ? error.originalResponse.getStatus() : 0;
+				// Stop retrying if the upload failed because of a 403 error.
+				if ( status === 403 ) {
+					return false;
+				}
+
 				return true;
 			},
 		} );

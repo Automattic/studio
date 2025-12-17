@@ -113,7 +113,7 @@
 		"@php-wasm/node": "^3.0.22",
 		"@php-wasm/scopes": "^3.0.22",
 		"@php-wasm/universal": "^3.0.22",
-		"@reduxjs/toolkit": "^2.7.0",
+		"@reduxjs/toolkit": "^2.11.2",
 		"@rive-app/react-canvas": "^4.12.0",
 		"@sentry/electron": "^6.5.0",
 		"@types/unzipper": "^0.10.11",

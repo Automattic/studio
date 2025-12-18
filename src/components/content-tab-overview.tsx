@@ -179,22 +179,17 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			}
 		},
 	} );
-	return <ButtonsSection buttonsArray={ buttonsArray } title={ __( 'Open in…' ) } />;
-}
 
-function BuildInSection() {
-	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
-		{
-			label: __( 'Telex' ),
-			className: 'text-nowrap',
-			icon: plugins,
-			onClick: () => {
-				getIpcApi().openURL( 'https://telex.automattic.ai' );
-			},
+	buttonsArray.push( {
+		label: __( 'Telex' ),
+		className: 'text-nowrap',
+		icon: plugins,
+		onClick: () => {
+			getIpcApi().openURL( 'https://telex.automattic.ai' );
 		},
-	];
+	} );
 
-	return <ButtonsSection buttonsArray={ buttonsArray } title={ __( 'Build in…' ) } />;
+	return <ButtonsSection buttonsArray={ buttonsArray } title={ __( 'Open…' ) } />;
 }
 
 export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) {
@@ -282,7 +277,6 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 					loading={ loading }
 				/>
 				<ShortcutsSection selectedSite={ selectedSite } />
-				<BuildInSection />
 			</div>
 		</div>
 	);

@@ -133,9 +133,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 		tooltipText = __( 'Adding' );
 	} else if ( isImporting ) {
 		tooltipText = __( 'Importing' );
-	} else if ( isPulling ) {
-		tooltipText = __( 'Syncing' );
-	} else if ( isPushing ) {
+	} else if ( isSyncing ) {
 		tooltipText = __( 'Syncing' );
 	} else {
 		tooltipText = __( 'Loading' );

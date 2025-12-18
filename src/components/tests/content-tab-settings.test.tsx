@@ -24,18 +24,19 @@ function snapshotTestReducer( state: RootState | undefined, action: UnknownActio
 		} );
 	}
 
-	// Use the test reducer but preserve provider constants
+	// Use the test reducer but preserve provider constants and beta features
 	const newState = testReducer( state, action );
 
-	// If we have provider constants in the current state, preserve them
+	// If we have provider constants or beta features in the current state, preserve them
+	const preservedState = { ...newState };
 	if ( state?.providerConstants ) {
-		return {
-			...newState,
-			providerConstants: state.providerConstants,
-		};
+		preservedState.providerConstants = state.providerConstants;
+	}
+	if ( state?.betaFeatures ) {
+		preservedState.betaFeatures = state.betaFeatures;
 	}
 
-	return newState;
+	return preservedState;
 }
 
 const snapshotTestActions = {
@@ -52,6 +53,15 @@ let testStore = createTestStore( {
 		allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
 		minimumWordPressVersion: '6.2.6',
 	},
+	preloadedState: {
+		betaFeatures: {
+			features: {
+				multiWorkerSupport: false,
+				xdebugSupport: true,
+			},
+			loading: false,
+		},
+	},
 } );
 
 // We need to create a new store each time to avoid reducer conflicts
@@ -62,6 +72,15 @@ function createCustomTestStore() {
 			defaultWordPressVersion: 'latest',
 			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
 			minimumWordPressVersion: '6.2.6',
+		},
+		preloadedState: {
+			betaFeatures: {
+				features: {
+					multiWorkerSupport: false,
+					xdebugSupport: true,
+				},
+				loading: false,
+			},
 		},
 	} );
 	store.replaceReducer( snapshotTestReducer );
@@ -116,6 +135,7 @@ describe( 'ContentTabSettings', () => {
 	const openLocalPath = jest.fn();
 	const generateProposedSitePath = jest.fn();
 	const getAllCustomDomains = jest.fn().mockResolvedValue( [] );
+	const getXdebugEnabledSite = jest.fn().mockResolvedValue( null );
 	const mockSnapshot = {
 		localSiteId: selectedSite.id,
 		url: 'http://localhost:8881',
@@ -137,6 +157,7 @@ describe( 'ContentTabSettings', () => {
 			openLocalPath,
 			generateProposedSitePath,
 			getAllCustomDomains,
+			getXdebugEnabledSite,
 			isCATrusted: jest.fn( () => Promise.resolve( true ) ),
 		} );
 
@@ -252,6 +273,42 @@ describe( 'ContentTabSettings', () => {
 			await user.click( adminPasswordButton );
 			expect( copyText ).toHaveBeenCalledTimes( 1 );
 			expect( copyText ).toHaveBeenCalledWith( 'password' );
+		} );
+	} );
+
+	describe( 'Xdebug beta feature', () => {
+		it( 'hides Xdebug row when beta feature is disabled', async () => {
+			// Create a store with xdebugSupport disabled
+			const storeWithoutXdebug = createTestStore( {
+				providerConstants: {
+					defaultPhpVersion: '8.3',
+					defaultWordPressVersion: 'latest',
+					allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
+					minimumWordPressVersion: '6.2.6',
+				},
+				preloadedState: {
+					betaFeatures: {
+						features: {
+							multiWorkerSupport: false,
+							xdebugSupport: false,
+						},
+						loading: false,
+					},
+				},
+			} );
+
+			render(
+				<Provider store={ storeWithoutXdebug }>
+					<ContentTabSettings selectedSite={ selectedSite } />
+				</Provider>
+			);
+
+			await waitFor( () => {
+				expect( getAllCustomDomains ).toHaveBeenCalled();
+			} );
+
+			// Xdebug row should not be visible
+			expect( screen.queryByText( 'Xdebug' ) ).not.toBeInTheDocument();
 		} );
 	} );
 

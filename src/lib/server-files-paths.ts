@@ -1,8 +1,6 @@
 /**
  * Path utilities for server files (WordPress versions, WP-CLI, SQLite)
  *
- * These replace the functions from vendor/wp-now to remove that dependency.
- * See STU-960: Remove PHP-WASM dependencies from Studio
  */
 
 import os from 'os';

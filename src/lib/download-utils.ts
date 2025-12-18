@@ -1,8 +1,6 @@
 /**
  * Download utilities for WordPress, WP-CLI, and SQLite command
  *
- * These replace the functions from vendor/wp-now to remove that dependency.
- * See STU-960: Remove PHP-WASM dependencies from Studio
  */
 
 import { IncomingMessage } from 'http';

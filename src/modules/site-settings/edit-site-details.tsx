@@ -376,7 +376,6 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 												<label
 													htmlFor="enable-xdebug"
 													className={ cx(
-														'font-semibold',
 														isEditingSite ||
 															( xdebugEnabledSite && xdebugEnabledSite.id !== selectedSite?.id )
 															? 'cursor-not-allowed'

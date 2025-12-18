@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/appdata';
+import { getSiteByFolder, updateSiteAutoStart, updateSiteLatestCliPid } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
@@ -44,12 +44,13 @@ export async function runCommand( sitePath: string, skipBrowser = false ): Promi
 
 		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress site...' ) );
 		try {
-			const processDesc = await startWordPressServer( site );
+			const processDesc = await startWordPressServer( site, logger );
 
 			logger.reportSuccess( __( 'WordPress site started' ) );
 			if ( processDesc.pid ) {
 				await updateSiteLatestCliPid( site.id, processDesc.pid );
 			}
+			await updateSiteAutoStart( site.id, true );
 			logSiteDetails( site );
 
 			if ( ! skipBrowser ) {
@@ -81,7 +82,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );
 				} else {
-					const loggerError = new LoggerError( __( 'Failed to load site' ), error );
+					const loggerError = new LoggerError( __( 'Failed to start site' ), error );
 					logger.reportError( loggerError );
 				}
 			}

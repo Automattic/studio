@@ -4,10 +4,10 @@ import fs from 'fs-extra';
 // Abstract base class for SQLite integration across different contexts
 export abstract class SqliteIntegrationProvider {
 	abstract getServerFilesPath(): string;
-	abstract getSqliteFilename(): string;
+	abstract getSqliteDirname(): string;
 
 	protected getSqlitePluginSourcePath(): string {
-		return path.join( this.getServerFilesPath(), this.getSqliteFilename() );
+		return path.join( this.getServerFilesPath(), this.getSqliteDirname() );
 	}
 
 	async isSqliteIntegrationAvailable(): Promise< boolean > {
@@ -50,14 +50,14 @@ export abstract class SqliteIntegrationProvider {
 
 		const sqliteSourcePath = this.getSqlitePluginSourcePath();
 		const dbCopyContent = await fs.readFile( path.join( sqliteSourcePath, 'db.copy' ), 'utf8' );
-		const sqliteFilename = this.getSqliteFilename();
+		const sqliteDirname = this.getSqliteDirname();
 		const updatedContent = dbCopyContent.replace(
 			"'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
-			`realpath( __DIR__ . '/mu-plugins/${ sqliteFilename }' )`
+			`realpath( __DIR__ . '/mu-plugins/${ sqliteDirname }' )`
 		);
 		await fs.writeFile( path.join( wpContentPath, 'db.php' ), updatedContent );
 
-		const sqliteDestPath = path.join( wpContentPath, 'mu-plugins', sqliteFilename );
+		const sqliteDestPath = path.join( wpContentPath, 'mu-plugins', sqliteDirname );
 		await fs.copy( sqliteSourcePath, sqliteDestPath );
 	}
 

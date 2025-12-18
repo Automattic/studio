@@ -1,5 +1,5 @@
 import { resolve } from 'path';
-import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
+import { defineConfig } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 import topLevelAwait from 'vite-plugin-top-level-await';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
@@ -15,7 +15,6 @@ console.log( 'Sentry environment:', isDevEnvironment ? 'development' : 'producti
 export default defineConfig( {
 	main: {
 		plugins: [
-			externalizeDepsPlugin(),
 			viteStaticCopy( {
 				targets: [
 					{
@@ -51,7 +50,6 @@ export default defineConfig( {
 						__dirname,
 						'src/lib/wordpress-provider/wp-now/site-server-process-child.ts'
 					),
-					wpCliProcess: resolve( __dirname, 'src/lib/wp-cli-process-child.ts' ),
 					playgroundServerProcess: resolve(
 						__dirname,
 						'src/lib/wordpress-provider/playground-cli/playground-server-process-child.ts'
@@ -71,8 +69,8 @@ export default defineConfig( {
 		},
 	},
 	preload: {
-		plugins: [ externalizeDepsPlugin( { exclude: [ '@sentry/electron' ] } ) ],
 		build: {
+			externalizeDeps: { exclude: [ '@sentry/electron' ] },
 			lib: {
 				entry: resolve( __dirname, 'src/preload.ts' ),
 			},

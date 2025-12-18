@@ -1,13 +1,20 @@
-import { getSiteByFolder, updateSiteLatestCliPid, SiteData } from 'cli/lib/appdata';
+import {
+	getSiteByFolder,
+	updateSiteLatestCliPid,
+	updateSiteAutoStart,
+	SiteData,
+} from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { Logger } from 'cli/logger';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
 	getSiteByFolder: jest.fn(),
 	updateSiteLatestCliPid: jest.fn(),
+	updateSiteAutoStart: jest.fn().mockResolvedValue( undefined ),
 	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
@@ -138,13 +145,14 @@ describe( 'CLI: studio site start', () => {
 			expect( getSiteByFolder ).toHaveBeenCalledWith( '/test/site' );
 			expect( connect ).toHaveBeenCalled();
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
-			expect( setupCustomDomain ).toHaveBeenCalledWith( testSite, expect.any( Object ) );
+			expect( setupCustomDomain ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
 			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( '/test/site' );
-			expect( startWordPressServer ).toHaveBeenCalledWith( testSite );
+			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
 			expect( updateSiteLatestCliPid ).toHaveBeenCalledWith(
 				testSite.id,
 				testProcessDescription.pid
 			);
+			expect( updateSiteAutoStart ).toHaveBeenCalledWith( testSite.id, true );
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
 			expect( openSiteInBrowser ).toHaveBeenCalledWith( testSite );
 			expect( disconnect ).toHaveBeenCalled();
@@ -175,8 +183,11 @@ describe( 'CLI: studio site start', () => {
 
 			await runCommand( '/test/site' );
 
-			expect( setupCustomDomain ).toHaveBeenCalledWith( testSiteWithDomain, expect.any( Object ) );
-			expect( startWordPressServer ).toHaveBeenCalledWith( testSiteWithDomain );
+			expect( setupCustomDomain ).toHaveBeenCalledWith( testSiteWithDomain, expect.any( Logger ) );
+			expect( startWordPressServer ).toHaveBeenCalledWith(
+				testSiteWithDomain,
+				expect.any( Logger )
+			);
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -193,7 +204,7 @@ describe( 'CLI: studio site start', () => {
 
 			await runCommand( '/test/site', true );
 
-			expect( startWordPressServer ).toHaveBeenCalledWith( testSite );
+			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
 			expect( openSiteInBrowser ).not.toHaveBeenCalled();
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
 			expect( disconnect ).toHaveBeenCalled();

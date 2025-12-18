@@ -36,7 +36,6 @@ import {
 import { getPlatformMetric } from 'src/lib/bump-stats/lib';
 import { handleDeeplink } from 'src/lib/deeplink';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
-import { stopProxyServer } from 'src/lib/proxy-server';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-watcher';
 import { getWordPressProvider } from 'src/lib/wordpress-provider';
@@ -48,6 +47,7 @@ import {
 } from 'src/migrations/migrate-from-wp-now-folder';
 import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
 import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-stat';
+import { startSiteWatcher, stopSiteWatcher } from 'src/modules/cli/lib/execute-site-watch-command';
 import { updateWindowsCliVersionedPathIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
 import { stopAllServersOnQuit } from 'src/site-server';
@@ -329,6 +329,7 @@ async function appBoot() {
 
 		await createMainWindow();
 		await startUserDataWatcher();
+		startSiteWatcher();
 
 		const userData = await loadUserData();
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
@@ -413,8 +414,8 @@ async function appBoot() {
 
 	app.on( 'quit', () => {
 		void stopAllServersOnQuit();
-		stopProxyServer().catch( ( error ) => console.error( 'Error stopping proxy server:', error ) );
 		stopUserDataWatcher();
+		stopSiteWatcher();
 	} );
 
 	app.on( 'activate', () => {

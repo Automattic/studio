@@ -4,6 +4,7 @@ import { viteStaticCopy } from 'vite-plugin-static-copy';
 import { existsSync } from 'fs';
 
 const yargsLocalesPath = resolve( __dirname, 'node_modules/yargs/locales' );
+const cliNodeModulesPath = resolve( __dirname, 'cli/node_modules' );
 
 export default defineConfig( {
 	plugins: [
@@ -19,11 +20,25 @@ export default defineConfig( {
 					} ),
 			  ]
 			: [] ),
+		...( existsSync( cliNodeModulesPath )
+			? [
+					viteStaticCopy( {
+						targets: [
+							{
+								src: 'cli/node_modules',
+								dest: '.',
+							},
+						],
+					} ),
+			  ]
+			: [] ),
 	],
 	build: {
 		lib: {
 			entry: {
 				main: resolve( __dirname, 'cli/index.ts' ),
+				'proxy-daemon': resolve( __dirname, 'cli/proxy-daemon.ts' ),
+				'wordpress-server-child': resolve( __dirname, 'cli/wordpress-server-child.ts' ),
 			},
 			name: 'StudioCLI',
 			formats: [ 'cjs' ],
@@ -33,8 +48,9 @@ export default defineConfig( {
 		rollupOptions: {
 			external: [
 				/^node:/,
-				/^(path|fs|os|child_process|crypto|http|https|http2|url|querystring|stream|util|events|buffer|assert|net|tty|readline|zlib|constants|tls|domain)$/,
+				/^(path|fs|os|child_process|crypto|http|https|http2|url|querystring|stream|util|events|buffer|assert|net|tty|readline|zlib|constants|tls|domain|dns)$/,
 				'fs/promises',
+				'dns/promises',
 				'pm2',
 				'@php-wasm/node',
 				'@php-wasm/web',

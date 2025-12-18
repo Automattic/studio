@@ -245,7 +245,7 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
-	// Disable auto-updates if configured
+	// Configure auto-updates based on Studio settings
 	if ( ! options.isWpAutoUpdating ) {
 		muPlugins.push( {
 			filename: '0-disable-auto-updates.php',
@@ -254,6 +254,16 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 			add_filter( 'allow_dev_auto_core_updates', '__return_false' );
 			add_filter( 'allow_minor_auto_core_updates', '__return_false' );
 			add_filter( 'allow_major_auto_core_updates', '__return_false' );
+			`,
+		} );
+	} else {
+		muPlugins.push( {
+			filename: '0-enable-auto-updates.php',
+			content: `<?php
+			// Enable auto-updates
+			add_filter( 'allow_dev_auto_core_updates', '__return_true' );
+			add_filter( 'allow_minor_auto_core_updates', '__return_true' );
+			add_filter( 'allow_major_auto_core_updates', '__return_true' );
 			`,
 		} );
 	}
@@ -311,6 +321,43 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		add_filter( 'sqlite_command_sqlite_plugin_directories', function( $directories ) {
 			$directories[] = '/wordpress/wp-content/mu-plugins/sqlite-database-integration';
 			return $directories;
+		} );
+		`,
+	} );
+
+	// WP-CLI specific: Studio commands
+	muPlugins.push( {
+		filename: '0-studio-cli-commands.php',
+		content: `<?php
+		/**
+		 * Studio WP-CLI Commands
+		 *
+		 * Provides custom WP-CLI commands for Studio functionality.
+		 */
+		if ( ! defined( 'WP_CLI' ) || ! WP_CLI ) {
+			return;
+		}
+
+		/**
+		 * Gets theme details for the current site.
+		 *
+		 * ## EXAMPLES
+		 *
+		 *     wp studio get-theme-details
+		 *
+		 * @when after_wp_load
+		 */
+		WP_CLI::add_command( 'studio get-theme-details', function() {
+			$theme = wp_get_theme();
+			$result = [
+				'name' => $theme->get( 'Name' ),
+				'path' => $theme->get_stylesheet_directory(),
+				'slug' => $theme->get_stylesheet(),
+				'isBlockTheme' => $theme->is_block_theme(),
+				'supportsWidgets' => current_theme_supports( 'widgets' ),
+				'supportsMenus' => (bool) ( get_registered_nav_menus() || current_theme_supports( 'menus' ) ),
+			];
+			echo json_encode( $result );
 		} );
 		`,
 	} );

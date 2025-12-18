@@ -24,18 +24,7 @@ function snapshotTestReducer( state: RootState | undefined, action: UnknownActio
 		} );
 	}
 
-	// Use the test reducer but preserve provider constants
-	const newState = testReducer( state, action );
-
-	// If we have provider constants in the current state, preserve them
-	if ( state?.providerConstants ) {
-		return {
-			...newState,
-			providerConstants: state.providerConstants,
-		};
-	}
-
-	return newState;
+	return testReducer( state, action );
 }
 
 const snapshotTestActions = {
@@ -44,26 +33,12 @@ const snapshotTestActions = {
 	},
 };
 
-// Create test store with provider constants
-let testStore = createTestStore( {
-	providerConstants: {
-		defaultPhpVersion: '8.3',
-		defaultWordPressVersion: 'latest',
-		allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
-		minimumWordPressVersion: '6.2.6',
-	},
-} );
+// Create test store
+let testStore = createTestStore();
 
 // We need to create a new store each time to avoid reducer conflicts
 function createCustomTestStore() {
-	const store = createTestStore( {
-		providerConstants: {
-			defaultPhpVersion: '8.3',
-			defaultWordPressVersion: 'latest',
-			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
-			minimumWordPressVersion: '6.2.6',
-		},
-	} );
+	const store = createTestStore();
 	store.replaceReducer( snapshotTestReducer );
 	return store;
 }

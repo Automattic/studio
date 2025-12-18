@@ -47,13 +47,10 @@ export default defineConfig( {
 			rollupOptions: {
 				input: {
 					index: resolve( __dirname, 'src/index.ts' ),
-					// Child process entry points removed - desktop now uses CLI for site operations
-					// See STU-960: Remove PHP-WASM dependencies from Studio
 				},
 				output: {
 					entryFileNames: '[name].js',
 				},
-				// PHP-WASM externals removed - no longer needed in desktop build
 			},
 		},
 	},

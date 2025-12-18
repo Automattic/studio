@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
+import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'common/constants';
 import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'common/lib/domains';
 import { useSyncSites } from 'src/hooks/sync-sites';
@@ -8,14 +9,9 @@ import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
-import { useRootSelector } from 'src/stores';
-import {
-	selectDefaultPhpVersion,
-	selectDefaultWordPressVersion,
-} from 'src/stores/provider-constants-slice';
 import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
+import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { Blueprint } from 'src/stores/wpcom-api';
 import type { SyncOption } from 'src/types';
@@ -32,8 +28,6 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 	const [ connectSite ] = useConnectSiteMutation();
 	const { pullSite } = useSyncSites();
 	const { setSelectedTab } = useContentTabs();
-	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
-	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 	const [ error, setError ] = useState( '' );
 	const [ siteName, setSiteName ] = useState< string | null >( null );
 	const [ sitePath, setSitePath ] = useState( '' );
@@ -41,9 +35,9 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
 	const [ fileForImport, setFileForImport ] = useState< File | null >( null );
 	const [ phpVersion, setPhpVersion ] = useState< AllowedPHPVersion >(
-		defaultPhpVersion as AllowedPHPVersion
+		DEFAULT_PHP_VERSION as AllowedPHPVersion
 	);
-	const [ wpVersion, setWpVersion ] = useState( defaultWordPressVersion );
+	const [ wpVersion, setWpVersion ] = useState< string >( DEFAULT_WORDPRESS_VERSION );
 	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
 	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
@@ -85,8 +79,8 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 		setSitePath( '' );
 		setError( '' );
 		setDoesPathContainWordPress( false );
-		setWpVersion( defaultWordPressVersion );
-		setPhpVersion( defaultPhpVersion );
+		setWpVersion( DEFAULT_WORDPRESS_VERSION );
+		setPhpVersion( DEFAULT_PHP_VERSION );
 		setUseCustomDomain( false );
 		setCustomDomain( null );
 		setCustomDomainError( '' );
@@ -97,7 +91,7 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 		setBlueprintDeeplinkWarnings( undefined );
 		setSelectedRemoteSite( undefined );
 		clearDeeplinkState();
-	}, [ clearDeeplinkState, defaultPhpVersion, defaultWordPressVersion ] );
+	}, [ clearDeeplinkState ] );
 
 	const loadAllCustomDomains = useCallback( () => {
 		getIpcApi()

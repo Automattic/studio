@@ -3,6 +3,7 @@ import { Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { MINIMUM_WORDPRESS_VERSION } from 'common/constants';
 import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
 import Button from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
@@ -12,9 +13,7 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { SyncSite } from 'src/modules/sync/types';
-import { useRootSelector } from 'src/stores';
 import { formatRtkError } from 'src/stores/format-rtk-error';
-import { selectMinimumWordPressVersion } from 'src/stores/provider-constants-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
 import BlueprintDeeplink from './components/blueprint-deeplink';
@@ -350,9 +349,8 @@ export function AddSiteModalContent( {
 		setIsDeeplinkFlow,
 	} = addSiteProps;
 
-	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
 	const { data: versions = [] } = useGetWordPressVersions( {
-		minimumVersion: minimumWordPressVersion,
+		minimumVersion: MINIMUM_WORDPRESS_VERSION,
 	} );
 	const latestStableVersion = versions.find( ( version ) => version.value === 'latest' );
 

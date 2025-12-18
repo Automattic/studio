@@ -2,8 +2,10 @@ import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import stripAnsi from 'strip-ansi';
+import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from 'common/constants';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'common/lib/domains';
 import { getWordPressVersionUrl } from 'common/lib/wordpress-version-utils';
+import { SupportedPHPVersions } from 'common/types/php-versions';
 import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
 import Modal from 'src/components/modal';
@@ -12,14 +14,8 @@ import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
-import { useRootSelector } from 'src/stores';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
-import {
-	selectDefaultWordPressVersion,
-	selectAllowedPhpVersions,
-	selectDefaultPhpVersion,
-} from 'src/stores/provider-constants-slice';
+import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 
 type EditSiteDetailsProps = {
 	currentWpVersion: string;
@@ -30,9 +26,6 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const { __ } = useI18n();
 	const { updateSite, selectedSite, stopServer, startServer, isEditModalOpen, setIsEditModalOpen } =
 		useSiteDetails();
-	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
-	const allowedPhpVersions = useRootSelector( selectAllowedPhpVersions );
-	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
 	const [ errorUpdatingWpVersion, setErrorUpdatingWpVersion ] = useState< string | null >( null );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const [ needsRestart, setNeedsRestart ] = useState( false );
@@ -46,15 +39,15 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	}, [ isEditingSite, setIsEditModalOpen ] );
 	const [ siteName, setSiteName ] = useState( selectedSite?.name ?? '' );
 	const [ selectedPhpVersion, setSelectedPhpVersion ] = useState< AllowedPHPVersion >(
-		( selectedSite?.phpVersion as AllowedPHPVersion ) ?? defaultPhpVersion
+		( selectedSite?.phpVersion as AllowedPHPVersion ) ?? DEFAULT_PHP_VERSION
 	);
 	const getEffectiveWpVersion = useCallback(
 		() =>
 			// undefined means that this site was created before the isWpAutoUpdating option was introduced to Studio
 			[ undefined, true ].includes( selectedSite?.isWpAutoUpdating )
-				? defaultWordPressVersion
+				? DEFAULT_WORDPRESS_VERSION
 				: currentWpVersion,
-		[ selectedSite, currentWpVersion, defaultWordPressVersion ]
+		[ selectedSite, currentWpVersion ]
 	);
 	const [ selectedWpVersion, setSelectedWpVersion ] = useState( getEffectiveWpVersion() );
 	const [ useCustomDomain, setUseCustomDomain ] = useState( Boolean( selectedSite?.customDomain ) );
@@ -160,7 +153,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 				...selectedSite,
 				name: siteName,
 				phpVersion: selectedPhpVersion,
-				isWpAutoUpdating: selectedWpVersion === defaultWordPressVersion,
+				isWpAutoUpdating: selectedWpVersion === DEFAULT_WORDPRESS_VERSION,
 				customDomain: usedCustomDomain,
 				enableHttps: !! usedCustomDomain && enableHttps,
 			} );
@@ -226,15 +219,17 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 									className="flex flex-1 flex-col gap-1.5 leading-4"
 								>
 									<span className="font-semibold">{ __( 'PHP version' ) }</span>
-									<SelectControl
+									<SelectControl< string >
 										id="php-version-select"
 										disabled={ isEditingSite }
 										value={ selectedPhpVersion }
-										options={ allowedPhpVersions.map( ( version ) => ( {
+										options={ SupportedPHPVersions.map( ( version ) => ( {
 											label: version,
 											value: version,
 										} ) ) }
-										onChange={ ( version: AllowedPHPVersion ) => setSelectedPhpVersion( version ) }
+										onChange={ ( version ) =>
+											setSelectedPhpVersion( version as AllowedPHPVersion )
+										}
 										__next40pxDefaultSize
 										__nextHasNoMarginBottom
 									/>

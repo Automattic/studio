@@ -2,13 +2,12 @@
 import { renderHook, act } from '@testing-library/react';
 import nock from 'nock';
 import { Provider } from 'react-redux';
+import { DEFAULT_WORDPRESS_VERSION } from 'common/constants';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
-import { DEFAULT_WORDPRESS_VERSION } from 'common/constants';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { store } from 'src/stores';
-import { setProviderConstants } from 'src/stores/provider-constants-slice';
 import type { SyncSite } from 'src/modules/sync/types';
 
 jest.mock( 'src/hooks/use-site-details' );
@@ -53,16 +52,6 @@ describe( 'useAddSite', () => {
 
 	beforeEach( () => {
 		jest.clearAllMocks();
-
-		// Prepopulate store with provider constants
-		store.dispatch(
-			setProviderConstants( {
-				defaultPhpVersion: '8.3',
-				defaultWordPressVersion: 'latest',
-				allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
-				minimumWordPressVersion: '5.9.9',
-			} )
-		);
 
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			createSite: mockCreateSite,

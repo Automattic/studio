@@ -10,7 +10,6 @@ import { rootReducer } from 'src/stores';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
-import { setProviderConstants } from 'src/stores/provider-constants-slice';
 import { connectedSitesApi } from 'src/stores/sync/connected-sites';
 import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import { wordpressVersionsApi } from 'src/stores/wordpress-versions-api';
@@ -97,14 +96,6 @@ describe( 'App', () => {
 					.concat( connectedSitesApi.middleware )
 					.concat( wpcomSitesApi.middleware ),
 		} );
-		store.dispatch(
-			setProviderConstants( {
-				defaultPhpVersion: '8.3',
-				defaultWordPressVersion: 'latest',
-				allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
-				minimumWordPressVersion: '6.2.6',
-			} )
-		);
 		return render(
 			<Provider store={ store }>
 				<ContentTabsProvider>

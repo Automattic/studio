@@ -21,12 +21,12 @@ import {
 	OverlayFilesystem,
 	InMemoryFilesystem,
 } from '@wp-playground/storage';
-import { sanitizeRunCLIArgs } from 'common/lib/cli-args-sanitizer';
 import { isWordPressDirectory } from 'common/lib/fs-utils';
 import { getMuPlugins } from 'common/lib/mu-plugins';
 import { formatPlaygroundCliMessage } from 'common/lib/playground-cli-messages';
 import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
 import { z } from 'zod';
+import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
 import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 import {
 	ServerConfig,

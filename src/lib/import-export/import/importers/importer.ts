@@ -5,9 +5,9 @@ import fsPromises from 'fs/promises';
 import path from 'path';
 import { createInterface } from 'readline';
 import { lstat, move } from 'fs-extra';
+import semver from 'semver';
 import { DEFAULT_PHP_VERSION } from 'common/constants';
 import { SupportedPHPVersionsList } from 'common/types/php-versions';
-import semver from 'semver';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
 import { ImportEvents } from 'src/lib/import-export/import/events';
@@ -294,9 +294,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 
 		const parsedVersion = `${ phpVersion.major }.${ phpVersion.minor }`;
 
-		return SupportedPHPVersionsList.includes( parsedVersion )
-			? parsedVersion
-			: DEFAULT_PHP_VERSION;
+		return SupportedPHPVersionsList.includes( parsedVersion ) ? parsedVersion : DEFAULT_PHP_VERSION;
 	}
 }
 

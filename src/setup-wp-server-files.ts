@@ -2,7 +2,7 @@ import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
 import { recursiveCopyDirectory } from 'common/lib/fs-utils';
-import { downloadWordPress, updateLatestWPCliVersion } from 'src/lib/download-utils';
+import { updateLatestWPCliVersion } from 'src/lib/download-utils';
 import {
 	getWordPressVersionPath,
 	getSqlitePath,

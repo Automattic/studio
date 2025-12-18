@@ -1326,23 +1326,6 @@ export async function listLocalFileTree(
 	}
 }
 
-export async function getProviderConstants( _event: IpcMainInvokeEvent ) {
-	// Import directly to avoid circular dependencies at module load time
-	const {
-		DEFAULT_PHP_VERSION,
-		DEFAULT_WORDPRESS_VERSION,
-		MINIMUM_WORDPRESS_VERSION,
-	} = await import( 'common/constants' );
-	const { SupportedPHPVersions } = await import( 'common/types/php-versions' );
-
-	return {
-		defaultPhpVersion: DEFAULT_PHP_VERSION,
-		defaultWordPressVersion: DEFAULT_WORDPRESS_VERSION,
-		allowedPhpVersions: [ ...SupportedPHPVersions ],
-		minimumWordPressVersion: MINIMUM_WORDPRESS_VERSION,
-	};
-}
-
 export async function validateBlueprint(
 	_event: IpcMainInvokeEvent,
 	blueprintJson: Blueprint[ 'blueprint' ]

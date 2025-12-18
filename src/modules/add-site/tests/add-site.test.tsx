@@ -115,14 +115,7 @@ jest.mock( 'src/stores/wpcom-api', () => {
 const mockUseGetBlueprints = useGetBlueprints as jest.MockedFunction< typeof useGetBlueprints >;
 
 const renderWithProvider = ( children: React.ReactElement ) => {
-	const store = createTestStore( {
-		providerConstants: {
-			defaultPhpVersion: '8.3',
-			defaultWordPressVersion: 'latest',
-			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
-			minimumWordPressVersion: '6.2.6',
-		},
-	} );
+	const store = createTestStore();
 	return render( <Provider store={ store }>{ children }</Provider> );
 };
 

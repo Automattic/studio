@@ -60,8 +60,6 @@ export function disconnect(): void {
 	}
 }
 
-process.on( 'disconnect', disconnect );
-process.on( 'SIGHUP', disconnect );
 process.on( 'SIGINT', disconnect );
 process.on( 'SIGTERM', disconnect );
 

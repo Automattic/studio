@@ -1,6 +1,13 @@
 import { getDomainNameValidationError } from 'common/lib/domains';
 import { arePathsEqual } from 'common/lib/fs-utils';
-import { SiteData, lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
+import {
+	SiteData,
+	lockAppdata,
+	readAppdata,
+	saveAppdata,
+	unlockAppdata,
+	updateSiteLatestCliPid,
+} from 'cli/lib/appdata';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { setupCustomDomain } from 'cli/lib/site-utils';
@@ -17,6 +24,7 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	readAppdata: jest.fn(),
 	saveAppdata: jest.fn(),
 	unlockAppdata: jest.fn(),
+	updateSiteLatestCliPid: jest.fn(),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
@@ -69,6 +77,7 @@ describe( 'CLI: studio site set-domain', () => {
 		( removeDomainFromHosts as jest.Mock ).mockResolvedValue( undefined );
 		( setupCustomDomain as jest.Mock ).mockResolvedValue( undefined );
 		( getDomainNameValidationError as jest.Mock ).mockReturnValue( '' );
+		( updateSiteLatestCliPid as jest.Mock ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -156,6 +165,7 @@ describe( 'CLI: studio site set-domain', () => {
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
+			expect( updateSiteLatestCliPid ).not.toHaveBeenCalled();
 			expect( removeDomainFromHosts ).not.toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -175,6 +185,10 @@ describe( 'CLI: studio site set-domain', () => {
 			expect( stopWordPressServer ).toHaveBeenCalledWith( testSite.id );
 			expect( setupCustomDomain ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
 			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
+			expect( updateSiteLatestCliPid ).toHaveBeenCalledWith(
+				testSite.id,
+				testProcessDescription.pid
+			);
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 

@@ -363,7 +363,9 @@ async function ipcMessageHandler( packet: unknown ) {
 	}
 
 	const validMessage = messageResult.data;
-	abortControllers[ validMessage.messageId ] ??= new AbortController();
+	if ( validMessage.topic !== 'abort' ) {
+		abortControllers[ validMessage.messageId ] = new AbortController();
+	}
 	const abortController = abortControllers[ validMessage.messageId ];
 
 	try {

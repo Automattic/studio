@@ -12,8 +12,7 @@ if ( typeof globalThis.TextDecoder === 'undefined' ) {
 }
 
 // We need this polyfill because the `ReadableStream` class is
-// used by `@php-wasm/universal` and it's not available in the Jest environment.
-// Import ponyfill to avoid global pollution issues with php-wasm 1.2.3
+// not available in the Jest environment.
 const streams = require( 'web-streams-polyfill/dist/ponyfill.js' );
 
 // Assign to global only if not already available
@@ -75,8 +74,6 @@ if ( typeof window !== 'undefined' ) {
 	/**
 	 * Mock `crypto.subtle.generateKey` as it's not implemented in JSDOM
 	 * https://github.com/jsdom/jsdom/issues/1612
-	 *
-	 * `crypto.subtle.generateKey` is required by `@php-wasm/web`
 	 */
 	Object.defineProperty( global.crypto, 'subtle', {
 		value: { generateKey: jest.fn() },

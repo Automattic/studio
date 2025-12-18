@@ -2,7 +2,14 @@ import { __, _n } from '@wordpress/i18n';
 import { getDomainNameValidationError } from 'common/lib/domains';
 import { arePathsEqual } from 'common/lib/fs-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { lockAppdata, readAppdata, saveAppdata, SiteData, unlockAppdata } from 'cli/lib/appdata';
+import {
+	lockAppdata,
+	readAppdata,
+	saveAppdata,
+	SiteData,
+	unlockAppdata,
+	updateSiteLatestCliPid,
+} from 'cli/lib/appdata';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { setupCustomDomain } from 'cli/lib/site-utils';
@@ -71,7 +78,10 @@ export async function runCommand( sitePath: string, domainName: string ): Promis
 			await stopWordPressServer( site.id );
 			await setupCustomDomain( site, logger );
 			logger.reportStart( LoggerAction.START_SITE, __( 'Restarting site...' ) );
-			await startWordPressServer( site, logger );
+			const processDesc = await startWordPressServer( site, logger );
+			if ( processDesc.pid ) {
+				await updateSiteLatestCliPid( site.id, processDesc.pid );
+			}
 			logger.reportSuccess( __( 'Site restarted' ) );
 		}
 	} finally {

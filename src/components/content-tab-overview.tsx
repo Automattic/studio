@@ -12,6 +12,7 @@ import {
 	styles,
 	symbolFilled,
 	widget,
+	plugins,
 } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
@@ -181,6 +182,21 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 	return <ButtonsSection buttonsArray={ buttonsArray } title={ __( 'Open in…' ) } />;
 }
 
+function BuildInSection() {
+	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
+		{
+			label: __( 'Telex' ),
+			className: 'text-nowrap',
+			icon: plugins,
+			onClick: () => {
+				getIpcApi().openURL( 'https://telex.automattic.ai' );
+			},
+		},
+	];
+
+	return <ButtonsSection buttonsArray={ buttonsArray } title={ __( 'Build in…' ) } />;
+}
+
 export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) {
 	const [ isThumbnailError, setIsThumbnailError ] = useState( false );
 	const { __ } = useI18n();
@@ -216,7 +232,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 	);
 
 	return (
-		<div className="p-8 flex max-w-4xl">
+		<div className="pt-4 pb-8 pl-8 pr-8 flex max-w-4xl">
 			<div className="w-52 ltr:mr-8 rtl:ml-8 flex-col justify-start items-start gap-8">
 				<h2 className="mb-3 a8c-subtitle-small">{ __( 'Theme' ) }</h2>
 				<div
@@ -259,13 +275,14 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 					{ ! loading && ! isThumbnailError && <p>{ themeDetails?.name }</p> }
 				</div>
 			</div>
-			<div className="flex flex-1 flex-col justify-start items-start gap-8">
+			<div className="flex flex-1 flex-col justify-start items-start gap-4">
 				<CustomizeSection
 					selectedSite={ selectedSite }
 					themeDetails={ themeDetails }
 					loading={ loading }
 				/>
 				<ShortcutsSection selectedSite={ selectedSite } />
+				<BuildInSection />
 			</div>
 		</div>
 	);

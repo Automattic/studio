@@ -44,7 +44,9 @@ export function logSiteDetails( site: SiteData ): void {
 	const siteUrl = getSiteUrl( site );
 	console.log( __( 'Site URL: ' ), siteUrl );
 	console.log( __( 'Username: ' ), 'admin' );
-	console.log( __( 'Password: ' ), site.adminPassword );
+	if ( site.adminPassword ) {
+		console.log( __( 'Password: ' ), site.adminPassword );
+	}
 }
 
 /**

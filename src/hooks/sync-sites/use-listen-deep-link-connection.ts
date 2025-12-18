@@ -2,13 +2,16 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { useAppDispatch } from 'src/stores';
 import {
+	connectedSitesActions,
 	useConnectSiteMutation,
 	useGetConnectedSitesForLocalSiteQuery,
 } from 'src/stores/sync/connected-sites';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 
 export function useListenDeepLinkConnection() {
+	const dispatch = useAppDispatch();
 	const [ connectSite ] = useConnectSiteMutation();
 	const { selectedSite, setSelectedSiteId } = useSiteDetails();
 	const { setSelectedTab, selectedTab } = useContentTabs();
@@ -38,6 +41,8 @@ export function useListenDeepLinkConnection() {
 				// Switch to sync tab
 				setSelectedTab( 'sync' );
 			}
+			// Set the site ID for auto-opening push dialog - the Sync component will handle opening it
+			dispatch( connectedSitesActions.setSelectedRemoteSiteId( remoteSiteId ) );
 		}
 	} );
 }

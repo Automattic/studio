@@ -25,6 +25,7 @@ import { sanitizeRunCLIArgs } from 'common/lib/cli-args-sanitizer';
 import { isWordPressDirectory } from 'common/lib/fs-utils';
 import { getMuPlugins } from 'common/lib/mu-plugins';
 import { formatPlaygroundCliMessage } from 'common/lib/playground-cli-messages';
+import { sequential } from 'common/lib/sequential';
 import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
 import { z } from 'zod';
 import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
@@ -285,30 +286,31 @@ async function runBlueprint( config: ServerConfig ): Promise< void > {
 	}
 }
 
-async function runWpCliCommand(
-	args: string[]
-): Promise< { stdout: string; stderr: string; exitCode: number } > {
-	await Promise.allSettled( [ startingPromise ] );
+const runWpCliCommand = sequential(
+	async ( args: string[] ): Promise< { stdout: string; stderr: string; exitCode: number } > => {
+		await Promise.allSettled( [ startingPromise ] );
 
-	if ( ! server ) {
-		throw new Error( `Failed to run WP CLI command because server is not running` );
-	}
+		if ( ! server ) {
+			throw new Error( `Failed to run WP CLI command because server is not running` );
+		}
 
-	const response = await server.playground.cli( [
-		'php',
-		'/tmp/wp-cli.phar',
-		`--path=${ await server.playground.documentRoot }`,
-		...args,
-	] );
+		const response = await server.playground.cli( [
+			'php',
+			'/tmp/wp-cli.phar',
+			`--path=${ await server.playground.documentRoot }`,
+			...args,
+		] );
 
-	return {
-		stdout: await response.stdoutText,
-		stderr: await response.stderrText,
-		exitCode: await response.exitCode,
-	};
-}
+		return {
+			stdout: await response.stdoutText,
+			stderr: await response.stderrText,
+			exitCode: await response.exitCode,
+		};
+	},
+	{ concurrent: 3, max: 10 }
+);
 
-function sendErrorMessage( messageId: number, error: unknown ) {
+function sendErrorMessage( messageId: string, error: unknown ) {
 	const errorResponse: ChildMessageRaw = {
 		originalMessageId: messageId,
 		topic: 'error',
@@ -325,7 +327,7 @@ async function ipcMessageHandler( packet: unknown ) {
 	if ( ! messageResult.success ) {
 		errorToConsole( 'Invalid message received:', messageResult.error );
 
-		const minimalMessageSchema = z.object( { id: z.number() } );
+		const minimalMessageSchema = z.object( { id: z.string() } );
 		const minimalMessage = minimalMessageSchema.safeParse( packet );
 		if ( minimalMessage.success ) {
 			sendErrorMessage( minimalMessage.data.id, messageResult.error );
@@ -349,7 +351,13 @@ async function ipcMessageHandler( packet: unknown ) {
 				result = await stopServer();
 				break;
 			case 'wp-cli-command':
-				result = await runWpCliCommand( validMessage.data.args );
+				try {
+					result = await runWpCliCommand( validMessage.data.args );
+				} catch ( wpCliError ) {
+					errorToConsole( `WP-CLI error:`, wpCliError );
+					sendErrorMessage( validMessage.messageId, wpCliError );
+					return; // Don't crash, just return error to caller
+				}
 				break;
 			default:
 				throw new Error( `Unknown message.` );

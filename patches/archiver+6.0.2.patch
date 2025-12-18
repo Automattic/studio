@@ -1,5 +1,5 @@
 diff --git a/node_modules/archiver/lib/core.js b/node_modules/archiver/lib/core.js
-index 7c0a74d..c70117b 100644
+index 7c0a74d..2934fe5 100644
 --- a/node_modules/archiver/lib/core.js
 +++ b/node_modules/archiver/lib/core.js
 @@ -631,7 +631,8 @@ Archiver.prototype.directory = function(dirpath, destpath, data) {
@@ -12,11 +12,3 @@ index 7c0a74d..c70117b 100644
    };
  
    function onGlobEnd() {
-@@ -922,6 +923,7 @@ module.exports = Archiver;
-  * @global
-  * @property {Number} [statConcurrency=4] Sets the number of workers used to
-  * process the internal fs stat queue.
-+ * @property {Boolean} [followSymLinks=false] Sets whether to follow symlinks.
-  */
- 
- /**

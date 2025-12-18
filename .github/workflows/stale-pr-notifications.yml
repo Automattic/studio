@@ -55,8 +55,8 @@ jobs:
             --repo ${{ github.repository }} \
             --state open \
             --limit 100 \
-            --json number,title,url,updatedAt,author,isDraft,reviewDecision,labels \
-            --jq --arg seconds "$STALE_SECONDS" '[.[] | select(
+            --json number,title,url,updatedAt,author,isDraft,reviewDecision,labels | \
+            jq --arg seconds "$STALE_SECONDS" '[.[] | select(
               (.updatedAt | fromdateiso8601) < (now - ($seconds | tonumber)) and
               .isDraft == false and
               (.reviewDecision != "APPROVED")
@@ -83,19 +83,14 @@ jobs:
           # Use manual input if provided, otherwise use secret, otherwise use default channel
           SLACK_CHANNEL_ID: ${{ github.event.inputs.channel_id || secrets.SLACK_CHANNEL_ID || 'C056D54B98U' }}
         run: |
-          MESSAGE=$(cat /tmp/slack-message.json)
-
-          # Post to Slack using the Bot API
+          # Build complete JSON payload using jq to ensure proper escaping
+          jq --arg channel "$SLACK_CHANNEL_ID" \
+            '. + {channel: $channel, username: "PR Review Bot", icon_emoji: ":github:"}' \
+            /tmp/slack-message.json | \
           curl -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_TOKEN" \
             -H 'Content-Type: application/json; charset=utf-8' \
-            -d "{
-              \"channel\": \"$SLACK_CHANNEL_ID\",
-              \"username\": \"PR Review Bot\",
-              \"icon_emoji\": \":github:\",
-              \"text\": $(echo "$MESSAGE" | jq -r '.text'),
-              \"attachments\": $(echo "$MESSAGE" | jq -c '.attachments')
-            }"
+            --data-binary @-
 
           echo "✅ Sent notification about ${{ steps.fetch-prs.outputs.count }} stale PR(s) to Slack channel $SLACK_CHANNEL_ID"
 

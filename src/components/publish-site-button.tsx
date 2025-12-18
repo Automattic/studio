@@ -21,7 +21,7 @@ export const PublishSiteButton = () => {
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 
 	const handlePublishClick = useCallback( () => {
-		getIpcApi().openURL( generateCheckoutUrl( selectedSite ?? undefined ) );
+		getIpcApi().openURL( generateCheckoutUrl( selectedSite ?? undefined, { autoOpenPush: true } ) );
 	}, [ selectedSite ] );
 
 	if ( connectedSites.length !== 0 ) return null;

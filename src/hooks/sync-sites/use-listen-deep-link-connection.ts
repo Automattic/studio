@@ -26,23 +26,28 @@ export function useListenDeepLinkConnection() {
 		userId: user?.id,
 	} );
 
-	useIpcListener( 'sync-connect-site', async ( _event, { remoteSiteId, studioSiteId } ) => {
-		// Fetch latest sites from network before checking
-		const result = await refetchWpComSites();
-		const latestSites = result.data ?? [];
-		const newConnectedSite = latestSites.find( ( site ) => site.id === remoteSiteId );
-		if ( newConnectedSite ) {
-			if ( selectedSite?.id && selectedSite.id !== studioSiteId ) {
-				// Select studio site that started the sync
-				setSelectedSiteId( studioSiteId );
+	useIpcListener(
+		'sync-connect-site',
+		async ( _event, { remoteSiteId, studioSiteId, autoOpenPush } ) => {
+			// Fetch latest sites from network before checking
+			const result = await refetchWpComSites();
+			const latestSites = result.data ?? [];
+			const newConnectedSite = latestSites.find( ( site ) => site.id === remoteSiteId );
+			if ( newConnectedSite ) {
+				if ( selectedSite?.id && selectedSite.id !== studioSiteId ) {
+					// Select studio site that started the sync
+					setSelectedSiteId( studioSiteId );
+				}
+				await connectSite( { site: newConnectedSite, localSiteId: studioSiteId } );
+				if ( selectedTab !== 'sync' ) {
+					// Switch to sync tab
+					setSelectedTab( 'sync' );
+				}
+				// Only auto-open push dialog if explicitly requested (e.g., from "Publish site" button)
+				if ( autoOpenPush ) {
+					dispatch( connectedSitesActions.setSelectedRemoteSiteId( remoteSiteId ) );
+				}
 			}
-			await connectSite( { site: newConnectedSite, localSiteId: studioSiteId } );
-			if ( selectedTab !== 'sync' ) {
-				// Switch to sync tab
-				setSelectedTab( 'sync' );
-			}
-			// Set the site ID for auto-opening push dialog - the Sync component will handle opening it
-			dispatch( connectedSitesActions.setSelectedRemoteSiteId( remoteSiteId ) );
 		}
-	} );
+	);
 }

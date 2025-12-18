@@ -264,6 +264,7 @@ async function sendMessage(
 		abortController.signal.addEventListener(
 			'abort',
 			() => {
+				void sendMessageToProcess( pmId, { messageId, topic: 'abort' } );
 				reject( new Error( 'Operation aborted' ) );
 			},
 			{ once: true }

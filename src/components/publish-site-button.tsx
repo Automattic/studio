@@ -21,10 +21,11 @@ export const PublishSiteButton = () => {
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 
 	const handlePublishClick = useCallback( () => {
-		getIpcApi().openURL( generateCheckoutUrl( selectedSite ?? undefined ) );
+		if ( ! selectedSite ) return;
+		getIpcApi().openURL( generateCheckoutUrl( selectedSite ) );
 	}, [ selectedSite ] );
 
-	if ( connectedSites.length !== 0 ) return null;
+	if ( ! selectedSite || connectedSites.length !== 0 ) return null;
 
 	return (
 		<ConnectButton

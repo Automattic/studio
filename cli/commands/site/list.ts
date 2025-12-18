@@ -71,14 +71,6 @@ function displaySiteList( sitesData: SiteListEntry[], format: 'table' | 'json' )
 const logger = new Logger< LoggerAction >();
 
 export async function runCommand( format: 'table' | 'json', watch: boolean ): Promise< void > {
-	const handleTermination = () => {
-		disconnect();
-		process.exit( 0 );
-	};
-	process.on( 'SIGTERM', handleTermination );
-	process.on( 'SIGHUP', handleTermination );
-	process.on( 'disconnect', handleTermination );
-
 	try {
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading sites…' ) );
 		const appdata = await readAppdata();

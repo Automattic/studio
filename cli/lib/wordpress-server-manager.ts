@@ -31,6 +31,15 @@ import { Logger } from 'cli/logger';
 
 const SITE_PROCESS_PREFIX = 'studio-site-';
 
+// Get an abort signal that's triggered on SIGINT/SIGTERM. This is useful for aborting and cleaning
+// up async operations.
+const abortController = new AbortController();
+function handleProcessTermination() {
+	abortController.abort();
+}
+process.on( 'SIGINT', handleProcessTermination );
+process.on( 'SIGTERM', handleProcessTermination );
+
 function getProcessName( siteId: string ): string {
 	return `${ SITE_PROCESS_PREFIX }${ siteId }`;
 }
@@ -124,27 +133,37 @@ export async function startWordPressServer(
 
 async function waitForReadyMessage( pmId: number ): Promise< void > {
 	const bus = await getPm2Bus();
+	let timeoutId: NodeJS.Timeout;
+	let readyHandler: ( packet: unknown ) => void;
 
-	return new Promise( ( resolve, reject ) => {
-		const timeout = setTimeout( () => {
-			bus.off( 'process:msg', readyHandler );
+	return new Promise< void >( ( resolve, reject ) => {
+		timeoutId = setTimeout( () => {
 			reject( new Error( 'Timeout waiting for ready message from WordPress server child' ) );
 		}, PLAYGROUND_CLI_INACTIVITY_TIMEOUT );
 
-		const readyHandler = ( packet: unknown ) => {
+		readyHandler = ( packet: unknown ) => {
 			const result = childMessagePm2Schema.safeParse( packet );
 			if ( ! result.success ) {
 				return;
 			}
 
 			if ( result.data.process.pm_id === pmId && result.data.raw.topic === 'ready' ) {
-				clearTimeout( timeout );
-				bus.off( 'process:msg', readyHandler );
 				resolve();
 			}
 		};
 
+		abortController.signal.addEventListener(
+			'abort',
+			() => {
+				reject( new Error( 'Operation aborted' ) );
+			},
+			{ once: true }
+		);
+
 		bus.on( 'process:msg', readyHandler );
+	} ).finally( () => {
+		clearTimeout( timeoutId );
+		bus.off( 'process:msg', readyHandler );
 	} );
 }
 
@@ -241,6 +260,14 @@ async function sendMessage(
 				resolve( validPacket.raw.result );
 			}
 		};
+
+		abortController.signal.addEventListener(
+			'abort',
+			() => {
+				reject( new Error( 'Operation aborted' ) );
+			},
+			{ once: true }
+		);
 
 		bus.on( 'process:msg', responseHandler );
 

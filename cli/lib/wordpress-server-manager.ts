@@ -133,8 +133,10 @@ export async function startWordPressServer(
 
 async function waitForReadyMessage( pmId: number ): Promise< void > {
 	const bus = await getPm2Bus();
+
 	let timeoutId: NodeJS.Timeout;
 	let readyHandler: ( packet: unknown ) => void;
+	let abortListener: () => void;
 
 	return new Promise< void >( ( resolve, reject ) => {
 		timeoutId = setTimeout( () => {
@@ -152,17 +154,15 @@ async function waitForReadyMessage( pmId: number ): Promise< void > {
 			}
 		};
 
-		abortController.signal.addEventListener(
-			'abort',
-			() => {
-				reject( new Error( 'Operation aborted' ) );
-			},
-			{ once: true }
-		);
+		abortListener = () => {
+			reject( new Error( 'Operation aborted' ) );
+		};
+		abortController.signal.addEventListener( 'abort', abortListener );
 
 		bus.on( 'process:msg', readyHandler );
 	} ).finally( () => {
 		clearTimeout( timeoutId );
+		abortController.signal.removeEventListener( 'abort', abortListener );
 		bus.off( 'process:msg', readyHandler );
 	} );
 }
@@ -195,7 +195,9 @@ async function sendMessage(
 	const { maxTotalElapsedTime = PLAYGROUND_CLI_MAX_TIMEOUT, logger } = options;
 	const bus = await getPm2Bus();
 	const messageId = nextMessageId++;
+
 	let responseHandler: ( packet: unknown ) => void;
+	let abortListener: () => void;
 
 	return new Promise( ( resolve, reject ) => {
 		const startTime = Date.now();
@@ -261,19 +263,17 @@ async function sendMessage(
 			}
 		};
 
-		abortController.signal.addEventListener(
-			'abort',
-			() => {
-				void sendMessageToProcess( pmId, { messageId, topic: 'abort', data: {} } );
-				reject( new Error( 'Operation aborted' ) );
-			},
-			{ once: true }
-		);
+		abortListener = () => {
+			void sendMessageToProcess( pmId, { messageId, topic: 'abort', data: {} } );
+			reject( new Error( 'Operation aborted' ) );
+		};
+		abortController.signal.addEventListener( 'abort', abortListener );
 
 		bus.on( 'process:msg', responseHandler );
 
 		sendMessageToProcess( pmId, { ...message, messageId } ).catch( reject );
 	} ).finally( () => {
+		abortController.signal.removeEventListener( 'abort', abortListener );
 		bus.off( 'process:msg', responseHandler );
 
 		const tracker = messageActivityTrackers.get( messageId );

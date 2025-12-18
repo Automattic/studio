@@ -264,7 +264,7 @@ async function sendMessage(
 		abortController.signal.addEventListener(
 			'abort',
 			() => {
-				void sendMessageToProcess( pmId, { messageId, topic: 'abort' } );
+				void sendMessageToProcess( pmId, { messageId, topic: 'abort', data: {} } );
 				reject( new Error( 'Operation aborted' ) );
 			},
 			{ once: true }
@@ -294,10 +294,8 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 		try {
 			await sendMessage(
 				runningProcess.pmId,
-				{ topic: 'stop-server' },
-				{
-					maxTotalElapsedTime: GRACEFUL_STOP_TIMEOUT,
-				}
+				{ topic: 'stop-server', data: {} },
+				{ maxTotalElapsedTime: GRACEFUL_STOP_TIMEOUT }
 			);
 		} catch {
 			// Graceful shutdown failed, PM2 delete will handle it

@@ -239,8 +239,7 @@ describe( 'AddSite', () => {
 				false,
 				undefined, // blueprint parameter
 				'8.3',
-				expect.any( Function ),
-				false
+				expect.any( Function )
 			);
 		} );
 	} );
@@ -456,8 +455,7 @@ describe( 'AddSite', () => {
 				false,
 				undefined, // blueprint parameter
 				'8.3',
-				expect.any( Function ),
-				false
+				expect.any( Function )
 			);
 		} );
 	} );

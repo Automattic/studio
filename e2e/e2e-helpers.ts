@@ -24,21 +24,6 @@ export class E2ESession {
 		await fs.mkdir( this.appDataPath, { recursive: true } );
 		await fs.mkdir( this.homePath, { recursive: true } );
 
-		// Pre-create appdata file with beta features enabled for CLI testing
-		// Path must include 'Studio' subfolder to match Electron app's path structure
-		const studioAppDataPath = path.join( this.appDataPath, 'Studio' );
-		await fs.mkdir( studioAppDataPath, { recursive: true } );
-		const appdataPath = path.join( studioAppDataPath, 'appdata-v1.json' );
-		const initialAppdata = {
-			version: 1,
-			sites: [],
-			snapshots: [],
-			betaFeatures: {
-				studioSitesCli: true,
-			},
-		};
-		await fs.writeFile( appdataPath, JSON.stringify( initialAppdata, null, 2 ) );
-
 		// find the latest build in the out directory
 		const latestBuild = findLatestBuild();
 

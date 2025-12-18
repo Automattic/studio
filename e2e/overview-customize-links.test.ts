@@ -106,9 +106,7 @@ test.describe( 'Overview customize links', () => {
 			];
 
 			for ( const matcher of buttonMatchers ) {
-				await expect( siteContent.locator.getByRole( 'button', { name: matcher } ) ).toBeVisible( {
-					timeout: 120_000,
-				} );
+				await expect( siteContent.locator.getByRole( 'button', { name: matcher } ) ).toBeVisible();
 			}
 		} );
 

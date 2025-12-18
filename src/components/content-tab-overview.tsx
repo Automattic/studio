@@ -232,7 +232,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 	);
 
 	return (
-		<div className="pt-4 pb-8 pl-8 pr-8 flex max-w-4xl">
+		<div className="p-8 flex max-w-4xl">
 			<div className="w-52 ltr:mr-8 rtl:ml-8 flex-col justify-start items-start gap-8">
 				<h2 className="mb-3 a8c-subtitle-small">{ __( 'Theme' ) }</h2>
 				<div
@@ -275,7 +275,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 					{ ! loading && ! isThumbnailError && <p>{ themeDetails?.name }</p> }
 				</div>
 			</div>
-			<div className="flex flex-1 flex-col justify-start items-start gap-4">
+			<div className="flex flex-1 flex-col justify-start items-start gap-8">
 				<CustomizeSection
 					selectedSite={ selectedSite }
 					themeDetails={ themeDetails }

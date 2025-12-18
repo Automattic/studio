@@ -153,18 +153,6 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		},
 	];
 
-	const editorConfig = editor ? supportedEditorConfig[ editor ] : false;
-	if ( editor && editorConfig ) {
-		buttonsArray.push( {
-			label: editorConfig.label,
-			className: 'text-nowrap',
-			icon: code,
-			onClick: async () => {
-				await getIpcApi().openAppAtPath( editor, selectedSite.path );
-			},
-		} );
-	}
-
 	const terminalName = getTerminalName( terminal );
 	buttonsArray.push( {
 		label: terminalName,
@@ -179,6 +167,18 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			}
 		},
 	} );
+
+	const editorConfig = editor ? supportedEditorConfig[ editor ] : false;
+	if ( editor && editorConfig ) {
+		buttonsArray.push( {
+			label: editorConfig.label,
+			className: 'text-nowrap',
+			icon: code,
+			onClick: async () => {
+				await getIpcApi().openAppAtPath( editor, selectedSite.path );
+			},
+		} );
+	}
 
 	buttonsArray.push( {
 		label: __( 'Telex' ),

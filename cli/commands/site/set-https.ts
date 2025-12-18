@@ -55,7 +55,7 @@ export async function runCommand( sitePath: string, enableHttps: boolean ): Prom
 		if ( runningProcess ) {
 			logger.reportStart( LoggerAction.START_SITE, __( 'Restarting site...' ) );
 			await stopWordPressServer( site.id );
-			await startWordPressServer( site );
+			await startWordPressServer( site, logger );
 			logger.reportSuccess( __( 'Site restarted' ) );
 		}
 	} finally {
@@ -81,7 +81,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );
 				} else {
-					const loggerError = new LoggerError( __( 'Failed to start site infrastructure' ), error );
+					const loggerError = new LoggerError( __( 'Failed to configure HTTPS' ), error );
 					logger.reportError( loggerError );
 				}
 			}

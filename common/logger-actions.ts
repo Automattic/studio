@@ -27,6 +27,8 @@ export enum SiteCommandLoggerAction {
 	REMOVE_DOMAIN_FROM_HOSTS = 'removeDomainFromHosts',
 	START_SITE = 'startSite',
 	STOP_SITE = 'stopSite',
+	STOP_ALL_SITES = 'stopAllSites',
+	SET_WP_VERSION = 'setWpVersion',
 	VALIDATE = 'validate',
 	CREATE_DIRECTORY = 'createDirectory',
 	INSTALL_SQLITE = 'installSqlite',

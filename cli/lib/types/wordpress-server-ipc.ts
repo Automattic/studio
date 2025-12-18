@@ -12,7 +12,13 @@ const serverConfig = z.object( {
 	siteTitle: z.string().optional(),
 	siteLanguage: z.string().optional(),
 	isWpAutoUpdating: z.boolean().optional(),
-	blueprint: z.any().optional(), // Blueprint type is complex, allow any for now
+	enableMultiWorker: z.boolean().optional(),
+	blueprint: z
+		.object( {
+			contents: z.any(), // Blueprint type is complex, allow any for now
+			uri: z.string(),
+		} )
+		.optional(),
 } );
 
 export type ServerConfig = z.infer< typeof serverConfig >;
@@ -35,10 +41,18 @@ const managerMessageStopServer = z.object( {
 	topic: z.literal( 'stop-server' ),
 } );
 
+const managerMessageWpCliCommand = z.object( {
+	topic: z.literal( 'wp-cli-command' ),
+	data: z.object( {
+		args: z.array( z.string() ),
+	} ),
+} );
+
 const _managerMessagePayloadSchema = z.discriminatedUnion( 'topic', [
 	managerMessageStartServer,
 	managerMessageRunBlueprint,
 	managerMessageStopServer,
+	managerMessageWpCliCommand,
 ] );
 export type ManagerMessagePayload = z.infer< typeof _managerMessagePayloadSchema >;
 
@@ -47,6 +61,7 @@ export const managerMessageSchema = z.discriminatedUnion( 'topic', [
 	managerMessageBase.merge( managerMessageStartServer ),
 	managerMessageBase.merge( managerMessageRunBlueprint ),
 	managerMessageBase.merge( managerMessageStopServer ),
+	managerMessageBase.merge( managerMessageWpCliCommand ),
 ] );
 export type ManagerMessage = z.infer< typeof managerMessageSchema >;
 
@@ -70,6 +85,12 @@ const childMessageError = z.object( {
 	topic: z.literal( 'error' ),
 	errorMessage: z.string(),
 	errorStack: z.string().optional(),
+	cliArgs: z.record( z.unknown() ).optional(),
+} );
+
+const childMessageConsole = z.object( {
+	topic: z.literal( 'console-message' ),
+	message: z.string(),
 } );
 
 const childMessageRaw = z.discriminatedUnion( 'topic', [
@@ -77,11 +98,21 @@ const childMessageRaw = z.discriminatedUnion( 'topic', [
 	childMessageActivity,
 	childMessageResult,
 	childMessageError,
+	childMessageConsole,
 ] );
 export type ChildMessageRaw = z.infer< typeof childMessageRaw >;
 export const childMessagePm2Schema = z.object( {
 	process: z.object( {
+		name: z.string(),
 		pm_id: z.number(),
 	} ),
 	raw: childMessageRaw,
+} );
+
+// Zod schemas for PM2 process events (online, exit, stop, restart)
+export const pm2ProcessEventSchema = z.object( {
+	process: z.object( {
+		name: z.string(),
+	} ),
+	event: z.string(),
 } );

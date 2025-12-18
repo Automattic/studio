@@ -10,13 +10,16 @@ import {
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from 'common/constants';
-import { SiteData } from 'cli/lib/appdata';
+import { z } from 'zod';
+import { SiteData, readAppdata } from 'cli/lib/appdata';
 import {
 	isProcessRunning,
 	startProcess,
 	stopProcess,
 	getPm2Bus,
 	sendMessageToProcess,
+	subscribeProcessEvents,
+	subscribeProcessMessages,
 } from 'cli/lib/pm2-manager';
 import { ProcessDescription } from 'cli/lib/types/pm2';
 import {
@@ -24,9 +27,21 @@ import {
 	childMessagePm2Schema,
 	ManagerMessagePayload,
 } from 'cli/lib/types/wordpress-server-ipc';
+import { Logger } from 'cli/logger';
+
+const SITE_PROCESS_PREFIX = 'studio-site-';
 
 function getProcessName( siteId: string ): string {
-	return `studio-site-${ siteId }`;
+	return `${ SITE_PROCESS_PREFIX }${ siteId }`;
+}
+
+async function isMultiWorkerEnabled() {
+	try {
+		const appdata = await readAppdata();
+		return appdata.betaFeatures?.multiWorkerSupport ?? false;
+	} catch {
+		return false;
+	}
 }
 
 export async function isServerRunning( siteId: string ): Promise< ProcessDescription | undefined > {
@@ -41,12 +56,16 @@ export async function isServerRunning( siteId: string ): Promise< ProcessDescrip
  * 3. Send 'start-server' message with config
  * 4. Wait for response before resolving
  */
+export interface StartServerOptions {
+	wpVersion?: string;
+	blueprint?: unknown;
+	blueprintUri?: string;
+}
+
 export async function startWordPressServer(
 	site: SiteData,
-	options?: {
-		wpVersion?: string;
-		blueprint?: unknown;
-	}
+	logger: Logger< string >,
+	options?: StartServerOptions
 ): Promise< ProcessDescription > {
 	const wordPressServerChildPath = path.resolve( __dirname, 'wordpress-server-child.js' );
 	const processName = getProcessName( site.id );
@@ -57,6 +76,7 @@ export async function startWordPressServer(
 		port: site.port,
 		phpVersion: site.phpVersion,
 		siteTitle: site.name,
+		enableMultiWorker: await isMultiWorkerEnabled(),
 	};
 
 	if ( site.customDomain ) {
@@ -76,20 +96,28 @@ export async function startWordPressServer(
 		serverConfig.wpVersion = options.wpVersion;
 	}
 
-	if ( options?.blueprint ) {
-		serverConfig.blueprint = options.blueprint;
+	if ( options?.blueprint && options.blueprintUri ) {
+		serverConfig.blueprint = {
+			contents: options.blueprint,
+			uri: options.blueprintUri,
+		};
 	}
 
 	const env = {
+		ELECTRON_RUN_AS_NODE: '1',
 		STUDIO_WORDPRESS_SERVER_CONFIG: JSON.stringify( serverConfig ),
 	};
 
 	const processDesc = await startProcess( processName, wordPressServerChildPath, env );
 	await waitForReadyMessage( processDesc.pmId );
-	await sendMessage( processDesc.pmId, {
-		topic: 'start-server',
-		data: { config: serverConfig },
-	} );
+	await sendMessage(
+		processDesc.pmId,
+		{
+			topic: 'start-server',
+			data: { config: serverConfig },
+		},
+		{ logger }
+	);
 
 	return processDesc;
 }
@@ -135,11 +163,17 @@ const messageActivityTrackers = new Map<
 	}
 >();
 
+interface SendMessageOptions {
+	maxTotalElapsedTime?: number;
+	logger?: Logger< string >;
+}
+
 async function sendMessage(
 	pmId: number,
 	message: ManagerMessagePayload,
-	maxTotalElapsedTime = PLAYGROUND_CLI_MAX_TIMEOUT
+	options: SendMessageOptions = {}
 ): Promise< unknown > {
+	const { maxTotalElapsedTime = PLAYGROUND_CLI_MAX_TIMEOUT, logger } = options;
 	const bus = await getPm2Bus();
 	const messageId = nextMessageId++;
 	let responseHandler: ( packet: unknown ) => void;
@@ -174,7 +208,7 @@ async function sendMessage(
 		responseHandler = ( packet: unknown ) => {
 			const validationResult = childMessagePm2Schema.safeParse( packet );
 			if ( ! validationResult.success ) {
-				reject( validationResult.error );
+				// Don't reject on validation errors - other processes may send messages we don't handle
 				return;
 			}
 
@@ -186,10 +220,18 @@ async function sendMessage(
 
 			if ( validPacket.raw.topic === 'activity' ) {
 				lastActivityTimestamp = Date.now();
+			} else if ( validPacket.raw.topic === 'console-message' ) {
+				lastActivityTimestamp = Date.now();
+				logger?.reportProgress( validPacket.raw.message );
 			} else if ( validPacket.raw.topic === 'error' ) {
-				const error = new Error( validPacket.raw.errorMessage );
+				const error = new Error( validPacket.raw.errorMessage ) as Error & {
+					cliArgs?: Record< string, unknown >;
+				};
 				if ( validPacket.raw.errorStack ) {
 					error.stack = validPacket.raw.errorStack;
+				}
+				if ( validPacket.raw.cliArgs ) {
+					error.cliArgs = validPacket.raw.cliArgs;
 				}
 				reject( error );
 			} else if (
@@ -222,13 +264,25 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 
 	if ( runningProcess ) {
 		try {
-			await sendMessage( runningProcess.pmId, { topic: 'stop-server' }, GRACEFUL_STOP_TIMEOUT );
+			await sendMessage(
+				runningProcess.pmId,
+				{ topic: 'stop-server' },
+				{
+					maxTotalElapsedTime: GRACEFUL_STOP_TIMEOUT,
+				}
+			);
 		} catch {
 			// Graceful shutdown failed, PM2 delete will handle it
 		}
 	}
 
 	return stopProcess( processName );
+}
+
+export interface RunBlueprintOptions {
+	wpVersion?: string;
+	blueprint: unknown;
+	blueprintUri: string;
 }
 
 /**
@@ -241,10 +295,8 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
  */
 export async function runBlueprint(
 	site: SiteData,
-	options?: {
-		wpVersion?: string;
-		blueprint?: unknown;
-	}
+	logger: Logger< string >,
+	options: RunBlueprintOptions
 ): Promise< void > {
 	const wordPressServerChildPath = path.resolve( __dirname, 'wordpress-server-child.js' );
 	const processName = getProcessName( site.id );
@@ -255,6 +307,11 @@ export async function runBlueprint(
 		port: site.port,
 		phpVersion: site.phpVersion,
 		siteTitle: site.name,
+		enableMultiWorker: await isMultiWorkerEnabled(),
+		blueprint: {
+			contents: options.blueprint,
+			uri: options.blueprintUri,
+		},
 	};
 
 	if ( site.customDomain ) {
@@ -270,27 +327,122 @@ export async function runBlueprint(
 		serverConfig.isWpAutoUpdating = site.isWpAutoUpdating;
 	}
 
-	if ( options?.wpVersion ) {
+	if ( options.wpVersion ) {
 		serverConfig.wpVersion = options.wpVersion;
 	}
 
-	if ( options?.blueprint ) {
-		serverConfig.blueprint = options.blueprint;
-	}
-
 	const env = {
+		ELECTRON_RUN_AS_NODE: '1',
 		STUDIO_WORDPRESS_SERVER_CONFIG: JSON.stringify( serverConfig ),
 	};
 
 	const processDesc = await startProcess( processName, wordPressServerChildPath, env );
 	try {
 		await waitForReadyMessage( processDesc.pmId );
-		await sendMessage( processDesc.pmId, {
-			topic: 'run-blueprint',
-			data: { config: serverConfig },
-		} );
+		await sendMessage(
+			processDesc.pmId,
+			{
+				topic: 'run-blueprint',
+				data: { config: serverConfig },
+			},
+			{ logger }
+		);
 	} finally {
 		// Always stop the process after blueprint is applied
 		await stopProcess( processName );
 	}
+}
+
+const wpCliResultSchema = z.object( {
+	stdout: z.string(),
+	stderr: z.string(),
+	exitCode: z.number(),
+} );
+
+export async function sendWpCliCommand(
+	siteId: string,
+	args: string[]
+): Promise< z.infer< typeof wpCliResultSchema > > {
+	const processName = getProcessName( siteId );
+	const runningProcess = await isProcessRunning( processName );
+
+	if ( ! runningProcess ) {
+		throw new Error( `WordPress server is not running` );
+	}
+
+	const result = await sendMessage( runningProcess.pmId, {
+		topic: 'wp-cli-command',
+		data: { args },
+	} );
+
+	return wpCliResultSchema.parse( result );
+}
+
+/**
+ * Subscribe to site server events (online, exit, stop, restart)
+ *
+ * For 'online' events, we listen for the 'result' message from the WordPress server child
+ * process, which indicates WordPress is fully ready (not just when PM2 process starts).
+ *
+ * For 'exit', 'stop', 'restart' events, we use PM2 process events.
+ *
+ * @param handler - Callback invoked when a site event occurs
+ * @param options - Configuration options (e.g., debounceMs)
+ * @returns Unsubscribe function to stop listening
+ */
+export async function subscribeSiteEvents(
+	handler: ( data: { siteId: string; event: string } ) => void,
+	options: { debounceMs?: number } = {}
+): Promise< () => void > {
+	const { debounceMs = 0 } = options;
+
+	let debounceTimeout: NodeJS.Timeout | null = null;
+	let pendingEvent: { siteId: string; event: string } | null = null;
+
+	const invokeHandler = ( siteId: string, event: string ) => {
+		if ( debounceMs > 0 ) {
+			pendingEvent = { siteId, event };
+			if ( debounceTimeout ) {
+				clearTimeout( debounceTimeout );
+			}
+			debounceTimeout = setTimeout( () => {
+				if ( pendingEvent ) {
+					handler( pendingEvent );
+					pendingEvent = null;
+				}
+			}, debounceMs );
+		} else {
+			handler( { siteId, event } );
+		}
+	};
+
+	const unsubscribeMessages = await subscribeProcessMessages( ( { processName, topic } ) => {
+		if ( ! processName.startsWith( SITE_PROCESS_PREFIX ) ) {
+			return;
+		}
+
+		if ( topic === 'result' ) {
+			const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
+			invokeHandler( siteId, 'online' );
+		}
+	} );
+
+	const unsubscribeEvents = await subscribeProcessEvents( ( { processName, event } ) => {
+		if ( ! processName.startsWith( SITE_PROCESS_PREFIX ) ) {
+			return;
+		}
+
+		if ( event !== 'online' ) {
+			const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
+			invokeHandler( siteId, event );
+		}
+	} );
+
+	return () => {
+		unsubscribeMessages();
+		unsubscribeEvents();
+		if ( debounceTimeout ) {
+			clearTimeout( debounceTimeout );
+		}
+	};
 }

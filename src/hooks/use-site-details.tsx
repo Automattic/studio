@@ -32,7 +32,8 @@ interface SiteDetailsContext {
 		enableHttps?: boolean,
 		blueprint?: Blueprint,
 		phpVersion?: string,
-		callback?: ( site: SiteDetails ) => Promise< void >
+		callback?: ( site: SiteDetails ) => Promise< void >,
+		noStart?: boolean
 	) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
@@ -185,6 +186,14 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		}
 	} );
 
+	useIpcListener( 'site-status-changed', ( _, { siteId, status, url } ) => {
+		setSites( ( prevSites ) =>
+			prevSites.map( ( site ) =>
+				site.id === siteId ? { ...site, running: status === 'running', url: url } : site
+			)
+		);
+	} );
+
 	const toggleLoadingServerForSite = useCallback( ( siteId: string ) => {
 		setLoadingServer( ( currentLoading ) => ( {
 			...currentLoading,
@@ -215,7 +224,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			enableHttps?: boolean,
 			blueprint?: Blueprint,
 			phpVersion?: string,
-			callback?: ( site: SiteDetails ) => Promise< void >
+			callback?: ( site: SiteDetails ) => Promise< void >,
+			noStart?: boolean
 		) => {
 			// Function to handle error messages and cleanup
 			const showError = ( error?: unknown, hasBlueprint?: boolean ) => {
@@ -289,6 +299,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					siteId: tempSiteId,
 					phpVersion,
 					blueprint,
+					noStart,
 				} );
 				if ( ! newSite ) {
 					showError( undefined, !! blueprint );
@@ -305,12 +316,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					return prevSelectedSiteId;
 				} );
 				setSites( ( prevData ) =>
-					prevData.map( ( site ) => {
-						if ( site.id === newSite.id ) {
-							return { ...newSite, isAddingSite: true };
-						}
-						return site;
-					} )
+					sortSites( [
+						...prevData.filter( ( site ) => site.id !== tempSiteId ),
+						{ ...newSite, isAddingSite: true },
+					] )
 				);
 
 				setSiteCreationMessages( ( prev ) => {

@@ -174,9 +174,8 @@ async function waitForReadyMessage( pmId: number ): Promise< void > {
  * - Checks periodically for inactivity
  * - Has both inactivity timeout and max total timeout
  */
-let nextMessageId = 0;
 const messageActivityTrackers = new Map<
-	number,
+	string,
 	{
 		activityCheckIntervalId: NodeJS.Timeout;
 	}
@@ -194,8 +193,7 @@ async function sendMessage(
 ): Promise< unknown > {
 	const { maxTotalElapsedTime = PLAYGROUND_CLI_MAX_TIMEOUT, logger } = options;
 	const bus = await getPm2Bus();
-	const messageId = nextMessageId++;
-
+	const messageId = crypto.randomUUID();
 	let responseHandler: ( packet: unknown ) => void;
 	let abortListener: () => void;
 
@@ -244,7 +242,10 @@ async function sendMessage(
 			} else if ( validPacket.raw.topic === 'console-message' ) {
 				lastActivityTimestamp = Date.now();
 				logger?.reportProgress( validPacket.raw.message );
-			} else if ( validPacket.raw.topic === 'error' ) {
+			} else if (
+				validPacket.raw.topic === 'error' &&
+				validPacket.raw.originalMessageId === messageId
+			) {
 				const error = new Error( validPacket.raw.errorMessage ) as Error & {
 					cliArgs?: Record< string, unknown >;
 				};

@@ -63,7 +63,7 @@ const _managerMessagePayloadSchema = z.discriminatedUnion( 'topic', [
 ] );
 export type ManagerMessagePayload = z.infer< typeof _managerMessagePayloadSchema >;
 
-const managerMessageBase = z.object( { messageId: z.number() } );
+const managerMessageBase = z.object( { messageId: z.string() } );
 export const managerMessageSchema = z.discriminatedUnion( 'topic', [
 	managerMessageBase.merge( managerMessageAbort ),
 	managerMessageBase.merge( managerMessageStartServer ),
@@ -83,13 +83,13 @@ const childMessageActivity = z.object( {
 } );
 
 const childMessageResult = z.object( {
-	originalMessageId: z.number(),
+	originalMessageId: z.string(),
 	topic: z.literal( 'result' ),
 	result: z.unknown(),
 } );
 
 const childMessageError = z.object( {
-	originalMessageId: z.number(),
+	originalMessageId: z.string(),
 	topic: z.literal( 'error' ),
 	errorMessage: z.string(),
 	errorStack: z.string().optional(),

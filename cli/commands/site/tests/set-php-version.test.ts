@@ -6,6 +6,7 @@ import {
 	readAppdata,
 	saveAppdata,
 	unlockAppdata,
+	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import {
@@ -22,6 +23,7 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	readAppdata: jest.fn(),
 	saveAppdata: jest.fn(),
 	unlockAppdata: jest.fn(),
+	updateSiteLatestCliPid: jest.fn(),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
@@ -72,6 +74,7 @@ describe( 'CLI: studio site set-php-version', () => {
 		( startWordPressServer as jest.Mock ).mockResolvedValue( testProcessDescription );
 		( stopWordPressServer as jest.Mock ).mockResolvedValue( undefined );
 		( arePathsEqual as jest.Mock ).mockImplementation( ( a: string, b: string ) => a === b );
+		( updateSiteLatestCliPid as jest.Mock ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -149,6 +152,7 @@ describe( 'CLI: studio site set-php-version', () => {
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
+			expect( updateSiteLatestCliPid ).not.toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -168,6 +172,10 @@ describe( 'CLI: studio site set-php-version', () => {
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.any( Object ),
 				expect.any( Logger )
+			);
+			expect( updateSiteLatestCliPid ).toHaveBeenCalledWith(
+				testSite.id,
+				testProcessDescription.pid
 			);
 			expect( disconnect ).toHaveBeenCalled();
 		} );

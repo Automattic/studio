@@ -49,27 +49,25 @@ function BlueprintIssuesModal( {
 						) }
 				</Text>
 				<div className="flex-1 overflow-y-auto">
-					<VStack spacing={ 3 } className="divide-y divide-gray-200">
+					<VStack spacing={ 3 }>
 						{ warnings?.map( ( warningItem, index ) => (
-							<div key={ index } className={ index > 0 ? 'pt-3' : '' }>
-								<HStack alignment="topLeft" spacing={ 2 }>
-									<Icon
-										icon={ caution }
-										className="text-orange-500 mt-1 flex-shrink-0"
-										size={ 20 }
-									/>
-									<VStack spacing={ 1 }>
-										<Text weight={ 600 } className="text-base">
-											{ warningItem.feature }
-										</Text>
-										<Text className="text-sm text-gray-700">{ warningItem.reason }</Text>
+							<div
+								key={ index }
+								className="rounded-sm p-3 border border-gray-200"
+								style={ { backgroundColor: 'color-mix(in srgb, #d47608 4%, transparent)' } }
+							>
+								<HStack alignment="flex-start" spacing={ 2 }>
+									<Icon icon={ caution } className="fill-[#a77f30] shrink-0 w-6 h-6" />
+									<VStack spacing={ 1 } className="flex-grow py-0.5">
+										<Text weight={ 500 }>{ warningItem.feature }</Text>
+										<div>{ warningItem.reason }</div>
 									</VStack>
 								</HStack>
 							</div>
 						) ) }
 					</VStack>
 				</div>
-				<div className="pt-4 border-t border-gray-200">
+				<div>
 					<Text className="text-sm text-gray-600">
 						{ __(
 							'Your Blueprint will still work, but these features will be skipped during site creation.'

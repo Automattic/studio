@@ -26,7 +26,7 @@ const UNSUPPORTED_BLUEPRINT_FEATURES: UnsupportedFeature[] = [
 		type: 'step',
 		name: 'defineSiteUrl',
 		reason: __(
-			'Studio manages site URLs internally and cannot accept custom URLs from blueprints.'
+			'Custom site URLs in blueprints are ignored. You can set a custom site URL on the Settings tab.'
 		),
 	},
 ];

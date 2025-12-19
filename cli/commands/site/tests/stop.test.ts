@@ -1,9 +1,4 @@
-import {
-	SiteData,
-	clearSiteLatestCliPid,
-	getSiteByFolder,
-	updateSiteAutoStart,
-} from 'cli/lib/appdata';
+import { SiteData, clearSiteLatestCliPid, getSiteByFolder } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -12,7 +7,6 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
 	getSiteByFolder: jest.fn(),
 	clearSiteLatestCliPid: jest.fn(),
-	updateSiteAutoStart: jest.fn().mockResolvedValue( undefined ),
 	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
@@ -58,7 +52,7 @@ describe( 'CLI: studio site stop', () => {
 
 			const { runCommand } = await import( '../stop' );
 
-			await expect( runCommand( '/invalid/path', false ) ).rejects.toThrow( 'Site not found' );
+			await expect( runCommand( '/invalid/path' ) ).rejects.toThrow( 'Site not found' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -67,7 +61,7 @@ describe( 'CLI: studio site stop', () => {
 
 			const { runCommand } = await import( '../stop' );
 
-			await expect( runCommand( '/test/site', false ) ).rejects.toThrow( 'PM2 connection failed' );
+			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'PM2 connection failed' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -77,7 +71,7 @@ describe( 'CLI: studio site stop', () => {
 
 			const { runCommand } = await import( '../stop' );
 
-			await expect( runCommand( '/test/site', false ) ).rejects.toThrow(
+			await expect( runCommand( '/test/site' ) ).rejects.toThrow(
 				'Failed to stop WordPress server'
 			);
 			expect( disconnect ).toHaveBeenCalled();
@@ -88,7 +82,7 @@ describe( 'CLI: studio site stop', () => {
 		it( 'should skip stop if server is not running', async () => {
 			const { runCommand } = await import( '../stop' );
 
-			await runCommand( '/test/site', false );
+			await runCommand( '/test/site' );
 
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
 			expect( clearSiteLatestCliPid ).not.toHaveBeenCalled();
@@ -101,7 +95,7 @@ describe( 'CLI: studio site stop', () => {
 
 			const { runCommand } = await import( '../stop' );
 
-			await runCommand( '/test/site', false );
+			await runCommand( '/test/site' );
 
 			expect( getSiteByFolder ).toHaveBeenCalledWith( '/test/site' );
 			expect( connect ).toHaveBeenCalled();
@@ -115,30 +109,10 @@ describe( 'CLI: studio site stop', () => {
 		it( 'should not call stopProxyIfNoSitesNeedIt if site is not running', async () => {
 			const { runCommand } = await import( '../stop' );
 
-			await runCommand( '/test/site', false );
+			await runCommand( '/test/site' );
 
 			expect( stopProxyIfNoSitesNeedIt ).not.toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
-		} );
-
-		it( 'should set autoStart to true when flag is passed', async () => {
-			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-
-			const { runCommand } = await import( '../stop' );
-
-			await runCommand( '/test/site', true );
-
-			expect( updateSiteAutoStart ).toHaveBeenCalledWith( testSite.id, true );
-		} );
-
-		it( 'should set autoStart to false when flag is not passed', async () => {
-			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-
-			const { runCommand } = await import( '../stop' );
-
-			await runCommand( '/test/site', false );
-
-			expect( updateSiteAutoStart ).toHaveBeenCalledWith( testSite.id, false );
 		} );
 	} );
 
@@ -146,7 +120,7 @@ describe( 'CLI: studio site stop', () => {
 		it( 'should always disconnect from PM2 on success', async () => {
 			const { runCommand } = await import( '../stop' );
 
-			await runCommand( '/test/site', false );
+			await runCommand( '/test/site' );
 
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -157,7 +131,7 @@ describe( 'CLI: studio site stop', () => {
 			const { runCommand } = await import( '../stop' );
 
 			try {
-				await runCommand( '/test/site', false );
+				await runCommand( '/test/site' );
 			} catch {
 				// Expected
 			}
@@ -168,7 +142,7 @@ describe( 'CLI: studio site stop', () => {
 		it( 'should always disconnect when site is not running', async () => {
 			const { runCommand } = await import( '../stop' );
 
-			await runCommand( '/test/site', false );
+			await runCommand( '/test/site' );
 
 			expect( disconnect ).toHaveBeenCalled();
 		} );

@@ -15,13 +15,8 @@ import {
 	startWordPressServer,
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
-import { Logger } from 'cli/logger';
 
 describe( 'WordPress Server Manager', () => {
-	const mockLogger = {
-		reportProgress: jest.fn(),
-	} as unknown as Logger< string >;
-
 	const mockSiteData: SiteData = {
 		id: 'test-site-id',
 		name: 'Test Site',
@@ -61,7 +56,7 @@ describe( 'WordPress Server Manager', () => {
 		// Send ready message after a tick (simulating async bus initialization)
 		process.nextTick( () => {
 			mockBus.emit( 'process:msg', {
-				process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
+				process: { pm_id: mockProcessDescription.pmId },
 				raw: { topic: 'ready' },
 			} );
 		} );
@@ -70,7 +65,7 @@ describe( 'WordPress Server Manager', () => {
 			// Send result message only after sendMessageToProcess is called
 			process.nextTick( () => {
 				mockBus.emit( 'process:msg', {
-					process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
+					process: { pm_id: mockProcessDescription.pmId },
 					raw: {
 						topic: 'result',
 						originalMessageId: message.messageId,
@@ -113,7 +108,7 @@ describe( 'WordPress Server Manager', () => {
 		it( 'should start WordPress server with basic configuration', async () => {
 			setupIpcMocks();
 
-			const result = await startWordPressServer( mockSiteData, mockLogger );
+			const result = await startWordPressServer( mockSiteData );
 
 			expect( pm2Manager.startProcess as jest.Mock ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
@@ -142,13 +137,10 @@ describe( 'WordPress Server Manager', () => {
 		it( 'should start WordPress server with custom domain (HTTP)', async () => {
 			setupIpcMocks();
 
-			await startWordPressServer(
-				{
-					...mockSiteData,
-					customDomain: 'testsite.local',
-				},
-				mockLogger
-			);
+			await startWordPressServer( {
+				...mockSiteData,
+				customDomain: 'testsite.local',
+			} );
 
 			const callArgs = ( pm2Manager.startProcess as jest.Mock ).mock.calls[ 0 ];
 			const configJson = JSON.parse( callArgs[ 2 ].STUDIO_WORDPRESS_SERVER_CONFIG );
@@ -158,14 +150,11 @@ describe( 'WordPress Server Manager', () => {
 		it( 'should start WordPress server with custom domain (HTTPS)', async () => {
 			setupIpcMocks();
 
-			await startWordPressServer(
-				{
-					...mockSiteData,
-					customDomain: 'testsite.local',
-					enableHttps: true,
-				},
-				mockLogger
-			);
+			await startWordPressServer( {
+				...mockSiteData,
+				customDomain: 'testsite.local',
+				enableHttps: true,
+			} );
 
 			const callArgs = ( pm2Manager.startProcess as jest.Mock ).mock.calls[ 0 ];
 			const configJson = JSON.parse( callArgs[ 2 ].STUDIO_WORDPRESS_SERVER_CONFIG );
@@ -177,7 +166,7 @@ describe( 'WordPress Server Manager', () => {
 				new Error( 'Failed to start PM2 process' )
 			);
 
-			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
+			await expect( startWordPressServer( mockSiteData ) ).rejects.toThrow(
 				'Failed to start PM2 process'
 			);
 		} );
@@ -190,7 +179,7 @@ describe( 'WordPress Server Manager', () => {
 				isWpAutoUpdating: false,
 			};
 
-			await startWordPressServer( siteWithOptions, mockLogger );
+			await startWordPressServer( siteWithOptions );
 
 			const callArgs = ( pm2Manager.startProcess as jest.Mock ).mock.calls[ 0 ];
 			const configJson = JSON.parse( callArgs[ 2 ].STUDIO_WORDPRESS_SERVER_CONFIG );

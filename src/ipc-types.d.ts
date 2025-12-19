@@ -29,7 +29,6 @@ interface StoppedSiteDetails {
 	};
 	isAddingSite?: boolean;
 	autoStart?: boolean;
-	latestCliPid?: number;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {
@@ -83,6 +82,7 @@ interface FeatureFlags {
 }
 
 interface BetaFeatures {
+	studioSitesCli: boolean;
 	multiWorkerSupport: boolean;
 }
 

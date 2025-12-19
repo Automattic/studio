@@ -93,6 +93,11 @@ export class E2ESession {
 	async cleanup() {
 		await this.electronApp?.close();
 		// Clean up temporary folder to hold application data
-		fs.rmSync( this.sessionPath, { recursive: true, force: true } );
+		fs.rmSync( this.sessionPath, {
+			recursive: true,
+			force: true,
+			maxRetries: 30,
+			retryDelay: 1000,
+		} );
 	}
 }

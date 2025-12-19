@@ -126,6 +126,8 @@ export async function runCommand( format: 'table' | 'json', watch: boolean ): Pr
 				},
 				{ debounceMs: 500 }
 			);
+
+			process.on( 'SIGINT', disconnect );
 		}
 	} finally {
 		if ( ! watch ) {

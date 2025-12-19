@@ -65,20 +65,14 @@ async function main() {
 			registerAuthLoginCommand( authYargs );
 			registerAuthLogoutCommand( authYargs );
 			registerAuthStatusCommand( authYargs );
-			authYargs
-				.version( false )
-				.showHelpOnFail( false )
-				.demandCommand( 1, __( 'You must provide a valid auth command' ) );
+			authYargs.version( false ).demandCommand( 1, __( 'You must provide a valid auth command' ) );
 		} )
 		.command( 'preview', __( 'Manage preview sites' ), ( previewYargs ) => {
 			registerCreateCommand( previewYargs );
 			registerListCommand( previewYargs );
 			registerDeleteCommand( previewYargs );
 			registerUpdateCommand( previewYargs );
-			previewYargs
-				.version( false )
-				.showHelpOnFail( false )
-				.demandCommand( 1, __( 'You must provide a valid command' ) );
+			previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.command( 'site', __( 'Manage local sites' ), ( sitesYargs ) => {
 			registerSiteStatusCommand( sitesYargs );
@@ -92,16 +86,13 @@ async function main() {
 			registerSiteSetDomainCommand( sitesYargs );
 			registerSiteSetPhpVersionCommand( sitesYargs );
 			registerSiteSetWpVersionCommand( sitesYargs );
-			sitesYargs
-				.version( false )
-				.showHelpOnFail( false )
-				.demandCommand( 1, __( 'You must provide a valid command' ) );
+			sitesYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.command( {
 			command: 'wp',
 			describe: __( 'WP-CLI' ),
 			builder: ( wpYargs ) => {
-				return wpYargs.strict( false ).version( false ).showHelpOnFail( false );
+				return wpYargs.strict( false ).version( false );
 			},
 			handler: wpCliCommandHandler,
 		} )

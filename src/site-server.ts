@@ -380,7 +380,10 @@ export class SiteServer {
 		let timeoutId: NodeJS.Timeout;
 
 		return new Promise< WpCliResult >( ( resolve ) => {
-			const [ emitter, childProcess ] = executeCliCommand( cliArgs, { output: 'capture' } );
+			const [ emitter, childProcess ] = executeCliCommand( cliArgs, {
+				output: 'capture',
+				logPrefix: this.details.id,
+			} );
 
 			timeoutId = setTimeout( () => {
 				childProcess.kill();

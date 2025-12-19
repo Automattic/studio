@@ -23,6 +23,11 @@ const serverConfig = z.object( {
 
 export type ServerConfig = z.infer< typeof serverConfig >;
 
+const managerMessageAbort = z.object( {
+	topic: z.literal( 'abort' ),
+	data: z.object( {} ),
+} );
+
 const managerMessageStartServer = z.object( {
 	topic: z.literal( 'start-server' ),
 	data: z.object( {
@@ -39,6 +44,7 @@ const managerMessageRunBlueprint = z.object( {
 
 const managerMessageStopServer = z.object( {
 	topic: z.literal( 'stop-server' ),
+	data: z.object( {} ),
 } );
 
 const managerMessageWpCliCommand = z.object( {
@@ -49,6 +55,7 @@ const managerMessageWpCliCommand = z.object( {
 } );
 
 const _managerMessagePayloadSchema = z.discriminatedUnion( 'topic', [
+	managerMessageAbort,
 	managerMessageStartServer,
 	managerMessageRunBlueprint,
 	managerMessageStopServer,
@@ -58,6 +65,7 @@ export type ManagerMessagePayload = z.infer< typeof _managerMessagePayloadSchema
 
 const managerMessageBase = z.object( { messageId: z.string() } );
 export const managerMessageSchema = z.discriminatedUnion( 'topic', [
+	managerMessageBase.merge( managerMessageAbort ),
 	managerMessageBase.merge( managerMessageStartServer ),
 	managerMessageBase.merge( managerMessageRunBlueprint ),
 	managerMessageBase.merge( managerMessageStopServer ),

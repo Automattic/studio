@@ -31,6 +31,15 @@ import { Logger } from 'cli/logger';
 
 const SITE_PROCESS_PREFIX = 'studio-site-';
 
+// Get an abort signal that's triggered on SIGINT/SIGTERM. This is useful for aborting and cleaning
+// up async operations.
+const abortController = new AbortController();
+function handleProcessTermination() {
+	abortController.abort();
+}
+process.on( 'SIGINT', handleProcessTermination );
+process.on( 'SIGTERM', handleProcessTermination );
+
 function getProcessName( siteId: string ): string {
 	return `${ SITE_PROCESS_PREFIX }${ siteId }`;
 }
@@ -125,26 +134,36 @@ export async function startWordPressServer(
 async function waitForReadyMessage( pmId: number ): Promise< void > {
 	const bus = await getPm2Bus();
 
-	return new Promise( ( resolve, reject ) => {
-		const timeout = setTimeout( () => {
-			bus.off( 'process:msg', readyHandler );
+	let timeoutId: NodeJS.Timeout;
+	let readyHandler: ( packet: unknown ) => void;
+	let abortListener: () => void;
+
+	return new Promise< void >( ( resolve, reject ) => {
+		timeoutId = setTimeout( () => {
 			reject( new Error( 'Timeout waiting for ready message from WordPress server child' ) );
 		}, PLAYGROUND_CLI_INACTIVITY_TIMEOUT );
 
-		const readyHandler = ( packet: unknown ) => {
+		readyHandler = ( packet: unknown ) => {
 			const result = childMessagePm2Schema.safeParse( packet );
 			if ( ! result.success ) {
 				return;
 			}
 
 			if ( result.data.process.pm_id === pmId && result.data.raw.topic === 'ready' ) {
-				clearTimeout( timeout );
-				bus.off( 'process:msg', readyHandler );
 				resolve();
 			}
 		};
 
+		abortListener = () => {
+			reject( new Error( 'Operation aborted' ) );
+		};
+		abortController.signal.addEventListener( 'abort', abortListener );
+
 		bus.on( 'process:msg', readyHandler );
+	} ).finally( () => {
+		clearTimeout( timeoutId );
+		abortController.signal.removeEventListener( 'abort', abortListener );
+		bus.off( 'process:msg', readyHandler );
 	} );
 }
 
@@ -176,6 +195,7 @@ async function sendMessage(
 	const bus = await getPm2Bus();
 	const messageId = crypto.randomUUID();
 	let responseHandler: ( packet: unknown ) => void;
+	let abortListener: () => void;
 
 	return new Promise( ( resolve, reject ) => {
 		const startTime = Date.now();
@@ -244,10 +264,17 @@ async function sendMessage(
 			}
 		};
 
+		abortListener = () => {
+			void sendMessageToProcess( pmId, { messageId, topic: 'abort', data: {} } );
+			reject( new Error( 'Operation aborted' ) );
+		};
+		abortController.signal.addEventListener( 'abort', abortListener );
+
 		bus.on( 'process:msg', responseHandler );
 
 		sendMessageToProcess( pmId, { ...message, messageId } ).catch( reject );
 	} ).finally( () => {
+		abortController.signal.removeEventListener( 'abort', abortListener );
 		bus.off( 'process:msg', responseHandler );
 
 		const tracker = messageActivityTrackers.get( messageId );
@@ -268,10 +295,8 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 		try {
 			await sendMessage(
 				runningProcess.pmId,
-				{ topic: 'stop-server' },
-				{
-					maxTotalElapsedTime: GRACEFUL_STOP_TIMEOUT,
-				}
+				{ topic: 'stop-server', data: {} },
+				{ maxTotalElapsedTime: GRACEFUL_STOP_TIMEOUT }
 			);
 		} catch {
 			// Graceful shutdown failed, PM2 delete will handle it

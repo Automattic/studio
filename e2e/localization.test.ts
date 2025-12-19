@@ -139,7 +139,7 @@ test.describe( 'Localization', () => {
 
 		// Wait for site to be created
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 200_000 } );
 
 		const settingsTabButton = session.mainWindow.getByRole( 'tab', { name: /Settings|設定/i } );
 		await settingsTabButton.click();

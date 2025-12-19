@@ -56,6 +56,7 @@ let testStore = createTestStore( {
 	preloadedState: {
 		betaFeatures: {
 			features: {
+				studioSitesCli: false,
 				multiWorkerSupport: false,
 				xdebugSupport: true,
 			},
@@ -76,6 +77,7 @@ function createCustomTestStore() {
 		preloadedState: {
 			betaFeatures: {
 				features: {
+					studioSitesCli: false,
 					multiWorkerSupport: false,
 					xdebugSupport: true,
 				},
@@ -289,6 +291,7 @@ describe( 'ContentTabSettings', () => {
 				preloadedState: {
 					betaFeatures: {
 						features: {
+							studioSitesCli: false,
 							multiWorkerSupport: false,
 							xdebugSupport: false,
 						},

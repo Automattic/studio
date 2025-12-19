@@ -71,37 +71,44 @@ async function updateSiteServerStatus(
 	await current;
 }
 
-export function startSiteWatcher(): void {
-	if ( watcher ) {
-		return;
-	}
-
-	watcher = executeCliCommand( [ 'site', 'list', '--watch', '--format', 'json' ], {
-		output: 'ignore',
-	} );
-	const [ eventEmitter ] = watcher;
-
-	eventEmitter.on( 'data', ( { data } ) => {
-		const parsed = siteStatusEventSchema.safeParse( data );
-		if ( ! parsed.success ) {
-			return;
+export async function startSiteWatcher(): Promise< void > {
+	return new Promise( ( resolve, reject ) => {
+		if ( watcher ) {
+			return resolve();
 		}
 
-		const { siteId, status, url } = parsed.data.value;
-		const isRunning = status === 'running';
+		watcher = executeCliCommand( [ 'site', 'list', '--watch', '--format', 'json' ], {
+			output: 'ignore',
+		} );
+		const [ eventEmitter ] = watcher;
 
-		void updateSiteServerStatus( siteId, isRunning, url );
-		void sendIpcEventToRenderer( 'site-status-changed', parsed.data.value );
-	} );
+		eventEmitter.on( 'started', () => {
+			resolve();
+		} );
 
-	eventEmitter.on( 'error', ( { error } ) => {
-		console.error( 'Site watcher error:', error );
-		watcher = null;
-	} );
+		eventEmitter.on( 'error', ( { error } ) => {
+			reject();
+			console.error( 'Site watcher error:', error );
+			watcher = null;
+		} );
 
-	eventEmitter.on( 'failure', () => {
-		console.warn( 'Site watcher exited unexpectedly' );
-		watcher = null;
+		eventEmitter.on( 'data', ( { data } ) => {
+			const parsed = siteStatusEventSchema.safeParse( data );
+			if ( ! parsed.success ) {
+				return;
+			}
+
+			const { siteId, status, url } = parsed.data.value;
+			const isRunning = status === 'running';
+
+			void updateSiteServerStatus( siteId, isRunning, url );
+			void sendIpcEventToRenderer( 'site-status-changed', parsed.data.value );
+		} );
+
+		eventEmitter.on( 'failure', () => {
+			console.warn( 'Site watcher exited unexpectedly' );
+			watcher = null;
+		} );
 	} );
 }
 

@@ -10,8 +10,9 @@ export interface CliCommandResult {
 }
 
 type CliCommandEventMap = {
-	data: { data: unknown };
+	started: void;
 	error: { error: Error };
+	data: { data: unknown };
 	success: { result?: CliCommandResult };
 	failure: { result?: CliCommandResult };
 };
@@ -67,6 +68,16 @@ export function executeCliCommand(
 	} );
 	const eventEmitter = new CliCommandEventEmitter();
 
+	child.on( 'spawn', () => {
+		eventEmitter.emit( 'started' );
+	} );
+
+	child.on( 'error', ( error ) => {
+		console.error( 'Child process error:', error );
+		Sentry.captureException( error );
+		eventEmitter.emit( 'error', { error } );
+	} );
+
 	let stdout = '';
 	let stderr = '';
 
@@ -81,12 +92,6 @@ export function executeCliCommand(
 
 	child.on( 'message', ( message: unknown ) => {
 		eventEmitter.emit( 'data', { data: message } );
-	} );
-
-	child.on( 'error', ( error ) => {
-		console.error( 'Child process error:', error );
-		Sentry.captureException( error );
-		eventEmitter.emit( 'error', { error } );
 	} );
 
 	let capturedExitCode: number | null = null;

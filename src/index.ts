@@ -311,9 +311,11 @@ async function appBoot() {
 
 		await renameLaunchUniquesStat();
 
-		await createMainWindow();
 		await startUserDataWatcher();
-		startSiteWatcher();
+
+		await startSiteWatcher();
+
+		await createMainWindow();
 
 		const userData = await loadUserData();
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available

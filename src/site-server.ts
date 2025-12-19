@@ -43,6 +43,7 @@ export async function stopAllServersOnQuit() {
 	return new Promise< void >( ( resolve ) => {
 		const [ emitter ] = executeCliCommand( [ 'site', 'stop-all', '--auto-start' ], {
 			output: 'ignore',
+			detached: true,
 		} );
 		emitter.on( 'success', () => resolve() );
 		emitter.on( 'failure', () => resolve() );

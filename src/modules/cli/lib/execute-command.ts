@@ -40,11 +40,12 @@ export interface ExecuteCliCommandOptions {
 	 * - 'capture': capture stdout/stderr, available in success/failure events
 	 */
 	output: 'ignore' | 'capture';
+	detached?: boolean;
 }
 
 export function executeCliCommand(
 	args: string[],
-	options: ExecuteCliCommandOptions = { output: 'ignore' }
+	options: ExecuteCliCommandOptions = { output: 'ignore', detached: false }
 ): [ CliCommandEventEmitter, ChildProcess ] {
 	const cliPath = getCliPath();
 
@@ -58,6 +59,7 @@ export function executeCliCommand(
 	// Using Electron's utilityProcess.fork API gave us issues with the child process never exiting
 	const child = fork( cliPath, [ ...args, '--avoid-telemetry' ], {
 		stdio,
+		detached: options.detached,
 		env: {
 			...process.env,
 			ELECTRON_RUN_AS_NODE: '1',
@@ -107,9 +109,13 @@ export function executeCliCommand(
 		}
 	} );
 
-	process.on( 'exit', () => {
-		child.kill();
-	} );
+	if ( options.detached ) {
+		child.unref();
+	} else {
+		process.on( 'exit', () => {
+			child.kill();
+		} );
+	}
 
 	return [ eventEmitter, child ];
 }

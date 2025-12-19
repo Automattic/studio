@@ -350,7 +350,7 @@ function sendErrorMessage( messageId: string, error: unknown ) {
 	process.send!( errorResponse );
 }
 
-const abortControllers: Record< number, AbortController > = {};
+const abortControllers: Record< string, AbortController > = {};
 
 async function ipcMessageHandler( packet: unknown ) {
 	const messageResult = managerMessageSchema.safeParse( packet );

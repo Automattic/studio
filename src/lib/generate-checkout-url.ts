@@ -1,9 +1,13 @@
 import { DEFAULT_CUSTOM_DOMAIN_SUFFIX } from 'common/constants';
 
-export function generateCheckoutUrl( selectedSite?: SiteDetails ): string {
-	const url = new URL(
-		'https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&showDomainStep'
-	);
+export function generateCheckoutUrl(
+	selectedSite?: SiteDetails,
+	section: string = 'studio-sync'
+): string {
+	const url = new URL( `https://wordpress.com/setup/new-hosted-site` );
+	url.searchParams.set( 'ref', 'studio' );
+	url.searchParams.set( 'section', section );
+	url.searchParams.set( 'showDomainStep', 'true' );
 
 	if ( ! selectedSite ) {
 		return url.toString();

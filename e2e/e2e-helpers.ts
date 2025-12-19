@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import fsSync from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
@@ -92,7 +93,67 @@ export class E2ESession {
 
 	async cleanup() {
 		await this.electronApp?.close();
-		// Clean up temporary folder to hold application data
-		fs.rmSync( this.sessionPath, { recursive: true, force: true } );
+
+		// Attempt cleanup with retry logic to handle Windows file locking
+		let lastError: Error | null = null;
+		for ( let attempt = 0; attempt < 3; attempt++ ) {
+			try {
+				this.removeDirectoryRecursive( this.sessionPath );
+				console.log( '[E2E Cleanup] Successfully cleaned up session directory' );
+				return;
+			} catch ( error ) {
+				lastError = error as Error;
+				console.warn(
+					`[E2E Cleanup] Attempt ${ attempt + 1 } failed. Retrying in 1s...`,
+					lastError.message
+				);
+				// Wait before retrying
+				await new Promise( ( resolve ) => setTimeout( resolve, 1000 ) );
+			}
+		}
+
+		// Log detailed error information for diagnostics
+		console.error( '[E2E Cleanup] Failed to clean up session after 3 attempts' );
+		throw new Error(
+			`[E2E Cleanup] Failed to clean up session directory: ${ lastError?.message }`
+		);
+	}
+
+	private removeDirectoryRecursive( dirPath: string ): void {
+		if ( ! fsSync.existsSync( dirPath ) ) {
+			return;
+		}
+
+		let items: string[];
+		try {
+			items = fsSync.readdirSync( dirPath );
+		} catch ( error ) {
+			console.error( `[E2E Cleanup] Failed to read directory ${ dirPath }:`, error );
+			throw error;
+		}
+
+		// Remove each item individually to isolate failures
+		for ( const item of items ) {
+			const itemPath = path.join( dirPath, item );
+			try {
+				const stat = fsSync.lstatSync( itemPath ); // Use lstatSync to handle symlinks
+				if ( stat.isDirectory() ) {
+					this.removeDirectoryRecursive( itemPath );
+				} else {
+					fsSync.unlinkSync( itemPath );
+				}
+			} catch ( error ) {
+				console.error( `[E2E Cleanup] Failed to remove ${ itemPath }:`, error );
+				throw error;
+			}
+		}
+
+		// Remove the now-empty directory
+		try {
+			fsSync.rmdirSync( dirPath );
+		} catch ( error ) {
+			console.error( `[E2E Cleanup] Failed to remove directory ${ dirPath }:`, error );
+			throw error;
+		}
 	}
 }

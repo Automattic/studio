@@ -52,12 +52,16 @@ async function main() {
 		} )
 		.middleware( async ( argv ) => {
 			if ( ! argv.avoidTelemetry ) {
-				await bumpAggregatedUniqueStat(
-					StatsGroup.STUDIO_CLI_USAGE_UNIQUE,
-					StatsMetric.SUCCESS,
-					'weekly',
-					cliAppdataProvider
-				);
+				try {
+					await bumpAggregatedUniqueStat(
+						StatsGroup.STUDIO_CLI_USAGE_UNIQUE,
+						StatsMetric.SUCCESS,
+						'weekly',
+						cliAppdataProvider
+					);
+				} catch ( error ) {
+					console.error( 'Failed to bump stat:', error );
+				}
 			}
 		} )
 		.command( 'auth', __( 'Manage authentication' ), ( authYargs ) => {

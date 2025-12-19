@@ -37,7 +37,7 @@ function BlueprintIssuesModal( {
 			onRequestClose={ onClose }
 			size="medium"
 		>
-			<div className="h-full flex flex-col gap-1">
+			<VStack spacing={ 6 } className="h-full">
 				<div className="flex items-center">
 					<Icon className="fill-a8c-blue-50 me-2 shrink-0" icon={ check } />
 					<Text className="font-medium text-gray-900">{ fileName }</Text>
@@ -81,7 +81,7 @@ function BlueprintIssuesModal( {
 						{ __( 'Got it' ) }
 					</Button>
 				</HStack>
-			</div>
+			</VStack>
 		</Modal>
 	);
 }

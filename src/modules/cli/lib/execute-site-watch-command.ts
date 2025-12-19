@@ -108,9 +108,6 @@ export function startSiteWatcher(): void {
 export function stopSiteWatcher(): void {
 	if ( watcher ) {
 		const [ , childProcess ] = watcher;
-		if ( childProcess.connected ) {
-			childProcess.disconnect();
-		}
 		childProcess.kill();
 		watcher = null;
 	}

@@ -325,43 +325,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
-	// WP-CLI specific: Studio commands
-	muPlugins.push( {
-		filename: '0-studio-cli-commands.php',
-		content: `<?php
-		/**
-		 * Studio WP-CLI Commands
-		 *
-		 * Provides custom WP-CLI commands for Studio functionality.
-		 */
-		if ( ! defined( 'WP_CLI' ) || ! WP_CLI ) {
-			return;
-		}
-
-		/**
-		 * Gets theme details for the current site.
-		 *
-		 * ## EXAMPLES
-		 *
-		 *     wp studio get-theme-details
-		 *
-		 * @when after_wp_load
-		 */
-		WP_CLI::add_command( 'studio get-theme-details', function() {
-			$theme = wp_get_theme();
-			$result = [
-				'name' => $theme->get( 'Name' ),
-				'path' => $theme->get_stylesheet_directory(),
-				'slug' => $theme->get_stylesheet(),
-				'isBlockTheme' => $theme->is_block_theme(),
-				'supportsWidgets' => current_theme_supports( 'widgets' ),
-				'supportsMenus' => (bool) ( get_registered_nav_menus() || current_theme_supports( 'menus' ) ),
-			];
-			echo json_encode( $result );
-		} );
-		`,
-	} );
-
 	// Studio Admin API: Persistent endpoint for admin operations
 	muPlugins.push( {
 		filename: '0-studio-admin-api.php',

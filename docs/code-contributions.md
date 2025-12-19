@@ -166,10 +166,10 @@ npm run e2e
 
 The renderer process can be debugged using the Chromium developer tools. To open the developer tools, press <kbd>Cmd</kbd>+<kbd>Option</kbd>+<kbd>I</kbd> on Mac or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> on Windows. You can also use the [React Developer Tools](https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi) and [Redux DevTools](https://chromewebstore.google.com/detail/redux-devtools/lmhkpmbekcpmknklioeibfkpmmfibljd) to debug the renderer process.
 
-The main process can be debugged using the Node.js inspector. To do this, run the app with the `--inspect-brk-electron` flag:
+The main process can be debugged using the Node.js inspector. To do this, run the app with the `--inspect-brk` and `--sourcemap` flags:
 
 ```bash
-npm start -- --inspect-brk-electron
+npm start -- --inspect-brk --sourcemap
 ```
 
 Then open `chrome://inspect` in a Chromium-based browser and click "inspect" next to the process you want to debug.

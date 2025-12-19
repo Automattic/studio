@@ -9,7 +9,6 @@ import {
 	startWordPressServer,
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
-import { Logger } from 'cli/logger';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
@@ -173,8 +172,8 @@ describe( 'CLI: studio site set-domain', () => {
 
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( stopWordPressServer ).toHaveBeenCalledWith( testSite.id );
-			expect( setupCustomDomain ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
-			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
+			expect( setupCustomDomain ).toHaveBeenCalledWith( testSite, expect.any( Object ) );
+			expect( startWordPressServer ).toHaveBeenCalledWith( testSite );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 

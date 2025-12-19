@@ -1,0 +1,99 @@
+name: Stale PR Notifications
+
+on:
+  schedule:
+    # Run Monday-Friday at 9:00 AM UTC (skip weekends)
+    - cron: '0 9 * * 1-5'
+  workflow_dispatch: # Allow manual triggering for testing
+    inputs:
+      channel_id:
+        description: 'Slack channel ID (leave empty to use default)'
+        required: false
+        type: string
+
+permissions:
+  pull-requests: read
+  contents: read
+
+jobs:
+  notify-stale-prs:
+    name: Notify team about stale PRs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Fetch stale PRs
+        id: fetch-prs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Determine stale threshold based on day of week
+          # Monday (1): 72 hours (to account for weekend)
+          # Tuesday-Friday (2-5): 24 hours
+          DAY_OF_WEEK=$(date +%u)
+          if [ "$DAY_OF_WEEK" = "1" ]; then
+            STALE_SECONDS=259200  # 72 hours
+            STALE_DESCRIPTION="72 hours (weekend inclusive)"
+          else
+            STALE_SECONDS=86400   # 24 hours
+            STALE_DESCRIPTION="24 hours"
+          fi
+
+          echo "Checking for PRs not updated in the last $STALE_DESCRIPTION"
+
+          # Fetch open PRs not updated in the threshold period
+          # Exclude draft PRs and PRs that are already approved
+          STALE_PRS=$(gh pr list \
+            --repo ${{ github.repository }} \
+            --state open \
+            --limit 100 \
+            --json number,title,url,updatedAt,author,isDraft,reviewDecision,labels | \
+            jq --arg seconds "$STALE_SECONDS" '[.[] | select(
+              (.updatedAt | fromdateiso8601) < (now - ($seconds | tonumber)) and
+              .isDraft == false and
+              (.reviewDecision != "APPROVED")
+            )]')
+
+          # Count stale PRs
+          COUNT=$(echo "$STALE_PRS" | jq 'length')
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+
+          # Save to file for next step
+          echo "$STALE_PRS" > /tmp/stale-prs.json
+
+          echo "Found $COUNT stale PR(s) needing review"
+
+      - name: Format Slack message
+        id: format-message
+        if: steps.fetch-prs.outputs.count > 0
+        run: node scripts/format-stale-pr-message.js
+
+      - name: Send Slack notification
+        if: steps.fetch-prs.outputs.count > 0
+        env:
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+          # Use manual input if provided, otherwise use secret, otherwise use default channel
+          SLACK_CHANNEL_ID: ${{ github.event.inputs.channel_id || secrets.SLACK_CHANNEL_ID || 'C056D54B98U' }}
+        run: |
+          # Build complete JSON payload using jq to ensure proper escaping
+          jq --arg channel "$SLACK_CHANNEL_ID" \
+            '. + {channel: $channel, username: "PR Review Bot", icon_emoji: ":github:"}' \
+            /tmp/slack-message.json | \
+          curl -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_TOKEN" \
+            -H 'Content-Type: application/json; charset=utf-8' \
+            --data-binary @-
+
+          echo "✅ Sent notification about ${{ steps.fetch-prs.outputs.count }} stale PR(s) to Slack channel $SLACK_CHANNEL_ID"
+
+      - name: No stale PRs
+        if: steps.fetch-prs.outputs.count == 0
+        run: echo "✨ No stale PRs found - all PRs are up to date!"

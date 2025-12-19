@@ -33,6 +33,7 @@ updates:
       - dependency-name: "vite-*"
       - dependency-name: "@vitejs/*"
       - dependency-name: "electron-vite"
+      - dependency-name: "mdast-util-to-hast"
     groups:
       electron-forge:
         patterns:

@@ -245,7 +245,7 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
-	// Disable auto-updates if configured
+	// Configure auto-updates based on Studio settings
 	if ( ! options.isWpAutoUpdating ) {
 		muPlugins.push( {
 			filename: '0-disable-auto-updates.php',
@@ -254,6 +254,16 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 			add_filter( 'allow_dev_auto_core_updates', '__return_false' );
 			add_filter( 'allow_minor_auto_core_updates', '__return_false' );
 			add_filter( 'allow_major_auto_core_updates', '__return_false' );
+			`,
+		} );
+	} else {
+		muPlugins.push( {
+			filename: '0-enable-auto-updates.php',
+			content: `<?php
+			// Enable auto-updates
+			add_filter( 'allow_dev_auto_core_updates', '__return_true' );
+			add_filter( 'allow_minor_auto_core_updates', '__return_true' );
+			add_filter( 'allow_major_auto_core_updates', '__return_true' );
 			`,
 		} );
 	}

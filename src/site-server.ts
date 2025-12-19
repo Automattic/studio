@@ -144,6 +144,7 @@ export class SiteServer {
 			isWpAutoUpdating: this.details.isWpAutoUpdating,
 			absoluteUrl: getAbsoluteUrl( this.details ),
 			blueprint: filteredBlueprint,
+			enableXdebug: this.details.enableXdebug,
 		} );
 
 		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );

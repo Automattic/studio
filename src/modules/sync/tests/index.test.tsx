@@ -1,7 +1,8 @@
 // To run tests, execute `npm run test -- src/modules/sync/tests/index.test.tsx` from the root directory
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { SyncSitesProvider, useSyncSites } from 'src/hooks/sync-sites';
+import { useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
+import { useSyncPush } from 'src/hooks/sync-sites/use-sync-push';
 import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
@@ -24,10 +25,8 @@ jest.mock( 'src/stores/sync/wpcom-sites', () => ( {
 	useGetWpComSitesQuery: jest.fn(),
 } ) );
 jest.mock( 'src/hooks/use-feature-flags' );
-jest.mock( 'src/hooks/sync-sites/sync-sites-context', () => ( {
-	...jest.requireActual( '../../../hooks/sync-sites/sync-sites-context' ),
-	useSyncSites: jest.fn(),
-} ) );
+jest.mock( 'src/hooks/sync-sites/use-sync-pull' );
+jest.mock( 'src/hooks/sync-sites/use-sync-push' );
 
 jest.mock( 'src/stores/sync', () => ( {
 	...jest.requireActual( 'src/stores/sync' ),
@@ -111,18 +110,24 @@ const fakeSyncSite: SyncSite = {
 };
 
 describe( 'ContentTabSync', () => {
-	const mockSyncSites = {
+	const mockSyncPull = {
 		pullSite: jest.fn(),
-		pushSite: jest.fn(),
-		isAnySitePulling: false,
-		isAnySitePushing: false,
+		pullStates: {},
 		getPullState: jest.fn(),
-		getPushState: jest.fn(),
-		updateTimestamp: jest.fn(),
-		getLastSyncTimeText: jest.fn().mockReturnValue( 'You have not pulled this site yet.' ),
+		isAnySitePulling: false,
 		isSiteIdPulling: jest.fn().mockReturnValue( false ),
+		clearPullState: jest.fn(),
+		cancelPull: jest.fn(),
+	};
+
+	const mockSyncPush = {
+		pushSite: jest.fn(),
+		pushStates: {},
+		getPushState: jest.fn(),
+		isAnySitePushing: false,
 		isSiteIdPushing: jest.fn().mockReturnValue( false ),
-		clearTimeout: jest.fn(),
+		clearPushState: jest.fn(),
+		cancelPush: jest.fn(),
 	};
 
 	const setupConnectedSitesMocks = (
@@ -187,7 +192,8 @@ describe( 'ContentTabSync', () => {
 			isPushSelectionOverLimit: false,
 			isLoading: false,
 		} );
-		( useSyncSites as jest.Mock ).mockReturnValue( mockSyncSites );
+		( useSyncPull as jest.Mock ).mockReturnValue( mockSyncPull );
+		( useSyncPush as jest.Mock ).mockReturnValue( mockSyncPush );
 		( useLatestRewindId as jest.Mock ).mockReturnValue( {
 			rewindId: '1704067200',
 			isLoading: false,
@@ -247,9 +253,7 @@ describe( 'ContentTabSync', () => {
 	const renderWithProvider = ( children: React.ReactElement ) => {
 		return render(
 			<Provider store={ store }>
-				<ContentTabsProvider>
-					<SyncSitesProvider>{ children }</SyncSitesProvider>
-				</ContentTabsProvider>
+				<ContentTabsProvider>{ children }</ContentTabsProvider>
 			</Provider>
 		);
 	};
@@ -383,8 +387,8 @@ describe( 'ContentTabSync', () => {
 	it( 'displays the progress bar when the site is being pushed', async () => {
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			...mockSyncSites,
+		( useSyncPush as jest.Mock ).mockReturnValue( {
+			...mockSyncPush,
 			getPushState: jest.fn().mockReturnValue( inProgressPushState ),
 			isSiteIdPushing: jest.fn().mockReturnValue( true ),
 		} );
@@ -402,9 +406,8 @@ describe( 'ContentTabSync', () => {
 			environmentType: 'development',
 		};
 		setupConnectedSitesMocks( [ fakeDevelopmentSyncSite ], [ fakeDevelopmentSyncSite ] );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			...mockSyncSites,
-			syncSites: [ fakeDevelopmentSyncSite ],
+		( useSyncPull as jest.Mock ).mockReturnValue( {
+			...mockSyncPull,
 			pullSite: mockPullSite,
 		} );
 
@@ -429,8 +432,8 @@ describe( 'ContentTabSync', () => {
 			environmentType: 'non-supported-environment-example-or-sandbox',
 		};
 		setupConnectedSitesMocks( [ fakeDevelopmentSyncSite ], [ fakeDevelopmentSyncSite ] );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			...mockSyncSites,
+		( useSyncPull as jest.Mock ).mockReturnValue( {
+			...mockSyncPull,
 			pullSite: mockPullSite,
 		} );
 
@@ -450,8 +453,8 @@ describe( 'ContentTabSync', () => {
 		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			...mockSyncSites,
+		( useSyncPull as jest.Mock ).mockReturnValue( {
+			...mockSyncPull,
 			pullSite: mockPullSite,
 		} );
 
@@ -480,8 +483,8 @@ describe( 'ContentTabSync', () => {
 		const mockPullSite = jest.fn();
 		( useAuth as jest.Mock ).mockReturnValue( createAuthMock( true ) );
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			...mockSyncSites,
+		( useSyncPull as jest.Mock ).mockReturnValue( {
+			...mockSyncPull,
 			pullSite: mockPullSite,
 		} );
 
@@ -574,8 +577,8 @@ describe( 'ContentTabSync', () => {
 		} );
 
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );
-		( useSyncSites as jest.Mock ).mockReturnValue( {
-			...mockSyncSites,
+		( useSyncPull as jest.Mock ).mockReturnValue( {
+			...mockSyncPull,
 			pullSite: mockPullSite,
 		} );
 

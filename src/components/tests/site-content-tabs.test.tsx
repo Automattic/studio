@@ -1,7 +1,6 @@
 import { act, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { SiteContentTabs } from 'src/components/site-content-tabs';
-import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { store } from 'src/stores';
@@ -73,9 +72,7 @@ describe( 'SiteContentTabs', () => {
 	const renderWithProvider = ( component: React.ReactElement ) => {
 		return render(
 			<Provider store={ store }>
-				<ContentTabsProvider>
-					<SyncSitesProvider>{ component }</SyncSitesProvider>
-				</ContentTabsProvider>
+				<ContentTabsProvider>{ component }</ContentTabsProvider>
 			</Provider>
 		);
 	};

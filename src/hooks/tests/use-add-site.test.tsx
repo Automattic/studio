@@ -2,7 +2,7 @@
 import { renderHook, act } from '@testing-library/react';
 import nock from 'nock';
 import { Provider } from 'react-redux';
-import { useSyncSites } from 'src/hooks/sync-sites';
+import { useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -13,7 +13,7 @@ import type { SyncSite } from 'src/modules/sync/types';
 
 jest.mock( 'src/hooks/use-site-details' );
 jest.mock( 'src/hooks/use-feature-flags' );
-jest.mock( 'src/hooks/sync-sites' );
+jest.mock( 'src/hooks/sync-sites/use-sync-pull' );
 jest.mock( 'src/hooks/use-content-tabs' );
 jest.mock( 'src/hooks/use-import-export', () => ( {
 	useImportExport: () => ( {
@@ -73,11 +73,15 @@ describe( 'useAddSite', () => {
 		} );
 
 		mockPullSite.mockReset();
-		( useSyncSites as jest.Mock ).mockReturnValue( {
+		( useSyncPull as jest.Mock ).mockReturnValue( {
 			pullSite: mockPullSite,
-			syncSites: [],
-			refetchSites: jest.fn(),
-			isFetching: false,
+			pullStates: {},
+			getPullState: jest.fn(),
+			isAnySitePulling: false,
+			isSiteIdPulling: jest.fn(),
+			clearPullState: jest.fn(),
+			cancelPull: jest.fn(),
+		} );
 			isAnySitePulling: false,
 			isSiteIdPulling: jest.fn(),
 			clearPullState: jest.fn(),

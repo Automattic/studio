@@ -3,7 +3,6 @@ import { userEvent } from '@testing-library/user-event';
 import { act } from 'react';
 import { Provider } from 'react-redux';
 import { ContentTabImportExport } from 'src/components/content-tab-import-export';
-import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -48,9 +47,7 @@ beforeEach( () => {
 const renderWithProvider = ( children: React.ReactElement ) => {
 	return render(
 		<Provider store={ store }>
-			<ContentTabsProvider>
-				<SyncSitesProvider>{ children }</SyncSitesProvider>
-			</ContentTabsProvider>
+			<ContentTabsProvider>{ children }</ContentTabsProvider>
 		</Provider>
 	);
 };

@@ -64,8 +64,8 @@ jest.mock( 'src/lib/get-ipc-api', () => ( {
 	} ),
 } ) );
 
-jest.mock( 'src/hooks/sync-sites', () => ( {
-	useSyncSites: () => mockUseSyncSites(),
+jest.mock( 'src/hooks/sync-sites/use-sync-pull', () => ( {
+	useSyncPull: () => mockUseSyncSites(),
 } ) );
 
 jest.mock( 'src/hooks/use-import-export', () => ( {

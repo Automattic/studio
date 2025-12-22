@@ -71,7 +71,7 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 
 		expect( mockLogger.reportStart ).toHaveBeenCalledWith(
 			'stopProxy',
-			'Stopping HTTP proxy server...'
+			'Stopping HTTP proxy server…'
 		);
 		expect( stopProxyProcess ).toHaveBeenCalled();
 		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'HTTP proxy server stopped' );

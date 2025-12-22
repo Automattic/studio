@@ -70,13 +70,13 @@ export async function runCommand(
 		const site = await getSiteByFolder( siteFolder );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
-		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
+		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connect();
 		logger.reportSuccess( __( 'Process daemon started' ) );
 
 		const runningProcess = await isServerRunning( site.id );
 		if ( runningProcess ) {
-			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress site...' ) );
+			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress site…' ) );
 			await stopWordPressServer( site.id );
 			logger.reportSuccess( __( 'WordPress site stopped' ) );
 			await stopProxyIfNoSitesNeedIt( site.id, logger );
@@ -85,13 +85,13 @@ export async function runCommand(
 		if ( site.customDomain ) {
 			logger.reportStart(
 				LoggerAction.REMOVE_DOMAIN_FROM_HOSTS,
-				__( 'Removing domain from hosts file...' )
+				__( 'Removing domain from hosts file…' )
 			);
 			await removeDomainFromHosts( site.customDomain );
 			logger.reportSuccess( __( 'Domain removed from hosts file' ) );
 
 			if ( site.enableHttps ) {
-				logger.reportStart( LoggerAction.DELETE_CERT, __( 'Deleting SSL certificates...' ) );
+				logger.reportStart( LoggerAction.DELETE_CERT, __( 'Deleting SSL certificates…' ) );
 				deleteSiteCertificate( site.customDomain );
 				logger.reportSuccess( __( 'SSL certificates deleted' ) );
 			}
@@ -118,7 +118,7 @@ export async function runCommand(
 		}
 
 		if ( deleteFiles ) {
-			logger.reportStart( LoggerAction.DELETE_FILES, __( 'Deleting site files...' ) );
+			logger.reportStart( LoggerAction.DELETE_FILES, __( 'Deleting site files…' ) );
 			await fs.rm( siteFolder, { recursive: true, force: true } );
 			logger.reportSuccess( __( 'Site files deleted' ) );
 		}

@@ -48,14 +48,14 @@ export async function runCommand(
 			await unlockAppdata();
 		}
 
-		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
+		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connect();
 		logger.reportSuccess( __( 'Process daemon started' ) );
 
 		const runningProcess = await isServerRunning( site.id );
 
 		if ( runningProcess ) {
-			logger.reportStart( LoggerAction.START_SITE, __( 'Restarting site...' ) );
+			logger.reportStart( LoggerAction.START_SITE, __( 'Restarting site…' ) );
 			await stopWordPressServer( site.id );
 			await startWordPressServer( site, logger );
 			logger.reportSuccess( __( 'Site restarted' ) );

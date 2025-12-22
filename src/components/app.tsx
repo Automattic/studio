@@ -9,6 +9,8 @@ import { NoStudioSites } from 'src/components/no-studio-sites';
 import { SiteContentTabs } from 'src/components/site-content-tabs';
 import TopBar from 'src/components/top-bar';
 import WindowsTitlebar from 'src/components/windows-titlebar';
+import { useInitializeSyncStates } from 'src/hooks/sync-sites/use-initialize-sync-states';
+import { useListenDeepLinkConnection } from 'src/hooks/sync-sites/use-listen-deep-link-connection';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
 import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -31,6 +33,10 @@ export default function App() {
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
 	const { sites: localSites, loadingSites } = useSiteDetails();
 	const isEmpty = ! loadingSites && ! localSites.length;
+
+	// Initialize sync states and listen for deep link connections
+	useInitializeSyncStates();
+	useListenDeepLinkConnection();
 
 	useEffect( () => {
 		void getIpcApi().setupAppMenu( { needsOnboarding } );

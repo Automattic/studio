@@ -1,7 +1,8 @@
 import { cloudUpload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback } from 'react';
-import { useSyncSites } from 'src/hooks/sync-sites';
+import { useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
+import { useSyncPush } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -22,7 +23,8 @@ export const PublishSiteButton = () => {
 		localSiteId: selectedSite?.id,
 		userId: user?.id,
 	} );
-	const { isAnySitePulling, isAnySitePushing } = useSyncSites();
+	const { isAnySitePulling } = useSyncPull();
+	const { isAnySitePushing } = useSyncPush();
 	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
 
 	const handlePublishClick = useCallback( () => {

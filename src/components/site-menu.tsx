@@ -4,7 +4,7 @@ import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import { Tooltip } from 'src/components/tooltip';
-import { useSyncSites } from 'src/hooks/sync-sites';
+import { useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useImportExport } from 'src/hooks/use-import-export';
@@ -118,7 +118,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 	const { selectedSite, setSelectedSiteId, loadingServer } = useSiteDetails();
 	const isSelected = site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
-	const { isSiteIdPulling } = useSyncSites();
+	const { isSiteIdPulling } = useSyncPull();
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
 	const isImporting = isSiteImporting( site.id );

@@ -13,7 +13,9 @@ import { PressableLogo } from 'src/components/pressable-logo';
 import ProgressBar from 'src/components/progress-bar';
 import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
-import { useSyncSites } from 'src/hooks/sync-sites';
+import { useLastSyncTimeText } from 'src/hooks/sync-sites/use-last-sync-time-text';
+import { useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
+import { useSyncPush } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
@@ -50,15 +52,9 @@ const SyncConnectedSiteControls = ( {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
 	const [ syncDialogType, setSyncDialogType ] = useState< 'pull' | 'push' | null >( null );
-	const {
-		pullSite,
-		isAnySitePulling,
-		isAnySitePushing,
-		pushSite,
-		isSiteIdPulling,
-		isSiteIdPushing,
-		getLastSyncTimeText,
-	} = useSyncSites();
+	const { pullSite, isAnySitePulling, isSiteIdPulling } = useSyncPull();
+	const { pushSite, isAnySitePushing, isSiteIdPushing } = useSyncPush();
+	const getLastSyncTimeText = useLastSyncTimeText();
 	const { user } = useAuth();
 	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
 		localSiteId: selectedSite.id,
@@ -189,8 +185,8 @@ const SyncConnectedSitesSectionItem = ( {
 	connectedSite,
 }: SyncConnectedSitesListProps ) => {
 	const { __ } = useI18n();
-	const { clearPullState, getPullState, getPushState, clearPushState, cancelPull, cancelPush } =
-		useSyncSites();
+	const { clearPullState, getPullState, cancelPull } = useSyncPull();
+	const { getPushState, clearPushState, cancelPush } = useSyncPush();
 	const { importState } = useImportExport();
 	const {
 		isKeyPulling,
@@ -375,7 +371,8 @@ const SyncConnectedSiteSection = ( {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
 	const locale = useI18nLocale();
-	const { clearPullState, isSiteIdPulling, isSiteIdPushing } = useSyncSites();
+	const { clearPullState, isSiteIdPulling } = useSyncPull();
+	const { isSiteIdPushing } = useSyncPush();
 	const isOffline = useOffline();
 
 	const handleDisconnectSite = async () => {

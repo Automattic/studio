@@ -11,7 +11,8 @@ import { ErrorIcon } from 'src/components/error-icon';
 import ProgressBar from 'src/components/progress-bar';
 import { Tooltip } from 'src/components/tooltip';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
-import { useSyncSites } from 'src/hooks/sync-sites/sync-sites-context';
+import { useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
+import { useSyncPush } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
@@ -352,7 +353,8 @@ const ImportSite = ( {
 export function ContentTabImportExport( { selectedSite }: ContentTabImportExportProps ) {
 	const { __ } = useI18n();
 	const [ isSupported, setIsSupported ] = useState< boolean | null >( null );
-	const { isSiteIdPulling, isSiteIdPushing } = useSyncSites();
+	const { isSiteIdPulling } = useSyncPull();
+	const { isSiteIdPushing } = useSyncPush();
 	const { user } = useAuth();
 	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
 		localSiteId: selectedSite.id,

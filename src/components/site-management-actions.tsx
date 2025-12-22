@@ -3,7 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { ActionButton } from 'src/components/action-button';
 import { PublishSiteButton } from 'src/components/publish-site-button';
 import { Tooltip } from 'src/components/tooltip';
-import { useSyncSites } from 'src/hooks/sync-sites';
+import { useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
 import { useImportExport } from 'src/hooks/use-import-export';
 
 export interface SiteManagementActionProps {
@@ -21,7 +21,7 @@ export const SiteManagementActions = ( {
 }: SiteManagementActionProps ) => {
 	const { __ } = useI18n();
 	const { isSiteImporting } = useImportExport();
-	const { isSiteIdPulling } = useSyncSites();
+	const { isSiteIdPulling } = useSyncPull();
 
 	if ( ! selectedSite ) {
 		return null;

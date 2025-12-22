@@ -3,7 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'common/lib/domains';
-import { useSyncSites } from 'src/hooks/sync-sites';
+import { useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -30,7 +30,7 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 	const { createSite, sites, startServer } = useSiteDetails();
 	const { importFile, clearImportState, importState } = useImportExport();
 	const [ connectSite ] = useConnectSiteMutation();
-	const { pullSite } = useSyncSites();
+	const { pullSite } = useSyncPull();
 	const { setSelectedTab } = useContentTabs();
 	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );

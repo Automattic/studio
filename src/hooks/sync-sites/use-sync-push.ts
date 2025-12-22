@@ -1,13 +1,13 @@
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useRef } from 'react';
-import { useSyncPolling } from 'src/hooks/sync-sites/use-sync-polling';
 import {
 	ClearState,
 	generateStateId,
 	GetState,
 	UpdateState,
 } from 'src/hooks/sync-sites/use-pull-push-states';
+import { useSyncPolling } from 'src/hooks/sync-sites/use-sync-polling';
 import { useAuth } from 'src/hooks/use-auth';
 import {
 	useSyncStatesProgressInfo,
@@ -291,11 +291,10 @@ export function useSyncPush( { onPushSuccess }: UseSyncPushProps = {} ): UseSync
 					} )
 				).unwrap();
 
-				// Sync ref with latest Redux state immediately after thunk completes
-				// This ensures getPushState returns the latest value without waiting for re-render
-				const currentState = store.getState();
-				const latestPushStates = syncOperationsSelectors.selectPushStates( currentState );
-				pushStatesRef.current = latestPushStates;
+				// Sync ref again after thunk completes to ensure we have the final state
+				const finalState = store.getState();
+				const finalPushStates = syncOperationsSelectors.selectPushStates( finalState );
+				pushStatesRef.current = finalPushStates;
 
 				// If thunk completed successfully and returned polling info, start polling
 				if ( result.shouldStartPolling ) {

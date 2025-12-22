@@ -5,7 +5,8 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
-import { useSyncSites } from 'src/hooks/sync-sites';
+import { useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
+import { useSyncPush } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -135,7 +136,8 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	} );
 	const [ connectSite ] = useConnectSiteMutation();
 	const [ disconnectSite ] = useDisconnectSiteMutation();
-	const { pushSite, pullSite } = useSyncSites();
+	const { pullSite } = useSyncPull();
+	const { pushSite } = useSyncPush();
 
 	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
 	const { data: syncSites = [] } = useGetWpComSitesQuery( {

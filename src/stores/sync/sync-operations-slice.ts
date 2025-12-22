@@ -81,19 +81,6 @@ const syncOperationsSlice = createSlice( {
 			const stateId = generateStateId( selectedSiteId, remoteSiteId );
 			delete state.pushStates[ stateId ];
 		},
-
-		setPullStates: ( state, action: PayloadAction< PullStates > ) => {
-			state.pullStates = action.payload;
-		},
-
-		setPushStates: ( state, action: PayloadAction< PushStates > ) => {
-			state.pushStates = action.payload;
-		},
-
-		clearAllStates: ( state ) => {
-			state.pullStates = {};
-			state.pushStates = {};
-		},
 	},
 } );
 

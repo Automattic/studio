@@ -66,6 +66,18 @@ export function getCliPath(): string {
 		: path.join( getResourcesPath(), 'cli', 'main.js' );
 }
 
+export function getBundledNodeBinaryPath(): string {
+	const nodeBinaryName = process.platform === 'win32' ? 'node.exe' : 'node';
+
+	if ( process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' ) {
+		// In development, use system Node
+		const { execSync } = require( 'child_process' );
+		return execSync( 'which node', { encoding: 'utf-8' } ).trim();
+	}
+
+	return path.join( getResourcesPath(), 'bin', nodeBinaryName );
+}
+
 function getAppDataPath(): string {
 	if ( inChildProcess() ) {
 		if ( ! process.env.STUDIO_APP_DATA_PATH ) {

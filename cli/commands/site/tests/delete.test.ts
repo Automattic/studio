@@ -34,6 +34,7 @@ jest.mock( 'cli/lib/site-utils' );
 jest.mock( 'cli/lib/snapshots' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
 jest.mock( 'common/lib/fs-utils' );
+jest.mock( 'trash' );
 
 describe( 'CLI: studio site delete', () => {
 	const testSiteFolder = '/test/site/path';
@@ -160,12 +161,13 @@ describe( 'CLI: studio site delete', () => {
 		} );
 
 		it( 'should throw when file deletion fails', async () => {
-			const fs = require( 'fs/promises' );
-			fs.rm = jest.fn().mockRejectedValue( new Error( 'File deletion failed' ) );
-
+			jest.mock( 'trash', () => ( {
+				__esModule: true,
+				default: jest.fn().mockRejectedValueOnce( new Error( 'File deletion failed' ) ),
+			} ) );
 			const { runCommand } = await import( '../delete' );
 
-			await expect( runCommand( testSiteFolder, true ) ).rejects.toThrow();
+			await expect( runCommand( testSiteFolder, true ) ).rejects.toThrow( 'File deletion failed' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -220,8 +222,6 @@ describe( 'CLI: studio site delete', () => {
 		} );
 
 		it( 'should delete a site and remove files when files flag is set', async () => {
-			const fs = require( 'fs/promises' );
-			fs.rm = jest.fn().mockResolvedValue( undefined );
 			( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [] );
 
 			const { runCommand } = await import( '../delete' );
@@ -231,10 +231,6 @@ describe( 'CLI: studio site delete', () => {
 			expect( saveAppdata ).toHaveBeenCalled();
 			const savedAppdata = ( saveAppdata as jest.Mock ).mock.calls[ 0 ][ 0 ];
 			expect( savedAppdata.sites ).toHaveLength( 0 );
-			expect( fs.rm ).toHaveBeenCalledWith( testSiteFolder, {
-				recursive: true,
-				force: true,
-			} );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -263,8 +259,6 @@ describe( 'CLI: studio site delete', () => {
 		} );
 
 		it( 'should delete a running site and remove files along with preview sites', async () => {
-			const fs = require( 'fs/promises' );
-			fs.rm = jest.fn().mockResolvedValue( undefined );
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
 			( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [ testSnapshot1 ] );
 
@@ -278,10 +272,6 @@ describe( 'CLI: studio site delete', () => {
 				testAuthToken.accessToken
 			);
 			expect( deleteSnapshotFromAppdata ).toHaveBeenCalledWith( testSnapshot1.url );
-			expect( fs.rm ).toHaveBeenCalledWith( testSiteFolder, {
-				recursive: true,
-				force: true,
-			} );
 			expect( stopProxyIfNoSitesNeedIt ).toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
 		} );

@@ -52,6 +52,9 @@ export default defineConfig( {
 				'fs/promises',
 				'dns/promises',
 				'pm2',
+				// `trash` includes a native macOS binary that Vite/Rollup inlines as a base64 string, which
+				// generates an error in the production build
+				'trash',
 				'@php-wasm/node',
 				'@php-wasm/web',
 				'@php-wasm/logger',

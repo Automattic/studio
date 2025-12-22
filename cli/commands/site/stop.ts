@@ -21,7 +21,7 @@ export async function runCommand( siteFolder: string, autoStart: boolean ): Prom
 			return;
 		}
 
-		logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress site...' ) );
+		logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress site…' ) );
 		try {
 			await stopWordPressServer( site.id );
 			await clearSiteLatestCliPid( site.id );

@@ -62,13 +62,13 @@ export async function runCommand( sitePath: string, domainName: string ): Promis
 		if ( oldDomainName ) {
 			logger.reportStart(
 				LoggerAction.REMOVE_DOMAIN_FROM_HOSTS,
-				__( 'Removing domain from hosts file...' )
+				__( 'Removing domain from hosts file…' )
 			);
 			await removeDomainFromHosts( oldDomainName );
 			logger.reportSuccess( __( 'Domain removed from hosts file' ) );
 		}
 
-		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
+		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connect();
 		logger.reportSuccess( __( 'Process daemon started' ) );
 
@@ -77,7 +77,7 @@ export async function runCommand( sitePath: string, domainName: string ): Promis
 		if ( runningProcess ) {
 			await stopWordPressServer( site.id );
 			await setupCustomDomain( site, logger );
-			logger.reportStart( LoggerAction.START_SITE, __( 'Restarting site...' ) );
+			logger.reportStart( LoggerAction.START_SITE, __( 'Restarting site…' ) );
 			const processDesc = await startWordPressServer( site, logger );
 			if ( processDesc.pid ) {
 				await updateSiteLatestCliPid( site.id, processDesc.pid );

@@ -88,7 +88,7 @@ export async function runCommand( format: 'table' | 'json', watch: boolean ): Pr
 			logger.reportSuccess( sitesMessage );
 		}
 
-		logger.reportStart( LoggerAction.START_DAEMON, __( 'Connecting to process daemon...' ) );
+		logger.reportStart( LoggerAction.START_DAEMON, __( 'Connecting to process daemon…' ) );
 		await connect();
 		logger.reportSuccess( __( 'Connected to process daemon' ) );
 

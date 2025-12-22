@@ -62,7 +62,7 @@ export async function runCommand( autoStart: boolean ): Promise< void > {
 			try {
 				logger.reportProgress(
 					sprintf(
-						__( 'Stopping site "%s" (%d/%d)...' ),
+						__( 'Stopping site "%s" (%d/%d)…' ),
 						site.name,
 						stoppedSiteIds.length + 1,
 						runningSites.length

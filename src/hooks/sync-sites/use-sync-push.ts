@@ -30,17 +30,12 @@ type PushSiteOptions = {
 };
 
 export type PushStates = Record< string, SyncPushState >;
-type OnPushSuccess = ( siteId: number, localSiteId: string ) => void;
 type PushSite = (
 	connectedSite: SyncSite,
 	selectedSite: SiteDetails,
 	options?: PushSiteOptions
 ) => Promise< void >;
 type IsSiteIdPushing = ( selectedSiteId: string, remoteSiteId?: number ) => boolean;
-
-type UseSyncPushProps = {
-	onPushSuccess?: OnPushSuccess;
-};
 
 type CancelPush = ( selectedSiteId: string, remoteSiteId: number ) => void;
 
@@ -77,7 +72,7 @@ export function mapImportResponseToPushState(
 	return null;
 }
 
-export function useSyncPush( { onPushSuccess }: UseSyncPushProps = {} ): UseSyncPush {
+export function useSyncPush(): UseSyncPush {
 	const { client } = useAuth();
 
 	const dispatch = useAppDispatch();

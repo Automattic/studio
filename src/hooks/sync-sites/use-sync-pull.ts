@@ -30,17 +30,12 @@ export type PullSiteOptions = {
 };
 
 export type PullStates = Record< string, SyncBackupState >;
-type OnPullSuccess = ( siteId: number, localSiteId: string ) => void;
 type PullSite = (
 	connectedSite: SyncSite,
 	selectedSite: SiteDetails,
 	options: PullSiteOptions
 ) => void;
 type IsSiteIdPulling = ( selectedSiteId: string, remoteSiteId?: number ) => boolean;
-
-type UseSyncPullProps = {
-	onPullSuccess?: OnPullSuccess;
-};
 
 type CancelPull = ( selectedSiteId: string, remoteSiteId: number ) => void;
 
@@ -54,7 +49,7 @@ export type UseSyncPull = {
 	cancelPull: CancelPull;
 };
 
-export function useSyncPull( { onPullSuccess }: UseSyncPullProps = {} ): UseSyncPull {
+export function useSyncPull(): UseSyncPull {
 	const { client } = useAuth();
 	const { pullStatesProgressInfo } = useSyncStatesProgressInfo();
 

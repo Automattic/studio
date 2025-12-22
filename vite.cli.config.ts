@@ -20,14 +20,13 @@ export default defineConfig( {
 					} ),
 			  ]
 			: [] ),
-		// Copy cli/node_modules but exclude .bin directory (symlinks cause issues on Windows)
 		...( existsSync( cliNodeModulesPath )
 			? [
 					viteStaticCopy( {
 						targets: [
 							{
-								src: 'cli/node_modules/!(*.bin|.bin)',
-								dest: 'node_modules',
+								src: 'cli/node_modules',
+								dest: '.',
 							},
 						],
 					} ),

@@ -93,11 +93,8 @@ export class E2ESession {
 	async cleanup() {
 		await this.electronApp?.close();
 
-		// Give processes time to release file handles
-		await new Promise( ( resolve ) => setTimeout( resolve, 3000 ) );
-
 		// Clean up temporary folder to hold application data
-		fs.rmSync( this.sessionPath, {
+		await fs.promises.rm( this.sessionPath, {
 			recursive: true,
 			force: true,
 			maxRetries: 5,

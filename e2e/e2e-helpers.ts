@@ -4,6 +4,7 @@ import path from 'path';
 import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
 import fs from 'fs-extra';
 import { _electron as electron, Page, ElectronApplication } from 'playwright';
+import { rimraf } from 'rimraf';
 
 export class E2ESession {
 	electronApp: ElectronApplication;
@@ -94,11 +95,6 @@ export class E2ESession {
 		await this.electronApp?.close();
 
 		// Clean up temporary folder to hold application data
-		await fs.promises.rm( this.sessionPath, {
-			recursive: true,
-			force: true,
-			maxRetries: 5,
-			retryDelay: 500,
-		} );
+		await rimraf( this.sessionPath );
 	}
 }

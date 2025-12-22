@@ -343,7 +343,11 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 			selectedSite.id,
 			remoteSiteId
 		)( state );
-		if ( ! currentPushState || isKeyCancelled( currentPushState.status.key ) ) {
+		if (
+			! currentPushState ||
+			! currentPushState.status ||
+			isKeyCancelled( currentPushState.status.key )
+		) {
 			await getIpcApi().removeExportedSiteTmpFile( archivePath );
 			throw new Error( 'Push cancelled' );
 		}
@@ -594,7 +598,11 @@ export const pollPushProgressThunk = createTypedAsyncThunk(
 			remoteSiteId
 		)( state );
 
-		if ( ! currentPushState || isKeyCancelled( currentPushState.status.key ) ) {
+		if (
+			! currentPushState ||
+			! currentPushState.status ||
+			isKeyCancelled( currentPushState.status.key )
+		) {
 			return;
 		}
 
@@ -723,7 +731,11 @@ export const pollPullBackupThunk = createTypedAsyncThunk(
 			remoteSiteId
 		)( state );
 
-		if ( ! currentPullState || isKeyCancelled( currentPullState.status.key ) ) {
+		if (
+			! currentPullState ||
+			! currentPullState.status ||
+			isKeyCancelled( currentPullState.status.key )
+		) {
 			return;
 		}
 
@@ -806,7 +818,11 @@ export const completePullThunk = createTypedAsyncThunk(
 			remoteSiteId
 		)( state );
 
-		if ( ! currentPullState || isKeyCancelled( currentPullState.status.key ) ) {
+		if (
+			! currentPullState ||
+			! currentPullState.status ||
+			isKeyCancelled( currentPullState.status.key )
+		) {
 			return;
 		}
 
@@ -875,7 +891,11 @@ export const completePullThunk = createTypedAsyncThunk(
 				remoteSiteId
 			)( stateAfterDownload );
 
-			if ( ! pullStateAfterDownload || isKeyCancelled( pullStateAfterDownload.status.key ) ) {
+			if (
+				! pullStateAfterDownload ||
+				! pullStateAfterDownload.status ||
+				isKeyCancelled( pullStateAfterDownload.status.key )
+			) {
 				return;
 			}
 
@@ -943,7 +963,11 @@ export const completePullThunk = createTypedAsyncThunk(
 				remoteSiteId
 			)( errorState );
 
-			if ( pullStateOnError && isKeyCancelled( pullStateOnError.status.key ) ) {
+			if (
+				pullStateOnError &&
+				pullStateOnError.status &&
+				isKeyCancelled( pullStateOnError.status.key )
+			) {
 				return;
 			}
 
@@ -1020,8 +1044,8 @@ export const syncOperationsSelectors = {
 			return state.syncOperations.pushStates[ stateId ];
 		},
 	selectIsAnySitePulling: ( state: { syncOperations: SyncOperationsState } ): boolean => {
-		return Object.values( state.syncOperations.pullStates ).some( ( pullState ) =>
-			isKeyPulling( pullState.status.key )
+		return Object.values( state.syncOperations.pullStates ).some(
+			( pullState ) => pullState.status && isKeyPulling( pullState.status.key )
 		);
 	},
 	selectIsSiteIdPulling:
@@ -1035,14 +1059,18 @@ export const syncOperationsSelectors = {
 					return false;
 				}
 				if ( remoteSiteId !== undefined ) {
-					return isKeyPulling( pullState.status.key ) && pullState.remoteSiteId === remoteSiteId;
+					return (
+						pullState.status &&
+						isKeyPulling( pullState.status.key ) &&
+						pullState.remoteSiteId === remoteSiteId
+					);
 				}
-				return isKeyPulling( pullState.status.key );
+				return pullState.status && isKeyPulling( pullState.status.key );
 			} );
 		},
 	selectIsAnySitePushing: ( state: { syncOperations: SyncOperationsState } ): boolean => {
-		return Object.values( state.syncOperations.pushStates ).some( ( pushState ) =>
-			isKeyPushing( pushState.status.key )
+		return Object.values( state.syncOperations.pushStates ).some(
+			( pushState ) => pushState.status && isKeyPushing( pushState.status.key )
 		);
 	},
 	selectIsSiteIdPushing:
@@ -1056,9 +1084,13 @@ export const syncOperationsSelectors = {
 					return false;
 				}
 				if ( remoteSiteId !== undefined ) {
-					return isKeyPushing( pushState.status.key ) && pushState.remoteSiteId === remoteSiteId;
+					return (
+						pushState.status &&
+						isKeyPushing( pushState.status.key ) &&
+						pushState.remoteSiteId === remoteSiteId
+					);
 				}
-				return isKeyPushing( pushState.status.key );
+				return pushState.status && isKeyPushing( pushState.status.key );
 			} );
 		},
 };

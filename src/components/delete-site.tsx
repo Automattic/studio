@@ -1,7 +1,8 @@
 import { MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useSyncSites } from 'src/hooks/sync-sites/sync-sites-context';
+import { useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
+import { useSyncPush } from 'src/hooks/sync-sites/use-sync-push';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 
@@ -13,7 +14,8 @@ const DeleteSite = ( { onClose }: DeleteSiteProps ) => {
 	const { __ } = useI18n();
 	const { selectedSite, isDeleting } = useSiteDetails();
 	const { handleDeleteSite } = useDeleteSite();
-	const { isSiteIdPulling, isSiteIdPushing } = useSyncSites();
+	const { isSiteIdPulling } = useSyncPull();
+	const { isSiteIdPushing } = useSyncPush();
 	const isThisSiteSyncing =
 		isSiteIdPulling( selectedSite?.id ?? '' ) || isSiteIdPushing( selectedSite?.id ?? '' );
 

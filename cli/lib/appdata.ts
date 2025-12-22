@@ -25,7 +25,6 @@ const siteSchema = z
 		adminPassword: z.string().optional(),
 		isWpAutoUpdating: z.boolean().optional(),
 		running: z.boolean().optional(),
-		autoStart: z.boolean().optional(),
 		url: z.string().optional(),
 		latestCliPid: z.number().optional(),
 	} )
@@ -33,7 +32,7 @@ const siteSchema = z
 
 const betaFeaturesSchema = z
 	.object( {
-		multiWorkerSupport: z.boolean().optional(),
+		studioSitesCli: z.boolean().optional(),
 	} )
 	.passthrough();
 
@@ -65,12 +64,6 @@ export type SiteData = z.infer< typeof siteSchema >;
 type ValidatedAuthToken = Required< NonNullable< UserData[ 'authToken' ] > >;
 
 export function getAppdataDirectory(): string {
-	// Support E2E testing with custom appdata path
-	// Must include 'Studio' subfolder to match Electron app's path structure
-	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
-		return path.join( process.env.E2E_APP_DATA_PATH, 'Studio' );
-	}
-
 	if ( process.platform === 'win32' ) {
 		if ( ! process.env.APPDATA ) {
 			throw new LoggerError( __( 'Studio config file path not found.' ) );
@@ -83,7 +76,8 @@ export function getAppdataDirectory(): string {
 }
 
 export function getAppdataPath(): string {
-	return path.join( getAppdataDirectory(), 'appdata-v1.json' );
+	const appdataDir = getAppdataDirectory();
+	return path.join( appdataDir, 'appdata-v1.json' );
 }
 
 export async function readAppdata(): Promise< UserData > {
@@ -230,34 +224,6 @@ export async function clearSiteLatestCliPid( siteId: string ): Promise< void > {
 		}
 
 		delete site.latestCliPid;
-		await saveAppdata( userData );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
-export async function updateSiteAutoStart( siteId: string, autoStart: boolean ): Promise< void > {
-	try {
-		await lockAppdata();
-		const userData = await readAppdata();
-		const site = userData.sites.find( ( s ) => s.id === siteId );
-
-		if ( ! site ) {
-			throw new LoggerError( __( 'Site not found' ) );
-		}
-
-		site.autoStart = autoStart;
-		await saveAppdata( userData );
-	} finally {
-		await unlockAppdata();
-	}
-}
-
-export async function removeSiteFromAppdata( siteId: string ): Promise< void > {
-	try {
-		await lockAppdata();
-		const userData = await readAppdata();
-		userData.sites = userData.sites.filter( ( s ) => s.id !== siteId );
 		await saveAppdata( userData );
 	} finally {
 		await unlockAppdata();

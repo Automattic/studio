@@ -8,11 +8,23 @@ export interface BetaFeatureDefinition {
 }
 
 const BETA_FEATURES_DEFINITION: Record< keyof BetaFeatures, BetaFeatureDefinition > = {
+	studioSitesCli: {
+		label: 'Studio Sites CLI',
+		key: 'studioSitesCli',
+		default: false,
+		description: '"studio site" command to manage local sites from terminal',
+	},
 	multiWorkerSupport: {
 		label: 'Multi-Worker Support',
 		key: 'multiWorkerSupport',
 		default: false,
 		description: 'Enable multi-worker PHP processing for faster performance',
+	},
+	xdebugSupport: {
+		label: 'Xdebug Support',
+		key: 'xdebugSupport',
+		default: false,
+		description: 'Enable PHP debugging with Xdebug (one site at a time)',
 	},
 } as const;
 

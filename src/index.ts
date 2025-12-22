@@ -19,7 +19,12 @@ import {
 	REDUX_DEVTOOLS,
 } from 'electron-devtools-installer';
 import { PROTOCOL_PREFIX } from 'common/constants';
-import { bumpStat } from 'common/lib/bump-stat';
+import {
+	bumpStat,
+	bumpAggregatedUniqueStat,
+	AppdataProvider,
+	LastBumpStatsData,
+} from 'common/lib/bump-stat';
 import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
 import { StatsGroup } from 'common/types/stats';
 import { IPC_VOID_HANDLERS } from 'src/constants';
@@ -28,10 +33,10 @@ import {
 	hasActiveSyncOperations,
 	hasUploadingPushOperations,
 } from 'src/lib/active-sync-operations';
-import { bumpAggregatedUniqueStat } from 'src/lib/bump-stats';
 import { getPlatformMetric } from 'src/lib/bump-stats/lib';
 import { handleDeeplink } from 'src/lib/deeplink';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
+import { stopProxyServer } from 'src/lib/proxy-server';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-watcher';
 import { getWordPressProvider } from 'src/lib/wordpress-provider';
@@ -43,7 +48,6 @@ import {
 } from 'src/migrations/migrate-from-wp-now-folder';
 import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
 import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-stat';
-import { startSiteWatcher, stopSiteWatcher } from 'src/modules/cli/lib/execute-site-watch-command';
 import { updateWindowsCliVersionedPathIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
 import { stopAllServersOnQuit } from 'src/site-server';
@@ -75,6 +79,18 @@ if ( ! process.env.IS_DEV_BUILD ) {
 }
 
 suppressPunycodeWarning();
+
+const appAppdataProvider: AppdataProvider< LastBumpStatsData > = {
+	load: loadUserData,
+	lock: lockAppdata,
+	unlock: unlockAppdata,
+	save: async ( data ) => {
+		// Cast is safe: data comes from loadUserData() which returns the full UserData type.
+		// The lock/unlock is already handled by the caller (updateLastBump in common/lib/bump-stat.ts)
+		// eslint-disable-next-line studio/require-lock-before-save
+		await saveUserData( data as never );
+	},
+};
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 
@@ -313,7 +329,6 @@ async function appBoot() {
 
 		await createMainWindow();
 		await startUserDataWatcher();
-		startSiteWatcher();
 
 		const userData = await loadUserData();
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
@@ -327,14 +342,16 @@ async function appBoot() {
 		bumpAggregatedUniqueStat(
 			StatsGroup.STUDIO_APP_LAUNCH_UNIQUE,
 			getPlatformMetric( process.platform ),
-			'weekly'
-		);
+			'weekly',
+			appAppdataProvider
+		).catch( ( err ) => Sentry.captureException( err ) );
 		// Bump stat for unique monthly app launch, approximates monthly active users
 		bumpAggregatedUniqueStat(
 			StatsGroup.STUDIO_APP_LAUNCH_UNIQUE_MONTHLY,
 			getPlatformMetric( process.platform ),
-			'monthly'
-		);
+			'monthly',
+			appAppdataProvider
+		).catch( ( err ) => Sentry.captureException( err ) );
 
 		await updateWindowsCliVersionedPathIfNeeded();
 		getWordPressProvider();
@@ -396,8 +413,8 @@ async function appBoot() {
 
 	app.on( 'quit', () => {
 		void stopAllServersOnQuit();
+		stopProxyServer().catch( ( error ) => console.error( 'Error stopping proxy server:', error ) );
 		stopUserDataWatcher();
-		stopSiteWatcher();
 	} );
 
 	app.on( 'activate', () => {

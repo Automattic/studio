@@ -4,11 +4,7 @@ import { cacheFunctionTTL } from 'common/lib/cache-function-ttl';
 import { custom as PM2, StartOptions } from 'pm2';
 import { getAppdataPath } from 'cli/lib/appdata';
 import { ProcessDescription } from 'cli/lib/types/pm2';
-import {
-	ManagerMessage,
-	pm2ProcessEventSchema,
-	childMessagePm2Schema,
-} from './types/wordpress-server-ipc';
+import { ManagerMessage } from './types/wordpress-server-ipc';
 
 const PM2_STATUS_ONLINE = 'online';
 const PROXY_PROCESS_NAME = 'studio-proxy';
@@ -17,11 +13,6 @@ const DAEMON_TIMEOUT = 10000;
 // Set consistent PM2 home directory for Studio CLI
 // This ensures all Studio CLI commands use the same PM2 daemon
 const STUDIO_PM2_HOME = path.join( os.homedir(), '.studio', 'pm2' );
-
-export interface ProcessEventData {
-	processName: string;
-	event: string;
-}
 
 const pm2 = new PM2( { pm2_home: STUDIO_PM2_HOME } );
 
@@ -125,10 +116,13 @@ export function sendMessageToProcess(
 export async function startProxyProcess(): Promise< ProcessDescription > {
 	const proxyDaemonPath = path.resolve( __dirname, 'proxy-daemon.js' );
 	const env: Record< string, string > = {
-		ELECTRON_RUN_AS_NODE: '1',
 		STUDIO_USER_HOME: os.homedir(),
 		STUDIO_APPDATA_PATH: getAppdataPath(),
 	};
+
+	if ( process.env.ELECTRON_RUN_AS_NODE ) {
+		env.ELECTRON_RUN_AS_NODE = '1';
+	}
 
 	return startProcess( PROXY_PROCESS_NAME, proxyDaemonPath, env );
 }
@@ -169,9 +163,7 @@ export async function startProcess(
 			script: scriptPath,
 			exec_mode: 'fork',
 			autorestart: false,
-			// Merge process.env with custom env to ensure child processes inherit
-			// necessary environment variables (PATH, HOME, E2E vars, etc.)
-			env: { ...process.env, ...env } as Record< string, string >,
+			env: env,
 		};
 
 		pm2.start( processConfig, async ( error, apps ) => {
@@ -219,71 +211,4 @@ export async function stopProcess( processName: string ): Promise< void > {
 			resolve();
 		} );
 	} );
-}
-
-/**
- * Subscribe to PM2 process events (online, exit, stop, restart)
- * @param handler - Callback invoked when a process event occurs
- * @returns Unsubscribe function to stop listening
- */
-export async function subscribeProcessEvents(
-	handler: ( data: ProcessEventData ) => void
-): Promise< () => void > {
-	const bus = await getPm2Bus();
-
-	const eventHandler = ( data: unknown ) => {
-		const result = pm2ProcessEventSchema.safeParse( data );
-		if ( ! result.success ) {
-			return;
-		}
-
-		handler( {
-			processName: result.data.process.name,
-			event: result.data.event,
-		} );
-	};
-
-	bus.on( 'process:event', eventHandler );
-
-	return () => {
-		bus.off( 'process:event', eventHandler );
-	};
-}
-
-export interface ProcessMessageData {
-	processName: string;
-	pmId: number;
-	topic: string;
-	data?: unknown;
-}
-
-/**
- * Subscribe to PM2 process messages (IPC messages from child processes)
- * @param handler - Callback invoked when a process message is received
- * @returns Unsubscribe function to stop listening
- */
-export async function subscribeProcessMessages(
-	handler: ( data: ProcessMessageData ) => void
-): Promise< () => void > {
-	const bus = await getPm2Bus();
-
-	const messageHandler = ( packet: unknown ) => {
-		const result = childMessagePm2Schema.safeParse( packet );
-		if ( ! result.success ) {
-			return;
-		}
-
-		handler( {
-			processName: result.data.process.name,
-			pmId: result.data.process.pm_id,
-			topic: result.data.raw.topic,
-			data: result.data.raw,
-		} );
-	};
-
-	bus.on( 'process:msg', messageHandler );
-
-	return () => {
-		bus.off( 'process:msg', messageHandler );
-	};
 }

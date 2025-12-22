@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { __ } from '@wordpress/i18n';
+import { bumpAggregatedUniqueStat, AppdataProvider, LastBumpStatsData } from 'common/lib/bump-stat';
 import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import yargs from 'yargs';
@@ -10,25 +11,25 @@ import { registerCommand as registerCreateCommand } from 'cli/commands/preview/c
 import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/delete';
 import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
 import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/update';
-import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create';
-import { registerCommand as registerSiteDeleteCommand } from 'cli/commands/site/delete';
 import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
-import { registerCommand as registerSiteSetDomainCommand } from 'cli/commands/site/set-domain';
-import { registerCommand as registerSiteSetHttpsCommand } from 'cli/commands/site/set-https';
-import { registerCommand as registerSiteSetPhpVersionCommand } from 'cli/commands/site/set-php-version';
-import { registerCommand as registerSiteSetWpVersionCommand } from 'cli/commands/site/set-wp-version';
-import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
-import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
-import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
-import { registerCommand as registerSiteStopAllCommand } from 'cli/commands/site/stop-all';
-import { commandHandler as wpCliCommandHandler } from 'cli/commands/wp';
+import { readAppdata, lockAppdata, unlockAppdata, saveAppdata } from 'cli/lib/appdata';
 import { loadTranslations } from 'cli/lib/i18n';
-import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
-import { untildify } from 'cli/lib/utils';
 import { version } from 'cli/package.json';
 import { StudioArgv } from 'cli/types';
 
 suppressPunycodeWarning();
+
+const cliAppdataProvider: AppdataProvider< LastBumpStatsData > = {
+	load: readAppdata,
+	lock: lockAppdata,
+	unlock: unlockAppdata,
+	save: async ( data ) => {
+		// Cast is safe: data comes from readAppdata() which returns the full UserData type.
+		// The lock/unlock is already handled by the caller (updateLastBump in common/lib/bump-stat.ts)
+		// eslint-disable-next-line studio/require-lock-before-save
+		await saveAppdata( data as never );
+	},
+};
 
 async function main() {
 	const yargsLocale = await loadTranslations();
@@ -44,69 +45,57 @@ async function main() {
 		} )
 		.option( 'path', {
 			type: 'string',
-			normalize: true,
 			default: process.cwd(),
 			defaultDescription: __( 'Current directory' ),
 			description: __( 'Path to the WordPress files' ),
-			coerce: ( value ) => {
-				return path.resolve( untildify( value ) );
-			},
+			coerce: ( value ) => path.resolve( process.cwd(), value ),
 		} )
 		.middleware( async ( argv ) => {
 			if ( ! argv.avoidTelemetry ) {
-				await bumpAggregatedUniqueStat(
-					StatsGroup.STUDIO_CLI_USAGE_UNIQUE,
-					StatsMetric.SUCCESS,
-					'weekly'
-				);
+				try {
+					await bumpAggregatedUniqueStat(
+						StatsGroup.STUDIO_CLI_USAGE_UNIQUE,
+						StatsMetric.SUCCESS,
+						'weekly',
+						cliAppdataProvider
+					);
+				} catch ( error ) {
+					console.error( 'Failed to bump stat:', error );
+				}
 			}
 		} )
 		.command( 'auth', __( 'Manage authentication' ), ( authYargs ) => {
 			registerAuthLoginCommand( authYargs );
 			registerAuthLogoutCommand( authYargs );
 			registerAuthStatusCommand( authYargs );
-			authYargs
-				.version( false )
-				.showHelpOnFail( false )
-				.demandCommand( 1, __( 'You must provide a valid auth command' ) );
+			authYargs.demandCommand( 1, __( 'You must provide a valid auth command' ) );
 		} )
 		.command( 'preview', __( 'Manage preview sites' ), ( previewYargs ) => {
 			registerCreateCommand( previewYargs );
 			registerListCommand( previewYargs );
 			registerDeleteCommand( previewYargs );
 			registerUpdateCommand( previewYargs );
-			previewYargs
-				.version( false )
-				.showHelpOnFail( false )
-				.demandCommand( 1, __( 'You must provide a valid command' ) );
-		} )
-		.command( 'site', __( 'Manage local sites' ), ( sitesYargs ) => {
-			registerSiteStatusCommand( sitesYargs );
-			registerSiteCreateCommand( sitesYargs );
-			registerSiteListCommand( sitesYargs );
-			registerSiteStartCommand( sitesYargs );
-			registerSiteStopCommand( sitesYargs );
-			registerSiteStopAllCommand( sitesYargs );
-			registerSiteDeleteCommand( sitesYargs );
-			registerSiteSetHttpsCommand( sitesYargs );
-			registerSiteSetDomainCommand( sitesYargs );
-			registerSiteSetPhpVersionCommand( sitesYargs );
-			registerSiteSetWpVersionCommand( sitesYargs );
-			sitesYargs
-				.version( false )
-				.showHelpOnFail( false )
-				.demandCommand( 1, __( 'You must provide a valid command' ) );
-		} )
-		.command( {
-			command: 'wp',
-			describe: __( 'WP-CLI' ),
-			builder: ( wpYargs ) => {
-				return wpYargs.strict( false ).version( false ).showHelpOnFail( false );
-			},
-			handler: wpCliCommandHandler,
+			previewYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();
+
+	// Check if Studio Sites CLI beta feature is enabled
+	let isSitesCliEnabled = false;
+	try {
+		const appdata = await readAppdata();
+		isSitesCliEnabled = appdata.betaFeatures?.studioSitesCli ?? false;
+	} catch ( error ) {
+		// If we can't read appdata, the feature is not enabled
+		isSitesCliEnabled = false;
+	}
+
+	if ( isSitesCliEnabled ) {
+		studioArgv.command( 'site', __( 'Manage local sites (Beta)' ), ( sitesYargs ) => {
+			registerSiteListCommand( sitesYargs );
+			sitesYargs.demandCommand( 1, __( 'You must provide a valid command' ) );
+		} );
+	}
 
 	await studioArgv.argv;
 }

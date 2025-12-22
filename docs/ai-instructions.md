@@ -146,9 +146,9 @@ node dist/cli/main.js auth status
 
 See the existing preview site commands (create, list, delete, update) in `cli/commands/preview/`.
 
-### Local Site Commands
+### Local Site Commands (Beta)
 
-See the site management commands (create, list, start, etc) in `cli/commands/site/`.
+Local site management commands are available when the `studioSitesCli` beta feature is enabled in app data.
 
 ## WordPress Studio - Architecture Overview
 

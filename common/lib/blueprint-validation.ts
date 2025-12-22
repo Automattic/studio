@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import { compileBlueprint } from '@wp-playground/blueprints';
 import { z } from 'zod';
 
 interface UnsupportedFeature {
@@ -14,18 +15,18 @@ const UNSUPPORTED_BLUEPRINT_FEATURES: UnsupportedFeature[] = [
 	{
 		type: 'step',
 		name: 'enableMultisite',
-		reason: __( 'Multisite functionality is not currently supported in Studio' ),
+		reason: __( 'Multisite functionality is not currently supported in Studio.' ),
 	},
 	{
 		type: 'step',
 		name: 'login',
-		reason: __( 'Studio automatically creates and logs in the admin user during site creation' ),
+		reason: __( 'Studio automatically creates and logs in the admin user during site creation.' ),
 	},
 	{
 		type: 'step',
 		name: 'defineSiteUrl',
 		reason: __(
-			'Studio manages site URLs internally and cannot accept custom URLs from blueprints'
+			'Custom site URLs in blueprints are ignored. You can set a custom site URL on the Settings tab.'
 		),
 	},
 ];
@@ -37,7 +38,7 @@ const UNSUPPORTED_BLUEPRINT_PROPERTIES: UnsupportedFeature[] = [
 	{
 		type: 'property',
 		name: 'landingPage',
-		reason: __( 'Studio manages its own navigation and landing pages' ),
+		reason: __( 'Studio manages its own navigation and landing pages.' ),
 	},
 ];
 
@@ -147,6 +148,8 @@ export async function validateBlueprintData(
 
 	try {
 		const result = schema.parse( blueprintJson );
+		await compileBlueprint( result );
+
 		const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( result );
 		const warnings = unsupportedFeatures.map( ( feature ) => ( {
 			feature: feature.name,

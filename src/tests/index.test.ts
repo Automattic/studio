@@ -11,7 +11,10 @@ jest.mock( 'fs' );
 jest.mock( 'file-stream-rotator' );
 jest.mock( 'src/main-window' );
 jest.mock( 'src/updates' );
-jest.mock( 'src/lib/bump-stats' );
+jest.mock( 'common/lib/bump-stat', () => ( {
+	bumpStat: jest.fn(),
+	bumpAggregatedUniqueStat: jest.fn( () => Promise.resolve() ),
+} ) );
 jest.mock( 'src/lib/user-data-watcher' );
 jest.mock( 'src/setup-wp-server-files', () => ( {
 	setupWPServerFiles: jest.fn( () => Promise.resolve() ),

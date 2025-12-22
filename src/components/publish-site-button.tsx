@@ -22,7 +22,9 @@ export const PublishSiteButton = () => {
 
 	const handlePublishClick = useCallback( () => {
 		if ( ! selectedSite ) return;
-		getIpcApi().openURL( generateCheckoutUrl( selectedSite, 'publish-site' ) );
+		getIpcApi().openURL(
+			generateCheckoutUrl( selectedSite, 'publish-site', { autoOpenPush: true } )
+		);
 	}, [ selectedSite ] );
 
 	if ( ! selectedSite || connectedSites.length !== 0 ) return null;

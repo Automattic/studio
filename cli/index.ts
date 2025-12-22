@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { __ } from '@wordpress/i18n';
+import { bumpAggregatedUniqueStat, AppdataProvider, LastBumpStatsData } from 'common/lib/bump-stat';
 import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import yargs from 'yargs';
@@ -11,13 +12,24 @@ import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/d
 import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
 import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/update';
 import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
-import { readAppdata } from 'cli/lib/appdata';
+import { readAppdata, lockAppdata, unlockAppdata, saveAppdata } from 'cli/lib/appdata';
 import { loadTranslations } from 'cli/lib/i18n';
-import { bumpAggregatedUniqueStat } from 'cli/lib/stats';
 import { version } from 'cli/package.json';
 import { StudioArgv } from 'cli/types';
 
 suppressPunycodeWarning();
+
+const cliAppdataProvider: AppdataProvider< LastBumpStatsData > = {
+	load: readAppdata,
+	lock: lockAppdata,
+	unlock: unlockAppdata,
+	save: async ( data ) => {
+		// Cast is safe: data comes from readAppdata() which returns the full UserData type.
+		// The lock/unlock is already handled by the caller (updateLastBump in common/lib/bump-stat.ts)
+		// eslint-disable-next-line studio/require-lock-before-save
+		await saveAppdata( data as never );
+	},
+};
 
 async function main() {
 	const yargsLocale = await loadTranslations();
@@ -40,11 +52,16 @@ async function main() {
 		} )
 		.middleware( async ( argv ) => {
 			if ( ! argv.avoidTelemetry ) {
-				await bumpAggregatedUniqueStat(
-					StatsGroup.STUDIO_CLI_USAGE_UNIQUE,
-					StatsMetric.SUCCESS,
-					'weekly'
-				);
+				try {
+					await bumpAggregatedUniqueStat(
+						StatsGroup.STUDIO_CLI_USAGE_UNIQUE,
+						StatsMetric.SUCCESS,
+						'weekly',
+						cliAppdataProvider
+					);
+				} catch ( error ) {
+					console.error( 'Failed to bump stat:', error );
+				}
 			}
 		} )
 		.command( 'auth', __( 'Manage authentication' ), ( authYargs ) => {

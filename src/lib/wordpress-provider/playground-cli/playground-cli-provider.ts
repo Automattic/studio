@@ -28,6 +28,7 @@ export interface PlaygroundCliOptions {
 	wordpressInstallMode: WordPressInstallMode;
 	blueprint?: Blueprint;
 	enableMultiWorker?: boolean;
+	enableXdebug?: boolean;
 }
 
 export const PLAYGROUND_CLI_PROVIDER_NAME = 'playground-cli';
@@ -61,16 +62,21 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		siteLanguage?: string;
 		wpCliPharPath?: string;
 		blueprint?: Blueprint;
+		enableXdebug?: boolean;
 	} ): Promise< WordPressServerInstance > {
 		const port = options.port;
 		const phpVersion = options.phpVersion || '8.3';
 		const hasWordPress = isWordPressDirectory( options.path );
 
-		// Get beta features to check if multi-worker support is enabled
+		// Get beta features to check if multi-worker and xdebug support are enabled
 		const betaFeatures = await getBetaFeatures();
 
 		if ( betaFeatures.multiWorkerSupport ) {
 			console.log( '[PlaygroundCliProvider] Multi-worker support is enabled via beta features' );
+		}
+
+		if ( betaFeatures.xdebugSupport && options.enableXdebug ) {
+			console.log( '[PlaygroundCliProvider] Xdebug support is enabled for this site' );
 		}
 
 		const playgroundOptions: PlaygroundCliOptions = {
@@ -83,6 +89,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 				: 'download-and-install',
 			blueprint: options.blueprint,
 			enableMultiWorker: betaFeatures.multiWorkerSupport,
+			enableXdebug: betaFeatures.xdebugSupport && options.enableXdebug,
 		};
 
 		const serverOptions: WordPressServerOptions = {

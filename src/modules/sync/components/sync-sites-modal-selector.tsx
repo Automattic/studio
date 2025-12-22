@@ -172,6 +172,9 @@ export function SitesListContent( {
 		);
 	} );
 	const isEmpty = filteredSites.length === 0;
+	const emptyMessage = searchQuery
+		? sprintf( __( 'No sites found for "%s"' ), searchQuery )
+		: __( 'No sites found' );
 
 	return (
 		<>
@@ -180,16 +183,10 @@ export function SitesListContent( {
 				{ isLoading && (
 					<div className="flex justify-center items-center h-full">{ __( 'Loading sites…' ) }</div>
 				) }
-
-				{ ! isLoading && isEmpty && searchQuery && (
-					<div className="flex justify-center items-center h-full">
-						{ sprintf( __( 'No sites found for "%s"' ), searchQuery ) }
-					</div>
+				{ ! isLoading && isEmpty && (
+					<div className="flex justify-center items-center h-full">{ emptyMessage }</div>
 				) }
-
-				{ ! isLoading && isEmpty ? (
-					<div className="flex justify-center items-center h-full">{ __( 'No sites found' ) }</div>
-				) : (
+				{ ! isLoading && ! isEmpty && (
 					<ListSites
 						syncSites={ filteredSites }
 						selectedSiteId={ selectedSiteId }

@@ -19,7 +19,12 @@ import {
 	REDUX_DEVTOOLS,
 } from 'electron-devtools-installer';
 import { PROTOCOL_PREFIX } from 'common/constants';
-import { bumpStat } from 'common/lib/bump-stat';
+import {
+	bumpStat,
+	bumpAggregatedUniqueStat,
+	AppdataProvider,
+	LastBumpStatsData,
+} from 'common/lib/bump-stat';
 import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
 import { StatsGroup } from 'common/types/stats';
 import { IPC_VOID_HANDLERS } from 'src/constants';
@@ -28,7 +33,6 @@ import {
 	hasActiveSyncOperations,
 	hasUploadingPushOperations,
 } from 'src/lib/active-sync-operations';
-import { bumpAggregatedUniqueStat } from 'src/lib/bump-stats';
 import { getPlatformMetric } from 'src/lib/bump-stats/lib';
 import { handleDeeplink } from 'src/lib/deeplink';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
@@ -75,6 +79,18 @@ if ( ! process.env.IS_DEV_BUILD ) {
 }
 
 suppressPunycodeWarning();
+
+const appAppdataProvider: AppdataProvider< LastBumpStatsData > = {
+	load: loadUserData,
+	lock: lockAppdata,
+	unlock: unlockAppdata,
+	save: async ( data ) => {
+		// Cast is safe: data comes from loadUserData() which returns the full UserData type.
+		// The lock/unlock is already handled by the caller (updateLastBump in common/lib/bump-stat.ts)
+		// eslint-disable-next-line studio/require-lock-before-save
+		await saveUserData( data as never );
+	},
+};
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 
@@ -326,14 +342,16 @@ async function appBoot() {
 		bumpAggregatedUniqueStat(
 			StatsGroup.STUDIO_APP_LAUNCH_UNIQUE,
 			getPlatformMetric( process.platform ),
-			'weekly'
-		);
+			'weekly',
+			appAppdataProvider
+		).catch( ( err ) => Sentry.captureException( err ) );
 		// Bump stat for unique monthly app launch, approximates monthly active users
 		bumpAggregatedUniqueStat(
 			StatsGroup.STUDIO_APP_LAUNCH_UNIQUE_MONTHLY,
 			getPlatformMetric( process.platform ),
-			'monthly'
-		);
+			'monthly',
+			appAppdataProvider
+		).catch( ( err ) => Sentry.captureException( err ) );
 
 		await updateWindowsCliVersionedPathIfNeeded();
 		getWordPressProvider();

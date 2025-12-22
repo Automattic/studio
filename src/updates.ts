@@ -31,7 +31,7 @@ export function setupUpdates() {
 
 	const url = new URL( 'https://public-api.wordpress.com/wpcom/v2/studio-app/updates' );
 	url.searchParams.append( 'platform', process.platform );
-	url.searchParams.append( 'arch', process.arch );
+	url.searchParams.append( 'studioArch', process.arch );
 	url.searchParams.append( 'version', app.getVersion() );
 
 	autoUpdater.setFeedURL( { url: url.toString() } );
@@ -158,7 +158,10 @@ async function showUpdateAvailableNotice() {
 		type: 'info',
 		buttons: [ __( 'OK' ) ],
 		title: __( 'New Version Available' ),
-		message: __( 'The latest version is being downloaded.' ),
+		message: __( 'Downloading update in the background' ),
+		detail: __(
+			'Studio will notify you when the update is ready to install. You can continue working normally.'
+		),
 	} );
 }
 
@@ -169,7 +172,10 @@ async function showUpdateUnavailableNotice() {
 		type: 'info',
 		buttons: [ __( 'OK' ) ],
 		title: __( 'Application Update' ),
-		message: __( 'You are already running the latest version.' ),
+		message: __( 'No updates available' ),
+		detail: __(
+			"You're already running the latest version of Studio. No update is needed at this time."
+		),
 	} );
 }
 
@@ -179,9 +185,12 @@ async function showUpdateReadyToInstallNotice() {
 		type: 'info',
 		buttons: [ __( 'Restart' ), __( 'Later' ) ],
 		title: __( 'Application Update' ),
-		message: __(
-			'A new version has been downloaded. Restart the application to apply the updates.'
+		message: __( 'Update ready to install' ),
+		detail: __(
+			'Restart Studio now to install the update, or choose Later to continue working and restart when convenient.'
 		),
+		defaultId: 0,
+		cancelId: 1,
 	} );
 
 	if ( response === 0 ) {

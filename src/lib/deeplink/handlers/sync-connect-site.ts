@@ -9,8 +9,13 @@ export async function handleSyncConnectSiteDeeplink( urlObject: URL ): Promise< 
 	const { searchParams } = urlObject;
 	const remoteSiteId = parseInt( searchParams.get( 'remoteSiteId' ) ?? '' );
 	const studioSiteId = searchParams.get( 'studioSiteId' );
+	const autoOpenPush = searchParams.get( 'autoOpenPush' ) === 'true';
 
 	if ( remoteSiteId && studioSiteId ) {
-		void sendIpcEventToRenderer( 'sync-connect-site', { remoteSiteId, studioSiteId } );
+		void sendIpcEventToRenderer( 'sync-connect-site', {
+			remoteSiteId,
+			studioSiteId,
+			autoOpenPush,
+		} );
 	}
 }

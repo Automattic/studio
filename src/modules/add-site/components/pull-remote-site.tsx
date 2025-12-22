@@ -162,7 +162,9 @@ export function PullRemoteSite( {
 			</Heading>
 			{ isAuthenticated ? (
 				<VStack className="flex flex-col w-full max-w-[650px] flex-1 text-a8c-gray-900">
-					{ hasSites && (
+					{ showNoSitesView ? (
+						<NoWpcomSitesView />
+					) : (
 						<SitesListContent
 							isLoading={ isLoading }
 							syncSites={ syncSites }
@@ -170,8 +172,6 @@ export function PullRemoteSite( {
 							onSelectSite={ handleSiteSelect }
 						/>
 					) }
-
-					{ showNoSitesView && <NoWpcomSitesView /> }
 				</VStack>
 			) : (
 				<NoAuthPullRemoteSiteView />

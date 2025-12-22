@@ -25,6 +25,7 @@ import { sanitizeRunCLIArgs } from 'common/lib/cli-args-sanitizer';
 import { isWordPressDirectory } from 'common/lib/fs-utils';
 import { getMuPlugins } from 'common/lib/mu-plugins';
 import { formatPlaygroundCliMessage } from 'common/lib/playground-cli-messages';
+import { sequential } from 'common/lib/sequential';
 import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
 import { z } from 'zod';
 import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
@@ -224,30 +225,40 @@ function wrapWithStartingPromise< Args extends unknown[], Return extends void >(
 	};
 }
 
-const startServer = wrapWithStartingPromise( async ( config: ServerConfig ): Promise< void > => {
-	if ( server ) {
-		logToConsole( `Server already running for site ${ config.siteId }` );
-		return;
-	}
-
-	try {
-		const args = await getBaseRunCLIArgs( 'server', config );
-		lastCliArgs = sanitizeRunCLIArgs( args );
-		server = await runCLI( args );
-
-		if ( config.enableMultiWorker && server ) {
-			logToConsole( `Server started with ${ server.workerThreadCount } worker thread(s)` );
+const startServer = wrapWithStartingPromise(
+	async ( config: ServerConfig, signal: AbortSignal ): Promise< void > => {
+		if ( server ) {
+			logToConsole( `Server already running for site ${ config.siteId }` );
+			return;
 		}
 
-		if ( config.adminPassword ) {
-			await setAdminPassword( server, config.adminPassword );
+		try {
+			signal.addEventListener(
+				'abort',
+				() => {
+					throw new Error( 'Operation aborted' );
+				},
+				{ once: true }
+			);
+
+			const args = await getBaseRunCLIArgs( 'server', config );
+			lastCliArgs = sanitizeRunCLIArgs( args );
+			server = await runCLI( args );
+
+			if ( config.enableMultiWorker && server ) {
+				logToConsole( `Server started with ${ server.workerThreadCount } worker thread(s)` );
+			}
+
+			if ( config.adminPassword ) {
+				await setAdminPassword( server, config.adminPassword );
+			}
+		} catch ( error ) {
+			server = null;
+			errorToConsole( `Failed to start server:`, error );
+			throw error;
 		}
-	} catch ( error ) {
-		server = null;
-		errorToConsole( `Failed to start server:`, error );
-		throw error;
 	}
-} );
+);
 
 const STOP_SERVER_TIMEOUT = 5000;
 
@@ -272,8 +283,16 @@ async function stopServer(): Promise< void > {
 	}
 }
 
-async function runBlueprint( config: ServerConfig ): Promise< void > {
+async function runBlueprint( config: ServerConfig, signal: AbortSignal ): Promise< void > {
 	try {
+		signal.addEventListener(
+			'abort',
+			() => {
+				throw new Error( 'Operation aborted' );
+			},
+			{ once: true }
+		);
+
 		const args = await getBaseRunCLIArgs( 'run-blueprint', config );
 		lastCliArgs = sanitizeRunCLIArgs( args );
 		await runCLI( args );
@@ -285,30 +304,42 @@ async function runBlueprint( config: ServerConfig ): Promise< void > {
 	}
 }
 
-async function runWpCliCommand(
-	args: string[]
-): Promise< { stdout: string; stderr: string; exitCode: number } > {
-	await Promise.allSettled( [ startingPromise ] );
+const runWpCliCommand = sequential(
+	async (
+		args: string[],
+		signal: AbortSignal
+	): Promise< { stdout: string; stderr: string; exitCode: number } > => {
+		await Promise.allSettled( [ startingPromise ] );
 
-	if ( ! server ) {
-		throw new Error( `Failed to run WP CLI command because server is not running` );
-	}
+		if ( ! server ) {
+			throw new Error( `Failed to run WP CLI command because server is not running` );
+		}
 
-	const response = await server.playground.cli( [
-		'php',
-		'/tmp/wp-cli.phar',
-		`--path=${ await server.playground.documentRoot }`,
-		...args,
-	] );
+		signal.addEventListener(
+			'abort',
+			() => {
+				throw new Error( 'Operation aborted' );
+			},
+			{ once: true }
+		);
 
-	return {
-		stdout: await response.stdoutText,
-		stderr: await response.stderrText,
-		exitCode: await response.exitCode,
-	};
-}
+		const response = await server.playground.cli( [
+			'php',
+			'/tmp/wp-cli.phar',
+			`--path=${ await server.playground.documentRoot }`,
+			...args,
+		] );
 
-function sendErrorMessage( messageId: number, error: unknown ) {
+		return {
+			stdout: await response.stdoutText,
+			stderr: await response.stderrText,
+			exitCode: await response.exitCode,
+		};
+	},
+	{ concurrent: 3, max: 10 }
+);
+
+function sendErrorMessage( messageId: string, error: unknown ) {
 	const errorResponse: ChildMessageRaw = {
 		originalMessageId: messageId,
 		topic: 'error',
@@ -319,13 +350,15 @@ function sendErrorMessage( messageId: number, error: unknown ) {
 	process.send!( errorResponse );
 }
 
+const abortControllers: Record< string, AbortController > = {};
+
 async function ipcMessageHandler( packet: unknown ) {
 	const messageResult = managerMessageSchema.safeParse( packet );
 
 	if ( ! messageResult.success ) {
 		errorToConsole( 'Invalid message received:', messageResult.error );
 
-		const minimalMessageSchema = z.object( { id: z.number() } );
+		const minimalMessageSchema = z.object( { id: z.string() } );
 		const minimalMessage = minimalMessageSchema.safeParse( packet );
 		if ( minimalMessage.success ) {
 			sendErrorMessage( minimalMessage.data.id, messageResult.error );
@@ -334,22 +367,36 @@ async function ipcMessageHandler( packet: unknown ) {
 	}
 
 	const validMessage = messageResult.data;
+	if ( validMessage.topic !== 'abort' ) {
+		abortControllers[ validMessage.messageId ] = new AbortController();
+	}
+	const abortController = abortControllers[ validMessage.messageId ];
 
 	try {
 		let result: unknown;
 
 		switch ( validMessage.topic ) {
+			case 'abort':
+				abortController?.abort();
+				delete abortControllers[ validMessage.messageId ];
+				return;
 			case 'start-server':
-				result = await startServer( validMessage.data.config );
+				result = await startServer( validMessage.data.config, abortController.signal );
 				break;
 			case 'run-blueprint':
-				result = await runBlueprint( validMessage.data.config );
+				result = await runBlueprint( validMessage.data.config, abortController.signal );
 				break;
 			case 'stop-server':
 				result = await stopServer();
 				break;
 			case 'wp-cli-command':
-				result = await runWpCliCommand( validMessage.data.args );
+				try {
+					result = await runWpCliCommand( validMessage.data.args, abortController.signal );
+				} catch ( wpCliError ) {
+					errorToConsole( `WP-CLI error:`, wpCliError );
+					sendErrorMessage( validMessage.messageId, wpCliError );
+					return; // Don't crash, just return error to caller
+				}
 				break;
 			default:
 				throw new Error( `Unknown message.` );

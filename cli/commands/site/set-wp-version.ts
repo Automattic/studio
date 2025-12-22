@@ -13,6 +13,7 @@ import {
 	readAppdata,
 	saveAppdata,
 	unlockAppdata,
+	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
@@ -77,7 +78,10 @@ export async function runCommand( siteFolder: string, wpVersion: string ): Promi
 
 		if ( processDescription ) {
 			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress site…' ) );
-			await startWordPressServer( site, logger );
+			const processDesc = await startWordPressServer( site, logger );
+			if ( processDesc.pid ) {
+				await updateSiteLatestCliPid( site.id, processDesc.pid );
+			}
 			logger.reportSuccess( __( 'WordPress site started' ) );
 		}
 

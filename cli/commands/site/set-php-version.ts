@@ -8,6 +8,7 @@ import {
 	readAppdata,
 	saveAppdata,
 	unlockAppdata,
+	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import {
@@ -57,7 +58,10 @@ export async function runCommand(
 		if ( runningProcess ) {
 			logger.reportStart( LoggerAction.START_SITE, __( 'Restarting site…' ) );
 			await stopWordPressServer( site.id );
-			await startWordPressServer( site, logger );
+			const processDesc = await startWordPressServer( site, logger );
+			if ( processDesc.pid ) {
+				await updateSiteLatestCliPid( site.id, processDesc.pid );
+			}
 			logger.reportSuccess( __( 'Site restarted' ) );
 		}
 	} finally {

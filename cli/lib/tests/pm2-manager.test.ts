@@ -281,7 +281,8 @@ describe( 'PM2 Manager', () => {
 
 			const message: ManagerMessage = {
 				topic: 'stop-server',
-				messageId: 1,
+				messageId: '1',
+				data: {},
 			};
 
 			await sendMessageToProcess( 42, message );
@@ -302,7 +303,8 @@ describe( 'PM2 Manager', () => {
 
 			const message: ManagerMessage = {
 				topic: 'stop-server',
-				messageId: 1,
+				messageId: '1',
+				data: {},
 			};
 
 			await expect( sendMessageToProcess( 42, message ) ).rejects.toThrow( 'Send failed' );

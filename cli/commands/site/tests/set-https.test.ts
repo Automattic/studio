@@ -1,5 +1,12 @@
 import { arePathsEqual } from 'common/lib/fs-utils';
-import { SiteData, lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
+import {
+	SiteData,
+	lockAppdata,
+	readAppdata,
+	saveAppdata,
+	unlockAppdata,
+	updateSiteLatestCliPid,
+} from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import {
 	isServerRunning,
@@ -14,6 +21,7 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	readAppdata: jest.fn(),
 	saveAppdata: jest.fn(),
 	unlockAppdata: jest.fn(),
+	updateSiteLatestCliPid: jest.fn(),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
@@ -63,6 +71,7 @@ describe( 'CLI: studio site set-https', () => {
 		( startWordPressServer as jest.Mock ).mockResolvedValue( mockProcessDescription );
 		( stopWordPressServer as jest.Mock ).mockResolvedValue( undefined );
 		( arePathsEqual as jest.Mock ).mockImplementation( ( a: string, b: string ) => a === b );
+		( updateSiteLatestCliPid as jest.Mock ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -159,6 +168,7 @@ describe( 'CLI: studio site set-https', () => {
 			expect( isServerRunning ).toHaveBeenCalledWith( mockSiteData.id );
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
+			expect( updateSiteLatestCliPid ).not.toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -179,6 +189,7 @@ describe( 'CLI: studio site set-https', () => {
 
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
+			expect( updateSiteLatestCliPid ).not.toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -198,6 +209,10 @@ describe( 'CLI: studio site set-https', () => {
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.any( Object ),
 				expect.any( Logger )
+			);
+			expect( updateSiteLatestCliPid ).toHaveBeenCalledWith(
+				mockSiteData.id,
+				mockProcessDescription.pid
 			);
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -221,6 +236,10 @@ describe( 'CLI: studio site set-https', () => {
 			expect( isServerRunning ).toHaveBeenCalledWith( mockSiteData.id );
 			expect( stopWordPressServer ).toHaveBeenCalledWith( mockSiteData.id );
 			expect( startWordPressServer ).toHaveBeenCalled();
+			expect( updateSiteLatestCliPid ).toHaveBeenCalledWith(
+				mockSiteData.id,
+				mockProcessDescription.pid
+			);
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 	} );

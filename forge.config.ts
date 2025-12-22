@@ -129,7 +129,7 @@ const config: ForgeConfig = {
 			await execAsync( 'npm run cli:build' );
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
-			await execAsync( `./scripts/download-node-binary.sh ${ platform } ${ arch }` );
+			await execAsync( `node ./scripts/download-node-binary.js ${ platform } ${ arch }` );
 		},
 	},
 };

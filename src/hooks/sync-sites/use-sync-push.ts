@@ -1,27 +1,19 @@
-import { sprintf } from '@wordpress/i18n';
-import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect, useRef } from 'react';
-import {
-	ClearState,
-	generateStateId,
-	GetState,
-	UpdateState,
-} from 'src/hooks/sync-sites/use-pull-push-states';
+import { useCallback } from 'react';
+import { ClearState, GetState } from 'src/hooks/sync-sites/use-pull-push-states';
 import { useSyncPolling } from 'src/hooks/sync-sites/use-sync-polling';
 import { useAuth } from 'src/hooks/use-auth';
 import {
+	ImportResponse,
 	useSyncStatesProgressInfo,
 	PushStateProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { getHostnameFromUrl } from 'src/lib/url-utils';
 import { store, useAppDispatch, useRootSelector, type RootState } from 'src/stores';
 import {
 	syncOperationsActions,
 	syncOperationsSelectors,
 	syncOperationsThunks,
 } from 'src/stores/sync';
-import type { ImportResponse } from 'src/hooks/use-sync-states-progress-info';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
 
@@ -86,100 +78,24 @@ export function mapImportResponseToPushState(
 }
 
 export function useSyncPush( { onPushSuccess }: UseSyncPushProps = {} ): UseSyncPush {
-	const { __ } = useI18n();
 	const { client } = useAuth();
 
 	const dispatch = useAppDispatch();
 	const pushStates = useRootSelector(
 		syncOperationsSelectors.selectPushStates as ( state: RootState ) => PushStates
 	);
-	const pushStatesRef = useRef( pushStates );
-
-	// Keep ref in sync with Redux state
-	useEffect( () => {
-		pushStatesRef.current = pushStates;
-	}, [ pushStates ] );
-
-	const updateState = useCallback< UpdateState< SyncPushState > >(
-		( selectedSiteId, remoteSiteId, state ) => {
-			const stateId = generateStateId( selectedSiteId, remoteSiteId );
-			// Immediately update the ref so getPushState returns the latest value
-			pushStatesRef.current = {
-				...pushStatesRef.current,
-				[ stateId ]: {
-					...pushStatesRef.current[ stateId ],
-					...state,
-				} as SyncPushState,
-			};
-			dispatch(
-				syncOperationsActions.updatePushState( {
-					selectedSiteId,
-					remoteSiteId,
-					state,
-				} )
-			);
-		},
-		[ dispatch ]
-	);
+	const { pushStatesProgressInfo } = useSyncStatesProgressInfo();
 
 	const getPushState = useCallback< GetState< SyncPushState > >(
 		( selectedSiteId, remoteSiteId ) => {
-			const stateId = generateStateId( selectedSiteId, remoteSiteId );
-			return pushStatesRef.current[ stateId ];
+			const state = store.getState();
+			return syncOperationsSelectors.selectPushState( selectedSiteId, remoteSiteId )( state );
 		},
 		[]
 	);
 
-	const clearState = useCallback< ClearState >(
-		( selectedSiteId, remoteSiteId ) => {
-			const stateId = generateStateId( selectedSiteId, remoteSiteId );
-			// Immediately update the ref so getPushState returns undefined right away
-			const newStates = { ...pushStatesRef.current };
-			delete newStates[ stateId ];
-			pushStatesRef.current = newStates;
-			dispatch(
-				syncOperationsActions.clearPushState( {
-					selectedSiteId,
-					remoteSiteId,
-				} )
-			);
-		},
-		[ dispatch ]
-	);
-	const {
-		pushStatesProgressInfo,
-		isKeyPushing,
-		isKeyImporting,
-		isKeyFinished,
-		isKeyFailed,
-		isKeyCancelled,
-		getPushStatusWithProgress,
-	} = useSyncStatesProgressInfo();
-
-	const updatePushState = useCallback< UpdateState< SyncPushState > >(
-		( selectedSiteId, remoteSiteId, state ) => {
-			updateState( selectedSiteId, remoteSiteId, state );
-			const statusKey = state.status?.key;
-
-			if ( isKeyFailed( statusKey ) || isKeyFinished( statusKey ) || isKeyCancelled( statusKey ) ) {
-				getIpcApi().clearSyncOperation( generateStateId( selectedSiteId, remoteSiteId ) );
-			} else if ( state.status ) {
-				getIpcApi().addSyncOperation(
-					generateStateId( selectedSiteId, remoteSiteId ),
-					state.status
-				);
-			}
-		},
-		[ isKeyFailed, isKeyFinished, isKeyCancelled, updateState ]
-	);
-
 	const clearPushState = useCallback< ClearState >(
 		( selectedSiteId, remoteSiteId ) => {
-			const stateId = generateStateId( selectedSiteId, remoteSiteId );
-			// Immediately update the ref so getPushState returns undefined right away
-			const newStates = { ...pushStatesRef.current };
-			delete newStates[ stateId ];
-			pushStatesRef.current = newStates;
 			// Dispatch both the action and the thunk
 			dispatch( syncOperationsActions.clearPushState( { selectedSiteId, remoteSiteId } ) );
 			void dispatch( syncOperationsThunks.clearPushState( { selectedSiteId, remoteSiteId } ) );
@@ -192,87 +108,16 @@ export function useSyncPush( { onPushSuccess }: UseSyncPushProps = {} ): UseSync
 			if ( ! client ) {
 				return;
 			}
-			const currentState = getPushState( syncPushState.selectedSite.id, remoteSiteId );
-
-			if ( ! currentState || isKeyCancelled( currentState?.status.key ) ) {
-				return;
-			}
-
-			const response = await client.req.get< ImportResponse >(
-				`/sites/${ remoteSiteId }/studio-app/sync/import`,
-				{
-					apiNamespace: 'wpcom/v2',
-				}
+			void dispatch(
+				syncOperationsThunks.pollPushProgress( {
+					client,
+					selectedSiteId: syncPushState.selectedSite.id,
+					remoteSiteId,
+					pushStatesProgressInfo,
+				} )
 			);
-
-			let status: PushStateProgressInfo = pushStatesProgressInfo.creatingRemoteBackup;
-			if ( response.success && response.status === 'finished' ) {
-				status = pushStatesProgressInfo.finished;
-				onPushSuccess?.( remoteSiteId, syncPushState.selectedSite.id );
-				getIpcApi().showNotification( {
-					title: syncPushState.selectedSite.name,
-					body: sprintf(
-						// translators: %s is the site url without the protocol.
-						__( '%s has been updated' ),
-						getHostnameFromUrl( syncPushState.remoteSiteUrl )
-					),
-				} );
-			} else if ( response.success && response.status === 'failed' ) {
-				status = pushStatesProgressInfo.failed;
-				console.error( 'Push import failed:', {
-					remoteSiteId: syncPushState.remoteSiteId,
-					error: response.error,
-					error_data: response.error_data,
-				} );
-				// If the impport fails due to a SQL import error, show a more specific message
-				const restoreMessage = response.error_data?.vp_restore_message || '';
-				const isSqlImportFailure = /importing sql dump/i.test( restoreMessage );
-				const isImportTimedOut = response.error === 'Import timed out';
-				let message: string;
-				if ( isSqlImportFailure ) {
-					message = __(
-						'Database import failed on the remote site. Please review your database and try again or contact support and provide details from the logs below.'
-					);
-				} else if ( isImportTimedOut ) {
-					message = __(
-						"A timeout error occurred while pushing the site, likely due to its large size. Please try reducing the site's content or files and try again. If this problem persists, please contact support."
-					);
-				} else {
-					message = __(
-						'An error occurred while pushing the site. If this problem persists, please contact support.'
-					);
-				}
-
-				getIpcApi().showErrorMessageBox( {
-					title: sprintf( __( 'Error pushing to %s' ), syncPushState.selectedSite.name ),
-					message,
-					showOpenLogs: true,
-				} );
-			} else if ( response.success && response.status === 'archive_import_started' ) {
-				status = pushStatesProgressInfo.applyingChanges;
-			} else if ( response.success && response.status === 'archive_import_finished' ) {
-				status = pushStatesProgressInfo.finishing;
-			}
-			status = getPushStatusWithProgress( status, response );
-			// Update state in any case to keep polling push state
-			updatePushState( syncPushState.selectedSite.id, syncPushState.remoteSiteId, {
-				status,
-			} );
 		},
-		[
-			__,
-			client,
-			getPushState,
-			getPushStatusWithProgress,
-			onPushSuccess,
-			pushStatesProgressInfo.applyingChanges,
-			pushStatesProgressInfo.creatingRemoteBackup,
-			pushStatesProgressInfo.finishing,
-			pushStatesProgressInfo.failed,
-			pushStatesProgressInfo.finished,
-			updatePushState,
-			isKeyCancelled,
-		]
+		[ client, dispatch, pushStatesProgressInfo ]
 	);
 
 	const pushSite = useCallback< PushSite >(
@@ -291,11 +136,6 @@ export function useSyncPush( { onPushSuccess }: UseSyncPushProps = {} ): UseSync
 					} )
 				).unwrap();
 
-				// Sync ref again after thunk completes to ensure we have the final state
-				const finalState = store.getState();
-				const finalPushStates = syncOperationsSelectors.selectPushStates( finalState );
-				pushStatesRef.current = finalPushStates;
-
 				// If thunk completed successfully and returned polling info, start polling
 				if ( result.shouldStartPolling ) {
 					const stateForPolling: SyncPushState = {
@@ -307,11 +147,6 @@ export function useSyncPush( { onPushSuccess }: UseSyncPushProps = {} ): UseSync
 					void getPushProgressInfo( result.remoteSiteId, stateForPolling );
 				}
 			} catch ( error ) {
-				// Sync ref even on error to ensure state is up to date
-				const currentState = store.getState();
-				const latestPushStates = syncOperationsSelectors.selectPushStates( currentState );
-				pushStatesRef.current = latestPushStates;
-
 				// Errors are already handled in the thunk (state updates, error messages)
 				// Just log if it's an unexpected error
 				if ( ! ( error instanceof Error && error.message === 'Export aborted' ) ) {
@@ -323,12 +158,11 @@ export function useSyncPush( { onPushSuccess }: UseSyncPushProps = {} ): UseSync
 	);
 
 	// Poll for push progress when states are in importing status
-	const shouldPollPush = useCallback(
-		( state: SyncPushState ) => {
-			return ! isKeyCancelled( state.status.key ) && isKeyImporting( state.status.key );
-		},
-		[ isKeyCancelled, isKeyImporting ]
-	);
+	// Importing keys: creatingRemoteBackup, applyingChanges, finishing
+	const shouldPollPush = useCallback( ( state: SyncPushState ) => {
+		const importingKeys = [ 'creatingRemoteBackup', 'applyingChanges', 'finishing' ];
+		return state.status.key !== 'cancelled' && importingKeys.includes( state.status.key );
+	}, [] );
 
 	const pollPushProgress = useCallback(
 		( _key: string, state: SyncPushState ) => {
@@ -341,23 +175,10 @@ export function useSyncPush( { onPushSuccess }: UseSyncPushProps = {} ): UseSync
 
 	const isAnySitePushing = useRootSelector( syncOperationsSelectors.selectIsAnySitePushing );
 
-	const isSiteIdPushing = useCallback< IsSiteIdPushing >(
-		( selectedSiteId, remoteSiteId ) => {
-			return Object.values( pushStates ).some( ( state ) => {
-				if ( ! state.selectedSite ) {
-					return false;
-				}
-				if ( state.selectedSite.id !== selectedSiteId ) {
-					return false;
-				}
-				if ( remoteSiteId !== undefined ) {
-					return isKeyPushing( state.status.key ) && state.remoteSiteId === remoteSiteId;
-				}
-				return isKeyPushing( state.status.key );
-			} );
-		},
-		[ pushStates, isKeyPushing ]
-	);
+	const isSiteIdPushing = useCallback< IsSiteIdPushing >( ( selectedSiteId, remoteSiteId ) => {
+		const state = store.getState();
+		return syncOperationsSelectors.selectIsSiteIdPushing( selectedSiteId, remoteSiteId )( state );
+	}, [] );
 
 	const cancelPush = useCallback< CancelPush >(
 		async ( selectedSiteId, remoteSiteId ) => {

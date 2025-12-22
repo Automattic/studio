@@ -2,18 +2,18 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import * as Sentry from '@sentry/electron/renderer';
 import { __, sprintf } from '@wordpress/i18n';
 import { WPCOM } from 'wpcom/types';
-import { SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
+import { SYNC_PUSH_SIZE_LIMIT_BYTES, SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constants';
 import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import type {
-	PullSiteOptions,
-	SyncBackupState,
-	PullStates,
-} from 'src/hooks/sync-sites/use-sync-pull';
+import { getHostnameFromUrl } from 'src/lib/url-utils';
+import { connectedSitesApi } from 'src/stores/sync/connected-sites';
+import type { SyncBackupState, PullStates } from 'src/hooks/sync-sites/use-sync-pull';
 import type { SyncPushState, PushStates } from 'src/hooks/sync-sites/use-sync-push';
 import type {
+	ImportResponse,
 	PullStateProgressInfo,
 	PushStateProgressInfo,
+	SyncBackupResponse,
 } from 'src/hooks/use-sync-states-progress-info';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { AppDispatch, RootState } from 'src/stores';
@@ -549,7 +549,437 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 	}
 );
 
-// Export thunks object for convenience
+// Helper function to calculate push status with progress (inlined from useSyncStatesProgressInfo)
+const getPushStatusWithProgress = (
+	status: PushStateProgressInfo,
+	response: ImportResponse,
+	pushStatesProgressInfo: Record< PushStateProgressInfo[ 'key' ], PushStateProgressInfo >
+): PushStateProgressInfo => {
+	if ( status.key === pushStatesProgressInfo.creatingRemoteBackup.key ) {
+		const progressRange =
+			pushStatesProgressInfo.applyingChanges.progress -
+			pushStatesProgressInfo.creatingRemoteBackup.progress;
+
+		// This step will increase the progress to the next step progressively based on the backup_progress
+		return {
+			...status,
+			progress:
+				pushStatesProgressInfo.creatingRemoteBackup.progress +
+				progressRange * ( response.backup_progress / 100 ),
+		};
+	}
+
+	// This step will increase the progress to the next step progressively based on the import_progress
+	if (
+		status.key === pushStatesProgressInfo.applyingChanges.key &&
+		response.import_progress < 100
+	) {
+		const progressRange =
+			pushStatesProgressInfo.finishing.progress - pushStatesProgressInfo.applyingChanges.progress;
+		return {
+			...status,
+			progress:
+				pushStatesProgressInfo.applyingChanges.progress +
+				progressRange * ( response.import_progress / 100 ),
+		};
+	}
+	return status;
+};
+
+// Thunk for polling push progress
+type PollPushProgressPayload = {
+	client: WPCOM;
+	selectedSiteId: string;
+	remoteSiteId: number;
+	pushStatesProgressInfo: Record< PushStateProgressInfo[ 'key' ], PushStateProgressInfo >;
+};
+
+export const pollPushProgressThunk = createTypedAsyncThunk(
+	'syncOperations/pollPushProgress',
+	async (
+		{ client, selectedSiteId, remoteSiteId, pushStatesProgressInfo }: PollPushProgressPayload,
+		{ dispatch, getState }
+	) => {
+		// Check if state exists and is not cancelled
+		const state = getState();
+		const currentPushState = syncOperationsSelectors.selectPushState(
+			selectedSiteId,
+			remoteSiteId
+		)( state );
+
+		if ( ! currentPushState || isKeyCancelled( currentPushState.status.key ) ) {
+			return;
+		}
+
+		const response = await client.req.get< ImportResponse >(
+			`/sites/${ remoteSiteId }/studio-app/sync/import`,
+			{
+				apiNamespace: 'wpcom/v2',
+			}
+		);
+
+		let status: PushStateProgressInfo = pushStatesProgressInfo.creatingRemoteBackup;
+		if ( response.success && response.status === 'finished' ) {
+			status = pushStatesProgressInfo.finished;
+			// Update site timestamp
+			void dispatch(
+				connectedSitesApi.endpoints.updateSiteTimestamp.initiate( {
+					siteId: remoteSiteId,
+					localSiteId: selectedSiteId,
+					type: 'push',
+				} )
+			);
+			getIpcApi().showNotification( {
+				title: currentPushState.selectedSite.name,
+				body: sprintf(
+					// translators: %s is the site url without the protocol.
+					__( '%s has been updated' ),
+					getHostnameFromUrl( currentPushState.remoteSiteUrl )
+				),
+			} );
+		} else if ( response.success && response.status === 'failed' ) {
+			status = pushStatesProgressInfo.failed;
+			console.error( 'Push import failed:', {
+				remoteSiteId: currentPushState.remoteSiteId,
+				error: response.error,
+				error_data: response.error_data,
+			} );
+			// If the import fails due to a SQL import error, show a more specific message
+			const restoreMessage = response.error_data?.vp_restore_message || '';
+			const isSqlImportFailure = /importing sql dump/i.test( restoreMessage );
+			const isImportTimedOut = response.error === 'Import timed out';
+			let message: string;
+			if ( isSqlImportFailure ) {
+				message = __(
+					'Database import failed on the remote site. Please review your database and try again or contact support and provide details from the logs below.'
+				);
+			} else if ( isImportTimedOut ) {
+				message = __(
+					"A timeout error occurred while pushing the site, likely due to its large size. Please try reducing the site's content or files and try again. If this problem persists, please contact support."
+				);
+			} else {
+				message = __(
+					'An error occurred while pushing the site. If this problem persists, please contact support.'
+				);
+			}
+
+			getIpcApi().showErrorMessageBox( {
+				title: sprintf( __( 'Error pushing to %s' ), currentPushState.selectedSite.name ),
+				message,
+				showOpenLogs: true,
+			} );
+		} else if ( response.success && response.status === 'archive_import_started' ) {
+			status = pushStatesProgressInfo.applyingChanges;
+		} else if ( response.success && response.status === 'archive_import_finished' ) {
+			status = pushStatesProgressInfo.finishing;
+		}
+		status = getPushStatusWithProgress( status, response, pushStatesProgressInfo );
+		// Update state in any case to keep polling push state
+		updatePushStateWithIpc(
+			dispatch,
+			selectedSiteId,
+			remoteSiteId,
+			{ status },
+			isKeyFailed,
+			isKeyFinished
+		);
+	}
+);
+
+// Constants for pull progress calculation (from useSyncStatesProgressInfo)
+const IN_PROGRESS_INITIAL_VALUE = 30;
+const DOWNLOADING_INITIAL_VALUE = 60;
+const IN_PROGRESS_TO_DOWNLOADING_STEP = DOWNLOADING_INITIAL_VALUE - IN_PROGRESS_INITIAL_VALUE;
+
+// Helper function to calculate backup status with progress (inlined from useSyncStatesProgressInfo)
+const getBackupStatusWithProgress = (
+	hasBackupCompleted: boolean,
+	pullStatesProgressInfo: Record< PullStateProgressInfo[ 'key' ], PullStateProgressInfo >,
+	response: SyncBackupResponse
+): PullStateProgressInfo => {
+	const frontendStatus = hasBackupCompleted
+		? pullStatesProgressInfo.downloading.key
+		: response.status;
+	let newProgressInfo: PullStateProgressInfo | null = null;
+	if ( response.status === 'in-progress' ) {
+		newProgressInfo = {
+			...pullStatesProgressInfo[ frontendStatus ],
+			// Update progress from the initial value to the new step proportionally to the response.progress
+			// on every update of the response.progress
+			progress:
+				IN_PROGRESS_INITIAL_VALUE + IN_PROGRESS_TO_DOWNLOADING_STEP * ( response.percent / 100 ),
+		};
+	}
+	const statusWithProgress = newProgressInfo || pullStatesProgressInfo[ frontendStatus ];
+
+	return statusWithProgress;
+};
+
+// Thunk for polling pull backup status
+type PollPullBackupPayload = {
+	client: WPCOM;
+	selectedSiteId: string;
+	remoteSiteId: number;
+	pullStatesProgressInfo: Record< PullStateProgressInfo[ 'key' ], PullStateProgressInfo >;
+};
+
+export const pollPullBackupThunk = createTypedAsyncThunk(
+	'syncOperations/pollPullBackup',
+	async (
+		{ client, selectedSiteId, remoteSiteId, pullStatesProgressInfo }: PollPullBackupPayload,
+		{ dispatch, getState }
+	) => {
+		// Check if state exists and is not cancelled
+		const state = getState();
+		const currentPullState = syncOperationsSelectors.selectPullState(
+			selectedSiteId,
+			remoteSiteId
+		)( state );
+
+		if ( ! currentPullState || isKeyCancelled( currentPullState.status.key ) ) {
+			return;
+		}
+
+		const backupId = currentPullState.backupId;
+		if ( ! backupId ) {
+			console.error( 'No backup ID found' );
+			return;
+		}
+
+		try {
+			const response = await client.req.get< SyncBackupResponse >(
+				`/sites/${ remoteSiteId }/studio-app/sync/backup`,
+				{
+					apiNamespace: 'wpcom/v2',
+					backup_id: backupId,
+				}
+			);
+
+			const hasBackupCompleted = response.status === 'finished';
+			const downloadUrl = hasBackupCompleted ? response.download_url : null;
+
+			if ( downloadUrl ) {
+				// Backup completed, trigger completion thunk
+				await dispatch(
+					syncOperationsThunks.completePull( {
+						selectedSiteId,
+						remoteSiteId,
+						downloadUrl,
+						pullStatesProgressInfo,
+					} )
+				).unwrap();
+			} else {
+				// Update status with progress
+				const statusWithProgress = getBackupStatusWithProgress(
+					hasBackupCompleted,
+					pullStatesProgressInfo,
+					response
+				);
+
+				dispatch(
+					syncOperationsActions.updatePullState( {
+						selectedSiteId,
+						remoteSiteId,
+						state: {
+							status: statusWithProgress,
+							downloadUrl,
+						},
+					} )
+				);
+
+				// Update IPC sync operation
+				const stateId = generateStateId( selectedSiteId, remoteSiteId );
+				getIpcApi().addSyncOperation( stateId );
+			}
+		} catch ( error ) {
+			console.error( 'Failed to fetch backup status:', error );
+			throw error;
+		}
+	}
+);
+
+// Thunk for completing pull operation (handles download, import, server start)
+type CompletePullPayload = {
+	selectedSiteId: string;
+	remoteSiteId: number;
+	downloadUrl: string;
+	pullStatesProgressInfo: Record< PullStateProgressInfo[ 'key' ], PullStateProgressInfo >;
+};
+
+export const completePullThunk = createTypedAsyncThunk(
+	'syncOperations/completePull',
+	async (
+		{ selectedSiteId, remoteSiteId, downloadUrl, pullStatesProgressInfo }: CompletePullPayload,
+		{ dispatch, getState }
+	) => {
+		// Check if cancelled
+		const state = getState();
+		const currentPullState = syncOperationsSelectors.selectPullState(
+			selectedSiteId,
+			remoteSiteId
+		)( state );
+
+		if ( ! currentPullState || isKeyCancelled( currentPullState.status.key ) ) {
+			return;
+		}
+
+		const { selectedSite, remoteSiteUrl } = currentPullState;
+
+		try {
+			// Check file size
+			const fileSize = await getIpcApi().checkSyncBackupSize( downloadUrl );
+
+			if ( fileSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+				const CANCEL_ID = 1;
+
+				const { response: userChoice } = await getIpcApi().showMessageBox( {
+					type: 'warning',
+					message: __( "Large site's backup" ),
+					detail: sprintf(
+						__(
+							"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back.\n\nDo you want to continue?"
+						),
+						SYNC_PUSH_SIZE_LIMIT_GB
+					),
+					buttons: [ __( 'Continue' ), __( 'Cancel' ) ],
+					defaultId: 0,
+					cancelId: CANCEL_ID,
+				} );
+
+				if ( userChoice === CANCEL_ID ) {
+					dispatch(
+						syncOperationsActions.updatePullState( {
+							selectedSiteId,
+							remoteSiteId,
+							state: {
+								status: pullStatesProgressInfo.cancelled,
+							},
+						} )
+					);
+					void dispatch( syncOperationsThunks.clearPullState( { selectedSiteId, remoteSiteId } ) );
+					return;
+				}
+			}
+
+			// Update to downloading
+			dispatch(
+				syncOperationsActions.updatePullState( {
+					selectedSiteId,
+					remoteSiteId,
+					state: {
+						status: pullStatesProgressInfo.downloading,
+						downloadUrl,
+					},
+				} )
+			);
+
+			// Download backup
+			const operationId = generateStateId( selectedSiteId, remoteSiteId );
+			const filePath = await getIpcApi().downloadSyncBackup(
+				remoteSiteId,
+				downloadUrl,
+				operationId
+			);
+
+			// Check if cancelled after download
+			const stateAfterDownload = getState();
+			const pullStateAfterDownload = syncOperationsSelectors.selectPullState(
+				selectedSiteId,
+				remoteSiteId
+			)( stateAfterDownload );
+
+			if ( ! pullStateAfterDownload || isKeyCancelled( pullStateAfterDownload.status.key ) ) {
+				return;
+			}
+
+			// Update to importing
+			dispatch(
+				syncOperationsActions.updatePullState( {
+					selectedSiteId,
+					remoteSiteId,
+					state: {
+						status: pullStatesProgressInfo.importing,
+					},
+				} )
+			);
+
+			// Stop server, import, then start server
+			await getIpcApi().stopServer( selectedSiteId );
+			await getIpcApi().importSite( {
+				id: selectedSiteId,
+				backupFile: {
+					path: filePath,
+					type: 'application/tar+gzip',
+				},
+			} );
+			await getIpcApi().startServer( selectedSiteId );
+
+			// Clean up
+			await getIpcApi().removeSyncBackup( remoteSiteId );
+
+			// Update site timestamp
+			void dispatch(
+				connectedSitesApi.endpoints.updateSiteTimestamp.initiate( {
+					siteId: remoteSiteId,
+					localSiteId: selectedSiteId,
+					type: 'pull',
+				} )
+			);
+
+			// Mark as finished
+			dispatch(
+				syncOperationsActions.updatePullState( {
+					selectedSiteId,
+					remoteSiteId,
+					state: {
+						status: pullStatesProgressInfo.finished,
+					},
+				} )
+			);
+
+			// Show notification
+			getIpcApi().showNotification( {
+				title: selectedSite.name,
+				body: sprintf(
+					// translators: %s is the site url without the protocol.
+					__( 'Studio site has been updated from %s' ),
+					getHostnameFromUrl( remoteSiteUrl )
+				),
+			} );
+		} catch ( error ) {
+			console.error( 'Backup completion failed:', error );
+
+			// Check if cancelled
+			const errorState = getState();
+			const pullStateOnError = syncOperationsSelectors.selectPullState(
+				selectedSiteId,
+				remoteSiteId
+			)( errorState );
+
+			if ( pullStateOnError && isKeyCancelled( pullStateOnError.status.key ) ) {
+				return;
+			}
+
+			Sentry.captureException( error );
+			dispatch(
+				syncOperationsActions.updatePullState( {
+					selectedSiteId,
+					remoteSiteId,
+					state: {
+						status: pullStatesProgressInfo.failed,
+					},
+				} )
+			);
+			getIpcApi().showErrorMessageBox( {
+				title: sprintf( __( 'Error pulling from %s' ), selectedSite.name ),
+				message: __( 'Failed to check backup file size. Please try again.' ),
+			} );
+			throw error;
+		}
+	}
+);
+
+// Export thunks object for convenience (must be after all thunk declarations)
 export const syncOperationsThunks = {
 	clearPushState: clearPushStateThunk,
 	clearPullState: clearPullStateThunk,
@@ -557,6 +987,9 @@ export const syncOperationsThunks = {
 	cancelPull: cancelPullThunk,
 	pushSite: pushSiteThunk,
 	pullSite: pullSiteThunk,
+	pollPushProgress: pollPushProgressThunk,
+	pollPullBackup: pollPullBackupThunk,
+	completePull: completePullThunk,
 };
 
 // Helper functions for checking state keys (matching useSyncStatesProgressInfo logic)

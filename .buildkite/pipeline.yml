@@ -68,6 +68,10 @@ steps:
     agents:
       queue: mac
     command: bash .buildkite/commands/run-metrics-tests.sh
+    artifact_paths:
+      - artifacts/**/*.json
+      - artifacts/**/*.results.json
+      - artifacts/**/*.summary.json
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     notify:
       - github_commit_status:

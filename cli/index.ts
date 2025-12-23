@@ -6,6 +6,8 @@ import yargs from 'yargs';
 import { registerCommand as registerAuthLoginCommand } from 'cli/commands/auth/login';
 import { registerCommand as registerAuthLogoutCommand } from 'cli/commands/auth/logout';
 import { registerCommand as registerAuthStatusCommand } from 'cli/commands/auth/status';
+import { registerCommand as registerTelexBlockCommand } from 'cli/commands/telex/block';
+import { registerCommand as registerTelexInstallCommand } from 'cli/commands/telex/install';
 import { registerCommand as registerCreateCommand } from 'cli/commands/preview/create';
 import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/delete';
 import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
@@ -66,6 +68,11 @@ async function main() {
 			registerAuthLogoutCommand( authYargs );
 			registerAuthStatusCommand( authYargs );
 			authYargs.version( false ).demandCommand( 1, __( 'You must provide a valid auth command' ) );
+		} )
+		.command( 'telex', __( 'AI-assisted block development with Telex' ), ( telexYargs ) => {
+			registerTelexBlockCommand( telexYargs );
+			registerTelexInstallCommand( telexYargs );
+			telexYargs.demandCommand( 1, __( 'You must provide a valid telex command' ) );
 		} )
 		.command( 'preview', __( 'Manage preview sites' ), ( previewYargs ) => {
 			registerCreateCommand( previewYargs );

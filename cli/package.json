@@ -12,6 +12,7 @@
 		"@wp-playground/cli": "^3.0.22",
 		"@wp-playground/common": "^3.0.22",
 		"@wp-playground/storage": "^3.0.22",
+		"@xmldom/xmldom": "^0.9.5",
 		"http-proxy": "^1.18.1",
 		"pm2": "^6.0.13",
 		"trash": "^10.0.1"

@@ -72,7 +72,9 @@ export function getBundledNodeBinaryPath(): string {
 	if ( process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' ) {
 		// In development, use system Node
 		const { execSync } = require( 'child_process' );
-		return execSync( 'which node', { encoding: 'utf-8' } ).trim();
+		const command = process.platform === 'win32' ? 'where node' : 'which node';
+		// `where` on Windows can return multiple paths, take the first one
+		return execSync( command, { encoding: 'utf-8' } ).trim().split( /\r?\n/ )[ 0 ];
 	}
 
 	return path.join( getResourcesPath(), 'bin', nodeBinaryName );

@@ -18,6 +18,8 @@ interface StepperProps {
 	canSubmitBackup?: boolean;
 	canSubmitPullRemote?: boolean;
 	canSubmitCreate?: boolean;
+	/** Form ID to use for submit button on create paths */
+	createFormId?: string;
 }
 
 export default function Stepper( {
@@ -33,9 +35,10 @@ export default function Stepper( {
 	canSubmitBackup,
 	canSubmitPullRemote,
 	canSubmitCreate,
+	createFormId,
 }: StepperProps ) {
 	const { __ } = useI18n();
-	const { steps, isVisible, actionButton, onSubmit, canSubmit } = useStepper( {
+	const { steps, isVisible, actionButton, onSubmit, canSubmit, isCreatePath } = useStepper( {
 		onBlueprintContinue,
 		onBlueprintDeeplinkContinue,
 		onBackupContinue,
@@ -96,16 +99,29 @@ export default function Stepper( {
 						{ __( 'Back' ) }
 					</Button>
 				) }
-				{ actionButton?.isVisible && onSubmit && (
-					<Button
-						variant="primary"
-						onClick={ onSubmit }
-						disabled={ ! canSubmit }
-						data-testid="stepper-action-button"
-					>
-						{ actionButton.label }
-					</Button>
-				) }
+				{ actionButton?.isVisible &&
+					( isCreatePath && createFormId ? (
+						<Button
+							variant="primary"
+							type="submit"
+							form={ createFormId }
+							disabled={ ! canSubmit }
+							data-testid="stepper-action-button"
+						>
+							{ actionButton.label }
+						</Button>
+					) : (
+						onSubmit && (
+							<Button
+								variant="primary"
+								onClick={ onSubmit }
+								disabled={ ! canSubmit }
+								data-testid="stepper-action-button"
+							>
+								{ actionButton.label }
+							</Button>
+						)
+					) ) }
 			</div>
 		</div>
 	);

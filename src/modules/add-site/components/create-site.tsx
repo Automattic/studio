@@ -3,78 +3,36 @@ import {
 	__experimentalHeading as Heading,
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useMemo } from 'react';
 import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
 import {
 	CreateSiteForm,
 	CreateSiteFormValues,
-	CreateSiteFormFeatures,
+	PathValidationResult,
 } from 'src/modules/add-site/components/create-site-form';
 
 export interface CreateSiteProps {
-	siteName: string | null;
-	sitePath: string;
-	phpVersion: string;
-	wpVersion: string;
-	onSubmit: ( values: CreateSiteFormValues ) => void;
-	handlePathSelectorClick: () => void;
-	error: string;
-	doesPathContainWordPress: boolean;
+	defaultValues?: {
+		siteName?: string;
+		sitePath?: string;
+		phpVersion?: AllowedPHPVersion;
+		wpVersion?: string;
+	};
+	onSelectPath: ( currentPath: string ) => Promise< PathValidationResult | null >;
+	onSiteNameChange: ( name: string ) => Promise< PathValidationResult >;
 	existingDomainNames?: string[];
 	blueprintPreferredVersions?: { php?: string; wp?: string };
+	onSubmit: ( values: CreateSiteFormValues ) => void;
 }
 
 export default function CreateSite( {
-	siteName,
-	sitePath,
-	phpVersion,
-	wpVersion,
-	onSubmit,
-	handlePathSelectorClick,
-	error,
-	doesPathContainWordPress,
+	defaultValues,
+	onSelectPath,
+	onSiteNameChange,
 	existingDomainNames = [],
 	blueprintPreferredVersions,
+	onSubmit,
 }: CreateSiteProps ) {
 	const { __ } = useI18n();
-
-	const features = useMemo< CreateSiteFormFeatures >(
-		() => ( {
-			pathSelection: {
-				enabled: true,
-				onSelectPath: handlePathSelectorClick,
-				doesPathContainWordPress,
-				error,
-			},
-			customDomain: {
-				enabled: true,
-				existingDomainNames,
-			},
-			...( blueprintPreferredVersions && {
-				blueprintVersions: {
-					enabled: true,
-					preferredVersions: blueprintPreferredVersions,
-				},
-			} ),
-		} ),
-		[
-			handlePathSelectorClick,
-			doesPathContainWordPress,
-			error,
-			existingDomainNames,
-			blueprintPreferredVersions,
-		]
-	);
-
-	const initialValues = useMemo(
-		() => ( {
-			siteName: siteName || '',
-			sitePath,
-			phpVersion: phpVersion as AllowedPHPVersion,
-			wpVersion,
-		} ),
-		[ siteName, sitePath, phpVersion, wpVersion ]
-	);
 
 	return (
 		<VStack className="w-full max-w-[402px] mx-auto text-black" spacing={ 6 }>
@@ -82,7 +40,14 @@ export default function CreateSite( {
 				{ __( 'Add a site' ) }
 			</Heading>
 
-			<CreateSiteForm features={ features } initialValues={ initialValues } onSubmit={ onSubmit } />
+			<CreateSiteForm
+				defaultValues={ defaultValues }
+				onSelectPath={ onSelectPath }
+				onSiteNameChange={ onSiteNameChange }
+				existingDomainNames={ existingDomainNames }
+				blueprintPreferredVersions={ blueprintPreferredVersions }
+				onSubmit={ onSubmit }
+			/>
 		</VStack>
 	);
 }

@@ -1,4 +1,4 @@
-import { fork, ChildProcess, StdioOptions } from 'node:child_process';
+import { fork, ChildProcess, StdioOptions, ForkOptions } from 'node:child_process';
 import EventEmitter from 'node:events';
 import * as Sentry from '@sentry/electron/main';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
@@ -55,12 +55,13 @@ export function executeCliCommand(
 		stdio = [ 'ignore', 'ignore', 'ignore', 'ipc' ];
 	}
 
-	const child = fork( cliPath, [ ...args, '--avoid-telemetry' ], {
+	const forkOptions: ForkOptions & { windowsHide?: boolean } = {
 		stdio,
 		execPath: getBundledNodeBinaryPath(),
 		env: process.env,
 		windowsHide: true,
-	} );
+	};
+	const child = fork( cliPath, [ ...args, '--avoid-telemetry' ], forkOptions );
 	const eventEmitter = new CliCommandEventEmitter();
 
 	let stdout = '';

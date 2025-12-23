@@ -159,7 +159,7 @@ export async function startProcess(
 	env: Record< string, string > = {}
 ): Promise< ProcessDescription > {
 	return new Promise( ( resolve, reject ) => {
-		const processConfig: StartOptions = {
+		const processConfig: StartOptions & { windowsHide?: boolean } = {
 			name: processName,
 			interpreter: process.execPath,
 			script: scriptPath,

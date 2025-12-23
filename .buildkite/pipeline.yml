@@ -29,6 +29,8 @@ steps:
     matrix:
       - mac
       - windows
+    # TEMPORARY: Skip on metrics migration branch to save CI resources during development
+    if: build.branch != 'add/metrics-comparison-to-buildkite'
     notify:
       - github_commit_status:
           context: Unit Tests

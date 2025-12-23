@@ -162,6 +162,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		} else if ( location.path === '/backup/create' ) {
 			goTo( '/backup' );
 		} else if ( location.path === '/pullRemote/create' ) {
+			setRemoteSiteName( '' );
 			goTo( '/pullRemote' );
 		} else if (
 			location.path === '/backup' ||
@@ -179,6 +180,7 @@ function NavigationContent( props: NavigationContentProps ) {
 			}
 			if ( location.path === '/pullRemote' ) {
 				setSelectedRemoteSite( undefined );
+				setRemoteSiteName( '' );
 			}
 			goTo( '/' );
 		} else {

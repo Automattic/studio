@@ -3,6 +3,7 @@ import {
 	__experimentalHeading as Heading,
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
+import { RefObject } from 'react';
 import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
 import {
 	CreateSiteForm,
@@ -22,6 +23,7 @@ export interface CreateSiteProps {
 	existingDomainNames?: string[];
 	blueprintPreferredVersions?: { php?: string; wp?: string };
 	onSubmit: ( values: CreateSiteFormValues ) => void;
+	formRef?: RefObject< HTMLFormElement >;
 }
 
 export default function CreateSite( {
@@ -31,6 +33,7 @@ export default function CreateSite( {
 	existingDomainNames = [],
 	blueprintPreferredVersions,
 	onSubmit,
+	formRef,
 }: CreateSiteProps ) {
 	const { __ } = useI18n();
 
@@ -47,6 +50,7 @@ export default function CreateSite( {
 				existingDomainNames={ existingDomainNames }
 				blueprintPreferredVersions={ blueprintPreferredVersions }
 				onSubmit={ onSubmit }
+				formRef={ formRef }
 			/>
 		</VStack>
 	);

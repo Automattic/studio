@@ -2,7 +2,7 @@ import { speak } from '@wordpress/a11y';
 import { Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite, CreateSiteFormValues } from 'src/hooks/use-add-site';
@@ -236,12 +236,16 @@ function NavigationContent( props: NavigationContentProps ) {
 		return values;
 	}, [ defaultValues, blueprintPreferredVersions ] );
 
+	// Ref for programmatic form submission
+	const formRef = useRef< HTMLFormElement >( null );
+
 	// Common props for CreateSite
 	const createSiteProps = {
 		onSelectPath,
 		onSiteNameChange,
 		existingDomainNames,
 		onSubmit: onFormSubmit,
+		formRef,
 	};
 
 	return (
@@ -307,7 +311,9 @@ function NavigationContent( props: NavigationContentProps ) {
 				onBlueprintDeeplinkContinue={ handleBlueprintDeeplinkContinue }
 				onBackupContinue={ handleBackupContinue }
 				onPullRemoteContinue={ handlePullRemoteContinue }
-				createFormId="create-site-form"
+				onCreateSubmit={ () => {
+					formRef.current?.requestSubmit();
+				} }
 				canSubmitBlueprint={ !! selectedBlueprint }
 				canSubmitBlueprintDeeplink={ !! selectedBlueprint }
 				canSubmitBackup={ !! fileForImport }

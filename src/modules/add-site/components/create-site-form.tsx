@@ -3,7 +3,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { tip, cautionFilled, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useState, useEffect, useCallback, useMemo } from 'react';
+import { FormEvent, useState, useEffect, useCallback, useMemo, RefObject } from 'react';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'common/lib/domains';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
@@ -56,6 +56,8 @@ export interface CreateSiteFormProps {
 	blueprintPreferredVersions?: { php?: string; wp?: string };
 	/** Called when form is submitted with all form values */
 	onSubmit: ( values: CreateSiteFormValues ) => void;
+	/** Optional ref to the form element for programmatic submission */
+	formRef?: RefObject< HTMLFormElement >;
 }
 
 interface FormPathInputComponentProps {
@@ -152,6 +154,7 @@ export const CreateSiteForm = ( {
 	existingDomainNames = [],
 	blueprintPreferredVersions,
 	onSubmit,
+	formRef,
 }: CreateSiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const locale = useI18nLocale();
@@ -290,7 +293,7 @@ export const CreateSiteForm = ( {
 	const showAdvancedSettings = onSelectPath !== undefined;
 
 	return (
-		<form id="create-site-form" onSubmit={ handleFormSubmit }>
+		<form ref={ formRef } onSubmit={ handleFormSubmit }>
 			<div className="flex flex-col">
 				<label className="flex flex-col gap-1.5 leading-4 mb-6">
 					<span className="font-semibold">{ __( 'Site name' ) }</span>

@@ -42,7 +42,6 @@ interface UseStepper {
 	onSubmit: () => void;
 	canSubmit: boolean;
 	goTo: ( path: string ) => void;
-	isCreatePath: boolean;
 }
 
 export function useStepper( config?: StepperConfig ): UseStepper {
@@ -240,13 +239,6 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 		}
 	}, [ location.path, config ] );
 
-	const isCreatePath =
-		location.path === '/create' ||
-		location.path === '/blueprint/select/create' ||
-		location.path === '/blueprint/deeplink/create' ||
-		location.path === '/backup/create' ||
-		location.path === '/pullRemote/create';
-
 	return {
 		steps,
 		isVisible,
@@ -254,6 +246,5 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 		onSubmit,
 		canSubmit,
 		goTo,
-		isCreatePath,
 	};
 }

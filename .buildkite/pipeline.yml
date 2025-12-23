@@ -64,14 +64,7 @@ steps:
     key: metrics
     agents:
       queue: mac
-    command: |
-      echo "--- :information_source: Environment Check"
-      echo "Branch: $BUILDKITE_BRANCH"
-      echo "Commit: $BUILDKITE_COMMIT"
-      echo "PR Number: $BUILDKITE_PULL_REQUEST"
-      echo "Repo: $BUILDKITE_REPO"
-      echo ""
-      echo "This is a placeholder step - will add actual metrics testing incrementally"
+    command: bash .buildkite/commands/run-metrics-tests.sh
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     notify:
       - github_commit_status:

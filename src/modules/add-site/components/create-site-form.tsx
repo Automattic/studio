@@ -3,8 +3,8 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { tip, cautionFilled, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useState, useEffect } from 'react';
-import { generateCustomDomainFromSiteName } from 'common/lib/domains';
+import { FormEvent, useState, useEffect, useCallback, useMemo } from 'react';
+import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'common/lib/domains';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
 import TextControlComponent from 'src/components/text-control';
@@ -20,6 +20,45 @@ import {
 	selectAllowedPhpVersions,
 } from 'src/stores/provider-constants-slice';
 
+export interface CreateSiteFormValues {
+	siteName: string;
+	sitePath: string;
+	phpVersion: AllowedPHPVersion;
+	wpVersion: string;
+	useCustomDomain: boolean;
+	customDomain: string | null;
+	enableHttps: boolean;
+}
+
+export interface PathSelectionFeature {
+	enabled: true;
+	onSelectPath: () => void;
+	doesPathContainWordPress?: boolean;
+	error?: string;
+}
+
+export interface CustomDomainFeature {
+	enabled: true;
+	existingDomainNames?: string[];
+}
+
+export interface BlueprintVersionsFeature {
+	enabled: true;
+	preferredVersions: { php?: string; wp?: string };
+}
+
+export interface CreateSiteFormFeatures {
+	pathSelection?: PathSelectionFeature;
+	customDomain?: CustomDomainFeature;
+	blueprintVersions?: BlueprintVersionsFeature;
+}
+
+export interface CreateSiteFormProps {
+	features?: CreateSiteFormFeatures;
+	initialValues?: Partial< CreateSiteFormValues >;
+	onSubmit: ( values: CreateSiteFormValues ) => void;
+}
+
 interface FormPathInputComponentProps {
 	value: string;
 	onClick: () => void;
@@ -32,30 +71,6 @@ interface SiteFormErrorProps {
 	error?: string;
 	tipMessage?: string;
 	className?: string;
-}
-
-interface SiteFormProps {
-	siteName: string;
-	setSiteName: ( name: string ) => void;
-	sitePath?: string;
-	onSelectPath?: () => void;
-	error: string;
-	doesPathContainWordPress?: boolean;
-	onSubmit: ( event: FormEvent ) => void;
-	useCustomDomain?: boolean;
-	setUseCustomDomain?: ( use: boolean ) => void;
-	customDomain?: string | null;
-	setCustomDomain?: ( domain: string ) => void;
-	customDomainError?: string;
-	phpVersion: AllowedPHPVersion;
-	setPhpVersion: ( version: AllowedPHPVersion ) => void;
-	useHttps?: boolean;
-	setUseHttps?: ( use: boolean ) => void;
-	enableHttps?: boolean;
-	setEnableHttps?: ( use: boolean ) => void;
-	wpVersion: string;
-	setWpVersion: ( version: string ) => void;
-	blueprintPreferredVersions?: { php?: string; wp?: string };
 }
 
 const SiteFormError = ( { error, tipMessage = '', className = '' }: SiteFormErrorProps ) => {
@@ -82,6 +97,7 @@ const SiteFormError = ( { error, tipMessage = '', className = '' }: SiteFormErro
 		)
 	);
 };
+
 function FormPathInputComponent( {
 	value,
 	onClick,
@@ -139,43 +155,106 @@ function FormPathInputComponent( {
 }
 
 export const CreateSiteForm = ( {
-	siteName,
-	setSiteName,
-	phpVersion,
-	setPhpVersion,
-	wpVersion,
-	setWpVersion,
-	sitePath = '',
-	onSelectPath,
-	error,
+	features = {},
+	initialValues = {},
 	onSubmit,
-	doesPathContainWordPress = false,
-	useCustomDomain,
-	setUseCustomDomain,
-	customDomain = null,
-	setCustomDomain,
-	customDomainError,
-	enableHttps,
-	setEnableHttps,
-	blueprintPreferredVersions,
-}: SiteFormProps ) => {
+}: CreateSiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const locale = useI18nLocale();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 	const allowedPhpVersions = useRootSelector( selectAllowedPhpVersions );
 
+	// Internal form state
+	const [ siteName, setSiteName ] = useState( initialValues.siteName ?? '' );
+	const [ sitePath, setSitePath ] = useState( initialValues.sitePath ?? '' );
+	const [ phpVersion, setPhpVersion ] = useState< AllowedPHPVersion >(
+		( initialValues.phpVersion as AllowedPHPVersion ) ?? ( allowedPhpVersions[ 0 ] || '8.2' )
+	);
+	const [ wpVersion, setWpVersion ] = useState(
+		initialValues.wpVersion ?? defaultWordPressVersion
+	);
+	const [ useCustomDomain, setUseCustomDomain ] = useState(
+		initialValues.useCustomDomain ?? false
+	);
+	const [ customDomain, setCustomDomain ] = useState< string | null >(
+		initialValues.customDomain ?? null
+	);
+	const [ enableHttps, setEnableHttps ] = useState( initialValues.enableHttps ?? false );
+	const [ customDomainError, setCustomDomainError ] = useState( '' );
+	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
+
+	// Sync with initialValues changes
+	useEffect( () => {
+		if ( initialValues.siteName !== undefined ) {
+			setSiteName( initialValues.siteName );
+		}
+	}, [ initialValues.siteName ] );
+
+	useEffect( () => {
+		if ( initialValues.sitePath !== undefined ) {
+			setSitePath( initialValues.sitePath );
+		}
+	}, [ initialValues.sitePath ] );
+
+	useEffect( () => {
+		if ( initialValues.phpVersion !== undefined ) {
+			setPhpVersion( initialValues.phpVersion );
+		}
+	}, [ initialValues.phpVersion ] );
+
+	useEffect( () => {
+		if ( initialValues.wpVersion !== undefined ) {
+			setWpVersion( initialValues.wpVersion );
+		}
+	}, [ initialValues.wpVersion ] );
+
 	// If the custom domain is enabled and the root certificate is trusted, enable HTTPS
 	useEffect( () => {
-		if ( useCustomDomain && isCertificateTrusted && setEnableHttps ) {
+		if ( useCustomDomain && isCertificateTrusted ) {
 			setEnableHttps( true );
 		}
-	}, [ useCustomDomain, isCertificateTrusted, setEnableHttps ] );
+	}, [ useCustomDomain, isCertificateTrusted ] );
 
+	const existingDomainNames = useMemo(
+		() => features.customDomain?.existingDomainNames ?? [],
+		[ features.customDomain?.existingDomainNames ]
+	);
+
+	const handleCustomDomainChange = useCallback(
+		( value: string ) => {
+			setCustomDomain( value );
+			setCustomDomainError(
+				getDomainNameValidationError( useCustomDomain, value, existingDomainNames )
+			);
+		},
+		[ useCustomDomain, existingDomainNames ]
+	);
+
+	const formValues = useMemo< CreateSiteFormValues >(
+		() => ( {
+			siteName,
+			sitePath,
+			phpVersion,
+			wpVersion,
+			useCustomDomain,
+			customDomain,
+			enableHttps,
+		} ),
+		[ siteName, sitePath, phpVersion, wpVersion, useCustomDomain, customDomain, enableHttps ]
+	);
+
+	const handleFormSubmit = useCallback(
+		( event: FormEvent ) => {
+			event.preventDefault();
+			onSubmit( formValues );
+		},
+		[ onSubmit, formValues ]
+	);
+
+	const pathSelectionError = features.pathSelection?.error;
 	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
-	const errorCount = [ error, shouldShowCustomDomainError ].filter( Boolean ).length;
-
-	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
+	const errorCount = [ pathSelectionError, shouldShowCustomDomainError ].filter( Boolean ).length;
 
 	const handleAdvancedSettingsClick = () => {
 		setAdvancedSettingsVisible( ! isAdvancedSettingsVisible );
@@ -192,6 +271,8 @@ export const CreateSiteForm = ( {
 	}
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
 
+	const blueprintPreferredVersions = features.blueprintVersions?.preferredVersions;
+
 	// Check if current versions differ from blueprint recommendations
 	const showBlueprintVersionWarning =
 		blueprintPreferredVersions &&
@@ -199,7 +280,7 @@ export const CreateSiteForm = ( {
 			( blueprintPreferredVersions.wp && blueprintPreferredVersions.wp !== wpVersion ) );
 
 	return (
-		<form onSubmit={ onSubmit }>
+		<form onSubmit={ handleFormSubmit }>
 			<div className="flex flex-col">
 				<label className="flex flex-col gap-1.5 leading-4 mb-6">
 					<span className="font-semibold">{ __( 'Site name' ) }</span>
@@ -209,13 +290,13 @@ export const CreateSiteForm = ( {
 						onKeyDown={ ( event ) => {
 							if ( event.key === 'Enter' ) {
 								event.preventDefault();
-								onSubmit( event as FormEvent );
+								handleFormSubmit( event as FormEvent );
 							}
 						} }
 						data-testid="site-name-input"
 					></TextControlComponent>
 				</label>
-				{ onSelectPath && (
+				{ features.pathSelection?.enabled && (
 					<>
 						<div className="flex flex-row items-center mb-1">
 							<Button
@@ -223,8 +304,17 @@ export const CreateSiteForm = ( {
 								onClick={ handleAdvancedSettingsClick }
 								data-testid="advanced-settings-button"
 							>
-								<Icon size={ 24 } icon={ chevronIcon } className={ error && 'text-red-500' } />
-								<div className={ cx( 'text-[13px] leading-[16px] ml-2', error && 'text-red-500' ) }>
+								<Icon
+									size={ 24 }
+									icon={ chevronIcon }
+									className={ pathSelectionError && 'text-red-500' }
+								/>
+								<div
+									className={ cx(
+										'text-[13px] leading-[16px] ml-2',
+										pathSelectionError && 'text-red-500'
+									) }
+								>
 									{ __( 'Advanced settings' ) }
 								</div>
 							</Button>
@@ -268,10 +358,12 @@ export const CreateSiteForm = ( {
 									) }
 								</span>
 								<FormPathInputComponent
-									doesPathContainWordPress={ doesPathContainWordPress }
-									error={ error }
+									doesPathContainWordPress={
+										features.pathSelection.doesPathContainWordPress ?? false
+									}
+									error={ pathSelectionError }
 									value={ sitePath }
-									onClick={ onSelectPath }
+									onClick={ features.pathSelection.onSelectPath }
 									id="local-path"
 								/>
 								<div className="grid grid-cols-2 gap-4 mt-4">
@@ -337,7 +429,7 @@ export const CreateSiteForm = ( {
 									</Notice>
 								) }
 
-								{ setUseCustomDomain && setCustomDomain && (
+								{ features.customDomain?.enabled && (
 									<div className="flex items-center gap-2 mt-4">
 										<input
 											type="checkbox"
@@ -349,13 +441,13 @@ export const CreateSiteForm = ( {
 									</div>
 								) }
 
-								{ setUseCustomDomain && setCustomDomain && (
+								{ features.customDomain?.enabled && (
 									<div className="text-a8c-gray-50 text-xs mt-2">
 										{ __( 'Your system password will be required to set up the domain.' ) }
 									</div>
 								) }
 
-								{ useCustomDomain && setCustomDomain && (
+								{ useCustomDomain && features.customDomain?.enabled && (
 									<div className="flex flex-col gap-2 mt-4">
 										<label htmlFor="custom-domain" className="font-semibold">
 											{ __( 'Domain name' ) }
@@ -363,13 +455,13 @@ export const CreateSiteForm = ( {
 										<TextControlComponent
 											id="custom-domain"
 											value={ customDomain !== null ? customDomain : generatedDomainName }
-											onChange={ setCustomDomain }
+											onChange={ handleCustomDomainChange }
 										/>
 										{ customDomainError && <SiteFormError error={ customDomainError } /> }
 									</div>
 								) }
 
-								{ useCustomDomain && setEnableHttps && (
+								{ useCustomDomain && features.customDomain?.enabled && (
 									<div className="flex items-center gap-2 mt-4">
 										<input
 											type="checkbox"
@@ -381,7 +473,7 @@ export const CreateSiteForm = ( {
 									</div>
 								) }
 
-								{ ! isCertificateTrusted && useCustomDomain && setEnableHttps && (
+								{ ! isCertificateTrusted && useCustomDomain && features.customDomain?.enabled && (
 									<div className="text-a8c-gray-50 text-xs mt-2">
 										{ __(
 											'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'

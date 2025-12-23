@@ -2,7 +2,7 @@ import { speak } from '@wordpress/a11y';
 import { Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
 import Button from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
@@ -25,35 +25,26 @@ import AddSiteOptions, { type AddSiteFlowType } from './components/options';
 import { PullRemoteSite } from './components/pull-remote-site';
 import Stepper from './components/stepper';
 import { useFindAvailableSiteName } from './hooks/use-find-available-site-name';
+import type { CreateSiteFormValues } from './components/create-site-form';
 
 type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
 
 interface NavigationContentProps {
 	blueprintsData: BlueprintsData;
 	isLoadingBlueprints: boolean;
+	blueprintsErrorMessage?: string | undefined;
 	siteName: string | null;
-	handleSiteNameChange: ( name: string ) => Promise< void >;
-	phpVersion: string;
-	setPhpVersion: ( version: string ) => void;
-	wpVersion: string;
-	setWpVersion: ( version: string ) => void;
 	sitePath: string;
+	phpVersion: string;
+	wpVersion: string;
 	handlePathSelectorClick: () => void;
 	error: string;
-	handleSubmit: ( event: FormEvent ) => void;
 	doesPathContainWordPress: boolean;
-	useCustomDomain: boolean;
-	setUseCustomDomain: ( use: boolean ) => void;
-	customDomain: string | null;
-	setCustomDomain: ( domain: string | null ) => void;
-	customDomainError: string;
-	enableHttps: boolean;
-	setEnableHttps: ( enable: boolean ) => void;
+	existingDomainNames: string[];
 	fileForImport: File | null;
 	setFileForImport: ( file: File | null ) => void;
 	setSelectedBlueprint: ( blueprint?: Blueprint ) => void;
 	selectedBlueprint?: Blueprint;
-	blueprintsErrorMessage?: string | undefined;
 	blueprintPreferredVersions?: { php?: string; wp?: string };
 	setBlueprintPreferredVersions?: ( versions: { php?: string; wp?: string } | undefined ) => void;
 	blueprintDeeplinkWarnings?: BlueprintValidationWarning[];
@@ -61,6 +52,10 @@ interface NavigationContentProps {
 	setSelectedRemoteSite: ( site?: SyncSite ) => void;
 	isDeeplinkFlow: boolean;
 	setIsDeeplinkFlow: ( isDeeplink: boolean ) => void;
+	setPhpVersion: ( version: string ) => void;
+	setWpVersion: ( version: string ) => void;
+	handleSiteNameChange: ( name: string ) => Promise< void >;
+	handleFormSubmit: ( values: CreateSiteFormValues ) => void;
 }
 
 function NavigationContent( props: NavigationContentProps ) {
@@ -77,10 +72,23 @@ function NavigationContent( props: NavigationContentProps ) {
 		setSelectedRemoteSite,
 		isDeeplinkFlow,
 		setIsDeeplinkFlow,
-		...createSiteProps
+		siteName,
+		sitePath,
+		phpVersion,
+		wpVersion,
+		handlePathSelectorClick,
+		error,
+		doesPathContainWordPress,
+		existingDomainNames,
+		fileForImport,
+		setFileForImport,
+		selectedBlueprint,
+		setSelectedBlueprint,
+		setPhpVersion,
+		setWpVersion,
+		handleSiteNameChange,
+		handleFormSubmit,
 	} = props;
-
-	const { selectedBlueprint, setSelectedBlueprint, setPhpVersion, setWpVersion } = createSiteProps;
 
 	useEffect( () => {
 		if ( isDeeplinkFlow && selectedBlueprint ) {
@@ -112,25 +120,25 @@ function NavigationContent( props: NavigationContentProps ) {
 
 	const handleBackupFileSelect = useCallback(
 		( file?: File ) => {
-			createSiteProps.setFileForImport( file || null );
+			setFileForImport( file || null );
 		},
-		[ createSiteProps ]
+		[ setFileForImport ]
 	);
 
 	const handleBackupContinue = useCallback( () => {
-		if ( createSiteProps.fileForImport ) {
+		if ( fileForImport ) {
 			goTo( '/backup/create' );
 		}
-	}, [ createSiteProps, goTo ] );
+	}, [ fileForImport, goTo ] );
 
 	const findAvailableSiteName = useFindAvailableSiteName();
 	const handlePullRemoteContinue = useCallback( async () => {
 		if ( selectedRemoteSite ) {
 			const availableName = await findAvailableSiteName( selectedRemoteSite.name );
-			await createSiteProps.handleSiteNameChange( availableName );
+			await handleSiteNameChange( availableName );
 			goTo( '/pullRemote/create' );
 		}
-	}, [ createSiteProps, findAvailableSiteName, goTo, selectedRemoteSite ] );
+	}, [ handleSiteNameChange, findAvailableSiteName, goTo, selectedRemoteSite ] );
 
 	const blueprints = useMemo(
 		() => blueprintsData?.blueprints.slice().reverse() || [],
@@ -143,11 +151,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		location.path === '/blueprint/deeplink/create' ||
 		location.path === '/backup/create' ||
 		location.path === '/pullRemote/create';
-	const canSubmit =
-		isOnCreatePath &&
-		createSiteProps.siteName?.trim() &&
-		! createSiteProps.error &&
-		( ! createSiteProps.useCustomDomain || ! createSiteProps.customDomainError );
+	const canSubmit = isOnCreatePath && siteName?.trim() && ! error;
 
 	const handleBlueprintDeeplinkContinue = useCallback( () => {
 		goTo( '/blueprint/deeplink/create' );
@@ -170,10 +174,10 @@ function NavigationContent( props: NavigationContentProps ) {
 			location.path === '/pullRemote'
 		) {
 			if ( location.path === '/backup' ) {
-				createSiteProps.setFileForImport( null );
+				setFileForImport( null );
 			}
 			if ( location.path === '/blueprint/select' || location.path === '/blueprint/deeplink' ) {
-				createSiteProps.setSelectedBlueprint();
+				setSelectedBlueprint();
 				setBlueprintPreferredVersions?.( undefined );
 			}
 			if ( location.path === '/pullRemote' ) {
@@ -186,7 +190,8 @@ function NavigationContent( props: NavigationContentProps ) {
 	}, [
 		location.path,
 		goTo,
-		createSiteProps,
+		setFileForImport,
+		setSelectedBlueprint,
 		setBlueprintPreferredVersions,
 		setSelectedRemoteSite,
 	] );
@@ -233,6 +238,19 @@ function NavigationContent( props: NavigationContentProps ) {
 		[ setSelectedBlueprint, applyBlueprintVersions ]
 	);
 
+	// Common props for CreateSite component
+	const createSiteCommonProps = {
+		siteName,
+		sitePath,
+		phpVersion,
+		wpVersion,
+		handlePathSelectorClick,
+		error,
+		doesPathContainWordPress,
+		existingDomainNames,
+		onSubmit: handleFormSubmit,
+	};
+
 	return (
 		<>
 			<Navigator.Screen className="flex-1" path="/">
@@ -250,12 +268,12 @@ function NavigationContent( props: NavigationContentProps ) {
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/select/create">
 				<CreateSite
-					{ ...createSiteProps }
+					{ ...createSiteCommonProps }
 					blueprintPreferredVersions={ blueprintPreferredVersions }
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/create">
-				<CreateSite { ...createSiteProps } />
+				<CreateSite { ...createSiteCommonProps } />
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/deeplink">
 				<BlueprintDeeplink
@@ -265,18 +283,15 @@ function NavigationContent( props: NavigationContentProps ) {
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/deeplink/create">
 				<CreateSite
-					{ ...createSiteProps }
+					{ ...createSiteCommonProps }
 					blueprintPreferredVersions={ blueprintPreferredVersions }
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/backup">
-				<ImportBackup
-					onFileSelect={ handleBackupFileSelect }
-					selectedFile={ createSiteProps.fileForImport }
-				/>
+				<ImportBackup onFileSelect={ handleBackupFileSelect } selectedFile={ fileForImport } />
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/backup/create">
-				<CreateSite { ...createSiteProps } />
+				<CreateSite { ...createSiteCommonProps } />
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1 flex justify-center" path="/pullRemote">
 				<PullRemoteSite
@@ -287,7 +302,7 @@ function NavigationContent( props: NavigationContentProps ) {
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/pullRemote/create">
-				<CreateSite { ...createSiteProps } />
+				<CreateSite { ...createSiteCommonProps } />
 			</Navigator.Screen>
 			<Stepper
 				currentPath={ location.path }
@@ -296,10 +311,21 @@ function NavigationContent( props: NavigationContentProps ) {
 				onBlueprintDeeplinkContinue={ handleBlueprintDeeplinkContinue }
 				onBackupContinue={ handleBackupContinue }
 				onPullRemoteContinue={ handlePullRemoteContinue }
-				onCreateSubmit={ createSiteProps.handleSubmit }
+				onCreateSubmit={ () =>
+					handleFormSubmit( {
+						siteName: siteName || '',
+						sitePath,
+						phpVersion:
+							phpVersion as import('src/lib/wordpress-provider/constants').AllowedPHPVersion,
+						wpVersion,
+						useCustomDomain: false,
+						customDomain: null,
+						enableHttps: false,
+					} )
+				}
 				canSubmitBlueprint={ !! selectedBlueprint }
 				canSubmitBlueprintDeeplink={ !! selectedBlueprint }
-				canSubmitBackup={ !! createSiteProps.fileForImport }
+				canSubmitBackup={ !! fileForImport }
 				canSubmitPullRemote={ !! selectedRemoteSite }
 				canSubmitCreate={ !! canSubmit }
 			/>
@@ -348,6 +374,20 @@ export function AddSiteModalContent( {
 		blueprintDeeplinkWarnings,
 		isDeeplinkFlow,
 		setIsDeeplinkFlow,
+		sitePath,
+		phpVersion,
+		setPhpVersion,
+		wpVersion,
+		handlePathSelectorClick,
+		error,
+		doesPathContainWordPress,
+		fileForImport,
+		setFileForImport,
+		handleSiteNameChange,
+		existingDomainNames,
+		setUseCustomDomain,
+		setCustomDomain,
+		setEnableHttps,
 	} = addSiteProps;
 
 	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
@@ -392,15 +432,35 @@ export function AddSiteModalContent( {
 		}
 	}, [ isOpen, nameSuggested, loadingSites, initializeForm ] );
 
-	const handleSubmit = useCallback(
-		async ( event: FormEvent ) => {
-			event.preventDefault();
+	const handleFormSubmit = useCallback(
+		async ( values: CreateSiteFormValues ) => {
+			// Sync form values back to hook state before submitting
+			if ( values.siteName !== siteName ) {
+				await handleSiteNameChange( values.siteName );
+			}
+			setPhpVersion( values.phpVersion );
+			setWpVersion( values.wpVersion );
+			setUseCustomDomain( values.useCustomDomain );
+			setCustomDomain( values.customDomain );
+			setEnableHttps( values.enableHttps );
+
 			onSubmit?.();
 			await handleAddSiteClick();
 			speak( siteAddedMessage );
 			setNameSuggested( false );
 		},
-		[ handleAddSiteClick, siteAddedMessage, onSubmit ]
+		[
+			handleAddSiteClick,
+			siteAddedMessage,
+			onSubmit,
+			siteName,
+			handleSiteNameChange,
+			setPhpVersion,
+			setWpVersion,
+			setUseCustomDomain,
+			setCustomDomain,
+			setEnableHttps,
+		]
 	);
 
 	return (
@@ -409,13 +469,22 @@ export function AddSiteModalContent( {
 			initialPath={ initialNavigatorPath }
 		>
 			<NavigationContent
-				{ ...addSiteProps }
+				siteName={ siteName }
+				sitePath={ sitePath }
+				phpVersion={ phpVersion }
+				wpVersion={ wpVersion }
+				handlePathSelectorClick={ handlePathSelectorClick }
+				error={ error }
+				doesPathContainWordPress={ doesPathContainWordPress }
+				existingDomainNames={ existingDomainNames }
+				fileForImport={ fileForImport }
+				setFileForImport={ setFileForImport }
 				selectedBlueprint={ selectedBlueprint }
 				setSelectedBlueprint={ setSelectedBlueprint }
 				blueprintsData={ blueprintsData }
 				blueprintsErrorMessage={ formatRtkError( blueprintsError ) }
 				isLoadingBlueprints={ isLoadingBlueprints }
-				handleSubmit={ handleSubmit }
+				handleFormSubmit={ handleFormSubmit }
 				blueprintPreferredVersions={ blueprintPreferredVersions }
 				setBlueprintPreferredVersions={ setBlueprintPreferredVersions }
 				blueprintDeeplinkWarnings={ blueprintDeeplinkWarnings }
@@ -423,6 +492,9 @@ export function AddSiteModalContent( {
 				setSelectedRemoteSite={ setSelectedRemoteSite }
 				isDeeplinkFlow={ isDeeplinkFlow }
 				setIsDeeplinkFlow={ setIsDeeplinkFlow }
+				setPhpVersion={ setPhpVersion }
+				setWpVersion={ setWpVersion }
+				handleSiteNameChange={ handleSiteNameChange }
 			/>
 		</Navigator>
 	);

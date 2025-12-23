@@ -13,9 +13,6 @@ export IS_DEV_BUILD=true
 export ARTIFACTS_PATH=${PWD}/artifacts
 export SKIP_WORKER_THREAD_BUILD='true'
 
-echo '--- :package: Package app for testing'
-npm run package
-
 # Detect if this is a PR or trunk push
 if [ "${BUILDKITE_PULL_REQUEST}" != "false" ]; then
   # PR context - compare against trunk

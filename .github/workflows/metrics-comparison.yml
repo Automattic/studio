@@ -17,7 +17,8 @@ jobs:
     name: Run metrics tests
     # Skip performance metrics on draft PRs to save CI resources
     # Tests will run automatically when PR is marked ready for review
-    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    # TEMPORARY: Skip on metrics migration branch to avoid duplicate runs during Buildkite migration
+    if: (github.event_name == 'push' || github.event.pull_request.draft == false) && github.head_ref != 'add/metrics-comparison-to-buildkite'
     runs-on: macos-15
     permissions:
       contents: read

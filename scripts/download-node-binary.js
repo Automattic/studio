@@ -11,7 +11,20 @@ const path = require( 'path' );
 const { execSync } = require( 'child_process' );
 const os = require( 'os' );
 
-const NODE_VERSION = 'v22.12.0'; // LTS version
+const LTS_FALLBACK = 'v22.12.0';
+
+function getNodeVersion() {
+	const nvmrcPath = path.join( __dirname, '..', '.nvmrc' );
+	if ( fs.existsSync( nvmrcPath ) ) {
+		const version = fs.readFileSync( nvmrcPath, 'utf-8' ).trim();
+		// Ensure version starts with 'v'
+		return version.startsWith( 'v' ) ? version : `v${ version }`;
+	}
+	console.log( `.nvmrc not found, using fallback version ${ LTS_FALLBACK }` );
+	return LTS_FALLBACK;
+}
+
+const NODE_VERSION = getNodeVersion();
 
 const platform = process.argv[ 2 ] || process.platform;
 const arch = process.argv[ 3 ] || process.arch;

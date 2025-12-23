@@ -78,6 +78,16 @@ async function createLoaderMuPlugin(): Promise< string > {
 function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	const muPlugins: MuPlugin[] = [];
 
+	muPlugins.push( {
+		filename: '0-tmp-fix-qm-plugin-sapi.php',
+		content: `<?php
+		// This is a temporary fix for a Query Manager plugin, which isn't rendered in wp-admin if sapi is "cli" (it's the case for wordpress-playground).
+		// See https://github.com/WordPress/wordpress-playground/pull/2424#issuecomment-3686951491
+		// It's not the best fix, but it's simple and for consistency it's the same as used in wordpress-playground (https://github.com/WordPress/wordpress-playground/pull/2415)		
+		define('QM_TESTS', true);
+		`,
+	} );
+
 	// HTTPS detection for reverse proxy
 	muPlugins.push( {
 		filename: '0-https-for-reverse-proxy.php',

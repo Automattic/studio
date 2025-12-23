@@ -165,6 +165,7 @@ export async function startProcess(
 			script: scriptPath,
 			exec_mode: 'fork',
 			autorestart: false,
+			windowsHide: true,
 			// Merge process.env with custom env to ensure child processes inherit
 			// necessary environment variables (PATH, HOME, E2E vars, etc.)
 			env: { ...process.env, ...env } as Record< string, string >,

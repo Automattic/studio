@@ -59,6 +59,7 @@ export function executeCliCommand(
 		stdio,
 		execPath: getBundledNodeBinaryPath(),
 		env: process.env,
+		windowsHide: true,
 	} );
 	const eventEmitter = new CliCommandEventEmitter();
 

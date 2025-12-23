@@ -198,18 +198,18 @@ const SyncConnectedSitesSectionItem = ( {
 	} = useSyncStatesProgressInfo();
 
 	const sitePullState = getPullState( selectedSite.id, connectedSite.id );
-	const isPulling = sitePullState && isKeyPulling( sitePullState.status.key );
-	const isPullError = sitePullState && isKeyFailed( sitePullState.status.key );
-	const hasPullFinished = sitePullState && isKeyFinished( sitePullState.status.key );
-	const hasPullCancelled = sitePullState && isKeyCancelled( sitePullState.status.key );
+	const isPulling = sitePullState?.status && isKeyPulling( sitePullState.status.key );
+	const isPullError = sitePullState?.status && isKeyFailed( sitePullState.status.key );
+	const hasPullFinished = sitePullState?.status && isKeyFinished( sitePullState.status.key );
+	const hasPullCancelled = sitePullState?.status && isKeyCancelled( sitePullState.status.key );
 	const { message: sitePullStatusMessage, progress: sitePullStatusProgress } =
 		getPullStatusWithProgress( sitePullState?.status, importState[ connectedSite.localSiteId ] );
 
 	const pushState = getPushState( selectedSite.id, connectedSite.id );
-	const isPushing = pushState && isKeyPushing( pushState.status.key );
-	const isPushError = pushState && isKeyFailed( pushState.status.key );
-	const hasPushFinished = pushState && isKeyFinished( pushState.status.key );
-	const hasPushCancelled = pushState && isKeyCancelled( pushState.status.key );
+	const isPushing = pushState?.status && isKeyPushing( pushState.status.key );
+	const isPushError = pushState?.status && isKeyFailed( pushState.status.key );
+	const hasPushFinished = pushState?.status && isKeyFinished( pushState.status.key );
+	const hasPushCancelled = pushState?.status && isKeyCancelled( pushState.status.key );
 
 	return (
 		<div className="grid grid-cols-[max-content_1fr_max-content]">

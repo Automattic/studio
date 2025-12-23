@@ -123,7 +123,10 @@ export function useSyncPull(): UseSyncPull {
 	// Poll for backup status when states have backupId and are in-progress
 	const shouldPollPull = useCallback( ( state: SyncBackupState ) => {
 		return (
-			state.status.key !== 'cancelled' && !! state.backupId && state.status.key === 'in-progress'
+			state.status &&
+			state.status.key !== 'cancelled' &&
+			!! state.backupId &&
+			state.status.key === 'in-progress'
 		);
 	}, [] );
 

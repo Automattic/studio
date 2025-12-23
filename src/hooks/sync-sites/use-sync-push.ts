@@ -155,7 +155,9 @@ export function useSyncPush(): UseSyncPush {
 	// Importing keys: creatingRemoteBackup, applyingChanges, finishing
 	const shouldPollPush = useCallback( ( state: SyncPushState ) => {
 		const importingKeys = [ 'creatingRemoteBackup', 'applyingChanges', 'finishing' ];
-		return state.status.key !== 'cancelled' && importingKeys.includes( state.status.key );
+		return (
+			state.status && state.status.key !== 'cancelled' && importingKeys.includes( state.status.key )
+		);
 	}, [] );
 
 	const pollPushProgress = useCallback(

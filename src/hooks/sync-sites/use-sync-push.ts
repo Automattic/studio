@@ -7,7 +7,6 @@ import {
 	useSyncStatesProgressInfo,
 	PushStateProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
-import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store, useAppDispatch, useRootSelector, type RootState } from 'src/stores';
 import {
 	syncOperationsActions,

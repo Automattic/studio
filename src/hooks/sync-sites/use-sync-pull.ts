@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
-import { useSyncPolling } from 'src/hooks/sync-sites/use-sync-polling';
 import { ClearState, GetState } from 'src/hooks/sync-sites/use-pull-push-states';
+import { useSyncPolling } from 'src/hooks/sync-sites/use-sync-polling';
 import { useAuth } from 'src/hooks/use-auth';
 import {
 	PullStateProgressInfo,

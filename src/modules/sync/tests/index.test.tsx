@@ -2,8 +2,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { useSyncPull } from 'src/hooks/sync-sites/use-sync-pull';
-import { useSyncPush } from 'src/hooks/sync-sites/use-sync-push';
-import { SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
+import { useSyncPush, SyncPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';

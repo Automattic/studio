@@ -102,7 +102,6 @@ export const rootReducer = combineReducers( {
 	providerConstants: providerConstantsReducer,
 	snapshot: snapshotReducer,
 	sync: syncReducer,
-	connectedSites: connectedSitesReducer,
 	syncOperations: syncOperationsReducer,
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,

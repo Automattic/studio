@@ -60,6 +60,23 @@ steps:
       - github_commit_status:
           context: E2E Tests
 
+  - label: ":chart_with_upwards_trend: Performance Metrics"
+    key: metrics
+    agents:
+      queue: mac
+    command: |
+      echo "--- :information_source: Environment Check"
+      echo "Branch: $BUILDKITE_BRANCH"
+      echo "Commit: $BUILDKITE_COMMIT"
+      echo "PR Number: $BUILDKITE_PULL_REQUEST"
+      echo "Repo: $BUILDKITE_REPO"
+      echo ""
+      echo "This is a placeholder step - will add actual metrics testing incrementally"
+    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+    notify:
+      - github_commit_status:
+          context: Performance Metrics
+
   - input: "🚦 Build for Mac?"
     prompt: "Do you want to build Mac dev binaries for this PR?"
     key: input-dev-mac

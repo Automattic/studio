@@ -407,7 +407,9 @@ async function ipcMessageHandler( packet: unknown ) {
 			topic: 'result',
 			result,
 		};
+		logToConsole( `Sending result message for ${validMessage.topic}, messageId: ${validMessage.messageId}` );
 		process.send!( response );
+		logToConsole( `Result message sent successfully` );
 	} catch ( error ) {
 		errorToConsole( `Error handling message ${ validMessage.topic }:`, error );
 		sendErrorMessage( validMessage.messageId, error );

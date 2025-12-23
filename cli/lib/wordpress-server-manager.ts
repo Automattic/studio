@@ -228,6 +228,7 @@ async function sendMessage(
 			const validationResult = childMessagePm2Schema.safeParse( packet );
 			if ( ! validationResult.success ) {
 				// Don't reject on validation errors - other processes may send messages we don't handle
+				console.error( `[sendMessage] Received invalid packet:`, JSON.stringify( packet ).slice( 0, 200 ) );
 				return;
 			}
 
@@ -236,6 +237,8 @@ async function sendMessage(
 			if ( validPacket.process.pm_id !== pmId ) {
 				return;
 			}
+
+			console.error( `[sendMessage] Received message topic: ${validPacket.raw.topic}, pmId: ${pmId}` );
 
 			if ( validPacket.raw.topic === 'activity' ) {
 				lastActivityTimestamp = Date.now();

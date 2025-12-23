@@ -9,9 +9,16 @@ cd scripts/compare-perf
 npm ci
 cd -
 
-echo '--- :white_check_mark: Dependencies installed successfully'
+export IS_DEV_BUILD=true
+export ARTIFACTS_PATH=${PWD}/artifacts
+export SKIP_WORKER_THREAD_BUILD='true'
+
+echo '--- :package: Package app for testing'
+npm run package
+
+echo '--- :white_check_mark: App packaged successfully'
 echo "Branch: $BUILDKITE_BRANCH"
 echo "Commit: $BUILDKITE_COMMIT"
 echo "PR Number: $BUILDKITE_PULL_REQUEST"
 echo ""
-echo "Next step: Add app packaging"
+echo "Next step: Add metrics test execution"

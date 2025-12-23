@@ -191,8 +191,8 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				let statusMessage: string = __( 'Extracting backup files…' );
 
 				if (
-					progressData.processedFiles != null &&
-					progressData.totalFiles != null &&
+					progressData?.processedFiles != null &&
+					progressData?.totalFiles != null &&
 					progressData.totalFiles > 0
 				) {
 					const percentage = Math.round(
@@ -239,8 +239,8 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				let statusMessage: string = __( 'Importing database…' );
 
 				if (
-					progressData.processedFiles != null &&
-					progressData.totalFiles != null &&
+					progressData?.processedFiles != null &&
+					progressData?.totalFiles != null &&
 					progressData.totalFiles > 0
 				) {
 					const percentage = Math.round(
@@ -249,7 +249,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 					statusMessage = sprintf( __( 'Importing database… (%d%%)' ), percentage );
 				}
 
-				const progressIncrement = progressData.totalFiles
+				const progressIncrement = progressData?.totalFiles
 					? ( ( progressData.processedFiles || 0 ) / progressData.totalFiles ) * 20
 					: 0;
 

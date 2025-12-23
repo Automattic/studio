@@ -177,6 +177,8 @@ export const CreateSiteForm = ( {
 	const [ pathError, setPathError ] = useState( '' );
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
+	// Track if user has manually selected a path via folder picker
+	const [ hasCustomPath, setHasCustomPath ] = useState( false );
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
 
@@ -218,8 +220,8 @@ export const CreateSiteForm = ( {
 		async ( name: string ) => {
 			setSiteName( name );
 
-			// Only generate path if we don't have a custom path set
-			if ( onSiteNameChange && ! sitePath ) {
+			// Only generate path if user hasn't manually selected a custom path
+			if ( onSiteNameChange && ! hasCustomPath ) {
 				const result = await onSiteNameChange( name );
 				if ( result.error ) {
 					setPathError( result.error );
@@ -227,11 +229,10 @@ export const CreateSiteForm = ( {
 					setPathError( '' );
 				}
 				setDoesPathContainWordPress( ! result.isEmpty && result.isWordPress );
-				// Store the proposed path
 				setSitePath( result.path );
 			}
 		},
-		[ onSiteNameChange, sitePath ]
+		[ onSiteNameChange, hasCustomPath ]
 	);
 
 	const handleSelectPath = useCallback( async () => {
@@ -240,6 +241,8 @@ export const CreateSiteForm = ( {
 		const result = await onSelectPath( sitePath );
 		if ( ! result ) return;
 
+		// Mark that user has manually selected a path
+		setHasCustomPath( true );
 		setSitePath( result.path );
 		if ( result.error ) {
 			setPathError( result.error );

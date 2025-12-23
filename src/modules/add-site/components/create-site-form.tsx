@@ -162,7 +162,6 @@ export const CreateSiteForm = ( {
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 	const allowedPhpVersions = useRootSelector( selectAllowedPhpVersions );
 
-	// Form state - fully owned by this component
 	const [ siteName, setSiteName ] = useState( defaultValues.siteName ?? '' );
 	const [ sitePath, setSitePath ] = useState( defaultValues.sitePath ?? '' );
 	const [ phpVersion, setPhpVersion ] = useState< AllowedPHPVersion >(
@@ -175,13 +174,38 @@ export const CreateSiteForm = ( {
 	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
 	const [ enableHttps, setEnableHttps ] = useState( false );
 
-	// Validation state
 	const [ pathError, setPathError ] = useState( '' );
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
 
-	// UI state
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
+
+	// Sync form state with defaultValues when they change
+	// This handles cases where defaultValues are updated after initial mount
+	// (e.g., blueprint preferred versions loading after form mount)
+	useEffect( () => {
+		if ( defaultValues.siteName !== undefined ) {
+			setSiteName( defaultValues.siteName );
+		}
+	}, [ defaultValues.siteName ] );
+
+	useEffect( () => {
+		if ( defaultValues.sitePath !== undefined ) {
+			setSitePath( defaultValues.sitePath );
+		}
+	}, [ defaultValues.sitePath ] );
+
+	useEffect( () => {
+		if ( defaultValues.phpVersion !== undefined ) {
+			setPhpVersion( defaultValues.phpVersion );
+		}
+	}, [ defaultValues.phpVersion ] );
+
+	useEffect( () => {
+		if ( defaultValues.wpVersion !== undefined ) {
+			setWpVersion( defaultValues.wpVersion );
+		}
+	}, [ defaultValues.wpVersion ] );
 
 	// If the custom domain is enabled and the root certificate is trusted, enable HTTPS
 	useEffect( () => {
@@ -190,7 +214,6 @@ export const CreateSiteForm = ( {
 		}
 	}, [ useCustomDomain, isCertificateTrusted ] );
 
-	// Handle site name change - generate proposed path
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {
 			setSiteName( name );
@@ -211,7 +234,6 @@ export const CreateSiteForm = ( {
 		[ onSiteNameChange, sitePath ]
 	);
 
-	// Handle path selection
 	const handleSelectPath = useCallback( async () => {
 		if ( ! onSelectPath ) return;
 
@@ -226,13 +248,11 @@ export const CreateSiteForm = ( {
 		}
 		setDoesPathContainWordPress( ! result.isEmpty && result.isWordPress );
 
-		// If we got a name from the path and don't have one, use it
 		if ( result.name && ! siteName ) {
 			setSiteName( result.name );
 		}
 	}, [ onSelectPath, sitePath, siteName ] );
 
-	// Handle custom domain change
 	const handleCustomDomainChange = useCallback(
 		( value: string ) => {
 			setCustomDomain( value );
@@ -243,7 +263,6 @@ export const CreateSiteForm = ( {
 		[ useCustomDomain, existingDomainNames ]
 	);
 
-	// Build form values
 	const formValues = useMemo< CreateSiteFormValues >(
 		() => ( {
 			siteName,
@@ -257,7 +276,6 @@ export const CreateSiteForm = ( {
 		[ siteName, sitePath, phpVersion, wpVersion, useCustomDomain, customDomain, enableHttps ]
 	);
 
-	// Handle form submit
 	const handleFormSubmit = useCallback(
 		( event: FormEvent ) => {
 			event.preventDefault();

@@ -13,6 +13,7 @@ import { Icon, external, upload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useRef, useState, useMemo } from 'react';
 import StudioButton from 'src/components/button';
+import { LearnMoreLink } from 'src/components/learn-more';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetBlueprints } from 'src/stores/wpcom-api';
@@ -285,9 +286,13 @@ export function AddSiteBlueprintSelector( {
 
 	return (
 		<VStack className="w-full max-w-4xl mx-auto px-0.5" spacing={ 0 }>
-			<Heading className="text-center text-[32px] text-gray-900 mb-5" weight={ 500 }>
+			<Heading className="text-center text-[32px] text-gray-900 mb-1" weight={ 500 }>
 				{ __( 'Start from a Blueprint' ) }
 			</Heading>
+			<Text className="text-center text-a8c-gray-700 mb-4">
+				{ __( 'Create a new site from a featured Blueprint on your own.' ) }{ ' ' }
+				<LearnMoreLink docsLinksKey="docsBlueprints" />
+			</Text>
 
 			{ validationError && (
 				<Notice

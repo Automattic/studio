@@ -2,34 +2,14 @@ import { FormToggle } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { ArrowIcon } from 'src/components/arrow-icon';
-import Button from 'src/components/button';
+import { LearnMoreLink } from 'src/components/learn-more';
 import { isMac } from 'src/lib/app-globals';
-import { getIpcApi } from 'src/lib/get-ipc-api';
-import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { SettingsFormField } from 'src/modules/user-settings/components/settings-form-field';
-import { useI18nLocale } from 'src/stores';
 
 type StudioCLIToggleProps = {
 	value: boolean;
 	onChange: ( value: boolean ) => void;
 };
-
-function LearnMoreLink( { className }: { className?: string } ) {
-	const { __ } = useI18n();
-	const locale = useI18nLocale();
-
-	return (
-		<Button
-			className={ className }
-			onClick={ () => getIpcApi().openURL( getLocalizedLink( locale, 'docsCli' ) ) }
-			variant="link"
-		>
-			{ __( 'Learn more' ) }
-			<ArrowIcon />
-		</Button>
-	);
-}
 
 export function StudioCliToggle( { value, onChange }: StudioCLIToggleProps ) {
 	const { __ } = useI18n();
@@ -55,7 +35,7 @@ export function StudioCliToggle( { value, onChange }: StudioCLIToggleProps ) {
 						{ ! isMac() && (
 							<>
 								{ ' ' }
-								<LearnMoreLink />
+								<LearnMoreLink docsLinksKey="docsCli" />
 							</>
 						) }
 					</label>
@@ -64,7 +44,7 @@ export function StudioCliToggle( { value, onChange }: StudioCLIToggleProps ) {
 							{ __(
 								'Toggling this option will prompt you for admin privileges to install or uninstall the Studio CLI for use in the terminal.'
 							) }{ ' ' }
-							<LearnMoreLink className="a8c-body-small" />
+							<LearnMoreLink docsLinksKey="docsCli" className="a8c-body-small" />
 						</div>
 					) }
 				</div>

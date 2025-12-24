@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import { __, sprintf } from '@wordpress/i18n';
-import { Blueprint } from '@wp-playground/blueprints';
+import { BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { RecommendedPHPVersion } from '@wp-playground/common';
 import {
 	filterUnsupportedBlueprintFeatures,
@@ -74,7 +74,7 @@ export async function runCommand(
 			);
 		}
 
-		let blueprint: Blueprint | undefined;
+		let blueprint: BlueprintV1Declaration | undefined;
 		if ( options.blueprintJson ) {
 			const validation = await validateBlueprintData( options.blueprintJson );
 			if ( ! validation.valid ) {
@@ -92,7 +92,9 @@ export async function runCommand(
 				);
 			}
 
-			blueprint = filterUnsupportedBlueprintFeatures( options.blueprintJson ) as Blueprint;
+			blueprint = filterUnsupportedBlueprintFeatures(
+				options.blueprintJson
+			) as BlueprintV1Declaration;
 		}
 
 		const appdata = await readAppdata();
@@ -149,8 +151,8 @@ export async function runCommand(
 			if ( ! blueprint ) {
 				blueprint = {};
 			}
-			const existingSteps = 'steps' in blueprint ? blueprint.steps || [] : [];
-			( blueprint as { steps?: Array< any > } ).steps = [
+			const existingSteps = blueprint.steps || [];
+			blueprint.steps = [
 				{
 					step: 'setSiteOptions',
 					options: {

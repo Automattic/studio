@@ -1,4 +1,4 @@
-import { Blueprint } from '@wp-playground/blueprints';
+import { BlueprintV1Declaration } from '@wp-playground/blueprints';
 import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
@@ -122,7 +122,6 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should error if WordPress version is invalid', async () => {
-
 			await expect(
 				runCommand( mockSitePath, {
 					wpVersion: 'invalid-version',
@@ -136,7 +135,6 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should error if WordPress version is below minimum', async () => {
-
 			await expect(
 				runCommand( mockSitePath, {
 					wpVersion: '6.0',
@@ -156,7 +154,6 @@ describe( 'CLI: studio site create', () => {
 			} );
 			( arePathsEqual as jest.Mock ).mockReturnValue( true );
 
-
 			await expect(
 				runCommand( mockSitePath, {
 					wpVersion: 'latest',
@@ -170,7 +167,6 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should error if custom domain is invalid', async () => {
-
 			await expect(
 				runCommand( mockSitePath, {
 					wpVersion: 'latest',
@@ -189,7 +185,6 @@ describe( 'CLI: studio site create', () => {
 				sites: [ { ...mockExistingSite, customDomain: 'mysite.local' } ],
 				snapshots: [],
 			} );
-
 
 			await expect(
 				runCommand( mockSitePath, {
@@ -210,7 +205,6 @@ describe( 'CLI: studio site create', () => {
 				error: 'Invalid blueprint',
 			} );
 
-
 			await expect(
 				runCommand( mockSitePath, {
 					wpVersion: 'latest',
@@ -227,7 +221,6 @@ describe( 'CLI: studio site create', () => {
 		it( 'should error if SQLite integration is not available', async () => {
 			( isSqliteIntegrationAvailable as jest.Mock ).mockResolvedValue( false );
 
-
 			await expect(
 				runCommand( mockSitePath, {
 					wpVersion: 'latest',
@@ -243,7 +236,6 @@ describe( 'CLI: studio site create', () => {
 
 	describe( 'Success Cases', () => {
 		it( 'should create a basic site successfully', async () => {
-
 			await runCommand( mockSitePath, {
 				wpVersion: 'latest',
 				phpVersion: '8.0',
@@ -265,7 +257,6 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should create site with custom name', async () => {
-
 			await runCommand( mockSitePath, {
 				name: 'My Custom Site',
 				wpVersion: 'latest',
@@ -299,7 +290,6 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should use folder name as site name if no name provided', async () => {
-
 			await runCommand( mockSitePath, {
 				wpVersion: 'latest',
 				phpVersion: '8.0',
@@ -322,7 +312,6 @@ describe( 'CLI: studio site create', () => {
 			( pathExists as jest.Mock ).mockResolvedValue( true );
 			( isEmptyDir as jest.Mock ).mockResolvedValue( true );
 
-
 			await runCommand( mockSitePath, {
 				wpVersion: 'latest',
 				phpVersion: '8.0',
@@ -338,7 +327,6 @@ describe( 'CLI: studio site create', () => {
 			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
 			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
 
-
 			await runCommand( mockSitePath, {
 				wpVersion: 'latest',
 				phpVersion: '8.0',
@@ -350,7 +338,6 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should create site with custom domain', async () => {
-
 			await runCommand( mockSitePath, {
 				wpVersion: 'latest',
 				phpVersion: '8.0',
@@ -372,7 +359,6 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should create site with HTTPS enabled', async () => {
-
 			await runCommand( mockSitePath, {
 				wpVersion: 'latest',
 				phpVersion: '8.0',
@@ -398,7 +384,6 @@ describe( 'CLI: studio site create', () => {
 				snapshots: [],
 			} );
 
-
 			await runCommand( mockSitePath, {
 				wpVersion: 'latest',
 				phpVersion: '8.0',
@@ -410,7 +395,6 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should set isWpAutoUpdating true for latest WordPress version', async () => {
-
 			await runCommand( mockSitePath, {
 				wpVersion: 'latest',
 				phpVersion: '8.0',
@@ -430,7 +414,6 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should set isWpAutoUpdating false for specific WordPress version', async () => {
-
 			await runCommand( mockSitePath, {
 				wpVersion: '6.4',
 				phpVersion: '8.0',
@@ -451,7 +434,7 @@ describe( 'CLI: studio site create', () => {
 	} );
 
 	describe( 'Blueprint Handling', () => {
-		const testBlueprint: Blueprint = {
+		const testBlueprint: BlueprintV1Declaration = {
 			steps: [
 				{
 					step: 'installPlugin',
@@ -461,7 +444,6 @@ describe( 'CLI: studio site create', () => {
 		};
 
 		it( 'should apply blueprint when provided', async () => {
-
 			await runCommand( mockSitePath, {
 				wpVersion: 'latest',
 				phpVersion: '8.0',
@@ -480,7 +462,6 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should prepend setSiteOptions step when name is provided with blueprint', async () => {
-
 			await runCommand( mockSitePath, {
 				name: 'My Site',
 				wpVersion: 'latest',
@@ -517,7 +498,6 @@ describe( 'CLI: studio site create', () => {
 				],
 			} );
 
-
 			await runCommand( mockSitePath, {
 				wpVersion: 'latest',
 				phpVersion: '8.0',
@@ -530,7 +510,6 @@ describe( 'CLI: studio site create', () => {
 
 	describe( 'noStart Option', () => {
 		it( 'should not start server when noStart is true', async () => {
-
 			await runCommand( mockSitePath, {
 				wpVersion: 'latest',
 				phpVersion: '8.0',
@@ -547,8 +526,7 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should apply blueprint without starting server when noStart is true', async () => {
-			const testBlueprint: Blueprint = { steps: [] };
-
+			const testBlueprint: BlueprintV1Declaration = { steps: [] };
 
 			await runCommand( mockSitePath, {
 				wpVersion: 'latest',
@@ -583,7 +561,7 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should handle blueprint application failure', async () => {
-			const testBlueprint: Blueprint = { steps: [] };
+			const testBlueprint: BlueprintV1Declaration = { steps: [] };
 			( runBlueprint as jest.Mock ).mockRejectedValue( new Error( 'Blueprint failed' ) );
 
 			await expect(
@@ -604,7 +582,6 @@ describe( 'CLI: studio site create', () => {
 				new Error( 'SQLite setup failed' )
 			);
 
-
 			await expect(
 				runCommand( mockSitePath, {
 					wpVersion: 'latest',
@@ -622,7 +599,6 @@ describe( 'CLI: studio site create', () => {
 		it( 'should disconnect from PM2 even on error', async () => {
 			( readAppdata as jest.Mock ).mockRejectedValue( new Error( 'Appdata error' ) );
 
-
 			try {
 				await runCommand( mockSitePath, {
 					wpVersion: 'latest',
@@ -638,7 +614,6 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should disconnect from PM2 on success', async () => {
-
 			await runCommand( mockSitePath, {
 				wpVersion: 'latest',
 				phpVersion: '8.0',
@@ -650,7 +625,6 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should unlock appdata after saving', async () => {
-
 			await runCommand( mockSitePath, {
 				wpVersion: 'latest',
 				phpVersion: '8.0',

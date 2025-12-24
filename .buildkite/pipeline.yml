@@ -29,8 +29,6 @@ steps:
     matrix:
       - mac
       - windows
-    # TEMPORARY: Skip on metrics migration branch to save CI resources during development
-    if: build.branch != 'add/metrics-comparison-to-buildkite'
     notify:
       - github_commit_status:
           context: Unit Tests
@@ -57,8 +55,7 @@ steps:
       - windows
     # Skip E2E tests on draft PRs to save CI resources
     # Tests will run automatically when PR is marked ready for review
-    # TEMPORARY: Skip on metrics migration branch to save CI resources during development
-    if: build.branch != 'add/metrics-comparison-to-buildkite' && (build.branch == 'trunk' || build.tag =~ /^v[0-9]+/ || !build.pull_request.draft)
+    if: build.branch == 'trunk' || build.tag =~ /^v[0-9]+/ || !build.pull_request.draft
     notify:
       - github_commit_status:
           context: E2E Tests

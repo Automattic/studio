@@ -159,13 +159,12 @@ export async function startProcess(
 	env: Record< string, string > = {}
 ): Promise< ProcessDescription > {
 	return new Promise( ( resolve, reject ) => {
-		const processConfig: StartOptions & { windowsHide?: boolean } = {
+		const processConfig: StartOptions = {
 			name: processName,
 			interpreter: process.execPath,
 			script: scriptPath,
 			exec_mode: 'fork',
 			autorestart: false,
-			windowsHide: true,
 			// Merge process.env with custom env to ensure child processes inherit
 			// necessary environment variables (PATH, HOME, E2E vars, etc.)
 			env: { ...process.env, ...env } as Record< string, string >,

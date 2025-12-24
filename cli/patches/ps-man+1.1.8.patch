@@ -1,0 +1,22 @@
+diff --git a/node_modules/ps-man/lib/index.js b/node_modules/ps-man/lib/index.js
+index 1234567..abcdefg 100644
+--- a/node_modules/ps-man/lib/index.js
++++ b/node_modules/ps-man/lib/index.js
+@@ -42,7 +42,7 @@ var listProcesses = function(options, done) {
+     options = options || {};
+   }
+
+-  var ps          = spawn(operations.ps.command, operations.ps.arguments);
++  var ps          = spawn(operations.ps.command, operations.ps.arguments, { windowsHide: true });
+   var processList = '';
+   var processErr  = '';
+   var options     = {
+@@ -137,7 +137,7 @@ var killProcesses = function(options, done) {
+     });
+   }
+
+-  var kill          = spawn(operations.kill.command, killArguments);
++  var kill          = spawn(operations.kill.command, killArguments, { windowsHide: true });
+   var processErr    = '';
+
+   kill.on('error', done);

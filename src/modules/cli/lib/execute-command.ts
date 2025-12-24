@@ -55,11 +55,10 @@ export function executeCliCommand(
 		stdio = [ 'ignore', 'ignore', 'ignore', 'ipc' ];
 	}
 
-	const forkOptions: ForkOptions & { windowsHide?: boolean } = {
+	const forkOptions: ForkOptions = {
 		stdio,
 		execPath: getBundledNodeBinaryPath(),
 		env: process.env,
-		windowsHide: true,
 	};
 	const child = fork( cliPath, [ ...args, '--avoid-telemetry' ], forkOptions );
 	const eventEmitter = new CliCommandEventEmitter();

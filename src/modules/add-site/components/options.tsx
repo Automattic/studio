@@ -82,7 +82,10 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 	const { __ } = useI18n();
 	const { enableBlueprints } = useFeatureFlags();
 	const isOffline = useOffline();
-	const offlineMessage = __( "You're currently offline." );
+	const blueprintOfflineMessage = __(
+		'Starting from a Blueprint requires an internet connection.'
+	);
+	const importOfflineMessage = __( 'Importing a site requires an internet connection.' );
 
 	return (
 		<VStack className="text-center w-full" alignment="top" spacing="3">
@@ -106,7 +109,7 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 					description={ __( 'Choose a featured Blueprint or use your own' ) }
 					onClick={ () => onOptionSelect( 'blueprint' ) }
 					disabled={ isOffline }
-					disabledTooltip={ offlineMessage }
+					disabledTooltip={ blueprintOfflineMessage }
 				/>
 			) }
 			<OptionButton
@@ -114,6 +117,8 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 				title={ __( 'Pull an existing site' ) }
 				description={ __( 'Download directly from WordPress.com or Pressable' ) }
 				onClick={ () => onOptionSelect( 'pullRemote' ) }
+				disabled={ isOffline }
+				disabledTooltip={ importOfflineMessage }
 			/>
 			<OptionButton
 				icon={ <Icon icon={ backup } size={ 24 } fill="#3858E9" /> }

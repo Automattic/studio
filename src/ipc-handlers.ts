@@ -194,6 +194,18 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	return mergeSiteDetailsWithRunningDetails( sites );
 }
 
+export async function getXdebugEnabledSite(
+	_event: IpcMainInvokeEvent
+): Promise< SiteDetails | null > {
+	const userData = await loadUserData();
+	const { sites } = userData;
+	const xdebugSite = sites.find( ( site ) => site.enableXdebug );
+	if ( ! xdebugSite ) {
+		return null;
+	}
+	return mergeSiteDetailsWithRunningDetails( [ xdebugSite ] )[ 0 ] || null;
+}
+
 export async function importSite(
 	event: IpcMainInvokeEvent,
 	{ id, backupFile }: { id: string; backupFile: BackupArchiveInfo }

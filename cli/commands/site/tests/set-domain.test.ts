@@ -8,7 +8,7 @@ import {
 	unlockAppdata,
 	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
-import { removeDomainFromHosts } from 'cli/lib/hosts-file';
+import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { setupCustomDomain } from 'cli/lib/site-utils';
 import {
@@ -74,7 +74,7 @@ describe( 'CLI: studio site set-domain', () => {
 		( startWordPressServer as jest.Mock ).mockResolvedValue( testProcessDescription );
 		( stopWordPressServer as jest.Mock ).mockResolvedValue( undefined );
 		( arePathsEqual as jest.Mock ).mockImplementation( ( a: string, b: string ) => a === b );
-		( removeDomainFromHosts as jest.Mock ).mockResolvedValue( undefined );
+		( updateDomainInHosts as jest.Mock ).mockResolvedValue( undefined );
 		( setupCustomDomain as jest.Mock ).mockResolvedValue( undefined );
 		( getDomainNameValidationError as jest.Mock ).mockReturnValue( '' );
 		( updateSiteLatestCliPid as jest.Mock ).mockResolvedValue( undefined );
@@ -166,7 +166,7 @@ describe( 'CLI: studio site set-domain', () => {
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( updateSiteLatestCliPid ).not.toHaveBeenCalled();
-			expect( removeDomainFromHosts ).not.toHaveBeenCalled();
+			expect( updateDomainInHosts ).toHaveBeenCalledWith( undefined, testDomainName, testSite.port );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -183,7 +183,9 @@ describe( 'CLI: studio site set-domain', () => {
 
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( stopWordPressServer ).toHaveBeenCalledWith( testSite.id );
-			expect( setupCustomDomain ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
+			expect( setupCustomDomain ).toHaveBeenCalledWith( testSite, expect.any( Logger ), {
+				skipHostsUpdate: true,
+			} );
 			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
 			expect( updateSiteLatestCliPid ).toHaveBeenCalledWith(
 				testSite.id,
@@ -192,7 +194,7 @@ describe( 'CLI: studio site set-domain', () => {
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
-		it( 'should remove old domain from hosts file when replacing domain', async () => {
+		it( 'should update hosts file with old and new domain when replacing domain', async () => {
 			const oldDomain = 'old.local';
 			( readAppdata as jest.Mock ).mockResolvedValue( {
 				sites: [ { ...testSite, customDomain: oldDomain } ],
@@ -203,7 +205,7 @@ describe( 'CLI: studio site set-domain', () => {
 
 			await runCommand( testSitePath, testDomainName );
 
-			expect( removeDomainFromHosts ).toHaveBeenCalledWith( oldDomain );
+			expect( updateDomainInHosts ).toHaveBeenCalledWith( oldDomain, testDomainName, testSite.port );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 	} );

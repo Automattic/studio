@@ -10,7 +10,7 @@ import {
 	unlockAppdata,
 	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
-import { removeDomainFromHosts } from 'cli/lib/hosts-file';
+import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { setupCustomDomain } from 'cli/lib/site-utils';
 import {
@@ -59,14 +59,12 @@ export async function runCommand( sitePath: string, domainName: string ): Promis
 			await unlockAppdata();
 		}
 
-		if ( oldDomainName ) {
-			logger.reportStart(
-				LoggerAction.REMOVE_DOMAIN_FROM_HOSTS,
-				__( 'Removing domain from hosts file…' )
-			);
-			await removeDomainFromHosts( oldDomainName );
-			logger.reportSuccess( __( 'Domain removed from hosts file' ) );
-		}
+		logger.reportStart(
+			LoggerAction.ADD_DOMAIN_TO_HOSTS,
+			__( 'Updating hosts file…' )
+		);
+		await updateDomainInHosts( oldDomainName, domainName, site.port );
+		logger.reportSuccess( __( 'Hosts file updated' ) );
 
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connect();
@@ -76,7 +74,7 @@ export async function runCommand( sitePath: string, domainName: string ): Promis
 
 		if ( runningProcess ) {
 			await stopWordPressServer( site.id );
-			await setupCustomDomain( site, logger );
+			await setupCustomDomain( site, logger, { skipHostsUpdate: true } );
 			logger.reportStart( LoggerAction.START_SITE, __( 'Restarting site…' ) );
 			const processDesc = await startWordPressServer( site, logger );
 			if ( processDesc.pid ) {

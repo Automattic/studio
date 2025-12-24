@@ -470,7 +470,12 @@ describe( 'CLI: studio site create', () => {
 
 	describe( 'Blueprint Handling', () => {
 		const testBlueprint: Blueprint = {
-			steps: [ { step: 'installPlugin', pluginData: { slug: 'akismet' } } ],
+			steps: [
+				{
+					step: 'installPlugin',
+					pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' },
+				},
+			],
 		};
 
 		it( 'should apply blueprint when provided', async () => {

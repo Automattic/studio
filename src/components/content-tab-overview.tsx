@@ -182,7 +182,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 }
 
 export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) {
-	let [ isThumbnailError, setIsThumbnailError ] = useState( false );
+	const [ isThumbnailError, setIsThumbnailError ] = useState( false );
 	const { __ } = useI18n();
 	const { startServer, loadingServer } = useSiteDetails();
 	const {

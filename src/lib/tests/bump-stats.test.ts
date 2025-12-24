@@ -1,14 +1,31 @@
 import { waitFor } from '@testing-library/react';
 import { readFile, writeFile } from 'atomically';
 import nock from 'nock';
-import { bumpStat } from 'common/lib/bump-stat';
+import {
+	bumpStat,
+	bumpAggregatedUniqueStat,
+	AppdataProvider,
+	LastBumpStatsData,
+} from 'common/lib/bump-stat';
 import { AggregateInterval, StatsGroup, StatsMetric } from 'common/types/stats';
-import { bumpAggregatedUniqueStat } from 'src/lib/bump-stats';
 
 jest.mock( 'atomically', () => ( {
 	readFile: jest.fn(),
 	writeFile: jest.fn(),
 } ) );
+
+// Mock appdata provider for tests
+const mockAppdataProvider: AppdataProvider< LastBumpStatsData > = {
+	load: async () => {
+		const fileContent = await readFile( 'mock-path', 'utf-8' );
+		return JSON.parse( fileContent );
+	},
+	lock: async () => {},
+	unlock: async () => {},
+	save: async ( data ) => {
+		await writeFile( 'mock-path', JSON.stringify( data, null, 2 ), 'utf-8' );
+	},
+};
 
 const originalEnv = { ...process.env };
 
@@ -118,7 +135,12 @@ describe( 'bumpAggregatedUniqueStat', () => {
 			} )
 		);
 
-		bumpAggregatedUniqueStat( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS, 'weekly' );
+		await bumpAggregatedUniqueStat(
+			StatsGroup.STUDIO_APP_LAUNCH,
+			StatsMetric.SUCCESS,
+			'weekly',
+			mockAppdataProvider
+		);
 
 		await waitFor( () => expect( nock.isDone() ).toBe( true ) );
 	} );
@@ -144,7 +166,12 @@ describe( 'bumpAggregatedUniqueStat', () => {
 				} )
 			);
 
-			bumpAggregatedUniqueStat( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS, aggregateBy );
+			await bumpAggregatedUniqueStat(
+				StatsGroup.STUDIO_APP_LAUNCH,
+				StatsMetric.SUCCESS,
+				aggregateBy,
+				mockAppdataProvider
+			);
 
 			await waitFor( () => expect( nock.isDone() ).toBe( true ) );
 
@@ -182,7 +209,12 @@ describe( 'bumpAggregatedUniqueStat', () => {
 				} )
 			);
 
-			bumpAggregatedUniqueStat( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS, aggregateBy );
+			await bumpAggregatedUniqueStat(
+				StatsGroup.STUDIO_APP_LAUNCH,
+				StatsMetric.SUCCESS,
+				aggregateBy,
+				mockAppdataProvider
+			);
 
 			expect( writeFile ).not.toHaveBeenCalled();
 		}

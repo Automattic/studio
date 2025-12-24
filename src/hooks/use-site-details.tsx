@@ -194,6 +194,16 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		);
 	} );
 
+	useIpcListener( 'user-data-updated', async () => {
+		const updatedSites = await getIpcApi().getSiteDetails();
+		setSites( updatedSites );
+
+		// Handle case where selected site was deleted externally
+		if ( selectedSiteId && ! updatedSites.find( ( site ) => site.id === selectedSiteId ) ) {
+			setSelectedSiteId( updatedSites.length ? updatedSites[ 0 ].id : '' );
+		}
+	} );
+
 	const toggleLoadingServerForSite = useCallback( ( siteId: string ) => {
 		setLoadingServer( ( currentLoading ) => ( {
 			...currentLoading,

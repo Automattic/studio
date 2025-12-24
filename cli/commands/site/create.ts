@@ -149,8 +149,8 @@ export async function runCommand(
 			if ( ! blueprint ) {
 				blueprint = {};
 			}
-			const existingSteps = blueprint.steps || [];
-			blueprint.steps = [
+			const existingSteps = 'steps' in blueprint ? blueprint.steps || [] : [];
+			( blueprint as { steps?: Array< any > } ).steps = [
 				{
 					step: 'setSiteOptions',
 					options: {

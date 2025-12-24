@@ -48,6 +48,16 @@ export async function stopAllServersOnQuit() {
 	} );
 }
 
+export function getRunningSiteCount(): number {
+	return Array.from( servers.values() ).filter( ( server ) => server.details.running ).length;
+}
+
+// Only for testing purposes
+export function __resetServersForTesting(): void {
+	servers.clear();
+	deletedServers.length = 0;
+}
+
 function getAbsoluteUrl( details: SiteDetails ): string {
 	if ( details.customDomain ) {
 		const protocol = details.enableHttps ? 'https' : 'http';

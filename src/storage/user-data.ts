@@ -125,6 +125,7 @@ type UserDataSafeKeys =
 	| 'onboardingCompleted'
 	| 'locale'
 	| 'promptWindowsSpeedUpResult'
+	| 'stopSitesOnQuit'
 	| 'sentryUserId'
 	| 'lastSeenVersion'
 	| 'preferredTerminal'

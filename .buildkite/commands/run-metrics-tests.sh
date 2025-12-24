@@ -32,10 +32,11 @@ elif [ "${BUILDKITE_BRANCH}" == "trunk" ]; then
   echo "--- :chart_with_upwards_trend: Running performance comparison against baseline"
   cd scripts/compare-perf
   npm run compare -- perf $BUILDKITE_COMMIT $BASELINE_COMMIT --tests-branch $BUILDKITE_COMMIT --rounds 3
-  cd -
 
-  echo "--- :white_check_mark: Performance tests completed"
-  echo "Next step: Add CodeVitals upload"
+  echo "--- :bar_chart: Logging metrics to CodeVitals"
+  COMMITTED_AT=$(git show -s $BUILDKITE_COMMIT --format="%cI")
+  npm run log-to-codevitals -- $CODEVITALS_AUTH_TOKEN trunk $BUILDKITE_COMMIT $BASELINE_COMMIT $COMMITTED_AT
+  cd -
 else
   # Other branches - skip metrics
   echo "--- :information_source: Skipping metrics for non-trunk branch"

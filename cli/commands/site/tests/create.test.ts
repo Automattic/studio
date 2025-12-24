@@ -594,7 +594,6 @@ describe( 'CLI: studio site create', () => {
 			( startWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server start failed' ) );
 
 			const { runCommand } = await import( '../create' );
-
 			await expect(
 				runCommand( mockSitePath, {
 					wpVersion: 'latest',
@@ -612,7 +611,6 @@ describe( 'CLI: studio site create', () => {
 			( runBlueprint as jest.Mock ).mockRejectedValue( new Error( 'Blueprint failed' ) );
 
 			const { runCommand } = await import( '../create' );
-
 			await expect(
 				runCommand( mockSitePath, {
 					wpVersion: 'latest',

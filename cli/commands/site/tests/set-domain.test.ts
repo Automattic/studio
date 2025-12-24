@@ -166,7 +166,11 @@ describe( 'CLI: studio site set-domain', () => {
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( updateSiteLatestCliPid ).not.toHaveBeenCalled();
-			expect( updateDomainInHosts ).toHaveBeenCalledWith( undefined, testDomainName, testSite.port );
+			expect( updateDomainInHosts ).toHaveBeenCalledWith(
+				undefined,
+				testDomainName,
+				testSite.port
+			);
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -205,7 +209,11 @@ describe( 'CLI: studio site set-domain', () => {
 
 			await runCommand( testSitePath, testDomainName );
 
-			expect( updateDomainInHosts ).toHaveBeenCalledWith( oldDomain, testDomainName, testSite.port );
+			expect( updateDomainInHosts ).toHaveBeenCalledWith(
+				oldDomain,
+				testDomainName,
+				testSite.port
+			);
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 	} );

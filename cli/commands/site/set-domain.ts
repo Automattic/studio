@@ -59,10 +59,7 @@ export async function runCommand( sitePath: string, domainName: string ): Promis
 			await unlockAppdata();
 		}
 
-		logger.reportStart(
-			LoggerAction.ADD_DOMAIN_TO_HOSTS,
-			__( 'Updating hosts file…' )
-		);
+		logger.reportStart( LoggerAction.ADD_DOMAIN_TO_HOSTS, __( 'Updating hosts file…' ) );
 		await updateDomainInHosts( oldDomainName, domainName, site.port );
 		logger.reportSuccess( __( 'Hosts file updated' ) );
 

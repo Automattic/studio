@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { SiteServer } from 'src/site-server';
 import { loadUserData } from 'src/storage/user-data';

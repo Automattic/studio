@@ -456,11 +456,12 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						<TelexIcon />
 						<span className="text-gray-900">
 							{ createInterpolateElement(
-								__( 'Build blocks with Telex. <button>Learn more</button>' ),
+								__( 'Build blocks with <button>Telex <ArrowIcon /></button>' ),
 								{
 									button: (
 										<Button variant="link" onClick={ () => getIpcApi().openURL( TELEX_URL ) } />
 									),
+									ArrowIcon: <ArrowIcon />,
 								}
 							) }
 						</span>

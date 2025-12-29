@@ -19,24 +19,7 @@ import {
 	selectDefaultWordPressVersion,
 	selectAllowedPhpVersions,
 } from 'src/stores/provider-constants-slice';
-
-export interface CreateSiteFormValues {
-	siteName: string;
-	sitePath: string;
-	phpVersion: AllowedPHPVersion;
-	wpVersion: string;
-	useCustomDomain: boolean;
-	customDomain: string | null;
-	enableHttps: boolean;
-}
-
-export interface PathValidationResult {
-	path: string;
-	name?: string;
-	isEmpty: boolean;
-	isWordPress: boolean;
-	error?: string;
-}
+import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
 
 export interface CreateSiteFormProps {
 	/**

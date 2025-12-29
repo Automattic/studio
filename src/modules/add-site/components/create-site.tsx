@@ -5,11 +5,8 @@ import {
 import { useI18n } from '@wordpress/react-i18n';
 import { RefObject } from 'react';
 import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
-import {
-	CreateSiteForm,
-	CreateSiteFormValues,
-	PathValidationResult,
-} from 'src/modules/add-site/components/create-site-form';
+import { CreateSiteForm } from 'src/modules/add-site/components/create-site-form';
+import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
 
 export interface CreateSiteProps {
 	defaultValues?: {

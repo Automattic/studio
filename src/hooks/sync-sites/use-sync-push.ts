@@ -27,6 +27,7 @@ export type SyncPushState = {
 	status: PushStateProgressInfo;
 	selectedSite: SiteDetails;
 	remoteSiteUrl: string;
+	uploadProgress?: number; // Raw upload percentage (0-100%) when uploading
 };
 
 type PushSiteOptions = {
@@ -324,6 +325,7 @@ export function useSyncPush( {
 				if ( response.success ) {
 					updatePushState( selectedSite.id, remoteSiteId, {
 						status: pushStatesProgressInfo.creatingRemoteBackup,
+						uploadProgress: undefined, // Clear upload progress when transitioning to next state
 					} );
 				} else {
 					throw response;
@@ -392,9 +394,37 @@ export function useSyncPush( {
 	useIpcListener(
 		'sync-upload-resumed',
 		( _event, payload: { selectedSiteId: string; remoteSiteId: number } ) => {
+			const currentState = getPushState( payload.selectedSiteId, payload.remoteSiteId );
 			updatePushState( payload.selectedSiteId, payload.remoteSiteId, {
 				status: pushStatesProgressInfo.uploading,
+				// Keep existing uploadProgress if available, otherwise it will be set by sync-upload-progress
+				uploadProgress: currentState?.uploadProgress,
 			} );
+		}
+	);
+
+	useIpcListener(
+		'sync-upload-progress',
+		( _event, payload: { selectedSiteId: string; remoteSiteId: number; progress: number } ) => {
+			const currentState = getPushState( payload.selectedSiteId, payload.remoteSiteId );
+			// Only update progress if we're in the uploading state
+			if ( currentState && currentState.status.key === 'uploading' ) {
+				// Map upload progress (0-100%) to the uploading state range (40-50%)
+				const uploadingProgressRange =
+					pushStatesProgressInfo.creatingRemoteBackup.progress -
+					pushStatesProgressInfo.uploading.progress;
+				const mappedProgress =
+					pushStatesProgressInfo.uploading.progress +
+					( payload.progress / 100 ) * uploadingProgressRange;
+
+				updatePushState( payload.selectedSiteId, payload.remoteSiteId, {
+					status: {
+						...currentState.status,
+						progress: mappedProgress,
+					},
+					uploadProgress: payload.progress, // Store raw upload percentage (0-100%)
+				} );
+			}
 		}
 	);
 

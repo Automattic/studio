@@ -217,6 +217,12 @@ const SyncConnectedSitesSectionItem = ( {
 	const hasPushFinished = pushState && isKeyFinished( pushState.status.key );
 	const hasPushCancelled = pushState && isKeyCancelled( pushState.status.key );
 
+	// Get raw upload percentage (0-100%) when in uploading state
+	const uploadPercentage =
+		pushState?.status.key === 'uploading' && pushState.uploadProgress !== undefined
+			? Math.round( pushState.uploadProgress )
+			: null;
+
 	return (
 		<div className="grid grid-cols-[max-content_1fr_max-content]">
 			<div
@@ -323,6 +329,9 @@ const SyncConnectedSitesSectionItem = ( {
 									<div className="a8c-body-small flex items-center gap-0.5">
 										<Icon icon={ info } size={ 16 } />
 										{ pushState.status.message }
+										{ uploadPercentage !== null && (
+											<span className="text-a8c-gray-70"> { uploadPercentage }%</span>
+										) }
 									</div>
 									<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
 								</div>

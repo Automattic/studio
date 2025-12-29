@@ -2,6 +2,7 @@ import interpolateComponents from '@automattic/interpolate-components';
 import { Guide } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { ReactNode } from 'react';
+import { ArrowIcon } from 'src/components/arrow-icon';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
@@ -47,7 +48,12 @@ const PageContent = ( {
 					onClick={ () => getIpcApi().openURL( learnMoreUrl ) }
 					className="text-a8c-blue-50 text-m leading-s cursor-pointer"
 				>
-					{ learnMoreLabel || __( 'Learn more' ) }
+					{ learnMoreLabel || (
+						<>
+							{ __( 'Learn more' ) }
+							<ArrowIcon />
+						</>
+					) }
 				</button>
 			) }
 		</div>

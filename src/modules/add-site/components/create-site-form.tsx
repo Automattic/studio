@@ -245,7 +245,7 @@ export const CreateSiteForm = ( {
 
 	const handleCustomDomainChange = useCallback(
 		( value: string ) => {
-			setCustomDomain( value );
+			setCustomDomain( value || null );
 			setCustomDomainError(
 				getDomainNameValidationError( useCustomDomain, value, existingDomainNames )
 			);

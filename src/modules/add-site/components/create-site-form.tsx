@@ -203,7 +203,8 @@ export const CreateSiteForm = ( {
 		}
 	}, [ useCustomDomain, isCertificateTrusted ] );
 
-	// Validate custom domain when useCustomDomain changes
+	// Validate custom domain when useCustomDomain or customDomain changes
+	// Note: existingDomainNames is intentionally not in deps to avoid re-validation when the list loads
 	useEffect( () => {
 		if ( useCustomDomain ) {
 			setCustomDomainError(
@@ -212,7 +213,8 @@ export const CreateSiteForm = ( {
 		} else {
 			setCustomDomainError( '' );
 		}
-	}, [ useCustomDomain, customDomain, existingDomainNames ] );
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [ useCustomDomain, customDomain ] );
 
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {

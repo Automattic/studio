@@ -227,7 +227,7 @@ function NavigationContent( props: NavigationContentProps ) {
 	);
 
 	// Build default values with blueprint preferred versions applied
-	const getDefaultValuesWithBlueprint = useCallback( () => {
+	const defaultValuesWithBlueprint = useMemo( () => {
 		const values = { ...defaultValues };
 		if ( blueprintPreferredVersions?.php && blueprintPreferredVersions.php !== 'latest' ) {
 			values.phpVersion = blueprintPreferredVersions.php as AllowedPHPVersion;
@@ -268,7 +268,7 @@ function NavigationContent( props: NavigationContentProps ) {
 			<Navigator.Screen className="flex-1" path="/blueprint/select/create">
 				<CreateSite
 					{ ...createSiteProps }
-					defaultValues={ getDefaultValuesWithBlueprint() }
+					defaultValues={ defaultValuesWithBlueprint }
 					blueprintPreferredVersions={ blueprintPreferredVersions }
 				/>
 			</Navigator.Screen>
@@ -284,7 +284,7 @@ function NavigationContent( props: NavigationContentProps ) {
 			<Navigator.Screen className="flex-1" path="/blueprint/deeplink/create">
 				<CreateSite
 					{ ...createSiteProps }
-					defaultValues={ getDefaultValuesWithBlueprint() }
+					defaultValues={ defaultValuesWithBlueprint }
 					blueprintPreferredVersions={ blueprintPreferredVersions }
 				/>
 			</Navigator.Screen>

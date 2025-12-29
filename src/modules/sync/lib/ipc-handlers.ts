@@ -3,12 +3,14 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'node:path';
 import * as Sentry from '@sentry/electron/main';
+import { Upload } from 'tus-js-client';
 import { z } from 'zod';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import {
 	PullStateProgressInfo,
 	PushStateProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
+import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { download } from 'src/lib/download';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
@@ -147,6 +149,7 @@ export function removeExportedSiteTmpFile( event: IpcMainInvokeEvent, path: stri
 
 export async function pushArchive(
 	event: IpcMainInvokeEvent,
+	selectedSiteId: string,
 	remoteSiteId: number,
 	archivePath: string,
 	optionsToSync?: string[],
@@ -158,16 +161,98 @@ export async function pushArchive(
 		throw new Error( 'No token found' );
 	}
 
+	let hasUploadStarted = false;
+	let isUploadingPaused = false;
+	const file = fs.createReadStream( archivePath );
+	const fileSize = fs.statSync( archivePath ).size;
+	const filename = path.basename( archivePath );
+
+	const attachmentPromise = new Promise< string >( ( resolve, reject ) => {
+		const upload = new Upload( file, {
+			endpoint: `https://public-api.wordpress.com/rest/v1.1/studio-file-uploads/${ remoteSiteId }`,
+			chunkSize: 500000,
+			retryDelays: [ 0, 1000, 3000, 5000, 10000, 25000 ],
+			overridePatchMethod: true,
+			removeFingerprintOnSuccess: true,
+			storeFingerprintForResuming: true,
+			headers: {
+				Authorization: `Bearer ${ token.accessToken }`,
+			},
+			metadata: {
+				filename,
+				filetype: 'application/gzip',
+			},
+			uploadSize: fileSize,
+			onBeforeRequest: ( req ) => {
+				if ( req.getMethod() === 'HEAD' ) {
+					// @ts-expect-error We need to override the method to get the response headers.
+					req._method = 'GET';
+					req.setHeader( 'X-HTTP-Method-Override', 'HEAD' );
+				}
+			},
+			onError: ( error ) => {
+				console.error( '[TUS] Upload error', error );
+				reject( error );
+			},
+			onProgress: () => {
+				if ( isUploadingPaused ) {
+					isUploadingPaused = false;
+					void sendIpcEventToRenderer( 'sync-upload-resumed', {
+						selectedSiteId: selectedSiteId,
+						remoteSiteId: remoteSiteId,
+					} );
+					console.log( '[TUS] Upload resumed' );
+				}
+
+				if ( ! hasUploadStarted ) {
+					hasUploadStarted = true;
+				}
+			},
+			onSuccess: ( payload ) => {
+				if ( ! payload.lastResponse ) {
+					reject( new Error( 'Upload completed but no response received' ) );
+					return;
+				}
+
+				const attachmentId = payload.lastResponse.getHeader( 'x-studio-file-upload-media-id' );
+				if ( attachmentId ) {
+					resolve( attachmentId );
+				} else {
+					reject( new Error( 'Upload completed but required header not found' ) );
+				}
+			},
+			onShouldRetry: ( error ) => {
+				// Update the UI only if the upload has started and is paused for any reason.
+				if ( hasUploadStarted ) {
+					isUploadingPaused = true;
+					void sendIpcEventToRenderer( 'sync-upload-paused', {
+						selectedSiteId: selectedSiteId,
+						remoteSiteId: remoteSiteId,
+						error: error.message,
+					} );
+					console.error( '[TUS] Upload paused: ', error.message );
+				}
+
+				const status = error.originalResponse ? error.originalResponse.getStatus() : 0;
+				// Stop retrying if the upload failed because of a 403 error.
+				if ( status === 403 ) {
+					return false;
+				}
+
+				return true;
+			},
+		} );
+
+		upload.start();
+	} ).finally( () => {
+		file.destroy();
+		file.close();
+	} );
+
+	const attachmentId = await attachmentPromise;
 	const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
 	const formData: [ string, unknown, Record< string, string >? ][] = [
-		[
-			'import',
-			fs.createReadStream( archivePath ),
-			{
-				filename: 'loca-env-site-1.tar.gz',
-				contentType: 'application/gzip',
-			},
-		],
+		[ 'import_attachment_id', attachmentId ],
 	];
 
 	if ( specificSelectionPaths && specificSelectionPaths.length > 0 ) {
@@ -181,7 +266,7 @@ export async function pushArchive(
 
 	try {
 		await wpcom.req.post( {
-			path: `/sites/${ remoteSiteId }/studio-app/sync/import`,
+			path: `/sites/${ remoteSiteId }/studio-app/sync/import/initiate`,
 			apiNamespace: 'wpcom/v2',
 			formData,
 		} );

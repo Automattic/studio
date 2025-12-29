@@ -16,7 +16,7 @@ import { ChatMessage, MarkDownWithCode } from 'src/components/chat-message';
 import { ChatRating } from 'src/components/chat-rating';
 import offlineIcon from 'src/components/offline-icon';
 import WelcomeComponent from 'src/components/welcome-message-prompt';
-import { AI_GUIDELINES_URL, LIMIT_OF_PROMPTS_PER_USER } from 'src/constants';
+import { AI_GUIDELINES_URL, LIMIT_OF_PROMPTS_PER_USER, TELEX_URL } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { useThemeDetails } from 'src/hooks/use-theme-details';

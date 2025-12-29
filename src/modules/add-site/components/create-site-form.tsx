@@ -1,5 +1,4 @@
 import { Icon, SelectControl, Notice } from '@wordpress/components';
-import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { tip, cautionFilled, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
@@ -12,9 +11,8 @@ import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
-import { useRootSelector, useI18nLocale } from 'src/stores';
+import { useRootSelector } from 'src/stores';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import {
 	selectDefaultWordPressVersion,
@@ -35,7 +33,7 @@ interface SiteFormErrorProps {
 	className?: string;
 }
 
-interface SiteFormProps {
+interface CreateSiteFormProps {
 	siteName: string;
 	setSiteName: ( name: string ) => void;
 	sitePath?: string;
@@ -159,9 +157,8 @@ export const CreateSiteForm = ( {
 	enableHttps,
 	setEnableHttps,
 	blueprintPreferredVersions,
-}: SiteFormProps ) => {
+}: CreateSiteFormProps ) => {
 	const { __, isRTL } = useI18n();
-	const locale = useI18nLocale();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 	const allowedPhpVersions = useRootSelector( selectAllowedPhpVersions );

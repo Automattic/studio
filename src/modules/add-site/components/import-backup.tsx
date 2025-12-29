@@ -5,17 +5,13 @@ import {
 	__experimentalText as Text,
 	Icon,
 } from '@wordpress/components';
-import { createInterpolateElement } from '@wordpress/element';
 import { download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useRef, useState } from 'react';
-import Button from 'src/components/button';
 import { ErrorIcon } from 'src/components/error-icon';
 import { LearnMoreLink } from 'src/components/learn-more';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { cx } from 'src/lib/cx';
-import { getIpcApi } from 'src/lib/get-ipc-api';
-import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
 
 const formatFileSize = ( bytes: number ) => {

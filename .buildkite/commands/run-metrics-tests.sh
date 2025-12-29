@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Only run metrics tests builds running on trunk or in PRs
+if [ "${BUILDKITE_PULL_REQUEST}" == "false" ] && [ "${BUILDKITE_BRANCH}" != "trunk" ]; then
+  echo "--- :information_source: Skipping metrics for non-trunk branch"
+  exit 0
+fi
+
 echo '--- :package: Install main dependencies'
 bash .buildkite/commands/install-node-dependencies.sh
 
@@ -37,8 +43,4 @@ elif [ "${BUILDKITE_BRANCH}" == "trunk" ]; then
   COMMITTED_AT=$(git show -s $BUILDKITE_COMMIT --format="%cI")
   npm run log-to-codevitals -- $CODEVITALS_AUTH_TOKEN trunk $BUILDKITE_COMMIT $BASELINE_COMMIT $COMMITTED_AT
   cd -
-else
-  # Other branches - skip metrics
-  echo "--- :information_source: Skipping metrics for non-trunk branch"
-  exit 0
 fi

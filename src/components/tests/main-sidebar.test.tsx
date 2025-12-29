@@ -92,6 +92,7 @@ const siteDetailsMocked = {
 	createSite: jest.fn(),
 	startServer: jest.fn(),
 	stopServer: jest.fn(),
+	isSiteDeleting: jest.fn( () => false ),
 };
 jest.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( { ...siteDetailsMocked } ),

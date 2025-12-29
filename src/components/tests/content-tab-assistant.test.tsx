@@ -153,7 +153,7 @@ describe( 'ContentTabAssistant', () => {
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 		const guideLines = getGuidelinesLink();
 		expect( guideLines ).toBeVisible();
-		expect( guideLines ).toHaveTextContent( 'Powered by experimental AI. Learn more ↗' );
+		expect( guideLines ).toHaveTextContent( 'Powered by experimental AI. Learn more↗' );
 	} );
 
 	it( 'saves and retrieves conversation from Redux state', async () => {

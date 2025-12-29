@@ -23,9 +23,16 @@ function ipcRendererSend< T extends keyof IpcHandlers >(
 const api: IpcApi = {
 	exportSiteForPush: ( id, operationId, configuration ) =>
 		ipcRendererInvoke( 'exportSiteForPush', id, operationId, configuration ),
-	pushArchive: ( remoteSiteId, archivePath, optionsToSync, specificSelectionPaths ) =>
+	pushArchive: (
+		selectedSiteId,
+		remoteSiteId,
+		archivePath,
+		optionsToSync,
+		specificSelectionPaths
+	) =>
 		ipcRendererInvoke(
 			'pushArchive',
+			selectedSiteId,
 			remoteSiteId,
 			archivePath,
 			optionsToSync,

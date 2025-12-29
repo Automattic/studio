@@ -7,6 +7,7 @@ import { generateCustomDomainFromSiteName, getDomainNameValidationError } from '
 import { getWordPressVersionUrl } from 'common/lib/wordpress-version-utils';
 import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
+import { LearnMoreLink } from 'src/components/learn-more';
 import Modal from 'src/components/modal';
 import TextControlComponent from 'src/components/text-control';
 import { Tooltip } from 'src/components/tooltip';
@@ -389,17 +390,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 												{ __(
 													'Enable PHP debugging with Xdebug. Only one site can have Xdebug enabled at a time. Note that Xdebug may slow down site performance.'
 												) }{ ' ' }
-												<Button
-													variant="link"
-													onClick={ () => {
-														getIpcApi().openURL(
-															'https://developer.wordpress.com/docs/developer-tools/studio/xdebug/'
-														);
-													} }
-												>
-													{ __( 'Learn more' ) }
-													<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
-												</Button>
+												<LearnMoreLink docsLinksKey="docsXdebug" />
 											</div>
 										</div>
 									</Tooltip>

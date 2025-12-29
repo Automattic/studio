@@ -197,7 +197,7 @@ export default function ImportBackup( {
 							) : (
 								<>
 									{ __( 'Import a Jetpack backup or a full-site backup in another format.' ) }{ ' ' }
-									<LearnMoreLink docsLinksKey="docsImportExport" className="text-xs" />
+									<LearnMoreLink docsLinksKey="docsImportExport" />
 								</>
 							) }
 						</Heading>

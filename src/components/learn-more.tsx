@@ -26,7 +26,9 @@ export function LearnMoreLink( {
 			variant="link"
 		>
 			{ __( 'Learn more' ) }
-			<ArrowIcon />
+			<span aria-label={ __( '(opens in a web browser)' ) }>
+				<ArrowIcon />
+			</span>
 		</Button>
 	);
 }

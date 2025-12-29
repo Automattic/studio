@@ -31,6 +31,9 @@ const DOCS_LINKS = {
 	docsBlueprints: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/blueprints/',
 	},
+	docsXdebug: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/xdebug/',
+	},
 } satisfies Record< `docs${ string }`, TranslatedLink >;
 
 const BLOG_LINKS = {

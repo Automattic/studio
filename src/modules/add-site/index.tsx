@@ -238,10 +238,8 @@ function NavigationContent( props: NavigationContentProps ) {
 		return values;
 	}, [ defaultValues, blueprintPreferredVersions ] );
 
-	// Ref for programmatic form submission
 	const formRef = useRef< HTMLFormElement >( null );
 
-	// Common props for CreateSite
 	const createSiteProps = {
 		onSelectPath,
 		onSiteNameChange,

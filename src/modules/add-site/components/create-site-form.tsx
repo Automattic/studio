@@ -7,6 +7,7 @@ import { FormEvent, useState, useEffect } from 'react';
 import { generateCustomDomainFromSiteName } from 'common/lib/domains';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
+import { LearnMoreLink } from 'src/components/learn-more';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
@@ -250,22 +251,10 @@ export const CreateSiteForm = ( {
 									{ __( 'Local path' ) }
 								</label>
 								<span className="text-a8c-gray-50 text-xs">
-									{ createInterpolateElement(
-										__(
-											'Select an empty directory or a directory with an existing WordPress site. <button>Learn more</button>'
-										),
-										{
-											button: (
-												<Button
-													variant="link"
-													className="text-xs"
-													onClick={ () =>
-														getIpcApi().openURL( getLocalizedLink( locale, 'docsSites' ) )
-													}
-												/>
-											),
-										}
-									) }
+									{ __(
+										'Select an empty directory or a directory with an existing WordPress site.'
+									) }{ ' ' }
+									<LearnMoreLink docsLinksKey="docsSites" />
 								</span>
 								<FormPathInputComponent
 									doesPathContainWordPress={ doesPathContainWordPress }

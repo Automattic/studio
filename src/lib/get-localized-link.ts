@@ -46,9 +46,16 @@ const BLOG_LINKS = {
 	},
 } satisfies Record< `blog${ string }`, TranslatedLink >;
 
+const A8C_LINKS = {
+	a8cAiGuidelines: {
+		en: 'https://automattic.com/ai-guidelines/',
+	},
+} satisfies Record< `a8c${ string }`, TranslatedLink >;
+
 const LINKS = {
 	...BLOG_LINKS,
 	...DOCS_LINKS,
+	...A8C_LINKS,
 } as const satisfies Record< string, TranslatedLink >;
 
 export type DocsLinkKey = keyof typeof LINKS;

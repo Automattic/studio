@@ -11,6 +11,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import { ErrorIcon } from 'src/components/error-icon';
+import { LearnMoreLink } from 'src/components/learn-more';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -191,26 +192,14 @@ export default function ImportBackup( {
 							className="text-[14px] leading-4 font-normal text-center text-gray-700"
 							weight="400"
 						>
-							{ isDragging
-								? __( 'Drop your backup file here' )
-								: createInterpolateElement(
-										__(
-											'Import a Jetpack backup or a full-site backup in another format. <button>Learn more</button>'
-										),
-										{
-											button: (
-												<Button
-													variant="link"
-													className="text-xs"
-													onClick={ ( e: React.MouseEvent ) => {
-														e.stopPropagation();
-
-														getIpcApi().openURL( getLocalizedLink( locale, 'docsImportExport' ) );
-													} }
-												/>
-											),
-										}
-								  ) }
+							{ isDragging ? (
+								__( 'Drop your backup file here' )
+							) : (
+								<>
+									{ __( 'Import a Jetpack backup or a full-site backup in another format.' ) }{ ' ' }
+									<LearnMoreLink docsLinksKey="docsImportExport" className="text-xs" />
+								</>
+							) }
 						</Heading>
 					</VStack>
 				) }

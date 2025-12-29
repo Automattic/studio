@@ -18,7 +18,11 @@ export function LearnMoreLink( {
 	return (
 		<Button
 			className={ className }
-			onClick={ () => getIpcApi().openURL( getLocalizedLink( locale, docsLinksKey ) ) }
+			onClick={ ( e: React.MouseEvent ) => {
+				e.stopPropagation();
+
+				getIpcApi().openURL( getLocalizedLink( locale, docsLinksKey ) );
+			} }
 			variant="link"
 		>
 			{ __( 'Learn more' ) }

@@ -14,9 +14,10 @@ import { MessageThinking } from 'src/components/assistant-thinking';
 import Button from 'src/components/button';
 import { ChatMessage, MarkDownWithCode } from 'src/components/chat-message';
 import { ChatRating } from 'src/components/chat-rating';
+import { LearnMoreLink } from 'src/components/learn-more';
 import offlineIcon from 'src/components/offline-icon';
 import WelcomeComponent from 'src/components/welcome-message-prompt';
-import { AI_GUIDELINES_URL, LIMIT_OF_PROMPTS_PER_USER } from 'src/constants';
+import { LIMIT_OF_PROMPTS_PER_USER } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
@@ -483,11 +484,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						isAssistantThinking={ isAssistantThinking }
 					/>
 					<div data-testid="guidelines-link" className="text-a8c-gray-50 self-end py-2">
-						{ createInterpolateElement( __( 'Powered by experimental AI. <a>Learn more</a>' ), {
-							a: (
-								<Button variant="link" onClick={ () => getIpcApi().openURL( AI_GUIDELINES_URL ) } />
-							),
-						} ) }
+						{ __( 'Powered by experimental AI.' ) } <LearnMoreLink docsLinksKey="a8cAiGuidelines" />
 					</div>
 				</div>
 			</div>

@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import { ClearAction } from 'src/components/clear-action';
 import { ErrorIcon } from 'src/components/error-icon';
+import { LearnMoreLink } from 'src/components/learn-more';
 import ProgressBar from 'src/components/progress-bar';
 import { Tooltip } from 'src/components/tooltip';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
@@ -262,21 +263,10 @@ const ImportSite = ( {
 		<div className={ cx( 'flex flex-col w-full', startLoadingCursorClassName ) }>
 			<div className="a8c-subtitle-small mb-1">{ __( 'Import' ) }</div>
 			<div className="text-a8c-gray-70 a8c-body mb-4">
-				{ createInterpolateElement(
-					__(
-						'Import a Jetpack backup, a full-site backup in another format, or a .sql database file. <button>Learn more</button>'
-					),
-					{
-						button: (
-							<Button
-								variant="link"
-								onClick={ () =>
-									getIpcApi().openURL( getLocalizedLink( locale, 'docsImportExport' ) )
-								}
-							/>
-						),
-					}
-				) }
+				{ __(
+					'Import a Jetpack backup, a full-site backup in another format, or a .sql database file.'
+				) }{ ' ' }
+				<LearnMoreLink docsLinksKey="docsImportExport" />
 			</div>
 			<div ref={ dropRef } className="w-full">
 				<InitialImportButton

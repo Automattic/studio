@@ -203,6 +203,17 @@ export const CreateSiteForm = ( {
 		}
 	}, [ useCustomDomain, isCertificateTrusted ] );
 
+	// Validate custom domain when useCustomDomain changes
+	useEffect( () => {
+		if ( useCustomDomain ) {
+			setCustomDomainError(
+				getDomainNameValidationError( useCustomDomain, customDomain, existingDomainNames )
+			);
+		} else {
+			setCustomDomainError( '' );
+		}
+	}, [ useCustomDomain, customDomain, existingDomainNames ] );
+
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {
 			setSiteName( name );

@@ -31,6 +31,7 @@ export default function App() {
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
 	const { sites: localSites, loadingSites } = useSiteDetails();
 	const isEmpty = ! loadingSites && ! localSites.length;
+	const shouldShowWhatsNew = showWhatsNew && ! isEmpty;
 
 	useEffect( () => {
 		void getIpcApi().setupAppMenu( { needsOnboarding } );
@@ -86,7 +87,7 @@ export default function App() {
 				</VStack>
 			) }
 			<UserSettings />
-			<WhatsNewModal showModal={ showWhatsNew } onClose={ closeWhatsNew } />
+			<WhatsNewModal showModal={ shouldShowWhatsNew } onClose={ closeWhatsNew } />
 		</>
 	);
 }

@@ -39,7 +39,11 @@ export interface PathValidationResult {
 }
 
 export interface CreateSiteFormProps {
-	/** Default values for form initialization (only used once on mount) */
+	/**
+	 * Default values for form initialization.
+	 * The form will sync with these values when they change after mount
+	 * (e.g., when blueprint preferred versions load asynchronously).
+	 */
 	defaultValues?: {
 		siteName?: string;
 		sitePath?: string;

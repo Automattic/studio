@@ -98,6 +98,14 @@ function FormPathInputComponent( {
 		<div className="flex flex-col gap-2">
 			<button
 				aria-invalid={ !! error }
+				/**
+				 * The below `aria-describedby` presumes the error message always
+				 * relates to the local path input, which is true currently as it is the
+				 * only data validation in place. If we ever introduce additional data
+				 * validation we need to expand the robustness of this
+				 * `aria-describedby` attribute so that it only targets relevant error
+				 * messages.
+				 */
 				aria-describedby={ error ? 'site-path-error' : undefined }
 				type="button"
 				aria-label={ `${ value }, ${ __( 'Select different local path' ) }` }

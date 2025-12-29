@@ -116,7 +116,7 @@ function FormPathInputComponent( {
 				<div
 					aria-hidden="true"
 					tabIndex={ -1 }
-					className="w-full text-left pl-3 py-3 min-h-10 break-all"
+					className="w-full text-left pl-3 py-3 min-h-10"
 					onChange={ () => {} }
 				>
 					{ value }

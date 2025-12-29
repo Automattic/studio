@@ -225,7 +225,10 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
-		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site', '' );
+		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith(
+			'Choose folder for site',
+			'/default_path/my-wordpress-website'
+		);
 		const dialog = screen.getByRole( 'dialog' );
 		const addSiteButton = within( dialog ).getByRole( 'button', { name: 'Add site' } );
 		await user.click( addSiteButton );
@@ -270,7 +273,10 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
-		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site', '' );
+		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith(
+			'Choose folder for site',
+			'/default_path/my-wordpress-website'
+		);
 
 		await waitFor( () => {
 			const dialog = screen.getByRole( 'dialog' );
@@ -309,7 +315,10 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
-		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site', '' );
+		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith(
+			'Choose folder for site',
+			'/default_path/my-wordpress-website'
+		);
 
 		await waitFor( () => {
 			const dialog = screen.getByRole( 'dialog' );

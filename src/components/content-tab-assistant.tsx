@@ -484,7 +484,9 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						isAssistantThinking={ isAssistantThinking }
 					/>
 					<div data-testid="guidelines-link" className="text-a8c-gray-50 self-end py-2">
-						{ __( 'Powered by experimental AI.' ) } <LearnMoreLink docsLinksKey="a8cAiGuidelines" />
+						{ createInterpolateElement( __( 'Powered by experimental AI. <learn_more_link />' ), {
+							learn_more_link: <LearnMoreLink docsLinksKey="a8cAiGuidelines" />,
+						} ) }
 					</div>
 				</div>
 			</div>

@@ -1,4 +1,5 @@
 import { Icon, SelectControl, Notice } from '@wordpress/components';
+import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { tip, cautionFilled, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
@@ -248,10 +249,14 @@ export const CreateSiteForm = ( {
 									{ __( 'Local path' ) }
 								</label>
 								<span className="text-a8c-gray-50 text-xs">
-									{ __(
-										'Select an empty directory or a directory with an existing WordPress site.'
-									) }{ ' ' }
-									<LearnMoreLink docsLinksKey="docsSites" />
+									{ createInterpolateElement(
+										__(
+											'Select an empty directory or a directory with an existing WordPress site. <learn_more_link />'
+										),
+										{
+											learn_more_link: <LearnMoreLink docsLinksKey="docsSites" />,
+										}
+									) }
 								</span>
 								<FormPathInputComponent
 									doesPathContainWordPress={ doesPathContainWordPress }

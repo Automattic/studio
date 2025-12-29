@@ -24,27 +24,40 @@ export function StudioCliToggle( { value, onChange }: StudioCLIToggleProps ) {
 				/>
 				<div className="flex flex-col">
 					<label htmlFor="studio-cli-toggle">
-						{ createInterpolateElement(
-							sprintf(
-								/* translators: %s is the name of the WordPress Studio CLI command ("studio") */
-								__( 'Enable the %s command in the terminal.' ),
-								'<code>studio</code>'
-							),
-							{ code: <code /> }
-						) }
-						{ ! isMac() && (
-							<>
-								{ ' ' }
-								<LearnMoreLink docsLinksKey="docsCli" />
-							</>
-						) }
+						{ isMac()
+							? createInterpolateElement(
+									sprintf(
+										/* translators: %s is the name of the WordPress Studio CLI command ("studio") */
+										__( 'Enable the %s command in the terminal.' ),
+										'<code>studio</code>'
+									),
+									{ code: <code /> }
+							  )
+							: createInterpolateElement(
+									sprintf(
+										/* translators: %s is the name of the WordPress Studio CLI command ("studio") */
+										__( 'Enable the %s command in the terminal. %s' ),
+										'<code>studio</code>',
+										'<learn_more_link />'
+									),
+									{
+										code: <code />,
+										learn_more_link: <LearnMoreLink docsLinksKey="docsCli" />,
+									}
+							  ) }
 					</label>
 					{ isMac() && (
 						<div className="a8c-body-small text-a8c-gray-700">
-							{ __(
-								'Toggling this option will prompt you for admin privileges to install or uninstall the Studio CLI for use in the terminal.'
-							) }{ ' ' }
-							<LearnMoreLink docsLinksKey="docsCli" className="a8c-body-small" />
+							{ createInterpolateElement(
+								__(
+									'Toggling this option will prompt you for admin privileges to install or uninstall the Studio CLI for use in the terminal. <learn_more_link />'
+								),
+								{
+									learn_more_link: (
+										<LearnMoreLink docsLinksKey="docsCli" className="a8c-body-small" />
+									),
+								}
+							) }
 						</div>
 					) }
 				</div>

@@ -5,6 +5,7 @@ import {
 	__experimentalText as Text,
 	Icon,
 } from '@wordpress/components';
+import { createInterpolateElement } from '@wordpress/element';
 import { download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useRef, useState } from 'react';
@@ -192,8 +193,14 @@ export default function ImportBackup( {
 								__( 'Drop your backup file here' )
 							) : (
 								<>
-									{ __( 'Import a Jetpack backup or a full-site backup in another format.' ) }{ ' ' }
-									<LearnMoreLink docsLinksKey="docsImportExport" />
+									{ createInterpolateElement(
+										__(
+											'Import a Jetpack backup or a full-site backup in another format. <learn_more_link />'
+										),
+										{
+											learn_more_link: <LearnMoreLink docsLinksKey="docsImportExport" />,
+										}
+									) }
 								</>
 							) }
 						</Heading>

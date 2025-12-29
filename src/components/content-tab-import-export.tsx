@@ -1,5 +1,6 @@
 import { speak } from '@wordpress/a11y';
 import { Notice } from '@wordpress/components';
+import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
 import { Icon, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
@@ -259,10 +260,14 @@ const ImportSite = ( {
 		<div className={ cx( 'flex flex-col w-full', startLoadingCursorClassName ) }>
 			<div className="a8c-subtitle-small mb-1">{ __( 'Import' ) }</div>
 			<div className="text-a8c-gray-70 a8c-body mb-4">
-				{ __(
-					'Import a Jetpack backup, a full-site backup in another format, or a .sql database file.'
-				) }{ ' ' }
-				<LearnMoreLink docsLinksKey="docsImportExport" />
+				{ createInterpolateElement(
+					__(
+						'Import a Jetpack backup, a full-site backup in another format, or a .sql database file. <learn_more_link />'
+					),
+					{
+						learn_more_link: <LearnMoreLink docsLinksKey="docsImportExport" />,
+					}
+				) }
 			</div>
 			<div ref={ dropRef } className="w-full">
 				<InitialImportButton

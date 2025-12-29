@@ -290,8 +290,12 @@ export function AddSiteBlueprintSelector( {
 				{ __( 'Start from a Blueprint' ) }
 			</Heading>
 			<Text className="text-center text-a8c-gray-700 mb-4">
-				{ __( 'Create a new site from a featured Blueprint on your own.' ) }{ ' ' }
-				<LearnMoreLink docsLinksKey="docsBlueprints" />
+				{ createInterpolateElement(
+					__( 'Create a new site from a featured Blueprint on your own. <learn_more_link />' ),
+					{
+						learn_more_link: <LearnMoreLink docsLinksKey="docsBlueprints" />,
+					}
+				) }
 			</Text>
 
 			{ validationError && (

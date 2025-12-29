@@ -1,4 +1,5 @@
 import { SelectControl } from '@wordpress/components';
+import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
@@ -387,10 +388,14 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 												</label>
 											</div>
 											<div className="text-a8c-gray-50 text-xs mt-2">
-												{ __(
-													'Enable PHP debugging with Xdebug. Only one site can have Xdebug enabled at a time. Note that Xdebug may slow down site performance.'
-												) }{ ' ' }
-												<LearnMoreLink docsLinksKey="docsXdebug" />
+												{ createInterpolateElement(
+													__(
+														'Enable PHP debugging with Xdebug. Only one site can have Xdebug enabled at a time. Note that Xdebug may slow down site performance. <learn_more_link />'
+													),
+													{
+														learn_more_link: <LearnMoreLink docsLinksKey="docsXdebug" />,
+													}
+												) }
 											</div>
 										</div>
 									</Tooltip>

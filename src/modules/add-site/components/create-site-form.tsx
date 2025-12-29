@@ -200,7 +200,6 @@ export const CreateSiteForm = ( {
 		defaultValues.wpVersion,
 	] );
 
-	// If the custom domain is enabled and the root certificate is trusted, enable HTTPS
 	useEffect( () => {
 		if ( useCustomDomain && isCertificateTrusted ) {
 			setEnableHttps( true );
@@ -211,14 +210,16 @@ export const CreateSiteForm = ( {
 	// Note: existingDomainNames is intentionally not in deps to avoid re-validation when the list loads
 	useEffect( () => {
 		if ( useCustomDomain ) {
+			const generatedDomainName = generateCustomDomainFromSiteName( siteName );
+			const domainToValidate = customDomain ?? generatedDomainName;
 			setCustomDomainError(
-				getDomainNameValidationError( useCustomDomain, customDomain, existingDomainNames )
+				getDomainNameValidationError( useCustomDomain, domainToValidate, existingDomainNames )
 			);
 		} else {
 			setCustomDomainError( '' );
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [ useCustomDomain, customDomain ] );
+	}, [ useCustomDomain, customDomain, siteName ] );
 
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {

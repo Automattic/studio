@@ -59,7 +59,6 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 
-	// Only keep state that's NOT part of the form
 	const [ fileForImport, setFileForImport ] = useState< File | null >( null );
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< Blueprint | undefined >();
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | undefined >();
@@ -294,46 +293,27 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 
 	return useMemo(
 		() => ( {
-			// Site creation
 			handleCreateSite,
-
-			// Path helpers (for form to use)
 			selectPath,
 			generateProposedPath,
-
-			// Default values (for form initialization)
 			defaultPhpVersion: defaultPhpVersion as AllowedPHPVersion,
 			defaultWpVersion: defaultWordPressVersion,
-
-			// Blueprint deeplink values (set by deeplink handler)
 			deeplinkPhpVersion,
 			deeplinkWpVersion,
-
-			// Import file
 			fileForImport,
 			setFileForImport,
-
-			// Blueprint selection
 			selectedBlueprint,
 			setSelectedBlueprint,
 			blueprintPreferredVersions,
 			setBlueprintPreferredVersions,
 			blueprintDeeplinkWarnings,
-
-			// Remote site selection
 			selectedRemoteSite,
 			setSelectedRemoteSite,
-
-			// Custom domain helpers
 			existingDomainNames,
 			loadAllCustomDomains,
-
-			// Flow state
 			isDeeplinkFlow,
 			setIsDeeplinkFlow,
 			isAnySiteProcessing,
-
-			// Reset
 			resetForm,
 			clearDeeplinkState,
 		} ),

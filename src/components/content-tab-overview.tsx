@@ -209,7 +209,7 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 		<img
 			onError={ () => setIsThumbnailError( true ) }
 			onLoad={ () => setIsThumbnailError( false ) }
-			className={ ! isThumbnailError ? 'w-full h-full' : 'absolute invisible' }
+			className="w-full h-full"
 			src={ thumbnailData || '' }
 			alt={ themeDetails?.name }
 		/>
@@ -227,30 +227,34 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 						! loading && 'hover:border-a8c-blue-50 duration-300'
 					) }
 				>
-					{ isThumbnailError && ! loading && (
-						<div className="flex items-center justify-center w-full h-64 leading-5 text-a8c-gray-50">
-							{ __( 'Preview unavailable' ) }
-						</div>
-					) }
 					{ ! loading && (
 						<button
 							aria-label={ __( 'Open site' ) }
 							className={ cx(
-								'relative group focus-visible:outline-a8c-blue-50',
+								'w-full relative group focus-visible:outline-a8c-blue-50',
 								isServerLoading && 'cursor-not-allowed'
 							) }
 							onClick={ handleThumbnailClick }
 							disabled={ isServerLoading }
 						>
 							<div
-								className={
-									'opacity-0 group-hover:opacity-90 group-hover:bg-white group-focus:opacity-90 group-focus:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blue-50'
-								}
+								className={ cx(
+									'opacity-0 group-hover:bg-white group-focus:bg-white duration-300 absolute size-full flex justify-center items-center bg-white text-a8c-blue-50',
+									isThumbnailError
+										? 'group-hover:opacity-100 group-focus:opacity-100'
+										: 'group-hover:opacity-90 group-focus:opacity-90'
+								) }
 							>
 								{ __( 'Open site' ) }
 								<ArrowIcon />
 							</div>
-							{ thumbnailImage }
+							{ isThumbnailError ? (
+								<div className="flex w-full items-center justify-center h-64 leading-5 text-a8c-gray-50 text-center">
+									{ __( 'Preview unavailable' ) }
+								</div>
+							) : (
+								thumbnailImage
+							) }
 						</button>
 					) }
 				</div>

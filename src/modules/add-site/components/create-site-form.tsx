@@ -442,23 +442,19 @@ export const CreateSiteForm = ( {
 									</Notice>
 								) }
 
-								{ existingDomainNames.length >= 0 && (
-									<>
-										<div className="flex items-center gap-2 mt-4">
-											<input
-												type="checkbox"
-												id="use-custom-domain"
-												checked={ useCustomDomain }
-												onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
-											/>
-											<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
-										</div>
+								<div className="flex items-center gap-2 mt-4">
+									<input
+										type="checkbox"
+										id="use-custom-domain"
+										checked={ useCustomDomain }
+										onChange={ ( e ) => setUseCustomDomain( e.target.checked ) }
+									/>
+									<label htmlFor="use-custom-domain">{ __( 'Use custom domain' ) }</label>
+								</div>
 
-										<div className="text-a8c-gray-50 text-xs mt-2">
-											{ __( 'Your system password will be required to set up the domain.' ) }
-										</div>
-									</>
-								) }
+								<div className="text-a8c-gray-50 text-xs mt-2">
+									{ __( 'Your system password will be required to set up the domain.' ) }
+								</div>
 
 								{ useCustomDomain && (
 									<>

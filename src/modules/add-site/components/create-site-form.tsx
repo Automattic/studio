@@ -176,25 +176,21 @@ export const CreateSiteForm = ( {
 		if ( defaultValues.siteName !== undefined ) {
 			setSiteName( defaultValues.siteName );
 		}
-	}, [ defaultValues.siteName ] );
-
-	useEffect( () => {
 		if ( defaultValues.sitePath !== undefined ) {
 			setSitePath( defaultValues.sitePath );
 		}
-	}, [ defaultValues.sitePath ] );
-
-	useEffect( () => {
 		if ( defaultValues.phpVersion !== undefined ) {
 			setPhpVersion( defaultValues.phpVersion );
 		}
-	}, [ defaultValues.phpVersion ] );
-
-	useEffect( () => {
 		if ( defaultValues.wpVersion !== undefined ) {
 			setWpVersion( defaultValues.wpVersion );
 		}
-	}, [ defaultValues.wpVersion ] );
+	}, [
+		defaultValues.siteName,
+		defaultValues.sitePath,
+		defaultValues.phpVersion,
+		defaultValues.wpVersion,
+	] );
 
 	// If the custom domain is enabled and the root certificate is trusted, enable HTTPS
 	useEffect( () => {

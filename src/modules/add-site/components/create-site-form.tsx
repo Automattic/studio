@@ -116,12 +116,15 @@ function FormPathInputComponent( {
 				<div
 					aria-hidden="true"
 					tabIndex={ -1 }
-					className="w-full text-left pl-3 pt-3 h-10"
+					className="w-full text-left pl-3 py-3 min-h-10 break-all"
 					onChange={ () => {} }
 				>
 					{ value }
 				</div>
-				<div aria-hidden="true" className="local-path-icon flex items-center py-[9px] px-2.5">
+				<div
+					aria-hidden="true"
+					className="local-path-icon flex items-center py-[9px] px-2.5 self-center"
+				>
 					<FolderIcon className="text-[#3C434A]" />
 				</div>
 			</button>

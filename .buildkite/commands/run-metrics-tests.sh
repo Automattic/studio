@@ -27,7 +27,7 @@ if [ "${BUILDKITE_PULL_REQUEST}" != "false" ]; then
   cd -
 elif [ "${BUILDKITE_BRANCH}" == "trunk" ]; then
   # Trunk push context - compare against baseline
-  BASELINE_COMMIT="d1f49275f3e08fb675d5685855c2243b6cd183de"
+  BASELINE_COMMIT="58c52bfee7e585614ced202f43f217a01f94f029"
 
   echo "--- :chart_with_upwards_trend: Running performance comparison against baseline"
   cd scripts/compare-perf

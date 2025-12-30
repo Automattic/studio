@@ -1,11 +1,11 @@
 import { CheckboxControl, Icon, Spinner } from '@wordpress/components';
-import { file, moreHorizontal, page, plugins, brush } from '@wordpress/icons';
+import { file, moreHorizontal, page, plugins, brush, cautionFilled } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React from 'react';
 import { RightArrowIcon } from 'src/components/icons/right-arrow';
 import { cx } from 'src/lib/cx';
 
-type TreeNodeType = 'folder' | 'file' | 'plugin' | 'theme' | 'more';
+type TreeNodeType = 'folder' | 'file' | 'plugin' | 'theme' | 'more' | 'error';
 export type TreeNode = {
 	id: string;
 	name: string;
@@ -27,6 +27,7 @@ const TREE_NODE_ICONS: Record< TreeNodeType, React.JSX.Element > = {
 	plugin: plugins,
 	theme: brush,
 	more: moreHorizontal,
+	error: cautionFilled,
 };
 
 const updateNode = ( node: TreeNode, partialNode: Partial< TreeNode > ): TreeNode => {
@@ -85,6 +86,7 @@ const TreeItem = ( {
 	siblingsLength,
 	disabled,
 	renderAfterChildren,
+	renderEmptyContent,
 }: {
 	node: TreeNode;
 	onPatchNode: ( id: string, patchNode: Partial< TreeNode > ) => void;
@@ -95,6 +97,7 @@ const TreeItem = ( {
 	isLast?: boolean;
 	disabled?: boolean;
 	renderAfterChildren?: ( nodeId: string ) => React.ReactNode;
+	renderEmptyContent?: ( nodeId: string ) => React.ReactNode;
 } ) => {
 	const { __ } = useI18n();
 	const isFirstLevel = level === 1;
@@ -164,9 +167,13 @@ const TreeItem = ( {
 					className={ cx( 'ps-6', isFirstLevel && 'border border-gray-300 rounded-sm py-2' ) }
 				>
 					{ node.children.length === 0 ? (
-						<div className="text-gray-500 italic" aria-label={ __( 'Empty folder' ) }>
-							{ __( 'Empty' ) }
-						</div>
+						renderEmptyContent && renderEmptyContent( node.id ) ? (
+							renderEmptyContent( node.id )
+						) : (
+							<div className="text-gray-500 italic" aria-label={ __( 'Empty folder' ) }>
+								{ __( 'Empty' ) }
+							</div>
+						)
 					) : (
 						node.children.map( ( child, idx ) => (
 							<TreeItem
@@ -178,6 +185,7 @@ const TreeItem = ( {
 								index={ idx }
 								siblingsLength={ node.children?.length }
 								renderAfterChildren={ renderAfterChildren }
+								renderEmptyContent={ renderEmptyContent }
 							/>
 						) )
 					) }
@@ -194,6 +202,7 @@ export type TreeViewProps = {
 	onExpand?: ( node: TreeNode ) => Promise< void >;
 	disabled?: boolean;
 	renderAfterChildren?: ( nodeId: string ) => React.ReactNode;
+	renderEmptyContent?: ( nodeId: string ) => React.ReactNode;
 };
 
 export const TreeView = ( {
@@ -202,6 +211,7 @@ export const TreeView = ( {
 	onExpand,
 	disabled,
 	renderAfterChildren,
+	renderEmptyContent,
 }: TreeViewProps ) => {
 	const handlePatchNode = ( id: string, partialNode: Partial< TreeNode > ) => {
 		setTree( ( prev: TreeNode[] ) => updateNodeById( prev, id, partialNode ) );
@@ -221,6 +231,7 @@ export const TreeView = ( {
 					isLast={ index === tree.length - 1 }
 					disabled={ disabled }
 					renderAfterChildren={ renderAfterChildren }
+					renderEmptyContent={ renderEmptyContent }
 				/>
 			) ) }
 		</div>

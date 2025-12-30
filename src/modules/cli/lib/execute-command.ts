@@ -40,6 +40,7 @@ export interface ExecuteCliCommandOptions {
 	 * - 'capture': capture stdout/stderr, available in success/failure events
 	 */
 	output: 'ignore' | 'capture';
+	logPrefix?: string;
 }
 
 export function executeCliCommand(
@@ -69,8 +70,14 @@ export function executeCliCommand(
 	let stderr = '';
 
 	if ( options.output === 'capture' ) {
+		const logPrefix = options.logPrefix ? `[CLI - ${ options.logPrefix }]` : '[CLI]';
 		child.stdout?.on( 'data', ( data: Buffer ) => {
-			stdout += data.toString();
+			const text = data.toString();
+			stdout += text;
+			const trimmed = text.trimEnd();
+			if ( trimmed ) {
+				console.log( `${ logPrefix } ${ trimmed }` );
+			}
 		} );
 		child.stderr?.on( 'data', ( data: Buffer ) => {
 			stderr += data.toString();

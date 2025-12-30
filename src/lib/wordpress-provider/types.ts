@@ -14,6 +14,7 @@ export interface ServerOptions {
 	absoluteUrl?: string;
 	siteLanguage?: string;
 	blueprint?: Blueprint[ 'blueprint' ];
+	enableXdebug?: boolean;
 }
 
 export interface WordPressServerOptions {

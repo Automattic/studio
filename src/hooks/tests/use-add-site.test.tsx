@@ -9,6 +9,7 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getWordPressProvider } from 'src/lib/wordpress-provider';
 import { store } from 'src/stores';
 import { setProviderConstants } from 'src/stores/provider-constants-slice';
+import type { SyncSitesContextType } from 'src/hooks/sync-sites/sync-sites-context';
 import type { SyncSite } from 'src/modules/sync/types';
 
 jest.mock( 'src/hooks/use-site-details' );
@@ -75,9 +76,6 @@ describe( 'useAddSite', () => {
 		mockPullSite.mockReset();
 		( useSyncSites as jest.Mock ).mockReturnValue( {
 			pullSite: mockPullSite,
-			syncSites: [],
-			refetchSites: jest.fn(),
-			isFetching: false,
 			isAnySitePulling: false,
 			isSiteIdPulling: jest.fn(),
 			clearPullState: jest.fn(),
@@ -89,7 +87,8 @@ describe( 'useAddSite', () => {
 			clearPushState: jest.fn(),
 			getPushState: jest.fn(),
 			getLastSyncTimeText: jest.fn(),
-		} );
+			cancelPush: jest.fn(),
+		} as SyncSitesContextType );
 
 		mockSetSelectedTab.mockReset();
 		( useContentTabs as jest.Mock ).mockReturnValue( {

@@ -1,7 +1,7 @@
 import { Icon } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
-import { cloudUpload, cloudDownload, info, close } from '@wordpress/icons';
+import { cloudUpload, cloudDownload, info, close, error } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
@@ -199,6 +199,7 @@ const SyncConnectedSitesSectionItem = ( {
 		isKeyFailed,
 		isKeyCancelled,
 		getPullStatusWithProgress,
+		isKeyUploadingPaused,
 	} = useSyncStatesProgressInfo();
 
 	const sitePullState = getPullState( selectedSite.id, connectedSite.id );
@@ -211,6 +212,7 @@ const SyncConnectedSitesSectionItem = ( {
 
 	const pushState = getPushState( selectedSite.id, connectedSite.id );
 	const isPushing = pushState && isKeyPushing( pushState.status.key );
+	const isUploadingPaused = pushState && isKeyUploadingPaused( pushState.status.key );
 	const isPushError = pushState && isKeyFailed( pushState.status.key );
 	const hasPushFinished = pushState && isKeyFinished( pushState.status.key );
 	const hasPushCancelled = pushState && isKeyCancelled( pushState.status.key );
@@ -292,6 +294,19 @@ const SyncConnectedSitesSectionItem = ( {
 							{ __( 'Pull complete' ) }
 						</ClearAction>
 					) }
+					{ pushState?.status && isUploadingPaused && (
+						<Tooltip
+							text={ __(
+								'The site uploading has been paused due to an internet connection issue. We will retry automatically in a few seconds.'
+							) }
+							placement="top-start"
+						>
+							<Button variant="link" disabled={ true }>
+								<Icon icon={ error } />
+								{ pushState.status.message }
+							</Button>
+						</Tooltip>
+					) }
 					{ pushState?.status && isPushing && (
 						<div className="flex items-center gap-2 max-w-full">
 							<Tooltip
@@ -347,6 +362,7 @@ const SyncConnectedSitesSectionItem = ( {
 						! isPullError &&
 						! isPushError &&
 						! isPushing &&
+						! isUploadingPaused &&
 						! hasPushFinished &&
 						! hasPullCancelled &&
 						! hasPushCancelled && (

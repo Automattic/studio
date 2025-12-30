@@ -7,12 +7,14 @@ import type { SyncSite, SyncModalMode } from 'src/modules/sync/types';
 type ConnectedSitesState = {
 	isModalOpen: boolean;
 	modalMode: SyncModalMode | null;
+	selectedRemoteSiteId: number | null;
 };
 
 function getInitialState(): ConnectedSitesState {
 	return {
 		isModalOpen: false,
 		modalMode: null,
+		selectedRemoteSiteId: null,
 	};
 }
 
@@ -29,6 +31,15 @@ const connectedSitesSlice = createSlice( {
 
 		closeModal: ( state ) => {
 			state.isModalOpen = false;
+			state.selectedRemoteSiteId = null;
+		},
+
+		setSelectedRemoteSiteId: ( state, action: PayloadAction< number > ) => {
+			state.selectedRemoteSiteId = action.payload;
+		},
+
+		clearSelectedRemoteSiteId: ( state ) => {
+			state.selectedRemoteSiteId = null;
 		},
 	},
 } );
@@ -38,6 +49,7 @@ export const connectedSitesReducer = connectedSitesSlice.reducer;
 export const connectedSitesSelectors = {
 	selectIsModalOpen: ( state: RootState ) => state.connectedSites.isModalOpen,
 	selectModalMode: ( state: RootState ) => state.connectedSites.modalMode,
+	selectSelectedRemoteSiteId: ( state: RootState ) => state.connectedSites.selectedRemoteSiteId,
 };
 
 export const connectedSitesApi = createApi( {

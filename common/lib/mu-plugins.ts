@@ -78,6 +78,16 @@ async function createLoaderMuPlugin(): Promise< string > {
 function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	const muPlugins: MuPlugin[] = [];
 
+	muPlugins.push( {
+		filename: '0-tmp-fix-qm-plugin-sapi.php',
+		content: `<?php
+		// This is a temporary fix for a Query Manager plugin, which isn't rendered in wp-admin if sapi is "cli" (it's the case for wordpress-playground).
+		// See https://github.com/WordPress/wordpress-playground/pull/2424#issuecomment-3686951491
+		// It's not the best fix, but it's simple and for consistency it's the same as used in wordpress-playground (https://github.com/WordPress/wordpress-playground/pull/2415)		
+		define('QM_TESTS', true);
+		`,
+	} );
+
 	// HTTPS detection for reverse proxy
 	muPlugins.push( {
 		filename: '0-https-for-reverse-proxy.php',
@@ -245,7 +255,7 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
-	// Disable auto-updates if configured
+	// Configure auto-updates based on Studio settings
 	if ( ! options.isWpAutoUpdating ) {
 		muPlugins.push( {
 			filename: '0-disable-auto-updates.php',
@@ -254,6 +264,16 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 			add_filter( 'allow_dev_auto_core_updates', '__return_false' );
 			add_filter( 'allow_minor_auto_core_updates', '__return_false' );
 			add_filter( 'allow_major_auto_core_updates', '__return_false' );
+			`,
+		} );
+	} else {
+		muPlugins.push( {
+			filename: '0-enable-auto-updates.php',
+			content: `<?php
+			// Enable auto-updates
+			add_filter( 'allow_dev_auto_core_updates', '__return_true' );
+			add_filter( 'allow_minor_auto_core_updates', '__return_true' );
+			add_filter( 'allow_major_auto_core_updates', '__return_true' );
 			`,
 		} );
 	}

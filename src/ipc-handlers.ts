@@ -162,6 +162,18 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	return mergeSiteDetailsWithRunningDetails( sites );
 }
 
+export async function getXdebugEnabledSite(
+	_event: IpcMainInvokeEvent
+): Promise< SiteDetails | null > {
+	const userData = await loadUserData();
+	const { sites } = userData;
+	const xdebugSite = sites.find( ( site ) => site.enableXdebug );
+	if ( ! xdebugSite ) {
+		return null;
+	}
+	return mergeSiteDetailsWithRunningDetails( [ xdebugSite ] )[ 0 ] || null;
+}
+
 export async function importSite(
 	event: IpcMainInvokeEvent,
 	{ id, backupFile }: { id: string; backupFile: BackupArchiveInfo }
@@ -1059,13 +1071,22 @@ export function showSiteContextMenu(
 		isRunning: boolean;
 		isLoading: boolean;
 		isAddingSite: boolean;
+		isSyncing: boolean;
 		finderLabel: string;
 		editorLabel: string | null;
 		terminalLabel: string;
 	}
 ) {
-	const { siteId, isRunning, isLoading, isAddingSite, finderLabel, editorLabel, terminalLabel } =
-		context;
+	const {
+		siteId,
+		isRunning,
+		isLoading,
+		isAddingSite,
+		isSyncing,
+		finderLabel,
+		editorLabel,
+		terminalLabel,
+	} = context;
 	const menu = new Menu();
 
 	if ( isRunning ) {
@@ -1229,7 +1250,7 @@ export function showSiteContextMenu(
 	menu.append(
 		new MenuItem( {
 			label: __( 'Delete site…' ),
-			enabled: ! isLoading && ! isAddingSite,
+			enabled: ! isLoading && ! isAddingSite && ! isSyncing,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
 					BrowserWindow.fromWebContents( event.sender ),

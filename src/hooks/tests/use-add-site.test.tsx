@@ -44,7 +44,7 @@ const renderHookWithProvider = ( hook: () => ReturnType< typeof useAddSite > ) =
 	} );
 };
 
-describe( 'useAddSite', () => {
+describe( 'useAddSite1', () => {
 	const mockCreateSite = jest.fn();
 	const mockUpdateSite = jest.fn();
 	const mockStartServer = jest.fn();

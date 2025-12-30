@@ -1,3 +1,4 @@
+import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo } from 'react';
 import { ImportProgressState } from './use-import-export';
@@ -104,7 +105,7 @@ export function useSyncStatesProgressInfo() {
 			uploading: {
 				key: 'uploading',
 				progress: 40,
-				message: __( 'Uploading Studio site…' ),
+				message: __( 'Uploading site…' ),
 			},
 			uploadingPaused: {
 				key: 'uploadingPaused',
@@ -173,6 +174,10 @@ export function useSyncStatesProgressInfo() {
 	const isKeyUploadingPaused = ( key: PushStateProgressInfo[ 'key' ] | undefined ) => {
 		return key === 'uploadingPaused';
 	};
+
+	const isKeyUploading = useCallback( ( key: PushStateProgressInfo[ 'key' ] | undefined ) => {
+		return key === 'uploading';
+	}, [] );
 
 	const isKeyImporting = ( key: PushStateProgressInfo[ 'key' ] | undefined ) => {
 		const pushingStateKeys: PushStateProgressInfo[ 'key' ][] = [
@@ -294,6 +299,47 @@ export function useSyncStatesProgressInfo() {
 		]
 	);
 
+	const getPushUploadPercentage = useCallback(
+		(
+			statusKey: PushStateProgressInfo[ 'key' ] | undefined,
+			uploadProgress: number | undefined
+		): number | null => {
+			if ( isKeyUploading( statusKey ) && uploadProgress !== undefined ) {
+				return Math.round( uploadProgress );
+			}
+			return null;
+		},
+		[ isKeyUploading ]
+	);
+
+	const getPushUploadMessage = useCallback(
+		( message: string, uploadPercentage: number | null ): string => {
+			if ( uploadPercentage !== null ) {
+				// translators: %d is the upload progress percentage
+				return sprintf( __( 'Uploading site (%d%%)…' ), uploadPercentage );
+			}
+			return message;
+		},
+		[ __ ]
+	);
+
+	const mapUploadProgressToOverallProgress = useCallback(
+		( uploadProgress: number ): number => {
+			// Map upload progress (0-100%) to the uploading state range (40-50%)
+			const uploadingProgressRange =
+				pushStatesProgressInfo.creatingRemoteBackup.progress -
+				pushStatesProgressInfo.uploading.progress;
+			return (
+				pushStatesProgressInfo.uploading.progress +
+				( uploadProgress / 100 ) * uploadingProgressRange
+			);
+		},
+		[
+			pushStatesProgressInfo.creatingRemoteBackup.progress,
+			pushStatesProgressInfo.uploading.progress,
+		]
+	);
+
 	return {
 		pullStatesProgressInfo,
 		pushStatesProgressInfo,
@@ -303,9 +349,13 @@ export function useSyncStatesProgressInfo() {
 		isKeyFinished,
 		isKeyFailed,
 		isKeyCancelled,
+		isKeyUploading,
 		getBackupStatusWithProgress,
 		getPullStatusWithProgress,
 		getPushStatusWithProgress,
+		getPushUploadPercentage,
+		getPushUploadMessage,
+		mapUploadProgressToOverallProgress,
 		isKeyUploadingPaused,
 	};
 }

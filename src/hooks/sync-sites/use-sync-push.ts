@@ -27,7 +27,7 @@ export type SyncPushState = {
 	status: PushStateProgressInfo;
 	selectedSite: SiteDetails;
 	remoteSiteUrl: string;
-	uploadProgress?: number; // Raw upload percentage (0-100%) when uploading
+	uploadProgress?: number;
 };
 
 type PushSiteOptions = {
@@ -100,11 +100,13 @@ export function useSyncPush( {
 	const {
 		pushStatesProgressInfo,
 		isKeyPushing,
+		isKeyUploading,
 		isKeyImporting,
 		isKeyFinished,
 		isKeyFailed,
 		isKeyCancelled,
 		getPushStatusWithProgress,
+		mapUploadProgressToOverallProgress,
 	} = useSyncStatesProgressInfo();
 
 	const updatePushState = useCallback< UpdateState< SyncPushState > >(
@@ -397,7 +399,6 @@ export function useSyncPush( {
 			const currentState = getPushState( payload.selectedSiteId, payload.remoteSiteId );
 			updatePushState( payload.selectedSiteId, payload.remoteSiteId, {
 				status: pushStatesProgressInfo.uploading,
-				// Keep existing uploadProgress if available, otherwise it will be set by sync-upload-progress
 				uploadProgress: currentState?.uploadProgress,
 			} );
 		}
@@ -407,22 +408,15 @@ export function useSyncPush( {
 		'sync-upload-progress',
 		( _event, payload: { selectedSiteId: string; remoteSiteId: number; progress: number } ) => {
 			const currentState = getPushState( payload.selectedSiteId, payload.remoteSiteId );
-			// Only update progress if we're in the uploading state
-			if ( currentState && currentState.status.key === 'uploading' ) {
-				// Map upload progress (0-100%) to the uploading state range (40-50%)
-				const uploadingProgressRange =
-					pushStatesProgressInfo.creatingRemoteBackup.progress -
-					pushStatesProgressInfo.uploading.progress;
-				const mappedProgress =
-					pushStatesProgressInfo.uploading.progress +
-					( payload.progress / 100 ) * uploadingProgressRange;
+			if ( currentState && isKeyUploading( currentState.status.key ) ) {
+				const mappedProgress = mapUploadProgressToOverallProgress( payload.progress );
 
 				updatePushState( payload.selectedSiteId, payload.remoteSiteId, {
 					status: {
 						...currentState.status,
 						progress: mappedProgress,
 					},
-					uploadProgress: payload.progress, // Store raw upload percentage (0-100%)
+					uploadProgress: payload.progress,
 				} );
 			}
 		}

@@ -1,5 +1,4 @@
 import { useI18n } from '@wordpress/react-i18n';
-import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink, type DocsLinkKey } from 'src/lib/get-localized-link';
@@ -26,9 +25,6 @@ export function LearnMoreLink( {
 			variant="link"
 		>
 			{ __( 'Learn more' ) }
-			<span aria-label={ __( '(opens in a web browser)' ) }>
-				<ArrowIcon />
-			</span>
 		</Button>
 	);
 }

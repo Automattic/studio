@@ -52,10 +52,13 @@ export function logSiteDetails( site: SiteData ): void {
 /**
  * Sets up custom domain for a site before starting.
  * Handles proxy server startup, SSL certificate generation, and hosts file configuration.
+ *
+ * @param options.skipHostsUpdate - Skip adding domain to hosts file (useful when caller already handled it)
  */
 export async function setupCustomDomain(
 	site: SiteData,
-	logger: Logger< LoggerAction >
+	logger: Logger< LoggerAction >,
+	options?: { skipHostsUpdate?: boolean }
 ): Promise< void > {
 	if ( ! site.customDomain ) {
 		return;
@@ -69,12 +72,14 @@ export async function setupCustomDomain(
 		logger.reportSuccess( __( 'SSL certificates generated' ) );
 	}
 
-	logger.reportStart( LoggerAction.ADD_DOMAIN_TO_HOSTS, __( 'Adding domain to hosts file…' ) );
-	try {
-		await addDomainToHosts( site.customDomain, site.port );
-		logger.reportSuccess( __( 'Domain added to hosts file' ) );
-	} catch ( error ) {
-		throw new LoggerError( __( 'Failed to add domain to hosts file' ), error );
+	if ( ! options?.skipHostsUpdate ) {
+		logger.reportStart( LoggerAction.ADD_DOMAIN_TO_HOSTS, __( 'Adding domain to hosts file…' ) );
+		try {
+			await addDomainToHosts( site.customDomain, site.port );
+			logger.reportSuccess( __( 'Domain added to hosts file' ) );
+		} catch ( error ) {
+			throw new LoggerError( __( 'Failed to add domain to hosts file' ), error );
+		}
 	}
 }
 

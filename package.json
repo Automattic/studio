@@ -7,6 +7,10 @@
 	"description": "Local WordPress development environment using Playgrounds",
 	"license": "GPL-2.0-or-later",
 	"main": "dist/main/index.js",
+	"engines": {
+		"npm": ">=10.0.0 <11.0.0",
+		"node": ">=22.0.0 <23.0.0"
+	},
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/Automattic/studio.git",
@@ -153,6 +157,7 @@
 		"strip-ansi": "^7.1.2",
 		"tar": "^7.5.2",
 		"ts-node": "^10.9.2",
+		"tus-js-client": "^4.3.1",
 		"unzipper": "^0.12.3",
 		"winreg": "^1.2.5",
 		"wpcom": "^7.1.1",

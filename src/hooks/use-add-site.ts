@@ -237,7 +237,7 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 		setSelectedTab,
 	] );
 
-		const handleSiteNameChange = useCallback(
+	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {
 			setSiteName( name );
 			if ( sitePath ) {
@@ -271,8 +271,8 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 				}
 				setDoesPathContainWordPress( ! isEmpty && isWordPress );
 			} catch ( err ) {
-				if ( err instanceof Error ) {
-					setError( err.message );
+				if ( err instanceof Error && err.message.includes( 'ENAMETOOLONG' ) ) {
+					setError( __( 'The site name is too long. Please choose a shorter site name.' ) );
 					return;
 				}
 				throw err;

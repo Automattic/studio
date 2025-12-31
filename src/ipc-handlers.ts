@@ -713,9 +713,6 @@ export async function generateProposedSitePath(
 				isWordPress: false,
 			};
 		}
-		if ( isErrnoException( err ) && err.code === 'ENAMETOOLONG' ) {
-			throw new Error( __( 'The site name is too long. Please choose a shorter site name.' ) );
-		}
 		throw err;
 	}
 }

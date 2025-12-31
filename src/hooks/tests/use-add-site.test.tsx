@@ -266,10 +266,13 @@ describe( 'useAddSite', () => {
 		} );
 
 		it( 'should set user-friendly error when site name causes ENAMETOOLONG error', async () => {
-			const enametoolongError = new Error(
-				"Error invoking remote method 'generateProposedSitePath': Error: ENAMETOOLONG: name too long, stat"
-			);
-			mockGenerateProposedSitePath.mockRejectedValueOnce( enametoolongError );
+			mockGenerateProposedSitePath.mockResolvedValueOnce( {
+				path: '/default/path/very-long-name',
+				name: 'a'.repeat( 300 ),
+				isEmpty: false,
+				isWordPress: false,
+				isNameTooLong: true,
+			} );
 
 			const { result } = renderHookWithProvider( () => useAddSite() );
 

@@ -245,38 +245,36 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 			}
 			setError( '' );
 
-			try {
-				const {
-					path: proposedPath,
-					isEmpty,
-					isWordPress,
-				} = await getIpcApi().generateProposedSitePath( name );
-				setProposedSitePath( proposedPath );
+			const {
+				path: proposedPath,
+				isEmpty,
+				isWordPress,
+				isNameTooLong,
+			} = await getIpcApi().generateProposedSitePath( name );
+			setProposedSitePath( proposedPath );
 
-				if ( await siteWithPathAlreadyExists( proposedPath ) ) {
-					setError(
-						__(
-							'The directory is already associated with another Studio site. Please choose a different site name or a custom local path.'
-						)
-					);
-					return;
-				}
-				if ( ! isEmpty && ! isWordPress ) {
-					setError(
-						__(
-							'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
-						)
-					);
-					return;
-				}
-				setDoesPathContainWordPress( ! isEmpty && isWordPress );
-			} catch ( err ) {
-				if ( err instanceof Error && err.message.includes( 'ENAMETOOLONG' ) ) {
-					setError( __( 'The site name is too long. Please choose a shorter site name.' ) );
-					return;
-				}
-				throw err;
+			if ( isNameTooLong ) {
+				setError( __( 'The site name is too long. Please choose a shorter site name.' ) );
+				return;
 			}
+
+			if ( await siteWithPathAlreadyExists( proposedPath ) ) {
+				setError(
+					__(
+						'The directory is already associated with another Studio site. Please choose a different site name or a custom local path.'
+					)
+				);
+				return;
+			}
+			if ( ! isEmpty && ! isWordPress ) {
+				setError(
+					__(
+						'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
+					)
+				);
+				return;
+			}
+			setDoesPathContainWordPress( ! isEmpty && isWordPress );
 		},
 		[ __, sitePath, siteWithPathAlreadyExists ]
 	);

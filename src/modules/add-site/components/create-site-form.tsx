@@ -141,7 +141,7 @@ export const CreateSiteForm = ( { addSiteProps, onSubmit }: CreateSiteFormProps 
 		sitePath,
 		doesPathContainWordPress,
 		error,
-		setSiteName,
+		handleSiteNameChange,
 		handlePathSelectorClick: onSelectPath,
 		setPhpVersion,
 		setWpVersion,
@@ -189,7 +189,7 @@ export const CreateSiteForm = ( { addSiteProps, onSubmit }: CreateSiteFormProps 
 				<label className="flex flex-col gap-1.5 leading-4 mb-6">
 					<span className="font-semibold">{ __( 'Site name' ) }</span>
 					<TextControlComponent
-						onChange={ setSiteName }
+						onChange={ handleSiteNameChange }
 						value={ siteName }
 						onKeyDown={ ( event ) => {
 							if ( event.key === 'Enter' ) {

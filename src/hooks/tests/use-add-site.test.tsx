@@ -267,7 +267,7 @@ describe( 'useAddSite', () => {
 
 		it( 'should set user-friendly error when site name causes ENAMETOOLONG error', async () => {
 			const enametoolongError = new Error(
-				"Error invoking remote method 'generateProposedSitePath': Error: ENAMETOOLONG: name too long, stat"
+				'The site name is too long. Please choose a shorter site name.'
 			);
 			mockGenerateProposedSitePath.mockRejectedValueOnce( enametoolongError );
 
@@ -280,6 +280,19 @@ describe( 'useAddSite', () => {
 			expect( result.current.error ).toBe(
 				'The site name is too long. Please choose a shorter site name.'
 			);
+		} );
+
+		it( 'should display error message from generateProposedSitePath', async () => {
+			const customError = new Error( 'Custom error message' );
+			mockGenerateProposedSitePath.mockRejectedValueOnce( customError );
+
+			const { result } = renderHookWithProvider( () => useAddSite() );
+
+			await act( async () => {
+				await result.current.handleSiteNameChange( 'my-site' );
+			} );
+
+			expect( result.current.error ).toBe( 'Custom error message' );
 		} );
 
 		it( 'should successfully update site name when path is valid', async () => {

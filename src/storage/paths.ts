@@ -67,16 +67,15 @@ export function getCliPath(): string {
 }
 
 export function getBundledNodeBinaryPath(): string {
-	const nodeBinaryName = process.platform === 'win32' ? 'node.exe' : 'node';
-
-	if ( process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' ) {
-		// In development/test, use the current Node process executable.
-		// This is more reliable than trying to find 'node' in PATH, especially
-		// when tests mock process.platform to a different OS.
-		return process.execPath;
+	if ( process.env.NODE_ENV === 'production' ) {
+		const nodeBinaryName = process.platform === 'win32' ? 'node.exe' : 'node';
+		return path.join( getResourcesPath(), 'bin', nodeBinaryName );
 	}
 
-	return path.join( getResourcesPath(), 'bin', nodeBinaryName );
+	// In development/test, use the current Node process executable.
+	// This is more reliable than trying to find 'node' in PATH, especially
+	// when tests mock process.platform to a different OS.
+	return process.execPath;
 }
 
 function getAppDataPath(): string {

@@ -10,6 +10,7 @@ interface BetaFeaturesState {
 const initialState: BetaFeaturesState = {
 	features: {
 		multiWorkerSupport: false,
+		xdebugSupport: false,
 	},
 	loading: false,
 };

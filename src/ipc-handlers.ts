@@ -194,6 +194,18 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	return mergeSiteDetailsWithRunningDetails( sites );
 }
 
+export async function getXdebugEnabledSite(
+	_event: IpcMainInvokeEvent
+): Promise< SiteDetails | null > {
+	const userData = await loadUserData();
+	const { sites } = userData;
+	const xdebugSite = sites.find( ( site ) => site.enableXdebug );
+	if ( ! xdebugSite ) {
+		return null;
+	}
+	return mergeSiteDetailsWithRunningDetails( [ xdebugSite ] )[ 0 ] || null;
+}
+
 export async function importSite(
 	event: IpcMainInvokeEvent,
 	{ id, backupFile }: { id: string; backupFile: BackupArchiveInfo }
@@ -496,16 +508,7 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 		if ( ! server ) {
 			throw new Error( 'Site not found.' );
 		}
-		await server.delete();
-		try {
-			// Move files to trash
-			if ( deleteFiles ) {
-				await shell.trashItem( server.details.path );
-			}
-		} catch ( error ) {
-			/* We want to exit gracefully if the there is an error deleting the site files */
-			Sentry.captureException( error );
-		}
+		await server.delete( deleteFiles );
 		const newSites = userData.sites.filter( ( site ) => site.id !== id );
 		await saveUserData( { ...userData, sites: newSites } );
 	} finally {

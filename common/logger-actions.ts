@@ -23,6 +23,7 @@ export enum SiteCommandLoggerAction {
 	START_PROXY = 'startProxy',
 	STOP_PROXY = 'stopProxy',
 	GENERATE_CERT = 'generateCert',
+	DELETE_CERT = 'deleteCert',
 	ADD_DOMAIN_TO_HOSTS = 'addDomainToHosts',
 	REMOVE_DOMAIN_FROM_HOSTS = 'removeDomainFromHosts',
 	START_SITE = 'startSite',

@@ -25,8 +25,9 @@ export function formatPlaygroundCliMessage( message: string ): string {
 	if ( message.includes( 'Running the Blueprint' ) ) {
 		return __( 'Running the Blueprint…' );
 	}
+	// Exclude this message to prevent users from thinking the entire boot process is complete
 	if ( message.includes( 'Finished running the blueprint' ) ) {
-		return __( 'Finished running the Blueprint…' );
+		return '';
 	}
 	if ( message.includes( 'Preparing workers' ) ) {
 		return __( 'Preparing workers…' );

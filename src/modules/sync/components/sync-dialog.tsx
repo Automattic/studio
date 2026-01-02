@@ -395,6 +395,8 @@ export function SyncDialog( {
 								showLabels
 								valueLabel={ formattedSize }
 								limitLabel={ formattedLimit }
+								// translators: %s is a filesize string. This label is displayed if a sync archive is larger
+								// than a given limit.
 								overLimitLabel={ sprintf( __( '%s over' ), formattedOverAmount ) }
 							/>
 						</div>

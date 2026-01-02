@@ -8,20 +8,19 @@ set ORIGINAL_CP=%ORIGINAL_CP: =%
 rem Set code page to UTF-8
 chcp 65001 >nul
 
-set ELECTRON_EXECUTABLE=%~dp0..\..\Studio.exe
+set BUNDLED_NODE_EXECUTABLE=%~dp0node.exe
 set CLI_SCRIPT=%~dp0..\cli\main.js
 
 rem Prevent node from printing warnings about NODE_OPTIONS being ignored
 set NODE_OPTIONS=
 
-if exist "%ELECTRON_EXECUTABLE%" (
-    set ELECTRON_RUN_AS_NODE=1
-    call "%ELECTRON_EXECUTABLE%" "%CLI_SCRIPT%" %*
+if exist "%BUNDLED_NODE_EXECUTABLE%" (
+	call "%BUNDLED_NODE_EXECUTABLE%" "%CLI_SCRIPT%" %*
 ) else (
-    if not exist "%CLI_SCRIPT%" (
-        set CLI_SCRIPT=%~dp0..\dist\cli\main.js
-    )
-    call node "%CLI_SCRIPT%" %*
+	if not exist "%CLI_SCRIPT%" (
+		set CLI_SCRIPT=%~dp0..\dist\cli\main.js
+	)
+	call node "%CLI_SCRIPT%" %*
 )
 
 rem Restore original code page

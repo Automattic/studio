@@ -1,7 +1,7 @@
 import { fork, ChildProcess, StdioOptions } from 'node:child_process';
 import EventEmitter from 'node:events';
 import * as Sentry from '@sentry/electron/main';
-import { getCliPath } from 'src/storage/paths';
+import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 
 export interface CliCommandResult {
 	stdout: string;
@@ -56,13 +56,9 @@ export function executeCliCommand(
 		stdio = [ 'ignore', 'ignore', 'ignore', 'ipc' ];
 	}
 
-	// Using Electron's utilityProcess.fork API gave us issues with the child process never exiting
 	const child = fork( cliPath, [ ...args, '--avoid-telemetry' ], {
 		stdio,
-		env: {
-			...process.env,
-			ELECTRON_RUN_AS_NODE: '1',
-		},
+		execPath: getBundledNodeBinaryPath(),
 	} );
 	const eventEmitter = new CliCommandEventEmitter();
 

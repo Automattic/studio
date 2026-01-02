@@ -73,7 +73,7 @@
 		"@vitejs/plugin-react": "^5.1.2",
 		"@wordpress/components": "^30.9.0",
 		"@wordpress/element": "^6.37.0",
-		"@wordpress/react-i18n": "^4.36.0",
+		"@wordpress/react-i18n": "^4.37.0",
 		"cross-env": "^7.0.3",
 		"electron": "^39.2.7",
 		"electron-playwright-helpers": "^2.0.1",

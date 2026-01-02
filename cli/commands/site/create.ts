@@ -76,7 +76,7 @@ export async function runCommand(
 	options: CreateCommandOptions
 ): Promise< void > {
 	try {
-		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating site configuration...' ) );
+		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating site configuration…' ) );
 
 		const pathExistsResult = await pathExists( sitePath );
 		const isEmptyDirResult = pathExistsResult && ( await isEmptyDir( sitePath ) );
@@ -140,7 +140,7 @@ export async function runCommand(
 		logger.reportSuccess( __( 'Site configuration validated' ) );
 
 		if ( ! pathExistsResult ) {
-			logger.reportStart( LoggerAction.CREATE_DIRECTORY, __( 'Creating site directory...' ) );
+			logger.reportStart( LoggerAction.CREATE_DIRECTORY, __( 'Creating site directory…' ) );
 			fs.mkdirSync( sitePath, { recursive: true } );
 			logger.reportSuccess( __( 'Site directory created' ) );
 		}
@@ -166,7 +166,7 @@ export async function runCommand(
 				);
 			}
 
-			logger.reportStart( LoggerAction.SETUP_WORDPRESS, __( 'Copying bundled WordPress...' ) );
+			logger.reportStart( LoggerAction.SETUP_WORDPRESS, __( 'Copying bundled WordPress…' ) );
 			await recursiveCopyDirectory( bundledWPPath, sitePath );
 			logger.reportSuccess( __( 'WordPress files copied' ) );
 		}
@@ -178,11 +178,11 @@ export async function runCommand(
 				)
 			);
 		}
-		logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration...' ) );
+		logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration…' ) );
 		await installSqliteIntegration( sitePath );
 		logger.reportSuccess( __( 'SQLite integration configured' ) );
 
-		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port...' ) );
+		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
 		const port = await portFinder.getOpenPort();
 		logger.reportSuccess( __( 'Port assigned: ' ) + port );
 
@@ -245,7 +245,7 @@ export async function runCommand(
 			enableHttps: options.enableHttps,
 		};
 
-		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site...' ) );
+		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );
 
 		try {
 			await lockAppdata();
@@ -261,15 +261,15 @@ export async function runCommand(
 		}
 
 		if ( ! options.noStart ) {
-			logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
+			logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 			await connect();
 			logger.reportSuccess( __( 'Process daemon started' ) );
 
 			await setupCustomDomain( siteDetails, logger );
 
 			const startMessage = blueprint
-				? __( 'Starting WordPress site and applying blueprint...' )
-				: __( 'Starting WordPress site...' );
+				? __( 'Starting WordPress site and applying blueprint…' )
+				: __( 'Starting WordPress site…' );
 			logger.reportStart( LoggerAction.START_SITE, startMessage );
 			try {
 				const processDesc = await startWordPressServer( siteDetails, logger, {
@@ -302,11 +302,11 @@ export async function runCommand(
 			}
 		} else {
 			if ( blueprint ) {
-				logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
+				logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 				await connect();
 				logger.reportSuccess( __( 'Process daemon started' ) );
 
-				logger.reportStart( LoggerAction.START_SITE, __( 'Applying blueprint...' ) );
+				logger.reportStart( LoggerAction.START_SITE, __( 'Applying blueprint…' ) );
 				try {
 					await runBlueprint( siteDetails, logger, {
 						wpVersion: options.wpVersion,

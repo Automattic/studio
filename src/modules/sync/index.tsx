@@ -1,6 +1,6 @@
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { PropsWithChildren, useState } from 'react';
+import { PropsWithChildren, useEffect, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
@@ -128,6 +128,9 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const dispatch = useAppDispatch();
 	const isModalOpen = useRootSelector( connectedSitesSelectors.selectIsModalOpen );
 	const reduxModalMode = useRootSelector( connectedSitesSelectors.selectModalMode );
+	const selectedRemoteSiteId = useRootSelector(
+		connectedSitesSelectors.selectSelectedRemoteSiteId
+	);
 	const { isAuthenticated, user } = useAuth();
 	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
 		localSiteId: selectedSite.id,
@@ -144,6 +147,18 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	} );
 
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
+
+	// Auto-select remote site when set via Redux (e.g., from deep link connection)
+	useEffect( () => {
+		if ( selectedRemoteSiteId ) {
+			const siteToSelect = syncSites.find( ( site ) => site.id === selectedRemoteSiteId );
+			if ( siteToSelect ) {
+				setSelectedRemoteSite( siteToSelect );
+				dispatch( connectedSitesActions.openModal( 'push' ) );
+				dispatch( connectedSitesActions.clearSelectedRemoteSiteId() );
+			}
+		}
+	}, [ selectedRemoteSiteId, syncSites, dispatch ] );
 
 	if ( ! isAuthenticated ) {
 		return <NoAuthSyncTab />;
@@ -212,7 +227,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				</SiteSyncDescription>
 			) }
 
-			{ isModalOpen && (
+			{ isModalOpen && ! selectedRemoteSite && (
 				<SyncSitesModalSelector
 					mode={ reduxModalMode || 'connect' }
 					onRequestClose={ () => {

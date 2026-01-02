@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { SiteServer } from 'src/site-server';
 import { loadUserData } from 'src/storage/user-data';
@@ -59,12 +58,6 @@ async function updateSiteServerStatus(
 					running: isRunning,
 					url: isRunning ? url : '',
 				};
-
-				if ( isRunning && url && ! server.server ) {
-					server.server = new CliServerProcess( siteId, server.details.path, url );
-				} else if ( ! isRunning ) {
-					server.server = undefined;
-				}
 			}
 		} );
 	pendingUpdates.set( siteId, current );

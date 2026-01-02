@@ -1,7 +1,7 @@
 import { fork, ChildProcess, StdioOptions } from 'node:child_process';
 import EventEmitter from 'node:events';
 import * as Sentry from '@sentry/electron/main';
-import { getCliPath } from 'src/storage/paths';
+import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 
 export interface CliCommandResult {
 	stdout: string;
@@ -42,6 +42,7 @@ export interface ExecuteCliCommandOptions {
 	 */
 	output: 'ignore' | 'capture';
 	detached?: boolean;
+	logPrefix?: string;
 }
 
 export function executeCliCommand(
@@ -57,14 +58,10 @@ export function executeCliCommand(
 		stdio = [ 'ignore', 'ignore', 'ignore', 'ipc' ];
 	}
 
-	// Using Electron's utilityProcess.fork API gave us issues with the child process never exiting
 	const child = fork( cliPath, [ ...args, '--avoid-telemetry' ], {
 		stdio,
 		detached: options.detached,
-		env: {
-			...process.env,
-			ELECTRON_RUN_AS_NODE: '1',
-		},
+		execPath: getBundledNodeBinaryPath(),
 	} );
 	const eventEmitter = new CliCommandEventEmitter();
 
@@ -82,8 +79,14 @@ export function executeCliCommand(
 	let stderr = '';
 
 	if ( options.output === 'capture' ) {
+		const logPrefix = options.logPrefix ? `[CLI - ${ options.logPrefix }]` : '[CLI]';
 		child.stdout?.on( 'data', ( data: Buffer ) => {
-			stdout += data.toString();
+			const text = data.toString();
+			stdout += text;
+			const trimmed = text.trimEnd();
+			if ( trimmed ) {
+				console.log( `${ logPrefix } ${ trimmed }` );
+			}
 		} );
 		child.stderr?.on( 'data', ( data: Buffer ) => {
 			stderr += data.toString();

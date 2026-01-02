@@ -5,14 +5,13 @@ import { BlueprintV1Declaration } from '@wp-playground/blueprints';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { z } from 'zod';
-import { portFinder } from 'common/lib/port-finder';
 import {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT,
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT,
 } from 'src/constants';
 import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
 import { getSiteUrl } from 'src/lib/get-site-url';
-import { removeDomainFromHosts, updateDomainInHosts } from 'src/lib/hosts-file';
+import { updateDomainInHosts } from 'src/lib/hosts-file';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import { setupWordPressSite, getWordPressProvider } from 'src/lib/wordpress-provider';
 import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
@@ -21,7 +20,6 @@ import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData } from 'src/storage/user-data';
-import type { WordPressServerProcess } from 'src/lib/wordpress-provider/types';
 
 export type WpCliResult = { stdout: string; stderr: string; exitCode: number };
 
@@ -67,7 +65,8 @@ type SiteServerMeta = {
 };
 
 export class SiteServer {
-	server?: WordPressServerProcess;
+	server: CliServerProcess;
+
 	/**
 	 * Indicates whether a Studio-managed operation (start/stop) is in progress.
 	 * When true, file watchers should ignore site events to prevent interference
@@ -78,7 +77,10 @@ export class SiteServer {
 	private constructor(
 		public details: SiteDetails,
 		public meta: SiteServerMeta
-	) {}
+	) {
+		const url = getAbsoluteUrl( this.details );
+		this.server = new CliServerProcess( this.details.id, this.details.path, url );
+	}
 
 	static get( id: string ): SiteServer | undefined {
 		return servers.get( id );
@@ -149,70 +151,36 @@ export class SiteServer {
 			servers.set( siteDetails.id, server );
 			server.details = siteDetails;
 
-			if ( siteDetails.running ) {
-				server.server = new CliServerProcess(
-					siteDetails.id,
-					siteDetails.path,
-					( siteDetails as StartedSiteDetails ).url
-				);
-			}
-
 			return { server, details: siteDetails };
 		} finally {
 			server.hasOngoingOperation = false;
 		}
 	}
 
-	async delete() {
+	async delete( deleteFiles: boolean ) {
 		const thumbnailPath = getSiteThumbnailPath( this.details.id );
 		if ( fs.existsSync( thumbnailPath ) ) {
 			await fs.promises.unlink( thumbnailPath );
 		}
 
-		// If we're using a custom domain, clean up the hosts file and unregister from proxy
-		if ( this.details.customDomain ) {
-			try {
-				await removeDomainFromHosts( this.details.customDomain );
-				console.log( `Domain ${ this.details.customDomain } unregistered from proxy server` );
-			} catch ( error ) {
-				console.error( 'Failed to clean up custom domain:', error );
-			}
-		}
-
-		if ( this.details.customDomain && this.details.enableHttps ) {
-			const certificateDeleted = deleteSiteCertificate( this.details.customDomain ?? '' );
-			if ( certificateDeleted ) {
-				console.log( `Certificates for ${ this.details.customDomain } have been deleted` );
-			}
-		}
-
-		await this.stop();
+		await this.server.delete( deleteFiles );
 		deletedServers.push( this.details.id );
 		servers.delete( this.details.id );
-		portFinder.releasePort( this.details.port );
 	}
 
 	async start() {
-		if ( this.details.running || this.server || this.hasOngoingOperation ) {
+		if ( this.details.running || this.hasOngoingOperation ) {
 			return;
-		}
-
-		const isPortAvailable = await portFinder.isPortAvailable( this.details.port );
-		if ( ! isPortAvailable ) {
-			throw new Error(
-				`Port ${ this.details.port } is not available. error code: ERROR_PORT_IN_USE`
-			);
 		}
 
 		this.hasOngoingOperation = true;
 		try {
 			console.log( `Starting server for '${ this.details.name }'` );
-			const url = getAbsoluteUrl( this.details );
-			this.server = new CliServerProcess( this.details.id, this.details.path, url );
 			await this.server.start();
 
 			const userData = await loadUserData();
 			const freshSiteData = userData.sites.find( ( s ) => s.id === this.details.id );
+			const url = getAbsoluteUrl( this.details );
 
 			this.details = {
 				...this.details,
@@ -280,8 +248,7 @@ export class SiteServer {
 		console.log( 'Stopping server with ID', this.details.id );
 		try {
 			this.hasOngoingOperation = true;
-			await this.server?.stop();
-			this.server = undefined;
+			await this.server.stop();
 
 			if ( ! this.details.running ) {
 				console.log( 'Server is not running' );
@@ -381,7 +348,10 @@ export class SiteServer {
 		let timeoutId: NodeJS.Timeout;
 
 		return new Promise< WpCliResult >( ( resolve ) => {
-			const [ emitter, childProcess ] = executeCliCommand( cliArgs, { output: 'capture' } );
+			const [ emitter, childProcess ] = executeCliCommand( cliArgs, {
+				output: 'capture',
+				logPrefix: this.details.id,
+			} );
 
 			timeoutId = setTimeout( () => {
 				childProcess.kill();

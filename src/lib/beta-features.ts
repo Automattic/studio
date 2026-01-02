@@ -14,6 +14,12 @@ const BETA_FEATURES_DEFINITION: Record< keyof BetaFeatures, BetaFeatureDefinitio
 		default: false,
 		description: 'Enable multi-worker PHP processing for faster performance',
 	},
+	xdebugSupport: {
+		label: 'Xdebug Support',
+		key: 'xdebugSupport',
+		default: false,
+		description: 'Enable PHP debugging with Xdebug (one site at a time)',
+	},
 } as const;
 
 export const BETA_FEATURES: Record< keyof BetaFeatures, BetaFeatureDefinition > =

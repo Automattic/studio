@@ -1,6 +1,7 @@
 import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { Logger } from 'cli/logger';
+import { runCommand } from '../list';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
@@ -65,7 +66,6 @@ describe( 'Preview List Command', () => {
 	} );
 
 	it( 'should list preview sites successfully', async () => {
-		const { runCommand } = await import( '../list' );
 		await runCommand( mockFolder, 'table' );
 
 		expect( getSiteByFolder ).toHaveBeenCalledWith( mockFolder );
@@ -80,7 +80,6 @@ describe( 'Preview List Command', () => {
 	} );
 
 	it( 'should handle validation errors', async () => {
-		const { runCommand } = await import( '../list' );
 		( getSiteByFolder as jest.Mock ).mockImplementation( () => {
 			throw new Error( 'Invalid site folder' );
 		} );
@@ -91,7 +90,6 @@ describe( 'Preview List Command', () => {
 	} );
 
 	it( 'should handle no snapshots found', async () => {
-		const { runCommand } = await import( '../list' );
 		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [] );
 
 		await runCommand( mockFolder, 'table' );

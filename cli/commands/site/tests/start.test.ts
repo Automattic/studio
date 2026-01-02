@@ -9,6 +9,7 @@ import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/si
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
+import { runCommand } from '../start';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
@@ -67,8 +68,6 @@ describe( 'CLI: studio site start', () => {
 		it( 'should throw when site not found', async () => {
 			( getSiteByFolder as jest.Mock ).mockRejectedValue( new Error( 'Site not found' ) );
 
-			const { runCommand } = await import( '../start' );
-
 			await expect( runCommand( '/invalid/path' ) ).rejects.toThrow( 'Site not found' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -76,16 +75,12 @@ describe( 'CLI: studio site start', () => {
 		it( 'should throw when PM2 connection fails', async () => {
 			( connect as jest.Mock ).mockRejectedValue( new Error( 'PM2 connection failed' ) );
 
-			const { runCommand } = await import( '../start' );
-
 			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'PM2 connection failed' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should throw when WordPress server fails to start', async () => {
 			( startWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server start failed' ) );
-
-			const { runCommand } = await import( '../start' );
 
 			await expect( runCommand( '/test/site' ) ).rejects.toThrow(
 				'Failed to start WordPress server'
@@ -99,8 +94,6 @@ describe( 'CLI: studio site start', () => {
 				new Error( ' Custom domain setup failed' )
 			);
 
-			const { runCommand } = await import( '../start' );
-
 			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'Custom domain setup failed' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -110,16 +103,12 @@ describe( 'CLI: studio site start', () => {
 				new Error( 'SQLite setup failed' )
 			);
 
-			const { runCommand } = await import( '../start' );
-
 			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'SQLite setup failed' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should throw when browser fails', async () => {
 			( openSiteInBrowser as jest.Mock ).mockRejectedValue( new Error( 'Browser error' ) );
-
-			const { runCommand } = await import( '../start' );
 
 			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'Browser error' );
 			expect( disconnect ).toHaveBeenCalled();
@@ -129,8 +118,6 @@ describe( 'CLI: studio site start', () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
 			( openSiteInBrowser as jest.Mock ).mockRejectedValue( new Error( 'Browser error' ) );
 
-			const { runCommand } = await import( '../start' );
-
 			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'Browser error' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -138,8 +125,6 @@ describe( 'CLI: studio site start', () => {
 
 	describe( 'Success Cases', () => {
 		it( 'should start a basic site', async () => {
-			const { runCommand } = await import( '../start' );
-
 			await runCommand( '/test/site' );
 
 			expect( getSiteByFolder ).toHaveBeenCalledWith( '/test/site' );
@@ -161,8 +146,6 @@ describe( 'CLI: studio site start', () => {
 		it( 'should skip server start if already running', async () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
 
-			const { runCommand } = await import( '../start' );
-
 			await runCommand( '/test/site' );
 
 			expect( startWordPressServer ).not.toHaveBeenCalled();
@@ -179,8 +162,6 @@ describe( 'CLI: studio site start', () => {
 		it( 'should setup custom domain when present', async () => {
 			( getSiteByFolder as jest.Mock ).mockResolvedValue( testSiteWithDomain );
 
-			const { runCommand } = await import( '../start' );
-
 			await runCommand( '/test/site' );
 
 			expect( setupCustomDomain ).toHaveBeenCalledWith( testSiteWithDomain, expect.any( Logger ) );
@@ -192,16 +173,12 @@ describe( 'CLI: studio site start', () => {
 		} );
 
 		it( 'should update SQLite integration', async () => {
-			const { runCommand } = await import( '../start' );
-
 			await runCommand( '/test/site' );
 
 			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( '/test/site' );
 		} );
 
 		it( 'should skip browser when skipBrowser is true', async () => {
-			const { runCommand } = await import( '../start' );
-
 			await runCommand( '/test/site', true );
 
 			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
@@ -212,8 +189,6 @@ describe( 'CLI: studio site start', () => {
 
 		it( 'should skip browser when already running and skipBrowser is true', async () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-
-			const { runCommand } = await import( '../start' );
 
 			await runCommand( '/test/site', true );
 

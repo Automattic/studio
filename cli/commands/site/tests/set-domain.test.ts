@@ -17,6 +17,7 @@ import {
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
+import { runCommand } from '../set-domain';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
@@ -91,8 +92,6 @@ describe( 'CLI: studio site set-domain', () => {
 				snapshots: [],
 			} );
 
-			const { runCommand } = await import( '../set-domain' );
-
 			await expect( runCommand( testSitePath, testDomainName ) ).rejects.toThrow(
 				'The specified folder is not added to Studio.'
 			);
@@ -104,8 +103,6 @@ describe( 'CLI: studio site set-domain', () => {
 				'Please enter a valid domain name'
 			);
 
-			const { runCommand } = await import( '../set-domain' );
-
 			await expect( runCommand( testSitePath, 'invalid domain' ) ).rejects.toThrow();
 			expect( saveAppdata ).not.toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
@@ -115,8 +112,6 @@ describe( 'CLI: studio site set-domain', () => {
 			( getDomainNameValidationError as jest.Mock ).mockReturnValue(
 				'The domain name is already in use'
 			);
-
-			const { runCommand } = await import( '../set-domain' );
 
 			await expect( runCommand( testSitePath, testDomainName ) ).rejects.toThrow();
 			expect( saveAppdata ).not.toHaveBeenCalled();
@@ -129,8 +124,6 @@ describe( 'CLI: studio site set-domain', () => {
 				snapshots: [],
 			} );
 
-			const { runCommand } = await import( '../set-domain' );
-
 			await expect( runCommand( testSitePath, testDomainName ) ).rejects.toThrow(
 				'The specified domain is already set for this site.'
 			);
@@ -141,8 +134,6 @@ describe( 'CLI: studio site set-domain', () => {
 		it( 'should throw when appdata save fails', async () => {
 			( saveAppdata as jest.Mock ).mockRejectedValue( new Error( 'Save failed' ) );
 
-			const { runCommand } = await import( '../set-domain' );
-
 			await expect( runCommand( testSitePath, testDomainName ) ).rejects.toThrow();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -150,8 +141,6 @@ describe( 'CLI: studio site set-domain', () => {
 
 	describe( 'Success Cases', () => {
 		it( 'should set domain on a stopped site', async () => {
-			const { runCommand } = await import( '../set-domain' );
-
 			await runCommand( testSitePath, testDomainName );
 
 			expect( lockAppdata ).toHaveBeenCalled();
@@ -176,8 +165,6 @@ describe( 'CLI: studio site set-domain', () => {
 
 		it( 'should set domain and restart a running site', async () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-
-			const { runCommand } = await import( '../set-domain' );
 
 			await runCommand( testSitePath, testDomainName );
 
@@ -204,8 +191,6 @@ describe( 'CLI: studio site set-domain', () => {
 				sites: [ { ...testSite, customDomain: oldDomain } ],
 				snapshots: [],
 			} );
-
-			const { runCommand } = await import( '../set-domain' );
 
 			await runCommand( testSitePath, testDomainName );
 

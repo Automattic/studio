@@ -73,8 +73,14 @@ export function getBundledNodeBinaryPath(): string {
 		return path.join( getResourcesPath(), 'bin', nodeBinaryName );
 	}
 
-	// In development and test environments, use the system-level node binary. The bundled node binary
-	// most likely isn't available, and the Electron binary is noticeably slower.
+	// In test environment, use the Electron node binary. The system-level node binary is not reliable
+	// in this context.
+	if ( process.env.NODE_ENV === 'test' ) {
+		return process.execPath;
+	}
+
+	// In development, use the system-level node binary. The bundled node binary most likely isn't
+	// available, and the Electron binary is noticeably slower.
 	return nodeBinaryName;
 }
 

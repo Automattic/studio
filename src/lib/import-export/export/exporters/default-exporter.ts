@@ -50,17 +50,26 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		);
 	}
 
+	// Look for directory names in a given path. If found, determine whether that part of the path is
+	// a directory or not.
 	private isPathExcludedByPattern( pathToCheck: string ) {
-		const stat = fs.statSync( pathToCheck );
+		const DIRECTORY_NAMES_TO_EXCLUDE = [ '.git', 'node_modules', 'cache' ];
+		const offenderRegex = new RegExp(
+			`${ path.sep }(${ DIRECTORY_NAMES_TO_EXCLUDE.join( '|' ) })(${ path.sep }|$)`,
+			'g'
+		);
 
-		if ( ! stat.isDirectory() ) {
-			return false;
+		if ( offenderRegex.test( pathToCheck ) ) {
+			const offenderPath = pathToCheck.substring( 0, offenderRegex.lastIndex );
+			try {
+				const stat = fs.statSync( offenderPath );
+				return stat.isDirectory();
+			} catch ( error ) {
+				return false;
+			}
 		}
 
-		const basename = path.basename( pathToCheck );
-		const DIRECTORY_NAMES_TO_EXCLUDE = [ '.git', 'node_modules', 'cache' ];
-
-		return DIRECTORY_NAMES_TO_EXCLUDE.includes( basename );
+		return false;
 	}
 
 	constructor( options: ExportOptions ) {

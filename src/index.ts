@@ -101,8 +101,6 @@ const isInInstaller = require( 'electron-squirrel-startup' );
 const gotTheLock = app.requestSingleInstanceLock();
 
 let finishedInitialization = false;
-let isQuittingConfirmed = false;
-let shouldStopSitesOnQuit = true;
 
 if ( gotTheLock && ! isInInstaller ) {
 	void appBoot();
@@ -403,6 +401,9 @@ async function appBoot() {
 		globalShortcut.unregisterAll();
 	} );
 
+	let isQuittingConfirmed = false;
+	let shouldStopSitesOnQuit = true;
+
 	app.on( 'before-quit', ( event ) => {
 		if ( isQuittingConfirmed ) {
 			return;
@@ -458,8 +459,15 @@ async function appBoot() {
 					return;
 				}
 
+				// Skip dialog in E2E tests - just quit and stop sites
+				if ( process.env.E2E ) {
+					isQuittingConfirmed = true;
+					app.quit();
+					return;
+				}
+
 				const STOP_SITES_BUTTON_INDEX = 0;
-				const LEAVE_RUNNING_BUTTON_INDEX = 1;
+				const CANCEL_BUTTON_INDEX = 2;
 
 				const { response, checkboxChecked } = await dialog.showMessageBox( {
 					type: 'question',
@@ -472,11 +480,15 @@ async function appBoot() {
 						),
 						runningSiteCount
 					),
-					buttons: [ __( 'Stop sites' ), __( 'Leave running' ) ],
-					checkboxLabel: __( 'Remember my choice' ),
-					cancelId: LEAVE_RUNNING_BUTTON_INDEX,
+					buttons: [ __( 'Stop sites' ), __( 'Leave running' ), __( 'Cancel' ) ],
+					checkboxLabel: __( "Don't ask again" ),
+					cancelId: CANCEL_BUTTON_INDEX,
 					defaultId: STOP_SITES_BUTTON_INDEX,
 				} );
+
+				if ( response === CANCEL_BUTTON_INDEX ) {
+					return;
+				}
 
 				const stopSites = response === STOP_SITES_BUTTON_INDEX;
 

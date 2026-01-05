@@ -72,7 +72,14 @@ const slackPayload = {
 	} PR${
 		stalePRs.length > 1 ? 's' : ''
 	} that haven't been updated in the last ${ stalePeriod } and still need review:`,
-	attachments: attachments,
+	attachments: [
+		...attachments,
+		{
+			color: '#E8E8E8',
+			text: 'To skip a PR from this notification, convert it to draft or approve it with a review. <https://github.com/Automattic/studio/blob/trunk/.github/workflows/stale-pr-notifications.yml|Edit this workflow>',
+			mrkdwn_in: [ 'text' ],
+		},
+	],
 };
 
 // Write to file for the workflow to use

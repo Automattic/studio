@@ -116,7 +116,7 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 	);
 }
 function SiteItem( { site }: { site: SiteDetails } ) {
-	const { selectedSite, setSelectedSiteId, loadingServer } = useSiteDetails();
+	const { selectedSite, setSelectedSiteId, loadingServer, isSiteDeleting } = useSiteDetails();
 	const isSelected = site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
 	const { isSiteIdPulling } = useSyncPull();
@@ -128,7 +128,9 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 	const isPulling = isSiteIdPulling( site.id );
 	const isPushing = isSiteIdPushing( site.id );
 	const isSyncing = isPulling || isPushing;
-	const showSpinner = site.isAddingSite || isImporting || isPulling || isPushing || isExporting;
+	const isDeleting = isSiteDeleting( site.id );
+	const showSpinner =
+		site.isAddingSite || isImporting || isPulling || isPushing || isExporting || isDeleting;
 
 	let tooltipText;
 	if ( site.isAddingSite ) {

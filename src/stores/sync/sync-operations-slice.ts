@@ -364,6 +364,7 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 
 		try {
 			const response = await getIpcApi().pushArchive(
+				selectedSite.id,
 				remoteSiteId,
 				archivePath,
 				options?.optionsToSync,

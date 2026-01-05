@@ -16,7 +16,8 @@ export type PushStateProgressInfo = {
 		| 'finishing'
 		| 'finished'
 		| 'failed'
-		| 'cancelled';
+		| 'cancelled'
+		| 'uploadingPaused';
 	progress: number;
 	message: string;
 };
@@ -105,6 +106,11 @@ export function useSyncStatesProgressInfo() {
 				progress: 40,
 				message: __( 'Uploading Studio site…' ),
 			},
+			uploadingPaused: {
+				key: 'uploadingPaused',
+				progress: 45,
+				message: __( 'Uploading paused' ),
+			},
 			creatingRemoteBackup: {
 				key: 'creatingRemoteBackup',
 				progress: 50,
@@ -162,6 +168,10 @@ export function useSyncStatesProgressInfo() {
 			return false;
 		}
 		return pushingStateKeys.includes( key );
+	};
+
+	const isKeyUploadingPaused = ( key: PushStateProgressInfo[ 'key' ] | undefined ) => {
+		return key === 'uploadingPaused';
 	};
 
 	const isKeyImporting = ( key: PushStateProgressInfo[ 'key' ] | undefined ) => {
@@ -299,5 +309,6 @@ export function useSyncStatesProgressInfo() {
 		getBackupStatusWithProgress,
 		getPullStatusWithProgress,
 		getPushStatusWithProgress,
+		isKeyUploadingPaused,
 	};
 }

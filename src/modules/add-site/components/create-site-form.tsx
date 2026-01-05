@@ -7,13 +7,13 @@ import { FormEvent, useState, useEffect } from 'react';
 import { generateCustomDomainFromSiteName } from 'common/lib/domains';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
+import { LearnMoreLink } from 'src/components/learn-more';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
-import { useRootSelector, useI18nLocale } from 'src/stores';
+import { useRootSelector } from 'src/stores';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import {
 	selectDefaultWordPressVersion,
@@ -34,7 +34,7 @@ interface SiteFormErrorProps {
 	className?: string;
 }
 
-interface SiteFormProps {
+interface CreateSiteFormProps {
 	siteName: string;
 	setSiteName: ( name: string ) => void;
 	sitePath?: string;
@@ -116,12 +116,15 @@ function FormPathInputComponent( {
 				<div
 					aria-hidden="true"
 					tabIndex={ -1 }
-					className="w-full text-left pl-3 pt-3 h-10"
+					className="w-full text-left pl-3 py-3 min-h-10"
 					onChange={ () => {} }
 				>
 					{ value }
 				</div>
-				<div aria-hidden="true" className="local-path-icon flex items-center py-[9px] px-2.5">
+				<div
+					aria-hidden="true"
+					className="local-path-icon flex items-center py-[9px] px-2.5 self-center"
+				>
 					<FolderIcon className="text-[#3C434A]" />
 				</div>
 			</button>
@@ -158,9 +161,8 @@ export const CreateSiteForm = ( {
 	enableHttps,
 	setEnableHttps,
 	blueprintPreferredVersions,
-}: SiteFormProps ) => {
+}: CreateSiteFormProps ) => {
 	const { __, isRTL } = useI18n();
-	const locale = useI18nLocale();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 	const allowedPhpVersions = useRootSelector( selectAllowedPhpVersions );
@@ -252,18 +254,10 @@ export const CreateSiteForm = ( {
 								<span className="text-a8c-gray-50 text-xs">
 									{ createInterpolateElement(
 										__(
-											'Select an empty directory or a directory with an existing WordPress site. <button>Learn more</button>'
+											'Select an empty directory or a directory with an existing WordPress site. <learn_more_link />'
 										),
 										{
-											button: (
-												<Button
-													variant="link"
-													className="text-xs"
-													onClick={ () =>
-														getIpcApi().openURL( getLocalizedLink( locale, 'docsSites' ) )
-													}
-												/>
-											),
+											learn_more_link: <LearnMoreLink docsLinksKey="docsSites" />,
 										}
 									) }
 								</span>

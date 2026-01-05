@@ -132,20 +132,12 @@ beforeEach( () => {
 	mockPullSite.mockReset();
 	mockUseSyncSites.mockReturnValue( {
 		pullSite: mockPullSite,
-		syncSites: [],
-		refetchSites: jest.fn(),
-		isFetching: false,
+		pullStates: {},
+		getPullState: jest.fn(),
 		isAnySitePulling: false,
 		isSiteIdPulling: jest.fn(),
 		clearPullState: jest.fn(),
 		cancelPull: jest.fn(),
-		getPullState: jest.fn(),
-		pushSite: jest.fn(),
-		isAnySitePushing: false,
-		isSiteIdPushing: jest.fn(),
-		clearPushState: jest.fn(),
-		getPushState: jest.fn(),
-		getLastSyncTimeText: jest.fn(),
 	} );
 	mockSetSelectedTab.mockReset();
 

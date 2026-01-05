@@ -7,7 +7,7 @@ import { FormEvent, useState, useEffect } from 'react';
 import { generateCustomDomainFromSiteName } from 'common/lib/domains';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
-import { LearnMoreLink } from 'src/components/learn-more';
+import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
@@ -379,7 +379,7 @@ export const CreateSiteForm = ( {
 										{ __(
 											'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'
 										) }{ ' ' }
-										<LearnMoreLink docsLinksKey="docsSslInStudio" learnHow />
+										<LearnHowLink docsLinksKey="docsSslInStudio" />
 									</div>
 								) }
 							</div>

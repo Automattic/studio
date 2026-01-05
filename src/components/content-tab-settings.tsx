@@ -5,7 +5,7 @@ import { PropsWithChildren } from 'react';
 import { decodePassword } from 'common/lib/passwords';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import DeleteSite from 'src/components/delete-site';
-import { LearnMoreLink } from 'src/components/learn-more';
+import { LearnHowLink } from 'src/components/learn-more';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
@@ -106,7 +106,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 										'You need to trust this certificate to prevent your browser from showing a secure connection warning.'
 									) }
 								</span>{ ' ' }
-								<LearnMoreLink docsLinksKey="docsSslInStudio" learnHow />
+								<LearnHowLink docsLinksKey="docsSslInStudio" />
 							</div>
 						) }
 					</SettingsRow>

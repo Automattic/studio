@@ -99,7 +99,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 								</Button>
 							) }
 						</div>
-						{ selectedSite.enableHttps && (
+						{ ! isCertificateTrusted && selectedSite.enableHttps && (
 							<div className="mt-1 max-w-96">
 								<span className="text-a8c-gray-50 mt-1">
 									{ __(

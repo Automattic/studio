@@ -44,11 +44,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'delete <host>',
 		describe: __( 'Delete a preview site' ),
 		builder: ( yargs ) => {
-			return yargs.positional( 'host', {
-				type: 'string',
-				description: __( 'Hostname of the preview site to delete' ),
-				demandOption: true,
-			} );
+			return yargs
+				.positional( 'host', {
+					type: 'string',
+					description: __( 'Hostname of the preview site to delete' ),
+					demandOption: true,
+				} )
+				.option( 'path', {
+					hidden: true,
+				} );
 		},
 		handler: async ( argv ) => {
 			const normalizedHost = normalizeHostname( argv.host );

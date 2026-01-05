@@ -328,17 +328,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 										{ __(
 											'You need to manually add the Studio certificate authority to your keychain and trust it.'
 										) }{ ' ' }
-										<Button
-											variant="link"
-											onClick={ () => {
-												getIpcApi().openURL(
-													'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
-												);
-											} }
-										>
-											{ __( 'Learn how' ) }
-											<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
-										</Button>
+										<LearnMoreLink docsLinksKey="docsSslInStudio" learnHow />
 									</div>
 								) }
 							</div>

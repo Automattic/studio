@@ -7,9 +7,11 @@ import { useI18nLocale } from 'src/stores';
 export function LearnMoreLink( {
 	docsLinksKey,
 	className,
+	learnHow,
 }: {
 	docsLinksKey: DocsLinkKey;
 	className?: string;
+	learnHow?: boolean;
 } ) {
 	const { __ } = useI18n();
 	const locale = useI18nLocale();
@@ -24,7 +26,7 @@ export function LearnMoreLink( {
 			} }
 			variant="link"
 		>
-			{ __( 'Learn more' ) }
+			{ learnHow ? __( 'Learn how' ) : __( 'Learn more' ) }
 		</Button>
 	);
 }

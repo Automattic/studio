@@ -151,6 +151,26 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				name: 'example-load.php',
 				isFile: () => true,
 			},
+			{
+				path: normalize( '/path/to/site/wp-content/plugins/hello' ),
+				name: '.git',
+				isFile: () => false,
+			},
+			{
+				path: normalize( '/path/to/site/wp-content/plugins/hello' ),
+				name: 'node_modules',
+				isFile: () => false,
+			},
+			{
+				path: normalize( '/path/to/site/wp-content' ),
+				name: 'cache',
+				isFile: () => false,
+			},
+			{
+				path: normalize( '/path/to/site/wp-content/plugins/hello/my-cache' ),
+				name: 'test.php',
+				isFile: () => false,
+			},
 		];
 
 		( fsPromises.readdir as jest.Mock ).mockResolvedValue( mockFiles );
@@ -179,6 +199,20 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		} );
 
 		( fs.existsSync as jest.Mock ).mockImplementation( pathExistsMockImplementation );
+
+		( fs.statSync as jest.Mock ).mockImplementation( ( filePath: string ) => {
+			const normalizedPath = normalize( filePath );
+			if (
+				mockFiles.some(
+					( file ) => normalizedPath === normalize( path.join( file.path, file.name ) )
+				)
+			) {
+				return { isDirectory: () => false, isFile: () => true };
+			} else if ( pathExistsMockImplementation( normalizedPath ) ) {
+				return { isDirectory: () => true, isFile: () => false };
+			}
+			throw new Error( `File not found: ${ normalizedPath }` );
+		} );
 
 		mockBackup = {
 			backupFile: normalize( '/path/to/backup.tar.gz' ),
@@ -637,6 +671,55 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				'/path/to/site/wp-content/mu-plugins/sqlite-database-integration/example-load.php'
 			),
 			{ name: 'wp-content/mu-plugins/sqlite-database-integration/example-load.php' }
+		);
+	} );
+
+	it( 'should exclude .git, node_modules, and cache directories', async () => {
+		const options = {
+			...mockOptions,
+			includes: {
+				database: false,
+				wpContent: true,
+			},
+			specificSelectionPaths: [
+				'uploads',
+				'cache',
+				'plugins/hello/.git',
+				'plugins/hello/my-cache',
+				'plugins/hello/node_modules',
+			],
+		};
+
+		const exporter = new DefaultExporter( options );
+		await exporter.export();
+
+		// Verify that directories which are excluded by pattern are NOT added to the archive
+		expect( mockArchiver.directory ).not.toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-content/.git' ),
+			normalize( 'wp-content/.git' ),
+			expect.any( Function )
+		);
+		expect( mockArchiver.directory ).not.toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-content/plugins/hello/node_modules' ),
+			normalize( 'wp-content/plugins/hello/node_modules' ),
+			expect.any( Function )
+		);
+		expect( mockArchiver.directory ).not.toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-content/plugins/hello/cache' ),
+			normalize( 'wp-content/plugins/hello/cache' ),
+			expect.any( Function )
+		);
+
+		// Verify that other directories are still added
+		expect( mockArchiver.directory ).toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-content/uploads' ),
+			normalize( 'wp-content/uploads' ),
+			expect.any( Function )
+		);
+		expect( mockArchiver.directory ).toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-content/plugins/hello/my-cache' ),
+			normalize( 'wp-content/plugins/hello/my-cache' ),
+			expect.any( Function )
 		);
 	} );
 } );

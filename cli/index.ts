@@ -14,10 +14,7 @@ import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/u
 import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create';
 import { registerCommand as registerSiteDeleteCommand } from 'cli/commands/site/delete';
 import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
-import { registerCommand as registerSiteSetDomainCommand } from 'cli/commands/site/set-domain';
-import { registerCommand as registerSiteSetHttpsCommand } from 'cli/commands/site/set-https';
-import { registerCommand as registerSiteSetPhpVersionCommand } from 'cli/commands/site/set-php-version';
-import { registerCommand as registerSiteSetWpVersionCommand } from 'cli/commands/site/set-wp-version';
+import { registerCommand as registerSiteSetCommand } from 'cli/commands/site/set';
 import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
 import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
@@ -100,10 +97,7 @@ async function main() {
 			registerSiteStopCommand( sitesYargs );
 			registerSiteStopAllCommand( sitesYargs );
 			registerSiteDeleteCommand( sitesYargs );
-			registerSiteSetHttpsCommand( sitesYargs );
-			registerSiteSetDomainCommand( sitesYargs );
-			registerSiteSetPhpVersionCommand( sitesYargs );
-			registerSiteSetWpVersionCommand( sitesYargs );
+			registerSiteSetCommand( sitesYargs );
 			sitesYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
 		.command( {

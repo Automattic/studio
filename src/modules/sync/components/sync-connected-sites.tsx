@@ -195,6 +195,8 @@ const SyncConnectedSitesSectionItem = ( {
 		isKeyFailed,
 		isKeyCancelled,
 		getPullStatusWithProgress,
+		getPushUploadPercentage,
+		getPushUploadMessage,
 		isKeyUploadingPaused,
 	} = useSyncStatesProgressInfo();
 
@@ -212,6 +214,11 @@ const SyncConnectedSitesSectionItem = ( {
 	const isPushError = pushState?.status && isKeyFailed( pushState.status.key );
 	const hasPushFinished = pushState?.status && isKeyFinished( pushState.status.key );
 	const hasPushCancelled = pushState?.status && isKeyCancelled( pushState.status.key );
+
+	const uploadPercentage = getPushUploadPercentage(
+		pushState?.status.key,
+		pushState?.uploadProgress
+	);
 
 	return (
 		<div className="grid grid-cols-[max-content_1fr_max-content]">
@@ -318,7 +325,7 @@ const SyncConnectedSitesSectionItem = ( {
 								<div className="flex flex-col gap-2 min-w-44 flex-shrink">
 									<div className="a8c-body-small flex items-center gap-0.5">
 										<Icon icon={ info } size={ 16 } />
-										{ pushState.status.message }
+										{ getPushUploadMessage( pushState.status.message, uploadPercentage ) }
 									</div>
 									<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
 								</div>

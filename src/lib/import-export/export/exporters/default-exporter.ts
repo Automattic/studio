@@ -27,8 +27,8 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private backup: BackupContents;
 	private readonly options: ExportOptions;
 
-	private isExcludedPath( pathToCheck: string ) {
-		const pathsToExclude = [
+	isExactPathExcluded( pathToCheck: string ) {
+		const PATHS_TO_EXCLUDE = [
 			'wp-content/mu-plugins/sqlite-database-integration',
 			'wp-content/database',
 			'wp-content/db.php',
@@ -44,9 +44,33 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			'wp-content/mu-plugins/0-https-for-reverse-proxy.php',
 			'wp-content/mu-plugins/0-sqlite-command.php',
 		];
-		return pathsToExclude.some( ( pathToExclude ) =>
+
+		return PATHS_TO_EXCLUDE.some( ( pathToExclude ) =>
 			pathToCheck.startsWith( path.normalize( pathToExclude ) )
 		);
+	}
+
+	// Look for disallowed directory names in a given path. If found, determine whether that part of
+	// the path is a directory or not.
+	isPathExcludedByPattern( pathToCheck: string ) {
+		const DIRECTORY_NAMES_TO_EXCLUDE = [ '.git', 'node_modules', 'cache' ];
+		const pathParts = pathToCheck.split( path.sep );
+
+		for ( const directoryName of DIRECTORY_NAMES_TO_EXCLUDE ) {
+			if ( ! pathParts.includes( directoryName ) ) {
+				continue;
+			}
+			const offenderIndex = pathToCheck.lastIndexOf( directoryName );
+			const offenderPath = pathToCheck.substring( 0, offenderIndex + directoryName.length );
+			try {
+				const stat = fs.statSync( offenderPath );
+				return stat.isDirectory();
+			} catch ( error ) {
+				return false;
+			}
+		}
+
+		return false;
 	}
 
 	constructor( options: ExportOptions ) {
@@ -57,6 +81,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			sqlFiles: [],
 		};
 	}
+
 	async canHandle(): Promise< boolean > {
 		const supportedExtension = [ 'tar.gz', 'tzg', 'zip' ].find( ( ext ) =>
 			this.options.backupFile.endsWith( ext )
@@ -185,19 +210,21 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 				const stat = await fsPromises.stat( fullPath );
 				if ( stat.isDirectory() ) {
 					this.archiveBuilder.directory( fullPath, archivePath, ( entry ) => {
-						const fullArchivePath = path.join( archivePath, entry.name );
+						const entryPathRelativeToArchiveRoot = path.join( archivePath, entry.name );
+						const fullEntryPathOnDisk = path.join(
+							this.options.site.path,
+							entryPathRelativeToArchiveRoot
+						);
 						if (
-							this.isExcludedPath( fullArchivePath ) ||
-							entry.name.includes( '.git' ) ||
-							entry.name.includes( 'node_modules' ) ||
-							entry.name.includes( 'cache' )
+							this.isExactPathExcluded( entryPathRelativeToArchiveRoot ) ||
+							this.isPathExcludedByPattern( fullEntryPathOnDisk )
 						) {
 							return false;
 						}
 						return entry;
 					} );
 				} else {
-					if ( this.isExcludedPath( archivePath ) ) {
+					if ( this.isExactPathExcluded( archivePath ) ) {
 						continue;
 					}
 					this.archiveBuilder.file( fullPath, { name: archivePath } );

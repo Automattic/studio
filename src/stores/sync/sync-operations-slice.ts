@@ -392,6 +392,7 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 						status: pushStatesProgressInfo.creatingRemoteBackup,
 						selectedSite,
 						remoteSiteUrl,
+						uploadProgress: undefined, // Clear upload progress when transitioning to next state
 					},
 					isKeyFailed,
 					isKeyFinished

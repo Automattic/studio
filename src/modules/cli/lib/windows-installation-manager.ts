@@ -93,7 +93,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 			const mainWindow = await getMainWindow();
 			await dialog.showMessageBox( mainWindow, {
 				type: 'info',
-				title: __( 'CLI uninstalled' ),
+				title: __( 'CLI Uninstalled' ),
 				message: __( 'The CLI has been uninstalled successfully.' ),
 			} );
 		} catch ( error ) {

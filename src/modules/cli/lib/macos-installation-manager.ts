@@ -101,7 +101,7 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 			const mainWindow = await getMainWindow();
 			await dialog.showMessageBox( mainWindow, {
 				type: 'info',
-				title: __( 'CLI uninstalled' ),
+				title: __( 'CLI Uninstalled' ),
 				message: __( 'The CLI has been uninstalled successfully.' ),
 			} );
 		} catch ( error ) {

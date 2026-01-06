@@ -194,7 +194,7 @@ export async function pushArchive(
 				console.error( '[TUS] Upload error', error );
 				reject( error );
 			},
-			onProgress: ( bytesSent: number, bytesTotal: number ) => {
+			onProgress: () => {
 				if ( isUploadingPaused ) {
 					isUploadingPaused = false;
 					void sendIpcEventToRenderer( 'sync-upload-resumed', {
@@ -207,14 +207,6 @@ export async function pushArchive(
 				if ( ! hasUploadStarted ) {
 					hasUploadStarted = true;
 				}
-
-				// Calculate upload progress percentage (0-100)
-				const uploadProgress = bytesTotal > 0 ? ( bytesSent / bytesTotal ) * 100 : 0;
-				void sendIpcEventToRenderer( 'sync-upload-progress', {
-					selectedSiteId: selectedSiteId,
-					remoteSiteId: remoteSiteId,
-					progress: uploadProgress,
-				} );
 			},
 			onSuccess: ( payload ) => {
 				if ( ! payload.lastResponse ) {

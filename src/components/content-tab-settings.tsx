@@ -5,7 +5,6 @@ import { PropsWithChildren } from 'react';
 import { decodePassword } from 'common/lib/passwords';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import DeleteSite from 'src/components/delete-site';
-import { LearnHowLink } from 'src/components/learn-more';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
@@ -106,7 +105,17 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 										'You need to trust this certificate to prevent your browser from showing a secure connection warning.'
 									) }
 								</span>{ ' ' }
-								<LearnHowLink docsLinksKey="docsSslInStudio" />
+								<Button
+									variant="link"
+									onClick={ () => {
+										getIpcApi().openURL(
+											'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
+										);
+									} }
+								>
+									{ __( 'Learn how' ) }
+									<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
+								</Button>
 							</div>
 						) }
 					</SettingsRow>

@@ -167,7 +167,7 @@ const TreeItem = ( {
 					className={ cx( 'ps-6', isFirstLevel && 'border border-gray-300 rounded-sm py-2' ) }
 				>
 					{ node.children.length === 0 ? (
-						renderEmptyContent ? (
+						renderEmptyContent && renderEmptyContent( node.id ) ? (
 							renderEmptyContent( node.id )
 						) : (
 							<div className="text-gray-500 italic" aria-label={ __( 'Empty folder' ) }>

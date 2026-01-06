@@ -4,12 +4,13 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink, type DocsLinkKey } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
 
-interface LinkProps {
+export function LearnMoreLink( {
+	docsLinksKey,
+	className,
+}: {
 	docsLinksKey: DocsLinkKey;
 	className?: string;
-}
-
-function MoreLink( { docsLinksKey, className, label }: LinkProps & { label: string } ) {
+} ) {
 	const { __ } = useI18n();
 	const locale = useI18nLocale();
 
@@ -23,19 +24,7 @@ function MoreLink( { docsLinksKey, className, label }: LinkProps & { label: stri
 			} }
 			variant="link"
 		>
-			{ label }
+			{ __( 'Learn more' ) }
 		</Button>
 	);
-}
-
-export function LearnMoreLink( props: LinkProps ) {
-	const { __ } = useI18n();
-
-	return <MoreLink { ...props } label={ __( 'Learn more' ) } />;
-}
-
-export function LearnHowLink( props: LinkProps ) {
-	const { __ } = useI18n();
-
-	return <MoreLink { ...props } label={ __( 'Learn how' ) } />;
 }

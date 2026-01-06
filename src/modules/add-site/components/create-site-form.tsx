@@ -7,10 +7,11 @@ import { FormEvent, useState, useEffect } from 'react';
 import { generateCustomDomainFromSiteName } from 'common/lib/domains';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
-import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
+import { LearnMoreLink } from 'src/components/learn-more';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
 import { useRootSelector } from 'src/stores';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
@@ -379,7 +380,17 @@ export const CreateSiteForm = ( {
 										{ __(
 											'You need to manually add the Studio root certificate authority to your keychain and trust it to enable HTTPS.'
 										) }{ ' ' }
-										<LearnHowLink docsLinksKey="docsSslInStudio" />
+										<Button
+											variant="link"
+											onClick={ () => {
+												getIpcApi().openURL(
+													'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
+												);
+											} }
+										>
+											{ __( 'Learn how' ) }
+											<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
+										</Button>
 									</div>
 								) }
 							</div>

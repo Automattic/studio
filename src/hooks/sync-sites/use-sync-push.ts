@@ -27,6 +27,7 @@ export type SyncPushState = {
 	status: PushStateProgressInfo;
 	selectedSite: SiteDetails;
 	remoteSiteUrl: string;
+	uploadProgress?: number;
 };
 
 type PushSiteOptions = {
@@ -99,11 +100,13 @@ export function useSyncPush( {
 	const {
 		pushStatesProgressInfo,
 		isKeyPushing,
+		isKeyUploading,
 		isKeyImporting,
 		isKeyFinished,
 		isKeyFailed,
 		isKeyCancelled,
 		getPushStatusWithProgress,
+		mapUploadProgressToOverallProgress,
 	} = useSyncStatesProgressInfo();
 
 	const updatePushState = useCallback< UpdateState< SyncPushState > >(
@@ -324,6 +327,7 @@ export function useSyncPush( {
 				if ( response.success ) {
 					updatePushState( selectedSite.id, remoteSiteId, {
 						status: pushStatesProgressInfo.creatingRemoteBackup,
+						uploadProgress: undefined, // Clear upload progress when transitioning to next state
 					} );
 				} else {
 					throw response;
@@ -392,9 +396,29 @@ export function useSyncPush( {
 	useIpcListener(
 		'sync-upload-resumed',
 		( _event, payload: { selectedSiteId: string; remoteSiteId: number } ) => {
+			const currentState = getPushState( payload.selectedSiteId, payload.remoteSiteId );
 			updatePushState( payload.selectedSiteId, payload.remoteSiteId, {
 				status: pushStatesProgressInfo.uploading,
+				uploadProgress: currentState?.uploadProgress,
 			} );
+		}
+	);
+
+	useIpcListener(
+		'sync-upload-progress',
+		( _event, payload: { selectedSiteId: string; remoteSiteId: number; progress: number } ) => {
+			const currentState = getPushState( payload.selectedSiteId, payload.remoteSiteId );
+			if ( currentState && isKeyUploading( currentState.status.key ) ) {
+				const mappedProgress = mapUploadProgressToOverallProgress( payload.progress );
+
+				updatePushState( payload.selectedSiteId, payload.remoteSiteId, {
+					status: {
+						...currentState.status,
+						progress: mappedProgress,
+					},
+					uploadProgress: payload.progress,
+				} );
+			}
 		}
 	);
 

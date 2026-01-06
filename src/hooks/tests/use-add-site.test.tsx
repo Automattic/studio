@@ -24,18 +24,23 @@ jest.mock( 'src/hooks/use-import-export', () => ( {
 } ) );
 
 const mockConnectWpcomSites = jest.fn().mockResolvedValue( undefined );
+const mockGenerateProposedSitePath = jest.fn().mockResolvedValue( {
+	path: '/default/path',
+	name: 'Default Site',
+	isEmpty: true,
+	isWordPress: false,
+} );
+
+const mockComparePaths = jest.fn().mockResolvedValue( false );
+
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
-		generateProposedSitePath: jest.fn().mockResolvedValue( {
-			path: '/default/path',
-			name: 'Default Site',
-			isEmpty: true,
-			isWordPress: false,
-		} ),
+		generateProposedSitePath: mockGenerateProposedSitePath,
 		showNotification: jest.fn(),
 		getAllCustomDomains: jest.fn().mockResolvedValue( [] ),
 		connectWpcomSites: mockConnectWpcomSites,
 		getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
+		comparePaths: mockComparePaths,
 	} ),
 } ) );
 
@@ -244,5 +249,57 @@ describe( 'useAddSite', () => {
 			optionsToSync: [ 'all' ],
 		} );
 		expect( mockSetSelectedTab ).toHaveBeenCalledWith( 'sync' );
+	} );
+
+	describe( 'handleSiteNameChange', () => {
+		beforeEach( () => {
+			mockGenerateProposedSitePath.mockReset();
+			mockGenerateProposedSitePath.mockResolvedValue( {
+				path: '/default/path',
+				name: 'Default Site',
+				isEmpty: true,
+				isWordPress: false,
+			} );
+			mockComparePaths.mockReset();
+			mockComparePaths.mockResolvedValue( false );
+		} );
+
+		it( 'should set user-friendly error when site name causes ENAMETOOLONG error', async () => {
+			mockGenerateProposedSitePath.mockResolvedValueOnce( {
+				path: '/default/path/very-long-name',
+				name: 'a'.repeat( 300 ),
+				isEmpty: false,
+				isWordPress: false,
+				isNameTooLong: true,
+			} );
+
+			const { result } = renderHookWithProvider( () => useAddSite() );
+
+			await act( async () => {
+				await result.current.handleSiteNameChange( 'a'.repeat( 300 ) );
+			} );
+
+			expect( result.current.error ).toBe(
+				'The site name is too long. Please choose a shorter site name.'
+			);
+		} );
+
+		it( 'should successfully update site name when path is valid', async () => {
+			mockGenerateProposedSitePath.mockResolvedValueOnce( {
+				path: '/default/path/my-site',
+				name: 'my-site',
+				isEmpty: true,
+				isWordPress: false,
+			} );
+
+			const { result } = renderHookWithProvider( () => useAddSite() );
+
+			await act( async () => {
+				await result.current.handleSiteNameChange( 'my-site' );
+			} );
+
+			expect( result.current.siteName ).toBe( 'my-site' );
+			expect( result.current.error ).toBe( '' );
+		} );
 	} );
 } );

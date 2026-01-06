@@ -53,6 +53,7 @@ interface NavigationContentProps {
 	} >;
 	existingDomainNames: string[];
 	onFormSubmit: ( values: CreateSiteFormValues ) => void;
+	onValidityChange: ( isValid: boolean ) => void;
 	canSubmit: boolean;
 	fileForImport: File | null;
 	setFileForImport: ( file: File | null ) => void;
@@ -79,6 +80,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		onSiteNameChange,
 		existingDomainNames,
 		onFormSubmit,
+		onValidityChange,
 		canSubmit,
 		fileForImport,
 		setFileForImport,
@@ -245,6 +247,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		onSiteNameChange,
 		existingDomainNames,
 		onSubmit: onFormSubmit,
+		onValidityChange,
 		formRef,
 	};
 
@@ -341,6 +344,7 @@ export function AddSiteModalContent( {
 	const [ formInitialized, setFormInitialized ] = useState( false );
 	const [ defaultSiteName, setDefaultSiteName ] = useState( '' );
 	const [ defaultSitePath, setDefaultSitePath ] = useState( '' );
+	const [ isFormValid, setIsFormValid ] = useState( true );
 
 	const {
 		data: blueprintsData,
@@ -441,8 +445,8 @@ export function AddSiteModalContent( {
 		[ __, handleCreateSite, onSubmit ]
 	);
 
-	// canSubmit is true if the form is initialized (we have default values)
-	const canSubmit = formInitialized && defaultSiteName.trim().length > 0;
+	// canSubmit is true if the form is initialized, has a name, and is valid (no errors)
+	const canSubmit = formInitialized && defaultSiteName.trim().length > 0 && isFormValid;
 
 	return (
 		<Navigator
@@ -458,6 +462,7 @@ export function AddSiteModalContent( {
 				onSiteNameChange={ generateProposedPath }
 				existingDomainNames={ existingDomainNames }
 				onFormSubmit={ handleFormSubmit }
+				onValidityChange={ setIsFormValid }
 				canSubmit={ canSubmit }
 				fileForImport={ fileForImport }
 				setFileForImport={ setFileForImport }

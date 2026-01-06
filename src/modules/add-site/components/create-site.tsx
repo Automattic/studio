@@ -20,6 +20,7 @@ export interface CreateSiteProps {
 	existingDomainNames?: string[];
 	blueprintPreferredVersions?: { php?: string; wp?: string };
 	onSubmit: ( values: CreateSiteFormValues ) => void;
+	onValidityChange?: ( isValid: boolean ) => void;
 	formRef?: RefObject< HTMLFormElement >;
 }
 
@@ -30,6 +31,7 @@ export default function CreateSite( {
 	existingDomainNames = [],
 	blueprintPreferredVersions,
 	onSubmit,
+	onValidityChange,
 	formRef,
 }: CreateSiteProps ) {
 	const { __ } = useI18n();
@@ -47,6 +49,7 @@ export default function CreateSite( {
 				existingDomainNames={ existingDomainNames }
 				blueprintPreferredVersions={ blueprintPreferredVersions }
 				onSubmit={ onSubmit }
+				onValidityChange={ onValidityChange }
 				formRef={ formRef }
 			/>
 		</VStack>

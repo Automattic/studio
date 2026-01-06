@@ -39,6 +39,8 @@ export interface CreateSiteFormProps {
 	blueprintPreferredVersions?: { php?: string; wp?: string };
 	/** Called when form is submitted */
 	onSubmit: ( values: CreateSiteFormValues ) => void;
+	/** Called when form validity changes */
+	onValidityChange?: ( isValid: boolean ) => void;
 	/** Ref to form element for programmatic submission */
 	formRef?: RefObject< HTMLFormElement >;
 }
@@ -145,6 +147,7 @@ export const CreateSiteForm = ( {
 	existingDomainNames = [],
 	blueprintPreferredVersions,
 	onSubmit,
+	onValidityChange,
 	formRef,
 }: CreateSiteFormProps ) => {
 	const { __, isRTL } = useI18n();
@@ -219,6 +222,16 @@ export const CreateSiteForm = ( {
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [ useCustomDomain, customDomain, siteName ] );
+
+	// Notify parent of form validity changes
+	useEffect( () => {
+		if ( ! onValidityChange ) {
+			return;
+		}
+
+		const hasErrors = !! pathError || ( useCustomDomain && !! customDomainError );
+		onValidityChange( ! hasErrors );
+	}, [ pathError, customDomainError, useCustomDomain, onValidityChange ] );
 
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {

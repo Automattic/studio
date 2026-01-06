@@ -674,52 +674,141 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		);
 	} );
 
-	it( 'should exclude .git, node_modules, and cache directories', async () => {
-		const options = {
-			...mockOptions,
-			includes: {
-				database: false,
-				wpContent: true,
-			},
-			specificSelectionPaths: [
-				'uploads',
-				'cache',
-				'plugins/hello/.git',
-				'plugins/hello/my-cache',
-				'plugins/hello/node_modules',
-			],
-		};
+	describe( 'isExactPathExcluded', () => {
+		it( 'should exclude exact paths from PATHS_TO_EXCLUDE list', () => {
+			const exporter = new DefaultExporter( mockOptions );
 
-		const exporter = new DefaultExporter( options );
-		await exporter.export();
+			expect( exporter.isExactPathExcluded( normalize( 'wp-content/database' ) ) ).toBe( true );
+			expect( exporter.isExactPathExcluded( normalize( 'wp-content/db.php' ) ) ).toBe( true );
+			expect( exporter.isExactPathExcluded( normalize( 'wp-content/debug.log' ) ) ).toBe( true );
+			expect(
+				exporter.isExactPathExcluded(
+					normalize( 'wp-content/mu-plugins/sqlite-database-integration' )
+				)
+			).toBe( true );
+			expect(
+				exporter.isExactPathExcluded(
+					normalize( 'wp-content/mu-plugins/0-allowed-redirect-hosts.php' )
+				)
+			).toBe( true );
+		} );
 
-		// Verify that directories which are excluded by pattern are NOT added to the archive
-		expect( mockArchiver.directory ).not.toHaveBeenCalledWith(
-			normalize( '/path/to/site/wp-content/.git' ),
-			normalize( 'wp-content/.git' ),
-			expect.any( Function )
-		);
-		expect( mockArchiver.directory ).not.toHaveBeenCalledWith(
-			normalize( '/path/to/site/wp-content/plugins/hello/node_modules' ),
-			normalize( 'wp-content/plugins/hello/node_modules' ),
-			expect.any( Function )
-		);
-		expect( mockArchiver.directory ).not.toHaveBeenCalledWith(
-			normalize( '/path/to/site/wp-content/plugins/hello/cache' ),
-			normalize( 'wp-content/plugins/hello/cache' ),
-			expect.any( Function )
-		);
+		it( 'should return false for paths not in the exclusion list', () => {
+			const exporter = new DefaultExporter( mockOptions );
 
-		// Verify that other directories are still added
-		expect( mockArchiver.directory ).toHaveBeenCalledWith(
-			normalize( '/path/to/site/wp-content/uploads' ),
-			normalize( 'wp-content/uploads' ),
-			expect.any( Function )
-		);
-		expect( mockArchiver.directory ).toHaveBeenCalledWith(
-			normalize( '/path/to/site/wp-content/plugins/hello/my-cache' ),
-			normalize( 'wp-content/plugins/hello/my-cache' ),
-			expect.any( Function )
-		);
+			expect( exporter.isExactPathExcluded( normalize( 'wp-content/plugins' ) ) ).toBe( false );
+			expect( exporter.isExactPathExcluded( normalize( 'wp-content/themes' ) ) ).toBe( false );
+			expect( exporter.isExactPathExcluded( normalize( 'wp-content/uploads' ) ) ).toBe( false );
+			expect( exporter.isExactPathExcluded( normalize( 'wp-config.php' ) ) ).toBe( false );
+		} );
+
+		it( 'should match paths that start with excluded prefixes', () => {
+			const exporter = new DefaultExporter( mockOptions );
+
+			expect(
+				exporter.isExactPathExcluded( normalize( 'wp-content/database/something.sql' ) )
+			).toBe( true );
+			expect(
+				exporter.isExactPathExcluded(
+					normalize( 'wp-content/mu-plugins/sqlite-database-integration/load.php' )
+				)
+			).toBe( true );
+		} );
+	} );
+
+	describe( 'isPathExcludedByPattern', () => {
+		it( 'should exclude disallowed directories based on their names', () => {
+			( fs.statSync as jest.Mock ).mockReturnValue( {
+				isDirectory: () => true,
+				isFile: () => false,
+			} );
+
+			const exporter = new DefaultExporter( mockOptions );
+
+			expect(
+				exporter.isPathExcludedByPattern( normalize( '/path/to/site/wp-content/.git' ) )
+			).toBe( true );
+			expect(
+				exporter.isPathExcludedByPattern(
+					normalize( '/path/to/site/wp-content/node_modules/hello' )
+				)
+			).toBe( true );
+			expect(
+				exporter.isPathExcludedByPattern( normalize( '/path/to/site/wp-content/cache' ) )
+			).toBe( true );
+			expect(
+				exporter.isPathExcludedByPattern( normalize( '/path/to/site/wp-content/my-cache' ) )
+			).toBe( false );
+		} );
+
+		it( 'should return false for non-excluded directories', () => {
+			( fs.statSync as jest.Mock ).mockReturnValue( {
+				isDirectory: () => true,
+				isFile: () => false,
+			} );
+
+			const exporter = new DefaultExporter( mockOptions );
+
+			expect(
+				exporter.isPathExcludedByPattern( normalize( '/path/to/site/wp-content/uploads' ) )
+			).toBe( false );
+			expect(
+				exporter.isPathExcludedByPattern( normalize( '/path/to/site/wp-content/plugins' ) )
+			).toBe( false );
+			expect(
+				exporter.isPathExcludedByPattern( normalize( '/path/to/site/wp-content/themes' ) )
+			).toBe( false );
+		} );
+
+		it( 'should return false for non-existent paths (stat fails)', () => {
+			const exporter = new DefaultExporter( mockOptions );
+
+			// Paths that don't exist in mockFiles will cause statSync to throw, returning false
+			expect(
+				exporter.isPathExcludedByPattern( normalize( '/path/to/site/wp-content/nonexistent' ) )
+			).toBe( false );
+			expect(
+				exporter.isPathExcludedByPattern( normalize( '/path/to/site/nonexistent/.git' ) )
+			).toBe( false );
+		} );
+
+		it( 'should return false for files (not directories)', () => {
+			( fs.statSync as jest.Mock ).mockReturnValue( {
+				isDirectory: () => false,
+				isFile: () => true,
+			} );
+
+			const exporter = new DefaultExporter( mockOptions );
+
+			expect(
+				exporter.isPathExcludedByPattern(
+					normalize( '/path/to/site/wp-content/uploads/file1.jpg' )
+				)
+			).toBe( false );
+			expect( exporter.isPathExcludedByPattern( normalize( '/path/to/site/wp-config.php' ) ) ).toBe(
+				false
+			);
+			expect( exporter.isPathExcludedByPattern( normalize( '/path/to/site/node_modules' ) ) ).toBe(
+				false
+			);
+		} );
+
+		it( 'should handle directory names found at any position in the path', () => {
+			( fs.statSync as jest.Mock ).mockReturnValue( {
+				isDirectory: () => true,
+				isFile: () => false,
+			} );
+
+			const exporter = new DefaultExporter( mockOptions );
+
+			expect(
+				exporter.isPathExcludedByPattern( normalize( '/path/to/site/wp-content/.git' ) )
+			).toBe( true );
+			expect(
+				exporter.isPathExcludedByPattern(
+					normalize( '/path/to/site/wp-content/plugins/akismet/node_modules/webpack/index.js' )
+				)
+			).toBe( true );
+		} );
 	} );
 } );

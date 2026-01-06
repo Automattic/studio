@@ -27,7 +27,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private backup: BackupContents;
 	private readonly options: ExportOptions;
 
-	private isExactPathExcluded( pathToCheck: string ) {
+	isExactPathExcluded( pathToCheck: string ) {
 		const PATHS_TO_EXCLUDE = [
 			'wp-content/mu-plugins/sqlite-database-integration',
 			'wp-content/database',
@@ -50,17 +50,18 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		);
 	}
 
-	// Look for directory names in a given path. If found, determine whether that part of the path is
-	// a directory or not.
-	private isPathExcludedByPattern( pathToCheck: string ) {
+	// Look for disallowed directory names in a given path. If found, determine whether that part of
+	// the path is a directory or not.
+	isPathExcludedByPattern( pathToCheck: string ) {
 		const DIRECTORY_NAMES_TO_EXCLUDE = [ '.git', 'node_modules', 'cache' ];
-		const offenderRegex = new RegExp(
-			`${ path.sep }(${ DIRECTORY_NAMES_TO_EXCLUDE.join( '|' ) })(${ path.sep }|$)`,
-			'g'
-		);
+		const pathParts = pathToCheck.split( path.sep );
 
-		if ( offenderRegex.test( pathToCheck ) ) {
-			const offenderPath = pathToCheck.substring( 0, offenderRegex.lastIndex );
+		for ( const directoryName of DIRECTORY_NAMES_TO_EXCLUDE ) {
+			if ( ! pathParts.includes( directoryName ) ) {
+				continue;
+			}
+			const offenderIndex = pathToCheck.lastIndexOf( directoryName );
+			const offenderPath = pathToCheck.substring( 0, offenderIndex + directoryName.length );
 			try {
 				const stat = fs.statSync( offenderPath );
 				return stat.isDirectory();

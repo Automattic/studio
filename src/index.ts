@@ -43,6 +43,7 @@ import {
 import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
 import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-stat';
 import { startSiteWatcher, stopSiteWatcher } from 'src/modules/cli/lib/execute-site-watch-command';
+import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { updateWindowsCliVersionedPathIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
 import { getRunningSiteCount, stopAllServersOnQuit } from 'src/site-server';
@@ -451,6 +452,7 @@ async function appBoot() {
 
 			void ( async () => {
 				const userData = await loadUserData();
+				const isCliInstalled = await isStudioCliInstalled();
 
 				if ( userData.stopSitesOnQuit !== undefined ) {
 					shouldStopSitesOnQuit = userData.stopSitesOnQuit;
@@ -459,8 +461,7 @@ async function appBoot() {
 					return;
 				}
 
-				// Skip dialog in E2E tests - just quit and stop sites
-				if ( process.env.E2E ) {
+				if ( ! isCliInstalled || process.env.E2E ) {
 					isQuittingConfirmed = true;
 					app.quit();
 					return;

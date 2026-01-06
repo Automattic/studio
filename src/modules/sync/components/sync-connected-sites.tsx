@@ -220,11 +220,7 @@ const SyncConnectedSitesSectionItem = ( {
 	return (
 		<div className="grid grid-cols-[max-content_1fr_max-content]">
 			<div
-				className={ `col-span-3 grid px-8 gap-2 justify-items-start items-center ${
-					connectedSite.isPressable && ! connectedSite.environmentType
-						? 'grid-cols-[1fr_auto]'
-						: 'grid-cols-subgrid'
-				}` }
+				className="col-span-3 grid px-8 gap-2 justify-items-start items-center grid-cols-subgrid"
 				key={ connectedSite.id }
 			>
 				<div className="shrink-0">

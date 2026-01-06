@@ -57,6 +57,80 @@ const DOWNLOADING_INITIAL_VALUE = 60;
 const IN_PROGRESS_TO_DOWNLOADING_STEP = DOWNLOADING_INITIAL_VALUE - IN_PROGRESS_INITIAL_VALUE;
 const PULL_IMPORTING_INITIAL_VALUE = 80;
 
+export function isKeyPulling( key: PullStateProgressInfo[ 'key' ] | undefined ): boolean {
+	const pullingStateKeys: PullStateProgressInfo[ 'key' ][] = [
+		'in-progress',
+		'downloading',
+		'importing',
+	];
+	if ( ! key ) {
+		return false;
+	}
+	return pullingStateKeys.includes( key );
+}
+
+export function isKeyPushing( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean {
+	const pushingStateKeys: PushStateProgressInfo[ 'key' ][] = [
+		'creatingBackup',
+		'uploading',
+		'creatingRemoteBackup',
+		'applyingChanges',
+		'finishing',
+	];
+	if ( ! key ) {
+		return false;
+	}
+	return pushingStateKeys.includes( key );
+}
+
+export function isKeyUploadingPaused( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean {
+	return key === 'uploadingPaused';
+}
+
+export function isKeyUploading( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean {
+	return key === 'uploading';
+}
+
+export function isKeyImporting( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean {
+	const pushingStateKeys: PushStateProgressInfo[ 'key' ][] = [
+		'creatingRemoteBackup',
+		'applyingChanges',
+		'finishing',
+	];
+	if ( ! key ) {
+		return false;
+	}
+	return pushingStateKeys.includes( key );
+}
+
+export function isKeyFinished(
+	key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined
+): boolean {
+	return key === 'finished';
+}
+
+export function isKeyFailed(
+	key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined
+): boolean {
+	return key === 'failed';
+}
+
+export function isKeyCancelled(
+	key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined
+): boolean {
+	return key === 'cancelled';
+}
+
+export function getPushUploadPercentage(
+	statusKey: PushStateProgressInfo[ 'key' ] | undefined,
+	uploadProgress: number | undefined
+): number | null {
+	if ( isKeyUploading( statusKey ) && uploadProgress !== undefined ) {
+		return Math.round( uploadProgress );
+	}
+	return null;
+}
+
 export function useSyncStatesProgressInfo() {
 	const { __ } = useI18n();
 	const pullStatesProgressInfo = useMemo( () => {
@@ -145,72 +219,6 @@ export function useSyncStatesProgressInfo() {
 		} as const satisfies PushStateProgressInfoValues;
 	}, [ __ ] );
 
-	const isKeyPulling = ( key: PullStateProgressInfo[ 'key' ] | undefined ) => {
-		const pullingStateKeys: PullStateProgressInfo[ 'key' ][] = [
-			'in-progress',
-			'downloading',
-			'importing',
-		];
-		if ( ! key ) {
-			return false;
-		}
-		return pullingStateKeys.includes( key );
-	};
-
-	const isKeyPushing = ( key: PushStateProgressInfo[ 'key' ] | undefined ) => {
-		const pushingStateKeys: PushStateProgressInfo[ 'key' ][] = [
-			'creatingBackup',
-			'uploading',
-			'creatingRemoteBackup',
-			'applyingChanges',
-			'finishing',
-		];
-		if ( ! key ) {
-			return false;
-		}
-		return pushingStateKeys.includes( key );
-	};
-
-	const isKeyUploadingPaused = ( key: PushStateProgressInfo[ 'key' ] | undefined ) => {
-		return key === 'uploadingPaused';
-	};
-
-	const isKeyUploading = useCallback( ( key: PushStateProgressInfo[ 'key' ] | undefined ) => {
-		return key === 'uploading';
-	}, [] );
-
-	const isKeyImporting = ( key: PushStateProgressInfo[ 'key' ] | undefined ) => {
-		const pushingStateKeys: PushStateProgressInfo[ 'key' ][] = [
-			'creatingRemoteBackup',
-			'applyingChanges',
-			'finishing',
-		];
-		if ( ! key ) {
-			return false;
-		}
-		return pushingStateKeys.includes( key );
-	};
-	const isKeyFinished = useCallback(
-		( key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined ) => {
-			return key === 'finished';
-		},
-		[]
-	);
-
-	const isKeyFailed = useCallback(
-		( key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined ) => {
-			return key === 'failed';
-		},
-		[]
-	);
-
-	const isKeyCancelled = useCallback(
-		( key: PullStateProgressInfo[ 'key' ] | PushStateProgressInfo[ 'key' ] | undefined ) => {
-			return key === 'cancelled';
-		},
-		[]
-	);
-
 	const getBackupStatusWithProgress = useCallback(
 		(
 			hasBackupCompleted: boolean,
@@ -297,19 +305,6 @@ export function useSyncStatesProgressInfo() {
 			pushStatesProgressInfo.creatingRemoteBackup.progress,
 			pushStatesProgressInfo.finishing.progress,
 		]
-	);
-
-	const getPushUploadPercentage = useCallback(
-		(
-			statusKey: PushStateProgressInfo[ 'key' ] | undefined,
-			uploadProgress: number | undefined
-		): number | null => {
-			if ( isKeyUploading( statusKey ) && uploadProgress !== undefined ) {
-				return Math.round( uploadProgress );
-			}
-			return null;
-		},
-		[ isKeyUploading ]
 	);
 
 	const getPushUploadMessage = useCallback(

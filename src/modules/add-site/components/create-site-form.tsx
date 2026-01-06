@@ -225,14 +225,22 @@ export const CreateSiteForm = ( {
 	}, [ useCustomDomain, customDomain, siteName ] );
 
 	// Notify parent of form validity changes
+	const previousIsValid = useRef< boolean | undefined >( undefined );
 	useEffect( () => {
 		if ( ! onValidityChange ) {
 			return;
 		}
 
 		const hasErrors = !! pathError || ( useCustomDomain && !! customDomainError );
-		onValidityChange( ! hasErrors );
-	}, [ pathError, customDomainError, useCustomDomain, onValidityChange ] );
+		const isValid = ! hasErrors;
+
+		// Only notify if validity has actually changed
+		if ( previousIsValid.current !== isValid ) {
+			previousIsValid.current = isValid;
+			onValidityChange( isValid );
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [ pathError, customDomainError, useCustomDomain ] );
 
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {
@@ -255,19 +263,25 @@ export const CreateSiteForm = ( {
 	);
 
 	const handleSelectPath = useCallback( async () => {
-		if ( ! onSelectPath ) return;
+		if ( ! onSelectPath || ! onSiteNameChange ) return;
 
 		hasUserInteracted.current = true;
-		const result = await onSelectPath( sitePath );
+		// Pass the current path to the dialog (empty if no custom path yet)
+		const currentPath = hasCustomPath ? sitePath : '';
+		const result = await onSelectPath( currentPath );
 		if ( ! result ) return;
 
-		// Check if user selected the default directory (parent of current path)
-		// If so, reset to allow auto-generation based on site name
+		// Check if user selected the default directory (parent of the proposed path)
+		// We need to calculate what the proposed path WOULD BE for the current site name
+		const proposedPathResult = await onSiteNameChange( siteName );
+		const proposedPath = proposedPathResult.path;
 		const pathResetToDefault =
-			sitePath && result.path === sitePath.substring( 0, sitePath.lastIndexOf( '/' ) );
+			!! proposedPath &&
+			result.path === proposedPath.substring( 0, proposedPath.lastIndexOf( '/' ) );
 
 		setHasCustomPath( ! pathResetToDefault );
-		setSitePath( result.path );
+		// Clear path on reset to trigger regeneration when site name changes
+		setSitePath( pathResetToDefault ? '' : result.path );
 
 		if ( result.error ) {
 			setPathError( result.error );
@@ -279,7 +293,7 @@ export const CreateSiteForm = ( {
 		if ( result.name && ! siteName ) {
 			setSiteName( result.name );
 		}
-	}, [ onSelectPath, sitePath, siteName ] );
+	}, [ onSelectPath, onSiteNameChange, sitePath, siteName, hasCustomPath ] );
 
 	const handleCustomDomainChange = useCallback(
 		( value: string ) => {

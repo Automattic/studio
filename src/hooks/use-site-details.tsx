@@ -186,12 +186,37 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		}
 	} );
 
+	/*
+	 * Site Update Listeners
+	 *
+	 * Two complementary watchers keep the UI in sync with external changes:
+	 *
+	 * 1. 'site-status-changed' (from Site Status Watcher - execute-site-watch-command.ts):
+	 *    - Source: PM2 process events via `studio site list --watch`
+	 *    - Detects: Site start/stop/crash events
+	 *
+	 * 2. 'user-data-updated' (from User Data Watcher - user-data-watcher.ts):
+	 *    - Source: fs.watch on the appdata file
+	 *    - Detects: ALL changes (new sites, edits, deletions)
+	 *    - Used for: CLI site creation, property changes, external modifications
+	 *
+	 */
 	useIpcListener( 'site-status-changed', ( _, { siteId, status, url } ) => {
 		setSites( ( prevSites ) =>
 			prevSites.map( ( site ) =>
 				site.id === siteId ? { ...site, running: status === 'running', url: url } : site
 			)
 		);
+	} );
+
+	useIpcListener( 'user-data-updated', async () => {
+		const updatedSites = await getIpcApi().getSiteDetails();
+		setSites( updatedSites );
+
+		// Handle case where selected site was deleted externally
+		if ( selectedSiteId && ! updatedSites.find( ( site ) => site.id === selectedSiteId ) ) {
+			setSelectedSiteId( updatedSites.length ? updatedSites[ 0 ].id : '' );
+		}
 	} );
 
 	const toggleLoadingServerForSite = useCallback( ( siteId: string ) => {

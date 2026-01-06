@@ -150,6 +150,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'boolean',
 					default: false,
 					description: __( 'Watch for site status changes and update the list in real-time' ),
+				} )
+				.option( 'path', {
+					hidden: true,
 				} );
 		},
 		handler: async ( argv ) => {

@@ -1,6 +1,7 @@
 import { readAppdata } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
+import { runCommand } from '../list';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
@@ -53,8 +54,6 @@ describe( 'CLI: studio site list', () => {
 		it( 'should throw when appdata read fails', async () => {
 			( readAppdata as jest.Mock ).mockRejectedValue( new Error( 'Failed to read appdata' ) );
 
-			const { runCommand } = await import( '../list' );
-
 			await expect( runCommand( 'table', false ) ).rejects.toThrow( 'Failed to read appdata' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -63,7 +62,6 @@ describe( 'CLI: studio site list', () => {
 	describe( 'Success Cases', () => {
 		it( 'should list sites with table format', async () => {
 			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
-			const { runCommand } = await import( '../list' );
 
 			await runCommand( 'table', false );
 
@@ -76,7 +74,6 @@ describe( 'CLI: studio site list', () => {
 
 		it( 'should list sites with json format', async () => {
 			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
-			const { runCommand } = await import( '../list' );
 
 			await runCommand( 'json', false );
 
@@ -110,8 +107,6 @@ describe( 'CLI: studio site list', () => {
 		it( 'should handle no sites found', async () => {
 			( readAppdata as jest.Mock ).mockResolvedValue( emptyAppdata );
 
-			const { runCommand } = await import( '../list' );
-
 			await runCommand( 'table', false );
 
 			expect( readAppdata ).toHaveBeenCalled();
@@ -120,7 +115,6 @@ describe( 'CLI: studio site list', () => {
 
 		it( 'should handle custom domain in site URL', async () => {
 			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
-			const { runCommand } = await import( '../list' );
 
 			await runCommand( 'json', false );
 

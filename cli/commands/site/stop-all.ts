@@ -116,12 +116,16 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'stop-all',
 		describe: __( 'Stop all local sites' ),
 		builder: ( yargs ) => {
-			return yargs.option( 'auto-start', {
-				type: 'boolean',
-				describe: __( 'Set auto-start flag for all sites' ),
-				default: false,
-				hidden: true,
-			} );
+			return yargs
+				.option( 'auto-start', {
+					type: 'boolean',
+					describe: __( 'Set auto-start flag for all sites' ),
+					default: false,
+					hidden: true,
+				} )
+				.option( 'path', {
+					hidden: true,
+				} );
 		},
 		handler: async ( argv ) => {
 			try {

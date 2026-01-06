@@ -2,6 +2,7 @@ import { deleteSnapshot } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snapshots';
 import { Logger, LoggerError } from 'cli/logger';
+import { runCommand } from '../delete';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
@@ -52,7 +53,6 @@ describe( 'Preview Delete Command', () => {
 	} );
 
 	it( 'should complete the preview deletion process successfully', async () => {
-		const { runCommand } = await import( '../delete' );
 		await runCommand( mockSiteUrl );
 
 		expect( getAuthToken ).toHaveBeenCalled();
@@ -73,7 +73,6 @@ describe( 'Preview Delete Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { runCommand } = await import( '../delete' );
 		await runCommand( mockSiteUrl );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
@@ -84,7 +83,6 @@ describe( 'Preview Delete Command', () => {
 	it( 'should handle snapshot not found errors', async () => {
 		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [] );
 
-		const { runCommand } = await import( '../delete' );
 		await runCommand( mockSiteUrl );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
@@ -98,7 +96,6 @@ describe( 'Preview Delete Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { runCommand } = await import( '../delete' );
 		await runCommand( mockSiteUrl );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
@@ -112,7 +109,6 @@ describe( 'Preview Delete Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { runCommand } = await import( '../delete' );
 		await runCommand( mockSiteUrl );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();

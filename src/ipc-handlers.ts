@@ -173,7 +173,19 @@ function mergeSiteDetailsWithRunningDetails( sites: SiteDetails[] ): SiteDetails
 	return sites.map( ( site ) => {
 		const server = SiteServer.get( site.id );
 		if ( server ) {
-			return server.details;
+			// Merge fresh data from disk with running state from server
+			// This ensures external changes (e.g., from CLI) are reflected
+			if ( server.details.running ) {
+				return {
+					...site,
+					running: true as const,
+					url: server.details.url,
+				};
+			}
+			return {
+				...site,
+				running: false as const,
+			};
 		}
 		return site;
 	} );

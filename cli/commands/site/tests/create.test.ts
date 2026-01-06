@@ -21,6 +21,7 @@ import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/si
 import { isSqliteIntegrationAvailable, installSqliteIntegration } from 'cli/lib/sqlite-integration';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
+import { runCommand } from '../create';
 
 jest.mock( 'common/lib/fs-utils' );
 jest.mock( 'common/lib/network-utils' );
@@ -137,8 +138,6 @@ describe( 'CLI: studio site create', () => {
 			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
 			( isWordPressDirectory as jest.Mock ).mockReturnValue( false );
 
-			const { runCommand } = await import( '../create' );
-
 			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow(
 				'The selected directory is not empty nor an existing WordPress site.'
 			);
@@ -153,8 +152,6 @@ describe( 'CLI: studio site create', () => {
 			} );
 			( arePathsEqual as jest.Mock ).mockReturnValue( true );
 
-			const { runCommand } = await import( '../create' );
-
 			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow(
 				'The selected directory is already in use.'
 			);
@@ -163,8 +160,6 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should error if custom domain is invalid', async () => {
-			const { runCommand } = await import( '../create' );
-
 			await expect(
 				runCommand( mockSitePath, {
 					...defaultTestOptions,
@@ -180,8 +175,6 @@ describe( 'CLI: studio site create', () => {
 				sites: [ { ...mockExistingSite, customDomain: 'mysite.local' } ],
 				snapshots: [],
 			} );
-
-			const { runCommand } = await import( '../create' );
 
 			await expect(
 				runCommand( mockSitePath, {
@@ -199,8 +192,6 @@ describe( 'CLI: studio site create', () => {
 				error: 'Invalid blueprint',
 			} );
 
-			const { runCommand } = await import( '../create' );
-
 			await expect(
 				runCommand( mockSitePath, {
 					...defaultTestOptions,
@@ -217,8 +208,6 @@ describe( 'CLI: studio site create', () => {
 		it( 'should error if SQLite integration is not available', async () => {
 			( isSqliteIntegrationAvailable as jest.Mock ).mockResolvedValue( false );
 
-			const { runCommand } = await import( '../create' );
-
 			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow(
 				'SQLite integration files not found'
 			);
@@ -229,8 +218,6 @@ describe( 'CLI: studio site create', () => {
 
 	describe( 'Success Cases', () => {
 		it( 'should create a basic site successfully', async () => {
-			const { runCommand } = await import( '../create' );
-
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( fsMkdirSyncSpy ).toHaveBeenCalledWith( mockSitePath, { recursive: true } );
@@ -248,8 +235,6 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should create site with custom name', async () => {
-			const { runCommand } = await import( '../create' );
-
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
 				name: 'My Custom Site',
@@ -281,8 +266,6 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should use folder name as site name if no name provided', async () => {
-			const { runCommand } = await import( '../create' );
-
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( saveAppdata ).toHaveBeenCalledWith(
@@ -300,8 +283,6 @@ describe( 'CLI: studio site create', () => {
 			( pathExists as jest.Mock ).mockResolvedValue( true );
 			( isEmptyDir as jest.Mock ).mockResolvedValue( true );
 
-			const { runCommand } = await import( '../create' );
-
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( fsMkdirSyncSpy ).not.toHaveBeenCalled();
@@ -312,16 +293,12 @@ describe( 'CLI: studio site create', () => {
 			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
 			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
 
-			const { runCommand } = await import( '../create' );
-
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( fsMkdirSyncSpy ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should create site with custom domain', async () => {
-			const { runCommand } = await import( '../create' );
-
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
 				customDomain: 'mysite.local',
@@ -340,8 +317,6 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should create site with HTTPS enabled', async () => {
-			const { runCommand } = await import( '../create' );
-
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
 				customDomain: 'mysite.local',
@@ -365,16 +340,12 @@ describe( 'CLI: studio site create', () => {
 				snapshots: [],
 			} );
 
-			const { runCommand } = await import( '../create' );
-
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( portFinder.addUnavailablePort ).toHaveBeenCalledWith( mockExistingSite.port );
 		} );
 
 		it( 'should set isWpAutoUpdating true for latest WordPress version', async () => {
-			const { runCommand } = await import( '../create' );
-
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( saveAppdata ).toHaveBeenCalledWith(
@@ -389,8 +360,6 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should set isWpAutoUpdating false for specific WordPress version', async () => {
-			const { runCommand } = await import( '../create' );
-
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
 				wpVersion: '6.4',
@@ -414,8 +383,6 @@ describe( 'CLI: studio site create', () => {
 		};
 
 		it( 'should apply blueprint when provided', async () => {
-			const { runCommand } = await import( '../create' );
-
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
 				blueprint: {
@@ -435,8 +402,6 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should prepend setSiteOptions step when name is provided with blueprint', async () => {
-			const { runCommand } = await import( '../create' );
-
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
 				name: 'My Site',
@@ -474,8 +439,6 @@ describe( 'CLI: studio site create', () => {
 				],
 			} );
 
-			const { runCommand } = await import( '../create' );
-
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
 				blueprint: {
@@ -488,8 +451,6 @@ describe( 'CLI: studio site create', () => {
 
 	describe( 'noStart Option', () => {
 		it( 'should not start server when noStart is true', async () => {
-			const { runCommand } = await import( '../create' );
-
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
 				noStart: true,
@@ -505,8 +466,6 @@ describe( 'CLI: studio site create', () => {
 
 		it( 'should apply blueprint without starting server when noStart is true', async () => {
 			const testBlueprint: Blueprint = { steps: [] };
-
-			const { runCommand } = await import( '../create' );
 
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
@@ -526,8 +485,6 @@ describe( 'CLI: studio site create', () => {
 
 		it( 'should run blueprint when preferred language is configured but no blueprint was given', async () => {
 			( getPreferredSiteLanguage as jest.Mock ).mockResolvedValue( 'es_ES' );
-
-			const { runCommand } = await import( '../create' );
 
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
@@ -553,7 +510,6 @@ describe( 'CLI: studio site create', () => {
 		it( 'should handle WordPress server start failure', async () => {
 			( startWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server start failed' ) );
 
-			const { runCommand } = await import( '../create' );
 			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow(
 				'Failed to start WordPress server'
 			);
@@ -565,7 +521,6 @@ describe( 'CLI: studio site create', () => {
 			const testBlueprint: Blueprint = { steps: [] };
 			( runBlueprint as jest.Mock ).mockRejectedValue( new Error( 'Blueprint failed' ) );
 
-			const { runCommand } = await import( '../create' );
 			await expect(
 				runCommand( mockSitePath, {
 					...defaultTestOptions,
@@ -585,8 +540,6 @@ describe( 'CLI: studio site create', () => {
 				new Error( 'SQLite setup failed' )
 			);
 
-			const { runCommand } = await import( '../create' );
-
 			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
 
 			expect( disconnect ).toHaveBeenCalled();
@@ -596,8 +549,6 @@ describe( 'CLI: studio site create', () => {
 	describe( 'Cleanup', () => {
 		it( 'should disconnect from PM2 even on error', async () => {
 			( readAppdata as jest.Mock ).mockRejectedValue( new Error( 'Appdata error' ) );
-
-			const { runCommand } = await import( '../create' );
 
 			try {
 				await runCommand( mockSitePath, { ...defaultTestOptions } );
@@ -609,16 +560,12 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should disconnect from PM2 on success', async () => {
-			const { runCommand } = await import( '../create' );
-
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should unlock appdata after saving', async () => {
-			const { runCommand } = await import( '../create' );
-
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( unlockAppdata ).toHaveBeenCalled();
@@ -626,8 +573,6 @@ describe( 'CLI: studio site create', () => {
 
 		it( 'should remove site from appdata when server start fails', async () => {
 			( startWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server start failed' ) );
-
-			const { runCommand } = await import( '../create' );
 
 			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
 
@@ -637,8 +582,6 @@ describe( 'CLI: studio site create', () => {
 		it( 'should remove site from appdata when blueprint application fails', async () => {
 			const testBlueprint = { steps: [] };
 			( runBlueprint as jest.Mock ).mockRejectedValue( new Error( 'Blueprint failed' ) );
-
-			const { runCommand } = await import( '../create' );
 
 			await expect(
 				runCommand( mockSitePath, {
@@ -661,8 +604,6 @@ describe( 'CLI: studio site create', () => {
 
 			const fsRmSpy = jest.spyOn( require( 'fs' ).promises, 'rm' ).mockResolvedValue( undefined );
 
-			const { runCommand } = await import( '../create' );
-
 			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
 
 			expect( fsRmSpy ).toHaveBeenCalledWith( mockSitePath, { recursive: true, force: true } );
@@ -676,8 +617,6 @@ describe( 'CLI: studio site create', () => {
 
 			const fsRmSpy = jest.spyOn( require( 'fs' ).promises, 'rm' ).mockResolvedValue( undefined );
 
-			const { runCommand } = await import( '../create' );
-
 			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
 
 			expect( fsRmSpy ).not.toHaveBeenCalled();
@@ -690,8 +629,6 @@ describe( 'CLI: studio site create', () => {
 			( runBlueprint as jest.Mock ).mockRejectedValue( new Error( 'Blueprint failed' ) );
 
 			const fsRmSpy = jest.spyOn( require( 'fs' ).promises, 'rm' ).mockResolvedValue( undefined );
-
-			const { runCommand } = await import( '../create' );
 
 			await expect(
 				runCommand( mockSitePath, {
@@ -715,8 +652,6 @@ describe( 'CLI: studio site create', () => {
 			( runBlueprint as jest.Mock ).mockRejectedValue( new Error( 'Blueprint failed' ) );
 
 			const fsRmSpy = jest.spyOn( require( 'fs' ).promises, 'rm' ).mockResolvedValue( undefined );
-
-			const { runCommand } = await import( '../create' );
 
 			await expect(
 				runCommand( mockSitePath, {

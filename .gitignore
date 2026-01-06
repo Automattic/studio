@@ -127,3 +127,7 @@ artifacts
 .cursor/
 .claude/
 CLAUDE.md
+
+# Bundled Node binary (downloaded during build)
+bin/node
+bin/node.exe

@@ -31,6 +31,12 @@ const DOCS_LINKS = {
 	docsBlueprints: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/blueprints/',
 	},
+	docsXdebug: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/xdebug/',
+	},
+	docsSslInStudio: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/',
+	},
 } satisfies Record< `docs${ string }`, TranslatedLink >;
 
 const BLOG_LINKS = {
@@ -46,15 +52,24 @@ const BLOG_LINKS = {
 	},
 } satisfies Record< `blog${ string }`, TranslatedLink >;
 
+const A8C_LINKS = {
+	a8cAiGuidelines: {
+		en: 'https://automattic.com/ai-guidelines/',
+	},
+} satisfies Record< `a8c${ string }`, TranslatedLink >;
+
 const LINKS = {
 	...BLOG_LINKS,
 	...DOCS_LINKS,
+	...A8C_LINKS,
 } as const satisfies Record< string, TranslatedLink >;
+
+export type DocsLinkKey = keyof typeof LINKS;
 
 /**
  * Returns the link for the given locale if it exists, otherwise, returns the English link.
  */
-export function getLocalizedLink( locale: SupportedLocale, linkKey: keyof typeof LINKS ): string {
+export function getLocalizedLink( locale: SupportedLocale, linkKey: DocsLinkKey ): string {
 	const links = LINKS[ linkKey ];
 	if ( locale in links ) {
 		return links[ locale as keyof typeof links ];

@@ -404,7 +404,6 @@ describe( 'ContentTabSync', () => {
 		setupConnectedSitesMocks( [ fakeDevelopmentSyncSite ], [ fakeDevelopmentSyncSite ] );
 		( useSyncSites as jest.Mock ).mockReturnValue( {
 			...mockSyncSites,
-			syncSites: [ fakeDevelopmentSyncSite ],
 			pullSite: mockPullSite,
 		} );
 

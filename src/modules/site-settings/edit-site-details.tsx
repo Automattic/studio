@@ -1,4 +1,5 @@
 import { SelectControl } from '@wordpress/components';
+import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
@@ -7,6 +8,7 @@ import { generateCustomDomainFromSiteName, getDomainNameValidationError } from '
 import { getWordPressVersionUrl } from 'common/lib/wordpress-version-utils';
 import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
+import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
 import Modal from 'src/components/modal';
 import TextControlComponent from 'src/components/text-control';
 import { Tooltip } from 'src/components/tooltip';
@@ -326,17 +328,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 										{ __(
 											'You need to manually add the Studio certificate authority to your keychain and trust it.'
 										) }{ ' ' }
-										<Button
-											variant="link"
-											onClick={ () => {
-												getIpcApi().openURL(
-													'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
-												);
-											} }
-										>
-											{ __( 'Learn how' ) }
-											<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
-										</Button>
+										<LearnHowLink docsLinksKey="docsSslInStudio" />
 									</div>
 								) }
 							</div>
@@ -386,20 +378,14 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 												</label>
 											</div>
 											<div className="text-a8c-gray-50 text-xs mt-2">
-												{ __(
-													'Enable PHP debugging with Xdebug. Only one site can have Xdebug enabled at a time. Note that Xdebug may slow down site performance.'
-												) }{ ' ' }
-												<Button
-													variant="link"
-													onClick={ () => {
-														getIpcApi().openURL(
-															'https://developer.wordpress.com/docs/developer-tools/studio/xdebug/'
-														);
-													} }
-												>
-													{ __( 'Learn more' ) }
-													<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
-												</Button>
+												{ createInterpolateElement(
+													__(
+														'Enable PHP debugging with Xdebug. Only one site can have Xdebug enabled at a time. Note that Xdebug may slow down site performance. <learn_more_link />'
+													),
+													{
+														learn_more_link: <LearnMoreLink docsLinksKey="docsXdebug" />,
+													}
+												) }
 											</div>
 										</div>
 									</Tooltip>

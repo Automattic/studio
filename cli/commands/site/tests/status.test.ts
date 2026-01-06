@@ -2,6 +2,7 @@ import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
+import { runCommand } from '../status';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
@@ -49,8 +50,6 @@ describe( 'CLI: studio site status', () => {
 		it( 'should throw when site not found', async () => {
 			( getSiteByFolder as jest.Mock ).mockRejectedValue( new Error( 'Site not found' ) );
 
-			const { runCommand } = await import( '../status' );
-
 			await expect( runCommand( '/invalid/path', 'table' ) ).rejects.toThrow( 'Site not found' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -58,8 +57,6 @@ describe( 'CLI: studio site status', () => {
 
 	describe( 'Success Cases', () => {
 		it( 'should display site status with table format', async () => {
-			const { runCommand } = await import( '../status' );
-
 			await runCommand( '/path/to/site', 'table' );
 
 			expect( getSiteByFolder ).toHaveBeenCalledWith( '/path/to/site' );
@@ -70,8 +67,6 @@ describe( 'CLI: studio site status', () => {
 
 		it( 'should output JSON format correctly', async () => {
 			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
-
-			const { runCommand } = await import( '../status' );
 
 			await runCommand( '/path/to/site', 'json' );
 
@@ -98,8 +93,6 @@ describe( 'CLI: studio site status', () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( { pid: 12345 } );
 
 			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
-
-			const { runCommand } = await import( '../status' );
 
 			await runCommand( '/path/to/site', 'json' );
 
@@ -128,8 +121,6 @@ describe( 'CLI: studio site status', () => {
 
 			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
 
-			const { runCommand } = await import( '../status' );
-
 			await runCommand( '/path/to/site', 'json' );
 
 			expect( consoleSpy ).toHaveBeenCalledWith(
@@ -143,8 +134,6 @@ describe( 'CLI: studio site status', () => {
 			( getSiteByFolder as jest.Mock ).mockResolvedValue( testSiteWithoutOptional );
 
 			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
-
-			const { runCommand } = await import( '../status' );
 
 			await runCommand( '/path/to/site', 'json' );
 
@@ -170,8 +159,6 @@ describe( 'CLI: studio site status', () => {
 
 	describe( 'Cleanup', () => {
 		it( 'should always disconnect from PM2 on success', async () => {
-			const { runCommand } = await import( '../status' );
-
 			await runCommand( '/path/to/site', 'table' );
 
 			expect( disconnect ).toHaveBeenCalled();
@@ -179,8 +166,6 @@ describe( 'CLI: studio site status', () => {
 
 		it( 'should always disconnect from PM2 on error', async () => {
 			( getSiteByFolder as jest.Mock ).mockRejectedValue( new Error( 'Error' ) );
-
-			const { runCommand } = await import( '../status' );
 
 			try {
 				await runCommand( '/path/to/site', 'table' );

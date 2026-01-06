@@ -2,6 +2,7 @@ import { SiteData, clearSiteLatestCliPid, readAppdata } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { runCommand } from '../stop-all';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
@@ -69,8 +70,6 @@ describe( 'CLI: studio site stop-all', () => {
 		it( 'should throw when appdata cannot be read', async () => {
 			( readAppdata as jest.Mock ).mockRejectedValue( new Error( 'Failed to read appdata' ) );
 
-			const { runCommand } = await import( '../stop-all' );
-
 			await expect( runCommand( false ) ).rejects.toThrow( 'Failed to read appdata' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -78,8 +77,6 @@ describe( 'CLI: studio site stop-all', () => {
 		it( 'should throw when PM2 connection fails', async () => {
 			( readAppdata as jest.Mock ).mockResolvedValue( { sites: testSites } );
 			( connect as jest.Mock ).mockRejectedValue( new Error( 'PM2 connection failed' ) );
-
-			const { runCommand } = await import( '../stop-all' );
 
 			await expect( runCommand( false ) ).rejects.toThrow( 'PM2 connection failed' );
 			expect( disconnect ).toHaveBeenCalled();
@@ -89,8 +86,6 @@ describe( 'CLI: studio site stop-all', () => {
 			( readAppdata as jest.Mock ).mockResolvedValue( { sites: testSites } );
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
 			( stopWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server stop failed' ) );
-
-			const { runCommand } = await import( '../stop-all' );
 
 			await expect( runCommand( false ) ).rejects.toThrow( 'Failed to stop all (3) sites' );
 			expect( disconnect ).toHaveBeenCalled();
@@ -105,8 +100,6 @@ describe( 'CLI: studio site stop-all', () => {
 				.mockRejectedValueOnce( new Error( 'Server stop failed' ) ) // site-2 fails
 				.mockResolvedValueOnce( undefined ); // site-3 success
 
-			const { runCommand } = await import( '../stop-all' );
-
 			await expect( runCommand( false ) ).rejects.toThrow( 'Stopped 2 sites out of 3' );
 			expect( disconnect ).toHaveBeenCalled();
 			expect( stopWordPressServer ).toHaveBeenCalledTimes( 3 );
@@ -116,8 +109,6 @@ describe( 'CLI: studio site stop-all', () => {
 	describe( 'Success Cases', () => {
 		it( 'should handle empty sites list', async () => {
 			( readAppdata as jest.Mock ).mockResolvedValue( { sites: [] } );
-
-			const { runCommand } = await import( '../stop-all' );
 
 			await runCommand( false );
 
@@ -129,8 +120,6 @@ describe( 'CLI: studio site stop-all', () => {
 			( readAppdata as jest.Mock ).mockResolvedValue( { sites: testSites } );
 
 			( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
-
-			const { runCommand } = await import( '../stop-all' );
 
 			await runCommand( false );
 
@@ -146,8 +135,6 @@ describe( 'CLI: studio site stop-all', () => {
 			( readAppdata as jest.Mock ).mockResolvedValue( { sites: [ testSites[ 0 ] ] } );
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
 
-			const { runCommand } = await import( '../stop-all' );
-
 			await runCommand( false );
 
 			expect( stopWordPressServer ).toHaveBeenCalledTimes( 1 );
@@ -158,8 +145,6 @@ describe( 'CLI: studio site stop-all', () => {
 		it( 'should stop all running sites', async () => {
 			( readAppdata as jest.Mock ).mockResolvedValue( { sites: testSites } );
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-
-			const { runCommand } = await import( '../stop-all' );
 
 			await runCommand( false );
 
@@ -195,8 +180,6 @@ describe( 'CLI: studio site stop-all', () => {
 				.mockResolvedValueOnce( undefined ) // site-2 not running
 				.mockResolvedValueOnce( testProcessDescription ); // site-3 running
 
-			const { runCommand } = await import( '../stop-all' );
-
 			await runCommand( false );
 
 			expect( isServerRunning ).toHaveBeenCalledTimes( 3 );
@@ -219,8 +202,6 @@ describe( 'CLI: studio site stop-all', () => {
 				.mockRejectedValueOnce( new Error( 'Server stop failed' ) ) // site-2 fails
 				.mockResolvedValueOnce( undefined ); // site-3 success
 
-			const { runCommand } = await import( '../stop-all' );
-
 			try {
 				await runCommand( false );
 			} catch {
@@ -242,8 +223,6 @@ describe( 'CLI: studio site stop-all', () => {
 				new Error( 'Proxy stop failed' )
 			);
 
-			const { runCommand } = await import( '../stop-all' );
-
 			// Should throw when proxy stop fails
 			await expect( runCommand( false ) ).rejects.toThrow( 'Failed to stop proxy server' );
 
@@ -257,8 +236,6 @@ describe( 'CLI: studio site stop-all', () => {
 			( readAppdata as jest.Mock ).mockResolvedValue( { sites: testSites } );
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
 
-			const { runCommand } = await import( '../stop-all' );
-
 			await runCommand( false );
 
 			expect( disconnect ).toHaveBeenCalled();
@@ -266,8 +243,6 @@ describe( 'CLI: studio site stop-all', () => {
 
 		it( 'should always disconnect from PM2 on error', async () => {
 			( readAppdata as jest.Mock ).mockRejectedValue( new Error( 'Error' ) );
-
-			const { runCommand } = await import( '../stop-all' );
 
 			try {
 				await runCommand( false );
@@ -281,8 +256,6 @@ describe( 'CLI: studio site stop-all', () => {
 		it( 'should always disconnect when no sites exist', async () => {
 			( readAppdata as jest.Mock ).mockResolvedValue( { sites: [] } );
 
-			const { runCommand } = await import( '../stop-all' );
-
 			await runCommand( false );
 
 			expect( disconnect ).toHaveBeenCalled();
@@ -291,8 +264,6 @@ describe( 'CLI: studio site stop-all', () => {
 		it( 'should always disconnect when no sites are running', async () => {
 			( readAppdata as jest.Mock ).mockResolvedValue( { sites: testSites } );
 			( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
-
-			const { runCommand } = await import( '../stop-all' );
 
 			await runCommand( false );
 

@@ -151,11 +151,8 @@ export function useSyncPush( {
 					}
 				);
 			} catch ( error ) {
-				// Network errors (e.g., offline) should be handled gracefully
-				// The error will be handled when the user comes back online
-				console.error( 'Failed to get push progress:', error );
-
-				// Skip Sentry reporting for expected network errors (crossDomain errors)
+				// Skip Sentry reporting for expected network errors (crossDomain errors). The client throws this error
+				// when the user is offline.
 				if (
 					error instanceof Error &&
 					'crossDomain' in error &&

@@ -42,6 +42,7 @@ interface SiteDetailsContext {
 	loadingServer: Record< string, boolean >;
 	loadingSites: boolean;
 	isDeleting: boolean;
+	isSiteDeleting: ( siteId: string ) => boolean;
 	uploadingSites: { [ siteId: string ]: boolean };
 	setUploadingSites: React.Dispatch< React.SetStateAction< { [ siteId: string ]: boolean } > >;
 	isEditModalOpen: boolean;
@@ -63,6 +64,7 @@ const defaultContext: SiteDetailsContext = {
 	loadingServer: {},
 	loadingSites: true,
 	isDeleting: false,
+	isSiteDeleting: () => false,
 	uploadingSites: {},
 	setUploadingSites: () => undefined,
 	isEditModalOpen: false,
@@ -511,6 +513,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const [ isEditModalOpen, setIsEditModalOpen ] = useState( false );
 	const selectedSite = sites.find( ( site ) => site.id === selectedSiteId ) || firstSite;
 
+	const isSiteDeleting = useCallback(
+		( siteId: string ) => !! isDeleting[ siteId ],
+		[ isDeleting ]
+	);
+
 	const context = useMemo(
 		() => ( {
 			selectedSite,
@@ -524,6 +531,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			loadingServer,
 			deleteSite: onDeleteSite,
 			isDeleting: selectedSiteId ? isDeleting[ selectedSiteId ] : false,
+			isSiteDeleting,
 			loadingSites,
 			uploadingSites,
 			setUploadingSites,
@@ -544,6 +552,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			onDeleteSite,
 			selectedSiteId,
 			isDeleting,
+			isSiteDeleting,
 			loadingSites,
 			uploadingSites,
 			isEditModalOpen,

@@ -53,7 +53,7 @@ export default function Stepper( {
 	}
 
 	return (
-		<div className="flex justify-between items-center p-6">
+		<div className="flex justify-between items-center p-5">
 			<HStack spacing={ 6 } alignment="left">
 				{ steps.map( ( step, index ) => {
 					const stepNumber = index + 1;

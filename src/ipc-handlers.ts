@@ -441,6 +441,7 @@ export interface FolderDialogResponse {
 	name: string;
 	isEmpty: boolean;
 	isWordPress: boolean;
+	isNameTooLong?: boolean;
 }
 
 export async function showSaveAsDialog( event: IpcMainInvokeEvent, options: SaveDialogOptions ) {
@@ -693,6 +694,15 @@ export async function generateProposedSitePath(
 				name: siteName,
 				isEmpty: true,
 				isWordPress: false,
+			};
+		}
+		if ( isErrnoException( err ) && err.code === 'ENAMETOOLONG' ) {
+			return {
+				path,
+				name: siteName,
+				isEmpty: false,
+				isWordPress: false,
+				isNameTooLong: true,
 			};
 		}
 		throw err;

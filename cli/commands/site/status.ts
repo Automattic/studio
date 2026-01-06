@@ -36,17 +36,17 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 		}[] = [
 			{ key: __( 'Site URL' ), value: new URL( siteUrl ).toString(), type: 'url' },
 			{
-				key: __( 'Auto Login URL' ),
+				key: __( 'Auto-login URL' ),
 				value: autoLoginUrl.toString(),
 				type: 'url',
 				hidden: ! isOnline,
 			},
 			{ key: __( 'Site Path' ), value: sitePath },
 			{ key: __( 'Status' ), value: status },
-			{ key: __( 'PHP Version' ), value: site.phpVersion },
-			{ key: __( 'WP Version' ), value: wpVersion },
-			{ key: __( 'Admin Username' ), value: 'admin' },
-			{ key: __( 'Admin Password' ), value: site.adminPassword },
+			{ key: __( 'PHP version' ), value: site.phpVersion },
+			{ key: __( 'WP version' ), value: wpVersion },
+			{ key: __( 'Admin username' ), value: 'admin' },
+			{ key: __( 'Admin password' ), value: site.adminPassword },
 		].filter( ( { value, hidden } ) => value && ! hidden );
 
 		if ( format === 'table' ) {

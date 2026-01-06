@@ -117,13 +117,6 @@ const useDynamicTreeState = (
 		localSiteId,
 	] );
 
-	// Handle local file tree errors by clearing children to show custom error message
-	useEffect( () => {
-		if ( type === 'push' && localFileTreeError ) {
-			setTreeState( ( treeState ) => updateNodeById( treeState, 'wp-content', { children: [] } ) );
-		}
-	}, [ type, localFileTreeError, setTreeState ] );
-
 	return {
 		rewindId,
 		fetchChildren,
@@ -378,7 +371,11 @@ export function SyncDialog( {
 												</div>
 											);
 										}
-										return null;
+										return (
+											<div className="text-gray-500 italic" aria-label={ __( 'Empty folder' ) }>
+												{ __( 'Empty' ) }
+											</div>
+										);
 									} }
 								/>
 							</>

@@ -34,6 +34,9 @@ const DOCS_LINKS = {
 	docsXdebug: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/xdebug/',
 	},
+	docsSslInStudio: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/',
+	},
 } satisfies Record< `docs${ string }`, TranslatedLink >;
 
 const BLOG_LINKS = {

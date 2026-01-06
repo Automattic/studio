@@ -47,6 +47,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'logout',
 		describe: __( 'Log out and clear WordPress.com authentication' ),
+		builder: ( yargs ) => {
+			return yargs.option( 'path', {
+				hidden: true,
+			} );
+		},
 		handler: async () => {
 			await runCommand();
 		},

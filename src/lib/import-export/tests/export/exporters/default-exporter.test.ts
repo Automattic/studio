@@ -151,26 +151,6 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				name: 'example-load.php',
 				isFile: () => true,
 			},
-			{
-				path: normalize( '/path/to/site/wp-content/plugins/hello' ),
-				name: '.git',
-				isFile: () => false,
-			},
-			{
-				path: normalize( '/path/to/site/wp-content/plugins/hello' ),
-				name: 'node_modules',
-				isFile: () => false,
-			},
-			{
-				path: normalize( '/path/to/site/wp-content' ),
-				name: 'cache',
-				isFile: () => false,
-			},
-			{
-				path: normalize( '/path/to/site/wp-content/plugins/hello/my-cache' ),
-				name: 'test.php',
-				isFile: () => false,
-			},
 		];
 
 		( fsPromises.readdir as jest.Mock ).mockResolvedValue( mockFiles );

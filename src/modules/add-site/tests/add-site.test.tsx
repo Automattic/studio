@@ -705,4 +705,79 @@ describe( 'AddSite', () => {
 			screen.queryByText( 'Version differs from Blueprint recommendation' )
 		).not.toBeInTheDocument();
 	} );
+
+	it( 'should display an error when site name is too long', async () => {
+		const user = userEvent.setup();
+		mockGenerateProposedSitePath.mockResolvedValue( {
+			path: '/default/path/very-long-name',
+			name: 'very long site name',
+			isEmpty: false,
+			isWordPress: false,
+			isNameTooLong: true,
+		} );
+
+		renderWithProvider( <AddSite /> );
+
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
+
+		// Wait for the error to appear from the initial site name
+		await waitFor( () => {
+			expect(
+				screen.getByText( 'The site name is too long. Please choose a shorter site name.' )
+			).toBeInTheDocument();
+		} );
+
+		const addSiteButton = screen.getByTestId( 'stepper-action-button' );
+		expect( addSiteButton ).toBeDisabled();
+	} );
+
+	it( 'should clear the error when a valid site name is entered', async () => {
+		const user = userEvent.setup();
+		// Start with "too long" error
+		mockGenerateProposedSitePath.mockResolvedValue( {
+			path: '/default/path/very-long-name',
+			name: 'very long site name',
+			isEmpty: false,
+			isWordPress: false,
+			isNameTooLong: true,
+		} );
+
+		renderWithProvider( <AddSite /> );
+
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Create a site Start with an empty site' } )
+		);
+
+		// Wait for the error to appear
+		await waitFor( () => {
+			expect(
+				screen.getByText( 'The site name is too long. Please choose a shorter site name.' )
+			).toBeInTheDocument();
+		} );
+
+		// Now change mock to return valid result
+		mockGenerateProposedSitePath.mockResolvedValue( {
+			path: '/default/path/my-site',
+			name: 'my-site',
+			isEmpty: true,
+			isWordPress: false,
+		} );
+
+		const siteNameInput = screen.getByTestId( 'site-name-input' );
+		await user.clear( siteNameInput );
+		await user.type( siteNameInput, 'valid' );
+
+		await waitFor( () => {
+			expect(
+				screen.queryByText( 'The site name is too long. Please choose a shorter site name.' )
+			).not.toBeInTheDocument();
+		} );
+
+		const addSiteButton = screen.getByTestId( 'stepper-action-button' );
+		expect( addSiteButton ).toBeEnabled();
+	} );
 } );

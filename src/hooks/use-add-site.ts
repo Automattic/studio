@@ -190,7 +190,17 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 	 */
 	const generateProposedPath = useCallback(
 		async ( siteName: string ): Promise< PathValidationResult > => {
-			const { path, isEmpty, isWordPress } = await getIpcApi().generateProposedSitePath( siteName );
+			const { path, isEmpty, isWordPress, isNameTooLong } =
+				await getIpcApi().generateProposedSitePath( siteName );
+
+			if ( isNameTooLong ) {
+				return {
+					path,
+					isEmpty,
+					isWordPress,
+					error: __( 'The site name is too long. Please choose a shorter site name.' ),
+				};
+			}
 
 			if ( await checkPathExists( path ) ) {
 				return {

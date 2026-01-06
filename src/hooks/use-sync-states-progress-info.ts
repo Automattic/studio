@@ -219,6 +219,8 @@ export function useSyncStatesProgressInfo() {
 		} as const satisfies PushStateProgressInfoValues;
 	}, [ __ ] );
 
+	const uploadingProgressMessageTemplate = useMemo( () => __( 'Uploading site (%d%%)…' ), [ __ ] );
+
 	const getBackupStatusWithProgress = useCallback(
 		(
 			hasBackupCompleted: boolean,
@@ -311,11 +313,11 @@ export function useSyncStatesProgressInfo() {
 		( message: string, uploadPercentage: number | null ): string => {
 			if ( uploadPercentage !== null ) {
 				// translators: %d is the upload progress percentage
-				return sprintf( __( 'Uploading site (%d%%)…' ), uploadPercentage );
+				return sprintf( uploadingProgressMessageTemplate, uploadPercentage );
 			}
 			return message;
 		},
-		[ __ ]
+		[ uploadingProgressMessageTemplate ]
 	);
 
 	const mapUploadProgressToOverallProgress = useCallback(

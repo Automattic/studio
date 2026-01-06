@@ -261,8 +261,14 @@ export const CreateSiteForm = ( {
 		const result = await onSelectPath( sitePath );
 		if ( ! result ) return;
 
-		setHasCustomPath( true );
+		// Check if user selected the default directory (parent of current path)
+		// If so, reset to allow auto-generation based on site name
+		const pathResetToDefault =
+			sitePath && result.path === sitePath.substring( 0, sitePath.lastIndexOf( '/' ) );
+
+		setHasCustomPath( ! pathResetToDefault );
 		setSitePath( result.path );
+
 		if ( result.error ) {
 			setPathError( result.error );
 		} else {

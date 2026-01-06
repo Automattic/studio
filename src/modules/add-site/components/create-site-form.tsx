@@ -3,7 +3,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { tip, cautionFilled, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent, useState, useEffect, useCallback, useMemo, RefObject } from 'react';
+import { FormEvent, useState, useEffect, useCallback, useMemo, useRef, RefObject } from 'react';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'common/lib/domains';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
@@ -22,28 +22,24 @@ import {
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
 
 export interface CreateSiteFormProps {
-	/**
-	 * Default values for form initialization.
-	 * The form will sync with these values when they change after mount
-	 * (e.g., when blueprint preferred versions load asynchronously).
-	 */
+	/** Initial values and async updates (syncs before user interaction) */
 	defaultValues?: {
 		siteName?: string;
 		sitePath?: string;
 		phpVersion?: AllowedPHPVersion;
 		wpVersion?: string;
 	};
-	/** Callback to select a path via folder picker. Returns validation result. */
+	/** Opens folder picker to select site path */
 	onSelectPath?: ( currentPath: string ) => Promise< PathValidationResult | null >;
-	/** Callback when site name changes to generate proposed path. Returns validation result. */
+	/** Generates proposed path when site name changes */
 	onSiteNameChange?: ( name: string ) => Promise< PathValidationResult >;
 	/** Existing domain names for validation */
 	existingDomainNames?: string[];
 	/** Blueprint preferred versions for warning display */
 	blueprintPreferredVersions?: { php?: string; wp?: string };
-	/** Called when form is submitted with all form values */
+	/** Called when form is submitted */
 	onSubmit: ( values: CreateSiteFormValues ) => void;
-	/** Optional ref to the form element for programmatic submission */
+	/** Ref to form element for programmatic submission */
 	formRef?: RefObject< HTMLFormElement >;
 }
 
@@ -172,33 +168,36 @@ export const CreateSiteForm = ( {
 	const [ pathError, setPathError ] = useState( '' );
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
-	// Track if user has manually selected a path via folder picker
 	const [ hasCustomPath, setHasCustomPath ] = useState( false );
 
 	const [ isAdvancedSettingsVisible, setAdvancedSettingsVisible ] = useState( false );
 
-	// Sync form state with defaultValues when they change
-	// This handles cases where defaultValues are updated after initial mount
-	// (e.g., blueprint preferred versions loading after form mount)
+	// Prevent overwriting user input when defaultValues change asynchronously
+	const hasUserInteracted = useRef( false );
+
+	// Sync name/path only before user interaction (allows async loading)
 	useEffect( () => {
+		if ( hasUserInteracted.current ) {
+			return;
+		}
+
 		if ( defaultValues.siteName !== undefined ) {
 			setSiteName( defaultValues.siteName );
 		}
 		if ( defaultValues.sitePath !== undefined ) {
 			setSitePath( defaultValues.sitePath );
 		}
+	}, [ defaultValues.siteName, defaultValues.sitePath ] );
+
+	// Sync versions from defaultValues (initial load and deeplink flows)
+	useEffect( () => {
 		if ( defaultValues.phpVersion !== undefined ) {
 			setPhpVersion( defaultValues.phpVersion );
 		}
 		if ( defaultValues.wpVersion !== undefined ) {
 			setWpVersion( defaultValues.wpVersion );
 		}
-	}, [
-		defaultValues.siteName,
-		defaultValues.sitePath,
-		defaultValues.phpVersion,
-		defaultValues.wpVersion,
-	] );
+	}, [ defaultValues.phpVersion, defaultValues.wpVersion ] );
 
 	useEffect( () => {
 		if ( useCustomDomain && isCertificateTrusted ) {
@@ -223,6 +222,7 @@ export const CreateSiteForm = ( {
 
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {
+			hasUserInteracted.current = true;
 			setSiteName( name );
 
 			// Only generate path if user hasn't manually selected a custom path
@@ -243,10 +243,10 @@ export const CreateSiteForm = ( {
 	const handleSelectPath = useCallback( async () => {
 		if ( ! onSelectPath ) return;
 
+		hasUserInteracted.current = true;
 		const result = await onSelectPath( sitePath );
 		if ( ! result ) return;
 
-		// Mark that user has manually selected a path
 		setHasCustomPath( true );
 		setSitePath( result.path );
 		if ( result.error ) {

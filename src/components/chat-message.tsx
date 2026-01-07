@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { forwardRef } from 'react';
 import Markdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import Anchor from 'src/components/assistant-anchor';
 import createCodeComponent from 'src/components/assistant-code-block';
@@ -43,6 +44,7 @@ export const MarkDownWithCode = ( {
 				img: () => null,
 			} }
 			remarkPlugins={ [ remarkGfm ] }
+			rehypePlugins={ [ rehypeRaw ] }
 		>
 			{ content }
 		</Markdown>

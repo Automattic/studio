@@ -11,6 +11,7 @@ import {
 	usePullPushStates,
 } from 'src/hooks/sync-sites/use-pull-push-states';
 import { useAuth } from 'src/hooks/use-auth';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import {
 	useSyncStatesProgressInfo,
 	PushStateProgressInfo,
@@ -26,6 +27,7 @@ export type SyncPushState = {
 	status: PushStateProgressInfo;
 	selectedSite: SiteDetails;
 	remoteSiteUrl: string;
+	uploadProgress?: number;
 };
 
 type PushSiteOptions = {
@@ -98,11 +100,13 @@ export function useSyncPush( {
 	const {
 		pushStatesProgressInfo,
 		isKeyPushing,
+		isKeyUploading,
 		isKeyImporting,
 		isKeyFinished,
 		isKeyFailed,
 		isKeyCancelled,
 		getPushStatusWithProgress,
+		mapUploadProgressToOverallProgress,
 	} = useSyncStatesProgressInfo();
 
 	const updatePushState = useCallback< UpdateState< SyncPushState > >(
@@ -308,6 +312,7 @@ export function useSyncPush( {
 
 			try {
 				const response = await getIpcApi().pushArchive(
+					selectedSite.id,
 					remoteSiteId,
 					archivePath,
 					options?.optionsToSync,
@@ -322,6 +327,7 @@ export function useSyncPush( {
 				if ( response.success ) {
 					updatePushState( selectedSite.id, remoteSiteId, {
 						status: pushStatesProgressInfo.creatingRemoteBackup,
+						uploadProgress: undefined, // Clear upload progress when transitioning to next state
 					} );
 				} else {
 					throw response;
@@ -377,6 +383,44 @@ export function useSyncPush( {
 		isKeyImporting,
 		isKeyCancelled,
 	] );
+
+	useIpcListener(
+		'sync-upload-paused',
+		( _event, payload: { selectedSiteId: string; remoteSiteId: number; error: string } ) => {
+			updatePushState( payload.selectedSiteId, payload.remoteSiteId, {
+				status: pushStatesProgressInfo.uploadingPaused,
+			} );
+		}
+	);
+
+	useIpcListener(
+		'sync-upload-resumed',
+		( _event, payload: { selectedSiteId: string; remoteSiteId: number } ) => {
+			const currentState = getPushState( payload.selectedSiteId, payload.remoteSiteId );
+			updatePushState( payload.selectedSiteId, payload.remoteSiteId, {
+				status: pushStatesProgressInfo.uploading,
+				uploadProgress: currentState?.uploadProgress,
+			} );
+		}
+	);
+
+	useIpcListener(
+		'sync-upload-progress',
+		( _event, payload: { selectedSiteId: string; remoteSiteId: number; progress: number } ) => {
+			const currentState = getPushState( payload.selectedSiteId, payload.remoteSiteId );
+			if ( currentState && isKeyUploading( currentState.status.key ) ) {
+				const mappedProgress = mapUploadProgressToOverallProgress( payload.progress );
+
+				updatePushState( payload.selectedSiteId, payload.remoteSiteId, {
+					status: {
+						...currentState.status,
+						progress: mappedProgress,
+					},
+					uploadProgress: payload.progress,
+				} );
+			}
+		}
+	);
 
 	const isAnySitePushing = useMemo< boolean >( () => {
 		return Object.values( pushStates ).some( ( state ) => isKeyPushing( state.status.key ) );

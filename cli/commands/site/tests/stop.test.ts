@@ -7,6 +7,7 @@ import {
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { runCommand } from '../stop';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
@@ -56,16 +57,12 @@ describe( 'CLI: studio site stop', () => {
 		it( 'should throw when site not found', async () => {
 			( getSiteByFolder as jest.Mock ).mockRejectedValue( new Error( 'Site not found' ) );
 
-			const { runCommand } = await import( '../stop' );
-
 			await expect( runCommand( '/invalid/path', false ) ).rejects.toThrow( 'Site not found' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should throw when PM2 connection fails', async () => {
 			( connect as jest.Mock ).mockRejectedValue( new Error( 'PM2 connection failed' ) );
-
-			const { runCommand } = await import( '../stop' );
 
 			await expect( runCommand( '/test/site', false ) ).rejects.toThrow( 'PM2 connection failed' );
 			expect( disconnect ).toHaveBeenCalled();
@@ -74,8 +71,6 @@ describe( 'CLI: studio site stop', () => {
 		it( 'should throw when WordPress server stop fails', async () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
 			( stopWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server stop failed' ) );
-
-			const { runCommand } = await import( '../stop' );
 
 			await expect( runCommand( '/test/site', false ) ).rejects.toThrow(
 				'Failed to stop WordPress server'
@@ -86,8 +81,6 @@ describe( 'CLI: studio site stop', () => {
 
 	describe( 'Success Cases', () => {
 		it( 'should skip stop if server is not running', async () => {
-			const { runCommand } = await import( '../stop' );
-
 			await runCommand( '/test/site', false );
 
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
@@ -98,8 +91,6 @@ describe( 'CLI: studio site stop', () => {
 
 		it( 'should stop a running site', async () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-
-			const { runCommand } = await import( '../stop' );
 
 			await runCommand( '/test/site', false );
 
@@ -113,8 +104,6 @@ describe( 'CLI: studio site stop', () => {
 		} );
 
 		it( 'should not call stopProxyIfNoSitesNeedIt if site is not running', async () => {
-			const { runCommand } = await import( '../stop' );
-
 			await runCommand( '/test/site', false );
 
 			expect( stopProxyIfNoSitesNeedIt ).not.toHaveBeenCalled();
@@ -124,8 +113,6 @@ describe( 'CLI: studio site stop', () => {
 		it( 'should set autoStart to true when flag is passed', async () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
 
-			const { runCommand } = await import( '../stop' );
-
 			await runCommand( '/test/site', true );
 
 			expect( updateSiteAutoStart ).toHaveBeenCalledWith( testSite.id, true );
@@ -133,8 +120,6 @@ describe( 'CLI: studio site stop', () => {
 
 		it( 'should set autoStart to false when flag is not passed', async () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-
-			const { runCommand } = await import( '../stop' );
 
 			await runCommand( '/test/site', false );
 
@@ -144,8 +129,6 @@ describe( 'CLI: studio site stop', () => {
 
 	describe( 'Cleanup', () => {
 		it( 'should always disconnect from PM2 on success', async () => {
-			const { runCommand } = await import( '../stop' );
-
 			await runCommand( '/test/site', false );
 
 			expect( disconnect ).toHaveBeenCalled();
@@ -153,8 +136,6 @@ describe( 'CLI: studio site stop', () => {
 
 		it( 'should always disconnect from PM2 on error', async () => {
 			( getSiteByFolder as jest.Mock ).mockRejectedValue( new Error( 'Error' ) );
-
-			const { runCommand } = await import( '../stop' );
 
 			try {
 				await runCommand( '/test/site', false );
@@ -166,8 +147,6 @@ describe( 'CLI: studio site stop', () => {
 		} );
 
 		it( 'should always disconnect when site is not running', async () => {
-			const { runCommand } = await import( '../stop' );
-
 			await runCommand( '/test/site', false );
 
 			expect( disconnect ).toHaveBeenCalled();

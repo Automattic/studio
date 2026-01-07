@@ -1,3 +1,31 @@
+/**
+ * Site Status Watcher
+ *
+ * This module monitors site running/stopped status changes by subscribing to PM2 process events
+ * via `studio site list --watch`. It's primarily used to detect status changes that occur outside
+ * of Studio's direct control, such as:
+ * - Sites started/stopped via CLI commands
+ * - Site crashes or unexpected process terminations
+ *
+ * IMPORTANT: Architecture Notes
+ * -----------------------------
+ * There are currently TWO separate watchers that update the UI with site changes:
+ *
+ * 1. Site Status Watcher (this file):
+ *    - Monitors PM2 process events (start/stop/crash)
+ *    - Only detects running/stopped status changes
+ *    - Sends 'site-status-changed' IPC events to the renderer
+ *
+ * 2. User Data Watcher (src/lib/user-data-watcher.ts):
+ *    - Monitors the appdata file directly via fs.watch
+ *    - Detects ALL changes to site data (new sites, edits, deletions)
+ *    - Sends 'user-data-updated' IPC events to the renderer
+ *
+ * The renderer (use-site-details.tsx) listens to BOTH:
+ * - 'site-status-changed': Updates running/stopped status for existing sites
+ * - 'user-data-updated': Refreshes the entire site list (handles new sites, edits, deletions)
+ *
+ */
 import { z } from 'zod';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';

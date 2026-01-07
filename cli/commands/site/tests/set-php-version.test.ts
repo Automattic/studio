@@ -15,6 +15,7 @@ import {
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
+import { runCommand } from '../set-php-version';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
@@ -83,8 +84,6 @@ describe( 'CLI: studio site set-php-version', () => {
 
 	describe( 'Error Cases', () => {
 		it( 'should throw when PHP version is identical to current version', async () => {
-			const { runCommand } = await import( '../set-php-version' );
-
 			await expect( runCommand( testSitePath, '8.0' ) ).rejects.toThrow(
 				'Site is already using the specified PHP version.'
 			);
@@ -97,8 +96,6 @@ describe( 'CLI: studio site set-php-version', () => {
 				snapshots: [],
 			} );
 
-			const { runCommand } = await import( '../set-php-version' );
-
 			await expect( runCommand( testSitePath, '7.4' ) ).rejects.toThrow(
 				'The specified folder is not added to Studio.'
 			);
@@ -108,16 +105,12 @@ describe( 'CLI: studio site set-php-version', () => {
 		it( 'should throw when appdata save fails', async () => {
 			( saveAppdata as jest.Mock ).mockRejectedValue( new Error( 'Save failed' ) );
 
-			const { runCommand } = await import( '../set-php-version' );
-
 			await expect( runCommand( testSitePath, '7.4' ) ).rejects.toThrow();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should throw when PM2 connection fails', async () => {
 			( connect as jest.Mock ).mockRejectedValue( new Error( 'PM2 connection failed' ) );
-
-			const { runCommand } = await import( '../set-php-version' );
 
 			await expect( runCommand( testSitePath, '7.4' ) ).rejects.toThrow();
 			expect( disconnect ).toHaveBeenCalled();
@@ -127,8 +120,6 @@ describe( 'CLI: studio site set-php-version', () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
 			( stopWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server stop failed' ) );
 
-			const { runCommand } = await import( '../set-php-version' );
-
 			await expect( runCommand( testSitePath, '7.4' ) ).rejects.toThrow();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -136,8 +127,6 @@ describe( 'CLI: studio site set-php-version', () => {
 
 	describe( 'Success Cases', () => {
 		it( 'should update PHP version on a stopped site', async () => {
-			const { runCommand } = await import( '../set-php-version' );
-
 			await runCommand( testSitePath, '7.4' );
 
 			expect( getSiteByFolder ).toHaveBeenCalledWith( testSitePath );
@@ -158,8 +147,6 @@ describe( 'CLI: studio site set-php-version', () => {
 
 		it( 'should update PHP version and restart a running site', async () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-
-			const { runCommand } = await import( '../set-php-version' );
 
 			await runCommand( testSitePath, '7.4' );
 

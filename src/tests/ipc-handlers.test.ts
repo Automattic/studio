@@ -8,7 +8,13 @@ import * as Sentry from '@sentry/electron/main';
 import { readFile } from 'atomically';
 import { bumpStat } from 'common/lib/bump-stat';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
-import { createSite, isFullscreen, importSite } from 'src/ipc-handlers';
+import {
+	createSite,
+	startServer,
+	isFullscreen,
+	importSite,
+	getXdebugEnabledSite,
+} from 'src/ipc-handlers';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getMainWindow } from 'src/main-window';
@@ -228,5 +234,88 @@ describe( 'importSite', () => {
 
 		// Verify failure stats were bumped
 		expect( bumpStat ).toHaveBeenCalledWith( StatsGroup.STUDIO_IMPORT, StatsMetric.FAILURE );
+	} );
+} );
+
+describe( 'getXdebugEnabledSite', () => {
+	it( 'should return null when no site has Xdebug enabled', async () => {
+		const mockUserDataWithoutXdebug = {
+			sites: [
+				{ id: 'site-1', name: 'Site 1', path: '/path/to/site-1', enableXdebug: false },
+				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2' },
+			],
+		};
+		( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserDataWithoutXdebug ) );
+		( fs.existsSync as jest.Mock ).mockReturnValue( true );
+
+		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
+
+		expect( result ).toBeNull();
+	} );
+
+	it( 'should return the site that has Xdebug enabled', async () => {
+		const mockUserDataWithXdebug = {
+			sites: [
+				{ id: 'site-1', name: 'Site 1', path: '/path/to/site-1', enableXdebug: false },
+				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2', enableXdebug: true },
+			],
+		};
+		( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserDataWithXdebug ) );
+		( fs.existsSync as jest.Mock ).mockReturnValue( true );
+		( SiteServer.get as jest.Mock ).mockReturnValue( {
+			details: {
+				id: 'site-2',
+				name: 'Site 2',
+				path: '/path/to/site-2',
+				running: true,
+				enableXdebug: true,
+			},
+		} );
+
+		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
+
+		expect( result ).toEqual( {
+			autoStart: false,
+			id: 'site-2',
+			name: 'Site 2',
+			path: '/path/to/site-2',
+			phpVersion: '8.0',
+			running: true,
+			enableXdebug: true,
+		} );
+	} );
+
+	it( 'should return the first site when multiple have Xdebug enabled', async () => {
+		const mockUserDataWithMultipleXdebug = {
+			sites: [
+				{ id: 'site-1', name: 'Site 1', path: '/path/to/site-1', enableXdebug: true },
+				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2', enableXdebug: true },
+			],
+		};
+		( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserDataWithMultipleXdebug ) );
+		( fs.existsSync as jest.Mock ).mockReturnValue( true );
+		( SiteServer.get as jest.Mock ).mockReturnValue( {
+			details: {
+				autoStart: false,
+				id: 'site-1',
+				name: 'Site 1',
+				path: '/path/to/site-1',
+				phpVersion: '8.0',
+				running: false,
+				enableXdebug: true,
+			},
+		} );
+
+		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
+
+		expect( result ).toEqual( {
+			autoStart: false,
+			id: 'site-1',
+			name: 'Site 1',
+			path: '/path/to/site-1',
+			phpVersion: '8.0',
+			running: false,
+			enableXdebug: true,
+		} );
 	} );
 } );

@@ -52,12 +52,17 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 		const result: Partial< CreateSiteResult > = {};
 		let lastErrorMessage: string | null = null;
 
-		const [ emitter ] = executeCliCommand( args );
+		const [ emitter ] = executeCliCommand( args, { output: 'capture', logPrefix: siteId } );
 
 		emitter.on( 'data', ( { data } ) => {
 			const parsed = cliEventSchema.safeParse( data );
 			if ( ! parsed.success ) {
 				return;
+			}
+
+			if ( parsed.data.action !== 'keyValuePair' && parsed.data.status === 'inprogress' ) {
+				const prefix = siteId ? `[CLI - ${ siteId }]` : '[CLI]';
+				console.log( `${ prefix } ${ parsed.data.message }` );
 			}
 
 			if ( parsed.data.action === 'keyValuePair' ) {

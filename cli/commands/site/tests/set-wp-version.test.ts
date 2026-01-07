@@ -6,6 +6,7 @@ import {
 	readAppdata,
 	saveAppdata,
 	unlockAppdata,
+	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
@@ -15,6 +16,7 @@ import {
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
+import { runCommand } from '../set-wp-version';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
@@ -23,6 +25,7 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	readAppdata: jest.fn(),
 	saveAppdata: jest.fn(),
 	unlockAppdata: jest.fn(),
+	updateSiteLatestCliPid: jest.fn(),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/run-wp-cli-command' );
@@ -80,6 +83,7 @@ describe( 'CLI: studio site set-wp-version', () => {
 			{ exitCode: 0 },
 			jest.fn().mockResolvedValue( undefined ),
 		] );
+		( updateSiteLatestCliPid as jest.Mock ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -93,8 +97,6 @@ describe( 'CLI: studio site set-wp-version', () => {
 				jest.fn().mockResolvedValue( undefined ),
 			] );
 
-			const { runCommand } = await import( '../set-wp-version' );
-
 			await expect( runCommand( testSitePath, '6.5' ) ).rejects.toThrow(
 				'Failed to update WordPress version to 6.5'
 			);
@@ -107,8 +109,6 @@ describe( 'CLI: studio site set-wp-version', () => {
 				snapshots: [],
 			} );
 
-			const { runCommand } = await import( '../set-wp-version' );
-
 			await expect( runCommand( testSitePath, '6.5' ) ).rejects.toThrow(
 				'The specified folder is not added to Studio.'
 			);
@@ -118,16 +118,12 @@ describe( 'CLI: studio site set-wp-version', () => {
 		it( 'should throw when appdata save fails', async () => {
 			( saveAppdata as jest.Mock ).mockRejectedValue( new Error( 'Save failed' ) );
 
-			const { runCommand } = await import( '../set-wp-version' );
-
 			await expect( runCommand( testSitePath, '6.5' ) ).rejects.toThrow();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should throw when PM2 connection fails', async () => {
 			( connect as jest.Mock ).mockRejectedValue( new Error( 'PM2 connection failed' ) );
-
-			const { runCommand } = await import( '../set-wp-version' );
 
 			await expect( runCommand( testSitePath, '6.5' ) ).rejects.toThrow();
 			expect( disconnect ).toHaveBeenCalled();
@@ -137,16 +133,12 @@ describe( 'CLI: studio site set-wp-version', () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
 			( stopWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server stop failed' ) );
 
-			const { runCommand } = await import( '../set-wp-version' );
-
 			await expect( runCommand( testSitePath, '6.5' ) ).rejects.toThrow();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should throw when WP-CLI command execution fails', async () => {
 			( runWpCliCommand as jest.Mock ).mockRejectedValue( new Error( 'WP-CLI failed' ) );
-
-			const { runCommand } = await import( '../set-wp-version' );
 
 			await expect( runCommand( testSitePath, '6.5' ) ).rejects.toThrow();
 			expect( disconnect ).toHaveBeenCalled();
@@ -155,8 +147,6 @@ describe( 'CLI: studio site set-wp-version', () => {
 
 	describe( 'Success Cases', () => {
 		it( 'should update WordPress version on a stopped site', async () => {
-			const { runCommand } = await import( '../set-wp-version' );
-
 			await runCommand( testSitePath, '6.5' );
 
 			expect( getSiteByFolder ).toHaveBeenCalledWith( testSitePath );
@@ -182,13 +172,12 @@ describe( 'CLI: studio site set-wp-version', () => {
 
 			expect( unlockAppdata ).toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
+			expect( updateSiteLatestCliPid ).not.toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should update WordPress version and restart a running site', async () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-
-			const { runCommand } = await import( '../set-wp-version' );
 
 			await runCommand( testSitePath, '6.5' );
 
@@ -211,6 +200,10 @@ describe( 'CLI: studio site set-wp-version', () => {
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.any( Object ),
 				expect.any( Logger )
+			);
+			expect( updateSiteLatestCliPid ).toHaveBeenCalledWith(
+				testSite.id,
+				testProcessDescription.pid
 			);
 			expect( disconnect ).toHaveBeenCalled();
 		} );

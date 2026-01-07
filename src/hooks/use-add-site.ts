@@ -237,12 +237,19 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 				return;
 			}
 			setError( '' );
+
 			const {
 				path: proposedPath,
 				isEmpty,
 				isWordPress,
+				isNameTooLong,
 			} = await getIpcApi().generateProposedSitePath( name );
 			setProposedSitePath( proposedPath );
+
+			if ( isNameTooLong ) {
+				setError( __( 'The site name is too long. Please choose a shorter site name.' ) );
+				return;
+			}
 
 			if ( await siteWithPathAlreadyExists( proposedPath ) ) {
 				setError(

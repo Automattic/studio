@@ -5,10 +5,12 @@ import { PropsWithChildren } from 'react';
 import { decodePassword } from 'common/lib/passwords';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import DeleteSite from 'src/components/delete-site';
+import { LearnHowLink } from 'src/components/learn-more';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
-import { useAppDispatch } from 'src/stores';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import { betaFeaturesSelectors } from 'src/stores/beta-features-slice';
 import {
 	certificateTrustApi,
 	useCheckCertificateTrustQuery,
@@ -33,6 +35,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const dispatch = useAppDispatch();
 	const { __ } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
+	const betaFeatures = useRootSelector( betaFeaturesSelectors.selectBetaFeatures );
 	const username = 'admin';
 	// Empty strings account for legacy sites lacking a stored password.
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
@@ -103,17 +106,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 										'You need to trust this certificate to prevent your browser from showing a secure connection warning.'
 									) }
 								</span>{ ' ' }
-								<Button
-									variant="link"
-									onClick={ () => {
-										getIpcApi().openURL(
-											'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
-										);
-									} }
-								>
-									{ __( 'Learn how' ) }
-									<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
-								</Button>
+								<LearnHowLink docsLinksKey="docsSslInStudio" />
 							</div>
 						) }
 					</SettingsRow>
@@ -132,6 +125,11 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							<span className="line-clamp-1 break-all">{ selectedSite.phpVersion }</span>
 						</div>
 					</SettingsRow>
+					{ betaFeatures.xdebugSupport && (
+						<SettingsRow label={ __( 'Xdebug' ) }>
+							<span>{ selectedSite.enableXdebug ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
+						</SettingsRow>
+					) }
 
 					<tr>
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">

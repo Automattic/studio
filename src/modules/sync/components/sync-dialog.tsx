@@ -52,8 +52,11 @@ const useDynamicTreeState = (
 		skip: type === 'push',
 	} );
 	const { fetchChildren } = useRemoteFileTree();
-	const { fetchChildren: fetchLocalChildren, isLoading: isLoadingLocalFileTree } =
-		useLocalFileTree();
+	const {
+		fetchChildren: fetchLocalChildren,
+		isLoading: isLoadingLocalFileTree,
+		error: localFileTreeError,
+	} = useLocalFileTree();
 
 	// If the site was just created and if there is no rewind_id yet,
 	// then all options are pre-checked to allow only a full sync
@@ -92,15 +95,11 @@ const useDynamicTreeState = (
 		if ( type === 'push' ) {
 			let isCancelled = false;
 			const loadLocalTree = async () => {
-				try {
-					const localTree = await fetchLocalChildren( localSiteId, 'wp-content' );
-					if ( ! isCancelled ) {
-						setTreeState( ( treeState ) =>
-							updateNodeById( treeState, 'wp-content', { children: localTree } )
-						);
-					}
-				} catch ( error ) {
-					console.error( 'Failed to load local file tree:', error );
+				const localTree = await fetchLocalChildren( localSiteId, 'wp-content' );
+				if ( ! isCancelled ) {
+					setTreeState( ( treeState ) =>
+						updateNodeById( treeState, 'wp-content', { children: localTree } )
+					);
 				}
 			};
 			void loadLocalTree();
@@ -125,6 +124,7 @@ const useDynamicTreeState = (
 		isLoadingRewindId,
 		isErrorRewindId,
 		isLoadingLocalFileTree,
+		localFileTreeError,
 	};
 };
 
@@ -155,8 +155,14 @@ export function SyncDialog( {
 		formattedOverAmount,
 	} = useSelectedItemsPushSize( localSite.id, treeState, type );
 
-	const { fetchChildren, rewindId, isLoadingRewindId, isErrorRewindId, isLoadingLocalFileTree } =
-		useDynamicTreeState( type, localSite.id, remoteSite.id, setTreeState );
+	const {
+		fetchChildren,
+		rewindId,
+		isLoadingRewindId,
+		isErrorRewindId,
+		isLoadingLocalFileTree,
+		localFileTreeError,
+	} = useDynamicTreeState( type, localSite.id, remoteSite.id, setTreeState );
 
 	const [ wpVersion ] = useGetWpVersion( localSite );
 	const { data: wpVersions = [] } = useGetWordPressVersions( {
@@ -355,6 +361,22 @@ export function SyncDialog( {
 										}
 										return null;
 									} }
+									renderEmptyContent={ ( nodeId ) => {
+										if ( nodeId === 'wp-content' && type === 'push' && localFileTreeError ) {
+											return (
+												<div className="text-gray-500 italic">
+													{ __(
+														'Could not load files. Please close and reopen this dialog to try again.'
+													) }
+												</div>
+											);
+										}
+										return (
+											<div className="text-gray-500 italic" aria-label={ __( 'Empty folder' ) }>
+												{ __( 'Empty' ) }
+											</div>
+										);
+									} }
 								/>
 							</>
 						) }
@@ -370,6 +392,8 @@ export function SyncDialog( {
 								showLabels
 								valueLabel={ formattedSize }
 								limitLabel={ formattedLimit }
+								// translators: %s is a filesize string, e.g. "1.3GB". This label is displayed if a sync
+								// archive is larger than a given limit.
 								overLimitLabel={ sprintf( __( '%s over' ), formattedOverAmount ) }
 							/>
 						</div>

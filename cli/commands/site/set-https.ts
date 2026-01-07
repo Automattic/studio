@@ -1,7 +1,14 @@
 import { __, _n } from '@wordpress/i18n';
 import { arePathsEqual } from 'common/lib/fs-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { lockAppdata, readAppdata, saveAppdata, SiteData, unlockAppdata } from 'cli/lib/appdata';
+import {
+	lockAppdata,
+	readAppdata,
+	saveAppdata,
+	SiteData,
+	unlockAppdata,
+	updateSiteLatestCliPid,
+} from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import {
 	isServerRunning,
@@ -46,16 +53,19 @@ export async function runCommand( sitePath: string, enableHttps: boolean ): Prom
 			await unlockAppdata();
 		}
 
-		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
+		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connect();
 		logger.reportSuccess( __( 'Process daemon started' ) );
 
 		const runningProcess = await isServerRunning( site.id );
 
 		if ( runningProcess ) {
-			logger.reportStart( LoggerAction.START_SITE, __( 'Restarting site...' ) );
+			logger.reportStart( LoggerAction.START_SITE, __( 'Restarting site…' ) );
 			await stopWordPressServer( site.id );
-			await startWordPressServer( site, logger );
+			const processDesc = await startWordPressServer( site, logger );
+			if ( processDesc.pid ) {
+				await updateSiteLatestCliPid( site.id, processDesc.pid );
+			}
 			logger.reportSuccess( __( 'Site restarted' ) );
 		}
 	} finally {

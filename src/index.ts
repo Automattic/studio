@@ -13,13 +13,13 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
-import {
-	installExtension,
-	REACT_DEVELOPER_TOOLS,
-	REDUX_DEVTOOLS,
-} from 'electron-devtools-installer';
 import { PROTOCOL_PREFIX } from 'common/constants';
-import { bumpStat } from 'common/lib/bump-stat';
+import {
+	bumpStat,
+	bumpAggregatedUniqueStat,
+	AppdataProvider,
+	LastBumpStatsData,
+} from 'common/lib/bump-stat';
 import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
 import { StatsGroup } from 'common/types/stats';
 import { IPC_VOID_HANDLERS } from 'src/constants';
@@ -28,7 +28,6 @@ import {
 	hasActiveSyncOperations,
 	hasUploadingPushOperations,
 } from 'src/lib/active-sync-operations';
-import { bumpAggregatedUniqueStat } from 'src/lib/bump-stats';
 import { getPlatformMetric } from 'src/lib/bump-stats/lib';
 import { handleDeeplink } from 'src/lib/deeplink';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
@@ -75,6 +74,18 @@ if ( ! process.env.IS_DEV_BUILD ) {
 
 suppressPunycodeWarning();
 
+const appAppdataProvider: AppdataProvider< LastBumpStatsData > = {
+	load: loadUserData,
+	lock: lockAppdata,
+	unlock: unlockAppdata,
+	save: async ( data ) => {
+		// Cast is safe: data comes from loadUserData() which returns the full UserData type.
+		// The lock/unlock is already handled by the caller (updateLastBump in common/lib/bump-stat.ts)
+		// eslint-disable-next-line studio/require-lock-before-save
+		await saveUserData( data as never );
+	},
+};
+
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 
 const isInInstaller = require( 'electron-squirrel-startup' );
@@ -104,6 +115,34 @@ async function setupSentryUserId() {
 		await saveUserData( userData );
 	} finally {
 		await unlockAppdata();
+	}
+}
+
+// Load DevTools extensions from the extensions directory
+// Extension IDs are hardcoded Chrome extension IDs for React DevTools and Redux DevTools
+const EXTENSION_IDS = {
+	REACT_DEVELOPER_TOOLS: 'fmkadmapgofadopljbjfkapdkoienihi',
+	REDUX_DEVTOOLS: 'lmhkpmbekcpmknklioeibfkpmmfibljd',
+};
+
+async function loadDevToolsExtensions( appSession = session.defaultSession ) {
+	const extensionsPath = path.join( app.getPath( 'userData' ), 'extensions' );
+
+	for ( const [ name, extensionId ] of Object.entries( EXTENSION_IDS ) ) {
+		const extensionPath = path.join( extensionsPath, extensionId );
+		try {
+			// Check if extension directory exists
+			const fs = await import( 'fs/promises' );
+			await fs.access( extensionPath );
+
+			// Load extension using the new API with allowFileAccess option
+			await appSession.extensions.loadExtension( extensionPath, {
+				allowFileAccess: true,
+			} );
+			console.log( `Loaded ${ name } extension from ${ extensionPath }` );
+		} catch ( error ) {
+			console.warn( `Failed to load ${ name } extension:`, error );
+		}
 	}
 }
 
@@ -236,8 +275,7 @@ async function appBoot() {
 	app.on( 'ready', async () => {
 		const locale = await getUserLocaleWithFallback();
 		if ( process.env.NODE_ENV === 'development' ) {
-			await installExtension( REACT_DEVELOPER_TOOLS );
-			await installExtension( REDUX_DEVTOOLS );
+			await loadDevToolsExtensions();
 			await launchExtensionBackgroundWorkers();
 		}
 
@@ -326,14 +364,16 @@ async function appBoot() {
 		bumpAggregatedUniqueStat(
 			StatsGroup.STUDIO_APP_LAUNCH_UNIQUE,
 			getPlatformMetric( process.platform ),
-			'weekly'
-		);
+			'weekly',
+			appAppdataProvider
+		).catch( ( err ) => Sentry.captureException( err ) );
 		// Bump stat for unique monthly app launch, approximates monthly active users
 		bumpAggregatedUniqueStat(
 			StatsGroup.STUDIO_APP_LAUNCH_UNIQUE_MONTHLY,
 			getPlatformMetric( process.platform ),
-			'monthly'
-		);
+			'monthly',
+			appAppdataProvider
+		).catch( ( err ) => Sentry.captureException( err ) );
 
 		await updateWindowsCliVersionedPathIfNeeded();
 

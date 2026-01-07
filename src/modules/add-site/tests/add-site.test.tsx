@@ -8,6 +8,7 @@ import { FolderDialogResponse } from 'src/ipc-handlers';
 import { createTestStore } from 'src/lib/test-utils';
 import AddSite from 'src/modules/add-site';
 import { useGetBlueprints } from 'src/stores/wpcom-api';
+import type { SyncSitesContextType } from 'src/hooks/sync-sites/sync-sites-context';
 
 jest.mock( 'src/stores/certificate-trust-api', () => {
 	const actual = jest.requireActual( 'src/stores/certificate-trust-api' ) || {};
@@ -125,9 +126,6 @@ beforeEach( () => {
 	mockPullSite.mockReset();
 	mockUseSyncSites.mockReturnValue( {
 		pullSite: mockPullSite,
-		syncSites: [],
-		refetchSites: jest.fn(),
-		isFetching: false,
 		isAnySitePulling: false,
 		isSiteIdPulling: jest.fn(),
 		clearPullState: jest.fn(),
@@ -139,7 +137,8 @@ beforeEach( () => {
 		clearPushState: jest.fn(),
 		getPushState: jest.fn(),
 		getLastSyncTimeText: jest.fn(),
-	} );
+		cancelPush: jest.fn(),
+	} as SyncSitesContextType );
 	mockSetSelectedTab.mockReset();
 
 	mockShowOpenFolderDialog.mockResolvedValue( {

@@ -16,7 +16,7 @@ export async function runCommand( sitePath: string, skipBrowser = false ): Promi
 		const site = await getSiteByFolder( sitePath );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
-		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
+		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connect();
 		logger.reportSuccess( __( 'Process daemon started' ) );
 
@@ -37,12 +37,12 @@ export async function runCommand( sitePath: string, skipBrowser = false ): Promi
 
 		logger.reportStart(
 			LoggerAction.INSTALL_SQLITE,
-			__( 'Setting up SQLite integration, if needed...' )
+			__( 'Setting up SQLite integration, if needed…' )
 		);
 		await keepSqliteIntegrationUpdated( sitePath );
 		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
-		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress site...' ) );
+		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress site…' ) );
 		try {
 			const processDesc = await startWordPressServer( site, logger );
 

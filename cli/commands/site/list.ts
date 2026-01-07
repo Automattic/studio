@@ -71,14 +71,6 @@ function displaySiteList( sitesData: SiteListEntry[], format: 'table' | 'json' )
 const logger = new Logger< LoggerAction >();
 
 export async function runCommand( format: 'table' | 'json', watch: boolean ): Promise< void > {
-	const handleTermination = () => {
-		disconnect();
-		process.exit( 0 );
-	};
-	process.on( 'SIGTERM', handleTermination );
-	process.on( 'SIGHUP', handleTermination );
-	process.on( 'disconnect', handleTermination );
-
 	try {
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading sites…' ) );
 		const appdata = await readAppdata();
@@ -96,7 +88,7 @@ export async function runCommand( format: 'table' | 'json', watch: boolean ): Pr
 			logger.reportSuccess( sitesMessage );
 		}
 
-		logger.reportStart( LoggerAction.START_DAEMON, __( 'Connecting to process daemon...' ) );
+		logger.reportStart( LoggerAction.START_DAEMON, __( 'Connecting to process daemon…' ) );
 		await connect();
 		logger.reportSuccess( __( 'Connected to process daemon' ) );
 
@@ -158,6 +150,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'boolean',
 					default: false,
 					description: __( 'Watch for site status changes and update the list in real-time' ),
+				} )
+				.option( 'path', {
+					hidden: true,
 				} );
 		},
 		handler: async ( argv ) => {

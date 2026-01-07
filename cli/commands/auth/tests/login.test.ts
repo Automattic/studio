@@ -11,6 +11,7 @@ import {
 import { openBrowser } from 'cli/lib/browser';
 import { getAppLocale } from 'cli/lib/i18n';
 import { Logger, LoggerError } from 'cli/logger';
+import { runCommand } from '../login';
 
 jest.mock( '@inquirer/prompts' );
 jest.mock( 'common/lib/oauth' );
@@ -76,7 +77,6 @@ describe( 'Auth Login Command', () => {
 	it( 'should skip login if already authenticated', async () => {
 		( getAuthToken as jest.Mock ).mockResolvedValue( mockAppdata.authToken );
 
-		const { runCommand } = await import( '../login' );
 		await runCommand();
 
 		expect( openBrowser ).not.toHaveBeenCalled();
@@ -84,7 +84,6 @@ describe( 'Auth Login Command', () => {
 	} );
 
 	it( 'should complete the login process successfully', async () => {
-		const { runCommand } = await import( '../login' );
 		await runCommand();
 
 		expect( getAuthenticationUrl ).toHaveBeenCalledWith(
@@ -111,7 +110,6 @@ describe( 'Auth Login Command', () => {
 	} );
 
 	it( 'should proceed with login if existing token is invalid', async () => {
-		const { runCommand } = await import( '../login' );
 		await runCommand();
 
 		expect( openBrowser ).toHaveBeenCalled();
@@ -122,7 +120,6 @@ describe( 'Auth Login Command', () => {
 		const browserError = new LoggerError( 'Failed to open browser' );
 		( openBrowser as jest.Mock ).mockRejectedValue( browserError );
 
-		const { runCommand } = await import( '../login' );
 		await runCommand();
 
 		expect( input ).toHaveBeenCalled();
@@ -132,7 +129,6 @@ describe( 'Auth Login Command', () => {
 		const apiError = new LoggerError( 'Failed to fetch user info' );
 		( getUserInfo as jest.Mock ).mockRejectedValue( apiError );
 
-		const { runCommand } = await import( '../login' );
 		await runCommand();
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
@@ -144,7 +140,6 @@ describe( 'Auth Login Command', () => {
 		const saveError = new Error( 'Failed to save' );
 		( saveAppdata as jest.Mock ).mockRejectedValue( saveError );
 
-		const { runCommand } = await import( '../login' );
 		await runCommand();
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
@@ -157,7 +152,6 @@ describe( 'Auth Login Command', () => {
 		const lockError = new Error( 'Failed to lock' );
 		( lockAppdata as jest.Mock ).mockRejectedValue( lockError );
 
-		const { runCommand } = await import( '../login' );
 		await runCommand();
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
@@ -167,7 +161,6 @@ describe( 'Auth Login Command', () => {
 	it( 'should use provided locale', async () => {
 		( getAppLocale as jest.Mock ).mockResolvedValue( 'fr' );
 
-		const { runCommand } = await import( '../login' );
 		await runCommand();
 
 		expect( getAuthenticationUrl ).toHaveBeenCalledWith(

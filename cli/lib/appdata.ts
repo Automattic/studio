@@ -62,7 +62,7 @@ const userDataSchema = z
 
 type UserData = z.infer< typeof userDataSchema >;
 export type SiteData = z.infer< typeof siteSchema >;
-type ValidatedAuthToken = Required< NonNullable< UserData[ 'authToken' ] > >;
+export type ValidatedAuthToken = Required< NonNullable< UserData[ 'authToken' ] > >;
 
 export function getAppdataDirectory(): string {
 	// Support E2E testing with custom appdata path

@@ -13,6 +13,7 @@ import {
 	readAppdata,
 	saveAppdata,
 	unlockAppdata,
+	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
@@ -38,12 +39,12 @@ export async function runCommand( siteFolder: string, wpVersion: string ): Promi
 		const processDescription = await isServerRunning( site.id );
 
 		if ( processDescription ) {
-			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress site...' ) );
+			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress site…' ) );
 			await stopWordPressServer( site.id );
 			logger.reportSuccess( __( 'WordPress site stopped' ) );
 		}
 
-		logger.reportStart( LoggerAction.SET_WP_VERSION, __( 'Changing WordPress version...' ) );
+		logger.reportStart( LoggerAction.SET_WP_VERSION, __( 'Changing WordPress version…' ) );
 		const phpVersion = validatePhpVersion( site.phpVersion );
 		const zipUrl = getWordPressVersionUrl( wpVersion );
 		const [ response, closeWpCliServer ] = await runWpCliCommand(
@@ -76,8 +77,11 @@ export async function runCommand( siteFolder: string, wpVersion: string ): Promi
 		}
 
 		if ( processDescription ) {
-			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress site...' ) );
-			await startWordPressServer( site, logger );
+			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress site…' ) );
+			const processDesc = await startWordPressServer( site, logger );
+			if ( processDesc.pid ) {
+				await updateSiteLatestCliPid( site.id, processDesc.pid );
+			}
 			logger.reportSuccess( __( 'WordPress site started' ) );
 		}
 

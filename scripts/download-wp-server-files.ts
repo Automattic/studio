@@ -1,7 +1,8 @@
 import os from 'os';
 import path from 'path';
-import unzipper from 'unzipper';
 import fs from 'fs-extra';
+import { promisify } from 'util';
+import yauzl from 'yauzl';
 import { getLatestSQLiteCommandRelease } from '../src/lib/sqlite-command-release';
 import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../src/constants';
 
@@ -44,6 +45,62 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 	},
 ];
 
+const openZip = promisify< string, yauzl.Options, yauzl.ZipFile >( yauzl.open );
+
+async function extractZip( zipPath: string, extractedPath: string ): Promise< void > {
+	const zipFile = await openZip( zipPath, { lazyEntries: true } );
+	const openReadStream = promisify( zipFile.openReadStream.bind( zipFile ) );
+
+	return new Promise( ( resolve, reject ) => {
+		zipFile.on( 'entry', async ( entry: yauzl.Entry ) => {
+			// Skip directory entries
+			if ( entry.fileName.endsWith( '/' ) ) {
+				zipFile.readEntry();
+				return;
+			}
+
+			const fullPath = path.join( extractedPath, entry.fileName );
+			const entryDir = path.dirname( fullPath );
+
+			try {
+				await fs.ensureDir( entryDir );
+
+				const readStream = await openReadStream( entry );
+				const writeStream = fs.createWriteStream( fullPath );
+
+				function onError( error: Error ) {
+					if ( ! readStream.destroyed ) {
+						readStream.destroy();
+					}
+					if ( ! writeStream.destroyed ) {
+						writeStream.destroy();
+					}
+					reject( error );
+				}
+
+				readStream.once( 'error', onError );
+				writeStream.once( 'error', onError );
+
+				writeStream.once( 'finish', () => {
+					zipFile.readEntry();
+				} );
+
+				readStream.pipe( writeStream );
+			} catch ( error ) {
+				reject( error );
+			}
+		} );
+
+		zipFile.on( 'end', () => {
+			resolve();
+		} );
+
+		zipFile.on( 'error', reject );
+
+		zipFile.readEntry();
+	} );
+}
+
 async function downloadFile( file: FileToDownload ): Promise< void > {
 	const { name, description, destinationPath } = file;
 	console.log( `[${ name }] Downloading ${ description } ...` );
@@ -51,7 +108,7 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 	const extractedPath = destinationPath ?? WP_SERVER_FILES_PATH;
 
 	try {
-		fs.ensureDirSync( extractedPath );
+		await fs.ensureDir( extractedPath );
 	} catch ( error ) {
 		const fsError = error as { code: string };
 		if ( fsError.code !== 'EEXIST' ) throw error;
@@ -75,10 +132,7 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 		 * We need to move the contents of that folder to the sqlite-database-integration folder
 		 */
 		console.log( `[${ name }] Extracting files from zip ...` );
-		await fs
-			.createReadStream( zipPath )
-			.pipe( unzipper.Extract( { path: extractedPath } ) )
-			.promise();
+		await extractZip( zipPath, extractedPath );
 
 		const files = fs.readdirSync( extractedPath );
 		const sqliteFolder = files.find( ( file ) =>
@@ -95,13 +149,11 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 		}
 	} else {
 		console.log( `[${ name }] Extracting files from zip ...` );
-		await fs
-			.createReadStream( zipPath )
-			.pipe( unzipper.Extract( { path: extractedPath } ) )
-			.promise();
+		await extractZip( zipPath, extractedPath );
 	}
 
 	console.log( `[${ name }] Files extracted` );
+	await fs.remove( zipPath );
 }
 
 async function downloadFiles() {

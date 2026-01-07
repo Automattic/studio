@@ -1,6 +1,7 @@
 import { getUserInfo } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { Logger, LoggerError } from 'cli/logger';
+import { runCommand } from '../status';
 
 jest.mock( 'cli/lib/api' );
 jest.mock( 'cli/lib/appdata' );
@@ -44,7 +45,6 @@ describe( 'Auth Status Command', () => {
 	} );
 
 	it( 'should report success when authenticated', async () => {
-		const { runCommand } = await import( '../status' );
 		await runCommand();
 
 		expect( mockLogger.reportStart ).toHaveBeenCalled();
@@ -58,7 +58,6 @@ describe( 'Auth Status Command', () => {
 	it( 'should report error when token is invalid', async () => {
 		( getAuthToken as jest.Mock ).mockRejectedValue( new Error( 'Token error' ) );
 
-		const { runCommand } = await import( '../status' );
 		await runCommand();
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
@@ -70,7 +69,6 @@ describe( 'Auth Status Command', () => {
 		const apiError = new LoggerError( 'API error' );
 		( getUserInfo as jest.Mock ).mockRejectedValue( apiError );
 
-		const { runCommand } = await import( '../status' );
 		await runCommand();
 
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( apiError );
@@ -79,7 +77,6 @@ describe( 'Auth Status Command', () => {
 	it( 'should wrap unknown error when getUserInfo fails', async () => {
 		( getUserInfo as jest.Mock ).mockRejectedValue( new Error( 'Unknown error' ) );
 
-		const { runCommand } = await import( '../status' );
 		await runCommand();
 
 		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );

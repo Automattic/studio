@@ -32,13 +32,16 @@ export interface IpcEvents {
 	'on-site-create-progress': [ { siteId: string; message: string } ];
 	'site-context-menu-action': [ { action: string; siteId: string } ];
 	'site-status-changed': [ { siteId: string; status: 'running' | 'stopped'; url: string } ];
+	'sync-upload-paused': [ { error: string; selectedSiteId: string; remoteSiteId: number } ];
+	'sync-upload-resumed': [ { selectedSiteId: string; remoteSiteId: number } ];
+	'sync-upload-progress': [ { selectedSiteId: string; remoteSiteId: number; progress: number } ];
 	'snapshot-error': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
 	'snapshot-fatal-error': [ { operationId: crypto.UUID; data: { message: string } } ];
 	'snapshot-output': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
 	'snapshot-key-value': [ { operationId: crypto.UUID; data: SnapshotKeyValueEventData } ];
 	'snapshot-success': [ { operationId: crypto.UUID } ];
 	'show-whats-new': [ void ];
-	'sync-connect-site': [ { remoteSiteId: number; studioSiteId: string } ];
+	'sync-connect-site': [ { remoteSiteId: number; studioSiteId: string; autoOpenPush?: boolean } ];
 	'test-render-failure': [ void ];
 	'theme-details-changed': [ { id: string; details: StartedSiteDetails[ 'themeDetails' ] } ];
 	'theme-details-updating': [ { id: string } ];

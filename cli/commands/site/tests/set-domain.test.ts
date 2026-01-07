@@ -1,7 +1,14 @@
 import { getDomainNameValidationError } from 'common/lib/domains';
 import { arePathsEqual } from 'common/lib/fs-utils';
-import { SiteData, lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
-import { removeDomainFromHosts } from 'cli/lib/hosts-file';
+import {
+	SiteData,
+	lockAppdata,
+	readAppdata,
+	saveAppdata,
+	unlockAppdata,
+	updateSiteLatestCliPid,
+} from 'cli/lib/appdata';
+import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { setupCustomDomain } from 'cli/lib/site-utils';
 import {
@@ -10,6 +17,7 @@ import {
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
+import { runCommand } from '../set-domain';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
@@ -17,6 +25,7 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	readAppdata: jest.fn(),
 	saveAppdata: jest.fn(),
 	unlockAppdata: jest.fn(),
+	updateSiteLatestCliPid: jest.fn(),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
@@ -66,9 +75,10 @@ describe( 'CLI: studio site set-domain', () => {
 		( startWordPressServer as jest.Mock ).mockResolvedValue( testProcessDescription );
 		( stopWordPressServer as jest.Mock ).mockResolvedValue( undefined );
 		( arePathsEqual as jest.Mock ).mockImplementation( ( a: string, b: string ) => a === b );
-		( removeDomainFromHosts as jest.Mock ).mockResolvedValue( undefined );
+		( updateDomainInHosts as jest.Mock ).mockResolvedValue( undefined );
 		( setupCustomDomain as jest.Mock ).mockResolvedValue( undefined );
 		( getDomainNameValidationError as jest.Mock ).mockReturnValue( '' );
+		( updateSiteLatestCliPid as jest.Mock ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -82,8 +92,6 @@ describe( 'CLI: studio site set-domain', () => {
 				snapshots: [],
 			} );
 
-			const { runCommand } = await import( '../set-domain' );
-
 			await expect( runCommand( testSitePath, testDomainName ) ).rejects.toThrow(
 				'The specified folder is not added to Studio.'
 			);
@@ -95,8 +103,6 @@ describe( 'CLI: studio site set-domain', () => {
 				'Please enter a valid domain name'
 			);
 
-			const { runCommand } = await import( '../set-domain' );
-
 			await expect( runCommand( testSitePath, 'invalid domain' ) ).rejects.toThrow();
 			expect( saveAppdata ).not.toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
@@ -106,8 +112,6 @@ describe( 'CLI: studio site set-domain', () => {
 			( getDomainNameValidationError as jest.Mock ).mockReturnValue(
 				'The domain name is already in use'
 			);
-
-			const { runCommand } = await import( '../set-domain' );
 
 			await expect( runCommand( testSitePath, testDomainName ) ).rejects.toThrow();
 			expect( saveAppdata ).not.toHaveBeenCalled();
@@ -120,8 +124,6 @@ describe( 'CLI: studio site set-domain', () => {
 				snapshots: [],
 			} );
 
-			const { runCommand } = await import( '../set-domain' );
-
 			await expect( runCommand( testSitePath, testDomainName ) ).rejects.toThrow(
 				'The specified domain is already set for this site.'
 			);
@@ -132,8 +134,6 @@ describe( 'CLI: studio site set-domain', () => {
 		it( 'should throw when appdata save fails', async () => {
 			( saveAppdata as jest.Mock ).mockRejectedValue( new Error( 'Save failed' ) );
 
-			const { runCommand } = await import( '../set-domain' );
-
 			await expect( runCommand( testSitePath, testDomainName ) ).rejects.toThrow();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -141,8 +141,6 @@ describe( 'CLI: studio site set-domain', () => {
 
 	describe( 'Success Cases', () => {
 		it( 'should set domain on a stopped site', async () => {
-			const { runCommand } = await import( '../set-domain' );
-
 			await runCommand( testSitePath, testDomainName );
 
 			expect( lockAppdata ).toHaveBeenCalled();
@@ -156,14 +154,17 @@ describe( 'CLI: studio site set-domain', () => {
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
-			expect( removeDomainFromHosts ).not.toHaveBeenCalled();
+			expect( updateSiteLatestCliPid ).not.toHaveBeenCalled();
+			expect( updateDomainInHosts ).toHaveBeenCalledWith(
+				undefined,
+				testDomainName,
+				testSite.port
+			);
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should set domain and restart a running site', async () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-
-			const { runCommand } = await import( '../set-domain' );
 
 			await runCommand( testSitePath, testDomainName );
 
@@ -173,23 +174,31 @@ describe( 'CLI: studio site set-domain', () => {
 
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( stopWordPressServer ).toHaveBeenCalledWith( testSite.id );
-			expect( setupCustomDomain ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
+			expect( setupCustomDomain ).toHaveBeenCalledWith( testSite, expect.any( Logger ), {
+				skipHostsUpdate: true,
+			} );
 			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
+			expect( updateSiteLatestCliPid ).toHaveBeenCalledWith(
+				testSite.id,
+				testProcessDescription.pid
+			);
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
-		it( 'should remove old domain from hosts file when replacing domain', async () => {
+		it( 'should update hosts file with old and new domain when replacing domain', async () => {
 			const oldDomain = 'old.local';
 			( readAppdata as jest.Mock ).mockResolvedValue( {
 				sites: [ { ...testSite, customDomain: oldDomain } ],
 				snapshots: [],
 			} );
 
-			const { runCommand } = await import( '../set-domain' );
-
 			await runCommand( testSitePath, testDomainName );
 
-			expect( removeDomainFromHosts ).toHaveBeenCalledWith( oldDomain );
+			expect( updateDomainInHosts ).toHaveBeenCalledWith(
+				oldDomain,
+				testDomainName,
+				testSite.port
+			);
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 	} );

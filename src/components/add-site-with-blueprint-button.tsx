@@ -31,7 +31,7 @@ export function AddSiteWithBlueprintButton( {
 				getIpcApi().openURL( url );
 			} }
 		>
-			{ children || __( 'Add new site' ) }
+			{ children || __( 'Add site from a Blueprint' ) }
 		</Button>
 	);
 }

@@ -1,5 +1,12 @@
 import { arePathsEqual } from 'common/lib/fs-utils';
-import { SiteData, lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
+import {
+	SiteData,
+	lockAppdata,
+	readAppdata,
+	saveAppdata,
+	unlockAppdata,
+	updateSiteLatestCliPid,
+} from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import {
 	isServerRunning,
@@ -7,6 +14,7 @@ import {
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
+import { runCommand } from '../set-https';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
@@ -14,6 +22,7 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	readAppdata: jest.fn(),
 	saveAppdata: jest.fn(),
 	unlockAppdata: jest.fn(),
+	updateSiteLatestCliPid: jest.fn(),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/wordpress-server-manager' );
@@ -63,6 +72,7 @@ describe( 'CLI: studio site set-https', () => {
 		( startWordPressServer as jest.Mock ).mockResolvedValue( mockProcessDescription );
 		( stopWordPressServer as jest.Mock ).mockResolvedValue( undefined );
 		( arePathsEqual as jest.Mock ).mockImplementation( ( a: string, b: string ) => a === b );
+		( updateSiteLatestCliPid as jest.Mock ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -75,8 +85,6 @@ describe( 'CLI: studio site set-https', () => {
 				sites: [],
 				snapshots: [],
 			} );
-
-			const { runCommand } = await import( '../set-https' );
 
 			await expect( runCommand( mockSiteFolder, true ) ).rejects.toThrow(
 				'The specified folder is not added to Studio.'
@@ -91,8 +99,6 @@ describe( 'CLI: studio site set-https', () => {
 				snapshots: [],
 			} );
 
-			const { runCommand } = await import( '../set-https' );
-
 			await expect( runCommand( mockSiteFolder, true ) ).rejects.toThrow(
 				'Site does not have a custom domain.'
 			);
@@ -105,8 +111,6 @@ describe( 'CLI: studio site set-https', () => {
 				snapshots: [],
 			} );
 
-			const { runCommand } = await import( '../set-https' );
-
 			await expect( runCommand( mockSiteFolder, true ) ).rejects.toThrow(
 				'HTTPS is already enabled for this site.'
 			);
@@ -116,16 +120,12 @@ describe( 'CLI: studio site set-https', () => {
 		it( 'should throw when appdata save fails', async () => {
 			( saveAppdata as jest.Mock ).mockRejectedValue( new Error( 'Save failed' ) );
 
-			const { runCommand } = await import( '../set-https' );
-
 			await expect( runCommand( mockSiteFolder, true ) ).rejects.toThrow();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should throw when PM2 connection fails', async () => {
 			( connect as jest.Mock ).mockRejectedValue( new Error( 'PM2 connection failed' ) );
-
-			const { runCommand } = await import( '../set-https' );
 
 			await expect( runCommand( mockSiteFolder, true ) ).rejects.toThrow();
 			expect( disconnect ).toHaveBeenCalled();
@@ -135,8 +135,6 @@ describe( 'CLI: studio site set-https', () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
 			( stopWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server stop failed' ) );
 
-			const { runCommand } = await import( '../set-https' );
-
 			await expect( runCommand( mockSiteFolder, true ) ).rejects.toThrow();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -144,8 +142,6 @@ describe( 'CLI: studio site set-https', () => {
 
 	describe( 'Success Cases', () => {
 		it( 'should enable HTTPS on a stopped site', async () => {
-			const { runCommand } = await import( '../set-https' );
-
 			await runCommand( mockSiteFolder, true );
 
 			expect( lockAppdata ).toHaveBeenCalled();
@@ -159,6 +155,7 @@ describe( 'CLI: studio site set-https', () => {
 			expect( isServerRunning ).toHaveBeenCalledWith( mockSiteData.id );
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
+			expect( updateSiteLatestCliPid ).not.toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -169,8 +166,6 @@ describe( 'CLI: studio site set-https', () => {
 				snapshots: [],
 			} );
 
-			const { runCommand } = await import( '../set-https' );
-
 			await runCommand( mockSiteFolder, false );
 
 			expect( saveAppdata ).toHaveBeenCalled();
@@ -179,13 +174,12 @@ describe( 'CLI: studio site set-https', () => {
 
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
+			expect( updateSiteLatestCliPid ).not.toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
 		it( 'should enable HTTPS and restart a running site', async () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
-
-			const { runCommand } = await import( '../set-https' );
 
 			await runCommand( mockSiteFolder, true );
 
@@ -199,6 +193,10 @@ describe( 'CLI: studio site set-https', () => {
 				expect.any( Object ),
 				expect.any( Logger )
 			);
+			expect( updateSiteLatestCliPid ).toHaveBeenCalledWith(
+				mockSiteData.id,
+				mockProcessDescription.pid
+			);
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -210,8 +208,6 @@ describe( 'CLI: studio site set-https', () => {
 			} );
 			( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
 
-			const { runCommand } = await import( '../set-https' );
-
 			await runCommand( mockSiteFolder, false );
 
 			expect( saveAppdata ).toHaveBeenCalled();
@@ -221,6 +217,10 @@ describe( 'CLI: studio site set-https', () => {
 			expect( isServerRunning ).toHaveBeenCalledWith( mockSiteData.id );
 			expect( stopWordPressServer ).toHaveBeenCalledWith( mockSiteData.id );
 			expect( startWordPressServer ).toHaveBeenCalled();
+			expect( updateSiteLatestCliPid ).toHaveBeenCalledWith(
+				mockSiteData.id,
+				mockProcessDescription.pid
+			);
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 	} );

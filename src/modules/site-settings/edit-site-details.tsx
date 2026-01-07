@@ -1,4 +1,6 @@
 import { SelectControl } from '@wordpress/components';
+import { createInterpolateElement } from '@wordpress/element';
+import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import stripAnsi from 'strip-ansi';
@@ -8,12 +10,16 @@ import { getWordPressVersionUrl } from 'common/lib/wordpress-version-utils';
 import { SupportedPHPVersions } from 'common/types/php-versions';
 import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
+import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
 import Modal from 'src/components/modal';
 import TextControlComponent from 'src/components/text-control';
+import { Tooltip } from 'src/components/tooltip';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useRootSelector } from 'src/stores';
+import { betaFeaturesSelectors } from 'src/stores/beta-features-slice';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 
@@ -26,9 +32,13 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const { __ } = useI18n();
 	const { updateSite, selectedSite, stopServer, startServer, isEditModalOpen, setIsEditModalOpen } =
 		useSiteDetails();
+	const betaFeatures = useRootSelector( betaFeaturesSelectors.selectBetaFeatures );
+	const isXdebugFeatureEnabled = betaFeatures.xdebugSupport;
 	const [ errorUpdatingWpVersion, setErrorUpdatingWpVersion ] = useState< string | null >( null );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const [ needsRestart, setNeedsRestart ] = useState( false );
+	const [ enableXdebug, setEnableXdebug ] = useState( selectedSite?.enableXdebug ?? false );
+	const [ xdebugEnabledSite, setXdebugEnabledSite ] = useState< SiteDetails | null >( null );
 
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
 	const closeModal = useCallback( () => {
@@ -72,6 +82,17 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 			} );
 	}, [ selectedSite?.customDomain ] );
 
+	useEffect( () => {
+		if ( isXdebugFeatureEnabled ) {
+			getIpcApi()
+				.getXdebugEnabledSite()
+				.then( setXdebugEnabledSite )
+				.catch( () => {
+					// Do nothing
+				} );
+		}
+	}, [ isXdebugFeatureEnabled, selectedSite ] );
+
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
 	const usedCustomDomain = ! useCustomDomain ? customDomain : undefined;
 	const isFormUnchanged =
@@ -81,7 +102,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		getEffectiveWpVersion() === selectedWpVersion &&
 		Boolean( selectedSite.customDomain ) === useCustomDomain &&
 		usedCustomDomain === customDomain &&
-		!! selectedSite.enableHttps === ( !! usedCustomDomain && enableHttps );
+		!! selectedSite.enableHttps === ( !! usedCustomDomain && enableHttps ) &&
+		!! selectedSite.enableXdebug === enableXdebug;
 	const hasValidationErrors =
 		! selectedSite || ! siteName.trim() || ( useCustomDomain && !! customDomainError );
 
@@ -97,6 +119,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		setCustomDomainError( '' );
 		setErrorUpdatingWpVersion( null );
 		setEnableHttps( selectedSite.enableHttps ?? false );
+		setEnableXdebug( selectedSite.enableXdebug ?? false );
 	}, [ selectedSite, getEffectiveWpVersion ] );
 
 	const onSiteEdit = async ( event: FormEvent ) => {
@@ -109,7 +132,9 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 
 		const hasWpVersionChanged = selectedWpVersion !== getEffectiveWpVersion();
 		const hasPhpVersionChanged = selectedPhpVersion !== selectedSite.phpVersion;
-		const needsRestart = selectedSite.running && ( hasWpVersionChanged || hasPhpVersionChanged );
+		const hasXdebugChanged = enableXdebug !== ( selectedSite.enableXdebug ?? false );
+		const needsRestart =
+			selectedSite.running && ( hasWpVersionChanged || hasPhpVersionChanged || hasXdebugChanged );
 		setNeedsRestart( needsRestart );
 
 		try {
@@ -156,6 +181,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 				isWpAutoUpdating: selectedWpVersion === DEFAULT_WORDPRESS_VERSION,
 				customDomain: usedCustomDomain,
 				enableHttps: !! usedCustomDomain && enableHttps,
+				enableXdebug,
 			} );
 
 			if ( needsRestart ) {
@@ -298,20 +324,69 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 										{ __(
 											'You need to manually add the Studio certificate authority to your keychain and trust it.'
 										) }{ ' ' }
-										<Button
-											variant="link"
-											onClick={ () => {
-												getIpcApi().openURL(
-													'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/'
-												);
-											} }
-										>
-											{ __( 'Learn how' ) }
-											<span aria-label={ __( '(opens in a web browser)' ) }>&#8599;</span>
-										</Button>
+										<LearnHowLink docsLinksKey="docsSslInStudio" />
 									</div>
 								) }
 							</div>
+
+							{ isXdebugFeatureEnabled && (
+								<div
+									className={ cx(
+										'flex flex-col gap-2 mt-4',
+										isEditingSite ||
+											( xdebugEnabledSite && xdebugEnabledSite.id !== selectedSite?.id )
+											? 'opacity-50 cursor-not-allowed'
+											: ''
+									) }
+								>
+									<Tooltip
+										disabled={ ! xdebugEnabledSite || xdebugEnabledSite.id === selectedSite?.id }
+										text={ sprintf(
+											__(
+												'Xdebug is currently enabled for "%s" site. Disable it there first to enable it for this site.'
+											),
+											xdebugEnabledSite?.name || ''
+										) }
+										placement="top-start"
+									>
+										<div>
+											<div className="flex items-center gap-2">
+												<input
+													type="checkbox"
+													id="enable-xdebug"
+													checked={ enableXdebug }
+													onChange={ ( e ) => setEnableXdebug( e.target.checked ) }
+													disabled={
+														isEditingSite ||
+														!! ( xdebugEnabledSite && xdebugEnabledSite.id !== selectedSite?.id )
+													}
+												/>
+												<label
+													htmlFor="enable-xdebug"
+													className={ cx(
+														isEditingSite ||
+															( xdebugEnabledSite && xdebugEnabledSite.id !== selectedSite?.id )
+															? 'cursor-not-allowed'
+															: ''
+													) }
+												>
+													{ __( 'Enable Xdebug' ) }
+												</label>
+											</div>
+											<div className="text-a8c-gray-50 text-xs mt-2">
+												{ createInterpolateElement(
+													__(
+														'Enable PHP debugging with Xdebug. Only one site can have Xdebug enabled at a time. Note that Xdebug may slow down site performance. <learn_more_link />'
+													),
+													{
+														learn_more_link: <LearnMoreLink docsLinksKey="docsXdebug" />,
+													}
+												) }
+											</div>
+										</div>
+									</Tooltip>
+								</div>
+							) }
 						</div>
 
 						<div className="flex flex-row justify-end gap-x-5 mt-8">

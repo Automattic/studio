@@ -23,9 +23,16 @@ function ipcRendererSend< T extends keyof IpcHandlers >(
 const api: IpcApi = {
 	exportSiteForPush: ( id, operationId, configuration ) =>
 		ipcRendererInvoke( 'exportSiteForPush', id, operationId, configuration ),
-	pushArchive: ( remoteSiteId, archivePath, optionsToSync, specificSelectionPaths ) =>
+	pushArchive: (
+		selectedSiteId,
+		remoteSiteId,
+		archivePath,
+		optionsToSync,
+		specificSelectionPaths
+	) =>
 		ipcRendererInvoke(
 			'pushArchive',
+			selectedSiteId,
 			remoteSiteId,
 			archivePath,
 			optionsToSync,
@@ -54,6 +61,7 @@ const api: IpcApi = {
 	getLastSeenVersion: () => ipcRendererInvoke( 'getLastSeenVersion' ),
 	saveLastSeenVersion: ( version ) => ipcRendererInvoke( 'saveLastSeenVersion', version ),
 	getSiteDetails: () => ipcRendererInvoke( 'getSiteDetails' ),
+	getXdebugEnabledSite: () => ipcRendererInvoke( 'getXdebugEnabledSite' ),
 	openSiteURL: ( id, relativeURL = '', { autoLogin = true } = {} ) =>
 		ipcRendererSend( 'openSiteURL', id, relativeURL, { autoLogin } ),
 	openURL: ( url ) => ipcRendererSend( 'openURL', url ),

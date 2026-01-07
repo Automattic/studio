@@ -7,6 +7,7 @@ import {
 	unlockAppdata,
 } from 'cli/lib/appdata';
 import { Logger, LoggerError } from 'cli/logger';
+import { runCommand } from '../logout';
 
 jest.mock( 'cli/lib/appdata' );
 jest.mock( 'cli/logger' );
@@ -55,7 +56,6 @@ describe( 'Auth Logout Command', () => {
 	} );
 
 	it( 'should complete the logout process successfully', async () => {
-		const { runCommand } = await import( '../logout' );
 		await runCommand();
 
 		expect( getAuthToken ).toHaveBeenCalled();
@@ -72,7 +72,6 @@ describe( 'Auth Logout Command', () => {
 	it( 'should report an error if revoking the token fails', async () => {
 		( revokeAuthToken as jest.Mock ).mockRejectedValue( new Error( 'Failed to revoke token' ) );
 
-		const { runCommand } = await import( '../logout' );
 		await runCommand();
 
 		expect( getAuthToken ).toHaveBeenCalled();
@@ -87,7 +86,6 @@ describe( 'Auth Logout Command', () => {
 	it( 'should report already logged out if no auth token exists', async () => {
 		( getAuthToken as jest.Mock ).mockRejectedValue( new Error( 'No auth token' ) );
 
-		const { runCommand } = await import( '../logout' );
 		await runCommand();
 
 		expect( getAuthToken ).toHaveBeenCalled();
@@ -101,7 +99,6 @@ describe( 'Auth Logout Command', () => {
 	it( 'should unlock appdata even if save fails', async () => {
 		( saveAppdata as jest.Mock ).mockRejectedValue( new Error( 'Failed to save' ) );
 
-		const { runCommand } = await import( '../logout' );
 		await runCommand();
 
 		expect( revokeAuthToken ).toHaveBeenCalled();

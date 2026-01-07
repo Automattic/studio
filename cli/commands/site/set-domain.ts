@@ -2,8 +2,15 @@ import { __, _n } from '@wordpress/i18n';
 import { getDomainNameValidationError } from 'common/lib/domains';
 import { arePathsEqual } from 'common/lib/fs-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { lockAppdata, readAppdata, saveAppdata, SiteData, unlockAppdata } from 'cli/lib/appdata';
-import { removeDomainFromHosts } from 'cli/lib/hosts-file';
+import {
+	lockAppdata,
+	readAppdata,
+	saveAppdata,
+	SiteData,
+	unlockAppdata,
+	updateSiteLatestCliPid,
+} from 'cli/lib/appdata';
+import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { setupCustomDomain } from 'cli/lib/site-utils';
 import {
@@ -52,16 +59,11 @@ export async function runCommand( sitePath: string, domainName: string ): Promis
 			await unlockAppdata();
 		}
 
-		if ( oldDomainName ) {
-			logger.reportStart(
-				LoggerAction.REMOVE_DOMAIN_FROM_HOSTS,
-				__( 'Removing domain from hosts file...' )
-			);
-			await removeDomainFromHosts( oldDomainName );
-			logger.reportSuccess( __( 'Domain removed from hosts file' ) );
-		}
+		logger.reportStart( LoggerAction.ADD_DOMAIN_TO_HOSTS, __( 'Updating hosts file…' ) );
+		await updateDomainInHosts( oldDomainName, domainName, site.port );
+		logger.reportSuccess( __( 'Hosts file updated' ) );
 
-		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
+		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connect();
 		logger.reportSuccess( __( 'Process daemon started' ) );
 
@@ -69,9 +71,12 @@ export async function runCommand( sitePath: string, domainName: string ): Promis
 
 		if ( runningProcess ) {
 			await stopWordPressServer( site.id );
-			await setupCustomDomain( site, logger );
-			logger.reportStart( LoggerAction.START_SITE, __( 'Restarting site...' ) );
-			await startWordPressServer( site, logger );
+			await setupCustomDomain( site, logger, { skipHostsUpdate: true } );
+			logger.reportStart( LoggerAction.START_SITE, __( 'Restarting site…' ) );
+			const processDesc = await startWordPressServer( site, logger );
+			if ( processDesc.pid ) {
+				await updateSiteLatestCliPid( site.id, processDesc.pid );
+			}
 			logger.reportSuccess( __( 'Site restarted' ) );
 		}
 	} finally {

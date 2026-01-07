@@ -170,7 +170,19 @@ function mergeSiteDetailsWithRunningDetails( sites: SiteDetails[] ): SiteDetails
 	return sites.map( ( site ) => {
 		const server = SiteServer.get( site.id );
 		if ( server ) {
-			return server.details;
+			// Merge fresh data from disk with running state from server
+			// This ensures external changes (e.g., from CLI) are reflected
+			if ( server.details.running ) {
+				return {
+					...site,
+					running: true as const,
+					url: server.details.url,
+				};
+			}
+			return {
+				...site,
+				running: false as const,
+			};
 		}
 		return site;
 	} );
@@ -189,6 +201,18 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	}
 
 	return mergeSiteDetailsWithRunningDetails( sites );
+}
+
+export async function getXdebugEnabledSite(
+	_event: IpcMainInvokeEvent
+): Promise< SiteDetails | null > {
+	const userData = await loadUserData();
+	const { sites } = userData;
+	const xdebugSite = sites.find( ( site ) => site.enableXdebug );
+	if ( ! xdebugSite ) {
+		return null;
+	}
+	return mergeSiteDetailsWithRunningDetails( [ xdebugSite ] )[ 0 ] || null;
 }
 
 export async function importSite(
@@ -414,6 +438,7 @@ export interface FolderDialogResponse {
 	name: string;
 	isEmpty: boolean;
 	isWordPress: boolean;
+	isNameTooLong?: boolean;
 }
 
 export async function showSaveAsDialog( event: IpcMainInvokeEvent, options: SaveDialogOptions ) {
@@ -493,16 +518,7 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 		if ( ! server ) {
 			throw new Error( 'Site not found.' );
 		}
-		await server.delete();
-		try {
-			// Move files to trash
-			if ( deleteFiles ) {
-				await shell.trashItem( server.details.path );
-			}
-		} catch ( error ) {
-			/* We want to exit gracefully if the there is an error deleting the site files */
-			Sentry.captureException( error );
-		}
+		await server.delete( deleteFiles );
 		const newSites = userData.sites.filter( ( site ) => site.id !== id );
 		await saveUserData( { ...userData, sites: newSites } );
 	} finally {
@@ -675,6 +691,15 @@ export async function generateProposedSitePath(
 				name: siteName,
 				isEmpty: true,
 				isWordPress: false,
+			};
+		}
+		if ( isErrnoException( err ) && err.code === 'ENAMETOOLONG' ) {
+			return {
+				path,
+				name: siteName,
+				isEmpty: false,
+				isWordPress: false,
+				isNameTooLong: true,
 			};
 		}
 		throw err;
@@ -1032,13 +1057,22 @@ export function showSiteContextMenu(
 		isRunning: boolean;
 		isLoading: boolean;
 		isAddingSite: boolean;
+		isSyncing: boolean;
 		finderLabel: string;
 		editorLabel: string | null;
 		terminalLabel: string;
 	}
 ) {
-	const { siteId, isRunning, isLoading, isAddingSite, finderLabel, editorLabel, terminalLabel } =
-		context;
+	const {
+		siteId,
+		isRunning,
+		isLoading,
+		isAddingSite,
+		isSyncing,
+		finderLabel,
+		editorLabel,
+		terminalLabel,
+	} = context;
 	const menu = new Menu();
 
 	if ( isRunning ) {
@@ -1202,7 +1236,7 @@ export function showSiteContextMenu(
 	menu.append(
 		new MenuItem( {
 			label: __( 'Delete site…' ),
-			enabled: ! isLoading && ! isAddingSite,
+			enabled: ! isLoading && ! isAddingSite && ! isSyncing,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
 					BrowserWindow.fromWebContents( event.sender ),

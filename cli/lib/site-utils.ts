@@ -14,7 +14,7 @@ import { Logger, LoggerError } from 'cli/logger';
 export async function startProxyIfNeeded( logger: Logger< LoggerAction > ): Promise< void > {
 	const proxyProcess = await isProxyProcessRunning();
 	if ( ! proxyProcess ) {
-		logger.reportStart( LoggerAction.START_PROXY, __( 'Starting HTTP proxy server...' ) );
+		logger.reportStart( LoggerAction.START_PROXY, __( 'Starting HTTP proxy server…' ) );
 		await startProxyProcess();
 		logger.reportSuccess( __( 'HTTP proxy server started' ) );
 	} else {
@@ -44,16 +44,21 @@ export function logSiteDetails( site: SiteData ): void {
 	const siteUrl = getSiteUrl( site );
 	console.log( __( 'Site URL: ' ), siteUrl );
 	console.log( __( 'Username: ' ), 'admin' );
-	console.log( __( 'Password: ' ), site.adminPassword );
+	if ( site.adminPassword ) {
+		console.log( __( 'Password: ' ), site.adminPassword );
+	}
 }
 
 /**
  * Sets up custom domain for a site before starting.
  * Handles proxy server startup, SSL certificate generation, and hosts file configuration.
+ *
+ * @param options.skipHostsUpdate - Skip adding domain to hosts file (useful when caller already handled it)
  */
 export async function setupCustomDomain(
 	site: SiteData,
-	logger: Logger< LoggerAction >
+	logger: Logger< LoggerAction >,
+	options?: { skipHostsUpdate?: boolean }
 ): Promise< void > {
 	if ( ! site.customDomain ) {
 		return;
@@ -62,17 +67,19 @@ export async function setupCustomDomain(
 	await startProxyIfNeeded( logger );
 
 	if ( site.enableHttps && ! site.tlsKey && ! site.tlsCert ) {
-		logger.reportStart( LoggerAction.GENERATE_CERT, __( 'Generating SSL certificates...' ) );
+		logger.reportStart( LoggerAction.GENERATE_CERT, __( 'Generating SSL certificates…' ) );
 		await generateSiteCertificate( site.customDomain );
 		logger.reportSuccess( __( 'SSL certificates generated' ) );
 	}
 
-	logger.reportStart( LoggerAction.ADD_DOMAIN_TO_HOSTS, __( 'Adding domain to hosts file...' ) );
-	try {
-		await addDomainToHosts( site.customDomain, site.port );
-		logger.reportSuccess( __( 'Domain added to hosts file' ) );
-	} catch ( error ) {
-		throw new LoggerError( __( 'Failed to add domain to hosts file' ), error );
+	if ( ! options?.skipHostsUpdate ) {
+		logger.reportStart( LoggerAction.ADD_DOMAIN_TO_HOSTS, __( 'Adding domain to hosts file…' ) );
+		try {
+			await addDomainToHosts( site.customDomain, site.port );
+			logger.reportSuccess( __( 'Domain added to hosts file' ) );
+		} catch ( error ) {
+			throw new LoggerError( __( 'Failed to add domain to hosts file' ), error );
+		}
 	}
 }
 
@@ -107,7 +114,7 @@ export async function stopProxyIfNoSitesNeedIt(
 		return;
 	}
 
-	logger.reportStart( LoggerAction.STOP_PROXY, __( 'Stopping HTTP proxy server...' ) );
+	logger.reportStart( LoggerAction.STOP_PROXY, __( 'Stopping HTTP proxy server…' ) );
 	await stopProxyProcess();
 	logger.reportSuccess( __( 'HTTP proxy server stopped' ) );
 }

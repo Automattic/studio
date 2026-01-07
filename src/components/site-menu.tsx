@@ -115,23 +115,27 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 	);
 }
 function SiteItem( { site }: { site: SiteDetails } ) {
-	const { selectedSite, setSelectedSiteId, loadingServer } = useSiteDetails();
+	const { selectedSite, setSelectedSiteId, loadingServer, isSiteDeleting } = useSiteDetails();
 	const isSelected = site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
-	const { isSiteIdPulling } = useSyncSites();
+	const { isSiteIdPulling, isSiteIdPushing } = useSyncSites();
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
 	const isImporting = isSiteImporting( site.id );
 	const isExporting = isSiteExporting( site.id );
 	const isPulling = isSiteIdPulling( site.id );
-	const showSpinner = site.isAddingSite || isImporting || isPulling || isExporting;
+	const isPushing = isSiteIdPushing( site.id );
+	const isSyncing = isPulling || isPushing;
+	const isDeleting = isSiteDeleting( site.id );
+	const showSpinner =
+		site.isAddingSite || isImporting || isPulling || isPushing || isExporting || isDeleting;
 
 	let tooltipText;
 	if ( site.isAddingSite ) {
 		tooltipText = __( 'Adding' );
 	} else if ( isImporting ) {
 		tooltipText = __( 'Importing' );
-	} else if ( isPulling ) {
+	} else if ( isSyncing ) {
 		tooltipText = __( 'Syncing' );
 	} else {
 		tooltipText = __( 'Loading' );
@@ -152,6 +156,7 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 			isRunning: site.running,
 			isLoading,
 			isAddingSite,
+			isSyncing,
 			finderLabel,
 			editorLabel,
 			terminalLabel,

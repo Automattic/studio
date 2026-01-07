@@ -60,10 +60,6 @@ export function disconnect(): void {
 	}
 }
 
-process.on( 'exit', disconnect );
-process.on( 'SIGINT', disconnect );
-process.on( 'SIGTERM', disconnect );
-
 // Cache the return value of `pm2.list` for a very short time to make multiple calls in quick
 // succession more efficient
 const listProcesses = cacheFunctionTTL( () => {

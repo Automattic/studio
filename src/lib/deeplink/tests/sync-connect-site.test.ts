@@ -18,6 +18,7 @@ describe( 'handleSyncConnectSiteDeeplink', () => {
 		expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'sync-connect-site', {
 			remoteSiteId: 123,
 			studioSiteId: 'local-site',
+			autoOpenPush: false,
 		} );
 	} );
 

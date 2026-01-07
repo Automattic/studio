@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import { ClearAction } from 'src/components/clear-action';
 import { ErrorIcon } from 'src/components/error-icon';
+import { LearnMoreLink } from 'src/components/learn-more';
 import ProgressBar from 'src/components/progress-bar';
 import { Tooltip } from 'src/components/tooltip';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
@@ -19,8 +20,6 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { getLocalizedLink } from 'src/lib/get-localized-link';
-import { useI18nLocale } from 'src/stores';
 import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
 
 interface ContentTabImportExportProps {
@@ -181,7 +180,6 @@ const ImportSite = ( {
 	isThisSiteSyncing: boolean;
 } ) => {
 	const { __ } = useI18n();
-	const locale = useI18nLocale();
 	const { startServer, loadingServer } = useSiteDetails();
 	const { importState, importFile, clearImportState, exportState } = useImportExport();
 	const { [ selectedSite.id ]: currentProgress } = importState;
@@ -264,17 +262,10 @@ const ImportSite = ( {
 			<div className="text-a8c-gray-70 a8c-body mb-4">
 				{ createInterpolateElement(
 					__(
-						'Import a Jetpack backup, a full-site backup in another format, or a .sql database file. <button>Learn more</button>'
+						'Import a Jetpack backup, a full-site backup in another format, or a .sql database file. <learn_more_link />'
 					),
 					{
-						button: (
-							<Button
-								variant="link"
-								onClick={ () =>
-									getIpcApi().openURL( getLocalizedLink( locale, 'docsImportExport' ) )
-								}
-							/>
-						),
+						learn_more_link: <LearnMoreLink docsLinksKey="docsImportExport" />,
 					}
 				) }
 			</div>

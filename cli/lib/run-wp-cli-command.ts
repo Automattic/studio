@@ -4,6 +4,10 @@ import { runCLI } from '@wp-playground/cli';
 import { getMuPlugins } from 'common/lib/mu-plugins';
 import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 
+export interface RunWpCliCommandOptions {
+	siteUrl?: string;
+}
+
 // Run a WP-CLI command in a Playground instance using a random port. This function can be used
 // even if the targeted Studio site is already running, but it is typically faster to use the
 // `sendWpCliCommand` function in that case.
@@ -11,7 +15,8 @@ export async function runWpCliCommand(
 	siteFolder: string,
 	phpVersion: SupportedPHPVersion,
 	sitePort: number,
-	args: string[]
+	args: string[],
+	options?: RunWpCliCommandOptions
 ): Promise< [ StreamedPHPResponse, closeServer: () => Promise< void > ] > {
 	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
 		isWpAutoUpdating: false,
@@ -40,11 +45,13 @@ export async function runWpCliCommand(
 		},
 	];
 
+	const siteUrl = options?.siteUrl ?? `http://localhost:${ sitePort }`;
+
 	const runCliServer = await runCLI( {
 		command: 'server',
 		followSymlinks: true,
 		'mount-before-install': mounts,
-		'site-url': `http://localhost:${ sitePort }`,
+		'site-url': siteUrl,
 		verbosity: 'quiet',
 		wordpressInstallMode: 'do-not-attempt-installing',
 		php: phpVersion,

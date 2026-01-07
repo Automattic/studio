@@ -154,7 +154,7 @@ export async function runCommand(
 		if ( wpChanged ) {
 			logger.reportStart( LoggerAction.SET_WP_VERSION, __( 'Changing WordPress version…' ) );
 			const phpVersion = validatePhpVersion( site.phpVersion );
-			const zipUrl = getWordPressVersionUrl( wp! );
+			const zipUrl = getWordPressVersionUrl( wp );
 
 			// Use the correct site URL to avoid corrupting WordPress URL options
 			let siteUrl: string | undefined;

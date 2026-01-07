@@ -41,7 +41,7 @@ jest.mock( 'cli/lib/wordpress-server-manager' );
 describe( 'CLI: studio site set', () => {
 	const testSitePath = '/test/site';
 
-	const createTestSite = (): SiteData => ( {
+	const getTestSite = (): SiteData => ( {
 		id: 'site-1',
 		name: 'Test Site',
 		path: testSitePath,
@@ -51,8 +51,8 @@ describe( 'CLI: studio site set', () => {
 		adminPassword: 'password123',
 	} );
 
-	const createTestSiteWithDomain = (): SiteData => ( {
-		...createTestSite(),
+	const getTestSiteWithDomain = (): SiteData => ( {
+		...getTestSite(),
 		customDomain: 'test.local',
 		enableHttps: false,
 	} );
@@ -65,11 +65,11 @@ describe( 'CLI: studio site set', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
 
-		const testSite = createTestSite();
+		const testSite = getTestSite();
 		const testAppdata = { sites: [ testSite ], snapshots: [] };
 
 		( arePathsEqual as jest.Mock ).mockReturnValue( true );
-		( getSiteByFolder as jest.Mock ).mockResolvedValue( createTestSite() );
+		( getSiteByFolder as jest.Mock ).mockResolvedValue( getTestSite() );
 		( readAppdata as jest.Mock ).mockResolvedValue( testAppdata );
 		( connect as jest.Mock ).mockResolvedValue( undefined );
 		( disconnect as jest.Mock ).mockResolvedValue( undefined );
@@ -128,7 +128,7 @@ describe( 'CLI: studio site set', () => {
 		} );
 
 		it( 'should allow enabling HTTPS when site already has domain', async () => {
-			const siteWithDomain = createTestSiteWithDomain();
+			const siteWithDomain = getTestSiteWithDomain();
 			( getSiteByFolder as jest.Mock ).mockResolvedValue( siteWithDomain );
 			( readAppdata as jest.Mock ).mockResolvedValue( {
 				sites: [ siteWithDomain ],
@@ -144,19 +144,12 @@ describe( 'CLI: studio site set', () => {
 
 	describe( 'Name changes', () => {
 		it( 'should update site name without restart', async () => {
-			await runCommand( testSitePath, { name: 'New Name' } );
-
-			const savedAppdata = ( saveAppdata as jest.Mock ).mock.calls[ 0 ][ 0 ];
-			expect( savedAppdata.sites[ 0 ].name ).toBe( 'New Name' );
-			expect( stopWordPressServer ).not.toHaveBeenCalled();
-			expect( startWordPressServer ).not.toHaveBeenCalled();
-		} );
-
-		it( 'should not restart running site when only name changes', async () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
 
 			await runCommand( testSitePath, { name: 'New Name' } );
 
+			const savedAppdata = ( saveAppdata as jest.Mock ).mock.calls[ 0 ][ 0 ];
+			expect( savedAppdata.sites[ 0 ].name ).toBe( 'New Name' );
 			expect( stopWordPressServer ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 		} );
@@ -190,7 +183,7 @@ describe( 'CLI: studio site set', () => {
 
 	describe( 'HTTPS changes', () => {
 		it( 'should update HTTPS setting', async () => {
-			const siteWithDomain = createTestSiteWithDomain();
+			const siteWithDomain = getTestSiteWithDomain();
 			( getSiteByFolder as jest.Mock ).mockResolvedValue( siteWithDomain );
 			( readAppdata as jest.Mock ).mockResolvedValue( {
 				sites: [ siteWithDomain ],
@@ -201,10 +194,12 @@ describe( 'CLI: studio site set', () => {
 
 			const savedAppdata = ( saveAppdata as jest.Mock ).mock.calls[ 0 ][ 0 ];
 			expect( savedAppdata.sites[ 0 ].enableHttps ).toBe( true );
+			expect( stopWordPressServer ).not.toHaveBeenCalled();
+			expect( startWordPressServer ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should restart running site when HTTPS changes', async () => {
-			const siteWithDomain = createTestSiteWithDomain();
+			const siteWithDomain = getTestSiteWithDomain();
 			( getSiteByFolder as jest.Mock ).mockResolvedValue( siteWithDomain );
 			( readAppdata as jest.Mock ).mockResolvedValue( {
 				sites: [ siteWithDomain ],
@@ -225,6 +220,8 @@ describe( 'CLI: studio site set', () => {
 
 			const savedAppdata = ( saveAppdata as jest.Mock ).mock.calls[ 0 ][ 0 ];
 			expect( savedAppdata.sites[ 0 ].phpVersion ).toBe( '8.2' );
+			expect( stopWordPressServer ).not.toHaveBeenCalled();
+			expect( startWordPressServer ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should restart running site when PHP version changes', async () => {
@@ -238,13 +235,9 @@ describe( 'CLI: studio site set', () => {
 	} );
 
 	describe( 'WordPress version changes', () => {
-		const mockWpCliResponse = {
-			exitCode: Promise.resolve( 0 ),
-		};
-
 		beforeEach( () => {
 			( runWpCliCommand as jest.Mock ).mockResolvedValue( [
-				mockWpCliResponse,
+				{ exitCode: Promise.resolve( 0 ) },
 				jest.fn().mockResolvedValue( undefined ),
 			] );
 		} );
@@ -282,11 +275,16 @@ describe( 'CLI: studio site set', () => {
 			);
 		} );
 
-		it( 'should update isWpAutoUpdating when setting to latest', async () => {
-			await runCommand( testSitePath, { wp: 'latest' } );
+		it( 'should update isWpAutoUpdating to false when using specific version', async () => {
+			await runCommand( testSitePath, { wp: '6.8' } );
 
-			// Second saveAppdata call updates isWpAutoUpdating
-			expect( saveAppdata ).toHaveBeenCalledTimes( 2 );
+			expect( saveAppdata ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.arrayContaining( [
+						expect.objectContaining( { isWpAutoUpdating: false } ),
+					] ),
+				} )
+			);
 		} );
 	} );
 
@@ -317,7 +315,7 @@ describe( 'CLI: studio site set', () => {
 			expect( startWordPressServer ).toHaveBeenCalledTimes( 1 );
 		} );
 
-		it( 'should handle name + domain change (only domain triggers restart)', async () => {
+		it( "should restart if options contain changes that require restart and ones that don't", async () => {
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
 
 			await runCommand( testSitePath, {

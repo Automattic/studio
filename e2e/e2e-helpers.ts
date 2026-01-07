@@ -39,40 +39,42 @@ export class E2ESession {
 		};
 		await fs.writeFile( appdataPath, JSON.stringify( initialAppdata, null, 2 ) );
 
-		// find the latest build in the out directory
-		const latestBuild = findLatestBuild();
-
-		// parse the packaged Electron app and find paths and other info
-		const appInfo = parseElectronApp( latestBuild );
-		let executablePath = appInfo.executable;
-		if ( appInfo.platform === 'win32' ) {
-			// `parseElectronApp` function obtains the executable path by finding the first executable from the build folder.
-			// We need to ensure that the executable is the Studio app.
-			executablePath = executablePath.replace( 'Squirrel.exe', 'Studio.exe' );
-		}
-
-		this.electronApp = await electron.launch( {
-			args: [ appInfo.main ], // main file from package.json
-			executablePath, // path to the Electron executable
-			env: {
-				...process.env,
-				...testEnv,
-				E2E: 'true', // allow app to determine whether it's running as an end-to-end test
-				E2E_APP_DATA_PATH: this.appDataPath,
-				E2E_HOME_PATH: this.homePath,
-			},
-			timeout: 60_000,
-		} );
-		this.mainWindow = await this.electronApp.firstWindow( { timeout: 60_000 } );
+		await this.launchFirstWindow( testEnv );
 	}
 
 	// Close the app but keep the data for persistence testing
 	async restart() {
-		await this.electronApp?.close();
+		await this.forceCloseApp();
+		await this.launchFirstWindow();
+	}
+
+	private async forceCloseApp() {
+		if ( ! this.electronApp ) {
+			return;
+		}
+
+		// We kill the Electron process instead of closing the app, because `electronApp.close()` hangs
+		// while waiting for child processes to exit.
+		const process = this.electronApp.process();
+		process.kill( 'SIGKILL' );
+
+		// Wait for the process to actually exit
+		await new Promise< void >( ( resolve ) => {
+			if ( process.exitCode !== null ) {
+				resolve();
+				return;
+			}
+			process.on( 'exit', () => resolve() );
+		} );
+	}
+
+	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {
 		const latestBuild = findLatestBuild();
 		const appInfo = parseElectronApp( latestBuild );
 		let executablePath = appInfo.executable;
 		if ( appInfo.platform === 'win32' ) {
+			// `parseElectronApp` function obtains the executable path by finding the first executable from
+			// the build folder. We need to ensure that the executable is the Studio app.
 			executablePath = executablePath.replace( 'Squirrel.exe', 'Studio.exe' );
 		}
 
@@ -81,6 +83,7 @@ export class E2ESession {
 			executablePath,
 			env: {
 				...process.env,
+				...testEnv,
 				E2E: 'true',
 				E2E_APP_DATA_PATH: this.appDataPath,
 				E2E_HOME_PATH: this.homePath,
@@ -91,7 +94,7 @@ export class E2ESession {
 	}
 
 	async cleanup() {
-		await this.electronApp?.close();
+		await this.forceCloseApp();
 
 		// Removing the `sessionPath` directory has proven to be difficult, especially on Windows. Since
 		// session paths are unique, the WordPress installations are relatively small, and the E2E tests

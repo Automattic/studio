@@ -94,7 +94,9 @@ export class E2ESession {
 	async cleanup() {
 		await this.electronApp?.close();
 
-		// Clean up temporary folder to hold application data
-		await rimraf( this.sessionPath );
+		// Removing the `sessionPath` directory has proven to be difficult, especially on Windows. Since
+		// session paths are unique, the WordPress installations are relatively small, and the E2E tests
+		// primarily run in ephemeral CI workers, we've decided to fix this issue by simply not removing
+		// the `sessionPath` directory.
 	}
 }

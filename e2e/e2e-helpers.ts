@@ -4,7 +4,6 @@ import path from 'path';
 import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
 import fs from 'fs-extra';
 import { _electron as electron, Page, ElectronApplication } from 'playwright';
-import { rimraf } from 'rimraf';
 
 export class E2ESession {
 	electronApp: ElectronApplication;

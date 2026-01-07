@@ -5,7 +5,8 @@
 
 # The ~> modifier is not currently used, but we check for it just in case
 XCODE_VERSION=$(sed -E -n 's/^(~> )?(.*)/xcode-\2/p' .xcode-version)
-CI_TOOLKIT_VERSION='5.7.0'
+CI_TOOLKIT_VERSION=ainfra-1466-audit-ps1-exit-codes
+export BUILDKITE_PLUGINS_ALWAYS_CLONE_FRESH=true
 NVM_PLUGIN_VERSION='0.6.0'
 
 export IMAGE_ID="$XCODE_VERSION"

@@ -40,7 +40,7 @@ test.describe( 'Blueprints', () => {
 		await modal.selectBlueprintFile( blueprintPath );
 
 		// Wait for file to be processed and continue button to be enabled
-		await session.mainWindow.waitForTimeout( 1000 );
+		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
 		await modal.continueButton.click();
 
 		// Fill in site name
@@ -76,7 +76,7 @@ test.describe( 'Blueprints', () => {
 		await modal.selectBlueprintFile( blueprintPath );
 
 		// Wait for file to be processed and continue button to be enabled
-		await session.mainWindow.waitForTimeout( 1000 );
+		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
 		await modal.continueButton.click();
 
 		// Fill in site name
@@ -114,7 +114,7 @@ test.describe( 'Blueprints', () => {
 		await modal.selectBlueprintFile( blueprintPath );
 
 		// Wait for file to be processed and continue button to be enabled
-		await session.mainWindow.waitForTimeout( 1000 );
+		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
 		await modal.continueButton.click();
 
 		// Fill in site name
@@ -150,7 +150,7 @@ test.describe( 'Blueprints', () => {
 		await modal.selectBlueprintFile( blueprintPath );
 
 		// Wait for file to be processed and continue button to be enabled
-		await session.mainWindow.waitForTimeout( 1000 );
+		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
 		await modal.continueButton.click();
 
 		// Fill in site name
@@ -188,7 +188,7 @@ test.describe( 'Blueprints', () => {
 		await modal.selectBlueprintFile( blueprintPath );
 
 		// Wait for file to be processed and continue button to be enabled
-		await session.mainWindow.waitForTimeout( 1000 );
+		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
 		await modal.continueButton.click();
 
 		// Fill in site name
@@ -227,7 +227,7 @@ test.describe( 'Blueprints', () => {
 		await modal.selectBlueprintFile( blueprintPath );
 
 		// Wait for file to be processed and continue button to be enabled
-		await session.mainWindow.waitForTimeout( 1000 );
+		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
 		await modal.continueButton.click();
 
 		// Fill in site name

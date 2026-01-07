@@ -339,7 +339,10 @@ function SiteItem( {
 			) }
 			{ needsUpgrade && (
 				<div className="a8c-body-small text-a8c-gray-30 shrink-0 text-right">
-					<Tooltip text={ __( 'Sync support is available only with Business plan and above' ) }>
+					<Tooltip
+						text={ __( 'Sync support is available only with Business plan and above' ) }
+						placement="bottom"
+					>
 						<Button
 							variant="link"
 							onClick={ () => getIpcApi().openURL( `https://wordpress.com/plans/${ site.id }` ) }
@@ -374,7 +377,10 @@ function SiteItem( {
 				</div>
 			) }
 			{ isUnsupported && (
-				<Tooltip text={ __( 'Self-hosted (e.g. jurassic.ninja) sites are not supported' ) }>
+				<Tooltip
+					text={ __( 'Self-hosted (e.g. jurassic.ninja) sites are not supported' ) }
+					placement="bottom"
+				>
 					<div className="a8c-body-small text-a8c-gray-30 shrink-0">
 						{ __( 'Unsupported site' ) }
 					</div>

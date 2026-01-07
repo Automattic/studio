@@ -9,7 +9,7 @@ import path from 'path';
 import followRedirects, { FollowResponse } from 'follow-redirects';
 import fs from 'fs-extra';
 import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
-import unzipper from 'unzipper';
+import { extractZip } from 'common/lib/extract-zip';
 import { getWordPressVersionPath, getWpCliPath } from './server-files-paths';
 
 const { https } = followRedirects;
@@ -146,6 +146,7 @@ async function downloadFileAndUnzip( {
 	}
 
 	let statusCode = 0;
+	const tempZipPath = path.join( os.tmpdir(), `${ Date.now() }-${ path.basename( url ) }` );
 
 	try {
 		await fs.ensureDir( path.dirname( destinationFolder ) );
@@ -160,41 +161,33 @@ async function downloadFileAndUnzip( {
 			throw new Error( `Failed to download file (Status code ${ response.statusCode }).` );
 		}
 
-		const entryPromises: Promise< unknown >[] = [];
+		await new Promise< void >( ( resolve, reject ) => {
+			const file = fs.createWriteStream( tempZipPath );
+			response.pipe( file );
+			file.on( 'finish', () => {
+				file.close();
+				resolve();
+			} );
+			file.on( 'error', ( error ) => {
+				file.close();
+				reject( error );
+			} );
+		} );
 
-		await response
-			.pipe( unzipper.Parse() )
-			.on( 'entry', ( entry ) => {
-				const normalizedPath = path.normalize( entry.path );
-				const filePath = path.join( destinationFolder, normalizedPath );
-
-				if ( ! filePath.startsWith( destinationFolder ) ) {
-					console.log( `Skipping invalid path: ${ entry.path }` );
-					entryPromises.push( entry.autodrain().promise() );
-					return;
-				}
-
-				fs.ensureDirSync( path.dirname( filePath ) );
-
-				if ( entry.type === 'Directory' ) {
-					entryPromises.push( entry.autodrain().promise() );
-				} else {
-					const promise = new Promise( ( resolve, reject ) => {
-						entry
-							.pipe( fs.createWriteStream( filePath ) )
-							.on( 'close', resolve )
-							.on( 'error', reject );
-					} );
-					entryPromises.push( promise );
-				}
-			} )
-			.promise();
-
-		await Promise.all( entryPromises );
+		await extractZip( tempZipPath, destinationFolder );
 
 		return { downloaded: true, statusCode };
 	} catch ( err ) {
 		console.error( `Error downloading or unzipping ${ itemName }:`, err );
+	} finally {
+		// Clean up temp file
+		if ( fs.existsSync( tempZipPath ) ) {
+			try {
+				await fs.remove( tempZipPath );
+			} catch ( cleanupErr ) {
+				console.error( 'Error cleaning up temp zip file:', cleanupErr );
+			}
+		}
 	}
 	return { downloaded: false, statusCode };
 }

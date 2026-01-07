@@ -8,8 +8,9 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { promisify } from 'util';
 import { extract } from 'tar';
-import unzipper from 'unzipper';
+import yauzl from 'yauzl';
 
 const LTS_FALLBACK = 'v22.12.0';
 
@@ -120,15 +121,49 @@ async function extractTarGz( archivePath, destDir, binaryName ) {
 	fs.rmSync( extractDir, { recursive: true } );
 }
 
+const openZip = promisify( yauzl.open );
+
 async function extractZip( archivePath, destDir, binaryName ) {
 	console.log( 'Extracting node.exe...' );
 
 	const extractDir = path.join( tmpDir, `node-${ NODE_VERSION }-${ nodePlatform }-${ nodeArch }` );
 
-	await fs
-		.createReadStream( archivePath )
-		.pipe( unzipper.Extract( { path: tmpDir } ) )
-		.promise();
+	const zipFile = await openZip( archivePath, { lazyEntries: true } );
+	const openReadStream = promisify( zipFile.openReadStream.bind( zipFile ) );
+
+	await new Promise( ( resolve, reject ) => {
+		zipFile.on( 'entry', async ( entry ) => {
+			if ( entry.fileName.endsWith( '/' ) ) {
+				zipFile.readEntry();
+				return;
+			}
+
+			const fullPath = path.join( tmpDir, entry.fileName );
+			const entryDir = path.dirname( fullPath );
+
+			try {
+				fs.mkdirSync( entryDir, { recursive: true } );
+
+				const readStream = await openReadStream( entry );
+				const writeStream = fs.createWriteStream( fullPath );
+
+				writeStream.once( 'finish', () => {
+					zipFile.readEntry();
+				} );
+
+				writeStream.once( 'error', reject );
+				readStream.once( 'error', reject );
+
+				readStream.pipe( writeStream );
+			} catch ( error ) {
+				reject( error );
+			}
+		} );
+
+		zipFile.on( 'end', resolve );
+		zipFile.on( 'error', reject );
+		zipFile.readEntry();
+	} );
 
 	const sourcePath = path.join( extractDir, 'node.exe' );
 	const destPath = path.join( destDir, binaryName );

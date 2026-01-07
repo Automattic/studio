@@ -3,6 +3,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from 'common/constants';
 import { getDomainNameValidationError } from 'common/lib/domains';
 import { arePathsEqual } from 'common/lib/fs-utils';
+import { siteNeedsRestart } from 'common/lib/site-needs-restart';
 import {
 	getWordPressVersionUrl,
 	isValidWordPressVersion,
@@ -129,7 +130,13 @@ export async function runCommand(
 			);
 		}
 
-		const needsRestart = domainChanged || httpsChanged || phpChanged || wpChanged || xdebugChanged;
+		const needsRestart = siteNeedsRestart( {
+			domainChanged,
+			httpsChanged,
+			phpChanged,
+			wpChanged,
+			xdebugChanged,
+		} );
 		const oldDomain = site.customDomain;
 
 		try {

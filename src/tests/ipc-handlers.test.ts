@@ -8,13 +8,7 @@ import * as Sentry from '@sentry/electron/main';
 import { readFile } from 'atomically';
 import { bumpStat } from 'common/lib/bump-stat';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
-import {
-	createSite,
-	startServer,
-	isFullscreen,
-	importSite,
-	getXdebugEnabledSite,
-} from 'src/ipc-handlers';
+import { createSite, isFullscreen, importSite, getXdebugEnabledSite } from 'src/ipc-handlers';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getMainWindow } from 'src/main-window';

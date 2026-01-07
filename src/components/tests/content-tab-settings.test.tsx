@@ -33,12 +33,32 @@ const snapshotTestActions = {
 	},
 };
 
-// Create test store
-let testStore = createTestStore();
+// Create test store with xdebug beta feature enabled by default
+let testStore = createTestStore( {
+	preloadedState: {
+		betaFeatures: {
+			features: {
+				multiWorkerSupport: false,
+				xdebugSupport: true,
+			},
+			loading: false,
+		},
+	},
+} );
 
 // We need to create a new store each time to avoid reducer conflicts
 function createCustomTestStore() {
-	const store = createTestStore();
+	const store = createTestStore( {
+		preloadedState: {
+			betaFeatures: {
+				features: {
+					multiWorkerSupport: false,
+					xdebugSupport: true,
+				},
+				loading: false,
+			},
+		},
+	} );
 	store.replaceReducer( snapshotTestReducer );
 	return store;
 }
@@ -104,7 +124,7 @@ describe( 'ContentTabSettings', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
 
-		// Create a fresh store for each test
+		// Create a fresh store for each test (includes xdebugSupport: true)
 		testStore = createCustomTestStore();
 
 		( useGetWpVersion as jest.Mock ).mockReturnValue( [ '7.7.7', jest.fn() ] );
@@ -116,8 +136,6 @@ describe( 'ContentTabSettings', () => {
 			getXdebugEnabledSite,
 			isCATrusted: jest.fn( () => Promise.resolve( true ) ),
 		} );
-
-		testStore.dispatch( testActions.resetState() );
 
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite,
@@ -234,14 +252,7 @@ describe( 'ContentTabSettings', () => {
 
 	describe( 'Xdebug beta feature', () => {
 		it( 'hides Xdebug row when beta feature is disabled', async () => {
-			// Create a store with xdebugSupport disabled
 			const storeWithoutXdebug = createTestStore( {
-				providerConstants: {
-					defaultPhpVersion: '8.3',
-					defaultWordPressVersion: 'latest',
-					allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
-					minimumWordPressVersion: '6.2.6',
-				},
 				preloadedState: {
 					betaFeatures: {
 						features: {

@@ -13,9 +13,6 @@ import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
-import { getIpcApi } from 'src/lib/get-ipc-api';
-import { getLocalizedLink } from 'src/lib/get-localized-link';
-import { useI18nLocale } from 'src/stores';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 

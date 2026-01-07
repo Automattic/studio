@@ -9,7 +9,6 @@ env:
 steps:
   - group: 📦 Build for Windows
     key: dev-windows
-    if: build.tag !~ /^v[0-9]+/
     steps:
       - label: 🔨 Windows Dev Build - {{matrix}}
         agents:

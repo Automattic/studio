@@ -43,6 +43,9 @@ export async function runCommand(
 		}
 	}
 
+	process.on( 'SIGINT', () => process.exit( 1 ) );
+	process.on( 'SIGTERM', () => process.exit( 1 ) );
+
 	// …If not, instantiate a new Playground instance
 	const [ response, closeWpCliServer ] = await runWpCliCommand(
 		siteFolder,

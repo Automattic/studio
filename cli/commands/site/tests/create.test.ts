@@ -101,7 +101,11 @@ describe( 'CLI: studio site create', () => {
 	let fsMkdirSyncSpy: jest.SpyInstance;
 
 	const createPathExistsMock = ( sitePathExists = false ) => {
-		const bundledWPPath = require( 'path' ).join( '/test/server-files', 'wordpress-versions', 'latest' );
+		const bundledWPPath = require( 'path' ).join(
+			'/test/server-files',
+			'wordpress-versions',
+			'latest'
+		);
 		return jest.fn().mockImplementation( ( path: string ) => {
 			if ( path === bundledWPPath ) {
 				return Promise.resolve( true );

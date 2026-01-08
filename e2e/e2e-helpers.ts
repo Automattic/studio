@@ -44,8 +44,30 @@ export class E2ESession {
 
 	// Close the app but keep the data for persistence testing
 	async restart() {
-		await this.electronApp.close();
+		await this.forceCloseApp();
 		await this.launchFirstWindow();
+	}
+
+	private async forceCloseApp() {
+		if ( ! this.electronApp ) {
+			return;
+		}
+
+		// Use process kill instead of close() because close() waits for the entire
+		// process tree to exit gracefully. With the architectural refactor moving
+		// site management to CLI, there are multiple child processes with IPC
+		// channels that can prevent graceful shutdown, especially on Windows CI.
+		const childProcess = this.electronApp.process();
+		childProcess.kill( 'SIGKILL' );
+
+		// Wait for the process to actually exit
+		await new Promise< void >( ( resolve ) => {
+			if ( childProcess.exitCode !== null ) {
+				resolve();
+				return;
+			}
+			childProcess.on( 'exit', () => resolve() );
+		} );
 	}
 
 	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {
@@ -74,7 +96,7 @@ export class E2ESession {
 	}
 
 	async cleanup() {
-		await this.electronApp.close();
+		await this.forceCloseApp();
 
 		// Removing the `sessionPath` directory has proven to be difficult, especially on Windows. Since
 		// session paths are unique, the WordPress installations are relatively small, and the E2E tests

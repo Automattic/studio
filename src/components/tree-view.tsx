@@ -17,6 +17,7 @@ export type TreeNode = {
 	children?: TreeNode[];
 	type?: TreeNodeType;
 	loading?: boolean;
+	error?: string;
 	pathId?: string;
 	path?: string;
 };
@@ -97,7 +98,7 @@ const TreeItem = ( {
 	isLast?: boolean;
 	disabled?: boolean;
 	renderAfterChildren?: ( nodeId: string ) => React.ReactNode;
-	renderEmptyContent?: ( nodeId: string ) => React.ReactNode;
+	renderEmptyContent?: ( nodeId: string, node: TreeNode ) => React.ReactNode;
 } ) => {
 	const { __ } = useI18n();
 	const isFirstLevel = level === 1;
@@ -139,10 +140,11 @@ const TreeItem = ( {
 					<button
 						aria-label={ expanded ? __( 'Collapse' ) : __( 'Expand' ) }
 						onClick={ async () => {
+							// Call onExpand if expanding and either children are empty or there's an error (for retry)
 							if (
 								! expanded &&
 								onExpand &&
-								node.children?.length === 0 &&
+								( node.children?.length === 0 || node.error ) &&
 								node.type === 'folder'
 							) {
 								onPatchNode( node.id, { loading: true } );
@@ -168,7 +170,7 @@ const TreeItem = ( {
 				>
 					{ node.children.length === 0 ? (
 						renderEmptyContent ? (
-							renderEmptyContent( node.id )
+							renderEmptyContent( node.id, node )
 						) : (
 							<div className="text-gray-500 italic" aria-label={ __( 'Empty folder' ) }>
 								{ __( 'Empty' ) }
@@ -202,7 +204,7 @@ export type TreeViewProps = {
 	onExpand?: ( node: TreeNode ) => Promise< void >;
 	disabled?: boolean;
 	renderAfterChildren?: ( nodeId: string ) => React.ReactNode;
-	renderEmptyContent?: ( nodeId: string ) => React.ReactNode;
+	renderEmptyContent?: ( nodeId: string, node: TreeNode ) => React.ReactNode;
 };
 
 export const TreeView = ( {

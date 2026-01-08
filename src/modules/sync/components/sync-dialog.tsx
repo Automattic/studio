@@ -57,6 +57,7 @@ const useDynamicTreeState = (
 		isLoading: isLoadingLocalFileTree,
 		error: localFileTreeError,
 	} = useLocalFileTree();
+	const [ remoteFileTreeError, setRemoteFileTreeError ] = useState< Error | null >( null );
 
 	// If the site was just created and if there is no rewind_id yet,
 	// then all options are pre-checked to allow only a full sync
@@ -73,6 +74,7 @@ const useDynamicTreeState = (
 		if ( type === 'pull' && remoteSiteId ) {
 			let isCancelled = false;
 			const loadRemoteTree = async () => {
+				setRemoteFileTreeError( null );
 				try {
 					if ( rewindId ) {
 						const remoteTree = await fetchChildren( remoteSiteId, rewindId, '/wp-content/', false );
@@ -83,7 +85,10 @@ const useDynamicTreeState = (
 						}
 					}
 				} catch ( error ) {
-					console.error( 'Failed to load remote file tree:', error );
+					const errorObj = error instanceof Error ? error : new Error( 'Unknown error occurred' );
+					if ( ! isCancelled ) {
+						setRemoteFileTreeError( errorObj );
+					}
 				}
 			};
 			void loadRemoteTree();
@@ -125,6 +130,7 @@ const useDynamicTreeState = (
 		isErrorRewindId,
 		isLoadingLocalFileTree,
 		localFileTreeError,
+		remoteFileTreeError,
 	};
 };
 
@@ -162,6 +168,7 @@ export function SyncDialog( {
 		isErrorRewindId,
 		isLoadingLocalFileTree,
 		localFileTreeError,
+		remoteFileTreeError,
 	} = useDynamicTreeState( type, localSite.id, remoteSite.id, setTreeState );
 
 	const [ wpVersion ] = useGetWpVersion( localSite );
@@ -224,9 +231,36 @@ export function SyncDialog( {
 				return;
 			}
 
-			if ( type === 'pull' && rewindId && node.path && node.children?.length === 0 ) {
-				const children = await fetchChildren( remoteSite.id, rewindId, node.path, node.checked );
-				setTreeState( ( prev ) => updateNodeById( prev, node.id, { children } ) );
+			if ( type === 'pull' && rewindId && node.path ) {
+				// Allow refetching if there's an error or if children are empty
+				const shouldFetch = node.children?.length === 0 || node.error;
+
+				if ( shouldFetch ) {
+					// Set loading state and clear any previous error
+					setTreeState( ( prev ) =>
+						updateNodeById( prev, node.id, { loading: true, error: undefined } )
+					);
+
+					try {
+						const children = await fetchChildren(
+							remoteSite.id,
+							rewindId,
+							node.path,
+							node.checked
+						);
+						setTreeState( ( prev ) =>
+							updateNodeById( prev, node.id, { children, loading: false, error: undefined } )
+						);
+					} catch ( error ) {
+						setTreeState( ( prev ) =>
+							updateNodeById( prev, node.id, {
+								children: [],
+								loading: false,
+								error: 'Error retrieving files and directories',
+							} )
+						);
+					}
+				}
 			}
 			// For push operations, children are already loaded - no async fetching needed
 		},
@@ -361,12 +395,30 @@ export function SyncDialog( {
 										}
 										return null;
 									} }
-									renderEmptyContent={ ( nodeId ) => {
+									renderEmptyContent={ ( nodeId, node ) => {
 										if ( nodeId === 'wp-content' && type === 'push' && localFileTreeError ) {
 											return (
 												<div className="text-gray-500 italic">
 													{ __(
 														'Could not load files. Please close and reopen this dialog to try again.'
+													) }
+												</div>
+											);
+										}
+										if ( nodeId === 'wp-content' && type === 'pull' && remoteFileTreeError ) {
+											return (
+												<div className="text-gray-500 italic">
+													{ __(
+														'Error retrieving remote files and directories. Please close and reopen this dialog to try again.'
+													) }
+												</div>
+											);
+										}
+										if ( node.error ) {
+											return (
+												<div className="text-gray-500 italic">
+													{ __(
+														'Error retrieving remote files and directories. Please close and reopen this dialog to try again.'
 													) }
 												</div>
 											);

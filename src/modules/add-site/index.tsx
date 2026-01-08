@@ -12,9 +12,10 @@ import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
 import { SyncSite } from 'src/modules/sync/types';
-import { useRootSelector } from 'src/stores';
+import { useRootSelector, useAppDispatch } from 'src/stores';
 import { formatRtkError } from 'src/stores/format-rtk-error';
 import { selectMinimumWordPressVersion } from 'src/stores/provider-constants-slice';
+import { openAddSiteModal, closeAddSiteModal, selectIsAddSiteModalOpen } from 'src/stores/ui-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
 import BlueprintDeeplink from './components/blueprint-deeplink';
@@ -331,14 +332,12 @@ export interface AddSiteModalContentProps {
 	isOpen?: boolean;
 	onSubmit?: () => void;
 	className?: string;
-	addSiteProps: ReturnType< typeof useAddSite >;
 }
 
 export function AddSiteModalContent( {
 	isOpen = true,
 	onSubmit,
 	className,
-	addSiteProps,
 }: AddSiteModalContentProps ) {
 	const { __ } = useI18n();
 	const [ formInitialized, setFormInitialized ] = useState( false );
@@ -354,6 +353,7 @@ export function AddSiteModalContent( {
 
 	const { sites, loadingSites } = useSiteDetails();
 
+	// Call useAddSite directly instead of receiving via props
 	const {
 		handleCreateSite,
 		selectPath,
@@ -375,7 +375,7 @@ export function AddSiteModalContent( {
 		loadAllCustomDomains,
 		isDeeplinkFlow,
 		setIsDeeplinkFlow,
-	} = addSiteProps;
+	} = useAddSite();
 
 	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
 	const { data: versions = [] } = useGetWordPressVersions( {
@@ -486,23 +486,24 @@ interface AddSiteModalProps {
 
 export default function AddSiteModal( { className }: AddSiteModalProps ) {
 	const { __ } = useI18n();
-	const [ showModal, setShowModal ] = useState( false );
+	const dispatch = useAppDispatch();
+	const showModal = useRootSelector( selectIsAddSiteModalOpen );
 
 	useEffect( () => {
 		void getIpcApi().setupAppMenu( { needsOnboarding: false, isAddSiteVisible: showModal } );
 	}, [ showModal ] );
 
 	const openModal = useCallback( () => {
-		setShowModal( true );
-	}, [] );
+		dispatch( openAddSiteModal() );
+	}, [ dispatch ] );
 
-	const addSiteProps = useAddSite( { openModal } );
-	const { resetForm, isAnySiteProcessing } = addSiteProps;
+	// Only need resetForm and isAnySiteProcessing from useAddSite here
+	const { resetForm, isAnySiteProcessing } = useAddSite();
 
 	const closeModal = useCallback( () => {
 		resetForm();
-		setShowModal( false );
-	}, [ resetForm ] );
+		dispatch( closeAddSiteModal() );
+	}, [ resetForm, dispatch ] );
 
 	useIpcListener( 'add-site', () => {
 		if ( isAnySiteProcessing ) {
@@ -514,11 +515,7 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 	return (
 		<>
 			<FullscreenModal isOpen={ showModal } onClose={ closeModal }>
-				<AddSiteModalContent
-					isOpen={ showModal }
-					onSubmit={ closeModal }
-					addSiteProps={ addSiteProps }
-				/>
+				<AddSiteModalContent isOpen={ showModal } onSubmit={ closeModal } />
 			</FullscreenModal>
 			<Button
 				variant="outlined"

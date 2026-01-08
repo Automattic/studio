@@ -44,12 +44,7 @@ export interface PathValidationResult {
 	error?: string;
 }
 
-interface UseAddSiteOptions {
-	openModal?: () => void;
-}
-
-export function useAddSite( options: UseAddSiteOptions = {} ) {
-	const { openModal = () => {} } = options;
+export function useAddSite() {
 	const { __ } = useI18n();
 	const { createSite, sites, startServer } = useSiteDetails();
 	const { importFile, clearImportState, importState } = useImportExport();
@@ -90,7 +85,6 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 
 	useBlueprintDeeplink( {
 		isAnySiteProcessing,
-		openModal,
 		setSelectedBlueprint,
 		setPhpVersion: setDeeplinkPhpVersion,
 		setWpVersion: setDeeplinkWpVersion,

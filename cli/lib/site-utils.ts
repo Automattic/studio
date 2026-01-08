@@ -51,7 +51,6 @@ export async function runOnSites(
 	if ( ! all ) {
 		const site = await getSiteByFolder( target );
 
-		// Apply filter if provided
 		if ( filter ) {
 			const shouldProcess = await filter( site );
 			if ( ! shouldProcess ) {
@@ -74,7 +73,6 @@ export async function runOnSites(
 
 	const requested = allSites.map( ( site ) => ( { site } ) );
 
-	// Apply filter if provided
 	let sitesToProcess: SiteData[];
 	if ( filter ) {
 		sitesToProcess = [];

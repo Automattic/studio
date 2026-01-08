@@ -57,23 +57,16 @@ export class E2ESession {
 
 		const childProcess = this.electronApp.process();
 		console.log( 'closeApp: calling electronApp.close() for pid', childProcess.pid );
-		await this.electronApp.close();
+		// Cap `ElectronApplication::close` call at 5s to prevent timeout issues on Windows
+		await new Promise( ( resolve, reject ) => {
+			Promise.race( [
+				this.electronApp.close(),
+				new Promise( ( resolve ) => setTimeout( resolve, 5000 ) ),
+			] )
+				.then( resolve )
+				.catch( reject );
+		} );
 		console.log( 'closeApp: close() returned' );
-
-		// Ensure process is fully dead (singleton lock released) before continuing.
-		// This prevents a race condition where the next test launches before the
-		// previous instance has fully exited and released the singleton lock.
-		if ( childProcess.exitCode === null ) {
-			await new Promise< void >( ( resolve ) =>
-				childProcess.on( 'exit', () => {
-					console.log( 'closeApp: process exited' );
-					resolve();
-				} )
-			);
-		}
-
-		// Clear the reference so Playwright doesn't try to close it again during teardown
-		this.electronApp = null as unknown as ElectronApplication;
 	}
 
 	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {

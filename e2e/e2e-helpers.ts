@@ -49,7 +49,9 @@ export class E2ESession {
 	}
 
 	private async forceCloseApp() {
+		console.log( 'forceCloseApp: starting' );
 		if ( ! this.electronApp ) {
+			console.log( 'forceCloseApp: no electronApp, returning early' );
 			return;
 		}
 
@@ -58,16 +60,22 @@ export class E2ESession {
 		// site management to CLI, there are multiple child processes with IPC
 		// channels that can prevent graceful shutdown, especially on Windows CI.
 		const childProcess = this.electronApp.process();
+		console.log( 'forceCloseApp: killing pid', childProcess.pid );
 		childProcess.kill( 'SIGKILL' );
 
 		// Wait for the process to actually exit
 		await new Promise< void >( ( resolve ) => {
 			if ( childProcess.exitCode !== null ) {
+				console.log( 'forceCloseApp: process already exited with code', childProcess.exitCode );
 				resolve();
 				return;
 			}
-			childProcess.on( 'exit', () => resolve() );
+			childProcess.on( 'exit', ( code ) => {
+				console.log( 'forceCloseApp: process exited with code', code );
+				resolve();
+			} );
 		} );
+		console.log( 'forceCloseApp: done' );
 	}
 
 	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {

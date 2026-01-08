@@ -6,9 +6,8 @@ import {
 	updateSiteAutoStart,
 } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
-import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
+import { ALL_SITES, stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
-import { ALL_SITES } from 'cli/lib/site-utils';
 import { runCommand } from '../stop';
 
 jest.mock( 'cli/lib/appdata', () => ( {

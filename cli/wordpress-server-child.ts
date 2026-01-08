@@ -344,10 +344,6 @@ const runWpCliCommand = sequential(
 	{ concurrent: 3, max: 10 }
 );
 
-/**
- * Parse PHP execution errors to extract meaningful messages.
- * Looks for WordPress error messages in HTML output or extracts key error info.
- */
 function parsePhpError( error: unknown ): string {
 	if ( ! ( error instanceof Error ) ) {
 		return String( error );
@@ -360,7 +356,10 @@ function parsePhpError( error: unknown ): string {
 	if ( wpDieMatch ) {
 		// Extract text from HTML, removing tags
 		const htmlContent = wpDieMatch[ 1 ];
-		const textContent = htmlContent.replace( /<[^>]+>/g, ' ' ).replace( /\s+/g, ' ' ).trim();
+		const textContent = htmlContent
+			.replace( /<[^>]+>/g, ' ' )
+			.replace( /\s+/g, ' ' )
+			.trim();
 		if ( textContent ) {
 			return `WordPress error: ${ textContent }`;
 		}

@@ -395,7 +395,6 @@ export async function updateSite(
 		const userData = await loadUserData();
 		const freshSiteData = userData.sites.find( ( s ) => s.id === updatedSite.id );
 		if ( freshSiteData ) {
-
 			const wasRunning = server.details.running;
 			const url = wasRunning ? ( server.details as StartedSiteDetails ).url : undefined;
 

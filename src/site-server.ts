@@ -189,11 +189,6 @@ export class SiteServer {
 		}
 	}
 
-	/**
-	 * Updates the in-memory site details.
-	 * Note: The CLI handles hosts file, SSL certificates, and WordPress URL updates.
-	 * This method only updates the in-memory state.
-	 */
 	updateSiteDetails( site: SiteDetails ) {
 		this.details = {
 			...this.details,

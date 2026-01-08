@@ -69,7 +69,6 @@ export async function runCommand(
 		throw new LoggerError( __( 'Site name cannot be empty.' ) );
 	}
 
-
 	if ( xdebug === true && ! ( await isXdebugBetaEnabled() ) ) {
 		throw new LoggerError(
 			__( 'Xdebug support is a beta feature. Enable it in Studio settings first.' )
@@ -83,7 +82,6 @@ export async function runCommand(
 
 		const initialAppdata = await readAppdata();
 
-		// Only validate when setting a domain (non-empty), not when clearing it (empty string)
 		if ( domain ) {
 			const existingDomainNames = initialAppdata.sites
 				.filter( ( s ) => s.id !== site.id )
@@ -153,7 +151,6 @@ export async function runCommand(
 				foundSite.name = name!;
 			}
 			if ( domainChanged ) {
-				// Use undefined instead of empty string to remove the field from appdata
 				foundSite.customDomain = domain || undefined;
 			}
 			if ( httpsChanged ) {
@@ -195,7 +192,6 @@ export async function runCommand(
 			const phpVersion = validatePhpVersion( site.phpVersion );
 			const zipUrl = getWordPressVersionUrl( wp );
 
-			// Use the correct site URL to avoid corrupting WordPress URL options
 			let siteUrl: string | undefined;
 			if ( site.customDomain ) {
 				const protocol = site.enableHttps ? 'https' : 'http';
@@ -317,7 +313,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					wp: argv.wp,
 					xdebug: argv.xdebug,
 				} );
-				// WP-CLI leaves handles open, so we need to explicitly exit
 				// See: cli/lib/run-wp-cli-command.ts FIXME comment
 				if ( result.usedWpCli ) {
 					process.exit( 0 );

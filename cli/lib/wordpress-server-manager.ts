@@ -232,7 +232,6 @@ async function sendMessage(
 			activityCheckIntervalId,
 		} );
 
-		// Listen for process exit events to catch crashes
 		processEventHandler = ( event: unknown ) => {
 			const result = pm2ProcessEventSchema.safeParse( event );
 			if ( ! result.success ) {

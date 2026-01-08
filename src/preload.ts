@@ -40,7 +40,8 @@ const api: IpcApi = {
 		),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
 	createSite: ( path, config ) => ipcRendererInvoke( 'createSite', path, config ),
-	updateSite: ( updatedSite, wpVersion ) => ipcRendererInvoke( 'updateSite', updatedSite, wpVersion ),
+	updateSite: ( updatedSite, wpVersion ) =>
+		ipcRendererInvoke( 'updateSite', updatedSite, wpVersion ),
 	connectWpcomSites: ( ...args ) => ipcRendererInvoke( 'connectWpcomSites', ...args ),
 	disconnectWpcomSites: ( ...args ) => ipcRendererInvoke( 'disconnectWpcomSites', ...args ),
 	updateConnectedWpcomSites: ( ...args ) =>

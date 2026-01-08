@@ -28,12 +28,14 @@ const siteSchema = z
 		autoStart: z.boolean().optional(),
 		url: z.string().optional(),
 		latestCliPid: z.number().optional(),
+		enableXdebug: z.boolean().optional(),
 	} )
 	.passthrough();
 
 const betaFeaturesSchema = z
 	.object( {
 		multiWorkerSupport: z.boolean().optional(),
+		xdebugSupport: z.boolean().optional(),
 	} )
 	.passthrough();
 
@@ -146,6 +148,15 @@ export async function lockAppdata(): Promise< void > {
 
 export async function unlockAppdata(): Promise< void > {
 	await unlockFileAsync( LOCKFILE_PATH );
+}
+
+export async function isXdebugBetaEnabled(): Promise< boolean > {
+	try {
+		const appdata = await readAppdata();
+		return appdata.betaFeatures?.xdebugSupport ?? false;
+	} catch {
+		return false;
+	}
 }
 
 export async function getAuthToken(): Promise< ValidatedAuthToken > {

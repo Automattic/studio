@@ -2,6 +2,7 @@ import { getDomainNameValidationError } from 'common/lib/domains';
 import { arePathsEqual } from 'common/lib/fs-utils';
 import {
 	getSiteByFolder,
+	isXdebugBetaEnabled,
 	unlockAppdata,
 	readAppdata,
 	saveAppdata,
@@ -26,6 +27,7 @@ jest.mock( 'common/lib/fs-utils', () => ( {
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
 	getSiteByFolder: jest.fn(),
+	isXdebugBetaEnabled: jest.fn(),
 	lockAppdata: jest.fn().mockResolvedValue( undefined ),
 	unlockAppdata: jest.fn().mockResolvedValue( undefined ),
 	readAppdata: jest.fn(),
@@ -70,6 +72,7 @@ describe( 'CLI: studio site set', () => {
 
 		( arePathsEqual as jest.Mock ).mockReturnValue( true );
 		( getSiteByFolder as jest.Mock ).mockResolvedValue( getTestSite() );
+		( isXdebugBetaEnabled as jest.Mock ).mockResolvedValue( true );
 		( readAppdata as jest.Mock ).mockResolvedValue( testAppdata );
 		( connect as jest.Mock ).mockResolvedValue( undefined );
 		( disconnect as jest.Mock ).mockResolvedValue( undefined );
@@ -88,7 +91,7 @@ describe( 'CLI: studio site set', () => {
 	describe( 'Validation', () => {
 		it( 'should throw when no options provided', async () => {
 			await expect( runCommand( testSitePath, {} ) ).rejects.toThrow(
-				'At least one option (--name, --domain, --https, --php, --wp) is required.'
+				'At least one option (--name, --domain, --https, --php, --wp, --xdebug) is required.'
 			);
 		} );
 
@@ -326,6 +329,94 @@ describe( 'CLI: studio site set', () => {
 			// Name doesn't trigger restart, but domain does
 			expect( stopWordPressServer ).toHaveBeenCalledTimes( 1 );
 			expect( startWordPressServer ).toHaveBeenCalledTimes( 1 );
+		} );
+	} );
+
+	describe( 'Xdebug changes', () => {
+		it( 'should throw when beta feature is not enabled', async () => {
+			( isXdebugBetaEnabled as jest.Mock ).mockResolvedValue( false );
+
+			await expect( runCommand( testSitePath, { xdebug: true } ) ).rejects.toThrow(
+				'Xdebug support is a beta feature. Enable it in Studio settings first.'
+			);
+		} );
+
+		it( 'should throw when another site already has xdebug enabled', async () => {
+			const testSite = getTestSite();
+			const otherSite = {
+				...getTestSite(),
+				id: 'site-2',
+				name: 'Other Site',
+				path: '/other/site',
+				enableXdebug: true,
+			};
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( testSite );
+			( readAppdata as jest.Mock ).mockResolvedValue( {
+				sites: [ testSite, otherSite ],
+				snapshots: [],
+			} );
+
+			await expect( runCommand( testSitePath, { xdebug: true } ) ).rejects.toThrow(
+				'Only one site can have Xdebug enabled at a time. Disable Xdebug on "Other Site" first.'
+			);
+		} );
+
+		it( 'should update xdebug setting without restart when site is stopped', async () => {
+			await runCommand( testSitePath, { xdebug: true } );
+
+			const savedAppdata = ( saveAppdata as jest.Mock ).mock.calls[ 0 ][ 0 ];
+			expect( savedAppdata.sites[ 0 ].enableXdebug ).toBe( true );
+			expect( stopWordPressServer ).not.toHaveBeenCalled();
+			expect( startWordPressServer ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should restart running site when xdebug changes', async () => {
+			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
+
+			await runCommand( testSitePath, { xdebug: true } );
+
+			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
+			expect( startWordPressServer ).toHaveBeenCalled();
+		} );
+
+		it( 'should disable xdebug', async () => {
+			const siteWithXdebug = { ...getTestSite(), enableXdebug: true };
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( siteWithXdebug );
+			( readAppdata as jest.Mock ).mockResolvedValue( {
+				sites: [ siteWithXdebug ],
+				snapshots: [],
+			} );
+
+			await runCommand( testSitePath, { xdebug: false } );
+
+			const savedAppdata = ( saveAppdata as jest.Mock ).mock.calls[ 0 ][ 0 ];
+			expect( savedAppdata.sites[ 0 ].enableXdebug ).toBe( false );
+		} );
+
+		it( 'should throw when xdebug is already enabled', async () => {
+			const siteWithXdebug = { ...getTestSite(), enableXdebug: true };
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( siteWithXdebug );
+			( readAppdata as jest.Mock ).mockResolvedValue( {
+				sites: [ siteWithXdebug ],
+				snapshots: [],
+			} );
+
+			await expect( runCommand( testSitePath, { xdebug: true } ) ).rejects.toThrow(
+				'No changes to apply. The site already has the specified settings.'
+			);
+		} );
+
+		it( 'should throw when xdebug is already disabled', async () => {
+			const siteWithXdebugDisabled = { ...getTestSite(), enableXdebug: false };
+			( getSiteByFolder as jest.Mock ).mockResolvedValue( siteWithXdebugDisabled );
+			( readAppdata as jest.Mock ).mockResolvedValue( {
+				sites: [ siteWithXdebugDisabled ],
+				snapshots: [],
+			} );
+
+			await expect( runCommand( testSitePath, { xdebug: false } ) ).rejects.toThrow(
+				'No changes to apply. The site already has the specified settings.'
+			);
 		} );
 	} );
 

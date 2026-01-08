@@ -26,6 +26,9 @@ export async function runCommand(
 	const useCustomPhpVersion = options.phpVersion && options.phpVersion !== site.phpVersion;
 
 	if ( ! useCustomPhpVersion ) {
+		process.on( 'SIGINT', disconnect );
+		process.on( 'SIGTERM', disconnect );
+
 		try {
 			await connect();
 

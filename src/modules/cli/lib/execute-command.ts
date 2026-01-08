@@ -1,8 +1,8 @@
+import { app } from 'electron';
 import { fork, ChildProcess, StdioOptions } from 'node:child_process';
 import EventEmitter from 'node:events';
 import * as Sentry from '@sentry/electron/main';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
-import { app } from 'electron';
 
 export interface CliCommandResult {
 	stdout: string;

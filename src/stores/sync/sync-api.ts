@@ -125,6 +125,7 @@ export const fetchRemoteFileTree = createAsyncThunk(
 
 		const validationResult = BackupLsResponseSchema.shape.body.safeParse( rawResponse );
 		if ( ! validationResult.success ) {
+			console.error( 'Invalid response format:', validationResult.error );
 			throw new Error( 'Invalid response format from server' );
 		}
 
@@ -139,6 +140,8 @@ export const fetchRemoteFileTree = createAsyncThunk(
 			if ( itemValidation.success ) {
 				const node = convertBackupItemToTreeNode( name, itemValidation.data, path, parentChecked );
 				children.push( node );
+			} else {
+				console.warn( `Invalid item format for ${ name }:`, itemValidation.error );
 			}
 		}
 

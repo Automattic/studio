@@ -122,6 +122,17 @@ export function executeCliCommand(
 		child.unref();
 	} else {
 		app.on( 'will-quit', () => {
+			// On Windows, child.kill() immediately terminates the process without sending
+			// SIGTERM, so signal handlers in the child never run. Use IPC to notify the
+			// child to clean up (e.g., disconnect from PM2) before terminating.
+			if ( child.connected ) {
+				try {
+					child.send( { type: 'shutdown' } );
+				} catch {
+					// Process may have already exited
+				}
+				child.disconnect();
+			}
 			child.kill();
 		} );
 	}

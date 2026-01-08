@@ -56,24 +56,43 @@ export class E2ESession {
 		}
 
 		const childProcess = this.electronApp.process();
-		console.log( 'closeApp: calling electronApp.close() for pid', childProcess.pid );
-		await this.electronApp.close();
-		console.log( 'closeApp: close() returned' );
+		console.log( 'closeApp: closing pid', childProcess.pid );
 
-		// Ensure process is fully dead (singleton lock released) before continuing.
-		// This prevents a race condition where the next test launches before the
-		// previous instance has fully exited and released the singleton lock.
-		if ( childProcess.exitCode === null ) {
-			await new Promise< void >( ( resolve ) =>
-				childProcess.on( 'exit', () => {
-					console.log( 'closeApp: process exited' );
-					resolve();
-				} )
-			);
+		// On Windows, Playwright's close() hangs indefinitely even though the process
+		// exits. This appears to be related to debugger/WebSocket cleanup issues.
+		// We bypass close() entirely and kill the process directly.
+		if ( process.platform === 'win32' ) {
+			childProcess.kill();
+
+			// Wait for process to exit
+			if ( childProcess.exitCode === null ) {
+				await new Promise< void >( ( resolve ) => {
+					childProcess.on( 'exit', () => {
+						console.log( 'closeApp: process exited' );
+						resolve();
+					} );
+				} );
+			}
+		} else {
+			await this.electronApp.close();
+			console.log( 'closeApp: close() returned' );
+
+			// Ensure process is fully dead (singleton lock released) before continuing.
+			// This prevents a race condition where the next test launches before the
+			// previous instance has fully exited and released the singleton lock.
+			if ( childProcess.exitCode === null ) {
+				await new Promise< void >( ( resolve ) =>
+					childProcess.on( 'exit', () => {
+						console.log( 'closeApp: process exited' );
+						resolve();
+					} )
+				);
+			}
 		}
 
 		// Clear the reference so Playwright doesn't try to close it again during teardown
 		this.electronApp = null as unknown as ElectronApplication;
+		console.log( 'closeApp: done' );
 	}
 
 	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {

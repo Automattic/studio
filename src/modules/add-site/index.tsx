@@ -353,7 +353,6 @@ export function AddSiteModalContent( {
 
 	const { sites, loadingSites } = useSiteDetails();
 
-	// Call useAddSite directly instead of receiving via props
 	const {
 		handleCreateSite,
 		selectPath,

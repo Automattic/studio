@@ -1,4 +1,4 @@
-import { Icon, SearchControl as SearchControlWp } from '@wordpress/components';
+import { Icon, SearchControl as SearchControlWp, Tooltip } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect } from 'react';
@@ -339,13 +339,18 @@ function SiteItem( {
 			) }
 			{ needsUpgrade && (
 				<div className="a8c-body-small text-a8c-gray-30 shrink-0 text-right">
-					<Button
-						variant="link"
-						onClick={ () => getIpcApi().openURL( `https://wordpress.com/plans/${ site.id }` ) }
+					<Tooltip
+						text={ __( 'Sync support is available only with Business plan and above' ) }
+						placement="bottom"
 					>
-						{ __( 'Upgrade plan' ) }
-						<ArrowIcon />
-					</Button>
+						<Button
+							variant="link"
+							onClick={ () => getIpcApi().openURL( `https://wordpress.com/plans/${ site.id }` ) }
+						>
+							{ __( 'Upgrade plan' ) }
+							<ArrowIcon />
+						</Button>
+					</Tooltip>
 				</div>
 			) }
 			{ isNeedsTransfer && (
@@ -372,7 +377,14 @@ function SiteItem( {
 				</div>
 			) }
 			{ isUnsupported && (
-				<div className="a8c-body-small text-a8c-gray-30 shrink-0">{ __( 'Unsupported site' ) }</div>
+				<Tooltip
+					text={ __( 'Self-hosted (e.g. jurassic.ninja) sites are not supported' ) }
+					placement="bottom"
+				>
+					<div className="a8c-body-small text-a8c-gray-30 shrink-0">
+						{ __( 'Unsupported site' ) }
+					</div>
+				</Tooltip>
 			) }
 		</div>
 	);

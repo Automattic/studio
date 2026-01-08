@@ -61,7 +61,7 @@ export function executeCliCommand(
 
 	const child = fork( cliPath, [ ...args, '--avoid-telemetry' ], {
 		stdio,
-		detached: options.detached,
+		detached: options.detached ?? process.platform === 'win32',
 		execPath: getBundledNodeBinaryPath(),
 	} );
 	const eventEmitter = new CliCommandEventEmitter();

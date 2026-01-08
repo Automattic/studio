@@ -323,14 +323,18 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 			await templateFrame.waitForTimeout( 500 );
 
 			// Add a second block - heading
-			// Click on an existing block in the iframe to show the inserter
-			await templateFrame.click( '[data-block]:last-child', { timeout: 10_000 } );
-			await templateFrame.waitForTimeout( 500 );
+			// The inserter might still be open, but if not, click the inserter button again
+			// First check if inserter is already open, if not, open it
+			const inserterOpen = await targetPageOrFrame
+				.locator( 'input[placeholder="Search"]' )
+				.isVisible()
+				.catch( () => false );
 
-			// Click inserter button again in the top bar
-			await targetPageOrFrame.click( 'button[aria-label*="Block Inserter"]', {
-				timeout: 10_000,
-			} );
+			if ( ! inserterOpen ) {
+				await targetPageOrFrame.click( 'button[aria-label*="Block Inserter"]', {
+					timeout: 10_000,
+				} );
+			}
 
 			await targetPageOrFrame.waitForSelector( 'input[placeholder="Search"]', {
 				timeout: 10_000,

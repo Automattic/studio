@@ -231,35 +231,23 @@ export function SyncDialog( {
 				return;
 			}
 
-			if ( type === 'pull' && rewindId && node.path ) {
-				// Allow refetching if there's an error or if children are empty
-				const shouldFetch = node.children?.length === 0 || node.error;
+			if ( type === 'pull' && rewindId && node.path && node.children?.length === 0 ) {
+				// Set loading state for the node
+				setTreeState( ( prev ) => updateNodeById( prev, node.id, { loading: true } ) );
 
-				if ( shouldFetch ) {
-					// Set loading state and clear any previous error
+				try {
+					const children = await fetchChildren( remoteSite.id, rewindId, node.path, node.checked );
 					setTreeState( ( prev ) =>
-						updateNodeById( prev, node.id, { loading: true, error: undefined } )
+						updateNodeById( prev, node.id, { children, loading: false, error: undefined } )
 					);
-
-					try {
-						const children = await fetchChildren(
-							remoteSite.id,
-							rewindId,
-							node.path,
-							node.checked
-						);
-						setTreeState( ( prev ) =>
-							updateNodeById( prev, node.id, { children, loading: false, error: undefined } )
-						);
-					} catch ( error ) {
-						setTreeState( ( prev ) =>
-							updateNodeById( prev, node.id, {
-								children: [],
-								loading: false,
-								error: 'Error retrieving files and directories',
-							} )
-						);
-					}
+				} catch ( error ) {
+					setTreeState( ( prev ) =>
+						updateNodeById( prev, node.id, {
+							children: [],
+							loading: false,
+							error: 'Error retrieving files and directories',
+						} )
+					);
 				}
 			}
 			// For push operations, children are already loaded - no async fetching needed

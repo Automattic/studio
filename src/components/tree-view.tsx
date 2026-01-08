@@ -140,11 +140,10 @@ const TreeItem = ( {
 					<button
 						aria-label={ expanded ? __( 'Collapse' ) : __( 'Expand' ) }
 						onClick={ async () => {
-							// Call onExpand if expanding and either children are empty or there's an error (for retry)
 							if (
 								! expanded &&
 								onExpand &&
-								( node.children?.length === 0 || node.error ) &&
+								node.children?.length === 0 &&
 								node.type === 'folder'
 							) {
 								onPatchNode( node.id, { loading: true } );

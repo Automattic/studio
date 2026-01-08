@@ -1,5 +1,5 @@
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
-import { getSiteByFolder, getSiteUrl } from 'cli/lib/appdata';
+import { getSiteByFolder, getSiteUrl, isXdebugBetaEnabled } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { runCommand } from '../status';
@@ -8,6 +8,7 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
 	getSiteByFolder: jest.fn(),
 	getSiteUrl: jest.fn(),
+	isXdebugBetaEnabled: jest.fn(),
 	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
@@ -36,6 +37,7 @@ describe( 'CLI: studio site status', () => {
 
 		( getSiteByFolder as jest.Mock ).mockResolvedValue( testSite );
 		( getSiteUrl as jest.Mock ).mockReturnValue( 'http://localhost:8080' );
+		( isXdebugBetaEnabled as jest.Mock ).mockResolvedValue( true );
 		( connect as jest.Mock ).mockResolvedValue( undefined );
 		( disconnect as jest.Mock ).mockResolvedValue( undefined );
 		( isServerRunning as jest.Mock ).mockResolvedValue( false );
@@ -78,6 +80,7 @@ describe( 'CLI: studio site status', () => {
 						Status: '🔴 Offline',
 						'PHP version': '8.0',
 						'WP version': '6.4',
+						Xdebug: 'Disabled',
 						'Admin username': 'admin',
 						'Admin password': 'password123',
 					},
@@ -105,6 +108,7 @@ describe( 'CLI: studio site status', () => {
 						Status: '🟢 Online',
 						'PHP version': '8.0',
 						'WP version': '6.4',
+						Xdebug: 'Disabled',
 						'Admin username': 'admin',
 						'Admin password': 'password123',
 					},
@@ -143,10 +147,35 @@ describe( 'CLI: studio site status', () => {
 						'Site URL': 'http://localhost:8080/',
 						'Site Path': '/path/to/site',
 						Status: '🔴 Offline',
-						'PHP version': undefined,
+						'WP version': '6.4',
+						Xdebug: 'Disabled',
+						'Admin username': 'admin',
+					},
+					null,
+					2
+				)
+			);
+
+			consoleSpy.mockRestore();
+		} );
+
+		it( 'should hide xdebug when beta feature is disabled', async () => {
+			( isXdebugBetaEnabled as jest.Mock ).mockResolvedValue( false );
+
+			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
+
+			await runCommand( '/path/to/site', 'json' );
+
+			expect( consoleSpy ).toHaveBeenCalledWith(
+				JSON.stringify(
+					{
+						'Site URL': 'http://localhost:8080/',
+						'Site Path': '/path/to/site',
+						Status: '🔴 Offline',
+						'PHP version': '8.0',
 						'WP version': '6.4',
 						'Admin username': 'admin',
-						'Admin password': undefined,
+						'Admin password': 'password123',
 					},
 					null,
 					2

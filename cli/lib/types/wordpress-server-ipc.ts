@@ -13,6 +13,7 @@ const serverConfig = z.object( {
 	siteLanguage: z.string().optional(),
 	isWpAutoUpdating: z.boolean().optional(),
 	enableMultiWorker: z.boolean().optional(),
+	enableXdebug: z.boolean().optional(),
 	blueprint: z
 		.object( {
 			contents: z.any(), // Blueprint type is complex, allow any for now

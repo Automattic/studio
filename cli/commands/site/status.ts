@@ -2,7 +2,7 @@ import { __, _n } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { getSiteByFolder, getSiteUrl } from 'cli/lib/appdata';
+import { getSiteByFolder, getSiteUrl, isXdebugBetaEnabled } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { getPrettyPath } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
@@ -28,6 +28,9 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 		autoLoginUrl.pathname = `/studio-auto-login`;
 		autoLoginUrl.searchParams.set( 'redirect_to', `/wp-admin/` );
 
+		const xdebugStatus = site.enableXdebug ? __( 'Enabled' ) : __( 'Disabled' );
+		const showXdebug = await isXdebugBetaEnabled();
+
 		const siteData: {
 			key: string;
 			value: string | undefined;
@@ -45,6 +48,7 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			{ key: __( 'Status' ), value: status },
 			{ key: __( 'PHP version' ), value: site.phpVersion },
 			{ key: __( 'WP version' ), value: wpVersion },
+			{ key: __( 'Xdebug' ), value: xdebugStatus, hidden: ! showXdebug },
 			{ key: __( 'Admin username' ), value: 'admin' },
 			{ key: __( 'Admin password' ), value: site.adminPassword },
 		].filter( ( { value, hidden } ) => value && ! hidden );

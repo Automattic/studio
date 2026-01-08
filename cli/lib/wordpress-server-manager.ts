@@ -11,7 +11,7 @@ import {
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from 'common/constants';
 import { z } from 'zod';
-import { SiteData, readAppdata } from 'cli/lib/appdata';
+import { isXdebugBetaEnabled, SiteData, readAppdata } from 'cli/lib/appdata';
 import {
 	isProcessRunning,
 	startProcess,
@@ -110,6 +110,10 @@ export async function startWordPressServer(
 			contents: options.blueprint,
 			uri: options.blueprintUri,
 		};
+	}
+
+	if ( ( await isXdebugBetaEnabled() ) && site.enableXdebug ) {
+		serverConfig.enableXdebug = true;
 	}
 
 	const env = {
@@ -356,6 +360,10 @@ export async function runBlueprint(
 
 	if ( options.wpVersion ) {
 		serverConfig.wpVersion = options.wpVersion;
+	}
+
+	if ( ( await isXdebugBetaEnabled() ) && site.enableXdebug ) {
+		serverConfig.enableXdebug = true;
 	}
 
 	const env = {

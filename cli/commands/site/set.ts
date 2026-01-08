@@ -11,6 +11,7 @@ import {
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import {
 	getSiteByFolder,
+	isXdebugBetaEnabled,
 	lockAppdata,
 	readAppdata,
 	saveAppdata,
@@ -41,28 +42,36 @@ export interface SetCommandOptions {
 	https?: boolean;
 	php?: string;
 	wp?: string;
+	xdebug?: boolean;
 }
 
 export async function runCommand(
 	sitePath: string,
 	options: SetCommandOptions
 ): Promise< { usedWpCli: boolean } > {
-	const { name, domain, https, php, wp } = options;
+	const { name, domain, https, php, wp, xdebug } = options;
 
 	if (
 		name === undefined &&
 		domain === undefined &&
 		https === undefined &&
 		php === undefined &&
-		wp === undefined
+		wp === undefined &&
+		xdebug === undefined
 	) {
 		throw new LoggerError(
-			__( 'At least one option (--name, --domain, --https, --php, --wp) is required.' )
+			__( 'At least one option (--name, --domain, --https, --php, --wp, --xdebug) is required.' )
 		);
 	}
 
 	if ( name !== undefined && ! name.trim() ) {
 		throw new LoggerError( __( 'Site name cannot be empty.' ) );
+	}
+
+	if ( xdebug !== undefined && ! ( await isXdebugBetaEnabled() ) ) {
+		throw new LoggerError(
+			__( 'Xdebug support is a beta feature. Enable it in Studio settings first.' )
+		);
 	}
 
 	try {
@@ -90,20 +99,37 @@ export async function runCommand(
 			}
 		}
 
+		if ( xdebug === true ) {
+			const otherXdebugSite = initialAppdata.sites.find(
+				( s ) => s.enableXdebug && s.id !== site.id
+			);
+			if ( otherXdebugSite ) {
+				throw new LoggerError(
+					sprintf(
+						/* translators: %s: site name */
+						__( 'Only one site can have Xdebug enabled at a time. Disable Xdebug on "%s" first.' ),
+						otherXdebugSite.name
+					)
+				);
+			}
+		}
+
 		const nameChanged = name !== undefined && name !== site.name;
 		const domainChanged = domain !== undefined && domain !== site.customDomain;
 		const httpsChanged = https !== undefined && https !== site.enableHttps;
 		const phpChanged = php !== undefined && php !== site.phpVersion;
 		const wpChanged = wp !== undefined;
+		const xdebugChanged = xdebug !== undefined && xdebug !== site.enableXdebug;
 
-		const hasChanges = nameChanged || domainChanged || httpsChanged || phpChanged || wpChanged;
+		const hasChanges =
+			nameChanged || domainChanged || httpsChanged || phpChanged || wpChanged || xdebugChanged;
 		if ( ! hasChanges ) {
 			throw new LoggerError(
 				__( 'No changes to apply. The site already has the specified settings.' )
 			);
 		}
 
-		const needsRestart = domainChanged || httpsChanged || phpChanged || wpChanged;
+		const needsRestart = domainChanged || httpsChanged || phpChanged || wpChanged || xdebugChanged;
 		const oldDomain = site.customDomain;
 
 		try {
@@ -125,6 +151,9 @@ export async function runCommand(
 			}
 			if ( phpChanged ) {
 				foundSite.phpVersion = php!;
+			}
+			if ( xdebugChanged ) {
+				foundSite.enableXdebug = xdebug;
 			}
 
 			await saveAppdata( appdata );
@@ -219,7 +248,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'set',
 		describe: __( 'Configure site settings' ),
-		builder: ( yargs ) => {
+		builder: async ( yargs ) => {
+			const showXdebug = await isXdebugBetaEnabled();
 			return yargs
 				.option( 'name', {
 					type: 'string',
@@ -260,6 +290,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						}
 						return value;
 					},
+				} )
+				.option( 'xdebug', {
+					type: 'boolean',
+					description: __( 'Enable Xdebug (beta feature)' ),
+					hidden: ! showXdebug,
 				} );
 		},
 		handler: async ( argv ) => {
@@ -270,6 +305,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					https: argv.https,
 					php: argv.php,
 					wp: argv.wp,
+					xdebug: argv.xdebug,
 				} );
 				// WP-CLI leaves handles open, so we need to explicitly exit
 				// See: cli/lib/run-wp-cli-command.ts FIXME comment

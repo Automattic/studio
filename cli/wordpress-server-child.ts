@@ -213,6 +213,11 @@ async function getBaseRunCLIArgs(
 		args.experimentalMultiWorker = workerCount;
 	}
 
+	if ( config.enableXdebug ) {
+		logToConsole( 'Enabling Xdebug support' );
+		args.xdebug = true;
+	}
+
 	return args;
 }
 

@@ -1,4 +1,4 @@
-import { Icon, SearchControl as SearchControlWp, Tooltip } from '@wordpress/components';
+import { Icon, SearchControl as SearchControlWp } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect } from 'react';
@@ -21,6 +21,7 @@ import { useI18nLocale } from 'src/stores';
 import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 import type { SyncSite, SyncModalMode } from 'src/modules/sync/types';
+import { Tooltip } from 'src/components/tooltip';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
 

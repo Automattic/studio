@@ -34,11 +34,8 @@ const SITE_PROCESS_PREFIX = 'studio-site-';
 // Get an abort signal that's triggered on SIGINT/SIGTERM. This is useful for aborting and cleaning
 // up async operations.
 const abortController = new AbortController();
-function handleProcessTermination() {
-	abortController.abort();
-}
-process.on( 'SIGINT', handleProcessTermination );
-process.on( 'SIGTERM', handleProcessTermination );
+process.on( 'SIGINT', () => abortController.abort() );
+process.on( 'SIGTERM', () => abortController.abort() );
 
 function getProcessName( siteId: string ): string {
 	return `${ SITE_PROCESS_PREFIX }${ siteId }`;

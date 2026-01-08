@@ -128,6 +128,7 @@ export async function runCommand( format: 'table' | 'json', watch: boolean ): Pr
 			);
 
 			process.on( 'SIGINT', disconnect );
+			process.on( 'SIGTERM', disconnect );
 		}
 	} finally {
 		if ( ! watch ) {

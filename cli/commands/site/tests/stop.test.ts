@@ -75,10 +75,11 @@ describe( 'CLI: studio site stop', () => {
 		} );
 
 		it( 'should throw when WordPress server stop fails', async () => {
+			const error = new Error( 'Server stop failed' );
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-			( stopWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server stop failed' ) );
+			( stopWordPressServer as jest.Mock ).mockRejectedValue( error );
 
-			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'Server stop failed' );
+			await expect( runCommand( '/test/site' ) ).rejects.toThrow( error );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 	} );

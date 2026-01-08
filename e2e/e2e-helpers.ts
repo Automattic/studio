@@ -44,38 +44,27 @@ export class E2ESession {
 
 	// Close the app but keep the data for persistence testing
 	async restart() {
-		await this.forceCloseApp();
+		await this.closeApp();
 		await this.launchFirstWindow();
 	}
 
-	private async forceCloseApp() {
-		console.log( 'forceCloseApp: starting' );
+	private async closeApp() {
 		if ( ! this.electronApp ) {
-			console.log( 'forceCloseApp: no electronApp, returning early' );
 			return;
 		}
 
-		// Use process kill instead of close() because close() waits for the entire
-		// process tree to exit gracefully. With the architectural refactor moving
-		// site management to CLI, there are multiple child processes with IPC
-		// channels that can prevent graceful shutdown, especially on Windows CI.
 		const childProcess = this.electronApp.process();
-		console.log( 'forceCloseApp: killing pid', childProcess.pid );
-		childProcess.kill( 'SIGKILL' );
+		await this.electronApp.close();
 
-		// Wait for the process to actually exit
-		await new Promise< void >( ( resolve ) => {
-			if ( childProcess.exitCode !== null ) {
-				console.log( 'forceCloseApp: process already exited with code', childProcess.exitCode );
-				resolve();
-				return;
-			}
-			childProcess.on( 'exit', ( code ) => {
-				console.log( 'forceCloseApp: process exited with code', code );
-				resolve();
-			} );
-		} );
-		console.log( 'forceCloseApp: done' );
+		// Ensure process is fully dead (singleton lock released) before continuing.
+		// This prevents a race condition where the next test launches before the
+		// previous instance has fully exited and released the singleton lock.
+		if ( childProcess.exitCode === null ) {
+			await new Promise< void >( ( resolve ) => childProcess.on( 'exit', resolve ) );
+		}
+
+		// Clear the reference so Playwright doesn't try to close it again during teardown
+		this.electronApp = null as unknown as ElectronApplication;
 	}
 
 	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {
@@ -104,7 +93,7 @@ export class E2ESession {
 	}
 
 	async cleanup() {
-		await this.forceCloseApp();
+		await this.closeApp();
 
 		// Removing the `sessionPath` directory has proven to be difficult, especially on Windows. Since
 		// session paths are unique, the WordPress installations are relatively small, and the E2E tests

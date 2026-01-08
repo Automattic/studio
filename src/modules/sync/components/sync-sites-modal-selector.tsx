@@ -1,4 +1,4 @@
-import { Icon, SearchControl as SearchControlWp, Tooltip } from '@wordpress/components';
+import { Icon, SearchControl as SearchControlWp } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState, useEffect } from 'react';
@@ -7,6 +7,7 @@ import Button from 'src/components/button';
 import Modal from 'src/components/modal';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
+import { Tooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';

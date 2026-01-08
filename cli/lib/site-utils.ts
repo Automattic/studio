@@ -1,12 +1,111 @@
 import { __ } from '@wordpress/i18n';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { getSiteUrl, readAppdata, SiteData } from 'cli/lib/appdata';
+import { getSiteByFolder, getSiteUrl, readAppdata, SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import { addDomainToHosts } from 'cli/lib/hosts-file';
 import { isProxyProcessRunning, startProxyProcess, stopProxyProcess } from 'cli/lib/pm2-manager';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+
+export const ALL_SITES = Symbol( 'all' );
+
+interface RunOnSitesResult {
+	requested: Array< { site: SiteData } >;
+	succeeded: Array< { site: SiteData } >;
+	failed: Array< { site: SiteData; error: unknown } >;
+}
+
+// Just to have nice type in runOnSites arguments
+type SiteFolderPath = string;
+
+/**
+ * Runs an operation on either a single site (by folder) or all sites.
+ * Caller is responsible for logging/messaging based on results.
+ *
+ * @param target - Site folder path, or ALL_SITES symbol for all sites
+ * @param operation - The operation to run on each site
+ * @param options - Optional filter
+ *
+ * @example
+ * // Single site
+ * const result = await runOnSites('/path/to/site', async (site) => {
+ *   await stopServer(site.id);
+ * });
+ *
+ * @example
+ * // All running sites
+ * const result = await runOnSites(ALL_SITES, async (site) => {
+ *   await stopServer(site.id);
+ * }, { filter: async (site) => await isServerRunning(site.id) });
+ */
+export async function runOnSites(
+	target: typeof ALL_SITES | SiteFolderPath,
+	operation: ( site: SiteData, sitesToProcess: SiteData[] ) => Promise< void >,
+	options: { filter?: ( site: SiteData ) => Promise< boolean > | boolean } = {}
+): Promise< RunOnSitesResult > {
+	const { filter } = options;
+	const all = target === ALL_SITES;
+
+	// Single site mode
+	if ( ! all ) {
+		const site = await getSiteByFolder( target );
+
+		// Apply filter if provided
+		if ( filter ) {
+			const shouldProcess = await filter( site );
+			if ( ! shouldProcess ) {
+				return { requested: [ { site } ], succeeded: [], failed: [] };
+			}
+		}
+
+		// In single-site mode, let errors propagate (don't catch them)
+		await operation( site, [ site ] );
+		return { requested: [ { site } ], succeeded: [ { site } ], failed: [] };
+	}
+
+	// All sites mode
+	const appdata = await readAppdata();
+	const allSites = appdata.sites;
+
+	if ( ! allSites.length ) {
+		return { requested: [], succeeded: [], failed: [] };
+	}
+
+	const requested = allSites.map( ( site ) => ( { site } ) );
+
+	// Apply filter if provided
+	let sitesToProcess: SiteData[];
+	if ( filter ) {
+		sitesToProcess = [];
+		for ( const site of allSites ) {
+			const shouldProcess = await filter( site );
+			if ( shouldProcess ) {
+				sitesToProcess.push( site );
+			}
+		}
+	} else {
+		sitesToProcess = allSites;
+	}
+
+	if ( ! sitesToProcess.length ) {
+		return { requested, succeeded: [], failed: [] };
+	}
+
+	const succeeded: Array< { site: SiteData } > = [];
+	const failed: Array< { site: SiteData; error: unknown } > = [];
+
+	for ( const site of sitesToProcess ) {
+		try {
+			await operation( site, sitesToProcess );
+			succeeded.push( { site } );
+		} catch ( error ) {
+			failed.push( { site, error } );
+		}
+	}
+
+	return { requested, succeeded, failed };
+}
 
 /**
  * Starts the HTTP proxy server if it's not already running

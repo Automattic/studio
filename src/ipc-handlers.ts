@@ -383,6 +383,10 @@ export async function updateSite(
 		options.wp = wpVersion;
 	}
 
+	if ( updatedSite.enableXdebug !== currentSite.enableXdebug ) {
+		options.xdebug = updatedSite.enableXdebug ?? false;
+	}
+
 	const hasCliChanges = Object.keys( options ).length > 2;
 
 	if ( hasCliChanges ) {
@@ -391,10 +395,22 @@ export async function updateSite(
 		const userData = await loadUserData();
 		const freshSiteData = userData.sites.find( ( s ) => s.id === updatedSite.id );
 		if ( freshSiteData ) {
-			server.details = {
-				...server.details,
-				...freshSiteData,
-			};
+
+			const wasRunning = server.details.running;
+			const url = wasRunning ? ( server.details as StartedSiteDetails ).url : undefined;
+
+			if ( wasRunning && url ) {
+				server.details = {
+					...freshSiteData,
+					running: true,
+					url,
+				};
+			} else {
+				server.details = {
+					...freshSiteData,
+					running: false,
+				};
+			}
 		}
 	}
 }

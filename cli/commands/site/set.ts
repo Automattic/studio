@@ -69,7 +69,8 @@ export async function runCommand(
 		throw new LoggerError( __( 'Site name cannot be empty.' ) );
 	}
 
-	if ( xdebug !== undefined && ! ( await isXdebugBetaEnabled() ) ) {
+
+	if ( xdebug === true && ! ( await isXdebugBetaEnabled() ) ) {
 		throw new LoggerError(
 			__( 'Xdebug support is a beta feature. Enable it in Studio settings first.' )
 		);
@@ -82,7 +83,8 @@ export async function runCommand(
 
 		const initialAppdata = await readAppdata();
 
-		if ( domain !== undefined ) {
+		// Only validate when setting a domain (non-empty), not when clearing it (empty string)
+		if ( domain ) {
 			const existingDomainNames = initialAppdata.sites
 				.filter( ( s ) => s.id !== site.id )
 				.map( ( s ) => s.customDomain )
@@ -151,7 +153,8 @@ export async function runCommand(
 				foundSite.name = name!;
 			}
 			if ( domainChanged ) {
-				foundSite.customDomain = domain;
+				// Use undefined instead of empty string to remove the field from appdata
+				foundSite.customDomain = domain || undefined;
 			}
 			if ( httpsChanged ) {
 				foundSite.enableHttps = https;
@@ -326,6 +329,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					const loggerError = new LoggerError( __( 'Failed to configure site' ), error );
 					logger.reportError( loggerError );
 				}
+				process.exit( 1 );
 			}
 		},
 	} );

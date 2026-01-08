@@ -16,10 +16,12 @@ export interface EditSiteOptions {
 	https?: boolean;
 	php?: string;
 	wp?: string;
+	xdebug?: boolean;
 }
 
 export async function editSiteViaCli( options: EditSiteOptions ): Promise< void > {
 	const args = buildCliArgs( options );
+	console.log( `[CLI Site Editor] Executing: studio ${ args.join( ' ' ) }` );
 
 	return new Promise( ( resolve, reject ) => {
 		let lastErrorMessage: string | null = null;
@@ -40,10 +42,12 @@ export async function editSiteViaCli( options: EditSiteOptions ): Promise< void 
 		} );
 
 		emitter.on( 'success', () => {
+			console.log( `[CLI Site Editor] Command completed successfully` );
 			resolve();
 		} );
 
 		emitter.on( 'failure', () => {
+			console.error( `[CLI Site Editor] Command failed: ${ lastErrorMessage }` );
 			reject( new Error( lastErrorMessage || 'CLI site set failed' ) );
 		} );
 
@@ -74,6 +78,10 @@ function buildCliArgs( options: EditSiteOptions ): string[] {
 
 	if ( options.wp !== undefined ) {
 		args.push( '--wp', options.wp );
+	}
+
+	if ( options.xdebug !== undefined ) {
+		args.push( options.xdebug ? '--xdebug' : '--no-xdebug' );
 	}
 
 	return args;

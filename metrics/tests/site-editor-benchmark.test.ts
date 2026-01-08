@@ -22,33 +22,41 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 	const targetUrl = process.env.BENCHMARK_URL;
 
 	test.afterAll( async ( {}, testInfo ) => {
-		// Attach results as JSON
-		await testInfo.attach( 'benchmark-results', {
-			body: JSON.stringify( results, null, 2 ),
-			contentType: 'application/json',
-		} );
+		// Calculate summary with flattened metric names (URL included in metric name for multi-environment support)
+		const summary: Record< string, number > = {};
 
-		// Calculate and attach summary
-		const summary: Record< string, Record< string, number > > = {};
 		results.forEach( ( result ) => {
 			const urlKey = result.url || 'unknown';
-			if ( ! summary[ urlKey ] ) {
-				summary[ urlKey ] = {};
-			}
+			// Create a short identifier from the URL (e.g., "localhost:8888" or "playground-web")
+			const urlIdentifier = urlKey.includes( 'playground.wordpress.net' )
+				? 'playground-web'
+				: urlKey
+						.replace( /^https?:\/\//, '' )
+						.replace( /\/$/, '' )
+						.replace( /[^a-z0-9]/gi, '-' );
+
 			Object.entries( result.metrics ).forEach( ( [ key, value ] ) => {
 				if ( value !== undefined ) {
-					if ( ! summary[ urlKey ][ key ] ) {
-						summary[ urlKey ][ key ] = value;
+					const metricKey = `${ urlIdentifier }-${ key }`;
+					if ( ! summary[ metricKey ] ) {
+						summary[ metricKey ] = value;
 					} else {
 						// If multiple runs, calculate median
-						summary[ urlKey ][ key ] = median( [ summary[ urlKey ][ key ], value ] ) || value;
+						summary[ metricKey ] = median( [ summary[ metricKey ], value ] ) || value;
 					}
 				}
 			} );
 		} );
 
-		await testInfo.attach( 'benchmark-summary', {
+		// Attach results in the format expected by the performance reporter
+		await testInfo.attach( 'results', {
 			body: JSON.stringify( summary, null, 2 ),
+			contentType: 'application/json',
+		} );
+
+		// Also attach full results for detailed analysis
+		await testInfo.attach( 'benchmark-results-full', {
+			body: JSON.stringify( results, null, 2 ),
 			contentType: 'application/json',
 		} );
 	} );
@@ -206,12 +214,12 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 			} );
 
 			// Wait for templates grid to load - the templates are displayed in a dataviews grid
-			await targetPageOrFrame.waitForSelector( '.dataviews-view-grid', {
+			await targetPageOrFrame.waitForSelector( '.dataviews-view-grid-items.dataviews-view-grid', {
 				timeout: 60_000,
 			} );
 
 			// Wait for template cards to be visible in the grid
-			await targetPageOrFrame.waitForSelector( '.dataviews-view-grid_card', {
+			await targetPageOrFrame.waitForSelector( '.dataviews-view-grid__card', {
 				timeout: 60_000,
 			} );
 
@@ -234,10 +242,13 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 			const templateOpenStartTime = Date.now();
 
 			// Click on the first available template from the dataviews grid
-			// The page-templates-preview-field is a reliable selector for template cards
-			await targetPageOrFrame.click( '.page-templates-preview-field:first-child', {
-				timeout: 30_000,
-			} );
+			// The clickable title field inside the card is the best selector
+			await targetPageOrFrame.click(
+				'.dataviews-view-grid__card:first-child .dataviews-view-grid__title-field',
+				{
+					timeout: 30_000,
+				}
+			);
 
 			// Wait for the template editor to load
 			await targetPageOrFrame.waitForSelector( 'iframe[name="editor-canvas"]', {
@@ -275,36 +286,35 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 			// Step 5: Add a couple of blocks
 			const blockAddStartTime = Date.now();
 
-			// Click on the editor to ensure focus
+			// Click on a block in the editor iframe to ensure focus
 			await templateFrame.click( '[data-block]', { timeout: 10_000 } );
 
 			// Wait a bit for focus
 			await templateFrame.waitForTimeout( 500 );
 
-			// Click the inserter button to open block inserter
-			await templateFrame.click( 'button[aria-label*="Add block"]', { timeout: 10_000 } );
+			// Click the inserter button in the top bar (main page, not iframe)
+			await targetPageOrFrame.click( 'button[aria-label*="Block Inserter"]', {
+				timeout: 10_000,
+			} );
 
-			// Wait for block inserter to appear
-			await templateFrame.waitForSelector( '.block-editor-inserter__search input', {
+			// Wait for block inserter panel to appear in the main page
+			await targetPageOrFrame.waitForSelector( 'input[placeholder="Search"]', {
 				timeout: 10_000,
 			} );
 
 			// Search for and insert a paragraph block
-			const searchInput = await templateFrame.waitForSelector(
-				'.block-editor-inserter__search input',
-				{
-					timeout: 10_000,
-				}
-			);
+			const searchInput = await targetPageOrFrame.waitForSelector( 'input[placeholder="Search"]', {
+				timeout: 10_000,
+			} );
 			await searchInput?.fill( 'paragraph' );
-			await templateFrame.waitForTimeout( 1000 ); // Wait for search results
+			await targetPageOrFrame.waitForTimeout( 1000 ); // Wait for search results
 
-			// Click on the paragraph block option
-			await templateFrame.click( 'button[role="option"]:has-text("Paragraph")', {
+			// Click on the paragraph block option (in the main page)
+			await targetPageOrFrame.click( 'button[role="option"]:has-text("Paragraph")', {
 				timeout: 10_000,
 			} );
 
-			// Wait for block to be inserted
+			// Wait for block to be inserted in the iframe
 			await templateFrame.waitForSelector( 'p[data-block]', {
 				timeout: 15_000,
 			} );
@@ -313,29 +323,30 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 			await templateFrame.waitForTimeout( 500 );
 
 			// Add a second block - heading
-			// Click on an existing block to show the inserter
+			// Click on an existing block in the iframe to show the inserter
 			await templateFrame.click( '[data-block]:last-child', { timeout: 10_000 } );
 			await templateFrame.waitForTimeout( 500 );
 
-			// Click inserter button again
-			await templateFrame.click( 'button[aria-label*="Add block"]', { timeout: 10_000 } );
-
-			await templateFrame.waitForSelector( '.block-editor-inserter__search input', {
+			// Click inserter button again in the top bar
+			await targetPageOrFrame.click( 'button[aria-label*="Block Inserter"]', {
 				timeout: 10_000,
 			} );
 
-			const searchInput2 = await templateFrame.waitForSelector(
-				'.block-editor-inserter__search input',
-				{
-					timeout: 10_000,
-				}
-			);
+			await targetPageOrFrame.waitForSelector( 'input[placeholder="Search"]', {
+				timeout: 10_000,
+			} );
+
+			const searchInput2 = await targetPageOrFrame.waitForSelector( 'input[placeholder="Search"]', {
+				timeout: 10_000,
+			} );
 			await searchInput2?.fill( 'heading' );
-			await templateFrame.waitForTimeout( 1000 );
+			await targetPageOrFrame.waitForTimeout( 1000 );
 
-			await templateFrame.click( 'button[role="option"]:has-text("Heading")', { timeout: 10_000 } );
+			await targetPageOrFrame.click( 'button[role="option"]:has-text("Heading")', {
+				timeout: 10_000,
+			} );
 
-			// Wait for second block to be inserted
+			// Wait for second block to be inserted in the iframe
 			await templateFrame.waitForSelector( 'h1[data-block], h2[data-block], h3[data-block]', {
 				timeout: 15_000,
 			} );
@@ -375,6 +386,13 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 			currentResults.metrics.templateSave = templateSaveEndTime - templateSaveStartTime;
 
 			results.push( currentResults );
+		} catch ( error ) {
+			// Even if the test fails partway through, save the metrics we've collected so far
+			// This allows us to see performance data even for incomplete runs
+			if ( Object.keys( currentResults.metrics ).length > 0 ) {
+				results.push( currentResults );
+			}
+			throw error;
 		} finally {
 			// Cleanup
 			await page.close();

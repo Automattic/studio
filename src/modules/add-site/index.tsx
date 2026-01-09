@@ -12,7 +12,7 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { SyncSite } from 'src/modules/sync/types';
-import { useRootSelector } from 'src/stores';
+import { useRootSelector, useI18nLocale } from 'src/stores';
 import { formatRtkError } from 'src/stores/format-rtk-error';
 import { selectMinimumWordPressVersion } from 'src/stores/provider-constants-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
@@ -322,12 +322,13 @@ export function AddSiteModalContent( {
 }: AddSiteModalContentProps ) {
 	const { __ } = useI18n();
 	const [ nameSuggested, setNameSuggested ] = useState( false );
+	const locale = useI18nLocale();
 
 	const {
 		data: blueprintsData,
 		isLoading: isLoadingBlueprints,
 		error: blueprintsError,
-	} = useGetBlueprints();
+	} = useGetBlueprints( { locale } );
 
 	const { sites, loadingSites } = useSiteDetails();
 

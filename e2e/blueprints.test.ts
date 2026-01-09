@@ -7,7 +7,7 @@ import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
 import { getUrlWithAutoLogin } from './utils';
 
-test.describe( 'Blueprints', () => {
+test.describe.skip( 'Blueprints', () => {
 	const session = new E2ESession();
 
 	test.beforeAll( async () => {

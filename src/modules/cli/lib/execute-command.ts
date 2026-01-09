@@ -129,10 +129,12 @@ export function executeCliCommand(
 		child.unref();
 	} else {
 		app.on( 'will-quit', () => {
+			const pid = child.pid;
 			if ( child.connected ) {
 				child.disconnect();
 			}
-			child.kill();
+			const result = child.kill();
+			console.log( `Child process with pid ${ pid } killed with result: ${ result }` );
 		} );
 	}
 

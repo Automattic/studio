@@ -102,6 +102,8 @@ export function executeCliCommand(
 
 	child.on( 'exit', ( code ) => {
 		capturedExitCode = code;
+		child.stdout?.removeAllListeners();
+		child.stderr?.removeAllListeners();
 	} );
 
 	child.on( 'close', ( code ) => {

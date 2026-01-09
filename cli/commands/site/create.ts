@@ -147,21 +147,13 @@ export async function runCommand(
 
 		const isOnlineStatus = await isOnline();
 
-		if ( ! isOnlineStatus ) {
-			if ( options.wpVersion !== 'latest' ) {
-				throw new LoggerError(
-					__(
-						'Cannot set up WordPress while offline. Specific WordPress versions require an internet connection. Try using "latest" version or ensure internet connectivity.'
-					)
-				);
-			}
-
+		if ( options.wpVersion === 'latest' ) {
 			const bundledWPPath = path.join( getServerFilesPath(), 'wordpress-versions', 'latest' );
 
 			if ( ! ( await pathExists( bundledWPPath ) ) ) {
 				throw new LoggerError(
 					__(
-						'Cannot set up WordPress while offline. Bundled WordPress files not found. Please connect to the internet or reinstall Studio.'
+						'Cannot set up WordPress. Bundled WordPress files not found. Please connect to the internet or reinstall Studio.'
 					)
 				);
 			}
@@ -169,6 +161,12 @@ export async function runCommand(
 			logger.reportStart( LoggerAction.SETUP_WORDPRESS, __( 'Copying bundled WordPress…' ) );
 			await recursiveCopyDirectory( bundledWPPath, sitePath );
 			logger.reportSuccess( __( 'WordPress files copied' ) );
+		} else if ( ! isOnlineStatus ) {
+			throw new LoggerError(
+				__(
+					'Cannot set up WordPress while offline. Specific WordPress versions require an internet connection. Try using "latest" version or ensure internet connectivity.'
+				)
+			);
 		}
 
 		if ( ! ( await isSqliteIntegrationAvailable() ) ) {

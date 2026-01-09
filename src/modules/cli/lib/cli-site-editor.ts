@@ -42,7 +42,6 @@ export async function editSiteViaCli( options: EditSiteOptions ): Promise< void 
 		} );
 
 		emitter.on( 'success', () => {
-			console.log( `[CLI Site Editor] Command completed successfully` );
 			resolve();
 		} );
 

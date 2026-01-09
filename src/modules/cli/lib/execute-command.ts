@@ -111,8 +111,16 @@ export function executeCliCommand(
 		child.stderr?.destroy();
 	} );
 
+	function appQuitHandler() {
+		if ( child.connected ) {
+			child.disconnect();
+		}
+		child.kill();
+	}
+
 	child.on( 'close', ( code ) => {
 		child.removeAllListeners();
+		app.off( 'will-quit', appQuitHandler );
 
 		const exitCode = capturedExitCode ?? code ?? 1;
 		const result: CliCommandResult | undefined =
@@ -128,14 +136,7 @@ export function executeCliCommand(
 	if ( options.detached ) {
 		child.unref();
 	} else {
-		app.on( 'will-quit', () => {
-			const pid = child.pid;
-			if ( child.connected ) {
-				child.disconnect();
-			}
-			const result = child.kill();
-			console.log( `Child process with pid ${ pid } killed with result: ${ result }` );
-		} );
+		app.on( 'will-quit', appQuitHandler );
 	}
 
 	return [ eventEmitter, child ];

@@ -1,9 +1,13 @@
 import { randomUUID } from 'crypto';
-import { tmpdir } from 'os';
+import { tmpdir, platform } from 'os';
 import path from 'path';
+import { promisify } from 'util';
 import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
 import fs from 'fs-extra';
 import { _electron as electron, Page, ElectronApplication } from 'playwright';
+import kill from 'tree-kill';
+
+const killAsync = promisify( kill );
 
 export class E2ESession {
 	electronApp: ElectronApplication;
@@ -42,16 +46,18 @@ export class E2ESession {
 		await this.launchFirstWindow( testEnv );
 	}
 
-	async closeApp() {
-		console.log( 'E2ESession: Closing app...' );
-		await this.electronApp.close();
-		console.log( 'E2ESession: App closed.' );
-	}
-
-	// Close the app but keep the data for persistence testing
 	async restart() {
 		await this.closeApp();
 		await this.launchFirstWindow();
+	}
+
+	async cleanup() {
+		await this.closeApp();
+
+		// Removing the `sessionPath` directory has proven to be difficult, especially on Windows. Since
+		// session paths are unique, the WordPress installations are relatively small, and the E2E tests
+		// primarily run in ephemeral CI workers, we've decided to fix this issue by simply not removing
+		// the `sessionPath` directory.
 	}
 
 	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {
@@ -79,12 +85,22 @@ export class E2ESession {
 		this.mainWindow = await this.electronApp.firstWindow( { timeout: 60_000 } );
 	}
 
-	async cleanup() {
-		await this.closeApp();
+	private async closeApp() {
+		const pid = this.electronApp.process().pid;
 
-		// Removing the `sessionPath` directory has proven to be difficult, especially on Windows. Since
-		// session paths are unique, the WordPress installations are relatively small, and the E2E tests
-		// primarily run in ephemeral CI workers, we've decided to fix this issue by simply not removing
-		// the `sessionPath` directory.
+		// In Windows CI environments, Playwright's electronApp.close() can hang indefinitely because the
+		// 'close' event on the spawned process never fires. Because the 'exit' event fires correctly, we
+		// believe that there's an issue with stdio streams being inherited by child processes that don't
+		// quit. To expand on this, the difference between the 'exit' and 'close' events is just that:
+		// 'close' waits for stdio streams to also close. So why don't the children die? We don't know.
+		//
+		// Workaround: On Windows, manually trigger app.quit() and kill the process tree instead
+		// of using electronApp.close().
+		if ( platform() === 'win32' && pid ) {
+			await this.electronApp.evaluate( ( { app } ) => app.quit() ).catch( () => {} );
+			await killAsync( pid );
+		} else {
+			await this.electronApp.close();
+		}
 	}
 }

@@ -189,6 +189,7 @@ const SyncConnectedSitesSectionItem = ( {
 	connectedSite,
 }: SyncConnectedSitesListProps ) => {
 	const { __ } = useI18n();
+	const isOffline = useOffline();
 	const { clearPullState, getPullState, getPushState, clearPushState, cancelPull, cancelPush } =
 		useSyncSites();
 	const { importState } = useImportExport();
@@ -223,6 +224,20 @@ const SyncConnectedSitesSectionItem = ( {
 		pushState?.status.key,
 		pushState?.uploadProgress
 	);
+
+	const getPushProgressTooltip = () => {
+		if ( isOffline ) {
+			return __(
+				"Your internet connection appears to be offline. Sync will continue running remotely. We will send you an email once it's completed."
+			);
+		}
+		if ( pushBackupIsUploading( pushState?.status.key ) ) {
+			return __( 'Push is in progress. We will send you an email when it is completed.' );
+		}
+		return __(
+			"The push is in progress and will continue running remotely. We will send you an email once it's completed."
+		);
+	};
 
 	return (
 		<div className="grid grid-cols-[max-content_1fr_max-content]">
@@ -312,19 +327,14 @@ const SyncConnectedSitesSectionItem = ( {
 					) }
 					{ pushState?.status && isPushing && (
 						<div className="flex items-center gap-2 max-w-full">
-							<Tooltip
-								text={
-									pushBackupIsUploading( pushState?.status.key )
-										? __( 'Push is in progress. We will send you an email when it is completed.' )
-										: __(
-												"The push is in progress and will continue running remotely. We will send you an email once it's completed."
-										  )
-								}
-								placement="top-start"
-							>
+							<Tooltip text={ getPushProgressTooltip() } placement="top-start">
 								<div className="flex flex-col gap-2 min-w-44 flex-shrink">
 									<div className="a8c-body-small flex items-center gap-0.5">
-										<Icon icon={ info } size={ 16 } />
+										{ isOffline ? (
+											<Icon icon={ offlineIcon } size={ 12 } className="fill-a8c-gray-70" />
+										) : (
+											<Icon icon={ info } size={ 14 } />
+										) }
 										{ getPushUploadMessage( pushState.status.message, uploadPercentage ) }
 									</div>
 									<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />

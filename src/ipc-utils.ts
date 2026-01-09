@@ -47,7 +47,15 @@ export interface IpcEvents {
 	'snapshot-key-value': [ { operationId: crypto.UUID; data: SnapshotKeyValueEventData } ];
 	'snapshot-success': [ { operationId: crypto.UUID } ];
 	'show-whats-new': [ void ];
-	'sync-connect-site': [ { remoteSiteId: number; studioSiteId: string; autoOpenPush?: boolean } ];
+	'sync-connect-site': [
+		{
+			remoteSiteId: number;
+			studioSiteId: string;
+			autoOpenPush?: boolean;
+			siteName?: string;
+			siteUrl?: string;
+		},
+	];
 	'test-render-failure': [ void ];
 	'theme-details-changed': [ { id: string; details: StartedSiteDetails[ 'themeDetails' ] } ];
 	'theme-details-updating': [ { id: string } ];

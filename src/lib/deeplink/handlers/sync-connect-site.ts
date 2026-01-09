@@ -10,12 +10,16 @@ export async function handleSyncConnectSiteDeeplink( urlObject: URL ): Promise< 
 	const remoteSiteId = parseInt( searchParams.get( 'remoteSiteId' ) ?? '' );
 	const studioSiteId = searchParams.get( 'studioSiteId' );
 	const autoOpenPush = searchParams.get( 'autoOpenPush' ) === 'true';
+	const siteName = searchParams.get( 'siteName' ) ?? undefined;
+	const siteUrl = searchParams.get( 'siteUrl' ) ?? undefined;
 
 	if ( remoteSiteId && studioSiteId ) {
 		void sendIpcEventToRenderer( 'sync-connect-site', {
 			remoteSiteId,
 			studioSiteId,
 			autoOpenPush,
+			siteName,
+			siteUrl,
 		} );
 	}
 }

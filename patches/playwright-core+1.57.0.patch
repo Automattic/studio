@@ -1,8 +1,25 @@
 diff --git a/node_modules/playwright-core/lib/server/browserContext.js b/node_modules/playwright-core/lib/server/browserContext.js
-index f7a5ef2..9bd67a6 100644
+index f7a5ef2..87a2764 100644
 --- a/node_modules/playwright-core/lib/server/browserContext.js
 +++ b/node_modules/playwright-core/lib/server/browserContext.js
-@@ -394,14 +394,16 @@ if (navigator.serviceWorker) navigator.serviceWorker.register = async () => { co
+@@ -181,12 +181,14 @@ if (navigator.serviceWorker) navigator.serviceWorker.register = async () => { co
+     await this.setStorageState(progress, this._options.storageState, "resetForReuse");
+     await page?.resetForReuse(progress);
+   }
+-  _browserClosed() {
++	_browserClosed() {
++	  console.trace('BrowserContext::_browserClosed')
+     for (const page of this.pages())
+       page._didClose();
+     this._didCloseInternal();
+   }
+-  _didCloseInternal() {
++	_didCloseInternal() {
++  console.trace('BrowserContext::_didCloseInternal')
+     if (this._closedStatus === "closed") {
+       return;
+     }
+@@ -394,14 +396,16 @@ if (navigator.serviceWorker) navigator.serviceWorker.register = async () => { co
    async _deleteAllDownloads() {
      await Promise.all(Array.from(this._downloads).map((download) => download.artifact.deleteOnContextClose()));
    }
@@ -17,11 +34,11 @@ index f7a5ef2..9bd67a6 100644
    }
 -  async close(options) {
 +	async close(options) {
-+	  console.log('BrowserContext::close start');
++	  console.log('BrowserContext::close start', this._closedStatus);
      if (this._closedStatus === "open") {
        if (options.reason)
          this._closeReason = options.reason;
-@@ -415,13 +417,17 @@ if (navigator.serviceWorker) navigator.serviceWorker.register = async () => { co
+@@ -415,13 +419,17 @@ if (navigator.serviceWorker) navigator.serviceWorker.register = async () => { co
          if (context === this)
            promises.push(artifact.finishedPromise());
        }

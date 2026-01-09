@@ -107,41 +107,30 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 
 		// Environment-specific preparation: Navigate to wp-admin
 		if ( isPlaygroundWeb ) {
-			// For Playground web: navigate to main page, then to wp-admin
+			// For Playground web: use the URL from environment variable (should be Blueprint URL that starts at wp-admin)
 			await page.goto( wpAdminUrl, { waitUntil: 'networkidle' } );
 
-			// Get WordPress frame locator
+			// Get WordPress frame locator using playground-viewport classname (more stable)
+			// The playground-viewport is the wrapper, WordPress site is in a nested iframe
 			wordPressFrameLocator = page
-				.frameLocator( 'iframe[title*="WordPress Playground wrapper"]' )
+				.frameLocator( 'iframe.playground-viewport' )
 				.first()
-				.frameLocator( 'iframe[title*="WordPress site"]' )
+				.frameLocator( 'iframe' )
 				.first();
 
-			await wordPressFrameLocator.locator( 'body' ).waitFor( { timeout: 30_000 } );
+			// Wait for wp-admin to load by checking for Appearance link (same as Studio)
+			await wordPressFrameLocator
+				.getByRole( 'link', { name: 'Appearance' } )
+				.waitFor( { timeout: 30_000 } );
 
-			// Get the actual frame object
+			// Get the actual frame object for use in test body
 			wordPressFrame = findWordPressFrame( page );
-			if ( ! wordPressFrame ) {
-				throw new Error( 'Could not find Playground WordPress iframe' );
-			}
-
-			await wordPressFrame.waitForLoadState( 'networkidle' );
-
-			// Navigate to wp-admin using Playground URL input
-			const urlInput = page.getByRole( 'textbox', {
-				name: /URL to visit in the WordPress site/i,
-			} );
-			await urlInput.fill( '/wp-admin' );
-			await urlInput.press( 'Enter' );
-
-			// Wait for navigation to complete - the frame will be verified in the test body
-			await wordPressFrame.waitForLoadState( 'networkidle' );
 		} else {
 			// For Studio/regular WordPress: navigate directly to wp-admin
 			await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/wp-admin` ), {
 				waitUntil: 'networkidle',
 			} );
-			// Wait for wp-admin to be ready
+			// Wait for wp-admin to be ready - use Appearance link (same as Playground)
 			await page.getByRole( 'link', { name: 'Appearance' } ).waitFor( { timeout: 30_000 } );
 		}
 	} );
@@ -198,34 +187,19 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 			metrics: {},
 		};
 
-		// Re-find frame locator after navigation (for Playground web)
-		if ( isPlaygroundWeb ) {
-			wordPressFrameLocator = page
-				.frameLocator( 'iframe[title*="WordPress Playground wrapper"]' )
-				.first()
-				.frameLocator( 'iframe[title*="WordPress site"]' )
-				.first();
-			wordPressFrame = findWordPressFrame( page );
-		}
-
 		// Get the target for interactions (page or frame locator)
+		// Frame locator is already set up in beforeEach
 		const target = isPlaygroundWeb && wordPressFrameLocator ? wordPressFrameLocator : page;
 
 		try {
-			// Verify wp-admin is ready (already loaded in beforeEach)
-			if ( isPlaygroundWeb && wordPressFrame ) {
-				await wordPressFrame.waitForSelector( 'a[href*="themes.php"]', { timeout: 30_000 } );
-			} else {
-				await target.getByRole( 'link', { name: 'Appearance' } ).waitFor( { timeout: 30_000 } );
-			}
-
+			// wp-admin is already loaded in beforeEach, verified by Appearance link
 			// Step 1: Navigate to site editor from wp-admin using Appearance > Editor
 			const siteEditorStartTime = Date.now();
 
 			// Click Appearance menu
 			await target.getByRole( 'link', { name: 'Appearance' } ).click();
-			// Click Editor submenu
-			await target.getByRole( 'link', { name: 'Editor' } ).click();
+			// Click Editor submenu - use href to be specific (site-editor.php is the site editor)
+			await target.locator( 'a[href="site-editor.php"]' ).click();
 
 			// Close welcome modal if it appears
 			const welcomeDialog = target.getByRole( 'dialog', { name: /welcome to the site editor/i } );
@@ -319,11 +293,11 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 			// Step 4: Open a template
 			const templateOpenStartTime = Date.now();
 
-			// Click on the first template card
+			// Click on the first template card (it's a button, not a link)
 			await target
 				.locator( '.dataviews-view-grid__card' )
 				.first()
-				.getByRole( 'link' )
+				.getByRole( 'button' )
 				.first()
 				.click();
 
@@ -375,7 +349,11 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 
 			// Add Heading block
 			await searchInput.fill( 'Heading' );
-			await target.getByRole( 'option', { name: 'Heading', exact: true } ).click();
+			// Get the block type option (not the pattern) - block types are buttons with class "block-editor-block-types-list__item"
+			await target
+				.locator( '.block-editor-block-types-list__item' )
+				.filter( { hasText: /^Heading$/ } )
+				.click();
 
 			// Wait for heading block to appear
 			await templateFrame.waitForSelector( 'h1[data-block], h2[data-block], h3[data-block]', {

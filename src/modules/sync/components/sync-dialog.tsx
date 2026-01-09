@@ -393,16 +393,10 @@ export function SyncDialog( {
 												</div>
 											);
 										}
-										if ( nodeId === 'wp-content' && type === 'pull' && remoteFileTreeError ) {
-											return (
-												<div className="text-gray-500 italic">
-													{ __(
-														'Error retrieving remote files and directories. Please close and reopen this dialog to try again.'
-													) }
-												</div>
-											);
-										}
-										if ( node.hasError ) {
+										if (
+											( nodeId === 'wp-content' && type === 'pull' && remoteFileTreeError ) ||
+											node.hasError
+										) {
 											return (
 												<div className="text-gray-500 italic">
 													{ __(

@@ -1,10 +1,8 @@
-import { ChildProcess, execSync } from 'child_process';
 import { randomUUID } from 'crypto';
-import { tmpdir, platform } from 'os';
+import { tmpdir } from 'os';
 import path from 'path';
 import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
 import fs from 'fs-extra';
-import pidtree from 'pidtree';
 import { _electron as electron, Page, ElectronApplication } from 'playwright';
 
 export class E2ESession {
@@ -45,99 +43,9 @@ export class E2ESession {
 	}
 
 	async closeApp() {
-		console.log( 'Closing app...' );
-		const childProcess = this.electronApp.process();
-		const pid = childProcess.pid;
-
-		let childPids: number[] = [];
-		if ( pid ) {
-			try {
-				childPids = await pidtree( pid );
-				console.log( 'process children before close', childPids );
-			} catch {
-				// Process may have already exited
-			}
-		} else {
-			console.log( 'No process pid' );
-		}
-
-		// On Windows, Playwright's electronApp.close() can hang indefinitely because the 'close'
-		// event on the spawned process never fires. This happens when CLI child processes inherit
-		// stdio handles from the shell (cmd.exe) that Playwright uses to spawn Electron on Windows.
-		// The 'exit' event fires correctly, but 'close' waits for all stdio streams to close,
-		// which doesn't happen if inherited handles are held by child processes.
-		//
-		// Workaround: On Windows, manually trigger app.quit(), wait for the process exit event,
-		// then kill any remaining child processes instead of using electronApp.close().
-		if ( platform() === 'win32' ) {
-			await this.closeAppWindows( childProcess, childPids );
-		} else {
-			console.log( 'Calling electronApp.close()' );
-			await this.electronApp.close();
-			console.log( 'electronApp.close() resolved' );
-		}
-
-		if ( pid ) {
-			try {
-				const remainingChildren = await pidtree( pid );
-				console.log( 'process children after close', remainingChildren );
-			} catch {
-				// Expected - parent process should be gone
-				console.log( 'Parent process terminated (pidtree found no matching pid)' );
-			}
-		}
-	}
-
-	private async closeAppWindows( childProcess: ChildProcess, childPids: number[] ) {
-		console.log( 'Using Windows-specific close workaround' );
-
-		// Create a promise that resolves when the process exits
-		const exitPromise = new Promise< void >( ( resolve ) => {
-			childProcess.once( 'exit', ( code, signal ) => {
-				console.log( `Process exited with code=${ code }, signal=${ signal }` );
-				resolve();
-			} );
-		} );
-
-		// Trigger app.quit() via Playwright's evaluate
-		try {
-			console.log( 'Evaluating app.quit()' );
-			await this.electronApp.evaluate( ( { app } ) => app.quit() );
-			console.log( 'app.quit() evaluated' );
-		} catch ( error ) {
-			// The connection may close before we get a response, which is expected
-			console.log( 'app.quit() evaluation completed (connection may have closed)' );
-		}
-
-		// Wait for the exit event with a timeout
-		console.log( 'Waiting for process exit...' );
-		const timeoutPromise = new Promise< void >( ( _, reject ) => {
-			setTimeout( () => reject( new Error( 'Process exit timeout' ) ), 30_000 );
-		} );
-
-		try {
-			await Promise.race( [ exitPromise, timeoutPromise ] );
-			console.log( 'Process exit event received' );
-		} catch ( error ) {
-			console.log( 'Process exit timeout, will force kill' );
-		}
-
-		// Kill any remaining child processes
-		await this.killRemainingProcesses( childPids );
-
-		console.log( 'Windows close workaround completed' );
-	}
-
-	private async killRemainingProcesses( pids: number[] ) {
-		for ( const pid of pids ) {
-			try {
-				// On Windows, use taskkill to forcefully terminate the process
-				console.log( `Killing remaining process ${ pid }` );
-				execSync( `taskkill /pid ${ pid } /f /t`, { stdio: 'ignore' } );
-			} catch {
-				// Process may have already exited, ignore errors
-			}
-		}
+		console.log( 'E2ESession: Closing app...' );
+		await this.electronApp.close();
+		console.log( 'E2ESession: App closed.' );
 	}
 
 	// Close the app but keep the data for persistence testing

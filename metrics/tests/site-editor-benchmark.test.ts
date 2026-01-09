@@ -95,54 +95,80 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 
 			if ( isPlaygroundWeb ) {
 				// For web Playground, navigate to the main page first
-				// Playground runs WordPress in an iframe, so we need to access it through the iframe
+				// Playground runs WordPress in nested iframes, so we need to access it through the iframes
 				await page.goto( wpAdminUrl, { waitUntil: 'networkidle' } );
 
-				// Wait for the Playground iframe to load - it might take a moment
-				await page.waitForTimeout( 2000 );
+				// Wait for the Playground iframes to load - there's a wrapper iframe and then the WordPress iframe
+				await page.waitForTimeout( 3000 );
 
-				// Find the Playground iframe - it's usually the main iframe on the page
+				// Find the WordPress iframe - it's nested inside a wrapper iframe
+				// First, find the wrapper iframe
+				const wrapperIframe = page
+					.frameLocator( 'iframe[title*="WordPress Playground wrapper"]' )
+					.first();
+
+				// Then find the WordPress iframe inside the wrapper
+				const wordPressIframe = wrapperIframe
+					.frameLocator( 'iframe[title*="WordPress site"]' )
+					.first();
+
+				// Wait for the WordPress iframe to be ready
+				await wordPressIframe.locator( 'body' ).waitFor( { timeout: 30_000 } );
+
+				// Get the actual frame object for navigation
 				const frames = page.frames();
 				playgroundFrame =
 					frames.find( ( frame ) => {
 						const url = frame.url();
-						// The Playground iframe typically contains WordPress
+						// The WordPress iframe typically contains WordPress content
 						return (
 							url.includes( 'wordpress' ) ||
 							url.includes( 'wp-admin' ) ||
-							url.includes( 'wp-login' )
+							url.includes( 'wp-login' ) ||
+							url.includes( 'scope:' )
 						);
 					} ) || null;
 
 				if ( ! playgroundFrame ) {
-					// Try finding by selector
-					const iframeHandle = await page.waitForSelector( 'iframe', { timeout: 10_000 } );
-					if ( iframeHandle ) {
-						const frameName =
-							( await iframeHandle.getAttribute( 'name' ) ) ||
-							( await iframeHandle.getAttribute( 'id' ) );
-						if ( frameName ) {
-							playgroundFrame = page.frame( { name: frameName } );
-						} else {
-							// Get the first iframe
-							playgroundFrame = frames[ 1 ] || null; // frames[0] is usually the main page
+					// Try to get the nested iframe directly
+					const allFrames = page.frames();
+					// The WordPress iframe is usually the last one or one of the nested frames
+					for ( const frame of allFrames ) {
+						if ( frame.parentFrame() && frame.url().includes( 'scope:' ) ) {
+							playgroundFrame = frame;
+							break;
 						}
 					}
 				}
 
 				if ( ! playgroundFrame ) {
-					throw new Error( 'Could not find Playground iframe' );
+					throw new Error( 'Could not find Playground WordPress iframe' );
 				}
 
 				// Wait for the iframe to be ready
 				await playgroundFrame.waitForLoadState( 'networkidle' );
 
-				// Navigate within the iframe to wp-admin with auto-login
-				const frameUrl = playgroundFrame.url();
-				const frameBaseUrl = frameUrl.split( '?' )[ 0 ].split( '#' )[ 0 ].replace( /\/$/, '' );
-				await playgroundFrame.goto( getUrlWithAutoLogin( `${ frameBaseUrl }/wp-admin` ), {
-					waitUntil: 'networkidle',
-				} );
+				// For Playground web, we navigate using UI elements instead of URLs
+				// Click "Edit Site" from the toolbar menu to go directly to the site editor
+				// This is in the WordPress iframe, so we use the frame locator
+				await wordPressIframe
+					.getByRole( 'menuitem', { name: 'Edit Site' } )
+					.click( { timeout: 15_000 } );
+
+				// Wait for navigation to site editor
+				await page.waitForTimeout( 2000 );
+
+				// Close welcome modal if it appears
+				const getStartedButton = wordPressIframe
+					.getByRole( 'button', { name: 'Get started' } )
+					.or( wordPressIframe.getByRole( 'button', { name: /get started/i } ) );
+				const isModalVisible = await getStartedButton
+					.isVisible( { timeout: 2_000 } )
+					.catch( () => false );
+				if ( isModalVisible ) {
+					await getStartedButton.click( { timeout: 2_000 } ).catch( () => {} );
+					await page.waitForTimeout( 500 );
+				}
 			} else {
 				// For regular WordPress installations, navigate directly
 				await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/wp-admin` ), {
@@ -164,9 +190,13 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 					? playgroundFrame.url().split( '?' )[ 0 ].split( '#' )[ 0 ].replace( /\/$/, '' )
 					: wpAdminUrl;
 
-			await targetPageOrFrame.goto( `${ baseUrl }/wp-admin/site-editor.php`, {
-				waitUntil: 'commit',
-			} );
+			if ( ! isPlaygroundWeb ) {
+				// For regular WordPress, navigate to site editor
+				await targetPageOrFrame.goto( `${ baseUrl }/wp-admin/site-editor.php`, {
+					waitUntil: 'commit',
+				} );
+			}
+			// For Playground web, we're already in the site editor after clicking "Edit Site"
 
 			// Wait for the editor iframe to appear
 			await targetPageOrFrame.waitForSelector( 'iframe[name="editor-canvas"]', {
@@ -204,9 +234,46 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 
 			// Step 3: Open Templates view and wait for it to load completely
 			const templatesViewStartTime = Date.now();
-			await targetPageOrFrame.goto( `${ baseUrl }/wp-admin/site-editor.php?path=%2Fwp_template`, {
-				waitUntil: 'commit',
-			} );
+
+			if ( isPlaygroundWeb && playgroundFrame ) {
+				// For Playground web, use UI navigation via command palette
+				const wordPressIframe = page
+					.frameLocator( 'iframe[title*="WordPress Playground wrapper"]' )
+					.first()
+					.frameLocator( 'iframe[title*="WordPress site"]' )
+					.first();
+
+				// Click the "Pages · Template" button to open command palette
+				await wordPressIframe
+					.getByRole( 'button' )
+					.filter( { hasText: /Pages.*Template/ } )
+					.first()
+					.click( { timeout: 15_000 } );
+
+				// Wait for command palette to appear
+				await page.waitForTimeout( 500 );
+
+				// Type "Templates" in the command palette search
+				await wordPressIframe
+					.getByRole( 'combobox', { name: 'Search commands and settings' } )
+					.fill( 'Templates', { timeout: 5_000 } );
+
+				// Wait for search results
+				await page.waitForTimeout( 1000 );
+
+				// Click on "Go to: Templates" option
+				await wordPressIframe
+					.getByRole( 'option', { name: 'Go to: Templates' } )
+					.click( { timeout: 10_000 } );
+
+				// Wait for navigation to complete
+				await page.waitForTimeout( 1000 );
+			} else {
+				// For regular WordPress, navigate via URL
+				await targetPageOrFrame.goto( `${ baseUrl }/wp-admin/site-editor.php?path=%2Fwp_template`, {
+					waitUntil: 'commit',
+				} );
+			}
 
 			// Wait for the page to be ready - look for the Templates heading first (it's an h2)
 			await targetPageOrFrame.waitForSelector( 'h2:has-text("Templates")', {

@@ -15,85 +15,72 @@ import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
 
-const filterRunningSites = async ( sites: SiteData[] ): Promise< SiteData[] > => {
-	const runningSites = [];
-
-	for ( const site of sites ) {
-		const runningProcess = await isServerRunning( site.id );
-
-		if ( runningProcess ) {
-			runningSites.push( site );
-		}
-	}
-
-	return runningSites;
-};
-
-export async function runCommand( siteFolder: string, autoStart: boolean ): Promise< void > {
-	try {
-		const site = await getSiteByFolder( siteFolder );
-
-		await connect();
-
-		const runningProcess = await isServerRunning( site.id );
-		if ( ! runningProcess ) {
-			logger.reportSuccess( __( 'WordPress site is not running' ) );
-			return;
-		}
-
-		logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress site…' ) );
-		try {
-			await stopWordPressServer( site.id );
-			await clearSiteLatestCliPid( site.id );
-			await updateSiteAutoStart( site.id, autoStart );
-			logger.reportSuccess( __( 'WordPress site stopped' ) );
-			await stopProxyIfNoSitesNeedIt( site.id, logger );
-		} catch ( error ) {
-			throw new LoggerError( __( 'Failed to stop WordPress server' ), error );
-		}
-	} finally {
-		disconnect();
-	}
+enum Mode {
+	STOP_SINGLE_SITE,
+	STOP_ALL_SITES,
 }
 
-export async function runCommandAll( autoStart: boolean ): Promise< void > {
+export async function runCommand(
+	target: Mode.STOP_SINGLE_SITE,
+	siteFolder: string,
+	autoStart: boolean
+): Promise< void >;
+export async function runCommand(
+	target: Mode.STOP_ALL_SITES,
+	siteFolder: undefined,
+	autoStart: boolean
+): Promise< void >;
+export async function runCommand(
+	target: Mode,
+	siteFolder: string | undefined,
+	autoStart: boolean
+): Promise< void > {
 	try {
-		const appdata = await readAppdata();
-		const allSites = appdata.sites;
-
-		if ( ! allSites.length ) {
-			logger.reportSuccess( __( 'No sites found' ) );
-			return;
-		}
-
 		await connect();
 
-		const runningSites = await filterRunningSites( allSites );
+		const SITES_TO_TARGET: SiteData[] = [];
 
-		if ( ! runningSites.length ) {
-			logger.reportSuccess( __( 'No sites are currently running' ) );
-			return;
+		if ( target === Mode.STOP_SINGLE_SITE && siteFolder ) {
+			const site = await getSiteByFolder( siteFolder );
+			SITES_TO_TARGET.push( site );
+
+			const runningProcess = await isServerRunning( site.id );
+			if ( ! runningProcess ) {
+				logger.reportSuccess( __( 'WordPress site is not running' ) );
+				return;
+			}
+		} else {
+			const appdata = await readAppdata();
+
+			for ( const site of appdata.sites ) {
+				const runningProcess = await isServerRunning( site.id );
+
+				if ( runningProcess ) {
+					SITES_TO_TARGET.push( site );
+				}
+			}
+
+			if ( ! SITES_TO_TARGET.length ) {
+				logger.reportSuccess( __( 'No sites are currently running' ) );
+				return;
+			}
+
+			logger.reportStart(
+				LoggerAction.STOP_ALL_SITES,
+				sprintf( __( 'Stopping all WordPress sites... (%d/%d)' ), 0, SITES_TO_TARGET.length )
+			);
 		}
 
 		const stoppedSiteIds: string[] = [];
 
-		logger.reportStart(
-			LoggerAction.STOP_ALL_SITES,
-			sprintf(
-				__( 'Stopping all WordPress sites... (%d/%d)' ),
-				stoppedSiteIds.length,
-				runningSites.length
-			)
-		);
-
-		for ( const site of runningSites ) {
+		for ( const site of SITES_TO_TARGET ) {
 			try {
 				logger.reportProgress(
 					sprintf(
 						__( 'Stopping site "%s" (%d/%d)…' ),
 						site.name,
 						stoppedSiteIds.length + 1,
-						runningSites.length
+						SITES_TO_TARGET.length
 					)
 				);
 				await stopWordPressServer( site.id );
@@ -114,24 +101,20 @@ export async function runCommandAll( autoStart: boolean ): Promise< void > {
 			throw new LoggerError( __( 'Failed to stop proxy server' ), error );
 		}
 
-		if ( stoppedSiteIds.length === runningSites.length ) {
+		if ( stoppedSiteIds.length === SITES_TO_TARGET.length ) {
 			logger.reportSuccess(
 				sprintf(
 					_n(
 						'Successfully stopped %d site',
 						'Successfully stopped %d sites',
-						runningSites.length
+						SITES_TO_TARGET.length
 					),
-					runningSites.length
+					SITES_TO_TARGET.length
 				)
-			);
-		} else if ( stoppedSiteIds.length === 0 ) {
-			throw new LoggerError(
-				sprintf( __( 'Failed to stop all (%d) sites' ), runningSites.length )
 			);
 		} else {
 			throw new LoggerError(
-				sprintf( __( 'Stopped %d sites out of %d' ), stoppedSiteIds.length, runningSites.length )
+				sprintf( __( 'Stopped %d sites out of %d' ), stoppedSiteIds.length, SITES_TO_TARGET.length )
 			);
 		}
 	} finally {
@@ -160,9 +143,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		handler: async ( argv ) => {
 			try {
 				if ( argv.all ) {
-					await runCommandAll( argv.autoStart );
+					await runCommand( Mode.STOP_ALL_SITES, undefined, argv.autoStart );
 				} else {
-					await runCommand( argv.path, argv.autoStart );
+					await runCommand( Mode.STOP_SINGLE_SITE, argv.path, argv.autoStart );
 				}
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

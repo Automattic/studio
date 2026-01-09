@@ -1,4 +1,13 @@
-import { test, expect, chromium, Browser, BrowserContext, Page, Frame } from '@playwright/test';
+import {
+	test,
+	expect,
+	chromium,
+	Browser,
+	BrowserContext,
+	Page,
+	Frame,
+	FrameLocator,
+} from '@playwright/test';
 import { getUrlWithAutoLogin } from '../../e2e/utils';
 import { median } from '../utils';
 
@@ -12,6 +21,126 @@ interface BenchmarkResults {
 		blockAdd?: number;
 		templateSave?: number;
 	};
+}
+
+// Helper functions for the benchmark test
+function findWordPressFrame( page: Page ): Frame | null {
+	const frames = page.frames();
+	let wordPressFrame =
+		frames.find( ( frame ) => {
+			const url = frame.url();
+			return (
+				url.includes( 'wordpress' ) ||
+				url.includes( 'wp-admin' ) ||
+				url.includes( 'wp-login' ) ||
+				url.includes( 'scope:' )
+			);
+		} ) || null;
+
+	if ( ! wordPressFrame ) {
+		// Try searching nested frames
+		for ( const frame of page.frames() ) {
+			if ( frame.parentFrame() && frame.url().includes( 'scope:' ) ) {
+				wordPressFrame = frame;
+				break;
+			}
+		}
+	}
+
+	return wordPressFrame;
+}
+
+function findEditorCanvasFrame(
+	page: Page,
+	isPlaygroundWeb: boolean,
+	wordPressFrame: Frame | null
+): Frame | null {
+	if ( isPlaygroundWeb && wordPressFrame ) {
+		// For Playground web, search in child frames
+		let frame = wordPressFrame.childFrames().find( ( f ) => f.name() === 'editor-canvas' ) || null;
+		// If not found, try searching all frames
+		if ( ! frame ) {
+			const allFrames = page.frames();
+			frame = allFrames.find( ( f ) => f.name() === 'editor-canvas' ) || null;
+		}
+		return frame;
+	}
+	// For regular WordPress, get the frame from the page
+	return page.frame( { name: 'editor-canvas' } );
+}
+
+async function closeModalOverlay(
+	page: Page,
+	frameLocator: FrameLocator | null,
+	timeout: number = 5_000
+): Promise< void > {
+	if ( ! frameLocator ) {
+		return;
+	}
+
+	const modalOverlay = frameLocator.locator( '.components-modal__screen-overlay' );
+	const isOverlayVisible = await modalOverlay.isVisible( { timeout: 2_000 } ).catch( () => false );
+
+	if ( isOverlayVisible ) {
+		await page.keyboard.press( 'Escape' );
+		await page.waitForTimeout( 500 );
+		await modalOverlay.waitFor( { state: 'hidden', timeout } ).catch( () => {} );
+		await page.waitForTimeout( 500 );
+	}
+}
+
+async function closeWelcomeModalFrameLocator(
+	page: Page,
+	frameLocator: FrameLocator
+): Promise< void > {
+	const welcomeDialog = frameLocator.getByRole( 'dialog', { name: /welcome to the site editor/i } );
+	const isModalVisible = await welcomeDialog.isVisible( { timeout: 5_000 } ).catch( () => false );
+
+	if ( isModalVisible ) {
+		// Click the "Get started" button to close the modal
+		const getStartedButton = frameLocator.getByRole( 'button', { name: /get started/i } );
+		await getStartedButton.click( { timeout: 5_000 } );
+		// Wait for the modal to disappear
+		await welcomeDialog.waitFor( { state: 'hidden', timeout: 5_000 } ).catch( () => {} );
+		// Also wait for the modal overlay to disappear
+		const modalOverlay = frameLocator.locator( '.components-modal__screen-overlay' );
+		await modalOverlay.waitFor( { state: 'hidden', timeout: 5_000 } ).catch( () => {} );
+		await page.waitForTimeout( 1000 );
+	} else {
+		// Even if the dialog isn't visible, check for and close any modal overlay
+		await closeModalOverlay( page, frameLocator );
+	}
+}
+
+async function closeWelcomeModalPage( page: Page ): Promise< void > {
+	const welcomeDialog = page.getByRole( 'dialog', { name: /welcome to the site editor/i } );
+	const isModalVisible = await welcomeDialog.isVisible( { timeout: 5_000 } ).catch( () => false );
+
+	if ( isModalVisible ) {
+		// Click the "Get started" button to close the modal
+		const getStartedButton = page.getByRole( 'button', { name: /get started/i } );
+		await getStartedButton.click( { timeout: 5_000 } );
+		// Wait for the modal to disappear
+		await welcomeDialog.waitFor( { state: 'hidden', timeout: 5_000 } ).catch( () => {} );
+		await page.waitForTimeout( 500 );
+	}
+}
+
+async function waitForFunction(
+	page: Page,
+	target: Page | FrameLocator,
+	isPlaygroundWeb: boolean,
+	wordPressFrame: Frame | null,
+	fn: () => boolean,
+	options: { timeout?: number } = {}
+): Promise< void > {
+	if ( isPlaygroundWeb && wordPressFrame ) {
+		// Use the frame object for waitForFunction
+		await wordPressFrame.waitForFunction( fn, options );
+	} else {
+		// For Page, use waitForFunction directly
+		await ( target as Page ).waitForFunction( fn, options );
+	}
 }
 
 test.describe( 'Site Editor Performance Benchmark', () => {
@@ -167,12 +296,25 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 				if ( ! frameLocator ) {
 					throw new Error( 'Could not get WordPress frame locator for Playground web' );
 				}
-				// Click the "Pages · Template" button to open command palette
-				await frameLocator
-					.getByRole( 'button' )
-					.filter( { hasText: /Pages.*Template/ } )
-					.first()
-					.click( { timeout: 15_000 } );
+				// First, ensure any modal overlays are closed
+				await closeModalOverlay( page, frameLocator );
+				// Try to click the "Pages · Template" button to open command palette
+				// If that fails, try using keyboard shortcut or finding by heading
+				const pagesTemplateButton = frameLocator
+					.locator( 'button' )
+					.filter( { hasText: /Pages/ } )
+					.filter( { hasText: /Template/ } )
+					.first();
+				const buttonVisible = await pagesTemplateButton
+					.isVisible( { timeout: 5_000 } )
+					.catch( () => false );
+				if ( buttonVisible ) {
+					await pagesTemplateButton.click( { timeout: 15_000 } );
+				} else {
+					// Fallback: try keyboard shortcut (Cmd+K or Meta+K)
+					await page.keyboard.press( 'Meta+k' );
+					await page.waitForTimeout( 500 );
+				}
 			} else {
 				// For Studio/regular WordPress, try to find command palette button
 				const commandPaletteButton = page
@@ -235,26 +377,7 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 				await wordPressFrameLocator.locator( 'body' ).waitFor( { timeout: 30_000 } );
 
 				// Get the actual frame object
-				const frames = page.frames();
-				wordPressFrame =
-					frames.find( ( frame ) => {
-						const url = frame.url();
-						return (
-							url.includes( 'wordpress' ) ||
-							url.includes( 'wp-admin' ) ||
-							url.includes( 'wp-login' ) ||
-							url.includes( 'scope:' )
-						);
-					} ) || null;
-
-				if ( ! wordPressFrame ) {
-					for ( const frame of page.frames() ) {
-						if ( frame.parentFrame() && frame.url().includes( 'scope:' ) ) {
-							wordPressFrame = frame;
-							break;
-						}
-					}
-				}
+				wordPressFrame = findWordPressFrame( page );
 
 				if ( ! wordPressFrame ) {
 					throw new Error( 'Could not find Playground WordPress iframe' );
@@ -267,16 +390,7 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 
 				// Close welcome modal if it appears
 				if ( wordPressFrameLocator ) {
-					const getStartedButton = wordPressFrameLocator
-						.getByRole( 'button', { name: 'Get started' } )
-						.or( wordPressFrameLocator.getByRole( 'button', { name: /get started/i } ) );
-					const isModalVisible = await getStartedButton
-						.isVisible( { timeout: 2_000 } )
-						.catch( () => false );
-					if ( isModalVisible ) {
-						await getStartedButton.click( { timeout: 2_000 } ).catch( () => {} );
-						await page.waitForTimeout( 500 );
-					}
+					await closeWelcomeModalFrameLocator( page, wordPressFrameLocator );
 				}
 			} else {
 				// For Studio/regular WordPress, start with auto-login admin URL
@@ -295,23 +409,28 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 			if ( ! isPlaygroundWeb ) {
 				// For Studio/regular WordPress, navigate to site editor
 				await navigateToSiteEditor();
+
+				// Close welcome modal if it appears (for regular WordPress sites)
+				await closeWelcomeModalPage( page );
 			}
 			// For Playground web, we're already in the site editor after Step 1
 
-			// Determine the target for interactions (page or frame)
-			const targetPageOrFrame: Page | Frame =
-				isPlaygroundWeb && wordPressFrame ? wordPressFrame : page;
+			// Get the target for interactions (used throughout the test)
+			const targetForInteraction = getTargetForInteraction();
 
 			// Wait for the editor iframe to appear
-			await targetPageOrFrame.waitForSelector( 'iframe[name="editor-canvas"]', {
+			// Use locator() which works for both Page and FrameLocator
+			await targetForInteraction.locator( 'iframe[name="editor-canvas"]' ).waitFor( {
 				state: 'visible',
 				timeout: 120_000,
 			} );
 
-			const frame =
-				isPlaygroundWeb && wordPressFrame
-					? wordPressFrame.childFrames().find( ( f ) => f.name() === 'editor-canvas' ) || null
-					: ( targetPageOrFrame as Page ).frame( { name: 'editor-canvas' } );
+			// Wait a bit for the frame to be fully initialized
+			await page.waitForTimeout( 1000 );
+
+			// Find the editor canvas frame
+			const frame = findEditorCanvasFrame( page, isPlaygroundWeb, wordPressFrame );
+
 			if ( ! frame ) {
 				throw new Error( 'Editor canvas frame not found' );
 			}
@@ -339,26 +458,41 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 			// Step 3: Open Templates view and wait for it to load completely
 			const templatesViewStartTime = Date.now();
 
+			// Wait a bit for the site editor to be fully ready before navigating
+			await page.waitForTimeout( 1000 );
+
+			// Ensure any modal overlays are closed before navigating
+			await closeModalOverlay( page, wordPressFrameLocator );
+
 			// Navigate to Templates view using UI (unified for all environments)
 			await navigateToTemplatesView();
 
 			// Wait for the page to be ready - look for the Templates heading first (it's an h2)
-			await targetPageOrFrame.waitForSelector( 'h2:has-text("Templates")', {
+			await targetForInteraction.locator( 'h2:has-text("Templates")' ).waitFor( {
+				state: 'visible',
 				timeout: 60_000,
 			} );
 
 			// Wait for templates grid to load - the templates are displayed in a dataviews grid
-			await targetPageOrFrame.waitForSelector( '.dataviews-view-grid-items.dataviews-view-grid', {
-				timeout: 60_000,
-			} );
+			await targetForInteraction
+				.locator( '.dataviews-view-grid-items.dataviews-view-grid' )
+				.waitFor( {
+					state: 'visible',
+					timeout: 60_000,
+				} );
 
 			// Wait for template cards to be visible in the grid
-			await targetPageOrFrame.waitForSelector( '.dataviews-view-grid__card', {
+			await targetForInteraction.locator( '.dataviews-view-grid__card' ).first().waitFor( {
+				state: 'visible',
 				timeout: 60_000,
 			} );
 
 			// Wait for any loading spinners to disappear
-			await targetPageOrFrame.waitForFunction(
+			await waitForFunction(
+				page,
+				targetForInteraction,
+				isPlaygroundWeb,
+				wordPressFrame,
 				() => {
 					return (
 						! document.querySelector( '.components-spinner' ) &&
@@ -377,23 +511,22 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 
 			// Click on the first available template from the dataviews grid
 			// The clickable title field inside the card is the best selector
-			await targetPageOrFrame.click(
-				'.dataviews-view-grid__card:first-child .dataviews-view-grid__title-field',
-				{
-					timeout: 30_000,
-				}
-			);
+			await targetForInteraction
+				.locator( '.dataviews-view-grid__card:first-child .dataviews-view-grid__title-field' )
+				.click( { timeout: 30_000 } );
 
 			// Wait for the template editor to load
-			await targetPageOrFrame.waitForSelector( 'iframe[name="editor-canvas"]', {
+			await targetForInteraction.locator( 'iframe[name="editor-canvas"]' ).waitFor( {
 				state: 'visible',
 				timeout: 60_000,
 			} );
 
-			const templateFrame =
-				isPlaygroundWeb && wordPressFrame
-					? wordPressFrame.childFrames().find( ( f ) => f.name() === 'editor-canvas' ) || null
-					: ( targetPageOrFrame as Page ).frame( { name: 'editor-canvas' } );
+			// Wait a bit for the frame to be fully initialized
+			await page.waitForTimeout( 1000 );
+
+			// Find the template editor canvas frame
+			const templateFrame = findEditorCanvasFrame( page, isPlaygroundWeb, wordPressFrame );
+
 			if ( ! templateFrame ) {
 				throw new Error( 'Template editor frame not found' );
 			}
@@ -423,10 +556,10 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 			// Close any modal overlays that might appear when opening a template
 			// Try pressing Escape to close any modals (use page.keyboard since it's always a Page)
 			await page.keyboard.press( 'Escape' ).catch( () => {} );
-			await targetPageOrFrame.waitForTimeout( 300 );
+			await page.waitForTimeout( 300 );
 
 			// Also check if there's a close button and click it
-			const closeButton = targetPageOrFrame.locator(
+			const closeButton = targetForInteraction.locator(
 				'.components-modal__header button[aria-label*="Close"], .components-modal__header button[aria-label*="close"], button.components-modal__header-button'
 			);
 			const isVisible = await closeButton.isVisible().catch( () => false );
@@ -435,30 +568,32 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 					.first()
 					.click( { timeout: 2_000 } )
 					.catch( () => {} );
-				await targetPageOrFrame.waitForTimeout( 300 );
+				await page.waitForTimeout( 300 );
 			}
 
 			// Click the inserter button in the top bar (main page, not iframe)
-			await targetPageOrFrame.click( 'button[aria-label*="Block Inserter"]', {
+			await targetForInteraction.locator( 'button[aria-label*="Block Inserter"]' ).click( {
 				timeout: 10_000,
 			} );
 
 			// Wait for block inserter panel to appear in the main page
-			await targetPageOrFrame.waitForSelector( 'input[placeholder="Search"]', {
+			const searchInput = targetForInteraction.locator( 'input[placeholder="Search"]' );
+			await searchInput.waitFor( {
+				state: 'visible',
 				timeout: 10_000,
 			} );
 
 			// Search for and insert a paragraph block
-			const searchInput = await targetPageOrFrame.waitForSelector( 'input[placeholder="Search"]', {
-				timeout: 10_000,
-			} );
-			await searchInput?.fill( 'paragraph' );
-			await targetPageOrFrame.waitForTimeout( 1000 ); // Wait for search results
+			await searchInput.fill( 'paragraph' );
+			await page.waitForTimeout( 1000 ); // Wait for search results
 
 			// Click on the paragraph block option (in the main page)
-			await targetPageOrFrame.click( 'button[role="option"]:has-text("Paragraph")', {
-				timeout: 10_000,
-			} );
+			// Use locator with first() to select the first Paragraph option (not Stretchy Paragraph)
+			await targetForInteraction
+				.locator( 'button[role="option"]' )
+				.filter( { hasText: /^Paragraph$/ } )
+				.first()
+				.click( { timeout: 10_000 } );
 
 			// Wait for block to be inserted in the iframe
 			await templateFrame.waitForSelector( 'p[data-block]', {
@@ -471,30 +606,31 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 			// Add a second block - heading
 			// The inserter might still be open, but if not, click the inserter button again
 			// First check if inserter is already open, if not, open it
-			const inserterOpen = await targetPageOrFrame
+			const inserterOpen = await targetForInteraction
 				.locator( 'input[placeholder="Search"]' )
 				.isVisible()
 				.catch( () => false );
 
 			if ( ! inserterOpen ) {
-				await targetPageOrFrame.click( 'button[aria-label*="Block Inserter"]', {
+				await targetForInteraction.locator( 'button[aria-label*="Block Inserter"]' ).click( {
 					timeout: 10_000,
 				} );
 			}
 
-			await targetPageOrFrame.waitForSelector( 'input[placeholder="Search"]', {
+			const searchInput2 = targetForInteraction.locator( 'input[placeholder="Search"]' );
+			await searchInput2.waitFor( {
+				state: 'visible',
 				timeout: 10_000,
 			} );
+			await searchInput2.fill( 'heading' );
+			await page.waitForTimeout( 1000 );
 
-			const searchInput2 = await targetPageOrFrame.waitForSelector( 'input[placeholder="Search"]', {
-				timeout: 10_000,
-			} );
-			await searchInput2?.fill( 'heading' );
-			await targetPageOrFrame.waitForTimeout( 1000 );
-
-			await targetPageOrFrame.click( 'button[role="option"]:has-text("Heading")', {
-				timeout: 10_000,
-			} );
+			// Use locator with first() to select the first Heading option (not Stretchy Heading)
+			await targetForInteraction
+				.locator( 'button[role="option"]' )
+				.filter( { hasText: /^Heading$/ } )
+				.first()
+				.click( { timeout: 10_000 } );
 
 			// Wait for second block to be inserted in the iframe
 			await templateFrame.waitForSelector( 'h1[data-block], h2[data-block], h3[data-block]', {
@@ -509,13 +645,17 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 
 			// Find and click the save button (usually in the top bar, outside the iframe)
 			// The save button is in the main page, not the iframe
-			await targetPageOrFrame.click( 'button:has-text("Save")', {
+			await targetForInteraction.locator( 'button:has-text("Save")' ).first().click( {
 				timeout: 30_000,
 			} );
 
 			// Wait for save confirmation
 			// The save button text changes to "Saved" or a snackbar appears
-			await targetPageOrFrame.waitForFunction(
+			await waitForFunction(
+				page,
+				targetForInteraction,
+				isPlaygroundWeb,
+				wordPressFrame,
 				() => {
 					// Look for save success indicators
 					const saveButton = Array.from( document.querySelectorAll( 'button' ) ).find(

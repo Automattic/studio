@@ -286,11 +286,23 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 			// Step 5: Add a couple of blocks
 			const blockAddStartTime = Date.now();
 
-			// Click on a block in the editor iframe to ensure focus
-			await templateFrame.click( '[data-block]', { timeout: 10_000 } );
+			// Close any modal overlays that might appear when opening a template
+			// Try pressing Escape to close any modals (use page.keyboard since it's always a Page)
+			await page.keyboard.press( 'Escape' ).catch( () => {} );
+			await targetPageOrFrame.waitForTimeout( 300 );
 
-			// Wait a bit for focus
-			await templateFrame.waitForTimeout( 500 );
+			// Also check if there's a close button and click it
+			const closeButton = targetPageOrFrame.locator(
+				'.components-modal__header button[aria-label*="Close"], .components-modal__header button[aria-label*="close"], button.components-modal__header-button'
+			);
+			const isVisible = await closeButton.isVisible().catch( () => false );
+			if ( isVisible ) {
+				await closeButton
+					.first()
+					.click( { timeout: 2_000 } )
+					.catch( () => {} );
+				await targetPageOrFrame.waitForTimeout( 300 );
+			}
 
 			// Click the inserter button in the top bar (main page, not iframe)
 			await targetPageOrFrame.click( 'button[aria-label*="Block Inserter"]', {

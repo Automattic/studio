@@ -48,7 +48,7 @@ export class E2ESession {
 		const process = this.electronApp.process();
 		if ( process.pid ) {
 			const children = await pidtree( process.pid );
-			console.log( 'process children', children );
+			console.log( 'process children before close', children );
 		} else {
 			console.log( 'No process pid' );
 		}
@@ -56,6 +56,11 @@ export class E2ESession {
 		console.log( 'Calling electronApp.close()' );
 		await this.electronApp.close();
 		console.log( 'electronApp.close() resolved' );
+
+		if ( process.pid ) {
+			const children = await pidtree( process.pid );
+			console.log( 'process children after close', children );
+		}
 	}
 
 	// Close the app but keep the data for persistence testing

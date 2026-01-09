@@ -40,13 +40,9 @@ export async function runCommand(
 		}
 	}
 
-	// …If not, instantiate a new Playground instance
-	const [ response, closeWpCliServer ] = await runWpCliCommand(
-		siteFolder,
-		phpVersion,
-		site.port,
-		args
-	);
+	// …If not, run the command in a new PHP-WASM instance
+	const response = await runWpCliCommand( siteFolder, phpVersion, args );
+	const decoder = new TextDecoder();
 
 	await response.stderr.pipeTo(
 		new WritableStream( {
@@ -59,13 +55,15 @@ export async function runCommand(
 	await response.stdout.pipeTo(
 		new WritableStream( {
 			write( chunk ) {
-				process.stdout.write( chunk );
+				const text = decoder.decode( chunk, { stream: true } );
+				if ( ! text.startsWith( '#!/usr/bin/env' ) ) {
+					process.stdout.write( chunk );
+				}
 			},
 		} )
 	);
 
-	await closeWpCliServer();
-	process.exit( await response.exitCode );
+	process.exitCode = await response.exitCode;
 }
 
 function removeArgumentFromArgv( argv: string[], argName: string ): string[] {

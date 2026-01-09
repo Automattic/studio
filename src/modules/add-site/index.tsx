@@ -12,7 +12,7 @@ import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
 import { SyncSite } from 'src/modules/sync/types';
-import { useRootSelector, useAppDispatch } from 'src/stores';
+import { useRootSelector, useAppDispatch, useI18nLocale } from 'src/stores';
 import { formatRtkError } from 'src/stores/format-rtk-error';
 import { selectMinimumWordPressVersion } from 'src/stores/provider-constants-slice';
 import { openAddSiteModal, closeAddSiteModal, selectIsAddSiteModalOpen } from 'src/stores/ui-slice';
@@ -344,12 +344,13 @@ export function AddSiteModalContent( {
 	const [ defaultSiteName, setDefaultSiteName ] = useState( '' );
 	const [ defaultSitePath, setDefaultSitePath ] = useState( '' );
 	const [ isFormValid, setIsFormValid ] = useState( true );
+	const locale = useI18nLocale();
 
 	const {
 		data: blueprintsData,
 		isLoading: isLoadingBlueprints,
 		error: blueprintsError,
-	} = useGetBlueprints();
+	} = useGetBlueprints( { locale } );
 
 	const { sites, loadingSites } = useSiteDetails();
 

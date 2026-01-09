@@ -46,8 +46,10 @@ export class E2ESession {
 	async closeApp() {
 		console.log( 'Closing app...' );
 		const process = this.electronApp.process();
+		let pid: number | undefined;
 		if ( process.pid ) {
-			const children = await pidtree( process.pid );
+			pid = process.pid;
+			const children = await pidtree( pid );
 			console.log( 'process children before close', children );
 		} else {
 			console.log( 'No process pid' );
@@ -57,9 +59,13 @@ export class E2ESession {
 		await this.electronApp.close();
 		console.log( 'electronApp.close() resolved' );
 
-		if ( process.pid ) {
-			const children = await pidtree( process.pid );
-			console.log( 'process children after close', children );
+		if ( pid ) {
+			try {
+				const children = await pidtree( pid );
+				console.log( 'process children after close', children );
+			} catch ( error ) {
+				console.error( 'pidtree error after close', error );
+			}
 		}
 	}
 

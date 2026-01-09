@@ -80,7 +80,9 @@ export function executeCliCommand(
 	let stderr = '';
 
 	if ( options.output === 'capture' ) {
-		const logPrefix = options.logPrefix ? `[CLI - ${ options.logPrefix }]` : '[CLI]';
+		const logPrefix = options.logPrefix
+			? `[CLI - pid ${ child.pid } - site ID ${ options.logPrefix }]`
+			: '[CLI]';
 		child.stdout?.on( 'data', ( data: Buffer ) => {
 			const text = data.toString();
 			stdout += text;
@@ -102,8 +104,11 @@ export function executeCliCommand(
 
 	child.on( 'exit', ( code ) => {
 		capturedExitCode = code;
+		// Destroy streams immediately on exit to allow 'close' event to fire on Windows
 		child.stdout?.removeAllListeners();
 		child.stderr?.removeAllListeners();
+		child.stdout?.destroy();
+		child.stderr?.destroy();
 	} );
 
 	child.on( 'close', ( code ) => {

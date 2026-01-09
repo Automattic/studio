@@ -4,6 +4,7 @@ import path from 'path';
 import { promisify } from 'util';
 import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
 import fs from 'fs-extra';
+import pidtree from 'pidtree';
 import { _electron as electron, Page, ElectronApplication } from 'playwright';
 import kill from 'tree-kill';
 
@@ -97,6 +98,8 @@ export class E2ESession {
 		// Workaround: On Windows, manually trigger app.quit() and kill the process tree instead
 		// of using electronApp.close().
 		if ( platform() === 'win32' && pid ) {
+			const children = await pidtree( pid );
+			console.log( 'Children pids before quitting', children );
 			await this.electronApp.evaluate( ( { app } ) => app.quit() ).catch( () => {} );
 			await killAsync( pid );
 		} else {

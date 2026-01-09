@@ -3,6 +3,7 @@ import { tmpdir } from 'os';
 import path from 'path';
 import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
 import fs from 'fs-extra';
+import pidtree from 'pidtree';
 import { _electron as electron, Page, ElectronApplication } from 'playwright';
 
 export class E2ESession {
@@ -42,9 +43,24 @@ export class E2ESession {
 		await this.launchFirstWindow( testEnv );
 	}
 
+	async closeApp() {
+		console.log( 'Closing app...' );
+		const process = this.electronApp.process();
+		if ( process.pid ) {
+			const children = pidtree( process.pid );
+			console.log( 'process children', children );
+		} else {
+			console.log( 'No process pid' );
+		}
+
+		console.log( 'Calling electronApp.close()' );
+		await this.electronApp.close();
+		console.log( 'electronApp.close() resolved' );
+	}
+
 	// Close the app but keep the data for persistence testing
 	async restart() {
-		await this.electronApp.close();
+		await this.closeApp();
 		await this.launchFirstWindow();
 	}
 
@@ -74,7 +90,7 @@ export class E2ESession {
 	}
 
 	async cleanup() {
-		await this.electronApp.close();
+		await this.closeApp();
 
 		// Removing the `sessionPath` directory has proven to be difficult, especially on Windows. Since
 		// session paths are unique, the WordPress installations are relatively small, and the E2E tests

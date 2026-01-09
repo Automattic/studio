@@ -129,6 +129,9 @@ export function executeCliCommand(
 		child.unref();
 	} else {
 		app.on( 'will-quit', () => {
+			if ( child.connected ) {
+				child.disconnect();
+			}
 			child.kill();
 		} );
 	}

@@ -44,29 +44,8 @@ export class E2ESession {
 
 	// Close the app but keep the data for persistence testing
 	async restart() {
-		await this.closeApp();
+		await this.electronApp.close();
 		await this.launchFirstWindow();
-	}
-
-	private async closeApp() {
-		console.log( 'closeApp: starting' );
-		if ( ! this.electronApp ) {
-			console.log( 'closeApp: no electronApp' );
-			return;
-		}
-
-		const childProcess = this.electronApp.process();
-		console.log( 'closeApp: calling electronApp.close() for pid', childProcess.pid );
-		// Cap `ElectronApplication::close` call at 5s to prevent timeout issues on Windows
-		await new Promise( ( resolve, reject ) => {
-			Promise.race( [
-				this.electronApp.close(),
-				new Promise( ( resolve ) => setTimeout( resolve, 5000 ) ),
-			] )
-				.then( resolve )
-				.catch( reject );
-		} );
-		console.log( 'closeApp: close() returned' );
 	}
 
 	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {
@@ -95,7 +74,7 @@ export class E2ESession {
 	}
 
 	async cleanup() {
-		await this.closeApp();
+		await this.electronApp.close();
 
 		// Removing the `sessionPath` directory has proven to be difficult, especially on Windows. Since
 		// session paths are unique, the WordPress installations are relatively small, and the E2E tests

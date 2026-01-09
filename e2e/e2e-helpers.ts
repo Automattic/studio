@@ -4,11 +4,10 @@ import path from 'path';
 import { promisify } from 'util';
 import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
 import fs from 'fs-extra';
-import pidtree from 'pidtree';
 import { _electron as electron, Page, ElectronApplication } from 'playwright';
-import kill from 'tree-kill';
+import treeKill from 'tree-kill';
 
-const killAsync = promisify( kill );
+const treeKillAsync = promisify( treeKill );
 
 export class E2ESession {
 	electronApp: ElectronApplication;
@@ -90,18 +89,19 @@ export class E2ESession {
 		const pid = this.electronApp.process().pid;
 
 		// In Windows CI environments, Playwright's electronApp.close() can hang indefinitely because the
-		// 'close' event on the spawned process never fires. Because the 'exit' event fires correctly, we
-		// believe that there's an issue with stdio streams being inherited by child processes that don't
-		// quit. To expand on this, the difference between the 'exit' and 'close' events is just that:
-		// 'close' waits for stdio streams to also close. So why don't the children die? We don't know.
+		// 'close' event on the spawned process never fires. The 'exit' event (which differs from 'close'
+		// in that it fires before the stdio stream have closed) fires correctly, which leads us to
+		// believe that there's an issue with stdio streams being inherited by child processes.
 		//
-		// Workaround: On Windows, manually trigger app.quit() and kill the process tree instead
-		// of using electronApp.close().
+		// The workaround is to manually trigger `app.quit()` and kill the process tree instead of using
+		// `electronApp.close()`.
 		if ( platform() === 'win32' && pid ) {
-			const children = await pidtree( pid );
-			console.log( 'Children pids before quitting', children );
 			await this.electronApp.evaluate( ( { app } ) => app.quit() ).catch( () => {} );
-			await killAsync( pid );
+			try {
+				await treeKillAsync( pid );
+			} catch ( error ) {
+				console.error( 'Failed to kill process tree:', error );
+			}
 		} else {
 			await this.electronApp.close();
 		}

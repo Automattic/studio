@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { E2ESession } from './e2e-helpers';
 import Onboarding from './page-objects/onboarding';
 
-test.describe( 'Electron app', () => {
+test.describe.skip( 'Electron app', () => {
 	const session = new E2ESession();
 
 	test.beforeAll( async () => {

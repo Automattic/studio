@@ -4,7 +4,6 @@ import { bumpAggregatedUniqueStat, AppdataProvider, LastBumpStatsData } from 'co
 import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import yargs from 'yargs';
-import { disconnect } from 'cli/lib/pm2-manager';
 import { registerCommand as registerAuthLoginCommand } from 'cli/commands/auth/login';
 import { registerCommand as registerAuthLogoutCommand } from 'cli/commands/auth/logout';
 import { registerCommand as registerAuthStatusCommand } from 'cli/commands/auth/status';
@@ -28,23 +27,6 @@ import { StudioArgv } from 'cli/types';
 import { version } from '../package.json';
 
 suppressPunycodeWarning();
-
-// Handle shutdown message from parent process (Electron app).
-// On Windows, child.kill() doesn't send SIGTERM, so we use IPC to notify
-// the CLI to clean up (e.g., disconnect from PM2) before terminating.
-// Only add this listener when running with IPC channel (from Electron app).
-if ( process.send ) {
-	process.on( 'message', ( message: unknown ) => {
-		if ( message && typeof message === 'object' && 'type' in message && message.type === 'shutdown' ) {
-			disconnect();
-			process.exit( 0 );
-		}
-	} );
-	// Allow the process to exit naturally when the main work is done,
-	// even though we have a message listener. The IPC channel will be
-	// cleaned up when the parent terminates.
-	process.channel?.unref();
-}
 
 const cliAppdataProvider: AppdataProvider< LastBumpStatsData > = {
 	load: readAppdata,

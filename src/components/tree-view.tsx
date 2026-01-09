@@ -17,7 +17,7 @@ export type TreeNode = {
 	children?: TreeNode[];
 	type?: TreeNodeType;
 	loading?: boolean;
-	error?: string;
+	hasError?: boolean;
 	pathId?: string;
 	path?: string;
 };

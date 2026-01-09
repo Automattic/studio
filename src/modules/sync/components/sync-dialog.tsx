@@ -238,14 +238,14 @@ export function SyncDialog( {
 				try {
 					const children = await fetchChildren( remoteSite.id, rewindId, node.path, node.checked );
 					setTreeState( ( prev ) =>
-						updateNodeById( prev, node.id, { children, loading: false, error: undefined } )
+						updateNodeById( prev, node.id, { children, loading: false, hasError: false } )
 					);
 				} catch ( error ) {
 					setTreeState( ( prev ) =>
 						updateNodeById( prev, node.id, {
 							children: [],
 							loading: false,
-							error: 'Error retrieving files and directories',
+							hasError: true,
 						} )
 					);
 				}
@@ -402,7 +402,7 @@ export function SyncDialog( {
 												</div>
 											);
 										}
-										if ( node.error ) {
+										if ( node.hasError ) {
 											return (
 												<div className="text-gray-500 italic">
 													{ __(

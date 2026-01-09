@@ -106,7 +106,7 @@ describe( 'CLI: studio site create', () => {
 			'wordpress-versions',
 			'latest'
 		);
-		return jest.fn().mockImplementation( ( path: string ) => {
+		const mock = jest.fn().mockImplementation( ( path: string ) => {
 			if ( path === bundledWPPath ) {
 				return Promise.resolve( true );
 			}
@@ -115,6 +115,7 @@ describe( 'CLI: studio site create', () => {
 			}
 			return Promise.resolve( false );
 		} );
+		( pathExists as jest.Mock ).mockImplementation( mock );
 	};
 
 	beforeEach( () => {
@@ -122,8 +123,7 @@ describe( 'CLI: studio site create', () => {
 
 		consoleLogSpy = jest.spyOn( console, 'log' ).mockImplementation();
 		fsMkdirSyncSpy = jest.spyOn( require( 'fs' ), 'mkdirSync' ).mockReturnValue( undefined );
-		const pathExistsMock = createPathExistsMock( false );
-		( pathExists as jest.Mock ).mockImplementation( pathExistsMock );
+		createPathExistsMock( false );
 		( isEmptyDir as jest.Mock ).mockResolvedValue( true );
 		( isWordPressDirectory as jest.Mock ).mockReturnValue( false );
 		( arePathsEqual as jest.Mock ).mockImplementation( ( a, b ) => a === b );
@@ -623,8 +623,7 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should delete site directory when server start fails for new directory', async () => {
-			const pathExistsMock = createPathExistsMock( false );
-			( pathExists as jest.Mock ).mockImplementation( pathExistsMock );
+			createPathExistsMock( false );
 			( isWordPressDirectory as jest.Mock ).mockReturnValue( false );
 			( startWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server start failed' ) );
 
@@ -636,8 +635,7 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should NOT delete site directory when server start fails for existing WordPress directory', async () => {
-			const pathExistsMock = createPathExistsMock( true );
-			( pathExists as jest.Mock ).mockImplementation( pathExistsMock );
+			createPathExistsMock( true );
 			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
 			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
 			( startWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server start failed' ) );
@@ -650,8 +648,7 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should delete site directory when blueprint application fails for new directory', async () => {
-			const pathExistsMock = createPathExistsMock( false );
-			( pathExists as jest.Mock ).mockImplementation( pathExistsMock );
+			createPathExistsMock( false );
 			( isWordPressDirectory as jest.Mock ).mockReturnValue( false );
 			const testBlueprint = { steps: [] };
 			( runBlueprint as jest.Mock ).mockRejectedValue( new Error( 'Blueprint failed' ) );
@@ -673,8 +670,7 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should NOT delete site directory when blueprint application fails for existing WordPress directory', async () => {
-			const pathExistsMock = createPathExistsMock( true );
-			( pathExists as jest.Mock ).mockImplementation( pathExistsMock );
+			createPathExistsMock( true );
 			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
 			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
 			const testBlueprint = { steps: [] };

@@ -1,0 +1,64 @@
+diff --git a/node_modules/playwright-core/lib/server/browserContext.js b/node_modules/playwright-core/lib/server/browserContext.js
+index f7a5ef2..9bd67a6 100644
+--- a/node_modules/playwright-core/lib/server/browserContext.js
++++ b/node_modules/playwright-core/lib/server/browserContext.js
+@@ -394,14 +394,16 @@ if (navigator.serviceWorker) navigator.serviceWorker.register = async () => { co
+   async _deleteAllDownloads() {
+     await Promise.all(Array.from(this._downloads).map((download) => download.artifact.deleteOnContextClose()));
+   }
+-  async _deleteAllTempDirs() {
++	async _deleteAllTempDirs() {
++	  console.log('BrowserContext::_deleteAllTempDirs', this._tempDirs);
+     await Promise.all(this._tempDirs.map(async (dir) => await import_fs.default.promises.unlink(dir).catch((e) => {
+     })));
+   }
+   setCustomCloseHandler(handler) {
+     this._customCloseHandler = handler;
+   }
+-  async close(options) {
++	async close(options) {
++	  console.log('BrowserContext::close start');
+     if (this._closedStatus === "open") {
+       if (options.reason)
+         this._closeReason = options.reason;
+@@ -415,13 +417,17 @@ if (navigator.serviceWorker) navigator.serviceWorker.register = async () => { co
+         if (context === this)
+           promises.push(artifact.finishedPromise());
+       }
++      console.log('BrowserContext::close _customCloseHandler start');
+       if (this._customCloseHandler) {
+         await this._customCloseHandler();
+       } else {
+         await this.doClose(options.reason);
+       }
++      console.log('BrowserContext::close _customCloseHandler resolved');
+       promises.push(this._deleteAllDownloads());
++      console.log('BrowserContext::close deleted all downloads');
+       promises.push(this._deleteAllTempDirs());
++      console.log('BrowserContext::close deleted all temp dirs');
+       await Promise.all(promises);
+       if (!this._customCloseHandler)
+         this._didCloseInternal();
+diff --git a/node_modules/playwright-core/lib/server/electron/electron.js b/node_modules/playwright-core/lib/server/electron/electron.js
+index 3fb4963..54de988 100644
+--- a/node_modules/playwright-core/lib/server/electron/electron.js
++++ b/node_modules/playwright-core/lib/server/electron/electron.js
+@@ -75,13 +75,17 @@ class ElectronApplication extends import_instrumentation.SdkObject {
+     });
+     this._nodeSession.on("Runtime.consoleAPICalled", (event) => this._onConsoleAPI(event));
+     const appClosePromise = new Promise((f) => this.once(ElectronApplication.Events.Close, f));
+-    this._browserContext.setCustomCloseHandler(async () => {
++	  this._browserContext.setCustomCloseHandler(async () => {
++		console.log('ElectronApplication customCloseHandler start');
+       await this._browserContext.stopVideoRecording();
+       const electronHandle = await this._nodeElectronHandlePromise;
++      console.log('ElectronApplication customCloseHandler got electron handle');
+       await electronHandle.evaluate(({ app }) => app.quit()).catch(() => {
+       });
++      console.log('ElectronApplication customCloseHandler evaluated `app.quit`');
+       this._nodeConnection.close();
+       await appClosePromise;
++      console.log('ElectronApplication customCloseHandler finished');
+     });
+   }
+   static {

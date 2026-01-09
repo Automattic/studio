@@ -15,7 +15,7 @@ import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
 
-enum Mode {
+export enum Mode {
 	STOP_SINGLE_SITE,
 	STOP_ALL_SITES,
 }

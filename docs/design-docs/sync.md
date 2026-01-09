@@ -83,7 +83,7 @@ The backend will send a success email after the push finishes, telling the user 
 
 Currently, Studio Sync does not support selective syncing of specific site elements, such as syncing only a single plugin, specific folder, or table. All sync operations involve the entire site, including the full database and wp-content files.
 
-The limit for Jetpack Backup when pushing is 2GB.
+The limit for Jetpack Backup when pushing is 5GB.
 
 ## Selective Sync Pull
 
@@ -94,7 +94,7 @@ GET https://public-api.wordpress.com/wpcom/v2/sites/234098253/studio-app/sync/ge
 Response
 
 ```json
-{"body":{"success":true,"rewind_id":"1753295179"},"status":200,"headers":[]}
+{ "body": { "success": true, "rewind_id": "1753295179" }, "status": 200, "headers": [] }
 ```
 
 Once Studio receives the rewind_id, it requests the files under wp-content. Additional requests are made after the user clicks the arrow to expand a specific folder.
@@ -104,76 +104,76 @@ POST https://public-api.wordpress.com/wpcom/v2/sites/${ remoteSiteId }/rewind/ba
 Payload
 
 ```json
-{"backup_id":"1753295179","path":"/wp-content/"}
+{ "backup_id": "1753295179", "path": "/wp-content/" }
 ```
 
 Response
 
 ```json
 {
-    "body": {
-        "ok": true,
-        "error": "",
-        "contents": {
-            "mu-plugins": {
-                "type": "file",
-                "has_children": true,
-                "period": "1752575566",
-                "id": "ZjY6L211LXBsdWdpbnMv",
-                "total_items": 3
-            },
-            "index.php": {
-                "type": "file",
-                "has_children": false,
-                "period": "1747227384",
-                "id": "ZjY6L2luZGV4LnBocA==",
-                "manifest_path": "f6:\/index.php"
-            },
-            "fonts": {
-                "type": "file",
-                "has_children": true,
-                "period": "1752229230",
-                "id": "ZjY6L2ZvbnRzLw==",
-                "total_items": 2
-            },
-            "wp-content.php": {
-                "type": "file",
-                "has_children": false,
-                "period": "1752189576",
-                "id": "ZjY6L3dwLWNvbnRlbnQucGhw",
-                "manifest_path": "f6:\/wp-content.php"
-            },
-            "extra-folder": {
-                "type": "file",
-                "has_children": true,
-                "period": "1752189306",
-                "id": "ZjY6L2V4dHJhLWZvbGRlci8=",
-                "total_items": 1
-            },
-            "themes": {
-                "type": "dir",
-                "has_children": true,
-                "id": "cjE6,ZjE6Lw==",
-                "total_items": 234
-            },
-            "plugins": {
-                "type": "dir",
-                "has_children": true,
-                "id": "cjI6,ZjI6Lw==",
-                "total_items": 39
-            },
-            "uploads": {
-                "type": "dir",
-                "has_children": true,
-                "id": "ZjM6Lw==",
-                "total_items": 8
-            }
-        }
-    },
-    "status": 200,
-    "headers": {
-        "Allow": "POST"
-    }
+	"body": {
+		"ok": true,
+		"error": "",
+		"contents": {
+			"mu-plugins": {
+				"type": "file",
+				"has_children": true,
+				"period": "1752575566",
+				"id": "ZjY6L211LXBsdWdpbnMv",
+				"total_items": 3
+			},
+			"index.php": {
+				"type": "file",
+				"has_children": false,
+				"period": "1747227384",
+				"id": "ZjY6L2luZGV4LnBocA==",
+				"manifest_path": "f6:/index.php"
+			},
+			"fonts": {
+				"type": "file",
+				"has_children": true,
+				"period": "1752229230",
+				"id": "ZjY6L2ZvbnRzLw==",
+				"total_items": 2
+			},
+			"wp-content.php": {
+				"type": "file",
+				"has_children": false,
+				"period": "1752189576",
+				"id": "ZjY6L3dwLWNvbnRlbnQucGhw",
+				"manifest_path": "f6:/wp-content.php"
+			},
+			"extra-folder": {
+				"type": "file",
+				"has_children": true,
+				"period": "1752189306",
+				"id": "ZjY6L2V4dHJhLWZvbGRlci8=",
+				"total_items": 1
+			},
+			"themes": {
+				"type": "dir",
+				"has_children": true,
+				"id": "cjE6,ZjE6Lw==",
+				"total_items": 234
+			},
+			"plugins": {
+				"type": "dir",
+				"has_children": true,
+				"id": "cjI6,ZjI6Lw==",
+				"total_items": 39
+			},
+			"uploads": {
+				"type": "dir",
+				"has_children": true,
+				"id": "ZjM6Lw==",
+				"total_items": 8
+			}
+		}
+	},
+	"status": 200,
+	"headers": {
+		"Allow": "POST"
+	}
 }
 ```
 
@@ -183,8 +183,8 @@ For example, if the user selects the database and the fonts folder, the request 
 
 ```json
 {
-    "options": ["paths", "sqls"],
-    "include_path_list": ["ZjY6L2ZvbnRzLw=="]
+	"options": [ "paths", "sqls" ],
+	"include_path_list": [ "ZjY6L2ZvbnRzLw==" ]
 }
 ```
 

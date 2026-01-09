@@ -71,7 +71,7 @@ export async function startSiteWatcher(): Promise< void > {
 		}
 
 		watcher = executeCliCommand( [ 'site', 'list', '--watch', '--format', 'json' ], {
-			output: 'ignore',
+			mode: 'ignore-stdio',
 		} );
 		const [ eventEmitter ] = watcher;
 

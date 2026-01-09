@@ -41,27 +41,28 @@ export interface ExecuteCliCommandOptions {
 	 * - 'ignore': ignore stdout/stderr completely
 	 * - 'capture': capture stdout/stderr, available in success/failure events
 	 */
-	output: 'ignore' | 'capture';
-	detached?: boolean;
+	mode: 'ignore-stdio' | 'capture-stdio' | 'detached';
 	logPrefix?: string;
 }
 
 export function executeCliCommand(
 	args: string[],
-	options: ExecuteCliCommandOptions = { output: 'ignore', detached: false }
+	options: ExecuteCliCommandOptions = { mode: 'ignore-stdio' }
 ): [ CliCommandEventEmitter, ChildProcess ] {
 	const cliPath = getCliPath();
 
 	let stdio: StdioOptions | undefined;
-	if ( options.output === 'capture' ) {
+	if ( options.mode === 'capture-stdio' ) {
 		stdio = [ 'ignore', 'pipe', 'pipe', 'ipc' ];
-	} else if ( options.output === 'ignore' ) {
+	} else if ( options.mode === 'ignore-stdio' ) {
 		stdio = [ 'ignore', 'ignore', 'ignore', 'ipc' ];
+	} else if ( options.mode === 'detached' ) {
+		stdio = [ 'ignore', 'ignore', 'ignore', 'ignore' ];
 	}
 
 	const child = fork( cliPath, [ ...args, '--avoid-telemetry' ], {
 		stdio,
-		detached: options.detached,
+		detached: options.mode === 'detached',
 		execPath: getBundledNodeBinaryPath(),
 	} );
 	const eventEmitter = new CliCommandEventEmitter();
@@ -79,7 +80,7 @@ export function executeCliCommand(
 	let stdout = '';
 	let stderr = '';
 
-	if ( options.output === 'capture' ) {
+	if ( options.mode === 'capture-stdio' ) {
 		const logPrefix = options.logPrefix
 			? `[CLI - pid ${ child.pid } - site ID ${ options.logPrefix }]`
 			: '[CLI]';
@@ -126,7 +127,7 @@ export function executeCliCommand(
 
 		const exitCode = capturedExitCode ?? code ?? 1;
 		const result: CliCommandResult | undefined =
-			options.output === 'capture' ? { stdout, stderr, exitCode } : undefined;
+			options.mode === 'capture-stdio' ? { stdout, stderr, exitCode } : undefined;
 
 		if ( exitCode === 0 ) {
 			eventEmitter.emit( 'success', { result } );
@@ -135,7 +136,7 @@ export function executeCliCommand(
 		}
 	} );
 
-	if ( options.detached ) {
+	if ( options.mode === 'detached' ) {
 		child.unref();
 	} else {
 		app.on( 'will-quit', appQuitHandler );

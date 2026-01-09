@@ -47,7 +47,7 @@ export class E2ESession {
 		console.log( 'Closing app...' );
 		const process = this.electronApp.process();
 		if ( process.pid ) {
-			const children = pidtree( process.pid );
+			const children = await pidtree( process.pid );
 			console.log( 'process children', children );
 		} else {
 			console.log( 'No process pid' );

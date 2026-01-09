@@ -79,3 +79,20 @@ index 3fb4963..54de988 100644
      });
    }
    static {
+diff --git a/node_modules/playwright-core/lib/server/utils/processLauncher.js b/node_modules/playwright-core/lib/server/utils/processLauncher.js
+index 954d5e6..df35158 100644
+--- a/node_modules/playwright-core/lib/server/utils/processLauncher.js
++++ b/node_modules/playwright-core/lib/server/utils/processLauncher.js
+@@ -149,7 +149,11 @@ async function launchProcess(options) {
+   let processClosed = false;
+   let fulfillCleanup = () => {
+   };
+-  const waitForCleanup = new Promise((f) => fulfillCleanup = f);
++	const waitForCleanup = new Promise((f) => fulfillCleanup = f);
++ spawnedProcess.once("exit", (exitCode, signal) => {
++    options.log(`[pid=${spawnedProcess.pid}] <process exit event: exitCode=${exitCode}, signal=${signal}>`);
++  });
++
+   spawnedProcess.once("close", (exitCode, signal) => {
+     options.log(`[pid=${spawnedProcess.pid}] <process did exit: exitCode=${exitCode}, signal=${signal}>`);
+     processClosed = true;

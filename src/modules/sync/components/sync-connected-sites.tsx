@@ -228,7 +228,7 @@ const SyncConnectedSitesSectionItem = ( {
 	const getPushProgressTooltip = () => {
 		if ( isOffline ) {
 			return __(
-				"Your internet connection appears to be offline. Sync will continue running remotely. We will send you an email once it's completed."
+				"You are currently offline. Sync will continue running remotely. We will send you an email once it's completed."
 			);
 		}
 		if ( pushBackupIsUploading( pushState?.status.key ) ) {

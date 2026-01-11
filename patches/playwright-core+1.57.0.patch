@@ -57,7 +57,7 @@ index f7a5ef2..87a2764 100644
        if (!this._customCloseHandler)
          this._didCloseInternal();
 diff --git a/node_modules/playwright-core/lib/server/electron/electron.js b/node_modules/playwright-core/lib/server/electron/electron.js
-index 3fb4963..f5890b4 100644
+index 3fb4963..6cd3d49 100644
 --- a/node_modules/playwright-core/lib/server/electron/electron.js
 +++ b/node_modules/playwright-core/lib/server/electron/electron.js
 @@ -75,13 +75,17 @@ class ElectronApplication extends import_instrumentation.SdkObject {
@@ -79,14 +79,18 @@ index 3fb4963..f5890b4 100644
      });
    }
    static {
-@@ -157,7 +161,6 @@ class Electron extends import_instrumentation.SdkObject {
+@@ -156,11 +160,6 @@ class Electron extends import_instrumentation.SdkObject {
+       electronArguments.unshift("-r", require.resolve("./loader"));
      }
      let shell = false;
-     if (process.platform === "win32") {
+-    if (process.platform === "win32") {
 -      shell = true;
-       command = `"${command}"`;
-       electronArguments = electronArguments.map((arg) => `"${arg}"`);
-     }
+-      command = `"${command}"`;
+-      electronArguments = electronArguments.map((arg) => `"${arg}"`);
+-    }
+     delete env.NODE_OPTIONS;
+     const { launchedProcess, gracefullyClose, kill } = await (0, import_processLauncher.launchProcess)({
+       command,
 diff --git a/node_modules/playwright-core/lib/server/utils/processLauncher.js b/node_modules/playwright-core/lib/server/utils/processLauncher.js
 index 954d5e6..df35158 100644
 --- a/node_modules/playwright-core/lib/server/utils/processLauncher.js

@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import { fork, ChildProcess, StdioOptions } from 'node:child_process';
+import { fork, spawn, ChildProcess, StdioOptions } from 'node:child_process';
 import EventEmitter from 'node:events';
 import * as Sentry from '@sentry/electron/main';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
@@ -56,15 +56,23 @@ export function executeCliCommand(
 		stdio = [ 'ignore', 'pipe', 'pipe', 'ipc' ];
 	} else if ( options.mode === 'ignore-stdio' ) {
 		stdio = [ 'ignore', 'ignore', 'ignore', 'ipc' ];
-	} else if ( options.mode === 'detached' ) {
-		stdio = [ 'ignore', 'ignore', 'ignore', 'ignore' ];
 	}
 
-	const child = fork( cliPath, [ ...args, '--avoid-telemetry' ], {
-		stdio,
-		detached: options.mode === 'detached',
-		execPath: getBundledNodeBinaryPath(),
-	} );
+	let child: ChildProcess;
+
+	if ( options.mode === 'detached' ) {
+		child = spawn( getBundledNodeBinaryPath(), [ cliPath, ...args, '--avoid-telemetry' ], {
+			detached: options.mode === 'detached',
+			stdio: 'ignore',
+			windowsHide: true,
+		} );
+	} else {
+		child = fork( cliPath, [ ...args, '--avoid-telemetry' ], {
+			stdio,
+			execPath: getBundledNodeBinaryPath(),
+		} );
+	}
+
 	const eventEmitter = new CliCommandEventEmitter();
 
 	child.on( 'spawn', () => {
@@ -97,9 +105,11 @@ export function executeCliCommand(
 		} );
 	}
 
-	child.on( 'message', ( message: unknown ) => {
-		eventEmitter.emit( 'data', { data: message } );
-	} );
+	if ( options.mode !== 'detached' ) {
+		child.on( 'message', ( message: unknown ) => {
+			eventEmitter.emit( 'data', { data: message } );
+		} );
+	}
 
 	let capturedExitCode: number | null = null;
 

@@ -49,7 +49,7 @@ test.describe( 'Site Navigation', () => {
 
 		// Wait for default site to be ready and get URLs
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
+		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
 
 		// Get site URLs for tests
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );

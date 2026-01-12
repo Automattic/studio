@@ -35,7 +35,7 @@ export async function stopAllServersOnQuit() {
 	// Preserve autoStart so sites will restart on next app launch.
 	// Use silent mode to avoid terminal errors during quit.
 	return new Promise< void >( ( resolve ) => {
-		const [ emitter ] = executeCliCommand( [ 'site', 'stop-all', '--auto-start' ], {
+		const [ emitter ] = executeCliCommand( [ 'site', 'stop', '--all', '--auto-start' ], {
 			output: 'ignore',
 		} );
 		emitter.on( 'success', () => resolve() );

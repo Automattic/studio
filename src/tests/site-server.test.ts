@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
-import { SiteServer } from 'src/site-server';
+import { getRunningSiteCount, SiteServer, __resetServersForTesting } from 'src/site-server';
 
 // Electron's Node.js environment provides `bota`/`atob`, but Jests' does not
 jest.mock( 'common/lib/passwords' );
@@ -40,6 +40,7 @@ jest.mock( 'src/storage/user-data', () => ( {
 describe( 'SiteServer', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
+		__resetServersForTesting();
 	} );
 
 	describe( 'start', () => {
@@ -88,6 +89,61 @@ describe( 'SiteServer', () => {
 
 			expect( mockStart ).toHaveBeenCalled();
 			expect( server.details.running ).toBe( true );
+		} );
+	} );
+
+	describe( 'getRunningSiteCount', () => {
+		it( 'should return 0 when no servers are registered', () => {
+			expect( getRunningSiteCount() ).toBe( 0 );
+		} );
+
+		it( 'should count only running servers', async () => {
+			const mockStart = jest.fn().mockResolvedValue( undefined );
+			const mockStop = jest.fn().mockResolvedValue( undefined );
+			( CliServerProcess as jest.Mock ).mockReturnValue( {
+				url: 'http://localhost:1234',
+				start: mockStart,
+				stop: mockStop,
+			} );
+
+			const server1 = SiteServer.register( {
+				id: 'running-site-1',
+				name: 'Running Site 1',
+				path: 'test-path-1',
+				port: 1234,
+				adminPassword: 'test-password',
+				phpVersion: '8.3',
+				running: false,
+				themeDetails: undefined,
+			} );
+			await server1.start();
+
+			SiteServer.register( {
+				id: 'stopped-site',
+				name: 'Stopped Site',
+				path: 'test-path-2',
+				port: 1235,
+				adminPassword: 'test-password',
+				phpVersion: '8.3',
+				running: false,
+				themeDetails: undefined,
+			} );
+
+			expect( getRunningSiteCount() ).toBe( 1 );
+
+			const server3 = SiteServer.register( {
+				id: 'running-site-2',
+				name: 'Running Site 2',
+				path: 'test-path-3',
+				port: 1236,
+				adminPassword: 'test-password',
+				phpVersion: '8.3',
+				running: false,
+				themeDetails: undefined,
+			} );
+			await server3.start();
+
+			expect( getRunningSiteCount() ).toBe( 2 );
 		} );
 	} );
 } );

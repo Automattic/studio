@@ -25,6 +25,7 @@ import { ProcessDescription } from 'cli/lib/types/pm2';
 import {
 	ServerConfig,
 	childMessagePm2Schema,
+	pm2ProcessEventSchema,
 	ManagerMessagePayload,
 } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
@@ -122,6 +123,7 @@ export async function startWordPressServer(
 	await waitForReadyMessage( processDesc.pmId );
 	await sendMessage(
 		processDesc.pmId,
+		processName,
 		{
 			topic: 'start-server',
 			data: { config: serverConfig },
@@ -189,6 +191,7 @@ interface SendMessageOptions {
 
 async function sendMessage(
 	pmId: number,
+	processName: string,
 	message: ManagerMessagePayload,
 	options: SendMessageOptions = {}
 ): Promise< unknown > {
@@ -196,6 +199,7 @@ async function sendMessage(
 	const bus = await getPm2Bus();
 	const messageId = crypto.randomUUID();
 	let responseHandler: ( packet: unknown ) => void;
+	let processEventHandler: ( event: unknown ) => void;
 	let abortListener: () => void;
 
 	return new Promise( ( resolve, reject ) => {
@@ -224,6 +228,17 @@ async function sendMessage(
 		messageActivityTrackers.set( messageId, {
 			activityCheckIntervalId,
 		} );
+
+		processEventHandler = ( event: unknown ) => {
+			const result = pm2ProcessEventSchema.safeParse( event );
+			if ( ! result.success ) {
+				return;
+			}
+
+			if ( result.data.process.name === processName && result.data.event === 'exit' ) {
+				reject( new Error( 'WordPress server process exited unexpectedly' ) );
+			}
+		};
 
 		responseHandler = ( packet: unknown ) => {
 			const validationResult = childMessagePm2Schema.safeParse( packet );
@@ -271,11 +286,13 @@ async function sendMessage(
 		};
 		abortController.signal.addEventListener( 'abort', abortListener );
 
+		bus.on( 'process:event', processEventHandler );
 		bus.on( 'process:msg', responseHandler );
 
 		sendMessageToProcess( pmId, { ...message, messageId } ).catch( reject );
 	} ).finally( () => {
 		abortController.signal.removeEventListener( 'abort', abortListener );
+		bus.off( 'process:event', processEventHandler );
 		bus.off( 'process:msg', responseHandler );
 
 		const tracker = messageActivityTrackers.get( messageId );
@@ -296,6 +313,7 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 		try {
 			await sendMessage(
 				runningProcess.pmId,
+				processName,
 				{ topic: 'stop-server', data: {} },
 				{ maxTotalElapsedTime: GRACEFUL_STOP_TIMEOUT }
 			);
@@ -373,6 +391,7 @@ export async function runBlueprint(
 		await waitForReadyMessage( processDesc.pmId );
 		await sendMessage(
 			processDesc.pmId,
+			processName,
 			{
 				topic: 'run-blueprint',
 				data: { config: serverConfig },
@@ -402,7 +421,7 @@ export async function sendWpCliCommand(
 		throw new Error( `WordPress server is not running` );
 	}
 
-	const result = await sendMessage( runningProcess.pmId, {
+	const result = await sendMessage( runningProcess.pmId, processName, {
 		topic: 'wp-cli-command',
 		data: { args },
 	} );

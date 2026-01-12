@@ -122,6 +122,7 @@ export const childMessagePm2Schema = z.object( {
 export const pm2ProcessEventSchema = z.object( {
 	process: z.object( {
 		name: z.string(),
+		pm_id: z.number().optional(),
 	} ),
 	event: z.string(),
 } );

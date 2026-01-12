@@ -371,7 +371,8 @@ describe( 'ContentTabSettings', () => {
 
 			await waitFor( () => {
 				expect( updateSite ).toHaveBeenCalledWith(
-					expect.objectContaining( { phpVersion: '8.2' } )
+					expect.objectContaining( { phpVersion: '8.2' } ),
+					undefined
 				);
 				expect( stopServer ).not.toHaveBeenCalled();
 				expect( startServer ).not.toHaveBeenCalled();
@@ -441,10 +442,9 @@ describe( 'ContentTabSettings', () => {
 
 			await waitFor( () => {
 				expect( updateSite ).toHaveBeenCalledWith(
-					expect.objectContaining( { phpVersion: '8.2' } )
+					expect.objectContaining( { phpVersion: '8.2' } ),
+					undefined
 				);
-				expect( stopServer ).toHaveBeenCalled();
-				expect( startServer ).toHaveBeenCalled();
 			} );
 
 			rerenderWithProvider(

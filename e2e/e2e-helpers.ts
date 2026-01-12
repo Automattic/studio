@@ -95,12 +95,14 @@ export class E2ESession {
 		//
 		// The workaround is to manually trigger `app.quit()` and kill the process tree instead of using
 		// `electronApp.close()`.
-		if ( platform() === 'win32' && pid ) {
+		if ( platform() === 'win32' ) {
 			await this.electronApp.evaluate( ( { app } ) => app.quit() ).catch( () => {} );
-			try {
-				await treeKillAsync( pid );
-			} catch ( error ) {
-				console.error( 'Failed to kill process tree:', error );
+			if ( pid ) {
+				try {
+					await treeKillAsync( pid );
+				} catch ( error ) {
+					console.error( 'Failed to kill process tree:', error );
+				}
 			}
 		} else {
 			await this.electronApp.close();

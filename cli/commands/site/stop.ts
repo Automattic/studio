@@ -38,17 +38,19 @@ export async function runCommand(
 	try {
 		await connect();
 
-		const SITES_TO_TARGET: SiteData[] = [];
+		const sitesToTarget: SiteData[] = [];
 
 		if ( target === Mode.STOP_SINGLE_SITE && siteFolder ) {
 			const site = await getSiteByFolder( siteFolder );
-			SITES_TO_TARGET.push( site );
+			sitesToTarget.push( site );
 
 			const runningProcess = await isServerRunning( site.id );
 			if ( ! runningProcess ) {
 				logger.reportSuccess( __( 'WordPress site is not running' ) );
 				return;
 			}
+
+			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress site…' ) );
 		} else {
 			const appdata = await readAppdata();
 
@@ -56,31 +58,28 @@ export async function runCommand(
 				const runningProcess = await isServerRunning( site.id );
 
 				if ( runningProcess ) {
-					SITES_TO_TARGET.push( site );
+					sitesToTarget.push( site );
 				}
 			}
 
-			if ( ! SITES_TO_TARGET.length ) {
+			if ( ! sitesToTarget.length ) {
 				logger.reportSuccess( __( 'No sites are currently running' ) );
 				return;
 			}
 
-			logger.reportStart(
-				LoggerAction.STOP_ALL_SITES,
-				sprintf( __( 'Stopping all WordPress sites... (%d/%d)' ), 0, SITES_TO_TARGET.length )
-			);
+			logger.reportStart( LoggerAction.STOP_ALL_SITES, __( 'Stopping all WordPress sites...' ) );
 		}
 
 		const stoppedSiteIds: string[] = [];
 
-		for ( const site of SITES_TO_TARGET ) {
+		for ( const site of sitesToTarget ) {
 			try {
 				logger.reportProgress(
 					sprintf(
 						__( 'Stopping site "%s" (%d/%d)…' ),
 						site.name,
 						stoppedSiteIds.length + 1,
-						SITES_TO_TARGET.length
+						sitesToTarget.length
 					)
 				);
 				await stopWordPressServer( site.id );
@@ -101,20 +100,26 @@ export async function runCommand(
 			throw new LoggerError( __( 'Failed to stop proxy server' ), error );
 		}
 
-		if ( stoppedSiteIds.length === SITES_TO_TARGET.length ) {
+		if ( stoppedSiteIds.length === sitesToTarget.length ) {
 			logger.reportSuccess(
 				sprintf(
 					_n(
 						'Successfully stopped %d site',
 						'Successfully stopped %d sites',
-						SITES_TO_TARGET.length
+						sitesToTarget.length
 					),
-					SITES_TO_TARGET.length
+					sitesToTarget.length
 				)
 			);
+		} else if ( stoppedSiteIds.length === 0 && sitesToTarget.length === 0 ) {
+			throw new LoggerError( __( 'Failed to stop site' ) );
 		} else {
 			throw new LoggerError(
-				sprintf( __( 'Stopped %d sites out of %d' ), stoppedSiteIds.length, SITES_TO_TARGET.length )
+				sprintf(
+					_n( 'Stopped %d site out of %d', 'Stopped %d sites out of %d', stoppedSiteIds.length ),
+					stoppedSiteIds.length,
+					sitesToTarget.length
+				)
 			);
 		}
 	} finally {

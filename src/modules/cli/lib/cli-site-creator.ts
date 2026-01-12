@@ -52,7 +52,7 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 		const result: Partial< CreateSiteResult > = {};
 		let lastErrorMessage: string | null = null;
 
-		const [ emitter ] = executeCliCommand( args, { mode: 'capture-stdio', logPrefix: siteId } );
+		const [ emitter ] = executeCliCommand( args, { output: 'capture', logPrefix: siteId } );
 
 		emitter.on( 'data', ( { data } ) => {
 			const parsed = cliEventSchema.safeParse( data );

@@ -92,7 +92,7 @@ describe( 'SiteServer.executeWpCliCommand', () => {
 			const timeout = isImportExport ? 200 : 100;
 
 			return new Promise( ( resolve ) => {
-				const [ emitter ] = executeCliCommand( cliArgs, { mode: 'capture-stdio' } );
+				const [ emitter ] = executeCliCommand( cliArgs, { output: 'capture' } );
 
 				const timeoutId = setTimeout( () => {
 					resolve( {

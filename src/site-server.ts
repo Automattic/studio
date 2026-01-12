@@ -40,7 +40,8 @@ export async function stopAllServersOnQuit() {
 	// Use silent mode to avoid terminal errors during quit.
 	return new Promise< void >( ( resolve ) => {
 		const [ emitter, childProcess ] = executeCliCommand( [ 'site', 'stop-all', '--auto-start' ], {
-			mode: 'detached',
+			output: 'ignore',
+			detached: true,
 		} );
 		console.log( `Spawned stop-all child process with pid ${ childProcess.pid }` );
 		emitter.on( 'success', () => resolve() );
@@ -349,7 +350,7 @@ export class SiteServer {
 
 		return new Promise< WpCliResult >( ( resolve ) => {
 			const [ emitter, childProcess ] = executeCliCommand( cliArgs, {
-				mode: 'capture-stdio',
+				output: 'capture',
 				logPrefix: this.details.id,
 			} );
 

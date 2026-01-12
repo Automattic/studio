@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import { fork, spawn, ChildProcess, StdioOptions } from 'node:child_process';
+import { fork, ChildProcess, StdioOptions } from 'node:child_process';
 import EventEmitter from 'node:events';
 import * as Sentry from '@sentry/electron/main';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
@@ -41,38 +41,29 @@ export interface ExecuteCliCommandOptions {
 	 * - 'ignore': ignore stdout/stderr completely
 	 * - 'capture': capture stdout/stderr, available in success/failure events
 	 */
-	mode: 'ignore-stdio' | 'capture-stdio' | 'detached';
+	output: 'ignore' | 'capture';
+	detached?: boolean;
 	logPrefix?: string;
 }
 
 export function executeCliCommand(
 	args: string[],
-	options: ExecuteCliCommandOptions = { mode: 'ignore-stdio' }
+	options: ExecuteCliCommandOptions = { output: 'ignore', detached: false }
 ): [ CliCommandEventEmitter, ChildProcess ] {
 	const cliPath = getCliPath();
 
 	let stdio: StdioOptions | undefined;
-	if ( options.mode === 'capture-stdio' ) {
+	if ( options.output === 'capture' ) {
 		stdio = [ 'ignore', 'pipe', 'pipe', 'ipc' ];
-	} else if ( options.mode === 'ignore-stdio' ) {
+	} else if ( options.output === 'ignore' ) {
 		stdio = [ 'ignore', 'ignore', 'ignore', 'ipc' ];
 	}
 
-	let child: ChildProcess;
-
-	if ( options.mode === 'detached' ) {
-		child = spawn( getBundledNodeBinaryPath(), [ cliPath, ...args, '--avoid-telemetry' ], {
-			detached: options.mode === 'detached',
-			stdio: 'ignore',
-			windowsHide: true,
-		} );
-	} else {
-		child = fork( cliPath, [ ...args, '--avoid-telemetry' ], {
-			stdio,
-			execPath: getBundledNodeBinaryPath(),
-		} );
-	}
-
+	const child = fork( cliPath, [ ...args, '--avoid-telemetry' ], {
+		stdio,
+		detached: options.detached,
+		execPath: getBundledNodeBinaryPath(),
+	} );
 	const eventEmitter = new CliCommandEventEmitter();
 
 	child.on( 'spawn', () => {
@@ -88,7 +79,7 @@ export function executeCliCommand(
 	let stdout = '';
 	let stderr = '';
 
-	if ( options.mode === 'capture-stdio' ) {
+	if ( options.output === 'capture' ) {
 		const logPrefix = options.logPrefix
 			? `[CLI - pid ${ child.pid } - site ID ${ options.logPrefix }]`
 			: '[CLI]';
@@ -105,7 +96,7 @@ export function executeCliCommand(
 		} );
 	}
 
-	if ( options.mode !== 'detached' ) {
+	if ( ! options.detached ) {
 		child.on( 'message', ( message: unknown ) => {
 			eventEmitter.emit( 'data', { data: message } );
 		} );
@@ -137,7 +128,7 @@ export function executeCliCommand(
 
 		const exitCode = capturedExitCode ?? code ?? 1;
 		const result: CliCommandResult | undefined =
-			options.mode === 'capture-stdio' ? { stdout, stderr, exitCode } : undefined;
+			options.output === 'capture' ? { stdout, stderr, exitCode } : undefined;
 
 		if ( exitCode === 0 ) {
 			eventEmitter.emit( 'success', { result } );
@@ -146,7 +137,7 @@ export function executeCliCommand(
 		}
 	} );
 
-	if ( options.mode === 'detached' ) {
+	if ( options.detached ) {
 		child.unref();
 	} else {
 		app.on( 'will-quit', appQuitHandler );

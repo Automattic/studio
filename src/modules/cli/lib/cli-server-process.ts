@@ -29,7 +29,7 @@ export class CliServerProcess implements WordPressServerProcess {
 		return new Promise( ( resolve, reject ) => {
 			const [ emitter ] = executeCliCommand(
 				[ 'site', 'start', '--path', this.sitePath, '--skip-browser' ],
-				{ mode: 'capture-stdio', logPrefix: this.siteId }
+				{ output: 'capture', logPrefix: this.siteId }
 			);
 
 			emitter.on( 'data', ( { data } ) => {

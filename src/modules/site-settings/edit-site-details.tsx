@@ -3,9 +3,8 @@ import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import stripAnsi from 'strip-ansi';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'common/lib/domains';
-import { getWordPressVersionUrl } from 'common/lib/wordpress-version-utils';
+import { siteNeedsRestart } from 'common/lib/site-needs-restart';
 import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
@@ -33,8 +32,7 @@ type EditSiteDetailsProps = {
 
 const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) => {
 	const { __ } = useI18n();
-	const { updateSite, selectedSite, stopServer, startServer, isEditModalOpen, setIsEditModalOpen } =
-		useSiteDetails();
+	const { updateSite, selectedSite, isEditModalOpen, setIsEditModalOpen } = useSiteDetails();
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 	const allowedPhpVersions = useRootSelector( selectAllowedPhpVersions );
 	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
@@ -139,60 +137,43 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		const hasWpVersionChanged = selectedWpVersion !== getEffectiveWpVersion();
 		const hasPhpVersionChanged = selectedPhpVersion !== selectedSite.phpVersion;
 		const hasXdebugChanged = enableXdebug !== ( selectedSite.enableXdebug ?? false );
+		const hasDomainChanged =
+			Boolean( selectedSite.customDomain ) !== useCustomDomain ||
+			( useCustomDomain && customDomain !== selectedSite.customDomain );
+		const hasHttpsChanged =
+			useCustomDomain && enableHttps !== ( selectedSite.enableHttps ?? false );
+
 		const needsRestart =
-			selectedSite.running && ( hasWpVersionChanged || hasPhpVersionChanged || hasXdebugChanged );
+			selectedSite.running &&
+			siteNeedsRestart( {
+				domainChanged: hasDomainChanged,
+				httpsChanged: hasHttpsChanged,
+				phpChanged: hasPhpVersionChanged,
+				wpChanged: hasWpVersionChanged,
+				xdebugChanged: hasXdebugChanged,
+			} );
 		setNeedsRestart( needsRestart );
 
 		try {
-			if ( needsRestart ) {
-				await stopServer( selectedSite.id );
-			}
-
-			if ( hasWpVersionChanged ) {
-				try {
-					const zipUrl = getWordPressVersionUrl( selectedWpVersion );
-					const result = await getIpcApi().executeWPCLiInline( {
-						siteId: selectedSite.id,
-						args: `core update ${ zipUrl } --force`,
-						skipPluginsAndThemes: true,
-					} );
-					if ( result.exitCode !== 0 ) {
-						throw new Error( result.stderr );
-					}
-				} catch ( wpError ) {
-					console.error( 'Error changing WordPress version:', wpError );
-					const errorMessage = stripAnsi( ( wpError as Error )?.message );
-					getIpcApi().showErrorMessageBox( {
-						title: __( 'Error changing WordPress version' ),
-						message: __( 'An error occurred while updating the WordPress version.' ),
-						error: new Error( errorMessage ),
-						showOpenLogs: true,
-					} );
-					setSelectedWpVersion( getEffectiveWpVersion() );
-					setIsEditingSite( false );
-					return;
-				}
-			}
-
 			// Determine custom domain setting
 			let usedCustomDomain = useCustomDomain && customDomain ? customDomain : undefined;
 			if ( useCustomDomain && ! customDomain ) {
 				usedCustomDomain = generateCustomDomainFromSiteName( siteName ?? '' );
 			}
 
-			await updateSite( {
-				...selectedSite,
-				name: siteName,
-				phpVersion: selectedPhpVersion,
-				isWpAutoUpdating: selectedWpVersion === defaultWordPressVersion,
-				customDomain: usedCustomDomain,
-				enableHttps: !! usedCustomDomain && enableHttps,
-				enableXdebug,
-			} );
+			await updateSite(
+				{
+					...selectedSite,
+					name: siteName,
+					phpVersion: selectedPhpVersion,
+					isWpAutoUpdating: selectedWpVersion === defaultWordPressVersion,
+					customDomain: usedCustomDomain,
+					enableHttps: !! usedCustomDomain && enableHttps,
+					enableXdebug,
+				},
+				hasWpVersionChanged ? selectedWpVersion : undefined
+			);
 
-			if ( needsRestart ) {
-				await startServer( selectedSite.id );
-			}
 			onSave();
 			closeModal();
 			resetFormState();

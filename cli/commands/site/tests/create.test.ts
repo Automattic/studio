@@ -3,7 +3,13 @@ import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
 } from 'common/lib/blueprint-validation';
-import { isEmptyDir, isWordPressDirectory, pathExists, arePathsEqual } from 'common/lib/fs-utils';
+import {
+	isEmptyDir,
+	isWordPressDirectory,
+	pathExists,
+	arePathsEqual,
+	recursiveCopyDirectory,
+} from 'common/lib/fs-utils';
 import { isOnline } from 'common/lib/network-utils';
 import { portFinder } from 'common/lib/port-finder';
 import {
@@ -94,15 +100,34 @@ describe( 'CLI: studio site create', () => {
 	let consoleLogSpy: jest.SpyInstance;
 	let fsMkdirSyncSpy: jest.SpyInstance;
 
+	const createPathExistsMock = ( sitePathExists = false ) => {
+		const bundledWPPath = require( 'path' ).join(
+			'/test/server-files',
+			'wordpress-versions',
+			'latest'
+		);
+		const mock = jest.fn().mockImplementation( ( path: string ) => {
+			if ( path === bundledWPPath ) {
+				return Promise.resolve( true );
+			}
+			if ( path === mockSitePath ) {
+				return Promise.resolve( sitePathExists );
+			}
+			return Promise.resolve( false );
+		} );
+		( pathExists as jest.Mock ).mockImplementation( mock );
+	};
+
 	beforeEach( () => {
 		jest.clearAllMocks();
 
 		consoleLogSpy = jest.spyOn( console, 'log' ).mockImplementation();
 		fsMkdirSyncSpy = jest.spyOn( require( 'fs' ), 'mkdirSync' ).mockReturnValue( undefined );
-		( pathExists as jest.Mock ).mockResolvedValue( false );
+		createPathExistsMock( false );
 		( isEmptyDir as jest.Mock ).mockResolvedValue( true );
 		( isWordPressDirectory as jest.Mock ).mockReturnValue( false );
 		( arePathsEqual as jest.Mock ).mockImplementation( ( a, b ) => a === b );
+		( recursiveCopyDirectory as jest.Mock ).mockResolvedValue( undefined );
 		( portFinder.getOpenPort as jest.Mock ).mockResolvedValue( mockPort );
 		( readAppdata as jest.Mock ).mockResolvedValue( {
 			sites: [ ...mockAppdata.sites ],
@@ -598,7 +623,7 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should delete site directory when server start fails for new directory', async () => {
-			( pathExists as jest.Mock ).mockResolvedValue( false );
+			createPathExistsMock( false );
 			( isWordPressDirectory as jest.Mock ).mockReturnValue( false );
 			( startWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server start failed' ) );
 
@@ -610,7 +635,7 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should NOT delete site directory when server start fails for existing WordPress directory', async () => {
-			( pathExists as jest.Mock ).mockResolvedValue( true );
+			createPathExistsMock( true );
 			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
 			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
 			( startWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server start failed' ) );
@@ -623,7 +648,7 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should delete site directory when blueprint application fails for new directory', async () => {
-			( pathExists as jest.Mock ).mockResolvedValue( false );
+			createPathExistsMock( false );
 			( isWordPressDirectory as jest.Mock ).mockReturnValue( false );
 			const testBlueprint = { steps: [] };
 			( runBlueprint as jest.Mock ).mockRejectedValue( new Error( 'Blueprint failed' ) );
@@ -645,7 +670,7 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should NOT delete site directory when blueprint application fails for existing WordPress directory', async () => {
-			( pathExists as jest.Mock ).mockResolvedValue( true );
+			createPathExistsMock( true );
 			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
 			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
 			const testBlueprint = { steps: [] };

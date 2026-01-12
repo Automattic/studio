@@ -38,6 +38,66 @@ if ( ! fs.existsSync( TEMP_DIR ) ) {
 const SYNC_ABORT_CONTROLLERS = new Map< string, AbortController >();
 
 /**
+ * Registry to store TUS upload instances and their pause state for ongoing uploads.
+ * Key format: `${selectedSiteId}-${remoteSiteId}`
+ * This allows pause/resume functionality for uploads.
+ */
+type UploadState = {
+	upload: Upload;
+	isManuallyPaused: boolean;
+};
+
+const SYNC_TUS_UPLOADS = new Map< string, UploadState >();
+
+/**
+ * Pause an ongoing sync upload.
+ */
+export function pauseSyncUpload(
+	event: IpcMainInvokeEvent,
+	selectedSiteId: string,
+	remoteSiteId: number
+) {
+	const uploadKey = `${ selectedSiteId }-${ remoteSiteId }`;
+	const uploadState = SYNC_TUS_UPLOADS.get( uploadKey );
+
+	if ( uploadState ) {
+		uploadState.isManuallyPaused = true;
+		void uploadState.upload.abort();
+		void sendIpcEventToRenderer( 'sync-upload-manually-paused', {
+			selectedSiteId,
+			remoteSiteId,
+		} );
+		return true;
+	}
+
+	return false;
+}
+
+/**
+ * Resume a paused sync upload.
+ */
+export function resumeSyncUpload(
+	event: IpcMainInvokeEvent,
+	selectedSiteId: string,
+	remoteSiteId: number
+) {
+	const uploadKey = `${ selectedSiteId }-${ remoteSiteId }`;
+	const uploadState = SYNC_TUS_UPLOADS.get( uploadKey );
+
+	if ( uploadState ) {
+		uploadState.isManuallyPaused = false;
+		uploadState.upload.start();
+		void sendIpcEventToRenderer( 'sync-upload-resumed', {
+			selectedSiteId,
+			remoteSiteId,
+		} );
+		return true;
+	}
+
+	return false;
+}
+
+/**
  * Clear the ID of a push/pull operation.
  */
 export function clearSyncOperation( event: IpcMainInvokeEvent, id: string ) {
@@ -167,6 +227,8 @@ export async function pushArchive(
 	const fileSize = fs.statSync( archivePath ).size;
 	const filename = path.basename( archivePath );
 
+	const uploadKey = `${ selectedSiteId }-${ remoteSiteId }`;
+
 	const attachmentPromise = new Promise< string >( ( resolve, reject ) => {
 		const upload = new Upload( file, {
 			endpoint: `https://public-api.wordpress.com/rest/v1.1/studio-file-uploads/${ remoteSiteId }`,
@@ -230,15 +292,21 @@ export async function pushArchive(
 				}
 			},
 			onShouldRetry: ( error ) => {
-				// Update the UI only if the upload has started and is paused for any reason.
+				// Don't retry or send events if this is a manual pause
+				const uploadState = SYNC_TUS_UPLOADS.get( uploadKey );
+				if ( uploadState?.isManuallyPaused ) {
+					return false;
+				}
+
+				// Update the UI only if the upload has started and is paused for network reasons.
 				if ( hasUploadStarted ) {
 					isUploadingPaused = true;
-					void sendIpcEventToRenderer( 'sync-upload-paused', {
+					void sendIpcEventToRenderer( 'sync-upload-network-paused', {
 						selectedSiteId: selectedSiteId,
 						remoteSiteId: remoteSiteId,
 						error: error.message,
 					} );
-					console.error( '[TUS] Upload paused: ', error.message );
+					console.error( '[TUS] Upload paused due to network error: ', error.message );
 				}
 
 				const status = error.originalResponse ? error.originalResponse.getStatus() : 0;
@@ -251,8 +319,14 @@ export async function pushArchive(
 			},
 		} );
 
+		SYNC_TUS_UPLOADS.set( uploadKey, {
+			upload,
+			isManuallyPaused: false,
+		} );
+
 		upload.start();
 	} ).finally( () => {
+		SYNC_TUS_UPLOADS.delete( uploadKey );
 		file.destroy();
 		file.close();
 	} );

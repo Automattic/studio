@@ -93,9 +93,11 @@ export {
 	downloadSyncBackup,
 	exportSiteForPush,
 	getConnectedWpcomSites,
+	pauseSyncUpload,
 	pushArchive,
 	removeExportedSiteTmpFile,
 	removeSyncBackup,
+	resumeSyncUpload,
 	updateConnectedWpcomSites,
 	updateSingleConnectedWpcomSite,
 } from 'src/modules/sync/lib/ipc-handlers';

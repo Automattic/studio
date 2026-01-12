@@ -33,9 +33,10 @@ export interface IpcEvents {
 	'on-site-create-progress': [ { siteId: string; message: string } ];
 	'site-context-menu-action': [ { action: string; siteId: string } ];
 	'site-event': [ SiteEvent ];
-	'sync-upload-paused': [ { error: string; selectedSiteId: string; remoteSiteId: number } ];
+	'sync-upload-network-paused': [ { error: string; selectedSiteId: string; remoteSiteId: number } ];
 	'sync-upload-resumed': [ { selectedSiteId: string; remoteSiteId: number } ];
 	'sync-upload-progress': [ { selectedSiteId: string; remoteSiteId: number; progress: number } ];
+	'sync-upload-manually-paused': [ { selectedSiteId: string; remoteSiteId: number } ];
 	'snapshot-error': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
 	'snapshot-fatal-error': [ { operationId: crypto.UUID; data: { message: string } } ];
 	'snapshot-output': [ { operationId: crypto.UUID; data: SnapshotEventData } ];

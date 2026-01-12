@@ -45,6 +45,7 @@ import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-st
 import { startSiteWatcher, stopSiteWatcher } from 'src/modules/cli/lib/execute-site-watch-command';
 import { updateWindowsCliVersionedPathIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
+import { stopAllServersOnQuit } from 'src/site-server';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { setupUpdates } from 'src/updates';
 // eslint-disable-next-line import/order
@@ -392,10 +393,6 @@ async function appBoot() {
 		}
 	} );
 
-	app.on( 'will-quit', () => {
-		globalShortcut.unregisterAll();
-	} );
-
 	app.on( 'before-quit', ( event ) => {
 		if ( ! hasActiveSyncOperations() ) {
 			return;
@@ -435,9 +432,18 @@ async function appBoot() {
 		}
 	} );
 
-	app.on( 'quit', () => {
+	app.on( 'will-quit', ( event ) => {
+		event.preventDefault();
+		globalShortcut.unregisterAll();
 		stopUserDataWatcher();
 		stopSiteWatcher();
+		stopAllServersOnQuit()
+			.then( () => {
+				app.exit();
+			} )
+			.catch( () => {
+				app.exit();
+			} );
 	} );
 
 	app.on( 'activate', () => {

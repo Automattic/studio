@@ -123,6 +123,10 @@ const api: IpcApi = {
 	addSyncOperation: ( id, status ) => ipcRendererSend( 'addSyncOperation', id, status ),
 	clearSyncOperation: ( id ) => ipcRendererSend( 'clearSyncOperation', id ),
 	cancelSyncOperation: ( id ) => ipcRendererSend( 'cancelSyncOperation', id ),
+	pauseSyncUpload: ( selectedSiteId, remoteSiteId ) =>
+		ipcRendererInvoke( 'pauseSyncUpload', selectedSiteId, remoteSiteId ),
+	resumeSyncUpload: ( selectedSiteId, remoteSiteId ) =>
+		ipcRendererInvoke( 'resumeSyncUpload', selectedSiteId, remoteSiteId ),
 	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
 	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),

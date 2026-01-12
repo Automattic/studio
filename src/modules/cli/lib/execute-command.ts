@@ -101,18 +101,10 @@ export function executeCliCommand(
 
 	child.on( 'exit', ( code ) => {
 		capturedExitCode = code;
-		// Destroy streams immediately on exit to allow 'close' event to fire on Windows
-		child.stdout?.removeAllListeners();
-		child.stderr?.removeAllListeners();
-		child.stdout?.destroy();
-		child.stderr?.destroy();
 	} );
 
 	function appQuitHandler() {
 		const pid = child.pid;
-		if ( child.connected ) {
-			child.disconnect();
-		}
 		const result = child.kill();
 		console.log( `Child process with pid ${ pid } killed with result: ${ result }` );
 	}

@@ -158,6 +158,10 @@ export class SiteServer {
 			servers.set( siteDetails.id, server );
 			server.details = siteDetails;
 
+			if ( siteDetails.running && siteDetails.url ) {
+				server.server.url = siteDetails.url;
+			}
+
 			return { server, details: siteDetails };
 		} finally {
 			server.hasOngoingOperation = false;
@@ -187,6 +191,11 @@ export class SiteServer {
 
 			const userData = await loadUserData();
 			const freshSiteData = userData.sites.find( ( s ) => s.id === this.details.id );
+
+			if ( freshSiteData?.port ) {
+				this.details.port = freshSiteData.port;
+			}
+
 			const url = getAbsoluteUrl( this.details );
 
 			this.details = {
@@ -196,6 +205,8 @@ export class SiteServer {
 				autoStart: true,
 				latestCliPid: freshSiteData?.latestCliPid,
 			};
+
+			this.server.url = url;
 		} finally {
 			this.hasOngoingOperation = false;
 		}

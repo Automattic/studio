@@ -11,7 +11,6 @@ export interface CliCommandResult {
 }
 
 type CliCommandEventMap = {
-	started: void;
 	error: { error: Error };
 	data: { data: unknown };
 	success: { result?: CliCommandResult };
@@ -65,10 +64,6 @@ export function executeCliCommand(
 		execPath: getBundledNodeBinaryPath(),
 	} );
 	const eventEmitter = new CliCommandEventEmitter();
-
-	child.on( 'spawn', () => {
-		eventEmitter.emit( 'started' );
-	} );
 
 	child.on( 'error', ( error ) => {
 		console.error( 'Child process error:', error );

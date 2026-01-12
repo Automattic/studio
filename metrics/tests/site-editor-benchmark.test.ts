@@ -225,16 +225,14 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 
 			// Wait for frame to be ready
 			await frame.waitForLoadState( 'domcontentloaded' );
+			// Wait for blocks to be present and rendered (positive indicator that editor is ready)
 			await frame.waitForSelector( '[data-block]', { timeout: 60_000 } );
-
-			// Wait for blocks to be loaded and spinners to disappear
+			// Ensure at least one block is fully rendered (not just in DOM)
 			await frame.waitForFunction(
 				() => {
+					const blocks = document.querySelectorAll( '[data-block]' );
 					return (
-						document.querySelectorAll( '[data-block]' ).length > 0 &&
-						! document.querySelector( '.components-spinner' ) &&
-						! document.querySelector( '.is-loading' ) &&
-						! document.querySelector( '.wp-block-editor__loading' )
+						blocks.length > 0 && Array.from( blocks ).some( ( block ) => block.clientHeight > 0 )
 					);
 				},
 				{ timeout: 60_000 }
@@ -253,39 +251,20 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 			await target.getByRole( 'combobox', { name: /search commands/i } ).fill( 'Templates' );
 			await target.getByRole( 'option', { name: /go to: templates/i } ).click();
 
-			// Wait for Templates view to load
+			// Wait for Templates view to load - wait for heading, grid, and ensure first card is clickable
 			await target.getByRole( 'heading', { name: 'Templates', level: 2 } ).waitFor( {
 				timeout: 60_000,
 			} );
 			await target
 				.locator( '.dataviews-view-grid-items.dataviews-view-grid' )
 				.waitFor( { timeout: 60_000 } );
-			await target.locator( '.dataviews-view-grid__card' ).first().waitFor( { timeout: 60_000 } );
-
-			// Wait for loading spinners to disappear
-			if ( isPlaygroundWeb && wordPressFrame ) {
-				await wordPressFrame.waitForFunction(
-					() => {
-						return (
-							! document.querySelector( '.components-spinner' ) &&
-							! document.querySelector( '.is-loading' ) &&
-							! document.querySelector( '[class*="spinner"]' )
-						);
-					},
-					{ timeout: 60_000 }
-				);
-			} else {
-				await page.waitForFunction(
-					() => {
-						return (
-							! document.querySelector( '.components-spinner' ) &&
-							! document.querySelector( '.is-loading' ) &&
-							! document.querySelector( '[class*="spinner"]' )
-						);
-					},
-					{ timeout: 60_000 }
-				);
-			}
+			// Wait for the first template card to be visible and clickable (indicates page is ready)
+			const firstCard = target.locator( '.dataviews-view-grid__card' ).first();
+			await firstCard.waitFor( { state: 'visible', timeout: 60_000 } );
+			await firstCard
+				.getByRole( 'button' )
+				.first()
+				.waitFor( { state: 'visible', timeout: 60_000 } );
 
 			const templatesViewEndTime = Date.now();
 			currentResults.metrics.templatesViewLoad = templatesViewEndTime - templatesViewStartTime;
@@ -315,13 +294,14 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 
 			// Wait for template editor to be ready
 			await templateFrame.waitForLoadState( 'domcontentloaded' );
+			// Wait for blocks to be present and rendered (positive indicator that editor is ready)
 			await templateFrame.waitForSelector( '[data-block]', { timeout: 60_000 } );
+			// Ensure at least one block is fully rendered (not just in DOM)
 			await templateFrame.waitForFunction(
 				() => {
+					const blocks = document.querySelectorAll( '[data-block]' );
 					return (
-						document.querySelectorAll( '[data-block]' ).length > 0 &&
-						! document.querySelector( '.components-spinner' ) &&
-						! document.querySelector( '.is-loading' )
+						blocks.length > 0 && Array.from( blocks ).some( ( block ) => block.clientHeight > 0 )
 					);
 				},
 				{ timeout: 60_000 }
@@ -369,31 +349,17 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 			await target.getByRole( 'button', { name: 'Save' } ).first().click();
 
 			// Wait for save confirmation - button text changes to "Saved"
-			if ( isPlaygroundWeb && wordPressFrame ) {
-				await wordPressFrame.waitForFunction(
-					() => {
-						const saveButton = Array.from( document.querySelectorAll( 'button' ) ).find(
-							( btn ) =>
-								btn.textContent?.includes( 'Saved' ) ||
-								btn.getAttribute( 'aria-label' )?.toLowerCase().includes( 'saved' )
-						);
-						return saveButton !== null;
-					},
-					{ timeout: 30_000 }
-				);
-			} else {
-				await page.waitForFunction(
-					() => {
-						const saveButton = Array.from( document.querySelectorAll( 'button' ) ).find(
-							( btn ) =>
-								btn.textContent?.includes( 'Saved' ) ||
-								btn.getAttribute( 'aria-label' )?.toLowerCase().includes( 'saved' )
-						);
-						return saveButton !== null;
-					},
-					{ timeout: 30_000 }
-				);
-			}
+			await page.waitForFunction(
+				() => {
+					const saveButton = Array.from( document.querySelectorAll( 'button' ) ).find(
+						( btn ) =>
+							btn.textContent?.includes( 'Saved' ) ||
+							btn.getAttribute( 'aria-label' )?.toLowerCase().includes( 'saved' )
+					);
+					return saveButton !== null;
+				},
+				{ timeout: 30_000 }
+			);
 
 			const templateSaveEndTime = Date.now();
 			currentResults.metrics.templateSave = templateSaveEndTime - templateSaveStartTime;

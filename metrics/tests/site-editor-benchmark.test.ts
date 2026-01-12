@@ -100,6 +100,8 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 		wpAdminUrl = wpAdminUrl.replace( /\/$/, '' );
 
 		isPlaygroundWeb = wpAdminUrl.includes( 'playground.wordpress.net' );
+		// Detect local Playground CLI (localhost or 127.0.0.1) - these don't use Studio auto-login
+		const isLocalPlaygroundCli = wpAdminUrl.includes( '127.0.0.1' );
 
 		browser = await chromium.launch();
 		context = await browser.newContext();
@@ -125,12 +127,20 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 
 			// Get the actual frame object for use in test body
 			wordPressFrame = findWordPressFrame( page );
+		} else if ( isLocalPlaygroundCli ) {
+			// For local Playground CLI: navigate directly to wp-admin (Blueprint with --login redirects here)
+			// Don't use Studio auto-login endpoint as it doesn't exist for Playground CLI
+			await page.goto( `${ wpAdminUrl }/wp-admin`, {
+				waitUntil: 'networkidle',
+			} );
+			// Wait for wp-admin to be ready - use Appearance link
+			await page.getByRole( 'link', { name: 'Appearance' } ).waitFor( { timeout: 30_000 } );
 		} else {
-			// For Studio/regular WordPress: navigate directly to wp-admin
+			// For Studio: use auto-login endpoint
 			await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/wp-admin` ), {
 				waitUntil: 'networkidle',
 			} );
-			// Wait for wp-admin to be ready - use Appearance link (same as Playground)
+			// Wait for wp-admin to be ready - use Appearance link
 			await page.getByRole( 'link', { name: 'Appearance' } ).waitFor( { timeout: 30_000 } );
 		}
 	} );

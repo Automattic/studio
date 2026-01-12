@@ -71,9 +71,10 @@ export class E2ESession {
 			await Promise.race( [ exitPromise, timeoutPromise ] );
 			console.log( 'App closed successfully' );
 		} catch ( error ) {
-			console.log( 'Process exit timeout, force killing child processes' );
-			await this.killRemainingProcesses( childPids );
+			console.log( 'Process exit timeout' );
 		}
+
+		await this.killRemainingProcesses( childPids );
 	}
 
 	async restart() {

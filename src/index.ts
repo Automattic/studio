@@ -505,12 +505,12 @@ async function appBoot() {
 	} );
 
 	app.on( 'will-quit', ( event ) => {
-		event.preventDefault();
 		globalShortcut.unregisterAll();
 		stopUserDataWatcher();
 		stopSiteWatcher();
 
 		if ( shouldStopSitesOnQuit ) {
+			event.preventDefault();
 			stopAllServersOnQuit()
 				.then( () => {
 					app.exit();

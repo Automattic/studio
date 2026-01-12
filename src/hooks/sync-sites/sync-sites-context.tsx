@@ -58,13 +58,21 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 		} );
 
 	const [ pushStates, setPushStates ] = useState< PushStates >( {} );
-	const { pushSite, isAnySitePushing, isSiteIdPushing, clearPushState, getPushState, cancelPush } =
-		useSyncPush( {
-			pushStates,
-			setPushStates,
-			onPushSuccess: ( remoteSiteId, localSiteId ) =>
-				updateSiteTimestamp( { siteId: remoteSiteId, localSiteId, type: 'push' } ),
-		} );
+	const {
+		pushSite,
+		isAnySitePushing,
+		isSiteIdPushing,
+		clearPushState,
+		getPushState,
+		cancelPush,
+		pauseUpload,
+		resumeUpload,
+	} = useSyncPush( {
+		pushStates,
+		setPushStates,
+		onPushSuccess: ( remoteSiteId, localSiteId ) =>
+			updateSiteTimestamp( { siteId: remoteSiteId, localSiteId, type: 'push' } ),
+	} );
 
 	useListenDeepLinkConnection();
 
@@ -145,6 +153,8 @@ export function SyncSitesProvider( { children }: { children: React.ReactNode } )
 				isSiteIdPushing,
 				clearPushState,
 				cancelPush,
+				pauseUpload,
+				resumeUpload,
 				getLastSyncTimeText,
 			} }
 		>

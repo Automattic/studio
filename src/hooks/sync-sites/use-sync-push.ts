@@ -51,6 +51,8 @@ type UseSyncPushProps = {
 };
 
 type CancelPush = ( selectedSiteId: string, remoteSiteId: number ) => void;
+type PauseUpload = ( selectedSiteId: string, remoteSiteId: number ) => Promise< boolean >;
+type ResumeUpload = ( selectedSiteId: string, remoteSiteId: number ) => Promise< boolean >;
 
 export type UseSyncPush = {
 	pushStates: PushStates;
@@ -60,6 +62,8 @@ export type UseSyncPush = {
 	isSiteIdPushing: IsSiteIdPushing;
 	clearPushState: ClearState;
 	cancelPush: CancelPush;
+	pauseUpload: PauseUpload;
+	resumeUpload: ResumeUpload;
 };
 
 /**
@@ -401,10 +405,21 @@ export function useSyncPush( {
 	] );
 
 	useIpcListener(
-		'sync-upload-paused',
+		'sync-upload-network-paused',
 		( _event, payload: { selectedSiteId: string; remoteSiteId: number; error: string } ) => {
 			updatePushState( payload.selectedSiteId, payload.remoteSiteId, {
 				status: pushStatesProgressInfo.uploadingPaused,
+			} );
+		}
+	);
+
+	useIpcListener(
+		'sync-upload-manually-paused',
+		( _event, payload: { selectedSiteId: string; remoteSiteId: number } ) => {
+			const currentState = getPushState( payload.selectedSiteId, payload.remoteSiteId );
+			updatePushState( payload.selectedSiteId, payload.remoteSiteId, {
+				status: pushStatesProgressInfo.uploadingManuallyPaused,
+				uploadProgress: currentState?.uploadProgress,
 			} );
 		}
 	);
@@ -477,6 +492,14 @@ export function useSyncPush( {
 		[ __, pushStatesProgressInfo.cancelled, updatePushState ]
 	);
 
+	const pauseUpload = useCallback< PauseUpload >( async ( selectedSiteId, remoteSiteId ) => {
+		return getIpcApi().pauseSyncUpload( selectedSiteId, remoteSiteId );
+	}, [] );
+
+	const resumeUpload = useCallback< ResumeUpload >( async ( selectedSiteId, remoteSiteId ) => {
+		return getIpcApi().resumeSyncUpload( selectedSiteId, remoteSiteId );
+	}, [] );
+
 	return {
 		pushStates,
 		getPushState,
@@ -485,5 +508,7 @@ export function useSyncPush( {
 		isSiteIdPushing,
 		clearPushState,
 		cancelPush,
+		pauseUpload,
+		resumeUpload,
 	};
 }

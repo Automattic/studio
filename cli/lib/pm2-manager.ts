@@ -1,6 +1,8 @@
 import os from 'os';
 import path from 'path';
+import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/constants';
 import { cacheFunctionTTL } from 'common/lib/cache-function-ttl';
+import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
 import { custom as PM2, StartOptions } from 'pm2';
 import { getAppdataPath } from 'cli/lib/appdata';
 import { ProcessDescription } from 'cli/lib/types/pm2';
@@ -17,6 +19,7 @@ const DAEMON_TIMEOUT = 10000;
 // Set consistent PM2 home directory for Studio CLI
 // This ensures all Studio CLI commands use the same PM2 daemon
 const STUDIO_PM2_HOME = path.join( os.homedir(), '.studio', 'pm2' );
+const PM2_LOCKFILE_PATH = path.join( STUDIO_PM2_HOME, 'pm2-connection.lock' );
 
 export interface ProcessEventData {
 	processName: string;
@@ -32,7 +35,12 @@ export async function connect(): Promise< void > {
 		return;
 	}
 
-	return new Promise( ( resolve, reject ) => {
+	await lockFileAsync( PM2_LOCKFILE_PATH, {
+		wait: LOCKFILE_WAIT_TIME,
+		stale: LOCKFILE_STALE_TIME,
+	} );
+
+	return new Promise< void >( ( resolve, reject ) => {
 		const timeout = setTimeout( () => {
 			reject(
 				new Error(
@@ -50,6 +58,8 @@ export async function connect(): Promise< void > {
 			isConnected = true;
 			resolve();
 		} );
+	} ).finally( () => {
+		return unlockFileAsync( PM2_LOCKFILE_PATH );
 	} );
 }
 

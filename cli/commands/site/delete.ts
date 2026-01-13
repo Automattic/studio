@@ -65,13 +65,13 @@ export async function runCommand(
 	deleteFiles: boolean = false
 ): Promise< void > {
 	try {
-		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
-		const site = await getSiteByFolder( siteFolder );
-		logger.reportSuccess( __( 'Site loaded' ) );
-
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connect();
 		logger.reportSuccess( __( 'Process daemon started' ) );
+
+		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
+		const site = await getSiteByFolder( siteFolder );
+		logger.reportSuccess( __( 'Site loaded' ) );
 
 		const runningProcess = await isServerRunning( site.id );
 		if ( runningProcess ) {

@@ -4,6 +4,7 @@ import path from 'path';
 import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
 import fs from 'fs-extra';
 import { _electron as electron, Page, ElectronApplication } from 'playwright';
+import { rimraf } from 'rimraf';
 
 export class E2ESession {
 	electronApp: ElectronApplication;
@@ -63,6 +64,7 @@ export class E2ESession {
 
 		try {
 			await Promise.race( [ exitPromise, timeoutPromise ] );
+			await new Promise< void >( ( resolve ) => setTimeout( resolve, 2000 ) );
 			console.log( 'App closed successfully' );
 		} catch ( error ) {
 			console.log( 'Process exit timeout' );
@@ -76,13 +78,7 @@ export class E2ESession {
 
 	async cleanup() {
 		await this.closeApp();
-
-		fs.rmSync( this.sessionPath, {
-			force: true,
-			maxRetries: 5,
-			recursive: true,
-			retryDelay: 500,
-		} );
+		await rimraf( this.sessionPath );
 	}
 
 	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {

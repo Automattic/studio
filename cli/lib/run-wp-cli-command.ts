@@ -26,22 +26,22 @@ export async function runWpCliCommand(
 	phpVersion: SupportedPHPVersion,
 	args: string[]
 ): Promise< StreamedPHPResponse > {
-	const id = await loadNodeRuntime( phpVersion, { followSymlinks: true } );
-	const php = new PHP( id );
+	const php: PHP = new PHP( await loadNodeRuntime( phpVersion, { followSymlinks: true } ) );
 
 	try {
+		const php = new PHP( await loadNodeRuntime( phpVersion, { followSymlinks: true } ) );
+
 		await php.setSapiName( 'cli' );
 
 		php.mkdir( '/wordpress' );
 		await php.mount( '/wordpress', createNodeFsMountHandler( siteFolder ) );
 
-		// Create CA bundle for SSL verification
-		php.mkdir( PLAYGROUND_INTERNAL_SHARED_FOLDER );
-		const caBundlePath = path.posix.join( PLAYGROUND_INTERNAL_SHARED_FOLDER, 'ca-bundle.crt' );
-		php.writeFile( caBundlePath, rootCertificates.join( '\n' ) );
-
+		// Setup SSL certificates
+		php.writeFile( '/tmp/ca-bundle.crt', rootCertificates.join( '\n' ) );
 		await setPhpIniEntries( php, {
-			'openssl.cafile': caBundlePath,
+			'openssl.cafile': '/tmp/ca-bundle.crt',
+			allow_url_fopen: 1,
+			disable_functions: '',
 		} );
 
 		// Mount mu-plugins
@@ -61,37 +61,9 @@ export async function runWpCliCommand(
 
 		await setupPlatformLevelMuPlugins( php );
 
-		const phpScript = `<?php
-putenv( 'SHELL_PIPE=0' );
-
-$GLOBALS['argv'] = array_merge([
-	"/tmp/wp-cli.phar",
-	"--path=/wordpress"
-], ${ JSON.stringify( args ) });
-
-define('STDIN', fopen('php://stdin', 'rb'));
-define('STDOUT', fopen('php://stdout', 'wb'));
-define('STDERR', fopen('php://stderr', 'wb'));
-
-$_SERVER['argv'] = $GLOBALS['argv'];
-$_SERVER['argc'] = count($_SERVER['argv']);
-
-chdir('/wordpress');
-
-if (file_exists('/tmp/wp-cli.phar')) {
-	require '/tmp/wp-cli.phar';
-} else {
-	echo "WP-CLI phar not found";
-	exit(1);
-}
-`;
-
-		const runCliPath = '/tmp/run-cli.php';
-		php.writeFile( runCliPath, phpScript );
-
-		return await php.runStream( {
-			scriptPath: runCliPath,
-		} );
+		return php.cli( [ 'php', '/tmp/wp-cli.phar', `--path=/wordpress`, ...args ] );
+	} catch ( error ) {
+		throw new Error( __( 'An error occurred while running the WP-CLI command.', 'wp-playground' ) );
 	} finally {
 		php.exit();
 	}

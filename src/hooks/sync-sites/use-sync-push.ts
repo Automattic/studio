@@ -145,12 +145,28 @@ export function useSyncPush( {
 				return;
 			}
 
-			const response = await client.req.get< ImportResponse >(
-				`/sites/${ remoteSiteId }/studio-app/sync/import`,
-				{
-					apiNamespace: 'wpcom/v2',
+			let response: ImportResponse;
+			try {
+				response = await client.req.get< ImportResponse >(
+					`/sites/${ remoteSiteId }/studio-app/sync/import`,
+					{
+						apiNamespace: 'wpcom/v2',
+					}
+				);
+			} catch ( error ) {
+				// Skip Sentry reporting for expected network errors (crossDomain errors). The client throws this error
+				// when the user is offline.
+				if (
+					error instanceof Error &&
+					'crossDomain' in error &&
+					( error as Error & { crossDomain?: boolean } ).crossDomain
+				) {
+					return;
 				}
-			);
+
+				Sentry.captureException( error );
+				return;
+			}
 
 			let status: PushStateProgressInfo = pushStatesProgressInfo.creatingRemoteBackup;
 			if ( response.success && response.status === 'finished' ) {

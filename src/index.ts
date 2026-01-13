@@ -54,7 +54,7 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
-import { setupUpdates } from 'src/updates';
+import { getAutoUpdaterState, setupUpdates } from 'src/updates';
 // eslint-disable-next-line import/order
 import packageJson from '../package.json';
 
@@ -445,7 +445,7 @@ async function appBoot() {
 		}
 
 		const runningSiteCount = getRunningSiteCount();
-		if ( runningSiteCount > 0 ) {
+		if ( getAutoUpdaterState() === 'waiting-for-restart' || runningSiteCount > 0 ) {
 			event.preventDefault();
 
 			void ( async () => {

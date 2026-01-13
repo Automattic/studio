@@ -332,12 +332,14 @@ export interface AddSiteModalContentProps {
 	isOpen?: boolean;
 	onSubmit?: () => void;
 	className?: string;
+	addSiteProps: ReturnType< typeof useAddSite >;
 }
 
 export function AddSiteModalContent( {
 	isOpen = true,
 	onSubmit,
 	className,
+	addSiteProps,
 }: AddSiteModalContentProps ) {
 	const { __ } = useI18n();
 	const [ formInitialized, setFormInitialized ] = useState( false );
@@ -375,7 +377,7 @@ export function AddSiteModalContent( {
 		loadAllCustomDomains,
 		isDeeplinkFlow,
 		setIsDeeplinkFlow,
-	} = useAddSite();
+	} = addSiteProps;
 
 	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
 	const { data: versions = [] } = useGetWordPressVersions( {
@@ -497,8 +499,8 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 		dispatch( openAddSiteModal() );
 	}, [ dispatch ] );
 
-	// Only need resetForm and isAnySiteProcessing from useAddSite here
-	const { resetForm, isAnySiteProcessing } = useAddSite();
+	const addSiteProps = useAddSite();
+	const { resetForm, isAnySiteProcessing } = addSiteProps;
 
 	const closeModal = useCallback( () => {
 		resetForm();
@@ -515,7 +517,11 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 	return (
 		<>
 			<FullscreenModal isOpen={ showModal } onClose={ closeModal }>
-				<AddSiteModalContent isOpen={ showModal } onSubmit={ closeModal } />
+				<AddSiteModalContent
+					isOpen={ showModal }
+					onSubmit={ closeModal }
+					addSiteProps={ addSiteProps }
+				/>
 			</FullscreenModal>
 			<Button
 				variant="outlined"

@@ -100,24 +100,6 @@ steps:
           echo "--- :node: Building Binary"
           pnpm run make:macos-{{matrix}}
 
-          # Local trial and error show this needs to run before the DMG generation (obviously) but after the binary has been built
-          echo "--- :hammer: Rebuild native modules for appdmg before generating DMG"
-          case {{matrix}} in
-            x64)
-              echo "Rebuilding fs-xattr and macos-alias for {{matrix}} architecture"
-              pnpm rebuild fs-xattr
-              pnpm rebuild macos-alias
-              ;;
-            arm64)
-              echo "Rebuilding macos-alias for {{matrix}} architecture"
-              pnpm rebuild macos-alias
-              ;;
-            *)
-              echo "^^^ +++ Unexpected architecture {{matrix}}"
-              exit 1
-              ;;
-          esac
-
           echo "--- :node: Packaging in DMG"
           pnpm run make:dmg-{{matrix}}
 
@@ -200,24 +182,6 @@ steps:
 
           echo "--- :node: Building Binary"
           pnpm run make:macos-{{matrix}}
-
-          # Local trial and error show this needs to run before the DMG generation (obviously) but after the binary has been built
-          echo "--- :hammer: Rebuild native modules for appdmg before generating DMG"
-          case {{matrix}} in
-            x64)
-              echo "Rebuilding fs-xattr and macos-alias for {{matrix}} architecture"
-              pnpm rebuild fs-xattr
-              pnpm rebuild macos-alias
-              ;;
-            arm64)
-              echo "Rebuilding macos-alias for {{matrix}} architecture"
-              pnpm rebuild macos-alias
-              ;;
-            *)
-              echo "^^^ +++ Unexpected architecture {{matrix}}"
-              exit 1
-              ;;
-          esac
 
           echo "--- :node: Packaging in DMG"
           pnpm run make:dmg-{{matrix}}

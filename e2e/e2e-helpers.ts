@@ -1,10 +1,8 @@
-import { execSync } from 'child_process';
 import { randomUUID } from 'crypto';
-import { tmpdir, platform } from 'os';
+import { tmpdir } from 'os';
 import path from 'path';
 import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
 import fs from 'fs-extra';
-import pidtree from 'pidtree';
 import { _electron as electron, Page, ElectronApplication } from 'playwright';
 
 export class E2ESession {
@@ -47,78 +45,15 @@ export class E2ESession {
 		await this.launchFirstWindow( testEnv );
 	}
 
-	async closeApp() {
-		console.log( 'Closing app...' );
-		const childProcess = this.electronApp.process();
-		const childPids = await this.getChildPids( childProcess.pid );
-
-		console.log( 'Child PIDs:', childPids );
-
-		// Playwright's electronApp.close() can hang, especially on Windows. This is due to spawned child
-		// processes also needing to be closed in order for Playwright to consider the application
-		// closed, and how we've modified the app quit logic with `will-quit` handlers and the like. The
-		// most concrete example of this is how we call `stopAllServersOnQuit`.
-		const exitPromise = new Promise< void >( ( resolve ) => {
-			childProcess.once( 'exit', resolve );
-		} );
-		const timeoutPromise = new Promise< void >( ( _, reject ) => {
-			setTimeout( () => reject( new Error( 'Process exit timeout' ) ), 30_000 );
-		} );
-
-		await this.electronApp.evaluate( ( { app } ) => app.quit() ).catch( () => {} );
-
-		try {
-			await Promise.race( [ exitPromise, timeoutPromise ] );
-			console.log( 'App closed successfully' );
-		} catch ( error ) {
-			console.log( 'Process exit timeout' );
-		}
-
-		await this.killRemainingProcesses( childPids );
-	}
-
 	async restart() {
-		await this.closeApp();
+		await this.electronApp.close();
 		await this.launchFirstWindow();
 	}
 
 	async cleanup() {
-		await this.closeApp();
-
-		// Removing the `sessionPath` directory has proven to be difficult, especially on Windows. Since
-		// session paths are unique, the WordPress installations are relatively small, and the E2E tests
-		// primarily run in ephemeral CI workers, we've decided to fix this issue by simply not removing
-		// the `sessionPath` directory.
-	}
-
-	private async getChildPids( pid: number | undefined ): Promise< number[] > {
-		if ( ! pid ) {
-			return [];
-		}
-
-		try {
-			return await pidtree( pid );
-		} catch {
-			return [];
-		}
-	}
-
-	private async killRemainingProcesses( pids: number[] ) {
-		if ( pids.length === 0 ) {
-			return;
-		}
-
-		for ( const pid of pids ) {
-			try {
-				if ( platform() === 'win32' ) {
-					execSync( `taskkill /pid ${ pid } /f /t`, { stdio: 'ignore', timeout: 5000 } );
-				} else {
-					execSync( `kill -9 ${ pid }`, { stdio: 'ignore', timeout: 5000 } );
-				}
-			} catch {
-				// Process may have already exited
-			}
-		}
+		await this.electronApp.close();
+		// Clean up temporary folder to hold application data
+		fs.rmSync( this.sessionPath, { recursive: true, force: true } );
 	}
 
 	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {

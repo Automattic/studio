@@ -106,9 +106,6 @@ export function executeCliCommand(
 
 	child.on( 'exit', ( code ) => {
 		capturedExitCode = code;
-		// Destroy streams immediately on exit to allow 'close' event to fire on Windows
-		child.stdout?.destroy();
-		child.stderr?.destroy();
 	} );
 
 	function appQuitHandler() {

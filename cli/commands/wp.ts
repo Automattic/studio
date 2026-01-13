@@ -39,7 +39,7 @@ export async function runCommand(
 				process.exit( result.exitCode );
 			}
 		} finally {
-			disconnect();
+			await disconnect();
 		}
 	}
 

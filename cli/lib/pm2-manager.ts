@@ -64,11 +64,29 @@ export async function connect(): Promise< void > {
 	} );
 }
 
-export function disconnect(): void {
-	if ( isConnected ) {
-		pm2.disconnect();
-		isConnected = false;
+export async function disconnect(): Promise< void > {
+	console.info( 'calling disconnect', isConnected );
+
+	if ( ! isConnected ) {
+		return;
 	}
+
+	return new Promise< void >( ( resolve, reject ) => {
+		const timeout = setTimeout( () => {
+			reject( new Error( 'Timeout after 10 seconds trying to disconnect from PM2' ) );
+		}, CONNECTION_TIMEOUT );
+
+		pm2.disconnect( ( error ) => {
+			console.info( 'disconnect callback', error );
+			clearTimeout( timeout );
+			if ( error ) {
+				reject( error );
+				return;
+			}
+			isConnected = false;
+			resolve();
+		} );
+	} );
 }
 
 export async function killDaemonAndAllChildren() {
@@ -172,6 +190,8 @@ export async function stopProxyProcess(): Promise< void > {
 export async function isProcessRunning(
 	processName: string
 ): Promise< ProcessDescription | undefined > {
+	console.info( `Checking if process ${ processName } is running...`, isConnected );
+
 	try {
 		if ( ! isConnected ) {
 			return undefined;

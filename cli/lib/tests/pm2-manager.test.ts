@@ -153,8 +153,17 @@ describe( 'PM2 Manager', () => {
 
 	describe( 'isProcessRunning() - process discovery and filtering', () => {
 		it( 'should return undefined when not connected', async () => {
-			const { isProcessRunning, disconnect } = await import( '../pm2-manager' );
-			disconnect();
+			mockPm2Instance.disconnect.mockImplementation( ( callback ) => {
+				callback( null );
+			} );
+			mockPm2Instance.connect.mockImplementation( ( callback ) => {
+				callback( null );
+			} );
+
+			const { isProcessRunning, connect, disconnect } = await import( '../pm2-manager' );
+
+			await connect();
+			await disconnect();
 
 			const result = await isProcessRunning( 'app' );
 

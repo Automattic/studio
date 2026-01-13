@@ -60,7 +60,7 @@ export async function runCommand( sitePath: string, skipBrowser = false ): Promi
 			throw new LoggerError( __( 'Failed to start WordPress server' ), error );
 		}
 	} finally {
-		disconnect();
+		await disconnect();
 	}
 }
 

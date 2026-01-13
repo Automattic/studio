@@ -69,6 +69,11 @@ export async function runCommand(
 				}
 			}
 
+			if ( ! runningServers.length ) {
+				logger.reportSuccess( __( 'No sites are currently running' ) );
+				return;
+			}
+
 			logger.reportStart( LoggerAction.STOP_ALL_SITES, __( 'Stopping all WordPress sites...' ) );
 			await killDaemonAndAllChildren();
 
@@ -87,9 +92,11 @@ export async function runCommand(
 					runningServers.length
 				)
 			);
+
+			process.exit( 0 );
 		}
 	} finally {
-		disconnect();
+		await disconnect();
 	}
 }
 

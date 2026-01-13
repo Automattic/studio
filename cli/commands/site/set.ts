@@ -246,7 +246,7 @@ export async function runCommand(
 
 		return { usedWpCli: wpChanged };
 	} finally {
-		disconnect();
+		await disconnect();
 	}
 }
 

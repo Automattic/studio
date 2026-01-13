@@ -132,7 +132,7 @@ export async function runCommand( format: 'table' | 'json', watch: boolean ): Pr
 		}
 	} finally {
 		if ( ! watch ) {
-			disconnect();
+			await disconnect();
 		}
 	}
 }

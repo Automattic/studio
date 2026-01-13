@@ -126,7 +126,7 @@ export async function runCommand(
 			logger.reportSuccess( __( 'Site files deleted' ) );
 		}
 	} finally {
-		disconnect();
+		await disconnect();
 	}
 }
 

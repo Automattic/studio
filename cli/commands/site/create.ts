@@ -330,7 +330,7 @@ export async function runCommand(
 		logger.reportKeyValuePair( 'id', siteDetails.id );
 		logger.reportKeyValuePair( 'running', String( siteDetails.running ) );
 	} finally {
-		disconnect();
+		await disconnect();
 	}
 }
 

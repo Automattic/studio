@@ -76,7 +76,7 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			console.log( JSON.stringify( logData, null, 2 ) );
 		}
 	} finally {
-		disconnect();
+		await disconnect();
 	}
 }
 

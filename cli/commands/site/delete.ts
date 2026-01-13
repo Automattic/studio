@@ -75,9 +75,9 @@ export async function runCommand(
 
 		const runningProcess = await isServerRunning( site.id );
 		if ( runningProcess ) {
-			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress site…' ) );
+			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress server…' ) );
 			await stopWordPressServer( site.id );
-			logger.reportSuccess( __( 'WordPress site stopped' ) );
+			logger.reportSuccess( __( 'WordPress server stopped' ) );
 			await stopProxyIfNoSitesNeedIt( site.id, logger );
 		}
 
@@ -108,7 +108,7 @@ export async function runCommand(
 			const appdata = await readAppdata();
 			const siteIndex = appdata.sites.findIndex( ( s ) => arePathsEqual( s.path, siteFolder ) );
 			if ( siteIndex === -1 ) {
-				throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );
+				throw new LoggerError( __( 'The specified directory is not added to Studio.' ) );
 			}
 			appdata.sites.splice( siteIndex, 1 );
 			await saveAppdata( appdata );
@@ -133,7 +133,7 @@ export async function runCommand(
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'delete',
-		describe: __( 'Delete local site' ),
+		describe: __( 'Delete site' ),
 		builder: ( yargs ) => {
 			return yargs.option( 'files', {
 				type: 'boolean',

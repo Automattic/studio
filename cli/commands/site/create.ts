@@ -172,7 +172,7 @@ export async function runCommand(
 		if ( ! ( await isSqliteIntegrationAvailable() ) ) {
 			throw new LoggerError(
 				__(
-					'SQLite integration files not found. Please ensure Studio Desktop is installed and has been run at least once.'
+					'SQLite integration files not found. Please ensure Studio is installed and has been run at least once.'
 				)
 			);
 		}
@@ -182,7 +182,8 @@ export async function runCommand(
 
 		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
 		const port = await portFinder.getOpenPort();
-		logger.reportSuccess( __( 'Port assigned: ' ) + port );
+		// translators: %d is the port number
+		logger.reportSuccess( sprintf( __( 'Port assigned: %d' ), port ) );
 
 		const siteName = options.name || path.basename( sitePath );
 		const siteId = crypto.randomUUID();
@@ -266,8 +267,8 @@ export async function runCommand(
 			await setupCustomDomain( siteDetails, logger );
 
 			const startMessage = blueprint
-				? __( 'Starting WordPress site and applying blueprint…' )
-				: __( 'Starting WordPress site…' );
+				? __( 'Starting WordPress server and applying blueprint…' )
+				: __( 'Starting WordPress server…' );
 			logger.reportStart( LoggerAction.START_SITE, startMessage );
 			try {
 				const processDesc = await startWordPressServer( siteDetails, logger, {
@@ -275,7 +276,7 @@ export async function runCommand(
 					blueprint,
 					blueprintUri,
 				} );
-				logger.reportSuccess( __( 'WordPress site started' ) );
+				logger.reportSuccess( __( 'WordPress server started' ) );
 
 				if ( processDesc.pid ) {
 					await updateSiteLatestCliPid( siteDetails.id, processDesc.pid );
@@ -389,7 +390,7 @@ function coerceWpVersion( value: string ) {
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'create',
-		describe: __( 'Create a new local site' ),
+		describe: __( 'Create a new site' ),
 		builder: ( yargs ) => {
 			return yargs
 				.option( 'name', {

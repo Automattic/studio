@@ -190,11 +190,11 @@ export async function getSiteByFolder( siteFolder: string ): Promise< SiteData >
 	if ( ! site ) {
 		if ( isWordPressDirectory( siteFolder ) ) {
 			throw new LoggerError(
-				__( 'The specified folder is not added to Studio. Use `studio site create` to add it.' )
+				__( 'The specified directory is not added to Studio. Use `studio site create` to add it.' )
 			);
 		}
 
-		throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );
+		throw new LoggerError( __( 'The specified directory is not added to Studio.' ) );
 	}
 
 	return site;

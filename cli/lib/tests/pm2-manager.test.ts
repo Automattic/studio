@@ -44,9 +44,12 @@ describe( 'PM2 Manager', () => {
 
 			const { connect } = await import( '../pm2-manager' );
 			const connectPromise = connect();
-			jest.advanceTimersByTime( 10000 );
 
-			await expect( connectPromise ).rejects.toThrow( 'PM2 connection timeout after 10 seconds' );
+			const expectation = expect( connectPromise ).rejects.toThrow(
+				'PM2 connection timeout after 10 seconds'
+			);
+			await jest.advanceTimersByTimeAsync( 10000 );
+			await expectation;
 
 			jest.useRealTimers();
 		} );

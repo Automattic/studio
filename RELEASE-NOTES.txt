@@ -5,6 +5,7 @@ Unreleased
 =====
 * Made sync uploads resumable #2212
 * Fixed Windows auto-updater so that ARM64 installations receive the correct installer architecture #2280
+* Added Xdebug support (Beta Feature) #2242
 * Improved update dialogs with clearer messaging and safer ESC key handling #2257
 * Improved the Publish site button behavior #2264, #2288
 * Ensured auto-update customizations for a site are overridden by Studio setting #2262

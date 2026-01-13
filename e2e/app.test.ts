@@ -23,3 +23,5 @@ test.describe( 'Electron app', () => {
 		await expect( onboarding.heading ).toBeVisible();
 	} );
 } );
+
+// Test comment for CI skip testing

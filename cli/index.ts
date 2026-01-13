@@ -4,6 +4,7 @@ import { bumpAggregatedUniqueStat, AppdataProvider, LastBumpStatsData } from 'co
 import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import yargs from 'yargs';
+import { registerCommand as registerEventsCommand } from 'cli/commands/_events';
 import { registerCommand as registerAuthLoginCommand } from 'cli/commands/auth/login';
 import { registerCommand as registerAuthLogoutCommand } from 'cli/commands/auth/logout';
 import { registerCommand as registerAuthStatusCommand } from 'cli/commands/auth/status';
@@ -110,6 +111,8 @@ async function main() {
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();
+
+	registerEventsCommand( studioArgv );
 
 	await studioArgv.argv;
 }

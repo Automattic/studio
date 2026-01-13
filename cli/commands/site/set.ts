@@ -20,7 +20,7 @@ import {
 	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
-import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { setupCustomDomain } from 'cli/lib/site-utils';
 import { validatePhpVersion } from 'cli/lib/utils';
@@ -243,6 +243,8 @@ export async function runCommand(
 		}
 
 		logger.reportSuccess( __( 'Site configuration updated' ) );
+
+		await emitSiteEvent( 'site-updated', { siteId: site.id } );
 
 		return { usedWpCli: wpChanged };
 	} finally {

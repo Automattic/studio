@@ -156,7 +156,8 @@ export async function isProcessRunning(
 export async function startProcess(
 	processName: string,
 	scriptPath: string,
-	env: Record< string, string > = {}
+	env: Record< string, string > = {},
+	args: string[] = []
 ): Promise< ProcessDescription > {
 	return new Promise( ( resolve, reject ) => {
 		const processConfig: StartOptions = {
@@ -165,6 +166,7 @@ export async function startProcess(
 			script: scriptPath,
 			exec_mode: 'fork',
 			autorestart: false,
+			args,
 			// Merge process.env with custom env to ensure child processes inherit
 			// necessary environment variables (PATH, HOME, E2E vars, etc.)
 			env: { ...process.env, ...env } as Record< string, string >,
@@ -282,4 +284,78 @@ export async function subscribeProcessMessages(
 	return () => {
 		bus.off( 'process:msg', messageHandler );
 	};
+}
+
+const EVENTS_RELAY_PROCESS_NAME = 'studio-events-relay';
+
+async function getProcessByName( name: string ): Promise< { pm_id: number | undefined } | null > {
+	return new Promise( ( resolve, reject ) => {
+		pm2.list( ( error, processes ) => {
+			if ( error ) {
+				reject( error );
+				return;
+			}
+			const proc = ( processes || [] ).find( ( p ) => p.name === name );
+			resolve( proc ? { pm_id: proc.pm_id } : null );
+		} );
+	} );
+}
+
+/**
+ * Emit a site event via the events relay process.
+ * The relay re-emits on PM2 bus for `_events` to receive.
+ *
+ * @param event - The event topic (e.g., 'site-created', 'site-updated', 'site-deleted')
+ * @param data - The event data (must include siteId)
+ */
+export async function emitSiteEvent(
+	event: string,
+	data: { siteId: string; url?: string }
+): Promise< void > {
+	const relayProcess = await getProcessByName( EVENTS_RELAY_PROCESS_NAME );
+	if ( ! relayProcess?.pm_id ) {
+		// No relay running - that's fine, Studio might not be open
+		return;
+	}
+
+	return new Promise( ( resolve ) => {
+		pm2.sendDataToProcessId(
+			relayProcess.pm_id as number,
+			{
+				type: 'process:msg',
+				topic: event,
+				data,
+			},
+			() => {
+				// Ignore errors - relay might have stopped
+				resolve();
+			}
+		);
+	} );
+}
+
+export function getEventsRelayProcessName(): string {
+	return EVENTS_RELAY_PROCESS_NAME;
+}
+
+export async function startEventsRelayProcess( relayScriptPath: string ): Promise< void > {
+	const existingProcess = await getProcessByName( EVENTS_RELAY_PROCESS_NAME );
+	if ( existingProcess?.pm_id !== undefined ) {
+		return;
+	}
+
+	const env: Record< string, string > = {
+		PATH: process.env.PATH || '',
+		HOME: process.env.HOME || '',
+	};
+
+	await startProcess( EVENTS_RELAY_PROCESS_NAME, relayScriptPath, env );
+}
+
+export async function stopEventsRelayProcess(): Promise< void > {
+	return new Promise( ( resolve ) => {
+		pm2.delete( EVENTS_RELAY_PROCESS_NAME, () => {
+			resolve();
+		} );
+	} );
 }

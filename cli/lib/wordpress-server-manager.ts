@@ -30,7 +30,7 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
 
-const SITE_PROCESS_PREFIX = 'studio-site-';
+export const SITE_PROCESS_PREFIX = 'studio-site-';
 
 // Get an abort signal that's triggered on SIGINT/SIGTERM. This is useful for aborting and cleaning
 // up async operations.
@@ -41,7 +41,7 @@ function handleProcessTermination() {
 process.on( 'SIGINT', handleProcessTermination );
 process.on( 'SIGTERM', handleProcessTermination );
 
-function getProcessName( siteId: string ): string {
+export function getProcessName( siteId: string ): string {
 	return `${ SITE_PROCESS_PREFIX }${ siteId }`;
 }
 
@@ -187,12 +187,12 @@ const messageActivityTrackers = new Map<
 	}
 >();
 
-interface SendMessageOptions {
+export interface SendMessageOptions {
 	maxTotalElapsedTime?: number;
 	logger?: Logger< string >;
 }
 
-async function sendMessage(
+export async function sendMessage(
 	pmId: number,
 	processName: string,
 	message: ManagerMessagePayload,
@@ -433,12 +433,12 @@ export async function sendWpCliCommand(
 }
 
 /**
- * Subscribe to site server events (online, exit, stop, restart)
+ * Subscribe to site server events
  *
- * For 'online' events, we listen for the 'result' message from the WordPress server child
- * process, which indicates WordPress is fully ready (not just when PM2 process starts).
- *
- * For 'exit', 'stop', 'restart' events, we use PM2 process events.
+ * Listens for:
+ * - 'online' events: When WordPress is fully ready (from 'result' message)
+ * - 'exit', 'stop', 'restart' events: PM2 process events
+ * - Site lifecycle events: site-created, site-updated, site-deleted, site-started, site-stopped
  *
  * @param handler - Callback invoked when a site event occurs
  * @param options - Configuration options (e.g., debounceMs)
@@ -475,8 +475,9 @@ export async function subscribeSiteEvents(
 			return;
 		}
 
+		const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
+
 		if ( topic === 'result' ) {
-			const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
 			invokeHandler( siteId, 'online' );
 		}
 	} );

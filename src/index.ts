@@ -42,7 +42,10 @@ import {
 } from 'src/migrations/migrate-from-wp-now-folder';
 import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
 import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-stat';
-import { startSiteWatcher, stopSiteWatcher } from 'src/modules/cli/lib/execute-site-watch-command';
+import {
+	startCliEventsSubscriber,
+	stopCliEventsSubscriber,
+} from 'src/modules/cli/lib/cli-events-subscriber';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { updateWindowsCliVersionedPathIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
@@ -358,7 +361,7 @@ async function appBoot() {
 
 		await createMainWindow();
 		await startUserDataWatcher();
-		startSiteWatcher();
+		startCliEventsSubscriber();
 
 		const userData = await loadUserData();
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
@@ -511,7 +514,7 @@ async function appBoot() {
 			void stopAllServersOnQuit();
 		}
 		stopUserDataWatcher();
-		stopSiteWatcher();
+		stopCliEventsSubscriber();
 	} );
 
 	app.on( 'activate', () => {

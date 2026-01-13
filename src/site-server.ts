@@ -37,7 +37,10 @@ export async function stopAllServersOnQuit() {
 	return new Promise< void >( ( resolve ) => {
 		const [ emitter, childProcess ] = executeCliCommand(
 			[ 'site', 'stop', '--all', '--auto-start' ],
-			{ output: 'ignore' }
+			{
+				output: 'ignore',
+				detached: true,
+			}
 		);
 		console.log( `Spawned stop-all child process with pid ${ childProcess.pid }` );
 		emitter.on( 'success', () => resolve() );

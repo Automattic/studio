@@ -42,12 +42,13 @@ export interface ExecuteCliCommandOptions {
 	 * - 'capture': capture stdout/stderr, available in success/failure events
 	 */
 	output: 'ignore' | 'capture';
+	detached?: boolean;
 	logPrefix?: string;
 }
 
 export function executeCliCommand(
 	args: string[],
-	options: ExecuteCliCommandOptions = { output: 'ignore' }
+	options: ExecuteCliCommandOptions = { output: 'ignore', detached: false }
 ): [ CliCommandEventEmitter, ChildProcess ] {
 	const cliPath = getCliPath();
 
@@ -60,6 +61,7 @@ export function executeCliCommand(
 
 	const child = fork( cliPath, [ ...args, '--avoid-telemetry' ], {
 		stdio,
+		detached: options.detached,
 		execPath: getBundledNodeBinaryPath(),
 	} );
 	const eventEmitter = new CliCommandEventEmitter();
@@ -94,9 +96,11 @@ export function executeCliCommand(
 		} );
 	}
 
-	child.on( 'message', ( message: unknown ) => {
-		eventEmitter.emit( 'data', { data: message } );
-	} );
+	if ( ! options.detached ) {
+		child.on( 'message', ( message: unknown ) => {
+			eventEmitter.emit( 'data', { data: message } );
+		} );
+	}
 
 	let capturedExitCode: number | null = null;
 
@@ -131,7 +135,11 @@ export function executeCliCommand(
 		}
 	} );
 
-	app.on( 'will-quit', appQuitHandler );
+	if ( options.detached ) {
+		child.unref();
+	} else {
+		app.on( 'will-quit', appQuitHandler );
+	}
 
 	return [ eventEmitter, child ];
 }

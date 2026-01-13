@@ -504,20 +504,13 @@ async function appBoot() {
 		}
 	} );
 
-	app.on( 'will-quit', ( event ) => {
+	app.on( 'will-quit', () => {
 		globalShortcut.unregisterAll();
 		stopUserDataWatcher();
 		stopSiteWatcher();
 
 		if ( shouldStopSitesOnQuit ) {
-			event.preventDefault();
-			stopAllServersOnQuit()
-				.then( () => {
-					app.exit();
-				} )
-				.catch( () => {
-					app.exit();
-				} );
+			void stopAllServersOnQuit();
 		}
 	} );
 

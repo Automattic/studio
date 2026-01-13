@@ -65,8 +65,6 @@ export async function connect(): Promise< void > {
 }
 
 export async function disconnect(): Promise< void > {
-	console.info( 'calling disconnect', isConnected );
-
 	if ( ! isConnected ) {
 		return;
 	}
@@ -77,7 +75,6 @@ export async function disconnect(): Promise< void > {
 		}, CONNECTION_TIMEOUT );
 
 		pm2.disconnect( ( error ) => {
-			console.info( 'disconnect callback', error );
 			clearTimeout( timeout );
 			if ( error ) {
 				reject( error );
@@ -190,8 +187,6 @@ export async function stopProxyProcess(): Promise< void > {
 export async function isProcessRunning(
 	processName: string
 ): Promise< ProcessDescription | undefined > {
-	console.info( `Checking if process ${ processName } is running...`, isConnected );
-
 	try {
 		if ( ! isConnected ) {
 			return undefined;

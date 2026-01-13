@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
-import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'common/lib/domains';
+import { generateCustomDomainFromSiteName } from 'common/lib/domains';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useImportExport } from 'src/hooks/use-import-export';
@@ -20,12 +20,31 @@ import type { SyncSite } from 'src/modules/sync/types';
 import type { Blueprint } from 'src/stores/wpcom-api';
 import type { SyncOption } from 'src/types';
 
-interface UseAddSiteOptions {
-	openModal?: () => void;
+/**
+ * Form values passed when creating a site
+ */
+export interface CreateSiteFormValues {
+	siteName: string;
+	sitePath: string;
+	phpVersion: AllowedPHPVersion;
+	wpVersion: string;
+	useCustomDomain: boolean;
+	customDomain: string | null;
+	enableHttps: boolean;
 }
 
-export function useAddSite( options: UseAddSiteOptions = {} ) {
-	const { openModal = () => {} } = options;
+/**
+ * Result from path selection or site name change validation
+ */
+export interface PathValidationResult {
+	path: string;
+	name?: string;
+	isEmpty: boolean;
+	isWordPress: boolean;
+	error?: string;
+}
+
+export function useAddSite() {
 	const { __ } = useI18n();
 	const { createSite, sites } = useSiteDetails();
 	const { importFile, clearImportState, importState } = useImportExport();
@@ -34,21 +53,8 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 	const { setSelectedTab } = useContentTabs();
 	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
-	const [ error, setError ] = useState( '' );
-	const [ siteName, setSiteName ] = useState< string | null >( null );
-	const [ sitePath, setSitePath ] = useState( '' );
-	const [ proposedSitePath, setProposedSitePath ] = useState( '' );
-	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
+
 	const [ fileForImport, setFileForImport ] = useState< File | null >( null );
-	const [ phpVersion, setPhpVersion ] = useState< AllowedPHPVersion >(
-		defaultPhpVersion as AllowedPHPVersion
-	);
-	const [ wpVersion, setWpVersion ] = useState( defaultWordPressVersion );
-	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
-	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
-	const [ customDomainError, setCustomDomainError ] = useState( '' );
-	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
-	const [ enableHttps, setEnableHttps ] = useState( false );
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< Blueprint | undefined >();
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | undefined >();
 	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
@@ -58,6 +64,7 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 		BlueprintValidationWarning[] | undefined
 	>();
 	const [ isDeeplinkFlow, setIsDeeplinkFlow ] = useState( false );
+	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
 
 	const isAnySiteProcessing = sites.some(
 		( site ) => site.isAddingSite || importState[ site.id ]?.isNewSite
@@ -70,32 +77,30 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 		setBlueprintDeeplinkWarnings( undefined );
 	}, [] );
 
+	// For blueprint deeplinks - we need temporary state for PHP/WP versions
+	const [ deeplinkPhpVersion, setDeeplinkPhpVersion ] = useState< AllowedPHPVersion >(
+		defaultPhpVersion as AllowedPHPVersion
+	);
+	const [ deeplinkWpVersion, setDeeplinkWpVersion ] = useState( defaultWordPressVersion );
+
 	useBlueprintDeeplink( {
 		isAnySiteProcessing,
-		openModal,
 		setSelectedBlueprint,
-		setPhpVersion,
-		setWpVersion,
+		setPhpVersion: setDeeplinkPhpVersion,
+		setWpVersion: setDeeplinkWpVersion,
 		setBlueprintPreferredVersions,
 		setBlueprintDeeplinkWarnings,
 		navigateToBlueprintDeeplink: () => setIsDeeplinkFlow( true ),
 	} );
 
 	const resetForm = useCallback( () => {
-		setSitePath( '' );
-		setError( '' );
-		setDoesPathContainWordPress( false );
-		setWpVersion( defaultWordPressVersion );
-		setPhpVersion( defaultPhpVersion );
-		setUseCustomDomain( false );
-		setCustomDomain( null );
-		setCustomDomainError( '' );
-		setEnableHttps( false );
 		setFileForImport( null );
 		setSelectedBlueprint( undefined );
 		setBlueprintPreferredVersions( undefined );
 		setBlueprintDeeplinkWarnings( undefined );
 		setSelectedRemoteSite( undefined );
+		setDeeplinkPhpVersion( defaultPhpVersion as AllowedPHPVersion );
+		setDeeplinkWpVersion( defaultWordPressVersion );
 		clearDeeplinkState();
 	}, [ clearDeeplinkState, defaultPhpVersion, defaultWordPressVersion ] );
 
@@ -110,8 +115,11 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 			} );
 	}, [] );
 
-	const siteWithPathAlreadyExists = useCallback(
-		async ( path: string ) => {
+	/**
+	 * Check if a path is already associated with an existing site
+	 */
+	const checkPathExists = useCallback(
+		async ( path: string ): Promise< boolean > => {
 			const results = await Promise.all(
 				sites.map( ( site ) => getIpcApi().comparePaths( site.path, path ) )
 			);
@@ -120,238 +128,213 @@ export function useAddSite( options: UseAddSiteOptions = {} ) {
 		[ sites ]
 	);
 
-	const handleCustomDomainChange = useCallback(
-		( value: string | null ) => {
-			setCustomDomain( value );
-			setCustomDomainError(
-				getDomainNameValidationError( useCustomDomain, value, existingDomainNames )
+	/**
+	 * Open folder picker and validate the selected path
+	 * Returns the result for the form to use
+	 */
+	const selectPath = useCallback(
+		async ( currentPath: string ): Promise< PathValidationResult | null > => {
+			const response = await getIpcApi().showOpenFolderDialog(
+				__( 'Choose folder for site' ),
+				currentPath
 			);
-		},
-		[ useCustomDomain, setCustomDomain, setCustomDomainError, existingDomainNames ]
-	);
 
-	const handlePathSelectorClick = useCallback( async () => {
-		const response = await getIpcApi().showOpenFolderDialog(
-			__( 'Choose folder for site' ),
-			sitePath
-		);
-		if ( response?.path ) {
+			if ( ! response?.path ) {
+				return null;
+			}
+
 			const { path, name, isEmpty, isWordPress } = response;
-			setDoesPathContainWordPress( false );
-			setError( '' );
-			const pathResetToDefaultSitePath =
-				path === proposedSitePath.substring( 0, proposedSitePath.lastIndexOf( '/' ) );
 
-			setSitePath( pathResetToDefaultSitePath ? '' : path );
-			if ( await siteWithPathAlreadyExists( path ) ) {
-				setError(
-					__(
+			if ( await checkPathExists( path ) ) {
+				return {
+					path,
+					name: name ?? undefined,
+					isEmpty,
+					isWordPress,
+					error: __(
 						'The directory is already associated with another Studio site. Please choose a different custom local path.'
-					)
-				);
-				return;
+					),
+				};
 			}
-			if ( ! isEmpty && ! isWordPress && ! pathResetToDefaultSitePath ) {
-				setError(
-					__(
+
+			if ( ! isEmpty && ! isWordPress ) {
+				return {
+					path,
+					name: name ?? undefined,
+					isEmpty,
+					isWordPress,
+					error: __(
 						'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
-					)
-				);
-				return;
+					),
+				};
 			}
-			setDoesPathContainWordPress( ! isEmpty && isWordPress );
-			if ( ! siteName ) {
-				setSiteName( name ?? null );
-			}
-		}
-	}, [ __, siteWithPathAlreadyExists, siteName, proposedSitePath, sitePath ] );
 
-	const handleAddSiteClick = useCallback( async () => {
-		try {
-			const path = sitePath ? sitePath : proposedSitePath;
-			let usedCustomDomain = useCustomDomain && customDomain ? customDomain : undefined;
-			if ( useCustomDomain && ! customDomain ) {
-				usedCustomDomain = generateCustomDomainFromSiteName( siteName ?? '' );
-			}
-			// For import/sync workflows, the respective handlers will start the server
-			const shouldSkipStart = !! fileForImport || !! selectedRemoteSite;
-
-			await createSite(
+			return {
 				path,
-				siteName ?? '',
-				wpVersion,
-				usedCustomDomain,
-				useCustomDomain ? enableHttps : false,
-				selectedBlueprint,
-				phpVersion,
-				async ( newSite ) => {
-					if ( fileForImport ) {
-						await importFile( fileForImport, newSite, {
-							showImportNotification: false,
-							isNewSite: true,
-						} );
-						clearImportState( newSite.id );
-
-						getIpcApi().showNotification( {
-							title: newSite.name,
-							body: __( 'Your new site was imported' ),
-						} );
-					} else if ( selectedRemoteSite ) {
-						await connectSite( { site: selectedRemoteSite, localSiteId: newSite.id } );
-						const pullOptions: SyncOption[] = [ 'all' ];
-						pullSite( selectedRemoteSite, newSite, {
-							optionsToSync: pullOptions,
-						} );
-						setSelectedTab( 'sync' );
-					} else {
-						getIpcApi().showNotification( {
-							title: newSite.name,
-							body: __( 'Your new site was created' ),
-						} );
-					}
-				},
-				shouldSkipStart
-			);
-		} catch ( e ) {
-			Sentry.captureException( e );
-		}
-	}, [
-		__,
-		clearImportState,
-		createSite,
-		fileForImport,
-		importFile,
-		proposedSitePath,
-		siteName,
-		sitePath,
-		wpVersion,
-		phpVersion,
-		customDomain,
-		useCustomDomain,
-		enableHttps,
-		selectedBlueprint,
-		selectedRemoteSite,
-		pullSite,
-		connectSite,
-		setSelectedTab,
-	] );
-
-	const handleSiteNameChange = useCallback(
-		async ( name: string ) => {
-			setSiteName( name );
-			if ( sitePath ) {
-				return;
-			}
-			setError( '' );
-
-			const {
-				path: proposedPath,
+				name: name ?? undefined,
 				isEmpty,
 				isWordPress,
-				isNameTooLong,
-			} = await getIpcApi().generateProposedSitePath( name );
-			setProposedSitePath( proposedPath );
-
-			if ( isNameTooLong ) {
-				setError( __( 'The site name is too long. Please choose a shorter site name.' ) );
-				return;
-			}
-
-			if ( await siteWithPathAlreadyExists( proposedPath ) ) {
-				setError(
-					__(
-						'The directory is already associated with another Studio site. Please choose a different site name or a custom local path.'
-					)
-				);
-				return;
-			}
-			if ( ! isEmpty && ! isWordPress ) {
-				setError(
-					__(
-						'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
-					)
-				);
-				return;
-			}
-			setDoesPathContainWordPress( ! isEmpty && isWordPress );
+			};
 		},
-		[ __, sitePath, siteWithPathAlreadyExists ]
+		[ __, checkPathExists ]
 	);
 
-	return useMemo( () => {
-		return {
-			resetForm,
-			handleAddSiteClick,
-			handlePathSelectorClick,
-			handleSiteNameChange,
-			error,
-			sitePath: sitePath ? sitePath : proposedSitePath,
-			siteName,
-			doesPathContainWordPress,
-			setSiteName,
-			proposedSitePath,
-			setProposedSitePath,
-			setSitePath,
-			setError,
-			setDoesPathContainWordPress,
+	/**
+	 * Generate a proposed path for a site name and validate it
+	 */
+	const generateProposedPath = useCallback(
+		async ( siteName: string ): Promise< PathValidationResult > => {
+			const { path, isEmpty, isWordPress, isNameTooLong } =
+				await getIpcApi().generateProposedSitePath( siteName );
+
+			if ( isNameTooLong ) {
+				return {
+					path,
+					isEmpty,
+					isWordPress,
+					error: __( 'The site name is too long. Please choose a shorter site name.' ),
+				};
+			}
+
+			if ( await checkPathExists( path ) ) {
+				return {
+					path,
+					isEmpty,
+					isWordPress,
+					error: __(
+						'The directory is already associated with another Studio site. Please choose a different site name or a custom local path.'
+					),
+				};
+			}
+
+			if ( ! isEmpty && ! isWordPress ) {
+				return {
+					path,
+					isEmpty,
+					isWordPress,
+					error: __(
+						'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
+					),
+				};
+			}
+
+			return { path, isEmpty, isWordPress };
+		},
+		[ __, checkPathExists ]
+	);
+
+	const handleCreateSite = useCallback(
+		async ( formValues: CreateSiteFormValues ) => {
+			try {
+				let usedCustomDomain =
+					formValues.useCustomDomain && formValues.customDomain
+						? formValues.customDomain
+						: undefined;
+				if ( formValues.useCustomDomain && ! formValues.customDomain ) {
+					usedCustomDomain = generateCustomDomainFromSiteName( formValues.siteName );
+				}
+				// For import/sync workflows, the respective handlers will start the server
+				const shouldSkipStart = !! fileForImport || !! selectedRemoteSite;
+
+				await createSite(
+					formValues.sitePath,
+					formValues.siteName,
+					formValues.wpVersion,
+					usedCustomDomain,
+					formValues.useCustomDomain ? formValues.enableHttps : false,
+					selectedBlueprint,
+					formValues.phpVersion,
+					async ( newSite ) => {
+						if ( fileForImport ) {
+							await importFile( fileForImport, newSite, {
+								showImportNotification: false,
+								isNewSite: true,
+							} );
+							clearImportState( newSite.id );
+
+							getIpcApi().showNotification( {
+								title: newSite.name,
+								body: __( 'Your new site was imported' ),
+							} );
+						} else if ( selectedRemoteSite ) {
+							await connectSite( { site: selectedRemoteSite, localSiteId: newSite.id } );
+							const pullOptions: SyncOption[] = [ 'all' ];
+							pullSite( selectedRemoteSite, newSite, {
+								optionsToSync: pullOptions,
+							} );
+							setSelectedTab( 'sync' );
+						} else {
+							getIpcApi().showNotification( {
+								title: newSite.name,
+								body: __( 'Your new site was created' ),
+							} );
+						}
+					},
+					shouldSkipStart
+				);
+			} catch ( e ) {
+				Sentry.captureException( e );
+			}
+		},
+		[
+			__,
+			clearImportState,
+			createSite,
+			fileForImport,
+			importFile,
+			selectedBlueprint,
+			selectedRemoteSite,
+			pullSite,
+			connectSite,
+			setSelectedTab,
+		]
+	);
+
+	return useMemo(
+		() => ( {
+			handleCreateSite,
+			selectPath,
+			generateProposedPath,
+			defaultPhpVersion: defaultPhpVersion as AllowedPHPVersion,
+			defaultWpVersion: defaultWordPressVersion,
+			deeplinkPhpVersion,
+			deeplinkWpVersion,
 			fileForImport,
 			setFileForImport,
-			phpVersion,
-			setPhpVersion,
-			wpVersion,
-			setWpVersion,
-			useCustomDomain,
-			setUseCustomDomain,
-			customDomain,
-			setCustomDomain: handleCustomDomainChange,
-			customDomainError,
-			setCustomDomainError,
-			enableHttps,
-			setEnableHttps,
-			loadAllCustomDomains,
 			selectedBlueprint,
 			setSelectedBlueprint,
-			selectedRemoteSite,
-			setSelectedRemoteSite,
 			blueprintPreferredVersions,
 			setBlueprintPreferredVersions,
 			blueprintDeeplinkWarnings,
-			setBlueprintDeeplinkWarnings,
+			selectedRemoteSite,
+			setSelectedRemoteSite,
+			existingDomainNames,
+			loadAllCustomDomains,
 			isDeeplinkFlow,
 			setIsDeeplinkFlow,
 			isAnySiteProcessing,
+			resetForm,
 			clearDeeplinkState,
-		};
-	}, [
-		resetForm,
-		doesPathContainWordPress,
-		error,
-		handleAddSiteClick,
-		handlePathSelectorClick,
-		handleSiteNameChange,
-		siteName,
-		sitePath,
-		proposedSitePath,
-		fileForImport,
-		phpVersion,
-		wpVersion,
-		useCustomDomain,
-		setUseCustomDomain,
-		customDomain,
-		handleCustomDomainChange,
-		customDomainError,
-		setCustomDomainError,
-		enableHttps,
-		setEnableHttps,
-		loadAllCustomDomains,
-		selectedBlueprint,
-		setSelectedBlueprint,
-		selectedRemoteSite,
-		setSelectedRemoteSite,
-		blueprintPreferredVersions,
-		blueprintDeeplinkWarnings,
-		isDeeplinkFlow,
-		isAnySiteProcessing,
-		clearDeeplinkState,
-	] );
+		} ),
+		[
+			handleCreateSite,
+			selectPath,
+			generateProposedPath,
+			defaultPhpVersion,
+			defaultWordPressVersion,
+			deeplinkPhpVersion,
+			deeplinkWpVersion,
+			fileForImport,
+			selectedBlueprint,
+			blueprintPreferredVersions,
+			blueprintDeeplinkWarnings,
+			selectedRemoteSite,
+			existingDomainNames,
+			loadAllCustomDomains,
+			isDeeplinkFlow,
+			isAnySiteProcessing,
+			resetForm,
+			clearDeeplinkState,
+		]
+	);
 }

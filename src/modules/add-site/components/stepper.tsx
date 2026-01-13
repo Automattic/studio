@@ -99,6 +99,7 @@ export default function Stepper( {
 				{ actionButton?.isVisible && onSubmit && (
 					<Button
 						variant="primary"
+						type="button"
 						onClick={ onSubmit }
 						disabled={ ! canSubmit }
 						data-testid="stepper-action-button"

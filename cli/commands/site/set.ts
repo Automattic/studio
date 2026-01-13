@@ -3,6 +3,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from 'common/constants';
 import { getDomainNameValidationError } from 'common/lib/domains';
 import { arePathsEqual } from 'common/lib/fs-utils';
+import { siteNeedsRestart } from 'common/lib/site-needs-restart';
 import {
 	getWordPressVersionUrl,
 	isValidWordPressVersion,
@@ -65,7 +66,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		throw new LoggerError( __( 'Site name cannot be empty.' ) );
 	}
 
-	if ( xdebug !== undefined && ! ( await isXdebugBetaEnabled() ) ) {
+	if ( xdebug === true && ! ( await isXdebugBetaEnabled() ) ) {
 		throw new LoggerError(
 			__( 'Xdebug support is a beta feature. Enable it in Studio settings first.' )
 		);
@@ -78,7 +79,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 
 		const initialAppdata = await readAppdata();
 
-		if ( domain !== undefined ) {
+		if ( domain ) {
 			const existingDomainNames = initialAppdata.sites
 				.filter( ( s ) => s.id !== site.id )
 				.map( ( s ) => s.customDomain )
@@ -126,7 +127,13 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			);
 		}
 
-		const needsRestart = domainChanged || httpsChanged || phpChanged || wpChanged || xdebugChanged;
+		const needsRestart = siteNeedsRestart( {
+			domainChanged,
+			httpsChanged,
+			phpChanged,
+			wpChanged,
+			xdebugChanged,
+		} );
 		const oldDomain = site.customDomain;
 
 		try {
@@ -141,7 +148,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 				foundSite.name = name!;
 			}
 			if ( domainChanged ) {
-				foundSite.customDomain = domain;
+				foundSite.customDomain = domain || undefined;
 			}
 			if ( httpsChanged ) {
 				foundSite.enableHttps = https;
@@ -182,7 +189,6 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			const phpVersion = validatePhpVersion( site.phpVersion );
 			const zipUrl = getWordPressVersionUrl( wp );
 
-			// Use the correct site URL to avoid corrupting WordPress URL options
 			let siteUrl: string | undefined;
 			if ( site.customDomain ) {
 				const protocol = site.enableHttps ? 'https' : 'http';
@@ -310,6 +316,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					const loggerError = new LoggerError( __( 'Failed to configure site' ), error );
 					logger.reportError( loggerError );
 				}
+				process.exit( 1 );
 			}
 		},
 	} );

@@ -21,7 +21,7 @@ import type { Blueprint } from 'src/stores/wpcom-api';
 
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
-	updateSite: ( site: SiteDetails ) => Promise< void >;
+	updateSite: ( site: SiteDetails, wpVersion?: string ) => Promise< void >;
 	sites: SiteDetails[];
 	setSelectedSiteId: ( selectedSiteId: string ) => void;
 	createSite: (
@@ -375,8 +375,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		[ selectedTab, setSelectedSiteId, setSelectedTab ]
 	);
 
-	const updateSite = useCallback( async ( site: SiteDetails ) => {
-		await getIpcApi().updateSite( site );
+	const updateSite = useCallback( async ( site: SiteDetails, wpVersion?: string ) => {
+		await getIpcApi().updateSite( site, wpVersion );
 		const updatedSites = await getIpcApi().getSiteDetails();
 		setSites( updatedSites );
 	}, [] );

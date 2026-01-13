@@ -18,7 +18,6 @@ import { registerCommand as registerSiteSetCommand } from 'cli/commands/site/set
 import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
 import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
-import { registerCommand as registerSiteStopAllCommand } from 'cli/commands/site/stop-all';
 import { commandHandler as wpCliCommandHandler } from 'cli/commands/wp';
 import { readAppdata, lockAppdata, unlockAppdata, saveAppdata } from 'cli/lib/appdata';
 import { loadTranslations } from 'cli/lib/i18n';
@@ -95,7 +94,6 @@ async function main() {
 			registerSiteListCommand( sitesYargs );
 			registerSiteStartCommand( sitesYargs );
 			registerSiteStopCommand( sitesYargs );
-			registerSiteStopAllCommand( sitesYargs );
 			registerSiteDeleteCommand( sitesYargs );
 			registerSiteSetCommand( sitesYargs );
 			sitesYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );

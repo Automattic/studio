@@ -59,6 +59,8 @@ test.describe( 'Overview customize links', () => {
 		await page.goto( getUrlWithAutoLogin( openedUrl ), {
 			waitUntil: 'domcontentloaded',
 		} );
+		// Wait for network to be idle to ensure page is fully loaded
+		await page.waitForLoadState( 'networkidle' );
 		// Decode URL-encoded characters to normalize the URL across platforms
 		// Need to decode multiple times due to nested redirect_to parameters
 		let url = page.url();
@@ -153,10 +155,26 @@ test.describe( 'Overview customize links', () => {
 				/\/wp-admin\/site-editor\.php\?(path=\/navigation|p=\/navigation)/
 			);
 
-			const headingLocator = page.getByRole( 'heading', {
-				name: 'Navigation',
-			} );
-			await expect( headingLocator ).toBeVisible( { timeout: 120_000 } );
+			// Wait for the page to be fully loaded, including network requests
+			await page.waitForLoadState( 'networkidle' );
+
+			// The Navigation page may load in an iframe (editor-canvas) or directly in the page
+			// Try iframe first, then fall back to main page
+			const iframeLocator = page.locator( 'iframe[name="editor-canvas"]' );
+			const hasIframe = await iframeLocator.count() > 0;
+
+			if ( hasIframe ) {
+				const iframe = page.frameLocator( 'iframe[name="editor-canvas"]' );
+				const headingLocator = iframe.getByRole( 'heading', {
+					name: 'Navigation',
+				} );
+				await expect( headingLocator ).toBeVisible( { timeout: 120_000 } );
+			} else {
+				const headingLocator = page.getByRole( 'heading', {
+					name: 'Navigation',
+				} );
+				await expect( headingLocator ).toBeVisible( { timeout: 120_000 } );
+			}
 		} );
 
 		test( 'opens Templates shortcut', async ( { page } ) => {

@@ -223,6 +223,9 @@ export function useAddSite() {
 		[ __, checkPathExists ]
 	);
 
+	/**
+	 * Create a new site with the given form values
+	 */
 	const handleCreateSite = useCallback(
 		async ( formValues: CreateSiteFormValues ) => {
 			try {

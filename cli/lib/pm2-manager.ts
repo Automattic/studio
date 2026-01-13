@@ -14,7 +14,8 @@ import {
 
 const PM2_STATUS_ONLINE = 'online';
 const PROXY_PROCESS_NAME = 'studio-proxy';
-const DAEMON_TIMEOUT = 10000;
+const CONNECTION_TIMEOUT = 10_000;
+const KILL_TIMEOUT = 25_000;
 
 // Set consistent PM2 home directory for Studio CLI
 // This ensures all Studio CLI commands use the same PM2 daemon
@@ -47,7 +48,7 @@ export async function connect(): Promise< void > {
 					'PM2 connection timeout after 10 seconds. Try running: PM2_HOME=~/.studio/pm2 pm2 update'
 				)
 			);
-		}, DAEMON_TIMEOUT );
+		}, CONNECTION_TIMEOUT );
 
 		pm2.connect( ( error ) => {
 			clearTimeout( timeout );
@@ -68,6 +69,27 @@ export function disconnect(): void {
 		pm2.disconnect();
 		isConnected = false;
 	}
+}
+
+export async function killDaemonAndAllChildren() {
+	return new Promise< void >( ( resolve, reject ) => {
+		const timeout = setTimeout( () => {
+			reject(
+				new Error(
+					'PM2 kill timeout after 25 seconds. Try running: PM2_HOME=~/.studio/pm2 pm2 kill'
+				)
+			);
+		}, KILL_TIMEOUT );
+
+		pm2.killDaemon( ( error ) => {
+			clearTimeout( timeout );
+			if ( error ) {
+				reject( error );
+				return;
+			}
+			resolve();
+		} );
+	} );
 }
 
 // Cache the return value of `pm2.list` for a very short time to make multiple calls in quick

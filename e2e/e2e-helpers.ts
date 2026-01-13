@@ -3,7 +3,6 @@ import { tmpdir } from 'os';
 import path from 'path';
 import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
 import fs from 'fs-extra';
-import pidtree from 'pidtree';
 import { _electron as electron, Page, ElectronApplication } from 'playwright';
 
 export class E2ESession {
@@ -49,14 +48,10 @@ export class E2ESession {
 	async closeApp() {
 		console.log( 'Closing app...' );
 		const childProcess = this.electronApp.process();
-		const childPids = await this.getChildPids( childProcess.pid );
 
-		console.log( 'Child PIDs:', childPids );
-
-		// Playwright's electronApp.close() can hang, especially on Windows. This is due to spawned child
-		// processes also needing to be closed in order for Playwright to consider the application
-		// closed, and how we've modified the app quit logic with `will-quit` handlers and the like. The
-		// most concrete example of this is how we call `stopAllServersOnQuit`.
+		// Playwright's electronApp.close() can hang, especially on Windows. This is likely due to how
+		// `stopAllServersOnQuit` spawns a child process in the `will-quit` event handler, sidestepping
+		// Electron's normal close sequence.
 		const exitPromise = new Promise< void >( ( resolve ) => {
 			childProcess.once( 'exit', resolve );
 		} );
@@ -86,18 +81,6 @@ export class E2ESession {
 		// session paths are unique, the WordPress installations are relatively small, and the E2E tests
 		// primarily run in ephemeral CI workers, we've decided to fix this issue by simply not removing
 		// the `sessionPath` directory.
-	}
-
-	private async getChildPids( pid: number | undefined ): Promise< number[] > {
-		if ( ! pid ) {
-			return [];
-		}
-
-		try {
-			return await pidtree( pid );
-		} catch {
-			return [];
-		}
 	}
 
 	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {

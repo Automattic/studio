@@ -1,27 +1,8 @@
-import {
-	test,
-	expect,
-	chromium,
-	Browser,
-	BrowserContext,
-	Page,
-	Frame,
-	FrameLocator,
-} from '@playwright/test';
+import { test, chromium, Page, Frame } from '@playwright/test';
 import { getUrlWithAutoLogin } from '../../e2e/utils';
+import { writeFileSync, mkdirSync } from 'fs';
+import { join } from 'path';
 import { median } from '../utils';
-
-interface BenchmarkResults {
-	url: string;
-	metrics: {
-		wpAdminLoad?: number;
-		siteEditorLoad?: number;
-		templatesViewLoad?: number;
-		templateOpen?: number;
-		blockAdd?: number;
-		templateSave?: number;
-	};
-}
 
 // Helper functions for the benchmark test
 function findWordPressFrame( page: Page ): Frame | null {
@@ -70,317 +51,320 @@ function findEditorCanvasFrame(
 }
 
 test.describe( 'Site Editor Performance Benchmark', () => {
-	const results: BenchmarkResults[] = [];
+	// Results collection structure - each metric stores array of values from all runs
+	const results: Record< string, number[] > = {
+		siteEditorLoad: [],
+		templatesViewLoad: [],
+		templateOpen: [],
+		blockAdd: [],
+		templateSave: [],
+	};
 
-	// Get target URL from environment variable (required)
-	// Example: BENCHMARK_URL=http://localhost:8888 or BENCHMARK_URL=https://playground.wordpress.net
+	// Get configuration from environment variables
 	const targetUrl = process.env.BENCHMARK_URL;
+	const BENCHMARK_RUNS = parseInt( process.env.BENCHMARK_RUNS || '3', 10 );
 
-	// Shared state for the test
-	let browser: Browser;
-	let context: BrowserContext;
-	let page: Page;
-	let wordPressFrame: Frame | null = null;
-	let wordPressFrameLocator: ReturnType< Page[ 'frameLocator' ] > | null = null;
-	let isPlaygroundWeb: boolean;
-	let wpAdminUrl: string;
+	// Environment detection (parsed once, reused for all iterations)
+	if ( ! targetUrl ) {
+		throw new Error(
+			'BENCHMARK_URL environment variable is required. Example: BENCHMARK_URL=http://localhost:8888'
+		);
+	}
 
-	test.beforeEach( async () => {
-		if ( ! targetUrl ) {
-			throw new Error(
-				'BENCHMARK_URL environment variable is required. Example: BENCHMARK_URL=http://localhost:8888'
-			);
-		}
+	// Parse and normalize the URL
+	let wpAdminUrl = targetUrl;
+	if ( ! wpAdminUrl.startsWith( 'http' ) ) {
+		wpAdminUrl = `http://${ wpAdminUrl }`;
+	}
+	wpAdminUrl = wpAdminUrl.replace( /\/$/, '' );
 
-		// Parse and normalize the URL
-		wpAdminUrl = targetUrl;
-		if ( ! wpAdminUrl.startsWith( 'http' ) ) {
-			wpAdminUrl = `http://${ wpAdminUrl }`;
-		}
-		wpAdminUrl = wpAdminUrl.replace( /\/$/, '' );
+	const isPlaygroundWeb = wpAdminUrl.includes( 'playground.wordpress.net' );
+	const isLocalPlaygroundCli = wpAdminUrl.includes( '127.0.0.1' );
 
-		isPlaygroundWeb = wpAdminUrl.includes( 'playground.wordpress.net' );
-		// Detect local Playground CLI (localhost or 127.0.0.1) - these don't use Studio auto-login
-		const isLocalPlaygroundCli = wpAdminUrl.includes( '127.0.0.1' );
-
-		browser = await chromium.launch();
-		context = await browser.newContext();
-		page = await context.newPage();
-
-		// Environment-specific preparation: Navigate to wp-admin
-		if ( isPlaygroundWeb ) {
-			// For Playground web: use the URL from environment variable (should be Blueprint URL that starts at wp-admin)
-			await page.goto( wpAdminUrl, { waitUntil: 'networkidle' } );
-
-			// Get WordPress frame locator using playground-viewport classname (more stable)
-			// The playground-viewport is the wrapper, WordPress site is in a nested iframe
-			wordPressFrameLocator = page
-				.frameLocator( 'iframe.playground-viewport' )
-				.first()
-				.frameLocator( 'iframe' )
-				.first();
-
-			// Wait for wp-admin to load by checking for Appearance link (same as Studio)
-			await wordPressFrameLocator
-				.getByRole( 'link', { name: 'Appearance' } )
-				.waitFor( { timeout: 30_000 } );
-
-			// Get the actual frame object for use in test body
-			wordPressFrame = findWordPressFrame( page );
-		} else if ( isLocalPlaygroundCli ) {
-			// For local Playground CLI: navigate directly to wp-admin (Blueprint with --login redirects here)
-			// Don't use Studio auto-login endpoint as it doesn't exist for Playground CLI
-			await page.goto( `${ wpAdminUrl }/wp-admin`, {
-				waitUntil: 'networkidle',
-			} );
-			// Wait for wp-admin to be ready - use Appearance link
-			await page.getByRole( 'link', { name: 'Appearance' } ).waitFor( { timeout: 30_000 } );
-		} else {
-			// For Studio: use auto-login endpoint
-			await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/wp-admin` ), {
-				waitUntil: 'networkidle',
-			} );
-			// Wait for wp-admin to be ready - use Appearance link
-			await page.getByRole( 'link', { name: 'Appearance' } ).waitFor( { timeout: 30_000 } );
-		}
-	} );
-
-	test.afterEach( async () => {
-		await page.close();
-		await context.close();
-		await browser.close();
-	} );
+	// Create URL identifier for metric names
+	const urlIdentifier = isPlaygroundWeb
+		? 'playground-web'
+		: wpAdminUrl
+				.replace( /^https?:\/\//, '' )
+				.replace( /\/$/, '' )
+				.replace( /[^a-z0-9]/gi, '-' );
 
 	test.afterAll( async ( {}, testInfo ) => {
-		// Calculate summary with flattened metric names (URL included in metric name for multi-environment support)
-		const summary: Record< string, number > = {};
-
-		results.forEach( ( result ) => {
-			const urlKey = result.url || 'unknown';
-			// Create a short identifier from the URL (e.g., "localhost:8888" or "playground-web")
-			const urlIdentifier = urlKey.includes( 'playground.wordpress.net' )
-				? 'playground-web'
-				: urlKey
-						.replace( /^https?:\/\//, '' )
-						.replace( /\/$/, '' )
-						.replace( /[^a-z0-9]/gi, '-' );
-
-			Object.entries( result.metrics ).forEach( ( [ key, value ] ) => {
-				if ( value !== undefined ) {
-					const metricKey = `${ urlIdentifier }-${ key }`;
-					if ( ! summary[ metricKey ] ) {
-						summary[ metricKey ] = value;
-					} else {
-						// If multiple runs, calculate median
-						summary[ metricKey ] = median( [ summary[ metricKey ], value ] ) || value;
-					}
+		// Calculate medians using existing utility
+		const medians: Record< string, number > = {};
+		Object.entries( results ).forEach( ( [ key, values ] ) => {
+			if ( values.length > 0 ) {
+				const medianValue = median( values );
+				if ( medianValue !== undefined ) {
+					medians[ `${ urlIdentifier }-${ key }` ] = medianValue;
 				}
-			} );
+			}
 		} );
 
-		// Attach results in the format expected by the performance reporter
+		// Attach aggregated results (for performance reporter)
 		await testInfo.attach( 'results', {
-			body: JSON.stringify( summary, null, 2 ),
+			body: JSON.stringify( medians, null, 2 ),
 			contentType: 'application/json',
 		} );
 
-		// Also attach full results for detailed analysis
-		await testInfo.attach( 'benchmark-results-full', {
-			body: JSON.stringify( results, null, 2 ),
+		// Attach detailed results (individual runs + aggregated)
+		const detailedResults = {
+			url: wpAdminUrl,
+			runs: BENCHMARK_RUNS,
+			successfulRuns: results.siteEditorLoad.length,
+			individual: results,
+			medians: medians,
+		};
+
+		await testInfo.attach( 'benchmark-results-detailed', {
+			body: JSON.stringify( detailedResults, null, 2 ),
 			contentType: 'application/json',
 		} );
+
+		// Write results to a file for easy access
+		const resultsDir = join( process.cwd(), 'metrics', 'benchmark-results' );
+		mkdirSync( resultsDir, { recursive: true } );
+		const resultsFile = join( resultsDir, `benchmark-${ Date.now() }.json` );
+		writeFileSync( resultsFile, JSON.stringify( detailedResults, null, 2 ), 'utf-8' );
 	} );
 
 	test( 'benchmark site editor performance', async () => {
-		const currentResults: BenchmarkResults = {
-			url: wpAdminUrl,
-			metrics: {},
-		};
+		// Run benchmark N times with fresh browser per iteration
+		for ( let run = 1; run <= BENCHMARK_RUNS; run++ ) {
+			await test.step( `Run ${ run }/${ BENCHMARK_RUNS }`, async () => {
+				// Launch fresh browser for this iteration
+				const browser = await chromium.launch();
+				const context = await browser.newContext();
+				const page = await context.newPage();
 
-		// Get the target for interactions (page or frame locator)
-		// Frame locator is already set up in beforeEach
-		const target = isPlaygroundWeb && wordPressFrameLocator ? wordPressFrameLocator : page;
+				let wordPressFrame: Frame | null = null;
+				let wordPressFrameLocator: ReturnType< Page[ 'frameLocator' ] > | null = null;
 
-		try {
-			// wp-admin is already loaded in beforeEach, verified by Appearance link
-			// Step 1: Navigate to site editor from wp-admin using Appearance > Editor
-			const siteEditorStartTime = Date.now();
+				try {
+					// Environment-specific preparation: Navigate to wp-admin
+					if ( isPlaygroundWeb ) {
+						// For Playground web: use the URL from environment variable
+						await page.goto( wpAdminUrl, { waitUntil: 'networkidle' } );
 
-			// Click Appearance menu
-			await target.getByRole( 'link', { name: 'Appearance' } ).click();
-			// Click Editor submenu - use href to be specific (site-editor.php is the site editor)
-			await target.locator( 'a[href="site-editor.php"]' ).click();
+						// Get WordPress frame locator
+						wordPressFrameLocator = page
+							.frameLocator( 'iframe.playground-viewport' )
+							.first()
+							.frameLocator( 'iframe' )
+							.first();
 
-			// Close welcome modal if it appears
-			const welcomeDialog = target.getByRole( 'dialog', { name: /welcome to the site editor/i } );
-			const isModalVisible = await welcomeDialog
-				.isVisible( { timeout: 5_000 } )
-				.catch( () => false );
-			if ( isModalVisible ) {
-				await target.getByRole( 'button', { name: /get started/i } ).click();
-				await welcomeDialog.waitFor( { state: 'hidden', timeout: 5_000 } ).catch( () => {} );
-			}
+						// Wait for wp-admin to load
+						await wordPressFrameLocator
+							.getByRole( 'link', { name: 'Appearance' } )
+							.waitFor( { timeout: 30_000 } );
 
-			// Wait for editor canvas iframe to appear
-			await target.locator( 'iframe[name="editor-canvas"]' ).waitFor( {
-				state: 'visible',
-				timeout: 120_000,
-			} );
+						// Get the actual frame object
+						wordPressFrame = findWordPressFrame( page );
+					} else if ( isLocalPlaygroundCli ) {
+						// For local Playground CLI: navigate directly to wp-admin
+						await page.goto( `${ wpAdminUrl }/wp-admin`, {
+							waitUntil: 'networkidle',
+						} );
+						await page.getByRole( 'link', { name: 'Appearance' } ).waitFor( { timeout: 30_000 } );
+					} else {
+						// For Studio: use auto-login endpoint
+						await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/wp-admin` ), {
+							waitUntil: 'networkidle',
+						} );
+						await page.getByRole( 'link', { name: 'Appearance' } ).waitFor( { timeout: 30_000 } );
+					}
 
-			// Find the editor canvas frame
-			const frame = findEditorCanvasFrame( page, isPlaygroundWeb, wordPressFrame );
-			if ( ! frame ) {
-				throw new Error( 'Editor canvas frame not found' );
-			}
+					// Get the target for interactions
+					const target = isPlaygroundWeb && wordPressFrameLocator ? wordPressFrameLocator : page;
 
-			// Wait for frame to be ready
-			await frame.waitForLoadState( 'domcontentloaded' );
-			// Wait for blocks to be present and rendered (positive indicator that editor is ready)
-			await frame.waitForSelector( '[data-block]', { timeout: 60_000 } );
-			// Ensure at least one block is fully rendered (not just in DOM)
-			await frame.waitForFunction(
-				() => {
-					const blocks = document.querySelectorAll( '[data-block]' );
-					return (
-						blocks.length > 0 && Array.from( blocks ).some( ( block ) => block.clientHeight > 0 )
+					// Step 1: Navigate to site editor from wp-admin using Appearance > Editor
+					const siteEditorStartTime = Date.now();
+
+					// Click Appearance menu
+					await target.getByRole( 'link', { name: 'Appearance' } ).click();
+					// Click Editor submenu - use href to be specific (site-editor.php is the site editor)
+					await target.locator( 'a[href="site-editor.php"]' ).click();
+
+					// Close welcome modal if it appears
+					const welcomeDialog = target.getByRole( 'dialog', {
+						name: /welcome to the site editor/i,
+					} );
+					const isModalVisible = await welcomeDialog
+						.isVisible( { timeout: 5_000 } )
+						.catch( () => false );
+					if ( isModalVisible ) {
+						await target.getByRole( 'button', { name: /get started/i } ).click();
+						await welcomeDialog.waitFor( { state: 'hidden', timeout: 5_000 } ).catch( () => {} );
+					}
+
+					// Wait for editor canvas iframe to appear
+					await target.locator( 'iframe[name="editor-canvas"]' ).waitFor( {
+						state: 'visible',
+						timeout: 120_000,
+					} );
+
+					// Find the editor canvas frame
+					const frame = findEditorCanvasFrame( page, isPlaygroundWeb, wordPressFrame );
+					if ( ! frame ) {
+						throw new Error( 'Editor canvas frame not found' );
+					}
+
+					// Wait for frame to be ready
+					await frame.waitForLoadState( 'domcontentloaded' );
+					// Wait for blocks to be present and rendered (positive indicator that editor is ready)
+					await frame.waitForSelector( '[data-block]', { timeout: 60_000 } );
+					// Ensure at least one block is fully rendered (not just in DOM)
+					await frame.waitForFunction(
+						() => {
+							const blocks = document.querySelectorAll( '[data-block]' );
+							return (
+								blocks.length > 0 &&
+								Array.from( blocks ).some( ( block ) => block.clientHeight > 0 )
+							);
+						},
+						{ timeout: 60_000 }
 					);
-				},
-				{ timeout: 60_000 }
-			);
 
-			const siteEditorEndTime = Date.now();
-			currentResults.metrics.siteEditorLoad = siteEditorEndTime - siteEditorStartTime;
+					const siteEditorEndTime = Date.now();
+					results.siteEditorLoad.push( siteEditorEndTime - siteEditorStartTime );
 
-			// Step 3: Navigate to Templates view using command palette
-			const templatesViewStartTime = Date.now();
+					// Step 2: Navigate to Templates view using command palette
+					const templatesViewStartTime = Date.now();
 
-			// Open command palette with keyboard shortcut (works universally)
-			await page.keyboard.press( 'Meta+k' );
+					// Open command palette with keyboard shortcut (works universally)
+					await page.keyboard.press( 'Meta+k' );
 
-			// Type "Templates" and select it
-			await target.getByRole( 'combobox', { name: /search commands/i } ).fill( 'Templates' );
-			await target.getByRole( 'option', { name: /go to: templates/i } ).click();
+					// Type "Templates" and select it
+					await target.getByRole( 'combobox', { name: /search commands/i } ).fill( 'Templates' );
+					await target.getByRole( 'option', { name: /go to: templates/i } ).click();
 
-			// Wait for Templates view to load - wait for heading, grid, and ensure first card is clickable
-			await target.getByRole( 'heading', { name: 'Templates', level: 2 } ).waitFor( {
-				timeout: 60_000,
-			} );
-			await target
-				.locator( '.dataviews-view-grid-items.dataviews-view-grid' )
-				.waitFor( { timeout: 60_000 } );
-			// Wait for the first template card to be visible and clickable (indicates page is ready)
-			const firstCard = target.locator( '.dataviews-view-grid__card' ).first();
-			await firstCard.waitFor( { state: 'visible', timeout: 60_000 } );
-			await firstCard
-				.getByRole( 'button' )
-				.first()
-				.waitFor( { state: 'visible', timeout: 60_000 } );
+					// Wait for Templates view to load - wait for heading, grid, and ensure first card is clickable
+					await target.getByRole( 'heading', { name: 'Templates', level: 2 } ).waitFor( {
+						timeout: 60_000,
+					} );
+					await target
+						.locator( '.dataviews-view-grid-items.dataviews-view-grid' )
+						.waitFor( { timeout: 60_000 } );
+					// Wait for the first template card to be visible and clickable (indicates page is ready)
+					const firstCard = target.locator( '.dataviews-view-grid__card' ).first();
+					await firstCard.waitFor( { state: 'visible', timeout: 60_000 } );
+					await firstCard
+						.getByRole( 'button' )
+						.first()
+						.waitFor( { state: 'visible', timeout: 60_000 } );
 
-			const templatesViewEndTime = Date.now();
-			currentResults.metrics.templatesViewLoad = templatesViewEndTime - templatesViewStartTime;
+					const templatesViewEndTime = Date.now();
+					results.templatesViewLoad.push( templatesViewEndTime - templatesViewStartTime );
 
-			// Step 4: Open a template
-			const templateOpenStartTime = Date.now();
+					// Step 3: Open a template
+					const templateOpenStartTime = Date.now();
 
-			// Click on the first template card (it's a button, not a link)
-			await target
-				.locator( '.dataviews-view-grid__card' )
-				.first()
-				.getByRole( 'button' )
-				.first()
-				.click();
+					// Click on the first template card (it's a button, not a link)
+					await target
+						.locator( '.dataviews-view-grid__card' )
+						.first()
+						.getByRole( 'button' )
+						.first()
+						.click();
 
-			// Wait for template editor to load
-			await target.locator( 'iframe[name="editor-canvas"]' ).waitFor( {
-				state: 'visible',
-				timeout: 60_000,
-			} );
+					// Wait for template editor to load
+					await target.locator( 'iframe[name="editor-canvas"]' ).waitFor( {
+						state: 'visible',
+						timeout: 60_000,
+					} );
 
-			// Find the template editor canvas frame
-			const templateFrame = findEditorCanvasFrame( page, isPlaygroundWeb, wordPressFrame );
-			if ( ! templateFrame ) {
-				throw new Error( 'Template editor frame not found' );
-			}
+					// Find the template editor canvas frame
+					const templateFrame = findEditorCanvasFrame( page, isPlaygroundWeb, wordPressFrame );
+					if ( ! templateFrame ) {
+						throw new Error( 'Template editor frame not found' );
+					}
 
-			// Wait for template editor to be ready
-			await templateFrame.waitForLoadState( 'domcontentloaded' );
-			// Wait for blocks to be present and rendered (positive indicator that editor is ready)
-			await templateFrame.waitForSelector( '[data-block]', { timeout: 60_000 } );
-			// Ensure at least one block is fully rendered (not just in DOM)
-			await templateFrame.waitForFunction(
-				() => {
-					const blocks = document.querySelectorAll( '[data-block]' );
-					return (
-						blocks.length > 0 && Array.from( blocks ).some( ( block ) => block.clientHeight > 0 )
+					// Wait for template editor to be ready
+					await templateFrame.waitForLoadState( 'domcontentloaded' );
+					// Wait for blocks to be present and rendered (positive indicator that editor is ready)
+					await templateFrame.waitForSelector( '[data-block]', { timeout: 60_000 } );
+					// Ensure at least one block is fully rendered (not just in DOM)
+					await templateFrame.waitForFunction(
+						() => {
+							const blocks = document.querySelectorAll( '[data-block]' );
+							return (
+								blocks.length > 0 &&
+								Array.from( blocks ).some( ( block ) => block.clientHeight > 0 )
+							);
+						},
+						{ timeout: 60_000 }
 					);
-				},
-				{ timeout: 60_000 }
-			);
 
-			const templateOpenEndTime = Date.now();
-			currentResults.metrics.templateOpen = templateOpenEndTime - templateOpenStartTime;
+					const templateOpenEndTime = Date.now();
+					results.templateOpen.push( templateOpenEndTime - templateOpenStartTime );
 
-			// Step 5: Add blocks
-			const blockAddStartTime = Date.now();
+					// Step 4: Add blocks
+					const blockAddStartTime = Date.now();
 
-			// Close any modals
-			await page.keyboard.press( 'Escape' );
+					// Close any modals
+					await page.keyboard.press( 'Escape' );
 
-			// Open block inserter
-			await target.getByRole( 'button', { name: /Block Inserter/i } ).click();
+					// Open block inserter
+					await target.getByRole( 'button', { name: /Block Inserter/i } ).click();
 
-			// Search and insert Paragraph block
-			const searchInput = target.getByPlaceholder( 'Search' );
-			await searchInput.fill( 'Paragraph' );
-			await target.getByRole( 'option', { name: 'Paragraph', exact: true } ).click();
+					// Search and insert Paragraph block
+					const searchInput = target.getByPlaceholder( 'Search' );
+					await searchInput.fill( 'Paragraph' );
+					await target.getByRole( 'option', { name: 'Paragraph', exact: true } ).click();
 
-			// Wait for paragraph block to appear
-			await templateFrame.waitForSelector( 'p[data-block]', { timeout: 15_000 } );
+					// Wait for paragraph block to appear
+					await templateFrame.waitForSelector( 'p[data-block]', { timeout: 15_000 } );
 
-			// Add Heading block
-			await searchInput.fill( 'Heading' );
-			// Get the block type option (not the pattern) - block types are buttons with class "block-editor-block-types-list__item"
-			await target
-				.locator( '.block-editor-block-types-list__item' )
-				.filter( { hasText: /^Heading$/ } )
-				.click();
+					// Add Heading block
+					await searchInput.fill( 'Heading' );
+					// Get the block type option (not the pattern) - block types are buttons with class "block-editor-block-types-list__item"
+					await target
+						.locator( '.block-editor-block-types-list__item' )
+						.filter( { hasText: /^Heading$/ } )
+						.click();
 
-			// Wait for heading block to appear
-			await templateFrame.waitForSelector( 'h1[data-block], h2[data-block], h3[data-block]', {
-				timeout: 15_000,
-			} );
+					// Wait for heading block to appear
+					await templateFrame.waitForSelector( 'h1[data-block], h2[data-block], h3[data-block]', {
+						timeout: 15_000,
+					} );
 
-			const blockAddEndTime = Date.now();
-			currentResults.metrics.blockAdd = blockAddEndTime - blockAddStartTime;
+					const blockAddEndTime = Date.now();
+					results.blockAdd.push( blockAddEndTime - blockAddStartTime );
 
-			// Step 6: Save the template
-			const templateSaveStartTime = Date.now();
+					// Step 5: Save the template
+					const templateSaveStartTime = Date.now();
 
-			await target.getByRole( 'button', { name: 'Save' } ).first().click();
+					await target.getByRole( 'button', { name: 'Save' } ).first().click();
 
-			// Wait for save confirmation - button text changes to "Saved"
-			await page.waitForFunction(
-				() => {
-					const saveButton = Array.from( document.querySelectorAll( 'button' ) ).find(
-						( btn ) =>
-							btn.textContent?.includes( 'Saved' ) ||
-							btn.getAttribute( 'aria-label' )?.toLowerCase().includes( 'saved' )
+					// Wait for save confirmation - button text changes to "Saved"
+					await page.waitForFunction(
+						() => {
+							const saveButton = Array.from( document.querySelectorAll( 'button' ) ).find(
+								( btn ) =>
+									btn.textContent?.includes( 'Saved' ) ||
+									btn.getAttribute( 'aria-label' )?.toLowerCase().includes( 'saved' )
+							);
+							return saveButton !== null;
+						},
+						{ timeout: 30_000 }
 					);
-					return saveButton !== null;
-				},
-				{ timeout: 30_000 }
-			);
 
-			const templateSaveEndTime = Date.now();
-			currentResults.metrics.templateSave = templateSaveEndTime - templateSaveStartTime;
+					const templateSaveEndTime = Date.now();
+					results.templateSave.push( templateSaveEndTime - templateSaveStartTime );
 
-			results.push( currentResults );
-		} catch ( error ) {
-			// Save partial results if test fails
-			if ( Object.keys( currentResults.metrics ).length > 0 ) {
-				results.push( currentResults );
-			}
-			throw error;
+					console.log( `  ✓ Run ${ run } completed` );
+				} finally {
+					// Always cleanup browser
+					await page.close();
+					await context.close();
+					await browser.close();
+				}
+
+				// Small delay between runs
+				if ( run < BENCHMARK_RUNS ) {
+					await new Promise( ( resolve ) => setTimeout( resolve, 1000 ) );
+				}
+			} );
 		}
 	} );
 } );

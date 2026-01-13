@@ -228,15 +228,11 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 					const siteEditorEndTime = Date.now();
 					results.siteEditorLoad.push( siteEditorEndTime - siteEditorStartTime );
 
-					// Step 2: Navigate to Templates view using command palette
+					// Step 2: Navigate to Templates view by clicking Templates button in sidebar
 					const templatesViewStartTime = Date.now();
 
-					// Open command palette with keyboard shortcut (works universally)
-					await page.keyboard.press( 'Meta+k' );
-
-					// Type "Templates" and select it
-					await target.getByRole( 'combobox', { name: /search commands/i } ).fill( 'Templates' );
-					await target.getByRole( 'option', { name: /go to: templates/i } ).click();
+					// Click the Templates button in the sidebar (works across all environments)
+					await page.getByRole( 'button', { name: 'Templates' } ).click();
 
 					// Wait for Templates view to load - wait for heading, grid, and ensure first card is clickable
 					await target.getByRole( 'heading', { name: 'Templates', level: 2 } ).waitFor( {

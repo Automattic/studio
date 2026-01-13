@@ -105,7 +105,7 @@ steps:
           case {{matrix}} in
             x64)
               echo "Rebuilding fs-xattr and macos-alias for {{matrix}} architecture"
-              pnpm rebuild fs-xattr --cpu universal
+              pnpm rebuild fs-xattr
               pnpm rebuild macos-alias
               ;;
             arm64)
@@ -206,7 +206,7 @@ steps:
           case {{matrix}} in
             x64)
               echo "Rebuilding fs-xattr and macos-alias for {{matrix}} architecture"
-              pnpm rebuild fs-xattr --cpu universal
+              pnpm rebuild fs-xattr
               pnpm rebuild macos-alias
               ;;
             arm64)

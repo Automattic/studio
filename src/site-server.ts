@@ -30,10 +30,7 @@ export async function createSiteWorkingDirectory(
 }
 
 export async function stopAllServersOnQuit() {
-	// We're quitting so this doesn't have to be tidy, just stop the
-	// servers as directly as possible.
-	// Preserve autoStart so sites will restart on next app launch.
-	// Use silent mode to avoid terminal errors during quit.
+	// The `--auto-start` option ensures sites will restart on next app launch.
 	return new Promise< void >( ( resolve ) => {
 		const [ emitter, childProcess ] = executeCliCommand(
 			[ 'site', 'stop', '--all', '--auto-start' ],

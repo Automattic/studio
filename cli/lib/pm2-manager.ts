@@ -330,3 +330,13 @@ export async function subscribeProcessMessages(
 		bus.off( 'process:msg', messageHandler );
 	};
 }
+
+export async function subscribePm2KillEvent( handler: () => void ) {
+	const bus = await getPm2Bus();
+
+	bus.on( 'pm2:kill', handler );
+
+	return () => {
+		bus.off( 'pm2:kill', handler );
+	};
+}

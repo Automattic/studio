@@ -25,6 +25,7 @@ import ImportBackup from './components/import-backup';
 import AddSiteOptions, { type AddSiteFlowType } from './components/options';
 import { PullRemoteSite } from './components/pull-remote-site';
 import Stepper from './components/stepper';
+import { useBlueprintDeeplinkIpc } from './hooks/use-blueprint-deeplink-ipc';
 import { useFindAvailableSiteName } from './hooks/use-find-available-site-name';
 
 type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
@@ -500,7 +501,16 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 	}, [ dispatch ] );
 
 	const addSiteProps = useAddSite();
-	const { resetForm, isAnySiteProcessing } = addSiteProps;
+	const {
+		resetForm,
+		isAnySiteProcessing,
+		setSelectedBlueprint,
+		setDeeplinkPhpVersion,
+		setDeeplinkWpVersion,
+		setBlueprintPreferredVersions,
+		setBlueprintDeeplinkWarnings,
+		setIsDeeplinkFlow,
+	} = addSiteProps;
 
 	const closeModal = useCallback( () => {
 		resetForm();
@@ -512,6 +522,17 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 			return;
 		}
 		openModal();
+	} );
+
+	useBlueprintDeeplinkIpc( {
+		isAnySiteProcessing,
+		setSelectedBlueprint,
+		setPhpVersion: setDeeplinkPhpVersion,
+		setWpVersion: setDeeplinkWpVersion,
+		setBlueprintPreferredVersions,
+		setBlueprintDeeplinkWarnings,
+		setIsDeeplinkFlow,
+		onModalOpen: () => dispatch( openAddSiteModal() ),
 	} );
 
 	return (

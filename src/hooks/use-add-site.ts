@@ -9,7 +9,6 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
-import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
 import { useRootSelector } from 'src/stores';
 import {
 	selectDefaultPhpVersion,
@@ -82,16 +81,6 @@ export function useAddSite() {
 		defaultPhpVersion as AllowedPHPVersion
 	);
 	const [ deeplinkWpVersion, setDeeplinkWpVersion ] = useState( defaultWordPressVersion );
-
-	useBlueprintDeeplink( {
-		isAnySiteProcessing,
-		setSelectedBlueprint,
-		setPhpVersion: setDeeplinkPhpVersion,
-		setWpVersion: setDeeplinkWpVersion,
-		setBlueprintPreferredVersions,
-		setBlueprintDeeplinkWarnings,
-		navigateToBlueprintDeeplink: () => setIsDeeplinkFlow( true ),
-	} );
 
 	const resetForm = useCallback( () => {
 		setFileForImport( null );
@@ -304,6 +293,8 @@ export function useAddSite() {
 			defaultWpVersion: defaultWordPressVersion,
 			deeplinkPhpVersion,
 			deeplinkWpVersion,
+			setDeeplinkPhpVersion,
+			setDeeplinkWpVersion,
 			fileForImport,
 			setFileForImport,
 			selectedBlueprint,
@@ -311,6 +302,7 @@ export function useAddSite() {
 			blueprintPreferredVersions,
 			setBlueprintPreferredVersions,
 			blueprintDeeplinkWarnings,
+			setBlueprintDeeplinkWarnings,
 			selectedRemoteSite,
 			setSelectedRemoteSite,
 			existingDomainNames,
@@ -329,6 +321,8 @@ export function useAddSite() {
 			defaultWordPressVersion,
 			deeplinkPhpVersion,
 			deeplinkWpVersion,
+			setDeeplinkPhpVersion,
+			setDeeplinkWpVersion,
 			fileForImport,
 			selectedBlueprint,
 			blueprintPreferredVersions,

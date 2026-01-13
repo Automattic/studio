@@ -4,11 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-patchedDependencies:
-  '@wp-playground/wordpress':
-    hash: 94618c500198f9d8b6517fe523126a2113444ce1d13e42e638bd0fa43c7de9c6
-    path: patches/@wp-playground__wordpress.patch
-
 importers:
 
   .:
@@ -72,7 +67,7 @@ importers:
         version: 3.0.40
       '@wp-playground/wordpress':
         specifier: ^3.0.22
-        version: 3.0.40(patch_hash=94618c500198f9d8b6517fe523126a2113444ce1d13e42e638bd0fa43c7de9c6)
+        version: 3.0.40
       archiver:
         specifier: ^6.0.2
         version: 6.0.2
@@ -12653,7 +12648,7 @@ snapshots:
       '@php-wasm/web': 3.0.40
       '@wp-playground/common': 3.0.40
       '@wp-playground/storage': 3.0.40
-      '@wp-playground/wordpress': 3.0.40(patch_hash=94618c500198f9d8b6517fe523126a2113444ce1d13e42e638bd0fa43c7de9c6)
+      '@wp-playground/wordpress': 3.0.40
       '@zip.js/zip.js': 2.7.57
       ajv: 8.12.0
       async-lock: 1.4.1
@@ -12693,7 +12688,7 @@ snapshots:
       '@wp-playground/blueprints': 3.0.40
       '@wp-playground/common': 3.0.40
       '@wp-playground/storage': 3.0.40
-      '@wp-playground/wordpress': 3.0.40(patch_hash=94618c500198f9d8b6517fe523126a2113444ce1d13e42e638bd0fa43c7de9c6)
+      '@wp-playground/wordpress': 3.0.40
       '@zip.js/zip.js': 2.7.57
       ajv: 8.12.0
       async-lock: 1.4.1
@@ -12767,7 +12762,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@wp-playground/wordpress@3.0.40(patch_hash=94618c500198f9d8b6517fe523126a2113444ce1d13e42e638bd0fa43c7de9c6)':
+  '@wp-playground/wordpress@3.0.40':
     dependencies:
       '@php-wasm/logger': 3.0.40
       '@php-wasm/node': 3.0.40

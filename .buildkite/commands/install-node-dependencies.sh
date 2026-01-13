@@ -25,6 +25,8 @@ echo "--- :pnpm: Install Node dependencies"
 
 corepack enable pnpm
 
+echo "pnpm node-linker: $(pnpm config get node-linker)"
+
 pnpm install \
   --store-dir $LOCAL_PNPM_CACHE \
   --frozen-lockfile

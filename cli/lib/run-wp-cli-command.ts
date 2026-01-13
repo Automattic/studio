@@ -1,4 +1,3 @@
-import path from 'node:path';
 import { rootCertificates } from 'node:tls';
 import { loadNodeRuntime, createNodeFsMountHandler } from '@php-wasm/node';
 import {
@@ -25,8 +24,9 @@ export async function runWpCliCommand(
 	siteFolder: string,
 	phpVersion: SupportedPHPVersion,
 	args: string[]
-): Promise< StreamedPHPResponse > {
-	const php = new PHP( await loadNodeRuntime( phpVersion, { followSymlinks: true } ) );
+): Promise< [ StreamedPHPResponse, exitPhp: () => void ] > {
+	const id = await loadNodeRuntime( phpVersion, { followSymlinks: true } );
+	const php = new PHP( id );
 
 	try {
 		await php.setSapiName( 'cli' );
@@ -59,7 +59,10 @@ export async function runWpCliCommand(
 
 		await setupPlatformLevelMuPlugins( php );
 
-		return php.cli( [ 'php', '/tmp/wp-cli.phar', `--path=/wordpress`, ...args ] );
+		return [
+			await php.cli( [ 'php', '/tmp/wp-cli.phar', '--path=/wordpress', ...args ] ),
+			() => php.exit(),
+		];
 	} catch ( error ) {
 		throw new Error( __( 'An error occurred while running the WP-CLI command.', 'wp-playground' ) );
 	}

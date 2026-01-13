@@ -41,7 +41,7 @@ export async function runCommand(
 	}
 
 	// …If not, run the command in a new PHP-WASM instance
-	const response = await runWpCliCommand( siteFolder, phpVersion, args );
+	const [ response, exitPhp ] = await runWpCliCommand( siteFolder, phpVersion, args );
 	const decoder = new TextDecoder();
 
 	await response.stderr.pipeTo(
@@ -64,6 +64,7 @@ export async function runCommand(
 	);
 
 	process.exitCode = await response.exitCode;
+	exitPhp();
 }
 
 function removeArgumentFromArgv( argv: string[], argName: string ): string[] {

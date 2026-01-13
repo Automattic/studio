@@ -45,10 +45,7 @@ export interface SetCommandOptions {
 	xdebug?: boolean;
 }
 
-export async function runCommand(
-	sitePath: string,
-	options: SetCommandOptions
-): Promise< { usedWpCli: boolean } > {
+export async function runCommand( sitePath: string, options: SetCommandOptions ): Promise< void > {
 	const { name, domain, https, php, wp, xdebug } = options;
 
 	if (
@@ -192,17 +189,18 @@ export async function runCommand(
 				siteUrl = `${ protocol }://${ site.customDomain }`;
 			}
 
-			const [ response, closeWpCliServer ] = await runWpCliCommand(
-				sitePath,
-				phpVersion,
-				site.port,
-				[ 'core', 'update', zipUrl, '--force', '--skip-plugins', '--skip-themes' ],
-				{ siteUrl }
-			);
+			const [ response, exitPhp ] = await runWpCliCommand( sitePath, phpVersion, [
+				'core',
+				'update',
+				zipUrl,
+				'--force',
+				'--skip-plugins',
+				'--skip-themes',
+			] );
 
 			const exitCode = await response.exitCode;
 			if ( exitCode !== 0 ) {
-				await closeWpCliServer();
+				exitPhp();
 				throw new LoggerError( sprintf( __( 'Failed to update WordPress version to %s' ), wp ) );
 			}
 			logger.reportSuccess( __( 'WordPress version changed' ) );
@@ -220,7 +218,7 @@ export async function runCommand(
 				await unlockAppdata();
 			}
 
-			await closeWpCliServer();
+			exitPhp();
 		}
 
 		if ( needsRestart && wasRunning ) {
@@ -237,8 +235,6 @@ export async function runCommand(
 		}
 
 		logger.reportSuccess( __( 'Site configuration updated' ) );
-
-		return { usedWpCli: wpChanged };
 	} finally {
 		disconnect();
 	}
@@ -299,7 +295,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		},
 		handler: async ( argv ) => {
 			try {
-				const result = await runCommand( argv.path, {
+				await runCommand( argv.path, {
 					name: argv.name,
 					domain: argv.domain,
 					https: argv.https,
@@ -307,11 +303,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					wp: argv.wp,
 					xdebug: argv.xdebug,
 				} );
-				// WP-CLI leaves handles open, so we need to explicitly exit
-				// See: cli/lib/run-wp-cli-command.ts FIXME comment
-				if ( result.usedWpCli ) {
-					process.exit( 0 );
-				}
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

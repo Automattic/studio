@@ -17,3 +17,6 @@ These instructions are for creating version 0.1.0-alpha5, but the steps are the 
    3. Push the tag to the GitHub repo: `git push origin v0.1.0-alpha5`
 
 Pushing the tag will automatically start the build and release process, and is complete when the build finishes cleanly.
+
+## Test Section
+This is a test change to verify CI skipping on docs-only PRs.

@@ -26,11 +26,9 @@ export async function runWpCliCommand(
 	phpVersion: SupportedPHPVersion,
 	args: string[]
 ): Promise< StreamedPHPResponse > {
-	const php: PHP = new PHP( await loadNodeRuntime( phpVersion, { followSymlinks: true } ) );
+	const php = new PHP( await loadNodeRuntime( phpVersion, { followSymlinks: true } ) );
 
 	try {
-		const php = new PHP( await loadNodeRuntime( phpVersion, { followSymlinks: true } ) );
-
 		await php.setSapiName( 'cli' );
 
 		php.mkdir( '/wordpress' );
@@ -64,7 +62,5 @@ export async function runWpCliCommand(
 		return php.cli( [ 'php', '/tmp/wp-cli.phar', `--path=/wordpress`, ...args ] );
 	} catch ( error ) {
 		throw new Error( __( 'An error occurred while running the WP-CLI command.', 'wp-playground' ) );
-	} finally {
-		php.exit();
 	}
 }

@@ -8,8 +8,9 @@
 	"license": "GPL-2.0-or-later",
 	"main": "index.js",
 	"dependencies": {
-		"pm2": "^6.0.14",
-		"http-proxy": "^1.18.1"
+		"http-proxy": "^1.18.1",
+		"patch-package": "^8.0.0",
+		"pm2": "^6.0.14"
 	},
 	"scripts": {
 		"postinstall": "patch-package"

@@ -124,9 +124,9 @@ const config: ForgeConfig = {
 				if ( isErrnoException( err ) && err.code !== 'ENOENT' ) throw err;
 			}
 
-			console.log( 'Building CLI ...' );
-			const execAsync = promisify( exec );
-			await execAsync( 'npm run cli:build' );
+		console.log( 'Building CLI ...' );
+		const execAsync = promisify( exec );
+		await execAsync( 'pnpm run cli:build' );
 		},
 	},
 };

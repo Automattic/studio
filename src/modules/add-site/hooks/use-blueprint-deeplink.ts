@@ -102,7 +102,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 				dispatch( openAddSiteModal() );
 				navigateToBlueprintDeeplink();
 			} catch ( error ) {
-				console.error( 'Failed to load blueprint from URL:', error );
+				console.error( 'Failed to load Blueprint from URL:', error );
 			}
 		},
 		[

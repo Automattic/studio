@@ -267,7 +267,7 @@ export async function runCommand(
 			await setupCustomDomain( siteDetails, logger );
 
 			const startMessage = blueprint
-				? __( 'Starting WordPress server and applying blueprint…' )
+				? __( 'Starting WordPress server and applying Blueprint…' )
 				: __( 'Starting WordPress server…' );
 			logger.reportStart( LoggerAction.START_SITE, startMessage );
 			try {
@@ -305,7 +305,7 @@ export async function runCommand(
 				await connect();
 				logger.reportSuccess( __( 'Process daemon started' ) );
 
-				logger.reportStart( LoggerAction.START_SITE, __( 'Applying blueprint…' ) );
+				logger.reportStart( LoggerAction.START_SITE, __( 'Applying Blueprint…' ) );
 				try {
 					await runBlueprint( siteDetails, logger, {
 						wpVersion: options.wpVersion,
@@ -318,7 +318,7 @@ export async function runCommand(
 					if ( ! isWordPressDirResult ) {
 						await fs.promises.rm( sitePath, { recursive: true, force: true } );
 					}
-					throw new LoggerError( __( 'Failed to apply blueprint' ), error );
+					throw new LoggerError( __( 'Failed to apply Blueprint' ), error );
 				}
 			}
 			console.log( '' );
@@ -339,13 +339,13 @@ async function fetchBlueprint( url: string ) {
 	const res = await fetch( url );
 
 	if ( ! res.ok ) {
-		throw new LoggerError( __( 'Failed to fetch blueprint' ) );
+		throw new LoggerError( __( 'Failed to fetch Blueprint' ) );
 	}
 
 	try {
 		return await res.json();
 	} catch ( error ) {
-		throw new LoggerError( __( 'Failed to parse blueprint JSON' ), error );
+		throw new LoggerError( __( 'Failed to parse Blueprint JSON' ), error );
 	}
 }
 
@@ -359,7 +359,7 @@ function readBlueprint( blueprintPath: string ) {
 		return JSON.parse( blueprintContent );
 	} catch ( error ) {
 		throw new LoggerError(
-			sprintf( __( 'Failed to parse blueprint JSON file: %s' ), blueprintPath ),
+			sprintf( __( 'Failed to parse Blueprint JSON file: %s' ), blueprintPath ),
 			error
 		);
 	}
@@ -420,7 +420,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'blueprint', {
 					type: 'string',
-					describe: __( 'Path or URL to blueprint JSON file' ),
+					describe: __( 'Path or URL to Blueprint JSON file' ),
 				} )
 				.option( 'start', {
 					type: 'boolean',

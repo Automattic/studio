@@ -148,14 +148,14 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		expect( dialog.showMessageBox ).toHaveBeenCalled();
 	} );
 
-	it( 'should handle invalid blueprint and show error dialog', async () => {
+	it( 'should handle invalid Blueprint and show error dialog', async () => {
 		const url = createBlueprintUrl( 'https://example.com/blueprint.json' );
 
 		jest.mocked( download ).mockResolvedValue( undefined );
 		jest.mocked( fs.readJson ).mockResolvedValue( { invalid: 'data' } );
 		jest.mocked( validateBlueprintData ).mockResolvedValue( {
 			valid: false,
-			error: 'Invalid blueprint format',
+			error: 'Invalid Blueprint format',
 		} );
 		jest.mocked( fs.remove ).mockImplementation( async () => {} );
 
@@ -167,13 +167,13 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
 			type: 'error',
 			message: expect.any( String ),
-			detail: 'Invalid blueprint format',
+			detail: 'Invalid Blueprint format',
 			buttons: expect.any( Array ),
 		} );
 	} );
 
 	describe( 'base64 blueprint handling', () => {
-		it( 'should handle add-site with valid base64-encoded blueprint', async () => {
+		it( 'should handle add-site with valid base64-encoded Blueprint', async () => {
 			const blueprintData = {
 				steps: [ { step: 'login', username: 'admin' } ],
 				meta: { title: 'Test Blueprint', description: 'A test blueprint' },
@@ -198,7 +198,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 			expect( download ).not.toHaveBeenCalled();
 		} );
 
-		it( 'should handle invalid base64-encoded blueprint and display error message', async () => {
+		it( 'should handle invalid base64-encoded Blueprint and display error message', async () => {
 			const url = new URL( 'wp-studio://add-site?blueprint=invalid-base64!!!' );
 			await handleAddSiteWithBlueprint( url );
 

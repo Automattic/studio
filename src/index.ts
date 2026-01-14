@@ -451,7 +451,7 @@ async function appBoot() {
 		}
 
 		const runningSiteCount = getRunningSiteCount();
-		if ( getAutoUpdaterState() !== 'waiting-for-restart' || runningSiteCount > 0 ) {
+		if ( getAutoUpdaterState() !== 'waiting-for-restart' && runningSiteCount > 0 ) {
 			event.preventDefault();
 
 			void ( async () => {

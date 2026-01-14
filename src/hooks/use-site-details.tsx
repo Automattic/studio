@@ -212,13 +212,17 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 			const existingIndex = prevSites.findIndex( ( s ) => s.id === siteId );
 
-			if ( existingIndex >= 0 ) {
-				const newSites = [ ...prevSites ];
-				newSites[ existingIndex ] = { ...newSites[ existingIndex ], ...siteDetails };
-				return newSites;
+			// Only add new sites on CREATED events to prevent duplicates
+			if ( existingIndex < 0 ) {
+				if ( eventType === SITE_EVENTS.CREATED ) {
+					return sortSites( [ ...prevSites, siteDetails ] );
+				}
+				return prevSites;
 			}
 
-			return sortSites( [ ...prevSites, siteDetails ] );
+			const newSites = [ ...prevSites ];
+			newSites[ existingIndex ] = { ...newSites[ existingIndex ], ...siteDetails };
+			return newSites;
 		} );
 	} );
 

@@ -26,6 +26,9 @@ import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
 
+const DEBOUNCE_MS = 300;
+const pendingEmits = new Map< string, NodeJS.Timeout >();
+
 function toSiteDetails( site: SiteData ) {
 	return siteDetailsSchema.parse( {
 		...site,
@@ -33,7 +36,7 @@ function toSiteDetails( site: SiteData ) {
 	} );
 }
 
-async function emitSiteEvent( event: string, siteId: string ): Promise< void > {
+async function doEmitSiteEvent( event: string, siteId: string ): Promise< void > {
 	const appdata = await readAppdata();
 	const site = appdata.sites.find( ( s ) => s.id === siteId );
 	const payload: SiteEvent = {
@@ -46,10 +49,27 @@ async function emitSiteEvent( event: string, siteId: string ): Promise< void > {
 	logger.reportKeyValuePair( 'site-event', JSON.stringify( payload ) );
 }
 
+function emitSiteEvent( event: string, siteId: string ): void {
+	// Cancel any pending emit for this site
+	const existing = pendingEmits.get( siteId );
+	if ( existing ) {
+		clearTimeout( existing );
+	}
+
+	// Schedule a new emit after debounce period
+	const timeout = setTimeout( () => {
+		pendingEmits.delete( siteId );
+		void doEmitSiteEvent( event, siteId );
+	}, DEBOUNCE_MS );
+
+	pendingEmits.set( siteId, timeout );
+}
+
 async function emitAllSitesStatus(): Promise< void > {
 	const appdata = await readAppdata();
 	for ( const site of appdata.sites ) {
-		await emitSiteEvent( SITE_EVENTS.UPDATED, site.id );
+		// Emit immediately without debouncing for initial status sync
+		await doEmitSiteEvent( SITE_EVENTS.UPDATED, site.id );
 	}
 }
 
@@ -79,7 +99,7 @@ export async function runCommand(): Promise< void > {
 	await emitAllSitesStatus();
 
 	const relayProcessName = getEventsRelayProcessName();
-	await subscribeProcessMessages( async ( { processName, topic, data } ) => {
+	await subscribeProcessMessages( ( { processName, topic, data } ) => {
 		if ( processName !== relayProcessName ) {
 			return;
 		}
@@ -87,17 +107,14 @@ export async function runCommand(): Promise< void > {
 			const eventData = data as { data?: { siteId?: string } };
 			const siteId = eventData?.data?.siteId;
 			if ( siteId ) {
-				await emitSiteEvent( topic, siteId );
+				emitSiteEvent( topic, siteId );
 			}
 		}
 	} );
 
-	await subscribeSiteEvents(
-		async ( { siteId, event } ) => {
-			await emitSiteEvent( event, siteId );
-		},
-		{ debounceMs: 100 }
-	);
+	await subscribeSiteEvents( ( { siteId, event } ) => {
+		emitSiteEvent( event, siteId );
+	} );
 
 	await subscribePm2KillEvent( () => {
 		void emitAllSitesStopped();

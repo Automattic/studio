@@ -3,7 +3,10 @@ import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import {
 	clearSiteLatestCliPid,
 	getSiteByFolder,
+	lockAppdata,
 	readAppdata,
+	saveAppdata,
+	unlockAppdata,
 	updateSiteAutoStart,
 	type SiteData,
 } from 'cli/lib/appdata';
@@ -59,27 +62,36 @@ export async function runCommand(
 			}
 		} else {
 			const appdata = await readAppdata();
-			const runningServers: SiteData[] = [];
+			const runningSites: SiteData[] = [];
 
 			for ( const site of appdata.sites ) {
 				const runningProcess = await isServerRunning( site.id );
 
 				if ( runningProcess ) {
-					runningServers.push( site );
+					runningSites.push( site );
 				}
 			}
 
-			if ( ! runningServers.length ) {
+			if ( ! runningSites.length ) {
 				logger.reportSuccess( __( 'No sites are currently running' ) );
 				return;
 			}
 
-			logger.reportStart( LoggerAction.STOP_ALL_SITES, __( 'Stopping all WordPress sites...' ) );
+			logger.reportStart( LoggerAction.STOP_ALL_SITES, __( 'Stopping all WordPress sites…' ) );
 			await killDaemonAndAllChildren();
 
-			for ( const site of runningServers ) {
-				await clearSiteLatestCliPid( site.id );
-				await updateSiteAutoStart( site.id, autoStart );
+			try {
+				await lockAppdata();
+				const appdata = await readAppdata();
+				for ( const site of appdata.sites ) {
+					if ( runningSites.find( ( r ) => r.id === site.id ) ) {
+						delete site.latestCliPid;
+						site.autoStart = autoStart;
+					}
+				}
+				await saveAppdata( appdata );
+			} finally {
+				await unlockAppdata();
 			}
 
 			logger.reportSuccess(
@@ -87,12 +99,14 @@ export async function runCommand(
 					_n(
 						'Successfully stopped %d site',
 						'Successfully stopped %d sites',
-						runningServers.length
+						runningSites.length
 					),
-					runningServers.length
+					runningSites.length
 				)
 			);
 
+			// Calling `pm2.killDaemon` requires us to forcefully exit the process. pm2 does the same
+			// thing internally in its CLI.
 			process.exit( 0 );
 		}
 	} finally {

@@ -3,6 +3,7 @@ import {
 	clearSiteLatestCliPid,
 	getSiteByFolder,
 	readAppdata,
+	saveAppdata,
 	updateSiteAutoStart,
 } from 'cli/lib/appdata';
 import { connect, disconnect, killDaemonAndAllChildren } from 'cli/lib/pm2-manager';
@@ -17,6 +18,7 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	clearSiteLatestCliPid: jest.fn(),
 	updateSiteAutoStart: jest.fn().mockResolvedValue( undefined ),
 	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
+	saveAppdata: jest.fn().mockResolvedValue( undefined ),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/site-utils' );
@@ -280,8 +282,17 @@ describe( 'CLI: studio site stop --all', () => {
 			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
 
 			expect( killDaemonAndAllChildren ).toHaveBeenCalledTimes( 1 );
-			expect( clearSiteLatestCliPid ).toHaveBeenCalledTimes( 1 );
-			expect( clearSiteLatestCliPid ).toHaveBeenCalledWith( 'site-1' );
+			expect( saveAppdata ).toHaveBeenCalledTimes( 1 );
+			expect( saveAppdata ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.arrayContaining( [
+						expect.objectContaining( {
+							id: 'site-1',
+							autoStart: false,
+						} ),
+					] ),
+				} )
+			);
 			expect( process.exit ).toHaveBeenCalledWith( 0 );
 		} );
 
@@ -300,15 +311,25 @@ describe( 'CLI: studio site stop --all', () => {
 
 			expect( killDaemonAndAllChildren ).toHaveBeenCalledTimes( 1 );
 
-			expect( clearSiteLatestCliPid ).toHaveBeenCalledTimes( 3 );
-			expect( clearSiteLatestCliPid ).toHaveBeenCalledWith( 'site-1' );
-			expect( clearSiteLatestCliPid ).toHaveBeenCalledWith( 'site-2' );
-			expect( clearSiteLatestCliPid ).toHaveBeenCalledWith( 'site-3' );
-
-			expect( updateSiteAutoStart ).toHaveBeenCalledTimes( 3 );
-			expect( updateSiteAutoStart ).toHaveBeenCalledWith( 'site-1', false );
-			expect( updateSiteAutoStart ).toHaveBeenCalledWith( 'site-2', false );
-			expect( updateSiteAutoStart ).toHaveBeenCalledWith( 'site-3', false );
+			expect( saveAppdata ).toHaveBeenCalledTimes( 1 );
+			expect( saveAppdata ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.arrayContaining( [
+						expect.objectContaining( {
+							id: 'site-1',
+							autoStart: false,
+						} ),
+						expect.objectContaining( {
+							id: 'site-2',
+							autoStart: false,
+						} ),
+						expect.objectContaining( {
+							id: 'site-3',
+							autoStart: false,
+						} ),
+					] ),
+				} )
+			);
 
 			expect( process.exit ).toHaveBeenCalledWith( 0 );
 		} );
@@ -321,37 +342,37 @@ describe( 'CLI: studio site stop --all', () => {
 				.mockResolvedValueOnce( undefined ) // site-2 not running
 				.mockResolvedValueOnce( testProcessDescription ); // site-3 running
 
-			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
+			await runCommand( Mode.STOP_ALL_SITES, undefined, true );
 
 			expect( isServerRunning ).toHaveBeenCalledTimes( 3 );
 
 			expect( killDaemonAndAllChildren ).toHaveBeenCalledTimes( 1 );
 
-			expect( clearSiteLatestCliPid ).toHaveBeenCalledTimes( 2 );
-			expect( clearSiteLatestCliPid ).toHaveBeenCalledWith( 'site-1' );
-			expect( clearSiteLatestCliPid ).toHaveBeenCalledWith( 'site-3' );
-			expect( clearSiteLatestCliPid ).not.toHaveBeenCalledWith( 'site-2' );
-
-			expect( updateSiteAutoStart ).toHaveBeenCalledTimes( 2 );
-			expect( updateSiteAutoStart ).toHaveBeenCalledWith( 'site-1', false );
-			expect( updateSiteAutoStart ).toHaveBeenCalledWith( 'site-3', false );
-			expect( updateSiteAutoStart ).not.toHaveBeenCalledWith( 'site-2', expect.anything() );
-
-			expect( process.exit ).toHaveBeenCalledWith( 0 );
-		} );
-
-		it( 'should set autoStart flag when provided', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( { sites: testSites } );
-			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-
-			await runCommand( Mode.STOP_ALL_SITES, undefined, true );
-
-			expect( killDaemonAndAllChildren ).toHaveBeenCalledTimes( 1 );
-
-			expect( updateSiteAutoStart ).toHaveBeenCalledTimes( 3 );
-			expect( updateSiteAutoStart ).toHaveBeenCalledWith( 'site-1', true );
-			expect( updateSiteAutoStart ).toHaveBeenCalledWith( 'site-2', true );
-			expect( updateSiteAutoStart ).toHaveBeenCalledWith( 'site-3', true );
+			expect( saveAppdata ).toHaveBeenCalledTimes( 1 );
+			expect( saveAppdata ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.arrayContaining( [
+						expect.objectContaining( {
+							id: 'site-1',
+							autoStart: true,
+						} ),
+						expect.objectContaining( {
+							id: 'site-3',
+							autoStart: true,
+						} ),
+					] ),
+				} )
+			);
+			expect( saveAppdata ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.not.arrayContaining( [
+						expect.objectContaining( {
+							id: 'site-2',
+							autoStart: true,
+						} ),
+					] ),
+				} )
+			);
 
 			expect( process.exit ).toHaveBeenCalledWith( 0 );
 		} );

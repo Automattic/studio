@@ -4,6 +4,7 @@ import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import { Tooltip } from 'src/components/tooltip';
+import xdebugIcon from 'src/components/xdebug-icon.png';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
@@ -20,7 +21,12 @@ interface SiteMenuProps {
 	className?: string;
 }
 
-function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id' | 'name' > ) {
+function ButtonToRun( {
+	running,
+	id,
+	name,
+	enableXdebug,
+}: Pick< SiteDetails, 'running' | 'id' | 'name' | 'enableXdebug' > ) {
 	const { startServer, stopServer, loadingServer } = useSiteDetails();
 	const siteStartedMessage = sprintf(
 		// translators: %s is the site name.
@@ -86,19 +92,30 @@ function ButtonToRun( { running, id, name }: Pick< SiteDetails, 'running' | 'id'
 				className="w-7 h-8 rounded-tr rounded-br group grid focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blue-50"
 				aria-label={ sprintf( running ? __( 'stop %s site' ) : __( 'start %s site' ), name ) }
 			>
-				{ /* Circle */ }
-				<div
-					className={ cx(
-						'w-2.5 h-2.5 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0 border-[0.5px]',
-						'row-start-1 col-start-1 place-self-center',
-						classCircle,
-						loadingServer[ id ] && 'animate-pulse border-[#00BA3775] bg-[#1ED15A75] duration-100',
-						running && 'border-[#00BA37] bg-[#1ED15A] duration-100',
-						! running && ! loadingServer[ id ] && 'border-[#ffffff19] bg-[#ffffff26]'
-					) }
-				>
-					&nbsp;
-				</div>
+				{ /* Circle or Xdebug icon */ }
+				{ enableXdebug && running ? (
+					<img
+						src={ xdebugIcon }
+						alt="Xdebug enabled"
+						className={ cx(
+							'w-2.5 h-2.5 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0',
+							'row-start-1 col-start-1 place-self-center'
+						) }
+					/>
+				) : (
+					<div
+						className={ cx(
+							'w-2.5 h-2.5 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0 border-[0.5px]',
+							'row-start-1 col-start-1 place-self-center',
+							classCircle,
+							loadingServer[ id ] && 'animate-pulse border-[#00BA3775] bg-[#1ED15A75] duration-100',
+							running && 'border-[#00BA37] bg-[#1ED15A] duration-100',
+							! running && ! loadingServer[ id ] && 'border-[#ffffff19] bg-[#ffffff26]'
+						) }
+					>
+						&nbsp;
+					</div>
+				) }
 				{ /* Shapes on hover */ }
 				{ ! loadingServer[ id ] && (
 					<div

@@ -2,7 +2,7 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import Table from 'cli-table3';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
-import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { connect, disconnect, subscribePm2KillEvent } from 'cli/lib/pm2-manager';
 import { getColumnWidths, getPrettyPath } from 'cli/lib/utils';
 import { isServerRunning, subscribeSiteEvents } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -126,10 +126,24 @@ export async function runCommand( format: 'table' | 'json', watch: boolean ): Pr
 				},
 				{ debounceMs: 500 }
 			);
+
+			await subscribePm2KillEvent( () => {
+				for ( const site of sitesData ) {
+					const payload = {
+						siteId: site.id,
+						status: 'stopped',
+						url: site.url,
+					};
+					logger.reportKeyValuePair( 'site-status', JSON.stringify( payload ) );
+				}
+			} );
+
+			process.on( 'SIGINT', disconnect );
+			process.on( 'SIGTERM', disconnect );
 		}
 	} finally {
 		if ( ! watch ) {
-			disconnect();
+			await disconnect();
 		}
 	}
 }
@@ -137,13 +151,14 @@ export async function runCommand( format: 'table' | 'json', watch: boolean ): Pr
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'list',
-		describe: __( 'List local sites' ),
+		describe: __( 'List sites' ),
 		builder: ( yargs ) => {
 			return yargs
 				.option( 'format', {
 					type: 'string',
 					choices: [ 'table', 'json' ] as const,
 					default: 'table' as const,
+					// translators: Refers to the output format of the `studio site list` CLI command ("table" or "json")
 					description: __( 'Output format' ),
 				} )
 				.option( 'watch', {

@@ -26,6 +26,9 @@ export async function runCommand(
 	const useCustomPhpVersion = options.phpVersion && options.phpVersion !== site.phpVersion;
 
 	if ( ! useCustomPhpVersion ) {
+		process.on( 'SIGINT', disconnect );
+		process.on( 'SIGTERM', disconnect );
+
 		try {
 			await connect();
 
@@ -36,9 +39,12 @@ export async function runCommand(
 				process.exit( result.exitCode );
 			}
 		} finally {
-			disconnect();
+			await disconnect();
 		}
 	}
+
+	process.on( 'SIGINT', () => process.exit( 1 ) );
+	process.on( 'SIGTERM', () => process.exit( 1 ) );
 
 	// …If not, run the command in a new PHP-WASM instance
 	const [ response, exitPhp ] = await runWpCliCommand( siteFolder, phpVersion, args );

@@ -104,7 +104,7 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 }
 
 function buildCliArgs( options: CreateSiteOptions ): string[] {
-	const args = [ 'site', 'create', '--path', options.path, '--skip-browser' ];
+	const args = [ 'site', 'create', '--path', options.path, '--skip-browser', '--skip-log-details' ];
 
 	if ( options.name ) {
 		args.push( '--name', options.name );
@@ -138,7 +138,7 @@ function cleanupTempFile( filePath: string | undefined ): void {
 		try {
 			fs.unlinkSync( filePath );
 		} catch ( error ) {
-			console.error( 'Failed to clean up temp blueprint file:', error );
+			console.error( 'Failed to clean up temp Blueprint file:', error );
 		}
 	}
 }

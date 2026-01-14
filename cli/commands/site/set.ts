@@ -141,7 +141,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			const appdata = await readAppdata();
 			const foundSite = appdata.sites.find( ( s ) => arePathsEqual( s.path, sitePath ) );
 			if ( ! foundSite ) {
-				throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );
+				throw new LoggerError( __( 'The specified directory is not added to Studio.' ) );
 			}
 
 			if ( nameChanged ) {
@@ -179,13 +179,13 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		const wasRunning = await isServerRunning( site.id );
 
 		if ( needsRestart && wasRunning ) {
-			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress site…' ) );
+			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress server…' ) );
 			await stopWordPressServer( site.id );
-			logger.reportSuccess( __( 'WordPress site stopped' ) );
+			logger.reportSuccess( __( 'WordPress server stopped' ) );
 		}
 
 		if ( wpChanged ) {
-			logger.reportStart( LoggerAction.SET_WP_VERSION, __( 'Changing WordPress version…' ) );
+			logger.reportStart( LoggerAction.SET_WP_VERSION, __( 'Updating WordPress version…' ) );
 			const phpVersion = validatePhpVersion( site.phpVersion );
 			const zipUrl = getWordPressVersionUrl( wp );
 
@@ -209,7 +209,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 				exitPhp();
 				throw new LoggerError( sprintf( __( 'Failed to update WordPress version to %s' ), wp ) );
 			}
-			logger.reportSuccess( __( 'WordPress version changed' ) );
+			logger.reportSuccess( __( 'WordPress version updated' ) );
 
 			try {
 				await lockAppdata();
@@ -232,17 +232,17 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 				await setupCustomDomain( site, logger, { skipHostsUpdate: true } );
 			}
 
-			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress site…' ) );
+			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 			const processDesc = await startWordPressServer( site, logger );
 			if ( processDesc.pid ) {
 				await updateSiteLatestCliPid( site.id, processDesc.pid );
 			}
-			logger.reportSuccess( __( 'WordPress site started' ) );
+			logger.reportSuccess( __( 'WordPress server started' ) );
 		}
 
 		logger.reportSuccess( __( 'Site configuration updated' ) );
 	} finally {
-		disconnect();
+		await disconnect();
 	}
 }
 

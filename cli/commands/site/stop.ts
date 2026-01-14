@@ -3,11 +3,14 @@ import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import {
 	clearSiteLatestCliPid,
 	getSiteByFolder,
+	lockAppdata,
 	readAppdata,
+	saveAppdata,
+	unlockAppdata,
 	updateSiteAutoStart,
 	type SiteData,
 } from 'cli/lib/appdata';
-import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { connect, disconnect, killDaemonAndAllChildren } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -38,104 +41,88 @@ export async function runCommand(
 	try {
 		await connect();
 
-		const sitesToTarget: SiteData[] = [];
-
 		if ( target === Mode.STOP_SINGLE_SITE && siteFolder ) {
 			const site = await getSiteByFolder( siteFolder );
-			sitesToTarget.push( site );
-
 			const runningProcess = await isServerRunning( site.id );
 			if ( ! runningProcess ) {
-				logger.reportSuccess( __( 'WordPress site is not running' ) );
+				logger.reportSuccess( __( 'WordPress server is not running' ) );
 				return;
 			}
 
-			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress site…' ) );
+			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress servers…' ) );
+
+			try {
+				await stopWordPressServer( site.id );
+				await clearSiteLatestCliPid( site.id );
+				await updateSiteAutoStart( site.id, autoStart );
+				logger.reportSuccess( __( 'WordPress server stopped' ) );
+				await stopProxyIfNoSitesNeedIt( site.id, logger );
+			} catch ( error ) {
+				throw new LoggerError( __( 'Failed to stop WordPress server' ), error );
+			}
 		} else {
 			const appdata = await readAppdata();
+			const runningSites: SiteData[] = [];
 
 			for ( const site of appdata.sites ) {
 				const runningProcess = await isServerRunning( site.id );
 
 				if ( runningProcess ) {
-					sitesToTarget.push( site );
+					runningSites.push( site );
 				}
 			}
 
-			if ( ! sitesToTarget.length ) {
+			if ( ! runningSites.length ) {
 				logger.reportSuccess( __( 'No sites are currently running' ) );
 				return;
 			}
 
-			logger.reportStart( LoggerAction.STOP_ALL_SITES, __( 'Stopping all WordPress sites...' ) );
-		}
+			logger.reportStart( LoggerAction.STOP_ALL_SITES, __( 'Stopping all WordPress servers…' ) );
+			await killDaemonAndAllChildren();
 
-		const stoppedSiteIds: string[] = [];
-
-		for ( const site of sitesToTarget ) {
 			try {
-				logger.reportProgress(
-					sprintf(
-						__( 'Stopping site "%s" (%d/%d)…' ),
-						site.name,
-						stoppedSiteIds.length + 1,
-						sitesToTarget.length
-					)
-				);
-				await stopWordPressServer( site.id );
-				await clearSiteLatestCliPid( site.id );
-				await updateSiteAutoStart( site.id, autoStart );
-
-				stoppedSiteIds.push( site.id );
-			} catch ( error ) {
-				logger.reportError(
-					new LoggerError( sprintf( __( 'Failed to stop site %s' ), site.name ) )
-				);
+				await lockAppdata();
+				const appdata = await readAppdata();
+				for ( const site of appdata.sites ) {
+					if ( runningSites.find( ( r ) => r.id === site.id ) ) {
+						delete site.latestCliPid;
+						site.autoStart = autoStart;
+					}
+				}
+				await saveAppdata( appdata );
+			} finally {
+				await unlockAppdata();
 			}
-		}
 
-		try {
-			await stopProxyIfNoSitesNeedIt( stoppedSiteIds, logger );
-		} catch ( error ) {
-			throw new LoggerError( __( 'Failed to stop proxy server' ), error );
-		}
-
-		if ( stoppedSiteIds.length === sitesToTarget.length ) {
 			logger.reportSuccess(
 				sprintf(
 					_n(
 						'Successfully stopped %d site',
 						'Successfully stopped %d sites',
-						sitesToTarget.length
+						runningSites.length
 					),
-					sitesToTarget.length
+					runningSites.length
 				)
 			);
-		} else if ( stoppedSiteIds.length === 0 && sitesToTarget.length === 0 ) {
-			throw new LoggerError( __( 'Failed to stop site' ) );
-		} else {
-			throw new LoggerError(
-				sprintf(
-					_n( 'Stopped %d site out of %d', 'Stopped %d sites out of %d', stoppedSiteIds.length ),
-					stoppedSiteIds.length,
-					sitesToTarget.length
-				)
-			);
+
+			// Calling `pm2.killDaemon` requires us to forcefully exit the process. pm2 does the same
+			// thing internally in its CLI.
+			process.exit( 0 );
 		}
 	} finally {
-		disconnect();
+		await disconnect();
 	}
 }
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'stop',
-		describe: __( 'Stop local site(s)' ),
+		describe: __( 'Stop site(s)' ),
 		builder: ( yargs ) => {
 			return yargs
 				.option( 'all', {
 					type: 'boolean',
-					describe: __( 'Stop all local sites' ),
+					describe: __( 'Stop all sites' ),
 					default: false,
 				} )
 				.option( 'auto-start', {

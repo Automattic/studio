@@ -16,6 +16,7 @@ import StudioButton from 'src/components/button';
 import { LearnMoreLink } from 'src/components/learn-more';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useI18nLocale } from 'src/stores';
 import { useGetBlueprints } from 'src/stores/wpcom-api';
 import { BlueprintWarningNotice } from './blueprint-warning-notice';
 
@@ -59,7 +60,10 @@ export function AddSiteBlueprintSelector( {
 	onFileBlueprintSelect,
 }: AddSiteBlueprintProps ) {
 	const { __ } = useI18n();
-	const { refetch: refetchBlueprints, isFetching: isFetchingBlueprints } = useGetBlueprints();
+	const locale = useI18nLocale();
+	const { refetch: refetchBlueprints, isFetching: isFetchingBlueprints } = useGetBlueprints( {
+		locale,
+	} );
 	const fileRef = useRef< HTMLInputElement | null >( null );
 	const [ validationError, setValidationError ] = useState< string | undefined >( undefined );
 	const [ blueprintWarnings, setBlueprintWarnings ] = useState<
@@ -247,7 +251,7 @@ export function AddSiteBlueprintSelector( {
 				} else {
 					setValidationError( __( 'Failed to load Blueprint file. Please try again.' ) );
 				}
-				console.error( 'Failed to parse blueprint file:', error );
+				console.error( 'Failed to parse Blueprint file:', error );
 			}
 		}
 		if ( fileRef.current ) {

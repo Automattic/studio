@@ -1,3 +1,4 @@
+import { app } from 'electron';
 import { fork, ChildProcess, StdioOptions } from 'node:child_process';
 import EventEmitter from 'node:events';
 import * as Sentry from '@sentry/electron/main';
@@ -10,8 +11,9 @@ export interface CliCommandResult {
 }
 
 type CliCommandEventMap = {
-	data: { data: unknown };
+	started: void;
 	error: { error: Error };
+	data: { data: unknown };
 	success: { result?: CliCommandResult };
 	failure: { result?: CliCommandResult };
 };
@@ -62,11 +64,23 @@ export function executeCliCommand(
 	} );
 	const eventEmitter = new CliCommandEventEmitter();
 
+	child.on( 'spawn', () => {
+		eventEmitter.emit( 'started' );
+	} );
+
+	child.on( 'error', ( error ) => {
+		console.error( 'Child process error:', error );
+		Sentry.captureException( error );
+		eventEmitter.emit( 'error', { error } );
+	} );
+
 	let stdout = '';
 	let stderr = '';
 
 	if ( options.output === 'capture' ) {
-		const logPrefix = options.logPrefix ? `[CLI - ${ options.logPrefix }]` : '[CLI]';
+		const logPrefix = options.logPrefix
+			? `[CLI - pid ${ child.pid } - site ID ${ options.logPrefix }]`
+			: '[CLI]';
 		child.stdout?.on( 'data', ( data: Buffer ) => {
 			const text = data.toString();
 			stdout += text;
@@ -84,20 +98,21 @@ export function executeCliCommand(
 		eventEmitter.emit( 'data', { data: message } );
 	} );
 
-	child.on( 'error', ( error ) => {
-		console.error( 'Child process error:', error );
-		Sentry.captureException( error );
-		eventEmitter.emit( 'error', { error } );
-	} );
-
 	let capturedExitCode: number | null = null;
 
 	child.on( 'exit', ( code ) => {
 		capturedExitCode = code;
 	} );
 
+	function appQuitHandler() {
+		const pid = child.pid;
+		const result = child.kill();
+		console.log( `Child process with pid ${ pid } killed with result: ${ result }` );
+	}
+
 	child.on( 'close', ( code ) => {
 		child.removeAllListeners();
+		app.off( 'will-quit', appQuitHandler );
 
 		const exitCode = capturedExitCode ?? code ?? 1;
 		const result: CliCommandResult | undefined =
@@ -110,9 +125,7 @@ export function executeCliCommand(
 		}
 	} );
 
-	process.on( 'exit', () => {
-		child.kill();
-	} );
+	app.on( 'will-quit', appQuitHandler );
 
 	return [ eventEmitter, child ];
 }

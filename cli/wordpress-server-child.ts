@@ -22,6 +22,7 @@ import {
 	InMemoryFilesystem,
 } from '@wp-playground/storage';
 import { isWordPressDirectory } from 'common/lib/fs-utils';
+import { isSqliteInstalled } from 'cli/lib/sqlite-integration';
 import { getMuPlugins } from 'common/lib/mu-plugins';
 import { formatPlaygroundCliMessage } from 'common/lib/playground-cli-messages';
 import { sequential } from 'common/lib/sequential';
@@ -113,6 +114,7 @@ async function getBaseRunCLIArgs(
 	config: ServerConfig
 ): Promise< RunCLIArgs > {
 	const hasWordPress = isWordPressDirectory( config.sitePath );
+	const hasSqlite = await isSqliteInstalled( config.sitePath );
 
 	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
 		isWpAutoUpdating: config.isWpAutoUpdating,
@@ -190,7 +192,9 @@ async function getBaseRunCLIArgs(
 	};
 
 	if ( hasWordPress ) {
-		args.wordpressInstallMode = 'install-from-existing-files-if-needed';
+		args.wordpressInstallMode = hasSqlite
+			? 'install-from-existing-files-if-needed'
+			: 'do-not-attempt-installing';
 	}
 
 	if ( config.phpVersion ) {

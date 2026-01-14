@@ -83,7 +83,7 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'status',
-		describe: __( 'Get status of local site' ),
+		describe: __( 'Get status of site' ),
 		builder: ( yargs ) => {
 			return yargs.option( 'format', {
 				type: 'string',

@@ -22,7 +22,7 @@ export async function runCommand( sitePath: string, skipBrowser = false ): Promi
 
 		const runningProcess = await isServerRunning( site.id );
 		if ( runningProcess ) {
-			logger.reportSuccess( __( 'WordPress site is already running' ) );
+			logger.reportSuccess( __( 'WordPress server is already running' ) );
 			if ( runningProcess.pid ) {
 				await updateSiteLatestCliPid( site.id, runningProcess.pid );
 			}
@@ -42,11 +42,11 @@ export async function runCommand( sitePath: string, skipBrowser = false ): Promi
 		await keepSqliteIntegrationUpdated( sitePath );
 		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
-		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress site…' ) );
+		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 		try {
 			const processDesc = await startWordPressServer( site, logger );
 
-			logger.reportSuccess( __( 'WordPress site started' ) );
+			logger.reportSuccess( __( 'WordPress server started' ) );
 			if ( processDesc.pid ) {
 				await updateSiteLatestCliPid( site.id, processDesc.pid );
 			}
@@ -67,7 +67,7 @@ export async function runCommand( sitePath: string, skipBrowser = false ): Promi
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'start',
-		describe: __( 'Start local site' ),
+		describe: __( 'Start site' ),
 		builder: ( yargs ) => {
 			return yargs.option( 'skip-browser', {
 				type: 'boolean',

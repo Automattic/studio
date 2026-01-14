@@ -45,11 +45,11 @@ export async function runCommand(
 			const site = await getSiteByFolder( siteFolder );
 			const runningProcess = await isServerRunning( site.id );
 			if ( ! runningProcess ) {
-				logger.reportSuccess( __( 'WordPress site is not running' ) );
+				logger.reportSuccess( __( 'WordPress server is not running' ) );
 				return;
 			}
 
-			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress site…' ) );
+			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress servers…' ) );
 
 			try {
 				await stopWordPressServer( site.id );
@@ -117,12 +117,12 @@ export async function runCommand(
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'stop',
-		describe: __( 'Stop local site(s)' ),
+		describe: __( 'Stop site(s)' ),
 		builder: ( yargs ) => {
 			return yargs
 				.option( 'all', {
 					type: 'boolean',
-					describe: __( 'Stop all local sites' ),
+					describe: __( 'Stop all sites' ),
 					default: false,
 				} )
 				.option( 'auto-start', {

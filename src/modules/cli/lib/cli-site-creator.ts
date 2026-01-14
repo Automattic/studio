@@ -138,7 +138,7 @@ function cleanupTempFile( filePath: string | undefined ): void {
 		try {
 			fs.unlinkSync( filePath );
 		} catch ( error ) {
-			console.error( 'Failed to clean up temp blueprint file:', error );
+			console.error( 'Failed to clean up temp Blueprint file:', error );
 		}
 	}
 }

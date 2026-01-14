@@ -69,7 +69,7 @@ export async function handleAddSiteWithBlueprint( urlObject: URL ): Promise< voi
 			warnings: validation.warnings,
 		} );
 	} catch ( error ) {
-		console.error( 'Failed to process blueprint from deeplink:', error );
+		console.error( 'Failed to process Blueprint from deeplink:', error );
 
 		if ( blueprintPath ) {
 			await fs.remove( blueprintPath ).catch( () => {
@@ -80,11 +80,11 @@ export async function handleAddSiteWithBlueprint( urlObject: URL ): Promise< voi
 		const errorDetail =
 			error instanceof Error
 				? error.message
-				: __( 'The blueprint could not be loaded. Please check the link and try again.' );
+				: __( 'The Blueprint could not be loaded. Please check the link and try again.' );
 
 		await dialog.showMessageBox( mainWindow, {
 			type: 'error',
-			message: __( 'Failed to load blueprint' ),
+			message: __( 'Failed to load Blueprint' ),
 			detail: errorDetail,
 			buttons: [ __( 'OK' ) ],
 		} );

@@ -88,7 +88,7 @@ async function main() {
 			registerUpdateCommand( previewYargs );
 			previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 		} )
-		.command( 'site', __( 'Manage local sites' ), ( sitesYargs ) => {
+		.command( 'site', __( 'Manage sites' ), ( sitesYargs ) => {
 			registerSiteStatusCommand( sitesYargs );
 			registerSiteCreateCommand( sitesYargs );
 			registerSiteListCommand( sitesYargs );

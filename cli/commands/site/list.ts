@@ -151,13 +151,14 @@ export async function runCommand( format: 'table' | 'json', watch: boolean ): Pr
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'list',
-		describe: __( 'List local sites' ),
+		describe: __( 'List sites' ),
 		builder: ( yargs ) => {
 			return yargs
 				.option( 'format', {
 					type: 'string',
 					choices: [ 'table', 'json' ] as const,
 					default: 'table' as const,
+					// translators: Refers to the output format of the `studio site list` CLI command ("table" or "json")
 					description: __( 'Output format' ),
 				} )
 				.option( 'watch', {

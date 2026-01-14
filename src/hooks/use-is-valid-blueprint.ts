@@ -27,7 +27,7 @@ export function useIsValidBlueprint( className?: string, content?: string ) {
 				const validation = await getIpcApi().validateBlueprint( blueprintJson );
 				setIsBlueprintValid( Boolean( validation.valid ) );
 			} catch {
-				console.error( 'Failed to validate blueprint' );
+				console.error( 'Failed to validate Blueprint' );
 			}
 		};
 

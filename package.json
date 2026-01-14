@@ -34,8 +34,8 @@
 		"cli:watch": "vite build --config vite.cli.config.ts --watch",
 		"lint": "eslint {cli,common,src,e2e}",
 		"format": "prettier . --write",
-		"test": "cross-env NODE_OPTIONS='--no-deprecation --max-old-space-size=16384 --experimental-vm-modules' jest",
-		"test:watch": "cross-env NODE_OPTIONS='--no-deprecation' jest --watch",
+		"test": "cross-env NODE_OPTIONS=\"--no-deprecation --max-old-space-size=16384 --experimental-vm-modules\" jest",
+		"test:watch": "cross-env NODE_OPTIONS=\"--no-deprecation\" jest --watch",
 		"e2e": "npx playwright install && npx playwright test",
 		"test:metrics": "npx playwright test --config=./metrics/playwright.metrics.config.ts",
 		"make-pot": "node ./scripts/make-pot.mjs"

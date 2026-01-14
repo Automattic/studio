@@ -77,40 +77,45 @@ export async function runCommand(): Promise< void > {
 	const relayScriptPath = path.join( __dirname, 'events-relay.js' );
 	await startEventsRelayProcess( relayScriptPath );
 
-	const cleanup = async () => {
-		await stopEventsRelayProcess();
-		await disconnect();
-	};
-	process.on( 'exit', cleanup );
-	process.on( 'SIGINT', cleanup );
-	process.on( 'SIGTERM', cleanup );
-
 	await emitAllSitesStatus();
 
 	const relayProcessName = getEventsRelayProcessName();
-	await subscribeProcessMessages( async ( { processName, topic, data } ) => {
-		if ( processName !== relayProcessName ) {
-			return;
-		}
-		if ( LIFECYCLE_EVENTS.includes( topic ) ) {
-			const eventData = data as { data?: { siteId?: string } };
-			const siteId = eventData?.data?.siteId;
-			if ( siteId ) {
-				await emitSiteEvent( topic, siteId );
+	const unsubscribeProcessMessages = await subscribeProcessMessages(
+		async ( { processName, topic, data } ) => {
+			if ( processName !== relayProcessName ) {
+				return;
+			}
+			if ( LIFECYCLE_EVENTS.includes( topic ) ) {
+				const eventData = data as { data?: { siteId?: string } };
+				const siteId = eventData?.data?.siteId;
+				if ( siteId ) {
+					await emitSiteEvent( topic, siteId );
+				}
 			}
 		}
-	} );
+	);
 
-	await subscribeSiteEvents(
+	const unsubscribeSiteEvents = await subscribeSiteEvents(
 		async ( { siteId, event } ) => {
 			await emitSiteEvent( event, siteId );
 		},
 		{ debounceMs: 100 }
 	);
 
-	await subscribePm2KillEvent( () => {
+	const unsubscribePm2Kill = await subscribePm2KillEvent( () => {
 		void emitAllSitesStopped();
 	} );
+
+	const cleanup = () => {
+		unsubscribeProcessMessages();
+		unsubscribeSiteEvents();
+		unsubscribePm2Kill();
+		// Exit immediately - PM2 cleanup will happen via the daemon
+		process.exit( 0 );
+	};
+
+	process.on( 'SIGINT', cleanup );
+	process.on( 'SIGTERM', cleanup );
 }
 
 export const registerCommand = ( yargs: StudioArgv ) => {

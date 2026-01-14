@@ -69,35 +69,42 @@ async function handleSiteEvent( event: SiteEvent ): Promise< void > {
 	await current;
 }
 
-export function startCliEventsSubscriber(): void {
-	if ( subscriber ) {
-		return;
-	}
-
-	subscriber = executeCliCommand( [ '_events' ], {
-		output: 'ignore',
-	} );
-	const [ eventEmitter ] = subscriber;
-
-	eventEmitter.on( 'data', ( { data } ) => {
-		const parsed = cliSiteEventSchema.safeParse( data );
-		if ( ! parsed.success ) {
-			return;
+export async function startCliEventsSubscriber(): Promise< void > {
+	return new Promise( ( resolve, reject ) => {
+		if ( subscriber ) {
+			return resolve();
 		}
 
-		const siteEvent = parsed.data.value;
-		void handleSiteEvent( siteEvent );
-		void sendIpcEventToRenderer( 'site-event', siteEvent );
-	} );
+		subscriber = executeCliCommand( [ '_events' ], {
+			output: 'ignore',
+		} );
+		const [ eventEmitter ] = subscriber;
 
-	eventEmitter.on( 'error', ( { error } ) => {
-		console.error( 'CLI events subscriber error:', error );
-		subscriber = null;
-	} );
+		eventEmitter.on( 'started', () => {
+			resolve();
+		} );
 
-	eventEmitter.on( 'failure', () => {
-		console.warn( 'CLI events subscriber exited unexpectedly' );
-		subscriber = null;
+		eventEmitter.on( 'data', ( { data } ) => {
+			const parsed = cliSiteEventSchema.safeParse( data );
+			if ( ! parsed.success ) {
+				return;
+			}
+
+			const siteEvent = parsed.data.value;
+			void handleSiteEvent( siteEvent );
+			void sendIpcEventToRenderer( 'site-event', siteEvent );
+		} );
+
+		eventEmitter.on( 'error', ( { error } ) => {
+			reject( error );
+			console.error( 'CLI events subscriber error:', error );
+			subscriber = null;
+		} );
+
+		eventEmitter.on( 'failure', () => {
+			console.warn( 'CLI events subscriber exited unexpectedly' );
+			subscriber = null;
+		} );
 	} );
 }
 

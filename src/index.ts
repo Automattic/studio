@@ -360,7 +360,7 @@ async function appBoot() {
 		await renameLaunchUniquesStat();
 
 		await startUserDataWatcher();
-		startCliEventsSubscriber();
+		await startCliEventsSubscriber();
 
 		await createMainWindow();
 

@@ -222,7 +222,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		} );
 	} );
 
-
 	const toggleLoadingServerForSite = useCallback( ( siteId: string ) => {
 		setLoadingServer( ( currentLoading ) => ( {
 			...currentLoading,

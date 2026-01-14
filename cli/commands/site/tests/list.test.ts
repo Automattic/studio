@@ -54,7 +54,7 @@ describe( 'CLI: studio site list', () => {
 		it( 'should throw when appdata read fails', async () => {
 			( readAppdata as jest.Mock ).mockRejectedValue( new Error( 'Failed to read appdata' ) );
 
-			await expect( runCommand( 'table', false ) ).rejects.toThrow( 'Failed to read appdata' );
+			await expect( runCommand( 'table' ) ).rejects.toThrow( 'Failed to read appdata' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 	} );
@@ -63,7 +63,7 @@ describe( 'CLI: studio site list', () => {
 		it( 'should list sites with table format', async () => {
 			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
 
-			await runCommand( 'table', false );
+			await runCommand( 'table' );
 
 			expect( readAppdata ).toHaveBeenCalled();
 			expect( consoleSpy ).toHaveBeenCalled();
@@ -75,7 +75,7 @@ describe( 'CLI: studio site list', () => {
 		it( 'should list sites with json format', async () => {
 			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
 
-			await runCommand( 'json', false );
+			await runCommand( 'json' );
 
 			expect( consoleSpy ).toHaveBeenCalledWith(
 				JSON.stringify(
@@ -107,7 +107,7 @@ describe( 'CLI: studio site list', () => {
 		it( 'should handle no sites found', async () => {
 			( readAppdata as jest.Mock ).mockResolvedValue( emptyAppdata );
 
-			await runCommand( 'table', false );
+			await runCommand( 'table' );
 
 			expect( readAppdata ).toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
@@ -116,7 +116,7 @@ describe( 'CLI: studio site list', () => {
 		it( 'should handle custom domain in site URL', async () => {
 			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
 
-			await runCommand( 'json', false );
+			await runCommand( 'json' );
 
 			expect( consoleSpy ).toHaveBeenCalledWith( expect.stringContaining( 'my-site.wp.local' ) );
 			expect( disconnect ).toHaveBeenCalled();

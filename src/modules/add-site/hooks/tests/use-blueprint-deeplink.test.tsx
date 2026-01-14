@@ -2,7 +2,7 @@ import { renderHook, act } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useBlueprintDeeplinkIpc } from 'src/modules/add-site/hooks/use-blueprint-deeplink-ipc';
+import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
 import { store } from 'src/stores';
 
 jest.mock( 'src/hooks/use-ipc-listener' );
@@ -12,7 +12,7 @@ const wrapper = ( { children }: { children: React.ReactNode } ) => (
 	<Provider store={ store }>{ children }</Provider>
 );
 
-describe( 'useBlueprintDeeplinkIpc', () => {
+describe( 'useBlueprintDeeplink', () => {
 	const mockSetSelectedBlueprint = jest.fn();
 	const mockSetPhpVersion = jest.fn();
 	const mockSetWpVersion = jest.fn();
@@ -30,7 +30,7 @@ describe( 'useBlueprintDeeplinkIpc', () => {
 	it( 'should register IPC listener for add-site-with-blueprint event', () => {
 		renderHook(
 			() =>
-				useBlueprintDeeplinkIpc( {
+				useBlueprintDeeplink( {
 					isAnySiteProcessing: false,
 					setSelectedBlueprint: mockSetSelectedBlueprint,
 					setPhpVersion: mockSetPhpVersion,
@@ -68,7 +68,7 @@ describe( 'useBlueprintDeeplinkIpc', () => {
 
 		renderHook(
 			() =>
-				useBlueprintDeeplinkIpc( {
+				useBlueprintDeeplink( {
 					isAnySiteProcessing: false,
 					setSelectedBlueprint: mockSetSelectedBlueprint,
 					setPhpVersion: mockSetPhpVersion,
@@ -123,7 +123,7 @@ describe( 'useBlueprintDeeplinkIpc', () => {
 
 		renderHook(
 			() =>
-				useBlueprintDeeplinkIpc( {
+				useBlueprintDeeplink( {
 					isAnySiteProcessing: false,
 					setSelectedBlueprint: mockSetSelectedBlueprint,
 					setPhpVersion: mockSetPhpVersion,
@@ -173,7 +173,7 @@ describe( 'useBlueprintDeeplinkIpc', () => {
 
 		renderHook(
 			() =>
-				useBlueprintDeeplinkIpc( {
+				useBlueprintDeeplink( {
 					isAnySiteProcessing: false,
 					setSelectedBlueprint: mockSetSelectedBlueprint,
 					setPhpVersion: mockSetPhpVersion,
@@ -215,7 +215,7 @@ describe( 'useBlueprintDeeplinkIpc', () => {
 
 		renderHook(
 			() =>
-				useBlueprintDeeplinkIpc( {
+				useBlueprintDeeplink( {
 					isAnySiteProcessing: true, // Site is processing
 					setSelectedBlueprint: mockSetSelectedBlueprint,
 					setPhpVersion: mockSetPhpVersion,

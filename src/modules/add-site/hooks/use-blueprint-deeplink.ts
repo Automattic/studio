@@ -5,7 +5,7 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Blueprint } from 'src/stores/wpcom-api';
 
-interface UseBlueprintDeeplinkIpcOptions {
+interface UseBlueprintDeeplinkOptions {
 	isAnySiteProcessing: boolean;
 	setSelectedBlueprint: ( blueprint?: Blueprint ) => void;
 	setPhpVersion: ( version: string ) => void;
@@ -16,7 +16,7 @@ interface UseBlueprintDeeplinkIpcOptions {
 	onModalOpen?: () => void;
 }
 
-export function useBlueprintDeeplinkIpc( options: UseBlueprintDeeplinkIpcOptions ): void {
+export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): void {
 	const { __ } = useI18n();
 	const {
 		isAnySiteProcessing,

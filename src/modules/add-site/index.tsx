@@ -25,7 +25,7 @@ import ImportBackup from './components/import-backup';
 import AddSiteOptions, { type AddSiteFlowType } from './components/options';
 import { PullRemoteSite } from './components/pull-remote-site';
 import Stepper from './components/stepper';
-import { useBlueprintDeeplinkIpc } from './hooks/use-blueprint-deeplink-ipc';
+import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
 import { useFindAvailableSiteName } from './hooks/use-find-available-site-name';
 
 type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
@@ -524,7 +524,7 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 		openModal();
 	} );
 
-	useBlueprintDeeplinkIpc( {
+	useBlueprintDeeplink( {
 		isAnySiteProcessing,
 		setSelectedBlueprint,
 		setPhpVersion: setDeeplinkPhpVersion,
@@ -532,7 +532,7 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 		setBlueprintPreferredVersions,
 		setBlueprintDeeplinkWarnings,
 		setIsDeeplinkFlow,
-		onModalOpen: () => dispatch( openAddSiteModal() ),
+		onModalOpen: openModal,
 	} );
 
 	return (

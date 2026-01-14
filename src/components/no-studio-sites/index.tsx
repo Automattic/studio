@@ -1,6 +1,6 @@
 import { useAddSite } from 'src/hooks/use-add-site';
 import { AddSiteModalContent } from 'src/modules/add-site';
-import { useBlueprintDeeplinkIpc } from 'src/modules/add-site/hooks/use-blueprint-deeplink-ipc';
+import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
 
 export function NoStudioSites() {
 	const addSiteProps = useAddSite();
@@ -14,7 +14,7 @@ export function NoStudioSites() {
 		setIsDeeplinkFlow,
 	} = addSiteProps;
 
-	useBlueprintDeeplinkIpc( {
+	useBlueprintDeeplink( {
 		isAnySiteProcessing,
 		setSelectedBlueprint,
 		setPhpVersion: setDeeplinkPhpVersion,

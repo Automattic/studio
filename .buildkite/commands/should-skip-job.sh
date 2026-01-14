@@ -6,10 +6,11 @@
 #   should-skip-job.sh --job-type <type>
 #
 # Job types:
-#   - validation: Skip if changes are limited to documentation, config, localization, and non-code files.
+#   - validation: Skip if changes are limited to documentation, config, and non-code files.
 #                 Used for lint, unit tests, and e2e tests.
-#   - metrics: Same as validation, but also skips on test-only changes (e2e/**, *.test.ts).
-#              Since metrics measure app performance, test file changes don't affect them.
+#                 Does NOT skip on localization changes since there are tests for translation features.
+#   - metrics: Skip on documentation, config, localization, or test-only changes.
+#              Since metrics measure app performance, these changes don't affect them.
 #   - build: Skip if changes are limited to documentation and config files.
 #            Does NOT skip on localization changes since builds should include translation updates.
 #
@@ -58,7 +59,8 @@ COMMON_NON_CODE_PATTERNS=(
   "CLAUDE.md"
 )
 
-# Localization files - changes here don't affect runtime behavior or performance
+# Localization files - changes here don't affect app performance (for metrics)
+# Note: Validation jobs still run on localization changes to test translation features
 LOCALIZATION_PATTERNS=(
   "common/translations/**"
 )
@@ -117,10 +119,9 @@ fi
 
 case "$job_type" in
   "validation")
-    # Skip validation jobs (lint, unit tests, e2e) if ALL changes are in
-    # non-code files OR localization-only changes
-    PATTERNS=("${COMMON_NON_CODE_PATTERNS[@]}" "${LOCALIZATION_PATTERNS[@]}")
-    if pr_changed_files --all-match "${PATTERNS[@]}"; then
+    # Skip validation jobs (lint, unit tests, e2e) if ALL changes are in non-code files.
+    # Note: Does NOT skip on localization changes - there are tests for translation features.
+    if pr_changed_files --all-match "${COMMON_NON_CODE_PATTERNS[@]}"; then
       show_skip_message "$job_type"
       exit 0
     fi

@@ -13,10 +13,12 @@ import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { getSiteUrl, readAppdata, SiteData } from 'cli/lib/appdata';
 import {
 	connect,
+	disconnect,
 	getEventsRelayProcessName,
 	startEventsRelayProcess,
 	stopEventsRelayProcess,
 	subscribeProcessMessages,
+	subscribePm2KillEvent,
 } from 'cli/lib/pm2-manager';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { subscribeSiteEvents } from 'cli/lib/wordpress-server-manager';
@@ -52,6 +54,19 @@ async function emitAllSitesStatus(): Promise< void > {
 	}
 }
 
+async function emitAllSitesStopped(): Promise< void > {
+	const appdata = await readAppdata();
+	for ( const site of appdata.sites ) {
+		const payload: SiteEvent = {
+			event: SITE_EVENTS.UPDATED,
+			siteId: site.id,
+			running: false,
+			site: toSiteDetails( site ),
+		};
+		logger.reportKeyValuePair( 'site-event', JSON.stringify( payload ) );
+	}
+}
+
 const LIFECYCLE_EVENTS: string[] = Object.values( SITE_EVENTS );
 
 export async function runCommand(): Promise< void > {
@@ -62,8 +77,9 @@ export async function runCommand(): Promise< void > {
 	const relayScriptPath = path.join( __dirname, 'events-relay.js' );
 	await startEventsRelayProcess( relayScriptPath );
 
-	const cleanup = () => {
-		void stopEventsRelayProcess();
+	const cleanup = async () => {
+		await stopEventsRelayProcess();
+		await disconnect();
 	};
 	process.on( 'exit', cleanup );
 	process.on( 'SIGINT', cleanup );
@@ -91,6 +107,10 @@ export async function runCommand(): Promise< void > {
 		},
 		{ debounceMs: 100 }
 	);
+
+	await subscribePm2KillEvent( () => {
+		void emitAllSitesStopped();
+	} );
 }
 
 export const registerCommand = ( yargs: StudioArgv ) => {

@@ -3,10 +3,9 @@ import { renderHook, act } from '@testing-library/react';
 import nock from 'nock';
 import { Provider } from 'react-redux';
 import { useSyncSites } from 'src/hooks/sync-sites';
-import { useAddSite } from 'src/hooks/use-add-site';
+import { useAddSite, CreateSiteFormValues } from 'src/hooks/use-add-site';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { getWordPressProvider } from 'src/lib/wordpress-provider';
 import { store } from 'src/stores';
 import { setProviderConstants } from 'src/stores/provider-constants-slice';
 import type { SyncSitesContextType } from 'src/hooks/sync-sites/sync-sites-context';
@@ -20,22 +19,24 @@ jest.mock( 'src/hooks/use-import-export', () => ( {
 	useImportExport: () => ( {
 		importFile: jest.fn(),
 		clearImportState: jest.fn(),
+		importState: {},
 	} ),
 } ) );
 
 const mockConnectWpcomSites = jest.fn().mockResolvedValue( undefined );
+const mockShowOpenFolderDialog = jest.fn();
 const mockGenerateProposedSitePath = jest.fn().mockResolvedValue( {
 	path: '/default/path',
 	name: 'Default Site',
 	isEmpty: true,
 	isWordPress: false,
 } );
-
 const mockComparePaths = jest.fn().mockResolvedValue( false );
 
 jest.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		generateProposedSitePath: mockGenerateProposedSitePath,
+		showOpenFolderDialog: mockShowOpenFolderDialog,
 		showNotification: jest.fn(),
 		getAllCustomDomains: jest.fn().mockResolvedValue( [] ),
 		connectWpcomSites: mockConnectWpcomSites,
@@ -69,6 +70,13 @@ describe( 'useAddSite', () => {
 				minimumWordPressVersion: '5.9.9',
 			} )
 		);
+
+		mockGenerateProposedSitePath.mockResolvedValue( {
+			path: '/default/path',
+			name: 'Default Site',
+			isEmpty: true,
+			isWordPress: false,
+		} );
 
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			createSite: mockCreateSite,
@@ -130,39 +138,19 @@ describe( 'useAddSite', () => {
 		nock.cleanAll();
 	} );
 
-	it( 'should initialize with default WordPress version', () => {
+	it( 'should provide default PHP version', () => {
 		const { result } = renderHookWithProvider( () => useAddSite() );
 
-		expect( result.current.wpVersion ).toBe( getWordPressProvider().DEFAULT_WORDPRESS_VERSION );
+		expect( result.current.defaultPhpVersion ).toBe( '8.3' );
 	} );
 
-	it( 'should initialize with default PHP version', () => {
+	it( 'should provide default WordPress version', () => {
 		const { result } = renderHookWithProvider( () => useAddSite() );
 
-		expect( result.current.phpVersion ).toBe( '8.3' );
+		expect( result.current.defaultWpVersion ).toBe( 'latest' );
 	} );
 
-	it( 'should update WordPress version when setWpVersion is called', () => {
-		const { result } = renderHookWithProvider( () => useAddSite() );
-
-		act( () => {
-			result.current.setWpVersion( '6.1.7' );
-		} );
-
-		expect( result.current.wpVersion ).toBe( '6.1.7' );
-	} );
-
-	it( 'should update PHP version when setPhpVersion is called', () => {
-		const { result } = renderHookWithProvider( () => useAddSite() );
-
-		act( () => {
-			result.current.setPhpVersion( '8.2' );
-		} );
-
-		expect( result.current.phpVersion ).toBe( '8.2' );
-	} );
-
-	it( 'should pass WordPress version to createSite when handleAddSiteClick is called', async () => {
+	it( 'should create site with provided form values', async () => {
 		mockCreateSite.mockImplementation(
 			( path, name, wpVersion, customDomain, enableHttps, blueprint, phpVersion, callback ) => {
 				callback( {
@@ -178,25 +166,52 @@ describe( 'useAddSite', () => {
 
 		const { result } = renderHookWithProvider( () => useAddSite() );
 
-		act( () => {
-			result.current.setWpVersion( '6.1.7' );
-			result.current.setSitePath( '/test/path' );
-		} );
+		const formValues: CreateSiteFormValues = {
+			siteName: 'My Test Site',
+			sitePath: '/test/path',
+			phpVersion: '8.2',
+			wpVersion: '6.1.7',
+			useCustomDomain: false,
+			customDomain: null,
+			enableHttps: false,
+		};
 
 		await act( async () => {
-			await result.current.handleAddSiteClick();
+			await result.current.handleCreateSite( formValues );
 		} );
 
 		expect( mockCreateSite ).toHaveBeenCalledWith(
 			'/test/path',
-			'',
+			'My Test Site',
 			'6.1.7',
 			undefined,
 			false,
 			undefined, // blueprint parameter
-			'8.3',
+			'8.2',
 			expect.any( Function )
 		);
+	} );
+
+	it( 'should generate proposed path for site name', async () => {
+		mockGenerateProposedSitePath.mockResolvedValue( {
+			path: '/studio/my-site',
+			isEmpty: true,
+			isWordPress: false,
+		} );
+
+		const { result } = renderHookWithProvider( () => useAddSite() );
+
+		let pathResult;
+		await act( async () => {
+			pathResult = await result.current.generateProposedPath( 'My Site' );
+		} );
+
+		expect( mockGenerateProposedSitePath ).toHaveBeenCalledWith( 'My Site' );
+		expect( pathResult ).toEqual( {
+			path: '/studio/my-site',
+			isEmpty: true,
+			isWordPress: false,
+		} );
 	} );
 
 	it( 'should connect and start pulling when a remote site is selected', async () => {
@@ -232,11 +247,20 @@ describe( 'useAddSite', () => {
 
 		act( () => {
 			result.current.setSelectedRemoteSite( remoteSite );
-			result.current.setSitePath( createdSite.path );
 		} );
 
+		const formValues: CreateSiteFormValues = {
+			siteName: createdSite.name,
+			sitePath: createdSite.path,
+			phpVersion: '8.3',
+			wpVersion: 'latest',
+			useCustomDomain: false,
+			customDomain: null,
+			enableHttps: false,
+		};
+
 		await act( async () => {
-			await result.current.handleAddSiteClick();
+			await result.current.handleCreateSite( formValues );
 		} );
 
 		expect( mockConnectWpcomSites ).toHaveBeenCalledWith( [
@@ -249,57 +273,5 @@ describe( 'useAddSite', () => {
 			optionsToSync: [ 'all' ],
 		} );
 		expect( mockSetSelectedTab ).toHaveBeenCalledWith( 'sync' );
-	} );
-
-	describe( 'handleSiteNameChange', () => {
-		beforeEach( () => {
-			mockGenerateProposedSitePath.mockReset();
-			mockGenerateProposedSitePath.mockResolvedValue( {
-				path: '/default/path',
-				name: 'Default Site',
-				isEmpty: true,
-				isWordPress: false,
-			} );
-			mockComparePaths.mockReset();
-			mockComparePaths.mockResolvedValue( false );
-		} );
-
-		it( 'should set user-friendly error when site name causes ENAMETOOLONG error', async () => {
-			mockGenerateProposedSitePath.mockResolvedValueOnce( {
-				path: '/default/path/very-long-name',
-				name: 'a'.repeat( 300 ),
-				isEmpty: false,
-				isWordPress: false,
-				isNameTooLong: true,
-			} );
-
-			const { result } = renderHookWithProvider( () => useAddSite() );
-
-			await act( async () => {
-				await result.current.handleSiteNameChange( 'a'.repeat( 300 ) );
-			} );
-
-			expect( result.current.error ).toBe(
-				'The site name is too long. Please choose a shorter site name.'
-			);
-		} );
-
-		it( 'should successfully update site name when path is valid', async () => {
-			mockGenerateProposedSitePath.mockResolvedValueOnce( {
-				path: '/default/path/my-site',
-				name: 'my-site',
-				isEmpty: true,
-				isWordPress: false,
-			} );
-
-			const { result } = renderHookWithProvider( () => useAddSite() );
-
-			await act( async () => {
-				await result.current.handleSiteNameChange( 'my-site' );
-			} );
-
-			expect( result.current.siteName ).toBe( 'my-site' );
-			expect( result.current.error ).toBe( '' );
-		} );
 	} );
 } );

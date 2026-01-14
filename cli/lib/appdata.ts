@@ -3,14 +3,14 @@ import os from 'os';
 import path from 'path';
 import { __, sprintf } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
-import { validateAccessToken } from 'cli/lib/api';
-import { LoggerError } from 'cli/logger';
 import { LOCKFILE_NAME, LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/constants';
 import { arePathsEqual, isWordPressDirectory } from 'common/lib/fs-utils';
 import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { snapshotSchema } from 'common/types/snapshot';
 import { z } from 'zod';
+import { validateAccessToken } from 'cli/lib/api';
+import { LoggerError } from 'cli/logger';
 
 const siteSchema = z
 	.object( {

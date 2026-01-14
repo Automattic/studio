@@ -3,13 +3,13 @@ import { SupportedPHPVersions } from '@php-wasm/universal';
 import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
 import { RecommendedPHPVersion } from '@wp-playground/common';
 import { WordPressInstallMode } from '@wp-playground/wordpress';
+import { keepSqliteIntegrationUpdated, isSqliteInstalled } from 'cli/lib/sqlite-integration';
 import { recursiveCopyDirectory, pathExists, isWordPressDirectory } from 'common/lib/fs-utils';
 import { DEFAULT_LOCALE } from 'common/lib/locale';
 import { isOnline } from 'common/lib/network-utils';
 import { isValidWordPressVersion } from 'common/lib/wordpress-version-utils';
 import { getBetaFeatures } from 'src/lib/beta-features';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
-import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { SiteServer } from 'src/site-server';
 import { getResourcesPath, getServerFilesPath } from 'src/storage/paths';
 import {
@@ -67,6 +67,7 @@ export class PlaygroundCliProvider implements WordPressProvider {
 		const port = options.port;
 		const phpVersion = options.phpVersion || '8.3';
 		const hasWordPress = isWordPressDirectory( options.path );
+		const hasSqlite = await isSqliteInstalled( options.path );
 
 		// Get beta features to check if multi-worker and xdebug support are enabled
 		const betaFeatures = await getBetaFeatures();
@@ -79,14 +80,20 @@ export class PlaygroundCliProvider implements WordPressProvider {
 			console.log( '[PlaygroundCliProvider] Xdebug support is enabled for this site' );
 		}
 
+		let wordpressInstallMode: WordPressInstallMode = 'download-and-install';
+
+		if ( hasWordPress ) {
+			wordpressInstallMode = hasSqlite
+				? 'install-from-existing-files-if-needed'
+				: 'do-not-attempt-installing';
+		}
+
 		const playgroundOptions: PlaygroundCliOptions = {
 			port,
 			phpVersion,
 			documentRoot: options.path,
 			autoMount: true,
-			wordpressInstallMode: hasWordPress
-				? 'install-from-existing-files-if-needed'
-				: 'download-and-install',
+			wordpressInstallMode: wordpressInstallMode,
 			blueprint: options.blueprint,
 			enableMultiWorker: betaFeatures.multiWorkerSupport,
 			enableXdebug: betaFeatures.xdebugSupport && options.enableXdebug,

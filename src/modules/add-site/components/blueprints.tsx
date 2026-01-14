@@ -251,7 +251,7 @@ export function AddSiteBlueprintSelector( {
 				} else {
 					setValidationError( __( 'Failed to load Blueprint file. Please try again.' ) );
 				}
-				console.error( 'Failed to parse blueprint file:', error );
+				console.error( 'Failed to parse Blueprint file:', error );
 			}
 		}
 		if ( fileRef.current ) {

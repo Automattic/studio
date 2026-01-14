@@ -211,10 +211,10 @@ describe( 'CLI: studio site create', () => {
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
-		it( 'should error if blueprint validation fails', async () => {
+		it( 'should error if Blueprint validation fails', async () => {
 			( validateBlueprintData as jest.Mock ).mockResolvedValue( {
 				valid: false,
-				error: 'Invalid blueprint',
+				error: 'Invalid Blueprint',
 			} );
 
 			await expect(
@@ -225,7 +225,7 @@ describe( 'CLI: studio site create', () => {
 						contents: {},
 					},
 				} )
-			).rejects.toThrow( 'Invalid blueprint' );
+			).rejects.toThrow( 'Invalid Blueprint' );
 
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -407,7 +407,7 @@ describe( 'CLI: studio site create', () => {
 			steps: [ { step: 'installPlugin', pluginData: { slug: 'akismet' } } ],
 		};
 
-		it( 'should apply blueprint when provided', async () => {
+		it( 'should apply Blueprint when provided', async () => {
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
 				blueprint: {
@@ -426,7 +426,7 @@ describe( 'CLI: studio site create', () => {
 			);
 		} );
 
-		it( 'should prepend setSiteOptions step when name is provided with blueprint', async () => {
+		it( 'should prepend setSiteOptions step when name is provided with Blueprint', async () => {
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
 				name: 'My Site',
@@ -452,7 +452,7 @@ describe( 'CLI: studio site create', () => {
 			);
 		} );
 
-		it( 'should warn about unsupported blueprint features', async () => {
+		it( 'should warn about unsupported Blueprint features', async () => {
 			( validateBlueprintData as jest.Mock ).mockReturnValue( {
 				valid: true,
 				warnings: [
@@ -489,7 +489,7 @@ describe( 'CLI: studio site create', () => {
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
-		it( 'should apply blueprint without starting server when noStart is true', async () => {
+		it( 'should apply Blueprint without starting server when noStart is true', async () => {
 			const testBlueprint: Blueprint = { steps: [] };
 
 			await runCommand( mockSitePath, {
@@ -508,7 +508,7 @@ describe( 'CLI: studio site create', () => {
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
-		it( 'should run blueprint when preferred language is configured but no blueprint was given', async () => {
+		it( 'should run Blueprint when preferred language is configured but no Blueprint was given', async () => {
 			( getPreferredSiteLanguage as jest.Mock ).mockResolvedValue( 'es_ES' );
 
 			await runCommand( mockSitePath, {
@@ -542,7 +542,7 @@ describe( 'CLI: studio site create', () => {
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
-		it( 'should handle blueprint application failure', async () => {
+		it( 'should handle Blueprint application failure', async () => {
 			const testBlueprint: Blueprint = { steps: [] };
 			( runBlueprint as jest.Mock ).mockRejectedValue( new Error( 'Blueprint failed' ) );
 
@@ -555,7 +555,7 @@ describe( 'CLI: studio site create', () => {
 					},
 					noStart: true,
 				} )
-			).rejects.toThrow( 'Failed to apply blueprint' );
+			).rejects.toThrow( 'Failed to apply Blueprint' );
 
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -604,7 +604,7 @@ describe( 'CLI: studio site create', () => {
 			expect( removeSiteFromAppdata ).toHaveBeenCalled();
 		} );
 
-		it( 'should remove site from appdata when blueprint application fails', async () => {
+		it( 'should remove site from appdata when Blueprint application fails', async () => {
 			const testBlueprint = { steps: [] };
 			( runBlueprint as jest.Mock ).mockRejectedValue( new Error( 'Blueprint failed' ) );
 
@@ -647,7 +647,7 @@ describe( 'CLI: studio site create', () => {
 			expect( fsRmSpy ).not.toHaveBeenCalled();
 		} );
 
-		it( 'should delete site directory when blueprint application fails for new directory', async () => {
+		it( 'should delete site directory when Blueprint application fails for new directory', async () => {
 			createPathExistsMock( false );
 			( isWordPressDirectory as jest.Mock ).mockReturnValue( false );
 			const testBlueprint = { steps: [] };
@@ -669,7 +669,7 @@ describe( 'CLI: studio site create', () => {
 			expect( fsRmSpy ).toHaveBeenCalledWith( mockSitePath, { recursive: true, force: true } );
 		} );
 
-		it( 'should NOT delete site directory when blueprint application fails for existing WordPress directory', async () => {
+		it( 'should NOT delete site directory when Blueprint application fails for existing WordPress directory', async () => {
 			createPathExistsMock( true );
 			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
 			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );

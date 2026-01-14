@@ -304,7 +304,7 @@ async function runBlueprint( config: ServerConfig, signal: AbortSignal ): Promis
 
 		logToConsole( `Blueprint applied successfully for site ${ config.siteId }` );
 	} catch ( error ) {
-		errorToConsole( `Failed to run blueprint:`, error );
+		errorToConsole( `Failed to run Blueprint:`, error );
 		throw error;
 	}
 }

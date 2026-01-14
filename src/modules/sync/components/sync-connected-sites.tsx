@@ -359,7 +359,7 @@ const SyncConnectedSitesSectionItem = ( {
 									<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
 								</div>
 							</Tooltip>
-							<Tooltip text={ __( 'Resume upload' ) } placement="top-start">
+							<Tooltip text={ __( 'Resume upload' ) } placement="top">
 								<Button
 									variant="icon"
 									onClick={ () => resumeUpload( selectedSite.id, connectedSite.id ) }
@@ -401,7 +401,7 @@ const SyncConnectedSitesSectionItem = ( {
 								</div>
 							</Tooltip>
 							{ isUploading && (
-								<Tooltip text={ __( 'Pause upload' ) } placement="top-start">
+								<Tooltip text={ __( 'Pause upload' ) } placement="top">
 									<Button
 										variant="icon"
 										onClick={ () => pauseUpload( selectedSite.id, connectedSite.id ) }

@@ -8,6 +8,7 @@ import {
 	useMemo,
 	useState,
 } from 'react';
+import { SITE_EVENTS, SiteEvent } from 'common/lib/site-events';
 import { sortSites } from 'common/lib/sort-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
@@ -188,37 +189,45 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		}
 	} );
 
-	/*
-	 * Site Update Listeners
-	 *
-	 * Two complementary watchers keep the UI in sync with external changes:
-	 *
-	 * 1. 'site-status-changed' (from Site Status Watcher - execute-site-watch-command.ts):
-	 *    - Source: PM2 process events via `studio site list --watch`
-	 *    - Detects: Site start/stop/crash events
-	 *
-	 * 2. 'user-data-updated' (from User Data Watcher - user-data-watcher.ts):
-	 *    - Source: fs.watch on the appdata file
-	 *    - Detects: ALL changes (new sites, edits, deletions)
-	 *    - Used for: CLI site creation, property changes, external modifications
-	 *
-	 */
-	useIpcListener( 'site-status-changed', ( _, { siteId, status, url } ) => {
-		setSites( ( prevSites ) =>
-			prevSites.map( ( site ) =>
-				site.id === siteId ? { ...site, running: status === 'running', url: url } : site
-			)
-		);
-	} );
+	useIpcListener( 'site-event', ( _, event: SiteEvent ) => {
+		console.log( '[use-site-details] Received site-event:', event );
+		const { event: eventType, siteId, site, running } = event;
 
-	useIpcListener( 'user-data-updated', async () => {
-		const updatedSites = await getIpcApi().getSiteDetails();
-		setSites( updatedSites );
+		setSites( ( prevSites ) => {
+			if ( eventType === SITE_EVENTS.DELETED ) {
+				const newSites = prevSites.filter( ( s ) => s.id !== siteId );
+				if ( selectedSiteId === siteId ) {
+					setSelectedSiteId( newSites.length ? newSites[ 0 ].id : '' );
+				}
+				return newSites;
+			}
 
-		// Handle case where selected site was deleted externally
-		if ( selectedSiteId && ! updatedSites.find( ( site ) => site.id === selectedSiteId ) ) {
-			setSelectedSiteId( updatedSites.length ? updatedSites[ 0 ].id : '' );
-		}
+			if ( ! site ) {
+				return prevSites;
+			}
+
+			const siteDetails: SiteDetails = {
+				...site,
+				running,
+			};
+
+			const existingIndex = prevSites.findIndex( ( s ) => s.id === siteId );
+			console.log( '[use-site-details] Updating site:', {
+				existingIndex,
+				siteDetails,
+				prevUrl: prevSites[ existingIndex ]?.url,
+				newUrl: site.url,
+			} );
+
+			if ( existingIndex >= 0 ) {
+				const newSites = [ ...prevSites ];
+				newSites[ existingIndex ] = { ...newSites[ existingIndex ], ...siteDetails };
+				console.log( '[use-site-details] Updated site:', newSites[ existingIndex ] );
+				return newSites;
+			}
+
+			return sortSites( [ ...prevSites, siteDetails ] );
+		} );
 	} );
 
 	const toggleLoadingServerForSite = useCallback( ( siteId: string ) => {

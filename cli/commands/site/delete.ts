@@ -1,5 +1,6 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { arePathsEqual } from 'common/lib/fs-utils';
+import { SITE_EVENTS } from 'common/lib/site-events';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { deleteSnapshot } from 'cli/lib/api';
 import {
@@ -126,7 +127,7 @@ export async function runCommand(
 			logger.reportSuccess( __( 'Site files deleted' ) );
 		}
 
-		await emitSiteEvent( 'site-deleted', { siteId: site.id } );
+		await emitSiteEvent( SITE_EVENTS.DELETED, { siteId: site.id } );
 	} finally {
 		disconnect();
 	}

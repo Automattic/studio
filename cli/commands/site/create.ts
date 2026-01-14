@@ -26,6 +26,7 @@ import { DEFAULT_LOCALE } from 'common/lib/locale';
 import { isOnline } from 'common/lib/network-utils';
 import { createPassword } from 'common/lib/passwords';
 import { portFinder } from 'common/lib/port-finder';
+import { SITE_EVENTS } from 'common/lib/site-events';
 import { sortSites } from 'common/lib/sort-sites';
 import {
 	isValidWordPressVersion,
@@ -329,7 +330,7 @@ export async function runCommand(
 
 		logger.reportKeyValuePair( 'id', siteDetails.id );
 		logger.reportKeyValuePair( 'running', String( siteDetails.running ) );
-		await emitSiteEvent( 'site-created', { siteId: siteDetails.id } );
+		await emitSiteEvent( SITE_EVENTS.CREATED, { siteId: siteDetails.id } );
 	} finally {
 		disconnect();
 	}

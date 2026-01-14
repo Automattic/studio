@@ -104,10 +104,15 @@ export class SiteServer {
 		return deletedServers.includes( id );
 	}
 
-	static register( details: StoppedSiteDetails, meta: SiteServerMeta = {} ): SiteServer {
+	static register( details: SiteDetails, meta: SiteServerMeta = {} ): SiteServer {
 		const server = new SiteServer( details, meta );
 		servers.set( details.id, server );
 		return server;
+	}
+
+	static unregister( id: string ): void {
+		deletedServers.push( id );
+		servers.delete( id );
 	}
 
 	static async create(

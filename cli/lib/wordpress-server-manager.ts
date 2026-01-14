@@ -10,6 +10,7 @@ import {
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from 'common/constants';
+import { SITE_EVENTS } from 'common/lib/site-events';
 import { z } from 'zod';
 import { isXdebugBetaEnabled, SiteData, readAppdata } from 'cli/lib/appdata';
 import {
@@ -432,13 +433,13 @@ export async function sendWpCliCommand(
 	return wpCliResultSchema.parse( result );
 }
 
+const PM2_STATUS_EVENTS = [ 'exit', 'stop', 'restart' ];
+
 /**
  * Subscribe to site server events
  *
- * Listens for:
- * - 'online' events: When WordPress is fully ready (from 'result' message)
- * - 'exit', 'stop', 'restart' events: PM2 process events
- * - Site lifecycle events: site-created, site-updated, site-deleted, site-started, site-stopped
+ * Listens for PM2 process events and emits 'site-updated' when site status changes.
+ * All PM2 events (online, exit, stop, restart) are mapped to 'site-updated'.
  *
  * @param handler - Callback invoked when a site event occurs
  * @param options - Configuration options (e.g., debounceMs)
@@ -453,7 +454,8 @@ export async function subscribeSiteEvents(
 	let debounceTimeout: NodeJS.Timeout | null = null;
 	let pendingEvent: { siteId: string; event: string } | null = null;
 
-	const invokeHandler = ( siteId: string, event: string ) => {
+	const invokeHandler = ( siteId: string ) => {
+		const event = SITE_EVENTS.UPDATED;
 		if ( debounceMs > 0 ) {
 			pendingEvent = { siteId, event };
 			if ( debounceTimeout ) {
@@ -475,10 +477,9 @@ export async function subscribeSiteEvents(
 			return;
 		}
 
-		const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
-
 		if ( topic === 'result' ) {
-			invokeHandler( siteId, 'online' );
+			const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
+			invokeHandler( siteId );
 		}
 	} );
 
@@ -487,9 +488,9 @@ export async function subscribeSiteEvents(
 			return;
 		}
 
-		if ( event !== 'online' ) {
+		if ( PM2_STATUS_EVENTS.includes( event ) ) {
 			const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
-			invokeHandler( siteId, event );
+			invokeHandler( siteId );
 		}
 	} );
 

@@ -1,63 +1,68 @@
 import { z } from 'zod';
+import { siteEventSchema, SiteEvent, SITE_EVENTS, SiteDetails } from 'common/lib/site-events';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { SiteServer } from 'src/site-server';
-import { loadUserData } from 'src/storage/user-data';
 
-const siteStatusEventSchema = z.object( {
+const cliSiteEventSchema = z.object( {
 	action: z.literal( 'keyValuePair' ),
-	key: z.literal( 'site-status' ),
+	key: z.literal( 'site-event' ),
 	value: z
 		.string()
 		.transform( ( val ) => JSON.parse( val ) )
-		.pipe(
-			z.object( {
-				siteId: z.string(),
-				status: z.enum( [ 'running', 'stopped' ] ),
-				url: z.string(),
-			} )
-		),
+		.pipe( siteEventSchema ),
 } );
 
 let subscriber: ReturnType< typeof executeCliCommand > | null = null;
 
 const pendingUpdates = new Map< string, Promise< void > >();
 
-async function updateSiteServerStatus(
-	siteId: string,
-	isRunning: boolean,
-	url: string
-): Promise< void > {
+function siteDetailsToServerDetails(
+	site: SiteDetails,
+	running: boolean
+): SiteServer[ 'details' ] {
+	return {
+		...site,
+		running,
+	};
+}
+
+async function handleSiteEvent( event: SiteEvent ): Promise< void > {
+	const { event: eventType, siteId, site, running } = event;
 	const previous = pendingUpdates.get( siteId ) ?? Promise.resolve();
 	const current = previous
 		.catch( () => {} )
-		.then( async () => {
-			let server = SiteServer.get( siteId );
-
-			if ( ! server ) {
-				const userData = await loadUserData();
-				const siteData = userData.sites.find( ( s ) => s.id === siteId );
-				if ( siteData ) {
-					const existingServer = SiteServer.getByPath( siteData.path );
-					if ( existingServer ) {
-						server = existingServer;
-					} else {
-						server = SiteServer.register( { ...siteData, running: false } );
-					}
-				}
-			}
-
-			// We ignore Studio managed operations
-			if ( server?.hasOngoingOperation ) {
+		.then( () => {
+			if ( eventType === SITE_EVENTS.DELETED ) {
+				SiteServer.unregister( siteId );
 				return;
 			}
 
-			if ( server ) {
-				server.details = {
-					...server.details,
-					running: isRunning,
-					url: isRunning ? url : '',
-				};
+			if ( ! site ) {
+				return;
+			}
+
+			let server = SiteServer.get( siteId );
+
+			if ( ! server ) {
+				const existingServer = SiteServer.getByPath( site.path );
+				if ( existingServer ) {
+					server = existingServer;
+				} else {
+					server = SiteServer.register( siteDetailsToServerDetails( site, running ) );
+					return;
+				}
+			}
+
+			// Skip update if Studio has an ongoing operation
+			if ( server.hasOngoingOperation ) {
+				return;
+			}
+
+			server.details = siteDetailsToServerDetails( site, running );
+
+			if ( server.server && site.url ) {
+				server.server.url = site.url;
 			}
 		} );
 	pendingUpdates.set( siteId, current );
@@ -75,16 +80,14 @@ export function startCliEventsSubscriber(): void {
 	const [ eventEmitter ] = subscriber;
 
 	eventEmitter.on( 'data', ( { data } ) => {
-		const parsed = siteStatusEventSchema.safeParse( data );
+		const parsed = cliSiteEventSchema.safeParse( data );
 		if ( ! parsed.success ) {
 			return;
 		}
 
-		const { siteId, status, url } = parsed.data.value;
-		const isRunning = status === 'running';
-
-		void updateSiteServerStatus( siteId, isRunning, url );
-		void sendIpcEventToRenderer( 'site-status-changed', parsed.data.value );
+		const siteEvent = parsed.data.value;
+		void handleSiteEvent( siteEvent );
+		void sendIpcEventToRenderer( 'site-event', siteEvent );
 	} );
 
 	eventEmitter.on( 'error', ( { error } ) => {

@@ -327,7 +327,6 @@ export async function emitSiteEvent(
 				data,
 			},
 			() => {
-				// Ignore errors - relay might have stopped
 				resolve();
 			}
 		);

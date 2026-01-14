@@ -400,8 +400,14 @@ async function appBoot() {
 		}
 	} );
 
-	let isQuittingConfirmed = false;
+	/**
+	 * We want to stop all running sites (including the process daemon) in any of these cases:
+	 * - There's a pending auto-update
+	 * - There are no running sites (in which case we kill just the daemon)
+	 * - There are running sites, and the user has confirmed they want to stop them upon closing the app
+	 */
 	let shouldStopSitesOnQuit = true;
+	let isQuittingConfirmed = false;
 
 	app.on( 'before-quit', ( event ) => {
 		if ( isQuittingConfirmed ) {
@@ -445,7 +451,7 @@ async function appBoot() {
 		}
 
 		const runningSiteCount = getRunningSiteCount();
-		if ( getAutoUpdaterState() === 'waiting-for-restart' || runningSiteCount > 0 ) {
+		if ( getAutoUpdaterState() !== 'waiting-for-restart' || runningSiteCount > 0 ) {
 			event.preventDefault();
 
 			void ( async () => {

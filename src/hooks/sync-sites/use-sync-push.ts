@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 import { ClearState, GetState } from 'src/hooks/sync-sites/use-pull-push-states';
 import { useSyncPolling } from 'src/hooks/sync-sites/use-sync-polling';
 import { useAuth } from 'src/hooks/use-auth';
-import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import {
 	ImportResponse,
 	useSyncStatesProgressInfo,
@@ -22,6 +21,7 @@ export type SyncPushState = {
 	status: PushStateProgressInfo;
 	selectedSite: SiteDetails;
 	remoteSiteUrl: string;
+	uploadProgress?: number;
 };
 
 type PushSiteOptions = {

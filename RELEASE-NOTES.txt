@@ -1,6 +1,24 @@
 Unreleased
 ==========
 
+1.6.8
+=====
+* Made sync uploads resumable #2212
+* Fixed Windows auto-updater so that ARM64 installations receive the correct installer architecture #2280
+* Added Xdebug support (Beta Feature) #2242
+* Improved update dialogs with clearer messaging and safer ESC key handling #2257
+* Improved the Publish site button behavior #2264, #2288
+* Ensured auto-update customizations for a site are overridden by Studio setting #2262
+* Ensured the site can't be deleted when syncing #2254
+* Improved how errors are displayed in sync modal #2271
+* Fixed appearance of Query Manager plugin in wp-admin #2311
+* Disabled add site import from WordPress.com if Studio is offline #2284
+* Updated What's new modal to not display if no sites have been created yet #2320
+* Added banner with information about Telex to Assistant tab #2306
+* Fixed a bug where some files would be mistakenly excluded from site exports #2349
+* Updated multiple dependencies, including Electron, Vite, and WordPress Components #2248, #2258
+* Misc UI improvements #2277, #2283, #2279, #2305, #2318, #2333, #2331, #2312, #2321
+
 1.6.7
 =====
 * Fixed auto-updates #2234

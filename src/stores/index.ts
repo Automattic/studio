@@ -27,6 +27,7 @@ import { syncReducer } from 'src/stores/sync';
 import { connectedSitesApi, connectedSitesReducer } from 'src/stores/sync/connected-sites';
 import { syncOperationsReducer } from 'src/stores/sync/sync-operations-slice';
 import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
+import uiReducer from 'src/stores/ui-slice';
 import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from 'common/lib/locale';
@@ -49,6 +50,7 @@ export type RootState = {
 	wpcomPublicApi: ReturnType< typeof wpcomPublicApi.reducer >;
 	certificateTrustApi: ReturnType< typeof certificateTrustApi.reducer >;
 	i18n: ReturnType< typeof i18nReducer >;
+	ui: ReturnType< typeof uiReducer >;
 };
 
 const listenerMiddleware = createListenerMiddleware< RootState >();
@@ -108,6 +110,7 @@ export const rootReducer = combineReducers( {
 	wpcomPublicApi: wpcomPublicApi.reducer,
 	certificateTrustApi: certificateTrustApi.reducer,
 	i18n: i18nReducer,
+	ui: uiReducer,
 } );
 
 export const store = configureStore( {

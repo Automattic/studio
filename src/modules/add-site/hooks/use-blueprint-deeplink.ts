@@ -5,6 +5,11 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Blueprint } from 'src/stores/wpcom-api';
 
+type BlueprintMetadata = {
+	title?: string;
+	description?: string;
+};
+
 interface UseBlueprintDeeplinkOptions {
 	isAnySiteProcessing: boolean;
 	setSelectedBlueprint: ( blueprint?: Blueprint ) => void;
@@ -48,9 +53,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 				try {
 					const blueprintJson = await getIpcApi().readBlueprintFile( blueprintPath );
 					const fileName = blueprintPath.split( /[/\\]/ ).pop() || 'blueprint.json';
-					const blueprintMeta = blueprintJson.meta as
-						| { title?: string; description?: string }
-						| undefined;
+					const blueprintMeta = blueprintJson.meta as BlueprintMetadata | undefined;
 
 					const fileBlueprint: Blueprint = {
 						slug: `file:${ fileName }`,

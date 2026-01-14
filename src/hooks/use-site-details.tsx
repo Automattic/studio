@@ -190,7 +190,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	} );
 
 	useIpcListener( 'site-event', ( _, event: SiteEvent ) => {
-		console.log( '[use-site-details] Received site-event:', event );
 		const { event: eventType, siteId, site, running } = event;
 
 		setSites( ( prevSites ) => {
@@ -212,23 +211,17 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			};
 
 			const existingIndex = prevSites.findIndex( ( s ) => s.id === siteId );
-			console.log( '[use-site-details] Updating site:', {
-				existingIndex,
-				siteDetails,
-				prevUrl: prevSites[ existingIndex ]?.url,
-				newUrl: site.url,
-			} );
 
 			if ( existingIndex >= 0 ) {
 				const newSites = [ ...prevSites ];
 				newSites[ existingIndex ] = { ...newSites[ existingIndex ], ...siteDetails };
-				console.log( '[use-site-details] Updated site:', newSites[ existingIndex ] );
 				return newSites;
 			}
 
 			return sortSites( [ ...prevSites, siteDetails ] );
 		} );
 	} );
+
 
 	const toggleLoadingServerForSite = useCallback( ( siteId: string ) => {
 		setLoadingServer( ( currentLoading ) => ( {

@@ -70,6 +70,7 @@ type CreateCommandOptions = {
 	};
 	noStart: boolean;
 	skipBrowser: boolean;
+	skipLogDetails: boolean;
 };
 
 export async function runCommand(
@@ -173,7 +174,7 @@ export async function runCommand(
 		if ( ! ( await isSqliteIntegrationAvailable() ) ) {
 			throw new LoggerError(
 				__(
-					'SQLite integration files not found. Please ensure Studio Desktop is installed and has been run at least once.'
+					'SQLite integration files not found. Please ensure Studio is installed and has been run at least once.'
 				)
 			);
 		}
@@ -183,7 +184,8 @@ export async function runCommand(
 
 		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
 		const port = await portFinder.getOpenPort();
-		logger.reportSuccess( __( 'Port assigned: ' ) + port );
+		// translators: %d is the port number
+		logger.reportSuccess( sprintf( __( 'Port assigned: %d' ), port ) );
 
 		const siteName = options.name || path.basename( sitePath );
 		const siteId = crypto.randomUUID();
@@ -267,8 +269,8 @@ export async function runCommand(
 			await setupCustomDomain( siteDetails, logger );
 
 			const startMessage = blueprint
-				? __( 'Starting WordPress site and applying blueprint…' )
-				: __( 'Starting WordPress site…' );
+				? __( 'Starting WordPress server and applying Blueprint…' )
+				: __( 'Starting WordPress server…' );
 			logger.reportStart( LoggerAction.START_SITE, startMessage );
 			try {
 				const processDesc = await startWordPressServer( siteDetails, logger, {
@@ -276,7 +278,7 @@ export async function runCommand(
 					blueprint,
 					blueprintUri,
 				} );
-				logger.reportSuccess( __( 'WordPress site started' ) );
+				logger.reportSuccess( __( 'WordPress server started' ) );
 
 				if ( processDesc.pid ) {
 					await updateSiteLatestCliPid( siteDetails.id, processDesc.pid );
@@ -288,7 +290,9 @@ export async function runCommand(
 					? `${ siteDetails.enableHttps ? 'https' : 'http' }://${ siteDetails.customDomain }`
 					: `http://localhost:${ siteDetails.port }`;
 
-				logSiteDetails( siteDetails );
+				if ( ! options.skipLogDetails ) {
+					logSiteDetails( siteDetails );
+				}
 				if ( ! options.skipBrowser ) {
 					await openSiteInBrowser( siteDetails );
 				}
@@ -305,7 +309,7 @@ export async function runCommand(
 				await connect();
 				logger.reportSuccess( __( 'Process daemon started' ) );
 
-				logger.reportStart( LoggerAction.START_SITE, __( 'Applying blueprint…' ) );
+				logger.reportStart( LoggerAction.START_SITE, __( 'Applying Blueprint…' ) );
 				try {
 					await runBlueprint( siteDetails, logger, {
 						wpVersion: options.wpVersion,
@@ -318,13 +322,15 @@ export async function runCommand(
 					if ( ! isWordPressDirResult ) {
 						await fs.promises.rm( sitePath, { recursive: true, force: true } );
 					}
-					throw new LoggerError( __( 'Failed to apply blueprint' ), error );
+					throw new LoggerError( __( 'Failed to apply Blueprint' ), error );
 				}
 			}
 			console.log( '' );
 			console.log( __( 'Site created successfully!' ) );
 			console.log( '' );
-			logSiteDetails( siteDetails );
+			if ( ! options.skipLogDetails ) {
+				logSiteDetails( siteDetails );
+			}
 			console.log( __( 'Run "studio site start" to start the site.' ) );
 		}
 
@@ -332,7 +338,7 @@ export async function runCommand(
 		logger.reportKeyValuePair( 'running', String( siteDetails.running ) );
 		await emitSiteEvent( SITE_EVENTS.CREATED, { siteId: siteDetails.id } );
 	} finally {
-		disconnect();
+		await disconnect();
 	}
 }
 
@@ -340,13 +346,13 @@ async function fetchBlueprint( url: string ) {
 	const res = await fetch( url );
 
 	if ( ! res.ok ) {
-		throw new LoggerError( __( 'Failed to fetch blueprint' ) );
+		throw new LoggerError( __( 'Failed to fetch Blueprint' ) );
 	}
 
 	try {
 		return await res.json();
 	} catch ( error ) {
-		throw new LoggerError( __( 'Failed to parse blueprint JSON' ), error );
+		throw new LoggerError( __( 'Failed to parse Blueprint JSON' ), error );
 	}
 }
 
@@ -360,7 +366,7 @@ function readBlueprint( blueprintPath: string ) {
 		return JSON.parse( blueprintContent );
 	} catch ( error ) {
 		throw new LoggerError(
-			sprintf( __( 'Failed to parse blueprint JSON file: %s' ), blueprintPath ),
+			sprintf( __( 'Failed to parse Blueprint JSON file: %s' ), blueprintPath ),
 			error
 		);
 	}
@@ -391,7 +397,7 @@ function coerceWpVersion( value: string ) {
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'create',
-		describe: __( 'Create a new local site' ),
+		describe: __( 'Create a new site' ),
 		builder: ( yargs ) => {
 			return yargs
 				.option( 'name', {
@@ -421,7 +427,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'blueprint', {
 					type: 'string',
-					describe: __( 'Path or URL to blueprint JSON file' ),
+					describe: __( 'Path or URL to Blueprint JSON file' ),
 				} )
 				.option( 'start', {
 					type: 'boolean',
@@ -430,7 +436,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'skip-browser', {
 					type: 'boolean',
-					describe: __( 'Do not open browser after starting' ),
+					describe: __( 'Skip opening the site in browser after starting' ),
+					default: false,
+				} )
+				.option( 'skip-log-details', {
+					type: 'boolean',
+					describe: __( 'Skip logging default wp-admin user details after starting' ),
 					default: false,
 				} );
 		},
@@ -443,6 +454,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				enableHttps: !! argv.https,
 				noStart: ! argv.start,
 				skipBrowser: !! argv.skipBrowser,
+				skipLogDetails: !! argv.skipLogDetails,
 			};
 
 			if ( argv.blueprint ) {

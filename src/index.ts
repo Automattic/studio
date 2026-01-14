@@ -57,7 +57,7 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
-import { setupUpdates } from 'src/updates';
+import { getAutoUpdaterState, setupUpdates } from 'src/updates';
 // eslint-disable-next-line import/order
 import packageJson from '../package.json';
 
@@ -359,9 +359,10 @@ async function appBoot() {
 
 		await renameLaunchUniquesStat();
 
-		await createMainWindow();
 		await startUserDataWatcher();
 		startCliEventsSubscriber();
+
+		await createMainWindow();
 
 		const userData = await loadUserData();
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
@@ -401,12 +402,14 @@ async function appBoot() {
 		}
 	} );
 
-	app.on( 'will-quit', () => {
-		globalShortcut.unregisterAll();
-	} );
-
-	let isQuittingConfirmed = false;
+	/**
+	 * We want to stop all running sites (including the process daemon) in any of these cases:
+	 * - There's a pending auto-update
+	 * - There are no running sites (in which case we kill just the daemon)
+	 * - There are running sites, and the user has confirmed they want to stop them upon closing the app
+	 */
 	let shouldStopSitesOnQuit = true;
+	let isQuittingConfirmed = false;
 
 	app.on( 'before-quit', ( event ) => {
 		if ( isQuittingConfirmed ) {
@@ -450,7 +453,7 @@ async function appBoot() {
 		}
 
 		const runningSiteCount = getRunningSiteCount();
-		if ( runningSiteCount > 0 ) {
+		if ( getAutoUpdaterState() !== 'waiting-for-restart' && runningSiteCount > 0 ) {
 			event.preventDefault();
 
 			void ( async () => {
@@ -509,12 +512,21 @@ async function appBoot() {
 		}
 	} );
 
-	app.on( 'quit', () => {
-		if ( shouldStopSitesOnQuit ) {
-			void stopAllServersOnQuit();
-		}
+	app.on( 'will-quit', ( event ) => {
+		globalShortcut.unregisterAll();
 		stopUserDataWatcher();
 		stopCliEventsSubscriber();
+
+		if ( shouldStopSitesOnQuit ) {
+			event.preventDefault();
+			stopAllServersOnQuit()
+				.then( () => {
+					app.exit();
+				} )
+				.catch( () => {
+					app.exit();
+				} );
+		}
 	} );
 
 	app.on( 'activate', () => {

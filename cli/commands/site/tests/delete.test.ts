@@ -140,7 +140,7 @@ describe( 'CLI: studio site delete', () => {
 			} );
 
 			await expect( runCommand( testSiteFolder ) ).rejects.toThrow(
-				'The specified folder is not added to Studio.'
+				'The specified directory is not added to Studio.'
 			);
 			expect( disconnect ).toHaveBeenCalled();
 		} );

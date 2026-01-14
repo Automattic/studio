@@ -60,8 +60,9 @@ export function useRemoteFileTree() {
 
 				return result.children;
 			} catch ( err ) {
-				console.error( 'Failed to fetch remote file tree:', err );
-				return [];
+				const errorMessage =
+					err instanceof Error ? err.message : 'Failed to fetch remote file tree';
+				throw new Error( errorMessage );
 			}
 		},
 		[ client, dispatch ]

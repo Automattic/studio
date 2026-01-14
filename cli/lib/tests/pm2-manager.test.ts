@@ -44,9 +44,12 @@ describe( 'PM2 Manager', () => {
 
 			const { connect } = await import( '../pm2-manager' );
 			const connectPromise = connect();
-			jest.advanceTimersByTime( 10000 );
 
-			await expect( connectPromise ).rejects.toThrow( 'PM2 connection timeout after 10 seconds' );
+			const expectation = expect( connectPromise ).rejects.toThrow(
+				'PM2 connection timeout after 10 seconds'
+			);
+			await jest.advanceTimersByTimeAsync( 10000 );
+			await expectation;
 
 			jest.useRealTimers();
 		} );
@@ -150,8 +153,17 @@ describe( 'PM2 Manager', () => {
 
 	describe( 'isProcessRunning() - process discovery and filtering', () => {
 		it( 'should return undefined when not connected', async () => {
-			const { isProcessRunning, disconnect } = await import( '../pm2-manager' );
-			disconnect();
+			mockPm2Instance.disconnect.mockImplementation( ( callback ) => {
+				callback( null );
+			} );
+			mockPm2Instance.connect.mockImplementation( ( callback ) => {
+				callback( null );
+			} );
+
+			const { isProcessRunning, connect, disconnect } = await import( '../pm2-manager' );
+
+			await connect();
+			await disconnect();
 
 			const result = await isProcessRunning( 'app' );
 

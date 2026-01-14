@@ -38,9 +38,7 @@ export abstract class SqliteIntegrationProvider {
 
 	async installSqliteIntegration( sitePath: string ): Promise< void > {
 		if ( ! ( await this.isSqliteIntegrationAvailable() ) ) {
-			throw new Error(
-				'SQLite integration files not found. Please ensure Studio Desktop is installed.'
-			);
+			throw new Error( 'SQLite integration files not found. Please ensure Studio is installed.' );
 		}
 
 		const wpContentPath = path.join( sitePath, 'wp-content' );

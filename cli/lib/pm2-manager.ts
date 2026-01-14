@@ -1,6 +1,8 @@
 import os from 'os';
 import path from 'path';
+import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/constants';
 import { cacheFunctionTTL } from 'common/lib/cache-function-ttl';
+import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
 import { custom as PM2, StartOptions } from 'pm2';
 import { getAppdataPath } from 'cli/lib/appdata';
 import { ProcessDescription } from 'cli/lib/types/pm2';
@@ -12,11 +14,13 @@ import {
 
 const PM2_STATUS_ONLINE = 'online';
 const PROXY_PROCESS_NAME = 'studio-proxy';
-const DAEMON_TIMEOUT = 10000;
+const CONNECTION_TIMEOUT = 10_000;
+const KILL_TIMEOUT = 25_000;
 
 // Set consistent PM2 home directory for Studio CLI
 // This ensures all Studio CLI commands use the same PM2 daemon
 const STUDIO_PM2_HOME = path.join( os.homedir(), '.studio', 'pm2' );
+const PM2_LOCKFILE_PATH = path.join( STUDIO_PM2_HOME, 'pm2-connection.lock' );
 
 export interface ProcessEventData {
 	processName: string;
@@ -32,14 +36,19 @@ export async function connect(): Promise< void > {
 		return;
 	}
 
-	return new Promise( ( resolve, reject ) => {
+	await lockFileAsync( PM2_LOCKFILE_PATH, {
+		wait: LOCKFILE_WAIT_TIME,
+		stale: LOCKFILE_STALE_TIME,
+	} );
+
+	return new Promise< void >( ( resolve, reject ) => {
 		const timeout = setTimeout( () => {
 			reject(
 				new Error(
 					'PM2 connection timeout after 10 seconds. Try running: PM2_HOME=~/.studio/pm2 pm2 update'
 				)
 			);
-		}, DAEMON_TIMEOUT );
+		}, CONNECTION_TIMEOUT );
 
 		pm2.connect( ( error ) => {
 			clearTimeout( timeout );
@@ -50,14 +59,52 @@ export async function connect(): Promise< void > {
 			isConnected = true;
 			resolve();
 		} );
+	} ).finally( () => {
+		return unlockFileAsync( PM2_LOCKFILE_PATH );
 	} );
 }
 
-export function disconnect(): void {
-	if ( isConnected ) {
-		pm2.disconnect();
-		isConnected = false;
+export async function disconnect(): Promise< void > {
+	if ( ! isConnected ) {
+		return;
 	}
+
+	return new Promise< void >( ( resolve, reject ) => {
+		const timeout = setTimeout( () => {
+			reject( new Error( 'Timeout after 10 seconds trying to disconnect from PM2' ) );
+		}, CONNECTION_TIMEOUT );
+
+		pm2.disconnect( ( error ) => {
+			clearTimeout( timeout );
+			if ( error ) {
+				reject( error );
+				return;
+			}
+			isConnected = false;
+			resolve();
+		} );
+	} );
+}
+
+export async function killDaemonAndAllChildren() {
+	return new Promise< void >( ( resolve, reject ) => {
+		const timeout = setTimeout( () => {
+			reject(
+				new Error(
+					'PM2 kill timeout after 25 seconds. Try running: PM2_HOME=~/.studio/pm2 pm2 kill'
+				)
+			);
+		}, KILL_TIMEOUT );
+
+		pm2.killDaemon( ( error ) => {
+			clearTimeout( timeout );
+			if ( error ) {
+				reject( error );
+				return;
+			}
+			resolve();
+		} );
+	} );
 }
 
 // Cache the return value of `pm2.list` for a very short time to make multiple calls in quick
@@ -283,6 +330,16 @@ export async function subscribeProcessMessages(
 
 	return () => {
 		bus.off( 'process:msg', messageHandler );
+	};
+}
+
+export async function subscribePm2KillEvent( handler: () => void ) {
+	const bus = await getPm2Bus();
+
+	bus.on( 'pm2:kill', handler );
+
+	return () => {
+		bus.off( 'pm2:kill', handler );
 	};
 }
 

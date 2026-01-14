@@ -3,6 +3,8 @@ import { useCallback } from 'react';
 import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useAppDispatch } from 'src/stores';
+import { openAddSiteModal } from 'src/stores/ui-slice';
 import { Blueprint } from 'src/stores/wpcom-api';
 
 type BlueprintMetadata = {
@@ -12,7 +14,6 @@ type BlueprintMetadata = {
 
 interface UseBlueprintDeeplinkOptions {
 	isAnySiteProcessing: boolean;
-	openModal: () => void;
 	setSelectedBlueprint: ( blueprint?: Blueprint ) => void;
 	setPhpVersion: ( version: string ) => void;
 	setWpVersion: ( version: string ) => void;
@@ -23,9 +24,9 @@ interface UseBlueprintDeeplinkOptions {
 
 export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): void {
 	const { __ } = useI18n();
+	const dispatch = useAppDispatch();
 	const {
 		isAnySiteProcessing,
-		openModal,
 		setSelectedBlueprint,
 		setPhpVersion,
 		setWpVersion,
@@ -98,10 +99,10 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 				setSelectedBlueprint( fileBlueprint );
 				applyPreferredVersions( blueprintJson );
 				setBlueprintDeeplinkWarnings( warnings );
-				openModal();
+				dispatch( openAddSiteModal() );
 				navigateToBlueprintDeeplink();
 			} catch ( error ) {
-				console.error( 'Failed to load blueprint from URL:', error );
+				console.error( 'Failed to load Blueprint from URL:', error );
 			}
 		},
 		[
@@ -111,7 +112,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 			setSelectedBlueprint,
 			applyPreferredVersions,
 			setBlueprintDeeplinkWarnings,
-			openModal,
+			dispatch,
 			navigateToBlueprintDeeplink,
 		]
 	);

@@ -1,5 +1,5 @@
 diff --git a/node_modules/pm2/types/index.d.ts b/node_modules/pm2/types/index.d.ts
-index 77280f5..887f710 100644
+index 77280f5..092273a 100644
 --- a/node_modules/pm2/types/index.d.ts
 +++ b/node_modules/pm2/types/index.d.ts
 @@ -3,316 +3,384 @@
@@ -131,7 +131,7 @@ index 77280f5..887f710 100644
 +  /**
 +   * Disconnects from the pm2 daemon.
 +   */
-+  disconnect(): void;
++  disconnect(errback: ErrProcCallback): void;
  
 -/**
 - * Stops and restarts the process.

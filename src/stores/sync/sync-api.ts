@@ -110,11 +110,18 @@ export const fetchRemoteFileTree = createAsyncThunk(
 			path,
 		};
 
-		const rawResponse = await client.req.post( {
-			path: `/sites/${ remoteSiteId }/rewind/backup/ls`,
-			apiNamespace: 'wpcom/v2',
-			body: requestBody,
-		} );
+		let rawResponse;
+		try {
+			rawResponse = await client.req.post( {
+				path: `/sites/${ remoteSiteId }/rewind/backup/ls`,
+				apiNamespace: 'wpcom/v2',
+				body: requestBody,
+			} );
+		} catch ( err ) {
+			const errorMessage =
+				err instanceof Error ? err.message : 'Network error while fetching remote file tree';
+			throw new Error( errorMessage );
+		}
 
 		const validationResult = BackupLsResponseSchema.shape.body.safeParse( rawResponse );
 		if ( ! validationResult.success ) {

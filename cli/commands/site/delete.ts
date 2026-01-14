@@ -66,19 +66,19 @@ export async function runCommand(
 	deleteFiles: boolean = false
 ): Promise< void > {
 	try {
-		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
-		const site = await getSiteByFolder( siteFolder );
-		logger.reportSuccess( __( 'Site loaded' ) );
-
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connect();
 		logger.reportSuccess( __( 'Process daemon started' ) );
 
+		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
+		const site = await getSiteByFolder( siteFolder );
+		logger.reportSuccess( __( 'Site loaded' ) );
+
 		const runningProcess = await isServerRunning( site.id );
 		if ( runningProcess ) {
-			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress site…' ) );
+			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress server…' ) );
 			await stopWordPressServer( site.id );
-			logger.reportSuccess( __( 'WordPress site stopped' ) );
+			logger.reportSuccess( __( 'WordPress server stopped' ) );
 			await stopProxyIfNoSitesNeedIt( site.id, logger );
 		}
 
@@ -109,7 +109,7 @@ export async function runCommand(
 			const appdata = await readAppdata();
 			const siteIndex = appdata.sites.findIndex( ( s ) => arePathsEqual( s.path, siteFolder ) );
 			if ( siteIndex === -1 ) {
-				throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );
+				throw new LoggerError( __( 'The specified directory is not added to Studio.' ) );
 			}
 			appdata.sites.splice( siteIndex, 1 );
 			await saveAppdata( appdata );
@@ -129,14 +129,14 @@ export async function runCommand(
 
 		await emitSiteEvent( SITE_EVENTS.DELETED, { siteId: site.id } );
 	} finally {
-		disconnect();
+		await disconnect();
 	}
 }
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'delete',
-		describe: __( 'Delete local site' ),
+		describe: __( 'Delete site' ),
 		builder: ( yargs ) => {
 			return yargs.option( 'files', {
 				type: 'boolean',

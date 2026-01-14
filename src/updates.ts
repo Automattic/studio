@@ -22,6 +22,10 @@ let showManualCheckDialogs = false;
 const shouldPoll =
 	process.env.NODE_ENV === 'production' && app.isPackaged && ! isDevRelease( app.getVersion() );
 
+export function getAutoUpdaterState() {
+	return updaterState;
+}
+
 export function setupUpdates() {
 	if ( process.env.E2E ) {
 		console.log( 'Skipping update server setup in E2E tests' );

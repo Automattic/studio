@@ -36,12 +36,12 @@ export function StudioCliToggle( { value, onChange }: StudioCLIToggleProps ) {
 							: createInterpolateElement(
 									sprintf(
 										/* translators: %s is the name of the WordPress Studio CLI command ("studio") */
-										__( 'Enable the <code>%s</code> command in the terminal. <learn-more-link />' ),
+										__( 'Enable the <code>%s</code> command in the terminal. <learn_more_link />' ),
 										'studio'
 									),
 									{
 										code: <code />,
-										'learn-more-link': <LearnMoreLink docsLinksKey="docsCli" />,
+										learn_more_link: <LearnMoreLink docsLinksKey="docsCli" />,
 									}
 							  ) }
 					</label>

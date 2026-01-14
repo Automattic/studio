@@ -45,6 +45,7 @@ const SYNC_ABORT_CONTROLLERS = new Map< string, AbortController >();
 type UploadState = {
 	upload: Upload;
 	isManuallyPaused: boolean;
+	abortController: AbortController;
 };
 
 const SYNC_TUS_UPLOADS = new Map< string, UploadState >();
@@ -111,6 +112,13 @@ export function cancelSyncOperation( event: IpcMainInvokeEvent, id: string ) {
 		abortController.abort();
 		SYNC_ABORT_CONTROLLERS.delete( id );
 	}
+
+	const uploadState = SYNC_TUS_UPLOADS.get( id );
+	if ( uploadState ) {
+		uploadState.abortController.abort();
+		SYNC_TUS_UPLOADS.delete( id );
+	}
+
 	ACTIVE_SYNC_OPERATIONS.delete( id );
 }
 
@@ -227,6 +235,7 @@ export async function pushArchive(
 	const fileSize = fs.statSync( archivePath ).size;
 	const filename = path.basename( archivePath );
 
+	const abortController = new AbortController();
 	const uploadKey = `${ selectedSiteId }-${ remoteSiteId }`;
 
 	const attachmentPromise = new Promise< string >( ( resolve, reject ) => {
@@ -319,9 +328,20 @@ export async function pushArchive(
 			},
 		} );
 
+		abortController.signal.addEventListener( 'abort', () => {
+			void upload.abort();
+			reject( new Error( 'Upload Aborted' ) );
+		} );
+
+		const existingUploadState = SYNC_TUS_UPLOADS.get( uploadKey );
+		if ( existingUploadState ) {
+			SYNC_TUS_UPLOADS.delete( uploadKey );
+		}
+
 		SYNC_TUS_UPLOADS.set( uploadKey, {
 			upload,
 			isManuallyPaused: false,
+			abortController,
 		} );
 
 		upload.start();
@@ -331,11 +351,8 @@ export async function pushArchive(
 		file.close();
 	} );
 
-	const attachmentId = await attachmentPromise;
 	const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
-	const formData: [ string, unknown, Record< string, string >? ][] = [
-		[ 'import_attachment_id', attachmentId ],
-	];
+	const formData: [ string, unknown, Record< string, string >? ][] = [];
 
 	if ( specificSelectionPaths && specificSelectionPaths.length > 0 ) {
 		const joinedPaths = specificSelectionPaths.join( ',' );
@@ -347,6 +364,9 @@ export async function pushArchive(
 	}
 
 	try {
+		const attachmentId = await attachmentPromise;
+		formData.push( [ 'import_attachment_id', attachmentId ] );
+
 		await wpcom.req.post( {
 			path: `/sites/${ remoteSiteId }/studio-app/sync/import/initiate`,
 			apiNamespace: 'wpcom/v2',

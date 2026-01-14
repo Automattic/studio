@@ -510,13 +510,20 @@ async function appBoot() {
 		}
 	} );
 
-	app.on( 'will-quit', () => {
+	app.on( 'will-quit', ( event ) => {
 		globalShortcut.unregisterAll();
 		stopUserDataWatcher();
 		stopSiteWatcher();
 
 		if ( shouldStopSitesOnQuit ) {
-			void stopAllServersOnQuit();
+			event.preventDefault();
+			stopAllServersOnQuit()
+				.then( () => {
+					app.exit();
+				} )
+				.catch( () => {
+					app.exit();
+				} );
 		}
 	} );
 

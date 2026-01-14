@@ -30,7 +30,3 @@ export async function installSqliteIntegration( sitePath: string ) {
 export async function keepSqliteIntegrationUpdated( sitePath: string ) {
 	return provider.keepSqliteIntegrationUpdated( sitePath );
 }
-
-export async function isSqliteInstalled( sitePath: string ) {
-	return provider.isSqliteInstalled( sitePath );
-}

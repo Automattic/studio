@@ -162,16 +162,29 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 						wordPressFrame = findWordPressFrame( page );
 					} else if ( isLocalPlaygroundCli ) {
 						// For local Playground CLI: navigate directly to wp-admin
+						// Note: Playground CLI may redirect, so we follow redirects
 						await page.goto( `${ wpAdminUrl }/wp-admin`, {
-							waitUntil: 'networkidle',
+							waitUntil: 'domcontentloaded',
+							timeout: 120_000,
 						} );
-						await page.getByRole( 'link', { name: 'Appearance' } ).waitFor( { timeout: 30_000 } );
+						// Wait for page to settle and Appearance link to appear
+						await page.waitForLoadState( 'networkidle', { timeout: 30_000 } ).catch( () => {} );
+						await page.getByRole( 'link', { name: 'Appearance' } ).waitFor( {
+							state: 'visible',
+							timeout: 60_000,
+						} );
 					} else {
 						// For Studio: use auto-login endpoint
 						await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/wp-admin` ), {
-							waitUntil: 'networkidle',
+							waitUntil: 'domcontentloaded',
+							timeout: 120_000,
 						} );
-						await page.getByRole( 'link', { name: 'Appearance' } ).waitFor( { timeout: 30_000 } );
+						// Wait for page to settle and Appearance link to appear
+						await page.waitForLoadState( 'networkidle', { timeout: 30_000 } ).catch( () => {} );
+						await page.getByRole( 'link', { name: 'Appearance' } ).waitFor( {
+							state: 'visible',
+							timeout: 60_000,
+						} );
 					}
 
 					// Get the target for interactions

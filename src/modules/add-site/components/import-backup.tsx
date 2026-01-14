@@ -13,7 +13,6 @@ import { ErrorIcon } from 'src/components/error-icon';
 import { LearnMoreLink } from 'src/components/learn-more';
 import { ACCEPTED_IMPORT_FILE_TYPES } from 'src/constants';
 import { cx } from 'src/lib/cx';
-import { useI18nLocale } from 'src/stores';
 
 const formatFileSize = ( bytes: number ) => {
 	if ( bytes === 0 ) return '0 Bytes';
@@ -54,7 +53,6 @@ export default function ImportBackup( {
 	selectedFile: initialFile,
 }: ImportBackupProps ) {
 	const { __ } = useI18n();
-	const locale = useI18nLocale();
 	const [ isDragging, setIsDragging ] = useState( false );
 	const [ selectedFile, setSelectedFile ] = useState< File | null >( initialFile || null );
 	const [ fileError, setFileError ] = useState< string | null >( null );

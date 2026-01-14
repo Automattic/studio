@@ -19,19 +19,13 @@ describe( 'useBlueprintDeeplink', () => {
 	const mockSetBlueprintPreferredVersions = jest.fn();
 	const mockSetBlueprintDeeplinkWarnings = jest.fn();
 	const mockSetIsDeeplinkFlow = jest.fn();
+	let ipcCallback: ( event: unknown, data: unknown ) => Promise< void >;
 
-	beforeEach( () => {
-		jest.clearAllMocks();
-		jest.mocked( getIpcApi ).mockReturnValue( {
-			readBlueprintFile: jest.fn(),
-		} as Partial< ReturnType< typeof getIpcApi > > as ReturnType< typeof getIpcApi > );
-	} );
-
-	it( 'should register IPC listener for add-site-with-blueprint event', () => {
-		renderHook(
+	const renderBlueprintDeeplinkHook = ( isAnySiteProcessing = false ) => {
+		return renderHook(
 			() =>
 				useBlueprintDeeplink( {
-					isAnySiteProcessing: false,
+					isAnySiteProcessing,
 					setSelectedBlueprint: mockSetSelectedBlueprint,
 					setPhpVersion: mockSetPhpVersion,
 					setWpVersion: mockSetWpVersion,
@@ -41,6 +35,23 @@ describe( 'useBlueprintDeeplink', () => {
 				} ),
 			{ wrapper }
 		);
+	};
+
+	beforeEach( () => {
+		jest.clearAllMocks();
+		jest.mocked( getIpcApi ).mockReturnValue( {
+			readBlueprintFile: jest.fn(),
+		} as Partial< ReturnType< typeof getIpcApi > > as ReturnType< typeof getIpcApi > );
+
+		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+			if ( event === 'add-site-with-blueprint' ) {
+				ipcCallback = callback;
+			}
+		} );
+	} );
+
+	it( 'should register IPC listener for add-site-with-blueprint event', () => {
+		renderBlueprintDeeplinkHook();
 
 		expect( useIpcListener ).toHaveBeenCalledWith(
 			'add-site-with-blueprint',
@@ -59,26 +70,7 @@ describe( 'useBlueprintDeeplink', () => {
 			readBlueprintFile: mockReadBlueprintFile,
 		} );
 
-		let ipcCallback: ( event: unknown, data: unknown ) => Promise< void >;
-		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
-			if ( event === 'add-site-with-blueprint' ) {
-				ipcCallback = callback;
-			}
-		} );
-
-		renderHook(
-			() =>
-				useBlueprintDeeplink( {
-					isAnySiteProcessing: false,
-					setSelectedBlueprint: mockSetSelectedBlueprint,
-					setPhpVersion: mockSetPhpVersion,
-					setWpVersion: mockSetWpVersion,
-					setBlueprintPreferredVersions: mockSetBlueprintPreferredVersions,
-					setBlueprintDeeplinkWarnings: mockSetBlueprintDeeplinkWarnings,
-					setIsDeeplinkFlow: mockSetIsDeeplinkFlow,
-				} ),
-			{ wrapper }
-		);
+		renderBlueprintDeeplinkHook();
 
 		await act( async () => {
 			await ipcCallback!( null, {
@@ -114,26 +106,7 @@ describe( 'useBlueprintDeeplink', () => {
 			readBlueprintFile: mockReadBlueprintFile,
 		} );
 
-		let ipcCallback: ( event: unknown, data: unknown ) => Promise< void >;
-		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
-			if ( event === 'add-site-with-blueprint' ) {
-				ipcCallback = callback;
-			}
-		} );
-
-		renderHook(
-			() =>
-				useBlueprintDeeplink( {
-					isAnySiteProcessing: false,
-					setSelectedBlueprint: mockSetSelectedBlueprint,
-					setPhpVersion: mockSetPhpVersion,
-					setWpVersion: mockSetWpVersion,
-					setBlueprintPreferredVersions: mockSetBlueprintPreferredVersions,
-					setBlueprintDeeplinkWarnings: mockSetBlueprintDeeplinkWarnings,
-					setIsDeeplinkFlow: mockSetIsDeeplinkFlow,
-				} ),
-			{ wrapper }
-		);
+		renderBlueprintDeeplinkHook();
 
 		await act( async () => {
 			await ipcCallback!( null, {
@@ -164,26 +137,7 @@ describe( 'useBlueprintDeeplink', () => {
 			readBlueprintFile: mockReadBlueprintFile,
 		} );
 
-		let ipcCallback: ( event: unknown, data: unknown ) => Promise< void >;
-		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
-			if ( event === 'add-site-with-blueprint' ) {
-				ipcCallback = callback;
-			}
-		} );
-
-		renderHook(
-			() =>
-				useBlueprintDeeplink( {
-					isAnySiteProcessing: false,
-					setSelectedBlueprint: mockSetSelectedBlueprint,
-					setPhpVersion: mockSetPhpVersion,
-					setWpVersion: mockSetWpVersion,
-					setBlueprintPreferredVersions: mockSetBlueprintPreferredVersions,
-					setBlueprintDeeplinkWarnings: mockSetBlueprintDeeplinkWarnings,
-					setIsDeeplinkFlow: mockSetIsDeeplinkFlow,
-				} ),
-			{ wrapper }
-		);
+		renderBlueprintDeeplinkHook();
 
 		await act( async () => {
 			await ipcCallback!( null, {
@@ -206,26 +160,7 @@ describe( 'useBlueprintDeeplink', () => {
 			readBlueprintFile: mockReadBlueprintFile,
 		} );
 
-		let ipcCallback: ( event: unknown, data: unknown ) => Promise< void >;
-		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
-			if ( event === 'add-site-with-blueprint' ) {
-				ipcCallback = callback;
-			}
-		} );
-
-		renderHook(
-			() =>
-				useBlueprintDeeplink( {
-					isAnySiteProcessing: true, // Site is processing
-					setSelectedBlueprint: mockSetSelectedBlueprint,
-					setPhpVersion: mockSetPhpVersion,
-					setWpVersion: mockSetWpVersion,
-					setBlueprintPreferredVersions: mockSetBlueprintPreferredVersions,
-					setBlueprintDeeplinkWarnings: mockSetBlueprintDeeplinkWarnings,
-					setIsDeeplinkFlow: mockSetIsDeeplinkFlow,
-				} ),
-			{ wrapper }
-		);
+		renderBlueprintDeeplinkHook( true );
 
 		await act( async () => {
 			await ipcCallback!( null, {

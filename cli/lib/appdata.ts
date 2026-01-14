@@ -27,13 +27,13 @@ const siteSchema = z
 		url: z.string().optional(),
 		latestCliPid: z.number().optional(),
 	} )
-	.passthrough();
+	.loose();
 
 const betaFeaturesSchema = z
 	.object( {
 		studioSitesCli: z.boolean().optional(),
 	} )
-	.passthrough();
+	.loose();
 
 const userDataSchema = z
 	.object( {
@@ -49,12 +49,12 @@ const userDataSchema = z
 				email: z.string(),
 				displayName: z.string().default( '' ),
 			} )
-			.passthrough()
+			.loose()
 			.optional(),
 		lastBumpStats: z.record( z.string(), z.record( z.string(), z.number() ) ).optional(),
 		betaFeatures: betaFeaturesSchema.optional(),
 	} )
-	.passthrough();
+	.loose();
 
 type UserData = z.infer< typeof userDataSchema >;
 export type SiteData = z.infer< typeof siteSchema >;

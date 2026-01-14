@@ -15,8 +15,9 @@ import {
 	selectDefaultWordPressVersion,
 } from 'src/stores/provider-constants-slice';
 import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
+import { Blueprint } from 'src/stores/wpcom-api';
+import type { BlueprintPreferredVersions } from 'common/lib/blueprint-validation';
 import type { SyncSite } from 'src/modules/sync/types';
-import type { Blueprint } from 'src/stores/wpcom-api';
 import type { SyncOption } from 'src/types';
 
 /**
@@ -57,7 +58,7 @@ export function useAddSite() {
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< Blueprint | undefined >();
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | undefined >();
 	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
-		{ php?: string; wp?: string } | undefined
+		BlueprintPreferredVersions | undefined
 	>();
 	const [ blueprintDeeplinkWarnings, setBlueprintDeeplinkWarnings ] = useState<
 		BlueprintValidationWarning[] | undefined

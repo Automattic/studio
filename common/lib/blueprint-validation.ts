@@ -64,6 +64,11 @@ function getUnsupportedFeatureInfo( name: string ): UnsupportedFeature | undefin
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type BlueprintData = Record< string, any >;
 
+export type BlueprintPreferredVersions = {
+	php?: string;
+	wp?: string;
+};
+
 export function scanBlueprintForUnsupportedFeatures(
 	blueprint: BlueprintData
 ): UnsupportedFeature[] {

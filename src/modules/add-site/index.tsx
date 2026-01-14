@@ -3,6 +3,7 @@ import { Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BlueprintPreferredVersions } from 'common/lib/blueprint-validation';
 import Button from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite, CreateSiteFormValues } from 'src/hooks/use-add-site';
@@ -61,8 +62,8 @@ interface NavigationContentProps {
 	setFileForImport: ( file: File | null ) => void;
 	setSelectedBlueprint: ( blueprint?: Blueprint ) => void;
 	selectedBlueprint?: Blueprint;
-	blueprintPreferredVersions?: { php?: string; wp?: string };
-	setBlueprintPreferredVersions?: ( versions: { php?: string; wp?: string } | undefined ) => void;
+	blueprintPreferredVersions?: BlueprintPreferredVersions;
+	setBlueprintPreferredVersions?: ( versions: BlueprintPreferredVersions | undefined ) => void;
 	blueprintDeeplinkWarnings?: import('common/lib/blueprint-validation').BlueprintValidationWarning[];
 	selectedRemoteSite?: SyncSite;
 	setSelectedRemoteSite: ( site?: SyncSite ) => void;
@@ -206,9 +207,7 @@ function NavigationContent( props: NavigationContentProps ) {
 			);
 			setSelectedBlueprint( blueprint );
 			if ( blueprint?.blueprint?.preferredVersions ) {
-				setBlueprintPreferredVersions?.(
-					blueprint.blueprint.preferredVersions as { php?: string; wp?: string }
-				);
+				setBlueprintPreferredVersions?.( blueprint.blueprint.preferredVersions );
 			} else {
 				setBlueprintPreferredVersions?.( undefined );
 			}
@@ -220,9 +219,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		( blueprint: Blueprint ) => {
 			setSelectedBlueprint( blueprint );
 			if ( blueprint?.blueprint?.preferredVersions ) {
-				setBlueprintPreferredVersions?.(
-					blueprint.blueprint.preferredVersions as { php?: string; wp?: string }
-				);
+				setBlueprintPreferredVersions?.( blueprint.blueprint.preferredVersions );
 			} else {
 				setBlueprintPreferredVersions?.( undefined );
 			}

@@ -1,9 +1,9 @@
 import fs from 'fs';
 import { __ } from '@wordpress/i18n';
-import { LoggerError } from 'cli/logger';
 import wpcomFactory from 'src/lib/wpcom-factory';
 import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { z } from 'zod';
+import { LoggerError } from 'cli/logger';
 
 export enum SnapshotStatus {
 	Pending = '0',

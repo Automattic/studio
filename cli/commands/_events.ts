@@ -16,7 +16,6 @@ import {
 	disconnect,
 	getEventsRelayProcessName,
 	startEventsRelayProcess,
-	stopEventsRelayProcess,
 	subscribeProcessMessages,
 	subscribePm2KillEvent,
 } from 'cli/lib/pm2-manager';
@@ -80,42 +79,34 @@ export async function runCommand(): Promise< void > {
 	await emitAllSitesStatus();
 
 	const relayProcessName = getEventsRelayProcessName();
-	const unsubscribeProcessMessages = await subscribeProcessMessages(
-		async ( { processName, topic, data } ) => {
-			if ( processName !== relayProcessName ) {
-				return;
-			}
-			if ( LIFECYCLE_EVENTS.includes( topic ) ) {
-				const eventData = data as { data?: { siteId?: string } };
-				const siteId = eventData?.data?.siteId;
-				if ( siteId ) {
-					await emitSiteEvent( topic, siteId );
-				}
+	await subscribeProcessMessages( async ( { processName, topic, data } ) => {
+		if ( processName !== relayProcessName ) {
+			return;
+		}
+		if ( LIFECYCLE_EVENTS.includes( topic ) ) {
+			const eventData = data as { data?: { siteId?: string } };
+			const siteId = eventData?.data?.siteId;
+			if ( siteId ) {
+				await emitSiteEvent( topic, siteId );
 			}
 		}
-	);
+	} );
 
-	const unsubscribeSiteEvents = await subscribeSiteEvents(
+	await subscribeSiteEvents(
 		async ( { siteId, event } ) => {
 			await emitSiteEvent( event, siteId );
 		},
 		{ debounceMs: 100 }
 	);
 
-	const unsubscribePm2Kill = await subscribePm2KillEvent( () => {
+	await subscribePm2KillEvent( () => {
 		void emitAllSitesStopped();
 	} );
 
-	const cleanup = () => {
-		unsubscribeProcessMessages();
-		unsubscribeSiteEvents();
-		unsubscribePm2Kill();
-		// Exit immediately - PM2 cleanup will happen via the daemon
-		process.exit( 0 );
-	};
-
-	process.on( 'SIGINT', cleanup );
-	process.on( 'SIGTERM', cleanup );
+	// Match the old site list --watch pattern: just disconnect on signal
+	// and let the process exit naturally when all handles are released
+	process.on( 'SIGINT', disconnect );
+	process.on( 'SIGTERM', disconnect );
 }
 
 export const registerCommand = ( yargs: StudioArgv ) => {

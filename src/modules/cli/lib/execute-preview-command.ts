@@ -6,7 +6,7 @@ import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 
 const snapshotEventSchema = z.discriminatedUnion( 'action', [
 	z.object( {
-		action: z.nativeEnum( PreviewCommandLoggerAction ),
+		action: z.enum( PreviewCommandLoggerAction ),
 		status: z.enum( [ 'inprogress', 'fail', 'success' ] ),
 		message: z.string(),
 	} ),

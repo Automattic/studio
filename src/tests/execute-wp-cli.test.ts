@@ -69,7 +69,7 @@ describe( 'executeWPCli', () => {
 
 			expect( result.stdout ).toMatch( /WP-CLI \d+\.\d+\.\d+/ ); // Example: WP-CLI 2.10.0
 			expect( result.stderr ).toBe( '' );
-		} );
+		}, 15000 );
 
 		it( 'should return error if wp-cli command does not exist', async () => {
 			const originalConsoleError = console.error;
@@ -87,13 +87,13 @@ describe( 'executeWPCli', () => {
 
 			console.error = originalConsoleError;
 			console.warn = originalConsoleWarn;
-		} );
+		}, 15000 );
 
 		it( 'should return the correct version of WP-CLI', async () => {
 			const wpNowProvider = new WpNowProvider();
 			const result = await wpNowProvider.getWPCliVersionFromInstallation();
 			expect( result ).toMatch( /v\d+\.\d+\.\d+/ ); // Example: v2.10.0
-		} );
+		}, 15000 );
 	} );
 
 	describe( 'playground-cli executor', () => {

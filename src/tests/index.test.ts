@@ -92,8 +92,8 @@ describe( 'App initialization', () => {
 		} );
 	} );
 
-	it( 'should handle authentication deep links', () => {
-		jest.isolateModules( async () => {
+	it( 'should handle authentication deep links', async () => {
+		await jest.isolateModulesAsync( async () => {
 			const originalProcessPlatform = process.platform;
 			Object.defineProperty( process, 'platform', { value: 'darwin' } );
 

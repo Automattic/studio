@@ -6,6 +6,7 @@ import { SYNC_PUSH_SIZE_LIMIT_BYTES, SYNC_PUSH_SIZE_LIMIT_GB } from 'src/constan
 import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
+import { store } from 'src/stores';
 import { connectedSitesApi } from 'src/stores/sync/connected-sites';
 import type { SyncBackupState, PullStates } from 'src/hooks/sync-sites/use-sync-pull';
 import type { SyncPushState, PushStates } from 'src/hooks/sync-sites/use-sync-push';
@@ -86,6 +87,93 @@ const syncOperationsSlice = createSlice( {
 
 export const syncOperationsActions = syncOperationsSlice.actions;
 export const syncOperationsReducer = syncOperationsSlice.reducer;
+
+/**
+ * Keep upload progress in sync with the renderer store.
+ *
+ * The main process emits upload progress via IPC while streaming the push backup
+ * to WordPress.com (TUS). The UI expects `pushState.uploadProgress` to be updated
+ * so it can render "Uploading site (%d%)…" and, optionally, a smoother progress
+ * bar during the upload phase.
+ */
+const UPLOADING_BASE_PROGRESS = 40;
+const CREATING_REMOTE_BACKUP_PROGRESS = 50;
+
+function isUploadPhaseKey( key: SyncPushState[ 'status' ][ 'key' ] | undefined ) {
+	return key === 'creatingBackup' || key === 'uploading' || key === 'uploadingPaused';
+}
+
+window.ipcListener.subscribe( 'sync-upload-progress', ( _event, payload ) => {
+	const stateId = generateStateId( payload.selectedSiteId, payload.remoteSiteId );
+	const existing = store.getState().syncOperations.pushStates[ stateId ];
+	if ( ! existing || ! isUploadPhaseKey( existing.status?.key ) ) {
+		return;
+	}
+
+	const uploadProgress = Math.max( 0, Math.min( 100, payload.progress ) );
+	const uploadRange = CREATING_REMOTE_BACKUP_PROGRESS - UPLOADING_BASE_PROGRESS; // 10
+	const overallProgress = UPLOADING_BASE_PROGRESS + ( uploadProgress / 100 ) * uploadRange;
+
+	store.dispatch(
+		syncOperationsActions.updatePushState( {
+			selectedSiteId: payload.selectedSiteId,
+			remoteSiteId: payload.remoteSiteId,
+			state: {
+				uploadProgress,
+				status: {
+					...existing.status,
+					key: 'uploading',
+					progress: overallProgress,
+				},
+			},
+		} )
+	);
+} );
+
+window.ipcListener.subscribe( 'sync-upload-paused', ( _event, payload ) => {
+	const stateId = generateStateId( payload.selectedSiteId, payload.remoteSiteId );
+	const existing = store.getState().syncOperations.pushStates[ stateId ];
+	if ( ! existing || ! isUploadPhaseKey( existing.status?.key ) ) {
+		return;
+	}
+
+	store.dispatch(
+		syncOperationsActions.updatePushState( {
+			selectedSiteId: payload.selectedSiteId,
+			remoteSiteId: payload.remoteSiteId,
+			state: {
+				status: {
+					...existing.status,
+					key: 'uploadingPaused',
+					progress: 45,
+					message: __( 'Uploading paused' ),
+				},
+			},
+		} )
+	);
+} );
+
+window.ipcListener.subscribe( 'sync-upload-resumed', ( _event, payload ) => {
+	const stateId = generateStateId( payload.selectedSiteId, payload.remoteSiteId );
+	const existing = store.getState().syncOperations.pushStates[ stateId ];
+	if ( ! existing || ! isUploadPhaseKey( existing.status?.key ) ) {
+		return;
+	}
+
+	store.dispatch(
+		syncOperationsActions.updatePushState( {
+			selectedSiteId: payload.selectedSiteId,
+			remoteSiteId: payload.remoteSiteId,
+			state: {
+				status: {
+					...existing.status,
+					key: 'uploading',
+					message: __( 'Uploading site…' ),
+				},
+			},
+		} )
+	);
+} );
 
 // Helper functions for push operations
 const isKeyCancelled = ( key: string | undefined ): boolean => {

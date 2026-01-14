@@ -4,6 +4,7 @@ import path from 'path';
 import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
 import fs from 'fs-extra';
 import { _electron as electron, Page, ElectronApplication } from 'playwright';
+import { rimraf } from 'rimraf';
 
 export class E2ESession {
 	electronApp: ElectronApplication;
@@ -14,7 +15,6 @@ export class E2ESession {
 	homePath: string;
 
 	public constructor() {
-		// Create temporary folder to hold application data
 		this.sessionPath = path.join( tmpdir(), `studio-app-e2e-session-${ randomUUID() }` );
 		this.appDataPath = path.join( this.sessionPath, 'appData' );
 		this.homePath = path.join( this.sessionPath, 'home' );
@@ -28,7 +28,7 @@ export class E2ESession {
 		// Path must include 'Studio' subfolder to match Electron app's path structure
 		const studioAppDataPath = path.join( this.appDataPath, 'Studio' );
 		await fs.mkdir( studioAppDataPath, { recursive: true } );
-		const appdataPath = path.join( studioAppDataPath, 'appdata-v1.json' );
+
 		const initialAppdata = {
 			version: 1,
 			sites: [],
@@ -37,42 +37,58 @@ export class E2ESession {
 				studioSitesCli: true,
 			},
 		};
-		await fs.writeFile( appdataPath, JSON.stringify( initialAppdata, null, 2 ) );
 
-		// find the latest build in the out directory
-		const latestBuild = findLatestBuild();
+		await fs.writeFile(
+			path.join( studioAppDataPath, 'appdata-v1.json' ),
+			JSON.stringify( initialAppdata, null, 2 )
+		);
 
-		// parse the packaged Electron app and find paths and other info
-		const appInfo = parseElectronApp( latestBuild );
-		let executablePath = appInfo.executable;
-		if ( appInfo.platform === 'win32' ) {
-			// `parseElectronApp` function obtains the executable path by finding the first executable from the build folder.
-			// We need to ensure that the executable is the Studio app.
-			executablePath = executablePath.replace( 'Squirrel.exe', 'Studio.exe' );
-		}
-
-		this.electronApp = await electron.launch( {
-			args: [ appInfo.main ], // main file from package.json
-			executablePath, // path to the Electron executable
-			env: {
-				...process.env,
-				...testEnv,
-				E2E: 'true', // allow app to determine whether it's running as an end-to-end test
-				E2E_APP_DATA_PATH: this.appDataPath,
-				E2E_HOME_PATH: this.homePath,
-			},
-			timeout: 60_000,
-		} );
-		this.mainWindow = await this.electronApp.firstWindow( { timeout: 60_000 } );
+		await this.launchFirstWindow( testEnv );
 	}
 
-	// Close the app but keep the data for persistence testing
+	async closeApp() {
+		console.log( 'Closing app...' );
+		const childProcess = this.electronApp.process();
+
+		// Playwright's electronApp.close() can hang, especially on Windows. This is likely due to how
+		// `stopAllServersOnQuit` spawns a child process in the `will-quit` event handler, sidestepping
+		// Electron's normal close sequence.
+		const exitPromise = new Promise< void >( ( resolve ) => {
+			childProcess.once( 'exit', resolve );
+		} );
+		const timeoutPromise = new Promise< void >( ( _, reject ) => {
+			setTimeout( () => reject( new Error( 'Process exit timeout' ) ), 30_000 );
+		} );
+
+		await this.electronApp.evaluate( ( { app } ) => app.quit() ).catch( () => {} );
+
+		try {
+			await Promise.race( [ exitPromise, timeoutPromise ] );
+			await new Promise< void >( ( resolve ) => setTimeout( resolve, 2000 ) );
+			console.log( 'App closed successfully' );
+		} catch ( error ) {
+			console.log( 'Process exit timeout' );
+		}
+	}
+
 	async restart() {
-		await this.electronApp?.close();
+		await this.closeApp();
+		await this.launchFirstWindow();
+	}
+
+	async cleanup() {
+		await this.closeApp();
+		await rimraf( this.sessionPath );
+	}
+
+	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {
 		const latestBuild = findLatestBuild();
 		const appInfo = parseElectronApp( latestBuild );
 		let executablePath = appInfo.executable;
+
 		if ( appInfo.platform === 'win32' ) {
+			// `parseElectronApp` function obtains the executable path by finding the first executable from
+			// the build folder. We need to ensure that the executable is the Studio app.
 			executablePath = executablePath.replace( 'Squirrel.exe', 'Studio.exe' );
 		}
 
@@ -81,18 +97,14 @@ export class E2ESession {
 			executablePath,
 			env: {
 				...process.env,
+				...testEnv,
 				E2E: 'true',
 				E2E_APP_DATA_PATH: this.appDataPath,
 				E2E_HOME_PATH: this.homePath,
 			},
 			timeout: 60_000,
 		} );
-		this.mainWindow = await this.electronApp.firstWindow( { timeout: 60_000 } );
-	}
 
-	async cleanup() {
-		await this.electronApp?.close();
-		// Clean up temporary folder to hold application data
-		fs.rmSync( this.sessionPath, { recursive: true, force: true } );
+		this.mainWindow = await this.electronApp.firstWindow( { timeout: 60_000 } );
 	}
 }

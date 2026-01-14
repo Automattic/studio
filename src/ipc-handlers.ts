@@ -174,19 +174,7 @@ function mergeSiteDetailsWithRunningDetails( sites: SiteDetails[] ): SiteDetails
 	return sites.map( ( site ) => {
 		const server = SiteServer.get( site.id );
 		if ( server ) {
-			// Merge fresh data from disk with running state from server
-			// This ensures external changes (e.g., from CLI) are reflected
-			if ( server.details.running ) {
-				return {
-					...site,
-					running: true as const,
-					url: server.details.url,
-				};
-			}
-			return {
-				...site,
-				running: false as const,
-			};
+			return server.details;
 		}
 		return site;
 	} );
@@ -396,14 +384,19 @@ export async function updateSite(
 		const freshSiteData = userData.sites.find( ( s ) => s.id === updatedSite.id );
 		if ( freshSiteData ) {
 			const wasRunning = server.details.running;
-			const url = wasRunning ? ( server.details as StartedSiteDetails ).url : undefined;
 
-			if ( wasRunning && url ) {
+			if ( wasRunning ) {
+				const url = freshSiteData.customDomain
+					? `${ freshSiteData.enableHttps ? 'https' : 'http' }://${ freshSiteData.customDomain }`
+					: `http://localhost:${ freshSiteData.port }`;
+
 				server.details = {
 					...freshSiteData,
 					running: true,
 					url,
 				};
+
+				server.server.url = url;
 			} else {
 				server.details = {
 					...freshSiteData,

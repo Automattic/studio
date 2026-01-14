@@ -16,13 +16,13 @@ export async function runCommand(
 	skipLogDetails = false
 ): Promise< void > {
 	try {
-		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
-		const site = await getSiteByFolder( sitePath );
-		logger.reportSuccess( __( 'Site loaded' ) );
-
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connect();
 		logger.reportSuccess( __( 'Process daemon started' ) );
+
+		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
+		const site = await getSiteByFolder( sitePath );
+		logger.reportSuccess( __( 'Site loaded' ) );
 
 		const runningProcess = await isServerRunning( site.id );
 		if ( runningProcess ) {
@@ -67,7 +67,7 @@ export async function runCommand(
 			throw new LoggerError( __( 'Failed to start WordPress server' ), error );
 		}
 	} finally {
-		disconnect();
+		await disconnect();
 	}
 }
 

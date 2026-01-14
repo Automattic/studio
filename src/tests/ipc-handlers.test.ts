@@ -283,11 +283,9 @@ describe( 'getXdebugEnabledSite', () => {
 		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
 
 		expect( result ).toEqual( {
-			autoStart: false,
 			id: 'site-2',
 			name: 'Site 2',
 			path: '/path/to/site-2',
-			phpVersion: '8.0',
 			running: true,
 			enableXdebug: true,
 		} );
@@ -304,11 +302,9 @@ describe( 'getXdebugEnabledSite', () => {
 		( fs.existsSync as jest.Mock ).mockReturnValue( true );
 		( SiteServer.get as jest.Mock ).mockReturnValue( {
 			details: {
-				autoStart: false,
 				id: 'site-1',
 				name: 'Site 1',
 				path: '/path/to/site-1',
-				phpVersion: '8.0',
 				running: false,
 				enableXdebug: true,
 			},
@@ -317,11 +313,9 @@ describe( 'getXdebugEnabledSite', () => {
 		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
 
 		expect( result ).toEqual( {
-			autoStart: false,
 			id: 'site-1',
 			name: 'Site 1',
 			path: '/path/to/site-1',
-			phpVersion: '8.0',
 			running: false,
 			enableXdebug: true,
 		} );

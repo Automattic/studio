@@ -3,9 +3,10 @@ import {
 	clearSiteLatestCliPid,
 	getSiteByFolder,
 	readAppdata,
+	saveAppdata,
 	updateSiteAutoStart,
 } from 'cli/lib/appdata';
-import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { connect, disconnect, killDaemonAndAllChildren } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Mode, runCommand } from '../stop';
@@ -17,6 +18,7 @@ jest.mock( 'cli/lib/appdata', () => ( {
 	clearSiteLatestCliPid: jest.fn(),
 	updateSiteAutoStart: jest.fn().mockResolvedValue( undefined ),
 	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
+	saveAppdata: jest.fn().mockResolvedValue( undefined ),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
 jest.mock( 'cli/lib/site-utils' );
@@ -49,6 +51,7 @@ describe( 'CLI: studio site stop', () => {
 		( stopWordPressServer as jest.Mock ).mockResolvedValue( undefined );
 		( clearSiteLatestCliPid as jest.Mock ).mockResolvedValue( undefined );
 		( stopProxyIfNoSitesNeedIt as jest.Mock ).mockResolvedValue( undefined );
+		( killDaemonAndAllChildren as jest.Mock ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -79,7 +82,7 @@ describe( 'CLI: studio site stop', () => {
 			( stopWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server stop failed' ) );
 
 			await expect( runCommand( Mode.STOP_SINGLE_SITE, '/test/site', false ) ).rejects.toThrow(
-				'Stopped 0 sites out of 1'
+				'Failed to stop WordPress server'
 			);
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -105,10 +108,7 @@ describe( 'CLI: studio site stop', () => {
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( stopWordPressServer ).toHaveBeenCalledWith( testSite.id );
 			expect( clearSiteLatestCliPid ).toHaveBeenCalledWith( testSite.id );
-			expect( stopProxyIfNoSitesNeedIt ).toHaveBeenCalledWith(
-				[ testSite.id ],
-				expect.any( Object )
-			);
+			expect( stopProxyIfNoSitesNeedIt ).toHaveBeenCalledWith( testSite.id, expect.any( Object ) );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -202,12 +202,14 @@ describe( 'CLI: studio site stop --all', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
 
+		// Mock process.exit to prevent tests from exiting
+		jest.spyOn( process, 'exit' ).mockImplementation( () => undefined as never );
+
 		( connect as jest.Mock ).mockResolvedValue( undefined );
 		( disconnect as jest.Mock ).mockResolvedValue( undefined );
 		( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
-		( stopWordPressServer as jest.Mock ).mockResolvedValue( undefined );
+		( killDaemonAndAllChildren as jest.Mock ).mockResolvedValue( undefined );
 		( clearSiteLatestCliPid as jest.Mock ).mockResolvedValue( undefined );
-		( stopProxyIfNoSitesNeedIt as jest.Mock ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -234,31 +236,17 @@ describe( 'CLI: studio site stop --all', () => {
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
-		it( 'should throw when all sites fail to stop', async () => {
+		it( 'should throw when killDaemonAndAllChildren fails', async () => {
 			( readAppdata as jest.Mock ).mockResolvedValue( { sites: testSites } );
 			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-			( stopWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server stop failed' ) );
+			( killDaemonAndAllChildren as jest.Mock ).mockRejectedValue(
+				new Error( 'Failed to kill daemon' )
+			);
 
 			await expect( runCommand( Mode.STOP_ALL_SITES, undefined, false ) ).rejects.toThrow(
-				'Stopped 0 sites out of 3'
+				'Failed to kill daemon'
 			);
 			expect( disconnect ).toHaveBeenCalled();
-		} );
-
-		it( 'should throw when some sites fail to stop', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( { sites: testSites } );
-			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-
-			( stopWordPressServer as jest.Mock )
-				.mockResolvedValueOnce( undefined ) // site-1 success
-				.mockRejectedValueOnce( new Error( 'Server stop failed' ) ) // site-2 fails
-				.mockResolvedValueOnce( undefined ); // site-3 success
-
-			await expect( runCommand( Mode.STOP_ALL_SITES, undefined, false ) ).rejects.toThrow(
-				'Stopped 2 sites out of 3'
-			);
-			expect( disconnect ).toHaveBeenCalled();
-			expect( stopWordPressServer ).toHaveBeenCalledTimes( 3 );
 		} );
 	} );
 
@@ -269,7 +257,7 @@ describe( 'CLI: studio site stop --all', () => {
 			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
 
 			expect( connect ).toHaveBeenCalled();
-			expect( stopWordPressServer ).not.toHaveBeenCalled();
+			expect( killDaemonAndAllChildren ).not.toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -282,9 +270,8 @@ describe( 'CLI: studio site stop --all', () => {
 
 			expect( connect ).toHaveBeenCalled();
 			expect( isServerRunning ).toHaveBeenCalledTimes( 3 );
-			expect( stopWordPressServer ).not.toHaveBeenCalled();
+			expect( killDaemonAndAllChildren ).not.toHaveBeenCalled();
 			expect( clearSiteLatestCliPid ).not.toHaveBeenCalled();
-			expect( stopProxyIfNoSitesNeedIt ).not.toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
@@ -294,9 +281,19 @@ describe( 'CLI: studio site stop --all', () => {
 
 			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
 
-			expect( stopWordPressServer ).toHaveBeenCalledTimes( 1 );
-			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
-			expect( disconnect ).toHaveBeenCalled();
+			expect( killDaemonAndAllChildren ).toHaveBeenCalledTimes( 1 );
+			expect( saveAppdata ).toHaveBeenCalledTimes( 1 );
+			expect( saveAppdata ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.arrayContaining( [
+						expect.objectContaining( {
+							id: 'site-1',
+							autoStart: false,
+						} ),
+					] ),
+				} )
+			);
+			expect( process.exit ).toHaveBeenCalledWith( 0 );
 		} );
 
 		it( 'should stop all running sites', async () => {
@@ -312,21 +309,29 @@ describe( 'CLI: studio site stop --all', () => {
 			expect( isServerRunning ).toHaveBeenCalledWith( 'site-2' );
 			expect( isServerRunning ).toHaveBeenCalledWith( 'site-3' );
 
-			expect( stopWordPressServer ).toHaveBeenCalledTimes( 3 );
-			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
-			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-2' );
-			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-3' );
+			expect( killDaemonAndAllChildren ).toHaveBeenCalledTimes( 1 );
 
-			expect( clearSiteLatestCliPid ).toHaveBeenCalledTimes( 3 );
-			expect( clearSiteLatestCliPid ).toHaveBeenCalledWith( 'site-1' );
-			expect( clearSiteLatestCliPid ).toHaveBeenCalledWith( 'site-2' );
-			expect( clearSiteLatestCliPid ).toHaveBeenCalledWith( 'site-3' );
-
-			expect( stopProxyIfNoSitesNeedIt ).toHaveBeenCalledWith(
-				[ 'site-1', 'site-2', 'site-3' ],
-				expect.any( Object )
+			expect( saveAppdata ).toHaveBeenCalledTimes( 1 );
+			expect( saveAppdata ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.arrayContaining( [
+						expect.objectContaining( {
+							id: 'site-1',
+							autoStart: false,
+						} ),
+						expect.objectContaining( {
+							id: 'site-2',
+							autoStart: false,
+						} ),
+						expect.objectContaining( {
+							id: 'site-3',
+							autoStart: false,
+						} ),
+					] ),
+				} )
 			);
-			expect( disconnect ).toHaveBeenCalled();
+
+			expect( process.exit ).toHaveBeenCalledWith( 0 );
 		} );
 
 		it( 'should stop only running sites (mixed state)', async () => {
@@ -337,96 +342,39 @@ describe( 'CLI: studio site stop --all', () => {
 				.mockResolvedValueOnce( undefined ) // site-2 not running
 				.mockResolvedValueOnce( testProcessDescription ); // site-3 running
 
-			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
+			await runCommand( Mode.STOP_ALL_SITES, undefined, true );
 
 			expect( isServerRunning ).toHaveBeenCalledTimes( 3 );
 
-			expect( stopWordPressServer ).toHaveBeenCalledTimes( 2 );
-			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
-			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-3' );
-			expect( stopWordPressServer ).not.toHaveBeenCalledWith( 'site-2' );
+			expect( killDaemonAndAllChildren ).toHaveBeenCalledTimes( 1 );
 
-			expect( clearSiteLatestCliPid ).toHaveBeenCalledTimes( 2 );
-			expect( disconnect ).toHaveBeenCalled();
-		} );
-
-		it( 'should continue stopping other sites even if one fails', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( { sites: testSites } );
-			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-
-			( stopWordPressServer as jest.Mock )
-				.mockResolvedValueOnce( undefined ) // site-1 success
-				.mockRejectedValueOnce( new Error( 'Server stop failed' ) ) // site-2 fails
-				.mockResolvedValueOnce( undefined ); // site-3 success
-
-			try {
-				await runCommand( Mode.STOP_ALL_SITES, undefined, false );
-			} catch {
-				// Expected to throw due to partial failure
-			}
-
-			expect( stopWordPressServer ).toHaveBeenCalledTimes( 3 );
-			expect( clearSiteLatestCliPid ).toHaveBeenCalledTimes( 2 );
-			expect( clearSiteLatestCliPid ).toHaveBeenCalledWith( 'site-1' );
-			expect( clearSiteLatestCliPid ).toHaveBeenCalledWith( 'site-3' );
-			expect( clearSiteLatestCliPid ).not.toHaveBeenCalledWith( 'site-2' );
-			expect( disconnect ).toHaveBeenCalled();
-		} );
-
-		it( 'should throw when proxy stop fails', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( { sites: [ testSites[ 0 ] ] } );
-			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-			( stopProxyIfNoSitesNeedIt as jest.Mock ).mockRejectedValue(
-				new Error( 'Proxy stop failed' )
+			expect( saveAppdata ).toHaveBeenCalledTimes( 1 );
+			expect( saveAppdata ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.arrayContaining( [
+						expect.objectContaining( {
+							id: 'site-1',
+							autoStart: true,
+						} ),
+						expect.objectContaining( {
+							id: 'site-3',
+							autoStart: true,
+						} ),
+					] ),
+				} )
+			);
+			expect( saveAppdata ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.not.arrayContaining( [
+						expect.objectContaining( {
+							id: 'site-2',
+							autoStart: true,
+						} ),
+					] ),
+				} )
 			);
 
-			// Should throw when proxy stop fails
-			await expect( runCommand( Mode.STOP_ALL_SITES, undefined, false ) ).rejects.toThrow(
-				'Failed to stop proxy server'
-			);
-
-			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
-			expect( disconnect ).toHaveBeenCalled();
-		} );
-	} );
-
-	describe( 'Cleanup', () => {
-		it( 'should always disconnect from PM2 on success', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( { sites: testSites } );
-			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-
-			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
-
-			expect( disconnect ).toHaveBeenCalled();
-		} );
-
-		it( 'should always disconnect from PM2 on error', async () => {
-			( readAppdata as jest.Mock ).mockRejectedValue( new Error( 'Error' ) );
-
-			try {
-				await runCommand( Mode.STOP_ALL_SITES, undefined, false );
-			} catch {
-				// Expected
-			}
-
-			expect( disconnect ).toHaveBeenCalled();
-		} );
-
-		it( 'should always disconnect when no sites exist', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( { sites: [] } );
-
-			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
-
-			expect( disconnect ).toHaveBeenCalled();
-		} );
-
-		it( 'should always disconnect when no sites are running', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( { sites: testSites } );
-			( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
-
-			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
-
-			expect( disconnect ).toHaveBeenCalled();
+			expect( process.exit ).toHaveBeenCalledWith( 0 );
 		} );
 	} );
 } );

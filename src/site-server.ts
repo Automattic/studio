@@ -30,14 +30,13 @@ export async function createSiteWorkingDirectory(
 }
 
 export async function stopAllServersOnQuit() {
-	// We're quitting so this doesn't have to be tidy, just stop the
-	// servers as directly as possible.
-	// Preserve autoStart so sites will restart on next app launch.
-	// Use silent mode to avoid terminal errors during quit.
+	// The `--auto-start` option ensures sites will restart on next app launch.
 	return new Promise< void >( ( resolve ) => {
-		const [ emitter ] = executeCliCommand( [ 'site', 'stop', '--all', '--auto-start' ], {
-			output: 'ignore',
-		} );
+		const [ emitter, childProcess ] = executeCliCommand(
+			[ 'site', 'stop', '--all', '--auto-start' ],
+			{ output: 'ignore' }
+		);
+		console.log( `Spawned stop-all child process with pid ${ childProcess.pid }` );
 		emitter.on( 'success', () => resolve() );
 		emitter.on( 'failure', () => resolve() );
 		emitter.on( 'error', () => resolve() );
@@ -156,6 +155,10 @@ export class SiteServer {
 			servers.set( siteDetails.id, server );
 			server.details = siteDetails;
 
+			if ( siteDetails.running && siteDetails.url ) {
+				server.server.url = siteDetails.url;
+			}
+
 			return { server, details: siteDetails };
 		} finally {
 			server.hasOngoingOperation = false;
@@ -185,6 +188,11 @@ export class SiteServer {
 
 			const userData = await loadUserData();
 			const freshSiteData = userData.sites.find( ( s ) => s.id === this.details.id );
+
+			if ( freshSiteData?.port ) {
+				this.details.port = freshSiteData.port;
+			}
+
 			const url = getAbsoluteUrl( this.details );
 
 			this.details = {
@@ -194,6 +202,8 @@ export class SiteServer {
 				autoStart: true,
 				latestCliPid: freshSiteData?.latestCliPid,
 			};
+
+			this.server.url = url;
 		} finally {
 			this.hasOngoingOperation = false;
 		}

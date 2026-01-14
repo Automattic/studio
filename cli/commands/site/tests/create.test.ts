@@ -72,6 +72,7 @@ describe( 'CLI: studio site create', () => {
 		enableHttps: false,
 		noStart: false,
 		skipBrowser: false,
+		skipLogDetails: false,
 	};
 
 	const mockAppdata = {

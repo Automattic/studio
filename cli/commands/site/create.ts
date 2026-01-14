@@ -69,6 +69,7 @@ type CreateCommandOptions = {
 	};
 	noStart: boolean;
 	skipBrowser: boolean;
+	skipLogDetails: boolean;
 };
 
 export async function runCommand(
@@ -287,7 +288,9 @@ export async function runCommand(
 					? `${ siteDetails.enableHttps ? 'https' : 'http' }://${ siteDetails.customDomain }`
 					: `http://localhost:${ siteDetails.port }`;
 
-				logSiteDetails( siteDetails );
+				if ( ! options.skipLogDetails ) {
+					logSiteDetails( siteDetails );
+				}
 				if ( ! options.skipBrowser ) {
 					await openSiteInBrowser( siteDetails );
 				}
@@ -323,7 +326,9 @@ export async function runCommand(
 			console.log( '' );
 			console.log( __( 'Site created successfully!' ) );
 			console.log( '' );
-			logSiteDetails( siteDetails );
+			if ( ! options.skipLogDetails ) {
+				logSiteDetails( siteDetails );
+			}
 			console.log( __( 'Run "studio site start" to start the site.' ) );
 		}
 
@@ -428,7 +433,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'skip-browser', {
 					type: 'boolean',
-					describe: __( 'Do not open browser after starting' ),
+					describe: __( 'Skip opening the site in browser after starting' ),
+					default: false,
+				} )
+				.option( 'skip-log-details', {
+					type: 'boolean',
+					describe: __( 'Skip logging default wp-admin user details after starting' ),
 					default: false,
 				} );
 		},
@@ -441,6 +451,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				enableHttps: !! argv.https,
 				noStart: ! argv.start,
 				skipBrowser: !! argv.skipBrowser,
+				skipLogDetails: !! argv.skipLogDetails,
 			};
 
 			if ( argv.blueprint ) {

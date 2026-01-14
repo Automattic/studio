@@ -10,7 +10,11 @@ import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
 
-export async function runCommand( sitePath: string, skipBrowser = false ): Promise< void > {
+export async function runCommand(
+	sitePath: string,
+	skipBrowser = false,
+	skipLogDetails = false
+): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 		const site = await getSiteByFolder( sitePath );
@@ -51,7 +55,10 @@ export async function runCommand( sitePath: string, skipBrowser = false ): Promi
 				await updateSiteLatestCliPid( site.id, processDesc.pid );
 			}
 			await updateSiteAutoStart( site.id, true );
-			logSiteDetails( site );
+
+			if ( ! skipLogDetails ) {
+				logSiteDetails( site );
+			}
 
 			if ( ! skipBrowser ) {
 				await openSiteInBrowser( site );
@@ -69,15 +76,21 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'start',
 		describe: __( 'Start local site' ),
 		builder: ( yargs ) => {
-			return yargs.option( 'skip-browser', {
-				type: 'boolean',
-				describe: __( 'Skip opening the site in browser after starting' ),
-				default: false,
-			} );
+			return yargs
+				.option( 'skip-browser', {
+					type: 'boolean',
+					describe: __( 'Skip opening the site in browser after starting' ),
+					default: false,
+				} )
+				.option( 'skip-log-details', {
+					type: 'boolean',
+					describe: __( 'Skip logging default wp-admin user details after starting' ),
+					default: false,
+				} );
 		},
 		handler: async ( argv ) => {
 			try {
-				await runCommand( argv.path, argv.skipBrowser );
+				await runCommand( argv.path, argv.skipBrowser, argv.skipLogDetails );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

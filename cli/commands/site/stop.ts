@@ -55,7 +55,7 @@ export async function runCommand(
 				await stopWordPressServer( site.id );
 				await clearSiteLatestCliPid( site.id );
 				await updateSiteAutoStart( site.id, autoStart );
-				logger.reportSuccess( __( 'WordPress site stopped' ) );
+				logger.reportSuccess( __( 'WordPress server stopped' ) );
 				await stopProxyIfNoSitesNeedIt( site.id, logger );
 			} catch ( error ) {
 				throw new LoggerError( __( 'Failed to stop WordPress server' ), error );
@@ -77,7 +77,7 @@ export async function runCommand(
 				return;
 			}
 
-			logger.reportStart( LoggerAction.STOP_ALL_SITES, __( 'Stopping all WordPress sites…' ) );
+			logger.reportStart( LoggerAction.STOP_ALL_SITES, __( 'Stopping all WordPress servers…' ) );
 			await killDaemonAndAllChildren();
 
 			try {

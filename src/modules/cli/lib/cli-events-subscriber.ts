@@ -44,8 +44,7 @@ async function handleSiteEvent( event: SiteEvent ): Promise< void > {
 
 			// Only register new sites on CREATED events to prevent duplicates
 			if ( eventType === SITE_EVENTS.CREATED ) {
-				const existingServer =
-					SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
+				const existingServer = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
 				if ( ! existingServer ) {
 					SiteServer.register( siteDetailsToServerDetails( site, running ) );
 				}

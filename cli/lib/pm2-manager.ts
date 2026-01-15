@@ -359,7 +359,7 @@ export async function emitSiteEvent(
 	event: SITE_EVENTS,
 	data: { siteId: string; url?: string }
 ): Promise< void > {
-	const socket = axon.socket( 'push' );
+	const socket = axon.socket( 'pub' );
 	socket.connect( EVENTS_SOCKET_PATH );
 
 	function closeHandler() {

@@ -83,7 +83,7 @@ export async function runCommand(): Promise< void > {
 
 	await emitAllSitesStatus();
 
-	const socket = axon.socket( 'pull' );
+	const socket = axon.socket( 'sub' );
 	socket.bind( EVENTS_SOCKET_PATH );
 
 	socket.on( 'message', ( packet: unknown ) => {

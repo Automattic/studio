@@ -1,9 +1,9 @@
 import fs from 'fs';
 import { __ } from '@wordpress/i18n';
+import { LoggerError } from 'cli/logger';
 import wpcomFactory from 'src/lib/wpcom-factory';
 import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { z } from 'zod';
-import { LoggerError } from 'cli/logger';
 
 export enum SnapshotStatus {
 	Pending = '0',
@@ -18,7 +18,7 @@ const createSiteResponseSchema = z.object( {
 
 const statusResponseSchema = z.object( {
 	status: z.enum( [ SnapshotStatus.Pending, SnapshotStatus.Processing, SnapshotStatus.Active ], {
-		message: __( 'Invalid site status' ),
+		invalid_type_error: __( 'Invalid site status' ),
 	} ),
 	domain_name: z.string(),
 	atomic_site_id: z.number().int().positive(),

@@ -9,15 +9,15 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
-import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
 import { useRootSelector } from 'src/stores';
 import {
 	selectDefaultPhpVersion,
 	selectDefaultWordPressVersion,
 } from 'src/stores/provider-constants-slice';
 import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
+import { Blueprint } from 'src/stores/wpcom-api';
+import type { BlueprintPreferredVersions } from 'common/lib/blueprint-validation';
 import type { SyncSite } from 'src/modules/sync/types';
-import type { Blueprint } from 'src/stores/wpcom-api';
 import type { SyncOption } from 'src/types';
 
 /**
@@ -58,7 +58,7 @@ export function useAddSite() {
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< Blueprint | undefined >();
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | undefined >();
 	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
-		{ php?: string; wp?: string } | undefined
+		BlueprintPreferredVersions | undefined
 	>();
 	const [ blueprintDeeplinkWarnings, setBlueprintDeeplinkWarnings ] = useState<
 		BlueprintValidationWarning[] | undefined
@@ -82,16 +82,6 @@ export function useAddSite() {
 		defaultPhpVersion as AllowedPHPVersion
 	);
 	const [ deeplinkWpVersion, setDeeplinkWpVersion ] = useState( defaultWordPressVersion );
-
-	useBlueprintDeeplink( {
-		isAnySiteProcessing,
-		setSelectedBlueprint,
-		setPhpVersion: setDeeplinkPhpVersion,
-		setWpVersion: setDeeplinkWpVersion,
-		setBlueprintPreferredVersions,
-		setBlueprintDeeplinkWarnings,
-		navigateToBlueprintDeeplink: () => setIsDeeplinkFlow( true ),
-	} );
 
 	const resetForm = useCallback( () => {
 		setFileForImport( null );
@@ -304,6 +294,8 @@ export function useAddSite() {
 			defaultWpVersion: defaultWordPressVersion,
 			deeplinkPhpVersion,
 			deeplinkWpVersion,
+			setDeeplinkPhpVersion,
+			setDeeplinkWpVersion,
 			fileForImport,
 			setFileForImport,
 			selectedBlueprint,
@@ -311,6 +303,7 @@ export function useAddSite() {
 			blueprintPreferredVersions,
 			setBlueprintPreferredVersions,
 			blueprintDeeplinkWarnings,
+			setBlueprintDeeplinkWarnings,
 			selectedRemoteSite,
 			setSelectedRemoteSite,
 			existingDomainNames,
@@ -329,6 +322,8 @@ export function useAddSite() {
 			defaultWordPressVersion,
 			deeplinkPhpVersion,
 			deeplinkWpVersion,
+			setDeeplinkPhpVersion,
+			setDeeplinkWpVersion,
 			fileForImport,
 			selectedBlueprint,
 			blueprintPreferredVersions,

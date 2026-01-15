@@ -16,6 +16,7 @@ import {
 	disconnect,
 	getEventsRelayProcessName,
 	startEventsRelayProcess,
+	stopEventsRelayProcess,
 	subscribeProcessMessages,
 	subscribePm2KillEvent,
 } from 'cli/lib/pm2-manager';
@@ -136,8 +137,13 @@ export async function runCommand(): Promise< void > {
 		void emitAllSitesStopped();
 	} );
 
-	process.on( 'SIGINT', disconnect );
-	process.on( 'SIGTERM', disconnect );
+	async function cleanup() {
+		await stopEventsRelayProcess();
+		await disconnect();
+	}
+
+	process.on( 'SIGINT', () => void cleanup() );
+	process.on( 'SIGTERM', () => void cleanup() );
 }
 
 export const registerCommand = ( yargs: StudioArgv ) => {

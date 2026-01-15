@@ -245,7 +245,7 @@ test.describe( 'Site Editor Performance Benchmark', () => {
 					const templatesViewStartTime = Date.now();
 
 					// Click the Templates button in the sidebar (works across all environments)
-					await page.getByRole( 'button', { name: 'Templates' } ).click();
+					await target.getByRole( 'button', { name: 'Templates' } ).click();
 
 					// Wait for Templates view to load - wait for heading, grid, and ensure first card is clickable
 					await target.getByRole( 'heading', { name: 'Templates', level: 2 } ).waitFor( {

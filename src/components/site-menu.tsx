@@ -3,8 +3,8 @@ import { speak } from '@wordpress/a11y';
 import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect } from 'react';
+import { XDebugIcon } from 'src/components/icons/xdebug-icon';
 import { Tooltip } from 'src/components/tooltip';
-import xdebugIcon from 'src/components/xdebug-icon.png';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
@@ -94,14 +94,14 @@ function ButtonToRun( {
 			>
 				{ /* Circle or Xdebug icon */ }
 				{ enableXdebug && running ? (
-					<img
-						src={ xdebugIcon }
-						alt="Xdebug enabled"
+					<div
 						className={ cx(
-							'w-2.5 h-2.5 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0',
+							'transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0',
 							'row-start-1 col-start-1 place-self-center'
 						) }
-					/>
+					>
+						<XDebugIcon />
+					</div>
 				) : (
 					<div
 						className={ cx(

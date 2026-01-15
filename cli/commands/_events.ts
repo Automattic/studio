@@ -6,6 +6,7 @@
  * stdout key-value pairs that Studio parses.
  *
  */
+import fs from 'fs';
 import { __ } from '@wordpress/i18n';
 import { sequential } from 'common/lib/sequential';
 import { SITE_EVENTS, siteDetailsSchema, SiteEvent } from 'common/lib/site-events';
@@ -72,7 +73,6 @@ const siteEventSchema = z.object( {
 	event: z.string(),
 	data: z.object( {
 		siteId: z.string(),
-		url: z.string().optional(),
 	} ),
 } );
 
@@ -83,8 +83,28 @@ export async function runCommand(): Promise< void > {
 
 	await emitAllSitesStatus();
 
-	const socket = axon.socket( 'sub' );
-	socket.bind( EVENTS_SOCKET_PATH );
+	const socket = axon.socket( 'pull' );
+
+	await new Promise< void >( ( resolve, reject ) => {
+		const timeout = setTimeout( () => {
+			reject( new Error( 'Socket bind timeout' ) );
+		}, 2500 );
+
+		socket.once( 'bind', () => {
+			clearTimeout( timeout );
+			resolve();
+		} );
+
+		socket.bind( EVENTS_SOCKET_PATH, ( error: unknown ) => {
+			if ( error ) {
+				clearTimeout( timeout );
+				reject( error );
+			}
+		} );
+	} ).catch( async ( error ) => {
+		await cleanup();
+		throw error;
+	} );
 
 	socket.on( 'message', ( packet: unknown ) => {
 		try {
@@ -118,6 +138,9 @@ export async function runCommand(): Promise< void > {
 
 			const timeoutId = setTimeout( () => {
 				socket.destroy?.();
+				if ( fs.existsSync( EVENTS_SOCKET_PATH ) ) {
+					fs.unlinkSync( EVENTS_SOCKET_PATH );
+				}
 				resolve();
 			}, 200 );
 

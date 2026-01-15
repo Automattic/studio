@@ -362,9 +362,9 @@ export async function subscribePm2KillEvent( handler: () => void ) {
  */
 export async function emitSiteEvent(
 	event: SITE_EVENTS,
-	data: { siteId: string; url?: string }
+	data: { siteId: string }
 ): Promise< void > {
-	const socket = axon.socket( 'pub' );
+	const socket = axon.socket( 'push' );
 	socket.connect( EVENTS_SOCKET_PATH );
 
 	function closeHandler() {

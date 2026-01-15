@@ -1,35 +1,34 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
 import { readFile, writeFile } from 'atomically';
+import { vi, type Mock } from 'vitest';
 import { WPCOM } from 'wpcom/types';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { handleAuthDeeplink } from 'src/lib/deeplink/handlers/auth';
 import wpcomFactory from 'src/lib/wpcom-factory';
 
-jest.mock( 'src/lib/certificate-manager', () => ( {} ) );
-jest.mock( 'src/ipc-utils' );
-jest.mock( 'atomically', () => ( {
-	readFile: jest.fn(),
-	writeFile: jest.fn(),
+vi.mock( 'src/lib/certificate-manager', () => ( {} ) );
+vi.mock( 'src/ipc-utils' );
+vi.mock( 'src/lib/wpcom-factory' );
+vi.mock( 'src/lib/wpcom-xhr-request-factory', () => ( {
+	default: vi.fn(),
 } ) );
-jest.mock( 'src/lib/wpcom-factory' );
-jest.mock( 'src/lib/wpcom-xhr-request-factory', () => jest.fn() );
 
 describe( 'handleAuthDeeplink', () => {
 	beforeEach( () => {
-		jest.clearAllMocks();
-		( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( { sites: [] } ) );
-		( writeFile as jest.Mock ).mockResolvedValue( undefined );
+		vi.clearAllMocks();
+		( readFile as Mock ).mockResolvedValue( JSON.stringify( { sites: [] } ) );
+		( writeFile as Mock ).mockResolvedValue( undefined );
 	} );
 
 	it( 'should handle successful authentication', async () => {
-		const mockWpcomGet = jest.fn().mockResolvedValue( {
+		const mockWpcomGet = vi.fn().mockResolvedValue( {
 			ID: 123,
 			email: 'user@example.com',
 			display_name: 'Test User',
 		} );
-		jest.mocked( wpcomFactory ).mockReturnValue( {
+		vi.mocked( wpcomFactory ).mockReturnValue( {
 			req: { get: mockWpcomGet },
 		} as unknown as WPCOM );
 
@@ -69,8 +68,8 @@ describe( 'handleAuthDeeplink', () => {
 	} );
 
 	it( 'should handle wpcom API error', async () => {
-		const mockWpcomGet = jest.fn().mockRejectedValue( new Error( 'API Error' ) );
-		jest.mocked( wpcomFactory ).mockReturnValue( {
+		const mockWpcomGet = vi.fn().mockRejectedValue( new Error( 'API Error' ) );
+		vi.mocked( wpcomFactory ).mockReturnValue( {
 			req: { get: mockWpcomGet },
 		} as unknown as WPCOM );
 

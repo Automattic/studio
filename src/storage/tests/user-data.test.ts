@@ -31,11 +31,6 @@ const {
 	};
 } );
 
-vi.mock( '@sentry/electron/main', () => ( {
-	captureException: vi.fn(),
-	captureMessage: vi.fn(),
-} ) );
-
 vi.mock( 'electron', () => ( {
 	app: mockElectronApp,
 } ) );
@@ -67,19 +62,6 @@ vi.mock( 'atomically', () => ( {
 	),
 	writeFile: vi.fn(),
 } ) );
-
-vi.mock( 'lockfile', () => {
-	const lock = vi.fn( ( file, options, callback ) => callback( null ) );
-	const unlock = vi.fn( ( file, callback ) => callback( null ) );
-	return {
-		default: {
-			lock,
-			unlock,
-		},
-		lock,
-		unlock,
-	};
-} );
 
 const mockedUserData: RecursivePartial< UserData > = {
 	sites: [

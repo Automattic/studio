@@ -1,25 +1,25 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
 import { app, dialog, BrowserWindow } from 'electron';
+import { vi, type MockedFunction } from 'vitest';
 import { getMainWindow } from 'src/main-window';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 import { promptWindowsSpeedUpSites } from '../windows-helpers';
 
-jest.mock( 'electron' );
-jest.mock( 'src/main-window' );
-jest.mock( 'src/storage/user-data' );
-jest.mock( '@vscode/sudo-prompt', () => ( {
-	exec: jest.fn( ( _command, _options, callback ) => {
+vi.mock( 'src/main-window' );
+vi.mock( 'src/storage/user-data' );
+vi.mock( '@vscode/sudo-prompt', () => ( {
+	exec: vi.fn( ( _command, _options, callback ) => {
 		callback( null );
 	} ),
 } ) );
 
-const mockLoadUserData = loadUserData as jest.MockedFunction< typeof loadUserData >;
-const mockUpdateAppdata = updateAppdata as jest.MockedFunction< typeof updateAppdata >;
-const mockGetMainWindow = getMainWindow as jest.MockedFunction< typeof getMainWindow >;
-const mockAppGetVersion = app.getVersion as jest.MockedFunction< typeof app.getVersion >;
-const mockDialogShowMessageBox = dialog.showMessageBox as jest.MockedFunction<
+const mockLoadUserData = loadUserData as MockedFunction< typeof loadUserData >;
+const mockUpdateAppdata = updateAppdata as MockedFunction< typeof updateAppdata >;
+const mockGetMainWindow = getMainWindow as MockedFunction< typeof getMainWindow >;
+const mockAppGetVersion = app.getVersion as MockedFunction< typeof app.getVersion >;
+const mockDialogShowMessageBox = dialog.showMessageBox as MockedFunction<
 	typeof dialog.showMessageBox
 >;
 
@@ -27,7 +27,7 @@ const currentVersion = '1.2.3';
 const originalPlatform = process.platform;
 
 afterEach( () => {
-	jest.clearAllMocks();
+	vi.clearAllMocks();
 	Object.defineProperty( process, 'platform', {
 		value: originalPlatform,
 	} );

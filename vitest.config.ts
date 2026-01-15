@@ -36,6 +36,7 @@ export default defineConfig({
 	},
 	resolve: {
 		alias: {
+			pm2: path.resolve(__dirname, './__mocks__/pm2.ts'),
 			cli: path.resolve(__dirname, './cli'),
 			src: path.resolve(__dirname, './src'),
 			vendor: path.resolve(__dirname, './vendor'),

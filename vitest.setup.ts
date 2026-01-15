@@ -102,3 +102,46 @@ vi.mock( './src/hooks/use-ai-icon', () => ( {
 } ) );
 
 global.ResizeObserver = require( 'resize-observer-polyfill' );
+
+// Common mocks for Node environment tests
+// These are needed when tests import from modules that depend on Electron or other native modules
+
+vi.mock( '@sentry/electron/main', () => ( {
+	captureException: vi.fn(),
+	captureMessage: vi.fn(),
+} ) );
+
+vi.mock( 'electron', () => ( {
+	app: {
+		getVersion: vi.fn(),
+		getPath: vi.fn().mockReturnValue( '/mock/path' ),
+	},
+	dialog: {
+		showMessageBox: vi.fn(),
+	},
+	BrowserWindow: class MockBrowserWindow {},
+} ) );
+
+vi.mock( 'src/storage/paths', () => ( {
+	getResourcesPath: vi.fn().mockReturnValue( '/mock/resources' ),
+	getUserDataFilePath: vi.fn().mockReturnValue( '/mock/userdata.json' ),
+	getUserDataLockFilePath: vi.fn().mockReturnValue( '/mock/userdata.json.lock' ),
+} ) );
+
+vi.mock( 'lockfile', () => {
+	const lock = vi.fn( ( file, options, callback ) => callback( null ) );
+	const unlock = vi.fn( ( file, callback ) => callback( null ) );
+	return {
+		default: {
+			lock,
+			unlock,
+		},
+		lock,
+		unlock,
+	};
+} );
+
+vi.mock( 'atomically', () => ( {
+	readFile: vi.fn(),
+	writeFile: vi.fn(),
+} ) );

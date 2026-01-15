@@ -102,7 +102,7 @@ async function main() {
 			command: 'wp',
 			describe: __( 'WP-CLI' ),
 			builder: ( wpYargs ) => {
-				return wpYargs.strict( false ).version( false );
+				return wpYargs.help( false ).showHelpOnFail( false ).strict( false ).version( false );
 			},
 			handler: wpCliCommandHandler,
 		} )

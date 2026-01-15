@@ -8,6 +8,7 @@ import {
 	useMemo,
 	useState,
 } from 'react';
+import { SITE_EVENTS, SiteEvent } from 'common/lib/site-events';
 import { sortSites } from 'common/lib/sort-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
@@ -188,12 +189,41 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		}
 	} );
 
-	useIpcListener( 'site-status-changed', ( _, { siteId, status, url } ) => {
-		setSites( ( prevSites ) =>
-			prevSites.map( ( site ) =>
-				site.id === siteId ? { ...site, running: status === 'running', url: url } : site
-			)
-		);
+	useIpcListener( 'site-event', ( _, event: SiteEvent ) => {
+		const { event: eventType, siteId, site, running } = event;
+
+		setSites( ( prevSites ) => {
+			if ( eventType === SITE_EVENTS.DELETED ) {
+				const newSites = prevSites.filter( ( s ) => s.id !== siteId );
+				if ( selectedSiteId === siteId ) {
+					setSelectedSiteId( newSites.length ? newSites[ 0 ].id : '' );
+				}
+				return newSites;
+			}
+
+			if ( ! site ) {
+				return prevSites;
+			}
+
+			const siteDetails: SiteDetails = {
+				...site,
+				running,
+			};
+
+			const existingIndex = prevSites.findIndex( ( s ) => s.id === siteId );
+
+			// Only add new sites on CREATED events to prevent duplicates
+			if ( existingIndex < 0 ) {
+				if ( eventType === SITE_EVENTS.CREATED ) {
+					return sortSites( [ ...prevSites, siteDetails ] );
+				}
+				return prevSites;
+			}
+
+			const newSites = [ ...prevSites ];
+			newSites[ existingIndex ] = { ...newSites[ existingIndex ], ...siteDetails };
+			return newSites;
+		} );
 	} );
 
 	const toggleLoadingServerForSite = useCallback( ( siteId: string ) => {

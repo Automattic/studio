@@ -10,6 +10,7 @@ import {
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from 'common/constants';
+import { SITE_EVENTS } from 'common/lib/site-events';
 import { z } from 'zod';
 import { isXdebugBetaEnabled, SiteData, readAppdata } from 'cli/lib/appdata';
 import {
@@ -30,7 +31,7 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
 
-const SITE_PROCESS_PREFIX = 'studio-site-';
+export const SITE_PROCESS_PREFIX = 'studio-site-';
 
 // Get an abort signal that's triggered on SIGINT/SIGTERM. This is useful for aborting and cleaning
 // up async operations.
@@ -38,7 +39,7 @@ const abortController = new AbortController();
 process.on( 'SIGINT', () => abortController.abort() );
 process.on( 'SIGTERM', () => abortController.abort() );
 
-function getProcessName( siteId: string ): string {
+export function getProcessName( siteId: string ): string {
 	return `${ SITE_PROCESS_PREFIX }${ siteId }`;
 }
 
@@ -184,12 +185,12 @@ const messageActivityTrackers = new Map<
 	}
 >();
 
-interface SendMessageOptions {
+export interface SendMessageOptions {
 	maxTotalElapsedTime?: number;
 	logger?: Logger< string >;
 }
 
-async function sendMessage(
+export async function sendMessage(
 	pmId: number,
 	processName: string,
 	message: ManagerMessagePayload,
@@ -429,44 +430,20 @@ export async function sendWpCliCommand(
 	return wpCliResultSchema.parse( result );
 }
 
+const PM2_STATUS_EVENTS = [ 'exit', 'stop', 'restart', 'delete' ];
+
 /**
- * Subscribe to site server events (online, exit, stop, restart)
+ * Subscribe to site server events
  *
- * For 'online' events, we listen for the 'result' message from the WordPress server child
- * process, which indicates WordPress is fully ready (not just when PM2 process starts).
- *
- * For 'exit', 'stop', 'restart' events, we use PM2 process events.
+ * Listens for PM2 process events and emits 'site-updated' when site status changes.
+ * All PM2 events (online, exit, stop, restart) are mapped to 'site-updated'.
  *
  * @param handler - Callback invoked when a site event occurs
- * @param options - Configuration options (e.g., debounceMs)
  * @returns Unsubscribe function to stop listening
  */
 export async function subscribeSiteEvents(
-	handler: ( data: { siteId: string; event: string } ) => void,
-	options: { debounceMs?: number } = {}
+	handler: ( data: { siteId: string; event: SITE_EVENTS; running: boolean } ) => void
 ): Promise< () => void > {
-	const { debounceMs = 0 } = options;
-
-	let debounceTimeout: NodeJS.Timeout | null = null;
-	let pendingEvent: { siteId: string; event: string } | null = null;
-
-	const invokeHandler = ( siteId: string, event: string ) => {
-		if ( debounceMs > 0 ) {
-			pendingEvent = { siteId, event };
-			if ( debounceTimeout ) {
-				clearTimeout( debounceTimeout );
-			}
-			debounceTimeout = setTimeout( () => {
-				if ( pendingEvent ) {
-					handler( pendingEvent );
-					pendingEvent = null;
-				}
-			}, debounceMs );
-		} else {
-			handler( { siteId, event } );
-		}
-	};
-
 	const unsubscribeMessages = await subscribeProcessMessages( ( { processName, topic } ) => {
 		if ( ! processName.startsWith( SITE_PROCESS_PREFIX ) ) {
 			return;
@@ -474,7 +451,8 @@ export async function subscribeSiteEvents(
 
 		if ( topic === 'result' ) {
 			const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
-			invokeHandler( siteId, 'online' );
+			// 'result' message means server started successfully
+			handler( { siteId, event: SITE_EVENTS.UPDATED, running: true } );
 		}
 	} );
 
@@ -483,17 +461,15 @@ export async function subscribeSiteEvents(
 			return;
 		}
 
-		if ( event !== 'online' ) {
+		if ( PM2_STATUS_EVENTS.includes( event ) ) {
 			const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
-			invokeHandler( siteId, event );
+			// PM2 exit/stop/restart/delete events mean the server is not running
+			handler( { siteId, event: SITE_EVENTS.UPDATED, running: false } );
 		}
 	} );
 
 	return () => {
 		unsubscribeMessages();
 		unsubscribeEvents();
-		if ( debounceTimeout ) {
-			clearTimeout( debounceTimeout );
-		}
 	};
 }

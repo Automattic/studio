@@ -4,6 +4,7 @@ import { bumpAggregatedUniqueStat, AppdataProvider, LastBumpStatsData } from 'co
 import { suppressPunycodeWarning } from 'common/lib/suppress-punycode-warning';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import yargs from 'yargs';
+import { commandHandler as eventsCommandHandler } from 'cli/commands/_events';
 import { registerCommand as registerAuthLoginCommand } from 'cli/commands/auth/login';
 import { registerCommand as registerAuthLogoutCommand } from 'cli/commands/auth/logout';
 import { registerCommand as registerAuthStatusCommand } from 'cli/commands/auth/status';
@@ -105,6 +106,11 @@ async function main() {
 				return wpYargs.help( false ).showHelpOnFail( false ).strict( false ).version( false );
 			},
 			handler: wpCliCommandHandler,
+		} )
+		.command( {
+			command: '_events',
+			describe: false, // Hidden command
+			handler: eventsCommandHandler,
 		} )
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();

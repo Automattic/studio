@@ -118,3 +118,12 @@ export async function stopProxyIfNoSitesNeedIt(
 	await stopProxyProcess();
 	logger.reportSuccess( __( 'HTTP proxy server stopped' ) );
 }
+
+export const isSiteRunning = async ( site: SiteData ): Promise< boolean > => {
+	const processInfo = await isServerRunning( site.id );
+	return !! (
+		processInfo &&
+		site.latestCliPid !== undefined &&
+		processInfo.pid === site.latestCliPid
+	);
+};

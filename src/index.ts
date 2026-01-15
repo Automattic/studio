@@ -42,7 +42,10 @@ import {
 } from 'src/migrations/migrate-from-wp-now-folder';
 import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
 import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-stat';
-import { startSiteWatcher, stopSiteWatcher } from 'src/modules/cli/lib/execute-site-watch-command';
+import {
+	startCliEventsSubscriber,
+	stopCliEventsSubscriber,
+} from 'src/modules/cli/lib/cli-events-subscriber';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { updateWindowsCliVersionedPathIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
@@ -357,8 +360,7 @@ async function appBoot() {
 		await renameLaunchUniquesStat();
 
 		await startUserDataWatcher();
-
-		await startSiteWatcher();
+		await startCliEventsSubscriber();
 
 		await createMainWindow();
 
@@ -513,7 +515,7 @@ async function appBoot() {
 	app.on( 'will-quit', ( event ) => {
 		globalShortcut.unregisterAll();
 		stopUserDataWatcher();
-		stopSiteWatcher();
+		stopCliEventsSubscriber();
 
 		if ( shouldStopSitesOnQuit ) {
 			event.preventDefault();

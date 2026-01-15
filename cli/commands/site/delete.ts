@@ -1,5 +1,6 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { arePathsEqual } from 'common/lib/fs-utils';
+import { SITE_EVENTS } from 'common/lib/site-events';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { deleteSnapshot } from 'cli/lib/api';
 import {
@@ -13,7 +14,7 @@ import {
 } from 'cli/lib/appdata';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
-import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snapshots';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -125,6 +126,8 @@ export async function runCommand(
 			await trash( siteFolder );
 			logger.reportSuccess( __( 'Site files deleted' ) );
 		}
+
+		await emitSiteEvent( SITE_EVENTS.DELETED, { siteId: site.id } );
 	} finally {
 		await disconnect();
 	}

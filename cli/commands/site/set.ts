@@ -3,6 +3,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from 'common/constants';
 import { getDomainNameValidationError } from 'common/lib/domains';
 import { arePathsEqual } from 'common/lib/fs-utils';
+import { SITE_EVENTS } from 'common/lib/site-events';
 import { siteNeedsRestart } from 'common/lib/site-needs-restart';
 import {
 	getWordPressVersionUrl,
@@ -20,7 +21,7 @@ import {
 	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
-import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { setupCustomDomain } from 'cli/lib/site-utils';
 import { validatePhpVersion } from 'cli/lib/utils';
@@ -241,6 +242,10 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		}
 
 		logger.reportSuccess( __( 'Site configuration updated' ) );
+
+		await emitSiteEvent( SITE_EVENTS.UPDATED, { siteId: site.id } );
+
+		return;
 	} finally {
 		await disconnect();
 	}

@@ -9,7 +9,6 @@ import {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT,
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT,
 } from 'src/constants';
-import { setupWordPressSite, getWordPressProvider } from 'src/lib/wordpress-provider';
 import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
 import { createSiteViaCli, type CreateSiteOptions } from 'src/modules/cli/lib/cli-site-creator';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';

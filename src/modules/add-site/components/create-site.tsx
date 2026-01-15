@@ -4,7 +4,7 @@ import {
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { RefObject } from 'react';
-import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
+import { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import { CreateSiteForm } from 'src/modules/add-site/components/create-site-form';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
 

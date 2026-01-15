@@ -13,14 +13,14 @@ import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
-import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import { useRootSelector } from 'src/stores';
+import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import {
 	selectDefaultWordPressVersion,
 	selectAllowedPhpVersions,
 } from 'src/stores/provider-constants-slice';
-import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
+import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 
 export interface CreateSiteFormProps {
 	/** Initial values and async updates (syncs before user interaction) */

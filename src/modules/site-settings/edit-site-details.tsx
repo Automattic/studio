@@ -19,12 +19,8 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useRootSelector } from 'src/stores';
 import { betaFeaturesSelectors } from 'src/stores/beta-features-slice';
-import {
-	selectDefaultWordPressVersion,
-	selectAllowedPhpVersions,
-	selectDefaultPhpVersion,
-} from 'src/stores/provider-constants-slice';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
+import { selectDefaultWordPressVersion } from 'src/stores/provider-constants-slice';
 import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 
 type EditSiteDetailsProps = {
@@ -36,8 +32,6 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const { __ } = useI18n();
 	const { updateSite, selectedSite, isEditModalOpen, setIsEditModalOpen } = useSiteDetails();
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
-	const allowedPhpVersions = useRootSelector( selectAllowedPhpVersions );
-	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
 	const betaFeatures = useRootSelector( betaFeaturesSelectors.selectBetaFeatures );
 	const isXdebugFeatureEnabled = betaFeatures.xdebugSupport;
 	const [ errorUpdatingWpVersion, setErrorUpdatingWpVersion ] = useState< string | null >( null );

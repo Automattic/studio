@@ -10,7 +10,7 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
+import { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import { SyncSite } from 'src/modules/sync/types';
 import { useRootSelector, useAppDispatch, useI18nLocale } from 'src/stores';
 import { formatRtkError } from 'src/stores/format-rtk-error';

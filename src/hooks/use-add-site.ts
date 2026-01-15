@@ -102,7 +102,7 @@ export function useAddSite() {
 		setDeeplinkPhpVersion( defaultPhpVersion as AllowedPHPVersion );
 		setDeeplinkWpVersion( defaultWordPressVersion );
 		clearDeeplinkState();
-	}, [ clearDeeplinkState ] );
+	}, [ clearDeeplinkState, defaultPhpVersion, defaultWordPressVersion ] );
 
 	const loadAllCustomDomains = useCallback( () => {
 		getIpcApi()

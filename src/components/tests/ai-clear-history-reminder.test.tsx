@@ -1,21 +1,27 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { vi, type Mock } from 'vitest';
+import { vi } from 'vitest';
 import AIClearHistoryReminder from 'src/components/ai-clear-history-reminder';
 import { CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Message } from 'src/stores/chat-slice';
 
-vi.mock( 'src/lib/get-ipc-api' );
+const mockShowMessageBox = vi.fn();
+
+vi.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: () => ( {
+		showMessageBox: mockShowMessageBox,
+	} ),
+} ) );
 
 describe( 'AIClearHistoryReminder', () => {
-	let clearConversation: Mock;
+	let clearConversation: ReturnType< typeof vi.fn >;
 	const MOCKED_CURRENT_TIME = 1718882159928;
 	const OLD_MESSAGE_TIME = MOCKED_CURRENT_TIME - CLEAR_HISTORY_REMINDER_TIME - 1;
 
 	beforeEach( () => {
 		window.HTMLElement.prototype.scrollIntoView = vi.fn();
 		clearConversation = vi.fn();
-		vi.clearAllMocks();
+		mockShowMessageBox.mockClear();
 		vi.useFakeTimers();
 		vi.setSystemTime( MOCKED_CURRENT_TIME );
 	} );
@@ -39,9 +45,7 @@ describe( 'AIClearHistoryReminder', () => {
 	} );
 
 	it( 'should warn then clear conversations', async () => {
-		( getIpcApi as Mock ).mockReturnValue( {
-			showMessageBox: vi.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
-		} );
+		mockShowMessageBox.mockResolvedValue( { response: 0, checkboxChecked: false } );
 		const message: Message = {
 			id: 0,
 			createdAt: OLD_MESSAGE_TIME,
@@ -66,9 +70,7 @@ describe( 'AIClearHistoryReminder', () => {
 
 	it( 'should clear conversations without warning if dismised permanently', async () => {
 		localStorage.setItem( 'dontShowClearMessagesWarning', 'true' );
-		( getIpcApi as Mock ).mockReturnValue( {
-			showMessageBox: vi.fn().mockResolvedValue( { response: 1, checkboxChecked: false } ),
-		} );
+		mockShowMessageBox.mockResolvedValue( { response: 1, checkboxChecked: false } );
 		const message: Message = {
 			id: 0,
 			createdAt: OLD_MESSAGE_TIME,

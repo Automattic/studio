@@ -1,13 +1,16 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
 import { app } from 'electron';
 import { createI18n } from '@wordpress/i18n';
+import { vi, type Mock } from 'vitest';
 import { getLocaleData } from 'common/lib/locale';
 import { getSupportedLocale } from 'src/lib/locale-node';
 
+vi.mocked( app ).getLocale = vi.fn();
+
 function mockAppLocale( language: string ) {
-	( app.getLocale as jest.Mock ).mockReturnValue( language );
+	( app.getLocale as Mock ).mockReturnValue( language );
 }
 
 describe( 'getSupportedLocale', () => {

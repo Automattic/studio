@@ -1,11 +1,11 @@
 /**
  * @vitest-environment node
  */
-import { shell, IpcMainInvokeEvent } from 'electron';
-import fs from 'fs';
+import { shell, IpcMainInvokeEvent, BrowserWindow } from 'electron';
+import fs, { Stats } from 'fs';
 import * as Sentry from '@sentry/electron/main';
 import { readFile } from 'atomically';
-import { vi, type Mock } from 'vitest';
+import { vi } from 'vitest';
 import { bumpStat } from 'common/lib/bump-stat';
 import { isEmptyDir, pathExists } from 'common/lib/fs-utils';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
@@ -65,28 +65,65 @@ vi.mock( 'common/lib/port-finder', () => ( {
 	},
 } ) );
 
-( SiteServer.create as Mock ).mockImplementation( ( details ) => ( {
-	start: vi.fn(),
-	details,
-	updateSiteDetails: vi.fn(),
-	updateCachedThumbnail: vi.fn( () => Promise.resolve() ),
-} ) );
-( createSiteWorkingDirectory as Mock ).mockResolvedValue( true );
+vi.mocked( SiteServer.create ).mockImplementation(
+	( details ) =>
+		( {
+			start: vi.fn(),
+			details,
+			meta: {},
+			updateSiteDetails: vi.fn(),
+			updateCachedThumbnail: vi.fn( () => Promise.resolve() ),
+			delete: vi.fn(),
+			stop: vi.fn(),
+			executeWpCliCommand: vi.fn(),
+			hasSQLitePlugin: vi.fn(),
+		} ) as Partial< SiteServer > as SiteServer
+);
+vi.mocked( createSiteWorkingDirectory ).mockResolvedValue( true );
 
 const mockUserData = {
 	sites: [],
 };
 
-( readFile as Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
+vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( mockUserData ) ) );
 // Assume the provided site path is a directory
-( fs.promises.stat as Mock ).mockResolvedValue( {
+vi.mocked( fs.promises.stat ).mockResolvedValue( {
 	isDirectory: () => true,
-} );
+} as Partial< Stats > as Stats );
 
 const mockIpcMainInvokeEvent = {
 	sender: { isDestroyed: vi.fn( () => false ) },
 	// Double assert the type with `unknown` to simplify mocking this value
 } as unknown as IpcMainInvokeEvent;
+
+// Helper functions
+const createMockSiteDetails = ( overrides = {} ): SiteDetails =>
+	( {
+		id: 'test-site',
+		name: 'Test Site',
+		path: '/test/path',
+		port: 8888,
+		phpVersion: '8.0',
+		running: false,
+		...overrides,
+	} ) as SiteDetails;
+
+const createMockSiteServer = ( overrides: Partial< SiteServer > = {} ) =>
+	( {
+		details: createMockSiteDetails( overrides.details ),
+		meta: {},
+		start: vi.fn(),
+		stop: vi.fn(),
+		updateSiteDetails: vi.fn(),
+		executeWpCliCommand: vi
+			.fn()
+			.mockResolvedValue( { stdout: 'New Site Title', stderr: '', exitCode: 0 } ),
+		updateCachedThumbnail: vi.fn( () => Promise.resolve() ),
+		...overrides,
+	} ) as Partial< SiteServer > as SiteServer;
+
+const mockReadFileWithData = ( data: unknown ) =>
+	vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( data ) ) );
 
 afterEach( () => {
 	vi.clearAllMocks();
@@ -94,8 +131,8 @@ afterEach( () => {
 
 describe( 'createSite', () => {
 	it( 'should create a site with generated ID when siteId is not provided', async () => {
-		( isEmptyDir as Mock ).mockResolvedValueOnce( true );
-		( pathExists as Mock ).mockResolvedValueOnce( true );
+		vi.mocked( isEmptyDir ).mockResolvedValueOnce( true );
+		vi.mocked( pathExists ).mockResolvedValueOnce( true );
 
 		const userData = await createSite( mockIpcMainInvokeEvent, '/test', {
 			siteName: 'Test',
@@ -117,8 +154,8 @@ describe( 'createSite', () => {
 	} );
 
 	it( 'should create a site with provided siteId', async () => {
-		( isEmptyDir as Mock ).mockResolvedValueOnce( true );
-		( pathExists as Mock ).mockResolvedValueOnce( true );
+		vi.mocked( isEmptyDir ).mockResolvedValueOnce( true );
+		vi.mocked( pathExists ).mockResolvedValueOnce( true );
 
 		const customSiteId = 'custom-site-id-123';
 		const userData = await createSite( mockIpcMainInvokeEvent, '/test', {
@@ -143,9 +180,9 @@ describe( 'createSite', () => {
 
 	describe( 'when the site path started as an empty directory', () => {
 		it( 'should reset the directory when site creation fails', () => {
-			( isEmptyDir as Mock ).mockResolvedValueOnce( true );
-			( pathExists as Mock ).mockResolvedValueOnce( true );
-			( createSiteWorkingDirectory as Mock ).mockImplementation( () => {
+			vi.mocked( isEmptyDir ).mockResolvedValueOnce( true );
+			vi.mocked( pathExists ).mockResolvedValueOnce( true );
+			vi.mocked( createSiteWorkingDirectory ).mockImplementation( () => {
 				throw new Error( 'Intentional test error' );
 			} );
 
@@ -162,13 +199,16 @@ describe( 'createSite', () => {
 describe( 'startServer', () => {
 	it( 'should keep SQLite integration up-to-date', async () => {
 		const mockSitePath = 'mock-site-path';
-		( keepSqliteIntegrationUpdated as Mock ).mockResolvedValue( undefined );
-		( SiteServer.get as Mock ).mockReturnValue( {
-			details: { path: mockSitePath },
-			start: vi.fn(),
-			updateSiteDetails: vi.fn(),
-			updateCachedThumbnail: vi.fn( () => Promise.resolve() ),
-		} );
+		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( undefined );
+		vi.mocked( SiteServer.get ).mockReturnValue(
+			createMockSiteServer( {
+				details: createMockSiteDetails( {
+					id: 'mock-site-id',
+					name: 'Mock Site',
+					path: mockSitePath,
+				} ),
+			} )
+		);
 
 		await startServer( mockIpcMainInvokeEvent, 'mock-site-id' );
 
@@ -178,9 +218,9 @@ describe( 'startServer', () => {
 
 describe( 'isFullscreen', () => {
 	it( 'should return false when window is not in fullscreen', async () => {
-		( getMainWindow as Mock ).mockResolvedValue( {
+		vi.mocked( getMainWindow ).mockResolvedValue( {
 			isFullScreen: () => false,
-		} );
+		} as Partial< BrowserWindow > as BrowserWindow );
 
 		const result = await isFullscreen( mockIpcMainInvokeEvent );
 
@@ -188,9 +228,9 @@ describe( 'isFullscreen', () => {
 	} );
 
 	it( 'should return true when window is in fullscreen', async () => {
-		( getMainWindow as Mock ).mockResolvedValue( {
+		vi.mocked( getMainWindow ).mockResolvedValue( {
 			isFullScreen: () => true,
-		} );
+		} as Partial< BrowserWindow > as BrowserWindow );
 
 		const result = await isFullscreen( mockIpcMainInvokeEvent );
 
@@ -205,12 +245,12 @@ describe( 'importSite', () => {
 	};
 
 	beforeEach( () => {
-		( importBackup as Mock ).mockReset();
-		( bumpStat as Mock ).mockReset();
+		vi.mocked( importBackup ).mockReset();
+		vi.mocked( bumpStat ).mockReset();
 	} );
 
 	it( 'should throw error if site is not found', async () => {
-		( SiteServer.get as Mock ).mockReturnValue( null );
+		vi.mocked( SiteServer.get ).mockReturnValue( null );
 
 		await expect(
 			importSite( mockIpcMainInvokeEvent, {
@@ -221,21 +261,16 @@ describe( 'importSite', () => {
 	} );
 
 	it( 'should import backup successfully and bump success stats', async () => {
-		const mockSite = {
-			details: {
-				id: 'test-site',
-				phpVersion: '8.3',
-			},
-			meta: {},
-			start: vi.fn(),
-			stop: vi.fn(),
-			updateSiteDetails: vi.fn(),
-			executeWpCliCommand: vi
-				.fn()
-				.mockResolvedValue( { stdout: 'New Site Title', stderr: '', exitCode: 0 } ),
-		};
-		( SiteServer.get as Mock ).mockReturnValue( mockSite );
-		( importBackup as Mock ).mockResolvedValue( {
+		const mockSite = createMockSiteServer( {
+			details: createMockSiteDetails( { phpVersion: '8.3' } ),
+		} );
+		vi.mocked( SiteServer.get ).mockReturnValue( mockSite );
+		vi.mocked( importBackup ).mockResolvedValue( {
+			extractionDirectory: '/mock/extraction',
+			wpConfig: '/mock/wp-config.php',
+			sqlFiles: [],
+			wpContentFiles: [],
+			wpContentDirectory: '/mock/wp-content',
 			meta: {
 				phpVersion: '8.3',
 			},
@@ -264,18 +299,9 @@ describe( 'importSite', () => {
 
 	it( 'should capture exception in Sentry and bump failure stats when import fails', async () => {
 		const mockError = new Error( 'Import failed' );
-		const mockSite = {
-			details: {
-				id: 'test-site',
-			},
-			start: vi.fn(),
-			stop: vi.fn(),
-			executeWpCliCommand: vi
-				.fn()
-				.mockResolvedValue( { stdout: 'New Site Title', stderr: '', exitCode: 0 } ),
-		};
-		( SiteServer.get as Mock ).mockReturnValue( mockSite );
-		( importBackup as Mock ).mockRejectedValue( mockError );
+		const mockSite = createMockSiteServer();
+		vi.mocked( SiteServer.get ).mockReturnValue( mockSite );
+		vi.mocked( importBackup ).mockRejectedValue( mockError );
 
 		await expect(
 			importSite( mockIpcMainInvokeEvent, {
@@ -299,8 +325,8 @@ describe( 'getXdebugEnabledSite', () => {
 				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2' },
 			],
 		};
-		( readFile as Mock ).mockResolvedValue( JSON.stringify( mockUserDataWithoutXdebug ) );
-		( fs.existsSync as Mock ).mockReturnValue( true );
+		mockReadFileWithData( mockUserDataWithoutXdebug );
+		vi.mocked( fs.existsSync ).mockReturnValue( true );
 
 		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
 
@@ -314,17 +340,20 @@ describe( 'getXdebugEnabledSite', () => {
 				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2', enableXdebug: true },
 			],
 		};
-		( readFile as Mock ).mockResolvedValue( JSON.stringify( mockUserDataWithXdebug ) );
-		( fs.existsSync as Mock ).mockReturnValue( true );
-		( SiteServer.get as Mock ).mockReturnValue( {
-			details: {
-				id: 'site-2',
-				name: 'Site 2',
-				path: '/path/to/site-2',
-				running: true,
-				enableXdebug: true,
-			},
-		} );
+		mockReadFileWithData( mockUserDataWithXdebug );
+		vi.mocked( fs.existsSync ).mockReturnValue( true );
+		vi.mocked( SiteServer.get ).mockReturnValue(
+			createMockSiteServer( {
+				details: createMockSiteDetails( {
+					id: 'site-2',
+					name: 'Site 2',
+					path: '/path/to/site-2',
+					port: 8881,
+					running: true,
+					enableXdebug: true,
+				} ),
+			} )
+		);
 
 		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
 
@@ -332,6 +361,8 @@ describe( 'getXdebugEnabledSite', () => {
 			id: 'site-2',
 			name: 'Site 2',
 			path: '/path/to/site-2',
+			port: 8881,
+			phpVersion: '8.0',
 			running: true,
 			enableXdebug: true,
 		} );
@@ -344,17 +375,19 @@ describe( 'getXdebugEnabledSite', () => {
 				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2', enableXdebug: true },
 			],
 		};
-		( readFile as Mock ).mockResolvedValue( JSON.stringify( mockUserDataWithMultipleXdebug ) );
-		( fs.existsSync as Mock ).mockReturnValue( true );
-		( SiteServer.get as Mock ).mockReturnValue( {
-			details: {
-				id: 'site-1',
-				name: 'Site 1',
-				path: '/path/to/site-1',
-				running: false,
-				enableXdebug: true,
-			},
-		} );
+		mockReadFileWithData( mockUserDataWithMultipleXdebug );
+		vi.mocked( fs.existsSync ).mockReturnValue( true );
+		vi.mocked( SiteServer.get ).mockReturnValue(
+			createMockSiteServer( {
+				details: createMockSiteDetails( {
+					id: 'site-1',
+					name: 'Site 1',
+					path: '/path/to/site-1',
+					port: 8880,
+					enableXdebug: true,
+				} ),
+			} )
+		);
 
 		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
 
@@ -362,6 +395,8 @@ describe( 'getXdebugEnabledSite', () => {
 			id: 'site-1',
 			name: 'Site 1',
 			path: '/path/to/site-1',
+			port: 8880,
+			phpVersion: '8.0',
 			running: false,
 			enableXdebug: true,
 		} );

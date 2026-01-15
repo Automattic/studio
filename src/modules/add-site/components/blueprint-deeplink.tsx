@@ -22,7 +22,7 @@ export default function BlueprintDeeplink( {
 }: BlueprintDeeplinkProps ) {
 	const { __ } = useI18n();
 
-	const blueprintTitle = selectedBlueprint?.title || '';
+	const blueprintTitle = selectedBlueprint?.title || __( 'Blueprint loaded from URL' );
 	const blueprintDescription = selectedBlueprint?.excerpt || '';
 
 	return (
@@ -46,7 +46,7 @@ export default function BlueprintDeeplink( {
 						</Text>
 						<VStack alignment="left" spacing={ 4 }>
 							<Text className="text-[13px] text-[#50575E]" weight={ 400 }>
-								{ blueprintTitle || __( 'Blueprint loaded from URL' ) }
+								{ blueprintTitle }
 							</Text>
 							{ blueprintDescription && (
 								<Text

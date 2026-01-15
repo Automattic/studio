@@ -26,6 +26,9 @@ export async function runCommand(
 	const useCustomPhpVersion = options.phpVersion && options.phpVersion !== site.phpVersion;
 
 	if ( ! useCustomPhpVersion ) {
+		process.on( 'SIGINT', disconnect );
+		process.on( 'SIGTERM', disconnect );
+
 		try {
 			await connect();
 
@@ -36,17 +39,16 @@ export async function runCommand(
 				process.exit( result.exitCode );
 			}
 		} finally {
-			disconnect();
+			await disconnect();
 		}
 	}
 
-	// …If not, instantiate a new Playground instance
-	const [ response, closeWpCliServer ] = await runWpCliCommand(
-		siteFolder,
-		phpVersion,
-		site.port,
-		args
-	);
+	process.on( 'SIGINT', () => process.exit( 1 ) );
+	process.on( 'SIGTERM', () => process.exit( 1 ) );
+
+	// …If not, run the command in a new PHP-WASM instance
+	const [ response, exitPhp ] = await runWpCliCommand( siteFolder, phpVersion, args );
+	const decoder = new TextDecoder();
 
 	await response.stderr.pipeTo(
 		new WritableStream( {
@@ -59,13 +61,16 @@ export async function runCommand(
 	await response.stdout.pipeTo(
 		new WritableStream( {
 			write( chunk ) {
-				process.stdout.write( chunk );
+				const text = decoder.decode( chunk, { stream: true } );
+				if ( ! text.startsWith( '#!/usr/bin/env' ) ) {
+					process.stdout.write( chunk );
+				}
 			},
 		} )
 	);
 
-	await closeWpCliServer();
-	process.exit( await response.exitCode );
+	process.exitCode = await response.exitCode;
+	exitPhp();
 }
 
 function removeArgumentFromArgv( argv: string[], argName: string ): string[] {

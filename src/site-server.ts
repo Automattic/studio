@@ -9,10 +9,7 @@ import {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT,
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT,
 } from 'src/constants';
-import { deleteSiteCertificate, generateSiteCertificate } from 'src/lib/certificate-manager';
-import { getSiteUrl } from 'src/lib/get-site-url';
-import { updateDomainInHosts } from 'src/lib/hosts-file';
-import { updateSiteUrl } from 'src/lib/update-site-url';
+import { setupWordPressSite, getWordPressProvider } from 'src/lib/wordpress-provider';
 import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
 import { createSiteViaCli, type CreateSiteOptions } from 'src/modules/cli/lib/cli-site-creator';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
@@ -27,18 +24,27 @@ const servers = new Map< string, SiteServer >();
 const deletedServers: string[] = [];
 
 export async function stopAllServersOnQuit() {
-	// We're quitting so this doesn't have to be tidy, just stop the
-	// servers as directly as possible.
-	// Preserve autoStart so sites will restart on next app launch.
-	// Use silent mode to avoid terminal errors during quit.
+	// The `--auto-start` option ensures sites will restart on next app launch.
 	return new Promise< void >( ( resolve ) => {
-		const [ emitter ] = executeCliCommand( [ 'site', 'stop-all', '--auto-start' ], {
-			output: 'ignore',
-		} );
+		const [ emitter, childProcess ] = executeCliCommand(
+			[ 'site', 'stop', '--all', '--auto-start' ],
+			{ output: 'ignore' }
+		);
+		console.log( `Spawned stop-all child process with pid ${ childProcess.pid }` );
 		emitter.on( 'success', () => resolve() );
 		emitter.on( 'failure', () => resolve() );
 		emitter.on( 'error', () => resolve() );
 	} );
+}
+
+export function getRunningSiteCount(): number {
+	return Array.from( servers.values() ).filter( ( server ) => server.details.running ).length;
+}
+
+// Only for testing purposes
+export function __resetServersForTesting(): void {
+	servers.clear();
+	deletedServers.length = 0;
 }
 
 function getAbsoluteUrl( details: SiteDetails ): string {
@@ -91,10 +97,15 @@ export class SiteServer {
 		return deletedServers.includes( id );
 	}
 
-	static register( details: StoppedSiteDetails, meta: SiteServerMeta = {} ): SiteServer {
+	static register( details: SiteDetails, meta: SiteServerMeta = {} ): SiteServer {
 		const server = new SiteServer( details, meta );
 		servers.set( details.id, server );
 		return server;
+	}
+
+	static unregister( id: string ): void {
+		deletedServers.push( id );
+		servers.delete( id );
 	}
 
 	static async create(
@@ -143,6 +154,10 @@ export class SiteServer {
 			servers.set( siteDetails.id, server );
 			server.details = siteDetails;
 
+			if ( siteDetails.running && siteDetails.url ) {
+				server.server.url = siteDetails.url;
+			}
+
 			return { server, details: siteDetails };
 		} finally {
 			server.hasOngoingOperation = false;
@@ -172,6 +187,11 @@ export class SiteServer {
 
 			const userData = await loadUserData();
 			const freshSiteData = userData.sites.find( ( s ) => s.id === this.details.id );
+
+			if ( freshSiteData?.port ) {
+				this.details.port = freshSiteData.port;
+			}
+
 			const url = getAbsoluteUrl( this.details );
 
 			this.details = {
@@ -181,17 +201,14 @@ export class SiteServer {
 				autoStart: true,
 				latestCliPid: freshSiteData?.latestCliPid,
 			};
+
+			this.server.url = url;
 		} finally {
 			this.hasOngoingOperation = false;
 		}
 	}
 
-	async updateSiteDetails( site: SiteDetails ) {
-		const oldDomain = this.details.customDomain;
-		const newDomain = site.customDomain;
-		const oldEnableHttps = this.details.enableHttps;
-		const newEnableHttps = site.enableHttps;
-
+	updateSiteDetails( site: SiteDetails ) {
 		this.details = {
 			...this.details,
 			name: site.name,
@@ -200,39 +217,14 @@ export class SiteServer {
 			isWpAutoUpdating: site.isWpAutoUpdating,
 			customDomain: site.customDomain,
 			enableHttps: site.enableHttps,
+			tlsKey: site.tlsKey,
+			tlsCert: site.tlsCert,
+			enableXdebug: site.enableXdebug,
 		};
 
 		if ( this.server && this.details.running ) {
 			this.details.url = getAbsoluteUrl( this.details );
 			this.server.url = this.details.url;
-		}
-
-		// Handle domain changes and url changes (updates hosts and database)
-		if ( oldDomain !== newDomain ) {
-			void updateDomainInHosts( oldDomain, newDomain, this.details.port );
-		}
-		if ( ( oldDomain && ! newDomain ) || oldEnableHttps !== newEnableHttps ) {
-			await updateSiteUrl( this, getSiteUrl( this.details ) );
-		}
-
-		if (
-			oldDomain &&
-			oldEnableHttps &&
-			( oldDomain !== newDomain || oldEnableHttps !== newEnableHttps )
-		) {
-			deleteSiteCertificate( oldDomain );
-		}
-		if (
-			newDomain &&
-			newEnableHttps &&
-			( oldDomain !== newDomain || oldEnableHttps !== newEnableHttps )
-		) {
-			const { cert, key } = await generateSiteCertificate( newDomain );
-			this.details = {
-				...this.details,
-				tlsKey: key,
-				tlsCert: cert,
-			};
 		}
 	}
 

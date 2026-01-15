@@ -195,10 +195,10 @@ export const wpcomPublicApi = createApi( {
 	endpoints: ( builder ) => ( {
 		getBlueprints: builder.query<
 			{ blueprints: z.infer< typeof blueprintSchema >[]; total: number },
-			void
+			{ locale?: string }
 		>( {
-			query: () => ( {
-				path: '/studio-app/blueprints',
+			query: ( { locale } = {} ) => ( {
+				path: `/studio-app/blueprints${ locale ? `?locale=${ locale }` : '' }`,
 				apiNamespace: 'wpcom/v2',
 			} ),
 			transformResponse: ( response: unknown ) => {

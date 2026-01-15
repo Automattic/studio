@@ -304,7 +304,7 @@ async function runBlueprint( config: ServerConfig, signal: AbortSignal ): Promis
 
 		logToConsole( `Blueprint applied successfully for site ${ config.siteId }` );
 	} catch ( error ) {
-		errorToConsole( `Failed to run blueprint:`, error );
+		errorToConsole( `Failed to run Blueprint:`, error );
 		throw error;
 	}
 }
@@ -344,11 +344,48 @@ const runWpCliCommand = sequential(
 	{ concurrent: 3, max: 10 }
 );
 
+function parsePhpError( error: unknown ): string {
+	if ( ! ( error instanceof Error ) ) {
+		return String( error );
+	}
+
+	const message = error.message;
+
+	// Check for WordPress critical error in HTML output
+	const wpDieMatch = message.match( /<div class="wp-die-message"[^>]*>([\s\S]*?)<\/div>/ );
+	if ( wpDieMatch ) {
+		// Extract text from HTML, removing tags
+		const htmlContent = wpDieMatch[ 1 ];
+		const textContent = htmlContent
+			.replace( /<[^>]+>/g, ' ' )
+			.replace( /\s+/g, ' ' )
+			.trim();
+		if ( textContent ) {
+			return `WordPress error: ${ textContent }`;
+		}
+	}
+
+	// Check for PHP fatal error pattern
+	const fatalMatch = message.match( /PHP Fatal error:\s*(.+?)(?:\sin\s|$)/i );
+	if ( fatalMatch ) {
+		return `PHP Fatal error: ${ fatalMatch[ 1 ].trim() }`;
+	}
+
+	// Check for generic PHP.run() failure - provide a cleaner message
+	if ( message.includes( 'PHP.run() failed with exit code' ) ) {
+		const exitCodeMatch = message.match( /exit code (\d+)/ );
+		const exitCode = exitCodeMatch ? exitCodeMatch[ 1 ] : 'unknown';
+		return `WordPress failed to start (PHP exit code ${ exitCode }). Check the site's debug.log for details.`;
+	}
+
+	return message;
+}
+
 function sendErrorMessage( messageId: string, error: unknown ) {
 	const errorResponse: ChildMessageRaw = {
 		originalMessageId: messageId,
 		topic: 'error',
-		errorMessage: error instanceof Error ? error.message : String( error ),
+		errorMessage: parsePhpError( error ),
 		errorStack: error instanceof Error ? error.stack : undefined,
 		cliArgs: lastCliArgs ?? undefined,
 	};

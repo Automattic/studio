@@ -8,6 +8,7 @@ import {
 	useMemo,
 	useState,
 } from 'react';
+import { SITE_EVENTS, SiteEvent } from 'common/lib/site-events';
 import { sortSites } from 'common/lib/sort-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
@@ -21,7 +22,7 @@ import type { Blueprint } from 'src/stores/wpcom-api';
 
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
-	updateSite: ( site: SiteDetails ) => Promise< void >;
+	updateSite: ( site: SiteDetails, wpVersion?: string ) => Promise< void >;
 	sites: SiteDetails[];
 	setSelectedSiteId: ( selectedSiteId: string ) => void;
 	createSite: (
@@ -188,37 +189,41 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		}
 	} );
 
-	/*
-	 * Site Update Listeners
-	 *
-	 * Two complementary watchers keep the UI in sync with external changes:
-	 *
-	 * 1. 'site-status-changed' (from Site Status Watcher - execute-site-watch-command.ts):
-	 *    - Source: PM2 process events via `studio site list --watch`
-	 *    - Detects: Site start/stop/crash events
-	 *
-	 * 2. 'user-data-updated' (from User Data Watcher - user-data-watcher.ts):
-	 *    - Source: fs.watch on the appdata file
-	 *    - Detects: ALL changes (new sites, edits, deletions)
-	 *    - Used for: CLI site creation, property changes, external modifications
-	 *
-	 */
-	useIpcListener( 'site-status-changed', ( _, { siteId, status, url } ) => {
-		setSites( ( prevSites ) =>
-			prevSites.map( ( site ) =>
-				site.id === siteId ? { ...site, running: status === 'running', url: url } : site
-			)
-		);
-	} );
+	useIpcListener( 'site-event', ( _, event: SiteEvent ) => {
+		const { event: eventType, siteId, site, running } = event;
 
-	useIpcListener( 'user-data-updated', async () => {
-		const updatedSites = await getIpcApi().getSiteDetails();
-		setSites( updatedSites );
+		setSites( ( prevSites ) => {
+			if ( eventType === SITE_EVENTS.DELETED ) {
+				const newSites = prevSites.filter( ( s ) => s.id !== siteId );
+				if ( selectedSiteId === siteId ) {
+					setSelectedSiteId( newSites.length ? newSites[ 0 ].id : '' );
+				}
+				return newSites;
+			}
 
-		// Handle case where selected site was deleted externally
-		if ( selectedSiteId && ! updatedSites.find( ( site ) => site.id === selectedSiteId ) ) {
-			setSelectedSiteId( updatedSites.length ? updatedSites[ 0 ].id : '' );
-		}
+			if ( ! site ) {
+				return prevSites;
+			}
+
+			const siteDetails: SiteDetails = {
+				...site,
+				running,
+			};
+
+			const existingIndex = prevSites.findIndex( ( s ) => s.id === siteId );
+
+			// Only add new sites on CREATED events to prevent duplicates
+			if ( existingIndex < 0 ) {
+				if ( eventType === SITE_EVENTS.CREATED ) {
+					return sortSites( [ ...prevSites, siteDetails ] );
+				}
+				return prevSites;
+			}
+
+			const newSites = [ ...prevSites ];
+			newSites[ existingIndex ] = { ...newSites[ existingIndex ], ...siteDetails };
+			return newSites;
+		} );
 	} );
 
 	const toggleLoadingServerForSite = useCallback( ( siteId: string ) => {
@@ -375,8 +380,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		[ selectedTab, setSelectedSiteId, setSelectedTab ]
 	);
 
-	const updateSite = useCallback( async ( site: SiteDetails ) => {
-		await getIpcApi().updateSite( site );
+	const updateSite = useCallback( async ( site: SiteDetails, wpVersion?: string ) => {
+		await getIpcApi().updateSite( site, wpVersion );
 		const updatedSites = await getIpcApi().getSiteDetails();
 		setSites( updatedSites );
 	}, [] );

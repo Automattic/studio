@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { BrowserWindow } from 'electron';
 import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
+import { SiteEvent } from 'common/lib/site-events';
 import { PreviewCommandLoggerAction } from 'common/logger-actions';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { StoredToken } from 'src/lib/oauth';
@@ -31,7 +32,7 @@ export interface IpcEvents {
 	'on-import': [ ImportExportEventData, string ];
 	'on-site-create-progress': [ { siteId: string; message: string } ];
 	'site-context-menu-action': [ { action: string; siteId: string } ];
-	'site-status-changed': [ { siteId: string; status: 'running' | 'stopped'; url: string } ];
+	'site-event': [ SiteEvent ];
 	'sync-upload-paused': [ { error: string; selectedSiteId: string; remoteSiteId: number } ];
 	'sync-upload-resumed': [ { selectedSiteId: string; remoteSiteId: number } ];
 	'sync-upload-progress': [ { selectedSiteId: string; remoteSiteId: number; progress: number } ];

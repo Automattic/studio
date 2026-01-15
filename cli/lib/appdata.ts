@@ -7,25 +7,16 @@ import { LOCKFILE_NAME, LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/c
 import { arePathsEqual, isWordPressDirectory } from 'common/lib/fs-utils';
 import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
 import { getAuthenticationUrl } from 'common/lib/oauth';
+import { siteDetailsSchema } from 'common/lib/site-events';
 import { snapshotSchema } from 'common/types/snapshot';
 import { StatsMetric } from 'common/types/stats';
 import { z } from 'zod';
 import { validateAccessToken } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
 
-const siteSchema = z
-	.object( {
-		id: z.string(),
-		path: z.string(),
-		name: z.string(),
-		phpVersion: z.string(),
-		customDomain: z.string().optional(),
-		port: z.number(),
-		enableHttps: z.boolean().optional(),
-		adminPassword: z.string().optional(),
-		isWpAutoUpdating: z.boolean().optional(),
+const siteSchema = siteDetailsSchema
+	.extend( {
 		running: z.boolean().optional(),
-		autoStart: z.boolean().optional(),
 		url: z.string().optional(),
 		latestCliPid: z.number().optional(),
 		enableXdebug: z.boolean().optional(),
@@ -190,11 +181,11 @@ export async function getSiteByFolder( siteFolder: string ): Promise< SiteData >
 	if ( ! site ) {
 		if ( isWordPressDirectory( siteFolder ) ) {
 			throw new LoggerError(
-				__( 'The specified folder is not added to Studio. Use `studio site create` to add it.' )
+				__( 'The specified directory is not added to Studio. Use `studio site create` to add it.' )
 			);
 		}
 
-		throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );
+		throw new LoggerError( __( 'The specified directory is not added to Studio.' ) );
 	}
 
 	return site;

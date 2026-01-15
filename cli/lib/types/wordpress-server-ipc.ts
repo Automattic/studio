@@ -102,12 +102,53 @@ const childMessageConsole = z.object( {
 	message: z.string(),
 } );
 
+const childMessageSiteCreated = z.object( {
+	topic: z.literal( 'site-created' ),
+	data: z.object( {
+		siteId: z.string(),
+	} ),
+} );
+
+const childMessageSiteUpdated = z.object( {
+	topic: z.literal( 'site-updated' ),
+	data: z.object( {
+		siteId: z.string(),
+	} ),
+} );
+
+const childMessageSiteDeleted = z.object( {
+	topic: z.literal( 'site-deleted' ),
+	data: z.object( {
+		siteId: z.string(),
+	} ),
+} );
+
+const childMessageSiteStarted = z.object( {
+	topic: z.literal( 'site-started' ),
+	data: z.object( {
+		siteId: z.string(),
+		url: z.string(),
+	} ),
+} );
+
+const childMessageSiteStopped = z.object( {
+	topic: z.literal( 'site-stopped' ),
+	data: z.object( {
+		siteId: z.string(),
+	} ),
+} );
+
 const childMessageRaw = z.discriminatedUnion( 'topic', [
 	childMessageReady,
 	childMessageActivity,
 	childMessageResult,
 	childMessageError,
 	childMessageConsole,
+	childMessageSiteCreated,
+	childMessageSiteUpdated,
+	childMessageSiteDeleted,
+	childMessageSiteStarted,
+	childMessageSiteStopped,
 ] );
 export type ChildMessageRaw = z.infer< typeof childMessageRaw >;
 export const childMessagePm2Schema = z.object( {
@@ -122,6 +163,7 @@ export const childMessagePm2Schema = z.object( {
 export const pm2ProcessEventSchema = z.object( {
 	process: z.object( {
 		name: z.string(),
+		pm_id: z.number().optional(),
 	} ),
 	event: z.string(),
 } );

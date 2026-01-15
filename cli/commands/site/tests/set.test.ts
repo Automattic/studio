@@ -251,9 +251,7 @@ describe( 'CLI: studio site set', () => {
 			expect( runWpCliCommand ).toHaveBeenCalledWith(
 				testSitePath,
 				'8.0',
-				8080,
-				expect.arrayContaining( [ 'core', 'update' ] ),
-				expect.any( Object )
+				expect.arrayContaining( [ 'core', 'update' ] )
 			);
 		} );
 

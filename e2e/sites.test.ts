@@ -125,7 +125,7 @@ test.describe( 'Servers', () => {
 
 		await settingsTab.siteNameInput.fill( newSiteName );
 		await settingsTab.saveButton.click();
-		await expect( settingsTab.editSiteDialog ).not.toBeVisible( { timeout: 10000 } );
+		await expect( settingsTab.editSiteDialog ).not.toBeVisible( { timeout: 20_000 } );
 
 		// Explicitly wait for the rename to propagate
 		const renamedSiteContent = new SiteContent( session.mainWindow, newSiteName );

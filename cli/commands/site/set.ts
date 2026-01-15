@@ -3,6 +3,8 @@ import { __, sprintf } from '@wordpress/i18n';
 import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from 'common/constants';
 import { getDomainNameValidationError } from 'common/lib/domains';
 import { arePathsEqual } from 'common/lib/fs-utils';
+import { SITE_EVENTS } from 'common/lib/site-events';
+import { siteNeedsRestart } from 'common/lib/site-needs-restart';
 import {
 	getWordPressVersionUrl,
 	isValidWordPressVersion,
@@ -19,7 +21,7 @@ import {
 	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
-import { connect, disconnect } from 'cli/lib/pm2-manager';
+import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { setupCustomDomain } from 'cli/lib/site-utils';
 import { validatePhpVersion } from 'cli/lib/utils';
@@ -45,10 +47,7 @@ export interface SetCommandOptions {
 	xdebug?: boolean;
 }
 
-export async function runCommand(
-	sitePath: string,
-	options: SetCommandOptions
-): Promise< { usedWpCli: boolean } > {
+export async function runCommand( sitePath: string, options: SetCommandOptions ): Promise< void > {
 	const { name, domain, https, php, wp, xdebug } = options;
 
 	if (
@@ -68,7 +67,7 @@ export async function runCommand(
 		throw new LoggerError( __( 'Site name cannot be empty.' ) );
 	}
 
-	if ( xdebug !== undefined && ! ( await isXdebugBetaEnabled() ) ) {
+	if ( xdebug === true && ! ( await isXdebugBetaEnabled() ) ) {
 		throw new LoggerError(
 			__( 'Xdebug support is a beta feature. Enable it in Studio settings first.' )
 		);
@@ -81,7 +80,7 @@ export async function runCommand(
 
 		const initialAppdata = await readAppdata();
 
-		if ( domain !== undefined ) {
+		if ( domain ) {
 			const existingDomainNames = initialAppdata.sites
 				.filter( ( s ) => s.id !== site.id )
 				.map( ( s ) => s.customDomain )
@@ -129,7 +128,13 @@ export async function runCommand(
 			);
 		}
 
-		const needsRestart = domainChanged || httpsChanged || phpChanged || wpChanged || xdebugChanged;
+		const needsRestart = siteNeedsRestart( {
+			domainChanged,
+			httpsChanged,
+			phpChanged,
+			wpChanged,
+			xdebugChanged,
+		} );
 		const oldDomain = site.customDomain;
 
 		try {
@@ -137,14 +142,14 @@ export async function runCommand(
 			const appdata = await readAppdata();
 			const foundSite = appdata.sites.find( ( s ) => arePathsEqual( s.path, sitePath ) );
 			if ( ! foundSite ) {
-				throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );
+				throw new LoggerError( __( 'The specified directory is not added to Studio.' ) );
 			}
 
 			if ( nameChanged ) {
 				foundSite.name = name!;
 			}
 			if ( domainChanged ) {
-				foundSite.customDomain = domain;
+				foundSite.customDomain = domain || undefined;
 			}
 			if ( httpsChanged ) {
 				foundSite.enableHttps = https;
@@ -175,37 +180,31 @@ export async function runCommand(
 		const wasRunning = await isServerRunning( site.id );
 
 		if ( needsRestart && wasRunning ) {
-			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress site…' ) );
+			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress server…' ) );
 			await stopWordPressServer( site.id );
-			logger.reportSuccess( __( 'WordPress site stopped' ) );
+			logger.reportSuccess( __( 'WordPress server stopped' ) );
 		}
 
 		if ( wpChanged ) {
-			logger.reportStart( LoggerAction.SET_WP_VERSION, __( 'Changing WordPress version…' ) );
+			logger.reportStart( LoggerAction.SET_WP_VERSION, __( 'Updating WordPress version…' ) );
 			const phpVersion = validatePhpVersion( site.phpVersion );
 			const zipUrl = getWordPressVersionUrl( wp );
 
-			// Use the correct site URL to avoid corrupting WordPress URL options
-			let siteUrl: string | undefined;
-			if ( site.customDomain ) {
-				const protocol = site.enableHttps ? 'https' : 'http';
-				siteUrl = `${ protocol }://${ site.customDomain }`;
-			}
-
-			const [ response, closeWpCliServer ] = await runWpCliCommand(
-				sitePath,
-				phpVersion,
-				site.port,
-				[ 'core', 'update', zipUrl, '--force', '--skip-plugins', '--skip-themes' ],
-				{ siteUrl }
-			);
+			const [ response, exitPhp ] = await runWpCliCommand( sitePath, phpVersion, [
+				'core',
+				'update',
+				zipUrl,
+				'--force',
+				'--skip-plugins',
+				'--skip-themes',
+			] );
 
 			const exitCode = await response.exitCode;
 			if ( exitCode !== 0 ) {
-				await closeWpCliServer();
+				exitPhp();
 				throw new LoggerError( sprintf( __( 'Failed to update WordPress version to %s' ), wp ) );
 			}
-			logger.reportSuccess( __( 'WordPress version changed' ) );
+			logger.reportSuccess( __( 'WordPress version updated' ) );
 
 			try {
 				await lockAppdata();
@@ -220,7 +219,7 @@ export async function runCommand(
 				await unlockAppdata();
 			}
 
-			await closeWpCliServer();
+			exitPhp();
 		}
 
 		if ( needsRestart && wasRunning ) {
@@ -228,19 +227,21 @@ export async function runCommand(
 				await setupCustomDomain( site, logger, { skipHostsUpdate: true } );
 			}
 
-			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress site…' ) );
+			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 			const processDesc = await startWordPressServer( site, logger );
 			if ( processDesc.pid ) {
 				await updateSiteLatestCliPid( site.id, processDesc.pid );
 			}
-			logger.reportSuccess( __( 'WordPress site started' ) );
+			logger.reportSuccess( __( 'WordPress server started' ) );
 		}
 
 		logger.reportSuccess( __( 'Site configuration updated' ) );
 
-		return { usedWpCli: wpChanged };
+		await emitSiteEvent( SITE_EVENTS.UPDATED, { siteId: site.id } );
+
+		return;
 	} finally {
-		disconnect();
+		await disconnect();
 	}
 }
 
@@ -299,7 +300,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		},
 		handler: async ( argv ) => {
 			try {
-				const result = await runCommand( argv.path, {
+				await runCommand( argv.path, {
 					name: argv.name,
 					domain: argv.domain,
 					https: argv.https,
@@ -307,11 +308,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					wp: argv.wp,
 					xdebug: argv.xdebug,
 				} );
-				// WP-CLI leaves handles open, so we need to explicitly exit
-				// See: cli/lib/run-wp-cli-command.ts FIXME comment
-				if ( result.usedWpCli ) {
-					process.exit( 0 );
-				}
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );
@@ -319,6 +315,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					const loggerError = new LoggerError( __( 'Failed to configure site' ), error );
 					logger.reportError( loggerError );
 				}
+				process.exit( 1 );
 			}
 		},
 	} );

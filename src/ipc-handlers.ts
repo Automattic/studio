@@ -60,6 +60,7 @@ import { setupWordPressFilesOnly } from 'src/lib/wordpress-setup';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
+import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tree-utils';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
@@ -170,19 +171,7 @@ function mergeSiteDetailsWithRunningDetails( sites: SiteDetails[] ): SiteDetails
 	return sites.map( ( site ) => {
 		const server = SiteServer.get( site.id );
 		if ( server ) {
-			// Merge fresh data from disk with running state from server
-			// This ensures external changes (e.g., from CLI) are reflected
-			if ( server.details.running ) {
-				return {
-					...site,
-					running: true as const,
-					url: server.details.url,
-				};
-			}
-			return {
-				...site,
-				running: false as const,
-			};
+			return server.details;
 		}
 		return site;
 	} );
@@ -344,23 +333,74 @@ export async function createSite(
 
 export async function updateSite(
 	event: IpcMainInvokeEvent,
-	updatedSite: SiteDetails
+	updatedSite: SiteDetails,
+	wpVersion?: string
 ): Promise< void > {
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		const updatedSites = userData.sites.map( ( site ) =>
-			site.id === updatedSite.id ? { ...site, ...updatedSite } : site
-		);
-		userData.sites = updatedSites;
+	const server = SiteServer.get( updatedSite.id );
+	if ( ! server ) {
+		throw new Error( `Site not found: ${ updatedSite.id }` );
+	}
 
-		const server = SiteServer.get( updatedSite.id );
-		if ( server ) {
-			await server.updateSiteDetails( updatedSite );
+	const currentSite = server.details;
+
+	const options: EditSiteOptions = {
+		path: currentSite.path,
+		siteId: updatedSite.id,
+	};
+
+	if ( updatedSite.name !== currentSite.name ) {
+		options.name = updatedSite.name;
+	}
+
+	if ( updatedSite.customDomain !== currentSite.customDomain ) {
+		options.domain = updatedSite.customDomain ?? '';
+	}
+
+	if ( updatedSite.enableHttps !== currentSite.enableHttps ) {
+		options.https = updatedSite.enableHttps ?? false;
+	}
+
+	if ( updatedSite.phpVersion !== currentSite.phpVersion ) {
+		options.php = updatedSite.phpVersion;
+	}
+
+	if ( wpVersion ) {
+		options.wp = wpVersion;
+	}
+
+	if ( updatedSite.enableXdebug !== currentSite.enableXdebug ) {
+		options.xdebug = updatedSite.enableXdebug ?? false;
+	}
+
+	const hasCliChanges = Object.keys( options ).length > 2;
+
+	if ( hasCliChanges ) {
+		await editSiteViaCli( options );
+
+		const userData = await loadUserData();
+		const freshSiteData = userData.sites.find( ( s ) => s.id === updatedSite.id );
+		if ( freshSiteData ) {
+			const wasRunning = server.details.running;
+
+			if ( wasRunning ) {
+				const url = freshSiteData.customDomain
+					? `${ freshSiteData.enableHttps ? 'https' : 'http' }://${ freshSiteData.customDomain }`
+					: `http://localhost:${ freshSiteData.port }`;
+
+				server.details = {
+					...freshSiteData,
+					running: true,
+					url,
+				};
+
+				server.server.url = url;
+			} else {
+				server.details = {
+					...freshSiteData,
+					running: false,
+				};
+			}
 		}
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
 	}
 }
 

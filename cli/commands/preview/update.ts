@@ -31,7 +31,7 @@ async function getSnapshotToUpdate(
 	if ( snapshotToUpdate.localSiteId !== currentSiteId && ! overwrite ) {
 		throw new LoggerError(
 			__(
-				'The specified folder does not match the original site for this preview. If you want to overwrite, run the command with --overwrite.'
+				'The specified directory does not match the original site for this preview. If you want to overwrite, run the command with --overwrite.'
 			)
 		);
 	}
@@ -117,7 +117,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					alias: 'o',
 					type: 'boolean',
 					default: false,
-					description: __( 'Allow updating a preview site from a different folder' ),
+					description: __( 'Allow updating a preview site from a different directory' ),
 				} );
 		},
 		handler: async ( argv ) => {

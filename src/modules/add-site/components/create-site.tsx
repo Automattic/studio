@@ -3,51 +3,36 @@ import {
 	__experimentalHeading as Heading,
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent } from 'react';
+import { RefObject } from 'react';
+import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
 import { CreateSiteForm } from 'src/modules/add-site/components/create-site-form';
+import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
 
-interface CreateSiteProps {
-	siteName: string | null;
-	handleSiteNameChange: ( name: string ) => Promise< void >;
-	phpVersion: string;
-	setPhpVersion: ( version: string ) => void;
-	wpVersion: string;
-	setWpVersion: ( version: string ) => void;
-	sitePath: string;
-	handlePathSelectorClick: () => void;
-	error: string;
-	handleSubmit: ( event: FormEvent ) => void;
-	doesPathContainWordPress: boolean;
-	useCustomDomain: boolean;
-	setUseCustomDomain: ( use: boolean ) => void;
-	customDomain: string | null;
-	setCustomDomain: ( domain: string | null ) => void;
-	customDomainError: string;
-	enableHttps: boolean;
-	setEnableHttps: ( enable: boolean ) => void;
+export interface CreateSiteProps {
+	defaultValues?: {
+		siteName?: string;
+		sitePath?: string;
+		phpVersion?: AllowedPHPVersion;
+		wpVersion?: string;
+	};
+	onSelectPath: ( currentPath: string ) => Promise< PathValidationResult | null >;
+	onSiteNameChange: ( name: string ) => Promise< PathValidationResult >;
+	existingDomainNames?: string[];
 	blueprintPreferredVersions?: { php?: string; wp?: string };
+	onSubmit: ( values: CreateSiteFormValues ) => void;
+	onValidityChange?: ( isValid: boolean ) => void;
+	formRef?: RefObject< HTMLFormElement >;
 }
 
 export default function CreateSite( {
-	siteName,
-	handleSiteNameChange,
-	phpVersion,
-	setPhpVersion,
-	wpVersion,
-	setWpVersion,
-	sitePath,
-	handlePathSelectorClick,
-	error,
-	handleSubmit,
-	doesPathContainWordPress,
-	useCustomDomain,
-	setUseCustomDomain,
-	customDomain,
-	setCustomDomain,
-	customDomainError,
-	enableHttps,
-	setEnableHttps,
+	defaultValues,
+	onSelectPath,
+	onSiteNameChange,
+	existingDomainNames = [],
 	blueprintPreferredVersions,
+	onSubmit,
+	onValidityChange,
+	formRef,
 }: CreateSiteProps ) {
 	const { __ } = useI18n();
 
@@ -58,25 +43,14 @@ export default function CreateSite( {
 			</Heading>
 
 			<CreateSiteForm
-				siteName={ siteName || '' }
-				setSiteName={ ( name ) => void handleSiteNameChange( name ) }
-				phpVersion={ phpVersion }
-				setPhpVersion={ setPhpVersion }
-				wpVersion={ wpVersion }
-				setWpVersion={ setWpVersion }
-				sitePath={ sitePath }
-				onSelectPath={ handlePathSelectorClick }
-				error={ error }
-				onSubmit={ handleSubmit }
-				doesPathContainWordPress={ doesPathContainWordPress }
-				useCustomDomain={ useCustomDomain }
-				setUseCustomDomain={ setUseCustomDomain }
-				customDomain={ customDomain }
-				setCustomDomain={ setCustomDomain }
-				customDomainError={ customDomainError }
-				enableHttps={ enableHttps }
-				setEnableHttps={ setEnableHttps }
+				defaultValues={ defaultValues }
+				onSelectPath={ onSelectPath }
+				onSiteNameChange={ onSiteNameChange }
+				existingDomainNames={ existingDomainNames }
 				blueprintPreferredVersions={ blueprintPreferredVersions }
+				onSubmit={ onSubmit }
+				onValidityChange={ onValidityChange }
+				formRef={ formRef }
 			/>
 		</VStack>
 	);

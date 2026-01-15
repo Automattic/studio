@@ -575,7 +575,7 @@ describe( 'AddSite', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'should show warning when blueprint preferred versions differ from selected versions', async () => {
+	it( 'should show warning when Blueprint preferred versions differ from selected versions', async () => {
 		const mockBlueprintData = {
 			data: {
 				blueprints: [

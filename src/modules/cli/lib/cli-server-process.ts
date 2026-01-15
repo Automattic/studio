@@ -28,7 +28,7 @@ export class CliServerProcess implements WordPressServerProcess {
 	async start(): Promise< void > {
 		return new Promise( ( resolve, reject ) => {
 			const [ emitter ] = executeCliCommand(
-				[ 'site', 'start', '--path', this.sitePath, '--skip-browser' ],
+				[ 'site', 'start', '--path', this.sitePath, '--skip-browser', '--skip-log-details' ],
 				{ output: 'capture', logPrefix: this.siteId }
 			);
 

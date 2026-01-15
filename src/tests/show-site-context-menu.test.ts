@@ -2,22 +2,21 @@
  * @vitest-environment node
  */
 import { IpcMainInvokeEvent, BrowserWindow, Menu, MenuItem } from 'electron';
-import { vi, type Mock } from 'vitest';
+import { vi } from 'vitest';
 import { showSiteContextMenu } from 'src/ipc-handlers';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 
 vi.mock( 'src/ipc-utils' );
+vi.mock( 'fs' );
 
 const mockIpcMainInvokeEvent = {
 	sender: { isDestroyed: vi.fn( () => false ) },
 	// Double assert the type with `unknown` to simplify mocking this value
 } as unknown as IpcMainInvokeEvent;
 
-vi.mock( 'fs' );
-
 describe( 'showSiteContextMenu', () => {
-	let mockMenu: { append: Mock; popup: Mock };
-	let mockWindow: { isDestroyed: Mock };
+	let mockMenu: { append: ReturnType< typeof vi.fn >; popup: ReturnType< typeof vi.fn > };
+	let mockWindow: { isDestroyed: ReturnType< typeof vi.fn > };
 	let menuItems: MenuItem[];
 
 	beforeEach( () => {
@@ -31,9 +30,9 @@ describe( 'showSiteContextMenu', () => {
 			isDestroyed: vi.fn( () => false ),
 		};
 
-		( Menu as unknown as Mock ) = vi.fn( () => mockMenu );
-		( MenuItem as unknown as Mock ) = vi.fn( ( config ) => config );
-		( BrowserWindow.fromWebContents as Mock ) = vi.fn( () => mockWindow );
+		vi.mocked( Menu ).mockImplementation( () => mockMenu as any );
+		vi.mocked( MenuItem ).mockImplementation( ( config ) => config as any );
+		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValue( mockWindow as any );
 	} );
 
 	const baseContext = {

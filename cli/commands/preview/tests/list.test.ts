@@ -1,7 +1,13 @@
-import { vi, type Mock } from 'vitest';
+import { vi } from 'vitest';
 import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
-import { Logger } from 'cli/logger';
+
+const mockReportStart = vi.fn();
+const mockReportSuccess = vi.fn();
+const mockReportError = vi.fn();
+const mockReportProgress = vi.fn();
+const mockReportWarning = vi.fn();
+const mockReportKeyValuePair = vi.fn();
 
 vi.mock( 'cli/lib/appdata', async () => {
 	const actual = await vi.importActual( 'cli/lib/appdata' );
@@ -13,15 +19,37 @@ vi.mock( 'cli/lib/appdata', async () => {
 	};
 } );
 vi.mock( 'cli/lib/snapshots' );
-vi.mock( 'cli/logger' );
+vi.mock( 'cli/logger', () => ( {
+	Logger: vi.fn( () => ( {
+		reportStart: mockReportStart,
+		reportSuccess: mockReportSuccess,
+		reportError: mockReportError,
+		reportProgress: mockReportProgress,
+		reportWarning: mockReportWarning,
+		reportKeyValuePair: mockReportKeyValuePair,
+		spinner: {},
+		currentAction: null,
+	} ) ),
+	LoggerError: class LoggerError extends Error {},
+} ) );
 
 describe( 'Preview List Command', () => {
 	const mockFolder = '/test/folder';
-	const mockAuthToken = { accessToken: 'mock-auth-token', id: 123 };
+	const mockAuthToken = {
+		accessToken: 'mock-auth-token',
+		id: 123,
+		email: 'test@example.com',
+		displayName: 'Test User',
+		expiresIn: 1209600,
+		expirationTime: Date.now() + 1209600000,
+	};
 	const mockSite = {
 		id: 'site-1',
 		path: mockFolder,
-		title: 'Test Site',
+		name: 'Test Site',
+		phpVersion: '8.0',
+		port: 8888,
+		running: false,
 	};
 	const mockSnapshots = [
 		{
@@ -42,26 +70,13 @@ describe( 'Preview List Command', () => {
 		},
 	];
 
-	let mockLogger: {
-		reportStart: Mock;
-		reportSuccess: Mock;
-		reportError: Mock;
-	};
-
 	beforeEach( () => {
 		vi.clearAllMocks();
 		vi.spyOn( process, 'cwd' ).mockReturnValue( mockFolder );
 
-		mockLogger = {
-			reportStart: vi.fn(),
-			reportSuccess: vi.fn(),
-			reportError: vi.fn(),
-		};
-
-		( Logger as Mock ).mockReturnValue( mockLogger );
-		( getSiteByFolder as Mock ).mockResolvedValue( mockSite );
-		( getAuthToken as Mock ).mockResolvedValue( mockAuthToken );
-		( getSnapshotsFromAppdata as Mock ).mockResolvedValue( mockSnapshots );
+		vi.mocked( getSiteByFolder ).mockResolvedValue( mockSite );
+		vi.mocked( getAuthToken ).mockResolvedValue( mockAuthToken );
+		vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( mockSnapshots );
 	} );
 
 	afterEach( () => {
@@ -74,38 +89,32 @@ describe( 'Preview List Command', () => {
 
 		expect( getSiteByFolder ).toHaveBeenCalledWith( mockFolder );
 		expect( getSnapshotsFromAppdata ).toHaveBeenCalledWith( mockAuthToken.id, mockFolder );
-		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
-		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
-		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [
-			'load',
-			'Loading preview sites…',
-		] );
-		expect( mockLogger.reportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Found 2 preview sites' ] );
+		expect( mockReportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
+		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
+		expect( mockReportStart.mock.calls[ 1 ] ).toEqual( [ 'load', 'Loading preview sites…' ] );
+		expect( mockReportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Found 2 preview sites' ] );
 	} );
 
 	it( 'should handle validation errors', async () => {
 		const { runCommand } = await import( '../list' );
-		( getSiteByFolder as Mock ).mockImplementation( () => {
+		vi.mocked( getSiteByFolder ).mockImplementation( () => {
 			throw new Error( 'Invalid site folder' );
 		} );
 
 		await runCommand( mockFolder, 'table' );
 
-		expect( mockLogger.reportError ).toHaveBeenCalled();
+		expect( mockReportError ).toHaveBeenCalled();
 	} );
 
 	it( 'should handle no snapshots found', async () => {
 		const { runCommand } = await import( '../list' );
-		( getSnapshotsFromAppdata as Mock ).mockResolvedValue( [] );
+		vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [] );
 
 		await runCommand( mockFolder, 'table' );
 
-		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
-		expect( mockLogger.reportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
-		expect( mockLogger.reportStart.mock.calls[ 1 ] ).toEqual( [
-			'load',
-			'Loading preview sites…',
-		] );
-		expect( mockLogger.reportSuccess.mock.calls[ 1 ] ).toEqual( [ 'No preview sites found' ] );
+		expect( mockReportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
+		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Validation successful', true ] );
+		expect( mockReportStart.mock.calls[ 1 ] ).toEqual( [ 'load', 'Loading preview sites…' ] );
+		expect( mockReportSuccess.mock.calls[ 1 ] ).toEqual( [ 'No preview sites found' ] );
 	} );
 } );

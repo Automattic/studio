@@ -113,6 +113,8 @@ vi.mock( '@sentry/electron/main', () => ( {
 
 vi.mock( 'electron', () => {
 	class MockBrowserWindow {
+		static fromWebContents = vi.fn( () => new MockBrowserWindow() );
+
 		isDestroyed() {
 			return false;
 		}
@@ -121,7 +123,6 @@ vi.mock( 'electron', () => {
 			send: vi.fn(),
 		};
 	}
-	MockBrowserWindow.fromWebContents = vi.fn().mockReturnValue( new MockBrowserWindow() );
 
 	return {
 		app: {
@@ -135,6 +136,8 @@ vi.mock( 'electron', () => {
 		shell: {
 			trashItem: vi.fn(),
 		},
+		Menu: vi.fn(),
+		MenuItem: vi.fn(),
 	};
 } );
 

@@ -6,20 +6,19 @@
  * stdout key-value pairs that Studio parses.
  *
  */
-import path from 'path';
 import { __ } from '@wordpress/i18n';
 import { sequential } from 'common/lib/sequential';
 import { SITE_EVENTS, siteDetailsSchema, SiteEvent } from 'common/lib/site-events';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
+import axon from 'pm2-axon';
+import { z } from 'zod';
 import { getSiteUrl, readAppdata, SiteData } from 'cli/lib/appdata';
 import {
 	connect,
 	disconnect,
-	getEventsRelayProcessName,
-	startEventsRelayProcess,
 	stopEventsRelayProcess,
-	subscribeProcessMessages,
 	subscribePm2KillEvent,
+	EVENTS_SOCKET_PATH,
 } from 'cli/lib/pm2-manager';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { subscribeSiteEvents } from 'cli/lib/wordpress-server-manager';
@@ -70,31 +69,36 @@ async function emitAllSitesStopped(): Promise< void > {
 	}
 }
 
+const siteEventSchema = z.object( {
+	event: z.string(),
+	data: z.object( {
+		siteId: z.string(),
+		url: z.string().optional(),
+	} ),
+} );
+
 export async function runCommand(): Promise< void > {
 	logger.reportStart( LoggerAction.START_DAEMON, __( 'Connecting to process daemon…' ) );
 	await connect();
 	logger.reportSuccess( __( 'Connected to process daemon' ) );
 
-	const relayScriptPath = path.join( __dirname, 'events-relay.js' );
-	await startEventsRelayProcess( relayScriptPath );
-
 	await emitAllSitesStatus();
 
-	const relayProcessName = getEventsRelayProcessName();
-	await subscribeProcessMessages( ( { processName, topic, data } ) => {
-		if ( processName !== relayProcessName ) {
-			return;
-		}
-		if (
-			topic === SITE_EVENTS.CREATED ||
-			topic === SITE_EVENTS.UPDATED ||
-			topic === SITE_EVENTS.DELETED
-		) {
-			const eventData = data as { data?: { siteId?: string } };
-			const siteId = eventData?.data?.siteId;
-			if ( siteId ) {
-				void emitSiteEvent( topic, siteId );
+	const socket = axon.socket( 'pull' );
+	socket.bind( EVENTS_SOCKET_PATH );
+
+	socket.on( 'message', ( packet: unknown ) => {
+		try {
+			const parsedPacket = siteEventSchema.parse( packet );
+			if (
+				parsedPacket.event === SITE_EVENTS.CREATED ||
+				parsedPacket.event === SITE_EVENTS.UPDATED ||
+				parsedPacket.event === SITE_EVENTS.DELETED
+			) {
+				void emitSiteEvent( parsedPacket.event, parsedPacket.data.siteId );
 			}
+		} catch ( error ) {
+			// Do nothing
 		}
 	} );
 
@@ -107,6 +111,7 @@ export async function runCommand(): Promise< void > {
 	} );
 
 	async function cleanup() {
+		socket.close();
 		await stopEventsRelayProcess();
 		await disconnect();
 	}

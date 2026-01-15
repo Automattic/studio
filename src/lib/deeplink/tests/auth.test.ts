@@ -2,15 +2,19 @@
  * @vitest-environment node
  */
 import { readFile, writeFile } from 'atomically';
-import { vi, type Mock } from 'vitest';
-import { WPCOM } from 'wpcom/types';
+import { vi } from 'vitest';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { handleAuthDeeplink } from 'src/lib/deeplink/handlers/auth';
-import wpcomFactory from 'src/lib/wpcom-factory';
+
+const mockWpcomGet = vi.fn();
 
 vi.mock( 'src/lib/certificate-manager', () => ( {} ) );
 vi.mock( 'src/ipc-utils' );
-vi.mock( 'src/lib/wpcom-factory' );
+vi.mock( 'src/lib/wpcom-factory', () => ( {
+	default: () => ( {
+		req: { get: mockWpcomGet },
+	} ),
+} ) );
 vi.mock( 'src/lib/wpcom-xhr-request-factory', () => ( {
 	default: vi.fn(),
 } ) );
@@ -18,19 +22,16 @@ vi.mock( 'src/lib/wpcom-xhr-request-factory', () => ( {
 describe( 'handleAuthDeeplink', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
-		( readFile as Mock ).mockResolvedValue( JSON.stringify( { sites: [] } ) );
-		( writeFile as Mock ).mockResolvedValue( undefined );
+		vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( { sites: [] } ) ) );
+		vi.mocked( writeFile ).mockResolvedValue( undefined );
 	} );
 
 	it( 'should handle successful authentication', async () => {
-		const mockWpcomGet = vi.fn().mockResolvedValue( {
+		mockWpcomGet.mockResolvedValue( {
 			ID: 123,
 			email: 'user@example.com',
 			display_name: 'Test User',
 		} );
-		vi.mocked( wpcomFactory ).mockReturnValue( {
-			req: { get: mockWpcomGet },
-		} as unknown as WPCOM );
 
 		const url = new URL( 'wp-studio://auth#access_token=mock-token&expires_in=3600' );
 		await handleAuthDeeplink( url );
@@ -68,10 +69,7 @@ describe( 'handleAuthDeeplink', () => {
 	} );
 
 	it( 'should handle wpcom API error', async () => {
-		const mockWpcomGet = vi.fn().mockRejectedValue( new Error( 'API Error' ) );
-		vi.mocked( wpcomFactory ).mockReturnValue( {
-			req: { get: mockWpcomGet },
-		} as unknown as WPCOM );
+		mockWpcomGet.mockRejectedValue( new Error( 'API Error' ) );
 
 		const url = new URL( 'wp-studio://auth#access_token=mock-token&expires_in=3600' );
 		await handleAuthDeeplink( url );

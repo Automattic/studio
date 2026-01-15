@@ -2,7 +2,7 @@
 import { render, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { vi, type Mock } from 'vitest';
+import { vi } from 'vitest';
 import { useOffline } from 'src/hooks/use-offline';
 import { createTestStore } from 'src/lib/test-utils';
 import { Onboarding } from 'src/modules/onboarding';
@@ -27,7 +27,10 @@ vi.mock( 'src/stores/app-version-api', async () => {
 	const actual = ( await vi.importActual( 'src/stores/app-version-api' ) ) || {};
 	return {
 		...actual,
-		useSaveLastSeenVersionMutation: vi.fn( () => [ mockSaveLastSeenVersion ] ),
+		useSaveLastSeenVersionMutation: vi.fn( () => [
+			mockSaveLastSeenVersion,
+			{ isLoading: false, isSuccess: false, isError: false },
+		] ),
 	};
 } );
 
@@ -53,7 +56,7 @@ describe( 'Onboarding Component', () => {
 		mockSaveOnboarding.mockResolvedValue( undefined as never );
 		window.appGlobals = { appVersion: '1.0.0' } as typeof window.appGlobals;
 
-		( useOnboarding as Mock ).mockReturnValue( {
+		vi.mocked( useOnboarding ).mockReturnValue( {
 			needsOnboarding: true,
 		} );
 	} );
@@ -75,7 +78,7 @@ describe( 'Onboarding Component', () => {
 	} );
 
 	it( 'should show tooltip with offline message when hovering over disabled Login button', async () => {
-		( useOffline as Mock ).mockReturnValue( true );
+		vi.mocked( useOffline ).mockReturnValue( true );
 
 		renderWithProvider( <Onboarding /> );
 		const user = userEvent.setup();
@@ -87,7 +90,7 @@ describe( 'Onboarding Component', () => {
 	} );
 
 	it( 'should not show tooltip when hovering over Login button while online', async () => {
-		( useOffline as Mock ).mockReturnValue( false );
+		vi.mocked( useOffline ).mockReturnValue( false );
 
 		renderWithProvider( <Onboarding /> );
 		const user = userEvent.setup();
@@ -99,16 +102,10 @@ describe( 'Onboarding Component', () => {
 	} );
 
 	it( 'should save the current app version when onboarding completes', async () => {
-		const mockSaveLastSeenVersion = vi.fn();
 		const mockAppVersion = '1.0.0';
 
 		// Mock window.appGlobals
 		window.appGlobals = { appVersion: mockAppVersion } as typeof window.appGlobals;
-
-		const { useSaveLastSeenVersionMutation } = await import( 'src/stores/app-version-api' );
-		vi.mocked( useSaveLastSeenVersionMutation ).mockReturnValue( [
-			mockSaveLastSeenVersion,
-		] as any );
 
 		const { getByText } = renderWithProvider( <Onboarding /> );
 

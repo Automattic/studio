@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { vi, type Mock } from 'vitest';
+import { vi } from 'vitest';
 import { ImportExportProvider, useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -7,9 +7,34 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ExportEventType, ExportEvents } from 'src/lib/import-export/export/events';
 import { ImportEventType, ImportEvents } from 'src/lib/import-export/import/events';
 
-vi.mock( 'src/lib/get-ipc-api' );
+const mockShowSaveAsDialog = vi.fn();
+const mockShowErrorMessageBox = vi.fn();
+const mockShowNotification = vi.fn();
+const mockExportSite = vi.fn();
+const mockImportSite = vi.fn();
+const mockUpdateSite = vi.fn();
+const mockStartServer = vi.fn();
+const mockStopServer = vi.fn();
+
+vi.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: () => ( {
+		showSaveAsDialog: mockShowSaveAsDialog,
+		showErrorMessageBox: mockShowErrorMessageBox,
+		showNotification: mockShowNotification,
+		exportSite: mockExportSite,
+		importSite: mockImportSite,
+	} ),
+} ) );
+
 vi.mock( 'src/hooks/use-ipc-listener' );
-vi.mock( 'src/hooks/use-site-details' );
+
+vi.mock( 'src/hooks/use-site-details', () => ( {
+	useSiteDetails: () => ( {
+		updateSite: mockUpdateSite,
+		startServer: mockStartServer,
+		stopServer: mockStopServer,
+	} ),
+} ) );
 
 const SITE_ID = 'site-id-1';
 
@@ -29,27 +54,16 @@ const wrapper = ( { children }: { children: React.ReactNode } ) => (
 
 beforeEach( () => {
 	vi.clearAllMocks();
-	( getIpcApi as Mock ).mockReturnValue( {
-		showSaveAsDialog: vi.fn(),
-		showErrorMessageBox: vi.fn(),
-		showNotification: vi.fn(),
-		exportSite: vi.fn().mockReturnValue( true ),
-		importSite: vi.fn().mockReturnValue( selectedSite ),
-	} );
-	( useSiteDetails as Mock ).mockReturnValue( {
-		updateSite: vi.fn(),
-		startServer: vi.fn(),
-		stopServer: vi.fn(),
-	} );
+	mockExportSite.mockReturnValue( true );
+	mockImportSite.mockReturnValue( selectedSite );
 } );
 
 describe( 'useImportExport hook', () => {
 	it( 'exports entire site', async () => {
-		const mockShowSaveAsDialog = getIpcApi().showSaveAsDialog as Mock;
 		mockShowSaveAsDialog.mockResolvedValue( '/path/to/exported-site.tar.gz' );
 
 		let onEvent: ( ...args: any[] ) => void = vi.fn();
-		( useIpcListener as Mock ).mockImplementation( ( event, callback ) => {
+		vi.mocked( useIpcListener ).mockImplementation( ( event, callback ) => {
 			if ( event === 'on-export' ) {
 				onEvent = callback;
 			}
@@ -92,13 +106,12 @@ describe( 'useImportExport hook', () => {
 	} );
 
 	it( 'shows error message when export fails', async () => {
-		const mockShowSaveAsDialog = getIpcApi().showSaveAsDialog as Mock;
 		mockShowSaveAsDialog.mockResolvedValue( '/path/to/exported-site.tar.gz' );
 
-		( getIpcApi().exportSite as Mock ).mockRejectedValue( 'error' );
+		mockExportSite.mockRejectedValue( 'error' );
 
 		let onEvent: ( ...args: any[] ) => void = vi.fn();
-		( useIpcListener as Mock ).mockImplementation( ( event, callback ) => {
+		vi.mocked( useIpcListener ).mockImplementation( ( event, callback ) => {
 			if ( event === 'on-export' ) {
 				onEvent = callback;
 			}
@@ -143,11 +156,10 @@ describe( 'useImportExport hook', () => {
 	} );
 
 	it( 'exports database', async () => {
-		const mockShowSaveAsDialog = getIpcApi().showSaveAsDialog as Mock;
 		mockShowSaveAsDialog.mockResolvedValue( '/path/to/exported-database.sql' );
 
 		let onEvent: ( ...args: any[] ) => void = vi.fn();
-		( useIpcListener as Mock ).mockImplementation( ( event, callback ) => {
+		vi.mocked( useIpcListener ).mockImplementation( ( event, callback ) => {
 			if ( event === 'on-export' ) {
 				onEvent = callback;
 			}
@@ -191,7 +203,7 @@ describe( 'useImportExport hook', () => {
 
 	it( 'updates the export state when receiving export events', () => {
 		let onEvent: ( ...args: any[] ) => void = vi.fn();
-		( useIpcListener as Mock ).mockImplementation( ( event, callback ) => {
+		vi.mocked( useIpcListener ).mockImplementation( ( event, callback ) => {
 			if ( event === 'on-export' ) {
 				onEvent = callback;
 			}
@@ -275,7 +287,7 @@ describe( 'useImportExport hook', () => {
 
 	it( 'clears export state when clearExportState is called', () => {
 		let onEvent: ( ...args: any[] ) => void = vi.fn();
-		( useIpcListener as Mock ).mockImplementation( ( event, callback ) => {
+		vi.mocked( useIpcListener ).mockImplementation( ( event, callback ) => {
 			if ( event === 'on-export' ) {
 				onEvent = callback;
 			}
@@ -324,7 +336,7 @@ describe( 'useImportExport hook', () => {
 	} );
 
 	it( 'shows error message when import fails with absolute path error', async () => {
-		( getIpcApi().importSite as Mock ).mockRejectedValue( new Error( 'Error: absolute path: /' ) );
+		mockImportSite.mockRejectedValue( new Error( 'Error: absolute path: /' ) );
 
 		const { result } = renderHook( () => useImportExport(), { wrapper } );
 		const file = { path: 'backup.zip', type: 'application/zip' };
@@ -346,7 +358,7 @@ describe( 'useImportExport hook', () => {
 	} );
 
 	it( 'shows error message when import fails with other error', async () => {
-		( getIpcApi().importSite as Mock ).mockRejectedValue( new Error( 'generic error' ) );
+		mockImportSite.mockRejectedValue( new Error( 'generic error' ) );
 
 		const { result } = renderHook( () => useImportExport(), { wrapper } );
 		const file = { path: 'backup.zip', type: 'application/zip' };
@@ -371,7 +383,7 @@ describe( 'useImportExport hook', () => {
 
 	it( 'does not import if another import is running', async () => {
 		let onEvent: ( ...args: any[] ) => void = vi.fn();
-		( useIpcListener as Mock ).mockImplementation( ( event, callback ) => {
+		vi.mocked( useIpcListener ).mockImplementation( ( event, callback ) => {
 			if ( event === 'on-import' ) {
 				onEvent = callback;
 			}
@@ -392,7 +404,7 @@ describe( 'useImportExport hook', () => {
 
 	it( 'updates the import state when receiving import events', async () => {
 		let onEvent: ( ...args: any[] ) => void = vi.fn();
-		( useIpcListener as Mock ).mockImplementation( ( event, callback ) => {
+		vi.mocked( useIpcListener ).mockImplementation( ( event, callback ) => {
 			if ( event === 'on-import' ) {
 				onEvent = callback;
 			}
@@ -479,7 +491,7 @@ describe( 'useImportExport hook', () => {
 
 	it( 'imports site with given meta.json PHP version', async () => {
 		const importedSite = { ...selectedSite, phpVersion: '7.4' };
-		( getIpcApi().importSite as Mock ).mockResolvedValue( importedSite );
+		mockImportSite.mockResolvedValue( importedSite );
 
 		const { result } = renderHook( () => useImportExport(), { wrapper } );
 		const file = { path: 'backup.zip', type: 'application/zip' };
@@ -490,7 +502,7 @@ describe( 'useImportExport hook', () => {
 
 	it( 'handles verbose backup extraction progress with file counts', async () => {
 		let onEvent: ( ...args: any[] ) => void = vi.fn();
-		( useIpcListener as Mock ).mockImplementation( ( event, callback ) => {
+		vi.mocked( useIpcListener ).mockImplementation( ( event, callback ) => {
 			if ( event === 'on-import' ) {
 				onEvent = callback;
 			}
@@ -536,7 +548,7 @@ describe( 'useImportExport hook', () => {
 
 	it( 'handles verbose database import progress', async () => {
 		let onEvent: ( ...args: any[] ) => void = vi.fn();
-		( useIpcListener as Mock ).mockImplementation( ( event, callback ) => {
+		vi.mocked( useIpcListener ).mockImplementation( ( event, callback ) => {
 			if ( event === 'on-import' ) {
 				onEvent = callback;
 			}
@@ -591,7 +603,7 @@ describe( 'useImportExport hook', () => {
 
 	it( 'handles verbose WordPress content import progress with categorization', async () => {
 		let onEvent: ( ...args: any[] ) => void = vi.fn();
-		( useIpcListener as Mock ).mockImplementation( ( event, callback ) => {
+		vi.mocked( useIpcListener ).mockImplementation( ( event, callback ) => {
 			if ( event === 'on-import' ) {
 				onEvent = callback;
 			}

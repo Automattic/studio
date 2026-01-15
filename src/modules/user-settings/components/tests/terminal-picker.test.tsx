@@ -1,21 +1,25 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { vi, type Mock } from 'vitest';
-import { getIpcApi } from 'src/lib/get-ipc-api';
+import { vi } from 'vitest';
 import { TerminalPicker } from 'src/modules/user-settings/components/terminal-picker';
 import { store } from 'src/stores';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
 import { testReducer } from 'src/stores/tests/utils/test-reducer';
 
-vi.mock( 'src/lib/get-ipc-api' );
+const mockGetInstalledAppsAndTerminals = vi.fn();
+
+vi.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: () => ( {
+		getInstalledAppsAndTerminals: mockGetInstalledAppsAndTerminals,
+	} ),
+} ) );
+
 vi.mock( 'src/lib/app-globals', () => ( {
 	getAppGlobals: vi.fn( () => ( {
 		platform: 'darwin',
 	} ) ),
 	isWindows: vi.fn( () => false ),
 } ) );
-
-const mockGetIpcApi = getIpcApi as Mock;
 
 store.replaceReducer( testReducer );
 
@@ -29,18 +33,16 @@ describe( 'TerminalPicker', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		store.dispatch( { type: 'test/resetState' } );
-		mockGetIpcApi.mockReturnValue( {
-			getInstalledAppsAndTerminals: vi.fn().mockResolvedValue( {
-				vscode: false,
-				phpstorm: false,
-				webstorm: false,
-				windsurf: false,
-				cursor: false,
-				terminal: true,
-				iterm: true,
-				warp: false,
-				ghostty: false,
-			} ),
+		mockGetInstalledAppsAndTerminals.mockResolvedValue( {
+			vscode: false,
+			phpstorm: false,
+			webstorm: false,
+			windsurf: false,
+			cursor: false,
+			terminal: true,
+			iterm: true,
+			warp: false,
+			ghostty: false,
 		} );
 	} );
 

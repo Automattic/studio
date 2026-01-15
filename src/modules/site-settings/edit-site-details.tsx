@@ -55,9 +55,9 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		() =>
 			// undefined means that this site was created before the isWpAutoUpdating option was introduced to Studio
 			[ undefined, true ].includes( selectedSite?.isWpAutoUpdating )
-				? DEFAULT_WORDPRESS_VERSION
+				? defaultWordPressVersion
 				: currentWpVersion,
-		[ selectedSite, currentWpVersion ]
+		[ selectedSite, currentWpVersion, defaultWordPressVersion ]
 	);
 	const [ selectedWpVersion, setSelectedWpVersion ] = useState( getEffectiveWpVersion() );
 	const [ useCustomDomain, setUseCustomDomain ] = useState( Boolean( selectedSite?.customDomain ) );

@@ -27,7 +27,12 @@ import { StudioArgv } from 'cli/types';
 const logger = new Logger< LoggerAction >();
 
 const DEBOUNCE_MS = 300;
-const pendingEmits = new Map< string, NodeJS.Timeout >();
+
+interface PendingEmit {
+	event: string;
+	timeout: NodeJS.Timeout;
+}
+const pendingEmits = new Map< string, PendingEmit >();
 
 function toSiteDetails( site: SiteData ) {
 	return siteDetailsSchema.parse( {
@@ -50,25 +55,36 @@ async function doEmitSiteEvent( event: string, siteId: string ): Promise< void >
 }
 
 function emitSiteEvent( event: string, siteId: string ): void {
-	// Cancel any pending emit for this site
 	const existing = pendingEmits.get( siteId );
-	if ( existing ) {
-		clearTimeout( existing );
+
+	if ( event === SITE_EVENTS.DELETED ) {
+		if ( existing ) {
+			clearTimeout( existing.timeout );
+			pendingEmits.delete( siteId );
+		}
+		void doEmitSiteEvent( event, siteId );
+		return;
 	}
 
-	// Schedule a new emit after debounce period
+	let effectiveEvent = event;
+	if ( existing ) {
+		clearTimeout( existing.timeout );
+		if ( existing.event === SITE_EVENTS.CREATED ) {
+			effectiveEvent = SITE_EVENTS.CREATED;
+		}
+	}
+
 	const timeout = setTimeout( () => {
 		pendingEmits.delete( siteId );
-		void doEmitSiteEvent( event, siteId );
+		void doEmitSiteEvent( effectiveEvent, siteId );
 	}, DEBOUNCE_MS );
 
-	pendingEmits.set( siteId, timeout );
+	pendingEmits.set( siteId, { event: effectiveEvent, timeout } );
 }
 
 async function emitAllSitesStatus(): Promise< void > {
 	const appdata = await readAppdata();
 	for ( const site of appdata.sites ) {
-		// Emit immediately without debouncing for initial status sync
 		await doEmitSiteEvent( SITE_EVENTS.UPDATED, site.id );
 	}
 }
@@ -120,8 +136,6 @@ export async function runCommand(): Promise< void > {
 		void emitAllSitesStopped();
 	} );
 
-	// Match the old site list --watch pattern: just disconnect on signal
-	// and let the process exit naturally when all handles are released
 	process.on( 'SIGINT', disconnect );
 	process.on( 'SIGTERM', disconnect );
 }

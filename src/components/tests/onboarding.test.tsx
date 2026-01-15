@@ -1,40 +1,40 @@
 // Run tests: yarn test -- src/components/onboarding.test.tsx
-import { jest } from '@jest/globals';
 import { render, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
+import { vi, type Mock } from 'vitest';
 import { useOffline } from 'src/hooks/use-offline';
 import { createTestStore } from 'src/lib/test-utils';
 import { Onboarding } from 'src/modules/onboarding';
 import { useOnboarding } from 'src/modules/onboarding/hooks/use-onboarding';
 
-jest.mock( 'src/modules/onboarding/hooks/use-onboarding', () => ( {
-	useOnboarding: jest.fn(),
+vi.mock( 'src/modules/onboarding/hooks/use-onboarding', () => ( {
+	useOnboarding: vi.fn(),
 } ) );
 
-jest.mock( 'src/lib/app-globals', () => ( {
+vi.mock( 'src/lib/app-globals', () => ( {
 	isMac: () => true,
 	isWindows: () => false,
 } ) );
 
-jest.mock( 'src/hooks/use-offline', () => ( {
-	useOffline: jest.fn().mockReturnValue( false ),
+vi.mock( 'src/hooks/use-offline', () => ( {
+	useOffline: vi.fn().mockReturnValue( false ),
 } ) );
 
-const mockSaveLastSeenVersion = jest.fn();
+const mockSaveLastSeenVersion = vi.fn();
 
-jest.mock( 'src/stores/app-version-api', () => {
-	const actual = jest.requireActual( 'src/stores/app-version-api' ) || {};
+vi.mock( 'src/stores/app-version-api', async () => {
+	const actual = ( await vi.importActual( 'src/stores/app-version-api' ) ) || {};
 	return {
 		...actual,
-		useSaveLastSeenVersionMutation: jest.fn( () => [ mockSaveLastSeenVersion ] ),
+		useSaveLastSeenVersionMutation: vi.fn( () => [ mockSaveLastSeenVersion ] ),
 	};
 } );
 
-const mockSaveOnboarding = jest.fn();
+const mockSaveOnboarding = vi.fn();
 
-jest.mock( 'src/lib/get-ipc-api', () => ( {
-	getIpcApi: jest.fn( () => ( {
+vi.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: vi.fn( () => ( {
 		saveOnboarding: mockSaveOnboarding,
 	} ) ),
 } ) );
@@ -48,12 +48,12 @@ describe( 'Onboarding Component', () => {
 	const user = userEvent.setup();
 
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 		mockSaveLastSeenVersion.mockResolvedValue( { data: undefined } as never );
 		mockSaveOnboarding.mockResolvedValue( undefined as never );
 		window.appGlobals = { appVersion: '1.0.0' } as typeof window.appGlobals;
 
-		( useOnboarding as jest.Mock ).mockReturnValue( {
+		( useOnboarding as Mock ).mockReturnValue( {
 			needsOnboarding: true,
 		} );
 	} );
@@ -75,7 +75,7 @@ describe( 'Onboarding Component', () => {
 	} );
 
 	it( 'should show tooltip with offline message when hovering over disabled Login button', async () => {
-		( useOffline as jest.Mock ).mockReturnValue( true );
+		( useOffline as Mock ).mockReturnValue( true );
 
 		renderWithProvider( <Onboarding /> );
 		const user = userEvent.setup();
@@ -87,7 +87,7 @@ describe( 'Onboarding Component', () => {
 	} );
 
 	it( 'should not show tooltip when hovering over Login button while online', async () => {
-		( useOffline as jest.Mock ).mockReturnValue( false );
+		( useOffline as Mock ).mockReturnValue( false );
 
 		renderWithProvider( <Onboarding /> );
 		const user = userEvent.setup();
@@ -99,16 +99,16 @@ describe( 'Onboarding Component', () => {
 	} );
 
 	it( 'should save the current app version when onboarding completes', async () => {
-		const mockSaveLastSeenVersion = jest.fn();
+		const mockSaveLastSeenVersion = vi.fn();
 		const mockAppVersion = '1.0.0';
 
 		// Mock window.appGlobals
 		window.appGlobals = { appVersion: mockAppVersion } as typeof window.appGlobals;
 
-		const appVersionApi = jest.requireMock< {
-			useSaveLastSeenVersionMutation: jest.Mock;
-		} >( 'src/stores/app-version-api' );
-		appVersionApi.useSaveLastSeenVersionMutation.mockReturnValue( [ mockSaveLastSeenVersion ] );
+		const { useSaveLastSeenVersionMutation } = await import( 'src/stores/app-version-api' );
+		vi.mocked( useSaveLastSeenVersionMutation ).mockReturnValue( [
+			mockSaveLastSeenVersion,
+		] as any );
 
 		const { getByText } = renderWithProvider( <Onboarding /> );
 

@@ -1,20 +1,21 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
+import { vi, type Mock } from 'vitest';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { TerminalPicker } from 'src/modules/user-settings/components/terminal-picker';
 import { store } from 'src/stores';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
 import { testReducer } from 'src/stores/tests/utils/test-reducer';
 
-jest.mock( 'src/lib/get-ipc-api' );
-jest.mock( 'src/lib/app-globals', () => ( {
-	getAppGlobals: jest.fn( () => ( {
+vi.mock( 'src/lib/get-ipc-api' );
+vi.mock( 'src/lib/app-globals', () => ( {
+	getAppGlobals: vi.fn( () => ( {
 		platform: 'darwin',
 	} ) ),
-	isWindows: jest.fn( () => false ),
+	isWindows: vi.fn( () => false ),
 } ) );
 
-const mockGetIpcApi = getIpcApi as jest.Mock;
+const mockGetIpcApi = getIpcApi as Mock;
 
 store.replaceReducer( testReducer );
 
@@ -23,13 +24,13 @@ function renderWithProvider( component: React.ReactElement ) {
 }
 
 describe( 'TerminalPicker', () => {
-	const mockOnChange = jest.fn();
+	const mockOnChange = vi.fn();
 
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 		store.dispatch( { type: 'test/resetState' } );
 		mockGetIpcApi.mockReturnValue( {
-			getInstalledAppsAndTerminals: jest.fn().mockResolvedValue( {
+			getInstalledAppsAndTerminals: vi.fn().mockResolvedValue( {
 				vscode: false,
 				phpstorm: false,
 				webstorm: false,

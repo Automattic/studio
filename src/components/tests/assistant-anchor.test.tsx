@@ -1,20 +1,21 @@
 import { render, screen } from '@testing-library/react';
 import { speak } from '@wordpress/a11y';
+import { vi, type Mock } from 'vitest';
 import Anchor from 'src/components/assistant-anchor';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
-jest.mock( '@sentry/electron/renderer' );
-jest.mock( 'src/hooks/use-site-details' );
-jest.mock( 'src/lib/get-ipc-api' );
-jest.mock( '@wordpress/a11y' );
+vi.mock( '@sentry/electron/renderer' );
+vi.mock( 'src/hooks/use-site-details' );
+vi.mock( 'src/lib/get-ipc-api' );
+vi.mock( '@wordpress/a11y' );
 
 describe( 'Anchor', () => {
 	beforeAll( () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {} );
-		( getIpcApi as jest.Mock ).mockReturnValue( {
-			openURL: jest.fn( () => Promise.resolve() ),
-			showErrorMessageBox: jest.fn(),
+		( useSiteDetails as Mock ).mockReturnValue( {} );
+		( getIpcApi as Mock ).mockReturnValue( {
+			openURL: vi.fn( () => Promise.resolve() ),
+			showErrorMessageBox: vi.fn(),
 		} );
 	} );
 
@@ -49,9 +50,9 @@ describe( 'Anchor', () => {
 	} );
 
 	it( "should start the site's server before navigating to a stopped site when clicked", async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
+		( useSiteDetails as Mock ).mockReturnValue( {
 			selectedSite: { id: '1', running: false },
-			startServer: jest.fn( () => Promise.resolve() ),
+			startServer: vi.fn( () => Promise.resolve() ),
 			loadingServer: {},
 		} );
 		render( <Anchor href="http://localhost:3000" children="Local link" /> );
@@ -68,7 +69,7 @@ describe( 'Anchor', () => {
 	} );
 
 	it( "should communicate background activity while the site's server is starting", () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
+		( useSiteDetails as Mock ).mockReturnValue( {
 			selectedSite: { id: '1' },
 			loadingServer: { 1: true },
 		} );

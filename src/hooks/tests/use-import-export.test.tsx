@@ -1,4 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
+import { vi, type Mock } from 'vitest';
 import { ImportExportProvider, useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -6,9 +7,9 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ExportEventType, ExportEvents } from 'src/lib/import-export/export/events';
 import { ImportEventType, ImportEvents } from 'src/lib/import-export/import/events';
 
-jest.mock( 'src/lib/get-ipc-api' );
-jest.mock( 'src/hooks/use-ipc-listener' );
-jest.mock( 'src/hooks/use-site-details' );
+vi.mock( 'src/lib/get-ipc-api' );
+vi.mock( 'src/hooks/use-ipc-listener' );
+vi.mock( 'src/hooks/use-site-details' );
 
 const SITE_ID = 'site-id-1';
 
@@ -27,28 +28,28 @@ const wrapper = ( { children }: { children: React.ReactNode } ) => (
 );
 
 beforeEach( () => {
-	jest.clearAllMocks();
-	( getIpcApi as jest.Mock ).mockReturnValue( {
-		showSaveAsDialog: jest.fn(),
-		showErrorMessageBox: jest.fn(),
-		showNotification: jest.fn(),
-		exportSite: jest.fn().mockReturnValue( true ),
-		importSite: jest.fn().mockReturnValue( selectedSite ),
+	vi.clearAllMocks();
+	( getIpcApi as Mock ).mockReturnValue( {
+		showSaveAsDialog: vi.fn(),
+		showErrorMessageBox: vi.fn(),
+		showNotification: vi.fn(),
+		exportSite: vi.fn().mockReturnValue( true ),
+		importSite: vi.fn().mockReturnValue( selectedSite ),
 	} );
-	( useSiteDetails as jest.Mock ).mockReturnValue( {
-		updateSite: jest.fn(),
-		startServer: jest.fn(),
-		stopServer: jest.fn(),
+	( useSiteDetails as Mock ).mockReturnValue( {
+		updateSite: vi.fn(),
+		startServer: vi.fn(),
+		stopServer: vi.fn(),
 	} );
 } );
 
 describe( 'useImportExport hook', () => {
 	it( 'exports entire site', async () => {
-		const mockShowSaveAsDialog = getIpcApi().showSaveAsDialog as jest.Mock;
+		const mockShowSaveAsDialog = getIpcApi().showSaveAsDialog as Mock;
 		mockShowSaveAsDialog.mockResolvedValue( '/path/to/exported-site.tar.gz' );
 
-		let onEvent: ( ...args: any[] ) => void = jest.fn();
-		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+		let onEvent: ( ...args: any[] ) => void = vi.fn();
+		( useIpcListener as Mock ).mockImplementation( ( event, callback ) => {
 			if ( event === 'on-export' ) {
 				onEvent = callback;
 			}
@@ -91,13 +92,13 @@ describe( 'useImportExport hook', () => {
 	} );
 
 	it( 'shows error message when export fails', async () => {
-		const mockShowSaveAsDialog = getIpcApi().showSaveAsDialog as jest.Mock;
+		const mockShowSaveAsDialog = getIpcApi().showSaveAsDialog as Mock;
 		mockShowSaveAsDialog.mockResolvedValue( '/path/to/exported-site.tar.gz' );
 
-		( getIpcApi().exportSite as jest.Mock ).mockRejectedValue( 'error' );
+		( getIpcApi().exportSite as Mock ).mockRejectedValue( 'error' );
 
-		let onEvent: ( ...args: any[] ) => void = jest.fn();
-		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+		let onEvent: ( ...args: any[] ) => void = vi.fn();
+		( useIpcListener as Mock ).mockImplementation( ( event, callback ) => {
 			if ( event === 'on-export' ) {
 				onEvent = callback;
 			}
@@ -142,11 +143,11 @@ describe( 'useImportExport hook', () => {
 	} );
 
 	it( 'exports database', async () => {
-		const mockShowSaveAsDialog = getIpcApi().showSaveAsDialog as jest.Mock;
+		const mockShowSaveAsDialog = getIpcApi().showSaveAsDialog as Mock;
 		mockShowSaveAsDialog.mockResolvedValue( '/path/to/exported-database.sql' );
 
-		let onEvent: ( ...args: any[] ) => void = jest.fn();
-		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+		let onEvent: ( ...args: any[] ) => void = vi.fn();
+		( useIpcListener as Mock ).mockImplementation( ( event, callback ) => {
 			if ( event === 'on-export' ) {
 				onEvent = callback;
 			}
@@ -189,8 +190,8 @@ describe( 'useImportExport hook', () => {
 	} );
 
 	it( 'updates the export state when receiving export events', () => {
-		let onEvent: ( ...args: any[] ) => void = jest.fn();
-		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+		let onEvent: ( ...args: any[] ) => void = vi.fn();
+		( useIpcListener as Mock ).mockImplementation( ( event, callback ) => {
 			if ( event === 'on-export' ) {
 				onEvent = callback;
 			}
@@ -273,8 +274,8 @@ describe( 'useImportExport hook', () => {
 	} );
 
 	it( 'clears export state when clearExportState is called', () => {
-		let onEvent: ( ...args: any[] ) => void = jest.fn();
-		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+		let onEvent: ( ...args: any[] ) => void = vi.fn();
+		( useIpcListener as Mock ).mockImplementation( ( event, callback ) => {
 			if ( event === 'on-export' ) {
 				onEvent = callback;
 			}
@@ -323,9 +324,7 @@ describe( 'useImportExport hook', () => {
 	} );
 
 	it( 'shows error message when import fails with absolute path error', async () => {
-		( getIpcApi().importSite as jest.Mock ).mockRejectedValue(
-			new Error( 'Error: absolute path: /' )
-		);
+		( getIpcApi().importSite as Mock ).mockRejectedValue( new Error( 'Error: absolute path: /' ) );
 
 		const { result } = renderHook( () => useImportExport(), { wrapper } );
 		const file = { path: 'backup.zip', type: 'application/zip' };
@@ -347,7 +346,7 @@ describe( 'useImportExport hook', () => {
 	} );
 
 	it( 'shows error message when import fails with other error', async () => {
-		( getIpcApi().importSite as jest.Mock ).mockRejectedValue( new Error( 'generic error' ) );
+		( getIpcApi().importSite as Mock ).mockRejectedValue( new Error( 'generic error' ) );
 
 		const { result } = renderHook( () => useImportExport(), { wrapper } );
 		const file = { path: 'backup.zip', type: 'application/zip' };
@@ -371,8 +370,8 @@ describe( 'useImportExport hook', () => {
 	} );
 
 	it( 'does not import if another import is running', async () => {
-		let onEvent: ( ...args: any[] ) => void = jest.fn();
-		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+		let onEvent: ( ...args: any[] ) => void = vi.fn();
+		( useIpcListener as Mock ).mockImplementation( ( event, callback ) => {
 			if ( event === 'on-import' ) {
 				onEvent = callback;
 			}
@@ -392,8 +391,8 @@ describe( 'useImportExport hook', () => {
 	} );
 
 	it( 'updates the import state when receiving import events', async () => {
-		let onEvent: ( ...args: any[] ) => void = jest.fn();
-		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+		let onEvent: ( ...args: any[] ) => void = vi.fn();
+		( useIpcListener as Mock ).mockImplementation( ( event, callback ) => {
 			if ( event === 'on-import' ) {
 				onEvent = callback;
 			}
@@ -480,7 +479,7 @@ describe( 'useImportExport hook', () => {
 
 	it( 'imports site with given meta.json PHP version', async () => {
 		const importedSite = { ...selectedSite, phpVersion: '7.4' };
-		( getIpcApi().importSite as jest.Mock ).mockResolvedValue( importedSite );
+		( getIpcApi().importSite as Mock ).mockResolvedValue( importedSite );
 
 		const { result } = renderHook( () => useImportExport(), { wrapper } );
 		const file = { path: 'backup.zip', type: 'application/zip' };
@@ -490,8 +489,8 @@ describe( 'useImportExport hook', () => {
 	} );
 
 	it( 'handles verbose backup extraction progress with file counts', async () => {
-		let onEvent: ( ...args: any[] ) => void = jest.fn();
-		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+		let onEvent: ( ...args: any[] ) => void = vi.fn();
+		( useIpcListener as Mock ).mockImplementation( ( event, callback ) => {
 			if ( event === 'on-import' ) {
 				onEvent = callback;
 			}
@@ -536,8 +535,8 @@ describe( 'useImportExport hook', () => {
 	} );
 
 	it( 'handles verbose database import progress', async () => {
-		let onEvent: ( ...args: any[] ) => void = jest.fn();
-		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+		let onEvent: ( ...args: any[] ) => void = vi.fn();
+		( useIpcListener as Mock ).mockImplementation( ( event, callback ) => {
 			if ( event === 'on-import' ) {
 				onEvent = callback;
 			}
@@ -591,8 +590,8 @@ describe( 'useImportExport hook', () => {
 	} );
 
 	it( 'handles verbose WordPress content import progress with categorization', async () => {
-		let onEvent: ( ...args: any[] ) => void = jest.fn();
-		( useIpcListener as jest.Mock ).mockImplementation( ( event, callback ) => {
+		let onEvent: ( ...args: any[] ) => void = vi.fn();
+		( useIpcListener as Mock ).mockImplementation( ( event, callback ) => {
 			if ( event === 'on-import' ) {
 				onEvent = callback;
 			}

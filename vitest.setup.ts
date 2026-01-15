@@ -111,21 +111,38 @@ vi.mock( '@sentry/electron/main', () => ( {
 	captureMessage: vi.fn(),
 } ) );
 
-vi.mock( 'electron', () => ( {
-	app: {
-		getVersion: vi.fn(),
-		getPath: vi.fn().mockReturnValue( '/mock/path' ),
-	},
-	dialog: {
-		showMessageBox: vi.fn(),
-	},
-	BrowserWindow: class MockBrowserWindow {},
-} ) );
+vi.mock( 'electron', () => {
+	class MockBrowserWindow {
+		isDestroyed() {
+			return false;
+		}
+		webContents = {
+			isDestroyed: () => false,
+			send: vi.fn(),
+		};
+	}
+	MockBrowserWindow.fromWebContents = vi.fn().mockReturnValue( new MockBrowserWindow() );
+
+	return {
+		app: {
+			getVersion: vi.fn(),
+			getPath: vi.fn().mockReturnValue( '/mock/path' ),
+		},
+		dialog: {
+			showMessageBox: vi.fn(),
+		},
+		BrowserWindow: MockBrowserWindow,
+		shell: {
+			trashItem: vi.fn(),
+		},
+	};
+} );
 
 vi.mock( 'src/storage/paths', () => ( {
 	getResourcesPath: vi.fn().mockReturnValue( '/mock/resources' ),
 	getUserDataFilePath: vi.fn().mockReturnValue( '/mock/userdata.json' ),
 	getUserDataLockFilePath: vi.fn().mockReturnValue( '/mock/userdata.json.lock' ),
+	getUserDataCertificatesPath: vi.fn().mockReturnValue( '/mock/certificates' ),
 } ) );
 
 vi.mock( 'lockfile', () => {

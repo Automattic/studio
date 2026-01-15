@@ -1,15 +1,19 @@
+import { vi, type Mock } from 'vitest';
 import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { Logger } from 'cli/logger';
 
-jest.mock( 'cli/lib/appdata', () => ( {
-	...jest.requireActual( 'cli/lib/appdata' ),
-	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
-	getAuthToken: jest.fn(),
-	getSiteByFolder: jest.fn(),
-} ) );
-jest.mock( 'cli/lib/snapshots' );
-jest.mock( 'cli/logger' );
+vi.mock( 'cli/lib/appdata', async () => {
+	const actual = await vi.importActual( 'cli/lib/appdata' );
+	return {
+		...actual,
+		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
+		getAuthToken: vi.fn(),
+		getSiteByFolder: vi.fn(),
+	};
+} );
+vi.mock( 'cli/lib/snapshots' );
+vi.mock( 'cli/logger' );
 
 describe( 'Preview List Command', () => {
 	const mockFolder = '/test/folder';
@@ -39,29 +43,29 @@ describe( 'Preview List Command', () => {
 	];
 
 	let mockLogger: {
-		reportStart: jest.Mock;
-		reportSuccess: jest.Mock;
-		reportError: jest.Mock;
+		reportStart: Mock;
+		reportSuccess: Mock;
+		reportError: Mock;
 	};
 
 	beforeEach( () => {
-		jest.clearAllMocks();
-		jest.spyOn( process, 'cwd' ).mockReturnValue( mockFolder );
+		vi.clearAllMocks();
+		vi.spyOn( process, 'cwd' ).mockReturnValue( mockFolder );
 
 		mockLogger = {
-			reportStart: jest.fn(),
-			reportSuccess: jest.fn(),
-			reportError: jest.fn(),
+			reportStart: vi.fn(),
+			reportSuccess: vi.fn(),
+			reportError: vi.fn(),
 		};
 
-		( Logger as jest.Mock ).mockReturnValue( mockLogger );
-		( getSiteByFolder as jest.Mock ).mockResolvedValue( mockSite );
-		( getAuthToken as jest.Mock ).mockResolvedValue( mockAuthToken );
-		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( mockSnapshots );
+		( Logger as Mock ).mockReturnValue( mockLogger );
+		( getSiteByFolder as Mock ).mockResolvedValue( mockSite );
+		( getAuthToken as Mock ).mockResolvedValue( mockAuthToken );
+		( getSnapshotsFromAppdata as Mock ).mockResolvedValue( mockSnapshots );
 	} );
 
 	afterEach( () => {
-		jest.restoreAllMocks();
+		vi.restoreAllMocks();
 	} );
 
 	it( 'should list preview sites successfully', async () => {
@@ -81,7 +85,7 @@ describe( 'Preview List Command', () => {
 
 	it( 'should handle validation errors', async () => {
 		const { runCommand } = await import( '../list' );
-		( getSiteByFolder as jest.Mock ).mockImplementation( () => {
+		( getSiteByFolder as Mock ).mockImplementation( () => {
 			throw new Error( 'Invalid site folder' );
 		} );
 
@@ -92,7 +96,7 @@ describe( 'Preview List Command', () => {
 
 	it( 'should handle no snapshots found', async () => {
 		const { runCommand } = await import( '../list' );
-		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [] );
+		( getSnapshotsFromAppdata as Mock ).mockResolvedValue( [] );
 
 		await runCommand( mockFolder, 'table' );
 

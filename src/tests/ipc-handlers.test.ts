@@ -1,11 +1,11 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
 import { shell, IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
-import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { readFile } from 'atomically';
+import { vi, type Mock } from 'vitest';
 import { bumpStat } from 'common/lib/bump-stat';
 import { isEmptyDir, pathExists } from 'common/lib/fs-utils';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
@@ -22,68 +22,80 @@ import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import { getMainWindow } from 'src/main-window';
 import { SiteServer, createSiteWorkingDirectory } from 'src/site-server';
 
-jest.mock( 'fs' );
-jest.mock( 'fs-extra' );
-jest.mock( 'common/lib/fs-utils' );
-jest.mock( 'src/site-server' );
-jest.mock( 'src/lib/sqlite-versions' );
-jest.mock( 'src/lib/wordpress-provider', () => ( {
-	downloadWordPress: jest.fn(),
-	downloadWpCli: jest.fn(),
-	downloadSQLiteCommand: jest.fn(),
-	getWordPressProvider: jest.fn().mockReturnValue( {
+vi.mock( 'fs', () => ( {
+	default: {
+		existsSync: vi.fn().mockReturnValue( true ),
+		readFile: vi.fn(),
+		writeFile: vi.fn(),
+		mkdirSync: vi.fn(),
+		promises: {
+			stat: vi.fn(),
+		},
+	},
+	existsSync: vi.fn().mockReturnValue( true ),
+	readFile: vi.fn(),
+	writeFile: vi.fn(),
+	mkdirSync: vi.fn(),
+	promises: {
+		stat: vi.fn(),
+	},
+} ) );
+vi.mock( 'fs-extra' );
+vi.mock( 'common/lib/fs-utils' );
+vi.mock( 'src/site-server' );
+vi.mock( 'src/lib/sqlite-versions' );
+vi.mock( 'src/lib/wordpress-provider', () => ( {
+	downloadWordPress: vi.fn(),
+	downloadWpCli: vi.fn(),
+	downloadSQLiteCommand: vi.fn(),
+	getWordPressProvider: vi.fn().mockReturnValue( {
 		DEFAULT_PHP_VERSION: '8.3',
 		DEFAULT_WORDPRESS_VERSION: 'latest',
 		SQLITE_FILENAME: 'sqlite.php',
-		setupWordPressFilesOnly: jest.fn().mockResolvedValue( undefined ),
+		setupWordPressFilesOnly: vi.fn().mockResolvedValue( undefined ),
 	} ),
 } ) );
-jest.mock( 'src/main-window' );
-jest.mock( '@sentry/electron/main' );
-jest.mock( 'src/lib/import-export/import/import-manager' );
-jest.mock( 'common/lib/bump-stat' );
-jest.mock( 'atomically' );
+vi.mock( 'src/main-window' );
+vi.mock( 'src/lib/import-export/import/import-manager' );
+vi.mock( 'common/lib/bump-stat' );
 
-jest.mock( 'common/lib/port-finder', () => ( {
+vi.mock( 'common/lib/port-finder', () => ( {
 	portFinder: {
-		getOpenPort: jest.fn().mockResolvedValue( 9999 ),
+		getOpenPort: vi.fn().mockResolvedValue( 9999 ),
 	},
 } ) );
 
-( SiteServer.create as jest.Mock ).mockImplementation( ( details ) => ( {
-	start: jest.fn(),
+( SiteServer.create as Mock ).mockImplementation( ( details ) => ( {
+	start: vi.fn(),
 	details,
-	updateSiteDetails: jest.fn(),
-	updateCachedThumbnail: jest.fn( () => Promise.resolve() ),
+	updateSiteDetails: vi.fn(),
+	updateCachedThumbnail: vi.fn( () => Promise.resolve() ),
 } ) );
-( createSiteWorkingDirectory as jest.Mock ).mockResolvedValue( true );
+( createSiteWorkingDirectory as Mock ).mockResolvedValue( true );
 
 const mockUserData = {
 	sites: [],
 };
-require( 'fs' ).__setFileContents(
-	normalize( '/path/to/app/appData/App Name/appdata-v1.json' ),
-	JSON.stringify( mockUserData )
-);
-( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
+
+( readFile as Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
 // Assume the provided site path is a directory
-( fs.promises.stat as jest.Mock ).mockResolvedValue( {
+( fs.promises.stat as Mock ).mockResolvedValue( {
 	isDirectory: () => true,
 } );
 
 const mockIpcMainInvokeEvent = {
-	sender: { isDestroyed: jest.fn( () => false ) },
+	sender: { isDestroyed: vi.fn( () => false ) },
 	// Double assert the type with `unknown` to simplify mocking this value
 } as unknown as IpcMainInvokeEvent;
 
 afterEach( () => {
-	jest.clearAllMocks();
+	vi.clearAllMocks();
 } );
 
 describe( 'createSite', () => {
 	it( 'should create a site with generated ID when siteId is not provided', async () => {
-		( isEmptyDir as jest.Mock ).mockResolvedValueOnce( true );
-		( pathExists as jest.Mock ).mockResolvedValueOnce( true );
+		( isEmptyDir as Mock ).mockResolvedValueOnce( true );
+		( pathExists as Mock ).mockResolvedValueOnce( true );
 
 		const userData = await createSite( mockIpcMainInvokeEvent, '/test', {
 			siteName: 'Test',
@@ -105,8 +117,8 @@ describe( 'createSite', () => {
 	} );
 
 	it( 'should create a site with provided siteId', async () => {
-		( isEmptyDir as jest.Mock ).mockResolvedValueOnce( true );
-		( pathExists as jest.Mock ).mockResolvedValueOnce( true );
+		( isEmptyDir as Mock ).mockResolvedValueOnce( true );
+		( pathExists as Mock ).mockResolvedValueOnce( true );
 
 		const customSiteId = 'custom-site-id-123';
 		const userData = await createSite( mockIpcMainInvokeEvent, '/test', {
@@ -131,9 +143,9 @@ describe( 'createSite', () => {
 
 	describe( 'when the site path started as an empty directory', () => {
 		it( 'should reset the directory when site creation fails', () => {
-			( isEmptyDir as jest.Mock ).mockResolvedValueOnce( true );
-			( pathExists as jest.Mock ).mockResolvedValueOnce( true );
-			( createSiteWorkingDirectory as jest.Mock ).mockImplementation( () => {
+			( isEmptyDir as Mock ).mockResolvedValueOnce( true );
+			( pathExists as Mock ).mockResolvedValueOnce( true );
+			( createSiteWorkingDirectory as Mock ).mockImplementation( () => {
 				throw new Error( 'Intentional test error' );
 			} );
 
@@ -150,12 +162,12 @@ describe( 'createSite', () => {
 describe( 'startServer', () => {
 	it( 'should keep SQLite integration up-to-date', async () => {
 		const mockSitePath = 'mock-site-path';
-		( keepSqliteIntegrationUpdated as jest.Mock ).mockResolvedValue( undefined );
-		( SiteServer.get as jest.Mock ).mockReturnValue( {
+		( keepSqliteIntegrationUpdated as Mock ).mockResolvedValue( undefined );
+		( SiteServer.get as Mock ).mockReturnValue( {
 			details: { path: mockSitePath },
-			start: jest.fn(),
-			updateSiteDetails: jest.fn(),
-			updateCachedThumbnail: jest.fn( () => Promise.resolve() ),
+			start: vi.fn(),
+			updateSiteDetails: vi.fn(),
+			updateCachedThumbnail: vi.fn( () => Promise.resolve() ),
 		} );
 
 		await startServer( mockIpcMainInvokeEvent, 'mock-site-id' );
@@ -166,7 +178,7 @@ describe( 'startServer', () => {
 
 describe( 'isFullscreen', () => {
 	it( 'should return false when window is not in fullscreen', async () => {
-		( getMainWindow as jest.Mock ).mockResolvedValue( {
+		( getMainWindow as Mock ).mockResolvedValue( {
 			isFullScreen: () => false,
 		} );
 
@@ -176,7 +188,7 @@ describe( 'isFullscreen', () => {
 	} );
 
 	it( 'should return true when window is in fullscreen', async () => {
-		( getMainWindow as jest.Mock ).mockResolvedValue( {
+		( getMainWindow as Mock ).mockResolvedValue( {
 			isFullScreen: () => true,
 		} );
 
@@ -193,12 +205,12 @@ describe( 'importSite', () => {
 	};
 
 	beforeEach( () => {
-		( importBackup as jest.Mock ).mockReset();
-		( bumpStat as jest.Mock ).mockReset();
+		( importBackup as Mock ).mockReset();
+		( bumpStat as Mock ).mockReset();
 	} );
 
 	it( 'should throw error if site is not found', async () => {
-		( SiteServer.get as jest.Mock ).mockReturnValue( null );
+		( SiteServer.get as Mock ).mockReturnValue( null );
 
 		await expect(
 			importSite( mockIpcMainInvokeEvent, {
@@ -215,15 +227,15 @@ describe( 'importSite', () => {
 				phpVersion: '8.3',
 			},
 			meta: {},
-			start: jest.fn(),
-			stop: jest.fn(),
-			updateSiteDetails: jest.fn(),
-			executeWpCliCommand: jest
+			start: vi.fn(),
+			stop: vi.fn(),
+			updateSiteDetails: vi.fn(),
+			executeWpCliCommand: vi
 				.fn()
 				.mockResolvedValue( { stdout: 'New Site Title', stderr: '', exitCode: 0 } ),
 		};
-		( SiteServer.get as jest.Mock ).mockReturnValue( mockSite );
-		( importBackup as jest.Mock ).mockResolvedValue( {
+		( SiteServer.get as Mock ).mockReturnValue( mockSite );
+		( importBackup as Mock ).mockResolvedValue( {
 			meta: {
 				phpVersion: '8.3',
 			},
@@ -256,14 +268,14 @@ describe( 'importSite', () => {
 			details: {
 				id: 'test-site',
 			},
-			start: jest.fn(),
-			stop: jest.fn(),
-			executeWpCliCommand: jest
+			start: vi.fn(),
+			stop: vi.fn(),
+			executeWpCliCommand: vi
 				.fn()
 				.mockResolvedValue( { stdout: 'New Site Title', stderr: '', exitCode: 0 } ),
 		};
-		( SiteServer.get as jest.Mock ).mockReturnValue( mockSite );
-		( importBackup as jest.Mock ).mockRejectedValue( mockError );
+		( SiteServer.get as Mock ).mockReturnValue( mockSite );
+		( importBackup as Mock ).mockRejectedValue( mockError );
 
 		await expect(
 			importSite( mockIpcMainInvokeEvent, {
@@ -287,8 +299,8 @@ describe( 'getXdebugEnabledSite', () => {
 				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2' },
 			],
 		};
-		( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserDataWithoutXdebug ) );
-		( fs.existsSync as jest.Mock ).mockReturnValue( true );
+		( readFile as Mock ).mockResolvedValue( JSON.stringify( mockUserDataWithoutXdebug ) );
+		( fs.existsSync as Mock ).mockReturnValue( true );
 
 		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
 
@@ -302,9 +314,9 @@ describe( 'getXdebugEnabledSite', () => {
 				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2', enableXdebug: true },
 			],
 		};
-		( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserDataWithXdebug ) );
-		( fs.existsSync as jest.Mock ).mockReturnValue( true );
-		( SiteServer.get as jest.Mock ).mockReturnValue( {
+		( readFile as Mock ).mockResolvedValue( JSON.stringify( mockUserDataWithXdebug ) );
+		( fs.existsSync as Mock ).mockReturnValue( true );
+		( SiteServer.get as Mock ).mockReturnValue( {
 			details: {
 				id: 'site-2',
 				name: 'Site 2',
@@ -332,9 +344,9 @@ describe( 'getXdebugEnabledSite', () => {
 				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2', enableXdebug: true },
 			],
 		};
-		( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserDataWithMultipleXdebug ) );
-		( fs.existsSync as jest.Mock ).mockReturnValue( true );
-		( SiteServer.get as jest.Mock ).mockReturnValue( {
+		( readFile as Mock ).mockResolvedValue( JSON.stringify( mockUserDataWithMultipleXdebug ) );
+		( fs.existsSync as Mock ).mockReturnValue( true );
+		( SiteServer.get as Mock ).mockReturnValue( {
 			details: {
 				id: 'site-1',
 				name: 'Site 1',

@@ -1,38 +1,39 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
 import { IpcMainInvokeEvent, BrowserWindow, Menu, MenuItem } from 'electron';
+import { vi, type Mock } from 'vitest';
 import { showSiteContextMenu } from 'src/ipc-handlers';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 
-jest.mock( 'src/ipc-utils' );
+vi.mock( 'src/ipc-utils' );
 
 const mockIpcMainInvokeEvent = {
-	sender: { isDestroyed: jest.fn( () => false ) },
+	sender: { isDestroyed: vi.fn( () => false ) },
 	// Double assert the type with `unknown` to simplify mocking this value
 } as unknown as IpcMainInvokeEvent;
 
-jest.mock( 'fs' );
+vi.mock( 'fs' );
 
 describe( 'showSiteContextMenu', () => {
-	let mockMenu: { append: jest.Mock; popup: jest.Mock };
-	let mockWindow: { isDestroyed: jest.Mock };
+	let mockMenu: { append: Mock; popup: Mock };
+	let mockWindow: { isDestroyed: Mock };
 	let menuItems: MenuItem[];
 
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 		menuItems = [];
 		mockMenu = {
-			append: jest.fn( ( item: MenuItem ) => menuItems.push( item ) ),
-			popup: jest.fn(),
+			append: vi.fn( ( item: MenuItem ) => menuItems.push( item ) ),
+			popup: vi.fn(),
 		};
 		mockWindow = {
-			isDestroyed: jest.fn( () => false ),
+			isDestroyed: vi.fn( () => false ),
 		};
 
-		( Menu as unknown as jest.Mock ) = jest.fn( () => mockMenu );
-		( MenuItem as unknown as jest.Mock ) = jest.fn( ( config ) => config );
-		( BrowserWindow.fromWebContents as jest.Mock ) = jest.fn( () => mockWindow );
+		( Menu as unknown as Mock ) = vi.fn( () => mockMenu );
+		( MenuItem as unknown as Mock ) = vi.fn( ( config ) => config );
+		( BrowserWindow.fromWebContents as Mock ) = vi.fn( () => mockWindow );
 	} );
 
 	const baseContext = {

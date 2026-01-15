@@ -64,6 +64,6 @@ export async function runWpCliCommand(
 			() => php.exit(),
 		];
 	} catch ( error ) {
-		throw new Error( __( 'An error occurred while running the WP-CLI command.', 'wp-playground' ) );
+		throw new Error( __( 'An error occurred while running the WP-CLI command.' ) );
 	}
 }

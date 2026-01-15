@@ -92,8 +92,8 @@ describe( 'App initialization', () => {
 		} );
 	} );
 
-	it( 'should handle authentication deep links', async () => {
-		await jest.isolateModulesAsync( async () => {
+	it( 'should handle authentication deep links', () => {
+		jest.isolateModules( async () => {
 			const originalProcessPlatform = process.platform;
 			Object.defineProperty( process, 'platform', { value: 'darwin' } );
 
@@ -128,6 +128,8 @@ describe( 'App initialization', () => {
 			expect( setupSpy.mock.invocationCallOrder[ 0 ] ).toBeLessThan(
 				( createMainWindow as jest.Mock ).mock.invocationCallOrder[ 0 ]
 			);
+
+			await mockedEvents[ 'will-quit' ]( { preventDefault: jest.fn() } );
 		} );
 	} );
 
@@ -144,6 +146,8 @@ describe( 'App initialization', () => {
 			await mockedEvents.ready();
 			await mockedEvents.activate();
 			expect( createMainWindow ).toHaveBeenCalled();
+
+			await mockedEvents[ 'will-quit' ]( { preventDefault: jest.fn() } );
 		} );
 	} );
 
@@ -175,6 +179,8 @@ describe( 'App initialization', () => {
 			expect( getMainWindow as jest.Mock ).toHaveBeenCalled();
 
 			Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
+
+			await mockedEvents[ 'will-quit' ]( { preventDefault: jest.fn() } );
 		} );
 	} );
 } );

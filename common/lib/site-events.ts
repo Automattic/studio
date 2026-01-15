@@ -26,14 +26,14 @@ export const siteDetailsSchema = z.object( {
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;
 
-export const SITE_EVENTS = {
-	CREATED: 'site-created',
-	UPDATED: 'site-updated',
-	DELETED: 'site-deleted',
-} as const;
+export enum SITE_EVENTS {
+	CREATED = 'site-created',
+	UPDATED = 'site-updated',
+	DELETED = 'site-deleted',
+}
 
 export const siteEventSchema = z.object( {
-	event: z.string(),
+	event: z.nativeEnum( SITE_EVENTS ),
 	siteId: z.string(),
 	site: siteDetailsSchema.optional(),
 	running: z.boolean(),

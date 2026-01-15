@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sequential } from 'common/lib/sequential';
 import { siteEventSchema, SiteEvent, SITE_EVENTS, SiteDetails } from 'common/lib/site-events';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
@@ -15,8 +16,6 @@ const cliSiteEventSchema = z.object( {
 
 let subscriber: ReturnType< typeof executeCliCommand > | null = null;
 
-const pendingUpdates = new Map< string, Promise< void > >();
-
 function siteDetailsToServerDetails(
 	site: SiteDetails,
 	running: boolean
@@ -27,50 +26,44 @@ function siteDetailsToServerDetails(
 	};
 }
 
-async function handleSiteEvent( event: SiteEvent ): Promise< void > {
+const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > => {
 	const { event: eventType, siteId, site, running } = event;
-	const previous = pendingUpdates.get( siteId ) ?? Promise.resolve();
-	const current = previous
-		.catch( () => {} )
-		.then( () => {
-			if ( eventType === SITE_EVENTS.DELETED ) {
-				SiteServer.unregister( siteId );
-				return;
-			}
 
-			if ( ! site ) {
-				return;
-			}
+	if ( eventType === SITE_EVENTS.DELETED ) {
+		SiteServer.unregister( siteId );
+		return;
+	}
 
-			// Only register new sites on CREATED events to prevent duplicates
-			if ( eventType === SITE_EVENTS.CREATED ) {
-				const existingServer = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
-				if ( ! existingServer ) {
-					SiteServer.register( siteDetailsToServerDetails( site, running ) );
-				}
-				return;
-			}
+	if ( ! site ) {
+		return;
+	}
 
-			// For UPDATED events, only update if the site already exists
-			const server = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
-			if ( ! server ) {
-				return;
-			}
+	// Only register new sites on CREATED events to prevent duplicates
+	if ( eventType === SITE_EVENTS.CREATED ) {
+		const existingServer = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
+		if ( ! existingServer ) {
+			SiteServer.register( siteDetailsToServerDetails( site, running ) );
+		}
+		return;
+	}
 
-			// Skip update if Studio has an ongoing operation
-			if ( server.hasOngoingOperation ) {
-				return;
-			}
+	// For UPDATED events, only update if the site already exists
+	const server = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
+	if ( ! server ) {
+		return;
+	}
 
-			server.details = siteDetailsToServerDetails( site, running );
+	// Skip update if Studio has an ongoing operation
+	if ( server.hasOngoingOperation ) {
+		return;
+	}
 
-			if ( server.server && site.url ) {
-				server.server.url = site.url;
-			}
-		} );
-	pendingUpdates.set( siteId, current );
-	await current;
-}
+	server.details = siteDetailsToServerDetails( site, running );
+
+	if ( server.server && site.url ) {
+		server.server.url = site.url;
+	}
+} );
 
 export async function startCliEventsSubscriber(): Promise< void > {
 	return new Promise( ( resolve, reject ) => {
@@ -79,7 +72,8 @@ export async function startCliEventsSubscriber(): Promise< void > {
 		}
 
 		subscriber = executeCliCommand( [ '_events' ], {
-			output: 'ignore',
+			output: 'capture',
+			logPrefix: 'events',
 		} );
 		const [ eventEmitter ] = subscriber;
 

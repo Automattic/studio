@@ -430,7 +430,7 @@ export async function sendWpCliCommand(
 	return wpCliResultSchema.parse( result );
 }
 
-const PM2_STATUS_EVENTS = [ 'exit', 'stop', 'restart' ];
+const PM2_STATUS_EVENTS = [ 'exit', 'stop', 'restart', 'delete' ];
 
 /**
  * Subscribe to site server events
@@ -439,36 +439,11 @@ const PM2_STATUS_EVENTS = [ 'exit', 'stop', 'restart' ];
  * All PM2 events (online, exit, stop, restart) are mapped to 'site-updated'.
  *
  * @param handler - Callback invoked when a site event occurs
- * @param options - Configuration options (e.g., debounceMs)
  * @returns Unsubscribe function to stop listening
  */
 export async function subscribeSiteEvents(
-	handler: ( data: { siteId: string; event: string } ) => void,
-	options: { debounceMs?: number } = {}
+	handler: ( data: { siteId: string; event: SITE_EVENTS; running: boolean } ) => void
 ): Promise< () => void > {
-	const { debounceMs = 0 } = options;
-
-	let debounceTimeout: NodeJS.Timeout | null = null;
-	let pendingEvent: { siteId: string; event: string } | null = null;
-
-	const invokeHandler = ( siteId: string ) => {
-		const event = SITE_EVENTS.UPDATED;
-		if ( debounceMs > 0 ) {
-			pendingEvent = { siteId, event };
-			if ( debounceTimeout ) {
-				clearTimeout( debounceTimeout );
-			}
-			debounceTimeout = setTimeout( () => {
-				if ( pendingEvent ) {
-					handler( pendingEvent );
-					pendingEvent = null;
-				}
-			}, debounceMs );
-		} else {
-			handler( { siteId, event } );
-		}
-	};
-
 	const unsubscribeMessages = await subscribeProcessMessages( ( { processName, topic } ) => {
 		if ( ! processName.startsWith( SITE_PROCESS_PREFIX ) ) {
 			return;
@@ -476,7 +451,8 @@ export async function subscribeSiteEvents(
 
 		if ( topic === 'result' ) {
 			const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
-			invokeHandler( siteId );
+			// 'result' message means server started successfully
+			handler( { siteId, event: SITE_EVENTS.UPDATED, running: true } );
 		}
 	} );
 
@@ -487,15 +463,13 @@ export async function subscribeSiteEvents(
 
 		if ( PM2_STATUS_EVENTS.includes( event ) ) {
 			const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
-			invokeHandler( siteId );
+			// PM2 exit/stop/restart/delete events mean the server is not running
+			handler( { siteId, event: SITE_EVENTS.UPDATED, running: false } );
 		}
 	} );
 
 	return () => {
 		unsubscribeMessages();
 		unsubscribeEvents();
-		if ( debounceTimeout ) {
-			clearTimeout( debounceTimeout );
-		}
 	};
 }

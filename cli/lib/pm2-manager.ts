@@ -3,6 +3,7 @@ import path from 'path';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/constants';
 import { cacheFunctionTTL } from 'common/lib/cache-function-ttl';
 import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
+import { SITE_EVENTS } from 'common/lib/site-events';
 import { custom as PM2, StartOptions } from 'pm2';
 import { getAppdataPath } from 'cli/lib/appdata';
 import { ProcessDescription } from 'cli/lib/types/pm2';
@@ -345,19 +346,6 @@ export async function subscribePm2KillEvent( handler: () => void ) {
 
 const EVENTS_RELAY_PROCESS_NAME = 'studio-events-relay';
 
-async function getProcessByName( name: string ): Promise< { pm_id: number | undefined } | null > {
-	return new Promise( ( resolve, reject ) => {
-		pm2.list( ( error, processes ) => {
-			if ( error ) {
-				reject( error );
-				return;
-			}
-			const proc = ( processes || [] ).find( ( p ) => p.name === name );
-			resolve( proc ? { pm_id: proc.pm_id } : null );
-		} );
-	} );
-}
-
 /**
  * Emit a site event via the events relay process.
  * The relay re-emits on PM2 bus for `_events` to receive.
@@ -366,18 +354,18 @@ async function getProcessByName( name: string ): Promise< { pm_id: number | unde
  * @param data - The event data (must include siteId)
  */
 export async function emitSiteEvent(
-	event: string,
+	event: SITE_EVENTS,
 	data: { siteId: string; url?: string }
 ): Promise< void > {
-	const relayProcess = await getProcessByName( EVENTS_RELAY_PROCESS_NAME );
-	if ( relayProcess?.pm_id === undefined ) {
+	const relayProcess = await isProcessRunning( EVENTS_RELAY_PROCESS_NAME );
+	if ( relayProcess?.pmId === undefined ) {
 		// No relay running - that's fine, Studio might not be open
 		return;
 	}
 
 	return new Promise( ( resolve ) => {
 		pm2.sendDataToProcessId(
-			relayProcess.pm_id as number,
+			relayProcess.pmId,
 			{
 				type: 'process:msg',
 				topic: event,
@@ -395,8 +383,8 @@ export function getEventsRelayProcessName(): string {
 }
 
 export async function startEventsRelayProcess( relayScriptPath: string ): Promise< void > {
-	const existingProcess = await getProcessByName( EVENTS_RELAY_PROCESS_NAME );
-	if ( existingProcess?.pm_id !== undefined ) {
+	const existingProcess = await isProcessRunning( EVENTS_RELAY_PROCESS_NAME );
+	if ( existingProcess?.pmId !== undefined ) {
 		return;
 	}
 

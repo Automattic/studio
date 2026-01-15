@@ -515,7 +515,7 @@ async function appBoot() {
 	app.on( 'will-quit', ( event ) => {
 		globalShortcut.unregisterAll();
 		stopUserDataWatcher();
-		void stopCliEventsSubscriber();
+		stopCliEventsSubscriber();
 
 		if ( shouldStopSitesOnQuit ) {
 			event.preventDefault();

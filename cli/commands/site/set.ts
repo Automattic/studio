@@ -245,7 +245,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 
 		await emitSiteEvent( SITE_EVENTS.UPDATED, { siteId: site.id } );
 
-		return { usedWpCli: wpChanged };
+		return;
 	} finally {
 		await disconnect();
 	}

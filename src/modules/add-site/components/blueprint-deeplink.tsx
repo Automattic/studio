@@ -1,5 +1,6 @@
 import {
 	__experimentalVStack as VStack,
+	__experimentalHStack as HStack,
 	__experimentalHeading as Heading,
 	__experimentalText as Text,
 	Icon,
@@ -21,7 +22,7 @@ export default function BlueprintDeeplink( {
 }: BlueprintDeeplinkProps ) {
 	const { __ } = useI18n();
 
-	const blueprintTitle = selectedBlueprint?.title || __( 'Blueprint' );
+	const blueprintTitle = selectedBlueprint?.title || '';
 	const blueprintDescription = selectedBlueprint?.excerpt || '';
 
 	return (
@@ -33,23 +34,33 @@ export default function BlueprintDeeplink( {
 			<BlueprintWarningNotice
 				warnings={ warnings }
 				fileName={ blueprintTitle }
-				className="w-full max-w-4xl mx-auto mb-6"
+				className="w-full max-w-4xl mx-auto"
 			/>
 
-			<div className="w-full max-w-[400px] h-[250px] mx-auto p-12 border-2 rounded-xl border-gray-300 bg-gray-50">
-				<VStack className="items-center justify-center h-full" spacing={ 2 }>
-					<Icon icon={ check } size={ 24 } className="text-green-600" />
-					<Text className="text-xl font-medium text-gray-900">{ __( 'Blueprint selected' ) }</Text>
-					<Text className="text-base font-medium text-gray-900 max-w-md px-4" weight={ 400 }>
-						{ blueprintTitle }
-					</Text>
-					{ blueprintDescription && (
-						<Text className="text-sm text-gray-600 max-w-md px-4 line-clamp-2">
-							{ blueprintDescription }
+			<VStack className="max-w-[400px] min-w-[250px] max-h-[172px] mx-auto p-6 border rounded-lg border-gray-200 mt-16">
+				<HStack className="h-full" alignment="top" spacing={ 4 }>
+					<Icon className="fill-a8c-blue-50 shrink-0" icon={ check } size={ 29 } />
+					<VStack alignment="left" spacing={ 1 }>
+						<Text className="text-lg font-medium text-gray-900">
+							{ __( 'Blueprint selected' ) }
 						</Text>
-					) }
-				</VStack>
-			</div>
+						<VStack alignment="left" spacing={ 4 }>
+							<Text className="text-[13px] text-[#50575E]" weight={ 400 }>
+								{ blueprintTitle || __( 'Blueprint loaded from URL' ) }
+							</Text>
+							{ blueprintDescription && (
+								<Text
+									className="text-[13px] text-a8c-gray-700 line-clamp-3"
+									weight={ 400 }
+									align="initial"
+								>
+									{ blueprintDescription }
+								</Text>
+							) }
+						</VStack>
+					</VStack>
+				</HStack>
+			</VStack>
 		</VStack>
 	);
 }

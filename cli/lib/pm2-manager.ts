@@ -1,3 +1,4 @@
+import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/constants';
@@ -27,6 +28,10 @@ export const EVENTS_SOCKET_PATH =
 	process.platform === 'win32'
 		? '\\\\.\\pipe\\studio-events.sock'
 		: path.join( STUDIO_PM2_HOME, 'events.sock' );
+
+if ( process.platform !== 'win32' && ! fs.existsSync( STUDIO_PM2_HOME ) ) {
+	fs.mkdirSync( STUDIO_PM2_HOME, { recursive: true } );
+}
 
 export interface ProcessEventData {
 	processName: string;

@@ -16,7 +16,6 @@ import { getSiteUrl, readAppdata, SiteData } from 'cli/lib/appdata';
 import {
 	connect,
 	disconnect,
-	stopEventsRelayProcess,
 	subscribePm2KillEvent,
 	EVENTS_SOCKET_PATH,
 } from 'cli/lib/pm2-manager';
@@ -112,7 +111,6 @@ export async function runCommand(): Promise< void > {
 
 	async function cleanup() {
 		socket.close();
-		await stopEventsRelayProcess();
 		await disconnect();
 	}
 

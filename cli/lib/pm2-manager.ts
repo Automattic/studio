@@ -349,8 +349,6 @@ export async function subscribePm2KillEvent( handler: () => void ) {
 	};
 }
 
-const EVENTS_RELAY_PROCESS_NAME = 'studio-events-relay';
-
 /**
  * Emit a site event via the events socket, for the `_events` command server to receive.
  *
@@ -374,30 +372,4 @@ export async function emitSiteEvent(
 			resolve();
 		} );
 	} ).finally( closeHandler );
-}
-
-export function getEventsRelayProcessName(): string {
-	return EVENTS_RELAY_PROCESS_NAME;
-}
-
-export async function startEventsRelayProcess( relayScriptPath: string ): Promise< void > {
-	const existingProcess = await isProcessRunning( EVENTS_RELAY_PROCESS_NAME );
-	if ( existingProcess?.pmId !== undefined ) {
-		return;
-	}
-
-	const env: Record< string, string > = {
-		PATH: process.env.PATH || '',
-		HOME: process.env.HOME || '',
-	};
-
-	await startProcess( EVENTS_RELAY_PROCESS_NAME, relayScriptPath, env );
-}
-
-export async function stopEventsRelayProcess(): Promise< void > {
-	return new Promise( ( resolve ) => {
-		pm2.delete( EVENTS_RELAY_PROCESS_NAME, () => {
-			resolve();
-		} );
-	} );
 }

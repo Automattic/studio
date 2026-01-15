@@ -6,12 +6,13 @@ import { Provider } from 'react-redux';
 import { useExpirationDate } from 'src/hooks/use-expiration-date';
 import { store } from 'src/stores';
 
-jest.useFakeTimers();
-
 const wrapper = ( { children }: { children: React.ReactNode } ) =>
 	createElement( Provider, { store, children } );
 
 describe( 'useExpirationDate', () => {
+	beforeEach( () => {
+		jest.useFakeTimers();
+	} );
 	test( 'should indicate isExpired for dates more than 7 days', () => {
 		const snapshotDate = subDays( new Date(), 8 ).getTime(); // More than 7 days
 		const { result } = renderHook( () => useExpirationDate( snapshotDate ), { wrapper } );

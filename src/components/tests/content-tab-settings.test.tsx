@@ -11,7 +11,7 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { createTestStore } from 'src/lib/test-utils';
 import { RootState } from 'src/stores';
-import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
+import { testReducer } from 'src/stores/tests/utils/test-reducer';
 
 function snapshotTestReducer( state: RootState | undefined, action: UnknownAction ) {
 	if ( action.type === 'snapshot/addSnapshot' ) {

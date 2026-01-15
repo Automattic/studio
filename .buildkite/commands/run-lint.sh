@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 set -euo pipefail
 
 if .buildkite/commands/should-skip-job.sh --job-type validation; then

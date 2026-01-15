@@ -1,4 +1,6 @@
-#!/bin/bash -eu
+#!/usr/bin/env bash
+
+set -eu
 
 # Determines if a CI job should be skipped based on the files changed in the PR.
 #

@@ -11,14 +11,22 @@ test.describe( 'Blueprints', () => {
 	const session = new E2ESession();
 
 	test.beforeAll( async () => {
-		await session.launch();
+		try {
+			await session.launch();
 
-		const onboarding = new Onboarding( session.mainWindow );
-		await onboarding.completeOnboarding();
-		await onboarding.closeWhatsNew();
+			const onboarding = new Onboarding( session.mainWindow );
+			await onboarding.completeOnboarding();
+			await onboarding.closeWhatsNew();
 
-		const siteContent = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
-		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
+			const siteContent = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
+			await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
+		} catch ( error ) {
+			// Capture screenshot on beforeAll failure
+			await session.mainWindow.screenshot( {
+				path: `test-results/beforeAll-failure-${ Date.now() }.png`,
+			} );
+			throw error;
+		}
 	} );
 
 	test.afterAll( async () => {

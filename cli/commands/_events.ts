@@ -110,7 +110,19 @@ export async function runCommand(): Promise< void > {
 	} );
 
 	async function cleanup() {
-		socket.close();
+		await new Promise< void >( ( resolve ) => {
+			socket.once( 'close', () => {
+				clearTimeout( timeoutId );
+				resolve();
+			} );
+
+			const timeoutId = setTimeout( () => {
+				socket.destroy?.();
+				resolve();
+			}, 200 );
+
+			socket.close();
+		} );
 		await disconnect();
 	}
 

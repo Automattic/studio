@@ -362,7 +362,21 @@ export async function emitSiteEvent(
 	const socket = axon.socket( 'push' );
 	socket.connect( EVENTS_SOCKET_PATH );
 
-	const closeHandler = () => socket.close();
+	function closeHandler() {
+		return new Promise< void >( ( resolve ) => {
+			socket.once( 'close', () => {
+				clearTimeout( timeoutId );
+				resolve();
+			} );
+
+			const timeoutId = setTimeout( () => {
+				socket.destroy?.();
+				resolve();
+			}, 200 );
+
+			socket.close();
+		} );
+	}
 	process.on( 'SIGINT', closeHandler );
 	process.on( 'SIGTERM', closeHandler );
 

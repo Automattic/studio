@@ -370,7 +370,7 @@ export async function emitSiteEvent(
 	data: { siteId: string; url?: string }
 ): Promise< void > {
 	const relayProcess = await getProcessByName( EVENTS_RELAY_PROCESS_NAME );
-	if ( ! relayProcess?.pm_id ) {
+	if ( relayProcess?.pm_id === undefined ) {
 		// No relay running - that's fine, Studio might not be open
 		return;
 	}

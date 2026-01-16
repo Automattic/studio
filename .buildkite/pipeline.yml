@@ -11,10 +11,7 @@ steps:
     agents:
       queue: mac
     key: lint
-    command: |
-      .buildkite/commands/install-node-dependencies.sh
-      echo '--- :eslint: Lint'
-      npm run lint
+    command: bash .buildkite/commands/run-lint.sh
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     notify:
       - github_commit_status:

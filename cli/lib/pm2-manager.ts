@@ -367,6 +367,20 @@ export async function emitSiteEvent(
 	const socket = axon.socket( 'push' );
 	socket.connect( EVENTS_SOCKET_PATH );
 
+	// Suppress `Buffer()` deprecation warning from pm2-axon dependencies
+	const originalEmitWarning = process.emitWarning;
+	process.emitWarning = ( warning, ...args ) => {
+		if (
+			( typeof warning === 'string' && warning.includes( 'Buffer()' ) ) ||
+			// @ts-expect-error `Error.prototype.code` is non-standard but exists here, so just ignore TS
+			( warning instanceof Error && warning.code === 'DEP0005' )
+		) {
+			return;
+		}
+		// @ts-expect-error `process.emitWarning` has complex overloads, ignoring for warning suppression
+		return originalEmitWarning.call( process, warning, ...args );
+	};
+
 	function closeHandler() {
 		return new Promise< void >( ( resolve ) => {
 			socket.once( 'close', () => {
@@ -380,6 +394,7 @@ export async function emitSiteEvent(
 			}, 200 );
 
 			socket.close();
+			process.emitWarning = originalEmitWarning;
 		} );
 	}
 	process.on( 'SIGINT', closeHandler );

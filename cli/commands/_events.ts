@@ -87,6 +87,7 @@ export async function runCommand(): Promise< void > {
 
 	await new Promise< void >( ( resolve, reject ) => {
 		const timeout = setTimeout( () => {
+			console.log( 'Socket bind timeout' );
 			reject( new Error( 'Socket bind timeout' ) );
 		}, 2500 );
 
@@ -97,6 +98,7 @@ export async function runCommand(): Promise< void > {
 
 		socket.bind( EVENTS_SOCKET_PATH, ( error: unknown ) => {
 			if ( error ) {
+				console.log( 'Socket bind error', error );
 				clearTimeout( timeout );
 				reject( error );
 			}
@@ -137,8 +139,10 @@ export async function runCommand(): Promise< void > {
 			} );
 
 			const timeoutId = setTimeout( () => {
+				console.log( 'Socket close timeout', typeof socket.destroy );
 				socket.destroy?.();
 				if ( fs.existsSync( EVENTS_SOCKET_PATH ) ) {
+					console.log( 'Removing socket file' );
 					fs.unlinkSync( EVENTS_SOCKET_PATH );
 				}
 				resolve();
@@ -149,8 +153,14 @@ export async function runCommand(): Promise< void > {
 		await disconnect();
 	}
 
-	process.on( 'SIGINT', () => void cleanup() );
-	process.on( 'SIGTERM', () => void cleanup() );
+	process.on( 'SIGINT', async () => {
+		console.log( 'SIGINT received' );
+		await cleanup();
+	} );
+	process.on( 'SIGTERM', async () => {
+		console.log( 'SIGTERM received' );
+		await cleanup();
+	} );
 }
 
 export async function commandHandler() {

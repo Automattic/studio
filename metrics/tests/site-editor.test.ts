@@ -30,9 +30,9 @@ test.describe( 'Site Editor Load Metrics', () => {
 	test( 'measure site editor load time', async () => {
 		let wpAdminUrl = '';
 		await session.launch();
-		
+
 		const onboarding = new Onboarding( session.mainWindow );
-		expect( onboarding.heading ).toBeVisible();
+		await expect( onboarding.heading ).toBeVisible();
 
 		// Wait for store initialization to complete (provider constants loading)
 		await new Promise( ( resolve ) => setTimeout( resolve, 500 ) );

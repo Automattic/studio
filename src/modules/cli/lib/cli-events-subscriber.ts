@@ -72,6 +72,9 @@ export async function startCliEventsSubscriber(): Promise< void > {
 		}
 
 		subscriber = executeCliCommand( [ '_events' ], {
+			env: {
+				DEBUG: 'axon:*',
+			},
 			output: 'capture',
 			logPrefix: 'events',
 		} );

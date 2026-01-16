@@ -6,10 +6,6 @@
  * stdout key-value pairs that Studio parses.
  *
  */
-
-// Enable debug logging for pm2-axon
-process.env.DEBUG = 'axon:*';
-
 import fs from 'fs';
 import { __ } from '@wordpress/i18n';
 import { sequential } from 'common/lib/sequential';

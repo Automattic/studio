@@ -20,11 +20,17 @@ async function waitForWithScreenshots(
 	label: string,
 	totalTimeout: number
 ) {
+	const fs = await import( 'fs' );
+	const path = await import( 'path' );
+
 	const screenshotInterval = 30_000; // Take screenshot every 30 seconds
 	const startTime = Date.now();
 	let screenshotCount = 0;
 
-	while ( Date.now() - startTime < totalTimeout ) {
+	// Use a shorter timeout than the test timeout to ensure we can capture final state
+	const effectiveTimeout = Math.min( totalTimeout, 240_000 ); // Max 4 minutes to leave room for cleanup
+
+	while ( Date.now() - startTime < effectiveTimeout ) {
 		// Try to check if visible with a short timeout
 		try {
 			await expect( locator ).toBeVisible( { timeout: screenshotInterval } );
@@ -39,6 +45,21 @@ async function waitForWithScreenshots(
 			);
 			try {
 				const screenshot = await page.screenshot();
+
+				// Save screenshot directly to artifacts directory as a file
+				const artifactsPath =
+					process.env.ARTIFACTS_PATH || path.join( __dirname, '..', 'artifacts' );
+				const screenshotPath = path.join( artifactsPath, `${ label }-wait-${ elapsed }s.png` );
+
+				// Ensure artifacts directory exists
+				if ( ! fs.existsSync( artifactsPath ) ) {
+					fs.mkdirSync( artifactsPath, { recursive: true } );
+				}
+
+				fs.writeFileSync( screenshotPath, screenshot );
+				debugLog( `Screenshot saved to: ${ screenshotPath }` );
+
+				// Also attach to test report
 				await testInfo.attach( `${ label }-wait-${ elapsed }s`, {
 					body: screenshot,
 					contentType: 'image/png',
@@ -50,7 +71,7 @@ async function waitForWithScreenshots(
 	}
 
 	// Final timeout - throw with useful message
-	throw new Error( `${ label } not visible after ${ totalTimeout }ms` );
+	throw new Error( `${ label } not visible after ${ effectiveTimeout }ms` );
 }
 
 test.describe( 'Site Editor Load Metrics', () => {

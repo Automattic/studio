@@ -9,13 +9,14 @@ import {
 } from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
 import { runCommand } from '../logout';
-
-const mockReportStart = vi.fn();
-const mockReportSuccess = vi.fn();
-const mockReportError = vi.fn();
-const mockReportProgress = vi.fn();
-const mockReportWarning = vi.fn();
-const mockReportKeyValuePair = vi.fn();
+import {
+	mockReportStart,
+	mockReportSuccess,
+	mockReportError,
+	mockReportProgress,
+	mockReportWarning,
+	mockReportKeyValuePair,
+} from './test-utils';
 
 vi.mock( 'cli/lib/appdata' );
 vi.mock( 'cli/lib/api' );

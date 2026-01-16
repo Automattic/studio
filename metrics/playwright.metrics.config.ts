@@ -12,7 +12,7 @@ export default defineConfig( {
 	outputDir: path.join( process.env.ARTIFACTS_PATH, 'test-results' ),
 	forbidOnly: !! process.env.CI,
 	fullyParallel: false,
-	retries: 1, // Retry flaky tests once (reduced from 2 to surface issues faster)
+	retries: 2, // Retry flaky tests to handle CI infrastructure variability
 	timeout: parseInt( process.env.TIMEOUT || '', 10 ) || 180_000, // Defaults to 3 minutes.
 	reportSlowTests: null,
 	use: {

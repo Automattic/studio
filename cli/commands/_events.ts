@@ -77,12 +77,6 @@ const siteEventSchema = z.object( {
 } );
 
 export async function runCommand(): Promise< void > {
-	logger.reportStart( LoggerAction.START_DAEMON, __( 'Connecting to process daemon…' ) );
-	await connect();
-	logger.reportSuccess( __( 'Connected to process daemon' ) );
-
-	await emitAllSitesStatus();
-
 	const socket = axon.socket( 'pull' );
 	let isCleaningUp = false;
 
@@ -160,6 +154,12 @@ export async function runCommand(): Promise< void > {
 			// Do nothing
 		}
 	} );
+
+	logger.reportStart( LoggerAction.START_DAEMON, __( 'Connecting to process daemon…' ) );
+	await connect();
+	logger.reportSuccess( __( 'Connected to process daemon' ) );
+
+	await emitAllSitesStatus();
 
 	await subscribeSiteEvents( ( { siteId, event, running } ) => {
 		void emitSiteEvent( event, siteId, running );

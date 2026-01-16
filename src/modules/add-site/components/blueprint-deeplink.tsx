@@ -51,7 +51,7 @@ export default function BlueprintDeeplink( {
 									<Text
 										className="text-[13px] text-a8c-gray-700 line-clamp-3"
 										weight={ 400 }
-										align="initial"
+										align="start"
 									>
 										{ blueprintDescription }
 									</Text>

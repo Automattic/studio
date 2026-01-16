@@ -65,7 +65,9 @@ export default function BlueprintDeeplink( {
 					className="w-full bg-[#FAFAFA] border border-t-0 rounded-b-lg py-[14px] pe-[14px] ps-[68px] justify-start"
 				>
 					<Icon icon={ link } size={ 18 } />
-					<Text className="text-[13px] text-[#2F2F2F]">{ __( 'Blueprint loaded from URL' ) }</Text>
+					<Text className="text-[13px] text-a8c-gray-800">
+						{ __( 'Blueprint loaded from URL' ) }
+					</Text>
 				</HStack>
 			</VStack>
 		</VStack>

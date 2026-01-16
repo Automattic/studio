@@ -125,6 +125,7 @@ vi.mock( 'electron', () => {
 	}
 
 	return {
+		__esModule: true,
 		app: {
 			getVersion: vi.fn(),
 			getPath: vi.fn().mockReturnValue( '/mock/path' ),
@@ -138,6 +139,10 @@ vi.mock( 'electron', () => {
 		},
 		Menu: vi.fn(),
 		MenuItem: vi.fn(),
+		clipboard: {
+			writeText: vi.fn(),
+		},
+		Notification: vi.fn(),
 	};
 } );
 

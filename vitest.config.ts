@@ -24,6 +24,7 @@ export default defineConfig({
 		server: {
 			deps: {
 				inline: ['@php-wasm', '@wp-playground'],
+				external: ['electron'],
 			},
 		},
 		poolOptions: {

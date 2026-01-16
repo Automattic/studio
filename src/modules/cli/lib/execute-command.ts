@@ -43,7 +43,6 @@ export interface ExecuteCliCommandOptions {
 	 */
 	output: 'ignore' | 'capture';
 	logPrefix?: string;
-	env?: NodeJS.ProcessEnv;
 }
 
 export function executeCliCommand(
@@ -62,10 +61,6 @@ export function executeCliCommand(
 	const child = fork( cliPath, [ ...args, '--avoid-telemetry' ], {
 		stdio,
 		execPath: getBundledNodeBinaryPath(),
-		env: {
-			...process.env,
-			...options.env,
-		},
 	} );
 	const eventEmitter = new CliCommandEventEmitter();
 

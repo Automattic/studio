@@ -6,7 +6,6 @@
  * stdout key-value pairs that Studio parses.
  *
  */
-import fs from 'fs';
 import { __ } from '@wordpress/i18n';
 import { sequential } from 'common/lib/sequential';
 import { SITE_EVENTS, siteDetailsSchema, SiteEvent } from 'common/lib/site-events';
@@ -85,7 +84,6 @@ export async function runCommand(): Promise< void > {
 			return;
 		}
 
-		console.log( 'Starting cleanup...' );
 		bindAbortController.abort();
 
 		await new Promise< void >( ( resolve ) => {
@@ -95,13 +93,11 @@ export async function runCommand(): Promise< void > {
 			}
 
 			socket.once( 'close', () => {
-				console.log( 'Socket closed' );
 				clearTimeout( timeoutId );
 				resolve();
 			} );
 
 			const timeoutId = setTimeout( () => {
-				console.log( 'Socket close timeout' );
 				socket.destroy?.();
 				resolve();
 			}, 250 );
@@ -115,7 +111,6 @@ export async function runCommand(): Promise< void > {
 			// Do nothing
 		}
 
-		console.log( 'Cleanup complete' );
 		process.exit();
 	}
 
@@ -127,7 +122,6 @@ export async function runCommand(): Promise< void > {
 			bindAbortController.signal.throwIfAborted();
 
 			const timeout = setTimeout( () => {
-				console.log( 'Socket bind timeout' );
 				bindAbortController.signal.removeEventListener( 'abort', onAbort );
 				reject( new Error( 'Socket bind timeout' ) );
 			}, 2500 );
@@ -139,7 +133,6 @@ export async function runCommand(): Promise< void > {
 			bindAbortController.signal.addEventListener( 'abort', onAbort );
 
 			socket.once( 'bind', () => {
-				console.log( 'Socket bound' );
 				clearTimeout( timeout );
 				bindAbortController.signal.removeEventListener( 'abort', onAbort );
 				resolve();
@@ -147,7 +140,6 @@ export async function runCommand(): Promise< void > {
 
 			socket.bind( EVENTS_SOCKET_PATH, ( error: unknown ) => {
 				if ( error ) {
-					console.log( 'Socket bind error', error );
 					clearTimeout( timeout );
 					bindAbortController.signal.removeEventListener( 'abort', onAbort );
 					reject( error );
@@ -155,7 +147,6 @@ export async function runCommand(): Promise< void > {
 			} );
 		} );
 	} catch ( error ) {
-		console.error( 'Bind failed:', error );
 		await cleanup();
 		return;
 	}

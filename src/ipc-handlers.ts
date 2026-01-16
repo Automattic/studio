@@ -1437,7 +1437,3 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 		parentWindow.setWindowButtonVisibility( visible );
 	}
 }
-
-export async function getCurrentLogFilePath( _event: IpcMainInvokeEvent ): Promise< string > {
-	return getLogsFilePath();
-}

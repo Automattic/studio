@@ -22,7 +22,7 @@ export default function BlueprintDeeplink( {
 }: BlueprintDeeplinkProps ) {
 	const { __ } = useI18n();
 
-	const blueprintTitle = selectedBlueprint?.title || __( 'Blueprint loaded from URL' );
+	const blueprintTitle = selectedBlueprint?.title || __( 'Blueprint' );
 	const blueprintDescription = selectedBlueprint?.excerpt || '';
 
 	return (

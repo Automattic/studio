@@ -16,6 +16,7 @@ describe( 'useDragAndDropFile', () => {
 	const onFileDrop = jest.fn();
 	beforeEach( () => {
 		onFileDrop.mockReset();
+		jest.useFakeTimers();
 	} );
 
 	test( 'should initialize with isDraggingOver as false', () => {
@@ -35,7 +36,6 @@ describe( 'useDragAndDropFile', () => {
 	} );
 
 	test( 'should set isDraggingOver to false on drag leave event', () => {
-		jest.useFakeTimers();
 		const { getByTestId, getByText } = render( <DragComponent onFileDrop={ onFileDrop } /> );
 		const dropZone = getByTestId( 'test-drop-zone' );
 
@@ -53,8 +53,6 @@ describe( 'useDragAndDropFile', () => {
 		} );
 
 		expect( getByText( 'Not Dragging Over' ) ).toBeInTheDocument();
-
-		jest.useRealTimers();
 	} );
 
 	test( 'should call onFileDrop with the dropped file on drop event', () => {

@@ -98,7 +98,7 @@ function ButtonToRun( {
 						className={ cx(
 							'transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0',
 							'row-start-1 col-start-1 place-self-center',
-							loadingServer[ id ] && 'animate-pulse border-[#00BA3775] bg-[#1ED15A75] duration-100'
+							loadingServer[ id ] && 'animate-pulse duration-100'
 						) }
 					>
 						<XDebugIcon />

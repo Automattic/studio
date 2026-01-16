@@ -33,9 +33,7 @@ describe( 'Anchor', () => {
 	beforeEach( () => {
 		mockOpenURL.mockClear();
 		mockShowErrorMessageBox.mockClear();
-		vi.mocked( useSiteDetails ).mockReturnValue(
-			{} as Partial< ReturnType< typeof useSiteDetails > > as ReturnType< typeof useSiteDetails >
-		);
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {} );
 	} );
 
 	it( 'should render an anchor element', () => {
@@ -69,11 +67,11 @@ describe( 'Anchor', () => {
 	} );
 
 	it( "should start the site's server before navigating to a stopped site when clicked", async () => {
-		vi.mocked( useSiteDetails ).mockReturnValue( {
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 			selectedSite: createMockSiteDetails(),
 			startServer: vi.fn( () => Promise.resolve() ),
 			loadingServer: {},
-		} as Partial< ReturnType< typeof useSiteDetails > > as ReturnType< typeof useSiteDetails > );
+		} );
 		render( <Anchor href="http://localhost:3000" children="Local link" /> );
 
 		screen.getByRole( 'link' ).click();
@@ -88,10 +86,10 @@ describe( 'Anchor', () => {
 	} );
 
 	it( "should communicate background activity while the site's server is starting", () => {
-		vi.mocked( useSiteDetails ).mockReturnValue( {
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 			selectedSite: createMockSiteDetails(),
 			loadingServer: { 1: true },
-		} as Partial< ReturnType< typeof useSiteDetails > > as ReturnType< typeof useSiteDetails > );
+		} );
 		render( <Anchor href="http://localhost:3000" children="Example link" /> );
 
 		expect( screen.getByRole( 'link' ) ).toHaveClass( 'animate-pulse', 'cursor-wait' );

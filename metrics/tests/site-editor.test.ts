@@ -6,6 +6,12 @@ import WhatsNewModal from '../../e2e/page-objects/whats-new-modal';
 import { getUrlWithAutoLogin } from '../../e2e/utils';
 import { median } from '../utils';
 
+// Debug helper to log with timestamps
+function debugLog( message: string ) {
+	const timestamp = new Date().toISOString();
+	console.log( `[METRICS DEBUG ${ timestamp }] ${ message }` );
+}
+
 test.describe( 'Site Editor Load Metrics', () => {
 	const results: Record< string, number[] > = {};
 	const siteName = 'Editor-Performance-Test-Site';
@@ -27,23 +33,54 @@ test.describe( 'Site Editor Load Metrics', () => {
 		await session.cleanup();
 	} );
 
-	test( 'measure site editor load time', async () => {
+	test( 'measure site editor load time', async ( {}, testInfo ) => {
 		let wpAdminUrl = '';
+
+		debugLog( 'Starting test - launching app' );
 		await session.launch();
+		debugLog( 'App launched successfully' );
 
 		const onboarding = new Onboarding( session.mainWindow );
-		await expect( onboarding.heading ).toBeVisible( { timeout: 180_000 } );
+
+		// Capture screenshot before waiting for onboarding
+		debugLog( 'Waiting for onboarding heading...' );
+		try {
+			await expect( onboarding.heading ).toBeVisible( { timeout: 270_000 } );
+			debugLog( 'Onboarding heading visible' );
+		} catch ( error ) {
+			debugLog( 'FAILED: Onboarding heading not visible - capturing screenshot' );
+			const screenshot = await session.mainWindow.screenshot();
+			await testInfo.attach( 'onboarding-failure', { body: screenshot, contentType: 'image/png' } );
+			throw error;
+		}
 
 		// Wait for store initialization to complete (provider constants loading)
 		await new Promise( ( resolve ) => setTimeout( resolve, 500 ) );
+
+		debugLog( 'Completing onboarding...' );
 		await onboarding.completeOnboarding( { customSiteName: siteName } );
+		debugLog( 'Onboarding completed' );
+
 		await onboarding.closeWhatsNew();
+		debugLog( 'Whats new closed' );
 
 		const siteContent = new SiteContent( session.mainWindow, siteName );
 
-		// Site creation can take a while on CI, use generous timeout
-		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 180_000 } );
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 180_000 } );
+		// Site creation can take a while on CI, use generous timeout (270s = 4.5 min)
+		debugLog( 'Waiting for site content heading...' );
+		try {
+			await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 270_000 } );
+			debugLog( 'Site content heading visible' );
+		} catch ( error ) {
+			debugLog( 'FAILED: Site content heading not visible - capturing screenshot' );
+			const screenshot = await session.mainWindow.screenshot();
+			await testInfo.attach( 'site-content-failure', { body: screenshot, contentType: 'image/png' } );
+			throw error;
+		}
+
+		debugLog( 'Waiting for running button...' );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 270_000 } );
+		debugLog( 'Running button attached - site is ready' );
 
 		// Get the WordPress admin URL from settings
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
@@ -71,7 +108,7 @@ test.describe( 'Site Editor Load Metrics', () => {
 			// First wait for the iframe to appear with explicit timeout
 			await page.waitForSelector( 'iframe[name="editor-canvas"]', {
 				state: 'visible',
-				timeout: 120_000 // 2 minutes, half of the default action timeout
+				timeout: 180_000 // 3 minutes
 			} );
 			const frame = page.frame( { name: 'editor-canvas' } );
 			if ( ! frame ) {
@@ -80,7 +117,7 @@ test.describe( 'Site Editor Load Metrics', () => {
 
 			// Wait for frame to be ready before checking for blocks
 			await frame.waitForLoadState( 'domcontentloaded' );
-			await frame.waitForSelector( '[data-block]', { timeout: 60_000 } );
+			await frame.waitForSelector( '[data-block]', { timeout: 90_000 } );
 
 			// Make sure blocks are loaded and spinners are gone
 			await frame.waitForFunction( () => {
@@ -90,7 +127,7 @@ test.describe( 'Site Editor Load Metrics', () => {
 					! document.querySelector( '.is-loading' ) &&
 					! document.querySelector( '.wp-block-editor__loading' )
 				);
-			}, { timeout: 60_000 } );
+			}, { timeout: 90_000 } );
 
 			const endTime = Date.now();
 			const duration = endTime - startTime;

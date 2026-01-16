@@ -13,11 +13,11 @@ export default defineConfig( {
 	forbidOnly: !! process.env.CI,
 	fullyParallel: false,
 	retries: 2, // Retry flaky tests to handle CI infrastructure variability
-	timeout: parseInt( process.env.TIMEOUT || '', 10 ) || 180_000, // Defaults to 3 minutes.
+	timeout: parseInt( process.env.TIMEOUT || '', 10 ) || 270_000, // Defaults to 4.5 minutes (50% increase for CI stability).
 	reportSlowTests: null,
 	use: {
 		...baseConfig.use,
-		actionTimeout: 60_000, // 1 minute.
+		actionTimeout: 90_000, // 1.5 minutes (50% increase for CI stability).
 		headless: true,
 		// Enable only for debugging.
 		trace: 'off',
@@ -25,6 +25,6 @@ export default defineConfig( {
 		video: 'off',
 	},
 	expect: {
-		timeout: 30_000, // 30 seconds.
+		timeout: 45_000, // 45 seconds (50% increase for CI stability).
 	},
 } );

@@ -335,6 +335,8 @@ export async function pushArchive(
 
 		const existingUploadState = SYNC_TUS_UPLOADS.get( uploadKey );
 		if ( existingUploadState ) {
+			// Abort the existing upload if it exists before starting the new one.
+			void existingUploadState.upload.abort();
 			SYNC_TUS_UPLOADS.delete( uploadKey );
 		}
 

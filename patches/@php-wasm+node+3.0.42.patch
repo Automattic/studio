@@ -1,0 +1,60 @@
+diff --git a/node_modules/@php-wasm/node/index.cjs b/node_modules/@php-wasm/node/index.cjs
+index e0ac39f..4baac56 100644
+--- a/node_modules/@php-wasm/node/index.cjs
++++ b/node_modules/@php-wasm/node/index.cjs
+@@ -497,13 +497,6 @@ async function withXdebug(version = import_universal3.LatestSupportedPHPVersion,
+           ].join("\n")
+         );
+       }
+-      phpRuntime.FS.mkdirTree(process.cwd());
+-      phpRuntime.FS.mount(
+-        phpRuntime.FS.filesystems["NODEFS"],
+-        { root: process.cwd() },
+-        process.cwd()
+-      );
+-      phpRuntime.FS.chdir(process.cwd());
+     }
+   };
+ }
+diff --git a/node_modules/@php-wasm/node/index.js b/node_modules/@php-wasm/node/index.js
+index 9452aa4..e0bc039 100644
+--- a/node_modules/@php-wasm/node/index.js
++++ b/node_modules/@php-wasm/node/index.js
+@@ -33,7 +33,6 @@ async function getPHPLoaderModule(version = LatestSupportedPHPVersion) {
+       case "7.2":
+         return (await import("@php-wasm/node-7-2")).getPHPLoaderModule();
+     }
+-    throw new Error(`Unsupported PHP version ${version}`);
+   } catch (errorCandidate) {
+     if (!errorCandidate || typeof errorCandidate !== "object") {
+       throw errorCandidate;
+@@ -416,7 +415,6 @@ async function getXdebugExtensionModule(version = LatestSupportedPHPVersion2) {
+     case "7.2":
+       return (await import("@php-wasm/node-7-2")).getXdebugExtensionPath();
+   }
+-  throw new Error(`Unsupported PHP version ${version}`);
+ }
+ 
+ // packages/php-wasm/node/src/lib/extensions/xdebug/with-xdebug.ts
+@@ -464,13 +462,6 @@ async function withXdebug(version = LatestSupportedPHPVersion3, options, xdebugO
+           ].join("\n")
+         );
+       }
+-      phpRuntime.FS.mkdirTree(process.cwd());
+-      phpRuntime.FS.mount(
+-        phpRuntime.FS.filesystems["NODEFS"],
+-        { root: process.cwd() },
+-        process.cwd()
+-      );
+-      phpRuntime.FS.chdir(process.cwd());
+     }
+   };
+ }
+@@ -503,7 +494,6 @@ async function getIntlExtensionModule(version = LatestSupportedPHPVersion4) {
+     case "7.2":
+       return (await import("@php-wasm/node-7-2")).getIntlExtensionPath();
+   }
+-  throw new Error(`Unsupported PHP version ${version}`);
+ }
+ 
+ // packages/php-wasm/node/src/lib/extensions/intl/with-intl.ts

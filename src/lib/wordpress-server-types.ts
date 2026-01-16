@@ -16,5 +16,4 @@ export interface WordPressServerProcess {
 	};
 	start( siteId?: string ): Promise< void >;
 	stop(): Promise< void >;
-	runPhp( data: { code: string; [ key: string ]: unknown } ): Promise< string >;
 }

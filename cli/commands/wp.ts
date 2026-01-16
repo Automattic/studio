@@ -3,11 +3,15 @@ import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
 import { getSiteByFolder } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
-import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { runWpCliCommand, runGlobalWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { validatePhpVersion } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { GlobalOptions } from 'cli/types';
+
+interface WpCommandOptions extends GlobalOptions {
+	path: string | false;
+}
 
 const logger = new Logger< '' >();
 
@@ -73,12 +77,17 @@ export async function runCommand(
 	exitPhp();
 }
 
-function removeArgumentFromArgv( argv: string[], argName: string ): string[] {
+function removeArgumentFromArgv(
+	argv: string[],
+	argName: string,
+	hasValue: boolean = true
+): string[] {
 	argv = argv.slice( 0 );
 
 	while ( argv.indexOf( `--${ argName }` ) !== -1 ) {
 		const argIndex = argv.indexOf( `--${ argName }` );
-		argv.splice( argIndex, 2 );
+		// Remove 2 elements for --arg value, or 1 element for boolean flags like --no-path
+		argv.splice( argIndex, hasValue ? 2 : 1 );
 	}
 
 	while ( argv.find( ( arg ) => arg.startsWith( `--${ argName }=` ) ) ) {
@@ -89,9 +98,10 @@ function removeArgumentFromArgv( argv: string[], argName: string ): string[] {
 	return argv;
 }
 
-export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > ) {
+export async function commandHandler( argv: ArgumentsCamelCase< WpCommandOptions > ) {
 	try {
 		let wpCliArgv = removeArgumentFromArgv( process.argv.slice( 3 ), 'path' );
+		wpCliArgv = removeArgumentFromArgv( wpCliArgv, 'no-path', false );
 		const parsedWpCliArgs = yargsParser( wpCliArgv );
 
 		if ( parsedWpCliArgs._[ 0 ] === 'shell' ) {
@@ -104,7 +114,36 @@ export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > 
 
 		const phpVersion = parsedWpCliArgs[ 'php-version' ] as string | undefined;
 		wpCliArgv = removeArgumentFromArgv( wpCliArgv, 'php-version' );
-		wpCliArgv = removeArgumentFromArgv( wpCliArgv, 'avoid-telemetry' );
+		wpCliArgv = removeArgumentFromArgv( wpCliArgv, 'avoid-telemetry', false );
+
+		// Handle global WP-CLI commands that don't require a site path (--no-path sets path to false)
+		if ( argv.path === false ) {
+			const [ response, exitPhp ] = await runGlobalWpCliCommand( wpCliArgv );
+			const decoder = new TextDecoder();
+
+			await response.stderr.pipeTo(
+				new WritableStream( {
+					write( chunk ) {
+						process.stderr.write( chunk );
+					},
+				} )
+			);
+
+			await response.stdout.pipeTo(
+				new WritableStream( {
+					write( chunk ) {
+						const text = decoder.decode( chunk, { stream: true } );
+						if ( ! text.startsWith( '#!/usr/bin/env' ) ) {
+							process.stdout.write( chunk );
+						}
+					},
+				} )
+			);
+
+			process.exitCode = await response.exitCode;
+			exitPhp();
+			return;
+		}
 
 		await runCommand( argv.path, wpCliArgv, { phpVersion } );
 	} catch ( error ) {

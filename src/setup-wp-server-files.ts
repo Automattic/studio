@@ -3,12 +3,7 @@ import fs from 'fs-extra';
 import semver from 'semver';
 import { recursiveCopyDirectory } from 'common/lib/fs-utils';
 import { updateLatestWPCliVersion } from 'src/lib/download-utils';
-import {
-	getWordPressVersionPath,
-	getSqlitePath,
-	getWpCliPath,
-	getWpCliFolderPath,
-} from 'src/lib/server-files-paths';
+import { getWordPressVersionPath, getSqlitePath, getWpCliPath } from 'src/lib/server-files-paths';
 import {
 	getSqliteCommandPath,
 	updateLatestSQLiteCommandVersion,
@@ -137,7 +132,7 @@ export async function setupWPServerFiles() {
  */
 async function getWPCliVersionFromInstallation(): Promise< string > {
 	return new Promise( ( resolve ) => {
-		const [ emitter ] = executeCliCommand( [ 'wp', '--path', getWpCliFolderPath(), '--version' ], {
+		const [ emitter ] = executeCliCommand( [ 'wp', '--no-path', '--version' ], {
 			output: 'capture',
 		} );
 

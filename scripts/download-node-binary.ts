@@ -1,21 +1,20 @@
-#!/usr/bin/env node
+#!/usr/bin/env ts-node
 /**
  * Download Node.js binary for bundling with Studio
- * Usage: node scripts/download-node-binary.js <platform> <arch>
- * Example: node scripts/download-node-binary.js darwin arm64
+ * Usage: npx ts-node scripts/download-node-binary.ts <platform> <arch>
+ * Example: npx ts-node scripts/download-node-binary.ts darwin arm64
  */
 
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { promisify } from 'util';
 import { extract } from 'tar';
-import yauzl from 'yauzl';
+import { extractZip } from '../common/lib/extract-zip';
 
 const LTS_FALLBACK = 'v22.12.0';
 
-function getNodeVersion() {
-	const nvmrcPath = path.join( import.meta.dirname, '..', '.nvmrc' );
+function getNodeVersion(): string {
+	const nvmrcPath = path.join( __dirname, '..', '.nvmrc' );
 	if ( fs.existsSync( nvmrcPath ) ) {
 		const version = fs.readFileSync( nvmrcPath, 'utf-8' ).trim();
 		return version.startsWith( 'v' ) ? version : `v${ version }`;
@@ -30,13 +29,13 @@ const platform = process.argv[ 2 ] || process.platform;
 const arch = process.argv[ 3 ] || process.arch;
 
 // Map platform names to nodejs.org download naming
-const platformMap = {
+const platformMap: Record< string, string > = {
 	darwin: 'darwin',
 	win32: 'win',
 };
 
 // Map architecture names to nodejs.org download naming
-const archMap = {
+const archMap: Record< string, string > = {
 	arm64: 'arm64',
 	x64: 'x64',
 };
@@ -54,7 +53,7 @@ if ( ! nodeArch ) {
 	process.exit( 1 );
 }
 
-const binDir = path.join( import.meta.dirname, '..', 'bin' );
+const binDir = path.join( __dirname, '..', 'bin' );
 const tmpDir = os.tmpdir();
 
 if ( ! fs.existsSync( binDir ) ) {
@@ -68,7 +67,7 @@ const filename = `node-${ NODE_VERSION }-${ nodePlatform }-${ nodeArch }.${ ext 
 const url = `https://nodejs.org/dist/${ NODE_VERSION }/${ filename }`;
 const downloadPath = path.join( tmpDir, filename );
 
-async function download( downloadUrl, dest ) {
+async function download( downloadUrl: string, dest: string ): Promise< void > {
 	console.log( `Downloading Node.js ${ NODE_VERSION } for ${ nodePlatform }-${ nodeArch }...` );
 
 	const response = await fetch( downloadUrl );
@@ -78,7 +77,7 @@ async function download( downloadUrl, dest ) {
 	}
 
 	const file = fs.createWriteStream( dest );
-	const reader = response.body.getReader();
+	const reader = response.body!.getReader();
 
 	try {
 		while ( true ) {
@@ -92,7 +91,7 @@ async function download( downloadUrl, dest ) {
 		reader.releaseLock();
 	}
 
-	await new Promise( ( resolve, reject ) => {
+	await new Promise< void >( ( resolve, reject ) => {
 		file.on( 'finish', resolve );
 		file.on( 'error', reject );
 		file.end();
@@ -101,7 +100,7 @@ async function download( downloadUrl, dest ) {
 	console.log( 'Download complete.' );
 }
 
-async function extractTarGz( archivePath, destDir, binaryName ) {
+async function extractTarGz( archivePath: string, destDir: string, binaryName: string ): Promise< void > {
 	console.log( 'Extracting node binary...' );
 
 	const extractDir = path.join( tmpDir, `node-${ NODE_VERSION }-${ nodePlatform }-${ nodeArch }` );
@@ -109,8 +108,6 @@ async function extractTarGz( archivePath, destDir, binaryName ) {
 	await extract( {
 		file: archivePath,
 		cwd: tmpDir,
-	} ).then( () => {
-		// Do nothing. We just need the `.then` chaining to be able to await the promise
 	} );
 
 	const sourcePath = path.join( extractDir, 'bin', 'node' );
@@ -121,49 +118,13 @@ async function extractTarGz( archivePath, destDir, binaryName ) {
 	fs.rmSync( extractDir, { recursive: true } );
 }
 
-const openZip = promisify( yauzl.open );
-
-async function extractZip( archivePath, destDir, binaryName ) {
+async function extractNodeZip( archivePath: string, destDir: string, binaryName: string ): Promise< void > {
 	console.log( 'Extracting node.exe...' );
 
 	const extractDir = path.join( tmpDir, `node-${ NODE_VERSION }-${ nodePlatform }-${ nodeArch }` );
 
-	const zipFile = await openZip( archivePath, { lazyEntries: true } );
-	const openReadStream = promisify( zipFile.openReadStream.bind( zipFile ) );
-
-	await new Promise( ( resolve, reject ) => {
-		zipFile.on( 'entry', async ( entry ) => {
-			if ( entry.fileName.endsWith( '/' ) ) {
-				zipFile.readEntry();
-				return;
-			}
-
-			const fullPath = path.join( tmpDir, entry.fileName );
-			const entryDir = path.dirname( fullPath );
-
-			try {
-				fs.mkdirSync( entryDir, { recursive: true } );
-
-				const readStream = await openReadStream( entry );
-				const writeStream = fs.createWriteStream( fullPath );
-
-				writeStream.once( 'finish', () => {
-					zipFile.readEntry();
-				} );
-
-				writeStream.once( 'error', reject );
-				readStream.once( 'error', reject );
-
-				readStream.pipe( writeStream );
-			} catch ( error ) {
-				reject( error );
-			}
-		} );
-
-		zipFile.on( 'end', resolve );
-		zipFile.on( 'error', reject );
-		zipFile.readEntry();
-	} );
+	// Use the common extractZip function
+	await extractZip( archivePath, tmpDir );
 
 	const sourcePath = path.join( extractDir, 'node.exe' );
 	const destPath = path.join( destDir, binaryName );
@@ -172,30 +133,34 @@ async function extractZip( archivePath, destDir, binaryName ) {
 	fs.rmSync( extractDir, { recursive: true } );
 }
 
-try {
-	await download( url, downloadPath );
+async function main(): Promise< void > {
+	try {
+		await download( url, downloadPath );
 
-	const binaryName = isWindows ? 'node.exe' : 'node';
+		const binaryName = isWindows ? 'node.exe' : 'node';
 
-	if ( isWindows ) {
-		await extractZip( downloadPath, binDir, binaryName );
-	} else {
-		await extractTarGz( downloadPath, binDir, binaryName );
+		if ( isWindows ) {
+			await extractNodeZip( downloadPath, binDir, binaryName );
+		} else {
+			await extractTarGz( downloadPath, binDir, binaryName );
+		}
+
+		fs.unlinkSync( downloadPath );
+
+		console.log( `\nNode.js binary installed to ${ binDir }` );
+
+		const files = fs.readdirSync( binDir );
+		console.log( '\nBin directory contents:' );
+		for ( const file of files ) {
+			const filePath = path.join( binDir, file );
+			const stats = fs.statSync( filePath );
+			const size = ( stats.size / 1024 / 1024 ).toFixed( 2 );
+			console.log( `  ${ file } (${ size } MB)` );
+		}
+	} catch ( error ) {
+		console.error( 'Error:', ( error as Error ).message );
+		process.exit( 1 );
 	}
-
-	fs.unlinkSync( downloadPath );
-
-	console.log( `\nNode.js binary installed to ${ binDir }` );
-
-	const files = fs.readdirSync( binDir );
-	console.log( '\nBin directory contents:' );
-	for ( const file of files ) {
-		const filePath = path.join( binDir, file );
-		const stats = fs.statSync( filePath );
-		const size = ( stats.size / 1024 / 1024 ).toFixed( 2 );
-		console.log( `  ${ file } (${ size } MB)` );
-	}
-} catch ( error ) {
-	console.error( 'Error:', error.message );
-	process.exit( 1 );
 }
+
+main();

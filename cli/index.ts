@@ -59,6 +59,10 @@ async function main() {
 			defaultDescription: __( 'Current directory' ),
 			description: __( 'Path to the WordPress files' ),
 			coerce: ( value ) => {
+				// --no-path sets value to false, skip coercion in that case
+				if ( value === false ) {
+					return false;
+				}
 				return path.resolve( untildify( value ) );
 			},
 		} )

@@ -1,5 +1,5 @@
+import type { Blueprint } from '@wp-playground/blueprints';
 import type { RunCLIArgs } from '@wp-playground/cli';
-import type { Blueprint } from 'common/types/blueprint';
 
 /**
  * Sanitizes a Blueprint step to remove sensitive data while keeping useful debugging info.

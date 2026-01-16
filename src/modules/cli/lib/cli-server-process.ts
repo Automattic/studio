@@ -71,10 +71,6 @@ export class CliServerProcess implements WordPressServerProcess {
 		} );
 	}
 
-	async runPhp(): Promise< string > {
-		throw new Error( 'runPhp is not supported for CLI-managed sites' );
-	}
-
 	async delete( deleteFiles: boolean ): Promise< void > {
 		return new Promise( ( resolve, reject ) => {
 			const args = [ 'site', 'delete', '--path', this.sitePath ];

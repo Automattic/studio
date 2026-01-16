@@ -15,8 +15,8 @@ import {
 } from 'src/stores/provider-constants-slice';
 import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
 import { Blueprint } from 'src/stores/wpcom-api';
-import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import type { BlueprintPreferredVersions } from 'common/lib/blueprint-validation';
+import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
 

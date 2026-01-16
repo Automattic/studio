@@ -18,7 +18,7 @@ const createSiteResponseSchema = z.object( {
 
 const statusResponseSchema = z.object( {
 	status: z.enum( [ SnapshotStatus.Pending, SnapshotStatus.Processing, SnapshotStatus.Active ], {
-		invalid_type_error: __( 'Invalid site status' ),
+		error: __( 'Invalid site status' ),
 	} ),
 	domain_name: z.string(),
 	atomic_site_id: z.number().int().positive(),

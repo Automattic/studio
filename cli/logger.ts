@@ -1,5 +1,11 @@
 import ora, { Ora } from 'ora';
 
+const isIpcMode = Boolean( process.send );
+
+function canSend(): boolean {
+	return isIpcMode && !! process.send && process.connected;
+}
+
 export class LoggerError extends Error {
 	previousError?: Error;
 	private errorMessage: string;
@@ -24,7 +30,7 @@ export class LoggerError extends Error {
 }
 
 export class Logger< T extends string > {
-	private spinner: Ora;
+	public spinner: Ora;
 	private currentAction: T | 'keyValuePair' | null = null;
 
 	constructor() {
@@ -34,25 +40,31 @@ export class Logger< T extends string > {
 	public reportStart( action: T, message: string ) {
 		this.currentAction = action;
 
-		if ( process.send ) {
-			process.send( { action, status: 'inprogress', message } );
+		if ( canSend() ) {
+			process.send!( { action, status: 'inprogress', message } );
 			return;
 		}
 		this.spinner.start( message );
 	}
 
 	public reportProgress( message: string ) {
-		if ( process.send ) {
-			process.send( { action: this.currentAction, status: 'inprogress', message } );
+		if ( canSend() ) {
+			process.send!( { action: this.currentAction, status: 'inprogress', message } );
 			return;
 		}
 
+		// Update the spinner text and force render
 		this.spinner.text = message;
+		if ( ! this.spinner.isSpinning ) {
+			this.spinner.start( message );
+		} else {
+			this.spinner.render();
+		}
 	}
 
 	public reportSuccess( message: string, shouldClearSpinner = false ) {
-		if ( process.send ) {
-			process.send( { action: this.currentAction, status: 'success', message } );
+		if ( canSend() ) {
+			process.send!( { action: this.currentAction, status: 'success', message } );
 		} else if ( shouldClearSpinner ) {
 			this.spinner.clear();
 		} else {
@@ -63,11 +75,11 @@ export class Logger< T extends string > {
 	}
 
 	public reportWarning( message: string ) {
-		if ( process.send ) {
-			process.send( { action: this.currentAction, status: 'warning', message } );
-		} else {
-			this.spinner.warn( message );
+		if ( canSend() ) {
+			process.send!( { action: this.currentAction, status: 'warning', message } );
+			return;
 		}
+		this.spinner.warn( message );
 	}
 
 	public reportError( error: LoggerError, isFatal = true ) {
@@ -75,8 +87,8 @@ export class Logger< T extends string > {
 			process.exitCode = 1;
 		}
 
-		if ( process.send ) {
-			process.send( { action: this.currentAction, status: 'fail', message: error.message } );
+		if ( canSend() ) {
+			process.send!( { action: this.currentAction, status: 'fail', message: error.message } );
 		} else {
 			this.spinner.fail( error.message );
 		}
@@ -85,8 +97,8 @@ export class Logger< T extends string > {
 	}
 
 	public reportKeyValuePair( key: string, value: string ) {
-		if ( process.send ) {
-			process.send( { action: 'keyValuePair', key, value } );
+		if ( canSend() ) {
+			process.send!( { action: 'keyValuePair', key, value } );
 		}
 	}
 }

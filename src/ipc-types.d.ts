@@ -29,6 +29,7 @@ interface StoppedSiteDetails {
 	};
 	isAddingSite?: boolean;
 	autoStart?: boolean;
+	latestCliPid?: number;
 	enableXdebug?: boolean;
 }
 
@@ -83,7 +84,6 @@ interface FeatureFlags {
 }
 
 interface BetaFeatures {
-	studioSitesCli: boolean;
 	multiWorkerSupport: boolean;
 	xdebugSupport: boolean;
 }

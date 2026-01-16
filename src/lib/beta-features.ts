@@ -8,12 +8,6 @@ export interface BetaFeatureDefinition {
 }
 
 const BETA_FEATURES_DEFINITION: Record< keyof BetaFeatures, BetaFeatureDefinition > = {
-	studioSitesCli: {
-		label: 'Studio Sites CLI',
-		key: 'studioSitesCli',
-		default: false,
-		description: '"studio site" command to manage local sites from terminal',
-	},
 	multiWorkerSupport: {
 		label: 'Multi-Worker Support',
 		key: 'multiWorkerSupport',

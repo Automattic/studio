@@ -1,5 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import { compileBlueprint } from '@wp-playground/blueprints';
 import { z } from 'zod';
 
 interface UnsupportedFeature {
@@ -63,6 +62,11 @@ function getUnsupportedFeatureInfo( name: string ): UnsupportedFeature | undefin
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type BlueprintData = Record< string, any >;
+
+export type BlueprintPreferredVersions = {
+	php?: string;
+	wp?: string;
+};
 
 export function scanBlueprintForUnsupportedFeatures(
 	blueprint: BlueprintData
@@ -148,8 +152,6 @@ export async function validateBlueprintData(
 
 	try {
 		const result = schema.parse( blueprintJson );
-		await compileBlueprint( result );
-
 		const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( result );
 		const warnings = unsupportedFeatures.map( ( feature ) => ( {
 			feature: feature.name,

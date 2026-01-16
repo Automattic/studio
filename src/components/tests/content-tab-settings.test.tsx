@@ -56,7 +56,6 @@ let testStore = createTestStore( {
 	preloadedState: {
 		betaFeatures: {
 			features: {
-				studioSitesCli: false,
 				multiWorkerSupport: false,
 				xdebugSupport: true,
 			},
@@ -77,7 +76,6 @@ function createCustomTestStore() {
 		preloadedState: {
 			betaFeatures: {
 				features: {
-					studioSitesCli: false,
 					multiWorkerSupport: false,
 					xdebugSupport: true,
 				},
@@ -291,7 +289,6 @@ describe( 'ContentTabSettings', () => {
 				preloadedState: {
 					betaFeatures: {
 						features: {
-							studioSitesCli: false,
 							multiWorkerSupport: false,
 							xdebugSupport: false,
 						},
@@ -374,7 +371,8 @@ describe( 'ContentTabSettings', () => {
 
 			await waitFor( () => {
 				expect( updateSite ).toHaveBeenCalledWith(
-					expect.objectContaining( { phpVersion: '8.2' } )
+					expect.objectContaining( { phpVersion: '8.2' } ),
+					undefined
 				);
 				expect( stopServer ).not.toHaveBeenCalled();
 				expect( startServer ).not.toHaveBeenCalled();
@@ -444,10 +442,9 @@ describe( 'ContentTabSettings', () => {
 
 			await waitFor( () => {
 				expect( updateSite ).toHaveBeenCalledWith(
-					expect.objectContaining( { phpVersion: '8.2' } )
+					expect.objectContaining( { phpVersion: '8.2' } ),
+					undefined
 				);
-				expect( stopServer ).toHaveBeenCalled();
-				expect( startServer ).toHaveBeenCalled();
 			} );
 
 			rerenderWithProvider(

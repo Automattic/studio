@@ -15,7 +15,7 @@ import { startProxyServers } from 'cli/lib/proxy-server';
 
 async function main() {
 	try {
-		console.log( '[Proxy Daemon] Starting WordPress Studio Proxy Daemon...' );
+		console.log( '[Proxy Daemon] Starting WordPress Studio Proxy Daemon…' );
 		await startProxyServers();
 	} catch ( error ) {
 		console.error( '[Proxy Daemon] Failed to start:', error );

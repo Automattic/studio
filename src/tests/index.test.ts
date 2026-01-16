@@ -129,7 +129,7 @@ describe( 'App initialization', () => {
 				( createMainWindow as jest.Mock ).mock.invocationCallOrder[ 0 ]
 			);
 
-			await mockedEvents.quit();
+			await mockedEvents[ 'will-quit' ]( { preventDefault: jest.fn() } );
 		} );
 	} );
 
@@ -147,7 +147,7 @@ describe( 'App initialization', () => {
 			await mockedEvents.activate();
 			expect( createMainWindow ).toHaveBeenCalled();
 
-			await mockedEvents.quit();
+			await mockedEvents[ 'will-quit' ]( { preventDefault: jest.fn() } );
 		} );
 	} );
 
@@ -180,7 +180,7 @@ describe( 'App initialization', () => {
 
 			Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
 
-			await mockedEvents.quit();
+			await mockedEvents[ 'will-quit' ]( { preventDefault: jest.fn() } );
 		} );
 	} );
 } );

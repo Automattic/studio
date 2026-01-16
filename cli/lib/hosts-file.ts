@@ -128,6 +128,51 @@ export const removeDomainFromHosts = async ( domain: string ): Promise< void > =
 };
 
 /**
+ * Updates a domain in the hosts file by removing the old domain and adding the new one
+ * in a single operation (single admin privilege request).
+ */
+export const updateDomainInHosts = async (
+	oldDomain: string | undefined,
+	newDomain: string | undefined,
+	port: number
+): Promise< void > => {
+	if ( oldDomain === newDomain ) {
+		return;
+	}
+
+	if ( ! oldDomain && newDomain ) {
+		await addDomainToHosts( newDomain, port );
+		return;
+	}
+
+	if ( oldDomain && ! newDomain ) {
+		await removeDomainFromHosts( oldDomain );
+		return;
+	}
+
+	try {
+		const hostsContent = await readHostsFile();
+		const encodedOldDomain = domainToASCII( oldDomain as string );
+		const encodedNewDomain = domainToASCII( newDomain as string );
+		const oldPattern = createHostsEntryPattern( encodedOldDomain );
+		const newContent = updateStudioBlock( hostsContent, ( entries ) => {
+			const filtered = entries.filter( ( entry ) => ! entry.match( oldPattern ) );
+			return [ ...filtered, `127.0.0.1 ${ encodedNewDomain } # Port ${ port }` ];
+		} );
+
+		if ( newContent !== hostsContent ) {
+			await writeHostsFile( newContent );
+		}
+	} catch ( error ) {
+		console.error(
+			`Error replacing domain ${ oldDomain } with ${ newDomain } in hosts file:`,
+			error
+		);
+		throw error;
+	}
+};
+
+/**
  * Helper function for manipulating the "block" of entries in the hosts file
  * pertaining to WordPress Studio.
  *

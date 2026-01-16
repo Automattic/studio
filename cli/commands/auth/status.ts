@@ -36,6 +36,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'status',
 		describe: __( 'Check authentication status' ),
+		builder: ( yargs ) => {
+			return yargs.option( 'path', {
+				hidden: true,
+			} );
+		},
 		handler: async () => {
 			await runCommand();
 		},

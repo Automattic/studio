@@ -9,15 +9,15 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
-import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
 import { useRootSelector } from 'src/stores';
 import {
 	selectDefaultPhpVersion,
 	selectDefaultWordPressVersion,
 } from 'src/stores/provider-constants-slice';
 import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
+import { Blueprint } from 'src/stores/wpcom-api';
+import type { BlueprintPreferredVersions } from 'common/lib/blueprint-validation';
 import type { SyncSite } from 'src/modules/sync/types';
-import type { Blueprint } from 'src/stores/wpcom-api';
 import type { SyncOption } from 'src/types';
 
 /**
@@ -46,7 +46,7 @@ export interface PathValidationResult {
 
 export function useAddSite() {
 	const { __ } = useI18n();
-	const { createSite, sites, startServer } = useSiteDetails();
+	const { createSite, sites } = useSiteDetails();
 	const { importFile, clearImportState, importState } = useImportExport();
 	const [ connectSite ] = useConnectSiteMutation();
 	const { pullSite } = useSyncSites();
@@ -58,7 +58,7 @@ export function useAddSite() {
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< Blueprint | undefined >();
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | undefined >();
 	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
-		{ php?: string; wp?: string } | undefined
+		BlueprintPreferredVersions | undefined
 	>();
 	const [ blueprintDeeplinkWarnings, setBlueprintDeeplinkWarnings ] = useState<
 		BlueprintValidationWarning[] | undefined
@@ -82,16 +82,6 @@ export function useAddSite() {
 		defaultPhpVersion as AllowedPHPVersion
 	);
 	const [ deeplinkWpVersion, setDeeplinkWpVersion ] = useState( defaultWordPressVersion );
-
-	useBlueprintDeeplink( {
-		isAnySiteProcessing,
-		setSelectedBlueprint,
-		setPhpVersion: setDeeplinkPhpVersion,
-		setWpVersion: setDeeplinkWpVersion,
-		setBlueprintPreferredVersions,
-		setBlueprintDeeplinkWarnings,
-		navigateToBlueprintDeeplink: () => setIsDeeplinkFlow( true ),
-	} );
 
 	const resetForm = useCallback( () => {
 		setFileForImport( null );
@@ -236,6 +226,8 @@ export function useAddSite() {
 				if ( formValues.useCustomDomain && ! formValues.customDomain ) {
 					usedCustomDomain = generateCustomDomainFromSiteName( formValues.siteName );
 				}
+				// For import/sync workflows, the respective handlers will start the server
+				const shouldSkipStart = !! fileForImport || !! selectedRemoteSite;
 
 				await createSite(
 					formValues.sitePath,
@@ -257,24 +249,21 @@ export function useAddSite() {
 								title: newSite.name,
 								body: __( 'Your new site was imported' ),
 							} );
+						} else if ( selectedRemoteSite ) {
+							await connectSite( { site: selectedRemoteSite, localSiteId: newSite.id } );
+							const pullOptions: SyncOption[] = [ 'all' ];
+							pullSite( selectedRemoteSite, newSite, {
+								optionsToSync: pullOptions,
+							} );
+							setSelectedTab( 'sync' );
 						} else {
-							if ( selectedRemoteSite ) {
-								await connectSite( { site: selectedRemoteSite, localSiteId: newSite.id } );
-								const pullOptions: SyncOption[] = [ 'all' ];
-								pullSite( selectedRemoteSite, newSite, {
-									optionsToSync: pullOptions,
-								} );
-								setSelectedTab( 'sync' );
-							} else {
-								await startServer( newSite.id );
-
-								getIpcApi().showNotification( {
-									title: newSite.name,
-									body: __( 'Your new site was created' ),
-								} );
-							}
+							getIpcApi().showNotification( {
+								title: newSite.name,
+								body: __( 'Your new site was created' ),
+							} );
 						}
-					}
+					},
+					shouldSkipStart
 				);
 			} catch ( e ) {
 				Sentry.captureException( e );
@@ -286,7 +275,6 @@ export function useAddSite() {
 			createSite,
 			fileForImport,
 			importFile,
-			startServer,
 			selectedBlueprint,
 			selectedRemoteSite,
 			pullSite,
@@ -304,6 +292,8 @@ export function useAddSite() {
 			defaultWpVersion: defaultWordPressVersion,
 			deeplinkPhpVersion,
 			deeplinkWpVersion,
+			setDeeplinkPhpVersion,
+			setDeeplinkWpVersion,
 			fileForImport,
 			setFileForImport,
 			selectedBlueprint,
@@ -311,6 +301,7 @@ export function useAddSite() {
 			blueprintPreferredVersions,
 			setBlueprintPreferredVersions,
 			blueprintDeeplinkWarnings,
+			setBlueprintDeeplinkWarnings,
 			selectedRemoteSite,
 			setSelectedRemoteSite,
 			existingDomainNames,
@@ -329,6 +320,8 @@ export function useAddSite() {
 			defaultWordPressVersion,
 			deeplinkPhpVersion,
 			deeplinkWpVersion,
+			setDeeplinkPhpVersion,
+			setDeeplinkWpVersion,
 			fileForImport,
 			selectedBlueprint,
 			blueprintPreferredVersions,

@@ -92,6 +92,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'login',
 		describe: __( 'Log in to WordPress.com' ),
+		builder: ( yargs ) => {
+			return yargs.option( 'path', {
+				hidden: true,
+			} );
+		},
 		handler: async () => {
 			await runCommand();
 		},

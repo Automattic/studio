@@ -1,13 +1,13 @@
-// Mock the pm2-manager module BEFORE importing wordpress-server-manager
-jest.mock( 'cli/lib/pm2-manager', () => ( {
-	getPm2Bus: jest.fn(),
-	sendMessageToProcess: jest.fn(),
-	isProcessRunning: jest.fn(),
-	startProcess: jest.fn(),
-	stopProcess: jest.fn(),
-} ) );
-
 import { EventEmitter } from 'events';
+import { vi } from 'vitest';
+// Mock the pm2-manager module BEFORE importing wordpress-server-manager
+vi.mock( 'cli/lib/pm2-manager', () => ( {
+	getPm2Bus: vi.fn(),
+	sendMessageToProcess: vi.fn(),
+	isProcessRunning: vi.fn(),
+	startProcess: vi.fn(),
+	stopProcess: vi.fn(),
+} ) );
 import { SiteData } from 'cli/lib/appdata';
 import * as pm2Manager from 'cli/lib/pm2-manager';
 import {
@@ -19,7 +19,7 @@ import { Logger } from 'cli/logger';
 
 describe( 'WordPress Server Manager', () => {
 	const mockLogger = {
-		reportProgress: jest.fn(),
+		reportProgress: vi.fn(),
 	} as unknown as Logger< string >;
 
 	const mockSiteData: SiteData = {
@@ -43,18 +43,18 @@ describe( 'WordPress Server Manager', () => {
 	let mockBus: EventEmitter;
 
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 
 		mockBus = new EventEmitter();
 
-		( pm2Manager.isProcessRunning as jest.Mock ).mockResolvedValue( undefined );
-		( pm2Manager.startProcess as jest.Mock ).mockResolvedValue( mockProcessDescription );
-		( pm2Manager.stopProcess as jest.Mock ).mockResolvedValue( undefined );
-		( pm2Manager.getPm2Bus as jest.Mock ).mockResolvedValue( mockBus as unknown as EventEmitter );
+		vi.mocked( pm2Manager.isProcessRunning ).mockResolvedValue( undefined );
+		vi.mocked( pm2Manager.startProcess ).mockResolvedValue( mockProcessDescription );
+		vi.mocked( pm2Manager.stopProcess ).mockResolvedValue( undefined );
+		vi.mocked( pm2Manager.getPm2Bus ).mockResolvedValue( mockBus as unknown as EventEmitter );
 	} );
 
 	afterEach( () => {
-		jest.restoreAllMocks();
+		vi.restoreAllMocks();
 	} );
 
 	function setupIpcMocks(): void {
@@ -66,7 +66,7 @@ describe( 'WordPress Server Manager', () => {
 			} );
 		} );
 
-		( pm2Manager.sendMessageToProcess as jest.Mock ).mockImplementation( ( pmId, message ) => {
+		vi.mocked( pm2Manager.sendMessageToProcess ).mockImplementation( ( pmId, message ) => {
 			// Send result message only after sendMessageToProcess is called
 			process.nextTick( () => {
 				mockBus.emit( 'process:msg', {
@@ -90,18 +90,18 @@ describe( 'WordPress Server Manager', () => {
 				pid: 12345,
 			};
 
-			( pm2Manager.isProcessRunning as jest.Mock ).mockResolvedValue( mockProcess );
+			vi.mocked( pm2Manager.isProcessRunning ).mockResolvedValue( mockProcess );
 
 			const result = await isServerRunning( 'test-site-id' );
 
-			expect( pm2Manager.isProcessRunning as jest.Mock ).toHaveBeenCalledWith(
+			expect( vi.mocked( pm2Manager.isProcessRunning ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id'
 			);
 			expect( result ).toEqual( mockProcess );
 		} );
 
 		it( 'should return undefined when process is not running', async () => {
-			( pm2Manager.isProcessRunning as jest.Mock ).mockResolvedValue( undefined );
+			vi.mocked( pm2Manager.isProcessRunning ).mockResolvedValue( undefined );
 
 			const result = await isServerRunning( 'test-site-id' );
 
@@ -115,7 +115,7 @@ describe( 'WordPress Server Manager', () => {
 
 			const result = await startWordPressServer( mockSiteData, mockLogger );
 
-			expect( pm2Manager.startProcess as jest.Mock ).toHaveBeenCalledWith(
+			expect( vi.mocked( pm2Manager.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
 				expect.stringContaining( 'wordpress-server-child.js' ),
 				expect.objectContaining( {
@@ -123,8 +123,8 @@ describe( 'WordPress Server Manager', () => {
 				} )
 			);
 
-			const callArgs = ( pm2Manager.startProcess as jest.Mock ).mock.calls[ 0 ];
-			const configJson = JSON.parse( callArgs[ 2 ].STUDIO_WORDPRESS_SERVER_CONFIG );
+			const callArgs = vi.mocked( pm2Manager.startProcess ).mock.calls[ 0 ];
+			const configJson = JSON.parse( callArgs[ 2 ]!.STUDIO_WORDPRESS_SERVER_CONFIG );
 			expect( configJson ).toEqual(
 				expect.objectContaining( {
 					siteId: 'test-site-id',
@@ -150,8 +150,8 @@ describe( 'WordPress Server Manager', () => {
 				mockLogger
 			);
 
-			const callArgs = ( pm2Manager.startProcess as jest.Mock ).mock.calls[ 0 ];
-			const configJson = JSON.parse( callArgs[ 2 ].STUDIO_WORDPRESS_SERVER_CONFIG );
+			const callArgs = vi.mocked( pm2Manager.startProcess ).mock.calls[ 0 ];
+			const configJson = JSON.parse( callArgs[ 2 ]!.STUDIO_WORDPRESS_SERVER_CONFIG );
 			expect( configJson.absoluteUrl ).toBe( 'http://testsite.local' );
 		} );
 
@@ -167,13 +167,13 @@ describe( 'WordPress Server Manager', () => {
 				mockLogger
 			);
 
-			const callArgs = ( pm2Manager.startProcess as jest.Mock ).mock.calls[ 0 ];
-			const configJson = JSON.parse( callArgs[ 2 ].STUDIO_WORDPRESS_SERVER_CONFIG );
+			const callArgs = vi.mocked( pm2Manager.startProcess ).mock.calls[ 0 ];
+			const configJson = JSON.parse( callArgs[ 2 ]!.STUDIO_WORDPRESS_SERVER_CONFIG );
 			expect( configJson.absoluteUrl ).toBe( 'https://testsite.local' );
 		} );
 
 		it( 'should handle PM2 start process failure', async () => {
-			( pm2Manager.startProcess as jest.Mock ).mockRejectedValue(
+			vi.mocked( pm2Manager.startProcess ).mockRejectedValue(
 				new Error( 'Failed to start PM2 process' )
 			);
 
@@ -192,8 +192,8 @@ describe( 'WordPress Server Manager', () => {
 
 			await startWordPressServer( siteWithOptions, mockLogger );
 
-			const callArgs = ( pm2Manager.startProcess as jest.Mock ).mock.calls[ 0 ];
-			const configJson = JSON.parse( callArgs[ 2 ].STUDIO_WORDPRESS_SERVER_CONFIG );
+			const callArgs = vi.mocked( pm2Manager.startProcess ).mock.calls[ 0 ];
+			const configJson = JSON.parse( callArgs[ 2 ]!.STUDIO_WORDPRESS_SERVER_CONFIG );
 			expect( configJson.isWpAutoUpdating ).toBe( false );
 		} );
 	} );
@@ -202,13 +202,13 @@ describe( 'WordPress Server Manager', () => {
 		it( 'should stop WordPress server with correct process name', async () => {
 			await stopWordPressServer( 'test-site-id' );
 
-			expect( pm2Manager.stopProcess as jest.Mock ).toHaveBeenCalledWith(
+			expect( vi.mocked( pm2Manager.stopProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id'
 			);
 		} );
 
 		it( 'should propagate stopProcess errors', async () => {
-			( pm2Manager.stopProcess as jest.Mock ).mockRejectedValue(
+			vi.mocked( pm2Manager.stopProcess ).mockRejectedValue(
 				new Error( 'Failed to stop process' )
 			);
 

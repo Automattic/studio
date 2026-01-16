@@ -92,6 +92,7 @@ export async function runCommand(): Promise< void > {
 		}, 2500 );
 
 		socket.once( 'bind', () => {
+			console.log( 'Socket bound' );
 			clearTimeout( timeout );
 			resolve();
 		} );

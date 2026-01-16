@@ -1,5 +1,5 @@
 diff --git a/node_modules/pm2-axon/lib/sockets/sock.js b/node_modules/pm2-axon/lib/sockets/sock.js
-index 0d01379..2fee5f1 100644
+index 0d01379..ed8156c 100644
 --- a/node_modules/pm2-axon/lib/sockets/sock.js
 +++ b/node_modules/pm2-axon/lib/sockets/sock.js
 @@ -5,7 +5,6 @@
@@ -121,9 +121,10 @@ index 0d01379..2fee5f1 100644
  
    if (unixSocket) {
      // TODO: move out
-     this.server.on('error', function(e) {
+-    this.server.on('error', function(e) {
 -      debug('Got error while trying to bind', e.stack || e);
-+      console.log('Got error while trying to bind', e.stack || e);
++	  this.server.on('error', function (e) {
++		console.log('Got error with code', e.code, 'while trying to bind', e.stack || e);
        if (e.code == 'EADDRINUSE') {
          // Unix file socket and error EADDRINUSE is the case if
          // the file socket exists. We check if other processes
@@ -136,3 +137,13 @@ index 0d01379..2fee5f1 100644
            if (e2.code == 'ECONNREFUSED' || e2.code == 'ENOENT') {
              // No other server listening, so we can delete stale
              // socket file and reopen server socket
+@@ -395,7 +394,8 @@ Socket.prototype.bind = function(port, host, fn){
+           }
+         });
+ 
+-        clientSocket.connect({path: port}, function() {
++		  clientSocket.connect({ path: port }, function () {
++			console.log('clientSocket connected');
+           // Connection is possible, so other server is listening
+           // on this file socket
+           if (fn) return fn(new Error('Process already listening on socket ' + port));

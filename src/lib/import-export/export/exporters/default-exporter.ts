@@ -278,8 +278,13 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			themes: [],
 		};
 
-		studioJson.plugins = await this.getSitePlugins( this.options.site.id );
-		studioJson.themes = await this.getSiteThemes( this.options.site.id );
+		const [ plugins, themes ] = await Promise.all( [
+			this.getSitePlugins( this.options.site.id ),
+			this.getSiteThemes( this.options.site.id ),
+		] );
+
+		studioJson.plugins = plugins;
+		studioJson.themes = themes;
 
 		const tempDir = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio-export-' ) );
 		const studioJsonPath = path.join( tempDir, 'meta.json' );

@@ -125,6 +125,7 @@ type UserDataSafeKeys =
 	| 'onboardingCompleted'
 	| 'locale'
 	| 'promptWindowsSpeedUpResult'
+	| 'stopSitesOnQuit'
 	| 'sentryUserId'
 	| 'lastSeenVersion'
 	| 'preferredTerminal'
@@ -164,6 +165,7 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 				customDomain,
 				enableHttps,
 				autoStart,
+				latestCliPid,
 				enableXdebug,
 			} ) => {
 				// No object spreading allowed. TypeScript's structural typing is too permissive and
@@ -180,6 +182,7 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 					customDomain,
 					enableHttps,
 					autoStart,
+					latestCliPid,
 					enableXdebug,
 					themeDetails: {
 						name: themeDetails?.name || '',

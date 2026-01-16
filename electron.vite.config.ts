@@ -50,7 +50,6 @@ export default defineConfig( {
 						__dirname,
 						'src/lib/wordpress-provider/wp-now/site-server-process-child.ts'
 					),
-					wpCliProcess: resolve( __dirname, 'src/lib/wp-cli-process-child.ts' ),
 					playgroundServerProcess: resolve(
 						__dirname,
 						'src/lib/wordpress-provider/playground-cli/playground-server-process-child.ts'

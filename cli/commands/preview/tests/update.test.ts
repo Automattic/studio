@@ -7,6 +7,7 @@ import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { updateSnapshotInAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { Logger, LoggerError } from 'cli/logger';
+import { runCommand } from '../update';
 
 jest.mock( 'common/lib/get-wordpress-version' );
 jest.mock( 'cli/lib/appdata', () => ( {
@@ -79,7 +80,6 @@ describe( 'Preview Update Command', () => {
 
 	it( 'should complete the preview update process successfully', async () => {
 		( getWordPressVersion as jest.Mock ).mockReturnValue( '6.8.1' );
-		const { runCommand } = await import( '../update' );
 		await runCommand( mockFolder, mockSiteUrl, false );
 		expect( getSiteByFolder ).toHaveBeenCalledWith( mockFolder );
 		expect( mockLogger.reportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
@@ -118,7 +118,6 @@ describe( 'Preview Update Command', () => {
 	} );
 
 	it( 'should use current directory when no folder is specified', async () => {
-		const { runCommand } = await import( '../update' );
 		await runCommand( process.cwd(), mockSiteUrl, false );
 
 		expect( getSiteByFolder ).toHaveBeenCalledWith( process.cwd() );
@@ -131,7 +130,6 @@ describe( 'Preview Update Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { runCommand } = await import( '../update' );
 		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
@@ -142,7 +140,6 @@ describe( 'Preview Update Command', () => {
 	it( 'should handle snapshot not found errors', async () => {
 		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [] );
 
-		const { runCommand } = await import( '../update' );
 		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
@@ -156,7 +153,6 @@ describe( 'Preview Update Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { runCommand } = await import( '../update' );
 		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
@@ -170,7 +166,6 @@ describe( 'Preview Update Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { runCommand } = await import( '../update' );
 		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
@@ -184,7 +179,6 @@ describe( 'Preview Update Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { runCommand } = await import( '../update' );
 		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
@@ -198,7 +192,6 @@ describe( 'Preview Update Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { runCommand } = await import( '../update' );
 		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
@@ -210,14 +203,12 @@ describe( 'Preview Update Command', () => {
 			throw new LoggerError( 'Upload failed' );
 		} );
 
-		const { runCommand } = await import( '../update' );
 		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
 	} );
 
 	it( 'should not allow updating an expired preview site', async () => {
-		const { runCommand } = await import( '../update' );
 		const expiredDate = mockDate - ( DEMO_SITE_EXPIRATION_DAYS + 1 ) * 24 * 60 * 60 * 1000;
 		const expiredSnapshot = { ...mockSnapshot, date: expiredDate };
 		( getSnapshotsFromAppdata as jest.Mock ).mockResolvedValue( [ expiredSnapshot ] );
@@ -230,7 +221,6 @@ describe( 'Preview Update Command', () => {
 	} );
 
 	it( 'should throw error if folder does not match original site and no overwrite flag', async () => {
-		const { runCommand } = await import( '../update' );
 		( getSiteByFolder as jest.Mock ).mockResolvedValueOnce( {
 			id: 'different-id',
 			path: '/other/path',
@@ -242,7 +232,6 @@ describe( 'Preview Update Command', () => {
 	} );
 
 	it( 'should allow update if overwrite flag is set even if folder does not match', async () => {
-		const { runCommand } = await import( '../update' );
 		( getSiteByFolder as jest.Mock ).mockResolvedValueOnce( {
 			id: 'different-id',
 			path: '/other/path',

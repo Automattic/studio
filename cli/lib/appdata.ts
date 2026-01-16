@@ -7,23 +7,15 @@ import { LOCKFILE_NAME, LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/c
 import { arePathsEqual, isWordPressDirectory } from 'common/lib/fs-utils';
 import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
 import { getAuthenticationUrl } from 'common/lib/oauth';
+import { siteDetailsSchema } from 'common/lib/site-events';
 import { snapshotSchema } from 'common/types/snapshot';
 import { StatsMetric } from 'common/types/stats';
 import { z } from 'zod';
 import { validateAccessToken } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
 
-const siteSchema = z
-	.object( {
-		id: z.string(),
-		path: z.string(),
-		name: z.string(),
-		phpVersion: z.string(),
-		customDomain: z.string().optional(),
-		port: z.number(),
-		enableHttps: z.boolean().optional(),
-		adminPassword: z.string().optional(),
-		isWpAutoUpdating: z.boolean().optional(),
+const siteSchema = siteDetailsSchema
+	.extend( {
 		running: z.boolean().optional(),
 		url: z.string().optional(),
 		latestCliPid: z.number().optional(),
@@ -32,7 +24,8 @@ const siteSchema = z
 
 const betaFeaturesSchema = z
 	.object( {
-		studioSitesCli: z.boolean().optional(),
+		multiWorkerSupport: z.boolean().optional(),
+		xdebugSupport: z.boolean().optional(),
 	} )
 	.passthrough();
 
@@ -61,9 +54,15 @@ const userDataSchema = z
 
 type UserData = z.infer< typeof userDataSchema >;
 export type SiteData = z.infer< typeof siteSchema >;
-type ValidatedAuthToken = Required< NonNullable< UserData[ 'authToken' ] > >;
+export type ValidatedAuthToken = Required< NonNullable< UserData[ 'authToken' ] > >;
 
 export function getAppdataDirectory(): string {
+	// Support E2E testing with custom appdata path
+	// Must include 'Studio' subfolder to match Electron app's path structure
+	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
+		return path.join( process.env.E2E_APP_DATA_PATH, 'Studio' );
+	}
+
 	if ( process.platform === 'win32' ) {
 		if ( ! process.env.APPDATA ) {
 			throw new LoggerError( __( 'Studio config file path not found.' ) );
@@ -76,8 +75,7 @@ export function getAppdataDirectory(): string {
 }
 
 export function getAppdataPath(): string {
-	const appdataDir = getAppdataDirectory();
-	return path.join( appdataDir, 'appdata-v1.json' );
+	return path.join( getAppdataDirectory(), 'appdata-v1.json' );
 }
 
 export async function readAppdata(): Promise< UserData > {
@@ -142,6 +140,15 @@ export async function unlockAppdata(): Promise< void > {
 	await unlockFileAsync( LOCKFILE_PATH );
 }
 
+export async function isXdebugBetaEnabled(): Promise< boolean > {
+	try {
+		const appdata = await readAppdata();
+		return appdata.betaFeatures?.xdebugSupport ?? false;
+	} catch {
+		return false;
+	}
+}
+
 export async function getAuthToken(): Promise< ValidatedAuthToken > {
 	try {
 		const { authToken } = await readAppdata();
@@ -173,11 +180,11 @@ export async function getSiteByFolder( siteFolder: string ): Promise< SiteData >
 	if ( ! site ) {
 		if ( isWordPressDirectory( siteFolder ) ) {
 			throw new LoggerError(
-				__( 'The specified folder is not added to Studio. Use `studio site create` to add it.' )
+				__( 'The specified directory is not added to Studio. Use `studio site create` to add it.' )
 			);
 		}
 
-		throw new LoggerError( __( 'The specified folder is not added to Studio.' ) );
+		throw new LoggerError( __( 'The specified directory is not added to Studio.' ) );
 	}
 
 	return site;
@@ -224,6 +231,34 @@ export async function clearSiteLatestCliPid( siteId: string ): Promise< void > {
 		}
 
 		delete site.latestCliPid;
+		await saveAppdata( userData );
+	} finally {
+		await unlockAppdata();
+	}
+}
+
+export async function updateSiteAutoStart( siteId: string, autoStart: boolean ): Promise< void > {
+	try {
+		await lockAppdata();
+		const userData = await readAppdata();
+		const site = userData.sites.find( ( s ) => s.id === siteId );
+
+		if ( ! site ) {
+			throw new LoggerError( __( 'Site not found' ) );
+		}
+
+		site.autoStart = autoStart;
+		await saveAppdata( userData );
+	} finally {
+		await unlockAppdata();
+	}
+}
+
+export async function removeSiteFromAppdata( siteId: string ): Promise< void > {
+	try {
+		await lockAppdata();
+		const userData = await readAppdata();
+		userData.sites = userData.sites.filter( ( s ) => s.id !== siteId );
 		await saveAppdata( userData );
 	} finally {
 		await unlockAppdata();

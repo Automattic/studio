@@ -1,15 +1,14 @@
 /**
  * @jest-environment node
  */
-import { SiteServer } from 'src/site-server';
+import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
+import { getRunningSiteCount, SiteServer, __resetServersForTesting } from 'src/site-server';
 
 // Electron's Node.js environment provides `bota`/`atob`, but Jests' does not
 jest.mock( 'common/lib/passwords' );
 
-// `SiteServer::start` uses `getPreferredSiteLanguage` to set the site language
-jest.mock( 'src/lib/site-language', () => ( {
-	getPreferredSiteLanguage: jest.fn().mockResolvedValue( 'en' ),
-} ) );
+// Mock the CLI server process
+jest.mock( 'src/modules/cli/lib/cli-server-process' );
 
 // Mock the WordPress provider
 jest.mock( 'src/lib/wordpress-provider', () => {
@@ -18,31 +17,6 @@ jest.mock( 'src/lib/wordpress-provider', () => {
 		DEFAULT_WORDPRESS_VERSION: 'latest',
 		ALLOWED_PHP_VERSIONS: [ '8.0', '8.1', '8.2', '8.3' ],
 		SQLITE_FILENAME: 'sqlite-database-integration',
-		getWordPressVersionPath: jest.fn( ( version ) => `/mock/path/to/wp-${ version }` ),
-		getSqlitePath: jest.fn( () => '/mock/path/to/sqlite' ),
-		getWpCliPath: jest.fn( () => '/mock/path/to/wp-cli' ),
-		getWpCliFolderPath: jest.fn( () => '/mock/path/to/wp-cli-folder' ),
-		downloadWordPress: jest.fn(),
-		downloadWpCli: jest.fn(),
-		downloadSQLiteCommand: jest.fn(),
-		setupWordPressSite: jest.fn( () => Promise.resolve( true ) ),
-		startServer: jest.fn( () =>
-			Promise.resolve( {
-				url: 'http://localhost:1234',
-				options: { port: 1234, phpVersion: '8.0' },
-				_internal: { mode: 'wordpress', port: 1234 },
-			} )
-		),
-		createServerProcess: jest.fn( () => ( {
-			url: 'http://localhost:1234',
-			php: {},
-			start: jest.fn( () => Promise.resolve() ),
-			stop: jest.fn( () => Promise.resolve() ),
-			runPhp: jest.fn( () => Promise.resolve( '' ) ),
-		} ) ),
-		executeWPCli: jest.fn(),
-		isValidWordPressVersion: jest.fn( () => true ),
-		getConfig: jest.fn( () => Promise.resolve( {} ) ),
 	};
 
 	return {
@@ -51,24 +25,34 @@ jest.mock( 'src/lib/wordpress-provider', () => {
 	};
 } );
 
-// Mock the wp-now config that the provider uses internally
-jest.mock( 'vendor/wp-now/src', () => ( {
-	getWpNowConfig: jest.fn( () => ( { mode: 'wordpress', port: 1234 } ) ),
+// Mock port finder
+jest.mock( 'common/lib/port-finder', () => ( {
+	portFinder: {
+		isPortAvailable: jest.fn( () => Promise.resolve( true ) ),
+	},
+} ) );
+
+// Mock user data
+jest.mock( 'src/storage/user-data', () => ( {
+	loadUserData: jest.fn( () => Promise.resolve( { sites: [] } ) ),
 } ) );
 
 describe( 'SiteServer', () => {
-	describe( 'start', () => {
-		it( 'should throw if the server starts with a non-WordPress mode', async () => {
-			const { getWpNowConfig } = require( 'vendor/wp-now/src' );
-			( getWpNowConfig as jest.Mock ).mockReturnValue( { mode: 'theme', port: 1234 } );
+	beforeEach( () => {
+		jest.clearAllMocks();
+		__resetServersForTesting();
+	} );
 
-			const { startServer } = require( 'src/lib/wordpress-provider' );
-			( startServer as jest.Mock ).mockRejectedValue(
-				new Error(
-					"Site server started with Playground's 'theme' mode. Studio only supports 'wordpress' mode."
-				)
-			);
-			const server = SiteServer.create( {
+	describe( 'start', () => {
+		it( 'should throw if the CLI server fails to start', async () => {
+			const mockStart = jest.fn().mockRejectedValue( new Error( 'Failed to start site' ) );
+			( CliServerProcess as jest.Mock ).mockReturnValue( {
+				url: 'http://localhost:1234',
+				start: mockStart,
+				stop: jest.fn(),
+			} );
+
+			const server = SiteServer.register( {
 				id: 'test-id',
 				name: 'test-name',
 				path: 'test-path',
@@ -79,9 +63,87 @@ describe( 'SiteServer', () => {
 				themeDetails: undefined,
 			} );
 
-			await expect( server.start() ).rejects.toThrow(
-				"Site server started with Playground's 'theme' mode. Studio only supports 'wordpress' mode."
-			);
+			await expect( server.start() ).rejects.toThrow( 'Failed to start site' );
+		} );
+
+		it( 'should start the server successfully', async () => {
+			const mockStart = jest.fn().mockResolvedValue( undefined );
+			( CliServerProcess as jest.Mock ).mockReturnValue( {
+				url: 'http://localhost:1234',
+				start: mockStart,
+				stop: jest.fn(),
+			} );
+
+			const server = SiteServer.register( {
+				id: 'test-id',
+				name: 'test-name',
+				path: 'test-path',
+				port: 1234,
+				adminPassword: 'test-password',
+				phpVersion: '8.3',
+				running: false,
+				themeDetails: undefined,
+			} );
+
+			await server.start();
+
+			expect( mockStart ).toHaveBeenCalled();
+			expect( server.details.running ).toBe( true );
+		} );
+	} );
+
+	describe( 'getRunningSiteCount', () => {
+		it( 'should return 0 when no servers are registered', () => {
+			expect( getRunningSiteCount() ).toBe( 0 );
+		} );
+
+		it( 'should count only running servers', async () => {
+			const mockStart = jest.fn().mockResolvedValue( undefined );
+			const mockStop = jest.fn().mockResolvedValue( undefined );
+			( CliServerProcess as jest.Mock ).mockReturnValue( {
+				url: 'http://localhost:1234',
+				start: mockStart,
+				stop: mockStop,
+			} );
+
+			const server1 = SiteServer.register( {
+				id: 'running-site-1',
+				name: 'Running Site 1',
+				path: 'test-path-1',
+				port: 1234,
+				adminPassword: 'test-password',
+				phpVersion: '8.3',
+				running: false,
+				themeDetails: undefined,
+			} );
+			await server1.start();
+
+			SiteServer.register( {
+				id: 'stopped-site',
+				name: 'Stopped Site',
+				path: 'test-path-2',
+				port: 1235,
+				adminPassword: 'test-password',
+				phpVersion: '8.3',
+				running: false,
+				themeDetails: undefined,
+			} );
+
+			expect( getRunningSiteCount() ).toBe( 1 );
+
+			const server3 = SiteServer.register( {
+				id: 'running-site-2',
+				name: 'Running Site 2',
+				path: 'test-path-3',
+				port: 1236,
+				adminPassword: 'test-password',
+				phpVersion: '8.3',
+				running: false,
+				themeDetails: undefined,
+			} );
+			await server3.start();
+
+			expect( getRunningSiteCount() ).toBe( 2 );
 		} );
 	} );
 } );

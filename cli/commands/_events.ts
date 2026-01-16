@@ -78,18 +78,22 @@ const siteEventSchema = z.object( {
 
 export async function runCommand(): Promise< void > {
 	const socket = axon.socket( 'pull' );
-	let isCleaningUp = false;
+	const bindAbortController = new AbortController();
 
 	async function cleanup() {
-		if ( isCleaningUp ) {
+		if ( bindAbortController.signal.aborted ) {
 			return;
 		}
-		isCleaningUp = true;
 
 		console.log( 'Starting cleanup...' );
+		bindAbortController.abort();
 
-		// Close the socket and wait for it
 		await new Promise< void >( ( resolve ) => {
+			// Only try to close if socket is actually bound
+			if ( socket.type === 'server' ) {
+				return resolve();
+			}
+
 			socket.once( 'close', () => {
 				console.log( 'Socket closed' );
 				clearTimeout( timeoutId );
@@ -97,48 +101,64 @@ export async function runCommand(): Promise< void > {
 			} );
 
 			const timeoutId = setTimeout( () => {
-				console.log( 'Socket close timeout', typeof socket.destroy );
+				console.log( 'Socket close timeout' );
 				socket.destroy?.();
-				if ( fs.existsSync( EVENTS_SOCKET_PATH ) ) {
-					console.log( 'Removing socket file' );
-					fs.unlinkSync( EVENTS_SOCKET_PATH );
-				}
 				resolve();
 			}, 250 );
 
 			socket.close();
 		} );
-		await disconnect();
+
+		try {
+			await disconnect();
+		} catch ( err ) {
+			// Do nothing
+		}
+
 		console.log( 'Cleanup complete' );
-		process.exit();
+		process.exit( 0 );
 	}
 
 	process.on( 'SIGINT', () => void cleanup() );
 	process.on( 'SIGTERM', () => void cleanup() );
 
-	await new Promise< void >( ( resolve, reject ) => {
-		const timeout = setTimeout( () => {
-			console.log( 'Socket bind timeout' );
-			reject( new Error( 'Socket bind timeout' ) );
-		}, 2500 );
+	try {
+		await new Promise< void >( ( resolve, reject ) => {
+			bindAbortController.signal.throwIfAborted();
 
-		socket.once( 'bind', () => {
-			console.log( 'Socket bound' );
-			clearTimeout( timeout );
-			resolve();
-		} );
+			const timeout = setTimeout( () => {
+				console.log( 'Socket bind timeout' );
+				bindAbortController.signal.removeEventListener( 'abort', onAbort );
+				reject( new Error( 'Socket bind timeout' ) );
+			}, 2500 );
 
-		socket.bind( EVENTS_SOCKET_PATH, ( error: unknown ) => {
-			if ( error ) {
-				console.log( 'Socket bind error', error );
+			function onAbort() {
 				clearTimeout( timeout );
-				reject( error );
+				reject( new Error( 'Bind aborted due to signal' ) );
 			}
+			bindAbortController.signal.addEventListener( 'abort', onAbort );
+
+			socket.once( 'bind', () => {
+				console.log( 'Socket bound' );
+				clearTimeout( timeout );
+				bindAbortController.signal.removeEventListener( 'abort', onAbort );
+				resolve();
+			} );
+
+			socket.bind( EVENTS_SOCKET_PATH, ( error: unknown ) => {
+				if ( error ) {
+					console.log( 'Socket bind error', error );
+					clearTimeout( timeout );
+					bindAbortController.signal.removeEventListener( 'abort', onAbort );
+					reject( error );
+				}
+			} );
 		} );
-	} ).catch( async ( error ) => {
-		logger.reportError( error );
+	} catch ( error ) {
+		console.error( 'Bind failed:', error );
 		await cleanup();
-	} );
+		return;
+	}
 
 	socket.on( 'message', ( packet: unknown ) => {
 		try {

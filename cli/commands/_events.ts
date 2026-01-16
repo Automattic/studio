@@ -90,7 +90,7 @@ export async function runCommand(): Promise< void > {
 
 		await new Promise< void >( ( resolve ) => {
 			// Only try to close if socket is actually bound
-			if ( socket.type === 'server' ) {
+			if ( socket.type !== 'server' ) {
 				return resolve();
 			}
 
@@ -116,7 +116,7 @@ export async function runCommand(): Promise< void > {
 		}
 
 		console.log( 'Cleanup complete' );
-		process.exit( 0 );
+		process.exit();
 	}
 
 	process.on( 'SIGINT', () => void cleanup() );

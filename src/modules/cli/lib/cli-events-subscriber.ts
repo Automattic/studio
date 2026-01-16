@@ -114,7 +114,7 @@ export function stopCliEventsSubscriber(): void {
 	if ( subscriber ) {
 		const [ , childProcess ] = subscriber;
 		const pid = childProcess.pid;
-		const result = childProcess.kill();
+		const result = childProcess.kill( 'SIGKILL' );
 		console.log( `events subscriber process with pid ${ pid } killed with result ${ result }` );
 		subscriber = null;
 	}

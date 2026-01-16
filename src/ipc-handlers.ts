@@ -56,10 +56,7 @@ import * as oauthClient from 'src/lib/oauth';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import * as windowsHelpers from 'src/lib/windows-helpers';
-import {
-	getWordPressProvider,
-	getProviderConstants as getProviderConstantsFromProvider,
-} from 'src/lib/wordpress-provider';
+import { setupWordPressFilesOnly } from 'src/lib/wordpress-setup';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
@@ -217,7 +214,7 @@ export async function importSite(
 	}
 	try {
 		if ( ! isWordPressDirectory( site.details.path ) ) {
-			await getWordPressProvider().setupWordPressFilesOnly( site.details.path );
+			await setupWordPressFilesOnly( site.details.path );
 		}
 
 		const onEvent = ( data: ImportExportEventData ) => {
@@ -442,7 +439,7 @@ export async function startServer(
 
 		Sentry.captureException( error, {
 			tags: {
-				provider: getWordPressProvider().PROVIDER_TYPE,
+				provider: 'cli',
 			},
 			contexts,
 		} );
@@ -1401,11 +1398,6 @@ export async function listLocalFileTree(
 		console.error( `Failed to list raw file tree for path ${ path }:`, err );
 		return [];
 	}
-}
-
-export async function getProviderConstants( _event: IpcMainInvokeEvent ) {
-	const provider = getWordPressProvider();
-	return getProviderConstantsFromProvider( provider );
 }
 
 export async function validateBlueprint(

@@ -11,7 +11,7 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
+import { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
 import { SyncSite } from 'src/modules/sync/types';
 import { useRootSelector, useAppDispatch, useI18nLocale } from 'src/stores';
@@ -353,6 +353,7 @@ export function AddSiteModalContent( {
 	} = useGetBlueprints( { locale } );
 
 	const { sites, loadingSites } = useSiteDetails();
+	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
 
 	const {
 		handleCreateSite,
@@ -377,7 +378,6 @@ export function AddSiteModalContent( {
 		setIsDeeplinkFlow,
 	} = addSiteProps;
 
-	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
 	const { data: versions = [] } = useGetWordPressVersions( {
 		minimumVersion: minimumWordPressVersion,
 	} );

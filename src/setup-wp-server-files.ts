@@ -2,21 +2,25 @@ import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
 import { recursiveCopyDirectory } from 'common/lib/fs-utils';
+import { updateLatestWPCliVersion } from 'src/lib/download-utils';
+import { getWordPressVersionPath, getSqlitePath, getWpCliPath } from 'src/lib/server-files-paths';
 import {
 	getSqliteCommandPath,
 	updateLatestSQLiteCommandVersion,
 	getSQLiteCommandVersion,
 } from 'src/lib/sqlite-command-versions';
 import { getSqliteVersionFromInstallation } from 'src/lib/sqlite-versions';
-import { getSqlitePath, getWordPressProvider } from 'src/lib/wordpress-provider';
-import { WpNowProvider } from 'src/lib/wordpress-provider/wp-now';
 import {
 	getWordPressVersionFromInstallation,
 	updateLatestWordPressVersion,
 } from 'src/lib/wp-versions';
+import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { getResourcesPath } from 'src/storage/paths';
 
-// Tries to copy the app's bundled WordPress version to `wp-now` WP versions if needed
+// SQLite integration folder name
+const SQLITE_FILENAME = 'sqlite-database-integration';
+
+// Tries to copy the app's bundled WordPress version to server files if needed
 export async function copyBundledLatestWPVersion() {
 	const bundledWPVersionPath = path.join( getResourcesPath(), 'wp-files', 'latest', 'wordpress' );
 	const bundledWPVersion = semver.coerce(
@@ -25,7 +29,7 @@ export async function copyBundledLatestWPVersion() {
 	if ( ! bundledWPVersion ) {
 		return;
 	}
-	const latestWPVersionPath = WpNowProvider.getWordPressVersionPath( 'latest' );
+	const latestWPVersionPath = getWordPressVersionPath( 'latest' );
 	const latestWPVersion = await getWordPressVersionFromInstallation( latestWPVersionPath );
 	const latestWPSemVersion = semver.coerce( latestWPVersion );
 	const isBundledVersionNewer =
@@ -33,13 +37,9 @@ export async function copyBundledLatestWPVersion() {
 	if ( ! latestWPVersion || isBundledVersionNewer ) {
 		if ( isBundledVersionNewer ) {
 			// We keep a copy of the latest installed version instead of removing it.
-			await fs.move(
-				latestWPVersionPath,
-				WpNowProvider.getWordPressVersionPath( latestWPVersion ),
-				{
-					overwrite: true,
-				}
-			);
+			await fs.move( latestWPVersionPath, getWordPressVersionPath( latestWPVersion ), {
+				overwrite: true,
+			} );
 		}
 		console.log( `Copying bundled WP version ${ bundledWPVersion } as 'latest' version…` );
 		await recursiveCopyDirectory( bundledWPVersionPath, latestWPVersionPath );
@@ -47,11 +47,7 @@ export async function copyBundledLatestWPVersion() {
 }
 
 async function copyBundledSqlite() {
-	const bundledSqlitePath = path.join(
-		getResourcesPath(),
-		'wp-files',
-		getWordPressProvider().SQLITE_FILENAME
-	);
+	const bundledSqlitePath = path.join( getResourcesPath(), 'wp-files', SQLITE_FILENAME );
 	const bundledSqliteVersion = semver.coerce(
 		await getSqliteVersionFromInstallation( bundledSqlitePath ),
 		{
@@ -78,12 +74,12 @@ async function copyBundledSqlite() {
 }
 
 async function copyBundledWPCLI() {
-	const bundledWPCLIInstalled = await fs.pathExists( WpNowProvider.getWpCliPath() );
+	const bundledWPCLIInstalled = await fs.pathExists( getWpCliPath() );
 	if ( bundledWPCLIInstalled ) {
 		return;
 	}
 	const bundledWPCLIPath = path.join( getResourcesPath(), 'wp-files', 'wp-cli', 'wp-cli.phar' );
-	await fs.copyFile( bundledWPCLIPath, WpNowProvider.getWpCliPath() );
+	await fs.copyFile( bundledWPCLIPath, getWpCliPath() );
 }
 
 async function copyBundledSQLiteCommand() {
@@ -116,7 +112,7 @@ async function copyBundledTranslations() {
 		return;
 	}
 	const installedTranslationsPath = path.join(
-		WpNowProvider.getWordPressVersionPath( 'latest' ),
+		getWordPressVersionPath( 'latest' ),
 		'available-site-translations.json'
 	);
 	// Always copy the bundled translations file to ensure CLI has access to it
@@ -131,10 +127,32 @@ export async function setupWPServerFiles() {
 	await copyBundledTranslations();
 }
 
+/**
+ * Get WP-CLI version from installation by running wp-cli --version
+ */
+async function getWPCliVersionFromInstallation(): Promise< string > {
+	return new Promise( ( resolve ) => {
+		const [ emitter ] = executeCliCommand( [ 'wp', '--studio-no-path', '--version' ], {
+			output: 'capture',
+		} );
+
+		emitter.on( 'success', ( { result } ) => {
+			const stdout = result?.stdout || '';
+			if ( stdout.startsWith( 'WP-CLI ' ) ) {
+				const version = stdout.split( ' ' )[ 1 ];
+				resolve( version ? `v${ version }` : '' );
+			} else {
+				resolve( '' );
+			}
+		} );
+
+		emitter.on( 'failure', () => resolve( '' ) );
+		emitter.on( 'error', () => resolve( '' ) );
+	} );
+}
+
 export async function updateWPServerFiles() {
 	await updateLatestWordPressVersion();
-	const provider = new WpNowProvider();
-	await provider.updateLatestWPCliVersion();
-
+	await updateLatestWPCliVersion( getWPCliVersionFromInstallation );
 	await updateLatestSQLiteCommandVersion();
 }

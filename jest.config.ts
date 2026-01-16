@@ -6,9 +6,6 @@ module.exports = {
 		'^.+\\.(ts|tsx)$': [
 			'ts-jest',
 			{
-				diagnostics: {
-					exclude: [ '**/vendor/wp-now/**/*' ],
-				},
 				useESM: true,
 				tsconfig: {
 					module: 'esnext',
@@ -18,7 +15,7 @@ module.exports = {
 		'^.+\\.m?js$': [ 'babel-jest', { presets: [ '@babel/preset-env' ] } ],
 		"^.+\\.svg$": 'jest-transform-stub',
 	},
-	transformIgnorePatterns: [ 'node_modules/(?!(@php-wasm|@wp-playground)/)' ],
+	transformIgnorePatterns: [ 'node_modules/' ],
 	moduleNameMapper: {
 		'^(\\.{1,2}/.*)\\.js$': '$1',
 		'^cli/(.*)$': '<rootDir>/cli/$1',

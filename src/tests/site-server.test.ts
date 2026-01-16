@@ -10,20 +10,10 @@ jest.mock( 'common/lib/passwords' );
 // Mock the CLI server process
 jest.mock( 'src/modules/cli/lib/cli-server-process' );
 
-// Mock the WordPress provider
-jest.mock( 'src/lib/wordpress-provider', () => {
-	const mockProvider = {
-		DEFAULT_PHP_VERSION: '8.0',
-		DEFAULT_WORDPRESS_VERSION: 'latest',
-		ALLOWED_PHP_VERSIONS: [ '8.0', '8.1', '8.2', '8.3' ],
-		SQLITE_FILENAME: 'sqlite-database-integration',
-	};
-
-	return {
-		...mockProvider,
-		getWordPressProvider: jest.fn( () => mockProvider ),
-	};
-} );
+// Mock the WordPress setup
+jest.mock( 'src/lib/wordpress-setup', () => ( {
+	setupWordPressFilesOnly: jest.fn().mockResolvedValue( undefined ),
+} ) );
 
 // Mock port finder
 jest.mock( 'common/lib/port-finder', () => ( {

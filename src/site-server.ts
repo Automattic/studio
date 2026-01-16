@@ -1,33 +1,26 @@
 import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { BlueprintV1Declaration } from '@wp-playground/blueprints';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { z } from 'zod';
+import { SQLITE_FILENAME } from 'common/constants';
 import {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT,
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT,
 } from 'src/constants';
-import { setupWordPressSite, getWordPressProvider } from 'src/lib/wordpress-provider';
 import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
 import { createSiteViaCli, type CreateSiteOptions } from 'src/modules/cli/lib/cli-site-creator';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData } from 'src/storage/user-data';
+import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type WpCliResult = { stdout: string; stderr: string; exitCode: number };
 
 const servers = new Map< string, SiteServer >();
 const deletedServers: string[] = [];
-
-export async function createSiteWorkingDirectory(
-	server: SiteServer,
-	wpVersion = 'latest'
-): Promise< boolean > {
-	return setupWordPressSite( server, wpVersion );
-}
 
 export async function stopAllServersOnQuit() {
 	// The `--auto-start` option ensures sites will restart on next app launch.
@@ -408,12 +401,11 @@ export class SiteServer {
 
 	async hasSQLitePlugin(): Promise< boolean > {
 		const wpContentPath = nodePath.join( this.details.path, 'wp-content' );
-		const sqliteFilename = getWordPressProvider().SQLITE_FILENAME;
 
 		const sqliteIntegrationPaths = {
-			muPlugin: nodePath.join( wpContentPath, 'mu-plugins', sqliteFilename ),
-			muPluginLegacy: nodePath.join( wpContentPath, 'mu-plugins', `${ sqliteFilename }-main` ),
-			regularPlugin: nodePath.join( wpContentPath, 'plugins', sqliteFilename ),
+			muPlugin: nodePath.join( wpContentPath, 'mu-plugins', SQLITE_FILENAME ),
+			muPluginLegacy: nodePath.join( wpContentPath, 'mu-plugins', `${ SQLITE_FILENAME }-main` ),
+			regularPlugin: nodePath.join( wpContentPath, 'plugins', SQLITE_FILENAME ),
 		};
 
 		const requiredConfigPaths = {

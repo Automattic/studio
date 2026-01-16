@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { SiteCommandLoggerAction } from 'common/logger-actions';
 import { executeCliCommand } from './execute-command';
-import type { WordPressServerProcess } from 'src/lib/wordpress-provider/types';
+import type { WordPressServerProcess } from 'src/lib/wordpress-server-types';
 
 const cliEventSchema = z.object( {
 	action: z.nativeEnum( SiteCommandLoggerAction ),
@@ -69,10 +69,6 @@ export class CliServerProcess implements WordPressServerProcess {
 				reject( error );
 			} );
 		} );
-	}
-
-	async runPhp(): Promise< string > {
-		throw new Error( 'runPhp is not supported for CLI-managed sites' );
 	}
 
 	async delete( deleteFiles: boolean ): Promise< void > {

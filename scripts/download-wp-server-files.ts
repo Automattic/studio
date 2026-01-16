@@ -1,8 +1,7 @@
 import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
-import { promisify } from 'util';
-import yauzl from 'yauzl';
+import { extractZip } from '../common/lib/extract-zip';
 import { getLatestSQLiteCommandRelease } from '../src/lib/sqlite-command-release';
 import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../src/constants';
 
@@ -44,62 +43,6 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'sqlite-command' ),
 	},
 ];
-
-const openZip = promisify< string, yauzl.Options, yauzl.ZipFile >( yauzl.open );
-
-async function extractZip( zipPath: string, extractedPath: string ): Promise< void > {
-	const zipFile = await openZip( zipPath, { lazyEntries: true } );
-	const openReadStream = promisify( zipFile.openReadStream.bind( zipFile ) );
-
-	return new Promise( ( resolve, reject ) => {
-		zipFile.on( 'entry', async ( entry: yauzl.Entry ) => {
-			// Skip directory entries
-			if ( entry.fileName.endsWith( '/' ) ) {
-				zipFile.readEntry();
-				return;
-			}
-
-			const fullPath = path.join( extractedPath, entry.fileName );
-			const entryDir = path.dirname( fullPath );
-
-			try {
-				await fs.ensureDir( entryDir );
-
-				const readStream = await openReadStream( entry );
-				const writeStream = fs.createWriteStream( fullPath );
-
-				function onError( error: Error ) {
-					if ( ! readStream.destroyed ) {
-						readStream.destroy();
-					}
-					if ( ! writeStream.destroyed ) {
-						writeStream.destroy();
-					}
-					reject( error );
-				}
-
-				readStream.once( 'error', onError );
-				writeStream.once( 'error', onError );
-
-				writeStream.once( 'finish', () => {
-					zipFile.readEntry();
-				} );
-
-				readStream.pipe( writeStream );
-			} catch ( error ) {
-				reject( error );
-			}
-		} );
-
-		zipFile.on( 'end', () => {
-			resolve();
-		} );
-
-		zipFile.on( 'error', reject );
-
-		zipFile.readEntry();
-	} );
-}
 
 async function downloadFile( file: FileToDownload ): Promise< void > {
 	const { name, description, destinationPath } = file;

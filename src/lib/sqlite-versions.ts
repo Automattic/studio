@@ -1,6 +1,6 @@
+import { SQLITE_FILENAME } from 'common/constants';
 import { sequential } from 'common/lib/sequential';
 import { SqliteIntegrationProvider } from 'common/lib/sqlite-integration';
-import { getWordPressProvider } from 'src/lib/wordpress-provider';
 import { getServerFilesPath } from 'src/storage/paths';
 
 class ElectronSqliteProvider extends SqliteIntegrationProvider {
@@ -9,7 +9,7 @@ class ElectronSqliteProvider extends SqliteIntegrationProvider {
 	}
 
 	getSqliteDirname(): string {
-		return getWordPressProvider().SQLITE_FILENAME;
+		return SQLITE_FILENAME;
 	}
 }
 

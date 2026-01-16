@@ -19,6 +19,7 @@ const siteSchema = siteDetailsSchema
 		running: z.boolean().optional(),
 		url: z.string().optional(),
 		latestCliPid: z.number().optional(),
+		enableXdebug: z.boolean().optional(),
 	} )
 	.passthrough();
 

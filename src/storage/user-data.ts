@@ -1,13 +1,13 @@
 import { app } from 'electron';
 import fs from 'fs';
 import nodePath from 'node:path';
-import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
 import * as Sentry from '@sentry/electron/main';
 import { readFile, writeFile } from 'atomically';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/constants';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
 import { sortSites } from 'common/lib/sort-sites';
+import { SupportedPHPVersion, SupportedPHPVersions } from 'common/types/php-versions';
 import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for-logging';
 import { getUserDataFilePath, getUserDataLockFilePath } from 'src/storage/paths';
 import type { PersistedUserData, UserData, WindowBounds } from 'src/storage/storage-types';

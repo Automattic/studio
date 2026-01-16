@@ -46,25 +46,10 @@ export default defineConfig( {
 			rollupOptions: {
 				input: {
 					index: resolve( __dirname, 'src/index.ts' ),
-					siteServerProcess: resolve(
-						__dirname,
-						'src/lib/wordpress-provider/wp-now/site-server-process-child.ts'
-					),
-					playgroundServerProcess: resolve(
-						__dirname,
-						'src/lib/wordpress-provider/playground-cli/playground-server-process-child.ts'
-					),
 				},
 				output: {
 					entryFileNames: '[name].js',
 				},
-				external: [
-					'@php-wasm/node',
-					'@php-wasm/web',
-					'@php-wasm/logger',
-					'@php-wasm/universal',
-					'@php-wasm/scopes',
-				],
 			},
 		},
 	},

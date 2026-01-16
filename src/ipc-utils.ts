@@ -31,13 +31,6 @@ export interface IpcEvents {
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];
 	'on-site-create-progress': [ { siteId: string; message: string } ];
-	providerConstantsChanged: [
-		{
-			defaultPhpVersion: string;
-			defaultWordPressVersion: string;
-			allowedPhpVersions: string[];
-		},
-	];
 	'site-context-menu-action': [ { action: string; siteId: string } ];
 	'site-event': [ SiteEvent ];
 	'sync-upload-paused': [ { error: string; selectedSiteId: string; remoteSiteId: number } ];

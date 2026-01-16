@@ -77,7 +77,7 @@
 		"@wp-playground/blueprints": "^3.0.22",
 		"cross-env": "^7.0.3",
 		"electron": "^39.2.7",
-		"electron-playwright-helpers": "^2.0.1",
+		"electron-playwright-helpers": "^2.1.0",
 		"electron-vite": "^5.0.0",
 		"eslint": "^9.39.2",
 		"eslint-import-resolver-typescript": "^4.4.4",

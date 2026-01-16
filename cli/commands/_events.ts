@@ -84,10 +84,20 @@ export async function runCommand(): Promise< void > {
 	await emitAllSitesStatus();
 
 	const socket = axon.socket( 'pull' );
+	let isCleaningUp = false;
 
 	async function cleanup() {
+		if ( isCleaningUp ) {
+			return;
+		}
+		isCleaningUp = true;
+
+		console.log( 'Starting cleanup...' );
+
+		// Close the socket and wait for it
 		await new Promise< void >( ( resolve ) => {
 			socket.once( 'close', () => {
+				console.log( 'Socket closed' );
 				clearTimeout( timeoutId );
 				resolve();
 			} );
@@ -100,12 +110,17 @@ export async function runCommand(): Promise< void > {
 					fs.unlinkSync( EVENTS_SOCKET_PATH );
 				}
 				resolve();
-			}, 200 );
+			}, 250 );
 
 			socket.close();
 		} );
 		await disconnect();
+		console.log( 'Cleanup complete' );
+		process.exit();
 	}
+
+	process.on( 'SIGINT', () => void cleanup() );
+	process.on( 'SIGTERM', () => void cleanup() );
 
 	await new Promise< void >( ( resolve, reject ) => {
 		const timeout = setTimeout( () => {
@@ -127,8 +142,8 @@ export async function runCommand(): Promise< void > {
 			}
 		} );
 	} ).catch( async ( error ) => {
+		logger.reportError( error );
 		await cleanup();
-		throw error;
 	} );
 
 	socket.on( 'message', ( packet: unknown ) => {
@@ -144,15 +159,6 @@ export async function runCommand(): Promise< void > {
 		} catch ( error ) {
 			// Do nothing
 		}
-	} );
-
-	process.on( 'SIGINT', async () => {
-		console.log( 'SIGINT received' );
-		await cleanup();
-	} );
-	process.on( 'SIGTERM', async () => {
-		console.log( 'SIGTERM received' );
-		await cleanup();
 	} );
 
 	await subscribeSiteEvents( ( { siteId, event, running } ) => {

@@ -390,5 +390,9 @@ export async function emitSiteEvent(
 			socket.send( { event, data } );
 			resolve();
 		} );
+		// Connection refused. Likely means Studio isn't running.
+		socket.once( 'socket error', () => {
+			resolve();
+		} );
 	} ).finally( closeHandler );
 }

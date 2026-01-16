@@ -353,6 +353,13 @@ export function useSyncPush( {
 					throw response;
 				}
 			} catch ( error ) {
+				if ( error instanceof Error && error.message === 'Export aborted' ) {
+					updatePushState( selectedSite.id, remoteSiteId, {
+						status: pushStatesProgressInfo.cancelled,
+					} );
+					return;
+				}
+
 				Sentry.captureException( error );
 				updatePushState( selectedSite.id, remoteSiteId, {
 					status: pushStatesProgressInfo.failed,

@@ -12,10 +12,22 @@ const serverConfig = z.object( {
 	siteTitle: z.string().optional(),
 	siteLanguage: z.string().optional(),
 	isWpAutoUpdating: z.boolean().optional(),
-	blueprint: z.any().optional(), // Blueprint type is complex, allow any for now
+	enableMultiWorker: z.boolean().optional(),
+	enableXdebug: z.boolean().optional(),
+	blueprint: z
+		.object( {
+			contents: z.any(), // Blueprint type is complex, allow any for now
+			uri: z.string(),
+		} )
+		.optional(),
 } );
 
 export type ServerConfig = z.infer< typeof serverConfig >;
+
+const managerMessageAbort = z.object( {
+	topic: z.literal( 'abort' ),
+	data: z.object( {} ),
+} );
 
 const managerMessageStartServer = z.object( {
 	topic: z.literal( 'start-server' ),
@@ -33,20 +45,32 @@ const managerMessageRunBlueprint = z.object( {
 
 const managerMessageStopServer = z.object( {
 	topic: z.literal( 'stop-server' ),
+	data: z.object( {} ),
+} );
+
+const managerMessageWpCliCommand = z.object( {
+	topic: z.literal( 'wp-cli-command' ),
+	data: z.object( {
+		args: z.array( z.string() ),
+	} ),
 } );
 
 const _managerMessagePayloadSchema = z.discriminatedUnion( 'topic', [
+	managerMessageAbort,
 	managerMessageStartServer,
 	managerMessageRunBlueprint,
 	managerMessageStopServer,
+	managerMessageWpCliCommand,
 ] );
 export type ManagerMessagePayload = z.infer< typeof _managerMessagePayloadSchema >;
 
-const managerMessageBase = z.object( { messageId: z.number() } );
+const managerMessageBase = z.object( { messageId: z.string() } );
 export const managerMessageSchema = z.discriminatedUnion( 'topic', [
+	managerMessageBase.merge( managerMessageAbort ),
 	managerMessageBase.merge( managerMessageStartServer ),
 	managerMessageBase.merge( managerMessageRunBlueprint ),
 	managerMessageBase.merge( managerMessageStopServer ),
+	managerMessageBase.merge( managerMessageWpCliCommand ),
 ] );
 export type ManagerMessage = z.infer< typeof managerMessageSchema >;
 
@@ -60,16 +84,58 @@ const childMessageActivity = z.object( {
 } );
 
 const childMessageResult = z.object( {
-	originalMessageId: z.number(),
+	originalMessageId: z.string(),
 	topic: z.literal( 'result' ),
 	result: z.unknown(),
 } );
 
 const childMessageError = z.object( {
-	originalMessageId: z.number(),
+	originalMessageId: z.string(),
 	topic: z.literal( 'error' ),
 	errorMessage: z.string(),
 	errorStack: z.string().optional(),
+	cliArgs: z.record( z.unknown() ).optional(),
+} );
+
+const childMessageConsole = z.object( {
+	topic: z.literal( 'console-message' ),
+	message: z.string(),
+} );
+
+const childMessageSiteCreated = z.object( {
+	topic: z.literal( 'site-created' ),
+	data: z.object( {
+		siteId: z.string(),
+	} ),
+} );
+
+const childMessageSiteUpdated = z.object( {
+	topic: z.literal( 'site-updated' ),
+	data: z.object( {
+		siteId: z.string(),
+	} ),
+} );
+
+const childMessageSiteDeleted = z.object( {
+	topic: z.literal( 'site-deleted' ),
+	data: z.object( {
+		siteId: z.string(),
+	} ),
+} );
+
+const childMessageSiteStarted = z.object( {
+	topic: z.literal( 'site-started' ),
+	data: z.object( {
+		siteId: z.string(),
+		url: z.string(),
+	} ),
+} );
+
+const childMessageSiteStopped = z.object( {
+	topic: z.literal( 'site-stopped' ),
+	data: z.object( {
+		siteId: z.string(),
+	} ),
 } );
 
 const childMessageRaw = z.discriminatedUnion( 'topic', [
@@ -77,11 +143,27 @@ const childMessageRaw = z.discriminatedUnion( 'topic', [
 	childMessageActivity,
 	childMessageResult,
 	childMessageError,
+	childMessageConsole,
+	childMessageSiteCreated,
+	childMessageSiteUpdated,
+	childMessageSiteDeleted,
+	childMessageSiteStarted,
+	childMessageSiteStopped,
 ] );
 export type ChildMessageRaw = z.infer< typeof childMessageRaw >;
 export const childMessagePm2Schema = z.object( {
 	process: z.object( {
+		name: z.string(),
 		pm_id: z.number(),
 	} ),
 	raw: childMessageRaw,
+} );
+
+// Zod schemas for PM2 process events (online, exit, stop, restart)
+export const pm2ProcessEventSchema = z.object( {
+	process: z.object( {
+		name: z.string(),
+		pm_id: z.number().optional(),
+	} ),
+	event: z.string(),
 } );

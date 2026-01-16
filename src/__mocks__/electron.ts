@@ -15,6 +15,7 @@ export const app = {
 	getPreferredSystemLanguages: jest.fn( () => [ 'en-US' ] ),
 	requestSingleInstanceLock: jest.fn( () => true ),
 	on: jest.fn(),
+	off: jest.fn(),
 	setAppLogsPath: jest.fn(),
 	setAsDefaultProtocolClient: jest.fn(),
 	enableSandbox: jest.fn(),

@@ -238,7 +238,8 @@ describe( 'AddSite', () => {
 				false,
 				undefined, // blueprint parameter
 				'8.3',
-				expect.any( Function )
+				expect.any( Function ),
+				false
 			);
 		} );
 	} );
@@ -454,7 +455,8 @@ describe( 'AddSite', () => {
 				false,
 				undefined, // blueprint parameter
 				'8.3',
-				expect.any( Function )
+				expect.any( Function ),
+				false
 			);
 		} );
 	} );
@@ -580,7 +582,7 @@ describe( 'AddSite', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'should show warning when blueprint preferred versions differ from selected versions', async () => {
+	it( 'should show warning when Blueprint preferred versions differ from selected versions', async () => {
 		const mockBlueprintData = {
 			data: {
 				blueprints: [

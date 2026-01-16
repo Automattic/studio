@@ -1,18 +1,32 @@
 import os from 'os';
 import path from 'path';
+import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/constants';
 import { cacheFunctionTTL } from 'common/lib/cache-function-ttl';
+import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
+import { SITE_EVENTS } from 'common/lib/site-events';
 import { custom as PM2, StartOptions } from 'pm2';
 import { getAppdataPath } from 'cli/lib/appdata';
 import { ProcessDescription } from 'cli/lib/types/pm2';
-import { ManagerMessage } from './types/wordpress-server-ipc';
+import {
+	ManagerMessage,
+	pm2ProcessEventSchema,
+	childMessagePm2Schema,
+} from './types/wordpress-server-ipc';
 
 const PM2_STATUS_ONLINE = 'online';
 const PROXY_PROCESS_NAME = 'studio-proxy';
-const DAEMON_TIMEOUT = 10000;
+const CONNECTION_TIMEOUT = 10_000;
+const KILL_TIMEOUT = 25_000;
 
 // Set consistent PM2 home directory for Studio CLI
 // This ensures all Studio CLI commands use the same PM2 daemon
 const STUDIO_PM2_HOME = path.join( os.homedir(), '.studio', 'pm2' );
+const PM2_LOCKFILE_PATH = path.join( STUDIO_PM2_HOME, 'pm2-connection.lock' );
+
+export interface ProcessEventData {
+	processName: string;
+	event: string;
+}
 
 const pm2 = new PM2( { pm2_home: STUDIO_PM2_HOME } );
 
@@ -23,14 +37,19 @@ export async function connect(): Promise< void > {
 		return;
 	}
 
-	return new Promise( ( resolve, reject ) => {
+	await lockFileAsync( PM2_LOCKFILE_PATH, {
+		wait: LOCKFILE_WAIT_TIME,
+		stale: LOCKFILE_STALE_TIME,
+	} );
+
+	return new Promise< void >( ( resolve, reject ) => {
 		const timeout = setTimeout( () => {
 			reject(
 				new Error(
 					'PM2 connection timeout after 10 seconds. Try running: PM2_HOME=~/.studio/pm2 pm2 update'
 				)
 			);
-		}, DAEMON_TIMEOUT );
+		}, CONNECTION_TIMEOUT );
 
 		pm2.connect( ( error ) => {
 			clearTimeout( timeout );
@@ -41,19 +60,53 @@ export async function connect(): Promise< void > {
 			isConnected = true;
 			resolve();
 		} );
+	} ).finally( () => {
+		return unlockFileAsync( PM2_LOCKFILE_PATH );
 	} );
 }
 
-export function disconnect(): void {
-	if ( isConnected ) {
-		pm2.disconnect();
-		isConnected = false;
+export async function disconnect(): Promise< void > {
+	if ( ! isConnected ) {
+		return;
 	}
+
+	return new Promise< void >( ( resolve, reject ) => {
+		const timeout = setTimeout( () => {
+			reject( new Error( 'Timeout after 10 seconds trying to disconnect from PM2' ) );
+		}, CONNECTION_TIMEOUT );
+
+		pm2.disconnect( ( error ) => {
+			clearTimeout( timeout );
+			if ( error ) {
+				reject( error );
+				return;
+			}
+			isConnected = false;
+			resolve();
+		} );
+	} );
 }
 
-process.on( 'exit', disconnect );
-process.on( 'SIGINT', disconnect );
-process.on( 'SIGTERM', disconnect );
+export async function killDaemonAndAllChildren() {
+	return new Promise< void >( ( resolve, reject ) => {
+		const timeout = setTimeout( () => {
+			reject(
+				new Error(
+					'PM2 kill timeout after 25 seconds. Try running: PM2_HOME=~/.studio/pm2 pm2 kill'
+				)
+			);
+		}, KILL_TIMEOUT );
+
+		pm2.killDaemon( ( error ) => {
+			clearTimeout( timeout );
+			if ( error ) {
+				reject( error );
+				return;
+			}
+			resolve();
+		} );
+	} );
+}
 
 // Cache the return value of `pm2.list` for a very short time to make multiple calls in quick
 // succession more efficient
@@ -116,13 +169,10 @@ export function sendMessageToProcess(
 export async function startProxyProcess(): Promise< ProcessDescription > {
 	const proxyDaemonPath = path.resolve( __dirname, 'proxy-daemon.js' );
 	const env: Record< string, string > = {
+		ELECTRON_RUN_AS_NODE: '1',
 		STUDIO_USER_HOME: os.homedir(),
 		STUDIO_APPDATA_PATH: getAppdataPath(),
 	};
-
-	if ( process.env.ELECTRON_RUN_AS_NODE ) {
-		env.ELECTRON_RUN_AS_NODE = '1';
-	}
 
 	return startProcess( PROXY_PROCESS_NAME, proxyDaemonPath, env );
 }
@@ -154,7 +204,8 @@ export async function isProcessRunning(
 export async function startProcess(
 	processName: string,
 	scriptPath: string,
-	env: Record< string, string > = {}
+	env: Record< string, string > = {},
+	args: string[] = []
 ): Promise< ProcessDescription > {
 	return new Promise( ( resolve, reject ) => {
 		const processConfig: StartOptions = {
@@ -163,7 +214,10 @@ export async function startProcess(
 			script: scriptPath,
 			exec_mode: 'fork',
 			autorestart: false,
-			env: env,
+			args,
+			// Merge process.env with custom env to ensure child processes inherit
+			// necessary environment variables (PATH, HOME, E2E vars, etc.)
+			env: { ...process.env, ...env } as Record< string, string >,
 		};
 
 		pm2.start( processConfig, async ( error, apps ) => {
@@ -208,6 +262,143 @@ export async function stopProcess( processName: string ): Promise< void > {
 				reject( error );
 				return;
 			}
+			resolve();
+		} );
+	} );
+}
+
+/**
+ * Subscribe to PM2 process events (online, exit, stop, restart)
+ * @param handler - Callback invoked when a process event occurs
+ * @returns Unsubscribe function to stop listening
+ */
+export async function subscribeProcessEvents(
+	handler: ( data: ProcessEventData ) => void
+): Promise< () => void > {
+	const bus = await getPm2Bus();
+
+	const eventHandler = ( data: unknown ) => {
+		const result = pm2ProcessEventSchema.safeParse( data );
+		if ( ! result.success ) {
+			return;
+		}
+
+		handler( {
+			processName: result.data.process.name,
+			event: result.data.event,
+		} );
+	};
+
+	bus.on( 'process:event', eventHandler );
+
+	return () => {
+		bus.off( 'process:event', eventHandler );
+	};
+}
+
+export interface ProcessMessageData {
+	processName: string;
+	pmId: number;
+	topic: string;
+	data?: unknown;
+}
+
+/**
+ * Subscribe to PM2 process messages (IPC messages from child processes)
+ * @param handler - Callback invoked when a process message is received
+ * @returns Unsubscribe function to stop listening
+ */
+export async function subscribeProcessMessages(
+	handler: ( data: ProcessMessageData ) => void
+): Promise< () => void > {
+	const bus = await getPm2Bus();
+
+	const messageHandler = ( packet: unknown ) => {
+		const result = childMessagePm2Schema.safeParse( packet );
+		if ( ! result.success ) {
+			return;
+		}
+
+		handler( {
+			processName: result.data.process.name,
+			pmId: result.data.process.pm_id,
+			topic: result.data.raw.topic,
+			data: result.data.raw,
+		} );
+	};
+
+	bus.on( 'process:msg', messageHandler );
+
+	return () => {
+		bus.off( 'process:msg', messageHandler );
+	};
+}
+
+export async function subscribePm2KillEvent( handler: () => void ) {
+	const bus = await getPm2Bus();
+
+	bus.on( 'pm2:kill', handler );
+
+	return () => {
+		bus.off( 'pm2:kill', handler );
+	};
+}
+
+const EVENTS_RELAY_PROCESS_NAME = 'studio-events-relay';
+
+/**
+ * Emit a site event via the events relay process.
+ * The relay re-emits on PM2 bus for `_events` to receive.
+ *
+ * @param event - The event topic (e.g., 'site-created', 'site-updated', 'site-deleted')
+ * @param data - The event data (must include siteId)
+ */
+export async function emitSiteEvent(
+	event: SITE_EVENTS,
+	data: { siteId: string; url?: string }
+): Promise< void > {
+	const relayProcess = await isProcessRunning( EVENTS_RELAY_PROCESS_NAME );
+	if ( relayProcess?.pmId === undefined ) {
+		// No relay running - that's fine, Studio might not be open
+		return;
+	}
+
+	return new Promise( ( resolve ) => {
+		pm2.sendDataToProcessId(
+			relayProcess.pmId,
+			{
+				type: 'process:msg',
+				topic: event,
+				data,
+			},
+			() => {
+				resolve();
+			}
+		);
+	} );
+}
+
+export function getEventsRelayProcessName(): string {
+	return EVENTS_RELAY_PROCESS_NAME;
+}
+
+export async function startEventsRelayProcess( relayScriptPath: string ): Promise< void > {
+	const existingProcess = await isProcessRunning( EVENTS_RELAY_PROCESS_NAME );
+	if ( existingProcess?.pmId !== undefined ) {
+		return;
+	}
+
+	const env: Record< string, string > = {
+		PATH: process.env.PATH || '',
+		HOME: process.env.HOME || '',
+	};
+
+	await startProcess( EVENTS_RELAY_PROCESS_NAME, relayScriptPath, env );
+}
+
+export async function stopEventsRelayProcess(): Promise< void > {
+	return new Promise( ( resolve ) => {
+		pm2.delete( EVENTS_RELAY_PROCESS_NAME, () => {
 			resolve();
 		} );
 	} );

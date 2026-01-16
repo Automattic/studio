@@ -12,6 +12,47 @@ function debugLog( message: string ) {
 	console.log( `[METRICS DEBUG ${ timestamp }] ${ message }` );
 }
 
+// Helper to wait for an element with periodic screenshots for debugging
+async function waitForWithScreenshots(
+	locator: import('@playwright/test').Locator,
+	page: import('@playwright/test').Page,
+	testInfo: import('@playwright/test').TestInfo,
+	label: string,
+	totalTimeout: number
+) {
+	const screenshotInterval = 30_000; // Take screenshot every 30 seconds
+	const startTime = Date.now();
+	let screenshotCount = 0;
+
+	while ( Date.now() - startTime < totalTimeout ) {
+		// Try to check if visible with a short timeout
+		try {
+			await expect( locator ).toBeVisible( { timeout: screenshotInterval } );
+			debugLog( `${ label } visible after ${ Date.now() - startTime }ms` );
+			return; // Success!
+		} catch {
+			// Not visible yet, take a screenshot and continue waiting
+			screenshotCount++;
+			const elapsed = Math.round( ( Date.now() - startTime ) / 1000 );
+			debugLog(
+				`${ label } not visible after ${ elapsed }s - capturing screenshot #${ screenshotCount }`
+			);
+			try {
+				const screenshot = await page.screenshot();
+				await testInfo.attach( `${ label }-wait-${ elapsed }s`, {
+					body: screenshot,
+					contentType: 'image/png',
+				} );
+			} catch ( screenshotError ) {
+				debugLog( `Failed to capture screenshot: ${ screenshotError }` );
+			}
+		}
+	}
+
+	// Final timeout - throw with useful message
+	throw new Error( `${ label } not visible after ${ totalTimeout }ms` );
+}
+
 test.describe( 'Site Editor Load Metrics', () => {
 	const results: Record< string, number[] > = {};
 	const siteName = 'Editor-Performance-Test-Site';
@@ -67,16 +108,16 @@ test.describe( 'Site Editor Load Metrics', () => {
 		const siteContent = new SiteContent( session.mainWindow, siteName );
 
 		// Site creation can take a while on CI, use generous timeout (270s = 4.5 min)
+		// Take periodic screenshots to diagnose what's happening during the wait
 		debugLog( 'Waiting for site content heading...' );
-		try {
-			await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 270_000 } );
-			debugLog( 'Site content heading visible' );
-		} catch ( error ) {
-			debugLog( 'FAILED: Site content heading not visible - capturing screenshot' );
-			const screenshot = await session.mainWindow.screenshot();
-			await testInfo.attach( 'site-content-failure', { body: screenshot, contentType: 'image/png' } );
-			throw error;
-		}
+		await waitForWithScreenshots(
+			siteContent.siteNameHeading,
+			session.mainWindow,
+			testInfo,
+			'site-content-heading',
+			270_000
+		);
+		debugLog( 'Site content heading visible' );
 
 		debugLog( 'Waiting for running button...' );
 		await expect( siteContent.runningButton ).toBeAttached( { timeout: 270_000 } );
@@ -108,7 +149,7 @@ test.describe( 'Site Editor Load Metrics', () => {
 			// First wait for the iframe to appear with explicit timeout
 			await page.waitForSelector( 'iframe[name="editor-canvas"]', {
 				state: 'visible',
-				timeout: 180_000 // 3 minutes
+				timeout: 180_000, // 3 minutes
 			} );
 			const frame = page.frame( { name: 'editor-canvas' } );
 			if ( ! frame ) {
@@ -120,14 +161,17 @@ test.describe( 'Site Editor Load Metrics', () => {
 			await frame.waitForSelector( '[data-block]', { timeout: 90_000 } );
 
 			// Make sure blocks are loaded and spinners are gone
-			await frame.waitForFunction( () => {
-				return (
-					document.querySelectorAll( '[data-block]' ).length > 0 &&
-					! document.querySelector( '.components-spinner' ) &&
-					! document.querySelector( '.is-loading' ) &&
-					! document.querySelector( '.wp-block-editor__loading' )
-				);
-			}, { timeout: 90_000 } );
+			await frame.waitForFunction(
+				() => {
+					return (
+						document.querySelectorAll( '[data-block]' ).length > 0 &&
+						! document.querySelector( '.components-spinner' ) &&
+						! document.querySelector( '.is-loading' ) &&
+						! document.querySelector( '.wp-block-editor__loading' )
+					);
+				},
+				{ timeout: 90_000 }
+			);
 
 			const endTime = Date.now();
 			const duration = endTime - startTime;

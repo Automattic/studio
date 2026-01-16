@@ -19,9 +19,9 @@ export default defineConfig( {
 		...baseConfig.use,
 		actionTimeout: 90_000, // 1.5 minutes (50% increase for CI stability).
 		headless: true,
-		// Enable only for debugging.
+		// Enable screenshot on failure to diagnose CI issues
 		trace: 'off',
-		screenshot: 'off',
+		screenshot: 'only-on-failure',
 		video: 'off',
 	},
 	expect: {

@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
+import { runCommand } from '../list';
 
 const mockReportStart = vi.fn();
 const mockReportSuccess = vi.fn();
@@ -84,7 +85,6 @@ describe( 'Preview List Command', () => {
 	} );
 
 	it( 'should list preview sites successfully', async () => {
-		const { runCommand } = await import( '../list' );
 		await runCommand( mockFolder, 'table' );
 
 		expect( getSiteByFolder ).toHaveBeenCalledWith( mockFolder );
@@ -96,7 +96,6 @@ describe( 'Preview List Command', () => {
 	} );
 
 	it( 'should handle validation errors', async () => {
-		const { runCommand } = await import( '../list' );
 		vi.mocked( getSiteByFolder ).mockImplementation( () => {
 			throw new Error( 'Invalid site folder' );
 		} );
@@ -107,7 +106,6 @@ describe( 'Preview List Command', () => {
 	} );
 
 	it( 'should handle no snapshots found', async () => {
-		const { runCommand } = await import( '../list' );
 		vi.mocked( getSnapshotsFromAppdata ).mockResolvedValue( [] );
 
 		await runCommand( mockFolder, 'table' );

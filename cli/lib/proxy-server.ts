@@ -201,7 +201,7 @@ async function startHttpsProxy(): Promise< void > {
  * Stop the proxy servers gracefully
  */
 export async function stopProxyServers(): Promise< void > {
-	console.log( '[Proxy] Stopping proxy servers...' );
+	console.log( '[Proxy] Stopping proxy servers…' );
 
 	const promises: Promise< void >[] = [];
 
@@ -240,7 +240,7 @@ export async function stopProxyServers(): Promise< void > {
  * This is called by the `studio proxy start` command
  */
 export async function startProxyServers(): Promise< void > {
-	console.log( '[Proxy] Starting WordPress Studio Proxy Server...' );
+	console.log( '[Proxy] Starting WordPress Studio Proxy Server…' );
 
 	// Setup graceful shutdown
 	const shutdown = async ( signal: string ) => {

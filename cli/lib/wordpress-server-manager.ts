@@ -10,23 +10,46 @@ import {
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from 'common/constants';
-import { SiteData } from 'cli/lib/appdata';
+import { SITE_EVENTS } from 'common/lib/site-events';
+import { z } from 'zod';
+import { isXdebugBetaEnabled, SiteData, readAppdata } from 'cli/lib/appdata';
 import {
 	isProcessRunning,
 	startProcess,
 	stopProcess,
 	getPm2Bus,
 	sendMessageToProcess,
+	subscribeProcessEvents,
+	subscribeProcessMessages,
 } from 'cli/lib/pm2-manager';
 import { ProcessDescription } from 'cli/lib/types/pm2';
 import {
 	ServerConfig,
 	childMessagePm2Schema,
+	pm2ProcessEventSchema,
 	ManagerMessagePayload,
 } from 'cli/lib/types/wordpress-server-ipc';
+import { Logger } from 'cli/logger';
 
-function getProcessName( siteId: string ): string {
-	return `studio-site-${ siteId }`;
+export const SITE_PROCESS_PREFIX = 'studio-site-';
+
+// Get an abort signal that's triggered on SIGINT/SIGTERM. This is useful for aborting and cleaning
+// up async operations.
+const abortController = new AbortController();
+process.on( 'SIGINT', () => abortController.abort() );
+process.on( 'SIGTERM', () => abortController.abort() );
+
+export function getProcessName( siteId: string ): string {
+	return `${ SITE_PROCESS_PREFIX }${ siteId }`;
+}
+
+async function isMultiWorkerEnabled() {
+	try {
+		const appdata = await readAppdata();
+		return appdata.betaFeatures?.multiWorkerSupport ?? false;
+	} catch {
+		return false;
+	}
 }
 
 export async function isServerRunning( siteId: string ): Promise< ProcessDescription | undefined > {
@@ -41,12 +64,16 @@ export async function isServerRunning( siteId: string ): Promise< ProcessDescrip
  * 3. Send 'start-server' message with config
  * 4. Wait for response before resolving
  */
+export interface StartServerOptions {
+	wpVersion?: string;
+	blueprint?: unknown;
+	blueprintUri?: string;
+}
+
 export async function startWordPressServer(
 	site: SiteData,
-	options?: {
-		wpVersion?: string;
-		blueprint?: unknown;
-	}
+	logger: Logger< string >,
+	options?: StartServerOptions
 ): Promise< ProcessDescription > {
 	const wordPressServerChildPath = path.resolve( __dirname, 'wordpress-server-child.js' );
 	const processName = getProcessName( site.id );
@@ -57,6 +84,7 @@ export async function startWordPressServer(
 		port: site.port,
 		phpVersion: site.phpVersion,
 		siteTitle: site.name,
+		enableMultiWorker: await isMultiWorkerEnabled(),
 	};
 
 	if ( site.customDomain ) {
@@ -76,20 +104,33 @@ export async function startWordPressServer(
 		serverConfig.wpVersion = options.wpVersion;
 	}
 
-	if ( options?.blueprint ) {
-		serverConfig.blueprint = options.blueprint;
+	if ( options?.blueprint && options.blueprintUri ) {
+		serverConfig.blueprint = {
+			contents: options.blueprint,
+			uri: options.blueprintUri,
+		};
+	}
+
+	if ( ( await isXdebugBetaEnabled() ) && site.enableXdebug ) {
+		serverConfig.enableXdebug = true;
 	}
 
 	const env = {
+		ELECTRON_RUN_AS_NODE: '1',
 		STUDIO_WORDPRESS_SERVER_CONFIG: JSON.stringify( serverConfig ),
 	};
 
 	const processDesc = await startProcess( processName, wordPressServerChildPath, env );
 	await waitForReadyMessage( processDesc.pmId );
-	await sendMessage( processDesc.pmId, {
-		topic: 'start-server',
-		data: { config: serverConfig },
-	} );
+	await sendMessage(
+		processDesc.pmId,
+		processName,
+		{
+			topic: 'start-server',
+			data: { config: serverConfig },
+		},
+		{ logger }
+	);
 
 	return processDesc;
 }
@@ -97,26 +138,36 @@ export async function startWordPressServer(
 async function waitForReadyMessage( pmId: number ): Promise< void > {
 	const bus = await getPm2Bus();
 
-	return new Promise( ( resolve, reject ) => {
-		const timeout = setTimeout( () => {
-			bus.off( 'process:msg', readyHandler );
+	let timeoutId: NodeJS.Timeout;
+	let readyHandler: ( packet: unknown ) => void;
+	let abortListener: () => void;
+
+	return new Promise< void >( ( resolve, reject ) => {
+		timeoutId = setTimeout( () => {
 			reject( new Error( 'Timeout waiting for ready message from WordPress server child' ) );
 		}, PLAYGROUND_CLI_INACTIVITY_TIMEOUT );
 
-		const readyHandler = ( packet: unknown ) => {
+		readyHandler = ( packet: unknown ) => {
 			const result = childMessagePm2Schema.safeParse( packet );
 			if ( ! result.success ) {
 				return;
 			}
 
 			if ( result.data.process.pm_id === pmId && result.data.raw.topic === 'ready' ) {
-				clearTimeout( timeout );
-				bus.off( 'process:msg', readyHandler );
 				resolve();
 			}
 		};
 
+		abortListener = () => {
+			reject( new Error( 'Operation aborted' ) );
+		};
+		abortController.signal.addEventListener( 'abort', abortListener );
+
 		bus.on( 'process:msg', readyHandler );
+	} ).finally( () => {
+		clearTimeout( timeoutId );
+		abortController.signal.removeEventListener( 'abort', abortListener );
+		bus.off( 'process:msg', readyHandler );
 	} );
 }
 
@@ -127,22 +178,30 @@ async function waitForReadyMessage( pmId: number ): Promise< void > {
  * - Checks periodically for inactivity
  * - Has both inactivity timeout and max total timeout
  */
-let nextMessageId = 0;
 const messageActivityTrackers = new Map<
-	number,
+	string,
 	{
 		activityCheckIntervalId: NodeJS.Timeout;
 	}
 >();
 
-async function sendMessage(
+export interface SendMessageOptions {
+	maxTotalElapsedTime?: number;
+	logger?: Logger< string >;
+}
+
+export async function sendMessage(
 	pmId: number,
+	processName: string,
 	message: ManagerMessagePayload,
-	maxTotalElapsedTime = PLAYGROUND_CLI_MAX_TIMEOUT
+	options: SendMessageOptions = {}
 ): Promise< unknown > {
+	const { maxTotalElapsedTime = PLAYGROUND_CLI_MAX_TIMEOUT, logger } = options;
 	const bus = await getPm2Bus();
-	const messageId = nextMessageId++;
+	const messageId = crypto.randomUUID();
 	let responseHandler: ( packet: unknown ) => void;
+	let processEventHandler: ( event: unknown ) => void;
+	let abortListener: () => void;
 
 	return new Promise( ( resolve, reject ) => {
 		const startTime = Date.now();
@@ -171,10 +230,21 @@ async function sendMessage(
 			activityCheckIntervalId,
 		} );
 
+		processEventHandler = ( event: unknown ) => {
+			const result = pm2ProcessEventSchema.safeParse( event );
+			if ( ! result.success ) {
+				return;
+			}
+
+			if ( result.data.process.name === processName && result.data.event === 'exit' ) {
+				reject( new Error( 'WordPress server process exited unexpectedly' ) );
+			}
+		};
+
 		responseHandler = ( packet: unknown ) => {
 			const validationResult = childMessagePm2Schema.safeParse( packet );
 			if ( ! validationResult.success ) {
-				reject( validationResult.error );
+				// Don't reject on validation errors - other processes may send messages we don't handle
 				return;
 			}
 
@@ -186,10 +256,21 @@ async function sendMessage(
 
 			if ( validPacket.raw.topic === 'activity' ) {
 				lastActivityTimestamp = Date.now();
-			} else if ( validPacket.raw.topic === 'error' ) {
-				const error = new Error( validPacket.raw.errorMessage );
+			} else if ( validPacket.raw.topic === 'console-message' ) {
+				lastActivityTimestamp = Date.now();
+				logger?.reportProgress( validPacket.raw.message );
+			} else if (
+				validPacket.raw.topic === 'error' &&
+				validPacket.raw.originalMessageId === messageId
+			) {
+				const error = new Error( validPacket.raw.errorMessage ) as Error & {
+					cliArgs?: Record< string, unknown >;
+				};
 				if ( validPacket.raw.errorStack ) {
 					error.stack = validPacket.raw.errorStack;
+				}
+				if ( validPacket.raw.cliArgs ) {
+					error.cliArgs = validPacket.raw.cliArgs;
 				}
 				reject( error );
 			} else if (
@@ -200,10 +281,19 @@ async function sendMessage(
 			}
 		};
 
+		abortListener = () => {
+			void sendMessageToProcess( pmId, { messageId, topic: 'abort', data: {} } );
+			reject( new Error( 'Operation aborted' ) );
+		};
+		abortController.signal.addEventListener( 'abort', abortListener );
+
+		bus.on( 'process:event', processEventHandler );
 		bus.on( 'process:msg', responseHandler );
 
 		sendMessageToProcess( pmId, { ...message, messageId } ).catch( reject );
 	} ).finally( () => {
+		abortController.signal.removeEventListener( 'abort', abortListener );
+		bus.off( 'process:event', processEventHandler );
 		bus.off( 'process:msg', responseHandler );
 
 		const tracker = messageActivityTrackers.get( messageId );
@@ -222,13 +312,24 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 
 	if ( runningProcess ) {
 		try {
-			await sendMessage( runningProcess.pmId, { topic: 'stop-server' }, GRACEFUL_STOP_TIMEOUT );
+			await sendMessage(
+				runningProcess.pmId,
+				processName,
+				{ topic: 'stop-server', data: {} },
+				{ maxTotalElapsedTime: GRACEFUL_STOP_TIMEOUT }
+			);
 		} catch {
 			// Graceful shutdown failed, PM2 delete will handle it
 		}
 	}
 
 	return stopProcess( processName );
+}
+
+export interface RunBlueprintOptions {
+	wpVersion?: string;
+	blueprint: unknown;
+	blueprintUri: string;
 }
 
 /**
@@ -241,10 +342,8 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
  */
 export async function runBlueprint(
 	site: SiteData,
-	options?: {
-		wpVersion?: string;
-		blueprint?: unknown;
-	}
+	logger: Logger< string >,
+	options: RunBlueprintOptions
 ): Promise< void > {
 	const wordPressServerChildPath = path.resolve( __dirname, 'wordpress-server-child.js' );
 	const processName = getProcessName( site.id );
@@ -255,6 +354,11 @@ export async function runBlueprint(
 		port: site.port,
 		phpVersion: site.phpVersion,
 		siteTitle: site.name,
+		enableMultiWorker: await isMultiWorkerEnabled(),
+		blueprint: {
+			contents: options.blueprint,
+			uri: options.blueprintUri,
+		},
 	};
 
 	if ( site.customDomain ) {
@@ -270,27 +374,102 @@ export async function runBlueprint(
 		serverConfig.isWpAutoUpdating = site.isWpAutoUpdating;
 	}
 
-	if ( options?.wpVersion ) {
+	if ( options.wpVersion ) {
 		serverConfig.wpVersion = options.wpVersion;
 	}
 
-	if ( options?.blueprint ) {
-		serverConfig.blueprint = options.blueprint;
+	if ( ( await isXdebugBetaEnabled() ) && site.enableXdebug ) {
+		serverConfig.enableXdebug = true;
 	}
 
 	const env = {
+		ELECTRON_RUN_AS_NODE: '1',
 		STUDIO_WORDPRESS_SERVER_CONFIG: JSON.stringify( serverConfig ),
 	};
 
 	const processDesc = await startProcess( processName, wordPressServerChildPath, env );
 	try {
 		await waitForReadyMessage( processDesc.pmId );
-		await sendMessage( processDesc.pmId, {
-			topic: 'run-blueprint',
-			data: { config: serverConfig },
-		} );
+		await sendMessage(
+			processDesc.pmId,
+			processName,
+			{
+				topic: 'run-blueprint',
+				data: { config: serverConfig },
+			},
+			{ logger }
+		);
 	} finally {
 		// Always stop the process after blueprint is applied
 		await stopProcess( processName );
 	}
+}
+
+const wpCliResultSchema = z.object( {
+	stdout: z.string(),
+	stderr: z.string(),
+	exitCode: z.number(),
+} );
+
+export async function sendWpCliCommand(
+	siteId: string,
+	args: string[]
+): Promise< z.infer< typeof wpCliResultSchema > > {
+	const processName = getProcessName( siteId );
+	const runningProcess = await isProcessRunning( processName );
+
+	if ( ! runningProcess ) {
+		throw new Error( `WordPress server is not running` );
+	}
+
+	const result = await sendMessage( runningProcess.pmId, processName, {
+		topic: 'wp-cli-command',
+		data: { args },
+	} );
+
+	return wpCliResultSchema.parse( result );
+}
+
+const PM2_STATUS_EVENTS = [ 'exit', 'stop', 'restart', 'delete' ];
+
+/**
+ * Subscribe to site server events
+ *
+ * Listens for PM2 process events and emits 'site-updated' when site status changes.
+ * All PM2 events (online, exit, stop, restart) are mapped to 'site-updated'.
+ *
+ * @param handler - Callback invoked when a site event occurs
+ * @returns Unsubscribe function to stop listening
+ */
+export async function subscribeSiteEvents(
+	handler: ( data: { siteId: string; event: SITE_EVENTS; running: boolean } ) => void
+): Promise< () => void > {
+	const unsubscribeMessages = await subscribeProcessMessages( ( { processName, topic } ) => {
+		if ( ! processName.startsWith( SITE_PROCESS_PREFIX ) ) {
+			return;
+		}
+
+		if ( topic === 'result' ) {
+			const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
+			// 'result' message means server started successfully
+			handler( { siteId, event: SITE_EVENTS.UPDATED, running: true } );
+		}
+	} );
+
+	const unsubscribeEvents = await subscribeProcessEvents( ( { processName, event } ) => {
+		if ( ! processName.startsWith( SITE_PROCESS_PREFIX ) ) {
+			return;
+		}
+
+		if ( PM2_STATUS_EVENTS.includes( event ) ) {
+			const siteId = processName.replace( SITE_PROCESS_PREFIX, '' );
+			// PM2 exit/stop/restart/delete events mean the server is not running
+			handler( { siteId, event: SITE_EVENTS.UPDATED, running: false } );
+		}
+	} );
+
+	return () => {
+		unsubscribeMessages();
+		unsubscribeEvents();
+	};
 }

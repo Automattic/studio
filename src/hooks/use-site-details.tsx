@@ -8,6 +8,7 @@ import {
 	useMemo,
 	useState,
 } from 'react';
+import { SITE_EVENTS, SiteEvent } from 'common/lib/site-events';
 import { sortSites } from 'common/lib/sort-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
@@ -21,7 +22,7 @@ import type { Blueprint } from 'src/stores/wpcom-api';
 
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
-	updateSite: ( site: SiteDetails ) => Promise< void >;
+	updateSite: ( site: SiteDetails, wpVersion?: string ) => Promise< void >;
 	sites: SiteDetails[];
 	setSelectedSiteId: ( selectedSiteId: string ) => void;
 	createSite: (
@@ -32,7 +33,8 @@ interface SiteDetailsContext {
 		enableHttps?: boolean,
 		blueprint?: Blueprint,
 		phpVersion?: string,
-		callback?: ( site: SiteDetails ) => Promise< void >
+		callback?: ( site: SiteDetails ) => Promise< void >,
+		noStart?: boolean
 	) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
@@ -187,6 +189,43 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		}
 	} );
 
+	useIpcListener( 'site-event', ( _, event: SiteEvent ) => {
+		const { event: eventType, siteId, site, running } = event;
+
+		setSites( ( prevSites ) => {
+			if ( eventType === SITE_EVENTS.DELETED ) {
+				const newSites = prevSites.filter( ( s ) => s.id !== siteId );
+				if ( selectedSiteId === siteId ) {
+					setSelectedSiteId( newSites.length ? newSites[ 0 ].id : '' );
+				}
+				return newSites;
+			}
+
+			if ( ! site ) {
+				return prevSites;
+			}
+
+			const siteDetails: SiteDetails = {
+				...site,
+				running,
+			};
+
+			const existingIndex = prevSites.findIndex( ( s ) => s.id === siteId );
+
+			// Only add new sites on CREATED events to prevent duplicates
+			if ( existingIndex < 0 ) {
+				if ( eventType === SITE_EVENTS.CREATED ) {
+					return sortSites( [ ...prevSites, siteDetails ] );
+				}
+				return prevSites;
+			}
+
+			const newSites = [ ...prevSites ];
+			newSites[ existingIndex ] = { ...newSites[ existingIndex ], ...siteDetails };
+			return newSites;
+		} );
+	} );
+
 	const toggleLoadingServerForSite = useCallback( ( siteId: string ) => {
 		setLoadingServer( ( currentLoading ) => ( {
 			...currentLoading,
@@ -217,7 +256,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			enableHttps?: boolean,
 			blueprint?: Blueprint,
 			phpVersion?: string,
-			callback?: ( site: SiteDetails ) => Promise< void >
+			callback?: ( site: SiteDetails ) => Promise< void >,
+			noStart?: boolean
 		) => {
 			// Function to handle error messages and cleanup
 			const showError = ( error?: unknown, hasBlueprint?: boolean ) => {
@@ -291,6 +331,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					siteId: tempSiteId,
 					phpVersion,
 					blueprint,
+					noStart,
 				} );
 				if ( ! newSite ) {
 					showError( undefined, !! blueprint );
@@ -307,12 +348,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					return prevSelectedSiteId;
 				} );
 				setSites( ( prevData ) =>
-					prevData.map( ( site ) => {
-						if ( site.id === newSite.id ) {
-							return { ...newSite, isAddingSite: true };
-						}
-						return site;
-					} )
+					sortSites( [
+						...prevData.filter( ( site ) => site.id !== tempSiteId ),
+						{ ...newSite, isAddingSite: true },
+					] )
 				);
 
 				setSiteCreationMessages( ( prev ) => {
@@ -341,8 +380,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		[ selectedTab, setSelectedSiteId, setSelectedTab ]
 	);
 
-	const updateSite = useCallback( async ( site: SiteDetails ) => {
-		await getIpcApi().updateSite( site );
+	const updateSite = useCallback( async ( site: SiteDetails, wpVersion?: string ) => {
+		await getIpcApi().updateSite( site, wpVersion );
 		const updatedSites = await getIpcApi().getSiteDetails();
 		setSites( updatedSites );
 	}, [] );

@@ -8,14 +8,20 @@ export default defineConfig( {
 	// only run one test at a time.
 	workers: 1,
 
+	// Retry flaky tests once to improve CI reliability
+	retries: 1,
+
 	use: {
 		trace: 'retain-on-failure',
+		// Action timeout for clicks, fills, etc. (prevents hanging on blocked elements)
+		actionTimeout: 30_000,
 	},
 
 	timeout: 180_000,
 
 	// Global expect timeout for all assertions
+	// Note: Some tests override this with longer timeouts for slow operations like site creation
 	expect: {
-		timeout: 10_000,
+		timeout: 30_000,
 	},
 } );

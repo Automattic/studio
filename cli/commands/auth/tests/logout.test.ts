@@ -8,6 +8,7 @@ import {
 	unlockAppdata,
 } from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
+import { runCommand } from '../logout';
 
 const mockReportStart = vi.fn();
 const mockReportSuccess = vi.fn();
@@ -62,7 +63,6 @@ describe( 'Auth Logout Command', () => {
 	} );
 
 	it( 'should complete the logout process successfully', async () => {
-		const { runCommand } = await import( '../logout' );
 		await runCommand();
 
 		expect( getAuthToken ).toHaveBeenCalled();
@@ -79,7 +79,6 @@ describe( 'Auth Logout Command', () => {
 	it( 'should report an error if revoking the token fails', async () => {
 		vi.mocked( revokeAuthToken ).mockRejectedValue( new Error( 'Failed to revoke token' ) );
 
-		const { runCommand } = await import( '../logout' );
 		await runCommand();
 
 		expect( getAuthToken ).toHaveBeenCalled();
@@ -94,7 +93,6 @@ describe( 'Auth Logout Command', () => {
 	it( 'should report already logged out if no auth token exists', async () => {
 		vi.mocked( getAuthToken ).mockRejectedValue( new Error( 'No auth token' ) );
 
-		const { runCommand } = await import( '../logout' );
 		await runCommand();
 
 		expect( getAuthToken ).toHaveBeenCalled();
@@ -108,7 +106,6 @@ describe( 'Auth Logout Command', () => {
 	it( 'should unlock appdata even if save fails', async () => {
 		vi.mocked( saveAppdata ).mockRejectedValue( new Error( 'Failed to save' ) );
 
-		const { runCommand } = await import( '../logout' );
 		await runCommand();
 
 		expect( revokeAuthToken ).toHaveBeenCalled();

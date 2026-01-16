@@ -8,7 +8,7 @@ class ElectronSqliteProvider extends SqliteIntegrationProvider {
 		return getServerFilesPath();
 	}
 
-	getSqliteFilename(): string {
+	getSqliteDirname(): string {
 		return getWordPressProvider().SQLITE_FILENAME;
 	}
 }

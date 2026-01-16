@@ -93,7 +93,7 @@ function ButtonToRun( {
 				aria-label={ sprintf( running ? __( 'stop %s site' ) : __( 'start %s site' ), name ) }
 			>
 				{ /* Circle or Xdebug icon */ }
-				{ enableXdebug && ( running || loadingServer[ id ] ) ? (
+				{ enableXdebug ? (
 					<div
 						className={ cx(
 							'transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0',
@@ -101,7 +101,7 @@ function ButtonToRun( {
 							loadingServer[ id ] && 'animate-pulse duration-100'
 						) }
 					>
-						<XDebugIcon />
+						<XDebugIcon greyed={ ! running && ! loadingServer[ id ] } />
 					</div>
 				) : (
 					<div

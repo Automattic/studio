@@ -6,20 +6,18 @@
  * stdout key-value pairs that Studio parses.
  *
  */
-import path from 'path';
 import { __ } from '@wordpress/i18n';
 import { sequential } from 'common/lib/sequential';
 import { SITE_EVENTS, siteDetailsSchema, SiteEvent } from 'common/lib/site-events';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
+import axon from 'pm2-axon';
+import { z } from 'zod';
 import { getSiteUrl, readAppdata, SiteData } from 'cli/lib/appdata';
 import {
 	connect,
 	disconnect,
-	getEventsRelayProcessName,
-	startEventsRelayProcess,
-	stopEventsRelayProcess,
-	subscribeProcessMessages,
 	subscribePm2KillEvent,
+	EVENTS_SOCKET_PATH,
 } from 'cli/lib/pm2-manager';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { subscribeSiteEvents } from 'cli/lib/wordpress-server-manager';
@@ -70,33 +68,109 @@ async function emitAllSitesStopped(): Promise< void > {
 	}
 }
 
+const siteEventSchema = z.object( {
+	event: z.string(),
+	data: z.object( {
+		siteId: z.string(),
+	} ),
+} );
+
 export async function runCommand(): Promise< void > {
+	const socket = axon.socket( 'pull' );
+	const bindAbortController = new AbortController();
+
+	async function cleanup() {
+		if ( bindAbortController.signal.aborted ) {
+			return;
+		}
+
+		bindAbortController.abort();
+
+		await new Promise< void >( ( resolve ) => {
+			// Only try to close if socket is actually bound
+			if ( socket.type !== 'server' ) {
+				return resolve();
+			}
+
+			socket.once( 'close', () => {
+				clearTimeout( timeoutId );
+				resolve();
+			} );
+
+			const timeoutId = setTimeout( () => {
+				socket.destroy?.();
+				resolve();
+			}, 250 );
+
+			socket.close();
+		} );
+
+		try {
+			await disconnect();
+		} catch ( err ) {
+			// Do nothing
+		}
+
+		process.exit();
+	}
+
+	process.on( 'SIGINT', () => void cleanup() );
+	process.on( 'SIGTERM', () => void cleanup() );
+
+	try {
+		await new Promise< void >( ( resolve, reject ) => {
+			bindAbortController.signal.throwIfAborted();
+
+			const timeout = setTimeout( () => {
+				bindAbortController.signal.removeEventListener( 'abort', onAbort );
+				reject( new Error( 'Socket bind timeout' ) );
+			}, 2500 );
+
+			function onAbort() {
+				clearTimeout( timeout );
+				reject( new Error( 'Bind aborted due to signal' ) );
+			}
+			bindAbortController.signal.addEventListener( 'abort', onAbort );
+
+			socket.once( 'bind', () => {
+				clearTimeout( timeout );
+				bindAbortController.signal.removeEventListener( 'abort', onAbort );
+				resolve();
+			} );
+
+			socket.bind( EVENTS_SOCKET_PATH, ( error: unknown ) => {
+				if ( error ) {
+					clearTimeout( timeout );
+					bindAbortController.signal.removeEventListener( 'abort', onAbort );
+					reject( error );
+				}
+			} );
+		} );
+	} catch ( error ) {
+		await cleanup();
+		return;
+	}
+
+	socket.on( 'message', ( packet: unknown ) => {
+		try {
+			const parsedPacket = siteEventSchema.parse( packet );
+			if (
+				parsedPacket.event === SITE_EVENTS.CREATED ||
+				parsedPacket.event === SITE_EVENTS.UPDATED ||
+				parsedPacket.event === SITE_EVENTS.DELETED
+			) {
+				void emitSiteEvent( parsedPacket.event, parsedPacket.data.siteId );
+			}
+		} catch ( error ) {
+			// Do nothing
+		}
+	} );
+
 	logger.reportStart( LoggerAction.START_DAEMON, __( 'Connecting to process daemon…' ) );
 	await connect();
 	logger.reportSuccess( __( 'Connected to process daemon' ) );
 
-	const relayScriptPath = path.join( __dirname, 'events-relay.js' );
-	await startEventsRelayProcess( relayScriptPath );
-
 	await emitAllSitesStatus();
-
-	const relayProcessName = getEventsRelayProcessName();
-	await subscribeProcessMessages( ( { processName, topic, data } ) => {
-		if ( processName !== relayProcessName ) {
-			return;
-		}
-		if (
-			topic === SITE_EVENTS.CREATED ||
-			topic === SITE_EVENTS.UPDATED ||
-			topic === SITE_EVENTS.DELETED
-		) {
-			const eventData = data as { data?: { siteId?: string } };
-			const siteId = eventData?.data?.siteId;
-			if ( siteId ) {
-				void emitSiteEvent( topic, siteId );
-			}
-		}
-	} );
 
 	await subscribeSiteEvents( ( { siteId, event, running } ) => {
 		void emitSiteEvent( event, siteId, running );
@@ -105,14 +179,6 @@ export async function runCommand(): Promise< void > {
 	await subscribePm2KillEvent( () => {
 		void emitAllSitesStopped();
 	} );
-
-	async function cleanup() {
-		await stopEventsRelayProcess();
-		await disconnect();
-	}
-
-	process.on( 'SIGINT', () => void cleanup() );
-	process.on( 'SIGTERM', () => void cleanup() );
 }
 
 export async function commandHandler() {

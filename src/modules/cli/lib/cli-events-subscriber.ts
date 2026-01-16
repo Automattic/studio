@@ -108,10 +108,7 @@ export async function startCliEventsSubscriber(): Promise< void > {
 export function stopCliEventsSubscriber(): void {
 	if ( subscriber ) {
 		const [ , childProcess ] = subscriber;
-		if ( childProcess.connected ) {
-			childProcess.disconnect();
-		}
-		childProcess.kill();
+		childProcess.kill( 'SIGKILL' );
 		subscriber = null;
 	}
 }

@@ -1,3 +1,4 @@
+import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/constants';
@@ -5,6 +6,7 @@ import { cacheFunctionTTL } from 'common/lib/cache-function-ttl';
 import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
 import { SITE_EVENTS } from 'common/lib/site-events';
 import { custom as PM2, StartOptions } from 'pm2';
+import axon from 'pm2-axon';
 import { getAppdataPath } from 'cli/lib/appdata';
 import { ProcessDescription } from 'cli/lib/types/pm2';
 import {
@@ -22,6 +24,14 @@ const KILL_TIMEOUT = 25_000;
 // This ensures all Studio CLI commands use the same PM2 daemon
 const STUDIO_PM2_HOME = path.join( os.homedir(), '.studio', 'pm2' );
 const PM2_LOCKFILE_PATH = path.join( STUDIO_PM2_HOME, 'pm2-connection.lock' );
+export const EVENTS_SOCKET_PATH =
+	process.platform === 'win32'
+		? '\\\\.\\pipe\\studio-events.sock'
+		: path.join( STUDIO_PM2_HOME, 'events.sock' );
+
+if ( process.platform !== 'win32' && ! fs.existsSync( STUDIO_PM2_HOME ) ) {
+	fs.mkdirSync( STUDIO_PM2_HOME, { recursive: true } );
+}
 
 export interface ProcessEventData {
 	processName: string;
@@ -344,62 +354,60 @@ export async function subscribePm2KillEvent( handler: () => void ) {
 	};
 }
 
-const EVENTS_RELAY_PROCESS_NAME = 'studio-events-relay';
-
 /**
- * Emit a site event via the events relay process.
- * The relay re-emits on PM2 bus for `_events` to receive.
+ * Emit a site event via the events socket, for the `_events` command server to receive.
  *
  * @param event - The event topic (e.g., 'site-created', 'site-updated', 'site-deleted')
  * @param data - The event data (must include siteId)
  */
 export async function emitSiteEvent(
 	event: SITE_EVENTS,
-	data: { siteId: string; url?: string }
+	data: { siteId: string }
 ): Promise< void > {
-	const relayProcess = await isProcessRunning( EVENTS_RELAY_PROCESS_NAME );
-	if ( relayProcess?.pmId === undefined ) {
-		// No relay running - that's fine, Studio might not be open
-		return;
-	}
+	const socket = axon.socket( 'push' );
+	socket.connect( EVENTS_SOCKET_PATH );
 
-	return new Promise( ( resolve ) => {
-		pm2.sendDataToProcessId(
-			relayProcess.pmId,
-			{
-				type: 'process:msg',
-				topic: event,
-				data,
-			},
-			() => {
-				resolve();
-			}
-		);
-	} );
-}
-
-export function getEventsRelayProcessName(): string {
-	return EVENTS_RELAY_PROCESS_NAME;
-}
-
-export async function startEventsRelayProcess( relayScriptPath: string ): Promise< void > {
-	const existingProcess = await isProcessRunning( EVENTS_RELAY_PROCESS_NAME );
-	if ( existingProcess?.pmId !== undefined ) {
-		return;
-	}
-
-	const env: Record< string, string > = {
-		PATH: process.env.PATH || '',
-		HOME: process.env.HOME || '',
+	// Suppress `Buffer()` deprecation warning from pm2-axon dependencies
+	const originalEmitWarning = process.emitWarning;
+	process.emitWarning = ( warning, ...args ) => {
+		if (
+			( typeof warning === 'string' && warning.includes( 'Buffer()' ) ) ||
+			// @ts-expect-error `Error.prototype.code` is non-standard but exists here, so just ignore TS
+			( warning instanceof Error && warning.code === 'DEP0005' )
+		) {
+			return;
+		}
+		// @ts-expect-error `process.emitWarning` has complex overloads, ignoring for warning suppression
+		return originalEmitWarning.call( process, warning, ...args );
 	};
 
-	await startProcess( EVENTS_RELAY_PROCESS_NAME, relayScriptPath, env );
-}
+	function closeHandler() {
+		return new Promise< void >( ( resolve ) => {
+			socket.once( 'close', () => {
+				clearTimeout( timeoutId );
+				resolve();
+			} );
 
-export async function stopEventsRelayProcess(): Promise< void > {
-	return new Promise( ( resolve ) => {
-		pm2.delete( EVENTS_RELAY_PROCESS_NAME, () => {
+			const timeoutId = setTimeout( () => {
+				socket.destroy?.();
+				resolve();
+			}, 200 );
+
+			socket.close();
+			process.emitWarning = originalEmitWarning;
+		} );
+	}
+	process.on( 'SIGINT', closeHandler );
+	process.on( 'SIGTERM', closeHandler );
+
+	await new Promise< void >( ( resolve ) => {
+		socket.once( 'connect', function () {
+			socket.send( { event, data } );
 			resolve();
 		} );
-	} );
+		// Connection refused. Likely means Studio isn't running.
+		socket.once( 'socket error', () => {
+			resolve();
+		} );
+	} ).finally( closeHandler );
 }

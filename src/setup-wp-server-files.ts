@@ -132,7 +132,7 @@ export async function setupWPServerFiles() {
  */
 async function getWPCliVersionFromInstallation(): Promise< string > {
 	return new Promise( ( resolve ) => {
-		const [ emitter ] = executeCliCommand( [ 'wp', '--no-path', '--version' ], {
+		const [ emitter ] = executeCliCommand( [ 'wp', '--studio-no-path', '--version' ], {
 			output: 'capture',
 		} );
 

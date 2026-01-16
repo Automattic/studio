@@ -59,10 +59,6 @@ async function main() {
 			defaultDescription: __( 'Current directory' ),
 			description: __( 'Path to the WordPress files' ),
 			coerce: ( value ) => {
-				// --no-path sets value to false, skip coercion in that case
-				if ( value === false ) {
-					return false;
-				}
 				return path.resolve( untildify( value ) );
 			},
 		} )
@@ -107,7 +103,15 @@ async function main() {
 			command: 'wp',
 			describe: __( 'WP-CLI' ),
 			builder: ( wpYargs ) => {
-				return wpYargs.help( false ).showHelpOnFail( false ).strict( false ).version( false );
+				return wpYargs
+					.help( false )
+					.showHelpOnFail( false )
+					.strict( false )
+					.version( false )
+					.option( 'studio-no-path', {
+						type: 'boolean',
+						hidden: true,
+					} );
 			},
 			handler: wpCliCommandHandler,
 		} )

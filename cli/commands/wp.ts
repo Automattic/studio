@@ -1,3 +1,4 @@
+import { StreamedPHPResponse } from '@php-wasm/universal';
 import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
@@ -9,19 +10,53 @@ import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-mana
 import { Logger, LoggerError } from 'cli/logger';
 import { GlobalOptions } from 'cli/types';
 
-interface WpCommandOptions extends GlobalOptions {
-	path: string | false;
-}
-
 const logger = new Logger< '' >();
 
+async function pipePHPResponse( response: StreamedPHPResponse ) {
+	const decoder = new TextDecoder();
+
+	await response.stderr.pipeTo(
+		new WritableStream( {
+			write( chunk ) {
+				process.stderr.write( chunk );
+			},
+		} )
+	);
+
+	await response.stdout.pipeTo(
+		new WritableStream( {
+			write( chunk ) {
+				const text = decoder.decode( chunk, { stream: true } );
+				if ( ! text.startsWith( '#!/usr/bin/env' ) ) {
+					process.stdout.write( chunk );
+				}
+			},
+		} )
+	);
+}
+
+enum Mode {
+	GLOBAL = 'global',
+	SITE = 'site',
+}
+
 export async function runCommand(
+	mode: Mode,
 	siteFolder: string,
 	args: string[],
-	options: {
-		phpVersion?: string;
-	} = {}
+	options: { phpVersion?: string } = {}
 ): Promise< void > {
+	// Handle global WP-CLI commands that don't require a site path (--studio-no-path)
+	if ( mode === Mode.GLOBAL ) {
+		const [ response, exitPhp ] = await runGlobalWpCliCommand( args );
+
+		await pipePHPResponse( response );
+		process.exitCode = await response.exitCode;
+		exitPhp();
+
+		return;
+	}
+
 	const site = await getSiteByFolder( siteFolder );
 	const phpVersion = validatePhpVersion( options.phpVersion ?? site.phpVersion );
 
@@ -52,27 +87,8 @@ export async function runCommand(
 
 	// …If not, run the command in a new PHP-WASM instance
 	const [ response, exitPhp ] = await runWpCliCommand( siteFolder, phpVersion, args );
-	const decoder = new TextDecoder();
 
-	await response.stderr.pipeTo(
-		new WritableStream( {
-			write( chunk ) {
-				process.stderr.write( chunk );
-			},
-		} )
-	);
-
-	await response.stdout.pipeTo(
-		new WritableStream( {
-			write( chunk ) {
-				const text = decoder.decode( chunk, { stream: true } );
-				if ( ! text.startsWith( '#!/usr/bin/env' ) ) {
-					process.stdout.write( chunk );
-				}
-			},
-		} )
-	);
-
+	await pipePHPResponse( response );
 	process.exitCode = await response.exitCode;
 	exitPhp();
 }
@@ -98,10 +114,14 @@ function removeArgumentFromArgv(
 	return argv;
 }
 
+interface WpCommandOptions extends GlobalOptions {
+	studioNoPath?: boolean;
+}
+
 export async function commandHandler( argv: ArgumentsCamelCase< WpCommandOptions > ) {
 	try {
 		let wpCliArgv = removeArgumentFromArgv( process.argv.slice( 3 ), 'path' );
-		wpCliArgv = removeArgumentFromArgv( wpCliArgv, 'no-path', false );
+		wpCliArgv = removeArgumentFromArgv( wpCliArgv, 'studio-no-path', false );
 		const parsedWpCliArgs = yargsParser( wpCliArgv );
 
 		if ( parsedWpCliArgs._[ 0 ] === 'shell' ) {
@@ -116,36 +136,9 @@ export async function commandHandler( argv: ArgumentsCamelCase< WpCommandOptions
 		wpCliArgv = removeArgumentFromArgv( wpCliArgv, 'php-version' );
 		wpCliArgv = removeArgumentFromArgv( wpCliArgv, 'avoid-telemetry', false );
 
-		// Handle global WP-CLI commands that don't require a site path (--no-path sets path to false)
-		if ( argv.path === false ) {
-			const [ response, exitPhp ] = await runGlobalWpCliCommand( wpCliArgv );
-			const decoder = new TextDecoder();
-
-			await response.stderr.pipeTo(
-				new WritableStream( {
-					write( chunk ) {
-						process.stderr.write( chunk );
-					},
-				} )
-			);
-
-			await response.stdout.pipeTo(
-				new WritableStream( {
-					write( chunk ) {
-						const text = decoder.decode( chunk, { stream: true } );
-						if ( ! text.startsWith( '#!/usr/bin/env' ) ) {
-							process.stdout.write( chunk );
-						}
-					},
-				} )
-			);
-
-			process.exitCode = await response.exitCode;
-			exitPhp();
-			return;
-		}
-
-		await runCommand( argv.path, wpCliArgv, { phpVersion } );
+		await runCommand( argv.studioNoPath ? Mode.GLOBAL : Mode.SITE, argv.path, wpCliArgv, {
+			phpVersion,
+		} );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );

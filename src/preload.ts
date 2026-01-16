@@ -146,6 +146,7 @@ const api: IpcApi = {
 	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),
 	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),
 	uninstallStudioCli: () => ipcRendererInvoke( 'uninstallStudioCli' ),
+	getCurrentLogFilePath: () => ipcRendererInvoke( 'getCurrentLogFilePath' ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

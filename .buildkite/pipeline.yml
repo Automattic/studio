@@ -42,6 +42,7 @@ steps:
     command: bash .buildkite/commands/run-e2e-tests.sh "{{matrix}}"
     artifact_paths:
       - test-results/**/*.zip
+      - test-results/**/*.txt
       - test-results/**/*.png
       - test-results/**/*error-context.md
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]

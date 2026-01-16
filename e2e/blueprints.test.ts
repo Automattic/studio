@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 import { test, expect } from '@playwright/test';
 import { DEFAULT_SITE_NAME } from './constants';
@@ -21,10 +22,27 @@ test.describe( 'Blueprints', () => {
 			const siteContent = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
 			await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
 		} catch ( error ) {
-			// Capture screenshot on beforeAll failure
+			const testResultsDir = path.join( process.cwd(), 'test-results' );
+			if ( ! fs.existsSync( testResultsDir ) ) {
+				fs.mkdirSync( testResultsDir, { recursive: true } );
+			}
+
 			await session.mainWindow.screenshot( {
-				path: `test-results/beforeAll-failure-${ Date.now() }.png`,
+				path: path.join( testResultsDir, `beforeAll-failure-${ Date.now() }.png` ),
 			} );
+
+			const logFilePath = await session.mainWindow.evaluate( () => {
+				return window.ipcApi.getCurrentLogFilePath();
+			} );
+
+			if ( logFilePath ) {
+				const logFileName = `blueprints-app-logs-${ Date.now() }.txt`;
+				const destPath = path.join( testResultsDir, logFileName );
+
+				await fs.promises.copyFile( logFilePath, destPath );
+				console.log( `Application logs saved to: ${ destPath }` );
+			}
+
 			throw error;
 		}
 	} );

@@ -67,9 +67,8 @@ export abstract class SqliteIntegrationProvider {
 
 	async isSqliteInstalled( sitePath: string ): Promise< boolean > {
 		return (
-			fs.existsSync(
-				path.join( sitePath, 'wp-content', 'mu-plugins', this.getSqliteFilename() )
-			) && fs.existsSync( path.join( sitePath, 'wp-content', 'db.php' ) )
+			fs.existsSync( path.join( sitePath, 'wp-content', 'mu-plugins', this.getSqliteDirname() ) ) &&
+			fs.existsSync( path.join( sitePath, 'wp-content', 'db.php' ) )
 		);
 	}
 }

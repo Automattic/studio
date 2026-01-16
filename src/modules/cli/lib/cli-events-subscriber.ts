@@ -75,11 +75,9 @@ export async function startCliEventsSubscriber(): Promise< void > {
 			output: 'capture',
 			logPrefix: 'events',
 		} );
-		const [ eventEmitter, childProcess ] = subscriber;
+		const [ eventEmitter ] = subscriber;
 
 		eventEmitter.on( 'started', () => {
-			const pid = childProcess.pid;
-			console.log( `events subscriber with pid ${ pid } started` );
 			resolve();
 		} );
 
@@ -110,9 +108,7 @@ export async function startCliEventsSubscriber(): Promise< void > {
 export function stopCliEventsSubscriber(): void {
 	if ( subscriber ) {
 		const [ , childProcess ] = subscriber;
-		const pid = childProcess.pid;
-		const result = childProcess.kill( 'SIGKILL' );
-		console.log( `events subscriber process with pid ${ pid } killed with result ${ result }` );
+		childProcess.kill( 'SIGKILL' );
 		subscriber = null;
 	}
 }

@@ -163,7 +163,7 @@ test.describe( 'Overview customize links', () => {
 			// The Navigation page may load in an iframe (editor-canvas) or directly in the page
 			// Try iframe first, then fall back to main page
 			const iframeLocator = page.locator( 'iframe[name="editor-canvas"]' );
-			const hasIframe = await iframeLocator.count() > 0;
+			const hasIframe = ( await iframeLocator.count() ) > 0;
 
 			if ( hasIframe ) {
 				const iframe = page.frameLocator( 'iframe[name="editor-canvas"]' );

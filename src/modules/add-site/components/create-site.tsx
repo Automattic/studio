@@ -6,6 +6,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { RefObject } from 'react';
 import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
 import { CreateSiteForm } from 'src/modules/add-site/components/create-site-form';
+import type { BlueprintPreferredVersions } from 'common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
 
 export interface CreateSiteProps {
@@ -18,7 +19,7 @@ export interface CreateSiteProps {
 	onSelectPath: ( currentPath: string ) => Promise< PathValidationResult | null >;
 	onSiteNameChange: ( name: string ) => Promise< PathValidationResult >;
 	existingDomainNames?: string[];
-	blueprintPreferredVersions?: { php?: string; wp?: string };
+	blueprintPreferredVersions?: BlueprintPreferredVersions;
 	onSubmit: ( values: CreateSiteFormValues ) => void;
 	onValidityChange?: ( isValid: boolean ) => void;
 	formRef?: RefObject< HTMLFormElement >;

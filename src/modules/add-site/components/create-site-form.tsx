@@ -18,6 +18,7 @@ import {
 	selectDefaultWordPressVersion,
 	selectAllowedPhpVersions,
 } from 'src/stores/provider-constants-slice';
+import type { BlueprintPreferredVersions } from 'common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
 
 export interface CreateSiteFormProps {
@@ -35,7 +36,7 @@ export interface CreateSiteFormProps {
 	/** Existing domain names for validation */
 	existingDomainNames?: string[];
 	/** Blueprint preferred versions for warning display */
-	blueprintPreferredVersions?: { php?: string; wp?: string };
+	blueprintPreferredVersions?: BlueprintPreferredVersions;
 	/** Called when form is submitted */
 	onSubmit: ( values: CreateSiteFormValues ) => void;
 	/** Called when form validity changes */

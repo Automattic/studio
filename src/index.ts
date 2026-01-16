@@ -1,3 +1,4 @@
+// TEMP: Force metrics CI to run - remove after verification
 import {
 	app,
 	BrowserWindow,

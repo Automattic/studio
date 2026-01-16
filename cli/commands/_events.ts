@@ -85,6 +85,28 @@ export async function runCommand(): Promise< void > {
 
 	const socket = axon.socket( 'pull' );
 
+	async function cleanup() {
+		await new Promise< void >( ( resolve ) => {
+			socket.once( 'close', () => {
+				clearTimeout( timeoutId );
+				resolve();
+			} );
+
+			const timeoutId = setTimeout( () => {
+				console.log( 'Socket close timeout', typeof socket.destroy );
+				socket.destroy?.();
+				if ( fs.existsSync( EVENTS_SOCKET_PATH ) ) {
+					console.log( 'Removing socket file' );
+					fs.unlinkSync( EVENTS_SOCKET_PATH );
+				}
+				resolve();
+			}, 200 );
+
+			socket.close();
+		} );
+		await disconnect();
+	}
+
 	await new Promise< void >( ( resolve, reject ) => {
 		const timeout = setTimeout( () => {
 			console.log( 'Socket bind timeout' );
@@ -124,36 +146,6 @@ export async function runCommand(): Promise< void > {
 		}
 	} );
 
-	await subscribeSiteEvents( ( { siteId, event, running } ) => {
-		void emitSiteEvent( event, siteId, running );
-	} );
-
-	await subscribePm2KillEvent( () => {
-		void emitAllSitesStopped();
-	} );
-
-	async function cleanup() {
-		await new Promise< void >( ( resolve ) => {
-			socket.once( 'close', () => {
-				clearTimeout( timeoutId );
-				resolve();
-			} );
-
-			const timeoutId = setTimeout( () => {
-				console.log( 'Socket close timeout', typeof socket.destroy );
-				socket.destroy?.();
-				if ( fs.existsSync( EVENTS_SOCKET_PATH ) ) {
-					console.log( 'Removing socket file' );
-					fs.unlinkSync( EVENTS_SOCKET_PATH );
-				}
-				resolve();
-			}, 200 );
-
-			socket.close();
-		} );
-		await disconnect();
-	}
-
 	process.on( 'SIGINT', async () => {
 		console.log( 'SIGINT received' );
 		await cleanup();
@@ -161,6 +153,14 @@ export async function runCommand(): Promise< void > {
 	process.on( 'SIGTERM', async () => {
 		console.log( 'SIGTERM received' );
 		await cleanup();
+	} );
+
+	await subscribeSiteEvents( ( { siteId, event, running } ) => {
+		void emitSiteEvent( event, siteId, running );
+	} );
+
+	await subscribePm2KillEvent( () => {
+		void emitAllSitesStopped();
 	} );
 }
 

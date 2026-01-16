@@ -62,7 +62,7 @@ export default function BlueprintDeeplink( {
 				</VStack>
 				<HStack
 					alignment="start"
-					className="w-full bg-[#FAFAFA] border border-t-0 rounded-b-lg p-[14px]"
+					className="w-full bg-[#FAFAFA] border border-t-0 rounded-b-lg py-[14px] pe-[14px] ps-[68px] justify-start"
 				>
 					<Icon icon={ link } size={ 18 } />
 					<Text className="text-[13px] text-[#2F2F2F]">{ __( 'Blueprint loaded from URL' ) }</Text>

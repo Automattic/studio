@@ -390,14 +390,14 @@ export class SiteServer {
 
 			if ( exitCode !== 0 || ! stdout ) {
 				console.error( 'Failed to get theme details via WP-CLI', { exitCode, stdout, stderr } );
-				return this.details.themeDetails;
+				return this.themeDetails;
 			}
 
 			const themeDetailsParsed = JSON.parse( stdout );
 			return SiteServer.themeDetailsSchema.parse( themeDetailsParsed );
 		} catch ( error ) {
 			console.error( 'Failed to get theme details:', error );
-			return this.details.themeDetails;
+			return this.themeDetails;
 		}
 	}
 

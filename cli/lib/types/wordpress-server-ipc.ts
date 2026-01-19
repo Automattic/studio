@@ -94,7 +94,7 @@ const childMessageError = z.object( {
 	topic: z.literal( 'error' ),
 	errorMessage: z.string(),
 	errorStack: z.string().optional(),
-	cliArgs: z.record( z.unknown() ).optional(),
+	cliArgs: z.record( z.string(), z.unknown() ).optional(),
 } );
 
 const childMessageConsole = z.object( {

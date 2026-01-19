@@ -26,16 +26,16 @@ function siteDetailsToServerDetails(
 	};
 }
 
-const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > => {
+const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< boolean > => {
 	const { event: eventType, siteId, site, running } = event;
 
 	if ( eventType === SITE_EVENTS.DELETED ) {
 		SiteServer.unregister( siteId );
-		return;
+		return true;
 	}
 
 	if ( ! site ) {
-		return;
+		return true;
 	}
 
 	// Only register new sites on CREATED events to prevent duplicates
@@ -44,18 +44,19 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		if ( ! existingServer ) {
 			SiteServer.register( siteDetailsToServerDetails( site, running ) );
 		}
-		return;
+		// Don't send to renderer if site is being created by UI (createSite IPC will handle it)
+		return ! existingServer?.hasOngoingOperation;
 	}
 
 	// For UPDATED events, only update if the site already exists
 	const server = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
 	if ( ! server ) {
-		return;
+		return false;
 	}
 
 	// Skip update if Studio has an ongoing operation
 	if ( server.hasOngoingOperation ) {
-		return;
+		return false;
 	}
 
 	server.details = siteDetailsToServerDetails( site, running );
@@ -63,6 +64,8 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 	if ( server.server && site.url ) {
 		server.server.url = site.url;
 	}
+
+	return true;
 } );
 
 export async function startCliEventsSubscriber(): Promise< void > {
@@ -88,19 +91,11 @@ export async function startCliEventsSubscriber(): Promise< void > {
 			}
 
 			const siteEvent = parsed.data.value;
-			void handleSiteEvent( siteEvent );
-
-			// Don't send CREATED events to renderer if the site is currently being created by the UI
-			// (the createSite IPC call will handle updating the UI state to prevent duplicates)
-			if ( siteEvent.event === SITE_EVENTS.CREATED && siteEvent.site ) {
-				const existingServer =
-					SiteServer.get( siteEvent.siteId ) ?? SiteServer.getByPath( siteEvent.site.path );
-				if ( existingServer?.hasOngoingOperation ) {
-					return;
+			void handleSiteEvent( siteEvent ).then( ( shouldSendToRenderer ) => {
+				if ( shouldSendToRenderer ) {
+					void sendIpcEventToRenderer( 'site-event', siteEvent );
 				}
-			}
-
-			void sendIpcEventToRenderer( 'site-event', siteEvent );
+			} );
 		} );
 
 		eventEmitter.on( 'error', ( { error } ) => {

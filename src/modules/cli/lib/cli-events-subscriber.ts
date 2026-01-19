@@ -58,11 +58,7 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		return;
 	}
 
-	const existingThemeDetails = server.details.themeDetails;
 	server.details = siteDetailsToServerDetails( site, running );
-	if ( existingThemeDetails ) {
-		server.details.themeDetails = existingThemeDetails;
-	}
 
 	if ( server.server && site.url ) {
 		server.server.url = site.url;

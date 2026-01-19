@@ -70,6 +70,7 @@ export class SiteServer {
 	 * with the ongoing operation.
 	 */
 	hasOngoingOperation = false;
+	themeDetails?: SiteDetails[ 'themeDetails' ];
 
 	private constructor(
 		public details: SiteDetails,
@@ -77,6 +78,7 @@ export class SiteServer {
 	) {
 		const url = getAbsoluteUrl( this.details );
 		this.server = new CliServerProcess( this.details.id, this.details.path, url );
+		this.themeDetails = details.themeDetails;
 	}
 
 	static get( id: string ): SiteServer | undefined {

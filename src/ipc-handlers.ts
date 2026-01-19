@@ -145,7 +145,7 @@ async function refreshSiteMetadataAndNotify(
 	try {
 		const themeDetails = await server.getThemeDetails();
 		if ( themeDetails ) {
-			server.details.themeDetails = themeDetails;
+			server.themeDetails = themeDetails;
 		}
 	} catch ( error ) {
 		console.error( `Failed to get theme details for server ${ id }:`, error );
@@ -154,7 +154,7 @@ async function refreshSiteMetadataAndNotify(
 	// Always send theme-details-changed to reset loading state, even if fetching failed
 	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-changed', {
 		id,
-		details: server.details.themeDetails,
+		details: server.themeDetails,
 	} );
 
 	await updateSite( event, server.details );
@@ -171,7 +171,10 @@ function mergeSiteDetailsWithRunningDetails( sites: SiteDetails[] ): SiteDetails
 	return sites.map( ( site ) => {
 		const server = SiteServer.get( site.id );
 		if ( server ) {
-			return server.details;
+			return {
+				...server.details,
+				themeDetails: server.themeDetails,
+			};
 		}
 		return site;
 	} );
@@ -765,10 +768,10 @@ export async function getThemeDetails(
 
 	const themeDetails = await server.getThemeDetails();
 	const themeChanged =
-		themeDetails?.path && themeDetails.path !== server.details.themeDetails?.path;
+		themeDetails?.path && themeDetails.path !== server.themeDetails?.path;
 
 	if ( themeDetails ) {
-		server.details.themeDetails = themeDetails;
+		server.themeDetails = themeDetails;
 	}
 
 	if ( themeChanged ) {

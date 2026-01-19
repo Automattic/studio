@@ -1,0 +1,44 @@
+diff --git a/node_modules/@php-wasm/node/index.cjs b/node_modules/@php-wasm/node/index.cjs
+index 1c7ca26..6158442 100644
+--- a/node_modules/@php-wasm/node/index.cjs
++++ b/node_modules/@php-wasm/node/index.cjs
+@@ -461083,13 +461083,6 @@ async function withXdebug(version = import_universal3.LatestSupportedPHPVersion,
+           ].join("\n")
+         );
+       }
+-      phpRuntime.FS.mkdirTree(process.cwd());
+-      phpRuntime.FS.mount(
+-        phpRuntime.FS.filesystems["NODEFS"],
+-        { root: process.cwd() },
+-        process.cwd()
+-      );
+-      phpRuntime.FS.chdir(process.cwd());
+     }
+   };
+ }
+diff --git a/node_modules/@php-wasm/node/index.js b/node_modules/@php-wasm/node/index.js
+index df415c6..d4592b9 100644
+--- a/node_modules/@php-wasm/node/index.js
++++ b/node_modules/@php-wasm/node/index.js
+@@ -460636,7 +460636,6 @@ async function getPHPLoaderModule(version = LatestSupportedPHPVersion) {
+         return await Promise.resolve().then(() => (init_php_7_22(), php_7_2_exports2));
+     }
+   }
+-  throw new Error(`Unsupported PHP version ${version}`);
+ }
+ 
+ // packages/php-wasm/node/src/lib/networking/outbound-ws-to-tcp-proxy.ts
+@@ -461058,13 +461057,6 @@ async function withXdebug(version = LatestSupportedPHPVersion3, options, xdebugO
+           ].join("\n")
+         );
+       }
+-      phpRuntime.FS.mkdirTree(process.cwd());
+-      phpRuntime.FS.mount(
+-        phpRuntime.FS.filesystems["NODEFS"],
+-        { root: process.cwd() },
+-        process.cwd()
+-      );
+-      phpRuntime.FS.chdir(process.cwd());
+     }
+   };
+ }

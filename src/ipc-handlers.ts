@@ -767,8 +767,7 @@ export async function getThemeDetails(
 	}
 
 	const themeDetails = await server.getThemeDetails();
-	const themeChanged =
-		themeDetails?.path && themeDetails.path !== server.themeDetails?.path;
+	const themeChanged = themeDetails?.path && themeDetails.path !== server.themeDetails?.path;
 
 	if ( themeDetails ) {
 		server.themeDetails = themeDetails;

@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import { decodePassword } from 'common/lib/passwords';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { getSiteUrl, readAppdata, SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
@@ -45,7 +46,7 @@ export function logSiteDetails( site: SiteData ): void {
 	console.log( __( 'Site URL: ' ), siteUrl );
 	console.log( __( 'Username: ' ), 'admin' );
 	if ( site.adminPassword ) {
-		console.log( __( 'Password: ' ), site.adminPassword );
+		console.log( __( 'Password: ' ), decodePassword( site.adminPassword ) );
 	}
 }
 

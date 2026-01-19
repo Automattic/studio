@@ -9,6 +9,7 @@ import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { siteDetailsSchema } from 'common/lib/site-events';
 import { snapshotSchema } from 'common/types/snapshot';
+import { StatsMetric } from 'common/types/stats';
 import { z } from 'zod';
 import { validateAccessToken } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
@@ -45,7 +46,7 @@ const userDataSchema = z
 			} )
 			.loose()
 			.optional(),
-		lastBumpStats: z.record( z.string(), z.record( z.string(), z.number() ) ).optional(),
+		lastBumpStats: z.record( z.string(), z.record( z.enum( StatsMetric ), z.number() ) ).optional(),
 		betaFeatures: betaFeaturesSchema.optional(),
 	} )
 	.loose();

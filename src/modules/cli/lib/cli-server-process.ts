@@ -4,7 +4,7 @@ import { executeCliCommand } from './execute-command';
 import type { WordPressServerProcess } from 'src/lib/wordpress-server-types';
 
 const cliEventSchema = z.object( {
-	action: z.nativeEnum( SiteCommandLoggerAction ),
+	action: z.enum( SiteCommandLoggerAction ),
 	status: z.enum( [ 'inprogress', 'fail', 'success', 'warning' ] ),
 	message: z.string(),
 } );

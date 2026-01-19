@@ -33,7 +33,7 @@ export enum SITE_EVENTS {
 }
 
 export const siteEventSchema = z.object( {
-	event: z.nativeEnum( SITE_EVENTS ),
+	event: z.enum( SITE_EVENTS ),
 	siteId: z.string(),
 	site: siteDetailsSchema.optional(),
 	running: z.boolean(),

@@ -58,6 +58,23 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 	const locale = useI18nLocale();
 	const whatsNewPages: WhatsNewPage[] = [
 		{
+			image: cliIllustration,
+			title: __( 'WP-CLI support and CLI site management' ),
+			description: interpolateComponents( {
+				mixedString: sprintf(
+					/* translators: %s is the name of the WordPress Studio CLI command ("studio") */
+					__(
+						'Easily install the %s CLI to run WP-CLI commands from your terminal and to create, start, stop, or update your sites.'
+					),
+					'{{code}}studio{{/code}}'
+				),
+				components: {
+					code: <code />,
+				},
+			} ),
+			learnMoreUrl: getLocalizedLink( locale, 'docsCli' ),
+		},
+		{
 			image: blueprintsIllustration,
 			title: __( 'Introducing Blueprints, a new way to streamline site creation.' ),
 			description: __(
@@ -80,23 +97,6 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 				'Pull and push your Studio sites to WordPress.com or Pressable with a single click. No more manual uploads or FTP transfers!'
 			),
 			learnMoreUrl: getLocalizedLink( locale, 'docsSync' ),
-		},
-		{
-			image: cliIllustration,
-			title: __( 'Introducing Studio CLI' ),
-			description: interpolateComponents( {
-				mixedString: sprintf(
-					/* translators: %s is the name of the WordPress Studio CLI command ("studio") */
-					__(
-						'Run the %s command in your terminal to create, list, update, and delete preview sites with our new CLI tool.'
-					),
-					'{{code}}studio{{/code}}'
-				),
-				components: {
-					code: <code />,
-				},
-			} ),
-			learnMoreUrl: getLocalizedLink( locale, 'docsCli' ),
 		},
 	];
 

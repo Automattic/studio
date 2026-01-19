@@ -74,7 +74,7 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 				await this.prepareSqlFile( tmpPath );
 				console.log( `Importing ${ sqlFile }` );
 				const { stderr, exitCode, stdout } = await server.executeWpCliCommand(
-					`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php --enable-ast-driver`,
+					`sqlite import /wordpress/${ sqlTempFile } --require=/tmp/sqlite-command/command.php --enable-ast-driver`,
 					// SQLite plugin requires PHP 8+
 					{
 						targetPhpVersion: DEFAULT_PHP_VERSION,

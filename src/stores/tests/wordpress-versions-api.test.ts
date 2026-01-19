@@ -146,9 +146,8 @@ describe( 'WordPress Versions API', () => {
 			{
 				code: 'invalid_type',
 				expected: 'array',
-				message: 'Required',
+				message: 'Invalid input: expected array, received undefined',
 				path: [ 'offers' ],
-				received: 'undefined',
 			},
 		] );
 

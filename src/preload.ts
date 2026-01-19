@@ -40,7 +40,8 @@ const api: IpcApi = {
 		),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
 	createSite: ( path, config ) => ipcRendererInvoke( 'createSite', path, config ),
-	updateSite: ( updatedSite ) => ipcRendererInvoke( 'updateSite', updatedSite ),
+	updateSite: ( updatedSite, wpVersion ) =>
+		ipcRendererInvoke( 'updateSite', updatedSite, wpVersion ),
 	connectWpcomSites: ( ...args ) => ipcRendererInvoke( 'connectWpcomSites', ...args ),
 	disconnectWpcomSites: ( ...args ) => ipcRendererInvoke( 'disconnectWpcomSites', ...args ),
 	updateConnectedWpcomSites: ( ...args ) =>
@@ -136,7 +137,6 @@ const api: IpcApi = {
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
 	listLocalFileTree: ( siteId, path, maxDepth ) =>
 		ipcRenderer.invoke( 'listLocalFileTree', siteId, path, maxDepth ),
-	getProviderConstants: () => ipcRendererInvoke( 'getProviderConstants' ),
 	validateBlueprint: ( blueprintJson ) => ipcRendererInvoke( 'validateBlueprint', blueprintJson ),
 	readBlueprintFile: ( filePath ) => ipcRendererInvoke( 'readBlueprintFile', filePath ),
 	showSiteContextMenu: ( context ) => ipcRendererSend( 'showSiteContextMenu', context ),

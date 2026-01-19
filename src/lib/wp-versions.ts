@@ -2,9 +2,13 @@ import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
 import { recursiveCopyDirectory } from 'common/lib/fs-utils';
-import { WpNowProvider } from 'src/lib/wordpress-provider/wp-now';
+import { downloadWordPress } from 'src/lib/download-utils';
+import { getWordPressVersionPath } from 'src/lib/server-files-paths';
 
 export const MINIMUM_SUPPORTED_WP_VERSION = 6;
+
+// Default WordPress version when API call fails
+const DEFAULT_WORDPRESS_VERSION = 'latest';
 
 async function fetchWordPressVersions() {
 	try {
@@ -30,13 +34,13 @@ async function fetchWordPressVersions() {
 		);
 		return { versions, latest: latestVersion };
 	} catch ( exception ) {
-		return { versions: [], latest: WpNowProvider.DEFAULT_WORDPRESS_VERSION };
+		return { versions: [], latest: DEFAULT_WORDPRESS_VERSION };
 	}
 }
 
 async function getLatestWordPressVersion() {
 	const wordPressVersions = await fetchWordPressVersions();
-	return wordPressVersions.latest ?? WpNowProvider.DEFAULT_WORDPRESS_VERSION;
+	return wordPressVersions.latest ?? DEFAULT_WORDPRESS_VERSION;
 }
 
 export async function getWordPressVersionFromInstallation( installationPath: string ) {
@@ -55,7 +59,7 @@ export async function getWordPressVersionFromInstallation( installationPath: str
 
 export async function updateLatestWordPressVersion() {
 	let shouldOverwrite = false;
-	const latestVersionPath = WpNowProvider.getWordPressVersionPath( 'latest' );
+	const latestVersionPath = getWordPressVersionPath( 'latest' );
 	const latestVersionFiles = ( await fs.pathExists( latestVersionPath ) )
 		? await fs.readdir( latestVersionPath )
 		: [];
@@ -66,10 +70,10 @@ export async function updateLatestWordPressVersion() {
 			// We keep a copy of the latest installed version instead of removing it.
 			await recursiveCopyDirectory(
 				latestVersionPath,
-				WpNowProvider.getWordPressVersionPath( installedVersion )
+				getWordPressVersionPath( installedVersion )
 			);
 			shouldOverwrite = true;
 		}
 	}
-	await WpNowProvider.downloadWordPress( 'latest', { overwrite: shouldOverwrite } );
+	await downloadWordPress( 'latest', { overwrite: shouldOverwrite } );
 }

@@ -4,10 +4,10 @@ import fs from 'fs-extra';
 // Abstract base class for SQLite integration across different contexts
 export abstract class SqliteIntegrationProvider {
 	abstract getServerFilesPath(): string;
-	abstract getSqliteFilename(): string;
+	abstract getSqliteDirname(): string;
 
 	protected getSqlitePluginSourcePath(): string {
-		return path.join( this.getServerFilesPath(), this.getSqliteFilename() );
+		return path.join( this.getServerFilesPath(), this.getSqliteDirname() );
 	}
 
 	async isSqliteIntegrationAvailable(): Promise< boolean > {
@@ -38,9 +38,7 @@ export abstract class SqliteIntegrationProvider {
 
 	async installSqliteIntegration( sitePath: string ): Promise< void > {
 		if ( ! ( await this.isSqliteIntegrationAvailable() ) ) {
-			throw new Error(
-				'SQLite integration files not found. Please ensure Studio Desktop is installed.'
-			);
+			throw new Error( 'SQLite integration files not found. Please ensure Studio is installed.' );
 		}
 
 		const wpContentPath = path.join( sitePath, 'wp-content' );
@@ -50,14 +48,14 @@ export abstract class SqliteIntegrationProvider {
 
 		const sqliteSourcePath = this.getSqlitePluginSourcePath();
 		const dbCopyContent = await fs.readFile( path.join( sqliteSourcePath, 'db.copy' ), 'utf8' );
-		const sqliteFilename = this.getSqliteFilename();
+		const sqliteDirname = this.getSqliteDirname();
 		const updatedContent = dbCopyContent.replace(
 			"'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
-			`realpath( __DIR__ . '/mu-plugins/${ sqliteFilename }' )`
+			`realpath( __DIR__ . '/mu-plugins/${ sqliteDirname }' )`
 		);
 		await fs.writeFile( path.join( wpContentPath, 'db.php' ), updatedContent );
 
-		const sqliteDestPath = path.join( wpContentPath, 'mu-plugins', sqliteFilename );
+		const sqliteDestPath = path.join( wpContentPath, 'mu-plugins', sqliteDirname );
 		await fs.copy( sqliteSourcePath, sqliteDestPath );
 	}
 
@@ -65,5 +63,12 @@ export abstract class SqliteIntegrationProvider {
 		if ( await this.needsSqliteSetup( sitePath ) ) {
 			await this.installSqliteIntegration( sitePath );
 		}
+	}
+
+	async isSqliteInstalled( sitePath: string ): Promise< boolean > {
+		return (
+			fs.existsSync( path.join( sitePath, 'wp-content', 'mu-plugins', this.getSqliteDirname() ) ) &&
+			fs.existsSync( path.join( sitePath, 'wp-content', 'db.php' ) )
+		);
 	}
 }

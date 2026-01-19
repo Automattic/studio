@@ -30,9 +30,9 @@ test.describe( 'Site Editor Load Metrics', () => {
 	test( 'measure site editor load time', async () => {
 		let wpAdminUrl = '';
 		await session.launch();
-		
+
 		const onboarding = new Onboarding( session.mainWindow );
-		expect( onboarding.heading ).toBeVisible();
+		await expect( onboarding.heading ).toBeVisible( { timeout: 120_000 } );
 
 		// Wait for store initialization to complete (provider constants loading)
 		await new Promise( ( resolve ) => setTimeout( resolve, 500 ) );
@@ -41,8 +41,9 @@ test.describe( 'Site Editor Load Metrics', () => {
 
 		const siteContent = new SiteContent( session.mainWindow, siteName );
 
-		await expect( siteContent.siteNameHeading ).toBeVisible();
-		await expect( siteContent.runningButton ).toBeAttached();
+		// Site creation can take a while, use explicit timeout matching E2E tests
+		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Get the WordPress admin URL from settings
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );

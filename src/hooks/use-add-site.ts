@@ -8,7 +8,6 @@ import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
 import { useRootSelector } from 'src/stores';
 import {
 	selectDefaultPhpVersion,
@@ -17,6 +16,7 @@ import {
 import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
 import { Blueprint } from 'src/stores/wpcom-api';
 import type { BlueprintPreferredVersions } from 'common/lib/blueprint-validation';
+import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
 
@@ -46,7 +46,7 @@ export interface PathValidationResult {
 
 export function useAddSite() {
 	const { __ } = useI18n();
-	const { createSite, sites, startServer } = useSiteDetails();
+	const { createSite, sites } = useSiteDetails();
 	const { importFile, clearImportState, importState } = useImportExport();
 	const [ connectSite ] = useConnectSiteMutation();
 	const { pullSite } = useSyncSites();
@@ -226,6 +226,8 @@ export function useAddSite() {
 				if ( formValues.useCustomDomain && ! formValues.customDomain ) {
 					usedCustomDomain = generateCustomDomainFromSiteName( formValues.siteName );
 				}
+				// For import/sync workflows, the respective handlers will start the server
+				const shouldSkipStart = !! fileForImport || !! selectedRemoteSite;
 
 				await createSite(
 					formValues.sitePath,
@@ -247,24 +249,21 @@ export function useAddSite() {
 								title: newSite.name,
 								body: __( 'Your new site was imported' ),
 							} );
+						} else if ( selectedRemoteSite ) {
+							await connectSite( { site: selectedRemoteSite, localSiteId: newSite.id } );
+							const pullOptions: SyncOption[] = [ 'all' ];
+							pullSite( selectedRemoteSite, newSite, {
+								optionsToSync: pullOptions,
+							} );
+							setSelectedTab( 'sync' );
 						} else {
-							if ( selectedRemoteSite ) {
-								await connectSite( { site: selectedRemoteSite, localSiteId: newSite.id } );
-								const pullOptions: SyncOption[] = [ 'all' ];
-								pullSite( selectedRemoteSite, newSite, {
-									optionsToSync: pullOptions,
-								} );
-								setSelectedTab( 'sync' );
-							} else {
-								await startServer( newSite.id );
-
-								getIpcApi().showNotification( {
-									title: newSite.name,
-									body: __( 'Your new site was created' ),
-								} );
-							}
+							getIpcApi().showNotification( {
+								title: newSite.name,
+								body: __( 'Your new site was created' ),
+							} );
 						}
-					}
+					},
+					shouldSkipStart
 				);
 			} catch ( e ) {
 				Sentry.captureException( e );
@@ -276,7 +275,6 @@ export function useAddSite() {
 			createSite,
 			fileForImport,
 			importFile,
-			startServer,
 			selectedBlueprint,
 			selectedRemoteSite,
 			pullSite,

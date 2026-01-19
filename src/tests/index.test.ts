@@ -24,7 +24,6 @@ jest.mock( 'atomically', () => ( {
 	readFile: jest.fn(),
 	writeFile: jest.fn(),
 } ) );
-jest.mock( 'src/lib/wordpress-provider' );
 
 ( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( { sites: [] } ) );
 require( 'fs' ).__setFileContents( normalize( '/path/to/app/temp/com.wordpress.studio/' ), '' );
@@ -129,7 +128,7 @@ describe( 'App initialization', () => {
 				( createMainWindow as jest.Mock ).mock.invocationCallOrder[ 0 ]
 			);
 
-			await mockedEvents.quit();
+			await mockedEvents[ 'will-quit' ]( { preventDefault: jest.fn() } );
 		} );
 	} );
 
@@ -147,7 +146,7 @@ describe( 'App initialization', () => {
 			await mockedEvents.activate();
 			expect( createMainWindow ).toHaveBeenCalled();
 
-			await mockedEvents.quit();
+			await mockedEvents[ 'will-quit' ]( { preventDefault: jest.fn() } );
 		} );
 	} );
 
@@ -180,7 +179,7 @@ describe( 'App initialization', () => {
 
 			Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
 
-			await mockedEvents.quit();
+			await mockedEvents[ 'will-quit' ]( { preventDefault: jest.fn() } );
 		} );
 	} );
 } );

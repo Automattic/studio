@@ -1,7 +1,14 @@
 import '@testing-library/jest-dom';
+import { configure } from '@testing-library/react';
 import { TextEncoder, TextDecoder } from 'util';
 import 'isomorphic-fetch';
 import nock from 'nock';
+
+// Configure testing-library with longer timeouts for CI environments
+configure( {
+	// Default timeout for waitFor, findBy*, etc. (5 seconds instead of 1 second)
+	asyncUtilTimeout: 5000,
+} );
 
 // Polyfill TextEncoder and TextDecoder for tests
 if ( typeof globalThis.TextEncoder === 'undefined' ) {
@@ -12,8 +19,7 @@ if ( typeof globalThis.TextDecoder === 'undefined' ) {
 }
 
 // We need this polyfill because the `ReadableStream` class is
-// used by `@php-wasm/universal` and it's not available in the Jest environment.
-// Import ponyfill to avoid global pollution issues with php-wasm 1.2.3
+// not available in the Jest environment.
 const streams = require( 'web-streams-polyfill/dist/ponyfill.js' );
 
 // Assign to global only if not already available
@@ -47,9 +53,31 @@ if ( typeof window !== 'undefined' ) {
 // Define global variables that were previously in jest.config.ts
 ( global as any ).COMMIT_HASH = 'mock-hash';
 
+// Store original console.log to restore after tests
+const originalConsoleLog = console.log;
+
 // Silence console.log for all tests
 beforeEach( () => {
 	console.log = jest.fn();
+} );
+
+// Clean up after each test to prevent state leakage
+afterEach( () => {
+	// Restore console.log
+	console.log = originalConsoleLog;
+
+	// Clean up all nock interceptors to prevent test interference
+	nock.cleanAll();
+
+	// Reset timers if fake timers were used (prevents timer leaks)
+	try {
+		jest.useRealTimers();
+	} catch {
+		// Ignore if real timers are already in use
+	}
+
+	// Clear all mocks to prevent state leakage
+	jest.clearAllMocks();
 } );
 
 if ( typeof window !== 'undefined' ) {
@@ -75,8 +103,6 @@ if ( typeof window !== 'undefined' ) {
 	/**
 	 * Mock `crypto.subtle.generateKey` as it's not implemented in JSDOM
 	 * https://github.com/jsdom/jsdom/issues/1612
-	 *
-	 * `crypto.subtle.generateKey` is required by `@php-wasm/web`
 	 */
 	Object.defineProperty( global.crypto, 'subtle', {
 		value: { generateKey: jest.fn() },

@@ -116,14 +116,7 @@ jest.mock( 'src/stores/wpcom-api', () => {
 const mockUseGetBlueprints = useGetBlueprints as jest.MockedFunction< typeof useGetBlueprints >;
 
 const renderWithProvider = ( children: React.ReactElement ) => {
-	const store = createTestStore( {
-		providerConstants: {
-			defaultPhpVersion: '8.3',
-			defaultWordPressVersion: 'latest',
-			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
-			minimumWordPressVersion: '6.2.6',
-		},
-	} );
+	const store = createTestStore();
 	return render( <Provider store={ store }>{ children }</Provider> );
 };
 
@@ -238,7 +231,8 @@ describe( 'AddSite', () => {
 				false,
 				undefined, // blueprint parameter
 				'8.3',
-				expect.any( Function )
+				expect.any( Function ),
+				false
 			);
 		} );
 	} );
@@ -454,7 +448,8 @@ describe( 'AddSite', () => {
 				false,
 				undefined, // blueprint parameter
 				'8.3',
-				expect.any( Function )
+				expect.any( Function ),
+				false
 			);
 		} );
 	} );
@@ -580,7 +575,7 @@ describe( 'AddSite', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'should show warning when blueprint preferred versions differ from selected versions', async () => {
+	it( 'should show warning when Blueprint preferred versions differ from selected versions', async () => {
 		const mockBlueprintData = {
 			data: {
 				blueprints: [

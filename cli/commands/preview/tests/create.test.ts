@@ -6,6 +6,7 @@ import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { saveSnapshotToAppdata } from 'cli/lib/snapshots';
 import { Logger, LoggerError } from 'cli/logger';
+import { runCommand } from '../create';
 
 jest.mock( 'common/lib/get-wordpress-version' );
 jest.mock( 'cli/lib/appdata', () => ( {
@@ -79,7 +80,6 @@ describe( 'Preview Create Command', () => {
 
 	it( 'should complete the preview creation process successfully', async () => {
 		( getWordPressVersion as jest.Mock ).mockReturnValue( '6.8.1' );
-		const { runCommand } = await import( '../create' );
 		await runCommand( mockFolder );
 
 		expect( getSiteByFolder ).toHaveBeenCalledWith( mockFolder );
@@ -124,7 +124,6 @@ describe( 'Preview Create Command', () => {
 	} );
 
 	it( 'should use current directory when no folder is specified', async () => {
-		const { runCommand } = await import( '../create' );
 		await runCommand( process.cwd() );
 
 		expect( getSiteByFolder ).toHaveBeenCalledWith( process.cwd() );
@@ -137,7 +136,6 @@ describe( 'Preview Create Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { runCommand } = await import( '../create' );
 		await runCommand( mockFolder );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
@@ -152,7 +150,6 @@ describe( 'Preview Create Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { runCommand } = await import( '../create' );
 		await runCommand( mockFolder );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
@@ -166,7 +163,6 @@ describe( 'Preview Create Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { runCommand } = await import( '../create' );
 		await runCommand( mockFolder );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
@@ -180,7 +176,6 @@ describe( 'Preview Create Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { runCommand } = await import( '../create' );
 		await runCommand( mockFolder );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
@@ -194,7 +189,6 @@ describe( 'Preview Create Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { runCommand } = await import( '../create' );
 		await runCommand( mockFolder );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
@@ -208,7 +202,6 @@ describe( 'Preview Create Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		const { runCommand } = await import( '../create' );
 		await runCommand( mockFolder );
 
 		expect( mockLogger.reportError ).toHaveBeenCalled();
@@ -220,7 +213,6 @@ describe( 'Preview Create Command', () => {
 			throw new LoggerError( 'Upload failed' );
 		} );
 
-		const { runCommand } = await import( '../create' );
 		await runCommand( mockFolder );
 
 		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );

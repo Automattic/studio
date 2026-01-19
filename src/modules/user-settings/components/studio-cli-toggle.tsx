@@ -28,17 +28,16 @@ export function StudioCliToggle( { value, onChange }: StudioCLIToggleProps ) {
 							? createInterpolateElement(
 									sprintf(
 										/* translators: %s is the name of the WordPress Studio CLI command ("studio") */
-										__( 'Enable the %s command in the terminal.' ),
-										'<code>studio</code>'
+										__( 'Enable the <code>%s</code> command in the terminal.' ),
+										'studio'
 									),
 									{ code: <code /> }
 							  )
 							: createInterpolateElement(
 									sprintf(
 										/* translators: %s is the name of the WordPress Studio CLI command ("studio") */
-										__( 'Enable the %s command in the terminal. %s' ),
-										'<code>studio</code>',
-										'<learn_more_link />'
+										__( 'Enable the <code>%s</code> command in the terminal. <learn_more_link />' ),
+										'studio'
 									),
 									{
 										code: <code />,

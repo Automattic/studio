@@ -3,9 +3,10 @@ import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import stripAnsi from 'strip-ansi';
+import { DEFAULT_PHP_VERSION } from 'common/constants';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'common/lib/domains';
-import { getWordPressVersionUrl } from 'common/lib/wordpress-version-utils';
+import { siteNeedsRestart } from 'common/lib/site-needs-restart';
+import { SupportedPHPVersions } from 'common/types/php-versions';
 import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
@@ -16,15 +17,11 @@ import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
 import { useRootSelector } from 'src/stores';
 import { betaFeaturesSelectors } from 'src/stores/beta-features-slice';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
-import {
-	selectDefaultWordPressVersion,
-	selectAllowedPhpVersions,
-	selectDefaultPhpVersion,
-} from 'src/stores/provider-constants-slice';
+import { selectDefaultWordPressVersion } from 'src/stores/provider-constants-slice';
+import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 
 type EditSiteDetailsProps = {
 	currentWpVersion: string;
@@ -33,11 +30,8 @@ type EditSiteDetailsProps = {
 
 const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) => {
 	const { __ } = useI18n();
-	const { updateSite, selectedSite, stopServer, startServer, isEditModalOpen, setIsEditModalOpen } =
-		useSiteDetails();
+	const { updateSite, selectedSite, isEditModalOpen, setIsEditModalOpen } = useSiteDetails();
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
-	const allowedPhpVersions = useRootSelector( selectAllowedPhpVersions );
-	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
 	const betaFeatures = useRootSelector( betaFeaturesSelectors.selectBetaFeatures );
 	const isXdebugFeatureEnabled = betaFeatures.xdebugSupport;
 	const [ errorUpdatingWpVersion, setErrorUpdatingWpVersion ] = useState< string | null >( null );
@@ -55,7 +49,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	}, [ isEditingSite, setIsEditModalOpen ] );
 	const [ siteName, setSiteName ] = useState( selectedSite?.name ?? '' );
 	const [ selectedPhpVersion, setSelectedPhpVersion ] = useState< AllowedPHPVersion >(
-		( selectedSite?.phpVersion as AllowedPHPVersion ) ?? defaultPhpVersion
+		( selectedSite?.phpVersion as AllowedPHPVersion ) ?? DEFAULT_PHP_VERSION
 	);
 	const getEffectiveWpVersion = useCallback(
 		() =>
@@ -139,60 +133,43 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		const hasWpVersionChanged = selectedWpVersion !== getEffectiveWpVersion();
 		const hasPhpVersionChanged = selectedPhpVersion !== selectedSite.phpVersion;
 		const hasXdebugChanged = enableXdebug !== ( selectedSite.enableXdebug ?? false );
+		const hasDomainChanged =
+			Boolean( selectedSite.customDomain ) !== useCustomDomain ||
+			( useCustomDomain && customDomain !== selectedSite.customDomain );
+		const hasHttpsChanged =
+			useCustomDomain && enableHttps !== ( selectedSite.enableHttps ?? false );
+
 		const needsRestart =
-			selectedSite.running && ( hasWpVersionChanged || hasPhpVersionChanged || hasXdebugChanged );
+			selectedSite.running &&
+			siteNeedsRestart( {
+				domainChanged: hasDomainChanged,
+				httpsChanged: hasHttpsChanged,
+				phpChanged: hasPhpVersionChanged,
+				wpChanged: hasWpVersionChanged,
+				xdebugChanged: hasXdebugChanged,
+			} );
 		setNeedsRestart( needsRestart );
 
 		try {
-			if ( needsRestart ) {
-				await stopServer( selectedSite.id );
-			}
-
-			if ( hasWpVersionChanged ) {
-				try {
-					const zipUrl = getWordPressVersionUrl( selectedWpVersion );
-					const result = await getIpcApi().executeWPCLiInline( {
-						siteId: selectedSite.id,
-						args: `core update ${ zipUrl } --force`,
-						skipPluginsAndThemes: true,
-					} );
-					if ( result.exitCode !== 0 ) {
-						throw new Error( result.stderr );
-					}
-				} catch ( wpError ) {
-					console.error( 'Error changing WordPress version:', wpError );
-					const errorMessage = stripAnsi( ( wpError as Error )?.message );
-					getIpcApi().showErrorMessageBox( {
-						title: __( 'Error changing WordPress version' ),
-						message: __( 'An error occurred while updating the WordPress version.' ),
-						error: new Error( errorMessage ),
-						showOpenLogs: true,
-					} );
-					setSelectedWpVersion( getEffectiveWpVersion() );
-					setIsEditingSite( false );
-					return;
-				}
-			}
-
 			// Determine custom domain setting
 			let usedCustomDomain = useCustomDomain && customDomain ? customDomain : undefined;
 			if ( useCustomDomain && ! customDomain ) {
 				usedCustomDomain = generateCustomDomainFromSiteName( siteName ?? '' );
 			}
 
-			await updateSite( {
-				...selectedSite,
-				name: siteName,
-				phpVersion: selectedPhpVersion,
-				isWpAutoUpdating: selectedWpVersion === defaultWordPressVersion,
-				customDomain: usedCustomDomain,
-				enableHttps: !! usedCustomDomain && enableHttps,
-				enableXdebug,
-			} );
+			await updateSite(
+				{
+					...selectedSite,
+					name: siteName,
+					phpVersion: selectedPhpVersion,
+					isWpAutoUpdating: selectedWpVersion === defaultWordPressVersion,
+					customDomain: usedCustomDomain,
+					enableHttps: !! usedCustomDomain && enableHttps,
+					enableXdebug,
+				},
+				hasWpVersionChanged ? selectedWpVersion : undefined
+			);
 
-			if ( needsRestart ) {
-				await startServer( selectedSite.id );
-			}
 			onSave();
 			closeModal();
 			resetFormState();
@@ -251,15 +228,17 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 									className="flex flex-1 flex-col gap-1.5 leading-4"
 								>
 									<span className="font-semibold">{ __( 'PHP version' ) }</span>
-									<SelectControl
+									<SelectControl< string >
 										id="php-version-select"
 										disabled={ isEditingSite }
 										value={ selectedPhpVersion }
-										options={ allowedPhpVersions.map( ( version ) => ( {
+										options={ SupportedPHPVersions.map( ( version ) => ( {
 											label: version,
 											value: version,
 										} ) ) }
-										onChange={ ( version: AllowedPHPVersion ) => setSelectedPhpVersion( version ) }
+										onChange={ ( version ) =>
+											setSelectedPhpVersion( version as AllowedPHPVersion )
+										}
 										__next40pxDefaultSize
 										__nextHasNoMarginBottom
 									/>

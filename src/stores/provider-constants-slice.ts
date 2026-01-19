@@ -1,4 +1,10 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import {
+	DEFAULT_PHP_VERSION,
+	DEFAULT_WORDPRESS_VERSION,
+	MINIMUM_WORDPRESS_VERSION,
+} from 'common/constants';
+import { SupportedPHPVersionsList } from 'common/types/php-versions';
 import { RootState } from 'src/stores';
 
 interface ProviderConstantsState {
@@ -9,25 +15,24 @@ interface ProviderConstantsState {
 }
 
 const initialState: ProviderConstantsState = {
-	defaultPhpVersion: '',
-	defaultWordPressVersion: '',
-	allowedPhpVersions: [],
-	minimumWordPressVersion: '',
+	defaultPhpVersion: DEFAULT_PHP_VERSION,
+	defaultWordPressVersion: DEFAULT_WORDPRESS_VERSION,
+	allowedPhpVersions: SupportedPHPVersionsList,
+	minimumWordPressVersion: MINIMUM_WORDPRESS_VERSION,
 };
 
 const providerConstantsSlice = createSlice( {
 	name: 'providerConstants',
 	initialState,
 	reducers: {
-		setProviderConstants: ( state, action: PayloadAction< ProviderConstantsState > ) => {
-			return action.payload;
+		setProviderConstants: ( state, action: PayloadAction< Partial< ProviderConstantsState > > ) => {
+			return { ...state, ...action.payload };
 		},
 	},
 } );
 
 export const { setProviderConstants } = providerConstantsSlice.actions;
 
-// Selectors
 export const selectDefaultPhpVersion = ( state: RootState ) =>
 	state.providerConstants.defaultPhpVersion;
 export const selectDefaultWordPressVersion = ( state: RootState ) =>
@@ -36,6 +41,5 @@ export const selectAllowedPhpVersions = ( state: RootState ) =>
 	state.providerConstants.allowedPhpVersions;
 export const selectMinimumWordPressVersion = ( state: RootState ) =>
 	state.providerConstants.minimumWordPressVersion;
-export const selectProviderConstants = ( state: RootState ) => state.providerConstants;
 
-export default providerConstantsSlice.reducer;
+export const providerConstantsReducer = providerConstantsSlice.reducer;

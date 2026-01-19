@@ -146,13 +146,13 @@ node dist/cli/main.js auth status
 
 See the existing preview site commands (create, list, delete, update) in `cli/commands/preview/`.
 
-### Local Site Commands (Beta)
+### Local Site Commands
 
-Local site management commands are available when the `studioSitesCli` beta feature is enabled in app data.
+See the site management commands (create, list, start, etc) in `cli/commands/site/`.
 
 ## WordPress Studio - Architecture Overview
 
-WordPress Studio is a desktop application for creating, managing, and testing WordPress sites locally. It's built as an Electron desktop application with a React renderer, powered by WordPress Playground and PHP WASM.
+WordPress Studio is a desktop application for creating, managing, and testing WordPress sites locally. It's built as an Electron desktop application with a React renderer. The CLI component uses WordPress Playground (PHP WASM) to run WordPress sites.
 
 ## High-Level Architecture
 
@@ -162,7 +162,6 @@ WordPress Studio is a desktop application for creating, managing, and testing Wo
 ├─────────────────────────────────────────────────────┤
 │ • IPC Handler Layer (ipc-handlers.ts)               │
 │ • Site Server Management (site-server.ts)           │
-│ • WordPress Provider Abstraction                    │
 │ • Storage & User Data Management                    │
 │ • OAuth / Authentication                            │
 │ • Sync Operations (WordPress.com / Pressable)      │
@@ -175,11 +174,11 @@ WordPress Studio is a desktop application for creating, managing, and testing Wo
       └────────────────┬─┘   └───────────────┘
                        │
 ┌──────────────────────▼──────────────────────┐
-│        WORDPRESS PROVIDERS                  │
+│              STUDIO CLI                     │
 ├──────────────────────────────────────────────┤
-│ • Playground-CLI Provider (with Blueprints) │
-│ • WP-Now Provider (fallback)                │
-│ • PHP WASM Runtime                          │
+│ • WordPress Playground (@wp-playground/cli) │
+│ • PHP WASM Runtime (@php-wasm/*)            │
+│ • Blueprint Support                         │
 │ • Server Process Management                 │
 └─────────────────────────────────────────────┘
 ```
@@ -198,12 +197,10 @@ WordPress Studio is a desktop application for creating, managing, and testing Wo
 - **`storage/`** - User data persistence and app state storage
 - **`stores/`** - Redux RTK stores (centralized state management)
 - **`lib/`** - Utility libraries and business logic
-  - `wordpress-provider/` - Abstraction layer for WordPress runtime (Playground vs WP-Now)
   - `import-export/` - Site backup/restore functionality
   - `sync/` - WordPress.com sync operations
   - `certificate-manager.ts` - HTTPS certificate generation for custom domains
   - `proxy-server.ts` - Local HTTP proxy for custom domain routing
-  - `wp-cli-process.ts` - WP-CLI command execution wrapper
 - **`components/`** - React UI components
   - `root.tsx` - Root component with all context providers
   - `app.tsx` - Main app layout
@@ -266,15 +263,11 @@ window.ipcApi.installStudioCli()     // Install the CLI
 window.ipcApi.uninstallStudioCli()   // Uninstall the CLI
 ```
 
-### 3. WordPress Provider Pattern (Strategy Pattern)
-Two implementations for running WordPress:
-- **PlaygroundCliProvider**: Uses `@wp-playground/cli` with Blueprint support (feature-gated)
-- **WpNowProvider**: Fallback provider with core functionality
-
-Both implement the `WordPressProvider` interface with methods:
-- `startServer()` - Start a WordPress site
-- `setupWordPressSite()` - Initialize WordPress installation
-- `createServerProcess()` - Create server child process
+### 3. CLI Server Process
+The desktop app delegates WordPress operations to the CLI:
+- **CliServerProcess** (`src/modules/cli/lib/cli-server-process.ts`): Spawns CLI as child process
+- **Site operations**: Start/stop servers, run WP-CLI commands
+- **Blueprint support**: Passed to CLI for site initialization
 
 ### 4. Redux Store Architecture (RTK)
 ```typescript
@@ -284,7 +277,6 @@ Both implement the `WordPressProvider` interface with methods:
 - connectedSites: Connected WordPress.com sites
 - snapshot: Site snapshots/backups
 - onboarding: First-run experience state
-- provider constants: WordPress/PHP versions
 - RTK Query APIs for data fetching:
   - wpcomApi: WordPress.com API calls
   - installedAppsApi: System apps detection, CLI installation status
@@ -338,11 +330,12 @@ Redux State Update / Re-render
 
 ### Main Process
 - **Electron 38** - Desktop framework
-- **@php-wasm/node** - PHP runtime in Node.js
-- **@php-wasm/universal** - Universal PHP WASM
-- **@wp-playground/blueprints** - Blueprint compilation
-- **@wp-playground/cli** - Playground CLI integration
 - **express** - Lightweight HTTP server for sites
+
+### CLI (runs WordPress sites)
+- **@wp-playground/cli** - WordPress Playground CLI
+- **@php-wasm/node** - PHP runtime in Node.js
+- **@wp-playground/blueprints** - Blueprint compilation
 
 ### Development
 - **electron-vite** - Electron build orchestration
@@ -410,19 +403,13 @@ Storage is protected by file locking (`lockAppdata()` / `unlockAppdata()`).
 - Renderer uses `<I18nProvider>` context
 - CLI translates via `loadTranslations()` in CLI bootstrap
 
-## WordPress Playground Integration
+## WordPress Playground Integration (CLI)
 
-### Blueprints
-- Complex site configurations declaratively defined
-- Compiled to runtime executable by `@wp-playground/blueprints`
-- Feature detection/filtering: `filterUnsupportedBlueprintFeatures()` in `src/lib/blueprint-features.ts`
-- Passed to server startup for automatic setup
-
-### PHP WASM Runtime
-- `@php-wasm/node` provides PHP runtime in Node.js
-- Runs in child processes via `WorkerThreads`
-- WP-CLI integration: `WpCliProcess` class wraps CLI commands
-- Server process: Handles PHP execution and WordPress HTTP requests
+The CLI component uses WordPress Playground to run WordPress sites:
+- **@wp-playground/cli**: Runs WordPress in Node.js using PHP WASM
+- **Blueprints**: Declarative site configurations passed to CLI for setup
+- **Feature filtering**: `filterUnsupportedBlueprintFeatures()` removes unsupported steps
+- The desktop app spawns the CLI as a child process via `CliServerProcess`
 
 ## Sync & WordPress.com Integration
 
@@ -474,12 +461,12 @@ Local component state used for temporary UI interactions.
 
 - **Code Splitting**: Vendor and Sentry chunks extracted separately
 - **CSS Code Split**: Separate CSS files for better caching
-- **WASM Bundling**: WASM files included as external assets
+- **CLI Separation**: PHP WASM (~1GB) only in CLI, not in desktop app bundle
 - **Port Finder**: Efficient port availability checking with caching
 - **Snapshot System**: Browser-like snapshots for fast site restoration
 
 ---
 
-Last Updated: 2025-11-10
+Last Updated: 2025-12-18
 Repository: https://github.com/Automattic/studio
 License: GPLv2 or later

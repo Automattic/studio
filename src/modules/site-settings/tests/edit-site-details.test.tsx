@@ -66,14 +66,7 @@ jest.mock( 'src/hooks/use-offline', () => ( {
 } ) );
 
 const renderWithProvider = ( children: React.ReactElement ) => {
-	const store = createTestStore( {
-		providerConstants: {
-			defaultPhpVersion: '8.3',
-			defaultWordPressVersion: 'latest',
-			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
-			minimumWordPressVersion: '6.2.6',
-		},
-	} );
+	const store = createTestStore();
 	return render( <Provider store={ store }>{ children }</Provider> );
 };
 
@@ -266,7 +259,7 @@ describe( 'EditSiteDetails', () => {
 		} );
 	} );
 
-	it( 'should update site and restart server when PHP version is changed', async () => {
+	it( 'should update site when PHP version is changed (CLI handles restart)', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			...useSiteDetails(),
 			isEditModalOpen: true,
@@ -283,15 +276,13 @@ describe( 'EditSiteDetails', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Save' } ) );
 
 		await waitFor( () => {
-			expect( mockStopServer ).toHaveBeenCalledWith( 'site-123' );
 			expect( mockUpdateSite ).toHaveBeenCalled();
 			expect( mockUpdateSite.mock.calls[ 0 ][ 0 ].phpVersion ).toBe( '8.2' );
-			expect( mockStartServer ).toHaveBeenCalledWith( 'site-123' );
 			expect( defaultProps.onSave ).toHaveBeenCalled();
 		} );
 	} );
 
-	it( 'should update isWpAutoUpdating to false when changed from latest to specific version', async () => {
+	it( 'should update isWpAutoUpdating and pass wpVersion when changed from latest to specific version', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			...useSiteDetails(),
 			isEditModalOpen: true,
@@ -307,19 +298,16 @@ describe( 'EditSiteDetails', () => {
 
 		await user.click( screen.getByRole( 'button', { name: 'Save' } ) );
 
-		expect( mockStopServer ).toHaveBeenCalledWith( 'site-123' );
-		expect( mockExecuteWPCLiInline ).toHaveBeenCalledWith( {
-			siteId: 'site-123',
-			args: 'core update https://wordpress.org/wordpress-6.4.zip --force',
-			skipPluginsAndThemes: true,
+		await waitFor( () => {
+			expect( mockUpdateSite ).toHaveBeenCalled();
+			expect( mockUpdateSite.mock.calls[ 0 ][ 0 ].isWpAutoUpdating ).toBe( false );
+			// wpVersion is passed as second argument
+			expect( mockUpdateSite.mock.calls[ 0 ][ 1 ] ).toBe( '6.4' );
+			expect( defaultProps.onSave ).toHaveBeenCalled();
 		} );
-		expect( mockUpdateSite ).toHaveBeenCalled();
-		expect( mockUpdateSite.mock.calls[ 0 ][ 0 ].isWpAutoUpdating ).toBe( false );
-		expect( mockStartServer ).toHaveBeenCalledWith( 'site-123' );
-		expect( defaultProps.onSave ).toHaveBeenCalled();
 	} );
 
-	it( 'should update WordPress version when changed to beta', async () => {
+	it( 'should pass wpVersion when WordPress version is changed to beta', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			...useSiteDetails(),
 			isEditModalOpen: true,
@@ -335,20 +323,19 @@ describe( 'EditSiteDetails', () => {
 
 		await user.click( screen.getByRole( 'button', { name: 'Save' } ) );
 
-		expect( mockExecuteWPCLiInline ).toHaveBeenCalledWith( {
-			siteId: 'site-123',
-			args: 'core update https://wordpress.org/wordpress-6.8-beta1.zip --force',
-			skipPluginsAndThemes: true,
+		await waitFor( () => {
+			expect( mockUpdateSite ).toHaveBeenCalled();
+			expect( mockUpdateSite.mock.calls[ 0 ][ 1 ] ).toBe( '6.8-beta1' );
 		} );
 	} );
 
-	it( 'should show error when WordPress version update fails', async () => {
+	it( 'should show error when site update fails', async () => {
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			...useSiteDetails(),
 			isEditModalOpen: true,
 		} );
-		const consoleSpy = jest.spyOn( console, 'error' ).mockImplementation( () => {} );
-		mockExecuteWPCLiInline.mockResolvedValue( { exitCode: 1, stderr: 'Update failed' } );
+
+		mockUpdateSite.mockRejectedValueOnce( new Error( 'CLI site set failed' ) );
 
 		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
@@ -362,15 +349,8 @@ describe( 'EditSiteDetails', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Save' } ) );
 
 		await waitFor( () => {
-			expect( mockShowErrorMessageBox ).toHaveBeenCalledWith( {
-				title: 'Error changing WordPress version',
-				message: 'An error occurred while updating the WordPress version.',
-				error: new Error( 'Update failed' ),
-				showOpenLogs: true,
-			} );
+			expect( screen.getByText( 'CLI site set failed' ) ).toBeInTheDocument();
 		} );
-
-		consoleSpy.mockRestore();
 	} );
 
 	it( 'should disable form controls when site is being edited', async () => {

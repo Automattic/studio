@@ -66,6 +66,24 @@ export function getCliPath(): string {
 		: path.join( getResourcesPath(), 'cli', 'main.js' );
 }
 
+export function getBundledNodeBinaryPath(): string {
+	const nodeBinaryName = process.platform === 'win32' ? 'node.exe' : 'node';
+
+	if ( process.env.NODE_ENV === 'production' ) {
+		return path.join( getResourcesPath(), 'bin', nodeBinaryName );
+	}
+
+	// In test environment, use the Electron node binary. The system-level node binary is not reliable
+	// in this context.
+	if ( process.env.NODE_ENV === 'test' ) {
+		return process.execPath;
+	}
+
+	// In development, use the system-level node binary. The bundled node binary most likely isn't
+	// available, and the Electron binary is noticeably slower.
+	return nodeBinaryName;
+}
+
 function getAppDataPath(): string {
 	if ( inChildProcess() ) {
 		if ( ! process.env.STUDIO_APP_DATA_PATH ) {

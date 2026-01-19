@@ -102,9 +102,6 @@ vendor/*
 /fastlane/report.xml
 /fastlane/README.md
 
-# Include the vendored copy of wp-now in our repo
-!vendor/wp-now
-
 # CLI npm artifacts
 cli/vendor/
 
@@ -127,3 +124,7 @@ artifacts
 .cursor/
 .claude/
 CLAUDE.md
+
+# Bundled Node binary (downloaded during build)
+bin/node
+bin/node.exe

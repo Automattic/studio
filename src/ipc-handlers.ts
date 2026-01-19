@@ -767,6 +767,10 @@ export async function getThemeDetails(
 	const themeChanged =
 		themeDetails?.path && themeDetails.path !== server.details.themeDetails?.path;
 
+	if ( themeDetails ) {
+		server.details.themeDetails = themeDetails;
+	}
+
 	if ( themeChanged ) {
 		const parentWindow = BrowserWindow.fromWebContents( event.sender );
 		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id } );
@@ -775,7 +779,6 @@ export async function getThemeDetails(
 			details: themeDetails,
 		} );
 
-		server.details.themeDetails = themeDetails;
 		await updateSite( event, server.details );
 
 		void server

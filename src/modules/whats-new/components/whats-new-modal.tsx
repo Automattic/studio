@@ -64,7 +64,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 				mixedString: sprintf(
 					/* translators: %s is the name of the WordPress Studio CLI command ("studio") */
 					__(
-						'Easily install the %s CLI to run WP-CLI commands from your terminal and to create, start, stop, or update your sites.'
+						'Easily install the %s CLI to run WP-CLI commands from your terminal and create, start, stop, or update your sites.'
 					),
 					'{{code}}studio{{/code}}'
 				),

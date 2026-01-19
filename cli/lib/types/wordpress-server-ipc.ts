@@ -44,9 +44,9 @@ export type ManagerMessagePayload = z.infer< typeof _managerMessagePayloadSchema
 
 const managerMessageBase = z.object( { messageId: z.number() } );
 export const managerMessageSchema = z.discriminatedUnion( 'topic', [
-	managerMessageBase.merge( managerMessageStartServer ),
-	managerMessageBase.merge( managerMessageRunBlueprint ),
-	managerMessageBase.merge( managerMessageStopServer ),
+	managerMessageBase.extend( managerMessageStartServer.shape ),
+	managerMessageBase.extend( managerMessageRunBlueprint.shape ),
+	managerMessageBase.extend( managerMessageStopServer.shape ),
 ] );
 export type ManagerMessage = z.infer< typeof managerMessageSchema >;
 

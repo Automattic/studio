@@ -119,7 +119,7 @@ const wpcomPublicBaseQuery: BaseQueryFn<
 	}
 };
 
-function parseResponse< TSchema extends z.ZodTypeAny >(
+function parseResponse< TSchema extends z.ZodType >(
 	response: unknown,
 	schema: TSchema
 ): z.infer< TSchema > {

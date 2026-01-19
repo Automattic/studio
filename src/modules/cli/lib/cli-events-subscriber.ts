@@ -89,6 +89,17 @@ export async function startCliEventsSubscriber(): Promise< void > {
 
 			const siteEvent = parsed.data.value;
 			void handleSiteEvent( siteEvent );
+
+			// Don't send CREATED events to renderer if the site is currently being created by the UI
+			// (the createSite IPC call will handle updating the UI state to prevent duplicates)
+			if ( siteEvent.event === SITE_EVENTS.CREATED && siteEvent.site ) {
+				const existingServer =
+					SiteServer.get( siteEvent.siteId ) ?? SiteServer.getByPath( siteEvent.site.path );
+				if ( existingServer?.hasOngoingOperation ) {
+					return;
+				}
+			}
+
 			void sendIpcEventToRenderer( 'site-event', siteEvent );
 		} );
 

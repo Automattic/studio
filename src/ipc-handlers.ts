@@ -769,7 +769,6 @@ export async function getThemeDetails(
 
 	if ( themeChanged ) {
 		const parentWindow = BrowserWindow.fromWebContents( event.sender );
-		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id } );
 		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-changed', {
 			id,
 			details: themeDetails,

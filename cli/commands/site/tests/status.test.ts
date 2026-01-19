@@ -17,14 +17,14 @@ jest.mock( 'common/lib/get-wordpress-version' );
 
 describe( 'CLI: studio site status', () => {
 	// Simple test data
-	// adminPassword is stored as Base64-encoded, so we use btoa('password123')
 	const testSite = {
 		id: 'site-1',
 		name: 'Test Site',
 		path: '/path/to/site',
 		port: 8080,
 		phpVersion: '8.0',
-		adminPassword: 'cGFzc3dvcmQxMjM=', // btoa('password123')
+		// createPassword returns a Base64-encoded string
+		adminPassword: btoa( 'password123' ),
 	};
 
 	const testSiteWithoutOptional = {

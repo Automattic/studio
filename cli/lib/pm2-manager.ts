@@ -97,25 +97,37 @@ export async function disconnect(): Promise< void > {
 	} );
 }
 
-export async function killDaemonAndAllChildren() {
-	return new Promise< void >( ( resolve, reject ) => {
-		const timeout = setTimeout( () => {
-			reject(
-				new Error(
-					'PM2 kill timeout after 25 seconds. Try running: PM2_HOME=~/.studio/pm2 pm2 kill'
-				)
-			);
-		}, KILL_TIMEOUT );
+// On Posix platforms, pm2 sends a SIGQUIT signal from the daemon to the caller process (this
+// process) as part of its shutdown sequence. SIGQUIT signals cannot be ignored and the kernel will
+// kill this process after a short delay. Empirically, this delay is long enough to allow a
+// synchronous callback to run.
+export async function killDaemonAndChildrenAndExitProcess( callback: () => void ) {
+	try {
+		await new Promise< void >( ( resolve, reject ) => {
+			const timeout = setTimeout( () => {
+				reject(
+					new Error(
+						'PM2 kill timeout after 25 seconds. Try running: PM2_HOME=~/.studio/pm2 pm2 kill'
+					)
+				);
+			}, KILL_TIMEOUT );
 
-		pm2.killDaemon( ( error ) => {
-			clearTimeout( timeout );
-			if ( error ) {
-				reject( error );
-				return;
-			}
-			resolve();
+			pm2.killDaemon( ( error ) => {
+				clearTimeout( timeout );
+				if ( error ) {
+					reject( error );
+					return;
+				}
+				resolve();
+			} );
 		} );
-	} );
+
+		callback();
+	} catch ( error ) {
+		// Do nothing
+	} finally {
+		process.exit( 0 );
+	}
 }
 
 // Cache the return value of `pm2.list` for a very short time to make multiple calls in quick

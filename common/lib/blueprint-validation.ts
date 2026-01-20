@@ -1,13 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import validateBlueprintSchema from '@wp-playground/blueprints/blueprint-schema-validator';
 
-interface AjvErrorObject {
-	keyword: string;
-	instancePath: string;
-	message?: string;
-	params: Record< string, unknown >;
-}
-
 interface UnsupportedFeature {
 	type: 'step' | 'property';
 	name: string;
@@ -69,45 +62,6 @@ function getUnsupportedFeatureInfo( name: string ): UnsupportedFeature | undefin
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type BlueprintData = Record< string, any >;
-
-function formatValidationError( error: AjvErrorObject ): string {
-	const path = error.instancePath || '/';
-
-	switch ( error.keyword ) {
-		case 'additionalProperties': {
-			const additionalProp = error.params?.additionalProperty as string | undefined;
-			if ( additionalProp ) {
-				return __( `Unknown property "${ additionalProp }" at ${ path || 'root' }` );
-			}
-			return __( `Unknown property at ${ path || 'root' }` );
-		}
-		case 'required': {
-			const missingProp = error.params?.missingProperty as string | undefined;
-			if ( missingProp ) {
-				return __( `Missing required property "${ missingProp }" at ${ path || 'root' }` );
-			}
-			return __( `Missing required property at ${ path || 'root' }` );
-		}
-		case 'type': {
-			const expectedType = error.params?.type as string | undefined;
-			if ( expectedType ) {
-				return __( `Expected ${ expectedType } at ${ path || 'root' }` );
-			}
-			return __( `Invalid type at ${ path || 'root' }` );
-		}
-		case 'enum': {
-			const allowedValues = error.params?.allowedValues as string[] | undefined;
-			if ( allowedValues ) {
-				return __(
-					`Invalid value at ${ path || 'root' }. Allowed values: ${ allowedValues.join( ', ' ) }`
-				);
-			}
-			return __( `Invalid value at ${ path || 'root' }` );
-		}
-		default:
-			return error.message || __( 'Invalid Blueprint format' );
-	}
-}
 
 export type BlueprintPreferredVersions = {
 	php?: string;
@@ -184,46 +138,39 @@ type BlueprintValidationSuccess = {
 export type BlueprintValidationResult = BlueprintValidationError | BlueprintValidationSuccess;
 
 /**
- * Validates a blueprint by compiling it and scanning for unsupported features.
+ * Validates a blueprint using the official schema and scans for unsupported features.
  */
 export async function validateBlueprintData(
 	blueprintJson: unknown
 ): Promise< BlueprintValidationResult > {
-	// Temporarily suppress console.warn during blueprint validation
-	// to avoid noisy deprecation warnings from @wp-playground/blueprints
-	const originalWarn = console.warn;
-	console.warn = () => {};
+	const isValid = validateBlueprintSchema( blueprintJson );
 
-	try {
-		const isValid = validateBlueprintSchema( blueprintJson );
-
-		if ( ! isValid && validateBlueprintSchema.errors ) {
-			const firstError = validateBlueprintSchema.errors[ 0 ] as unknown as AjvErrorObject;
-			return {
-				valid: false,
-				error: formatValidationError( firstError ),
-			};
-		}
-
-		const unsupportedFeatures = scanBlueprintForUnsupportedFeatures(
-			blueprintJson as BlueprintData
-		);
-		const warnings = unsupportedFeatures.map( ( feature ) => ( {
-			feature: feature.name,
-			reason: feature.reason,
-		} ) );
-
-		return {
-			valid: true,
-			warnings,
+	if ( ! isValid && validateBlueprintSchema.errors ) {
+		const firstError = validateBlueprintSchema.errors[ 0 ] as {
+			instancePath?: string;
+			message?: string;
+			params?: { additionalProperty?: string };
 		};
-	} catch ( error ) {
-		const errorMessage = error instanceof Error ? error.message : __( 'Invalid Blueprint format' );
+		const errorPath = firstError.instancePath || '/';
+		const additionalProp = firstError.params?.additionalProperty;
+		const errorMessage = additionalProp
+			? __( `"${ additionalProp }" is not a valid Blueprint property` )
+			: firstError.message || __( 'Invalid blueprint' );
+
 		return {
 			valid: false,
-			error: errorMessage,
+			error: errorPath === '/' ? errorMessage : `${ errorMessage } at ${ errorPath }`,
 		};
-	} finally {
-		console.warn = originalWarn;
 	}
+
+	const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson as BlueprintData );
+	const warnings = unsupportedFeatures.map( ( feature ) => ( {
+		feature: feature.name,
+		reason: feature.reason,
+	} ) );
+
+	return {
+		valid: true,
+		warnings,
+	};
 }

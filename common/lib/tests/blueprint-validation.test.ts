@@ -102,8 +102,8 @@ describe( 'validateBlueprintData', () => {
 
 			expect( result.valid ).toBe( false );
 			if ( ! result.valid ) {
-				// Should mention the unknown property
 				expect( result.error ).toContain( 'name' );
+				expect( result.error ).toContain( 'not a valid Blueprint property' );
 			}
 		} );
 
@@ -118,6 +118,7 @@ describe( 'validateBlueprintData', () => {
 			expect( result.valid ).toBe( false );
 			if ( ! result.valid ) {
 				expect( result.error ).toContain( 'unknownProperty' );
+				expect( result.error ).toContain( 'not a valid Blueprint property' );
 			}
 		} );
 
@@ -139,8 +140,8 @@ describe( 'validateBlueprintData', () => {
 			expect( result.valid ).toBe( false );
 		} );
 
-		it( 'should provide helpful error for invalid step types', async () => {
-			const invalidBlueprint = {
+		it( 'should reject blueprint with invalid step types', async () => {
+			const blueprintWithUnknownStep = {
 				steps: [
 					{
 						step: 'notARealStep',
@@ -148,8 +149,7 @@ describe( 'validateBlueprintData', () => {
 				],
 			};
 
-			const result = await validateBlueprintData( invalidBlueprint );
-
+			const result = await validateBlueprintData( blueprintWithUnknownStep );
 			expect( result.valid ).toBe( false );
 		} );
 	} );

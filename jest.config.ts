@@ -23,8 +23,6 @@ module.exports = {
 		'^vendor/(.*)$': '<rootDir>/vendor/$1',
 		'^common/(.*)$': '<rootDir>/common/$1',
 		'\\.css$': '<rootDir>/src/tests/utils/style-mock.js',
-		'^@wp-playground/blueprints/blueprint-schema-validator$':
-			'<rootDir>/node_modules/@wp-playground/blueprints/blueprint-schema-validator.js',
 	},
 	testEnvironment: 'jsdom',
 	testEnvironmentOptions: {

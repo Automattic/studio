@@ -22,14 +22,18 @@ export type WpCliResult = { stdout: string; stderr: string; exitCode: number };
 const servers = new Map< string, SiteServer >();
 const deletedServers: string[] = [];
 
-export async function stopAllServersOnQuit() {
-	// The `--auto-start` option ensures sites will restart on next app launch.
+/**
+ * Stop all running sites using the CLI `site stop --all` command.
+ *
+ * @param shouldSaveAutoStartProp Makes it so sites are automatically started the next time Studio launches. Typically only true when this function runs during the application close sequence.
+ */
+export async function stopAllServers( shouldSaveAutoStartProp: boolean ) {
 	return new Promise< void >( ( resolve ) => {
-		const [ emitter, childProcess ] = executeCliCommand(
-			[ 'site', 'stop', '--all', '--auto-start' ],
-			{ output: 'ignore' }
-		);
-		console.log( `Spawned stop-all child process with pid ${ childProcess.pid }` );
+		const args = [ 'site', 'stop', '--all' ];
+		if ( shouldSaveAutoStartProp ) {
+			args.push( '--auto-start' );
+		}
+		const [ emitter ] = executeCliCommand( args, { output: 'ignore' } );
 		emitter.on( 'success', () => resolve() );
 		emitter.on( 'failure', () => resolve() );
 		emitter.on( 'error', () => resolve() );

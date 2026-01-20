@@ -67,7 +67,7 @@ describe( 'useSiteDetails', () => {
 		jest.clearAllMocks();
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			getSiteDetails: jest.fn().mockResolvedValue( mockSites ),
-			startServer: jest.fn().mockResolvedValue( undefined ),
+			startServer: jest.fn( () => Promise.resolve() ),
 		} );
 	} );
 
@@ -93,7 +93,7 @@ describe( 'useSiteDetails', () => {
 						autoStart: false,
 					} ) )
 				),
-				startServer: jest.fn().mockResolvedValue( undefined ),
+				startServer: jest.fn( () => Promise.resolve() ),
 			} );
 
 			const { result } = renderHook( () => useSiteDetails(), { wrapper } );

@@ -70,7 +70,6 @@ export class SiteServer {
 	 * with the ongoing operation.
 	 */
 	hasOngoingOperation = false;
-	themeDetails?: SiteDetails[ 'themeDetails' ];
 
 	private constructor(
 		public details: SiteDetails,
@@ -78,7 +77,6 @@ export class SiteServer {
 	) {
 		const url = getAbsoluteUrl( this.details );
 		this.server = new CliServerProcess( this.details.id, this.details.path, url );
-		this.themeDetails = details.themeDetails;
 	}
 
 	static get( id: string ): SiteServer | undefined {
@@ -390,14 +388,14 @@ export class SiteServer {
 
 			if ( exitCode !== 0 || ! stdout ) {
 				console.error( 'Failed to get theme details via WP-CLI', { exitCode, stdout, stderr } );
-				return this.themeDetails;
+				return this.details.themeDetails;
 			}
 
 			const themeDetailsParsed = JSON.parse( stdout );
 			return SiteServer.themeDetailsSchema.parse( themeDetailsParsed );
 		} catch ( error ) {
 			console.error( 'Failed to get theme details:', error );
-			return this.themeDetails;
+			return this.details.themeDetails;
 		}
 	}
 

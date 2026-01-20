@@ -18,9 +18,11 @@ let subscriber: ReturnType< typeof executeCliCommand > | null = null;
 
 function siteDetailsToServerDetails(
 	site: SiteDetails,
-	running: boolean
+	running: boolean,
+	existingDetails?: SiteServer[ 'details' ]
 ): SiteServer[ 'details' ] {
 	return {
+		...existingDetails,
 		...site,
 		running,
 	};
@@ -58,7 +60,7 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		return;
 	}
 
-	server.details = siteDetailsToServerDetails( site, running );
+	server.details = siteDetailsToServerDetails( site, running, server.details );
 
 	if ( server.server && site.url ) {
 		server.server.url = site.url;

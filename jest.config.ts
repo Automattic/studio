@@ -15,7 +15,7 @@ module.exports = {
 		'^.+\\.m?js$': [ 'babel-jest', { presets: [ '@babel/preset-env' ] } ],
 		"^.+\\.svg$": 'jest-transform-stub',
 	},
-	transformIgnorePatterns: [ 'node_modules/' ],
+	transformIgnorePatterns: [ 'node_modules/(?!@wp-playground/blueprints)' ],
 	moduleNameMapper: {
 		'^(\\.{1,2}/.*)\\.js$': '$1',
 		'^cli/(.*)$': '<rootDir>/cli/$1',
@@ -23,6 +23,8 @@ module.exports = {
 		'^vendor/(.*)$': '<rootDir>/vendor/$1',
 		'^common/(.*)$': '<rootDir>/common/$1',
 		'\\.css$': '<rootDir>/src/tests/utils/style-mock.js',
+		'^@wp-playground/blueprints/blueprint-schema-validator$':
+			'<rootDir>/node_modules/@wp-playground/blueprints/blueprint-schema-validator.js',
 	},
 	testEnvironment: 'jsdom',
 	testEnvironmentOptions: {

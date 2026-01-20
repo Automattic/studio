@@ -1,5 +1,12 @@
 import { __ } from '@wordpress/i18n';
-import { z } from 'zod';
+import validateBlueprintSchema from '@wp-playground/blueprints/blueprint-schema-validator';
+
+interface AjvErrorObject {
+	keyword: string;
+	instancePath: string;
+	message?: string;
+	params: Record< string, unknown >;
+}
 
 interface UnsupportedFeature {
 	type: 'step' | 'property';
@@ -62,6 +69,45 @@ function getUnsupportedFeatureInfo( name: string ): UnsupportedFeature | undefin
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type BlueprintData = Record< string, any >;
+
+function formatValidationError( error: AjvErrorObject ): string {
+	const path = error.instancePath || '/';
+
+	switch ( error.keyword ) {
+		case 'additionalProperties': {
+			const additionalProp = error.params?.additionalProperty as string | undefined;
+			if ( additionalProp ) {
+				return __( `Unknown property "${ additionalProp }" at ${ path || 'root' }` );
+			}
+			return __( `Unknown property at ${ path || 'root' }` );
+		}
+		case 'required': {
+			const missingProp = error.params?.missingProperty as string | undefined;
+			if ( missingProp ) {
+				return __( `Missing required property "${ missingProp }" at ${ path || 'root' }` );
+			}
+			return __( `Missing required property at ${ path || 'root' }` );
+		}
+		case 'type': {
+			const expectedType = error.params?.type as string | undefined;
+			if ( expectedType ) {
+				return __( `Expected ${ expectedType } at ${ path || 'root' }` );
+			}
+			return __( `Invalid type at ${ path || 'root' }` );
+		}
+		case 'enum': {
+			const allowedValues = error.params?.allowedValues as string[] | undefined;
+			if ( allowedValues ) {
+				return __(
+					`Invalid value at ${ path || 'root' }. Allowed values: ${ allowedValues.join( ', ' ) }`
+				);
+			}
+			return __( `Invalid value at ${ path || 'root' }` );
+		}
+		default:
+			return error.message || __( 'Invalid Blueprint format' );
+	}
+}
 
 export type BlueprintPreferredVersions = {
 	php?: string;
@@ -143,16 +189,25 @@ export type BlueprintValidationResult = BlueprintValidationError | BlueprintVali
 export async function validateBlueprintData(
 	blueprintJson: unknown
 ): Promise< BlueprintValidationResult > {
-	// Temporarily suppress console.warn during blueprint compilation
+	// Temporarily suppress console.warn during blueprint validation
 	// to avoid noisy deprecation warnings from @wp-playground/blueprints
 	const originalWarn = console.warn;
 	console.warn = () => {};
 
-	const schema = z.record( z.string(), z.any() );
-
 	try {
-		const result = schema.parse( blueprintJson );
-		const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( result );
+		const isValid = validateBlueprintSchema( blueprintJson );
+
+		if ( ! isValid && validateBlueprintSchema.errors ) {
+			const firstError = validateBlueprintSchema.errors[ 0 ] as unknown as AjvErrorObject;
+			return {
+				valid: false,
+				error: formatValidationError( firstError ),
+			};
+		}
+
+		const unsupportedFeatures = scanBlueprintForUnsupportedFeatures(
+			blueprintJson as BlueprintData
+		);
 		const warnings = unsupportedFeatures.map( ( feature ) => ( {
 			feature: feature.name,
 			reason: feature.reason,

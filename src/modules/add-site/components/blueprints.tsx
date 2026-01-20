@@ -323,7 +323,7 @@ export function AddSiteBlueprintSelector( {
 				/>
 			) }
 
-			<HStack alignment="edge" className="w-full mb-5 ">
+			<HStack alignment="edge" className="w-full mb-5 h-7">
 				<HStack alignment="left" className="flex-1">
 					<Text className="text-[16px]" weight={ 500 }>
 						{ __( 'Featured Blueprints' ) }

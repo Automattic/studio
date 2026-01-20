@@ -486,7 +486,7 @@ export const CreateSiteForm = ( {
 
 								{ showBlueprintVersionWarning && (
 									<Notice status="warning" isDismissible={ false } className="mt-4">
-										<strong>{ __( 'Blueprint specifies version requirements' ) }</strong>
+										<strong>{ __( 'Version differs from Blueprint recommendation' ) }</strong>
 										<br />
 										{ __( 'This Blueprint recommends:' ) }
 										<ul style={ { marginTop: '8px', marginBottom: '4px', paddingLeft: '20px' } }>
@@ -511,7 +511,7 @@ export const CreateSiteForm = ( {
 												</li>
 											) }
 										</ul>
-										{ __( 'The site will be created with the Blueprint recommended versions.' ) }
+										{ __( 'Using different versions may cause compatibility issues.' ) }
 									</Notice>
 								) }
 

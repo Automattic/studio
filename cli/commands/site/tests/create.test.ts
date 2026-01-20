@@ -24,7 +24,11 @@ import {
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { isSqliteIntegrationAvailable, installSqliteIntegration } from 'cli/lib/sqlite-integration';
+import {
+	isSqliteIntegrationAvailable,
+	installSqliteIntegration,
+	needsSqliteSetup,
+} from 'cli/lib/sqlite-integration';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import { runCommand } from '../create';
@@ -137,6 +141,7 @@ describe( 'CLI: studio site create', () => {
 		( saveAppdata as jest.Mock ).mockResolvedValue( undefined );
 		( lockAppdata as jest.Mock ).mockResolvedValue( undefined );
 		( unlockAppdata as jest.Mock ).mockResolvedValue( undefined );
+		( needsSqliteSetup as jest.Mock ).mockResolvedValue( true );
 		( isSqliteIntegrationAvailable as jest.Mock ).mockResolvedValue( true );
 		( installSqliteIntegration as jest.Mock ).mockResolvedValue( undefined );
 		( connect as jest.Mock ).mockResolvedValue( undefined );
@@ -322,6 +327,19 @@ describe( 'CLI: studio site create', () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( fsMkdirSyncSpy ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should skip SQLite setup when existing wp-config.php detected', async () => {
+			( pathExists as jest.Mock ).mockResolvedValue( true );
+			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
+			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
+			( needsSqliteSetup as jest.Mock ).mockResolvedValue( false );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+
+			expect( needsSqliteSetup ).toHaveBeenCalledWith( mockSitePath );
+			expect( isSqliteIntegrationAvailable ).not.toHaveBeenCalled();
+			expect( installSqliteIntegration ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should create site with custom domain', async () => {

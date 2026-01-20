@@ -40,7 +40,9 @@ export default function BlueprintDeeplink( {
 					<HStack className="h-full justify-start" alignment="top" spacing={ 4 }>
 						<Icon className="fill-a8c-blue-50 shrink-0" icon={ check } size={ 29 } />
 						<VStack alignment="left" spacing={ 1 }>
-							<Text className="text-lg font-medium text-gray-900">{ blueprintTitle }</Text>
+							<Text className="text-lg font-medium text-gray-900 text-left line-clamp-2">
+								{ blueprintTitle }
+							</Text>
 							<VStack alignment="left" spacing={ 4 }>
 								{ blueprintDescription && (
 									<Text

@@ -627,7 +627,9 @@ describe( 'AddSite', () => {
 		// Warning should show immediately since Blueprint versions (8.1, 6.4.0) differ from defaults (8.3, latest)
 		// No need to change version - the fix ensures warning appears right away
 		await waitFor( () => {
-			expect( screen.getByText( 'Blueprint specifies version requirements' ) ).toBeInTheDocument();
+			expect(
+				screen.getByText( 'Version differs from Blueprint recommendation' )
+			).toBeInTheDocument();
 			expect( screen.getByText( 'PHP 8.1 (default is 8.3)' ) ).toBeInTheDocument();
 		} );
 

@@ -34,6 +34,10 @@ export default defineConfig( {
 				common: resolve( 'common' ),
 				cli: resolve( 'cli' ),
 				vendor: resolve( 'vendor' ),
+				'@wp-playground/blueprints/blueprint-schema-validator': resolve(
+					__dirname,
+					'node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'
+				),
 			},
 		},
 		define: {
@@ -69,6 +73,10 @@ export default defineConfig( {
 				common: resolve( 'common' ),
 				cli: resolve( 'cli' ),
 				vendor: resolve( 'vendor' ),
+				'@wp-playground/blueprints/blueprint-schema-validator': resolve(
+					__dirname,
+					'node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'
+				),
 			},
 		},
 		plugins: [

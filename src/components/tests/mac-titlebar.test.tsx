@@ -1,10 +1,11 @@
 import { render } from '@testing-library/react';
+import { vi, type Mock } from 'vitest';
 import MacTitlebar from 'src/components/mac-titlebar';
 import { useFullscreen } from 'src/hooks/use-fullscreen';
 import { isWindowFrameRtl } from 'src/lib/is-window-frame-rtl';
 
-jest.mock( 'src/hooks/use-fullscreen' );
-jest.mock( 'src/lib/is-window-frame-rtl' );
+vi.mock( 'src/hooks/use-fullscreen' );
+vi.mock( 'src/lib/is-window-frame-rtl' );
 
 const FULLSCREEN_CLASSES = {
 	ltr: 'ltr:pl-4',
@@ -24,14 +25,14 @@ const NON_FULLSCREEN_CLASSES = {
 
 describe( 'MacTitlebar', () => {
 	beforeEach( () => {
-		jest.clearAllMocks();
-		( useFullscreen as jest.Mock ).mockReturnValue( false );
-		( isWindowFrameRtl as jest.Mock ).mockReturnValue( false );
+		vi.clearAllMocks();
+		( useFullscreen as Mock ).mockReturnValue( false );
+		( isWindowFrameRtl as Mock ).mockReturnValue( false );
 	} );
 
 	it( 'should render with correct padding in non-fullscreen LTR mode', () => {
-		( useFullscreen as jest.Mock ).mockReturnValue( false );
-		( isWindowFrameRtl as jest.Mock ).mockReturnValue( false );
+		( useFullscreen as Mock ).mockReturnValue( false );
+		( isWindowFrameRtl as Mock ).mockReturnValue( false );
 
 		const { container } = render( <MacTitlebar /> );
 		const titlebar = container.firstChild;
@@ -43,8 +44,8 @@ describe( 'MacTitlebar', () => {
 	} );
 
 	it( 'should render with correct padding in non-fullscreen RTL mode', () => {
-		( useFullscreen as jest.Mock ).mockReturnValue( false );
-		( isWindowFrameRtl as jest.Mock ).mockReturnValue( true );
+		( useFullscreen as Mock ).mockReturnValue( false );
+		( isWindowFrameRtl as Mock ).mockReturnValue( true );
 
 		const { container } = render( <MacTitlebar /> );
 		const titlebar = container.firstChild;
@@ -55,7 +56,7 @@ describe( 'MacTitlebar', () => {
 	} );
 
 	it( 'should render with minimal padding in fullscreen mode', () => {
-		( useFullscreen as jest.Mock ).mockReturnValue( true );
+		( useFullscreen as Mock ).mockReturnValue( true );
 
 		const { container } = render( <MacTitlebar /> );
 		const titlebar = container.firstChild;

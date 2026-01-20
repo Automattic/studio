@@ -1,23 +1,24 @@
 import { render, act, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
+import { vi, type Mock } from 'vitest';
 import TopBar from 'src/components/top-bar';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { store } from 'src/stores';
 
-jest.mock( 'src/hooks/use-auth' );
-jest.mock( 'src/hooks/use-offline' );
+vi.mock( 'src/hooks/use-auth' );
+vi.mock( 'src/hooks/use-offline' );
 
-const mockOpenURL = jest.fn();
-const mockAuthenticate = jest.fn();
-const toggleMinWindowWidth = jest.fn();
-jest.mock( 'src/lib/get-ipc-api', () => ( {
+const mockOpenURL = vi.fn();
+const mockAuthenticate = vi.fn();
+const toggleMinWindowWidth = vi.fn();
+vi.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
-	default: jest.fn(),
+	default: vi.fn(),
 	getIpcApi: () => ( {
-		showOpenFolderDialog: jest.fn(),
-		generateProposedSitePath: jest.fn(),
+		showOpenFolderDialog: vi.fn(),
+		generateProposedSitePath: vi.fn(),
 		openURL: mockOpenURL,
 		authenticate: mockAuthenticate,
 		toggleMinWindowWidth,
@@ -30,12 +31,12 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 
 describe( 'TopBar', () => {
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 	} );
 	it( 'Test unauthenticated TopBar has the Log in button', async () => {
-		const authenticate = jest.fn();
-		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
-		await act( async () => renderWithProvider( <TopBar onToggleSidebar={ jest.fn() } /> ) );
+		const authenticate = vi.fn();
+		( useAuth as Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
+		await act( async () => renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> ) );
 		expect(
 			screen.queryByRole( 'button', { name: 'Open account settings' } )
 		).not.toBeInTheDocument();
@@ -45,15 +46,15 @@ describe( 'TopBar', () => {
 	} );
 
 	it( 'Test authenticated TopBar does not have the log in button and it has the settings and account buttons', async () => {
-		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
-		await act( async () => renderWithProvider( <TopBar onToggleSidebar={ jest.fn() } /> ) );
+		( useAuth as Mock ).mockReturnValue( { isAuthenticated: true } );
+		await act( async () => renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> ) );
 		expect( screen.queryByRole( 'button', { name: 'Log in' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Open settings' } ) ).toBeVisible();
 	} );
 
 	it( 'shows offline indicator', async () => {
-		( useOffline as jest.Mock ).mockReturnValue( true );
-		await act( async () => renderWithProvider( <TopBar onToggleSidebar={ jest.fn() } /> ) );
+		( useOffline as Mock ).mockReturnValue( true );
+		await act( async () => renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> ) );
 		const offlineIndicator = screen.getByRole( 'button', {
 			name: 'Offline indicator',
 		} );
@@ -66,9 +67,9 @@ describe( 'TopBar', () => {
 
 	it( 'opens the support URL', async () => {
 		const user = userEvent.setup();
-		( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: true } );
+		( useAuth as Mock ).mockReturnValue( { isAuthenticated: true } );
 
-		renderWithProvider( <TopBar onToggleSidebar={ jest.fn() } /> );
+		renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> );
 
 		const helpIconButton = screen.getByRole( 'button', { name: 'Get help' } );
 		await user.click( helpIconButton );
@@ -81,7 +82,7 @@ describe( 'TopBar', () => {
 
 	it( 'calls toggleMinWindowWidth when sidebar toggle button is clicked', async () => {
 		const user = userEvent.setup();
-		const onToggleSidebar = jest.fn().mockImplementation( () => {
+		const onToggleSidebar = vi.fn().mockImplementation( () => {
 			toggleMinWindowWidth( true );
 		} );
 
@@ -97,10 +98,10 @@ describe( 'TopBar', () => {
 	describe( 'login button with offline state', () => {
 		it( 'disables login button when offline and unauthenticated', async () => {
 			const user = userEvent.setup();
-			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false } );
-			( useOffline as jest.Mock ).mockReturnValue( true );
+			( useAuth as Mock ).mockReturnValue( { isAuthenticated: false } );
+			( useOffline as Mock ).mockReturnValue( true );
 
-			renderWithProvider( <TopBar onToggleSidebar={ jest.fn() } /> );
+			renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> );
 
 			const loginButton = screen.getByRole( 'button', {
 				name: 'Log in to Studio with WordPress.com',
@@ -114,10 +115,10 @@ describe( 'TopBar', () => {
 		} );
 
 		it( 'enables login button when online and unauthenticated', async () => {
-			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false } );
-			( useOffline as jest.Mock ).mockReturnValue( false );
+			( useAuth as Mock ).mockReturnValue( { isAuthenticated: false } );
+			( useOffline as Mock ).mockReturnValue( false );
 
-			renderWithProvider( <TopBar onToggleSidebar={ jest.fn() } /> );
+			renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> );
 
 			const loginButton = screen.getByRole( 'button', {
 				name: 'Log in to Studio with WordPress.com',
@@ -127,9 +128,9 @@ describe( 'TopBar', () => {
 
 		it( 'shows offline tooltip when offline and unauthenticated', async () => {
 			const user = userEvent.setup();
-			( useAuth as jest.Mock ).mockReturnValue( { isAuthenticated: false } );
-			( useOffline as jest.Mock ).mockReturnValue( true );
-			renderWithProvider( <TopBar onToggleSidebar={ jest.fn() } /> );
+			( useAuth as Mock ).mockReturnValue( { isAuthenticated: false } );
+			( useOffline as Mock ).mockReturnValue( true );
+			renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> );
 			const loginButton = screen.getByRole( 'button', {
 				name: 'Log in to Studio with WordPress.com',
 			} );

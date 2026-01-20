@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
+import { vi, type Mock } from 'vitest';
 import App from 'src/components/app';
 import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
@@ -16,48 +17,58 @@ import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import { wordpressVersionsApi } from 'src/stores/wordpress-versions-api';
 import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 
-jest.mock( 'src/index.css', () => ( {} ) );
-jest.mock( 'src/stores/onboarding-slice', () => ( {
-	selectOnboardingLoading: jest.fn().mockReturnValue( false ),
-} ) );
-jest.mock( 'src/modules/onboarding/hooks/use-onboarding' );
-jest.mock( 'src/hooks/use-site-details' );
-jest.mock( 'src/modules/whats-new/hooks/use-whats-new', () => ( {
-	useWhatsNew: () => ( {
-		showWhatsNew: false,
-		closeWhatsNew: jest.fn(),
-	} ),
-} ) );
-
-jest.mock( 'src/lib/app-globals', () => ( {
-	...jest.requireActual( '../../lib/app-globals' ),
-	getAppGlobals: jest.fn().mockReturnValue( { locale: 'en' } ),
-	isWindows: jest.fn().mockReturnValue( false ),
-} ) );
-jest.mock( 'src/lib/get-ipc-api', () => ( {
-	...jest.requireActual( '../../lib/get-ipc-api' ),
-	getIpcApi: jest.fn().mockReturnValue( {
-		setupAppMenu: jest.fn(),
-		getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
-		updateConnectedWpcomSites: jest.fn(),
-		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-		getUserEditor: jest.fn().mockResolvedValue( 'vscode' ),
-		setWindowControlVisibility: jest.fn(),
-		generateProposedSitePath: jest.fn().mockResolvedValue( {
-			path: '/default/path',
-			name: 'Default Site',
-			isEmpty: true,
-			isWordPress: false,
-		} ),
-		getAllCustomDomains: jest.fn().mockResolvedValue( [] ),
-	} ),
-} ) );
-
-jest.mock( 'src/stores/wordpress-versions-api', () => {
-	const actual = jest.requireActual( 'src/stores/wordpress-versions-api' );
+vi.mock( 'src/index.css', () => ( {} ) );
+vi.mock( 'src/stores/onboarding-slice', async () => {
+	const actual = await vi.importActual( 'src/stores/onboarding-slice' );
 	return {
 		...actual,
-		useGetWordPressVersions: jest.fn( () => ( {
+		selectOnboardingLoading: vi.fn().mockReturnValue( false ),
+	};
+} );
+vi.mock( 'src/modules/onboarding/hooks/use-onboarding' );
+vi.mock( 'src/hooks/use-site-details' );
+vi.mock( 'src/modules/whats-new/hooks/use-whats-new', () => ( {
+	useWhatsNew: () => ( {
+		showWhatsNew: false,
+		closeWhatsNew: vi.fn(),
+	} ),
+} ) );
+
+vi.mock( 'src/lib/app-globals', async () => {
+	const actual = await vi.importActual( '../../lib/app-globals' );
+	return {
+		...actual,
+		getAppGlobals: vi.fn().mockReturnValue( { locale: 'en' } ),
+		isWindows: vi.fn().mockReturnValue( false ),
+	};
+} );
+vi.mock( 'src/lib/get-ipc-api', async () => {
+	const actual = await vi.importActual( '../../lib/get-ipc-api' );
+	return {
+		...actual,
+		getIpcApi: vi.fn().mockReturnValue( {
+			setupAppMenu: vi.fn(),
+			getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
+			updateConnectedWpcomSites: vi.fn(),
+			getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
+			getUserEditor: vi.fn().mockResolvedValue( 'vscode' ),
+			setWindowControlVisibility: vi.fn(),
+			generateProposedSitePath: vi.fn().mockResolvedValue( {
+				path: '/default/path',
+				name: 'Default Site',
+				isEmpty: true,
+				isWordPress: false,
+			} ),
+			getAllCustomDomains: vi.fn().mockResolvedValue( [] ),
+		} ),
+	};
+} );
+
+vi.mock( 'src/stores/wordpress-versions-api', async () => {
+	const actual = await vi.importActual( 'src/stores/wordpress-versions-api' );
+	return {
+		...actual,
+		useGetWordPressVersions: vi.fn( () => ( {
 			sites: [
 				{ label: 'Latest', value: 'latest', isBeta: false, isDevelopment: false },
 				{ label: '6.4', value: '6.4', isBeta: false, isDevelopment: false },
@@ -67,11 +78,11 @@ jest.mock( 'src/stores/wordpress-versions-api', () => {
 	};
 } );
 
-jest.mock( 'src/stores/wpcom-api', () => {
-	const actual = jest.requireActual( 'src/stores/wpcom-api' );
+vi.mock( 'src/stores/wpcom-api', async () => {
+	const actual = await vi.importActual( 'src/stores/wpcom-api' );
 	return {
 		...actual,
-		useGetBlueprints: jest.fn( () => ( {
+		useGetBlueprints: vi.fn( () => ( {
 			sites: { blueprints: [], total: 0 },
 			isLoading: false,
 		} ) ),
@@ -80,7 +91,7 @@ jest.mock( 'src/stores/wpcom-api', () => {
 
 describe( 'App', () => {
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 	} );
 
 	const renderWithProvider = ( component: React.ReactElement ) => {
@@ -115,10 +126,10 @@ describe( 'App', () => {
 	};
 
 	it( 'should display NoStudioSites when there are no sites and onboarding is complete', async () => {
-		( useOnboarding as jest.Mock ).mockReturnValue( {
+		( useOnboarding as Mock ).mockReturnValue( {
 			needsOnboarding: false,
 		} );
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
+		( useSiteDetails as Mock ).mockReturnValue( {
 			sites: [],
 			loadingSites: false,
 			selectedSite: null,

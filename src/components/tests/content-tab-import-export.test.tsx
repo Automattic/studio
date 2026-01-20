@@ -46,6 +46,10 @@ beforeEach( () => {
 	} );
 } );
 
+afterEach( () => {
+	vi.useRealTimers();
+} );
+
 const renderWithProvider = ( children: React.ReactElement ) => {
 	return render(
 		<Provider store={ store }>
@@ -72,8 +76,6 @@ describe( 'ContentTabImportExport Import', () => {
 	} );
 
 	test( 'should display inital text on drop leave', async () => {
-		vi.useFakeTimers();
-
 		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
 		await waitFor( () => {
 			expect( screen.getByTestId( 'import-export-supported' ) ).toBeVisible();
@@ -85,6 +87,7 @@ describe( 'ContentTabImportExport Import', () => {
 		fireEvent.dragOver( dropZone );
 		expect( screen.getByText( /Drop file/i ) ).toBeInTheDocument();
 
+		vi.useFakeTimers();
 		act( () => {
 			const dragLeaveEvent = createEvent.dragLeave( dropZone );
 			fireEvent( dropZone, dragLeaveEvent );
@@ -94,7 +97,6 @@ describe( 'ContentTabImportExport Import', () => {
 		expect(
 			screen.getByText( /Drag a file here, or click to select a file/i )
 		).toBeInTheDocument();
-		// Timer cleanup handled by global afterEach in jest-setup.ts
 	} );
 
 	test( 'should import a site via drag-and-drop', async () => {

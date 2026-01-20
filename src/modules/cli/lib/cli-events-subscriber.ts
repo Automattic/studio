@@ -31,6 +31,7 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 
 	if ( eventType === SITE_EVENTS.DELETED ) {
 		SiteServer.unregister( siteId );
+		void sendIpcEventToRenderer( 'site-event', event );
 		return;
 	}
 
@@ -44,6 +45,11 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		if ( ! existingServer ) {
 			SiteServer.register( siteDetailsToServerDetails( site, running ) );
 		}
+		// Don't send to renderer if site is being created by UI (createSite IPC will handle it)
+		if ( existingServer?.hasOngoingOperation ) {
+			return;
+		}
+		void sendIpcEventToRenderer( 'site-event', event );
 		return;
 	}
 
@@ -63,6 +69,8 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 	if ( server.server && site.url ) {
 		server.server.url = site.url;
 	}
+
+	void sendIpcEventToRenderer( 'site-event', event );
 } );
 
 export async function startCliEventsSubscriber(): Promise< void > {
@@ -89,7 +97,6 @@ export async function startCliEventsSubscriber(): Promise< void > {
 
 			const siteEvent = parsed.data.value;
 			void handleSiteEvent( siteEvent );
-			void sendIpcEventToRenderer( 'site-event', siteEvent );
 		} );
 
 		eventEmitter.on( 'error', ( { error } ) => {

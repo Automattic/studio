@@ -241,6 +241,15 @@ function NavigationContent( props: NavigationContentProps ) {
 
 	const formRef = useRef< HTMLFormElement >( null );
 
+	// Original default versions (before Blueprint override) for warning comparison
+	const originalDefaultVersions = useMemo(
+		() => ( {
+			phpVersion: defaultValues.phpVersion,
+			wpVersion: defaultValues.wpVersion,
+		} ),
+		[ defaultValues.phpVersion, defaultValues.wpVersion ]
+	);
+
 	const createSiteProps = {
 		onSelectPath,
 		onSiteNameChange,
@@ -270,6 +279,7 @@ function NavigationContent( props: NavigationContentProps ) {
 					{ ...createSiteProps }
 					defaultValues={ defaultValuesWithBlueprint }
 					blueprintPreferredVersions={ blueprintPreferredVersions }
+					originalDefaultVersions={ originalDefaultVersions }
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/create">
@@ -286,6 +296,7 @@ function NavigationContent( props: NavigationContentProps ) {
 					{ ...createSiteProps }
 					defaultValues={ defaultValuesWithBlueprint }
 					blueprintPreferredVersions={ blueprintPreferredVersions }
+					originalDefaultVersions={ originalDefaultVersions }
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/backup">

@@ -575,7 +575,7 @@ describe( 'AddSite', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'should show warning when Blueprint preferred versions differ from selected versions', async () => {
+	it( 'should show warning immediately when Blueprint preferred versions differ from defaults', async () => {
 		const mockBlueprintData = {
 			data: {
 				blueprints: [
@@ -624,16 +624,11 @@ describe( 'AddSite', () => {
 		// Open advanced settings to access version selectors
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
-		// Change PHP version to something different from preferred
-		const phpVersionSelect = screen.getByLabelText( 'PHP version' );
-		await user.selectOptions( phpVersionSelect, '8.3' );
-
-		// Should show warning since PHP version differs from preferred (8.1)
+		// Warning should show immediately since Blueprint versions (8.1, 6.4.0) differ from defaults (8.3, latest)
+		// No need to change version - the fix ensures warning appears right away
 		await waitFor( () => {
-			expect(
-				screen.getByText( 'Version differs from Blueprint recommendation' )
-			).toBeInTheDocument();
-			expect( screen.getByText( 'PHP 8.1 (currently 8.3)' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Blueprint specifies version requirements' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'PHP 8.1 (default is 8.3)' ) ).toBeInTheDocument();
 		} );
 	} );
 

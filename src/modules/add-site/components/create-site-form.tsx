@@ -39,6 +39,11 @@ export interface CreateSiteFormProps {
 	existingDomainNames?: string[];
 	/** Blueprint preferred versions for warning display */
 	blueprintPreferredVersions?: BlueprintPreferredVersions;
+	/** Original default versions (before Blueprint override) for warning comparison */
+	originalDefaultVersions?: {
+		phpVersion?: AllowedPHPVersion;
+		wpVersion?: string;
+	};
 	/** Called when form is submitted */
 	onSubmit: ( values: CreateSiteFormValues ) => void;
 	/** Called when form validity changes */
@@ -151,6 +156,7 @@ export const CreateSiteForm = ( {
 	onSiteNameChange,
 	existingDomainNames = [],
 	blueprintPreferredVersions,
+	originalDefaultVersions,
 	onSubmit,
 	onValidityChange,
 	formRef,
@@ -347,11 +353,18 @@ export const CreateSiteForm = ( {
 
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
 
-	// Check if current versions differ from blueprint recommendations
+	// Check if blueprint versions differ from original defaults (or current selections if no originals provided)
+	// This ensures the warning shows immediately when a Blueprint with different versions is selected
+	const phpVersionToCompare = originalDefaultVersions?.phpVersion ?? phpVersion;
+	const wpVersionToCompare = originalDefaultVersions?.wpVersion ?? wpVersion;
 	const showBlueprintVersionWarning =
 		blueprintPreferredVersions &&
-		( ( blueprintPreferredVersions.php && blueprintPreferredVersions.php !== phpVersion ) ||
-			( blueprintPreferredVersions.wp && blueprintPreferredVersions.wp !== wpVersion ) );
+		( ( blueprintPreferredVersions.php &&
+			blueprintPreferredVersions.php !== 'latest' &&
+			blueprintPreferredVersions.php !== phpVersionToCompare ) ||
+			( blueprintPreferredVersions.wp &&
+				blueprintPreferredVersions.wp !== 'latest' &&
+				blueprintPreferredVersions.wp !== wpVersionToCompare ) );
 
 	const showAdvancedSettings = onSelectPath !== undefined;
 
@@ -458,34 +471,36 @@ export const CreateSiteForm = ( {
 
 								{ showBlueprintVersionWarning && (
 									<Notice status="warning" isDismissible={ false } className="mt-4">
-										<strong>{ __( 'Version differs from Blueprint recommendation' ) }</strong>
+										<strong>{ __( 'Blueprint specifies version requirements' ) }</strong>
 										<br />
 										{ __( 'This Blueprint recommends:' ) }
 										<ul style={ { marginTop: '8px', marginBottom: '4px', paddingLeft: '20px' } }>
 											{ blueprintPreferredVersions.php &&
-												blueprintPreferredVersions.php !== phpVersion && (
+												blueprintPreferredVersions.php !== 'latest' &&
+												blueprintPreferredVersions.php !== phpVersionToCompare && (
 													<li>
 														{ sprintf(
-															/* translators: %1$s: recommended PHP version, %2$s: currently selected PHP version */
-															__( 'PHP %s (currently %s)' ),
+															/* translators: %1$s: recommended PHP version, %2$s: default PHP version */
+															__( 'PHP %s (default is %s)' ),
 															blueprintPreferredVersions.php,
-															phpVersion
+															phpVersionToCompare
 														) }
 													</li>
 												) }
 											{ blueprintPreferredVersions.wp &&
-												blueprintPreferredVersions.wp !== wpVersion && (
+												blueprintPreferredVersions.wp !== 'latest' &&
+												blueprintPreferredVersions.wp !== wpVersionToCompare && (
 													<li>
 														{ sprintf(
-															/* translators: %1$s: recommended WordPress version, %2$s: currently selected WordPress version */
-															__( 'WordPress %s (currently %s)' ),
+															/* translators: %1$s: recommended WordPress version, %2$s: default WordPress version */
+															__( 'WordPress %s (default is %s)' ),
 															blueprintPreferredVersions.wp,
-															wpVersion
+															wpVersionToCompare
 														) }
 													</li>
 												) }
 										</ul>
-										{ __( 'Using different versions may cause compatibility issues.' ) }
+										{ __( 'The site will be created with the Blueprint recommended versions.' ) }
 									</Notice>
 								) }
 

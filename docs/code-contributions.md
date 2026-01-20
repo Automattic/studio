@@ -38,6 +38,7 @@ This command starts the app in dev mode and opens it automatically, with the Chr
 As with any Electron app, the code is split into two processes:
 
 1. **Renderer Process** (reloads automatically):
+
    - All React components and UI code in `src/components/`, `src/modules/*/components/`
    - Hooks, stores, and utilities used by the UI (`src/hooks/`, `src/stores/`, etc.)
    - Any code that runs in the browser window context
@@ -49,6 +50,7 @@ As with any Electron app, the code is split into two processes:
    - PHP server management code
 
 When editing main process code, you can either:
+
 - Restart the app manually, or
 - Type `rs` in the terminal where you ran `npm start` to restart the server
 
@@ -76,27 +78,27 @@ The project follows a modular architecture with both global and feature-specific
 
 #### Global Directories
 
-| Directory         | Description |
-|-------------------|-------------|
-| `cli/`            | Root directory for CLI code |
+| Directory         | Description                                                                   |
+| ----------------- | ----------------------------------------------------------------------------- |
+| `cli/`            | Root directory for CLI code                                                   |
 | `common/`         | Shared code between CLI and Studio (constants, types, utility functions, etc) |
-| `src/`            | Root directory for Studio code |
-| `src/components/` | Reusable UI components used across the application |
-| `src/hooks/`      | Global React hooks |
-| `src/lib/`        | Utility functions and helper libraries |
-| `src/modules/`    | Feature-specific code |
-| `src/stores/`     | Global state management (Redux stores) |
-| `src/api/`        | API interfaces and implementations |
+| `src/`            | Root directory for Studio code                                                |
+| `src/components/` | Reusable UI components used across the application                            |
+| `src/hooks/`      | Global React hooks                                                            |
+| `src/lib/`        | Utility functions and helper libraries                                        |
+| `src/modules/`    | Feature-specific code                                                         |
+| `src/stores/`     | Global state management (Redux stores)                                        |
+| `src/api/`        | API interfaces and implementations                                            |
 
 #### Important Entry Points
 
-| File | Description |
-|------|-------------|
-| `cli/index.ts`    | The entry point for the CLI bundle |
-| `scripts/`        | Scripts for building and testing the app |
-| `src/index.ts`    | The entry point for the main process |
+| File              | Description                                                                 |
+| ----------------- | --------------------------------------------------------------------------- |
+| `cli/index.ts`    | The entry point for the CLI bundle                                          |
+| `scripts/`        | Scripts for building and testing the app                                    |
+| `src/index.ts`    | The entry point for the main process                                        |
 | `src/renderer.ts` | The entry point for the "renderer," the code running in the Chromium window |
-| `vendor/wp-now`   | The modified `wp-now` source code |
+| `vendor/wp-now`   | The modified `wp-now` source code                                           |
 
 #### Feature Modules
 
@@ -164,7 +166,19 @@ npm run e2e
 
 ## Debugging
 
-The renderer process can be debugged using the Chromium developer tools. To open the developer tools, press <kbd>Cmd</kbd>+<kbd>Option</kbd>+<kbd>I</kbd> on Mac or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> on Windows. You can also use the [React Developer Tools](https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi) and [Redux DevTools](https://chromewebstore.google.com/detail/redux-devtools/lmhkpmbekcpmknklioeibfkpmmfibljd) to debug the renderer process.
+The renderer process can be debugged using the Chromium developer tools. To open the developer tools, press <kbd>Cmd</kbd>+<kbd>Option</kbd>+<kbd>I</kbd> on Mac or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> on Windows.
+
+### DevTools Extensions
+
+When running the app in development mode (`npm start`), React Developer Tools and Redux DevTools extensions are automatically installed and loaded. The extensions are downloaded from the Chrome Web Store and installed to your system's application data directory during the `prestart` script.
+
+If you need to manually install or reinstall the extensions, you can run:
+
+```bash
+npm run setup:devtools
+```
+
+The extensions are only loaded when `NODE_ENV=development`, so they won't be included in production builds.
 
 The main process can be debugged using the Node.js inspector. To do this, run the app with the `--inspect-brk` and `--sourcemap` flags:
 
@@ -198,6 +212,7 @@ npm run package
 After building, the executable will be located at `out/Studio-linux-x64/studio`.
 
 **Important considerations:**
+
 - The auto-update feature is not currently supported on Linux builds.
 - For Wayland systems, you may need to use additional flags when running the application.
 - Some features may not work as expected due to platform-specific implementations.
@@ -214,6 +229,6 @@ See [Versioning and Updates](./versioning-and-updates.md) documentation.
 
 ## Design Docs
 
- - [Custom Domains and SSL](./design-docs/custom-domains-and-ssl.md)
- - [What's New modal](./design-docs/whats-new-modal.md)
- - [Sync](./design-docs/sync.md)
+- [Custom Domains and SSL](./design-docs/custom-domains-and-ssl.md)
+- [What's New modal](./design-docs/whats-new-modal.md)
+- [Sync](./design-docs/sync.md)

@@ -764,7 +764,8 @@ export async function getThemeDetails(
 	}
 
 	const themeDetails = await server.getThemeDetails();
-	const themeChanged = themeDetails?.path && themeDetails.path !== server.details.themeDetails?.path;
+	const themeChanged =
+		themeDetails?.path && themeDetails.path !== server.details.themeDetails?.path;
 
 	if ( themeChanged ) {
 		const parentWindow = BrowserWindow.fromWebContents( event.sender );

@@ -125,7 +125,6 @@ export class SiteServer {
 			running: false,
 		};
 		const server = SiteServer.register( placeholderDetails, meta );
-
 		server.hasOngoingOperation = true;
 
 		try {

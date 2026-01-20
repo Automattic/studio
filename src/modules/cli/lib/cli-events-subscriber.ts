@@ -47,6 +47,10 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		if ( ! existingServer ) {
 			SiteServer.register( siteDetailsToServerDetails( site, running ) );
 		}
+		// Don't send to renderer if site is being created by UI (createSite IPC will handle it)
+		if ( existingServer?.hasOngoingOperation ) {
+			return;
+		}
 		void sendIpcEventToRenderer( 'site-event', event );
 		return;
 	}

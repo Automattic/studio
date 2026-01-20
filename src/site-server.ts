@@ -68,6 +68,13 @@ type SiteServerMeta = {
 export class SiteServer {
 	server: CliServerProcess;
 
+	/**
+	 * Indicates whether a Studio-managed operation (start/stop) is in progress.
+	 * When true, file watchers should ignore site events to prevent interference
+	 * with the ongoing operation.
+	 */
+	hasOngoingOperation = false;
+
 	private constructor(
 		public details: SiteDetails,
 		public meta: SiteServerMeta
@@ -119,40 +126,46 @@ export class SiteServer {
 		};
 		const server = SiteServer.register( placeholderDetails, meta );
 
-		const result = await createSiteViaCli( options );
-		const userData = await loadUserData();
-		const siteData = userData.sites.find( ( s ) => s.id === result.id );
-		if ( ! siteData ) {
-			throw new Error( `Site with ID ${ result.id } not found in appdata after CLI creation` );
+		server.hasOngoingOperation = true;
+
+		try {
+			const result = await createSiteViaCli( options );
+			const userData = await loadUserData();
+			const siteData = userData.sites.find( ( s ) => s.id === result.id );
+			if ( ! siteData ) {
+				throw new Error( `Site with ID ${ result.id } not found in appdata after CLI creation` );
+			}
+
+			let siteDetails: SiteDetails;
+			if ( result.running ) {
+				const url = siteData.customDomain
+					? `${ siteData.enableHttps ? 'https' : 'http' }://${ siteData.customDomain }`
+					: `http://localhost:${ siteData.port }`;
+				siteDetails = {
+					...siteData,
+					running: true,
+					url,
+				};
+			} else {
+				siteDetails = {
+					...siteData,
+					running: false,
+				};
+			}
+
+			// Update the server with the real details from CLI
+			servers.delete( placeholderDetails.id );
+			servers.set( siteDetails.id, server );
+			server.details = siteDetails;
+
+			if ( siteDetails.running && siteDetails.url ) {
+				server.server.url = siteDetails.url;
+			}
+
+			return { server, details: siteDetails };
+		} finally {
+			server.hasOngoingOperation = false;
 		}
-
-		let siteDetails: SiteDetails;
-		if ( result.running ) {
-			const url = siteData.customDomain
-				? `${ siteData.enableHttps ? 'https' : 'http' }://${ siteData.customDomain }`
-				: `http://localhost:${ siteData.port }`;
-			siteDetails = {
-				...siteData,
-				running: true,
-				url,
-			};
-		} else {
-			siteDetails = {
-				...siteData,
-				running: false,
-			};
-		}
-
-		// Update the server with the real details from CLI
-		servers.delete( placeholderDetails.id );
-		servers.set( siteDetails.id, server );
-		server.details = siteDetails;
-
-		if ( siteDetails.running && siteDetails.url ) {
-			server.server.url = siteDetails.url;
-		}
-
-		return { server, details: siteDetails };
 	}
 
 	async delete( deleteFiles: boolean ) {

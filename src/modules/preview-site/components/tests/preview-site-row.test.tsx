@@ -1,19 +1,20 @@
 import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
+import { vi, type Mock } from 'vitest';
 import { useExpirationDate } from 'src/hooks/use-expiration-date';
 import { store } from 'src/stores';
 import { PreviewSiteRow } from '../preview-site-row';
 
-jest.mock( 'src/hooks/use-expiration-date', () => ( {
-	useExpirationDate: jest.fn().mockReturnValue( {
+vi.mock( 'src/hooks/use-expiration-date', () => ( {
+	useExpirationDate: vi.fn().mockReturnValue( {
 		countDown: '5 days',
 		isExpired: false,
 	} ),
 } ) );
 
-jest.mock( 'src/hooks/use-format-localized-timestamps', () => ( {
-	useFormatLocalizedTimestamps: jest.fn().mockReturnValue( {
-		formatRelativeTime: jest.fn().mockReturnValue( '2 hours' ),
+vi.mock( 'src/hooks/use-format-localized-timestamps', () => ( {
+	useFormatLocalizedTimestamps: vi.fn().mockReturnValue( {
+		formatRelativeTime: vi.fn().mockReturnValue( '2 hours' ),
 	} ),
 } ) );
 
@@ -41,7 +42,7 @@ describe( 'PreviewSiteRow', () => {
 	};
 
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 	} );
 
 	it( 'renders PreviewActionButtonsMenu when preview site is not expired', () => {
@@ -58,7 +59,7 @@ describe( 'PreviewSiteRow', () => {
 	} );
 
 	it( 'renders Clear button instead of PreviewActionButtonsMenu when preview site is expired', () => {
-		( useExpirationDate as jest.Mock ).mockReturnValueOnce( {
+		( useExpirationDate as Mock ).mockReturnValueOnce( {
 			countDown: 'Expired',
 			isExpired: true,
 		} );
@@ -76,7 +77,7 @@ describe( 'PreviewSiteRow', () => {
 	} );
 
 	it( 'applies line-through style when preview site is expired', () => {
-		( useExpirationDate as jest.Mock ).mockReturnValueOnce( {
+		( useExpirationDate as Mock ).mockReturnValueOnce( {
 			countDown: 'Expired',
 			isExpired: true,
 		} );

@@ -2,6 +2,7 @@ import { render, fireEvent, waitFor, screen, createEvent } from '@testing-librar
 import { userEvent } from '@testing-library/user-event';
 import { act } from 'react';
 import { Provider } from 'react-redux';
+import { vi, type Mock } from 'vitest';
 import { ContentTabImportExport } from 'src/components/content-tab-import-export';
 import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
@@ -10,9 +11,9 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
 
-jest.mock( 'src/lib/get-ipc-api' );
-jest.mock( 'src/hooks/use-site-details' );
-jest.mock( 'src/hooks/use-import-export' );
+vi.mock( 'src/lib/get-ipc-api' );
+vi.mock( 'src/hooks/use-site-details' );
+vi.mock( 'src/hooks/use-import-export' );
 
 const selectedSite: SiteDetails = {
 	id: 'site-id-1',
@@ -25,22 +26,22 @@ const selectedSite: SiteDetails = {
 };
 
 beforeEach( () => {
-	jest.clearAllMocks();
-	( useSiteDetails as jest.Mock ).mockReturnValue( {
-		updateSite: jest.fn(),
-		startServer: jest.fn(),
+	vi.clearAllMocks();
+	( useSiteDetails as Mock ).mockReturnValue( {
+		updateSite: vi.fn(),
+		startServer: vi.fn(),
 		loadingServer: {},
 	} );
-	( getIpcApi as jest.Mock ).mockReturnValue( {
-		getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
-		showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ), // Mock showMessageBox
-		isImportExportSupported: jest.fn().mockResolvedValue( true ),
+	( getIpcApi as Mock ).mockReturnValue( {
+		getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
+		showMessageBox: vi.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ), // Mock showMessageBox
+		isImportExportSupported: vi.fn().mockResolvedValue( true ),
 	} );
-	( useImportExport as jest.Mock ).mockReturnValue( {
-		importFile: jest.fn(),
+	( useImportExport as Mock ).mockReturnValue( {
+		importFile: vi.fn(),
 		importState: {},
-		exportFullSite: jest.fn(),
-		exportDatabase: jest.fn(),
+		exportFullSite: vi.fn(),
+		exportDatabase: vi.fn(),
 		exportState: {},
 	} );
 } );
@@ -71,7 +72,7 @@ describe( 'ContentTabImportExport Import', () => {
 	} );
 
 	test( 'should display inital text on drop leave', async () => {
-		jest.useFakeTimers();
+		vi.useFakeTimers();
 
 		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
 		await waitFor( () => {
@@ -87,7 +88,7 @@ describe( 'ContentTabImportExport Import', () => {
 		act( () => {
 			const dragLeaveEvent = createEvent.dragLeave( dropZone );
 			fireEvent( dropZone, dragLeaveEvent );
-			jest.runAllTimers();
+			vi.runAllTimers();
 		} );
 
 		expect(
@@ -132,7 +133,7 @@ describe( 'ContentTabImportExport Import', () => {
 	} );
 
 	test( 'should display progress when importing', async () => {
-		( useImportExport as jest.Mock ).mockReturnValue( {
+		( useImportExport as Mock ).mockReturnValue( {
 			importState: {
 				'site-id-1': { progress: 5, statusMessage: 'Extracting backup…', isNewSite: false },
 			},
@@ -152,7 +153,7 @@ describe( 'ContentTabImportExport Import', () => {
 describe( 'ContentTabImportExport Export', () => {
 	beforeEach( () => {
 		// Reset all mocks before each test
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 	} );
 
 	test( 'should export full site', async () => {
@@ -180,7 +181,7 @@ describe( 'ContentTabImportExport Export', () => {
 	} );
 
 	test( 'should display progress when exporting', async () => {
-		( useImportExport as jest.Mock ).mockReturnValue( {
+		( useImportExport as Mock ).mockReturnValue( {
 			importState: {},
 			exportState: { 'site-id-1': { progress: 5, statusMessage: 'Starting export…' } },
 		} );
@@ -195,8 +196,8 @@ describe( 'ContentTabImportExport Export', () => {
 	} );
 
 	test( 'should be blocked', async () => {
-		( getIpcApi as jest.Mock ).mockReturnValue( {
-			isImportExportSupported: jest.fn().mockResolvedValue( false ),
+		( getIpcApi as Mock ).mockReturnValue( {
+			isImportExportSupported: vi.fn().mockResolvedValue( false ),
 		} );
 
 		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );

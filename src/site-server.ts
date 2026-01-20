@@ -68,13 +68,6 @@ type SiteServerMeta = {
 export class SiteServer {
 	server: CliServerProcess;
 
-	/**
-	 * Indicates whether a Studio-managed operation (start/stop) is in progress.
-	 * When true, file watchers should ignore site events to prevent interference
-	 * with the ongoing operation.
-	 */
-	hasOngoingOperation = false;
-
 	private constructor(
 		public details: SiteDetails,
 		public meta: SiteServerMeta
@@ -125,46 +118,41 @@ export class SiteServer {
 			running: false,
 		};
 		const server = SiteServer.register( placeholderDetails, meta );
-		server.hasOngoingOperation = true;
 
-		try {
-			const result = await createSiteViaCli( options );
-			const userData = await loadUserData();
-			const siteData = userData.sites.find( ( s ) => s.id === result.id );
-			if ( ! siteData ) {
-				throw new Error( `Site with ID ${ result.id } not found in appdata after CLI creation` );
-			}
-
-			let siteDetails: SiteDetails;
-			if ( result.running ) {
-				const url = siteData.customDomain
-					? `${ siteData.enableHttps ? 'https' : 'http' }://${ siteData.customDomain }`
-					: `http://localhost:${ siteData.port }`;
-				siteDetails = {
-					...siteData,
-					running: true,
-					url,
-				};
-			} else {
-				siteDetails = {
-					...siteData,
-					running: false,
-				};
-			}
-
-			// Update the server with the real details from CLI
-			servers.delete( placeholderDetails.id );
-			servers.set( siteDetails.id, server );
-			server.details = siteDetails;
-
-			if ( siteDetails.running && siteDetails.url ) {
-				server.server.url = siteDetails.url;
-			}
-
-			return { server, details: siteDetails };
-		} finally {
-			server.hasOngoingOperation = false;
+		const result = await createSiteViaCli( options );
+		const userData = await loadUserData();
+		const siteData = userData.sites.find( ( s ) => s.id === result.id );
+		if ( ! siteData ) {
+			throw new Error( `Site with ID ${ result.id } not found in appdata after CLI creation` );
 		}
+
+		let siteDetails: SiteDetails;
+		if ( result.running ) {
+			const url = siteData.customDomain
+				? `${ siteData.enableHttps ? 'https' : 'http' }://${ siteData.customDomain }`
+				: `http://localhost:${ siteData.port }`;
+			siteDetails = {
+				...siteData,
+				running: true,
+				url,
+			};
+		} else {
+			siteDetails = {
+				...siteData,
+				running: false,
+			};
+		}
+
+		// Update the server with the real details from CLI
+		servers.delete( placeholderDetails.id );
+		servers.set( siteDetails.id, server );
+		server.details = siteDetails;
+
+		if ( siteDetails.running && siteDetails.url ) {
+			server.server.url = siteDetails.url;
+		}
+
+		return { server, details: siteDetails };
 	}
 
 	async delete( deleteFiles: boolean ) {
@@ -179,36 +167,31 @@ export class SiteServer {
 	}
 
 	async start() {
-		if ( this.details.running || this.hasOngoingOperation ) {
+		if ( this.details.running ) {
 			return;
 		}
 
-		this.hasOngoingOperation = true;
-		try {
-			console.log( `Starting server for '${ this.details.name }'` );
-			await this.server.start();
+		console.log( `Starting server for '${ this.details.name }'` );
+		await this.server.start();
 
-			const userData = await loadUserData();
-			const freshSiteData = userData.sites.find( ( s ) => s.id === this.details.id );
+		const userData = await loadUserData();
+		const freshSiteData = userData.sites.find( ( s ) => s.id === this.details.id );
 
-			if ( freshSiteData?.port ) {
-				this.details.port = freshSiteData.port;
-			}
-
-			const url = getAbsoluteUrl( this.details );
-
-			this.details = {
-				...this.details,
-				url,
-				running: true,
-				autoStart: true,
-				latestCliPid: freshSiteData?.latestCliPid,
-			};
-
-			this.server.url = url;
-		} finally {
-			this.hasOngoingOperation = false;
+		if ( freshSiteData?.port ) {
+			this.details.port = freshSiteData.port;
 		}
+
+		const url = getAbsoluteUrl( this.details );
+
+		this.details = {
+			...this.details,
+			url,
+			running: true,
+			autoStart: true,
+			latestCliPid: freshSiteData?.latestCliPid,
+		};
+
+		this.server.url = url;
 	}
 
 	updateSiteDetails( site: SiteDetails ) {
@@ -234,7 +217,6 @@ export class SiteServer {
 	async stop() {
 		console.log( 'Stopping server with ID', this.details.id );
 		try {
-			this.hasOngoingOperation = true;
 			await this.server.stop();
 
 			if ( ! this.details.running ) {
@@ -246,8 +228,6 @@ export class SiteServer {
 			this.details = { running: false, autoStart: false, ...rest };
 		} catch ( error ) {
 			console.error( error );
-		} finally {
-			this.hasOngoingOperation = false;
 		}
 	}
 

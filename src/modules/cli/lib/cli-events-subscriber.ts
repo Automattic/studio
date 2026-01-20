@@ -47,10 +47,6 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		if ( ! existingServer ) {
 			SiteServer.register( siteDetailsToServerDetails( site, running ) );
 		}
-		// Don't send to renderer if site is being created by UI (createSite IPC will handle it)
-		if ( existingServer?.hasOngoingOperation ) {
-			return;
-		}
 		void sendIpcEventToRenderer( 'site-event', event );
 		return;
 	}
@@ -58,11 +54,6 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 	// For UPDATED events, only update if the site already exists
 	const server = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
 	if ( ! server ) {
-		return;
-	}
-
-	// Skip update if Studio has an ongoing operation
-	if ( server.hasOngoingOperation ) {
 		return;
 	}
 

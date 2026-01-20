@@ -1,5 +1,6 @@
 import fs, { promises as fsPromises } from 'fs';
 import path from 'path';
+import pLimit from 'p-limit';
 import { isErrnoException } from './is-errno-exception';
 
 /**
@@ -85,17 +86,21 @@ export async function recursiveCopyDirectory(
 
 	const entries = await fsPromises.readdir( source, { withFileTypes: true } );
 
-	await Promise.all(
-		entries.map( async ( entry ) => {
-			const sourcePath = path.join( source, entry.name );
-			const destinationPath = path.join( destination, entry.name );
+	const limit = pLimit( 100 );
 
-			if ( entry.isDirectory() ) {
-				await recursiveCopyDirectory( sourcePath, destinationPath );
-			} else if ( entry.isFile() ) {
-				await fsPromises.copyFile( sourcePath, destinationPath );
-			}
-		} )
+	await Promise.all(
+		entries.map( ( entry ) =>
+			limit( async () => {
+				const sourcePath = path.join( source, entry.name );
+				const destinationPath = path.join( destination, entry.name );
+
+				if ( entry.isDirectory() ) {
+					await recursiveCopyDirectory( sourcePath, destinationPath );
+				} else if ( entry.isFile() ) {
+					await fsPromises.copyFile( sourcePath, destinationPath );
+				}
+			} )
+		)
 	);
 }
 

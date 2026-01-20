@@ -400,7 +400,7 @@ const SyncConnectedSitesSectionItem = ( {
 									<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
 								</div>
 							</Tooltip>
-							{ isUploading && (
+							{ isUploading && ( uploadPercentage === null || uploadPercentage < 100 ) && (
 								<Tooltip text={ __( 'Pause upload' ) } placement="top">
 									<Button
 										variant="icon"

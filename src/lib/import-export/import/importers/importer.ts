@@ -91,7 +91,12 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 				}
 
 				if ( exitCode ) {
-					throw new Error( 'Database import failed: ' + stderr );
+					// Include both stderr and stdout in the error message since the database
+					// driver error could be in either stream depending on how WP-CLI/PHP outputs it
+					const errorDetails = [ stderr, stdout ].filter( Boolean ).join( '\n' ).trim();
+					throw new Error(
+						errorDetails ? `Database import failed: ${ errorDetails }` : 'Database import failed'
+					);
 				}
 			} finally {
 				await this.safelyDeletePath( tmpPath );

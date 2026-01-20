@@ -26,16 +26,17 @@ function siteDetailsToServerDetails(
 	};
 }
 
-const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< boolean > => {
+const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > => {
 	const { event: eventType, siteId, site, running } = event;
 
 	if ( eventType === SITE_EVENTS.DELETED ) {
 		SiteServer.unregister( siteId );
-		return true;
+		void sendIpcEventToRenderer( 'site-event', event );
+		return;
 	}
 
 	if ( ! site ) {
-		return true;
+		return;
 	}
 
 	// Only register new sites on CREATED events to prevent duplicates
@@ -45,18 +46,22 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< boolean
 			SiteServer.register( siteDetailsToServerDetails( site, running ) );
 		}
 		// Don't send to renderer if site is being created by UI (createSite IPC will handle it)
-		return ! existingServer?.hasOngoingOperation;
+		if ( existingServer?.hasOngoingOperation ) {
+			return;
+		}
+		void sendIpcEventToRenderer( 'site-event', event );
+		return;
 	}
 
 	// For UPDATED events, only update if the site already exists
 	const server = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
 	if ( ! server ) {
-		return false;
+		return;
 	}
 
 	// Skip update if Studio has an ongoing operation
 	if ( server.hasOngoingOperation ) {
-		return false;
+		return;
 	}
 
 	server.details = siteDetailsToServerDetails( site, running );
@@ -65,7 +70,7 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< boolean
 		server.server.url = site.url;
 	}
 
-	return true;
+	void sendIpcEventToRenderer( 'site-event', event );
 } );
 
 export async function startCliEventsSubscriber(): Promise< void > {
@@ -91,11 +96,7 @@ export async function startCliEventsSubscriber(): Promise< void > {
 			}
 
 			const siteEvent = parsed.data.value;
-			void handleSiteEvent( siteEvent ).then( ( shouldSendToRenderer ) => {
-				if ( shouldSendToRenderer ) {
-					void sendIpcEventToRenderer( 'site-event', siteEvent );
-				}
-			} );
+			void handleSiteEvent( siteEvent );
 		} );
 
 		eventEmitter.on( 'error', ( { error } ) => {

@@ -9,7 +9,6 @@ import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { siteDetailsSchema } from 'common/lib/site-events';
 import { snapshotSchema } from 'common/types/snapshot';
-import { StatsMetric } from 'common/types/stats';
 import { z } from 'zod';
 import { validateAccessToken } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
@@ -21,14 +20,14 @@ const siteSchema = siteDetailsSchema
 		latestCliPid: z.number().optional(),
 		enableXdebug: z.boolean().optional(),
 	} )
-	.passthrough();
+	.loose();
 
 const betaFeaturesSchema = z
 	.object( {
 		multiWorkerSupport: z.boolean().optional(),
 		xdebugSupport: z.boolean().optional(),
 	} )
-	.passthrough();
+	.loose();
 
 const userDataSchema = z
 	.object( {
@@ -44,14 +43,12 @@ const userDataSchema = z
 				email: z.string(),
 				displayName: z.string().default( '' ),
 			} )
-			.passthrough()
+			.loose()
 			.optional(),
-		lastBumpStats: z
-			.record( z.string(), z.record( z.nativeEnum( StatsMetric ), z.number() ) )
-			.optional(),
+		lastBumpStats: z.record( z.string(), z.record( z.string(), z.number() ) ).optional(),
 		betaFeatures: betaFeaturesSchema.optional(),
 	} )
-	.passthrough();
+	.loose();
 
 type UserData = z.infer< typeof userDataSchema >;
 export type SiteData = z.infer< typeof siteSchema >;

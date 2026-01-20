@@ -4,6 +4,7 @@ import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BlueprintPreferredVersions } from 'common/lib/blueprint-validation';
+import { SupportedPHPVersionsList } from 'common/types/php-versions';
 import Button from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite, CreateSiteFormValues } from 'src/hooks/use-add-site';
@@ -230,7 +231,11 @@ function NavigationContent( props: NavigationContentProps ) {
 	// Build default values with blueprint preferred versions applied
 	const defaultValuesWithBlueprint = useMemo( () => {
 		const values = { ...defaultValues };
-		if ( blueprintPreferredVersions?.php && blueprintPreferredVersions.php !== 'latest' ) {
+		if (
+			blueprintPreferredVersions?.php &&
+			blueprintPreferredVersions.php !== 'latest' &&
+			SupportedPHPVersionsList.includes( blueprintPreferredVersions.php )
+		) {
 			values.phpVersion = blueprintPreferredVersions.php as AllowedPHPVersion;
 		}
 		if ( blueprintPreferredVersions?.wp && blueprintPreferredVersions.wp !== 'latest' ) {

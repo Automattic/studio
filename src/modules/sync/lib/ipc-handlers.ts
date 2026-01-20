@@ -62,6 +62,10 @@ export function pauseSyncUpload(
 	const uploadState = SYNC_TUS_UPLOADS.get( uploadKey );
 
 	if ( uploadState ) {
+		if ( uploadState.isManuallyPaused ) {
+			return true;
+		}
+
 		uploadState.isManuallyPaused = true;
 		void uploadState.upload.abort();
 		void sendIpcEventToRenderer( 'sync-upload-manually-paused', {
@@ -86,6 +90,10 @@ export function resumeSyncUpload(
 	const uploadState = SYNC_TUS_UPLOADS.get( uploadKey );
 
 	if ( uploadState ) {
+		if ( ! uploadState.isManuallyPaused ) {
+			return true;
+		}
+
 		uploadState.isManuallyPaused = false;
 		uploadState.upload.start();
 		void sendIpcEventToRenderer( 'sync-upload-resumed', {

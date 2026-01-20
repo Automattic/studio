@@ -630,6 +630,11 @@ describe( 'AddSite', () => {
 			expect( screen.getByText( 'Blueprint specifies version requirements' ) ).toBeInTheDocument();
 			expect( screen.getByText( 'PHP 8.1 (default is 8.3)' ) ).toBeInTheDocument();
 		} );
+
+		// Warning indicator should show next to Advanced settings
+		await waitFor( () => {
+			expect( screen.getByText( '1 warning found' ) ).toBeInTheDocument();
+		} );
 	} );
 
 	it( 'should not show warning when versions match blueprint preferred versions', async () => {

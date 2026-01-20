@@ -366,6 +366,8 @@ export const CreateSiteForm = ( {
 				blueprintPreferredVersions.wp !== 'latest' &&
 				blueprintPreferredVersions.wp !== wpVersionToCompare ) );
 
+	const warningCount = showBlueprintVersionWarning ? 1 : 0;
+
 	const showAdvancedSettings = onSelectPath !== undefined;
 
 	return (
@@ -408,6 +410,16 @@ export const CreateSiteForm = ( {
 										/* translators: %d: number of errors found */
 										_n( '%d error found', '%d errors found', errorCount ),
 										errorCount
+									) }
+								</span>
+							) }
+							{ warningCount > 0 && (
+								<span className="text-amber-600 text-[13px] leading-[16px] ml-2 flex items-center">
+									<Icon icon={ cautionFilled } size={ 16 } className="mr-1 fill-amber-600" />
+									{ sprintf(
+										/* translators: %d: number of warnings found */
+										_n( '%d warning found', '%d warnings found', warningCount ),
+										warningCount
 									) }
 								</span>
 							) }

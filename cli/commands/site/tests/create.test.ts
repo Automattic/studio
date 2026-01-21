@@ -312,18 +312,10 @@ describe( 'CLI: studio site create', () => {
 				'wordpress-versions',
 				'latest'
 			);
-			( pathExists as jest.Mock ).mockImplementation( ( path: string ) => {
-				if ( path === bundledWPPath ) {
-					return Promise.resolve( true );
-				}
-				if ( path === wpConfigPath ) {
-					return Promise.resolve( true );
-				}
-				if ( path === mockSitePath ) {
-					return Promise.resolve( true );
-				}
-				return Promise.resolve( false );
-			} );
+			( pathExists as jest.Mock ).mockImplementation(
+				async ( path: string ) =>
+					path === bundledWPPath || path === wpConfigPath || path === mockSitePath
+			);
 			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
 			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
 

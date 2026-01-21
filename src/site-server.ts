@@ -255,20 +255,27 @@ export class SiteServer {
 		const outPath = getSiteThumbnailPath( this.details.id );
 		const outDir = nodePath.dirname( outPath );
 
+		let capturedImage: Electron.NativeImage | null = null;
+
 		// Continue taking the screenshot asynchronously so we don't prevent the
 		// UI from showing the server is now available.
 		return fs.promises
 			.mkdir( outDir, { recursive: true } )
 			.then( waitForCapture )
-			.then( ( image ) => fs.promises.writeFile( outPath, image.toPNG() ) )
+			.then( ( image ) => {
+				capturedImage = image;
+				return fs.promises.writeFile( outPath, image.toPNG() );
+			} )
 			.catch( async ( error ) => {
 				Sentry.captureException( error );
-				try {
-					await fs.promises.unlink( outPath );
-				} catch ( unlinkError ) {
-					// Ignore ENOENT errors as the file might not exist
-					if ( ( unlinkError as NodeJS.ErrnoException ).code !== 'ENOENT' ) {
-						console.error( 'Failed to cleanup thumbnail file:', unlinkError );
+				if ( capturedImage ) {
+					try {
+						await fs.promises.unlink( outPath );
+					} catch ( unlinkError ) {
+						// Ignore ENOENT errors as the file might not exist
+						if ( ( unlinkError as NodeJS.ErrnoException ).code !== 'ENOENT' ) {
+							console.error( 'Failed to cleanup thumbnail file:', unlinkError );
+						}
 					}
 				}
 			} )

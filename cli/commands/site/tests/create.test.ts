@@ -336,24 +336,14 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should set blogname when WordPress directory exists but has no wp-config.php', async () => {
-			const wpConfigPath = require( 'path' ).join( mockSitePath, 'wp-config.php' );
 			const bundledWPPath = require( 'path' ).join(
 				'/test/server-files',
 				'wordpress-versions',
 				'latest'
 			);
-			( pathExists as jest.Mock ).mockImplementation( ( path: string ) => {
-				if ( path === bundledWPPath ) {
-					return Promise.resolve( true );
-				}
-				if ( path === wpConfigPath ) {
-					return Promise.resolve( false );
-				}
-				if ( path === mockSitePath ) {
-					return Promise.resolve( true );
-				}
-				return Promise.resolve( false );
-			} );
+			( pathExists as jest.Mock ).mockImplementation(
+				async ( path: string ) => path === bundledWPPath || path === mockSitePath
+			);
 			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
 			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
 

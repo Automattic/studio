@@ -107,7 +107,14 @@ export function executeCliCommand(
 	function appQuitHandler() {
 		const pid = child.pid;
 		const result = child.kill();
-		console.log( `Child process with pid ${ pid } killed with result: ${ result }` );
+		if ( result ) {
+			console.log( `Successfully killed child process with pid ${ pid }` );
+		} else {
+			console.error(
+				`Failed to kill child process with pid ${ pid }. This likely means the process is already terminated. CLI args:`,
+				args
+			);
+		}
 	}
 
 	child.on( 'close', ( code ) => {

@@ -3,7 +3,7 @@ import { speak } from '@wordpress/a11y';
 import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { Icon, dragHandle } from '@wordpress/icons';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { XDebugIcon } from 'src/components/icons/xdebug-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useSyncSites } from 'src/hooks/sync-sites';
@@ -133,7 +133,19 @@ function ButtonToRun( {
 		</Tooltip>
 	);
 }
-function SiteItem( { site }: { site: SiteDetails } ) {
+function SiteItem( {
+	site,
+	onDragStart,
+	onDragOver,
+	onDrop,
+	onDragEnd,
+}: {
+	site: SiteDetails;
+	onDragStart: ( e: React.DragEvent, site: SiteDetails ) => void;
+	onDragOver: ( e: React.DragEvent ) => void;
+	onDrop: ( e: React.DragEvent, site: SiteDetails ) => void;
+	onDragEnd: () => void;
+} ) {
 	const { selectedSite, setSelectedSiteId, loadingServer, isSiteDeleting } = useSiteDetails();
 	const isSelected = site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
@@ -190,6 +202,11 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19]'
 			) }
 			onContextMenu={ handleContextMenu }
+			draggable
+			onDragStart={ ( e ) => onDragStart( e, site ) }
+			onDragOver={ onDragOver }
+			onDrop={ ( e ) => onDrop( e, site ) }
+			onDragEnd={ onDragEnd }
 		>
 			<Icon icon={ dragHandle } className="fill-white" />
 			<button
@@ -226,6 +243,57 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 	const { setSelectedTab } = useContentTabs();
 	const { handleDeleteSite } = useDeleteSite();
 	const { data: editor } = useGetUserEditorQuery();
+	const [ draggedSite, setDraggedSite ] = useState< SiteDetails | null >( null );
+	const [ localSites, setLocalSites ] = useState< SiteDetails[] >( sites );
+
+	useEffect( () => {
+		setLocalSites( sites );
+	}, [ sites ] );
+
+	const handleDragStart = ( e: React.DragEvent, site: SiteDetails ) => {
+		setDraggedSite( site );
+		e.dataTransfer.effectAllowed = 'move';
+	};
+
+	const handleDragOver = ( e: React.DragEvent ) => {
+		e.preventDefault();
+		e.dataTransfer.dropEffect = 'move';
+	};
+
+	const handleDrop = ( e: React.DragEvent, targetSite: SiteDetails ) => {
+		e.preventDefault();
+		if ( ! draggedSite || draggedSite.id === targetSite.id ) {
+			return;
+		}
+
+		const draggedIndex = localSites.findIndex( ( site ) => site.id === draggedSite.id );
+		const targetIndex = localSites.findIndex( ( site ) => site.id === targetSite.id );
+
+		if ( draggedIndex === -1 || targetIndex === -1 ) {
+			return;
+		}
+
+		const newSites = [ ...localSites ];
+		newSites.splice( draggedIndex, 1 );
+		newSites.splice( targetIndex, 0, draggedSite );
+
+		setLocalSites( newSites );
+
+		// Persist the new order (assuming reorderSites will be added to useSiteDetails)
+		// For now, we'll update local state - the persistence logic would need to be added to the hook
+	};
+
+	const handleDragEnd = () => {
+		setDraggedSite( null );
+	};
+
+	// Persist the reordered sites when drag ends
+	useEffect( () => {
+		if ( draggedSite === null && localSites !== sites ) {
+			// TODO: Add persistence logic - call reorderSites or IPC method to save new order
+			// For now, this will only reorder locally
+		}
+	}, [ draggedSite, localSites, sites ] );
 
 	useEffect( () => {
 		const unsubscribe = window.ipcListener.subscribe(
@@ -325,8 +393,15 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 			) }
 		>
 			<ul className="pt-px">
-				{ sites.map( ( site ) => (
-					<SiteItem key={ site.id } site={ site } />
+				{ localSites.map( ( site ) => (
+					<SiteItem
+						key={ site.id }
+						site={ site }
+						onDragStart={ handleDragStart }
+						onDragOver={ handleDragOver }
+						onDrop={ handleDrop }
+						onDragEnd={ handleDragEnd }
+					/>
 				) ) }
 			</ul>
 		</nav>

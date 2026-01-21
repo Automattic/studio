@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /* eslint-disable no-console */
 import fs from 'fs';
-import https from 'https';
 import path from 'path';
+
 const [ token, branch, hash, baseHash, timestamp ] = process.argv.slice( 2 );
 
 const resultsFiles = [
@@ -22,58 +22,52 @@ const performanceResults = resultsFiles.map( ( { file } ) =>
 	)
 );
 
-const data = new TextEncoder().encode(
-	JSON.stringify( {
-		branch,
-		hash,
-		baseHash,
-		timestamp,
-		metrics: resultsFiles.reduce( ( result, { metricsPrefix }, index ) => {
-			return {
-				...result,
-				...Object.fromEntries(
-					Object.entries( performanceResults[ index ][ hash ] ?? {} ).map( ( [ key, value ] ) => [
-						metricsPrefix + key,
-						value,
-					] )
-				),
-			};
-		}, {} ),
-		baseMetrics: resultsFiles.reduce( ( result, { metricsPrefix }, index ) => {
-			return {
-				...result,
-				...Object.fromEntries(
-					Object.entries( performanceResults[ index ][ baseHash ] ?? {} ).map(
-						( [ key, value ] ) => [ metricsPrefix + key, value ]
-					)
-				),
-			};
-		}, {} ),
-	} )
-);
-
-const options = {
-	hostname: 'www.codevitals.run',
-	port: 443,
-	path: '/api/log?token=' + token,
-	method: 'POST',
-	headers: {
-		'Content-Type': 'application/json',
-		'Content-Length': data.length,
-	},
+const payload = {
+	branch,
+	hash,
+	baseHash,
+	timestamp,
+	metrics: resultsFiles.reduce( ( result, { metricsPrefix }, index ) => {
+		return {
+			...result,
+			...Object.fromEntries(
+				Object.entries( performanceResults[ index ][ hash ] ?? {} ).map( ( [ key, value ] ) => [
+					metricsPrefix + key,
+					value,
+				] )
+			),
+		};
+	}, {} ),
+	baseMetrics: resultsFiles.reduce( ( result, { metricsPrefix }, index ) => {
+		return {
+			...result,
+			...Object.fromEntries(
+				Object.entries( performanceResults[ index ][ baseHash ] ?? {} ).map( ( [ key, value ] ) => [
+					metricsPrefix + key,
+					value,
+				] )
+			),
+		};
+	}, {} ),
 };
 
-const req = https.request( options, ( res ) => {
-	console.log( `statusCode: ${ res.statusCode }` );
-
-	res.on( 'data', ( d ) => {
-		process.stdout.write( d );
+try {
+	const response = await fetch( `https://www.codevitals.run/api/log?token=${ token }`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify( payload ),
 	} );
-} );
 
-req.on( 'error', ( error ) => {
+	const responseText = await response.text();
+	console.log( `statusCode: ${ response.status }` );
+	if ( responseText ) {
+		console.log( responseText );
+	}
+
+	if ( ! response.ok ) {
+		process.exit( 1 );
+	}
+} catch ( error ) {
 	console.error( error );
-} );
-
-req.write( data );
-req.end();
+	process.exit( 1 );
+}

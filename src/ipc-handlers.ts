@@ -65,7 +65,7 @@ import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tr
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
-import { SiteServer } from 'src/site-server';
+import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
 import {
 	loadUserData,
@@ -404,13 +404,10 @@ export async function updateSite(
 	}
 }
 
-export async function startServer(
-	event: IpcMainInvokeEvent,
-	id: string
-): Promise< SiteDetails | null > {
+export async function startServer( event: IpcMainInvokeEvent, id: string ): Promise< void > {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
-		return null;
+		return;
 	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
@@ -455,22 +452,19 @@ export async function startServer(
 	}
 
 	console.log( `Server started for '${ server.details.name }'` );
-	await updateSite( event, server.details );
-	return server.details;
 }
 
-export async function stopServer(
-	event: IpcMainInvokeEvent,
-	id: string
-): Promise< SiteDetails | null > {
+export async function stopServer( event: IpcMainInvokeEvent, id: string ): Promise< void > {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
-		return null;
+		return;
 	}
 
 	await server.stop();
-	await updateSite( event, server.details );
-	return server.details;
+}
+
+export async function stopAllServers(): Promise< void > {
+	await triggerStopAllServers( false );
 }
 
 export interface FolderDialogResponse {
@@ -769,7 +763,6 @@ export async function getThemeDetails(
 
 	if ( themeChanged ) {
 		const parentWindow = BrowserWindow.fromWebContents( event.sender );
-		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id } );
 		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-changed', {
 			id,
 			details: themeDetails,

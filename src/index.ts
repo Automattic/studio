@@ -48,7 +48,7 @@ import {
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { updateWindowsCliVersionedPathIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
-import { getRunningSiteCount, stopAllServersOnQuit } from 'src/site-server';
+import { getRunningSiteCount, stopAllServers } from 'src/site-server';
 import {
 	loadUserData,
 	lockAppdata,
@@ -517,7 +517,7 @@ async function appBoot() {
 
 		if ( shouldStopSitesOnQuit ) {
 			event.preventDefault();
-			stopAllServersOnQuit()
+			stopAllServers( true )
 				.then( () => {
 					app.exit();
 				} )

@@ -24,6 +24,7 @@ import {
 import { WordPressInstallMode } from '@wp-playground/wordpress';
 import { isWordPressDirectory } from 'common/lib/fs-utils';
 import { getMuPlugins } from 'common/lib/mu-plugins';
+import { decodePassword } from 'common/lib/passwords';
 import { formatPlaygroundCliMessage } from 'common/lib/playground-cli-messages';
 import { sequential } from 'common/lib/sequential';
 import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
@@ -97,7 +98,7 @@ async function setAdminPassword( server: RunCLIServer, adminPassword: string ): 
 		method: 'POST',
 		body: {
 			action: 'set_admin_password',
-			password: escapePhpString( adminPassword ),
+			password: escapePhpString( decodePassword( adminPassword ) ),
 		},
 	} );
 }

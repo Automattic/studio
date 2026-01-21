@@ -17,12 +17,13 @@ import { ChatRating } from 'src/components/chat-rating';
 import { LearnMoreLink } from 'src/components/learn-more';
 import offlineIcon from 'src/components/offline-icon';
 import WelcomeComponent from 'src/components/welcome-message-prompt';
-import { LIMIT_OF_PROMPTS_PER_USER, TELEX_URL } from 'src/constants';
+import { LIMIT_OF_PROMPTS_PER_USER, TELEX_HOSTNAME, TELEX_UTM_PARAMS } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { addUrlParams } from 'src/lib/url-utils';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import {
 	chatThunks,
@@ -460,7 +461,16 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								__( 'Build blocks with <button>Telex <ArrowIcon /></button>' ),
 								{
 									button: (
-										<Button variant="link" onClick={ () => getIpcApi().openURL( TELEX_URL ) } />
+										<Button
+											variant="link"
+											onClick={ () => {
+												const telexUrl = addUrlParams(
+													`https://${ TELEX_HOSTNAME }/`,
+													TELEX_UTM_PARAMS
+												);
+												getIpcApi().openURL( telexUrl );
+											} }
+										/>
 									),
 									ArrowIcon: <ArrowIcon />,
 								}

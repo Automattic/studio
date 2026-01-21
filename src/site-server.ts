@@ -179,36 +179,31 @@ export class SiteServer {
 	}
 
 	async start() {
-		if ( this.details.running || this.hasOngoingOperation ) {
+		if ( this.details.running ) {
 			return;
 		}
 
-		this.hasOngoingOperation = true;
-		try {
-			console.log( `Starting server for '${ this.details.name }'` );
-			await this.server.start();
+		console.log( `Starting server for '${ this.details.name }'` );
+		await this.server.start();
 
-			const userData = await loadUserData();
-			const freshSiteData = userData.sites.find( ( s ) => s.id === this.details.id );
+		const userData = await loadUserData();
+		const freshSiteData = userData.sites.find( ( s ) => s.id === this.details.id );
 
-			if ( freshSiteData?.port ) {
-				this.details.port = freshSiteData.port;
-			}
-
-			const url = getAbsoluteUrl( this.details );
-
-			this.details = {
-				...this.details,
-				url,
-				running: true,
-				autoStart: true,
-				latestCliPid: freshSiteData?.latestCliPid,
-			};
-
-			this.server.url = url;
-		} finally {
-			this.hasOngoingOperation = false;
+		if ( freshSiteData?.port ) {
+			this.details.port = freshSiteData.port;
 		}
+
+		const url = getAbsoluteUrl( this.details );
+
+		this.details = {
+			...this.details,
+			url,
+			running: true,
+			autoStart: true,
+			latestCliPid: freshSiteData?.latestCliPid,
+		};
+
+		this.server.url = url;
 	}
 
 	updateSiteDetails( site: SiteDetails ) {
@@ -234,7 +229,6 @@ export class SiteServer {
 	async stop() {
 		console.log( 'Stopping server with ID', this.details.id );
 		try {
-			this.hasOngoingOperation = true;
 			await this.server.stop();
 
 			if ( ! this.details.running ) {
@@ -246,8 +240,6 @@ export class SiteServer {
 			this.details = { running: false, autoStart: false, ...rest };
 		} catch ( error ) {
 			console.error( error );
-		} finally {
-			this.hasOngoingOperation = false;
 		}
 	}
 

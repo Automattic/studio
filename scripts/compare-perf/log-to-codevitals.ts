@@ -53,7 +53,7 @@ const payload = {
 
 ( async () => {
 	try {
-		const response = await fetch( `https://www.codevitals.run/api/log?token=${ token }`, {
+		const response = await fetch( `https://codevitals.run/api/log?token=${ token }`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify( payload ),

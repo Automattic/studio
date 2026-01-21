@@ -35,11 +35,7 @@ vi.mock( 'cli/lib/appdata', async () => {
 } );
 vi.mock( 'cli/lib/certificate-manager' );
 vi.mock( 'cli/lib/hosts-file' );
-vi.mock( 'cli/lib/pm2-manager', () => ( {
-	connect: vi.fn(),
-	disconnect: vi.fn(),
-	emitSiteEvent: vi.fn(),
-} ) );
+vi.mock( 'cli/lib/pm2-manager' );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( 'cli/lib/snapshots' );
 vi.mock( 'cli/lib/wordpress-server-manager' );

@@ -9,20 +9,24 @@ import {
 import { connect, disconnect, killDaemonAndChildrenAndExitProcess } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest';
 import { Mode, runCommand } from '../stop';
 
-jest.mock( 'cli/lib/appdata', () => ( {
-	...jest.requireActual( 'cli/lib/appdata' ),
-	getSiteByFolder: jest.fn(),
-	readAppdata: jest.fn(),
-	clearSiteLatestCliPid: jest.fn(),
-	updateSiteAutoStart: jest.fn().mockResolvedValue( undefined ),
-	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
-	saveAppdata: jest.fn().mockResolvedValue( undefined ),
-} ) );
-jest.mock( 'cli/lib/pm2-manager' );
-jest.mock( 'cli/lib/site-utils' );
-jest.mock( 'cli/lib/wordpress-server-manager' );
+vi.mock( 'cli/lib/appdata', async () => {
+	const actual = await vi.importActual( 'cli/lib/appdata' );
+	return {
+		...actual,
+		getSiteByFolder: vi.fn(),
+		readAppdata: vi.fn(),
+		clearSiteLatestCliPid: vi.fn(),
+		updateSiteAutoStart: vi.fn().mockResolvedValue( undefined ),
+		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
+		saveAppdata: vi.fn().mockResolvedValue( undefined ),
+	};
+} );
+vi.mock( 'cli/lib/pm2-manager' );
+vi.mock( 'cli/lib/site-utils' );
+vi.mock( 'cli/lib/wordpress-server-manager' );
 
 describe( 'CLI: studio site stop', () => {
 	// Simple test data
@@ -37,30 +41,32 @@ describe( 'CLI: studio site stop', () => {
 	};
 
 	const testProcessDescription = {
+		name: 'studio-site-site-1',
+		pmId: 0,
 		pid: 12345,
 		status: 'online',
 	};
 
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 
-		( getSiteByFolder as jest.Mock ).mockResolvedValue( testSite );
-		( connect as jest.Mock ).mockResolvedValue( undefined );
-		( disconnect as jest.Mock ).mockResolvedValue( undefined );
-		( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
-		( stopWordPressServer as jest.Mock ).mockResolvedValue( undefined );
-		( clearSiteLatestCliPid as jest.Mock ).mockResolvedValue( undefined );
-		( stopProxyIfNoSitesNeedIt as jest.Mock ).mockResolvedValue( undefined );
-		( killDaemonAndChildrenAndExitProcess as jest.Mock ).mockResolvedValue( undefined );
+		vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
+		vi.mocked( connect ).mockResolvedValue( undefined );
+		vi.mocked( disconnect ).mockResolvedValue( undefined );
+		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
+		vi.mocked( stopWordPressServer ).mockResolvedValue( undefined );
+		vi.mocked( clearSiteLatestCliPid ).mockResolvedValue( undefined );
+		vi.mocked( stopProxyIfNoSitesNeedIt ).mockResolvedValue( undefined );
+		vi.mocked( killDaemonAndChildrenAndExitProcess ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
-		jest.restoreAllMocks();
+		vi.restoreAllMocks();
 	} );
 
 	describe( 'Error Cases', () => {
 		it( 'should throw when site not found', async () => {
-			( getSiteByFolder as jest.Mock ).mockRejectedValue( new Error( 'Site not found' ) );
+			vi.mocked( getSiteByFolder ).mockRejectedValue( new Error( 'Site not found' ) );
 
 			await expect( runCommand( Mode.STOP_SINGLE_SITE, '/invalid/path', false ) ).rejects.toThrow(
 				'Site not found'
@@ -69,7 +75,7 @@ describe( 'CLI: studio site stop', () => {
 		} );
 
 		it( 'should throw when PM2 connection fails', async () => {
-			( connect as jest.Mock ).mockRejectedValue( new Error( 'PM2 connection failed' ) );
+			vi.mocked( connect ).mockRejectedValue( new Error( 'PM2 connection failed' ) );
 
 			await expect( runCommand( Mode.STOP_SINGLE_SITE, '/test/site', false ) ).rejects.toThrow(
 				'PM2 connection failed'
@@ -78,8 +84,8 @@ describe( 'CLI: studio site stop', () => {
 		} );
 
 		it( 'should throw when WordPress server stop fails', async () => {
-			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-			( stopWordPressServer as jest.Mock ).mockRejectedValue( new Error( 'Server stop failed' ) );
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
+			vi.mocked( stopWordPressServer ).mockRejectedValue( new Error( 'Server stop failed' ) );
 
 			await expect( runCommand( Mode.STOP_SINGLE_SITE, '/test/site', false ) ).rejects.toThrow(
 				'Failed to stop WordPress server'
@@ -99,7 +105,7 @@ describe( 'CLI: studio site stop', () => {
 		} );
 
 		it( 'should stop a running site', async () => {
-			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 
 			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site', false );
 
@@ -120,7 +126,7 @@ describe( 'CLI: studio site stop', () => {
 		} );
 
 		it( 'should set autoStart to true when flag is passed', async () => {
-			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 
 			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site', true );
 
@@ -128,7 +134,7 @@ describe( 'CLI: studio site stop', () => {
 		} );
 
 		it( 'should set autoStart to false when flag is not passed', async () => {
-			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 
 			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site', false );
 
@@ -144,7 +150,7 @@ describe( 'CLI: studio site stop', () => {
 		} );
 
 		it( 'should always disconnect from PM2 on error', async () => {
-			( getSiteByFolder as jest.Mock ).mockRejectedValue( new Error( 'Error' ) );
+			vi.mocked( getSiteByFolder ).mockRejectedValue( new Error( 'Error' ) );
 
 			try {
 				await runCommand( Mode.STOP_SINGLE_SITE, '/test/site', false );
@@ -195,27 +201,29 @@ describe( 'CLI: studio site stop --all', () => {
 	];
 
 	const testProcessDescription = {
+		name: 'studio-site-site-1',
+		pmId: 0,
 		pid: 12345,
 		status: 'online',
 	};
 
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 
-		( connect as jest.Mock ).mockResolvedValue( undefined );
-		( disconnect as jest.Mock ).mockResolvedValue( undefined );
-		( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
-		( killDaemonAndChildrenAndExitProcess as jest.Mock ).mockResolvedValue( undefined );
-		( clearSiteLatestCliPid as jest.Mock ).mockResolvedValue( undefined );
+		vi.mocked( connect ).mockResolvedValue( undefined );
+		vi.mocked( disconnect ).mockResolvedValue( undefined );
+		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
+		vi.mocked( killDaemonAndChildrenAndExitProcess ).mockResolvedValue( undefined );
+		vi.mocked( clearSiteLatestCliPid ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
-		jest.restoreAllMocks();
+		vi.restoreAllMocks();
 	} );
 
 	describe( 'Error Cases', () => {
 		it( 'should throw when appdata cannot be read', async () => {
-			( readAppdata as jest.Mock ).mockRejectedValue( new Error( 'Failed to read appdata' ) );
+			vi.mocked( readAppdata ).mockRejectedValue( new Error( 'Failed to read appdata' ) );
 
 			await expect( runCommand( Mode.STOP_ALL_SITES, undefined, false ) ).rejects.toThrow(
 				'Failed to read appdata'
@@ -224,8 +232,8 @@ describe( 'CLI: studio site stop --all', () => {
 		} );
 
 		it( 'should throw when PM2 connection fails', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( { sites: testSites } );
-			( connect as jest.Mock ).mockRejectedValue( new Error( 'PM2 connection failed' ) );
+			vi.mocked( readAppdata ).mockResolvedValue( { sites: testSites, snapshots: [] } );
+			vi.mocked( connect ).mockRejectedValue( new Error( 'PM2 connection failed' ) );
 
 			await expect( runCommand( Mode.STOP_ALL_SITES, undefined, false ) ).rejects.toThrow(
 				'PM2 connection failed'
@@ -234,9 +242,9 @@ describe( 'CLI: studio site stop --all', () => {
 		} );
 
 		it( 'should throw when killDaemonAndAllChildren fails', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( { sites: testSites } );
-			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
-			( killDaemonAndChildrenAndExitProcess as jest.Mock ).mockRejectedValue(
+			vi.mocked( readAppdata ).mockResolvedValue( { sites: testSites, snapshots: [] } );
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
+			vi.mocked( killDaemonAndChildrenAndExitProcess ).mockRejectedValue(
 				new Error( 'Failed to kill daemon' )
 			);
 
@@ -249,7 +257,7 @@ describe( 'CLI: studio site stop --all', () => {
 
 	describe( 'Success Cases', () => {
 		it( 'should handle empty sites list', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( { sites: [] } );
+			vi.mocked( readAppdata ).mockResolvedValue( { sites: [], snapshots: [] } );
 
 			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
 
@@ -259,9 +267,9 @@ describe( 'CLI: studio site stop --all', () => {
 		} );
 
 		it( 'should skip if no sites are running', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( { sites: testSites } );
+			vi.mocked( readAppdata ).mockResolvedValue( { sites: testSites, snapshots: [] } );
 
-			( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
+			vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 
 			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
 
@@ -273,8 +281,8 @@ describe( 'CLI: studio site stop --all', () => {
 		} );
 
 		it( 'should handle single site', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( { sites: [ testSites[ 0 ] ] } );
-			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
+			vi.mocked( readAppdata ).mockResolvedValue( { sites: [ testSites[ 0 ] ], snapshots: [] } );
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 
 			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
 
@@ -293,8 +301,8 @@ describe( 'CLI: studio site stop --all', () => {
 		} );
 
 		it( 'should stop all running sites', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( { sites: testSites } );
-			( isServerRunning as jest.Mock ).mockResolvedValue( testProcessDescription );
+			vi.mocked( readAppdata ).mockResolvedValue( { sites: testSites, snapshots: [] } );
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 
 			await runCommand( Mode.STOP_ALL_SITES, undefined, false );
 
@@ -329,9 +337,9 @@ describe( 'CLI: studio site stop --all', () => {
 		} );
 
 		it( 'should stop only running sites (mixed state)', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( { sites: testSites } );
+			vi.mocked( readAppdata ).mockResolvedValue( { sites: testSites, snapshots: [] } );
 
-			( isServerRunning as jest.Mock )
+			vi.mocked( isServerRunning )
 				.mockResolvedValueOnce( testProcessDescription ) // site-1 running
 				.mockResolvedValueOnce( undefined ) // site-2 not running
 				.mockResolvedValueOnce( testProcessDescription ); // site-3 running

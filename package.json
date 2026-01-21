@@ -18,7 +18,6 @@
 	},
 	"scripts": {
 		"prestart": "npm run cli:build",
-		"setup:devtools": "ts-node ./scripts/setup-dev-extensions.ts",
 		"start": "electron-vite dev --outDir=dist --watch",
 		"start-wayland": "npm run prestart && electron-forge start -- --enable-features=UseOzonePlatform --ozone-platform=wayland .",
 		"postinstall": "patch-package && ts-node ./scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs && npx @electron/rebuild -o fs-ext",

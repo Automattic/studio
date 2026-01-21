@@ -307,8 +307,25 @@ describe( 'CLI: studio site create', () => {
 			expect( loggerReportWarningSpy ).not.toHaveBeenCalled();
 		} );
 
-		it( 'should NOT override blogname when adding existing WordPress directory with name', async () => {
-			( pathExists as jest.Mock ).mockResolvedValue( true );
+		it( 'should NOT override blogname when adding existing WordPress directory with wp-config.php and name', async () => {
+			const wpConfigPath = require( 'path' ).join( mockSitePath, 'wp-config.php' );
+			const bundledWPPath = require( 'path' ).join(
+				'/test/server-files',
+				'wordpress-versions',
+				'latest'
+			);
+			( pathExists as jest.Mock ).mockImplementation( ( path: string ) => {
+				if ( path === bundledWPPath ) {
+					return Promise.resolve( true );
+				}
+				if ( path === wpConfigPath ) {
+					return Promise.resolve( true );
+				}
+				if ( path === mockSitePath ) {
+					return Promise.resolve( true );
+				}
+				return Promise.resolve( false );
+			} );
 			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
 			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
 
@@ -330,6 +347,53 @@ describe( 'CLI: studio site create', () => {
 			expect( loggerReportWarningSpy ).toHaveBeenCalledWith(
 				'Site name ignored because the directory contains a WordPress site.'
 			);
+		} );
+
+		it( 'should set blogname when WordPress directory exists but has no wp-config.php', async () => {
+			const wpConfigPath = require( 'path' ).join( mockSitePath, 'wp-config.php' );
+			const bundledWPPath = require( 'path' ).join(
+				'/test/server-files',
+				'wordpress-versions',
+				'latest'
+			);
+			( pathExists as jest.Mock ).mockImplementation( ( path: string ) => {
+				if ( path === bundledWPPath ) {
+					return Promise.resolve( true );
+				}
+				if ( path === wpConfigPath ) {
+					return Promise.resolve( false );
+				}
+				if ( path === mockSitePath ) {
+					return Promise.resolve( true );
+				}
+				return Promise.resolve( false );
+			} );
+			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
+			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
+
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				name: 'My Custom Site',
+			} );
+
+			// Verify setSiteOptions step IS in the blueprint steps (because wp-config.php doesn't exist)
+			expect( startWordPressServer ).toHaveBeenCalledWith(
+				expect.anything(),
+				expect.any( Logger ),
+				expect.objectContaining( {
+					blueprint: expect.objectContaining( {
+						steps: expect.arrayContaining( [
+							expect.objectContaining( {
+								step: 'setSiteOptions',
+								options: { blogname: 'My Custom Site' },
+							} ),
+						] ),
+					} ),
+				} )
+			);
+
+			expect( loggerReportSuccessSpy ).toHaveBeenCalledWith( 'Site name set to: My Custom Site' );
+			expect( loggerReportWarningSpy ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should use folder name as site name if no name provided', async () => {

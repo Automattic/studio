@@ -4,9 +4,10 @@ import fs, { createReadStream, createWriteStream } from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
 import { createInterface } from 'readline';
-import { SupportedPHPVersionsList } from '@php-wasm/universal';
 import { lstat, move } from 'fs-extra';
 import semver from 'semver';
+import { DEFAULT_PHP_VERSION } from 'common/constants';
+import { SupportedPHPVersionsList } from 'common/types/php-versions';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
 import { ImportEvents } from 'src/lib/import-export/import/events';
@@ -17,7 +18,6 @@ import {
 } from 'src/lib/import-export/import/types';
 import { serializePlugins } from 'src/lib/serialize-plugins';
 import { updateSiteUrl } from 'src/lib/update-site-url';
-import { getWordPressProvider } from 'src/lib/wordpress-provider';
 import { SiteServer } from 'src/site-server';
 
 export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
@@ -74,10 +74,10 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 				await this.prepareSqlFile( tmpPath );
 				console.log( `Importing ${ sqlFile }` );
 				const { stderr, exitCode, stdout } = await server.executeWpCliCommand(
-					`sqlite import ${ sqlTempFile } --require=/tmp/sqlite-command/command.php --enable-ast-driver`,
+					`sqlite import /wordpress/${ sqlTempFile } --require=/tmp/sqlite-command/command.php --enable-ast-driver`,
 					// SQLite plugin requires PHP 8+
 					{
-						targetPhpVersion: getWordPressProvider().DEFAULT_PHP_VERSION,
+						targetPhpVersion: DEFAULT_PHP_VERSION,
 						skipPluginsAndThemes: true,
 					}
 				);
@@ -285,18 +285,16 @@ abstract class BaseBackupImporter extends BaseImporter {
 
 	protected parsePhpVersion( version: string | undefined ): string {
 		if ( ! version ) {
-			return getWordPressProvider().DEFAULT_PHP_VERSION;
+			return DEFAULT_PHP_VERSION;
 		}
 		const phpVersion = semver.coerce( version );
 		if ( ! phpVersion ) {
-			return getWordPressProvider().DEFAULT_PHP_VERSION;
+			return DEFAULT_PHP_VERSION;
 		}
 
 		const parsedVersion = `${ phpVersion.major }.${ phpVersion.minor }`;
 
-		return SupportedPHPVersionsList.includes( parsedVersion )
-			? parsedVersion
-			: getWordPressProvider().DEFAULT_PHP_VERSION;
+		return SupportedPHPVersionsList.includes( parsedVersion ) ? parsedVersion : DEFAULT_PHP_VERSION;
 	}
 }
 

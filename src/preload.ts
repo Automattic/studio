@@ -77,6 +77,7 @@ const api: IpcApi = {
 	showUserSettings: ( tabName ) => ipcRendererInvoke( 'showUserSettings', tabName ),
 	startServer: ( id ) => ipcRendererInvoke( 'startServer', id ),
 	stopServer: ( id ) => ipcRendererInvoke( 'stopServer', id ),
+	stopAllServers: () => ipcRendererInvoke( 'stopAllServers' ),
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
 	removeExportedSiteTmpFile: ( path ) => ipcRendererInvoke( 'removeExportedSiteTmpFile', path ),
@@ -137,7 +138,6 @@ const api: IpcApi = {
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
 	listLocalFileTree: ( siteId, path, maxDepth ) =>
 		ipcRenderer.invoke( 'listLocalFileTree', siteId, path, maxDepth ),
-	getProviderConstants: () => ipcRendererInvoke( 'getProviderConstants' ),
 	validateBlueprint: ( blueprintJson ) => ipcRendererInvoke( 'validateBlueprint', blueprintJson ),
 	readBlueprintFile: ( filePath ) => ipcRendererInvoke( 'readBlueprintFile', filePath ),
 	showSiteContextMenu: ( context ) => ipcRendererSend( 'showSiteContextMenu', context ),

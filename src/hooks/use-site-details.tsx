@@ -389,10 +389,9 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const startServer = useCallback(
 		async ( id: string ) => {
 			toggleLoadingServerForSite( id );
-			let updatedSite: SiteDetails | null = null;
 
 			try {
-				updatedSite = await getIpcApi().startServer( id );
+				await getIpcApi().startServer( id );
 			} catch ( error ) {
 				if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PORT_IN_USE' ) ) {
 					getIpcApi().showErrorMessageBox( {
@@ -447,14 +446,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				await getIpcApi().stopServer( id );
 			}
 
-			if ( updatedSite ) {
-				setSites( ( prevData ) =>
-					prevData.map( ( site ) =>
-						site.id === id && updatedSite ? { ...site, ...updatedSite } : site
-					)
-				);
-			}
-
 			toggleLoadingServerForSite( id );
 		},
 		[ toggleLoadingServerForSite ]
@@ -496,24 +487,15 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const stopServer = useCallback(
 		async ( id: string ) => {
 			toggleLoadingServerForSite( id );
-			const updatedSite = await getIpcApi().stopServer( id );
-			if ( updatedSite ) {
-				setSites( ( prevData ) =>
-					prevData.map( ( site ) => ( site.id === id ? { ...site, ...updatedSite } : site ) )
-				);
-			}
+			await getIpcApi().stopServer( id );
 			toggleLoadingServerForSite( id );
 		},
 		[ toggleLoadingServerForSite ]
 	);
 
 	const stopAllRunningSites = useCallback( async () => {
-		const runningSites = sites.filter( ( site ) => site.running );
-		for ( const site of runningSites ) {
-			await getIpcApi().stopServer( site.id );
-		}
-		setSites( sites.map( ( site ) => ( site.running ? { ...site, running: false } : site ) ) );
-	}, [ sites ] );
+		await getIpcApi().stopAllServers();
+	}, [] );
 
 	const [ isEditModalOpen, setIsEditModalOpen ] = useState( false );
 	const selectedSite = sites.find( ( site ) => site.id === selectedSiteId ) || firstSite;

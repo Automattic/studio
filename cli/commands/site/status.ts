@@ -1,6 +1,7 @@
 import { __, _n } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
+import { decodePassword } from 'common/lib/passwords';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { getSiteByFolder, getSiteUrl, isXdebugBetaEnabled } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
@@ -52,7 +53,10 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			{ key: __( 'WP version' ), value: wpVersion },
 			{ key: __( 'Xdebug' ), value: xdebugStatus, hidden: ! showXdebug },
 			{ key: __( 'Admin username' ), value: 'admin' },
-			{ key: __( 'Admin password' ), value: site.adminPassword },
+			{
+				key: __( 'Admin password' ),
+				value: site.adminPassword ? decodePassword( site.adminPassword ) : undefined,
+			},
 		].filter( ( { value, hidden } ) => value && ! hidden );
 
 		if ( format === 'table' ) {

@@ -8,7 +8,6 @@ import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
 import { useRootSelector } from 'src/stores';
 import {
 	selectDefaultPhpVersion,
@@ -17,6 +16,7 @@ import {
 import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
 import { Blueprint } from 'src/stores/wpcom-api';
 import type { BlueprintPreferredVersions } from 'common/lib/blueprint-validation';
+import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import type { SyncSite } from 'src/modules/sync/types';
 import type { SyncOption } from 'src/types';
 

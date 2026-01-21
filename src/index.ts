@@ -33,7 +33,6 @@ import { handleDeeplink } from 'src/lib/deeplink';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-watcher';
-import { getWordPressProvider } from 'src/lib/wordpress-provider';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';
 import {
@@ -49,7 +48,7 @@ import {
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { updateWindowsCliVersionedPathIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
-import { getRunningSiteCount, stopAllServersOnQuit } from 'src/site-server';
+import { getRunningSiteCount, stopAllServers } from 'src/site-server';
 import {
 	loadUserData,
 	lockAppdata,
@@ -388,7 +387,6 @@ async function appBoot() {
 		).catch( ( err ) => Sentry.captureException( err ) );
 
 		await updateWindowsCliVersionedPathIfNeeded();
-		getWordPressProvider();
 
 		finishedInitialization = true;
 	} );
@@ -519,7 +517,7 @@ async function appBoot() {
 
 		if ( shouldStopSitesOnQuit ) {
 			event.preventDefault();
-			stopAllServersOnQuit()
+			stopAllServers( true )
 				.then( () => {
 					app.exit();
 				} )

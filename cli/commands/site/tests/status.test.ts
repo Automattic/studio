@@ -23,7 +23,8 @@ describe( 'CLI: studio site status', () => {
 		path: '/path/to/site',
 		port: 8080,
 		phpVersion: '8.0',
-		adminPassword: 'password123',
+		// createPassword returns a Base64-encoded string
+		adminPassword: btoa( 'password123' ),
 	};
 
 	const testSiteWithoutOptional = {

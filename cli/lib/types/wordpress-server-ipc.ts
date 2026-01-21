@@ -66,11 +66,11 @@ export type ManagerMessagePayload = z.infer< typeof _managerMessagePayloadSchema
 
 const managerMessageBase = z.object( { messageId: z.string() } );
 export const managerMessageSchema = z.discriminatedUnion( 'topic', [
-	managerMessageBase.merge( managerMessageAbort ),
-	managerMessageBase.merge( managerMessageStartServer ),
-	managerMessageBase.merge( managerMessageRunBlueprint ),
-	managerMessageBase.merge( managerMessageStopServer ),
-	managerMessageBase.merge( managerMessageWpCliCommand ),
+	managerMessageBase.extend( managerMessageAbort.shape ),
+	managerMessageBase.extend( managerMessageStartServer.shape ),
+	managerMessageBase.extend( managerMessageRunBlueprint.shape ),
+	managerMessageBase.extend( managerMessageStopServer.shape ),
+	managerMessageBase.extend( managerMessageWpCliCommand.shape ),
 ] );
 export type ManagerMessage = z.infer< typeof managerMessageSchema >;
 
@@ -94,7 +94,7 @@ const childMessageError = z.object( {
 	topic: z.literal( 'error' ),
 	errorMessage: z.string(),
 	errorStack: z.string().optional(),
-	cliArgs: z.record( z.unknown() ).optional(),
+	cliArgs: z.record( z.string(), z.unknown() ).optional(),
 } );
 
 const childMessageConsole = z.object( {

@@ -7,7 +7,7 @@ import { z } from 'zod';
 export const cliErrorSchema = z.object( {
 	message: z.string(),
 	stack: z.string().optional(),
-	cliArgs: z.record( z.unknown() ).optional(),
+	cliArgs: z.record( z.string(), z.unknown() ).optional(),
 } );
 
 export type CliError = z.infer< typeof cliErrorSchema >;

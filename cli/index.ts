@@ -103,7 +103,15 @@ async function main() {
 			command: 'wp',
 			describe: __( 'WP-CLI' ),
 			builder: ( wpYargs ) => {
-				return wpYargs.help( false ).showHelpOnFail( false ).strict( false ).version( false );
+				return wpYargs
+					.help( false )
+					.showHelpOnFail( false )
+					.strict( false )
+					.version( false )
+					.option( 'studio-no-path', {
+						type: 'boolean',
+						hidden: true,
+					} );
 			},
 			handler: wpCliCommandHandler,
 		} )

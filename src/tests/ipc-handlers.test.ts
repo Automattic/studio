@@ -7,13 +7,7 @@ import * as Sentry from '@sentry/electron/main';
 import { readFile } from 'atomically';
 import { bumpStat } from 'common/lib/bump-stat';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
-import {
-	createSite,
-	startServer,
-	isFullscreen,
-	importSite,
-	getXdebugEnabledSite,
-} from 'src/ipc-handlers';
+import { createSite, isFullscreen, importSite, getXdebugEnabledSite } from 'src/ipc-handlers';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getMainWindow } from 'src/main-window';
@@ -21,7 +15,28 @@ import { SiteServer } from 'src/site-server';
 import electron from 'electron';
 import type { IpcMainInvokeEvent } from 'electron';
 
+<<<<<<< HEAD
 const { app, BrowserWindow } = electron;
+=======
+jest.mock( 'fs' );
+jest.mock( 'fs-extra' );
+jest.mock( 'common/lib/fs-utils' );
+jest.mock( 'src/site-server' );
+jest.mock( 'src/lib/wordpress-setup', () => ( {
+	setupWordPressFilesOnly: jest.fn().mockResolvedValue( undefined ),
+} ) );
+jest.mock( 'src/main-window' );
+jest.mock( '@sentry/electron/main' );
+jest.mock( 'src/lib/import-export/import/import-manager' );
+jest.mock( 'common/lib/bump-stat' );
+jest.mock( 'atomically' );
+
+jest.mock( 'common/lib/port-finder', () => ( {
+	portFinder: {
+		getOpenPort: jest.fn().mockResolvedValue( 9999 ),
+	},
+} ) );
+>>>>>>> 3d31ad1e00b9363cc8c1fe93a3292145439494b5
 
 const mockSiteDetails: StoppedSiteDetails = {
 	id: 'mock-cli-site-id',

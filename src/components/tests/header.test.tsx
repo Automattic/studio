@@ -30,6 +30,7 @@ const mockedSites: SiteDetails[] = [
 	},
 ];
 
+<<<<<<< HEAD
 function mockGetIpcApi( mocks: Record< string, Mock > ) {
 	vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 		getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
@@ -44,6 +45,16 @@ function mockGetIpcApi( mocks: Record< string, Mock > ) {
 			} )
 		),
 		showErrorMessageBox: vi.fn(),
+=======
+function mockGetIpcApi( mocks: Record< string, jest.Mock > ) {
+	mockedGetIpcApi.mockReturnValue( {
+		getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
+		getSiteDetails: jest.fn( () => Promise.resolve( mockedSites ) ),
+		getSnapshots: jest.fn( () => Promise.resolve( [] ) ),
+		saveSnapshotsToStorage: jest.fn( () => Promise.resolve() ),
+		startServer: jest.fn( () => Promise.resolve() ),
+		showErrorMessageBox: jest.fn(),
+>>>>>>> 3d31ad1e00b9363cc8c1fe93a3292145439494b5
 		...mocks,
 	} );
 }
@@ -75,8 +86,12 @@ describe( 'Header', () => {
 		const startButton = screen.getByRole( 'button', { name: 'Start' } );
 		await user.click( startButton );
 
+<<<<<<< HEAD
 		expect( vi.mocked( getIpcApi )().startServer ).toHaveBeenCalledTimes( 1 );
 		expect( screen.getByText( 'Stop' ) ).toBeVisible();
+=======
+		expect( mockedGetIpcApi().startServer ).toHaveBeenCalledTimes( 1 );
+>>>>>>> 3d31ad1e00b9363cc8c1fe93a3292145439494b5
 	} );
 
 	describe( 'when starting a server fails', () => {

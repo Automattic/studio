@@ -12,6 +12,7 @@ vi.mock( 'src/lib/site-language', () => ( {
 	getPreferredSiteLanguage: vi.fn().mockResolvedValue( 'en' ),
 } ) );
 
+<<<<<<< HEAD
 // Mock the WordPress provider
 vi.mock( 'src/lib/wordpress-provider', () => {
 	const mockProvider = {
@@ -51,6 +52,12 @@ vi.mock( 'src/lib/wordpress-provider', () => {
 		getWordPressProvider: vi.fn( () => mockProvider ),
 	};
 } );
+=======
+// Mock the WordPress setup
+jest.mock( 'src/lib/wordpress-setup', () => ( {
+	setupWordPressFilesOnly: jest.fn().mockResolvedValue( undefined ),
+} ) );
+>>>>>>> 3d31ad1e00b9363cc8c1fe93a3292145439494b5
 
 // Mock the wp-now config that the provider uses internally
 vi.mock( 'vendor/wp-now/src', () => ( {

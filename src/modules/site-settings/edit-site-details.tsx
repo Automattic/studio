@@ -3,8 +3,10 @@ import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { DEFAULT_PHP_VERSION } from 'common/constants';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'common/lib/domains';
 import { siteNeedsRestart } from 'common/lib/site-needs-restart';
+import { SupportedPHPVersions } from 'common/types/php-versions';
 import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
@@ -15,15 +17,11 @@ import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
 import { useRootSelector } from 'src/stores';
 import { betaFeaturesSelectors } from 'src/stores/beta-features-slice';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
-import {
-	selectDefaultWordPressVersion,
-	selectAllowedPhpVersions,
-	selectDefaultPhpVersion,
-} from 'src/stores/provider-constants-slice';
+import { selectDefaultWordPressVersion } from 'src/stores/provider-constants-slice';
+import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 
 type EditSiteDetailsProps = {
 	currentWpVersion: string;
@@ -34,8 +32,6 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const { __ } = useI18n();
 	const { updateSite, selectedSite, isEditModalOpen, setIsEditModalOpen } = useSiteDetails();
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
-	const allowedPhpVersions = useRootSelector( selectAllowedPhpVersions );
-	const defaultPhpVersion = useRootSelector( selectDefaultPhpVersion );
 	const betaFeatures = useRootSelector( betaFeaturesSelectors.selectBetaFeatures );
 	const isXdebugFeatureEnabled = betaFeatures.xdebugSupport;
 	const [ errorUpdatingWpVersion, setErrorUpdatingWpVersion ] = useState< string | null >( null );
@@ -53,7 +49,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	}, [ isEditingSite, setIsEditModalOpen ] );
 	const [ siteName, setSiteName ] = useState( selectedSite?.name ?? '' );
 	const [ selectedPhpVersion, setSelectedPhpVersion ] = useState< AllowedPHPVersion >(
-		( selectedSite?.phpVersion as AllowedPHPVersion ) ?? defaultPhpVersion
+		( selectedSite?.phpVersion as AllowedPHPVersion ) ?? DEFAULT_PHP_VERSION
 	);
 	const getEffectiveWpVersion = useCallback(
 		() =>
@@ -232,15 +228,17 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 									className="flex flex-1 flex-col gap-1.5 leading-4"
 								>
 									<span className="font-semibold">{ __( 'PHP version' ) }</span>
-									<SelectControl
+									<SelectControl< string >
 										id="php-version-select"
 										disabled={ isEditingSite }
 										value={ selectedPhpVersion }
-										options={ allowedPhpVersions.map( ( version ) => ( {
+										options={ SupportedPHPVersions.map( ( version ) => ( {
 											label: version,
 											value: version,
 										} ) ) }
-										onChange={ ( version: AllowedPHPVersion ) => setSelectedPhpVersion( version ) }
+										onChange={ ( version ) =>
+											setSelectedPhpVersion( version as AllowedPHPVersion )
+										}
 										__next40pxDefaultSize
 										__nextHasNoMarginBottom
 									/>

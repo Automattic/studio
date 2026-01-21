@@ -1,0 +1,17 @@
+diff --git a/node_modules/@wp-playground/blueprints/package.json b/node_modules/@wp-playground/blueprints/package.json
+index 1234567..abcdefg 100644
+--- a/node_modules/@wp-playground/blueprints/package.json
++++ b/node_modules/@wp-playground/blueprints/package.json
+@@ -5,7 +5,11 @@
+     ".": {
+       "import": "./index.js",
+       "require": "./index.cjs"
+     },
+-    "./package.json": "./package.json"
++    "./package.json": "./package.json",
++    "./blueprint-schema-validator": {
++      "import": "./blueprint-schema-validator.js",
++      "require": "./blueprint-schema-validator.js"
++    }
+   },
+   "type": "module",

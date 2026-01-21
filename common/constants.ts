@@ -1,4 +1,4 @@
-import { RecommendedPHPVersion } from '@wp-playground/common';
+import { RecommendedPHPVersion } from './types/php-versions';
 
 // Time constants
 export const HOUR_MS = 1000 * 60 * 60;
@@ -27,7 +27,8 @@ export const PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL = 5 * 1000; // Check for ina
 // Custom domains
 export const DEFAULT_CUSTOM_DOMAIN_SUFFIX = '.wp.local';
 
-// WordPress Playground constants
+// WordPress constants
 export const MINIMUM_WORDPRESS_VERSION = '6.2.1' as const; // https://wordpress.github.io/wordpress-playground/blueprints/examples/#load-an-older-wordpress-version
 export const DEFAULT_WORDPRESS_VERSION = 'latest' as const;
 export const DEFAULT_PHP_VERSION: typeof RecommendedPHPVersion = RecommendedPHPVersion;
+export const SQLITE_FILENAME = 'sqlite-database-integration' as const;

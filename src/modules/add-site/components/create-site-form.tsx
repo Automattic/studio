@@ -4,14 +4,15 @@ import { __, sprintf, _n } from '@wordpress/i18n';
 import { tip, cautionFilled, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useState, useEffect, useCallback, useMemo, useRef, RefObject } from 'react';
+import { DEFAULT_WORDPRESS_VERSION } from 'common/constants';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'common/lib/domains';
+import { SupportedPHPVersions } from 'common/types/php-versions';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
-import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
 import { useRootSelector } from 'src/stores';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import {
@@ -20,6 +21,7 @@ import {
 } from 'src/stores/provider-constants-slice';
 import type { BlueprintPreferredVersions } from 'common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
+import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 
 export interface CreateSiteFormProps {
 	/** Initial values and async updates (syncs before user interaction) */
@@ -155,8 +157,8 @@ export const CreateSiteForm = ( {
 }: CreateSiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
-	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 	const allowedPhpVersions = useRootSelector( selectAllowedPhpVersions );
+	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 
 	const [ siteName, setSiteName ] = useState( defaultValues.siteName ?? '' );
 	const [ sitePath, setSitePath ] = useState( defaultValues.sitePath ?? '' );
@@ -429,10 +431,10 @@ export const CreateSiteForm = ( {
 										<label className="font-semibold" htmlFor="php-version-select">
 											{ __( 'PHP version' ) }
 										</label>
-										<SelectControl
+										<SelectControl< string >
 											id="php-version-select"
 											value={ phpVersion }
-											options={ allowedPhpVersions.map( ( version ) => ( {
+											options={ SupportedPHPVersions.map( ( version ) => ( {
 												label: version,
 												value: version,
 											} ) ) }
@@ -446,7 +448,7 @@ export const CreateSiteForm = ( {
 										selectedValue={ wpVersion }
 										onChange={ setWpVersion }
 										fallbackOptions={ [
-											{ label: __( 'Latest' ), value: defaultWordPressVersion },
+											{ label: __( 'Latest' ), value: DEFAULT_WORDPRESS_VERSION },
 										] }
 										offlineMessage={ __(
 											'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'

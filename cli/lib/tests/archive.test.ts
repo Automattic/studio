@@ -45,10 +45,8 @@ describe( 'Archive Module', () => {
 		vi.clearAllMocks();
 		mockArchiver = createMockArchiver();
 		mockWriteStream = createMockWriteStream();
-		// @ts-expect-error - mock object only implements methods used in tests
-		vi.mocked( archiver ).mockReturnValue( mockArchiver );
-		// @ts-expect-error - mock object only implements methods used in tests
-		vi.mocked( fs.createWriteStream ).mockReturnValue( mockWriteStream );
+		vi.mocked( archiver, { partial: true } ).mockReturnValue( mockArchiver );
+		vi.mocked( fs.createWriteStream, { partial: true } ).mockReturnValue( mockWriteStream );
 		vi.mocked( path.join ).mockImplementation( ( ...args ) => args.join( '/' ) );
 	} );
 

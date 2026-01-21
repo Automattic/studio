@@ -1,38 +1,36 @@
-/**
- * @jest-environment node
- */
 import { app, dialog, BrowserWindow } from 'electron';
 import fs from 'fs-extra';
+import { vi, beforeAll, afterAll, beforeEach, describe, it, expect } from 'vitest';
 import { validateBlueprintData } from 'common/lib/blueprint-validation';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { handleAddSiteWithBlueprint } from 'src/lib/deeplink/handlers/add-site-with-blueprint';
 import { download } from 'src/lib/download';
+import { createMock } from 'src/lib/test-utils';
 import { getMainWindow } from 'src/main-window';
 
-jest.mock( 'electron' );
-jest.mock( 'fs-extra' );
-jest.mock( 'src/ipc-utils' );
-jest.mock( 'src/lib/download' );
-jest.mock( 'src/main-window' );
-jest.mock( 'common/lib/blueprint-validation', () => ( {
-	validateBlueprintData: jest.fn(),
+vi.mock( 'fs-extra' );
+vi.mock( 'src/ipc-utils' );
+vi.mock( 'src/lib/download' );
+vi.mock( 'src/main-window' );
+vi.mock( 'common/lib/blueprint-validation', () => ( {
+	validateBlueprintData: vi.fn(),
 } ) );
 
 // Silence console.error output
 beforeAll( () => {
-	jest.spyOn( console, 'error' ).mockImplementation( () => {} );
+	vi.spyOn( console, 'error' ).mockImplementation( () => {} );
 } );
 
 afterAll( () => {
-	jest.spyOn( console, 'error' ).mockRestore();
+	vi.spyOn( console, 'error' ).mockRestore();
 } );
 
 describe( 'handleAddSiteWithBlueprint', () => {
-	const mockMainWindow = {
-		isMinimized: jest.fn().mockReturnValue( false ),
-		restore: jest.fn(),
-		focus: jest.fn(),
-	} as unknown as BrowserWindow;
+	const mockMainWindow = createMock< BrowserWindow >( {
+		isMinimized: vi.fn().mockReturnValue( false ),
+		restore: vi.fn(),
+		focus: vi.fn(),
+	} );
 
 	const createBlueprintUrl = ( blueprintUrl: string ) => {
 		const encodedUrl = encodeURIComponent( blueprintUrl );
@@ -40,12 +38,12 @@ describe( 'handleAddSiteWithBlueprint', () => {
 	};
 
 	beforeEach( () => {
-		jest.clearAllMocks();
-		( mockMainWindow.isMinimized as jest.Mock ).mockReturnValue( false );
-		jest.mocked( app.getPath ).mockReturnValue( '/tmp' );
-		jest.mocked( fs.mkdir ).mockImplementation( async () => {} );
-		jest.mocked( getMainWindow ).mockResolvedValue( mockMainWindow );
-		jest.mocked( dialog.showMessageBox ).mockResolvedValue( {
+		vi.clearAllMocks();
+		vi.mocked( mockMainWindow.isMinimized ).mockReturnValue( false );
+		vi.mocked( app.getPath ).mockReturnValue( '/tmp' );
+		vi.mocked( fs.mkdir ).mockImplementation( async () => {} );
+		vi.mocked( getMainWindow ).mockResolvedValue( mockMainWindow );
+		vi.mocked( dialog.showMessageBox ).mockResolvedValue( {
 			response: 0,
 			checkboxChecked: false,
 		} );
@@ -55,9 +53,9 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		const blueprintUrl = 'https://example.com/blueprint.json';
 		const url = createBlueprintUrl( blueprintUrl );
 
-		jest.mocked( download ).mockResolvedValue( undefined );
-		jest.mocked( fs.readJson ).mockResolvedValue( { steps: [] } );
-		jest.mocked( validateBlueprintData ).mockResolvedValue( { valid: true, warnings: [] } );
+		vi.mocked( download ).mockResolvedValue( undefined );
+		vi.mocked( fs.readJson ).mockResolvedValue( { steps: [] } );
+		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true, warnings: [] } );
 
 		await handleAddSiteWithBlueprint( url );
 
@@ -88,7 +86,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		const encodedUrl = encodeURIComponent( invalidUrl );
 		const url = new URL( `wp-studio://add-site?blueprint_url=${ encodedUrl }` );
 
-		jest.mocked( fs.remove ).mockImplementation( async () => {} );
+		vi.mocked( fs.remove ).mockImplementation( async () => {} );
 
 		await handleAddSiteWithBlueprint( url );
 
@@ -106,8 +104,8 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		const url = createBlueprintUrl( 'https://example.com/blueprint.json' );
 
 		const downloadError = new Error( 'Download failed' );
-		jest.mocked( download ).mockRejectedValue( downloadError );
-		jest.mocked( fs.remove ).mockImplementation( async () => {} );
+		vi.mocked( download ).mockRejectedValue( downloadError );
+		vi.mocked( fs.remove ).mockImplementation( async () => {} );
 
 		await handleAddSiteWithBlueprint( url );
 
@@ -125,10 +123,10 @@ describe( 'handleAddSiteWithBlueprint', () => {
 	it( 'should restore and focus window when minimized', async () => {
 		const url = createBlueprintUrl( 'https://example.com/blueprint.json' );
 
-		( mockMainWindow.isMinimized as jest.Mock ).mockReturnValue( true );
-		jest.mocked( download ).mockResolvedValue( undefined );
-		jest.mocked( fs.readJson ).mockResolvedValue( { steps: [] } );
-		jest.mocked( validateBlueprintData ).mockResolvedValue( { valid: true, warnings: [] } );
+		vi.mocked( mockMainWindow.isMinimized ).mockReturnValue( true );
+		vi.mocked( download ).mockResolvedValue( undefined );
+		vi.mocked( fs.readJson ).mockResolvedValue( { steps: [] } );
+		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true, warnings: [] } );
 
 		await handleAddSiteWithBlueprint( url );
 
@@ -140,8 +138,8 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		const url = createBlueprintUrl( 'https://example.com/blueprint.json' );
 
 		const downloadError = new Error( 'Download failed' );
-		jest.mocked( download ).mockRejectedValue( downloadError );
-		( fs.remove as unknown as jest.Mock ).mockRejectedValue( new Error( 'Cleanup failed' ) );
+		vi.mocked( download ).mockRejectedValue( downloadError );
+		vi.mocked( fs.remove ).mockRejectedValue( new Error( 'Cleanup failed' ) );
 
 		await expect( handleAddSiteWithBlueprint( url ) ).resolves.not.toThrow();
 
@@ -151,13 +149,13 @@ describe( 'handleAddSiteWithBlueprint', () => {
 	it( 'should handle invalid Blueprint and show error dialog', async () => {
 		const url = createBlueprintUrl( 'https://example.com/blueprint.json' );
 
-		jest.mocked( download ).mockResolvedValue( undefined );
-		jest.mocked( fs.readJson ).mockResolvedValue( { invalid: 'data' } );
-		jest.mocked( validateBlueprintData ).mockResolvedValue( {
+		vi.mocked( download ).mockResolvedValue( undefined );
+		vi.mocked( fs.readJson ).mockResolvedValue( { invalid: 'data' } );
+		vi.mocked( validateBlueprintData ).mockResolvedValue( {
 			valid: false,
 			error: 'Invalid Blueprint format',
 		} );
-		jest.mocked( fs.remove ).mockImplementation( async () => {} );
+		vi.mocked( fs.remove ).mockImplementation( async () => {} );
 
 		await handleAddSiteWithBlueprint( url );
 
@@ -182,8 +180,8 @@ describe( 'handleAddSiteWithBlueprint', () => {
 			const blueprintBase64 = Buffer.from( blueprintJson ).toString( 'base64' );
 			const url = new URL( `wp-studio://add-site?blueprint=${ blueprintBase64 }` );
 
-			jest.mocked( fs.writeJson ).mockImplementation( async () => {} );
-			jest.mocked( validateBlueprintData ).mockResolvedValue( { valid: true, warnings: [] } );
+			vi.mocked( fs.writeJson ).mockImplementation( async () => {} );
+			vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true, warnings: [] } );
 
 			await handleAddSiteWithBlueprint( url );
 

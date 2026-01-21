@@ -9,7 +9,7 @@ import type { Blueprint } from '@wp-playground/blueprints';
 
 const cliEventSchema = z.discriminatedUnion( 'action', [
 	z.object( {
-		action: z.nativeEnum( SiteCommandLoggerAction ),
+		action: z.enum( SiteCommandLoggerAction ),
 		status: z.enum( [ 'inprogress', 'fail', 'success', 'warning' ] ),
 		message: z.string(),
 	} ),

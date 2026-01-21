@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { vi, type Mock } from 'vitest';
+import { vi } from 'vitest';
 import { useExpirationDate } from 'src/hooks/use-expiration-date';
 import { store } from 'src/stores';
 import { PreviewSiteRow } from '../preview-site-row';
@@ -9,6 +9,8 @@ vi.mock( 'src/hooks/use-expiration-date', () => ( {
 	useExpirationDate: vi.fn().mockReturnValue( {
 		countDown: '5 days',
 		isExpired: false,
+		expireDateString: '2024-01-01',
+		dateString: '2023-12-27',
 	} ),
 } ) );
 
@@ -59,9 +61,11 @@ describe( 'PreviewSiteRow', () => {
 	} );
 
 	it( 'renders Clear button instead of PreviewActionButtonsMenu when preview site is expired', () => {
-		( useExpirationDate as Mock ).mockReturnValueOnce( {
+		vi.mocked( useExpirationDate ).mockReturnValueOnce( {
 			countDown: 'Expired',
 			isExpired: true,
+			expireDateString: '2023-12-27',
+			dateString: '2023-12-27',
 		} );
 
 		renderWithProvider(
@@ -77,9 +81,11 @@ describe( 'PreviewSiteRow', () => {
 	} );
 
 	it( 'applies line-through style when preview site is expired', () => {
-		( useExpirationDate as Mock ).mockReturnValueOnce( {
+		vi.mocked( useExpirationDate ).mockReturnValueOnce( {
 			countDown: 'Expired',
 			isExpired: true,
+			expireDateString: '2023-12-27',
+			dateString: '2023-12-27',
 		} );
 
 		renderWithProvider(

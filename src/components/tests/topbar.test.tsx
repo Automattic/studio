@@ -1,7 +1,7 @@
 import { render, act, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { vi, type Mock } from 'vitest';
+import { vi } from 'vitest';
 import TopBar from 'src/components/top-bar';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
@@ -35,7 +35,10 @@ describe( 'TopBar', () => {
 	} );
 	it( 'Test unauthenticated TopBar has the Log in button', async () => {
 		const authenticate = vi.fn();
-		( useAuth as Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
+			isAuthenticated: false,
+			authenticate,
+		} );
 		await act( async () => renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> ) );
 		expect(
 			screen.queryByRole( 'button', { name: 'Open account settings' } )
@@ -46,14 +49,14 @@ describe( 'TopBar', () => {
 	} );
 
 	it( 'Test authenticated TopBar does not have the log in button and it has the settings and account buttons', async () => {
-		( useAuth as Mock ).mockReturnValue( { isAuthenticated: true } );
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: true } );
 		await act( async () => renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> ) );
 		expect( screen.queryByRole( 'button', { name: 'Log in' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Open settings' } ) ).toBeVisible();
 	} );
 
 	it( 'shows offline indicator', async () => {
-		( useOffline as Mock ).mockReturnValue( true );
+		vi.mocked( useOffline ).mockReturnValue( true );
 		await act( async () => renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> ) );
 		const offlineIndicator = screen.getByRole( 'button', {
 			name: 'Offline indicator',
@@ -67,7 +70,7 @@ describe( 'TopBar', () => {
 
 	it( 'opens the support URL', async () => {
 		const user = userEvent.setup();
-		( useAuth as Mock ).mockReturnValue( { isAuthenticated: true } );
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: true } );
 
 		renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> );
 
@@ -98,8 +101,8 @@ describe( 'TopBar', () => {
 	describe( 'login button with offline state', () => {
 		it( 'disables login button when offline and unauthenticated', async () => {
 			const user = userEvent.setup();
-			( useAuth as Mock ).mockReturnValue( { isAuthenticated: false } );
-			( useOffline as Mock ).mockReturnValue( true );
+			vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
+			vi.mocked( useOffline ).mockReturnValue( true );
 
 			renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> );
 
@@ -115,8 +118,8 @@ describe( 'TopBar', () => {
 		} );
 
 		it( 'enables login button when online and unauthenticated', async () => {
-			( useAuth as Mock ).mockReturnValue( { isAuthenticated: false } );
-			( useOffline as Mock ).mockReturnValue( false );
+			vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
+			vi.mocked( useOffline ).mockReturnValue( false );
 
 			renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> );
 
@@ -128,8 +131,8 @@ describe( 'TopBar', () => {
 
 		it( 'shows offline tooltip when offline and unauthenticated', async () => {
 			const user = userEvent.setup();
-			( useAuth as Mock ).mockReturnValue( { isAuthenticated: false } );
-			( useOffline as Mock ).mockReturnValue( true );
+			vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
+			vi.mocked( useOffline ).mockReturnValue( true );
 			renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> );
 			const loginButton = screen.getByRole( 'button', {
 				name: 'Log in to Studio with WordPress.com',

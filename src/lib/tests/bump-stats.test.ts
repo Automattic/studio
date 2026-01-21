@@ -1,6 +1,6 @@
 import { waitFor } from '@testing-library/react';
 import { readFile, writeFile } from 'atomically';
-import nock from 'nock';
+import { vi, beforeEach, afterEach } from 'vitest';
 import {
 	bumpStat,
 	bumpAggregatedUniqueStat,
@@ -9,10 +9,13 @@ import {
 } from 'common/lib/bump-stat';
 import { AggregateInterval, StatsGroup, StatsMetric } from 'common/types/stats';
 
-jest.mock( 'atomically', () => ( {
-	readFile: jest.fn(),
-	writeFile: jest.fn(),
+vi.mock( 'atomically', () => ( {
+	readFile: vi.fn(),
+	writeFile: vi.fn(),
 } ) );
+
+// Store original fetch to restore later
+const originalFetch = global.fetch;
 
 // Mock appdata provider for tests
 const mockAppdataProvider: AppdataProvider< LastBumpStatsData > = {
@@ -30,41 +33,57 @@ const mockAppdataProvider: AppdataProvider< LastBumpStatsData > = {
 const originalEnv = { ...process.env };
 
 afterEach( () => {
-	jest.spyOn( Date, 'now' ).mockRestore();
-	jest.spyOn( console, 'info' ).mockRestore();
-	( readFile as jest.Mock ).mockRestore();
-	( writeFile as jest.Mock ).mockRestore();
-	nock.cleanAll();
+	vi.spyOn( Date, 'now' ).mockRestore();
+	vi.spyOn( console, 'info' ).mockRestore();
+	vi.mocked( readFile ).mockRestore();
+	vi.mocked( writeFile ).mockRestore();
+	global.fetch = originalFetch;
 	process.env = { ...originalEnv };
 } );
 
 function mockBumpStatRequest( group: string, stat: string ) {
-	return nock( 'https://public-api.wordpress.com' )
-		.post( '/wpcom/v2/studio-app/bump-stat', {
-			group,
-			stat,
-		} )
-		.matchHeader( 'Content-Type', 'application/json' )
-		.reply( 200 );
+	let requestMade = false;
+
+	global.fetch = vi.fn().mockImplementation( async ( url: string, options?: RequestInit ) => {
+		if (
+			url === 'https://public-api.wordpress.com/wpcom/v2/studio-app/bump-stat' &&
+			options?.method === 'POST'
+		) {
+			const body = JSON.parse( options?.body as string );
+			if ( body.group === group && body.stat === stat ) {
+				requestMade = true;
+				return Promise.resolve( {
+					ok: true,
+					status: 200,
+					json: () => Promise.resolve( {} ),
+				} as Response );
+			}
+		}
+		return originalFetch( url, options );
+	} );
+
+	return {
+		isDone: () => requestMade,
+	};
 }
 
 function mockCurrentTime( timestamp: number ) {
-	jest.spyOn( Date, 'now' ).mockReturnValue( timestamp );
+	vi.spyOn( Date, 'now' ).mockReturnValue( timestamp );
 }
 
 describe( 'bumpStat', () => {
-	let logger: jest.SpyInstance;
+	let logger: ReturnType< typeof vi.spyOn >;
 
 	beforeEach( () => {
-		logger = jest.spyOn( console, 'info' ).mockImplementation( () => {} );
+		logger = vi.spyOn( console, 'info' ).mockImplementation( () => {} );
 	} );
 
 	test( 'record stat with GET request to b.gif', async () => {
-		const nock = mockBumpStatRequest( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS );
+		const mockRequest = mockBumpStatRequest( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS );
 
 		bumpStat( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS );
 
-		await waitFor( () => expect( nock.isDone() ).toBe( true ) );
+		await waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
 	} );
 
 	test( "don't record stat in e2e tests", () => {
@@ -89,16 +108,16 @@ describe( 'bumpStat', () => {
 
 	test( 'record stat in development mode if override arg is used', async () => {
 		process.env.NODE_ENV = 'development';
-		const nock = mockBumpStatRequest( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS );
+		const mockRequest = mockBumpStatRequest( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS );
 
 		bumpStat( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS, true );
 
 		expect( logger ).not.toHaveBeenCalled();
-		await waitFor( () => expect( nock.isDone() ).toBe( true ) );
+		await waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
 	} );
 
 	test( 'should not bump stat when group exceeds 27 characters', () => {
-		const errorLogger = jest.spyOn( console, 'error' ).mockImplementation( () => {} );
+		const errorLogger = vi.spyOn( console, 'error' ).mockImplementation( () => {} );
 		const longGroup = 'this-is-a-very-long-group-name-over-27-chars' as StatsGroup;
 
 		const result = bumpStat( longGroup, StatsMetric.SUCCESS );
@@ -111,7 +130,7 @@ describe( 'bumpStat', () => {
 	} );
 
 	test( 'should not bump stat when stat exceeds 32 characters', () => {
-		const errorLogger = jest.spyOn( console, 'error' ).mockImplementation( () => {} );
+		const errorLogger = vi.spyOn( console, 'error' ).mockImplementation( () => {} );
 		const longStat = 'this-is-a-very-long-stat-name-over-32-characters' as StatsMetric;
 
 		const result = bumpStat( StatsGroup.STUDIO_APP_LAUNCH, longStat );
@@ -126,13 +145,15 @@ describe( 'bumpStat', () => {
 
 describe( 'bumpAggregatedUniqueStat', () => {
 	test( 'bump stat when it has never been recorded before', async () => {
-		const nock = mockBumpStatRequest( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS );
+		const mockRequest = mockBumpStatRequest( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS );
 
-		( readFile as jest.Mock ).mockResolvedValue(
-			JSON.stringify( {
-				lastBumpStats: {},
-				sites: [],
-			} )
+		vi.mocked( readFile ).mockResolvedValue(
+			Buffer.from(
+				JSON.stringify( {
+					lastBumpStats: {},
+					sites: [],
+				} )
+			)
 		);
 
 		await bumpAggregatedUniqueStat(
@@ -142,7 +163,7 @@ describe( 'bumpAggregatedUniqueStat', () => {
 			mockAppdataProvider
 		);
 
-		await waitFor( () => expect( nock.isDone() ).toBe( true ) );
+		await waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
 	} );
 
 	test.each< [ AggregateInterval, number, number ] >( [
@@ -151,19 +172,21 @@ describe( 'bumpAggregatedUniqueStat', () => {
 		[ 'monthly', Date.UTC( 2024, 0, 1 ), Date.UTC( 2023, 0, 1 ) ],
 	] )(
 		'bump %s stat when it has been more than the specified interval since last recorded',
-		async ( aggregateBy, currentTime, lastBumpTime ) => {
+		async ( aggregateBy: AggregateInterval, currentTime: number, lastBumpTime: number ) => {
 			mockCurrentTime( currentTime );
 
-			const nock = mockBumpStatRequest( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS );
-			( readFile as jest.Mock ).mockResolvedValue(
-				JSON.stringify( {
-					lastBumpStats: {
-						[ StatsGroup.STUDIO_APP_LAUNCH ]: {
-							[ StatsMetric.SUCCESS ]: lastBumpTime,
+			const mockRequest = mockBumpStatRequest( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS );
+			vi.mocked( readFile ).mockResolvedValue(
+				Buffer.from(
+					JSON.stringify( {
+						lastBumpStats: {
+							[ StatsGroup.STUDIO_APP_LAUNCH ]: {
+								[ StatsMetric.SUCCESS ]: lastBumpTime,
+							},
 						},
-					},
-					sites: [],
-				} )
+						sites: [],
+					} )
+				)
 			);
 
 			await bumpAggregatedUniqueStat(
@@ -173,10 +196,10 @@ describe( 'bumpAggregatedUniqueStat', () => {
 				mockAppdataProvider
 			);
 
-			await waitFor( () => expect( nock.isDone() ).toBe( true ) );
+			await waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
 
 			expect( writeFile ).toHaveBeenCalled();
-			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+			const savedData = JSON.parse( vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ] as string );
 			expect( savedData ).toMatchObject( {
 				lastBumpStats: {
 					[ StatsGroup.STUDIO_APP_LAUNCH ]: {
@@ -193,20 +216,22 @@ describe( 'bumpAggregatedUniqueStat', () => {
 		[ 'monthly', Date.UTC( 2024, 0, 1 ), Date.UTC( 2024, 0, 11 ) ],
 	] )(
 		"don't bump %s stat when it has already been recorded in the specified interval",
-		async ( aggregateBy, currentTime, lastBumpTime ) => {
+		async ( aggregateBy: AggregateInterval, currentTime: number, lastBumpTime: number ) => {
 			mockCurrentTime( currentTime );
 
 			// Don't create a nock mock so that we get errors if a network request is made
 
-			( readFile as jest.Mock ).mockResolvedValue(
-				JSON.stringify( {
-					lastBumpStats: {
-						[ StatsGroup.STUDIO_APP_LAUNCH ]: {
-							[ StatsMetric.SUCCESS ]: lastBumpTime,
+			vi.mocked( readFile ).mockResolvedValue(
+				Buffer.from(
+					JSON.stringify( {
+						lastBumpStats: {
+							[ StatsGroup.STUDIO_APP_LAUNCH ]: {
+								[ StatsMetric.SUCCESS ]: lastBumpTime,
+							},
 						},
-					},
-					sites: [],
-				} )
+						sites: [],
+					} )
+				)
 			);
 
 			await bumpAggregatedUniqueStat(

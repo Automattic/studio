@@ -2,7 +2,7 @@ import { render, fireEvent, waitFor, screen, createEvent } from '@testing-librar
 import { userEvent } from '@testing-library/user-event';
 import { act } from 'react';
 import { Provider } from 'react-redux';
-import { vi, type Mock } from 'vitest';
+import { vi } from 'vitest';
 import { ContentTabImportExport } from 'src/components/content-tab-import-export';
 import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
@@ -27,17 +27,17 @@ const selectedSite: SiteDetails = {
 
 beforeEach( () => {
 	vi.clearAllMocks();
-	( useSiteDetails as Mock ).mockReturnValue( {
+	vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 		updateSite: vi.fn(),
 		startServer: vi.fn(),
 		loadingServer: {},
 	} );
-	( getIpcApi as Mock ).mockReturnValue( {
+	vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 		getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
 		showMessageBox: vi.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ), // Mock showMessageBox
 		isImportExportSupported: vi.fn().mockResolvedValue( true ),
 	} );
-	( useImportExport as Mock ).mockReturnValue( {
+	vi.mocked( useImportExport, { partial: true } ).mockReturnValue( {
 		importFile: vi.fn(),
 		importState: {},
 		exportFullSite: vi.fn(),
@@ -135,7 +135,7 @@ describe( 'ContentTabImportExport Import', () => {
 	} );
 
 	test( 'should display progress when importing', async () => {
-		( useImportExport as Mock ).mockReturnValue( {
+		vi.mocked( useImportExport, { partial: true } ).mockReturnValue( {
 			importState: {
 				'site-id-1': { progress: 5, statusMessage: 'Extracting backup…', isNewSite: false },
 			},
@@ -183,7 +183,7 @@ describe( 'ContentTabImportExport Export', () => {
 	} );
 
 	test( 'should display progress when exporting', async () => {
-		( useImportExport as Mock ).mockReturnValue( {
+		vi.mocked( useImportExport, { partial: true } ).mockReturnValue( {
 			importState: {},
 			exportState: { 'site-id-1': { progress: 5, statusMessage: 'Starting export…' } },
 		} );
@@ -198,7 +198,7 @@ describe( 'ContentTabImportExport Export', () => {
 	} );
 
 	test( 'should be blocked', async () => {
-		( getIpcApi as Mock ).mockReturnValue( {
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			isImportExportSupported: vi.fn().mockResolvedValue( false ),
 		} );
 

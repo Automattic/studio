@@ -4,7 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { produce } from 'immer';
 import { Provider } from 'react-redux';
-import { vi, type Mock } from 'vitest';
+import { vi } from 'vitest';
 import { Snapshot } from 'common/types/snapshot';
 import { ContentTabSettings } from 'src/components/content-tab-settings';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
@@ -152,8 +152,8 @@ describe( 'ContentTabSettings', () => {
 		// Create a fresh store for each test
 		testStore = createCustomTestStore();
 
-		( useGetWpVersion as Mock ).mockReturnValue( [ '7.7.7', vi.fn() ] );
-		( getIpcApi as Mock ).mockReturnValue( {
+		vi.mocked( useGetWpVersion ).mockReturnValue( [ '7.7.7', vi.fn() ] );
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			copyText,
 			openLocalPath,
 			generateProposedSitePath,
@@ -164,7 +164,7 @@ describe( 'ContentTabSettings', () => {
 
 		testStore.dispatch( testActions.resetState() );
 
-		( useSiteDetails as Mock ).mockReturnValue( {
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 			selectedSite,
 			uploadingSites: {},
 			deleteSite: vi.fn(),
@@ -324,7 +324,7 @@ describe( 'ContentTabSettings', () => {
 			testStore.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
 
 			// Mock snapshots to include a snapshot for the selected site
-			( useSiteDetails as Mock ).mockReturnValue( {
+			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: false } as SiteDetails,
 				updateSite,
 				startServer,
@@ -338,7 +338,7 @@ describe( 'ContentTabSettings', () => {
 			);
 			expect( screen.getByText( '8.3' ) ).toBeVisible();
 			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
-			( useSiteDetails as Mock ).mockReturnValue( {
+			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: false } as SiteDetails,
 				updateSite,
 				startServer,
@@ -360,7 +360,7 @@ describe( 'ContentTabSettings', () => {
 				} )
 			);
 
-			( useSiteDetails as Mock ).mockReturnValue( {
+			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: false } as SiteDetails,
 				updateSite,
 				startServer,
@@ -396,7 +396,7 @@ describe( 'ContentTabSettings', () => {
 			const stopServer = vi.fn();
 			// Mock snapshots to include a snapshot for the selected site
 			testStore.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
-			( useSiteDetails as Mock ).mockReturnValue( {
+			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: true } as SiteDetails,
 				updateSite,
 				startServer,
@@ -410,7 +410,7 @@ describe( 'ContentTabSettings', () => {
 			);
 			expect( screen.getByText( '8.3' ) ).toBeVisible();
 			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
-			( useSiteDetails as Mock ).mockReturnValue( {
+			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: true } as SiteDetails,
 				updateSite,
 				startServer,
@@ -431,7 +431,7 @@ describe( 'ContentTabSettings', () => {
 				} )
 			);
 
-			( useSiteDetails as Mock ).mockReturnValue( {
+			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: true } as SiteDetails,
 				updateSite,
 				startServer,

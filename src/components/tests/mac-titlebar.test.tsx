@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react';
-import { vi, type Mock } from 'vitest';
+import { vi } from 'vitest';
 import MacTitlebar from 'src/components/mac-titlebar';
 import { useFullscreen } from 'src/hooks/use-fullscreen';
 import { isWindowFrameRtl } from 'src/lib/is-window-frame-rtl';
@@ -26,13 +26,13 @@ const NON_FULLSCREEN_CLASSES = {
 describe( 'MacTitlebar', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
-		( useFullscreen as Mock ).mockReturnValue( false );
-		( isWindowFrameRtl as Mock ).mockReturnValue( false );
+		vi.mocked( useFullscreen ).mockReturnValue( false );
+		vi.mocked( isWindowFrameRtl ).mockReturnValue( false );
 	} );
 
 	it( 'should render with correct padding in non-fullscreen LTR mode', () => {
-		( useFullscreen as Mock ).mockReturnValue( false );
-		( isWindowFrameRtl as Mock ).mockReturnValue( false );
+		vi.mocked( useFullscreen ).mockReturnValue( false );
+		vi.mocked( isWindowFrameRtl ).mockReturnValue( false );
 
 		const { container } = render( <MacTitlebar /> );
 		const titlebar = container.firstChild;
@@ -44,8 +44,8 @@ describe( 'MacTitlebar', () => {
 	} );
 
 	it( 'should render with correct padding in non-fullscreen RTL mode', () => {
-		( useFullscreen as Mock ).mockReturnValue( false );
-		( isWindowFrameRtl as Mock ).mockReturnValue( true );
+		vi.mocked( useFullscreen ).mockReturnValue( false );
+		vi.mocked( isWindowFrameRtl ).mockReturnValue( true );
 
 		const { container } = render( <MacTitlebar /> );
 		const titlebar = container.firstChild;
@@ -56,7 +56,7 @@ describe( 'MacTitlebar', () => {
 	} );
 
 	it( 'should render with minimal padding in fullscreen mode', () => {
-		( useFullscreen as Mock ).mockReturnValue( true );
+		vi.mocked( useFullscreen ).mockReturnValue( true );
 
 		const { container } = render( <MacTitlebar /> );
 		const titlebar = container.firstChild;

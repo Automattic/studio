@@ -1,6 +1,6 @@
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { vi, type Mock } from 'vitest';
+import { vi } from 'vitest';
 import createCodeComponent, { CodeBlockProps } from 'src/components/assistant-code-block';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -23,7 +23,7 @@ const selectedSite: SiteDetails = {
 	port: 9999,
 };
 
-( useSiteDetails as Mock ).mockReturnValue( {
+vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 	sites: [ selectedSite ],
 	loadingSites: false,
 	selectedSite: selectedSite,
@@ -130,7 +130,7 @@ describe( 'createCodeComponent', () => {
 		} );
 
 		it( 'should display an activity indicator while running code', async () => {
-			( getIpcApi as Mock ).mockReturnValue( {
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 				executeWPCLiInline: vi.fn().mockResolvedValue( {
 					stdout: 'Mock success',
 					stderr: '',
@@ -150,7 +150,7 @@ describe( 'createCodeComponent', () => {
 		} );
 
 		it( 'should display the output of the successfully executed code', async () => {
-			( getIpcApi as Mock ).mockReturnValue( {
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 				executeWPCLiInline: vi.fn().mockResolvedValue( {
 					stdout: 'Mock success',
 					stderr: '',
@@ -171,7 +171,7 @@ describe( 'createCodeComponent', () => {
 		} );
 
 		it( 'should display the output of the failed code execution', async () => {
-			( getIpcApi as Mock ).mockReturnValue( {
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 				executeWPCLiInline: vi.fn().mockResolvedValue( {
 					stdout: '',
 					stderr: 'Mock error',
@@ -195,7 +195,7 @@ describe( 'createCodeComponent', () => {
 	describe( 'when the "copy" button is clicked', () => {
 		it( 'should copy the code content to the clipboard', async () => {
 			const mockCopyText = vi.fn();
-			( getIpcApi as Mock ).mockReturnValue( {
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 				copyText: mockCopyText,
 				showNotification: vi.fn(),
 			} );
@@ -229,7 +229,7 @@ describe( 'createCodeComponent', () => {
 
 	describe( 'when content is a file path', () => {
 		it( 'should open a file in the IDE if the file exists', async () => {
-			( getIpcApi as Mock ).mockReturnValue( {
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 				getAbsolutePathFromSite: vi
 					.fn()
 					.mockResolvedValue( 'site-path/wp-content/plugins/hello.php' ),
@@ -252,7 +252,7 @@ describe( 'createCodeComponent', () => {
 		} );
 
 		it( 'should not open a file in the IDE if the file does not exist', async () => {
-			( getIpcApi as Mock ).mockReturnValue( {
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 				getAbsolutePathFromSite: vi.fn().mockResolvedValue( null ),
 				openFileInIDE: vi.fn(),
 			} );
@@ -269,7 +269,7 @@ describe( 'createCodeComponent', () => {
 		} );
 
 		it( 'should open a directory in the Finder if the directory exists', async () => {
-			( getIpcApi as Mock ).mockReturnValue( {
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 				getAbsolutePathFromSite: vi.fn().mockResolvedValue( 'site-path/wp-content/plugins' ),
 				openLocalPath: vi.fn(),
 			} );
@@ -286,7 +286,7 @@ describe( 'createCodeComponent', () => {
 		} );
 
 		it( 'should not open a directory in the Finder if the directory does not exist', async () => {
-			( getIpcApi as Mock ).mockReturnValue( {
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 				getAbsolutePathFromSite: vi.fn().mockResolvedValue( null ),
 				openLocalPath: vi.fn(),
 			} );
@@ -323,7 +323,7 @@ describe( 'createCodeComponent', () => {
 		} );
 
 		it( 'should copy the code content to the clipboard and open terminal', async () => {
-			( getIpcApi as Mock ).mockReturnValue( {
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 				copyText: vi.fn(),
 				openTerminalAtPath: vi.fn(),
 				showNotification: vi.fn(),

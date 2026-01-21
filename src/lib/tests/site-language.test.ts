@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { vi, type Mock, beforeEach } from 'vitest';
+import { vi, beforeEach } from 'vitest';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import * as storagePaths from 'src/storage/paths';
 
@@ -25,7 +25,7 @@ const originalFetch = global.fetch;
 
 async function mockAppLocale( language: string ) {
 	const { app } = await import( 'electron' );
-	( app.getLocale as Mock ).mockReturnValue( language );
+	vi.mocked( app.getLocale ).mockReturnValue( language );
 }
 
 function mockFetchTranslations( wpVersion: string, locales: string[] ) {

@@ -3,13 +3,14 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { Dispatch } from 'redux';
-import { vi, type Mock } from 'vitest';
+import { vi } from 'vitest';
+import { WPCOM } from 'wpcom/types';
 import {
 	ContentTabAssistant,
 	MIMIC_CONVERSATION_DELAY,
 } from 'src/components/content-tab-assistant';
 import { LOCAL_STORAGE_CHAT_MESSAGES_KEY, CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
-import { useAuth } from 'src/hooks/use-auth';
+import * as useAuthModule from 'src/hooks/use-auth';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
@@ -21,7 +22,6 @@ import { useGetAssistantQuota, useGetWelcomeMessages } from 'src/stores/wpcom-ap
 
 store.replaceReducer( testReducer );
 
-vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/hooks/use-offline' );
 vi.mock( 'src/lib/get-ipc-api' );
 vi.mock( 'src/hooks/use-get-wp-version' );
@@ -59,6 +59,10 @@ const runningSite = {
 	id: 'site-id',
 	url: 'http://example.com',
 };
+
+const createWpcomStub = ( clientReqPost: ReturnType< typeof vi.fn > ): Partial< WPCOM > => ( {
+	req: { post: clientReqPost, get: vi.fn(), put: vi.fn(), del: vi.fn() },
+} );
 
 const initialMessages = [
 	generateMessage( 'Initial message 1', 'user', 0, 100, 10 ),
@@ -103,6 +107,7 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	const authenticate = vi.fn();
+	const logout = vi.fn();
 
 	const getInput = () => screen.getByTestId( 'ai-input-textarea' );
 
@@ -116,13 +121,14 @@ describe( 'ContentTabAssistant', () => {
 		// Reset Redux store state
 		store.dispatch( testActions.resetState() );
 
-		( useAuth as Mock ).mockReturnValue( {
-			client: { req: { post: clientReqPost } },
+		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
+			client: createWpcomStub( clientReqPost ) as WPCOM,
 			isAuthenticated: true,
 			authenticate,
+			logout,
 		} );
-		( useOffline as Mock ).mockReturnValue( false );
-		( useGetWelcomeMessages as Mock ).mockReturnValue( {
+		vi.mocked( useOffline ).mockReturnValue( false );
+		vi.mocked( useGetWelcomeMessages, { partial: true } ).mockReturnValue( {
 			data: {
 				messages: [ 'Welcome to our service!', 'How can I help you today?' ],
 				example_prompts: [
@@ -132,14 +138,14 @@ describe( 'ContentTabAssistant', () => {
 				],
 			},
 		} );
-		( useGetAssistantQuota as Mock ).mockReturnValue( {
+		vi.mocked( useGetAssistantQuota, { partial: true } ).mockReturnValue( {
 			data: { userCanSendMessage: true },
 		} );
-		( getIpcApi as Mock ).mockReturnValue( {
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			showMessageBox: vi.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
 			executeWPCLiInline: vi.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
 		} );
-		( useGetWpVersion as Mock ).mockReturnValue( [ '6.4.3', vi.fn() ] );
+		vi.mocked( useGetWpVersion ).mockReturnValue( [ '6.4.3', vi.fn() ] );
 	} );
 
 	afterEach( () => {
@@ -191,10 +197,11 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'renders default message when not authenticated', async () => {
-		( useAuth as Mock ).mockReturnValue( {
-			client: { req: { post: clientReqPost } },
+		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
+			client: createWpcomStub( clientReqPost ) as WPCOM,
 			isAuthenticated: false,
 			authenticate,
+			logout,
 		} );
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 
@@ -207,12 +214,13 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'renders offline notice when not authenticated', () => {
-		( useAuth as Mock ).mockReturnValue( {
-			client: { req: { post: clientReqPost } },
+		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
+			client: createWpcomStub( clientReqPost ) as WPCOM,
 			isAuthenticated: false,
 			authenticate,
+			logout,
 		} );
-		( useOffline as Mock ).mockReturnValue( true );
+		vi.mocked( useOffline ).mockReturnValue( true );
 
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 		expect( screen.queryByText( 'Hold up!' ) ).not.toBeInTheDocument();
@@ -223,10 +231,11 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'allows authentication from Assistant chat', async () => {
-		( useAuth as Mock ).mockReturnValue( {
-			client: { req: { post: clientReqPost } },
+		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
+			client: createWpcomStub( clientReqPost ) as WPCOM,
 			isAuthenticated: false,
 			authenticate,
+			logout,
 		} );
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 
@@ -241,13 +250,14 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'it stores messages with user-unique keys', async () => {
-		const user1 = { id: 'mock-user-1' };
-		const user2 = { id: 'mock-user-2' };
-		( useAuth as Mock ).mockReturnValue( {
-			client: { req: { post: clientReqPost } },
+		const user1 = { id: 1, email: 'user1@example.com', displayName: 'User 1' };
+		const user2 = { id: 2, email: 'user2@example.com', displayName: 'User 2' };
+		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
+			client: createWpcomStub( clientReqPost ) as WPCOM,
 			isAuthenticated: true,
 			authenticate,
 			user: user1,
+			logout,
 		} );
 		const { rerender } = render( <ContextWrapper selectedSite={ runningSite } /> );
 
@@ -261,11 +271,12 @@ describe( 'ContentTabAssistant', () => {
 		} );
 
 		// Simulate user authentication change
-		( useAuth as Mock ).mockReturnValue( {
-			client: { req: { post: clientReqPost } },
+		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
+			client: createWpcomStub( clientReqPost ) as WPCOM,
 			isAuthenticated: true,
 			authenticate,
 			user: user2,
+			logout,
 		} );
 
 		rerender( <ContextWrapper selectedSite={ runningSite } /> );
@@ -279,10 +290,11 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'does not render the Welcome messages and example prompts when not authenticated', () => {
-		( useAuth as Mock ).mockReturnValue( {
-			client: { req: { post: clientReqPost } },
+		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
+			client: createWpcomStub( clientReqPost ) as WPCOM,
 			isAuthenticated: false,
 			authenticate,
+			logout,
 		} );
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 
@@ -303,7 +315,7 @@ describe( 'ContentTabAssistant', () => {
 
 	it( 'renders Welcome messages and example prompts when offline', () => {
 		store.dispatch( chatActions.setMessages( { instanceId: runningSite.id, messages: [] } ) );
-		( useOffline as Mock ).mockReturnValue( true );
+		vi.mocked( useOffline ).mockReturnValue( true );
 
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
@@ -318,10 +330,11 @@ describe( 'ContentTabAssistant', () => {
 			// Never resolve
 		} );
 
-		( useAuth as Mock ).mockReturnValue( {
-			client: { req: { post: delayedClientReqPost } },
+		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
+			client: createWpcomStub( delayedClientReqPost ) as WPCOM,
 			isAuthenticated: true,
 			authenticate,
+			logout,
 		} );
 
 		store.dispatch( chatActions.setMessages( { instanceId: runningSite.id, messages: [] } ) );
@@ -385,7 +398,7 @@ describe( 'ContentTabAssistant', () => {
 			} )
 		);
 
-		( getIpcApi as Mock ).mockReturnValue( {
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			showMessageBox: vi.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
 			executeWPCLiInline: vi.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
 		} );
@@ -440,7 +453,7 @@ describe( 'ContentTabAssistant', () => {
 			{ timeout: MIMIC_CONVERSATION_DELAY + 2000 }
 		);
 
-		( useGetAssistantQuota as Mock ).mockReturnValue( {
+		vi.mocked( useGetAssistantQuota, { partial: true } ).mockReturnValue( {
 			data: { userCanSendMessage: false, daysUntilReset: 4 },
 		} );
 		rerender( <ContextWrapper selectedSite={ runningSite } /> );
@@ -451,7 +464,7 @@ describe( 'ContentTabAssistant', () => {
 			screen.queryByText( 'This conversation is over two hours old.', { exact: false } )
 		).not.toBeInTheDocument();
 
-		( useOffline as Mock ).mockReturnValue( true );
+		vi.mocked( useOffline ).mockReturnValue( true );
 		rerender( <ContextWrapper selectedSite={ runningSite } /> );
 		expect( screen.getByText( 'The AI assistant requires an internet connection.' ) ).toBeVisible();
 		expect(

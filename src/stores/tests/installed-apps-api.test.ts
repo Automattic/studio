@@ -1,4 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit';
+import { vi } from 'vitest';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
 	installedAppsApi,
@@ -8,25 +9,25 @@ import {
 	selectUninstalledTerminals,
 } from 'src/stores/installed-apps-api';
 
-jest.mock( 'src/lib/get-ipc-api', () => ( {
-	getIpcApi: jest.fn(),
+vi.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: vi.fn(),
 } ) );
 
-jest.mock( 'src/lib/app-globals', () => ( {
-	getAppGlobals: jest.fn( () => ( {
+vi.mock( 'src/lib/app-globals', () => ( {
+	getAppGlobals: vi.fn( () => ( {
 		platform: 'darwin',
 	} ) ),
 } ) );
 
 const mockIpcApi = {
-	getInstalledAppsAndTerminals: jest.fn(),
-	getUserEditor: jest.fn(),
-	getUserTerminal: jest.fn(),
-	saveUserEditor: jest.fn(),
-	saveUserTerminal: jest.fn(),
+	getInstalledAppsAndTerminals: vi.fn(),
+	getUserEditor: vi.fn(),
+	getUserTerminal: vi.fn(),
+	saveUserEditor: vi.fn(),
+	saveUserTerminal: vi.fn(),
 };
 
-( getIpcApi as jest.Mock ).mockReturnValue( mockIpcApi );
+vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( mockIpcApi );
 
 const createTestStore = () => {
 	return configureStore( {
@@ -56,7 +57,7 @@ const createMockInstalledApps = (
 
 describe( 'Installed Apps API', () => {
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 	} );
 
 	describe( 'getInstalledApps', () => {

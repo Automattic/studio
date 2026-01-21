@@ -61,11 +61,6 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		return;
 	}
 
-	// Skip update if Studio has an ongoing operation
-	if ( server.hasOngoingOperation ) {
-		return;
-	}
-
 	server.details = siteDetailsToServerDetails( site, running, server.details );
 
 	if ( server.server && site.url ) {

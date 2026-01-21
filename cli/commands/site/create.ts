@@ -333,7 +333,7 @@ export async function runCommand(
 				}
 			}
 			console.log( '' );
-			console.log( __( 'Site created successfully!' ) );
+			console.log( __( 'Site created successfully' ) );
 			console.log( '' );
 			if ( ! options.skipLogDetails ) {
 				logSiteDetails( siteDetails );

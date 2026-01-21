@@ -635,7 +635,7 @@ describe( 'AddSite', () => {
 
 		// Warning indicator should show next to Advanced settings
 		await waitFor( () => {
-			expect( screen.getByText( '1 warning found' ) ).toBeInTheDocument();
+			expect( screen.getByText( '2 warnings found' ) ).toBeInTheDocument();
 		} );
 	} );
 

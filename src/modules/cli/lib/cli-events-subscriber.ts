@@ -59,7 +59,6 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 	void sendIpcEventToRenderer( 'site-event', event );
 } );
 
-// Hello
 const cliSiteEventSchema = z.object( {
 	action: z.literal( 'keyValuePair' ),
 	key: z.literal( 'site-event' ),

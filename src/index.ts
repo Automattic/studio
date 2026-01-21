@@ -13,6 +13,11 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 import * as Sentry from '@sentry/electron/main';
 import { __, _n, sprintf } from '@wordpress/i18n';
+import {
+	installExtension,
+	REACT_DEVELOPER_TOOLS,
+	REDUX_DEVTOOLS,
+} from 'electron-devtools-installer';
 import { PROTOCOL_PREFIX } from 'common/constants';
 import {
 	bumpStat,
@@ -125,34 +130,6 @@ async function setupSentryUserId() {
 		await saveUserData( userData );
 	} finally {
 		await unlockAppdata();
-	}
-}
-
-// Load DevTools extensions from the extensions directory
-// Extension IDs are hardcoded Chrome extension IDs for React DevTools and Redux DevTools
-const EXTENSION_IDS = {
-	REACT_DEVELOPER_TOOLS: 'fmkadmapgofadopljbjfkapdkoienihi',
-	REDUX_DEVTOOLS: 'lmhkpmbekcpmknklioeibfkpmmfibljd',
-};
-
-async function loadDevToolsExtensions( appSession = session.defaultSession ) {
-	const extensionsPath = path.join( app.getPath( 'userData' ), 'extensions' );
-
-	for ( const [ name, extensionId ] of Object.entries( EXTENSION_IDS ) ) {
-		const extensionPath = path.join( extensionsPath, extensionId );
-		try {
-			// Check if extension directory exists
-			const fs = await import( 'fs/promises' );
-			await fs.access( extensionPath );
-
-			// Load extension using the new API with allowFileAccess option
-			await appSession.extensions.loadExtension( extensionPath, {
-				allowFileAccess: true,
-			} );
-			console.log( `Loaded ${ name } extension from ${ extensionPath }` );
-		} catch ( error ) {
-			console.warn( `Failed to load ${ name } extension:`, error );
-		}
 	}
 }
 
@@ -285,7 +262,8 @@ async function appBoot() {
 	app.on( 'ready', async () => {
 		const locale = await getUserLocaleWithFallback();
 		if ( process.env.NODE_ENV === 'development' ) {
-			await loadDevToolsExtensions();
+			await installExtension( REACT_DEVELOPER_TOOLS );
+			await installExtension( REDUX_DEVTOOLS );
 			await launchExtensionBackgroundWorkers();
 		}
 

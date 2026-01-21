@@ -10,7 +10,7 @@ import {
 	updateSiteAutoStart,
 	type SiteData,
 } from 'cli/lib/appdata';
-import { connect, disconnect, killDaemonAndAllChildren } from 'cli/lib/pm2-manager';
+import { connect, disconnect, killDaemonAndChildrenAndExitProcess } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -77,9 +77,6 @@ export async function runCommand(
 				return;
 			}
 
-			logger.reportStart( LoggerAction.STOP_ALL_SITES, __( 'Stopping all WordPress servers…' ) );
-			await killDaemonAndAllChildren();
-
 			try {
 				await lockAppdata();
 				const appdata = await readAppdata();
@@ -94,20 +91,20 @@ export async function runCommand(
 				await unlockAppdata();
 			}
 
-			logger.reportSuccess(
-				sprintf(
-					_n(
-						'Successfully stopped %d site',
-						'Successfully stopped %d sites',
-						runningSites.length
-					),
-					runningSites.length
-				)
-			);
+			logger.reportStart( LoggerAction.STOP_ALL_SITES, __( 'Stopping all WordPress servers…' ) );
 
-			// Calling `pm2.killDaemon` requires us to forcefully exit the process. pm2 does the same
-			// thing internally in its CLI.
-			process.exit( 0 );
+			await killDaemonAndChildrenAndExitProcess( () => {
+				logger.reportSuccess(
+					sprintf(
+						_n(
+							'Successfully stopped %d site',
+							'Successfully stopped %d sites',
+							runningSites.length
+						),
+						runningSites.length
+					)
+				);
+			} );
 		}
 	} finally {
 		await disconnect();

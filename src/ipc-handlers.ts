@@ -56,10 +56,7 @@ import * as oauthClient from 'src/lib/oauth';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
 import * as windowsHelpers from 'src/lib/windows-helpers';
-import {
-	getWordPressProvider,
-	getProviderConstants as getProviderConstantsFromProvider,
-} from 'src/lib/wordpress-provider';
+import { setupWordPressFilesOnly } from 'src/lib/wordpress-setup';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
@@ -68,7 +65,7 @@ import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tr
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
-import { SiteServer } from 'src/site-server';
+import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
 import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
 import {
 	loadUserData,
@@ -217,7 +214,7 @@ export async function importSite(
 	}
 	try {
 		if ( ! isWordPressDirectory( site.details.path ) ) {
-			await getWordPressProvider().setupWordPressFilesOnly( site.details.path );
+			await setupWordPressFilesOnly( site.details.path );
 		}
 
 		const onEvent = ( data: ImportExportEventData ) => {
@@ -407,13 +404,10 @@ export async function updateSite(
 	}
 }
 
-export async function startServer(
-	event: IpcMainInvokeEvent,
-	id: string
-): Promise< SiteDetails | null > {
+export async function startServer( event: IpcMainInvokeEvent, id: string ): Promise< void > {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
-		return null;
+		return;
 	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
@@ -442,7 +436,7 @@ export async function startServer(
 
 		Sentry.captureException( error, {
 			tags: {
-				provider: getWordPressProvider().PROVIDER_TYPE,
+				provider: 'cli',
 			},
 			contexts,
 		} );
@@ -458,22 +452,19 @@ export async function startServer(
 	}
 
 	console.log( `Server started for '${ server.details.name }'` );
-	await updateSite( event, server.details );
-	return server.details;
 }
 
-export async function stopServer(
-	event: IpcMainInvokeEvent,
-	id: string
-): Promise< SiteDetails | null > {
+export async function stopServer( event: IpcMainInvokeEvent, id: string ): Promise< void > {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
-		return null;
+		return;
 	}
 
 	await server.stop();
-	await updateSite( event, server.details );
-	return server.details;
+}
+
+export async function stopAllServers(): Promise< void > {
+	await triggerStopAllServers( false );
 }
 
 export interface FolderDialogResponse {
@@ -772,7 +763,6 @@ export async function getThemeDetails(
 
 	if ( themeChanged ) {
 		const parentWindow = BrowserWindow.fromWebContents( event.sender );
-		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id } );
 		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-changed', {
 			id,
 			details: themeDetails,
@@ -1401,11 +1391,6 @@ export async function listLocalFileTree(
 		console.error( `Failed to list raw file tree for path ${ path }:`, err );
 		return [];
 	}
-}
-
-export async function getProviderConstants( _event: IpcMainInvokeEvent ) {
-	const provider = getWordPressProvider();
-	return getProviderConstantsFromProvider( provider );
 }
 
 export async function validateBlueprint(

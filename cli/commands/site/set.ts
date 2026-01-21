@@ -190,12 +190,6 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			const phpVersion = validatePhpVersion( site.phpVersion );
 			const zipUrl = getWordPressVersionUrl( wp );
 
-			let siteUrl: string | undefined;
-			if ( site.customDomain ) {
-				const protocol = site.enableHttps ? 'https' : 'http';
-				siteUrl = `${ protocol }://${ site.customDomain }`;
-			}
-
 			const [ response, exitPhp ] = await runWpCliCommand( sitePath, phpVersion, [
 				'core',
 				'update',

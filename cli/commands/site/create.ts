@@ -47,7 +47,7 @@ import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
 import { getServerFilesPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { installSqliteIntegration, isSqliteIntegrationAvailable } from 'cli/lib/sqlite-integration';
+import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -171,16 +171,11 @@ export async function runCommand(
 			);
 		}
 
-		if ( ! ( await isSqliteIntegrationAvailable() ) ) {
-			throw new LoggerError(
-				__(
-					'SQLite integration files not found. Please ensure Studio is installed and has been run at least once.'
-				)
-			);
-		}
 		logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration…' ) );
-		await installSqliteIntegration( sitePath );
-		logger.reportSuccess( __( 'SQLite integration configured' ) );
+		const isSqliteUpdated = await keepSqliteIntegrationUpdated( sitePath );
+		logger.reportSuccess(
+			isSqliteUpdated ? __( 'SQLite integration configured' ) : __( 'SQLite integration skipped' )
+		);
 
 		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
 		const port = await portFinder.getOpenPort();
@@ -212,7 +207,9 @@ export async function runCommand(
 			}
 		}
 
-		if ( options.name ) {
+		const hasWpConfig = await pathExists( path.join( sitePath, 'wp-config.php' ) );
+		const isWordPressDirectoryInitialized = isWordPressDirResult && hasWpConfig;
+		if ( options.name && ! isWordPressDirectoryInitialized ) {
 			setupSteps.push( {
 				step: 'setSiteOptions',
 				options: {
@@ -326,7 +323,7 @@ export async function runCommand(
 				}
 			}
 			console.log( '' );
-			console.log( __( 'Site created successfully!' ) );
+			console.log( __( 'Site created successfully' ) );
 			console.log( '' );
 			if ( ! options.skipLogDetails ) {
 				logSiteDetails( siteDetails );

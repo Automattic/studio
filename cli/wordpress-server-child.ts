@@ -21,13 +21,16 @@ import {
 	OverlayFilesystem,
 	InMemoryFilesystem,
 } from '@wp-playground/storage';
-import { sanitizeRunCLIArgs } from 'common/lib/cli-args-sanitizer';
+import { WordPressInstallMode } from '@wp-playground/wordpress';
 import { isWordPressDirectory } from 'common/lib/fs-utils';
 import { getMuPlugins } from 'common/lib/mu-plugins';
+import { decodePassword } from 'common/lib/passwords';
 import { formatPlaygroundCliMessage } from 'common/lib/playground-cli-messages';
 import { sequential } from 'common/lib/sequential';
 import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
+import { isSqliteInstalled } from 'src/lib/sqlite-versions';
 import { z } from 'zod';
+import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
 import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 import {
 	ServerConfig,
@@ -95,9 +98,32 @@ async function setAdminPassword( server: RunCLIServer, adminPassword: string ): 
 		method: 'POST',
 		body: {
 			action: 'set_admin_password',
-			password: escapePhpString( adminPassword ),
+			password: escapePhpString( decodePassword( adminPassword ) ),
 		},
 	} );
+}
+
+/**
+ * Gets the WordPress installation mode based on whether WordPress files
+ * and SQLite integration are present.
+ *
+ * @param sitePath - The path to the site
+ * @returns The WordPressInstallMode to use for the site
+ */
+async function getWordPressInstallMode( sitePath: string ): Promise< WordPressInstallMode > {
+	const hasWordPress = isWordPressDirectory( sitePath );
+	const hasSqlite = await isSqliteInstalled( sitePath );
+
+	if ( ! hasWordPress ) {
+		return 'download-and-install';
+	}
+
+	if ( hasSqlite ) {
+		return 'install-from-existing-files-if-needed';
+	}
+
+	// We don't want playground to attempt installing WordPress when site is using MySQL.
+	return 'do-not-attempt-installing';
 }
 
 function getBaseRunCLIArgs(
@@ -112,7 +138,7 @@ async function getBaseRunCLIArgs(
 	command: RunCLIArgs[ 'command' ],
 	config: ServerConfig
 ): Promise< RunCLIArgs > {
-	const hasWordPress = isWordPressDirectory( config.sitePath );
+	const wordpressInstallMode = await getWordPressInstallMode( config.sitePath );
 
 	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
 		isWpAutoUpdating: config.isWpAutoUpdating,
@@ -186,12 +212,8 @@ async function getBaseRunCLIArgs(
 		'mount-before-install': mounts,
 		'site-url': config.absoluteUrl || `http://localhost:${ config.port }`,
 		blueprint: blueprintBundle,
-		wordpressInstallMode: 'download-and-install',
+		wordpressInstallMode,
 	};
-
-	if ( hasWordPress ) {
-		args.wordpressInstallMode = 'install-from-existing-files-if-needed';
-	}
 
 	if ( config.phpVersion ) {
 		args.php = config.phpVersion as SupportedPHPVersion;

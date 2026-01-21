@@ -8,13 +8,7 @@ import * as Sentry from '@sentry/electron/main';
 import { readFile } from 'atomically';
 import { bumpStat } from 'common/lib/bump-stat';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
-import {
-	createSite,
-	startServer,
-	isFullscreen,
-	importSite,
-	getXdebugEnabledSite,
-} from 'src/ipc-handlers';
+import { createSite, isFullscreen, importSite, getXdebugEnabledSite } from 'src/ipc-handlers';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getMainWindow } from 'src/main-window';
@@ -24,16 +18,8 @@ jest.mock( 'fs' );
 jest.mock( 'fs-extra' );
 jest.mock( 'common/lib/fs-utils' );
 jest.mock( 'src/site-server' );
-jest.mock( 'src/lib/wordpress-provider', () => ( {
-	downloadWordPress: jest.fn(),
-	downloadWpCli: jest.fn(),
-	downloadSQLiteCommand: jest.fn(),
-	getWordPressProvider: jest.fn().mockReturnValue( {
-		DEFAULT_PHP_VERSION: '8.3',
-		DEFAULT_WORDPRESS_VERSION: 'latest',
-		SQLITE_FILENAME: 'sqlite.php',
-		setupWordPressFilesOnly: jest.fn().mockResolvedValue( undefined ),
-	} ),
+jest.mock( 'src/lib/wordpress-setup', () => ( {
+	setupWordPressFilesOnly: jest.fn().mockResolvedValue( undefined ),
 } ) );
 jest.mock( 'src/main-window' );
 jest.mock( '@sentry/electron/main' );

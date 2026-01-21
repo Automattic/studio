@@ -9,6 +9,7 @@ import {
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
 import { getMuPlugins } from 'common/lib/mu-plugins';
+import { LatestSupportedPHPVersion } from 'common/types/php-versions';
 import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 
 const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';
@@ -63,6 +64,35 @@ export async function runWpCliCommand(
 			await php.cli( [ 'php', '/tmp/wp-cli.phar', '--path=/wordpress', ...args ] ),
 			() => php.exit(),
 		];
+	} catch ( error ) {
+		throw new Error( __( 'An error occurred while running the WP-CLI command.' ) );
+	}
+}
+
+/**
+ * Run a global WP-CLI command without requiring a site.
+ * Useful for commands like --version that don't need a WordPress installation.
+ */
+export async function runGlobalWpCliCommand(
+	args: string[]
+): Promise< [ StreamedPHPResponse, exitPhp: () => void ] > {
+	const id = await loadNodeRuntime( LatestSupportedPHPVersion, { followSymlinks: true } );
+	const php = new PHP( id );
+
+	try {
+		await php.setSapiName( 'cli' );
+
+		// Setup SSL certificates
+		php.writeFile( '/tmp/ca-bundle.crt', rootCertificates.join( '\n' ) );
+		await setPhpIniEntries( php, {
+			'openssl.cafile': '/tmp/ca-bundle.crt',
+			allow_url_fopen: 1,
+			disable_functions: '',
+		} );
+
+		await php.mount( '/tmp/wp-cli.phar', createNodeFsMountHandler( getWpCliPharPath() ) );
+
+		return [ await php.cli( [ 'php', '/tmp/wp-cli.phar', ...args ] ), () => php.exit() ];
 	} catch ( error ) {
 		throw new Error( __( 'An error occurred while running the WP-CLI command.' ) );
 	}

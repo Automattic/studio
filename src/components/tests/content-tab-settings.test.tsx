@@ -11,7 +11,7 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { createTestStore } from 'src/lib/test-utils';
 import { RootState } from 'src/stores';
-import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
+import { testReducer } from 'src/stores/tests/utils/test-reducer';
 
 function snapshotTestReducer( state: RootState | undefined, action: UnknownAction ) {
 	if ( action.type === 'snapshot/addSnapshot' ) {
@@ -24,19 +24,7 @@ function snapshotTestReducer( state: RootState | undefined, action: UnknownActio
 		} );
 	}
 
-	// Use the test reducer but preserve provider constants and beta features
-	const newState = testReducer( state, action );
-
-	// If we have provider constants or beta features in the current state, preserve them
-	const preservedState = { ...newState };
-	if ( state?.providerConstants ) {
-		preservedState.providerConstants = state.providerConstants;
-	}
-	if ( state?.betaFeatures ) {
-		preservedState.betaFeatures = state.betaFeatures;
-	}
-
-	return preservedState;
+	return testReducer( state, action );
 }
 
 const snapshotTestActions = {
@@ -45,14 +33,8 @@ const snapshotTestActions = {
 	},
 };
 
-// Create test store with provider constants
+// Create test store with xdebug beta feature enabled by default
 let testStore = createTestStore( {
-	providerConstants: {
-		defaultPhpVersion: '8.3',
-		defaultWordPressVersion: 'latest',
-		allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
-		minimumWordPressVersion: '6.2.6',
-	},
 	preloadedState: {
 		betaFeatures: {
 			features: {
@@ -67,12 +49,6 @@ let testStore = createTestStore( {
 // We need to create a new store each time to avoid reducer conflicts
 function createCustomTestStore() {
 	const store = createTestStore( {
-		providerConstants: {
-			defaultPhpVersion: '8.3',
-			defaultWordPressVersion: 'latest',
-			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
-			minimumWordPressVersion: '6.2.6',
-		},
 		preloadedState: {
 			betaFeatures: {
 				features: {
@@ -148,7 +124,7 @@ describe( 'ContentTabSettings', () => {
 	beforeEach( () => {
 		jest.clearAllMocks();
 
-		// Create a fresh store for each test
+		// Create a fresh store for each test (includes xdebugSupport: true)
 		testStore = createCustomTestStore();
 
 		( useGetWpVersion as jest.Mock ).mockReturnValue( [ '7.7.7', jest.fn() ] );
@@ -160,8 +136,6 @@ describe( 'ContentTabSettings', () => {
 			getXdebugEnabledSite,
 			isCATrusted: jest.fn( () => Promise.resolve( true ) ),
 		} );
-
-		testStore.dispatch( testActions.resetState() );
 
 		( useSiteDetails as jest.Mock ).mockReturnValue( {
 			selectedSite,
@@ -278,14 +252,7 @@ describe( 'ContentTabSettings', () => {
 
 	describe( 'Xdebug beta feature', () => {
 		it( 'hides Xdebug row when beta feature is disabled', async () => {
-			// Create a store with xdebugSupport disabled
 			const storeWithoutXdebug = createTestStore( {
-				providerConstants: {
-					defaultPhpVersion: '8.3',
-					defaultWordPressVersion: 'latest',
-					allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
-					minimumWordPressVersion: '6.2.6',
-				},
 				preloadedState: {
 					betaFeatures: {
 						features: {

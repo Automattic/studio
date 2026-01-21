@@ -3,7 +3,7 @@ import { SiteCommandLoggerAction } from 'common/logger-actions';
 import { executeCliCommand } from './execute-command';
 
 const cliEventSchema = z.object( {
-	action: z.nativeEnum( SiteCommandLoggerAction ),
+	action: z.enum( SiteCommandLoggerAction ),
 	status: z.enum( [ 'inprogress', 'fail', 'success', 'warning' ] ),
 	message: z.string(),
 } );

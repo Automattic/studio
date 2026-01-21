@@ -1,9 +1,9 @@
 import path from 'path';
 import fs from 'fs-extra';
 import semver, { SemVer } from 'semver';
+import { downloadSQLiteCommand } from 'src/lib/download-utils';
 import { getLatestSQLiteCommandRelease } from 'src/lib/sqlite-command-release';
 import { getServerFilesPath } from 'src/storage/paths';
-import { downloadSQLiteCommand } from 'vendor/wp-now/src/download';
 
 interface DistributionCheckResult {
 	needsDownload: boolean;

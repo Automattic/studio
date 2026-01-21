@@ -30,7 +30,7 @@ const commands = [
 	},
 	{
 		command:
-			'wp-babel-makepot "{src,cli/commands,cli/lib,common}/**/*.{js,jsx,ts,tsx}" --ignore "**/*.d.ts" --base "." --dir "./out/pots" --output "./out/pots/bundle-strings.pot"',
+			'npx wp-babel-makepot "{src,cli,common}/**/*.{js,jsx,ts,tsx}" --ignore "cli/node_modules/**/*,**/*.d.ts" --base "." --dir "./out/pots" --output "./out/pots/bundle-strings.pot"',
 		description: 'Generating pot file with wp-babel-makepot',
 	},
 	{

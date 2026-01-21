@@ -4,6 +4,7 @@ import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BlueprintPreferredVersions } from 'common/lib/blueprint-validation';
+import { SupportedPHPVersionsList } from 'common/types/php-versions';
 import Button from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite, CreateSiteFormValues } from 'src/hooks/use-add-site';
@@ -11,7 +12,7 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { generateSiteName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { AllowedPHPVersion } from 'src/lib/wordpress-provider/constants';
+import { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
 import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
 import { SyncSite } from 'src/modules/sync/types';
 import { useRootSelector, useAppDispatch, useI18nLocale } from 'src/stores';
@@ -230,7 +231,11 @@ function NavigationContent( props: NavigationContentProps ) {
 	// Build default values with blueprint preferred versions applied
 	const defaultValuesWithBlueprint = useMemo( () => {
 		const values = { ...defaultValues };
-		if ( blueprintPreferredVersions?.php && blueprintPreferredVersions.php !== 'latest' ) {
+		if (
+			blueprintPreferredVersions?.php &&
+			blueprintPreferredVersions.php !== 'latest' &&
+			SupportedPHPVersionsList.includes( blueprintPreferredVersions.php )
+		) {
 			values.phpVersion = blueprintPreferredVersions.php as AllowedPHPVersion;
 		}
 		if ( blueprintPreferredVersions?.wp && blueprintPreferredVersions.wp !== 'latest' ) {
@@ -240,6 +245,15 @@ function NavigationContent( props: NavigationContentProps ) {
 	}, [ defaultValues, blueprintPreferredVersions ] );
 
 	const formRef = useRef< HTMLFormElement >( null );
+
+	// Original default versions (before Blueprint override) for warning comparison
+	const originalDefaultVersions = useMemo(
+		() => ( {
+			phpVersion: defaultValues.phpVersion,
+			wpVersion: defaultValues.wpVersion,
+		} ),
+		[ defaultValues.phpVersion, defaultValues.wpVersion ]
+	);
 
 	const createSiteProps = {
 		onSelectPath,
@@ -270,6 +284,7 @@ function NavigationContent( props: NavigationContentProps ) {
 					{ ...createSiteProps }
 					defaultValues={ defaultValuesWithBlueprint }
 					blueprintPreferredVersions={ blueprintPreferredVersions }
+					originalDefaultVersions={ originalDefaultVersions }
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/create">
@@ -286,6 +301,7 @@ function NavigationContent( props: NavigationContentProps ) {
 					{ ...createSiteProps }
 					defaultValues={ defaultValuesWithBlueprint }
 					blueprintPreferredVersions={ blueprintPreferredVersions }
+					originalDefaultVersions={ originalDefaultVersions }
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/backup">
@@ -353,6 +369,7 @@ export function AddSiteModalContent( {
 	} = useGetBlueprints( { locale } );
 
 	const { sites, loadingSites } = useSiteDetails();
+	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
 
 	const {
 		handleCreateSite,
@@ -377,7 +394,6 @@ export function AddSiteModalContent( {
 		setIsDeeplinkFlow,
 	} = addSiteProps;
 
-	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
 	const { data: versions = [] } = useGetWordPressVersions( {
 		minimumVersion: minimumWordPressVersion,
 	} );

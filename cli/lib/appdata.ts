@@ -19,15 +19,16 @@ const siteSchema = siteDetailsSchema
 		running: z.boolean().optional(),
 		url: z.string().optional(),
 		latestCliPid: z.number().optional(),
+		enableXdebug: z.boolean().optional(),
 	} )
-	.passthrough();
+	.loose();
 
 const betaFeaturesSchema = z
 	.object( {
 		multiWorkerSupport: z.boolean().optional(),
 		xdebugSupport: z.boolean().optional(),
 	} )
-	.passthrough();
+	.loose();
 
 const userDataSchema = z
 	.object( {
@@ -43,14 +44,14 @@ const userDataSchema = z
 				email: z.string(),
 				displayName: z.string().default( '' ),
 			} )
-			.passthrough()
+			.loose()
 			.optional(),
 		lastBumpStats: z
-			.record( z.string(), z.record( z.nativeEnum( StatsMetric ), z.number() ) )
+			.record( z.string(), z.partialRecord( z.enum( StatsMetric ), z.number() ) )
 			.optional(),
 		betaFeatures: betaFeaturesSchema.optional(),
 	} )
-	.passthrough();
+	.loose();
 
 type UserData = z.infer< typeof userDataSchema >;
 export type SiteData = z.infer< typeof siteSchema >;

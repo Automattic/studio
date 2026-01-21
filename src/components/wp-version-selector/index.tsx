@@ -2,17 +2,13 @@ import { SelectControl, Icon } from '@wordpress/components';
 import { info } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect } from 'react';
+import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from 'common/constants';
 import { isWordPressBetaVersion } from 'common/lib/wordpress-version-utils';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { isWordPressDevVersion } from 'src/lib/version-utils';
-import { useRootSelector } from 'src/stores';
-import {
-	selectDefaultWordPressVersion,
-	selectMinimumWordPressVersion,
-} from 'src/stores/provider-constants-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { addWpVersionToList } from './add-wp-version-to-list';
 
@@ -42,19 +38,17 @@ export const WPVersionSelector = ( {
 	const isOffline = useOffline();
 	const defaultOfflineMessage = __( 'Changing WordPress version requires an internet connection.' );
 	const message = offlineMessage || defaultOfflineMessage;
-	const minimumWordPressVersion = useRootSelector( selectMinimumWordPressVersion );
 	const { data: wpVersions = [] } = useGetWordPressVersions( {
-		minimumVersion: minimumWordPressVersion,
+		minimumVersion: MINIMUM_WORDPRESS_VERSION,
 	} );
-	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
 
 	// Force latest version if the user goes offline
 	useEffect( () => {
 		if ( isOffline ) {
 			// Always force to latest when offline
-			onChange( defaultWordPressVersion );
+			onChange( DEFAULT_WORDPRESS_VERSION );
 		}
-	}, [ isOffline, onChange, defaultWordPressVersion ] );
+	}, [ isOffline, onChange ] );
 
 	let betaVersions: { label: string; value: string }[] = wpVersions.filter(
 		( version ) => version.isBeta || version.isDevelopment
@@ -109,7 +103,7 @@ export const WPVersionSelector = ( {
 					{ wpVersions.length > 0 ? (
 						<>
 							<optgroup label={ __( 'Auto-updating' ) }>
-								<option key={ defaultWordPressVersion } value={ defaultWordPressVersion }>
+								<option key={ DEFAULT_WORDPRESS_VERSION } value={ DEFAULT_WORDPRESS_VERSION }>
 									{ __( 'latest' ) }
 								</option>
 							</optgroup>

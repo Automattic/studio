@@ -137,8 +137,9 @@ async function setupSentryUserId() {
 // If you are updating Electron, confirm if this is still needed
 // https://github.com/electron/electron/issues/41613
 function launchExtensionBackgroundWorkers( appSession = session.defaultSession ) {
+	const extensionApi = ( appSession.extensions as Electron.Extensions | undefined ) || appSession;
 	return Promise.all(
-		appSession.extensions.getAllExtensions().map( async ( extension ) => {
+		extensionApi.getAllExtensions().map( async ( extension ) => {
 			const manifest = extension.manifest;
 			if ( manifest.manifest_version === 3 && manifest?.background?.service_worker ) {
 				await appSession.serviceWorkers.startWorkerForScope( extension.url );

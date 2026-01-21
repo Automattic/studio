@@ -1,4 +1,4 @@
-import { Blueprint } from '@wp-playground/blueprints';
+import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
 import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
@@ -101,6 +101,7 @@ describe( 'CLI: studio site create', () => {
 	let consoleLogSpy: jest.SpyInstance;
 	let fsMkdirSyncSpy: jest.SpyInstance;
 	let loggerReportSuccessSpy: jest.SpyInstance;
+	let loggerReportWarningSpy: jest.SpyInstance;
 
 	const createPathExistsMock = ( sitePathExists = false ) => {
 		const bundledWPPath = require( 'path' ).join(
@@ -126,6 +127,7 @@ describe( 'CLI: studio site create', () => {
 		consoleLogSpy = jest.spyOn( console, 'log' ).mockImplementation();
 		fsMkdirSyncSpy = jest.spyOn( require( 'fs' ), 'mkdirSync' ).mockReturnValue( undefined );
 		loggerReportSuccessSpy = jest.spyOn( Logger.prototype, 'reportSuccess' );
+		loggerReportWarningSpy = jest.spyOn( Logger.prototype, 'reportWarning' );
 		createPathExistsMock( false );
 		( isEmptyDir as jest.Mock ).mockResolvedValue( true );
 		( isWordPressDirectory as jest.Mock ).mockReturnValue( false );
@@ -301,6 +303,33 @@ describe( 'CLI: studio site create', () => {
 					} ),
 				} )
 			);
+			expect( loggerReportSuccessSpy ).toHaveBeenCalledWith( 'Site name set to: My Custom Site' );
+			expect( loggerReportWarningSpy ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should NOT override blogname when adding existing WordPress directory with name', async () => {
+			( pathExists as jest.Mock ).mockResolvedValue( true );
+			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
+			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
+
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				name: 'My Custom Site',
+			} );
+
+			// Verify setSiteOptions step is NOT in the blueprint steps
+			const calls = ( startWordPressServer as jest.Mock ).mock.calls;
+			const blueprintCall = calls.find(
+				( call ) =>
+					call[ 2 ]?.blueprint?.steps?.some(
+						( step: StepDefinition ) => step.step === 'setSiteOptions'
+					)
+			);
+			expect( blueprintCall ).toBeUndefined();
+
+			expect( loggerReportWarningSpy ).toHaveBeenCalledWith(
+				'Site name ignored because the directory contains a WordPress site.'
+			);
 		} );
 
 		it( 'should use folder name as site name if no name provided', async () => {
@@ -463,6 +492,7 @@ describe( 'CLI: studio site create', () => {
 					} ),
 				} )
 			);
+			expect( loggerReportSuccessSpy ).toHaveBeenCalledWith( 'Site name set to: My Site' );
 		} );
 
 		it( 'should warn about unsupported Blueprint features', async () => {

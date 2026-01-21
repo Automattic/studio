@@ -212,7 +212,10 @@ export async function runCommand(
 		// Only set site name for fresh installations, not for existing WordPress sites
 		// that already have a database (either SQLite or MySQL). However, if we just created
 		// a fresh database (isSqliteUpdated is true AND no existing .ht.sqlite), we should set the name.
-		if ( options.name && ( ! isWordPressDirResult || ( isSqliteUpdated && ! hadExistingDatabase ) ) ) {
+		if (
+			options.name &&
+			( ! isWordPressDirResult || ( isSqliteUpdated && ! hadExistingDatabase ) )
+		) {
 			setupSteps.push( {
 				step: 'setSiteOptions',
 				options: {

@@ -60,8 +60,8 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 
 					const fileBlueprint: Blueprint = {
 						slug: `file:${ fileName }`,
-						title: blueprintMeta?.title || fileName.replace( '.json', '' ),
-						excerpt: blueprintMeta?.description || __( 'Blueprint loaded from URL' ),
+						title: blueprintMeta?.title || '',
+						excerpt: blueprintMeta?.description || '',
 						image: '',
 						playground_url: '',
 						blueprint: blueprintJson,
@@ -89,7 +89,6 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 			},
 			[
 				isAnySiteProcessing,
-				__,
 				setSelectedBlueprint,
 				setPhpVersion,
 				setWpVersion,

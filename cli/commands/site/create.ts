@@ -207,22 +207,15 @@ export async function runCommand(
 			}
 		}
 
-		logger.reportStart( LoggerAction.SET_SITE_NAME, __( 'Setting site name…' ) );
-		if ( options.name ) {
-			const hasWpConfig = await pathExists( path.join( sitePath, 'wp-config.php' ) );
-			if ( isWordPressDirResult && hasWpConfig ) {
-				logger.reportWarning(
-					__( 'Site name ignored because the directory contains a WordPress site.' )
-				);
-			} else {
-				logger.reportSuccess( sprintf( __( 'Site name set to: %s' ), options.name ) );
-				setupSteps.push( {
-					step: 'setSiteOptions',
-					options: {
-						blogname: options.name,
-					},
-				} );
-			}
+		const hasWpConfig = await pathExists( path.join( sitePath, 'wp-config.php' ) );
+		const isWordPressDirectoryInitialized = isWordPressDirResult && hasWpConfig;
+		if ( options.name && ! isWordPressDirectoryInitialized ) {
+			setupSteps.push( {
+				step: 'setSiteOptions',
+				options: {
+					blogname: options.name,
+				},
+			} );
 		}
 
 		if ( setupSteps.length > 0 ) {

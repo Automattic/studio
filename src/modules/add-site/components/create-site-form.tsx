@@ -369,7 +369,7 @@ export const CreateSiteForm = ( {
 		blueprintPreferredVersions.wp !== wpVersionToCompare;
 
 	const showBlueprintVersionWarning = showPhpVersionWarning || showWpVersionWarning;
-	const warningCount = showBlueprintVersionWarning ? 1 : 0;
+	const warningCount = [ showPhpVersionWarning, showWpVersionWarning ].filter( Boolean ).length;
 
 	const showAdvancedSettings = onSelectPath !== undefined;
 

@@ -172,6 +172,8 @@ export async function runCommand(
 		}
 
 		logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration…' ) );
+		const sqliteDatabasePath = path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' );
+		const hadExistingDatabase = await pathExists( sqliteDatabasePath );
 		const isSqliteUpdated = await keepSqliteIntegrationUpdated( sitePath );
 		logger.reportSuccess(
 			isSqliteUpdated ? __( 'SQLite integration configured' ) : __( 'SQLite integration skipped' )
@@ -207,7 +209,10 @@ export async function runCommand(
 			}
 		}
 
-		if ( options.name ) {
+		// Only set site name for fresh installations, not for existing WordPress sites
+		// that already have a database (either SQLite or MySQL). However, if we just created
+		// a fresh database (isSqliteUpdated is true AND no existing .ht.sqlite), we should set the name.
+		if ( options.name && ( ! isWordPressDirResult || ( isSqliteUpdated && ! hadExistingDatabase ) ) ) {
 			setupSteps.push( {
 				step: 'setSiteOptions',
 				options: {

@@ -18,6 +18,7 @@
 	},
 	"scripts": {
 		"prestart": "npm run cli:build",
+		"setup:devtools": "ts-node ./scripts/setup-dev-extensions.ts",
 		"start": "electron-vite dev --outDir=dist --watch",
 		"start-wayland": "npm run prestart && electron-forge start -- --enable-features=UseOzonePlatform --ozone-platform=wayland .",
 		"postinstall": "patch-package && ts-node ./scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs && npx @electron/rebuild -o fs-ext",
@@ -77,6 +78,7 @@
 		"@wp-playground/blueprints": "^3.0.22",
 		"cross-env": "^7.0.3",
 		"electron": "^39.2.7",
+		"electron-devtools-installer": "^4.0.0",
 		"electron-playwright-helpers": "^2.1.0",
 		"electron-vite": "^5.0.0",
 		"eslint": "^9.39.2",

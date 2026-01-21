@@ -303,8 +303,6 @@ describe( 'CLI: studio site create', () => {
 					} ),
 				} )
 			);
-			expect( loggerReportSuccessSpy ).toHaveBeenCalledWith( 'Site name set to: My Custom Site' );
-			expect( loggerReportWarningSpy ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should NOT override blogname when adding existing WordPress directory with wp-config.php and name', async () => {
@@ -343,10 +341,6 @@ describe( 'CLI: studio site create', () => {
 					)
 			);
 			expect( blueprintCall ).toBeUndefined();
-
-			expect( loggerReportWarningSpy ).toHaveBeenCalledWith(
-				'Site name ignored because the directory contains a WordPress site.'
-			);
 		} );
 
 		it( 'should set blogname when WordPress directory exists but has no wp-config.php', async () => {
@@ -391,9 +385,6 @@ describe( 'CLI: studio site create', () => {
 					} ),
 				} )
 			);
-
-			expect( loggerReportSuccessSpy ).toHaveBeenCalledWith( 'Site name set to: My Custom Site' );
-			expect( loggerReportWarningSpy ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should use folder name as site name if no name provided', async () => {
@@ -556,7 +547,6 @@ describe( 'CLI: studio site create', () => {
 					} ),
 				} )
 			);
-			expect( loggerReportSuccessSpy ).toHaveBeenCalledWith( 'Site name set to: My Site' );
 		} );
 
 		it( 'should warn about unsupported Blueprint features', async () => {

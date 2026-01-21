@@ -24,11 +24,7 @@ import {
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import {
-	isSqliteIntegrationAvailable,
-	installSqliteIntegration,
-	needsSqliteSetup,
-} from 'cli/lib/sqlite-integration';
+import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import { runCommand } from '../create';
@@ -104,6 +100,7 @@ describe( 'CLI: studio site create', () => {
 
 	let consoleLogSpy: jest.SpyInstance;
 	let fsMkdirSyncSpy: jest.SpyInstance;
+	let loggerReportSuccessSpy: jest.SpyInstance;
 
 	const createPathExistsMock = ( sitePathExists = false ) => {
 		const bundledWPPath = require( 'path' ).join(
@@ -128,6 +125,7 @@ describe( 'CLI: studio site create', () => {
 
 		consoleLogSpy = jest.spyOn( console, 'log' ).mockImplementation();
 		fsMkdirSyncSpy = jest.spyOn( require( 'fs' ), 'mkdirSync' ).mockReturnValue( undefined );
+		loggerReportSuccessSpy = jest.spyOn( Logger.prototype, 'reportSuccess' );
 		createPathExistsMock( false );
 		( isEmptyDir as jest.Mock ).mockResolvedValue( true );
 		( isWordPressDirectory as jest.Mock ).mockReturnValue( false );
@@ -141,9 +139,7 @@ describe( 'CLI: studio site create', () => {
 		( saveAppdata as jest.Mock ).mockResolvedValue( undefined );
 		( lockAppdata as jest.Mock ).mockResolvedValue( undefined );
 		( unlockAppdata as jest.Mock ).mockResolvedValue( undefined );
-		( needsSqliteSetup as jest.Mock ).mockResolvedValue( true );
-		( isSqliteIntegrationAvailable as jest.Mock ).mockResolvedValue( true );
-		( installSqliteIntegration as jest.Mock ).mockResolvedValue( undefined );
+		( keepSqliteIntegrationUpdated as jest.Mock ).mockResolvedValue( true );
 		( connect as jest.Mock ).mockResolvedValue( undefined );
 		( disconnect as jest.Mock ).mockReturnValue( undefined );
 		( setupCustomDomain as jest.Mock ).mockResolvedValue( undefined );
@@ -237,7 +233,9 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should error if SQLite integration is not available', async () => {
-			( isSqliteIntegrationAvailable as jest.Mock ).mockResolvedValue( false );
+			( keepSqliteIntegrationUpdated as jest.Mock ).mockRejectedValue(
+				new Error( 'SQLite integration files not found. Please ensure Studio is installed.' )
+			);
 
 			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow(
 				'SQLite integration files not found'
@@ -252,8 +250,8 @@ describe( 'CLI: studio site create', () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( fsMkdirSyncSpy ).toHaveBeenCalledWith( mockSitePath, { recursive: true } );
-			expect( isSqliteIntegrationAvailable ).toHaveBeenCalled();
-			expect( installSqliteIntegration ).toHaveBeenCalledWith( mockSitePath );
+			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( mockSitePath );
+			expect( loggerReportSuccessSpy ).toHaveBeenCalledWith( 'SQLite integration configured' );
 			expect( portFinder.getOpenPort ).toHaveBeenCalled();
 			expect( lockAppdata ).toHaveBeenCalled();
 			expect( saveAppdata ).toHaveBeenCalled();
@@ -263,6 +261,15 @@ describe( 'CLI: studio site create', () => {
 			expect( logSiteDetails ).toHaveBeenCalled();
 			expect( openSiteInBrowser ).toHaveBeenCalled();
 			expect( disconnect ).toHaveBeenCalled();
+		} );
+
+		it( 'should skip SQLite integration when it is already configured', async () => {
+			( keepSqliteIntegrationUpdated as jest.Mock ).mockResolvedValue( false );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+
+			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( mockSitePath );
+			expect( loggerReportSuccessSpy ).toHaveBeenCalledWith( 'SQLite integration skipped' );
 		} );
 
 		it( 'should create site with custom name', async () => {
@@ -327,19 +334,6 @@ describe( 'CLI: studio site create', () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( fsMkdirSyncSpy ).not.toHaveBeenCalled();
-		} );
-
-		it( 'should skip SQLite setup when existing wp-config.php detected', async () => {
-			( pathExists as jest.Mock ).mockResolvedValue( true );
-			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
-			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
-			( needsSqliteSetup as jest.Mock ).mockResolvedValue( false );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( needsSqliteSetup ).toHaveBeenCalledWith( mockSitePath );
-			expect( isSqliteIntegrationAvailable ).not.toHaveBeenCalled();
-			expect( installSqliteIntegration ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should create site with custom domain', async () => {
@@ -580,7 +574,7 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should handle SQLite setup failure', async () => {
-			( installSqliteIntegration as jest.Mock ).mockRejectedValue(
+			( keepSqliteIntegrationUpdated as jest.Mock ).mockRejectedValue(
 				new Error( 'SQLite setup failed' )
 			);
 

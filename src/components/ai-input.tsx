@@ -266,10 +266,7 @@ const UnforwardedAIInput = (
 							<MenuItem
 								data-testid="telex-link-button"
 								onClick={ () => {
-									const telexUrl = addUrlParams(
-										`https://${ TELEX_HOSTNAME }/`,
-										TELEX_UTM_PARAMS
-									);
+									const telexUrl = addUrlParams( `https://${ TELEX_HOSTNAME }/`, TELEX_UTM_PARAMS );
 									getIpcApi().openURL( telexUrl );
 									onClose();
 								} }

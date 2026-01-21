@@ -1,4 +1,4 @@
-import { Blueprint } from '@wp-playground/blueprints';
+import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
 import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
@@ -101,6 +101,7 @@ describe( 'CLI: studio site create', () => {
 	let consoleLogSpy: jest.SpyInstance;
 	let fsMkdirSyncSpy: jest.SpyInstance;
 	let loggerReportSuccessSpy: jest.SpyInstance;
+	let loggerReportWarningSpy: jest.SpyInstance;
 
 	const createPathExistsMock = ( sitePathExists = false ) => {
 		const bundledWPPath = require( 'path' ).join(
@@ -126,6 +127,7 @@ describe( 'CLI: studio site create', () => {
 		consoleLogSpy = jest.spyOn( console, 'log' ).mockImplementation();
 		fsMkdirSyncSpy = jest.spyOn( require( 'fs' ), 'mkdirSync' ).mockReturnValue( undefined );
 		loggerReportSuccessSpy = jest.spyOn( Logger.prototype, 'reportSuccess' );
+		loggerReportWarningSpy = jest.spyOn( Logger.prototype, 'reportWarning' );
 		createPathExistsMock( false );
 		( isEmptyDir as jest.Mock ).mockResolvedValue( true );
 		( isWordPressDirectory as jest.Mock ).mockReturnValue( false );
@@ -287,6 +289,70 @@ describe( 'CLI: studio site create', () => {
 					] ),
 				} )
 			);
+			expect( startWordPressServer ).toHaveBeenCalledWith(
+				expect.anything(),
+				expect.any( Logger ),
+				expect.objectContaining( {
+					blueprint: expect.objectContaining( {
+						steps: expect.arrayContaining( [
+							expect.objectContaining( {
+								step: 'setSiteOptions',
+								options: { blogname: 'My Custom Site' },
+							} ),
+						] ),
+					} ),
+				} )
+			);
+		} );
+
+		it( 'should NOT override blogname when adding existing WordPress directory with wp-config.php and name', async () => {
+			const wpConfigPath = require( 'path' ).join( mockSitePath, 'wp-config.php' );
+			const bundledWPPath = require( 'path' ).join(
+				'/test/server-files',
+				'wordpress-versions',
+				'latest'
+			);
+			( pathExists as jest.Mock ).mockImplementation(
+				async ( path: string ) =>
+					path === bundledWPPath || path === wpConfigPath || path === mockSitePath
+			);
+			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
+			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
+
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				name: 'My Custom Site',
+			} );
+
+			// Verify setSiteOptions step is NOT in the blueprint steps
+			const calls = ( startWordPressServer as jest.Mock ).mock.calls;
+			const blueprintCall = calls.find(
+				( call ) =>
+					call[ 2 ]?.blueprint?.steps?.some(
+						( step: StepDefinition ) => step.step === 'setSiteOptions'
+					)
+			);
+			expect( blueprintCall ).toBeUndefined();
+		} );
+
+		it( 'should set blogname when WordPress directory exists but has no wp-config.php', async () => {
+			const bundledWPPath = require( 'path' ).join(
+				'/test/server-files',
+				'wordpress-versions',
+				'latest'
+			);
+			( pathExists as jest.Mock ).mockImplementation(
+				async ( path: string ) => path === bundledWPPath || path === mockSitePath
+			);
+			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
+			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
+
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				name: 'My Custom Site',
+			} );
+
+			// Verify setSiteOptions step IS in the blueprint steps (because wp-config.php doesn't exist)
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),

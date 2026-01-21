@@ -207,7 +207,9 @@ export async function runCommand(
 			}
 		}
 
-		if ( options.name ) {
+		const hasWpConfig = await pathExists( path.join( sitePath, 'wp-config.php' ) );
+		const isWordPressDirectoryInitialized = isWordPressDirResult && hasWpConfig;
+		if ( options.name && ! isWordPressDirectoryInitialized ) {
 			setupSteps.push( {
 				step: 'setSiteOptions',
 				options: {

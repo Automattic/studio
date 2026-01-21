@@ -220,7 +220,7 @@ function SiteItem( {
 			{ showSpinner ? (
 				<Tooltip text={ tooltipText }>
 					<div className="grid place-items-center">
-						<Spinner className="!w-2.5 !h-2.5 !top-[6px] !mr-2 [&>circle]:stroke-a8c-gray-70" />
+						<Spinner className="!w-2.5 !h-2.5 !mt-0 !mr-2 [&>circle]:stroke-a8c-gray-70" />
 					</div>
 				</Tooltip>
 			) : (

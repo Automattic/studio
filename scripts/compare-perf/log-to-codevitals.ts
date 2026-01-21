@@ -51,23 +51,25 @@ const payload = {
 	}, {} ),
 };
 
-try {
-	const response = await fetch( `https://www.codevitals.run/api/log?token=${ token }`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify( payload ),
-	} );
+( async () => {
+	try {
+		const response = await fetch( `https://www.codevitals.run/api/log?token=${ token }`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify( payload ),
+		} );
 
-	const responseText = await response.text();
-	console.log( `statusCode: ${ response.status }` );
-	if ( responseText ) {
-		console.log( responseText );
-	}
+		const responseText = await response.text();
+		console.log( `statusCode: ${ response.status }` );
+		if ( responseText ) {
+			console.log( responseText );
+		}
 
-	if ( ! response.ok ) {
+		if ( ! response.ok ) {
+			process.exit( 1 );
+		}
+	} catch ( error ) {
+		console.error( error );
 		process.exit( 1 );
 	}
-} catch ( error ) {
-	console.error( error );
-	process.exit( 1 );
-}
+} )();

@@ -138,13 +138,7 @@ describe( 'ContentTabSettings', () => {
 			isCATrusted: vi.fn( () => Promise.resolve( true ) ),
 		} );
 
-<<<<<<< HEAD
-		testStore.dispatch( testActions.resetState() );
-
 		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
-=======
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
->>>>>>> 3d31ad1e00b9363cc8c1fe93a3292145439494b5
 			selectedSite,
 			uploadingSites: {},
 			deleteSite: vi.fn(),

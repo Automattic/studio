@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { vi, type Mock } from 'vitest';
+import { vi } from 'vitest';
 import { SiteServer } from 'src/site-server';
 
 // Electron's Node.js environment provides `bota`/`atob`, but Jests' does not
@@ -12,7 +12,11 @@ vi.mock( 'src/lib/site-language', () => ( {
 	getPreferredSiteLanguage: vi.fn().mockResolvedValue( 'en' ),
 } ) );
 
-<<<<<<< HEAD
+// Mock the WordPress setup
+vi.mock( 'src/lib/wordpress-setup', () => ( {
+	setupWordPressFilesOnly: vi.fn().mockResolvedValue( undefined ),
+} ) );
+
 // Mock the WordPress provider
 vi.mock( 'src/lib/wordpress-provider', () => {
 	const mockProvider = {
@@ -52,31 +56,41 @@ vi.mock( 'src/lib/wordpress-provider', () => {
 		getWordPressProvider: vi.fn( () => mockProvider ),
 	};
 } );
-=======
-// Mock the WordPress setup
-jest.mock( 'src/lib/wordpress-setup', () => ( {
-	setupWordPressFilesOnly: jest.fn().mockResolvedValue( undefined ),
-} ) );
->>>>>>> 3d31ad1e00b9363cc8c1fe93a3292145439494b5
 
 // Mock the wp-now config that the provider uses internally
 vi.mock( 'vendor/wp-now/src', () => ( {
 	getWpNowConfig: vi.fn( () => ( { mode: 'wordpress', port: 1234 } ) ),
 } ) );
 
+// Mock CliServerProcess with a start method that calls startServer
+vi.mock( 'src/modules/cli/lib/cli-server-process', () => ( {
+	CliServerProcess: vi.fn().mockImplementation( () => ( {
+		url: 'http://localhost:1234',
+		start: vi.fn( async () => {
+			const { startServer } = await import( 'src/lib/wordpress-provider' );
+			return startServer();
+		} ),
+		stop: vi.fn(),
+		delete: vi.fn(),
+	} ) ),
+} ) );
+
+vi.mock( 'src/storage/user-data' );
+
 describe( 'SiteServer', () => {
 	describe( 'start', () => {
 		it( 'should throw if the server starts with a non-WordPress mode', async () => {
 			const { getWpNowConfig } = await import( 'vendor/wp-now/src' );
-			( getWpNowConfig as Mock ).mockReturnValue( { mode: 'theme', port: 1234 } );
+			vi.mocked( getWpNowConfig ).mockReturnValue( { mode: 'theme', port: 1234 } );
 
 			const { startServer } = await import( 'src/lib/wordpress-provider' );
-			( startServer as Mock ).mockRejectedValue(
+			vi.mocked( startServer ).mockRejectedValue(
 				new Error(
 					"Site server started with Playground's 'theme' mode. Studio only supports 'wordpress' mode."
 				)
 			);
-			const server = SiteServer.create( {
+
+			const server = SiteServer.register( {
 				id: 'test-id',
 				name: 'test-name',
 				path: 'test-path',

@@ -2,8 +2,6 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { readFile, writeFile } from 'atomically';
-import { arePathsEqual } from 'common/lib/fs-utils';
-import { StatsMetric } from 'common/types/stats';
 import {
 	readAppdata,
 	saveAppdata,
@@ -11,18 +9,21 @@ import {
 	lockAppdata,
 	unlockAppdata,
 } from 'cli/lib/appdata';
+import { arePathsEqual } from 'common/lib/fs-utils';
+import { StatsMetric } from 'common/types/stats';
+import { vi, beforeEach, describe, it, expect } from 'vitest';
 
-jest.mock( 'fs' );
-jest.mock( 'os' );
-jest.mock( 'path' );
-jest.mock( 'atomically', () => ( {
-	readFile: jest.fn(),
-	writeFile: jest.fn(),
+vi.mock( 'fs' );
+vi.mock( 'os' );
+vi.mock( 'path' );
+vi.mock( 'atomically', () => ( {
+	readFile: vi.fn(),
+	writeFile: vi.fn(),
 } ) );
 
-jest.mock( 'common/lib/fs-utils' );
-jest.mock( 'cli/lib/api', () => ( {
-	validateAccessToken: jest.fn().mockResolvedValue( undefined ),
+vi.mock( 'common/lib/fs-utils' );
+vi.mock( 'cli/lib/api', () => ( {
+	validateAccessToken: vi.fn().mockResolvedValue( undefined ),
 } ) );
 
 describe( 'Appdata Module', () => {
@@ -30,22 +31,22 @@ describe( 'Appdata Module', () => {
 	const mockSiteFolderName = 'folder';
 
 	beforeEach( () => {
-		jest.clearAllMocks();
-		( os.homedir as jest.Mock ).mockReturnValue( mockHomeDir );
-		( path.join as jest.Mock ).mockImplementation( ( ...args ) => args.join( '/' ) );
-		( path.basename as jest.Mock ).mockReturnValue( mockSiteFolderName );
-		( path.resolve as jest.Mock ).mockImplementation( ( path ) => path );
-		jest.spyOn( Date, 'now' ).mockReturnValue( 1234567890 );
+		vi.clearAllMocks();
+		vi.mocked( os.homedir ).mockReturnValue( mockHomeDir );
+		vi.mocked( path.join ).mockImplementation( ( ...args ) => args.join( '/' ) );
+		vi.mocked( path.basename ).mockReturnValue( mockSiteFolderName );
+		vi.mocked( path.resolve ).mockImplementation( ( path ) => path );
+		vi.spyOn( Date, 'now' ).mockReturnValue( 1234567890 );
 
-		( fs.existsSync as jest.Mock ).mockReturnValue( true );
-		( arePathsEqual as jest.Mock ).mockImplementation( ( path1, path2 ) => path1 === path2 );
-		( readFile as jest.Mock ).mockResolvedValue( '{}' );
-		( writeFile as jest.Mock ).mockResolvedValue( undefined );
+		vi.mocked( fs.existsSync ).mockReturnValue( true );
+		vi.mocked( arePathsEqual ).mockImplementation( ( path1, path2 ) => path1 === path2 );
+		vi.mocked( readFile ).mockResolvedValue( Buffer.from( '{}' ) );
+		vi.mocked( writeFile ).mockResolvedValue( undefined );
 	} );
 
 	describe( 'readAppdata', () => {
 		it( 'should throw LoggerError if appdata file does not exist', async () => {
-			( fs.existsSync as jest.Mock ).mockReturnValue( false );
+			vi.mocked( fs.existsSync ).mockReturnValue( false );
 			await expect( readAppdata() ).rejects.toThrow( 'Studio config file not found' );
 		} );
 
@@ -64,7 +65,7 @@ describe( 'Appdata Module', () => {
 				],
 			};
 
-			( readFile as jest.Mock ).mockResolvedValueOnce( JSON.stringify( mockUserData ) );
+			vi.mocked( readFile ).mockResolvedValueOnce( Buffer.from( JSON.stringify( mockUserData ) ) );
 
 			const result = await readAppdata();
 			expect( result ).toEqual( mockUserData );
@@ -82,20 +83,20 @@ describe( 'Appdata Module', () => {
 				},
 			};
 
-			( readFile as jest.Mock ).mockResolvedValueOnce( JSON.stringify( mockUserData ) );
+			vi.mocked( readFile ).mockResolvedValueOnce( Buffer.from( JSON.stringify( mockUserData ) ) );
 
 			const result = await readAppdata();
 			expect( result ).toEqual( mockUserData );
 		} );
 
 		it( 'should throw LoggerError if there is an error reading the file', async () => {
-			( readFile as jest.Mock ).mockRejectedValue( new Error( 'Read error' ) );
+			vi.mocked( readFile ).mockRejectedValue( new Error( 'Read error' ) );
 
 			await expect( readAppdata() ).rejects.toThrow( 'Failed to read Studio config file' );
 		} );
 
 		it( 'should throw LoggerError if there is an error parsing the JSON', async () => {
-			( readFile as jest.Mock ).mockResolvedValueOnce( 'invalid json{' );
+			vi.mocked( readFile ).mockResolvedValueOnce( Buffer.from( 'invalid json{' ) );
 
 			await expect( readAppdata() ).rejects.toThrow( 'corrupted' );
 		} );
@@ -130,7 +131,7 @@ describe( 'Appdata Module', () => {
 				snapshots: [],
 			};
 
-			( writeFile as jest.Mock ).mockRejectedValue( new Error( 'Write error' ) );
+			vi.mocked( writeFile ).mockRejectedValue( new Error( 'Write error' ) );
 
 			try {
 				await lockAppdata();
@@ -156,7 +157,7 @@ describe( 'Appdata Module', () => {
 			}
 
 			expect( writeFile ).toHaveBeenCalled();
-			const savedData = JSON.parse( ( writeFile as jest.Mock ).mock.calls[ 0 ][ 1 ] );
+			const savedData = JSON.parse( vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ] as string );
 			expect( savedData.version ).toBe( 1 );
 		} );
 	} );
@@ -172,13 +173,15 @@ describe( 'Appdata Module', () => {
 				id: 123,
 			};
 
-			( readFile as jest.Mock ).mockResolvedValueOnce(
-				JSON.stringify( {
-					version: 1,
-					authToken: mockAuthToken,
-					sites: [],
-					snapshots: [],
-				} )
+			vi.mocked( readFile ).mockResolvedValueOnce(
+				Buffer.from(
+					JSON.stringify( {
+						version: 1,
+						authToken: mockAuthToken,
+						sites: [],
+						snapshots: [],
+					} )
+				)
 			);
 
 			const result = await getAuthToken();
@@ -186,27 +189,31 @@ describe( 'Appdata Module', () => {
 		} );
 
 		it( 'should throw LoggerError when auth token is missing', async () => {
-			( readFile as jest.Mock ).mockResolvedValueOnce(
-				JSON.stringify( {
-					version: 1,
-					sites: [],
-					snapshots: [],
-				} )
+			vi.mocked( readFile ).mockResolvedValueOnce(
+				Buffer.from(
+					JSON.stringify( {
+						version: 1,
+						sites: [],
+						snapshots: [],
+					} )
+				)
 			);
 
 			await expect( getAuthToken() ).rejects.toThrow( 'Authentication required' );
 		} );
 
 		it( 'should throw LoggerError when access token is missing', async () => {
-			( readFile as jest.Mock ).mockResolvedValueOnce(
-				JSON.stringify( {
-					version: 1,
-					authToken: {
-						id: 123,
-					},
-					sites: [],
-					snapshots: [],
-				} )
+			vi.mocked( readFile ).mockResolvedValueOnce(
+				Buffer.from(
+					JSON.stringify( {
+						version: 1,
+						authToken: {
+							id: 123,
+						},
+						sites: [],
+						snapshots: [],
+					} )
+				)
 			);
 
 			await expect( getAuthToken() ).rejects.toThrow( 'Authentication required' );

@@ -1,16 +1,14 @@
-/**
- * @jest-environment jsdom
- */
 // To run tests, execute `npm run test -- src/hooks/tests/use-site-details.test.ts` from the root directory
 import { renderHook, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { Provider } from 'react-redux';
+import { vi, beforeAll, beforeEach, describe, it, expect } from 'vitest';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { SiteDetailsProvider, useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
 
-jest.mock( 'src/lib/get-ipc-api' );
+vi.mock( 'src/lib/get-ipc-api' );
 
 const mockSites = [
 	{
@@ -57,17 +55,17 @@ describe( 'useSiteDetails', () => {
 	beforeAll( () => {
 		Object.defineProperty( window, 'ipcListener', {
 			value: {
-				subscribe: jest.fn().mockReturnValue( () => {} ),
+				subscribe: vi.fn().mockReturnValue( () => {} ),
 			},
 			writable: true,
 		} );
 	} );
 
 	beforeEach( () => {
-		jest.clearAllMocks();
-		( getIpcApi as jest.Mock ).mockReturnValue( {
-			getSiteDetails: jest.fn().mockResolvedValue( mockSites ),
-			startServer: jest.fn( () => Promise.resolve() ),
+		vi.clearAllMocks();
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			getSiteDetails: vi.fn().mockResolvedValue( mockSites ),
+			startServer: vi.fn( () => Promise.resolve() ),
 		} );
 	} );
 
@@ -86,14 +84,14 @@ describe( 'useSiteDetails', () => {
 		} );
 
 		it( 'should not auto-start sites if autoStart flag is false', async () => {
-			( getIpcApi as jest.Mock ).mockReturnValue( {
-				getSiteDetails: jest.fn().mockResolvedValue(
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getSiteDetails: vi.fn().mockResolvedValue(
 					mockSites.map( ( site ) => ( {
 						...site,
 						autoStart: false,
 					} ) )
 				),
-				startServer: jest.fn( () => Promise.resolve() ),
+				startServer: vi.fn( () => Promise.resolve() ),
 			} );
 
 			const { result } = renderHook( () => useSiteDetails(), { wrapper } );

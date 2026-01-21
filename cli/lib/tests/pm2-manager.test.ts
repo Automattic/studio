@@ -1,43 +1,47 @@
 import os from 'os';
-import { clearCache } from 'common/lib/cache-function-ttl';
 import { getAppdataPath } from 'cli/lib/appdata';
+import { clearCache } from 'common/lib/cache-function-ttl';
+import { vi, beforeEach, describe, it, expect } from 'vitest';
 import { ManagerMessage } from '../types/wordpress-server-ipc';
 
-jest.mock( 'fs' );
-jest.mock( 'os', () => ( {
-	homedir: jest.fn().mockReturnValue( '/home/user' ),
+vi.mock( 'fs' );
+vi.mock( 'os', () => ( {
+	default: {
+		homedir: vi.fn().mockReturnValue( '/home/user' ),
+	},
+	homedir: vi.fn().mockReturnValue( '/home/user' ),
 } ) );
-jest.mock( 'cli/lib/appdata', () => ( {
-	getAppdataPath: jest.fn().mockReturnValue( '/home/user/.studio/appdata' ),
+vi.mock( 'cli/lib/appdata', () => ( {
+	getAppdataPath: vi.fn().mockReturnValue( '/home/user/.studio/appdata' ),
 } ) );
 
 const mockPm2Instance = {
-	connect: jest.fn(),
-	disconnect: jest.fn(),
-	list: jest.fn(),
-	start: jest.fn(),
-	delete: jest.fn(),
-	launchBus: jest.fn(),
-	sendDataToProcessId: jest.fn(),
+	connect: vi.fn(),
+	disconnect: vi.fn(),
+	list: vi.fn(),
+	start: vi.fn(),
+	delete: vi.fn(),
+	launchBus: vi.fn(),
+	sendDataToProcessId: vi.fn(),
 };
 
-jest.mock( 'pm2', () => {
+vi.mock( 'pm2', () => {
 	return {
-		custom: jest.fn().mockImplementation( () => mockPm2Instance ),
+		custom: vi.fn().mockImplementation( () => mockPm2Instance ),
 	};
 } );
 
 describe( 'PM2 Manager', () => {
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 		clearCache();
-		( os.homedir as jest.Mock ).mockReturnValue( '/home/user' );
-		( getAppdataPath as jest.Mock ).mockReturnValue( '/home/user/.studio/appdata' );
+		vi.mocked( os.homedir ).mockReturnValue( '/home/user' );
+		vi.mocked( getAppdataPath ).mockReturnValue( '/home/user/.studio/appdata' );
 	} );
 
 	describe( 'connect() - timeout handling and idempotency', () => {
 		it( 'should timeout after 10 seconds if PM2 does not respond', async () => {
-			jest.useFakeTimers();
+			vi.useFakeTimers();
 			mockPm2Instance.connect.mockImplementation( () => {
 				// Never call callback
 			} );
@@ -48,10 +52,10 @@ describe( 'PM2 Manager', () => {
 			const expectation = expect( connectPromise ).rejects.toThrow(
 				'PM2 connection timeout after 10 seconds'
 			);
-			await jest.advanceTimersByTimeAsync( 10000 );
+			await vi.advanceTimersByTimeAsync( 10000 );
 			await expectation;
 
-			jest.useRealTimers();
+			vi.useRealTimers();
 		} );
 
 		it( 'should not call pm2.connect again if already connected', async () => {
@@ -217,7 +221,7 @@ describe( 'PM2 Manager', () => {
 		} );
 
 		it( 'should handle pm2.list errors gracefully', async () => {
-			const consoleErrorSpy = jest.spyOn( console, 'error' ).mockImplementation();
+			const consoleErrorSpy = vi.spyOn( console, 'error' ).mockImplementation( () => {} );
 			mockPm2Instance.list.mockImplementation( ( callback ) => {
 				callback( new Error( 'List error' ) );
 			} );
@@ -267,7 +271,7 @@ describe( 'PM2 Manager', () => {
 
 	describe( 'getPm2Bus() - bus caching', () => {
 		it( 'should cache bus instance to avoid multiple launchBus calls', async () => {
-			const mockBus = { on: jest.fn() };
+			const mockBus = { on: vi.fn() };
 			mockPm2Instance.launchBus.mockImplementation( ( callback ) => {
 				callback( null, mockBus );
 			} );

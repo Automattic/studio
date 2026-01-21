@@ -209,7 +209,8 @@ export async function runCommand(
 
 		logger.reportStart( LoggerAction.SET_SITE_NAME, __( 'Setting site name…' ) );
 		if ( options.name ) {
-			if ( isWordPressDirResult ) {
+			const hasWpConfig = await pathExists( path.join( sitePath, 'wp-config.php' ) );
+			if ( isWordPressDirResult && hasWpConfig ) {
 				logger.reportWarning(
 					__( 'Site name ignored because the directory contains a WordPress site.' )
 				);

@@ -1,10 +1,11 @@
 import { renderHook, waitFor } from '@testing-library/react';
+import { vi, beforeEach } from 'vitest';
 import { TreeNode } from 'src/components/tree-view';
 import { SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
 
-jest.mock( 'src/lib/get-ipc-api' );
+vi.mock( 'src/lib/get-ipc-api' );
 
 const createMockTreeState = (
 	options: {
@@ -86,10 +87,10 @@ describe( 'useSelectedItemsPushSize Hook Tests', () => {
 	const mockSiteId = 'test-site-id';
 
 	beforeEach( () => {
-		jest.resetAllMocks();
+		vi.resetAllMocks();
 
-		( getIpcApi as jest.Mock ).mockReturnValue( {
-			getDirectorySize: jest.fn().mockResolvedValue( 1024 ), // 1KB by default
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			getDirectorySize: vi.fn().mockResolvedValue( 1024 ), // 1KB by default
 		} );
 	} );
 
@@ -106,8 +107,8 @@ describe( 'useSelectedItemsPushSize Hook Tests', () => {
 		} );
 
 		it( 'checks size for push operations when everything is selected', async () => {
-			const mockGetDirectorySize = jest.fn().mockResolvedValue( SYNC_PUSH_SIZE_LIMIT_BYTES + 1000 );
-			( getIpcApi as jest.Mock ).mockReturnValue( {
+			const mockGetDirectorySize = vi.fn().mockResolvedValue( SYNC_PUSH_SIZE_LIMIT_BYTES + 1000 );
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 				getDirectorySize: mockGetDirectorySize,
 			} );
 
@@ -128,8 +129,8 @@ describe( 'useSelectedItemsPushSize Hook Tests', () => {
 		} );
 
 		it( 'checks database size when only database is selected', async () => {
-			const mockGetDirectorySize = jest.fn().mockResolvedValue( 500000 ); // Under limit
-			( getIpcApi as jest.Mock ).mockReturnValue( {
+			const mockGetDirectorySize = vi.fn().mockResolvedValue( 500000 ); // Under limit
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 				getDirectorySize: mockGetDirectorySize,
 			} );
 
@@ -151,8 +152,8 @@ describe( 'useSelectedItemsPushSize Hook Tests', () => {
 		} );
 
 		it( 'checks specific folder sizes when individual folders are selected', async () => {
-			const mockGetDirectorySize = jest.fn().mockResolvedValue( 500000 ); // Under limit
-			( getIpcApi as jest.Mock ).mockReturnValue( {
+			const mockGetDirectorySize = vi.fn().mockResolvedValue( 500000 ); // Under limit
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 				getDirectorySize: mockGetDirectorySize,
 			} );
 
@@ -178,12 +179,12 @@ describe( 'useSelectedItemsPushSize Hook Tests', () => {
 		} );
 
 		it( 'sums multiple directory sizes and detects when over limit', async () => {
-			const mockGetDirectorySize = jest
+			const mockGetDirectorySize = vi
 				.fn()
 				.mockResolvedValueOnce( SYNC_PUSH_SIZE_LIMIT_BYTES / 2 ) // Database
 				.mockResolvedValueOnce( SYNC_PUSH_SIZE_LIMIT_BYTES / 2 + 1000 ); // Plugins (total exceeds limit)
 
-			( getIpcApi as jest.Mock ).mockReturnValue( {
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 				getDirectorySize: mockGetDirectorySize,
 			} );
 

@@ -489,7 +489,7 @@ export const CreateSiteForm = ( {
 										<strong>{ __( 'Version differs from Blueprint recommendation' ) }</strong>
 										<br />
 										{ __( 'This Blueprint recommends:' ) }
-										<ul style={ { marginTop: '8px', marginBottom: '4px', paddingLeft: '20px' } }>
+										<ul className="my-2 pl-4">
 											{ showPhpVersionWarning && (
 												<li>
 													{ sprintf(

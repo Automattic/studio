@@ -57,10 +57,8 @@ test.describe( 'Overview customize links', () => {
 		}
 
 		await page.goto( getUrlWithAutoLogin( openedUrl ), {
-			waitUntil: 'domcontentloaded',
+			waitUntil: 'load',
 		} );
-		// Wait for network to be idle to ensure page is fully loaded
-		await page.waitForLoadState( 'networkidle' );
 		// Decode URL-encoded characters to normalize the URL across platforms
 		// Need to decode multiple times due to nested redirect_to parameters
 		let url = page.url();
@@ -156,9 +154,6 @@ test.describe( 'Overview customize links', () => {
 			expect( redirectUrl ).toMatch(
 				/\/wp-admin\/site-editor\.php\?(path=\/navigation|p=\/navigation)/
 			);
-
-			// Wait for the page to be fully loaded, including network requests
-			await page.waitForLoadState( 'networkidle' );
 
 			// The Navigation page may load in an iframe (editor-canvas) or directly in the page
 			// Try iframe first, then fall back to main page

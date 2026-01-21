@@ -207,13 +207,21 @@ export async function runCommand(
 			}
 		}
 
+		logger.reportStart( LoggerAction.SET_SITE_NAME, __( 'Setting site name…' ) );
 		if ( options.name ) {
-			setupSteps.push( {
-				step: 'setSiteOptions',
-				options: {
-					blogname: options.name,
-				},
-			} );
+			if ( isWordPressDirResult ) {
+				logger.reportWarning(
+					__( 'Site name ignored because the directory contains a WordPress site.' )
+				);
+			} else {
+				logger.reportSuccess( sprintf( __( 'Site name set to: %s' ), options.name ) );
+				setupSteps.push( {
+					step: 'setSiteOptions',
+					options: {
+						blogname: options.name,
+					},
+				} );
+			}
 		}
 
 		if ( setupSteps.length > 0 ) {

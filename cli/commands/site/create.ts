@@ -2,7 +2,6 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { SupportedPHPVersions } from '@php-wasm/universal';
 import { __, sprintf } from '@wordpress/i18n';
 import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
 import {
@@ -33,6 +32,7 @@ import {
 	isWordPressVersionAtLeast,
 } from 'common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
+import { SupportedPHPVersions } from 'common/types/php-versions';
 import {
 	lockAppdata,
 	readAppdata,

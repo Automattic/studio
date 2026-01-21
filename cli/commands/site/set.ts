@@ -1,4 +1,3 @@
-import { SupportedPHPVersions } from '@php-wasm/universal';
 import { __, sprintf } from '@wordpress/i18n';
 import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from 'common/constants';
 import { getDomainNameValidationError } from 'common/lib/domains';
@@ -11,6 +10,7 @@ import {
 	isWordPressVersionAtLeast,
 } from 'common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
+import { SupportedPHPVersions } from 'common/types/php-versions';
 import {
 	getSiteByFolder,
 	isXdebugBetaEnabled,

@@ -44,9 +44,11 @@ export interface IpcEvents {
 	'show-whats-new': [ void ];
 	'sync-connect-site': [ { remoteSiteId: number; studioSiteId: string; autoOpenPush?: boolean } ];
 	'test-render-failure': [ void ];
-	'theme-details-changed': [ { id: string; details: StartedSiteDetails[ 'themeDetails' ] } ];
-	'theme-details-updating': [ { id: string } ];
-	'thumbnail-changed': [ { id: string; imageData: string | null } ];
+	'theme-details-loading': [ { id: string } ];
+	'theme-details-loaded': [ { id: string; details: StartedSiteDetails[ 'themeDetails' ] } ];
+	'thumbnail-loading': [ { id: string } ];
+	'thumbnail-loaded': [ { id: string; imageData: string | null } ];
+	'thumbnail-load-error': [ { id: string } ];
 	'user-settings': [ { tabName?: string } ];
 	'window-fullscreen-change': [ boolean ];
 	'user-preference-changed': [ void ];

@@ -45,7 +45,13 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 	);
 	const [ loadingThumbnails, setLoadingThumbnails ] = useState< Record< string, boolean > >( {} );
 
-	useIpcListener( 'theme-details-changed', ( _evt, { id, details } ) => {
+	useIpcListener( 'theme-details-loading', ( _evt, { id } ) => {
+		setLoadingThemeDetails( ( loadingThemeDetails ) => {
+			return { ...loadingThemeDetails, [ id ]: true };
+		} );
+	} );
+
+	useIpcListener( 'theme-details-loaded', ( _evt, { id, details } ) => {
 		setThemeDetails( ( themeDetails ) => {
 			return { ...themeDetails, [ id ]: details };
 		} );
@@ -54,7 +60,13 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 		} );
 	} );
 
-	useIpcListener( 'thumbnail-changed', ( _evt, { id, imageData } ) => {
+	useIpcListener( 'thumbnail-loading', ( _evt, { id } ) => {
+		setLoadingThumbnails( ( loadingThumbnails ) => {
+			return { ...loadingThumbnails, [ id ]: true };
+		} );
+	} );
+
+	useIpcListener( 'thumbnail-loaded', ( _evt, { id, imageData } ) => {
 		setThumbnails( ( thumbnails ) => {
 			return { ...thumbnails, [ id ]: imageData ?? undefined };
 		} );
@@ -63,12 +75,9 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 		} );
 	} );
 
-	useIpcListener( 'theme-details-updating', ( _evt, { id } ) => {
-		setLoadingThemeDetails( ( loadingThemeDetails ) => {
-			return { ...loadingThemeDetails, [ id ]: true };
-		} );
+	useIpcListener( 'thumbnail-load-error', ( _evt, { id } ) => {
 		setLoadingThumbnails( ( loadingThumbnails ) => {
-			return { ...loadingThumbnails, [ id ]: true };
+			return { ...loadingThumbnails, [ id ]: false };
 		} );
 	} );
 

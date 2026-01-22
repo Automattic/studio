@@ -56,7 +56,6 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 
 describe( 'Header', () => {
 	afterEach( () => {
-		vi.clearAllMocks();
 		vi.restoreAllMocks();
 	} );
 

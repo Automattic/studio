@@ -1,16 +1,26 @@
-import '@testing-library/jest-dom';
-import { TextEncoder, TextDecoder } from 'util';
 import { webcrypto } from 'crypto';
+import { TextEncoder, TextDecoder } from 'util';
+import '@testing-library/jest-dom';
+import { configure } from '@testing-library/react';
 import 'isomorphic-fetch';
 import nock from 'nock';
 import { vi, beforeEach, afterEach, afterAll } from 'vitest';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - no types available for ponyfill
+import * as streams from 'web-streams-polyfill/dist/ponyfill.js';
+
+// Configure testing-library with longer timeouts for CI environments
+configure( {
+	// Default timeout for waitFor, findBy*, etc. (5 seconds instead of 1 second)
+	asyncUtilTimeout: 5000,
+} );
 
 // Polyfill TextEncoder and TextDecoder for tests
 if ( typeof globalThis.TextEncoder === 'undefined' ) {
-	globalThis.TextEncoder = TextEncoder as any;
+	globalThis.TextEncoder = TextEncoder as typeof globalThis.TextEncoder;
 }
 if ( typeof globalThis.TextDecoder === 'undefined' ) {
-	globalThis.TextDecoder = TextDecoder as any;
+	globalThis.TextDecoder = TextDecoder as typeof globalThis.TextDecoder;
 }
 
 // Polyfill crypto for Node.js environment tests
@@ -20,9 +30,6 @@ if ( typeof globalThis.crypto === 'undefined' ) {
 
 // We need this polyfill because the `ReadableStream` class is
 // used by `@php-wasm/universal` and it's not available in the Vitest environment.
-// Import ponyfill to avoid global pollution issues with php-wasm 1.2.3
-const streams = require( 'web-streams-polyfill/dist/ponyfill.js' );
-
 // Assign to global only if not already available
 if ( typeof globalThis.ReadableStream === 'undefined' ) {
 	globalThis.ReadableStream = streams.ReadableStream;
@@ -42,17 +49,20 @@ if ( typeof window !== 'undefined' ) {
 			return {
 				getPropertyValue: () => '',
 				setProperty: () => {},
-				removeProperty: () => {},
+				removeProperty: () => '',
 				item: () => '',
 				length: 0,
 				[ Symbol.iterator ]: function* () {},
-			} as any;
+			} as unknown as CSSStyleDeclaration;
 		}
 	};
 }
 
 // Define global variables that were previously in jest.config.ts
-( global as any ).COMMIT_HASH = 'mock-hash';
+( global as typeof global & { COMMIT_HASH: string } ).COMMIT_HASH = 'mock-hash';
+
+// Store original console.log to restore after tests
+const originalConsoleLog = console.log;
 
 // Silence console.log for all tests
 beforeEach( () => {
@@ -93,8 +103,17 @@ if ( typeof window !== 'undefined' ) {
 nock.disableNetConnect();
 nock.enableNetConnect( 'raw.githubusercontent.com' );
 
+// Clean up after each test to prevent state leakage
 afterEach( () => {
+	// Restore console.log
+	console.log = originalConsoleLog;
 	nock.cleanAll();
+	try {
+		vi.useRealTimers();
+	} catch {
+		// Ignore if real timers are already in use
+	}
+	vi.clearAllMocks();
 } );
 
 afterAll( () => {

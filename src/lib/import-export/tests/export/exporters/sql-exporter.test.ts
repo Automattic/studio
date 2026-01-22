@@ -57,9 +57,7 @@ platformTestSuite( 'SqlExporter', ( { normalize } ) => {
 		exporter = new SqlExporter( mockOptions );
 	} );
 
-	afterEach( () => {
-		vi.useRealTimers();
-	} );
+	afterEach( () => {} );
 
 	it( 'should call sqlite export command on the site server', async () => {
 		await exporter.export();

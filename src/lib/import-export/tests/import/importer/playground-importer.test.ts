@@ -65,9 +65,7 @@ platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 		);
 	} );
 
-	afterEach( () => {
-		vi.useRealTimers();
-	} );
+	afterEach( () => {} );
 
 	describe( 'import', () => {
 		it( 'should copy wp-config, wp-content files and read meta file', async () => {

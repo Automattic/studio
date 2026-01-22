@@ -163,10 +163,6 @@ afterAll( () => {
 	vi.spyOn( console, 'error' ).mockRestore();
 } );
 
-afterEach( () => {
-	vi.clearAllMocks();
-} );
-
 describe( 'App initialization', () => {
 	it( 'should boot successfully', async () => {
 		mockElectron();

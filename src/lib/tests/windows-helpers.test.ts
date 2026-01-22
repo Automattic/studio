@@ -42,7 +42,6 @@ const currentVersion = '1.2.3';
 const originalPlatform = process.platform;
 
 afterEach( () => {
-	vi.clearAllMocks();
 	Object.defineProperty( process, 'platform', {
 		value: originalPlatform,
 	} );

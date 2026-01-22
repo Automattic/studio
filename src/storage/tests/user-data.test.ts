@@ -89,9 +89,7 @@ platformTestSuite( 'User data', () => {
 		mockElectronApp.getPath.mockReturnValue( '/path/to/app/appData' );
 	} );
 
-	afterEach( () => {
-		vi.clearAllMocks();
-	} );
+	afterEach( () => {} );
 
 	describe( 'loadUserData', () => {
 		test( 'loads user data correctly and sorts sites', async () => {

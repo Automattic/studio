@@ -33,10 +33,6 @@ vi.mock( 'src/lib/get-ipc-api', () => ( {
 	} ),
 } ) );
 
-afterEach( () => {
-	vi.clearAllMocks();
-} );
-
 function renderWithProvider( component: React.ReactElement ) {
 	return render( <Provider store={ store }>{ component }</Provider> );
 }

@@ -69,9 +69,7 @@ platformTestSuite( 'LocalImporter', ( { normalize } ) => {
 		);
 	} );
 
-	afterEach( () => {
-		vi.useRealTimers();
-	} );
+	afterEach( () => {} );
 
 	describe( 'import', () => {
 		it( 'should copy wp-content files and read meta file', async () => {

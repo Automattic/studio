@@ -129,9 +129,7 @@ describe( 'Archive Module', () => {
 			vi.useFakeTimers();
 		} );
 
-		afterEach( () => {
-			vi.useRealTimers();
-		} );
+		afterEach( () => {} );
 
 		it( 'should remove the archive file if it exists', async () => {
 			vi.mocked( fs.existsSync ).mockReturnValue( true );

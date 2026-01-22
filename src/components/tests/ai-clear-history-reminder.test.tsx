@@ -26,9 +26,7 @@ describe( 'AIClearHistoryReminder', () => {
 		vi.setSystemTime( MOCKED_CURRENT_TIME );
 	} );
 
-	afterEach( () => {
-		vi.useRealTimers();
-	} );
+	afterEach( () => {} );
 
 	it( 'should display a reminder when the conversation is stale', () => {
 		const message: Message = {

@@ -96,10 +96,6 @@ const mockIpcMainInvokeEvent = {
 	// Double assert the type with `unknown` to simplify mocking this value
 } as unknown as IpcMainInvokeEvent;
 
-afterEach( () => {
-	vi.clearAllMocks();
-} );
-
 describe( 'createSite', () => {
 	it( 'should delegate to CLI and return site details', async () => {
 		const userData = await createSite( mockIpcMainInvokeEvent, '/test', {

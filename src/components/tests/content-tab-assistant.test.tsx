@@ -148,9 +148,7 @@ describe( 'ContentTabAssistant', () => {
 		vi.mocked( useGetWpVersion ).mockReturnValue( [ '6.4.3', vi.fn() ] );
 	} );
 
-	afterEach( () => {
-		vi.useRealTimers();
-	} );
+	afterEach( () => {} );
 
 	it( 'renders placeholder text input', () => {
 		render( <ContextWrapper selectedSite={ runningSite } /> );

@@ -125,9 +125,7 @@ describe( 'createCodeComponent', () => {
 			store.dispatch( testActions.resetState() );
 		} );
 
-		afterEach( () => {
-			vi.useRealTimers();
-		} );
+		afterEach( () => {} );
 
 		it( 'should display an activity indicator while running code', async () => {
 			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {

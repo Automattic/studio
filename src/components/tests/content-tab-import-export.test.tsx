@@ -46,10 +46,6 @@ beforeEach( () => {
 	} );
 } );
 
-afterEach( () => {
-	vi.useRealTimers();
-} );
-
 const renderWithProvider = ( children: React.ReactElement ) => {
 	return render(
 		<Provider store={ store }>

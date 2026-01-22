@@ -8,7 +8,6 @@ describe( 'cacheFunctionTTL', () => {
 
 	afterEach( () => {
 		vi.runOnlyPendingTimers();
-		vi.useRealTimers();
 	} );
 
 	it( 'should return different results for different arguments', async () => {

@@ -828,8 +828,22 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 			return promiseExec( `start "" "warp://action/new_tab?path=${ encodedPath }"` );
 		}
 
+		// Ensure the Studio CLI bin directory is in the PATH for the spawned terminal.
+		// Child processes inherit the environment from the Electron process, which may have
+		// been started before the CLI was installed or PATH was updated in the registry.
+		const cliBinPath = windowsHelpers.getWindowsCliBinPath();
+		let env: NodeJS.ProcessEnv | undefined;
+		if ( cliBinPath ) {
+			const currentPath = process.env.Path || process.env.PATH || '';
+			const pathEntries = currentPath.split( ';' ).map( ( p ) => p.toLowerCase() );
+			if ( ! pathEntries.includes( cliBinPath.toLowerCase() ) ) {
+				env = { ...process.env, Path: `${ cliBinPath };${ currentPath }` };
+			}
+		}
+
 		return promiseExec( `start "Command Prompt" ${ defaultShell }`, {
 			cwd: targetPath,
+			env,
 		} );
 	} else if ( platform === 'linux' ) {
 		return promiseExec( `gnome-terminal --working-directory=${ targetPath }` );

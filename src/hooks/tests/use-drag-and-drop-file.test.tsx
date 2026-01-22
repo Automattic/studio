@@ -1,7 +1,7 @@
 // To run tests, execute `npm run test -- src/hooks/tests/use-drag-and-drop-file.test.tsx` from the root directory
 
 import { render, createEvent, fireEvent, renderHook, act } from '@testing-library/react';
-import { vi } from 'vitest';
+import { vi, beforeEach, describe, expect, test } from 'vitest';
 import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
 
 const DragComponent = ( { onFileDrop }: { onFileDrop: () => void } ) => {

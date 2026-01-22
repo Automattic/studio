@@ -1,7 +1,7 @@
 import { render, act, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { vi } from 'vitest';
+import { vi, beforeEach, describe, it, expect } from 'vitest';
 import TopBar from 'src/components/top-bar';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';

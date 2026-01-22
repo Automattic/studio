@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { readFile, writeFile } from 'atomically';
-import { vi } from 'vitest';
+import { vi, beforeEach, describe, it, expect } from 'vitest';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { handleAuthDeeplink } from 'src/lib/deeplink/handlers/auth';
 

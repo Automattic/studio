@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { speak } from '@wordpress/a11y';
-import { vi } from 'vitest';
+import { vi, beforeEach, describe, it, expect } from 'vitest';
 import Anchor from 'src/components/assistant-anchor';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { vi, beforeEach } from 'vitest';
+import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest';
 import { getPreferredSiteLanguage } from 'src/lib/site-language';
 import * as storagePaths from 'src/storage/paths';
 

@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { vi, beforeEach } from 'vitest';
+import { vi, beforeEach, describe, it, expect } from 'vitest';
 import { TreeNode } from 'src/components/tree-view';
 import { SYNC_PUSH_SIZE_LIMIT_BYTES } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';

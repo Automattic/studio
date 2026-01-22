@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest';
 import { WPCOM } from 'wpcom/types';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';

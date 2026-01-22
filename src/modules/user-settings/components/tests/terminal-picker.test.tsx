@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { vi } from 'vitest';
+import { vi, beforeEach, describe, it, expect } from 'vitest';
 import { TerminalPicker } from 'src/modules/user-settings/components/terminal-picker';
 import { store } from 'src/stores';
 import { installedAppsApi } from 'src/stores/installed-apps-api';

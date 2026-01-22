@@ -3,7 +3,7 @@
  */
 // To run tests, execute `npm run test -- src/storage/user-data.test.ts` from the root directory
 import { readFile, writeFile } from 'atomically';
-import { vi } from 'vitest';
+import { vi, beforeEach, afterEach, describe, test, expect } from 'vitest';
 import { loadUserData, lockAppdata, unlockAppdata, saveUserData } from 'src/storage/user-data';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 import { UserData } from '../storage-types';
@@ -112,14 +112,16 @@ platformTestSuite( 'User data', () => {
 
 		test( 'populates PHP version when unknown', async () => {
 			vi.mocked( readFile ).mockResolvedValue(
-				JSON.stringify( {
-					sites: [
-						{ name: 'Arthur', path: '/to/arthur', phpVersion: '8.3' },
-						{ name: 'Lancelot', path: '/to/lancelot', phpVersion: '8.1' },
-						{ name: 'Tristan', path: '/to/tristan' },
-					],
-					snapshots: [],
-				} )
+				Buffer.from(
+					JSON.stringify( {
+						sites: [
+							{ name: 'Arthur', path: '/to/arthur', phpVersion: '8.3' },
+							{ name: 'Lancelot', path: '/to/lancelot', phpVersion: '8.1' },
+							{ name: 'Tristan', path: '/to/tristan' },
+						],
+						snapshots: [],
+					} )
+				)
 			);
 			const result = await loadUserData();
 			expect( result.sites.map( ( site ) => site.phpVersion ) ).toEqual( [ '8.3', '8.1', '8.0' ] );

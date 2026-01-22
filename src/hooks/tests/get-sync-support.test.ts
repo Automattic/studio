@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import { vi, describe, it, expect } from 'vitest';
 import { getSyncSupport } from 'src/modules/sync/lib/sync-support';
 
 // Mocks for site shapes

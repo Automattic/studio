@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit';
-import { vi } from 'vitest';
+import { vi, beforeEach, describe, it, expect } from 'vitest';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
 	installedAppsApi,

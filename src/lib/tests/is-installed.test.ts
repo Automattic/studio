@@ -3,7 +3,7 @@
  */
 import { app } from 'electron';
 import fs from 'fs';
-import { vi } from 'vitest';
+import { vi, beforeEach, describe, it, expect } from 'vitest';
 import type { PathLike } from 'fs';
 
 // The overload of readdirSync that returns string[] (without withFileTypes option)

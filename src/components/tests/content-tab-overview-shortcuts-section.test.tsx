@@ -1,7 +1,7 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-overview-shortcuts-section.test.tsx` from the root directory
 import { fireEvent, render, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { vi } from 'vitest';
+import { vi, beforeEach, describe, it, expect } from 'vitest';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useThemeDetails } from 'src/hooks/use-theme-details';

@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react';
-import { vi, beforeEach } from 'vitest';
+import { vi, beforeEach, describe, it, expect } from 'vitest';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useFindAvailableSiteName } from '../use-find-available-site-name';

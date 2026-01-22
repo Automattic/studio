@@ -2,7 +2,7 @@
 import { render, waitFor, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { vi } from 'vitest';
+import { vi, beforeEach, describe, it, expect } from 'vitest';
 import { useOffline } from 'src/hooks/use-offline';
 import { createTestStore } from 'src/lib/test-utils';
 import { Onboarding } from 'src/modules/onboarding';

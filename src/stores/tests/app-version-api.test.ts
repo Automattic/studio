@@ -1,18 +1,19 @@
 import { configureStore } from '@reduxjs/toolkit';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { FORCE_WHATS_NEW_WHEN_PATCH_CHANGED } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { appVersionApi, selectIsNewVersion } from 'src/stores/app-version-api';
 
-jest.mock( 'src/lib/get-ipc-api', () => ( {
-	getIpcApi: jest.fn(),
+vi.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: vi.fn(),
 } ) );
 
 const mockIpcApi = {
-	getLastSeenVersion: jest.fn(),
-	saveLastSeenVersion: jest.fn(),
+	getLastSeenVersion: vi.fn(),
+	saveLastSeenVersion: vi.fn(),
 };
 
-( getIpcApi as jest.Mock ).mockReturnValue( mockIpcApi );
+vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( mockIpcApi );
 
 const createTestStore = () => {
 	return configureStore( {
@@ -26,7 +27,7 @@ const createTestStore = () => {
 
 describe( 'App Version API', () => {
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 	} );
 
 	describe( 'getLastSeenVersion', () => {

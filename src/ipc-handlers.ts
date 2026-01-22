@@ -30,6 +30,7 @@ import {
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import { getAuthenticationUrl } from 'common/lib/oauth';
+import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
@@ -315,7 +316,7 @@ export async function updateSite(
 	}
 
 	if ( wpVersion ) {
-		options.wp = wpVersion;
+		options.wp = isWordPressDevVersion( wpVersion ) ? 'nightly' : wpVersion;
 	}
 
 	if ( updatedSite.enableXdebug !== currentSite.enableXdebug ) {

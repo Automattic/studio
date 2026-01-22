@@ -29,7 +29,7 @@ import {
 } from 'common/lib/fs-utils';
 import { isOnline } from 'common/lib/network-utils';
 import { portFinder } from 'common/lib/port-finder';
-import { vi, beforeEach, afterEach, describe, it, expect, type MockInstance } from 'vitest';
+import { vi, type MockInstance } from 'vitest';
 import { runCommand } from '../create';
 
 vi.mock( 'common/lib/fs-utils' );
@@ -107,7 +107,6 @@ describe( 'CLI: studio site create', () => {
 	let consoleLogSpy: MockInstance;
 	let fsMkdirSyncSpy: MockInstance;
 	let loggerReportSuccessSpy: MockInstance;
-	let loggerReportWarningSpy: MockInstance;
 
 	const createPathExistsMock = ( sitePathExists = false ) => {
 		const path = require( 'path' );
@@ -130,7 +129,6 @@ describe( 'CLI: studio site create', () => {
 		consoleLogSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
 		fsMkdirSyncSpy = vi.spyOn( fs, 'mkdirSync' ).mockReturnValue( undefined );
 		loggerReportSuccessSpy = vi.spyOn( Logger.prototype, 'reportSuccess' );
-		loggerReportWarningSpy = vi.spyOn( Logger.prototype, 'reportWarning' );
 		vi.mocked( getServerFilesPath ).mockReturnValue( '/test/server-files' );
 		createPathExistsMock( false );
 		vi.mocked( isEmptyDir ).mockResolvedValue( true );
@@ -270,7 +268,7 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should skip SQLite integration when it is already configured', async () => {
-			( keepSqliteIntegrationUpdated as jest.Mock ).mockResolvedValue( false );
+			vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( false );
 
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
@@ -316,12 +314,12 @@ describe( 'CLI: studio site create', () => {
 				'wordpress-versions',
 				'latest'
 			);
-			( pathExists as jest.Mock ).mockImplementation(
+			vi.mocked( pathExists ).mockImplementation(
 				async ( path: string ) =>
 					path === bundledWPPath || path === wpConfigPath || path === mockSitePath
 			);
-			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
-			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
+			vi.mocked( isEmptyDir ).mockResolvedValue( false );
+			vi.mocked( isWordPressDirectory ).mockReturnValue( true );
 
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
@@ -329,7 +327,7 @@ describe( 'CLI: studio site create', () => {
 			} );
 
 			// Verify setSiteOptions step is NOT in the blueprint steps
-			const calls = ( startWordPressServer as jest.Mock ).mock.calls;
+			const calls = vi.mocked( startWordPressServer ).mock.calls;
 			const blueprintCall = calls.find(
 				( call ) =>
 					call[ 2 ]?.blueprint?.steps?.some(
@@ -345,11 +343,11 @@ describe( 'CLI: studio site create', () => {
 				'wordpress-versions',
 				'latest'
 			);
-			( pathExists as jest.Mock ).mockImplementation(
+			vi.mocked( pathExists ).mockImplementation(
 				async ( path: string ) => path === bundledWPPath || path === mockSitePath
 			);
-			( isEmptyDir as jest.Mock ).mockResolvedValue( false );
-			( isWordPressDirectory as jest.Mock ).mockReturnValue( true );
+			vi.mocked( isEmptyDir ).mockResolvedValue( false );
+			vi.mocked( isWordPressDirectory ).mockReturnValue( true );
 
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,

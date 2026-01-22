@@ -1,54 +1,61 @@
-type FsExtra = typeof import('fs-extra');
-interface MockedFsExtra extends FsExtra {
-	__mockFiles: Record< string, string | string[] >;
-	__setFileContents: ( path: string, fileContents: string | string[] ) => void;
-}
+import { vi } from 'vitest';
 
-const fsExtra = jest.createMockFromModule< MockedFsExtra >( 'fs-extra' );
+const mockFiles: Record< string, string | string[] > = {};
 
-fsExtra.__mockFiles = {};
-fsExtra.__setFileContents = ( path: string, fileContents: string | string[] ) => {
-	fsExtra.__mockFiles[ path ] = fileContents;
-};
-
-( fsExtra.readFile as unknown as jest.Mock ).mockImplementation(
-	async ( path: string ): Promise< string > => {
-		const fileContents = fsExtra.__mockFiles[ path ];
-
-		if ( typeof fileContents === 'string' ) {
-			return fileContents;
-		}
-
-		return '';
-	}
-);
-
-( fsExtra.readFileSync as unknown as jest.Mock ).mockImplementation( ( path: string ): string => {
-	const fileContents = fsExtra.__mockFiles[ path ];
-
+const readFile = vi.fn( async ( path: string ): Promise< string > => {
+	const fileContents = mockFiles[ path ];
 	if ( typeof fileContents === 'string' ) {
 		return fileContents;
 	}
-
 	return '';
 } );
 
-( fsExtra.readdir as unknown as jest.Mock ).mockImplementation(
-	async ( path: string ): Promise< Array< string > > => {
-		const dirContents = fsExtra.__mockFiles[ path ];
-
-		if ( Array.isArray( dirContents ) ) {
-			return dirContents;
-		}
-
-		return [];
+const readFileSync = vi.fn( ( path: string ): string => {
+	const fileContents = mockFiles[ path ];
+	if ( typeof fileContents === 'string' ) {
+		return fileContents;
 	}
-);
+	return '';
+} );
 
-( fsExtra.pathExists as unknown as jest.Mock ).mockImplementation(
-	async ( path: string ): Promise< boolean > => {
-		return !! fsExtra.__mockFiles[ path ];
+const readdir = vi.fn( async ( path: string ): Promise< Array< string > > => {
+	const dirContents = mockFiles[ path ];
+	if ( Array.isArray( dirContents ) ) {
+		return dirContents;
 	}
-);
+	return [];
+} );
 
-module.exports = fsExtra;
+const pathExists = vi.fn( async ( path: string ): Promise< boolean > => {
+	return !! mockFiles[ path ];
+} );
+
+const mkdir = vi.fn();
+const writeFile = vi.fn();
+const copy = vi.fn();
+
+const __setFileContents = ( path: string, fileContents: string | string[] ) => {
+	mockFiles[ path ] = fileContents;
+};
+
+export default {
+	__mockFiles: mockFiles,
+	__setFileContents,
+	readFile,
+	readFileSync,
+	readdir,
+	pathExists,
+	mkdir,
+	writeFile,
+	copy,
+};
+
+export {
+	readFile,
+	readFileSync,
+	readdir,
+	pathExists,
+	mkdir,
+	writeFile,
+	copy,
+};

@@ -4,20 +4,32 @@ import os from 'os';
 import path from 'path';
 import archiver from 'archiver';
 import { format } from 'date-fns';
+import {
+	vi,
+	describe,
+	it,
+	expect,
+	beforeEach,
+	beforeAll,
+	afterAll,
+	Mock,
+	MockedFunction,
+	Mocked,
+} from 'vitest';
 import { DefaultExporter } from 'src/lib/import-export/export/exporters';
 import { ExportOptions, BackupContents } from 'src/lib/import-export/export/types';
 import { getWordPressVersionFromInstallation } from 'src/lib/wp-versions';
 import { SiteServer } from 'src/site-server';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 
-jest.mock( 'fs' );
-jest.mock( 'fs/promises' );
-jest.mock( 'os' );
-jest.mock( 'fs-extra' );
-jest.mock( 'date-fns', () => ( {
-	format: jest.fn(),
+vi.mock( 'fs' );
+vi.mock( 'fs/promises' );
+vi.mock( 'os' );
+vi.mock( 'fs-extra' );
+vi.mock( 'date-fns', () => ( {
+	format: vi.fn(),
 } ) );
-jest.mock( 'src/lib/wp-versions' );
+vi.mock( 'src/lib/wp-versions' );
 
 // Create a partial mock of the Archiver interface
 type PartialArchiver = Pick<
@@ -25,24 +37,31 @@ type PartialArchiver = Pick<
 	'pipe' | 'file' | 'directory' | 'finalize' | 'on' | 'abort'
 >;
 
-const createMockArchiver = (): jest.Mocked< PartialArchiver > => {
+const createMockArchiver = (): {
+	pipe: Mock;
+	file: Mock;
+	directory: Mock;
+	finalize: Mock;
+	on: Mock;
+	abort: Mock;
+} => {
 	return {
-		pipe: jest.fn().mockReturnThis(),
-		file: jest.fn().mockReturnThis(),
-		directory: jest.fn().mockReturnThis(),
-		finalize: jest.fn().mockResolvedValue( undefined ),
-		on: jest.fn().mockReturnThis(),
-		abort: jest.fn(),
+		pipe: vi.fn().mockReturnThis(),
+		file: vi.fn().mockReturnThis(),
+		directory: vi.fn().mockReturnThis(),
+		finalize: vi.fn().mockResolvedValue( undefined ),
+		on: vi.fn().mockReturnThis(),
+		abort: vi.fn(),
 	};
 };
 
 // Mock archiver module
-jest.mock( 'archiver', () => {
-	return jest.fn( () => createMockArchiver() );
+vi.mock( 'archiver', () => {
+	return { default: vi.fn( () => createMockArchiver() ) };
 } );
 
 // Mock SiteServer
-jest.mock( 'src/site-server' );
+vi.mock( 'src/site-server' );
 
 const defaultTableNames = [
 	'wp_commentmeta',
@@ -59,25 +78,25 @@ const defaultTableNames = [
 
 // Silence `console.log`, `console.warn`, and `console.error` output
 beforeAll( () => {
-	jest.spyOn( console, 'log' ).mockImplementation( () => {} );
-	jest.spyOn( console, 'warn' ).mockImplementation( () => {} );
-	jest.spyOn( console, 'error' ).mockImplementation( () => {} );
+	vi.spyOn( console, 'log' ).mockImplementation( () => {} );
+	vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
+	vi.spyOn( console, 'error' ).mockImplementation( () => {} );
 } );
 
 afterAll( () => {
-	jest.spyOn( console, 'log' ).mockRestore();
-	jest.spyOn( console, 'warn' ).mockRestore();
-	jest.spyOn( console, 'error' ).mockRestore();
+	vi.spyOn( console, 'log' ).mockRestore();
+	vi.spyOn( console, 'warn' ).mockRestore();
+	vi.spyOn( console, 'error' ).mockRestore();
 } );
 
 platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 	let exporter: DefaultExporter;
 	let mockBackup: BackupContents;
 	let mockOptions: ExportOptions;
-	let mockArchiver: jest.Mocked< PartialArchiver >;
-	let mockWriteStream: { on: jest.Mock; path: string };
+	let mockArchiver: Mocked< PartialArchiver >;
+	let mockWriteStream: { on: Mock; path: string };
 
-	( getWordPressVersionFromInstallation as jest.Mock ).mockResolvedValue( '6.6.1' );
+	( getWordPressVersionFromInstallation as Mock ).mockResolvedValue( '6.6.1' );
 
 	beforeEach( () => {
 		const mockFiles = [
@@ -153,7 +172,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			},
 		];
 
-		( fsPromises.readdir as jest.Mock ).mockResolvedValue( mockFiles );
+		( fsPromises.readdir as Mock ).mockResolvedValue( mockFiles );
 
 		function pathExistsMockImplementation( pathToCheck: string ): boolean {
 			const normalizedPath = normalize( pathToCheck );
@@ -164,7 +183,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			} );
 		}
 
-		( fsPromises.stat as jest.Mock ).mockImplementation( async ( filePath: string ) => {
+		( fsPromises.stat as Mock ).mockImplementation( async ( filePath: string ) => {
 			const normalizedPath = normalize( filePath );
 			if (
 				mockFiles.some(
@@ -178,9 +197,9 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			throw new Error( `File not found: ${ normalizedPath }` );
 		} );
 
-		( fs.existsSync as jest.Mock ).mockImplementation( pathExistsMockImplementation );
+		( fs.existsSync as Mock ).mockImplementation( pathExistsMockImplementation );
 
-		( fs.statSync as jest.Mock ).mockImplementation( ( filePath: string ) => {
+		( fs.statSync as Mock ).mockImplementation( ( filePath: string ) => {
 			const normalizedPath = normalize( filePath );
 			if (
 				mockFiles.some(
@@ -217,44 +236,66 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		};
 
 		// Reset all mock implementations
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 
-		( SiteServer.get as jest.Mock ).mockReturnValue( {
-			details: { path: normalize( '/path/to/site' ) },
-			executeWpCliCommand: jest.fn( function ( command: string ) {
+		( SiteServer.get as Mock ).mockReturnValue( {
+			details: {
+				path: normalize( '/path/to/site' ),
+				id: 'test-id',
+				name: 'Test Site',
+				port: 8881,
+				phpVersion: '8.0',
+				running: false,
+			},
+			executeWpCliCommand: vi.fn( function ( command: string ) {
 				switch ( true ) {
 					case /plugin list/.test( command ):
-						return { stdout: '[{"name":"akismet","status":"active","version":"5.3.3"}]' };
+						return Promise.resolve( {
+							stdout: '[{"name":"akismet","status":"active","version":"5.3.3"}]',
+							stderr: '',
+							exitCode: 0,
+						} );
 					case /theme list/.test( command ):
-						return { stdout: '[{"name":"twentytwentyfour","status":"active","version":"1.0"}]' };
+						return Promise.resolve( {
+							stdout: '[{"name":"twentytwentyfour","status":"active","version":"1.0"}]',
+							stderr: '',
+							exitCode: 0,
+						} );
 					case /tables/.test( command ):
-						return { stdout: JSON.stringify( defaultTableNames ) };
+						return Promise.resolve( {
+							stdout: JSON.stringify( defaultTableNames ),
+							stderr: '',
+							exitCode: 0,
+						} );
 					default:
-						return { stderr: null };
+						return Promise.resolve( { stdout: '', stderr: '', exitCode: 0 } );
 				}
 			} ),
 		} );
 
 		mockArchiver = createMockArchiver();
-		( archiver as jest.MockedFunction< typeof archiver > ).mockReturnValue(
+		( archiver as MockedFunction< typeof archiver > ).mockReturnValue(
 			mockArchiver as unknown as archiver.Archiver
 		);
 		mockWriteStream = {
-			on: jest.fn(),
+			on: vi.fn(),
 			path: normalize( '/path/to/backup.tar.gz' ),
 		};
-		( fs.createWriteStream as jest.Mock ).mockReturnValue( mockWriteStream );
-		( fsPromises.unlink as jest.Mock ).mockResolvedValue( undefined );
-		( fsPromises.mkdtemp as jest.Mock ).mockResolvedValue( '/tmp/studio_export_123' );
-		( fsPromises.writeFile as jest.Mock ).mockResolvedValue( undefined );
-		( os.tmpdir as jest.Mock ).mockReturnValue( '/tmp' );
-		( format as jest.Mock ).mockReturnValue( '2023-07-31-12-00-00' );
+		( fs.createWriteStream as Mock ).mockReturnValue( mockWriteStream );
+		( fsPromises.unlink as Mock ).mockResolvedValue( undefined );
+		( fsPromises.mkdtemp as Mock ).mockResolvedValue( '/tmp/studio_export_123' );
+		( fsPromises.writeFile as Mock ).mockResolvedValue( undefined );
+		( os.tmpdir as Mock ).mockReturnValue( '/tmp' );
+		( format as Mock ).mockReturnValue( '2023-07-31-12-00-00' );
 
 		mockArchiver.finalize.mockImplementation( () => {
 			return new Promise< void >( ( resolve ) => {
 				// Simulate async finalize
 				setTimeout( () => {
-					mockWriteStream.on.mock.calls.find( ( call ) => call[ 0 ] === 'close' )[ 1 ]();
+					const closeCall = mockWriteStream.on.mock.calls.find( ( call ) => call[ 0 ] === 'close' );
+					if ( closeCall ) {
+						closeCall[ 1 ]();
+					}
 					resolve();
 				}, 0 );
 			} );
@@ -408,7 +449,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 				wpContent: false,
 			},
 		};
-		( fsPromises.mkdtemp as jest.Mock ).mockResolvedValue( normalize( '/tmp/studio_export_123' ) );
+		( fsPromises.mkdtemp as Mock ).mockResolvedValue( normalize( '/tmp/studio_export_123' ) );
 
 		const exporter = new DefaultExporter( options );
 		await exporter.export();
@@ -439,7 +480,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			},
 			splitDatabaseDumpByTable: true,
 		};
-		( fsPromises.mkdtemp as jest.Mock ).mockResolvedValue( normalize( '/tmp/studio_export_123' ) );
+		( fsPromises.mkdtemp as Mock ).mockResolvedValue( normalize( '/tmp/studio_export_123' ) );
 
 		const exporter = new DefaultExporter( options );
 		await exporter.export();
@@ -506,15 +547,26 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 	} );
 
 	it( 'should fail when can not get plugin or theme details', async () => {
-		( SiteServer.get as jest.Mock ).mockReturnValue( {
-			details: { path: normalize( '/path/to/site' ) },
-			executeWpCliCommand: jest.fn( function ( command: string ) {
+		( SiteServer.get as Mock ).mockReturnValue( {
+			details: {
+				path: normalize( '/path/to/site' ),
+				id: 'test-id',
+				name: 'Test Site',
+				port: 8881,
+				phpVersion: '8.0',
+				running: false,
+			},
+			executeWpCliCommand: vi.fn( function ( command: string ) {
 				switch ( true ) {
 					case /plugin list/.test( command ):
 					case /theme list/.test( command ):
-						return { stdout: '<a><br/>some html</ap>', stderr: 'Error' };
+						return Promise.resolve( {
+							stdout: '<a><br/>some html</ap>',
+							stderr: 'Error',
+							exitCode: 0,
+						} );
 					default:
-						return { stderr: null };
+						return Promise.resolve( { stdout: '', stderr: '', exitCode: 0 } );
 				}
 			} ),
 		} );
@@ -558,7 +610,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 	} );
 
 	it( "should not add wp-config if it doesn't exists", async () => {
-		( fs.existsSync as jest.Mock ).mockImplementation( ( filePath: string ) => {
+		( fs.existsSync as Mock ).mockImplementation( ( filePath: string ) => {
 			const normalizedPath = normalize( filePath );
 			return ! normalizedPath.endsWith( 'wp-config.php' );
 		} );
@@ -698,7 +750,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 
 	describe( 'isPathExcludedByPattern', () => {
 		it( 'should exclude disallowed directories based on their names', () => {
-			( fs.statSync as jest.Mock ).mockReturnValue( {
+			( fs.statSync as Mock ).mockReturnValue( {
 				isDirectory: () => true,
 				isFile: () => false,
 			} );
@@ -722,7 +774,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		} );
 
 		it( 'should return false for non-excluded directories', () => {
-			( fs.statSync as jest.Mock ).mockReturnValue( {
+			( fs.statSync as Mock ).mockReturnValue( {
 				isDirectory: () => true,
 				isFile: () => false,
 			} );
@@ -753,7 +805,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		} );
 
 		it( 'should return false for files (not directories)', () => {
-			( fs.statSync as jest.Mock ).mockReturnValue( {
+			( fs.statSync as Mock ).mockReturnValue( {
 				isDirectory: () => false,
 				isFile: () => true,
 			} );
@@ -774,7 +826,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		} );
 
 		it( 'should handle directory names found at any position in the path', () => {
-			( fs.statSync as jest.Mock ).mockReturnValue( {
+			( fs.statSync as Mock ).mockReturnValue( {
 				isDirectory: () => true,
 				isFile: () => false,
 			} );

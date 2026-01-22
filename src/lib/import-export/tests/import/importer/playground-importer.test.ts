@@ -1,13 +1,17 @@
 import * as fs from 'fs/promises';
-import { lstat, move } from 'fs-extra';
+import { lstat, move, Stats } from 'fs-extra';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { PlaygroundImporter } from 'src/lib/import-export/import/importers';
 import { BackupContents } from 'src/lib/import-export/import/types';
 import { SiteServer } from 'src/site-server';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 
-jest.mock( 'fs/promises' );
-jest.mock( 'src/site-server' );
-jest.mock( 'fs-extra' );
+vi.mock( 'fs/promises' );
+vi.mock( 'src/site-server' );
+vi.mock( 'fs-extra', () => ( {
+	lstat: vi.fn(),
+	move: vi.fn(),
+} ) );
 
 platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 	const mockBackupContents: BackupContents = {
@@ -27,36 +31,50 @@ platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 	const mockStudioSiteId = '123';
 
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 
-		( SiteServer.get as jest.Mock ).mockReturnValue( {
-			details: { path: '/path/to/site' },
-			executeWpCliCommand: jest.fn( ( command: string ) =>
-				command === 'option get siteurl' ? { stdout: 'http://localhost:8881' } : { stderr: null }
+		vi.mocked( SiteServer.get, { partial: true } ).mockReturnValue( {
+			details: {
+				path: '/path/to/site',
+				id: 'test-id',
+				name: 'Test Site',
+				port: 8881,
+				phpVersion: '8.0',
+				running: false,
+			},
+			executeWpCliCommand: vi.fn( ( command: string ) =>
+				Promise.resolve(
+					command === 'option get siteurl'
+						? { stdout: 'http://localhost:8881', stderr: '', exitCode: 0 }
+						: { stdout: '', stderr: '', exitCode: 0 }
+				)
 			),
 		} );
 
-		// mock rename
-		( move as unknown as jest.Mock ).mockResolvedValue( null );
+		// mock move
+		vi.mocked( move ).mockResolvedValue();
 
-		jest.useFakeTimers();
-		jest.setSystemTime( new Date( '2024-08-01T12:00:00Z' ) );
+		vi.useFakeTimers();
+		vi.setSystemTime( new Date( '2024-08-01T12:00:00Z' ) );
 
-		( lstat as unknown as jest.Mock ).mockResolvedValue( {
-			isDirectory: jest.fn().mockReturnValue( false ),
-		} );
+		vi.mocked( lstat ).mockImplementation(
+			async () =>
+				( {
+					isDirectory: () => false,
+				} ) as Stats
+		);
 	} );
 
 	afterEach( () => {
-		jest.useRealTimers();
+		vi.useRealTimers();
 	} );
 
 	describe( 'import', () => {
 		it( 'should copy wp-config, wp-content files and read meta file', async () => {
 			const importer = new PlaygroundImporter( mockBackupContents );
-			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
-			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
-			( fs.readFile as jest.Mock ).mockResolvedValue(
+			vi.mocked( fs.mkdir ).mockResolvedValue( undefined );
+			vi.mocked( fs.copyFile ).mockResolvedValue( undefined );
+			vi.mocked( fs.readFile ).mockResolvedValue(
 				JSON.stringify( {
 					phpVersion: '8.3',
 					wordpressVersion: '5.8',
@@ -90,8 +108,8 @@ platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 
 		it( 'should properly import fonts directory', async () => {
 			const importer = new PlaygroundImporter( mockBackupContents );
-			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
-			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
+			vi.mocked( fs.mkdir ).mockResolvedValue( undefined );
+			vi.mocked( fs.copyFile ).mockResolvedValue( undefined );
 
 			await importer.import( mockStudioSitePath, mockStudioSiteId );
 
@@ -110,8 +128,8 @@ platformTestSuite( 'PlaygroundImporter', ( { normalize } ) => {
 				),
 			};
 			const importer = new PlaygroundImporter( backupWithoutFonts );
-			( fs.mkdir as jest.Mock ).mockResolvedValue( undefined );
-			( fs.copyFile as jest.Mock ).mockResolvedValue( undefined );
+			vi.mocked( fs.mkdir ).mockResolvedValue( undefined );
+			vi.mocked( fs.copyFile ).mockResolvedValue( undefined );
 
 			await importer.import( mockStudioSitePath, mockStudioSiteId );
 

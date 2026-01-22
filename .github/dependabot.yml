@@ -44,6 +44,7 @@ updates:
           - "@php-wasm/*"
     ignore:
       - dependency-name: "eslint-plugin-studio"
+      - dependency-name: "winreg" # v1.2.5 has a known issue: https://github.com/fresc81/node-winreg/issues/65
 
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"

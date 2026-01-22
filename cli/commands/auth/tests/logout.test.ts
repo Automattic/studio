@@ -1,4 +1,3 @@
-import { vi } from 'vitest';
 import { revokeAuthToken } from 'cli/lib/api';
 import {
 	getAuthToken,
@@ -8,6 +7,7 @@ import {
 	unlockAppdata,
 } from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
+import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest';
 import { runCommand } from '../logout';
 import {
 	mockReportStart,
@@ -37,6 +37,8 @@ vi.mock( 'cli/logger', () => ( {
 describe( 'Auth Logout Command', () => {
 	function getMockAppdata() {
 		return {
+			sites: [],
+			snapshots: [],
 			authToken: {
 				accessToken: 'existing-token',
 				id: 999,

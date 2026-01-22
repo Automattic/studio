@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
 import {
@@ -13,22 +14,22 @@ import {
 	testReducer,
 } from 'src/stores/tests/utils/test-reducer';
 
-jest.mock( 'src/lib/get-ipc-api', () => ( {
-	getIpcApi: jest.fn(),
+vi.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: vi.fn(),
 } ) );
 
 const mockIpcApi = {
-	getOnboardingData: jest.fn(),
-	saveOnboarding: jest.fn(),
+	getOnboardingData: vi.fn(),
+	saveOnboarding: vi.fn(),
 };
 
-( getIpcApi as jest.Mock ).mockReturnValue( mockIpcApi );
+vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( mockIpcApi );
 
 store.replaceReducer( testReducer );
 
 describe( 'onboarding-slice', () => {
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 		store.dispatch( testActions.resetState() );
 		resetDispatchedActions();
 	} );

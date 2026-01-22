@@ -1,13 +1,6 @@
 import { EventEmitter } from 'events';
-import { vi } from 'vitest';
 // Mock the pm2-manager module BEFORE importing wordpress-server-manager
-vi.mock( 'cli/lib/pm2-manager', () => ( {
-	getPm2Bus: vi.fn(),
-	sendMessageToProcess: vi.fn(),
-	isProcessRunning: vi.fn(),
-	startProcess: vi.fn(),
-	stopProcess: vi.fn(),
-} ) );
+vi.mock( 'cli/lib/pm2-manager' );
 import { SiteData } from 'cli/lib/appdata';
 import * as pm2Manager from 'cli/lib/pm2-manager';
 import {
@@ -16,6 +9,7 @@ import {
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 describe( 'WordPress Server Manager', () => {
 	const mockLogger = {
@@ -50,7 +44,7 @@ describe( 'WordPress Server Manager', () => {
 		vi.mocked( pm2Manager.isProcessRunning ).mockResolvedValue( undefined );
 		vi.mocked( pm2Manager.startProcess ).mockResolvedValue( mockProcessDescription );
 		vi.mocked( pm2Manager.stopProcess ).mockResolvedValue( undefined );
-		vi.mocked( pm2Manager.getPm2Bus ).mockResolvedValue( mockBus as unknown as EventEmitter );
+		vi.mocked( pm2Manager.getPm2Bus ).mockResolvedValue( mockBus );
 	} );
 
 	afterEach( () => {

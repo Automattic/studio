@@ -1,7 +1,7 @@
 import { render, act, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { vi, type Mock } from 'vitest';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 import MainSidebar from 'src/components/main-sidebar';
 import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';
@@ -114,7 +114,7 @@ describe( 'MainSidebar Footer', () => {
 		vi.clearAllMocks();
 	} );
 	it( 'Has add site button', async () => {
-		( useAuth as Mock ).mockReturnValue( { isAuthenticated: false } );
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
 		expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toBeVisible();
 	} );

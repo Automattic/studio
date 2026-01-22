@@ -1,10 +1,10 @@
-import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { vi, type Mock } from 'vitest';
 import { SiteData, readAppdata } from 'cli/lib/appdata';
 import { isProxyProcessRunning, stopProxyProcess } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
+import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
+import { vi, beforeEach, afterEach, describe, it, expect, type Mock } from 'vitest';
 
 vi.mock( 'pm2' );
 

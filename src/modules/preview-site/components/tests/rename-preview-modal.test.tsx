@@ -1,14 +1,15 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { vi, beforeEach, describe, it, expect } from 'vitest';
 import { RenamePreviewModal } from '../rename-preview-modal';
 
 describe( 'RenamePreviewModal', () => {
-	const mockOnRename = jest.fn();
-	const mockOnClose = jest.fn();
+	const mockOnRename = vi.fn();
+	const mockOnClose = vi.fn();
 	const initialName = 'Initial Preview Name';
 
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 	} );
 
 	it( 'renders with initial name in input', () => {

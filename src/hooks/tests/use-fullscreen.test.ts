@@ -1,21 +1,23 @@
+import { IpcRendererEvent } from 'electron';
 import { renderHook, waitFor } from '@testing-library/react';
 import { act } from 'react';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { useFullscreen } from 'src/hooks/use-fullscreen';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
-jest.mock( 'src/lib/get-ipc-api' );
-jest.mock( 'src/hooks/use-ipc-listener' );
+vi.mock( 'src/lib/get-ipc-api' );
+vi.mock( 'src/hooks/use-ipc-listener' );
 
 const mockIpcApi = {
-	isFullscreen: jest.fn(),
+	isFullscreen: vi.fn(),
 };
 
-( getIpcApi as jest.Mock ).mockReturnValue( mockIpcApi );
+vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( mockIpcApi );
 
 describe( 'useFullscreen', () => {
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 	} );
 
 	it( 'should initialize with false and update when isFullscreen resolves', async () => {
@@ -32,8 +34,8 @@ describe( 'useFullscreen', () => {
 
 	it( 'should update state when receiving window-fullscreen-change event', async () => {
 		mockIpcApi.isFullscreen.mockResolvedValue( false );
-		let eventHandler: ( _: unknown, fullscreen: boolean ) => void = () => undefined;
-		( useIpcListener as jest.Mock ).mockImplementation( ( _channel, handler ) => {
+		let eventHandler: ( _: IpcRendererEvent, fullscreen: boolean ) => void = () => undefined;
+		vi.mocked( useIpcListener, { partial: true } ).mockImplementation( ( _channel, handler ) => {
 			eventHandler = handler;
 		} );
 
@@ -44,21 +46,21 @@ describe( 'useFullscreen', () => {
 		} );
 
 		await act( async () => {
-			eventHandler( null, true );
+			eventHandler( {} as IpcRendererEvent, true );
 		} );
 
 		expect( result.current ).toBe( true );
 
 		await act( async () => {
-			eventHandler( null, false );
+			eventHandler( {} as IpcRendererEvent, false );
 		} );
 
 		expect( result.current ).toBe( false );
 	} );
 
 	it( 'should not update state if component is unmounted', async () => {
-		let eventHandler: ( _: unknown, fullscreen: boolean ) => void = () => undefined;
-		( useIpcListener as jest.Mock ).mockImplementation( ( _channel, handler ) => {
+		let eventHandler: ( _: IpcRendererEvent, fullscreen: boolean ) => void = () => undefined;
+		vi.mocked( useIpcListener, { partial: true } ).mockImplementation( ( _channel, handler ) => {
 			eventHandler = handler;
 		} );
 
@@ -69,7 +71,7 @@ describe( 'useFullscreen', () => {
 		unmount();
 
 		await act( async () => {
-			eventHandler( null, true );
+			eventHandler( {} as IpcRendererEvent, true );
 		} );
 
 		expect( result.current ).toBe( false );

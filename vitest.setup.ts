@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom';
 import { TextEncoder, TextDecoder } from 'util';
+import { webcrypto } from 'crypto';
 import 'isomorphic-fetch';
 import nock from 'nock';
 import { vi, beforeEach, afterEach, afterAll } from 'vitest';
@@ -10,6 +11,11 @@ if ( typeof globalThis.TextEncoder === 'undefined' ) {
 }
 if ( typeof globalThis.TextDecoder === 'undefined' ) {
 	globalThis.TextDecoder = TextDecoder as any;
+}
+
+// Polyfill crypto for Node.js environment tests
+if ( typeof globalThis.crypto === 'undefined' ) {
+	globalThis.crypto = webcrypto as Crypto;
 }
 
 // We need this polyfill because the `ReadableStream` class is

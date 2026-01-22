@@ -94,4 +94,30 @@ describe( 'Anchor', () => {
 
 		expect( screen.getByRole( 'link' ) ).toHaveClass( 'animate-pulse', 'cursor-wait' );
 	} );
+
+	it( 'should add UTM params when clicking a Telex link', () => {
+		( useSiteDetails as jest.Mock ).mockReturnValue( {} );
+		render( <Anchor href="https://telex.automattic.ai/" children="Telex link" /> );
+
+		screen.getByRole( 'link' ).click();
+
+		expect( getIpcApi().openURL ).toHaveBeenCalledWith(
+			expect.stringContaining( 'utm_source=studio' )
+		);
+		expect( getIpcApi().openURL ).toHaveBeenCalledWith(
+			expect.stringContaining( 'utm_medium=app' )
+		);
+		expect( getIpcApi().openURL ).toHaveBeenCalledWith(
+			expect.stringContaining( 'utm_campaign=assistant' )
+		);
+	} );
+
+	it( 'should not modify non-Telex URLs', () => {
+		( useSiteDetails as jest.Mock ).mockReturnValue( {} );
+		render( <Anchor href="https://wordpress.com/" children="WordPress link" /> );
+
+		screen.getByRole( 'link' ).click();
+
+		expect( getIpcApi().openURL ).toHaveBeenCalledWith( 'https://wordpress.com/' );
+	} );
 } );

@@ -14,7 +14,7 @@ import { createSiteViaCli, type CreateSiteOptions } from 'src/modules/cli/lib/cl
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
-import { loadUserData } from 'src/storage/user-data';
+import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type WpCliResult = { stdout: string; stderr: string; exitCode: number };
@@ -255,20 +255,27 @@ export class SiteServer {
 		const outPath = getSiteThumbnailPath( this.details.id );
 		const outDir = nodePath.dirname( outPath );
 
+		let capturedImage: Electron.NativeImage | null = null;
+
 		// Continue taking the screenshot asynchronously so we don't prevent the
 		// UI from showing the server is now available.
 		return fs.promises
 			.mkdir( outDir, { recursive: true } )
 			.then( waitForCapture )
-			.then( ( image ) => fs.promises.writeFile( outPath, image.toPNG() ) )
+			.then( ( image ) => {
+				capturedImage = image;
+				return fs.promises.writeFile( outPath, image.toPNG() );
+			} )
 			.catch( async ( error ) => {
 				Sentry.captureException( error );
-				try {
-					await fs.promises.unlink( outPath );
-				} catch ( unlinkError ) {
-					// Ignore ENOENT errors as the file might not exist
-					if ( ( unlinkError as NodeJS.ErrnoException ).code !== 'ENOENT' ) {
-						console.error( 'Failed to cleanup thumbnail file:', unlinkError );
+				if ( capturedImage ) {
+					try {
+						await fs.promises.unlink( outPath );
+					} catch ( unlinkError ) {
+						// Ignore ENOENT errors as the file might not exist
+						if ( ( unlinkError as NodeJS.ErrnoException ).code !== 'ENOENT' ) {
+							console.error( 'Failed to cleanup thumbnail file:', unlinkError );
+						}
 					}
 				}
 			} )
@@ -388,10 +395,25 @@ export class SiteServer {
 			}
 
 			const themeDetailsParsed = JSON.parse( stdout );
-			return SiteServer.themeDetailsSchema.parse( themeDetailsParsed );
+			this.details.themeDetails = SiteServer.themeDetailsSchema.parse( themeDetailsParsed );
 		} catch ( error ) {
 			console.error( 'Failed to get theme details:', error );
-			return this.details.themeDetails;
+		}
+
+		return this.details.themeDetails;
+	}
+
+	async persistThemeDetails(): Promise< void > {
+		try {
+			await lockAppdata();
+			const userData = await loadUserData();
+			const existingSite = userData.sites.find( ( site ) => site.id === this.details.id );
+			if ( existingSite ) {
+				existingSite.themeDetails = this.details.themeDetails;
+			}
+			await saveUserData( userData );
+		} finally {
+			await unlockAppdata();
 		}
 	}
 

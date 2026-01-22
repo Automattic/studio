@@ -30,6 +30,7 @@ import {
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import { getAuthenticationUrl } from 'common/lib/oauth';
+import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
@@ -116,56 +117,6 @@ export {
 	saveUserTerminal,
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
-
-async function sendThumbnailChangedEvent( event: IpcMainInvokeEvent, id: string ) {
-	if ( event.sender.isDestroyed() ) {
-		return;
-	}
-	const thumbnailData = await getThumbnailData( event, id );
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-changed', {
-		id,
-		imageData: thumbnailData,
-	} );
-}
-
-/**
- * Refreshes site metadata (theme details and thumbnail) and notifies the renderer.
- * This is typically called after a site is started or created.
- */
-async function refreshSiteMetadataAndNotify(
-	event: IpcMainInvokeEvent,
-	server: SiteServer,
-	parentWindow: BrowserWindow | null
-): Promise< void > {
-	const id = server.details.id;
-
-	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-updating', { id } );
-
-	try {
-		const themeDetails = await server.getThemeDetails();
-		if ( themeDetails ) {
-			server.details.themeDetails = themeDetails;
-		}
-	} catch ( error ) {
-		console.error( `Failed to get theme details for server ${ id }:`, error );
-	}
-
-	// Always send theme-details-changed to reset loading state, even if fetching failed
-	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-changed', {
-		id,
-		details: server.details.themeDetails,
-	} );
-
-	await updateSite( event, server.details );
-
-	try {
-		await server.updateCachedThumbnail();
-		await sendThumbnailChangedEvent( event, id );
-	} catch ( error ) {
-		console.error( `Failed to update thumbnail for server ${ id }:`, error );
-	}
-}
 
 function mergeSiteDetailsWithRunningDetails( sites: SiteDetails[] ): SiteDetails[] {
 	return sites.map( ( site ) => {
@@ -291,11 +242,9 @@ export async function createSite(
 			{ wpVersion, blueprint: blueprint?.blueprint }
 		);
 
-		const parentWindow = BrowserWindow.fromWebContents( event.sender );
-
 		// If the site is running after creation, fetch theme details and update thumbnail
 		if ( server.details.running ) {
-			void refreshSiteMetadataAndNotify( event, server, parentWindow );
+			void loadThemeDetails( event, server.details.id );
 		}
 
 		return server.details;
@@ -331,6 +280,8 @@ export async function createSite(
 	}
 }
 
+// Update a site's details (name, custom domain, PHP version, etc). This function calls the
+// `site set` CLI command and updates the `SiteServer` instance after the CLI completes.
 export async function updateSite(
 	event: IpcMainInvokeEvent,
 	updatedSite: SiteDetails,
@@ -365,7 +316,7 @@ export async function updateSite(
 	}
 
 	if ( wpVersion ) {
-		options.wp = wpVersion;
+		options.wp = isWordPressDevVersion( wpVersion ) ? 'nightly' : wpVersion;
 	}
 
 	if ( updatedSite.enableXdebug !== currentSite.enableXdebug ) {
@@ -410,7 +361,6 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		return;
 	}
 
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	try {
 		await server.start();
 	} catch ( error ) {
@@ -448,7 +398,7 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 	}
 
 	if ( server.details.running ) {
-		void refreshSiteMetadataAndNotify( event, server, parentWindow );
+		void loadThemeDetails( event, id );
 	}
 
 	console.log( `Server started for '${ server.details.name }'` );
@@ -748,35 +698,48 @@ export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 	shell.showItemInFolder( path );
 }
 
-export async function getThemeDetails(
+// Update a site's theme details and thumbnail. Emit the appropriate IPC events to the renderer
+// process.
+export async function loadThemeDetails(
 	event: IpcMainInvokeEvent,
-	id: string
+	id: string,
+	emitThemeDetailsLoadingEvent = true
 ): Promise< StartedSiteDetails[ 'themeDetails' ] > {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		throw new Error( 'Site not found.' );
 	}
 
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( emitThemeDetailsLoadingEvent ) {
+		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-loading', { id } );
+	}
+
+	const oldThemePath = server.details.themeDetails?.path;
 	const themeDetails = await server.getThemeDetails();
-	const themeChanged =
-		themeDetails?.path && themeDetails.path !== server.details.themeDetails?.path;
+	const hasThemeChanged = themeDetails?.path !== oldThemePath;
 
-	if ( themeChanged ) {
-		const parentWindow = BrowserWindow.fromWebContents( event.sender );
-		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-changed', {
-			id,
-			details: themeDetails,
-		} );
+	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-loaded', {
+		id,
+		details: themeDetails,
+	} );
 
-		server.details.themeDetails = themeDetails;
-		await updateSite( event, server.details );
+	if ( hasThemeChanged ) {
+		await server.persistThemeDetails();
 
-		void server
-			.updateCachedThumbnail()
-			.then( () => sendThumbnailChangedEvent( event, id ) )
-			.catch( ( error ) =>
-				console.error( `Failed to update thumbnail for server ${ id }:`, error )
-			);
+		try {
+			sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loading', { id } );
+			await server.updateCachedThumbnail();
+			const thumbnailPath = getSiteThumbnailPath( id );
+			const thumbnailData = await getImageData( thumbnailPath );
+			sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loaded', {
+				id,
+				imageData: thumbnailData,
+			} );
+		} catch ( error ) {
+			sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-load-error', { id } );
+			console.error( `Failed to update thumbnail for server ${ id }:`, error );
+		}
 	}
 
 	return themeDetails;

@@ -3,13 +3,7 @@ import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
 } from 'common/lib/blueprint-validation';
-import {
-	isEmptyDir,
-	isWordPressDirectory,
-	pathExists,
-	arePathsEqual,
-	recursiveCopyDirectory,
-} from 'common/lib/fs-utils';
+import { isEmptyDir, isWordPressDirectory, pathExists, arePathsEqual } from 'common/lib/fs-utils';
 import { isOnline } from 'common/lib/network-utils';
 import { portFinder } from 'common/lib/port-finder';
 import {
@@ -39,6 +33,10 @@ jest.mock( 'common/lib/port-finder', () => ( {
 } ) );
 jest.mock( 'common/lib/passwords', () => ( {
 	createPassword: jest.fn().mockReturnValue( 'generated-password-123' ),
+} ) );
+jest.mock( 'fs-extra', () => ( {
+	...jest.requireActual( 'fs-extra' ),
+	copy: jest.fn().mockResolvedValue( undefined ),
 } ) );
 jest.mock( 'common/lib/blueprint-validation' );
 jest.mock( 'cli/lib/appdata', () => ( {
@@ -132,7 +130,6 @@ describe( 'CLI: studio site create', () => {
 		( isEmptyDir as jest.Mock ).mockResolvedValue( true );
 		( isWordPressDirectory as jest.Mock ).mockReturnValue( false );
 		( arePathsEqual as jest.Mock ).mockImplementation( ( a, b ) => a === b );
-		( recursiveCopyDirectory as jest.Mock ).mockResolvedValue( undefined );
 		( portFinder.getOpenPort as jest.Mock ).mockResolvedValue( mockPort );
 		( readAppdata as jest.Mock ).mockResolvedValue( {
 			sites: [ ...mockAppdata.sites ],

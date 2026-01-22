@@ -1,6 +1,5 @@
 import fs, { promises as fsPromises } from 'fs';
 import path from 'path';
-import fse from 'fs-extra';
 import { isErrnoException } from './is-errno-exception';
 
 /**
@@ -76,13 +75,6 @@ export async function pathExists( path: string ): Promise< boolean > {
 		}
 		throw err;
 	}
-}
-
-export async function recursiveCopyDirectory(
-	source: string,
-	destination: string
-): Promise< void > {
-	await fse.copy( source, destination );
 }
 
 export async function isEmptyDir( directory: string ): Promise< boolean > {

@@ -1,12 +1,13 @@
 import { defineConfig } from 'vitest/config';
 import path from 'path';
 
-export default defineConfig({
+export default defineConfig( {
 	test: {
+		pool: 'threads',
 		globals: true,
 		environment: 'jsdom',
 		environmentOptions: {
-			customExportConditions: ['node', 'node-addons'],
+			customExportConditions: [ 'node', 'node-addons' ],
 		},
 		include: [
 			'src/**/*.{test,spec}.{ts,tsx}',
@@ -20,11 +21,11 @@ export default defineConfig({
 			'**/vendor/**',
 		],
 		globalSetup: './vitest.global-setup.ts',
-		setupFiles: ['./vitest.setup.ts'],
+		setupFiles: [ './vitest.setup.ts' ],
 		server: {
 			deps: {
-				inline: ['@php-wasm', '@wp-playground'],
-				external: ['electron'],
+				inline: [ '@php-wasm', '@wp-playground' ],
+				external: [ 'electron' ],
 			},
 		},
 		poolOptions: {
@@ -37,11 +38,11 @@ export default defineConfig({
 	},
 	resolve: {
 		alias: {
-			pm2: path.resolve(__dirname, './__mocks__/pm2.ts'),
-			cli: path.resolve(__dirname, './cli'),
-			src: path.resolve(__dirname, './src'),
-			vendor: path.resolve(__dirname, './vendor'),
-			common: path.resolve(__dirname, './common'),
+			pm2: path.resolve( __dirname, './__mocks__/pm2.ts' ),
+			cli: path.resolve( __dirname, './cli' ),
+			src: path.resolve( __dirname, './src' ),
+			vendor: path.resolve( __dirname, './vendor' ),
+			common: path.resolve( __dirname, './common' ),
 		},
 	},
-});
+} );

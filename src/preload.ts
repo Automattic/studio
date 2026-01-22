@@ -86,7 +86,7 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'generateProposedSitePath', siteName ),
 	openLocalPath: ( path ) => ipcRendererSend( 'openLocalPath', path ),
 	showItemInFolder: ( path ) => ipcRendererSend( 'showItemInFolder', path ),
-	getThemeDetails: ( id ) => ipcRendererInvoke( 'getThemeDetails', id ),
+	loadThemeDetails: ( id ) => ipcRendererInvoke( 'loadThemeDetails', id ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
 	importSite: ( { id, backupFile } ) => ipcRendererInvoke( 'importSite', { id, backupFile } ),

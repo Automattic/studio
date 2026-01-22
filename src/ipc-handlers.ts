@@ -243,7 +243,7 @@ export async function createSite(
 
 		// If the site is running after creation, fetch theme details and update thumbnail
 		if ( server.details.running ) {
-			void getThemeDetails( event, server.details.id );
+			void loadThemeDetails( event, server.details.id );
 		}
 
 		return server.details;
@@ -279,6 +279,8 @@ export async function createSite(
 	}
 }
 
+// Update a site's details (name, custom domain, PHP version, etc). This function calls the
+// `site set` CLI command and updates the `SiteServer` instance after the CLI completes.
 export async function updateSite(
 	event: IpcMainInvokeEvent,
 	updatedSite: SiteDetails,
@@ -395,7 +397,7 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 	}
 
 	if ( server.details.running ) {
-		void getThemeDetails( event, id );
+		void loadThemeDetails( event, id );
 	}
 
 	console.log( `Server started for '${ server.details.name }'` );
@@ -695,7 +697,9 @@ export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 	shell.showItemInFolder( path );
 }
 
-export async function getThemeDetails(
+// Update a site's theme details and thumbnail. Emit the appropriate IPC events to the renderer
+// process.
+export async function loadThemeDetails(
 	event: IpcMainInvokeEvent,
 	id: string
 ): Promise< StartedSiteDetails[ 'themeDetails' ] > {

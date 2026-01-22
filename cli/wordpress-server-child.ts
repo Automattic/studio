@@ -12,7 +12,6 @@
  */
 import { cpus } from 'os';
 import { dirname } from 'path';
-import { SupportedPHPVersion } from '@php-wasm/universal';
 import { BlueprintBundle } from '@wp-playground/blueprints';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import {
@@ -229,10 +228,6 @@ async function getBaseRunCLIArgs(
 		blueprint: blueprintBundle,
 		wordpressInstallMode,
 	};
-
-	if ( config.phpVersion ) {
-		args.php = config.phpVersion as SupportedPHPVersion;
-	}
 
 	if ( config.wpVersion ) {
 		if ( isWordPressDevVersion( config.wpVersion ) ) {

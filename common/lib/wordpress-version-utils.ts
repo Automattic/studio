@@ -20,9 +20,9 @@ export function isValidWordPressVersion( version: string ): boolean {
 }
 
 export function isWordPressDevVersion( version: string ): boolean {
-	// Match nightly build patterns that end with a build number
-	// Examples: 6.8-alpha1-12345, 6.8-beta2-59979, 6.8-dev-12345, 6.8-59979
-	return /^\d+\.\d+(?:\.\d+)?(?:-[a-zA-Z0-9]+)*-\d+$/.test( version );
+	// Match 'nightly' keyword or nightly build patterns that end with a build number
+	// Examples: nightly, 6.8-alpha1-12345, 6.8-beta2-59979, 6.8-dev-12345, 6.8-59979
+	return version === 'nightly' || /^\d+\.\d+(?:\.\d+)?(?:-[a-zA-Z0-9]+)*-\d+$/.test( version );
 }
 
 export function isWordPressBetaVersion( version: string ): boolean {

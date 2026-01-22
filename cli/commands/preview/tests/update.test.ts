@@ -1,14 +1,14 @@
 import os from 'os';
 import path from 'path';
 import { Archiver } from 'archiver';
+import { DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
+import { getWordPressVersion } from 'common/lib/get-wordpress-version';
+import { vi } from 'vitest';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { updateSnapshotInAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
-import { DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
-import { getWordPressVersion } from 'common/lib/get-wordpress-version';
-import { vi } from 'vitest';
 import { runCommand } from '../update';
 
 vi.mock( 'common/lib/get-wordpress-version' );

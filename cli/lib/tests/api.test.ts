@@ -1,10 +1,9 @@
 import fs from 'fs';
-import { uploadArchive, waitForSiteReady, SnapshotStatus } from 'cli/lib/api';
-import { LoggerError } from 'cli/logger';
 import { createMock } from 'src/lib/test-utils';
 import wpcomFactory from 'src/lib/wpcom-factory';
 import { vi } from 'vitest';
-
+import { uploadArchive, waitForSiteReady, SnapshotStatus } from 'cli/lib/api';
+import { LoggerError } from 'cli/logger';
 vi.mock( 'fs' );
 vi.mock( 'wpcom' );
 vi.mock( 'wpcom-xhr-request' );

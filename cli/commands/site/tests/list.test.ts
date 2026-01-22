@@ -1,9 +1,8 @@
+import { vi } from 'vitest';
 import { readAppdata } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
-import { vi } from 'vitest';
 import { runCommand } from '../list';
-
 vi.mock( 'cli/lib/appdata', async () => {
 	const actual = await vi.importActual( 'cli/lib/appdata' );
 	return {

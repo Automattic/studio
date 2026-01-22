@@ -16,8 +16,8 @@ const createTestStore = () => {
 const originalFetch = global.fetch;
 
 function mockWordPressApi( responses: {
-	beta?: any;
-	development?: any;
+	beta?: unknown;
+	development?: unknown;
 	betaError?: boolean;
 	developmentError?: boolean;
 } ) {

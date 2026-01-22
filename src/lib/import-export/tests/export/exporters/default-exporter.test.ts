@@ -4,7 +4,7 @@ import os from 'os';
 import path from 'path';
 import archiver from 'archiver';
 import { format } from 'date-fns';
-import { vi, beforeAll, afterAll, Mock, MockedFunction, Mocked,  } from 'vitest';
+import { vi, beforeAll, afterAll, Mock, MockedFunction, Mocked } from 'vitest';
 import { DefaultExporter } from 'src/lib/import-export/export/exporters';
 import { ExportOptions, BackupContents } from 'src/lib/import-export/export/types';
 import { getWordPressVersionFromInstallation } from 'src/lib/wp-versions';

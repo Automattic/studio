@@ -1,4 +1,6 @@
 import { input } from '@inquirer/prompts';
+import { getAuthenticationUrl } from 'common/lib/oauth';
+import { vi } from 'vitest';
 import { getUserInfo } from 'cli/lib/api';
 import {
 	getAuthToken,
@@ -10,8 +12,6 @@ import {
 import { openBrowser } from 'cli/lib/browser';
 import { getAppLocale } from 'cli/lib/i18n';
 import { LoggerError } from 'cli/logger';
-import { getAuthenticationUrl } from 'common/lib/oauth';
-import { vi } from 'vitest';
 import { runCommand } from '../login';
 import {
 	mockReportStart,

@@ -1,12 +1,12 @@
 import os from 'os';
 import path from 'path';
+import { getWordPressVersion } from 'common/lib/get-wordpress-version';
+import { vi } from 'vitest';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { saveSnapshotToAppdata } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
-import { getWordPressVersion } from 'common/lib/get-wordpress-version';
-import { vi } from 'vitest';
 import { runCommand } from '../create';
 
 // Shared mock functions for Logger

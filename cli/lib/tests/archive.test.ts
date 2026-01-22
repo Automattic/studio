@@ -1,9 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import archiver from 'archiver';
-import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { vi } from 'vitest';
-
+import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 vi.mock( 'fs' );
 vi.mock( 'path' );
 vi.mock( 'archiver' );

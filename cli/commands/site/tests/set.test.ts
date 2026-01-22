@@ -1,4 +1,7 @@
 import { StreamedPHPResponse } from '@php-wasm/universal';
+import { getDomainNameValidationError } from 'common/lib/domains';
+import { arePathsEqual } from 'common/lib/fs-utils';
+import { vi } from 'vitest';
 import {
 	getSiteByFolder,
 	isXdebugBetaEnabled,
@@ -16,9 +19,6 @@ import {
 	startWordPressServer,
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
-import { getDomainNameValidationError } from 'common/lib/domains';
-import { arePathsEqual } from 'common/lib/fs-utils';
-import { vi } from 'vitest';
 import { runCommand } from '../set';
 
 vi.mock( 'common/lib/domains' );

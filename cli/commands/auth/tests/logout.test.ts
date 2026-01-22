@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { revokeAuthToken } from 'cli/lib/api';
 import {
 	getAuthToken,
@@ -7,7 +8,6 @@ import {
 	unlockAppdata,
 } from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
-import { vi } from 'vitest';
 import { runCommand } from '../logout';
 import {
 	mockReportStart,

@@ -1,10 +1,9 @@
 import fs from 'fs';
 import path from 'path';
-import { validateSiteSize } from 'cli/lib/validation';
-import { LoggerError } from 'cli/logger';
 import { calculateDirectorySize, isWordPressDirectory } from 'common/lib/fs-utils';
 import { vi } from 'vitest';
-
+import { validateSiteSize } from 'cli/lib/validation';
+import { LoggerError } from 'cli/logger';
 vi.mock( 'fs' );
 vi.mock( 'path' );
 vi.mock( 'common/lib/fs-utils', () => ( {

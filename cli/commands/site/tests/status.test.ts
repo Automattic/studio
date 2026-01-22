@@ -1,10 +1,9 @@
+import { getWordPressVersion } from 'common/lib/get-wordpress-version';
+import { vi } from 'vitest';
 import { getSiteByFolder, getSiteUrl, isXdebugBetaEnabled } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
-import { getWordPressVersion } from 'common/lib/get-wordpress-version';
-import { vi } from 'vitest';
 import { runCommand } from '../status';
-
 vi.mock( 'cli/lib/appdata', async () => {
 	const actual = await vi.importActual( 'cli/lib/appdata' );
 	return {

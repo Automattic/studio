@@ -1,3 +1,6 @@
+import { arePathsEqual } from 'common/lib/fs-utils';
+import trash from 'trash';
+import { vi } from 'vitest';
 import { deleteSnapshot } from 'cli/lib/api';
 import {
 	SiteData,
@@ -14,9 +17,6 @@ import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snapshots';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
-import { arePathsEqual } from 'common/lib/fs-utils';
-import trash from 'trash';
-import { vi } from 'vitest';
 import { runCommand } from '../delete';
 
 vi.mock( 'fs/promises' );

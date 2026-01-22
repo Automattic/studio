@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import {
 	SiteData,
 	clearSiteLatestCliPid,
@@ -9,7 +10,6 @@ import {
 import { connect, disconnect, killDaemonAndChildrenAndExitProcess } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
-import { vi } from 'vitest';
 import { Mode, runCommand } from '../stop';
 
 vi.mock( 'cli/lib/appdata', async () => {

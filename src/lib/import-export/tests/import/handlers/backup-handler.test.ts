@@ -303,6 +303,9 @@ describe( 'BackupHandlerFactory', () => {
 				handler?.extractFiles( archiveInfo, extractionDirectory )
 			).resolves.not.toThrow();
 
+			// Wait for async callbacks to complete
+			await new Promise( ( resolve ) => setTimeout( resolve, 10 ) );
+
 			// Verify zip file was opened with correct options
 			expect( yauzl.open ).toHaveBeenCalledWith(
 				archiveInfo.path,

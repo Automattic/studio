@@ -15,7 +15,7 @@ const wrapper = ( { children }: { children: React.ReactNode } ) => (
 	<Provider store={ store }>{ children }</Provider>
 );
 
-describe.skip( 'useBlueprintDeeplink', () => {
+describe( 'useBlueprintDeeplink', () => {
 	const mockSetSelectedBlueprint = vi.fn();
 	const mockSetPhpVersion = vi.fn();
 	const mockSetWpVersion = vi.fn();
@@ -41,7 +41,6 @@ describe.skip( 'useBlueprintDeeplink', () => {
 	};
 
 	beforeEach( () => {
-		vi.clearAllMocks();
 		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			readBlueprintFile: vi.fn(),
 		} );

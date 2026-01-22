@@ -153,10 +153,8 @@ beforeEach( () => {
 	} );
 } );
 
-describe.skip( 'AddSite', () => {
-	beforeEach( () => {
-		vi.clearAllMocks();
-	} );
+describe( 'AddSite', () => {
+	beforeEach( () => {} );
 
 	it( 'should dismiss the modal when the close button is activated via keyboard', async () => {
 		const user = userEvent.setup();

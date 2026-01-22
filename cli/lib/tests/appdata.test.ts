@@ -2,6 +2,9 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { readFile, writeFile } from 'atomically';
+import { arePathsEqual } from 'common/lib/fs-utils';
+import { StatsMetric } from 'common/types/stats';
+import { vi } from 'vitest';
 import {
 	readAppdata,
 	saveAppdata,
@@ -9,9 +12,6 @@ import {
 	lockAppdata,
 	unlockAppdata,
 } from 'cli/lib/appdata';
-import { arePathsEqual } from 'common/lib/fs-utils';
-import { StatsMetric } from 'common/types/stats';
-import { vi } from 'vitest';
 
 vi.mock( 'fs' );
 vi.mock( 'os' );

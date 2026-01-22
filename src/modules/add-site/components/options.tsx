@@ -92,7 +92,7 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 			<Heading className="text-[32px] text-gray-900" weight={ 500 }>
 				{ __( 'Add a site' ) }
 			</Heading>
-			<Text className="text-[15px] font-light text-gray-700 w-72 mb-4">
+			<Text className="text-[15px] font-light text-gray-700 max-w-sm mb-4">
 				{ __( 'Add a clean site, start from a Blueprint or import site from a backup' ) }
 			</Text>
 			<OptionButton

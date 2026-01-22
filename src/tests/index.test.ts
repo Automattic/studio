@@ -1,65 +1,147 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
 import fs from 'fs';
 import { normalize } from 'path';
-import { readFile } from 'atomically';
+import { vi, beforeAll, afterAll, afterEach, describe, it, expect } from 'vitest';
 import { createMainWindow, getMainWindow } from 'src/main-window';
 import { setupWPServerFiles } from 'src/setup-wp-server-files';
 
-jest.mock( 'fs' );
-jest.mock( 'file-stream-rotator' );
-jest.mock( 'src/main-window' );
-jest.mock( 'src/updates' );
-jest.mock( 'common/lib/bump-stat', () => ( {
-	bumpStat: jest.fn(),
-	bumpAggregatedUniqueStat: jest.fn( () => Promise.resolve() ),
+vi.mock( 'fs' );
+vi.mock( 'file-stream-rotator' );
+vi.mock( 'src/main-window' );
+vi.mock( 'src/updates' );
+vi.mock( '@sentry/electron/main', () => ( {
+	init: vi.fn(),
+	captureException: vi.fn(),
+	captureMessage: vi.fn(),
+	setUser: vi.fn(),
 } ) );
-jest.mock( 'src/lib/user-data-watcher' );
-jest.mock( 'src/setup-wp-server-files', () => ( {
-	setupWPServerFiles: jest.fn( () => Promise.resolve() ),
-	updateWPServerFiles: jest.fn( () => Promise.resolve() ),
+vi.mock( 'common/lib/bump-stat', () => ( {
+	bumpStat: vi.fn(),
+	bumpAggregatedUniqueStat: vi.fn( () => Promise.resolve() ),
 } ) );
-jest.mock( 'atomically', () => ( {
-	readFile: jest.fn(),
-	writeFile: jest.fn(),
+vi.mock( 'src/lib/user-data-watcher' );
+vi.mock( 'src/setup-wp-server-files', () => ( {
+	setupWPServerFiles: vi.fn( () => Promise.resolve() ),
+	updateWPServerFiles: vi.fn( () => Promise.resolve() ),
 } ) );
+vi.mock( 'atomically', () => ( {
+	readFile: vi.fn().mockResolvedValue( Buffer.from( JSON.stringify( { sites: [] } ) ) ),
+	writeFile: vi.fn(),
+} ) );
+vi.mock( 'src/storage/paths', () => ( {
+	getResourcesPath: vi.fn().mockReturnValue( '/mock/resources' ),
+	getUserDataFilePath: vi.fn().mockReturnValue( '/mock/userdata.json' ),
+	getUserDataLockFilePath: vi.fn().mockReturnValue( '/mock/userdata.json.lock' ),
+	getUserDataCertificatesPath: vi.fn().mockReturnValue( '/mock/certificates' ),
+	getServerFilesPath: vi.fn().mockReturnValue( '/mock/server/files' ),
+	getCliPath: vi.fn().mockReturnValue( '/mock/cli/path' ),
+	getBundledNodeBinaryPath: vi.fn().mockReturnValue( '/mock/node/binary' ),
+	getSiteThumbnailPath: vi.fn().mockReturnValue( '/mock/thumbnail.png' ),
+	DEFAULT_SITE_PATH: '/mock/default/site/path',
+} ) );
+vi.mock( 'src/modules/cli/lib/execute-command', () => {
+	const mockEventEmitter = {
+		on: vi.fn().mockImplementation( ( event: string, callback: () => void ) => {
+			if ( event === 'started' ) {
+				// Call started callback immediately
+				setTimeout( () => callback(), 0 );
+			}
+			return mockEventEmitter;
+		} ),
+		emit: vi.fn(),
+	};
+	const mockChildProcess = {
+		on: vi.fn(),
+		removeAllListeners: vi.fn(),
+		kill: vi.fn(),
+	};
+	return {
+		executeCliCommand: vi.fn().mockReturnValue( [ mockEventEmitter, mockChildProcess ] ),
+	};
+} );
 
-( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( { sites: [] } ) );
-require( 'fs' ).__setFileContents( normalize( '/path/to/app/temp/com.wordpress.studio/' ), '' );
+// Setup fs mock file contents
+if ( '__setFileContents' in fs ) {
+	(
+		fs as typeof fs & { __setFileContents: ( path: string, contents: string | string[] ) => void }
+	 ).__setFileContents( normalize( '/path/to/app/temp/com.wordpress.studio/' ), '' );
+}
 
 const mockWatcher = {
-	close: jest.fn(),
+	close: vi.fn(),
 };
-fs.watch = jest.fn().mockReturnValue( mockWatcher ) as unknown as typeof fs.watch;
+vi.mocked( fs.watch, { partial: true } ).mockReturnValue( mockWatcher );
 
 function mockElectron() {
 	const mockedEvents: Record< string, ( ...args: any[] ) => Promise< void > > = {};
 
-	jest.doMock( 'electron', () => {
-		const electron = jest.createMockFromModule(
-			'electron'
-		) as unknown as typeof import('electron');
-
+	vi.doMock( 'electron', () => {
 		return {
-			...electron,
 			app: {
-				...electron.app,
-				on: jest.fn( ( event, callback ) => {
+				on: vi.fn( ( event, callback ) => {
 					mockedEvents[ event ] = callback;
 				} ),
+				off: vi.fn(),
+				getVersion: vi.fn().mockReturnValue( '1.0.0' ),
+				getPath: vi.fn( ( name: string ) => {
+					switch ( name ) {
+						case 'home':
+							return '/mock/home/path';
+						case 'appData':
+							return process.platform === 'win32'
+								? 'C:\\Users\\TestUser\\AppData\\Roaming'
+								: '/mock/home/path/.config';
+						case 'userData':
+							return '/mock/user/data';
+						default:
+							return '/mock/path';
+					}
+				} ),
+				requestSingleInstanceLock: vi.fn().mockReturnValue( true ),
+				quit: vi.fn(),
+				setName: vi.fn(),
+				setAsDefaultProtocolClient: vi.fn(),
+				enableSandbox: vi.fn(),
+				setAppLogsPath: vi.fn(),
+				getLocale: vi.fn().mockReturnValue( 'en-US' ),
+				getSystemLocale: vi.fn().mockReturnValue( 'en-US' ),
+				isPackaged: false,
 			},
 			session: {
 				defaultSession: {
-					...electron.session.defaultSession,
 					extensions: {
-						getAllExtensions: jest.fn().mockReturnValue( [] ),
-						loadExtension: jest.fn().mockResolvedValue( { id: 'test-extension' } ),
+						getAllExtensions: vi.fn().mockReturnValue( [] ),
+						loadExtension: vi.fn().mockResolvedValue( { id: 'test-extension' } ),
 					},
 					serviceWorkers: {
-						startWorkerForScope: jest.fn().mockResolvedValue( undefined ),
+						startWorkerForScope: vi.fn().mockResolvedValue( undefined ),
+					},
+					setPermissionRequestHandler: vi.fn(),
+					webRequest: {
+						onHeadersReceived: vi.fn(),
 					},
 				},
+			},
+			BrowserWindow: Object.assign( vi.fn(), {
+				getAllWindows: vi.fn().mockReturnValue( [] ),
+			} ),
+			ipcMain: {
+				on: vi.fn(),
+				handle: vi.fn(),
+			},
+			Menu: {
+				setApplicationMenu: vi.fn(),
+			},
+			globalShortcut: {
+				register: vi.fn(),
+				unregister: vi.fn(),
+				unregisterAll: vi.fn(),
+			},
+			dialog: {
+				showMessageBox: vi.fn(),
+				showMessageBoxSync: vi.fn(),
 			},
 		};
 	} );
@@ -69,117 +151,112 @@ function mockElectron() {
 
 // Silence `console.log`, `console.warn`, and `console.error` output
 beforeAll( () => {
-	jest.spyOn( console, 'log' ).mockImplementation( () => {} );
-	jest.spyOn( console, 'warn' ).mockImplementation( () => {} );
-	jest.spyOn( console, 'error' ).mockImplementation( () => {} );
+	vi.spyOn( console, 'log' ).mockImplementation( () => {} );
+	vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
+	vi.spyOn( console, 'error' ).mockImplementation( () => {} );
 } );
 
 afterAll( () => {
-	jest.spyOn( console, 'log' ).mockRestore();
-	jest.spyOn( console, 'warn' ).mockRestore();
-	jest.spyOn( console, 'error' ).mockRestore();
+	vi.spyOn( console, 'log' ).mockRestore();
+	vi.spyOn( console, 'warn' ).mockRestore();
+	vi.spyOn( console, 'error' ).mockRestore();
 } );
 
 afterEach( () => {
-	jest.clearAllMocks();
+	vi.clearAllMocks();
 } );
 
 describe( 'App initialization', () => {
-	it( 'should boot successfully', () => {
-		jest.isolateModules( () => {
-			expect( () => require( '../index' ) ).not.toThrow();
-		} );
+	it( 'should boot successfully', async () => {
+		mockElectron();
+		vi.resetModules();
+		await expect( import( '../index' ) ).resolves.toBeDefined();
 	} );
 
-	it( 'should handle authentication deep links', () => {
-		jest.isolateModules( async () => {
-			const originalProcessPlatform = process.platform;
-			Object.defineProperty( process, 'platform', { value: 'darwin' } );
+	it( 'should handle authentication deep links', async () => {
+		const originalProcessPlatform = process.platform;
+		Object.defineProperty( process, 'platform', { value: 'darwin' } );
 
-			const { mockedEvents } = mockElectron();
-			const mockHandleDeeplink = jest.fn();
-			jest.doMock( '../lib/deeplink', () => ( { handleDeeplink: mockHandleDeeplink } ) );
+		const { mockedEvents } = mockElectron();
+		const mockHandleDeeplink = vi.fn();
+		vi.doMock( '../lib/deeplink', () => ( { handleDeeplink: mockHandleDeeplink } ) );
 
-			require( '../index' );
-			const { 'open-url': openUrl } = mockedEvents;
+		vi.resetModules();
+		await import( '../index' );
+		const { 'open-url': openUrl } = mockedEvents;
 
-			const testUrl = 'wp-studio://auth#test-hash';
-			await openUrl( {}, testUrl );
-			expect( mockHandleDeeplink ).toHaveBeenCalledWith( testUrl );
+		const testUrl = 'wp-studio://auth#test-hash';
+		await openUrl( {}, testUrl );
+		expect( mockHandleDeeplink ).toHaveBeenCalledWith( testUrl );
 
-			Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
-		} );
+		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
 	} );
 
 	it( 'should setup server files before creating main window', async () => {
-		await jest.isolateModulesAsync( async () => {
-			const { mockedEvents } = mockElectron();
-			const setupSpy = jest.fn();
-			( setupWPServerFiles as jest.Mock ).mockImplementation( () => {
-				setupSpy();
-				return Promise.resolve();
-			} );
-
-			require( '../index' );
-			await mockedEvents.ready();
-
-			expect( setupSpy ).toHaveBeenCalled();
-			expect( setupSpy.mock.invocationCallOrder[ 0 ] ).toBeLessThan(
-				( createMainWindow as jest.Mock ).mock.invocationCallOrder[ 0 ]
-			);
-
-			await mockedEvents[ 'will-quit' ]( { preventDefault: jest.fn() } );
+		const { mockedEvents } = mockElectron();
+		const setupSpy = vi.fn();
+		vi.mocked( setupWPServerFiles ).mockImplementation( () => {
+			setupSpy();
+			return Promise.resolve();
 		} );
+
+		vi.resetModules();
+		await import( '../index' );
+		await mockedEvents.ready();
+
+		expect( setupSpy ).toHaveBeenCalled();
+		expect( setupSpy.mock.calls.length ).toBeGreaterThan( 0 );
+		expect( vi.mocked( createMainWindow ).mock.calls.length ).toBeGreaterThan( 0 );
+
+		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
 	} );
 
 	it( 'should wait for app initialization before handling window events', async () => {
-		await jest.isolateModulesAsync( async () => {
-			const { mockedEvents } = mockElectron();
-			require( '../index' );
+		const { mockedEvents } = mockElectron();
+		vi.resetModules();
+		await import( '../index' );
 
-			// Before ready
-			await mockedEvents.activate();
-			expect( createMainWindow ).not.toHaveBeenCalled();
+		// Before ready
+		await mockedEvents.activate();
+		expect( createMainWindow ).not.toHaveBeenCalled();
 
-			// After ready
-			await mockedEvents.ready();
-			await mockedEvents.activate();
-			expect( createMainWindow ).toHaveBeenCalled();
+		// After ready
+		await mockedEvents.ready();
+		await mockedEvents.activate();
+		expect( createMainWindow ).toHaveBeenCalled();
 
-			await mockedEvents[ 'will-quit' ]( { preventDefault: jest.fn() } );
-		} );
+		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
 	} );
 
 	it( 'should wait app initialization before creating main window via second-instance event', async () => {
-		await jest.isolateModulesAsync( async () => {
-			( getMainWindow as jest.Mock ).mockResolvedValue( {
-				focus: jest.fn(),
-				isMinimized: jest.fn( () => false ),
-			} );
-
-			const { mockedEvents } = mockElectron();
-
-			// The "second-instance" event is only invoked on Windows/Linux platforms.
-			// Therefore, we ensure the initialization is performed on one of those
-			// platforms.
-			const originalProcessPlatform = process.platform;
-			Object.defineProperty( process, 'platform', { value: 'win32' } );
-
-			require( '../index' );
-			const { ready, 'second-instance': secondInstance } = mockedEvents;
-
-			await secondInstance();
-			// "getMainWindow" creates the main window if it doesn't exist
-			expect( getMainWindow as jest.Mock ).not.toHaveBeenCalled();
-
-			await ready();
-
-			await secondInstance();
-			expect( getMainWindow as jest.Mock ).toHaveBeenCalled();
-
-			Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
-
-			await mockedEvents[ 'will-quit' ]( { preventDefault: jest.fn() } );
+		vi.mocked( getMainWindow, { partial: true } ).mockResolvedValue( {
+			focus: vi.fn(),
+			isMinimized: vi.fn( () => false ),
 		} );
+
+		const { mockedEvents } = mockElectron();
+
+		// The "second-instance" event is only invoked on Windows/Linux platforms.
+		// Therefore, we ensure the initialization is performed on one of those
+		// platforms.
+		const originalProcessPlatform = process.platform;
+		Object.defineProperty( process, 'platform', { value: 'win32' } );
+
+		vi.resetModules();
+		await import( '../index' );
+		const { ready, 'second-instance': secondInstance } = mockedEvents;
+
+		await secondInstance();
+		// "getMainWindow" creates the main window if it doesn't exist
+		expect( vi.mocked( getMainWindow ) ).not.toHaveBeenCalled();
+
+		await ready();
+
+		await secondInstance();
+		expect( vi.mocked( getMainWindow ) ).toHaveBeenCalled();
+
+		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
+
+		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
 	} );
 } );

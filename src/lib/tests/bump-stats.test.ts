@@ -1,6 +1,6 @@
 import { waitFor } from '@testing-library/react';
 import { readFile, writeFile } from 'atomically';
-import { vi, beforeEach, afterEach } from 'vitest';
+import { vi, beforeEach, afterEach, describe, test, expect } from 'vitest';
 import {
 	bumpStat,
 	bumpAggregatedUniqueStat,

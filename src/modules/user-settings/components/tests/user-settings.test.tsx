@@ -2,7 +2,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { vi, type Mock, beforeEach, afterEach, describe, it, expect } from 'vitest';
+import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest';
 import { useAuth } from 'src/hooks/use-auth';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
@@ -19,6 +19,7 @@ vi.mock( 'src/lib/app-globals', () => ( {
 vi.mock( 'src/hooks/use-feature-flags' );
 vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/hooks/use-ipc-listener' );
+vi.mock( 'src/hooks/use-offline' );
 
 vi.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
@@ -40,19 +41,31 @@ function renderWithProvider( component: React.ReactElement ) {
 	return render( <Provider store={ store }>{ component }</Provider> );
 }
 
+const mockIpcEvent = {
+	ports: [],
+	sender: {} as unknown as Electron.IpcRenderer,
+	preventDefault: vi.fn(),
+	defaultPrevented: false,
+};
+
 describe( 'UserSettings', () => {
 	beforeEach( () => {
 		// Triggers IPC listener to show modal
-		( useIpcListener as Mock ).mockImplementationOnce( ( listener, callback ) => {
+		vi.mocked( useIpcListener ).mockImplementationOnce( ( listener, callback ) => {
 			if ( listener === 'user-settings' ) {
-				callback( {}, {} );
+				callback( mockIpcEvent, {} );
 			}
 		} );
 	} );
 
 	it( 'logs in when not authenticated', async () => {
 		const authenticate = vi.fn();
-		( useAuth as Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
+		vi.mocked( useAuth ).mockReturnValue( {
+			isAuthenticated: false,
+			authenticate,
+			logout: vi.fn(),
+			client: undefined,
+		} );
 		renderWithProvider( <UserSettings /> );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
 		expect( loginButton ).toBeVisible();
@@ -62,7 +75,12 @@ describe( 'UserSettings', () => {
 
 	it( 'logs out if authenticated', async () => {
 		const logout = vi.fn();
-		( useAuth as Mock ).mockReturnValue( { isAuthenticated: true, logout } );
+		vi.mocked( useAuth ).mockReturnValue( {
+			isAuthenticated: true,
+			logout,
+			authenticate: vi.fn(),
+			client: undefined,
+		} );
 		renderWithProvider( <UserSettings /> );
 		const logoutButton = screen.getByRole( 'button', { name: 'Log out' } );
 		expect( logoutButton ).toBeVisible();
@@ -72,8 +90,13 @@ describe( 'UserSettings', () => {
 
 	it( 'disables log in button when offline', async () => {
 		const authenticate = vi.fn();
-		( useOffline as Mock ).mockReturnValue( true );
-		( useAuth as Mock ).mockReturnValue( { isAuthenticated: false, authenticate } );
+		vi.mocked( useOffline ).mockReturnValue( true );
+		vi.mocked( useAuth ).mockReturnValue( {
+			isAuthenticated: false,
+			authenticate,
+			logout: vi.fn(),
+			client: undefined,
+		} );
 		renderWithProvider( <UserSettings /> );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
 		expect( loginButton ).toHaveAttribute( 'aria-disabled', 'true' );
@@ -90,7 +113,12 @@ describe( 'UserSettings', () => {
 	describe( 'Tab Navigation', () => {
 		it( 'switches between tabs correctly', async () => {
 			const user = userEvent.setup();
-			( useAuth as Mock ).mockReturnValue( { isAuthenticated: true } );
+			vi.mocked( useAuth ).mockReturnValue( {
+				isAuthenticated: true,
+				authenticate: vi.fn(),
+				logout: vi.fn(),
+				client: undefined,
+			} );
 
 			renderWithProvider( <UserSettings /> );
 
@@ -121,12 +149,17 @@ describe( 'UserSettings', () => {
 	describe( 'Tab Selection via IPC', () => {
 		it( 'should open with specified tab when tabName is provided via IPC', async () => {
 			// Mock IPC listener with specific tab name and trigger modal show
-			( useIpcListener as Mock ).mockImplementation( ( listener, callback ) => {
+			vi.mocked( useIpcListener ).mockImplementation( ( listener, callback ) => {
 				if ( listener === 'user-settings' ) {
-					setTimeout( () => callback( {}, { tabName: 'preferences' } ), 0 );
+					setTimeout( () => callback( mockIpcEvent, { tabName: 'preferences' } ), 0 );
 				}
 			} );
-			( useAuth as Mock ).mockReturnValue( { isAuthenticated: true } );
+			vi.mocked( useAuth ).mockReturnValue( {
+				isAuthenticated: true,
+				authenticate: vi.fn(),
+				logout: vi.fn(),
+				client: undefined,
+			} );
 
 			renderWithProvider( <UserSettings /> );
 
@@ -137,12 +170,17 @@ describe( 'UserSettings', () => {
 		} );
 
 		it( 'should open with usage tab when tabName is usage and user is authenticated', async () => {
-			( useIpcListener as Mock ).mockImplementation( ( listener, callback ) => {
+			vi.mocked( useIpcListener ).mockImplementation( ( listener, callback ) => {
 				if ( listener === 'user-settings' ) {
-					setTimeout( () => callback( {}, { tabName: 'usage' } ), 0 );
+					setTimeout( () => callback( mockIpcEvent, { tabName: 'usage' } ), 0 );
 				}
 			} );
-			( useAuth as Mock ).mockReturnValue( { isAuthenticated: true } );
+			vi.mocked( useAuth ).mockReturnValue( {
+				isAuthenticated: true,
+				authenticate: vi.fn(),
+				logout: vi.fn(),
+				client: undefined,
+			} );
 
 			renderWithProvider( <UserSettings /> );
 
@@ -153,12 +191,17 @@ describe( 'UserSettings', () => {
 		} );
 
 		it( 'should default to first tab when no tabName is provided', async () => {
-			( useIpcListener as Mock ).mockImplementation( ( listener, callback ) => {
+			vi.mocked( useIpcListener ).mockImplementation( ( listener, callback ) => {
 				if ( listener === 'user-settings' ) {
-					setTimeout( () => callback( {}, {} ), 0 );
+					setTimeout( () => callback( mockIpcEvent, {} ), 0 );
 				}
 			} );
-			( useAuth as Mock ).mockReturnValue( { isAuthenticated: true } );
+			vi.mocked( useAuth ).mockReturnValue( {
+				isAuthenticated: true,
+				authenticate: vi.fn(),
+				logout: vi.fn(),
+				client: undefined,
+			} );
 
 			renderWithProvider( <UserSettings /> );
 
@@ -168,12 +211,17 @@ describe( 'UserSettings', () => {
 		} );
 
 		it( 'should not show usage tab for unauthenticated users even if specified', async () => {
-			( useIpcListener as Mock ).mockImplementation( ( listener, callback ) => {
+			vi.mocked( useIpcListener ).mockImplementation( ( listener, callback ) => {
 				if ( listener === 'user-settings' ) {
-					setTimeout( () => callback( {}, { tabName: 'usage' } ), 0 );
+					setTimeout( () => callback( mockIpcEvent, { tabName: 'usage' } ), 0 );
 				}
 			} );
-			( useAuth as Mock ).mockReturnValue( { isAuthenticated: false } );
+			vi.mocked( useAuth ).mockReturnValue( {
+				isAuthenticated: false,
+				authenticate: vi.fn(),
+				logout: vi.fn(),
+				client: undefined,
+			} );
 
 			renderWithProvider( <UserSettings /> );
 

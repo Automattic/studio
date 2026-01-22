@@ -2,7 +2,7 @@ import '@testing-library/jest-dom';
 import { TextEncoder, TextDecoder } from 'util';
 import 'isomorphic-fetch';
 import nock from 'nock';
-import { vi, beforeEach } from 'vitest';
+import { vi, beforeEach, afterEach, afterAll } from 'vitest';
 
 // Polyfill TextEncoder and TextDecoder for tests
 if ( typeof globalThis.TextEncoder === 'undefined' ) {
@@ -86,6 +86,15 @@ if ( typeof window !== 'undefined' ) {
 
 nock.disableNetConnect();
 nock.enableNetConnect( 'raw.githubusercontent.com' );
+
+afterEach( () => {
+	nock.cleanAll();
+} );
+
+afterAll( () => {
+	nock.enableNetConnect();
+	nock.restore();
+} );
 
 // We consider the app to be online by default.
 vi.mock( './src/hooks/use-offline', () => ( {

@@ -22,6 +22,7 @@ import {
 	InMemoryFilesystem,
 } from '@wp-playground/storage';
 import { WordPressInstallMode } from '@wp-playground/wordpress';
+import { DEFAULT_PHP_VERSION } from 'common/constants';
 import { isWordPressDirectory } from 'common/lib/fs-utils';
 import { getMuPlugins } from 'common/lib/mu-plugins';
 import { decodePassword } from 'common/lib/passwords';
@@ -173,11 +174,22 @@ async function getBaseRunCLIArgs(
 
 	let blueprintBundle: BlueprintBundle | undefined;
 
+	// Build blueprint contents with preferredVersions to ensure PHP version is respected
+	// This is necessary because @wp-playground/cli only reads preferredVersions from the blueprint
+	// when a BlueprintBundle is provided (rather than merging args.php into the blueprint)
+	// Precedence: 1) Studio config (explicit setting), 2) Blueprint's preferredVersions, 3) Default
+	const preferredVersions: { php: string; wp: string } = {
+		php:
+			config.phpVersion || config.blueprint?.contents.preferredVersions?.php || DEFAULT_PHP_VERSION,
+		wp: config.wpVersion || config.blueprint?.contents.preferredVersions?.wp || 'latest',
+	};
+
 	if ( config.blueprint ) {
 		config.blueprint.contents.constants = {
 			...config.blueprint.contents.constants,
 			...defaultConstants,
 		};
+		config.blueprint.contents.preferredVersions = preferredVersions;
 		const blueprintFs = new InMemoryFilesystem( {
 			'blueprint.json': JSON.stringify( config.blueprint.contents ),
 		} );
@@ -198,7 +210,10 @@ async function getBaseRunCLIArgs(
 		}
 	} else {
 		blueprintBundle = new InMemoryFilesystem( {
-			'blueprint.json': JSON.stringify( { constants: defaultConstants } ),
+			'blueprint.json': JSON.stringify( {
+				constants: defaultConstants,
+				preferredVersions,
+			} ),
 		} );
 	}
 

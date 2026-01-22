@@ -1,11 +1,41 @@
-import { app, dialog } from 'electron';
+import { app, dialog, shell } from 'electron';
 import nodePath from 'path';
 import { __ } from '@wordpress/i18n';
 import fs from 'fs-extra';
 import { validateBlueprintData } from 'common/lib/blueprint-validation';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { download } from 'src/lib/download';
+import { getLogsFilePath } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
+
+function getBlueprintDeeplinkErrorMessage( error: unknown ): {
+	message: string;
+	showLogs: boolean;
+} {
+	if ( ! ( error instanceof Error ) ) {
+		return {
+			message: __( 'The Blueprint could not be loaded. Please check the link and try again.' ),
+			showLogs: false,
+		};
+	}
+
+	const errorMessage = error.message.toLowerCase();
+
+	const networkErrors = [ 'enotfound', 'econnrefused', 'etimedout', 'network' ];
+	if ( networkErrors.some( ( err ) => errorMessage.includes( err ) ) ) {
+		return {
+			message: __(
+				'Could not connect to the server. Please check your internet connection and try again.'
+			),
+			showLogs: true,
+		};
+	}
+
+	return {
+		message: __( 'The Blueprint could not be loaded. Please check the link and try again.' ),
+		showLogs: true,
+	};
+}
 
 /**
  * Handles the add-site deeplink callback.
@@ -77,16 +107,22 @@ export async function handleAddSiteWithBlueprint( urlObject: URL ): Promise< voi
 			} );
 		}
 
-		const errorDetail =
-			error instanceof Error
-				? error.message
-				: __( 'The Blueprint could not be loaded. Please check the link and try again.' );
+		const { message: userMessage, showLogs } = getBlueprintDeeplinkErrorMessage( error );
+		const buttons = showLogs ? [ __( 'Open Studio Logs' ), __( 'OK' ) ] : [ __( 'OK' ) ];
 
-		await dialog.showMessageBox( mainWindow, {
+		const response = await dialog.showMessageBox( mainWindow, {
 			type: 'error',
 			message: __( 'Failed to load Blueprint' ),
-			detail: errorDetail,
-			buttons: [ __( 'OK' ) ],
+			detail: userMessage,
+			buttons,
 		} );
+
+		if ( showLogs && response.response === 0 ) {
+			const logFilePath = getLogsFilePath();
+			const err = await shell.openPath( logFilePath );
+			if ( err ) {
+				console.error( `Error opening logs file: ${ logFilePath } ${ err }` );
+			}
+		}
 	}
 }

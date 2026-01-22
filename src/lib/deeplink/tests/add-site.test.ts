@@ -44,7 +44,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		vi.mocked( fs.mkdir ).mockImplementation( async () => {} );
 		vi.mocked( getMainWindow ).mockResolvedValue( mockMainWindow );
 		vi.mocked( dialog.showMessageBox ).mockResolvedValue( {
-			response: 0,
+			response: 1,
 			checkboxChecked: false,
 		} );
 	} );
@@ -165,7 +165,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
 			type: 'error',
 			message: expect.any( String ),
-			detail: 'Invalid Blueprint format',
+			detail: expect.any( String ),
 			buttons: expect.any( Array ),
 		} );
 	} );
@@ -206,6 +206,42 @@ describe( 'handleAddSiteWithBlueprint', () => {
 				message: expect.any( String ),
 				detail: expect.any( String ),
 				buttons: expect.any( Array ),
+			} );
+		} );
+	} );
+
+	describe( 'user-friendly error messages', () => {
+		it( 'should show user-friendly message for network connectivity errors', async () => {
+			const url = createBlueprintUrl( 'https://example.com/blueprint.json' );
+
+			vi.mocked( download ).mockRejectedValue( new Error( 'getaddrinfo ENOTFOUND example.com' ) );
+			vi.mocked( fs.remove ).mockImplementation( async () => {} );
+
+			await handleAddSiteWithBlueprint( url );
+
+			expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
+				type: 'error',
+				message: 'Failed to load Blueprint',
+				detail: expect.stringContaining( 'internet connection' ),
+				buttons: [ 'Open Studio Logs', 'OK' ],
+			} );
+		} );
+
+		it( 'should show generic error message for other errors', async () => {
+			const url = createBlueprintUrl( 'https://example.com/blueprint.json' );
+
+			vi.mocked( download ).mockRejectedValue(
+				new Error( 'Request failed with status code: 500' )
+			);
+			vi.mocked( fs.remove ).mockImplementation( async () => {} );
+
+			await handleAddSiteWithBlueprint( url );
+
+			expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
+				type: 'error',
+				message: 'Failed to load Blueprint',
+				detail: expect.stringContaining( 'could not be loaded' ),
+				buttons: [ 'Open Studio Logs', 'OK' ],
 			} );
 		} );
 	} );

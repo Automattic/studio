@@ -3,9 +3,10 @@ Unreleased
 
 1.7.0
 =====
-* Added support for managing sites in the Studio CLI tool
+* Added support for managing sites and authentication in the Studio CLI tool
 * Added WP CLI support to Studio CLI tool
 * Improved Xdebug support (Beta Feature) #2316, #2395, #2410
+* Improved performance on Mac and Windows #2303
 * Added file upload progress and offline status indicator in Sync UI #2332
 * Increased Sync push size limit to 5 GB #2377
 * Added support for Blueprint translations #2363

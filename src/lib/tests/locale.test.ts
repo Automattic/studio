@@ -3,7 +3,7 @@
  */
 import { app } from 'electron';
 import { createI18n } from '@wordpress/i18n';
-import { vi, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import { getLocaleData } from 'common/lib/locale';
 import { getSupportedLocale } from 'src/lib/locale-node';
 

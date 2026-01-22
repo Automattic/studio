@@ -4,7 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { produce } from 'immer';
 import { Provider } from 'react-redux';
-import { vi, beforeEach, describe, it, expect, test } from 'vitest';
+import { vi } from 'vitest';
 import { Snapshot } from 'common/types/snapshot';
 import { ContentTabSettings } from 'src/components/content-tab-settings';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';

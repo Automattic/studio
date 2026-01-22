@@ -9,7 +9,7 @@ import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/si
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { vi } from 'vitest';
 import { runCommand } from '../start';
 
 vi.mock( 'cli/lib/appdata', async () => ( {

@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { vi, beforeEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import { RenamePreviewModal } from '../rename-preview-modal';
 
 describe( 'RenamePreviewModal', () => {

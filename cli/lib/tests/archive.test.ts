@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import archiver from 'archiver';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
-import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 
 vi.mock( 'fs' );
 vi.mock( 'path' );

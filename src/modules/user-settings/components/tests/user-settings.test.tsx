@@ -2,7 +2,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import { useAuth } from 'src/hooks/use-auth';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';

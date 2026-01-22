@@ -1,6 +1,6 @@
 import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
-import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import { runCommand } from '../list';
 
 const mockReportStart = vi.fn();

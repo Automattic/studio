@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react';
-import { vi, beforeEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import MacTitlebar from 'src/components/mac-titlebar';
 import { useFullscreen } from 'src/hooks/use-fullscreen';
 import { isWindowFrameRtl } from 'src/lib/is-window-frame-rtl';

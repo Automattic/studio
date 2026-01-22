@@ -6,7 +6,7 @@ import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { readFile } from 'atomically';
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { vi } from 'vitest';
 import { bumpStat } from 'common/lib/bump-stat';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { createSite, isFullscreen, importSite, getXdebugEnabledSite } from 'src/ipc-handlers';

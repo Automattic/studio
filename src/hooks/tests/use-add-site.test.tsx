@@ -2,7 +2,7 @@
 import { renderHook, act } from '@testing-library/react';
 import nock from 'nock';
 import { Provider } from 'react-redux';
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { vi } from 'vitest';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAddSite, CreateSiteFormValues } from 'src/hooks/use-add-site';
 import { useContentTabs } from 'src/hooks/use-content-tabs';

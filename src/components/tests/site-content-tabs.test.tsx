@@ -1,6 +1,6 @@
 import { act, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { vi, beforeEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import { SiteContentTabs } from 'src/components/site-content-tabs';
 import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';

@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { vi, describe, test, expect, beforeEach } from 'vitest';
+import { vi } from 'vitest';
 import { Gravatar } from 'src/components/gravatar';
 import { useGravatarUrl } from 'src/hooks/use-gravatar-url';
 

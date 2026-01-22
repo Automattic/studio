@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit';
-import { vi, describe, it, expect, afterEach, beforeEach } from 'vitest';
+import { vi } from 'vitest';
 import { ZodError } from 'zod';
 import { wordpressVersionsApi } from '../wordpress-versions-api';
 

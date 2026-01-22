@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { Readable } from 'stream';
 import * as tar from 'tar';
-import { vi, beforeEach, describe, it, expect, Mock } from 'vitest';
+import { vi, Mock } from 'vitest';
 import * as yauzl from 'yauzl';
 import { BackupHandlerFactory } from 'src/lib/import-export/import/handlers/backup-handler-factory';
 import { BackupHandlerSql } from 'src/lib/import-export/import/handlers/backup-handler-sql';

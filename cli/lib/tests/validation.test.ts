@@ -3,7 +3,7 @@ import path from 'path';
 import { validateSiteSize } from 'cli/lib/validation';
 import { LoggerError } from 'cli/logger';
 import { calculateDirectorySize, isWordPressDirectory } from 'common/lib/fs-utils';
-import { vi, beforeEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 
 vi.mock( 'fs' );
 vi.mock( 'path' );

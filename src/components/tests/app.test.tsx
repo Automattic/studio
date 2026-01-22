@@ -1,7 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { vi, beforeEach, describe, it, expect, type Mock } from 'vitest';
+import { vi, type Mock } from 'vitest';
 import App from 'src/components/app';
 import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';

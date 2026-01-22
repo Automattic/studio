@@ -6,7 +6,7 @@ import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { saveSnapshotToAppdata } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { vi } from 'vitest';
 import { runCommand } from '../create';
 
 // Shared mock functions for Logger

@@ -2,7 +2,7 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { Provider } from 'react-redux';
-import { vi, beforeAll, beforeEach, describe, it, expect } from 'vitest';
+import { vi, beforeAll } from 'vitest';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { SiteDetailsProvider, useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';

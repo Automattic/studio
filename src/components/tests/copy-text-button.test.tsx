@@ -1,7 +1,7 @@
 // To run tests, execute `npm run test -- src/components/copy-text-button.test.ts` from the root directory
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { vi, beforeEach, describe, expect, test } from 'vitest';
+import { vi } from 'vitest';
 import { CopyTextButton } from 'src/components/copy-text-button';
 
 const mockCopyText = vi.fn();

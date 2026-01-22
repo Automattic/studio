@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { vi, beforeAll, afterEach, describe, it, expect, type Mock } from 'vitest';
+import { vi, beforeAll, type Mock } from 'vitest';
 import Header from 'src/components/header';
 import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';

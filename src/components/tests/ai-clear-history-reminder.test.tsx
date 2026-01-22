@@ -1,5 +1,5 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import AIClearHistoryReminder from 'src/components/ai-clear-history-reminder';
 import { CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';

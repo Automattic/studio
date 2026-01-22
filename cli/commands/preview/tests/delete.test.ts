@@ -2,7 +2,7 @@ import { deleteSnapshot } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
-import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import { runCommand } from '../delete';
 
 const mockReportStart = vi.fn();

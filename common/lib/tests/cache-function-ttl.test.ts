@@ -1,4 +1,4 @@
-import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import { cacheFunctionTTL, clearCache } from 'common/lib/cache-function-ttl';
 
 describe( 'cacheFunctionTTL', () => {

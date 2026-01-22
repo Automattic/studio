@@ -1,7 +1,7 @@
 import { render, act, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi } from 'vitest';
 import MainSidebar from 'src/components/main-sidebar';
 import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { useAuth } from 'src/hooks/use-auth';

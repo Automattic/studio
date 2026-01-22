@@ -1,5 +1,5 @@
 import fs from 'fs-extra';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi } from 'vitest';
 import { SqliteIntegrationProvider } from 'common/lib/sqlite-integration';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 

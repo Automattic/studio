@@ -16,7 +16,7 @@ import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snap
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { arePathsEqual } from 'common/lib/fs-utils';
 import trash from 'trash';
-import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import { runCommand } from '../delete';
 
 vi.mock( 'fs/promises' );

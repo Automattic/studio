@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
-import { vi, beforeEach, describe, it, expect, type Mock } from 'vitest';
+import { vi, type Mock } from 'vitest';
 import { AIInput } from 'src/components/ai-input';
 
 const mockShowMessageBox = vi.fn();

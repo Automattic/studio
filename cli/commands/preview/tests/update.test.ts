@@ -8,7 +8,7 @@ import { updateSnapshotInAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapsh
 import { LoggerError } from 'cli/logger';
 import { DEMO_SITE_EXPIRATION_DAYS } from 'common/constants';
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
-import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import { runCommand } from '../update';
 
 vi.mock( 'common/lib/get-wordpress-version' );

@@ -2,7 +2,7 @@
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi } from 'vitest';
 import { BackupHandlerFactory } from 'src/lib/import-export/import/handlers/backup-handler-factory';
 import { selectImporter, importBackup } from 'src/lib/import-export/import/import-manager';
 import { Importer } from 'src/lib/import-export/import/importers/importer';

@@ -5,7 +5,7 @@ import { BrowserWindow } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
 import { readFile } from 'atomically';
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { vi } from 'vitest';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { createMainWindow, getMainWindow, __resetMainWindow } from 'src/main-window';
 

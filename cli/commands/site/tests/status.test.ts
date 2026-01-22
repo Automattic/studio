@@ -2,7 +2,7 @@ import { getSiteByFolder, getSiteUrl, isXdebugBetaEnabled } from 'cli/lib/appdat
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
-import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import { runCommand } from '../status';
 
 vi.mock( 'cli/lib/appdata', async () => {

@@ -1,7 +1,7 @@
 import { IpcRendererEvent } from 'electron';
 import { renderHook, act } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { vi, beforeEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { createMock } from 'src/lib/test-utils';

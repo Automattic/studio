@@ -1,5 +1,5 @@
 import { writeFile } from 'atomically';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi } from 'vitest';
 import {
 	deleteSnapshotFromAppdata,
 	getSnapshotsFromAppdata,

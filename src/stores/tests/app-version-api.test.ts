@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi } from 'vitest';
 import { FORCE_WHATS_NEW_WHEN_PATCH_CHANGED } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { appVersionApi, selectIsNewVersion } from 'src/stores/app-version-api';

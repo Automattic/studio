@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { IpcMainInvokeEvent, BrowserWindow, Menu, MenuItem } from 'electron';
-import { vi, beforeEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import { showSiteContextMenu } from 'src/ipc-handlers';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 

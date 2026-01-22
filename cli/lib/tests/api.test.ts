@@ -3,7 +3,7 @@ import { uploadArchive, waitForSiteReady, SnapshotStatus } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
 import { createMock } from 'src/lib/test-utils';
 import wpcomFactory from 'src/lib/wpcom-factory';
-import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 
 vi.mock( 'fs' );
 vi.mock( 'wpcom' );

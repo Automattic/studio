@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { vi, beforeEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { handleSyncConnectSiteDeeplink } from 'src/lib/deeplink/handlers/sync-connect-site';
 

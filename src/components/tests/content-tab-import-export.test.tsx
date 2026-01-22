@@ -2,7 +2,7 @@ import { render, fireEvent, waitFor, screen, createEvent } from '@testing-librar
 import { userEvent } from '@testing-library/user-event';
 import { act } from 'react';
 import { Provider } from 'react-redux';
-import { vi, beforeEach, afterEach, describe, expect, test } from 'vitest';
+import { vi } from 'vitest';
 import { ContentTabImportExport } from 'src/components/content-tab-import-export';
 import { SyncSitesProvider } from 'src/hooks/sync-sites';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';

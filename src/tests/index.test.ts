@@ -3,7 +3,7 @@
  */
 import fs from 'fs';
 import { normalize } from 'path';
-import { vi, beforeAll, afterAll, afterEach, describe, it, expect } from 'vitest';
+import { vi, beforeAll, afterAll } from 'vitest';
 import { createMainWindow, getMainWindow } from 'src/main-window';
 import { setupWPServerFiles } from 'src/setup-wp-server-files';
 

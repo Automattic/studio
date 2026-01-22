@@ -1,6 +1,6 @@
 import { app, dialog, BrowserWindow } from 'electron';
 import fs from 'fs-extra';
-import { vi, beforeAll, afterAll, beforeEach, describe, it, expect } from 'vitest';
+import { vi, beforeAll, afterAll } from 'vitest';
 import { validateBlueprintData } from 'common/lib/blueprint-validation';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { handleAddSiteWithBlueprint } from 'src/lib/deeplink/handlers/add-site-with-blueprint';

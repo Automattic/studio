@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { Dispatch } from 'redux';
-import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import { WPCOM } from 'wpcom/types';
 import {
 	ContentTabAssistant,

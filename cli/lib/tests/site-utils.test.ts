@@ -4,7 +4,7 @@ import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { vi, beforeEach, afterEach, describe, it, expect, type Mock } from 'vitest';
+import { vi, type Mock } from 'vitest';
 
 vi.mock( 'pm2' );
 

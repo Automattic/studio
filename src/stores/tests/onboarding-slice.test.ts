@@ -1,4 +1,4 @@
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi } from 'vitest';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
 import {

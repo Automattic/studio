@@ -1,7 +1,7 @@
 import { IpcRendererEvent } from 'electron';
 import { renderHook, waitFor } from '@testing-library/react';
 import { act } from 'react';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi } from 'vitest';
 import { useFullscreen } from 'src/hooks/use-fullscreen';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';

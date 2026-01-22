@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { app, dialog, BrowserWindow } from 'electron';
-import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import { getMainWindow } from 'src/main-window';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 import { promptWindowsSpeedUpSites } from '../windows-helpers';

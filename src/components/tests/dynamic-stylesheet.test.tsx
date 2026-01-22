@@ -1,5 +1,5 @@
 import { render, cleanup } from '@testing-library/react';
-import { beforeEach, afterEach, describe, it, expect } from 'vitest';
+// Removed: globals are now available via vitest/globals in tsconfig
 import { DynamicStylesheet } from 'src/components/dynamic-stylesheet';
 
 describe( 'DynamicStylesheet', () => {

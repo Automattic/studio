@@ -1,5 +1,5 @@
 import { readFile, writeFile } from 'fs';
-import { vi, beforeEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import {
 	addDomainToHosts,
 	removeDomainFromHosts,

@@ -18,7 +18,7 @@ import {
 } from 'cli/lib/wordpress-server-manager';
 import { getDomainNameValidationError } from 'common/lib/domains';
 import { arePathsEqual } from 'common/lib/fs-utils';
-import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import { runCommand } from '../set';
 
 vi.mock( 'common/lib/domains' );

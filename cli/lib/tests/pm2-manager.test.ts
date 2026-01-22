@@ -1,7 +1,7 @@
 import os from 'os';
 import { getAppdataPath } from 'cli/lib/appdata';
 import { clearCache } from 'common/lib/cache-function-ttl';
-import { vi, beforeEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import { ManagerMessage } from '../types/wordpress-server-ipc';
 
 vi.mock( 'fs' );

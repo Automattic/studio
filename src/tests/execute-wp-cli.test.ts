@@ -1,6 +1,6 @@
 import { ChildProcess } from 'node:child_process';
 import EventEmitter from 'node:events';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi } from 'vitest';
 // Mock executeCliCommand before importing SiteServer
 const mockEventEmitter = new EventEmitter();
 const mockChildProcess = { kill: vi.fn() } as unknown as ChildProcess;

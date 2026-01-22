@@ -7,7 +7,7 @@ import {
 	unlockAppdata,
 } from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
-import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 import { runCommand } from '../logout';
 import {
 	mockReportStart,

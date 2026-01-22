@@ -11,7 +11,7 @@ import {
 } from 'cli/lib/appdata';
 import { arePathsEqual } from 'common/lib/fs-utils';
 import { StatsMetric } from 'common/types/stats';
-import { vi, beforeEach, describe, it, expect } from 'vitest';
+import { vi } from 'vitest';
 
 vi.mock( 'fs' );
 vi.mock( 'os' );

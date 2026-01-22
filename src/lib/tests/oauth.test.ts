@@ -1,5 +1,5 @@
 import { readFile } from 'atomically';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi } from 'vitest';
 import { SupportedLocale } from 'common/lib/locale';
 import { getAuthenticationToken, getSignUpUrl } from 'src/lib/oauth';
 

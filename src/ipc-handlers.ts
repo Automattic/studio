@@ -701,7 +701,8 @@ export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 // process.
 export async function loadThemeDetails(
 	event: IpcMainInvokeEvent,
-	id: string
+	id: string,
+	emitThemeDetailsLoadingEvent = true
 ): Promise< StartedSiteDetails[ 'themeDetails' ] > {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
@@ -709,7 +710,9 @@ export async function loadThemeDetails(
 	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-loading', { id } );
+	if ( emitThemeDetailsLoadingEvent ) {
+		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-loading', { id } );
+	}
 
 	const oldThemePath = server.details.themeDetails?.path;
 	const themeDetails = await server.getThemeDetails();

@@ -86,7 +86,7 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 		if ( ! selectedSite?.id || selectedSite.running === false ) {
 			return;
 		}
-		await getIpcApi().loadThemeDetails( selectedSite.id );
+		await getIpcApi().loadThemeDetails( selectedSite.id, false );
 	} );
 
 	useEffect( () => {

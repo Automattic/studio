@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { IpcMainInvokeEvent, BrowserWindow, Menu, MenuItem } from 'electron';
-import { vi } from 'vitest';
+import { vi, beforeEach, describe, it, expect } from 'vitest';
 import { showSiteContextMenu } from 'src/ipc-handlers';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 
@@ -15,8 +15,8 @@ const mockIpcMainInvokeEvent = {
 } as unknown as IpcMainInvokeEvent;
 
 describe( 'showSiteContextMenu', () => {
-	let mockMenu: { append: ReturnType< typeof vi.fn >; popup: ReturnType< typeof vi.fn > };
-	let mockWindow: { isDestroyed: ReturnType< typeof vi.fn > };
+	let mockMenu: Partial< Menu >;
+	let mockWindow: Partial< BrowserWindow >;
 	let menuItems: MenuItem[];
 
 	beforeEach( () => {
@@ -30,9 +30,13 @@ describe( 'showSiteContextMenu', () => {
 			isDestroyed: vi.fn( () => false ),
 		};
 
-		vi.mocked( Menu ).mockImplementation( () => mockMenu as any );
-		vi.mocked( MenuItem ).mockImplementation( ( config ) => config as any );
-		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValue( mockWindow as any );
+		vi.mocked( Menu, { partial: true } ).mockImplementation( () => mockMenu as Menu );
+		vi.mocked( MenuItem, { partial: true } ).mockImplementation(
+			( config ) => config as unknown as MenuItem
+		);
+		vi.mocked( BrowserWindow.fromWebContents, { partial: true } ).mockReturnValue(
+			mockWindow as BrowserWindow
+		);
 	} );
 
 	const baseContext = {

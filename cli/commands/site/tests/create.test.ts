@@ -238,16 +238,16 @@ describe( 'CLI: studio site create', () => {
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
-	it( 'should error if SQLite integration is not available', async () => {
-		vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue(
-			new Error( 'SQLite integration files not found. Please ensure Studio is installed.' )
-		);
+		it( 'should error if SQLite integration is not available', async () => {
+			vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue(
+				new Error( 'SQLite integration files not found. Please ensure Studio is installed.' )
+			);
 
-		await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow(
-			'SQLite integration files not found'
-		);
+			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow(
+				'SQLite integration files not found'
+			);
 
-		expect( disconnect ).toHaveBeenCalled();
+			expect( disconnect ).toHaveBeenCalled();
 		} );
 	} );
 
@@ -642,12 +642,14 @@ describe( 'CLI: studio site create', () => {
 			expect( disconnect ).toHaveBeenCalled();
 		} );
 
-	it( 'should handle SQLite setup failure', async () => {
-		vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue( new Error( 'SQLite setup failed' ) );
+		it( 'should handle SQLite setup failure', async () => {
+			vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue(
+				new Error( 'SQLite setup failed' )
+			);
 
-		await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
+			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
 
-		expect( disconnect ).toHaveBeenCalled();
+			expect( disconnect ).toHaveBeenCalled();
 		} );
 	} );
 

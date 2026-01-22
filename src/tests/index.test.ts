@@ -51,6 +51,7 @@ vi.mock( 'src/modules/cli/lib/execute-command', () => {
 			return mockEventEmitter;
 		} ),
 		emit: vi.fn(),
+		removeAllListeners: vi.fn(),
 	};
 	const mockChildProcess = {
 		on: vi.fn(),

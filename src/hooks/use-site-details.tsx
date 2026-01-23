@@ -239,17 +239,13 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			const newSites = await getIpcApi().getSiteDetails();
 			setSites( newSites );
 			// Only change selection and reset tab if the currently selected site no longer exists
-
-			setSelectedSiteId( ( currentSelectedId ) => {
-				const selectedSiteStillExists = newSites.some( ( site ) => site.id === currentSelectedId );
-				if ( selectedSiteStillExists ) {
-					return currentSelectedId;
-				}
+			const selectedSiteStillExists = newSites.some( ( site ) => site.id === selectedSiteId );
+			if ( ! selectedSiteStillExists ) {
 				setSelectedTab( 'overview' );
-				return newSites.length ? newSites[ 0 ].id : '';
-			} );
+				setSelectedSiteId( newSites.length ? newSites[ 0 ].id : '' );
+			}
 		},
-		[ deleteSite, setSelectedSiteId, setSelectedTab ]
+		[ deleteSite, setSelectedSiteId, setSelectedTab, selectedSiteId ]
 	);
 
 	const createSite = useCallback(

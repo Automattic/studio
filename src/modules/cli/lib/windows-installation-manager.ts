@@ -8,7 +8,7 @@ import Registry from 'winreg'; // don't update winreg to 1.2.5 - https://github.
 import { getMainWindow } from 'src/main-window';
 import { StudioCliInstallationManager } from 'src/modules/cli/lib/ipc-handlers';
 
-// `stableBinDirPath` resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin
+// `STABLE_BIN_DIR_PATH` resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin
 export const STABLE_BIN_DIR_PATH = path.resolve( path.dirname( app.getPath( 'exe' ) ), '../bin' );
 const PATH_KEY = 'Path';
 

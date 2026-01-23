@@ -8,8 +8,8 @@ import Registry from 'winreg'; // don't update winreg to 1.2.5 - https://github.
 import { getMainWindow } from 'src/main-window';
 import { StudioCliInstallationManager } from 'src/modules/cli/lib/ipc-handlers';
 
-// `unversionedBinDirPath` resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin
-const unversionedBinDirPath = path.resolve( path.dirname( app.getPath( 'exe' ) ), '../bin' );
+// `stableBinDirPath` resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin
+const stableBinDirPath = path.resolve( path.dirname( app.getPath( 'exe' ) ), '../bin' );
 const PATH_KEY = 'Path';
 
 const currentUserRegistry = new Registry( {
@@ -24,6 +24,9 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		}
 	}
 
+	/**
+	 * Check if the stable bin directory has been created and if it's contained in the registry PATH.
+	 */
 	async isCliInstalled(): Promise< boolean > {
 		try {
 			const currentPath = await this.getPathFromRegistry();
@@ -40,7 +43,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 				return false;
 			}
 
-			if ( ! existsSync( unversionedBinDirPath ) ) {
+			if ( ! existsSync( stableBinDirPath ) ) {
 				return false;
 			}
 
@@ -52,7 +55,8 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 	}
 
 	async updateWindowsCliVersionedPathIfNeeded(): Promise< void > {
-		if ( await this.isCliInstalled() ) {
+		const currentPath = await this.getPathFromRegistry();
+		if ( this.isStudioCliInPath( currentPath ) ) {
 			await this.installProxyBatFile();
 		}
 	}
@@ -141,10 +145,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		} );
 	}
 
-	private isStudioCliInPath(
-		pathValue: string,
-		studioCliDir: string = unversionedBinDirPath
-	): boolean {
+	private isStudioCliInPath( pathValue: string, studioCliDir: string = stableBinDirPath ): boolean {
 		return pathValue
 			.split( ';' )
 			.map( ( item ) => item.trim().toLowerCase() )
@@ -163,7 +164,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 				.split( ';' )
 				.map( ( p ) => p.trim() )
 				.filter( Boolean )
-				.concat( unversionedBinDirPath )
+				.concat( stableBinDirPath )
 				.join( ';' );
 
 			await this.setPathInRegistry( updatedPath );
@@ -174,7 +175,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 	}
 
 	/**
-	 * Creates a proxy batch file in a stable location to handle CLI execution.
+	 * Creates the stable bin directory and write a proxy batch file that will handle CLI execution.
 	 *
 	 * Since our app is installed in a versioned directory, the full path changes with each update.
 	 * Instead of adding the versioned executable directly to PATH, we create a fixed proxy script
@@ -182,17 +183,17 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 	 */
 	private async installProxyBatFile(): Promise< void > {
 		try {
-			await mkdir( unversionedBinDirPath, { recursive: true } );
+			await mkdir( stableBinDirPath, { recursive: true } );
 
 			const versionedCliPath = path.join(
 				path.dirname( app.getPath( 'exe' ) ),
 				'resources/bin/studio-cli.bat'
 			);
-			const relativeVersionedCliPath = path.relative( unversionedBinDirPath, versionedCliPath );
+			const relativeVersionedCliPath = path.relative( stableBinDirPath, versionedCliPath );
 
 			const content = `@echo off\n"%~dp0\\${ relativeVersionedCliPath }" %*`;
 
-			await writeFile( path.join( unversionedBinDirPath, 'studio.bat' ), content );
+			await writeFile( path.join( stableBinDirPath, 'studio.bat' ), content );
 		} catch ( error ) {
 			Sentry.captureException( error );
 			console.error( 'Failed to install CLI: Proxy Bat file', error );
@@ -208,7 +209,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		const currentPath = await this.getPathFromRegistry();
 		const newPath = currentPath
 			.split( ';' )
-			.filter( ( item ) => item.trim().toLowerCase() !== unversionedBinDirPath.toLowerCase() )
+			.filter( ( item ) => item.trim().toLowerCase() !== stableBinDirPath.toLowerCase() )
 			.join( ';' );
 
 		await this.setPathInRegistry( newPath );

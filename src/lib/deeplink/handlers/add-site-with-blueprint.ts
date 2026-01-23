@@ -12,14 +12,7 @@ function getBlueprintDeeplinkErrorMessage( error: unknown ): {
 	message: string;
 	showLogs: boolean;
 } {
-	if ( ! ( error instanceof Error ) ) {
-		return {
-			message: __( 'The Blueprint could not be loaded. Please check the link and try again.' ),
-			showLogs: false,
-		};
-	}
-
-	const errorMessage = error.message.toLowerCase();
+	const errorMessage = ( error instanceof Error ? error.message : '' ).toLowerCase();
 
 	const networkErrors = [ 'enotfound', 'econnrefused', 'etimedout', 'network' ];
 	if ( networkErrors.some( ( err ) => errorMessage.includes( err ) ) ) {

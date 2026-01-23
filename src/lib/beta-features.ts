@@ -1,3 +1,4 @@
+import { __ } from '@wordpress/i18n';
 import { lockAppdata, unlockAppdata, loadUserData, saveUserData } from 'src/storage/user-data';
 
 export interface BetaFeatureDefinition {
@@ -7,32 +8,49 @@ export interface BetaFeatureDefinition {
 	description?: string;
 }
 
-const BETA_FEATURES_DEFINITION: Record< keyof BetaFeatures, BetaFeatureDefinition > = {
+/**
+ * Static configuration for beta features (keys and defaults only).
+ * Used internally for feature state management.
+ */
+const BETA_FEATURES_CONFIG: Record< keyof BetaFeatures, { key: string; default: boolean } > = {
 	multiWorkerSupport: {
-		label: 'Multi-Worker Support',
 		key: 'multiWorkerSupport',
 		default: false,
-		description: 'Enable multi-worker PHP processing for faster performance',
 	},
 	xdebugSupport: {
-		label: 'Xdebug Support',
 		key: 'xdebugSupport',
 		default: false,
-		description: 'Enable PHP debugging with Xdebug (one site at a time)',
 	},
-} as const;
+};
 
-export const BETA_FEATURES: Record< keyof BetaFeatures, BetaFeatureDefinition > =
-	BETA_FEATURES_DEFINITION;
+/**
+ * Returns beta feature definitions with translated labels and descriptions.
+ * Must be called at runtime (not at module load) to ensure translations are loaded.
+ */
+export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFeatureDefinition > {
+	return {
+		multiWorkerSupport: {
+			label: __( 'Multi-Worker Support' ),
+			key: 'multiWorkerSupport',
+			default: false,
+			description: __( 'Enable multi-worker PHP processing for faster performance' ),
+		},
+		xdebugSupport: {
+			label: __( 'Xdebug Support' ),
+			key: 'xdebugSupport',
+			default: false,
+			description: __( 'Enable PHP debugging with Xdebug (one site at a time)' ),
+		},
+	};
+}
 
 function buildBetaFeatures( userData: BetaFeatures | undefined ): BetaFeatures {
 	const features: Partial< BetaFeatures > = {};
-	const keys = Object.keys( BETA_FEATURES );
+	const keys = Object.keys( BETA_FEATURES_CONFIG );
 	keys.forEach( ( key ) => {
 		const featureKey = key as keyof BetaFeatures;
-		const definition = BETA_FEATURES[ featureKey ];
-		( features as Record< string, boolean > )[ key ] =
-			userData?.[ featureKey ] ?? definition.default;
+		const config = BETA_FEATURES_CONFIG[ featureKey ];
+		( features as Record< string, boolean > )[ key ] = userData?.[ featureKey ] ?? config.default;
 	} );
 	return features as BetaFeatures;
 }

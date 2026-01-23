@@ -77,6 +77,7 @@ export const Menu = {
 
 export const shell = {
 	openExternal: vi.fn(),
+	openPath: vi.fn( async () => '' ),
 	trashItem: vi.fn(),
 };
 

@@ -1,4 +1,4 @@
-import { app, dialog, BrowserWindow } from 'electron';
+import { app, dialog, shell, BrowserWindow } from 'electron';
 import fs from 'fs-extra';
 import { vi, beforeAll, afterAll } from 'vitest';
 import { validateBlueprintData } from 'common/lib/blueprint-validation';
@@ -12,6 +12,9 @@ vi.mock( 'fs-extra' );
 vi.mock( 'src/ipc-utils' );
 vi.mock( 'src/lib/download' );
 vi.mock( 'src/main-window' );
+vi.mock( 'src/logging', () => ( {
+	getLogsFilePath: vi.fn( () => '/mock/path/to/logs.log' ),
+} ) );
 vi.mock( 'common/lib/blueprint-validation', () => ( {
 	validateBlueprintData: vi.fn(),
 } ) );
@@ -244,6 +247,21 @@ describe( 'handleAddSiteWithBlueprint', () => {
 				detail: 'The Blueprint could not be loaded. Please check the link and try again.',
 				buttons: [ 'Open Studio Logs', 'OK' ],
 			} );
+		} );
+
+		it( 'should open logs file when user clicks Open Studio Logs button', async () => {
+			const url = createBlueprintUrl( 'https://example.com/blueprint.json' );
+
+			vi.mocked( download ).mockRejectedValue( new Error( 'Some error' ) );
+			vi.mocked( fs.remove ).mockImplementation( async () => {} );
+			vi.mocked( dialog.showMessageBox ).mockResolvedValue( {
+				response: 0, // "Open Studio Logs" button
+				checkboxChecked: false,
+			} );
+
+			await handleAddSiteWithBlueprint( url );
+
+			expect( shell.openPath ).toHaveBeenCalledWith( '/mock/path/to/logs.log' );
 		} );
 	} );
 } );

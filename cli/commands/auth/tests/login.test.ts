@@ -12,7 +12,6 @@ import {
 import { openBrowser } from 'cli/lib/browser';
 import { getAppLocale } from 'cli/lib/i18n';
 import { LoggerError } from 'cli/logger';
-import { runCommand } from '../login';
 import {
 	mockReportStart,
 	mockReportSuccess,
@@ -21,6 +20,7 @@ import {
 	mockReportWarning,
 	mockReportKeyValuePair,
 } from 'cli/tests/test-utils';
+import { runCommand } from '../login';
 
 vi.mock( '@inquirer/prompts' );
 vi.mock( 'common/lib/oauth' );

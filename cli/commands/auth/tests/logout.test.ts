@@ -8,7 +8,6 @@ import {
 	unlockAppdata,
 } from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
-import { runCommand } from '../logout';
 import {
 	mockReportStart,
 	mockReportSuccess,
@@ -17,6 +16,7 @@ import {
 	mockReportWarning,
 	mockReportKeyValuePair,
 } from 'cli/tests/test-utils';
+import { runCommand } from '../logout';
 
 vi.mock( 'cli/lib/appdata' );
 vi.mock( 'cli/lib/api' );

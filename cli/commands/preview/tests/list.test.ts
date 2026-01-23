@@ -1,7 +1,6 @@
 import { vi } from 'vitest';
 import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
-import { runCommand } from '../list';
 import {
 	mockReportStart,
 	mockReportSuccess,
@@ -10,6 +9,7 @@ import {
 	mockReportWarning,
 	mockReportKeyValuePair,
 } from 'cli/tests/test-utils';
+import { runCommand } from '../list';
 
 vi.mock( 'cli/lib/appdata', async () => {
 	const actual = await vi.importActual( 'cli/lib/appdata' );

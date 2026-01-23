@@ -3,7 +3,6 @@ import { deleteSnapshot } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
-import { runCommand } from '../delete';
 import {
 	mockReportStart,
 	mockReportSuccess,
@@ -12,6 +11,7 @@ import {
 	mockReportWarning,
 	mockReportKeyValuePair,
 } from 'cli/tests/test-utils';
+import { runCommand } from '../delete';
 
 vi.mock( 'cli/lib/appdata', async () => {
 	const actual = await vi.importActual( 'cli/lib/appdata' );

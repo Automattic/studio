@@ -2,7 +2,6 @@ import { vi } from 'vitest';
 import { getUserInfo } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
-import { runCommand } from '../status';
 import {
 	mockReportStart,
 	mockReportSuccess,
@@ -11,6 +10,7 @@ import {
 	mockReportWarning,
 	mockReportKeyValuePair,
 } from 'cli/tests/test-utils';
+import { runCommand } from '../status';
 
 vi.mock( 'cli/lib/api' );
 vi.mock( 'cli/lib/appdata' );

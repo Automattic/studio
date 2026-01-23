@@ -270,10 +270,17 @@ async function benchmarkPlaygroundCLI( siteDir: string, port: number, useBundled
 			`--port=${ port }`,
 			'--wp=latest',
 			'--php=8.2',
-			`--mount-before-install=${ siteDir }:/wordpress`,
 			// Use existing files if bundled, otherwise download
 			`--wordpress-install-mode=${ useBundled ? 'install-from-existing-files' : 'download-and-install' }`,
 		];
+
+		// On Windows, use --mount-dir-before-install with separate args (paths contain colons)
+		// On Unix, use --mount-before-install=host:vfs format
+		if ( process.platform === 'win32' ) {
+			args.push( '--mount-dir-before-install', siteDir, '/wordpress' );
+		} else {
+			args.push( `--mount-before-install=${ siteDir }:/wordpress` );
+		}
 
 		// Start the server with inherited stdio so we can see progress
 		// Use detached: true to prevent signals from propagating to parent

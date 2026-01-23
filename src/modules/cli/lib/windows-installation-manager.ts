@@ -8,10 +8,7 @@ import Registry from 'winreg'; // don't update winreg to 1.2.5 - https://github.
 import { getMainWindow } from 'src/main-window';
 import { StudioCliInstallationManager } from 'src/modules/cli/lib/ipc-handlers';
 
-// `STABLE_BIN_DIR_PATH` resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin
-export const STABLE_BIN_DIR_PATH = path.resolve( path.dirname( app.getPath( 'exe' ) ), '../bin' );
-const PATH_KEY = 'Path';
-
+const REGISTRY_PATH_KEY = 'Path';
 const currentUserRegistry = new Registry( {
 	hive: Registry.HKCU,
 	key: '\\Environment',
@@ -24,13 +21,21 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		}
 	}
 
+	getStableBinDirPath() {
+		if ( ! process.env.LOCALAPPDATA ) {
+			throw new Error( 'LOCALAPPDATA environment variable is not set' );
+		}
+
+		return path.join( process.env.LOCALAPPDATA, 'studio', 'bin' );
+	}
+
 	/**
 	 * Check if the stable bin directory has been created and if it's contained in the registry PATH.
 	 */
 	async isCliInstalled(): Promise< boolean > {
 		try {
 			const isStudioCliDirInPath = await this.isStudioCliDirInPath();
-			return isStudioCliDirInPath && existsSync( STABLE_BIN_DIR_PATH );
+			return isStudioCliDirInPath && existsSync( this.getStableBinDirPath() );
 		} catch ( error ) {
 			console.error( 'Failed to check installation status of CLI', error );
 			return false;
@@ -105,7 +110,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 
 	private getPathFromRegistry(): Promise< string > {
 		return new Promise( ( resolve, reject ) => {
-			currentUserRegistry.get( PATH_KEY, ( error, item ) => {
+			currentUserRegistry.get( REGISTRY_PATH_KEY, ( error, item ) => {
 				if ( error ) {
 					return reject( error );
 				}
@@ -117,18 +122,23 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 
 	private setPathInRegistry( updatedPath: string ): Promise< void > {
 		return new Promise( ( resolve, reject ) => {
-			currentUserRegistry.set( PATH_KEY, Registry.REG_EXPAND_SZ, updatedPath, ( error ) => {
-				if ( error ) {
-					return reject( error );
-				}
+			currentUserRegistry.set(
+				REGISTRY_PATH_KEY,
+				Registry.REG_EXPAND_SZ,
+				updatedPath,
+				( error ) => {
+					if ( error ) {
+						return reject( error );
+					}
 
-				resolve();
-			} );
+					resolve();
+				}
+			);
 		} );
 	}
 
 	private async isStudioCliDirInPath(): Promise< boolean > {
-		let studioCliDir = STABLE_BIN_DIR_PATH;
+		let studioCliDir = this.getStableBinDirPath();
 
 		// Return true if we are running the development version of the app and the production CLI is installed
 		if ( process.env.NODE_ENV !== 'production' && process.env.LOCALAPPDATA ) {
@@ -153,7 +163,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 				.split( ';' )
 				.map( ( p ) => p.trim() )
 				.filter( Boolean )
-				.concat( STABLE_BIN_DIR_PATH )
+				.concat( this.getStableBinDirPath() )
 				.join( ';' );
 
 			await this.setPathInRegistry( updatedPath );
@@ -172,17 +182,15 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 	 */
 	private async installProxyBatFile(): Promise< void > {
 		try {
-			await mkdir( STABLE_BIN_DIR_PATH, { recursive: true } );
+			await mkdir( this.getStableBinDirPath(), { recursive: true } );
 
 			const versionedCliPath = path.join(
 				path.dirname( app.getPath( 'exe' ) ),
 				'resources/bin/studio-cli.bat'
 			);
-			const relativeVersionedCliPath = path.relative( STABLE_BIN_DIR_PATH, versionedCliPath );
+			const content = `@echo off\n"%~dp0\\${ versionedCliPath }" %*`;
 
-			const content = `@echo off\n"%~dp0\\${ relativeVersionedCliPath }" %*`;
-
-			await writeFile( path.join( STABLE_BIN_DIR_PATH, 'studio.bat' ), content );
+			await writeFile( path.join( this.getStableBinDirPath(), 'studio.bat' ), content );
 		} catch ( error ) {
 			Sentry.captureException( error );
 			console.error( 'Failed to install CLI: Proxy Bat file', error );
@@ -198,7 +206,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		const currentPath = await this.getPathFromRegistry();
 		const newPath = currentPath
 			.split( ';' )
-			.filter( ( item ) => item.trim().toLowerCase() !== STABLE_BIN_DIR_PATH.toLowerCase() )
+			.filter( ( item ) => item.trim().toLowerCase() !== this.getStableBinDirPath().toLowerCase() )
 			.join( ';' );
 
 		await this.setPathInRegistry( newPath );

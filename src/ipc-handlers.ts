@@ -62,6 +62,8 @@ import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
+import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
+import { unversionedBinDirPath } from 'src/modules/cli/lib/windows-installation-manager';
 import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tree-utils';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
@@ -831,9 +833,10 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 		// Ensure the Studio CLI bin directory is in the PATH for the spawned terminal.
 		// Child processes inherit the environment from the Electron process, which may have
 		// been started before the CLI was installed or PATH was updated in the registry.
-		const cliBinPath = windowsHelpers.getWindowsCliBinPath();
+		const cliBinPath = unversionedBinDirPath;
+		const isCliInstalled = await isStudioCliInstalled();
 		let env: NodeJS.ProcessEnv | undefined;
-		if ( cliBinPath ) {
+		if ( isCliInstalled && cliBinPath ) {
 			const currentPath = process.env.PATH || '';
 			const pathEntries = currentPath.split( ';' ).map( ( p ) => p.toLowerCase() );
 			if ( ! pathEntries.includes( cliBinPath.toLowerCase() ) ) {

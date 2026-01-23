@@ -3,23 +3,7 @@ import path from 'path';
 import sudo from '@vscode/sudo-prompt';
 import { __ } from '@wordpress/i18n';
 import { getMainWindow } from 'src/main-window';
-import { unversionedBinDirPath } from 'src/modules/cli/lib/windows-installation-manager';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
-/**
- * Gets the Studio CLI bin directory path on Windows.
- *
- * This uses the same path calculation as WindowsCliInstallationManager.
- * In production: C:\Users\<USERNAME>\AppData\Local\studio\bin
- *
- * @returns The CLI bin directory path, or undefined on non-Windows platforms.
- */
-export function getWindowsCliBinPath(): string | undefined {
-	if ( process.platform !== 'win32' ) {
-		return undefined;
-	}
-
-	return unversionedBinDirPath;
-}
 
 export async function promptWindowsSpeedUpSites( {
 	skipIfAlreadyPrompted,

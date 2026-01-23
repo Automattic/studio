@@ -239,20 +239,17 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			const newSites = await getIpcApi().getSiteDetails();
 			setSites( newSites );
 			// Only change selection and reset tab if the currently selected site no longer exists
-			let selectionChanged = false;
+
 			setSelectedSiteId( ( currentSelectedId ) => {
 				const selectedSiteStillExists = newSites.some( ( site ) => site.id === currentSelectedId );
 				if ( selectedSiteStillExists ) {
 					return currentSelectedId;
 				}
-				selectionChanged = true;
+				setSelectedTab( 'overview' );
 				return newSites.length ? newSites[ 0 ].id : '';
 			} );
-			if ( selectionChanged && selectedTab !== 'overview' ) {
-				setSelectedTab( 'overview' );
-			}
 		},
-		[ deleteSite, setSelectedSiteId, selectedTab, setSelectedTab ]
+		[ deleteSite, setSelectedSiteId, setSelectedTab ]
 	);
 
 	const createSite = useCallback(

@@ -144,6 +144,10 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 
 	private async installPath(): Promise< void > {
 		try {
+			if ( await this.isStudioCliDirInPath() ) {
+				return;
+			}
+
 			const currentPath = await this.getPathFromRegistry();
 			const updatedPath = currentPath
 				.split( ';' )
@@ -155,7 +159,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 			await this.setPathInRegistry( updatedPath );
 		} catch ( error ) {
 			Sentry.captureException( error );
-			console.error( 'Failed to install CLI', error );
+			console.error( 'Failed to install CLI path', error );
 		}
 	}
 

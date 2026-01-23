@@ -24,6 +24,9 @@ jest.mock( 'atomically', () => ( {
 	readFile: jest.fn(),
 	writeFile: jest.fn(),
 } ) );
+jest.mock( 'src/modules/cli/lib/windows-installation-manager', () => ( {
+	updateWindowsCliVersionedPathIfNeeded: jest.fn().mockReturnValue( Promise.resolve() ),
+} ) );
 
 ( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( { sites: [] } ) );
 require( 'fs' ).__setFileContents( normalize( '/path/to/app/temp/com.wordpress.studio/' ), '' );

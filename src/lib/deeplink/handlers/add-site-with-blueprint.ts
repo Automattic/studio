@@ -96,6 +96,7 @@ export async function handleAddSiteWithBlueprint( urlObject: URL ): Promise< voi
 			message: __( 'Failed to load Blueprint' ),
 			detail: getBlueprintDeeplinkErrorMessage( error ),
 			buttons: [ __( 'Open Studio Logs' ), __( 'OK' ) ],
+			defaultId: 1,
 		} );
 
 		if ( response.response === 0 ) {

@@ -97,9 +97,10 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
 		expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
 			type: 'error',
-			message: expect.any( String ),
-			detail: expect.any( String ),
-			buttons: expect.any( Array ),
+			message: 'Failed to load Blueprint',
+			detail: 'The Blueprint could not be loaded. Please check the link and try again.',
+			buttons: [ 'Open Studio Logs', 'OK' ],
+			defaultId: 1,
 		} );
 	} );
 
@@ -117,9 +118,10 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		expect( fs.remove ).toHaveBeenCalledWith( expect.stringContaining( 'blueprint-' ) );
 		expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
 			type: 'error',
-			message: expect.any( String ),
-			detail: expect.any( String ),
-			buttons: expect.any( Array ),
+			message: 'Failed to load Blueprint',
+			detail: 'The Blueprint could not be loaded. Please check the link and try again.',
+			buttons: [ 'Open Studio Logs', 'OK' ],
+			defaultId: 1,
 		} );
 	} );
 
@@ -167,9 +169,10 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		expect( fs.remove ).toHaveBeenCalledWith( expect.stringContaining( 'blueprint-' ) );
 		expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
 			type: 'error',
-			message: expect.any( String ),
-			detail: expect.any( String ),
-			buttons: expect.any( Array ),
+			message: 'Failed to load Blueprint',
+			detail: 'The Blueprint could not be loaded. Please check the link and try again.',
+			buttons: [ 'Open Studio Logs', 'OK' ],
+			defaultId: 1,
 		} );
 	} );
 
@@ -206,9 +209,10 @@ describe( 'handleAddSiteWithBlueprint', () => {
 			expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
 			expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
 				type: 'error',
-				message: expect.any( String ),
-				detail: expect.any( String ),
-				buttons: expect.any( Array ),
+				message: 'Failed to load Blueprint',
+				detail: 'The Blueprint could not be loaded. Please check the link and try again.',
+				buttons: [ 'Open Studio Logs', 'OK' ],
+				defaultId: 1,
 			} );
 		} );
 	} );
@@ -228,6 +232,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 				detail:
 					'Could not connect to the server. Please check your internet connection and try again.',
 				buttons: [ 'Open Studio Logs', 'OK' ],
+				defaultId: 1,
 			} );
 		} );
 
@@ -246,6 +251,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 				message: 'Failed to load Blueprint',
 				detail: 'The Blueprint could not be loaded. Please check the link and try again.',
 				buttons: [ 'Open Studio Logs', 'OK' ],
+				defaultId: 1,
 			} );
 		} );
 

@@ -188,7 +188,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 				path.dirname( app.getPath( 'exe' ) ),
 				'resources/bin/studio-cli.bat'
 			);
-			const content = `@echo off\n"%~dp0\\${ versionedCliPath }" %*`;
+			const content = `@echo off\n"${ versionedCliPath }" %*`;
 
 			await writeFile( path.join( this.getStableBinDirPath(), 'studio.bat' ), content );
 		} catch ( error ) {

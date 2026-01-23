@@ -222,7 +222,8 @@ describe( 'handleAddSiteWithBlueprint', () => {
 			expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
 				type: 'error',
 				message: 'Failed to load Blueprint',
-				detail: expect.stringContaining( 'internet connection' ),
+				detail:
+					'Could not connect to the server. Please check your internet connection and try again.',
 				buttons: [ 'Open Studio Logs', 'OK' ],
 			} );
 		} );
@@ -240,7 +241,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 			expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
 				type: 'error',
 				message: 'Failed to load Blueprint',
-				detail: expect.stringContaining( 'could not be loaded' ),
+				detail: 'The Blueprint could not be loaded. Please check the link and try again.',
 				buttons: [ 'Open Studio Logs', 'OK' ],
 			} );
 		} );

@@ -833,17 +833,16 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 		// Ensure the Studio CLI bin directory is in the PATH for the spawned terminal.
 		// Child processes inherit the environment from the Electron process, which may have
 		// been started before the CLI was installed or PATH was updated in the registry.
-		const cliBinPath = unversionedBinDirPath;
 		const isCliInstalled = await isStudioCliInstalled();
 		let env: NodeJS.ProcessEnv | undefined;
-		if ( isCliInstalled && cliBinPath ) {
+		if ( isCliInstalled ) {
 			const currentPath = process.env.PATH || '';
 			const pathEntries = currentPath.split( ';' ).map( ( p ) => p.toLowerCase() );
-			if ( ! pathEntries.includes( cliBinPath.toLowerCase() ) ) {
+			if ( ! pathEntries.includes( unversionedBinDirPath.toLowerCase() ) ) {
 				env = { ...process.env };
 				delete env.PATH;
 				delete env.Path;
-				env.PATH = `${ cliBinPath };${ currentPath }`;
+				env.PATH = `${ unversionedBinDirPath };${ currentPath }`;
 			}
 		}
 

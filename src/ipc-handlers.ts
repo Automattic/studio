@@ -832,19 +832,24 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 		// Ensure the Studio CLI bin directory is in the PATH for the spawned terminal.
 		// Child processes inherit the environment from the Electron process, which may have
 		// been started before the CLI was installed or PATH was updated in the registry.
-		const installationManager = new WindowsCliInstallationManager();
-		const isCliInstalled = await installationManager.isCliInstalled();
 		let env: NodeJS.ProcessEnv | undefined;
-		if ( isCliInstalled ) {
-			const currentPath = process.env.PATH || '';
-			const pathEntries = currentPath.split( ';' ).map( ( p ) => p.toLowerCase() );
-			const STABLE_BIN_DIR_PATH = installationManager.getStableBinDirPath();
-			if ( ! pathEntries.includes( STABLE_BIN_DIR_PATH.toLowerCase() ) ) {
-				env = { ...process.env };
-				delete env.PATH;
-				delete env.Path;
-				env.PATH = `${ STABLE_BIN_DIR_PATH };${ currentPath }`;
+		try {
+			const installationManager = new WindowsCliInstallationManager();
+			const isCliInstalled = await installationManager.isCliInstalled();
+
+			if ( isCliInstalled ) {
+				const currentPath = process.env.PATH || '';
+				const pathEntries = currentPath.split( ';' ).map( ( p ) => p.toLowerCase() );
+				const STABLE_BIN_DIR_PATH = installationManager.getStableBinDirPath();
+				if ( ! pathEntries.includes( STABLE_BIN_DIR_PATH.toLowerCase() ) ) {
+					env = { ...process.env };
+					delete env.PATH;
+					delete env.Path;
+					env.PATH = `${ STABLE_BIN_DIR_PATH };${ currentPath }`;
+				}
 			}
+		} catch {
+			// Handle error gracefully
 		}
 
 		return promiseExec( `start "Command Prompt" ${ defaultShell }`, {

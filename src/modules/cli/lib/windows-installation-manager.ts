@@ -168,8 +168,8 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 
 			await this.setPathInRegistry( updatedPath );
 		} catch ( error ) {
-			Sentry.captureException( error );
 			console.error( 'Failed to install CLI path', error );
+			Sentry.captureException( error );
 		}
 	}
 
@@ -192,8 +192,8 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 
 			await writeFile( path.join( this.getStableBinDirPath(), 'studio.bat' ), content );
 		} catch ( error ) {
+			console.error( 'Failed to install CLI proxy .bat file', error );
 			Sentry.captureException( error );
-			console.error( 'Failed to install CLI: Proxy Bat file', error );
 		}
 	}
 
@@ -203,13 +203,20 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 	}
 
 	private async uninstallCli(): Promise< void > {
-		const currentPath = await this.getPathFromRegistry();
-		const newPath = currentPath
-			.split( ';' )
-			.filter( ( item ) => item.trim().toLowerCase() !== this.getStableBinDirPath().toLowerCase() )
-			.join( ';' );
+		try {
+			const currentPath = await this.getPathFromRegistry();
+			const newPath = currentPath
+				.split( ';' )
+				.filter(
+					( item ) => item.trim().toLowerCase() !== this.getStableBinDirPath().toLowerCase()
+				)
+				.join( ';' );
 
-		await this.setPathInRegistry( newPath );
+			await this.setPathInRegistry( newPath );
+		} catch ( error ) {
+			console.error( 'Failed to uninstall CLI proxy .bat file', error );
+			Sentry.captureException( error );
+		}
 	}
 }
 

@@ -6,47 +6,16 @@ import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 const SQLITE_DIRNAME = 'sqlite-database-integration';
 const MOCK_SITE_PATH = 'mock-site-path';
 
-const mockFiles: Record< string, string | string[] > = {};
-
-vi.mock( 'fs-extra', () => {
-	const readFile = vi.fn( async ( path: string ): Promise< string > => {
-		const fileContents = mockFiles[ path ];
-		if ( typeof fileContents === 'string' ) {
-			return fileContents;
-		}
-		return '';
-	} );
-
-	const pathExists = vi.fn( async ( path: string ): Promise< boolean > => {
-		return !! mockFiles[ path ];
-	} );
-
-	return {
-		default: {
-			readFile,
-			pathExists,
-			mkdir: vi.fn(),
-			writeFile: vi.fn(),
-			copy: vi.fn(),
-		},
-		readFile,
-		pathExists,
-		mkdir: vi.fn(),
-		writeFile: vi.fn(),
-		copy: vi.fn(),
-	};
+// Use the global fs-extra mock from src/__mocks__/fs-extra.ts
+vi.mock( 'fs-extra', async () => {
+	const mockModule = await import( 'src/__mocks__/fs-extra' );
+	return mockModule;
 } );
 
-interface MockedFsExtra {
-	__mockFiles: Record< string, string | string[] >;
+// Import the mock helpers directly from the mocked fs-extra module
+const mockFs = fs as typeof fs & {
 	__setFileContents: ( path: string, fileContents: string | string[] ) => void;
-}
-
-const mockFs: MockedFsExtra = {
-	__mockFiles: mockFiles,
-	__setFileContents: ( path: string, fileContents: string | string[] ) => {
-		mockFiles[ path ] = fileContents;
-	},
+	__clearMockFiles: () => void;
 };
 
 class TestSqliteProvider extends SqliteIntegrationProvider {
@@ -65,8 +34,8 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 	beforeEach( () => {
 		provider = new TestSqliteProvider();
 		vi.clearAllMocks();
-		// Clear mockFiles
-		Object.keys( mockFiles ).forEach( ( key ) => delete mockFiles[ key ] );
+		// Clear mock file system state between tests
+		mockFs.__clearMockFiles();
 	} );
 
 	describe( 'needsSqliteSetup', () => {

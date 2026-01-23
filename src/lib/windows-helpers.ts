@@ -3,8 +3,8 @@ import path from 'path';
 import sudo from '@vscode/sudo-prompt';
 import { __ } from '@wordpress/i18n';
 import { getMainWindow } from 'src/main-window';
+import { unversionedBinDirPath } from 'src/modules/cli/lib/windows-installation-manager';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
-
 /**
  * Gets the Studio CLI bin directory path on Windows.
  *
@@ -18,9 +18,7 @@ export function getWindowsCliBinPath(): string | undefined {
 		return undefined;
 	}
 
-	// This matches the `unversionedBinDirPath` calculation in windows-installation-manager.ts:
-	// path.resolve( path.dirname( app.getPath( 'exe' ) ), '../bin' )
-	return path.resolve( path.dirname( app.getPath( 'exe' ) ), '../bin' );
+	return unversionedBinDirPath;
 }
 
 export async function promptWindowsSpeedUpSites( {

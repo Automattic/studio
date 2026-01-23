@@ -834,10 +834,13 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 		const cliBinPath = windowsHelpers.getWindowsCliBinPath();
 		let env: NodeJS.ProcessEnv | undefined;
 		if ( cliBinPath ) {
-			const currentPath = process.env.Path || process.env.PATH || '';
+			const currentPath = process.env.PATH || '';
 			const pathEntries = currentPath.split( ';' ).map( ( p ) => p.toLowerCase() );
 			if ( ! pathEntries.includes( cliBinPath.toLowerCase() ) ) {
-				env = { ...process.env, Path: `${ cliBinPath };${ currentPath }` };
+				env = { ...process.env };
+				delete env.PATH;
+				delete env.Path;
+				env.PATH = `${ cliBinPath };${ currentPath }`;
 			}
 		}
 

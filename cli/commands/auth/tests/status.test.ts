@@ -3,13 +3,14 @@ import { getUserInfo } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { LoggerError } from 'cli/logger';
 import { runCommand } from '../status';
-
-const mockReportStart = vi.fn();
-const mockReportSuccess = vi.fn();
-const mockReportError = vi.fn();
-const mockReportProgress = vi.fn();
-const mockReportWarning = vi.fn();
-const mockReportKeyValuePair = vi.fn();
+import {
+	mockReportStart,
+	mockReportSuccess,
+	mockReportError,
+	mockReportProgress,
+	mockReportWarning,
+	mockReportKeyValuePair,
+} from 'cli/tests/test-utils';
 
 vi.mock( 'cli/lib/api' );
 vi.mock( 'cli/lib/appdata' );

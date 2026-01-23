@@ -4,13 +4,14 @@ import { getAuthToken } from 'cli/lib/appdata';
 import { getSnapshotsFromAppdata, deleteSnapshotFromAppdata } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import { runCommand } from '../delete';
-
-const mockReportStart = vi.fn();
-const mockReportSuccess = vi.fn();
-const mockReportError = vi.fn();
-const mockReportProgress = vi.fn();
-const mockReportWarning = vi.fn();
-const mockReportKeyValuePair = vi.fn();
+import {
+	mockReportStart,
+	mockReportSuccess,
+	mockReportError,
+	mockReportProgress,
+	mockReportWarning,
+	mockReportKeyValuePair,
+} from 'cli/tests/test-utils';
 
 vi.mock( 'cli/lib/appdata', async () => {
 	const actual = await vi.importActual( 'cli/lib/appdata' );

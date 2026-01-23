@@ -16,7 +16,7 @@ import {
 	mockReportProgress,
 	mockReportWarning,
 	mockReportKeyValuePair,
-} from './test-utils';
+} from 'cli/tests/test-utils';
 
 vi.mock( 'cli/lib/appdata' );
 vi.mock( 'cli/lib/api' );

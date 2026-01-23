@@ -2,13 +2,14 @@ import { vi } from 'vitest';
 import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { runCommand } from '../list';
-
-const mockReportStart = vi.fn();
-const mockReportSuccess = vi.fn();
-const mockReportError = vi.fn();
-const mockReportProgress = vi.fn();
-const mockReportWarning = vi.fn();
-const mockReportKeyValuePair = vi.fn();
+import {
+	mockReportStart,
+	mockReportSuccess,
+	mockReportError,
+	mockReportProgress,
+	mockReportWarning,
+	mockReportKeyValuePair,
+} from 'cli/tests/test-utils';
 
 vi.mock( 'cli/lib/appdata', async () => {
 	const actual = await vi.importActual( 'cli/lib/appdata' );

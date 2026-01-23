@@ -1,2 +1,4 @@
-export const writeFile = jest.fn();
-export const readFile = jest.fn();
+import { vi } from 'vitest';
+
+export const writeFile = vi.fn();
+export const readFile = vi.fn();

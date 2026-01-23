@@ -1,11 +1,13 @@
+import { vi } from 'vitest';
+
 function mockOra() {
 	return {
-		start: jest.fn().mockReturnThis(),
-		stop: jest.fn().mockReturnThis(),
-		succeed: jest.fn().mockReturnThis(),
-		fail: jest.fn().mockReturnThis(),
+		start: vi.fn().mockReturnThis(),
+		stop: vi.fn().mockReturnThis(),
+		succeed: vi.fn().mockReturnThis(),
+		fail: vi.fn().mockReturnThis(),
 	};
 }
 
-module.exports = mockOra;
-module.exports.default = mockOra;
+export default mockOra;
+export { mockOra };

@@ -96,7 +96,7 @@ describe( 'Anchor', () => {
 	} );
 
 	it( 'should add UTM params when clicking a Telex link', () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {} );
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {} );
 		render( <Anchor href="https://telex.automattic.ai/" children="Telex link" /> );
 
 		screen.getByRole( 'link' ).click();
@@ -113,7 +113,7 @@ describe( 'Anchor', () => {
 	} );
 
 	it( 'should not modify non-Telex URLs', () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {} );
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {} );
 		render( <Anchor href="https://wordpress.com/" children="WordPress link" /> );
 
 		screen.getByRole( 'link' ).click();

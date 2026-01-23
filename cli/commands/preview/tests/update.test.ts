@@ -10,6 +10,11 @@ import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { updateSnapshotInAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import { runCommand } from '../update';
+import {
+	mockReportStart,
+	mockReportSuccess,
+	mockReportError,
+} from 'cli/tests/test-utils';
 
 vi.mock( 'common/lib/get-wordpress-version' );
 vi.mock( 'cli/lib/appdata', async () => {
@@ -24,10 +29,6 @@ vi.mock( 'cli/lib/appdata', async () => {
 vi.mock( 'cli/lib/archive' );
 vi.mock( 'cli/lib/api' );
 vi.mock( 'cli/lib/snapshots' );
-
-const mockReportStart = vi.fn();
-const mockReportSuccess = vi.fn();
-const mockReportError = vi.fn();
 
 vi.mock( 'cli/logger', () => ( {
 	Logger: vi.fn( () => ( {

@@ -8,26 +8,17 @@ import { download } from 'src/lib/download';
 import { getLogsFilePath } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 
-function getBlueprintDeeplinkErrorMessage( error: unknown ): {
-	message: string;
-	showLogs: boolean;
-} {
+function getBlueprintDeeplinkErrorMessage( error: unknown ): string {
 	const errorMessage = ( error instanceof Error ? error.message : '' ).toLowerCase();
 
 	const networkErrors = [ 'enotfound', 'econnrefused', 'etimedout', 'network' ];
 	if ( networkErrors.some( ( err ) => errorMessage.includes( err ) ) ) {
-		return {
-			message: __(
-				'Could not connect to the server. Please check your internet connection and try again.'
-			),
-			showLogs: true,
-		};
+		return __(
+			'Could not connect to the server. Please check your internet connection and try again.'
+		);
 	}
 
-	return {
-		message: __( 'The Blueprint could not be loaded. Please check the link and try again.' ),
-		showLogs: true,
-	};
+	return __( 'The Blueprint could not be loaded. Please check the link and try again.' );
 }
 
 /**
@@ -100,17 +91,14 @@ export async function handleAddSiteWithBlueprint( urlObject: URL ): Promise< voi
 			} );
 		}
 
-		const { message: userMessage, showLogs } = getBlueprintDeeplinkErrorMessage( error );
-		const buttons = showLogs ? [ __( 'Open Studio Logs' ), __( 'OK' ) ] : [ __( 'OK' ) ];
-
 		const response = await dialog.showMessageBox( mainWindow, {
 			type: 'error',
 			message: __( 'Failed to load Blueprint' ),
-			detail: userMessage,
-			buttons,
+			detail: getBlueprintDeeplinkErrorMessage( error ),
+			buttons: [ __( 'Open Studio Logs' ), __( 'OK' ) ],
 		} );
 
-		if ( showLogs && response.response === 0 ) {
+		if ( response.response === 0 ) {
 			const logFilePath = getLogsFilePath();
 			const err = await shell.openPath( logFilePath );
 			if ( err ) {

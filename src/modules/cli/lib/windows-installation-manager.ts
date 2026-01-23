@@ -29,25 +29,8 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 	 */
 	async isCliInstalled(): Promise< boolean > {
 		try {
-			const currentPath = await this.getPathFromRegistry();
-
-			// Return true if we are running the development version of the app and the production CLI is installed
-			if ( process.env.NODE_ENV !== 'production' && process.env.LOCALAPPDATA ) {
-				const prodStudioCliDir = path.join( process.env.LOCALAPPDATA, 'studio', 'bin' );
-				if ( this.isStudioCliInPath( currentPath, prodStudioCliDir ) ) {
-					return true;
-				}
-			}
-
-			if ( ! this.isStudioCliInPath( currentPath ) ) {
-				return false;
-			}
-
-			if ( ! existsSync( stableBinDirPath ) ) {
-				return false;
-			}
-
-			return true;
+			const isStudioCliDirInPath = await this.isStudioCliDirInPath();
+			return isStudioCliDirInPath && existsSync( stableBinDirPath );
 		} catch ( error ) {
 			console.error( 'Failed to check installation status of CLI', error );
 			return false;
@@ -55,8 +38,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 	}
 
 	async updateWindowsCliVersionedPathIfNeeded(): Promise< void > {
-		const currentPath = await this.getPathFromRegistry();
-		if ( this.isStudioCliInPath( currentPath ) ) {
+		if ( await this.isStudioCliDirInPath() ) {
 			await this.installProxyBatFile();
 		}
 	}
@@ -145,8 +127,16 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		} );
 	}
 
-	private isStudioCliInPath( pathValue: string, studioCliDir: string = stableBinDirPath ): boolean {
-		return pathValue
+	private async isStudioCliDirInPath(): Promise< boolean > {
+		let studioCliDir = stableBinDirPath;
+
+		// Return true if we are running the development version of the app and the production CLI is installed
+		if ( process.env.NODE_ENV !== 'production' && process.env.LOCALAPPDATA ) {
+			studioCliDir = path.join( process.env.LOCALAPPDATA, 'studio', 'bin' );
+		}
+
+		const currentPath = await this.getPathFromRegistry();
+		return currentPath
 			.split( ';' )
 			.map( ( item ) => item.trim().toLowerCase() )
 			.includes( studioCliDir.toLowerCase() );
@@ -155,11 +145,6 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 	private async installPath(): Promise< void > {
 		try {
 			const currentPath = await this.getPathFromRegistry();
-
-			if ( this.isStudioCliInPath( currentPath ) ) {
-				return;
-			}
-
 			const updatedPath = currentPath
 				.split( ';' )
 				.map( ( p ) => p.trim() )

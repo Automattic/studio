@@ -1,6 +1,22 @@
 Unreleased
 ==========
 
+1.7.0
+=====
+* Added support for managing sites and authentication in the Studio CLI tool
+* Added WP CLI support to Studio CLI tool
+* Improved Xdebug support (Beta Feature) #2316, #2395, #2410
+* Improved performance on Mac and Windows #2303
+* Added file upload progress and offline status indicator in Sync UI #2332
+* Increased Sync push size limit to 5 GB #2377
+* Added support for Blueprint translations #2363
+* Improved the speed of creating a WordPress site in online mode #2364
+* Improved the design of the Blueprint deeplink step #2397
+* Fixed error connecting to external MySQL database #2393
+* Fixed misc bugs and UI issues #2336, #2334, #2425, #2430
+* Updated SQLite plugin to 2.2.16, improving MySQL compatibility
+* Updated multiple dependencies including Electron Forge, Jest, Zod v4, and various WordPress packages
+
 1.6.8
 =====
 * Made sync uploads resumable #2212

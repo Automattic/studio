@@ -7,6 +7,7 @@ import {
 
 describe( 'isWordPressDevVersion', () => {
 	test( 'should identify WordPress development versions', () => {
+		expect( isWordPressDevVersion( 'nightly' ) ).toBe( true );
 		expect( isWordPressDevVersion( '6.8-beta2-59979' ) ).toBe( true );
 		expect( isWordPressDevVersion( '6.8-59979' ) ).toBe( true );
 		expect( isWordPressDevVersion( '6.8.3-59979' ) ).toBe( true );

@@ -9,7 +9,7 @@ import { getMainWindow } from 'src/main-window';
 import { StudioCliInstallationManager } from 'src/modules/cli/lib/ipc-handlers';
 
 // `stableBinDirPath` resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin
-const stableBinDirPath = path.resolve( path.dirname( app.getPath( 'exe' ) ), '../bin' );
+export const stableBinDirPath = path.resolve( path.dirname( app.getPath( 'exe' ) ), '../bin' );
 const PATH_KEY = 'Path';
 
 const currentUserRegistry = new Registry( {

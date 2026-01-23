@@ -339,10 +339,22 @@ async function benchmarkPlaygroundCLI( siteDir: string, port: number, useBundled
  */
 async function benchmarkStudioCLI( siteDir: string, siteName: string ): Promise<{ durationMs: number; success: boolean; error?: string }> {
 	// Studio CLI site create without --start (just creates the site)
-	return runCommand( 'node', [ STUDIO_CLI_PATH, 'site', 'create', `--path=${ siteDir }`, `--name=${ siteName }`, '--start=false' ], {
+	const result = await runCommand( 'node', [ STUDIO_CLI_PATH, 'site', 'create', `--path=${ siteDir }`, `--name=${ siteName }`, '--start=false' ], {
 		cwd: STUDIO_ROOT,
 		timeout: 300000,
 	} );
+
+	// Clean up: remove site from Studio appdata
+	try {
+		await runCommand( 'node', [ STUDIO_CLI_PATH, 'site', 'delete', `--path=${ siteDir }` ], {
+			cwd: STUDIO_ROOT,
+			timeout: 30000,
+		} );
+	} catch {
+		// Ignore cleanup errors
+	}
+
+	return result;
 }
 
 /**
@@ -358,9 +370,18 @@ async function benchmarkStudioCLIWithStart( siteDir: string, siteName: string ):
 		}
 	);
 
-	// Clean up: stop the site
+	// Clean up: stop the site and remove from Studio appdata
 	try {
 		await runCommand( 'node', [ STUDIO_CLI_PATH, 'site', 'stop', `--path=${ siteDir }` ], {
+			cwd: STUDIO_ROOT,
+			timeout: 30000,
+		} );
+	} catch {
+		// Ignore cleanup errors
+	}
+
+	try {
+		await runCommand( 'node', [ STUDIO_CLI_PATH, 'site', 'delete', `--path=${ siteDir }` ], {
 			cwd: STUDIO_ROOT,
 			timeout: 30000,
 		} );

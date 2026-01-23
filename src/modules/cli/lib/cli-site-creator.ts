@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { z } from 'zod';
+import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction } from 'common/logger-actions';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { executeCliCommand } from './execute-command';
@@ -111,7 +112,8 @@ function buildCliArgs( options: CreateSiteOptions ): string[] {
 	}
 
 	if ( options.wpVersion ) {
-		args.push( '--wp', options.wpVersion );
+		const wp = isWordPressDevVersion( options.wpVersion ) ? 'nightly' : options.wpVersion;
+		args.push( '--wp', wp );
 	}
 
 	if ( options.phpVersion ) {

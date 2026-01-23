@@ -30,7 +30,8 @@ process.on( 'uncaughtException', ( err ) => {
 // Configuration
 const DEFAULT_ROUNDS = 3;
 const STUDIO_ROOT = path.resolve( import.meta.dirname, '../..' );
-const PLAYGROUND_CLI_PATH = path.resolve( import.meta.dirname, 'node_modules/.bin/wp-playground-cli' );
+const PLAYGROUND_CLI_BIN = process.platform === 'win32' ? 'wp-playground-cli.cmd' : 'wp-playground-cli';
+const PLAYGROUND_CLI_PATH = path.resolve( import.meta.dirname, 'node_modules/.bin', PLAYGROUND_CLI_BIN );
 const STUDIO_CLI_PATH = path.resolve( STUDIO_ROOT, 'dist/cli/main.js' );
 
 function getBundledWordPressPath(): string {
@@ -246,9 +247,14 @@ async function benchmarkPlaygroundCLI( siteDir: string, port: number, useBundled
 
 		const cleanup = async ( proc: ChildProcess ) => {
 			try {
-				// Kill the process group (negative PID) for detached processes
 				if ( proc.pid ) {
-					process.kill( -proc.pid, 'SIGTERM' );
+					if ( process.platform === 'win32' ) {
+						// On Windows, use taskkill to kill the process tree
+						execSync( `taskkill /F /T /PID ${ proc.pid }`, { stdio: 'ignore' } );
+					} else {
+						// On Unix, kill the process group (negative PID)
+						process.kill( -proc.pid, 'SIGTERM' );
+					}
 					// Give process time to exit gracefully
 					await new Promise( ( r ) => setTimeout( r, 500 ) );
 				}
@@ -271,10 +277,12 @@ async function benchmarkPlaygroundCLI( siteDir: string, port: number, useBundled
 
 		// Start the server with inherited stdio so we can see progress
 		// Use detached: true to prevent signals from propagating to parent
+		// On Windows, use shell: true for proper process handling
 		const proc = spawn( PLAYGROUND_CLI_PATH, args, {
 			stdio: 'inherit',
 			env: { ...process.env, FORCE_COLOR: '1' },
-			detached: true,
+			detached: process.platform !== 'win32',
+			shell: process.platform === 'win32',
 		} );
 
 		// Keepalive to prevent event loop from exiting

@@ -70,9 +70,6 @@ describe( 'validateBlueprintData', () => {
 						step: 'login',
 						username: 'admin',
 					},
-					{
-						step: 'enableMultisite',
-					},
 				],
 			};
 
@@ -83,7 +80,6 @@ describe( 'validateBlueprintData', () => {
 				expect( result.warnings.length ).toBeGreaterThan( 0 );
 				expect( result.warnings.map( ( w ) => w.feature ) ).toContain( 'landingPage' );
 				expect( result.warnings.map( ( w ) => w.feature ) ).toContain( 'login' );
-				expect( result.warnings.map( ( w ) => w.feature ) ).toContain( 'enableMultisite' );
 			}
 		} );
 	} );

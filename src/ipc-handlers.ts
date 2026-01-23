@@ -63,7 +63,7 @@ import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
-import { unversionedBinDirPath } from 'src/modules/cli/lib/windows-installation-manager';
+import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tree-utils';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
@@ -838,11 +838,11 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 		if ( isCliInstalled ) {
 			const currentPath = process.env.PATH || '';
 			const pathEntries = currentPath.split( ';' ).map( ( p ) => p.toLowerCase() );
-			if ( ! pathEntries.includes( unversionedBinDirPath.toLowerCase() ) ) {
+			if ( ! pathEntries.includes( STABLE_BIN_DIR_PATH.toLowerCase() ) ) {
 				env = { ...process.env };
 				delete env.PATH;
 				delete env.Path;
-				env.PATH = `${ unversionedBinDirPath };${ currentPath }`;
+				env.PATH = `${ STABLE_BIN_DIR_PATH };${ currentPath }`;
 			}
 		}
 

@@ -6,6 +6,7 @@ import {
 	useContext,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from 'react';
 import { SITE_EVENTS, SiteEvent } from 'common/lib/site-events';
@@ -176,6 +177,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			: {}
 	);
 	const { selectedSiteId, setSelectedSiteId } = useSelectedSite( firstSite?.id );
+	const selectedSiteIdRef = useRef( selectedSiteId );
+	useEffect( () => {
+		selectedSiteIdRef.current = selectedSiteId;
+	}, [ selectedSiteId ] );
 	const [ uploadingSites, setUploadingSites ] = useState< { [ siteId: string ]: boolean } >( {} );
 	const { deleteSite, isLoading: isDeleting } = useDeleteSite();
 	const { setSelectedTab, selectedTab } = useContentTabs();
@@ -238,17 +243,18 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			await deleteSite( id, removeLocal );
 			const newSites = await getIpcApi().getSiteDetails();
 			setSites( newSites );
-			// Use functional update to access current selectedSiteId value
-			// Tab reset is handled in SiteContentTabs when it detects the previous site was deleted
-			setSelectedSiteId( ( currentSelectedId ) => {
-				const selectedSiteStillExists = newSites.some( ( site ) => site.id === currentSelectedId );
-				if ( ! selectedSiteStillExists ) {
-					return newSites.length ? newSites[ 0 ].id : '';
-				}
-				return currentSelectedId;
-			} );
+
+			// Use ref to get the current selectedSiteId (not stale closure value)
+			const currentSelectedId = selectedSiteIdRef.current;
+			const selectedSiteStillExists = newSites.some( ( site ) => site.id === currentSelectedId );
+
+			if ( ! selectedSiteStillExists ) {
+				// Reset tab to overview before changing the selected site
+				setSelectedTab( 'overview' );
+				setSelectedSiteId( newSites.length ? newSites[ 0 ].id : '' );
+			}
 		},
-		[ deleteSite, setSelectedSiteId ]
+		[ deleteSite, setSelectedSiteId, setSelectedTab ]
 	);
 
 	const createSite = useCallback(

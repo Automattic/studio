@@ -8,7 +8,6 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import crypto from 'crypto';
 import { extract } from 'tar';
 import { extractZip } from '../common/lib/extract-zip';
 
@@ -64,16 +63,15 @@ if ( ! fs.existsSync( binDir ) ) {
 const isWindows = nodePlatform === 'win';
 // nodejs.org provides different archive formats depending on the target platform
 const ext = isWindows ? 'zip' : 'tar.gz';
-const nodeBuildArchiveFilename = `node-${ NODE_VERSION }-${ nodePlatform }-${ nodeArch }.${ ext }`;
-const nodeBuildArchiveUrl = `https://nodejs.org/dist/${ NODE_VERSION }/${ nodeBuildArchiveFilename }`;
-const nodeBuildArchiveDownloadPath = path.join( tmpDir, nodeBuildArchiveFilename );
-const checksumUrl = `https://nodejs.org/dist/${ NODE_VERSION }/SHASUMS256.txt`;
-const checksumPath = path.join( tmpDir, 'SHASUMS256.txt' );
+const filename = `node-${ NODE_VERSION }-${ nodePlatform }-${ nodeArch }.${ ext }`;
+const url = `https://nodejs.org/dist/${ NODE_VERSION }/${ filename }`;
+const downloadPath = path.join( tmpDir, filename );
 
 async function download( downloadUrl: string, dest: string ): Promise< void > {
-	console.log( `Downloading ${ path.basename( dest ) }...` );
+	console.log( `Downloading Node.js ${ NODE_VERSION } for ${ nodePlatform }-${ nodeArch }...` );
 
 	const response = await fetch( downloadUrl );
+
 	if ( ! response.ok ) {
 		throw new Error( `Failed to download: HTTP ${ response.status }` );
 	}
@@ -98,59 +96,12 @@ async function download( downloadUrl: string, dest: string ): Promise< void > {
 		file.on( 'error', reject );
 		file.end();
 	} );
+
+	console.log( 'Download complete.' );
 }
 
-async function verifyChecksum(): Promise< void > {
-	console.log( 'Verifying checksum...' );
-
-	const checksumContent = fs.readFileSync( checksumPath, 'utf-8' );
-	const lines = checksumContent.split( '\n' );
-
-	let expectedChecksum: string | null = null;
-	for ( const line of lines ) {
-		if ( line.includes( nodeBuildArchiveFilename ) ) {
-			const parts = line.split( /\s+/ );
-			if ( parts.length > 0 ) {
-				expectedChecksum = parts[ 0 ];
-			}
-			break;
-		}
-	}
-
-	if ( ! expectedChecksum ) {
-		throw new Error( `Checksum not found for ${ nodeBuildArchiveFilename }` );
-	}
-
-	const hash = crypto.createHash( 'sha256' );
-	const stream = fs.createReadStream( nodeBuildArchiveDownloadPath );
-
-	await new Promise< void >( ( resolve, reject ) => {
-		stream.on( 'data', ( chunk ) => {
-			hash.update( chunk );
-		} );
-		stream.on( 'end', () => {
-			resolve();
-		} );
-		stream.on( 'error', reject );
-	} );
-
-	const actualChecksum = hash.digest( 'hex' );
-
-	if ( actualChecksum !== expectedChecksum ) {
-		throw new Error(
-			`Checksum mismatch!\nExpected: ${ expectedChecksum }\nActual:   ${ actualChecksum }`
-		);
-	}
-
-	console.log( 'Checksum verified.' );
-}
-
-async function extractTarGz(
-	archivePath: string,
-	destDir: string,
-	binaryName: string
-): Promise< void > {
-	console.log( `Extracting ${ path.basename( archivePath ) }...` );
+async function extractTarGz( archivePath: string, destDir: string, binaryName: string ): Promise< void > {
+	console.log( 'Extracting node binary...' );
 
 	const extractDir = path.join( tmpDir, `node-${ NODE_VERSION }-${ nodePlatform }-${ nodeArch }` );
 
@@ -167,14 +118,12 @@ async function extractTarGz(
 	fs.rmSync( extractDir, { recursive: true } );
 }
 
-async function extractNodeZip(
-	archivePath: string,
-	destDir: string,
-	binaryName: string
-): Promise< void > {
-	console.log( `Extracting ${ path.basename( archivePath ) }...` );
+async function extractNodeZip( archivePath: string, destDir: string, binaryName: string ): Promise< void > {
+	console.log( 'Extracting node.exe...' );
 
 	const extractDir = path.join( tmpDir, `node-${ NODE_VERSION }-${ nodePlatform }-${ nodeArch }` );
+
+	// Use the common extractZip function
 	await extractZip( archivePath, tmpDir );
 
 	const sourcePath = path.join( extractDir, 'node.exe' );
@@ -186,17 +135,17 @@ async function extractNodeZip(
 
 async function main(): Promise< void > {
 	try {
-		console.log( `Downloading Node.js ${ NODE_VERSION } for ${ nodePlatform }-${ nodeArch }...` );
-		await download( nodeBuildArchiveUrl, nodeBuildArchiveDownloadPath );
-		await download( checksumUrl, checksumPath );
-		await verifyChecksum();
+		await download( url, downloadPath );
 
 		const binaryName = isWindows ? 'node.exe' : 'node';
+
 		if ( isWindows ) {
-			await extractNodeZip( nodeBuildArchiveDownloadPath, binDir, binaryName );
+			await extractNodeZip( downloadPath, binDir, binaryName );
 		} else {
-			await extractTarGz( nodeBuildArchiveDownloadPath, binDir, binaryName );
+			await extractTarGz( downloadPath, binDir, binaryName );
 		}
+
+		fs.unlinkSync( downloadPath );
 
 		console.log( `\nNode.js binary installed to ${ binDir }` );
 
@@ -211,12 +160,6 @@ async function main(): Promise< void > {
 	} catch ( error ) {
 		console.error( 'Error:', ( error as Error ).message );
 		process.exit( 1 );
-	} finally {
-		[ nodeBuildArchiveDownloadPath, checksumPath ].forEach( ( file ) => {
-			if ( fs.existsSync( file ) ) {
-				fs.unlinkSync( file );
-			}
-		} );
 	}
 }
 

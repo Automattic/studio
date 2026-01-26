@@ -16,7 +16,7 @@ import { cx } from 'src/lib/cx';
 import { ContentTabSync } from 'src/modules/sync';
 
 export function SiteContentTabs() {
-	const { selectedSite, siteCreationMessages } = useSiteDetails();
+	const { selectedSite, sites, siteCreationMessages } = useSiteDetails();
 	const { importState } = useImportExport();
 	const { tabs, selectedTab, setSelectedTab } = useContentTabs();
 	const { __ } = useI18n();
@@ -28,6 +28,26 @@ export function SiteContentTabs() {
 	const lastChangeWasUser = useRef( false );
 	const isFirstRender = useRef( true );
 	const prevSelectedTab = useRef( selectedTab );
+
+	// Track previous site ID in state so we can safely access it during render
+	const [ prevSiteId, setPrevSiteId ] = useState( selectedSite?.id );
+
+	// Compute effective tab at render time
+	// This ensures TabPanel gets the correct initialTabName on the first render after deletion
+	const siteChanged = prevSiteId !== selectedSite?.id;
+	const prevSiteWasDeleted = prevSiteId && ! sites.some( ( site ) => site.id === prevSiteId );
+	const effectiveTab = siteChanged && prevSiteWasDeleted ? 'overview' : selectedTab;
+
+	// Update prevSiteId selectedTab after render
+	useEffect( () => {
+		if ( siteChanged ) {
+			setPrevSiteId( selectedSite?.id );
+		}
+
+		if ( effectiveTab !== selectedTab ) {
+			setSelectedTab( effectiveTab as TabName );
+		}
+	}, [ siteChanged, selectedSite?.id, effectiveTab, selectedTab, setSelectedTab ] );
 
 	useEffect( () => {
 		if ( isFirstRender.current ) {
@@ -83,19 +103,19 @@ export function SiteContentTabs() {
 				onSelect={ ( tabName ) => {
 					// Mark this as a user-initiated change BEFORE calling setSelectedTab
 					// so the useEffect can detect it was user-initiated
-					if ( tabName !== selectedTab ) {
+					if ( tabName !== effectiveTab ) {
 						lastChangeWasUser.current = true;
 					}
 					setSelectedTab( tabName as TabName );
 				} }
-				initialTabName={ selectedTab }
+				initialTabName={ effectiveTab }
 				key={ `${ selectedSite.id }-${ keyCounter }-${ programmaticTab }` }
 			>
 				{ ( { name } ) => (
 					<div
 						className={ cx(
 							'h-full overflow-y-auto',
-							selectedTab === 'assistant' && 'bg-gray-50'
+							effectiveTab === 'assistant' && 'bg-gray-50'
 						) }
 						style={ {
 							scrollbarWidth: 'thin',

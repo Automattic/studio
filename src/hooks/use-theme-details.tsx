@@ -10,6 +10,7 @@ type ThumbnailType = string | undefined;
 interface ThemeDetailsContextType {
 	loadingThemeDetails: Record< string, boolean >;
 	loadingThumbnails: Record< string, boolean >;
+	thumbnailLoadErrors: Record< string, boolean >;
 	themeDetails: Record< string, ThemeDetailsType >;
 	thumbnails: Record< string, ThumbnailType >;
 	initialLoading: boolean;
@@ -17,11 +18,13 @@ interface ThemeDetailsContextType {
 	selectedThumbnail: ThumbnailType;
 	selectedLoadingThemeDetails: boolean;
 	selectedLoadingThumbnails: boolean;
+	selectedThumbnailLoadError: boolean;
 }
 
 export const ThemeDetailsContext = createContext< ThemeDetailsContextType >( {
 	loadingThemeDetails: {},
 	loadingThumbnails: {},
+	thumbnailLoadErrors: {},
 	themeDetails: {},
 	thumbnails: {},
 	initialLoading: false,
@@ -29,6 +32,7 @@ export const ThemeDetailsContext = createContext< ThemeDetailsContextType >( {
 	selectedThumbnail: undefined,
 	selectedLoadingThemeDetails: false,
 	selectedLoadingThumbnails: false,
+	selectedThumbnailLoadError: false,
 } );
 
 interface ThemeDetailsProviderProps {
@@ -44,6 +48,9 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 		{}
 	);
 	const [ loadingThumbnails, setLoadingThumbnails ] = useState< Record< string, boolean > >( {} );
+	const [ thumbnailLoadErrors, setThumbnailLoadErrors ] = useState< Record< string, boolean > >(
+		{}
+	);
 
 	useIpcListener( 'theme-details-loading', ( _evt, { id } ) => {
 		setLoadingThemeDetails( ( loadingThemeDetails ) => {
@@ -64,6 +71,9 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 		setLoadingThumbnails( ( loadingThumbnails ) => {
 			return { ...loadingThumbnails, [ id ]: true };
 		} );
+		setThumbnailLoadErrors( ( errors ) => {
+			return { ...errors, [ id ]: false };
+		} );
 	} );
 
 	useIpcListener( 'thumbnail-loaded', ( _evt, { id, imageData } ) => {
@@ -73,11 +83,17 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 		setLoadingThumbnails( ( loadingThumbnails ) => {
 			return { ...loadingThumbnails, [ id ]: false };
 		} );
+		setThumbnailLoadErrors( ( errors ) => {
+			return { ...errors, [ id ]: false };
+		} );
 	} );
 
 	useIpcListener( 'thumbnail-load-error', ( _evt, { id } ) => {
 		setLoadingThumbnails( ( loadingThumbnails ) => {
 			return { ...loadingThumbnails, [ id ]: false };
+		} );
+		setThumbnailLoadErrors( ( errors ) => {
+			return { ...errors, [ id ]: true };
 		} );
 	} );
 
@@ -122,16 +138,19 @@ export const ThemeDetailsProvider: React.FC< ThemeDetailsProviderProps > = ( { c
 			themeDetails,
 			loadingThemeDetails,
 			loadingThumbnails,
+			thumbnailLoadErrors,
 			initialLoading: ! initialLoad,
 			selectedThemeDetails: themeDetails[ selectedSite?.id ?? '' ],
 			selectedThumbnail: thumbnails[ selectedSite?.id ?? '' ],
 			selectedLoadingThemeDetails: loadingThemeDetails[ selectedSite?.id ?? '' ],
 			selectedLoadingThumbnails: loadingThumbnails[ selectedSite?.id ?? '' ],
+			selectedThumbnailLoadError: thumbnailLoadErrors[ selectedSite?.id ?? '' ] ?? false,
 		};
 	}, [
 		initialLoad,
 		loadingThemeDetails,
 		loadingThumbnails,
+		thumbnailLoadErrors,
 		selectedSite?.id,
 		themeDetails,
 		thumbnails,

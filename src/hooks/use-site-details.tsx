@@ -238,8 +238,14 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			await deleteSite( id, removeLocal );
 			const newSites = await getIpcApi().getSiteDetails();
 			setSites( newSites );
-			const selectedSite = newSites.length ? newSites[ 0 ].id : '';
-			setSelectedSiteId( selectedSite );
+			// Only change selection if the currently selected site no longer exists
+			setSelectedSiteId( ( currentSelectedId ) => {
+				const selectedSiteStillExists = newSites.some( ( site ) => site.id === currentSelectedId );
+				if ( selectedSiteStillExists ) {
+					return currentSelectedId;
+				}
+				return newSites.length ? newSites[ 0 ].id : '';
+			} );
 			if ( selectedTab !== 'overview' ) {
 				setSelectedTab( 'overview' );
 			}

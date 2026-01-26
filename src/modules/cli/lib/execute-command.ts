@@ -37,7 +37,6 @@ class CliCommandEventEmitter extends EventEmitter {
 export interface ExecuteCliCommandOptions {
 	/**
 	 * Controls how stdout/stderr is handled:
-	 * - undefined (default): inherit from parent (shows output in terminal)
 	 * - 'ignore': ignore stdout/stderr completely
 	 * - 'capture': capture stdout/stderr, available in success/failure events
 	 */

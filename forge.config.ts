@@ -126,10 +126,24 @@ const config: ForgeConfig = {
 			}
 
 			console.log( 'Building CLI ...' );
-			await execAsync( 'npm run cli:build' );
+			const { stdout: cliStdout, stderr: cliStderr } = await execAsync( 'npm run cli:build' );
+			if ( cliStdout ) {
+				console.log( cliStdout );
+			}
+			if ( cliStderr ) {
+				console.error( cliStderr );
+			}
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
-			await execAsync( `npx ts-node ./scripts/download-node-binary.ts ${ platform } ${ arch }` );
+			const { stdout: nodeStdout, stderr: nodeStderr } = await execAsync(
+				`npx ts-node ./scripts/download-node-binary.ts ${ platform } ${ arch }`
+			);
+			if ( nodeStdout ) {
+				console.log( nodeStdout );
+			}
+			if ( nodeStderr ) {
+				console.error( nodeStderr );
+			}
 		},
 	},
 };

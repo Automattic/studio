@@ -62,6 +62,8 @@ import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
+import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
+import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tree-utils';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
@@ -828,8 +830,25 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 			return promiseExec( `start "" "warp://action/new_tab?path=${ encodedPath }"` );
 		}
 
+		// Ensure the Studio CLI bin directory is in the PATH for the spawned terminal.
+		// Child processes inherit the environment from the Electron process, which may have
+		// been started before the CLI was installed or PATH was updated in the registry.
+		const isCliInstalled = await isStudioCliInstalled();
+		let env: NodeJS.ProcessEnv | undefined;
+		if ( isCliInstalled ) {
+			const currentPath = process.env.PATH || '';
+			const pathEntries = currentPath.split( ';' ).map( ( p ) => p.toLowerCase() );
+			if ( ! pathEntries.includes( STABLE_BIN_DIR_PATH.toLowerCase() ) ) {
+				env = { ...process.env };
+				delete env.PATH;
+				delete env.Path;
+				env.PATH = `${ STABLE_BIN_DIR_PATH };${ currentPath }`;
+			}
+		}
+
 		return promiseExec( `start "Command Prompt" ${ defaultShell }`, {
 			cwd: targetPath,
+			env,
 		} );
 	} else if ( platform === 'linux' ) {
 		return promiseExec( `gnome-terminal --working-directory=${ targetPath }` );

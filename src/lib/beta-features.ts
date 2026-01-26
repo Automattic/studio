@@ -9,18 +9,11 @@ export interface BetaFeatureDefinition {
 }
 
 /**
- * Static configuration for beta features (keys and defaults only).
- * Used internally for feature state management.
+ * Default values for beta features.
  */
-const BETA_FEATURES_CONFIG: Record< keyof BetaFeatures, { key: string; default: boolean } > = {
-	multiWorkerSupport: {
-		key: 'multiWorkerSupport',
-		default: false,
-	},
-	xdebugSupport: {
-		key: 'xdebugSupport',
-		default: false,
-	},
+const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
+	multiWorkerSupport: false,
+	xdebugSupport: false,
 };
 
 /**
@@ -30,15 +23,15 @@ const BETA_FEATURES_CONFIG: Record< keyof BetaFeatures, { key: string; default: 
 export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFeatureDefinition > {
 	return {
 		multiWorkerSupport: {
-			label: __( 'Multi-Worker Support' ),
 			key: 'multiWorkerSupport',
-			default: false,
+			default: BETA_FEATURE_DEFAULTS.multiWorkerSupport,
+			label: __( 'Multi-Worker Support' ),
 			description: __( 'Enable multi-worker PHP processing for faster performance' ),
 		},
 		xdebugSupport: {
-			label: __( 'Xdebug Support' ),
 			key: 'xdebugSupport',
-			default: false,
+			default: BETA_FEATURE_DEFAULTS.xdebugSupport,
+			label: __( 'Xdebug Support' ),
 			description: __( 'Enable PHP debugging with Xdebug (one site at a time)' ),
 		},
 	};
@@ -46,11 +39,9 @@ export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFea
 
 function buildBetaFeatures( userData: BetaFeatures | undefined ): BetaFeatures {
 	const features: Partial< BetaFeatures > = {};
-	const keys = Object.keys( BETA_FEATURES_CONFIG );
+	const keys = Object.keys( BETA_FEATURE_DEFAULTS ) as ( keyof BetaFeatures )[];
 	keys.forEach( ( key ) => {
-		const featureKey = key as keyof BetaFeatures;
-		const config = BETA_FEATURES_CONFIG[ featureKey ];
-		( features as Record< string, boolean > )[ key ] = userData?.[ featureKey ] ?? config.default;
+		features[ key ] = userData?.[ key ] ?? BETA_FEATURE_DEFAULTS[ key ];
 	} );
 	return features as BetaFeatures;
 }

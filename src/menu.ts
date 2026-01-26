@@ -65,6 +65,7 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 	const currentBetaFeatures = await getBetaFeatures();
 	return Object.entries< BetaFeatureDefinition >( getBetaFeaturesDefinition() ).map(
 		( [ key, definition ] ) => {
+			// On Windows, use the description as the label for a more compact display
 			const label =
 				process.platform === 'win32' && definition.description
 					? definition.description

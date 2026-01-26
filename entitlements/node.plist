@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Required for V8 JIT compilation -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <!-- Required for V8 to generate unsigned executable code -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <!-- Required for V8 memory page management -->
+    <key>com.apple.security.cs.disable-executable-page-protection</key>
+    <true/>
+    <!-- Required for loading native modules -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>

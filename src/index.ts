@@ -517,7 +517,7 @@ async function appBoot() {
 
 		if ( shouldStopSitesOnQuit ) {
 			event.preventDefault();
-			stopAllServers( true )
+			stopAllServers( true, 6_000 )
 				.then( () => {
 					app.exit();
 				} )

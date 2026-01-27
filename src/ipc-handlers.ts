@@ -731,7 +731,6 @@ export async function loadThemeDetails(
 
 	try {
 		if ( hasThemeChanged ) {
-			// Emit thumbnail-loading when theme changed (even if emitThemeDetailsLoadingEvent was false)
 			if ( ! emitThemeDetailsLoadingEvent ) {
 				sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loading', { id } );
 			}

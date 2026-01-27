@@ -275,7 +275,7 @@ const SyncConnectedSitesSectionItem = ( {
 					<ArrowIcon />
 				</Button>
 
-				<div className="flex shrink-0 justify-self-end justify-end w-80">
+				<div className="flex shrink-0 justify-self-end justify-end items-center min-h-[26px] w-80">
 					{ isPulling && (
 						<div className="flex items-center gap-2 max-w-full transition-all duration-300 ease-in-out">
 							<div className="flex flex-col gap-2 min-w-44 flex-shrink">

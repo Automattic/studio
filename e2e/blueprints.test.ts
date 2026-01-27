@@ -25,7 +25,7 @@ test.describe( 'Blueprints', () => {
 		await session.cleanup();
 	} );
 
-	test( 'create site with blueprint that installs a theme', async ( { page } ) => {
+	test( 'create site with Blueprint that installs a theme', async ( { page } ) => {
 		const siteName = 'Blueprint-Theme-Install';
 		const blueprintPath = path.join( __dirname, 'fixtures', 'blueprints', 'install-theme.json' );
 
@@ -40,7 +40,7 @@ test.describe( 'Blueprints', () => {
 		await modal.selectBlueprintFile( blueprintPath );
 
 		// Wait for file to be processed and continue button to be enabled
-		await session.mainWindow.waitForTimeout( 1000 );
+		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
 		await modal.continueButton.click();
 
 		// Fill in site name
@@ -61,7 +61,7 @@ test.describe( 'Blueprints', () => {
 		await expect( page.locator( '.theme[data-slug="twentytwentytwo"]' ) ).toBeVisible();
 	} );
 
-	test( 'create site with blueprint that activates a theme', async ( { page } ) => {
+	test( 'create site with Blueprint that activates a theme', async ( { page } ) => {
 		const siteName = 'Blueprint-Theme-Activate';
 		const blueprintPath = path.join( __dirname, 'fixtures', 'blueprints', 'activate-theme.json' );
 
@@ -76,7 +76,7 @@ test.describe( 'Blueprints', () => {
 		await modal.selectBlueprintFile( blueprintPath );
 
 		// Wait for file to be processed and continue button to be enabled
-		await session.mainWindow.waitForTimeout( 1000 );
+		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
 		await modal.continueButton.click();
 
 		// Fill in site name
@@ -99,7 +99,7 @@ test.describe( 'Blueprints', () => {
 		await expect( activeTheme ).toHaveAttribute( 'data-slug', 'twentytwentyone' );
 	} );
 
-	test( 'create site with blueprint that installs a plugin', async ( { page } ) => {
+	test( 'create site with Blueprint that installs a plugin', async ( { page } ) => {
 		const siteName = 'Blueprint-Plugin-Install';
 		const blueprintPath = path.join( __dirname, 'fixtures', 'blueprints', 'install-plugin.json' );
 
@@ -114,7 +114,7 @@ test.describe( 'Blueprints', () => {
 		await modal.selectBlueprintFile( blueprintPath );
 
 		// Wait for file to be processed and continue button to be enabled
-		await session.mainWindow.waitForTimeout( 1000 );
+		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
 		await modal.continueButton.click();
 
 		// Fill in site name
@@ -135,7 +135,7 @@ test.describe( 'Blueprints', () => {
 		await expect( page.locator( 'tr[data-slug="akismet"]' ) ).toBeVisible();
 	} );
 
-	test( 'create site with blueprint that activates a plugin', async ( { page } ) => {
+	test( 'create site with Blueprint that activates a plugin', async ( { page } ) => {
 		const siteName = 'Blueprint-Plugin-Activate';
 		const blueprintPath = path.join( __dirname, 'fixtures', 'blueprints', 'activate-plugin.json' );
 
@@ -150,7 +150,7 @@ test.describe( 'Blueprints', () => {
 		await modal.selectBlueprintFile( blueprintPath );
 
 		// Wait for file to be processed and continue button to be enabled
-		await session.mainWindow.waitForTimeout( 1000 );
+		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
 		await modal.continueButton.click();
 
 		// Fill in site name
@@ -173,7 +173,7 @@ test.describe( 'Blueprints', () => {
 		await expect( pluginRow ).toBeVisible();
 	} );
 
-	test( 'create site with blueprint that runs PHP code', async ( { page } ) => {
+	test( 'create site with Blueprint that runs PHP code', async ( { page } ) => {
 		const siteName = 'Blueprint-PHP-Code';
 		const blueprintPath = path.join( __dirname, 'fixtures', 'blueprints', 'run-php-code.json' );
 
@@ -188,7 +188,7 @@ test.describe( 'Blueprints', () => {
 		await modal.selectBlueprintFile( blueprintPath );
 
 		// Wait for file to be processed and continue button to be enabled
-		await session.mainWindow.waitForTimeout( 1000 );
+		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
 		await modal.continueButton.click();
 
 		// Fill in site name
@@ -212,7 +212,7 @@ test.describe( 'Blueprints', () => {
 		await expect( page ).toHaveURL( /options-general\.php/ );
 	} );
 
-	test( 'create site with blueprint that runs WP-CLI commands', async ( { page } ) => {
+	test( 'create site with Blueprint that runs WP-CLI commands', async ( { page } ) => {
 		const siteName = 'Blueprint-WP-CLI';
 		const blueprintPath = path.join( __dirname, 'fixtures', 'blueprints', 'wp-cli-command.json' );
 
@@ -227,7 +227,7 @@ test.describe( 'Blueprints', () => {
 		await modal.selectBlueprintFile( blueprintPath );
 
 		// Wait for file to be processed and continue button to be enabled
-		await session.mainWindow.waitForTimeout( 1000 );
+		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
 		await modal.continueButton.click();
 
 		// Fill in site name

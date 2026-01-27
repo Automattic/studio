@@ -1,12 +1,14 @@
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
-import { getSiteByFolder, getSiteUrl } from 'cli/lib/appdata';
+import { getSiteByFolder, getSiteUrl, isXdebugBetaEnabled } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
+import { runCommand } from '../status';
 
 jest.mock( 'cli/lib/appdata', () => ( {
 	...jest.requireActual( 'cli/lib/appdata' ),
 	getSiteByFolder: jest.fn(),
 	getSiteUrl: jest.fn(),
+	isXdebugBetaEnabled: jest.fn(),
 	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
 } ) );
 jest.mock( 'cli/lib/pm2-manager' );
@@ -21,7 +23,8 @@ describe( 'CLI: studio site status', () => {
 		path: '/path/to/site',
 		port: 8080,
 		phpVersion: '8.0',
-		adminPassword: 'password123',
+		// createPassword returns a Base64-encoded string
+		adminPassword: btoa( 'password123' ),
 	};
 
 	const testSiteWithoutOptional = {
@@ -35,6 +38,7 @@ describe( 'CLI: studio site status', () => {
 
 		( getSiteByFolder as jest.Mock ).mockResolvedValue( testSite );
 		( getSiteUrl as jest.Mock ).mockReturnValue( 'http://localhost:8080' );
+		( isXdebugBetaEnabled as jest.Mock ).mockResolvedValue( true );
 		( connect as jest.Mock ).mockResolvedValue( undefined );
 		( disconnect as jest.Mock ).mockResolvedValue( undefined );
 		( isServerRunning as jest.Mock ).mockResolvedValue( false );
@@ -49,8 +53,6 @@ describe( 'CLI: studio site status', () => {
 		it( 'should throw when site not found', async () => {
 			( getSiteByFolder as jest.Mock ).mockRejectedValue( new Error( 'Site not found' ) );
 
-			const { runCommand } = await import( '../status' );
-
 			await expect( runCommand( '/invalid/path', 'table' ) ).rejects.toThrow( 'Site not found' );
 			expect( disconnect ).toHaveBeenCalled();
 		} );
@@ -58,8 +60,6 @@ describe( 'CLI: studio site status', () => {
 
 	describe( 'Success Cases', () => {
 		it( 'should display site status with table format', async () => {
-			const { runCommand } = await import( '../status' );
-
 			await runCommand( '/path/to/site', 'table' );
 
 			expect( getSiteByFolder ).toHaveBeenCalledWith( '/path/to/site' );
@@ -71,8 +71,6 @@ describe( 'CLI: studio site status', () => {
 		it( 'should output JSON format correctly', async () => {
 			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
 
-			const { runCommand } = await import( '../status' );
-
 			await runCommand( '/path/to/site', 'json' );
 
 			expect( consoleSpy ).toHaveBeenCalledWith(
@@ -83,6 +81,7 @@ describe( 'CLI: studio site status', () => {
 						Status: '🔴 Offline',
 						'PHP version': '8.0',
 						'WP version': '6.4',
+						Xdebug: 'Disabled',
 						'Admin username': 'admin',
 						'Admin password': 'password123',
 					},
@@ -99,8 +98,6 @@ describe( 'CLI: studio site status', () => {
 
 			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
 
-			const { runCommand } = await import( '../status' );
-
 			await runCommand( '/path/to/site', 'json' );
 
 			expect( consoleSpy ).toHaveBeenCalledWith(
@@ -112,6 +109,7 @@ describe( 'CLI: studio site status', () => {
 						Status: '🟢 Online',
 						'PHP version': '8.0',
 						'WP version': '6.4',
+						Xdebug: 'Disabled',
 						'Admin username': 'admin',
 						'Admin password': 'password123',
 					},
@@ -128,8 +126,6 @@ describe( 'CLI: studio site status', () => {
 
 			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
 
-			const { runCommand } = await import( '../status' );
-
 			await runCommand( '/path/to/site', 'json' );
 
 			expect( consoleSpy ).toHaveBeenCalledWith(
@@ -144,7 +140,30 @@ describe( 'CLI: studio site status', () => {
 
 			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
 
-			const { runCommand } = await import( '../status' );
+			await runCommand( '/path/to/site', 'json' );
+
+			expect( consoleSpy ).toHaveBeenCalledWith(
+				JSON.stringify(
+					{
+						'Site URL': 'http://localhost:8080/',
+						'Site Path': '/path/to/site',
+						Status: '🔴 Offline',
+						'WP version': '6.4',
+						Xdebug: 'Disabled',
+						'Admin username': 'admin',
+					},
+					null,
+					2
+				)
+			);
+
+			consoleSpy.mockRestore();
+		} );
+
+		it( 'should hide xdebug when beta feature is disabled', async () => {
+			( isXdebugBetaEnabled as jest.Mock ).mockResolvedValue( false );
+
+			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
 
 			await runCommand( '/path/to/site', 'json' );
 
@@ -154,10 +173,10 @@ describe( 'CLI: studio site status', () => {
 						'Site URL': 'http://localhost:8080/',
 						'Site Path': '/path/to/site',
 						Status: '🔴 Offline',
-						'PHP version': undefined,
+						'PHP version': '8.0',
 						'WP version': '6.4',
 						'Admin username': 'admin',
-						'Admin password': undefined,
+						'Admin password': 'password123',
 					},
 					null,
 					2
@@ -170,8 +189,6 @@ describe( 'CLI: studio site status', () => {
 
 	describe( 'Cleanup', () => {
 		it( 'should always disconnect from PM2 on success', async () => {
-			const { runCommand } = await import( '../status' );
-
 			await runCommand( '/path/to/site', 'table' );
 
 			expect( disconnect ).toHaveBeenCalled();
@@ -179,8 +196,6 @@ describe( 'CLI: studio site status', () => {
 
 		it( 'should always disconnect from PM2 on error', async () => {
 			( getSiteByFolder as jest.Mock ).mockRejectedValue( new Error( 'Error' ) );
-
-			const { runCommand } = await import( '../status' );
 
 			try {
 				await runCommand( '/path/to/site', 'table' );

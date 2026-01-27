@@ -181,7 +181,8 @@ describe( 'useAddSite', () => {
 			false,
 			undefined, // blueprint parameter
 			'8.2',
-			expect.any( Function )
+			expect.any( Function ),
+			false
 		);
 	} );
 

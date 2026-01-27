@@ -40,7 +40,8 @@ const api: IpcApi = {
 		),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
 	createSite: ( path, config ) => ipcRendererInvoke( 'createSite', path, config ),
-	updateSite: ( updatedSite ) => ipcRendererInvoke( 'updateSite', updatedSite ),
+	updateSite: ( updatedSite, wpVersion ) =>
+		ipcRendererInvoke( 'updateSite', updatedSite, wpVersion ),
 	connectWpcomSites: ( ...args ) => ipcRendererInvoke( 'connectWpcomSites', ...args ),
 	disconnectWpcomSites: ( ...args ) => ipcRendererInvoke( 'disconnectWpcomSites', ...args ),
 	updateConnectedWpcomSites: ( ...args ) =>
@@ -76,6 +77,7 @@ const api: IpcApi = {
 	showUserSettings: ( tabName ) => ipcRendererInvoke( 'showUserSettings', tabName ),
 	startServer: ( id ) => ipcRendererInvoke( 'startServer', id ),
 	stopServer: ( id ) => ipcRendererInvoke( 'stopServer', id ),
+	stopAllServers: () => ipcRendererInvoke( 'stopAllServers' ),
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
 	removeExportedSiteTmpFile: ( path ) => ipcRendererInvoke( 'removeExportedSiteTmpFile', path ),
@@ -84,7 +86,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'generateProposedSitePath', siteName ),
 	openLocalPath: ( path ) => ipcRendererSend( 'openLocalPath', path ),
 	showItemInFolder: ( path ) => ipcRendererSend( 'showItemInFolder', path ),
-	getThemeDetails: ( id ) => ipcRendererInvoke( 'getThemeDetails', id ),
+	loadThemeDetails: ( id, emitThemeDetailsLoadingEvent = true ) =>
+		ipcRendererInvoke( 'loadThemeDetails', id, emitThemeDetailsLoadingEvent ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
 	importSite: ( { id, backupFile } ) => ipcRendererInvoke( 'importSite', { id, backupFile } ),
@@ -136,7 +139,6 @@ const api: IpcApi = {
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
 	listLocalFileTree: ( siteId, path, maxDepth ) =>
 		ipcRenderer.invoke( 'listLocalFileTree', siteId, path, maxDepth ),
-	getProviderConstants: () => ipcRendererInvoke( 'getProviderConstants' ),
 	validateBlueprint: ( blueprintJson ) => ipcRendererInvoke( 'validateBlueprint', blueprintJson ),
 	readBlueprintFile: ( filePath ) => ipcRendererInvoke( 'readBlueprintFile', filePath ),
 	showSiteContextMenu: ( context ) => ipcRendererSend( 'showSiteContextMenu', context ),

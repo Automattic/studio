@@ -115,14 +115,7 @@ jest.mock( 'src/stores/wpcom-api', () => {
 const mockUseGetBlueprints = useGetBlueprints as jest.MockedFunction< typeof useGetBlueprints >;
 
 const renderWithProvider = ( children: React.ReactElement ) => {
-	const store = createTestStore( {
-		providerConstants: {
-			defaultPhpVersion: '8.3',
-			defaultWordPressVersion: 'latest',
-			allowedPhpVersions: [ '8.0', '8.1', '8.2', '8.3' ],
-			minimumWordPressVersion: '6.2.6',
-		},
-	} );
+	const store = createTestStore();
 	return render( <Provider store={ store }>{ children }</Provider> );
 };
 
@@ -231,7 +224,8 @@ describe( 'AddSite', () => {
 				false,
 				undefined, // blueprint parameter
 				'8.3',
-				expect.any( Function )
+				expect.any( Function ),
+				false
 			);
 		} );
 	} );
@@ -447,7 +441,8 @@ describe( 'AddSite', () => {
 				false,
 				undefined, // blueprint parameter
 				'8.3',
-				expect.any( Function )
+				expect.any( Function ),
+				false
 			);
 		} );
 	} );
@@ -573,7 +568,7 @@ describe( 'AddSite', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'should show warning when blueprint preferred versions differ from selected versions', async () => {
+	it( 'should show warning immediately when Blueprint preferred versions differ from defaults', async () => {
 		const mockBlueprintData = {
 			data: {
 				blueprints: [
@@ -622,16 +617,18 @@ describe( 'AddSite', () => {
 		// Open advanced settings to access version selectors
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
-		// Change PHP version to something different from preferred
-		const phpVersionSelect = screen.getByLabelText( 'PHP version' );
-		await user.selectOptions( phpVersionSelect, '8.3' );
-
-		// Should show warning since PHP version differs from preferred (8.1)
+		// Warning should show immediately since Blueprint versions (8.1, 6.4.0) differ from defaults (8.3, latest)
+		// No need to change version - the fix ensures warning appears right away
 		await waitFor( () => {
 			expect(
 				screen.getByText( 'Version differs from Blueprint recommendation' )
 			).toBeInTheDocument();
-			expect( screen.getByText( 'PHP 8.1 (currently 8.3)' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'PHP 8.1 (default is 8.3)' ) ).toBeInTheDocument();
+		} );
+
+		// Warning indicator should show next to Advanced settings
+		await waitFor( () => {
+			expect( screen.getByText( '2 warnings found' ) ).toBeInTheDocument();
 		} );
 	} );
 

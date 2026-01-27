@@ -65,7 +65,7 @@ const blueprintSchema = z.object( {
 	excerpt: z.string(),
 	image: z.string(),
 	playground_url: z.string(),
-	blueprint: z.record( z.unknown() ),
+	blueprint: z.record( z.string(), z.unknown() ),
 } );
 
 export type Blueprint = z.infer< typeof blueprintSchema >;
@@ -119,7 +119,7 @@ const wpcomPublicBaseQuery: BaseQueryFn<
 	}
 };
 
-function parseResponse< TSchema extends z.ZodTypeAny >(
+function parseResponse< TSchema extends z.ZodType >(
 	response: unknown,
 	schema: TSchema
 ): z.infer< TSchema > {

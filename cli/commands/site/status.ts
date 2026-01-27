@@ -1,8 +1,9 @@
 import { __, _n } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
+import { decodePassword } from 'common/lib/passwords';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { getSiteByFolder, getSiteUrl } from 'cli/lib/appdata';
+import { getSiteByFolder, getSiteUrl, isXdebugBetaEnabled } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { getPrettyPath } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
@@ -13,11 +14,13 @@ const logger = new Logger< LoggerAction >();
 
 export async function runCommand( siteFolder: string, format: 'table' | 'json' ): Promise< void > {
 	try {
+		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
+		await connect();
+		logger.reportSuccess( __( 'Process daemon started' ) );
+
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 		const site = await getSiteByFolder( siteFolder );
 		logger.reportSuccess( __( 'Site loaded' ) );
-
-		await connect();
 
 		const isOnline = Boolean( await isServerRunning( site.id ) );
 		const status = isOnline ? `🟢 ${ __( 'Online' ) }` : `🔴 ${ __( 'Offline' ) }`;
@@ -27,6 +30,9 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 		const autoLoginUrl = new URL( siteUrl );
 		autoLoginUrl.pathname = `/studio-auto-login`;
 		autoLoginUrl.searchParams.set( 'redirect_to', `/wp-admin/` );
+
+		const xdebugStatus = site.enableXdebug ? __( 'Enabled' ) : __( 'Disabled' );
+		const showXdebug = await isXdebugBetaEnabled();
 
 		const siteData: {
 			key: string;
@@ -45,8 +51,12 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			{ key: __( 'Status' ), value: status },
 			{ key: __( 'PHP version' ), value: site.phpVersion },
 			{ key: __( 'WP version' ), value: wpVersion },
+			{ key: __( 'Xdebug' ), value: xdebugStatus, hidden: ! showXdebug },
 			{ key: __( 'Admin username' ), value: 'admin' },
-			{ key: __( 'Admin password' ), value: site.adminPassword },
+			{
+				key: __( 'Admin password' ),
+				value: site.adminPassword ? decodePassword( site.adminPassword ) : undefined,
+			},
 		].filter( ( { value, hidden } ) => value && ! hidden );
 
 		if ( format === 'table' ) {
@@ -70,14 +80,14 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			console.log( JSON.stringify( logData, null, 2 ) );
 		}
 	} finally {
-		disconnect();
+		await disconnect();
 	}
 }
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'status',
-		describe: __( 'Get status of local site' ),
+		describe: __( 'Get status of site' ),
 		builder: ( yargs ) => {
 			return yargs.option( 'format', {
 				type: 'string',
@@ -93,7 +103,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );
 				} else {
-					const loggerError = new LoggerError( __( 'Failed to load site' ), error );
+					const loggerError = new LoggerError( __( 'Failed to load site status' ), error );
 					logger.reportError( loggerError );
 				}
 			}

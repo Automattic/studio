@@ -1,6 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { compileBlueprint } from '@wp-playground/blueprints';
-import { z } from 'zod';
+import validateBlueprintSchema from '@wp-playground/blueprints/blueprint-schema-validator';
 
 interface UnsupportedFeature {
 	type: 'step' | 'property';
@@ -63,6 +62,11 @@ function getUnsupportedFeatureInfo( name: string ): UnsupportedFeature | undefin
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type BlueprintData = Record< string, any >;
+
+export type BlueprintPreferredVersions = {
+	php?: string;
+	wp?: string;
+};
 
 export function scanBlueprintForUnsupportedFeatures(
 	blueprint: BlueprintData
@@ -134,39 +138,39 @@ type BlueprintValidationSuccess = {
 export type BlueprintValidationResult = BlueprintValidationError | BlueprintValidationSuccess;
 
 /**
- * Validates a blueprint by compiling it and scanning for unsupported features.
+ * Validates a blueprint using the official schema and scans for unsupported features.
  */
 export async function validateBlueprintData(
 	blueprintJson: unknown
 ): Promise< BlueprintValidationResult > {
-	// Temporarily suppress console.warn during blueprint compilation
-	// to avoid noisy deprecation warnings from @wp-playground/blueprints
-	const originalWarn = console.warn;
-	console.warn = () => {};
+	const isValid = validateBlueprintSchema( blueprintJson );
 
-	const schema = z.record( z.string(), z.any() );
-
-	try {
-		const result = schema.parse( blueprintJson );
-		await compileBlueprint( result );
-
-		const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( result );
-		const warnings = unsupportedFeatures.map( ( feature ) => ( {
-			feature: feature.name,
-			reason: feature.reason,
-		} ) );
-
-		return {
-			valid: true,
-			warnings,
+	if ( ! isValid && validateBlueprintSchema.errors ) {
+		const firstError = validateBlueprintSchema.errors[ 0 ] as {
+			instancePath?: string;
+			message?: string;
+			params?: { additionalProperty?: string };
 		};
-	} catch ( error ) {
-		const errorMessage = error instanceof Error ? error.message : __( 'Invalid Blueprint format' );
+		const errorPath = firstError.instancePath || '/';
+		const additionalProp = firstError.params?.additionalProperty;
+		const errorMessage = additionalProp
+			? __( `"${ additionalProp }" is not a valid Blueprint property` )
+			: firstError.message || __( 'Invalid blueprint' );
+
 		return {
 			valid: false,
-			error: errorMessage,
+			error: errorPath === '/' ? errorMessage : `${ errorMessage } at ${ errorPath }`,
 		};
-	} finally {
-		console.warn = originalWarn;
 	}
+
+	const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson as BlueprintData );
+	const warnings = unsupportedFeatures.map( ( feature ) => ( {
+		feature: feature.name,
+		reason: feature.reason,
+	} ) );
+
+	return {
+		valid: true,
+		warnings,
+	};
 }

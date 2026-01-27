@@ -15,9 +15,7 @@ import { reducer as chatReducer } from 'src/stores/chat-slice';
 import i18nReducer from 'src/stores/i18n-slice';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
 import onboardingReducer from 'src/stores/onboarding-slice';
-import providerConstantsReducer, {
-	setProviderConstants,
-} from 'src/stores/provider-constants-slice';
+import { providerConstantsReducer } from 'src/stores/provider-constants-slice';
 import {
 	reducer as snapshotReducer,
 	updateSnapshotLocally,
@@ -131,26 +129,8 @@ export const store = configureStore( {
 // Enable the refetchOnFocus behavior
 setupListeners( store.dispatch );
 
-// Listen for provider constants changes
-window.addEventListener( 'providerConstantsChanged', ( event: Event ) => {
-	const customEvent = event as CustomEvent;
-	store.dispatch( setProviderConstants( customEvent.detail ) );
-} );
-
-// Initialize provider constants when store is ready
-async function initializeProviderConstants() {
-	try {
-		const constants = await getIpcApi().getProviderConstants();
-		store.dispatch( setProviderConstants( constants ) );
-	} catch ( error ) {
-		console.error( 'Error initializing provider constants:', error );
-	}
-}
-
-// Initialize provider constants immediately, but skip in test environment
+// Initialize beta features on store initialization, but skip in test environment
 if ( typeof jest === 'undefined' && process.env.NODE_ENV !== 'test' ) {
-	void initializeProviderConstants();
-	// Initialize beta features on store initialization only in non-test environment
 	void store.dispatch( loadBetaFeatures() );
 }
 

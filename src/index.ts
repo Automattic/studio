@@ -12,7 +12,7 @@ import {
 import path from 'path';
 import { pathToFileURL } from 'url';
 import * as Sentry from '@sentry/electron/main';
-import { __ } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { PROTOCOL_PREFIX } from 'common/constants';
 import {
 	bumpStat,
@@ -31,10 +31,8 @@ import {
 import { getPlatformMetric } from 'src/lib/bump-stats/lib';
 import { handleDeeplink } from 'src/lib/deeplink';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
-import { stopProxyServer } from 'src/lib/proxy-server';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { startUserDataWatcher, stopUserDataWatcher } from 'src/lib/user-data-watcher';
-import { getWordPressProvider } from 'src/lib/wordpress-provider';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getMainWindow } from 'src/main-window';
 import {
@@ -43,11 +41,22 @@ import {
 } from 'src/migrations/migrate-from-wp-now-folder';
 import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
 import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-stat';
+import {
+	startCliEventsSubscriber,
+	stopCliEventsSubscriber,
+} from 'src/modules/cli/lib/cli-events-subscriber';
+import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { updateWindowsCliVersionedPathIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { setupWPServerFiles, updateWPServerFiles } from 'src/setup-wp-server-files';
-import { stopAllServersOnQuit } from 'src/site-server';
-import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
-import { setupUpdates } from 'src/updates';
+import { getRunningSiteCount, stopAllServers } from 'src/site-server';
+import {
+	loadUserData,
+	lockAppdata,
+	saveUserData,
+	unlockAppdata,
+	updateAppdata,
+} from 'src/storage/user-data';
+import { getAutoUpdaterState, setupUpdates } from 'src/updates';
 // eslint-disable-next-line import/order
 import packageJson from '../package.json';
 
@@ -349,8 +358,10 @@ async function appBoot() {
 
 		await renameLaunchUniquesStat();
 
-		await createMainWindow();
 		await startUserDataWatcher();
+		await startCliEventsSubscriber();
+
+		await createMainWindow();
 
 		const userData = await loadUserData();
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
@@ -376,7 +387,6 @@ async function appBoot() {
 		).catch( ( err ) => Sentry.captureException( err ) );
 
 		await updateWindowsCliVersionedPathIfNeeded();
-		getWordPressProvider();
 
 		finishedInitialization = true;
 	} );
@@ -390,53 +400,131 @@ async function appBoot() {
 		}
 	} );
 
-	app.on( 'will-quit', () => {
-		globalShortcut.unregisterAll();
-	} );
+	/**
+	 * We want to stop all running sites (including the process daemon) in any of these cases:
+	 * - There's a pending auto-update
+	 * - There are no running sites (in which case we kill just the daemon)
+	 * - There are running sites, and the user has confirmed they want to stop them upon closing the app
+	 */
+	let shouldStopSitesOnQuit = true;
+	let isQuittingConfirmed = false;
 
 	app.on( 'before-quit', ( event ) => {
-		if ( ! hasActiveSyncOperations() ) {
+		if ( isQuittingConfirmed ) {
 			return;
 		}
 
-		const QUIT_APP_BUTTON_INDEX = 0;
-		const CANCEL_BUTTON_INDEX = 1;
+		if ( hasActiveSyncOperations() ) {
+			const QUIT_APP_BUTTON_INDEX = 0;
+			const CANCEL_BUTTON_INDEX = 1;
 
-		const messageInformation: Pick< MessageBoxSyncOptions, 'message' | 'detail' | 'type' > =
-			hasUploadingPushOperations()
-				? {
-						message: __( 'Sync is in progress' ),
-						detail: __(
-							"There's a sync operation in progress. Quitting the app will abort that operation. Are you sure you want to quit?"
-						),
-						type: 'warning',
-				  }
-				: {
-						message: __( 'Sync will continue' ),
-						detail: __(
-							'The sync process will continue running remotely after you quit Studio. We will send you an email once it is complete.'
-						),
-						type: 'info',
-				  };
+			const messageInformation: Pick< MessageBoxSyncOptions, 'message' | 'detail' | 'type' > =
+				hasUploadingPushOperations()
+					? {
+							message: __( 'Sync is in progress' ),
+							detail: __(
+								"There's a sync operation in progress. Quitting the app will abort that operation. Are you sure you want to quit?"
+							),
+							type: 'warning',
+					  }
+					: {
+							message: __( 'Sync will continue' ),
+							detail: __(
+								'The sync process will continue running remotely after you quit Studio. We will send you an email once it is complete.'
+							),
+							type: 'info',
+					  };
 
-		const clickedButtonIndex = dialog.showMessageBoxSync( {
-			message: messageInformation.message,
-			detail: messageInformation.detail,
-			type: messageInformation.type,
-			buttons: [ __( 'Yes, quit the app' ), __( 'No, take me back' ) ],
-			cancelId: CANCEL_BUTTON_INDEX,
-			defaultId: QUIT_APP_BUTTON_INDEX,
-		} );
+			const clickedButtonIndex = dialog.showMessageBoxSync( {
+				message: messageInformation.message,
+				detail: messageInformation.detail,
+				type: messageInformation.type,
+				buttons: [ __( 'Yes, quit the app' ), __( 'No, take me back' ) ],
+				cancelId: CANCEL_BUTTON_INDEX,
+				defaultId: QUIT_APP_BUTTON_INDEX,
+			} );
 
-		if ( clickedButtonIndex === CANCEL_BUTTON_INDEX ) {
+			if ( clickedButtonIndex === CANCEL_BUTTON_INDEX ) {
+				event.preventDefault();
+				return;
+			}
+		}
+
+		const runningSiteCount = getRunningSiteCount();
+		if ( getAutoUpdaterState() !== 'waiting-for-restart' && runningSiteCount > 0 ) {
 			event.preventDefault();
+
+			void ( async () => {
+				const userData = await loadUserData();
+				const isCliInstalled = await isStudioCliInstalled();
+
+				if ( userData.stopSitesOnQuit !== undefined ) {
+					shouldStopSitesOnQuit = userData.stopSitesOnQuit;
+					isQuittingConfirmed = true;
+					app.quit();
+					return;
+				}
+
+				if ( ! isCliInstalled || process.env.E2E ) {
+					isQuittingConfirmed = true;
+					app.quit();
+					return;
+				}
+
+				const STOP_SITES_BUTTON_INDEX = 0;
+				const CANCEL_BUTTON_INDEX = 2;
+
+				const { response, checkboxChecked } = await dialog.showMessageBox( {
+					type: 'question',
+					message: _n( 'You have a running site', 'You have running sites', runningSiteCount ),
+					detail: sprintf(
+						_n(
+							'%d site is currently running. Do you want to stop it before quitting?',
+							'%d sites are currently running. Do you want to stop them before quitting?',
+							runningSiteCount
+						),
+						runningSiteCount
+					),
+					buttons: [ __( 'Stop sites' ), __( 'Leave running' ), __( 'Cancel' ) ],
+					checkboxLabel: __( "Don't ask again" ),
+					cancelId: CANCEL_BUTTON_INDEX,
+					defaultId: STOP_SITES_BUTTON_INDEX,
+				} );
+
+				if ( response === CANCEL_BUTTON_INDEX ) {
+					return;
+				}
+
+				const stopSites = response === STOP_SITES_BUTTON_INDEX;
+
+				if ( checkboxChecked ) {
+					await updateAppdata( { stopSitesOnQuit: stopSites } );
+				}
+
+				shouldStopSitesOnQuit = stopSites;
+				isQuittingConfirmed = true;
+				app.quit();
+			} )();
+
+			return;
 		}
 	} );
 
-	app.on( 'quit', () => {
-		void stopAllServersOnQuit();
-		stopProxyServer().catch( ( error ) => console.error( 'Error stopping proxy server:', error ) );
+	app.on( 'will-quit', ( event ) => {
+		globalShortcut.unregisterAll();
 		stopUserDataWatcher();
+		stopCliEventsSubscriber();
+
+		if ( shouldStopSitesOnQuit ) {
+			event.preventDefault();
+			stopAllServers( true )
+				.then( () => {
+					app.exit();
+				} )
+				.catch( () => {
+					app.exit();
+				} );
+		}
 	} );
 
 	app.on( 'activate', () => {

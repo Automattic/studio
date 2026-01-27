@@ -67,7 +67,8 @@ describe( 'useSiteDetails', () => {
 		jest.clearAllMocks();
 		( getIpcApi as jest.Mock ).mockReturnValue( {
 			getSiteDetails: jest.fn().mockResolvedValue( mockSites ),
-			startServer: jest.fn().mockResolvedValue( undefined ),
+			startServer: jest.fn( () => Promise.resolve() ),
+			deleteSite: jest.fn( () => Promise.resolve() ),
 		} );
 	} );
 
@@ -93,7 +94,7 @@ describe( 'useSiteDetails', () => {
 						autoStart: false,
 					} ) )
 				),
-				startServer: jest.fn().mockResolvedValue( undefined ),
+				startServer: jest.fn( () => Promise.resolve() ),
 			} );
 
 			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
@@ -104,6 +105,62 @@ describe( 'useSiteDetails', () => {
 
 			// Verify that startServer was not called for any site
 			expect( getIpcApi().startServer ).not.toHaveBeenCalled();
+		} );
+	} );
+
+	describe( 'site deletion selection behavior', () => {
+		it( 'should select first site when deleting the currently selected site', async () => {
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			// Select site-3 (the site we'll delete)
+			result.current.setSelectedSiteId( 'site-3' );
+
+			await waitFor( () => {
+				expect( result.current.selectedSite?.id ).toBe( 'site-3' );
+			} );
+
+			// Simulate that after deletion, site-3 is removed
+			const sitesAfterDeletion = mockSites.filter( ( site ) => site.id !== 'site-3' );
+			( getIpcApi().getSiteDetails as jest.Mock ).mockResolvedValueOnce( sitesAfterDeletion );
+
+			// Delete site-3
+			await result.current.deleteSite( 'site-3', false );
+
+			// Should select the first remaining site since the selected site was deleted
+			await waitFor( () => {
+				expect( result.current.selectedSite?.id ).toBe( 'site-1' );
+			} );
+		} );
+
+		it( 'should preserve selection when deleting a different site', async () => {
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			// Select site-2 (NOT the site we'll delete)
+			result.current.setSelectedSiteId( 'site-2' );
+
+			await waitFor( () => {
+				expect( result.current.selectedSite?.id ).toBe( 'site-2' );
+			} );
+
+			// Simulate that after deletion, site-3 is removed (but site-2 still exists)
+			const sitesAfterDeletion = mockSites.filter( ( site ) => site.id !== 'site-3' );
+			( getIpcApi().getSiteDetails as jest.Mock ).mockResolvedValueOnce( sitesAfterDeletion );
+
+			// Delete site-3 (not the selected site)
+			await result.current.deleteSite( 'site-3', false );
+
+			// Selection should stay on site-2 since it still exists
+			await waitFor( () => {
+				expect( result.current.selectedSite?.id ).toBe( 'site-2' );
+			} );
 		} );
 	} );
 } );

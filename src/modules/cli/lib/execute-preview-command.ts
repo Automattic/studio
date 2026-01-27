@@ -6,7 +6,7 @@ import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 
 const snapshotEventSchema = z.discriminatedUnion( 'action', [
 	z.object( {
-		action: z.nativeEnum( PreviewCommandLoggerAction ),
+		action: z.enum( PreviewCommandLoggerAction ),
 		status: z.enum( [ 'inprogress', 'fail', 'success' ] ),
 		message: z.string(),
 	} ),
@@ -22,7 +22,7 @@ export async function executePreviewCliCommand(
 	parentWindow: Electron.BrowserWindow | null
 ): Promise< { operationId: crypto.UUID } > {
 	const operationId = crypto.randomUUID();
-	const cliEventEmitter = executeCliCommand( args );
+	const [ cliEventEmitter ] = executeCliCommand( args );
 
 	cliEventEmitter.on( 'data', ( { data } ) => {
 		const parsed = snapshotEventSchema.safeParse( data );

@@ -84,7 +84,7 @@ platformTestSuite( 'JetpackImporter', ( { normalize } ) => {
 			const siteServer = SiteServer.get( mockStudioSiteId );
 
 			const expectedCommand =
-				'sqlite import studio-backup-sql-2024-08-01-12-00-00.sql --require=/tmp/sqlite-command/command.php --enable-ast-driver';
+				'sqlite import /wordpress/studio-backup-sql-2024-08-01-12-00-00.sql --require=/tmp/sqlite-command/command.php --enable-ast-driver';
 			expect( siteServer?.executeWpCliCommand ).toHaveBeenNthCalledWith( 1, expectedCommand, {
 				targetPhpVersion: '8.3',
 				skipPluginsAndThemes: true,

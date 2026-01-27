@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { BrowserWindow } from 'electron';
 import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
+import { SiteEvent } from 'common/lib/site-events';
 import { PreviewCommandLoggerAction } from 'common/logger-actions';
 import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { StoredToken } from 'src/lib/oauth';
@@ -30,14 +31,8 @@ export interface IpcEvents {
 	'on-export': [ ImportExportEventData, string ];
 	'on-import': [ ImportExportEventData, string ];
 	'on-site-create-progress': [ { siteId: string; message: string } ];
-	providerConstantsChanged: [
-		{
-			defaultPhpVersion: string;
-			defaultWordPressVersion: string;
-			allowedPhpVersions: string[];
-		},
-	];
 	'site-context-menu-action': [ { action: string; siteId: string } ];
+	'site-event': [ SiteEvent ];
 	'sync-upload-paused': [ { error: string; selectedSiteId: string; remoteSiteId: number } ];
 	'sync-upload-resumed': [ { selectedSiteId: string; remoteSiteId: number } ];
 	'sync-upload-progress': [ { selectedSiteId: string; remoteSiteId: number; progress: number } ];
@@ -49,9 +44,11 @@ export interface IpcEvents {
 	'show-whats-new': [ void ];
 	'sync-connect-site': [ { remoteSiteId: number; studioSiteId: string; autoOpenPush?: boolean } ];
 	'test-render-failure': [ void ];
-	'theme-details-changed': [ { id: string; details: StartedSiteDetails[ 'themeDetails' ] } ];
-	'theme-details-updating': [ { id: string } ];
-	'thumbnail-changed': [ { id: string; imageData: string | null } ];
+	'theme-details-loading': [ { id: string } ];
+	'theme-details-loaded': [ { id: string; details: StartedSiteDetails[ 'themeDetails' ] } ];
+	'thumbnail-loading': [ { id: string } ];
+	'thumbnail-loaded': [ { id: string; imageData: string | null } ];
+	'thumbnail-load-error': [ { id: string } ];
 	'user-settings': [ { tabName?: string } ];
 	'window-fullscreen-change': [ boolean ];
 	'user-preference-changed': [ void ];

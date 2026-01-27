@@ -81,7 +81,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							<span className="line-clamp-1 break-all">{ selectedSite.name }</span>
 						</div>
 					</SettingsRow>
-					<SettingsRow label={ __( 'Local URL' ) }>
+					<SettingsRow label={ __( 'Site URL' ) }>
 						<CopyTextButton
 							text={ `${ protocol }://${ domain }` }
 							label={ `${ domain }, ${ __( 'Copy site url to clipboard' ) }` }

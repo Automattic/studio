@@ -1,55 +1,79 @@
 import crypto from 'crypto';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { SupportedPHPVersions } from '@php-wasm/universal';
 import { __, sprintf } from '@wordpress/i18n';
-import { Blueprint } from '@wp-playground/blueprints';
-import { RecommendedPHPVersion } from '@wp-playground/common';
+import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
+import {
+	DEFAULT_PHP_VERSION,
+	DEFAULT_WORDPRESS_VERSION,
+	MINIMUM_WORDPRESS_VERSION,
+} from 'common/constants';
 import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
 } from 'common/lib/blueprint-validation';
 import { getDomainNameValidationError } from 'common/lib/domains';
 import { arePathsEqual, isEmptyDir, isWordPressDirectory, pathExists } from 'common/lib/fs-utils';
+import { DEFAULT_LOCALE } from 'common/lib/locale';
+import { isOnline } from 'common/lib/network-utils';
 import { createPassword } from 'common/lib/passwords';
 import { portFinder } from 'common/lib/port-finder';
+import { SITE_EVENTS } from 'common/lib/site-events';
 import { sortSites } from 'common/lib/sort-sites';
 import {
 	isValidWordPressVersion,
 	isWordPressVersionAtLeast,
 } from 'common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
-import { lockAppdata, readAppdata, saveAppdata, SiteData, unlockAppdata } from 'cli/lib/appdata';
-import { connect, disconnect } from 'cli/lib/pm2-manager';
+import fse from 'fs-extra';
+import {
+	lockAppdata,
+	readAppdata,
+	removeSiteFromAppdata,
+	saveAppdata,
+	SiteData,
+	unlockAppdata,
+	updateSiteAutoStart,
+	updateSiteLatestCliPid,
+} from 'cli/lib/appdata';
+import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
+import { getServerFilesPath } from 'cli/lib/server-files';
+import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { installSqliteIntegration, isSqliteIntegrationAvailable } from 'cli/lib/sqlite-integration';
+import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { untildify } from 'cli/lib/utils';
+import { ValidationError } from 'cli/lib/validation-error';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-const DEFAULT_VERSIONS = {
-	php: RecommendedPHPVersion,
-	wp: 'latest',
-} as const;
-const MINIMUM_WORDPRESS_VERSION = '6.2.1' as const; // https://wordpress.github.io/wordpress-playground/blueprints/examples/#load-an-older-wordpress-version
 const ALLOWED_PHP_VERSIONS = [ ...SupportedPHPVersions ];
 
 const logger = new Logger< LoggerAction >();
 
+type CreateCommandOptions = {
+	name?: string;
+	wpVersion: string;
+	phpVersion: ( typeof ALLOWED_PHP_VERSIONS )[ number ];
+	customDomain?: string;
+	enableHttps: boolean;
+	blueprint?: {
+		contents: unknown;
+		uri: string;
+	};
+	noStart: boolean;
+	skipBrowser: boolean;
+	skipLogDetails: boolean;
+};
+
 export async function runCommand(
 	sitePath: string,
-	options: {
-		name?: string;
-		wpVersion: string;
-		phpVersion: ( typeof ALLOWED_PHP_VERSIONS )[ number ];
-		customDomain?: string;
-		enableHttps: boolean;
-		blueprintJson?: unknown;
-		noStart: boolean;
-	}
+	options: CreateCommandOptions
 ): Promise< void > {
 	try {
-		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating site configuration...' ) );
+		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating site configuration…' ) );
 
 		const pathExistsResult = await pathExists( sitePath );
 		const isEmptyDirResult = pathExistsResult && ( await isEmptyDir( sitePath ) );
@@ -61,22 +85,11 @@ export async function runCommand(
 			);
 		}
 
-		if ( ! isValidWordPressVersion( options.wpVersion ) ) {
-			throw new LoggerError(
-				__(
-					'Invalid WordPress version. Must be "latest", "nightly", or a valid version number (e.g., "6.4", "6.4.1", "6.4-beta1").'
-				)
-			);
-		}
-		if ( ! isWordPressVersionAtLeast( options.wpVersion, MINIMUM_WORDPRESS_VERSION ) ) {
-			throw new LoggerError(
-				__( `WordPress version must be at least ${ MINIMUM_WORDPRESS_VERSION }.` )
-			);
-		}
-
+		let blueprintUri: string | undefined;
 		let blueprint: Blueprint | undefined;
-		if ( options.blueprintJson ) {
-			const validation = await validateBlueprintData( options.blueprintJson );
+
+		if ( options.blueprint ) {
+			const validation = await validateBlueprintData( options.blueprint.contents );
 			if ( ! validation.valid ) {
 				throw new LoggerError( validation.error );
 			}
@@ -92,7 +105,10 @@ export async function runCommand(
 				);
 			}
 
-			blueprint = filterUnsupportedBlueprintFeatures( options.blueprintJson ) as Blueprint;
+			blueprintUri = options.blueprint.uri;
+			blueprint = filterUnsupportedBlueprintFeatures(
+				options.blueprint.contents as Record< string, unknown >
+			);
 		}
 
 		const appdata = await readAppdata();
@@ -121,44 +137,92 @@ export async function runCommand(
 		logger.reportSuccess( __( 'Site configuration validated' ) );
 
 		if ( ! pathExistsResult ) {
-			logger.reportStart( LoggerAction.CREATE_DIRECTORY, __( 'Creating site directory...' ) );
+			logger.reportStart( LoggerAction.CREATE_DIRECTORY, __( 'Creating site directory…' ) );
 			fs.mkdirSync( sitePath, { recursive: true } );
 			logger.reportSuccess( __( 'Site directory created' ) );
 		}
 
-		if ( ! ( await isSqliteIntegrationAvailable() ) ) {
+		const isOnlineStatus = await isOnline();
+
+		if ( options.wpVersion === 'latest' ) {
+			const bundledWPPath = path.join( getServerFilesPath(), 'wordpress-versions', 'latest' );
+
+			if ( ! ( await pathExists( bundledWPPath ) ) ) {
+				throw new LoggerError(
+					__(
+						'Cannot set up WordPress. Bundled WordPress files not found. Please connect to the internet or reinstall Studio.'
+					)
+				);
+			}
+
+			logger.reportStart( LoggerAction.SETUP_WORDPRESS, __( 'Copying bundled WordPress…' ) );
+			await fse.copy( bundledWPPath, sitePath );
+			logger.reportSuccess( __( 'WordPress files copied' ) );
+		} else if ( ! isOnlineStatus ) {
 			throw new LoggerError(
 				__(
-					'SQLite integration files not found. Please ensure Studio Desktop is installed and has been run at least once.'
+					'Cannot set up WordPress while offline. Specific WordPress versions require an internet connection. Try using "latest" version or ensure internet connectivity.'
 				)
 			);
 		}
-		logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration...' ) );
-		await installSqliteIntegration( sitePath );
-		logger.reportSuccess( __( 'SQLite integration configured' ) );
 
-		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port...' ) );
+		logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration…' ) );
+		const isSqliteUpdated = await keepSqliteIntegrationUpdated( sitePath );
+		logger.reportSuccess(
+			isSqliteUpdated ? __( 'SQLite integration configured' ) : __( 'SQLite integration skipped' )
+		);
+
+		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
 		const port = await portFinder.getOpenPort();
-		logger.reportSuccess( __( 'Port assigned: ' ) + port );
+		// translators: %d is the port number
+		logger.reportSuccess( sprintf( __( 'Port assigned: %d' ), port ) );
 
 		const siteName = options.name || path.basename( sitePath );
 		const siteId = crypto.randomUUID();
 		const adminPassword = createPassword();
 
-		if ( options.name ) {
+		const setupSteps: StepDefinition[] = [];
+
+		if ( isOnlineStatus ) {
+			const siteLanguage = await getPreferredSiteLanguage( options.wpVersion );
+
+			if ( siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
+				setupSteps.push(
+					{
+						step: 'setSiteLanguage',
+						language: siteLanguage,
+					},
+					{
+						step: 'setSiteOptions',
+						options: {
+							WPLANG: siteLanguage,
+						},
+					}
+				);
+			}
+		}
+
+		const hasWpConfig = await pathExists( path.join( sitePath, 'wp-config.php' ) );
+		const isWordPressDirectoryInitialized = isWordPressDirResult && hasWpConfig;
+		if ( options.name && ! isWordPressDirectoryInitialized ) {
+			setupSteps.push( {
+				step: 'setSiteOptions',
+				options: {
+					blogname: options.name,
+				},
+			} );
+		}
+
+		if ( setupSteps.length > 0 ) {
 			if ( ! blueprint ) {
 				blueprint = {};
+				// Since we know the user didn't supply a blueprint, we create an empty directory to use as a
+				// fake location for the `blueprintUri`
+				const blueprintDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-empty-blueprint-' ) );
+				blueprintUri = path.join( blueprintDir, 'blueprint.json' );
 			}
 			const existingSteps = blueprint.steps || [];
-			blueprint.steps = [
-				{
-					step: 'setSiteOptions',
-					options: {
-						blogname: options.name,
-					},
-				},
-				...existingSteps,
-			];
+			blueprint.steps = [ ...setupSteps, ...existingSteps ];
 		}
 
 		const siteDetails: SiteData = {
@@ -169,12 +233,12 @@ export async function runCommand(
 			port,
 			phpVersion: options.phpVersion,
 			running: false,
-			isWpAutoUpdating: options.wpVersion === DEFAULT_VERSIONS.wp,
+			isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
 			customDomain: options.customDomain,
 			enableHttps: options.enableHttps,
 		};
 
-		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site...' ) );
+		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );
 
 		try {
 			await lockAppdata();
@@ -190,59 +254,142 @@ export async function runCommand(
 		}
 
 		if ( ! options.noStart ) {
-			logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
+			logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 			await connect();
 			logger.reportSuccess( __( 'Process daemon started' ) );
 
 			await setupCustomDomain( siteDetails, logger );
 
 			const startMessage = blueprint
-				? __( 'Starting WordPress site and applying blueprint...' )
-				: __( 'Starting WordPress site...' );
+				? __( 'Starting WordPress server and applying Blueprint…' )
+				: __( 'Starting WordPress server…' );
 			logger.reportStart( LoggerAction.START_SITE, startMessage );
 			try {
-				await startWordPressServer( siteDetails, { wpVersion: options.wpVersion, blueprint } );
-				logger.reportSuccess( __( 'WordPress site started' ) );
+				const processDesc = await startWordPressServer( siteDetails, logger, {
+					wpVersion: options.wpVersion,
+					blueprint,
+					blueprintUri,
+				} );
+				logger.reportSuccess( __( 'WordPress server started' ) );
 
-				logSiteDetails( siteDetails );
-				await openSiteInBrowser( siteDetails );
+				if ( processDesc.pid ) {
+					await updateSiteLatestCliPid( siteDetails.id, processDesc.pid );
+				}
+				await updateSiteAutoStart( siteDetails.id, true );
+
+				siteDetails.running = true;
+				siteDetails.url = siteDetails.customDomain
+					? `${ siteDetails.enableHttps ? 'https' : 'http' }://${ siteDetails.customDomain }`
+					: `http://localhost:${ siteDetails.port }`;
+
+				if ( ! options.skipLogDetails ) {
+					logSiteDetails( siteDetails );
+				}
+				if ( ! options.skipBrowser ) {
+					await openSiteInBrowser( siteDetails );
+				}
 			} catch ( error ) {
+				await removeSiteFromAppdata( siteDetails.id );
+				if ( ! isWordPressDirResult ) {
+					await fs.promises.rm( sitePath, { recursive: true, force: true } );
+				}
 				throw new LoggerError( __( 'Failed to start WordPress server' ), error );
 			}
-		} else if ( blueprint ) {
-			logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon...' ) );
-			await connect();
-			logger.reportSuccess( __( 'Process daemon started' ) );
-
-			logger.reportStart( LoggerAction.START_SITE, __( 'Applying blueprint...' ) );
-			try {
-				await runBlueprint( siteDetails, { wpVersion: options.wpVersion, blueprint } );
-				logger.reportSuccess( __( 'Blueprint applied successfully' ) );
-			} catch ( error ) {
-				throw new LoggerError( __( 'Failed to apply blueprint' ), error );
-			}
-
-			console.log( '' );
-			console.log( __( 'Site created successfully!' ) );
-			console.log( '' );
-			logSiteDetails( siteDetails );
-			console.log( __( 'Run "studio site start" to start the site.' ) );
 		} else {
+			if ( blueprint ) {
+				logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
+				await connect();
+				logger.reportSuccess( __( 'Process daemon started' ) );
+
+				logger.reportStart( LoggerAction.START_SITE, __( 'Applying Blueprint…' ) );
+				try {
+					await runBlueprint( siteDetails, logger, {
+						wpVersion: options.wpVersion,
+						blueprint,
+						blueprintUri: blueprintUri as string,
+					} );
+					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
+				} catch ( error ) {
+					await removeSiteFromAppdata( siteDetails.id );
+					if ( ! isWordPressDirResult ) {
+						await fs.promises.rm( sitePath, { recursive: true, force: true } );
+					}
+					throw new LoggerError( __( 'Failed to apply Blueprint' ), error );
+				}
+			}
 			console.log( '' );
-			console.log( __( 'Site created successfully!' ) );
+			console.log( __( 'Site created successfully' ) );
 			console.log( '' );
-			logSiteDetails( siteDetails );
+			if ( ! options.skipLogDetails ) {
+				logSiteDetails( siteDetails );
+			}
 			console.log( __( 'Run "studio site start" to start the site.' ) );
 		}
+
+		logger.reportKeyValuePair( 'id', siteDetails.id );
+		logger.reportKeyValuePair( 'running', String( siteDetails.running ) );
+		await emitSiteEvent( SITE_EVENTS.CREATED, { siteId: siteDetails.id } );
 	} finally {
-		disconnect();
+		await disconnect();
 	}
+}
+
+async function fetchBlueprint( url: string ) {
+	const res = await fetch( url );
+
+	if ( ! res.ok ) {
+		throw new LoggerError( __( 'Failed to fetch Blueprint' ) );
+	}
+
+	try {
+		return await res.json();
+	} catch ( error ) {
+		throw new LoggerError( __( 'Failed to parse Blueprint JSON' ), error );
+	}
+}
+
+function readBlueprint( blueprintPath: string ) {
+	if ( ! fs.existsSync( blueprintPath ) ) {
+		throw new LoggerError( sprintf( __( 'Blueprint file not found: %s' ), blueprintPath ) );
+	}
+
+	try {
+		const blueprintContent = fs.readFileSync( blueprintPath, 'utf-8' );
+		return JSON.parse( blueprintContent );
+	} catch ( error ) {
+		throw new LoggerError(
+			sprintf( __( 'Failed to parse Blueprint JSON file: %s' ), blueprintPath ),
+			error
+		);
+	}
+}
+
+function coerceWpVersion( value: string ) {
+	if ( ! isValidWordPressVersion( value ) ) {
+		throw new ValidationError(
+			'wp',
+			value,
+			__(
+				'Must be: "latest", "nightly", or a valid version number (e.g., "6.4", "6.4.1", "6.4-beta1")'
+			)
+		);
+	}
+
+	if ( ! isWordPressVersionAtLeast( value, MINIMUM_WORDPRESS_VERSION ) ) {
+		throw new ValidationError(
+			'wp',
+			value,
+			sprintf( __( 'Must be: at least %s' ), MINIMUM_WORDPRESS_VERSION )
+		);
+	}
+
+	return value;
 }
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'create',
-		describe: __( 'Create a new local site' ),
+		describe: __( 'Create a new site' ),
 		builder: ( yargs ) => {
 			return yargs
 				.option( 'name', {
@@ -252,13 +399,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'wp', {
 					type: 'string',
 					describe: __( 'WordPress version (e.g., "latest", "6.4", "6.4.1")' ),
-					default: DEFAULT_VERSIONS.wp,
+					default: DEFAULT_WORDPRESS_VERSION,
+					coerce: coerceWpVersion,
 				} )
 				.option( 'php', {
 					type: 'string',
 					describe: __( 'PHP version' ),
 					choices: ALLOWED_PHP_VERSIONS,
-					default: DEFAULT_VERSIONS.php,
+					default: DEFAULT_PHP_VERSION,
 				} )
 				.option( 'domain', {
 					type: 'string',
@@ -267,54 +415,63 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'https', {
 					type: 'boolean',
 					describe: __( 'Enable HTTPS for custom domain' ),
-					default: false,
+					implies: 'domain',
 				} )
 				.option( 'blueprint', {
 					type: 'string',
-					describe: __( 'Path to blueprint JSON file' ),
+					describe: __( 'Path or URL to Blueprint JSON file' ),
 				} )
 				.option( 'start', {
 					type: 'boolean',
 					describe: __( 'Start the site after creation' ),
 					default: true,
+				} )
+				.option( 'skip-browser', {
+					type: 'boolean',
+					describe: __( 'Skip opening the site in browser after starting' ),
+					default: false,
+				} )
+				.option( 'skip-log-details', {
+					type: 'boolean',
+					describe: __( 'Skip logging default wp-admin user details after starting' ),
+					default: false,
 				} );
 		},
 		handler: async ( argv ) => {
-			try {
-				let blueprintJson: unknown;
+			const config: CreateCommandOptions = {
+				name: argv.name,
+				wpVersion: argv.wp,
+				phpVersion: argv.php,
+				customDomain: argv.domain,
+				enableHttps: !! argv.https,
+				noStart: ! argv.start,
+				skipBrowser: !! argv.skipBrowser,
+				skipLogDetails: !! argv.skipLogDetails,
+			};
 
-				if ( argv.blueprint ) {
-					if ( ! fs.existsSync( argv.blueprint ) ) {
-						throw new LoggerError(
-							sprintf( __( 'Blueprint file not found: %s' ), argv.blueprint )
-						);
-					}
+			if ( argv.blueprint ) {
+				if ( argv.blueprint.startsWith( 'http://' ) || argv.blueprint.startsWith( 'https://' ) ) {
+					config.blueprint = {
+						uri: argv.blueprint,
+						contents: await fetchBlueprint( argv.blueprint ),
+					};
+				} else {
+					const uri = path.resolve( untildify( argv.blueprint ) );
 
-					try {
-						const blueprintContent = fs.readFileSync( argv.blueprint, 'utf-8' );
-						blueprintJson = JSON.parse( blueprintContent );
-					} catch ( error ) {
-						throw new LoggerError(
-							sprintf( __( 'Invalid blueprint JSON file: %s' ), argv.blueprint ),
-							error
-						);
-					}
+					config.blueprint = {
+						uri,
+						contents: readBlueprint( uri ),
+					};
 				}
+			}
 
-				await runCommand( argv.path, {
-					name: argv.name,
-					wpVersion: argv.wp,
-					phpVersion: argv.php,
-					customDomain: argv.domain,
-					enableHttps: argv.https,
-					blueprintJson: blueprintJson,
-					noStart: ! argv.start,
-				} );
+			try {
+				await runCommand( argv.path, config );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );
 				} else {
-					const loggerError = new LoggerError( __( 'Failed to load site' ), error );
+					const loggerError = new LoggerError( __( 'Failed to create site' ), error );
 					logger.reportError( loggerError );
 				}
 			}

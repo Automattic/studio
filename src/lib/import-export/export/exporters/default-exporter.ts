@@ -278,8 +278,13 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			themes: [],
 		};
 
-		studioJson.plugins = await this.getSitePlugins( this.options.site.id );
-		studioJson.themes = await this.getSiteThemes( this.options.site.id );
+		const [ plugins, themes ] = await Promise.all( [
+			this.getSitePlugins( this.options.site.id ),
+			this.getSiteThemes( this.options.site.id ),
+		] );
+
+		studioJson.plugins = plugins;
+		studioJson.themes = themes;
 
 		const tempDir = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio-export-' ) );
 		const studioJsonPath = path.join( tempDir, 'meta.json' );
@@ -301,16 +306,17 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			}
 		);
 
-		if ( stderr ) {
-			console.error( `Could not get information about plugins: ${ stderr }` );
-			throw new Error(
-				'Could not get information about installed plugins to create meta.json file.'
-			);
-		}
-
+		// Try to parse stdout first. WordPress may produce warnings on stderr (e.g., when offline
+		// and can't check for updates) while still returning valid JSON data on stdout.
 		try {
 			return JSON.parse( stdout );
 		} catch ( error ) {
+			if ( stderr ) {
+				console.error( `Could not get information about plugins: ${ stderr }` );
+				throw new Error(
+					'Could not get information about installed plugins to create meta.json file.'
+				);
+			}
 			console.error( `Could not parse plugins list. The WP CLI output: ${ stdout }` );
 			throw new Error(
 				'Could not parse information about installed plugins to create meta.json file.'
@@ -332,16 +338,17 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			}
 		);
 
-		if ( stderr ) {
-			console.error( `Could not get information about themes: ${ stderr }` );
-			throw new Error(
-				'Could not get information about installed themes to create meta.json file.'
-			);
-		}
-
+		// Try to parse stdout first. WordPress may produce warnings on stderr (e.g., when offline
+		// and can't check for updates) while still returning valid JSON data on stdout.
 		try {
 			return JSON.parse( stdout );
 		} catch ( error ) {
+			if ( stderr ) {
+				console.error( `Could not get information about themes: ${ stderr }` );
+				throw new Error(
+					'Could not get information about installed themes to create meta.json file.'
+				);
+			}
 			console.error( `Could not parse themes list. The WP CLI output: ${ stdout }` );
 			throw new Error(
 				'Could not parse information about installed themes to create meta.json file.'

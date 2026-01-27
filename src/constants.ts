@@ -24,8 +24,12 @@ export const AUTO_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
 export const WINDOWS_TITLEBAR_HEIGHT = 32;
 export const ABOUT_WINDOW_WIDTH = 300;
 export const ABOUT_WINDOW_HEIGHT = 350;
-export const TELEX_URL =
-	'https://telex.automattic.ai/?utm_source=studio&utm_medium=app&utm_campaign=assistant';
+export const TELEX_HOSTNAME = 'telex.automattic.ai';
+export const TELEX_UTM_PARAMS = {
+	utm_source: 'studio',
+	utm_medium: 'app',
+	utm_campaign: 'assistant',
+} as const;
 export const BUG_REPORT_URL =
 	'https://github.com/Automattic/studio/issues/new?assignees=&labels=Needs+triage%2C%5BType%5D+Bug&projects=&template=bug_report.yml';
 export const FEATURE_REQUEST_URL =
@@ -84,7 +88,7 @@ export {
 };
 
 // SQLite
-export const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.2.14';
+export const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.2.16';
 
 export const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordPress/sqlite-database-integration/archive/refs/tags/${ SQLITE_DATABASE_INTEGRATION_VERSION }.zip`;
 

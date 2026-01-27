@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import { decodePassword } from 'common/lib/passwords';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import { getSiteUrl, readAppdata, SiteData } from 'cli/lib/appdata';
 import { openBrowser } from 'cli/lib/browser';
@@ -14,7 +15,7 @@ import { Logger, LoggerError } from 'cli/logger';
 export async function startProxyIfNeeded( logger: Logger< LoggerAction > ): Promise< void > {
 	const proxyProcess = await isProxyProcessRunning();
 	if ( ! proxyProcess ) {
-		logger.reportStart( LoggerAction.START_PROXY, __( 'Starting HTTP proxy server...' ) );
+		logger.reportStart( LoggerAction.START_PROXY, __( 'Starting HTTP proxy server…' ) );
 		await startProxyProcess();
 		logger.reportSuccess( __( 'HTTP proxy server started' ) );
 	} else {
@@ -44,16 +45,21 @@ export function logSiteDetails( site: SiteData ): void {
 	const siteUrl = getSiteUrl( site );
 	console.log( __( 'Site URL: ' ), siteUrl );
 	console.log( __( 'Username: ' ), 'admin' );
-	console.log( __( 'Password: ' ), site.adminPassword );
+	if ( site.adminPassword ) {
+		console.log( __( 'Password: ' ), decodePassword( site.adminPassword ) );
+	}
 }
 
 /**
  * Sets up custom domain for a site before starting.
  * Handles proxy server startup, SSL certificate generation, and hosts file configuration.
+ *
+ * @param options.skipHostsUpdate - Skip adding domain to hosts file (useful when caller already handled it)
  */
 export async function setupCustomDomain(
 	site: SiteData,
-	logger: Logger< LoggerAction >
+	logger: Logger< LoggerAction >,
+	options?: { skipHostsUpdate?: boolean }
 ): Promise< void > {
 	if ( ! site.customDomain ) {
 		return;
@@ -62,17 +68,19 @@ export async function setupCustomDomain(
 	await startProxyIfNeeded( logger );
 
 	if ( site.enableHttps && ! site.tlsKey && ! site.tlsCert ) {
-		logger.reportStart( LoggerAction.GENERATE_CERT, __( 'Generating SSL certificates...' ) );
+		logger.reportStart( LoggerAction.GENERATE_CERT, __( 'Generating SSL certificates…' ) );
 		await generateSiteCertificate( site.customDomain );
 		logger.reportSuccess( __( 'SSL certificates generated' ) );
 	}
 
-	logger.reportStart( LoggerAction.ADD_DOMAIN_TO_HOSTS, __( 'Adding domain to hosts file...' ) );
-	try {
-		await addDomainToHosts( site.customDomain, site.port );
-		logger.reportSuccess( __( 'Domain added to hosts file' ) );
-	} catch ( error ) {
-		throw new LoggerError( __( 'Failed to add domain to hosts file' ), error );
+	if ( ! options?.skipHostsUpdate ) {
+		logger.reportStart( LoggerAction.ADD_DOMAIN_TO_HOSTS, __( 'Adding domain to hosts file…' ) );
+		try {
+			await addDomainToHosts( site.customDomain, site.port );
+			logger.reportSuccess( __( 'Domain added to hosts file' ) );
+		} catch ( error ) {
+			throw new LoggerError( __( 'Failed to add domain to hosts file' ), error );
+		}
 	}
 }
 
@@ -80,12 +88,14 @@ export async function setupCustomDomain(
  * Stops the HTTP proxy server if no remaining running sites need it.
  * A site needs the proxy if it has a custom domain configured.
  *
- * @param stoppedSiteId - The ID of the site that was just stopped (to exclude from the check)
+ * @param stoppedSiteIds - The ID of the site that was just stopped (to exclude from the check)
  */
 export async function stopProxyIfNoSitesNeedIt(
-	stoppedSiteId: string,
+	stoppedSiteIds: string | string[],
 	logger: Logger< LoggerAction >
 ): Promise< void > {
+	const stoppedSiteIdsArray = Array.isArray( stoppedSiteIds ) ? stoppedSiteIds : [ stoppedSiteIds ];
+
 	const proxyProcess = await isProxyProcessRunning();
 	if ( ! proxyProcess ) {
 		return;
@@ -93,13 +103,28 @@ export async function stopProxyIfNoSitesNeedIt(
 
 	const appdata = await readAppdata();
 
-	for ( const site of appdata.sites ) {
-		if ( site.id !== stoppedSiteId && site.customDomain && ( await isServerRunning( site.id ) ) ) {
-			return;
-		}
+	const remainingSitesWithCustomDomains = appdata.sites.filter(
+		( site ) => ! stoppedSiteIdsArray.includes( site.id ) && site.customDomain
+	);
+
+	const sitesStillRunning = await Promise.all(
+		remainingSitesWithCustomDomains.map( ( site ) => isServerRunning( site.id ) )
+	);
+
+	if ( sitesStillRunning.some( ( isRunning ) => isRunning ) ) {
+		return;
 	}
 
-	logger.reportStart( LoggerAction.STOP_PROXY, __( 'Stopping HTTP proxy server...' ) );
+	logger.reportStart( LoggerAction.STOP_PROXY, __( 'Stopping HTTP proxy server…' ) );
 	await stopProxyProcess();
 	logger.reportSuccess( __( 'HTTP proxy server stopped' ) );
 }
+
+export const isSiteRunning = async ( site: SiteData ): Promise< boolean > => {
+	const processInfo = await isServerRunning( site.id );
+	return !! (
+		processInfo &&
+		site.latestCliPid !== undefined &&
+		processInfo.pid === site.latestCliPid
+	);
+};

@@ -38,4 +38,10 @@ declare module '*.wasm' {
 	export default dataUri;
 }
 
+declare module 'pm2-axon';
+
 declare module 'wpcom-xhr-request';
+
+// TODO: Remove this once https://github.com/WordPress/wordpress-playground/pull/3035 has landed
+// and a new `@wp-playground/storage` has been published to npm
+declare module '@wp-playground/storage';

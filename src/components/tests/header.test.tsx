@@ -35,7 +35,7 @@ function mockGetIpcApi( mocks: Record< string, jest.Mock > ) {
 		getSiteDetails: jest.fn( () => Promise.resolve( mockedSites ) ),
 		getSnapshots: jest.fn( () => Promise.resolve( [] ) ),
 		saveSnapshotsToStorage: jest.fn( () => Promise.resolve() ),
-		startServer: jest.fn( () => Promise.resolve( { running: true } ) ),
+		startServer: jest.fn( () => Promise.resolve() ),
 		showErrorMessageBox: jest.fn(),
 		...mocks,
 	} );
@@ -67,7 +67,6 @@ describe( 'Header', () => {
 		await user.click( startButton );
 
 		expect( mockedGetIpcApi().startServer ).toHaveBeenCalledTimes( 1 );
-		expect( screen.getByText( 'Stop' ) ).toBeVisible();
 	} );
 
 	describe( 'when starting a server fails', () => {

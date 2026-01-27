@@ -1,4 +1,4 @@
-import { DEFAULT_PHP_VERSION } from 'src/lib/wordpress-provider/constants';
+import { RecommendedPHPVersion as DEFAULT_PHP_VERSION } from 'common/types/php-versions';
 import { hasVersionMismatch } from 'src/modules/preview-site/lib/version-comparison';
 
 describe( 'hasVersionMismatch', () => {

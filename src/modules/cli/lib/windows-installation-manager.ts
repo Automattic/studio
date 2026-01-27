@@ -8,8 +8,8 @@ import Registry from 'winreg'; // don't update winreg to 1.2.5 - https://github.
 import { getMainWindow } from 'src/main-window';
 import { StudioCliInstallationManager } from 'src/modules/cli/lib/ipc-handlers';
 
-// `unversionedBinDirPath` resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin
-const unversionedBinDirPath = path.resolve( path.dirname( app.getPath( 'exe' ) ), '../bin' );
+// `STABLE_BIN_DIR_PATH` resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin
+export const STABLE_BIN_DIR_PATH = path.resolve( path.dirname( app.getPath( 'exe' ) ), '../bin' );
 const PATH_KEY = 'Path';
 
 const currentUserRegistry = new Registry( {
@@ -24,27 +24,13 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		}
 	}
 
+	/**
+	 * Check if the stable bin directory has been created and if it's contained in the registry PATH.
+	 */
 	async isCliInstalled(): Promise< boolean > {
 		try {
-			const currentPath = await this.getPathFromRegistry();
-
-			// Return true if we are running the development version of the app and the production CLI is installed
-			if ( process.env.NODE_ENV !== 'production' && process.env.LOCALAPPDATA ) {
-				const prodStudioCliDir = path.join( process.env.LOCALAPPDATA, 'studio', 'bin' );
-				if ( this.isStudioCliInPath( currentPath, prodStudioCliDir ) ) {
-					return true;
-				}
-			}
-
-			if ( ! this.isStudioCliInPath( currentPath ) ) {
-				return false;
-			}
-
-			if ( ! existsSync( unversionedBinDirPath ) ) {
-				return false;
-			}
-
-			return true;
+			const isStudioCliDirInPath = await this.isStudioCliDirInPath();
+			return isStudioCliDirInPath && existsSync( STABLE_BIN_DIR_PATH );
 		} catch ( error ) {
 			console.error( 'Failed to check installation status of CLI', error );
 			return false;
@@ -52,7 +38,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 	}
 
 	async updateWindowsCliVersionedPathIfNeeded(): Promise< void > {
-		if ( await this.isCliInstalled() ) {
+		if ( await this.isStudioCliDirInPath() ) {
 			await this.installProxyBatFile();
 		}
 	}
@@ -141,11 +127,16 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		} );
 	}
 
-	private isStudioCliInPath(
-		pathValue: string,
-		studioCliDir: string = unversionedBinDirPath
-	): boolean {
-		return pathValue
+	private async isStudioCliDirInPath(): Promise< boolean > {
+		let studioCliDir = STABLE_BIN_DIR_PATH;
+
+		// Return true if we are running the development version of the app and the production CLI is installed
+		if ( process.env.NODE_ENV !== 'production' && process.env.LOCALAPPDATA ) {
+			studioCliDir = path.join( process.env.LOCALAPPDATA, 'studio', 'bin' );
+		}
+
+		const currentPath = await this.getPathFromRegistry();
+		return currentPath
 			.split( ';' )
 			.map( ( item ) => item.trim().toLowerCase() )
 			.includes( studioCliDir.toLowerCase() );
@@ -153,28 +144,27 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 
 	private async installPath(): Promise< void > {
 		try {
-			const currentPath = await this.getPathFromRegistry();
-
-			if ( this.isStudioCliInPath( currentPath ) ) {
+			if ( await this.isStudioCliDirInPath() ) {
 				return;
 			}
 
+			const currentPath = await this.getPathFromRegistry();
 			const updatedPath = currentPath
 				.split( ';' )
 				.map( ( p ) => p.trim() )
 				.filter( Boolean )
-				.concat( unversionedBinDirPath )
+				.concat( STABLE_BIN_DIR_PATH )
 				.join( ';' );
 
 			await this.setPathInRegistry( updatedPath );
 		} catch ( error ) {
 			Sentry.captureException( error );
-			console.error( 'Failed to install CLI', error );
+			console.error( 'Failed to install CLI path', error );
 		}
 	}
 
 	/**
-	 * Creates a proxy batch file in a stable location to handle CLI execution.
+	 * Creates the stable bin directory and write a proxy batch file that will handle CLI execution.
 	 *
 	 * Since our app is installed in a versioned directory, the full path changes with each update.
 	 * Instead of adding the versioned executable directly to PATH, we create a fixed proxy script
@@ -182,17 +172,17 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 	 */
 	private async installProxyBatFile(): Promise< void > {
 		try {
-			await mkdir( unversionedBinDirPath, { recursive: true } );
+			await mkdir( STABLE_BIN_DIR_PATH, { recursive: true } );
 
 			const versionedCliPath = path.join(
 				path.dirname( app.getPath( 'exe' ) ),
 				'resources/bin/studio-cli.bat'
 			);
-			const relativeVersionedCliPath = path.relative( unversionedBinDirPath, versionedCliPath );
+			const relativeVersionedCliPath = path.relative( STABLE_BIN_DIR_PATH, versionedCliPath );
 
 			const content = `@echo off\n"%~dp0\\${ relativeVersionedCliPath }" %*`;
 
-			await writeFile( path.join( unversionedBinDirPath, 'studio.bat' ), content );
+			await writeFile( path.join( STABLE_BIN_DIR_PATH, 'studio.bat' ), content );
 		} catch ( error ) {
 			Sentry.captureException( error );
 			console.error( 'Failed to install CLI: Proxy Bat file', error );
@@ -208,7 +198,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		const currentPath = await this.getPathFromRegistry();
 		const newPath = currentPath
 			.split( ';' )
-			.filter( ( item ) => item.trim().toLowerCase() !== unversionedBinDirPath.toLowerCase() )
+			.filter( ( item ) => item.trim().toLowerCase() !== STABLE_BIN_DIR_PATH.toLowerCase() )
 			.join( ';' );
 
 		await this.setPathInRegistry( newPath );

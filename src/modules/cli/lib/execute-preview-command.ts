@@ -57,13 +57,10 @@ export async function executePreviewCliCommand(
 		} );
 	} );
 
-	cliEventEmitter.on( 'failure', ( { result, lastErrorMessage } ) => {
-		const errorDetail =
-			lastErrorMessage || result.stderr.trim() || result.stdout.trim() || 'Unknown error';
-
+	cliEventEmitter.on( 'failure', ( { error } ) => {
 		sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-fatal-error', {
 			operationId,
-			data: { message: errorDetail },
+			data: { message: error.message },
 		} );
 	} );
 

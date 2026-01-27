@@ -202,10 +202,10 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 	const isServerLoading = loadingServer[ selectedSite.id ];
 
 	useEffect( () => {
-		if ( loadingThumbnails ) {
+		if ( thumbnailData ) {
 			setIsThumbnailError( false );
 		}
-	}, [ loadingThumbnails ] );
+	}, [ thumbnailData ] );
 
 	const handleThumbnailClick = async () => {
 		if ( isServerLoading ) return;

@@ -1,6 +1,16 @@
 Unreleased
 ==========
 
+1.7.2
+=====
+* Added pause/unpause functionality for sync uploads #2379
+* Improved performance by parallelizing recursive directory copying #2409
+* Improved error details recorded on CLI failure #2483
+* Fixed site export in offline mode #2481
+* Fixed Beta Features menu items not being translated #2466
+* Fixed flaky Windows tests #2411
+
+
 1.7.1
 =====
 * Fixed bundled node permissions that caused crashes on Intel Macs #2473

@@ -30,18 +30,17 @@ function simulateCliResponse( {
 	stdout = '',
 	stderr = '',
 	exitCode = 0,
-	emitSuccess = true,
 }: {
 	stdout?: string;
 	stderr?: string;
 	exitCode?: number;
-	emitSuccess?: boolean;
 } ) {
 	setImmediate( () => {
-		const result: CliCommandResult = { stdout, stderr, exitCode };
-		if ( emitSuccess ) {
-			mockEventEmitter.emit( exitCode === 0 ? 'success' : 'failure', { result } );
-		}
+		// We are intentionally excluding the `error` prop for simplicity, since none of the tests need it
+		const payload: { result: CliCommandResult } = {
+			result: { stdout, stderr },
+		};
+		mockEventEmitter.emit( exitCode === 0 ? 'success' : 'failure', payload );
 	} );
 }
 
@@ -102,14 +101,14 @@ describe( 'SiteServer.executeWpCliCommand', () => {
 					} );
 				}, timeout );
 
-				emitter.on( 'success', ( { result }: { result?: CliCommandResult } ) => {
+				emitter.on( 'success', ( { result } ) => {
 					clearTimeout( timeoutId );
-					resolve( result ?? { stdout: '', stderr: '', exitCode: 0 } );
+					resolve( { stdout: result.stdout, stderr: result.stderr, exitCode: 0 } );
 				} );
 
-				emitter.on( 'failure', ( { result }: { result?: CliCommandResult } ) => {
+				emitter.on( 'failure', ( { result } ) => {
 					clearTimeout( timeoutId );
-					resolve( result ?? { stdout: '', stderr: '', exitCode: 1 } );
+					resolve( { stdout: result.stdout, stderr: result.stderr, exitCode: 1 } );
 				} );
 
 				emitter.on( 'error', ( { error }: { error: Error } ) => {
@@ -174,14 +173,6 @@ describe( 'SiteServer.executeWpCliCommand', () => {
 			const result = await resultPromise;
 
 			expect( result.stderr ).toBe( 'Error: command not found' );
-		} );
-
-		it( 'should capture exitCode from CLI process', async () => {
-			const resultPromise = executeWpCliCommand( 'plugin list' );
-			simulateCliResponse( { exitCode: 42 } );
-			const result = await resultPromise;
-
-			expect( result.exitCode ).toBe( 42 );
 		} );
 
 		it( 'should capture all output values together', async () => {

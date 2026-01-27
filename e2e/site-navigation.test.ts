@@ -94,7 +94,7 @@ test.describe( 'Site Navigation', () => {
 		await expect( userMenu ).toBeVisible();
 	} );
 
-	test.skip( 'creates a post', async ( { page } ) => {
+	test( 'creates a post', async ( { page } ) => {
 		// Navigate to new post page
 		const newPostUrl = `${ wpAdminUrl }/post-new.php`;
 		await page.goto( getUrlWithAutoLogin( newPostUrl ) );
@@ -144,7 +144,7 @@ test.describe( 'Site Navigation', () => {
 		} );
 	} );
 
-	test.skip( 'uploads media', async ( { page } ) => {
+	test( 'uploads media', async ( { page } ) => {
 		// Navigate to media library
 		const addNewMediaUrl = `${ wpAdminUrl }/media-new.php`;
 		await page.goto( getUrlWithAutoLogin( addNewMediaUrl ) );

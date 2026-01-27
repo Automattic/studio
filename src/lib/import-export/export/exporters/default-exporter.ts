@@ -340,16 +340,17 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			}
 		);
 
-		if ( stderr ) {
-			console.error( `Could not get information about plugins: ${ stderr }` );
-			throw new Error(
-				'Could not get information about installed plugins to create meta.json file.'
-			);
-		}
-
+		// Try to parse stdout first. WordPress may produce warnings on stderr (e.g., when offline
+		// and can't check for updates) while still returning valid JSON data on stdout.
 		try {
 			return JSON.parse( stdout );
 		} catch ( error ) {
+			if ( stderr ) {
+				console.error( `Could not get information about plugins: ${ stderr }` );
+				throw new Error(
+					'Could not get information about installed plugins to create meta.json file.'
+				);
+			}
 			console.error( `Could not parse plugins list. The WP CLI output: ${ stdout }` );
 			throw new Error(
 				'Could not parse information about installed plugins to create meta.json file.'
@@ -371,16 +372,17 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			}
 		);
 
-		if ( stderr ) {
-			console.error( `Could not get information about themes: ${ stderr }` );
-			throw new Error(
-				'Could not get information about installed themes to create meta.json file.'
-			);
-		}
-
+		// Try to parse stdout first. WordPress may produce warnings on stderr (e.g., when offline
+		// and can't check for updates) while still returning valid JSON data on stdout.
 		try {
 			return JSON.parse( stdout );
 		} catch ( error ) {
+			if ( stderr ) {
+				console.error( `Could not get information about themes: ${ stderr }` );
+				throw new Error(
+					'Could not get information about installed themes to create meta.json file.'
+				);
+			}
 			console.error( `Could not parse themes list. The WP CLI output: ${ stdout }` );
 			throw new Error(
 				'Could not parse information about installed themes to create meta.json file.'

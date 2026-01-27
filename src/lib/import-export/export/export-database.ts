@@ -17,8 +17,10 @@ export async function exportDatabaseToFile(
 	const tempFileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
 
 	// Execute the command to export directly to the temp file
+	// Use absolute path /wordpress/ because that's where site.path is mounted in the WASM filesystem
+	const vfsFilePath = `/wordpress/${ tempFileName }`;
 	const { stderr, exitCode } = await server.executeWpCliCommand(
-		`sqlite export ${ tempFileName } --require=/tmp/sqlite-command/command.php --enable-ast-driver`,
+		`sqlite export ${ vfsFilePath } --require=/tmp/sqlite-command/command.php --enable-ast-driver`,
 		{
 			skipPluginsAndThemes: true,
 		}
@@ -82,10 +84,12 @@ export async function exportDatabaseToMultipleFiles(
 		}
 
 		const fileName = `${ table }.sql`;
+		// Use absolute path /wordpress/ because that's where site.path is mounted in the WASM filesystem
+		const vfsFilePath = `/wordpress/${ fileName }`;
 
 		// Execute the command to export directly to a temporary file in the project directory
 		const { stderr, exitCode } = await server.executeWpCliCommand(
-			`sqlite export ${ fileName } --tables=${ table } --require=/tmp/sqlite-command/command.php --enable-ast-driver`,
+			`sqlite export ${ vfsFilePath } --tables=${ table } --require=/tmp/sqlite-command/command.php --enable-ast-driver`,
 			{
 				skipPluginsAndThemes: true,
 			}

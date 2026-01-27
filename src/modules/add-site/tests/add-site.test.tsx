@@ -138,6 +138,8 @@ beforeEach( () => {
 		getPushState: jest.fn(),
 		getLastSyncTimeText: jest.fn(),
 		cancelPush: jest.fn(),
+		pauseUpload: jest.fn(),
+		resumeUpload: jest.fn(),
 	} as SyncSitesContextType );
 	mockSetSelectedTab.mockReset();
 

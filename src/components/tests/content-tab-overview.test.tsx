@@ -75,7 +75,6 @@ describe( 'ContentTabOverview', () => {
 				supportsMenus,
 			},
 			selectedLoadingThemeDetails: false,
-			selectedLoadingThumbnails: false,
 		} );
 		render(
 			<Provider store={ store }>

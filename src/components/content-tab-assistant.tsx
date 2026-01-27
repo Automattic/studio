@@ -386,7 +386,8 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 
 	useEffect( () => {
 		void dispatch( chatThunks.updateFromSite( { site: selectedSite } ) );
-	}, [ dispatch, selectedSite ] );
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [ dispatch, selectedSite.id ] );
 
 	useEffect( () => {
 		if ( themeDetails ) {

@@ -1,7 +1,6 @@
 import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
-import { recursiveCopyDirectory } from 'common/lib/fs-utils';
 import { updateLatestWPCliVersion } from 'src/lib/download-utils';
 import { getWordPressVersionPath, getSqlitePath, getWpCliPath } from 'src/lib/server-files-paths';
 import {
@@ -42,7 +41,7 @@ export async function copyBundledLatestWPVersion() {
 			} );
 		}
 		console.log( `Copying bundled WP version ${ bundledWPVersion } as 'latest' version…` );
-		await recursiveCopyDirectory( bundledWPVersionPath, latestWPVersionPath );
+		await fs.copy( bundledWPVersionPath, latestWPVersionPath );
 	}
 }
 
@@ -69,7 +68,7 @@ async function copyBundledSqlite() {
 		installedSqliteVersion && semver.gt( bundledSqliteVersion, installedSqliteVersion );
 	if ( ! isSqliteInstalled || isBundledVersionNewer ) {
 		console.log( `Copying bundled SQLite version ${ bundledSqliteVersion }…` );
-		await recursiveCopyDirectory( bundledSqlitePath, getSqlitePath() );
+		await fs.copy( bundledSqlitePath, getSqlitePath() );
 	}
 }
 
@@ -97,7 +96,7 @@ async function copyBundledSQLiteCommand() {
 		semver.gt( bundledSqliteCommandVersion, installedSqliteCommandVersion );
 	if ( ! isSqliteCommandInstalled || isBundledVersionNewer ) {
 		console.log( `Copying bundled SQLite command version ${ bundledSqliteCommandVersion }…` );
-		await recursiveCopyDirectory( bundledSqliteCommandPath, installedSqliteCommandPath );
+		await fs.copy( bundledSqliteCommandPath, installedSqliteCommandPath );
 	}
 }
 

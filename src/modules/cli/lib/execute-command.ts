@@ -32,24 +32,30 @@ export class CliCommandError extends Error {
 	}
 
 	get message(): string {
-		const messageParts: string[] = [ this.baseMessage ];
+		const messageParts: string[] = [];
 
 		if ( this.lastErrorMessage ) {
-			messageParts.push( `Last error message: ${ this.lastErrorMessage }` );
-		} else if ( this.cliCommandResult ) {
+			messageParts.push( `[Last error message] ${ this.lastErrorMessage }` );
+		}
+
+		if ( this.baseMessage ) {
+			messageParts.push( `[Base message] ${ this.baseMessage }` );
+		}
+
+		if ( this.cliCommandResult ) {
 			const stderr = this.cliCommandResult.stderr.trim();
 			const stdout = this.cliCommandResult.stdout.trim();
 			if ( stderr ) {
-				messageParts.push( `stderr: ${ stderr }` );
+				messageParts.push( `[stderr] ${ stderr }` );
 			} else if ( stdout ) {
-				messageParts.push( `stdout: ${ stdout }` );
+				messageParts.push( `[stdout] ${ stdout }` );
 			}
 		}
 
 		if ( this.signal !== null ) {
-			messageParts.push( `Terminated by signal: ${ this.signal }` );
+			messageParts.push( `[Terminated by signal] ${ this.signal }` );
 		} else if ( this.exitCode !== null ) {
-			messageParts.push( `Exit code: ${ this.exitCode }` );
+			messageParts.push( `[Exit code] ${ this.exitCode }` );
 		}
 
 		return messageParts

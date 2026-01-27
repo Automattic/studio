@@ -64,12 +64,14 @@ export class CliCommandError extends Error {
 	}
 }
 
-type CliCommandEventMap = {
+type CliCommandEventMap< CapturesOutput extends boolean = false > = {
 	started: void;
 	error: { error: Error };
 	data: { data: unknown };
-	success: { result: CliCommandResult | undefined };
-	failure: { error: CliCommandError };
+	success: { result: CapturesOutput extends true ? CliCommandResult : undefined };
+	failure: CapturesOutput extends true
+		? { error: CliCommandError; result: CliCommandResult }
+		: { error: CliCommandError };
 };
 
 // Schema to detect error messages from CLI IPC regardless of the specific action type
@@ -78,17 +80,17 @@ const cliErrorMessageSchema = z.object( {
 	message: z.string(),
 } );
 
-class CliCommandEventEmitter extends EventEmitter {
-	on< K extends keyof CliCommandEventMap >(
+class CliCommandEventEmitter< CapturesOutput extends boolean = false > extends EventEmitter {
+	on< K extends keyof CliCommandEventMap< CapturesOutput > >(
 		event: K,
-		listener: ( payload: CliCommandEventMap[ K ] ) => void
+		listener: ( payload: CliCommandEventMap< CapturesOutput >[ K ] ) => void
 	): this {
 		return super.on( event, listener );
 	}
 
-	emit< K extends keyof CliCommandEventMap >(
+	emit< K extends keyof CliCommandEventMap< CapturesOutput > >(
 		event: K,
-		payload?: CliCommandEventMap[ K ]
+		payload?: CliCommandEventMap< CapturesOutput >[ K ]
 	): boolean {
 		return super.emit( event, payload );
 	}
@@ -105,8 +107,20 @@ type ExecuteCliCommandOptions = ExecuteCliCommandOptionsIgnore | ExecuteCliComma
 
 export function executeCliCommand(
 	args: string[],
+	options: { output: 'capture'; logPrefix?: string }
+): [ CliCommandEventEmitter< true >, ChildProcess ];
+export function executeCliCommand(
+	args: string[],
+	options: { output: 'ignore'; logPrefix?: string }
+): [ CliCommandEventEmitter< false >, ChildProcess ];
+export function executeCliCommand(
+	args: string[],
+	options?: ExecuteCliCommandOptions
+): [ CliCommandEventEmitter< false >, ChildProcess ];
+export function executeCliCommand(
+	args: string[],
 	options: ExecuteCliCommandOptions = { output: 'ignore' }
-): [ CliCommandEventEmitter, ChildProcess ] {
+): [ CliCommandEventEmitter< boolean >, ChildProcess ] {
 	const cliPath = getCliPath();
 
 	let stdio: StdioOptions | undefined;
@@ -125,7 +139,7 @@ export function executeCliCommand(
 		stdio,
 		execPath: getBundledNodeBinaryPath(),
 	} );
-	const eventEmitter = new CliCommandEventEmitter();
+	const eventEmitter = new CliCommandEventEmitter< boolean >();
 
 	child.on( 'spawn', () => {
 		eventEmitter.emit( 'started' );
@@ -198,7 +212,11 @@ export function executeCliCommand(
 				exitCode,
 				signal,
 			} );
-			eventEmitter.emit( 'failure', { error } );
+			if ( options.output === 'capture' ) {
+				eventEmitter.emit( 'failure', { error, result } );
+			} else {
+				eventEmitter.emit( 'failure', { error } );
+			}
 		}
 	} );
 

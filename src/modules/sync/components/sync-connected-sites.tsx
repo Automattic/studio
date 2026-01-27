@@ -8,6 +8,8 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { ClearAction } from 'src/components/clear-action';
 import { CircleRedCrossIcon } from 'src/components/icons/circle-red-cross';
+import { PauseIcon } from 'src/components/icons/pause';
+import { PlayIcon } from 'src/components/icons/play';
 import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
 import ProgressBar from 'src/components/progress-bar';
@@ -190,8 +192,16 @@ const SyncConnectedSitesSectionItem = ( {
 }: SyncConnectedSitesListProps ) => {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
-	const { clearPullState, getPullState, getPushState, clearPushState, cancelPull, cancelPush } =
-		useSyncSites();
+	const {
+		clearPullState,
+		getPullState,
+		getPushState,
+		clearPushState,
+		cancelPull,
+		cancelPush,
+		pauseUpload,
+		resumeUpload,
+	} = useSyncSites();
 	const { importState } = useImportExport();
 	const {
 		isKeyPulling,
@@ -203,6 +213,8 @@ const SyncConnectedSitesSectionItem = ( {
 		getPushUploadPercentage,
 		getPushUploadMessage,
 		isKeyUploadingPaused,
+		isKeyUploadingManuallyPaused,
+		isKeyUploading,
 	} = useSyncStatesProgressInfo();
 
 	const sitePullState = getPullState( selectedSite.id, connectedSite.id );
@@ -215,7 +227,10 @@ const SyncConnectedSitesSectionItem = ( {
 
 	const pushState = getPushState( selectedSite.id, connectedSite.id );
 	const isPushing = pushState && isKeyPushing( pushState.status.key );
-	const isUploadingPaused = pushState && isKeyUploadingPaused( pushState.status.key );
+	const isUploadingNetworkPaused = pushState && isKeyUploadingPaused( pushState.status.key );
+	const isUploadingManuallyPaused =
+		pushState && isKeyUploadingManuallyPaused( pushState.status.key );
+	const isUploading = pushState && isKeyUploading( pushState.status.key );
 	const isPushError = pushState && isKeyFailed( pushState.status.key );
 	const hasPushFinished = pushState && isKeyFinished( pushState.status.key );
 	const hasPushCancelled = pushState && isKeyCancelled( pushState.status.key );
@@ -242,7 +257,7 @@ const SyncConnectedSitesSectionItem = ( {
 	return (
 		<div className="grid grid-cols-[max-content_1fr_max-content]">
 			<div
-				className="col-span-3 grid px-8 gap-2 justify-items-start items-center grid-cols-subgrid"
+				className="col-span-3 grid ps-8 pe-5 gap-2 justify-items-start items-center grid-cols-subgrid"
 				key={ connectedSite.id }
 			>
 				<div className="shrink-0">
@@ -260,9 +275,9 @@ const SyncConnectedSitesSectionItem = ( {
 					<ArrowIcon />
 				</Button>
 
-				<div className="flex shrink-0 justify-self-end">
+				<div className="flex shrink-0 justify-self-end justify-end items-center min-h-[26px] w-80">
 					{ isPulling && (
-						<div className="flex items-center gap-2 max-w-full">
+						<div className="flex items-center gap-2 max-w-full transition-all duration-300 ease-in-out">
 							<div className="flex flex-col gap-2 min-w-44 flex-shrink">
 								<div className="a8c-body-small">{ sitePullStatusMessage }</div>
 								<ProgressBar value={ sitePullStatusProgress } maxValue={ 100 } />
@@ -276,57 +291,112 @@ const SyncConnectedSitesSectionItem = ( {
 								placement="top-start"
 							>
 								<Button
-									variant="link"
+									variant="icon"
 									onClick={ () => cancelPull( selectedSite.id, connectedSite.id ) }
 									disabled={ ! canCancelPull( sitePullState?.status.key ) }
-									className="!p-0 flex-shrink-0"
+									className="flex-shrink-0 transition-all duration-300 ease-in-out"
+									aria-label={ __( 'Cancel pull' ) }
 								>
-									<Icon icon={ close } size={ 20 } />
+									<span className="flex items-center justify-center w-5 h-5">
+										<Icon icon={ close } size={ 20 } />
+									</span>
 								</Button>
 							</Tooltip>
 						</div>
 					) }
 					{ sitePullState?.status && hasPullCancelled && (
-						<ClearAction onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }>
-							{ __( 'Pull cancelled' ) }
-						</ClearAction>
+						<div className="transition-all duration-300 ease-in-out">
+							<ClearAction onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }>
+								{ __( 'Pull cancelled' ) }
+							</ClearAction>
+						</div>
 					) }
 					{ isPullError && (
-						<ClearAction
-							onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }
-							isError
-						>
-							{ __( 'Error pulling changes' ) }
-						</ClearAction>
+						<div className="transition-all duration-300 ease-in-out">
+							<ClearAction
+								onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }
+								isError
+							>
+								{ __( 'Error pulling changes' ) }
+							</ClearAction>
+						</div>
 					) }
 					{ isPushError && (
-						<ClearAction
-							onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }
-							isError
-						>
-							{ __( 'Error pushing changes' ) }
-						</ClearAction>
+						<div className="transition-all duration-300 ease-in-out">
+							<ClearAction
+								onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }
+								isError
+							>
+								{ __( 'Error pushing changes' ) }
+							</ClearAction>
+						</div>
 					) }
 					{ hasPullFinished && (
-						<ClearAction onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }>
-							{ __( 'Pull complete' ) }
-						</ClearAction>
+						<div className="transition-all duration-300 ease-in-out">
+							<ClearAction onClick={ () => clearPullState( selectedSite.id, connectedSite.id ) }>
+								{ __( 'Pull complete' ) }
+							</ClearAction>
+						</div>
 					) }
-					{ pushState?.status && isUploadingPaused && (
-						<Tooltip
-							text={ __(
-								'The site uploading has been paused due to an internet connection issue. We will retry automatically in a few seconds.'
-							) }
-							placement="top-start"
-						>
-							<Button variant="link" disabled={ true }>
-								<Icon icon={ error } />
-								{ pushState.status.message }
-							</Button>
-						</Tooltip>
+					{ pushState?.status && isUploadingNetworkPaused && (
+						<div className="transition-all duration-300 ease-in-out">
+							<Tooltip
+								text={ __(
+									'The site uploading has been paused due to an internet connection issue. We will retry automatically in a few seconds.'
+								) }
+								placement="top-start"
+							>
+								<Button variant="link" disabled={ true }>
+									<Icon icon={ error } />
+									{ pushState.status.message }
+								</Button>
+							</Tooltip>
+						</div>
+					) }
+					{ pushState?.status && isUploadingManuallyPaused && (
+						<div className="flex items-center gap-2 max-w-full transition-all duration-300 ease-in-out">
+							<Tooltip
+								text={ __(
+									'Upload is manually paused. Click the resume button to continue uploading.'
+								) }
+								placement="top-start"
+							>
+								<div className="flex flex-col gap-2 min-w-44 flex-shrink">
+									<div className="a8c-body-small flex items-center gap-0.5">
+										<Icon icon={ info } size={ 14 } />
+										{ pushState.status.message }
+									</div>
+									<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
+								</div>
+							</Tooltip>
+							<Tooltip text={ __( 'Resume upload' ) } placement="top">
+								<Button
+									variant="icon"
+									onClick={ () => resumeUpload( selectedSite.id, connectedSite.id ) }
+									className="flex-shrink-0 transition-all duration-300 ease-in-out"
+									aria-label={ __( 'Resume upload' ) }
+								>
+									<span className="flex items-center justify-center w-5 h-5">
+										<PlayIcon />
+									</span>
+								</Button>
+							</Tooltip>
+							<Tooltip text={ __( 'Cancel push' ) } placement="top-start">
+								<Button
+									variant="icon"
+									onClick={ () => cancelPush( selectedSite.id, connectedSite.id ) }
+									className="flex-shrink-0 transition-all duration-300 ease-in-out"
+									aria-label={ __( 'Cancel push' ) }
+								>
+									<span className="flex items-center justify-center w-5 h-5">
+										<Icon icon={ close } size={ 20 } />
+									</span>
+								</Button>
+							</Tooltip>
+						</div>
 					) }
 					{ pushState?.status && isPushing && (
-						<div className="flex items-center gap-2 max-w-full">
+						<div className="flex items-center gap-2 max-w-full transition-all duration-300 ease-in-out">
 							<Tooltip text={ getPushProgressTooltip() } placement="top-start">
 								<div className="flex flex-col gap-2 min-w-44 flex-shrink">
 									<div className="a8c-body-small flex items-center gap-0.5">
@@ -340,6 +410,27 @@ const SyncConnectedSitesSectionItem = ( {
 									<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
 								</div>
 							</Tooltip>
+							<div
+								className={ cx(
+									'flex-shrink-0 transition-opacity duration-300 ease-in-out',
+									! isUploading || ( uploadPercentage !== null && uploadPercentage >= 100 )
+										? 'opacity-0 pointer-events-none'
+										: 'opacity-100'
+								) }
+							>
+								<Tooltip text={ __( 'Pause upload' ) } placement="top">
+									<Button
+										variant="icon"
+										onClick={ () => pauseUpload( selectedSite.id, connectedSite.id ) }
+										className="flex-shrink-0"
+										aria-label={ __( 'Pause upload' ) }
+									>
+										<span className="flex items-center justify-center w-5 h-5">
+											<PauseIcon />
+										</span>
+									</Button>
+								</Tooltip>
+							</div>
 							<Tooltip
 								text={
 									canCancelPush( pushState?.status.key )
@@ -349,40 +440,50 @@ const SyncConnectedSitesSectionItem = ( {
 								placement="top-start"
 							>
 								<Button
-									variant="link"
+									variant="icon"
 									onClick={ () => cancelPush( selectedSite.id, connectedSite.id ) }
 									disabled={ ! canCancelPush( pushState?.status.key ) }
-									className="!p-0 flex-shrink-0"
+									className="flex-shrink-0 transition-all duration-300 ease-in-out"
+									aria-label={ __( 'Cancel push' ) }
 								>
-									<Icon icon={ close } size={ 20 } />
+									<span className="flex items-center justify-center w-5 h-5">
+										<Icon icon={ close } size={ 20 } />
+									</span>
 								</Button>
 							</Tooltip>
 						</div>
 					) }
 					{ pushState?.status && hasPushCancelled && (
-						<ClearAction onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }>
-							{ __( 'Push cancelled' ) }
-						</ClearAction>
+						<div className="transition-all duration-300 ease-in-out">
+							<ClearAction onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }>
+								{ __( 'Push cancelled' ) }
+							</ClearAction>
+						</div>
 					) }
 
 					{ pushState?.status && hasPushFinished && (
-						<ClearAction onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }>
-							{ pushState.status.message }
-						</ClearAction>
+						<div className="transition-all duration-300 ease-in-out">
+							<ClearAction onClick={ () => clearPushState( selectedSite.id, connectedSite.id ) }>
+								{ pushState.status.message }
+							</ClearAction>
+						</div>
 					) }
 					{ ! isPulling &&
 						! hasPullFinished &&
 						! isPullError &&
 						! isPushError &&
 						! isPushing &&
-						! isUploadingPaused &&
+						! isUploadingNetworkPaused &&
+						! isUploadingManuallyPaused &&
 						! hasPushFinished &&
 						! hasPullCancelled &&
 						! hasPushCancelled && (
-							<SyncConnectedSiteControls
-								connectedSite={ connectedSite }
-								selectedSite={ selectedSite }
-							/>
+							<div className="transition-all duration-300 ease-in-out">
+								<SyncConnectedSiteControls
+									connectedSite={ connectedSite }
+									selectedSite={ selectedSite }
+								/>
+							</div>
 						) }
 				</div>
 			</div>
@@ -452,7 +553,7 @@ const SyncConnectedSiteSection = ( {
 
 	return (
 		<div key={ connectedSite.id } className="flex flex-col gap-2 border-b border-a8c-gray-0 py-5">
-			<div className="flex items-center gap-2 px-8">
+			<div className="flex items-center gap-2 ps-8 pe-5">
 				{ logo }
 				<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
 					{ connectedSite.name }

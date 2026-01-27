@@ -33,7 +33,11 @@ export function canCancelPull( key: PullStateProgressInfo[ 'key' ] | undefined )
  * Check if a push operation can be cancelled based on its current state.
  */
 export function canCancelPush( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean {
-	const cancellableStateKeys: PushStateProgressInfo[ 'key' ][] = [ 'creatingBackup' ];
+	const cancellableStateKeys: PushStateProgressInfo[ 'key' ][] = [
+		'creatingBackup',
+		'uploading',
+		'uploadingManuallyPaused',
+	];
 	if ( ! key ) {
 		return false;
 	}
@@ -44,7 +48,11 @@ export function canCancelPush( key: PushStateProgressInfo[ 'key' ] | undefined )
  * Check if a push operation has finished uploading the backup file.
  */
 export function pushBackupIsUploading( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean {
-	const uploadingStateKeys: PushStateProgressInfo[ 'key' ][] = [ 'creatingBackup', 'uploading' ];
+	const uploadingStateKeys: PushStateProgressInfo[ 'key' ][] = [
+		'creatingBackup',
+		'uploading',
+		'uploadingManuallyPaused',
+	];
 	if ( ! key ) {
 		return false;
 	}

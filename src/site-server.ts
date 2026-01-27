@@ -33,7 +33,7 @@ export async function stopAllServers( shouldSaveAutoStartProp: boolean ) {
 		if ( shouldSaveAutoStartProp ) {
 			args.push( '--auto-start' );
 		}
-		const [ emitter ] = executeCliCommand( args, { output: 'ignore' } );
+		const [ emitter ] = executeCliCommand( args );
 		emitter.on( 'success', () => resolve() );
 		emitter.on( 'failure', () => resolve() );
 		emitter.on( 'error', () => resolve() );

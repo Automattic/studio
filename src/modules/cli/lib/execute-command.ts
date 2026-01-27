@@ -5,31 +5,30 @@ import * as Sentry from '@sentry/electron/main';
 import { z } from 'zod';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 
-type CliCommandResultExitCode = {
+export type CliCommandResult = {
 	stdout: string;
 	stderr: string;
-	exitCode: number;
 };
-type CliCommandResultSignal = {
-	stdout: string;
-	stderr: string;
-	signal: NodeJS.Signals;
-};
-export type CliCommandResult = CliCommandResultExitCode | CliCommandResultSignal;
 
-export class CliCommandFailureError extends Error {
+export class CliCommandError extends Error {
 	baseMessage = 'CLI command failed';
 	readonly lastErrorMessage: string | undefined;
 	readonly cliCommandResult: CliCommandResult | undefined;
+	readonly exitCode: number | null;
+	readonly signal: NodeJS.Signals | null;
 
-	constructor(
-		lastErrorMessage: string | undefined,
-		cliCommandResult: CliCommandResult | undefined
-	) {
+	constructor( options: {
+		lastErrorMessage: string | undefined;
+		cliCommandResult: CliCommandResult | undefined;
+		exitCode: number | null;
+		signal: NodeJS.Signals | null;
+	} ) {
 		super();
-		this.lastErrorMessage = lastErrorMessage;
-		this.cliCommandResult = cliCommandResult;
-		this.name = 'CliCommandFailureError';
+		this.lastErrorMessage = options.lastErrorMessage;
+		this.cliCommandResult = options.cliCommandResult;
+		this.exitCode = options.exitCode;
+		this.signal = options.signal;
+		this.name = 'CliCommandError';
 	}
 
 	get message(): string {
@@ -47,12 +46,10 @@ export class CliCommandFailureError extends Error {
 			}
 		}
 
-		if ( this.cliCommandResult ) {
-			if ( 'signal' in this.cliCommandResult ) {
-				messageParts.push( `Terminated by signal: ${ this.cliCommandResult.signal }` );
-			} else if ( 'exitCode' in this.cliCommandResult ) {
-				messageParts.push( `Exit code: ${ this.cliCommandResult.exitCode }` );
-			}
+		if ( this.signal !== null ) {
+			messageParts.push( `Terminated by signal: ${ this.signal }` );
+		} else if ( this.exitCode !== null ) {
+			messageParts.push( `Exit code: ${ this.exitCode }` );
 		}
 
 		return messageParts
@@ -66,7 +63,7 @@ type CliCommandEventMap = {
 	error: { error: Error };
 	data: { data: unknown };
 	success: { result: CliCommandResult | undefined };
-	failure: { error: CliCommandFailureError };
+	failure: { error: CliCommandError };
 };
 
 // Schema to detect error messages from CLI IPC regardless of the specific action type
@@ -91,15 +88,14 @@ class CliCommandEventEmitter extends EventEmitter {
 	}
 }
 
-export interface ExecuteCliCommandOptions {
-	/**
-	 * Controls how stdout/stderr is handled:
-	 * - 'ignore': ignore stdout/stderr completely
-	 * - 'capture': capture stdout/stderr, available in success/failure events
-	 */
-	output: 'ignore' | 'capture';
+type ExecuteCliCommandOptionsIgnore = {
+	output: 'ignore';
+};
+type ExecuteCliCommandOptionsCapture = {
+	output: 'capture';
 	logPrefix?: string;
-}
+};
+type ExecuteCliCommandOptions = ExecuteCliCommandOptionsIgnore | ExecuteCliCommandOptionsCapture;
 
 export function executeCliCommand(
 	args: string[],
@@ -135,9 +131,7 @@ export function executeCliCommand(
 	let lastErrorMessage: string | undefined;
 
 	if ( options.output === 'capture' ) {
-		const logPrefix = options.logPrefix
-			? `[CLI - pid ${ child.pid } - site ID ${ options.logPrefix }]`
-			: '[CLI]';
+		const logPrefix = options.logPrefix ? `[CLI - site ID ${ options.logPrefix }]` : '[CLI]';
 		child.stdout?.on( 'data', ( data: Buffer ) => {
 			const text = data.toString();
 			stdout += text;
@@ -181,19 +175,19 @@ export function executeCliCommand(
 		let result: CliCommandResult | undefined;
 
 		if ( options.output === 'capture' ) {
-			if ( exitCode !== null ) {
-				result = { stdout, stderr, exitCode };
-			} else if ( signal !== null ) {
-				result = { stdout, stderr, signal };
-			}
+			result = { stdout, stderr };
 		}
 
 		if ( exitCode === 0 ) {
 			eventEmitter.emit( 'success', { result } );
 		} else {
-			eventEmitter.emit( 'failure', {
-				error: new CliCommandFailureError( lastErrorMessage, result ),
+			const error = new CliCommandError( {
+				lastErrorMessage,
+				cliCommandResult: result,
+				exitCode,
+				signal,
 			} );
+			eventEmitter.emit( 'failure', { error } );
 		}
 	} );
 

@@ -247,6 +247,10 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		( fsPromises.unlink as jest.Mock ).mockResolvedValue( undefined );
 		( fsPromises.mkdtemp as jest.Mock ).mockResolvedValue( '/tmp/studio_export_123' );
 		( fsPromises.writeFile as jest.Mock ).mockResolvedValue( undefined );
+		( fsPromises.readFile as jest.Mock ).mockResolvedValue( `<?php
+define( 'WP_DEBUG', false );
+` );
+		( fsPromises.rm as jest.Mock ).mockResolvedValue( undefined );
 		( os.tmpdir as jest.Mock ).mockReturnValue( '/tmp' );
 		( format as jest.Mock ).mockReturnValue( '2023-07-31-12-00-00' );
 
@@ -279,7 +283,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		expect( archiver ).toHaveBeenCalledWith( 'zip', { followSymlinks: true, zlib: { level: 9 } } );
 	} );
 
-	it( 'should add wp-config.php to the archive', async () => {
+	it( 'should add sanitized wp-config.php to the archive', async () => {
 		const options = {
 			...mockOptions,
 			includes: {
@@ -291,16 +295,27 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		const exporter = new DefaultExporter( options );
 		await exporter.export();
 
-		// wp-config.php should be called first, then meta.json
+		// wp-config.php should be called first (from temp dir), then meta.json
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
 			1,
-			normalize( '/path/to/site/wp-config.php' ),
+			normalize( '/tmp/studio_export_123/wp-config.php' ),
 			{ name: 'wp-config.php' }
 		);
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
 			2,
 			normalize( '/tmp/studio_export_123/meta.json' ),
 			{ name: 'meta.json' }
+		);
+
+		// Verify wp-config.php was read from original location and sanitized
+		expect( fsPromises.readFile ).toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-config.php' ),
+			'utf-8'
+		);
+		// Verify sanitized content was written
+		expect( fsPromises.writeFile ).toHaveBeenCalledWith(
+			normalize( '/tmp/studio_export_123/wp-config.php' ),
+			expect.stringContaining( "if ( ! defined( 'WP_DEBUG' ) )" )
 		);
 	} );
 
@@ -334,7 +349,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		// Check that wp-config.php and meta.json are both added
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
 			1,
-			normalize( '/path/to/site/wp-config.php' ),
+			normalize( '/tmp/studio_export_123/wp-config.php' ),
 			{ name: 'wp-config.php' }
 		);
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
@@ -384,7 +399,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
 			1,
-			normalize( '/path/to/site/wp-config.php' ),
+			normalize( '/tmp/studio_export_123/wp-config.php' ),
 			{ name: 'wp-config.php' }
 		);
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
@@ -415,7 +430,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
 			1,
-			normalize( '/path/to/site/wp-config.php' ),
+			normalize( '/tmp/studio_export_123/wp-config.php' ),
 			{ name: 'wp-config.php' }
 		);
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
@@ -446,7 +461,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
 			1,
-			normalize( '/path/to/site/wp-config.php' ),
+			normalize( '/tmp/studio_export_123/wp-config.php' ),
 			{ name: 'wp-config.php' }
 		);
 
@@ -541,7 +556,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
 			1,
-			normalize( '/path/to/site/wp-config.php' ),
+			normalize( '/tmp/studio_export_123/wp-config.php' ),
 			{ name: 'wp-config.php' }
 		);
 		expect( mockArchiver.file ).toHaveBeenNthCalledWith(
@@ -566,7 +581,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		await exporter.export();
 
 		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
-			normalize( '/path/to/site/wp-config.php' ),
+			normalize( '/tmp/studio_export_123/wp-config.php' ),
 			{ name: 'wp-config.php' }
 		);
 	} );
@@ -765,9 +780,9 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 					normalize( '/path/to/site/wp-content/uploads/file1.jpg' )
 				)
 			).toBe( false );
-			expect( exporter.isPathExcludedByPattern( normalize( '/path/to/site/wp-config.php' ) ) ).toBe(
-				false
-			);
+			expect(
+				exporter.isPathExcludedByPattern( normalize( '/tmp/studio_export_123/wp-config.php' ) )
+			).toBe( false );
 			expect( exporter.isPathExcludedByPattern( normalize( '/path/to/site/node_modules' ) ) ).toBe(
 				false
 			);

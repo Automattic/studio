@@ -12,6 +12,7 @@ import {
 	exportDatabaseToMultipleFiles,
 } from 'src/lib/import-export/export/export-database';
 import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
+import { sanitizeWpConfig } from 'src/lib/import-export/export/sanitize-wp-config';
 import {
 	ExportOptions,
 	BackupContents,
@@ -125,8 +126,10 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 
 		this.archiveBuilder.pipe( output );
 
+		let wpConfigTempPath: string | undefined;
+
 		try {
-			this.addWpConfig();
+			wpConfigTempPath = await this.addWpConfig();
 			await this.addWpContent();
 			await this.addDatabase();
 			const studioJsonPath = await this.createStudioJsonFile();
@@ -142,6 +145,10 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		} finally {
 			if ( this.options.includes.database ) {
 				await this.cleanupTempFiles();
+			}
+			// Clean up the wp-config temp file
+			if ( wpConfigTempPath ) {
+				await this.cleanupWpConfigTempFile( wpConfigTempPath );
 			}
 		}
 	}
@@ -177,13 +184,30 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		} );
 	}
 
-	private addWpConfig(): void {
+	private async addWpConfig(): Promise< string | undefined > {
 		const wpConfigPath = path.join( this.options.site.path, 'wp-config.php' );
-		if ( fs.existsSync( wpConfigPath ) ) {
-			this.archiveBuilder.file( wpConfigPath, {
-				name: 'wp-config.php',
-			} );
+		if ( ! fs.existsSync( wpConfigPath ) ) {
+			return undefined;
 		}
+
+		// Read the wp-config.php content
+		const content = await fsPromises.readFile( wpConfigPath, 'utf-8' );
+
+		// Sanitize by wrapping define() calls with defined() checks
+		// This prevents PHP warnings when pushing to WordPress.com
+		const sanitizedContent = sanitizeWpConfig( content );
+
+		// Write sanitized content to a temp file
+		const tempDir = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio-wp-config-' ) );
+		const tempWpConfigPath = path.join( tempDir, 'wp-config.php' );
+		await fsPromises.writeFile( tempWpConfigPath, sanitizedContent );
+
+		// Add the sanitized temp file to the archive
+		this.archiveBuilder.file( tempWpConfigPath, {
+			name: 'wp-config.php',
+		} );
+
+		return tempWpConfigPath;
 	}
 
 	private async addWpContent(): Promise< void > {
@@ -265,6 +289,16 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			await fsPromises
 				.unlink( sqlFile )
 				.catch( ( err ) => console.error( `Failed to delete temporary file ${ sqlFile }:`, err ) );
+		}
+	}
+
+	private async cleanupWpConfigTempFile( tempPath: string ): Promise< void > {
+		try {
+			// Get the temp directory from the file path
+			const tempDir = path.dirname( tempPath );
+			await fsPromises.rm( tempDir, { recursive: true, force: true } );
+		} catch ( err ) {
+			console.error( `Failed to delete wp-config temp file ${ tempPath }:`, err );
 		}
 	}
 

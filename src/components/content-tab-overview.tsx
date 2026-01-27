@@ -193,7 +193,11 @@ export function ContentTabOverview( { selectedSite }: ContentTabOverviewProps ) 
 		initialLoading,
 	} = useThemeDetails();
 
-	const loading = loadingThemeDetails || loadingThumbnails || initialLoading;
+	const loading =
+		loadingThemeDetails ||
+		loadingThumbnails ||
+		initialLoading ||
+		( selectedSite.running && ! thumbnailData && loadingThumbnails !== false );
 	const isServerLoading = loadingServer[ selectedSite.id ];
 
 	const handleThumbnailClick = async () => {

@@ -104,6 +104,11 @@ export function executeCliCommand(
 	const cliPath = getCliPath();
 
 	let stdio: StdioOptions | undefined;
+	/**
+	 * If there's an IPC channel, the CLI `Logger` uses IPC to communicate all expected events. This
+	 * means that for many CLI commands, the captured stdout/stderr will be empty, unless something
+	 * unexpected was logged.
+	 */
 	if ( options.output === 'capture' ) {
 		stdio = [ 'ignore', 'pipe', 'pipe', 'ipc' ];
 	} else if ( options.output === 'ignore' ) {

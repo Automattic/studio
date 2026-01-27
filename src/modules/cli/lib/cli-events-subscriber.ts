@@ -5,17 +5,6 @@ import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { SiteServer } from 'src/site-server';
 
-const cliSiteEventSchema = z.object( {
-	action: z.literal( 'keyValuePair' ),
-	key: z.literal( 'site-event' ),
-	value: z
-		.string()
-		.transform( ( val ) => JSON.parse( val ) )
-		.pipe( siteEventSchema ),
-} );
-
-let subscriber: ReturnType< typeof executeCliCommand > | null = null;
-
 function siteDetailsToServerDetails(
 	site: SiteDetails,
 	running: boolean,
@@ -61,11 +50,6 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		return;
 	}
 
-	// Skip update if Studio has an ongoing operation
-	if ( server.hasOngoingOperation ) {
-		return;
-	}
-
 	server.details = siteDetailsToServerDetails( site, running, server.details );
 
 	if ( server.server && site.url ) {
@@ -74,6 +58,17 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 
 	void sendIpcEventToRenderer( 'site-event', event );
 } );
+
+const cliSiteEventSchema = z.object( {
+	action: z.literal( 'keyValuePair' ),
+	key: z.literal( 'site-event' ),
+	value: z
+		.string()
+		.transform( ( val ) => JSON.parse( val ) )
+		.pipe( siteEventSchema ),
+} );
+
+let subscriber: ReturnType< typeof executeCliCommand > | null = null;
 
 export async function startCliEventsSubscriber(): Promise< void > {
 	return new Promise( ( resolve, reject ) => {
@@ -116,8 +111,8 @@ export async function startCliEventsSubscriber(): Promise< void > {
 
 export function stopCliEventsSubscriber(): void {
 	if ( subscriber ) {
-		const [ , childProcess ] = subscriber;
+		const [ eventEmitter, childProcess ] = subscriber;
+		eventEmitter.removeAllListeners();
 		childProcess.kill( 'SIGKILL' );
-		subscriber = null;
 	}
 }

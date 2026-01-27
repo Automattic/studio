@@ -59,10 +59,12 @@ export abstract class SqliteIntegrationProvider {
 		await fs.copy( sqliteSourcePath, sqliteDestPath );
 	}
 
-	async keepSqliteIntegrationUpdated( sitePath: string ): Promise< void > {
+	async keepSqliteIntegrationUpdated( sitePath: string ): Promise< boolean > {
 		if ( await this.needsSqliteSetup( sitePath ) ) {
 			await this.installSqliteIntegration( sitePath );
+			return true;
 		}
+		return false;
 	}
 
 	async isSqliteInstalled( sitePath: string ): Promise< boolean > {

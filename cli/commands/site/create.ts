@@ -15,13 +15,7 @@ import {
 	validateBlueprintData,
 } from 'common/lib/blueprint-validation';
 import { getDomainNameValidationError } from 'common/lib/domains';
-import {
-	arePathsEqual,
-	isEmptyDir,
-	isWordPressDirectory,
-	pathExists,
-	recursiveCopyDirectory,
-} from 'common/lib/fs-utils';
+import { arePathsEqual, isEmptyDir, isWordPressDirectory, pathExists } from 'common/lib/fs-utils';
 import { DEFAULT_LOCALE } from 'common/lib/locale';
 import { isOnline } from 'common/lib/network-utils';
 import { createPassword } from 'common/lib/passwords';
@@ -33,6 +27,7 @@ import {
 	isWordPressVersionAtLeast,
 } from 'common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
+import fse from 'fs-extra';
 import {
 	lockAppdata,
 	readAppdata,
@@ -47,7 +42,7 @@ import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
 import { getServerFilesPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { installSqliteIntegration, isSqliteIntegrationAvailable } from 'cli/lib/sqlite-integration';
+import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -161,7 +156,7 @@ export async function runCommand(
 			}
 
 			logger.reportStart( LoggerAction.SETUP_WORDPRESS, __( 'Copying bundled WordPress…' ) );
-			await recursiveCopyDirectory( bundledWPPath, sitePath );
+			await fse.copy( bundledWPPath, sitePath );
 			logger.reportSuccess( __( 'WordPress files copied' ) );
 		} else if ( ! isOnlineStatus ) {
 			throw new LoggerError(
@@ -171,16 +166,11 @@ export async function runCommand(
 			);
 		}
 
-		if ( ! ( await isSqliteIntegrationAvailable() ) ) {
-			throw new LoggerError(
-				__(
-					'SQLite integration files not found. Please ensure Studio is installed and has been run at least once.'
-				)
-			);
-		}
 		logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration…' ) );
-		await installSqliteIntegration( sitePath );
-		logger.reportSuccess( __( 'SQLite integration configured' ) );
+		const isSqliteUpdated = await keepSqliteIntegrationUpdated( sitePath );
+		logger.reportSuccess(
+			isSqliteUpdated ? __( 'SQLite integration configured' ) : __( 'SQLite integration skipped' )
+		);
 
 		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
 		const port = await portFinder.getOpenPort();
@@ -212,7 +202,9 @@ export async function runCommand(
 			}
 		}
 
-		if ( options.name ) {
+		const hasWpConfig = await pathExists( path.join( sitePath, 'wp-config.php' ) );
+		const isWordPressDirectoryInitialized = isWordPressDirResult && hasWpConfig;
+		if ( options.name && ! isWordPressDirectoryInitialized ) {
 			setupSteps.push( {
 				step: 'setSiteOptions',
 				options: {
@@ -326,7 +318,7 @@ export async function runCommand(
 				}
 			}
 			console.log( '' );
-			console.log( __( 'Site created successfully!' ) );
+			console.log( __( 'Site created successfully' ) );
 			console.log( '' );
 			if ( ! options.skipLogDetails ) {
 				logSiteDetails( siteDetails );

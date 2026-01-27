@@ -3,10 +3,11 @@ import { __ } from '@wordpress/i18n';
 import { Icon, moreVertical, keyboardReturn, reset } from '@wordpress/icons';
 import React, { forwardRef, useRef, useEffect, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
-import { TELEX_URL } from 'src/constants';
+import { TELEX_HOSTNAME, TELEX_UTM_PARAMS } from 'src/constants';
 import useAiIcon from 'src/hooks/use-ai-icon';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { addUrlParams } from 'src/lib/url-utils';
 
 interface AIInputProps {
 	disabled: boolean;
@@ -265,7 +266,8 @@ const UnforwardedAIInput = (
 							<MenuItem
 								data-testid="telex-link-button"
 								onClick={ () => {
-									getIpcApi().openURL( TELEX_URL );
+									const telexUrl = addUrlParams( `https://${ TELEX_HOSTNAME }/`, TELEX_UTM_PARAMS );
+									getIpcApi().openURL( telexUrl );
 									onClose();
 								} }
 								className="flex flex-row"

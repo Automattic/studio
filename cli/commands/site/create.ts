@@ -15,13 +15,7 @@ import {
 	validateBlueprintData,
 } from 'common/lib/blueprint-validation';
 import { getDomainNameValidationError } from 'common/lib/domains';
-import {
-	arePathsEqual,
-	isEmptyDir,
-	isWordPressDirectory,
-	pathExists,
-	recursiveCopyDirectory,
-} from 'common/lib/fs-utils';
+import { arePathsEqual, isEmptyDir, isWordPressDirectory, pathExists } from 'common/lib/fs-utils';
 import { DEFAULT_LOCALE } from 'common/lib/locale';
 import { isOnline } from 'common/lib/network-utils';
 import { createPassword } from 'common/lib/passwords';
@@ -33,6 +27,7 @@ import {
 	isWordPressVersionAtLeast,
 } from 'common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
+import fse from 'fs-extra';
 import {
 	lockAppdata,
 	readAppdata,
@@ -161,7 +156,7 @@ export async function runCommand(
 			}
 
 			logger.reportStart( LoggerAction.SETUP_WORDPRESS, __( 'Copying bundled WordPress…' ) );
-			await recursiveCopyDirectory( bundledWPPath, sitePath );
+			await fse.copy( bundledWPPath, sitePath );
 			logger.reportSuccess( __( 'WordPress files copied' ) );
 		} else if ( ! isOnlineStatus ) {
 			throw new LoggerError(

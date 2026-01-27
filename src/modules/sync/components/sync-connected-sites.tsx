@@ -257,7 +257,7 @@ const SyncConnectedSitesSectionItem = ( {
 	return (
 		<div className="grid grid-cols-[max-content_1fr_max-content]">
 			<div
-				className="col-span-3 grid px-8 gap-2 justify-items-start items-center grid-cols-subgrid"
+				className="col-span-3 grid ps-8 pe-5 gap-2 justify-items-start items-center grid-cols-subgrid"
 				key={ connectedSite.id }
 			>
 				<div className="shrink-0">
@@ -553,7 +553,7 @@ const SyncConnectedSiteSection = ( {
 
 	return (
 		<div key={ connectedSite.id } className="flex flex-col gap-2 border-b border-a8c-gray-0 py-5">
-			<div className="flex items-center gap-2 px-8">
+			<div className="flex items-center gap-2 ps-8 pe-5">
 				{ logo }
 				<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
 					{ connectedSite.name }

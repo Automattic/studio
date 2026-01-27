@@ -89,6 +89,7 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 		} );
 
 		emitter.on( 'failure', ( { error } ) => {
+			cleanupTempFile( blueprintTempPath );
 			error.baseMessage = 'Failed to create site';
 			reject( error );
 		} );

@@ -10,7 +10,7 @@ export type CliCommandResult = {
 	stderr: string;
 };
 
-export class CliCommandError extends Error {
+class CliCommandError extends Error {
 	baseMessage = 'CLI command failed';
 	readonly lastErrorMessage: string | undefined;
 	readonly cliCommandResult: CliCommandResult | undefined;

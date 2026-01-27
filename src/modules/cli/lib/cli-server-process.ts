@@ -43,13 +43,9 @@ export class CliServerProcess implements WordPressServerProcess {
 				resolve();
 			} );
 
-			emitter.on( 'failure', ( { result, lastErrorMessage } ) => {
-				const errorDetail =
-					lastErrorMessage ||
-					result.stderr.trim() ||
-					result.stdout.trim() ||
-					`Failed to start site ${ this.siteId }`;
-				reject( new Error( errorDetail ) );
+			emitter.on( 'failure', ( { error } ) => {
+				error.baseMessage = 'Failed to start site';
+				reject( error );
 			} );
 
 			emitter.on( 'error', ( { error } ) => {
@@ -69,13 +65,9 @@ export class CliServerProcess implements WordPressServerProcess {
 				resolve();
 			} );
 
-			emitter.on( 'failure', ( { result, lastErrorMessage } ) => {
-				const errorDetail =
-					lastErrorMessage ||
-					result.stderr.trim() ||
-					result.stdout.trim() ||
-					`Failed to stop site ${ this.siteId }`;
-				reject( new Error( errorDetail ) );
+			emitter.on( 'failure', ( { error } ) => {
+				error.baseMessage = 'Failed to stop site';
+				reject( error );
 			} );
 
 			emitter.on( 'error', ( { error } ) => {
@@ -99,13 +91,9 @@ export class CliServerProcess implements WordPressServerProcess {
 				resolve();
 			} );
 
-			emitter.on( 'failure', ( { result, lastErrorMessage } ) => {
-				const errorDetail =
-					lastErrorMessage ||
-					result.stderr.trim() ||
-					result.stdout.trim() ||
-					`Failed to delete site ${ this.siteId }`;
-				reject( new Error( errorDetail ) );
+			emitter.on( 'failure', ( { error } ) => {
+				error.baseMessage = 'Failed to delete site';
+				reject( error );
 			} );
 
 			emitter.on( 'error', ( { error } ) => {

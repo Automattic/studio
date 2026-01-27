@@ -88,14 +88,9 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 			}
 		} );
 
-		emitter.on( 'failure', ( { result, lastErrorMessage } ) => {
-			cleanupTempFile( blueprintTempPath );
-			const errorDetail =
-				lastErrorMessage ||
-				result.stderr.trim() ||
-				result.stdout.trim() ||
-				'CLI create site failed';
-			reject( new Error( errorDetail ) );
+		emitter.on( 'failure', ( { error } ) => {
+			error.baseMessage = 'Failed to create site';
+			reject( error );
 		} );
 
 		emitter.on( 'error', ( { error } ) => {

@@ -5,23 +5,66 @@ import * as Sentry from '@sentry/electron/main';
 import { z } from 'zod';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 
-export interface CliCommandResult {
+type CliCommandResultExitCode = {
 	stdout: string;
 	stderr: string;
 	exitCode: number;
+};
+type CliCommandResultSignal = {
+	stdout: string;
+	stderr: string;
+	signal: NodeJS.Signals;
+};
+export type CliCommandResult = CliCommandResultExitCode | CliCommandResultSignal;
+
+export class CliCommandFailureError extends Error {
+	baseMessage = 'CLI command failed';
+	readonly lastErrorMessage: string | undefined;
+	readonly cliCommandResult: CliCommandResult | undefined;
+
+	constructor(
+		lastErrorMessage: string | undefined,
+		cliCommandResult: CliCommandResult | undefined
+	) {
+		super();
+		this.lastErrorMessage = lastErrorMessage;
+		this.cliCommandResult = cliCommandResult;
+		this.name = 'CliCommandFailureError';
+	}
+
+	get message(): string {
+		const messageParts: string[] = [ this.baseMessage ];
+
+		if ( this.lastErrorMessage ) {
+			messageParts.push( this.lastErrorMessage );
+		} else if ( this.cliCommandResult ) {
+			const stderr = this.cliCommandResult.stderr.trim();
+			const stdout = this.cliCommandResult.stdout.trim();
+			if ( stderr ) {
+				messageParts.push( stderr );
+			} else if ( stdout ) {
+				messageParts.push( stdout );
+			}
+		}
+
+		if ( this.cliCommandResult ) {
+			if ( 'signal' in this.cliCommandResult ) {
+				messageParts.push( `Terminated by signal: ${ this.cliCommandResult.signal }` );
+			} else if ( 'exitCode' in this.cliCommandResult ) {
+				messageParts.push( `Exit code: ${ this.cliCommandResult.exitCode }` );
+			}
+		}
+
+		return messageParts.join( '\n' );
+	}
 }
 
-type CliCommandEventMap< CapturesStdio extends boolean = false > = {
+type CliCommandEventMap = {
 	started: void;
 	error: { error: Error };
 	data: { data: unknown };
-	success: {
-		result: CapturesStdio extends true ? CliCommandResult : undefined;
-	};
-	failure: {
-		lastErrorMessage: string | undefined;
-		result: CapturesStdio extends true ? CliCommandResult : undefined;
-	};
+	success: { result: CliCommandResult | undefined };
+	failure: { error: CliCommandFailureError };
 };
 
 // Schema to detect error messages from CLI IPC regardless of the specific action type
@@ -30,17 +73,17 @@ const cliErrorMessageSchema = z.object( {
 	message: z.string(),
 } );
 
-class CliCommandEventEmitter< HasResult extends boolean = false > extends EventEmitter {
-	on< K extends keyof CliCommandEventMap< HasResult > >(
+class CliCommandEventEmitter extends EventEmitter {
+	on< K extends keyof CliCommandEventMap >(
 		event: K,
-		listener: ( payload: CliCommandEventMap< HasResult >[ K ] ) => void
+		listener: ( payload: CliCommandEventMap[ K ] ) => void
 	): this {
 		return super.on( event, listener );
 	}
 
-	emit< K extends keyof CliCommandEventMap< HasResult > >(
+	emit< K extends keyof CliCommandEventMap >(
 		event: K,
-		payload?: CliCommandEventMap< HasResult >[ K ]
+		payload?: CliCommandEventMap[ K ]
 	): boolean {
 		return super.emit( event, payload );
 	}
@@ -58,20 +101,8 @@ export interface ExecuteCliCommandOptions {
 
 export function executeCliCommand(
 	args: string[],
-	options: { output: 'capture'; logPrefix?: string }
-): [ CliCommandEventEmitter< true >, ChildProcess ];
-export function executeCliCommand(
-	args: string[],
-	options: { output: 'ignore'; logPrefix?: string }
-): [ CliCommandEventEmitter< false >, ChildProcess ];
-export function executeCliCommand(
-	args: string[],
-	options?: ExecuteCliCommandOptions
-): [ CliCommandEventEmitter< false >, ChildProcess ];
-export function executeCliCommand(
-	args: string[],
 	options: ExecuteCliCommandOptions = { output: 'ignore' }
-): [ CliCommandEventEmitter< boolean >, ChildProcess ] {
+): [ CliCommandEventEmitter, ChildProcess ] {
 	const cliPath = getCliPath();
 
 	let stdio: StdioOptions | undefined;
@@ -85,7 +116,7 @@ export function executeCliCommand(
 		stdio,
 		execPath: getBundledNodeBinaryPath(),
 	} );
-	const eventEmitter = new CliCommandEventEmitter< boolean >();
+	const eventEmitter = new CliCommandEventEmitter();
 
 	child.on( 'spawn', () => {
 		eventEmitter.emit( 'started' );
@@ -127,17 +158,12 @@ export function executeCliCommand(
 		eventEmitter.emit( 'data', { data: message } );
 	} );
 
-	let capturedExitCode: number | null = null;
-
-	child.on( 'exit', ( code, signal ) => {
-		capturedExitCode = code;
-	} );
-
 	function appQuitHandler() {
 		const pid = child.pid;
+		child.removeAllListeners();
 		const result = child.kill();
 		if ( result ) {
-			console.log( `Successfully killed child process with pid ${ pid }` );
+			console.log( `Successfully killed child process with pid ${ pid }. Args:`, args );
 		} else {
 			console.error(
 				`Failed to kill child process with pid ${ pid }. This likely means the process is already terminated. CLI args:`,
@@ -146,18 +172,26 @@ export function executeCliCommand(
 		}
 	}
 
-	child.on( 'close', ( code ) => {
+	child.on( 'close', ( exitCode, signal ) => {
 		child.removeAllListeners();
 		app.off( 'will-quit', appQuitHandler );
 
-		const exitCode = capturedExitCode ?? code ?? 1;
-		const result: CliCommandResult | undefined =
-			options.output === 'capture' ? { stdout, stderr, exitCode } : undefined;
+		let result: CliCommandResult | undefined;
+
+		if ( options.output === 'capture' ) {
+			if ( exitCode !== null ) {
+				result = { stdout, stderr, exitCode };
+			} else if ( signal !== null ) {
+				result = { stdout, stderr, signal };
+			}
+		}
 
 		if ( exitCode === 0 ) {
 			eventEmitter.emit( 'success', { result } );
 		} else {
-			eventEmitter.emit( 'failure', { lastErrorMessage, result } );
+			eventEmitter.emit( 'failure', {
+				error: new CliCommandFailureError( lastErrorMessage, result ),
+			} );
 		}
 	} );
 

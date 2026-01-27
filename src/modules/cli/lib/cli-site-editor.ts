@@ -41,14 +41,9 @@ export async function editSiteViaCli( options: EditSiteOptions ): Promise< void 
 			resolve();
 		} );
 
-		emitter.on( 'failure', ( { result, lastErrorMessage } ) => {
-			const errorDetail =
-				lastErrorMessage ||
-				result?.stderr?.trim() ||
-				result?.stdout?.trim() ||
-				'CLI site set failed';
-			console.error( `[CLI Site Editor] Command failed: ${ errorDetail }` );
-			reject( new Error( errorDetail ) );
+		emitter.on( 'failure', ( { error } ) => {
+			error.baseMessage = 'Failed to edit site';
+			reject( error );
 		} );
 
 		emitter.on( 'error', ( { error } ) => {

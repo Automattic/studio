@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import path from 'path';
-import { pathExists, recursiveCopyDirectory } from 'common/lib/fs-utils';
+import fs from 'fs-extra';
+import { pathExists } from 'common/lib/fs-utils';
 import { getServerFilesPath } from 'src/storage/paths';
 import { loadUserData } from 'src/storage/user-data';
 
@@ -26,5 +27,5 @@ export async function needsToMigrateFromWpNowFolder() {
 }
 
 export async function migrateFromWpNowFolder() {
-	await recursiveCopyDirectory( wpNowPath, getServerFilesPath() );
+	await fs.copy( wpNowPath, getServerFilesPath() );
 }

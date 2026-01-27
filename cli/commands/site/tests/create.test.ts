@@ -101,7 +101,6 @@ describe( 'CLI: studio site create', () => {
 	let consoleLogSpy: jest.SpyInstance;
 	let fsMkdirSyncSpy: jest.SpyInstance;
 	let loggerReportSuccessSpy: jest.SpyInstance;
-	let loggerReportWarningSpy: jest.SpyInstance;
 
 	const createPathExistsMock = ( sitePathExists = false ) => {
 		const bundledWPPath = require( 'path' ).join(
@@ -127,7 +126,7 @@ describe( 'CLI: studio site create', () => {
 		consoleLogSpy = jest.spyOn( console, 'log' ).mockImplementation();
 		fsMkdirSyncSpy = jest.spyOn( require( 'fs' ), 'mkdirSync' ).mockReturnValue( undefined );
 		loggerReportSuccessSpy = jest.spyOn( Logger.prototype, 'reportSuccess' );
-		loggerReportWarningSpy = jest.spyOn( Logger.prototype, 'reportWarning' );
+		jest.spyOn( Logger.prototype, 'reportWarning' );
 		createPathExistsMock( false );
 		( isEmptyDir as jest.Mock ).mockResolvedValue( true );
 		( isWordPressDirectory as jest.Mock ).mockReturnValue( false );

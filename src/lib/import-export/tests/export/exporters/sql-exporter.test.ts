@@ -58,7 +58,7 @@ platformTestSuite( 'SqlExporter', ( { normalize } ) => {
 
 		const siteServer = SiteServer.get( '123' );
 		expect( siteServer?.executeWpCliCommand ).toHaveBeenCalledWith(
-			'sqlite export studio-backup-db-export-2024-08-01-12-00-00.sql --require=/tmp/sqlite-command/command.php --enable-ast-driver',
+			'sqlite export /wordpress/studio-backup-db-export-2024-08-01-12-00-00.sql --require=/tmp/sqlite-command/command.php --enable-ast-driver',
 			{ skipPluginsAndThemes: true }
 		);
 	} );

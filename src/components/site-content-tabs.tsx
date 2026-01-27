@@ -9,45 +9,26 @@ import { ContentTabSettings } from 'src/components/content-tab-settings';
 import Header from 'src/components/header';
 import { SiteIsBeingCreated } from 'src/components/site-is-being-created';
 import { MIN_WIDTH_CLASS_TO_MEASURE } from 'src/constants';
-import { TabName, useContentTabs } from 'src/hooks/use-content-tabs';
+import { TabName } from 'src/hooks/use-content-tabs';
+import { useEffectiveTab } from 'src/hooks/use-effective-tab';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { ContentTabSync } from 'src/modules/sync';
 
 export function SiteContentTabs() {
-	const { selectedSite, sites, siteCreationMessages } = useSiteDetails();
+	const { selectedSite, siteCreationMessages } = useSiteDetails();
 	const { importState } = useImportExport();
-	const { tabs, selectedTab, setSelectedTab } = useContentTabs();
+	const { effectiveTab, selectedTab, setSelectedTab, tabs } = useEffectiveTab();
 	const { __ } = useI18n();
 
 	// Remount: Avoid focus loss on user tab changes (no remount),
 	// but remount on programmatic changes and site switches so initial tab/content state resets.
 	const [ keyCounter, setKeyCounter ] = useState( 0 );
-	const [ programmaticTab, setProgrammaticTab ] = useState( selectedTab );
+	const [ programmaticTab, setProgrammaticTab ] = useState( effectiveTab );
 	const lastChangeWasUser = useRef( false );
 	const isFirstRender = useRef( true );
-	const prevSelectedTab = useRef( selectedTab );
-
-	// Track previous site ID in state so we can safely access it during render
-	const [ prevSiteId, setPrevSiteId ] = useState( selectedSite?.id );
-
-	// Compute effective tab at render time
-	// This ensures TabPanel gets the correct initialTabName on the first render after deletion
-	const siteChanged = prevSiteId !== selectedSite?.id;
-	const prevSiteWasDeleted = prevSiteId && ! sites.some( ( site ) => site.id === prevSiteId );
-	const effectiveTab = siteChanged && prevSiteWasDeleted ? 'overview' : selectedTab;
-
-	// Update prevSiteId selectedTab after render
-	useEffect( () => {
-		if ( siteChanged ) {
-			setPrevSiteId( selectedSite?.id );
-		}
-
-		if ( effectiveTab !== selectedTab ) {
-			setSelectedTab( effectiveTab as TabName );
-		}
-	}, [ siteChanged, selectedSite?.id, effectiveTab, selectedTab, setSelectedTab ] );
+	const prevSelectedTab = useRef( effectiveTab );
 
 	useEffect( () => {
 		if ( isFirstRender.current ) {

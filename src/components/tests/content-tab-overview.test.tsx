@@ -74,7 +74,11 @@ describe( 'ContentTabOverview', () => {
 				supportsWidgets,
 				supportsMenus,
 			},
+			selectedThumbnail: 'data:image/png;base64,test',
 			selectedLoadingThemeDetails: false,
+			selectedLoadingThumbnails: false,
+			selectedThumbnailLoadError: false,
+			initialLoading: false,
 		} );
 		render(
 			<Provider store={ store }>

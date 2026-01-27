@@ -43,8 +43,13 @@ export class CliServerProcess implements WordPressServerProcess {
 				resolve();
 			} );
 
-			emitter.on( 'failure', () => {
-				reject( new Error( `Failed to start site ${ this.siteId }` ) );
+			emitter.on( 'failure', ( { result, lastErrorMessage } ) => {
+				const errorDetail =
+					lastErrorMessage ||
+					result.stderr.trim() ||
+					result.stdout.trim() ||
+					`Failed to start site ${ this.siteId }`;
+				reject( new Error( errorDetail ) );
 			} );
 
 			emitter.on( 'error', ( { error } ) => {
@@ -55,14 +60,22 @@ export class CliServerProcess implements WordPressServerProcess {
 
 	async stop(): Promise< void > {
 		return new Promise( ( resolve, reject ) => {
-			const [ emitter ] = executeCliCommand( [ 'site', 'stop', '--path', this.sitePath ] );
+			const [ emitter ] = executeCliCommand( [ 'site', 'stop', '--path', this.sitePath ], {
+				output: 'capture',
+				logPrefix: this.siteId,
+			} );
 
 			emitter.on( 'success', () => {
 				resolve();
 			} );
 
-			emitter.on( 'failure', () => {
-				reject( new Error( `Failed to stop site ${ this.siteId }` ) );
+			emitter.on( 'failure', ( { result, lastErrorMessage } ) => {
+				const errorDetail =
+					lastErrorMessage ||
+					result.stderr.trim() ||
+					result.stdout.trim() ||
+					`Failed to stop site ${ this.siteId }`;
+				reject( new Error( errorDetail ) );
 			} );
 
 			emitter.on( 'error', ( { error } ) => {
@@ -71,20 +84,28 @@ export class CliServerProcess implements WordPressServerProcess {
 		} );
 	}
 
-	async delete( deleteFiles: boolean ): Promise< void > {
+	async delete( trashFiles: boolean ): Promise< void > {
 		return new Promise( ( resolve, reject ) => {
 			const args = [ 'site', 'delete', '--path', this.sitePath ];
-			if ( deleteFiles ) {
+			if ( trashFiles ) {
 				args.push( '--files' );
 			}
-			const [ emitter ] = executeCliCommand( args );
+			const [ emitter ] = executeCliCommand( args, {
+				output: 'capture',
+				logPrefix: this.siteId,
+			} );
 
 			emitter.on( 'success', () => {
 				resolve();
 			} );
 
-			emitter.on( 'failure', () => {
-				reject( new Error( `Failed to delete site ${ this.siteId }` ) );
+			emitter.on( 'failure', ( { result, lastErrorMessage } ) => {
+				const errorDetail =
+					lastErrorMessage ||
+					result.stderr.trim() ||
+					result.stdout.trim() ||
+					`Failed to delete site ${ this.siteId }`;
+				reject( new Error( errorDetail ) );
 			} );
 
 			emitter.on( 'error', ( { error } ) => {

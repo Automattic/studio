@@ -24,8 +24,6 @@ export async function editSiteViaCli( options: EditSiteOptions ): Promise< void 
 	console.log( `[CLI Site Editor] Executing: studio ${ args.join( ' ' ) }` );
 
 	return new Promise( ( resolve, reject ) => {
-		let lastErrorMessage: string | null = null;
-
 		const [ emitter ] = executeCliCommand( args, { output: 'capture', logPrefix: options.siteId } );
 
 		emitter.on( 'data', ( { data } ) => {
@@ -36,8 +34,6 @@ export async function editSiteViaCli( options: EditSiteOptions ): Promise< void 
 
 			if ( parsed.data.status === 'inprogress' ) {
 				console.log( `[CLI - ${ options.siteId }] ${ parsed.data.message }` );
-			} else if ( parsed.data.status === 'fail' ) {
-				lastErrorMessage = parsed.data.message;
 			}
 		} );
 
@@ -45,9 +41,14 @@ export async function editSiteViaCli( options: EditSiteOptions ): Promise< void 
 			resolve();
 		} );
 
-		emitter.on( 'failure', () => {
-			console.error( `[CLI Site Editor] Command failed: ${ lastErrorMessage }` );
-			reject( new Error( lastErrorMessage || 'CLI site set failed' ) );
+		emitter.on( 'failure', ( { result, lastErrorMessage } ) => {
+			const errorDetail =
+				lastErrorMessage ||
+				result?.stderr?.trim() ||
+				result?.stdout?.trim() ||
+				'CLI site set failed';
+			console.error( `[CLI Site Editor] Command failed: ${ errorDetail }` );
+			reject( new Error( errorDetail ) );
 		} );
 
 		emitter.on( 'error', ( { error } ) => {

@@ -22,7 +22,7 @@ export async function executePreviewCliCommand(
 	parentWindow: Electron.BrowserWindow | null
 ): Promise< { operationId: crypto.UUID } > {
 	const operationId = crypto.randomUUID();
-	const [ cliEventEmitter ] = executeCliCommand( args );
+	const [ cliEventEmitter ] = executeCliCommand( args, { output: 'capture' } );
 
 	cliEventEmitter.on( 'data', ( { data } ) => {
 		const parsed = snapshotEventSchema.safeParse( data );
@@ -57,10 +57,13 @@ export async function executePreviewCliCommand(
 		} );
 	} );
 
-	cliEventEmitter.on( 'failure', () => {
+	cliEventEmitter.on( 'failure', ( { result, lastErrorMessage } ) => {
+		const errorDetail =
+			lastErrorMessage || result.stderr.trim() || result.stdout.trim() || 'Unknown error';
+
 		sendIpcEventToRendererWithWindow( parentWindow, 'snapshot-fatal-error', {
 			operationId,
-			data: { message: 'Unknown error' },
+			data: { message: errorDetail },
 		} );
 	} );
 

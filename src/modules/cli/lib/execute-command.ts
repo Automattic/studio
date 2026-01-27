@@ -55,7 +55,9 @@ export class CliCommandFailureError extends Error {
 			}
 		}
 
-		return messageParts.join( '\n' );
+		return messageParts
+			.map( ( part, index ) => ( index === 0 ? part : `  ${ part }` ) )
+			.join( '\n' );
 	}
 }
 

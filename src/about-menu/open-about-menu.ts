@@ -7,6 +7,15 @@ import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 
 let aboutWindow: BrowserWindow | null = null;
 
+function getAboutPath(): string {
+	if ( ! app.isPackaged ) {
+		// In development, load directly from source
+		return path.join( __dirname, '..', '..', 'src', 'about-menu', 'about-menu.html' );
+	}
+	// In production, load from renderer output
+	return path.join( __dirname, '..', 'renderer', 'about-menu.html' );
+}
+
 export function escapeSingleQuotes( str: string ) {
 	return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
 }
@@ -25,7 +34,7 @@ function getPlatformLabel(): string {
 }
 
 export function openAboutWindow() {
-	const aboutPath = path.join( __dirname, 'about-menu.html' );
+	const aboutPath = getAboutPath();
 
 	if ( aboutWindow ) {
 		aboutWindow.focus();

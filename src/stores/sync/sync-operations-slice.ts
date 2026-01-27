@@ -175,19 +175,6 @@ window.ipcListener.subscribe( 'sync-upload-resumed', ( _event, payload ) => {
 	);
 } );
 
-// Helper functions for push operations
-const isKeyCancelled = ( key: string | undefined ): boolean => {
-	return key === 'cancelled';
-};
-
-const isKeyFailed = ( key: string | undefined ): boolean => {
-	return key === 'failed';
-};
-
-const isKeyFinished = ( key: string | undefined ): boolean => {
-	return key === 'finished';
-};
-
 const getErrorFromResponse = ( error: unknown ): string => {
 	if (
 		typeof error === 'object' &&
@@ -205,9 +192,7 @@ const updatePushStateWithIpc = (
 	dispatch: AppDispatch,
 	selectedSiteId: string,
 	remoteSiteId: number,
-	state: Partial< SyncPushState >,
-	isKeyFailedFn: ( key: string | undefined ) => boolean,
-	isKeyFinishedFn: ( key: string | undefined ) => boolean
+	state: Partial< SyncPushState >
 ) => {
 	const stateId = generateStateId( selectedSiteId, remoteSiteId );
 	const statusKey = state.status?.key;
@@ -220,7 +205,7 @@ const updatePushStateWithIpc = (
 		} )
 	);
 
-	if ( isKeyFailedFn( statusKey ) || isKeyFinishedFn( statusKey ) || isKeyCancelled( statusKey ) ) {
+	if ( statusKey === 'failed' || statusKey === 'finished' || statusKey === 'cancelled' ) {
 		getIpcApi().clearSyncOperation( stateId );
 	} else if ( state.status ) {
 		getIpcApi().addSyncOperation( stateId, state.status );
@@ -350,19 +335,12 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 		);
 
 		// Initialize push state
-		updatePushStateWithIpc(
-			dispatch,
-			selectedSite.id,
+		updatePushStateWithIpc( dispatch, selectedSite.id, remoteSiteId, {
 			remoteSiteId,
-			{
-				remoteSiteId,
-				status: pushStatesProgressInfo.creatingBackup,
-				selectedSite,
-				remoteSiteUrl,
-			},
-			isKeyFailed,
-			isKeyFinished
-		);
+			status: pushStatesProgressInfo.creatingBackup,
+			selectedSite,
+			remoteSiteUrl,
+		} );
 
 		let archivePath: string, archiveSizeInBytes: number;
 
@@ -374,26 +352,16 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 			( { archivePath, archiveSizeInBytes } = result );
 		} catch ( error ) {
 			if ( error instanceof Error && error.message === 'Export aborted' ) {
-				updatePushStateWithIpc(
-					dispatch,
-					selectedSite.id,
-					remoteSiteId,
-					{ status: pushStatesProgressInfo.cancelled },
-					isKeyFailed,
-					isKeyFinished
-				);
+				updatePushStateWithIpc( dispatch, selectedSite.id, remoteSiteId, {
+					status: pushStatesProgressInfo.cancelled,
+				} );
 				throw error; // Signal cancellation
 			}
 
 			Sentry.captureException( error );
-			updatePushStateWithIpc(
-				dispatch,
-				selectedSite.id,
-				remoteSiteId,
-				{ status: pushStatesProgressInfo.failed },
-				isKeyFailed,
-				isKeyFinished
-			);
+			updatePushStateWithIpc( dispatch, selectedSite.id, remoteSiteId, {
+				status: pushStatesProgressInfo.failed,
+			} );
 			getIpcApi().showErrorMessageBox( {
 				title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 				message: __(
@@ -407,14 +375,9 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 
 		// Check file size
 		if ( archiveSizeInBytes > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
-			updatePushStateWithIpc(
-				dispatch,
-				selectedSite.id,
-				remoteSiteId,
-				{ status: pushStatesProgressInfo.failed },
-				isKeyFailed,
-				isKeyFinished
-			);
+			updatePushStateWithIpc( dispatch, selectedSite.id, remoteSiteId, {
+				status: pushStatesProgressInfo.failed,
+			} );
 			getIpcApi().showErrorMessageBox( {
 				title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 				message: __(
@@ -434,21 +397,16 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 		if (
 			! currentPushState ||
 			! currentPushState.status ||
-			isKeyCancelled( currentPushState.status.key )
+			currentPushState.status.key === 'cancelled'
 		) {
 			await getIpcApi().removeExportedSiteTmpFile( archivePath );
 			throw new Error( 'Push cancelled' );
 		}
 
 		// Update to uploading
-		updatePushStateWithIpc(
-			dispatch,
-			selectedSite.id,
-			remoteSiteId,
-			{ status: pushStatesProgressInfo.uploading },
-			isKeyFailed,
-			isKeyFinished
-		);
+		updatePushStateWithIpc( dispatch, selectedSite.id, remoteSiteId, {
+			status: pushStatesProgressInfo.uploading,
+		} );
 
 		try {
 			const response = await getIpcApi().pushArchive(
@@ -466,24 +424,17 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 				remoteSiteId
 			)( stateAfterUpload );
 
-			if ( isKeyCancelled( pushStateAfterUpload?.status.key ) ) {
+			if ( pushStateAfterUpload?.status.key === 'cancelled' ) {
 				await getIpcApi().removeExportedSiteTmpFile( archivePath );
 				throw new Error( 'Push cancelled' );
 			}
 
 			if ( response.success ) {
-				updatePushStateWithIpc(
-					dispatch,
-					selectedSite.id,
-					remoteSiteId,
-					{
-						status: pushStatesProgressInfo.creatingRemoteBackup,
-						selectedSite,
-						remoteSiteUrl,
-					},
-					isKeyFailed,
-					isKeyFinished
-				);
+				updatePushStateWithIpc( dispatch, selectedSite.id, remoteSiteId, {
+					status: pushStatesProgressInfo.creatingRemoteBackup,
+					selectedSite,
+					remoteSiteUrl,
+				} );
 
 				// Return info needed for polling
 				return {
@@ -497,14 +448,9 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 			}
 		} catch ( error ) {
 			Sentry.captureException( error );
-			updatePushStateWithIpc(
-				dispatch,
-				selectedSite.id,
-				remoteSiteId,
-				{ status: pushStatesProgressInfo.failed },
-				isKeyFailed,
-				isKeyFinished
-			);
+			updatePushStateWithIpc( dispatch, selectedSite.id, remoteSiteId, {
+				status: pushStatesProgressInfo.failed,
+			} );
 			getIpcApi().showErrorMessageBox( {
 				title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 				message: getErrorFromResponse( error ),
@@ -690,7 +636,7 @@ export const pollPushProgressThunk = createTypedAsyncThunk(
 		if (
 			! currentPushState ||
 			! currentPushState.status ||
-			isKeyCancelled( currentPushState.status.key )
+			currentPushState.status.key === 'cancelled'
 		) {
 			return;
 		}
@@ -759,14 +705,7 @@ export const pollPushProgressThunk = createTypedAsyncThunk(
 		}
 		status = getPushStatusWithProgress( status, response, pushStatesProgressInfo );
 		// Update state in any case to keep polling push state
-		updatePushStateWithIpc(
-			dispatch,
-			selectedSiteId,
-			remoteSiteId,
-			{ status },
-			isKeyFailed,
-			isKeyFinished
-		);
+		updatePushStateWithIpc( dispatch, selectedSiteId, remoteSiteId, { status } );
 	}
 );
 
@@ -823,7 +762,7 @@ export const pollPullBackupThunk = createTypedAsyncThunk(
 		if (
 			! currentPullState ||
 			! currentPullState.status ||
-			isKeyCancelled( currentPullState.status.key )
+			currentPullState.status.key === 'cancelled'
 		) {
 			return;
 		}
@@ -910,7 +849,7 @@ export const completePullThunk = createTypedAsyncThunk(
 		if (
 			! currentPullState ||
 			! currentPullState.status ||
-			isKeyCancelled( currentPullState.status.key )
+			currentPullState.status.key === 'cancelled'
 		) {
 			return;
 		}
@@ -983,7 +922,7 @@ export const completePullThunk = createTypedAsyncThunk(
 			if (
 				! pullStateAfterDownload ||
 				! pullStateAfterDownload.status ||
-				isKeyCancelled( pullStateAfterDownload.status.key )
+				pullStateAfterDownload.status.key === 'cancelled'
 			) {
 				return;
 			}
@@ -1055,7 +994,7 @@ export const completePullThunk = createTypedAsyncThunk(
 			if (
 				pullStateOnError &&
 				pullStateOnError.status &&
-				isKeyCancelled( pullStateOnError.status.key )
+				pullStateOnError.status.key === 'cancelled'
 			) {
 				return;
 			}

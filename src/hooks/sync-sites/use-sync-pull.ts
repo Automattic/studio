@@ -68,8 +68,6 @@ export function useSyncPull(): UseSyncPull {
 
 	const clearPullState = useCallback< ClearState >(
 		( selectedSiteId, remoteSiteId ) => {
-			// Dispatch both the action and the thunk
-			dispatch( syncOperationsActions.clearPullState( { selectedSiteId, remoteSiteId } ) );
 			void dispatch( syncOperationsThunks.clearPullState( { selectedSiteId, remoteSiteId } ) );
 		},
 		[ dispatch ]

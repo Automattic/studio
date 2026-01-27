@@ -221,7 +221,10 @@ const createTypedAsyncThunk = createAsyncThunk.withTypes< {
 // Thunks for clear operations
 export const clearPushStateThunk = createTypedAsyncThunk(
 	'syncOperations/clearPushState',
-	async ( { selectedSiteId, remoteSiteId }: ClearStatePayload ) => {
+	async ( { selectedSiteId, remoteSiteId }: ClearStatePayload, { dispatch } ) => {
+		// Update Redux state
+		dispatch( syncOperationsActions.clearPushState( { selectedSiteId, remoteSiteId } ) );
+		// Clear IPC operation
 		const stateId = generateStateId( selectedSiteId, remoteSiteId );
 		getIpcApi().clearSyncOperation( stateId );
 		return { selectedSiteId, remoteSiteId };
@@ -230,7 +233,10 @@ export const clearPushStateThunk = createTypedAsyncThunk(
 
 export const clearPullStateThunk = createTypedAsyncThunk(
 	'syncOperations/clearPullState',
-	async ( { selectedSiteId, remoteSiteId }: ClearStatePayload ) => {
+	async ( { selectedSiteId, remoteSiteId }: ClearStatePayload, { dispatch } ) => {
+		// Update Redux state
+		dispatch( syncOperationsActions.clearPullState( { selectedSiteId, remoteSiteId } ) );
+		// Clear IPC operation
 		const stateId = generateStateId( selectedSiteId, remoteSiteId );
 		getIpcApi().clearSyncOperation( stateId );
 		return { selectedSiteId, remoteSiteId };
@@ -327,9 +333,6 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 		const operationId = generateStateId( selectedSite.id, remoteSiteId );
 
 		// Clear existing state
-		dispatch(
-			syncOperationsActions.clearPushState( { selectedSiteId: selectedSite.id, remoteSiteId } )
-		);
 		void dispatch(
 			syncOperationsThunks.clearPushState( { selectedSiteId: selectedSite.id, remoteSiteId } )
 		);
@@ -489,9 +492,6 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 		const remoteSiteUrl = connectedSite.url;
 
 		// Clear existing state
-		dispatch(
-			syncOperationsActions.clearPullState( { selectedSiteId: selectedSite.id, remoteSiteId } )
-		);
 		void dispatch(
 			syncOperationsThunks.clearPullState( { selectedSiteId: selectedSite.id, remoteSiteId } )
 		);

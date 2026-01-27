@@ -91,8 +91,6 @@ export function useSyncPush(): UseSyncPush {
 
 	const clearPushState = useCallback< ClearState >(
 		( selectedSiteId, remoteSiteId ) => {
-			// Dispatch both the action and the thunk
-			dispatch( syncOperationsActions.clearPushState( { selectedSiteId, remoteSiteId } ) );
 			void dispatch( syncOperationsThunks.clearPushState( { selectedSiteId, remoteSiteId } ) );
 		},
 		[ dispatch ]

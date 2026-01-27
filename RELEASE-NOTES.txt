@@ -10,7 +10,6 @@ Unreleased
 * Fixed Beta Features menu items not being translated #2466
 * Fixed flaky Windows tests #2411
 
-
 1.7.1
 =====
 * Fixed bundled node permissions that caused crashes on Intel Macs #2473

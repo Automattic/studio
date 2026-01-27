@@ -36,14 +36,14 @@ export class CliCommandFailureError extends Error {
 		const messageParts: string[] = [ this.baseMessage ];
 
 		if ( this.lastErrorMessage ) {
-			messageParts.push( this.lastErrorMessage );
+			messageParts.push( `Last error message: ${ this.lastErrorMessage }` );
 		} else if ( this.cliCommandResult ) {
 			const stderr = this.cliCommandResult.stderr.trim();
 			const stdout = this.cliCommandResult.stdout.trim();
 			if ( stderr ) {
-				messageParts.push( stderr );
+				messageParts.push( `stderr: ${ stderr }` );
 			} else if ( stdout ) {
-				messageParts.push( stdout );
+				messageParts.push( `stdout: ${ stdout }` );
 			}
 		}
 

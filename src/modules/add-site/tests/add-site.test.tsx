@@ -577,7 +577,7 @@ describe( 'AddSite', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'should show warning immediately when Blueprint preferred versions differ from defaults', async () => {
+	it( 'should show warning immediately when Blueprint preferred versions differ from selected versions', async () => {
 		const mockBlueprintData = {
 			data: {
 				blueprints: [
@@ -589,8 +589,8 @@ describe( 'AddSite', () => {
 						playground_url: '',
 						blueprint: {
 							preferredVersions: {
-								php: '8.1',
-								wp: '6.4.0',
+								php: '7.1',
+								wp: '6.2.0',
 							},
 						},
 					},
@@ -626,13 +626,12 @@ describe( 'AddSite', () => {
 		// Open advanced settings to access version selectors
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
-		// Warning should show immediately since Blueprint versions (8.1, 6.4.0) differ from defaults (8.3, latest)
-		// No need to change version - the fix ensures warning appears right away
 		await waitFor( () => {
 			expect(
 				screen.getByText( 'Version differs from Blueprint recommendation' )
 			).toBeInTheDocument();
-			expect( screen.getByText( 'PHP 8.1 (default is 8.3)' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'PHP 7.1 (selected is 8.3)' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'WordPress 6.2.0 (selected is latest)' ) ).toBeInTheDocument();
 		} );
 
 		// Warning indicator should show next to Advanced settings

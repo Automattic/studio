@@ -9,7 +9,8 @@ import { ContentTabSettings } from 'src/components/content-tab-settings';
 import Header from 'src/components/header';
 import { SiteIsBeingCreated } from 'src/components/site-is-being-created';
 import { MIN_WIDTH_CLASS_TO_MEASURE } from 'src/constants';
-import { TabName, useContentTabs } from 'src/hooks/use-content-tabs';
+import { TabName } from 'src/hooks/use-content-tabs';
+import { useEffectiveTab } from 'src/hooks/use-effective-tab';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
@@ -18,16 +19,16 @@ import { ContentTabSync } from 'src/modules/sync';
 export function SiteContentTabs() {
 	const { selectedSite, siteCreationMessages } = useSiteDetails();
 	const { importState } = useImportExport();
-	const { tabs, selectedTab, setSelectedTab } = useContentTabs();
+	const { effectiveTab, selectedTab, setSelectedTab, tabs } = useEffectiveTab();
 	const { __ } = useI18n();
 
 	// Remount: Avoid focus loss on user tab changes (no remount),
 	// but remount on programmatic changes and site switches so initial tab/content state resets.
 	const [ keyCounter, setKeyCounter ] = useState( 0 );
-	const [ programmaticTab, setProgrammaticTab ] = useState( selectedTab );
+	const [ programmaticTab, setProgrammaticTab ] = useState( effectiveTab );
 	const lastChangeWasUser = useRef( false );
 	const isFirstRender = useRef( true );
-	const prevSelectedTab = useRef( selectedTab );
+	const prevSelectedTab = useRef( effectiveTab );
 
 	useEffect( () => {
 		if ( isFirstRender.current ) {
@@ -83,19 +84,19 @@ export function SiteContentTabs() {
 				onSelect={ ( tabName ) => {
 					// Mark this as a user-initiated change BEFORE calling setSelectedTab
 					// so the useEffect can detect it was user-initiated
-					if ( tabName !== selectedTab ) {
+					if ( tabName !== effectiveTab ) {
 						lastChangeWasUser.current = true;
 					}
 					setSelectedTab( tabName as TabName );
 				} }
-				initialTabName={ selectedTab }
+				initialTabName={ effectiveTab }
 				key={ `${ selectedSite.id }-${ keyCounter }-${ programmaticTab }` }
 			>
 				{ ( { name } ) => (
 					<div
 						className={ cx(
 							'h-full overflow-y-auto',
-							selectedTab === 'assistant' && 'bg-gray-50'
+							effectiveTab === 'assistant' && 'bg-gray-50'
 						) }
 						style={ {
 							scrollbarWidth: 'thin',

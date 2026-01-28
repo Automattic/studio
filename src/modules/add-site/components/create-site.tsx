@@ -35,7 +35,6 @@ export default function CreateSite( {
 	onSiteNameChange,
 	existingDomainNames = [],
 	blueprintPreferredVersions,
-	originalDefaultVersions,
 	onSubmit,
 	onValidityChange,
 	formRef,
@@ -54,7 +53,6 @@ export default function CreateSite( {
 				onSiteNameChange={ onSiteNameChange }
 				existingDomainNames={ existingDomainNames }
 				blueprintPreferredVersions={ blueprintPreferredVersions }
-				originalDefaultVersions={ originalDefaultVersions }
 				onSubmit={ onSubmit }
 				onValidityChange={ onValidityChange }
 				formRef={ formRef }

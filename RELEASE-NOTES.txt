@@ -5,7 +5,7 @@ Unreleased
 =====
 * Added pause/unpause functionality for sync uploads #2379
 * Improved performance by parallelizing recursive directory copying #2409
-* Improved error details recorded on CLI failure #2483
+* Improved error details recorded when the CLI fails #2483
 * Fixed site export in offline mode #2481
 * Fixed Beta Features menu items not being translated #2466
 * Fixed flaky Windows tests #2411

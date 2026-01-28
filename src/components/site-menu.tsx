@@ -290,8 +290,17 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 	// Persist the reordered sites when drag ends
 	useEffect( () => {
 		if ( draggedSite === null && localSites !== sites ) {
-			// TODO: Add persistence logic - call reorderSites or IPC method to save new order
-			// For now, this will only reorder locally
+			// Calculate sparse sortOrder values (1000, 2000, 3000...)
+			const updates = localSites.map( ( site, index ) => ( {
+				siteId: site.id,
+				sortOrder: ( index + 1 ) * 1000,
+			} ) );
+
+			getIpcApi()
+				.updateSitesSortOrder( updates )
+				.catch( ( error ) => {
+					console.error( 'Failed to save site order:', error );
+				} );
 		}
 	}, [ draggedSite, localSites, sites ] );
 

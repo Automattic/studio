@@ -4,7 +4,7 @@ Unreleased
 1.7.2
 =====
 * Added pause/resume functionality for the push process #2379
-* Improved performance by parallelizing recursive directory copying #2409
+* Improved site creation speed #2409
 * Improved error details recorded when the CLI fails #2483
 * Fixed thumbnail not loading for newly created sites #2484
 * Fixed site export in offline mode #2481

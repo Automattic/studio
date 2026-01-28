@@ -122,6 +122,19 @@ export {
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
+export {
+	isVipCliAvailable,
+	getVipEnvironments,
+	getVipEnvironmentDetails,
+	startVipEnv,
+	stopVipEnv,
+	executeVipCliCommand,
+	openVipEnvironmentFolder,
+	openVipAppCodeFolder,
+	openVipEnvironmentInBrowser,
+	getVipDataPath,
+} from 'src/modules/vip/lib/ipc-handlers';
+
 function mergeSiteDetailsWithRunningDetails( sites: SiteDetails[] ): SiteDetails[] {
 	return sites.map( ( site ) => {
 		const server = SiteServer.get( site.id );

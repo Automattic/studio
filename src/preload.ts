@@ -151,6 +151,18 @@ const api: IpcApi = {
 	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),
 	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),
 	uninstallStudioCli: () => ipcRendererInvoke( 'uninstallStudioCli' ),
+	// VIP Local Development Environment
+	isVipCliAvailable: () => ipcRendererInvoke( 'isVipCliAvailable' ),
+	getVipEnvironments: () => ipcRendererInvoke( 'getVipEnvironments' ),
+	getVipEnvironmentDetails: ( slug ) => ipcRendererInvoke( 'getVipEnvironmentDetails', slug ),
+	startVipEnv: ( slug, options ) => ipcRendererInvoke( 'startVipEnv', slug, options ),
+	stopVipEnv: ( slug ) => ipcRendererInvoke( 'stopVipEnv', slug ),
+	executeVipCliCommand: ( args ) => ipcRendererInvoke( 'executeVipCliCommand', args ),
+	openVipEnvironmentFolder: ( slug ) => ipcRendererInvoke( 'openVipEnvironmentFolder', slug ),
+	openVipAppCodeFolder: ( slug ) => ipcRendererInvoke( 'openVipAppCodeFolder', slug ),
+	openVipEnvironmentInBrowser: ( slug, useAutologin ) =>
+		ipcRendererInvoke( 'openVipEnvironmentInBrowser', slug, useAutologin ),
+	getVipDataPath: () => ipcRendererInvoke( 'getVipDataPath' ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

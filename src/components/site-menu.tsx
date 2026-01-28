@@ -245,11 +245,6 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 	const { handleDeleteSite } = useDeleteSite();
 	const { data: editor } = useGetUserEditorQuery();
 	const [ draggedSite, setDraggedSite ] = useState< SiteDetails | null >( null );
-	const [ localSites, setLocalSites ] = useState< SiteDetails[] >( sites );
-
-	useEffect( () => {
-		setLocalSites( sites );
-	}, [ sites ] );
 
 	const handleDragStart = ( e: React.DragEvent, site: SiteDetails ) => {
 		setDraggedSite( site );
@@ -267,18 +262,16 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 			return;
 		}
 
-		const draggedIndex = localSites.findIndex( ( site ) => site.id === draggedSite.id );
-		const targetIndex = localSites.findIndex( ( site ) => site.id === targetSite.id );
+		const draggedIndex = sites.findIndex( ( site ) => site.id === draggedSite.id );
+		const targetIndex = sites.findIndex( ( site ) => site.id === targetSite.id );
 
 		if ( draggedIndex === -1 || targetIndex === -1 ) {
 			return;
 		}
 
-		const newSites = [ ...localSites ];
+		const newSites = [ ...sites ];
 		newSites.splice( draggedIndex, 1 );
 		newSites.splice( targetIndex, 0, draggedSite );
-
-		setLocalSites( newSites );
 
 		// Persist the new order immediately
 		const updates = newSites.map( ( site, index ) => ( {
@@ -393,7 +386,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 			) }
 		>
 			<ul className="pt-px">
-				{ localSites.map( ( site ) => (
+				{ sites.map( ( site ) => (
 					<SiteItem
 						key={ site.id }
 						site={ site }

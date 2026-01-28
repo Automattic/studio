@@ -139,12 +139,14 @@ function SiteItem( {
 	onDragOver,
 	onDrop,
 	onDragEnd,
+	isDragOver,
 }: {
 	site: SiteDetails;
 	onDragStart: ( e: React.DragEvent, site: SiteDetails ) => void;
-	onDragOver: ( e: React.DragEvent ) => void;
+	onDragOver: ( e: React.DragEvent, site: SiteDetails ) => void;
 	onDrop: ( e: React.DragEvent, site: SiteDetails ) => void;
 	onDragEnd: () => void;
+	isDragOver: boolean;
 } ) {
 	const { selectedSite, setSelectedSiteId, loadingServer, isSiteDeleting } = useSiteDetails();
 	const isSelected = site === selectedSite;
@@ -199,12 +201,13 @@ function SiteItem( {
 			className={ cx(
 				'flex flex-row min-w-[168px] h-8 hover:bg-[#ffffff0C] rounded transition-all ms-1 items-center',
 				isMac() ? 'me-5' : 'me-4',
-				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19]'
+				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19]',
+				isDragOver && 'bg-[#ffffff26]'
 			) }
 			onContextMenu={ handleContextMenu }
 			draggable
 			onDragStart={ ( e ) => onDragStart( e, site ) }
-			onDragOver={ onDragOver }
+			onDragOver={ ( e ) => onDragOver( e, site ) }
 			onDrop={ ( e ) => onDrop( e, site ) }
 			onDragEnd={ onDragEnd }
 		>
@@ -245,19 +248,24 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 	const { handleDeleteSite } = useDeleteSite();
 	const { data: editor } = useGetUserEditorQuery();
 	const [ draggedSite, setDraggedSite ] = useState< SiteDetails | null >( null );
+	const [ dragOverSiteId, setDragOverSiteId ] = useState< string | null >( null );
 
 	const handleDragStart = ( e: React.DragEvent, site: SiteDetails ) => {
 		setDraggedSite( site );
 		e.dataTransfer.effectAllowed = 'move';
 	};
 
-	const handleDragOver = ( e: React.DragEvent ) => {
+	const handleDragOver = ( e: React.DragEvent, site: SiteDetails ) => {
 		e.preventDefault();
 		e.dataTransfer.dropEffect = 'move';
+		if ( draggedSite && draggedSite.id !== site.id ) {
+			setDragOverSiteId( site.id );
+		}
 	};
 
 	const handleDrop = ( e: React.DragEvent, targetSite: SiteDetails ) => {
 		e.preventDefault();
+		setDragOverSiteId( null );
 		if ( ! draggedSite || draggedSite.id === targetSite.id ) {
 			return;
 		}
@@ -286,6 +294,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 
 	const handleDragEnd = () => {
 		setDraggedSite( null );
+		setDragOverSiteId( null );
 	};
 
 	useEffect( () => {
@@ -394,14 +403,19 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 						onDragOver={ handleDragOver }
 						onDrop={ handleDrop }
 						onDragEnd={ handleDragEnd }
+						isDragOver={ dragOverSiteId === site.id }
 					/>
 				) ) }
 				{ /* Drop zone for dragging to bottom of list */ }
 				<li
 					className="h-8"
-					onDragOver={ handleDragOver }
+					onDragOver={ ( e ) => {
+						e.preventDefault();
+						e.dataTransfer.dropEffect = 'move';
+					} }
 					onDrop={ ( e ) => {
 						e.preventDefault();
+						setDragOverSiteId( null );
 						if ( ! draggedSite ) {
 							return;
 						}

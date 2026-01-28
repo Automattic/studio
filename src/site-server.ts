@@ -33,7 +33,7 @@ export async function stopAllServers( shouldSaveAutoStartProp: boolean ) {
 		if ( shouldSaveAutoStartProp ) {
 			args.push( '--auto-start' );
 		}
-		const [ emitter ] = executeCliCommand( args, { output: 'ignore' } );
+		const [ emitter ] = executeCliCommand( args );
 		emitter.on( 'success', () => resolve() );
 		emitter.on( 'failure', () => resolve() );
 		emitter.on( 'error', () => resolve() );
@@ -349,11 +349,11 @@ export class SiteServer {
 			}, timeout );
 
 			emitter.on( 'success', ( { result } ) => {
-				resolve( result ?? { stdout: '', stderr: '', exitCode: 0 } );
+				resolve( { stdout: result.stdout, stderr: result.stderr, exitCode: 0 } );
 			} );
 
 			emitter.on( 'failure', ( { result } ) => {
-				resolve( result ?? { stdout: '', stderr: '', exitCode: 1 } );
+				resolve( { stdout: result.stdout, stderr: result.stderr, exitCode: 1 } );
 			} );
 
 			emitter.on( 'error', ( { error } ) => {

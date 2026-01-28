@@ -4,8 +4,15 @@ import * as Sentry from '@sentry/electron/renderer';
 import { __ } from '@wordpress/i18n';
 import { ABOUT_WINDOW_HEIGHT, ABOUT_WINDOW_WIDTH } from 'src/constants';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { getResourcesPath } from 'src/storage/paths';
 
 let aboutWindow: BrowserWindow | null = null;
+
+function getAboutPath(): string {
+	return process.env.NODE_ENV === 'development'
+		? path.join( getResourcesPath(), 'src', 'about-menu', 'about-menu.html' )
+		: path.join( getResourcesPath(), 'dist', 'renderer', 'about-menu.html' );
+}
 
 export function escapeSingleQuotes( str: string ) {
 	return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
@@ -25,7 +32,7 @@ function getPlatformLabel(): string {
 }
 
 export function openAboutWindow() {
-	const aboutPath = path.join( __dirname, 'about-menu.html' );
+	const aboutPath = getAboutPath();
 
 	if ( aboutWindow ) {
 		aboutWindow.focus();

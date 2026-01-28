@@ -1,12 +1,10 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, PayloadAction, isAnyOf } from '@reduxjs/toolkit';
 import * as Sentry from '@sentry/electron/renderer';
 import { WPCOM } from 'wpcom/types';
 import { z } from 'zod';
+import { DEFAULT_PHP_VERSION } from 'common/constants';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-// Provider constants are retrieved via IPC when needed
-// Default PHP version for initial state
-const DEFAULT_PHP_VERSION = '8.3';
 import { AppDispatch, RootState } from 'src/stores';
 import { assistantQuotaSchema, wpcomApi } from 'src/stores/wpcom-api';
 
@@ -90,6 +88,13 @@ const updateFromSite = createTypedAsyncThunk(
 			themes,
 			siteUrl,
 		};
+	},
+	{
+		condition: ( { site }, { getState } ) => {
+			const { chat } = getState();
+			const thunkIsCurrentlyLoading = chat.isLoadingUpdateFromSiteDict[ site.id ];
+			return ! thunkIsCurrentlyLoading;
+		},
 	}
 );
 
@@ -111,7 +116,7 @@ const assistantResponseSchema = z.object( {
 const assistantHeadersSchema = z.object( {
 	'x-quota-max': z.coerce.number(),
 	'x-quota-remaining': z.coerce.number(),
-	'x-quota-reset': z.string().datetime( { offset: true } ),
+	'x-quota-reset': z.iso.datetime( { offset: true } ),
 } );
 
 type FetchAssistantResponseData = z.infer< typeof assistantResponseSchema >;
@@ -243,6 +248,7 @@ export interface ChatState {
 	chatApiIdDict: { [ key: string ]: number | undefined };
 	chatInputBySite: { [ key: string ]: string };
 	isLoadingDict: Record< string, boolean >;
+	isLoadingUpdateFromSiteDict: Record< string, boolean >;
 }
 
 const getInitialState = (): ChatState => {
@@ -276,6 +282,7 @@ const getInitialState = (): ChatState => {
 		chatApiIdDict: parsedStoredChatIds,
 		chatInputBySite: {},
 		isLoadingDict: {},
+		isLoadingUpdateFromSiteDict: {},
 	};
 };
 
@@ -370,6 +377,7 @@ const chatSlice = createSlice( {
 			.addCase( updateFromSite.pending, ( state, action ) => {
 				const { site } = action.meta.arg;
 
+				state.isLoadingUpdateFromSiteDict[ site.id ] = true;
 				state.phpVersion = site.phpVersion ?? DEFAULT_PHP_VERSION;
 				state.siteName = site.name;
 			} )
@@ -442,7 +450,14 @@ const chatSlice = createSlice( {
 						message.feedbackReceived = true;
 					}
 				} );
-			} );
+			} )
+			.addMatcher(
+				isAnyOf( updateFromSite.fulfilled, updateFromSite.rejected ),
+				( state, action ) => {
+					const siteId = action.meta.arg.site.id;
+					state.isLoadingUpdateFromSiteDict[ siteId ] = false;
+				}
+			);
 	},
 	selectors: {
 		selectChatInput: ( state, siteId: string ) => state.chatInputBySite[ siteId ] ?? '',

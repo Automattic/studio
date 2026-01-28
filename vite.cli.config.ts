@@ -52,6 +52,7 @@ export default defineConfig( {
 				'fs/promises',
 				'dns/promises',
 				'pm2',
+				'pm2-axon',
 				// `trash` includes a native macOS binary that Vite/Rollup inlines as a base64 string, which
 				// generates an error in the production build
 				'trash',

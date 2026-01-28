@@ -239,6 +239,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		stopServer,
 		setIsEditModalOpen,
 		copySite,
+		reorderSites,
 	} = useSiteDetails();
 	const { setSelectedTab } = useContentTabs();
 	const { handleDeleteSite } = useDeleteSite();
@@ -285,11 +286,9 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 			sortOrder: ( index + 1 ) * 1000,
 		} ) );
 
-		getIpcApi()
-			.updateSitesSortOrder( updates )
-			.catch( ( error ) => {
-				console.error( 'Failed to save site order:', error );
-			} );
+		reorderSites( updates ).catch( ( error ) => {
+			console.error( 'Failed to save site order:', error );
+		} );
 	};
 
 	const handleDragEnd = () => {

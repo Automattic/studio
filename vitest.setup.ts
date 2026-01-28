@@ -204,3 +204,19 @@ vi.mock( 'atomically', () => ( {
 	readFile: vi.fn(),
 	writeFile: vi.fn(),
 } ) );
+
+vi.mock( 'ora', () => {
+	const mockOra = () => ( {
+		start: vi.fn().mockReturnThis(),
+		stop: vi.fn().mockReturnThis(),
+		succeed: vi.fn().mockReturnThis(),
+		fail: vi.fn().mockReturnThis(),
+		warn: vi.fn().mockReturnThis(),
+		info: vi.fn().mockReturnThis(),
+		text: '',
+		isSpinning: false,
+	} );
+	return {
+		default: mockOra,
+	};
+} );

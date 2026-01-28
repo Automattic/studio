@@ -8,7 +8,6 @@ Unreleased
 * Improved error details recorded when the CLI fails #2483
 * Fixed site export in offline mode #2481
 * Fixed Beta Features menu items not being translated #2466
-* Fixed flaky Windows tests #2411
 
 1.7.1
 =====

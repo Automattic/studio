@@ -396,6 +396,37 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 						onDragEnd={ handleDragEnd }
 					/>
 				) ) }
+				{ /* Drop zone for dragging to bottom of list */ }
+				<li
+					className="min-h-[8px]"
+					onDragOver={ handleDragOver }
+					onDrop={ ( e ) => {
+						e.preventDefault();
+						if ( ! draggedSite ) {
+							return;
+						}
+
+						const draggedIndex = sites.findIndex( ( site ) => site.id === draggedSite.id );
+						if ( draggedIndex === -1 ) {
+							return;
+						}
+
+						// Move dragged site to end
+						const newSites = [ ...sites ];
+						newSites.splice( draggedIndex, 1 );
+						newSites.push( draggedSite );
+
+						// Persist the new order
+						const updates = newSites.map( ( site, index ) => ( {
+							siteId: site.id,
+							sortOrder: ( index + 1 ) * 1000,
+						} ) );
+
+						reorderSites( updates ).catch( ( error ) => {
+							console.error( 'Failed to save site order:', error );
+						} );
+					} }
+				/>
 			</ul>
 		</nav>
 	);

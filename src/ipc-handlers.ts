@@ -498,20 +498,12 @@ export async function getSentryUserId( _event: IpcMainInvokeEvent ) {
 }
 
 export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteFiles = false ) {
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		const server = SiteServer.get( id );
-		console.log( 'Deleting site', id );
-		if ( ! server ) {
-			throw new Error( 'Site not found.' );
-		}
-		await server.delete( deleteFiles );
-		const newSites = userData.sites.filter( ( site ) => site.id !== id );
-		await saveUserData( { ...userData, sites: newSites } );
-	} finally {
-		await unlockAppdata();
+	const server = SiteServer.get( id );
+	console.log( 'Deleting site', id );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
 	}
+	await server.delete( deleteFiles );
 }
 
 export function logRendererMessage(

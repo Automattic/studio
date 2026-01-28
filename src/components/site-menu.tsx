@@ -279,30 +279,22 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 
 		setLocalSites( newSites );
 
-		// Persist the new order (assuming reorderSites will be added to useSiteDetails)
-		// For now, we'll update local state - the persistence logic would need to be added to the hook
+		// Persist the new order immediately
+		const updates = newSites.map( ( site, index ) => ( {
+			siteId: site.id,
+			sortOrder: ( index + 1 ) * 1000,
+		} ) );
+
+		getIpcApi()
+			.updateSitesSortOrder( updates )
+			.catch( ( error ) => {
+				console.error( 'Failed to save site order:', error );
+			} );
 	};
 
 	const handleDragEnd = () => {
 		setDraggedSite( null );
 	};
-
-	// Persist the reordered sites when drag ends
-	useEffect( () => {
-		if ( draggedSite === null && localSites !== sites ) {
-			// Calculate sparse sortOrder values (1000, 2000, 3000...)
-			const updates = localSites.map( ( site, index ) => ( {
-				siteId: site.id,
-				sortOrder: ( index + 1 ) * 1000,
-			} ) );
-
-			getIpcApi()
-				.updateSitesSortOrder( updates )
-				.catch( ( error ) => {
-					console.error( 'Failed to save site order:', error );
-				} );
-		}
-	}, [ draggedSite, localSites, sites ] );
 
 	useEffect( () => {
 		const unsubscribe = window.ipcListener.subscribe(

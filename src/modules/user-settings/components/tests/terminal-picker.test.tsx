@@ -48,12 +48,14 @@ describe( 'TerminalPicker', () => {
 		store.dispatch(
 			installedAppsApi.util.updateQueryData( 'getInstalledApps', undefined, () => {
 				return {
+					antigravity: false,
 					vscode: false,
 					phpstorm: false,
 					webstorm: false,
 					windsurf: false,
 					cursor: false,
 					sublime: false,
+					zed: false,
 					terminal: true,
 					iterm: true,
 					warp: false,
@@ -77,12 +79,14 @@ describe( 'TerminalPicker', () => {
 			installedAppsApi.util.updateQueryData( 'getInstalledApps', undefined, () => {
 				return {
 					// Editor properties
+					antigravity: false,
 					vscode: false,
 					phpstorm: false,
 					webstorm: false,
 					windsurf: false,
 					cursor: false,
 					sublime: false,
+					zed: false,
 					// Terminal properties
 					terminal: true,
 					iterm: true,

@@ -3,6 +3,7 @@ import { Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { MINIMUM_WORDPRESS_VERSION } from 'common/constants';
 import { BlueprintPreferredVersions } from 'common/lib/blueprint-validation';
 import { SupportedPHPVersionsList } from 'common/types/php-versions';
 import Button from 'src/components/button';
@@ -229,31 +230,27 @@ function NavigationContent( props: NavigationContentProps ) {
 	);
 
 	// Build default values with blueprint preferred versions applied
+	const { data: wpVersions = [] } = useGetWordPressVersions( {
+		minimumVersion: MINIMUM_WORDPRESS_VERSION,
+	} );
 	const defaultValuesWithBlueprint = useMemo( () => {
 		const values = { ...defaultValues };
 		if (
 			blueprintPreferredVersions?.php &&
-			blueprintPreferredVersions.php !== 'latest' &&
 			SupportedPHPVersionsList.includes( blueprintPreferredVersions.php )
 		) {
 			values.phpVersion = blueprintPreferredVersions.php as AllowedPHPVersion;
 		}
-		if ( blueprintPreferredVersions?.wp && blueprintPreferredVersions.wp !== 'latest' ) {
+		if (
+			blueprintPreferredVersions?.wp &&
+			wpVersions.some( ( v ) => v.value === blueprintPreferredVersions.wp )
+		) {
 			values.wpVersion = blueprintPreferredVersions.wp;
 		}
 		return values;
-	}, [ defaultValues, blueprintPreferredVersions ] );
+	}, [ defaultValues, blueprintPreferredVersions, wpVersions ] );
 
 	const formRef = useRef< HTMLFormElement >( null );
-
-	// Original default versions (before Blueprint override) for warning comparison
-	const originalDefaultVersions = useMemo(
-		() => ( {
-			phpVersion: defaultValues.phpVersion,
-			wpVersion: defaultValues.wpVersion,
-		} ),
-		[ defaultValues.phpVersion, defaultValues.wpVersion ]
-	);
 
 	const createSiteProps = {
 		onSelectPath,
@@ -284,7 +281,6 @@ function NavigationContent( props: NavigationContentProps ) {
 					{ ...createSiteProps }
 					defaultValues={ defaultValuesWithBlueprint }
 					blueprintPreferredVersions={ blueprintPreferredVersions }
-					originalDefaultVersions={ originalDefaultVersions }
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/create">
@@ -301,7 +297,6 @@ function NavigationContent( props: NavigationContentProps ) {
 					{ ...createSiteProps }
 					defaultValues={ defaultValuesWithBlueprint }
 					blueprintPreferredVersions={ blueprintPreferredVersions }
-					originalDefaultVersions={ originalDefaultVersions }
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/backup">

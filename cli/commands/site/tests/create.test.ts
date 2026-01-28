@@ -328,7 +328,7 @@ describe( 'CLI: studio site create', () => {
 			const calls = vi.mocked( startWordPressServer ).mock.calls;
 			const blueprintCall = calls.find(
 				( call ) =>
-					call[ 2 ]?.blueprint?.steps?.some(
+					( call[ 2 ] as { blueprint?: Blueprint } )?.blueprint?.steps?.some(
 						( step: StepDefinition ) => step.step === 'setSiteOptions'
 					)
 			);

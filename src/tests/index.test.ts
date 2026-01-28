@@ -62,6 +62,9 @@ vi.mock( 'src/modules/cli/lib/execute-command', () => {
 		executeCliCommand: vi.fn().mockReturnValue( [ mockEventEmitter, mockChildProcess ] ),
 	};
 } );
+vi.mock( 'src/modules/cli/lib/windows-installation-manager', () => ( {
+	updateWindowsCliVersionedPathIfNeeded: vi.fn().mockReturnValue( Promise.resolve() ),
+} ) );
 
 // Setup fs mock file contents
 if ( '__setFileContents' in fs ) {

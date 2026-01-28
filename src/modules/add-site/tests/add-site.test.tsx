@@ -135,6 +135,8 @@ beforeEach( () => {
 		getPushState: vi.fn(),
 		getLastSyncTimeText: vi.fn(),
 		cancelPush: vi.fn(),
+		pauseUpload: vi.fn(),
+		resumeUpload: vi.fn(),
 	} as SyncSitesContextType );
 	mockSetSelectedTab.mockReset();
 

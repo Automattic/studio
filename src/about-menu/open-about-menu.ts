@@ -10,8 +10,8 @@ let aboutWindow: BrowserWindow | null = null;
 
 function getAboutPath(): string {
 	return process.env.NODE_ENV === 'development'
-		? path.join( getResourcesPath(), 'src/about-menu/about-menu.html' )
-		: path.join( getResourcesPath(), 'dist/renderer/about-menu.html' );
+		? path.join( getResourcesPath(), 'src', 'about-menu', 'about-menu.html' )
+		: path.join( getResourcesPath(), 'dist', 'renderer', 'about-menu.html' );
 }
 
 export function escapeSingleQuotes( str: string ) {

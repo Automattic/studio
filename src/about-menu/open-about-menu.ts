@@ -4,7 +4,6 @@ import * as Sentry from '@sentry/electron/renderer';
 import { __ } from '@wordpress/i18n';
 import { ABOUT_WINDOW_HEIGHT, ABOUT_WINDOW_WIDTH } from 'src/constants';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
-import { getResourcesPath } from 'src/storage/paths';
 
 let aboutWindow: BrowserWindow | null = null;
 

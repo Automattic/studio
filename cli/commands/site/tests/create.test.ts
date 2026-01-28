@@ -1,6 +1,14 @@
 import fs from 'fs';
 import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
 import {
+	filterUnsupportedBlueprintFeatures,
+	validateBlueprintData,
+} from 'common/lib/blueprint-validation';
+import { isEmptyDir, isWordPressDirectory, pathExists, arePathsEqual } from 'common/lib/fs-utils';
+import { isOnline } from 'common/lib/network-utils';
+import { portFinder } from 'common/lib/port-finder';
+import { vi, type MockInstance } from 'vitest';
+import {
 	lockAppdata,
 	readAppdata,
 	removeSiteFromAppdata,
@@ -16,14 +24,6 @@ import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/si
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
-import {
-	filterUnsupportedBlueprintFeatures,
-	validateBlueprintData,
-} from 'common/lib/blueprint-validation';
-import { isEmptyDir, isWordPressDirectory, pathExists, arePathsEqual } from 'common/lib/fs-utils';
-import { isOnline } from 'common/lib/network-utils';
-import { portFinder } from 'common/lib/port-finder';
-import { vi, type MockInstance } from 'vitest';
 import { runCommand } from '../create';
 
 vi.mock( 'common/lib/fs-utils' );

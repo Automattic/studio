@@ -39,11 +39,6 @@ export interface CreateSiteFormProps {
 	existingDomainNames?: string[];
 	/** Blueprint preferred versions for warning display */
 	blueprintPreferredVersions?: BlueprintPreferredVersions;
-	/** Original default versions (before Blueprint override) for warning comparison */
-	originalDefaultVersions?: {
-		phpVersion?: AllowedPHPVersion;
-		wpVersion?: string;
-	};
 	/** Called when form is submitted */
 	onSubmit: ( values: CreateSiteFormValues ) => void;
 	/** Called when form validity changes */
@@ -156,7 +151,6 @@ export const CreateSiteForm = ( {
 	onSiteNameChange,
 	existingDomainNames = [],
 	blueprintPreferredVersions,
-	originalDefaultVersions,
 	onSubmit,
 	onValidityChange,
 	formRef,

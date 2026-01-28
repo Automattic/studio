@@ -6,6 +6,7 @@ Unreleased
 * Added pause/resume functionality for sync uploads #2379
 * Improved performance by parallelizing recursive directory copying #2409
 * Improved error details recorded when the CLI fails #2483
+* Fixed thumbnail not loading for newly created sites #2484
 * Fixed site export in offline mode #2481
 * Fixed Beta Features menu items not being translated #2466
 

@@ -3,7 +3,7 @@ Unreleased
 
 1.7.2
 =====
-* Added pause/unpause functionality for sync uploads #2379
+* Added pause/resume functionality for sync uploads #2379
 * Improved performance by parallelizing recursive directory copying #2409
 * Improved error details recorded when the CLI fails #2483
 * Fixed site export in offline mode #2481

@@ -10,7 +10,7 @@ The Studio CLI (invoked with the `studio` command) is a globally available CLI u
 
 ## High level approach
 
-The CLI is independent of the main desktop app, but is written using mostly the same conventions. It's a node.js app written in Typescript, that's bundled into a single JS file using Webpack. Jest is used to test CLI modules in the same way as for regular Studio modules.
+The CLI is independent of the main desktop app, but is written using mostly the same conventions. It's a node.js app written in Typescript, that's bundled into a single JS file using Webpack. Vitest is used to test CLI modules in the same way as for regular Studio modules.
 
 To run the CLI, we first add a script to a directory on `$PATH`. This script runs the CLI JS file using the node runtime bundled with Studio. Running JS files independently of the main Studio app is possible thanks to the `ELECTRON_RUN_AS_NODE=1` option.
 

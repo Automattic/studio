@@ -58,7 +58,7 @@ if ( typeof window !== 'undefined' ) {
 	};
 }
 
-// Define global variables that were previously in jest.config.ts
+// Define global variables that were previously in vitest.config.mts
 ( global as typeof global & { COMMIT_HASH: string } ).COMMIT_HASH = 'mock-hash';
 
 // Store original console.log to restore after tests
@@ -74,7 +74,7 @@ if ( typeof window !== 'undefined' ) {
 	window.ipcListener = { subscribe: vi.fn() };
 
 	// Mock `matchMedia` as it's not implemented in JSDOM
-	// Reference: https://jestjs.io/docs/manual-mocks#mocking-methods-which-are-not-implemented-in-jsdom
+	// Reference: https://vitest.dev/guide/mocking#modules
 	Object.defineProperty( window, 'matchMedia', {
 		writable: true,
 		value: vi.fn().mockImplementation( ( query ) => ( {

@@ -4,7 +4,7 @@
 import { vi } from 'vitest';
 import { SiteServer } from 'src/site-server';
 
-// Electron's Node.js environment provides `bota`/`atob`, but Jests' does not
+// Electron's Node.js environment provides `btoa`/`atob`, but Vitest's does not
 vi.mock( 'common/lib/passwords' );
 
 // `SiteServer::start` uses `getPreferredSiteLanguage` to set the site language

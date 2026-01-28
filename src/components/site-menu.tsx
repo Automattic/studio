@@ -263,6 +263,17 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		}
 	};
 
+	const reorderSitesToNewPositions = ( newSites: SiteDetails[] ) => {
+		const updates = newSites.map( ( site, index ) => ( {
+			siteId: site.id,
+			sortOrder: ( index + 1 ) * 1000,
+		} ) );
+
+		reorderSites( updates ).catch( ( error ) => {
+			console.error( 'Failed to save site order:', error );
+		} );
+	};
+
 	const handleDrop = ( e: React.DragEvent, targetSite: SiteDetails ) => {
 		e.preventDefault();
 		setDragOverSiteId( null );
@@ -281,15 +292,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		newSites.splice( draggedIndex, 1 );
 		newSites.splice( targetIndex, 0, draggedSite );
 
-		// Persist the new order immediately
-		const updates = newSites.map( ( site, index ) => ( {
-			siteId: site.id,
-			sortOrder: ( index + 1 ) * 1000,
-		} ) );
-
-		reorderSites( updates ).catch( ( error ) => {
-			console.error( 'Failed to save site order:', error );
-		} );
+		reorderSitesToNewPositions( newSites );
 	};
 
 	const handleDragEnd = () => {
@@ -430,15 +433,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 						newSites.splice( draggedIndex, 1 );
 						newSites.push( draggedSite );
 
-						// Persist the new order
-						const updates = newSites.map( ( site, index ) => ( {
-							siteId: site.id,
-							sortOrder: ( index + 1 ) * 1000,
-						} ) );
-
-						reorderSites( updates ).catch( ( error ) => {
-							console.error( 'Failed to save site order:', error );
-						} );
+						reorderSitesToNewPositions( newSites );
 					} }
 				/>
 			</ul>

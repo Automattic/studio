@@ -188,40 +188,6 @@ export function sendMessageToProcess(
 	} );
 }
 
-function ensurePm2ScriptPath( scriptPath: string, processName: string ): string {
-	if ( ! scriptPath.includes( ' ' ) ) {
-		return scriptPath;
-	}
-
-	const linksDir = path.join( STUDIO_PM2_HOME, 'links' );
-	if ( ! fs.existsSync( linksDir ) ) {
-		fs.mkdirSync( linksDir, { recursive: true } );
-	}
-
-	const ext = path.extname( scriptPath ) || '.js';
-	const linkPath = path.join( linksDir, `${ processName }${ ext }` );
-
-	try {
-		if ( fs.existsSync( linkPath ) ) {
-			fs.unlinkSync( linkPath );
-		}
-	} catch {
-		// ignore
-	}
-
-	try {
-		fs.symlinkSync( scriptPath, linkPath );
-		return linkPath;
-	} catch {
-		try {
-			fs.copyFileSync( scriptPath, linkPath );
-			return linkPath;
-		} catch {
-			return scriptPath;
-		}
-	}
-}
-
 export async function startProxyProcess(): Promise< ProcessDescription > {
 	const proxyDaemonPath = path.resolve( __dirname, 'proxy-daemon.js' );
 	const env: Record< string, string > = {
@@ -264,11 +230,10 @@ export async function startProcess(
 	args: string[] = []
 ): Promise< ProcessDescription > {
 	return new Promise( ( resolve, reject ) => {
-		const resolvedScriptPath = ensurePm2ScriptPath( scriptPath, processName );
 		const processConfig: StartOptions = {
 			name: processName,
 			interpreter: process.execPath,
-			script: resolvedScriptPath,
+			script: scriptPath,
 			exec_mode: 'fork',
 			autorestart: false,
 			args,

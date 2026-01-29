@@ -37,6 +37,9 @@ export default defineConfig( {
 				output: {
 					entryFileNames: '[name].js',
 				},
+				external: [
+					/^@php-wasm\/.*/,
+				],
 			},
 		},
 	},

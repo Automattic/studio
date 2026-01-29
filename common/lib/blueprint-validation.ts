@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import validateBlueprintSchema from '@wp-playground/blueprints/blueprint-schema-validator';
+import { validateBlueprint } from '@wp-playground/blueprints';
 
 interface UnsupportedFeature {
 	type: 'step' | 'property';
@@ -143,19 +143,21 @@ export type BlueprintValidationResult = BlueprintValidationError | BlueprintVali
 export async function validateBlueprintData(
 	blueprintJson: unknown
 ): Promise< BlueprintValidationResult > {
-	const isValid = validateBlueprintSchema( blueprintJson );
+	const result = validateBlueprint( blueprintJson as object );
 
-	if ( ! isValid && validateBlueprintSchema.errors ) {
-		const firstError = validateBlueprintSchema.errors[ 0 ] as {
-			instancePath?: string;
-			message?: string;
-			params?: { additionalProperty?: string };
-		};
-		const errorPath = firstError.instancePath || '/';
-		const additionalProp = firstError.params?.additionalProperty;
+	if ( ! result.valid ) {
+		const firstError = result.errors?.[ 0 ] as
+			| {
+					instancePath?: string;
+					message?: string;
+					params?: { additionalProperty?: string };
+			  }
+			| undefined;
+		const errorPath = firstError?.instancePath || '/';
+		const additionalProp = firstError?.params?.additionalProperty;
 		const errorMessage = additionalProp
 			? __( `"${ additionalProp }" is not a valid Blueprint property` )
-			: firstError.message || __( 'Invalid blueprint' );
+			: firstError?.message || __( 'Invalid blueprint' );
 
 		return {
 			valid: false,

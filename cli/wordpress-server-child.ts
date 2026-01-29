@@ -13,7 +13,7 @@
 import { cpus } from 'os';
 import { dirname } from 'path';
 import { BlueprintBundle } from '@wp-playground/blueprints';
-import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
+import { runCLI, RunCLIArgs, RunCLIServer, internalsKeyForTesting } from '@wp-playground/cli';
 import {
 	FetchFilesystem,
 	NodeJsFilesystem,
@@ -283,7 +283,7 @@ const startServer = wrapWithStartingPromise(
 			server = await runCLI( args );
 
 			if ( config.enableMultiWorker && server ) {
-				logToConsole( `Server started with ${ server.workerThreadCount } worker thread(s)` );
+				logToConsole( `Server started with ${ server[ internalsKeyForTesting ].workerThreadCount } worker thread(s)` );
 			}
 
 			if ( config.adminPassword ) {

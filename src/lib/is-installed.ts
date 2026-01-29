@@ -39,30 +39,38 @@ function getLocalProgramsPath(): string {
 // Define installation paths for each IDE by platform
 const installationPaths: Record< string, PlatformPaths > = {
 	darwin: {
+		antigravity: [ 'Antigravity.app' ],
 		vscode: [ 'Visual Studio Code.app' ],
 		phpstorm: [ 'PhpStorm.app' ],
 		cursor: [ 'Cursor.app' ],
 		windsurf: [ 'Windsurf.app' ],
 		webstorm: [ 'WebStorm.app' ],
 		sublime: [ 'Sublime Text.app' ],
+		zed: [ 'Zed.app' ],
 		iterm: [ 'iTerm.app' ],
 		terminal: [ 'Terminal.app' ],
 		warp: [ 'Warp.app' ],
 		ghostty: [ 'Ghostty.app' ],
 	},
 	linux: {
+		antigravity: [ '/usr/bin/antigravity' ],
 		vscode: [ '/usr/bin/code' ],
 		phpstorm: [ '/usr/bin/phpstorm' ],
 		cursor: [ '/usr/bin/cursor' ],
 		windsurf: [ '/usr/bin/windsurf' ],
 		webstorm: [ '/usr/bin/webstorm' ],
 		sublime: [ '/usr/bin/subl' ],
+		zed: [ '/usr/bin/zed' ],
 		iterm: [],
 		terminal: [],
 		warp: [ '/usr/bin/warp' ],
 		ghostty: [],
 	},
 	win32: {
+		antigravity: [
+			path.win32.join( getLocalProgramsPath(), 'Antigravity' ),
+			path.win32.join( getProgramFilesPath(), 'Google\\Antigravity' ),
+		],
 		vscode: [
 			path.win32.join( getProgramFilesPath(), 'Microsoft VS Code' ),
 			path.win32.join( getLocalProgramsPath(), 'Microsoft VS Code' ),
@@ -88,6 +96,7 @@ const installationPaths: Record< string, PlatformPaths > = {
 			path.win32.join( getProgramFilesPath(), 'Sublime Text 4' ),
 			path.win32.join( getProgramFilesPath(), 'Sublime Text 3' ),
 		],
+		zed: [ path.win32.join( getLocalProgramsPath(), 'Zed' ) ],
 		iterm: [],
 		terminal: [],
 		warp: [

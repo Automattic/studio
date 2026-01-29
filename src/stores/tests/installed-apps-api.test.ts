@@ -41,12 +41,14 @@ const createTestStore = () => {
 const createMockInstalledApps = (
 	installedApps: Partial< InstalledApps > = {}
 ): InstalledApps => ( {
+	antigravity: false,
 	vscode: false,
 	phpstorm: false,
 	webstorm: false,
 	windsurf: false,
 	cursor: false,
 	sublime: false,
+	zed: false,
 	terminal: false,
 	iterm: false,
 	warp: false,
@@ -220,9 +222,16 @@ describe( 'Installed Apps API', () => {
 				const mockInstalledApps = createMockInstalledApps( { vscode: true, cursor: true } );
 				const result = selectUninstalledEditors( mockInstalledApps );
 
-				expect( result ).toHaveLength( 4 );
+				expect( result ).toHaveLength( 6 );
 				expect( result.map( ( [ editor ] ) => editor ) ).toEqual(
-					expect.arrayContaining( [ 'phpstorm', 'windsurf', 'webstorm', 'sublime' ] )
+					expect.arrayContaining( [
+						'antigravity',
+						'phpstorm',
+						'windsurf',
+						'webstorm',
+						'sublime',
+						'zed',
+					] )
 				);
 			} );
 
@@ -230,7 +239,7 @@ describe( 'Installed Apps API', () => {
 				const mockInstalledApps = createMockInstalledApps();
 				const result = selectUninstalledEditors( mockInstalledApps );
 
-				expect( result ).toHaveLength( 6 );
+				expect( result ).toHaveLength( 8 );
 			} );
 		} );
 

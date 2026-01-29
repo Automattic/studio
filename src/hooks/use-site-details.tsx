@@ -360,7 +360,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				} );
 				setSites( ( prevData ) =>
 					sortSites( [
-						...prevData.filter( ( site ) => site.id !== tempSiteId ),
+						...prevData.filter( ( site ) => site.id !== tempSiteId && site.id !== newSite.id ),
 						{ ...newSite, isAddingSite: true },
 					] )
 				);

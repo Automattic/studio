@@ -39,6 +39,7 @@ export default defineConfig( {
 				},
 				external: [
 					/^@php-wasm\/.*/,
+					/^@wp-playground\/.*/,
 				],
 			},
 		},

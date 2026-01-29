@@ -40,7 +40,10 @@ export async function runWpCliCommand(
 		await setPhpIniEntries( php, {
 			'openssl.cafile': '/tmp/ca-bundle.crt',
 			allow_url_fopen: 1,
-			disable_functions: '',
+			// Disable process spawning functions as they're not supported in WASM
+			// without a spawn handler. WP-CLI's search-replace tries to use these.
+			disable_functions:
+				'exec,passthru,shell_exec,system,proc_open,popen,proc_close,proc_get_status,proc_nice,proc_terminate,pcntl_exec',
 		} );
 
 		// Mount mu-plugins
@@ -87,7 +90,10 @@ export async function runGlobalWpCliCommand(
 		await setPhpIniEntries( php, {
 			'openssl.cafile': '/tmp/ca-bundle.crt',
 			allow_url_fopen: 1,
-			disable_functions: '',
+			// Disable process spawning functions as they're not supported in WASM
+			// without a spawn handler. WP-CLI's search-replace tries to use these.
+			disable_functions:
+				'exec,passthru,shell_exec,system,proc_open,popen,proc_close,proc_get_status,proc_nice,proc_terminate,pcntl_exec',
 		} );
 
 		await php.mount( '/tmp/wp-cli.phar', createNodeFsMountHandler( getWpCliPharPath() ) );

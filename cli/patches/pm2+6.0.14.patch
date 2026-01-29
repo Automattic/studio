@@ -1,3 +1,16 @@
+diff --git a/node_modules/pm2/lib/Common.js b/node_modules/pm2/lib/Common.js
+index 24a1d13..086da0d 100644
+--- a/node_modules/pm2/lib/Common.js
++++ b/node_modules/pm2/lib/Common.js
+@@ -723,7 +723,7 @@ Common.verifyConfs = function(appConfs) {
+      * If command is like pm2 start "python xx.py --ok"
+      * Then automatically start the script with bash -c and set a name eq to command
+      */
+-    if (app.script && app.script.indexOf(' ') > -1 && cst.IS_WINDOWS === false) {
++    if (app.script && app.script.indexOf(' ') > -1 && cst.IS_WINDOWS === false && !fs.existsSync(app.script)) {
+       var _script = app.script;
+ 
+       if (which('bash')) {
 diff --git a/node_modules/pm2/types/index.d.ts b/node_modules/pm2/types/index.d.ts
 index 77280f5..092273a 100644
 --- a/node_modules/pm2/types/index.d.ts

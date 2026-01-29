@@ -418,10 +418,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 				{ /* Drop zone for dragging to bottom of list */ }
 				<li
 					className="h-8"
-					onDragOver={ ( e ) => {
-						e.preventDefault();
-						e.dataTransfer.dropEffect = 'move';
-					} }
+					onDragOver={ ( e ) => handleDragOver( e, sites.length ) }
 					onDrop={ ( e ) => handleDrop( e, sites.length ) }
 				/>
 			</ul>

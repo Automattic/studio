@@ -98,7 +98,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
 			type: 'error',
 			message: 'Failed to load Blueprint',
-			detail: 'The Blueprint could not be loaded. Please check the link and try again.',
+			detail: 'Please check the link and try again.',
 			buttons: [ 'Open Studio Logs', 'OK' ],
 			defaultId: 1,
 		} );
@@ -119,7 +119,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
 			type: 'error',
 			message: 'Failed to load Blueprint',
-			detail: 'The Blueprint could not be loaded. Please check the link and try again.',
+			detail: 'Please check the link and try again.',
 			buttons: [ 'Open Studio Logs', 'OK' ],
 			defaultId: 1,
 		} );
@@ -170,7 +170,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
 			type: 'error',
 			message: 'Failed to load Blueprint',
-			detail: 'The Blueprint could not be loaded. Please check the link and try again.',
+			detail: 'Please check the link and try again.',
 			buttons: [ 'Open Studio Logs', 'OK' ],
 			defaultId: 1,
 		} );
@@ -210,7 +210,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 			expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
 				type: 'error',
 				message: 'Failed to load Blueprint',
-				detail: 'The Blueprint could not be loaded. Please check the link and try again.',
+				detail: 'Please check the link and try again.',
 				buttons: [ 'Open Studio Logs', 'OK' ],
 				defaultId: 1,
 			} );
@@ -249,7 +249,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 			expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
 				type: 'error',
 				message: 'Failed to load Blueprint',
-				detail: 'The Blueprint could not be loaded. Please check the link and try again.',
+				detail: 'Please check the link and try again.',
 				buttons: [ 'Open Studio Logs', 'OK' ],
 				defaultId: 1,
 			} );

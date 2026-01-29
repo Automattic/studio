@@ -18,7 +18,7 @@ function getBlueprintDeeplinkErrorMessage( error: unknown ): string {
 		);
 	}
 
-	return __( 'The Blueprint could not be loaded. Please check the link and try again.' );
+	return __( 'Please check the link and try again.' );
 }
 
 /**

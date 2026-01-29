@@ -571,6 +571,65 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 		);
 	} );
 
+	it( 'should not add wp-config.php when excludeWpConfig is true', async () => {
+		const options = {
+			...mockOptions,
+			includes: {
+				database: false,
+				wpContent: false,
+			},
+			excludeWpConfig: true,
+		};
+
+		const exporter = new DefaultExporter( options );
+		await exporter.export();
+
+		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-config.php' ),
+			{ name: 'wp-config.php' }
+		);
+		// meta.json should still be added
+		expect( mockArchiver.file ).toHaveBeenCalledWith(
+			normalize( '/tmp/studio_export_123/meta.json' ),
+			{ name: 'meta.json' }
+		);
+	} );
+
+	it( 'should add wp-config.php when excludeWpConfig is false', async () => {
+		const options = {
+			...mockOptions,
+			includes: {
+				database: false,
+				wpContent: false,
+			},
+			excludeWpConfig: false,
+		};
+
+		const exporter = new DefaultExporter( options );
+		await exporter.export();
+
+		expect( mockArchiver.file ).toHaveBeenCalledWith( normalize( '/path/to/site/wp-config.php' ), {
+			name: 'wp-config.php',
+		} );
+	} );
+
+	it( 'should add wp-config.php when excludeWpConfig is not specified (default behavior)', async () => {
+		const options = {
+			...mockOptions,
+			includes: {
+				database: false,
+				wpContent: false,
+			},
+		};
+
+		const exporter = new DefaultExporter( options );
+		await exporter.export();
+
+		expect( mockArchiver.file ).toHaveBeenCalledWith( normalize( '/path/to/site/wp-config.php' ), {
+			name: 'wp-config.php',
+		} );
+	} );
+
 	it( 'should initialize backup object with correct structure when creating a new exporter', () => {
 		const testOptions: ExportOptions = {
 			site: {

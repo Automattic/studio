@@ -8,6 +8,7 @@ export interface ExportOptions {
 	phpVersion: string;
 	splitDatabaseDumpByTable?: boolean;
 	specificSelectionPaths?: string[];
+	excludeWpConfig?: boolean;
 }
 
 export type ExportOptionsIncludes = 'wpContent' | 'database';

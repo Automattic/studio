@@ -190,6 +190,7 @@ export async function exportSiteForPush(
 			phpVersion: site.details.phpVersion,
 			splitDatabaseDumpByTable: true,
 			specificSelectionPaths: configuration?.specificSelectionPaths,
+			excludeWpConfig: true,
 		};
 
 		const onEvent = () => {};

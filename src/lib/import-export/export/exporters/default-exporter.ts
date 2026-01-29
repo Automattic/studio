@@ -126,7 +126,9 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		this.archiveBuilder.pipe( output );
 
 		try {
-			this.addWpConfig();
+			if ( ! this.options.excludeWpConfig ) {
+				this.addWpConfig();
+			}
 			await this.addWpContent();
 			await this.addDatabase();
 			const studioJsonPath = await this.createStudioJsonFile();

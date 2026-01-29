@@ -35,6 +35,16 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		focus: vi.fn(),
 	} );
 
+	const expectErrorDialog = ( detail: string ) => {
+		expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
+			type: 'error',
+			message: 'Failed to load Blueprint',
+			detail,
+			buttons: [ 'Open Studio Logs', 'OK' ],
+			defaultId: 1,
+		} );
+	};
+
 	const createBlueprintUrl = ( blueprintUrl: string ) => {
 		const encodedUrl = encodeURIComponent( blueprintUrl );
 		return new URL( `wp-studio://add-site?blueprint_url=${ encodedUrl }` );
@@ -95,13 +105,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 
 		expect( download ).not.toHaveBeenCalled();
 		expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
-		expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
-			type: 'error',
-			message: 'Failed to load Blueprint',
-			detail: 'Please check the link and try again.',
-			buttons: [ 'Open Studio Logs', 'OK' ],
-			defaultId: 1,
-		} );
+		expectErrorDialog( 'Please check the link and try again.' );
 	} );
 
 	it( 'should handle download failure gracefully', async () => {
@@ -116,13 +120,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		expect( download ).toHaveBeenCalled();
 		expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
 		expect( fs.remove ).toHaveBeenCalledWith( expect.stringContaining( 'blueprint-' ) );
-		expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
-			type: 'error',
-			message: 'Failed to load Blueprint',
-			detail: 'Please check the link and try again.',
-			buttons: [ 'Open Studio Logs', 'OK' ],
-			defaultId: 1,
-		} );
+		expectErrorDialog( 'Please check the link and try again.' );
 	} );
 
 	it( 'should restore and focus window when minimized', async () => {
@@ -167,13 +165,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 		expect( download ).toHaveBeenCalled();
 		expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
 		expect( fs.remove ).toHaveBeenCalledWith( expect.stringContaining( 'blueprint-' ) );
-		expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
-			type: 'error',
-			message: 'Failed to load Blueprint',
-			detail: 'Please check the link and try again.',
-			buttons: [ 'Open Studio Logs', 'OK' ],
-			defaultId: 1,
-		} );
+		expectErrorDialog( 'Please check the link and try again.' );
 	} );
 
 	describe( 'base64 blueprint handling', () => {
@@ -207,13 +199,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 			await handleAddSiteWithBlueprint( url );
 
 			expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
-			expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
-				type: 'error',
-				message: 'Failed to load Blueprint',
-				detail: 'Please check the link and try again.',
-				buttons: [ 'Open Studio Logs', 'OK' ],
-				defaultId: 1,
-			} );
+			expectErrorDialog( 'Please check the link and try again.' );
 		} );
 	} );
 
@@ -226,14 +212,9 @@ describe( 'handleAddSiteWithBlueprint', () => {
 
 			await handleAddSiteWithBlueprint( url );
 
-			expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
-				type: 'error',
-				message: 'Failed to load Blueprint',
-				detail:
-					'Could not connect to the server. Please check your internet connection and try again.',
-				buttons: [ 'Open Studio Logs', 'OK' ],
-				defaultId: 1,
-			} );
+			expectErrorDialog(
+				'Could not connect to the server. Please check your internet connection and try again.'
+			);
 		} );
 
 		it( 'should show generic error message for other errors', async () => {
@@ -246,13 +227,7 @@ describe( 'handleAddSiteWithBlueprint', () => {
 
 			await handleAddSiteWithBlueprint( url );
 
-			expect( dialog.showMessageBox ).toHaveBeenCalledWith( mockMainWindow, {
-				type: 'error',
-				message: 'Failed to load Blueprint',
-				detail: 'Please check the link and try again.',
-				buttons: [ 'Open Studio Logs', 'OK' ],
-				defaultId: 1,
-			} );
+			expectErrorDialog( 'Please check the link and try again.' );
 		} );
 
 		it( 'should open logs file when user clicks Open Studio Logs button', async () => {

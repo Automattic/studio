@@ -283,7 +283,9 @@ const startServer = wrapWithStartingPromise(
 			server = await runCLI( args );
 
 			if ( config.enableMultiWorker && server ) {
-				logToConsole( `Server started with ${ server[ internalsKeyForTesting ].workerThreadCount } worker thread(s)` );
+				logToConsole(
+					`Server started with ${ server[ internalsKeyForTesting ].workerThreadCount } worker thread(s)`
+				);
 			}
 
 			if ( config.adminPassword ) {

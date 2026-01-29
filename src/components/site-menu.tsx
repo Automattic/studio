@@ -47,6 +47,7 @@ function ButtonToRun( {
 	const classCircle = `rounded-full`;
 	const triangle = (
 		<svg
+			aria-hidden="true"
 			width="8"
 			height="10"
 			viewBox="0 0 8 10"
@@ -64,7 +65,14 @@ function ButtonToRun( {
 	);
 
 	const rectangle = (
-		<svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+		<svg
+			aria-hidden="true"
+			width="10"
+			height="10"
+			viewBox="0 0 10 10"
+			fill="none"
+			xmlns="http://www.w3.org/2000/svg"
+		>
 			<path
 				d="M0.25 2C0.25 1.0335 1.0335 0.25 2 0.25H8C8.9665 0.25 9.75 1.0335 9.75 2V8C9.75 8.9665 8.9665 9.75 8 9.75H2C1.0335 9.75 0.25 8.9665 0.25 8V2Z"
 				fill="#FF8085"
@@ -83,6 +91,7 @@ function ButtonToRun( {
 	return (
 		<Tooltip text={ tooltipText }>
 			<button
+				type="button"
 				aria-disabled={ loadingServer[ id ] }
 				onClick={ () => {
 					if ( loadingServer[ id ] ) {
@@ -135,6 +144,7 @@ function ButtonToRun( {
 }
 function SiteItem( {
 	site,
+	index,
 	onDragStart,
 	onDragOver,
 	onDrop,
@@ -142,9 +152,10 @@ function SiteItem( {
 	isDragOver,
 }: {
 	site: SiteDetails;
-	onDragStart: ( e: React.DragEvent, site: SiteDetails ) => void;
-	onDragOver: ( e: React.DragEvent, site: SiteDetails ) => void;
-	onDrop: ( e: React.DragEvent, site: SiteDetails ) => void;
+	index: number;
+	onDragStart: ( e: React.DragEvent, index: number ) => void;
+	onDragOver: ( e: React.DragEvent, index: number ) => void;
+	onDrop: ( e: React.DragEvent, index: number ) => void;
 	onDragEnd: () => void;
 	isDragOver: boolean;
 } ) {
@@ -163,7 +174,7 @@ function SiteItem( {
 	const showSpinner =
 		site.isAddingSite || isImporting || isPulling || isPushing || isExporting || isDeleting;
 
-	let tooltipText;
+	let tooltipText: string;
 	if ( site.isAddingSite ) {
 		tooltipText = __( 'Adding' );
 	} else if ( isImporting ) {
@@ -206,13 +217,14 @@ function SiteItem( {
 			) }
 			onContextMenu={ handleContextMenu }
 			draggable
-			onDragStart={ ( e ) => onDragStart( e, site ) }
-			onDragOver={ ( e ) => onDragOver( e, site ) }
-			onDrop={ ( e ) => onDrop( e, site ) }
+			onDragStart={ ( e ) => onDragStart( e, index ) }
+			onDragOver={ ( e ) => onDragOver( e, index ) }
+			onDrop={ ( e ) => onDrop( e, index ) }
 			onDragEnd={ onDragEnd }
 		>
 			<Icon icon={ dragHandle } className="fill-white" />
 			<button
+				type="button"
 				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blue-50"
 				onClick={ () => {
 					setSelectedSiteId( site.id );
@@ -247,19 +259,19 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 	const { setSelectedTab } = useContentTabs();
 	const { handleDeleteSite } = useDeleteSite();
 	const { data: editor } = useGetUserEditorQuery();
-	const [ draggedSite, setDraggedSite ] = useState< SiteDetails | null >( null );
-	const [ dragOverSiteId, setDragOverSiteId ] = useState< string | null >( null );
+	const [ draggedIndex, setDraggedIndex ] = useState< number | null >( null );
+	const [ dragOverIndex, setDragOverIndex ] = useState< number | null >( null );
 
-	const handleDragStart = ( e: React.DragEvent, site: SiteDetails ) => {
-		setDraggedSite( site );
+	const handleDragStart = ( e: React.DragEvent, index: number ) => {
+		setDraggedIndex( index );
 		e.dataTransfer.effectAllowed = 'move';
 	};
 
-	const handleDragOver = ( e: React.DragEvent, site: SiteDetails ) => {
+	const handleDragOver = ( e: React.DragEvent, index: number ) => {
 		e.preventDefault();
 		e.dataTransfer.dropEffect = 'move';
-		if ( draggedSite && draggedSite.id !== site.id ) {
-			setDragOverSiteId( site.id );
+		if ( draggedIndex !== null && draggedIndex !== index ) {
+			setDragOverIndex( index );
 		}
 	};
 
@@ -274,30 +286,23 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		} );
 	};
 
-	const handleDrop = ( e: React.DragEvent, targetSite: SiteDetails ) => {
+	const handleDrop = ( e: React.DragEvent, targetIndex: number ) => {
 		e.preventDefault();
-		setDragOverSiteId( null );
-		if ( ! draggedSite || draggedSite.id === targetSite.id ) {
-			return;
-		}
-
-		const draggedIndex = sites.findIndex( ( site ) => site.id === draggedSite.id );
-		const targetIndex = sites.findIndex( ( site ) => site.id === targetSite.id );
-
-		if ( draggedIndex === -1 || targetIndex === -1 ) {
+		setDragOverIndex( null );
+		if ( draggedIndex === null || draggedIndex === targetIndex ) {
 			return;
 		}
 
 		const newSites = [ ...sites ];
-		newSites.splice( draggedIndex, 1 );
-		newSites.splice( targetIndex, 0, draggedSite );
+		const [ movedSite ] = newSites.splice( draggedIndex, 1 );
+		newSites.splice( targetIndex, 0, movedSite );
 
 		reorderSitesToNewPositions( newSites );
 	};
 
 	const handleDragEnd = () => {
-		setDraggedSite( null );
-		setDragOverSiteId( null );
+		setDraggedIndex( null );
+		setDragOverIndex( null );
 	};
 
 	useEffect( () => {
@@ -398,15 +403,16 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 			) }
 		>
 			<ul className="pt-px">
-				{ sites.map( ( site ) => (
+				{ sites.map( ( site, index ) => (
 					<SiteItem
 						key={ site.id }
 						site={ site }
+						index={ index }
 						onDragStart={ handleDragStart }
 						onDragOver={ handleDragOver }
 						onDrop={ handleDrop }
 						onDragEnd={ handleDragEnd }
-						isDragOver={ dragOverSiteId === site.id }
+						isDragOver={ dragOverIndex === index }
 					/>
 				) ) }
 				{ /* Drop zone for dragging to bottom of list */ }
@@ -416,25 +422,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 						e.preventDefault();
 						e.dataTransfer.dropEffect = 'move';
 					} }
-					onDrop={ ( e ) => {
-						e.preventDefault();
-						setDragOverSiteId( null );
-						if ( ! draggedSite ) {
-							return;
-						}
-
-						const draggedIndex = sites.findIndex( ( site ) => site.id === draggedSite.id );
-						if ( draggedIndex === -1 ) {
-							return;
-						}
-
-						// Move dragged site to end
-						const newSites = [ ...sites ];
-						newSites.splice( draggedIndex, 1 );
-						newSites.push( draggedSite );
-
-						reorderSitesToNewPositions( newSites );
-					} }
+					onDrop={ ( e ) => handleDrop( e, sites.length ) }
 				/>
 			</ul>
 		</nav>

@@ -13,6 +13,7 @@
 		"resolveJsonModule": true,
 		"jsx": "react-jsx",
 		"strict": true,
+		"types": [ "vitest/globals" ],
 		"paths": {
 			"*": [ "node_modules/*" ],
 			"cli/*": [ "cli/*" ],
@@ -21,6 +22,6 @@
 			"common/*": [ "common/*" ]
 		}
 	},
-	"include": [ "src/**/*", "cli/**/*", "common/**/*", "e2e/**/*", "./jest-setup.ts" ],
+	"include": [ "src/**/*", "cli/**/*", "common/**/*", "e2e/**/*", "./vitest.setup.ts" ],
 	"exclude": [ "**/__mocks__/**/*", "**/node_modules/**/*", "**/dist/**/*", "**/out/**/*" ]
 }

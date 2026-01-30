@@ -1,15 +1,18 @@
+import { vi } from 'vitest';
 import { readAppdata } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { runCommand } from '../list';
-
-jest.mock( 'cli/lib/appdata', () => ( {
-	...jest.requireActual( 'cli/lib/appdata' ),
-	readAppdata: jest.fn(),
-	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
-} ) );
-jest.mock( 'cli/lib/pm2-manager' );
-jest.mock( 'cli/lib/wordpress-server-manager' );
+vi.mock( 'cli/lib/appdata', async () => {
+	const actual = await vi.importActual( 'cli/lib/appdata' );
+	return {
+		...actual,
+		readAppdata: vi.fn(),
+		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
+	};
+} );
+vi.mock( 'cli/lib/pm2-manager' );
+vi.mock( 'cli/lib/wordpress-server-manager' );
 
 describe( 'CLI: studio site list', () => {
 	// Simple test data
@@ -20,12 +23,14 @@ describe( 'CLI: studio site list', () => {
 				name: 'Test Site 1',
 				path: '/path/to/site1',
 				port: 8080,
+				phpVersion: '8.0',
 			},
 			{
 				id: 'site-2',
 				name: 'Test Site 2',
 				path: '/path/to/site2',
 				port: 8081,
+				phpVersion: '8.0',
 				customDomain: 'my-site.wp.local',
 			},
 		],
@@ -38,21 +43,21 @@ describe( 'CLI: studio site list', () => {
 	};
 
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 
-		( readAppdata as jest.Mock ).mockResolvedValue( testAppdata );
-		( connect as jest.Mock ).mockResolvedValue( undefined );
-		( disconnect as jest.Mock ).mockResolvedValue( undefined );
-		( isServerRunning as jest.Mock ).mockResolvedValue( false );
+		vi.mocked( readAppdata ).mockResolvedValue( testAppdata );
+		vi.mocked( connect ).mockResolvedValue( undefined );
+		vi.mocked( disconnect ).mockResolvedValue( undefined );
+		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
-		jest.restoreAllMocks();
+		vi.restoreAllMocks();
 	} );
 
 	describe( 'Error Cases', () => {
 		it( 'should throw when appdata read fails', async () => {
-			( readAppdata as jest.Mock ).mockRejectedValue( new Error( 'Failed to read appdata' ) );
+			vi.mocked( readAppdata ).mockRejectedValue( new Error( 'Failed to read appdata' ) );
 
 			await expect( runCommand( 'table' ) ).rejects.toThrow( 'Failed to read appdata' );
 			expect( disconnect ).toHaveBeenCalled();
@@ -61,7 +66,7 @@ describe( 'CLI: studio site list', () => {
 
 	describe( 'Success Cases', () => {
 		it( 'should list sites with table format', async () => {
-			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
+			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
 
 			await runCommand( 'table' );
 
@@ -73,7 +78,7 @@ describe( 'CLI: studio site list', () => {
 		} );
 
 		it( 'should list sites with json format', async () => {
-			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
+			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
 
 			await runCommand( 'json' );
 
@@ -105,7 +110,7 @@ describe( 'CLI: studio site list', () => {
 		} );
 
 		it( 'should handle no sites found', async () => {
-			( readAppdata as jest.Mock ).mockResolvedValue( emptyAppdata );
+			vi.mocked( readAppdata ).mockResolvedValue( emptyAppdata );
 
 			await runCommand( 'table' );
 
@@ -114,7 +119,7 @@ describe( 'CLI: studio site list', () => {
 		} );
 
 		it( 'should handle custom domain in site URL', async () => {
-			const consoleSpy = jest.spyOn( console, 'log' ).mockImplementation();
+			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
 
 			await runCommand( 'json' );
 

@@ -1,5 +1,5 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
 // To run tests, execute `npm run test -- common/lib/tests/sort-sites.test.ts` from the root directory
 import { sortSites } from 'common/lib/sort-sites';

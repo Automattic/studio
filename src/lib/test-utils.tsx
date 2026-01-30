@@ -9,6 +9,20 @@ import { installedAppsApi } from 'src/stores/installed-apps-api';
 import { wordpressVersionsApi } from 'src/stores/wordpress-versions-api';
 import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 
+/**
+ * Type helper for creating partial mocks in tests.
+ * Use this to avoid TypeScript errors when mocking objects with many properties.
+ *
+ * @example
+ * const mockWindow = createMock<BrowserWindow>({
+ *   isMinimized: vi.fn(),
+ *   restore: vi.fn(),
+ * });
+ */
+export function createMock< T >( partial: Partial< T > ): T {
+	return partial as T;
+}
+
 interface TestStoreOptions {
 	preloadedState?: Partial< RootState >;
 }

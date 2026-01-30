@@ -1,4 +1,6 @@
-export const init = jest.fn();
-export const addBreadcrumb = jest.fn();
-export const captureException = jest.fn();
-export const setUser = jest.fn();
+import { vi } from 'vitest';
+
+export const init = vi.fn();
+export const addBreadcrumb = vi.fn();
+export const captureException = vi.fn();
+export const setUser = vi.fn();

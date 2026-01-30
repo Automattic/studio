@@ -1,46 +1,47 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
+import { vi } from 'vitest';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { createTestStore } from 'src/lib/test-utils';
+import { createTestStore, createMock } from 'src/lib/test-utils';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 
 // Mock the hooks and dependencies
-const mockUpdateSite = jest.fn();
-const mockStopServer = jest.fn();
-const mockStartServer = jest.fn();
-const mockExecuteWPCLiInline = jest.fn();
-const mockShowErrorMessageBox = jest.fn();
-const mockGetAllCustomDomains = jest.fn().mockResolvedValue( [] );
+const mockUpdateSite = vi.fn();
+const mockStopServer = vi.fn();
+const mockStartServer = vi.fn();
+const mockExecuteWPCLiInline = vi.fn();
+const mockShowErrorMessageBox = vi.fn();
+const mockGetAllCustomDomains = vi.fn().mockResolvedValue( [] );
 
-jest.mock( 'src/lib/app-globals', () => ( {
+vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
 } ) );
 
-jest.mock( 'src/hooks/use-site-details' );
+vi.mock( 'src/hooks/use-site-details' );
 
-jest.mock( 'src/lib/get-ipc-api', () => ( {
+vi.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		executeWPCLiInline: mockExecuteWPCLiInline,
 		showErrorMessageBox: mockShowErrorMessageBox,
 		getAllCustomDomains: mockGetAllCustomDomains,
-		isCATrusted: jest.fn( () => Promise.resolve( true ) ),
+		isCATrusted: vi.fn( () => Promise.resolve( true ) ),
 	} ),
 } ) );
 
-jest.mock( '@wordpress/react-i18n', () => ( {
+vi.mock( '@wordpress/react-i18n', () => ( {
 	useI18n: () => ( {
 		__: ( text: string ) => text,
 	} ),
 } ) );
 
-jest.mock( 'src/stores/wordpress-versions-api', () => {
-	const actual = jest.requireActual( 'src/stores/wordpress-versions-api' );
+vi.mock( 'src/stores/wordpress-versions-api', async () => {
+	const actual = await vi.importActual( 'src/stores/wordpress-versions-api' );
 	return {
 		...actual,
-		useGetWordPressVersions: jest.fn( () => ( {
+		useGetWordPressVersions: vi.fn( () => ( {
 			data: [
 				{ label: 'Latest', value: '6.7.2' },
 				{ label: '6.8-beta1', value: '6.8-beta1', isBeta: true, isDevelopment: false },
@@ -53,16 +54,16 @@ jest.mock( 'src/stores/wordpress-versions-api', () => {
 	};
 } );
 
-jest.mock( 'src/stores/certificate-trust-api', () => {
-	const actual = jest.requireActual( 'src/stores/certificate-trust-api' );
+vi.mock( 'src/stores/certificate-trust-api', async () => {
+	const actual = await vi.importActual( 'src/stores/certificate-trust-api' );
 	return {
 		...actual,
-		useCheckCertificateTrustQuery: jest.fn().mockReturnValue( { data: true } ),
+		useCheckCertificateTrustQuery: vi.fn().mockReturnValue( { data: true } ),
 	};
 } );
 
-jest.mock( 'src/hooks/use-offline', () => ( {
-	useOffline: jest.fn().mockReturnValue( false ),
+vi.mock( 'src/hooks/use-offline', () => ( {
+	useOffline: vi.fn().mockReturnValue( false ),
 } ) );
 
 const renderWithProvider = ( children: React.ReactElement ) => {
@@ -73,25 +74,31 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 describe( 'EditSiteDetails', () => {
 	const defaultProps = {
 		currentWpVersion: '6.3',
-		onSave: jest.fn(),
+		onSave: vi.fn(),
+	};
+
+	const baseMockSiteDetails = {
+		selectedSite: {
+			id: 'site-123',
+			name: 'Test Site',
+			path: '/path/to/site',
+			port: 8881,
+			phpVersion: '8.3',
+			running: true,
+			url: 'http://localhost:8881',
+		},
+		updateSite: mockUpdateSite,
+		stopServer: mockStopServer,
+		startServer: mockStartServer,
+		setIsEditModalOpen: vi.fn(),
+		isEditModalOpen: false,
 	};
 
 	beforeEach( () => {
-		jest.clearAllMocks();
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			selectedSite: {
-				id: 'site-123',
-				name: 'Test Site',
-				phpVersion: '8.3',
-				wpVersion: 'latest',
-				running: true,
-			},
-			updateSite: mockUpdateSite,
-			stopServer: mockStopServer,
-			startServer: mockStartServer,
-			setIsEditModalOpen: jest.fn(),
-			isEditModalOpen: false,
-		} );
+		vi.clearAllMocks();
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( baseMockSiteDetails )
+		);
 		mockExecuteWPCLiInline.mockResolvedValue( { exitCode: 0 } );
 	} );
 
@@ -114,10 +121,12 @@ describe( 'EditSiteDetails', () => {
 
 		expect( useSiteDetails().setIsEditModalOpen ).toHaveBeenCalledWith( true );
 
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			...useSiteDetails(),
-			isEditModalOpen: true,
-		} );
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				isEditModalOpen: true,
+			} )
+		);
 
 		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 
@@ -140,10 +149,12 @@ describe( 'EditSiteDetails', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
 		expect( useSiteDetails().setIsEditModalOpen ).toHaveBeenCalledWith( true );
 
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			...useSiteDetails(),
-			isEditModalOpen: true,
-		} );
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				isEditModalOpen: true,
+			} )
+		);
 		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( screen.getByRole( 'dialog' ) ).toBeInTheDocument();
@@ -154,10 +165,12 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should disable the save button when no changes are made', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			...useSiteDetails(),
-			isEditModalOpen: true,
-		} );
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				isEditModalOpen: true,
+			} )
+		);
 		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
@@ -167,10 +180,12 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should enable the save button when site name is changed', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			...useSiteDetails(),
-			isEditModalOpen: true,
-		} );
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				isEditModalOpen: true,
+			} )
+		);
 		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
@@ -185,10 +200,12 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should enable the save button when PHP version is changed', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			...useSiteDetails(),
-			isEditModalOpen: true,
-		} );
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				isEditModalOpen: true,
+			} )
+		);
 		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
@@ -202,10 +219,12 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should enable the save button when WordPress version is changed', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			...useSiteDetails(),
-			isEditModalOpen: true,
-		} );
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				isEditModalOpen: true,
+			} )
+		);
 		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
@@ -219,10 +238,12 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should disable the save button when site name is empty', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			...useSiteDetails(),
-			isEditModalOpen: true,
-		} );
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				isEditModalOpen: true,
+			} )
+		);
 		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
@@ -236,10 +257,12 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should update site when save button is clicked with changed site name', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			...useSiteDetails(),
-			isEditModalOpen: true,
-		} );
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				isEditModalOpen: true,
+			} )
+		);
 		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
@@ -260,10 +283,12 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should update site when PHP version is changed (CLI handles restart)', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			...useSiteDetails(),
-			isEditModalOpen: true,
-		} );
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				isEditModalOpen: true,
+			} )
+		);
 		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( mockGetAllCustomDomains ).toHaveBeenCalled();
@@ -283,10 +308,12 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should update isWpAutoUpdating and pass wpVersion when changed from latest to specific version', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			...useSiteDetails(),
-			isEditModalOpen: true,
-		} );
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				isEditModalOpen: true,
+			} )
+		);
 		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( screen.getByRole( 'dialog' ) ).toBeInTheDocument();
@@ -308,10 +335,12 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should pass wpVersion when WordPress version is changed to beta', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			...useSiteDetails(),
-			isEditModalOpen: true,
-		} );
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				isEditModalOpen: true,
+			} )
+		);
 		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( screen.getByRole( 'dialog' ) ).toBeInTheDocument();
@@ -330,10 +359,12 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should show error when site update fails', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			...useSiteDetails(),
-			isEditModalOpen: true,
-		} );
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				isEditModalOpen: true,
+			} )
+		);
 
 		mockUpdateSite.mockRejectedValueOnce( new Error( 'CLI site set failed' ) );
 
@@ -354,10 +385,12 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should disable form controls when site is being edited', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			...useSiteDetails(),
-			isEditModalOpen: true,
-		} );
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				isEditModalOpen: true,
+			} )
+		);
 		// Mock the updateSite to delay completion
 		mockUpdateSite.mockImplementation(
 			() => new Promise( ( resolve ) => setTimeout( resolve, 100 ) )
@@ -390,11 +423,13 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should disable WordPress version field when offline', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			...useSiteDetails(),
-			isEditModalOpen: true,
-		} );
-		( useOffline as jest.Mock ).mockReturnValue( true );
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				isEditModalOpen: true,
+			} )
+		);
+		vi.mocked( useOffline ).mockReturnValue( true );
 
 		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
@@ -406,11 +441,13 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should enable WordPress version field when online', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			...useSiteDetails(),
-			isEditModalOpen: true,
-		} );
-		( useOffline as jest.Mock ).mockReturnValue( false );
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				isEditModalOpen: true,
+			} )
+		);
+		vi.mocked( useOffline ).mockReturnValue( false );
 
 		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
@@ -422,11 +459,13 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should show tooltip with offline message when hovering over disabled WordPress version field', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			...useSiteDetails(),
-			isEditModalOpen: true,
-		} );
-		( useOffline as jest.Mock ).mockReturnValue( true );
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				isEditModalOpen: true,
+			} )
+		);
+		vi.mocked( useOffline ).mockReturnValue( true );
 
 		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
@@ -443,11 +482,13 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should not show tooltip when hovering over WordPress version field while online', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			...useSiteDetails(),
-			isEditModalOpen: true,
-		} );
-		( useOffline as jest.Mock ).mockReturnValue( false );
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				isEditModalOpen: true,
+			} )
+		);
+		vi.mocked( useOffline ).mockReturnValue( false );
 
 		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		const user = userEvent.setup();
@@ -461,10 +502,12 @@ describe( 'EditSiteDetails', () => {
 	} );
 
 	it( 'should fetch WordPress versions when modal opens', async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			...useSiteDetails(),
-			isEditModalOpen: true,
-		} );
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				isEditModalOpen: true,
+			} )
+		);
 		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 		await waitFor( () => {
 			expect( screen.getByRole( 'dialog' ) ).toBeInTheDocument();

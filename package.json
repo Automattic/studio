@@ -116,7 +116,7 @@
 		"@sentry/electron": "^6.5.0",
 		"@vscode/sudo-prompt": "^9.3.1",
 		"@wordpress/compose": "^7.36.0",
-		"@wordpress/dataviews": "^11.0.0",
+		"@wordpress/dataviews": "^11.3.0",
 		"@wordpress/i18n": "^6.9.0",
 		"@wordpress/icons": "^11.4.0",
 		"archiver": "^6.0.2",

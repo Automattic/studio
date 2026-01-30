@@ -1,4 +1,5 @@
 import { render, cleanup } from '@testing-library/react';
+// Removed: globals are now available via vitest/globals in tsconfig
 import { DynamicStylesheet } from 'src/components/dynamic-stylesheet';
 
 describe( 'DynamicStylesheet', () => {
@@ -21,20 +22,20 @@ describe( 'DynamicStylesheet', () => {
 		expect( linkElement.tagName ).toBe( 'LINK' );
 		expect( linkElement.rel ).toBe( 'stylesheet' );
 		expect( linkElement.type ).toBe( 'text/css' );
-		expect( linkElement.href ).toBe( 'http://localhost/test.css' );
+		expect( linkElement.href ).toBe( 'http://localhost:3000/test.css' );
 	} );
 
 	it( 'should update href when href prop changes', () => {
 		const { rerender } = render( <DynamicStylesheet id="test-style" href="/test.css" /> );
 
 		let linkElement = document.getElementById( 'test-style' ) as HTMLLinkElement;
-		expect( linkElement.href ).toBe( 'http://localhost/test.css' );
+		expect( linkElement.href ).toBe( 'http://localhost:3000/test.css' );
 
 		// Update the href prop
 		rerender( <DynamicStylesheet id="test-style" href="/updated.css" /> );
 
 		linkElement = document.getElementById( 'test-style' ) as HTMLLinkElement;
-		expect( linkElement.href ).toBe( 'http://localhost/updated.css' );
+		expect( linkElement.href ).toBe( 'http://localhost:3000/updated.css' );
 	} );
 
 	it( 'should maintain element order when href changes', () => {
@@ -58,7 +59,7 @@ describe( 'DynamicStylesheet', () => {
 
 		// Verify the href was actually updated
 		const firstElement = document.getElementById( 'first-style' ) as HTMLLinkElement;
-		expect( firstElement.href ).toBe( 'http://localhost/first-updated.css' );
+		expect( firstElement.href ).toBe( 'http://localhost:3000/first-updated.css' );
 	} );
 
 	it( 'should reuse existing link element with same id and not remove it on unmount', () => {
@@ -74,14 +75,14 @@ describe( 'DynamicStylesheet', () => {
 		// Should still be the same element (not a new one)
 		const linkElement = document.getElementById( 'existing-style' ) as HTMLLinkElement;
 		expect( linkElement ).toBe( existingLink );
-		expect( linkElement.href ).toBe( 'http://localhost/new.css' );
+		expect( linkElement.href ).toBe( 'http://localhost:3000/new.css' );
 
 		// Unmount component - element should NOT be removed since we didn't create it
 		unmount();
 
 		// Element should still exist since it wasn't created by the component
 		expect( document.getElementById( 'existing-style' ) ).toBeInTheDocument();
-		expect( linkElement.href ).toBe( 'http://localhost/new.css' );
+		expect( linkElement.href ).toBe( 'http://localhost:3000/new.css' );
 	} );
 
 	it( 'should handle multiple DynamicStylesheet components with different ids', () => {
@@ -100,9 +101,9 @@ describe( 'DynamicStylesheet', () => {
 		expect( link1 ).toBeInTheDocument();
 		expect( link2 ).toBeInTheDocument();
 		expect( link3 ).toBeInTheDocument();
-		expect( link1.href ).toBe( 'http://localhost/style1.css' );
-		expect( link2.href ).toBe( 'http://localhost/style2.css' );
-		expect( link3.href ).toBe( 'http://localhost/style3.css' );
+		expect( link1.href ).toBe( 'http://localhost:3000/style1.css' );
+		expect( link2.href ).toBe( 'http://localhost:3000/style2.css' );
+		expect( link3.href ).toBe( 'http://localhost:3000/style3.css' );
 	} );
 
 	it( 'should render null and not affect DOM tree', () => {
@@ -119,7 +120,7 @@ describe( 'DynamicStylesheet', () => {
 		render( <DynamicStylesheet id="cache-busted-style" href={ href } /> );
 
 		const linkElement = document.getElementById( 'cache-busted-style' ) as HTMLLinkElement;
-		expect( linkElement.href ).toBe( `http://localhost/main.css?v=${ timestamp }` );
+		expect( linkElement.href ).toBe( `http://localhost:3000/main.css?v=${ timestamp }` );
 	} );
 
 	it( 'should handle multiple stylesheet updates', () => {
@@ -128,19 +129,19 @@ describe( 'DynamicStylesheet', () => {
 		);
 
 		let linkElement = document.getElementById( 'wp-components' ) as HTMLLinkElement;
-		expect( linkElement.href ).toBe( 'http://localhost/styles/wp-components.css' );
+		expect( linkElement.href ).toBe( 'http://localhost:3000/styles/wp-components.css' );
 
 		// Switch to RTL
 		rerender( <DynamicStylesheet id="wp-components" href="/styles/wp-components-rtl.css" /> );
 
 		linkElement = document.getElementById( 'wp-components' ) as HTMLLinkElement;
-		expect( linkElement.href ).toBe( 'http://localhost/styles/wp-components-rtl.css' );
+		expect( linkElement.href ).toBe( 'http://localhost:3000/styles/wp-components-rtl.css' );
 
 		// Switch back to LTR
 		rerender( <DynamicStylesheet id="wp-components" href="/styles/wp-components.css" /> );
 
 		linkElement = document.getElementById( 'wp-components' ) as HTMLLinkElement;
-		expect( linkElement.href ).toBe( 'http://localhost/styles/wp-components.css' );
+		expect( linkElement.href ).toBe( 'http://localhost:3000/styles/wp-components.css' );
 	} );
 
 	it( 'should remove the link element when component unmounts', () => {
@@ -155,7 +156,7 @@ describe( 'DynamicStylesheet', () => {
 		expect( document.getElementById( 'test-style' ) ).toBeInTheDocument();
 		rerender( <DynamicStylesheet id="test-style" href="/updated.css" /> );
 		expect( ( document.getElementById( 'test-style' ) as HTMLLinkElement ).href ).toBe(
-			'http://localhost/updated.css'
+			'http://localhost:3000/updated.css'
 		);
 		unmount();
 		expect( document.getElementById( 'test-style' ) ).not.toBeInTheDocument();

@@ -10,12 +10,14 @@ import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 export function getInstalledAppsAndTerminals(): InstalledApps {
 	return {
+		antigravity: isInstalled( 'antigravity' ),
 		vscode: isInstalled( 'vscode' ),
 		phpstorm: isInstalled( 'phpstorm' ),
 		webstorm: isInstalled( 'webstorm' ),
 		windsurf: isInstalled( 'windsurf' ),
 		cursor: isInstalled( 'cursor' ),
 		sublime: isInstalled( 'sublime' ),
+		zed: isInstalled( 'zed' ),
 		terminal: true, // Terminal.app is always available on macOS
 		iterm: isInstalled( 'iterm' ),
 		warp: isInstalled( 'warp' ),

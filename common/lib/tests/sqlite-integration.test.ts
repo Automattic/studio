@@ -1,11 +1,22 @@
 import fs from 'fs-extra';
+import { vi } from 'vitest';
 import { SqliteIntegrationProvider } from 'common/lib/sqlite-integration';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 
 const SQLITE_DIRNAME = 'sqlite-database-integration';
 const MOCK_SITE_PATH = 'mock-site-path';
 
-jest.mock( 'fs-extra' );
+// Use the global fs-extra mock from src/__mocks__/fs-extra.ts
+vi.mock( 'fs-extra', async () => {
+	const mockModule = await import( 'src/__mocks__/fs-extra' );
+	return mockModule;
+} );
+
+// Import the mock helpers directly from the mocked fs-extra module
+const mockFs = fs as typeof fs & {
+	__setFileContents: ( path: string, fileContents: string | string[] ) => void;
+	__clearMockFiles: () => void;
+};
 
 class TestSqliteProvider extends SqliteIntegrationProvider {
 	getServerFilesPath(): string {
@@ -22,16 +33,14 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 
 	beforeEach( () => {
 		provider = new TestSqliteProvider();
-		jest.clearAllMocks();
-		require( 'fs-extra' ).__mockFiles = {};
+		vi.clearAllMocks();
+		// Clear mock file system state between tests
+		mockFs.__clearMockFiles();
 	} );
 
 	describe( 'needsSqliteSetup', () => {
 		it( 'should return true when db.php exists', async () => {
-			require( 'fs-extra' ).__setFileContents(
-				normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
-				''
-			);
+			mockFs.__setFileContents( normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ), '' );
 
 			const result = await provider.needsSqliteSetup( MOCK_SITE_PATH );
 
@@ -45,10 +54,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		} );
 
 		it( 'should return false when wp-config.php exists and db.php does not', async () => {
-			require( 'fs-extra' ).__setFileContents(
-				normalize( `${ MOCK_SITE_PATH }/wp-config.php` ),
-				'config'
-			);
+			mockFs.__setFileContents( normalize( `${ MOCK_SITE_PATH }/wp-config.php` ), 'config' );
 
 			const result = await provider.needsSqliteSetup( MOCK_SITE_PATH );
 
@@ -56,11 +62,8 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		} );
 
 		it( 'should return true when both files exist (db.php takes precedence)', async () => {
-			require( 'fs-extra' ).__setFileContents(
-				normalize( `${ MOCK_SITE_PATH }/wp-config.php` ),
-				'config'
-			);
-			require( 'fs-extra' ).__setFileContents(
+			mockFs.__setFileContents( normalize( `${ MOCK_SITE_PATH }/wp-config.php` ), 'config' );
+			mockFs.__setFileContents(
 				normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
 				'db-content'
 			);
@@ -73,20 +76,17 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 
 	describe( 'installSqliteIntegration', () => {
 		beforeEach( () => {
-			require( 'fs-extra' ).__setFileContents(
+			mockFs.__setFileContents(
 				normalize( 'server-files/sqlite-database-integration/db.copy' ),
 				"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'"
 			);
-			require( 'fs-extra' ).__setFileContents(
-				normalize( 'server-files/sqlite-database-integration' ),
-				'dir'
-			);
+			mockFs.__setFileContents( normalize( 'server-files/sqlite-database-integration' ), 'dir' );
 		} );
 
 		it( 'should create database directory', async () => {
 			await provider.installSqliteIntegration( MOCK_SITE_PATH );
 
-			expect( fs.mkdir ).toHaveBeenCalledWith(
+			expect( vi.mocked( fs.mkdir ) ).toHaveBeenCalledWith(
 				normalize( `${ MOCK_SITE_PATH }/wp-content/database` ),
 				{ recursive: true }
 			);
@@ -95,7 +95,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		it( 'should write db.php with correct path', async () => {
 			await provider.installSqliteIntegration( MOCK_SITE_PATH );
 
-			expect( fs.writeFile ).toHaveBeenCalledWith(
+			expect( vi.mocked( fs.writeFile ) ).toHaveBeenCalledWith(
 				normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
 				`SQLIntegration path: realpath( __DIR__ . '/mu-plugins/${ SQLITE_DIRNAME }' )`
 			);
@@ -104,14 +104,14 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		it( 'should copy SQLite plugin to mu-plugins', async () => {
 			await provider.installSqliteIntegration( MOCK_SITE_PATH );
 
-			expect( fs.copy ).toHaveBeenCalledWith(
+			expect( vi.mocked( fs.copy ) ).toHaveBeenCalledWith(
 				normalize( `server-files/${ SQLITE_DIRNAME }` ),
 				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_DIRNAME }` )
 			);
 		} );
 
 		it( 'should throw error when SQLite files not available', async () => {
-			provider.isSqliteIntegrationAvailable = jest.fn().mockResolvedValue( false );
+			provider.isSqliteIntegrationAvailable = vi.fn().mockResolvedValue( false );
 
 			await expect( provider.installSqliteIntegration( MOCK_SITE_PATH ) ).rejects.toThrow(
 				'SQLite integration files not found'
@@ -121,25 +121,19 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 
 	describe( 'keepSqliteIntegrationUpdated', () => {
 		beforeEach( () => {
-			require( 'fs-extra' ).__setFileContents(
+			mockFs.__setFileContents(
 				normalize( 'server-files/sqlite-database-integration/db.copy' ),
 				"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'"
 			);
-			require( 'fs-extra' ).__setFileContents(
-				normalize( 'server-files/sqlite-database-integration' ),
-				'dir'
-			);
+			mockFs.__setFileContents( normalize( 'server-files/sqlite-database-integration' ), 'dir' );
 		} );
 
 		it( 'should install when db.php exists', async () => {
-			require( 'fs-extra' ).__setFileContents(
-				normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
-				''
-			);
+			mockFs.__setFileContents( normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ), '' );
 
 			await provider.keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
 
-			expect( fs.copy ).toHaveBeenCalledWith(
+			expect( vi.mocked( fs.copy ) ).toHaveBeenCalledWith(
 				normalize( `server-files/${ SQLITE_DIRNAME }` ),
 				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_DIRNAME }` )
 			);
@@ -148,21 +142,18 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		it( 'should install when wp-config.php does not exist', async () => {
 			await provider.keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
 
-			expect( fs.copy ).toHaveBeenCalledWith(
+			expect( vi.mocked( fs.copy ) ).toHaveBeenCalledWith(
 				normalize( `server-files/${ SQLITE_DIRNAME }` ),
 				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_DIRNAME }` )
 			);
 		} );
 
 		it( 'should not install when wp-config.php exists and db.php does not', async () => {
-			require( 'fs-extra' ).__setFileContents(
-				normalize( `${ MOCK_SITE_PATH }/wp-config.php` ),
-				'config'
-			);
+			mockFs.__setFileContents( normalize( `${ MOCK_SITE_PATH }/wp-config.php` ), 'config' );
 
 			await provider.keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
 
-			expect( fs.copy ).not.toHaveBeenCalled();
+			expect( vi.mocked( fs.copy ) ).not.toHaveBeenCalled();
 		} );
 	} );
 
@@ -174,10 +165,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
  * Version: 2.1.5
  * Description: SQLite integration
  */`;
-			require( 'fs-extra' ).__setFileContents(
-				normalize( 'mu-plugins/sqlite/load.php' ),
-				loadPhpContent
-			);
+			mockFs.__setFileContents( normalize( 'mu-plugins/sqlite/load.php' ), loadPhpContent );
 
 			const version = await provider.getSqliteVersionFromInstallation(
 				normalize( 'mu-plugins/sqlite' )
@@ -195,7 +183,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		} );
 
 		it( 'should return empty string if version cannot be parsed', async () => {
-			require( 'fs-extra' ).__setFileContents(
+			mockFs.__setFileContents(
 				normalize( 'mu-plugins/sqlite/load.php' ),
 				'<?php // No version here'
 			);
@@ -210,11 +198,8 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 
 	describe( 'isSqliteIntegrationAvailable', () => {
 		it( 'should return true when both plugin and db.copy exist', async () => {
-			require( 'fs-extra' ).__setFileContents(
-				normalize( 'server-files/sqlite-database-integration' ),
-				'dir'
-			);
-			require( 'fs-extra' ).__setFileContents(
+			mockFs.__setFileContents( normalize( 'server-files/sqlite-database-integration' ), 'dir' );
+			mockFs.__setFileContents(
 				normalize( 'server-files/sqlite-database-integration/db.copy' ),
 				'content'
 			);
@@ -231,7 +216,7 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		} );
 
 		it( 'should return false when db.copy does not exist', async () => {
-			require( 'fs-extra' ).__setFileContents(
+			mockFs.__setFileContents(
 				normalize( 'server-files/sqlite-database-integration/other-file' ),
 				'content'
 			);

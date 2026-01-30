@@ -1,19 +1,20 @@
 // To run tests, execute `npm run test -- src/components/copy-text-button.test.ts` from the root directory
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { vi } from 'vitest';
 import { CopyTextButton } from 'src/components/copy-text-button';
-import { getIpcApi } from 'src/lib/get-ipc-api';
 
-jest.mock( 'src/lib/get-ipc-api' );
+const mockCopyText = vi.fn();
+
+vi.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: () => ( {
+		copyText: mockCopyText,
+	} ),
+} ) );
 
 describe( 'CopyTextButton', () => {
-	const mockCopyText = jest.fn();
 	beforeEach( () => {
-		jest.mock( 'src/lib/get-ipc-api', () => ( {
-			getIpcApi: () => ( {
-				copyText: mockCopyText,
-			} ),
-		} ) );
+		mockCopyText.mockClear();
 	} );
 
 	test( 'the button is present, and not the confirmation', () => {
@@ -24,8 +25,7 @@ describe( 'CopyTextButton', () => {
 
 	test( 'the confirmation is present after click', async () => {
 		const user = userEvent.setup();
-		const mockCopyText = jest.fn();
-		( getIpcApi as jest.Mock ).mockReturnValue( { copyText: mockCopyText } );
+
 		render( <CopyTextButton text="Sample Text" copyConfirmation="Copied!" /> );
 		expect( screen.getByRole( 'button', { name: 'Copy to clipboard' } ) ).toBeVisible();
 		await user.click( screen.getByRole( 'button' ) );

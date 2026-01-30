@@ -481,6 +481,7 @@ export function SyncDialog( {
 										isPushSelectionOverLimit ||
 										isSizeCheckLoading
 									}
+									data-testid={ `sync-dialog-${ type }-button` }
 								>
 									{ syncTexts.submit }
 								</Button>

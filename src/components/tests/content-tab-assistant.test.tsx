@@ -3,12 +3,14 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { Dispatch } from 'redux';
+import { vi } from 'vitest';
+import { WPCOM } from 'wpcom/types';
 import {
 	ContentTabAssistant,
 	MIMIC_CONVERSATION_DELAY,
 } from 'src/components/content-tab-assistant';
 import { LOCAL_STORAGE_CHAT_MESSAGES_KEY, CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
-import { useAuth } from 'src/hooks/use-auth';
+import * as useAuthModule from 'src/hooks/use-auth';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
@@ -20,26 +22,25 @@ import { useGetAssistantQuota, useGetWelcomeMessages } from 'src/stores/wpcom-ap
 
 store.replaceReducer( testReducer );
 
-jest.mock( 'src/hooks/use-auth' );
-jest.mock( 'src/hooks/use-offline' );
-jest.mock( 'src/lib/get-ipc-api' );
-jest.mock( 'src/hooks/use-get-wp-version' );
+vi.mock( 'src/hooks/use-offline' );
+vi.mock( 'src/lib/get-ipc-api' );
+vi.mock( 'src/hooks/use-get-wp-version' );
 
-jest.mock( 'src/lib/app-globals', () => ( {
+vi.mock( 'src/lib/app-globals', () => ( {
 	getAppGlobals: () => ( {
-		locale: jest.fn,
+		locale: vi.fn,
 	} ),
 } ) );
 
-jest.mock( 'src/stores/wpcom-api', () => ( {
-	useGetWelcomeMessages: jest.fn(),
-	useGetAssistantQuota: jest.fn(),
+vi.mock( 'src/stores/wpcom-api', () => ( {
+	useGetWelcomeMessages: vi.fn(),
+	useGetAssistantQuota: vi.fn(),
 	wpcomApi: {
 		reducerPath: 'wpcomApi',
 		reducer: () => ( {} ),
 		middleware: () => ( next: Dispatch ) => ( action: UnknownAction ) => next( action ),
-		injectEndpoints: jest.fn().mockReturnValue( {
-			useGetLatestRewindIdQuery: jest.fn(),
+		injectEndpoints: vi.fn().mockReturnValue( {
+			useGetLatestRewindIdQuery: vi.fn(),
 		} ),
 	},
 	wpcomPublicApi: {
@@ -59,6 +60,10 @@ const runningSite = {
 	url: 'http://example.com',
 };
 
+const createWpcomStub = ( clientReqPost: ReturnType< typeof vi.fn > ): Partial< WPCOM > => ( {
+	req: { post: clientReqPost, get: vi.fn(), put: vi.fn(), del: vi.fn() },
+} );
+
 const initialMessages = [
 	generateMessage( 'Initial message 1', 'user', 0, 100, 10 ),
 	generateMessage( 'Initial message 2', 'assistant', 1, 100, 11 ),
@@ -75,7 +80,7 @@ function ContextWrapper( props: Parameters< typeof ContentTabAssistant >[ 0 ] ) 
 }
 
 describe( 'ContentTabAssistant', () => {
-	const clientReqPost = jest.fn().mockImplementation( ( params, callback ) => {
+	const clientReqPost = vi.fn().mockImplementation( ( params, callback ) => {
 		callback(
 			null,
 			{
@@ -101,27 +106,29 @@ describe( 'ContentTabAssistant', () => {
 		);
 	} );
 
-	const authenticate = jest.fn();
+	const authenticate = vi.fn();
+	const logout = vi.fn();
 
 	const getInput = () => screen.getByTestId( 'ai-input-textarea' );
 
 	const getGuidelinesLink = () => screen.getByTestId( 'guidelines-link' );
 
 	beforeEach( () => {
-		jest.clearAllMocks();
-		window.HTMLElement.prototype.scrollIntoView = jest.fn();
+		vi.clearAllMocks();
+		window.HTMLElement.prototype.scrollIntoView = vi.fn();
 		localStorage.clear();
 
 		// Reset Redux store state
 		store.dispatch( testActions.resetState() );
 
-		( useAuth as jest.Mock ).mockReturnValue( {
-			client: { req: { post: clientReqPost } },
+		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
+			client: createWpcomStub( clientReqPost ) as WPCOM,
 			isAuthenticated: true,
 			authenticate,
+			logout,
 		} );
-		( useOffline as jest.Mock ).mockReturnValue( false );
-		( useGetWelcomeMessages as jest.Mock ).mockReturnValue( {
+		vi.mocked( useOffline ).mockReturnValue( false );
+		vi.mocked( useGetWelcomeMessages, { partial: true } ).mockReturnValue( {
 			data: {
 				messages: [ 'Welcome to our service!', 'How can I help you today?' ],
 				example_prompts: [
@@ -131,15 +138,17 @@ describe( 'ContentTabAssistant', () => {
 				],
 			},
 		} );
-		( useGetAssistantQuota as jest.Mock ).mockReturnValue( {
+		vi.mocked( useGetAssistantQuota, { partial: true } ).mockReturnValue( {
 			data: { userCanSendMessage: true },
 		} );
-		( getIpcApi as jest.Mock ).mockReturnValue( {
-			showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
-			executeWPCLiInline: jest.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			showMessageBox: vi.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
+			executeWPCLiInline: vi.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
 		} );
-		( useGetWpVersion as jest.Mock ).mockReturnValue( [ '6.4.3', jest.fn() ] );
+		vi.mocked( useGetWpVersion ).mockReturnValue( [ '6.4.3', vi.fn() ] );
 	} );
+
+	afterEach( () => {} );
 
 	it( 'renders placeholder text input', () => {
 		render( <ContextWrapper selectedSite={ runningSite } /> );
@@ -186,10 +195,11 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'renders default message when not authenticated', async () => {
-		( useAuth as jest.Mock ).mockReturnValue( {
-			client: { req: { post: clientReqPost } },
+		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
+			client: createWpcomStub( clientReqPost ) as WPCOM,
 			isAuthenticated: false,
 			authenticate,
+			logout,
 		} );
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 
@@ -202,12 +212,13 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'renders offline notice when not authenticated', () => {
-		( useAuth as jest.Mock ).mockReturnValue( {
-			client: { req: { post: clientReqPost } },
+		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
+			client: createWpcomStub( clientReqPost ) as WPCOM,
 			isAuthenticated: false,
 			authenticate,
+			logout,
 		} );
-		( useOffline as jest.Mock ).mockReturnValue( true );
+		vi.mocked( useOffline ).mockReturnValue( true );
 
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 		expect( screen.queryByText( 'Hold up!' ) ).not.toBeInTheDocument();
@@ -218,10 +229,11 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'allows authentication from Assistant chat', async () => {
-		( useAuth as jest.Mock ).mockReturnValue( {
-			client: { req: { post: clientReqPost } },
+		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
+			client: createWpcomStub( clientReqPost ) as WPCOM,
 			isAuthenticated: false,
 			authenticate,
+			logout,
 		} );
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 
@@ -236,13 +248,14 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'it stores messages with user-unique keys', async () => {
-		const user1 = { id: 'mock-user-1' };
-		const user2 = { id: 'mock-user-2' };
-		( useAuth as jest.Mock ).mockReturnValue( {
-			client: { req: { post: clientReqPost } },
+		const user1 = { id: 1, email: 'user1@example.com', displayName: 'User 1' };
+		const user2 = { id: 2, email: 'user2@example.com', displayName: 'User 2' };
+		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
+			client: createWpcomStub( clientReqPost ) as WPCOM,
 			isAuthenticated: true,
 			authenticate,
 			user: user1,
+			logout,
 		} );
 		const { rerender } = render( <ContextWrapper selectedSite={ runningSite } /> );
 
@@ -256,11 +269,12 @@ describe( 'ContentTabAssistant', () => {
 		} );
 
 		// Simulate user authentication change
-		( useAuth as jest.Mock ).mockReturnValue( {
-			client: { req: { post: clientReqPost } },
+		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
+			client: createWpcomStub( clientReqPost ) as WPCOM,
 			isAuthenticated: true,
 			authenticate,
 			user: user2,
+			logout,
 		} );
 
 		rerender( <ContextWrapper selectedSite={ runningSite } /> );
@@ -274,10 +288,11 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'does not render the Welcome messages and example prompts when not authenticated', () => {
-		( useAuth as jest.Mock ).mockReturnValue( {
-			client: { req: { post: clientReqPost } },
+		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
+			client: createWpcomStub( clientReqPost ) as WPCOM,
 			isAuthenticated: false,
 			authenticate,
+			logout,
 		} );
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 
@@ -298,7 +313,7 @@ describe( 'ContentTabAssistant', () => {
 
 	it( 'renders Welcome messages and example prompts when offline', () => {
 		store.dispatch( chatActions.setMessages( { instanceId: runningSite.id, messages: [] } ) );
-		( useOffline as jest.Mock ).mockReturnValue( true );
+		vi.mocked( useOffline ).mockReturnValue( true );
 
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 		expect( screen.getByText( 'Welcome to our service!' ) ).toBeVisible();
@@ -309,18 +324,18 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'should manage the focus state when selecting an example prompt', async () => {
-		const delayedClientReqPost = jest.fn().mockImplementation( () => {
+		const delayedClientReqPost = vi.fn().mockImplementation( () => {
 			// Never resolve
 		} );
 
-		( useAuth as jest.Mock ).mockReturnValue( {
-			client: { req: { post: delayedClientReqPost } },
+		vi.spyOn( useAuthModule, 'useAuth' ).mockReturnValue( {
+			client: createWpcomStub( delayedClientReqPost ) as WPCOM,
 			isAuthenticated: true,
 			authenticate,
+			logout,
 		} );
 
 		store.dispatch( chatActions.setMessages( { instanceId: runningSite.id, messages: [] } ) );
-		jest.useRealTimers();
 		const user = userEvent.setup();
 		render( <ContextWrapper selectedSite={ runningSite } /> );
 
@@ -367,8 +382,8 @@ describe( 'ContentTabAssistant', () => {
 	it( 'clears history via reminder when last message is two hours old', async () => {
 		const MOCKED_CURRENT_TIME = 1718882159928;
 		const OLD_MESSAGE_TIME = MOCKED_CURRENT_TIME - CLEAR_HISTORY_REMINDER_TIME - 1;
-		jest.useFakeTimers();
-		jest.setSystemTime( MOCKED_CURRENT_TIME );
+		vi.useFakeTimers( { shouldAdvanceTime: true } );
+		vi.setSystemTime( MOCKED_CURRENT_TIME );
 
 		const messageOne = generateMessage( 'Initial message 1', 'user', 0, 100, 10 );
 		messageOne.createdAt = MOCKED_CURRENT_TIME;
@@ -381,9 +396,9 @@ describe( 'ContentTabAssistant', () => {
 			} )
 		);
 
-		( getIpcApi as jest.Mock ).mockReturnValue( {
-			showMessageBox: jest.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
-			executeWPCLiInline: jest.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			showMessageBox: vi.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
+			executeWPCLiInline: vi.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
 		} );
 
 		render( <ContextWrapper selectedSite={ runningSite } /> );
@@ -409,7 +424,6 @@ describe( 'ContentTabAssistant', () => {
 			},
 			{ timeout: MIMIC_CONVERSATION_DELAY + 1000 }
 		);
-		jest.useRealTimers();
 	} );
 
 	it( 'renders notices by importance', async () => {
@@ -437,7 +451,7 @@ describe( 'ContentTabAssistant', () => {
 			{ timeout: MIMIC_CONVERSATION_DELAY + 2000 }
 		);
 
-		( useGetAssistantQuota as jest.Mock ).mockReturnValue( {
+		vi.mocked( useGetAssistantQuota, { partial: true } ).mockReturnValue( {
 			data: { userCanSendMessage: false, daysUntilReset: 4 },
 		} );
 		rerender( <ContextWrapper selectedSite={ runningSite } /> );
@@ -448,7 +462,7 @@ describe( 'ContentTabAssistant', () => {
 			screen.queryByText( 'This conversation is over two hours old.', { exact: false } )
 		).not.toBeInTheDocument();
 
-		( useOffline as jest.Mock ).mockReturnValue( true );
+		vi.mocked( useOffline ).mockReturnValue( true );
 		rerender( <ContextWrapper selectedSite={ runningSite } /> );
 		expect( screen.getByText( 'The AI assistant requires an internet connection.' ) ).toBeVisible();
 		expect(

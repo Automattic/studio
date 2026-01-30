@@ -62,6 +62,8 @@ import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
+import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
+import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tree-utils';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
@@ -94,9 +96,11 @@ export {
 	downloadSyncBackup,
 	exportSiteForPush,
 	getConnectedWpcomSites,
+	pauseSyncUpload,
 	pushArchive,
 	removeExportedSiteTmpFile,
 	removeSyncBackup,
+	resumeSyncUpload,
 	updateConnectedWpcomSites,
 	updateSingleConnectedWpcomSite,
 } from 'src/modules/sync/lib/ipc-handlers';
@@ -494,20 +498,12 @@ export async function getSentryUserId( _event: IpcMainInvokeEvent ) {
 }
 
 export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteFiles = false ) {
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		const server = SiteServer.get( id );
-		console.log( 'Deleting site', id );
-		if ( ! server ) {
-			throw new Error( 'Site not found.' );
-		}
-		await server.delete( deleteFiles );
-		const newSites = userData.sites.filter( ( site ) => site.id !== id );
-		await saveUserData( { ...userData, sites: newSites } );
-	} finally {
-		await unlockAppdata();
+	const server = SiteServer.get( id );
+	console.log( 'Deleting site', id );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
 	}
+	await server.delete( deleteFiles );
 }
 
 export function logRendererMessage(
@@ -713,6 +709,7 @@ export async function loadThemeDetails(
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( emitThemeDetailsLoadingEvent ) {
 		sendIpcEventToRendererWithWindow( parentWindow, 'theme-details-loading', { id } );
+		sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loading', { id } );
 	}
 
 	const oldThemePath = server.details.themeDetails?.path;
@@ -724,22 +721,23 @@ export async function loadThemeDetails(
 		details: themeDetails,
 	} );
 
-	if ( hasThemeChanged ) {
-		await server.persistThemeDetails();
-
-		try {
-			sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loading', { id } );
+	try {
+		if ( hasThemeChanged ) {
+			if ( ! emitThemeDetailsLoadingEvent ) {
+				sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loading', { id } );
+			}
+			await server.persistThemeDetails();
 			await server.updateCachedThumbnail();
-			const thumbnailPath = getSiteThumbnailPath( id );
-			const thumbnailData = await getImageData( thumbnailPath );
-			sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loaded', {
-				id,
-				imageData: thumbnailData,
-			} );
-		} catch ( error ) {
-			sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-load-error', { id } );
-			console.error( `Failed to update thumbnail for server ${ id }:`, error );
 		}
+		const thumbnailPath = getSiteThumbnailPath( id );
+		const thumbnailData = await getImageData( thumbnailPath );
+		sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loaded', {
+			id,
+			imageData: thumbnailData,
+		} );
+	} catch ( error ) {
+		sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-load-error', { id } );
+		console.error( `Failed to update thumbnail for server ${ id }:`, error );
 	}
 
 	return themeDetails;
@@ -828,8 +826,25 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 			return promiseExec( `start "" "warp://action/new_tab?path=${ encodedPath }"` );
 		}
 
+		// Ensure the Studio CLI bin directory is in the PATH for the spawned terminal.
+		// Child processes inherit the environment from the Electron process, which may have
+		// been started before the CLI was installed or PATH was updated in the registry.
+		const isCliInstalled = await isStudioCliInstalled();
+		let env: NodeJS.ProcessEnv | undefined;
+		if ( isCliInstalled ) {
+			const currentPath = process.env.PATH || '';
+			const pathEntries = currentPath.split( ';' ).map( ( p ) => p.toLowerCase() );
+			if ( ! pathEntries.includes( STABLE_BIN_DIR_PATH.toLowerCase() ) ) {
+				env = { ...process.env };
+				delete env.PATH;
+				delete env.Path;
+				env.PATH = `${ STABLE_BIN_DIR_PATH };${ currentPath }`;
+			}
+		}
+
 		return promiseExec( `start "Command Prompt" ${ defaultShell }`, {
 			cwd: targetPath,
+			env,
 		} );
 	} else if ( platform === 'linux' ) {
 		return promiseExec( `gnome-terminal --working-directory=${ targetPath }` );

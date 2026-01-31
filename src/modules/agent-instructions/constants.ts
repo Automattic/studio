@@ -38,44 +38,122 @@ export const INSTRUCTION_FILE_TYPES: InstructionFileType[] = [ 'claude', 'agents
  */
 export const AGENTS_FILE_NAME = 'AGENTS.md';
 
-export const DEFAULT_AGENT_INSTRUCTIONS = `# Studio Agent Instructions
+export const DEFAULT_AGENT_INSTRUCTIONS = `# WordPress Studio Site
 
-This project is managed with WordPress Studio.
+This is a local WordPress development site managed by WordPress Studio.
 
-## Studio CLI
-- Command: \`studio\`
-- Use \`studio --help\` to see all commands.
-- The CLI uses the current directory as the site path (override with \`--path\`).
-- Common examples:
-  - \`studio site list\`
-  - \`studio site status --path "<site path>"\`
-  - \`studio site start --path "<site path>"\`
-  - \`studio site stop --path "<site path>"\`
-  - \`studio site stop --all\`
-  - \`studio preview list\`
-  - \`studio preview create --path "<site path>"\`
-  - \`studio preview update <host> --path "<site path>"\`
-  - \`studio preview delete <host>\`
-  - \`studio wp --path "<site path>" <wp-cli args>\`
-  - \`studio chat\` - Interactive chat with WordPress AI
-  - \`studio chat "your message"\` - Single-shot chat message
+## Environment Details
 
-## Telex CLI
-- Command: \`telex\`
-- Telex is a sandboxed AI environment for building WordPress assets.
-- Use \`telex --help\` to see all commands.
+**Database**: This site uses **SQLite** (not MySQL/MariaDB)
+- Database file: \`wp-content/database/.ht.sqlite\`
+- Managed by the SQLite Database Integration plugin
+- Standard WordPress database operations work normally
+- Use WP-CLI commands for database operations (\`studio wp db\` commands)
 
-### Generate
-- \`telex gen block <name>\` - Generate a new block
-- \`telex gen plugin <name>\` - Generate a new plugin
-- \`telex gen theme <name>\` - Generate a new theme
+**Server**: WordPress Playground (PHP WebAssembly)
+- Runs entirely in Studio's environment
+- Supports standard WordPress functionality
+- Full WP-CLI integration available
 
-### Edit
-- \`telex edit block <name>\` - Edit an existing block conversationally
-- \`telex edit plugin <name>\` - Edit an existing plugin conversationally
-- \`telex edit theme <name>\` - Edit an existing theme conversationally
+## Studio CLI Commands
 
-### Chat
-- \`telex chat\` - Start a conversational session for building and editing
-- Telex chat understands your project context and can make changes interactively.
+**Site Management** (when run from this directory, site ID is auto-detected):
+\`\`\`bash
+studio site list                    # List all Studio sites
+studio site start                   # Start this site
+studio site stop                    # Stop this site
+studio site status                  # Check site status
+\`\`\`
+
+**WP-CLI Access** (full WordPress CLI):
+\`\`\`bash
+studio wp <command>                 # Run any WP-CLI command
+studio wp plugin list               # List plugins
+studio wp theme list                # List themes
+studio wp db query "SELECT..."      # Run SQL queries
+studio wp export                    # Export site content
+\`\`\`
+
+**WordPress.com Sync** (requires authentication):
+\`\`\`bash
+studio auth login                   # Authenticate with WordPress.com
+studio sync list                    # Show connected sites
+studio sync connect                 # Connect this site to WordPress.com
+studio sync status                  # Check sync status
+studio sync pull                    # Pull changes from WordPress.com
+studio sync push                    # Push changes to WordPress.com
+studio sync disconnect              # Disconnect from WordPress.com
+\`\`\`
+
+**Preview Sites** (temporary WordPress.com staging):
+\`\`\`bash
+studio preview create               # Create preview from this site
+studio preview list                 # List your preview sites
+studio preview update <host>        # Update existing preview
+studio preview delete <host>        # Delete preview site
+\`\`\`
+
+**AI Assistance**:
+\`\`\`bash
+studio chat                         # Interactive WordPress AI chat
+studio chat "your question"         # Single question to AI
+\`\`\`
+
+## Telex CLI (AI-Powered WordPress Development)
+
+Telex is an AI environment for generating and editing WordPress themes, plugins, and blocks.
+
+**Generate**:
+\`\`\`bash
+telex gen block <name>              # Generate a new block
+telex gen plugin <name>             # Generate a new plugin
+telex gen theme <name>              # Generate a new theme
+\`\`\`
+
+**Edit** (conversational editing):
+\`\`\`bash
+telex edit block <name>             # Edit a block interactively
+telex edit plugin <name>            # Edit a plugin interactively
+telex edit theme <name>             # Edit a theme interactively
+\`\`\`
+
+**Chat**:
+\`\`\`bash
+telex chat                          # Conversational WordPress development
+\`\`\`
+
+## Best Practices for AI Agents
+
+1. **Always verify the database type**: This site uses SQLite, not MySQL
+2. **Use WP-CLI via Studio**: Run \`studio wp\` commands instead of direct database access
+3. **Check site status**: Run \`studio site status\` before making changes
+4. **Test changes locally**: Start the site with \`studio site start\` to verify
+5. **Use sync carefully**: Always pull before push when syncing with WordPress.com
+6. **Leverage preview sites**: Use \`studio preview create\` for safe testing
+7. **Auto-detect site**: Most commands work without specifying site ID when run from site directory
+
+## Common Workflows
+
+**Local Development**:
+\`\`\`bash
+studio site start                   # Start development server
+studio wp plugin activate <name>    # Activate your plugin
+# Make changes to files...
+studio site stop                    # Stop when done
+\`\`\`
+
+**Deploy to WordPress.com**:
+\`\`\`bash
+studio sync connect                 # First time: connect to remote
+studio sync pull                    # Get latest from remote
+# Make local changes...
+studio sync push                    # Deploy changes
+\`\`\`
+
+**Quick Testing**:
+\`\`\`bash
+studio preview create               # Create temporary test site
+# Test at provided URL...
+studio preview delete <host>        # Clean up when done
+\`\`\`
 `;

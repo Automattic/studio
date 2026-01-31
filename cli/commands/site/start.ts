@@ -33,7 +33,9 @@ export async function runCommand(
 			if ( ! skipBrowser ) {
 				await openSiteInBrowser( site );
 			}
-			logSiteDetails( site );
+			if ( ! skipLogDetails ) {
+				logSiteDetails( site );
+			}
 			return;
 		}
 

@@ -21,6 +21,12 @@ import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
 import { commandHandler as wpCliCommandHandler } from 'cli/commands/wp';
 import { registerCommand as registerChatCommand } from 'cli/commands/chat';
+import { registerCommand as registerSyncListCommand } from 'cli/commands/sync/list';
+import { registerCommand as registerSyncStatusCommand } from 'cli/commands/sync/status';
+import { registerCommand as registerSyncConnectCommand } from 'cli/commands/sync/connect';
+import { registerCommand as registerSyncDisconnectCommand } from 'cli/commands/sync/disconnect';
+import { registerCommand as registerSyncPullCommand } from 'cli/commands/sync/pull';
+import { registerCommand as registerSyncPushCommand } from 'cli/commands/sync/push';
 import { readAppdata, lockAppdata, unlockAppdata, saveAppdata } from 'cli/lib/appdata';
 import { loadTranslations } from 'cli/lib/i18n';
 import { untildify } from 'cli/lib/utils';
@@ -99,6 +105,15 @@ async function main() {
 			registerSiteDeleteCommand( sitesYargs );
 			registerSiteSetCommand( sitesYargs );
 			sitesYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
+		} )
+		.command( 'sync', __( 'Sync sites with WordPress.com' ), ( syncYargs ) => {
+			registerSyncListCommand( syncYargs );
+			registerSyncStatusCommand( syncYargs );
+			registerSyncConnectCommand( syncYargs );
+			registerSyncDisconnectCommand( syncYargs );
+			registerSyncPullCommand( syncYargs );
+			registerSyncPushCommand( syncYargs );
+			syncYargs.version( false ).demandCommand( 1, __( 'You must provide a valid sync command' ) );
 		} )
 		.command( {
 			command: 'wp',

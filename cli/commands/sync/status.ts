@@ -1,9 +1,10 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { getAuthToken, readAppdata } from 'cli/lib/appdata';
+import { getSiteForSync } from 'cli/lib/sync-helpers';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-export async function runCommand( localSiteId: string ): Promise< void > {
+export async function runCommand( localSiteId?: string ): Promise< void > {
 	const logger = new Logger();
 
 	try {
@@ -23,37 +24,31 @@ export async function runCommand( localSiteId: string ): Promise< void > {
 			return;
 		}
 
+		// Get the local site (either by ID or from current directory)
+		const localSite = await getSiteForSync( localSiteId );
+
 		// Load appdata
 		const appdata = await readAppdata();
 
-		// Find the local site
-		const localSite = appdata.sites.find( ( site ) => site.id === localSiteId );
-		if ( ! localSite ) {
-			logger.reportError(
-				new LoggerError( sprintf( __( 'Local site "%s" not found' ), localSiteId ) )
-			);
-			return;
-		}
-
 		// Find connected sites for this local site
 		const connectedSites = appdata.connectedWpcomSites?.[ userId ] || [];
-		const syncSite = connectedSites.find( ( site ) => site.localSiteId === localSiteId );
+		const syncSite = connectedSites.find( ( site ) => site.localSiteId === localSite.id );
 
 		if ( ! syncSite ) {
 			logger.reportSuccess(
 				sprintf(
 					__( 'Site "%s" is not connected to WordPress.com' ),
-					localSite.name || localSiteId
+					localSite.name || localSite.id
 				)
 			);
 			console.log(
-				__( '\nUse "studio sync connect <local-site-id>" to connect to a remote site' )
+				__( '\nUse "studio sync connect" to connect to a remote site' )
 			);
 			return;
 		}
 
 		// Display status
-		console.log( '\n' + sprintf( __( 'Sync Status for "%s"' ), localSite.name || localSiteId ) );
+		console.log( '\n' + sprintf( __( 'Sync Status for "%s"' ), localSite.name || localSite.id ) );
 		console.log( __( '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' ) );
 		console.log( sprintf( __( 'Remote Site: %s' ), syncSite.name ) );
 		console.log( sprintf( __( 'Remote URL: %s' ), syncSite.url ) );
@@ -97,21 +92,20 @@ export async function runCommand( localSiteId: string ): Promise< void > {
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
-		command: 'status <local-site-id>',
+		command: 'status [local-site-id]',
 		describe: __( 'Show sync status for a local site' ),
 		builder: ( yargs ) => {
 			return yargs
 				.positional( 'local-site-id', {
-					describe: __( 'ID of the local site' ),
+					describe: __( 'ID of the local site (optional if run from site directory)' ),
 					type: 'string',
-					demandOption: true,
 				} )
 				.option( 'path', {
 					hidden: true,
 				} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv[ 'local-site-id' ] as string );
+			await runCommand( argv[ 'local-site-id' ] as string | undefined );
 		},
 	} );
 };

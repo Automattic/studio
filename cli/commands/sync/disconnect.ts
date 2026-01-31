@@ -1,9 +1,10 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { getAuthToken, lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
+import { getSiteForSync } from 'cli/lib/sync-helpers';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-export async function runCommand( localSiteId: string ): Promise< void > {
+export async function runCommand( localSiteId?: string ): Promise< void > {
 	const logger = new Logger();
 
 	try {
@@ -23,6 +24,9 @@ export async function runCommand( localSiteId: string ): Promise< void > {
 			return;
 		}
 
+		// Get the local site
+		const localSite = await getSiteForSync( localSiteId );
+
 		logger.reportStart( undefined, __( 'Disconnecting site…' ) );
 
 		// Lock and read appdata
@@ -30,26 +34,17 @@ export async function runCommand( localSiteId: string ): Promise< void > {
 		try {
 			const appdata = await readAppdata();
 
-			// Find the local site
-			const localSite = appdata.sites.find( ( site ) => site.id === localSiteId );
-			if ( ! localSite ) {
-				logger.reportError(
-					new LoggerError( sprintf( __( 'Local site "%s" not found' ), localSiteId ) )
-				);
-				return;
-			}
-
 			// Find connected sites
 			const connectedSites = appdata.connectedWpcomSites?.[ userId ] || [];
 			const syncSiteIndex = connectedSites.findIndex(
-				( site ) => site.localSiteId === localSiteId
+				( site ) => site.localSiteId === localSite.id
 			);
 
 			if ( syncSiteIndex === -1 ) {
 				logger.reportWarning(
 					sprintf(
 						__( 'Site "%s" is not connected to WordPress.com' ),
-						localSite.name || localSiteId
+						localSite.name || localSite.id
 					)
 				);
 				return;
@@ -69,7 +64,7 @@ export async function runCommand( localSiteId: string ): Promise< void > {
 			logger.reportSuccess(
 				sprintf(
 					__( 'Successfully disconnected "%s" from WordPress.com' ),
-					localSite.name || localSiteId
+					localSite.name || localSite.id
 				)
 			);
 		} finally {
@@ -87,21 +82,20 @@ export async function runCommand( localSiteId: string ): Promise< void > {
 
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
-		command: 'disconnect <local-site-id>',
+		command: 'disconnect [local-site-id]',
 		describe: __( 'Disconnect a local site from WordPress.com' ),
 		builder: ( yargs ) => {
 			return yargs
 				.positional( 'local-site-id', {
-					describe: __( 'ID of the local site to disconnect' ),
+					describe: __( 'ID of the local site (optional if run from site directory)' ),
 					type: 'string',
-					demandOption: true,
 				} )
 				.option( 'path', {
 					hidden: true,
 				} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv[ 'local-site-id' ] as string );
+			await runCommand( argv[ 'local-site-id' ] as string | undefined );
 		},
 	} );
 };

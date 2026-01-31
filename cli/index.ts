@@ -20,6 +20,7 @@ import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/s
 import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
 import { commandHandler as wpCliCommandHandler } from 'cli/commands/wp';
+import { registerCommand as registerChatCommand } from 'cli/commands/chat';
 import { readAppdata, lockAppdata, unlockAppdata, saveAppdata } from 'cli/lib/appdata';
 import { loadTranslations } from 'cli/lib/i18n';
 import { untildify } from 'cli/lib/utils';
@@ -119,7 +120,11 @@ async function main() {
 			command: '_events',
 			describe: false, // Hidden command
 			handler: eventsCommandHandler,
-		} )
+		} );
+
+	registerChatCommand( studioArgv );
+
+	studioArgv
 		.demandCommand( 1, __( 'You must provide a valid command' ) )
 		.strict();
 

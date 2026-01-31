@@ -78,6 +78,7 @@ interface AcpTerminal {
 interface RunningProcess {
 	agentId: string;
 	siteId: string;
+	workingDirectory: string;
 	process: ChildProcess | pty.IPty;
 	connection: ClientSideConnection;
 	session: AcpSession;
@@ -255,6 +256,7 @@ export class AcpProcessManager extends EventEmitter {
 			const runningProcess: RunningProcess = {
 				agentId,
 				siteId,
+				workingDirectory,
 				process: proc,
 				connection,
 				session,
@@ -277,6 +279,19 @@ export class AcpProcessManager extends EventEmitter {
 			session.pid = proc.pid;
 			session.state = 'ready';
 			session.acpSessionId = newSessionResult.sessionId;
+
+			// Store model info if available
+			if ( newSessionResult.models ) {
+				session.models = {
+					availableModels: newSessionResult.models.availableModels.map( ( m ) => ( {
+						modelId: m.modelId,
+						name: m.name,
+						description: m.description ?? undefined,
+					} ) ),
+					currentModelId: newSessionResult.models.currentModelId,
+				};
+				console.log( `ACP [${ sessionId }] Models available:`, session.models.availableModels.map( ( m ) => m.name ) );
+			}
 
 			this.emit( 'session_ready', sessionId, newSessionResult );
 
@@ -374,6 +389,14 @@ export class AcpProcessManager extends EventEmitter {
 				const outputByteLimit = Number( params.outputByteLimit ?? 1024 * 1024 ); // Default 1MB
 
 				console.log( `ACP [${ sessionId }] createTerminal: ${ params.command } ${ ( params.args ?? [] ).join( ' ' ) }` );
+				console.log( `ACP [${ sessionId }] createTerminal params.cwd: ${ params.cwd ?? '(not set, will use session working directory)' }` );
+				console.log( `ACP [${ sessionId }] createTerminal session workingDirectory: ${ runningProcess.workingDirectory }` );
+				console.log( `ACP [${ sessionId }] createTerminal process.cwd(): ${ process.cwd() }` );
+
+				// Use the session's working directory as fallback instead of process.cwd()
+				// This ensures commands run in the site directory, not the Studio app directory
+				const effectiveCwd = params.cwd ?? runningProcess.workingDirectory;
+				console.log( `ACP [${ sessionId }] createTerminal effective cwd: ${ effectiveCwd }` );
 
 				// Build environment
 				const env: Record< string, string > = { ...process.env } as Record< string, string >;
@@ -401,9 +424,9 @@ export class AcpProcessManager extends EventEmitter {
 					exitResolve,
 				};
 
-				// Spawn the process
+				// Spawn the process with the effective working directory
 				const proc = spawn( params.command, params.args ?? [], {
-					cwd: params.cwd ?? process.cwd(),
+					cwd: effectiveCwd,
 					env,
 					stdio: [ 'pipe', 'pipe', 'pipe' ],
 					shell: true,
@@ -619,6 +642,18 @@ export class AcpProcessManager extends EventEmitter {
 	}
 
 	/**
+	 * Helper to add timeout to a promise.
+	 */
+	private withTimeout< T >( promise: Promise< T >, timeoutMs: number, operation: string ): Promise< T > {
+		return Promise.race( [
+			promise,
+			new Promise< T >( ( _, reject ) => {
+				setTimeout( () => reject( new Error( `${ operation } timed out after ${ timeoutMs }ms` ) ), timeoutMs );
+			} ),
+		] );
+	}
+
+	/**
 	 * Initialize the ACP connection and create a session.
 	 */
 	private async initializeSession(
@@ -632,33 +667,48 @@ export class AcpProcessManager extends EventEmitter {
 
 		const { connection } = runningProcess;
 
-		// Step 1: Initialize the connection
-		console.log( `ACP [${ sessionId }] Calling initialize()...` );
-		const initResult = await connection.initialize( {
-			protocolVersion: 1,
-			clientInfo: {
-				name: 'WordPress Studio',
-				version: '1.0.0',
-			},
-			clientCapabilities: {
-				fs: {
-					readTextFile: true,
-					writeTextFile: true,
-				},
-				terminal: true,
-			},
-		} );
-		console.log( `ACP [${ sessionId }] initialize() complete:`, initResult );
+		try {
+			// Step 1: Initialize the connection
+			console.log( `ACP [${ sessionId }] Calling initialize()...` );
+			const initResult = await this.withTimeout(
+				connection.initialize( {
+					protocolVersion: 1,
+					clientInfo: {
+						name: 'WordPress Studio',
+						version: '1.0.0',
+					},
+					clientCapabilities: {
+						fs: {
+							readTextFile: true,
+							writeTextFile: true,
+						},
+						terminal: true,
+					},
+				} ),
+				30000,
+				'initialize()'
+			);
+			console.log( `ACP [${ sessionId }] initialize() complete:`, initResult );
 
-		// Step 2: Create the session
-		console.log( `ACP [${ sessionId }] Calling newSession() with cwd: ${ workingDirectory }` );
-		const result = await connection.newSession( {
-			cwd: workingDirectory,
-			mcpServers: [],
-		} );
-		console.log( `ACP [${ sessionId }] newSession() complete:`, result );
+			// Step 2: Create the session
+			console.log( `ACP [${ sessionId }] Calling newSession() with cwd: ${ workingDirectory }` );
+			console.log( `ACP [${ sessionId }] Current process.cwd() before newSession: ${ process.cwd() }` );
+			const result = await this.withTimeout(
+				connection.newSession( {
+					cwd: workingDirectory,
+					mcpServers: [],
+				} ),
+				30000,
+				'newSession()'
+			);
+			console.log( `ACP [${ sessionId }] newSession() complete:`, result );
+			console.log( `ACP [${ sessionId }] Current process.cwd() after newSession: ${ process.cwd() }` );
 
-		return result;
+			return result;
+		} catch ( error ) {
+			console.error( `ACP [${ sessionId }] Initialization failed:`, error );
+			throw error;
+		}
 	}
 
 	/**
@@ -710,6 +760,51 @@ export class AcpProcessManager extends EventEmitter {
 		await connection.cancel( {
 			sessionId: session.acpSessionId!,
 		} );
+	}
+
+	/**
+	 * Set the model for a session.
+	 * Only works if the agent supports model selection.
+	 */
+	async setModel( sessionId: string, modelId: string ): Promise< void > {
+		const runningProcess = this.processes.get( sessionId );
+		if ( ! runningProcess ) {
+			throw new Error( `Session not found: ${ sessionId }` );
+		}
+
+		const { connection, session } = runningProcess;
+
+		if ( ! session.models ) {
+			throw new Error( 'Agent does not support model selection' );
+		}
+
+		console.log( `ACP [${ sessionId }] Setting model to: ${ modelId }` );
+
+		// Use the unstable_setSessionModel method from the SDK
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const result = await ( connection as any ).unstable_setSessionModel( {
+			sessionId: session.acpSessionId!,
+			modelId,
+		} );
+
+		// Update the session's current model
+		session.models.currentModelId = modelId;
+
+		console.log( `ACP [${ sessionId }] Model set to: ${ modelId }`, result );
+
+		this.emit( 'model_changed', sessionId, modelId );
+	}
+
+	/**
+	 * Get the current model state for a session.
+	 */
+	getSessionModels( sessionId: string ): { availableModels: Array< { modelId: string; name: string; description?: string } >; currentModelId: string } | null {
+		const runningProcess = this.processes.get( sessionId );
+		if ( ! runningProcess ) {
+			return null;
+		}
+
+		return runningProcess.session.models ?? null;
 	}
 
 	/**

@@ -8,6 +8,7 @@ import { exec } from 'child_process';
 import fs from 'fs';
 import nodePath from 'path';
 import { promisify } from 'util';
+import { getResourcesPath } from 'src/storage/paths';
 import { BUILTIN_AGENTS } from '../config/agents';
 import { getAcpRegistry, getAgentCommand, type RegistryAgent } from './acp-registry';
 import type { AgentConfig, AgentStatus } from '../types';
@@ -53,15 +54,31 @@ function getSupplementalPaths( home: string ): string[] {
 }
 
 /**
+ * Get the Studio bin directory path.
+ * This contains stub scripts like the telex CLI stub.
+ */
+function getStudioBinPath(): string {
+	try {
+		const resourcesPath = getResourcesPath();
+		return nodePath.join( resourcesPath, 'bin' );
+	} catch {
+		// In child processes or tests, fall back to the development bin directory
+		return nodePath.join( __dirname, '..', '..', '..', '..', 'bin' );
+	}
+}
+
+/**
  * Get the augmented PATH for agent detection.
  * On macOS/Linux, GUI apps don't inherit shell PATH, so we add common paths.
  */
 function getAugmentedPath(): string {
 	const basePath = process.env.PATH ?? '';
 	const home = process.env.HOME ?? '';
+	const studioBinPath = getStudioBinPath();
 
 	if ( process.platform === 'darwin' ) {
 		const additionalPaths = [
+			studioBinPath, // Studio bin directory with stub scripts (highest priority)
 			'/usr/local/bin',
 			'/opt/homebrew/bin',
 			'/opt/local/bin',
@@ -80,6 +97,7 @@ function getAugmentedPath(): string {
 
 	if ( process.platform === 'linux' ) {
 		const additionalPaths = [
+			studioBinPath, // Studio bin directory with stub scripts (highest priority)
 			'/usr/local/bin',
 			`${ home }/.local/bin`,
 			`${ home }/.npm-global/bin`,
@@ -92,6 +110,11 @@ function getAugmentedPath(): string {
 			...getSupplementalPaths( home ),
 		];
 		return `${ additionalPaths.join( ':' ) }:${ basePath }`;
+	}
+
+	if ( process.platform === 'win32' ) {
+		// Windows uses semicolon as PATH separator
+		return `${ studioBinPath };${ basePath }`;
 	}
 
 	return basePath;
@@ -178,6 +201,14 @@ const ALTERNATIVE_BINARIES: Record< string, string[] > = {
 };
 
 /**
+ * Required arguments for specific agents.
+ * Some agents need subcommands to start the ACP server.
+ */
+const AGENT_ARGS: Record< string, string[] > = {
+	opencode: [ 'acp' ],
+};
+
+/**
  * NPX package fallbacks for agents where the registry only lists binary distribution
  * but an npm package also exists.
  */
@@ -210,7 +241,7 @@ async function detectRegistryAgent( agent: RegistryAgent ): Promise< AgentConfig
 			// Use the local binary instead of npx
 			resolvedCommandInfo = {
 				command: cmd,
-				args: [],
+				args: AGENT_ARGS[ agent.id ] ?? [],
 				env: commandInfo?.env,
 			};
 			break;

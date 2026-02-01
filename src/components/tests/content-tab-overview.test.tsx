@@ -1,6 +1,7 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-overview.test.tsx` from the root directory
 import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
+import { vi } from 'vitest';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -8,15 +9,15 @@ import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { store } from 'src/stores';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
-jest.mock( 'src/lib/app-globals', () => ( {
-	isWindows: jest.fn().mockReturnValue( false ),
+vi.mock( 'src/lib/app-globals', () => ( {
+	isWindows: vi.fn().mockReturnValue( false ),
 } ) );
-jest.mock( 'src/hooks/use-site-details' );
-jest.mock( 'src/hooks/use-theme-details' );
-jest.mock( 'src/lib/get-ipc-api', () => ( {
-	getIpcApi: jest.fn().mockReturnValue( {
-		getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-		getUserEditor: jest.fn().mockResolvedValue( 'vscode' ),
+vi.mock( 'src/hooks/use-site-details' );
+vi.mock( 'src/hooks/use-theme-details' );
+vi.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: vi.fn().mockReturnValue( {
+		getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
+		getUserEditor: vi.fn().mockResolvedValue( 'vscode' ),
 	} ),
 } ) );
 
@@ -52,15 +53,15 @@ const blockThemeButtonLabels = [
 
 describe( 'ContentTabOverview', () => {
 	beforeEach( () => {
-		jest.clearAllMocks();
-		( useSiteDetails as jest.Mock ).mockReturnValue( {} );
+		vi.clearAllMocks();
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {} );
 		store.dispatch( testActions.resetState() );
 	} );
 
 	const renderWithThemeDetails = ( {
 		isBlockTheme,
-		supportsWidgets,
-		supportsMenus,
+		supportsWidgets = false,
+		supportsMenus = false,
 		selectedSite = runningSite,
 	}: {
 		isBlockTheme: boolean;
@@ -68,8 +69,11 @@ describe( 'ContentTabOverview', () => {
 		supportsMenus?: boolean;
 		selectedSite?: SiteDetails;
 	} ) => {
-		( useThemeDetails as jest.Mock ).mockReturnValue( {
+		vi.mocked( useThemeDetails, { partial: true } ).mockReturnValue( {
 			selectedThemeDetails: {
+				name: 'Test Theme',
+				path: '/path/to/theme',
+				slug: 'test-theme',
 				isBlockTheme,
 				supportsWidgets,
 				supportsMenus,
@@ -87,7 +91,7 @@ describe( 'ContentTabOverview', () => {
 
 	describe( 'with block theme', () => {
 		test( 'renders all relevant "Customize" buttons for block themes', () => {
-			( useSiteDetails as jest.Mock ).mockReturnValue( {
+			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				loadingServer: { 'site-id': false },
 			} );
 
@@ -104,8 +108,8 @@ describe( 'ContentTabOverview', () => {
 		} );
 
 		test( '"Customize" buttons are disabled when the server is starting', () => {
-			( useSiteDetails as jest.Mock ).mockReturnValue( {
-				selectedSite: { id: 'site-id' },
+			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+				selectedSite: notRunningSite,
 				loadingServer: { 'site-id': true },
 			} );
 
@@ -121,7 +125,7 @@ describe( 'ContentTabOverview', () => {
 	describe( 'with classic theme', () => {
 		describe( 'without widget support', () => {
 			test( 'renders only Customizer and Menus buttons', () => {
-				( useSiteDetails as jest.Mock ).mockReturnValue( {
+				vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 					loadingServer: { 'site-id': false },
 				} );
 
@@ -144,7 +148,7 @@ describe( 'ContentTabOverview', () => {
 
 		describe( 'without menu support', () => {
 			test( 'renders only Customizer and Widgets buttons', () => {
-				( useSiteDetails as jest.Mock ).mockReturnValue( {
+				vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 					loadingServer: { 'site-id': false },
 				} );
 
@@ -167,7 +171,7 @@ describe( 'ContentTabOverview', () => {
 
 		describe( 'with both widget and menu support', () => {
 			test( 'renders Customizer, Menus, and Widgets buttons', () => {
-				( useSiteDetails as jest.Mock ).mockReturnValue( {
+				vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 					loadingServer: { 'site-id': false },
 				} );
 
@@ -188,8 +192,8 @@ describe( 'ContentTabOverview', () => {
 			} );
 
 			test( '"Customize" buttons are disabled when the server is starting', () => {
-				( useSiteDetails as jest.Mock ).mockReturnValue( {
-					selectedSite: { id: 'site-id' },
+				vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+					selectedSite: notRunningSite,
 					loadingServer: { 'site-id': true },
 				} );
 

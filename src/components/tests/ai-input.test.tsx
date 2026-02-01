@@ -1,42 +1,43 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
+import { vi, type Mock } from 'vitest';
 import { AIInput } from 'src/components/ai-input';
 
-const mockShowMessageBox = jest.fn();
-jest.mock( 'src/lib/get-ipc-api', () => ( {
+const mockShowMessageBox = vi.fn();
+vi.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
-		openURL: jest.fn(),
-		generateProposedSitePath: jest.fn(),
+		openURL: vi.fn(),
+		generateProposedSitePath: vi.fn(),
 		showMessageBox: mockShowMessageBox,
 	} ),
 } ) );
 
 describe( 'AIInput Component', () => {
-	let handleSend: jest.Mock;
-	let handleKeyDown: jest.Mock;
-	let setInput: jest.Mock;
-	let clearConverstaion: jest.Mock;
+	let handleSend: Mock;
+	let handleKeyDown: Mock;
+	let setInput: Mock;
+	let clearConverstaion: Mock;
 
 	const defaultProps = {
 		disabled: false,
 		input: '',
-		setInput: jest.fn(),
-		handleSend: jest.fn(),
-		handleKeyDown: jest.fn(),
-		clearConverstaion: jest.fn(),
+		setInput: vi.fn(),
+		handleSend: vi.fn(),
+		handleKeyDown: vi.fn(),
+		clearConverstaion: vi.fn(),
 		isAssistantThinking: false,
 	};
 
 	const getInput = () => screen.getByPlaceholderText( 'What would you like to learn?' );
 
 	beforeEach( () => {
-		handleSend = jest.fn();
-		handleKeyDown = jest.fn();
-		setInput = jest.fn();
-		clearConverstaion = jest.fn();
+		handleSend = vi.fn();
+		handleKeyDown = vi.fn();
+		setInput = vi.fn();
+		clearConverstaion = vi.fn();
 		const inputRef = React.createRef< HTMLTextAreaElement >();
 
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 
 		render(
 			<AIInput

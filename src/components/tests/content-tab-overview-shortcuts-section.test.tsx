@@ -1,6 +1,7 @@
 // To run tests, execute `npm run test -- src/components/tests/content-tab-overview-shortcuts-section.test.tsx` from the root directory
 import { fireEvent, render, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
+import { vi } from 'vitest';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
@@ -9,9 +10,9 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
 import { testReducer } from 'src/stores/tests/utils/test-reducer';
 
-jest.mock( 'src/lib/app-globals', () => ( {
-	isWindows: jest.fn().mockReturnValue( false ),
-	isMac: jest.fn().mockReturnValue( false ),
+vi.mock( 'src/lib/app-globals', () => ( {
+	isWindows: vi.fn().mockReturnValue( false ),
+	isMac: vi.fn().mockReturnValue( false ),
 } ) );
 
 const selectedSite: StartedSiteDetails = {
@@ -24,12 +25,11 @@ const selectedSite: StartedSiteDetails = {
 	url: 'http://example.com',
 };
 
-const mockGetIpcApi = getIpcApi as jest.Mock;
-jest.mock( 'src/lib/get-ipc-api' );
-jest.mock( 'src/hooks/use-theme-details' );
-jest.mock( 'src/stores/sync', () => ( {
-	...jest.requireActual( 'src/stores/sync' ),
-	useConnectedSitesData: jest.fn().mockReturnValue( {
+vi.mock( 'src/lib/get-ipc-api' );
+vi.mock( 'src/hooks/use-theme-details' );
+vi.mock( 'src/stores/sync', async () => ( {
+	...( await vi.importActual( 'src/stores/sync' ) ),
+	useConnectedSitesData: vi.fn().mockReturnValue( {
 		connectedSites: [],
 		localSiteId: 'site-id',
 	} ),
@@ -48,9 +48,12 @@ function renderWithProvider( component: React.ReactElement ) {
 
 describe( 'ShortcutsSection', () => {
 	beforeEach( () => {
-		jest.clearAllMocks();
-		( useThemeDetails as jest.Mock ).mockReturnValue( {
+		vi.clearAllMocks();
+		vi.mocked( useThemeDetails, { partial: true } ).mockReturnValue( {
 			selectedThemeDetails: {
+				name: 'Test Theme',
+				path: '/path/to/theme',
+				slug: 'test-theme',
 				isBlockTheme: true,
 				supportsWidgets: false,
 				supportsMenus: false,
@@ -63,14 +66,14 @@ describe( 'ShortcutsSection', () => {
 
 	it( 'opens site in VS Code when the user select VS Code and clicked the button', async () => {
 		// Mock the IPC API with getInstalledApps returning the installed apps
-		const openURLMock = jest.fn();
-		const openAppAtPathMock = jest.fn();
-		mockGetIpcApi.mockReturnValue( {
+		const openURLMock = vi.fn();
+		const openAppAtPathMock = vi.fn();
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			openURL: openURLMock,
 			openAppAtPath: openAppAtPathMock,
-			getUserEditor: jest.fn().mockResolvedValue( 'vscode' ),
-			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-			getInstalledAppsAndTerminals: jest.fn().mockResolvedValue( {
+			getUserEditor: vi.fn().mockResolvedValue( 'vscode' ),
+			getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
+			getInstalledAppsAndTerminals: vi.fn().mockResolvedValue( {
 				vscode: true,
 				phpstorm: false,
 				webstorm: false,
@@ -99,15 +102,15 @@ describe( 'ShortcutsSection', () => {
 	} );
 
 	it( 'opens site in PhpStorm when PhpStorm is installed and the button is clicked, only available on MacOS', async () => {
-		( isMac as jest.Mock ).mockReturnValue( true );
+		vi.mocked( isMac ).mockReturnValue( true );
 
 		// Mock the IPC API with getInstalledApps returning the installed apps
-		const openAppAtPathMock = jest.fn();
-		mockGetIpcApi.mockReturnValue( {
+		const openAppAtPathMock = vi.fn();
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			openAppAtPath: openAppAtPathMock,
-			getUserEditor: jest.fn().mockResolvedValue( 'phpstorm' ), // User prefers PhpStorm
-			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-			getInstalledAppsAndTerminals: jest.fn().mockResolvedValue( {
+			getUserEditor: vi.fn().mockResolvedValue( 'phpstorm' ), // User prefers PhpStorm
+			getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
+			getInstalledAppsAndTerminals: vi.fn().mockResolvedValue( {
 				vscode: false,
 				phpstorm: true,
 				webstorm: false,
@@ -135,12 +138,12 @@ describe( 'ShortcutsSection', () => {
 
 	it( 'opens terminal when terminal is available and the button is clicked', async () => {
 		// Mock the IPC API with getInstalledApps returning the installed apps
-		const openTerminalAtPathMock = jest.fn();
-		mockGetIpcApi.mockReturnValue( {
+		const openTerminalAtPathMock = vi.fn();
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			openTerminalAtPath: openTerminalAtPathMock,
-			getUserEditor: jest.fn().mockResolvedValue( null ),
-			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
-			getInstalledAppsAndTerminals: jest.fn().mockResolvedValue( {
+			getUserEditor: vi.fn().mockResolvedValue( null ),
+			getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
+			getInstalledAppsAndTerminals: vi.fn().mockResolvedValue( {
 				vscode: false,
 				phpstorm: false,
 				webstorm: false,
@@ -169,10 +172,10 @@ describe( 'ShortcutsSection', () => {
 
 	it( 'shows users preferred editor', async () => {
 		// Mock the IPC API
-		mockGetIpcApi.mockReturnValue( {
-			openLocalPath: jest.fn(),
-			getUserEditor: jest.fn().mockResolvedValue( 'cursor' ),
-			getUserTerminal: jest.fn().mockResolvedValue( 'terminal' ),
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			openLocalPath: vi.fn(),
+			getUserEditor: vi.fn().mockResolvedValue( 'cursor' ),
+			getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
 		} );
 
 		const { queryByLabelText, findByLabelText } = renderWithProvider(

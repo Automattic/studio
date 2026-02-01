@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { WPCOM } from 'wpcom/types';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -11,16 +12,16 @@ import {
 } from 'src/stores/tests/utils/test-reducer';
 import { wpcomApi } from 'src/stores/wpcom-api';
 
-jest.mock( 'src/lib/get-ipc-api' );
-( getIpcApi as jest.Mock ).mockReturnValue( {
-	executeWPCLiInline: jest.fn(),
-	getLastSeenVersion: jest.fn().mockResolvedValue( '1.2.3' ),
-	saveLastSeenVersion: jest.fn().mockResolvedValue( undefined ),
+vi.mock( 'src/lib/get-ipc-api' );
+vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+	executeWPCLiInline: vi.fn(),
+	getLastSeenVersion: vi.fn().mockResolvedValue( '1.2.3' ),
+	saveLastSeenVersion: vi.fn().mockResolvedValue( undefined ),
 } );
 
 store.replaceReducer( testReducer );
 
-const mockClientReqPostUsingCallback = jest.fn().mockImplementation( ( params, callback ) => {
+const mockClientReqPostUsingCallback = vi.fn().mockImplementation( ( params, callback ) => {
 	callback(
 		null,
 		{
@@ -49,7 +50,7 @@ const mockClientUsingCallback = {
 	req: { post: mockClientReqPostUsingCallback },
 } as unknown as WPCOM;
 
-const mockClientReqPostUsingPromise = jest.fn().mockResolvedValue( {
+const mockClientReqPostUsingPromise = vi.fn().mockResolvedValue( {
 	data: 'success',
 } );
 
@@ -59,7 +60,7 @@ const mockClientUsingPromise = {
 
 describe( 'chat-slice', () => {
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 		localStorage.clear();
 		store.dispatch( testActions.resetState() );
 		resetDispatchedActions();
@@ -230,26 +231,25 @@ describe( 'chat-slice', () => {
 			expect( storedChatIds[ instanceId ] ).toBe( 123 );
 		} );
 
-		it( 'should handle invalid JSON in localStorage gracefully', () => {
+		it( 'should handle invalid JSON in localStorage gracefully', async () => {
 			// Silence `console.error` output
-			const consoleErrorSpy = jest.spyOn( console, 'error' ).mockImplementation( () => {} );
+			const consoleErrorSpy = vi.spyOn( console, 'error' ).mockImplementation( () => {} );
 
 			localStorage.setItem( LOCAL_STORAGE_CHAT_MESSAGES_KEY, 'invalid json' );
 			localStorage.setItem( LOCAL_STORAGE_CHAT_API_IDS_KEY, '{also invalid}' );
 
-			jest.isolateModules( () => {
-				const { store } = require( 'src/stores' );
+			vi.resetModules();
+			const { store: freshStore } = await import( 'src/stores' );
 
-				const state = store.getState();
-				expect( state.chat.messagesDict ).toEqual( {} );
-				expect( state.chat.chatApiIdDict ).toEqual( {} );
-			} );
+			const state = freshStore.getState();
+			expect( state.chat.messagesDict ).toEqual( {} );
+			expect( state.chat.chatApiIdDict ).toEqual( {} );
 
 			expect( consoleErrorSpy ).toHaveBeenCalledTimes( 1 );
 		} );
 
 		afterEach( () => {
-			jest.restoreAllMocks();
+			vi.restoreAllMocks();
 		} );
 	} );
 
@@ -375,8 +375,8 @@ describe( 'chat-slice', () => {
 		};
 
 		beforeEach( () => {
-			( getIpcApi as jest.Mock ).mockReturnValue( {
-				executeWPCLiInline: jest.fn().mockImplementation( ( { args } ) => {
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				executeWPCLiInline: vi.fn().mockImplementation( ( { args } ) => {
 					if ( args.includes( 'plugin list' ) ) {
 						return {
 							stdout: JSON.stringify( [ { name: 'woocommerce' }, { name: 'jetpack' } ] ),
@@ -426,8 +426,8 @@ describe( 'chat-slice', () => {
 		} );
 
 		it( 'should handle WP CLI errors gracefully', async () => {
-			( getIpcApi as jest.Mock ).mockReturnValue( {
-				executeWPCLiInline: jest.fn().mockResolvedValue( {
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				executeWPCLiInline: vi.fn().mockResolvedValue( {
 					stdout: '',
 					stderr: 'Error: WP CLI failed',
 				} ),
@@ -448,8 +448,8 @@ describe( 'chat-slice', () => {
 		} );
 
 		it( 'should handle JSON parsing errors gracefully', async () => {
-			( getIpcApi as jest.Mock ).mockReturnValue( {
-				executeWPCLiInline: jest.fn().mockImplementation( ( { args } ) => {
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				executeWPCLiInline: vi.fn().mockImplementation( ( { args } ) => {
 					const isGettingSiteUrl = args.includes( 'option get siteurl' );
 
 					return {

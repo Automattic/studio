@@ -140,7 +140,7 @@ export const store = configureStore( {
 setupListeners( store.dispatch );
 
 // Initialize beta features on store initialization, but skip in test environment
-if ( typeof jest === 'undefined' && process.env.NODE_ENV !== 'test' ) {
+if ( process.env.NODE_ENV !== 'test' ) {
 	void store.dispatch( loadBetaFeatures() );
 }
 

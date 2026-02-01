@@ -1,35 +1,63 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
 import { app } from 'electron';
 import fs from 'fs';
+import { vi } from 'vitest';
+import type { PathLike } from 'fs';
 
-jest.mock( 'fs', () => ( {
-	existsSync: jest.fn(),
-	readdirSync: jest.fn(),
-} ) );
+// The overload of readdirSync that returns string[] (without withFileTypes option)
+type ReaddirSyncStrings = (
+	path: PathLike,
+	options?:
+		| BufferEncoding
+		| null
+		| {
+				encoding?: BufferEncoding | null;
+				withFileTypes?: false | undefined;
+				recursive?: boolean | undefined;
+		  }
+) => string[];
 
-jest.mock( 'electron', () => ( {
+vi.mock( 'fs', () => {
+	const existsSync = vi.fn< ( path: PathLike ) => boolean >();
+	const readdirSync = vi.fn< ReaddirSyncStrings >();
+
+	return {
+		default: { existsSync, readdirSync },
+		existsSync,
+		readdirSync,
+	};
+} );
+
+vi.mock( 'electron', () => ( {
 	app: {
-		getPath: jest.fn(),
+		getPath: vi.fn(),
 	},
 } ) );
 
+function mockReaddirSync( files: string[] ) {
+	(
+		vi.mocked( fs.readdirSync ) as ReturnType< typeof vi.fn< ReaddirSyncStrings > >
+	 ).mockImplementation( () => files );
+}
+
 describe( 'isInstalled', () => {
-	let isInstalled: ( key: string ) => boolean;
+	let isInstalled: ( key: keyof InstalledApps ) => boolean;
 	let mockPaths: string[];
 
 	beforeEach( () => {
-		jest.resetAllMocks();
+		vi.resetAllMocks();
 		mockPaths = [];
 
-		( fs.existsSync as jest.Mock ).mockImplementation( ( testPath: string ) => {
-			const normalizedTestPath = testPath.replace( /\\/g, '/' );
+		vi.mocked( fs.existsSync ).mockImplementation( ( testPath ) => {
+			const pathStr = String( testPath );
+			const normalizedTestPath = pathStr.replace( /\\/g, '/' );
 			const normalizedMockPaths = mockPaths.map( ( p ) => p.replace( /\\/g, '/' ) );
 			return normalizedMockPaths.includes( normalizedTestPath );
 		} );
 
-		( app.getPath as jest.Mock ).mockImplementation( ( name: string ) => {
+		vi.mocked( app.getPath ).mockImplementation( ( name: string ) => {
 			switch ( name ) {
 				case 'home':
 					return '/mock/home/path';
@@ -44,13 +72,12 @@ describe( 'isInstalled', () => {
 	} );
 
 	describe( 'on macOS (darwin)', () => {
-		beforeEach( () => {
+		beforeEach( async () => {
 			Object.defineProperty( process, 'platform', { value: 'darwin' } );
 			// Re-import the module to ensure platform-specific paths are set up
-			jest.isolateModules( () => {
-				const module = require( '../is-installed' );
-				isInstalled = module.isInstalled;
-			} );
+			vi.resetModules();
+			const module = await import( '../is-installed' );
+			isInstalled = module.isInstalled;
 		} );
 
 		it( 'detects VS Code installed in system Applications', () => {
@@ -75,15 +102,14 @@ describe( 'isInstalled', () => {
 	} );
 
 	describe( 'on Windows (win32)', () => {
-		beforeEach( () => {
+		beforeEach( async () => {
 			Object.defineProperty( process, 'platform', { value: 'win32' } );
 			process.env.ProgramFiles = 'D:\\Program Files';
 			process.env.LOCALAPPDATA = 'C:\\Users\\TestUser\\AppData\\Local';
 			// Re-import the module after setting the environment variable
-			jest.isolateModules( () => {
-				const module = require( '../is-installed' );
-				isInstalled = module.isInstalled;
-			} );
+			vi.resetModules();
+			const module = await import( '../is-installed' );
+			isInstalled = module.isInstalled;
 		} );
 
 		it( 'detects VS Code installed in Program Files', () => {
@@ -98,7 +124,7 @@ describe( 'isInstalled', () => {
 
 		it( 'detects PhpStorm with version-specific folder', () => {
 			mockPaths = [ 'D:\\Program Files\\JetBrains', 'D:\\Program Files\\JetBrains\\PhpStorm' ];
-			( fs.readdirSync as jest.Mock ).mockReturnValue( [ 'PhpStorm 2023.1', 'WebStorm 2023.1' ] );
+			mockReaddirSync( [ 'PhpStorm 2023.1', 'WebStorm 2023.1' ] );
 			expect( isInstalled( 'phpstorm' ) ).toBe( true );
 		} );
 
@@ -107,25 +133,23 @@ describe( 'isInstalled', () => {
 			expect( isInstalled( 'phpstorm' ) ).toBe( true );
 		} );
 
-		it( 'falls back to default Program Files path when environment variable is not set', () => {
+		it( 'falls back to default Program Files path when environment variable is not set', async () => {
 			delete process.env.ProgramFiles;
 			// Re-import the module after setting the environment variable
-			jest.isolateModules( () => {
-				const module = require( '../is-installed' );
-				isInstalled = module.isInstalled;
-			} );
+			vi.resetModules();
+			const module = await import( '../is-installed' );
+			isInstalled = module.isInstalled;
 
 			mockPaths = [ 'C:\\Program Files\\Microsoft VS Code' ];
 			expect( isInstalled( 'vscode' ) ).toBe( true );
 		} );
 
-		it( 'falls back to electron appData path when LOCALAPPDATA is not set', () => {
+		it( 'falls back to electron appData path when LOCALAPPDATA is not set', async () => {
 			delete process.env.LOCALAPPDATA;
 			// Re-import the module after setting the environment variable
-			jest.isolateModules( () => {
-				const module = require( '../is-installed' );
-				isInstalled = module.isInstalled;
-			} );
+			vi.resetModules();
+			const module = await import( '../is-installed' );
+			isInstalled = module.isInstalled;
 
 			mockPaths = [ 'C:\\Users\\TestUser\\AppData\\Roaming\\Local\\Programs\\Microsoft VS Code' ];
 			expect( isInstalled( 'vscode' ) ).toBe( true );

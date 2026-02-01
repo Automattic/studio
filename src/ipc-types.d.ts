@@ -43,12 +43,14 @@ interface StartedSiteDetails extends StoppedSiteDetails {
 type SiteDetails = StartedSiteDetails | StoppedSiteDetails;
 
 type InstalledApps = {
+	antigravity: boolean;
 	vscode: boolean;
 	phpstorm: boolean;
 	webstorm: boolean;
 	windsurf: boolean;
 	cursor: boolean;
 	sublime: boolean;
+	zed: boolean;
 	terminal: boolean;
 	iterm: boolean;
 	warp: boolean;

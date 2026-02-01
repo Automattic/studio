@@ -1,16 +1,17 @@
 import { move } from 'fs-extra';
+import { vi } from 'vitest';
 import { SqlExporter } from 'src/lib/import-export/export/exporters';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { SiteServer } from 'src/site-server';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 
-jest.mock( 'fs' );
-jest.mock( 'fs/promises' );
-jest.mock( 'os' );
-jest.mock( 'fs-extra' );
+vi.mock( 'fs' );
+vi.mock( 'fs/promises' );
+vi.mock( 'os' );
+vi.mock( 'fs-extra' );
 
 // Mock SiteServer
-jest.mock( 'src/site-server' );
+vi.mock( 'src/site-server' );
 
 platformTestSuite( 'SqlExporter', ( { normalize } ) => {
 	let exporter: SqlExporter;
@@ -35,23 +36,28 @@ platformTestSuite( 'SqlExporter', ( { normalize } ) => {
 		};
 
 		// Reset all mock implementations
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 
-		( SiteServer.get as jest.Mock ).mockReturnValue( {
-			details: { path: normalize( '/path/to/site' ) },
-			executeWpCliCommand: jest.fn().mockResolvedValue( { stderr: null } ),
+		vi.mocked( SiteServer.get, { partial: true } ).mockReturnValue( {
+			details: {
+				path: normalize( '/path/to/site' ),
+				id: '123',
+				name: 'Test Site',
+				port: 9999,
+				phpVersion: '8.3',
+				running: false,
+			},
+			executeWpCliCommand: vi.fn().mockResolvedValue( { stdout: '', stderr: '', exitCode: 0 } ),
 		} );
-		( move as jest.Mock ).mockResolvedValue( null );
+		vi.mocked( move ).mockResolvedValue();
 
-		jest.useFakeTimers();
-		jest.setSystemTime( new Date( '2024-08-01T12:00:00Z' ) );
+		vi.useFakeTimers();
+		vi.setSystemTime( new Date( '2024-08-01T12:00:00Z' ) );
 
 		exporter = new SqlExporter( mockOptions );
 	} );
 
-	afterEach( () => {
-		jest.useRealTimers();
-	} );
+	afterEach( () => {} );
 
 	it( 'should call sqlite export command on the site server', async () => {
 		await exporter.export();

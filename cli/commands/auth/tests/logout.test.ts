@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { revokeAuthToken } from 'cli/lib/api';
 import {
 	getAuthToken,
@@ -6,16 +7,38 @@ import {
 	saveAppdata,
 	unlockAppdata,
 } from 'cli/lib/appdata';
-import { Logger, LoggerError } from 'cli/logger';
+import { LoggerError } from 'cli/logger';
+import {
+	mockReportStart,
+	mockReportSuccess,
+	mockReportError,
+	mockReportProgress,
+	mockReportWarning,
+	mockReportKeyValuePair,
+} from 'cli/tests/test-utils';
 import { runCommand } from '../logout';
 
-jest.mock( 'cli/lib/appdata' );
-jest.mock( 'cli/logger' );
-jest.mock( 'cli/lib/api' );
+vi.mock( 'cli/lib/appdata' );
+vi.mock( 'cli/lib/api' );
+vi.mock( 'cli/logger', () => ( {
+	Logger: vi.fn( () => ( {
+		reportStart: mockReportStart,
+		reportSuccess: mockReportSuccess,
+		reportError: mockReportError,
+		reportProgress: mockReportProgress,
+		reportWarning: mockReportWarning,
+		reportKeyValuePair: mockReportKeyValuePair,
+		spinner: {},
+		currentAction: null,
+	} ) ),
+	LoggerError: class LoggerError extends Error {},
+} ) );
 
 describe( 'Auth Logout Command', () => {
 	function getMockAppdata() {
 		return {
+			sites: [],
+			snapshots: [],
 			authToken: {
 				accessToken: 'existing-token',
 				id: 999,
@@ -27,32 +50,19 @@ describe( 'Auth Logout Command', () => {
 		};
 	}
 
-	let mockLogger: {
-		reportStart: jest.Mock;
-		reportSuccess: jest.Mock;
-		reportError: jest.Mock;
-	};
-
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 
-		mockLogger = {
-			reportStart: jest.fn(),
-			reportSuccess: jest.fn(),
-			reportError: jest.fn(),
-		};
-
-		( Logger as jest.Mock ).mockReturnValue( mockLogger );
-		( getAuthToken as jest.Mock ).mockResolvedValue( getMockAppdata().authToken );
-		( revokeAuthToken as jest.Mock ).mockResolvedValue( undefined );
-		( lockAppdata as jest.Mock ).mockResolvedValue( undefined );
-		( unlockAppdata as jest.Mock ).mockResolvedValue( undefined );
-		( readAppdata as jest.Mock ).mockResolvedValue( getMockAppdata() );
-		( saveAppdata as jest.Mock ).mockResolvedValue( undefined );
+		vi.mocked( getAuthToken ).mockResolvedValue( getMockAppdata().authToken );
+		vi.mocked( revokeAuthToken ).mockResolvedValue( undefined );
+		vi.mocked( lockAppdata ).mockResolvedValue( undefined );
+		vi.mocked( unlockAppdata ).mockResolvedValue( undefined );
+		vi.mocked( readAppdata ).mockResolvedValue( getMockAppdata() );
+		vi.mocked( saveAppdata ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
-		jest.restoreAllMocks();
+		vi.restoreAllMocks();
 	} );
 
 	it( 'should complete the logout process successfully', async () => {
@@ -66,11 +76,11 @@ describe( 'Auth Logout Command', () => {
 			expect.not.objectContaining( { authToken: expect.anything() } )
 		);
 		expect( unlockAppdata ).toHaveBeenCalled();
-		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Successfully logged out' );
+		expect( mockReportSuccess ).toHaveBeenCalledWith( 'Successfully logged out' );
 	} );
 
 	it( 'should report an error if revoking the token fails', async () => {
-		( revokeAuthToken as jest.Mock ).mockRejectedValue( new Error( 'Failed to revoke token' ) );
+		vi.mocked( revokeAuthToken ).mockRejectedValue( new Error( 'Failed to revoke token' ) );
 
 		await runCommand();
 
@@ -79,12 +89,12 @@ describe( 'Auth Logout Command', () => {
 		expect( readAppdata ).not.toHaveBeenCalled();
 		expect( saveAppdata ).not.toHaveBeenCalledWith( {} );
 		expect( unlockAppdata ).toHaveBeenCalled();
-		expect( mockLogger.reportError ).toHaveBeenCalled();
-		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		expect( mockReportError ).toHaveBeenCalled();
+		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 	} );
 
 	it( 'should report already logged out if no auth token exists', async () => {
-		( getAuthToken as jest.Mock ).mockRejectedValue( new Error( 'No auth token' ) );
+		vi.mocked( getAuthToken ).mockRejectedValue( new Error( 'No auth token' ) );
 
 		await runCommand();
 
@@ -93,18 +103,18 @@ describe( 'Auth Logout Command', () => {
 		expect( lockAppdata ).not.toHaveBeenCalled();
 		expect( readAppdata ).not.toHaveBeenCalled();
 		expect( saveAppdata ).not.toHaveBeenCalled();
-		expect( mockLogger.reportSuccess ).toHaveBeenCalledWith( 'Already logged out' );
+		expect( mockReportSuccess ).toHaveBeenCalledWith( 'Already logged out' );
 	} );
 
 	it( 'should unlock appdata even if save fails', async () => {
-		( saveAppdata as jest.Mock ).mockRejectedValue( new Error( 'Failed to save' ) );
+		vi.mocked( saveAppdata ).mockRejectedValue( new Error( 'Failed to save' ) );
 
 		await runCommand();
 
 		expect( revokeAuthToken ).toHaveBeenCalled();
 		expect( lockAppdata ).toHaveBeenCalled();
 		expect( unlockAppdata ).toHaveBeenCalled();
-		expect( mockLogger.reportError ).toHaveBeenCalled();
-		expect( mockLogger.reportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		expect( mockReportError ).toHaveBeenCalled();
+		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 	} );
 } );

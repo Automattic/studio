@@ -63,6 +63,10 @@ studio site list                    # List all Studio sites
 studio site start                   # Start this site
 studio site stop                    # Stop this site
 studio site status                  # Check site status
+studio site open                    # Open site in browser (auto-login, starts if needed)
+studio site open /wp-admin          # Open wp-admin
+studio site open /my-page           # Open specific page
+studio site open --no-login         # Open without auto-login
 studio site set --hot-reload=true   # Enable hot reload (experimental)
 studio site set --hot-reload=false  # Disable hot reload
 \`\`\`
@@ -144,8 +148,17 @@ telex chat                          # Conversational WordPress development
 \`\`\`bash
 studio site start                   # Start development server
 studio wp plugin activate <name>    # Activate your plugin
+studio site open                    # Open in browser (auto-login)
 # Make changes to files...
 studio site stop                    # Stop when done
+\`\`\`
+
+**AI Agent Development Loop**:
+\`\`\`bash
+studio site set --hot-reload=true   # Enable hot reload
+# Edit plugin/theme files...
+studio site open /my-plugin-page    # Open page to see changes
+# Hot reload shows changes automatically
 \`\`\`
 
 **Deploy to WordPress.com**:

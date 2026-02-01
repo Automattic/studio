@@ -15,6 +15,7 @@ import { registerCommand as registerUpdateCommand } from 'cli/commands/preview/u
 import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create';
 import { registerCommand as registerSiteDeleteCommand } from 'cli/commands/site/delete';
 import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
+import { registerCommand as registerSiteOpenCommand } from 'cli/commands/site/open';
 import { registerCommand as registerSiteSetCommand } from 'cli/commands/site/set';
 import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
 import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
@@ -102,6 +103,7 @@ async function main() {
 			registerSiteListCommand( sitesYargs );
 			registerSiteStartCommand( sitesYargs );
 			registerSiteStopCommand( sitesYargs );
+			registerSiteOpenCommand( sitesYargs );
 			registerSiteDeleteCommand( sitesYargs );
 			registerSiteSetCommand( sitesYargs );
 			sitesYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );

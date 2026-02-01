@@ -122,6 +122,12 @@ export {
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
+export {
+	getAgentInstructionsStatus,
+	installAgentInstructions,
+	installAllAgentInstructions,
+} from 'src/modules/agent-instructions/lib/ipc-handlers';
+
 function mergeSiteDetailsWithRunningDetails( sites: SiteDetails[] ): SiteDetails[] {
 	return sites.map( ( site ) => {
 		const server = SiteServer.get( site.id );
@@ -329,6 +335,9 @@ export async function updateSite(
 
 	const hasCliChanges = Object.keys( options ).length > 2;
 
+	// Track non-CLI changes that need direct storage update
+	const hasHotReloadChange = updatedSite.enableHotReload !== currentSite.enableHotReload;
+
 	if ( hasCliChanges ) {
 		await editSiteViaCli( options );
 
@@ -355,6 +364,22 @@ export async function updateSite(
 					running: false,
 				};
 			}
+		}
+	}
+
+	// Update Studio-only settings directly in storage
+	if ( hasHotReloadChange ) {
+		const userData = await loadUserData();
+		const siteIndex = userData.sites.findIndex( ( s ) => s.id === updatedSite.id );
+		if ( siteIndex !== -1 ) {
+			userData.sites[ siteIndex ].enableHotReload = updatedSite.enableHotReload;
+			await saveUserData( userData );
+
+			// Update server details to reflect the change
+			server.details = {
+				...server.details,
+				enableHotReload: updatedSite.enableHotReload,
+			};
 		}
 	}
 }
@@ -637,6 +662,7 @@ export function getAppGlobals(): AppGlobals {
 		platform: process.platform,
 		appName: app.name,
 		appVersion: app.getVersion(),
+		siteSpecUrl: process.env.SITE_SPEC_URL,
 		arm64Translation: app.runningUnderARM64Translation,
 		...buildFeatureFlags(),
 	};
@@ -1400,3 +1426,37 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 		parentWindow.setWindowButtonVisibility( visible );
 	}
 }
+
+// Agent server IPC handlers
+export {
+	getAgentServerPort,
+	getAgentStatus,
+	configureAgentApiKey,
+	removeAgentApiKey,
+} from 'src/modules/ai-agent/lib/ipc-handlers';
+
+// ACP (Agent Client Protocol) handlers
+export {
+	getAvailableAgents,
+	detectAgents,
+	getSelectedAgentId,
+	setSelectedAgentId,
+	createAcpSession,
+	sendAcpPrompt,
+	sendAcpApproval,
+	closeAcpSession,
+	getAcpSession,
+	getAcpSessionsForSite,
+	closeAllAcpSessions,
+	getAcpSessionModels,
+	setAcpSessionModel,
+} from 'src/modules/acp/lib/ipc-handlers';
+
+// AgentSkills handlers
+export {
+	getSiteSkills,
+	installSkill,
+	removeSkill,
+	listAvailableSkills,
+	getSkillsPromptXml,
+} from 'src/modules/agent-skills/lib/ipc-handlers';

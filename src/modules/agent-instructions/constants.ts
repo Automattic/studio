@@ -63,6 +63,8 @@ studio site list                    # List all Studio sites
 studio site start                   # Start this site
 studio site stop                    # Stop this site
 studio site status                  # Check site status
+studio site set --hot-reload=true   # Enable hot reload (experimental)
+studio site set --hot-reload=false  # Disable hot reload
 \`\`\`
 
 **WP-CLI Access** (full WordPress CLI):
@@ -131,6 +133,10 @@ telex chat                          # Conversational WordPress development
 5. **Use sync carefully**: Always pull before push when syncing with WordPress.com
 6. **Leverage preview sites**: Use \`studio preview create\` for safe testing
 7. **Auto-detect site**: Most commands work without specifying site ID when run from site directory
+8. **Hot Reload (Experimental)**: Enable with \`studio site set --hot-reload=true\` to automatically see file changes:
+   - CSS/JS changes inject instantly (no page reload)
+   - PHP changes trigger smart page reload
+   - Ideal for iterative AI development workflows
 
 ## Common Workflows
 

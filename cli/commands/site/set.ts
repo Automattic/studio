@@ -45,10 +45,11 @@ export interface SetCommandOptions {
 	php?: string;
 	wp?: string;
 	xdebug?: boolean;
+	hotReload?: boolean;
 }
 
 export async function runCommand( sitePath: string, options: SetCommandOptions ): Promise< void > {
-	const { name, domain, https, php, wp, xdebug } = options;
+	const { name, domain, https, php, wp, xdebug, hotReload } = options;
 
 	if (
 		name === undefined &&
@@ -56,10 +57,11 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		https === undefined &&
 		php === undefined &&
 		wp === undefined &&
-		xdebug === undefined
+		xdebug === undefined &&
+		hotReload === undefined
 	) {
 		throw new LoggerError(
-			__( 'At least one option (--name, --domain, --https, --php, --wp, --xdebug) is required.' )
+			__( 'At least one option (--name, --domain, --https, --php, --wp, --xdebug, --hot-reload) is required.' )
 		);
 	}
 
@@ -119,9 +121,10 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		const phpChanged = php !== undefined && php !== site.phpVersion;
 		const wpChanged = wp !== undefined;
 		const xdebugChanged = xdebug !== undefined && xdebug !== site.enableXdebug;
+		const hotReloadChanged = hotReload !== undefined && hotReload !== site.enableHotReload;
 
 		const hasChanges =
-			nameChanged || domainChanged || httpsChanged || phpChanged || wpChanged || xdebugChanged;
+			nameChanged || domainChanged || httpsChanged || phpChanged || wpChanged || xdebugChanged || hotReloadChanged;
 		if ( ! hasChanges ) {
 			throw new LoggerError(
 				__( 'No changes to apply. The site already has the specified settings.' )
@@ -159,6 +162,9 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			}
 			if ( xdebugChanged ) {
 				foundSite.enableXdebug = xdebug;
+			}
+			if ( hotReloadChanged ) {
+				foundSite.enableHotReload = hotReload;
 			}
 
 			await saveAppdata( appdata );
@@ -296,6 +302,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'boolean',
 					description: __( 'Enable Xdebug (beta feature)' ),
 					hidden: ! showXdebug,
+				} )
+				.option( 'hot-reload', {
+					type: 'boolean',
+					description: __( 'Enable Hot Reload (experimental - auto-reload on file changes)' ),
 				} );
 		},
 		handler: async ( argv ) => {
@@ -307,6 +317,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					php: argv.php,
 					wp: argv.wp,
 					xdebug: argv.xdebug,
+					hotReload: argv[ 'hot-reload' ],
 				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

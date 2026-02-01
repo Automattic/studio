@@ -93,16 +93,29 @@ function makeRequest( url: string ): Promise< SearchResponse > {
 	} );
 }
 
-function stripHtmlTags( html: string ): string {
-	return html
-		.replace( /<[^>]*>/g, '' )
+function sanitizeText( html: string ): string {
+	const stripped = html
+		.replace( /<[^>]*>/g, ' ' )
 		.replace( /&nbsp;/g, ' ' )
-		.replace( /&amp;/g, '&' )
-		.replace( /&lt;/g, '<' )
-		.replace( /&gt;/g, '>' )
-		.replace( /&quot;/g, '"' )
-		.replace( /&#39;/g, "'" )
+		.replace( /\s+/g, ' ' )
 		.trim();
+
+	return stripped.replace( /[&<>"']/g, ( character ) => {
+		switch ( character ) {
+			case '&':
+				return '&amp;';
+			case '<':
+				return '&lt;';
+			case '>':
+				return '&gt;';
+			case '"':
+				return '&quot;';
+			case "'":
+				return '&#39;';
+			default:
+				return character;
+		}
+	} );
 }
 
 async function execute( input: Record< string, unknown >, _siteId: string ): Promise< ToolResult > {
@@ -142,11 +155,11 @@ async function execute( input: Record< string, unknown >, _siteId: string ): Pro
 
 		const results = response.results.map( ( result, index ) => {
 			const title = result.highlight?.title?.[ 0 ]
-				? stripHtmlTags( result.highlight.title[ 0 ] )
+				? sanitizeText( result.highlight.title[ 0 ] )
 				: 'Untitled';
 			const url = result.fields[ 'permalink.url.raw' ] || '';
 			const snippet = result.highlight?.content?.[ 0 ]
-				? stripHtmlTags( result.highlight.content[ 0 ] ).substring( 0, 200 ) + '...'
+				? sanitizeText( result.highlight.content[ 0 ] ).substring( 0, 200 ) + '...'
 				: '';
 
 			return [

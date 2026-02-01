@@ -4,7 +4,7 @@
  * Detects available ACP agents using the official registry and checking system PATH.
  */
 
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import fs from 'fs';
 import nodePath from 'path';
 import { promisify } from 'util';
@@ -13,7 +13,7 @@ import { BUILTIN_AGENTS } from '../config/agents';
 import { getAcpRegistry, getAgentCommand, type RegistryAgent } from './acp-registry';
 import type { AgentConfig, AgentStatus } from '../types';
 
-const execAsync = promisify( exec );
+const execFileAsync = promisify( execFile );
 
 function getNvmBinPaths( home: string ): string[] {
 	const paths: string[] = [];
@@ -125,9 +125,9 @@ function getAugmentedPath(): string {
  */
 async function commandExists( command: string ): Promise< boolean > {
 	try {
-		const checkCommand = process.platform === 'win32' ? `where ${ command }` : `which ${ command }`;
+		const checkCommand = process.platform === 'win32' ? 'where' : 'which';
 
-		await execAsync( checkCommand, {
+		await execFileAsync( checkCommand, [ command ], {
 			timeout: 5000,
 			env: {
 				...process.env,

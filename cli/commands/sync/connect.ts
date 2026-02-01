@@ -41,6 +41,35 @@ const wpcomSiteSchema = z.object( {
 
 type WpcomSite = z.infer< typeof wpcomSiteSchema >;
 
+function parseHostname( rawUrl: string | undefined ): string | null {
+	if ( ! rawUrl ) {
+		return null;
+	}
+
+	const trimmed = rawUrl.trim();
+	if ( ! trimmed ) {
+		return null;
+	}
+
+	const normalized = trimmed.includes( '://' ) ? trimmed : `https://${ trimmed }`;
+
+	try {
+		return new URL( normalized ).hostname.toLowerCase();
+	} catch {
+		return null;
+	}
+}
+
+function hasHostnameSuffix( rawUrl: string | undefined, suffix: string ): boolean {
+	const hostname = parseHostname( rawUrl );
+	if ( ! hostname ) {
+		return false;
+	}
+
+	const normalizedSuffix = suffix.replace( /^\./, '' ).toLowerCase();
+	return hostname === normalizedSuffix || hostname.endsWith( `.${ normalizedSuffix }` );
+}
+
 async function fetchWpcomSites( token: string ): Promise< WpcomSite[] > {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 
@@ -87,7 +116,7 @@ function getSyncSupport( site: WpcomSite ): { supported: boolean; reason?: strin
 	const isPressable =
 		site.options?.hosting_provider_guess === 'pressable' ||
 		site.options?.hosting_provider_guess === 'pressable-free-staging' ||
-		site.URL?.includes( '.mystagingwebsite.com' );
+		hasHostnameSuffix( site.URL, 'mystagingwebsite.com' );
 
 	if ( ! site.is_wpcom_atomic && ! isPressable ) {
 		return { supported: false, reason: __( 'Site must be Atomic or Pressable' ) };
@@ -209,7 +238,7 @@ export async function runCommand( localSiteId: string, remoteSiteId?: string ): 
 			const isPressable =
 				selectedSite.options?.hosting_provider_guess === 'pressable' ||
 				selectedSite.options?.hosting_provider_guess === 'pressable-free-staging' ||
-				selectedSite.URL?.includes( '.mystagingwebsite.com' );
+				hasHostnameSuffix( selectedSite.URL, 'mystagingwebsite.com' );
 
 			updatedAppdata.connectedWpcomSites[ token.id ].push( {
 				id: selectedSite.ID,

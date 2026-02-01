@@ -35,6 +35,17 @@ import { detectAgentById, getAugmentedPath } from './agent-detection';
 import type { AgentConfig, AcpSession } from '../types';
 import type * as pty from 'node-pty';
 
+const ALLOWED_AGENT_COMMANDS: Record< string, string[] > = {
+	'codex-acp': [ 'codex-acp', 'npx' ],
+	'claude-code-acp': [ 'claude-code-acp', 'npx' ],
+	opencode: [ 'opencode' ],
+};
+
+const ALLOWED_NPX_PACKAGES: Record< string, string[] > = {
+	'codex-acp': [ '@zed-industries/codex-acp' ],
+	'claude-code-acp': [ '@zed-industries/claude-code-acp' ],
+};
+
 function loadPty(): typeof import('node-pty') {
 	try {
 		return require( 'node-pty' );
@@ -376,6 +387,43 @@ export class AcpProcessManager extends EventEmitter {
 		};
 	}
 
+	private getNpxPackageSpec( args: string[] ): string | null {
+		for ( const arg of args ) {
+			if ( ! arg.startsWith( '-' ) ) {
+				return arg;
+			}
+		}
+
+		return null;
+	}
+
+	private assertAllowedAgentCommand(
+		agentConfig: AgentConfig,
+		command: string,
+		args: string[]
+	): void {
+		const allowedCommands = ALLOWED_AGENT_COMMANDS[ agentConfig.id ];
+		if ( ! allowedCommands || ! allowedCommands.includes( command ) ) {
+			throw new Error( `Unsupported agent command "${ command }" for agent "${ agentConfig.id }"` );
+		}
+
+		if ( command === 'npx' ) {
+			const packageSpec = this.getNpxPackageSpec( args );
+			const allowedPackages = ALLOWED_NPX_PACKAGES[ agentConfig.id ] ?? [];
+
+			if (
+				! packageSpec ||
+				! allowedPackages.some(
+					( entry ) => packageSpec === entry || packageSpec.startsWith( `${ entry }@` )
+				)
+			) {
+				throw new Error(
+					`Unsupported npx package "${ packageSpec ?? 'unknown' }" for agent "${ agentConfig.id }"`
+				);
+			}
+		}
+	}
+
 	/**
 	 * Create a Client handler for the ACP connection.
 	 */
@@ -652,6 +700,8 @@ export class AcpProcessManager extends EventEmitter {
 	private spawnAgent( agentConfig: AgentConfig, workingDirectory: string ): ChildProcess {
 		const command = agentConfig.command!;
 		const args = agentConfig.args ?? [];
+
+		this.assertAllowedAgentCommand( agentConfig, command, args );
 
 		// Prepare environment with augmented PATH
 		const env: Record< string, string | undefined > = {

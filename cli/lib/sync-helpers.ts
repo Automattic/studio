@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { getSiteByFolder, readAppdata, SiteData } from 'cli/lib/appdata';
-import { Logger, LoggerError } from 'cli/logger';
+import { LoggerError } from 'cli/logger';
 
 /**
  * Get a site by ID or from the current working directory.

@@ -250,7 +250,6 @@ export function useAgentChat( { siteId }: UseAgentChatOptions ): UseAgentChatRes
 								input: data.tool_use.input,
 							} )
 						);
-
 					}
 					break;
 
@@ -335,7 +334,7 @@ export function useAgentChat( { siteId }: UseAgentChatOptions ): UseAgentChatRes
 			unsubscribeError();
 			unsubscribeClosed();
 		};
-	// Note: handleAcpSessionUpdate is accessed via ref, so it's not needed in deps
+		// Note: handleAcpSessionUpdate is accessed via ref, so it's not needed in deps
 	}, [ dispatch, instanceId ] );
 
 	/**
@@ -522,7 +521,6 @@ export function useAgentChat( { siteId }: UseAgentChatOptions ): UseAgentChatRes
 			return;
 		}
 
-		const previousAgentId = prevAgentIdRef.current;
 		prevAgentIdRef.current = currentAgentId;
 
 		// Close previous ACP session if one exists

@@ -37,28 +37,28 @@ const DEFAULT_BLOCKED_PATHS = [
  * Returns an AcpCallbackHandler compatible with the SDK.
  */
 export function createCallbacksHandler( config: CallbacksConfig ): AcpCallbackHandler {
-	const {
-		workingDirectory,
-		allowWrites = true,
-		blockedPaths = DEFAULT_BLOCKED_PATHS,
-	} = config;
+	const { workingDirectory, allowWrites = true, blockedPaths = DEFAULT_BLOCKED_PATHS } = config;
+	const baseDirectory = nodePath.resolve( workingDirectory );
 
 	/**
 	 * Validate and resolve a path within the working directory.
 	 */
 	function resolvePath( requestedPath: string ): string | null {
-		// Resolve the path relative to working directory
-		const resolved = nodePath.resolve( workingDirectory, requestedPath );
-
-		// Ensure the path is within the working directory
-		if ( ! resolved.startsWith( workingDirectory ) ) {
+		// Resolve the path relative to the site root and guard against traversal.
+		const resolved = nodePath.resolve( baseDirectory, requestedPath );
+		const relativePath = nodePath.relative( baseDirectory, resolved );
+		if ( relativePath.startsWith( '..' ) || nodePath.isAbsolute( relativePath ) ) {
 			return null;
 		}
 
 		// Check against blocked paths
-		const relativePath = nodePath.relative( workingDirectory, resolved );
+		const normalizedRelativePath = nodePath.normalize( relativePath );
 		for ( const blocked of blockedPaths ) {
-			if ( relativePath === blocked || relativePath.startsWith( blocked + nodePath.sep ) ) {
+			const normalizedBlocked = nodePath.normalize( blocked );
+			if (
+				normalizedRelativePath === normalizedBlocked ||
+				normalizedRelativePath.startsWith( normalizedBlocked + nodePath.sep )
+			) {
 				return null;
 			}
 		}
@@ -105,28 +105,8 @@ export function createCallbacksHandler( config: CallbacksConfig ): AcpCallbackHa
 		 */
 		async requestPermission(
 			_toolCall: unknown,
-			options: Array< { optionId: string; name: string; kind: string } >
+			_options: Array< { optionId: string; name: string; kind: string } >
 		): Promise< { outcome: 'selected' | 'cancelled'; optionId?: string } > {
-			// Auto-approve with the first "allow" option if available
-			const allowOption = options.find(
-				( opt ) => opt.kind === 'allow_once' || opt.kind === 'allow_always'
-			);
-
-			if ( allowOption ) {
-				return {
-					outcome: 'selected',
-					optionId: allowOption.optionId,
-				};
-			}
-
-			// Otherwise use first option
-			if ( options.length > 0 ) {
-				return {
-					outcome: 'selected',
-					optionId: options[ 0 ].optionId,
-				};
-			}
-
 			return { outcome: 'cancelled' };
 		},
 	};

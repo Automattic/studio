@@ -109,9 +109,9 @@ describe( 'ContentTabAssistant', () => {
 	const authenticate = vi.fn();
 	const logout = vi.fn();
 
-	const getInput = () => screen.getByTestId( 'ai-input-textarea' );
+	const getInput = () => screen.getByTestId( 'assistant-input-textarea' );
 
-	const getGuidelinesLink = () => screen.getByTestId( 'guidelines-link' );
+	const getTelexButton = () => screen.getByRole( 'button', { name: /telex/i } );
 
 	beforeEach( () => {
 		vi.clearAllMocks();
@@ -144,6 +144,34 @@ describe( 'ContentTabAssistant', () => {
 		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			showMessageBox: vi.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
 			executeWPCLiInline: vi.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
+			getAgentServerPort: vi.fn().mockResolvedValue( null ),
+			getAgentStatus: vi.fn().mockResolvedValue( { isConfigured: false } ),
+			getAvailableAgents: vi.fn().mockResolvedValue( [
+				{
+					id: 'wpcom',
+					name: 'WordPress.com',
+					description: 'WordPress.com Assistant',
+					provider: 'wpcom',
+					status: 'available',
+				},
+			] ),
+			setSelectedAgentId: vi.fn().mockResolvedValue( undefined ),
+			createAcpSession: vi.fn().mockResolvedValue( {
+				id: 'session-id',
+				agentId: 'acp-agent',
+				siteId: runningSite.id,
+				state: 'ready',
+				createdAt: Date.now(),
+			} ),
+			sendAcpPrompt: vi.fn().mockResolvedValue( { stopReason: 'end_turn' } ),
+			closeAcpSession: vi.fn().mockResolvedValue( undefined ),
+			getAcpSessionModels: vi.fn().mockResolvedValue( {
+				availableModels: [],
+				currentModelId: '',
+			} ),
+			setAcpSessionModel: vi.fn().mockResolvedValue( undefined ),
+			configureAgentApiKey: vi.fn().mockResolvedValue( undefined ),
+			removeAgentApiKey: vi.fn().mockResolvedValue( undefined ),
 		} );
 		vi.mocked( useGetWpVersion ).mockReturnValue( [ '6.4.3', vi.fn() ] );
 	} );
@@ -155,14 +183,13 @@ describe( 'ContentTabAssistant', () => {
 		const textInput = getInput();
 		expect( textInput ).toBeVisible();
 		expect( textInput ).toBeEnabled();
-		expect( textInput ).toHaveAttribute( 'placeholder', 'What would you like to learn?' );
+		expect( textInput ).toHaveAttribute( 'placeholder', 'Ask anything' );
 	} );
 
-	it( 'renders guideline section', () => {
+	it( 'renders Telex banner', () => {
 		render( <ContextWrapper selectedSite={ runningSite } /> );
-		const guideLines = getGuidelinesLink();
-		expect( guideLines ).toBeVisible();
-		expect( guideLines ).toHaveTextContent( 'Powered by experimental AI. Learn more' );
+		expect( screen.getByText( 'Build blocks with' ) ).toBeVisible();
+		expect( getTelexButton() ).toBeVisible();
 	} );
 
 	it( 'saves and retrieves conversation from Redux state', async () => {
@@ -349,7 +376,7 @@ describe( 'ContentTabAssistant', () => {
 		expect( samplePrompt ).toBeVisible();
 		await user.click( samplePrompt );
 
-		expect( textInput ).toHaveAttribute( 'placeholder', 'Thinking about that…' );
+		expect( textInput ).toHaveAttribute( 'placeholder', 'Thinking about that...' );
 	} );
 
 	it( 'renders the selected prompt of Welcome messages and confirms other prompts are removed', async () => {
@@ -399,6 +426,34 @@ describe( 'ContentTabAssistant', () => {
 		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			showMessageBox: vi.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
 			executeWPCLiInline: vi.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
+			getAgentServerPort: vi.fn().mockResolvedValue( null ),
+			getAgentStatus: vi.fn().mockResolvedValue( { isConfigured: false } ),
+			getAvailableAgents: vi.fn().mockResolvedValue( [
+				{
+					id: 'wpcom',
+					name: 'WordPress.com',
+					description: 'WordPress.com Assistant',
+					provider: 'wpcom',
+					status: 'available',
+				},
+			] ),
+			setSelectedAgentId: vi.fn().mockResolvedValue( undefined ),
+			createAcpSession: vi.fn().mockResolvedValue( {
+				id: 'session-id',
+				agentId: 'acp-agent',
+				siteId: runningSite.id,
+				state: 'ready',
+				createdAt: Date.now(),
+			} ),
+			sendAcpPrompt: vi.fn().mockResolvedValue( { stopReason: 'end_turn' } ),
+			closeAcpSession: vi.fn().mockResolvedValue( undefined ),
+			getAcpSessionModels: vi.fn().mockResolvedValue( {
+				availableModels: [],
+				currentModelId: '',
+			} ),
+			setAcpSessionModel: vi.fn().mockResolvedValue( undefined ),
+			configureAgentApiKey: vi.fn().mockResolvedValue( undefined ),
+			removeAgentApiKey: vi.fn().mockResolvedValue( undefined ),
 		} );
 
 		render( <ContextWrapper selectedSite={ runningSite } /> );

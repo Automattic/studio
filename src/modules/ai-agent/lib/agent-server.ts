@@ -16,6 +16,47 @@ const BASE_PORT = 9500;
 let server: Server | null = null;
 let serverPort: number | null = null;
 
+function getDevRendererOrigin(): string | null {
+	if ( ! process.env.ELECTRON_RENDERER_URL ) {
+		return null;
+	}
+
+	try {
+		return new URL( process.env.ELECTRON_RENDERER_URL ).origin;
+	} catch ( error ) {
+		console.warn( 'Invalid ELECTRON_RENDERER_URL origin:', error );
+		return null;
+	}
+}
+
+function isDevMode(): boolean {
+	const electronApp = require( 'electron' ).app;
+	return process.env.IS_DEV_BUILD || ! electronApp.isPackaged;
+}
+
+function isAllowedOrigin( origin?: string ): boolean {
+	if ( ! origin ) {
+		return true;
+	}
+
+	if ( origin === 'null' || origin.startsWith( 'file://' ) ) {
+		return true;
+	}
+
+	if ( isDevMode() ) {
+		const devOrigin = getDevRendererOrigin();
+		if ( devOrigin && origin === devOrigin ) {
+			return true;
+		}
+
+		if ( origin.startsWith( 'http://localhost:' ) || origin.startsWith( 'http://127.0.0.1:' ) ) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 /**
  * Create and configure the Express app.
  */
@@ -27,7 +68,16 @@ function createApp(): Express {
 
 	// CORS middleware for local requests
 	app.use( ( req, res, next ) => {
-		res.header( 'Access-Control-Allow-Origin', '*' );
+		const origin = req.headers.origin;
+		if ( ! isAllowedOrigin( origin ) ) {
+			res.status( 403 ).json( { error: 'Origin not allowed' } );
+			return;
+		}
+
+		if ( origin ) {
+			res.header( 'Access-Control-Allow-Origin', origin );
+			res.header( 'Vary', 'Origin' );
+		}
 		res.header( 'Access-Control-Allow-Methods', 'GET, POST, OPTIONS' );
 		res.header( 'Access-Control-Allow-Headers', 'Content-Type' );
 

@@ -61,7 +61,9 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		hotReload === undefined
 	) {
 		throw new LoggerError(
-			__( 'At least one option (--name, --domain, --https, --php, --wp, --xdebug, --hot-reload) is required.' )
+			__(
+				'At least one option (--name, --domain, --https, --php, --wp, --xdebug, --hot-reload) is required.'
+			)
 		);
 	}
 
@@ -124,7 +126,13 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		const hotReloadChanged = hotReload !== undefined && hotReload !== site.enableHotReload;
 
 		const hasChanges =
-			nameChanged || domainChanged || httpsChanged || phpChanged || wpChanged || xdebugChanged || hotReloadChanged;
+			nameChanged ||
+			domainChanged ||
+			httpsChanged ||
+			phpChanged ||
+			wpChanged ||
+			xdebugChanged ||
+			hotReloadChanged;
 		if ( ! hasChanges ) {
 			throw new LoggerError(
 				__( 'No changes to apply. The site already has the specified settings.' )

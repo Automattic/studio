@@ -67,7 +67,11 @@ const AgentOption = memo( function AgentOption( {
 		>
 			<AgentIcon agentId={ agent.id } icon={ agent.icon } size={ 16 } />
 			<div className="flex-1 min-w-0">
-				<div className={ `text-[13px] truncate ${ isSelected ? 'text-[#3858e9] font-medium' : 'text-[#1e1e1e]' }` }>
+				<div
+					className={ `text-[13px] truncate ${
+						isSelected ? 'text-[#3858e9] font-medium' : 'text-[#1e1e1e]'
+					}` }
+				>
 					{ agent.name }
 				</div>
 				{ isUnavailable && (

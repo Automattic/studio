@@ -3,7 +3,13 @@ import { __, sprintf } from '@wordpress/i18n';
 import wpcomFactory from 'src/lib/wpcom-factory';
 import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { z } from 'zod';
-import { getAuthToken, lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
+import {
+	getAuthToken,
+	lockAppdata,
+	readAppdata,
+	saveAppdata,
+	unlockAppdata,
+} from 'cli/lib/appdata';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -39,7 +45,7 @@ async function fetchWpcomSites( token: string ): Promise< WpcomSite[] > {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 
 	return new Promise( ( resolve, reject ) => {
-		wpcom.req.get(
+		void wpcom.req.get(
 			{
 				path: '/me/sites',
 				apiNamespace: 'rest/v1.1',
@@ -157,11 +163,14 @@ export async function runCommand( localSiteId: string, remoteSiteId?: string ): 
 
 		if ( remoteSiteId ) {
 			const found = syncableSites.find(
-				( { site } ) => site.ID === parseInt( remoteSiteId, 10 ) || site.URL.includes( remoteSiteId )
+				( { site } ) =>
+					site.ID === parseInt( remoteSiteId, 10 ) || site.URL.includes( remoteSiteId )
 			);
 			if ( ! found ) {
 				logger.reportError(
-					new LoggerError( sprintf( __( 'Remote site "%s" not found or not syncable' ), remoteSiteId ) )
+					new LoggerError(
+						sprintf( __( 'Remote site "%s" not found or not syncable' ), remoteSiteId )
+					)
 				);
 				return;
 			}
@@ -251,7 +260,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					demandOption: true,
 				} )
 				.positional( 'remote-site-id', {
-					describe: __( 'ID or URL of the remote WordPress.com site (optional, will prompt if not provided)' ),
+					describe: __(
+						'ID or URL of the remote WordPress.com site (optional, will prompt if not provided)'
+					),
 					type: 'string',
 				} )
 				.option( 'path', {
@@ -259,7 +270,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv[ 'local-site-id' ] as string, argv[ 'remote-site-id' ] as string | undefined );
+			await runCommand(
+				argv[ 'local-site-id' ] as string,
+				argv[ 'remote-site-id' ] as string | undefined
+			);
 		},
 	} );
 };

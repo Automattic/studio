@@ -369,17 +369,22 @@ export async function updateSite(
 
 	// Update Studio-only settings directly in storage
 	if ( hasHotReloadChange ) {
-		const userData = await loadUserData();
-		const siteIndex = userData.sites.findIndex( ( s ) => s.id === updatedSite.id );
-		if ( siteIndex !== -1 ) {
-			userData.sites[ siteIndex ].enableHotReload = updatedSite.enableHotReload;
-			await saveUserData( userData );
+		await lockAppdata();
+		try {
+			const userData = await loadUserData();
+			const siteIndex = userData.sites.findIndex( ( s ) => s.id === updatedSite.id );
+			if ( siteIndex !== -1 ) {
+				userData.sites[ siteIndex ].enableHotReload = updatedSite.enableHotReload;
+				await saveUserData( userData );
 
-			// Update server details to reflect the change
-			server.details = {
-				...server.details,
-				enableHotReload: updatedSite.enableHotReload,
-			};
+				// Update server details to reflect the change
+				server.details = {
+					...server.details,
+					enableHotReload: updatedSite.enableHotReload,
+				};
+			}
+		} finally {
+			await unlockAppdata();
 		}
 	}
 }

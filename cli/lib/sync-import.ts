@@ -1,10 +1,10 @@
-import { __, sprintf } from '@wordpress/i18n';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
+import { __, sprintf } from '@wordpress/i18n';
 import * as tar from 'tar';
-import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { SiteData } from 'cli/lib/appdata';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { Logger } from 'cli/logger';
 
 export async function importBackupFromFile(

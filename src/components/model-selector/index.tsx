@@ -27,17 +27,13 @@ export function ModelSelector( {
 	const [ isOpen, setIsOpen ] = useState( false );
 	const buttonRef = useRef< HTMLButtonElement >( null );
 	const containerRef = useRef< HTMLDivElement >( null );
+	const hasMultipleModels = availableModels.length > 1;
 
 	const currentModel = availableModels.find( ( m ) => m.modelId === currentModelId );
 
-	// Don't render if no models available or only one model
-	if ( availableModels.length <= 1 ) {
-		return null;
-	}
-
 	// Close popover when clicking outside
 	useEffect( () => {
-		if ( ! isOpen ) {
+		if ( ! isOpen || ! hasMultipleModels ) {
 			return;
 		}
 
@@ -55,7 +51,7 @@ export function ModelSelector( {
 
 		document.addEventListener( 'pointerdown', handlePointerDown, true );
 		return () => document.removeEventListener( 'pointerdown', handlePointerDown, true );
-	}, [ isOpen ] );
+	}, [ hasMultipleModels, isOpen ] );
 
 	const handleSelect = useCallback(
 		( modelId: string ) => {
@@ -72,6 +68,11 @@ export function ModelSelector( {
 		}
 	}, [ disabled ] );
 
+	// Don't render if no models available or only one model
+	if ( ! hasMultipleModels ) {
+		return null;
+	}
+
 	return (
 		<div ref={ containerRef } className="relative">
 			<Tooltip text={ __( 'Select model' ) }>
@@ -84,9 +85,7 @@ export function ModelSelector( {
 					aria-haspopup="listbox"
 					aria-expanded={ isOpen }
 				>
-					<span className="max-w-[100px] truncate">
-						{ currentModel?.name ?? __( 'Model' ) }
-					</span>
+					<span className="max-w-[100px] truncate">{ currentModel?.name ?? __( 'Model' ) }</span>
 					<svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-[#757575]">
 						<path
 							d="M3 4.5L6 7.5L9 4.5"
@@ -130,9 +129,7 @@ export function ModelSelector( {
 								role="option"
 								aria-selected={ model.modelId === currentModelId }
 							>
-								<span className="flex-1 text-[13px] text-[#1e1e1e] truncate">
-									{ model.name }
-								</span>
+								<span className="flex-1 text-[13px] text-[#1e1e1e] truncate">{ model.name }</span>
 								{ model.modelId === currentModelId && (
 									<span className="text-[#3858e9] shrink-0">
 										<Icon icon={ check } size={ 16 } />

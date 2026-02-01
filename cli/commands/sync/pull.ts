@@ -1,14 +1,20 @@
-import { __, sprintf } from '@wordpress/i18n';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { importBackupFromFile } from 'cli/lib/sync-import';
-import { getSiteForSync } from 'cli/lib/sync-helpers';
+import { __, sprintf } from '@wordpress/i18n';
 import wpcomFactory from 'src/lib/wpcom-factory';
 import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { z } from 'zod';
-import { getAuthToken, lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
+import {
+	getAuthToken,
+	lockAppdata,
+	readAppdata,
+	saveAppdata,
+	unlockAppdata,
+} from 'cli/lib/appdata';
+import { getSiteForSync } from 'cli/lib/sync-helpers';
+import { importBackupFromFile } from 'cli/lib/sync-import';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -111,9 +117,7 @@ async function downloadFile( url: string, dest: string, logger: Logger ): Promis
 				const progress = Math.floor( ( downloadedSize / totalSize ) * 100 );
 
 				if ( progress > lastProgress && progress % 10 === 0 ) {
-					logger.reportProgress(
-						sprintf( __( 'Downloading backup… %d%%' ), progress )
-					);
+					logger.reportProgress( sprintf( __( 'Downloading backup… %d%%' ), progress ) );
 					lastProgress = progress;
 				}
 			} );
@@ -165,7 +169,10 @@ export async function runCommand( localSiteId?: string, options?: string[] ): Pr
 		if ( ! syncSite ) {
 			logger.reportError(
 				new LoggerError(
-					sprintf( __( 'Site "%s" is not connected to WordPress.com' ), localSite.name || localSite.id )
+					sprintf(
+						__( 'Site "%s" is not connected to WordPress.com' ),
+						localSite.name || localSite.id
+					)
 				)
 			);
 			console.log( __( '\nUse "studio sync connect" to connect to a remote site' ) );
@@ -198,9 +205,7 @@ export async function runCommand( localSiteId?: string, options?: string[] ): Pr
 
 			attempts++;
 			if ( attempts % 5 === 0 ) {
-				logger.reportProgress(
-					sprintf( __( 'Waiting for backup… (%d seconds)' ), attempts * 3 )
-				);
+				logger.reportProgress( sprintf( __( 'Waiting for backup… (%d seconds)' ), attempts * 3 ) );
 			}
 		}
 
@@ -281,7 +286,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv[ 'local-site-id' ] as string | undefined, argv.options as string[] | undefined );
+			await runCommand(
+				argv[ 'local-site-id' ] as string | undefined,
+				argv.options as string[] | undefined
+			);
 		},
 	} );
 };

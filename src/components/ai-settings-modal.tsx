@@ -2,23 +2,23 @@ import { Spinner, TabPanel } from '@wordpress/components';
 import { Icon, check } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AgentIcon } from 'src/components/agent-selector/agent-icon';
 import Button from 'src/components/button';
 import Modal from 'src/components/modal';
-import { AgentIcon } from 'src/components/agent-selector/agent-icon';
 import { ModelSelector } from 'src/components/model-selector';
+import { useAgentChat } from 'src/hooks/use-agent-chat';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { SkillsPanel } from 'src/modules/agent-skills';
 import {
 	DEFAULT_AGENT_INSTRUCTIONS,
 	INSTRUCTION_FILE_TYPES,
 	INSTRUCTION_FILES,
 	type InstructionFileType,
 } from 'src/modules/agent-instructions/constants';
-import { agentChatSelectors, agentChatThunks } from 'src/stores/agent-chat-slice';
+import { SkillsPanel } from 'src/modules/agent-skills';
 import { useAppDispatch, useRootSelector } from 'src/stores';
+import { agentChatSelectors, agentChatThunks } from 'src/stores/agent-chat-slice';
 import type { AgentConfig } from 'src/modules/acp/types';
-import { useAgentChat } from 'src/hooks/use-agent-chat';
 
 interface AiSettingsModalProps {
 	isOpen: boolean;
@@ -284,10 +284,10 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 					{ installingFile === 'all'
 						? __( 'Installing...' )
 						: hasOutdated
-							? __( 'Update All' )
-							: allInstalled
-								? __( 'Reinstall All' )
-								: __( 'Install All' ) }
+						? __( 'Update All' )
+						: allInstalled
+						? __( 'Reinstall All' )
+						: __( 'Install All' ) }
 				</Button>
 			</div>
 
@@ -334,7 +334,9 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 										{ config.description }
 										{ status.isOutdated && (
 											<span className="block mt-1 text-orange-600">
-												{ __( 'A newer version is available. Reinstall to get the latest commands.' ) }
+												{ __(
+													'A newer version is available. Reinstall to get the latest commands.'
+												) }
 											</span>
 										) }
 									</div>
@@ -343,9 +345,7 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 									{ status.exists && (
 										<Button
 											variant="link"
-											onClick={ () =>
-												getIpcApi().openFileInIDE( config.fileName, siteId )
-											}
+											onClick={ () => getIpcApi().openFileInIDE( config.fileName, siteId ) }
 											className="text-xs"
 										>
 											{ __( 'Open' ) }
@@ -360,10 +360,10 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 										{ isInstalling
 											? __( 'Installing...' )
 											: status.exists && status.isOutdated
-												? __( 'Update' )
-												: status.exists
-													? __( 'Reinstall' )
-													: __( 'Install' ) }
+											? __( 'Update' )
+											: status.exists
+											? __( 'Reinstall' )
+											: __( 'Install' ) }
 									</Button>
 								</div>
 							</div>
@@ -408,12 +408,7 @@ export function AiSettingsModal( { isOpen, onClose, siteId }: AiSettingsModalPro
 			size="medium"
 			className="min-h-[350px] [&_[role='document']]:px-0 app-no-drag-region"
 		>
-			<TabPanel
-				className="w-full"
-				tabs={ tabs }
-				orientation="horizontal"
-				initialTabName="agent"
-			>
+			<TabPanel className="w-full" tabs={ tabs } orientation="horizontal" initialTabName="agent">
 				{ ( { name } ) => (
 					<div className="mt-6 px-8 pb-4 flex gap-4 flex-col">
 						{ name === 'agent' && <AgentSettingsPanel siteId={ siteId } /> }

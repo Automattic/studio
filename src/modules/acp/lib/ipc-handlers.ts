@@ -4,8 +4,7 @@
  * IPC handlers for ACP operations in the main process.
  */
 
-import { BrowserWindow, type IpcMainInvokeEvent } from 'electron';
-import type { SessionNotification } from '@agentclientprotocol/sdk';
+import { BrowserWindow, dialog, type IpcMainInvokeEvent } from 'electron';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { SiteServer } from 'src/site-server';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
@@ -14,6 +13,7 @@ import { createFullAccessCallbacksHandler } from './acp-callbacks';
 import { getAcpProcessManager } from './acp-process-manager';
 import { detectInstalledAgents, detectAgentById } from './agent-detection';
 import type { AgentConfig, AcpSession } from '../types';
+import type { SessionNotification } from '@agentclientprotocol/sdk';
 
 /**
  * Store for session-specific event handlers so they can be cleaned up.
@@ -34,7 +34,10 @@ const sessionHandlers = new Map< string, SessionHandlers >();
  * - tool_call: { toolCallId, title, rawInput, ..., sessionUpdate: "tool_call" }
  * - tool_call_update: { toolCallId, rawOutput, content, status, ..., sessionUpdate: "tool_call_update" }
  */
-function transformSessionUpdate( sessionId: string, notification: SessionNotification ): {
+function transformSessionUpdate(
+	sessionId: string,
+	notification: SessionNotification
+): {
 	sessionId: string;
 	type: string;
 	text?: string;
@@ -96,9 +99,10 @@ function transformSessionUpdate( sessionId: string, notification: SessionNotific
 			let output = '';
 
 			if ( update.rawOutput !== undefined ) {
-				output = typeof update.rawOutput === 'string'
-					? update.rawOutput
-					: JSON.stringify( update.rawOutput );
+				output =
+					typeof update.rawOutput === 'string'
+						? update.rawOutput
+						: JSON.stringify( update.rawOutput );
 			} else if ( Array.isArray( update.content ) ) {
 				// Extract text from content array
 				output = update.content
@@ -106,8 +110,12 @@ function transformSessionUpdate( sessionId: string, notification: SessionNotific
 						if ( c.type === 'content' && c.content ) {
 							const contentBlocks = Array.isArray( c.content ) ? c.content : [ c.content ];
 							return contentBlocks
-								.filter( ( block ): block is { type: 'text'; text: string } =>
-									typeof block === 'object' && block !== null && 'type' in block && block.type === 'text'
+								.filter(
+									( block ): block is { type: 'text'; text: string } =>
+										typeof block === 'object' &&
+										block !== null &&
+										'type' in block &&
+										block.type === 'text'
 								)
 								.map( ( block ) => block.text )
 								.join( '\n' );
@@ -142,7 +150,11 @@ function transformSessionUpdate( sessionId: string, notification: SessionNotific
 			return null;
 
 		default:
-			console.log( `ACP: Unhandled session update type: ${ ( update as { sessionUpdate: string } ).sessionUpdate }` );
+			console.log(
+				`ACP: Unhandled session update type: ${
+					( update as { sessionUpdate: string } ).sessionUpdate
+				}`
+			);
 			return null;
 	}
 }
@@ -214,15 +226,78 @@ export async function createAcpSession(
 	}
 
 	const workingDirectory = site.details.path;
-	console.log( `ACP: Creating session for site ${ siteId } with working directory: ${ workingDirectory }` );
-	console.log( `ACP: Site details:`, { id: site.details.id, name: site.details.name, path: site.details.path } );
+	console.log(
+		`ACP: Creating session for site ${ siteId } with working directory: ${ workingDirectory }`
+	);
+	console.log( `ACP: Site details:`, {
+		id: site.details.id,
+		name: site.details.name,
+		path: site.details.path,
+	} );
 	const processManager = getAcpProcessManager();
 
 	// Create callback handler for this site
-	const callbackHandler = createFullAccessCallbacksHandler( workingDirectory );
+	const fileCallbacks = createFullAccessCallbacksHandler( workingDirectory );
 
 	// Set up event forwarding to renderer
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	const callbackHandler = {
+		...fileCallbacks,
+		requestPermission: async (
+			toolCall: unknown,
+			options: Array< { optionId: string; name: string; kind: string } >
+		): Promise< { outcome: 'selected' | 'cancelled'; optionId?: string } > => {
+			if ( ! parentWindow ) {
+				return { outcome: 'cancelled' };
+			}
+
+			if ( options.length === 0 ) {
+				return { outcome: 'cancelled' };
+			}
+
+			const optionButtons = options.map( ( option ) => option.name );
+			const defaultId = Math.max(
+				0,
+				options.findIndex(
+					( option ) => option.kind === 'allow_once' || option.kind === 'allow_always'
+				)
+			);
+			const cancelId = Math.max(
+				0,
+				options.findIndex( ( option ) => option.kind === 'deny' || option.kind === 'cancel' )
+			);
+
+			const toolCallSummary = ( () => {
+				if ( ! toolCall ) {
+					return 'Unknown tool request.';
+				}
+				try {
+					const summary = JSON.stringify( toolCall, null, 2 );
+					return summary.length > 800 ? summary.slice( 0, 800 ) + '\n…' : summary;
+				} catch {
+					return String( toolCall );
+				}
+			} )();
+
+			const { response } = await dialog.showMessageBox( parentWindow, {
+				type: 'question',
+				buttons: optionButtons,
+				defaultId,
+				cancelId,
+				title: 'Agent Permission Request',
+				message: 'An agent is requesting permission to perform an action.',
+				detail: toolCallSummary,
+				noLink: true,
+			} );
+
+			const selectedOption = options[ response ];
+			if ( ! selectedOption ) {
+				return { outcome: 'cancelled' };
+			}
+
+			return { outcome: 'selected', optionId: selectedOption.optionId };
+		},
+	};
 
 	// Create the session first to get the session ID
 	const session = await processManager.createSession(
@@ -382,7 +457,10 @@ export async function closeAllAcpSessions( _event: IpcMainInvokeEvent ): Promise
 export async function getAcpSessionModels(
 	_event: IpcMainInvokeEvent,
 	sessionId: string
-): Promise< { availableModels: Array< { modelId: string; name: string; description?: string } >; currentModelId: string } | null > {
+): Promise< {
+	availableModels: Array< { modelId: string; name: string; description?: string } >;
+	currentModelId: string;
+} | null > {
 	const processManager = getAcpProcessManager();
 
 	return processManager.getSessionModels( sessionId );

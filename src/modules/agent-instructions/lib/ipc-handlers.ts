@@ -4,8 +4,8 @@
  * These handlers install and report status for instruction files (CLAUDE.md, AGENTS.md) per site.
  */
 
-import type { IpcMainInvokeEvent } from 'electron';
 import { loadUserData } from 'src/storage/user-data';
+import { DEFAULT_AGENT_INSTRUCTIONS, type InstructionFileType } from '../constants';
 import {
 	getAllInstructionFilesStatus,
 	getInstructionFileStatus,
@@ -13,7 +13,7 @@ import {
 	installAllInstructionFiles,
 	type InstructionFileStatus,
 } from './instructions';
-import { DEFAULT_AGENT_INSTRUCTIONS, type InstructionFileType } from '../constants';
+import type { IpcMainInvokeEvent } from 'electron';
 
 async function getSitePath( siteId: string ): Promise< string > {
 	const userData = await loadUserData();

@@ -11,7 +11,6 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import Button from 'src/components/button';
 import { cx } from 'src/lib/cx';
 import { useSiteSkills, useAvailableSkills, useInstallSkill } from '../hooks/use-site-skills';
-import type { Skill } from '../types';
 
 interface SkillsPanelProps {
 	/** The site ID to manage skills for */

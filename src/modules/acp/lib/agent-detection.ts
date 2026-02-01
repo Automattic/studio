@@ -163,7 +163,11 @@ function registryAgentToConfig(
 	options: {
 		isInstalled: boolean;
 		isAvailable: boolean;
-		commandInfoOverride?: { command: string; args: string[]; env?: Record< string, string > } | null;
+		commandInfoOverride?: {
+			command: string;
+			args: string[];
+			env?: Record< string, string >;
+		} | null;
 	}
 ): AgentConfig {
 	const commandInfo = options.commandInfoOverride ?? getAgentCommand( agent );
@@ -230,7 +234,11 @@ async function detectRegistryAgent( agent: RegistryAgent ): Promise< AgentConfig
 
 	let isInstalled = false;
 	let isAvailable = false;
-	let resolvedCommandInfo = commandInfo ?? { command: 'npx', args: [ '--yes', '--quiet', npxFallback! ], env: {} };
+	let resolvedCommandInfo = commandInfo ?? {
+		command: 'npx',
+		args: [ '--yes', '--quiet', npxFallback! ],
+		env: {},
+	};
 
 	// First, check if there's a locally installed binary (preferred over npx)
 	const alternativeBinaries = ALTERNATIVE_BINARIES[ agent.id ] ?? [];

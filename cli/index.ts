@@ -8,6 +8,7 @@ import { commandHandler as eventsCommandHandler } from 'cli/commands/_events';
 import { registerCommand as registerAuthLoginCommand } from 'cli/commands/auth/login';
 import { registerCommand as registerAuthLogoutCommand } from 'cli/commands/auth/logout';
 import { registerCommand as registerAuthStatusCommand } from 'cli/commands/auth/status';
+import { registerCommand as registerChatCommand } from 'cli/commands/chat';
 import { registerCommand as registerCreateCommand } from 'cli/commands/preview/create';
 import { registerCommand as registerDeleteCommand } from 'cli/commands/preview/delete';
 import { registerCommand as registerListCommand } from 'cli/commands/preview/list';
@@ -20,14 +21,13 @@ import { registerCommand as registerSiteSetCommand } from 'cli/commands/site/set
 import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
 import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
-import { commandHandler as wpCliCommandHandler } from 'cli/commands/wp';
-import { registerCommand as registerChatCommand } from 'cli/commands/chat';
-import { registerCommand as registerSyncListCommand } from 'cli/commands/sync/list';
-import { registerCommand as registerSyncStatusCommand } from 'cli/commands/sync/status';
 import { registerCommand as registerSyncConnectCommand } from 'cli/commands/sync/connect';
 import { registerCommand as registerSyncDisconnectCommand } from 'cli/commands/sync/disconnect';
+import { registerCommand as registerSyncListCommand } from 'cli/commands/sync/list';
 import { registerCommand as registerSyncPullCommand } from 'cli/commands/sync/pull';
 import { registerCommand as registerSyncPushCommand } from 'cli/commands/sync/push';
+import { registerCommand as registerSyncStatusCommand } from 'cli/commands/sync/status';
+import { commandHandler as wpCliCommandHandler } from 'cli/commands/wp';
 import { readAppdata, lockAppdata, unlockAppdata, saveAppdata } from 'cli/lib/appdata';
 import { loadTranslations } from 'cli/lib/i18n';
 import { untildify } from 'cli/lib/utils';
@@ -141,9 +141,7 @@ async function main() {
 
 	registerChatCommand( studioArgv );
 
-	studioArgv
-		.demandCommand( 1, __( 'You must provide a valid command' ) )
-		.strict();
+	studioArgv.demandCommand( 1, __( 'You must provide a valid command' ) ).strict();
 
 	await studioArgv.argv;
 }

@@ -318,10 +318,7 @@ async function appBoot() {
 				try {
 					siteSpecOrigin = new URL( process.env.SITE_SPEC_URL ).origin;
 				} catch ( error ) {
-					console.warn(
-						'Invalid SITE_SPEC_URL provided; ignoring CSP allowlist entry.',
-						error
-					);
+					console.warn( 'Invalid SITE_SPEC_URL provided; ignoring CSP allowlist entry.', error );
 				}
 			}
 

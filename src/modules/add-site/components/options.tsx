@@ -96,7 +96,9 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 				{ __( 'Add a site' ) }
 			</Heading>
 			<Text className="text-[15px] font-light text-gray-700 max-w-sm mb-4">
-				{ __( 'Add a clean site, build with AI, start from a Blueprint or import site from a backup' ) }
+				{ __(
+					'Add a clean site, build with AI, start from a Blueprint or import site from a backup'
+				) }
 			</Text>
 			<OptionButton
 				icon={

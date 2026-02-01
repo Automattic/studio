@@ -5,9 +5,8 @@
  */
 
 import { spawn, ChildProcess } from 'child_process';
-import type * as pty from 'node-pty';
-import { Readable, Writable } from 'stream';
 import { EventEmitter } from 'events';
+import { Writable } from 'stream';
 import {
 	ClientSideConnection,
 	ndJsonStream,
@@ -34,8 +33,9 @@ import {
 } from '@agentclientprotocol/sdk';
 import { detectAgentById, getAugmentedPath } from './agent-detection';
 import type { AgentConfig, AcpSession } from '../types';
+import type * as pty from 'node-pty';
 
-function loadPty(): typeof import( 'node-pty' ) {
+function loadPty(): typeof import('node-pty') {
 	try {
 		return require( 'node-pty' );
 	} catch ( error ) {
@@ -234,7 +234,11 @@ export class AcpProcessManager extends EventEmitter {
 
 		try {
 			// Spawn the agent process
-			console.log( `ACP [${ sessionId }] Spawning agent: ${ agentConfig.command } ${ ( agentConfig.args ?? [] ).join( ' ' ) }` );
+			console.log(
+				`ACP [${ sessionId }] Spawning agent: ${ agentConfig.command } ${ (
+					agentConfig.args ?? []
+				).join( ' ' ) }`
+			);
 			const proc = this.spawnAgent( agentConfig, workingDirectory );
 			console.log( `ACP [${ sessionId }] Process spawned with PID: ${ proc.pid }` );
 
@@ -290,7 +294,10 @@ export class AcpProcessManager extends EventEmitter {
 					} ) ),
 					currentModelId: newSessionResult.models.currentModelId,
 				};
-				console.log( `ACP [${ sessionId }] Models available:`, session.models.availableModels.map( ( m ) => m.name ) );
+				console.log(
+					`ACP [${ sessionId }] Models available:`,
+					session.models.availableModels.map( ( m ) => m.name )
+				);
 			}
 
 			this.emit( 'session_ready', sessionId, newSessionResult );
@@ -305,9 +312,75 @@ export class AcpProcessManager extends EventEmitter {
 	}
 
 	/**
+	 * Parse a command string into command and arguments.
+	 * Handles quoted strings and basic shell escaping.
+	 *
+	 * Examples:
+	 * - "ls -la" -> { command: "ls", args: ["-la"] }
+	 * - "echo 'hello world'" -> { command: "echo", args: ["hello world"] }
+	 * - "git commit -m 'fix bug'" -> { command: "git", args: ["commit", "-m", "fix bug"] }
+	 */
+	private parseCommandString( commandStr: string ): { command: string; args: string[] } {
+		const tokens: string[] = [];
+		let currentToken = '';
+		let inSingleQuote = false;
+		let inDoubleQuote = false;
+		let escaped = false;
+
+		for ( let i = 0; i < commandStr.length; i++ ) {
+			const char = commandStr[ i ];
+
+			if ( escaped ) {
+				currentToken += char;
+				escaped = false;
+				continue;
+			}
+
+			if ( char === '\\' && ! inSingleQuote ) {
+				escaped = true;
+				continue;
+			}
+
+			if ( char === "'" && ! inDoubleQuote ) {
+				inSingleQuote = ! inSingleQuote;
+				continue;
+			}
+
+			if ( char === '"' && ! inSingleQuote ) {
+				inDoubleQuote = ! inDoubleQuote;
+				continue;
+			}
+
+			if ( char === ' ' && ! inSingleQuote && ! inDoubleQuote ) {
+				if ( currentToken ) {
+					tokens.push( currentToken );
+					currentToken = '';
+				}
+				continue;
+			}
+
+			currentToken += char;
+		}
+
+		if ( currentToken ) {
+			tokens.push( currentToken );
+		}
+
+		if ( tokens.length === 0 ) {
+			return { command: commandStr, args: [] };
+		}
+
+		return {
+			command: tokens[ 0 ],
+			args: tokens.slice( 1 ),
+		};
+	}
+
+	/**
 	 * Create a Client handler for the ACP connection.
 	 */
 	private createClientHandler( sessionId: string, callbackHandler?: AcpCallbackHandler ): Client {
+		// eslint-disable-next-line @typescript-eslint/no-this-alias
 		const self = this;
 
 		const getRunningProcess = () => {
@@ -321,7 +394,10 @@ export class AcpProcessManager extends EventEmitter {
 		return {
 			// Handle session updates (streaming content from agent)
 			async sessionUpdate( params: SessionNotification ): Promise< void > {
-				console.log( `ACP [${ sessionId }] sessionUpdate received:`, JSON.stringify( params ).slice( 0, 500 ) );
+				console.log(
+					`ACP [${ sessionId }] sessionUpdate received:`,
+					JSON.stringify( params ).slice( 0, 500 )
+				);
 				self.emit( 'session_update', sessionId, params );
 			},
 
@@ -347,16 +423,6 @@ export class AcpProcessManager extends EventEmitter {
 						outcome: {
 							outcome: 'selected',
 							optionId: result.optionId!,
-						},
-					};
-				}
-
-				// Default: auto-approve with first option
-				if ( params.options.length > 0 ) {
-					return {
-						outcome: {
-							outcome: 'selected',
-							optionId: params.options[ 0 ].optionId,
 						},
 					};
 				}
@@ -388,9 +454,19 @@ export class AcpProcessManager extends EventEmitter {
 				const terminalId = `terminal-${ ++runningProcess.terminalCounter }`;
 				const outputByteLimit = Number( params.outputByteLimit ?? 1024 * 1024 ); // Default 1MB
 
-				console.log( `ACP [${ sessionId }] createTerminal: ${ params.command } ${ ( params.args ?? [] ).join( ' ' ) }` );
-				console.log( `ACP [${ sessionId }] createTerminal params.cwd: ${ params.cwd ?? '(not set, will use session working directory)' }` );
-				console.log( `ACP [${ sessionId }] createTerminal session workingDirectory: ${ runningProcess.workingDirectory }` );
+				console.log(
+					`ACP [${ sessionId }] createTerminal: ${ params.command } ${ ( params.args ?? [] ).join(
+						' '
+					) }`
+				);
+				console.log(
+					`ACP [${ sessionId }] createTerminal params.cwd: ${
+						params.cwd ?? '(not set, will use session working directory)'
+					}`
+				);
+				console.log(
+					`ACP [${ sessionId }] createTerminal session workingDirectory: ${ runningProcess.workingDirectory }`
+				);
 				console.log( `ACP [${ sessionId }] createTerminal process.cwd(): ${ process.cwd() }` );
 
 				// Use the session's working directory as fallback instead of process.cwd()
@@ -424,12 +500,29 @@ export class AcpProcessManager extends EventEmitter {
 					exitResolve,
 				};
 
+				// Parse command if it contains spaces but no args provided
+				// This handles cases where the agent sends "ls -la" as a single command string
+				let command = params.command;
+				let args = params.args ?? [];
+
+				if ( ( ! args || args.length === 0 ) && command.includes( ' ' ) ) {
+					console.log( `ACP [${ sessionId }] Parsing command string: "${ command }"` );
+					const parsed = self.parseCommandString( command );
+					command = parsed.command;
+					args = parsed.args;
+					console.log(
+						`ACP [${ sessionId }] Parsed to: command="${ command }", args=${ JSON.stringify(
+							args
+						) }`
+					);
+				}
+
 				// Spawn the process with the effective working directory
-				const proc = spawn( params.command, params.args ?? [], {
+				const proc = spawn( command, args, {
 					cwd: effectiveCwd,
 					env,
 					stdio: [ 'pipe', 'pipe', 'pipe' ],
-					shell: true,
+					shell: false,
 				} );
 
 				terminal.process = proc;
@@ -490,7 +583,9 @@ export class AcpProcessManager extends EventEmitter {
 			},
 
 			// Wait for terminal to exit
-			async waitForTerminalExit( params: WaitForTerminalExitRequest ): Promise< WaitForTerminalExitResponse > {
+			async waitForTerminalExit(
+				params: WaitForTerminalExitRequest
+			): Promise< WaitForTerminalExitResponse > {
 				const runningProcess = getRunningProcess();
 				const terminal = runningProcess.terminals.get( params.terminalId );
 
@@ -507,7 +602,9 @@ export class AcpProcessManager extends EventEmitter {
 			},
 
 			// Kill terminal command without releasing
-			async killTerminal( params: KillTerminalCommandRequest ): Promise< KillTerminalCommandResponse > {
+			async killTerminal(
+				params: KillTerminalCommandRequest
+			): Promise< KillTerminalCommandResponse > {
 				const runningProcess = getRunningProcess();
 				const terminal = runningProcess.terminals.get( params.terminalId );
 
@@ -567,23 +664,23 @@ export class AcpProcessManager extends EventEmitter {
 			Object.assign( env, agentConfig.env );
 		}
 
-	if ( agentConfig.requiresTty ) {
-		const ptyModule = loadPty();
-		const ptyProc = ptyModule.spawn( command, args, {
-			name: 'xterm-256color',
-			cols: 120,
-			rows: 40,
-			cwd: workingDirectory,
-			env: env as Record< string, string >,
-		} );
-		return ptyProc as unknown as ChildProcess;
-	}
+		if ( agentConfig.requiresTty ) {
+			const ptyModule = loadPty();
+			const ptyProc = ptyModule.spawn( command, args, {
+				name: 'xterm-256color',
+				cols: 120,
+				rows: 40,
+				cwd: workingDirectory,
+				env: env as Record< string, string >,
+			} );
+			return ptyProc as unknown as ChildProcess;
+		}
 
-	const proc = spawn( command, args, {
-		cwd: workingDirectory,
-		env,
-		stdio: [ 'pipe', 'pipe', 'pipe' ],
-	} );
+		const proc = spawn( command, args, {
+			cwd: workingDirectory,
+			env,
+			stdio: [ 'pipe', 'pipe', 'pipe' ],
+		} );
 
 		return proc;
 	}
@@ -600,55 +697,64 @@ export class AcpProcessManager extends EventEmitter {
 		// Handle stderr for PTY processes only (for debugging/errors)
 		// Note: For non-PTY processes, stderr is combined with stdout for JSON-RPC
 		// (some agents like codex-acp write JSON-RPC to stderr)
-	if ( this.isPtyProcess( proc ) ) {
-		proc.onData( ( data ) => {
-			console.warn( `ACP [${ sessionId }] data:`, data );
-			this.emit( 'stderr', sessionId, data );
-		} );
-	}
+		if ( this.isPtyProcess( proc ) ) {
+			proc.onData( ( data ) => {
+				console.warn( `ACP [${ sessionId }] data:`, data );
+				this.emit( 'stderr', sessionId, data );
+			} );
+		}
 
 		// Handle process exit
-	if ( this.isPtyProcess( proc ) ) {
-		proc.onExit( ( event ) => {
-			console.log( `ACP [${ sessionId }] exited with code ${ event.exitCode }, signal ${ event.signal }` );
+		if ( this.isPtyProcess( proc ) ) {
+			proc.onExit( ( event ) => {
+				console.log(
+					`ACP [${ sessionId }] exited with code ${ event.exitCode }, signal ${ event.signal }`
+				);
 
-			runningProcess.session.state = 'closed';
-			this.processes.delete( sessionId );
+				runningProcess.session.state = 'closed';
+				this.processes.delete( sessionId );
 
-			this.emit( 'session_closed', sessionId, event.exitCode, event.signal );
-		} );
-	} else {
-		proc.on( 'exit', ( code, signal ) => {
-			console.log( `ACP [${ sessionId }] exited with code ${ code }, signal ${ signal }` );
+				this.emit( 'session_closed', sessionId, event.exitCode, event.signal );
+			} );
+		} else {
+			proc.on( 'exit', ( code, signal ) => {
+				console.log( `ACP [${ sessionId }] exited with code ${ code }, signal ${ signal }` );
 
-			runningProcess.session.state = 'closed';
-			this.processes.delete( sessionId );
+				runningProcess.session.state = 'closed';
+				this.processes.delete( sessionId );
 
-			this.emit( 'session_closed', sessionId, code, signal );
-		} );
-	}
+				this.emit( 'session_closed', sessionId, code, signal );
+			} );
+		}
 
 		// Handle process errors
-	if ( ! this.isPtyProcess( proc ) ) {
-		proc.on( 'error', ( error ) => {
-			console.error( `ACP [${ sessionId }] error:`, error );
+		if ( ! this.isPtyProcess( proc ) ) {
+			proc.on( 'error', ( error ) => {
+				console.error( `ACP [${ sessionId }] error:`, error );
 
-			runningProcess.session.state = 'error';
-			runningProcess.session.error = error.message;
+				runningProcess.session.state = 'error';
+				runningProcess.session.error = error.message;
 
-			this.emit( 'session_error', sessionId, error );
-		} );
-	}
+				this.emit( 'session_error', sessionId, error );
+			} );
+		}
 	}
 
 	/**
 	 * Helper to add timeout to a promise.
 	 */
-	private withTimeout< T >( promise: Promise< T >, timeoutMs: number, operation: string ): Promise< T > {
+	private withTimeout< T >(
+		promise: Promise< T >,
+		timeoutMs: number,
+		operation: string
+	): Promise< T > {
 		return Promise.race( [
 			promise,
 			new Promise< T >( ( _, reject ) => {
-				setTimeout( () => reject( new Error( `${ operation } timed out after ${ timeoutMs }ms` ) ), timeoutMs );
+				setTimeout(
+					() => reject( new Error( `${ operation } timed out after ${ timeoutMs }ms` ) ),
+					timeoutMs
+				);
 			} ),
 		] );
 	}
@@ -692,7 +798,9 @@ export class AcpProcessManager extends EventEmitter {
 
 			// Step 2: Create the session
 			console.log( `ACP [${ sessionId }] Calling newSession() with cwd: ${ workingDirectory }` );
-			console.log( `ACP [${ sessionId }] Current process.cwd() before newSession: ${ process.cwd() }` );
+			console.log(
+				`ACP [${ sessionId }] Current process.cwd() before newSession: ${ process.cwd() }`
+			);
 			const result = await this.withTimeout(
 				connection.newSession( {
 					cwd: workingDirectory,
@@ -702,7 +810,9 @@ export class AcpProcessManager extends EventEmitter {
 				'newSession()'
 			);
 			console.log( `ACP [${ sessionId }] newSession() complete:`, result );
-			console.log( `ACP [${ sessionId }] Current process.cwd() after newSession: ${ process.cwd() }` );
+			console.log(
+				`ACP [${ sessionId }] Current process.cwd() after newSession: ${ process.cwd() }`
+			);
 
 			return result;
 		} catch ( error ) {
@@ -728,7 +838,9 @@ export class AcpProcessManager extends EventEmitter {
 
 		const { connection, session } = runningProcess;
 
-		console.log( `ACP [${ sessionId }] Calling connection.prompt() with acpSessionId: ${ session.acpSessionId }` );
+		console.log(
+			`ACP [${ sessionId }] Calling connection.prompt() with acpSessionId: ${ session.acpSessionId }`
+		);
 
 		// Send the prompt using the SDK
 		const result = await connection.prompt( {
@@ -798,7 +910,10 @@ export class AcpProcessManager extends EventEmitter {
 	/**
 	 * Get the current model state for a session.
 	 */
-	getSessionModels( sessionId: string ): { availableModels: Array< { modelId: string; name: string; description?: string } >; currentModelId: string } | null {
+	getSessionModels( sessionId: string ): {
+		availableModels: Array< { modelId: string; name: string; description?: string } >;
+		currentModelId: string;
+	} | null {
 		const runningProcess = this.processes.get( sessionId );
 		if ( ! runningProcess ) {
 			return null;

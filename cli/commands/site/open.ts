@@ -1,10 +1,10 @@
 import { __ } from '@wordpress/i18n';
+import open from 'open';
 import { getSiteByFolder } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import open from 'open';
 
 const logger = new Logger();
 
@@ -72,7 +72,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		},
 		handler: async ( argv ) => {
 			try {
-				await runCommand( argv.path, argv[ 'url-path' ] as string || '', ! argv[ 'no-login' ] );
+				await runCommand( argv.path, ( argv[ 'url-path' ] as string ) || '', ! argv[ 'no-login' ] );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

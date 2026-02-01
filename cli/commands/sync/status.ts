@@ -41,9 +41,7 @@ export async function runCommand( localSiteId?: string ): Promise< void > {
 					localSite.name || localSite.id
 				)
 			);
-			console.log(
-				__( '\nUse "studio sync connect" to connect to a remote site' )
-			);
+			console.log( __( '\nUse "studio sync connect" to connect to a remote site' ) );
 			return;
 		}
 
@@ -58,8 +56,8 @@ export async function runCommand( localSiteId?: string ): Promise< void > {
 				syncSite.isStaging
 					? __( 'Staging' )
 					: syncSite.isPressable
-						? __( 'Pressable' )
-						: __( 'Production' )
+					? __( 'Pressable' )
+					: __( 'Production' )
 			)
 		);
 		console.log(

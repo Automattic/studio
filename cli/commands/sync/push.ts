@@ -1,15 +1,21 @@
-import { __, sprintf } from '@wordpress/i18n';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { exportSiteToTarGz } from 'cli/lib/sync-export';
-import { getSiteForSync } from 'cli/lib/sync-helpers';
+import { __, sprintf } from '@wordpress/i18n';
 import wpcomFactory from 'src/lib/wpcom-factory';
 import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { Upload } from 'tus-js-client';
 import { z } from 'zod';
-import { getAuthToken, lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
+import {
+	getAuthToken,
+	lockAppdata,
+	readAppdata,
+	saveAppdata,
+	unlockAppdata,
+} from 'cli/lib/appdata';
+import { exportSiteToTarGz } from 'cli/lib/sync-export';
+import { getSiteForSync } from 'cli/lib/sync-helpers';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -47,12 +53,7 @@ async function uploadFile(
 	const fileSize = fs.statSync( filePath ).size;
 
 	if ( fileSize > MAX_SIZE_BYTES ) {
-		throw new Error(
-			sprintf(
-				__( 'File size exceeds 5GB limit (%d bytes)' ),
-				fileSize
-			)
-		);
+		throw new Error( sprintf( __( 'File size exceeds 5GB limit (%d bytes)' ), fileSize ) );
 	}
 
 	return new Promise( ( resolve, reject ) => {
@@ -127,14 +128,11 @@ async function initiateImport(
 	} );
 }
 
-async function checkImportStatus(
-	token: string,
-	remoteSiteId: number
-): Promise< ImportStatus > {
+async function checkImportStatus( token: string, remoteSiteId: number ): Promise< ImportStatus > {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 
 	return new Promise( ( resolve, reject ) => {
-		wpcom.req.get(
+		void wpcom.req.get(
 			{
 				path: `/sites/${ remoteSiteId }/studio-app/sync/import`,
 				apiNamespace: 'wpcom/v2',
@@ -188,7 +186,10 @@ export async function runCommand( localSiteId?: string, options?: string[] ): Pr
 		if ( ! syncSite ) {
 			logger.reportError(
 				new LoggerError(
-					sprintf( __( 'Site "%s" is not connected to WordPress.com' ), localSite.name || localSite.id )
+					sprintf(
+						__( 'Site "%s" is not connected to WordPress.com' ),
+						localSite.name || localSite.id
+					)
 				)
 			);
 			console.log( __( '\nUse "studio sync connect" to connect to a remote site' ) );
@@ -262,7 +263,9 @@ export async function runCommand( localSiteId?: string, options?: string[] ): Pr
 
 				if ( isSqlImportFailure ) {
 					throw new Error(
-						__( 'Database import failed on the remote site. Please review your database and try again.' )
+						__(
+							'Database import failed on the remote site. Please review your database and try again.'
+						)
 					);
 				} else if ( isImportTimedOut ) {
 					throw new Error(
@@ -283,9 +286,7 @@ export async function runCommand( localSiteId?: string, options?: string[] ): Pr
 					archive_import_finished: __( 'Finalizing…' ),
 				};
 				const statusText = statusMap[ status.status ] || __( 'Processing…' );
-				logger.reportProgress(
-					sprintf( __( '%s (%d seconds)' ), statusText, attempts * 2 )
-				);
+				logger.reportProgress( sprintf( __( '%s (%d seconds)' ), statusText, attempts * 2 ) );
 			}
 		}
 
@@ -364,7 +365,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv[ 'local-site-id' ] as string | undefined, argv.options as string[] | undefined );
+			await runCommand(
+				argv[ 'local-site-id' ] as string | undefined,
+				argv.options as string[] | undefined
+			);
 		},
 	} );
 };

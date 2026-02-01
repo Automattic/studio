@@ -45,11 +45,12 @@ export function SiteContentTabs() {
 		setSelectedTab( 'assistant' );
 	};
 
-
 	return (
 		<div className="flex flex-col w-full h-full app-no-drag-region pt-8 overflow-y-auto">
 			<Header />
-			<div className={ `mt-6 h-full flex flex-col overflow-hidden ${ MIN_WIDTH_CLASS_TO_MEASURE }` }>
+			<div
+				className={ `mt-6 h-full flex flex-col overflow-hidden ${ MIN_WIDTH_CLASS_TO_MEASURE }` }
+			>
 				{ /* Tab bar with scrollable tabs + fixed assistant button */ }
 				<div className="site-tabs-bar">
 					<div className="site-tabs-scrollable">
@@ -59,10 +60,7 @@ export function SiteContentTabs() {
 								type="button"
 								role="tab"
 								aria-selected={ effectiveTab === tab.name }
-								className={ cx(
-									'site-tab-button',
-									effectiveTab === tab.name && 'is-active'
-								) }
+								className={ cx( 'site-tab-button', effectiveTab === tab.name && 'is-active' ) }
 								onClick={ () => setSelectedTab( tab.name ) }
 							>
 								{ tab.title }
@@ -85,10 +83,7 @@ export function SiteContentTabs() {
 				</div>
 				{ /* Tab content */ }
 				<div
-					className={ cx(
-						'h-full overflow-y-auto flex-1',
-						isAssistantActive && 'bg-gray-50'
-					) }
+					className={ cx( 'h-full overflow-y-auto flex-1', isAssistantActive && 'bg-gray-50' ) }
 					style={ {
 						scrollbarWidth: 'thin',
 						scrollbarGutter: 'stable',

@@ -246,9 +246,7 @@ export function getAgentCommand(
 			return null;
 		}
 
-		const target = platformKeys
-			.map( ( key ) => distribution.binary?.[ key ] )
-			.find( Boolean );
+		const target = platformKeys.map( ( key ) => distribution.binary?.[ key ] ).find( Boolean );
 		if ( ! target ) {
 			return null;
 		}

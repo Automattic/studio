@@ -17,7 +17,6 @@ import { MessageThinking } from 'src/components/assistant-thinking';
 import Button from 'src/components/button';
 import { ChatMessage, MarkDownWithCode } from 'src/components/chat-message';
 import { ChatRating } from 'src/components/chat-rating';
-import { LearnMoreLink } from 'src/components/learn-more';
 import offlineIcon from 'src/components/offline-icon';
 import WelcomeComponent from 'src/components/welcome-message-prompt';
 import { LIMIT_OF_PROMPTS_PER_USER, TELEX_HOSTNAME, TELEX_UTM_PARAMS } from 'src/constants';

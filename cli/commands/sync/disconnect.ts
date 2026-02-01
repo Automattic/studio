@@ -1,5 +1,11 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { getAuthToken, lockAppdata, readAppdata, saveAppdata, unlockAppdata } from 'cli/lib/appdata';
+import {
+	getAuthToken,
+	lockAppdata,
+	readAppdata,
+	saveAppdata,
+	unlockAppdata,
+} from 'cli/lib/appdata';
 import { getSiteForSync } from 'cli/lib/sync-helpers';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';

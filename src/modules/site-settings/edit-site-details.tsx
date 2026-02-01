@@ -39,7 +39,9 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const [ needsRestart, setNeedsRestart ] = useState( false );
 	const [ enableXdebug, setEnableXdebug ] = useState( selectedSite?.enableXdebug ?? false );
 	const [ xdebugEnabledSite, setXdebugEnabledSite ] = useState< SiteDetails | null >( null );
-	const [ enableHotReload, setEnableHotReload ] = useState( selectedSite?.enableHotReload ?? false );
+	const [ enableHotReload, setEnableHotReload ] = useState(
+		selectedSite?.enableHotReload ?? false
+	);
 
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
 	const closeModal = useCallback( () => {

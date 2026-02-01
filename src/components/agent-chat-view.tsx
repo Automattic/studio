@@ -94,32 +94,44 @@ function AgentMessageContent( { message }: { message: AgentMessage } ) {
 									pre: ( { children } ) => <>{ children }</>,
 									// Normalize heading styles
 									h1: ( { children } ) => (
-										<h1 style={ { fontWeight: 600, fontSize: 'inherit', margin: '1rem 0 0.5rem 0' } }>
+										<h1
+											style={ { fontWeight: 600, fontSize: 'inherit', margin: '1rem 0 0.5rem 0' } }
+										>
 											{ children }
 										</h1>
 									),
 									h2: ( { children } ) => (
-										<h2 style={ { fontWeight: 600, fontSize: 'inherit', margin: '1rem 0 0.5rem 0' } }>
+										<h2
+											style={ { fontWeight: 600, fontSize: 'inherit', margin: '1rem 0 0.5rem 0' } }
+										>
 											{ children }
 										</h2>
 									),
 									h3: ( { children } ) => (
-										<h3 style={ { fontWeight: 600, fontSize: 'inherit', margin: '1rem 0 0.5rem 0' } }>
+										<h3
+											style={ { fontWeight: 600, fontSize: 'inherit', margin: '1rem 0 0.5rem 0' } }
+										>
 											{ children }
 										</h3>
 									),
 									h4: ( { children } ) => (
-										<h4 style={ { fontWeight: 600, fontSize: 'inherit', margin: '1rem 0 0.5rem 0' } }>
+										<h4
+											style={ { fontWeight: 600, fontSize: 'inherit', margin: '1rem 0 0.5rem 0' } }
+										>
 											{ children }
 										</h4>
 									),
 									h5: ( { children } ) => (
-										<h5 style={ { fontWeight: 600, fontSize: 'inherit', margin: '1rem 0 0.5rem 0' } }>
+										<h5
+											style={ { fontWeight: 600, fontSize: 'inherit', margin: '1rem 0 0.5rem 0' } }
+										>
 											{ children }
 										</h5>
 									),
 									h6: ( { children } ) => (
-										<h6 style={ { fontWeight: 600, fontSize: 'inherit', margin: '1rem 0 0.5rem 0' } }>
+										<h6
+											style={ { fontWeight: 600, fontSize: 'inherit', margin: '1rem 0 0.5rem 0' } }
+										>
 											{ children }
 										</h6>
 									),

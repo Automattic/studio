@@ -119,7 +119,11 @@ async function runInteractiveMode( token: string ): Promise< void > {
 		}
 
 		// Check for exit commands
-		if ( ! userMessage || userMessage.toLowerCase() === 'exit' || userMessage.toLowerCase() === 'quit' ) {
+		if (
+			! userMessage ||
+			userMessage.toLowerCase() === 'exit' ||
+			userMessage.toLowerCase() === 'quit'
+		) {
 			console.log( __( 'Exiting chat…' ) );
 			break;
 		}

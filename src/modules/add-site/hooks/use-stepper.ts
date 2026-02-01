@@ -63,6 +63,10 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			{ id: 'create-site', label: __( 'Site name & details' ), path: '/create' },
 		];
 
+		const siteSpecSteps: StepperStep[] = [
+			{ id: 'site-spec', label: __( 'Build with AI' ), path: '/site-spec' },
+		];
+
 		const pullRemoteSteps: StepperStep[] = [
 			{ id: 'select-remote-site', label: __( 'Select a remote site' ), path: '/pullRemote' },
 			{ id: 'site-details', label: __( 'Site name & details' ), path: '/pullRemote/create' },
@@ -102,6 +106,13 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			return {
 				flow: 'pullRemote',
 				steps: pullRemoteSteps,
+			};
+		}
+
+		if ( location.path === '/site-spec' ) {
+			return {
+				flow: 'siteSpec',
+				steps: siteSpecSteps,
 			};
 		}
 

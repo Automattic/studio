@@ -11,11 +11,16 @@
 
 body {
 	font-family:
-	  -apple-system, BlinkMacSystemFont, /* macOS/iOS system UI */
-	  'Segoe UI', Roboto, /* Windows + Android system UI */
-	  'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', /* emoji */
-	  'Noto Sans', 'Arial Unicode MS', /* broad Unicode coverage */
-	  sans-serif;
+		-apple-system,
+		BlinkMacSystemFont,
+		/* macOS/iOS system UI */ 'Segoe UI',
+		Roboto,
+		/* Windows + Android system UI */ 'Apple Color Emoji',
+		'Segoe UI Emoji',
+		'Noto Color Emoji',
+		/* emoji */ 'Noto Sans',
+		'Arial Unicode MS',
+		/* broad Unicode coverage */ sans-serif;
 }
 
 .app-drag-region {
@@ -44,7 +49,78 @@ blockquote {
 	text-wrap: pretty;
 }
 
-/* Tabs */
+/* Site Tabs Bar - Custom implementation with fixed Assistant button */
+.site-tabs-bar {
+	display: flex;
+	align-items: stretch;
+	border-bottom: 1px solid theme( 'colors.a8c-gray.5' );
+	padding: 0 theme( 'spacing.4' );
+}
+
+.site-tabs-scrollable {
+	display: flex;
+	overflow-x: auto;
+	scrollbar-width: none; /* Firefox */
+	flex: 1;
+	min-width: 0;
+}
+
+.site-tabs-scrollable::-webkit-scrollbar {
+	display: none; /* Chrome, Safari */
+}
+
+.site-tab-button {
+	height: 40px;
+	padding: 0 theme( 'spacing.4' );
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	font-size: 13px;
+	font-weight: 500;
+	color: theme( 'colors.a8c-gray.50' );
+	white-space: nowrap;
+	position: relative;
+	flex-shrink: 0;
+}
+
+.site-tab-button:hover {
+	color: theme( 'colors.black' );
+}
+
+.site-tab-button.is-active {
+	color: theme( 'colors.black' );
+}
+
+.site-tab-button.is-active::after {
+	content: '';
+	position: absolute;
+	bottom: 0;
+	left: theme( 'spacing.4' );
+	right: theme( 'spacing.4' );
+	height: 2px;
+	background: theme( 'colors.black' );
+}
+
+/* Assistant button - fixed on right, never scrolls */
+.site-tab-assistant {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-shrink: 0;
+	margin-left: auto;
+	padding-left: 24px;
+	background: linear-gradient( to right, transparent, white 16px );
+}
+
+.site-tab-assistant.is-active {
+	color: #3858E9;
+}
+
+.site-tab-assistant.is-active::after {
+	background: #3858E9;
+}
+
+/* Legacy TabPanel styles (for other TabPanels in the app) */
 .components-tab-panel__tab-content {
 	flex: 1;
 	overflow: hidden;
@@ -53,23 +129,19 @@ blockquote {
 .components-tab-panel__tabs {
 	padding: 0 theme( 'spacing.4' );
 	border-bottom: 1px solid theme( 'colors.a8c-gray.5' );
+	overflow-x: auto;
+	flex-wrap: nowrap;
+	scrollbar-width: none; /* Firefox */
+}
+
+.components-tab-panel__tabs::-webkit-scrollbar {
+	display: none; /* Chrome, Safari */
 }
 
 .components-tab-panel__tabs-item {
 	height: 40px;
 	margin-bottom: -1px;
-}
-
-.components-tab-panel__tabs--assistant::before {
-	content: url( 'data:image/svg+xml;utf8,<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(%23clip0_2870_30744)"><path d="M13.7035 6.58213L10.8309 5.59124C9.69491 5.20089 8.79911 4.30509 8.40876 3.16908L7.41787 0.296515C7.28275 -0.0988382 6.71725 -0.0988382 6.58213 0.296515L5.59124 3.16908C5.20089 4.30509 4.30509 5.20089 3.16908 5.59124L0.296515 6.58213C-0.0988382 6.71725 -0.0988382 7.28275 0.296515 7.41787L3.16908 8.40876C4.30509 8.79911 5.20089 9.69491 5.59124 10.8309L6.58213 13.7035C6.71725 14.0988 7.28275 14.0988 7.41787 13.7035L8.40876 10.8309C8.79911 9.69491 9.69491 8.79911 10.8309 8.40876L13.7035 7.41787C14.0988 7.28275 14.0988 6.71725 13.7035 6.58213ZM10.3505 7.21269L8.91421 7.70813C8.3437 7.90331 7.8983 8.35371 7.70313 8.91921L7.20768 10.3555C7.13762 10.5557 6.85737 10.5557 6.79231 10.3555L6.29687 8.91921C6.1017 8.3487 5.6513 7.90331 5.08579 7.70813L3.64951 7.21269C3.44933 7.14263 3.44933 6.86238 3.64951 6.79232L5.08579 6.29687C5.6563 6.1017 6.1017 5.6513 6.29687 5.08579L6.79231 3.64951C6.86238 3.44933 7.14263 3.44933 7.20768 3.64951L7.70313 5.08579C7.8983 5.6563 8.3487 6.1017 8.91421 6.29687L10.3505 6.79232C10.5507 6.86238 10.5507 7.14263 10.3505 7.21269Z" fill="black"/></g><defs><clip-path id="clip0_2870_30744"><rect width="14" height="14" fill="white"/></clip-path></defs></svg>' );
-	display: inline-block;
-	width: 14px;
-	height: 14px;
-	top: 16px;
-}
-
-.components-tab-panel__tabs--assistant:hover:not( :active )::before {
-	content: url( 'data:image/svg+xml;utf8,<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(%23clip0_2870_30744)"><path d="M13.7035 6.58213L10.8309 5.59124C9.69491 5.20089 8.79911 4.30509 8.40876 3.16908L7.41787 0.296515C7.28275 -0.0988382 6.71725 -0.0988382 6.58213 0.296515L5.59124 3.16908C5.20089 4.30509 4.30509 5.20089 3.16908 5.59124L0.296515 6.58213C-0.0988382 6.71725 -0.0988382 7.28275 0.296515 7.41787L3.16908 8.40876C4.30509 8.79911 5.20089 9.69491 5.59124 10.8309L6.58213 13.7035C6.71725 14.0988 7.28275 14.0988 7.41787 13.7035L8.40876 10.8309C8.79911 9.69491 9.69491 8.79911 10.8309 8.40876L13.7035 7.41787C14.0988 7.28275 14.0988 6.71725 13.7035 6.58213ZM10.3505 7.21269L8.91421 7.70813C8.3437 7.90331 7.8983 8.35371 7.70313 8.91921L7.20768 10.3555C7.13762 10.5557 6.85737 10.5557 6.79231 10.3555L6.29687 8.91921C6.1017 8.3487 5.6513 7.90331 5.08579 7.70813L3.64951 7.21269C3.44933 7.14263 3.44933 6.86238 3.64951 6.79232L5.08579 6.29687C5.6563 6.1017 6.1017 5.6513 6.29687 5.08579L6.79231 3.64951C6.86238 3.44933 7.14263 3.44933 7.20768 3.64951L7.70313 5.08579C7.8983 5.6563 8.3487 6.1017 8.91421 6.29687L10.3505 6.79232C10.5507 6.86238 10.5507 7.14263 10.3505 7.21269Z" fill="%233858E9"/></g><defs><clip-path id="clip0_2870_30744"><rect width="14" height="14" fill="white"/></clip-path></defs></svg>' );
+	white-space: nowrap;
 }
 
 .components-tab-panel__tabs-item.is-active::after {
@@ -113,6 +185,53 @@ blockquote {
 
 .components-popover__content {
 	width: 100%;
+}
+
+/* Agent Selector Popover - override WordPress default styles */
+.agent-selector-popover.components-popover {
+	z-index: 100;
+}
+
+.agent-selector-popover .components-popover__content {
+	border: none;
+	box-shadow: none;
+	background: transparent;
+	border-radius: 0;
+	overflow: visible;
+}
+
+/* Model Selector Popover - override WordPress default styles */
+/* Very high z-index to appear above modals and other popovers */
+.model-selector-popover.components-popover {
+	z-index: 1000001;
+}
+
+.model-selector-popover .components-popover__content {
+	border: none;
+	box-shadow: none;
+	background: transparent;
+	border-radius: 0;
+	overflow: visible;
+}
+
+/* Tooltip styling - remove shadows */
+.components-tooltip {
+	box-shadow: none !important;
+}
+
+.components-tooltip .components-popover__content {
+	box-shadow: none !important;
+}
+
+/* Assistant options menu - compact width */
+.assistant-options-menu .components-popover__content {
+	min-width: auto !important;
+	width: auto !important;
+}
+
+.assistant-options-menu .components-dropdown-menu__menu {
+	width: 150px !important;
+	min-width: 150px !important;
 }
 
 /* Assistant messages */

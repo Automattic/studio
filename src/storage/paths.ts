@@ -48,7 +48,13 @@ export function getResourcesPath(): string {
 	}
 
 	if ( process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' ) {
-		return app.getAppPath();
+		// In development with electron-vite, app.getAppPath() returns dist/main
+		// We need to go up two levels to get to the project root
+		const appPath = app.getAppPath();
+		if ( appPath.endsWith( path.join( 'dist', 'main' ) ) ) {
+			return path.resolve( appPath, '..', '..' );
+		}
+		return appPath;
 	}
 
 	const exePath = path.dirname( app.getPath( 'exe' ) );

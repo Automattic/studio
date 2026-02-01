@@ -25,6 +25,12 @@ interface UseAgentChatOptions {
 	siteId: string;
 }
 
+interface ModelInfo {
+	modelId: string;
+	name: string;
+	description?: string;
+}
+
 interface UseAgentChatResult {
 	messages: readonly AgentMessage[];
 	isLoading: boolean;
@@ -32,6 +38,12 @@ interface UseAgentChatResult {
 	sendMessage: ( message: string ) => Promise< void >;
 	clearConversation: () => void;
 	instanceId: string;
+	/** Available models for the current ACP session (null if not an ACP agent or no models) */
+	availableModels: ModelInfo[] | null;
+	/** Current model ID (null if not an ACP agent or no models) */
+	currentModelId: string | null;
+	/** Set the model for the current ACP session */
+	setModel: ( modelId: string ) => Promise< void >;
 }
 
 /**
@@ -69,6 +81,9 @@ export function useAgentChat( { siteId }: UseAgentChatOptions ): UseAgentChatRes
 
 	// Get the selected agent to determine which backend to use
 	const selectedAgent = useRootSelector( agentChatSelectors.selectSelectedAgent );
+	const acpContentIndexRef = useRef( 0 );
+	const acpLastBlockTypeRef = useRef< 'text' | 'tool_use' | null >( null );
+	const acpLastTextBlockIndexRef = useRef< number | null >( null );
 
 	const handleServerEvent = useCallback(
 		( event: ServerEvent ) => {
@@ -184,10 +199,26 @@ export function useAgentChat( { siteId }: UseAgentChatOptions ): UseAgentChatRes
 			switch ( data.type ) {
 				case 'text':
 					if ( data.text ) {
+						let blockIndex = acpLastTextBlockIndexRef.current;
+
+						if ( acpLastBlockTypeRef.current !== 'text' || blockIndex === null ) {
+							blockIndex = acpContentIndexRef.current++;
+							acpLastBlockTypeRef.current = 'text';
+							acpLastTextBlockIndexRef.current = blockIndex;
+							dispatch(
+								agentChatActions.startContentBlock( {
+									instanceId,
+									index: blockIndex,
+									blockType: 'text',
+								} )
+							);
+						}
+
 						dispatch(
 							agentChatActions.appendToAssistantMessage( {
 								instanceId,
 								text: data.text,
+								index: blockIndex,
 							} )
 						);
 					}
@@ -195,16 +226,31 @@ export function useAgentChat( { siteId }: UseAgentChatOptions ): UseAgentChatRes
 
 				case 'tool_use':
 					if ( data.tool_use ) {
+						const blockIndex = acpContentIndexRef.current++;
+						acpLastBlockTypeRef.current = 'tool_use';
+						acpLastTextBlockIndexRef.current = null;
+
 						dispatch(
-							agentChatActions.addToolCall( {
+							agentChatActions.startContentBlock( {
 								instanceId,
-								toolCall: {
-									id: data.tool_use.id,
-									name: data.tool_use.name,
-									input: data.tool_use.input,
-								},
+								index: blockIndex,
+								blockType: 'tool_use',
+								id: data.tool_use.id,
+								name: data.tool_use.name,
 							} )
 						);
+
+						dispatch(
+							agentChatActions.finishContentBlock( {
+								instanceId,
+								index: blockIndex,
+								blockType: 'tool_use',
+								id: data.tool_use.id,
+								name: data.tool_use.name,
+								input: data.tool_use.input,
+							} )
+						);
+
 					}
 					break;
 
@@ -414,6 +460,12 @@ export function useAgentChat( { siteId }: UseAgentChatOptions ): UseAgentChatRes
 			// Add user message
 			dispatch( agentChatActions.addUserMessage( { instanceId, message } ) );
 
+			if ( selectedAgent?.provider === 'acp' ) {
+				acpContentIndexRef.current = 0;
+				acpLastBlockTypeRef.current = null;
+				acpLastTextBlockIndexRef.current = null;
+			}
+
 			// Start assistant message placeholder
 			dispatch( agentChatActions.startAssistantMessage( { instanceId } ) );
 
@@ -438,6 +490,9 @@ export function useAgentChat( { siteId }: UseAgentChatOptions ): UseAgentChatRes
 
 	const clearConversation = useCallback( () => {
 		dispatch( agentChatActions.clearMessages( { instanceId } ) );
+		acpContentIndexRef.current = 0;
+		acpLastBlockTypeRef.current = null;
+		acpLastTextBlockIndexRef.current = null;
 
 		// Close ACP session if one exists
 		if ( acpSessionIdRef.current ) {
@@ -455,6 +510,96 @@ export function useAgentChat( { siteId }: UseAgentChatOptions ): UseAgentChatRes
 		};
 	}, [] );
 
+	// Track previous agent to detect changes
+	const prevAgentIdRef = useRef< string | null >( null );
+
+	// Handle agent changes - close old session and create new one for model list
+	useEffect( () => {
+		const currentAgentId = selectedAgent?.id ?? null;
+
+		// Skip if agent hasn't changed
+		if ( prevAgentIdRef.current === currentAgentId ) {
+			return;
+		}
+
+		const previousAgentId = prevAgentIdRef.current;
+		prevAgentIdRef.current = currentAgentId;
+
+		// Close previous ACP session if one exists
+		if ( acpSessionIdRef.current ) {
+			const oldSessionId = acpSessionIdRef.current;
+			getIpcApi().closeAcpSession( oldSessionId ).catch( console.error );
+			// Remove from Redux to clear old models immediately
+			dispatch( agentChatActions.removeAcpSession( oldSessionId ) );
+			acpSessionIdRef.current = null;
+		}
+
+		// Reset content tracking
+		acpContentIndexRef.current = 0;
+		acpLastBlockTypeRef.current = null;
+		acpLastTextBlockIndexRef.current = null;
+
+		// If new agent is ACP, proactively create a session to get model list
+		if ( selectedAgent?.provider === 'acp' && currentAgentId ) {
+			getIpcApi()
+				.createAcpSession( currentAgentId, siteId )
+				.then( ( session ) => {
+					// Only set if we're still on this agent
+					if ( prevAgentIdRef.current === currentAgentId ) {
+						acpSessionIdRef.current = session.id;
+						dispatch( agentChatActions.setAcpSession( session ) );
+					} else {
+						// Agent changed while we were creating session, close it
+						getIpcApi().closeAcpSession( session.id ).catch( console.error );
+					}
+				} )
+				.catch( ( error ) => {
+					console.error( 'Failed to create ACP session for model list:', error );
+				} );
+		}
+	}, [ selectedAgent?.id, selectedAgent?.provider, siteId, dispatch ] );
+
+	// Get ACP session from Redux to access models
+	const acpSession = useRootSelector( ( state ) => {
+		if ( ! acpSessionIdRef.current ) {
+			return null;
+		}
+		return state.agentChat.acpSessions[ acpSessionIdRef.current ] ?? null;
+	} );
+
+	// Extract model info from session
+	const availableModels = acpSession?.models?.availableModels ?? null;
+	const currentModelId = acpSession?.models?.currentModelId ?? null;
+
+	// Set model for ACP session
+	const setModel = useCallback(
+		async ( modelId: string ) => {
+			if ( ! acpSessionIdRef.current ) {
+				console.warn( 'Cannot set model: No ACP session' );
+				return;
+			}
+
+			try {
+				await getIpcApi().setAcpSessionModel( acpSessionIdRef.current, modelId );
+				// Update the session in Redux
+				if ( acpSession ) {
+					dispatch(
+						agentChatActions.setAcpSession( {
+							...acpSession,
+							models: {
+								...acpSession.models!,
+								currentModelId: modelId,
+							},
+						} )
+					);
+				}
+			} catch ( error ) {
+				console.error( 'Failed to set model:', error );
+			}
+		},
+		[ acpSession, dispatch ]
+	);
+
 	return {
 		messages,
 		isLoading,
@@ -462,5 +607,8 @@ export function useAgentChat( { siteId }: UseAgentChatOptions ): UseAgentChatRes
 		sendMessage,
 		clearConversation,
 		instanceId,
+		availableModels,
+		currentModelId,
+		setModel,
 	};
 }

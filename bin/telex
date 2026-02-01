@@ -1,20 +1,38 @@
 #!/bin/sh
 
-# Telex stub - returns upgrade message for users not on a Telex-enabled plan
+# Telex stub - Feature gate with agent-aware messaging
 
 cat << 'EOF'
 ╭────────────────────────────────────────────────────────╮
-│                                                        │
-│  Telex is not available on your current plan          │
-│                                                        │
-│  Telex is a premium feature that provides a           │
-│  sandboxed AI environment for building WordPress      │
-│  blocks, plugins, and themes.                         │
-│                                                        │
-│  To access Telex, please upgrade your plan at:        │
-│  https://wordpress.com/plans                          │
-│                                                        │
+│ FEATURE UNAVAILABLE: Telex                             │
 ╰────────────────────────────────────────────────────────╯
+
+WHAT IS TELEX?
+Telex is a premium AI-powered development environment for WordPress.
+It enables agents to generate and edit WordPress blocks, plugins, and
+themes through conversational commands.
+
+Commands available with Telex:
+  • telex gen block <name>    - Generate WordPress blocks
+  • telex gen plugin <name>   - Generate WordPress plugins
+  • telex gen theme <name>    - Generate WordPress themes
+  • telex edit block <name>   - Edit blocks conversationally
+  • telex chat                - WordPress development assistance
+
+WHY IS IT UNAVAILABLE?
+Telex is not included in the current WordPress.com plan.
+
+SUGGESTED AGENT ACTION:
+1. Inform the user that Telex is required for this task
+2. Explain what Telex does and why it would be helpful
+3. Offer to open the upgrade page for them
+4. If user agrees, open: https://wordpress.com/plans?feature=telex&utm_source=studio&utm_medium=agent&utm_campaign=telex-upsell
+
+ALTERNATIVE APPROACHES:
+Consider if the task can be accomplished without Telex using:
+  • Direct file editing with available tools
+  • WordPress CLI commands (wp-cli)
+  • Manual block/plugin development guidance
 EOF
 
 exit 1

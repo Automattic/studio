@@ -6,6 +6,7 @@ import {
 } from '@wordpress/components';
 import { Icon, plus, backup, chevronRight, chevronLeft, download } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import { AssistantIcon } from 'src/components/assistant-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
@@ -13,6 +14,7 @@ import { cx } from 'src/lib/cx';
 import { BlueprintIcon } from './blueprint-icon';
 
 export type AddSiteFlowType =
+	| 'siteSpec'
 	| 'create'
 	| 'blueprint'
 	| 'blueprintDeeplink'
@@ -82,6 +84,7 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 	const { __ } = useI18n();
 	const { enableBlueprints } = useFeatureFlags();
 	const isOffline = useOffline();
+	const aiOfflineMessage = __( 'Building with AI requires an internet connection.' );
 	const blueprintOfflineMessage = __(
 		'Starting from a Blueprint requires an internet connection.'
 	);
@@ -93,8 +96,21 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 				{ __( 'Add a site' ) }
 			</Heading>
 			<Text className="text-[15px] font-light text-gray-700 max-w-sm mb-4">
-				{ __( 'Add a clean site, start from a Blueprint or import site from a backup' ) }
+				{ __( 'Add a clean site, build with AI, start from a Blueprint or import site from a backup' ) }
 			</Text>
+			<OptionButton
+				icon={
+					<div className="w-6 h-6 flex items-center justify-center">
+						<AssistantIcon className="w-[18px] h-[18px]" style={ { color: '#3858E9' } } />
+					</div>
+				}
+				title={ __( 'Build with AI' ) }
+				description={ __( 'Start with AI' ) }
+				onClick={ () => onOptionSelect( 'siteSpec' ) }
+				disabled={ isOffline }
+				disabledTooltip={ aiOfflineMessage }
+				testId="build-with-ai-option-button"
+			/>
 			<OptionButton
 				icon={ <Icon className="" icon={ plus } size={ 26 } fill="#3858E9" /> }
 				title={ __( 'Create a site' ) }

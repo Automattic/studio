@@ -120,7 +120,7 @@ function AgentSettingsPanel( { siteId }: { siteId: string } ) {
 				</div>
 			) }
 
-			<div className="border border-gray-200 rounded-md overflow-hidden">
+			<div className="border border-gray-200 rounded-md overflow-hidden max-h-64 overflow-y-auto">
 				{ groupedAgents.map( ( group ) => (
 					<div key={ group.title }>
 						{ group.agents.length > 0 && (

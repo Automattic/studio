@@ -7,9 +7,12 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo, forwardRef } from 'react';
+import { AgentChatView } from 'src/components/agent-chat-view';
+import { AgentSelector } from 'src/components/agent-selector';
 import ClearHistoryReminder from 'src/components/ai-clear-history-reminder';
-import { AIInput } from 'src/components/ai-input';
+import { AiSettingsModal } from 'src/components/ai-settings-modal';
 import { ArrowIcon } from 'src/components/arrow-icon';
+import { AssistantInput } from 'src/components/assistant-input';
 import { MessageThinking } from 'src/components/assistant-thinking';
 import Button from 'src/components/button';
 import { ChatMessage, MarkDownWithCode } from 'src/components/chat-message';
@@ -25,6 +28,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { addUrlParams } from 'src/lib/url-utils';
 import { useAppDispatch, useRootSelector } from 'src/stores';
+import { agentChatActions, agentChatSelectors, agentChatThunks } from 'src/stores/agent-chat-slice';
 import {
 	chatThunks,
 	generateMessage,
@@ -360,6 +364,8 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 	const wrapperRef = useRef< HTMLDivElement >( null );
 	const dispatch = useAppDispatch();
+
+	// All hooks must be called unconditionally
 	const chatInput = useRootSelector( ( state ) =>
 		chatSelectors.selectChatInput( state, selectedSite.id )
 	);
@@ -422,9 +428,8 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	);
 
 	const clearConversation = () => {
-		dispatch( chatActions.setChatInput( { siteId: selectedSite.id, input: '' } ) );
-		dispatch( chatActions.setMessages( { instanceId, messages: [] } ) );
-		dispatch( chatActions.setChatApiId( { instanceId, chatApiId: undefined } ) );
+		dispatch( chatActions.resetConversation( { instanceId, siteId: selectedSite.id } ) );
+		inputRef.current?.focus();
 	};
 
 	// We should render only one notice at a time in the bottom area
@@ -446,10 +451,62 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 		() => localStorage.getItem( 'dontShowTelexBanner' ) !== 'true'
 	);
 
+	// AI settings modal state
+	const [ showAiSettingsModal, setShowAiSettingsModal ] = useState( false );
+
 	const handleDismissBanner = () => {
 		localStorage.setItem( 'dontShowTelexBanner', 'true' );
 		setIsTelexBannerVisible( false );
 	};
+
+	// Agent selection state
+	const selectedAgentId = useRootSelector( agentChatSelectors.selectSelectedAgentId );
+	const selectedAgent = useRootSelector( agentChatSelectors.selectSelectedAgent );
+	const agentServerPort = useRootSelector( agentChatSelectors.selectAgentServerPort );
+
+	// Check if we're using a non-wpcom agent (local AI or ACP)
+	const isUsingLocalAgent = selectedAgentId !== 'wpcom';
+
+	// Initialize agent server port from IPC on mount
+	useEffect( () => {
+		getIpcApi()
+			.getAgentServerPort()
+			.then( ( port ) => {
+				if ( port ) {
+					dispatch( agentChatActions.setAgentServerPort( port ) );
+				}
+			} )
+			.catch( console.error );
+	}, [ dispatch ] );
+
+	// Load available agents on mount
+	useEffect( () => {
+		void dispatch( agentChatThunks.loadAvailableAgents() );
+	}, [ dispatch ] );
+
+	// Check agent status when server port is available
+	useEffect( () => {
+		if ( agentServerPort ) {
+			getIpcApi()
+				.getAgentStatus()
+				.then( ( status ) => {
+					dispatch( agentChatActions.setIsConfigured( status.isConfigured ) );
+				} )
+				.catch( console.error );
+		}
+	}, [ dispatch, agentServerPort ] );
+
+	// If using a local agent (built-in Anthropic or ACP), render the agent chat view
+	if (
+		isUsingLocalAgent &&
+		( selectedAgent?.provider === 'anthropic-builtin' || selectedAgent?.provider === 'acp' )
+	) {
+		return (
+			<div className="h-full flex flex-col overflow-hidden">
+				<AgentChatView selectedSite={ selectedSite } />
+			</div>
+		);
+	}
 
 	return (
 		<div className="relative min-h-full flex flex-col" ref={ wrapperRef }>
@@ -490,11 +547,14 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 			<div
 				data-testid="assistant-chat"
 				className={ cx(
-					'min-h-full flex-1 overflow-y-auto p-8 pb-2 flex flex-col-reverse',
-					! isAuthenticated && 'flex items-start'
+					'min-h-full flex-1 overflow-y-auto p-8 pb-2 flex',
+					messages.length === 0 && isAuthenticated
+						? 'items-center justify-center'
+						: 'flex-col-reverse',
+					! isAuthenticated && 'items-start'
 				) }
 			>
-				<div className="mt-auto w-full">
+				<div className={ cx( 'w-full', messages.length > 0 && 'mt-auto' ) }>
 					{ isAuthenticated ? (
 						<>
 							<WelcomeComponent
@@ -526,9 +586,9 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 				</div>
 			</div>
 
-			<div className="sticky bottom-0 bg-gray-50/[0.8] backdrop-blur-sm w-full px-8 pt-4 flex items-center">
+			<div className="sticky bottom-0 bg-gray-50/[0.8] backdrop-blur-sm w-full px-8 pt-4 pb-6 flex items-center">
 				<div className="w-full flex flex-col items-center">
-					<AIInput
+					<AssistantInput
 						ref={ inputRef }
 						disabled={ disabled }
 						input={ chatInput }
@@ -543,16 +603,19 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 								submitPrompt( inputRef.current?.value ?? '' );
 							}
 						} }
-						clearConversation={ clearConversation }
-						isAssistantThinking={ isAssistantThinking }
+						onClearConversation={ clearConversation }
+						onOpenSettings={ () => setShowAiSettingsModal( true ) }
+						isLoading={ isAssistantThinking }
+						agentSelector={ <AgentSelector /> }
 					/>
-					<div data-testid="guidelines-link" className="text-a8c-gray-50 self-end py-2">
-						{ createInterpolateElement( __( 'Powered by experimental AI. <learn_more_link />' ), {
-							learn_more_link: <LearnMoreLink docsLinksKey="a8cAiGuidelines" />,
-						} ) }
-					</div>
 				</div>
 			</div>
+
+			<AiSettingsModal
+				isOpen={ showAiSettingsModal }
+				onClose={ () => setShowAiSettingsModal( false ) }
+				siteId={ selectedSite.id }
+			/>
 		</div>
 	);
 }

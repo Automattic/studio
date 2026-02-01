@@ -57,18 +57,18 @@ export const ExampleMessagePrompt = ( {
 	className,
 	disabled,
 }: ExampleMessagePromptProps ) => (
-	<div className={ cx( 'flex mt-2' ) }>
+	<div className="flex mt-2 min-w-0 flex-1">
 		<Button
 			variant="secondary"
-			className={ cx( '!rounded', className ) }
+			className={ cx( '!rounded w-full max-w-full min-w-0 !justify-start text-left', className ) }
 			onClick={ onClick }
 			disabled={ disabled }
 		>
-			<div className="assistant-markdown flex items-center">
-				<span className={ cx( 'mr-2 w-4 h-4 flex items-center justify-center' ) }>
+			<div className="assistant-markdown flex items-center min-w-0">
+				<span className={ cx( 'mr-2 w-4 h-4 flex items-center justify-center shrink-0' ) }>
 					{ arrowRight }
 				</span>
-				<p className="inline">{ children }</p>
+				<p className="min-w-0 truncate">{ children }</p>
 			</div>
 		</Button>
 	</div>

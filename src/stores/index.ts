@@ -8,6 +8,7 @@ import { setupListeners } from '@reduxjs/toolkit/query';
 import { useDispatch, useSelector } from 'react-redux';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { agentChatReducer, agentChatActions } from 'src/stores/agent-chat-slice';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { betaFeaturesReducer, loadBetaFeatures } from 'src/stores/beta-features-slice';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
@@ -30,6 +31,7 @@ import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from 'common/lib/locale';
 
 export type RootState = {
+	agentChat: ReturnType< typeof agentChatReducer >;
 	appVersionApi: ReturnType< typeof appVersionApi.reducer >;
 	betaFeatures: ReturnType< typeof betaFeaturesReducer >;
 	chat: ReturnType< typeof chatReducer >;
@@ -88,7 +90,18 @@ listenerMiddleware.startListening( {
 	},
 } );
 
+// Save agent chat messages to local storage
+listenerMiddleware.startListening( {
+	predicate( action, currentState, previousState ) {
+		return currentState.agentChat.messagesDict !== previousState.agentChat.messagesDict;
+	},
+	effect( action, listenerApi ) {
+		listenerApi.dispatch( agentChatActions.persistMessages() );
+	},
+} );
+
 export const rootReducer = combineReducers( {
+	agentChat: agentChatReducer,
 	appVersionApi: appVersionApi.reducer,
 	betaFeatures: betaFeaturesReducer,
 	chat: chatReducer,

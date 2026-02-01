@@ -33,6 +33,8 @@ export interface UserData {
 	preferredEditor?: SupportedEditor;
 	betaFeatures?: BetaFeatures;
 	stopSitesOnQuit?: boolean;
+	/** Selected AI agent ID for assistant (default: 'wpcom') */
+	selectedAgentId?: string;
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {

@@ -329,6 +329,16 @@ const chatSlice = createSlice( {
 			const { instanceId, messages } = action.payload;
 			state.messagesDict[ instanceId ] = messages;
 		},
+		resetConversation: (
+			state,
+			action: PayloadAction< { instanceId: string; siteId: string } >
+		) => {
+			const { instanceId, siteId } = action.payload;
+			state.messagesDict[ instanceId ] = [];
+			state.chatApiIdDict[ instanceId ] = undefined;
+			state.isLoadingDict[ instanceId ] = false;
+			state.chatInputBySite[ siteId ] = '';
+		},
 		setChatInput: ( state, action: PayloadAction< { siteId: string; input: string } > ) => {
 			const { siteId, input } = action.payload;
 			state.chatInputBySite[ siteId ] = input;

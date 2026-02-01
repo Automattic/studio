@@ -151,6 +151,52 @@ const api: IpcApi = {
 	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),
 	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),
 	uninstallStudioCli: () => ipcRendererInvoke( 'uninstallStudioCli' ),
+	// Agent server APIs
+	getAgentServerPort: () => ipcRendererInvoke( 'getAgentServerPort' ),
+	getAgentStatus: () => ipcRendererInvoke( 'getAgentStatus' ),
+	configureAgentApiKey: ( apiKey: string ) => ipcRendererInvoke( 'configureAgentApiKey', apiKey ),
+	removeAgentApiKey: () => ipcRendererInvoke( 'removeAgentApiKey' ),
+	// ACP (Agent Client Protocol) APIs
+	getAvailableAgents: () => ipcRendererInvoke( 'getAvailableAgents' ),
+	detectAgents: () => ipcRendererInvoke( 'detectAgents' ),
+	getSelectedAgentId: () => ipcRendererInvoke( 'getSelectedAgentId' ),
+	setSelectedAgentId: ( agentId: string ) => ipcRendererInvoke( 'setSelectedAgentId', agentId ),
+	createAcpSession: ( agentId: string, siteId: string ) =>
+		ipcRendererInvoke( 'createAcpSession', agentId, siteId ),
+	sendAcpPrompt: ( sessionId: string, prompt: string ) =>
+		ipcRendererInvoke( 'sendAcpPrompt', sessionId, prompt ),
+	sendAcpApproval: (
+		sessionId: string,
+		approvalId: string,
+		approved: boolean,
+		selectedOption?: string
+	) => ipcRendererInvoke( 'sendAcpApproval', sessionId, approvalId, approved, selectedOption ),
+	closeAcpSession: ( sessionId: string ) => ipcRendererInvoke( 'closeAcpSession', sessionId ),
+	getAcpSession: ( sessionId: string ) => ipcRendererInvoke( 'getAcpSession', sessionId ),
+	getAcpSessionsForSite: ( siteId: string ) => ipcRendererInvoke( 'getAcpSessionsForSite', siteId ),
+	closeAllAcpSessions: () => ipcRendererInvoke( 'closeAllAcpSessions' ),
+	getAcpSessionModels: ( sessionId: string ) =>
+		ipcRendererInvoke( 'getAcpSessionModels', sessionId ),
+	setAcpSessionModel: ( sessionId: string, modelId: string ) =>
+		ipcRendererInvoke( 'setAcpSessionModel', sessionId, modelId ),
+	// AgentSkills APIs
+	getSiteSkills: ( siteId: string ) => ipcRendererInvoke( 'getSiteSkills', siteId ),
+	installSkill: ( siteId: string, repo: string, skillPath: string, branch?: string ) =>
+		ipcRendererInvoke( 'installSkill', siteId, repo, skillPath, branch ),
+	removeSkill: ( siteId: string, skillName: string ) =>
+		ipcRendererInvoke( 'removeSkill', siteId, skillName ),
+	listAvailableSkills: ( repo?: string, branch?: string ) =>
+		ipcRendererInvoke( 'listAvailableSkills', repo, branch ),
+	getSkillsPromptXml: ( siteId: string ) => ipcRendererInvoke( 'getSkillsPromptXml', siteId ),
+	// Agent instructions APIs
+	getAgentInstructionsStatus: ( siteId: string ) =>
+		ipcRendererInvoke( 'getAgentInstructionsStatus', siteId ),
+	installAgentInstructions: (
+		siteId: string,
+		options?: { overwrite?: boolean; fileType?: 'claude' | 'agents' }
+	) => ipcRendererInvoke( 'installAgentInstructions', siteId, options ),
+	installAllAgentInstructions: ( siteId: string, options?: { overwrite?: boolean } ) =>
+		ipcRendererInvoke( 'installAllAgentInstructions', siteId, options ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

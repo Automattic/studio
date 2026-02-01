@@ -57,6 +57,22 @@ export interface IpcEvents {
 	'user-data-error': [ string ];
 	'refresh-app-globals': [ void ];
 	'beta-features-updated': [ void ];
+	// ACP (Agent Client Protocol) events
+	'acp-session-update': [
+		{
+			sessionId: string;
+			type: string;
+			text?: string;
+			tool_use?: { id: string; name: string; input: Record< string, unknown > };
+			tool_result?: { tool_use_id: string; output?: string; error?: string };
+			thinking?: string;
+			progress?: { message: string; percentage?: number };
+			approval_request?: { id: string; message: string; options: string[] };
+			error?: { code: string; message: string };
+		},
+	];
+	'acp-session-error': [ { sessionId: string; error: string } ];
+	'acp-session-closed': [ { sessionId: string; code: number | null; signal: string | null } ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

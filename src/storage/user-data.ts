@@ -130,7 +130,8 @@ type UserDataSafeKeys =
 	| 'lastSeenVersion'
 	| 'preferredTerminal'
 	| 'preferredEditor'
-	| 'betaFeatures';
+	| 'betaFeatures'
+	| 'selectedAgentId';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
 

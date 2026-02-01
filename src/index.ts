@@ -41,6 +41,7 @@ import {
 } from 'src/migrations/migrate-from-wp-now-folder';
 import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
 import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-stat';
+import { startAgentServer, stopAgentServer } from 'src/modules/ai-agent';
 import {
 	startCliEventsSubscriber,
 	stopCliEventsSubscriber,
@@ -312,21 +313,35 @@ async function appBoot() {
 				return;
 			}
 
+			let siteSpecOrigin: string | undefined;
+			if ( process.env.SITE_SPEC_URL ) {
+				try {
+					siteSpecOrigin = new URL( process.env.SITE_SPEC_URL ).origin;
+				} catch ( error ) {
+					console.warn(
+						'Invalid SITE_SPEC_URL provided; ignoring CSP allowlist entry.',
+						error
+					);
+				}
+			}
+
 			const basePolicies = [
 				"default-src 'self'", // Allow resources from these domains
 				"script-src-attr 'none'",
 				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com data:",
+				`frame-src 'self'${ siteSpecOrigin ? ` ${ siteSpecOrigin }` : '' }`,
 				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
 				"script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
 			];
 			const prodPolicies = [
-				"connect-src 'self' https://public-api.wordpress.com https://api.wordpress.org",
+				// Allow connections to local agent server on 127.0.0.1
+				"connect-src 'self' https://public-api.wordpress.com https://api.wordpress.org http://127.0.0.1:*",
 			];
 			const devPolicies = [
 				// Webpack uses eval in development, react-devtools uses localhost
 				"script-src 'self' 'unsafe-eval' 'unsafe-inline' data: http://localhost:*",
-				// react-devtools uses localhost
-				"connect-src 'self' https://public-api.wordpress.com https://api.wordpress.org ws://localhost:*",
+				// react-devtools uses localhost, agent server uses 127.0.0.1
+				"connect-src 'self' https://public-api.wordpress.com https://api.wordpress.org ws://localhost:* http://127.0.0.1:*",
 			];
 			const policies = [
 				...basePolicies,
@@ -387,6 +402,12 @@ async function appBoot() {
 		).catch( ( err ) => Sentry.captureException( err ) );
 
 		await updateWindowsCliVersionedPathIfNeeded();
+
+		// Start the AI agent server
+		startAgentServer().catch( ( err ) => {
+			console.error( 'Failed to start agent server:', err );
+			Sentry.captureException( err );
+		} );
 
 		finishedInitialization = true;
 	} );
@@ -511,9 +532,16 @@ async function appBoot() {
 	} );
 
 	app.on( 'will-quit', ( event ) => {
-		globalShortcut.unregisterAll();
+		// Only unregister shortcuts if the app finished initialization
+		// (globalShortcut cannot be used before app is ready)
+		if ( finishedInitialization ) {
+			globalShortcut.unregisterAll();
+		}
 		stopUserDataWatcher();
 		stopCliEventsSubscriber();
+		stopAgentServer().catch( ( err ) => {
+			console.error( 'Failed to stop agent server:', err );
+		} );
 
 		if ( shouldStopSitesOnQuit ) {
 			event.preventDefault();

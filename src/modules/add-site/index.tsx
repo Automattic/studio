@@ -28,6 +28,7 @@ import CreateSite from './components/create-site';
 import ImportBackup from './components/import-backup';
 import AddSiteOptions, { type AddSiteFlowType } from './components/options';
 import { PullRemoteSite } from './components/pull-remote-site';
+import SiteSpec from './components/site-spec';
 import Stepper from './components/stepper';
 import { useFindAvailableSiteName } from './hooks/use-find-available-site-name';
 
@@ -109,7 +110,9 @@ function NavigationContent( props: NavigationContentProps ) {
 
 	const handleOptionSelect = useCallback(
 		( option: AddSiteFlowType ) => {
-			if ( option === 'blueprint' ) {
+			if ( option === 'siteSpec' ) {
+				goTo( '/site-spec' );
+			} else if ( option === 'blueprint' ) {
 				goTo( '/blueprint/select' );
 			} else if ( option === 'create' ) {
 				goTo( '/create' );
@@ -265,6 +268,9 @@ function NavigationContent( props: NavigationContentProps ) {
 		<>
 			<Navigator.Screen className="flex-1" path="/">
 				<AddSiteOptions onOptionSelect={ handleOptionSelect } />
+			</Navigator.Screen>
+			<Navigator.Screen className="flex-1 flex flex-col min-h-0" path="/site-spec">
+				<SiteSpec />
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/select">
 				<AddSiteBlueprintSelector

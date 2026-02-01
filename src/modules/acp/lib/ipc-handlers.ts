@@ -214,6 +214,8 @@ export async function createAcpSession(
 	}
 
 	const workingDirectory = site.details.path;
+	console.log( `ACP: Creating session for site ${ siteId } with working directory: ${ workingDirectory }` );
+	console.log( `ACP: Site details:`, { id: site.details.id, name: site.details.name, path: site.details.path } );
 	const processManager = getAcpProcessManager();
 
 	// Create callback handler for this site
@@ -371,4 +373,30 @@ export async function closeAllAcpSessions( _event: IpcMainInvokeEvent ): Promise
 	}
 
 	await processManager.closeAllSessions();
+}
+
+/**
+ * Get available models for an ACP session.
+ * Returns null if the agent doesn't support model selection.
+ */
+export async function getAcpSessionModels(
+	_event: IpcMainInvokeEvent,
+	sessionId: string
+): Promise< { availableModels: Array< { modelId: string; name: string; description?: string } >; currentModelId: string } | null > {
+	const processManager = getAcpProcessManager();
+
+	return processManager.getSessionModels( sessionId );
+}
+
+/**
+ * Set the model for an ACP session.
+ */
+export async function setAcpSessionModel(
+	_event: IpcMainInvokeEvent,
+	sessionId: string,
+	modelId: string
+): Promise< void > {
+	const processManager = getAcpProcessManager();
+
+	await processManager.setModel( sessionId, modelId );
 }

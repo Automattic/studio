@@ -264,6 +264,7 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 
 	const installedCount = statuses.filter( ( s ) => s.exists ).length;
 	const allInstalled = installedCount === INSTRUCTION_FILE_TYPES.length;
+	const hasOutdated = statuses.some( ( s ) => s.isOutdated );
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -282,9 +283,11 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 				>
 					{ installingFile === 'all'
 						? __( 'Installing...' )
-						: allInstalled
-							? __( 'Reinstall All' )
-							: __( 'Install All' ) }
+						: hasOutdated
+							? __( 'Update All' )
+							: allInstalled
+								? __( 'Reinstall All' )
+								: __( 'Install All' ) }
 				</Button>
 			</div>
 
@@ -315,14 +318,26 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 										<span className="text-sm font-medium text-gray-900">
 											{ config.displayName }
 										</span>
-										{ status.exists && (
+										{ status.exists && ! status.isOutdated && (
 											<span className="inline-flex items-center gap-1 text-[11px] text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
 												<Icon icon={ check } size={ 12 } />
 												{ __( 'Installed' ) }
 											</span>
 										) }
+										{ status.exists && status.isOutdated && (
+											<span className="inline-flex items-center gap-1 text-[11px] text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full">
+												{ __( 'Update Available' ) }
+											</span>
+										) }
 									</div>
-									<div className="text-xs text-gray-500">{ config.description }</div>
+									<div className="text-xs text-gray-500">
+										{ config.description }
+										{ status.isOutdated && (
+											<span className="block mt-1 text-orange-600">
+												{ __( 'A newer version is available. Reinstall to get the latest commands.' ) }
+											</span>
+										) }
+									</div>
 								</div>
 								<div className="flex items-center gap-2 flex-shrink-0">
 									{ status.exists && (
@@ -344,9 +359,11 @@ function AgentInstructionsPanel( { siteId }: { siteId: string } ) {
 									>
 										{ isInstalling
 											? __( 'Installing...' )
-											: status.exists
-												? __( 'Reinstall' )
-												: __( 'Install' ) }
+											: status.exists && status.isOutdated
+												? __( 'Update' )
+												: status.exists
+													? __( 'Reinstall' )
+													: __( 'Install' ) }
 									</Button>
 								</div>
 							</div>

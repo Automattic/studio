@@ -38,7 +38,32 @@ export const INSTRUCTION_FILE_TYPES: InstructionFileType[] = [ 'claude', 'agents
  */
 export const AGENTS_FILE_NAME = 'AGENTS.md';
 
-export const DEFAULT_AGENT_INSTRUCTIONS = `# WordPress Studio Site
+/**
+ * Template version - increment when making significant changes to instructions.
+ * Format: YYYYMMDD.revision (e.g., 20250131.1)
+ */
+export const AGENT_INSTRUCTIONS_VERSION = '20250131.1';
+
+/**
+ * Extract version from instruction file content.
+ */
+export function extractInstructionVersion( content: string ): string | null {
+	const match = content.match( /<!--\s*Studio Instructions Version:\s*([^\s]+)\s*-->/ );
+	return match ? match[ 1 ] : null;
+}
+
+/**
+ * Check if installed instructions are outdated.
+ */
+export function isInstructionVersionOutdated( installedVersion: string | null ): boolean {
+	if ( ! installedVersion ) {
+		return true; // No version = outdated
+	}
+	return installedVersion !== AGENT_INSTRUCTIONS_VERSION;
+}
+
+export const DEFAULT_AGENT_INSTRUCTIONS = `<!-- Studio Instructions Version: ${ AGENT_INSTRUCTIONS_VERSION } -->
+# WordPress Studio Site
 
 This is a local WordPress development site managed by WordPress Studio.
 

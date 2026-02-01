@@ -39,6 +39,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const [ needsRestart, setNeedsRestart ] = useState( false );
 	const [ enableXdebug, setEnableXdebug ] = useState( selectedSite?.enableXdebug ?? false );
 	const [ xdebugEnabledSite, setXdebugEnabledSite ] = useState< SiteDetails | null >( null );
+	const [ enableHotReload, setEnableHotReload ] = useState( selectedSite?.enableHotReload ?? false );
 
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
 	const closeModal = useCallback( () => {
@@ -103,7 +104,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		Boolean( selectedSite.customDomain ) === useCustomDomain &&
 		usedCustomDomain === customDomain &&
 		!! selectedSite.enableHttps === ( !! usedCustomDomain && enableHttps ) &&
-		!! selectedSite.enableXdebug === enableXdebug;
+		!! selectedSite.enableXdebug === enableXdebug &&
+		!! selectedSite.enableHotReload === enableHotReload;
 	const hasValidationErrors =
 		! selectedSite || ! siteName.trim() || ( useCustomDomain && !! customDomainError );
 
@@ -120,6 +122,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		setErrorUpdatingWpVersion( null );
 		setEnableHttps( selectedSite.enableHttps ?? false );
 		setEnableXdebug( selectedSite.enableXdebug ?? false );
+		setEnableHotReload( selectedSite.enableHotReload ?? false );
 	}, [ selectedSite, getEffectiveWpVersion ] );
 
 	const onSiteEdit = async ( event: FormEvent ) => {
@@ -166,6 +169,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 					customDomain: usedCustomDomain,
 					enableHttps: !! usedCustomDomain && enableHttps,
 					enableXdebug,
+					enableHotReload,
 				},
 				hasWpVersionChanged ? selectedWpVersion : undefined
 			);
@@ -370,6 +374,27 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 									</Tooltip>
 								</div>
 							) }
+
+							<div className="flex flex-col gap-2 mt-4">
+								<div className="flex items-center gap-2">
+									<input
+										type="checkbox"
+										id="enable-hot-reload"
+										checked={ enableHotReload }
+										onChange={ ( e ) => setEnableHotReload( e.target.checked ) }
+										disabled={ isEditingSite }
+									/>
+									<label htmlFor="enable-hot-reload" className="flex items-center gap-1.5">
+										{ __( 'Enable Hot Reload' ) }
+										<span className="text-a8c-gray-50 text-xs">{ __( '(Experimental)' ) }</span>
+									</label>
+								</div>
+								<div className="text-a8c-gray-50 text-xs mt-1">
+									{ __(
+										'Automatically reload the site when files change. Instantly see updates to CSS/JS, and smart reload for PHP changes.'
+									) }
+								</div>
+							</div>
 						</div>
 
 						<div className="flex flex-row justify-end gap-x-5 mt-8">

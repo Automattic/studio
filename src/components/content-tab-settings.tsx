@@ -130,6 +130,19 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							<span>{ selectedSite.enableXdebug ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
 						</SettingsRow>
 					) }
+					<SettingsRow label={ __( 'Hot Reload' ) }>
+						<div>
+							<span>{ selectedSite.enableHotReload ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
+							<span className="text-a8c-gray-50 ml-2">{ __( '(Experimental)' ) }</span>
+						</div>
+						<div className="mt-1 max-w-96">
+							<span className="text-a8c-gray-50 text-xs">
+								{ __(
+									'Automatically reload the site when files change. Instantly see updates to CSS/JS, and smart reload for PHP changes.'
+								) }
+							</span>
+						</div>
+					</SettingsRow>
 
 					<tr>
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">

@@ -31,6 +31,7 @@ interface StoppedSiteDetails {
 	autoStart?: boolean;
 	latestCliPid?: number;
 	enableXdebug?: boolean;
+	enableHotReload?: boolean;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {
@@ -92,6 +93,7 @@ interface AppGlobals extends FeatureFlags {
 	platform: NodeJS.Platform;
 	appName: string;
 	appVersion: string;
+	siteSpecUrl?: string;
 	arm64Translation: boolean;
 }
 

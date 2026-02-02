@@ -88,7 +88,7 @@ export {
 };
 
 // SQLite
-export const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.2.16';
+export const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.2.17';
 
 export const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordPress/sqlite-database-integration/archive/refs/tags/${ SQLITE_DATABASE_INTEGRATION_VERSION }.zip`;
 

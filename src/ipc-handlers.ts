@@ -154,6 +154,7 @@ function readPm2Logs( siteId: string ): { stdout?: string[]; stderr?: string[] }
 		stderr: readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ),
 	};
 }
+
 function mergeSiteDetailsWithRunningDetails( sites: SiteDetails[] ): SiteDetails[] {
 	return sites.map( ( site ) => {
 		const server = SiteServer.get( site.id );
@@ -312,14 +313,12 @@ export async function createSite(
 			contexts.debugLog = { entries: debugLog };
 		}
 
-		if ( siteId ) {
-			const pm2Logs = readPm2Logs( siteId );
-			if ( pm2Logs.stdout && pm2Logs.stdout.length > 0 ) {
-				contexts.playgroundLogs = { entries: pm2Logs.stdout };
-			}
-			if ( pm2Logs.stderr && pm2Logs.stderr.length > 0 ) {
-				contexts.playgroundErrors = { entries: pm2Logs.stderr };
-			}
+		const pm2Logs = readPm2Logs( siteId );
+		if ( pm2Logs.stdout && pm2Logs.stdout.length > 0 ) {
+			contexts.playgroundLogs = { entries: pm2Logs.stdout };
+		}
+		if ( pm2Logs.stderr && pm2Logs.stderr.length > 0 ) {
+			contexts.playgroundErrors = { entries: pm2Logs.stderr };
 		}
 
 		Sentry.captureException( error, {

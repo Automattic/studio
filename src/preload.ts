@@ -86,7 +86,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'generateProposedSitePath', siteName ),
 	openLocalPath: ( path ) => ipcRendererSend( 'openLocalPath', path ),
 	showItemInFolder: ( path ) => ipcRendererSend( 'showItemInFolder', path ),
-	getThemeDetails: ( id ) => ipcRendererInvoke( 'getThemeDetails', id ),
+	loadThemeDetails: ( id, emitThemeDetailsLoadingEvent = true ) =>
+		ipcRendererInvoke( 'loadThemeDetails', id, emitThemeDetailsLoadingEvent ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
 	importSite: ( { id, backupFile } ) => ipcRendererInvoke( 'importSite', { id, backupFile } ),
@@ -125,6 +126,10 @@ const api: IpcApi = {
 	addSyncOperation: ( id, status ) => ipcRendererSend( 'addSyncOperation', id, status ),
 	clearSyncOperation: ( id ) => ipcRendererSend( 'clearSyncOperation', id ),
 	cancelSyncOperation: ( id ) => ipcRendererSend( 'cancelSyncOperation', id ),
+	pauseSyncUpload: ( selectedSiteId, remoteSiteId ) =>
+		ipcRendererInvoke( 'pauseSyncUpload', selectedSiteId, remoteSiteId ),
+	resumeSyncUpload: ( selectedSiteId, remoteSiteId ) =>
+		ipcRendererInvoke( 'resumeSyncUpload', selectedSiteId, remoteSiteId ),
 	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
 	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),

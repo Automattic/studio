@@ -238,13 +238,17 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			await deleteSite( id, removeLocal );
 			const newSites = await getIpcApi().getSiteDetails();
 			setSites( newSites );
-			const selectedSite = newSites.length ? newSites[ 0 ].id : '';
-			setSelectedSiteId( selectedSite );
-			if ( selectedTab !== 'overview' ) {
-				setSelectedTab( 'overview' );
-			}
+			// Use functional update to access current selectedSiteId value
+			// Tab reset is handled in SiteContentTabs when it detects the previous site was deleted
+			setSelectedSiteId( ( currentSelectedId ) => {
+				const selectedSiteStillExists = newSites.some( ( site ) => site.id === currentSelectedId );
+				if ( ! selectedSiteStillExists ) {
+					return newSites.length ? newSites[ 0 ].id : '';
+				}
+				return currentSelectedId;
+			} );
 		},
-		[ deleteSite, setSelectedSiteId, selectedTab, setSelectedTab ]
+		[ deleteSite, setSelectedSiteId ]
 	);
 
 	const createSite = useCallback(

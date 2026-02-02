@@ -1,5 +1,4 @@
 import { SQLITE_FILENAME } from 'common/constants';
-import { sequential } from 'common/lib/sequential';
 import { SqliteIntegrationProvider } from 'common/lib/sqlite-integration';
 import { getServerFilesPath } from 'src/storage/paths';
 
@@ -17,10 +16,6 @@ const provider = new ElectronSqliteProvider();
 
 export const getSqliteVersionFromInstallation = ( sqliteMuPluginPath: string ) =>
 	provider.getSqliteVersionFromInstallation( sqliteMuPluginPath );
-
-export const installSqliteIntegration = sequential( ( sitePath: string ) =>
-	provider.installSqliteIntegration( sitePath )
-);
 
 export const keepSqliteIntegrationUpdated = ( sitePath: string ) =>
 	provider.keepSqliteIntegrationUpdated( sitePath );

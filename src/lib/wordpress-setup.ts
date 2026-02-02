@@ -4,7 +4,8 @@
  */
 
 import nodePath from 'path';
-import { recursiveCopyDirectory, pathExists } from 'common/lib/fs-utils';
+import fs from 'fs-extra';
+import { pathExists } from 'common/lib/fs-utils';
 import { getResourcesPath } from 'src/storage/paths';
 
 /**
@@ -18,5 +19,5 @@ export async function setupWordPressFilesOnly( path: string ): Promise< void > {
 		throw new Error( 'Bundled WordPress files not found. Please reinstall WordPress Studio.' );
 	}
 
-	await recursiveCopyDirectory( bundledWPPath, path );
+	await fs.copy( bundledWPPath, path );
 }

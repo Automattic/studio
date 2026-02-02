@@ -20,6 +20,10 @@ export interface CreateSiteProps {
 	onSiteNameChange: ( name: string ) => Promise< PathValidationResult >;
 	existingDomainNames?: string[];
 	blueprintPreferredVersions?: BlueprintPreferredVersions;
+	originalDefaultVersions?: {
+		phpVersion?: AllowedPHPVersion;
+		wpVersion?: string;
+	};
 	onSubmit: ( values: CreateSiteFormValues ) => void;
 	onValidityChange?: ( isValid: boolean ) => void;
 	formRef?: RefObject< HTMLFormElement >;

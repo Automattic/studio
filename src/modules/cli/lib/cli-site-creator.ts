@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { z } from 'zod';
+import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction } from 'common/logger-actions';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { executeCliCommand } from './execute-command';
@@ -9,7 +10,7 @@ import type { Blueprint } from '@wp-playground/blueprints';
 
 const cliEventSchema = z.discriminatedUnion( 'action', [
 	z.object( {
-		action: z.nativeEnum( SiteCommandLoggerAction ),
+		action: z.enum( SiteCommandLoggerAction ),
 		status: z.enum( [ 'inprogress', 'fail', 'success', 'warning' ] ),
 		message: z.string(),
 	} ),
@@ -50,8 +51,6 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 
 	return new Promise( ( resolve, reject ) => {
 		const result: Partial< CreateSiteResult > = {};
-		let lastErrorMessage: string | null = null;
-
 		const [ emitter ] = executeCliCommand( args, { output: 'capture', logPrefix: siteId } );
 
 		emitter.on( 'data', ( { data } ) => {
@@ -77,8 +76,6 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 					siteId,
 					message: parsed.data.message,
 				} );
-			} else if ( parsed.data.status === 'fail' ) {
-				lastErrorMessage = parsed.data.message;
 			}
 		} );
 
@@ -91,9 +88,10 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 			}
 		} );
 
-		emitter.on( 'failure', () => {
+		emitter.on( 'failure', ( { error } ) => {
 			cleanupTempFile( blueprintTempPath );
-			reject( new Error( lastErrorMessage || 'CLI create site failed' ) );
+			error.baseMessage = 'Failed to create site';
+			reject( error );
 		} );
 
 		emitter.on( 'error', ( { error } ) => {
@@ -106,12 +104,17 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 function buildCliArgs( options: CreateSiteOptions ): string[] {
 	const args = [ 'site', 'create', '--path', options.path, '--skip-browser', '--skip-log-details' ];
 
+	if ( options.siteId ) {
+		args.push( '--id', options.siteId );
+	}
+
 	if ( options.name ) {
 		args.push( '--name', options.name );
 	}
 
 	if ( options.wpVersion ) {
-		args.push( '--wp', options.wpVersion );
+		const wp = isWordPressDevVersion( options.wpVersion ) ? 'nightly' : options.wpVersion;
+		args.push( '--wp', wp );
 	}
 
 	if ( options.phpVersion ) {

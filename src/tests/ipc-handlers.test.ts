@@ -1,11 +1,12 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
 import { IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { readFile } from 'atomically';
+import { vi } from 'vitest';
 import { bumpStat } from 'common/lib/bump-stat';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
 import { createSite, isFullscreen, importSite, getXdebugEnabledSite } from 'src/ipc-handlers';
@@ -14,22 +15,36 @@ import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getMainWindow } from 'src/main-window';
 import { SiteServer } from 'src/site-server';
 
-jest.mock( 'fs' );
-jest.mock( 'fs-extra' );
-jest.mock( 'common/lib/fs-utils' );
-jest.mock( 'src/site-server' );
-jest.mock( 'src/lib/wordpress-setup', () => ( {
-	setupWordPressFilesOnly: jest.fn().mockResolvedValue( undefined ),
+vi.mock( 'fs' );
+vi.mock( 'fs-extra' );
+vi.mock( 'common/lib/fs-utils' );
+vi.mock( '@sentry/electron/main', () => ( {
+	captureException: vi.fn(),
+	captureMessage: vi.fn(),
 } ) );
-jest.mock( 'src/main-window' );
-jest.mock( '@sentry/electron/main' );
-jest.mock( 'src/lib/import-export/import/import-manager' );
-jest.mock( 'common/lib/bump-stat' );
-jest.mock( 'atomically' );
+vi.mock( 'src/storage/paths', () => ( {
+	getResourcesPath: vi.fn().mockReturnValue( '/mock/resources' ),
+	getUserDataFilePath: vi.fn().mockReturnValue( '/mock/userdata.json' ),
+	getUserDataLockFilePath: vi.fn().mockReturnValue( '/mock/userdata.json.lock' ),
+	getUserDataCertificatesPath: vi.fn().mockReturnValue( '/mock/certificates' ),
+	getServerFilesPath: vi.fn().mockReturnValue( '/mock/server/files' ),
+	getCliPath: vi.fn().mockReturnValue( '/mock/cli/path' ),
+	getBundledNodeBinaryPath: vi.fn().mockReturnValue( '/mock/node/binary' ),
+	getSiteThumbnailPath: vi.fn().mockReturnValue( '/mock/thumbnail.png' ),
+	DEFAULT_SITE_PATH: '/mock/default/site/path',
+} ) );
+vi.mock( 'src/site-server' );
+vi.mock( 'src/lib/wordpress-setup', () => ( {
+	setupWordPressFilesOnly: vi.fn().mockResolvedValue( undefined ),
+} ) );
+vi.mock( 'src/main-window' );
+vi.mock( 'src/lib/import-export/import/import-manager' );
+vi.mock( 'common/lib/bump-stat' );
+vi.mock( 'atomically' );
 
-jest.mock( 'common/lib/port-finder', () => ( {
+vi.mock( 'common/lib/port-finder', () => ( {
 	portFinder: {
-		getOpenPort: jest.fn().mockResolvedValue( 9999 ),
+		getOpenPort: vi.fn().mockResolvedValue( 9999 ),
 	},
 } ) );
 
@@ -46,44 +61,40 @@ const mockSiteDetails: StoppedSiteDetails = {
 	enableHttps: undefined,
 };
 
-( SiteServer.create as jest.Mock ).mockResolvedValue( {
+vi.mocked( SiteServer.create ).mockResolvedValue( {
 	server: {
-		start: jest.fn(),
+		start: vi.fn(),
 		details: mockSiteDetails,
-		updateSiteDetails: jest.fn(),
-		updateCachedThumbnail: jest.fn( () => Promise.resolve() ),
-	},
+		updateSiteDetails: vi.fn(),
+		updateCachedThumbnail: vi.fn( () => Promise.resolve() ),
+	} as unknown as SiteServer,
 	details: mockSiteDetails,
 } );
 
-( SiteServer.register as jest.Mock ).mockImplementation( ( details ) => ( {
-	start: jest.fn(),
+vi.mocked( SiteServer.register, { partial: true } ).mockImplementation( ( details ) => ( {
+	start: vi.fn(),
 	details,
-	updateSiteDetails: jest.fn(),
-	updateCachedThumbnail: jest.fn( () => Promise.resolve() ),
+	updateSiteDetails: vi.fn(),
+	updateCachedThumbnail: vi.fn( () => Promise.resolve() ),
 } ) );
 
 const mockUserData = {
 	sites: [],
 };
-require( 'fs' ).__setFileContents(
-	normalize( '/path/to/app/appData/App Name/appdata-v1.json' ),
-	JSON.stringify( mockUserData )
-);
-( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserData ) );
-// Assume the provided site path is a directory
-( fs.promises.stat as jest.Mock ).mockResolvedValue( {
-	isDirectory: () => true,
-} );
+if ( '__setFileContents' in fs ) {
+	(
+		fs as typeof fs & { __setFileContents: ( path: string, contents: string | string[] ) => void }
+	 ).__setFileContents(
+		normalize( '/path/to/app/appData/App Name/appdata-v1.json' ),
+		JSON.stringify( mockUserData )
+	);
+}
+vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( mockUserData ) ) );
 
 const mockIpcMainInvokeEvent = {
-	sender: { isDestroyed: jest.fn( () => false ) },
+	sender: { isDestroyed: vi.fn( () => false ) },
 	// Double assert the type with `unknown` to simplify mocking this value
 } as unknown as IpcMainInvokeEvent;
-
-afterEach( () => {
-	jest.clearAllMocks();
-} );
 
 describe( 'createSite', () => {
 	it( 'should delegate to CLI and return site details', async () => {
@@ -118,7 +129,7 @@ describe( 'createSite', () => {
 
 describe( 'isFullscreen', () => {
 	it( 'should return false when window is not in fullscreen', async () => {
-		( getMainWindow as jest.Mock ).mockResolvedValue( {
+		vi.mocked( getMainWindow, { partial: true } ).mockResolvedValue( {
 			isFullScreen: () => false,
 		} );
 
@@ -128,7 +139,7 @@ describe( 'isFullscreen', () => {
 	} );
 
 	it( 'should return true when window is in fullscreen', async () => {
-		( getMainWindow as jest.Mock ).mockResolvedValue( {
+		vi.mocked( getMainWindow, { partial: true } ).mockResolvedValue( {
 			isFullScreen: () => true,
 		} );
 
@@ -145,12 +156,12 @@ describe( 'importSite', () => {
 	};
 
 	beforeEach( () => {
-		( importBackup as jest.Mock ).mockReset();
-		( bumpStat as jest.Mock ).mockReset();
+		vi.mocked( importBackup ).mockReset();
+		vi.mocked( bumpStat ).mockReset();
 	} );
 
 	it( 'should throw error if site is not found', async () => {
-		( SiteServer.get as jest.Mock ).mockReturnValue( null );
+		vi.mocked( SiteServer.get ).mockReturnValue( undefined );
 
 		await expect(
 			importSite( mockIpcMainInvokeEvent, {
@@ -164,18 +175,24 @@ describe( 'importSite', () => {
 		const mockSite = {
 			details: {
 				id: 'test-site',
+				name: 'Test',
+				path: '/test',
+				port: 9999,
 				phpVersion: '8.3',
+				running: false,
 			},
 			meta: {},
-			start: jest.fn(),
-			stop: jest.fn(),
-			updateSiteDetails: jest.fn(),
-			executeWpCliCommand: jest
+			start: vi.fn(),
+			stop: vi.fn(),
+			updateSiteDetails: vi.fn(),
+			executeWpCliCommand: vi
 				.fn()
 				.mockResolvedValue( { stdout: 'New Site Title', stderr: '', exitCode: 0 } ),
 		};
-		( SiteServer.get as jest.Mock ).mockReturnValue( mockSite );
-		( importBackup as jest.Mock ).mockResolvedValue( {
+		vi.mocked( SiteServer.get, { partial: true } ).mockReturnValue(
+			mockSite as unknown as Partial< SiteServer >
+		);
+		vi.mocked( importBackup, { partial: true } ).mockResolvedValue( {
 			meta: {
 				phpVersion: '8.3',
 			},
@@ -207,15 +224,24 @@ describe( 'importSite', () => {
 		const mockSite = {
 			details: {
 				id: 'test-site',
+				name: 'Test',
+				path: '/test',
+				port: 9999,
+				phpVersion: '8.3',
+				running: false,
 			},
-			start: jest.fn(),
-			stop: jest.fn(),
-			executeWpCliCommand: jest
+			meta: {},
+			start: vi.fn(),
+			stop: vi.fn(),
+			updateSiteDetails: vi.fn(),
+			executeWpCliCommand: vi
 				.fn()
 				.mockResolvedValue( { stdout: 'New Site Title', stderr: '', exitCode: 0 } ),
 		};
-		( SiteServer.get as jest.Mock ).mockReturnValue( mockSite );
-		( importBackup as jest.Mock ).mockRejectedValue( mockError );
+		vi.mocked( SiteServer.get, { partial: true } ).mockReturnValue(
+			mockSite as unknown as Partial< SiteServer >
+		);
+		vi.mocked( importBackup ).mockRejectedValue( mockError );
 
 		await expect(
 			importSite( mockIpcMainInvokeEvent, {
@@ -239,8 +265,10 @@ describe( 'getXdebugEnabledSite', () => {
 				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2' },
 			],
 		};
-		( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserDataWithoutXdebug ) );
-		( fs.existsSync as jest.Mock ).mockReturnValue( true );
+		vi.mocked( readFile ).mockResolvedValue(
+			Buffer.from( JSON.stringify( mockUserDataWithoutXdebug ) )
+		);
+		vi.mocked( fs.existsSync ).mockReturnValue( true );
 
 		const result = await getXdebugEnabledSite( mockIpcMainInvokeEvent );
 
@@ -254,15 +282,20 @@ describe( 'getXdebugEnabledSite', () => {
 				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2', enableXdebug: true },
 			],
 		};
-		( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserDataWithXdebug ) );
-		( fs.existsSync as jest.Mock ).mockReturnValue( true );
-		( SiteServer.get as jest.Mock ).mockReturnValue( {
+		vi.mocked( readFile ).mockResolvedValue(
+			Buffer.from( JSON.stringify( mockUserDataWithXdebug ) )
+		);
+		vi.mocked( fs.existsSync ).mockReturnValue( true );
+		vi.mocked( SiteServer.get, { partial: true } ).mockReturnValue( {
 			details: {
 				id: 'site-2',
 				name: 'Site 2',
 				path: '/path/to/site-2',
 				running: true,
 				enableXdebug: true,
+				phpVersion: '8.3',
+				port: 9999,
+				url: 'https://site-2.test',
 			},
 		} );
 
@@ -274,6 +307,9 @@ describe( 'getXdebugEnabledSite', () => {
 			path: '/path/to/site-2',
 			running: true,
 			enableXdebug: true,
+			phpVersion: '8.3',
+			port: 9999,
+			url: 'https://site-2.test',
 		} );
 	} );
 
@@ -284,15 +320,19 @@ describe( 'getXdebugEnabledSite', () => {
 				{ id: 'site-2', name: 'Site 2', path: '/path/to/site-2', enableXdebug: true },
 			],
 		};
-		( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( mockUserDataWithMultipleXdebug ) );
-		( fs.existsSync as jest.Mock ).mockReturnValue( true );
-		( SiteServer.get as jest.Mock ).mockReturnValue( {
+		vi.mocked( readFile ).mockResolvedValue(
+			Buffer.from( JSON.stringify( mockUserDataWithMultipleXdebug ) )
+		);
+		vi.mocked( fs.existsSync ).mockReturnValue( true );
+		vi.mocked( SiteServer.get, { partial: true } ).mockReturnValue( {
 			details: {
 				id: 'site-1',
 				name: 'Site 1',
 				path: '/path/to/site-1',
 				running: false,
 				enableXdebug: true,
+				phpVersion: '8.3',
+				port: 9999,
 			},
 		} );
 
@@ -304,6 +344,8 @@ describe( 'getXdebugEnabledSite', () => {
 			path: '/path/to/site-1',
 			running: false,
 			enableXdebug: true,
+			phpVersion: '8.3',
+			port: 9999,
 		} );
 	} );
 } );

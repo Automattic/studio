@@ -1,21 +1,39 @@
 import { render, screen } from '@testing-library/react';
 import { speak } from '@wordpress/a11y';
+import { vi } from 'vitest';
 import Anchor from 'src/components/assistant-anchor';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
-jest.mock( '@sentry/electron/renderer' );
-jest.mock( 'src/hooks/use-site-details' );
-jest.mock( 'src/lib/get-ipc-api' );
-jest.mock( '@wordpress/a11y' );
+const mockOpenURL = vi.fn( () => Promise.resolve() );
+const mockShowErrorMessageBox = vi.fn();
+
+vi.mock( '@sentry/electron/renderer' );
+vi.mock( 'src/hooks/use-site-details' );
+vi.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: () => ( {
+		openURL: mockOpenURL,
+		showErrorMessageBox: mockShowErrorMessageBox,
+	} ),
+} ) );
+vi.mock( '@wordpress/a11y' );
+
+const createMockSiteDetails = ( overrides = {} ): SiteDetails =>
+	( {
+		id: '1',
+		name: 'Test Site',
+		path: '/test/path',
+		port: 3000,
+		phpVersion: '8.0',
+		running: false,
+		...overrides,
+	} ) as SiteDetails;
 
 describe( 'Anchor', () => {
-	beforeAll( () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {} );
-		( getIpcApi as jest.Mock ).mockReturnValue( {
-			openURL: jest.fn( () => Promise.resolve() ),
-			showErrorMessageBox: jest.fn(),
-		} );
+	beforeEach( () => {
+		mockOpenURL.mockClear();
+		mockShowErrorMessageBox.mockClear();
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {} );
 	} );
 
 	it( 'should render an anchor element', () => {
@@ -49,9 +67,9 @@ describe( 'Anchor', () => {
 	} );
 
 	it( "should start the site's server before navigating to a stopped site when clicked", async () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			selectedSite: { id: '1', running: false },
-			startServer: jest.fn( () => Promise.resolve() ),
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			selectedSite: createMockSiteDetails(),
+			startServer: vi.fn( () => Promise.resolve() ),
 			loadingServer: {},
 		} );
 		render( <Anchor href="http://localhost:3000" children="Local link" /> );
@@ -68,12 +86,38 @@ describe( 'Anchor', () => {
 	} );
 
 	it( "should communicate background activity while the site's server is starting", () => {
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
-			selectedSite: { id: '1' },
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			selectedSite: createMockSiteDetails(),
 			loadingServer: { 1: true },
 		} );
 		render( <Anchor href="http://localhost:3000" children="Example link" /> );
 
 		expect( screen.getByRole( 'link' ) ).toHaveClass( 'animate-pulse', 'cursor-wait' );
+	} );
+
+	it( 'should add UTM params when clicking a Telex link', () => {
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {} );
+		render( <Anchor href="https://telex.automattic.ai/" children="Telex link" /> );
+
+		screen.getByRole( 'link' ).click();
+
+		expect( getIpcApi().openURL ).toHaveBeenCalledWith(
+			expect.stringContaining( 'utm_source=studio' )
+		);
+		expect( getIpcApi().openURL ).toHaveBeenCalledWith(
+			expect.stringContaining( 'utm_medium=app' )
+		);
+		expect( getIpcApi().openURL ).toHaveBeenCalledWith(
+			expect.stringContaining( 'utm_campaign=assistant' )
+		);
+	} );
+
+	it( 'should not modify non-Telex URLs', () => {
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {} );
+		render( <Anchor href="https://wordpress.com/" children="WordPress link" /> );
+
+		screen.getByRole( 'link' ).click();
+
+		expect( getIpcApi().openURL ).toHaveBeenCalledWith( 'https://wordpress.com/' );
 	} );
 } );

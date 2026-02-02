@@ -1,17 +1,17 @@
+import { vi } from 'vitest';
 import { cacheFunctionTTL, clearCache } from 'common/lib/cache-function-ttl';
 
 describe( 'cacheFunctionTTL', () => {
 	beforeEach( () => {
-		jest.useFakeTimers();
+		vi.useFakeTimers();
 	} );
 
 	afterEach( () => {
-		jest.runOnlyPendingTimers();
-		jest.useRealTimers();
+		vi.runOnlyPendingTimers();
 	} );
 
 	it( 'should return different results for different arguments', async () => {
-		const fetchUser = jest.fn( async ( userId: number ) => {
+		const fetchUser = vi.fn( async ( userId: number ) => {
 			return { id: userId, name: `User ${ userId }` };
 		} );
 
@@ -26,7 +26,7 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should cache results for the same arguments within TTL', async () => {
-		const fetchUser = jest.fn( async ( userId: number ) => {
+		const fetchUser = vi.fn( async ( userId: number ) => {
 			return { id: userId, name: `User ${ userId }` };
 		} );
 
@@ -40,7 +40,7 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should expire cache after TTL', async () => {
-		const fetchUser = jest.fn( async ( userId: number ) => {
+		const fetchUser = vi.fn( async ( userId: number ) => {
 			return { id: userId, name: `User ${ userId }` };
 		} );
 
@@ -49,7 +49,7 @@ describe( 'cacheFunctionTTL', () => {
 		const user1First = await cachedFetchUser( 1 );
 		expect( fetchUser ).toHaveBeenCalledTimes( 1 );
 
-		jest.advanceTimersByTime( 1000 );
+		vi.advanceTimersByTime( 1000 );
 
 		const user1Second = await cachedFetchUser( 1 );
 		expect( fetchUser ).toHaveBeenCalledTimes( 2 );
@@ -57,21 +57,21 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should not expire cache before TTL expires', async () => {
-		const fetchUser = jest.fn( async ( userId: number ) => {
+		const fetchUser = vi.fn( async ( userId: number ) => {
 			return { id: userId, name: `User ${ userId }` };
 		} );
 
 		const cachedFetchUser = cacheFunctionTTL( fetchUser, 1000 );
 
 		await cachedFetchUser( 1 );
-		jest.advanceTimersByTime( 500 );
+		vi.advanceTimersByTime( 500 );
 		await cachedFetchUser( 1 );
 
 		expect( fetchUser ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'should handle multiple arguments correctly', async () => {
-		const getUserPosts = jest.fn( async ( userId: number, postId: number ) => {
+		const getUserPosts = vi.fn( async ( userId: number, postId: number ) => {
 			return { userId, postId, title: `Post ${ postId } by User ${ userId }` };
 		} );
 
@@ -88,7 +88,7 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should handle object arguments with deep equality', async () => {
-		const fetchUser = jest.fn( async ( filter: { id: number; active: boolean } ) => {
+		const fetchUser = vi.fn( async ( filter: { id: number; active: boolean } ) => {
 			return { ...filter, name: `User ${ filter.id }` };
 		} );
 
@@ -102,7 +102,7 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should distinguish between different object arguments', async () => {
-		const fetchUser = jest.fn( async ( filter: { id: number; active: boolean } ) => {
+		const fetchUser = vi.fn( async ( filter: { id: number; active: boolean } ) => {
 			return filter;
 		} );
 
@@ -117,7 +117,7 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should handle no arguments', async () => {
-		const getData = jest.fn( async () => {
+		const getData = vi.fn( async () => {
 			return { data: 'test' };
 		} );
 
@@ -131,7 +131,7 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should share cache when wrapping the same function', async () => {
-		const fetchUser = jest.fn( async ( userId: number ) => {
+		const fetchUser = vi.fn( async ( userId: number ) => {
 			return { id: userId, name: `User ${ userId }` };
 		} );
 
@@ -146,11 +146,11 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should maintain separate caches for different function instances', async () => {
-		const fetchUser = jest.fn( async ( userId: number ) => {
+		const fetchUser = vi.fn( async ( userId: number ) => {
 			return { id: userId, name: `User ${ userId }` };
 		} );
 
-		const fetchPost = jest.fn( async ( postId: number ) => {
+		const fetchPost = vi.fn( async ( postId: number ) => {
 			return { id: postId, title: `Post ${ postId }` };
 		} );
 
@@ -167,7 +167,7 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should handle rejected promises', async () => {
-		const fetchUser = jest.fn( async ( userId: number ) => {
+		const fetchUser = vi.fn( async ( userId: number ) => {
 			if ( userId === 0 ) {
 				throw new Error( 'Invalid user ID' );
 			}
@@ -181,7 +181,7 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should handle null and undefined values', async () => {
-		const fetchUser = jest.fn( async ( userId: number | null ) => {
+		const fetchUser = vi.fn( async ( userId: number | null ) => {
 			if ( userId === null ) {
 				return null;
 			}
@@ -199,7 +199,7 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should use default TTL of 1 second when not specified', async () => {
-		const fetchUser = jest.fn( async ( userId: number ) => {
+		const fetchUser = vi.fn( async ( userId: number ) => {
 			return { id: userId, name: `User ${ userId }` };
 		} );
 
@@ -208,17 +208,17 @@ describe( 'cacheFunctionTTL', () => {
 		await cachedFetchUser( 1 );
 		expect( fetchUser ).toHaveBeenCalledTimes( 1 );
 
-		jest.advanceTimersByTime( 999 );
+		vi.advanceTimersByTime( 999 );
 		await cachedFetchUser( 1 );
 		expect( fetchUser ).toHaveBeenCalledTimes( 1 );
 
-		jest.advanceTimersByTime( 1 );
+		vi.advanceTimersByTime( 1 );
 		await cachedFetchUser( 1 );
 		expect( fetchUser ).toHaveBeenCalledTimes( 2 );
 	} );
 
 	it( 'should handle mixed cache hits and misses', async () => {
-		const fetchUser = jest.fn( async ( userId: number ) => {
+		const fetchUser = vi.fn( async ( userId: number ) => {
 			return { id: userId, name: `User ${ userId }` };
 		} );
 
@@ -235,7 +235,7 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should maintain separate caches for different argument combinations after TTL expiration', async () => {
-		const fetchUser = jest.fn( async ( userId: number ) => {
+		const fetchUser = vi.fn( async ( userId: number ) => {
 			return { id: userId, name: `User ${ userId }` };
 		} );
 
@@ -244,7 +244,7 @@ describe( 'cacheFunctionTTL', () => {
 		await cachedFetchUser( 1 );
 		await cachedFetchUser( 2 );
 
-		jest.advanceTimersByTime( 1000 );
+		vi.advanceTimersByTime( 1000 );
 
 		await cachedFetchUser( 1 );
 		await cachedFetchUser( 2 );
@@ -253,7 +253,7 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should handle array arguments correctly', async () => {
-		const fetchMultiple = jest.fn( async ( ids: number[] ) => {
+		const fetchMultiple = vi.fn( async ( ids: number[] ) => {
 			return ids.map( ( id ) => ( { id, name: `User ${ id }` } ) );
 		} );
 
@@ -267,7 +267,7 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should distinguish between array arguments with different elements', async () => {
-		const fetchMultiple = jest.fn( async ( ids: number[] ) => {
+		const fetchMultiple = vi.fn( async ( ids: number[] ) => {
 			return ids.map( ( id ) => ( { id } ) );
 		} );
 
@@ -282,7 +282,7 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should handle boolean arguments', async () => {
-		const fetchData = jest.fn( async ( enabled: boolean ) => ( { enabled } ) );
+		const fetchData = vi.fn( async ( enabled: boolean ) => ( { enabled } ) );
 		const cachedFetch = cacheFunctionTTL( fetchData, 1000 );
 
 		const result1 = await cachedFetch( true );
@@ -296,7 +296,7 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should handle string arguments', async () => {
-		const fetchData = jest.fn( async ( query: string ) => ( { query, length: query.length } ) );
+		const fetchData = vi.fn( async ( query: string ) => ( { query, length: query.length } ) );
 		const cachedFetch = cacheFunctionTTL( fetchData, 1000 );
 
 		const result1 = await cachedFetch( 'hello' );
@@ -310,14 +310,14 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should expire individual cached entries independently', async () => {
-		const fetchData = jest.fn( async ( id: number ) => ( { id } ) );
+		const fetchData = vi.fn( async ( id: number ) => ( { id } ) );
 		const cachedFetch = cacheFunctionTTL( fetchData, 1000 );
 
 		await cachedFetch( 1 );
 		await cachedFetch( 2 );
 		expect( fetchData ).toHaveBeenCalledTimes( 2 );
 
-		jest.advanceTimersByTime( 1000 );
+		vi.advanceTimersByTime( 1000 );
 
 		await cachedFetch( 1 );
 		await cachedFetch( 2 );
@@ -325,7 +325,7 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should handle rapid successive calls with same arguments', async () => {
-		const fetchData = jest.fn( async () => ( { value: 'cached-result' } ) );
+		const fetchData = vi.fn( async () => ( { value: 'cached-result' } ) );
 		const cachedFetch = cacheFunctionTTL( fetchData, 1000 );
 
 		const result1 = await cachedFetch();
@@ -338,17 +338,17 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should preserve cached value across multiple TTL windows', async () => {
-		const fetchData = jest.fn( async () => ( { value: 'constant' } ) );
+		const fetchData = vi.fn( async () => ( { value: 'constant' } ) );
 		const cachedFetch = cacheFunctionTTL( fetchData, 1000 );
 
 		const result1 = await cachedFetch();
 		expect( fetchData ).toHaveBeenCalledTimes( 1 );
 
-		jest.advanceTimersByTime( 500 );
+		vi.advanceTimersByTime( 500 );
 		const result2 = await cachedFetch();
 		expect( fetchData ).toHaveBeenCalledTimes( 1 );
 
-		jest.advanceTimersByTime( 400 );
+		vi.advanceTimersByTime( 400 );
 		const result3 = await cachedFetch();
 		expect( fetchData ).toHaveBeenCalledTimes( 1 );
 
@@ -357,7 +357,7 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should handle complex nested object arguments', async () => {
-		const fetchData = jest.fn(
+		const fetchData = vi.fn(
 			async ( config: { user: { id: number; name: string }; settings: { enabled: boolean } } ) => {
 				return config;
 			}
@@ -377,7 +377,7 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should clear all cache entries when clearCache is called', async () => {
-		const fetchData = jest.fn( async () => ( { value: 'test' } ) );
+		const fetchData = vi.fn( async () => ( { value: 'test' } ) );
 		const cachedFetch = cacheFunctionTTL( fetchData, 1000 );
 
 		const result1 = await cachedFetch();
@@ -395,7 +395,7 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should allow cache to repopulate after clearing', async () => {
-		const fetchData = jest.fn( async ( id: number ) => ( { id, value: `data-${ id }` } ) );
+		const fetchData = vi.fn( async ( id: number ) => ( { id, value: `data-${ id }` } ) );
 		const cachedFetch = cacheFunctionTTL( fetchData, 1000 );
 
 		await cachedFetch( 1 );
@@ -410,7 +410,7 @@ describe( 'cacheFunctionTTL', () => {
 	} );
 
 	it( 'should clear cache for multiple cached arguments', async () => {
-		const fetchData = jest.fn( async ( id: number ) => ( { id } ) );
+		const fetchData = vi.fn( async ( id: number ) => ( { id } ) );
 		const cachedFetch = cacheFunctionTTL( fetchData, 1000 );
 
 		await cachedFetch( 1 );

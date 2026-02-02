@@ -347,11 +347,14 @@ export const CreateSiteForm = ( {
 
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
 
-	// Check if current versions differ from blueprint recommendations
-	const showBlueprintVersionWarning =
-		blueprintPreferredVersions &&
-		( ( blueprintPreferredVersions.php && blueprintPreferredVersions.php !== phpVersion ) ||
-			( blueprintPreferredVersions.wp && blueprintPreferredVersions.wp !== wpVersion ) );
+	const showPhpVersionWarning =
+		blueprintPreferredVersions?.php && blueprintPreferredVersions.php !== phpVersion;
+
+	const showWpVersionWarning =
+		blueprintPreferredVersions?.wp && blueprintPreferredVersions.wp !== wpVersion;
+
+	const showBlueprintVersionWarning = showPhpVersionWarning || showWpVersionWarning;
+	const warningCount = [ showPhpVersionWarning, showWpVersionWarning ].filter( Boolean ).length;
 
 	const showAdvancedSettings = onSelectPath !== undefined;
 
@@ -395,6 +398,16 @@ export const CreateSiteForm = ( {
 										/* translators: %d: number of errors found */
 										_n( '%d error found', '%d errors found', errorCount ),
 										errorCount
+									) }
+								</span>
+							) }
+							{ warningCount > 0 && (
+								<span className="text-amber-600 text-[13px] leading-[16px] ml-2 flex items-center">
+									<Icon icon={ cautionFilled } size={ 16 } className="mr-1 fill-amber-600" />
+									{ sprintf(
+										/* translators: %d: number of warnings found */
+										_n( '%d warning found', '%d warnings found', warningCount ),
+										warningCount
 									) }
 								</span>
 							) }
@@ -461,29 +474,27 @@ export const CreateSiteForm = ( {
 										<strong>{ __( 'Version differs from Blueprint recommendation' ) }</strong>
 										<br />
 										{ __( 'This Blueprint recommends:' ) }
-										<ul style={ { marginTop: '8px', marginBottom: '4px', paddingLeft: '20px' } }>
-											{ blueprintPreferredVersions.php &&
-												blueprintPreferredVersions.php !== phpVersion && (
-													<li>
-														{ sprintf(
-															/* translators: %1$s: recommended PHP version, %2$s: currently selected PHP version */
-															__( 'PHP %s (currently %s)' ),
-															blueprintPreferredVersions.php,
-															phpVersion
-														) }
-													</li>
-												) }
-											{ blueprintPreferredVersions.wp &&
-												blueprintPreferredVersions.wp !== wpVersion && (
-													<li>
-														{ sprintf(
-															/* translators: %1$s: recommended WordPress version, %2$s: currently selected WordPress version */
-															__( 'WordPress %s (currently %s)' ),
-															blueprintPreferredVersions.wp,
-															wpVersion
-														) }
-													</li>
-												) }
+										<ul className="my-2 pl-4">
+											{ showPhpVersionWarning && (
+												<li>
+													{ sprintf(
+														/* translators: %1$s: recommended PHP version, %2$s: default PHP version */
+														__( 'PHP %s (selected is %s)' ),
+														blueprintPreferredVersions?.php as string,
+														phpVersion
+													) }
+												</li>
+											) }
+											{ showWpVersionWarning && (
+												<li>
+													{ sprintf(
+														/* translators: %1$s: recommended WordPress version, %2$s: default WordPress version */
+														__( 'WordPress %s (selected is %s)' ),
+														blueprintPreferredVersions?.wp as string,
+														wpVersion
+													) }
+												</li>
+											) }
 										</ul>
 										{ __( 'Using different versions may cause compatibility issues.' ) }
 									</Notice>

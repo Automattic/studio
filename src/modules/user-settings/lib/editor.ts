@@ -1,12 +1,14 @@
 import { __ } from '@wordpress/i18n';
 
 export const SUPPORTED_EDITORS = [
+	'antigravity',
 	'cursor',
 	'vscode',
 	'phpstorm',
 	'windsurf',
 	'webstorm',
 	'sublime',
+	'zed',
 ] as const;
 export type SupportedEditor = ( typeof SUPPORTED_EDITORS )[ number ];
 
@@ -18,6 +20,16 @@ export type SupportedEditorConfig = {
 };
 
 export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConfig > = {
+	antigravity: {
+		// translators: "Antigravity" is the brand name for an IDE and does not need to be translated
+		label: __( 'Antigravity' ),
+		url: ( path: string ) => `antigravity://file/${ path }?windowId=_blank`,
+		macOSBundleId: 'com.google.antigravity',
+		winPaths: [
+			'%LOCALAPPDATA%\\Programs\\Antigravity\\Antigravity.exe',
+			'%PROGRAMFILES%\\Google\\Antigravity\\Antigravity.exe',
+		],
+	},
 	vscode: {
 		// translators: "VS Code" is the brand name for an IDE and does not need to be translated
 		label: __( 'VS Code' ),
@@ -79,5 +91,12 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 			'%PROGRAMFILES%\\Sublime Text 4\\sublime_text.exe',
 			'%PROGRAMFILES%\\Sublime Text 3\\sublime_text.exe',
 		],
+	},
+	zed: {
+		// translators: "Zed" is the brand name for an IDE and does not need to be translated
+		label: __( 'Zed' ),
+		url: ( path: string ) => `zed://file/${ path }`,
+		macOSBundleId: 'dev.zed.Zed',
+		winPaths: [ '%LOCALAPPDATA%\\Programs\\Zed\\zed.exe' ],
 	},
 };

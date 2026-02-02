@@ -4,7 +4,7 @@ import { executeCliCommand } from './execute-command';
 import type { WordPressServerProcess } from 'src/lib/wordpress-server-types';
 
 const cliEventSchema = z.object( {
-	action: z.nativeEnum( SiteCommandLoggerAction ),
+	action: z.enum( SiteCommandLoggerAction ),
 	status: z.enum( [ 'inprogress', 'fail', 'success', 'warning' ] ),
 	message: z.string(),
 } );
@@ -43,8 +43,9 @@ export class CliServerProcess implements WordPressServerProcess {
 				resolve();
 			} );
 
-			emitter.on( 'failure', () => {
-				reject( new Error( `Failed to start site ${ this.siteId }` ) );
+			emitter.on( 'failure', ( { error } ) => {
+				error.baseMessage = 'Failed to start site';
+				reject( error );
 			} );
 
 			emitter.on( 'error', ( { error } ) => {
@@ -55,14 +56,18 @@ export class CliServerProcess implements WordPressServerProcess {
 
 	async stop(): Promise< void > {
 		return new Promise( ( resolve, reject ) => {
-			const [ emitter ] = executeCliCommand( [ 'site', 'stop', '--path', this.sitePath ] );
+			const [ emitter ] = executeCliCommand( [ 'site', 'stop', '--path', this.sitePath ], {
+				output: 'capture',
+				logPrefix: this.siteId,
+			} );
 
 			emitter.on( 'success', () => {
 				resolve();
 			} );
 
-			emitter.on( 'failure', () => {
-				reject( new Error( `Failed to stop site ${ this.siteId }` ) );
+			emitter.on( 'failure', ( { error } ) => {
+				error.baseMessage = 'Failed to stop site';
+				reject( error );
 			} );
 
 			emitter.on( 'error', ( { error } ) => {
@@ -71,20 +76,24 @@ export class CliServerProcess implements WordPressServerProcess {
 		} );
 	}
 
-	async delete( deleteFiles: boolean ): Promise< void > {
+	async delete( trashFiles: boolean ): Promise< void > {
 		return new Promise( ( resolve, reject ) => {
 			const args = [ 'site', 'delete', '--path', this.sitePath ];
-			if ( deleteFiles ) {
+			if ( trashFiles ) {
 				args.push( '--files' );
 			}
-			const [ emitter ] = executeCliCommand( args );
+			const [ emitter ] = executeCliCommand( args, {
+				output: 'capture',
+				logPrefix: this.siteId,
+			} );
 
 			emitter.on( 'success', () => {
 				resolve();
 			} );
 
-			emitter.on( 'failure', () => {
-				reject( new Error( `Failed to delete site ${ this.siteId }` ) );
+			emitter.on( 'failure', ( { error } ) => {
+				error.baseMessage = 'Failed to delete site';
+				reject( error );
 			} );
 
 			emitter.on( 'error', ( { error } ) => {

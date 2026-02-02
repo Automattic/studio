@@ -16,7 +16,18 @@ const config: ForgeConfig = {
 		extraResource: [ './wp-files', './assets', './bin', './dist/cli' ],
 		executableName: process.platform === 'linux' ? 'studio' : undefined,
 		icon: './assets/studio-app-icon',
-		osxSign: {},
+		osxSign: {
+			optionsForFile: ( filePath ) => {
+				// The bundled Node binary requires specific entitlements for V8 JIT compilation.
+				// Without these, V8 crashes with SIGTRAP when trying to allocate executable memory.
+				if ( filePath.endsWith( 'bin/node' ) ) {
+					return {
+						entitlements: path.join( __dirname, 'entitlements', 'node.plist' ),
+					};
+				}
+				return {};
+			},
+		},
 		ignore: [
 			// Exclude major development directories
 			/^\/\..*/, // All dotfiles and dot directories
@@ -37,7 +48,7 @@ const config: ForgeConfig = {
 			// Config files
 			/^\/webpack\./,
 			/^\/tsconfig\./,
-			/^\/jest\./,
+			/^\/vitest\./,
 			/^\/playwright\./,
 			/^\/postcss\./,
 			/^\/tailwind\./,

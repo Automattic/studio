@@ -130,6 +130,17 @@ const config: ForgeConfig = {
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
 			await execAsync( `npx ts-node ./scripts/download-node-binary.ts ${ platform } ${ arch }` );
+
+			// Build CLI launcher executable for Windows AppX (Microsoft Store).
+			// AppX packages require AppExecutionAlias with an .exe target — batch files won't work.
+			if ( platform === 'win32' ) {
+				const pkgArch = arch === 'x64' ? 'x64' : 'arm64';
+				const target = `node22-win-${ pkgArch }`;
+				console.log( `Building CLI launcher executable for ${ target }...` );
+				await execAsync(
+					`npx pkg bin/studio-cli-launcher.js --target ${ target } --output bin/studio-cli.exe --compress GZip`
+				);
+			}
 		},
 	},
 };

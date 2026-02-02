@@ -32,7 +32,7 @@ if ($Architecture -notin $VALID_ARCHITECTURES) {
 & "setup_windows_code_signing.ps1"
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
-Write-Host "--- :npm: Installing Node dependencies"
+Write-Host "--- :package: Installing Node dependencies with pnpm"
 bash .buildkite/commands/install-node-dependencies.sh
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
@@ -54,7 +54,7 @@ if ($BuildType -eq $BUILD_TYPE_DEV) {
 $env:FILE_ARCHITECTURE=$Architecture
 
 Write-Host "Building for architecture: $Architecture"
-npm run "make:windows-$Architecture"
+pnpm run "make:windows-$Architecture"
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
 # Rename NuGet package files with generic name

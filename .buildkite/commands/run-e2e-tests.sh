@@ -13,10 +13,10 @@ bash .buildkite/commands/install-node-dependencies.sh
 export IS_DEV_BUILD=true
 
 echo '--- :package: Package app for testing'
-npm run package
+pnpm run package
 
 echo '--- :playwright: Run End To End Tests'
 echo 'Installing Playwright browsers...'
-npx playwright install
+pnpm exec playwright install
 echo 'Running Playwright tests...'
-npx playwright test
+pnpm exec playwright test

@@ -10,4 +10,4 @@ echo '--- :package: Install deps'
 bash .buildkite/commands/install-node-dependencies.sh
 
 echo '--- :eslint: Lint'
-npm run lint
+pnpm run lint

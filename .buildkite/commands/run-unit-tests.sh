@@ -10,6 +10,6 @@ fi
 echo '--- :package: Install deps'
 bash .buildkite/commands/install-node-dependencies.sh
 
-echo '--- :npm: Run Unit Tests'
-npm run test
+echo '--- :test_tube: Run Unit Tests'
+pnpm run test
 

@@ -55,6 +55,7 @@ const logger = new Logger< LoggerAction >();
 
 type CreateCommandOptions = {
 	name?: string;
+	siteId?: string;
 	wpVersion: string;
 	phpVersion: ( typeof ALLOWED_PHP_VERSIONS )[ number ];
 	customDomain?: string;
@@ -178,7 +179,7 @@ export async function runCommand(
 		logger.reportSuccess( sprintf( __( 'Port assigned: %d' ), port ) );
 
 		const siteName = options.name || path.basename( sitePath );
-		const siteId = crypto.randomUUID();
+		const siteId = options.siteId || crypto.randomUUID();
 		const adminPassword = createPassword();
 
 		const setupSteps: StepDefinition[] = [];
@@ -364,6 +365,15 @@ function readBlueprint( blueprintPath: string ) {
 	}
 }
 
+function coerceSiteId( value: string ) {
+	// Validate UUID format (8-4-4-4-12 hex characters)
+	const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+	if ( ! uuidRegex.test( value ) ) {
+		throw new ValidationError( 'id', value, __( 'Must be a valid UUID' ) );
+	}
+	return value;
+}
+
 function coerceWpVersion( value: string ) {
 	if ( ! isValidWordPressVersion( value ) ) {
 		throw new ValidationError(
@@ -392,6 +402,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		describe: __( 'Create a new site' ),
 		builder: ( yargs ) => {
 			return yargs
+				.option( 'id', {
+					type: 'string',
+					describe: __( 'Site ID (UUID format, used internally by Studio app)' ),
+					hidden: true,
+					coerce: coerceSiteId,
+				} )
 				.option( 'name', {
 					type: 'string',
 					describe: __( 'Site name' ),
@@ -440,6 +456,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		handler: async ( argv ) => {
 			const config: CreateCommandOptions = {
 				name: argv.name,
+				siteId: argv.id,
 				wpVersion: argv.wp,
 				phpVersion: argv.php,
 				customDomain: argv.domain,

@@ -20,6 +20,7 @@ export interface CreateSiteProps {
 	onSiteNameChange: ( name: string ) => Promise< PathValidationResult >;
 	existingDomainNames?: string[];
 	blueprintPreferredVersions?: BlueprintPreferredVersions;
+	blueprintSuggestedDomain?: string;
 	originalDefaultVersions?: {
 		phpVersion?: AllowedPHPVersion;
 		wpVersion?: string;
@@ -35,6 +36,7 @@ export default function CreateSite( {
 	onSiteNameChange,
 	existingDomainNames = [],
 	blueprintPreferredVersions,
+	blueprintSuggestedDomain,
 	onSubmit,
 	onValidityChange,
 	formRef,
@@ -53,6 +55,7 @@ export default function CreateSite( {
 				onSiteNameChange={ onSiteNameChange }
 				existingDomainNames={ existingDomainNames }
 				blueprintPreferredVersions={ blueprintPreferredVersions }
+				blueprintSuggestedDomain={ blueprintSuggestedDomain }
 				onSubmit={ onSubmit }
 				onValidityChange={ onValidityChange }
 				formRef={ formRef }

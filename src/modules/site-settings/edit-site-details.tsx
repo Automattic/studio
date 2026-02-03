@@ -18,7 +18,6 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useRootSelector } from 'src/stores';
-import { betaFeaturesSelectors } from 'src/stores/beta-features-slice';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import { selectDefaultWordPressVersion } from 'src/stores/provider-constants-slice';
 import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
@@ -32,8 +31,6 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const { __ } = useI18n();
 	const { updateSite, selectedSite, isEditModalOpen, setIsEditModalOpen } = useSiteDetails();
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
-	const betaFeatures = useRootSelector( betaFeaturesSelectors.selectBetaFeatures );
-	const isXdebugFeatureEnabled = betaFeatures.xdebugSupport;
 	const [ errorUpdatingWpVersion, setErrorUpdatingWpVersion ] = useState< string | null >( null );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const [ needsRestart, setNeedsRestart ] = useState( false );
@@ -83,15 +80,13 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	}, [ selectedSite?.customDomain ] );
 
 	useEffect( () => {
-		if ( isXdebugFeatureEnabled ) {
-			getIpcApi()
-				.getXdebugEnabledSite()
-				.then( setXdebugEnabledSite )
-				.catch( () => {
-					// Do nothing
-				} );
-		}
-	}, [ isXdebugFeatureEnabled, selectedSite ] );
+		getIpcApi()
+			.getXdebugEnabledSite()
+			.then( setXdebugEnabledSite )
+			.catch( () => {
+				// Do nothing
+			} );
+	}, [ selectedSite ] );
 
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
 	const usedCustomDomain = ! useCustomDomain ? customDomain : undefined;
@@ -312,8 +307,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 								) }
 							</div>
 
-							{ isXdebugFeatureEnabled && (
-								<div
+							<div
 									className={ cx(
 										'flex flex-col gap-2 mt-4',
 										isEditingSite ||
@@ -369,7 +363,6 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 										</div>
 									</Tooltip>
 								</div>
-							) }
 						</div>
 
 						<div className="flex flex-row justify-end gap-x-5 mt-8">

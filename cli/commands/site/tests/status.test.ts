@@ -1,6 +1,6 @@
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { vi } from 'vitest';
-import { getSiteByFolder, getSiteUrl, isXdebugBetaEnabled } from 'cli/lib/appdata';
+import { getSiteByFolder, getSiteUrl } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { runCommand } from '../status';
@@ -10,7 +10,6 @@ vi.mock( 'cli/lib/appdata', async () => {
 		...actual,
 		getSiteByFolder: vi.fn(),
 		getSiteUrl: vi.fn(),
-		isXdebugBetaEnabled: vi.fn(),
 		getAppdataDirectory: vi.fn( () => '/test/appdata' ),
 	};
 } );
@@ -43,7 +42,6 @@ describe( 'CLI: studio site status', () => {
 
 		vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
 		vi.mocked( getSiteUrl ).mockReturnValue( 'http://localhost:8080' );
-		vi.mocked( isXdebugBetaEnabled ).mockResolvedValue( true );
 		vi.mocked( connect ).mockResolvedValue( undefined );
 		vi.mocked( disconnect ).mockResolvedValue( undefined );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
@@ -170,31 +168,6 @@ describe( 'CLI: studio site status', () => {
 			consoleSpy.mockRestore();
 		} );
 
-		it( 'should hide xdebug when beta feature is disabled', async () => {
-			vi.mocked( isXdebugBetaEnabled ).mockResolvedValue( false );
-
-			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
-
-			await runCommand( '/path/to/site', 'json' );
-
-			expect( consoleSpy ).toHaveBeenCalledWith(
-				JSON.stringify(
-					{
-						'Site URL': 'http://localhost:8080/',
-						'Site Path': '/path/to/site',
-						Status: '🔴 Offline',
-						'PHP version': '8.0',
-						'WP version': '6.4',
-						'Admin username': 'admin',
-						'Admin password': 'password123',
-					},
-					null,
-					2
-				)
-			);
-
-			consoleSpy.mockRestore();
-		} );
 	} );
 
 	describe( 'Cleanup', () => {

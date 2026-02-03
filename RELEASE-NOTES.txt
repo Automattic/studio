@@ -7,7 +7,7 @@ Unreleased
 * Fixed incorrect WordPress version warning when applying Blueprints #2494
 * Fixed an issue where deleting multiple sites at once could fail #2492
 * Fixed tab selection after site deletion #2468
-* Fixed CLI failing to start when installed in a path containing spaces #2495
+* Fixed sites failing to start when Studio is installed in a path containing spaces #2495
 * CLI: Fixed --skip-site-details argument for starting a site that is already running #2510
 * Updated multiple dependencies, including WordPress Element, WordPress Date, and Node.js types
 

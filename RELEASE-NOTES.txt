@@ -1,6 +1,16 @@
 Unreleased
 ==========
 
+1.7.3
+=====
+* Added Zed and Antigravity editor support #2497
+* Fixed incorrect WordPress version warning when applying Blueprints #2494
+* Fixed an issue where deleting multiple sites at once could fail #2492
+* Fixed tab selection after site deletion #2468
+* Fixed sites failing to start when Studio is installed in a path containing spaces #2495
+* CLI: Fixed --skip-site-details argument for starting a site that is already running #2510
+* Updated multiple dependencies, including WordPress Element, WordPress Date, and Node.js types
+
 1.7.2
 =====
 * Added pause/resume functionality for the push process #2379

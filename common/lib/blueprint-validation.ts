@@ -1,4 +1,4 @@
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import validateBlueprintSchema from '@wp-playground/blueprints/blueprint-schema-validator';
 
 interface UnsupportedFeature {
@@ -154,7 +154,7 @@ export async function validateBlueprintData(
 		const errorPath = firstError.instancePath || '/';
 		const additionalProp = firstError.params?.additionalProperty;
 		const errorMessage = additionalProp
-			? __( `"${ additionalProp }" is not a valid Blueprint property` )
+			? sprintf( __( '"%s" is not a valid Blueprint property' ), additionalProp )
 			: firstError.message || __( 'Invalid blueprint' );
 
 		return {

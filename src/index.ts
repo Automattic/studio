@@ -39,6 +39,7 @@ import {
 	needsToMigrateFromWpNowFolder,
 	migrateFromWpNowFolder,
 } from 'src/migrations/migrate-from-wp-now-folder';
+import { removeDefaultDbConstants } from 'src/migrations/remove-default-db-constants';
 import { removeSitesWithEmptyDirectories } from 'src/migrations/remove-sites-with-empty-dirs';
 import { renameLaunchUniquesStat } from 'src/migrations/rename-launch-uniques-stat';
 import {
@@ -355,6 +356,8 @@ async function appBoot() {
 		await setupSentryUserId();
 
 		await removeSitesWithEmptyDirectories();
+
+		await removeDefaultDbConstants();
 
 		await renameLaunchUniquesStat();
 

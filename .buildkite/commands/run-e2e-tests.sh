@@ -14,19 +14,25 @@ bash .buildkite/commands/install-node-dependencies.sh
 
 export IS_DEV_BUILD=true
 
-echo "--- :package: Package app for testing ($PLATFORM-$ARCH)"
+# Map platform names to electron-forge platform values
 case "$PLATFORM" in
   mac)
-    npm run make:macos-"$ARCH"
+    FORGE_PLATFORM="darwin"
     ;;
   windows)
-    npm run make:windows-"$ARCH"
+    FORGE_PLATFORM="win32"
     ;;
   *)
     echo "Unknown platform: $PLATFORM"
     exit 1
     ;;
 esac
+
+# Use `electron-forge package` instead of `npm run make:*` for E2E tests.
+# `make` creates signed distributables (installers), which requires code signing setup.
+# `package` creates an unsigned app bundle, sufficient for E2E testing.
+echo "--- :package: Package app for testing ($PLATFORM-$ARCH)"
+npx electron-vite build --outDir=dist && npx electron-forge package --arch="$ARCH" --platform="$FORGE_PLATFORM"
 
 echo '--- :playwright: Run End To End Tests'
 echo 'Installing Playwright browsers...'

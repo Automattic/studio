@@ -4,10 +4,9 @@ set -euo pipefail
 PLATFORM=${1:-}
 ARCH=${2:-}
 
-# TODO: Re-enable once implementation has been verified. See AINFRA-1888
-# if .buildkite/commands/should-skip-job.sh --job-type validation; then
-#   exit 0
-# fi
+if .buildkite/commands/should-skip-job.sh --job-type validation; then
+  exit 0
+fi
 
 echo '--- :package: Install deps'
 bash .buildkite/commands/install-node-dependencies.sh

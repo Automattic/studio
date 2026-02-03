@@ -30,8 +30,12 @@ steps:
       - github_commit_status:
           context: Unit Tests
 
-  # E2E tests run on all supported platform/architecture combinations.
-  # Builds for the target arch; runs on mac/windows queues (arm64 agents can run x64 via emulation).
+  # E2E tests run on supported platform/architecture combinations.
+  # - mac-x64: Runs via Rosetta on Apple Silicon agents
+  # - mac-arm64: Native on Apple Silicon agents
+  # - windows-x64: Native on x64 agents
+  # - windows-arm64: Skipped via matrix adjustment
+  #   x64 Windows cannot run arm64 binaries (no emulation layer exists)
   - label: E2E Tests on {{matrix.platform}}-{{matrix.arch}}
     key: e2e_tests
     command: bash .buildkite/commands/run-e2e-tests.sh "{{matrix.platform}}" "{{matrix.arch}}"
@@ -53,6 +57,11 @@ steps:
         arch:
           - x64
           - arm64
+      adjustments:
+        - with:
+            platform: windows
+            arch: arm64
+          skip: true
     # TODO: Re-enable after validating E2E tests on all platforms (AINFRA-1888)
     # Skip E2E tests on draft PRs to save CI resources
     # Tests will run automatically when PR is marked ready for review

@@ -68,7 +68,10 @@ export async function updateLatestWordPressVersion() {
 		const latestVersion = await getLatestWordPressVersion();
 		if ( installedVersion && latestVersion !== 'latest' && installedVersion !== latestVersion ) {
 			// We keep a copy of the latest installed version instead of removing it.
-			await recursiveCopyDirectory( latestVersionPath, getWordPressVersionPath( installedVersion ) );
+			await recursiveCopyDirectory(
+				latestVersionPath,
+				getWordPressVersionPath( installedVersion )
+			);
 			shouldOverwrite = true;
 		}
 	}

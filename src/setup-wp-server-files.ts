@@ -1,6 +1,7 @@
 import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
+import { recursiveCopyDirectory } from 'common/lib/fs-utils';
 import { updateLatestWPCliVersion } from 'src/lib/download-utils';
 import { getWordPressVersionPath, getSqlitePath, getWpCliPath } from 'src/lib/server-files-paths';
 import {
@@ -40,7 +41,7 @@ export async function copyBundledLatestWPVersion() {
 			} );
 		}
 		console.log( `Copying bundled WP version ${ bundledWPVersion } as 'latest' version…` );
-		await fs.copy( bundledWPVersionPath, latestWPVersionPath );
+		await recursiveCopyDirectory( bundledWPVersionPath, latestWPVersionPath );
 	}
 }
 
@@ -67,7 +68,7 @@ async function copyBundledSqlite() {
 		installedSqliteVersion && semver.gt( bundledSqliteVersion, installedSqliteVersion );
 	if ( ! isSqliteInstalled || isBundledVersionNewer ) {
 		console.log( `Copying bundled SQLite version ${ bundledSqliteVersion }…` );
-		await fs.copy( bundledSqlitePath, getSqlitePath() );
+		await recursiveCopyDirectory( bundledSqlitePath, getSqlitePath() );
 	}
 }
 
@@ -86,7 +87,7 @@ async function copyBundledSQLiteCommand() {
 		return;
 	}
 	// Always copy to ensure files are complete and up-to-date
-	await fs.copy( bundledSqliteCommandPath, getSqliteCommandPath() );
+	await recursiveCopyDirectory( bundledSqliteCommandPath, getSqliteCommandPath() );
 }
 
 async function copyBundledTranslations() {

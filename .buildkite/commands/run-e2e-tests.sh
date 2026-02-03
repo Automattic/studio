@@ -32,7 +32,12 @@ esac
 # `make` creates signed distributables (installers), which requires code signing setup.
 # `package` creates an unsigned app bundle, sufficient for E2E testing.
 echo "--- :package: Package app for testing ($PLATFORM-$ARCH)"
-npx electron-vite build --outDir=dist && npx electron-forge package --arch="$ARCH" --platform="$FORGE_PLATFORM"
+npx electron-vite build --outDir=dist
+npx electron-forge package --arch="$ARCH" --platform="$FORGE_PLATFORM"
+
+# This empty echo prevents the next one from being swallowed.
+# See https://buildkite.com/automattic/studio/builds/11098/steps/canvas?jid=019c2287-365e-49c6-b0ba-f7c1d06bc5f5#019c2287-365e-49c6-b0ba-f7c1d06bc5f5/L392
+echo ''
 
 echo '--- :playwright: Run End To End Tests'
 
@@ -44,8 +49,8 @@ if [ "$PLATFORM" = "mac" ] && [ "$ARCH" = "x64" ]; then
   arch_prefix=(arch -x86_64)
 fi
 
-echo 'Installing Playwright browsers...'
+echo '~~~ Installing Playwright browsers...'
 ${arch_prefix[@]+"${arch_prefix[@]}"} npx playwright install
 
-echo 'Running Playwright tests...'
+echo '~~~ Running Playwright tests...'
 ${arch_prefix[@]+"${arch_prefix[@]}"} npx playwright test

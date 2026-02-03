@@ -38,7 +38,7 @@ steps:
   #   x64 Windows cannot run arm64 binaries (no emulation layer exists)
   - group: E2E Tests
     steps:
-      - label: E2E Tests on {{matrix.platform}}-{{matrix.arch}}
+      - label: "E2E Tests on {{matrix.platform}}-{{matrix.arch}}"
         key: e2e_tests
         command: bash .buildkite/commands/run-e2e-tests.sh "{{matrix.platform}}" "{{matrix.arch}}"
         artifact_paths:

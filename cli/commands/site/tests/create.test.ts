@@ -4,7 +4,13 @@ import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
 } from 'common/lib/blueprint-validation';
-import { isEmptyDir, isWordPressDirectory, pathExists, arePathsEqual } from 'common/lib/fs-utils';
+import {
+	isEmptyDir,
+	isWordPressDirectory,
+	pathExists,
+	arePathsEqual,
+	recursiveCopyDirectory,
+} from 'common/lib/fs-utils';
 import { isOnline } from 'common/lib/network-utils';
 import { portFinder } from 'common/lib/port-finder';
 import { vi, type MockInstance } from 'vitest';
@@ -28,11 +34,6 @@ import { runCommand } from '../create';
 
 vi.mock( 'common/lib/fs-utils' );
 vi.mock( 'common/lib/network-utils' );
-vi.mock( 'fs-extra', () => ( {
-	default: {
-		copy: vi.fn().mockResolvedValue( undefined ),
-	},
-} ) );
 vi.mock( 'common/lib/port-finder', () => ( {
 	portFinder: {
 		addUnavailablePort: vi.fn(),
@@ -133,6 +134,7 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( isEmptyDir ).mockResolvedValue( true );
 		vi.mocked( isWordPressDirectory ).mockReturnValue( false );
 		vi.mocked( arePathsEqual ).mockImplementation( ( a, b ) => a === b );
+		vi.mocked( recursiveCopyDirectory ).mockResolvedValue( undefined );
 		vi.mocked( portFinder.getOpenPort ).mockResolvedValue( mockPort );
 		vi.mocked( readAppdata, { partial: true } ).mockResolvedValue( {
 			sites: [ ...mockAppdata.sites ],

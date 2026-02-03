@@ -50,9 +50,10 @@ steps:
     matrix:
       - mac
       - windows
+    # TODO: Re-enable after validating E2E tests on all platforms (AINFRA-1888)
     # Skip E2E tests on draft PRs to save CI resources
     # Tests will run automatically when PR is marked ready for review
-    if: build.branch == 'trunk' || build.tag =~ /^v[0-9]+/ || !build.pull_request.draft
+    # if: build.branch == 'trunk' || build.tag =~ /^v[0-9]+/ || !build.pull_request.draft
     notify:
       - github_commit_status:
           context: E2E Tests

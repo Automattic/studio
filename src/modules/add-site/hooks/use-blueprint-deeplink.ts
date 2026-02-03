@@ -22,6 +22,7 @@ interface UseBlueprintDeeplinkOptions {
 	setBlueprintPreferredVersions: ( versions: BlueprintPreferredVersions | undefined ) => void;
 	setBlueprintDeeplinkWarnings: ( warnings: BlueprintValidationWarning[] | undefined ) => void;
 	setBlueprintSuggestedDomain: ( domain: string | undefined ) => void;
+	setBlueprintSuggestedHttps: ( https: boolean | undefined ) => void;
 	setIsDeeplinkFlow: ( isDeeplink: boolean ) => void;
 	onModalOpen?: () => void;
 }
@@ -36,6 +37,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 		setBlueprintPreferredVersions,
 		setBlueprintDeeplinkWarnings,
 		setBlueprintSuggestedDomain,
+		setBlueprintSuggestedHttps,
 		setIsDeeplinkFlow,
 		onModalOpen,
 	} = options;
@@ -87,6 +89,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 					}
 					if ( formValues.customDomain ) {
 						setBlueprintSuggestedDomain( formValues.customDomain );
+						setBlueprintSuggestedHttps( formValues.enableHttps );
 					}
 
 					setBlueprintDeeplinkWarnings( warnings );
@@ -104,6 +107,7 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 				setBlueprintPreferredVersions,
 				setBlueprintDeeplinkWarnings,
 				setBlueprintSuggestedDomain,
+				setBlueprintSuggestedHttps,
 				setIsDeeplinkFlow,
 				onModalOpen,
 			]

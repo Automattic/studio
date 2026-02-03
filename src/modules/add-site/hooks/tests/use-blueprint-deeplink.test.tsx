@@ -179,7 +179,7 @@ describe( 'useBlueprintDeeplink', () => {
 			} );
 		} );
 
-		expect( mockSetBlueprintSuggestedDomain ).toHaveBeenCalledWith( 'mysite.local:8443' );
+		expect( mockSetBlueprintSuggestedDomain ).toHaveBeenCalledWith( 'mysite.local' );
 		expect( mockSetBlueprintSuggestedHttps ).toHaveBeenCalledWith( true );
 	} );
 

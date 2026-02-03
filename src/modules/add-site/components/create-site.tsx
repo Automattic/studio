@@ -21,6 +21,7 @@ export interface CreateSiteProps {
 	existingDomainNames?: string[];
 	blueprintPreferredVersions?: BlueprintPreferredVersions;
 	blueprintSuggestedDomain?: string;
+	blueprintSuggestedHttps?: boolean;
 	originalDefaultVersions?: {
 		phpVersion?: AllowedPHPVersion;
 		wpVersion?: string;
@@ -37,6 +38,7 @@ export default function CreateSite( {
 	existingDomainNames = [],
 	blueprintPreferredVersions,
 	blueprintSuggestedDomain,
+	blueprintSuggestedHttps,
 	onSubmit,
 	onValidityChange,
 	formRef,
@@ -56,6 +58,7 @@ export default function CreateSite( {
 				existingDomainNames={ existingDomainNames }
 				blueprintPreferredVersions={ blueprintPreferredVersions }
 				blueprintSuggestedDomain={ blueprintSuggestedDomain }
+				blueprintSuggestedHttps={ blueprintSuggestedHttps }
 				onSubmit={ onSubmit }
 				onValidityChange={ onValidityChange }
 				formRef={ formRef }

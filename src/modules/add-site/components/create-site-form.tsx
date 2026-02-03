@@ -41,6 +41,8 @@ export interface CreateSiteFormProps {
 	blueprintPreferredVersions?: BlueprintPreferredVersions;
 	/** Blueprint suggested domain from defineSiteUrl step */
 	blueprintSuggestedDomain?: string;
+	/** Blueprint suggested HTTPS setting from defineSiteUrl step */
+	blueprintSuggestedHttps?: boolean;
 	/** Called when form is submitted */
 	onSubmit: ( values: CreateSiteFormValues ) => void;
 	/** Called when form validity changes */
@@ -154,6 +156,7 @@ export const CreateSiteForm = ( {
 	existingDomainNames = [],
 	blueprintPreferredVersions,
 	blueprintSuggestedDomain,
+	blueprintSuggestedHttps,
 	onSubmit,
 	onValidityChange,
 	formRef,
@@ -215,8 +218,11 @@ export const CreateSiteForm = ( {
 		}
 		setUseCustomDomain( true );
 		setCustomDomain( blueprintSuggestedDomain );
+		if ( blueprintSuggestedHttps !== undefined ) {
+			setEnableHttps( blueprintSuggestedHttps );
+		}
 		setAdvancedSettingsVisible( true );
-	}, [ blueprintSuggestedDomain ] );
+	}, [ blueprintSuggestedDomain, blueprintSuggestedHttps ] );
 
 	useEffect( () => {
 		if ( useCustomDomain && isCertificateTrusted ) {

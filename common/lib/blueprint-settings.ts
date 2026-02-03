@@ -1,5 +1,10 @@
 import type { Blueprint } from '@wp-playground/blueprints';
-import type { BlueprintSiteSettings } from 'common/types/site-settings';
+
+type BlueprintSiteSettings = Partial<
+	Pick< StoppedSiteDetails, 'phpVersion' | 'customDomain' | 'enableHttps' >
+> & {
+	wpVersion?: string;
+};
 
 /**
  * Extracts form-relevant values from a blueprint.

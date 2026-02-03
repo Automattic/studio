@@ -54,8 +54,6 @@ function getUnsupportedFeatureInfo( name: string ): UnsupportedFeature | undefin
 	);
 }
 
-export type { Blueprint as BlueprintData } from '@wp-playground/blueprints';
-
 export type BlueprintPreferredVersions = {
 	php?: string;
 	wp?: string;

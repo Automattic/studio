@@ -1,4 +1,7 @@
-import { extractFormValuesFromBlueprint, updateBlueprintWithFormValues } from '../blueprint-settings';
+import {
+	extractFormValuesFromBlueprint,
+	updateBlueprintWithFormValues,
+} from '../blueprint-settings';
 
 describe( 'blueprint-settings', () => {
 	describe( 'extractFormValuesFromBlueprint', () => {
@@ -78,14 +81,14 @@ describe( 'blueprint-settings', () => {
 			expect( result.enableHttps ).toBe( false );
 		} );
 
-		it( 'should preserve port in custom domain', () => {
+		it( 'should strip port from custom domain', () => {
 			const blueprint = {
 				steps: [ { step: 'defineSiteUrl', siteUrl: 'https://mysite.local:8443' } ],
 			};
 
 			const result = extractFormValuesFromBlueprint( blueprint );
 
-			expect( result.customDomain ).toBe( 'mysite.local:8443' );
+			expect( result.customDomain ).toBe( 'mysite.local' );
 			expect( result.enableHttps ).toBe( true );
 		} );
 
@@ -106,7 +109,7 @@ describe( 'blueprint-settings', () => {
 					php: '8.0',
 					wp: '6.4',
 				},
-				steps: [ { step: 'defineSiteUrl', siteUrl: 'https://dev.local:9000' } ],
+				steps: [ { step: 'defineSiteUrl', siteUrl: 'https://dev.local' } ],
 			};
 
 			const result = extractFormValuesFromBlueprint( blueprint );
@@ -114,7 +117,7 @@ describe( 'blueprint-settings', () => {
 			expect( result ).toEqual( {
 				phpVersion: '8.0',
 				wpVersion: '6.4',
-				customDomain: 'dev.local:9000',
+				customDomain: 'dev.local',
 				enableHttps: true,
 			} );
 		} );
@@ -124,7 +127,9 @@ describe( 'blueprint-settings', () => {
 				steps: 'not-an-array',
 			};
 
-			const result = extractFormValuesFromBlueprint( blueprint as unknown as Parameters< typeof extractFormValuesFromBlueprint >[ 0 ] );
+			const result = extractFormValuesFromBlueprint(
+				blueprint as unknown as Parameters< typeof extractFormValuesFromBlueprint >[ 0 ]
+			);
 
 			expect( result.customDomain ).toBeUndefined();
 		} );
@@ -297,7 +302,10 @@ describe( 'blueprint-settings', () => {
 				steps: [
 					{ step: 'login' },
 					{ step: 'defineSiteUrl', siteUrl: 'http://old.local' },
-					{ step: 'installPlugin', pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' } },
+					{
+						step: 'installPlugin',
+						pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' },
+					},
 				],
 			};
 
@@ -308,8 +316,14 @@ describe( 'blueprint-settings', () => {
 
 			expect( result.steps ).toHaveLength( 3 );
 			expect( result.steps?.[ 0 ] ).toEqual( { step: 'login' } );
-			expect( result.steps?.[ 1 ] ).toEqual( { step: 'defineSiteUrl', siteUrl: 'https://new.local' } );
-			expect( result.steps?.[ 2 ] ).toEqual( { step: 'installPlugin', pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' } } );
+			expect( result.steps?.[ 1 ] ).toEqual( {
+				step: 'defineSiteUrl',
+				siteUrl: 'https://new.local',
+			} );
+			expect( result.steps?.[ 2 ] ).toEqual( {
+				step: 'installPlugin',
+				pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' },
+			} );
 		} );
 	} );
 } );

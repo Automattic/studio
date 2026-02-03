@@ -67,6 +67,7 @@ export function useAddSite() {
 	const [ blueprintSuggestedDomain, setBlueprintSuggestedDomain ] = useState<
 		string | undefined
 	>();
+	const [ blueprintSuggestedHttps, setBlueprintSuggestedHttps ] = useState< boolean | undefined >();
 	const [ isDeeplinkFlow, setIsDeeplinkFlow ] = useState( false );
 	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
 
@@ -80,6 +81,7 @@ export function useAddSite() {
 		setBlueprintPreferredVersions( undefined );
 		setBlueprintDeeplinkWarnings( undefined );
 		setBlueprintSuggestedDomain( undefined );
+		setBlueprintSuggestedHttps( undefined );
 	}, [] );
 
 	// For blueprint deeplinks - we need temporary state for PHP/WP versions
@@ -94,6 +96,7 @@ export function useAddSite() {
 		setBlueprintPreferredVersions( undefined );
 		setBlueprintDeeplinkWarnings( undefined );
 		setBlueprintSuggestedDomain( undefined );
+		setBlueprintSuggestedHttps( undefined );
 		setSelectedRemoteSite( undefined );
 		setDeeplinkPhpVersion( defaultPhpVersion as AllowedPHPVersion );
 		setDeeplinkWpVersion( defaultWordPressVersion );
@@ -322,6 +325,8 @@ export function useAddSite() {
 			setBlueprintDeeplinkWarnings,
 			blueprintSuggestedDomain,
 			setBlueprintSuggestedDomain,
+			blueprintSuggestedHttps,
+			setBlueprintSuggestedHttps,
 			selectedRemoteSite,
 			setSelectedRemoteSite,
 			existingDomainNames,
@@ -347,6 +352,7 @@ export function useAddSite() {
 			blueprintPreferredVersions,
 			blueprintDeeplinkWarnings,
 			blueprintSuggestedDomain,
+			blueprintSuggestedHttps,
 			selectedRemoteSite,
 			existingDomainNames,
 			loadAllCustomDomains,

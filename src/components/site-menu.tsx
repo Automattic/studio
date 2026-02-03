@@ -212,8 +212,15 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 }
 
 export default function SiteMenu( { className }: SiteMenuProps ) {
-	const { sites, selectedSite, setSelectedSiteId, startServer, stopServer, setIsEditModalOpen } =
-		useSiteDetails();
+	const {
+		sites,
+		selectedSite,
+		setSelectedSiteId,
+		startServer,
+		stopServer,
+		setIsEditModalOpen,
+		copySite,
+	} = useSiteDetails();
 	const { setSelectedTab } = useContentTabs();
 	const { handleDeleteSite } = useDeleteSite();
 	const { data: editor } = useGetUserEditorQuery();
@@ -275,10 +282,9 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 					case 'copy-site':
 						void ( async () => {
 							try {
-								await ipcApi.copySite( site.id );
+								await copySite( site.id );
 							} catch ( error ) {
 								Sentry.captureException( error );
-								alert( __( 'Failed to copy the site.' ) );
 							}
 						} )();
 						break;
@@ -301,6 +307,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		setSelectedSiteId,
 		startServer,
 		stopServer,
+		copySite,
 		handleDeleteSite,
 	] );
 

@@ -1,4 +1,4 @@
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import {
 	ReactNode,
 	createContext,
@@ -36,6 +36,7 @@ interface SiteDetailsContext {
 		callback?: ( site: SiteDetails ) => Promise< void >,
 		noStart?: boolean
 	) => Promise< SiteDetails | void >;
+	copySite: ( sourceSiteId: string ) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
 	stopAllRunningSites: () => Promise< void >;
@@ -58,6 +59,7 @@ const defaultContext: SiteDetailsContext = {
 	siteCreationMessages: {},
 	setSelectedSiteId: () => undefined,
 	createSite: async () => undefined,
+	copySite: async () => undefined,
 	startServer: async () => undefined,
 	stopServer: async () => undefined,
 	stopAllRunningSites: async () => undefined,
@@ -390,6 +392,94 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		setSites( updatedSites );
 	}, [] );
 
+	const copySite = useCallback(
+		async ( sourceSiteId: string ) => {
+			// Find the source site to get its name for the temporary site
+			const sourceSite = sites.find( ( site ) => site.id === sourceSiteId );
+			if ( ! sourceSite ) {
+				console.error( 'Source site not found' );
+				return;
+			}
+
+			// Function to handle error messages and cleanup
+			const showError = ( error?: unknown ) => {
+				console.error( 'Failed to copy site' );
+				const errorToShow = simplifyErrorForDisplay( error );
+
+				getIpcApi().showErrorMessageBox( {
+					title: __( 'Failed to copy site' ),
+					message: __(
+						'An error occurred while copying the site. Please try again. If this problem persists, please contact support.'
+					),
+					error: errorToShow,
+					showOpenLogs: true,
+				} );
+
+				setSites( ( prevData ) =>
+					sortSites( prevData.filter( ( site ) => site.id !== tempSiteId ) )
+				);
+			};
+
+			// Create a temporary site ID for the progress display
+			const tempSiteId = crypto.randomUUID();
+			const tempSiteName = `${ sourceSite.name } Copy`;
+
+			// Add temporary site to the list with isAddingSite: true
+			setSites( ( prevData ) =>
+				sortSites( [
+					...prevData,
+					{
+						id: tempSiteId,
+						name: tempSiteName,
+						path: '', // Path will be determined by the backend
+						port: -1, // Temporary port
+						running: false,
+						isAddingSite: true,
+						phpVersion: sourceSite.phpVersion || '',
+					},
+				] )
+			);
+
+			// Select the new site so the progress view shows
+			setSelectedSiteId( tempSiteId );
+			if ( selectedTab !== 'overview' ) {
+				setSelectedTab( 'overview' );
+			}
+
+			let newSite: SiteDetails;
+			try {
+				// Call the IPC to copy the site, passing the temp site ID
+				newSite = await getIpcApi().copySite( sourceSiteId, tempSiteId );
+				if ( ! newSite ) {
+					showError();
+					return;
+				}
+
+				// Update the site in the list (replace temp site with actual site)
+				setSites( ( prevData ) =>
+					sortSites( [
+						...prevData.filter( ( site ) => site.id !== tempSiteId ),
+						{ ...newSite, isAddingSite: false },
+					] )
+				);
+
+				// Update selected site ID to the new site
+				setSelectedSiteId( newSite.id );
+
+				// Show notification
+				getIpcApi().showNotification( {
+					title: newSite.name,
+					body: __( sprintf( 'Your site %s was copied successfully', sourceSite.name ) ),
+				} );
+
+				return newSite;
+			} catch ( error ) {
+				showError( error );
+			}
+		},
+		[ sites, selectedTab, setSelectedSiteId, setSelectedTab ]
+	);
+
 	const startServer = useCallback(
 		async ( id: string ) => {
 			toggleLoadingServerForSite( id );
@@ -515,6 +605,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			sites,
 			setSelectedSiteId,
 			createSite,
+			copySite,
 			updateSite,
 			startServer,
 			stopServer,
@@ -535,6 +626,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			sites,
 			setSelectedSiteId,
 			createSite,
+			copySite,
 			updateSite,
 			startServer,
 			stopServer,

@@ -21,7 +21,6 @@ import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { validateBlueprintData } from 'common/lib/blueprint-validation';
 import { bumpStat } from 'common/lib/bump-stat';
 import { parseCliError, errorMessageContains } from 'common/lib/cli-error';
-import { SITE_EVENTS } from 'common/lib/site-events';
 import {
 	calculateDirectorySize,
 	isWordPressDirectory,
@@ -33,6 +32,8 @@ import {
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import { getAuthenticationUrl } from 'common/lib/oauth';
+import { portFinder } from 'common/lib/port-finder';
+import { SITE_EVENTS } from 'common/lib/site-events';
 import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
@@ -571,7 +572,8 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 
 export async function copySite(
 	event: IpcMainInvokeEvent,
-	sourceSiteId: string
+	sourceSiteId: string,
+	newSiteId?: string
 ): Promise< SiteDetails > {
 	// Get source site
 	const sourceServer = SiteServer.get( sourceSiteId );
@@ -594,20 +596,23 @@ export async function copySite(
 		copyNumber++;
 	}
 
-	// Generate a new unique site ID
-	const newSiteId = crypto.randomUUID();
+	// Use provided site ID or generate a new unique site ID
+	const siteId = newSiteId || crypto.randomUUID();
 
 	console.log( `Copying site '${ sourceSite.name }' to '${ finalSiteName }'` );
 
 	// Copy the site files
 	await recursiveCopyDirectory( sourceSite.path, finalSitePath );
 
+	// Get an available port using portFinder
+	const port = await portFinder.getOpenPort();
+
 	// Create new site details
 	const newSiteDetails: StoppedSiteDetails = {
-		id: newSiteId,
+		id: siteId,
 		name: finalSiteName,
 		path: finalSitePath,
-		port: 0, // Port will be assigned when the site is started
+		port,
 		phpVersion: sourceSite.phpVersion,
 		running: false,
 		adminPassword: sourceSite.adminPassword,
@@ -628,11 +633,10 @@ export async function copySite(
 	SiteServer.register( newSiteDetails );
 
 	// Notify the renderer about the new site
-	// Generate a placeholder URL for the stopped site (will be updated when started)
 	const placeholderUrl = `http://localhost:${ newSiteDetails.port }`;
 	sendIpcEventToRendererWithWindow( BrowserWindow.fromWebContents( event.sender ), 'site-event', {
 		event: SITE_EVENTS.CREATED,
-		siteId: newSiteId,
+		siteId,
 		site: {
 			...newSiteDetails,
 			url: placeholderUrl,

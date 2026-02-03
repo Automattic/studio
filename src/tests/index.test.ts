@@ -65,8 +65,8 @@ vi.mock( 'src/modules/cli/lib/execute-command', () => {
 vi.mock( 'src/modules/cli/lib/windows-installation-manager', () => ( {
 	updateWindowsCliVersionedPathIfNeeded: vi.fn().mockReturnValue( Promise.resolve() ),
 } ) );
-jest.mock( 'electron-devtools-installer', () => ( {
-	installExtension: jest.fn( () => Promise.resolve( { id: 'test-extension' } ) ),
+vi.mock( 'electron-devtools-installer', () => ( {
+	installExtension: vi.fn( () => Promise.resolve( { id: 'test-extension' } ) ),
 	REACT_DEVELOPER_TOOLS: { id: 'fmkadmapgofadopljbjfkapdkoienihi' },
 	REDUX_DEVTOOLS: { id: 'lmhkpmbekcpmknklioeibfkpmmfibljd' },
 } ) );

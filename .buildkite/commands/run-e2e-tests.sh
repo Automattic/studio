@@ -37,15 +37,15 @@ npx electron-vite build --outDir=dist && npx electron-forge package --arch="$ARC
 echo '--- :playwright: Run End To End Tests'
 
 # For mac-x64 on Apple Silicon: install Rosetta and run under x86_64 arch
-arch_prefix=''
+arch_prefix=()
 if [ "$PLATFORM" = "mac" ] && [ "$ARCH" = "x64" ]; then
-  echo '~~~ Installing Rosetta for x64 emulation...'
-  softwareupdate --install-rosetta --agree-to-license
-  arch_prefix='arch -x86_64 '
+  echo 'Installing Rosetta for x64 emulation...'
+  softwareupdate --install-rosetta --agree-to-license || true
+  arch_prefix=(arch -x86_64)
 fi
 
-echo '~~~ Installing Playwright browsers...'
-"${arch_prefix}npx playwright install"
+echo 'Installing Playwright browsers...'
+${arch_prefix[@]+"${arch_prefix[@]}"} npx playwright install
 
-echo '~~~ Running Playwright tests...'
-"${arch_prefix}npx playwright test"
+echo 'Running Playwright tests...'
+${arch_prefix[@]+"${arch_prefix[@]}"} npx playwright test

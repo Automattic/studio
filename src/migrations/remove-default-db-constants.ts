@@ -2,7 +2,8 @@ import fs from 'fs/promises';
 import path from 'path';
 import { loadUserData } from 'src/storage/user-data';
 
-const DB_SETTINGS_BLOCK = `// ** Database settings - You can get this info from your web host ** //
+const DB_SETTINGS_BLOCK =
+	normalizeLineEndings( `// ** Database settings - You can get this info from your web host ** //
 /** The name of the database for WordPress */
 define( 'DB_NAME', 'database_name_here' );
 
@@ -20,9 +21,9 @@ define( 'DB_CHARSET', 'utf8mb4' );
 
 /** The database collate type. Don't change this if in doubt. */
 define( 'DB_COLLATE', '' );
-`;
+` );
 
-const REPLACEMENT_COMMENT = `/**
+const REPLACEMENT_COMMENT = normalizeLineEndings( `/**
  * Database connection information is automatically provided.
  * There is no need to set or change the following database configuration
  * values:
@@ -32,7 +33,11 @@ const REPLACEMENT_COMMENT = `/**
  *   DB_PASSWORD
  *   DB_CHARSET
  *   DB_COLLATE
- */`;
+ */` );
+
+function normalizeLineEndings( content: string ): string {
+	return content.replace( /\n/g, '\r\n' );
+}
 
 export function hasDefaultDbBlock( content: string ): boolean {
 	return content.includes( DB_SETTINGS_BLOCK );

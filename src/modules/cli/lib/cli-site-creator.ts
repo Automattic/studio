@@ -35,6 +35,8 @@ export interface CreateSiteOptions {
 	enableHttps?: boolean;
 	siteId?: string;
 	blueprint?: Blueprint;
+	adminUsername?: string;
+	adminPassword?: string;
 	noStart?: boolean;
 }
 
@@ -127,6 +129,14 @@ function buildCliArgs( options: CreateSiteOptions ): string[] {
 
 	if ( options.enableHttps ) {
 		args.push( '--https' );
+	}
+
+	if ( options.adminUsername ) {
+		args.push( '--admin-username', options.adminUsername );
+	}
+
+	if ( options.adminPassword ) {
+		args.push( '--admin-password', options.adminPassword );
 	}
 
 	if ( options.noStart ) {

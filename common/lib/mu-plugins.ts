@@ -416,18 +416,21 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 						exit;
 					}
 
-					$user = get_user_by( 'login', 'admin' );
+					$username = ! empty( $_POST['username'] ) ? $_POST['username'] : 'admin';
+					$user = get_user_by( 'login', $username );
 					if ( $user ) {
 						wp_set_password( $_POST['password'], $user->ID );
 					} else {
 						$user_data = array(
-							'user_login' => 'admin',
+							'user_login' => $username,
 							'user_pass' => $_POST['password'],
-							'user_email' => 'admin@localhost.com',
+							'user_email' => $username . '@localhost.com',
 							'role' => 'administrator',
 						);
 						wp_insert_user( $user_data );
 					}
+					// Store the admin username in options for auto-login to use
+					update_option( 'studio_admin_username', $username );
 					$result = [ 'success' => true ];
 					break;
 
@@ -470,7 +473,8 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 				exit;
 			}
 
-			$user = get_user_by( 'login', 'admin' );
+			$username = get_option( 'studio_admin_username', 'admin' );
+			$user = get_user_by( 'login', $username );
 			if ( ! $user ) {
 				wp_die( 'Auto-login failed: admin user not found' );
 			}

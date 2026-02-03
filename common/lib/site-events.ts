@@ -18,6 +18,7 @@ export const siteDetailsSchema = z.object( {
 	phpVersion: z.string(),
 	customDomain: z.string().optional(),
 	enableHttps: z.boolean().optional(),
+	adminUsername: z.string().optional(),
 	adminPassword: z.string().optional(),
 	isWpAutoUpdating: z.boolean().optional(),
 	autoStart: z.boolean().optional(),

@@ -8,6 +8,7 @@ const serverConfig = z.object( {
 	phpVersion: z.string().optional(),
 	wpVersion: z.string().optional(),
 	absoluteUrl: z.string().optional(),
+	adminUsername: z.string().optional(),
 	adminPassword: z.string().optional(),
 	siteTitle: z.string().optional(),
 	siteLanguage: z.string().optional(),

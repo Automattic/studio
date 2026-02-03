@@ -92,6 +92,10 @@ export async function startWordPressServer(
 		serverConfig.absoluteUrl = `${ protocol }://${ site.customDomain }`;
 	}
 
+	if ( site.adminUsername ) {
+		serverConfig.adminUsername = site.adminUsername;
+	}
+
 	if ( site.adminPassword ) {
 		serverConfig.adminPassword = site.adminPassword;
 	}
@@ -364,6 +368,10 @@ export async function runBlueprint(
 	if ( site.customDomain ) {
 		const protocol = site.enableHttps ? 'https' : 'http';
 		serverConfig.absoluteUrl = `${ protocol }://${ site.customDomain }`;
+	}
+
+	if ( site.adminUsername ) {
+		serverConfig.adminUsername = site.adminUsername;
 	}
 
 	if ( site.adminPassword ) {

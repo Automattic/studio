@@ -67,10 +67,6 @@ describe( 'validateBlueprintData', () => {
 				landingPage: '/wp-admin/',
 				steps: [
 					{
-						step: 'login',
-						username: 'admin',
-					},
-					{
 						step: 'enableMultisite',
 					},
 				],
@@ -82,8 +78,26 @@ describe( 'validateBlueprintData', () => {
 			if ( result.valid ) {
 				expect( result.warnings.length ).toBeGreaterThan( 0 );
 				expect( result.warnings.map( ( w ) => w.feature ) ).toContain( 'landingPage' );
-				expect( result.warnings.map( ( w ) => w.feature ) ).toContain( 'login' );
 				expect( result.warnings.map( ( w ) => w.feature ) ).toContain( 'enableMultisite' );
+			}
+		} );
+
+		it( 'should accept a blueprint with login step (no warning)', async () => {
+			const blueprint = {
+				steps: [
+					{
+						step: 'login',
+						username: 'admin',
+					},
+				],
+			};
+
+			const result = await validateBlueprintData( blueprint );
+
+			expect( result.valid ).toBe( true );
+			if ( result.valid ) {
+				// login is now a supported feature, should not appear in warnings
+				expect( result.warnings.map( ( w ) => w.feature ) ).not.toContain( 'login' );
 			}
 		} );
 	} );

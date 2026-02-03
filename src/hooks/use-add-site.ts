@@ -32,6 +32,8 @@ export interface CreateSiteFormValues {
 	useCustomDomain: boolean;
 	customDomain: string | null;
 	enableHttps: boolean;
+	adminUsername?: string;
+	adminPassword?: string;
 }
 
 /**
@@ -284,7 +286,9 @@ export function useAddSite() {
 							} );
 						}
 					},
-					shouldSkipStart
+					shouldSkipStart,
+					formValues.adminUsername,
+					formValues.adminPassword
 				);
 			} catch ( e ) {
 				Sentry.captureException( e );

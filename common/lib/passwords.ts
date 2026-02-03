@@ -10,6 +10,16 @@ export function createPassword(): string {
 }
 
 /**
+ * Encodes a plain-text password to Base64.
+ *
+ * @param password - The plain-text password to encode.
+ * @returns The Base64-encoded password.
+ */
+export function encodePassword( password: string ): string {
+	return btoa( password );
+}
+
+/**
  * Decodes a Base64-encoded password.
  *
  * @param encodedPassword - The password to decode.

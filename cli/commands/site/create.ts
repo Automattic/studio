@@ -10,6 +10,7 @@ import {
 	DEFAULT_WORDPRESS_VERSION,
 	MINIMUM_WORDPRESS_VERSION,
 } from 'common/constants';
+import { extractFormValuesFromBlueprint } from 'common/lib/blueprint-settings';
 import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
@@ -24,7 +25,7 @@ import {
 } from 'common/lib/fs-utils';
 import { DEFAULT_LOCALE } from 'common/lib/locale';
 import { isOnline } from 'common/lib/network-utils';
-import { createPassword } from 'common/lib/passwords';
+import { createPassword, encodePassword } from 'common/lib/passwords';
 import { portFinder } from 'common/lib/port-finder';
 import { SITE_EVENTS } from 'common/lib/site-events';
 import { sortSites } from 'common/lib/sort-sites';
@@ -69,6 +70,8 @@ type CreateCommandOptions = {
 		contents: unknown;
 		uri: string;
 	};
+	adminUsername?: string;
+	adminPassword?: string;
 	noStart: boolean;
 	skipBrowser: boolean;
 	skipLogDetails: boolean;
@@ -93,6 +96,7 @@ export async function runCommand(
 
 		let blueprintUri: string | undefined;
 		let blueprint: Blueprint | undefined;
+		let blueprintCredentials: { adminUsername?: string; adminPassword?: string } | null = null;
 
 		if ( options.blueprint ) {
 			const validation = await validateBlueprintData( options.blueprint.contents );
@@ -109,6 +113,15 @@ export async function runCommand(
 						warning.reason
 					)
 				);
+			}
+
+			// Extract login credentials from blueprint before filtering
+			const formValues = extractFormValuesFromBlueprint( options.blueprint.contents as Blueprint );
+			if ( formValues.adminUsername || formValues.adminPassword ) {
+				blueprintCredentials = {
+					adminUsername: formValues.adminUsername,
+					adminPassword: formValues.adminPassword,
+				};
 			}
 
 			blueprintUri = options.blueprint.uri;
@@ -185,7 +198,12 @@ export async function runCommand(
 
 		const siteName = options.name || path.basename( sitePath );
 		const siteId = options.siteId || crypto.randomUUID();
-		const adminPassword = createPassword();
+
+		// Determine admin credentials: CLI args > Blueprint > defaults
+		// External passwords need to be encoded; createPassword() already returns encoded
+		const adminUsername = options.adminUsername || blueprintCredentials?.adminUsername || undefined;
+		const externalPassword = options.adminPassword || blueprintCredentials?.adminPassword;
+		const adminPassword = externalPassword ? encodePassword( externalPassword ) : createPassword();
 
 		const setupSteps: StepDefinition[] = [];
 
@@ -235,6 +253,7 @@ export async function runCommand(
 			id: siteId,
 			name: siteName,
 			path: sitePath,
+			adminUsername,
 			adminPassword,
 			port,
 			phpVersion: options.phpVersion,
@@ -442,6 +461,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					describe: __( 'Path or URL to Blueprint JSON file' ),
 				} )
+				.option( 'admin-username', {
+					type: 'string',
+					describe: __( 'Admin username (defaults to "admin")' ),
+				} )
+				.option( 'admin-password', {
+					type: 'string',
+					describe: __( 'Admin password (auto-generated if not provided)' ),
+				} )
 				.option( 'start', {
 					type: 'boolean',
 					describe: __( 'Start the site after creation' ),
@@ -466,6 +493,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				phpVersion: argv.php,
 				customDomain: argv.domain,
 				enableHttps: !! argv.https,
+				adminUsername: argv.adminUsername,
+				adminPassword: argv.adminPassword,
 				noStart: ! argv.start,
 				skipBrowser: !! argv.skipBrowser,
 				skipLogDetails: !! argv.skipLogDetails,

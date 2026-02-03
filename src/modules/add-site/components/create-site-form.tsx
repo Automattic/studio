@@ -10,6 +10,7 @@ import { SupportedPHPVersions } from 'common/types/php-versions';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
+import PasswordControl from 'src/components/password-control';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
@@ -43,6 +44,8 @@ export interface CreateSiteFormProps {
 	blueprintSuggestedDomain?: string;
 	/** Blueprint suggested HTTPS setting from defineSiteUrl step */
 	blueprintSuggestedHttps?: boolean;
+	/** Blueprint login credentials for pre-filling admin fields */
+	blueprintCredentials?: { adminUsername?: string; adminPassword?: string };
 	/** Called when form is submitted */
 	onSubmit: ( values: CreateSiteFormValues ) => void;
 	/** Called when form validity changes */
@@ -157,6 +160,7 @@ export const CreateSiteForm = ( {
 	blueprintPreferredVersions,
 	blueprintSuggestedDomain,
 	blueprintSuggestedHttps,
+	blueprintCredentials,
 	onSubmit,
 	onValidityChange,
 	formRef,
@@ -177,6 +181,8 @@ export const CreateSiteForm = ( {
 	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
 	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
 	const [ enableHttps, setEnableHttps ] = useState( false );
+	const [ adminUsername, setAdminUsername ] = useState( blueprintCredentials?.adminUsername ?? '' );
+	const [ adminPassword, setAdminPassword ] = useState( blueprintCredentials?.adminPassword ?? '' );
 
 	const [ pathError, setPathError ] = useState( '' );
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
@@ -211,6 +217,16 @@ export const CreateSiteForm = ( {
 			setWpVersion( defaultValues.wpVersion );
 		}
 	}, [ defaultValues.phpVersion, defaultValues.wpVersion ] );
+
+	// Sync admin credentials from Blueprint when they change
+	useEffect( () => {
+		if ( blueprintCredentials?.adminUsername !== undefined ) {
+			setAdminUsername( blueprintCredentials.adminUsername );
+		}
+		if ( blueprintCredentials?.adminPassword !== undefined ) {
+			setAdminPassword( blueprintCredentials.adminPassword );
+		}
+	}, [ blueprintCredentials?.adminUsername, blueprintCredentials?.adminPassword ] );
 
 	useEffect( () => {
 		if ( hasUserInteracted.current || ! blueprintSuggestedDomain ) {
@@ -335,8 +351,20 @@ export const CreateSiteForm = ( {
 			useCustomDomain,
 			customDomain,
 			enableHttps,
+			adminUsername: adminUsername || undefined,
+			adminPassword: adminPassword || undefined,
 		} ),
-		[ siteName, sitePath, phpVersion, wpVersion, useCustomDomain, customDomain, enableHttps ]
+		[
+			siteName,
+			sitePath,
+			phpVersion,
+			wpVersion,
+			useCustomDomain,
+			customDomain,
+			enableHttps,
+			adminUsername,
+			adminPassword,
+		]
 	);
 
 	const handleFormSubmit = useCallback(
@@ -485,6 +513,32 @@ export const CreateSiteForm = ( {
 											'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
 										) }
 									/>
+								</div>
+
+								<div className="grid grid-cols-2 gap-4 mt-4">
+									<div className="flex flex-col gap-1.5 leading-4">
+										<label className="font-semibold" htmlFor="admin-username">
+											{ __( 'Admin username' ) }
+										</label>
+										<TextControlComponent
+											id="admin-username"
+											value={ adminUsername }
+											onChange={ setAdminUsername }
+											placeholder="admin"
+										/>
+									</div>
+
+									<div className="flex flex-col gap-1.5 leading-4">
+										<label className="font-semibold" htmlFor="admin-password">
+											{ __( 'Admin password' ) }
+										</label>
+										<PasswordControl
+											id="admin-password"
+											value={ adminPassword }
+											onChange={ setAdminPassword }
+											placeholder={ __( 'Auto-generated' ) }
+										/>
+									</div>
 								</div>
 
 								{ showBlueprintVersionWarning && (

@@ -246,6 +246,8 @@ export async function createSite(
 		siteId?: string;
 		phpVersion?: string;
 		blueprint?: Blueprint;
+		adminUsername?: string;
+		adminPassword?: string;
 		noStart?: boolean;
 	} = {}
 ): Promise< SiteDetails > {
@@ -257,6 +259,8 @@ export async function createSite(
 		siteId: providedSiteId,
 		blueprint,
 		phpVersion,
+		adminUsername,
+		adminPassword,
 		noStart = false,
 	} = config;
 
@@ -276,6 +280,8 @@ export async function createSite(
 				enableHttps,
 				siteId,
 				blueprint: blueprint?.blueprint,
+				adminUsername,
+				adminPassword,
 				noStart,
 			},
 			{ wpVersion, blueprint: blueprint?.blueprint }

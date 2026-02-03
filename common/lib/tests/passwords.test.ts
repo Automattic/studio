@@ -1,5 +1,5 @@
 // Removed: globals are now available via vitest/globals in tsconfig
-import { createPassword, decodePassword } from 'common/lib/passwords';
+import { createPassword, decodePassword, encodePassword } from 'common/lib/passwords';
 
 describe( 'createPassword', () => {
 	it( 'should return a Base64-encoded string', () => {
@@ -11,6 +11,20 @@ describe( 'createPassword', () => {
 		const password1 = createPassword();
 		const password2 = createPassword();
 		expect( password1 ).not.toEqual( password2 );
+	} );
+} );
+
+describe( 'encodePassword', () => {
+	it( 'should encode the password to Base64', () => {
+		const plainPassword = 'test-password';
+		const encoded = encodePassword( plainPassword );
+		expect( encoded ).toBe( btoa( plainPassword ) );
+	} );
+
+	it( 'should be reversible with decodePassword', () => {
+		const plainPassword = 'my-secret-pass!123';
+		const encoded = encodePassword( plainPassword );
+		expect( decodePassword( encoded ) ).toBe( plainPassword );
 	} );
 } );
 

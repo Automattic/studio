@@ -21,12 +21,14 @@ import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { validateBlueprintData } from 'common/lib/blueprint-validation';
 import { bumpStat } from 'common/lib/bump-stat';
 import { parseCliError, errorMessageContains } from 'common/lib/cli-error';
+import { SITE_EVENTS } from 'common/lib/site-events';
 import {
 	calculateDirectorySize,
 	isWordPressDirectory,
 	arePathsEqual,
 	isEmptyDir,
 	pathExists,
+	recursiveCopyDirectory,
 } from 'common/lib/fs-utils';
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { isErrnoException } from 'common/lib/is-errno-exception';
@@ -565,6 +567,80 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 		throw new Error( 'Site not found.' );
 	}
 	await server.delete( deleteFiles );
+}
+
+export async function copySite(
+	event: IpcMainInvokeEvent,
+	sourceSiteId: string
+): Promise< SiteDetails > {
+	// Get source site
+	const sourceServer = SiteServer.get( sourceSiteId );
+	if ( ! sourceServer ) {
+		throw new Error( 'Source site not found.' );
+	}
+	const sourceSite = sourceServer.details;
+
+	// Generate new site name and path
+	const newSiteName = `${ sourceSite.name } Copy`;
+	const newSitePath = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( newSiteName ) );
+
+	// Check if destination path already exists and find a unique name if needed
+	let finalSiteName = newSiteName;
+	let finalSitePath = newSitePath;
+	let copyNumber = 2;
+	while ( await pathExists( finalSitePath ) ) {
+		finalSiteName = `${ sourceSite.name } Copy ${ copyNumber }`;
+		finalSitePath = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( finalSiteName ) );
+		copyNumber++;
+	}
+
+	// Generate a new unique site ID
+	const newSiteId = crypto.randomUUID();
+
+	console.log( `Copying site '${ sourceSite.name }' to '${ finalSiteName }'` );
+
+	// Copy the site files
+	await recursiveCopyDirectory( sourceSite.path, finalSitePath );
+
+	// Create new site details
+	const newSiteDetails: StoppedSiteDetails = {
+		id: newSiteId,
+		name: finalSiteName,
+		path: finalSitePath,
+		port: 0, // Port will be assigned when the site is started
+		phpVersion: sourceSite.phpVersion,
+		running: false,
+		adminPassword: sourceSite.adminPassword,
+		themeDetails: sourceSite.themeDetails,
+	};
+
+	// Save the new site to appdata
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		userData.sites.push( newSiteDetails );
+		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
+	}
+
+	// Register the new site with SiteServer
+	SiteServer.register( newSiteDetails );
+
+	// Notify the renderer about the new site
+	// Generate a placeholder URL for the stopped site (will be updated when started)
+	const placeholderUrl = `http://localhost:${ newSiteDetails.port }`;
+	sendIpcEventToRendererWithWindow( BrowserWindow.fromWebContents( event.sender ), 'site-event', {
+		event: SITE_EVENTS.CREATED,
+		siteId: newSiteId,
+		site: {
+			...newSiteDetails,
+			url: placeholderUrl,
+		},
+		running: false,
+	} );
+
+	return newSiteDetails;
 }
 
 export function logRendererMessage(
@@ -1298,6 +1374,23 @@ export function showSiteContextMenu(
 					'site-context-menu-action',
 					{
 						action: 'edit-site',
+						siteId,
+					}
+				);
+			},
+		} )
+	);
+
+	menu.append(
+		new MenuItem( {
+			label: __( 'Copy site…' ),
+			enabled: ! isLoading && ! isAddingSite,
+			click: () => {
+				sendIpcEventToRendererWithWindow(
+					BrowserWindow.fromWebContents( event.sender ),
+					'site-context-menu-action',
+					{
+						action: 'copy-site',
 						siteId,
 					}
 				);

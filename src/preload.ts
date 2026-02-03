@@ -39,6 +39,7 @@ const api: IpcApi = {
 			specificSelectionPaths
 		),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
+	copySite: ( sourceSiteId ) => ipcRendererInvoke( 'copySite', sourceSiteId ),
 	createSite: ( path, config ) => ipcRendererInvoke( 'createSite', path, config ),
 	updateSite: ( updatedSite, wpVersion ) =>
 		ipcRendererInvoke( 'updateSite', updatedSite, wpVersion ),

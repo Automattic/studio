@@ -272,6 +272,16 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 						setSelectedTab( 'settings' );
 						setIsEditModalOpen( true );
 						break;
+					case 'copy-site':
+						void ( async () => {
+							try {
+								await ipcApi.copySite( site.id );
+							} catch ( error ) {
+								Sentry.captureException( error );
+								alert( __( 'Failed to copy the site.' ) );
+							}
+						} )();
+						break;
 					case 'delete':
 						await handleDeleteSite( site.id, site.name );
 						break;

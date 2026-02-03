@@ -1,7 +1,17 @@
 import { __ } from '@wordpress/i18n';
+import { generateNumberedName } from 'common/lib/generate-numbered-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export { sanitizeFolderName } from 'common/lib/sanitize-folder-name';
+
+async function isNameAvailable( name: string, usedSites: SiteDetails[] ): Promise< boolean > {
+	const isNameUnique = ! usedSites.some( ( site ) => site.name === name );
+	if ( ! isNameUnique ) {
+		return false;
+	}
+	const { isEmpty } = await getIpcApi().generateProposedSitePath( name );
+	return isEmpty;
+}
 
 export async function generateSiteName( usedSites: SiteDetails[] ): Promise< string > {
 	const siteNames = [
@@ -29,22 +39,13 @@ export async function generateSiteName( usedSites: SiteDetails[] ): Promise< str
 
 	const defaultName = __( 'My WordPress Website' );
 
-	const isPathUnique = async ( name: string ): Promise< boolean > => {
-		const { isEmpty } = await getIpcApi().generateProposedSitePath( name );
-		return isEmpty;
-	};
-
-	const isNameUnique = ( name: string ): boolean => {
-		return ! usedSites.some( ( site ) => site.name === name );
-	};
-
-	if ( isNameUnique( defaultName ) && ( await isPathUnique( defaultName ) ) ) {
+	if ( await isNameAvailable( defaultName, usedSites ) ) {
 		return defaultName;
 	}
 
 	const availableNames = [];
 	for ( const name of siteNames ) {
-		if ( isNameUnique( name ) && ( await isPathUnique( name ) ) ) {
+		if ( await isNameAvailable( name, usedSites ) ) {
 			availableNames.push( name );
 		}
 	}
@@ -53,13 +54,5 @@ export async function generateSiteName( usedSites: SiteDetails[] ): Promise< str
 		return availableNames[ Math.floor( Math.random() * availableNames.length ) ];
 	}
 
-	let siteNumber = 2;
-	let candidateName = `${ defaultName } ${ siteNumber }`;
-
-	while ( ! isNameUnique( candidateName ) || ! ( await isPathUnique( candidateName ) ) ) {
-		siteNumber++;
-		candidateName = `${ defaultName } ${ siteNumber }`;
-	}
-
-	return candidateName;
+	return generateNumberedName( defaultName, ( name ) => isNameAvailable( name, usedSites ) );
 }

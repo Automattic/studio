@@ -29,10 +29,12 @@ import {
 	pathExists,
 	recursiveCopyDirectory,
 } from 'common/lib/fs-utils';
+import { generateNumberedName } from 'common/lib/generate-numbered-name';
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import { getAuthenticationUrl } from 'common/lib/oauth';
 import { portFinder } from 'common/lib/port-finder';
+import { sanitizeFolderName } from 'common/lib/sanitize-folder-name';
 import { SITE_EVENTS } from 'common/lib/site-events';
 import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
 import { Snapshot } from 'common/types/snapshot';
@@ -48,7 +50,6 @@ import {
 } from 'src/lib/certificate-manager';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
-import { sanitizeFolderName } from 'src/lib/generate-site-name';
 import { getImageData } from 'src/lib/get-image-data';
 import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
@@ -582,19 +583,13 @@ export async function copySite(
 	}
 	const sourceSite = sourceServer.details;
 
-	// Generate new site name and path
-	const newSiteName = `${ sourceSite.name } Copy`;
-	const newSitePath = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( newSiteName ) );
-
-	// Check if destination path already exists and find a unique name if needed
-	let finalSiteName = newSiteName;
-	let finalSitePath = newSitePath;
-	let copyNumber = 2;
-	while ( await pathExists( finalSitePath ) ) {
-		finalSiteName = `${ sourceSite.name } Copy ${ copyNumber }`;
-		finalSitePath = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( finalSiteName ) );
-		copyNumber++;
-	}
+	// Generate a unique site name using generateNumberedName
+	const baseCopyName = `${ sourceSite.name } Copy`;
+	const finalSiteName = await generateNumberedName( baseCopyName, async ( name ) => {
+		const result = await generateProposedSitePath( event, name );
+		return result.isEmpty;
+	} );
+	const finalSitePath = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( finalSiteName ) );
 
 	// Use provided site ID or generate a new unique site ID
 	const siteId = newSiteId || crypto.randomUUID();

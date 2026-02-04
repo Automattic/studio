@@ -3,6 +3,8 @@ import { Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { MINIMUM_WORDPRESS_VERSION } from 'common/constants';
+import { extractFormValuesFromBlueprint } from 'common/lib/blueprint-settings';
 import { BlueprintPreferredVersions } from 'common/lib/blueprint-validation';
 import { SupportedPHPVersionsList } from 'common/types/php-versions';
 import Button from 'src/components/button';
@@ -66,6 +68,10 @@ interface NavigationContentProps {
 	blueprintPreferredVersions?: BlueprintPreferredVersions;
 	setBlueprintPreferredVersions?: ( versions: BlueprintPreferredVersions | undefined ) => void;
 	blueprintDeeplinkWarnings?: import('common/lib/blueprint-validation').BlueprintValidationWarning[];
+	blueprintSuggestedDomain?: string;
+	setBlueprintSuggestedDomain?: ( domain: string | undefined ) => void;
+	blueprintSuggestedHttps?: boolean;
+	setBlueprintSuggestedHttps?: ( https: boolean | undefined ) => void;
 	selectedRemoteSite?: SyncSite;
 	setSelectedRemoteSite: ( site?: SyncSite ) => void;
 	isDeeplinkFlow: boolean;
@@ -93,6 +99,10 @@ function NavigationContent( props: NavigationContentProps ) {
 		blueprintPreferredVersions,
 		setBlueprintPreferredVersions,
 		blueprintDeeplinkWarnings,
+		blueprintSuggestedDomain,
+		setBlueprintSuggestedDomain,
+		blueprintSuggestedHttps,
+		setBlueprintSuggestedHttps,
 		selectedRemoteSite,
 		setSelectedRemoteSite,
 		isDeeplinkFlow,
@@ -201,59 +211,75 @@ function NavigationContent( props: NavigationContentProps ) {
 		setSelectedRemoteSite,
 	] );
 
+	const applyBlueprintFormValues = useCallback(
+		( blueprint?: Blueprint ) => {
+			setSelectedBlueprint( blueprint );
+
+			if ( ! blueprint?.blueprint ) {
+				setBlueprintPreferredVersions?.( undefined );
+				setBlueprintSuggestedDomain?.( undefined );
+				setBlueprintSuggestedHttps?.( undefined );
+				return;
+			}
+
+			const formValues = extractFormValuesFromBlueprint( blueprint.blueprint );
+
+			if ( blueprint.blueprint.preferredVersions ) {
+				setBlueprintPreferredVersions?.( blueprint.blueprint.preferredVersions );
+			} else {
+				setBlueprintPreferredVersions?.( undefined );
+			}
+
+			setBlueprintSuggestedDomain?.( formValues.customDomain );
+			setBlueprintSuggestedHttps?.( formValues.enableHttps );
+		},
+		[
+			setSelectedBlueprint,
+			setBlueprintPreferredVersions,
+			setBlueprintSuggestedDomain,
+			setBlueprintSuggestedHttps,
+		]
+	);
+
 	const handleBlueprintChange = useCallback(
 		( blueprintId: string ) => {
 			const blueprint = blueprintsData?.blueprints.find(
 				( b: Blueprint ) => b.slug === blueprintId
 			);
-			setSelectedBlueprint( blueprint );
-			if ( blueprint?.blueprint?.preferredVersions ) {
-				setBlueprintPreferredVersions?.( blueprint.blueprint.preferredVersions );
-			} else {
-				setBlueprintPreferredVersions?.( undefined );
-			}
+			applyBlueprintFormValues( blueprint );
 		},
-		[ blueprintsData?.blueprints, setSelectedBlueprint, setBlueprintPreferredVersions ]
+		[ blueprintsData?.blueprints, applyBlueprintFormValues ]
 	);
 
 	const handleFileBlueprintSelect = useCallback(
 		( blueprint: Blueprint ) => {
-			setSelectedBlueprint( blueprint );
-			if ( blueprint?.blueprint?.preferredVersions ) {
-				setBlueprintPreferredVersions?.( blueprint.blueprint.preferredVersions );
-			} else {
-				setBlueprintPreferredVersions?.( undefined );
-			}
+			applyBlueprintFormValues( blueprint );
 		},
-		[ setSelectedBlueprint, setBlueprintPreferredVersions ]
+		[ applyBlueprintFormValues ]
 	);
 
 	// Build default values with blueprint preferred versions applied
+	const { data: wpVersions = [] } = useGetWordPressVersions( {
+		minimumVersion: MINIMUM_WORDPRESS_VERSION,
+	} );
 	const defaultValuesWithBlueprint = useMemo( () => {
 		const values = { ...defaultValues };
 		if (
 			blueprintPreferredVersions?.php &&
-			blueprintPreferredVersions.php !== 'latest' &&
 			SupportedPHPVersionsList.includes( blueprintPreferredVersions.php )
 		) {
 			values.phpVersion = blueprintPreferredVersions.php as AllowedPHPVersion;
 		}
-		if ( blueprintPreferredVersions?.wp && blueprintPreferredVersions.wp !== 'latest' ) {
+		if (
+			blueprintPreferredVersions?.wp &&
+			wpVersions.some( ( v ) => v.value === blueprintPreferredVersions.wp )
+		) {
 			values.wpVersion = blueprintPreferredVersions.wp;
 		}
 		return values;
-	}, [ defaultValues, blueprintPreferredVersions ] );
+	}, [ defaultValues, blueprintPreferredVersions, wpVersions ] );
 
 	const formRef = useRef< HTMLFormElement >( null );
-
-	// Original default versions (before Blueprint override) for warning comparison
-	const originalDefaultVersions = useMemo(
-		() => ( {
-			phpVersion: defaultValues.phpVersion,
-			wpVersion: defaultValues.wpVersion,
-		} ),
-		[ defaultValues.phpVersion, defaultValues.wpVersion ]
-	);
 
 	const createSiteProps = {
 		onSelectPath,
@@ -284,7 +310,8 @@ function NavigationContent( props: NavigationContentProps ) {
 					{ ...createSiteProps }
 					defaultValues={ defaultValuesWithBlueprint }
 					blueprintPreferredVersions={ blueprintPreferredVersions }
-					originalDefaultVersions={ originalDefaultVersions }
+					blueprintSuggestedDomain={ blueprintSuggestedDomain }
+					blueprintSuggestedHttps={ blueprintSuggestedHttps }
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/create">
@@ -301,7 +328,8 @@ function NavigationContent( props: NavigationContentProps ) {
 					{ ...createSiteProps }
 					defaultValues={ defaultValuesWithBlueprint }
 					blueprintPreferredVersions={ blueprintPreferredVersions }
-					originalDefaultVersions={ originalDefaultVersions }
+					blueprintSuggestedDomain={ blueprintSuggestedDomain }
+					blueprintSuggestedHttps={ blueprintSuggestedHttps }
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/backup">
@@ -386,6 +414,10 @@ export function AddSiteModalContent( {
 		blueprintPreferredVersions,
 		setBlueprintPreferredVersions,
 		blueprintDeeplinkWarnings,
+		blueprintSuggestedDomain,
+		setBlueprintSuggestedDomain,
+		blueprintSuggestedHttps,
+		setBlueprintSuggestedHttps,
 		selectedRemoteSite,
 		setSelectedRemoteSite,
 		existingDomainNames,
@@ -487,6 +519,10 @@ export function AddSiteModalContent( {
 				blueprintPreferredVersions={ blueprintPreferredVersions }
 				setBlueprintPreferredVersions={ setBlueprintPreferredVersions }
 				blueprintDeeplinkWarnings={ blueprintDeeplinkWarnings }
+				blueprintSuggestedDomain={ blueprintSuggestedDomain }
+				setBlueprintSuggestedDomain={ setBlueprintSuggestedDomain }
+				blueprintSuggestedHttps={ blueprintSuggestedHttps }
+				setBlueprintSuggestedHttps={ setBlueprintSuggestedHttps }
 				selectedRemoteSite={ selectedRemoteSite }
 				setSelectedRemoteSite={ setSelectedRemoteSite }
 				isDeeplinkFlow={ isDeeplinkFlow }
@@ -522,6 +558,8 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 		setDeeplinkWpVersion,
 		setBlueprintPreferredVersions,
 		setBlueprintDeeplinkWarnings,
+		setBlueprintSuggestedDomain,
+		setBlueprintSuggestedHttps,
 		setIsDeeplinkFlow,
 	} = addSiteProps;
 
@@ -544,6 +582,8 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 		setWpVersion: setDeeplinkWpVersion,
 		setBlueprintPreferredVersions,
 		setBlueprintDeeplinkWarnings,
+		setBlueprintSuggestedDomain,
+		setBlueprintSuggestedHttps,
 		setIsDeeplinkFlow,
 		onModalOpen: openModal,
 	} );

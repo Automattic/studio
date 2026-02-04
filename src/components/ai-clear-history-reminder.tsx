@@ -29,9 +29,15 @@ function AIClearHistoryReminder( {
 		setShowReminder( nextValue );
 
 		if ( nextValue && lastMessage ) {
+			// Cap timeout duration to prevent 32-bit integer overflow warnings
+			// and handle edge cases like clock skew or corrupted timestamps
+			const timeoutDuration = Math.max(
+				0,
+				Math.min( Date.now() - lastMessage.createdAt, 2147483647 )
+			);
 			timeoutId = setTimeout( () => {
 				setShowReminder( true );
-			}, Date.now() - lastMessage.createdAt );
+			}, timeoutDuration );
 		}
 
 		return () => {

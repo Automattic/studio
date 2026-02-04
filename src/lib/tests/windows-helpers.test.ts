@@ -1,33 +1,47 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
 import { app, dialog, BrowserWindow } from 'electron';
+import { vi } from 'vitest';
 import { getMainWindow } from 'src/main-window';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 import { promptWindowsSpeedUpSites } from '../windows-helpers';
 
-jest.mock( 'electron' );
-jest.mock( 'src/main-window' );
-jest.mock( 'src/storage/user-data' );
-jest.mock( '@vscode/sudo-prompt', () => ( {
-	exec: jest.fn( ( _command, _options, callback ) => {
+vi.mock( 'src/main-window' );
+vi.mock( 'src/storage/user-data' );
+vi.mock( 'electron', async () => {
+	const actual = await vi.importActual< typeof import('electron') >( 'electron' );
+	// Mock BrowserWindow class
+	class MockBrowserWindow {}
+	return {
+		...actual,
+		BrowserWindow: MockBrowserWindow,
+		app: {
+			...actual.app,
+			getVersion: vi.fn(),
+		},
+		dialog: {
+			...actual.dialog,
+			showMessageBox: vi.fn(),
+		},
+	};
+} );
+vi.mock( '@vscode/sudo-prompt', () => ( {
+	exec: vi.fn( ( _command, _options, callback ) => {
 		callback( null );
 	} ),
 } ) );
 
-const mockLoadUserData = loadUserData as jest.MockedFunction< typeof loadUserData >;
-const mockUpdateAppdata = updateAppdata as jest.MockedFunction< typeof updateAppdata >;
-const mockGetMainWindow = getMainWindow as jest.MockedFunction< typeof getMainWindow >;
-const mockAppGetVersion = app.getVersion as jest.MockedFunction< typeof app.getVersion >;
-const mockDialogShowMessageBox = dialog.showMessageBox as jest.MockedFunction<
-	typeof dialog.showMessageBox
->;
+const mockLoadUserData = vi.mocked( loadUserData );
+const mockUpdateAppdata = vi.mocked( updateAppdata );
+const mockGetMainWindow = vi.mocked( getMainWindow );
+const mockAppGetVersion = vi.mocked( app.getVersion );
+const mockDialogShowMessageBox = vi.mocked( dialog.showMessageBox );
 
 const currentVersion = '1.2.3';
 const originalPlatform = process.platform;
 
 afterEach( () => {
-	jest.clearAllMocks();
 	Object.defineProperty( process, 'platform', {
 		value: originalPlatform,
 	} );
@@ -35,7 +49,7 @@ afterEach( () => {
 
 describe( 'promptWindowsSpeedUpSites', () => {
 	beforeEach( () => {
-		mockGetMainWindow.mockResolvedValue( new BrowserWindow() );
+		mockGetMainWindow.mockResolvedValue( new BrowserWindow() as unknown as BrowserWindow );
 		mockAppGetVersion.mockReturnValue( currentVersion );
 
 		// Mock platform as Windows

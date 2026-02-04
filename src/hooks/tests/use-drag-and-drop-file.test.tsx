@@ -1,6 +1,7 @@
 // To run tests, execute `npm run test -- src/hooks/tests/use-drag-and-drop-file.test.tsx` from the root directory
 
 import { render, createEvent, fireEvent, renderHook, act } from '@testing-library/react';
+import { vi } from 'vitest';
 import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
 
 const DragComponent = ( { onFileDrop }: { onFileDrop: () => void } ) => {
@@ -13,10 +14,10 @@ const DragComponent = ( { onFileDrop }: { onFileDrop: () => void } ) => {
 };
 
 describe( 'useDragAndDropFile', () => {
-	const onFileDrop = jest.fn();
+	const onFileDrop = vi.fn();
 	beforeEach( () => {
 		onFileDrop.mockReset();
-		jest.useFakeTimers();
+		vi.useFakeTimers();
 	} );
 
 	test( 'should initialize with isDraggingOver as false', () => {
@@ -49,7 +50,7 @@ describe( 'useDragAndDropFile', () => {
 		act( () => {
 			const dragLeaveEvent = createEvent.dragLeave( dropZone );
 			fireEvent( dropZone, dragLeaveEvent );
-			jest.runAllTimers();
+			vi.runAllTimers();
 		} );
 
 		expect( getByText( 'Not Dragging Over' ) ).toBeInTheDocument();

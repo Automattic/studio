@@ -115,9 +115,9 @@ export class SiteServer {
 		options: CreateSiteOptions,
 		meta: SiteServerMeta = {}
 	): Promise< { server: SiteServer; details: SiteDetails } > {
-		// Use the siteId from frontend if provided, for placeholder consistency
+		const siteId = options.siteId || crypto.randomUUID();
 		const placeholderDetails: StoppedSiteDetails = {
-			id: options.siteId || crypto.randomUUID(),
+			id: siteId,
 			name: options.name || options.path,
 			path: options.path,
 			port: 0,
@@ -128,7 +128,7 @@ export class SiteServer {
 		server.hasOngoingOperation = true;
 
 		try {
-			const result = await createSiteViaCli( options );
+			const result = await createSiteViaCli( { ...options, siteId } );
 			const userData = await loadUserData();
 			const siteData = userData.sites.find( ( s ) => s.id === result.id );
 			if ( ! siteData ) {

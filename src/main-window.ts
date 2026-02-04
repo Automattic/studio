@@ -211,7 +211,7 @@ export function getMainWindow() {
 
 /**
  * Reset the main window reference. Exported for testing as resetting modules
- * with Jest while preserving manual Electron mocks proved quite difficult.
+ * with Vitest while preserving manual Electron mocks proved quite difficult.
  */
 export function __resetMainWindow() {
 	mainWindow = null;

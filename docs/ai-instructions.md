@@ -44,7 +44,7 @@ CLI pattern: `npm run cli:build && node dist/cli/main.js <command>`
 **Frontend**: React 18, Redux Toolkit + RTK Query, @wordpress/components, TailwindCSS, TypeScript, Vite
 **Main**: Electron 38, express
 **CLI**: @wp-playground/cli, @php-wasm/node, @wp-playground/blueprints
-**Dev**: electron-vite, electron-forge, jest, Playwright
+**Dev**: electron-vite, electron-forge, Vitest, Playwright
 **Other**: Sentry, wpcom, zod, yargs
 
 ## Build & Distribution

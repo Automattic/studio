@@ -1,5 +1,6 @@
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
+import { vi } from 'vitest';
 import createCodeComponent, { CodeBlockProps } from 'src/components/assistant-code-block';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -7,8 +8,8 @@ import { store } from 'src/stores';
 import { chatActions, generateMessage } from 'src/stores/chat-slice';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
-jest.mock( 'src/lib/get-ipc-api' );
-jest.mock( 'src/hooks/use-site-details' );
+vi.mock( 'src/lib/get-ipc-api' );
+vi.mock( 'src/hooks/use-site-details' );
 
 store.replaceReducer( testReducer );
 
@@ -22,7 +23,7 @@ const selectedSite: SiteDetails = {
 	port: 9999,
 };
 
-( useSiteDetails as jest.Mock ).mockReturnValue( {
+vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 	sites: [ selectedSite ],
 	loadingSites: false,
 	selectedSite: selectedSite,
@@ -120,17 +121,17 @@ describe( 'createCodeComponent', () => {
 
 	describe( 'when the "run" button is clicked', () => {
 		beforeEach( () => {
-			jest.useFakeTimers();
+			vi.useFakeTimers();
 			store.dispatch( testActions.resetState() );
 		} );
 
 		afterEach( () => {
-			jest.useRealTimers();
+			vi.useRealTimers();
 		} );
 
 		it( 'should display an activity indicator while running code', async () => {
-			( getIpcApi as jest.Mock ).mockReturnValue( {
-				executeWPCLiInline: jest.fn().mockResolvedValue( {
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				executeWPCLiInline: vi.fn().mockResolvedValue( {
 					stdout: 'Mock success',
 					stderr: '',
 					exitCode: 0,
@@ -143,14 +144,14 @@ describe( 'createCodeComponent', () => {
 
 			expect( screen.getByText( 'Running…' ) ).toBeVisible();
 
-			await act( () => jest.runOnlyPendingTimersAsync() );
+			await act( () => vi.runOnlyPendingTimersAsync() );
 
 			expect( screen.queryByText( 'Running…' ) ).not.toBeInTheDocument();
 		} );
 
 		it( 'should display the output of the successfully executed code', async () => {
-			( getIpcApi as jest.Mock ).mockReturnValue( {
-				executeWPCLiInline: jest.fn().mockResolvedValue( {
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				executeWPCLiInline: vi.fn().mockResolvedValue( {
 					stdout: 'Mock success',
 					stderr: '',
 					exitCode: 0,
@@ -163,15 +164,15 @@ describe( 'createCodeComponent', () => {
 
 			fireEvent.click( screen.getByText( 'Run' ) );
 
-			await act( () => jest.runOnlyPendingTimersAsync() );
+			await act( () => vi.runOnlyPendingTimersAsync() );
 
 			expect( screen.getByText( 'Success' ) ).toBeVisible();
 			expect( screen.getByText( 'Mock success' ) ).toBeVisible();
 		} );
 
 		it( 'should display the output of the failed code execution', async () => {
-			( getIpcApi as jest.Mock ).mockReturnValue( {
-				executeWPCLiInline: jest.fn().mockResolvedValue( {
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				executeWPCLiInline: vi.fn().mockResolvedValue( {
 					stdout: '',
 					stderr: 'Mock error',
 					exitCode: 1,
@@ -184,7 +185,7 @@ describe( 'createCodeComponent', () => {
 
 			fireEvent.click( screen.getByText( 'Run' ) );
 
-			await act( () => jest.runOnlyPendingTimersAsync() );
+			await act( () => vi.runOnlyPendingTimersAsync() );
 
 			expect( screen.getByText( 'Error' ) ).toBeVisible();
 			expect( screen.getByText( 'Mock error' ) ).toBeVisible();
@@ -193,10 +194,10 @@ describe( 'createCodeComponent', () => {
 
 	describe( 'when the "copy" button is clicked', () => {
 		it( 'should copy the code content to the clipboard', async () => {
-			const mockCopyText = jest.fn();
-			( getIpcApi as jest.Mock ).mockReturnValue( {
+			const mockCopyText = vi.fn();
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 				copyText: mockCopyText,
-				showNotification: jest.fn(),
+				showNotification: vi.fn(),
 			} );
 			render( <ContextWrapper className="language-bash" children="wp --version" /> );
 
@@ -228,12 +229,12 @@ describe( 'createCodeComponent', () => {
 
 	describe( 'when content is a file path', () => {
 		it( 'should open a file in the IDE if the file exists', async () => {
-			( getIpcApi as jest.Mock ).mockReturnValue( {
-				getAbsolutePathFromSite: jest
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getAbsolutePathFromSite: vi
 					.fn()
 					.mockResolvedValue( 'site-path/wp-content/plugins/hello.php' ),
-				openFileInIDE: jest.fn(),
-				showNotification: jest.fn(),
+				openFileInIDE: vi.fn(),
+				showNotification: vi.fn(),
 			} );
 
 			render( <ContextWrapper children="wp-content/plugins/hello.php" /> );
@@ -251,9 +252,9 @@ describe( 'createCodeComponent', () => {
 		} );
 
 		it( 'should not open a file in the IDE if the file does not exist', async () => {
-			( getIpcApi as jest.Mock ).mockReturnValue( {
-				getAbsolutePathFromSite: jest.fn().mockResolvedValue( null ),
-				openFileInIDE: jest.fn(),
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getAbsolutePathFromSite: vi.fn().mockResolvedValue( null ),
+				openFileInIDE: vi.fn(),
 			} );
 
 			render( <ContextWrapper children="wp-content/debug.log" /> );
@@ -268,9 +269,9 @@ describe( 'createCodeComponent', () => {
 		} );
 
 		it( 'should open a directory in the Finder if the directory exists', async () => {
-			( getIpcApi as jest.Mock ).mockReturnValue( {
-				getAbsolutePathFromSite: jest.fn().mockResolvedValue( 'site-path/wp-content/plugins' ),
-				openLocalPath: jest.fn(),
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getAbsolutePathFromSite: vi.fn().mockResolvedValue( 'site-path/wp-content/plugins' ),
+				openLocalPath: vi.fn(),
 			} );
 
 			render( <ContextWrapper children="wp-content/plugins" /> );
@@ -285,9 +286,9 @@ describe( 'createCodeComponent', () => {
 		} );
 
 		it( 'should not open a directory in the Finder if the directory does not exist', async () => {
-			( getIpcApi as jest.Mock ).mockReturnValue( {
-				getAbsolutePathFromSite: jest.fn().mockResolvedValue( null ),
-				openLocalPath: jest.fn(),
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getAbsolutePathFromSite: vi.fn().mockResolvedValue( null ),
+				openLocalPath: vi.fn(),
 			} );
 
 			render( <ContextWrapper children="wp-content/plugins" /> );
@@ -322,10 +323,10 @@ describe( 'createCodeComponent', () => {
 		} );
 
 		it( 'should copy the code content to the clipboard and open terminal', async () => {
-			( getIpcApi as jest.Mock ).mockReturnValue( {
-				copyText: jest.fn(),
-				openTerminalAtPath: jest.fn(),
-				showNotification: jest.fn(),
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				copyText: vi.fn(),
+				openTerminalAtPath: vi.fn(),
+				showNotification: vi.fn(),
 			} );
 			render( <ContextWrapper className="language-bash" children="wp plugin list" /> );
 

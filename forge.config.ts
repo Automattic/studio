@@ -48,7 +48,7 @@ const config: ForgeConfig = {
 			// Config files
 			/^\/webpack\./,
 			/^\/tsconfig\./,
-			/^\/jest\./,
+			/^\/vitest\./,
 			/^\/playwright\./,
 			/^\/postcss\./,
 			/^\/tailwind\./,

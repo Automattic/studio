@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { ImportEvents } from 'src/lib/import-export/import/events';
 import { WpressValidator } from 'src/lib/import-export/import/validators/wpress-validator';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
@@ -77,8 +78,8 @@ platformTestSuite( 'WpressValidator', ( { sep: separator } ) => {
 		} );
 
 		it( 'should emit validation events', () => {
-			const startSpy = jest.spyOn( validator, 'emit' );
-			const completeSpy = jest.spyOn( validator, 'emit' );
+			const startSpy = vi.spyOn( validator, 'emit' );
+			const completeSpy = vi.spyOn( validator, 'emit' );
 
 			validator.parseBackupContents( fileList, extractionDirectory );
 

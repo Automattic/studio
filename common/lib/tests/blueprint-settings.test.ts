@@ -1,0 +1,329 @@
+import {
+	extractFormValuesFromBlueprint,
+	updateBlueprintWithFormValues,
+} from '../blueprint-settings';
+
+describe( 'blueprint-settings', () => {
+	describe( 'extractFormValuesFromBlueprint', () => {
+		it( 'should return empty object for empty blueprint', () => {
+			const result = extractFormValuesFromBlueprint( {} );
+
+			expect( result ).toEqual( {} );
+		} );
+
+		it( 'should extract PHP version from preferredVersions', () => {
+			const blueprint = {
+				preferredVersions: {
+					php: '8.2',
+				},
+			};
+
+			const result = extractFormValuesFromBlueprint( blueprint );
+
+			expect( result.phpVersion ).toBe( '8.2' );
+		} );
+
+		it( 'should extract WP version from preferredVersions', () => {
+			const blueprint = {
+				preferredVersions: {
+					wp: '6.5',
+				},
+			};
+
+			const result = extractFormValuesFromBlueprint( blueprint );
+
+			expect( result.wpVersion ).toBe( '6.5' );
+		} );
+
+		it( 'should ignore "latest" PHP version', () => {
+			const blueprint = {
+				preferredVersions: {
+					php: 'latest',
+				},
+			};
+
+			const result = extractFormValuesFromBlueprint( blueprint );
+
+			expect( result.phpVersion ).toBeUndefined();
+		} );
+
+		it( 'should ignore "latest" WP version', () => {
+			const blueprint = {
+				preferredVersions: {
+					wp: 'latest',
+				},
+			};
+
+			const result = extractFormValuesFromBlueprint( blueprint );
+
+			expect( result.wpVersion ).toBeUndefined();
+		} );
+
+		it( 'should extract custom domain from defineSiteUrl step with https', () => {
+			const blueprint = {
+				steps: [ { step: 'defineSiteUrl', siteUrl: 'https://mysite.local' } ],
+			};
+
+			const result = extractFormValuesFromBlueprint( blueprint );
+
+			expect( result.customDomain ).toBe( 'mysite.local' );
+			expect( result.enableHttps ).toBe( true );
+		} );
+
+		it( 'should extract custom domain from defineSiteUrl step with http', () => {
+			const blueprint = {
+				steps: [ { step: 'defineSiteUrl', siteUrl: 'http://mysite.local' } ],
+			};
+
+			const result = extractFormValuesFromBlueprint( blueprint );
+
+			expect( result.customDomain ).toBe( 'mysite.local' );
+			expect( result.enableHttps ).toBe( false );
+		} );
+
+		it( 'should strip port from custom domain', () => {
+			const blueprint = {
+				steps: [ { step: 'defineSiteUrl', siteUrl: 'https://mysite.local:8443' } ],
+			};
+
+			const result = extractFormValuesFromBlueprint( blueprint );
+
+			expect( result.customDomain ).toBe( 'mysite.local' );
+			expect( result.enableHttps ).toBe( true );
+		} );
+
+		it( 'should handle invalid URL in defineSiteUrl gracefully', () => {
+			const blueprint = {
+				steps: [ { step: 'defineSiteUrl', siteUrl: 'not-a-valid-url' } ],
+			};
+
+			const result = extractFormValuesFromBlueprint( blueprint );
+
+			expect( result.customDomain ).toBeUndefined();
+			expect( result.enableHttps ).toBeUndefined();
+		} );
+
+		it( 'should extract all values from a complete blueprint', () => {
+			const blueprint = {
+				preferredVersions: {
+					php: '8.0',
+					wp: '6.4',
+				},
+				steps: [ { step: 'defineSiteUrl', siteUrl: 'https://dev.local' } ],
+			};
+
+			const result = extractFormValuesFromBlueprint( blueprint );
+
+			expect( result ).toEqual( {
+				phpVersion: '8.0',
+				wpVersion: '6.4',
+				customDomain: 'dev.local',
+				enableHttps: true,
+			} );
+		} );
+
+		it( 'should ignore steps array that is not an array', () => {
+			const blueprint = {
+				steps: 'not-an-array',
+			};
+
+			const result = extractFormValuesFromBlueprint(
+				blueprint as unknown as Parameters< typeof extractFormValuesFromBlueprint >[ 0 ]
+			);
+
+			expect( result.customDomain ).toBeUndefined();
+		} );
+
+		it( 'should handle defineSiteUrl step without siteUrl property', () => {
+			const blueprint = {
+				steps: [ { step: 'defineSiteUrl' } ],
+			};
+
+			const result = extractFormValuesFromBlueprint( blueprint );
+
+			expect( result.customDomain ).toBeUndefined();
+		} );
+	} );
+
+	describe( 'updateBlueprintWithFormValues', () => {
+		it( 'should return unchanged blueprint when no form values provided', () => {
+			const blueprint = {
+				meta: { title: 'Test' },
+			};
+
+			const result = updateBlueprintWithFormValues( blueprint, {} );
+
+			expect( result ).toEqual( blueprint );
+		} );
+
+		it( 'should update PHP version when preferredVersions exists', () => {
+			const blueprint = {
+				preferredVersions: {
+					php: '8.0',
+				},
+			};
+
+			const result = updateBlueprintWithFormValues( blueprint, { phpVersion: '8.2' } );
+
+			expect( result.preferredVersions?.php ).toBe( '8.2' );
+		} );
+
+		it( 'should update WP version when preferredVersions exists', () => {
+			const blueprint = {
+				preferredVersions: {
+					wp: '6.4',
+				},
+			};
+
+			const result = updateBlueprintWithFormValues( blueprint, { wpVersion: '6.5' } );
+
+			expect( result.preferredVersions?.wp ).toBe( '6.5' );
+		} );
+
+		it( 'should not add preferredVersions if it does not exist', () => {
+			const blueprint = {
+				meta: { title: 'Test' },
+			};
+
+			const result = updateBlueprintWithFormValues( blueprint, { phpVersion: '8.2' } );
+
+			expect( result.preferredVersions ).toBeUndefined();
+		} );
+
+		it( 'should not update PHP version if it was not in original blueprint', () => {
+			const blueprint = {
+				preferredVersions: {
+					wp: '6.4',
+				},
+			};
+
+			const result = updateBlueprintWithFormValues( blueprint, { phpVersion: '8.2' } );
+
+			expect( result.preferredVersions?.php ).toBeUndefined();
+		} );
+
+		it( 'should update defineSiteUrl step with https', () => {
+			const blueprint = {
+				steps: [ { step: 'defineSiteUrl', siteUrl: 'http://old.local' } ],
+			};
+
+			const result = updateBlueprintWithFormValues( blueprint, {
+				customDomain: 'new.local',
+				enableHttps: true,
+			} );
+
+			expect( result.steps?.[ 0 ] ).toEqual( {
+				step: 'defineSiteUrl',
+				siteUrl: 'https://new.local',
+			} );
+		} );
+
+		it( 'should update defineSiteUrl step with http', () => {
+			const blueprint = {
+				steps: [ { step: 'defineSiteUrl', siteUrl: 'https://old.local' } ],
+			};
+
+			const result = updateBlueprintWithFormValues( blueprint, {
+				customDomain: 'new.local',
+				enableHttps: false,
+			} );
+
+			expect( result.steps?.[ 0 ] ).toEqual( {
+				step: 'defineSiteUrl',
+				siteUrl: 'http://new.local',
+			} );
+		} );
+
+		it( 'should preserve port in domain when updating', () => {
+			const blueprint = {
+				steps: [ { step: 'defineSiteUrl', siteUrl: 'http://old.local' } ],
+			};
+
+			const result = updateBlueprintWithFormValues( blueprint, {
+				customDomain: 'new.local:8443',
+				enableHttps: true,
+			} );
+
+			expect( result.steps?.[ 0 ] ).toEqual( {
+				step: 'defineSiteUrl',
+				siteUrl: 'https://new.local:8443',
+			} );
+		} );
+
+		it( 'should not add defineSiteUrl step if it does not exist', () => {
+			const blueprint = {
+				steps: [ { step: 'login' } ],
+			};
+
+			const result = updateBlueprintWithFormValues( blueprint, {
+				customDomain: 'new.local',
+				enableHttps: true,
+			} );
+
+			expect( result.steps ).toHaveLength( 1 );
+			expect( result.steps?.[ 0 ] ).toEqual( { step: 'login' } );
+		} );
+
+		it( 'should not update defineSiteUrl if customDomain is not provided', () => {
+			const blueprint = {
+				steps: [ { step: 'defineSiteUrl', siteUrl: 'http://old.local' } ],
+			};
+
+			const result = updateBlueprintWithFormValues( blueprint, { enableHttps: true } );
+
+			expect( result.steps?.[ 0 ] ).toEqual( {
+				step: 'defineSiteUrl',
+				siteUrl: 'http://old.local',
+			} );
+		} );
+
+		it( 'should not mutate the original blueprint', () => {
+			const blueprint = {
+				preferredVersions: {
+					php: '8.0',
+					wp: '6.4',
+				},
+				steps: [ { step: 'defineSiteUrl', siteUrl: 'http://old.local' } ],
+			};
+			const originalBlueprint = JSON.parse( JSON.stringify( blueprint ) );
+
+			updateBlueprintWithFormValues( blueprint, {
+				phpVersion: '8.2',
+				wpVersion: '6.5',
+				customDomain: 'new.local',
+				enableHttps: true,
+			} );
+
+			expect( blueprint ).toEqual( originalBlueprint );
+		} );
+
+		it( 'should handle blueprint with multiple steps', () => {
+			const blueprint = {
+				steps: [
+					{ step: 'login' },
+					{ step: 'defineSiteUrl', siteUrl: 'http://old.local' },
+					{
+						step: 'installPlugin',
+						pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' },
+					},
+				],
+			};
+
+			const result = updateBlueprintWithFormValues( blueprint, {
+				customDomain: 'new.local',
+				enableHttps: true,
+			} );
+
+			expect( result.steps ).toHaveLength( 3 );
+			expect( result.steps?.[ 0 ] ).toEqual( { step: 'login' } );
+			expect( result.steps?.[ 1 ] ).toEqual( {
+				step: 'defineSiteUrl',
+				siteUrl: 'https://new.local',
+			} );
+			expect( result.steps?.[ 2 ] ).toEqual( {
+				step: 'installPlugin',
+				pluginData: { resource: 'wordpress.org/plugins', slug: 'akismet' },
+			} );
+		} );
+	} );
+} );

@@ -1,16 +1,14 @@
-/**
- * @jest-environment jsdom
- */
 // To run tests, execute `npm run test -- src/hooks/tests/use-site-details.test.ts` from the root directory
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { Provider } from 'react-redux';
+import { vi, beforeAll } from 'vitest';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { SiteDetailsProvider, useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
 
-jest.mock( 'src/lib/get-ipc-api' );
+vi.mock( 'src/lib/get-ipc-api' );
 
 const mockSites = [
 	{
@@ -19,7 +17,7 @@ const mockSites = [
 		path: '/path/to/site1',
 		port: 1234,
 		phpVersion: '8.3',
-		running: false,
+		running: false as const,
 		autoStart: true,
 		themeDetails: undefined,
 	},
@@ -29,7 +27,7 @@ const mockSites = [
 		path: '/path/to/site2',
 		port: 1235,
 		phpVersion: '8.3',
-		running: false,
+		running: false as const,
 		autoStart: false,
 		themeDetails: undefined,
 	},
@@ -39,7 +37,7 @@ const mockSites = [
 		path: '/path/to/site3',
 		port: 1236,
 		phpVersion: '8.3',
-		running: false,
+		running: false as const,
 		autoStart: true,
 		themeDetails: undefined,
 	},
@@ -57,18 +55,19 @@ describe( 'useSiteDetails', () => {
 	beforeAll( () => {
 		Object.defineProperty( window, 'ipcListener', {
 			value: {
-				subscribe: jest.fn().mockReturnValue( () => {} ),
+				subscribe: vi.fn().mockReturnValue( () => {} ),
 			},
 			writable: true,
 		} );
 	} );
 
 	beforeEach( () => {
-		jest.clearAllMocks();
-		( getIpcApi as jest.Mock ).mockReturnValue( {
-			getSiteDetails: jest.fn().mockResolvedValue( mockSites ),
-			startServer: jest.fn( () => Promise.resolve() ),
-			deleteSite: jest.fn( () => Promise.resolve() ),
+		vi.clearAllMocks();
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			getSiteDetails: vi.fn().mockResolvedValue( mockSites ),
+			startServer: vi.fn( () => Promise.resolve() ),
+			deleteSite: vi.fn( () => Promise.resolve() ),
+			getConnectedWpcomSites: vi.fn( () => Promise.resolve( [] ) ),
 		} );
 	} );
 
@@ -87,14 +86,14 @@ describe( 'useSiteDetails', () => {
 		} );
 
 		it( 'should not auto-start sites if autoStart flag is false', async () => {
-			( getIpcApi as jest.Mock ).mockReturnValue( {
-				getSiteDetails: jest.fn().mockResolvedValue(
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getSiteDetails: vi.fn().mockResolvedValue(
 					mockSites.map( ( site ) => ( {
 						...site,
 						autoStart: false,
 					} ) )
 				),
-				startServer: jest.fn( () => Promise.resolve() ),
+				startServer: vi.fn( () => Promise.resolve() ),
 			} );
 
 			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
@@ -117,7 +116,9 @@ describe( 'useSiteDetails', () => {
 			} );
 
 			// Select site-3 (the site we'll delete)
-			result.current.setSelectedSiteId( 'site-3' );
+			act( () => {
+				result.current.setSelectedSiteId( 'site-3' );
+			} );
 
 			await waitFor( () => {
 				expect( result.current.selectedSite?.id ).toBe( 'site-3' );
@@ -125,10 +126,12 @@ describe( 'useSiteDetails', () => {
 
 			// Simulate that after deletion, site-3 is removed
 			const sitesAfterDeletion = mockSites.filter( ( site ) => site.id !== 'site-3' );
-			( getIpcApi().getSiteDetails as jest.Mock ).mockResolvedValueOnce( sitesAfterDeletion );
+			vi.mocked( getIpcApi().getSiteDetails ).mockResolvedValueOnce( sitesAfterDeletion );
 
 			// Delete site-3
-			await result.current.deleteSite( 'site-3', false );
+			await act( async () => {
+				await result.current.deleteSite( 'site-3', false );
+			} );
 
 			// Should select the first remaining site since the selected site was deleted
 			await waitFor( () => {
@@ -144,7 +147,9 @@ describe( 'useSiteDetails', () => {
 			} );
 
 			// Select site-2 (NOT the site we'll delete)
-			result.current.setSelectedSiteId( 'site-2' );
+			act( () => {
+				result.current.setSelectedSiteId( 'site-2' );
+			} );
 
 			await waitFor( () => {
 				expect( result.current.selectedSite?.id ).toBe( 'site-2' );
@@ -152,10 +157,12 @@ describe( 'useSiteDetails', () => {
 
 			// Simulate that after deletion, site-3 is removed (but site-2 still exists)
 			const sitesAfterDeletion = mockSites.filter( ( site ) => site.id !== 'site-3' );
-			( getIpcApi().getSiteDetails as jest.Mock ).mockResolvedValueOnce( sitesAfterDeletion );
+			vi.mocked( getIpcApi().getSiteDetails ).mockResolvedValueOnce( sitesAfterDeletion );
 
 			// Delete site-3 (not the selected site)
-			await result.current.deleteSite( 'site-3', false );
+			await act( async () => {
+				await result.current.deleteSite( 'site-3', false );
+			} );
 
 			// Selection should stay on site-2 since it still exists
 			await waitFor( () => {

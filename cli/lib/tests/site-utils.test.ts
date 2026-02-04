@@ -1,17 +1,22 @@
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
+import { vi, type Mock } from 'vitest';
 import { SiteData, readAppdata } from 'cli/lib/appdata';
 import { isProxyProcessRunning, stopProxyProcess } from 'cli/lib/pm2-manager';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
+vi.mock( 'pm2' );
 
-jest.mock( 'cli/lib/appdata', () => ( {
-	...jest.requireActual( 'cli/lib/appdata' ),
-	getAppdataDirectory: jest.fn().mockReturnValue( '/test/appdata' ),
-	readAppdata: jest.fn(),
-} ) );
-jest.mock( 'cli/lib/pm2-manager' );
-jest.mock( 'cli/lib/wordpress-server-manager' );
+vi.mock( 'cli/lib/appdata', async () => {
+	const actual = await vi.importActual( 'cli/lib/appdata' );
+	return {
+		...actual,
+		getAppdataDirectory: vi.fn().mockReturnValue( '/test/appdata' ),
+		readAppdata: vi.fn(),
+	};
+} );
+vi.mock( 'cli/lib/pm2-manager' );
+vi.mock( 'cli/lib/wordpress-server-manager' );
 
 describe( 'stopProxyIfNoSitesNeedIt', () => {
 	const mockProcessDescription = {
@@ -33,26 +38,26 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 	} );
 
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 
 		mockLogger = {
-			reportStart: jest.fn(),
-			reportSuccess: jest.fn(),
-			reportError: jest.fn(),
+			reportStart: vi.fn(),
+			reportSuccess: vi.fn(),
+			reportError: vi.fn(),
 		} as unknown as Logger< LoggerAction >;
 
-		( isProxyProcessRunning as jest.Mock ).mockResolvedValue( undefined );
-		( stopProxyProcess as jest.Mock ).mockResolvedValue( undefined );
-		( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
-		( readAppdata as jest.Mock ).mockResolvedValue( { sites: [], snapshots: [] } );
+		( isProxyProcessRunning as Mock ).mockResolvedValue( undefined );
+		( stopProxyProcess as Mock ).mockResolvedValue( undefined );
+		( isServerRunning as Mock ).mockResolvedValue( undefined );
+		( readAppdata as Mock ).mockResolvedValue( { sites: [], snapshots: [] } );
 	} );
 
 	afterEach( () => {
-		jest.restoreAllMocks();
+		vi.restoreAllMocks();
 	} );
 
 	it( 'should do nothing if proxy is not running', async () => {
-		( isProxyProcessRunning as jest.Mock ).mockResolvedValue( undefined );
+		( isProxyProcessRunning as Mock ).mockResolvedValue( undefined );
 
 		await stopProxyIfNoSitesNeedIt( 'site-1', mockLogger );
 
@@ -61,8 +66,8 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 	} );
 
 	it( 'should stop proxy if no other sites exist', async () => {
-		( isProxyProcessRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
-		( readAppdata as jest.Mock ).mockResolvedValue( {
+		( isProxyProcessRunning as Mock ).mockResolvedValue( mockProcessDescription );
+		( readAppdata as Mock ).mockResolvedValue( {
 			sites: [ createSiteData( { id: 'stopped-site' } ) ],
 			snapshots: [],
 		} );
@@ -78,8 +83,8 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 	} );
 
 	it( 'should stop proxy if other sites exist but none have custom domains', async () => {
-		( isProxyProcessRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
-		( readAppdata as jest.Mock ).mockResolvedValue( {
+		( isProxyProcessRunning as Mock ).mockResolvedValue( mockProcessDescription );
+		( readAppdata as Mock ).mockResolvedValue( {
 			sites: [
 				createSiteData( { id: 'stopped-site', customDomain: 'stopped.local' } ),
 				createSiteData( { id: 'other-site-1' } ),
@@ -94,15 +99,15 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 	} );
 
 	it( 'should stop proxy if other sites have custom domains but are not running', async () => {
-		( isProxyProcessRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
-		( readAppdata as jest.Mock ).mockResolvedValue( {
+		( isProxyProcessRunning as Mock ).mockResolvedValue( mockProcessDescription );
+		( readAppdata as Mock ).mockResolvedValue( {
 			sites: [
 				createSiteData( { id: 'stopped-site', customDomain: 'stopped.local' } ),
 				createSiteData( { id: 'other-site', customDomain: 'other.local' } ),
 			],
 			snapshots: [],
 		} );
-		( isServerRunning as jest.Mock ).mockResolvedValue( undefined );
+		( isServerRunning as Mock ).mockResolvedValue( undefined );
 
 		await stopProxyIfNoSitesNeedIt( 'stopped-site', mockLogger );
 
@@ -111,15 +116,15 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 	} );
 
 	it( 'should not stop proxy if another site with custom domain is running', async () => {
-		( isProxyProcessRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
-		( readAppdata as jest.Mock ).mockResolvedValue( {
+		( isProxyProcessRunning as Mock ).mockResolvedValue( mockProcessDescription );
+		( readAppdata as Mock ).mockResolvedValue( {
 			sites: [
 				createSiteData( { id: 'stopped-site', customDomain: 'stopped.local' } ),
 				createSiteData( { id: 'running-site', customDomain: 'running.local' } ),
 			],
 			snapshots: [],
 		} );
-		( isServerRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
+		( isServerRunning as Mock ).mockResolvedValue( mockProcessDescription );
 
 		await stopProxyIfNoSitesNeedIt( 'stopped-site', mockLogger );
 
@@ -128,8 +133,8 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 	} );
 
 	it( 'should not check if the stopped site is running', async () => {
-		( isProxyProcessRunning as jest.Mock ).mockResolvedValue( mockProcessDescription );
-		( readAppdata as jest.Mock ).mockResolvedValue( {
+		( isProxyProcessRunning as Mock ).mockResolvedValue( mockProcessDescription );
+		( readAppdata as Mock ).mockResolvedValue( {
 			sites: [ createSiteData( { id: 'stopped-site', customDomain: 'stopped.local' } ) ],
 			snapshots: [],
 		} );

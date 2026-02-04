@@ -50,21 +50,16 @@ steps:
       # See https://playwright.dev/docs/ci#debugging-browser-launches
       DEBUG: "pw:browser"
     matrix:
-      setup:
-        platform:
-          - mac
-          - windows
-        arch:
-          - x64
-          - arm64
+      # More details on this setup at https://github.com/Automattic/studio/pull/2530#discussion_r2763853223
+      #
+      # TL;DR: we're bending the syntax to limit the combinations.
+      setup: { platform: [_], arch: [_] }
       adjustments:
-        - with:
-            platform: mac
-            arch: x64
-          skip: true
-        - with:
-            platform: windows
-            arch: arm64
+        # Combinations to run
+        - with: { platform: mac, arch: arm64 }
+        - with: { platform: windows, arch: x64 }
+        # Skip the dummy value used to initiate the syntax.
+        - with: { platform: _, arch: _ }
           skip: true
     # Skip E2E tests on draft PRs to save CI resources
     # Tests will run automatically when PR is marked ready for review

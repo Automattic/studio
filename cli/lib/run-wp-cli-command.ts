@@ -14,6 +14,11 @@ import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 
 const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';
 
+// Disable process spawning functions as they're not supported in WASM
+// without a spawn handler. WP-CLI's search-replace tries to use these.
+const DISABLED_FUNCTIONS =
+	'exec,passthru,shell_exec,system,proc_open,popen,proc_close,proc_get_status,proc_nice,proc_terminate,pcntl_exec';
+
 export interface RunWpCliCommandOptions {
 	siteUrl?: string;
 }
@@ -40,10 +45,7 @@ export async function runWpCliCommand(
 		await setPhpIniEntries( php, {
 			'openssl.cafile': '/tmp/ca-bundle.crt',
 			allow_url_fopen: 1,
-			// Disable process spawning functions as they're not supported in WASM
-			// without a spawn handler. WP-CLI's search-replace tries to use these.
-			disable_functions:
-				'exec,passthru,shell_exec,system,proc_open,popen,proc_close,proc_get_status,proc_nice,proc_terminate,pcntl_exec',
+			disable_functions: DISABLED_FUNCTIONS,
 		} );
 
 		// Mount mu-plugins
@@ -90,10 +92,7 @@ export async function runGlobalWpCliCommand(
 		await setPhpIniEntries( php, {
 			'openssl.cafile': '/tmp/ca-bundle.crt',
 			allow_url_fopen: 1,
-			// Disable process spawning functions as they're not supported in WASM
-			// without a spawn handler. WP-CLI's search-replace tries to use these.
-			disable_functions:
-				'exec,passthru,shell_exec,system,proc_open,popen,proc_close,proc_get_status,proc_nice,proc_terminate,pcntl_exec',
+			disable_functions: DISABLED_FUNCTIONS,
 		} );
 
 		await php.mount( '/tmp/wp-cli.phar', createNodeFsMountHandler( getWpCliPharPath() ) );

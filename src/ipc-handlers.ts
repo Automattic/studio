@@ -604,6 +604,13 @@ export async function copySite(
 	const newThumbnailPath = getSiteThumbnailPath( siteId );
 	if ( fs.existsSync( sourceThumbnailPath ) ) {
 		await fs.promises.copyFile( sourceThumbnailPath, newThumbnailPath );
+		// Send thumbnail-loaded event so UI updates immediately
+		const thumbnailData = await getImageData( newThumbnailPath );
+		sendIpcEventToRendererWithWindow(
+			BrowserWindow.fromWebContents( event.sender ),
+			'thumbnail-loaded',
+			{ id: siteId, imageData: thumbnailData }
+		);
 	}
 
 	// Get an available port using portFinder

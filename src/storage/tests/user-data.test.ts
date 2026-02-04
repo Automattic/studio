@@ -1,24 +1,56 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
 // To run tests, execute `npm run test -- src/storage/user-data.test.ts` from the root directory
-import fs from 'fs';
 import { readFile, writeFile } from 'atomically';
+import { vi } from 'vitest';
 import { loadUserData, lockAppdata, unlockAppdata, saveUserData } from 'src/storage/user-data';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 import { UserData } from '../storage-types';
 
-jest.mock( 'fs' );
-jest.mock( 'src/storage/paths', () => ( {
-	getResourcesPath: jest.fn().mockReturnValue( '/path/to/app/appData/App Name' ),
-	getUserDataFilePath: jest.fn().mockReturnValue( '/path/to/app/appData/App Name/appdata-v1.json' ),
-	getUserDataLockFilePath: jest
-		.fn()
-		.mockReturnValue( '/path/to/app/appData/App Name/appdata-v1.json.lock' ),
+const {
+	getResourcesPathMock,
+	getUserDataFilePathMock,
+	getUserDataLockFilePathMock,
+	mockElectronApp,
+	mockFsExistsSync,
+} = vi.hoisted( () => {
+	const mockApp = {
+		getPath: vi.fn().mockReturnValue( '/path/to/app/appData' ),
+	};
+	return {
+		getResourcesPathMock: vi.fn().mockReturnValue( '/path/to/app/appData/App Name' ),
+		getUserDataFilePathMock: vi
+			.fn()
+			.mockReturnValue( '/path/to/app/appData/App Name/appdata-v1.json' ),
+		getUserDataLockFilePathMock: vi
+			.fn()
+			.mockReturnValue( '/path/to/app/appData/App Name/appdata-v1.json.lock' ),
+		mockElectronApp: mockApp,
+		mockFsExistsSync: vi.fn(),
+	};
+} );
+
+vi.mock( 'electron', () => ( {
+	app: mockElectronApp,
 } ) );
 
-jest.mock( 'atomically', () => ( {
-	readFile: jest.fn().mockResolvedValue(
+vi.mock( 'fs', () => ( {
+	default: {
+		existsSync: mockFsExistsSync,
+		renameSync: vi.fn(),
+	},
+	existsSync: mockFsExistsSync,
+	renameSync: vi.fn(),
+} ) );
+vi.mock( 'src/storage/paths', () => ( {
+	getResourcesPath: getResourcesPathMock,
+	getUserDataFilePath: getUserDataFilePathMock,
+	getUserDataLockFilePath: getUserDataLockFilePathMock,
+} ) );
+
+vi.mock( 'atomically', () => ( {
+	readFile: vi.fn().mockResolvedValue(
 		JSON.stringify( {
 			sites: [
 				{ name: 'Tristan', path: '/to/tristan' },
@@ -28,7 +60,7 @@ jest.mock( 'atomically', () => ( {
 			snapshots: [],
 		} )
 	),
-	writeFile: jest.fn(),
+	writeFile: vi.fn(),
 } ) );
 
 const mockedUserData: RecursivePartial< UserData > = {
@@ -52,12 +84,12 @@ const defaultThemeDetails = {
 platformTestSuite( 'User data', () => {
 	beforeEach( () => {
 		// Assume each site path exists
-		( fs.existsSync as jest.Mock ).mockReturnValue( true );
+		mockFsExistsSync.mockReturnValue( true );
+		// Reset other mocks to ensure clean state
+		mockElectronApp.getPath.mockReturnValue( '/path/to/app/appData' );
 	} );
 
-	afterEach( () => {
-		jest.restoreAllMocks();
-	} );
+	afterEach( () => {} );
 
 	describe( 'loadUserData', () => {
 		test( 'loads user data correctly and sorts sites', async () => {
@@ -71,21 +103,23 @@ platformTestSuite( 'User data', () => {
 		} );
 
 		test( 'Filters out sites where the path does not exist', async () => {
-			( fs.existsSync as jest.Mock ).mockImplementation( ( path ) => path === '/to/lancelot' );
+			mockFsExistsSync.mockImplementation( ( path ) => path === '/to/lancelot' );
 			const result = await loadUserData();
 			expect( result.sites.map( ( sites ) => sites.name ) ).toEqual( [ 'Lancelot' ] );
 		} );
 
 		test( 'populates PHP version when unknown', async () => {
-			( readFile as jest.Mock ).mockResolvedValue(
-				JSON.stringify( {
-					sites: [
-						{ name: 'Arthur', path: '/to/arthur', phpVersion: '8.3' },
-						{ name: 'Lancelot', path: '/to/lancelot', phpVersion: '8.1' },
-						{ name: 'Tristan', path: '/to/tristan' },
-					],
-					snapshots: [],
-				} )
+			vi.mocked( readFile ).mockResolvedValue(
+				Buffer.from(
+					JSON.stringify( {
+						sites: [
+							{ name: 'Arthur', path: '/to/arthur', phpVersion: '8.3' },
+							{ name: 'Lancelot', path: '/to/lancelot', phpVersion: '8.1' },
+							{ name: 'Tristan', path: '/to/tristan' },
+						],
+						snapshots: [],
+					} )
+				)
 			);
 			const result = await loadUserData();
 			expect( result.sites.map( ( site ) => site.phpVersion ) ).toEqual( [ '8.3', '8.1', '8.0' ] );

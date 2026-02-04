@@ -1,30 +1,23 @@
-/**
- * @jest-environment node
- */
-// eslint-disable-next-line import/order
+import { ChildProcess } from 'node:child_process';
 import EventEmitter from 'node:events';
-
+import { vi } from 'vitest';
 // Mock executeCliCommand before importing SiteServer
 const mockEventEmitter = new EventEmitter();
-const mockChildProcess = { kill: jest.fn() };
-
-jest.mock( 'src/modules/cli/lib/execute-command', () => ( {
-	executeCliCommand: jest.fn( () => [ mockEventEmitter, mockChildProcess ] ),
+const mockChildProcess = { kill: vi.fn() } as unknown as ChildProcess;
+vi.mock( 'src/modules/cli/lib/execute-command', () => ( {
+	executeCliCommand: vi.fn( () => [ mockEventEmitter, mockChildProcess ] ),
 } ) );
-
-jest.mock( 'src/constants', () => ( {
+vi.mock( 'src/constants', () => ( {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT: 100, // Short timeout for tests
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT: 200,
 } ) );
-
-jest.mock( '@sentry/electron/main', () => ( {
-	captureException: jest.fn(),
+vi.mock( '@sentry/electron/main', () => ( {
+	captureException: vi.fn(),
 } ) );
-
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import type { CliCommandResult } from 'src/modules/cli/lib/execute-command';
 
-const mockExecuteCliCommand = executeCliCommand as jest.Mock;
+const mockExecuteCliCommand = vi.mocked( executeCliCommand );
 
 function simulateCliResponse( {
 	stdout = '',
@@ -51,7 +44,7 @@ describe( 'SiteServer.executeWpCliCommand', () => {
 	) => Promise< { stdout: string; stderr: string; exitCode: number } >;
 
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 		mockEventEmitter.removeAllListeners();
 		mockExecuteCliCommand.mockReturnValue( [ mockEventEmitter, mockChildProcess ] );
 

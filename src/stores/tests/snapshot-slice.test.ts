@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { UnknownAction } from '@reduxjs/toolkit';
 import { produce } from 'immer';
+import { vi } from 'vitest';
 import { PreviewCommandLoggerAction } from 'common/logger-actions';
 import { Snapshot } from 'common/types/snapshot';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -13,10 +14,13 @@ import {
 } from 'src/stores/snapshot-slice';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
-jest.mock( 'src/lib/get-ipc-api' );
-( getIpcApi as jest.Mock ).mockReturnValue( {
-	getSnapshots: jest.fn(),
-	createSnapshot: jest.fn(),
+const mockGetSnapshots = vi.fn();
+const mockCreateSnapshot = vi.fn();
+
+vi.mock( 'src/lib/get-ipc-api' );
+vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+	getSnapshots: mockGetSnapshots,
+	createSnapshot: mockCreateSnapshot,
 } );
 
 function snapshotTestReducer( state: RootState | undefined, action: UnknownAction ) {
@@ -57,7 +61,7 @@ store.replaceReducer( snapshotTestReducer );
 
 describe( 'snapshot-slice', () => {
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 		store.dispatch( testActions.resetState() );
 	} );
 
@@ -67,7 +71,7 @@ describe( 'snapshot-slice', () => {
 			const siteFolder = '/test/path';
 			const operationId = '123e4567-e89b-12d3-a456-426614174000';
 
-			( getIpcApi().createSnapshot as jest.Mock ).mockResolvedValue( { operationId } );
+			mockCreateSnapshot.mockResolvedValue( { operationId } );
 
 			const result = await store.dispatch(
 				snapshotThunks.createSnapshot( { siteId, siteFolder } )
@@ -91,7 +95,7 @@ describe( 'snapshot-slice', () => {
 			const siteId = 'test-site';
 			const siteFolder = '/test/path';
 
-			( getIpcApi().createSnapshot as jest.Mock ).mockRejectedValue( new Error( 'API Error' ) );
+			mockCreateSnapshot.mockRejectedValue( new Error( 'API Error' ) );
 
 			const result = await store.dispatch(
 				snapshotThunks.createSnapshot( { siteId, siteFolder } )

@@ -1,37 +1,37 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
 import { readFile, writeFile } from 'atomically';
-import { WPCOM } from 'wpcom/types';
+import { vi } from 'vitest';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { handleAuthDeeplink } from 'src/lib/deeplink/handlers/auth';
-import wpcomFactory from 'src/lib/wpcom-factory';
 
-jest.mock( 'src/lib/certificate-manager', () => ( {} ) );
-jest.mock( 'src/ipc-utils' );
-jest.mock( 'atomically', () => ( {
-	readFile: jest.fn(),
-	writeFile: jest.fn(),
+const mockWpcomGet = vi.fn();
+
+vi.mock( 'src/lib/certificate-manager', () => ( {} ) );
+vi.mock( 'src/ipc-utils' );
+vi.mock( 'src/lib/wpcom-factory', () => ( {
+	default: () => ( {
+		req: { get: mockWpcomGet },
+	} ),
 } ) );
-jest.mock( 'src/lib/wpcom-factory' );
-jest.mock( 'src/lib/wpcom-xhr-request-factory', () => jest.fn() );
+vi.mock( 'src/lib/wpcom-xhr-request-factory', () => ( {
+	default: vi.fn(),
+} ) );
 
 describe( 'handleAuthDeeplink', () => {
 	beforeEach( () => {
-		jest.clearAllMocks();
-		( readFile as jest.Mock ).mockResolvedValue( JSON.stringify( { sites: [] } ) );
-		( writeFile as jest.Mock ).mockResolvedValue( undefined );
+		vi.clearAllMocks();
+		vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( { sites: [] } ) ) );
+		vi.mocked( writeFile ).mockResolvedValue( undefined );
 	} );
 
 	it( 'should handle successful authentication', async () => {
-		const mockWpcomGet = jest.fn().mockResolvedValue( {
+		mockWpcomGet.mockResolvedValue( {
 			ID: 123,
 			email: 'user@example.com',
 			display_name: 'Test User',
 		} );
-		jest.mocked( wpcomFactory ).mockReturnValue( {
-			req: { get: mockWpcomGet },
-		} as unknown as WPCOM );
 
 		const url = new URL( 'wp-studio://auth#access_token=mock-token&expires_in=3600' );
 		await handleAuthDeeplink( url );
@@ -69,10 +69,7 @@ describe( 'handleAuthDeeplink', () => {
 	} );
 
 	it( 'should handle wpcom API error', async () => {
-		const mockWpcomGet = jest.fn().mockRejectedValue( new Error( 'API Error' ) );
-		jest.mocked( wpcomFactory ).mockReturnValue( {
-			req: { get: mockWpcomGet },
-		} as unknown as WPCOM );
+		mockWpcomGet.mockRejectedValue( new Error( 'API Error' ) );
 
 		const url = new URL( 'wp-studio://auth#access_token=mock-token&expires_in=3600' );
 		await handleAuthDeeplink( url );

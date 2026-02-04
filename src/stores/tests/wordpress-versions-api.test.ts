@@ -1,7 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
-import nock from 'nock';
+import { vi } from 'vitest';
 import { ZodError } from 'zod';
-import { store } from '..';
 import { wordpressVersionsApi } from '../wordpress-versions-api';
 
 const createTestStore = () => {
@@ -14,32 +13,87 @@ const createTestStore = () => {
 	} );
 };
 
+const originalFetch = global.fetch;
+
+function mockWordPressApi( responses: {
+	beta?: unknown;
+	development?: unknown;
+	betaError?: boolean;
+	developmentError?: boolean;
+} ) {
+	const callsMade = { beta: false, development: false };
+
+	global.fetch = vi.fn().mockImplementation( async ( url: string, options?: RequestInit ) => {
+		const urlObj = new URL( url as string );
+		if (
+			urlObj.hostname === 'api.wordpress.org' &&
+			urlObj.pathname === '/core/version-check/1.7/'
+		) {
+			const channel = urlObj.searchParams.get( 'channel' );
+
+			if ( channel === 'beta' ) {
+				callsMade.beta = true;
+				if ( responses.betaError ) {
+					return Promise.reject( new Error( 'Network error' ) );
+				}
+				return Promise.resolve( {
+					ok: true,
+					status: 200,
+					json: () => Promise.resolve( responses.beta || { offers: [] } ),
+				} as Response );
+			}
+
+			if ( channel === 'development' ) {
+				callsMade.development = true;
+				if ( responses.developmentError ) {
+					return Promise.reject( new Error( 'Network error' ) );
+				}
+				return Promise.resolve( {
+					ok: true,
+					status: 200,
+					json: () => Promise.resolve( responses.development || { offers: [] } ),
+				} as Response );
+			}
+		}
+		return originalFetch( url, options );
+	} );
+
+	return {
+		isDone: () => {
+			const expectedBeta = responses.beta !== undefined || responses.betaError;
+			const expectedDevelopment = responses.development !== undefined || responses.developmentError;
+			return (
+				( ! expectedBeta || callsMade.beta ) && ( ! expectedDevelopment || callsMade.development )
+			);
+		},
+	};
+}
+
 describe( 'WordPress Versions API', () => {
+	beforeEach( () => {
+		global.fetch = vi.fn();
+	} );
+
 	afterEach( () => {
-		nock.cleanAll();
+		global.fetch = originalFetch;
 	} );
 
 	describe( 'fetchWordPressVersions', () => {
 		it( 'should fetch both stable and development versions', async () => {
-			nock( 'https://api.wordpress.org' )
-				.get( '/core/version-check/1.7/' )
-				.query( { channel: 'beta', version: '5.9.9' } )
-				.reply( 200, {
+			const mockApi = mockWordPressApi( {
+				beta: {
 					offers: [
 						{ version: '6.4.0', response: 'autoupdate' },
 						{ version: '6.5.0-beta1', response: 'autoupdate' },
 					],
-				} );
-
-			nock( 'https://api.wordpress.org' )
-				.get( '/core/version-check/1.7/' )
-				.query( { channel: 'development' } )
-				.reply( 200, {
+				},
+				development: {
 					offers: [
 						{ version: '6.8-beta2-59979', response: 'development' },
 						{ version: '6.8-beta2-59980', response: 'development' },
 					],
-				} );
+				},
+			} );
 
 			const store = createTestStore();
 			const result = await store.dispatch(
@@ -47,7 +101,7 @@ describe( 'WordPress Versions API', () => {
 			);
 
 			// Verify both API calls were made
-			expect( nock.isDone() ).toBe( true );
+			expect( mockApi.isDone() ).toBe( true );
 
 			// Verify the result includes both stable and development versions
 			expect( result.data ).toEqual( [
@@ -80,23 +134,18 @@ describe( 'WordPress Versions API', () => {
 	} );
 
 	it( 'should handle development versions with correct labeling', async () => {
-		nock( 'https://api.wordpress.org' )
-			.get( '/core/version-check/1.7/' )
-			.query( { channel: 'beta', version: '5.9.9' } )
-			.reply( 200, {
+		mockWordPressApi( {
+			beta: {
 				offers: [],
-			} );
-
-		nock( 'https://api.wordpress.org' )
-			.get( '/core/version-check/1.7/' )
-			.query( { channel: 'development' } )
-			.reply( 200, {
+			},
+			development: {
 				offers: [
 					{ version: '6.8-alpha1-59979', response: 'development' },
 					{ version: '6.8-beta2-59980', response: 'development' },
 					{ version: '6.8-rc1-59981', response: 'development' },
 				],
-			} );
+			},
+		} );
 
 		const store = createTestStore();
 		const result = await store.dispatch(
@@ -115,23 +164,18 @@ describe( 'WordPress Versions API', () => {
 	} );
 
 	it( 'should handle schema validation error for both channels', async () => {
-		const consoleSpy = jest.spyOn( console, 'error' ).mockImplementation( () => {} );
+		const consoleSpy = vi.spyOn( console, 'error' ).mockImplementation( () => {} );
 
-		nock( 'https://api.wordpress.org' )
-			.get( '/core/version-check/1.7/' )
-			.query( { channel: 'beta', version: '5.9.9' } )
-			.reply( 200, {
+		mockWordPressApi( {
+			beta: {
 				// Missing 'offers' field to trigger schema validation error
 				something_else: [],
-			} );
-
-		nock( 'https://api.wordpress.org' )
-			.get( '/core/version-check/1.7/' )
-			.query( { channel: 'development' } )
-			.reply( 200, {
+			},
+			development: {
 				// Missing 'offers' field to trigger schema validation error
 				something_else: [],
-			} );
+			},
+		} );
 
 		const store = createTestStore();
 		const result = await store.dispatch(
@@ -157,21 +201,16 @@ describe( 'WordPress Versions API', () => {
 	} );
 
 	it( 'should update versions when API call is successful', async () => {
-		nock( 'https://api.wordpress.org' )
-			.get( '/core/version-check/1.7/' )
-			.query( { channel: 'beta', version: '5.9.9' } )
-			.reply( 200, {
+		mockWordPressApi( {
+			beta: {
 				offers: [
 					{ version: '6.4.0', response: 'autoupdate' },
 					{ version: '6.5.0-beta1', response: 'autoupdate' },
 					{ version: '6.3.0', response: 'upgrade' }, // Should be filtered out
 				],
-			} );
-
-		nock( 'https://api.wordpress.org' )
-			.get( '/core/version-check/1.7/' )
-			.query( { channel: 'development' } )
-			.reply( 200, { offers: [] } );
+			},
+			development: { offers: [] },
+		} );
 
 		const store = createTestStore();
 		const result = await store.dispatch(
@@ -203,20 +242,15 @@ describe( 'WordPress Versions API', () => {
 	} );
 
 	it( 'should handle API response with no autoupdate offers', async () => {
-		nock( 'https://api.wordpress.org' )
-			.get( '/core/version-check/1.7/' )
-			.query( { channel: 'beta', version: '5.9.9' } )
-			.reply( 200, {
+		mockWordPressApi( {
+			beta: {
 				offers: [
 					{ version: '6.3.0', response: 'upgrade' },
 					{ version: '6.2.0', response: 'upgrade' },
 				],
-			} );
-
-		nock( 'https://api.wordpress.org' )
-			.get( '/core/version-check/1.7/' )
-			.query( { channel: 'development' } )
-			.reply( 200, { offers: [] } );
+			},
+			development: { offers: [] },
+		} );
 
 		const store = createTestStore();
 		const result = await store.dispatch(
@@ -229,17 +263,12 @@ describe( 'WordPress Versions API', () => {
 	} );
 
 	it( 'should handle API fetch error', async () => {
-		const consoleSpy = jest.spyOn( console, 'error' ).mockImplementation( () => {} );
+		const consoleSpy = vi.spyOn( console, 'error' ).mockImplementation( () => {} );
 
-		nock( 'https://api.wordpress.org' )
-			.get( '/core/version-check/1.7/' )
-			.query( { channel: 'beta', version: '5.9.9' } )
-			.replyWithError( 'Network error' );
-
-		nock( 'https://api.wordpress.org' )
-			.get( '/core/version-check/1.7/' )
-			.query( { channel: 'development' } )
-			.replyWithError( 'Network error' );
+		mockWordPressApi( {
+			betaError: true,
+			developmentError: true,
+		} );
 
 		const store = createTestStore();
 		const result = await store.dispatch(
@@ -257,21 +286,16 @@ describe( 'WordPress Versions API', () => {
 	} );
 
 	it( 'should gracefully handle schema validation errors for individual offers', async () => {
-		nock( 'https://api.wordpress.org' )
-			.get( '/core/version-check/1.7/' )
-			.query( { channel: 'beta', version: '5.9.9' } )
-			.reply( 200, {
+		mockWordPressApi( {
+			beta: {
 				offers: [
 					{ version: '6.4.0', response: 'autoupdate' },
 					{ version: '6.5.0-beta1', response: 'autoupdate' },
 					{ version: '6.5.0-RC1', response: 10 }, // Invalid response type
 				],
-			} );
-
-		nock( 'https://api.wordpress.org' )
-			.get( '/core/version-check/1.7/' )
-			.query( { channel: 'development' } )
-			.reply( 200, { offers: [] } );
+			},
+			development: { offers: [] },
+		} );
 
 		const store = createTestStore();
 		const result = await store.dispatch(
@@ -304,21 +328,16 @@ describe( 'WordPress Versions API', () => {
 	} );
 
 	it( 'should correctly identify beta and RC versions and use full version for name', async () => {
-		nock( 'https://api.wordpress.org' )
-			.get( '/core/version-check/1.7/' )
-			.query( { channel: 'beta', version: '5.9.9' } )
-			.reply( 200, {
+		mockWordPressApi( {
+			beta: {
 				offers: [
 					{ version: '6.4.0', response: 'autoupdate' },
 					{ version: '6.5.0-beta1', response: 'autoupdate' },
 					{ version: '6.5.0-RC1', response: 'autoupdate' },
 				],
-			} );
-
-		nock( 'https://api.wordpress.org' )
-			.get( '/core/version-check/1.7/' )
-			.query( { channel: 'development' } )
-			.reply( 200, { offers: [] } );
+			},
+			development: { offers: [] },
+		} );
 
 		const store = createTestStore();
 		const result = await store.dispatch(
@@ -357,20 +376,15 @@ describe( 'WordPress Versions API', () => {
 	} );
 
 	it( 'should handle unusual version formats', async () => {
-		nock( 'https://api.wordpress.org' )
-			.get( '/core/version-check/1.7/' )
-			.query( { channel: 'beta', version: '5.9.9' } )
-			.reply( 200, {
+		mockWordPressApi( {
+			beta: {
 				offers: [
 					{ version: '10.11.12', response: 'autoupdate' },
 					{ version: '6.5-dev', response: 'autoupdate' },
 				],
-			} );
-
-		nock( 'https://api.wordpress.org' )
-			.get( '/core/version-check/1.7/' )
-			.query( { channel: 'development' } )
-			.reply( 200, { offers: [] } );
+			},
+			development: { offers: [] },
+		} );
 
 		const store = createTestStore();
 		const result = await store.dispatch(
@@ -402,10 +416,8 @@ describe( 'WordPress Versions API', () => {
 	} );
 
 	it( 'should handle multiple patch versions of the same minor', async () => {
-		nock( 'https://api.wordpress.org' )
-			.get( '/core/version-check/1.7/' )
-			.query( { channel: 'beta', version: '5.9.9' } )
-			.reply( 200, {
+		mockWordPressApi( {
+			beta: {
 				offers: [
 					{
 						response: 'upgrade',
@@ -429,12 +441,9 @@ describe( 'WordPress Versions API', () => {
 					},
 				],
 				translations: [],
-			} );
-
-		nock( 'https://api.wordpress.org' )
-			.get( '/core/version-check/1.7/' )
-			.query( { channel: 'development' } )
-			.reply( 200, { offers: [] } );
+			},
+			development: { offers: [] },
+		} );
 
 		const store = createTestStore();
 		const result = await store.dispatch(
@@ -465,10 +474,8 @@ describe( 'WordPress Versions API', () => {
 
 	describe( 'selectors', () => {
 		it( 'should select WordPress versions with name property', async () => {
-			nock( 'https://api.wordpress.org' )
-				.get( '/core/version-check/1.7/' )
-				.query( { channel: 'beta', version: '5.9.9' } )
-				.reply( 200, {
+			mockWordPressApi( {
+				beta: {
 					offers: [
 						{ version: '6.5.0-beta1', response: 'autoupdate' },
 						{ version: '6.4.0', response: 'autoupdate' },
@@ -476,13 +483,11 @@ describe( 'WordPress Versions API', () => {
 						{ version: '6.2.0', response: 'autoupdate' },
 						{ version: '6.1.0', response: 'autoupdate' },
 					],
-				} );
+				},
+				development: { offers: [] },
+			} );
 
-			nock( 'https://api.wordpress.org' )
-				.get( '/core/version-check/1.7/' )
-				.query( { channel: 'development' } )
-				.reply( 200, { offers: [] } );
-
+			const store = createTestStore();
 			const result = await store.dispatch(
 				wordpressVersionsApi.endpoints.getWordPressVersions.initiate( { minimumVersion: '5.9.9' } )
 			);
@@ -520,10 +525,8 @@ describe( 'WordPress Versions API', () => {
 		} );
 
 		it( 'should select WordPress versions with latest', async () => {
-			nock( 'https://api.wordpress.org' )
-				.get( '/core/version-check/1.7/' )
-				.query( { channel: 'beta', version: '5.9.9' } )
-				.reply( 200, {
+			mockWordPressApi( {
+				beta: {
 					offers: [
 						{ version: '6.5.0-beta1', response: 'autoupdate' },
 						{ version: '6.4.0', response: 'autoupdate' },
@@ -531,12 +534,9 @@ describe( 'WordPress Versions API', () => {
 						{ version: '6.2.0', response: 'autoupdate' },
 						{ version: '6.1.0', response: 'autoupdate' },
 					],
-				} );
-
-			nock( 'https://api.wordpress.org' )
-				.get( '/core/version-check/1.7/' )
-				.query( { channel: 'development' } )
-				.reply( 200, { offers: [] } );
+				},
+				development: { offers: [] },
+			} );
 
 			const store = createTestStore();
 			const result = await store.dispatch(

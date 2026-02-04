@@ -3,6 +3,7 @@ import { renderHook } from '@testing-library/react';
 import { subDays, subHours, subMinutes, subMilliseconds } from 'date-fns';
 import { createElement } from 'react';
 import { Provider } from 'react-redux';
+import { vi } from 'vitest';
 import { useExpirationDate } from 'src/hooks/use-expiration-date';
 import { store } from 'src/stores';
 
@@ -11,7 +12,7 @@ const wrapper = ( { children }: { children: React.ReactNode } ) =>
 
 describe( 'useExpirationDate', () => {
 	beforeEach( () => {
-		jest.useFakeTimers();
+		vi.useFakeTimers();
 	} );
 	test( 'should indicate isExpired for dates more than 7 days', () => {
 		const snapshotDate = subDays( new Date(), 8 ).getTime(); // More than 7 days

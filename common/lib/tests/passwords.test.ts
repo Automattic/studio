@@ -1,6 +1,4 @@
-/**
- * @jest-environment node
- */
+// Removed: globals are now available via vitest/globals in tsconfig
 import { createPassword, decodePassword } from 'common/lib/passwords';
 
 describe( 'createPassword', () => {

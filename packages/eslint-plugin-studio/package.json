@@ -2,15 +2,10 @@
 	"name": "eslint-plugin-studio",
 	"private": true,
 	"version": "1.0.0",
+	"type": "module",
 	"description": "ESLint rules for Studio",
 	"main": "src/index.js",
-	"scripts": {
-		"test": "jest"
-	},
 	"dependencies": {
 		"eslint": "^9.0.0"
-	},
-	"devDependencies": {
-		"jest": "^30.0.0"
 	}
 }

@@ -2,6 +2,7 @@
 import { renderHook, act } from '@testing-library/react';
 import nock from 'nock';
 import { Provider } from 'react-redux';
+import { vi } from 'vitest';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useAddSite, CreateSiteFormValues } from 'src/hooks/use-add-site';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
@@ -11,36 +12,36 @@ import { setProviderConstants } from 'src/stores/provider-constants-slice';
 import type { SyncSitesContextType } from 'src/hooks/sync-sites/sync-sites-context';
 import type { SyncSite } from 'src/modules/sync/types';
 
-jest.mock( 'src/hooks/use-site-details' );
-jest.mock( 'src/hooks/use-feature-flags' );
-jest.mock( 'src/hooks/sync-sites' );
-jest.mock( 'src/hooks/use-content-tabs' );
-jest.mock( 'src/hooks/use-import-export', () => ( {
+vi.mock( 'src/hooks/use-site-details' );
+vi.mock( 'src/hooks/use-feature-flags' );
+vi.mock( 'src/hooks/sync-sites' );
+vi.mock( 'src/hooks/use-content-tabs' );
+vi.mock( 'src/hooks/use-import-export', () => ( {
 	useImportExport: () => ( {
-		importFile: jest.fn(),
-		clearImportState: jest.fn(),
+		importFile: vi.fn(),
+		clearImportState: vi.fn(),
 		importState: {},
 	} ),
 } ) );
 
-const mockConnectWpcomSites = jest.fn().mockResolvedValue( undefined );
-const mockShowOpenFolderDialog = jest.fn();
-const mockGenerateProposedSitePath = jest.fn().mockResolvedValue( {
+const mockConnectWpcomSites = vi.fn().mockResolvedValue( undefined );
+const mockShowOpenFolderDialog = vi.fn();
+const mockGenerateProposedSitePath = vi.fn().mockResolvedValue( {
 	path: '/default/path',
 	name: 'Default Site',
 	isEmpty: true,
 	isWordPress: false,
 } );
-const mockComparePaths = jest.fn().mockResolvedValue( false );
+const mockComparePaths = vi.fn().mockResolvedValue( false );
 
-jest.mock( 'src/lib/get-ipc-api', () => ( {
+vi.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		generateProposedSitePath: mockGenerateProposedSitePath,
 		showOpenFolderDialog: mockShowOpenFolderDialog,
-		showNotification: jest.fn(),
-		getAllCustomDomains: jest.fn().mockResolvedValue( [] ),
+		showNotification: vi.fn(),
+		getAllCustomDomains: vi.fn().mockResolvedValue( [] ),
 		connectWpcomSites: mockConnectWpcomSites,
-		getConnectedWpcomSites: jest.fn().mockResolvedValue( [] ),
+		getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
 		comparePaths: mockComparePaths,
 	} ),
 } ) );
@@ -52,14 +53,14 @@ const renderHookWithProvider = ( hook: () => ReturnType< typeof useAddSite > ) =
 };
 
 describe( 'useAddSite', () => {
-	const mockCreateSite = jest.fn();
-	const mockUpdateSite = jest.fn();
-	const mockStartServer = jest.fn();
-	const mockPullSite = jest.fn();
-	const mockSetSelectedTab = jest.fn();
+	const mockCreateSite = vi.fn();
+	const mockUpdateSite = vi.fn();
+	const mockStartServer = vi.fn();
+	const mockPullSite = vi.fn();
+	const mockSetSelectedTab = vi.fn();
 
 	beforeEach( () => {
-		jest.clearAllMocks();
+		vi.clearAllMocks();
 
 		// Prepopulate store with provider constants
 		store.dispatch(
@@ -78,7 +79,7 @@ describe( 'useAddSite', () => {
 			isWordPress: false,
 		} );
 
-		( useSiteDetails as jest.Mock ).mockReturnValue( {
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 			createSite: mockCreateSite,
 			updateSite: mockUpdateSite,
 			sites: [],
@@ -87,26 +88,26 @@ describe( 'useAddSite', () => {
 		} );
 
 		mockPullSite.mockReset();
-		( useSyncSites as jest.Mock ).mockReturnValue( {
+		vi.mocked( useSyncSites, { partial: true } ).mockReturnValue( {
 			pullSite: mockPullSite,
 			isAnySitePulling: false,
-			isSiteIdPulling: jest.fn(),
-			clearPullState: jest.fn(),
-			cancelPull: jest.fn(),
-			getPullState: jest.fn(),
-			pushSite: jest.fn(),
+			isSiteIdPulling: vi.fn(),
+			clearPullState: vi.fn(),
+			cancelPull: vi.fn(),
+			getPullState: vi.fn(),
+			pushSite: vi.fn(),
 			isAnySitePushing: false,
-			isSiteIdPushing: jest.fn(),
-			clearPushState: jest.fn(),
-			getPushState: jest.fn(),
-			getLastSyncTimeText: jest.fn(),
-			cancelPush: jest.fn(),
-			pauseUpload: jest.fn(),
-			resumeUpload: jest.fn(),
+			isSiteIdPushing: vi.fn(),
+			clearPushState: vi.fn(),
+			getPushState: vi.fn(),
+			getLastSyncTimeText: vi.fn(),
+			cancelPush: vi.fn(),
+			pauseUpload: vi.fn(),
+			resumeUpload: vi.fn(),
 		} as SyncSitesContextType );
 
 		mockSetSelectedTab.mockReset();
-		( useContentTabs as jest.Mock ).mockReturnValue( {
+		vi.mocked( useContentTabs, { partial: true } ).mockReturnValue( {
 			selectedTab: 'overview',
 			setSelectedTab: mockSetSelectedTab,
 			tabs: [],

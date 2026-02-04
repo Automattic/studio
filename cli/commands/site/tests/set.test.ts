@@ -4,7 +4,6 @@ import { arePathsEqual } from 'common/lib/fs-utils';
 import { vi } from 'vitest';
 import {
 	getSiteByFolder,
-	isXdebugBetaEnabled,
 	unlockAppdata,
 	readAppdata,
 	saveAppdata,
@@ -34,7 +33,6 @@ vi.mock( 'cli/lib/appdata', async () => {
 	return {
 		...actual,
 		getSiteByFolder: vi.fn(),
-		isXdebugBetaEnabled: vi.fn(),
 		lockAppdata: vi.fn().mockResolvedValue( undefined ),
 		unlockAppdata: vi.fn().mockResolvedValue( undefined ),
 		readAppdata: vi.fn(),
@@ -82,7 +80,6 @@ describe( 'CLI: studio site set', () => {
 
 		vi.mocked( arePathsEqual ).mockReturnValue( true );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( getTestSite() );
-		vi.mocked( isXdebugBetaEnabled ).mockResolvedValue( true );
 		vi.mocked( readAppdata ).mockResolvedValue( testAppdata );
 		vi.mocked( connect ).mockResolvedValue( undefined );
 		vi.mocked( disconnect ).mockResolvedValue( undefined );
@@ -347,14 +344,6 @@ describe( 'CLI: studio site set', () => {
 	} );
 
 	describe( 'Xdebug changes', () => {
-		it( 'should throw when beta feature is not enabled', async () => {
-			vi.mocked( isXdebugBetaEnabled ).mockResolvedValue( false );
-
-			await expect( runCommand( testSitePath, { xdebug: true } ) ).rejects.toThrow(
-				'Xdebug support is a beta feature. Enable it in Studio settings first.'
-			);
-		} );
-
 		it( 'should throw when another site already has xdebug enabled', async () => {
 			const testSite = getTestSite();
 			const otherSite = {

@@ -454,7 +454,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'skip-log-details', {
 					type: 'boolean',
-					describe: __( 'Skip logging site URL and admin credentials after creating' ),
+					describe: __( 'Skip printing site URL and admin credentials after creating' ),
 					default: false,
 				} );
 		},

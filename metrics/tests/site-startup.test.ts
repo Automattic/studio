@@ -44,7 +44,7 @@ test.describe( 'Startup Metrics', () => {
 			await onboarding.closeWhatsNew();
 
 			siteContent = new SiteContent( session.mainWindow, siteName );
-			await expect( siteContent.runningButton ).toBeAttached( { timeout: 90_000 } );
+			await expect( siteContent.runningButton ).toBeAttached();
 			const endTime = Date.now();
 			const duration = endTime - startTime;
 			results.siteCreation = [ duration ];
@@ -57,13 +57,13 @@ test.describe( 'Startup Metrics', () => {
 				// Stop the site by clicking the Running button
 				await siteContent.runningButton.click();
 				const startButton = siteContent.locator.getByRole( 'button', { name: 'Start' } );
-				await expect( startButton ).toBeAttached( { timeout: 60_000 } );
+				await expect( startButton ).toBeAttached();
 
 				// Start timer
 				const startTime = Date.now();
 				await startButton.click();
 				// Wait for site to be running
-				await expect( siteContent.runningButton ).toBeAttached( { timeout: 60_000 } );
+				await expect( siteContent.runningButton ).toBeAttached();
 				const endTime = Date.now();
 				const duration = endTime - startTime;
 

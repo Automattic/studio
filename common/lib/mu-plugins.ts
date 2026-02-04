@@ -417,6 +417,10 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 					}
 
 					$username = ! empty( $_POST['username'] ) ? sanitize_user( $_POST['username'] ) : 'admin';
+					// Fallback to 'admin' if sanitize_user() strips all characters (e.g., !@#$%)
+					if ( empty( $username ) ) {
+						$username = 'admin';
+					}
 					$user = get_user_by( 'login', $username );
 					if ( $user ) {
 						wp_set_password( $_POST['password'], $user->ID );

@@ -389,7 +389,17 @@ export const CreateSiteForm = ( {
 	);
 
 	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
-	const adminUsernameError = ! adminUsername.trim() ? __( 'Admin username is required' ) : '';
+	const getAdminUsernameError = () => {
+		if ( ! adminUsername.trim() ) {
+			return __( 'Admin username is required' );
+		}
+		// WordPress username format: alphanumeric, underscores, dots, @, and hyphens
+		if ( ! /^[a-zA-Z0-9_.@-]+$/.test( adminUsername ) ) {
+			return __( 'Username can only contain letters, numbers, and _.@- characters' );
+		}
+		return '';
+	};
+	const adminUsernameError = getAdminUsernameError();
 	const adminPasswordError = ! adminPassword.trim() ? __( 'Admin password is required' ) : '';
 	const errorCount = [
 		pathError,

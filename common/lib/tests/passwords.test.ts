@@ -26,6 +26,18 @@ describe( 'encodePassword', () => {
 		const encoded = encodePassword( plainPassword );
 		expect( decodePassword( encoded ) ).toBe( plainPassword );
 	} );
+
+	it( 'should handle Unicode characters (Cyrillic, Chinese, emoji)', () => {
+		const unicodePassword = 'пароль密码🔐';
+		const encoded = encodePassword( unicodePassword );
+		expect( decodePassword( encoded ) ).toBe( unicodePassword );
+	} );
+
+	it( 'should handle mixed ASCII and Unicode', () => {
+		const mixedPassword = 'admin123_пароль_密码';
+		const encoded = encodePassword( mixedPassword );
+		expect( decodePassword( encoded ) ).toBe( mixedPassword );
+	} );
 } );
 
 describe( 'decodePassword', () => {

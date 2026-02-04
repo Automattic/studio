@@ -1,5 +1,7 @@
 import { generatePassword } from '@automattic/generate-password';
 
+export { generatePassword };
+
 /**
  * Generates a random, Base64-encoded password.
  *

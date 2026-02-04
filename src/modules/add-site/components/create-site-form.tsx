@@ -6,6 +6,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useState, useEffect, useCallback, useMemo, useRef, RefObject } from 'react';
 import { DEFAULT_WORDPRESS_VERSION } from 'common/constants';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'common/lib/domains';
+import { generatePassword } from 'common/lib/passwords';
 import { SupportedPHPVersions } from 'common/types/php-versions';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
@@ -181,8 +182,12 @@ export const CreateSiteForm = ( {
 	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
 	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
 	const [ enableHttps, setEnableHttps ] = useState( false );
-	const [ adminUsername, setAdminUsername ] = useState( blueprintCredentials?.adminUsername ?? '' );
-	const [ adminPassword, setAdminPassword ] = useState( blueprintCredentials?.adminPassword ?? '' );
+	const [ adminUsername, setAdminUsername ] = useState(
+		blueprintCredentials?.adminUsername ?? 'admin'
+	);
+	const [ adminPassword, setAdminPassword ] = useState(
+		() => blueprintCredentials?.adminPassword ?? generatePassword()
+	);
 
 	const [ pathError, setPathError ] = useState( '' );
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
@@ -268,7 +273,11 @@ export const CreateSiteForm = ( {
 			return;
 		}
 
-		const hasErrors = !! pathError || ( useCustomDomain && !! customDomainError );
+		const hasErrors =
+			!! pathError ||
+			( useCustomDomain && !! customDomainError ) ||
+			! adminUsername.trim() ||
+			! adminPassword.trim();
 		const isValid = ! hasErrors;
 
 		// Only notify if validity has actually changed
@@ -277,7 +286,7 @@ export const CreateSiteForm = ( {
 			onValidityChange( isValid );
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [ pathError, customDomainError, useCustomDomain ] );
+	}, [ pathError, customDomainError, useCustomDomain, adminUsername, adminPassword ] );
 
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {
@@ -376,7 +385,14 @@ export const CreateSiteForm = ( {
 	);
 
 	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
-	const errorCount = [ pathError, shouldShowCustomDomainError ].filter( Boolean ).length;
+	const adminUsernameError = ! adminUsername.trim() ? __( 'Admin username is required' ) : '';
+	const adminPasswordError = ! adminPassword.trim() ? __( 'Admin password is required' ) : '';
+	const errorCount = [
+		pathError,
+		shouldShowCustomDomainError,
+		adminUsernameError,
+		adminPasswordError,
+	].filter( Boolean ).length;
 
 	const handleAdvancedSettingsClick = () => {
 		setAdvancedSettingsVisible( ! isAdvancedSettingsVisible );
@@ -524,8 +540,11 @@ export const CreateSiteForm = ( {
 											id="admin-username"
 											value={ adminUsername }
 											onChange={ setAdminUsername }
-											placeholder="admin"
+											className={ adminUsernameError ? '[&_input]:!border-red-500' : '' }
 										/>
+										{ adminUsernameError && (
+											<span className="text-red-500 text-xs">{ adminUsernameError }</span>
+										) }
 									</div>
 
 									<div className="flex flex-col gap-1.5 leading-4">
@@ -536,8 +555,11 @@ export const CreateSiteForm = ( {
 											id="admin-password"
 											value={ adminPassword }
 											onChange={ setAdminPassword }
-											placeholder={ __( 'Auto-generated' ) }
+											className={ adminPasswordError ? '[&_input]:!border-red-500' : '' }
 										/>
+										{ adminPasswordError && (
+											<span className="text-red-500 text-xs">{ adminPasswordError }</span>
+										) }
 									</div>
 								</div>
 

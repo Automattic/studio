@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PLATFORM=${1:-}
-ARCH=${2:-}
+PLATFORM=${1:?Expected platform to be provided as first parameter}
+ARCH=${2:?Expected architecture to be provided as second parameter}
 
 if .buildkite/commands/should-skip-job.sh --job-type validation; then
   exit 0

@@ -599,6 +599,13 @@ export async function copySite(
 	// Copy the site files
 	await recursiveCopyDirectory( sourceSite.path, finalSitePath );
 
+	// Copy the source site's thumbnail to the new site ID
+	const sourceThumbnailPath = getSiteThumbnailPath( sourceSiteId );
+	const newThumbnailPath = getSiteThumbnailPath( siteId );
+	if ( fs.existsSync( sourceThumbnailPath ) ) {
+		await fs.promises.copyFile( sourceThumbnailPath, newThumbnailPath );
+	}
+
 	// Get an available port using portFinder
 	const port = await portFinder.getOpenPort();
 

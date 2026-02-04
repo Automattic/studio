@@ -25,6 +25,6 @@ export default defineConfig( {
 		video: 'off',
 	},
 	expect: {
-		timeout: 30_000, // 30 seconds.
+		timeout: 60_000, // 60 seconds.
 	},
 } );

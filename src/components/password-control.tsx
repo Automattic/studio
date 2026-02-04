@@ -1,4 +1,5 @@
 import { Icon } from '@wordpress/components';
+import { __ } from '@wordpress/i18n';
 import { seen, unseen } from '@wordpress/icons';
 import { useState } from 'react';
 import { cx } from 'src/lib/cx';
@@ -47,7 +48,7 @@ const PasswordControl = ( {
 					'hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-a8c-blue-50',
 					disabled && 'cursor-not-allowed opacity-50'
 				) }
-				aria-label={ isVisible ? 'Hide password' : 'Show password' }
+				aria-label={ isVisible ? __( 'Hide password' ) : __( 'Show password' ) }
 			>
 				<Icon icon={ isVisible ? unseen : seen } size={ 20 } className="text-gray-500" />
 			</button>

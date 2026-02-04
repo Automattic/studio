@@ -198,6 +198,7 @@ export const CreateSiteForm = ( {
 
 	// Prevent overwriting user input when defaultValues change asynchronously
 	const hasUserInteracted = useRef( false );
+	const hasUserEditedCredentials = useRef( false );
 
 	// Sync name/path only before user interaction (allows async loading)
 	useEffect( () => {
@@ -223,8 +224,11 @@ export const CreateSiteForm = ( {
 		}
 	}, [ defaultValues.phpVersion, defaultValues.wpVersion ] );
 
-	// Sync admin credentials from Blueprint when they change
+	// Sync admin credentials from Blueprint when they change (only if user hasn't edited)
 	useEffect( () => {
+		if ( hasUserEditedCredentials.current ) {
+			return;
+		}
 		if ( blueprintCredentials?.adminUsername !== undefined ) {
 			setAdminUsername( blueprintCredentials.adminUsername );
 		}
@@ -539,7 +543,10 @@ export const CreateSiteForm = ( {
 										<TextControlComponent
 											id="admin-username"
 											value={ adminUsername }
-											onChange={ setAdminUsername }
+											onChange={ ( value: string ) => {
+												hasUserEditedCredentials.current = true;
+												setAdminUsername( value );
+											} }
 											className={ adminUsernameError ? '[&_input]:!border-red-500' : '' }
 										/>
 										{ adminUsernameError && (
@@ -554,7 +561,10 @@ export const CreateSiteForm = ( {
 										<PasswordControl
 											id="admin-password"
 											value={ adminPassword }
-											onChange={ setAdminPassword }
+											onChange={ ( value: string ) => {
+												hasUserEditedCredentials.current = true;
+												setAdminPassword( value );
+											} }
 											className={ adminPasswordError ? '[&_input]:!border-red-500' : '' }
 										/>
 										{ adminPasswordError && (

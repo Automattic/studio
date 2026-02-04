@@ -421,13 +421,24 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 					if ( $user ) {
 						wp_set_password( $_POST['password'], $user->ID );
 					} else {
+						// Sanitize email - fallback to admin@localhost.com if username produces invalid email
+						$email = sanitize_email( $username . '@localhost.com' );
+						if ( empty( $email ) ) {
+							$email = 'admin@localhost.com';
+						}
 						$user_data = array(
 							'user_login' => $username,
 							'user_pass' => $_POST['password'],
-							'user_email' => $username . '@localhost.com',
+							'user_email' => $email,
 							'role' => 'administrator',
 						);
-						wp_insert_user( $user_data );
+						$insert_result = wp_insert_user( $user_data );
+						if ( is_wp_error( $insert_result ) ) {
+							status_header( 400 );
+							header( 'Content-Type: application/json' );
+							echo json_encode( [ 'error' => $insert_result->get_error_message() ] );
+							exit;
+						}
 					}
 					// Store the admin username in options for auto-login to use
 					update_option( 'studio_admin_username', $username );

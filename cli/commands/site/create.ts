@@ -467,7 +467,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'admin-password', {
 					type: 'string',
-					describe: __( 'Admin password (auto-generated if not provided)' ),
+					describe: __(
+						'Admin password (auto-generated if not provided). Note: passwords in CLI arguments may be visible in process lists; consider using a Blueprint file for sensitive passwords.'
+					),
 				} )
 				.option( 'start', {
 					type: 'boolean',

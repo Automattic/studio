@@ -87,7 +87,6 @@ interface FeatureFlags {
 
 interface BetaFeatures {
 	multiWorkerSupport: boolean;
-	xdebugSupport: boolean;
 }
 
 interface AppGlobals extends FeatureFlags {

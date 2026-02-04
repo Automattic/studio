@@ -454,7 +454,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'skip-log-details', {
 					type: 'boolean',
-					describe: __( 'Skip logging default wp-admin user details after starting' ),
+					describe: __( 'Skip printing site URL and admin credentials after creating' ),
 					default: false,
 				} );
 		},

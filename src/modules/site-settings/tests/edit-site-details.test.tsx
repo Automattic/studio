@@ -15,6 +15,7 @@ const mockStartServer = vi.fn();
 const mockExecuteWPCLiInline = vi.fn();
 const mockShowErrorMessageBox = vi.fn();
 const mockGetAllCustomDomains = vi.fn().mockResolvedValue( [] );
+const mockGetXdebugEnabledSite = vi.fn().mockResolvedValue( null );
 
 vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
@@ -27,6 +28,7 @@ vi.mock( 'src/lib/get-ipc-api', () => ( {
 		executeWPCLiInline: mockExecuteWPCLiInline,
 		showErrorMessageBox: mockShowErrorMessageBox,
 		getAllCustomDomains: mockGetAllCustomDomains,
+		getXdebugEnabledSite: mockGetXdebugEnabledSite,
 		isCATrusted: vi.fn( () => Promise.resolve( true ) ),
 	} ),
 } ) );

@@ -34,13 +34,12 @@ const snapshotTestActions = {
 	},
 };
 
-// Create test store with xdebug beta feature enabled by default
+// Create test store
 let testStore = createTestStore( {
 	preloadedState: {
 		betaFeatures: {
 			features: {
 				multiWorkerSupport: false,
-				xdebugSupport: true,
 			},
 			loading: false,
 		},
@@ -54,7 +53,6 @@ function createCustomTestStore() {
 			betaFeatures: {
 				features: {
 					multiWorkerSupport: false,
-					xdebugSupport: true,
 				},
 				loading: false,
 			},
@@ -248,35 +246,6 @@ describe( 'ContentTabSettings', () => {
 			await user.click( adminPasswordButton );
 			expect( copyText ).toHaveBeenCalledTimes( 1 );
 			expect( copyText ).toHaveBeenCalledWith( 'password' );
-		} );
-	} );
-
-	describe( 'Xdebug beta feature', () => {
-		it( 'hides Xdebug row when beta feature is disabled', async () => {
-			const storeWithoutXdebug = createTestStore( {
-				preloadedState: {
-					betaFeatures: {
-						features: {
-							multiWorkerSupport: false,
-							xdebugSupport: false,
-						},
-						loading: false,
-					},
-				},
-			} );
-
-			render(
-				<Provider store={ storeWithoutXdebug }>
-					<ContentTabSettings selectedSite={ selectedSite } />
-				</Provider>
-			);
-
-			await waitFor( () => {
-				expect( getAllCustomDomains ).toHaveBeenCalled();
-			} );
-
-			// Xdebug row should not be visible
-			expect( screen.queryByText( 'Xdebug' ) ).not.toBeInTheDocument();
 		} );
 	} );
 

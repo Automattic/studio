@@ -13,7 +13,6 @@ import {
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
 import {
 	getSiteByFolder,
-	isXdebugBetaEnabled,
 	lockAppdata,
 	readAppdata,
 	saveAppdata,
@@ -65,12 +64,6 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 
 	if ( name !== undefined && ! name.trim() ) {
 		throw new LoggerError( __( 'Site name cannot be empty.' ) );
-	}
-
-	if ( xdebug === true && ! ( await isXdebugBetaEnabled() ) ) {
-		throw new LoggerError(
-			__( 'Xdebug support is a beta feature. Enable it in Studio settings first.' )
-		);
 	}
 
 	try {
@@ -249,8 +242,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'set',
 		describe: __( 'Configure site settings' ),
-		builder: async ( yargs ) => {
-			const showXdebug = await isXdebugBetaEnabled();
+		builder: ( yargs ) => {
 			return yargs
 				.option( 'name', {
 					type: 'string',
@@ -294,8 +286,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'xdebug', {
 					type: 'boolean',
-					description: __( 'Enable Xdebug (beta feature)' ),
-					hidden: ! showXdebug,
+					description: __( 'Enable Xdebug' ),
 				} );
 		},
 		handler: async ( argv ) => {

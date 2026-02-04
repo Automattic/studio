@@ -167,7 +167,6 @@ describe( 'CLI: studio site status', () => {
 
 			consoleSpy.mockRestore();
 		} );
-
 	} );
 
 	describe( 'Cleanup', () => {

@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
+import { updateBlueprintWithFormValues } from 'common/lib/blueprint-settings';
 import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
 import { generateCustomDomainFromSiteName } from 'common/lib/domains';
 import { useSyncSites } from 'src/hooks/sync-sites';
@@ -63,6 +64,10 @@ export function useAddSite() {
 	const [ blueprintDeeplinkWarnings, setBlueprintDeeplinkWarnings ] = useState<
 		BlueprintValidationWarning[] | undefined
 	>();
+	const [ blueprintSuggestedDomain, setBlueprintSuggestedDomain ] = useState<
+		string | undefined
+	>();
+	const [ blueprintSuggestedHttps, setBlueprintSuggestedHttps ] = useState< boolean | undefined >();
 	const [ isDeeplinkFlow, setIsDeeplinkFlow ] = useState( false );
 	const [ existingDomainNames, setExistingDomainNames ] = useState< string[] >( [] );
 
@@ -75,6 +80,8 @@ export function useAddSite() {
 		setSelectedBlueprint( undefined );
 		setBlueprintPreferredVersions( undefined );
 		setBlueprintDeeplinkWarnings( undefined );
+		setBlueprintSuggestedDomain( undefined );
+		setBlueprintSuggestedHttps( undefined );
 	}, [] );
 
 	// For blueprint deeplinks - we need temporary state for PHP/WP versions
@@ -88,6 +95,8 @@ export function useAddSite() {
 		setSelectedBlueprint( undefined );
 		setBlueprintPreferredVersions( undefined );
 		setBlueprintDeeplinkWarnings( undefined );
+		setBlueprintSuggestedDomain( undefined );
+		setBlueprintSuggestedHttps( undefined );
 		setSelectedRemoteSite( undefined );
 		setDeeplinkPhpVersion( defaultPhpVersion as AllowedPHPVersion );
 		setDeeplinkWpVersion( defaultWordPressVersion );
@@ -229,13 +238,25 @@ export function useAddSite() {
 				// For import/sync workflows, the respective handlers will start the server
 				const shouldSkipStart = !! fileForImport || !! selectedRemoteSite;
 
+				const enableHttps = formValues.useCustomDomain ? formValues.enableHttps : false;
+				let updatedBlueprint: Blueprint | undefined;
+				if ( selectedBlueprint?.blueprint ) {
+					const updatedJson = updateBlueprintWithFormValues( selectedBlueprint.blueprint, {
+						phpVersion: formValues.phpVersion,
+						wpVersion: formValues.wpVersion,
+						customDomain: usedCustomDomain,
+						enableHttps,
+					} );
+					updatedBlueprint = { ...selectedBlueprint, blueprint: updatedJson };
+				}
+
 				await createSite(
 					formValues.sitePath,
 					formValues.siteName,
 					formValues.wpVersion,
 					usedCustomDomain,
-					formValues.useCustomDomain ? formValues.enableHttps : false,
-					selectedBlueprint,
+					enableHttps,
+					updatedBlueprint ?? selectedBlueprint,
 					formValues.phpVersion,
 					async ( newSite ) => {
 						if ( fileForImport ) {
@@ -302,6 +323,10 @@ export function useAddSite() {
 			setBlueprintPreferredVersions,
 			blueprintDeeplinkWarnings,
 			setBlueprintDeeplinkWarnings,
+			blueprintSuggestedDomain,
+			setBlueprintSuggestedDomain,
+			blueprintSuggestedHttps,
+			setBlueprintSuggestedHttps,
 			selectedRemoteSite,
 			setSelectedRemoteSite,
 			existingDomainNames,
@@ -326,6 +351,8 @@ export function useAddSite() {
 			selectedBlueprint,
 			blueprintPreferredVersions,
 			blueprintDeeplinkWarnings,
+			blueprintSuggestedDomain,
+			blueprintSuggestedHttps,
 			selectedRemoteSite,
 			existingDomainNames,
 			loadAllCustomDomains,

@@ -21,6 +21,8 @@ describe( 'useBlueprintDeeplink', () => {
 	const mockSetWpVersion = vi.fn();
 	const mockSetBlueprintPreferredVersions = vi.fn();
 	const mockSetBlueprintDeeplinkWarnings = vi.fn();
+	const mockSetBlueprintSuggestedDomain = vi.fn();
+	const mockSetBlueprintSuggestedHttps = vi.fn();
 	const mockSetIsDeeplinkFlow = vi.fn();
 	let ipcCallback: Parameters< typeof useIpcListener >[ 1 ];
 
@@ -34,6 +36,8 @@ describe( 'useBlueprintDeeplink', () => {
 					setWpVersion: mockSetWpVersion,
 					setBlueprintPreferredVersions: mockSetBlueprintPreferredVersions,
 					setBlueprintDeeplinkWarnings: mockSetBlueprintDeeplinkWarnings,
+					setBlueprintSuggestedDomain: mockSetBlueprintSuggestedDomain,
+					setBlueprintSuggestedHttps: mockSetBlueprintSuggestedHttps,
 					setIsDeeplinkFlow: mockSetIsDeeplinkFlow,
 				} ),
 			{ wrapper }
@@ -154,6 +158,75 @@ describe( 'useBlueprintDeeplink', () => {
 		} );
 		expect( mockSetPhpVersion ).not.toHaveBeenCalled();
 		expect( mockSetWpVersion ).not.toHaveBeenCalled();
+	} );
+
+	it( 'should set domain and HTTPS from defineSiteUrl step', async () => {
+		const mockBlueprintData = {
+			steps: [ { step: 'defineSiteUrl', siteUrl: 'https://mysite.local:8443' } ],
+		};
+
+		const mockReadBlueprintFile = vi.fn().mockResolvedValue( mockBlueprintData );
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			readBlueprintFile: mockReadBlueprintFile,
+		} );
+
+		renderBlueprintDeeplinkHook();
+
+		await act( async () => {
+			await ipcCallback!( createMock< IpcRendererEvent >( {} ), {
+				blueprintPath: '/path/to/blueprint.json',
+				warnings: [],
+			} );
+		} );
+
+		expect( mockSetBlueprintSuggestedDomain ).toHaveBeenCalledWith( 'mysite.local' );
+		expect( mockSetBlueprintSuggestedHttps ).toHaveBeenCalledWith( true );
+	} );
+
+	it( 'should set HTTPS to false when defineSiteUrl uses http', async () => {
+		const mockBlueprintData = {
+			steps: [ { step: 'defineSiteUrl', siteUrl: 'http://mysite.local' } ],
+		};
+
+		const mockReadBlueprintFile = vi.fn().mockResolvedValue( mockBlueprintData );
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			readBlueprintFile: mockReadBlueprintFile,
+		} );
+
+		renderBlueprintDeeplinkHook();
+
+		await act( async () => {
+			await ipcCallback!( createMock< IpcRendererEvent >( {} ), {
+				blueprintPath: '/path/to/blueprint.json',
+				warnings: [],
+			} );
+		} );
+
+		expect( mockSetBlueprintSuggestedDomain ).toHaveBeenCalledWith( 'mysite.local' );
+		expect( mockSetBlueprintSuggestedHttps ).toHaveBeenCalledWith( false );
+	} );
+
+	it( 'should not set domain/HTTPS when no defineSiteUrl step', async () => {
+		const mockBlueprintData = {
+			steps: [ { step: 'login' } ],
+		};
+
+		const mockReadBlueprintFile = vi.fn().mockResolvedValue( mockBlueprintData );
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			readBlueprintFile: mockReadBlueprintFile,
+		} );
+
+		renderBlueprintDeeplinkHook();
+
+		await act( async () => {
+			await ipcCallback!( createMock< IpcRendererEvent >( {} ), {
+				blueprintPath: '/path/to/blueprint.json',
+				warnings: [],
+			} );
+		} );
+
+		expect( mockSetBlueprintSuggestedDomain ).not.toHaveBeenCalled();
+		expect( mockSetBlueprintSuggestedHttps ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should not process event when site is processing', async () => {

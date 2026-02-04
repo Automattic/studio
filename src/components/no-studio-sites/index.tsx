@@ -11,6 +11,8 @@ export function NoStudioSites() {
 		setDeeplinkWpVersion,
 		setBlueprintPreferredVersions,
 		setBlueprintDeeplinkWarnings,
+		setBlueprintSuggestedDomain,
+		setBlueprintSuggestedHttps,
 		setIsDeeplinkFlow,
 	} = addSiteProps;
 
@@ -21,6 +23,8 @@ export function NoStudioSites() {
 		setWpVersion: setDeeplinkWpVersion,
 		setBlueprintPreferredVersions,
 		setBlueprintDeeplinkWarnings,
+		setBlueprintSuggestedDomain,
+		setBlueprintSuggestedHttps,
 		setIsDeeplinkFlow,
 	} );
 

@@ -156,6 +156,7 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 			( {
 				id,
 				path,
+				adminUsername,
 				adminPassword,
 				port,
 				phpVersion,
@@ -175,6 +176,7 @@ function toDiskFormat( { sites, ...rest }: UserData ): PersistedUserData {
 					id,
 					name,
 					path,
+					adminUsername,
 					adminPassword,
 					port,
 					phpVersion,

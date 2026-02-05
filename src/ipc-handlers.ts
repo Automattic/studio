@@ -576,7 +576,6 @@ export async function copySite(
 	newSiteId: string,
 	siteName: string
 ): Promise< SiteDetails > {
-	// Get source site
 	const sourceServer = SiteServer.get( sourceSiteId );
 	if ( ! sourceServer ) {
 		throw new Error( 'Source site not found.' );
@@ -625,17 +624,6 @@ export async function copySite(
 	}
 
 	SiteServer.register( newSiteDetails );
-
-	const placeholderUrl = `http://localhost:${ newSiteDetails.port }`;
-	sendIpcEventToRendererWithWindow( BrowserWindow.fromWebContents( event.sender ), 'site-event', {
-		event: SITE_EVENTS.CREATED,
-		siteId: newSiteId,
-		site: {
-			...newSiteDetails,
-			url: placeholderUrl,
-		},
-		running: false,
-	} );
 
 	return newSiteDetails;
 }

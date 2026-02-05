@@ -5,15 +5,6 @@ if .buildkite/commands/should-skip-job.sh --job-type metrics; then
   exit 0
 fi
 
-echo "--- :broom: Clean up disk space"
-# This job requires a lot of disk space, because it builds 2 versions of the app to compare their performance.
-# Our current Xcode VM 26.2 have 23GB of free space but that's not enough, so until we have larger VMs in the future
-# we need to delete some large unused things in the VM to leave enough space for this build. MetalToolchain is a good candidate for that
-xcodebuild -showComponent MetalToolchain
-diskutil info /System/Volumes/Data | grep -o "Container .* Space:[^(]*"
-xcodebuild -deleteComponent MetalToolchain
-diskutil info /System/Volumes/Data | grep -o "Container .* Space:[^(]*"
-
 echo '--- :package: Install main dependencies'
 bash .buildkite/commands/install-node-dependencies.sh
 

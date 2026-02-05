@@ -501,7 +501,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 						port: -1, // Temporary port
 						running: false,
 						isAddingSite: true,
-						phpVersion: sourceSite.phpVersion || '',
+						phpVersion: sourceSite.phpVersion,
 					},
 				] )
 			);

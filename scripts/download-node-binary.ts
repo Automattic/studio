@@ -12,7 +12,7 @@ import { extract } from 'tar';
 import { extractZip } from '../common/lib/extract-zip';
 
 // Node.js version to bundle with the CLI
-// This is separate from .nvmrc which controls the development environment
+// This is separate from .nvmrc which controls the development environment and Electron app
 const BUNDLED_NODE_VERSION = 'v24.11.0';
 
 function getNodeVersion(): string {

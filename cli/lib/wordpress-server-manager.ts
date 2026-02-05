@@ -12,7 +12,7 @@ import {
 } from 'common/constants';
 import { SITE_EVENTS } from 'common/lib/site-events';
 import { z } from 'zod';
-import { isXdebugBetaEnabled, SiteData, readAppdata } from 'cli/lib/appdata';
+import { SiteData, readAppdata } from 'cli/lib/appdata';
 import {
 	isProcessRunning,
 	startProcess,
@@ -111,7 +111,7 @@ export async function startWordPressServer(
 		};
 	}
 
-	if ( ( await isXdebugBetaEnabled() ) && site.enableXdebug ) {
+	if ( site.enableXdebug ) {
 		serverConfig.enableXdebug = true;
 	}
 
@@ -378,7 +378,7 @@ export async function runBlueprint(
 		serverConfig.wpVersion = options.wpVersion;
 	}
 
-	if ( ( await isXdebugBetaEnabled() ) && site.enableXdebug ) {
+	if ( site.enableXdebug ) {
 		serverConfig.enableXdebug = true;
 	}
 

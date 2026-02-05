@@ -394,14 +394,12 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const copySite = useCallback(
 		async ( sourceSiteId: string ) => {
-			// Find the source site to get its name for the temporary site
 			const sourceSite = sites.find( ( site ) => site.id === sourceSiteId );
 			if ( ! sourceSite ) {
 				console.error( 'Source site not found' );
 				return;
 			}
 
-			// Function to handle error messages and cleanup
 			const showError = ( error?: unknown ) => {
 				console.error( 'Failed to copy site' );
 				const errorToShow = simplifyErrorForDisplay( error );
@@ -420,13 +418,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				);
 			};
 
-			// Generate the unique site name first to avoid name flickering
 			const finalSiteName = await getIpcApi().generateCopySiteName( sourceSiteId );
 
-			// Create a temporary site ID for the progress display
 			const tempSiteId = crypto.randomUUID();
 
-			// Add temporary site to the list with isAddingSite: true
 			setSites( ( prevData ) =>
 				sortSites( [
 					...prevData,
@@ -442,7 +437,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				] )
 			);
 
-			// Select the new site so the progress view shows
 			setSelectedSiteId( tempSiteId );
 			if ( selectedTab !== 'overview' ) {
 				setSelectedTab( 'overview' );
@@ -450,14 +444,12 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 			let newSite: SiteDetails;
 			try {
-				// Call the IPC to copy the site, passing the temp site ID and pre-generated name
 				newSite = await getIpcApi().copySite( sourceSiteId, tempSiteId, finalSiteName );
 				if ( ! newSite ) {
 					showError();
 					return;
 				}
 
-				// Update the site in the list (replace temp site with actual site)
 				setSites( ( prevData ) =>
 					sortSites( [
 						...prevData.filter( ( site ) => site.id !== tempSiteId ),
@@ -465,10 +457,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					] )
 				);
 
-				// Update selected site ID to the new site
 				setSelectedSiteId( newSite.id );
 
-				// Show notification immediately after copy completes
 				getIpcApi().showNotification( {
 					title: newSite.name,
 					body: __( sprintf( 'Your site %s was copied successfully', sourceSite.name ) ),

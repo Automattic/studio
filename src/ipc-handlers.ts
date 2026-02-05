@@ -603,15 +603,12 @@ export async function copySite(
 
 	const finalSitePath = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( siteName ) );
 
-	// Use provided site ID or generate a new unique site ID
 	const siteId = newSiteId || crypto.randomUUID();
 
 	console.log( `Copying site '${ sourceSite.name }' to '${ siteName }'` );
 
-	// Copy the site files
 	await recursiveCopyDirectory( sourceSite.path, finalSitePath );
 
-	// Copy the source site's thumbnail to the new site ID
 	const sourceThumbnailPath = getSiteThumbnailPath( sourceSiteId );
 	const newThumbnailPath = getSiteThumbnailPath( siteId );
 	if ( fs.existsSync( sourceThumbnailPath ) ) {
@@ -625,10 +622,8 @@ export async function copySite(
 		);
 	}
 
-	// Get an available port using portFinder
 	const port = await portFinder.getOpenPort();
 
-	// Create new site details
 	const newSiteDetails: StoppedSiteDetails = {
 		id: siteId,
 		name: siteName,
@@ -640,7 +635,6 @@ export async function copySite(
 		themeDetails: sourceSite.themeDetails,
 	};
 
-	// Save the new site to appdata
 	try {
 		await lockAppdata();
 		const userData = await loadUserData();
@@ -650,10 +644,8 @@ export async function copySite(
 		await unlockAppdata();
 	}
 
-	// Register the new site with SiteServer
 	SiteServer.register( newSiteDetails );
 
-	// Notify the renderer about the new site
 	const placeholderUrl = `http://localhost:${ newSiteDetails.port }`;
 	sendIpcEventToRendererWithWindow( BrowserWindow.fromWebContents( event.sender ), 'site-event', {
 		event: SITE_EVENTS.CREATED,

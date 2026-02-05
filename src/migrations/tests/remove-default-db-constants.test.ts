@@ -1,7 +1,4 @@
-import {
-	hasDefaultDbBlock,
-	removeDbConstants,
-} from 'src/migrations/remove-default-db-constants';
+import { hasDefaultDbBlock, removeDbConstants } from 'src/migrations/remove-default-db-constants';
 
 const WP_CONFIG_WITH_DEFAULTS = `<?php
 /**

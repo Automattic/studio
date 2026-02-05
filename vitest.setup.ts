@@ -169,6 +169,7 @@ vi.mock( 'electron', () => {
 		},
 		BrowserWindow: MockBrowserWindow,
 		shell: {
+			openPath: vi.fn( async () => '' ),
 			trashItem: vi.fn(),
 		},
 		Menu: vi.fn(),

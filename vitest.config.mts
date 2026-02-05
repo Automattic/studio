@@ -13,6 +13,7 @@ export default defineConfig( {
 			'src/**/*.{test,spec}.{ts,tsx}',
 			'cli/**/*.{test,spec}.{ts,tsx}',
 			'common/**/*.{test,spec}.{ts,tsx}',
+			'packages/**/*.{test,spec}.{ts,tsx,js}',
 		],
 		exclude: [
 			'**/node_modules/**',

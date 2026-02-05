@@ -18,7 +18,6 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useRootSelector } from 'src/stores';
-import { betaFeaturesSelectors } from 'src/stores/beta-features-slice';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import { selectDefaultWordPressVersion } from 'src/stores/provider-constants-slice';
 import type { AllowedPHPVersion } from 'src/lib/wordpress-server-types';
@@ -32,8 +31,6 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const { __ } = useI18n();
 	const { updateSite, selectedSite, isEditModalOpen, setIsEditModalOpen } = useSiteDetails();
 	const defaultWordPressVersion = useRootSelector( selectDefaultWordPressVersion );
-	const betaFeatures = useRootSelector( betaFeaturesSelectors.selectBetaFeatures );
-	const isXdebugFeatureEnabled = betaFeatures.xdebugSupport;
 	const [ errorUpdatingWpVersion, setErrorUpdatingWpVersion ] = useState< string | null >( null );
 	const [ isEditingSite, setIsEditingSite ] = useState( false );
 	const [ needsRestart, setNeedsRestart ] = useState( false );
@@ -83,15 +80,13 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	}, [ selectedSite?.customDomain ] );
 
 	useEffect( () => {
-		if ( isXdebugFeatureEnabled ) {
-			getIpcApi()
-				.getXdebugEnabledSite()
-				.then( setXdebugEnabledSite )
-				.catch( () => {
-					// Do nothing
-				} );
-		}
-	}, [ isXdebugFeatureEnabled, selectedSite ] );
+		getIpcApi()
+			.getXdebugEnabledSite()
+			.then( setXdebugEnabledSite )
+			.catch( () => {
+				// Do nothing
+			} );
+	}, [ selectedSite ] );
 
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
 	const usedCustomDomain = ! useCustomDomain ? customDomain : undefined;
@@ -312,64 +307,62 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 								) }
 							</div>
 
-							{ isXdebugFeatureEnabled && (
-								<div
-									className={ cx(
-										'flex flex-col gap-2 mt-4',
-										isEditingSite ||
-											( xdebugEnabledSite && xdebugEnabledSite.id !== selectedSite?.id )
-											? 'opacity-50 cursor-not-allowed'
-											: ''
+							<div
+								className={ cx(
+									'flex flex-col gap-2 mt-4',
+									isEditingSite ||
+										( xdebugEnabledSite && xdebugEnabledSite.id !== selectedSite?.id )
+										? 'opacity-50 cursor-not-allowed'
+										: ''
+								) }
+							>
+								<Tooltip
+									disabled={ ! xdebugEnabledSite || xdebugEnabledSite.id === selectedSite?.id }
+									text={ sprintf(
+										__(
+											'Xdebug is currently enabled for "%s" site. Disable it there first to enable it for this site.'
+										),
+										xdebugEnabledSite?.name || ''
 									) }
+									placement="top-start"
 								>
-									<Tooltip
-										disabled={ ! xdebugEnabledSite || xdebugEnabledSite.id === selectedSite?.id }
-										text={ sprintf(
-											__(
-												'Xdebug is currently enabled for "%s" site. Disable it there first to enable it for this site.'
-											),
-											xdebugEnabledSite?.name || ''
-										) }
-										placement="top-start"
-									>
-										<div>
-											<div className="flex items-center gap-2">
-												<input
-													type="checkbox"
-													id="enable-xdebug"
-													checked={ enableXdebug }
-													onChange={ ( e ) => setEnableXdebug( e.target.checked ) }
-													disabled={
-														isEditingSite ||
-														!! ( xdebugEnabledSite && xdebugEnabledSite.id !== selectedSite?.id )
-													}
-												/>
-												<label
-													htmlFor="enable-xdebug"
-													className={ cx(
-														isEditingSite ||
-															( xdebugEnabledSite && xdebugEnabledSite.id !== selectedSite?.id )
-															? 'cursor-not-allowed'
-															: ''
-													) }
-												>
-													{ __( 'Enable Xdebug' ) }
-												</label>
-											</div>
-											<div className="text-a8c-gray-50 text-xs mt-2">
-												{ createInterpolateElement(
-													__(
-														'Enable PHP debugging with Xdebug. Only one site can have Xdebug enabled at a time. Note that Xdebug may slow down site performance. <learn_more_link />'
-													),
-													{
-														learn_more_link: <LearnMoreLink docsLinksKey="docsXdebug" />,
-													}
+									<div>
+										<div className="flex items-center gap-2">
+											<input
+												type="checkbox"
+												id="enable-xdebug"
+												checked={ enableXdebug }
+												onChange={ ( e ) => setEnableXdebug( e.target.checked ) }
+												disabled={
+													isEditingSite ||
+													!! ( xdebugEnabledSite && xdebugEnabledSite.id !== selectedSite?.id )
+												}
+											/>
+											<label
+												htmlFor="enable-xdebug"
+												className={ cx(
+													isEditingSite ||
+														( xdebugEnabledSite && xdebugEnabledSite.id !== selectedSite?.id )
+														? 'cursor-not-allowed'
+														: ''
 												) }
-											</div>
+											>
+												{ __( 'Enable Xdebug' ) }
+											</label>
 										</div>
-									</Tooltip>
-								</div>
-							) }
+										<div className="text-a8c-gray-50 text-xs mt-2">
+											{ createInterpolateElement(
+												__(
+													'Enable PHP debugging with Xdebug. Only one site can have Xdebug enabled at a time. Note that Xdebug may slow down site performance. <learn_more_link />'
+												),
+												{
+													learn_more_link: <LearnMoreLink docsLinksKey="docsXdebug" />,
+												}
+											) }
+										</div>
+									</div>
+								</Tooltip>
+							</div>
 						</div>
 
 						<div className="flex flex-row justify-end gap-x-5 mt-8">

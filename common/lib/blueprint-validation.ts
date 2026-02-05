@@ -1,4 +1,5 @@
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
+import { Blueprint } from '@wp-playground/blueprints';
 import validateBlueprintSchema from '@wp-playground/blueprints/blueprint-schema-validator';
 
 interface UnsupportedFeature {
@@ -15,13 +16,6 @@ const UNSUPPORTED_BLUEPRINT_FEATURES: UnsupportedFeature[] = [
 		type: 'step',
 		name: 'login',
 		reason: __( 'Studio automatically creates and logs in the admin user during site creation.' ),
-	},
-	{
-		type: 'step',
-		name: 'defineSiteUrl',
-		reason: __(
-			'Custom site URLs in blueprints are ignored. You can set a custom site URL on the Settings tab.'
-		),
 	},
 ];
 
@@ -55,17 +49,12 @@ function getUnsupportedFeatureInfo( name: string ): UnsupportedFeature | undefin
 	);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type BlueprintData = Record< string, any >;
-
 export type BlueprintPreferredVersions = {
 	php?: string;
 	wp?: string;
 };
 
-export function scanBlueprintForUnsupportedFeatures(
-	blueprint: BlueprintData
-): UnsupportedFeature[] {
+export function scanBlueprintForUnsupportedFeatures( blueprint: Blueprint ): UnsupportedFeature[] {
 	const foundUnsupported: UnsupportedFeature[] = [];
 
 	if ( blueprint.steps && Array.isArray( blueprint.steps ) ) {
@@ -95,8 +84,8 @@ export function scanBlueprintForUnsupportedFeatures(
 }
 
 export function filterUnsupportedBlueprintFeatures(
-	blueprint: BlueprintData | undefined
-): BlueprintData | undefined {
+	blueprint: Blueprint | undefined
+): Blueprint | undefined {
 	if ( ! blueprint ) {
 		return undefined;
 	}
@@ -149,7 +138,7 @@ export async function validateBlueprintData(
 		const errorPath = firstError.instancePath || '/';
 		const additionalProp = firstError.params?.additionalProperty;
 		const errorMessage = additionalProp
-			? __( `"${ additionalProp }" is not a valid Blueprint property` )
+			? sprintf( __( '"%s" is not a valid Blueprint property' ), additionalProp )
 			: firstError.message || __( 'Invalid blueprint' );
 
 		return {
@@ -158,7 +147,7 @@ export async function validateBlueprintData(
 		};
 	}
 
-	const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson as BlueprintData );
+	const unsupportedFeatures = scanBlueprintForUnsupportedFeatures( blueprintJson as Blueprint );
 	const warnings = unsupportedFeatures.map( ( feature ) => ( {
 		feature: feature.name,
 		reason: feature.reason,

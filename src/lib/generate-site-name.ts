@@ -1,10 +1,12 @@
 import { __ } from '@wordpress/i18n';
-import { generateNumberedName } from 'common/lib/generate-numbered-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export { sanitizeFolderName } from 'common/lib/sanitize-folder-name';
 
-async function isNameAvailable( name: string, usedSites: SiteDetails[] ): Promise< boolean > {
+export async function isNameAvailable(
+	name: string,
+	usedSites: SiteDetails[]
+): Promise< boolean > {
 	const isNameUnique = ! usedSites.some( ( site ) => site.name === name );
 	if ( ! isNameUnique ) {
 		return false;
@@ -13,6 +15,33 @@ async function isNameAvailable( name: string, usedSites: SiteDetails[] ): Promis
 	return isEmpty;
 }
 
+/**
+ * Generates a unique numbered name by iterating until an available name is found.
+ * Example: "My WordPress site 2" if "My WordPress site" exists
+ */
+export async function generateNumberedName(
+	baseName: string,
+	usedSites: SiteDetails[]
+): Promise< string > {
+	if ( await isNameAvailable( baseName, usedSites ) ) {
+		return baseName;
+	}
+
+	let number = 2;
+	let candidateName = `${ baseName } ${ number }`;
+
+	while ( ! ( await isNameAvailable( candidateName, usedSites ) ) ) {
+		number++;
+		candidateName = `${ baseName } ${ number }`;
+	}
+
+	return candidateName;
+}
+
+/**
+ * Generates a random site name from a list of default names.
+ * Example: "My WordPress Website"
+ */
 export async function generateSiteName( usedSites: SiteDetails[] ): Promise< string > {
 	const siteNames = [
 		__( 'My Bold Website' ),
@@ -54,5 +83,5 @@ export async function generateSiteName( usedSites: SiteDetails[] ): Promise< str
 		return availableNames[ Math.floor( Math.random() * availableNames.length ) ];
 	}
 
-	return generateNumberedName( defaultName, ( name ) => isNameAvailable( name, usedSites ) );
+	return generateNumberedName( defaultName, usedSites );
 }

@@ -7,6 +7,7 @@ import { Provider } from 'react-redux';
 import { vi } from 'vitest';
 import { Snapshot } from 'common/types/snapshot';
 import { ContentTabSettings } from 'src/components/content-tab-settings';
+import { useSyncSites } from 'src/hooks/sync-sites/sync-sites-context';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -64,6 +65,7 @@ function createCustomTestStore() {
 
 vi.mock( 'src/hooks/use-get-wp-version' );
 vi.mock( 'src/hooks/use-site-details' );
+vi.mock( 'src/hooks/sync-sites/sync-sites-context' );
 vi.mock( 'src/lib/get-ipc-api' );
 vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
@@ -138,10 +140,16 @@ describe( 'ContentTabSettings', () => {
 
 		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 			selectedSite,
+			sites: [ selectedSite ],
 			uploadingSites: {},
 			deleteSite: vi.fn(),
 			isDeleting: false,
 			updateSite: vi.fn(),
+		} );
+
+		vi.mocked( useSyncSites, { partial: true } ).mockReturnValue( {
+			isSiteIdPulling: vi.fn( () => false ),
+			isSiteIdPushing: vi.fn( () => false ),
 		} );
 	} );
 
@@ -262,6 +270,7 @@ describe( 'ContentTabSettings', () => {
 			// Mock snapshots to include a snapshot for the selected site
 			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: false } as SiteDetails,
+				sites: [ selectedSite ],
 				updateSite,
 				startServer,
 				stopServer,
@@ -276,6 +285,7 @@ describe( 'ContentTabSettings', () => {
 			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
 			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: false } as SiteDetails,
+				sites: [ selectedSite ],
 				updateSite,
 				startServer,
 				stopServer,
@@ -298,6 +308,7 @@ describe( 'ContentTabSettings', () => {
 
 			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: false } as SiteDetails,
+				sites: [ selectedSite ],
 				updateSite,
 				startServer,
 				stopServer,
@@ -334,6 +345,7 @@ describe( 'ContentTabSettings', () => {
 			testStore.dispatch( snapshotTestActions.addSnapshot( mockSnapshot ) );
 			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: true } as SiteDetails,
+				sites: [ selectedSite ],
 				updateSite,
 				startServer,
 				stopServer,
@@ -348,6 +360,7 @@ describe( 'ContentTabSettings', () => {
 			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
 			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: true } as SiteDetails,
+				sites: [ selectedSite ],
 				updateSite,
 				startServer,
 				stopServer,
@@ -369,6 +382,7 @@ describe( 'ContentTabSettings', () => {
 
 			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: true } as SiteDetails,
+				sites: [ selectedSite ],
 				updateSite,
 				startServer,
 				stopServer,

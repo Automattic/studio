@@ -3,10 +3,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export { sanitizeFolderName } from 'common/lib/sanitize-folder-name';
 
-export async function isNameAvailable(
-	name: string,
-	usedSites: SiteDetails[]
-): Promise< boolean > {
+async function isNameAvailable( name: string, usedSites: SiteDetails[] ): Promise< boolean > {
 	const isNameUnique = ! usedSites.some( ( site ) => site.name === name );
 	if ( ! isNameUnique ) {
 		return false;

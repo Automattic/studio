@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 import { FolderDialogResponse } from 'src/ipc-handlers';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { generateNumberedName, isNameAvailable } from '../generate-site-name';
+import { generateNumberedName } from '../generate-site-name';
 
 vi.mock( 'src/lib/get-ipc-api' );
 vi.mock( '@wordpress/i18n', () => ( {
@@ -10,52 +10,6 @@ vi.mock( '@wordpress/i18n', () => ( {
 
 const mockGenerateProposedSitePath =
 	vi.fn< ( siteName: string ) => Promise< FolderDialogResponse > >();
-
-describe( 'isNameAvailable', () => {
-	beforeEach( () => {
-		vi.clearAllMocks();
-		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
-			generateProposedSitePath: mockGenerateProposedSitePath,
-		} );
-	} );
-
-	it( 'should return false if name is already used by an existing site', async () => {
-		const usedSites = [ { id: '1', name: 'My Site', path: '/path/1' } ] as SiteDetails[];
-
-		const result = await isNameAvailable( 'My Site', usedSites );
-
-		expect( result ).toBe( false );
-		expect( mockGenerateProposedSitePath ).not.toHaveBeenCalled();
-	} );
-
-	it( 'should return false if directory is not empty', async () => {
-		mockGenerateProposedSitePath.mockResolvedValue( {
-			path: '/path/to/site',
-			name: 'My Site',
-			isEmpty: false,
-			isWordPress: false,
-		} );
-		const usedSites: SiteDetails[] = [];
-
-		const result = await isNameAvailable( 'My Site', usedSites );
-
-		expect( result ).toBe( false );
-	} );
-
-	it( 'should return true if name is unique and directory is empty', async () => {
-		mockGenerateProposedSitePath.mockResolvedValue( {
-			path: '/path/to/site',
-			name: 'My Site',
-			isEmpty: true,
-			isWordPress: false,
-		} );
-		const usedSites: SiteDetails[] = [];
-
-		const result = await isNameAvailable( 'My Site', usedSites );
-
-		expect( result ).toBe( true );
-	} );
-} );
 
 describe( 'generateNumberedName', () => {
 	beforeEach( () => {

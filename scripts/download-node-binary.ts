@@ -11,18 +11,12 @@ import path from 'path';
 import { extract } from 'tar';
 import { extractZip } from '../common/lib/extract-zip';
 
-const LTS_FALLBACK = 'v22.12.0';
+// Node.js version to bundle with the CLI
+// This is separate from .nvmrc which controls the development environment
+const BUNDLED_NODE_VERSION = 'v24.11.0';
 
 function getNodeVersion(): string {
-	// Use .bundled-node-version for the CLI's bundled Node binary
-	// This is separate from .nvmrc which controls the development environment
-	const bundledVersionPath = path.join( __dirname, '..', '.bundled-node-version' );
-	if ( fs.existsSync( bundledVersionPath ) ) {
-		const version = fs.readFileSync( bundledVersionPath, 'utf-8' ).trim();
-		return version.startsWith( 'v' ) ? version : `v${ version }`;
-	}
-	console.log( `.bundled-node-version not found, using fallback version ${ LTS_FALLBACK }` );
-	return LTS_FALLBACK;
+	return BUNDLED_NODE_VERSION;
 }
 
 const NODE_VERSION = getNodeVersion();

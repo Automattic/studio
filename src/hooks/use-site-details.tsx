@@ -466,17 +466,17 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				// Update selected site ID to the new site
 				setSelectedSiteId( newSite.id );
 
+				// Show notification immediately after copy completes
+				getIpcApi().showNotification( {
+					title: newSite.name,
+					body: __( sprintf( 'Your site %s was copied successfully', sourceSite.name ) ),
+				} );
+
 				try {
 					await getIpcApi().startServer( newSite.id );
 				} catch ( startError ) {
 					console.error( 'Failed to start copied site:', startError );
 				}
-
-				// Show notification
-				getIpcApi().showNotification( {
-					title: newSite.name,
-					body: __( sprintf( 'Your site %s was copied successfully', sourceSite.name ) ),
-				} );
 
 				return newSite;
 			} catch ( error ) {

@@ -392,6 +392,71 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		setSites( updatedSites );
 	}, [] );
 
+	const startServer = useCallback(
+		async ( id: string ) => {
+			toggleLoadingServerForSite( id );
+
+			try {
+				await getIpcApi().startServer( id );
+			} catch ( error ) {
+				if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PORT_IN_USE' ) ) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Studio failed to initialize custom domains' ),
+						message: __(
+							'Studio needs to use port 80 and 443 to enable custom domains and SSL, but one of these ports are already in use by another app. Close any local development apps and restart Studio.'
+						),
+						showOpenLogs: false,
+					} );
+				} else if (
+					error instanceof Error &&
+					error.message.includes( 'PROXY_ERROR_START_FAILED' )
+				) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Studio failed to initialize custom domains' ),
+						message: __(
+							'Please restart Studio and try again. If this problem persists, please contact support.'
+						),
+						showOpenLogs: true,
+					} );
+				} else if (
+					error instanceof Error &&
+					error.message.includes( 'WASM_ERROR_NOT_ENOUGH_MEMORY' )
+				) {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Not enough memory to start the site server' ),
+						message: __(
+							'Please stop some of your running sites first. If this problem persists, try closing other apps that might be using memory and try again.'
+						),
+						showOpenLogs: true,
+					} );
+				} else if ( error instanceof Error && error.message.includes( 'ERROR_PORT_IN_USE' ) ) {
+					const port = error.message.match( /\d+/ );
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to start the site server' ),
+						message: __(
+							`The site server failed to start because the port is already in use. Please close any local development apps that may be using port ${ port } and try again.`
+						),
+						showOpenLogs: false,
+					} );
+				} else {
+					const errorToShow = simplifyErrorForDisplay( error );
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to start the site server' ),
+						message: __(
+							"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
+						),
+						error: errorToShow,
+						showOpenLogs: true,
+					} );
+				}
+				await getIpcApi().stopServer( id );
+			}
+
+			toggleLoadingServerForSite( id );
+		},
+		[ toggleLoadingServerForSite ]
+	);
+
 	const copySite = useCallback(
 		async ( sourceSiteId: string ) => {
 			const sourceSite = sites.find( ( site ) => site.id === sourceSiteId );
@@ -464,83 +529,14 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					body: __( sprintf( 'Your site %s was copied successfully', sourceSite.name ) ),
 				} );
 
-				try {
-					await getIpcApi().startServer( newSite.id );
-				} catch ( startError ) {
-					console.error( 'Failed to start copied site:', startError );
-				}
+				void startServer( newSite.id );
 
 				return newSite;
 			} catch ( error ) {
 				showError( error );
 			}
 		},
-		[ sites, selectedTab, setSelectedSiteId, setSelectedTab ]
-	);
-
-	const startServer = useCallback(
-		async ( id: string ) => {
-			toggleLoadingServerForSite( id );
-
-			try {
-				await getIpcApi().startServer( id );
-			} catch ( error ) {
-				if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PORT_IN_USE' ) ) {
-					getIpcApi().showErrorMessageBox( {
-						title: __( 'Studio failed to initialize custom domains' ),
-						message: __(
-							'Studio needs to use port 80 and 443 to enable custom domains and SSL, but one of these ports are already in use by another app. Close any local development apps and restart Studio.'
-						),
-						showOpenLogs: false,
-					} );
-				} else if (
-					error instanceof Error &&
-					error.message.includes( 'PROXY_ERROR_START_FAILED' )
-				) {
-					getIpcApi().showErrorMessageBox( {
-						title: __( 'Studio failed to initialize custom domains' ),
-						message: __(
-							'Please restart Studio and try again. If this problem persists, please contact support.'
-						),
-						showOpenLogs: true,
-					} );
-				} else if (
-					error instanceof Error &&
-					error.message.includes( 'WASM_ERROR_NOT_ENOUGH_MEMORY' )
-				) {
-					getIpcApi().showErrorMessageBox( {
-						title: __( 'Not enough memory to start the site server' ),
-						message: __(
-							'Please stop some of your running sites first. If this problem persists, try closing other apps that might be using memory and try again.'
-						),
-						showOpenLogs: true,
-					} );
-				} else if ( error instanceof Error && error.message.includes( 'ERROR_PORT_IN_USE' ) ) {
-					const port = error.message.match( /\d+/ );
-					getIpcApi().showErrorMessageBox( {
-						title: __( 'Failed to start the site server' ),
-						message: __(
-							`The site server failed to start because the port is already in use. Please close any local development apps that may be using port ${ port } and try again.`
-						),
-						showOpenLogs: false,
-					} );
-				} else {
-					const errorToShow = simplifyErrorForDisplay( error );
-					getIpcApi().showErrorMessageBox( {
-						title: __( 'Failed to start the site server' ),
-						message: __(
-							"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
-						),
-						error: errorToShow,
-						showOpenLogs: true,
-					} );
-				}
-				await getIpcApi().stopServer( id );
-			}
-
-			toggleLoadingServerForSite( id );
-		},
-		[ toggleLoadingServerForSite ]
+		[ sites, selectedTab, setSelectedSiteId, setSelectedTab, startServer ]
 	);
 
 	const autoStartSites = useCallback(

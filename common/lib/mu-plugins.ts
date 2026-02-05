@@ -421,15 +421,19 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 					if ( empty( $username ) ) {
 						$username = 'admin';
 					}
+
 					$user = get_user_by( 'login', $username );
 					if ( $user ) {
 						wp_set_password( $_POST['password'], $user->ID );
 					} else {
-						// Sanitize email - fallback to admin@localhost.com if username produces invalid email
-						$email = sanitize_email( $username . '@localhost.com' );
-						if ( empty( $email ) ) {
-							$email = 'admin@localhost.com';
+						// Generate a unique email to avoid conflicts with existing users
+						$email = 'admin@localhost.com';
+						$counter = 1;
+						while ( email_exists( $email ) ) {
+							$email = 'admin' . $counter . '@localhost.com';
+							$counter++;
 						}
+
 						$user_data = array(
 							'user_login' => $username,
 							'user_pass' => $_POST['password'],

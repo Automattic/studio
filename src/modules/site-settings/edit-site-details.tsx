@@ -5,12 +5,14 @@ import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { DEFAULT_PHP_VERSION } from 'common/constants';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'common/lib/domains';
+import { decodePassword, encodePassword, validateAdminUsername } from 'common/lib/passwords';
 import { siteNeedsRestart } from 'common/lib/site-needs-restart';
 import { SupportedPHPVersions } from 'common/types/php-versions';
 import Button from 'src/components/button';
 import { ErrorInformation } from 'src/components/error-information';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';
 import Modal from 'src/components/modal';
+import PasswordControl from 'src/components/password-control';
 import TextControlComponent from 'src/components/text-control';
 import { Tooltip } from 'src/components/tooltip';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
@@ -36,6 +38,10 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const [ needsRestart, setNeedsRestart ] = useState( false );
 	const [ enableXdebug, setEnableXdebug ] = useState( selectedSite?.enableXdebug ?? false );
 	const [ xdebugEnabledSite, setXdebugEnabledSite ] = useState< SiteDetails | null >( null );
+	const [ adminUsername, setAdminUsername ] = useState( selectedSite?.adminUsername ?? 'admin' );
+	const [ adminPassword, setAdminPassword ] = useState(
+		() => decodePassword( selectedSite?.adminPassword ?? '' ) || 'password'
+	);
 
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
 	const closeModal = useCallback( () => {
@@ -90,6 +96,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 
 	const generatedDomainName = generateCustomDomainFromSiteName( siteName );
 	const usedCustomDomain = ! useCustomDomain ? customDomain : undefined;
+	const adminUsernameError = validateAdminUsername( adminUsername );
+	const adminPasswordError = ! adminPassword.trim() ? __( 'Admin password is required' ) : '';
 	const isFormUnchanged =
 		!! selectedSite &&
 		selectedSite.name === siteName &&
@@ -98,9 +106,15 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		Boolean( selectedSite.customDomain ) === useCustomDomain &&
 		usedCustomDomain === customDomain &&
 		!! selectedSite.enableHttps === ( !! usedCustomDomain && enableHttps ) &&
-		!! selectedSite.enableXdebug === enableXdebug;
+		!! selectedSite.enableXdebug === enableXdebug &&
+		( selectedSite.adminUsername ?? 'admin' ) === adminUsername &&
+		( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' ) === adminPassword;
 	const hasValidationErrors =
-		! selectedSite || ! siteName.trim() || ( useCustomDomain && !! customDomainError );
+		! selectedSite ||
+		! siteName.trim() ||
+		( useCustomDomain && !! customDomainError ) ||
+		!! adminUsernameError ||
+		!! adminPasswordError;
 
 	const resetFormState = useCallback( () => {
 		if ( ! selectedSite ) {
@@ -115,6 +129,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		setErrorUpdatingWpVersion( null );
 		setEnableHttps( selectedSite.enableHttps ?? false );
 		setEnableXdebug( selectedSite.enableXdebug ?? false );
+		setAdminUsername( selectedSite.adminUsername ?? 'admin' );
+		setAdminPassword( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' );
 	}, [ selectedSite, getEffectiveWpVersion ] );
 
 	const onSiteEdit = async ( event: FormEvent ) => {
@@ -133,6 +149,9 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 			( useCustomDomain && customDomain !== selectedSite.customDomain );
 		const hasHttpsChanged =
 			useCustomDomain && enableHttps !== ( selectedSite.enableHttps ?? false );
+		const hasCredentialsChanged =
+			adminUsername !== ( selectedSite.adminUsername ?? 'admin' ) ||
+			adminPassword !== ( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' );
 
 		const needsRestart =
 			selectedSite.running &&
@@ -142,6 +161,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 				phpChanged: hasPhpVersionChanged,
 				wpChanged: hasWpVersionChanged,
 				xdebugChanged: hasXdebugChanged,
+				credentialsChanged: hasCredentialsChanged,
 			} );
 		setNeedsRestart( needsRestart );
 
@@ -161,6 +181,9 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 					customDomain: usedCustomDomain,
 					enableHttps: !! usedCustomDomain && enableHttps,
 					enableXdebug,
+					adminUsername,
+					// Encode for IPC storage; IPC handler decodes back to plain text for the CLI set command
+					adminPassword: encodePassword( adminPassword ),
 				},
 				hasWpVersionChanged ? selectedWpVersion : undefined
 			);
@@ -362,6 +385,42 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 										</div>
 									</div>
 								</Tooltip>
+							</div>
+
+							<div className="flex flex-col gap-2 mt-4">
+								<span className="font-semibold">{ __( 'Admin credentials' ) }</span>
+								<div className="grid grid-cols-2 gap-4">
+									<div className="flex flex-col gap-1.5 leading-4">
+										<label className="text-sm" htmlFor="edit-admin-username">
+											{ __( 'Username' ) }
+										</label>
+										<TextControlComponent
+											id="edit-admin-username"
+											disabled={ isEditingSite }
+											value={ adminUsername }
+											onChange={ setAdminUsername }
+											className={ adminUsernameError ? '[&_input]:!border-red-500' : '' }
+										/>
+										{ adminUsernameError && (
+											<span className="text-red-500 text-xs">{ adminUsernameError }</span>
+										) }
+									</div>
+									<div className="flex flex-col gap-1.5 leading-4">
+										<label className="text-sm" htmlFor="edit-admin-password">
+											{ __( 'Password' ) }
+										</label>
+										<PasswordControl
+											id="edit-admin-password"
+											disabled={ isEditingSite }
+											value={ adminPassword }
+											onChange={ setAdminPassword }
+											className={ adminPasswordError ? '[&_input]:!border-red-500' : '' }
+										/>
+										{ adminPasswordError && (
+											<span className="text-red-500 text-xs">{ adminPasswordError }</span>
+										) }
+									</div>
+								</div>
 							</div>
 						</div>
 

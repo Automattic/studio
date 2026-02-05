@@ -1,4 +1,5 @@
 import { generatePassword } from '@automattic/generate-password';
+import { __ } from '@wordpress/i18n';
 
 export { generatePassword };
 
@@ -8,7 +9,7 @@ export { generatePassword };
  * @returns The Base64-encoded password.
  */
 export function createPassword(): string {
-	return btoa( generatePassword() );
+	return encodePassword( generatePassword() );
 }
 
 /**
@@ -35,4 +36,20 @@ export function decodePassword( encodedPassword: string ): string {
 	const binary = atob( encodedPassword );
 	const bytes = Uint8Array.from( binary, ( char ) => char.charCodeAt( 0 ) );
 	return new TextDecoder().decode( bytes );
+}
+
+/**
+ * Validates an admin username and returns an error message, or empty string if valid.
+ */
+export function validateAdminUsername( username: string ): string {
+	if ( ! username.trim() ) {
+		return __( 'Admin username cannot be empty.' );
+	}
+	if ( ! /^[a-zA-Z0-9_.@-]+$/.test( username ) ) {
+		return __( 'Username can only contain letters, numbers, and _.@- characters' );
+	}
+	if ( username.length > 60 ) {
+		return __( 'Username must be 60 characters or fewer.' );
+	}
+	return '';
 }

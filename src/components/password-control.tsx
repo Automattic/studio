@@ -32,6 +32,7 @@ const PasswordControl = ( {
 				onChange={ ( e ) => onChange( e.target.value ) }
 				placeholder={ placeholder }
 				disabled={ disabled }
+				autoComplete="new-password"
 				className={ cx(
 					'w-full h-10 px-4 py-3 pr-10 rounded-sm border border-[#949494] outline-none',
 					'focus:border-a8c-blue-50 focus:shadow-[0_0_0_0.5px_black] focus:shadow-a8c-blue-50',

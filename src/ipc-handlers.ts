@@ -31,6 +31,7 @@ import {
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import { getAuthenticationUrl } from 'common/lib/oauth';
+import { decodePassword, encodePassword } from 'common/lib/passwords';
 import { isWordPressDevVersion } from 'common/lib/wordpress-version-utils';
 import { Snapshot } from 'common/types/snapshot';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
@@ -379,6 +380,19 @@ export async function updateSite(
 
 	if ( updatedSite.enableXdebug !== currentSite.enableXdebug ) {
 		options.xdebug = updatedSite.enableXdebug ?? false;
+	}
+
+	if ( ( updatedSite.adminUsername ?? 'admin' ) !== ( currentSite.adminUsername ?? 'admin' ) ) {
+		options.adminUsername = updatedSite.adminUsername;
+	}
+
+	const defaultEncodedPassword = encodePassword( 'password' );
+	if (
+		( updatedSite.adminPassword ?? defaultEncodedPassword ) !==
+		( currentSite.adminPassword ?? defaultEncodedPassword )
+	) {
+		// CLI set expects plain text password (it encodes before saving)
+		options.adminPassword = decodePassword( updatedSite.adminPassword ?? defaultEncodedPassword );
 	}
 
 	const hasCliChanges = Object.keys( options ).length > 2;

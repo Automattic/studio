@@ -52,7 +52,8 @@ export function extractFormValuesFromBlueprint( blueprintJson: Blueprint ): Blue
 		}
 	}
 
-	// Check top-level login property (shorthand syntax)
+	// Check top-level login property (shorthand syntax).
+	// login: true just enables auto-login with defaults, login: false disables it — neither has credentials to extract.
 	if ( blueprintJson.login !== undefined && blueprintJson.login !== true ) {
 		if ( typeof blueprintJson.login === 'object' && blueprintJson.login !== null ) {
 			const { username, password } = blueprintJson.login as {

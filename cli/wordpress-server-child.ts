@@ -103,7 +103,7 @@ async function setAdminCredentials(
 		body: {
 			action: 'set_admin_password',
 			password: escapePhpString( decodePassword( adminPassword ) ),
-			...( adminUsername && { username: adminUsername } ),
+			...( adminUsername && { username: escapePhpString( adminUsername ) } ),
 		},
 	} );
 }

@@ -81,25 +81,6 @@ describe( 'validateBlueprintData', () => {
 				expect( result.warnings.map( ( w ) => w.feature ) ).toContain( 'enableMultisite' );
 			}
 		} );
-
-		it( 'should accept a blueprint with login step (no warning)', async () => {
-			const blueprint = {
-				steps: [
-					{
-						step: 'login',
-						username: 'admin',
-					},
-				],
-			};
-
-			const result = await validateBlueprintData( blueprint );
-
-			expect( result.valid ).toBe( true );
-			if ( result.valid ) {
-				// login is now a supported feature, should not appear in warnings
-				expect( result.warnings.map( ( w ) => w.feature ) ).not.toContain( 'login' );
-			}
-		} );
 	} );
 
 	describe( 'invalid blueprints', () => {

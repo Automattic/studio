@@ -25,7 +25,7 @@ import {
 } from 'common/lib/fs-utils';
 import { DEFAULT_LOCALE } from 'common/lib/locale';
 import { isOnline } from 'common/lib/network-utils';
-import { createPassword, encodePassword } from 'common/lib/passwords';
+import { createPassword, encodePassword, validateAdminUsername } from 'common/lib/passwords';
 import { portFinder } from 'common/lib/port-finder';
 import { SITE_EVENTS } from 'common/lib/site-events';
 import { sortSites } from 'common/lib/sort-sites';
@@ -202,6 +202,12 @@ export async function runCommand(
 		// Determine admin credentials: CLI args > Blueprint > defaults
 		// External passwords need to be encoded; createPassword() already returns encoded
 		const adminUsername = options.adminUsername || blueprintCredentials?.adminUsername || undefined;
+		if ( adminUsername ) {
+			const usernameError = validateAdminUsername( adminUsername );
+			if ( usernameError ) {
+				throw new LoggerError( usernameError );
+			}
+		}
 		const externalPassword = options.adminPassword || blueprintCredentials?.adminPassword;
 		const adminPassword = externalPassword ? encodePassword( externalPassword ) : createPassword();
 

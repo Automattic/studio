@@ -6,7 +6,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useState, useEffect, useCallback, useMemo, useRef, RefObject } from 'react';
 import { DEFAULT_WORDPRESS_VERSION } from 'common/constants';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'common/lib/domains';
-import { generatePassword } from 'common/lib/passwords';
+import { generatePassword, validateAdminUsername } from 'common/lib/passwords';
 import { SupportedPHPVersions } from 'common/types/php-versions';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
@@ -231,9 +231,11 @@ export const CreateSiteForm = ( {
 		}
 		if ( blueprintCredentials?.adminUsername !== undefined ) {
 			setAdminUsername( blueprintCredentials.adminUsername );
+			setAdvancedSettingsVisible( true );
 		}
 		if ( blueprintCredentials?.adminPassword !== undefined ) {
 			setAdminPassword( blueprintCredentials.adminPassword );
+			setAdvancedSettingsVisible( true );
 		}
 	}, [ blueprintCredentials?.adminUsername, blueprintCredentials?.adminPassword ] );
 
@@ -389,17 +391,7 @@ export const CreateSiteForm = ( {
 	);
 
 	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
-	const getAdminUsernameError = () => {
-		if ( ! adminUsername.trim() ) {
-			return __( 'Admin username is required' );
-		}
-		// WordPress username format: alphanumeric, underscores, dots, @, and hyphens
-		if ( ! /^[a-zA-Z0-9_.@-]+$/.test( adminUsername ) ) {
-			return __( 'Username can only contain letters, numbers, and _.@- characters' );
-		}
-		return '';
-	};
-	const adminUsernameError = getAdminUsernameError();
+	const adminUsernameError = validateAdminUsername( adminUsername );
 	const adminPasswordError = ! adminPassword.trim() ? __( 'Admin password is required' ) : '';
 	const errorCount = [
 		pathError,

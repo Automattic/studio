@@ -4,10 +4,19 @@ export interface SiteSettingChanges {
 	phpChanged?: boolean;
 	wpChanged?: boolean;
 	xdebugChanged?: boolean;
+	credentialsChanged?: boolean;
 }
 
 export function siteNeedsRestart( changes: SiteSettingChanges ): boolean {
-	const { domainChanged, httpsChanged, phpChanged, wpChanged, xdebugChanged } = changes;
+	const { domainChanged, httpsChanged, phpChanged, wpChanged, xdebugChanged, credentialsChanged } =
+		changes;
 
-	return !! ( domainChanged || httpsChanged || phpChanged || wpChanged || xdebugChanged );
+	return !! (
+		domainChanged ||
+		httpsChanged ||
+		phpChanged ||
+		wpChanged ||
+		xdebugChanged ||
+		credentialsChanged
+	);
 }

@@ -3,6 +3,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from 'common/constants';
 import { getDomainNameValidationError } from 'common/lib/domains';
 import { arePathsEqual } from 'common/lib/fs-utils';
+import { encodePassword, validateAdminUsername } from 'common/lib/passwords';
 import { SITE_EVENTS } from 'common/lib/site-events';
 import { siteNeedsRestart } from 'common/lib/site-needs-restart';
 import {
@@ -44,10 +45,12 @@ export interface SetCommandOptions {
 	php?: string;
 	wp?: string;
 	xdebug?: boolean;
+	adminUsername?: string;
+	adminPassword?: string;
 }
 
 export async function runCommand( sitePath: string, options: SetCommandOptions ): Promise< void > {
-	const { name, domain, https, php, wp, xdebug } = options;
+	const { name, domain, https, php, wp, xdebug, adminUsername, adminPassword } = options;
 
 	if (
 		name === undefined &&
@@ -55,15 +58,30 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		https === undefined &&
 		php === undefined &&
 		wp === undefined &&
-		xdebug === undefined
+		xdebug === undefined &&
+		adminUsername === undefined &&
+		adminPassword === undefined
 	) {
 		throw new LoggerError(
-			__( 'At least one option (--name, --domain, --https, --php, --wp, --xdebug) is required.' )
+			__(
+				'At least one option (--name, --domain, --https, --php, --wp, --xdebug, --admin-username, --admin-password) is required.'
+			)
 		);
 	}
 
 	if ( name !== undefined && ! name.trim() ) {
 		throw new LoggerError( __( 'Site name cannot be empty.' ) );
+	}
+
+	if ( adminUsername !== undefined ) {
+		const usernameError = validateAdminUsername( adminUsername );
+		if ( usernameError ) {
+			throw new LoggerError( usernameError );
+		}
+	}
+
+	if ( adminPassword !== undefined && ! adminPassword.trim() ) {
+		throw new LoggerError( __( 'Admin password cannot be empty.' ) );
 	}
 
 	try {
@@ -112,9 +130,19 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		const phpChanged = php !== undefined && php !== site.phpVersion;
 		const wpChanged = wp !== undefined;
 		const xdebugChanged = xdebug !== undefined && xdebug !== site.enableXdebug;
+		const adminUsernameChanged =
+			adminUsername !== undefined && adminUsername !== ( site.adminUsername ?? 'admin' );
+		const adminPasswordChanged = adminPassword !== undefined;
+		const credentialsChanged = adminUsernameChanged || adminPasswordChanged;
 
 		const hasChanges =
-			nameChanged || domainChanged || httpsChanged || phpChanged || wpChanged || xdebugChanged;
+			nameChanged ||
+			domainChanged ||
+			httpsChanged ||
+			phpChanged ||
+			wpChanged ||
+			xdebugChanged ||
+			credentialsChanged;
 		if ( ! hasChanges ) {
 			throw new LoggerError(
 				__( 'No changes to apply. The site already has the specified settings.' )
@@ -127,6 +155,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			phpChanged,
 			wpChanged,
 			xdebugChanged,
+			credentialsChanged,
 		} );
 		const oldDomain = site.customDomain;
 
@@ -152,6 +181,12 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			}
 			if ( xdebugChanged ) {
 				foundSite.enableXdebug = xdebug;
+			}
+			if ( adminUsernameChanged ) {
+				foundSite.adminUsername = adminUsername!;
+			}
+			if ( adminPasswordChanged ) {
+				foundSite.adminPassword = encodePassword( adminPassword! );
 			}
 
 			await saveAppdata( appdata );
@@ -287,6 +322,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'xdebug', {
 					type: 'boolean',
 					description: __( 'Enable Xdebug' ),
+				} )
+				.option( 'admin-username', {
+					type: 'string',
+					description: __( 'Admin username' ),
+				} )
+				.option( 'admin-password', {
+					type: 'string',
+					description: __( 'Admin password' ),
 				} );
 		},
 		handler: async ( argv ) => {
@@ -298,6 +341,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					php: argv.php,
 					wp: argv.wp,
 					xdebug: argv.xdebug,
+					adminUsername: argv.adminUsername,
+					adminPassword: argv.adminPassword,
 				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

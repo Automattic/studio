@@ -1,6 +1,10 @@
-import { hasDefaultDbBlock, removeDbConstants } from 'src/migrations/remove-default-db-constants';
+import {
+	hasDefaultDbBlock,
+	normalizeLineEndings,
+	removeDbConstants,
+} from 'src/migrations/remove-default-db-constants';
 
-const WP_CONFIG_WITH_DEFAULTS = `<?php
+const WP_CONFIG_WITH_DEFAULTS = normalizeLineEndings( `<?php
 /**
  * The base configuration for WordPress
  */
@@ -29,9 +33,9 @@ $table_prefix = 'wp_';
 define( 'WP_DEBUG', false );
 
 /* That's all, stop editing! Happy publishing. */
-`;
+` );
 
-const WP_CONFIG_WITH_CUSTOM_VALUES = `<?php
+const WP_CONFIG_WITH_CUSTOM_VALUES = normalizeLineEndings( `<?php
 /**
  * The base configuration for WordPress
  */
@@ -58,7 +62,7 @@ define( 'DB_COLLATE', '' );
 $table_prefix = 'wp_';
 
 define( 'WP_DEBUG', false );
-`;
+` );
 
 const WP_CONFIG_WITH_MIXED_VALUES = `<?php
 // ** Database settings - You can get this info from your web host ** //
@@ -81,7 +85,7 @@ define( 'DB_CHARSET', 'utf8mb4' );
 define( 'DB_COLLATE', '' );
 `;
 
-const WP_CONFIG_ALREADY_MIGRATED = `<?php
+const WP_CONFIG_ALREADY_MIGRATED = normalizeLineEndings( `<?php
 /**
  * The base configuration for WordPress
  */
@@ -101,7 +105,7 @@ const WP_CONFIG_ALREADY_MIGRATED = `<?php
 $table_prefix = 'wp_';
 
 define( 'WP_DEBUG', false );
-`;
+` );
 
 describe( 'hasDefaultDbBlock', () => {
 	it( 'should return true when the exact default DB block is present', () => {

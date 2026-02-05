@@ -35,7 +35,7 @@ const REPLACEMENT_COMMENT = normalizeLineEndings( `/**
  *   DB_COLLATE
  */` );
 
-function normalizeLineEndings( content: string ): string {
+export function normalizeLineEndings( content: string ): string {
 	return content.replace( /\n/g, '\r\n' );
 }
 

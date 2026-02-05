@@ -585,14 +585,12 @@ export async function copySite(
 
 	const finalSitePath = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( siteName ) );
 
-	const siteId = newSiteId || crypto.randomUUID();
-
 	console.log( `Copying site '${ sourceSite.name }' to '${ siteName }'` );
 
 	await recursiveCopyDirectory( sourceSite.path, finalSitePath );
 
 	const sourceThumbnailPath = getSiteThumbnailPath( sourceSiteId );
-	const newThumbnailPath = getSiteThumbnailPath( siteId );
+	const newThumbnailPath = getSiteThumbnailPath( newSiteId );
 	if ( fs.existsSync( sourceThumbnailPath ) ) {
 		await fs.promises.copyFile( sourceThumbnailPath, newThumbnailPath );
 		// Send thumbnail-loaded event so UI updates immediately
@@ -600,14 +598,14 @@ export async function copySite(
 		sendIpcEventToRendererWithWindow(
 			BrowserWindow.fromWebContents( event.sender ),
 			'thumbnail-loaded',
-			{ id: siteId, imageData: thumbnailData }
+			{ id: newSiteId, imageData: thumbnailData }
 		);
 	}
 
 	const port = await portFinder.getOpenPort();
 
 	const newSiteDetails: StoppedSiteDetails = {
-		id: siteId,
+		id: newSiteId,
 		name: siteName,
 		path: finalSitePath,
 		port,
@@ -631,7 +629,7 @@ export async function copySite(
 	const placeholderUrl = `http://localhost:${ newSiteDetails.port }`;
 	sendIpcEventToRendererWithWindow( BrowserWindow.fromWebContents( event.sender ), 'site-event', {
 		event: SITE_EVENTS.CREATED,
-		siteId,
+		siteId: newSiteId,
 		site: {
 			...newSiteDetails,
 			url: placeholderUrl,

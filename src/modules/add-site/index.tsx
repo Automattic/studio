@@ -24,6 +24,7 @@ import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
 import BlueprintDeeplink from './components/blueprint-deeplink';
 import { AddSiteBlueprintSelector } from './components/blueprints';
 import CreateSite from './components/create-site';
+import CreateVipSite, { type CreateVipSiteFormValues } from './components/create-vip-site';
 import ImportBackup from './components/import-backup';
 import AddSiteOptions, { type AddSiteFlowType } from './components/options';
 import { PullRemoteSite } from './components/pull-remote-site';
@@ -72,9 +73,13 @@ interface NavigationContentProps {
 	setIsDeeplinkFlow: ( isDeeplink: boolean ) => void;
 }
 
-function NavigationContent( props: NavigationContentProps ) {
+function NavigationContent(
+	props: NavigationContentProps & { onVipSubmit: ( values: CreateVipSiteFormValues ) => void }
+) {
 	const { __ } = useI18n();
 	const { goTo, location } = useNavigator();
+	const [ isVipFormValid, setIsVipFormValid ] = useState( false );
+	const vipFormRef = useRef< HTMLFormElement >( null );
 	const {
 		blueprintsData,
 		isLoadingBlueprints,
@@ -116,6 +121,8 @@ function NavigationContent( props: NavigationContentProps ) {
 				goTo( '/backup' );
 			} else if ( option === 'pullRemote' ) {
 				goTo( '/pullRemote' );
+			} else if ( option === 'vip' ) {
+				goTo( '/vip' );
 			}
 		},
 		[ goTo ]
@@ -175,7 +182,8 @@ function NavigationContent( props: NavigationContentProps ) {
 			location.path === '/blueprint/select' ||
 			location.path === '/blueprint/deeplink' ||
 			location.path === '/create' ||
-			location.path === '/pullRemote'
+			location.path === '/pullRemote' ||
+			location.path === '/vip'
 		) {
 			if ( location.path === '/backup' ) {
 				setFileForImport( null );
@@ -322,6 +330,13 @@ function NavigationContent( props: NavigationContentProps ) {
 					defaultValues={ { ...defaultValues, siteName: remoteSiteName } }
 				/>
 			</Navigator.Screen>
+			<Navigator.Screen className="flex-1" path="/vip">
+				<CreateVipSite
+					onSubmit={ props.onVipSubmit }
+					onValidityChange={ setIsVipFormValid }
+					formRef={ vipFormRef }
+				/>
+			</Navigator.Screen>
 			<Stepper
 				currentPath={ location.path }
 				onBack={ handleBack }
@@ -332,11 +347,15 @@ function NavigationContent( props: NavigationContentProps ) {
 				onCreateSubmit={ () => {
 					formRef.current?.requestSubmit();
 				} }
+				onVipSubmit={ () => {
+					vipFormRef.current?.requestSubmit();
+				} }
 				canSubmitBlueprint={ !! selectedBlueprint }
 				canSubmitBlueprintDeeplink={ !! selectedBlueprint }
 				canSubmitBackup={ !! fileForImport }
 				canSubmitPullRemote={ !! selectedRemoteSite }
 				canSubmitCreate={ canSubmit }
+				canSubmitVip={ isVipFormValid }
 			/>
 		</>
 	);
@@ -461,6 +480,53 @@ export function AddSiteModalContent( {
 		[ __, handleCreateSite, onSubmit ]
 	);
 
+	const handleVipFormSubmit = useCallback(
+		async ( values: CreateVipSiteFormValues ) => {
+			const vipSiteAddedMessage = sprintf(
+				// translators: %s is the VIP environment slug.
+				__( 'VIP environment "%s" is being created.' ),
+				values.slug
+			);
+
+			try {
+				const result = await getIpcApi().createVipEnv( {
+					slug: values.slug,
+					title: values.title || undefined,
+					phpVersion: values.phpVersion || undefined,
+					multisite:
+						values.multisite === 'false'
+							? false
+							: ( values.multisite as 'subdomain' | 'subdirectory' ),
+					appCodePath: values.appCodePath || undefined,
+					muPluginsPath: values.muPluginsPath || undefined,
+					elasticsearch: values.elasticsearch,
+					phpmyadmin: values.phpmyadmin,
+					xdebug: values.xdebug,
+					mailpit: values.mailpit,
+					photon: values.photon,
+					cron: values.cron,
+					mediaRedirectDomain: values.mediaRedirectDomain || undefined,
+				} );
+
+				if ( result.success ) {
+					onSubmit?.();
+					speak( vipSiteAddedMessage );
+				} else {
+					getIpcApi().showErrorMessageBox( {
+						title: __( 'Failed to create VIP environment' ),
+						message: result.stderr || __( 'An unknown error occurred.' ),
+					} );
+				}
+			} catch ( error ) {
+				getIpcApi().showErrorMessageBox( {
+					title: __( 'Failed to create VIP environment' ),
+					message: error instanceof Error ? error.message : __( 'An unknown error occurred.' ),
+				} );
+			}
+		},
+		[ __, onSubmit ]
+	);
+
 	// canSubmit is true if the form is initialized, has a name, and is valid (no errors)
 	const canSubmit = formInitialized && defaultSiteName.trim().length > 0 && isFormValid;
 
@@ -478,6 +544,7 @@ export function AddSiteModalContent( {
 				onSiteNameChange={ generateProposedPath }
 				existingDomainNames={ existingDomainNames }
 				onFormSubmit={ handleFormSubmit }
+				onVipSubmit={ handleVipFormSubmit }
 				onValidityChange={ setIsFormValid }
 				canSubmit={ canSubmit }
 				fileForImport={ fileForImport }

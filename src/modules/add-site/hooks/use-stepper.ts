@@ -20,11 +20,13 @@ interface StepperConfig {
 	onBackupContinue?: () => void;
 	onPullRemoteContinue?: () => void;
 	onCreateSubmit?: ( event: FormEvent ) => void;
+	onVipSubmit?: ( event: FormEvent ) => void;
 	canSubmitBlueprint?: boolean;
 	canSubmitBlueprintDeeplink?: boolean;
 	canSubmitBackup?: boolean;
 	canSubmitPullRemote?: boolean;
 	canSubmitCreate?: boolean;
+	canSubmitVip?: boolean;
 }
 
 interface StepperContext {
@@ -68,6 +70,10 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			{ id: 'site-details', label: __( 'Site name & details' ), path: '/pullRemote/create' },
 		];
 
+		const vipSteps: StepperStep[] = [
+			{ id: 'vip-config', label: __( 'VIP environment settings' ), path: '/vip' },
+		];
+
 		const blueprintDeeplinkSteps: StepperStep[] = [
 			{ id: 'blueprint-selected', label: __( 'Blueprint details' ), path: '/blueprint/deeplink' },
 			{
@@ -109,6 +115,13 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			return {
 				flow: 'create',
 				steps: createSteps,
+			};
+		}
+
+		if ( location.path === '/vip' ) {
+			return {
+				flow: 'vip',
+				steps: vipSteps,
 			};
 		}
 
@@ -183,6 +196,11 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 					label: __( 'Add site' ),
 					isVisible: true,
 				};
+			case '/vip':
+				return {
+					label: __( 'Create VIP site' ),
+					isVisible: true,
+				};
 			default:
 				return undefined;
 		}
@@ -212,6 +230,9 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			case '/pullRemote/create':
 				config?.onCreateSubmit?.( { preventDefault: () => {} } as FormEvent );
 				break;
+			case '/vip':
+				config?.onVipSubmit?.( { preventDefault: () => {} } as FormEvent );
+				break;
 		}
 	}, [ location.path, config ] );
 
@@ -234,6 +255,8 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			case '/backup/create':
 			case '/pullRemote/create':
 				return config?.canSubmitCreate ?? false;
+			case '/vip':
+				return config?.canSubmitVip ?? false;
 			default:
 				return false;
 		}

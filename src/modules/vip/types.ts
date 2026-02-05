@@ -117,6 +117,38 @@ export interface VipStartOptions {
 }
 
 /**
+ * Options for creating a new VIP environment.
+ */
+export interface VipCreateOptions {
+	/** Unique environment slug */
+	slug: string;
+	/** WordPress site title */
+	title?: string;
+	/** PHP version (e.g., "8.2") */
+	phpVersion?: string;
+	/** Multisite configuration */
+	multisite?: boolean | 'subdomain' | 'subdirectory';
+	/** Path to local application code */
+	appCodePath?: string;
+	/** Path to local MU plugins */
+	muPluginsPath?: string;
+	/** Enable Elasticsearch */
+	elasticsearch?: boolean;
+	/** Enable phpMyAdmin */
+	phpmyadmin?: boolean;
+	/** Enable XDebug */
+	xdebug?: boolean;
+	/** Enable Mailpit */
+	mailpit?: boolean;
+	/** Enable Photon */
+	photon?: boolean;
+	/** Enable Cron */
+	cron?: boolean;
+	/** Media redirect domain */
+	mediaRedirectDomain?: string;
+}
+
+/**
  * Result from VIP CLI command execution.
  */
 export interface VipCommandResult {

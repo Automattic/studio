@@ -11,13 +11,15 @@ import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { BlueprintIcon } from './blueprint-icon';
+import { VipIcon } from './vip-icon';
 
 export type AddSiteFlowType =
 	| 'create'
 	| 'blueprint'
 	| 'blueprintDeeplink'
 	| 'backup'
-	| 'pullRemote';
+	| 'pullRemote'
+	| 'vip';
 interface AddSiteOptionsProps {
 	onOptionSelect: ( option: AddSiteFlowType ) => void;
 }
@@ -101,6 +103,13 @@ export default function AddSiteOptions( { onOptionSelect }: AddSiteOptionsProps 
 				description={ __( 'Start with an empty site' ) }
 				onClick={ () => onOptionSelect( 'create' ) }
 				testId="create-site-option-button"
+			/>
+			<OptionButton
+				icon={ <VipIcon size={ 26 } /> }
+				title={ __( 'Create a VIP site' ) }
+				description={ __( 'Create a VIP Local Development Environment' ) }
+				onClick={ () => onOptionSelect( 'vip' ) }
+				testId="create-vip-site-option-button"
 			/>
 			{ enableBlueprints && (
 				<OptionButton

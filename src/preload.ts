@@ -157,6 +157,7 @@ const api: IpcApi = {
 	getVipEnvironmentDetails: ( slug ) => ipcRendererInvoke( 'getVipEnvironmentDetails', slug ),
 	startVipEnv: ( slug, options ) => ipcRendererInvoke( 'startVipEnv', slug, options ),
 	stopVipEnv: ( slug ) => ipcRendererInvoke( 'stopVipEnv', slug ),
+	createVipEnv: ( options ) => ipcRendererInvoke( 'createVipEnv', options ),
 	executeVipCliCommand: ( args ) => ipcRendererInvoke( 'executeVipCliCommand', args ),
 	openVipEnvironmentFolder: ( slug ) => ipcRendererInvoke( 'openVipEnvironmentFolder', slug ),
 	openVipAppCodeFolder: ( slug ) => ipcRendererInvoke( 'openVipAppCodeFolder', slug ),

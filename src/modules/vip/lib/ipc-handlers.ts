@@ -7,6 +7,7 @@
 import { shell } from 'electron';
 import {
 	checkVipCliStatus,
+	createVipEnvironment,
 	executeVipCommand,
 	getVipDevEnvPath,
 	getVipEnvironment,
@@ -14,7 +15,13 @@ import {
 	startVipEnvironment,
 	stopVipEnvironment,
 } from './vip-environment';
-import type { VipCliStatus, VipCommandResult, VipEnvironment, VipStartOptions } from '../types';
+import type {
+	VipCliStatus,
+	VipCommandResult,
+	VipCreateOptions,
+	VipEnvironment,
+	VipStartOptions,
+} from '../types';
 import type { IpcMainInvokeEvent } from 'electron';
 
 /**
@@ -127,4 +134,14 @@ export async function openVipEnvironmentInBrowser(
  */
 export function getVipDataPath( _event: IpcMainInvokeEvent ): string {
 	return getVipDevEnvPath();
+}
+
+/**
+ * Create a new VIP environment.
+ */
+export async function createVipEnv(
+	_event: IpcMainInvokeEvent,
+	options: VipCreateOptions
+): Promise< VipCommandResult > {
+	return createVipEnvironment( options );
 }

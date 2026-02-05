@@ -128,6 +128,7 @@ export {
 	getVipEnvironmentDetails,
 	startVipEnv,
 	stopVipEnv,
+	createVipEnv,
 	executeVipCliCommand,
 	openVipEnvironmentFolder,
 	openVipAppCodeFolder,

@@ -4,9 +4,9 @@ import {
 } from '@wordpress/components';
 import { useEffect } from 'react';
 import MacTitlebar from 'src/components/mac-titlebar';
+import { MainContent } from 'src/components/main-content';
 import MainSidebar from 'src/components/main-sidebar';
 import { NoStudioSites } from 'src/components/no-studio-sites';
-import { SiteContentTabs } from 'src/components/site-content-tabs';
 import TopBar from 'src/components/top-bar';
 import WindowsTitlebar from 'src/components/windows-titlebar';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
@@ -18,6 +18,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Onboarding } from 'src/modules/onboarding';
 import { useOnboarding } from 'src/modules/onboarding/hooks/use-onboarding';
 import { UserSettings } from 'src/modules/user-settings';
+import { VipProvider } from 'src/modules/vip/context/vip-context';
 import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
 import { useRootSelector } from 'src/stores';
 import { selectOnboardingLoading } from 'src/stores/onboarding-slice';
@@ -42,7 +43,7 @@ export default function App() {
 	}
 
 	return (
-		<>
+		<VipProvider>
 			{ needsOnboarding || isEmpty ? (
 				<VStack
 					className={ cx( 'h-screen backdrop-blur-3xl app-drag-region select-none' ) }
@@ -81,13 +82,13 @@ export default function App() {
 							data-testid="site-content"
 							className="bg-white h-full flex-grow rounded-chrome overflow-hidden z-10"
 						>
-							<SiteContentTabs />
+							<MainContent />
 						</main>
 					</HStack>
 				</VStack>
 			) }
 			<UserSettings />
 			<WhatsNewModal showModal={ shouldShowWhatsNew } onClose={ closeWhatsNew } />
-		</>
+		</VipProvider>
 	);
 }

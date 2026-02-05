@@ -5,7 +5,7 @@
  * rather than parsing CLI output, providing a more reliable integration.
  */
 
-import { exec } from 'child_process';
+import { spawn, exec } from 'child_process';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import { homedir, platform } from 'os';
@@ -14,6 +14,7 @@ import { promisify } from 'util';
 import type {
 	VipCliStatus,
 	VipCommandResult,
+	VipCreateOptions,
 	VipEnvironment,
 	VipInstanceData,
 	VipStartOptions,
@@ -233,7 +234,48 @@ export async function checkVipCliStatus(): Promise< VipCliStatus > {
 }
 
 /**
- * Execute a VIP CLI command.
+ * Get common paths where npm global packages might be installed.
+ */
+function getCommonNpmPaths(): string[] {
+	const home = homedir();
+	const paths: string[] = [];
+
+	if ( platform() === 'darwin' || platform() === 'linux' ) {
+		// Common npm global paths on macOS/Linux
+		paths.push(
+			'/usr/local/bin',
+			'/opt/homebrew/bin', // Homebrew on Apple Silicon
+			'/usr/local/opt/node/bin',
+			path.join( home, '.npm-global', 'bin' ),
+			path.join( home, '.nvm', 'versions', 'node' ), // NVM - will need to find actual version
+			path.join( home, 'n', 'bin' ), // n version manager
+			path.join( home, '.local', 'bin' ),
+			'/opt/local/bin' // MacPorts
+		);
+
+		// Try to find active Node version from common version managers
+		const nvmDir = process.env.NVM_DIR || path.join( home, '.nvm' );
+		if ( fs.existsSync( nvmDir ) ) {
+			const versionsDir = path.join( nvmDir, 'versions', 'node' );
+			if ( fs.existsSync( versionsDir ) ) {
+				try {
+					const versions = fs.readdirSync( versionsDir );
+					for ( const version of versions ) {
+						paths.push( path.join( versionsDir, version, 'bin' ) );
+					}
+				} catch {
+					// Ignore errors
+				}
+			}
+		}
+	}
+
+	return paths;
+}
+
+/**
+ * Execute a VIP CLI command using spawn for better streaming and cross-platform support.
+ * Uses shell: true to ensure proper PATH resolution.
  */
 export async function executeVipCommand(
 	args: string[],
@@ -242,14 +284,101 @@ export async function executeVipCommand(
 	const timeout = options.timeout || 120000; // 2 minute default
 
 	return new Promise( ( resolve ) => {
-		const command = `vip ${ args.join( ' ' ) }`;
+		// Build extended PATH with common npm global locations
+		const currentPath = process.env.PATH || '';
+		const additionalPaths = getCommonNpmPaths();
+		const extendedPath = [ ...additionalPaths, currentPath ].join( path.delimiter );
 
-		exec( command, { timeout }, ( error, stdout, stderr ) => {
+		// Build the command with slug argument properly formatted
+		const vipArgs = args.map( ( arg ) => {
+			// Ensure arguments with = are properly quoted if they contain spaces
+			if ( arg.includes( '=' ) && arg.includes( ' ' ) ) {
+				const [ key, ...valueParts ] = arg.split( '=' );
+				return `${ key }="${ valueParts.join( '=' ) }"`;
+			}
+			return arg;
+		} );
+
+		const spawnOptions = {
+			shell: true, // Important for cross-platform compatibility
+			env: {
+				...process.env,
+				PATH: extendedPath,
+			},
+		};
+
+		const childProcess = spawn( 'vip', vipArgs, spawnOptions );
+
+		let stdout = '';
+		let stderr = '';
+		let timedOut = false;
+
+		// Set up timeout if specified
+		let timeoutId: NodeJS.Timeout | undefined;
+		if ( timeout > 0 ) {
+			timeoutId = setTimeout( () => {
+				timedOut = true;
+				childProcess.kill( 'SIGTERM' );
+			}, timeout );
+		}
+
+		childProcess.stdout?.on( 'data', ( data: Buffer ) => {
+			stdout += data.toString();
+		} );
+
+		childProcess.stderr?.on( 'data', ( data: Buffer ) => {
+			stderr += data.toString();
+		} );
+
+		childProcess.on( 'close', ( code: number | null ) => {
+			if ( timeoutId ) {
+				clearTimeout( timeoutId );
+			}
+
+			if ( timedOut ) {
+				resolve( {
+					success: false,
+					stdout,
+					stderr: stderr || 'Command timed out',
+					exitCode: code,
+				} );
+				return;
+			}
+
+			// If the command wasn't found, provide a helpful error message
+			if (
+				code === 127 ||
+				stderr.includes( 'command not found' ) ||
+				stderr.includes( 'not recognized' )
+			) {
+				resolve( {
+					success: false,
+					stdout,
+					stderr:
+						'VIP CLI not found. Please ensure @automattic/vip-cli is installed globally (npm install -g @automattic/vip-cli) and restart Studio.',
+					exitCode: 127,
+				} );
+				return;
+			}
+
 			resolve( {
-				success: ! error,
+				success: code === 0,
 				stdout,
 				stderr,
-				exitCode: error?.code ?? 0,
+				exitCode: code,
+			} );
+		} );
+
+		childProcess.on( 'error', ( error: Error ) => {
+			if ( timeoutId ) {
+				clearTimeout( timeoutId );
+			}
+
+			resolve( {
+				success: false,
+				stdout,
+				stderr: error.message,
+				exitCode: null,
 			} );
 		} );
 	} );
@@ -268,12 +397,8 @@ export async function startVipEnvironment(
 		args.push( '--skip-rebuild' );
 	}
 
-	if ( options.skipWpVersionCheck ) {
-		args.push( '--skip-wp-versions-check' );
-	}
-
-	// Add non-interactive flag to avoid prompts
-	args.push( '--yes' );
+	// Skip WordPress version check prompt to run non-interactively
+	args.push( '--skip-wp-versions-check' );
 
 	return executeVipCommand( args, { timeout: 300000 } ); // 5 minute timeout for start
 }
@@ -298,4 +423,72 @@ export async function getVipEnvironmentInfo( slug: string ): Promise< VipCommand
 export async function openVipShell( slug: string ): Promise< VipCommandResult > {
 	// This will open an interactive shell, so we use a longer timeout
 	return executeVipCommand( [ 'dev-env', 'shell', `--slug=${ slug }` ], { timeout: 0 } );
+}
+
+/**
+ * Create a new VIP environment.
+ */
+export async function createVipEnvironment(
+	options: VipCreateOptions
+): Promise< VipCommandResult > {
+	const args = [ 'dev-env', 'create', `--slug=${ options.slug }` ];
+
+	// Add optional parameters
+	if ( options.title ) {
+		args.push( `--title=${ options.title }` );
+	}
+
+	if ( options.phpVersion ) {
+		args.push( `--php=${ options.phpVersion }` );
+	}
+
+	if ( options.multisite ) {
+		if ( options.multisite === true ) {
+			args.push( '--multisite' );
+		} else if ( options.multisite === 'subdomain' || options.multisite === 'subdirectory' ) {
+			args.push( `--multisite=${ options.multisite }` );
+		}
+	}
+
+	if ( options.appCodePath ) {
+		args.push( `--app-code=${ options.appCodePath }` );
+	}
+
+	if ( options.muPluginsPath ) {
+		args.push( `--mu-plugins=${ options.muPluginsPath }` );
+	}
+
+	if ( options.elasticsearch ) {
+		args.push( '--elasticsearch' );
+	}
+
+	if ( options.phpmyadmin ) {
+		args.push( '--phpmyadmin' );
+	}
+
+	if ( options.xdebug ) {
+		args.push( '--xdebug' );
+	}
+
+	if ( options.mailpit ) {
+		args.push( '--mailpit' );
+	}
+
+	if ( options.photon ) {
+		args.push( '--photon' );
+	}
+
+	if ( options.cron ) {
+		args.push( '--cron' );
+	}
+
+	if ( options.mediaRedirectDomain ) {
+		args.push( `--media-redirect-domain=${ options.mediaRedirectDomain }` );
+	}
+
+	// Add non-interactive flag to avoid prompts
+	args.push( '--yes' );
+
+	// Creating an environment can take a while due to Docker image pulls
+	return executeVipCommand( args, { timeout: 600000 } ); // 10 minute timeout
 }

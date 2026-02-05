@@ -15,6 +15,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
+import { useVipContext } from 'src/modules/vip/context/vip-context';
 import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
 
 interface SiteMenuProps {
@@ -134,6 +135,7 @@ function ButtonToRun( {
 }
 function SiteItem( { site }: { site: SiteDetails } ) {
 	const { selectedSite, setSelectedSiteId, loadingServer, isSiteDeleting } = useSiteDetails();
+	const { selectEnvironment } = useVipContext();
 	const isSelected = site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
 	const { isSiteIdPulling, isSiteIdPushing } = useSyncSites();
@@ -193,6 +195,8 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 			<button
 				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blue-50"
 				onClick={ () => {
+					// Deselect VIP environment when selecting a regular site
+					selectEnvironment( null );
 					setSelectedSiteId( site.id );
 				} }
 			>

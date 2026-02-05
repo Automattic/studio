@@ -571,10 +571,28 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 	await server.delete( deleteFiles );
 }
 
+export async function generateCopySiteName(
+	event: IpcMainInvokeEvent,
+	sourceSiteId: string
+): Promise< string > {
+	const sourceServer = SiteServer.get( sourceSiteId );
+	if ( ! sourceServer ) {
+		throw new Error( 'Source site not found.' );
+	}
+	const sourceSite = sourceServer.details;
+
+	const baseCopyName = `${ sourceSite.name } Copy`;
+	return generateNumberedName( baseCopyName, async ( name ) => {
+		const result = await generateProposedSitePath( event, name );
+		return result.isEmpty;
+	} );
+}
+
 export async function copySite(
 	event: IpcMainInvokeEvent,
 	sourceSiteId: string,
-	newSiteId?: string
+	newSiteId: string,
+	siteName: string
 ): Promise< SiteDetails > {
 	// Get source site
 	const sourceServer = SiteServer.get( sourceSiteId );
@@ -583,18 +601,12 @@ export async function copySite(
 	}
 	const sourceSite = sourceServer.details;
 
-	// Generate a unique site name using generateNumberedName
-	const baseCopyName = `${ sourceSite.name } Copy`;
-	const finalSiteName = await generateNumberedName( baseCopyName, async ( name ) => {
-		const result = await generateProposedSitePath( event, name );
-		return result.isEmpty;
-	} );
-	const finalSitePath = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( finalSiteName ) );
+	const finalSitePath = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( siteName ) );
 
 	// Use provided site ID or generate a new unique site ID
 	const siteId = newSiteId || crypto.randomUUID();
 
-	console.log( `Copying site '${ sourceSite.name }' to '${ finalSiteName }'` );
+	console.log( `Copying site '${ sourceSite.name }' to '${ siteName }'` );
 
 	// Copy the site files
 	await recursiveCopyDirectory( sourceSite.path, finalSitePath );
@@ -619,7 +631,7 @@ export async function copySite(
 	// Create new site details
 	const newSiteDetails: StoppedSiteDetails = {
 		id: siteId,
-		name: finalSiteName,
+		name: siteName,
 		path: finalSitePath,
 		port,
 		phpVersion: sourceSite.phpVersion,

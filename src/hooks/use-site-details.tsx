@@ -420,9 +420,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				);
 			};
 
+			// Generate the unique site name first to avoid name flickering
+			const finalSiteName = await getIpcApi().generateCopySiteName( sourceSiteId );
+
 			// Create a temporary site ID for the progress display
 			const tempSiteId = crypto.randomUUID();
-			const tempSiteName = `${ sourceSite.name } Copy`;
 
 			// Add temporary site to the list with isAddingSite: true
 			setSites( ( prevData ) =>
@@ -430,7 +432,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					...prevData,
 					{
 						id: tempSiteId,
-						name: tempSiteName,
+						name: finalSiteName,
 						path: '', // Path will be determined by the backend
 						port: -1, // Temporary port
 						running: false,
@@ -448,8 +450,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 			let newSite: SiteDetails;
 			try {
-				// Call the IPC to copy the site, passing the temp site ID
-				newSite = await getIpcApi().copySite( sourceSiteId, tempSiteId );
+				// Call the IPC to copy the site, passing the temp site ID and pre-generated name
+				newSite = await getIpcApi().copySite( sourceSiteId, tempSiteId, finalSiteName );
 				if ( ! newSite ) {
 					showError();
 					return;

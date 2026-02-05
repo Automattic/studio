@@ -29,7 +29,6 @@ import {
 	pathExists,
 	recursiveCopyDirectory,
 } from 'common/lib/fs-utils';
-import { generateNumberedName } from 'common/lib/generate-numbered-name';
 import { getWordPressVersion } from 'common/lib/get-wordpress-version';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import { getAuthenticationUrl } from 'common/lib/oauth';
@@ -569,23 +568,6 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 		throw new Error( 'Site not found.' );
 	}
 	await server.delete( deleteFiles );
-}
-
-export async function generateCopySiteName(
-	event: IpcMainInvokeEvent,
-	sourceSiteId: string
-): Promise< string > {
-	const sourceServer = SiteServer.get( sourceSiteId );
-	if ( ! sourceServer ) {
-		throw new Error( 'Source site not found.' );
-	}
-	const sourceSite = sourceServer.details;
-
-	const baseCopyName = `${ sourceSite.name } Copy`;
-	return generateNumberedName( baseCopyName, async ( name ) => {
-		const result = await generateProposedSitePath( event, name );
-		return result.isEmpty;
-	} );
 }
 
 export async function copySite(

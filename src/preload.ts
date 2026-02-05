@@ -39,8 +39,6 @@ const api: IpcApi = {
 			specificSelectionPaths
 		),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
-	generateCopySiteName: ( sourceSiteId ) =>
-		ipcRendererInvoke( 'generateCopySiteName', sourceSiteId ),
 	copySite: ( sourceSiteId, newSiteId, siteName ) =>
 		ipcRendererInvoke( 'copySite', sourceSiteId, newSiteId, siteName ),
 	createSite: ( path, config ) => ipcRendererInvoke( 'createSite', path, config ),

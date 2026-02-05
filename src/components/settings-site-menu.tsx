@@ -25,6 +25,7 @@ export const SettingsMenuItem = ( {
 
 	return (
 		<MenuItem
+			className="flex"
 			aria-disabled={ isDisabled }
 			onClick={ () => {
 				if ( isDisabled ) {

@@ -93,6 +93,7 @@ import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-setting
 import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
+import { resolveDefaultSiteDirectory } from 'src/storage/default-site-directory';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import {
 	loadUserData,
@@ -101,7 +102,6 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
-import { resolveDefaultSiteDirectory } from 'src/storage/default-site-directory';
 import { Blueprint } from 'src/stores/wpcom-api';
 import type { RawDirectoryEntry } from 'src/modules/sync/types';
 import type { WpCliResult } from 'src/site-server';

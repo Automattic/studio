@@ -5,6 +5,8 @@ import Button from 'src/components/button';
 import { isWindowsStore } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ColorSchemePicker } from 'src/modules/user-settings/components/color-scheme-picker';
+import { McpSettings } from 'src/modules/mcp/components/mcp-settings';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { EditorPicker } from 'src/modules/user-settings/components/editor-picker';
 import { LanguagePicker } from 'src/modules/user-settings/components/language-picker';
 import { StudioCliToggle } from 'src/modules/user-settings/components/studio-cli-toggle';
@@ -23,6 +25,7 @@ import {
 	useGetStudioCliIsInstalledQuery,
 	useSaveStudioCliIsInstalledMutation,
 } from 'src/stores/installed-apps-api';
+import { DefaultDirectoryPicker } from './default-directory-picker';
 
 export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { __ } = useI18n();
@@ -44,6 +47,10 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const [ dirtyEditor, setDirtyEditor ] = useState< SupportedEditor | null >();
 	const [ dirtyTerminal, setDirtyTerminal ] = useState< SupportedTerminal >();
 	const [ dirtyIsCliInstalled, setDirtyIsCliInstalled ] = useState< boolean >();
+	const [ storedDefaultSiteDirectory, setStoredDefaultSiteDirectory ] = useState< string >();
+	const [ defaultSiteDirectory, setDefaultSiteDirectory ] = useState< string >();
+	const [ isLoadingDefaultSiteDirectory, setIsLoadingDefaultSiteDirectory ] = useState( true );
+	const [ isSelectingDefaultDirectory, setIsSelectingDefaultDirectory ] = useState( false );
 
 	const wasSavedRef = useRef( false );
 	const dirtyColorSchemeRef = useRef( dirtyColorScheme );
@@ -88,6 +95,13 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		if ( dirtyIsCliInstalled !== undefined ) {
 			await saveCliIsInstalled( dirtyIsCliInstalled );
 		}
+		const isDefaultDirectoryDirty =
+			storedDefaultSiteDirectory !== undefined &&
+			defaultSiteDirectory !== undefined &&
+			storedDefaultSiteDirectory !== defaultSiteDirectory;
+		if ( isDefaultDirectoryDirty && defaultSiteDirectory ) {
+			await getIpcApi().saveDefaultSiteDirectory( defaultSiteDirectory );
+		}
 		onClose();
 	};
 
@@ -103,7 +117,44 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		[ dirtyEditor, editor ],
 		[ dirtyTerminal, terminal ],
 		[ dirtyIsCliInstalled, isCliInstalled ],
+		[ defaultSiteDirectory, storedDefaultSiteDirectory ],
 	].some( ( [ a, b ] ) => a !== undefined && a !== b );
+
+	useEffect( () => {
+		let isMounted = true;
+		void ( async () => {
+			try {
+				const directory = await getIpcApi().getDefaultSiteDirectory();
+				if ( ! isMounted ) {
+					return;
+				}
+				setStoredDefaultSiteDirectory( directory );
+				setDefaultSiteDirectory( directory );
+			} finally {
+				if ( isMounted ) {
+					setIsLoadingDefaultSiteDirectory( false );
+				}
+			}
+		} )();
+		return () => {
+			isMounted = false;
+		};
+	}, [] );
+
+	const handleChangeDefaultDirectory = async () => {
+		setIsSelectingDefaultDirectory( true );
+		try {
+			const response = await getIpcApi().showOpenFolderDialog(
+				__( 'Select default site directory' ),
+				defaultSiteDirectory ?? ''
+			);
+			if ( response?.path ) {
+				setDefaultSiteDirectory( response.path );
+			}
+		} finally {
+			setIsSelectingDefaultDirectory( false );
+		}
+	};
 
 	return (
 		<>
@@ -120,6 +171,12 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 			{ ! isWindowsStore() && (
 				<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />
 			) }
+			<DefaultDirectoryPicker
+				directory={ defaultSiteDirectory }
+				isLoading={ isLoadingDefaultSiteDirectory }
+				isSelecting={ isSelectingDefaultDirectory }
+				onPick={ handleChangeDefaultDirectory }
+			/>
 			<div className="mt-auto pt-2 flex justify-end gap-3">
 				<Button
 					variant="tertiary"

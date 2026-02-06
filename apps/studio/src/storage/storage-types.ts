@@ -31,6 +31,7 @@ export interface UserData {
 	colorScheme?: 'system' | 'light' | 'dark';
 	betaFeatures?: BetaFeatures;
 	stopSitesOnQuit?: boolean;
+	defaultSiteDirectory?: string;
 }
 
 export interface PersistedUserData extends Omit< UserData, 'sites' > {

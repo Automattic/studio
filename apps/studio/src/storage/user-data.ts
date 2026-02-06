@@ -162,6 +162,7 @@ type UserDataSafeKeys =
 	| 'preferredEditor'
 	| 'betaFeatures'
 	| 'colorScheme';
+	| 'defaultSiteDirectory';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
 

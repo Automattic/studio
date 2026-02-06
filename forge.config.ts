@@ -8,6 +8,7 @@ import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-nati
 import { isErrnoException } from './common/lib/is-errno-exception';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { exec as pkgExec } from '@yao-pkg/pkg';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const config: ForgeConfig = {
@@ -148,9 +149,16 @@ const config: ForgeConfig = {
 				const pkgArch = arch === 'x64' ? 'x64' : 'arm64';
 				const target = `node22-win-${ pkgArch }`;
 				console.log( `Building CLI launcher executable for ${ target }...` );
-				await execAsync(
-					`npx pkg bin/studio-cli-launcher.js --target ${ target } --output bin/studio-cli.exe --compress GZip --no-bytecode`
-				);
+				await pkgExec( [
+					'bin/studio-cli-launcher.js',
+					'--target',
+					target,
+					'--output',
+					'bin/studio-cli.exe',
+					'--compress',
+					'GZip',
+					'--no-bytecode',
+				] );
 			}
 		},
 	},

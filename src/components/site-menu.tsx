@@ -2,7 +2,6 @@ import * as Sentry from '@sentry/electron/renderer';
 import { speak } from '@wordpress/a11y';
 import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { Icon, dragHandle } from '@wordpress/icons';
 import { useEffect, useState } from 'react';
 import { XDebugIcon } from 'src/components/icons/xdebug-icon';
 import { Tooltip } from 'src/components/tooltip';
@@ -222,7 +221,6 @@ function SiteItem( {
 			onDrop={ ( e ) => onDrop( e, index ) }
 			onDragEnd={ onDragEnd }
 		>
-			<Icon icon={ dragHandle } className="fill-white" />
 			<button
 				type="button"
 				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-a8c-blue-50"

@@ -104,6 +104,10 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 function buildCliArgs( options: CreateSiteOptions ): string[] {
 	const args = [ 'site', 'create', '--path', options.path, '--skip-browser', '--skip-log-details' ];
 
+	if ( options.siteId ) {
+		args.push( '--id', options.siteId );
+	}
+
 	if ( options.name ) {
 		args.push( '--name', options.name );
 	}

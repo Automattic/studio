@@ -1,6 +1,7 @@
 import path from 'path';
 import fs from 'fs-extra';
 import semver from 'semver';
+import { recursiveCopyDirectory } from 'common/lib/fs-utils';
 import { downloadWordPress } from 'src/lib/download-utils';
 import { getWordPressVersionPath } from 'src/lib/server-files-paths';
 
@@ -67,7 +68,10 @@ export async function updateLatestWordPressVersion() {
 		const latestVersion = await getLatestWordPressVersion();
 		if ( installedVersion && latestVersion !== 'latest' && installedVersion !== latestVersion ) {
 			// We keep a copy of the latest installed version instead of removing it.
-			await fs.copy( latestVersionPath, getWordPressVersionPath( installedVersion ) );
+			await recursiveCopyDirectory(
+				latestVersionPath,
+				getWordPressVersionPath( installedVersion )
+			);
 			shouldOverwrite = true;
 		}
 	}

@@ -14,6 +14,7 @@ import {
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import https from 'node:https';
+import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
@@ -122,6 +123,38 @@ export {
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
+const DEBUG_LOG_MAX_LINES = 50;
+const PM2_HOME = nodePath.join( os.homedir(), '.studio', 'pm2' );
+
+function readLastLines( filePath: string, maxLines: number ): string[] | undefined {
+	try {
+		if ( ! fs.existsSync( filePath ) ) {
+			return undefined;
+		}
+		const content = fs.readFileSync( filePath, 'utf-8' );
+		const lines = content.split( '\n' ).filter( ( line ) => line.trim() );
+		return lines.slice( -maxLines );
+	} catch {
+		return undefined;
+	}
+}
+
+function readWordPressDebugLog( sitePath: string ): string[] | undefined {
+	const debugLogPath = nodePath.join( sitePath, 'wp-content', 'debug.log' );
+	return readLastLines( debugLogPath, DEBUG_LOG_MAX_LINES );
+}
+
+function readPm2Logs( siteId: string ): { stdout?: string[]; stderr?: string[] } {
+	const logsDir = nodePath.join( PM2_HOME, 'logs' );
+	const stdoutPath = nodePath.join( logsDir, `studio-site-${ siteId }-out.log` );
+	const stderrPath = nodePath.join( logsDir, `studio-site-${ siteId }-error.log` );
+
+	return {
+		stdout: readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ),
+		stderr: readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ),
+	};
+}
+
 function mergeSiteDetailsWithRunningDetails( sites: SiteDetails[] ): SiteDetails[] {
 	return sites.map( ( site ) => {
 		const server = SiteServer.get( site.id );
@@ -221,11 +254,13 @@ export async function createSite(
 		wpVersion,
 		customDomain,
 		enableHttps,
-		siteId,
+		siteId: providedSiteId,
 		blueprint,
 		phpVersion,
 		noStart = false,
 	} = config;
+
+	const siteId = providedSiteId || crypto.randomUUID();
 
 	const metric = getBlueprintMetric( blueprint?.slug );
 	bumpStat( StatsGroup.STUDIO_SITE_CREATE, metric );
@@ -271,6 +306,19 @@ export async function createSite(
 		const cliError = parseCliError( error );
 		if ( cliError?.cliArgs ) {
 			contexts.startup = cliError.cliArgs;
+		}
+
+		const debugLog = readWordPressDebugLog( path );
+		if ( debugLog && debugLog.length > 0 ) {
+			contexts.debugLog = { entries: debugLog };
+		}
+
+		const pm2Logs = readPm2Logs( siteId );
+		if ( pm2Logs.stdout && pm2Logs.stdout.length > 0 ) {
+			contexts.playgroundLogs = { entries: pm2Logs.stdout };
+		}
+		if ( pm2Logs.stderr && pm2Logs.stderr.length > 0 ) {
+			contexts.playgroundErrors = { entries: pm2Logs.stderr };
 		}
 
 		Sentry.captureException( error, {
@@ -386,6 +434,19 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		const cliError = parseCliError( error );
 		if ( cliError?.cliArgs ) {
 			contexts.startup = cliError.cliArgs;
+		}
+
+		const debugLog = readWordPressDebugLog( server.details.path );
+		if ( debugLog && debugLog.length > 0 ) {
+			contexts.debugLog = { entries: debugLog };
+		}
+
+		const pm2Logs = readPm2Logs( id );
+		if ( pm2Logs.stdout && pm2Logs.stdout.length > 0 ) {
+			contexts.playgroundLogs = { entries: pm2Logs.stdout };
+		}
+		if ( pm2Logs.stderr && pm2Logs.stderr.length > 0 ) {
+			contexts.playgroundErrors = { entries: pm2Logs.stderr };
 		}
 
 		Sentry.captureException( error, {

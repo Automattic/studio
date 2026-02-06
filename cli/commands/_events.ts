@@ -6,6 +6,7 @@
  * stdout key-value pairs that Studio parses.
  *
  */
+import fs from 'fs';
 import { __ } from '@wordpress/i18n';
 import { sequential } from 'common/lib/sequential';
 import { SITE_EVENTS, siteDetailsSchema, SiteEvent } from 'common/lib/site-events';
@@ -137,6 +138,17 @@ export async function runCommand(): Promise< void > {
 				bindAbortController.signal.removeEventListener( 'abort', onAbort );
 				resolve();
 			} );
+
+			// Remove stale socket file before binding (Unix only).
+			// If Studio crashes or is killed, the socket file may be left behind,
+			// preventing the new _events process from binding.
+			if ( process.platform !== 'win32' ) {
+				try {
+					fs.unlinkSync( EVENTS_SOCKET_PATH );
+				} catch {
+					// File doesn't exist or can't be removed - that's fine
+				}
+			}
 
 			socket.bind( EVENTS_SOCKET_PATH, ( error: unknown ) => {
 				if ( error ) {

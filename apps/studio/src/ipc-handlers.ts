@@ -620,9 +620,11 @@ export async function showSaveAsDialog( event: IpcMainInvokeEvent, options: Save
 		throw new Error( `No window found for sender of showSaveAsDialog message: ${ event.frameId }` );
 	}
 
+	const defaultSiteDirectory = await resolveDefaultSiteDirectory();
 	const defaultPath =
-		options.defaultPath === nodePath.basename( options.defaultPath ?? '' )
-			? nodePath.join( DEFAULT_SITE_PATH, options.defaultPath )
+		typeof options.defaultPath === 'string' &&
+		options.defaultPath === nodePath.basename( options.defaultPath )
+			? nodePath.join( defaultSiteDirectory, options.defaultPath )
 			: options.defaultPath;
 	const { canceled, filePath } = await dialog.showSaveDialog( parentWindow, {
 		defaultPath,
@@ -657,9 +659,10 @@ export async function showOpenFolderDialog(
 		};
 	}
 
+	const defaultSiteDirectory = await resolveDefaultSiteDirectory();
 	const { canceled, filePaths } = await dialog.showOpenDialog( parentWindow, {
 		title,
-		defaultPath: defaultDialogPath !== '' ? defaultDialogPath : DEFAULT_SITE_PATH,
+		defaultPath: defaultDialogPath !== '' ? defaultDialogPath : defaultSiteDirectory,
 		properties: [
 			'openDirectory',
 			'createDirectory', // allow user to create new directories; macOS only
@@ -901,7 +904,8 @@ export async function generateProposedSitePath(
 	_event: IpcMainInvokeEvent,
 	siteName: string
 ): Promise< FolderDialogResponse > {
-	const path = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( siteName ) );
+	const defaultSiteDirectory = await resolveDefaultSiteDirectory();
+	const path = nodePath.join( defaultSiteDirectory, sanitizeFolderName( siteName ) );
 
 	try {
 		return {

@@ -158,6 +158,7 @@ const config: ForgeConfig = {
 					'--compress',
 					'GZip',
 					'--no-bytecode',
+					'--public',
 				] );
 			}
 		},

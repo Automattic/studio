@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { DEFAULT_PHP_VERSION } from 'common/constants';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { parseJsonFromPhpOutput } from 'common/lib/php-output-parser';
 import { AppDispatch, RootState } from 'src/stores';
 import { assistantQuotaSchema, wpcomApi } from 'src/stores/wpcom-api';
 
@@ -32,7 +33,7 @@ const createTypedAsyncThunk = createAsyncThunk.withTypes< {
 
 const parseWpCliOutput = ( stdout: string ): string[] => {
 	try {
-		const data = JSON.parse( stdout );
+		const data = parseJsonFromPhpOutput( stdout );
 		return data?.map( ( item: { name: string } ) => item.name ) || [];
 	} catch ( error ) {
 		Sentry.captureException( error, { extra: { stdout } } );

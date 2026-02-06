@@ -17,6 +17,8 @@ import { getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
+import { parseJsonFromPhpOutput } from 'common/lib/php-output-parser';
+
 export type WpCliResult = { stdout: string; stderr: string; exitCode: number };
 
 const servers = new Map< string, SiteServer >();
@@ -394,7 +396,7 @@ export class SiteServer {
 				return this.details.themeDetails;
 			}
 
-			const themeDetailsParsed = JSON.parse( stdout );
+			const themeDetailsParsed = parseJsonFromPhpOutput( stdout );
 			this.details.themeDetails = SiteServer.themeDetailsSchema.parse( themeDetailsParsed );
 		} catch ( error ) {
 			console.error( 'Failed to get theme details:', error );

@@ -20,6 +20,7 @@ import {
 	StudioJson,
 } from 'src/lib/import-export/export/types';
 import { getWordPressVersionFromInstallation } from 'src/lib/wp-versions';
+import { parseJsonFromPhpOutput } from 'common/lib/php-output-parser';
 import { SiteServer } from 'src/site-server';
 
 export class DefaultExporter extends EventEmitter implements Exporter {
@@ -309,7 +310,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		// Try to parse stdout first. WordPress may produce warnings on stderr (e.g., when offline
 		// and can't check for updates) while still returning valid JSON data on stdout.
 		try {
-			return JSON.parse( stdout );
+			return parseJsonFromPhpOutput( stdout );
 		} catch ( error ) {
 			if ( stderr ) {
 				console.error( `Could not get information about plugins: ${ stderr }` );
@@ -341,7 +342,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		// Try to parse stdout first. WordPress may produce warnings on stderr (e.g., when offline
 		// and can't check for updates) while still returning valid JSON data on stdout.
 		try {
-			return JSON.parse( stdout );
+			return parseJsonFromPhpOutput( stdout );
 		} catch ( error ) {
 			if ( stderr ) {
 				console.error( `Could not get information about themes: ${ stderr }` );

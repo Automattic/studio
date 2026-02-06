@@ -1,6 +1,7 @@
 import path from 'path';
 import { move } from 'fs-extra';
 import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
+import { parseJsonFromPhpOutput } from 'common/lib/php-output-parser';
 import { SiteServer } from 'src/site-server';
 
 export async function exportDatabaseToFile(
@@ -67,7 +68,7 @@ export async function exportDatabaseToMultipleFiles(
 	let tables;
 
 	try {
-		tables = JSON.parse( tablesResult.stdout );
+		tables = parseJsonFromPhpOutput( tablesResult.stdout );
 	} catch ( error ) {
 		console.error(
 			`Could not get list of database tables. The WP CLI output: ${ tablesResult.stdout }`

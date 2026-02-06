@@ -149,7 +149,7 @@ const config: ForgeConfig = {
 				const target = `node22-win-${ pkgArch }`;
 				console.log( `Building CLI launcher executable for ${ target }...` );
 				await execAsync(
-					`npx pkg bin/studio-cli-launcher.js --target ${ target } --output bin/studio-cli.exe --compress GZip`
+					`npx pkg bin/studio-cli-launcher.js --target ${ target } --output bin/studio-cli.exe --compress GZip --no-bytecode`
 				);
 			}
 		},

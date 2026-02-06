@@ -71,7 +71,7 @@ describe( 'RunningSites', () => {
 		mockSiteDetails( { sites: [ stoppedSite( '1' ), stoppedSite( '2' ) ] } );
 		render( <RunningSites /> );
 		expect( screen.getByText( 'Start all' ) ).toBeInTheDocument();
-		expect( screen.getByText( '0 sites running' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'No sites running' ) ).toBeInTheDocument();
 	} );
 
 	it( 'should show "Start" when a single site is stopped', () => {

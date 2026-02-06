@@ -24,10 +24,12 @@ export function RunningSites() {
 	return (
 		<div className="flex flex-row px-5 pb-1 justify-between align-center self-stretch opacity-70">
 			<p className="text-xxs leading-4">
-				{ sprintf(
-					_n( '%d site running', '%d sites running', runningSites.length ),
-					runningSites.length
-				) }
+				{ anyRunning
+					? sprintf(
+							_n( '%d site running', '%d sites running', runningSites.length ),
+							runningSites.length
+					  )
+					: __( 'No sites running' ) }
 			</p>
 			{ anyRunning ? (
 				<Button className={ linkButtonClassName } onClick={ stopAllRunningSites } variant="link">

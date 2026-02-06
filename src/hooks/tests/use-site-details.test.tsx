@@ -107,6 +107,67 @@ describe( 'useSiteDetails', () => {
 		} );
 	} );
 
+	describe( 'startAllStoppedSites', () => {
+		it( 'should start all stopped sites', async () => {
+			const sitesWithMixedState = [
+				{
+					...mockSites[ 0 ],
+					running: true as const,
+					autoStart: false,
+					url: 'http://localhost:1234',
+				},
+				{ ...mockSites[ 1 ], running: false as const, autoStart: false },
+				{ ...mockSites[ 2 ], running: false as const, autoStart: false },
+			];
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getSiteDetails: vi.fn().mockResolvedValue( sitesWithMixedState ),
+				startServer: vi.fn( () => Promise.resolve() ),
+			} );
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			vi.mocked( getIpcApi().startServer ).mockClear();
+
+			await act( async () => {
+				await result.current.startAllStoppedSites();
+			} );
+
+			expect( getIpcApi().startServer ).toHaveBeenCalledWith( 'site-2' );
+			expect( getIpcApi().startServer ).toHaveBeenCalledWith( 'site-3' );
+			expect( getIpcApi().startServer ).not.toHaveBeenCalledWith( 'site-1' );
+		} );
+
+		it( 'should not start sites that are being added', async () => {
+			const sitesWithAdding = [
+				{ ...mockSites[ 0 ], running: false as const, autoStart: false },
+				{ ...mockSites[ 1 ], running: false as const, autoStart: false, isAddingSite: true },
+			];
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getSiteDetails: vi.fn().mockResolvedValue( sitesWithAdding ),
+				startServer: vi.fn( () => Promise.resolve() ),
+			} );
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			vi.mocked( getIpcApi().startServer ).mockClear();
+
+			await act( async () => {
+				await result.current.startAllStoppedSites();
+			} );
+
+			expect( getIpcApi().startServer ).toHaveBeenCalledWith( 'site-1' );
+			expect( getIpcApi().startServer ).not.toHaveBeenCalledWith( 'site-2' );
+		} );
+	} );
+
 	describe( 'site deletion selection behavior', () => {
 		it( 'should select first site when deleting the currently selected site', async () => {
 			const { result } = renderHook( () => useSiteDetails(), { wrapper } );

@@ -699,6 +699,7 @@ export function getAppGlobals(): AppGlobals {
 		appName: app.name,
 		appVersion: app.getVersion(),
 		arm64Translation: app.runningUnderARM64Translation,
+		isWindowsStore: process.windowsStore ?? false,
 		...buildFeatureFlags(),
 	};
 }

@@ -105,6 +105,26 @@ steps:
 
           export IS_DEV_BUILD=true
 
+          echo "--- :lock: Debug: Codesigning identities available"
+          echo "All keychains:"
+          security list-keychains -d user
+          echo ""
+          echo "Default keychain codesigning identities:"
+          security find-identity -v -p codesigning
+          echo ""
+          echo "Fastlane keychain codesigning identities:"
+          security find-identity -v -p codesigning /Users/builder/Library/Keychains/fastlane_tmp_keychain-db || true
+          echo ""
+          echo "WWDR/intermediate certificates in fastlane keychain:"
+          security find-certificate -a -c "Apple" /Users/builder/Library/Keychains/fastlane_tmp_keychain-db 2>/dev/null | grep -E "labl|snbr" || echo "  (none found)"
+          echo ""
+          echo "Developer ID certificates in fastlane keychain:"
+          security find-certificate -a -c "Developer ID" /Users/builder/Library/Keychains/fastlane_tmp_keychain-db 2>/dev/null | grep -E "labl|snbr" || echo "  (none found)"
+          echo ""
+          echo "WWDR/intermediate certificates in System keychain:"
+          security find-certificate -a -c "Developer Relations" /Library/Keychains/System.keychain 2>/dev/null | grep -E "labl|snbr" || echo "  (none found)"
+          security find-certificate -a -c "Developer ID Certification Authority" /Library/Keychains/System.keychain 2>/dev/null | grep -E "labl|snbr" || echo "  (no Developer ID CA found)"
+
           echo "--- :node: Building Binary"
           npm run make:macos-{{matrix}}
 

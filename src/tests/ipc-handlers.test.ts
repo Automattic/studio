@@ -9,7 +9,13 @@ import { readFile } from 'atomically';
 import { vi } from 'vitest';
 import { bumpStat } from 'common/lib/bump-stat';
 import { StatsGroup, StatsMetric } from 'common/types/stats';
-import { createSite, isFullscreen, importSite, getXdebugEnabledSite } from 'src/ipc-handlers';
+import {
+	createSite,
+	isFullscreen,
+	importSite,
+	getXdebugEnabledSite,
+	loadThemeDetails,
+} from 'src/ipc-handlers';
 import { importBackup, defaultImporterOptions } from 'src/lib/import-export/import/import-manager';
 import { BackupArchiveInfo } from 'src/lib/import-export/import/types';
 import { getMainWindow } from 'src/main-window';
@@ -41,6 +47,9 @@ vi.mock( 'src/main-window' );
 vi.mock( 'src/lib/import-export/import/import-manager' );
 vi.mock( 'common/lib/bump-stat' );
 vi.mock( 'atomically' );
+vi.mock( 'src/lib/get-image-data', () => ( {
+	getImageData: vi.fn().mockResolvedValue( 'data:image/png;base64,mock' ),
+} ) );
 
 vi.mock( 'common/lib/port-finder', () => ( {
 	portFinder: {
@@ -347,5 +356,67 @@ describe( 'getXdebugEnabledSite', () => {
 			phpVersion: '8.3',
 			port: 9999,
 		} );
+	} );
+} );
+
+describe( 'loadThemeDetails', () => {
+	it( 'should update thumbnail even when theme has not changed', async () => {
+		const themeDetails = { name: 'Twenty Twenty-Four', path: '/themes/twentytwentyfour' };
+		const mockServer = {
+			details: {
+				id: 'test-site-id',
+				running: true,
+				themeDetails,
+			},
+			getThemeDetails: vi.fn().mockResolvedValue( themeDetails ),
+			persistThemeDetails: vi.fn().mockResolvedValue( undefined ),
+			updateCachedThumbnail: vi.fn().mockResolvedValue( undefined ),
+		};
+		vi.mocked( SiteServer.get ).mockReturnValue( mockServer as unknown as SiteServer );
+
+		await loadThemeDetails( mockIpcMainInvokeEvent, 'test-site-id' );
+
+		expect( mockServer.updateCachedThumbnail ).toHaveBeenCalled();
+	} );
+
+	it( 'should persist theme details and update thumbnail when theme has changed', async () => {
+		const oldThemeDetails = { name: 'Twenty Twenty-Four', path: '/themes/twentytwentyfour' };
+		const newThemeDetails = { name: 'Twenty Twenty-Five', path: '/themes/twentytwentyfive' };
+		const mockServer = {
+			details: {
+				id: 'test-site-id',
+				running: true,
+				themeDetails: oldThemeDetails,
+			},
+			getThemeDetails: vi.fn().mockResolvedValue( newThemeDetails ),
+			persistThemeDetails: vi.fn().mockResolvedValue( undefined ),
+			updateCachedThumbnail: vi.fn().mockResolvedValue( undefined ),
+		};
+		vi.mocked( SiteServer.get ).mockReturnValue( mockServer as unknown as SiteServer );
+
+		await loadThemeDetails( mockIpcMainInvokeEvent, 'test-site-id' );
+
+		expect( mockServer.persistThemeDetails ).toHaveBeenCalled();
+		expect( mockServer.updateCachedThumbnail ).toHaveBeenCalled();
+	} );
+
+	it( 'should not persist theme details when theme has not changed', async () => {
+		const themeDetails = { name: 'Twenty Twenty-Four', path: '/themes/twentytwentyfour' };
+		const mockServer = {
+			details: {
+				id: 'test-site-id',
+				running: true,
+				themeDetails,
+			},
+			getThemeDetails: vi.fn().mockResolvedValue( themeDetails ),
+			persistThemeDetails: vi.fn().mockResolvedValue( undefined ),
+			updateCachedThumbnail: vi.fn().mockResolvedValue( undefined ),
+		};
+		vi.mocked( SiteServer.get ).mockReturnValue( mockServer as unknown as SiteServer );
+
+		await loadThemeDetails( mockIpcMainInvokeEvent, 'test-site-id' );
+
+		expect( mockServer.persistThemeDetails ).not.toHaveBeenCalled();
+		expect( mockServer.updateCachedThumbnail ).toHaveBeenCalled();
 	} );
 } );

@@ -788,8 +788,8 @@ export async function loadThemeDetails(
 				sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loading', { id } );
 			}
 			await server.persistThemeDetails();
-			await server.updateCachedThumbnail();
 		}
+		await server.updateCachedThumbnail();
 		const thumbnailPath = getSiteThumbnailPath( id );
 		const thumbnailData = await getImageData( thumbnailPath );
 		sendIpcEventToRendererWithWindow( parentWindow, 'thumbnail-loaded', {

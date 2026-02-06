@@ -51,7 +51,7 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			{ key: __( 'PHP version' ), value: site.phpVersion },
 			{ key: __( 'WP version' ), value: wpVersion },
 			{ key: __( 'Xdebug' ), value: xdebugStatus },
-			{ key: __( 'Admin username' ), value: 'admin' },
+			{ key: __( 'Admin username' ), value: site.adminUsername ?? 'admin' },
 			{
 				key: __( 'Admin password' ),
 				value: site.adminPassword ? decodePassword( site.adminPassword ) : undefined,

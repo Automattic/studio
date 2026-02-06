@@ -72,7 +72,7 @@
 		"@types/yauzl": "^2.10.3",
 		"@vitejs/plugin-react": "^5.1.2",
 		"@vitest/ui": "^2.1.8",
-		"@wordpress/components": "^31.0.0",
+		"@wordpress/components": "^32.1.0",
 		"@wordpress/element": "^6.39.0",
 		"@wordpress/react-i18n": "^4.39.0",
 		"@wp-playground/blueprints": "^3.0.22",

@@ -168,6 +168,158 @@ describe( 'useSiteDetails', () => {
 		} );
 	} );
 
+	describe( 'startServer error handling', () => {
+		it( 'should include site name in error title for generic start failure', async () => {
+			const showErrorMessageBox = vi.fn();
+			const stopServer = vi.fn( () => Promise.resolve() );
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getSiteDetails: vi.fn().mockResolvedValue( mockSites ),
+				startServer: vi.fn( () => Promise.reject( new Error( 'Something went wrong' ) ) ),
+				showErrorMessageBox,
+				stopServer,
+				getConnectedWpcomSites: vi.fn( () => Promise.resolve( [] ) ),
+			} );
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			vi.mocked( getIpcApi().startServer ).mockClear();
+
+			await act( async () => {
+				await result.current.startServer( 'site-2' );
+			} );
+
+			expect( showErrorMessageBox ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					title: "Failed to start 'Site 2'",
+				} )
+			);
+		} );
+
+		it( 'should include site name in error title for WASM memory error', async () => {
+			const showErrorMessageBox = vi.fn();
+			const stopServer = vi.fn( () => Promise.resolve() );
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getSiteDetails: vi.fn().mockResolvedValue( mockSites ),
+				startServer: vi.fn().mockRejectedValue( new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' ) ),
+				showErrorMessageBox,
+				stopServer,
+				getConnectedWpcomSites: vi.fn( () => Promise.resolve( [] ) ),
+			} );
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			vi.mocked( getIpcApi().startServer ).mockClear();
+
+			await act( async () => {
+				await result.current.startServer( 'site-1' );
+			} );
+
+			expect( showErrorMessageBox ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					title: "Not enough memory to start 'Site 1'",
+				} )
+			);
+		} );
+
+		it( 'should include site name in error title for port-in-use error', async () => {
+			const showErrorMessageBox = vi.fn();
+			const stopServer = vi.fn( () => Promise.resolve() );
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getSiteDetails: vi.fn().mockResolvedValue( mockSites ),
+				startServer: vi.fn().mockRejectedValue( new Error( 'ERROR_PORT_IN_USE 8080' ) ),
+				showErrorMessageBox,
+				stopServer,
+				getConnectedWpcomSites: vi.fn( () => Promise.resolve( [] ) ),
+			} );
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			vi.mocked( getIpcApi().startServer ).mockClear();
+
+			await act( async () => {
+				await result.current.startServer( 'site-3' );
+			} );
+
+			expect( showErrorMessageBox ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					title: "Failed to start 'Site 3'",
+				} )
+			);
+		} );
+
+		it( 'should include site name in error title for proxy port-in-use error', async () => {
+			const showErrorMessageBox = vi.fn();
+			const stopServer = vi.fn( () => Promise.resolve() );
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getSiteDetails: vi.fn().mockResolvedValue( mockSites ),
+				startServer: vi.fn().mockRejectedValue( new Error( 'PROXY_ERROR_PORT_IN_USE' ) ),
+				showErrorMessageBox,
+				stopServer,
+				getConnectedWpcomSites: vi.fn( () => Promise.resolve( [] ) ),
+			} );
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			vi.mocked( getIpcApi().startServer ).mockClear();
+
+			await act( async () => {
+				await result.current.startServer( 'site-1' );
+			} );
+
+			expect( showErrorMessageBox ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					title: "Failed to initialize custom domains for 'Site 1'",
+				} )
+			);
+		} );
+
+		it( 'should fall back to generic title when site name is not found', async () => {
+			const showErrorMessageBox = vi.fn();
+			const stopServer = vi.fn( () => Promise.resolve() );
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getSiteDetails: vi.fn().mockResolvedValue( mockSites ),
+				startServer: vi.fn( () => Promise.reject( new Error( 'Something went wrong' ) ) ),
+				showErrorMessageBox,
+				stopServer,
+				getConnectedWpcomSites: vi.fn( () => Promise.resolve( [] ) ),
+			} );
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			vi.mocked( getIpcApi().startServer ).mockClear();
+
+			await act( async () => {
+				await result.current.startServer( 'non-existent-id' );
+			} );
+
+			expect( showErrorMessageBox ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					title: 'Failed to start the site server',
+				} )
+			);
+		} );
+	} );
+
 	describe( 'site deletion selection behavior', () => {
 		it( 'should select first site when deleting the currently selected site', async () => {
 			const { result } = renderHook( () => useSiteDetails(), { wrapper } );

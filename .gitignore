@@ -128,6 +128,3 @@ CLAUDE.md
 # Bundled Node binary (downloaded during build)
 bin/node
 bin/node.exe
-
-# CLI launcher executable (built during packaging via @yao-pkg/pkg)
-bin/studio-cli.exe

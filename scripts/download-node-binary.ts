@@ -13,13 +13,7 @@ import { extractZip } from '../common/lib/extract-zip';
 
 // Node.js version to bundle with the CLI
 // This is separate from .nvmrc which controls the development environment
-const BUNDLED_NODE_VERSION = 'v24.11.0';
-
-function getNodeVersion(): string {
-	return BUNDLED_NODE_VERSION;
-}
-
-const NODE_VERSION = getNodeVersion();
+const NODE_VERSION = 'v24.11.0';
 
 const platform = process.argv[ 2 ] || process.platform;
 const arch = process.argv[ 3 ] || process.arch;

@@ -575,43 +575,6 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 	}
 );
 
-// Helper function to calculate push status with progress (inlined from useSyncStatesProgressInfo)
-const getPushStatusWithProgress = (
-	status: PushStateProgressInfo,
-	response: ImportResponse,
-	pushStatesProgressInfo: Record< PushStateProgressInfo[ 'key' ], PushStateProgressInfo >
-): PushStateProgressInfo => {
-	if ( status.key === pushStatesProgressInfo.creatingRemoteBackup.key ) {
-		const progressRange =
-			pushStatesProgressInfo.applyingChanges.progress -
-			pushStatesProgressInfo.creatingRemoteBackup.progress;
-
-		// This step will increase the progress to the next step progressively based on the backup_progress
-		return {
-			...status,
-			progress:
-				pushStatesProgressInfo.creatingRemoteBackup.progress +
-				progressRange * ( response.backup_progress / 100 ),
-		};
-	}
-
-	// This step will increase the progress to the next step progressively based on the import_progress
-	if (
-		status.key === pushStatesProgressInfo.applyingChanges.key &&
-		response.import_progress < 100
-	) {
-		const progressRange =
-			pushStatesProgressInfo.finishing.progress - pushStatesProgressInfo.applyingChanges.progress;
-		return {
-			...status,
-			progress:
-				pushStatesProgressInfo.applyingChanges.progress +
-				progressRange * ( response.import_progress / 100 ),
-		};
-	}
-	return status;
-};
-
 // Thunk for polling push progress
 type PollPushProgressPayload = {
 	client: WPCOM;
@@ -703,7 +666,30 @@ export const pollPushProgressThunk = createTypedAsyncThunk(
 		} else if ( response.success && response.status === 'archive_import_finished' ) {
 			status = pushStatesProgressInfo.finishing;
 		}
-		status = getPushStatusWithProgress( status, response, pushStatesProgressInfo );
+		// Calculate push status with progress
+		if ( status.key === pushStatesProgressInfo.creatingRemoteBackup.key ) {
+			const progressRange =
+				pushStatesProgressInfo.applyingChanges.progress -
+				pushStatesProgressInfo.creatingRemoteBackup.progress;
+			status = {
+				...status,
+				progress:
+					pushStatesProgressInfo.creatingRemoteBackup.progress +
+					progressRange * ( response.backup_progress / 100 ),
+			};
+		} else if (
+			status.key === pushStatesProgressInfo.applyingChanges.key &&
+			response.import_progress < 100
+		) {
+			const progressRange =
+				pushStatesProgressInfo.finishing.progress - pushStatesProgressInfo.applyingChanges.progress;
+			status = {
+				...status,
+				progress:
+					pushStatesProgressInfo.applyingChanges.progress +
+					progressRange * ( response.import_progress / 100 ),
+			};
+		}
 		// Update state in any case to keep polling push state
 		updatePushStateWithIpc( dispatch, selectedSiteId, remoteSiteId, { status } );
 	}
@@ -713,30 +699,6 @@ export const pollPushProgressThunk = createTypedAsyncThunk(
 const IN_PROGRESS_INITIAL_VALUE = 30;
 const DOWNLOADING_INITIAL_VALUE = 60;
 const IN_PROGRESS_TO_DOWNLOADING_STEP = DOWNLOADING_INITIAL_VALUE - IN_PROGRESS_INITIAL_VALUE;
-
-// Helper function to calculate backup status with progress (inlined from useSyncStatesProgressInfo)
-const getBackupStatusWithProgress = (
-	hasBackupCompleted: boolean,
-	pullStatesProgressInfo: Record< PullStateProgressInfo[ 'key' ], PullStateProgressInfo >,
-	response: SyncBackupResponse
-): PullStateProgressInfo => {
-	const frontendStatus = hasBackupCompleted
-		? pullStatesProgressInfo.downloading.key
-		: response.status;
-	let newProgressInfo: PullStateProgressInfo | null = null;
-	if ( response.status === 'in-progress' ) {
-		newProgressInfo = {
-			...pullStatesProgressInfo[ frontendStatus ],
-			// Update progress from the initial value to the new step proportionally to the response.progress
-			// on every update of the response.progress
-			progress:
-				IN_PROGRESS_INITIAL_VALUE + IN_PROGRESS_TO_DOWNLOADING_STEP * ( response.percent / 100 ),
-		};
-	}
-	const statusWithProgress = newProgressInfo || pullStatesProgressInfo[ frontendStatus ];
-
-	return statusWithProgress;
-};
 
 // Thunk for polling pull backup status
 type PollPullBackupPayload = {
@@ -786,22 +748,149 @@ export const pollPullBackupThunk = createTypedAsyncThunk(
 			const downloadUrl = hasBackupCompleted ? response.download_url : null;
 
 			if ( downloadUrl ) {
-				// Backup completed, trigger completion thunk
-				await dispatch(
-					syncOperationsThunks.completePull( {
+				// Backup completed, handle download and import
+				const { selectedSite, remoteSiteUrl } = currentPullState;
+
+				// Check file size
+				const fileSize = await getIpcApi().checkSyncBackupSize( downloadUrl );
+
+				if ( fileSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+					const CANCEL_ID = 1;
+
+					const { response: userChoice } = await getIpcApi().showMessageBox( {
+						type: 'warning',
+						message: __( "Large site's backup" ),
+						detail: sprintf(
+							__(
+								"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back.\n\nDo you want to continue?"
+							),
+							SYNC_PUSH_SIZE_LIMIT_GB
+						),
+						buttons: [ __( 'Continue' ), __( 'Cancel' ) ],
+						defaultId: 0,
+						cancelId: CANCEL_ID,
+					} );
+
+					if ( userChoice === CANCEL_ID ) {
+						dispatch(
+							syncOperationsActions.updatePullState( {
+								selectedSiteId,
+								remoteSiteId,
+								state: {
+									status: pullStatesProgressInfo.cancelled,
+								},
+							} )
+						);
+						void dispatch(
+							syncOperationsThunks.clearPullState( { selectedSiteId, remoteSiteId } )
+						);
+						return;
+					}
+				}
+
+				// Update to downloading
+				dispatch(
+					syncOperationsActions.updatePullState( {
 						selectedSiteId,
 						remoteSiteId,
-						downloadUrl,
-						pullStatesProgressInfo,
+						state: {
+							status: pullStatesProgressInfo.downloading,
+							downloadUrl,
+						},
 					} )
-				).unwrap();
-			} else {
-				// Update status with progress
-				const statusWithProgress = getBackupStatusWithProgress(
-					hasBackupCompleted,
-					pullStatesProgressInfo,
-					response
 				);
+
+				// Download backup
+				const operationId = generateStateId( selectedSiteId, remoteSiteId );
+				const filePath = await getIpcApi().downloadSyncBackup(
+					remoteSiteId,
+					downloadUrl,
+					operationId
+				);
+
+				// Check if cancelled after download
+				const stateAfterDownload = getState();
+				const pullStateAfterDownload = syncOperationsSelectors.selectPullState(
+					selectedSiteId,
+					remoteSiteId
+				)( stateAfterDownload );
+
+				if (
+					! pullStateAfterDownload ||
+					! pullStateAfterDownload.status ||
+					pullStateAfterDownload.status.key === 'cancelled'
+				) {
+					return;
+				}
+
+				// Update to importing
+				dispatch(
+					syncOperationsActions.updatePullState( {
+						selectedSiteId,
+						remoteSiteId,
+						state: {
+							status: pullStatesProgressInfo.importing,
+						},
+					} )
+				);
+
+				// Stop server, import, then start server
+				await getIpcApi().stopServer( selectedSiteId );
+				await getIpcApi().importSite( {
+					id: selectedSiteId,
+					backupFile: {
+						path: filePath,
+						type: 'application/tar+gzip',
+					},
+				} );
+				await getIpcApi().startServer( selectedSiteId );
+
+				// Clean up
+				await getIpcApi().removeSyncBackup( remoteSiteId );
+
+				// Update site timestamp
+				void dispatch(
+					connectedSitesApi.endpoints.updateSiteTimestamp.initiate( {
+						siteId: remoteSiteId,
+						localSiteId: selectedSiteId,
+						type: 'pull',
+					} )
+				);
+
+				// Mark as finished
+				dispatch(
+					syncOperationsActions.updatePullState( {
+						selectedSiteId,
+						remoteSiteId,
+						state: {
+							status: pullStatesProgressInfo.finished,
+						},
+					} )
+				);
+
+				// Show notification
+				getIpcApi().showNotification( {
+					title: selectedSite.name,
+					body: sprintf(
+						// translators: %s is the site url without the protocol.
+						__( 'Studio site has been updated from %s' ),
+						getHostnameFromUrl( remoteSiteUrl )
+					),
+				} );
+			} else {
+				// Calculate backup status with progress
+				const frontendStatus = hasBackupCompleted
+					? pullStatesProgressInfo.downloading.key
+					: response.status;
+				let statusWithProgress: PullStateProgressInfo = pullStatesProgressInfo[ frontendStatus ];
+				if ( response.status === 'in-progress' ) {
+					statusWithProgress = {
+						...pullStatesProgressInfo[ frontendStatus ],
+						progress:
+							IN_PROGRESS_INITIAL_VALUE +
+							IN_PROGRESS_TO_DOWNLOADING_STEP * ( response.percent / 100 ),
+					};
+				}
 
 				dispatch(
 					syncOperationsActions.updatePullState( {
@@ -819,170 +908,7 @@ export const pollPullBackupThunk = createTypedAsyncThunk(
 				getIpcApi().addSyncOperation( stateId );
 			}
 		} catch ( error ) {
-			console.error( 'Failed to fetch backup status:', error );
-			throw error;
-		}
-	}
-);
-
-// Thunk for completing pull operation (handles download, import, server start)
-type CompletePullPayload = {
-	selectedSiteId: string;
-	remoteSiteId: number;
-	downloadUrl: string;
-	pullStatesProgressInfo: Record< PullStateProgressInfo[ 'key' ], PullStateProgressInfo >;
-};
-
-export const completePullThunk = createTypedAsyncThunk(
-	'syncOperations/completePull',
-	async (
-		{ selectedSiteId, remoteSiteId, downloadUrl, pullStatesProgressInfo }: CompletePullPayload,
-		{ dispatch, getState }
-	) => {
-		// Check if cancelled
-		const state = getState();
-		const currentPullState = syncOperationsSelectors.selectPullState(
-			selectedSiteId,
-			remoteSiteId
-		)( state );
-
-		if (
-			! currentPullState ||
-			! currentPullState.status ||
-			currentPullState.status.key === 'cancelled'
-		) {
-			return;
-		}
-
-		const { selectedSite, remoteSiteUrl } = currentPullState;
-
-		try {
-			// Check file size
-			const fileSize = await getIpcApi().checkSyncBackupSize( downloadUrl );
-
-			if ( fileSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
-				const CANCEL_ID = 1;
-
-				const { response: userChoice } = await getIpcApi().showMessageBox( {
-					type: 'warning',
-					message: __( "Large site's backup" ),
-					detail: sprintf(
-						__(
-							"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back.\n\nDo you want to continue?"
-						),
-						SYNC_PUSH_SIZE_LIMIT_GB
-					),
-					buttons: [ __( 'Continue' ), __( 'Cancel' ) ],
-					defaultId: 0,
-					cancelId: CANCEL_ID,
-				} );
-
-				if ( userChoice === CANCEL_ID ) {
-					dispatch(
-						syncOperationsActions.updatePullState( {
-							selectedSiteId,
-							remoteSiteId,
-							state: {
-								status: pullStatesProgressInfo.cancelled,
-							},
-						} )
-					);
-					void dispatch( syncOperationsThunks.clearPullState( { selectedSiteId, remoteSiteId } ) );
-					return;
-				}
-			}
-
-			// Update to downloading
-			dispatch(
-				syncOperationsActions.updatePullState( {
-					selectedSiteId,
-					remoteSiteId,
-					state: {
-						status: pullStatesProgressInfo.downloading,
-						downloadUrl,
-					},
-				} )
-			);
-
-			// Download backup
-			const operationId = generateStateId( selectedSiteId, remoteSiteId );
-			const filePath = await getIpcApi().downloadSyncBackup(
-				remoteSiteId,
-				downloadUrl,
-				operationId
-			);
-
-			// Check if cancelled after download
-			const stateAfterDownload = getState();
-			const pullStateAfterDownload = syncOperationsSelectors.selectPullState(
-				selectedSiteId,
-				remoteSiteId
-			)( stateAfterDownload );
-
-			if (
-				! pullStateAfterDownload ||
-				! pullStateAfterDownload.status ||
-				pullStateAfterDownload.status.key === 'cancelled'
-			) {
-				return;
-			}
-
-			// Update to importing
-			dispatch(
-				syncOperationsActions.updatePullState( {
-					selectedSiteId,
-					remoteSiteId,
-					state: {
-						status: pullStatesProgressInfo.importing,
-					},
-				} )
-			);
-
-			// Stop server, import, then start server
-			await getIpcApi().stopServer( selectedSiteId );
-			await getIpcApi().importSite( {
-				id: selectedSiteId,
-				backupFile: {
-					path: filePath,
-					type: 'application/tar+gzip',
-				},
-			} );
-			await getIpcApi().startServer( selectedSiteId );
-
-			// Clean up
-			await getIpcApi().removeSyncBackup( remoteSiteId );
-
-			// Update site timestamp
-			void dispatch(
-				connectedSitesApi.endpoints.updateSiteTimestamp.initiate( {
-					siteId: remoteSiteId,
-					localSiteId: selectedSiteId,
-					type: 'pull',
-				} )
-			);
-
-			// Mark as finished
-			dispatch(
-				syncOperationsActions.updatePullState( {
-					selectedSiteId,
-					remoteSiteId,
-					state: {
-						status: pullStatesProgressInfo.finished,
-					},
-				} )
-			);
-
-			// Show notification
-			getIpcApi().showNotification( {
-				title: selectedSite.name,
-				body: sprintf(
-					// translators: %s is the site url without the protocol.
-					__( 'Studio site has been updated from %s' ),
-					getHostnameFromUrl( remoteSiteUrl )
-				),
-			} );
-		} catch ( error ) {
-			console.error( 'Backup completion failed:', error );
+			console.error( 'Pull backup polling/completion failed:', error );
 
 			// Check if cancelled
 			const errorState = getState();
@@ -1010,7 +936,7 @@ export const completePullThunk = createTypedAsyncThunk(
 				} )
 			);
 			getIpcApi().showErrorMessageBox( {
-				title: sprintf( __( 'Error pulling from %s' ), selectedSite.name ),
+				title: sprintf( __( 'Error pulling from %s' ), currentPullState.selectedSite.name ),
 				message: __( 'Failed to check backup file size. Please try again.' ),
 			} );
 			throw error;
@@ -1028,7 +954,6 @@ export const syncOperationsThunks = {
 	pullSite: pullSiteThunk,
 	pollPushProgress: pollPushProgressThunk,
 	pollPullBackup: pollPullBackupThunk,
-	completePull: completePullThunk,
 };
 
 // Helper functions for checking state keys (matching useSyncStatesProgressInfo logic)

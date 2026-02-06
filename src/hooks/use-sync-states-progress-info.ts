@@ -54,7 +54,6 @@ export type ImportResponse = {
 
 const IN_PROGRESS_INITIAL_VALUE = 30;
 const DOWNLOADING_INITIAL_VALUE = 60;
-const IN_PROGRESS_TO_DOWNLOADING_STEP = DOWNLOADING_INITIAL_VALUE - IN_PROGRESS_INITIAL_VALUE;
 const PULL_IMPORTING_INITIAL_VALUE = 80;
 
 function isKeyPulling( key: PullStateProgressInfo[ 'key' ] | undefined ): boolean {
@@ -221,33 +220,6 @@ export function useSyncStatesProgressInfo() {
 
 	const uploadingProgressMessageTemplate = useMemo( () => __( 'Uploading site (%d%%)…' ), [ __ ] );
 
-	const getBackupStatusWithProgress = useCallback(
-		(
-			hasBackupCompleted: boolean,
-			pullStatesProgressInfo: PullStateProgressInfoValues,
-			response: SyncBackupResponse
-		) => {
-			const frontendStatus = hasBackupCompleted
-				? pullStatesProgressInfo.downloading.key
-				: response.status;
-			let newProgressInfo: PullStateProgressInfo | null = null;
-			if ( response.status === 'in-progress' ) {
-				newProgressInfo = {
-					...pullStatesProgressInfo[ frontendStatus ],
-					// Update progress from the initial value to the new step proportionally to the response.progress
-					// on every update of the response.progress
-					progress:
-						IN_PROGRESS_INITIAL_VALUE +
-						IN_PROGRESS_TO_DOWNLOADING_STEP * ( response.percent / 100 ),
-				};
-			}
-			const statusWithProgress = newProgressInfo || pullStatesProgressInfo[ frontendStatus ];
-
-			return statusWithProgress;
-		},
-		[]
-	);
-
 	const getPullStatusWithProgress = useCallback(
 		( sitePullState?: PullStateProgressInfo, importState?: ImportProgressState[ string ] ) => {
 			if ( importState ) {
@@ -268,48 +240,6 @@ export function useSyncStatesProgressInfo() {
 			return { message: '', progress: 0 };
 		},
 		[ __ ]
-	);
-
-	const getPushStatusWithProgress = useCallback(
-		( status: PushStateProgressInfo, response: ImportResponse ) => {
-			if ( status.key === pushStatesProgressInfo.creatingRemoteBackup.key ) {
-				const progressRange =
-					pushStatesProgressInfo.applyingChanges.progress -
-					pushStatesProgressInfo.creatingRemoteBackup.progress;
-
-				// This step will increase the progress to the next step progressively based on the backup_progress
-				return {
-					...status,
-					progress:
-						pushStatesProgressInfo.creatingRemoteBackup.progress +
-						progressRange * ( response.backup_progress / 100 ),
-				};
-			}
-
-			// This step will increase the progress to the next step progressively based on the import_progress
-			if (
-				status.key === pushStatesProgressInfo.applyingChanges.key &&
-				response.import_progress < 100
-			) {
-				const progressRange =
-					pushStatesProgressInfo.finishing.progress -
-					pushStatesProgressInfo.applyingChanges.progress;
-				return {
-					...status,
-					progress:
-						pushStatesProgressInfo.applyingChanges.progress +
-						progressRange * ( response.import_progress / 100 ),
-				};
-			}
-			return status;
-		},
-		[
-			pushStatesProgressInfo.applyingChanges.key,
-			pushStatesProgressInfo.applyingChanges.progress,
-			pushStatesProgressInfo.creatingRemoteBackup.key,
-			pushStatesProgressInfo.creatingRemoteBackup.progress,
-			pushStatesProgressInfo.finishing.progress,
-		]
 	);
 
 	const getPushUploadMessage = useCallback(
@@ -350,9 +280,7 @@ export function useSyncStatesProgressInfo() {
 		isKeyFailed,
 		isKeyCancelled,
 		isKeyUploading,
-		getBackupStatusWithProgress,
 		getPullStatusWithProgress,
-		getPushStatusWithProgress,
 		getPushUploadPercentage,
 		getPushUploadMessage,
 		mapUploadProgressToOverallProgress,

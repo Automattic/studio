@@ -14,6 +14,8 @@ const serverConfig = z.object( {
 	isWpAutoUpdating: z.boolean().optional(),
 	enableMultiWorker: z.boolean().optional(),
 	enableXdebug: z.boolean().optional(),
+	enableDebugLog: z.boolean().optional(),
+	enableDebugDisplay: z.boolean().optional(),
 	blueprint: z
 		.object( {
 			contents: z.any(), // Blueprint type is complex, allow any for now

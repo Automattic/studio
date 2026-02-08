@@ -167,9 +167,21 @@ async function getBaseRunCLIArgs(
 		},
 	];
 
-	const defaultConstants = {
+	const defaultConstants: Record< string, boolean > = {
 		WP_SQLITE_AST_DRIVER: true,
 	};
+
+	if ( config.enableDebugLog || config.enableDebugDisplay ) {
+		defaultConstants.WP_DEBUG = true;
+	}
+
+	if ( config.enableDebugLog ) {
+		defaultConstants.WP_DEBUG_LOG = true;
+	}
+
+	if ( config.enableDebugDisplay ) {
+		defaultConstants.WP_DEBUG_DISPLAY = true;
+	}
 
 	let blueprintBundle: BlueprintBundle | undefined;
 

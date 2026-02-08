@@ -375,6 +375,14 @@ export async function updateSite(
 		options.xdebug = updatedSite.enableXdebug ?? false;
 	}
 
+	if ( updatedSite.enableDebugLog !== currentSite.enableDebugLog ) {
+		options.debugLog = updatedSite.enableDebugLog ?? false;
+	}
+
+	if ( updatedSite.enableDebugDisplay !== currentSite.enableDebugDisplay ) {
+		options.debugDisplay = updatedSite.enableDebugDisplay ?? false;
+	}
+
 	const hasCliChanges = Object.keys( options ).length > 2;
 
 	if ( hasCliChanges ) {

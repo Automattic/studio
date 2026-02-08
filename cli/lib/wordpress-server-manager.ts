@@ -115,6 +115,14 @@ export async function startWordPressServer(
 		serverConfig.enableXdebug = true;
 	}
 
+	if ( site.enableDebugLog ) {
+		serverConfig.enableDebugLog = true;
+	}
+
+	if ( site.enableDebugDisplay ) {
+		serverConfig.enableDebugDisplay = true;
+	}
+
 	const env = {
 		ELECTRON_RUN_AS_NODE: '1',
 		STUDIO_WORDPRESS_SERVER_CONFIG: JSON.stringify( serverConfig ),
@@ -380,6 +388,14 @@ export async function runBlueprint(
 
 	if ( site.enableXdebug ) {
 		serverConfig.enableXdebug = true;
+	}
+
+	if ( site.enableDebugLog ) {
+		serverConfig.enableDebugLog = true;
+	}
+
+	if ( site.enableDebugDisplay ) {
+		serverConfig.enableDebugDisplay = true;
 	}
 
 	const env = {

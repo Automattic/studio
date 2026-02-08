@@ -6,7 +6,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useState, useEffect, useCallback, useMemo, useRef, RefObject } from 'react';
 import { DEFAULT_WORDPRESS_VERSION } from 'common/constants';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'common/lib/domains';
-import { generatePassword, validateAdminUsername } from 'common/lib/passwords';
+import { generatePassword, validateAdminEmail, validateAdminUsername } from 'common/lib/passwords';
 import { SupportedPHPVersions } from 'common/types/php-versions';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
@@ -188,6 +188,7 @@ export const CreateSiteForm = ( {
 	const [ adminPassword, setAdminPassword ] = useState(
 		() => blueprintCredentials?.adminPassword ?? generatePassword()
 	);
+	const [ adminEmail, setAdminEmail ] = useState( '' );
 
 	const [ pathError, setPathError ] = useState( '' );
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
@@ -368,6 +369,7 @@ export const CreateSiteForm = ( {
 			enableHttps,
 			adminUsername: adminUsername || undefined,
 			adminPassword: adminPassword || undefined,
+			adminEmail: adminEmail || undefined,
 		} ),
 		[
 			siteName,
@@ -379,6 +381,7 @@ export const CreateSiteForm = ( {
 			enableHttps,
 			adminUsername,
 			adminPassword,
+			adminEmail,
 		]
 	);
 
@@ -393,11 +396,13 @@ export const CreateSiteForm = ( {
 	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
 	const adminUsernameError = validateAdminUsername( adminUsername );
 	const adminPasswordError = ! adminPassword.trim() ? __( 'Admin password is required' ) : '';
+	const adminEmailError = adminEmail.trim() ? validateAdminEmail( adminEmail ) : '';
 	const errorCount = [
 		pathError,
 		shouldShowCustomDomainError,
 		adminUsernameError,
 		adminPasswordError,
+		adminEmailError,
 	].filter( Boolean ).length;
 
 	const handleAdvancedSettingsClick = () => {
@@ -573,6 +578,25 @@ export const CreateSiteForm = ( {
 											<span className="text-red-500 text-xs">{ adminPasswordError }</span>
 										) }
 									</div>
+								</div>
+
+								<div className="flex flex-col gap-1.5 leading-4 mt-4">
+									<label className="font-semibold" htmlFor="admin-email">
+										{ __( 'Admin email' ) }
+									</label>
+									<TextControlComponent
+										id="admin-email"
+										value={ adminEmail }
+										onChange={ ( value: string ) => {
+											hasUserEditedCredentials.current = true;
+											setAdminEmail( value );
+										} }
+										placeholder="admin@localhost.com"
+										className={ adminEmailError ? '[&_input]:!border-red-500' : '' }
+									/>
+									{ adminEmailError && (
+										<span className="text-red-500 text-xs">{ adminEmailError }</span>
+									) }
 								</div>
 
 								{ showBlueprintVersionWarning && (

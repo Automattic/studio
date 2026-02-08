@@ -56,6 +56,7 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 				key: __( 'Admin password' ),
 				value: site.adminPassword ? decodePassword( site.adminPassword ) : undefined,
 			},
+			{ key: __( 'Admin email' ), value: site.adminEmail },
 		].filter( ( { value, hidden } ) => value && ! hidden );
 
 		if ( format === 'table' ) {

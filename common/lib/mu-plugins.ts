@@ -423,15 +423,22 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 					}
 
 					$user = get_user_by( 'login', $username );
+					$provided_email = ! empty( $_POST['email'] ) ? sanitize_email( $_POST['email'] ) : '';
+
 					if ( $user ) {
 						wp_set_password( $_POST['password'], $user->ID );
+						if ( $provided_email ) {
+							wp_update_user( array( 'ID' => $user->ID, 'user_email' => $provided_email ) );
+						}
 					} else {
 						// Generate a unique email to avoid conflicts with existing users
-						$email = 'admin@localhost.com';
-						$counter = 1;
-						while ( email_exists( $email ) ) {
-							$email = 'admin' . $counter . '@localhost.com';
-							$counter++;
+						$email = $provided_email ? $provided_email : 'admin@localhost.com';
+						if ( ! $provided_email ) {
+							$counter = 1;
+							while ( email_exists( $email ) && $counter < 100 ) {
+								$email = 'admin' . $counter . '@localhost.com';
+								$counter++;
+							}
 						}
 
 						$user_data = array(

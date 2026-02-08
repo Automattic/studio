@@ -19,6 +19,7 @@ export interface EditSiteOptions {
 	xdebug?: boolean;
 	adminUsername?: string;
 	adminPassword?: string;
+	adminEmail?: string;
 }
 
 export async function editSiteViaCli( options: EditSiteOptions ): Promise< void > {
@@ -87,6 +88,10 @@ function buildCliArgs( options: EditSiteOptions ): string[] {
 
 	if ( options.adminPassword !== undefined ) {
 		args.push( '--admin-password', options.adminPassword );
+	}
+
+	if ( options.adminEmail !== undefined ) {
+		args.push( '--admin-email', options.adminEmail );
 	}
 
 	return args;

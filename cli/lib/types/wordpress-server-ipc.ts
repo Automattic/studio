@@ -10,6 +10,7 @@ const serverConfig = z.object( {
 	absoluteUrl: z.string().optional(),
 	adminUsername: z.string().optional(),
 	adminPassword: z.string().optional(),
+	adminEmail: z.string().optional(),
 	siteTitle: z.string().optional(),
 	siteLanguage: z.string().optional(),
 	isWpAutoUpdating: z.boolean().optional(),

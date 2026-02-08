@@ -194,7 +194,8 @@ describe( 'useAddSite', () => {
 			expect.any( Function ),
 			false,
 			undefined, // adminUsername
-			undefined // adminPassword
+			undefined, // adminPassword
+			undefined // adminEmail
 		);
 	} );
 

@@ -20,6 +20,7 @@ export const siteDetailsSchema = z.object( {
 	enableHttps: z.boolean().optional(),
 	adminUsername: z.string().optional(),
 	adminPassword: z.string().optional(),
+	adminEmail: z.string().optional(),
 	isWpAutoUpdating: z.boolean().optional(),
 	autoStart: z.boolean().optional(),
 	enableXdebug: z.boolean().optional(),

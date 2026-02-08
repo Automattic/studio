@@ -39,6 +39,19 @@ export function decodePassword( encodedPassword: string ): string {
 }
 
 /**
+ * Validates an admin email and returns an error message, or empty string if valid.
+ */
+export function validateAdminEmail( email: string ): string {
+	if ( ! email.trim() ) {
+		return __( 'Admin email cannot be empty.' );
+	}
+	if ( ! /^[^\s@]+@[^\s@]+$/.test( email ) ) {
+		return __( 'Please enter a valid email address.' );
+	}
+	return '';
+}
+
+/**
  * Validates an admin username and returns an error message, or empty string if valid.
  */
 export function validateAdminUsername( username: string ): string {

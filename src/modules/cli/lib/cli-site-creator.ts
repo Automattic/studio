@@ -37,6 +37,7 @@ export interface CreateSiteOptions {
 	blueprint?: Blueprint;
 	adminUsername?: string;
 	adminPassword?: string;
+	adminEmail?: string;
 	noStart?: boolean;
 }
 
@@ -137,6 +138,10 @@ function buildCliArgs( options: CreateSiteOptions ): string[] {
 
 	if ( options.adminPassword ) {
 		args.push( '--admin-password', options.adminPassword );
+	}
+
+	if ( options.adminEmail ) {
+		args.push( '--admin-email', options.adminEmail );
 	}
 
 	if ( options.noStart ) {

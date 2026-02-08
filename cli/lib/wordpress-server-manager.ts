@@ -100,6 +100,10 @@ export async function startWordPressServer(
 		serverConfig.adminPassword = site.adminPassword;
 	}
 
+	if ( site.adminEmail ) {
+		serverConfig.adminEmail = site.adminEmail;
+	}
+
 	if ( site.isWpAutoUpdating !== undefined ) {
 		serverConfig.isWpAutoUpdating = site.isWpAutoUpdating;
 	}
@@ -376,6 +380,10 @@ export async function runBlueprint(
 
 	if ( site.adminPassword ) {
 		serverConfig.adminPassword = site.adminPassword;
+	}
+
+	if ( site.adminEmail ) {
+		serverConfig.adminEmail = site.adminEmail;
 	}
 
 	if ( site.isWpAutoUpdating !== undefined ) {

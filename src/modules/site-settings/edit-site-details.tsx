@@ -5,7 +5,12 @@ import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { DEFAULT_PHP_VERSION } from 'common/constants';
 import { generateCustomDomainFromSiteName, getDomainNameValidationError } from 'common/lib/domains';
-import { decodePassword, encodePassword, validateAdminUsername } from 'common/lib/passwords';
+import {
+	decodePassword,
+	encodePassword,
+	validateAdminEmail,
+	validateAdminUsername,
+} from 'common/lib/passwords';
 import { siteNeedsRestart } from 'common/lib/site-needs-restart';
 import { SupportedPHPVersions } from 'common/types/php-versions';
 import Button from 'src/components/button';
@@ -42,6 +47,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const [ adminPassword, setAdminPassword ] = useState(
 		() => decodePassword( selectedSite?.adminPassword ?? '' ) || 'password'
 	);
+	const [ adminEmail, setAdminEmail ] = useState( selectedSite?.adminEmail ?? '' );
 
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
 	const closeModal = useCallback( () => {
@@ -98,6 +104,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const usedCustomDomain = ! useCustomDomain ? customDomain : undefined;
 	const adminUsernameError = validateAdminUsername( adminUsername );
 	const adminPasswordError = ! adminPassword.trim() ? __( 'Admin password is required' ) : '';
+	const adminEmailError = adminEmail.trim() ? validateAdminEmail( adminEmail ) : '';
 	const isFormUnchanged =
 		!! selectedSite &&
 		selectedSite.name === siteName &&
@@ -108,13 +115,15 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		!! selectedSite.enableHttps === ( !! usedCustomDomain && enableHttps ) &&
 		!! selectedSite.enableXdebug === enableXdebug &&
 		( selectedSite.adminUsername ?? 'admin' ) === adminUsername &&
-		( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' ) === adminPassword;
+		( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' ) === adminPassword &&
+		( selectedSite.adminEmail ?? '' ) === adminEmail;
 	const hasValidationErrors =
 		! selectedSite ||
 		! siteName.trim() ||
 		( useCustomDomain && !! customDomainError ) ||
 		!! adminUsernameError ||
-		!! adminPasswordError;
+		!! adminPasswordError ||
+		!! adminEmailError;
 
 	const resetFormState = useCallback( () => {
 		if ( ! selectedSite ) {
@@ -131,6 +140,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		setEnableXdebug( selectedSite.enableXdebug ?? false );
 		setAdminUsername( selectedSite.adminUsername ?? 'admin' );
 		setAdminPassword( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' );
+		setAdminEmail( selectedSite.adminEmail ?? '' );
 	}, [ selectedSite, getEffectiveWpVersion ] );
 
 	const onSiteEdit = async ( event: FormEvent ) => {
@@ -151,7 +161,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 			useCustomDomain && enableHttps !== ( selectedSite.enableHttps ?? false );
 		const hasCredentialsChanged =
 			adminUsername !== ( selectedSite.adminUsername ?? 'admin' ) ||
-			adminPassword !== ( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' );
+			adminPassword !== ( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' ) ||
+			adminEmail !== ( selectedSite.adminEmail ?? '' );
 
 		const needsRestart =
 			selectedSite.running &&
@@ -184,6 +195,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 					adminUsername,
 					// Encode for IPC storage; IPC handler decodes back to plain text for the CLI set command
 					adminPassword: encodePassword( adminPassword ),
+					adminEmail: adminEmail || undefined,
 				},
 				hasWpVersionChanged ? selectedWpVersion : undefined
 			);
@@ -421,6 +433,23 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 										) }
 									</div>
 								</div>
+							</div>
+
+							<div className="flex flex-col gap-1.5 leading-4 mt-4">
+								<label className="text-sm" htmlFor="edit-admin-email">
+									{ __( 'Email' ) }
+								</label>
+								<TextControlComponent
+									id="edit-admin-email"
+									disabled={ isEditingSite }
+									value={ adminEmail }
+									onChange={ setAdminEmail }
+									placeholder="admin@localhost.com"
+									className={ adminEmailError ? '[&_input]:!border-red-500' : '' }
+								/>
+								{ adminEmailError && (
+									<span className="text-red-500 text-xs">{ adminEmailError }</span>
+								) }
 							</div>
 						</div>
 

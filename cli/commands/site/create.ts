@@ -25,7 +25,12 @@ import {
 } from 'common/lib/fs-utils';
 import { DEFAULT_LOCALE } from 'common/lib/locale';
 import { isOnline } from 'common/lib/network-utils';
-import { createPassword, encodePassword, validateAdminUsername } from 'common/lib/passwords';
+import {
+	createPassword,
+	encodePassword,
+	validateAdminEmail,
+	validateAdminUsername,
+} from 'common/lib/passwords';
 import { portFinder } from 'common/lib/port-finder';
 import { SITE_EVENTS } from 'common/lib/site-events';
 import { sortSites } from 'common/lib/sort-sites';
@@ -72,6 +77,7 @@ type CreateCommandOptions = {
 	};
 	adminUsername?: string;
 	adminPassword?: string;
+	adminEmail?: string;
 	noStart: boolean;
 	skipBrowser: boolean;
 	skipLogDetails: boolean;
@@ -208,6 +214,14 @@ export async function runCommand(
 				throw new LoggerError( usernameError );
 			}
 		}
+		const adminEmail = options.adminEmail ?? undefined;
+		if ( adminEmail ) {
+			const emailError = validateAdminEmail( adminEmail );
+			if ( emailError ) {
+				throw new LoggerError( emailError );
+			}
+		}
+
 		const externalPassword = options.adminPassword || blueprintCredentials?.adminPassword;
 		const adminPassword = externalPassword ? encodePassword( externalPassword ) : createPassword();
 
@@ -261,6 +275,7 @@ export async function runCommand(
 			path: sitePath,
 			adminUsername,
 			adminPassword,
+			adminEmail,
 			port,
 			phpVersion: options.phpVersion,
 			running: false,
@@ -477,6 +492,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						'Admin password (auto-generated if not provided). Note: passwords in CLI arguments may be visible in process lists; consider using a Blueprint file for sensitive passwords.'
 					),
 				} )
+				.option( 'admin-email', {
+					type: 'string',
+					describe: __( 'Admin email (defaults to "admin@localhost.com")' ),
+				} )
 				.option( 'start', {
 					type: 'boolean',
 					describe: __( 'Start the site after creation' ),
@@ -503,6 +522,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				enableHttps: !! argv.https,
 				adminUsername: argv.adminUsername,
 				adminPassword: argv.adminPassword,
+				adminEmail: argv.adminEmail,
 				noStart: ! argv.start,
 				skipBrowser: !! argv.skipBrowser,
 				skipLogDetails: !! argv.skipLogDetails,

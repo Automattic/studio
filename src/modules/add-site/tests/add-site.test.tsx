@@ -231,7 +231,8 @@ describe( 'AddSite', () => {
 				expect.any( Function ),
 				false,
 				'admin',
-				expect.any( String )
+				expect.any( String ),
+				undefined // adminEmail
 			);
 		} );
 	} );
@@ -450,7 +451,8 @@ describe( 'AddSite', () => {
 				expect.any( Function ),
 				false,
 				'admin',
-				expect.any( String )
+				expect.any( String ),
+				undefined // adminEmail
 			);
 		} );
 	} );

@@ -36,7 +36,8 @@ interface SiteDetailsContext {
 		callback?: ( site: SiteDetails ) => Promise< void >,
 		noStart?: boolean,
 		adminUsername?: string,
-		adminPassword?: string
+		adminPassword?: string,
+		adminEmail?: string
 	) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
@@ -265,7 +266,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			callback?: ( site: SiteDetails ) => Promise< void >,
 			noStart?: boolean,
 			adminUsername?: string,
-			adminPassword?: string
+			adminPassword?: string,
+			adminEmail?: string
 		) => {
 			// Function to handle error messages and cleanup
 			const showError = ( error?: unknown, hasBlueprint?: boolean ) => {
@@ -341,6 +343,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					blueprint,
 					adminUsername,
 					adminPassword,
+					adminEmail,
 					noStart,
 				} );
 				if ( ! newSite ) {

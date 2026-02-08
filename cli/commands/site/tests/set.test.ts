@@ -99,7 +99,7 @@ describe( 'CLI: studio site set', () => {
 	describe( 'Validation', () => {
 		it( 'should throw when no options provided', async () => {
 			await expect( runCommand( testSitePath, {} ) ).rejects.toThrow(
-				'At least one option (--name, --domain, --https, --php, --wp, --xdebug, --admin-username, --admin-password) is required.'
+				'At least one option (--name, --domain, --https, --php, --wp, --xdebug, --admin-username, --admin-password, --admin-email) is required.'
 			);
 		} );
 
@@ -493,6 +493,40 @@ describe( 'CLI: studio site set', () => {
 			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
 			expect( savedAppdata.sites[ 0 ].adminUsername ).toBe( 'newadmin' );
 			expect( savedAppdata.sites[ 0 ].adminPassword ).toBe( encodePassword( 'newpass' ) );
+		} );
+	} );
+
+	describe( 'Admin email changes', () => {
+		it( 'should update admin email and restart running site', async () => {
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
+
+			await runCommand( testSitePath, { adminEmail: 'test@example.com' } );
+
+			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
+			expect( savedAppdata.sites[ 0 ].adminEmail ).toBe( 'test@example.com' );
+			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
+			expect( startWordPressServer ).toHaveBeenCalled();
+		} );
+
+		it( 'should not restart stopped site when email changes', async () => {
+			await runCommand( testSitePath, { adminEmail: 'test@example.com' } );
+
+			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
+			expect( savedAppdata.sites[ 0 ].adminEmail ).toBe( 'test@example.com' );
+			expect( stopWordPressServer ).not.toHaveBeenCalled();
+			expect( startWordPressServer ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should throw when admin email is empty', async () => {
+			await expect( runCommand( testSitePath, { adminEmail: '  ' } ) ).rejects.toThrow(
+				'Admin email cannot be empty.'
+			);
+		} );
+
+		it( 'should throw when admin email is invalid', async () => {
+			await expect( runCommand( testSitePath, { adminEmail: 'notanemail' } ) ).rejects.toThrow(
+				'Please enter a valid email address.'
+			);
 		} );
 	} );
 

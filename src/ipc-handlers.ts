@@ -126,6 +126,7 @@ export {
 
 const DEBUG_LOG_MAX_LINES = 50;
 const PM2_HOME = nodePath.join( os.homedir(), '.studio', 'pm2' );
+const DEFAULT_ENCODED_PASSWORD = encodePassword( 'password' );
 
 function readLastLines( filePath: string, maxLines: number ): string[] | undefined {
 	try {
@@ -249,6 +250,7 @@ export async function createSite(
 		blueprint?: Blueprint;
 		adminUsername?: string;
 		adminPassword?: string;
+		adminEmail?: string;
 		noStart?: boolean;
 	} = {}
 ): Promise< SiteDetails > {
@@ -262,6 +264,7 @@ export async function createSite(
 		phpVersion,
 		adminUsername,
 		adminPassword,
+		adminEmail,
 		noStart = false,
 	} = config;
 
@@ -283,6 +286,7 @@ export async function createSite(
 				blueprint: blueprint?.blueprint,
 				adminUsername,
 				adminPassword,
+				adminEmail,
 				noStart,
 			},
 			{ wpVersion, blueprint: blueprint?.blueprint }
@@ -386,13 +390,16 @@ export async function updateSite(
 		options.adminUsername = updatedSite.adminUsername;
 	}
 
-	const defaultEncodedPassword = encodePassword( 'password' );
 	if (
-		( updatedSite.adminPassword ?? defaultEncodedPassword ) !==
-		( currentSite.adminPassword ?? defaultEncodedPassword )
+		( updatedSite.adminPassword ?? DEFAULT_ENCODED_PASSWORD ) !==
+		( currentSite.adminPassword ?? DEFAULT_ENCODED_PASSWORD )
 	) {
 		// CLI set expects plain text password (it encodes before saving)
-		options.adminPassword = decodePassword( updatedSite.adminPassword ?? defaultEncodedPassword );
+		options.adminPassword = decodePassword( updatedSite.adminPassword ?? DEFAULT_ENCODED_PASSWORD );
+	}
+
+	if ( ( updatedSite.adminEmail ?? '' ) !== ( currentSite.adminEmail ?? '' ) ) {
+		options.adminEmail = updatedSite.adminEmail;
 	}
 
 	const hasCliChanges = Object.keys( options ).length > 2;

@@ -3,7 +3,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from 'common/constants';
 import { getDomainNameValidationError } from 'common/lib/domains';
 import { arePathsEqual } from 'common/lib/fs-utils';
-import { encodePassword, validateAdminUsername } from 'common/lib/passwords';
+import { encodePassword, validateAdminEmail, validateAdminUsername } from 'common/lib/passwords';
 import { SITE_EVENTS } from 'common/lib/site-events';
 import { siteNeedsRestart } from 'common/lib/site-needs-restart';
 import {
@@ -47,10 +47,12 @@ export interface SetCommandOptions {
 	xdebug?: boolean;
 	adminUsername?: string;
 	adminPassword?: string;
+	adminEmail?: string;
 }
 
 export async function runCommand( sitePath: string, options: SetCommandOptions ): Promise< void > {
-	const { name, domain, https, php, wp, xdebug, adminUsername, adminPassword } = options;
+	const { name, domain, https, php, wp, xdebug, adminUsername, adminPassword, adminEmail } =
+		options;
 
 	if (
 		name === undefined &&
@@ -60,11 +62,12 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		wp === undefined &&
 		xdebug === undefined &&
 		adminUsername === undefined &&
-		adminPassword === undefined
+		adminPassword === undefined &&
+		adminEmail === undefined
 	) {
 		throw new LoggerError(
 			__(
-				'At least one option (--name, --domain, --https, --php, --wp, --xdebug, --admin-username, --admin-password) is required.'
+				'At least one option (--name, --domain, --https, --php, --wp, --xdebug, --admin-username, --admin-password, --admin-email) is required.'
 			)
 		);
 	}
@@ -82,6 +85,13 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 
 	if ( adminPassword !== undefined && ! adminPassword.trim() ) {
 		throw new LoggerError( __( 'Admin password cannot be empty.' ) );
+	}
+
+	if ( adminEmail !== undefined ) {
+		const emailError = validateAdminEmail( adminEmail );
+		if ( emailError ) {
+			throw new LoggerError( emailError );
+		}
 	}
 
 	try {
@@ -133,7 +143,8 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		const adminUsernameChanged =
 			adminUsername !== undefined && adminUsername !== ( site.adminUsername ?? 'admin' );
 		const adminPasswordChanged = adminPassword !== undefined;
-		const credentialsChanged = adminUsernameChanged || adminPasswordChanged;
+		const adminEmailChanged = adminEmail !== undefined && adminEmail !== ( site.adminEmail ?? '' );
+		const credentialsChanged = adminUsernameChanged || adminPasswordChanged || adminEmailChanged;
 
 		const hasChanges =
 			nameChanged ||
@@ -187,6 +198,9 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			}
 			if ( adminPasswordChanged ) {
 				foundSite.adminPassword = encodePassword( adminPassword! );
+			}
+			if ( adminEmailChanged ) {
+				foundSite.adminEmail = adminEmail!;
 			}
 
 			await saveAppdata( appdata );
@@ -330,6 +344,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'admin-password', {
 					type: 'string',
 					description: __( 'Admin password' ),
+				} )
+				.option( 'admin-email', {
+					type: 'string',
+					description: __( 'Admin email' ),
 				} );
 		},
 		handler: async ( argv ) => {
@@ -343,6 +361,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					xdebug: argv.xdebug,
 					adminUsername: argv.adminUsername,
 					adminPassword: argv.adminPassword,
+					adminEmail: argv.adminEmail,
 				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

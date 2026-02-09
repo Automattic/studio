@@ -8,6 +8,10 @@ import { vi, beforeAll, afterAll, Mock, MockedFunction, Mocked } from 'vitest';
 import { DefaultExporter } from 'src/lib/import-export/export/exporters';
 import { ExportOptions, BackupContents } from 'src/lib/import-export/export/types';
 import { getWordPressVersionFromInstallation } from 'src/lib/wp-versions';
+import {
+	normalizeLineEndings,
+	removeDbConstants,
+} from 'src/migrations/remove-default-db-constants';
 import { SiteServer } from 'src/site-server';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 
@@ -23,7 +27,7 @@ vi.mock( 'src/lib/wp-versions' );
 // Create a partial mock of the Archiver interface
 type PartialArchiver = Pick<
 	archiver.Archiver,
-	'pipe' | 'file' | 'directory' | 'finalize' | 'on' | 'abort'
+	'pipe' | 'file' | 'directory' | 'finalize' | 'on' | 'abort' | 'append'
 >;
 
 const createMockArchiver = (): {
@@ -33,6 +37,7 @@ const createMockArchiver = (): {
 	finalize: Mock;
 	on: Mock;
 	abort: Mock;
+	append: Mock;
 } => {
 	return {
 		pipe: vi.fn().mockReturnThis(),
@@ -41,6 +46,7 @@ const createMockArchiver = (): {
 		finalize: vi.fn().mockResolvedValue( undefined ),
 		on: vi.fn().mockReturnThis(),
 		abort: vi.fn(),
+		append: vi.fn().mockReturnThis(),
 	};
 };
 
@@ -270,6 +276,7 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			on: vi.fn(),
 			path: normalize( '/path/to/backup.tar.gz' ),
 		};
+		( fs.readFileSync as Mock ).mockReturnValue( '<?php // wp-config without DB constants' );
 		( fs.createWriteStream as Mock ).mockReturnValue( mockWriteStream );
 		( fsPromises.unlink as Mock ).mockResolvedValue( undefined );
 		( fsPromises.mkdtemp as Mock ).mockResolvedValue( '/tmp/studio_export_123' );
@@ -693,6 +700,66 @@ platformTestSuite( 'DefaultExporter', ( { normalize } ) => {
 			),
 			{ name: 'wp-content/mu-plugins/sqlite-database-integration/example-load.php' }
 		);
+	} );
+
+	it( 'should strip default DB constants from wp-config.php during export', async () => {
+		const dbBlock =
+			normalizeLineEndings( `// ** Database settings - You can get this info from your web host ** //
+/** The name of the database for WordPress */
+define( 'DB_NAME', 'database_name_here' );
+
+/** Database username */
+define( 'DB_USER', 'username_here' );
+
+/** Database password */
+define( 'DB_PASSWORD', 'password_here' );
+
+/** Database hostname */
+define( 'DB_HOST', 'localhost' );
+
+/** Database charset to use in creating database tables. */
+define( 'DB_CHARSET', 'utf8mb4' );
+
+/** The database collate type. Don't change this if in doubt. */
+define( 'DB_COLLATE', '' );
+` );
+		const wpConfigWithDbConstants = `<?php\r\n${ dbBlock }// rest of config`;
+
+		( fs.readFileSync as Mock ).mockReturnValue( wpConfigWithDbConstants );
+
+		const options = {
+			...mockOptions,
+			includes: { database: false, wpContent: false },
+		};
+		const testExporter = new DefaultExporter( options );
+		await testExporter.export();
+
+		expect( mockArchiver.append ).toHaveBeenCalledWith(
+			Buffer.from( removeDbConstants( wpConfigWithDbConstants ) ),
+			{ name: 'wp-config.php' }
+		);
+		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-config.php' ),
+			{ name: 'wp-config.php' }
+		);
+	} );
+
+	it( 'should add wp-config.php via file() when it has no default DB constants', async () => {
+		( fs.readFileSync as Mock ).mockReturnValue(
+			'<?php // wp-config without default DB constants'
+		);
+
+		const options = {
+			...mockOptions,
+			includes: { database: false, wpContent: false },
+		};
+		const testExporter = new DefaultExporter( options );
+		await testExporter.export();
+
+		expect( mockArchiver.file ).toHaveBeenCalledWith( normalize( '/path/to/site/wp-config.php' ), {
+			name: 'wp-config.php',
+		} );
+		expect( mockArchiver.append ).not.toHaveBeenCalled();
 	} );
 
 	describe( 'isExactPathExcluded', () => {

@@ -1,7 +1,3 @@
-import fs from 'fs/promises';
-import path from 'path';
-import { loadUserData } from 'src/storage/user-data';
-
 const DB_SETTINGS_BLOCK =
 	normalizeLineEndings( `// ** Database settings - You can get this info from your web host ** //
 /** The name of the database for WordPress */
@@ -45,50 +41,4 @@ export function hasDefaultDbBlock( content: string ): boolean {
 
 export function removeDbConstants( content: string ): string {
 	return content.replace( DB_SETTINGS_BLOCK, REPLACEMENT_COMMENT + '\n' );
-}
-
-export async function processSiteWpConfig( sitePath: string ): Promise< boolean > {
-	const wpConfigPath = path.join( sitePath, 'wp-config.php' );
-
-	try {
-		const content = await fs.readFile( wpConfigPath, 'utf-8' );
-
-		if ( ! hasDefaultDbBlock( content ) ) {
-			return false;
-		}
-
-		const modifiedContent = removeDbConstants( content );
-
-		await fs.writeFile( wpConfigPath, modifiedContent, 'utf-8' );
-
-		console.log( `Removed default DB constants from: ${ sitePath }` );
-		return true;
-	} catch ( error ) {
-		// Silently skip if file doesn't exist; log other errors
-		if ( ( error as NodeJS.ErrnoException ).code !== 'ENOENT' ) {
-			console.error( `Failed to process wp-config.php for site at ${ sitePath }:`, error );
-		}
-		return false;
-	}
-}
-
-export async function removeDefaultDbConstants(): Promise< void > {
-	try {
-		const userData = await loadUserData();
-		const sites = userData.sites || [];
-
-		const results = await Promise.all(
-			sites.filter( ( site ) => site.path ).map( ( site ) => processSiteWpConfig( site.path ) )
-		);
-
-		const modifiedCount = results.filter( Boolean ).length;
-
-		if ( modifiedCount > 0 ) {
-			console.log(
-				`Migration complete: Removed default DB constants from ${ modifiedCount } site(s).`
-			);
-		}
-	} catch ( error ) {
-		console.error( 'Failed to run removeDefaultDbConstants migration:', error );
-	}
 }

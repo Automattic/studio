@@ -20,6 +20,7 @@ import {
 	StudioJson,
 } from 'src/lib/import-export/export/types';
 import { getWordPressVersionFromInstallation } from 'src/lib/wp-versions';
+import { hasDefaultDbBlock, removeDbConstants } from 'src/migrations/remove-default-db-constants';
 import { SiteServer } from 'src/site-server';
 
 export class DefaultExporter extends EventEmitter implements Exporter {
@@ -180,9 +181,17 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private addWpConfig(): void {
 		const wpConfigPath = path.join( this.options.site.path, 'wp-config.php' );
 		if ( fs.existsSync( wpConfigPath ) ) {
-			this.archiveBuilder.file( wpConfigPath, {
-				name: 'wp-config.php',
-			} );
+			const content = fs.readFileSync( wpConfigPath, 'utf-8' );
+			if ( hasDefaultDbBlock( content ) ) {
+				const modifiedContent = removeDbConstants( content );
+				this.archiveBuilder.append( Buffer.from( modifiedContent ), {
+					name: 'wp-config.php',
+				} );
+			} else {
+				this.archiveBuilder.file( wpConfigPath, {
+					name: 'wp-config.php',
+				} );
+			}
 		}
 	}
 

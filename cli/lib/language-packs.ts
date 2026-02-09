@@ -16,17 +16,17 @@ export async function copyLanguagePackToSite(
 		return false;
 	}
 
-	// Language pack files follow WordPress naming: {locale}.mo, admin-{locale}.mo, etc.
+	// Language pack files follow WordPress naming conventions.
+	// We only bundle .l10n.php and .json files (WordPress 6.5+ format).
+	// .l10n.php: {locale}.l10n.php, {domain}-{locale}.l10n.php
+	// .json: {locale}-{hash}.json
 	const allFiles = await fs.promises.readdir( languagePacksDir );
 	const localeFiles = allFiles.filter( ( file ) => {
 		const name = path.basename( file );
 		return (
-			name === `${ wpLocale }.mo` ||
-			name === `${ wpLocale }.po` ||
 			name === `${ wpLocale }.l10n.php` ||
-			name.endsWith( `-${ wpLocale }.mo` ) ||
-			name.endsWith( `-${ wpLocale }.po` ) ||
-			name.endsWith( `-${ wpLocale }.l10n.php` )
+			name.endsWith( `-${ wpLocale }.l10n.php` ) ||
+			( name.startsWith( `${ wpLocale }-` ) && name.endsWith( '.json' ) )
 		);
 	} );
 

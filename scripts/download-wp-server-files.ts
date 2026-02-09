@@ -2,7 +2,29 @@ import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
 import { extractZip } from '../common/lib/extract-zip';
-import { studioToWpLocaleMap } from '../common/lib/locale';
+// WordPress locale codes for all non-English locales supported by Studio.
+// Keep in sync with studioToWpLocaleMap in common/lib/locale.ts.
+const WP_LOCALES = [
+	'ar',
+	'de_DE',
+	'es_ES',
+	'fr_FR',
+	'he_IL',
+	'id_ID',
+	'it_IT',
+	'ja',
+	'ko_KR',
+	'nl_NL',
+	'pl_PL',
+	'pt_BR',
+	'ru_RU',
+	'sv_SE',
+	'tr_TR',
+	'vi',
+	'uk',
+	'zh_CN',
+	'zh_TW',
+];
 import { getLatestSQLiteCommandRelease } from '../src/lib/sqlite-command-release';
 import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../src/constants';
 
@@ -120,9 +142,8 @@ async function downloadLanguagePacks(): Promise< void > {
 	}
 	const data: TranslationsApiResponse = await response.json();
 
-	const wpLocales = Object.values( studioToWpLocaleMap );
 	const translationsToDownload = data.translations.filter( ( t ) =>
-		wpLocales.includes( t.language )
+		WP_LOCALES.includes( t.language )
 	);
 
 	console.log(
@@ -146,6 +167,15 @@ async function downloadLanguagePacks(): Promise< void > {
 		await fs.writeFile( zipPath, buffer );
 		await extractZip( zipPath, languagesPath );
 		await fs.remove( zipPath );
+	}
+
+	// Remove .po and .mo files — WordPress 6.5+ uses .l10n.php and .json files.
+	// This reduces the language packs size by ~65%.
+	const allFiles = await fs.readdir( languagesPath );
+	for ( const file of allFiles ) {
+		if ( file.endsWith( '.po' ) || file.endsWith( '.mo' ) ) {
+			await fs.remove( path.join( languagesPath, file ) );
+		}
 	}
 
 	console.log( '[language-packs] All language packs downloaded' );

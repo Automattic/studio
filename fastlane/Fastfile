@@ -61,7 +61,8 @@ lane :notarize_binary do
   Dir[File.join(BUILDS_FOLDER, '**', 'Studio.app')].each do |path|
     notarize(
       package: path,
-      api_key_path: APPLE_API_KEY_PATH
+      api_key_path: APPLE_API_KEY_PATH,
+      print_log: true
     )
   end
 
@@ -69,7 +70,8 @@ lane :notarize_binary do
     notarize(
       bundle_id: APPLE_BUNDLE_IDENTIFIER,
       package: path,
-      api_key_path: APPLE_API_KEY_PATH
+      api_key_path: APPLE_API_KEY_PATH,
+      print_log: true
     )
   end
 end

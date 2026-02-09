@@ -5,6 +5,7 @@ import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { z } from 'zod';
 import { SQLITE_FILENAME } from 'common/constants';
+import { parseJsonFromPhpOutput } from 'common/lib/php-output-parser';
 import {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT,
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT,
@@ -16,8 +17,6 @@ import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
-
-import { parseJsonFromPhpOutput } from 'common/lib/php-output-parser';
 
 export type WpCliResult = { stdout: string; stderr: string; exitCode: number };
 

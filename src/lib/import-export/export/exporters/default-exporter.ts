@@ -4,6 +4,7 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import archiver from 'archiver';
+import { parseJsonFromPhpOutput } from 'common/lib/php-output-parser';
 import { ARCHIVER_OPTIONS } from 'src/constants';
 import { getSiteUrl } from 'src/lib/get-site-url';
 import { ExportEvents } from 'src/lib/import-export/export/events';
@@ -20,7 +21,6 @@ import {
 	StudioJson,
 } from 'src/lib/import-export/export/types';
 import { getWordPressVersionFromInstallation } from 'src/lib/wp-versions';
-import { parseJsonFromPhpOutput } from 'common/lib/php-output-parser';
 import { SiteServer } from 'src/site-server';
 
 export class DefaultExporter extends EventEmitter implements Exporter {

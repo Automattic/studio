@@ -1,7 +1,7 @@
 import path from 'path';
 import { move } from 'fs-extra';
-import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
 import { parseJsonFromPhpOutput } from 'common/lib/php-output-parser';
+import { generateBackupFilename } from 'src/lib/import-export/export/generate-backup-filename';
 import { SiteServer } from 'src/site-server';
 
 export async function exportDatabaseToFile(

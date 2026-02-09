@@ -43,3 +43,29 @@ export function isSupportedLocale( locale: string | undefined ): locale is Suppo
 	}
 	return supportedLocales.includes( locale as SupportedLocale );
 }
+
+/**
+ * Maps Studio locale codes to their corresponding WordPress locale codes.
+ * Used for downloading and installing WordPress core language packs.
+ */
+export const studioToWpLocaleMap: Partial< Record< SupportedLocale, string > > = {
+	ar: 'ar',
+	de: 'de_DE',
+	es: 'es_ES',
+	fr: 'fr_FR',
+	he: 'he_IL',
+	id: 'id_ID',
+	it: 'it_IT',
+	ja: 'ja',
+	ko: 'ko_KR',
+	nl: 'nl_NL',
+	pl: 'pl_PL',
+	'pt-br': 'pt_BR',
+	ru: 'ru_RU',
+	sv: 'sv_SE',
+	tr: 'tr_TR',
+	vi: 'vi',
+	uk: 'uk',
+	'zh-cn': 'zh_CN',
+	'zh-tw': 'zh_TW',
+};

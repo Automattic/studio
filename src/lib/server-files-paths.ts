@@ -64,3 +64,10 @@ export function getWpCliFolderPath(): string {
 export function getWpCliPath(): string {
 	return path.join( getWpCliFolderPath(), 'wp-cli.phar' );
 }
+
+/**
+ * The path where bundled WordPress language packs are stored.
+ */
+export function getLanguagePacksPath(): string {
+	return path.join( getBasePath(), 'language-packs' );
+}

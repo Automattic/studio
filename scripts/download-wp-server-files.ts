@@ -2,6 +2,7 @@ import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
 import { extractZip } from '../common/lib/extract-zip';
+import { studioToWpLocaleMap } from '../common/lib/locale';
 import { getLatestSQLiteCommandRelease } from '../src/lib/sqlite-command-release';
 import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../src/constants';
 
@@ -99,6 +100,57 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 	await fs.remove( zipPath );
 }
 
+interface TranslationEntry {
+	language: string;
+	package: string;
+}
+
+interface TranslationsApiResponse {
+	translations: TranslationEntry[];
+}
+
+async function downloadLanguagePacks(): Promise< void > {
+	const languagesPath = path.join( WP_SERVER_FILES_PATH, 'latest', 'languages' );
+	await fs.ensureDir( languagesPath );
+
+	console.log( '[language-packs] Fetching available translations ...' );
+	const response = await fetch( 'https://api.wordpress.org/translations/core/1.0/' );
+	if ( ! response.ok ) {
+		throw new Error( `Failed to fetch translations API (status ${ response.status })` );
+	}
+	const data: TranslationsApiResponse = await response.json();
+
+	const wpLocales = Object.values( studioToWpLocaleMap );
+	const translationsToDownload = data.translations.filter( ( t ) =>
+		wpLocales.includes( t.language )
+	);
+
+	console.log(
+		`[language-packs] Downloading ${ translationsToDownload.length } language packs ...`
+	);
+
+	for ( const translation of translationsToDownload ) {
+		const { language, package: packageUrl } = translation;
+		console.log( `[language-packs] Downloading ${ language } ...` );
+
+		const zipResponse = await fetch( packageUrl );
+		if ( ! zipResponse.ok ) {
+			console.error(
+				`[language-packs] Failed to download ${ language } (status ${ zipResponse.status }), skipping`
+			);
+			continue;
+		}
+
+		const zipPath = path.join( os.tmpdir(), `wp-language-${ language }.zip` );
+		const buffer = Buffer.from( await zipResponse.arrayBuffer() );
+		await fs.writeFile( zipPath, buffer );
+		await extractZip( zipPath, languagesPath );
+		await fs.remove( zipPath );
+	}
+
+	console.log( '[language-packs] All language packs downloaded' );
+}
+
 async function downloadFiles() {
 	for ( const file of FILES_TO_DOWNLOAD ) {
 		try {
@@ -107,6 +159,13 @@ async function downloadFiles() {
 			console.error( err );
 			process.exit( 1 );
 		}
+	}
+
+	try {
+		await downloadLanguagePacks();
+	} catch ( err ) {
+		console.error( '[language-packs] Error downloading language packs:', err );
+		process.exit( 1 );
 	}
 }
 

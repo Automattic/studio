@@ -45,7 +45,11 @@ export async function runWpCliCommand(
 	phpVersion: SupportedPHPVersion,
 	args: string[]
 ): Promise< [ StreamedPHPResponse, exitPhp: () => void ] > {
-	const id = await loadNodeRuntime( phpVersion, { followSymlinks: true } );
+	const id = await loadNodeRuntime( phpVersion, {
+		followSymlinks: true,
+		withRedis: true,
+		withMemcached: true,
+	} );
 	const php = new PHP( id );
 
 	try {
@@ -96,7 +100,11 @@ export async function runWpCliCommand(
 export async function runGlobalWpCliCommand(
 	args: string[]
 ): Promise< [ StreamedPHPResponse, exitPhp: () => void ] > {
-	const id = await loadNodeRuntime( LatestSupportedPHPVersion, { followSymlinks: true } );
+	const id = await loadNodeRuntime( LatestSupportedPHPVersion, {
+		followSymlinks: true,
+		withRedis: true,
+		withMemcached: true,
+	} );
 	const php = new PHP( id );
 
 	try {

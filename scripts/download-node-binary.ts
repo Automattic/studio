@@ -6,24 +6,14 @@
  */
 
 import fs from 'fs';
-import path from 'path';
 import os from 'os';
+import path from 'path';
 import { extract } from 'tar';
 import { extractZip } from '../common/lib/extract-zip';
 
-const LTS_FALLBACK = 'v22.12.0';
-
-function getNodeVersion(): string {
-	const nvmrcPath = path.join( __dirname, '..', '.nvmrc' );
-	if ( fs.existsSync( nvmrcPath ) ) {
-		const version = fs.readFileSync( nvmrcPath, 'utf-8' ).trim();
-		return version.startsWith( 'v' ) ? version : `v${ version }`;
-	}
-	console.log( `.nvmrc not found, using fallback version ${ LTS_FALLBACK }` );
-	return LTS_FALLBACK;
-}
-
-const NODE_VERSION = getNodeVersion();
+// Node.js version to bundle with the CLI
+// This is separate from .nvmrc which controls the development environment
+const NODE_VERSION = 'v24.11.0';
 
 const platform = process.argv[ 2 ] || process.platform;
 const arch = process.argv[ 3 ] || process.arch;
@@ -100,7 +90,11 @@ async function download( downloadUrl: string, dest: string ): Promise< void > {
 	console.log( 'Download complete.' );
 }
 
-async function extractTarGz( archivePath: string, destDir: string, binaryName: string ): Promise< void > {
+async function extractTarGz(
+	archivePath: string,
+	destDir: string,
+	binaryName: string
+): Promise< void > {
 	console.log( 'Extracting node binary...' );
 
 	const extractDir = path.join( tmpDir, `node-${ NODE_VERSION }-${ nodePlatform }-${ nodeArch }` );
@@ -118,7 +112,11 @@ async function extractTarGz( archivePath: string, destDir: string, binaryName: s
 	fs.rmSync( extractDir, { recursive: true } );
 }
 
-async function extractNodeZip( archivePath: string, destDir: string, binaryName: string ): Promise< void > {
+async function extractNodeZip(
+	archivePath: string,
+	destDir: string,
+	binaryName: string
+): Promise< void > {
 	console.log( 'Extracting node.exe...' );
 
 	const extractDir = path.join( tmpDir, `node-${ NODE_VERSION }-${ nodePlatform }-${ nodeArch }` );
@@ -163,4 +161,4 @@ async function main(): Promise< void > {
 	}
 }
 
-main();
+void main();

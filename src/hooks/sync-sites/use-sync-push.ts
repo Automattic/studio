@@ -388,6 +388,14 @@ export function useSyncPush( {
 		const intervals: Record< string, NodeJS.Timeout > = {};
 
 		Object.entries( pushStates ).forEach( ( [ key, state ] ) => {
+			if ( ! state.status ) {
+				Sentry.captureMessage( 'Push state missing status', {
+					level: 'warning',
+					extra: { stateKey: key, stateKeys: Object.keys( state ) },
+				} );
+				return;
+			}
+
 			if ( isKeyCancelled( state.status.key ) ) {
 				return;
 			}
@@ -446,7 +454,7 @@ export function useSyncPush( {
 		'sync-upload-progress',
 		( _event, payload: { selectedSiteId: string; remoteSiteId: number; progress: number } ) => {
 			const currentState = getPushState( payload.selectedSiteId, payload.remoteSiteId );
-			if ( currentState && isKeyUploading( currentState.status.key ) ) {
+			if ( currentState && isKeyUploading( currentState.status?.key ) ) {
 				const mappedProgress = mapUploadProgressToOverallProgress( payload.progress );
 
 				updatePushState( payload.selectedSiteId, payload.remoteSiteId, {
@@ -461,7 +469,7 @@ export function useSyncPush( {
 	);
 
 	const isAnySitePushing = useMemo< boolean >( () => {
-		return Object.values( pushStates ).some( ( state ) => isKeyPushing( state.status.key ) );
+		return Object.values( pushStates ).some( ( state ) => isKeyPushing( state.status?.key ) );
 	}, [ pushStates, isKeyPushing ] );
 
 	const isSiteIdPushing = useCallback< IsSiteIdPushing >(
@@ -474,9 +482,9 @@ export function useSyncPush( {
 					return false;
 				}
 				if ( remoteSiteId !== undefined ) {
-					return isKeyPushing( state.status.key ) && state.remoteSiteId === remoteSiteId;
+					return isKeyPushing( state.status?.key ) && state.remoteSiteId === remoteSiteId;
 				}
-				return isKeyPushing( state.status.key );
+				return isKeyPushing( state.status?.key );
 			} );
 		},
 		[ pushStates, isKeyPushing ]

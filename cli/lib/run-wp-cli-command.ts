@@ -6,6 +6,7 @@ import {
 	PHP,
 	setPhpIniEntries,
 } from '@php-wasm/universal';
+import { createSpawnHandler } from '@php-wasm/util';
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
 import { getMuPlugins } from 'common/lib/mu-plugins';
@@ -13,6 +14,24 @@ import { LatestSupportedPHPVersion } from 'common/types/php-versions';
 import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 
 const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';
+
+/**
+ * Creates a no-op spawn handler that immediately exits with code 1.
+ * This allows process spawning functions (proc_open, exec, etc.) to be called
+ * without crashing, but they will fail gracefully. WP-CLI detects these failures
+ * and falls back to single-threaded mode.
+ *
+ * The timeout before exit is required by the createSpawnHandler API — PHP needs
+ * an event loop tick to set up its stream listeners after proc_open() returns.
+ * Without it, the process exits before PHP registers its handlers and
+ * createSpawnHandler throws a "exited synchronously" error.
+ */
+function createNoopSpawnHandler() {
+	return createSpawnHandler( async ( args, processApi ) => {
+		await new Promise( ( resolve ) => setTimeout( resolve, 1 ) );
+		processApi.exit( 1 );
+	} );
+}
 
 export interface RunWpCliCommandOptions {
 	siteUrl?: string;
@@ -40,8 +59,9 @@ export async function runWpCliCommand(
 		await setPhpIniEntries( php, {
 			'openssl.cafile': '/tmp/ca-bundle.crt',
 			allow_url_fopen: 1,
-			disable_functions: '',
 		} );
+
+		await php.setSpawnHandler( createNoopSpawnHandler() );
 
 		// Mount mu-plugins
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
@@ -87,8 +107,9 @@ export async function runGlobalWpCliCommand(
 		await setPhpIniEntries( php, {
 			'openssl.cafile': '/tmp/ca-bundle.crt',
 			allow_url_fopen: 1,
-			disable_functions: '',
 		} );
+
+		await php.setSpawnHandler( createNoopSpawnHandler() );
 
 		await php.mount( '/tmp/wp-cli.phar', createNodeFsMountHandler( getWpCliPharPath() ) );
 

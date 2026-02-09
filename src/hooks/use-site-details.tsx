@@ -39,6 +39,7 @@ interface SiteDetailsContext {
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
 	stopAllRunningSites: () => Promise< void >;
+	startAllStoppedSites: () => Promise< void >;
 	deleteSite: ( id: string, removeLocal: boolean ) => Promise< void >;
 	loadingServer: Record< string, boolean >;
 	loadingSites: boolean;
@@ -61,6 +62,7 @@ const defaultContext: SiteDetailsContext = {
 	startServer: async () => undefined,
 	stopServer: async () => undefined,
 	stopAllRunningSites: async () => undefined,
+	startAllStoppedSites: async () => undefined,
 	deleteSite: async () => undefined,
 	loadingServer: {},
 	loadingSites: true,
@@ -501,6 +503,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		await getIpcApi().stopAllServers();
 	}, [] );
 
+	const startAllStoppedSites = useCallback( async () => {
+		const stoppedSites = sites.filter( ( site ) => ! site.running && ! site.isAddingSite );
+		await Promise.allSettled( stoppedSites.map( ( site ) => startServer( site.id ) ) );
+	}, [ sites, startServer ] );
+
 	const [ isEditModalOpen, setIsEditModalOpen ] = useState( false );
 	const selectedSite = sites.find( ( site ) => site.id === selectedSiteId ) || firstSite;
 
@@ -519,6 +526,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			startServer,
 			stopServer,
 			stopAllRunningSites,
+			startAllStoppedSites,
 			loadingServer,
 			deleteSite: onDeleteSite,
 			isDeleting: selectedSiteId ? isDeleting[ selectedSiteId ] : false,
@@ -539,6 +547,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			startServer,
 			stopServer,
 			stopAllRunningSites,
+			startAllStoppedSites,
 			loadingServer,
 			onDeleteSite,
 			selectedSiteId,

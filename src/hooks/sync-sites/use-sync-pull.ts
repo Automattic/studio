@@ -372,6 +372,14 @@ export function useSyncPull( {
 		const intervals: Record< string, NodeJS.Timeout > = {};
 
 		Object.entries( pullStates ).forEach( ( [ key, state ] ) => {
+			if ( ! state.status ) {
+				Sentry.captureMessage( 'Pull state missing status', {
+					level: 'warning',
+					extra: { stateKey: key, stateKeys: Object.keys( state ) },
+				} );
+				return;
+			}
+
 			if ( isKeyCancelled( state.status.key ) ) {
 				return;
 			}
@@ -389,7 +397,7 @@ export function useSyncPull( {
 	}, [ pullStates, fetchAndUpdateBackup, isKeyCancelled ] );
 
 	const isAnySitePulling = useMemo< boolean >( () => {
-		return Object.values( pullStates ).some( ( state ) => isKeyPulling( state.status.key ) );
+		return Object.values( pullStates ).some( ( state ) => isKeyPulling( state.status?.key ) );
 	}, [ pullStates, isKeyPulling ] );
 
 	const isSiteIdPulling = useCallback< IsSiteIdPulling >(
@@ -402,9 +410,9 @@ export function useSyncPull( {
 					return false;
 				}
 				if ( remoteSiteId !== undefined ) {
-					return isKeyPulling( state.status.key ) && state.remoteSiteId === remoteSiteId;
+					return isKeyPulling( state.status?.key ) && state.remoteSiteId === remoteSiteId;
 				}
-				return isKeyPulling( state.status.key );
+				return isKeyPulling( state.status?.key );
 			} );
 		},
 		[ pullStates, isKeyPulling ]

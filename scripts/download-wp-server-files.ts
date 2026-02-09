@@ -131,14 +131,18 @@ interface TranslationsApiResponse {
 	translations: TranslationEntry[];
 }
 
-async function downloadLanguagePacks(): Promise< void > {
-	const languagesPath = path.join( WP_SERVER_FILES_PATH, 'latest', 'languages' );
-	await fs.ensureDir( languagesPath );
+// Plugins and themes bundled with the default WordPress installation.
+const BUNDLED_PLUGINS = [ 'akismet' ];
+const BUNDLED_THEMES = [ 'twentytwentyfive', 'twentytwentyfour', 'twentytwentythree' ];
 
-	console.log( '[language-packs] Fetching available translations ...' );
-	const response = await fetch( 'https://api.wordpress.org/translations/core/1.0/' );
+async function downloadTranslationsFromApi(
+	apiUrl: string,
+	destPath: string,
+	label: string
+): Promise< void > {
+	const response = await fetch( apiUrl );
 	if ( ! response.ok ) {
-		throw new Error( `Failed to fetch translations API (status ${ response.status })` );
+		throw new Error( `Failed to fetch ${ label } translations API (status ${ response.status })` );
 	}
 	const data: TranslationsApiResponse = await response.json();
 
@@ -147,36 +151,71 @@ async function downloadLanguagePacks(): Promise< void > {
 	);
 
 	console.log(
-		`[language-packs] Downloading ${ translationsToDownload.length } language packs ...`
+		`[language-packs] ${ label }: downloading ${ translationsToDownload.length } locale(s)`
 	);
+
+	await fs.ensureDir( destPath );
 
 	for ( const translation of translationsToDownload ) {
 		const { language, package: packageUrl } = translation;
-		console.log( `[language-packs] Downloading ${ language } ...` );
-
 		const zipResponse = await fetch( packageUrl );
 		if ( ! zipResponse.ok ) {
 			console.error(
-				`[language-packs] Failed to download ${ language } (status ${ zipResponse.status }), skipping`
+				`[language-packs] Failed to download ${ label }/${ language } (status ${ zipResponse.status }), skipping`
 			);
 			continue;
 		}
 
-		const zipPath = path.join( os.tmpdir(), `wp-language-${ language }.zip` );
+		const zipPath = path.join( os.tmpdir(), `wp-language-${ label }-${ language }.zip` );
 		const buffer = Buffer.from( await zipResponse.arrayBuffer() );
 		await fs.writeFile( zipPath, buffer );
-		await extractZip( zipPath, languagesPath );
+		await extractZip( zipPath, destPath );
 		await fs.remove( zipPath );
+	}
+}
+
+async function removePoAndMoFiles( dirPath: string ): Promise< void > {
+	const entries = await fs.readdir( dirPath, { withFileTypes: true } );
+	for ( const entry of entries ) {
+		const fullPath = path.join( dirPath, entry.name );
+		if ( entry.isDirectory() ) {
+			await removePoAndMoFiles( fullPath );
+		} else if ( entry.name.endsWith( '.po' ) || entry.name.endsWith( '.mo' ) ) {
+			await fs.remove( fullPath );
+		}
+	}
+}
+
+async function downloadLanguagePacks(): Promise< void > {
+	const languagesPath = path.join( WP_SERVER_FILES_PATH, 'latest', 'languages' );
+
+	// Core translations
+	await downloadTranslationsFromApi(
+		'https://api.wordpress.org/translations/core/1.0/',
+		languagesPath,
+		'core'
+	);
+
+	// Plugin translations
+	for ( const slug of BUNDLED_PLUGINS ) {
+		await downloadTranslationsFromApi(
+			`https://api.wordpress.org/translations/plugins/1.0/?slug=${ slug }`,
+			path.join( languagesPath, 'plugins' ),
+			`plugin/${ slug }`
+		);
+	}
+
+	// Theme translations
+	for ( const slug of BUNDLED_THEMES ) {
+		await downloadTranslationsFromApi(
+			`https://api.wordpress.org/translations/themes/1.0/?slug=${ slug }`,
+			path.join( languagesPath, 'themes' ),
+			`theme/${ slug }`
+		);
 	}
 
 	// Remove .po and .mo files — WordPress 6.5+ uses .l10n.php and .json files.
-	// This reduces the language packs size by ~65%.
-	const allFiles = await fs.readdir( languagesPath );
-	for ( const file of allFiles ) {
-		if ( file.endsWith( '.po' ) || file.endsWith( '.mo' ) ) {
-			await fs.remove( path.join( languagesPath, file ) );
-		}
-	}
+	await removePoAndMoFiles( languagesPath );
 
 	console.log( '[language-packs] All language packs downloaded' );
 }

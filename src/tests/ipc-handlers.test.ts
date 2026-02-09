@@ -360,7 +360,7 @@ describe( 'getXdebugEnabledSite', () => {
 } );
 
 describe( 'loadThemeDetails', () => {
-	it( 'should update thumbnail even when theme has not changed', async () => {
+	it( 'should update thumbnail but not persist theme details when theme has not changed', async () => {
 		const themeDetails = { name: 'Twenty Twenty-Four', path: '/themes/twentytwentyfour' };
 		const mockServer = {
 			details: {
@@ -376,6 +376,7 @@ describe( 'loadThemeDetails', () => {
 
 		await loadThemeDetails( mockIpcMainInvokeEvent, 'test-site-id' );
 
+		expect( mockServer.persistThemeDetails ).not.toHaveBeenCalled();
 		expect( mockServer.updateCachedThumbnail ).toHaveBeenCalled();
 	} );
 
@@ -397,26 +398,6 @@ describe( 'loadThemeDetails', () => {
 		await loadThemeDetails( mockIpcMainInvokeEvent, 'test-site-id' );
 
 		expect( mockServer.persistThemeDetails ).toHaveBeenCalled();
-		expect( mockServer.updateCachedThumbnail ).toHaveBeenCalled();
-	} );
-
-	it( 'should not persist theme details when theme has not changed', async () => {
-		const themeDetails = { name: 'Twenty Twenty-Four', path: '/themes/twentytwentyfour' };
-		const mockServer = {
-			details: {
-				id: 'test-site-id',
-				running: true,
-				themeDetails,
-			},
-			getThemeDetails: vi.fn().mockResolvedValue( themeDetails ),
-			persistThemeDetails: vi.fn().mockResolvedValue( undefined ),
-			updateCachedThumbnail: vi.fn().mockResolvedValue( undefined ),
-		};
-		vi.mocked( SiteServer.get ).mockReturnValue( mockServer as unknown as SiteServer );
-
-		await loadThemeDetails( mockIpcMainInvokeEvent, 'test-site-id' );
-
-		expect( mockServer.persistThemeDetails ).not.toHaveBeenCalled();
 		expect( mockServer.updateCachedThumbnail ).toHaveBeenCalled();
 	} );
 } );

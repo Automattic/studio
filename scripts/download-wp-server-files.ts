@@ -166,7 +166,8 @@ async function downloadTranslationsFromApi(
 			continue;
 		}
 
-		const zipPath = path.join( os.tmpdir(), `wp-language-${ label }-${ language }.zip` );
+		const safeLabel = label.replace( /\//g, '-' );
+		const zipPath = path.join( os.tmpdir(), `wp-language-${ safeLabel }-${ language }.zip` );
 		const buffer = Buffer.from( await zipResponse.arrayBuffer() );
 		await fs.writeFile( zipPath, buffer );
 		await extractZip( zipPath, destPath );

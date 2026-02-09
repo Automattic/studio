@@ -27,7 +27,7 @@ vi.mock( 'src/lib/wp-versions' );
 // Create a partial mock of the Archiver interface
 type PartialArchiver = Pick<
 	archiver.Archiver,
-	'pipe' | 'file' | 'directory' | 'finalize' | 'on' | 'abort' | 'append'
+	'pipe' | 'file' | 'directory' | 'finalize' | 'on' | 'abort'
 >;
 
 const createMockArchiver = (): {
@@ -37,7 +37,6 @@ const createMockArchiver = (): {
 	finalize: Mock;
 	on: Mock;
 	abort: Mock;
-	append: Mock;
 } => {
 	return {
 		pipe: vi.fn().mockReturnThis(),
@@ -46,7 +45,6 @@ const createMockArchiver = (): {
 		finalize: vi.fn().mockResolvedValue( undefined ),
 		on: vi.fn().mockReturnThis(),
 		abort: vi.fn(),
-		append: vi.fn().mockReturnThis(),
 	};
 };
 
@@ -734,11 +732,12 @@ define( 'DB_COLLATE', '' );
 		const testExporter = new DefaultExporter( options );
 		await testExporter.export();
 
-		expect( mockArchiver.append ).toHaveBeenCalledWith(
-			Buffer.from( removeDbConstants( wpConfigWithDbConstants ) ),
-			{ name: 'wp-config.php' }
+		expect( fs.writeFileSync ).toHaveBeenCalledWith(
+			normalize( '/path/to/site/wp-config.php' ),
+			removeDbConstants( wpConfigWithDbConstants ),
+			'utf-8'
 		);
-		expect( mockArchiver.file ).not.toHaveBeenCalledWith(
+		expect( mockArchiver.file ).toHaveBeenCalledWith(
 			normalize( '/path/to/site/wp-config.php' ),
 			{ name: 'wp-config.php' }
 		);
@@ -759,7 +758,7 @@ define( 'DB_COLLATE', '' );
 		expect( mockArchiver.file ).toHaveBeenCalledWith( normalize( '/path/to/site/wp-config.php' ), {
 			name: 'wp-config.php',
 		} );
-		expect( mockArchiver.append ).not.toHaveBeenCalled();
+		expect( fs.writeFileSync ).not.toHaveBeenCalled();
 	} );
 
 	describe( 'isExactPathExcluded', () => {

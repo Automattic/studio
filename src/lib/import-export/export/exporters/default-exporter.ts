@@ -184,14 +184,11 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			const content = fs.readFileSync( wpConfigPath, 'utf-8' );
 			if ( hasDefaultDbBlock( content ) ) {
 				const modifiedContent = removeDbConstants( content );
-				this.archiveBuilder.append( Buffer.from( modifiedContent ), {
-					name: 'wp-config.php',
-				} );
-			} else {
-				this.archiveBuilder.file( wpConfigPath, {
-					name: 'wp-config.php',
-				} );
+				fs.writeFileSync( wpConfigPath, modifiedContent, 'utf-8' );
 			}
+			this.archiveBuilder.file( wpConfigPath, {
+				name: 'wp-config.php',
+			} );
 		}
 	}
 

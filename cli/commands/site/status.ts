@@ -35,25 +35,33 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 
 		const siteData: {
 			key: string;
+			jsonKey: string;
 			value: string | undefined;
 			type?: string;
 			hidden?: boolean;
 		}[] = [
-			{ key: __( 'Site URL' ), value: new URL( siteUrl ).toString(), type: 'url' },
+			{
+				key: __( 'Site URL' ),
+				jsonKey: 'siteUrl',
+				value: new URL( siteUrl ).toString(),
+				type: 'url',
+			},
 			{
 				key: __( 'Auto-login URL' ),
+				jsonKey: 'autoLoginUrl',
 				value: autoLoginUrl.toString(),
 				type: 'url',
 				hidden: ! isOnline,
 			},
-			{ key: __( 'Site Path' ), value: sitePath },
-			{ key: __( 'Status' ), value: status },
-			{ key: __( 'PHP version' ), value: site.phpVersion },
-			{ key: __( 'WP version' ), value: wpVersion },
-			{ key: __( 'Xdebug' ), value: xdebugStatus },
-			{ key: __( 'Admin username' ), value: 'admin' },
+			{ key: __( 'Site Path' ), jsonKey: 'sitePath', value: sitePath },
+			{ key: __( 'Status' ), jsonKey: 'status', value: status },
+			{ key: __( 'PHP version' ), jsonKey: 'phpVersion', value: site.phpVersion },
+			{ key: __( 'WP version' ), jsonKey: 'wpVersion', value: wpVersion },
+			{ key: __( 'Xdebug' ), jsonKey: 'xdebug', value: xdebugStatus },
+			{ key: __( 'Admin username' ), jsonKey: 'adminUsername', value: 'admin' },
 			{
 				key: __( 'Admin password' ),
+				jsonKey: 'adminPassword',
 				value: site.adminPassword ? decodePassword( site.adminPassword ) : undefined,
 			},
 		].filter( ( { value, hidden } ) => value && ! hidden );
@@ -74,7 +82,9 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 
 			console.table( table.toString() );
 		} else {
-			const logData = Object.fromEntries( siteData.map( ( { key, value } ) => [ key, value ] ) );
+			const logData = Object.fromEntries(
+				siteData.map( ( { jsonKey, value } ) => [ jsonKey, value ] )
+			);
 
 			console.log( JSON.stringify( logData, null, 2 ) );
 		}

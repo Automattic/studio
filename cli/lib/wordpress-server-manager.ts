@@ -44,6 +44,11 @@ export function getProcessName( siteId: string ): string {
 }
 
 async function isMultiWorkerEnabled() {
+	// Enable multi-worker support for E2E tests (requires JSPI-enabled Node binary)
+	if ( process.env.E2E === 'true' ) {
+		return true;
+	}
+
 	try {
 		const appdata = await readAppdata();
 		return appdata.betaFeatures?.multiWorkerSupport ?? false;

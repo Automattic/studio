@@ -22,4 +22,4 @@ export const WP_LOCALES = [
 	'uk',
 	'zh_CN',
 	'zh_TW',
-] as const;
+];

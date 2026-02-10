@@ -737,10 +737,9 @@ define( 'DB_COLLATE', '' );
 			removeDbConstants( wpConfigWithDbConstants ),
 			'utf-8'
 		);
-		expect( mockArchiver.file ).toHaveBeenCalledWith(
-			normalize( '/path/to/site/wp-config.php' ),
-			{ name: 'wp-config.php' }
-		);
+		expect( mockArchiver.file ).toHaveBeenCalledWith( normalize( '/path/to/site/wp-config.php' ), {
+			name: 'wp-config.php',
+		} );
 	} );
 
 	it( 'should add wp-config.php via file() when it has no default DB constants', async () => {

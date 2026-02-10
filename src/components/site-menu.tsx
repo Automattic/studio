@@ -212,8 +212,15 @@ function SiteItem( { site }: { site: SiteDetails } ) {
 }
 
 export default function SiteMenu( { className }: SiteMenuProps ) {
-	const { sites, selectedSite, setSelectedSiteId, startServer, stopServer, setIsEditModalOpen } =
-		useSiteDetails();
+	const {
+		sites,
+		selectedSite,
+		setSelectedSiteId,
+		startServer,
+		stopServer,
+		setIsEditModalOpen,
+		copySite,
+	} = useSiteDetails();
 	const { setSelectedTab } = useContentTabs();
 	const { handleDeleteSite } = useDeleteSite();
 	const { data: editor } = useGetUserEditorQuery();
@@ -272,6 +279,15 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 						setSelectedTab( 'settings' );
 						setIsEditModalOpen( true );
 						break;
+					case 'copy-site':
+						void ( async () => {
+							try {
+								await copySite( site.id );
+							} catch ( error ) {
+								Sentry.captureException( error );
+							}
+						} )();
+						break;
 					case 'delete':
 						await handleDeleteSite( site.id, site.name );
 						break;
@@ -291,6 +307,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		setSelectedSiteId,
 		startServer,
 		stopServer,
+		copySite,
 		handleDeleteSite,
 	] );
 

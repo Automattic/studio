@@ -58,6 +58,7 @@ const syncOperationsSlice = createSlice( {
 			state.pullStates[ stateId ] = {
 				...state.pullStates[ stateId ],
 				...updateState,
+				remoteSiteId,
 			} as SyncBackupState;
 		},
 
@@ -74,6 +75,7 @@ const syncOperationsSlice = createSlice( {
 			state.pushStates[ stateId ] = {
 				...state.pushStates[ stateId ],
 				...updateState,
+				remoteSiteId,
 			} as SyncPushState;
 		},
 
@@ -339,7 +341,6 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 
 		// Initialize push state
 		updatePushStateWithIpc( dispatch, selectedSite.id, remoteSiteId, {
-			remoteSiteId,
 			status: pushStatesProgressInfo.creatingBackup,
 			selectedSite,
 			remoteSiteUrl,
@@ -505,7 +506,6 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 					backupId: null,
 					status: pullStatesProgressInfo[ 'in-progress' ],
 					downloadUrl: null,
-					remoteSiteId,
 					remoteSiteUrl,
 					selectedSite,
 				},

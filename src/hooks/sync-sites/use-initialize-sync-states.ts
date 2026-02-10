@@ -51,7 +51,6 @@ export function useInitializeSyncStates() {
 								selectedSiteId: connectedSite.localSiteId,
 								remoteSiteId: connectedSite.id,
 								state: {
-									remoteSiteId: connectedSite.id,
 									status,
 									selectedSite: localSite,
 									remoteSiteUrl: connectedSite.url,

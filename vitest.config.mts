@@ -44,6 +44,10 @@ export default defineConfig( {
 			src: path.resolve( __dirname, './src' ),
 			vendor: path.resolve( __dirname, './vendor' ),
 			common: path.resolve( __dirname, './common' ),
+			'@wp-playground/blueprints/blueprint-schema-validator': path.resolve(
+				__dirname,
+				'./node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'
+			),
 		},
 	},
 } );

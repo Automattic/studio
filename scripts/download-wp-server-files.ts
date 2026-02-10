@@ -2,29 +2,7 @@ import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
 import { extractZip } from '../common/lib/extract-zip';
-// WordPress locale codes for all non-English locales supported by Studio.
-// Keep in sync with studioToWpLocaleMap in common/lib/locale.ts.
-const WP_LOCALES = [
-	'ar',
-	'de_DE',
-	'es_ES',
-	'fr_FR',
-	'he_IL',
-	'id_ID',
-	'it_IT',
-	'ja',
-	'ko_KR',
-	'nl_NL',
-	'pl_PL',
-	'pt_BR',
-	'ru_RU',
-	'sv_SE',
-	'tr_TR',
-	'vi',
-	'uk',
-	'zh_CN',
-	'zh_TW',
-];
+import { WP_LOCALES } from '../common/lib/wp-locales';
 import { getLatestSQLiteCommandRelease } from '../src/lib/sqlite-command-release';
 import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../src/constants';
 

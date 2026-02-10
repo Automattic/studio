@@ -139,6 +139,20 @@ const config: ForgeConfig = {
 			console.log( 'Building CLI ...' );
 			await execAsync( 'npm run cli:build' );
 
+			// Remove asyncify PHP-WASM builds from dist. The bundled Node.js binary supports
+			// JSPI, so asyncify variants are unused and removing them saves ~250MB.
+			console.log( 'Removing asyncify PHP-WASM builds from dist ...' );
+			const distNodeModules = path.join( __dirname, 'dist', 'cli', 'node_modules', '@php-wasm' );
+			const phpWasmPackages = fs.readdirSync( distNodeModules ).filter( ( name ) =>
+				name.startsWith( 'node-' )
+			);
+			for ( const pkg of phpWasmPackages ) {
+				const asyncifyPath = path.join( distNodeModules, pkg, 'asyncify' );
+				if ( fs.existsSync( asyncifyPath ) ) {
+					fs.rmSync( asyncifyPath, { recursive: true } );
+				}
+			}
+
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
 			await execAsync( `npx ts-node ./scripts/download-node-binary.ts ${ platform } ${ arch }` );
 		},

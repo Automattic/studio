@@ -1,3 +1,4 @@
+import { existsSync } from 'fs';
 import path from 'path';
 import { LOCKFILE_NAME } from 'common/constants';
 
@@ -73,14 +74,15 @@ export function getBundledNodeBinaryPath(): string {
 		return path.join( getResourcesPath(), 'bin', nodeBinaryName );
 	}
 
-	// In test environment, use the Electron node binary. The system-level node binary is not reliable
-	// in this context.
-	if ( process.env.NODE_ENV === 'test' ) {
-		return process.execPath;
+	// In development and test environments, prefer the bundled node binary if available
+	// (downloaded via scripts/download-node-binary.ts). It's a newer version that supports
+	// features like JSPI required by PHP WASM extensions (Redis, Memcached).
+	const bundledDevPath = path.join( getResourcesPath(), 'bin', nodeBinaryName );
+	if ( existsSync( bundledDevPath ) ) {
+		return bundledDevPath;
 	}
 
-	// In development, use the system-level node binary. The bundled node binary most likely isn't
-	// available, and the Electron binary is noticeably slower.
+	// Fall back to the system-level node binary.
 	return nodeBinaryName;
 }
 

@@ -233,6 +233,7 @@ export async function startProcess(
 		const processConfig: StartOptions = {
 			name: processName,
 			interpreter: process.execPath,
+			node_args: '--experimental-wasm-jspi',
 			script: scriptPath,
 			exec_mode: 'fork',
 			autorestart: false,

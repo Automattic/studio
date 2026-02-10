@@ -30,6 +30,7 @@ test.describe( 'Startup Metrics', () => {
 		} );
 
 		await session.cleanup();
+		setTimeout( () => process.exit( 0 ), 1000 );
 	} );
 
 	test( 'measure site creation and startup performance', async () => {

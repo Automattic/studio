@@ -6,6 +6,7 @@ import {
 	useContext,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from 'react';
 import { SITE_EVENTS, SiteEvent } from 'common/lib/site-events';
@@ -168,6 +169,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const { Provider } = siteDetailsContext;
 
 	const [ sites, setSites ] = useState< SiteDetails[] >( [] );
+	const sitesRef = useRef( sites );
+	useEffect( () => {
+		sitesRef.current = sites;
+	}, [ sites ] );
 	const [ loadingSites, setLoadingSites ] = useState< boolean >( true );
 	const [ siteCreationMessages, setSiteCreationMessages ] = useState< {
 		[ siteId: string ]: string;
@@ -402,7 +407,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			try {
 				await getIpcApi().startServer( id );
 			} catch ( error ) {
-				const siteName = sites.find( ( site ) => site.id === id )?.name;
+				const siteName = sitesRef.current.find( ( site ) => site.id === id )?.name;
 				if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PORT_IN_USE' ) ) {
 					getIpcApi().showErrorMessageBox( {
 						title: siteName
@@ -468,7 +473,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 			toggleLoadingServerForSite( id );
 		},
-		[ toggleLoadingServerForSite, sites ]
+		[ toggleLoadingServerForSite ]
 	);
 
 	const copySite = useCallback(

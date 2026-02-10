@@ -202,9 +202,6 @@ export async function runCommand(
 			}
 
 			if ( usedBundledPacks ) {
-				// Bundled core translations are already on disk. Use defineWpConfigConsts
-				// to set WPLANG in wp-config.php (matching what setSiteLanguage does)
-				// and setSiteOptions to persist it in the database.
 				setupSteps.push(
 					{
 						step: 'defineWpConfigConsts',

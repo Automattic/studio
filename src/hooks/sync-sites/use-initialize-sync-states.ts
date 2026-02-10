@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
 import { mapImportResponseToPushState } from 'src/hooks/sync-sites/use-sync-push';
 import { useAuth } from 'src/hooks/use-auth';
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
@@ -57,9 +56,6 @@ export function useInitializeSyncStates() {
 								},
 							} )
 						);
-
-						const stateId = generateStateId( connectedSite.localSiteId, connectedSite.id );
-						getIpcApi().addSyncOperation( stateId, status );
 					}
 				} catch ( error ) {
 					// Continue checking other sites even if one fails

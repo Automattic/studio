@@ -7,6 +7,7 @@ import {
 import { setupListeners } from '@reduxjs/toolkit/query';
 import { useDispatch, useSelector } from 'react-redux';
 import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
+import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { betaFeaturesReducer, loadBetaFeatures } from 'src/stores/beta-features-slice';
@@ -21,7 +22,7 @@ import {
 	updateSnapshotLocally,
 	snapshotActions,
 } from 'src/stores/snapshot-slice';
-import { syncReducer } from 'src/stores/sync';
+import { syncReducer, syncOperationsActions } from 'src/stores/sync';
 import { connectedSitesApi, connectedSitesReducer } from 'src/stores/sync/connected-sites';
 import { syncOperationsReducer } from 'src/stores/sync/sync-operations-slice';
 import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
@@ -29,6 +30,10 @@ import uiReducer from 'src/stores/ui-slice';
 import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from 'common/lib/locale';
+import type {
+	PullStateProgressInfo,
+	PushStateProgressInfo,
+} from 'src/hooks/use-sync-states-progress-info';
 
 export type RootState = {
 	appVersionApi: ReturnType< typeof appVersionApi.reducer >;
@@ -87,6 +92,41 @@ listenerMiddleware.startListening( {
 	async effect( action, listenerApi ) {
 		const state = listenerApi.getState();
 		await getIpcApi().saveSnapshotsToStorage( state.snapshot.snapshots );
+	},
+} );
+
+const TERMINAL_STATUS_KEYS = [ 'failed', 'finished', 'cancelled' ];
+
+// Sync push/pull state updates to IPC (addSyncOperation / clearSyncOperation)
+listenerMiddleware.startListening( {
+	matcher: isAnyOf( syncOperationsActions.updatePushState, syncOperationsActions.updatePullState ),
+	effect( action ) {
+		const { selectedSiteId, remoteSiteId, state } = action.payload as {
+			selectedSiteId: string;
+			remoteSiteId: number;
+			state: { status?: PullStateProgressInfo | PushStateProgressInfo };
+		};
+		const stateId = generateStateId( selectedSiteId, remoteSiteId );
+		const statusKey = state.status?.key;
+
+		if ( statusKey && TERMINAL_STATUS_KEYS.includes( statusKey ) ) {
+			getIpcApi().clearSyncOperation( stateId );
+		} else if ( state.status ) {
+			getIpcApi().addSyncOperation( stateId, state.status );
+		}
+	},
+} );
+
+// Sync push/pull state clears to IPC (clearSyncOperation)
+listenerMiddleware.startListening( {
+	matcher: isAnyOf( syncOperationsActions.clearPushState, syncOperationsActions.clearPullState ),
+	effect( action ) {
+		const { selectedSiteId, remoteSiteId } = action.payload as {
+			selectedSiteId: string;
+			remoteSiteId: number;
+		};
+		const stateId = generateStateId( selectedSiteId, remoteSiteId );
+		getIpcApi().clearSyncOperation( stateId );
 	},
 } );
 

@@ -189,31 +189,6 @@ const getErrorFromResponse = ( error: unknown ): string => {
 	return __( 'Studio was unable to connect to WordPress.com. Please try again.' );
 };
 
-// Helper to update push state and sync with IPC (matching updatePushState logic)
-const updatePushStateWithIpc = (
-	dispatch: AppDispatch,
-	selectedSiteId: string,
-	remoteSiteId: number,
-	state: Partial< SyncPushState >
-) => {
-	const stateId = generateStateId( selectedSiteId, remoteSiteId );
-	const statusKey = state.status?.key;
-
-	dispatch(
-		syncOperationsActions.updatePushState( {
-			selectedSiteId,
-			remoteSiteId,
-			state,
-		} )
-	);
-
-	if ( statusKey === 'failed' || statusKey === 'finished' || statusKey === 'cancelled' ) {
-		getIpcApi().clearSyncOperation( stateId );
-	} else if ( state.status ) {
-		getIpcApi().addSyncOperation( stateId, state.status );
-	}
-};
-
 // Create typed async thunk helper
 const createTypedAsyncThunk = createAsyncThunk.withTypes< {
 	state: RootState;
@@ -224,11 +199,7 @@ const createTypedAsyncThunk = createAsyncThunk.withTypes< {
 export const clearPushStateThunk = createTypedAsyncThunk(
 	'syncOperations/clearPushState',
 	async ( { selectedSiteId, remoteSiteId }: ClearStatePayload, { dispatch } ) => {
-		// Update Redux state
 		dispatch( syncOperationsActions.clearPushState( { selectedSiteId, remoteSiteId } ) );
-		// Clear IPC operation
-		const stateId = generateStateId( selectedSiteId, remoteSiteId );
-		getIpcApi().clearSyncOperation( stateId );
 		return { selectedSiteId, remoteSiteId };
 	}
 );
@@ -236,11 +207,7 @@ export const clearPushStateThunk = createTypedAsyncThunk(
 export const clearPullStateThunk = createTypedAsyncThunk(
 	'syncOperations/clearPullState',
 	async ( { selectedSiteId, remoteSiteId }: ClearStatePayload, { dispatch } ) => {
-		// Update Redux state
 		dispatch( syncOperationsActions.clearPullState( { selectedSiteId, remoteSiteId } ) );
-		// Clear IPC operation
-		const stateId = generateStateId( selectedSiteId, remoteSiteId );
-		getIpcApi().clearSyncOperation( stateId );
 		return { selectedSiteId, remoteSiteId };
 	}
 );
@@ -340,11 +307,17 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 		);
 
 		// Initialize push state
-		updatePushStateWithIpc( dispatch, selectedSite.id, remoteSiteId, {
-			status: pushStatesProgressInfo.creatingBackup,
-			selectedSite,
-			remoteSiteUrl,
-		} );
+		dispatch(
+			syncOperationsActions.updatePushState( {
+				selectedSiteId: selectedSite.id,
+				remoteSiteId,
+				state: {
+					status: pushStatesProgressInfo.creatingBackup,
+					selectedSite,
+					remoteSiteUrl,
+				},
+			} )
+		);
 
 		let archivePath: string, archiveSizeInBytes: number;
 
@@ -356,16 +329,24 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 			( { archivePath, archiveSizeInBytes } = result );
 		} catch ( error ) {
 			if ( error instanceof Error && error.message === 'Export aborted' ) {
-				updatePushStateWithIpc( dispatch, selectedSite.id, remoteSiteId, {
-					status: pushStatesProgressInfo.cancelled,
-				} );
+				dispatch(
+					syncOperationsActions.updatePushState( {
+						selectedSiteId: selectedSite.id,
+						remoteSiteId,
+						state: { status: pushStatesProgressInfo.cancelled },
+					} )
+				);
 				throw error; // Signal cancellation
 			}
 
 			Sentry.captureException( error );
-			updatePushStateWithIpc( dispatch, selectedSite.id, remoteSiteId, {
-				status: pushStatesProgressInfo.failed,
-			} );
+			dispatch(
+				syncOperationsActions.updatePushState( {
+					selectedSiteId: selectedSite.id,
+					remoteSiteId,
+					state: { status: pushStatesProgressInfo.failed },
+				} )
+			);
 			getIpcApi().showErrorMessageBox( {
 				title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 				message: __(
@@ -379,9 +360,13 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 
 		// Check file size
 		if ( archiveSizeInBytes > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
-			updatePushStateWithIpc( dispatch, selectedSite.id, remoteSiteId, {
-				status: pushStatesProgressInfo.failed,
-			} );
+			dispatch(
+				syncOperationsActions.updatePushState( {
+					selectedSiteId: selectedSite.id,
+					remoteSiteId,
+					state: { status: pushStatesProgressInfo.failed },
+				} )
+			);
 			getIpcApi().showErrorMessageBox( {
 				title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 				message: __(
@@ -408,9 +393,13 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 		}
 
 		// Update to uploading
-		updatePushStateWithIpc( dispatch, selectedSite.id, remoteSiteId, {
-			status: pushStatesProgressInfo.uploading,
-		} );
+		dispatch(
+			syncOperationsActions.updatePushState( {
+				selectedSiteId: selectedSite.id,
+				remoteSiteId,
+				state: { status: pushStatesProgressInfo.uploading },
+			} )
+		);
 
 		try {
 			const response = await getIpcApi().pushArchive(
@@ -434,11 +423,17 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 			}
 
 			if ( response.success ) {
-				updatePushStateWithIpc( dispatch, selectedSite.id, remoteSiteId, {
-					status: pushStatesProgressInfo.creatingRemoteBackup,
-					selectedSite,
-					remoteSiteUrl,
-				} );
+				dispatch(
+					syncOperationsActions.updatePushState( {
+						selectedSiteId: selectedSite.id,
+						remoteSiteId,
+						state: {
+							status: pushStatesProgressInfo.creatingRemoteBackup,
+							selectedSite,
+							remoteSiteUrl,
+						},
+					} )
+				);
 
 				// Return info needed for polling
 				return {
@@ -452,9 +447,13 @@ export const pushSiteThunk = createTypedAsyncThunk< PushSiteResult, PushSitePayl
 			}
 		} catch ( error ) {
 			Sentry.captureException( error );
-			updatePushStateWithIpc( dispatch, selectedSite.id, remoteSiteId, {
-				status: pushStatesProgressInfo.failed,
-			} );
+			dispatch(
+				syncOperationsActions.updatePushState( {
+					selectedSiteId: selectedSite.id,
+					remoteSiteId,
+					state: { status: pushStatesProgressInfo.failed },
+				} )
+			);
 			getIpcApi().showErrorMessageBox( {
 				title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 				message: getErrorFromResponse( error ),
@@ -511,10 +510,6 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 				},
 			} )
 		);
-
-		// Add sync operation for tracking
-		const stateId = generateStateId( selectedSite.id, remoteSiteId );
-		getIpcApi().addSyncOperation( stateId );
 
 		try {
 			// Initializing backup on remote
@@ -691,7 +686,13 @@ export const pollPushProgressThunk = createTypedAsyncThunk(
 			};
 		}
 		// Update state in any case to keep polling push state
-		updatePushStateWithIpc( dispatch, selectedSiteId, remoteSiteId, { status } );
+		dispatch(
+			syncOperationsActions.updatePushState( {
+				selectedSiteId,
+				remoteSiteId,
+				state: { status },
+			} )
+		);
 	}
 );
 
@@ -902,10 +903,6 @@ export const pollPullBackupThunk = createTypedAsyncThunk(
 						},
 					} )
 				);
-
-				// Update IPC sync operation
-				const stateId = generateStateId( selectedSiteId, remoteSiteId );
-				getIpcApi().addSyncOperation( stateId );
 			}
 		} catch ( error ) {
 			console.error( 'Pull backup polling/completion failed:', error );

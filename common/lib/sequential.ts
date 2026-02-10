@@ -46,15 +46,14 @@ export function sequential< Args extends unknown[], Return >(
 				return await fnPromise;
 			} finally {
 				locks.delete( fnPromise );
-				if ( key ) {
-					inFlightByKey.delete( key );
-				}
 			}
 		};
 
 		const resultPromise = execute();
 		if ( key ) {
 			inFlightByKey.set( key, resultPromise );
+			const cleanup = () => inFlightByKey.delete( key );
+			resultPromise.then( cleanup, cleanup );
 		}
 
 		return resultPromise;

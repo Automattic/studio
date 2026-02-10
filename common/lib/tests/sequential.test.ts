@@ -169,6 +169,29 @@ describe( 'sequential', () => {
 			expect( r3 ).toBe( 'result-b' );
 		} );
 
+		it( 'should not permanently cache a queue-full rejection for deduped keys', async () => {
+			const fn = sequential(
+				async ( key: string ) => {
+					await new Promise( ( r ) => setTimeout( r, 50 ) );
+					return `result-${ key }`;
+				},
+				{ concurrent: 1, max: 1, deduplicateKey: ( key: string ) => key }
+			);
+
+			const p1 = fn( 'a' ); // running (takes the slot)
+			const p2 = fn( 'b' ); // queued (1 — fills the max)
+			const p3 = fn( 'c' ); // should reject: queue is full
+
+			await expect( p3 ).rejects.toThrow( 'Queue is full' );
+
+			// Wait for p1 and p2 to finish so the queue is empty
+			await Promise.all( [ p1, p2 ] );
+
+			// Now 'c' should work fine — the rejection must not be cached
+			const result = await fn( 'c' );
+			expect( result ).toBe( 'result-c' );
+		} );
+
 		it( 'should not count deduped calls against max queue size', async () => {
 			const fn = sequential(
 				async ( key: string ) => {

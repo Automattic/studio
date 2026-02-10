@@ -109,9 +109,26 @@ interface TranslationsApiResponse {
 	translations: TranslationEntry[];
 }
 
-// Plugins and themes bundled with the default WordPress installation.
-const BUNDLED_PLUGINS = [ 'akismet', 'hello-dolly' ];
-const BUNDLED_THEMES = [ 'twentytwentyfive', 'twentytwentyfour', 'twentytwentythree' ];
+// Known single-file plugins whose directory name doesn't match the WordPress.org slug.
+const SINGLE_FILE_PLUGIN_SLUGS: Record< string, string > = {
+	'hello.php': 'hello-dolly',
+};
+
+function getBundledSlugs( contentDir: string ): string[] {
+	const entries = fs.readdirSync( contentDir, { withFileTypes: true } );
+	const slugs: string[] = [];
+	for ( const entry of entries ) {
+		if ( entry.name === 'index.php' ) {
+			continue;
+		}
+		if ( entry.isDirectory() ) {
+			slugs.push( entry.name );
+		} else if ( SINGLE_FILE_PLUGIN_SLUGS[ entry.name ] ) {
+			slugs.push( SINGLE_FILE_PLUGIN_SLUGS[ entry.name ] );
+		}
+	}
+	return slugs;
+}
 
 async function downloadTranslationsFromApi(
 	apiUrl: string,
@@ -167,6 +184,7 @@ async function removePoAndMoFiles( dirPath: string ): Promise< void > {
 
 async function downloadLanguagePacks(): Promise< void > {
 	const languagesPath = path.join( WP_SERVER_FILES_PATH, 'latest', 'languages' );
+	const wpContentPath = path.join( WP_SERVER_FILES_PATH, 'latest', 'wordpress', 'wp-content' );
 
 	// Core translations
 	await downloadTranslationsFromApi(
@@ -176,7 +194,8 @@ async function downloadLanguagePacks(): Promise< void > {
 	);
 
 	// Plugin translations
-	for ( const slug of BUNDLED_PLUGINS ) {
+	const pluginSlugs = getBundledSlugs( path.join( wpContentPath, 'plugins' ) );
+	for ( const slug of pluginSlugs ) {
 		await downloadTranslationsFromApi(
 			`https://api.wordpress.org/translations/plugins/1.0/?slug=${ slug }`,
 			path.join( languagesPath, 'plugins' ),
@@ -185,7 +204,8 @@ async function downloadLanguagePacks(): Promise< void > {
 	}
 
 	// Theme translations
-	for ( const slug of BUNDLED_THEMES ) {
+	const themeSlugs = getBundledSlugs( path.join( wpContentPath, 'themes' ) );
+	for ( const slug of themeSlugs ) {
 		await downloadTranslationsFromApi(
 			`https://api.wordpress.org/translations/themes/1.0/?slug=${ slug }`,
 			path.join( languagesPath, 'themes' ),

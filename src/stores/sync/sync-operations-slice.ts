@@ -745,6 +745,10 @@ export const pollPullBackupThunk = createTypedAsyncThunk(
 				}
 			);
 
+			if ( ! response.status ) {
+				throw new Error( 'Unexpected backup response: missing status' );
+			}
+
 			const hasBackupCompleted = response.status === 'finished';
 			const downloadUrl = hasBackupCompleted ? response.download_url : null;
 

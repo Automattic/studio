@@ -1,5 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { Blueprint, validateBlueprint } from '@wp-playground/blueprints';
+import validateBlueprintSchema from '@wp-playground/blueprints/blueprint-schema-validator';
+import type { Blueprint } from '@wp-playground/blueprints';
 
 interface UnsupportedFeature {
 	type: 'step' | 'property';
@@ -131,21 +132,19 @@ export type BlueprintValidationResult = BlueprintValidationError | BlueprintVali
 export async function validateBlueprintData(
 	blueprintJson: unknown
 ): Promise< BlueprintValidationResult > {
-	const result = validateBlueprint( blueprintJson as object );
+	const isValid = validateBlueprintSchema( blueprintJson );
 
-	if ( ! result.valid ) {
-		const firstError = result.errors?.[ 0 ] as
-			| {
-					instancePath?: string;
-					message?: string;
-					params?: { additionalProperty?: string };
-			  }
-			| undefined;
-		const errorPath = firstError?.instancePath || '/';
-		const additionalProp = firstError?.params?.additionalProperty;
+	if ( ! isValid && validateBlueprintSchema.errors ) {
+		const firstError = validateBlueprintSchema.errors[ 0 ];
+		// The schema validator uses ajv v8 internally (instancePath, additionalProperty)
+		// but ships with ajv v6 types (dataPath, ErrorParameters).
+		type RuntimeError = { instancePath?: string; params?: { additionalProperty?: string } };
+		const error = firstError as unknown as RuntimeError;
+		const errorPath = error.instancePath || '/';
+		const additionalProp = error.params?.additionalProperty;
 		const errorMessage = additionalProp
 			? sprintf( __( '"%s" is not a valid Blueprint property' ), additionalProp )
-			: firstError?.message || __( 'Invalid blueprint' );
+			: firstError.message || __( 'Invalid blueprint' );
 
 		return {
 			valid: false,

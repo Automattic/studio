@@ -72,6 +72,8 @@ interface NavigationContentProps {
 	setBlueprintSuggestedDomain?: ( domain: string | undefined ) => void;
 	blueprintSuggestedHttps?: boolean;
 	setBlueprintSuggestedHttps?: ( https: boolean | undefined ) => void;
+	blueprintSuggestedSiteName?: string;
+	setBlueprintSuggestedSiteName?: ( name: string | undefined ) => void;
 	selectedRemoteSite?: SyncSite;
 	setSelectedRemoteSite: ( site?: SyncSite ) => void;
 	isDeeplinkFlow: boolean;
@@ -103,6 +105,8 @@ function NavigationContent( props: NavigationContentProps ) {
 		setBlueprintSuggestedDomain,
 		blueprintSuggestedHttps,
 		setBlueprintSuggestedHttps,
+		blueprintSuggestedSiteName,
+		setBlueprintSuggestedSiteName,
 		selectedRemoteSite,
 		setSelectedRemoteSite,
 		isDeeplinkFlow,
@@ -219,6 +223,7 @@ function NavigationContent( props: NavigationContentProps ) {
 				setBlueprintPreferredVersions?.( undefined );
 				setBlueprintSuggestedDomain?.( undefined );
 				setBlueprintSuggestedHttps?.( undefined );
+				setBlueprintSuggestedSiteName?.( undefined );
 				return;
 			}
 
@@ -232,12 +237,14 @@ function NavigationContent( props: NavigationContentProps ) {
 
 			setBlueprintSuggestedDomain?.( formValues.customDomain );
 			setBlueprintSuggestedHttps?.( formValues.enableHttps );
+			setBlueprintSuggestedSiteName?.( formValues.siteName );
 		},
 		[
 			setSelectedBlueprint,
 			setBlueprintPreferredVersions,
 			setBlueprintSuggestedDomain,
 			setBlueprintSuggestedHttps,
+			setBlueprintSuggestedSiteName,
 		]
 	);
 
@@ -276,8 +283,11 @@ function NavigationContent( props: NavigationContentProps ) {
 		) {
 			values.wpVersion = blueprintPreferredVersions.wp;
 		}
+		if ( blueprintSuggestedSiteName ) {
+			values.siteName = blueprintSuggestedSiteName;
+		}
 		return values;
-	}, [ defaultValues, blueprintPreferredVersions, wpVersions ] );
+	}, [ defaultValues, blueprintPreferredVersions, blueprintSuggestedSiteName, wpVersions ] );
 
 	const formRef = useRef< HTMLFormElement >( null );
 
@@ -418,6 +428,8 @@ export function AddSiteModalContent( {
 		setBlueprintSuggestedDomain,
 		blueprintSuggestedHttps,
 		setBlueprintSuggestedHttps,
+		blueprintSuggestedSiteName,
+		setBlueprintSuggestedSiteName,
 		selectedRemoteSite,
 		setSelectedRemoteSite,
 		existingDomainNames,
@@ -523,6 +535,8 @@ export function AddSiteModalContent( {
 				setBlueprintSuggestedDomain={ setBlueprintSuggestedDomain }
 				blueprintSuggestedHttps={ blueprintSuggestedHttps }
 				setBlueprintSuggestedHttps={ setBlueprintSuggestedHttps }
+				blueprintSuggestedSiteName={ blueprintSuggestedSiteName }
+				setBlueprintSuggestedSiteName={ setBlueprintSuggestedSiteName }
 				selectedRemoteSite={ selectedRemoteSite }
 				setSelectedRemoteSite={ setSelectedRemoteSite }
 				isDeeplinkFlow={ isDeeplinkFlow }
@@ -560,6 +574,7 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 		setBlueprintDeeplinkWarnings,
 		setBlueprintSuggestedDomain,
 		setBlueprintSuggestedHttps,
+		setBlueprintSuggestedSiteName,
 		setIsDeeplinkFlow,
 	} = addSiteProps;
 
@@ -584,6 +599,7 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 		setBlueprintDeeplinkWarnings,
 		setBlueprintSuggestedDomain,
 		setBlueprintSuggestedHttps,
+		setBlueprintSuggestedSiteName,
 		setIsDeeplinkFlow,
 		onModalOpen: openModal,
 	} );

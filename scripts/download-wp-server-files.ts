@@ -129,7 +129,7 @@ async function downloadTranslationsFromApi(
 	);
 
 	console.log(
-		`[language-packs] ${ label }: downloading ${ translationsToDownload.length } locale(s)`
+		`[language-packs] Downloading ${ label } (${ translationsToDownload.length } locales) ...`
 	);
 
 	await fs.ensureDir( destPath );
@@ -172,7 +172,7 @@ async function downloadLanguagePacks(): Promise< void > {
 	await downloadTranslationsFromApi(
 		'https://api.wordpress.org/translations/core/1.0/',
 		languagesPath,
-		'core'
+		'core translations'
 	);
 
 	// Plugin translations
@@ -180,7 +180,7 @@ async function downloadLanguagePacks(): Promise< void > {
 		await downloadTranslationsFromApi(
 			`https://api.wordpress.org/translations/plugins/1.0/?slug=${ slug }`,
 			path.join( languagesPath, 'plugins' ),
-			`plugin/${ slug }`
+			`plugin translations: ${ slug }`
 		);
 	}
 
@@ -189,14 +189,14 @@ async function downloadLanguagePacks(): Promise< void > {
 		await downloadTranslationsFromApi(
 			`https://api.wordpress.org/translations/themes/1.0/?slug=${ slug }`,
 			path.join( languagesPath, 'themes' ),
-			`theme/${ slug }`
+			`theme translations: ${ slug }`
 		);
 	}
 
 	// Remove .po and .mo files — WordPress 6.5+ uses .l10n.php and .json files.
 	await removePoAndMoFiles( languagesPath );
 
-	console.log( '[language-packs] All language packs downloaded' );
+	console.log( '[language-packs] Files extracted' );
 }
 
 async function downloadFiles() {

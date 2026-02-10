@@ -110,7 +110,7 @@ interface TranslationsApiResponse {
 }
 
 // Plugins and themes bundled with the default WordPress installation.
-const BUNDLED_PLUGINS = [ 'akismet' ];
+const BUNDLED_PLUGINS = [ 'akismet', 'hello-dolly' ];
 const BUNDLED_THEMES = [ 'twentytwentyfive', 'twentytwentyfour', 'twentytwentythree' ];
 
 async function downloadTranslationsFromApi(

@@ -33,6 +33,7 @@ import {
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
+import { hasDefaultDbBlock, removeDbConstants } from 'src/migrations/remove-default-db-constants';
 import {
 	lockAppdata,
 	readAppdata,
@@ -43,7 +44,6 @@ import {
 	updateSiteAutoStart,
 	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
-import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
 import { getServerFilesPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
@@ -190,33 +190,10 @@ export async function runCommand(
 
 		const setupSteps: StepDefinition[] = [];
 
-		const siteLanguage = await getPreferredSiteLanguage( options.wpVersion );
+		if ( isOnlineStatus ) {
+			const siteLanguage = await getPreferredSiteLanguage( options.wpVersion );
 
-		if ( siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
-			// For the 'latest' WP version, try using bundled language packs first to avoid
-			// a network round-trip. Fall back to the Playground setSiteLanguage step for
-			// non-latest versions or when bundled packs aren't available.
-			let usedBundledPacks = false;
-			if ( options.wpVersion === DEFAULT_WORDPRESS_VERSION ) {
-				usedBundledPacks = await copyLanguagePackToSite( sitePath, siteLanguage );
-			}
-
-			if ( usedBundledPacks ) {
-				setupSteps.push(
-					{
-						step: 'defineWpConfigConsts',
-						consts: {
-							WPLANG: siteLanguage,
-						},
-					},
-					{
-						step: 'setSiteOptions',
-						options: {
-							WPLANG: siteLanguage,
-						},
-					}
-				);
-			} else if ( isOnlineStatus ) {
+			if ( siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
 				setupSteps.push(
 					{
 						step: 'setSiteLanguage',
@@ -302,6 +279,8 @@ export async function runCommand(
 				} );
 				logger.reportSuccess( __( 'WordPress server started' ) );
 
+				stripWpConfigDbConstants( sitePath );
+
 				if ( processDesc.pid ) {
 					await updateSiteLatestCliPid( siteDetails.id, processDesc.pid );
 				}
@@ -339,6 +318,8 @@ export async function runCommand(
 						blueprintUri: blueprintUri as string,
 					} );
 					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
+
+					stripWpConfigDbConstants( sitePath );
 				} catch ( error ) {
 					await removeSiteFromAppdata( siteDetails.id );
 					if ( ! isWordPressDirResult ) {
@@ -375,6 +356,17 @@ async function fetchBlueprint( url: string ) {
 		return await res.json();
 	} catch ( error ) {
 		throw new LoggerError( __( 'Failed to parse Blueprint JSON' ), error );
+	}
+}
+
+function stripWpConfigDbConstants( sitePath: string ): void {
+	const wpConfigPath = path.join( sitePath, 'wp-config.php' );
+	if ( ! fs.existsSync( wpConfigPath ) ) {
+		return;
+	}
+	const content = fs.readFileSync( wpConfigPath, 'utf-8' );
+	if ( hasDefaultDbBlock( content ) ) {
+		fs.writeFileSync( wpConfigPath, removeDbConstants( content ), 'utf-8' );
 	}
 }
 

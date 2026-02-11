@@ -1,7 +1,7 @@
-import { resolve, dirname } from 'path';
-import fs from 'fs';
+import { resolve } from 'path';
 import { createRequire } from 'module';
 import { defineConfig } from 'electron-vite';
+import { normalizePath } from 'vite';
 import react from '@vitejs/plugin-react';
 import topLevelAwait from 'vite-plugin-top-level-await';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
@@ -15,22 +15,6 @@ console.log( 'Sentry release version:', sentryRelease );
 console.log( 'Sentry environment:', isDevEnvironment ? 'development' : 'production' );
 
 const require = createRequire( import.meta.url );
-function resolvePackageFile( pkgName: string, fileName: string ) {
-	let pkgJsonPath: string;
-	try {
-		pkgJsonPath = require.resolve( `${ pkgName }/package.json` );
-	} catch ( error ) {
-		throw new Error( `Failed to resolve ${ pkgName }/package.json: ${ String( error ) }` );
-	}
-	const pkgDir = dirname( pkgJsonPath );
-	const filePath = resolve( pkgDir, fileName );
-	if ( ! fs.existsSync( filePath ) ) {
-		throw new Error( `Required file does not exist: ${ filePath }` );
-	}
-	return filePath;
-}
-const riveWasm = resolvePackageFile( '@rive-app/canvas', 'rive.wasm' );
-const riveFallbackWasm = resolvePackageFile( '@rive-app/canvas', 'rive_fallback.wasm' );
 
 export default defineConfig({
 	main: {
@@ -97,19 +81,19 @@ export default defineConfig({
 			viteStaticCopy( {
 				targets: [
 					{
-						src: riveWasm,
+						src: normalizePath( require.resolve( '@rive-app/canvas/rive.wasm') ),
 						dest: 'assets',
 					},
 					{
-						src: riveFallbackWasm,
+						src: normalizePath( require.resolve( '@rive-app/canvas/rive_fallback.wasm' ) ),
 						dest: 'assets',
 					},
 					{
-						src: resolve( __dirname, 'src/about-menu/about-menu.html' ),
+						src: normalizePath( resolve( __dirname, 'src/about-menu/about-menu.html' ) ),
 						dest: '.',
 					},
 					{
-						src: resolve( __dirname, 'src/about-menu/studio-app-icon.png' ),
+						src: normalizePath( resolve( __dirname, 'src/about-menu/studio-app-icon.png' ) ),
 						dest: '.',
 					},
 				],

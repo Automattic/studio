@@ -15,7 +15,3 @@ export function getWpCliPharPath(): string {
 export function getSqliteCommandPath(): string {
 	return path.join( getServerFilesPath(), SQLITE_COMMAND_FOLDER );
 }
-
-export function getLanguagePacksPath(): string {
-	return path.join( getServerFilesPath(), 'language-packs' );
-}

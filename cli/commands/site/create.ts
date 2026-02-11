@@ -43,7 +43,6 @@ import {
 	updateSiteAutoStart,
 	updateSiteLatestCliPid,
 } from 'cli/lib/appdata';
-import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { connect, disconnect, emitSiteEvent } from 'cli/lib/pm2-manager';
 import { getServerFilesPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
@@ -190,33 +189,10 @@ export async function runCommand(
 
 		const setupSteps: StepDefinition[] = [];
 
-		const siteLanguage = await getPreferredSiteLanguage( options.wpVersion );
+		if ( isOnlineStatus ) {
+			const siteLanguage = await getPreferredSiteLanguage( options.wpVersion );
 
-		if ( siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
-			// For the 'latest' WP version, try using bundled language packs first to avoid
-			// a network round-trip. Fall back to the Playground setSiteLanguage step for
-			// non-latest versions or when bundled packs aren't available.
-			let usedBundledPacks = false;
-			if ( options.wpVersion === DEFAULT_WORDPRESS_VERSION ) {
-				usedBundledPacks = await copyLanguagePackToSite( sitePath, siteLanguage );
-			}
-
-			if ( usedBundledPacks ) {
-				setupSteps.push(
-					{
-						step: 'defineWpConfigConsts',
-						consts: {
-							WPLANG: siteLanguage,
-						},
-					},
-					{
-						step: 'setSiteOptions',
-						options: {
-							WPLANG: siteLanguage,
-						},
-					}
-				);
-			} else if ( isOnlineStatus ) {
+			if ( siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
 				setupSteps.push(
 					{
 						step: 'setSiteLanguage',

@@ -214,7 +214,7 @@ export async function runCommand(
 				throw new LoggerError( usernameError );
 			}
 		}
-		const adminEmail = options.adminEmail ?? undefined;
+		const adminEmail = options.adminEmail?.trim() || undefined;
 		if ( adminEmail ) {
 			const emailError = validateAdminEmail( adminEmail );
 			if ( emailError ) {

@@ -51,8 +51,8 @@ export interface SetCommandOptions {
 }
 
 export async function runCommand( sitePath: string, options: SetCommandOptions ): Promise< void > {
-	const { name, domain, https, php, wp, xdebug, adminUsername, adminPassword, adminEmail } =
-		options;
+	const { name, domain, https, php, wp, xdebug, adminUsername, adminPassword } = options;
+	let { adminEmail } = options;
 
 	if (
 		name === undefined &&
@@ -88,9 +88,13 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 	}
 
 	if ( adminEmail !== undefined ) {
-		const emailError = validateAdminEmail( adminEmail );
-		if ( emailError ) {
-			throw new LoggerError( emailError );
+		if ( ! adminEmail.trim() ) {
+			adminEmail = undefined;
+		} else {
+			const emailError = validateAdminEmail( adminEmail );
+			if ( emailError ) {
+				throw new LoggerError( emailError );
+			}
 		}
 	}
 

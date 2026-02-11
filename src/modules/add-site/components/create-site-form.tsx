@@ -284,7 +284,8 @@ export const CreateSiteForm = ( {
 			!! pathError ||
 			( useCustomDomain && !! customDomainError ) ||
 			! adminUsername.trim() ||
-			! adminPassword.trim();
+			! adminPassword.trim() ||
+			!! adminEmailError;
 		const isValid = ! hasErrors;
 
 		// Only notify if validity has actually changed
@@ -293,7 +294,7 @@ export const CreateSiteForm = ( {
 			onValidityChange( isValid );
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [ pathError, customDomainError, useCustomDomain, adminUsername, adminPassword ] );
+	}, [ pathError, customDomainError, useCustomDomain, adminUsername, adminPassword, adminEmail ] );
 
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {

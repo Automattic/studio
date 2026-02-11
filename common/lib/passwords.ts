@@ -45,7 +45,7 @@ export function validateAdminEmail( email: string ): string {
 	if ( ! email.trim() ) {
 		return __( 'Admin email cannot be empty.' );
 	}
-	if ( ! /^[^\s@]+@[^\s@]+$/.test( email ) ) {
+	if ( ! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test( email ) ) {
 		return __( 'Please enter a valid email address.' );
 	}
 	return '';

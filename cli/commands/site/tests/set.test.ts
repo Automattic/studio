@@ -517,10 +517,11 @@ describe( 'CLI: studio site set', () => {
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 		} );
 
-		it( 'should throw when admin email is empty', async () => {
-			await expect( runCommand( testSitePath, { adminEmail: '  ' } ) ).rejects.toThrow(
-				'Admin email cannot be empty.'
-			);
+		it( 'should ignore whitespace-only admin email', async () => {
+			await runCommand( testSitePath, { adminEmail: '  ', name: 'New Name' } );
+			const savedAppdata = vi.mocked( saveAppdata ).mock.calls[ 0 ][ 0 ];
+			expect( savedAppdata.sites[ 0 ].adminEmail ).toBeUndefined();
+			expect( savedAppdata.sites[ 0 ].name ).toBe( 'New Name' );
 		} );
 
 		it( 'should throw when admin email is invalid', async () => {

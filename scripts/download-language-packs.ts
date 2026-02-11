@@ -20,6 +20,9 @@ const SINGLE_FILE_PLUGIN_SLUGS: Record< string, string > = {
 	'hello.php': 'hello-dolly',
 };
 
+// Older bundled themes that aren't worth downloading translations for.
+const SKIPPED_THEME_SLUGS = [ 'twentytwentythree', 'twentytwentyfour' ];
+
 function getBundledSlugs( contentDir: string ): string[] {
 	const entries = fs.readdirSync( contentDir, { withFileTypes: true } );
 	const slugs: string[] = [];
@@ -109,8 +112,10 @@ async function downloadLanguagePacks(): Promise< void > {
 		);
 	}
 
-	// Theme translations
-	const themeSlugs = getBundledSlugs( path.join( wpContentPath, 'themes' ) );
+	// Theme translations (skip older bundled themes)
+	const themeSlugs = getBundledSlugs( path.join( wpContentPath, 'themes' ) ).filter(
+		( slug ) => ! SKIPPED_THEME_SLUGS.includes( slug )
+	);
 	for ( const slug of themeSlugs ) {
 		await downloadTranslationsFromApi(
 			`https://api.wordpress.org/translations/themes/1.0/?slug=${ slug }`,

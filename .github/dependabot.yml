@@ -219,6 +219,7 @@ updates:
           - "react-*"
         exclude-patterns:
           - "react-redux"
+          - "react-markdown"
 
       inquirer:
         patterns:

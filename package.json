@@ -42,7 +42,7 @@
 		"cli:build:bundle": "npm run cli:install:bundle && npm run cli:build",
 		"app:install:bundle": "npm -w studio-app run install:bundle",
 		"compare:perf": "npm -w compare-perf run compare",
-		"lint": "eslint {apps/cli,apps/studio/src,apps/studio/e2e,tools/common,tools/eslint-plugin-studio}",
+		"lint": "eslint {apps/cli,apps/studio/src,apps/studio/e2e,tools/common}",
 		"format": "prettier . --write",
 		"test": "vitest run",
 		"test:watch": "vitest",

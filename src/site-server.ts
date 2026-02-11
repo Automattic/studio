@@ -353,8 +353,12 @@ export class SiteServer {
 				resolve( { stdout: result.stdout, stderr: result.stderr, exitCode: 0 } );
 			} );
 
-			emitter.on( 'failure', ( { result } ) => {
-				resolve( { stdout: result.stdout, stderr: result.stderr, exitCode: 1 } );
+			emitter.on( 'failure', ( { error, result } ) => {
+				resolve( {
+					stdout: result.stdout,
+					stderr: result.stderr || error.lastErrorMessage || '',
+					exitCode: 1,
+				} );
 			} );
 
 			emitter.on( 'error', ( { error } ) => {

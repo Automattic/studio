@@ -22,6 +22,7 @@
 		"tools/*"
 	],
 	"scripts": {
+		"pretest": "rimraf apps/studio/node_modules apps/cli/node_modules",
 		"prestart": "npm run cli:build",
 		"start": "electron-vite dev --config apps/studio/electron.vite.config.ts --outDir=dist --watch",
 		"start-wayland": "npm -w studio-app run start-wayland",

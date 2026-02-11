@@ -1,9 +1,9 @@
 import { test, expect, chromium } from '@playwright/test';
-import { E2ESession } from '../../e2e/e2e-helpers';
-import Onboarding from '../../e2e/page-objects/onboarding';
-import SiteContent from '../../e2e/page-objects/site-content';
-import WhatsNewModal from '../../e2e/page-objects/whats-new-modal';
-import { getUrlWithAutoLogin } from '../../e2e/utils';
+import { E2ESession } from '../../../apps/studio/e2e/e2e-helpers';
+import Onboarding from '../../../apps/studio/e2e/page-objects/onboarding';
+import SiteContent from '../../../apps/studio/e2e/page-objects/site-content';
+import WhatsNewModal from '../../../apps/studio/e2e/page-objects/whats-new-modal';
+import { getUrlWithAutoLogin } from '../../../apps/studio/e2e/utils';
 import { median } from '../utils';
 
 test.describe( 'Site Editor Load Metrics', () => {

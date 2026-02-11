@@ -162,6 +162,10 @@ const config: ForgeConfig = {
 				{ cwd: repoRoot }
 			);
 		},
+		postPackage: async (forgeConfig, options) => {
+			fs.rmSync( path.join( repoRoot, 'apps', 'cli', 'node_modules' ), { recursive: true } );
+			fs.rmSync( path.join( repoRoot, 'apps', 'studio', 'node_modules' ), { recursive: true } );
+		},
 	},
 };
 

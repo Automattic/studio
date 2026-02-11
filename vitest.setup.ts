@@ -126,7 +126,7 @@ vi.mock( './src/hooks/use-offline', () => ( {
 	useOffline: vi.fn().mockReturnValue( false ),
 } ) );
 
-vi.mock( './src/hooks/use-ai-icon', () => ( {
+vi.mock( 'src/hooks/use-ai-icon', () => ( {
 	__esModule: true,
 	default: () => ( {
 		rive: null,

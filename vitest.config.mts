@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config';
 import path from 'path';
 
 export default defineConfig( {
+	assetsInclude: [ '**/*.riv' ],
 	test: {
 		pool: 'threads',
 		globals: true,
@@ -20,6 +21,7 @@ export default defineConfig( {
 			'**/tests/utils/**',
 			'**/stores/tests/utils/**',
 			'**/vendor/**',
+			'tools/metrics/tests/**',
 		],
 		globalSetup: './vitest.global-setup.ts',
 		setupFiles: [ './vitest.setup.ts' ],

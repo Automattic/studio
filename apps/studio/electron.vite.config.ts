@@ -1,4 +1,5 @@
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
+import fs from 'fs';
 import { createRequire } from 'module';
 import { defineConfig } from 'electron-vite';
 import react from '@vitejs/plugin-react';
@@ -14,6 +15,22 @@ console.log( 'Sentry release version:', sentryRelease );
 console.log( 'Sentry environment:', isDevEnvironment ? 'development' : 'production' );
 
 const require = createRequire( import.meta.url );
+function resolvePackageFile( pkgName: string, fileName: string ) {
+	let pkgJsonPath: string;
+	try {
+		pkgJsonPath = require.resolve( `${ pkgName }/package.json` );
+	} catch ( error ) {
+		throw new Error( `Failed to resolve ${ pkgName }/package.json: ${ String( error ) }` );
+	}
+	const pkgDir = dirname( pkgJsonPath );
+	const filePath = resolve( pkgDir, fileName );
+	if ( ! fs.existsSync( filePath ) ) {
+		throw new Error( `Required file does not exist: ${ filePath }` );
+	}
+	return filePath;
+}
+const riveWasm = resolvePackageFile( '@rive-app/canvas', 'rive.wasm' );
+const riveFallbackWasm = resolvePackageFile( '@rive-app/canvas', 'rive_fallback.wasm' );
 
 export default defineConfig({
 	main: {
@@ -80,11 +97,11 @@ export default defineConfig({
 			viteStaticCopy( {
 				targets: [
 					{
-						src: require.resolve( '@rive-app/canvas/rive.wasm') ,
+						src: riveWasm,
 						dest: 'assets',
 					},
 					{
-						src: require.resolve( '@rive-app/canvas/rive_fallback.wasm' ),
+						src: riveFallbackWasm,
 						dest: 'assets',
 					},
 					{

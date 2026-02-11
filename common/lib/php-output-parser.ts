@@ -1,8 +1,11 @@
 /**
  * Extract JSON from stdout that may include non-JSON output.
  * Commonly this is PHP warnings/deprecation notices; parse from the first '{' or '['.
+ *
+ * Defaults to `any` to match JSON.parse behavior; callers can narrow the type
+ * via the generic parameter, e.g. `parseJsonFromPhpOutput<string[]>(stdout)`.
  */
-export function parseJsonFromPhpOutput( output: string ): unknown {
+export function parseJsonFromPhpOutput< T = any >( output: string ): T {
 	const objectStart = output.indexOf( '{' );
 	const arrayStart = output.indexOf( '[' );
 

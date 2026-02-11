@@ -26,7 +26,7 @@
 		"prestart": "npm run cli:build",
 		"start": "electron-vite dev --config apps/studio/electron.vite.config.ts --outDir=dist --watch",
 		"start-wayland": "npm -w studio-app run start-wayland",
-		"postinstall": "patch-package && ts-node ./scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs && npx @electron/rebuild -o fs-ext",
+		"postinstall": "patch-package --patch-dir apps/cli/patches && patch-package --patch-dir apps/studio/patches && ts-node ./scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs && npx @electron/rebuild -o fs-ext",
 		"package": "npm -w studio-app run package",
 		"make": "npm -w studio-app run make",
 		"make:windows-x64": "npm -w studio-app run make:windows-x64",

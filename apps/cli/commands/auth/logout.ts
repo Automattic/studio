@@ -1,5 +1,5 @@
-import { __ } from '@wordpress/i18n';
 import { AuthCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { __ } from '@wordpress/i18n';
 import { revokeAuthToken } from 'cli/lib/api';
 import {
 	readAppdata,

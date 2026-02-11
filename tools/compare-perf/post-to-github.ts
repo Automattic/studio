@@ -82,8 +82,8 @@ async function findOrCreateComment(
 			res.on( 'end', () => {
 				if ( res.statusCode === 200 ) {
 					const comments = JSON.parse( data );
-					const existingComment = comments.find( ( c: { body?: string } ) =>
-						c.body?.includes( commentIdentifier )
+					const existingComment = comments.find(
+						( c: { body?: string } ) => c.body?.includes( commentIdentifier )
 					);
 					resolve( existingComment?.id || null );
 				} else {
@@ -130,9 +130,7 @@ async function postOrUpdateComment( context: GitHubContext, body: string ): Prom
 			res.on( 'data', ( chunk ) => ( data += chunk ) );
 			res.on( 'end', () => {
 				if ( res.statusCode === 200 || res.statusCode === 201 ) {
-					console.log(
-						`✅ Successfully ${ existingCommentId ? 'updated' : 'posted' } PR comment`
-					);
+					console.log( `✅ Successfully ${ existingCommentId ? 'updated' : 'posted' } PR comment` );
 					resolve();
 				} else {
 					reject( new Error( `Failed to post comment: ${ res.statusCode } ${ data }` ) );
@@ -166,7 +164,9 @@ async function main() {
 	};
 
 	const resultsPath = artifactsPath || process.env.ARTIFACTS_PATH || 'artifacts';
-	const summaryFiles = fs.readdirSync( resultsPath ).filter( ( f ) => f.endsWith( '.summary.json' ) );
+	const summaryFiles = fs
+		.readdirSync( resultsPath )
+		.filter( ( f ) => f.endsWith( '.summary.json' ) );
 
 	if ( summaryFiles.length === 0 ) {
 		console.error( `No summary files found in ${ resultsPath }` );
@@ -188,4 +188,3 @@ main().catch( ( error ) => {
 	console.error( 'Error posting to GitHub:', error );
 	process.exit( 1 );
 } );
-

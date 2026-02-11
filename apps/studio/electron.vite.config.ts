@@ -40,10 +40,7 @@ export default defineConfig( {
 				output: {
 					entryFileNames: '[name].js',
 				},
-				external: [
-					/^@php-wasm\/.*/,
-					/^@wp-playground\/.*/,
-				],
+				external: [ /^@php-wasm\/.*/, /^@wp-playground\/.*/ ],
 			},
 		},
 	},
@@ -95,10 +92,7 @@ export default defineConfig( {
 						dest: 'assets',
 					},
 					{
-						src: resolve(
-							__dirname,
-							'../../node_modules/@rive-app/canvas/rive_fallback.wasm'
-						),
+						src: resolve( __dirname, '../../node_modules/@rive-app/canvas/rive_fallback.wasm' ),
 						dest: 'assets',
 					},
 					{

@@ -11,11 +11,16 @@
 
 body {
 	font-family:
-	  -apple-system, BlinkMacSystemFont, /* macOS/iOS system UI */
-	  'Segoe UI', Roboto, /* Windows + Android system UI */
-	  'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', /* emoji */
-	  'Noto Sans', 'Arial Unicode MS', /* broad Unicode coverage */
-	  sans-serif;
+		-apple-system,
+		BlinkMacSystemFont,
+		/* macOS/iOS system UI */ 'Segoe UI',
+		Roboto,
+		/* Windows + Android system UI */ 'Apple Color Emoji',
+		'Segoe UI Emoji',
+		'Noto Color Emoji',
+		/* emoji */ 'Noto Sans',
+		'Arial Unicode MS',
+		/* broad Unicode coverage */ sans-serif;
 }
 
 .app-drag-region {

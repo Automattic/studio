@@ -5,10 +5,10 @@ import { IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import { normalize } from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { readFile } from 'atomically';
-import { vi } from 'vitest';
 import { bumpStat } from '@studio/common/lib/bump-stat';
 import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
+import { readFile } from 'atomically';
+import { vi } from 'vitest';
 import {
 	createSite,
 	isFullscreen,

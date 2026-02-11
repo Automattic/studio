@@ -1,5 +1,4 @@
 import fs from 'fs';
-import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
 import {
 	filterUnsupportedBlueprintFeatures,
 	validateBlueprintData,
@@ -13,6 +12,7 @@ import {
 } from '@studio/common/lib/fs-utils';
 import { isOnline } from '@studio/common/lib/network-utils';
 import { portFinder } from '@studio/common/lib/port-finder';
+import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
 import { vi, type MockInstance } from 'vitest';
 import {
 	lockAppdata,

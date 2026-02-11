@@ -1,8 +1,8 @@
 import os from 'os';
 import path from 'path';
-import { __, sprintf } from '@wordpress/i18n';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { __, sprintf } from '@wordpress/i18n';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';

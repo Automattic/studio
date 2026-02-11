@@ -1,8 +1,7 @@
+import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
-import { existsSync } from 'fs';
-import { readFileSync } from 'fs';
 
 const yargsLocalesPath = resolve( __dirname, '../../node_modules/yargs/locales' );
 const cliNodeModulesPath = resolve( __dirname, 'node_modules' );
@@ -15,25 +14,25 @@ export default defineConfig( {
 		...( existsSync( yargsLocalesPath )
 			? [
 					viteStaticCopy( {
-				targets: [
-					{
-						src: `${ yargsLocalesPath }/*`,
-						dest: '../locales',
-					},
-				],
-			} ),
+						targets: [
+							{
+								src: `${ yargsLocalesPath }/*`,
+								dest: '../locales',
+							},
+						],
+					} ),
 			  ]
 			: [] ),
 		...( existsSync( cliNodeModulesPath )
 			? [
 					viteStaticCopy( {
-				targets: [
-					{
-						src: cliNodeModulesPath,
-						dest: '.',
-					},
-				],
-			} ),
+						targets: [
+							{
+								src: cliNodeModulesPath,
+								dest: '.',
+							},
+						],
+					} ),
 			  ]
 			: [] ),
 	],

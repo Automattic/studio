@@ -1,9 +1,9 @@
+import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import Button from 'src/components/button';
 import { DynamicStylesheet } from 'src/components/dynamic-stylesheet';
 import { isMac, isWindows } from 'src/lib/app-globals';

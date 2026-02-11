@@ -1,8 +1,8 @@
 import path from 'path';
 import { Locale } from '@formatjs/intl-locale';
 import { match } from '@formatjs/intl-localematcher';
-import fs from 'fs-extra';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
+import fs from 'fs-extra';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { getResourcesPath } from 'src/storage/paths';
 

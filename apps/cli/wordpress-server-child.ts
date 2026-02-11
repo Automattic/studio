@@ -12,6 +12,13 @@
  */
 import { cpus } from 'os';
 import { dirname } from 'path';
+import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { isWordPressDirectory } from '@studio/common/lib/fs-utils';
+import { getMuPlugins } from '@studio/common/lib/mu-plugins';
+import { decodePassword } from '@studio/common/lib/passwords';
+import { formatPlaygroundCliMessage } from '@studio/common/lib/playground-cli-messages';
+import { sequential } from '@studio/common/lib/sequential';
+import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { BlueprintBundle } from '@wp-playground/blueprints';
 import { runCLI, RunCLIArgs, RunCLIServer, internalsKeyForTesting } from '@wp-playground/cli';
 import {
@@ -21,13 +28,6 @@ import {
 	InMemoryFilesystem,
 } from '@wp-playground/storage';
 import { WordPressInstallMode } from '@wp-playground/wordpress';
-import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { isWordPressDirectory } from '@studio/common/lib/fs-utils';
-import { getMuPlugins } from '@studio/common/lib/mu-plugins';
-import { decodePassword } from '@studio/common/lib/passwords';
-import { formatPlaygroundCliMessage } from '@studio/common/lib/playground-cli-messages';
-import { sequential } from '@studio/common/lib/sequential';
-import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { isSqliteInstalled } from 'src/lib/sqlite-versions';
 import { z } from 'zod';
 import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';

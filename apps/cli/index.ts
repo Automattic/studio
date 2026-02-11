@@ -1,8 +1,12 @@
 import path from 'node:path';
-import { __ } from '@wordpress/i18n';
-import { bumpAggregatedUniqueStat, AppdataProvider, LastBumpStatsData } from '@studio/common/lib/bump-stat';
+import {
+	bumpAggregatedUniqueStat,
+	AppdataProvider,
+	LastBumpStatsData,
+} from '@studio/common/lib/bump-stat';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
 import { StatsGroup, StatsMetric } from '@studio/common/types/stats';
+import { __ } from '@wordpress/i18n';
 import yargs from 'yargs';
 import { commandHandler as eventsCommandHandler } from 'cli/commands/_events';
 import { registerCommand as registerAuthLoginCommand } from 'cli/commands/auth/login';

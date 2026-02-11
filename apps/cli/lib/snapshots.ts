@@ -1,6 +1,6 @@
-import { __, sprintf } from '@wordpress/i18n';
 import { HOUR_MS, DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { Snapshot } from '@studio/common/types/snapshot';
+import { __, sprintf } from '@wordpress/i18n';
 import { addDays, addHours, DurationUnit, formatDuration, intervalToDuration } from 'date-fns';
 import {
 	getAuthToken,

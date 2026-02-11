@@ -1,6 +1,6 @@
+import { SupportedLocale } from '@studio/common/lib/locale';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
-import { SupportedLocale } from '@studio/common/lib/locale';
 import Button from 'src/components/button';
 import { EditorPicker } from 'src/modules/user-settings/components/editor-picker';
 import { LanguagePicker } from 'src/modules/user-settings/components/language-picker';

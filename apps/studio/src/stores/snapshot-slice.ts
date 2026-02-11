@@ -6,10 +6,10 @@ import {
 	isAnyOf,
 	PayloadAction,
 } from '@reduxjs/toolkit';
-import { __, sprintf } from '@wordpress/i18n';
-import fastDeepEqual from 'fast-deep-equal';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
+import { __, sprintf } from '@wordpress/i18n';
+import fastDeepEqual from 'fast-deep-equal';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores/index';

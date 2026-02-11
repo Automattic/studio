@@ -1,10 +1,10 @@
 import { UnknownAction } from '@reduxjs/toolkit';
+import { Snapshot } from '@studio/common/types/snapshot';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { produce } from 'immer';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
-import { Snapshot } from '@studio/common/types/snapshot';
 import { PreviewActionButtonsMenu } from 'src/modules/preview-site/components/preview-action-buttons-menu';
 import { store, RootState } from 'src/stores';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';

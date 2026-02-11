@@ -72,7 +72,7 @@ test.describe( 'Site Editor Load Metrics', () => {
 			// First wait for the iframe to appear with explicit timeout
 			await page.waitForSelector( 'iframe[name="editor-canvas"]', {
 				state: 'visible',
-				timeout: 120_000 // 2 minutes, half of the default action timeout
+				timeout: 120_000, // 2 minutes, half of the default action timeout
 			} );
 			const frame = page.frame( { name: 'editor-canvas' } );
 			if ( ! frame ) {
@@ -84,14 +84,17 @@ test.describe( 'Site Editor Load Metrics', () => {
 			await frame.waitForSelector( '[data-block]', { timeout: 60_000 } );
 
 			// Make sure blocks are loaded and spinners are gone
-			await frame.waitForFunction( () => {
-				return (
-					document.querySelectorAll( '[data-block]' ).length > 0 &&
-					! document.querySelector( '.components-spinner' ) &&
-					! document.querySelector( '.is-loading' ) &&
-					! document.querySelector( '.wp-block-editor__loading' )
-				);
-			}, { timeout: 60_000 } );
+			await frame.waitForFunction(
+				() => {
+					return (
+						document.querySelectorAll( '[data-block]' ).length > 0 &&
+						! document.querySelector( '.components-spinner' ) &&
+						! document.querySelector( '.is-loading' ) &&
+						! document.querySelector( '.wp-block-editor__loading' )
+					);
+				},
+				{ timeout: 60_000 }
+			);
 
 			const endTime = Date.now();
 			const duration = endTime - startTime;

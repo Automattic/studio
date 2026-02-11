@@ -1,7 +1,7 @@
-import fs from 'fs-extra';
-import { vi } from 'vitest';
 import { SqliteIntegrationProvider } from '@studio/common/lib/sqlite-integration';
+import fs from 'fs-extra';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
+import { vi } from 'vitest';
 
 const SQLITE_DIRNAME = 'sqlite-database-integration';
 const MOCK_SITE_PATH = 'mock-site-path';

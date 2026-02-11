@@ -1,6 +1,6 @@
+import { SupportedLocale } from '@studio/common/lib/locale';
 import { readFile } from 'atomically';
 import { vi } from 'vitest';
-import { SupportedLocale } from '@studio/common/lib/locale';
 import { getAuthenticationToken, getSignUpUrl } from 'src/lib/oauth';
 
 vi.mock( 'src/lib/certificate-manager', () => ( {} ) );

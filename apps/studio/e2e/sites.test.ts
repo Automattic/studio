@@ -1,11 +1,11 @@
 import path from 'path';
 import { test, expect } from '@playwright/test';
-import fs from 'fs-extra';
 import { pathExists } from '@studio/common/lib/fs-utils';
 import {
 	RecommendedPHPVersion as DEFAULT_PHP_VERSION,
 	SupportedPHPVersions as ALLOWED_PHP_VERSIONS,
 } from '@studio/common/types/php-versions';
+import fs from 'fs-extra';
 import { DEFAULT_SITE_NAME } from './constants';
 import { E2ESession } from './e2e-helpers';
 import MainSidebar from './page-objects/main-sidebar';

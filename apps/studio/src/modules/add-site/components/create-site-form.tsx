@@ -1,12 +1,15 @@
+import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
+import {
+	generateCustomDomainFromSiteName,
+	getDomainNameValidationError,
+} from '@studio/common/lib/domains';
+import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { Icon, SelectControl, Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { tip, cautionFilled, chevronRight, chevronDown, chevronLeft } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useState, useEffect, useCallback, useMemo, useRef, RefObject } from 'react';
-import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
-import { generateCustomDomainFromSiteName, getDomainNameValidationError } from '@studio/common/lib/domains';
-import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import Button from 'src/components/button';
 import FolderIcon from 'src/components/folder-icon';
 import { LearnMoreLink, LearnHowLink } from 'src/components/learn-more';

@@ -1,5 +1,5 @@
-import semver from 'semver';
 import { RecommendedPHPVersion as DEFAULT_PHP_VERSION } from '@studio/common/types/php-versions';
+import semver from 'semver';
 
 /**
  * Compares the WordPress and PHP versions of the current site with the versions supported by Jurassic Ninja preview sites.

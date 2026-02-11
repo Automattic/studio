@@ -14,8 +14,6 @@
 		"declaration": true,
 		"emitDeclarationOnly": true
 	},
-	"include": [
-		"**/*"
-	],
+	"include": [ "**/*" ],
 	"exclude": [ "**/__mocks__/**/*", "**/node_modules/**/*", "**/dist/**/*", "**/out/**/*" ]
 }

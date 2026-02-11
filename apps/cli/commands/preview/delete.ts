@@ -1,5 +1,5 @@
-import { __ } from '@wordpress/i18n';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { __ } from '@wordpress/i18n';
 import { deleteSnapshot } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { deleteSnapshotFromAppdata, getSnapshotsFromAppdata } from 'cli/lib/snapshots';

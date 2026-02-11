@@ -24,7 +24,7 @@ const packageJsonText = await fs.readFile( packageJsonPath, 'utf-8' );
 const packageJson = JSON.parse( packageJsonText );
 
 // Use version from latestTag (strip leading 'v' if present)
-const tagVersion = latestTag.startsWith('v') ? latestTag.slice(1) : latestTag;
+const tagVersion = latestTag.startsWith( 'v' ) ? latestTag.slice( 1 ) : latestTag;
 const parsedVersion = semver.parse( tagVersion );
 if ( ! parsedVersion ) {
 	throw new Error( `Invalid version in latestTag: ${ latestTag }` );

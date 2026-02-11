@@ -1,6 +1,6 @@
+import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import Table from 'cli-table3';
-import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { format } from 'date-fns';
 import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';
 import {

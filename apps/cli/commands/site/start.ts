@@ -1,5 +1,5 @@
-import { __ } from '@wordpress/i18n';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { __ } from '@wordpress/i18n';
 import { getSiteByFolder, updateSiteAutoStart, updateSiteLatestCliPid } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';

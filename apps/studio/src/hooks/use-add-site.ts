@@ -1,9 +1,9 @@
 import * as Sentry from '@sentry/electron/renderer';
-import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useMemo, useState } from 'react';
 import { updateBlueprintWithFormValues } from '@studio/common/lib/blueprint-settings';
 import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
+import { useI18n } from '@wordpress/react-i18n';
+import { useCallback, useMemo, useState } from 'react';
 import { useSyncSites } from 'src/hooks/sync-sites';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useImportExport } from 'src/hooks/use-import-export';

@@ -1,6 +1,6 @@
+import { PROTOCOL_PREFIX } from '@studio/common/constants';
 import { __ } from '@wordpress/i18n';
 import { plus } from '@wordpress/icons';
-import { PROTOCOL_PREFIX } from '@studio/common/constants';
 import Button, { ButtonProps } from 'src/components/button';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 

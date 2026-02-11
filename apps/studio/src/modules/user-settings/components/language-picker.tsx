@@ -1,6 +1,6 @@
+import { SupportedLocale, supportedLocaleNames } from '@studio/common/lib/locale';
 import { SelectControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { SupportedLocale, supportedLocaleNames } from '@studio/common/lib/locale';
 import { SettingsFormField } from './settings-form-field';
 
 interface LanguagePickerProps {

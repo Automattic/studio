@@ -1,9 +1,9 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { readFile, writeFile } from 'atomically';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { StatsMetric } from '@studio/common/types/stats';
+import { readFile, writeFile } from 'atomically';
 import { vi } from 'vitest';
 import {
 	readAppdata,

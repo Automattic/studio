@@ -6,10 +6,10 @@
 import { IncomingMessage } from 'http';
 import os from 'os';
 import path from 'path';
+import { extractZip } from '@studio/common/lib/extract-zip';
 import followRedirects, { FollowResponse } from 'follow-redirects';
 import fs from 'fs-extra';
 import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
-import { extractZip } from '@studio/common/lib/extract-zip';
 import { getWordPressVersionPath, getWpCliPath } from './server-files-paths';
 
 const { https } = followRedirects;

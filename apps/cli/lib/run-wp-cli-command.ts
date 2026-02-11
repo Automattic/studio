@@ -7,10 +7,10 @@ import {
 	setPhpIniEntries,
 } from '@php-wasm/universal';
 import { createSpawnHandler } from '@php-wasm/util';
-import { __ } from '@wordpress/i18n';
-import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
 import { getMuPlugins } from '@studio/common/lib/mu-plugins';
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
+import { __ } from '@wordpress/i18n';
+import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
 import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/server-files';
 
 const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';

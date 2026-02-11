@@ -3,9 +3,9 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'node:path';
 import * as Sentry from '@sentry/electron/main';
+import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { Upload } from 'tus-js-client';
 import { z } from 'zod';
-import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import {
 	PullStateProgressInfo,
 	PushStateProgressInfo,

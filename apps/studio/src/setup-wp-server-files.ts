@@ -1,7 +1,7 @@
 import path from 'path';
+import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import fs from 'fs-extra';
 import semver from 'semver';
-import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import { updateLatestWPCliVersion } from 'src/lib/download-utils';
 import { getWordPressVersionPath, getSqlitePath, getWpCliPath } from 'src/lib/server-files-paths';
 import {

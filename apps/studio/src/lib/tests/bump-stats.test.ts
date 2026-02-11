@@ -1,6 +1,3 @@
-import { waitFor } from '@testing-library/react';
-import { readFile, writeFile } from 'atomically';
-import { vi } from 'vitest';
 import {
 	bumpStat,
 	bumpAggregatedUniqueStat,
@@ -8,6 +5,9 @@ import {
 	LastBumpStatsData,
 } from '@studio/common/lib/bump-stat';
 import { AggregateInterval, StatsGroup, StatsMetric } from '@studio/common/types/stats';
+import { waitFor } from '@testing-library/react';
+import { readFile, writeFile } from 'atomically';
+import { vi } from 'vitest';
 
 vi.mock( 'atomically', () => ( {
 	readFile: vi.fn(),

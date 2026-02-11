@@ -1,3 +1,5 @@
+import { SITE_EVENTS, SiteEvent } from '@studio/common/lib/site-events';
+import { sortSites } from '@studio/common/lib/sort-sites';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	ReactNode,
@@ -8,8 +10,6 @@ import {
 	useMemo,
 	useState,
 } from 'react';
-import { SITE_EVENTS, SiteEvent } from '@studio/common/lib/site-events';
-import { sortSites } from '@studio/common/lib/sort-sites';
 import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';

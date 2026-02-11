@@ -11,11 +11,7 @@
 			"@studio/common/*": [ "tools/common/*" ]
 		}
 	},
-	"include": [
-		"**/*"
-	],
+	"include": [ "**/*" ],
 	"exclude": [ "**/__mocks__/**/*", "**/node_modules/**/*", "**/dist/**/*", "**/out/**/*" ],
-	"references": [
-		{ "path": "../../tools/common" }
-	]
+	"references": [ { "path": "../../tools/common" } ]
 }

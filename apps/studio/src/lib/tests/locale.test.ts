@@ -2,9 +2,9 @@
  * @vitest-environment node
  */
 import { app } from 'electron';
+import { getLocaleData } from '@studio/common/lib/locale';
 import { createI18n } from '@wordpress/i18n';
 import { vi } from 'vitest';
-import { getLocaleData } from '@studio/common/lib/locale';
 import { getSupportedLocale } from 'src/lib/locale-node';
 
 vi.mocked( app ).getLocale = vi.fn();

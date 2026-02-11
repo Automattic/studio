@@ -1,12 +1,12 @@
+import { MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
+import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
+import { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
+import { SupportedPHPVersionsList } from '@studio/common/types/php-versions';
 import { speak } from '@wordpress/a11y';
 import { Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
-import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
-import { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
-import { SupportedPHPVersionsList } from '@studio/common/types/php-versions';
 import Button from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite, CreateSiteFormValues } from 'src/hooks/use-add-site';

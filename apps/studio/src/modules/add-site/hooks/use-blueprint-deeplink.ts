@@ -1,10 +1,10 @@
-import { useI18n } from '@wordpress/react-i18n';
-import { useCallback } from 'react';
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import {
 	BlueprintValidationWarning,
 	BlueprintPreferredVersions,
 } from '@studio/common/lib/blueprint-validation';
+import { useI18n } from '@wordpress/react-i18n';
+import { useCallback } from 'react';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Blueprint } from 'src/stores/wpcom-api';

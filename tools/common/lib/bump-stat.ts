@@ -1,5 +1,5 @@
-import { isSameDay, isSameMonth, isSameWeek } from 'date-fns';
 import { AggregateInterval, StatsGroup, StatsMetric } from '@studio/common/types/stats';
+import { isSameDay, isSameMonth, isSameWeek } from 'date-fns';
 
 // Database columns are varchar(32). Group limit is 27 to account for the '-a11n' suffix
 // added by the backend for Automattic requests (27 + 5 = 32).

@@ -60,7 +60,7 @@ The `performance-metrics.json` output file contains a summary of the results, ex
 ```json
 {
 	"siteCreation": 6150,
-	"siteStartup": 3946,
+	"siteStartup": 3946
 }
 ```
 

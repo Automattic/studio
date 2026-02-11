@@ -1,6 +1,6 @@
 import crypto from 'crypto';
-import { z } from 'zod';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
+import { z } from 'zod';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 

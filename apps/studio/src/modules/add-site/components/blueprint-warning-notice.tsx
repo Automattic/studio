@@ -1,3 +1,4 @@
+import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
@@ -9,7 +10,6 @@ import {
 import { Icon, caution, check } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
-import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 
 interface BlueprintIssuesModalProps {
 	warnings: BlueprintValidationWarning[] | undefined;

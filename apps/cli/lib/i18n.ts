@@ -1,10 +1,10 @@
-import { defaultI18n } from '@wordpress/i18n';
 import {
 	SupportedLocale,
 	getLocaleData,
 	DEFAULT_LOCALE,
 	isSupportedLocale,
 } from '@studio/common/lib/locale';
+import { defaultI18n } from '@wordpress/i18n';
 import { readAppdata } from 'cli/lib/appdata';
 
 async function getLocaleFromAppdata(): Promise< SupportedLocale | undefined > {

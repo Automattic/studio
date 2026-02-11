@@ -12,12 +12,6 @@ import {
 import path from 'path';
 import { pathToFileURL } from 'url';
 import * as Sentry from '@sentry/electron/main';
-import { __, _n, sprintf } from '@wordpress/i18n';
-import {
-	installExtension,
-	REACT_DEVELOPER_TOOLS,
-	REDUX_DEVTOOLS,
-} from 'electron-devtools-installer';
 import { PROTOCOL_PREFIX } from '@studio/common/constants';
 import {
 	bumpStat,
@@ -27,6 +21,12 @@ import {
 } from '@studio/common/lib/bump-stat';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
 import { StatsGroup } from '@studio/common/types/stats';
+import { __, _n, sprintf } from '@wordpress/i18n';
+import {
+	installExtension,
+	REACT_DEVELOPER_TOOLS,
+	REDUX_DEVTOOLS,
+} from 'electron-devtools-installer';
 import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
 import {

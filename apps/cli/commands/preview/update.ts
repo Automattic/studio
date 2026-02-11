@@ -1,10 +1,10 @@
 import os from 'node:os';
 import path from 'node:path';
-import { __, _n, sprintf } from '@wordpress/i18n';
 import { DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { addDays } from 'date-fns';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { getAuthToken, getSiteByFolder } from 'cli/lib/appdata';

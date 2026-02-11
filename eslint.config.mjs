@@ -12,6 +12,7 @@ import path from 'node:path';
 export default defineConfig(
 	globalIgnores( [
 		'**/node_modules/',
+		'cli/dist/',
 		'dist/',
 		'out/',
 		'wp-files/',

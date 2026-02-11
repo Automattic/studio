@@ -1,104 +1,126 @@
-<!DOCTYPE html>
+<!doctype html>
 <html class="desktop-preferences">
-<head>
-  <style type="text/css">
-  /* Try to mimic native window styling */
-  @font-face {
-    font-family: system;
-    font-style: normal;
-    font-weight: 400;
-    src: local("SFNSText-Regular"), local("HelveticaNeueDeskInterface-Regular"), local("LucidaGrandeUI");
-  }
+	<head>
+		<style type="text/css">
+			/* Try to mimic native window styling */
+			@font-face {
+				font-family: system;
+				font-style: normal;
+				font-weight: 400;
+				src: local( 'SFNSText-Regular' ), local( 'HelveticaNeueDeskInterface-Regular' ),
+					local( 'LucidaGrandeUI' );
+			}
 
-  @font-face {
-    font-family: system;
-    font-style: normal;
-    font-weight: 700;
-    src: local("SFNSText-Bold"), local("HelveticaNeueDeskInterface-Bold"), local("LucidaGrandeUI");
-  }
+			@font-face {
+				font-family: system;
+				font-style: normal;
+				font-weight: 700;
+				src: local( 'SFNSText-Bold' ), local( 'HelveticaNeueDeskInterface-Bold' ),
+					local( 'LucidaGrandeUI' );
+			}
 
-  html, body {
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    -khtml-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-    background: rgba(246, 246, 246, 0.84);
-    cursor: default;
-    margin: 0;
-    max-height: 284px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-direction: column;
-    padding: 10px;
-    gap: 8px;
-  }
+			html,
+			body {
+				-webkit-touch-callout: none;
+				-webkit-user-select: none;
+				-khtml-user-select: none;
+				-moz-user-select: none;
+				-ms-user-select: none;
+				user-select: none;
+				background: rgba( 246, 246, 246, 0.84 );
+				cursor: default;
+				margin: 0;
+				max-height: 284px;
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				flex-direction: column;
+				padding: 10px;
+				gap: 8px;
+			}
 
-  body {
-    font-family: "Segoe UI", Segoe, Ubuntu, system, sans-serif;
-    font-size: 12px;
-    text-align: center;
-    line-height: 16px;
-  } 
-  
-  p {
-    margin-bottom: 8px;
-    margin-top: 0;
-  }
+			body {
+				font-family: 'Segoe UI', Segoe, Ubuntu, system, sans-serif;
+				font-size: 12px;
+				text-align: center;
+				line-height: 16px;
+			}
 
-  p a {
-    text-decoration: underline;
-    color: #3858e9;
-  }
+			p {
+				margin-bottom: 8px;
+				margin-top: 0;
+			}
 
-  .links {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-    font-weight: 400;
-    margin-bottom: 14px;
-  }
+			p a {
+				text-decoration: underline;
+				color: #3858e9;
+			}
 
-  .info {
-    border-top: 1px solid rgba(220, 220, 222, 1);
-    padding-top: 16px;
-    width: 236px;
-}
+			.links {
+				display: flex;
+				justify-content: center;
+				gap: 8px;
+				font-weight: 400;
+				margin-bottom: 14px;
+			}
 
-  .studio-name {
-    font-size: 14px;
-    font-weight: 600;
-    line-height: 20px;
-  }
+			.info {
+				border-top: 1px solid rgba( 220, 220, 222, 1 );
+				padding-top: 16px;
+				width: 236px;
+			}
 
-  .version {
-    user-select: all;
-  }
-</style>
-  <title>About WordPress Studio</title>
-</head>
-<body> 
-  <div>
-    <!-- These strings are placeholders replaced by the strings in open-about-menu.ts.
+			.studio-name {
+				font-size: 14px;
+				font-weight: 600;
+				line-height: 20px;
+			}
+
+			.version {
+				user-select: all;
+			}
+		</style>
+		<title>About WordPress Studio</title>
+	</head>
+	<body>
+		<div>
+			<!-- These strings are placeholders replaced by the strings in open-about-menu.ts.
     Please make sure to update the corresponding strings in the open-about-menu.ts file -->
-    <img src="./studio-app-icon.png" alt="Studio App Icon" width="64" height="64">
-        <p class="studio-name" id="studio-by-wpcom">WordPress Studio</p>
-        <p class="version"><span id="version-text">x.y.z (...)</span></p>
-        <p class="links">
-          <a href="https://github.com/Automattic/studio" target="_blank">GitHub</a>
-          <span class="separator">&middot;</span>
-          <a id="share-feedback" href="https://github.com/Automattic/studio/issues/new/choose" target="_blank">Share Feedback</a>
-          <span class="separator">&middot;</span>
-          <a id="release-notes" href="https://github.com/Automattic/studio/releases" target="_blank">Release Notes</a>
-        </p>
-  </div>
-  <div class="info">
-    <p><span id="demo-sites">Preview sites powered by</span><br><a href="https://wordpress.com/hosting/?utm_source=studio&utm_medium=referral&utm_campaign=about_screen" target="_blank">WordPress.com hosting ↗</a></p>
-  </div>
-  <div class="info">
-    <p><span id="local-sites">Local sites powered by</span><br><a href="https://wordpress.org/playground/" target="_blank">WordPress Playground ↗</a></p>
-  </div>
-</body>
+			<img src="./studio-app-icon.png" alt="Studio App Icon" width="64" height="64" />
+			<p class="studio-name" id="studio-by-wpcom">WordPress Studio</p>
+			<p class="version"><span id="version-text">x.y.z (...)</span></p>
+			<p class="links">
+				<a href="https://github.com/Automattic/studio" target="_blank">GitHub</a>
+				<span class="separator">&middot;</span>
+				<a
+					id="share-feedback"
+					href="https://github.com/Automattic/studio/issues/new/choose"
+					target="_blank"
+					>Share Feedback</a
+				>
+				<span class="separator">&middot;</span>
+				<a id="release-notes" href="https://github.com/Automattic/studio/releases" target="_blank"
+					>Release Notes</a
+				>
+			</p>
+		</div>
+		<div class="info">
+			<p>
+				<span id="demo-sites">Preview sites powered by</span><br /><a
+					href="https://wordpress.com/hosting/?utm_source=studio&utm_medium=referral&utm_campaign=about_screen"
+					target="_blank"
+					>WordPress.com hosting ↗</a
+				>
+			</p>
+		</div>
+		<div class="info">
+			<p>
+				<span id="local-sites">Local sites powered by</span><br /><a
+					href="https://wordpress.org/playground/"
+					target="_blank"
+					>WordPress Playground ↗</a
+				>
+			</p>
+		</div>
+	</body>
 </html>

@@ -1,8 +1,6 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { __, sprintf } from '@wordpress/i18n';
-import { readFile, writeFile } from 'atomically';
 import { LOCKFILE_NAME, LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
 import { arePathsEqual, isWordPressDirectory } from '@studio/common/lib/fs-utils';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
@@ -10,6 +8,8 @@ import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { siteDetailsSchema } from '@studio/common/lib/site-events';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { StatsMetric } from '@studio/common/types/stats';
+import { __, sprintf } from '@wordpress/i18n';
+import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 import { validateAccessToken } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';

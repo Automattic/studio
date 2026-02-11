@@ -1,6 +1,11 @@
-import { z } from 'zod';
 import { sequential } from '@studio/common/lib/sequential';
-import { siteEventSchema, SiteEvent, SITE_EVENTS, SiteDetails } from '@studio/common/lib/site-events';
+import {
+	siteEventSchema,
+	SiteEvent,
+	SITE_EVENTS,
+	SiteDetails,
+} from '@studio/common/lib/site-events';
+import { z } from 'zod';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { SiteServer } from 'src/site-server';

@@ -1,8 +1,8 @@
-import { __, _n } from '@wordpress/i18n';
-import CliTable3 from 'cli-table3';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { __, _n } from '@wordpress/i18n';
+import CliTable3 from 'cli-table3';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { getPrettyPath } from 'cli/lib/utils';

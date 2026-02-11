@@ -11,13 +11,7 @@
 			"@studio/common/*": [ "tools/common/*" ]
 		}
 	},
-	"include": [
-		"src/**/*",
-		"e2e/**/*"
-	],
+	"include": [ "src/**/*", "e2e/**/*" ],
 	"exclude": [ "**/__mocks__/**/*", "**/node_modules/**/*", "**/dist/**/*", "**/out/**/*" ],
-	"references": [
-		{ "path": "../cli" },
-		{ "path": "../../tools/common" }
-	]
+	"references": [ { "path": "../cli" }, { "path": "../../tools/common" } ]
 }

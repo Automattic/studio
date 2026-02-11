@@ -1,8 +1,8 @@
 import { input } from '@inquirer/prompts';
-import { __, sprintf } from '@wordpress/i18n';
 import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { AuthCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { __, sprintf } from '@wordpress/i18n';
 import { getUserInfo } from 'cli/lib/api';
 import {
 	getAuthToken,

@@ -1,7 +1,7 @@
-import { useI18n } from '@wordpress/react-i18n';
-import { intervalToDuration, formatDuration, addDays, DurationUnit, addHours } from 'date-fns';
 import { HOUR_MS, DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { SupportedLocale } from '@studio/common/lib/locale';
+import { useI18n } from '@wordpress/react-i18n';
+import { intervalToDuration, formatDuration, addDays, DurationUnit, addHours } from 'date-fns';
 import { formatDistance } from 'src/lib/date';
 import { useI18nLocale } from 'src/stores';
 

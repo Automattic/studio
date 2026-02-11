@@ -1,6 +1,6 @@
+import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import Table from 'cli-table3';
-import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { getSiteUrl, readAppdata, type SiteData } from 'cli/lib/appdata';
 import { connect, disconnect } from 'cli/lib/pm2-manager';
 import { isSiteRunning } from 'cli/lib/site-utils';

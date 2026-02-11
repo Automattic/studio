@@ -1,7 +1,7 @@
 import path from 'path';
-import { __, sprintf } from '@wordpress/i18n';
 import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from '@studio/common/constants';
 import { calculateDirectorySize } from '@studio/common/lib/fs-utils';
+import { __, sprintf } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
 
 export async function validateSiteSize( siteFolder: string ): Promise< true > {

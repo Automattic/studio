@@ -12,8 +12,8 @@ export class custom {
 	launchBus = vi.fn( ( callback: ( error?: Error, bus?: any ) => void ) =>
 		callback( undefined, {} )
 	);
-	sendDataToProcessId = vi.fn( ( processId: number, data: any, callback: ( error?: Error ) => void ) =>
-		callback()
+	sendDataToProcessId = vi.fn(
+		( processId: number, data: any, callback: ( error?: Error ) => void ) => callback()
 	);
 }
 

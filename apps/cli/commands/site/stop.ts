@@ -1,5 +1,5 @@
-import { __, _n, sprintf } from '@wordpress/i18n';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import {
 	clearSiteLatestCliPid,
 	getSiteByFolder,

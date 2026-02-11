@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
 import { DEMO_SITE_SIZE_LIMIT_BYTES } from '@studio/common/constants';
+import { useState, useEffect, useCallback } from 'react';
 import { useWindowListener } from 'src/hooks/use-window-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 

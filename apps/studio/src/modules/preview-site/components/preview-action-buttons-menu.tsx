@@ -1,9 +1,9 @@
+import { Snapshot } from '@studio/common/types/snapshot';
 import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
-import { Snapshot } from '@studio/common/types/snapshot';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip, TooltipProps } from 'src/components/tooltip';
 import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';

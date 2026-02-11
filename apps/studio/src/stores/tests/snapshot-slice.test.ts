@@ -1,9 +1,9 @@
 import crypto from 'crypto';
 import { UnknownAction } from '@reduxjs/toolkit';
-import { produce } from 'immer';
-import { vi } from 'vitest';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
+import { produce } from 'immer';
+import { vi } from 'vitest';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { RootState, store } from 'src/stores';
 import {

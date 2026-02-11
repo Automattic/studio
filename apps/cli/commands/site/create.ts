@@ -3,8 +3,6 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { SupportedPHPVersions } from '@php-wasm/universal';
-import { __, sprintf } from '@wordpress/i18n';
-import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
 import {
 	DEFAULT_PHP_VERSION,
 	DEFAULT_WORDPRESS_VERSION,
@@ -33,6 +31,8 @@ import {
 	isWordPressVersionAtLeast,
 } from '@studio/common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { __, sprintf } from '@wordpress/i18n';
+import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
 import {
 	lockAppdata,
 	readAppdata,

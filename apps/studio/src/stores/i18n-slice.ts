@@ -1,11 +1,11 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
-import { defaultI18n } from '@wordpress/i18n';
 import {
 	SupportedLocale,
 	getLocaleData,
 	DEFAULT_LOCALE,
 	isSupportedLocale,
 } from '@studio/common/lib/locale';
+import { defaultI18n } from '@wordpress/i18n';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 interface I18nState {

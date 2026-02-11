@@ -1,3 +1,4 @@
+import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
@@ -7,7 +8,6 @@ import {
 } from '@wordpress/components';
 import { check, link } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 import { Blueprint } from 'src/stores/wpcom-api';
 import { BlueprintWarningNotice } from './blueprint-warning-notice';
 

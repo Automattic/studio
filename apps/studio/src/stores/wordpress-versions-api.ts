@@ -1,8 +1,11 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
+import {
+	isWordPressDevVersion,
+	isWordPressBetaVersion,
+} from '@studio/common/lib/wordpress-version-utils';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
-import { isWordPressDevVersion, isWordPressBetaVersion } from '@studio/common/lib/wordpress-version-utils';
 import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
 
 const wordPressApiResponseSchema = z.object( {

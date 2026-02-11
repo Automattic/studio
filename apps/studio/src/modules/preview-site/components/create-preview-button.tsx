@@ -1,6 +1,6 @@
+import { DEMO_SITE_SIZE_LIMIT_GB } from '@studio/common/constants';
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { DEMO_SITE_SIZE_LIMIT_GB } from '@studio/common/constants';
 import { AuthContextType } from 'src/components/auth-provider';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';

@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { z } from 'zod';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
+import { z } from 'zod';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { executeCliCommand } from './execute-command';
 import type { Blueprint } from '@wp-playground/blueprints';

@@ -1,5 +1,5 @@
-import { __, sprintf } from '@wordpress/i18n';
 import { AuthCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { __, sprintf } from '@wordpress/i18n';
 import { getUserInfo } from 'cli/lib/api';
 import { getAuthToken } from 'cli/lib/appdata';
 import { Logger, LoggerError } from 'cli/logger';

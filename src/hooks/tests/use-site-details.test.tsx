@@ -169,16 +169,21 @@ describe( 'useSiteDetails', () => {
 	} );
 
 	describe( 'startServer error handling', () => {
-		it( 'should include site name in error title for generic start failure', async () => {
+		function setupStartServerError( error: Error ) {
 			const showErrorMessageBox = vi.fn();
 			const stopServer = vi.fn( () => Promise.resolve() );
 			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 				getSiteDetails: vi.fn().mockResolvedValue( mockSites ),
-				startServer: vi.fn( () => Promise.reject( new Error( 'Something went wrong' ) ) ),
+				startServer: vi.fn().mockRejectedValue( error ),
 				showErrorMessageBox,
 				stopServer,
 				getConnectedWpcomSites: vi.fn( () => Promise.resolve( [] ) ),
 			} );
+			return { showErrorMessageBox, stopServer };
+		}
+
+		it( 'should include site name in error title for generic start failure', async () => {
+			const { showErrorMessageBox } = setupStartServerError( new Error( 'Something went wrong' ) );
 
 			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
 
@@ -200,15 +205,9 @@ describe( 'useSiteDetails', () => {
 		} );
 
 		it( 'should include site name in error title for WASM memory error', async () => {
-			const showErrorMessageBox = vi.fn();
-			const stopServer = vi.fn( () => Promise.resolve() );
-			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
-				getSiteDetails: vi.fn().mockResolvedValue( mockSites ),
-				startServer: vi.fn().mockRejectedValue( new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' ) ),
-				showErrorMessageBox,
-				stopServer,
-				getConnectedWpcomSites: vi.fn( () => Promise.resolve( [] ) ),
-			} );
+			const { showErrorMessageBox } = setupStartServerError(
+				new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' )
+			);
 
 			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
 
@@ -230,15 +229,9 @@ describe( 'useSiteDetails', () => {
 		} );
 
 		it( 'should include site name in error title for port-in-use error', async () => {
-			const showErrorMessageBox = vi.fn();
-			const stopServer = vi.fn( () => Promise.resolve() );
-			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
-				getSiteDetails: vi.fn().mockResolvedValue( mockSites ),
-				startServer: vi.fn().mockRejectedValue( new Error( 'ERROR_PORT_IN_USE 8080' ) ),
-				showErrorMessageBox,
-				stopServer,
-				getConnectedWpcomSites: vi.fn( () => Promise.resolve( [] ) ),
-			} );
+			const { showErrorMessageBox } = setupStartServerError(
+				new Error( 'ERROR_PORT_IN_USE 8080' )
+			);
 
 			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
 
@@ -260,15 +253,9 @@ describe( 'useSiteDetails', () => {
 		} );
 
 		it( 'should include site name in error title for proxy port-in-use error', async () => {
-			const showErrorMessageBox = vi.fn();
-			const stopServer = vi.fn( () => Promise.resolve() );
-			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
-				getSiteDetails: vi.fn().mockResolvedValue( mockSites ),
-				startServer: vi.fn().mockRejectedValue( new Error( 'PROXY_ERROR_PORT_IN_USE' ) ),
-				showErrorMessageBox,
-				stopServer,
-				getConnectedWpcomSites: vi.fn( () => Promise.resolve( [] ) ),
-			} );
+			const { showErrorMessageBox } = setupStartServerError(
+				new Error( 'PROXY_ERROR_PORT_IN_USE' )
+			);
 
 			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
 
@@ -289,16 +276,32 @@ describe( 'useSiteDetails', () => {
 			);
 		} );
 
-		it( 'should fall back to generic title when site name is not found', async () => {
-			const showErrorMessageBox = vi.fn();
-			const stopServer = vi.fn( () => Promise.resolve() );
-			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
-				getSiteDetails: vi.fn().mockResolvedValue( mockSites ),
-				startServer: vi.fn( () => Promise.reject( new Error( 'Something went wrong' ) ) ),
-				showErrorMessageBox,
-				stopServer,
-				getConnectedWpcomSites: vi.fn( () => Promise.resolve( [] ) ),
+		it( 'should include site name in error title for proxy start failed error', async () => {
+			const { showErrorMessageBox } = setupStartServerError(
+				new Error( 'PROXY_ERROR_START_FAILED' )
+			);
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
 			} );
+
+			vi.mocked( getIpcApi().startServer ).mockClear();
+
+			await act( async () => {
+				await result.current.startServer( 'site-2' );
+			} );
+
+			expect( showErrorMessageBox ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					title: "Failed to initialize custom domains for 'Site 2'",
+				} )
+			);
+		} );
+
+		it( 'should fall back to generic title when site name is not found', async () => {
+			const { showErrorMessageBox } = setupStartServerError( new Error( 'Something went wrong' ) );
 
 			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
 

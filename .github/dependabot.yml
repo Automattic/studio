@@ -158,6 +158,9 @@ updates:
           - "@electron/*"
         exclude-patterns:
           - "@electron-forge/*"
+          - "electron-vite"
+          - "electron-playwright-helpers"
+          - "electron-devtools-installer"
 
       wp-playground-php-wasm:
         patterns:

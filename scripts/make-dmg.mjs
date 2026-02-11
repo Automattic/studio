@@ -19,8 +19,8 @@ const dmgPath = path.resolve(
 	`${ packageJson.productName }-darwin-${ process.env.FILE_ARCHITECTURE }.dmg`
 );
 
-const volumeIconPath = path.resolve( __dirname, '../assets/studio-app-icon.icns' );
-const backgroundPath = path.resolve( __dirname, '../assets/dmg-background.png' );
+const volumeIconPath = path.resolve( __dirname, '../apps/studio/assets/studio-app-icon.icns' );
+const backgroundPath = path.resolve( __dirname, '../apps/studio/assets/dmg-background.png' );
 
 const dmgSpecs = {
 	title: packageJson.productName,

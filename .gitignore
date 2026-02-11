@@ -126,5 +126,5 @@ artifacts
 CLAUDE.md
 
 # Bundled Node binary (downloaded during build)
-bin/node
-bin/node.exe
+apps/studio/bin/node
+apps/studio/bin/node.exe

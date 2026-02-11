@@ -10,10 +10,10 @@ export default defineConfig( {
 			customExportConditions: [ 'node', 'node-addons' ],
 		},
 		include: [
-			'src/**/*.{test,spec}.{ts,tsx}',
-			'cli/**/*.{test,spec}.{ts,tsx}',
-			'common/**/*.{test,spec}.{ts,tsx}',
-			'packages/**/*.{test,spec}.{ts,tsx,js}',
+			'apps/studio/src/**/*.{test,spec}.{ts,tsx}',
+			'apps/cli/**/*.{test,spec}.{ts,tsx}',
+			'tools/common/**/*.{test,spec}.{ts,tsx}',
+			'tools/**/*.{test,spec}.{ts,tsx,js}',
 		],
 		exclude: [
 			'**/node_modules/**',
@@ -39,11 +39,11 @@ export default defineConfig( {
 	},
 	resolve: {
 		alias: {
-			pm2: path.resolve( __dirname, './__mocks__/pm2.ts' ),
-			cli: path.resolve( __dirname, './cli' ),
-			src: path.resolve( __dirname, './src' ),
+			pm2: path.resolve( __dirname, './apps/cli/__mocks__/pm2.ts' ),
+			cli: path.resolve( __dirname, './apps/cli' ),
+			src: path.resolve( __dirname, './apps/studio/src' ),
 			vendor: path.resolve( __dirname, './vendor' ),
-			common: path.resolve( __dirname, './common' ),
+			'@studio/common': path.resolve( __dirname, './tools/common' ),
 		},
 	},
 } );

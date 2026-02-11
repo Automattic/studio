@@ -16,8 +16,8 @@ export default defineConfig(
 		'out/',
 		'wp-files/',
 		'vendor/',
-		'cli/__mocks__',
-		'src/__mocks__',
+		'apps/cli/__mocks__',
+		'apps/studio/src/__mocks__',
 	] ),
 	js.configs.recommended,
 	tsEslint.configs.recommended,
@@ -45,7 +45,12 @@ export default defineConfig(
 			'import/resolver': {
 				typescript: {
 					alwaysTryTypes: true,
-					project: path.join( import.meta.dirname, 'tsconfig.json' ),
+					project: [
+						path.join( import.meta.dirname, 'tsconfig.json' ),
+						path.join( import.meta.dirname, 'apps/cli/tsconfig.json' ),
+						path.join( import.meta.dirname, 'apps/studio/tsconfig.json' ),
+						path.join( import.meta.dirname, 'tools/common/tsconfig.json' ),
+					],
 				},
 			},
 		},

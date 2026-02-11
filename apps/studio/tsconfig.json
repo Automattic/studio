@@ -1,0 +1,23 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"composite": true,
+		"baseUrl": "../..",
+		"paths": {
+			"*": [ "node_modules/*" ],
+			"cli/*": [ "apps/cli/*" ],
+			"src/*": [ "apps/studio/src/*" ],
+			"vendor/*": [ "vendor/*" ],
+			"@studio/common/*": [ "tools/common/*" ]
+		}
+	},
+	"include": [
+		"src/**/*",
+		"e2e/**/*"
+	],
+	"exclude": [ "**/__mocks__/**/*", "**/node_modules/**/*", "**/dist/**/*", "**/out/**/*" ],
+	"references": [
+		{ "path": "../cli" },
+		{ "path": "../../tools/common" }
+	]
+}

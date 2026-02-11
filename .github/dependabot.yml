@@ -127,7 +127,6 @@ updates:
       - dependency-name: "tus-js-client"
 
       # Windows-specific
-      - dependency-name: "winreg"
       - dependency-name: "electron2appx"
 
       # macOS-specific

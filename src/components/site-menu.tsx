@@ -252,7 +252,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		stopServer,
 		setIsEditModalOpen,
 		copySite,
-		reorderSites,
+		updateSitesSortOrder,
 	} = useSiteDetails();
 	const { setSelectedTab } = useContentTabs();
 	const { handleDeleteSite } = useDeleteSite();
@@ -273,17 +273,6 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		}
 	};
 
-	const reorderSitesToNewPositions = ( newSites: SiteDetails[] ) => {
-		const updates = newSites.map( ( site, index ) => ( {
-			siteId: site.id,
-			sortOrder: ( index + 1 ) * 1000,
-		} ) );
-
-		reorderSites( updates ).catch( ( error ) => {
-			console.error( 'Failed to save site order:', error );
-		} );
-	};
-
 	const handleDrop = ( e: React.DragEvent, targetIndex: number ) => {
 		e.preventDefault();
 		setDragOverIndex( null );
@@ -291,11 +280,13 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 			return;
 		}
 
-		const newSites = [ ...sites ];
-		const [ movedSite ] = newSites.splice( draggedIndex, 1 );
-		newSites.splice( targetIndex, 0, movedSite );
+		const updatedSites = [ ...sites ];
+		const [ movedSite ] = updatedSites.splice( draggedIndex, 1 );
+		updatedSites.splice( targetIndex, 0, movedSite );
 
-		reorderSitesToNewPositions( newSites );
+		updateSitesSortOrder( updatedSites ).catch( ( error ) => {
+			console.error( 'Failed to save site order:', error );
+		} );
 	};
 
 	const handleDragEnd = () => {

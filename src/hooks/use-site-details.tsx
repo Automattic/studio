@@ -24,7 +24,7 @@ import type { Blueprint } from 'src/stores/wpcom-api';
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
 	updateSite: ( site: SiteDetails, wpVersion?: string ) => Promise< void >;
-	reorderSites: ( updates: { siteId: string; sortOrder: number }[] ) => Promise< void >;
+	updateSitesSortOrder: ( sites: SiteDetails[] ) => Promise< void >;
 	sites: SiteDetails[];
 	setSelectedSiteId: ( selectedSiteId: string ) => void;
 	createSite: (
@@ -58,7 +58,7 @@ interface SiteDetailsContext {
 const defaultContext: SiteDetailsContext = {
 	selectedSite: null,
 	updateSite: async () => undefined,
-	reorderSites: async () => undefined,
+	updateSitesSortOrder: async () => undefined,
 	sites: [],
 	siteCreationMessages: {},
 	setSelectedSiteId: () => undefined,
@@ -397,10 +397,13 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		setSites( updatedSites );
 	}, [] );
 
-	const reorderSites = useCallback( async ( updates: { siteId: string; sortOrder: number }[] ) => {
+	const updateSitesSortOrder = useCallback( async ( sites: SiteDetails[] ) => {
+		setSites( sites );
+		const updates = sites.map( ( site, index ) => ( {
+			siteId: site.id,
+			sortOrder: ( index + 1 ) * 1000,
+		} ) );
 		await getIpcApi().updateSitesSortOrder( updates );
-		const updatedSites = await getIpcApi().getSiteDetails();
-		setSites( updatedSites );
 	}, [] );
 
 	const startServer = useCallback(
@@ -620,7 +623,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			createSite,
 			copySite,
 			updateSite,
-			reorderSites,
+			updateSitesSortOrder,
 			startServer,
 			stopServer,
 			stopAllRunningSites,
@@ -643,7 +646,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			createSite,
 			copySite,
 			updateSite,
-			reorderSites,
+			updateSitesSortOrder,
 			startServer,
 			stopServer,
 			stopAllRunningSites,

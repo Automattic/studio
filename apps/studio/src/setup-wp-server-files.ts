@@ -3,7 +3,12 @@ import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import fs from 'fs-extra';
 import semver from 'semver';
 import { updateLatestWPCliVersion } from 'src/lib/download-utils';
-import { getWordPressVersionPath, getSqlitePath, getWpCliPath } from 'src/lib/server-files-paths';
+import {
+	getLanguagePacksPath,
+	getWordPressVersionPath,
+	getSqlitePath,
+	getWpCliPath,
+} from 'src/lib/server-files-paths';
 import {
 	getSqliteCommandPath,
 	updateLatestSQLiteCommandVersion,
@@ -108,12 +113,38 @@ async function copyBundledTranslations() {
 	await fs.copyFile( bundledTranslationsPath, installedTranslationsPath );
 }
 
+async function copyBundledLanguagePacks() {
+	const bundledLanguagePacksPath = path.join(
+		getResourcesPath(),
+		'wp-files',
+		'latest',
+		'languages'
+	);
+	if ( ! ( await fs.pathExists( bundledLanguagePacksPath ) ) ) {
+		return;
+	}
+	const installedLanguagePacksPath = getLanguagePacksPath();
+	await fs.ensureDir( installedLanguagePacksPath );
+	await recursiveCopyDirectory( bundledLanguagePacksPath, installedLanguagePacksPath );
+}
+
 export async function setupWPServerFiles() {
-	await copyBundledLatestWPVersion();
-	await copyBundledSqlite();
-	await copyBundledWPCLI();
-	await copyBundledSQLiteCommand();
-	await copyBundledTranslations();
+	const steps: Array< [ string, () => Promise< void > ] > = [
+		[ 'WordPress version', copyBundledLatestWPVersion ],
+		[ 'SQLite integration', copyBundledSqlite ],
+		[ 'WP-CLI', copyBundledWPCLI ],
+		[ 'SQLite command', copyBundledSQLiteCommand ],
+		[ 'translations', copyBundledTranslations ],
+		[ 'language packs', copyBundledLanguagePacks ],
+	];
+
+	for ( const [ name, step ] of steps ) {
+		try {
+			await step();
+		} catch ( error ) {
+			console.error( `Failed to set up bundled ${ name }:`, error );
+		}
+	}
 }
 
 /**

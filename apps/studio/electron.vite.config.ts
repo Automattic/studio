@@ -21,6 +21,9 @@ export default defineConfig( {
 				'@studio/common': resolve( __dirname, '../../tools/common' ),
 				cli: resolve( __dirname, '../cli' ),
 				vendor: resolve( __dirname, '../../vendor' ),
+				'@wp-playground/blueprints/blueprint-schema-validator': resolve(
+					'node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'
+				),
 			},
 		},
 		define: {

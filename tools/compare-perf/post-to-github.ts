@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
+
 import fs from 'fs';
 import https from 'https';
 import path from 'path';
@@ -22,6 +22,7 @@ function formatResultsAsMarkdown(
 	baseBranch: string,
 	compareBranch: string
 ): string {
+	const CHANGE_THRESHOLD_MS = 50;
 	let markdown = `## 📊 Performance Test Results\n\n`;
 	markdown += `Comparing **${ compareBranch }** vs **${ baseBranch }**\n\n`;
 
@@ -39,9 +40,22 @@ function formatResultsAsMarkdown(
 			const baseValue = baseMetrics[ metric ] || 0;
 			const compareValue = compareMetrics[ metric ] || 0;
 			const diff = compareValue - baseValue;
-			const percentChange = baseValue !== 0 ? ( ( diff / baseValue ) * 100 ).toFixed( 1 ) : 'N/A';
+			const isNoChange = Math.abs( diff ) < CHANGE_THRESHOLD_MS;
+			let percentChange = 'N/A';
+			if ( isNoChange ) {
+				percentChange = '0.0';
+			} else if ( baseValue !== 0 ) {
+				percentChange = ( ( diff / baseValue ) * 100 ).toFixed( 1 );
+			}
 
-			const emoji = diff > 0 ? '🔴' : diff < 0 ? '🟢' : '⚪';
+			let emoji = '⚪';
+			if ( ! isNoChange ) {
+				if ( diff > 0 ) {
+					emoji = '🔴';
+				} else if ( diff < 0 ) {
+					emoji = '🟢';
+				}
+			}
 			const sign = diff > 0 ? '+' : '';
 
 			markdown += `| ${ metric } | ${ baseValue.toFixed( 2 ) } ms | ${ compareValue.toFixed(
@@ -54,7 +68,7 @@ function formatResultsAsMarkdown(
 
 	markdown += `\n---\n`;
 	markdown += `*Results are median values from multiple test runs.*\n\n`;
-	markdown += `*Legend: 🟢 Improvement (faster) | 🔴 Regression (slower) | ⚪ No change*\n`;
+	markdown += `*Legend: 🟢 Improvement (faster) | 🔴 Regression (slower) | ⚪ No change (<50ms diff)*\n`;
 
 	return markdown;
 }

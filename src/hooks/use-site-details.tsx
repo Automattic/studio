@@ -1,4 +1,4 @@
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import {
 	ReactNode,
 	createContext,
@@ -15,6 +15,7 @@ import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
+import { generateNumberedName } from 'src/lib/generate-site-name';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch } from 'src/stores';
 import { snapshotThunks } from 'src/stores/snapshot-slice';
@@ -39,9 +40,11 @@ interface SiteDetailsContext {
 		adminPassword?: string,
 		adminEmail?: string
 	) => Promise< SiteDetails | void >;
+	copySite: ( sourceSiteId: string ) => Promise< SiteDetails | void >;
 	startServer: ( id: string ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
 	stopAllRunningSites: () => Promise< void >;
+	startAllStoppedSites: () => Promise< void >;
 	deleteSite: ( id: string, removeLocal: boolean ) => Promise< void >;
 	loadingServer: Record< string, boolean >;
 	loadingSites: boolean;
@@ -61,9 +64,11 @@ const defaultContext: SiteDetailsContext = {
 	siteCreationMessages: {},
 	setSelectedSiteId: () => undefined,
 	createSite: async () => undefined,
+	copySite: async () => undefined,
 	startServer: async () => undefined,
 	stopServer: async () => undefined,
 	stopAllRunningSites: async () => undefined,
+	startAllStoppedSites: async () => undefined,
 	deleteSite: async () => undefined,
 	loadingServer: {},
 	loadingSites: true,
@@ -464,6 +469,91 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		[ toggleLoadingServerForSite ]
 	);
 
+	const copySite = useCallback(
+		async ( sourceSiteId: string ) => {
+			const sourceSite = sites.find( ( site ) => site.id === sourceSiteId );
+			if ( ! sourceSite ) {
+				console.error( 'Source site not found' );
+				return;
+			}
+
+			const showError = ( error?: unknown ) => {
+				console.error( 'Failed to copy site' );
+				const errorToShow = simplifyErrorForDisplay( error );
+
+				getIpcApi().showErrorMessageBox( {
+					title: __( 'Failed to copy site' ),
+					message: __(
+						'An error occurred while copying the site. Please try again. If this problem persists, please contact support.'
+					),
+					error: errorToShow,
+					showOpenLogs: true,
+				} );
+
+				setSites( ( prevData ) =>
+					sortSites( prevData.filter( ( site ) => site.id !== tempSiteId ) )
+				);
+			};
+
+			const finalSiteName = await generateNumberedName(
+				sprintf( __( '%s Copy' ), sourceSite.name ),
+				sites
+			);
+
+			const tempSiteId = crypto.randomUUID();
+
+			setSites( ( prevData ) =>
+				sortSites( [
+					...prevData,
+					{
+						id: tempSiteId,
+						name: finalSiteName,
+						path: '', // Path will be determined by the backend
+						port: -1, // Temporary port
+						running: false,
+						isAddingSite: true,
+						phpVersion: sourceSite.phpVersion,
+					},
+				] )
+			);
+
+			setSelectedSiteId( tempSiteId );
+			if ( selectedTab !== 'overview' ) {
+				setSelectedTab( 'overview' );
+			}
+
+			let newSite: SiteDetails;
+			try {
+				newSite = await getIpcApi().copySite( sourceSiteId, tempSiteId, finalSiteName );
+				if ( ! newSite ) {
+					showError();
+					return;
+				}
+
+				setSites( ( prevData ) =>
+					sortSites( [
+						...prevData.filter( ( site ) => site.id !== tempSiteId ),
+						{ ...newSite, isAddingSite: false },
+					] )
+				);
+
+				setSelectedSiteId( newSite.id );
+
+				getIpcApi().showNotification( {
+					title: newSite.name,
+					body: __( sprintf( 'Your site %s was copied successfully', sourceSite.name ) ),
+				} );
+
+				void startServer( newSite.id );
+
+				return newSite;
+			} catch ( error ) {
+				showError( error );
+			}
+		},
+		[ sites, selectedTab, setSelectedSiteId, setSelectedTab, startServer ]
+	);
+
 	const autoStartSites = useCallback(
 		( sites: SiteDetails[] ) => {
 			for ( const site of sites ) {
@@ -510,6 +600,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		await getIpcApi().stopAllServers();
 	}, [] );
 
+	const startAllStoppedSites = useCallback( async () => {
+		const stoppedSites = sites.filter( ( site ) => ! site.running && ! site.isAddingSite );
+		await Promise.allSettled( stoppedSites.map( ( site ) => startServer( site.id ) ) );
+	}, [ sites, startServer ] );
+
 	const [ isEditModalOpen, setIsEditModalOpen ] = useState( false );
 	const selectedSite = sites.find( ( site ) => site.id === selectedSiteId ) || firstSite;
 
@@ -524,10 +619,12 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			sites,
 			setSelectedSiteId,
 			createSite,
+			copySite,
 			updateSite,
 			startServer,
 			stopServer,
 			stopAllRunningSites,
+			startAllStoppedSites,
 			loadingServer,
 			deleteSite: onDeleteSite,
 			isDeleting: selectedSiteId ? isDeleting[ selectedSiteId ] : false,
@@ -544,10 +641,12 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			sites,
 			setSelectedSiteId,
 			createSite,
+			copySite,
 			updateSite,
 			startServer,
 			stopServer,
 			stopAllRunningSites,
+			startAllStoppedSites,
 			loadingServer,
 			onDeleteSite,
 			selectedSiteId,

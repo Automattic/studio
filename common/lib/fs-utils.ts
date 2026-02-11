@@ -85,16 +85,19 @@ export async function recursiveCopyDirectory(
 
 	const entries = await fsPromises.readdir( source, { withFileTypes: true } );
 
-	for ( const entry of entries ) {
-		const sourcePath = path.join( source, entry.name );
-		const destinationPath = path.join( destination, entry.name );
+	await Promise.all(
+		entries.map( ( entry ) => {
+			const sourcePath = path.join( source, entry.name );
+			const destinationPath = path.join( destination, entry.name );
 
-		if ( entry.isDirectory() ) {
-			await recursiveCopyDirectory( sourcePath, destinationPath );
-		} else if ( entry.isFile() ) {
-			await fsPromises.copyFile( sourcePath, destinationPath );
-		}
-	}
+			if ( entry.isDirectory() ) {
+				return recursiveCopyDirectory( sourcePath, destinationPath );
+			}
+			if ( entry.isFile() ) {
+				return fsPromises.copyFile( sourcePath, destinationPath );
+			}
+		} )
+	);
 }
 
 export async function isEmptyDir( directory: string ): Promise< boolean > {

@@ -4,9 +4,11 @@ import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren } from 'react';
 import { decodePassword } from 'common/lib/passwords';
 import { CopyTextButton } from 'src/components/copy-text-button';
-import DeleteSite from 'src/components/delete-site';
 import { LearnHowLink } from 'src/components/learn-more';
+import { SettingsMenuItem } from 'src/components/settings-site-menu';
+import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
+import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
 import { useAppDispatch } from 'src/stores';
@@ -51,6 +53,8 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		// Invalidate the query to refresh the data
 		await dispatch( certificateTrustApi.util.invalidateTags( [ 'CertificateTrust' ] ) );
 	};
+	const { handleDeleteSite } = useDeleteSite();
+	const { copySite } = useSiteDetails();
 
 	return (
 		<div className="p-8 ltr:pr-4 rtl:pl-4">
@@ -67,7 +71,18 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					>
 						{ ( { onClose }: { onClose: () => void } ) => (
 							<MenuGroup>
-								<DeleteSite onClose={ onClose } />
+								<SettingsMenuItem onClick={ () => void copySite( selectedSite.id ) }>
+									{ __( 'Copy site' ) }
+								</SettingsMenuItem>
+								<SettingsMenuItem
+									onClick={ () => {
+										void handleDeleteSite( selectedSite.id, selectedSite.name );
+										onClose();
+									} }
+									isDestructive
+								>
+									{ __( 'Delete site' ) }
+								</SettingsMenuItem>
 							</MenuGroup>
 						) }
 					</DropdownMenu>

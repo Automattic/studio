@@ -1,5 +1,6 @@
 Unreleased
 ==========
+* Added copy site feature to the site context menu #2528
 
 1.7.3
 =====

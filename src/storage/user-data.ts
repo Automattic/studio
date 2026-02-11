@@ -3,6 +3,7 @@ import fs from 'fs';
 import nodePath from 'node:path';
 import * as Sentry from '@sentry/electron/main';
 import { readFile, writeFile } from 'atomically';
+import semver from 'semver';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from 'common/constants';
 import { isErrnoException } from 'common/lib/is-errno-exception';
 import { lockFileAsync, unlockFileAsync } from 'common/lib/lockfile';
@@ -37,12 +38,41 @@ function migrateUserDataOldName() {
 	migrateUserData( 'Build' );
 }
 
+/**
+ * Ensures each site has a valid PHP version. If the stored version is unsupported,
+ * it selects the closest supported version (min if too low, max if too high).
+ */
 function populatePhpVersion( sites: SiteDetails[] ) {
+	// Sort versions to reliably find min and max
+	const sortedVersions = [ ...SupportedPHPVersions ].sort( ( a, b ) =>
+		semver.compare( semver.coerce( a )!, semver.coerce( b )! )
+	);
+	const minVersion = sortedVersions[ 0 ];
+	const maxVersion = sortedVersions[ sortedVersions.length - 1 ];
+	const minCoerced = semver.coerce( minVersion )!;
+	const maxCoerced = semver.coerce( maxVersion )!;
+
 	sites.forEach( ( site ) => {
-		if (
-			typeof site.phpVersion === 'undefined' ||
-			! SupportedPHPVersions.includes( site.phpVersion as SupportedPHPVersion )
-		) {
+		if ( typeof site.phpVersion === 'undefined' ) {
+			site.phpVersion = DEFAULT_PHP_VERSION_WHEN_UNKNOWN;
+			return;
+		}
+
+		if ( SupportedPHPVersions.includes( site.phpVersion as SupportedPHPVersion ) ) {
+			return;
+		}
+
+		const coercedPhpVersion = semver.coerce( site.phpVersion );
+		if ( ! coercedPhpVersion ) {
+			site.phpVersion = DEFAULT_PHP_VERSION_WHEN_UNKNOWN;
+			return;
+		}
+
+		if ( semver.lt( coercedPhpVersion, minCoerced ) ) {
+			site.phpVersion = minVersion;
+		} else if ( semver.gt( coercedPhpVersion, maxCoerced ) ) {
+			site.phpVersion = maxVersion;
+		} else {
 			site.phpVersion = DEFAULT_PHP_VERSION_WHEN_UNKNOWN;
 		}
 	} );

@@ -7,10 +7,11 @@ ARCHITECTURE=$(uname -m)
 NODE_VERSION=$(node --version)
 PACKAGE_HASH=$(hash_file package-lock.json)
 
-if [ -d patches ]; then
-  PATCHES_HASH=$(hash_directory patches/)
-else
-  PATCHES_HASH=nopatch
+PATCHES_HASH=nopatch
+if [ -d apps/cli/patches ] || [ -d apps/studio/patches ]; then
+  CLI_PATCHES_HASH=$( [ -d apps/cli/patches ] && hash_directory apps/cli/patches || echo none )
+  STUDIO_PATCHES_HASH=$( [ -d apps/studio/patches ] && hash_directory apps/studio/patches || echo none )
+  PATCHES_HASH="${CLI_PATCHES_HASH}-${STUDIO_PATCHES_HASH}"
 fi
 
 CACHEKEY="$BUILDKITE_PIPELINE_SLUG-npm-$PLATFORM-$ARCHITECTURE-node-$NODE_VERSION-$PACKAGE_HASH-$PATCHES_HASH"

@@ -33,6 +33,11 @@ declare module '*.riv?url' {
 	export default url;
 }
 
+declare module '*.css?url' {
+	const url: string;
+	export default url;
+}
+
 declare module '*.wasm' {
 	const dataUri: function;
 	export default dataUri;

@@ -6,6 +6,7 @@ import {
 import { useI18n } from '@wordpress/react-i18n';
 import Button from 'src/components/button';
 import { DynamicStylesheet } from 'src/components/dynamic-stylesheet';
+import { getWordpressStylesHref } from 'src/components/wordpress-styles';
 import { isMac, isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -92,9 +93,7 @@ export default function DefaultErrorFallback() {
 	const { isRTL } = useI18n();
 	const isRtl = isRTL();
 
-	const href = isRtl
-		? './main_window/styles/wordpress-components-style-rtl.css'
-		: './main_window/styles/wordpress-components-style.css';
+	const href = getWordpressStylesHref( isRtl );
 
 	return (
 		<div dir={ isRtl ? 'rtl' : 'ltr' }>

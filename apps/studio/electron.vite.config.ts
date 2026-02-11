@@ -58,9 +58,6 @@ export default defineConfig( {
 	},
 	renderer: {
 		root: __dirname,
-		define: {
-			'import.meta.env.VITE_REPO_ROOT': JSON.stringify( resolve( __dirname, '../..' ) ),
-		},
 		resolve: {
 			alias: {
 				src: resolve( __dirname, 'src' ),
@@ -79,22 +76,6 @@ export default defineConfig( {
 			wasm(),
 			viteStaticCopy( {
 				targets: [
-					{
-						src: resolve(
-							__dirname,
-							'../../node_modules/@wordpress/components/build-style/style.css'
-						),
-						dest: 'main_window/styles',
-						rename: 'wordpress-components-style.css',
-					},
-					{
-						src: resolve(
-							__dirname,
-							'../../node_modules/@wordpress/components/build-style/style-rtl.css'
-						),
-						dest: 'main_window/styles',
-						rename: 'wordpress-components-style-rtl.css',
-					},
 					{
 						src: resolve( __dirname, '../../node_modules/@rive-app/canvas/rive.wasm' ),
 						dest: 'assets',

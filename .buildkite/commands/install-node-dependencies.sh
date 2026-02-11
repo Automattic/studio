@@ -27,6 +27,16 @@ restore_cache "$CACHEKEY"
 
 echo "--- :npm: Install Node dependencies"
 
+echo "Install debug:"
+echo "  pwd=$(pwd)"
+echo "  node=$(node -v)"
+echo "  npm=$(npm -v)"
+echo "  npm prefix=$(npm config get prefix)"
+echo "  npm workspaces=$(npm config get workspaces)"
+echo "  npm ignore-scripts=$(npm config get ignore-scripts)"
+echo "  npm user-config=$(npm config get userconfig)"
+echo "  npm global-config=$(npm config get globalconfig)"
+
 MAX_SOCKETS=15 # Default value from npm
 
 # To avoid constant ECONNRESET errors a limit is set for Linux,

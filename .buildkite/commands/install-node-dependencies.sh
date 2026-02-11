@@ -27,25 +27,6 @@ restore_cache "$CACHEKEY"
 
 echo "--- :npm: Install Node dependencies"
 
-echo "Install debug:"
-echo "  pwd=$(pwd)"
-echo "  node=$(node -v)"
-echo "  npm=$(npm -v)"
-echo "  npm workspaces=$(npm config get workspaces)"
-echo "  npm ignore-scripts=$(npm config get ignore-scripts)"
-echo "  npm user-config=$(npm config get userconfig)"
-echo "  npm_config_workspaces=${NPM_CONFIG_WORKSPACES-}"
-echo "  npm_config_workspace=${NPM_CONFIG_WORKSPACE-}"
-echo "  npm_config_ignore_scripts=${NPM_CONFIG_IGNORE_SCRIPTS-}"
-echo "  npm_config_production=${NPM_CONFIG_PRODUCTION-}"
-echo "  npm_config_legacy_workspace_install=${NPM_CONFIG_LEGACY_WORKSPACE_INSTALL-}"
-
-USER_NPMRC=$(npm config get userconfig 2>/dev/null || true)
-if [ -n "${USER_NPMRC}" ] && [ -f "${USER_NPMRC}" ]; then
-  echo "  npm user config contents:"
-  cat "${USER_NPMRC}"
-fi
-
 MAX_SOCKETS=15 # Default value from npm
 
 # To avoid constant ECONNRESET errors a limit is set for Linux,

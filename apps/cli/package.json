@@ -24,8 +24,7 @@
 	"scripts": {
 		"build": "vite build --config ./vite.config.ts",
 		"watch": "vite build --config ./vite.config.ts --watch",
-		"install:bundle": "npm install --no-package-lock --install-links --no-workspaces",
-		"postinstall": "patch-package"
+		"install:bundle": "npm install --no-package-lock --install-links --no-workspaces && patch-package"
 	},
 	"devDependencies": {
 		"@types/archiver": "^6.0.4",

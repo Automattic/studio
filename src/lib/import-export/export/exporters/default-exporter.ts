@@ -20,6 +20,7 @@ import {
 	StudioJson,
 } from 'src/lib/import-export/export/types';
 import { getWordPressVersionFromInstallation } from 'src/lib/wp-versions';
+import { hasDefaultDbBlock, removeDbConstants } from 'src/migrations/remove-default-db-constants';
 import { SiteServer } from 'src/site-server';
 
 export class DefaultExporter extends EventEmitter implements Exporter {
@@ -180,6 +181,11 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 	private addWpConfig(): void {
 		const wpConfigPath = path.join( this.options.site.path, 'wp-config.php' );
 		if ( fs.existsSync( wpConfigPath ) ) {
+			const content = fs.readFileSync( wpConfigPath, 'utf-8' );
+			if ( hasDefaultDbBlock( content ) ) {
+				const modifiedContent = removeDbConstants( content );
+				fs.writeFileSync( wpConfigPath, modifiedContent, 'utf-8' );
+			}
 			this.archiveBuilder.file( wpConfigPath, {
 				name: 'wp-config.php',
 			} );

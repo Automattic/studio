@@ -39,6 +39,7 @@ import {
 	isWordPressVersionAtLeast,
 } from 'common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction as LoggerAction } from 'common/logger-actions';
+import { hasDefaultDbBlock, removeDbConstants } from 'src/migrations/remove-default-db-constants';
 import {
 	lockAppdata,
 	readAppdata,
@@ -318,6 +319,8 @@ export async function runCommand(
 				} );
 				logger.reportSuccess( __( 'WordPress server started' ) );
 
+				stripWpConfigDbConstants( sitePath );
+
 				if ( processDesc.pid ) {
 					await updateSiteLatestCliPid( siteDetails.id, processDesc.pid );
 				}
@@ -355,6 +358,8 @@ export async function runCommand(
 						blueprintUri: blueprintUri as string,
 					} );
 					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
+
+					stripWpConfigDbConstants( sitePath );
 				} catch ( error ) {
 					await removeSiteFromAppdata( siteDetails.id );
 					if ( ! isWordPressDirResult ) {
@@ -391,6 +396,17 @@ async function fetchBlueprint( url: string ) {
 		return await res.json();
 	} catch ( error ) {
 		throw new LoggerError( __( 'Failed to parse Blueprint JSON' ), error );
+	}
+}
+
+function stripWpConfigDbConstants( sitePath: string ): void {
+	const wpConfigPath = path.join( sitePath, 'wp-config.php' );
+	if ( ! fs.existsSync( wpConfigPath ) ) {
+		return;
+	}
+	const content = fs.readFileSync( wpConfigPath, 'utf-8' );
+	if ( hasDefaultDbBlock( content ) ) {
+		fs.writeFileSync( wpConfigPath, removeDbConstants( content ), 'utf-8' );
 	}
 }
 

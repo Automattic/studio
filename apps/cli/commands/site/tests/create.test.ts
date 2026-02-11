@@ -12,8 +12,8 @@ import {
 } from '@studio/common/lib/fs-utils';
 import { isOnline } from '@studio/common/lib/network-utils';
 import { portFinder } from '@studio/common/lib/port-finder';
+import { normalizeLineEndings } from '@studio/common/lib/remove-default-db-constants';
 import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
-import { normalizeLineEndings } from 'src/migrations/remove-default-db-constants';
 import { vi, type MockInstance } from 'vitest';
 import {
 	lockAppdata,

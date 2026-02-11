@@ -2,7 +2,7 @@ import {
 	hasDefaultDbBlock,
 	normalizeLineEndings,
 	removeDbConstants,
-} from 'src/migrations/remove-default-db-constants';
+} from '../remove-default-db-constants';
 
 const WP_CONFIG_WITH_DEFAULTS = normalizeLineEndings( `<?php
 /**

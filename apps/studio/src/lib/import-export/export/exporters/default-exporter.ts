@@ -3,6 +3,10 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import {
+	hasDefaultDbBlock,
+	removeDbConstants,
+} from '@studio/common/lib/remove-default-db-constants';
 import archiver from 'archiver';
 import { ARCHIVER_OPTIONS } from 'src/constants';
 import { getSiteUrl } from 'src/lib/get-site-url';
@@ -20,7 +24,6 @@ import {
 	StudioJson,
 } from 'src/lib/import-export/export/types';
 import { getWordPressVersionFromInstallation } from 'src/lib/wp-versions';
-import { hasDefaultDbBlock, removeDbConstants } from 'src/migrations/remove-default-db-constants';
 import { SiteServer } from 'src/site-server';
 
 export class DefaultExporter extends EventEmitter implements Exporter {

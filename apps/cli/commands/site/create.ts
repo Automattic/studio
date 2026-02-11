@@ -24,6 +24,10 @@ import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { isOnline } from '@studio/common/lib/network-utils';
 import { createPassword } from '@studio/common/lib/passwords';
 import { portFinder } from '@studio/common/lib/port-finder';
+import {
+	hasDefaultDbBlock,
+	removeDbConstants,
+} from '@studio/common/lib/remove-default-db-constants';
 import { SITE_EVENTS } from '@studio/common/lib/site-events';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import {
@@ -33,7 +37,6 @@ import {
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { Blueprint, StepDefinition } from '@wp-playground/blueprints';
-import { hasDefaultDbBlock, removeDbConstants } from 'src/migrations/remove-default-db-constants';
 import {
 	lockAppdata,
 	readAppdata,

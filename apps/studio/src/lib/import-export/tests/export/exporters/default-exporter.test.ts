@@ -2,16 +2,16 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import {
+	normalizeLineEndings,
+	removeDbConstants,
+} from '@studio/common/lib/remove-default-db-constants';
 import archiver from 'archiver';
 import { format } from 'date-fns';
 import { vi, beforeAll, afterAll, Mock, MockedFunction, Mocked } from 'vitest';
 import { DefaultExporter } from 'src/lib/import-export/export/exporters';
 import { ExportOptions, BackupContents } from 'src/lib/import-export/export/types';
 import { getWordPressVersionFromInstallation } from 'src/lib/wp-versions';
-import {
-	normalizeLineEndings,
-	removeDbConstants,
-} from 'src/migrations/remove-default-db-constants';
 import { SiteServer } from 'src/site-server';
 import { platformTestSuite } from 'src/tests/utils/platform-test-suite';
 

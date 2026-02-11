@@ -5,6 +5,7 @@
  * Defaults to `any` to match JSON.parse behavior; callers can narrow the type
  * via the generic parameter, e.g. `parseJsonFromPhpOutput<string[]>(stdout)`.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function parseJsonFromPhpOutput< T = any >( output: string ): T {
 	const objectStart = output.indexOf( '{' );
 	const arrayStart = output.indexOf( '[' );

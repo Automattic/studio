@@ -35,6 +35,7 @@ import { useFindAvailableSiteName } from './hooks/use-find-available-site-name';
 type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
 
 interface NavigationContentProps {
+	startOver: () => void;
 	blueprintsData: BlueprintsData;
 	isLoadingBlueprints: boolean;
 	blueprintsErrorMessage?: string;
@@ -81,9 +82,9 @@ interface NavigationContentProps {
 }
 
 function NavigationContent( props: NavigationContentProps ) {
-	const { __ } = useI18n();
 	const { goTo, location } = useNavigator();
 	const {
+		startOver,
 		blueprintsData,
 		isLoadingBlueprints,
 		blueprintsErrorMessage,
@@ -175,6 +176,10 @@ function NavigationContent( props: NavigationContentProps ) {
 	}, [ goTo ] );
 
 	const handleBack = useCallback( () => {
+		const goToFirstStep = () => {
+			startOver();
+			goTo( '/' );
+		};
 		if ( location.path === '/blueprint/select/create' ) {
 			goTo( '/blueprint/select' );
 		} else if ( location.path === '/blueprint/deeplink/create' ) {
@@ -203,13 +208,14 @@ function NavigationContent( props: NavigationContentProps ) {
 				setSelectedRemoteSite( undefined );
 				setRemoteSiteName( '' );
 			}
-			goTo( '/' );
+			goToFirstStep();
 		} else {
-			goTo( '/' );
+			goToFirstStep();
 		}
 	}, [
 		location.path,
 		goTo,
+		startOver,
 		setFileForImport,
 		setSelectedBlueprint,
 		setBlueprintPreferredVersions,
@@ -486,6 +492,9 @@ export function AddSiteModalContent( {
 			setFormInitialized( false );
 		}
 	}, [ isOpen ] );
+	const startOver = useCallback( () => {
+		setFormInitialized( false );
+	}, [] );
 
 	const defaultValues = useMemo(
 		() => ( {
@@ -559,6 +568,7 @@ export function AddSiteModalContent( {
 				setSelectedRemoteSite={ setSelectedRemoteSite }
 				isDeeplinkFlow={ isDeeplinkFlow }
 				setIsDeeplinkFlow={ setIsDeeplinkFlow }
+				startOver={ startOver }
 			/>
 		</Navigator>
 	);

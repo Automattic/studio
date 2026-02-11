@@ -100,7 +100,7 @@
 		"@types/shell-quote": "^1.7.5",
 		"@types/winreg": "^1.2.36",
 		"@types/yauzl": "^2.10.3",
-		"@vitejs/plugin-react": "^5.1.2",
+		"@vitejs/plugin-react": "^5.1.4",
 		"@wp-playground/blueprints": "^3.0.46",
 		"electron": "^39.2.7",
 		"electron-devtools-installer": "^4.0.0",

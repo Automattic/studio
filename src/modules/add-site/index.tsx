@@ -197,6 +197,7 @@ function NavigationContent( props: NavigationContentProps ) {
 			if ( location.path === '/blueprint/select' || location.path === '/blueprint/deeplink' ) {
 				setSelectedBlueprint();
 				setBlueprintPreferredVersions?.( undefined );
+				setBlueprintSuggestedSiteName?.( undefined );
 			}
 			if ( location.path === '/pullRemote' ) {
 				setSelectedRemoteSite( undefined );
@@ -213,6 +214,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		setSelectedBlueprint,
 		setBlueprintPreferredVersions,
 		setSelectedRemoteSite,
+		setBlueprintSuggestedSiteName,
 	] );
 
 	const applyBlueprintFormValues = useCallback(
@@ -461,6 +463,22 @@ export function AddSiteModalContent( {
 
 		void initializeForm();
 	}, [ isOpen, formInitialized, loadingSites, sites, loadAllCustomDomains ] );
+
+	// Update site name and path when blueprint suggests a site name
+	const findAvailableSiteName = useFindAvailableSiteName();
+	useEffect( () => {
+		if ( ! formInitialized || ! blueprintSuggestedSiteName ) {
+			return;
+		}
+
+		const updatePathForBlueprintName = async () => {
+			const availableName = await findAvailableSiteName( blueprintSuggestedSiteName );
+			const { path } = await getIpcApi().generateProposedSitePath( availableName );
+			setDefaultSiteName( availableName );
+			setDefaultSitePath( path );
+		};
+		void updatePathForBlueprintName();
+	}, [ blueprintSuggestedSiteName, formInitialized, findAvailableSiteName ] );
 
 	// Reset form initialized state when modal closes
 	useEffect( () => {

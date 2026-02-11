@@ -231,6 +231,28 @@ describe( 'useBlueprintDeeplink', () => {
 		expect( mockSetBlueprintSuggestedHttps ).not.toHaveBeenCalled();
 	} );
 
+	it( 'should set site name from setSiteOptions blogname', async () => {
+		const mockBlueprintData = {
+			steps: [ { step: 'setSiteOptions', options: { blogname: 'My Blog' } } ],
+		};
+
+		const mockReadBlueprintFile = vi.fn().mockResolvedValue( mockBlueprintData );
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			readBlueprintFile: mockReadBlueprintFile,
+		} );
+
+		renderBlueprintDeeplinkHook();
+
+		await act( async () => {
+			await ipcCallback!( createMock< IpcRendererEvent >( {} ), {
+				blueprintPath: '/path/to/blueprint.json',
+				warnings: [],
+			} );
+		} );
+
+		expect( mockSetBlueprintSuggestedSiteName ).toHaveBeenCalledWith( 'My Blog' );
+	} );
+
 	it( 'should not process event when site is processing', async () => {
 		const mockReadBlueprintFile = vi.fn();
 		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {

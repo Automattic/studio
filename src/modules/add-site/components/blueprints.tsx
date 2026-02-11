@@ -12,6 +12,7 @@ import { sprintf } from '@wordpress/i18n';
 import { Icon, external, upload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useRef, useState, useMemo } from 'react';
+import { BlueprintValidationWarning } from 'common/lib/blueprint-validation';
 import StudioButton from 'src/components/button';
 import { LearnMoreLink } from 'src/components/learn-more';
 import { cx } from 'src/lib/cx';
@@ -48,7 +49,7 @@ interface AddSiteBlueprintProps {
 	isLoading: boolean;
 	selectedBlueprint: string | null;
 	onBlueprintChange: ( blueprintId: string ) => void;
-	onFileBlueprintSelect?: ( blueprint: Blueprint ) => void;
+	onFileBlueprintSelect?: ( blueprint: Blueprint, warnings?: BlueprintValidationWarning[] ) => void;
 }
 
 export function AddSiteBlueprintSelector( {
@@ -224,8 +225,10 @@ export function AddSiteBlueprintSelector( {
 					return;
 				}
 
-				if ( validation.warnings && validation.warnings.length > 0 ) {
-					setBlueprintWarnings( validation.warnings );
+				const fileWarnings =
+					validation.warnings && validation.warnings.length > 0 ? validation.warnings : undefined;
+				if ( fileWarnings ) {
+					setBlueprintWarnings( fileWarnings );
 				}
 
 				const fileBlueprint: Blueprint = {
@@ -238,7 +241,7 @@ export function AddSiteBlueprintSelector( {
 				};
 
 				setUploadedFileName( null );
-				onFileBlueprintSelect( fileBlueprint );
+				onFileBlueprintSelect( fileBlueprint, fileWarnings );
 			} catch ( error ) {
 				if ( error instanceof SyntaxError ) {
 					setValidationError(

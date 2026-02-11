@@ -16,11 +16,13 @@ interface StepperStep {
 
 interface StepperConfig {
 	onBlueprintContinue?: () => void;
+	onBlueprintDetailsContinue?: () => void;
 	onBlueprintDeeplinkContinue?: () => void;
 	onBackupContinue?: () => void;
 	onPullRemoteContinue?: () => void;
 	onCreateSubmit?: ( event: FormEvent ) => void;
 	canSubmitBlueprint?: boolean;
+	canSubmitBlueprintDetails?: boolean;
 	canSubmitBlueprintDeeplink?: boolean;
 	canSubmitBackup?: boolean;
 	canSubmitPullRemote?: boolean;
@@ -51,6 +53,11 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 	const stepperContext = useMemo( (): StepperContext | null => {
 		const blueprintSteps: StepperStep[] = [
 			{ id: 'choose-blueprint', label: __( 'Choose Blueprint' ), path: '/blueprint/select' },
+			{
+				id: 'blueprint-details',
+				label: __( 'Blueprint details' ),
+				path: '/blueprint/select/details',
+			},
 			{ id: 'site-details', label: __( 'Site name & details' ), path: '/blueprint/select/create' },
 		];
 
@@ -167,6 +174,7 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 
 		switch ( location.path ) {
 			case '/blueprint/select':
+			case '/blueprint/select/details':
 			case '/blueprint/deeplink':
 			case '/backup':
 			case '/pullRemote':
@@ -196,6 +204,9 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 			case '/blueprint/select':
 				config?.onBlueprintContinue?.();
 				break;
+			case '/blueprint/select/details':
+				config?.onBlueprintDetailsContinue?.();
+				break;
 			case '/blueprint/deeplink':
 				config?.onBlueprintDeeplinkContinue?.();
 				break;
@@ -222,6 +233,8 @@ export function useStepper( config?: StepperConfig ): UseStepper {
 		switch ( location.path ) {
 			case '/blueprint/select':
 				return config?.canSubmitBlueprint ?? false;
+			case '/blueprint/select/details':
+				return config?.canSubmitBlueprintDetails ?? false;
 			case '/blueprint/deeplink':
 				return config?.canSubmitBlueprintDeeplink ?? false;
 			case '/backup':

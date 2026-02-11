@@ -5,7 +5,10 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MINIMUM_WORDPRESS_VERSION } from 'common/constants';
 import { extractFormValuesFromBlueprint } from 'common/lib/blueprint-settings';
-import { BlueprintPreferredVersions } from 'common/lib/blueprint-validation';
+import {
+	BlueprintPreferredVersions,
+	BlueprintValidationWarning,
+} from 'common/lib/blueprint-validation';
 import { SupportedPHPVersionsList } from 'common/types/php-versions';
 import Button from 'src/components/button';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
@@ -138,6 +141,12 @@ function NavigationContent( props: NavigationContentProps ) {
 
 	const handleBlueprintContinue = useCallback( () => {
 		if ( selectedBlueprint ) {
+			goTo( '/blueprint/select/details' );
+		}
+	}, [ selectedBlueprint, goTo ] );
+
+	const handleBlueprintDetailsContinue = useCallback( () => {
+		if ( selectedBlueprint ) {
 			goTo( '/blueprint/select/create' );
 		}
 	}, [ selectedBlueprint, goTo ] );
@@ -154,6 +163,10 @@ function NavigationContent( props: NavigationContentProps ) {
 			goTo( '/backup/create' );
 		}
 	}, [ fileForImport, goTo ] );
+
+	const [ fileBlueprintWarnings, setFileBlueprintWarnings ] = useState<
+		BlueprintValidationWarning[] | undefined
+	>();
 
 	const findAvailableSiteName = useFindAvailableSiteName();
 	const [ remoteSiteName, setRemoteSiteName ] = useState( '' );
@@ -181,6 +194,9 @@ function NavigationContent( props: NavigationContentProps ) {
 			goTo( '/' );
 		};
 		if ( location.path === '/blueprint/select/create' ) {
+			goTo( '/blueprint/select/details' );
+		} else if ( location.path === '/blueprint/select/details' ) {
+			setFileBlueprintWarnings( undefined );
 			goTo( '/blueprint/select' );
 		} else if ( location.path === '/blueprint/deeplink/create' ) {
 			goTo( '/blueprint/deeplink' );
@@ -203,6 +219,7 @@ function NavigationContent( props: NavigationContentProps ) {
 				setSelectedBlueprint();
 				setBlueprintPreferredVersions?.( undefined );
 				setBlueprintSuggestedSiteName?.( undefined );
+				setFileBlueprintWarnings( undefined );
 			}
 			if ( location.path === '/pullRemote' ) {
 				setSelectedRemoteSite( undefined );
@@ -267,10 +284,12 @@ function NavigationContent( props: NavigationContentProps ) {
 	);
 
 	const handleFileBlueprintSelect = useCallback(
-		( blueprint: Blueprint ) => {
+		( blueprint: Blueprint, warnings?: BlueprintValidationWarning[] ) => {
 			applyBlueprintFormValues( blueprint );
+			setFileBlueprintWarnings( warnings );
+			goTo( '/blueprint/select/details' );
 		},
-		[ applyBlueprintFormValues ]
+		[ applyBlueprintFormValues, goTo ]
 	);
 
 	// Build default values with blueprint preferred versions applied
@@ -323,6 +342,13 @@ function NavigationContent( props: NavigationContentProps ) {
 					onFileBlueprintSelect={ handleFileBlueprintSelect }
 				/>
 			</Navigator.Screen>
+			<Navigator.Screen className="flex-1" path="/blueprint/select/details">
+				<BlueprintDeeplink
+					selectedBlueprint={ selectedBlueprint }
+					warnings={ fileBlueprintWarnings }
+					source={ selectedBlueprint?.slug?.startsWith( 'file:' ) ? 'file' : 'featured' }
+				/>
+			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/select/create">
 				<CreateSite
 					{ ...createSiteProps }
@@ -339,6 +365,7 @@ function NavigationContent( props: NavigationContentProps ) {
 				<BlueprintDeeplink
 					selectedBlueprint={ selectedBlueprint }
 					warnings={ blueprintDeeplinkWarnings }
+					source="deeplink"
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/deeplink/create">
@@ -372,6 +399,7 @@ function NavigationContent( props: NavigationContentProps ) {
 				currentPath={ location.path }
 				onBack={ handleBack }
 				onBlueprintContinue={ handleBlueprintContinue }
+				onBlueprintDetailsContinue={ handleBlueprintDetailsContinue }
 				onBlueprintDeeplinkContinue={ handleBlueprintDeeplinkContinue }
 				onBackupContinue={ handleBackupContinue }
 				onPullRemoteContinue={ handlePullRemoteContinue }
@@ -379,6 +407,7 @@ function NavigationContent( props: NavigationContentProps ) {
 					formRef.current?.requestSubmit();
 				} }
 				canSubmitBlueprint={ !! selectedBlueprint }
+				canSubmitBlueprintDetails={ !! selectedBlueprint }
 				canSubmitBlueprintDeeplink={ !! selectedBlueprint }
 				canSubmitBackup={ !! fileForImport }
 				canSubmitPullRemote={ !! selectedRemoteSite }

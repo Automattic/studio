@@ -86,7 +86,7 @@ export default defineConfig( {
 			'@studio/common': resolve( __dirname, '../../tools/common' ),
 			'@wp-playground/blueprints/blueprint-schema-validator': resolve(
 				__dirname,
-				'node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'
+				'../../node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'
 			),
 		},
 		conditions: [ 'node' ],

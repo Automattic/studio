@@ -1,7 +1,7 @@
+import wordpressStylesRtlUrl from '@wordpress/components/build-style/style-rtl.css?url';
+import wordpressStylesUrl from '@wordpress/components/build-style/style.css?url';
 import { useI18n } from '@wordpress/react-i18n';
 import { DynamicStylesheet } from 'src/components/dynamic-stylesheet';
-import wordpressStylesUrl from '@wordpress/components/build-style/style.css?url';
-import wordpressStylesRtlUrl from '@wordpress/components/build-style/style-rtl.css?url';
 
 const WORDPRESS_STYLES_ID = 'wordpress-components-style';
 

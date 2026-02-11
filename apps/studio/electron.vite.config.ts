@@ -1,4 +1,5 @@
 import { resolve } from 'path';
+import { createRequire } from 'module';
 import { defineConfig } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 import topLevelAwait from 'vite-plugin-top-level-await';
@@ -12,7 +13,9 @@ const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo( version );
 console.log( 'Sentry release version:', sentryRelease );
 console.log( 'Sentry environment:', isDevEnvironment ? 'development' : 'production' );
 
-export default defineConfig( {
+const require = createRequire( import.meta.url );
+
+export default defineConfig({
 	main: {
 		plugins: [],
 		resolve: {
@@ -77,11 +80,11 @@ export default defineConfig( {
 			viteStaticCopy( {
 				targets: [
 					{
-						src: resolve( __dirname, '../../node_modules/@rive-app/canvas/rive.wasm' ),
+						src: require.resolve( '@rive-app/canvas/rive.wasm') ,
 						dest: 'assets',
 					},
 					{
-						src: resolve( __dirname, '../../node_modules/@rive-app/canvas/rive_fallback.wasm' ),
+						src: require.resolve( '@rive-app/canvas/rive_fallback.wasm' ),
 						dest: 'assets',
 					},
 					{

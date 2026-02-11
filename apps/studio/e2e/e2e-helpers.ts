@@ -82,7 +82,8 @@ export class E2ESession {
 	}
 
 	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {
-		const latestBuild = findLatestBuild();
+		const buildDir = path.join( __dirname, '..', 'out' );
+		const latestBuild = findLatestBuild( buildDir );
 		const appInfo = parseElectronApp( latestBuild );
 		let executablePath = appInfo.executable;
 

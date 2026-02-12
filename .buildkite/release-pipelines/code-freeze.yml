@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/buildkite/pipeline-schema/main/schema.json
+---
+
+env:
+  IMAGE_ID: $IMAGE_ID
+
+steps:
+  - label: ":snowflake: Code Freeze"
+    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+    command: |
+      echo "--- :robot_face: Use bot for Git operations"
+      source use-bot-for-git
+
+      echo "--- :npm: Install Node dependencies"
+      .buildkite/commands/install-node-dependencies.sh
+
+      echo "--- :ruby: Setup Ruby Tools"
+      install_gems
+
+      echo "--- :snowflake: Execute Code Freeze"
+      bundle exec fastlane code_freeze version:"${RELEASE_VERSION}" skip_confirm:true
+    artifact_paths:
+      - out/pots/bundle-strings.pot
+    agents:
+      queue: mac
+    retry:
+      manual:
+        reason: If release jobs fail, you should always re-trigger the task from Releases V2 rather than retrying the individual job from Buildkite
+        allowed: false

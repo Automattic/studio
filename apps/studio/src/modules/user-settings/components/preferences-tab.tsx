@@ -2,6 +2,7 @@ import { SupportedLocale } from '@studio/common/lib/locale';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import Button from 'src/components/button';
+import { isWindowsStore } from 'src/lib/app-globals';
 import { EditorPicker } from 'src/modules/user-settings/components/editor-picker';
 import { LanguagePicker } from 'src/modules/user-settings/components/language-picker';
 import { StudioCliToggle } from 'src/modules/user-settings/components/studio-cli-toggle';
@@ -74,7 +75,9 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 				disabled={ editor === undefined }
 			/>
 			<TerminalPicker value={ terminalSelection } onChange={ setDirtyTerminal } />
-			<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />
+			{ ! isWindowsStore() && (
+				<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />
+			) }
 			<div className="mt-auto pt-2 flex justify-end gap-3">
 				<Button
 					variant="tertiary"

@@ -300,7 +300,7 @@ describe( 'useSiteDetails', () => {
 			);
 		} );
 
-		it( 'should fall back to generic title when site name is not found', async () => {
+		it( 'should display empty string in title when site is not found', async () => {
 			const { showErrorMessageBox } = setupStartServerError( new Error( 'Something went wrong' ) );
 
 			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
@@ -317,7 +317,7 @@ describe( 'useSiteDetails', () => {
 
 			expect( showErrorMessageBox ).toHaveBeenCalledWith(
 				expect.objectContaining( {
-					title: 'Failed to start the site server',
+					title: "Failed to start 'site'",
 				} )
 			);
 		} );

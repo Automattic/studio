@@ -169,10 +169,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const { Provider } = siteDetailsContext;
 
 	const [ sites, setSites ] = useState< SiteDetails[] >( [] );
-	const sitesRef = useRef( sites );
-	useEffect( () => {
-		sitesRef.current = sites;
-	}, [ sites ] );
 	const [ loadingSites, setLoadingSites ] = useState< boolean >( true );
 	const [ siteCreationMessages, setSiteCreationMessages ] = useState< {
 		[ siteId: string ]: string;
@@ -407,7 +403,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			try {
 				await getIpcApi().startServer( id );
 			} catch ( error ) {
-				const siteName = sitesRef.current.find( ( site ) => site.id === id )?.name || __( 'site' );
+				const siteName = sites.find( ( site ) => site.id === id )?.name || __( 'site' );
 				if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PORT_IN_USE' ) ) {
 					getIpcApi().showErrorMessageBox( {
 						title: sprintf( __( "Failed to initialize custom domains for '%s'" ), siteName ),
@@ -463,7 +459,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 			toggleLoadingServerForSite( id );
 		},
-		[ toggleLoadingServerForSite ]
+		[ toggleLoadingServerForSite, sites ]
 	);
 
 	const copySite = useCallback(

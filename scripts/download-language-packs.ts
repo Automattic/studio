@@ -150,8 +150,6 @@ async function downloadLanguagePacks(): Promise< void > {
 
 	// Remove .po and .mo files — WordPress 6.5+ uses .l10n.php and .json files.
 	await removePoAndMoFiles( languagesPath );
-
-	console.log( '[language-packs] Files extracted' );
 }
 
 downloadLanguagePacks()

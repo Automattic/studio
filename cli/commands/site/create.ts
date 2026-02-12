@@ -197,12 +197,12 @@ export async function runCommand(
 			// For the 'latest' WP version, try using bundled language packs first to avoid
 			// a network round-trip. Fall back to the Playground setSiteLanguage step for
 			// non-latest versions or when bundled packs aren't available.
-			let usedBundledPacks = false;
+			let isUsingBundledLanguagePacks = false;
 			if ( options.wpVersion === DEFAULT_WORDPRESS_VERSION ) {
-				usedBundledPacks = await copyLanguagePackToSite( sitePath, siteLanguage );
+				isUsingBundledLanguagePacks = await copyLanguagePackToSite( sitePath, siteLanguage );
 			}
 
-			if ( usedBundledPacks ) {
+			if ( isUsingBundledLanguagePacks ) {
 				setupSteps.push(
 					{
 						step: 'defineWpConfigConsts',

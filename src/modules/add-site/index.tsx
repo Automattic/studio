@@ -26,7 +26,7 @@ import { selectMinimumWordPressVersion } from 'src/stores/provider-constants-sli
 import { openAddSiteModal, closeAddSiteModal, selectIsAddSiteModalOpen } from 'src/stores/ui-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
-import BlueprintDeeplink from './components/blueprint-deeplink';
+import BlueprintDetails from './components/blueprint-details';
 import { AddSiteBlueprintSelector } from './components/blueprints';
 import CreateSite from './components/create-site';
 import ImportBackup from './components/import-backup';
@@ -342,7 +342,7 @@ function NavigationContent( props: NavigationContentProps ) {
 				/>
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/select/details">
-				<BlueprintDeeplink
+				<BlueprintDetails
 					selectedBlueprint={ selectedBlueprint }
 					warnings={ blueprintWarnings }
 					source={ selectedBlueprint?.slug?.startsWith( 'file:' ) ? 'file' : 'featured' }
@@ -361,7 +361,7 @@ function NavigationContent( props: NavigationContentProps ) {
 				<CreateSite { ...createSiteProps } defaultValues={ defaultValues } />
 			</Navigator.Screen>
 			<Navigator.Screen className="flex-1" path="/blueprint/deeplink">
-				<BlueprintDeeplink
+				<BlueprintDetails
 					selectedBlueprint={ selectedBlueprint }
 					warnings={ blueprintWarnings }
 					source="deeplink"

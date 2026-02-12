@@ -13,17 +13,17 @@ import { BlueprintWarningNotice } from './blueprint-warning-notice';
 
 export type BlueprintSource = 'deeplink' | 'file' | 'featured';
 
-interface BlueprintDeeplinkProps {
+interface BlueprintDetailsProps {
 	selectedBlueprint?: Blueprint;
 	warnings?: BlueprintValidationWarning[];
 	source?: BlueprintSource;
 }
 
-export default function BlueprintDeeplink( {
+export default function BlueprintDetails( {
 	selectedBlueprint,
 	warnings,
 	source = 'deeplink',
-}: BlueprintDeeplinkProps ) {
+}: BlueprintDetailsProps ) {
 	const { __ } = useI18n();
 
 	const blueprintTitle = selectedBlueprint?.title || __( 'Blueprint' );

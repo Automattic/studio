@@ -6,6 +6,41 @@ import { WP_LOCALES } from '../common/lib/wp-locales';
 
 const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
 
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY_MS = 1000;
+
+async function fetchWithRetry( url: string ): Promise< Response > {
+	for ( let attempt = 1; attempt <= MAX_RETRIES; attempt++ ) {
+		try {
+			const response = await fetch( url );
+			if ( response.ok ) {
+				return response;
+			}
+			if ( attempt < MAX_RETRIES ) {
+				const delay = INITIAL_RETRY_DELAY_MS * Math.pow( 2, attempt - 1 );
+				console.warn(
+					`[language-packs] Request failed (status ${ response.status }), retrying in ${ delay }ms (attempt ${ attempt }/${ MAX_RETRIES })...`
+				);
+				await new Promise( ( resolve ) => setTimeout( resolve, delay ) );
+				continue;
+			}
+			throw new Error( `HTTP ${ response.status }` );
+		} catch ( error ) {
+			if ( attempt < MAX_RETRIES ) {
+				const delay = INITIAL_RETRY_DELAY_MS * Math.pow( 2, attempt - 1 );
+				console.warn(
+					`[language-packs] Request failed (${ error instanceof Error ? error.message : error }), retrying in ${ delay }ms (attempt ${ attempt }/${ MAX_RETRIES })...`
+				);
+				await new Promise( ( resolve ) => setTimeout( resolve, delay ) );
+				continue;
+			}
+			throw error;
+		}
+	}
+	// This should never be reached, but TypeScript needs it.
+	throw new Error( 'Unexpected: exceeded max retries' );
+}
+
 interface TranslationEntry {
 	language: string;
 	package: string;
@@ -44,10 +79,7 @@ async function downloadTranslationsFromApi(
 	destPath: string,
 	label: string
 ): Promise< void > {
-	const response = await fetch( apiUrl );
-	if ( ! response.ok ) {
-		throw new Error( `Failed to fetch ${ label } translations API (status ${ response.status })` );
-	}
+	const response = await fetchWithRetry( apiUrl );
 	const data: TranslationsApiResponse = await response.json();
 
 	const translationsToDownload = data.translations.filter( ( t ) =>
@@ -62,13 +94,7 @@ async function downloadTranslationsFromApi(
 
 	for ( const translation of translationsToDownload ) {
 		const { language, package: packageUrl } = translation;
-		const zipResponse = await fetch( packageUrl );
-		if ( ! zipResponse.ok ) {
-			console.error(
-				`[language-packs] Failed to download ${ label }/${ language } (status ${ zipResponse.status }), skipping`
-			);
-			continue;
-		}
+		const zipResponse = await fetchWithRetry( packageUrl );
 
 		const safeLabel = label.replace( /\//g, '-' );
 		const zipPath = path.join( os.tmpdir(), `wp-language-${ safeLabel }-${ language }.zip` );

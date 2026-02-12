@@ -227,9 +227,6 @@ export function AddSiteBlueprintSelector( {
 
 				const fileWarnings =
 					validation.warnings && validation.warnings.length > 0 ? validation.warnings : undefined;
-				if ( fileWarnings ) {
-					setBlueprintWarnings( fileWarnings );
-				}
 
 				const fileBlueprint: Blueprint = {
 					slug: `file:${ file.name }`, // Use filename as part of the slug

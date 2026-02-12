@@ -112,9 +112,9 @@ dist
 test-results
 
 # E2E test import files (not versioned)
-e2e/imports/*.tar.gz
-e2e/imports/*.zip
-e2e/imports/*.wpress
+apps/studio/e2e/imports/*.tar.gz
+apps/studio/e2e/imports/*.zip
+apps/studio/e2e/imports/*.wpress
 
 # Metrics traces
 artifacts

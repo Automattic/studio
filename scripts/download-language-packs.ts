@@ -9,36 +9,34 @@ const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY_MS = 1000;
 
-async function fetchWithRetry( url: string ): Promise< Response > {
-	for ( let attempt = 1; attempt <= MAX_RETRIES; attempt++ ) {
-		try {
-			const response = await fetch( url );
-			if ( response.ok ) {
-				return response;
-			}
-			if ( attempt < MAX_RETRIES ) {
-				const delay = INITIAL_RETRY_DELAY_MS * Math.pow( 2, attempt - 1 );
-				console.warn(
-					`[language-packs] Request failed (status ${ response.status }), retrying in ${ delay }ms (attempt ${ attempt }/${ MAX_RETRIES })...`
-				);
-				await new Promise( ( resolve ) => setTimeout( resolve, delay ) );
-				continue;
-			}
+async function fetchWithRetry( url: string, attempt = 1 ): Promise< Response > {
+	try {
+		const response = await fetch( url );
+		if ( response.ok ) {
+			return response;
+		}
+		if ( attempt >= MAX_RETRIES ) {
 			throw new Error( `HTTP ${ response.status }` );
-		} catch ( error ) {
-			if ( attempt < MAX_RETRIES ) {
-				const delay = INITIAL_RETRY_DELAY_MS * Math.pow( 2, attempt - 1 );
-				console.warn(
-					`[language-packs] Request failed (${ error instanceof Error ? error.message : error }), retrying in ${ delay }ms (attempt ${ attempt }/${ MAX_RETRIES })...`
-				);
-				await new Promise( ( resolve ) => setTimeout( resolve, delay ) );
-				continue;
-			}
+		}
+		const delay = INITIAL_RETRY_DELAY_MS * Math.pow( 2, attempt - 1 );
+		console.warn(
+			`[language-packs] Request failed (status ${ response.status }), retrying in ${ delay }ms (attempt ${ attempt }/${ MAX_RETRIES })...`
+		);
+		await new Promise( ( resolve ) => setTimeout( resolve, delay ) );
+		return fetchWithRetry( url, attempt + 1 );
+	} catch ( error ) {
+		if ( attempt >= MAX_RETRIES ) {
 			throw error;
 		}
+		const delay = INITIAL_RETRY_DELAY_MS * Math.pow( 2, attempt - 1 );
+		console.warn(
+			`[language-packs] Request failed (${
+				error instanceof Error ? error.message : error
+			}), retrying in ${ delay }ms (attempt ${ attempt }/${ MAX_RETRIES })...`
+		);
+		await new Promise( ( resolve ) => setTimeout( resolve, delay ) );
+		return fetchWithRetry( url, attempt + 1 );
 	}
-	// This should never be reached, but TypeScript needs it.
-	throw new Error( 'Unexpected: exceeded max retries' );
 }
 
 interface TranslationEntry {

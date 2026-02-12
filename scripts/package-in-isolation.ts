@@ -1,6 +1,7 @@
 /**
  * This script packages the Studio app in isolation by copying the repo to a temporary directory,
- * installing dependencies, and running the relevant make/package script.
+ * installing dependencies, running the relevant make/package script, copying the output back to
+ * the repo and then cleaning up.
  *
  * Why is this needed? With npm workspaces, most dependencies are hoisted to the top-level
  * `node_modules` directory, but there's no guarantee that all of them are. This behavior conflicts
@@ -9,8 +10,11 @@
  *
  * In other words, when we run `npm run install:bundle` in `apps/studio`, that mutates the
  * `apps/studio/node_modules` directory so the npm workspace-powered dependency tree gets messed
- * up. We need to run `npm run install:bundle` as part of the packaging process, so that's why we
- * do it in isolation.
+ * up. We can't avoid running `npm run install:bundle`, because we need that self-contained
+ * `node_modules` directory for packaging, so that's why we do it in isolation.
+ *
+ * In CI, where we have a clean, ephemeral environment, we short-circuit the behavior and run the
+ * relevant script in place.
  */
 
 import fs from 'fs';
@@ -93,6 +97,13 @@ function main() {
 				studioAppScripts
 			).join( ', ' ) }`
 		);
+	}
+
+	const isCi = process.env.CI && process.env.CI !== 'false';
+	if ( isCi ) {
+		console.log( `Detected CI environment; running script "${ scriptName }" in place.` );
+		runOrFail( 'npm', [ '-w', 'studio-app', 'run', scriptName ], REPO_ROOT );
+		return;
 	}
 
 	const stagingParent = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-package-' ) );

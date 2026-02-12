@@ -216,7 +216,7 @@ function NavigationContent( props: NavigationContentProps ) {
 				setSelectedBlueprint();
 				setBlueprintPreferredVersions?.( undefined );
 				setBlueprintSuggestedSiteName?.( undefined );
-				setBlueprintWarnings( undefined );
+				setBlueprintWarnings?.( undefined );
 			}
 			if ( location.path === '/pullRemote' ) {
 				setSelectedRemoteSite( undefined );
@@ -276,7 +276,7 @@ function NavigationContent( props: NavigationContentProps ) {
 			const blueprint = blueprintsData?.blueprints.find(
 				( b: Blueprint ) => b.slug === blueprintId
 			);
-			setBlueprintWarnings( undefined );
+			setBlueprintWarnings?.( undefined );
 			applyBlueprintFormValues( blueprint );
 		},
 		[ blueprintsData?.blueprints, setBlueprintWarnings, applyBlueprintFormValues ]
@@ -285,7 +285,7 @@ function NavigationContent( props: NavigationContentProps ) {
 	const handleFileBlueprintSelect = useCallback(
 		( blueprint: Blueprint, warnings?: BlueprintValidationWarning[] ) => {
 			applyBlueprintFormValues( blueprint );
-			setBlueprintWarnings( warnings );
+			setBlueprintWarnings?.( warnings );
 			goTo( '/blueprint/select/details' );
 		},
 		[ applyBlueprintFormValues, setBlueprintWarnings, goTo ]

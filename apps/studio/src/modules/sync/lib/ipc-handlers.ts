@@ -4,6 +4,8 @@ import fsPromises from 'fs/promises';
 import path from 'node:path';
 import * as Sentry from '@sentry/electron/main';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import wpcomFactory from '@studio/common/lib/wpcom-factory';
+import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { Upload } from 'tus-js-client';
 import { z } from 'zod';
 import {
@@ -18,8 +20,6 @@ import { exportBackup } from 'src/lib/import-export/export/export-manager';
 import { ExportOptions } from 'src/lib/import-export/export/types';
 import { getAuthenticationToken } from 'src/lib/oauth';
 import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
-import wpcomFactory from 'src/lib/wpcom-factory';
-import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { SyncSite } from 'src/modules/sync/types';
 import { SiteServer } from 'src/site-server';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';

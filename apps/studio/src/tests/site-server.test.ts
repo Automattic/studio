@@ -57,12 +57,6 @@ vi.mock( 'src/lib/wordpress-provider', () => {
 	};
 } );
 
-// Mock the wp-now config that the provider uses internally
-
-vi.mock( 'vendor/wp-now/src', () => ( {
-	getWpNowConfig: vi.fn( () => ( { mode: 'wordpress', port: 1234 } ) ),
-} ) );
-
 // Mock CliServerProcess with a start method that calls startServer
 vi.mock( 'src/modules/cli/lib/cli-server-process', () => ( {
 	CliServerProcess: vi.fn().mockImplementation( () => ( {
@@ -82,10 +76,6 @@ vi.mock( 'src/storage/user-data' );
 describe( 'SiteServer', () => {
 	describe( 'start', () => {
 		it( 'should throw if the server starts with a non-WordPress mode', async () => {
-			// eslint-disable-next-line import/no-unresolved
-			const { getWpNowConfig } = await import( 'vendor/wp-now/src' );
-			vi.mocked( getWpNowConfig ).mockReturnValue( { mode: 'theme', port: 1234 } );
-
 			// eslint-disable-next-line import/no-unresolved
 			const { startServer } = await import( 'src/lib/wordpress-provider' );
 			vi.mocked( startServer ).mockRejectedValue(

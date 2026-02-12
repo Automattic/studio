@@ -78,8 +78,6 @@ export default defineConfig( {
 	resolve: {
 		alias: {
 			cli: resolve( __dirname, '.' ),
-			src: resolve( __dirname, '../studio/src' ),
-			vendor: resolve( __dirname, '../../vendor' ),
 			'@studio/common': resolve( __dirname, '../../tools/common' ),
 			'@wp-playground/blueprints/blueprint-schema-validator': resolve(
 				__dirname,

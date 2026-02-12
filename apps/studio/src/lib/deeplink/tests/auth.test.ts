@@ -10,12 +10,12 @@ const mockWpcomGet = vi.fn();
 
 vi.mock( 'src/lib/certificate-manager', () => ( {} ) );
 vi.mock( 'src/ipc-utils' );
-vi.mock( 'src/lib/wpcom-factory', () => ( {
+vi.mock( '@studio/common/lib/wpcom-factory', () => ( {
 	default: () => ( {
 		req: { get: mockWpcomGet },
 	} ),
 } ) );
-vi.mock( 'src/lib/wpcom-xhr-request-factory', () => ( {
+vi.mock( '@studio/common/lib/wpcom-xhr-request-factory', () => ( {
 	default: vi.fn(),
 } ) );
 

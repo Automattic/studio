@@ -7,7 +7,7 @@ vi.mock( 'src/lib/certificate-manager', () => ( {} ) );
 vi.mock( 'atomically', () => ( {
 	readFile: vi.fn(),
 } ) );
-vi.mock( 'src/lib/wpcom-factory', () => ( {
+vi.mock( '@studio/common/lib/wpcom-factory', () => ( {
 	__esModule: true,
 	default: vi.fn(),
 } ) );

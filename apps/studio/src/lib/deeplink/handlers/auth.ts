@@ -1,8 +1,8 @@
 import * as Sentry from '@sentry/electron/main';
+import wpcomFactory from '@studio/common/lib/wpcom-factory';
+import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { z } from 'zod';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import wpcomFactory from 'src/lib/wpcom-factory';
-import wpcomXhrRequest from 'src/lib/wpcom-xhr-request-factory';
 import { updateAppdata } from 'src/storage/user-data';
 
 const authTokenSchema = z.object( {

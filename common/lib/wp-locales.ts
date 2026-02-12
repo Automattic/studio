@@ -8,6 +8,7 @@ export const WP_LOCALES = [
 	'es_ES',
 	'fr_FR',
 	'he_IL',
+	'hu_HU',
 	'id_ID',
 	'it_IT',
 	'ja',
